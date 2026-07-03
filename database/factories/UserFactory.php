@@ -45,6 +45,12 @@ class UserFactory extends Factory
 
     /**
      * Indicate that the model has two-factor authentication configured.
+     *
+     * No-op hasta que se implemente 2FA (columnas two_factor_* y
+     * Features::twoFactorAuthentication() en config/fortify.php).
      */
-    public function withTwoFactor(): static {}
+    public function withTwoFactor(): static
+    {
+        return $this;
+    }
 }

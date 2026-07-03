@@ -60,6 +60,26 @@ return [
             'report' => false,
         ],
 
+        // Almacenamiento de video/documentos pesados (biblioteca multimedia).
+        // En desarrollo: carpeta local (NAS_DRIVER=local, valor por defecto).
+        // En produccion recomendada: carpeta del NAS montada por NFS en el
+        // servidor (sigue siendo NAS_DRIVER=local, apuntando a la ruta del
+        // punto de montaje via NAS_ROOT). Alternativa cuando NFS no es viable:
+        // NAS_DRIVER=sftp (requiere `composer require league/flysystem-sftp-v3`).
+        // Ver docs/CONFIGURACION_NAS.md para el detalle completo.
+        'nas' => [
+            'driver' => env('NAS_DRIVER', 'local'),
+            'root' => env('NAS_ROOT', storage_path('app/private/capacitacion')),
+            'host' => env('NAS_HOST'),
+            'port' => (int) env('NAS_PORT', 22),
+            'username' => env('NAS_USERNAME'),
+            'password' => env('NAS_PASSWORD'),
+            'privateKey' => env('NAS_PRIVATE_KEY'),
+            'throw' => false,
+            'report' => false,
+            'visibility' => 'private',
+        ],
+
     ],
 
     /*
