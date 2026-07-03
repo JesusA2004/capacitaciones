@@ -14,6 +14,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int|null $opcion_pregunta_id
  * @property array<int, int>|null $opciones_seleccionadas
  * @property string|null $respuesta_texto
+ * @property int|null $valor_numerico
+ * @property int|null $recurso_multimedia_id
  * @property bool|null $es_correcta
  * @property int|null $puntos_obtenidos
  */
@@ -26,7 +28,8 @@ class RespuestaCuestionario extends Model
 
     protected $fillable = [
         'intento_cuestionario_id', 'pregunta_id', 'opcion_pregunta_id',
-        'opciones_seleccionadas', 'respuesta_texto', 'es_correcta', 'puntos_obtenidos',
+        'opciones_seleccionadas', 'respuesta_texto', 'valor_numerico', 'recurso_multimedia_id',
+        'es_correcta', 'puntos_obtenidos',
     ];
 
     protected function casts(): array
@@ -35,6 +38,14 @@ class RespuestaCuestionario extends Model
             'opciones_seleccionadas' => 'array',
             'es_correcta' => 'boolean',
         ];
+    }
+
+    /**
+     * @return BelongsTo<RecursoMultimedia, $this>
+     */
+    public function recursoMultimedia(): BelongsTo
+    {
+        return $this->belongsTo(RecursoMultimedia::class);
     }
 
     /**

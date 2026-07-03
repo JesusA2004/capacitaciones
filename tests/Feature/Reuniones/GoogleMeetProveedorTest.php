@@ -84,7 +84,7 @@ test('sin el archivo de credenciales el proveedor no esta disponible y no llama 
     config(['services.google_meet.service_account_path' => '/ruta/que/no/existe.json']);
     Http::fake();
 
-    (new GoogleMeetProveedor)->crearReunion($this->sesion);
+    app(GoogleMeetProveedor::class)->crearReunion($this->sesion);
 
     Http::assertNothingSent();
     expect($this->sesion->fresh()->enlace_reunion)->toBeNull();
@@ -100,7 +100,7 @@ test('crear la reunion intercambia el JWT por un token y guarda el enlace de Mee
         ]),
     ]);
 
-    (new GoogleMeetProveedor)->crearReunion($this->sesion);
+    app(GoogleMeetProveedor::class)->crearReunion($this->sesion);
 
     $this->sesion->refresh();
     expect($this->sesion->enlace_reunion)->toBe('https://meet.google.com/abc-defg-hij');
@@ -123,7 +123,7 @@ test('cancelar la reunion llama al endpoint de eliminacion de Calendar', functio
         'https://www.googleapis.com/calendar/v3/*' => Http::response([], 204),
     ]);
 
-    (new GoogleMeetProveedor)->cancelarReunion($this->sesion);
+    app(GoogleMeetProveedor::class)->cancelarReunion($this->sesion);
 
     Http::assertSent(fn ($request) => $request->method() === 'DELETE' && str_contains($request->url(), '/events/evento123'));
 });

@@ -54,7 +54,9 @@ const form = useForm({
     calificacion_minima: props.cuestionario?.calificacion_minima ?? 80,
     intentos_maximos: props.cuestionario?.intentos_maximos ?? '',
     tiempo_limite_minutos: props.cuestionario?.tiempo_limite_minutos ?? '',
+    tolerancia_segundos: props.cuestionario?.tolerancia_segundos ?? 30,
     aleatorizar_preguntas: props.cuestionario?.aleatorizar_preguntas ?? false,
+    aleatorizar_opciones: props.cuestionario?.aleatorizar_opciones ?? false,
     mostrar_retroalimentacion:
         props.cuestionario?.mostrar_retroalimentacion ?? true,
 });
@@ -249,6 +251,21 @@ function guardarPreguntas() {
                     </div>
                 </div>
 
+                <div v-if="form.tiempo_limite_minutos" class="grid gap-2">
+                    <Label for="tolerancia_segundos">
+                        Tolerancia por latencia al enviar (segundos)
+                    </Label>
+                    <Input
+                        id="tolerancia_segundos"
+                        v-model.number="form.tolerancia_segundos"
+                        type="number"
+                        min="0"
+                        max="300"
+                        class="w-40"
+                    />
+                    <InputError :message="form.errors.tolerancia_segundos" />
+                </div>
+
                 <label class="flex items-center gap-2 text-sm">
                     <Checkbox
                         :model-value="form.aleatorizar_preguntas"
@@ -257,6 +274,16 @@ function guardarPreguntas() {
                         "
                     />
                     Aleatorizar el orden de las preguntas
+                </label>
+
+                <label class="flex items-center gap-2 text-sm">
+                    <Checkbox
+                        :model-value="form.aleatorizar_opciones"
+                        @update:model-value="
+                            (v) => (form.aleatorizar_opciones = !!v)
+                        "
+                    />
+                    Aleatorizar el orden de las opciones
                 </label>
 
                 <label class="flex items-center gap-2 text-sm">

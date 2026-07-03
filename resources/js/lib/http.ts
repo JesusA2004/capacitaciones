@@ -4,7 +4,7 @@
  * reemplazar props de la pagina). Usa la cookie XSRF-TOKEN que Laravel ya
  * establece en cada request, tal como documenta Laravel para clientes fetch.
  */
-function leerCookie(nombre: string): string | null {
+export function leerCookie(nombre: string): string | null {
     const valor = document.cookie
         .split('; ')
         .find((fila) => fila.startsWith(`${nombre}=`));

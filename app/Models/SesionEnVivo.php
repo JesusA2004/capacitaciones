@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\CriterioCumplimientoAsistencia;
 use App\Enums\EstadoSesionEnVivo;
 use App\Enums\ProveedorSesion;
 use Database\Factories\SesionEnVivoFactory;
@@ -30,6 +31,12 @@ use Illuminate\Support\Carbon;
  * @property EstadoSesionEnVivo $estado
  * @property int $creado_por
  * @property Carbon|null $recordatorio_enviado_en
+ * @property int $porcentaje_minimo_asistencia
+ * @property int|null $minutos_minimos_asistencia
+ * @property int $tolerancia_minutos
+ * @property CriterioCumplimientoAsistencia $criterio_cumplimiento
+ * @property bool $considerar_tiempo_previo
+ * @property bool $considerar_tiempo_posterior
  */
 class SesionEnVivo extends Model
 {
@@ -41,7 +48,8 @@ class SesionEnVivo extends Model
     protected $fillable = [
         'leccion_id', 'titulo', 'descripcion', 'proveedor', 'fecha_inicio', 'duracion_minutos',
         'enlace_reunion', 'id_reunion_externa', 'datos_proveedor', 'estado', 'creado_por',
-        'recordatorio_enviado_en',
+        'recordatorio_enviado_en', 'porcentaje_minimo_asistencia', 'minutos_minimos_asistencia',
+        'tolerancia_minutos', 'criterio_cumplimiento', 'considerar_tiempo_previo', 'considerar_tiempo_posterior',
     ];
 
     protected function casts(): array
@@ -52,6 +60,9 @@ class SesionEnVivo extends Model
             'datos_proveedor' => 'array',
             'estado' => EstadoSesionEnVivo::class,
             'recordatorio_enviado_en' => 'datetime',
+            'criterio_cumplimiento' => CriterioCumplimientoAsistencia::class,
+            'considerar_tiempo_previo' => 'boolean',
+            'considerar_tiempo_posterior' => 'boolean',
         ];
     }
 
@@ -77,5 +88,26 @@ class SesionEnVivo extends Model
     public function asistencias(): HasMany
     {
         return $this->hasMany(Asistencia::class);
+    }
+
+    /**
+     * @return HasMany<RegistroSesion, $this>
+     */
+    public function registrosSesion(): HasMany
+    {
+        return $this->hasMany(RegistroSesion::class);
+    }
+
+    /**
+     * @return HasMany<SincronizacionReunion, $this>
+     */
+    public function sincronizaciones(): HasMany
+    {
+        return $this->hasMany(SincronizacionReunion::class);
+    }
+
+    public function registroSesionDelProveedor(): ?RegistroSesion
+    {
+        return $this->registrosSesion()->where('proveedor', $this->proveedor->value)->first();
     }
 }

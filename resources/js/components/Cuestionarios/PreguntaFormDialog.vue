@@ -37,6 +37,12 @@ const emit = defineEmits<{
     'update:open': [valor: boolean];
 }>();
 
+const TIPOS_CON_OPCIONES = [
+    'opcion_unica',
+    'opcion_multiple',
+    'verdadero_falso',
+];
+
 function opcionesIniciales() {
     if (props.pregunta) {
         return props.pregunta.opciones.map((opcion) => ({
@@ -57,11 +63,21 @@ const form = useForm({
     puntos: props.pregunta?.puntos ?? 1,
     explicacion: props.pregunta?.explicacion ?? '',
     opciones: opcionesIniciales(),
+    escala_min: props.pregunta?.escala_min ?? 1,
+    escala_max: props.pregunta?.escala_max ?? 5,
+    escala_etiqueta_min: props.pregunta?.escala_etiqueta_min ?? '',
+    escala_etiqueta_max: props.pregunta?.escala_etiqueta_max ?? '',
+    extensiones_permitidas: (props.pregunta?.extensiones_permitidas ?? []).join(
+        ', ',
+    ),
+    tamano_maximo_mb: props.pregunta?.tamano_maximo_mb ?? 10,
 });
 
-const requiereOpciones = () => form.tipo !== 'respuesta_corta';
+const requiereOpciones = () => TIPOS_CON_OPCIONES.includes(form.tipo);
 const esSeleccionUnica = () =>
     form.tipo === 'opcion_unica' || form.tipo === 'verdadero_falso';
+const esEscala = () => form.tipo === 'escala';
+const esCargaArchivo = () => form.tipo === 'carga_archivo';
 
 watch(
     () => form.tipo,
@@ -75,7 +91,7 @@ watch(
                 { texto: 'Verdadero', es_correcta: false },
                 { texto: 'Falso', es_correcta: false },
             ];
-        } else if (tipoNuevo === 'respuesta_corta') {
+        } else if (!TIPOS_CON_OPCIONES.includes(tipoNuevo)) {
             form.opciones = [];
         } else if (form.opciones.length < 2) {
             form.opciones = [
@@ -110,6 +126,19 @@ function enviar() {
         preserveScroll: true,
         onSuccess: () => emit('update:open', false),
     };
+
+    form.transform((datos) => ({
+        ...datos,
+        extensiones_permitidas: esCargaArchivo()
+            ? datos.extensiones_permitidas
+                  .split(',')
+                  .map((extension) => extension.trim().toLowerCase())
+                  .filter(Boolean)
+            : null,
+        escala_min: esEscala() ? datos.escala_min : null,
+        escala_max: esEscala() ? datos.escala_max : null,
+        tamano_maximo_mb: esCargaArchivo() ? datos.tamano_maximo_mb : null,
+    }));
 
     if (props.pregunta) {
         form.put(
@@ -233,6 +262,82 @@ function enviar() {
                         </div>
                     </div>
                     <InputError :message="form.errors.opciones" />
+                </div>
+
+                <div v-if="esEscala()" class="grid gap-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="grid gap-2">
+                            <Label for="escala_min">Valor mínimo</Label>
+                            <Input
+                                id="escala_min"
+                                v-model.number="form.escala_min"
+                                type="number"
+                                min="0"
+                                max="9"
+                            />
+                            <InputError :message="form.errors.escala_min" />
+                        </div>
+                        <div class="grid gap-2">
+                            <Label for="escala_max">Valor máximo</Label>
+                            <Input
+                                id="escala_max"
+                                v-model.number="form.escala_max"
+                                type="number"
+                                min="1"
+                                max="10"
+                            />
+                            <InputError :message="form.errors.escala_max" />
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="grid gap-2">
+                            <Label for="escala_etiqueta_min"
+                                >Etiqueta del mínimo</Label
+                            >
+                            <Input
+                                id="escala_etiqueta_min"
+                                v-model="form.escala_etiqueta_min"
+                                placeholder="Ej. Nada de acuerdo"
+                            />
+                        </div>
+                        <div class="grid gap-2">
+                            <Label for="escala_etiqueta_max"
+                                >Etiqueta del máximo</Label
+                            >
+                            <Input
+                                id="escala_etiqueta_max"
+                                v-model="form.escala_etiqueta_max"
+                                placeholder="Ej. Totalmente de acuerdo"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="esCargaArchivo()" class="grid grid-cols-2 gap-4">
+                    <div class="grid gap-2">
+                        <Label for="extensiones_permitidas"
+                            >Extensiones permitidas</Label
+                        >
+                        <Input
+                            id="extensiones_permitidas"
+                            v-model="form.extensiones_permitidas"
+                            placeholder="pdf, jpg, png"
+                        />
+                        <InputError
+                            :message="form.errors.extensiones_permitidas"
+                        />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="tamano_maximo_mb">Tamaño máximo (MB)</Label>
+                        <Input
+                            id="tamano_maximo_mb"
+                            v-model.number="form.tamano_maximo_mb"
+                            type="number"
+                            min="1"
+                            max="2048"
+                        />
+                        <InputError :message="form.errors.tamano_maximo_mb" />
+                    </div>
                 </div>
 
                 <div class="grid gap-2">

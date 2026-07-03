@@ -3,7 +3,6 @@
 namespace App\Integrations\Reuniones;
 
 use App\Models\SesionEnVivo;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -13,16 +12,17 @@ use Illuminate\Support\Facades\Http;
  * habilitada (o falten credenciales), se degrada con gracia: no genera
  * ningun enlace automatico y la sesion queda igual guardada para que el
  * instructor agregue un enlace a mano si lo necesita.
+ *
+ * La asistencia real (Report API) la resuelve ZoomAsistenciaSincronizador,
+ * no esta clase.
  */
 class ZoomProveedor implements ProveedorSesionEnVivo
 {
+    public function __construct(private readonly ZoomTokenService $auth) {}
+
     public function estaDisponible(): bool
     {
-        return (bool) config('services.zoom.habilitado')
-            && config('services.zoom.account_id')
-            && config('services.zoom.client_id')
-            && config('services.zoom.client_secret')
-            && config('services.zoom.host_email');
+        return $this->auth->disponible();
     }
 
     public function crearReunion(SesionEnVivo $sesion): void
@@ -31,7 +31,7 @@ class ZoomProveedor implements ProveedorSesionEnVivo
             return;
         }
 
-        $respuesta = Http::withToken($this->obtenerToken())
+        $respuesta = Http::withToken($this->auth->token())
             ->post('https://api.zoom.us/v2/users/'.config('services.zoom.host_email').'/meetings', [
                 'topic' => $sesion->titulo,
                 'type' => 2,
@@ -59,28 +59,8 @@ class ZoomProveedor implements ProveedorSesionEnVivo
             return;
         }
 
-        Http::withToken($this->obtenerToken())
+        Http::withToken($this->auth->token())
             ->delete('https://api.zoom.us/v2/meetings/'.$sesion->id_reunion_externa)
             ->throw();
-    }
-
-    /**
-     * El token de cuenta S2S dura 1 hora; se cachea con un margen de
-     * seguridad para no pedir uno nuevo en cada llamada.
-     */
-    private function obtenerToken(): string
-    {
-        return Cache::remember('zoom.token_cuenta', now()->addMinutes(50), function () {
-            $respuesta = Http::asForm()
-                ->withBasicAuth(config('services.zoom.client_id'), config('services.zoom.client_secret'))
-                ->post('https://zoom.us/oauth/token', [
-                    'grant_type' => 'account_credentials',
-                    'account_id' => config('services.zoom.account_id'),
-                ])
-                ->throw()
-                ->json();
-
-            return $respuesta['access_token'];
-        });
     }
 }

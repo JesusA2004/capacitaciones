@@ -22,6 +22,12 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
         ]);
+
+        // El webhook de Zoom lo llama Zoom directamente (sin sesión de
+        // Laravel ni token CSRF): su propia verificación de firma
+        // (X-Zm-Signature) es la protección real. Ver
+        // App\Http\Controllers\Reuniones\ZoomWebhookController.
+        $middleware->validateCsrfTokens(except: ['webhooks/zoom']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

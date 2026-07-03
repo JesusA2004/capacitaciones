@@ -29,5 +29,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/', [CalificacionCuestionarioController::class, 'index'])->name('index');
         Route::get('{intento}', [CalificacionCuestionarioController::class, 'show'])->name('show');
         Route::post('respuestas/{respuesta}', [CalificacionCuestionarioController::class, 'calificar'])->name('calificar');
+        Route::get('respuestas/{respuesta}/descargar', [CalificacionCuestionarioController::class, 'descargar'])->name('respuestas.descargar');
     });
 });

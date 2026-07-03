@@ -3,7 +3,9 @@
 namespace App\Models;
 
 use App\Enums\EstadoMultimedia;
+use App\Enums\OrigenRecursoMultimedia;
 use App\Enums\TipoRecursoMultimedia;
+use App\Enums\VisibilidadRecursoMultimedia;
 use Database\Factories\RecursoMultimediaFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -33,6 +35,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $error_procesamiento
  * @property array<string, mixed>|null $metadatos
  * @property int $subido_por
+ * @property OrigenRecursoMultimedia $origen
+ * @property VisibilidadRecursoMultimedia $visibilidad
+ * @property int|null $propietario_id
+ * @property bool $acceso_restringido
  */
 class RecursoMultimedia extends Model
 {
@@ -46,6 +52,7 @@ class RecursoMultimedia extends Model
         'ruta_hls_manifiesto', 'ruta_miniatura', 'mime_type', 'tamano_bytes',
         'duracion_segundos', 'resolucion_original', 'hash_sha256', 'estado',
         'error_procesamiento', 'metadatos', 'subido_por',
+        'origen', 'visibilidad', 'propietario_id', 'acceso_restringido',
     ];
 
     protected function casts(): array
@@ -54,6 +61,9 @@ class RecursoMultimedia extends Model
             'tipo' => TipoRecursoMultimedia::class,
             'estado' => EstadoMultimedia::class,
             'metadatos' => 'array',
+            'origen' => OrigenRecursoMultimedia::class,
+            'visibilidad' => VisibilidadRecursoMultimedia::class,
+            'acceso_restringido' => 'boolean',
         ];
     }
 
@@ -63,6 +73,14 @@ class RecursoMultimedia extends Model
     public function subidoPor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'subido_por');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function propietario(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'propietario_id');
     }
 
     /**

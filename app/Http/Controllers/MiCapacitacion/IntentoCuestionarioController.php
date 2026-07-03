@@ -12,6 +12,7 @@ use App\Services\Capacitacion\ProgresoService;
 use App\Services\Evaluacion\IntentoCuestionarioService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -20,6 +21,10 @@ use Inertia\Response;
  * envian al colaborador nunca incluyen que opcion es correcta ni la
  * explicacion (eso solo se revela, si el cuestionario lo permite, una vez
  * que el intento ya fue calificado).
+ *
+ * El orden de preguntas/opciones y el tiempo limite se fijan una sola vez al
+ * iniciar el intento (IntentoCuestionarioService::iniciarIntento) y se leen
+ * de ahi, nunca se recalculan en cada carga de esta pantalla.
  */
 class IntentoCuestionarioController extends Controller
 {
@@ -42,17 +47,26 @@ class IntentoCuestionarioController extends Controller
             ->get();
 
         $intentoActivo = $intentosDelUsuario->firstWhere('estado', EstadoIntentoCuestionario::EnProgreso);
+
+        if ($intentoActivo) {
+            $intentoActivo = $this->intentos->expirarSiVencido($intentoActivo);
+
+            if ($intentoActivo->estado !== EstadoIntentoCuestionario::EnProgreso) {
+                $intentosDelUsuario = $intentosDelUsuario->map(
+                    fn (IntentoCuestionario $i) => $i->is($intentoActivo) ? $intentoActivo : $i,
+                );
+                $intentoActivo = null;
+            }
+        }
+
         $ultimoFinalizado = $intentosDelUsuario->first(fn (IntentoCuestionario $i) => $i->estado !== EstadoIntentoCuestionario::EnProgreso);
 
         $intentosRestantes = $cuestionario->intentos_maximos !== null
             ? max(0, $cuestionario->intentos_maximos - $intentosDelUsuario->count())
             : null;
 
-        $preguntas = $cuestionario->preguntas->map(fn (Pregunta $pregunta) => $this->preguntaParaColaborador($pregunta))->values();
-
-        if ($cuestionario->aleatorizar_preguntas) {
-            $preguntas = $preguntas->shuffle()->values();
-        }
+        $preguntasPorId = $cuestionario->preguntas->keyBy('id');
+        $preguntas = $this->preguntasParaIntento($cuestionario->preguntas, $preguntasPorId, $intentoActivo);
 
         $retroalimentacion = null;
 
@@ -75,6 +89,8 @@ class IntentoCuestionarioController extends Controller
             ],
             'preguntas' => $preguntas,
             'intentoActivoId' => $intentoActivo?->id,
+            'segundosRestantes' => $intentoActivo?->fecha_limite ? max(0, $intentoActivo->fecha_limite->getTimestamp() - now()->getTimestamp()) : null,
+            'horaServidor' => now()->toIso8601String(),
             'intentosRestantes' => $intentosRestantes,
             'ultimoResultado' => $ultimoFinalizado ? [
                 'estado' => $ultimoFinalizado->estado->value,
@@ -113,16 +129,58 @@ class IntentoCuestionarioController extends Controller
     }
 
     /**
-     * @return array{id: int, enunciado: string, tipo: string, puntos: int, opciones: array<int, array{id: int, texto: string}>}
+     * @param  Collection<int, Pregunta>  $preguntas
+     * @param  Collection<int, Pregunta>  $preguntasPorId
+     * @return array<int, array<string, mixed>>
      */
-    private function preguntaParaColaborador(Pregunta $pregunta): array
+    private function preguntasParaIntento(Collection $preguntas, Collection $preguntasPorId, ?IntentoCuestionario $intentoActivo): array
     {
+        if ($intentoActivo === null || $intentoActivo->orden_preguntas === null) {
+            // Sin intento activo (pantalla previa a iniciar): el orden no se
+            // le muestra al colaborador todavia, se usa el orden natural.
+            return $preguntas->map(fn (Pregunta $pregunta) => $this->preguntaParaColaborador($pregunta, null))->values()->all();
+        }
+
+        $ordenOpciones = $intentoActivo->orden_opciones ?? [];
+
+        return collect($intentoActivo->orden_preguntas)
+            ->map(function (int $preguntaId) use ($preguntasPorId, $ordenOpciones) {
+                $pregunta = $preguntasPorId->get($preguntaId);
+
+                return $pregunta ? $this->preguntaParaColaborador($pregunta, $ordenOpciones[$preguntaId] ?? null) : null;
+            })
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<int, int>|null  $ordenOpcionesIds
+     * @return array<string, mixed>
+     */
+    private function preguntaParaColaborador(Pregunta $pregunta, ?array $ordenOpcionesIds): array
+    {
+        $opciones = $pregunta->opciones->map(fn ($opcion) => ['id' => $opcion->id, 'texto' => $opcion->texto]);
+
+        if ($ordenOpcionesIds !== null) {
+            $opciones = collect($ordenOpcionesIds)
+                ->map(fn (int $id) => $opciones->firstWhere('id', $id))
+                ->filter()
+                ->values();
+        }
+
         return [
             'id' => $pregunta->id,
             'enunciado' => $pregunta->enunciado,
             'tipo' => $pregunta->tipo->value,
             'puntos' => $pregunta->pivot->puntos ?? $pregunta->puntos,
-            'opciones' => $pregunta->opciones->map(fn ($opcion) => ['id' => $opcion->id, 'texto' => $opcion->texto])->values()->all(),
+            'opciones' => $opciones->values()->all(),
+            'escala_min' => $pregunta->escala_min,
+            'escala_max' => $pregunta->escala_max,
+            'escala_etiqueta_min' => $pregunta->escala_etiqueta_min,
+            'escala_etiqueta_max' => $pregunta->escala_etiqueta_max,
+            'extensiones_permitidas' => $pregunta->extensiones_permitidas,
+            'tamano_maximo_mb' => $pregunta->tamano_maximo_mb,
         ];
     }
 }

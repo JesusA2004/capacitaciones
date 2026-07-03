@@ -29,7 +29,12 @@ class AsistenciaController extends Controller
     {
         $this->authorize('sesiones.administrar');
 
-        $sesion->load(['asistencias.usuario:id,name,apellidos', 'leccion']);
+        $sesion->load([
+            'asistencias.usuario:id,name,apellidos',
+            'asistencias.corregidoPor:id,name,apellidos',
+            'asistencias.sesionParticipante.entradasSalidas',
+            'leccion',
+        ]);
 
         return Inertia::render('Reuniones/Asistencias', [
             'sesion' => $sesion,
@@ -52,7 +57,17 @@ class AsistenciaController extends Controller
                 return back()->with('toast', ['type' => 'error', 'message' => 'Debes indicar el motivo de la corrección.']);
             }
 
-            $this->service->corregir($request->user(), $asistencia, $estadoNuevo, $request->string('motivo')->toString());
+            $this->service->corregir(
+                $request->user(),
+                $asistencia,
+                $estadoNuevo,
+                $request->string('motivo')->toString(),
+                $request->input('minutos'),
+                $request->file('evidencia'),
+                $request->ip() ?? '',
+                (string) $request->userAgent(),
+                'manual',
+            );
         } else {
             $this->service->marcarManual($asistencia, $estadoNuevo);
         }

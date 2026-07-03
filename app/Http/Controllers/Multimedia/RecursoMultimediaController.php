@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Multimedia;
 
 use App\Enums\EstadoMultimedia;
+use App\Enums\OrigenRecursoMultimedia;
 use App\Enums\TipoRecursoMultimedia;
+use App\Enums\VisibilidadRecursoMultimedia;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Multimedia\StoreRecursoMultimediaRequest;
 use App\Jobs\ProcesarVideoJob;
@@ -23,7 +25,12 @@ class RecursoMultimediaController extends Controller
     {
         $this->authorize('viewAny', RecursoMultimedia::class);
 
+        // La biblioteca administrativa nunca lista evidencias privadas
+        // (entregas de actividad, respuestas de cuestionario con archivo):
+        // esas se revisan exclusivamente desde sus propias pantallas de
+        // calificación. Ver docs/AUDITORIA_CUMPLIMIENTO.md sección 12.
         $recursos = RecursoMultimedia::query()
+            ->where('visibilidad', VisibilidadRecursoMultimedia::Publica->value)
             ->with('subidoPor:id,name,apellidos')
             ->when($request->string('tipo')->toString(), fn ($query, string $tipo) => $query->where('tipo', $tipo))
             ->when($request->string('busqueda')->toString(), fn ($query, string $busqueda) => $query->where('nombre_original', 'like', "%{$busqueda}%"))
@@ -60,6 +67,9 @@ class RecursoMultimediaController extends Controller
             'tamano_bytes' => $archivo->getSize(),
             'estado' => $tipo === TipoRecursoMultimedia::Video ? EstadoMultimedia::Pendiente->value : EstadoMultimedia::Disponible->value,
             'subido_por' => $request->user()->id,
+            'origen' => OrigenRecursoMultimedia::Biblioteca->value,
+            'visibilidad' => VisibilidadRecursoMultimedia::Publica->value,
+            'acceso_restringido' => false,
         ]);
 
         if ($tipo === TipoRecursoMultimedia::Video) {

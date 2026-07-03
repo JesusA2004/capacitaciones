@@ -18,6 +18,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property TipoPregunta $tipo
  * @property int $puntos
  * @property string|null $explicacion
+ * @property int|null $escala_min
+ * @property int|null $escala_max
+ * @property string|null $escala_etiqueta_min
+ * @property string|null $escala_etiqueta_max
+ * @property array<int, string>|null $extensiones_permitidas
+ * @property int|null $tamano_maximo_mb
  */
 class Pregunta extends Model
 {
@@ -26,11 +32,18 @@ class Pregunta extends Model
 
     protected $table = 'preguntas';
 
-    protected $fillable = ['banco_pregunta_id', 'enunciado', 'tipo', 'puntos', 'explicacion'];
+    protected $fillable = [
+        'banco_pregunta_id', 'enunciado', 'tipo', 'puntos', 'explicacion',
+        'escala_min', 'escala_max', 'escala_etiqueta_min', 'escala_etiqueta_max',
+        'extensiones_permitidas', 'tamano_maximo_mb',
+    ];
 
     protected function casts(): array
     {
-        return ['tipo' => TipoPregunta::class];
+        return [
+            'tipo' => TipoPregunta::class,
+            'extensiones_permitidas' => 'array',
+        ];
     }
 
     /**

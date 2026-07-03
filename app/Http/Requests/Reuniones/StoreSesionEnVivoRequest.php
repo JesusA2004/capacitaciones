@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Reuniones;
 
+use App\Enums\CriterioCumplimientoAsistencia;
 use App\Enums\ProveedorSesion;
 use App\Models\SesionEnVivo;
 use Illuminate\Foundation\Http\FormRequest;
@@ -26,6 +27,12 @@ class StoreSesionEnVivoRequest extends FormRequest
             'fecha_inicio' => ['required', 'date'],
             'duracion_minutos' => ['required', 'integer', 'min:1'],
             'enlace_reunion' => ['nullable', 'url', 'max:2048'],
+            'porcentaje_minimo_asistencia' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'minutos_minimos_asistencia' => ['nullable', 'integer', 'min:1'],
+            'tolerancia_minutos' => ['nullable', 'integer', 'min:0', 'max:120'],
+            'criterio_cumplimiento' => ['nullable', new Enum(CriterioCumplimientoAsistencia::class)],
+            'considerar_tiempo_previo' => ['boolean'],
+            'considerar_tiempo_posterior' => ['boolean'],
         ];
     }
 }

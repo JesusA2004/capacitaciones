@@ -32,6 +32,37 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | X-Accel-Redirect (Nginx)
+    |--------------------------------------------------------------------------
+    |
+    | Cuando está activo, MediaStorageService::respuesta() no transmite el
+    | archivo desde PHP: responde solo con la cabecera X-Accel-Redirect y deja
+    | que Nginx sirva el archivo directamente desde el disco (ver
+    | deploy/nginx/multimedia.conf y docs/PROCESAMIENTO_VIDEO.md). Debe
+    | permanecer desactivado en entornos sin Nginx delante (como este WAMP de
+    | desarrollo), donde el streaming directo por PHP sigue siendo correcto,
+    | solo más lento bajo carga alta.
+    */
+    'x_accel_redirect' => (bool) env('MEDIA_X_ACCEL_REDIRECT', false),
+    'x_accel_internal_prefix' => env('MEDIA_X_ACCEL_INTERNAL_PREFIX', '/protegido-nas'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Carga de video por bloques reanudable (Fase 9)
+    |--------------------------------------------------------------------------
+    |
+    | El tamaño de bloque es el que sugiere el backend al frontend al iniciar
+    | una carga; el frontend puede recortarlo si el archivo es más pequeño.
+    | Ver docs/PROCESAMIENTO_VIDEO.md para los límites de PHP/Nginx que deben
+    | ajustarse en conjunto con estos valores.
+    */
+    'carga_resumible' => [
+        'tamano_bloque_mb' => (int) env('MEDIA_CHUNK_SIZE_MB', 8),
+        'expira_horas' => (int) env('MEDIA_CARGA_EXPIRA_HORAS', 24),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Control de avance de video
     |--------------------------------------------------------------------------
     */

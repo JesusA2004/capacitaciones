@@ -38,7 +38,7 @@ test('sin credenciales configuradas el proveedor no esta disponible y no llama a
     config(['services.zoom.habilitado' => false]);
     Http::fake();
 
-    (new ZoomProveedor)->crearReunion($this->sesion);
+    app(ZoomProveedor::class)->crearReunion($this->sesion);
 
     Http::assertNothingSent();
     expect($this->sesion->fresh()->enlace_reunion)->toBeNull();
@@ -50,7 +50,7 @@ test('crear la reunion obtiene un token y guarda el enlace devuelto por Zoom', f
         'https://api.zoom.us/v2/users/*/meetings' => Http::response(['id' => 123456789, 'join_url' => 'https://zoom.us/j/123456789']),
     ]);
 
-    (new ZoomProveedor)->crearReunion($this->sesion);
+    app(ZoomProveedor::class)->crearReunion($this->sesion);
 
     $this->sesion->refresh();
     expect($this->sesion->enlace_reunion)->toBe('https://zoom.us/j/123456789');
@@ -68,7 +68,7 @@ test('cancelar la reunion llama al endpoint de eliminacion de Zoom', function ()
         'https://api.zoom.us/v2/meetings/*' => Http::response([], 204),
     ]);
 
-    (new ZoomProveedor)->cancelarReunion($this->sesion);
+    app(ZoomProveedor::class)->cancelarReunion($this->sesion);
 
     Http::assertSent(fn ($request) => $request->method() === 'DELETE' && str_contains($request->url(), '/meetings/123456789'));
 });

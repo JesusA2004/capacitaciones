@@ -8,7 +8,15 @@ import { Input } from '@/components/ui/input';
 import { useAlertas } from '@/composables/useAlertas';
 import { dashboard } from '@/routes';
 import { calificar, index } from '@/routes/calificaciones/cuestionarios';
+import { descargar } from '@/routes/calificaciones/cuestionarios/respuestas';
 import type { IntentoDetalleCalificacion } from '@/types';
+
+const TIPOS_REVISION_MANUAL = [
+    'respuesta_corta',
+    'respuesta_larga',
+    'escala',
+    'carga_archivo',
+];
 
 const props = defineProps<{
     intento: IntentoDetalleCalificacion;
@@ -73,16 +81,53 @@ function calificarRespuesta(respuestaId: number, esCorrecta: boolean) {
                 </p>
 
                 <Badge
-                    v-if="respuesta.pregunta.tipo !== 'respuesta_corta'"
+                    v-if="
+                        !TIPOS_REVISION_MANUAL.includes(respuesta.pregunta.tipo)
+                    "
                     variant="secondary"
                 >
                     Calificada automáticamente
                 </Badge>
 
-                <template v-if="respuesta.pregunta.tipo === 'respuesta_corta'">
-                    <p class="mb-3 rounded-md bg-muted/50 p-2 text-sm">
+                <template
+                    v-if="
+                        TIPOS_REVISION_MANUAL.includes(respuesta.pregunta.tipo)
+                    "
+                >
+                    <p
+                        v-if="
+                            respuesta.pregunta.tipo === 'respuesta_corta' ||
+                            respuesta.pregunta.tipo === 'respuesta_larga'
+                        "
+                        class="mb-3 rounded-md bg-muted/50 p-2 text-sm whitespace-pre-wrap"
+                    >
                         {{ respuesta.respuesta_texto || '(sin respuesta)' }}
                     </p>
+
+                    <p
+                        v-else-if="respuesta.pregunta.tipo === 'escala'"
+                        class="mb-3 rounded-md bg-muted/50 p-2 text-sm"
+                    >
+                        Valor seleccionado:
+                        {{ respuesta.valor_numerico ?? '(sin respuesta)' }}
+                    </p>
+
+                    <div
+                        v-else-if="respuesta.pregunta.tipo === 'carga_archivo'"
+                        class="mb-3"
+                    >
+                        <a
+                            v-if="respuesta.recurso_multimedia_id"
+                            :href="descargar.url(respuesta.id)"
+                            class="text-sm text-primary underline"
+                            target="_blank"
+                        >
+                            Descargar archivo entregado
+                        </a>
+                        <p v-else class="text-sm text-muted-foreground">
+                            (sin archivo)
+                        </p>
+                    </div>
 
                     <div
                         v-if="respuesta.es_correcta === null"

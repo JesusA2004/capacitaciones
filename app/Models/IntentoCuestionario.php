@@ -17,10 +17,14 @@ use Illuminate\Support\Carbon;
  * @property int $numero_intento
  * @property EstadoIntentoCuestionario $estado
  * @property Carbon $iniciado_en
+ * @property Carbon|null $fecha_limite
  * @property Carbon|null $enviado_en
  * @property Carbon|null $calificado_en
  * @property int|null $calificacion
  * @property bool|null $aprobado
+ * @property array<int, int>|null $orden_preguntas
+ * @property array<int, array<int, int>>|null $orden_opciones
+ * @property array<int, int>|null $puntaje_configurado
  */
 class IntentoCuestionario extends Model
 {
@@ -31,7 +35,8 @@ class IntentoCuestionario extends Model
 
     protected $fillable = [
         'cuestionario_id', 'user_id', 'numero_intento', 'estado',
-        'iniciado_en', 'enviado_en', 'calificado_en', 'calificacion', 'aprobado',
+        'iniciado_en', 'fecha_limite', 'enviado_en', 'calificado_en', 'calificacion', 'aprobado',
+        'orden_preguntas', 'orden_opciones', 'puntaje_configurado',
     ];
 
     protected function casts(): array
@@ -39,10 +44,19 @@ class IntentoCuestionario extends Model
         return [
             'estado' => EstadoIntentoCuestionario::class,
             'iniciado_en' => 'datetime',
+            'fecha_limite' => 'datetime',
             'enviado_en' => 'datetime',
             'calificado_en' => 'datetime',
             'aprobado' => 'boolean',
+            'orden_preguntas' => 'array',
+            'orden_opciones' => 'array',
+            'puntaje_configurado' => 'array',
         ];
+    }
+
+    public function haExpirado(): bool
+    {
+        return $this->fecha_limite !== null && now()->greaterThan($this->fecha_limite);
     }
 
     /**

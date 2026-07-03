@@ -86,4 +86,43 @@ class AlcanceOrganizacionalService
 
         return false;
     }
+
+    /**
+     * Igual que puedeVerUsuario(), pero pensado para quien revisa/califica
+     * entregas y respuestas de otros colaboradores (instructor, quien tenga
+     * `respuestas.calificar`/`respuestas.ver`). El rol `instructor` no está
+     * en ninguna de las dos listas de alcance porque el modelo de datos no
+     * asocia instructores a cursos/sucursales concretas (ver
+     * docs/AUDITORIA_CUMPLIMIENTO.md sección 13): a falta de esa relación,
+     * se le trata como alcance global para esta operación específica en vez
+     * de bloquearlo por completo. Solo los roles con alcance de sucursal
+     * explícito (gerente_sucursal, supervisor) quedan restringidos a sus
+     * propias sucursales al revisar el trabajo de otros.
+     */
+    public function puedeRevisarColaborador(User $revisor, User $colaborador): bool
+    {
+        if ($this->tieneAlcanceDeSucursal($revisor)) {
+            return $this->puedeVerUsuario($revisor, $colaborador);
+        }
+
+        return true;
+    }
+
+    /**
+     * IDs de colaboradores que un revisor con alcance de sucursal puede
+     * calificar; `null` significa "sin restricción" (alcance global o sin
+     * alcance organizacional definido, como el rol instructor). Se usa con
+     * `whereIn('user_id', ...)` en vez de `whereHas` para no depender de
+     * closures tipadas sobre relaciones genéricas.
+     *
+     * @return Collection<int, int>|null
+     */
+    public function idsColaboradoresParaRevision(User $revisor): ?Collection
+    {
+        if (! $this->tieneAlcanceDeSucursal($revisor)) {
+            return null;
+        }
+
+        return User::query()->whereIn('sucursal_principal_id', $this->sucursalesVisiblesIds($revisor))->pluck('id');
+    }
 }

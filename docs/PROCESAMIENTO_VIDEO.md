@@ -2,11 +2,33 @@
 
 Este documento explica el recorrido completo de un video: desde que se sube a la biblioteca multimedia hasta que un colaborador lo ve en "Mi capacitación", incluyendo cómo se impide que adelante partes que no ha visto.
 
-## 1. Subida y encolado
+## 1. Subida por bloques reanudable (Fase 9) y encolado
 
-`RecursoMultimediaController::store` (`app/Http/Controllers/Multimedia/RecursoMultimediaController.php`) guarda el archivo original en el disco `nas` (ver `docs/CONFIGURACION_NAS.md`) mediante `MediaStorageService::guardar()`, crea el `RecursoMultimedia` con `estado = pendiente` y despacha `App\Jobs\ProcesarVideoJob` a la cola. Documentos e imágenes **no** se encolan: pasan directo a `estado = disponible`, porque no requieren transcodificación.
+`cargas_multimedia` existía desde la Fase 3 como tabla fantasma (esquema sin ningún código que la usara); la Fase 9 la implementó de verdad. Documentos e imágenes siguen subiéndose en un único request (`useForm({ forceFormData: true })`, suficiente para su tamaño típico); **solo los videos usan carga por bloques**, orquestada por `App\Services\Multimedia\CargaResumibleService` y consumida desde el frontend por `resources/js/composables/useCargaResumible.ts` + `resources/js/components/Multimedia/CargaVideoResumible.vue`.
 
-La subida en sí se hace con `useForm({ forceFormData: true })` de Inertia (`resources/js/components/Multimedia/MultimediaUploadDialog.vue`), que ya reporta el progreso de subida vía `onProgress` sin necesitar XHR/fetch manual.
+### Flujo
+
+1. **Iniciar** (`POST /multimedia/cargas`): el frontend envía `nombre_original`/`tipo`/`tamano_total_bytes`; el backend calcula `total_bloques = ceil(tamaño / tamaño_de_bloque)` y crea un `CargaMultimedia` con `identificador` (UUID público, nunca el `id` autoincremental). Si ya existe una carga `en_progreso`/`pausada` con el mismo nombre y tamaño para ese usuario, la reanuda en vez de duplicarla (idempotencia de `iniciar()`).
+2. **Bloques** (`POST /multimedia/cargas/{identificador}/bloques`): cada bloque se guarda como archivo independiente numerado (`temporales/cargas/{identificador}/{n}.part`), lo que permite recibirlos **fuera de orden** y reintentar uno solo sin repetir los demás. Reenviar el mismo número de bloque es idempotente (no duplica bytes contados).
+3. **Pausar/Reanudar** (`POST .../pausar`, `POST .../reanudar`): pausar aborta el envío en curso desde el cliente (XHR `abort()`) y marca la carga `pausada` en el servidor, que deja de aceptar bloques hasta que se reanude explícitamente.
+4. **Cancelar** (`DELETE /multimedia/cargas/{identificador}`): borra la carpeta de bloques temporales y marca `cancelada`.
+5. **Ensamblado** (automático al recibir el último bloque pendiente): `MediaStorageService::ensamblarBloques()` concatena los bloques en orden (streaming, sin cargar el archivo completo en memoria), valida que el tamaño final coincida con `tamano_total_bytes`, calcula `sha256` y lo compara contra `hash_esperado` si el cliente lo envió. Si algo no coincide, la carga queda `error` (con el mensaje en `CargaMultimedia.error`) y **no** se crea el `RecursoMultimedia`. Si todo es correcto, se crea el recurso (`estado = pendiente` para video) y se despacha `ProcesarVideoJob`, igual que en el flujo de subida directa.
+6. **Recuperar tras recargar la página**: el frontend guarda `{identificador, nombreOriginal, tamanoTotalBytes}` en `localStorage`. Si el usuario recarga la página con una carga incompleta, el diálogo se lo indica y, si vuelve a seleccionar **el mismo archivo** (el navegador no permite recuperar el contenido de un archivo local automáticamente por seguridad), continúa desde los bloques ya recibidos en vez de empezar de cero.
+
+### Configuración (tamaño de bloque, límites, expiración, limpieza)
+
+```env
+# MEDIA_CHUNK_SIZE_MB=8          # tamaño de bloque sugerido por el backend
+# MEDIA_CARGA_EXPIRA_HORAS=24    # una carga sin completar más allá de esto se marca "expirada"
+# MEDIA_MAX_UPLOAD_MB=2048       # tamaño total máximo de un video (suma de todos los bloques)
+```
+
+- **Directorio temporal**: `temporales/cargas/{identificador}/` dentro del disco `nas` (mismo disco que el archivo final, no un directorio del sistema operativo aparte) — así funciona igual con `NAS_DRIVER=local` o `sftp`.
+- **Límites de PHP** (`php.ini`) que deben ajustarse en el servidor: `upload_max_filesize` y `post_max_size` deben ser mayores a `MEDIA_CHUNK_SIZE_MB` (no al tamaño total del video: cada bloque llega en un request separado). Con el valor por defecto (8 MB), un `upload_max_filesize=16M`/`post_max_size=16M` da margen suficiente para los encabezados multipart. `max_execution_time`/`max_input_time` no necesitan ser grandes por este flujo (cada request es corto), a diferencia del procesamiento FFmpeg (que corre en cola, no en un request HTTP).
+- **Límites de Nginx**: ver `deploy/nginx/multimedia.conf`, bloque `location /multimedia/cargas/` (`client_max_body_size` acorde al tamaño de bloque, no al video completo) y `location = /multimedia` (la subida directa de documentos/imágenes sí necesita `client_max_body_size` acorde a `MEDIA_MAX_UPLOAD_MB`).
+- **Política de limpieza**: el comando `capacitacion:limpiar-cargas-expiradas` (`App\Console\Commands\LimpiarCargasMultimediaExpiradasCommand`, programado cada hora en `routes/console.php`) marca como `expirada` cualquier carga sin completar cuyo `expira_en` ya pasó, y borra su carpeta de bloques temporales. Una carga `completada`/`cancelada`/`expirada` nunca dispara la limpieza dos veces (el propio estado ya excluye esas cargas de la consulta).
+
+Pruebas: `tests/Feature/Multimedia/CargaResumibleTest.php` (bloques fuera de orden, reintento idempotente, pausa/reanudación, cancelación, verificación de hash, aislamiento entre usuarios).
 
 ## 2. Procesamiento (`ProcesarVideoJob`)
 
@@ -56,18 +78,25 @@ En producción, servir el `.ts` puede optimizarse con un header `X-Accel-Redirec
 
 El evento `seeking` del `<video>` también recorta visualmente cualquier intento de arrastrar la barra más allá del límite conocido en el cliente, pero esto es solo una mejora de experiencia (evita el salto visual antes de que llegue la respuesta del heartbeat); la aplicación real de la regla ocurre siempre en el servidor, como se describió arriba.
 
-## 4. Ejemplo de configuración Nginx con `X-Accel-Redirect` (opcional, producción)
+## 4. `X-Accel-Redirect` con Nginx (Fase 9, real — no solo documentado)
 
-Solo relevante cuando el disco `nas` es una carpeta local (montada por NFS/SMB) accesible también por Nginx. Permite que Nginx entregue los segmentos `.ts` directamente, sin que PHP-FPM mantenga el proceso ocupado durante toda la transferencia:
+`MediaStorageService::respuesta()` (usada por segmentos `.ts`, descargas de evidencias de actividades/cuestionarios y cualquier otro archivo servido por streaming) soporta dos modos, controlados por `config('media.x_accel_redirect')` (`MEDIA_X_ACCEL_REDIRECT`):
+
+- **Desactivado (por defecto, y siempre en este entorno de desarrollo sin Nginx)**: streaming directo vía `FilesystemAdapter::response()`, igual que en fases anteriores. Correcto en cualquier entorno, solo mantiene ocupado un worker de PHP-FPM durante toda la transferencia.
+- **Activado**: `MediaStorageService` no lee el archivo; responde solo con el header `X-Accel-Redirect: {MEDIA_X_ACCEL_INTERNAL_PREFIX}/{ruta}` (prefijo por defecto `/protegido-nas`) y cuerpo vacío. Nginx intercepta esa respuesta y sirve el archivo directamente desde disco usando el `location internal` de `deploy/nginx/multimedia.conf`, sin volver a pasar por PHP. El navegador nunca ve la ruta física real del NAS, solo la ruta protegida que Nginx resuelve puertas adentro (la ubicación es `internal`, así que una petición externa directa a esa ruta devuelve 404).
+
+La autorización (usuario, asignación al curso, token firmado, límite de avance del video) ocurre siempre **antes** de decidir si se activa `X-Accel-Redirect` — Nginx nunca decide quién puede ver el archivo, solo lo transmite después de que Laravel ya lo autorizó. Ver `app/Http/Controllers/MiCapacitacion/ReproduccionController.php::segmento()`.
+
+Configuración real (`deploy/nginx/multimedia.conf`, agregar dentro del `server{}` del sitio):
 
 ```nginx
-location /internal/nas/ {
+location /protegido-nas/ {
     internal;
-    alias /mnt/mrlana-capacitacion/;
+    alias /mnt/mrlana-capacitacion/;   # mismo directorio que NAS_ROOT
 }
 ```
 
-Y en `MediaStorageService::respuesta()`, en vez de `FilesystemAdapter::response()`, se devolvería una respuesta vacía con el header `X-Accel-Redirect: /internal/nas/{ruta}`. Esta fase no implementa esa variante (no hay Nginx en el entorno de desarrollo para probarla) y usa siempre streaming directo vía Laravel, que es correcto en cualquier entorno; queda documentado aquí como la optimización recomendada al llegar a producción.
+Pruebas: `tests/Feature/Multimedia/XAccelRedirectTest.php` verifica que el header se emite correctamente activado/desactivado y que la ruta expuesta nunca contiene la ruta física del servidor — con `Storage::fake`, sin necesidad de un Nginx real corriendo. La verificación end-to-end (Nginx real sirviendo el archivo) queda pendiente de un entorno de producción real, como se declara en `docs/AUDITORIA_CUMPLIMIENTO.md` sección 9.
 
 ## 5. Variables de entorno relevantes
 

@@ -3,6 +3,7 @@ import { Head, useForm } from '@inertiajs/vue3';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -53,7 +54,21 @@ const form = useForm({
     fecha_inicio: aFechaLocal(props.sesion?.fecha_inicio),
     duracion_minutos: props.sesion?.duracion_minutos ?? 60,
     enlace_reunion: props.sesion?.enlace_reunion ?? '',
+    porcentaje_minimo_asistencia:
+        props.sesion?.porcentaje_minimo_asistencia ?? 80,
+    minutos_minimos_asistencia: props.sesion?.minutos_minimos_asistencia ?? '',
+    tolerancia_minutos: props.sesion?.tolerancia_minutos ?? 5,
+    criterio_cumplimiento: props.sesion?.criterio_cumplimiento ?? 'porcentaje',
+    considerar_tiempo_previo: props.sesion?.considerar_tiempo_previo ?? false,
+    considerar_tiempo_posterior:
+        props.sesion?.considerar_tiempo_posterior ?? false,
 });
+
+const criterios = [
+    { value: 'porcentaje', etiqueta: 'Porcentaje mínimo de la sesión' },
+    { value: 'minutos', etiqueta: 'Minutos mínimos' },
+    { value: 'cualquiera', etiqueta: 'Cualquiera de los dos' },
+];
 
 const proveedores = [
     { value: 'manual', etiqueta: 'Enlace manual' },
@@ -168,6 +183,91 @@ function guardar() {
                     integración está configurada. Si no lo está, puedes agregar
                     uno manualmente después de guardar.
                 </p>
+
+                <fieldset class="grid gap-4 rounded-md border p-3">
+                    <legend class="px-1 text-sm font-medium">
+                        Reglas de asistencia (sincronización automática)
+                    </legend>
+
+                    <div class="grid gap-2">
+                        <Label>Criterio de cumplimiento</Label>
+                        <Select v-model="form.criterio_cumplimiento">
+                            <SelectTrigger class="w-full">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem
+                                    v-for="opcion in criterios"
+                                    :key="opcion.value"
+                                    :value="opcion.value"
+                                >
+                                    {{ opcion.etiqueta }}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-4">
+                        <div class="grid gap-2">
+                            <Label for="porcentaje_minimo_asistencia"
+                                >% mínimo</Label
+                            >
+                            <Input
+                                id="porcentaje_minimo_asistencia"
+                                v-model.number="
+                                    form.porcentaje_minimo_asistencia
+                                "
+                                type="number"
+                                min="1"
+                                max="100"
+                            />
+                        </div>
+                        <div class="grid gap-2">
+                            <Label for="minutos_minimos_asistencia"
+                                >Minutos mínimos</Label
+                            >
+                            <Input
+                                id="minutos_minimos_asistencia"
+                                v-model.number="form.minutos_minimos_asistencia"
+                                type="number"
+                                min="1"
+                                placeholder="Opcional"
+                            />
+                        </div>
+                        <div class="grid gap-2">
+                            <Label for="tolerancia_minutos"
+                                >Tolerancia (min)</Label
+                            >
+                            <Input
+                                id="tolerancia_minutos"
+                                v-model.number="form.tolerancia_minutos"
+                                type="number"
+                                min="0"
+                            />
+                        </div>
+                    </div>
+
+                    <label class="flex items-center gap-2 text-sm">
+                        <Checkbox
+                            :model-value="form.considerar_tiempo_previo"
+                            @update:model-value="
+                                (v) => (form.considerar_tiempo_previo = !!v)
+                            "
+                        />
+                        Considerar el tiempo conectado antes del inicio
+                        programado
+                    </label>
+                    <label class="flex items-center gap-2 text-sm">
+                        <Checkbox
+                            :model-value="form.considerar_tiempo_posterior"
+                            @update:model-value="
+                                (v) => (form.considerar_tiempo_posterior = !!v)
+                            "
+                        />
+                        Considerar el tiempo conectado después del cierre
+                        programado
+                    </label>
+                </fieldset>
 
                 <Button
                     type="submit"

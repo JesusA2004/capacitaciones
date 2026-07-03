@@ -14,3 +14,7 @@ Artisan::command('inspire', function () {
 Schedule::command('capacitacion:recordar-fechas-limite')->dailyAt('07:00');
 Schedule::command('capacitacion:recordar-sesiones-proximas')->everyFifteenMinutes();
 Schedule::command('capacitacion:recordar-calificaciones-pendientes')->dailyAt('08:00');
+
+// Carga de video por bloques (Fase 9): limpia cargas abandonadas (nunca
+// completadas antes de expira_en) y sus bloques temporales del disco.
+Schedule::command('capacitacion:limpiar-cargas-expiradas')->hourly();

@@ -23,7 +23,9 @@ class StoreCuestionarioRequest extends FormRequest
             'calificacion_minima' => ['required', 'integer', 'min:1', 'max:100'],
             'intentos_maximos' => ['nullable', 'integer', 'min:1'],
             'tiempo_limite_minutos' => ['nullable', 'integer', 'min:1'],
+            'tolerancia_segundos' => ['nullable', 'integer', 'min:0', 'max:300'],
             'aleatorizar_preguntas' => ['boolean'],
+            'aleatorizar_opciones' => ['boolean'],
             'mostrar_retroalimentacion' => ['boolean'],
         ];
     }

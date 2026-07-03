@@ -27,20 +27,25 @@ class UpdatePreguntaRequest extends FormRequest
             'explicacion' => ['nullable', 'string', 'max:2000'],
             'opciones' => [
                 'array',
-                Rule::requiredIf(fn () => $this->input('tipo') !== TipoPregunta::RespuestaCorta->value),
+                Rule::requiredIf(fn () => $this->tipoUsaOpciones()),
                 'min:2',
             ],
             'opciones.*.texto' => ['required_with:opciones', 'string', 'max:250'],
             'opciones.*.es_correcta' => ['boolean'],
+            'escala_min' => [Rule::requiredIf(fn () => $this->input('tipo') === TipoPregunta::Escala->value), 'nullable', 'integer', 'min:0', 'max:9'],
+            'escala_max' => [Rule::requiredIf(fn () => $this->input('tipo') === TipoPregunta::Escala->value), 'nullable', 'integer', 'min:1', 'max:10', 'gt:escala_min'],
+            'escala_etiqueta_min' => ['nullable', 'string', 'max:100'],
+            'escala_etiqueta_max' => ['nullable', 'string', 'max:100'],
+            'extensiones_permitidas' => ['nullable', 'array'],
+            'extensiones_permitidas.*' => ['string', 'max:10'],
+            'tamano_maximo_mb' => ['nullable', 'integer', 'min:1', 'max:2048'],
         ];
     }
 
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
-            $tipo = $this->input('tipo');
-
-            if ($tipo === TipoPregunta::RespuestaCorta->value) {
+            if (! $this->tipoUsaOpciones()) {
                 return;
             }
 
@@ -50,9 +55,16 @@ class UpdatePreguntaRequest extends FormRequest
 
             if ($correctas->isEmpty()) {
                 $validator->errors()->add('opciones', 'Debes marcar al menos una opción como correcta.');
-            } elseif ($tipo === TipoPregunta::OpcionUnica->value && $correctas->count() > 1) {
+            } elseif ($this->input('tipo') === TipoPregunta::OpcionUnica->value && $correctas->count() > 1) {
                 $validator->errors()->add('opciones', 'Una pregunta de opción única solo puede tener una respuesta correcta.');
             }
         });
+    }
+
+    private function tipoUsaOpciones(): bool
+    {
+        $tipo = TipoPregunta::tryFrom((string) $this->input('tipo'));
+
+        return $tipo?->usaOpciones() ?? false;
     }
 }

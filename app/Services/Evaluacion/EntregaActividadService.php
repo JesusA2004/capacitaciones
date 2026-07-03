@@ -4,8 +4,10 @@ namespace App\Services\Evaluacion;
 
 use App\Enums\EstadoEntregaActividad;
 use App\Enums\EstadoMultimedia;
+use App\Enums\OrigenRecursoMultimedia;
 use App\Enums\TipoEntregaActividad;
 use App\Enums\TipoRecursoMultimedia;
+use App\Enums\VisibilidadRecursoMultimedia;
 use App\Models\Actividad;
 use App\Models\EntregaActividad;
 use App\Models\RecursoMultimedia;
@@ -117,6 +119,10 @@ class EntregaActividadService
             'tamano_bytes' => $archivo->getSize(),
             'estado' => EstadoMultimedia::Disponible->value,
             'subido_por' => $usuario->id,
+            'origen' => OrigenRecursoMultimedia::Actividad->value,
+            'visibilidad' => VisibilidadRecursoMultimedia::Restringida->value,
+            'propietario_id' => $usuario->id,
+            'acceso_restringido' => true,
         ]);
 
         return $recurso->id;

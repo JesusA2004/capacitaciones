@@ -21,6 +21,8 @@ class MarcarAsistenciaRequest extends FormRequest
         return [
             'estado' => ['required', new Enum(EstadoAsistencia::class)],
             'motivo' => ['nullable', 'string', 'max:1000'],
+            'minutos' => ['nullable', 'integer', 'min:0'],
+            'evidencia' => ['nullable', 'file', 'max:10240', 'mimes:pdf,jpg,jpeg,png,webp'],
         ];
     }
 }

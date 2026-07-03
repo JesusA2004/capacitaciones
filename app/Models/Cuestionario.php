@@ -17,7 +17,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $calificacion_minima
  * @property int|null $intentos_maximos
  * @property int|null $tiempo_limite_minutos
+ * @property int $tolerancia_segundos
  * @property bool $aleatorizar_preguntas
+ * @property bool $aleatorizar_opciones
  * @property bool $mostrar_retroalimentacion
  */
 class Cuestionario extends Model
@@ -29,13 +31,15 @@ class Cuestionario extends Model
 
     protected $fillable = [
         'leccion_id', 'titulo', 'instrucciones', 'calificacion_minima', 'intentos_maximos',
-        'tiempo_limite_minutos', 'aleatorizar_preguntas', 'mostrar_retroalimentacion',
+        'tiempo_limite_minutos', 'tolerancia_segundos', 'aleatorizar_preguntas',
+        'aleatorizar_opciones', 'mostrar_retroalimentacion',
     ];
 
     protected function casts(): array
     {
         return [
             'aleatorizar_preguntas' => 'boolean',
+            'aleatorizar_opciones' => 'boolean',
             'mostrar_retroalimentacion' => 'boolean',
         ];
     }

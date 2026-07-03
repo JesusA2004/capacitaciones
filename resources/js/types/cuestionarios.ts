@@ -13,6 +13,12 @@ export type PreguntaItem = {
     puntos: number;
     explicacion: string | null;
     opciones: OpcionPreguntaItem[];
+    escala_min: number | null;
+    escala_max: number | null;
+    escala_etiqueta_min: string | null;
+    escala_etiqueta_max: string | null;
+    extensiones_permitidas: string[] | null;
+    tamano_maximo_mb: number | null;
     pivot?: {
         orden: number;
         puntos: number | null;
@@ -36,7 +42,9 @@ export type CuestionarioItem = {
     calificacion_minima: number;
     intentos_maximos: number | null;
     tiempo_limite_minutos: number | null;
+    tolerancia_segundos: number;
     aleatorizar_preguntas: boolean;
+    aleatorizar_opciones: boolean;
     mostrar_retroalimentacion: boolean;
     preguntas?: PreguntaItem[];
 };
@@ -47,6 +55,12 @@ export type PreguntaParaResolver = {
     tipo: string;
     puntos: number;
     opciones: { id: number; texto: string }[];
+    escala_min: number | null;
+    escala_max: number | null;
+    escala_etiqueta_min: string | null;
+    escala_etiqueta_max: string | null;
+    extensiones_permitidas: string[] | null;
+    tamano_maximo_mb: number | null;
 };
 
 export type ResultadoIntento = {
@@ -76,6 +90,8 @@ export type RespuestaParaCalificar = {
     opcion_pregunta_id: number | null;
     opciones_seleccionadas: number[] | null;
     respuesta_texto: string | null;
+    valor_numerico: number | null;
+    recurso_multimedia_id: number | null;
     es_correcta: boolean | null;
     puntos_obtenidos: number | null;
     pregunta: {

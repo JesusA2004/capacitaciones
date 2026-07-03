@@ -6,6 +6,7 @@ use App\Enums\EstadoEntregaActividad;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Actividades\CalificarEntregaActividadRequest;
 use App\Models\EntregaActividad;
+use App\Services\AlcanceOrganizacionalService;
 use App\Services\Evaluacion\EntregaActividadService;
 use App\Services\Multimedia\MediaStorageService;
 use Illuminate\Http\RedirectResponse;
@@ -19,14 +20,18 @@ class CalificacionActividadController extends Controller
     public function __construct(
         private readonly EntregaActividadService $service,
         private readonly MediaStorageService $storage,
+        private readonly AlcanceOrganizacionalService $alcance,
     ) {}
 
     public function index(Request $request): Response
     {
         $this->authorize('respuestas.ver');
 
+        $idsColaboradores = $this->alcance->idsColaboradoresParaRevision($request->user());
+
         $entregas = EntregaActividad::query()
             ->where('estado', EstadoEntregaActividad::Entregada->value)
+            ->when($idsColaboradores !== null, fn ($query) => $query->whereIn('user_id', $idsColaboradores))
             ->with(['usuario:id,name,apellidos', 'actividad:id,titulo,leccion_id'])
             ->orderBy('entregado_en')
             ->paginate(15);
@@ -36,9 +41,10 @@ class CalificacionActividadController extends Controller
         ]);
     }
 
-    public function show(EntregaActividad $entrega): Response
+    public function show(Request $request, EntregaActividad $entrega): Response
     {
         $this->authorize('respuestas.ver');
+        $this->autorizarAlcance($request, $entrega);
 
         $entrega->load(['usuario:id,name,apellidos', 'actividad', 'recursoMultimedia:id,nombre_original']);
 
@@ -47,9 +53,10 @@ class CalificacionActividadController extends Controller
         ]);
     }
 
-    public function descargar(EntregaActividad $entrega): StreamedResponse
+    public function descargar(Request $request, EntregaActividad $entrega): StreamedResponse
     {
         $this->authorize('respuestas.ver');
+        $this->autorizarAlcance($request, $entrega);
 
         $entrega->loadMissing('recursoMultimedia');
         abort_unless($entrega->recursoMultimedia !== null, 404);
@@ -61,6 +68,8 @@ class CalificacionActividadController extends Controller
 
     public function calificar(CalificarEntregaActividadRequest $request, EntregaActividad $entrega): RedirectResponse
     {
+        $this->autorizarAlcance($request, $entrega);
+
         $this->service->calificar(
             $entrega,
             $request->boolean('aprobada'),
@@ -70,5 +79,17 @@ class CalificacionActividadController extends Controller
         );
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Entrega calificada correctamente.']);
+    }
+
+    /**
+     * Un revisor con alcance de sucursal (gerente_sucursal, supervisor) solo
+     * puede calificar/ver/descargar entregas de colaboradores de su propia
+     * sucursal. Ver AlcanceOrganizacionalService::puedeRevisarColaborador().
+     */
+    private function autorizarAlcance(Request $request, EntregaActividad $entrega): void
+    {
+        $entrega->loadMissing('usuario');
+
+        abort_unless($this->alcance->puedeRevisarColaborador($request->user(), $entrega->usuario), 403);
     }
 }

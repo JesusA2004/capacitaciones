@@ -13,12 +13,24 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $sesion_en_vivo_id
  * @property int $user_id
+ * @property int|null $sesion_participante_id
  * @property EstadoAsistencia $estado
  * @property Carbon|null $unido_en
  * @property Carbon|null $salido_en
  * @property int|null $duracion_segundos
+ * @property int|null $minutos_totales
+ * @property int|null $porcentaje_sesion
+ * @property int $numero_reconexiones
+ * @property string|null $motivo_estado
+ * @property Carbon|null $sincronizado_en
  * @property int|null $corregido_por
  * @property string|null $motivo_correccion
+ * @property string|null $estado_anterior
+ * @property int|null $minutos_anteriores
+ * @property string|null $evidencia_correccion
+ * @property string|null $correccion_ip
+ * @property string|null $correccion_user_agent
+ * @property string|null $correccion_origen
  */
 class Asistencia extends Model
 {
@@ -28,8 +40,11 @@ class Asistencia extends Model
     protected $table = 'asistencias';
 
     protected $fillable = [
-        'sesion_en_vivo_id', 'user_id', 'estado', 'unido_en', 'salido_en',
-        'duracion_segundos', 'corregido_por', 'motivo_correccion',
+        'sesion_en_vivo_id', 'user_id', 'sesion_participante_id', 'estado', 'unido_en', 'salido_en',
+        'duracion_segundos', 'minutos_totales', 'porcentaje_sesion', 'numero_reconexiones',
+        'motivo_estado', 'sincronizado_en', 'corregido_por', 'motivo_correccion',
+        'estado_anterior', 'minutos_anteriores', 'evidencia_correccion',
+        'correccion_ip', 'correccion_user_agent', 'correccion_origen',
     ];
 
     protected function casts(): array
@@ -38,6 +53,7 @@ class Asistencia extends Model
             'estado' => EstadoAsistencia::class,
             'unido_en' => 'datetime',
             'salido_en' => 'datetime',
+            'sincronizado_en' => 'datetime',
         ];
     }
 
@@ -63,5 +79,13 @@ class Asistencia extends Model
     public function corregidoPor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'corregido_por');
+    }
+
+    /**
+     * @return BelongsTo<SesionParticipante, $this>
+     */
+    public function sesionParticipante(): BelongsTo
+    {
+        return $this->belongsTo(SesionParticipante::class);
     }
 }

@@ -71,6 +71,81 @@ class MediaStorageService
     }
 
     /**
+     * Carpeta temporal de una sesion de carga por bloques (Fase 9, ver
+     * App\Services\Multimedia\CargaResumibleService). Cada bloque se guarda
+     * como un archivo independiente numerado para poder recibirlos fuera de
+     * orden y reintentar uno solo sin repetir los demas.
+     */
+    public function rutaCargaTemporal(string $identificador): string
+    {
+        return "temporales/cargas/{$identificador}";
+    }
+
+    public function rutaBloque(string $identificador, int $numeroBloque): string
+    {
+        return $this->rutaCargaTemporal($identificador)."/{$numeroBloque}.part";
+    }
+
+    /**
+     * Concatena, en orden, los bloques ya recibidos de una carga en la ruta
+     * final indicada. No carga el archivo completo en memoria: copia cada
+     * bloque por streaming.
+     */
+    public function ensamblarBloques(string $identificador, int $totalBloques, string $rutaDestino): void
+    {
+        $disco = $this->disco();
+
+        // Se ensambla primero en un temporal local (no en memoria) y se sube
+        // una sola vez al disco final, para no mantener abiertas N conexiones
+        // de escritura contra un disco remoto (p. ej. SFTP) a la vez.
+        $temporalLocal = tempnam(sys_get_temp_dir(), 'ensamblado_');
+
+        if ($temporalLocal === false) {
+            throw new \RuntimeException('No se pudo preparar el archivo temporal de ensamblado.');
+        }
+
+        $recursoDestino = fopen($temporalLocal, 'wb');
+
+        if ($recursoDestino === false) {
+            throw new \RuntimeException('No se pudo abrir el archivo temporal de ensamblado.');
+        }
+
+        try {
+            for ($numero = 0; $numero < $totalBloques; $numero++) {
+                $rutaBloque = $this->rutaBloque($identificador, $numero);
+
+                if (! $disco->exists($rutaBloque)) {
+                    throw new \RuntimeException("Falta el bloque {$numero} de {$totalBloques} para ensamblar la carga.");
+                }
+
+                $flujoBloque = $disco->readStream($rutaBloque);
+                stream_copy_to_stream($flujoBloque, $recursoDestino);
+                fclose($flujoBloque);
+            }
+
+            fclose($recursoDestino);
+
+            $flujoLectura = fopen($temporalLocal, 'rb');
+
+            if ($flujoLectura === false) {
+                throw new \RuntimeException('No se pudo leer el archivo ensamblado.');
+            }
+
+            $disco->put($rutaDestino, $flujoLectura);
+
+            if (is_resource($flujoLectura)) {
+                fclose($flujoLectura);
+            }
+        } finally {
+            if (is_resource($recursoDestino)) {
+                fclose($recursoDestino);
+            }
+
+            @unlink($temporalLocal);
+        }
+    }
+
+    /**
      * Guarda un archivo subido (o un stream/ruta local) en la ruta logica
      * indicada, sin cargarlo completo en memoria.
      */
@@ -152,19 +227,58 @@ class MediaStorageService
      * ejemplo, un segmento .ts). Funciona igual sin importar el driver, ya
      * que Laravel la implementa leyendo por streaming, no copiando a memoria.
      *
-     * En produccion detras de Nginx, esto puede sustituirse por un header
-     * X-Accel-Redirect para que el propio Nginx sirva el archivo sin pasar
-     * por PHP (ver docs/PROCESAMIENTO_VIDEO.md); no es necesario para que la
-     * funcionalidad sea correcta, solo para aligerar la carga del servidor.
+     * Cuando `config('media.x_accel_redirect')` está activo (solo tiene
+     * sentido con el disco local montado también por Nginx, ver
+     * deploy/nginx/multimedia.conf), no se transmite el archivo desde PHP:
+     * se responde solo con el header `X-Accel-Redirect` y Nginx sirve el
+     * archivo directamente. El navegador nunca ve la ruta física real, solo
+     * la ruta interna que Nginx resuelve puertas adentro. En este entorno de
+     * desarrollo (sin Nginx delante) permanece desactivado y se sigue
+     * transmitiendo por streaming directo, que es igual de correcto, solo
+     * más lento bajo carga alta.
      *
      * @param  array<string, string>  $headers
      */
     public function respuesta(string $ruta, array $headers = []): StreamedResponse
     {
+        if ($this->debeUsarXAccelRedirect()) {
+            return $this->respuestaXAccelRedirect($ruta, $headers);
+        }
+
         /** @var FilesystemAdapter $adaptador */
         $adaptador = $this->disco();
 
         return $adaptador->response($ruta, null, $headers);
+    }
+
+    private function debeUsarXAccelRedirect(): bool
+    {
+        return (bool) config('media.x_accel_redirect') && $this->esDiscoLocal();
+    }
+
+    /**
+     * @param  array<string, string>  $headers
+     */
+    private function respuestaXAccelRedirect(string $ruta, array $headers): StreamedResponse
+    {
+        $prefijoInterno = rtrim((string) config('media.x_accel_internal_prefix'), '/');
+        $rutaInterna = $prefijoInterno.'/'.ltrim($ruta, '/');
+
+        // Cuerpo vacio: Nginx reemplaza la respuesta por completo al ver el
+        // header X-Accel-Redirect, PHP nunca llega a leer el archivo.
+        $respuesta = new StreamedResponse(function () {});
+        $respuesta->headers->set('X-Accel-Redirect', $rutaInterna);
+
+        foreach ($headers as $nombre => $valor) {
+            $respuesta->headers->set($nombre, $valor);
+        }
+
+        // El Content-Length lo calcula Nginx sobre el archivo real; un valor
+        // puesto aqui por PHP (que no leyo el archivo) seria incorrecto.
+        $respuesta->headers->remove('Content-Length');
+        $respuesta->headers->remove('Transfer-Encoding');
+
+        return $respuesta;
     }
 
     /**

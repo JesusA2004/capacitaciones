@@ -46,6 +46,10 @@ return [
         'redirect_uri' => env('GOOGLE_REDIRECT_URI'),
         'service_account_path' => env('GOOGLE_SERVICE_ACCOUNT_PATH'),
         'impersonated_user' => env('GOOGLE_IMPERSONATED_USER'),
+        // Fase 9 — asistencia real (Google Meet REST API + Admin Directory
+        // API para resolver el correo del participante). Ver docs/GOOGLE_MEET.md.
+        'workspace_customer_id' => env('GOOGLE_WORKSPACE_CUSTOMER_ID', 'my_customer'),
+        'calendar_id' => env('GOOGLE_CALENDAR_ID', 'primary'),
     ],
 
     // Igual que google_meet: sin ZOOM_ENABLED=true (o sin credenciales

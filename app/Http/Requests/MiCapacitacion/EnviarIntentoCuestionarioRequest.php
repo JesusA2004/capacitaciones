@@ -25,7 +25,9 @@ class EnviarIntentoCuestionarioRequest extends FormRequest
             'respuestas.*.opcion_pregunta_id' => ['nullable', 'integer', 'exists:opciones_pregunta,id'],
             'respuestas.*.opciones_seleccionadas' => ['nullable', 'array'],
             'respuestas.*.opciones_seleccionadas.*' => ['integer', 'exists:opciones_pregunta,id'],
-            'respuestas.*.respuesta_texto' => ['nullable', 'string', 'max:5000'],
+            'respuestas.*.respuesta_texto' => ['nullable', 'string', 'max:10000'],
+            'respuestas.*.valor_numerico' => ['nullable', 'integer', 'min:0', 'max:10'],
+            'respuestas.*.archivo' => ['nullable', 'file', 'max:20480'],
         ];
     }
 }
