@@ -35,6 +35,11 @@ class SucursalController extends Controller
             'sucursales' => $sucursales,
             'filtros' => $request->only('busqueda'),
             'responsablesDisponibles' => User::query()->orderBy('name')->get(['id', 'name', 'apellidos']),
+            'estadisticas' => [
+                'total' => Sucursal::count(),
+                'activos' => Sucursal::where('activo', true)->count(),
+                'inactivos' => Sucursal::where('activo', false)->count(),
+            ],
         ]);
     }
 

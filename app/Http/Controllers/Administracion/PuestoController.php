@@ -30,6 +30,11 @@ class PuestoController extends Controller
             'puestos' => $puestos,
             'filtros' => $request->only('busqueda'),
             'departamentosDisponibles' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'estadisticas' => [
+                'total' => Puesto::count(),
+                'activos' => Puesto::where('activo', true)->count(),
+                'inactivos' => Puesto::where('activo', false)->count(),
+            ],
         ]);
     }
 

@@ -27,6 +27,11 @@ class DepartamentoController extends Controller
         return Inertia::render('Administracion/Departamentos/Index', [
             'departamentos' => $departamentos,
             'filtros' => $request->only('busqueda'),
+            'estadisticas' => [
+                'total' => Departamento::count(),
+                'activos' => Departamento::where('activo', true)->count(),
+                'inactivos' => Departamento::where('activo', false)->count(),
+            ],
         ]);
     }
 

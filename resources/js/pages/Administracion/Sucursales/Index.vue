@@ -1,19 +1,35 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
-import { Pencil, Plus, Trash2 } from '@lucide/vue';
+import {
+    Building,
+    CheckCircle2,
+    MapPin,
+    Plus,
+    Users,
+    XCircle,
+} from '@lucide/vue';
 import { ref } from 'vue';
 import SucursalFormDialog from '@/components/Administracion/SucursalFormDialog.vue';
-import type { ColumnaDataTable } from '@/components/DataTable/DataTable.vue';
+import EstadoBadge from '@/components/Common/EstadoBadge.vue';
+import CrudActionMenu from '@/components/DataTable/CrudActionMenu.vue';
+import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
+import CrudMobileCard from '@/components/DataTable/CrudMobileCard.vue';
+import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import CrudStats from '@/components/DataTable/CrudStats.vue';
+import CrudToolbar from '@/components/DataTable/CrudToolbar.vue';
 import DataTable from '@/components/DataTable/DataTable.vue';
-import TableFilters from '@/components/DataTable/TableFilters.vue';
-import Heading from '@/components/Heading.vue';
-import { Badge } from '@/components/ui/badge';
+import type { ColumnaDataTable } from '@/components/DataTable/DataTable.vue';
 import { Button } from '@/components/ui/button';
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
 import { dashboard } from '@/routes';
 import { destroy, index } from '@/routes/administracion/sucursales';
-import type { RespuestaPaginada, SucursalItem } from '@/types';
+import type {
+    EstadisticasActivoInactivo,
+    RespuestaPaginada,
+    SucursalItem,
+} from '@/types';
 
 const props = defineProps<{
     sucursales: RespuestaPaginada<SucursalItem>;
@@ -23,6 +39,7 @@ const props = defineProps<{
         name: string;
         apellidos: string | null;
     }[];
+    estadisticas: EstadisticasActivoInactivo;
 }>();
 
 defineOptions({
@@ -81,18 +98,40 @@ async function eliminar(sucursal: SucursalItem) {
     <Head title="Sucursales" />
 
     <div class="flex flex-col gap-6 p-4">
-        <div class="flex items-center justify-between">
-            <Heading
-                title="Sucursales"
-                description="Administra las sucursales de la organización"
-            />
+        <CrudPageHeader
+            titulo="Sucursales"
+            descripcion="Organiza la capacitación por ubicación y revisa el alcance de cada responsable."
+            :icono="Building"
+        >
             <Button @click="abrirCrear">
                 <Plus class="size-4" />
                 Nueva sucursal
             </Button>
-        </div>
+        </CrudPageHeader>
 
-        <TableFilters
+        <CrudStats
+            :estadisticas="[
+                {
+                    etiqueta: 'Sucursales',
+                    valor: estadisticas.total,
+                    icono: Building,
+                },
+                {
+                    etiqueta: 'Activas',
+                    valor: estadisticas.activos,
+                    icono: CheckCircle2,
+                    tono: 'success',
+                },
+                {
+                    etiqueta: 'Inactivas',
+                    valor: estadisticas.inactivos,
+                    icono: XCircle,
+                    tono: 'danger',
+                },
+            ]"
+        />
+
+        <CrudToolbar
             :model-value="filtros.busqueda"
             placeholder="Buscar por nombre o clave..."
             @update:model-value="
@@ -109,33 +148,80 @@ async function eliminar(sucursal: SucursalItem) {
             :datos="sucursales"
             mensaje-vacio="No se encontraron sucursales."
         >
+            <template #vacio>
+                <CrudEmptyState
+                    :icono="Building"
+                    titulo="Todavía no hay sucursales"
+                    descripcion="Crea la primera sucursal para empezar a organizar la capacitación por ubicación."
+                >
+                    <Button size="sm" @click="abrirCrear">
+                        <Plus class="size-4" />
+                        Crear sucursal
+                    </Button>
+                </CrudEmptyState>
+            </template>
+
+            <template #celda-ciudad="{ fila }">
+                <span
+                    v-if="fila.ciudad"
+                    class="inline-flex items-center gap-1.5 text-muted-foreground"
+                >
+                    <MapPin class="size-3.5" />
+                    {{ fila.ciudad }}
+                </span>
+                <span v-else class="text-muted-foreground">—</span>
+            </template>
             <template #celda-usuarios_count="{ fila }">
-                {{ fila.usuarios_count }}
+                <span
+                    class="inline-flex items-center gap-1.5 text-muted-foreground"
+                >
+                    <Users class="size-3.5" />
+                    {{ fila.usuarios_count }}
+                </span>
             </template>
             <template #celda-activo="{ fila }">
-                <Badge :variant="fila.activo ? 'default' : 'secondary'">{{
-                    fila.activo ? 'Activa' : 'Inactiva'
-                }}</Badge>
+                <EstadoBadge :estado="fila.activo ? 'activo' : 'inactivo'" />
             </template>
             <template #acciones="{ fila }">
-                <div class="flex justify-end gap-1">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        title="Editar"
-                        @click="abrirEditar(fila)"
+                <CrudActionMenu>
+                    <DropdownMenuItem @select="abrirEditar(fila)"
+                        >Editar</DropdownMenuItem
                     >
-                        <Pencil class="size-4" />
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        title="Eliminar"
-                        @click="eliminar(fila)"
+                    <DropdownMenuItem
+                        variant="destructive"
+                        @select="eliminar(fila)"
+                        >Eliminar</DropdownMenuItem
                     >
-                        <Trash2 class="size-4 text-destructive" />
-                    </Button>
-                </div>
+                </CrudActionMenu>
+            </template>
+
+            <template #mobile-card="{ fila }">
+                <CrudMobileCard
+                    :titulo="fila.nombre"
+                    :subtitulo="`${fila.clave} · ${fila.ciudad ?? 'Sin ciudad'}`"
+                >
+                    <template #badge>
+                        <EstadoBadge
+                            :estado="fila.activo ? 'activo' : 'inactivo'"
+                        />
+                    </template>
+                    <span class="inline-flex items-center gap-1.5">
+                        <Users class="size-3.5" />
+                        {{ fila.usuarios_count }} colaborador(es)
+                    </span>
+                    <template #acciones>
+                        <CrudActionMenu>
+                            <DropdownMenuItem @select="abrirEditar(fila)"
+                                >Editar</DropdownMenuItem
+                            >
+                            <DropdownMenuItem
+                                variant="destructive"
+                                @select="eliminar(fila)"
+                                >Eliminar</DropdownMenuItem
+                            >
+                        </CrudActionMenu>
+                    </template>
+                </CrudMobileCard>
             </template>
         </DataTable>
     </div>

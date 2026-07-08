@@ -1,14 +1,20 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
-import { Pencil, Plus, UserX } from '@lucide/vue';
-import { ref } from 'vue';
+import { CheckCircle2, Plus, Users, XCircle } from '@lucide/vue';
+import { computed, ref } from 'vue';
 import UsuarioFormDialog from '@/components/Administracion/UsuarioFormDialog.vue';
-import type { ColumnaDataTable } from '@/components/DataTable/DataTable.vue';
+import EstadoBadge from '@/components/Common/EstadoBadge.vue';
+import CrudActionMenu from '@/components/DataTable/CrudActionMenu.vue';
+import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
+import CrudMobileCard from '@/components/DataTable/CrudMobileCard.vue';
+import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import CrudStats from '@/components/DataTable/CrudStats.vue';
+import CrudToolbar from '@/components/DataTable/CrudToolbar.vue';
 import DataTable from '@/components/DataTable/DataTable.vue';
-import TableFilters from '@/components/DataTable/TableFilters.vue';
-import Heading from '@/components/Heading.vue';
-import { Badge } from '@/components/ui/badge';
+import type { ColumnaDataTable } from '@/components/DataTable/DataTable.vue';
 import { Button } from '@/components/ui/button';
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { Label } from '@/components/ui/label';
 import {
     Select,
     SelectContent,
@@ -21,6 +27,7 @@ import { useFiltros } from '@/composables/useFiltros';
 import { dashboard } from '@/routes';
 import { destroy, index } from '@/routes/administracion/usuarios';
 import type {
+    EstadisticasActivoInactivo,
     EstadoUsuarioOpcion,
     OpcionSimple,
     RespuestaPaginada,
@@ -35,6 +42,7 @@ const props = defineProps<{
     puestosDisponibles: (OpcionSimple & { departamento_id: number | null })[];
     rolesDisponibles: string[];
     estados: EstadoUsuarioOpcion[];
+    estadisticas: EstadisticasActivoInactivo;
 }>();
 
 defineOptions({
@@ -56,10 +64,16 @@ const { filtros, aplicarConDebounce, aplicar, limpiar } = useFiltros(
 );
 const { confirmarEliminacion, mostrarExito, mostrarError } = useAlertas();
 
+const contadorFiltrosActivos = computed(
+    () =>
+        [filtros.sucursal_id, filtros.estatus].filter((valor) => valor !== '')
+            .length,
+);
+
 const columnas: ColumnaDataTable[] = [
     { clave: 'name', etiqueta: 'Colaborador' },
     { clave: 'numero_empleado', etiqueta: 'No. empleado' },
-    { clave: 'sucursalPrincipal', etiqueta: 'Sucursal' },
+    { clave: 'sucursal_principal', etiqueta: 'Sucursal' },
     { clave: 'departamento', etiqueta: 'Departamento' },
     { clave: 'estatus', etiqueta: 'Estatus' },
 ];
@@ -100,81 +114,120 @@ async function desactivar(usuario: UsuarioItem) {
     <Head title="Colaboradores" />
 
     <div class="flex flex-col gap-6 p-4">
-        <div class="flex items-center justify-between">
-            <Heading
-                title="Colaboradores"
-                description="Administra los colaboradores de la organización"
-            />
+        <CrudPageHeader
+            titulo="Colaboradores"
+            descripcion="Administra colaboradores, sucursal, puesto, roles y asignaciones automáticas."
+            :icono="Users"
+        >
             <Button @click="abrirCrear">
                 <Plus class="size-4" />
                 Nuevo colaborador
             </Button>
-        </div>
+        </CrudPageHeader>
 
-        <div class="flex flex-wrap items-center gap-2">
-            <TableFilters
-                :model-value="filtros.busqueda"
-                placeholder="Buscar por nombre, correo o número..."
-                @update:model-value="
-                    (valor) => {
-                        filtros.busqueda = valor;
-                        aplicarConDebounce();
-                    }
-                "
-                @limpiar="limpiar"
-            >
-                <Select
-                    :model-value="filtros.sucursal_id"
-                    @update:model-value="
-                        (v) => {
-                            filtros.sucursal_id = String(v ?? '');
-                            aplicar();
-                        }
-                    "
-                >
-                    <SelectTrigger class="w-44"
-                        ><SelectValue placeholder="Todas las sucursales"
-                    /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem
-                            v-for="opcion in sucursalesDisponibles"
-                            :key="opcion.id"
-                            :value="String(opcion.id)"
-                        >
-                            {{ opcion.nombre }}
-                        </SelectItem>
-                    </SelectContent>
-                </Select>
-                <Select
-                    :model-value="filtros.estatus"
-                    @update:model-value="
-                        (v) => {
-                            filtros.estatus = String(v ?? '');
-                            aplicar();
-                        }
-                    "
-                >
-                    <SelectTrigger class="w-40"
-                        ><SelectValue placeholder="Todos los estatus"
-                    /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem
-                            v-for="opcion in estados"
-                            :key="opcion.value"
-                            :value="opcion.value"
-                        >
-                            {{ opcion.etiqueta }}
-                        </SelectItem>
-                    </SelectContent>
-                </Select>
-            </TableFilters>
-        </div>
+        <CrudStats
+            :estadisticas="[
+                {
+                    etiqueta: 'Colaboradores',
+                    valor: estadisticas.total,
+                    icono: Users,
+                },
+                {
+                    etiqueta: 'Activos',
+                    valor: estadisticas.activos,
+                    icono: CheckCircle2,
+                    tono: 'success',
+                },
+                {
+                    etiqueta: 'Inactivos/suspendidos',
+                    valor: estadisticas.inactivos,
+                    icono: XCircle,
+                    tono: 'danger',
+                },
+            ]"
+        />
+
+        <CrudToolbar
+            :model-value="filtros.busqueda"
+            placeholder="Buscar por nombre, correo o número..."
+            :contador-filtros-activos="contadorFiltrosActivos"
+            titulo-filtros="Filtrar colaboradores"
+            descripcion-filtros="Acota la lista por sucursal o estatus."
+            @update:model-value="
+                (valor) => {
+                    filtros.busqueda = valor;
+                    aplicarConDebounce();
+                }
+            "
+            @limpiar="limpiar"
+            @aplicar-filtros="aplicar"
+        >
+            <template #filtros>
+                <div class="grid gap-2">
+                    <Label>Sucursal</Label>
+                    <Select
+                        :model-value="filtros.sucursal_id"
+                        @update:model-value="
+                            (v) => (filtros.sucursal_id = String(v ?? ''))
+                        "
+                    >
+                        <SelectTrigger class="w-full"
+                            ><SelectValue placeholder="Todas las sucursales"
+                        /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem
+                                v-for="opcion in sucursalesDisponibles"
+                                :key="opcion.id"
+                                :value="String(opcion.id)"
+                            >
+                                {{ opcion.nombre }}
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div class="grid gap-2">
+                    <Label>Estatus</Label>
+                    <Select
+                        :model-value="filtros.estatus"
+                        @update:model-value="
+                            (v) => (filtros.estatus = String(v ?? ''))
+                        "
+                    >
+                        <SelectTrigger class="w-full"
+                            ><SelectValue placeholder="Todos los estatus"
+                        /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem
+                                v-for="opcion in estados"
+                                :key="opcion.value"
+                                :value="opcion.value"
+                            >
+                                {{ opcion.etiqueta }}
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+            </template>
+        </CrudToolbar>
 
         <DataTable
             :columnas="columnas"
             :datos="usuarios"
             mensaje-vacio="No se encontraron colaboradores."
         >
+            <template #vacio>
+                <CrudEmptyState
+                    :icono="Users"
+                    titulo="Todavía no hay colaboradores"
+                    descripcion="Crea el primer colaborador para empezar a asignarle capacitación."
+                >
+                    <Button size="sm" @click="abrirCrear">
+                        <Plus class="size-4" />
+                        Crear colaborador
+                    </Button>
+                </CrudEmptyState>
+            </template>
+
             <template #celda-name="{ fila }">
                 <div class="font-medium">
                     {{ fila.name }} {{ fila.apellidos }}
@@ -183,39 +236,55 @@ async function desactivar(usuario: UsuarioItem) {
                     {{ fila.email }}
                 </div>
             </template>
-            <template #celda-sucursalPrincipal="{ fila }">
-                {{ fila.sucursalPrincipal?.nombre ?? 'Sin asignar' }}
+            <template #celda-sucursal_principal="{ fila }">
+                {{ fila.sucursal_principal?.nombre ?? 'Sin asignar' }}
             </template>
             <template #celda-departamento="{ fila }">
                 {{ fila.departamento?.nombre ?? 'Sin asignar' }}
             </template>
             <template #celda-estatus="{ fila }">
-                <Badge
-                    :variant="
-                        fila.estatus === 'activo' ? 'default' : 'secondary'
-                    "
-                    >{{ fila.estatus }}</Badge
-                >
+                <EstadoBadge :estado="fila.estatus" />
             </template>
             <template #acciones="{ fila }">
-                <div class="flex justify-end gap-1">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        title="Editar"
-                        @click="abrirEditar(fila)"
+                <CrudActionMenu>
+                    <DropdownMenuItem @select="abrirEditar(fila)"
+                        >Editar</DropdownMenuItem
                     >
-                        <Pencil class="size-4" />
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        title="Desactivar"
-                        @click="desactivar(fila)"
+                    <DropdownMenuItem
+                        variant="destructive"
+                        @select="desactivar(fila)"
+                        >Desactivar</DropdownMenuItem
                     >
-                        <UserX class="size-4 text-destructive" />
-                    </Button>
-                </div>
+                </CrudActionMenu>
+            </template>
+
+            <template #mobile-card="{ fila }">
+                <CrudMobileCard
+                    :titulo="`${fila.name} ${fila.apellidos ?? ''}`"
+                    :subtitulo="fila.email"
+                >
+                    <template #badge>
+                        <EstadoBadge :estado="fila.estatus" />
+                    </template>
+                    <span>{{
+                        fila.sucursal_principal?.nombre ?? 'Sin sucursal'
+                    }}</span>
+                    <span>{{
+                        fila.departamento?.nombre ?? 'Sin departamento'
+                    }}</span>
+                    <template #acciones>
+                        <CrudActionMenu>
+                            <DropdownMenuItem @select="abrirEditar(fila)"
+                                >Editar</DropdownMenuItem
+                            >
+                            <DropdownMenuItem
+                                variant="destructive"
+                                @select="desactivar(fila)"
+                                >Desactivar</DropdownMenuItem
+                            >
+                        </CrudActionMenu>
+                    </template>
+                </CrudMobileCard>
             </template>
         </DataTable>
     </div>

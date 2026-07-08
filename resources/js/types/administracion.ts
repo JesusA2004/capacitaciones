@@ -41,6 +41,13 @@ export type EstadoUsuarioOpcion = {
     etiqueta: string;
 };
 
+/** Conteos globales (no solo la página filtrada actual) para CrudStats. */
+export type EstadisticasActivoInactivo = {
+    total: number;
+    activos: number;
+    inactivos: number;
+};
+
 export type UsuarioItem = {
     id: number;
     name: string;
@@ -49,7 +56,7 @@ export type UsuarioItem = {
     email: string;
     telefono: string | null;
     sucursal_principal_id: number | null;
-    sucursalPrincipal: { id: number; nombre: string } | null;
+    sucursal_principal: { id: number; nombre: string } | null;
     departamento_id: number | null;
     departamento: { id: number; nombre: string } | null;
     puesto_id: number | null;

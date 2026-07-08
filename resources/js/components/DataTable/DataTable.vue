@@ -18,7 +18,7 @@ export type ColumnaDataTable = {
     clase?: string;
 };
 
-const props = defineProps<{
+defineProps<{
     columnas: ColumnaDataTable[];
     datos: RespuestaPaginada<T>;
     cargando?: boolean;
@@ -36,57 +36,48 @@ function valorCelda(fila: T, clave: string): unknown {
         return undefined;
     }, fila);
 }
-
-const colSpanTotal = () => props.columnas.length + 1;
 </script>
 
 <template>
     <div class="space-y-3">
-        <div class="rounded-md border">
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead
-                            v-for="columna in columnas"
-                            :key="columna.clave"
-                            :class="columna.clase"
-                        >
-                            {{ columna.etiqueta }}
-                        </TableHead>
-                        <TableHead v-if="$slots.acciones" class="text-right"
-                            >Acciones</TableHead
-                        >
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    <template v-if="cargando">
-                        <TableRow>
-                            <TableCell
-                                :colspan="colSpanTotal()"
-                                class="h-32 text-center"
+        <div
+            v-if="cargando"
+            class="flex items-center justify-center rounded-2xl border border-border/60 p-16"
+        >
+            <Loader2 class="size-5 animate-spin text-muted-foreground" />
+        </div>
+
+        <slot v-else-if="datos.data.length === 0" name="vacio">
+            <EmptyState
+                :descripcion="mensajeVacio ?? 'No hay registros para mostrar.'"
+            />
+        </slot>
+
+        <template v-else>
+            <div
+                class="overflow-hidden rounded-2xl border border-border/60 shadow-sm"
+                :class="{ 'hidden sm:block': $slots['mobile-card'] }"
+            >
+                <Table>
+                    <TableHeader>
+                        <TableRow class="hover:bg-transparent">
+                            <TableHead
+                                v-for="columna in columnas"
+                                :key="columna.clave"
+                                :class="columna.clase"
                             >
-                                <Loader2
-                                    class="mx-auto size-5 animate-spin text-muted-foreground"
-                                />
-                            </TableCell>
+                                {{ columna.etiqueta }}
+                            </TableHead>
+                            <TableHead v-if="$slots.acciones" class="text-right"
+                                >Acciones</TableHead
+                            >
                         </TableRow>
-                    </template>
-                    <template v-else-if="datos.data.length === 0">
-                        <TableRow>
-                            <TableCell :colspan="colSpanTotal()" class="p-0">
-                                <EmptyState
-                                    :descripcion="
-                                        mensajeVacio ??
-                                        'No hay registros para mostrar.'
-                                    "
-                                />
-                            </TableCell>
-                        </TableRow>
-                    </template>
-                    <template v-else>
+                    </TableHeader>
+                    <TableBody>
                         <TableRow
                             v-for="(fila, indice) in datos.data"
                             :key="indice"
+                            class="transition-colors duration-150"
                         >
                             <TableCell
                                 v-for="columna in columnas"
@@ -107,10 +98,19 @@ const colSpanTotal = () => props.columnas.length + 1;
                                 <slot name="acciones" :fila="fila" />
                             </TableCell>
                         </TableRow>
-                    </template>
-                </TableBody>
-            </Table>
-        </div>
+                    </TableBody>
+                </Table>
+            </div>
+
+            <div
+                v-if="$slots['mobile-card']"
+                class="flex flex-col gap-3 sm:hidden"
+            >
+                <template v-for="(fila, indice) in datos.data" :key="indice">
+                    <slot name="mobile-card" :fila="fila" />
+                </template>
+            </div>
+        </template>
 
         <div
             v-if="datos.last_page > 1"

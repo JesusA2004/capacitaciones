@@ -51,6 +51,8 @@ class UsuarioController extends Controller
             ->paginate(15)
             ->withQueryString();
 
+        $usuariosVisibles = fn () => $this->alcance->limitarUsuariosPorAlcance(User::query(), $request->user());
+
         return Inertia::render('Administracion/Usuarios/Index', [
             'usuarios' => $usuarios,
             'filtros' => $request->only('busqueda', 'sucursal_id', 'estatus'),
@@ -59,6 +61,13 @@ class UsuarioController extends Controller
             'puestosDisponibles' => Puesto::query()->orderBy('nombre')->get(['id', 'nombre', 'departamento_id']),
             'rolesDisponibles' => Role::query()->orderBy('name')->pluck('name'),
             'estados' => array_map(fn (EstadoUsuario $estado) => ['value' => $estado->value, 'etiqueta' => $estado->etiqueta()], EstadoUsuario::cases()),
+            // Acotadas por el mismo alcance que la tabla: un gerente de sucursal
+            // no debe ver totales de toda la organización en estas tarjetas.
+            'estadisticas' => [
+                'total' => $usuariosVisibles()->count(),
+                'activos' => $usuariosVisibles()->where('estatus', EstadoUsuario::Activo->value)->count(),
+                'inactivos' => $usuariosVisibles()->where('estatus', '!=', EstadoUsuario::Activo->value)->count(),
+            ],
         ]);
     }
 

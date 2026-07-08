@@ -128,4 +128,36 @@ class ReporteCumplimientoService
                 'porcentaje' => $fila->total > 0 ? round(($fila->completadas / $fila->total) * 100, 1) : 0.0,
             ]);
     }
+
+    /**
+     * Mismo cálculo que cumplimientoPorSucursal(), agrupado por
+     * departamento en vez de sucursal, para el dashboard (sección 2 de
+     * docs/AUDITORIA_CUMPLIMIENTO.md — fase de modernización visual). El
+     * aislamiento sigue siendo por sucursal (no existe un "alcance por
+     * departamento" en AlcanceOrganizacionalService): un usuario solo ve el
+     * cumplimiento de los departamentos de sus colaboradores visibles.
+     *
+     * @return Collection<int, array{departamento_id: int, departamento: string, total: int, completadas: int, porcentaje: float}>
+     */
+    public function cumplimientoPorDepartamento(User $usuarioActual): Collection
+    {
+        $usuariosVisiblesIds = $this->alcance->limitarUsuariosPorAlcance(User::query(), $usuarioActual)->pluck('id');
+
+        return DB::table('asignaciones_usuario')
+            ->join('users', 'users.id', '=', 'asignaciones_usuario.user_id')
+            ->join('departamentos', 'departamentos.id', '=', 'users.departamento_id')
+            ->whereIn('users.id', $usuariosVisiblesIds)
+            ->selectRaw('departamentos.id as departamento_id, departamentos.nombre as departamento, count(*) as total')
+            ->selectRaw("sum(case when asignaciones_usuario.estado = 'completada' then 1 else 0 end) as completadas")
+            ->groupBy('departamentos.id', 'departamentos.nombre')
+            ->orderBy('departamentos.nombre')
+            ->get()
+            ->map(fn ($fila) => [
+                'departamento_id' => (int) $fila->departamento_id,
+                'departamento' => (string) $fila->departamento,
+                'total' => (int) $fila->total,
+                'completadas' => (int) $fila->completadas,
+                'porcentaje' => $fila->total > 0 ? round(($fila->completadas / $fila->total) * 100, 1) : 0.0,
+            ]);
+    }
 }

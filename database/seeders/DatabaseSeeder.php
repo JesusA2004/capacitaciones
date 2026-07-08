@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
             PuestoSeeder::class,
             UsuarioDemoSeeder::class,
             CursoInduccionSeeder::class,
+            DashboardDemoSeeder::class,
         ]);
     }
 }
