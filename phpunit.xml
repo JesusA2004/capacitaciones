@@ -32,5 +32,8 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!-- Capacitacion se oculta del frontend por defecto (ver config/features.php),
+             pero las pruebas existentes siguen ejercitando esas rutas directamente. -->
+        <env name="CAPACITACION_ENABLED" value="true"/>
     </php>
 </phpunit>

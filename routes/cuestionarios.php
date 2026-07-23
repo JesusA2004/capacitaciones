@@ -6,7 +6,7 @@ use App\Http\Controllers\Cuestionarios\CuestionarioController;
 use App\Http\Controllers\Cuestionarios\PreguntaController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth', 'verified', 'feature:capacitacion'])->group(function () {
     Route::prefix('bancos-preguntas')->name('bancos-preguntas.')->group(function () {
         Route::get('/', [BancoPreguntaController::class, 'index'])->name('index');
         Route::post('/', [BancoPreguntaController::class, 'store'])->name('store');

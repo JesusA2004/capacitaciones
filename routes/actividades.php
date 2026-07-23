@@ -4,7 +4,7 @@ use App\Http\Controllers\Actividades\ActividadController;
 use App\Http\Controllers\Actividades\CalificacionActividadController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth', 'verified', 'feature:capacitacion'])->group(function () {
     Route::prefix('actividades/{actividad}')->name('actividades.')->group(function () {
         Route::put('/', [ActividadController::class, 'update'])->name('update');
         Route::delete('/', [ActividadController::class, 'destroy'])->name('destroy');

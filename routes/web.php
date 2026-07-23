@@ -12,11 +12,21 @@ Route::get('constancias/verificar/{folio}', [CertificadoVerificacionController::
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('calendario', [CalendarioController::class, 'index'])->name('calendario');
+
+    Route::inertia('capacitacion', 'Capacitacion/Proximamente')->name('capacitacion.proximamente');
+
+    Route::inertia('planeacion-rh', 'PlaneacionRh/Index')
+        ->middleware('role:super_admin')
+        ->name('planeacion-rh');
+
+    Route::middleware('feature:capacitacion')->group(function () {
+        Route::get('calendario', [CalendarioController::class, 'index'])->name('calendario');
+    });
 });
 
 require __DIR__.'/settings.php';
 require __DIR__.'/administracion.php';
+require __DIR__.'/rh.php';
 require __DIR__.'/cursos.php';
 require __DIR__.'/asignaciones.php';
 require __DIR__.'/mi-capacitacion.php';

@@ -14,6 +14,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
 
 /**
  * @property int $id
+ * @property int|null $empresa_id
  * @property string $nombre
  * @property string $clave
  * @property string|null $direccion
@@ -22,6 +23,8 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property string|null $telefono
  * @property int|null $responsable_id
  * @property bool $activo
+ * @property-read Empresa|null $empresa
+ * @property-read User|null $responsable
  */
 class Sucursal extends Model
 {
@@ -30,7 +33,7 @@ class Sucursal extends Model
 
     protected $table = 'sucursales';
 
-    protected $fillable = ['nombre', 'clave', 'direccion', 'ciudad', 'estado', 'telefono', 'responsable_id', 'activo'];
+    protected $fillable = ['empresa_id', 'nombre', 'clave', 'direccion', 'ciudad', 'estado', 'telefono', 'responsable_id', 'activo'];
 
     protected function casts(): array
     {
@@ -45,6 +48,14 @@ class Sucursal extends Model
     public function responsable(): BelongsTo
     {
         return $this->belongsTo(User::class, 'responsable_id');
+    }
+
+    /**
+     * @return BelongsTo<Empresa, $this>
+     */
+    public function empresa(): BelongsTo
+    {
+        return $this->belongsTo(Empresa::class);
     }
 
     /**
@@ -71,7 +82,7 @@ class Sucursal extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['nombre', 'clave', 'direccion', 'ciudad', 'estado', 'telefono', 'responsable_id', 'activo'])
+            ->logOnly(['empresa_id', 'nombre', 'clave', 'direccion', 'ciudad', 'estado', 'telefono', 'responsable_id', 'activo'])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs();
     }

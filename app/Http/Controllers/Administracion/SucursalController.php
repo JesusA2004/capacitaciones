@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Administracion;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Administracion\StoreSucursalRequest;
 use App\Http\Requests\Administracion\UpdateSucursalRequest;
+use App\Models\Empresa;
 use App\Models\Sucursal;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -20,21 +21,23 @@ class SucursalController extends Controller
 
         $sucursales = Sucursal::query()
             ->withCount('usuarios')
-            ->with('responsable:id,name,apellidos')
+            ->with(['responsable:id,name,apellidos', 'empresa:id,nombre'])
             ->when($request->string('busqueda')->toString(), function ($query, string $busqueda) {
                 $query->where(function ($sub) use ($busqueda) {
                     $sub->where('nombre', 'like', "%{$busqueda}%")
                         ->orWhere('clave', 'like', "%{$busqueda}%");
                 });
             })
+            ->when($request->integer('empresa_id'), fn ($query, int $empresaId) => $query->where('empresa_id', $empresaId))
             ->orderBy('nombre')
             ->paginate(15)
             ->withQueryString();
 
         return Inertia::render('Administracion/Sucursales/Index', [
             'sucursales' => $sucursales,
-            'filtros' => $request->only('busqueda'),
+            'filtros' => $request->only('busqueda', 'empresa_id'),
             'responsablesDisponibles' => User::query()->orderBy('name')->get(['id', 'name', 'apellidos']),
+            'empresasDisponibles' => Empresa::query()->orderBy('nombre')->get(['id', 'nombre']),
             'estadisticas' => [
                 'total' => Sucursal::count(),
                 'activos' => Sucursal::where('activo', true)->count(),

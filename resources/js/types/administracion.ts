@@ -1,5 +1,18 @@
+export type EmpresaItem = {
+    id: number;
+    nombre: string;
+    razon_social: string | null;
+    rfc: string | null;
+    logo_path: string | null;
+    logo_url: string | null;
+    activo: boolean;
+    sucursales_count: number;
+};
+
 export type SucursalItem = {
     id: number;
+    empresa_id: number | null;
+    empresa: { id: number; nombre: string } | null;
     nombre: string;
     clave: string;
     direccion: string | null;

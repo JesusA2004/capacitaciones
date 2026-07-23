@@ -1,5 +1,7 @@
 # Arquitectura — Portal de Capacitación Mr. Lana
 
+> A partir del checkpoint "Portal RH" el producto se presenta principalmente como Portal Integral de Colaboradores y RH; capacitación se conserva por completo pero queda oculta tras un feature flag. Ver `docs/PORTAL_RH.md` y `docs/CAPACITACION_PROXIMAMENTE.md`. Este documento describe la arquitectura tal como quedó al cierre de las Fases 1–8 originales y sigue vigente para todo lo que capacitación conserva.
+
 Proyecto completo (Fases 1–8): portal de capacitación empresarial con cursos, biblioteca multimedia con procesamiento y streaming de video, cuestionarios/actividades, sesiones en vivo con integraciones externas, dashboards/reportes/exportaciones, notificaciones/calendario/constancias, y una auditoría final de seguridad y rendimiento. Ver `docs/PLAN_IMPLEMENTACION.md` para el detalle fase por fase.
 
 ## Stack

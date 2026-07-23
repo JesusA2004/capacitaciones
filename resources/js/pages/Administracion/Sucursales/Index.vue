@@ -27,18 +27,20 @@ import { dashboard } from '@/routes';
 import { destroy, index } from '@/routes/administracion/sucursales';
 import type {
     EstadisticasActivoInactivo,
+    OpcionSimple,
     RespuestaPaginada,
     SucursalItem,
 } from '@/types';
 
 const props = defineProps<{
     sucursales: RespuestaPaginada<SucursalItem>;
-    filtros: { busqueda?: string };
+    filtros: { busqueda?: string; empresa_id?: string };
     responsablesDisponibles: {
         id: number;
         name: string;
         apellidos: string | null;
     }[];
+    empresasDisponibles: OpcionSimple[];
     estadisticas: EstadisticasActivoInactivo;
 }>();
 
@@ -58,6 +60,7 @@ const { confirmarEliminacion, mostrarExito, mostrarError } = useAlertas();
 
 const columnas: ColumnaDataTable[] = [
     { clave: 'nombre', etiqueta: 'Sucursal' },
+    { clave: 'empresa', etiqueta: 'Empresa' },
     { clave: 'clave', etiqueta: 'Clave' },
     { clave: 'ciudad', etiqueta: 'Ciudad' },
     { clave: 'usuarios_count', etiqueta: 'Colaboradores' },
@@ -161,6 +164,11 @@ async function eliminar(sucursal: SucursalItem) {
                 </CrudEmptyState>
             </template>
 
+            <template #celda-empresa="{ fila }">
+                <span class="text-muted-foreground">{{
+                    fila.empresa?.nombre ?? '—'
+                }}</span>
+            </template>
             <template #celda-ciudad="{ fila }">
                 <span
                     v-if="fila.ciudad"
@@ -231,6 +239,7 @@ async function eliminar(sucursal: SucursalItem) {
         v-model:open="dialogAbierto"
         :sucursal="sucursalSeleccionada"
         :responsables-disponibles="responsablesDisponibles"
+        :empresas-disponibles="empresasDisponibles"
         :key="sucursalSeleccionada?.id ?? 'nueva'"
     />
 </template>

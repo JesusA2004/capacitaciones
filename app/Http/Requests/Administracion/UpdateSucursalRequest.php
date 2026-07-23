@@ -18,6 +18,7 @@ class UpdateSucursalRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'empresa_id' => ['required', 'integer', 'exists:empresas,id'],
             'nombre' => ['required', 'string', 'max:150'],
             'clave' => ['required', 'string', 'max:20', Rule::unique('sucursales', 'clave')->ignore($this->route('sucursal'))],
             'direccion' => ['nullable', 'string', 'max:255'],

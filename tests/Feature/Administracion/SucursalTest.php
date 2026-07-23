@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Empresa;
 use App\Models\Sucursal;
 use App\Models\User;
 use Database\Seeders\RolesYPermisosSeeder;
@@ -9,11 +10,13 @@ beforeEach(function () {
 });
 
 test('un administrador de capacitacion puede crear una sucursal', function () {
+    $empresa = Empresa::factory()->create();
     $usuario = User::factory()->create();
     $usuario->assignRole('administrador_capacitacion');
 
     $this->actingAs($usuario)
         ->post(route('administracion.sucursales.store'), [
+            'empresa_id' => $empresa->id,
             'nombre' => 'Sucursal Puebla',
             'clave' => 'PUE01',
             'activo' => true,
@@ -33,13 +36,15 @@ test('un colaborador no puede crear sucursales', function () {
 });
 
 test('la clave de sucursal debe ser unica', function () {
-    Sucursal::factory()->create(['clave' => 'PUE01']);
+    $empresa = Empresa::factory()->create();
+    Sucursal::factory()->create(['empresa_id' => $empresa->id, 'clave' => 'PUE01']);
 
     $usuario = User::factory()->create();
     $usuario->assignRole('super_admin');
 
     $this->actingAs($usuario)
         ->post(route('administracion.sucursales.store'), [
+            'empresa_id' => $empresa->id,
             'nombre' => 'Otra sucursal',
             'clave' => 'PUE01',
             'activo' => true,
@@ -48,12 +53,14 @@ test('la clave de sucursal debe ser unica', function () {
 });
 
 test('un super_admin puede actualizar y eliminar una sucursal', function () {
-    $sucursal = Sucursal::factory()->create();
+    $empresa = Empresa::factory()->create();
+    $sucursal = Sucursal::factory()->create(['empresa_id' => $empresa->id]);
     $usuario = User::factory()->create();
     $usuario->assignRole('super_admin');
 
     $this->actingAs($usuario)
         ->put(route('administracion.sucursales.update', $sucursal), [
+            'empresa_id' => $empresa->id,
             'nombre' => 'Sucursal Renombrada',
             'clave' => $sucursal->clave,
             'activo' => true,

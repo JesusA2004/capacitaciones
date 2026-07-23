@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Administracion\DepartamentoController;
+use App\Http\Controllers\Administracion\EmpresaController;
 use App\Http\Controllers\Administracion\PuestoController;
 use App\Http\Controllers\Administracion\RolController;
 use App\Http\Controllers\Administracion\SucursalController;
@@ -11,6 +12,13 @@ Route::middleware(['auth', 'verified'])
     ->prefix('administracion')
     ->name('administracion.')
     ->group(function () {
+        Route::prefix('empresas')->name('empresas.')->group(function () {
+            Route::get('/', [EmpresaController::class, 'index'])->name('index');
+            Route::post('/', [EmpresaController::class, 'store'])->name('store');
+            Route::post('{empresa}', [EmpresaController::class, 'update'])->name('update');
+            Route::delete('{empresa}', [EmpresaController::class, 'destroy'])->name('destroy');
+        });
+
         Route::prefix('roles')->name('roles.')->group(function () {
             Route::get('/', [RolController::class, 'index'])->name('index');
             Route::post('/', [RolController::class, 'store'])->name('store');

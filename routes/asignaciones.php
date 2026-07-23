@@ -3,7 +3,7 @@
 use App\Http\Controllers\Asignaciones\AsignacionController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth', 'verified'])
+Route::middleware(['auth', 'verified', 'feature:capacitacion'])
     ->prefix('asignaciones')
     ->name('asignaciones.')
     ->group(function () {

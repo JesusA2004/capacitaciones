@@ -1,26 +1,11 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
-import { ClipboardCheck } from '@lucide/vue';
-import BranchComplianceChart from '@/components/Dashboard/BranchComplianceChart.vue';
-import DashboardHero from '@/components/Dashboard/DashboardHero.vue';
-import GraficasOrganizacion from '@/components/Dashboard/GraficasOrganizacion.vue';
-import ProximasSesionesCard from '@/components/Dashboard/ProximasSesionesCard.vue';
+import DashboardRhContenido from '@/components/Dashboard/DashboardRhContenido.vue';
 import Heading from '@/components/Heading.vue';
 import { dashboard } from '@/routes';
-import type {
-    CumplimientoSucursalItem,
-    GraficasOrganizacion as GraficasOrganizacionType,
-    ResumenCumplimiento,
-    SesionProximaItem,
-} from '@/types';
+import type { DashboardRhProps } from '@/types';
 
-defineProps<{
-    resumen: ResumenCumplimiento;
-    cumplimientoPorSucursal: CumplimientoSucursalItem[];
-    pendientesCalificar: number;
-    proximasSesiones: SesionProximaItem[];
-    graficas: GraficasOrganizacionType;
-}>();
+defineProps<DashboardRhProps>();
 
 defineOptions({
     layout: {
@@ -32,29 +17,18 @@ defineOptions({
 <template>
     <Head title="Inicio" />
 
-    <div class="flex flex-col gap-8 p-4">
+    <div class="flex flex-col gap-6 p-4">
         <Heading
-            title="Inicio"
-            description="Resumen de capacitación de tu sucursal."
+            title="Portal RH"
+            description="Colaboradores, expedientes y documentos dentro de tu alcance (tu sucursal o tu equipo)."
         />
 
-        <DashboardHero :resumen="resumen" />
-
-        <div
-            v-if="pendientesCalificar > 0"
-            class="flex items-center gap-3 rounded-2xl border border-warning/30 bg-warning/10 p-4 text-sm shadow-sm"
-        >
-            <ClipboardCheck class="size-5 shrink-0 text-warning" />
-            Tienes
-            <strong class="tabular-nums">{{ pendientesCalificar }}</strong>
-            entrega(s) pendiente(s) de calificar.
-        </div>
-
-        <div class="grid gap-4 lg:grid-cols-2">
-            <BranchComplianceChart :filas="cumplimientoPorSucursal" />
-            <ProximasSesionesCard :sesiones="proximasSesiones" />
-        </div>
-
-        <GraficasOrganizacion :graficas="graficas" />
+        <DashboardRhContenido
+            :cards="cards"
+            :graficas="graficas"
+            :proximos-aniversarios="proximosAniversarios"
+            :documentos-pendientes-revision="documentosPendientesRevision"
+            :alertas="alertas"
+        />
     </div>
 </template>

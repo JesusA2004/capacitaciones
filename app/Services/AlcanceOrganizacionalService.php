@@ -18,10 +18,13 @@ class AlcanceOrganizacionalService
 {
     /**
      * Roles con acceso a toda la organizacion, sin restriccion de sucursal.
+     * rh_admin/rh_auxiliar se agregaron con el Portal RH: el personal de RH
+     * opera sobre toda la organizacion, no solo su propia sucursal (a
+     * diferencia de gerente_sucursal). Ver docs/ROLES_PERMISOS_RH.md.
      *
      * @var array<int, string>
      */
-    private const ROLES_ALCANCE_GLOBAL = ['super_admin', 'administrador_capacitacion', 'auditor'];
+    private const ROLES_ALCANCE_GLOBAL = ['super_admin', 'administrador_capacitacion', 'auditor', 'rh_admin', 'rh_auxiliar'];
 
     /**
      * Roles restringidos a sus sucursales autorizadas (principal + adicionales).
@@ -70,6 +73,10 @@ class AlcanceOrganizacionalService
             return $query->whereIn('sucursal_principal_id', $this->sucursalesVisiblesIds($usuario));
         }
 
+        if ($usuario->hasRole('jefe_directo')) {
+            return $query->where('jefe_id', $usuario->id);
+        }
+
         return $query->where('id', $usuario->id);
     }
 
@@ -82,6 +89,10 @@ class AlcanceOrganizacionalService
         if ($this->tieneAlcanceDeSucursal($usuario)) {
             return $objetivo->sucursal_principal_id !== null
                 && $this->sucursalesVisiblesIds($usuario)->contains($objetivo->sucursal_principal_id);
+        }
+
+        if ($usuario->hasRole('jefe_directo')) {
+            return $objetivo->jefe_id === $usuario->id;
         }
 
         return false;
@@ -124,5 +135,43 @@ class AlcanceOrganizacionalService
         }
 
         return User::query()->whereIn('sucursal_principal_id', $this->sucursalesVisiblesIds($revisor))->pluck('id');
+    }
+
+    /**
+     * Acota la consulta de colaboradores para el explorador de expedientes
+     * (Portal RH). Reutiliza el mismo criterio de alcance de
+     * limitarUsuariosPorAlcance() (incluye jefe_directo via jefe_id), pero
+     * exige ademas el permiso especifico de expedientes: alguien con
+     * alcance global que no tenga `expedientes.ver_todos` no debe ver el
+     * expediente de nadie mas que el suyo (p. ej. auditor con auditoria.ver
+     * pero sin expedientes.* explicito, si se reconfigura desde Administracion > Roles).
+     *
+     * @param  Builder<User>  $query
+     * @return Builder<User>
+     */
+    public function limitarExpedientesPorAlcance(Builder $query, User $usuario): Builder
+    {
+        if ($usuario->can('expedientes.ver_todos') || $usuario->can('expedientes.ver_sucursal')) {
+            return $this->limitarUsuariosPorAlcance($query, $usuario);
+        }
+
+        return $query->where('id', $usuario->id);
+    }
+
+    /**
+     * Igual criterio que limitarExpedientesPorAlcance(), pero para un
+     * colaborador ya cargado en memoria (vista de expediente individual).
+     */
+    public function puedeVerExpediente(User $usuario, User $colaborador): bool
+    {
+        if ($usuario->is($colaborador)) {
+            return $usuario->can('expedientes.ver');
+        }
+
+        if (! $usuario->can('expedientes.ver_todos') && ! $usuario->can('expedientes.ver_sucursal')) {
+            return false;
+        }
+
+        return $this->puedeVerUsuario($usuario, $colaborador);
     }
 }

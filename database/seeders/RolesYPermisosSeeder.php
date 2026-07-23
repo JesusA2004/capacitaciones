@@ -48,6 +48,55 @@ class RolesYPermisosSeeder extends Seeder
         'integraciones.administrar',
         'configuracion.administrar',
         'auditoria.ver',
+
+        // --- Portal RH (ver docs/ROLES_PERMISOS_RH.md) ---
+        // Empresas (multiempresa)
+        'empresas.ver',
+        'empresas.crear',
+        'empresas.editar',
+        'empresas.eliminar',
+        // Expedientes
+        'expedientes.ver',
+        'expedientes.ver_todos',
+        'expedientes.ver_sucursal',
+        'expedientes.crear',
+        'expedientes.editar',
+        'expedientes.revisar',
+        'expedientes.eliminar',
+        // Documentos
+        'documentos.ver',
+        'documentos.subir',
+        'documentos.descargar',
+        'documentos.revisar',
+        'documentos.aprobar',
+        'documentos.rechazar',
+        'documentos.versiones',
+        // Altas digitales (Fase 2, catalogo desde ahora)
+        'altas.ver',
+        'altas.crear',
+        'altas.enviar',
+        'altas.revisar',
+        'altas.aprobar',
+        'altas.cancelar',
+        // Vacaciones (Fase 3, catalogo desde ahora)
+        'vacaciones.ver',
+        'vacaciones.solicitar',
+        'vacaciones.aprobar',
+        'vacaciones.rechazar',
+        'vacaciones.ajustar',
+        'vacaciones.reportes',
+        // Solicitudes RH (Fase 3, catalogo desde ahora)
+        'solicitudes.ver',
+        'solicitudes.crear',
+        'solicitudes.revisar',
+        'solicitudes.aprobar',
+        'solicitudes.rechazar',
+        'solicitudes.cerrar',
+        // Reportes RH (Fase 4, catalogo desde ahora)
+        'reportes_rh.ver',
+        'reportes_rh.exportar',
+        'reportes_rh.globales',
+        'reportes_rh.sucursal',
     ];
 
     /**
@@ -80,12 +129,51 @@ class RolesYPermisosSeeder extends Seeder
             'sesiones.administrar', 'asistencias.ver',
             'reportes.sucursal',
         ],
+
+        // --- Roles del Portal RH (docs/ROLES_PERMISOS_RH.md) ---
+
+        // Administra todo el modulo RH (expedientes, documentos, altas,
+        // vacaciones, solicitudes, reportes) para toda la organizacion, pero
+        // no configura empresas.eliminar/roles.administrar/configuracion
+        // (reservado a super_admin).
+        'rh_admin' => [
+            'dashboard.global.ver',
+            'usuarios.ver', 'usuarios.crear', 'usuarios.editar', 'usuarios.desactivar',
+            'sucursales.administrar', 'departamentos.administrar', 'puestos.administrar',
+            'empresas.ver', 'empresas.crear', 'empresas.editar',
+            'expedientes.ver', 'expedientes.ver_todos', 'expedientes.crear', 'expedientes.editar', 'expedientes.revisar',
+            'documentos.ver', 'documentos.subir', 'documentos.descargar', 'documentos.revisar', 'documentos.aprobar', 'documentos.rechazar', 'documentos.versiones',
+            'altas.ver', 'altas.crear', 'altas.enviar', 'altas.revisar', 'altas.aprobar', 'altas.cancelar',
+            'vacaciones.ver', 'vacaciones.solicitar', 'vacaciones.aprobar', 'vacaciones.rechazar', 'vacaciones.ajustar', 'vacaciones.reportes',
+            'solicitudes.ver', 'solicitudes.crear', 'solicitudes.revisar', 'solicitudes.aprobar', 'solicitudes.rechazar', 'solicitudes.cerrar',
+            'reportes_rh.ver', 'reportes_rh.exportar', 'reportes_rh.globales', 'reportes_rh.sucursal',
+            'auditoria.ver',
+        ],
+
+        // Apoyo operativo de RH: puede capturar/revisar pero no aprobar
+        // decisiones finales (documentos, altas, vacaciones, solicitudes).
+        'rh_auxiliar' => [
+            'dashboard.global.ver',
+            'usuarios.ver',
+            'expedientes.ver', 'expedientes.ver_todos',
+            'documentos.ver', 'documentos.subir', 'documentos.descargar', 'documentos.revisar',
+            'altas.ver', 'altas.crear', 'altas.enviar',
+            'vacaciones.ver',
+            'solicitudes.ver', 'solicitudes.revisar',
+            'reportes_rh.ver',
+        ],
+
         'gerente_sucursal' => [
             'dashboard.sucursal.ver',
             'usuarios.ver', 'usuarios.editar',
             'asignaciones.ver',
             'asistencias.ver',
             'reportes.sucursal', 'reportes.exportar',
+            'expedientes.ver', 'expedientes.ver_sucursal',
+            'documentos.ver',
+            'vacaciones.ver', 'vacaciones.solicitar', 'vacaciones.aprobar',
+            'solicitudes.ver', 'solicitudes.revisar', 'solicitudes.aprobar',
+            'reportes_rh.ver', 'reportes_rh.sucursal',
         ],
         'supervisor' => [
             'dashboard.sucursal.ver',
@@ -93,7 +181,29 @@ class RolesYPermisosSeeder extends Seeder
             'asistencias.ver',
             'reportes.sucursal',
         ],
-        'colaborador' => [],
+
+        // Ve y aprueba vacaciones/solicitudes de sus subordinados directos
+        // (jefe_id), un alcance mas estrecho que gerente_sucursal (que ve
+        // toda la sucursal). Ver AlcanceOrganizacionalService.
+        'jefe_directo' => [
+            'dashboard.sucursal.ver',
+            // ver_sucursal es el permiso "puedo ver expedientes mas alla del
+            // mio" que exige AlcanceOrganizacionalService::puedeVerExpediente();
+            // el alcance real para este rol se acota a sus subordinados
+            // directos (jefe_id), no a toda la sucursal, en
+            // limitarUsuariosPorAlcance()/puedeVerUsuario().
+            'expedientes.ver', 'expedientes.ver_sucursal',
+            'documentos.ver',
+            'vacaciones.ver', 'vacaciones.solicitar', 'vacaciones.aprobar',
+            'solicitudes.ver', 'solicitudes.revisar', 'solicitudes.aprobar',
+        ],
+
+        'colaborador' => [
+            'expedientes.ver',
+            'documentos.ver', 'documentos.subir', 'documentos.descargar',
+            'vacaciones.ver', 'vacaciones.solicitar',
+            'solicitudes.ver', 'solicitudes.crear',
+        ],
         'auditor' => [
             'dashboard.global.ver',
             'usuarios.ver',
@@ -101,6 +211,12 @@ class RolesYPermisosSeeder extends Seeder
             'asistencias.ver',
             'reportes.globales', 'reportes.sucursal', 'reportes.exportar',
             'auditoria.ver',
+            'empresas.ver',
+            'expedientes.ver', 'expedientes.ver_todos',
+            'documentos.ver',
+            'vacaciones.ver',
+            'solicitudes.ver',
+            'reportes_rh.ver', 'reportes_rh.globales', 'reportes_rh.sucursal',
         ],
     ];
 

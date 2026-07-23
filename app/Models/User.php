@@ -36,6 +36,14 @@ use Spatie\Permission\Traits\HasRoles;
  * @property Carbon|null $ultimo_acceso
  * @property string $zona_horaria
  * @property array<string, mixed>|null $preferencias_notificaciones
+ * @property Carbon|null $fecha_nacimiento
+ * @property string|null $curp
+ * @property string|null $rfc
+ * @property string|null $nss
+ * @property string|null $domicilio
+ * @property string|null $correo_personal
+ * @property string|null $contacto_emergencia_nombre
+ * @property string|null $contacto_emergencia_telefono
  * @property Carbon|null $email_verified_at
  * @property string $password
  * @property string|null $two_factor_secret
@@ -44,11 +52,17 @@ use Spatie\Permission\Traits\HasRoles;
  * @property string|null $remember_token
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
+ * @property-read Sucursal|null $sucursalPrincipal
+ * @property-read Departamento|null $departamento
+ * @property-read Puesto|null $puesto
+ * @property-read User|null $jefe
  */
 #[Fillable([
     'name', 'apellidos', 'numero_empleado', 'email', 'password', 'telefono', 'foto_path',
     'sucursal_principal_id', 'departamento_id', 'puesto_id', 'jefe_id',
     'fecha_ingreso', 'estatus', 'zona_horaria', 'preferencias_notificaciones',
+    'fecha_nacimiento', 'curp', 'rfc', 'nss', 'domicilio',
+    'correo_personal', 'contacto_emergencia_nombre', 'contacto_emergencia_telefono',
 ])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable
@@ -70,6 +84,7 @@ class User extends Authenticatable
             'estatus' => EstadoUsuario::class,
             'ultimo_acceso' => 'datetime',
             'preferencias_notificaciones' => 'array',
+            'fecha_nacimiento' => 'date',
         ];
     }
 
@@ -106,6 +121,28 @@ class User extends Authenticatable
     public function sucursalesAdicionales(): BelongsToMany
     {
         return $this->belongsToMany(Sucursal::class, 'sucursal_user');
+    }
+
+    /**
+     * La empresa se resuelve de forma indirecta a traves de la sucursal
+     * principal (no hay columna empresa_id propia en users): un colaborador
+     * "pertenece" a la empresa de su sucursal. No es una relacion Eloquent
+     * (no existe belongsTo-a-traves-de-belongsTo nativo) sino un helper de
+     * lectura; para evitar N+1 al listar varios usuarios, carga la relacion
+     * con `with(['sucursalPrincipal.empresa'])` antes de llamarlo. Ver
+     * docs/MULTIEMPRESA.md.
+     */
+    public function empresa(): ?Empresa
+    {
+        return $this->sucursalPrincipal?->empresa;
+    }
+
+    /**
+     * @return HasMany<EmployeeDocument, $this>
+     */
+    public function documentos(): HasMany
+    {
+        return $this->hasMany(EmployeeDocument::class, 'user_id');
     }
 
     /**

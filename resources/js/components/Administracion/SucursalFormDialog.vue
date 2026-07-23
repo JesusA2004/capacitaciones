@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { store, update } from '@/routes/administracion/sucursales';
-import type { SucursalItem } from '@/types';
+import type { OpcionSimple, SucursalItem } from '@/types';
 
 type ResponsableOpcion = { id: number; name: string; apellidos: string | null };
 
@@ -29,6 +29,7 @@ const props = defineProps<{
     open: boolean;
     sucursal?: SucursalItem | null;
     responsablesDisponibles: ResponsableOpcion[];
+    empresasDisponibles: OpcionSimple[];
 }>();
 
 const emit = defineEmits<{
@@ -36,6 +37,9 @@ const emit = defineEmits<{
 }>();
 
 const form = useForm({
+    empresa_id: props.sucursal?.empresa_id
+        ? String(props.sucursal.empresa_id)
+        : '',
     nombre: props.sucursal?.nombre ?? '',
     clave: props.sucursal?.clave ?? '',
     direccion: props.sucursal?.direccion ?? '',
@@ -78,6 +82,25 @@ function enviar() {
             </DialogHeader>
 
             <form class="grid gap-4" @submit.prevent="enviar">
+                <div class="grid gap-2">
+                    <Label>Empresa</Label>
+                    <Select v-model="form.empresa_id">
+                        <SelectTrigger class="w-full">
+                            <SelectValue placeholder="Selecciona una empresa" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem
+                                v-for="opcion in empresasDisponibles"
+                                :key="opcion.id"
+                                :value="String(opcion.id)"
+                            >
+                                {{ opcion.nombre }}
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <InputError :message="form.errors.empresa_id" />
+                </div>
+
                 <div class="grid grid-cols-2 gap-4">
                     <div class="grid gap-2">
                         <Label for="nombre">Nombre</Label>

@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Route;
 // única protección real de esta ruta.
 Route::post('webhooks/zoom', ZoomWebhookController::class)->name('webhooks.zoom');
 
-Route::middleware(['auth', 'verified'])->prefix('sesiones/{sesion}')->name('sesiones.')->group(function () {
+Route::middleware(['auth', 'verified', 'feature:capacitacion'])->prefix('sesiones/{sesion}')->name('sesiones.')->group(function () {
     Route::put('/', [SesionEnVivoController::class, 'update'])->name('update');
     Route::delete('/', [SesionEnVivoController::class, 'destroy'])->name('destroy');
 

@@ -13,7 +13,7 @@ import AppLogoIcon from '@/components/AppLogoIcon.vue';
             Mr. <span class="text-[var(--brand-primary)]">Lana</span>
         </span>
         <span class="truncate text-xs text-muted-foreground"
-            >Portal de Capacitación</span
+            >Portal de Colaboradores y RH</span
         >
     </div>
 </template>

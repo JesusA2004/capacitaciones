@@ -19,10 +19,12 @@ import { dashboard, login } from '@/routes';
             </span>
 
             <div class="space-y-2">
-                <h1 class="text-xl font-semibold">Portal de Capacitación</h1>
+                <h1 class="text-xl font-semibold">
+                    Portal Integral de Colaboradores y RH
+                </h1>
                 <p class="text-sm text-muted-foreground">
-                    Inducción, capacitaciones obligatorias, evaluaciones y
-                    seguimiento para colaboradores de Mr. Lana.
+                    Expedientes, documentos, vacaciones y solicitudes para
+                    colaboradores de Mr. Lana.
                 </p>
             </div>
 
@@ -31,7 +33,7 @@ import { dashboard, login } from '@/routes';
                 :href="dashboard()"
                 class="inline-flex h-10 items-center justify-center rounded-md bg-[var(--brand-primary)] px-6 text-sm font-medium text-[var(--brand-foreground)] transition-colors hover:opacity-90"
             >
-                Ir a mi capacitación
+                Ir a mi portal
             </Link>
             <Link
                 v-else

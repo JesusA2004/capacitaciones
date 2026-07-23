@@ -8,7 +8,7 @@ use App\Http\Controllers\MiCapacitacion\ReproduccionController;
 use App\Http\Controllers\MiCapacitacion\SesionEnVivoController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth', 'verified'])
+Route::middleware(['auth', 'verified', 'feature:capacitacion'])
     ->prefix('mi-capacitacion')
     ->name('mi-capacitacion.')
     ->group(function () {

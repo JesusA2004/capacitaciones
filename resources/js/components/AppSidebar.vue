@@ -2,16 +2,12 @@
 import { Link } from '@inertiajs/vue3';
 import {
     Briefcase,
-    BookOpen,
     Building2,
-    CalendarDays,
-    CheckSquare,
-    ClipboardList,
-    FolderOpen,
+    FolderKanban,
     GraduationCap,
-    HelpCircle,
+    Landmark,
     LayoutGrid,
-    LineChart,
+    Map,
     ShieldCheck,
     Users,
 } from '@lucide/vue';
@@ -29,102 +25,69 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { usePermisos } from '@/composables/usePermisos';
-import { calendario, dashboard } from '@/routes';
+import { dashboard, miExpediente, planeacionRh } from '@/routes';
 import { index as indexDepartamentos } from '@/routes/administracion/departamentos';
+import { index as indexEmpresas } from '@/routes/administracion/empresas';
 import { index as indexPuestos } from '@/routes/administracion/puestos';
 import { index as indexRoles } from '@/routes/administracion/roles';
 import { index as indexSucursales } from '@/routes/administracion/sucursales';
 import { index as indexUsuarios } from '@/routes/administracion/usuarios';
-import { index as indexAsignaciones } from '@/routes/asignaciones';
-import { index as indexBancosPreguntas } from '@/routes/bancos-preguntas';
-import { index as indexCalificacionesActividades } from '@/routes/calificaciones/actividades';
-import { index as indexCalificacionesCuestionarios } from '@/routes/calificaciones/cuestionarios';
-import { index as indexCursos } from '@/routes/cursos';
-import { index as indexMiCapacitacion } from '@/routes/mi-capacitacion';
-import { index as indexMultimedia } from '@/routes/multimedia';
-import { index as indexReporteCumplimiento } from '@/routes/reportes/cumplimiento';
+import { proximamente as capacitacionProximamente } from '@/routes/capacitacion';
+import { index as indexExpedientes } from '@/routes/rh/expedientes';
 import type { NavItem } from '@/types';
 
-const { tienePermiso } = usePermisos();
+const { tienePermiso, tieneRol } = usePermisos();
 
-const mainNavItems: NavItem[] = [
-    {
-        title: 'Inicio',
-        href: dashboard(),
-        icon: LayoutGrid,
-    },
-    {
-        title: 'Mi capacitación',
-        href: indexMiCapacitacion(),
-        icon: GraduationCap,
-    },
-    {
-        title: 'Calendario',
-        href: calendario(),
-        icon: CalendarDays,
-    },
-];
-
-const capacitacionNavItems = computed<NavItem[]>(() => {
-    const items: NavItem[] = [];
-
-    if (tienePermiso('cursos.ver')) {
-        items.push({ title: 'Cursos', href: indexCursos(), icon: BookOpen });
-    }
-
-    if (tienePermiso('asignaciones.ver')) {
-        items.push({
-            title: 'Asignaciones',
-            href: indexAsignaciones(),
-            icon: ClipboardList,
-        });
-    }
-
-    if (tienePermiso('multimedia.administrar')) {
-        items.push({
-            title: 'Biblioteca multimedia',
-            href: indexMultimedia(),
-            icon: FolderOpen,
-        });
-    }
-
-    if (tienePermiso('cuestionarios.administrar')) {
-        items.push({
-            title: 'Banco de preguntas',
-            href: indexBancosPreguntas(),
-            icon: HelpCircle,
-        });
-    }
-
-    if (tienePermiso('respuestas.calificar')) {
-        items.push({
-            title: 'Calificar cuestionarios',
-            href: indexCalificacionesCuestionarios(),
-            icon: CheckSquare,
-        });
-        items.push({
-            title: 'Calificar actividades',
-            href: indexCalificacionesActividades(),
-            icon: CheckSquare,
-        });
-    }
+// El Portal RH es la experiencia principal (ver docs/PORTAL_RH.md).
+// Capacitación se conserva por completo, pero queda oculta detrás del
+// feature flag `capacitacion` (config/features.php) y solo aparece como un
+// único acceso con badge "Próximamente" (docs/CAPACITACION_PROXIMAMENTE.md).
+const mainNavItems = computed<NavItem[]>(() => {
+    const items: NavItem[] = [
+        {
+            title: 'Inicio',
+            href: dashboard(),
+            icon: LayoutGrid,
+        },
+    ];
 
     if (
-        tienePermiso('reportes.sucursal') ||
-        tienePermiso('reportes.globales')
+        tienePermiso('expedientes.ver_todos') ||
+        tienePermiso('expedientes.ver_sucursal')
     ) {
         items.push({
-            title: 'Reporte de cumplimiento',
-            href: indexReporteCumplimiento(),
-            icon: LineChart,
+            title: 'Expedientes',
+            href: indexExpedientes(),
+            icon: FolderKanban,
+        });
+    } else if (tienePermiso('expedientes.ver')) {
+        items.push({
+            title: 'Mi expediente',
+            href: miExpediente(),
+            icon: FolderKanban,
         });
     }
+
+    items.push({
+        title: 'Capacitación',
+        href: capacitacionProximamente(),
+        icon: GraduationCap,
+        badge: 'Próximamente',
+    });
 
     return items;
 });
 
 const adminNavItems = computed<NavItem[]>(() => {
     const items: NavItem[] = [];
+
+    if (tienePermiso('empresas.ver')) {
+        items.push({
+            title: 'Empresas',
+            href: indexEmpresas(),
+            icon: Landmark,
+        });
+    }
 
     if (tienePermiso('usuarios.ver')) {
         items.push({
@@ -162,6 +125,14 @@ const adminNavItems = computed<NavItem[]>(() => {
         });
     }
 
+    if (tieneRol('super_admin')) {
+        items.push({
+            title: 'Planeación RH',
+            href: planeacionRh(),
+            icon: Map,
+        });
+    }
+
     return items;
 });
 </script>
@@ -182,11 +153,6 @@ const adminNavItems = computed<NavItem[]>(() => {
 
         <SidebarContent>
             <NavMain :items="mainNavItems" />
-            <NavMain
-                v-if="capacitacionNavItems.length"
-                :items="capacitacionNavItems"
-                titulo="Capacitación"
-            />
             <NavMain
                 v-if="adminNavItems.length"
                 :items="adminNavItems"

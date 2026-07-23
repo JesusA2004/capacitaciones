@@ -1,133 +1,147 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
-import { BookOpen, CheckCircle2, Star } from '@lucide/vue';
-import { computed } from 'vue';
-import DashboardChartCard from '@/components/Dashboard/DashboardChartCard.vue';
-import DashboardSection from '@/components/Dashboard/DashboardSection.vue';
-import KpiCard from '@/components/Dashboard/KpiCard.vue';
+import { Head, Link } from '@inertiajs/vue3';
+import {
+    CalendarDays,
+    ClipboardList,
+    FileWarning,
+    FolderOpen,
+    GraduationCap,
+    ShieldCheck,
+} from '@lucide/vue';
+import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import MetricCard from '@/components/Dashboard/MetricCard.vue';
-import ProximasSesionesCard from '@/components/Dashboard/ProximasSesionesCard.vue';
 import Heading from '@/components/Heading.vue';
-import { asistenciaADonut, parADonut } from '@/lib/graficas';
-import { dashboard } from '@/routes';
-import { index as indexMiCapacitacion } from '@/routes/mi-capacitacion';
-import type { GraficasColaborador, SesionProximaItem } from '@/types';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { dashboard, miExpediente as rutaMiExpediente } from '@/routes';
+import { proximamente } from '@/routes/capacitacion';
+import type { DashboardColaboradorProps } from '@/types';
 
-const props = defineProps<{
-    cursosEnProgreso: number;
-    cursosCompletados: number;
-    proximasSesiones: SesionProximaItem[];
-    graficas: GraficasColaborador;
-}>();
+defineProps<DashboardColaboradorProps>();
 
 defineOptions({
     layout: {
         breadcrumbs: [{ title: 'Inicio', href: dashboard() }],
     },
 });
-
-const cursosDonut = computed(() => [
-    {
-        clave: 'completados',
-        etiqueta: 'Completados',
-        valor: props.graficas.cursosPorEstado.completados,
-    },
-    {
-        clave: 'en_progreso',
-        etiqueta: 'En progreso',
-        valor: props.graficas.cursosPorEstado.en_progreso,
-    },
-    {
-        clave: 'pendientes',
-        etiqueta: 'Pendientes',
-        valor: props.graficas.cursosPorEstado.pendientes,
-    },
-]);
-
-const asistenciaDonut = computed(() =>
-    asistenciaADonut(props.graficas.asistenciaSesiones),
-);
-
-const videosDonut = computed(() =>
-    parADonut(
-        props.graficas.videosCompletados.completados,
-        props.graficas.videosCompletados.total -
-            props.graficas.videosCompletados.completados,
-        'Vistos',
-        'Pendientes',
-    ),
-);
 </script>
 
 <template>
     <Head title="Inicio" />
 
-    <div class="flex flex-col gap-8 p-4">
+    <div class="flex flex-col gap-6 p-4">
         <Heading
             title="Inicio"
-            description="Tu resumen de capacitación: qué tienes pendiente y qué ya completaste."
+            description="Tu expediente, documentos y solicitudes en un solo lugar."
         />
 
-        <DashboardSection titulo="Tu avance" :columnas="3">
-            <KpiCard
-                titulo="Cursos en progreso"
-                :valor="cursosEnProgreso"
-                :icono="BookOpen"
-                tono="info"
-                :href="indexMiCapacitacion.url()"
-            />
-            <KpiCard
-                titulo="Cursos completados"
-                :valor="cursosCompletados"
-                :icono="CheckCircle2"
-                tono="success"
+        <Card class="rounded-3xl border-border/60">
+            <CardHeader class="flex-row items-center justify-between">
+                <CardTitle class="flex items-center gap-2 text-base">
+                    <FolderOpen class="size-4" />
+                    Mi expediente
+                </CardTitle>
+                <Link
+                    :href="rutaMiExpediente()"
+                    class="text-xs font-medium text-primary hover:underline"
+                    >Ver expediente completo →</Link
+                >
+            </CardHeader>
+            <CardContent class="flex flex-col gap-3">
+                <div class="flex items-center gap-3">
+                    <Progress
+                        :model-value="miExpediente.porcentaje"
+                        class="h-2"
+                    />
+                    <span class="shrink-0 text-sm font-semibold tabular-nums"
+                        >{{ miExpediente.porcentaje }}%</span
+                    >
+                </div>
+                <p class="text-sm text-muted-foreground">
+                    {{ miExpediente.pendientes }} documento(s) pendiente(s) o
+                    por corregir.
+                </p>
+            </CardContent>
+        </Card>
+
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <MetricCard
+                titulo="Documentos pendientes"
+                :valor="misDocumentosPendientes.length"
+                :icono="FileWarning"
+                tono="warning"
             />
             <MetricCard
-                titulo="Calificación promedio"
-                :valor="graficas.calificacionPromedio"
-                subvalor="de 100"
-                :icono="Star"
+                titulo="Vacaciones disponibles"
+                valor="—"
+                subvalor="Próximamente"
+                :icono="CalendarDays"
             />
-        </DashboardSection>
+            <MetricCard
+                titulo="Mis solicitudes"
+                valor="—"
+                subvalor="Próximamente"
+                :icono="ClipboardList"
+            />
+        </div>
 
-        <DashboardSection
-            titulo="Tu actividad"
-            descripcion="Cómo va tu capacitación en los cursos asignados."
-            :columnas="3"
+        <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <Card class="rounded-2xl border-border/60">
+                <CardHeader>
+                    <CardTitle class="flex items-center gap-2 text-base">
+                        <FileWarning class="size-4" />
+                        Mis documentos pendientes
+                    </CardTitle>
+                </CardHeader>
+                <CardContent class="flex flex-col gap-3">
+                    <p
+                        v-if="!misDocumentosPendientes.length"
+                        class="text-sm text-muted-foreground"
+                    >
+                        No tienes documentos pendientes. 🎉
+                    </p>
+                    <div
+                        v-for="doc in misDocumentosPendientes"
+                        :key="doc.id"
+                        class="flex items-center justify-between gap-2 text-sm"
+                    >
+                        <span class="truncate">{{ doc.tipo }}</span>
+                        <EstadoBadge :estado="doc.status" />
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card class="rounded-2xl border-border/60">
+                <CardHeader>
+                    <CardTitle class="flex items-center gap-2 text-base">
+                        <ShieldCheck class="size-4" />
+                        Avisos pendientes
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p class="text-sm text-muted-foreground">
+                        Los avisos de privacidad y consentimientos estarán
+                        disponibles próximamente.
+                    </p>
+                </CardContent>
+            </Card>
+        </div>
+
+        <Link
+            :href="proximamente()"
+            class="flex items-center gap-3 rounded-2xl border border-border/60 bg-card p-4 text-sm shadow-sm transition-colors hover:border-primary/40"
         >
-            <DashboardChartCard
-                title="Tus cursos"
-                type="donut"
-                :data="cursosDonut"
-                label-key="etiqueta"
-                value-key="valor"
-                :height="180"
-                empty-title="Todavía no tienes cursos"
-                empty-description="Cuando te asignen un curso aparecerá aquí."
-            />
-            <DashboardChartCard
-                title="Videos vistos"
-                type="donut"
-                :data="videosDonut"
-                label-key="etiqueta"
-                value-key="valor"
-                :height="180"
-                empty-title="Sin videos todavía"
-                empty-description="Los videos de tus lecciones aparecerán aquí conforme los veas."
-            />
-            <DashboardChartCard
-                title="Tu asistencia"
-                description="Sesiones en vivo, últimos 30 días"
-                type="donut"
-                :data="asistenciaDonut"
-                label-key="etiqueta"
-                value-key="valor"
-                :height="180"
-                empty-title="Sin sesiones recientes"
-                empty-description="Tu asistencia a sesiones en vivo aparecerá aquí después de tu próxima sesión."
-            />
-        </DashboardSection>
-
-        <ProximasSesionesCard :sesiones="proximasSesiones" />
+            <span
+                class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]"
+            >
+                <GraduationCap class="size-4" />
+            </span>
+            <span>
+                <span class="font-medium">Capacitación</span>
+                <span class="ml-2 text-xs text-muted-foreground"
+                    >Próximamente</span
+                >
+            </span>
+        </Link>
     </div>
 </template>

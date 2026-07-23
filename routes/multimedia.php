@@ -4,7 +4,7 @@ use App\Http\Controllers\Multimedia\CargaResumibleController;
 use App\Http\Controllers\Multimedia\RecursoMultimediaController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth', 'verified'])
+Route::middleware(['auth', 'verified', 'feature:capacitacion'])
     ->prefix('multimedia')
     ->name('multimedia.')
     ->group(function () {

@@ -8,7 +8,7 @@ use App\Http\Controllers\Cursos\LeccionController;
 use App\Http\Controllers\Reuniones\SesionEnVivoController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth', 'verified'])
+Route::middleware(['auth', 'verified', 'feature:capacitacion'])
     ->prefix('cursos')
     ->name('cursos.')
     ->group(function () {
