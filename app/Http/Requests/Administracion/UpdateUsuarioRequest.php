@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Administracion;
 
 use App\Enums\EstadoUsuario;
+use App\Enums\EstatusImss;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
@@ -33,6 +34,10 @@ class UpdateUsuarioRequest extends FormRequest
             'jefe_id' => ['nullable', 'integer', 'exists:users,id'],
             'fecha_ingreso' => ['nullable', 'date'],
             'estatus' => ['nullable', new Enum(EstadoUsuario::class)],
+            'estatus_imss' => ['nullable', new Enum(EstatusImss::class)],
+            'fecha_alta_imss' => ['nullable', 'date'],
+            'periodo_prueba_inicio' => ['nullable', 'date'],
+            'periodo_prueba_fin' => ['nullable', 'date', 'after_or_equal:periodo_prueba_inicio'],
             'zona_horaria' => ['nullable', 'string', 'max:60'],
             'roles' => ['array'],
             'roles.*' => ['string', 'exists:roles,name'],

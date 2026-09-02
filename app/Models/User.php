@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Enums\EstadoUsuario;
+use App\Enums\EstatusImss;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -33,6 +34,10 @@ use Spatie\Permission\Traits\HasRoles;
  * @property int|null $jefe_id
  * @property Carbon|null $fecha_ingreso
  * @property EstadoUsuario $estatus
+ * @property EstatusImss $estatus_imss
+ * @property Carbon|null $fecha_alta_imss
+ * @property Carbon|null $periodo_prueba_inicio
+ * @property Carbon|null $periodo_prueba_fin
  * @property Carbon|null $ultimo_acceso
  * @property string $zona_horaria
  * @property array<string, mixed>|null $preferencias_notificaciones
@@ -60,7 +65,9 @@ use Spatie\Permission\Traits\HasRoles;
 #[Fillable([
     'name', 'apellidos', 'numero_empleado', 'email', 'password', 'telefono', 'foto_path',
     'sucursal_principal_id', 'departamento_id', 'puesto_id', 'jefe_id',
-    'fecha_ingreso', 'estatus', 'zona_horaria', 'preferencias_notificaciones',
+    'fecha_ingreso', 'estatus', 'estatus_imss', 'fecha_alta_imss',
+    'periodo_prueba_inicio', 'periodo_prueba_fin',
+    'zona_horaria', 'preferencias_notificaciones',
     'fecha_nacimiento', 'curp', 'rfc', 'nss', 'domicilio',
     'correo_personal', 'contacto_emergencia_nombre', 'contacto_emergencia_telefono',
 ])]
@@ -69,6 +76,18 @@ class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasRoles, LogsActivity, Notifiable, SoftDeletes;
+
+    /**
+     * Refleja en PHP el mismo default que la columna tiene en la base de
+     * datos: sin esto, un User recien creado (factory, UsuarioController,
+     * ConversionColaboradorService) no trae 'estatus_imss' en memoria hasta
+     * que se recarga desde la BD, y el cast a enum revienta con null.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'estatus_imss' => 'pendiente_imss',
+    ];
 
     /**
      * Get the attributes that should be cast.
@@ -82,6 +101,10 @@ class User extends Authenticatable
             'password' => 'hashed',
             'fecha_ingreso' => 'date',
             'estatus' => EstadoUsuario::class,
+            'estatus_imss' => EstatusImss::class,
+            'fecha_alta_imss' => 'date',
+            'periodo_prueba_inicio' => 'date',
+            'periodo_prueba_fin' => 'date',
             'ultimo_acceso' => 'datetime',
             'preferencias_notificaciones' => 'array',
             'fecha_nacimiento' => 'date',
@@ -91,6 +114,15 @@ class User extends Authenticatable
     public function nombreCompleto(): string
     {
         return trim("{$this->name} {$this->apellidos}");
+    }
+
+    public function enPeriodoDePrueba(): bool
+    {
+        if ($this->periodo_prueba_inicio === null || $this->periodo_prueba_fin === null) {
+            return false;
+        }
+
+        return now()->betweenIncluded($this->periodo_prueba_inicio, $this->periodo_prueba_fin);
     }
 
     /**

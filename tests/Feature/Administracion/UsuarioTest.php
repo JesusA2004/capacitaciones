@@ -64,6 +64,31 @@ test('desactivar un colaborador aplica soft delete y cambia su estatus', functio
     expect(User::withTrashed()->find($colaborador->id)->estatus->value)->toBe('inactivo');
 });
 
+test('rh_admin puede actualizar el estatus IMSS y el periodo de prueba de un colaborador', function () {
+    $sucursal = Sucursal::factory()->create();
+    $rh = User::factory()->create();
+    $rh->assignRole('rh_admin');
+
+    $colaborador = User::factory()->create(['sucursal_principal_id' => $sucursal->id]);
+
+    $this->actingAs($rh)
+        ->put(route('administracion.usuarios.update', $colaborador), [
+            'name' => $colaborador->name,
+            'email' => $colaborador->email,
+            'sucursal_principal_id' => $sucursal->id,
+            'estatus_imss' => 'con_imss',
+            'fecha_alta_imss' => now()->toDateString(),
+            'periodo_prueba_inicio' => now()->toDateString(),
+            'periodo_prueba_fin' => now()->addMonth()->toDateString(),
+        ])
+        ->assertSessionHasNoErrors();
+
+    $colaborador->refresh();
+
+    expect($colaborador->estatus_imss->value)->toBe('con_imss')
+        ->and($colaborador->enPeriodoDePrueba())->toBeTrue();
+});
+
 test('un administrador no puede desactivarse a si mismo', function () {
     $sucursal = Sucursal::factory()->create();
     $admin = User::factory()->create(['sucursal_principal_id' => $sucursal->id]);

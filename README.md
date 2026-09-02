@@ -1,6 +1,8 @@
-# Portal de Capacitación Mr. Lana
+# MR. LANA PEOPLE
 
-Portal empresarial de capacitación, inducción, evaluación y seguimiento para colaboradores de Mr. Lana. Construido sobre Laravel + Inertia + Vue.
+Portal Integral de Reclutamiento, Administración de Personal y Recursos Humanos para las empresas del grupo. Construido sobre Laravel + Inertia + Vue.
+
+La Fase 1 (actual) cubre reclutamiento y administración de personal: multiempresa, estructura organizacional, jerarquía de puestos, vacantes, candidatos, alta digital, expedientes, documentos en NAS, plantillas/formatos, vacaciones, permisos/incapacidades/solicitudes, reportes RH y portal del colaborador. Desempeño/Nine Box (Fase 2) y Capacitación (Fase 3) quedan **ocultos como "Próximamente"**, sin borrarse, detrás de feature flags — ver `docs/ROADMAP.md` y `docs/FEATURE_FLAGS.md`.
 
 ## Stack
 
@@ -93,13 +95,18 @@ En producción, agrega la entrada de cron estándar de Laravel apuntando a `sche
 
 ## Documentación
 
+- `docs/ALCANCE_GENERAL.md` / `docs/FASE_1_MR_LANA_PEOPLE.md` — alcance y roadmap de la Fase 1 actual.
 - `docs/ARQUITECTURA.md` — organización del backend y frontend, convenciones.
 - `docs/MODELO_DATOS.md` — esquema de base de datos por fase.
-- `docs/PLAN_IMPLEMENTACION.md` — bitácora de avance por fase, decisiones tomadas.
-- `docs/CONFIGURACION_NAS.md` — disco de almacenamiento multimedia (local vs. SFTP).
-- `docs/PROCESAMIENTO_VIDEO.md` — pipeline de FFmpeg/HLS y control de avance del reproductor.
-- `docs/SESIONES_EN_VIVO.md` — proveedor manual y configuración de las integraciones con Google Meet y Zoom.
+- `docs/RECLUTAMIENTO.md`, `docs/VACANTES.md`, `docs/JERARQUIA_PUESTOS.md`, `docs/PERFILES_PUESTO.md` — módulos de reclutamiento y estructura organizacional.
+- `docs/ALTA_DIGITAL_COLABORADOR.md`, `docs/ONBOARDING_ADMINISTRATIVO.md` — alta digital y checklist de incorporación.
+- `docs/EXPEDIENTES_DIGITALES.md`, `docs/SYNOLOGY_STORAGE.md`, `docs/PLANTILLAS_FORMATOS.md` — expediente, documentos y formatos precargados.
+- `docs/VACACIONES.md`, `docs/SOLICITUDES_INTERNAS.md`, `docs/REPORTES_RH.md` — procesos de RH del día a día.
+- `docs/ROLES_PERMISOS.md`, `docs/LIMITACIONES.md`, `docs/ROADMAP.md` — gobierno del sistema y alcance/fuera de alcance.
+- `docs/CONFIGURACION_NAS.md` — disco de almacenamiento (local vs. SFTP), compartido con el módulo de capacitación (oculto).
 - `docs/SEGURIDAD.md` — autenticación, autorización, aislamiento por sucursal, y checklist de despliegue a producción.
+
+Documentación heredada del módulo de capacitación (oculto tras feature flag, no eliminado): `docs/PLAN_IMPLEMENTACION.md`, `docs/PROCESAMIENTO_VIDEO.md`, `docs/SESIONES_EN_VIVO.md`, `docs/CAPACITACION_PROXIMAMENTE.md`.
 
 ## Notas de seguridad
 

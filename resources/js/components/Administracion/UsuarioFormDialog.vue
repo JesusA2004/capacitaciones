@@ -31,6 +31,7 @@ const props = defineProps<{
     puestosDisponibles: OpcionSimple[];
     rolesDisponibles: string[];
     estados: EstadoUsuarioOpcion[];
+    estadosImss: EstadoUsuarioOpcion[];
 }>();
 
 const emit = defineEmits<{
@@ -53,6 +54,10 @@ const form = useForm({
     puesto_id: props.usuario?.puesto_id ? String(props.usuario.puesto_id) : '',
     fecha_ingreso: props.usuario?.fecha_ingreso ?? '',
     estatus: props.usuario?.estatus ?? 'activo',
+    estatus_imss: props.usuario?.estatus_imss ?? 'pendiente_imss',
+    fecha_alta_imss: props.usuario?.fecha_alta_imss ?? '',
+    periodo_prueba_inicio: props.usuario?.periodo_prueba_inicio ?? '',
+    periodo_prueba_fin: props.usuario?.periodo_prueba_fin ?? '',
     roles: [...(props.usuario?.roles ?? [])] as string[],
 });
 
@@ -197,22 +202,73 @@ function enviar() {
                     </div>
                 </div>
 
-                <div v-if="usuario" class="grid gap-2">
-                    <Label>Estatus</Label>
-                    <Select v-model="form.estatus">
-                        <SelectTrigger class="w-full">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in estados"
-                                :key="opcion.value"
-                                :value="opcion.value"
-                            >
-                                {{ opcion.etiqueta }}
-                            </SelectItem>
-                        </SelectContent>
-                    </Select>
+                <div v-if="usuario" class="grid grid-cols-2 gap-4">
+                    <div class="grid gap-2">
+                        <Label>Estatus</Label>
+                        <Select v-model="form.estatus">
+                            <SelectTrigger class="w-full">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem
+                                    v-for="opcion in estados"
+                                    :key="opcion.value"
+                                    :value="opcion.value"
+                                >
+                                    {{ opcion.etiqueta }}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div class="grid gap-2">
+                        <Label>Estatus IMSS</Label>
+                        <Select v-model="form.estatus_imss">
+                            <SelectTrigger class="w-full">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem
+                                    v-for="opcion in estadosImss"
+                                    :key="opcion.value"
+                                    :value="opcion.value"
+                                >
+                                    {{ opcion.etiqueta }}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+
+                <div v-if="usuario" class="grid grid-cols-3 gap-4">
+                    <div class="grid gap-2">
+                        <Label for="fecha_alta_imss">Fecha alta IMSS</Label>
+                        <Input
+                            id="fecha_alta_imss"
+                            v-model="form.fecha_alta_imss"
+                            type="date"
+                        />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="periodo_prueba_inicio"
+                            >Inicio periodo de prueba</Label
+                        >
+                        <Input
+                            id="periodo_prueba_inicio"
+                            v-model="form.periodo_prueba_inicio"
+                            type="date"
+                        />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="periodo_prueba_fin"
+                            >Fin periodo de prueba</Label
+                        >
+                        <Input
+                            id="periodo_prueba_fin"
+                            v-model="form.periodo_prueba_fin"
+                            type="date"
+                        />
+                        <InputError :message="form.errors.periodo_prueba_fin" />
+                    </div>
                 </div>
 
                 <div class="grid gap-2">

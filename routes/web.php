@@ -3,6 +3,7 @@
 use App\Http\Controllers\CalendarioController;
 use App\Http\Controllers\CertificadoVerificacionController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\VacacionesController;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'Welcome')->name('home');
@@ -14,6 +15,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     Route::inertia('capacitacion', 'Capacitacion/Proximamente')->name('capacitacion.proximamente');
+
+    Route::prefix('vacaciones')->name('vacaciones.')->group(function () {
+        Route::get('/', [VacacionesController::class, 'index'])->name('index');
+        Route::post('/', [VacacionesController::class, 'store'])->name('store');
+        Route::post('{solicitud}/cancelar', [VacacionesController::class, 'cancelar'])->name('cancelar');
+    });
 
     Route::inertia('planeacion-rh', 'PlaneacionRh/Index')
         ->middleware('role:super_admin')
@@ -27,6 +34,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 require __DIR__.'/settings.php';
 require __DIR__.'/administracion.php';
 require __DIR__.'/rh.php';
+require __DIR__.'/alta-publica.php';
 require __DIR__.'/cursos.php';
 require __DIR__.'/asignaciones.php';
 require __DIR__.'/mi-capacitacion.php';

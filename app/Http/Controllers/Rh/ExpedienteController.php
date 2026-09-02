@@ -5,15 +5,19 @@ namespace App\Http\Controllers\Rh;
 use App\Enums\EstadoUsuario;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Rh\ActualizarDatosPersonalesRequest;
+use App\Models\AltaDigital;
 use App\Models\Departamento;
 use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
 use App\Models\Empresa;
 use App\Models\Puesto;
+use App\Models\SolicitudVacaciones;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Expedientes\ExpedienteService;
+use App\Services\Onboarding\OnboardingService;
+use App\Services\Vacaciones\VacacionesService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -25,6 +29,8 @@ class ExpedienteController extends Controller
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly ExpedienteService $expediente,
+        private readonly OnboardingService $onboarding,
+        private readonly VacacionesService $vacaciones,
     ) {}
 
     /**
@@ -120,6 +126,7 @@ class ExpedienteController extends Controller
 
         $resumen = $this->expediente->resumenCompletitud($colaborador);
         $documentos = $this->expediente->documentosVigentes($colaborador);
+        $alta = AltaDigital::query()->where('user_id', $colaborador->id)->first();
 
         return Inertia::render($esPropio ? 'Rh/Expedientes/MiExpediente' : 'Rh/Expedientes/Show', [
             'esPropio' => $esPropio,
@@ -134,6 +141,11 @@ class ExpedienteController extends Controller
                 'telefono' => $colaborador->telefono,
                 'foto_path' => $colaborador->foto_path,
                 'estatus' => $colaborador->estatus->value,
+                'estatus_imss' => $colaborador->estatus_imss->value,
+                'fecha_alta_imss' => $colaborador->fecha_alta_imss?->toDateString(),
+                'periodo_prueba_inicio' => $colaborador->periodo_prueba_inicio?->toDateString(),
+                'periodo_prueba_fin' => $colaborador->periodo_prueba_fin?->toDateString(),
+                'en_periodo_prueba' => $colaborador->enPeriodoDePrueba(),
                 'fecha_ingreso' => $colaborador->fecha_ingreso?->toDateString(),
                 'empresa' => $colaborador->sucursalPrincipal?->empresa,
                 'sucursal' => $colaborador->sucursalPrincipal,
@@ -151,6 +163,21 @@ class ExpedienteController extends Controller
             ],
             'resumenExpediente' => $resumen,
             'documentosRequeridos' => $this->documentosParaVista($documentos),
+            'onboarding' => $this->onboarding->checklist($colaborador),
+            'saldoVacaciones' => $this->vacaciones->saldo($colaborador),
+            'solicitudesVacaciones' => SolicitudVacaciones::query()
+                ->where('user_id', $colaborador->id)
+                ->orderByDesc('created_at')
+                ->limit(10)
+                ->get(),
+            'altaDigital' => $alta ? [
+                'id' => $alta->id,
+                'estado' => $alta->estado->value,
+                'aviso_privacidad_aceptado' => $alta->aviso_privacidad_aceptado,
+                'aviso_privacidad_aceptado_en' => $alta->aviso_privacidad_aceptado_en?->toDateTimeString(),
+                'consentimiento_datos_aceptado' => $alta->consentimiento_datos_aceptado,
+                'consentimiento_datos_aceptado_en' => $alta->consentimiento_datos_aceptado_en?->toDateTimeString(),
+            ] : null,
         ]);
     }
 

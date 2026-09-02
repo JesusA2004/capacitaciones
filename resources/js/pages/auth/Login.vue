@@ -99,8 +99,7 @@ defineProps<{
         </div>
 
         <div class="text-center text-sm text-muted-foreground">
-            ¿Olvidaste cómo acceder? Contacta a tu administrador de
-            capacitación.
+            ¿Olvidaste cómo acceder? Contacta a tu administrador de RH.
         </div>
     </Form>
 </template>

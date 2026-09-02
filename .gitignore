@@ -27,3 +27,8 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+# Formatos oficiales reales (pueden contener datos sensibles/confidenciales).
+# El area de trabajo local existe en el repo via .gitkeep; el contenido real no.
+/claude/formatos/originales/*
+!/claude/formatos/originales/.gitkeep

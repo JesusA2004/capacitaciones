@@ -15,16 +15,17 @@ import { dashboard, login } from '@/routes';
             <span
                 class="text-3xl font-bold tracking-tight text-[var(--brand-foreground)]"
             >
-                Mr. <span class="text-[var(--brand-primary)]">Lana</span>
+                MR. LANA <span class="text-[var(--brand-primary)]">PEOPLE</span>
             </span>
 
             <div class="space-y-2">
                 <h1 class="text-xl font-semibold">
-                    Portal Integral de Colaboradores y RH
+                    Portal Integral de Reclutamiento, Administración de Personal
+                    y Recursos Humanos
                 </h1>
                 <p class="text-sm text-muted-foreground">
-                    Expedientes, documentos, vacaciones y solicitudes para
-                    colaboradores de Mr. Lana.
+                    Reclutamiento, expedientes, documentos, vacaciones y
+                    solicitudes para las empresas del grupo.
                 </p>
             </div>
 

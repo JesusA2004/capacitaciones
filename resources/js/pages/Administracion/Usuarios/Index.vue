@@ -42,6 +42,7 @@ const props = defineProps<{
     puestosDisponibles: (OpcionSimple & { departamento_id: number | null })[];
     rolesDisponibles: string[];
     estados: EstadoUsuarioOpcion[];
+    estadosImss: EstadoUsuarioOpcion[];
     estadisticas: EstadisticasActivoInactivo;
 }>();
 
@@ -298,6 +299,7 @@ async function desactivar(usuario: UsuarioItem) {
         :puestos-disponibles="puestosDisponibles"
         :roles-disponibles="rolesDisponibles"
         :estados="estados"
+        :estados-imss="estadosImss"
         :key="seleccionado?.id ?? 'nuevo'"
     />
 </template>

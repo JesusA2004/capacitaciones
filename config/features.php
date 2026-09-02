@@ -21,4 +21,8 @@ return [
 
     'capacitacion' => env('CAPACITACION_ENABLED', false),
 
+    'desempeno' => env('DESEMPENO_ENABLED', false),
+
+    'nine_box' => env('NINE_BOX_ENABLED', false),
+
 ];

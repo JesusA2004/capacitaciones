@@ -3,9 +3,13 @@ import ExpedienteDetalle from '@/components/Rh/ExpedienteDetalle.vue';
 import { dashboard } from '@/routes';
 import { index as indexExpedientes } from '@/routes/rh/expedientes';
 import type {
+    AltaDigitalResumenExpediente,
     DocumentoExpedienteItem,
     ExpedienteColaborador,
+    OnboardingItem,
     ResumenExpediente,
+    SaldoVacaciones,
+    SolicitudVacacionesItem,
 } from '@/types';
 
 defineProps<{
@@ -15,6 +19,10 @@ defineProps<{
     colaborador: ExpedienteColaborador;
     resumenExpediente: ResumenExpediente;
     documentosRequeridos: DocumentoExpedienteItem[];
+    onboarding: OnboardingItem[];
+    altaDigital: AltaDigitalResumenExpediente;
+    saldoVacaciones: SaldoVacaciones;
+    solicitudesVacaciones: SolicitudVacacionesItem[];
 }>();
 
 defineOptions({
@@ -36,5 +44,9 @@ defineOptions({
         :colaborador="colaborador"
         :resumen-expediente="resumenExpediente"
         :documentos-requeridos="documentosRequeridos"
+        :onboarding="onboarding"
+        :alta-digital="altaDigital"
+        :saldo-vacaciones="saldoVacaciones"
+        :solicitudes-vacaciones="solicitudesVacaciones"
     />
 </template>

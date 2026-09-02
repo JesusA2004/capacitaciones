@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Administracion;
 
 use App\Enums\EstadoUsuario;
+use App\Enums\EstatusImss;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Administracion\StoreUsuarioRequest;
 use App\Http\Requests\Administracion\UpdateUsuarioRequest;
@@ -61,6 +62,7 @@ class UsuarioController extends Controller
             'puestosDisponibles' => Puesto::query()->orderBy('nombre')->get(['id', 'nombre', 'departamento_id']),
             'rolesDisponibles' => Role::query()->orderBy('name')->pluck('name'),
             'estados' => array_map(fn (EstadoUsuario $estado) => ['value' => $estado->value, 'etiqueta' => $estado->etiqueta()], EstadoUsuario::cases()),
+            'estadosImss' => array_map(fn (EstatusImss $estado) => ['value' => $estado->value, 'etiqueta' => $estado->etiqueta()], EstatusImss::cases()),
             // Acotadas por el mismo alcance que la tabla: un gerente de sucursal
             // no debe ver totales de toda la organización en estas tarjetas.
             'estadisticas' => [

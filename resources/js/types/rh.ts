@@ -23,6 +23,11 @@ export type ExpedienteColaborador = {
     telefono: string | null;
     foto_path: string | null;
     estatus: string;
+    estatus_imss: string;
+    fecha_alta_imss: string | null;
+    periodo_prueba_inicio: string | null;
+    periodo_prueba_fin: string | null;
+    en_periodo_prueba: boolean;
     fecha_ingreso: string | null;
     empresa: { id: number; nombre: string } | null;
     sucursal: { id: number; nombre: string } | null;
@@ -64,3 +69,18 @@ export type DocumentoExpedienteItem = {
     tipo: { id: number; nombre: string; clave: string; requerido: boolean };
     documento: DocumentoExpedienteInfo | null;
 };
+
+export type OnboardingItem = {
+    clave: string;
+    etiqueta: string;
+    completado: boolean;
+};
+
+export type AltaDigitalResumenExpediente = {
+    id: number;
+    estado: string;
+    aviso_privacidad_aceptado: boolean;
+    aviso_privacidad_aceptado_en: string | null;
+    consentimiento_datos_aceptado: boolean;
+    consentimiento_datos_aceptado_en: string | null;
+} | null;

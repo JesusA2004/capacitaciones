@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Administracion\DepartamentoController;
 use App\Http\Controllers\Administracion\EmpresaController;
+use App\Http\Controllers\Administracion\JerarquiaPuestoController;
 use App\Http\Controllers\Administracion\PuestoController;
 use App\Http\Controllers\Administracion\RolController;
 use App\Http\Controllers\Administracion\SucursalController;
@@ -46,6 +47,11 @@ Route::middleware(['auth', 'verified'])
             Route::post('/', [PuestoController::class, 'store'])->name('store');
             Route::put('{puesto}', [PuestoController::class, 'update'])->name('update');
             Route::delete('{puesto}', [PuestoController::class, 'destroy'])->name('destroy');
+        });
+
+        Route::prefix('jerarquia-puestos')->name('jerarquia-puestos.')->group(function () {
+            Route::get('/', [JerarquiaPuestoController::class, 'index'])->name('index');
+            Route::put('{puesto}', [JerarquiaPuestoController::class, 'actualizar'])->name('actualizar');
         });
 
         Route::prefix('usuarios')->name('usuarios.')->group(function () {

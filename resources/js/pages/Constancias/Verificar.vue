@@ -16,9 +16,7 @@ defineProps<{
         <div
             class="w-full max-w-md rounded-xl border bg-background p-8 text-center shadow-sm"
         >
-            <h1 class="mb-1 text-lg font-semibold">
-                Mr. Lana — Portal de Capacitación
-            </h1>
+            <h1 class="mb-1 text-lg font-semibold">MR. LANA PEOPLE</h1>
             <p class="mb-6 text-sm text-muted-foreground">
                 Verificación de constancia
             </p>

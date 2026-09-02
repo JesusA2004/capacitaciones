@@ -43,14 +43,31 @@ PUT  /rh/expedientes/{colaborador}/datos-personales     rh.expedientes.datos-per
 | Datos personales | Real: formulario editable (fecha nacimiento, CURP, RFC, NSS, domicilio, correo personal, contacto de emergencia) |
 | Datos laborales | Real, solo lectura (se edita desde Administración → Colaboradores) |
 | Documentos | Real: ver `docs/SYNOLOGY_STORAGE.md` |
-| Contrato | Placeholder "Próximamente" (Fase 2) |
-| Avisos y consentimientos | Placeholder "Próximamente" (Fase 2) |
-| Vacaciones | Placeholder "Próximamente" (Fase 3) |
-| Solicitudes | Placeholder "Próximamente" (Fase 3) |
+| Onboarding | Real: checklist de incorporación (`docs/ONBOARDING_ADMINISTRATIVO.md`) |
+| Contrato | Placeholder informativo: el contrato firmado vive como documento tipo `contrato` en la pestaña Documentos |
+| Avisos y consentimientos | Real si el colaborador tiene un alta digital de origen (`docs/ALTA_DIGITAL_COLABORADOR.md`); si no, mensaje explicando por qué no hay datos |
+| Vacaciones | Placeholder "Próximamente" hasta el Bloque 14 (`docs/VACACIONES.md`) |
+| Solicitudes | Placeholder "Próximamente" hasta el Bloque 15 (`docs/SOLICITUDES_INTERNAS.md`) |
 | Historial RH | Placeholder "Próximamente" |
 | Bitácora | Placeholder "Próximamente" |
 
 Los placeholders usan `resources/js/components/Rh/ProximamenteTab.vue`, el mismo patrón honesto usado en `Capacitacion/Proximamente.vue`: no se fabrican datos falsos para módulos que todavía no existen.
+
+## Estatus laboral, IMSS y periodo de prueba
+
+Migración `2026_09_02_110000_add_estatus_laboral_a_users_table.php` (todas aditivas):
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `estatus_imss` | `string(20)`, default `pendiente_imss` | Enum `App\Enums\EstatusImss`: `con_imss`, `sin_imss`, `pendiente_imss`. |
+| `fecha_alta_imss` | `date` nullable | Capturada manualmente por RH; no hay integración real con IDSE (fuera de alcance, ver `docs/LIMITACIONES.md`). |
+| `periodo_prueba_inicio` / `periodo_prueba_fin` | `date` nullable | `User::enPeriodoDePrueba()` calcula si la fecha actual cae dentro del rango. |
+
+**Importante**: el modelo `User` declara `protected $attributes = ['estatus_imss' => 'pendiente_imss']` explícitamente. Eloquent no recarga los defaults de columna de la base de datos hacia la instancia en memoria después de un `create()` — sin este default declarado en PHP, cualquier colaborador recién creado (alta digital, Administración → Colaboradores) tendría `estatus_imss` en `null` en memoria hasta la siguiente carga desde BD, y el cast a enum fallaría. Si se agregan más columnas con default de BD a `users` en el futuro, hay que repetir este patrón o pasarlas explícitamente en cada punto de creación.
+
+Se editan desde Administración → Colaboradores (mismo formulario que el resto de datos
+laborales) y se muestran de solo lectura en la pestaña "Datos laborales" del
+expediente.
 
 ## Datos personales nuevos en `users`
 

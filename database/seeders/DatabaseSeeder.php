@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
             SucursalSeeder::class,
             DepartamentoSeeder::class,
             PuestoSeeder::class,
+            PuestoJerarquiaSeeder::class,
             DocumentTypeSeeder::class,
             UsuarioDemoSeeder::class,
             CursoInduccionSeeder::class,

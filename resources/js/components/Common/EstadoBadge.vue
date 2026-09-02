@@ -27,6 +27,7 @@ const MAPA_ESTADOS: Record<string, { variante: Variante; etiqueta: string }> = {
     activo: { variante: 'success', etiqueta: 'Activo' },
     disponible: { variante: 'success', etiqueta: 'Disponible' },
     publicado: { variante: 'success', etiqueta: 'Publicado' },
+    con_imss: { variante: 'success', etiqueta: 'Con IMSS' },
 
     // Amarillo/naranja: pendiente / parcial / procesando / en revisión.
     pendiente: { variante: 'warning', etiqueta: 'Pendiente' },
@@ -41,6 +42,7 @@ const MAPA_ESTADOS: Record<string, { variante: Variante; etiqueta: string }> = {
     enviado: { variante: 'warning', etiqueta: 'Enviado' },
     en_revision: { variante: 'warning', etiqueta: 'En revisión' },
     tarde: { variante: 'warning', etiqueta: 'Tarde' },
+    pendiente_imss: { variante: 'warning', etiqueta: 'Pendiente de IMSS' },
 
     // Rojo: vencido / ausente / error / rechazado.
     vencida: { variante: 'destructive', etiqueta: 'Vencida' },
@@ -52,6 +54,7 @@ const MAPA_ESTADOS: Record<string, { variante: Variante; etiqueta: string }> = {
     error: { variante: 'destructive', etiqueta: 'Error' },
     suspendido: { variante: 'destructive', etiqueta: 'Suspendido' },
     descartado: { variante: 'destructive', etiqueta: 'Descartado' },
+    sin_imss: { variante: 'destructive', etiqueta: 'Sin IMSS' },
 
     // Azul/turquesa: en progreso / asignado / información.
     en_progreso: { variante: 'info', etiqueta: 'En progreso' },

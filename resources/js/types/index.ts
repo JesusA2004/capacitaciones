@@ -1,5 +1,6 @@
 export * from './actividades';
 export * from './administracion';
+export * from './altaDigital';
 export * from './asignaciones';
 export * from './auth';
 export * from './calendario';
@@ -9,7 +10,10 @@ export * from './dashboardRh';
 export * from './micapacitacion';
 export * from './multimedia';
 export * from './navigation';
+export * from './plantillas';
+export * from './reclutamiento';
 export * from './reportes';
 export * from './reuniones';
 export * from './rh';
 export * from './ui';
+export * from './vacaciones';

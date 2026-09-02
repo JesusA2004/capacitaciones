@@ -4,11 +4,14 @@ import {
     Briefcase,
     Building2,
     Calendar,
+    CheckCircle2,
+    CircleDashed,
     ClipboardList,
     FileSignature,
     FileText,
     History,
     IdCard,
+    ListChecks,
     MapPinned,
     ScrollText,
     User,
@@ -26,9 +29,13 @@ import { Spinner } from '@/components/ui/spinner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { update as actualizarDatosPersonales } from '@/routes/rh/expedientes/datos-personales';
 import type {
+    AltaDigitalResumenExpediente,
     DocumentoExpedienteItem,
     ExpedienteColaborador,
+    OnboardingItem,
     ResumenExpediente,
+    SaldoVacaciones,
+    SolicitudVacacionesItem,
 } from '@/types';
 
 const props = defineProps<{
@@ -38,6 +45,10 @@ const props = defineProps<{
     colaborador: ExpedienteColaborador;
     resumenExpediente: ResumenExpediente;
     documentosRequeridos: DocumentoExpedienteItem[];
+    onboarding: OnboardingItem[];
+    altaDigital: AltaDigitalResumenExpediente;
+    saldoVacaciones: SaldoVacaciones;
+    solicitudesVacaciones: SolicitudVacacionesItem[];
 }>();
 
 const form = useForm({
@@ -138,6 +149,7 @@ function guardarDatosPersonales() {
                 <TabsTrigger value="personales">Datos personales</TabsTrigger>
                 <TabsTrigger value="laborales">Datos laborales</TabsTrigger>
                 <TabsTrigger value="documentos">Documentos</TabsTrigger>
+                <TabsTrigger value="onboarding">Onboarding</TabsTrigger>
                 <TabsTrigger value="contrato">Contrato</TabsTrigger>
                 <TabsTrigger value="avisos">Avisos</TabsTrigger>
                 <TabsTrigger value="vacaciones">Vacaciones</TabsTrigger>
@@ -393,6 +405,42 @@ function guardarDatosPersonales() {
                                 {{ colaborador.puesto?.nombre ?? '—' }}
                             </p>
                         </div>
+                        <div>
+                            <p class="text-xs text-muted-foreground">
+                                Estatus IMSS
+                            </p>
+                            <EstadoBadge :estado="colaborador.estatus_imss" />
+                        </div>
+                        <div>
+                            <p class="text-xs text-muted-foreground">
+                                Fecha alta IMSS
+                            </p>
+                            <p class="text-sm font-medium">
+                                {{ colaborador.fecha_alta_imss ?? '—' }}
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-muted-foreground">
+                                Periodo de prueba
+                            </p>
+                            <p class="text-sm font-medium">
+                                <template
+                                    v-if="
+                                        colaborador.periodo_prueba_inicio &&
+                                        colaborador.periodo_prueba_fin
+                                    "
+                                >
+                                    {{ colaborador.periodo_prueba_inicio }} —
+                                    {{ colaborador.periodo_prueba_fin }}
+                                    <span
+                                        v-if="colaborador.en_periodo_prueba"
+                                        class="text-warning"
+                                        >(vigente)</span
+                                    >
+                                </template>
+                                <template v-else>—</template>
+                            </p>
+                        </div>
                         <p class="text-xs text-muted-foreground sm:col-span-2">
                             Estos datos se editan desde Administración →
                             Colaboradores.
@@ -410,26 +458,176 @@ function guardarDatosPersonales() {
                 />
             </TabsContent>
 
+            <TabsContent value="onboarding" class="pt-4">
+                <Card class="rounded-2xl border-border/60">
+                    <CardHeader>
+                        <CardTitle class="flex items-center gap-2 text-base">
+                            <ListChecks class="size-4" />
+                            Checklist de incorporación
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent class="flex flex-col gap-2">
+                        <div
+                            v-for="item in onboarding"
+                            :key="item.clave"
+                            class="flex items-center gap-2 text-sm"
+                        >
+                            <CheckCircle2
+                                v-if="item.completado"
+                                class="size-4 shrink-0 text-[var(--success)]"
+                            />
+                            <CircleDashed
+                                v-else
+                                class="size-4 shrink-0 text-muted-foreground"
+                            />
+                            <span
+                                :class="{
+                                    'text-muted-foreground': !item.completado,
+                                }"
+                                >{{ item.etiqueta }}</span
+                            >
+                        </div>
+                    </CardContent>
+                </Card>
+            </TabsContent>
+
             <TabsContent value="contrato" class="pt-4">
                 <ProximamenteTab
                     :icono="FileSignature"
                     titulo="Contrato"
-                    descripcion="La gestión de contrato laboral estará disponible en una fase siguiente del Portal RH."
+                    descripcion="El contrato firmado se gestiona como documento del expediente (tipo «Contrato», pestaña Documentos). La generación precargada desde plantilla está en docs/PLANTILLAS_FORMATOS.md."
                 />
             </TabsContent>
             <TabsContent value="avisos" class="pt-4">
+                <Card v-if="altaDigital" class="rounded-2xl border-border/60">
+                    <CardHeader>
+                        <CardTitle class="flex items-center gap-2 text-base">
+                            <ScrollText class="size-4" />
+                            Avisos y consentimientos
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent class="grid gap-3 text-sm">
+                        <p class="flex items-center gap-1.5">
+                            <CheckCircle2
+                                v-if="altaDigital.aviso_privacidad_aceptado"
+                                class="size-4 text-[var(--success)]"
+                            />
+                            <CircleDashed
+                                v-else
+                                class="size-4 text-muted-foreground"
+                            />
+                            Aviso de privacidad
+                            <span
+                                v-if="altaDigital.aviso_privacidad_aceptado_en"
+                                class="text-xs text-muted-foreground"
+                                >·
+                                {{
+                                    new Date(
+                                        altaDigital.aviso_privacidad_aceptado_en,
+                                    ).toLocaleString()
+                                }}</span
+                            >
+                        </p>
+                        <p class="flex items-center gap-1.5">
+                            <CheckCircle2
+                                v-if="altaDigital.consentimiento_datos_aceptado"
+                                class="size-4 text-[var(--success)]"
+                            />
+                            <CircleDashed
+                                v-else
+                                class="size-4 text-muted-foreground"
+                            />
+                            Consentimiento de datos
+                            <span
+                                v-if="
+                                    altaDigital.consentimiento_datos_aceptado_en
+                                "
+                                class="text-xs text-muted-foreground"
+                                >·
+                                {{
+                                    new Date(
+                                        altaDigital.consentimiento_datos_aceptado_en,
+                                    ).toLocaleString()
+                                }}</span
+                            >
+                        </p>
+                    </CardContent>
+                </Card>
                 <ProximamenteTab
+                    v-else
                     :icono="ScrollText"
                     titulo="Avisos y consentimientos"
-                    descripcion="Aviso de privacidad, consentimientos y acuses de firma llegan en la Fase 2 del roadmap."
+                    descripcion="Este colaborador no tiene un alta digital registrada, así que no hay aviso/consentimiento capturado."
                 />
             </TabsContent>
             <TabsContent value="vacaciones" class="pt-4">
-                <ProximamenteTab
-                    :icono="Calendar"
-                    titulo="Vacaciones"
-                    descripcion="Saldos, solicitudes y calendario de vacaciones llegan en la Fase 3 del roadmap."
-                />
+                <Card class="rounded-2xl border-border/60">
+                    <CardHeader>
+                        <CardTitle class="flex items-center gap-2 text-base">
+                            <Calendar class="size-4" />
+                            Vacaciones
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent class="flex flex-col gap-4">
+                        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                            <div class="rounded-xl border p-3 text-center">
+                                <p class="text-lg font-semibold">
+                                    {{ saldoVacaciones.dias_generados }}
+                                </p>
+                                <p class="text-xs text-muted-foreground">
+                                    Generados
+                                </p>
+                            </div>
+                            <div class="rounded-xl border p-3 text-center">
+                                <p class="text-lg font-semibold">
+                                    {{ saldoVacaciones.dias_usados }}
+                                </p>
+                                <p class="text-xs text-muted-foreground">
+                                    Usados
+                                </p>
+                            </div>
+                            <div class="rounded-xl border p-3 text-center">
+                                <p class="text-lg font-semibold">
+                                    {{ saldoVacaciones.dias_en_solicitud }}
+                                </p>
+                                <p class="text-xs text-muted-foreground">
+                                    En solicitud
+                                </p>
+                            </div>
+                            <div class="rounded-xl border p-3 text-center">
+                                <p class="text-lg font-semibold">
+                                    {{ saldoVacaciones.dias_disponibles }}
+                                </p>
+                                <p class="text-xs text-muted-foreground">
+                                    Disponibles
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col gap-2">
+                            <p
+                                v-for="solicitud in solicitudesVacaciones"
+                                :key="solicitud.id"
+                                class="flex items-center justify-between rounded-lg border p-2 text-sm"
+                            >
+                                <span
+                                    >{{ solicitud.fecha_inicio }} —
+                                    {{ solicitud.fecha_fin }} ({{
+                                        solicitud.dias_solicitados
+                                    }}
+                                    días)</span
+                                >
+                                <EstadoBadge :estado="solicitud.estado" />
+                            </p>
+                            <p
+                                v-if="!solicitudesVacaciones.length"
+                                class="text-sm text-muted-foreground"
+                            >
+                                Sin solicitudes de vacaciones registradas.
+                            </p>
+                        </div>
+                    </CardContent>
+                </Card>
             </TabsContent>
             <TabsContent value="solicitudes" class="pt-4">
                 <ProximamenteTab

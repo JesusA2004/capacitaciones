@@ -97,6 +97,30 @@ class RolesYPermisosSeeder extends Seeder
         'reportes_rh.exportar',
         'reportes_rh.globales',
         'reportes_rh.sucursal',
+
+        // --- Reclutamiento: vacantes y candidatos (Mr. Lana People Fase 1) ---
+        'vacantes.ver',
+        'vacantes.ver_todos',
+        'vacantes.ver_sucursal',
+        'vacantes.crear',
+        'vacantes.editar',
+        'vacantes.cerrar',
+        'vacantes.eliminar',
+        'candidatos.ver',
+        'candidatos.ver_todos',
+        'candidatos.ver_sucursal',
+        'candidatos.crear',
+        'candidatos.editar',
+        'candidatos.aprobar',
+        'candidatos.rechazar',
+        'candidatos.eliminar',
+
+        // --- Plantillas y formatos precargados (Mr. Lana People Fase 1) ---
+        'plantillas.ver',
+        'plantillas.crear',
+        'plantillas.editar',
+        'plantillas.eliminar',
+        'plantillas.generar',
     ];
 
     /**
@@ -148,6 +172,9 @@ class RolesYPermisosSeeder extends Seeder
             'solicitudes.ver', 'solicitudes.crear', 'solicitudes.revisar', 'solicitudes.aprobar', 'solicitudes.rechazar', 'solicitudes.cerrar',
             'reportes_rh.ver', 'reportes_rh.exportar', 'reportes_rh.globales', 'reportes_rh.sucursal',
             'auditoria.ver',
+            'vacantes.ver', 'vacantes.ver_todos', 'vacantes.crear', 'vacantes.editar', 'vacantes.cerrar', 'vacantes.eliminar',
+            'candidatos.ver', 'candidatos.ver_todos', 'candidatos.crear', 'candidatos.editar', 'candidatos.aprobar', 'candidatos.rechazar', 'candidatos.eliminar',
+            'plantillas.ver', 'plantillas.crear', 'plantillas.editar', 'plantillas.eliminar', 'plantillas.generar',
         ],
 
         // Apoyo operativo de RH: puede capturar/revisar pero no aprobar
@@ -161,6 +188,9 @@ class RolesYPermisosSeeder extends Seeder
             'vacaciones.ver',
             'solicitudes.ver', 'solicitudes.revisar',
             'reportes_rh.ver',
+            'vacantes.ver', 'vacantes.ver_todos', 'vacantes.crear', 'vacantes.editar',
+            'candidatos.ver', 'candidatos.ver_todos', 'candidatos.crear', 'candidatos.editar',
+            'plantillas.ver', 'plantillas.generar',
         ],
 
         'gerente_sucursal' => [
@@ -171,9 +201,11 @@ class RolesYPermisosSeeder extends Seeder
             'reportes.sucursal', 'reportes.exportar',
             'expedientes.ver', 'expedientes.ver_sucursal',
             'documentos.ver',
-            'vacaciones.ver', 'vacaciones.solicitar', 'vacaciones.aprobar',
+            'vacaciones.ver', 'vacaciones.solicitar', 'vacaciones.aprobar', 'vacaciones.rechazar',
             'solicitudes.ver', 'solicitudes.revisar', 'solicitudes.aprobar',
             'reportes_rh.ver', 'reportes_rh.sucursal',
+            'vacantes.ver', 'vacantes.ver_sucursal', 'vacantes.crear',
+            'candidatos.ver', 'candidatos.ver_sucursal', 'candidatos.aprobar', 'candidatos.rechazar',
         ],
         'supervisor' => [
             'dashboard.sucursal.ver',
@@ -194,7 +226,7 @@ class RolesYPermisosSeeder extends Seeder
             // limitarUsuariosPorAlcance()/puedeVerUsuario().
             'expedientes.ver', 'expedientes.ver_sucursal',
             'documentos.ver',
-            'vacaciones.ver', 'vacaciones.solicitar', 'vacaciones.aprobar',
+            'vacaciones.ver', 'vacaciones.solicitar', 'vacaciones.aprobar', 'vacaciones.rechazar',
             'solicitudes.ver', 'solicitudes.revisar', 'solicitudes.aprobar',
         ],
 
@@ -217,6 +249,8 @@ class RolesYPermisosSeeder extends Seeder
             'vacaciones.ver',
             'solicitudes.ver',
             'reportes_rh.ver', 'reportes_rh.globales', 'reportes_rh.sucursal',
+            'vacantes.ver', 'vacantes.ver_todos',
+            'candidatos.ver', 'candidatos.ver_todos',
         ],
     ];
 

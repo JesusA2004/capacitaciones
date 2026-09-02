@@ -146,14 +146,14 @@ const ESTADO_BADGE: Record<string, 'success' | 'warning' | 'secondary'> = {
                 Uso interno · super_admin
             </Badge>
             <h1 class="text-2xl font-semibold tracking-tight">
-                Planeación Portal RH
+                Planeación MR. LANA PEOPLE
             </h1>
             <p class="max-w-2xl text-sm text-muted-foreground">
-                Portal Integral de Colaboradores y Recursos Humanos Mr. Lana: un
-                solo lugar para expedientes, documentos, altas, vacaciones,
-                solicitudes y reportes, con la estructura multiempresa y
-                multisucursal como base y la capacitación conservada como fase
-                futura.
+                Portal Integral de Reclutamiento, Administración de Personal y
+                Recursos Humanos: un solo lugar para reclutamiento, vacantes,
+                expedientes, documentos, altas, vacaciones, solicitudes y
+                reportes, con la estructura multiempresa y multisucursal como
+                base y la capacitación conservada como fase futura.
             </p>
         </div>
 

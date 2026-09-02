@@ -26,6 +26,12 @@ class DocumentTypeSeeder extends Seeder
             ['clave' => 'contrato', 'nombre' => 'Contrato laboral', 'requerido' => true, 'aplica_alta' => false],
             ['clave' => 'aviso_privacidad', 'nombre' => 'Aviso de privacidad firmado', 'requerido' => false, 'aplica_alta' => true],
             ['clave' => 'carta_confidencialidad', 'nombre' => 'Carta de confidencialidad', 'requerido' => false, 'aplica_alta' => false],
+            ['clave' => 'cv', 'nombre' => 'Currículum (CV)', 'requerido' => false, 'aplica_alta' => false],
+            ['clave' => 'reglamento', 'nombre' => 'Reglamento interno de trabajo firmado', 'requerido' => false, 'aplica_alta' => false],
+            ['clave' => 'incapacidad', 'nombre' => 'Incapacidad médica', 'requerido' => false, 'aplica_alta' => false],
+            ['clave' => 'permiso', 'nombre' => 'Formato de permiso', 'requerido' => false, 'aplica_alta' => false],
+            ['clave' => 'formato_vacaciones', 'nombre' => 'Formato de vacaciones', 'requerido' => false, 'aplica_alta' => false],
+            ['clave' => 'documento_baja', 'nombre' => 'Documento de baja', 'requerido' => false, 'aplica_alta' => false],
             ['clave' => 'otro', 'nombre' => 'Otro documento', 'requerido' => false, 'aplica_alta' => false],
         ];
 

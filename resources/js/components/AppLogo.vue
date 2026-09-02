@@ -10,10 +10,10 @@ import AppLogoIcon from '@/components/AppLogoIcon.vue';
     </div>
     <div class="ml-1 grid flex-1 text-left text-sm">
         <span class="mb-0.5 truncate leading-tight font-semibold">
-            Mr. <span class="text-[var(--brand-primary)]">Lana</span>
+            MR. LANA <span class="text-[var(--brand-primary)]">PEOPLE</span>
         </span>
         <span class="truncate text-xs text-muted-foreground"
-            >Portal de Colaboradores y RH</span
+            >Reclutamiento, Personal y RH</span
         >
     </div>
 </template>

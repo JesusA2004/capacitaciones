@@ -159,6 +159,33 @@ class AlcanceOrganizacionalService
     }
 
     /**
+     * Acota por sucursal cualquier consulta de un modelo que tenga una
+     * columna de sucursal (vacantes, candidatos, etc.). Quien tiene alcance
+     * global no se restringe; el resto solo ve registros de sus sucursales
+     * visibles (principal + adicionales). Los registros sin sucursal
+     * asignada (`null`) se consideran visibles para todos, ya que no
+     * pertenecen a ninguna sucursal en particular.
+     *
+     * @template TModel of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
+     */
+    public function limitarPorSucursal(Builder $query, User $usuario, string $columnaSucursal = 'sucursal_id'): Builder
+    {
+        if ($this->tieneAlcanceGlobal($usuario)) {
+            return $query;
+        }
+
+        $sucursalesVisibles = $this->sucursalesVisiblesIds($usuario);
+
+        return $query->where(function (Builder $sub) use ($columnaSucursal, $sucursalesVisibles): void {
+            $sub->whereIn($columnaSucursal, $sucursalesVisibles)
+                ->orWhereNull($columnaSucursal);
+        });
+    }
+
+    /**
      * Igual criterio que limitarExpedientesPorAlcance(), pero para un
      * colaborador ya cargado en memoria (vista de expediente individual).
      */
