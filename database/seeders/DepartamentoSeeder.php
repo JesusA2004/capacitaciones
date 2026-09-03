@@ -9,7 +9,7 @@ class DepartamentoSeeder extends Seeder
 {
     public function run(): void
     {
-        foreach (['Recursos Humanos', 'Operaciones', 'Ventas', 'Sistemas'] as $nombre) {
+        foreach (['Recursos Humanos', 'Operaciones', 'Ventas', 'Sistemas', 'Contabilidad'] as $nombre) {
             Departamento::firstOrCreate(['nombre' => $nombre], ['activo' => true]);
         }
     }

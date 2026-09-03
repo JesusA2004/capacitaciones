@@ -27,11 +27,30 @@ Tabla `puesto_cobertura` (muchos a muchos): `puesto_id` puede cubrir a
 
 ## Jerarquía base sembrada (`PuestoJerarquiaSeeder`)
 
-**Línea comercial:**
+Un solo árbol, con **Dirección General** como única raíz (`puesto_superior_id = null`,
+`nivel_jerarquico = 1`) y cinco ramas colgando directamente de ella. El seeder usa
+`updateOrCreate` (no `firstOrCreate`) precisamente para poder correrse sobre una base
+de datos que ya tenía estos puestos sembrados de forma plana (sin conectar a una
+raíz) y dejarlos bien enganchados, sin duplicarlos.
 
 ```
-Gestor volante → Gestor fijo (Gestor de ruta) → Subgerente → Gerente → Gerente regional → Director comercial
+Dirección General
+├── Director comercial
+│   └── Gerente regional → Gerente → Subgerente → Gestor fijo (Gestor de ruta) → Gestor volante
+├── Gerente de Recursos Humanos
+│   ├── Generalista de RH
+│   └── Coordinador de Capacitación
+├── Gerente de Contabilidad
+│   ├── Analista de Nómina
+│   └── Auxiliar Contable
+├── Gerente de Sistemas
+│   ├── Analista de Sistemas
+│   └── Soporte Técnico
+└── Responsable administrativo/regional
+    └── Coordinadora regional → Coordinadora
 ```
+
+**Rama comercial** (la más profunda, con ruta de crecimiento y cobertura definidas):
 
 - **Gestor volante**: cubre rutas cuando falta gestor fijo, apoya rutas lejanas o con
   carga, candidato natural cuando se libera una ruta. Respaldo de Gestor fijo.
@@ -43,15 +62,20 @@ Gestor volante → Gestor fijo (Gestor de ruta) → Subgerente → Gerente → G
 - **Gerente regional**: supervisa varias sucursales, revisa indicadores.
 - **Director comercial**: vista global, reportes generales, decisiones estratégicas.
 
-**Línea administrativa:**
+**Otras ramas** (RH, Contabilidad, Sistemas, Operaciones administrativas): cada una
+con un puesto de mando reportando directamente a Dirección General y 1-2 puestos
+operativos debajo. `Generalista de RH`, `Coordinador de Capacitación`, `Analista de
+Sistemas` y `Soporte Técnico` ya existían como catálogo plano en `PuestoSeeder`; este
+seeder los reutiliza (mismo `nombre`) y les agrega `puesto_superior_id`/
+`nivel_jerarquico`/`tipo_puesto` para engancharlos al árbol.
 
-```
-Coordinadora → Coordinadora regional → Responsable administrativo/regional
-```
-
-- **Coordinadora**: cuadre de caja, control administrativo, procesos internos.
-- **Coordinadora regional**: supervisa coordinadoras de varias sucursales.
-- **Responsable administrativo/regional**: responsable administrativo a nivel regional.
+**Importante para el frontend:** el árbol **no se agrupa ni se corta por
+`tipo_puesto`** — un puesto de tipo `comercial` (Director comercial) cuelga
+correctamente de uno `administrativo` (Dirección General). `tipo_puesto` solo se usa
+como badge informativo en cada tarjeta y como filtro, nunca como criterio para
+separar el árbol en sub-árboles independientes (ver `raices`/`obtenerHijos` en
+`JerarquiaPuestos/Index.vue`, que recorren la lista completa de puestos, no una
+lista pre-filtrada por tipo).
 
 ## Módulo `/administracion/jerarquia-puestos`
 

@@ -31,8 +31,19 @@ export function useFiltros<T extends Record<string, FormDataConvertible>>(
         temporizador = setTimeout(aplicar, ms);
     }
 
+    /**
+     * Limpia todos los filtros a cadena vacía — nunca "vuelve" a
+     * `valoresIniciales`, porque esos son los valores que traía la URL al
+     * montar el componente (que pueden no estar vacíos: por ejemplo tras
+     * recargar la página con un filtro ya activo, o al entrar desde un
+     * enlace con query string precargada). Revertir a ese estado hacía que
+     * el botón "Limpiar filtros" no hiciera nada visible en esos casos.
+     */
     function limpiar() {
-        Object.assign(filtros, valoresIniciales);
+        for (const clave of Object.keys(filtros) as (keyof T)[]) {
+            filtros[clave] = '' as T[typeof clave];
+        }
+
         aplicar();
     }
 

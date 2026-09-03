@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { Briefcase, GitBranch, History, Pencil, Users } from '@lucide/vue';
+import { GitBranch, History, Pencil, Users } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import JerarquiaPuestoDialog from '@/components/Administracion/JerarquiaPuestoDialog.vue';
 import OrganigramaAccordion from '@/components/Administracion/OrganigramaAccordion.vue';
@@ -74,33 +74,22 @@ const filtrosActivos = computed(
     () => Object.values(filtros).filter(Boolean).length,
 );
 
-const grupos = computed(() => {
-    const tipos = new Map<string, PuestoJerarquiaItem[]>();
+// Un solo árbol real (o varios, si hay puestos sin conexión entre sí) — no
+// se agrupa por tipo_puesto: un puesto comercial puede colgar de un puesto
+// administrativo (p. ej. "Director comercial" reporta a "Dirección
+// General"), y partir el árbol por tipo cortaría esa rama de su raíz real.
+// El tipo se muestra como badge en cada tarjeta, no como criterio de
+// agrupación (ver OrganigramaTarjeta.vue).
+const raices = computed(() =>
+    props.puestos.filter(
+        (p) =>
+            !p.puesto_superior_id ||
+            !props.puestos.some((otro) => otro.id === p.puesto_superior_id),
+    ),
+);
 
-    for (const puesto of props.puestos) {
-        const clave = puesto.tipo_puesto ?? 'sin_clasificar';
-
-        if (!tipos.has(clave)) {
-            tipos.set(clave, []);
-        }
-
-        tipos.get(clave)!.push(puesto);
-    }
-
-    return Array.from(tipos.entries()).map(([tipo, lista]) => ({
-        tipo,
-        etiqueta: TIPO_ETIQUETA[tipo] ?? 'Sin clasificar',
-        raices: lista.filter(
-            (p) =>
-                !p.puesto_superior_id ||
-                !lista.some((otro) => otro.id === p.puesto_superior_id),
-        ),
-        lista,
-    }));
-});
-
-function obtenerHijos(lista: PuestoJerarquiaItem[]) {
-    return (id: number) => lista.filter((p) => p.puesto_superior_id === id);
+function obtenerHijos(id: number): PuestoJerarquiaItem[] {
+    return props.puestos.filter((p) => p.puesto_superior_id === id);
 }
 
 const puestoSeleccionado = ref<PuestoJerarquiaItem | null>(null);
@@ -284,22 +273,12 @@ watch(
             descripcion="Crea puestos desde Administración › Puestos y vuelve aquí para armar el organigrama."
         />
 
-        <div
-            v-for="grupo in grupos"
-            v-else
-            :key="grupo.tipo"
-            class="flex flex-col gap-4"
-        >
-            <h2 class="flex items-center gap-2 text-lg font-semibold">
-                <Briefcase class="size-4 text-muted-foreground" />
-                {{ grupo.etiqueta }}
-            </h2>
-
+        <template v-else>
             <!-- Escritorio/tablet: árbol visual con conectores y zoom. -->
             <div class="hidden md:block">
                 <OrganigramaArbol
-                    :raices="grupo.raices"
-                    :obtener-hijos="obtenerHijos(grupo.lista)"
+                    :raices="raices"
+                    :obtener-hijos="obtenerHijos"
                     @seleccionar="seleccionar"
                     @editar="abrirEdicion"
                 />
@@ -308,16 +287,16 @@ watch(
             <!-- Móvil: lista jerárquica expandible (el árbol completo no cabe). -->
             <div class="flex flex-col gap-3 md:hidden">
                 <OrganigramaAccordion
-                    v-for="raiz in grupo.raices"
+                    v-for="raiz in raices"
                     :key="raiz.id"
                     :puesto="raiz"
-                    :hijos="obtenerHijos(grupo.lista)(raiz.id)"
-                    :obtener-hijos="obtenerHijos(grupo.lista)"
+                    :hijos="obtenerHijos(raiz.id)"
+                    :obtener-hijos="obtenerHijos"
                     @seleccionar="seleccionar"
                     @editar="abrirEdicion"
                 />
             </div>
-        </div>
+        </template>
     </div>
 
     <Sheet v-model:open="panelAbierto">

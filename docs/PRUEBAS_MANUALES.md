@@ -14,6 +14,8 @@ Si vienes de un checkout anterior a este cierre, corre una vez:
 ```bash
 php artisan migrate
 php artisan db:seed --class=RolesYPermisosSeeder   # agrega permisos nuevos sin duplicar
+php artisan db:seed --class=DepartamentoSeeder     # agrega el departamento Contabilidad
+php artisan db:seed --class=PuestoJerarquiaSeeder  # conecta el árbol a Dirección General
 php artisan permission:cache-reset
 php artisan wayfinder:generate --with-form
 npm run build
@@ -21,7 +23,10 @@ npm run build
 
 Sin esto, un usuario que antes veía "Vacantes"/"Candidatos"/etc. en el menú puede
 dejar de verlos (los permisos nuevos no estarían sembrados) — no es un bug del código,
-es la base de datos local desactualizada.
+es la base de datos local desactualizada. Igual con Jerarquía de puestos: si tu base
+de datos ya tenía los puestos comerciales/administrativos sembrados de antes (sin
+"Dirección General"), correr `PuestoJerarquiaSeeder` de nuevo los conecta a la raíz
+sin duplicarlos — usa `updateOrCreate`, es seguro correrlo varias veces.
 
 ## 1. Filtros y exportación (Prioridad 1)
 
