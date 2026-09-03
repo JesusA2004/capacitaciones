@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { Plus, UserRound } from '@lucide/vue';
+import { FileSpreadsheet, FileText, Plus, UserRound } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
 import CandidatoFormDialog from '@/components/Rh/CandidatoFormDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
     Select,
     SelectContent,
@@ -17,15 +20,27 @@ import {
 import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
 import { dashboard } from '@/routes';
-import { estado as estadoUrl, index, show } from '@/routes/rh/candidatos';
+import {
+    estado as estadoUrl,
+    exportarExcel,
+    exportarPdf,
+    index,
+    show,
+} from '@/routes/rh/candidatos';
 import type { CandidatoItem, OpcionesReclutamiento } from '@/types';
 
 const props = defineProps<{
     candidatos: CandidatoItem[];
     filtros: {
+        empresa_id?: string;
         sucursal_id?: string;
+        departamento_id?: string;
         puesto_objetivo_id?: string;
+        vacante_id?: string;
+        responsable_rh_id?: string;
         busqueda?: string;
+        fecha_inicio?: string;
+        fecha_fin?: string;
     };
     opciones: OpcionesReclutamiento;
 }>();
@@ -39,11 +54,30 @@ defineOptions({
     },
 });
 
-const { filtros, aplicar, aplicarConDebounce } = useFiltros(index.url(), {
-    sucursal_id: props.filtros.sucursal_id ?? '',
-    puesto_objetivo_id: props.filtros.puesto_objetivo_id ?? '',
-    busqueda: props.filtros.busqueda ?? '',
-});
+const { filtros, aplicar, aplicarConDebounce, limpiar } = useFiltros(
+    index.url(),
+    {
+        empresa_id: props.filtros.empresa_id ?? '',
+        sucursal_id: props.filtros.sucursal_id ?? '',
+        departamento_id: props.filtros.departamento_id ?? '',
+        puesto_objetivo_id: props.filtros.puesto_objetivo_id ?? '',
+        vacante_id: props.filtros.vacante_id ?? '',
+        responsable_rh_id: props.filtros.responsable_rh_id ?? '',
+        busqueda: props.filtros.busqueda ?? '',
+        fecha_inicio: props.filtros.fecha_inicio ?? '',
+        fecha_fin: props.filtros.fecha_fin ?? '',
+    },
+);
+const filtroSheetAbierto = ref(false);
+function urlExportar(
+    destino: typeof exportarExcel | typeof exportarPdf,
+): string {
+    const parametros = new URLSearchParams(
+        Object.entries(filtros).filter(([, valor]) => valor),
+    );
+
+    return `${destino.url()}?${parametros.toString()}`;
+}
 const { mostrarError } = useAlertas();
 
 const COLUMNAS = props.opciones.estados ?? [];
@@ -92,6 +126,18 @@ function alSoltar(nuevoEstado: string) {
             descripcion="Seguimiento de prospectos y candidatos en proceso de reclutamiento."
             :icono="UserRound"
         >
+            <Button as-child variant="outline" size="sm">
+                <a :href="urlExportar(exportarExcel)">
+                    <FileSpreadsheet class="size-4" />
+                    Excel
+                </a>
+            </Button>
+            <Button as-child variant="outline" size="sm">
+                <a :href="urlExportar(exportarPdf)">
+                    <FileText class="size-4" />
+                    PDF
+                </a>
+            </Button>
             <Button @click="abrirCrear">
                 <Plus class="size-4" />
                 Nuevo candidato
@@ -99,17 +145,38 @@ function alSoltar(nuevoEstado: string) {
         </CrudPageHeader>
 
         <div class="flex flex-wrap items-center gap-2">
-            <Input
+            <CrudSearchInput
                 :model-value="filtros.busqueda"
                 placeholder="Buscar por nombre o correo..."
-                class="w-64"
                 @update:model-value="
                     (v) => {
-                        filtros.busqueda = String(v ?? '');
+                        filtros.busqueda = v;
                         aplicarConDebounce();
                     }
                 "
             />
+
+            <Select
+                :model-value="filtros.empresa_id"
+                @update:model-value="
+                    (v) => {
+                        filtros.empresa_id = String(v ?? '');
+                        aplicar();
+                    }
+                "
+            >
+                <SelectTrigger class="w-48"
+                    ><SelectValue placeholder="Todas las empresas"
+                /></SelectTrigger>
+                <SelectContent>
+                    <SelectItem
+                        v-for="opcion in opciones.empresas"
+                        :key="opcion.id"
+                        :value="String(opcion.id)"
+                        >{{ opcion.nombre }}</SelectItem
+                    >
+                </SelectContent>
+            </Select>
 
             <Select
                 :model-value="filtros.sucursal_id"
@@ -154,6 +221,96 @@ function alSoltar(nuevoEstado: string) {
                     >
                 </SelectContent>
             </Select>
+
+            <CrudFilterSheet
+                titulo="Más filtros"
+                descripcion="Departamento, vacante, responsable y fecha de registro."
+                :contador-activos="
+                    [
+                        filtros.departamento_id,
+                        filtros.vacante_id,
+                        filtros.responsable_rh_id,
+                        filtros.fecha_inicio,
+                        filtros.fecha_fin,
+                    ].filter(Boolean).length
+                "
+                :open="filtroSheetAbierto"
+                @update:open="(v) => (filtroSheetAbierto = v)"
+                @aplicar="aplicar"
+                @limpiar="limpiar"
+            >
+                <div class="grid gap-2">
+                    <Label>Departamento</Label>
+                    <Select
+                        :model-value="filtros.departamento_id"
+                        @update:model-value="
+                            (v) => (filtros.departamento_id = String(v ?? ''))
+                        "
+                    >
+                        <SelectTrigger
+                            ><SelectValue placeholder="Todos"
+                        /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem
+                                v-for="opcion in opciones.departamentos"
+                                :key="opcion.id"
+                                :value="String(opcion.id)"
+                                >{{ opcion.nombre }}</SelectItem
+                            >
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div class="grid gap-2">
+                    <Label>Responsable RH</Label>
+                    <Select
+                        :model-value="filtros.responsable_rh_id"
+                        @update:model-value="
+                            (v) => (filtros.responsable_rh_id = String(v ?? ''))
+                        "
+                    >
+                        <SelectTrigger
+                            ><SelectValue placeholder="Todos"
+                        /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem
+                                v-for="opcion in opciones.responsables"
+                                :key="opcion.id"
+                                :value="String(opcion.id)"
+                                >{{ opcion.name }}
+                                {{ opcion.apellidos }}</SelectItem
+                            >
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div class="grid gap-2">
+                        <Label>Registrado desde</Label>
+                        <Input
+                            type="date"
+                            :model-value="filtros.fecha_inicio"
+                            @update:model-value="
+                                (v) => (filtros.fecha_inicio = String(v ?? ''))
+                            "
+                        />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label>Registrado hasta</Label>
+                        <Input
+                            type="date"
+                            :model-value="filtros.fecha_fin"
+                            @update:model-value="
+                                (v) => (filtros.fecha_fin = String(v ?? ''))
+                            "
+                        />
+                    </div>
+                </div>
+            </CrudFilterSheet>
+
+            <Button variant="ghost" size="sm" @click="limpiar">
+                Limpiar filtros
+            </Button>
         </div>
 
         <div class="flex gap-4 overflow-x-auto pb-4">

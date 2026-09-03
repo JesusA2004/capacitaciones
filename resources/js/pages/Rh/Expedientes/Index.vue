@@ -1,11 +1,19 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
-import { ChevronRight, FolderOpen } from '@lucide/vue';
+import {
+    ChevronRight,
+    FileSpreadsheet,
+    FileText,
+    FolderOpen,
+} from '@lucide/vue';
 import { computed } from 'vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudToolbar from '@/components/DataTable/CrudToolbar.vue';
 import ColaboradorCarpetaCard from '@/components/Rh/ColaboradorCarpetaCard.vue';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
     Select,
     SelectContent,
@@ -16,7 +24,7 @@ import {
 import { useFiltros } from '@/composables/useFiltros';
 import { usePaginacion } from '@/composables/usePaginacion';
 import { dashboard } from '@/routes';
-import { index } from '@/routes/rh/expedientes';
+import { exportarExcel, exportarPdf, index } from '@/routes/rh/expedientes';
 import type {
     ColaboradorExpedienteItem,
     EstadoUsuarioOpcion,
@@ -33,6 +41,8 @@ const props = defineProps<{
         departamento_id?: string;
         puesto_id?: string;
         estatus?: string;
+        fecha_inicio?: string;
+        fecha_fin?: string;
     };
     empresasDisponibles: OpcionSimple[];
     sucursalesDisponibles: (OpcionSimple & { empresa_id: number | null })[];
@@ -59,9 +69,20 @@ const { filtros, aplicar, aplicarConDebounce, limpiar } = useFiltros(
         departamento_id: props.filtros.departamento_id ?? '',
         puesto_id: props.filtros.puesto_id ?? '',
         estatus: props.filtros.estatus ?? '',
+        fecha_inicio: props.filtros.fecha_inicio ?? '',
+        fecha_fin: props.filtros.fecha_fin ?? '',
     },
 );
 const { irA } = usePaginacion();
+function urlExportar(
+    destino: typeof exportarExcel | typeof exportarPdf,
+): string {
+    const parametros = new URLSearchParams(
+        Object.entries(filtros).filter(([, valor]) => valor),
+    );
+
+    return `${destino.url()}?${parametros.toString()}`;
+}
 
 const sucursalesFiltradas = computed(() =>
     filtros.empresa_id
@@ -89,7 +110,20 @@ const sucursalActiva = computed(() =>
             titulo="Expedientes"
             descripcion="Explora los expedientes digitales por empresa, sucursal y colaborador."
             :icono="FolderOpen"
-        />
+        >
+            <Button as-child variant="outline" size="sm">
+                <a :href="urlExportar(exportarExcel)">
+                    <FileSpreadsheet class="size-4" />
+                    Excel
+                </a>
+            </Button>
+            <Button as-child variant="outline" size="sm">
+                <a :href="urlExportar(exportarPdf)">
+                    <FileText class="size-4" />
+                    PDF
+                </a>
+            </Button>
+        </CrudPageHeader>
 
         <nav
             class="flex flex-wrap items-center gap-1 text-sm text-muted-foreground"
@@ -236,6 +270,37 @@ const sucursalActiva = computed(() =>
                         >
                     </SelectContent>
                 </Select>
+
+                <div class="flex items-center gap-1.5">
+                    <Label class="text-xs text-muted-foreground"
+                        >Ingreso desde</Label
+                    >
+                    <Input
+                        type="date"
+                        class="w-40"
+                        :model-value="filtros.fecha_inicio"
+                        @update:model-value="
+                            (v) => {
+                                filtros.fecha_inicio = String(v ?? '');
+                                aplicar();
+                            }
+                        "
+                    />
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <Label class="text-xs text-muted-foreground">hasta</Label>
+                    <Input
+                        type="date"
+                        class="w-40"
+                        :model-value="filtros.fecha_fin"
+                        @update:model-value="
+                            (v) => {
+                                filtros.fecha_fin = String(v ?? '');
+                                aplicar();
+                            }
+                        "
+                    />
+                </div>
             </div>
         </div>
 

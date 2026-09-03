@@ -24,6 +24,8 @@ class SolicitudInternaDocumento extends Model
 {
     protected $table = 'solicitud_interna_documentos';
 
+    protected $hidden = ['disk', 'path'];
+
     protected $fillable = [
         'solicitud_interna_id',
         'disk',

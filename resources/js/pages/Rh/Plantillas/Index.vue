@@ -1,20 +1,46 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
-import { FileText, Plus } from '@lucide/vue';
+import { FileSpreadsheet, FileText, Plus } from '@lucide/vue';
 import { ref } from 'vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import CrudActionMenu from '@/components/DataTable/CrudActionMenu.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
+import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
 import PlantillaFormDialog from '@/components/Rh/PlantillaFormDialog.vue';
 import { Button } from '@/components/ui/button';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { useAlertas } from '@/composables/useAlertas';
-import { destroy } from '@/routes/rh/plantillas';
+import { useFiltros } from '@/composables/useFiltros';
+import {
+    destroy,
+    exportarExcel,
+    exportarPdf,
+    index,
+} from '@/routes/rh/plantillas';
 import type { OpcionesPlantillas, PlantillaItem } from '@/types';
 
-defineProps<{
+const props = defineProps<{
     plantillas: PlantillaItem[];
+    filtros: {
+        tipo?: string;
+        empresa_id?: string;
+        sucursal_id?: string;
+        puesto_id?: string;
+        busqueda?: string;
+        fecha_inicio?: string;
+        fecha_fin?: string;
+    };
     opciones: OpcionesPlantillas;
 }>();
 
@@ -24,6 +50,28 @@ defineOptions({
     },
 });
 
+const { filtros, aplicar, aplicarConDebounce, limpiar } = useFiltros(
+    index.url(),
+    {
+        tipo: props.filtros.tipo ?? '',
+        empresa_id: props.filtros.empresa_id ?? '',
+        sucursal_id: props.filtros.sucursal_id ?? '',
+        puesto_id: props.filtros.puesto_id ?? '',
+        busqueda: props.filtros.busqueda ?? '',
+        fecha_inicio: props.filtros.fecha_inicio ?? '',
+        fecha_fin: props.filtros.fecha_fin ?? '',
+    },
+);
+const filtroSheetAbierto = ref(false);
+function urlExportar(
+    destino: typeof exportarExcel | typeof exportarPdf,
+): string {
+    const parametros = new URLSearchParams(
+        Object.entries(filtros).filter(([, valor]) => valor),
+    );
+
+    return `${destino.url()}?${parametros.toString()}`;
+}
 const { confirmarEliminacion, mostrarExito, mostrarError } = useAlertas();
 const dialogoAbierto = ref(false);
 const seleccionada = ref<PlantillaItem | null>(null);
@@ -64,11 +112,169 @@ async function eliminar(plantilla: PlantillaItem) {
             descripcion="Formatos oficiales (DOCX) que el sistema usa para generar documentos precargados."
             :icono="FileText"
         >
+            <Button as-child variant="outline" size="sm">
+                <a :href="urlExportar(exportarExcel)">
+                    <FileSpreadsheet class="size-4" />
+                    Excel
+                </a>
+            </Button>
+            <Button as-child variant="outline" size="sm">
+                <a :href="urlExportar(exportarPdf)">
+                    <FileText class="size-4" />
+                    PDF
+                </a>
+            </Button>
             <Button @click="abrirCrear">
                 <Plus class="size-4" />
                 Nueva plantilla
             </Button>
         </CrudPageHeader>
+
+        <div class="flex flex-wrap items-center gap-2">
+            <CrudSearchInput
+                :model-value="filtros.busqueda"
+                placeholder="Buscar por nombre..."
+                @update:model-value="
+                    (v) => {
+                        filtros.busqueda = v;
+                        aplicarConDebounce();
+                    }
+                "
+            />
+
+            <Select
+                :model-value="filtros.tipo"
+                @update:model-value="
+                    (v) => {
+                        filtros.tipo = String(v ?? '');
+                        aplicar();
+                    }
+                "
+            >
+                <SelectTrigger class="w-52"
+                    ><SelectValue placeholder="Todos los tipos"
+                /></SelectTrigger>
+                <SelectContent>
+                    <SelectItem
+                        v-for="opcion in opciones.tipos"
+                        :key="opcion.value"
+                        :value="opcion.value"
+                        >{{ opcion.etiqueta }}</SelectItem
+                    >
+                </SelectContent>
+            </Select>
+
+            <CrudFilterSheet
+                titulo="Más filtros"
+                descripcion="Alcance de la plantilla y fecha de creación."
+                :contador-activos="
+                    [
+                        filtros.empresa_id,
+                        filtros.sucursal_id,
+                        filtros.puesto_id,
+                        filtros.fecha_inicio,
+                        filtros.fecha_fin,
+                    ].filter(Boolean).length
+                "
+                :open="filtroSheetAbierto"
+                @update:open="(v) => (filtroSheetAbierto = v)"
+                @aplicar="aplicar"
+                @limpiar="limpiar"
+            >
+                <div class="grid gap-2">
+                    <Label>Empresa</Label>
+                    <Select
+                        :model-value="filtros.empresa_id"
+                        @update:model-value="
+                            (v) => (filtros.empresa_id = String(v ?? ''))
+                        "
+                    >
+                        <SelectTrigger
+                            ><SelectValue placeholder="Todas"
+                        /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem
+                                v-for="opcion in opciones.empresas"
+                                :key="opcion.id"
+                                :value="String(opcion.id)"
+                                >{{ opcion.nombre }}</SelectItem
+                            >
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div class="grid gap-2">
+                    <Label>Sucursal</Label>
+                    <Select
+                        :model-value="filtros.sucursal_id"
+                        @update:model-value="
+                            (v) => (filtros.sucursal_id = String(v ?? ''))
+                        "
+                    >
+                        <SelectTrigger
+                            ><SelectValue placeholder="Todas"
+                        /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem
+                                v-for="opcion in opciones.sucursales"
+                                :key="opcion.id"
+                                :value="String(opcion.id)"
+                                >{{ opcion.nombre }}</SelectItem
+                            >
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div class="grid gap-2">
+                    <Label>Puesto</Label>
+                    <Select
+                        :model-value="filtros.puesto_id"
+                        @update:model-value="
+                            (v) => (filtros.puesto_id = String(v ?? ''))
+                        "
+                    >
+                        <SelectTrigger
+                            ><SelectValue placeholder="Todos"
+                        /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem
+                                v-for="opcion in opciones.puestos"
+                                :key="opcion.id"
+                                :value="String(opcion.id)"
+                                >{{ opcion.nombre }}</SelectItem
+                            >
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div class="grid gap-2">
+                        <Label>Creada desde</Label>
+                        <Input
+                            type="date"
+                            :model-value="filtros.fecha_inicio"
+                            @update:model-value="
+                                (v) => (filtros.fecha_inicio = String(v ?? ''))
+                            "
+                        />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label>Creada hasta</Label>
+                        <Input
+                            type="date"
+                            :model-value="filtros.fecha_fin"
+                            @update:model-value="
+                                (v) => (filtros.fecha_fin = String(v ?? ''))
+                            "
+                        />
+                    </div>
+                </div>
+            </CrudFilterSheet>
+
+            <Button variant="ghost" size="sm" @click="limpiar">
+                Limpiar filtros
+            </Button>
+        </div>
 
         <CrudEmptyState
             v-if="!plantillas.length"

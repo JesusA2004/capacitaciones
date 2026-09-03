@@ -122,6 +122,26 @@ const PUEDE_CANCELAR = [
             </div>
         </div>
 
+        <div
+            v-if="solicitud.documentos_generados?.length"
+            class="rounded-2xl border border-border/60 bg-card p-5"
+        >
+            <h3 class="mb-3 text-sm font-semibold">Formatos generados</h3>
+            <ul class="flex flex-col gap-2">
+                <li
+                    v-for="doc in solicitud.documentos_generados"
+                    :key="doc.id"
+                    class="flex items-center justify-between gap-2 text-sm"
+                >
+                    <span>{{ doc.generated_name }}</span>
+                    <EstadoBadge :estado="doc.status" />
+                </li>
+            </ul>
+            <p class="mt-2 text-xs text-muted-foreground">
+                RH te hará llegar el documento para firmar.
+            </p>
+        </div>
+
         <div class="rounded-2xl border border-border/60 bg-card p-5">
             <div class="mb-3 flex items-center justify-between">
                 <h3 class="text-sm font-semibold">Documentos adjuntos</h3>

@@ -8,6 +8,7 @@ import {
     User,
 } from '@lucide/vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { show } from '@/routes/rh/expedientes';
 import type { ColaboradorExpedienteItem } from '@/types';
@@ -42,17 +43,19 @@ defineProps<{
         >
             <!-- Foto del colaborador: "clipeada" en la esquina de la carpeta,
                  como una foto sujeta con un clip a un folder físico. -->
-            <span
-                class="absolute -top-3 right-4 flex size-12 rotate-3 items-center justify-center overflow-hidden rounded-xl border-4 border-card bg-primary/10 text-primary shadow-md ring-1 ring-border/60 transition-transform duration-200 group-hover:rotate-0"
+            <Avatar
+                class="absolute -top-3 right-4 size-12 rotate-3 rounded-xl border-4 border-card shadow-md ring-1 ring-border/60 transition-transform duration-200 group-hover:rotate-0"
             >
-                <img
+                <AvatarImage
                     v-if="colaborador.foto_url"
                     :src="colaborador.foto_url"
                     alt=""
-                    class="size-full object-cover"
+                    class="object-cover"
                 />
-                <User v-else class="size-5" />
-            </span>
+                <AvatarFallback class="rounded-xl bg-primary/10 text-primary">
+                    <User class="size-5" />
+                </AvatarFallback>
+            </Avatar>
 
             <div class="flex items-start gap-2 pr-12">
                 <div class="min-w-0 flex-1">

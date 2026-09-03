@@ -72,7 +72,7 @@ use Spatie\Permission\Traits\HasRoles;
     'fecha_nacimiento', 'curp', 'rfc', 'nss', 'domicilio',
     'correo_personal', 'contacto_emergencia_nombre', 'contacto_emergencia_telefono',
 ])]
-#[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
+#[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token', 'foto_path'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */

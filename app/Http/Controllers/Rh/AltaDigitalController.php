@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Rh;
 
 use App\Enums\EstadoAltaDigital;
+use App\Exports\ReporteRhExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Rh\RechazarAltaDigitalRequest;
 use App\Http\Requests\Rh\RevisarAltaDigitalRequest;
@@ -14,19 +15,27 @@ use App\Models\Departamento;
 use App\Models\Empresa;
 use App\Models\Puesto;
 use App\Models\Sucursal;
+use App\Services\AlcanceOrganizacionalService;
 use App\Services\AltaDigital\AltaDigitalStorageService;
 use App\Services\AltaDigital\ConversionColaboradorService;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AltaDigitalController extends Controller
 {
+    private const FILTROS = ['empresa_id', 'sucursal_id', 'departamento_id', 'puesto_id', 'estado', 'busqueda', 'fecha_inicio', 'fecha_fin'];
+
     public function __construct(
+        private readonly AlcanceOrganizacionalService $alcance,
         private readonly ConversionColaboradorService $conversion,
         private readonly AltaDigitalStorageService $storage,
     ) {}
@@ -35,21 +44,11 @@ class AltaDigitalController extends Controller
     {
         $this->authorize('viewAny', AltaDigital::class);
 
-        $altas = AltaDigital::query()
-            ->with([
-                'candidato:id,nombre,apellidos',
-                'empresa:id,nombre',
-                'sucursal:id,nombre',
-                'puesto:id,nombre',
-            ])
-            ->when($request->string('estado')->toString(), fn ($query, string $estado) => $query->where('estado', $estado))
-            ->orderByDesc('created_at')
-            ->paginate(15)
-            ->withQueryString();
+        $altas = $this->queryFiltrada($request)->orderByDesc('created_at')->paginate(15)->withQueryString();
 
         return Inertia::render('Rh/Altas/Index', [
             'altas' => $altas,
-            'filtros' => $request->only('estado'),
+            'filtros' => $request->only(self::FILTROS),
             'opciones' => [
                 'empresas' => Empresa::query()->orderBy('nombre')->get(['id', 'nombre']),
                 'sucursales' => Sucursal::query()->orderBy('nombre')->get(['id', 'nombre', 'empresa_id']),
@@ -58,6 +57,87 @@ class AltaDigitalController extends Controller
                 'estados' => array_map(fn (EstadoAltaDigital $e) => ['value' => $e->value, 'etiqueta' => $e->etiqueta()], EstadoAltaDigital::cases()),
             ],
         ]);
+    }
+
+    public function exportarExcel(Request $request): HttpResponse
+    {
+        $this->authorize('viewAny', AltaDigital::class);
+
+        [$columnas, $filas] = $this->tabla($request);
+
+        return Excel::download(
+            new ReporteRhExport('Altas digitales', $columnas, $filas),
+            'altas-digitales-'.now()->format('Y-m-d').'.xlsx',
+        );
+    }
+
+    public function exportarPdf(Request $request): HttpResponse
+    {
+        $this->authorize('viewAny', AltaDigital::class);
+
+        [$columnas, $filas] = $this->tabla($request);
+
+        return Pdf::loadView('pdf.reporte-rh', ['titulo' => 'Altas digitales', 'columnas' => $columnas, 'filas' => $filas])
+            ->setPaper('letter', 'landscape')
+            ->download('altas-digitales-'.now()->format('Y-m-d').'.pdf');
+    }
+
+    /**
+     * @return array{0: array<int, string>, 1: array<int, array<int, string|int|null>>}
+     */
+    private function tabla(Request $request): array
+    {
+        $altas = $this->queryFiltrada($request)->orderByDesc('created_at')->get();
+
+        $columnas = ['Nombre', 'Correo', 'Puesto', 'Departamento', 'Empresa', 'Sucursal', 'Estado', 'Fecha de creación'];
+
+        $filas = $altas->map(fn (AltaDigital $a) => [
+            trim("{$a->nombre} {$a->apellidos}"),
+            $a->correo,
+            $a->puesto?->nombre,
+            $a->departamento?->nombre,
+            $a->empresa?->nombre,
+            $a->sucursal?->nombre,
+            $a->estado->etiqueta(),
+            $a->created_at->toDateString(),
+        ])->all();
+
+        return [$columnas, $filas];
+    }
+
+    /**
+     * @return Builder<AltaDigital>
+     */
+    private function queryFiltrada(Request $request): Builder
+    {
+        $usuario = $request->user();
+
+        return $this->alcance
+            ->limitarPorSucursal(
+                AltaDigital::query()->with([
+                    'candidato:id,nombre,apellidos',
+                    'empresa:id,nombre',
+                    'sucursal:id,nombre',
+                    'departamento:id,nombre',
+                    'puesto:id,nombre',
+                ]),
+                $usuario,
+            )
+            ->when($request->integer('empresa_id'), fn ($query, $valor) => $query->where('empresa_id', $valor))
+            ->when($request->integer('sucursal_id'), fn ($query, $valor) => $query->where('sucursal_id', $valor))
+            ->when($request->integer('departamento_id'), fn ($query, $valor) => $query->where('departamento_id', $valor))
+            ->when($request->integer('puesto_id'), fn ($query, $valor) => $query->where('puesto_id', $valor))
+            ->when($request->string('estado')->toString(), fn ($query, string $estado) => $query->where('estado', $estado))
+            ->when($request->string('fecha_inicio')->toString(), fn ($query, string $valor) => $query->whereDate('created_at', '>=', $valor))
+            ->when($request->string('fecha_fin')->toString(), fn ($query, string $valor) => $query->whereDate('created_at', '<=', $valor))
+            ->when($request->string('busqueda')->toString(), function ($query, string $busqueda) {
+                $query->where(function ($sub) use ($busqueda): void {
+                    $sub->where('nombre', 'like', "%{$busqueda}%")
+                        ->orWhere('apellidos', 'like', "%{$busqueda}%")
+                        ->orWhere('correo', 'like', "%{$busqueda}%")
+                        ->orWhere('curp', 'like', "%{$busqueda}%");
+                });
+            });
     }
 
     public function show(AltaDigital $alta): Response

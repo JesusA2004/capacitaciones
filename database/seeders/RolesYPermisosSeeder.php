@@ -206,6 +206,7 @@ class RolesYPermisosSeeder extends Seeder
             'reportes_rh.ver', 'reportes_rh.sucursal',
             'vacantes.ver', 'vacantes.ver_sucursal', 'vacantes.crear',
             'candidatos.ver', 'candidatos.ver_sucursal', 'candidatos.aprobar', 'candidatos.rechazar',
+            'altas.ver', 'altas.revisar', 'altas.aprobar',
         ],
         'supervisor' => [
             'dashboard.sucursal.ver',

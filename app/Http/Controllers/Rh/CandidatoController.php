@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Rh;
 
 use App\Enums\EstadoCandidato;
 use App\Enums\TipoSeguimientoCandidato;
+use App\Exports\ReporteRhExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Rh\ActualizarEstadoCandidatoRequest;
 use App\Http\Requests\Rh\StoreCandidatoRequest;
@@ -15,17 +16,24 @@ use App\Models\Departamento;
 use App\Models\Empresa;
 use App\Models\Puesto;
 use App\Models\Sucursal;
+use App\Models\User;
 use App\Models\Vacante;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Reclutamiento\CvStorageService;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CandidatoController extends Controller
 {
+    private const FILTROS = ['empresa_id', 'sucursal_id', 'departamento_id', 'puesto_objetivo_id', 'vacante_id', 'responsable_rh_id', 'busqueda', 'fecha_inicio', 'fecha_fin'];
+
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly CvStorageService $cvStorage,
@@ -35,13 +43,75 @@ class CandidatoController extends Controller
     {
         $this->authorize('viewAny', Candidato::class);
 
+        $candidatos = $this->queryFiltrada($request)->orderByDesc('created_at')->get();
+
+        return Inertia::render('Rh/Candidatos/Index', [
+            'candidatos' => $candidatos,
+            'filtros' => $request->only(self::FILTROS),
+            'opciones' => $this->opciones(),
+        ]);
+    }
+
+    public function exportarExcel(Request $request): HttpResponse
+    {
+        $this->authorize('viewAny', Candidato::class);
+
+        [$columnas, $filas] = $this->tabla($request);
+
+        return Excel::download(
+            new ReporteRhExport('Candidatos', $columnas, $filas),
+            'candidatos-'.now()->format('Y-m-d').'.xlsx',
+        );
+    }
+
+    public function exportarPdf(Request $request): HttpResponse
+    {
+        $this->authorize('viewAny', Candidato::class);
+
+        [$columnas, $filas] = $this->tabla($request);
+
+        return Pdf::loadView('pdf.reporte-rh', ['titulo' => 'Candidatos', 'columnas' => $columnas, 'filas' => $filas])
+            ->setPaper('letter', 'landscape')
+            ->download('candidatos-'.now()->format('Y-m-d').'.pdf');
+    }
+
+    /**
+     * @return array{0: array<int, string>, 1: array<int, array<int, string|int|null>>}
+     */
+    private function tabla(Request $request): array
+    {
+        $candidatos = $this->queryFiltrada($request)->orderByDesc('created_at')->get();
+
+        $columnas = ['Nombre', 'Correo', 'Teléfono', 'Puesto objetivo', 'Empresa', 'Sucursal', 'Responsable RH', 'Estado', 'Fecha de registro'];
+
+        $filas = $candidatos->map(fn (Candidato $c) => [
+            trim("{$c->nombre} {$c->apellidos}"),
+            $c->correo,
+            $c->telefono,
+            $c->puestoObjetivo?->nombre,
+            $c->empresa?->nombre,
+            $c->sucursal?->nombre,
+            $c->responsableRh ? trim("{$c->responsableRh->name} {$c->responsableRh->apellidos}") : null,
+            $c->estado->etiqueta(),
+            $c->created_at->toDateString(),
+        ])->all();
+
+        return [$columnas, $filas];
+    }
+
+    /**
+     * @return Builder<Candidato>
+     */
+    private function queryFiltrada(Request $request): Builder
+    {
         $usuario = $request->user();
 
-        $candidatos = $this->alcance
+        return $this->alcance
             ->limitarPorSucursal(
                 Candidato::query()->with([
                     'empresa:id,nombre',
                     'sucursal:id,nombre',
+                    'departamento:id,nombre',
                     'puestoObjetivo:id,nombre',
                     'vacante:id,puesto_id',
                     'responsableRh:id,name,apellidos',
@@ -51,23 +121,19 @@ class CandidatoController extends Controller
             )
             ->when($request->integer('empresa_id'), fn ($query, $valor) => $query->where('empresa_id', $valor))
             ->when($request->integer('sucursal_id'), fn ($query, $valor) => $query->where('sucursal_id', $valor))
+            ->when($request->integer('departamento_id'), fn ($query, $valor) => $query->where('departamento_id', $valor))
             ->when($request->integer('puesto_objetivo_id'), fn ($query, $valor) => $query->where('puesto_objetivo_id', $valor))
             ->when($request->integer('vacante_id'), fn ($query, $valor) => $query->where('vacante_id', $valor))
+            ->when($request->integer('responsable_rh_id'), fn ($query, $valor) => $query->where('responsable_rh_id', $valor))
+            ->when($request->string('fecha_inicio')->toString(), fn ($query, string $valor) => $query->whereDate('created_at', '>=', $valor))
+            ->when($request->string('fecha_fin')->toString(), fn ($query, string $valor) => $query->whereDate('created_at', '<=', $valor))
             ->when($request->string('busqueda')->toString(), function ($query, string $busqueda) {
                 $query->where(function ($sub) use ($busqueda): void {
                     $sub->where('nombre', 'like', "%{$busqueda}%")
                         ->orWhere('apellidos', 'like', "%{$busqueda}%")
                         ->orWhere('correo', 'like', "%{$busqueda}%");
                 });
-            })
-            ->orderByDesc('created_at')
-            ->get();
-
-        return Inertia::render('Rh/Candidatos/Index', [
-            'candidatos' => $candidatos,
-            'filtros' => $request->only('empresa_id', 'sucursal_id', 'puesto_objetivo_id', 'vacante_id', 'busqueda'),
-            'opciones' => $this->opciones(),
-        ]);
+            });
     }
 
     public function show(Candidato $candidato): Response
@@ -203,6 +269,7 @@ class CandidatoController extends Controller
             'departamentos' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
             'puestos' => Puesto::query()->orderBy('nombre')->get(['id', 'nombre', 'departamento_id']),
             'vacantes' => Vacante::query()->whereNotIn('estado', ['cubierta', 'cancelada'])->orderByDesc('fecha_apertura')->get(['id', 'puesto_id']),
+            'responsables' => User::query()->role(['rh_admin', 'rh_auxiliar'])->orderBy('name')->get(['id', 'name', 'apellidos']),
             'estados' => array_map(fn (EstadoCandidato $e) => ['value' => $e->value, 'etiqueta' => $e->etiqueta()], EstadoCandidato::cases()),
             'tiposSeguimiento' => array_map(fn (TipoSeguimientoCandidato $t) => ['value' => $t->value, 'etiqueta' => $t->etiqueta()], TipoSeguimientoCandidato::cases()),
         ];

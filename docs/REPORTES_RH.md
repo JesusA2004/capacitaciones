@@ -37,8 +37,19 @@ GET /rh/reportes/excel?reporte=...&empresa_id=...   descarga .xlsx
 GET /rh/reportes/pdf?reporte=...&empresa_id=...     descarga .pdf
 ```
 
+## El mismo patrón, extendido a los listados operativos
+
+Los 8 listados operativos de RH (Vacantes, Candidatos, Altas digitales, Plantillas,
+Formatos, Solicitudes, Expedientes, Vacaciones) reutilizan las mismas dos piezas
+genéricas que este módulo originó — `App\Exports\ReporteRhExport` y
+`resources/views/pdf/reporte-rh.blade.php` — para su propia exportación Excel/PDF,
+cada uno con sus propios filtros y su propia query (ver
+`docs/ARQUITECTURA_SERVICES.md`, sección "Patrón de listados con filtros +
+exportación"). Este módulo (Reportes RH) sigue siendo el único con selector de
+*reporte* (múltiples tablas agregadas); los demás exportan directamente el listado tal
+como se ve filtrado en pantalla.
+
 ## Pendiente
 
 - Gráficas (el dashboard RH ya tiene varias, ver `docs/PORTAL_RH.md`; esta pantalla es tabular a propósito, pensada para exportar).
 - Reportes de "documentos pendientes"/"documentos rechazados" filtrados por `tipo_documento` desde la UI (el filtro existe en el servicio, falta el `<Select>` de tipos de documento en `Rh/Reportes/Index.vue`).
-- Extender el mismo patrón de filtros + exportar Excel/PDF a los demás listados del sistema (vacantes, candidatos, expedientes, vacaciones) — hoy solo Reportes RH y Reporte de Cumplimiento (`docs/AUDITORIA_CUMPLIMIENTO.md`) lo tienen.

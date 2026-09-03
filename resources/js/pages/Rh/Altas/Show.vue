@@ -19,12 +19,12 @@ import {
     aprobar,
     cancelar,
     enviar,
+    firma as descargarFirma,
+    foto as descargarFoto,
     index,
     rechazar,
     revisar,
 } from '@/routes/rh/altas';
-import { firma as descargarFirma } from '@/routes/rh/altas';
-import { foto as descargarFoto } from '@/routes/rh/altas';
 import { descargar as descargarDocumento } from '@/routes/rh/altas/documentos';
 import type { AltaDigitalItem } from '@/types';
 

@@ -40,7 +40,7 @@ class SolicitudInternaController extends Controller
     {
         $this->authorize('view', $solicitud);
 
-        $solicitud->load(['usuario:id,name,apellidos', 'revisadoPor:id,name,apellidos', 'documentos', 'historial.usuario:id,name,apellidos']);
+        $solicitud->load(['usuario:id,name,apellidos', 'revisadoPor:id,name,apellidos', 'documentos', 'documentosGenerados.plantilla:id,nombre,tipo', 'historial.usuario:id,name,apellidos']);
 
         return Inertia::render('Solicitudes/Show', [
             'solicitud' => $solicitud,

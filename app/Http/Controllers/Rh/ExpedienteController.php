@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Rh;
 
 use App\Enums\EstadoUsuario;
+use App\Exports\ReporteRhExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Rh\ActualizarDatosPersonalesRequest;
 use App\Models\AltaDigital;
@@ -19,15 +20,21 @@ use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Onboarding\OnboardingService;
 use App\Services\Vacaciones\VacacionesService;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ExpedienteController extends Controller
 {
+    private const FILTROS = ['busqueda', 'empresa_id', 'sucursal_id', 'departamento_id', 'puesto_id', 'estatus', 'fecha_inicio', 'fecha_fin'];
+
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly ExpedienteService $expediente,
@@ -48,26 +55,7 @@ class ExpedienteController extends Controller
 
         abort_unless($usuario->can('expedientes.ver_todos') || $usuario->can('expedientes.ver_sucursal'), 403);
 
-        $colaboradores = User::query()
-            ->tap(fn ($query) => $this->alcance->limitarExpedientesPorAlcance($query, $usuario))
-            ->with([
-                'sucursalPrincipal:id,nombre,empresa_id',
-                'sucursalPrincipal.empresa:id,nombre',
-                'departamento:id,nombre',
-                'puesto:id,nombre',
-            ])
-            ->when($request->string('busqueda')->toString(), function ($query, string $busqueda) {
-                $query->where(function ($sub) use ($busqueda) {
-                    $sub->where('name', 'like', "%{$busqueda}%")
-                        ->orWhere('apellidos', 'like', "%{$busqueda}%")
-                        ->orWhere('numero_empleado', 'like', "%{$busqueda}%");
-                });
-            })
-            ->when($request->integer('empresa_id'), fn ($query, int $id) => $query->whereHas('sucursalPrincipal', fn ($sub) => $sub->where('empresa_id', $id)))
-            ->when($request->integer('sucursal_id'), fn ($query, int $id) => $query->where('sucursal_principal_id', $id))
-            ->when($request->integer('departamento_id'), fn ($query, int $id) => $query->where('departamento_id', $id))
-            ->when($request->integer('puesto_id'), fn ($query, int $id) => $query->where('puesto_id', $id))
-            ->when($request->string('estatus')->toString(), fn ($query, string $estatus) => $query->where('estatus', $estatus))
+        $colaboradores = $this->queryFiltrada($request)
             ->orderBy('name')
             ->paginate(24)
             ->withQueryString();
@@ -94,13 +82,97 @@ class ExpedienteController extends Controller
 
         return Inertia::render('Rh/Expedientes/Index', [
             'colaboradores' => $colaboradores,
-            'filtros' => $request->only('busqueda', 'empresa_id', 'sucursal_id', 'departamento_id', 'puesto_id', 'estatus'),
+            'filtros' => $request->only(self::FILTROS),
             'empresasDisponibles' => Empresa::query()->orderBy('nombre')->get(['id', 'nombre']),
             'sucursalesDisponibles' => Sucursal::query()->orderBy('nombre')->get(['id', 'nombre', 'empresa_id']),
             'departamentosDisponibles' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
             'puestosDisponibles' => Puesto::query()->orderBy('nombre')->get(['id', 'nombre']),
             'estados' => array_map(fn (EstadoUsuario $estado) => ['value' => $estado->value, 'etiqueta' => $estado->etiqueta()], EstadoUsuario::cases()),
         ]);
+    }
+
+    public function exportarExcel(Request $request): HttpResponse
+    {
+        $usuario = $request->user();
+        abort_unless($usuario->can('expedientes.ver_todos') || $usuario->can('expedientes.ver_sucursal'), 403);
+
+        [$columnas, $filas] = $this->tabla($request);
+
+        return Excel::download(
+            new ReporteRhExport('Expedientes', $columnas, $filas),
+            'expedientes-'.now()->format('Y-m-d').'.xlsx',
+        );
+    }
+
+    public function exportarPdf(Request $request): HttpResponse
+    {
+        $usuario = $request->user();
+        abort_unless($usuario->can('expedientes.ver_todos') || $usuario->can('expedientes.ver_sucursal'), 403);
+
+        [$columnas, $filas] = $this->tabla($request);
+
+        return Pdf::loadView('pdf.reporte-rh', ['titulo' => 'Expedientes', 'columnas' => $columnas, 'filas' => $filas])
+            ->setPaper('letter', 'landscape')
+            ->download('expedientes-'.now()->format('Y-m-d').'.pdf');
+    }
+
+    /**
+     * @return array{0: array<int, string>, 1: array<int, array<int, string|int|null>>}
+     */
+    private function tabla(Request $request): array
+    {
+        $colaboradores = $this->queryFiltrada($request)->orderBy('name')->get();
+
+        $columnas = ['Nombre', 'Número de empleado', 'Empresa', 'Sucursal', 'Departamento', 'Puesto', 'Estado', 'Expediente completo', 'Documentos pendientes'];
+
+        $filas = $colaboradores->map(function (User $colaborador) {
+            $resumen = $this->expediente->resumenCompletitud($colaborador);
+
+            return [
+                trim("{$colaborador->name} {$colaborador->apellidos}"),
+                $colaborador->numero_empleado,
+                $colaborador->sucursalPrincipal?->empresa?->nombre,
+                $colaborador->sucursalPrincipal?->nombre,
+                $colaborador->departamento?->nombre,
+                $colaborador->puesto?->nombre,
+                $colaborador->estatus->etiqueta(),
+                $resumen['porcentaje'].'%',
+                $resumen['pendientes'] + $resumen['rechazados'],
+            ];
+        })->all();
+
+        return [$columnas, $filas];
+    }
+
+    /**
+     * @return Builder<User>
+     */
+    private function queryFiltrada(Request $request): Builder
+    {
+        $usuario = $request->user();
+
+        return User::query()
+            ->tap(fn ($query) => $this->alcance->limitarExpedientesPorAlcance($query, $usuario))
+            ->with([
+                'sucursalPrincipal:id,nombre,empresa_id',
+                'sucursalPrincipal.empresa:id,nombre',
+                'departamento:id,nombre',
+                'puesto:id,nombre',
+            ])
+            ->when($request->string('busqueda')->toString(), function ($query, string $busqueda) {
+                $query->where(function ($sub) use ($busqueda) {
+                    $sub->where('name', 'like', "%{$busqueda}%")
+                        ->orWhere('apellidos', 'like', "%{$busqueda}%")
+                        ->orWhere('numero_empleado', 'like', "%{$busqueda}%");
+                });
+            })
+            ->when($request->integer('empresa_id'), fn ($query, int $id) => $query->whereHas('sucursalPrincipal', fn ($sub) => $sub->where('empresa_id', $id)))
+            ->when($request->integer('sucursal_id'), fn ($query, int $id) => $query->where('sucursal_principal_id', $id))
+            ->when($request->integer('departamento_id'), fn ($query, int $id) => $query->where('departamento_id', $id))
+            ->when($request->integer('puesto_id'), fn ($query, int $id) => $query->where('puesto_id', $id))
+            ->when($request->string('estatus')->toString(), fn ($query, string $estatus) => $query->where('estatus', $estatus))
+            ->when($request->string('fecha_inicio')->toString(), fn ($query, string $valor) => $query->whereDate('fecha_ingreso', '>=', $valor))
+            ->when($request->string('fecha_fin')->toString(), fn ($query, string $valor) => $query->whereDate('fecha_ingreso', '<=', $valor));
     }
 
     public function show(Request $request, User $colaborador): Response

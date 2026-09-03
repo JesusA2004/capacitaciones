@@ -1,3 +1,5 @@
+import type { DocumentoGeneradoItem } from './plantillas';
+
 export type TipoSolicitudInterna = {
     value: string;
     label: string;
@@ -46,10 +48,14 @@ export type SolicitudInternaItem = {
         | null;
     revisado_por?: UsuarioResumen | null;
     documentos?: SolicitudInternaDocumentoItem[];
+    documentos_generados?: DocumentoGeneradoItem[];
     historial?: SolicitudInternaHistorialItem[];
 };
 
 export type OpcionesSolicitudes = {
     empresas: { id: number; nombre: string }[];
     sucursales: { id: number; nombre: string; empresa_id: number | null }[];
+    departamentos?: { id: number; nombre: string }[];
+    puestos?: { id: number; nombre: string }[];
+    responsables?: { id: number; name: string; apellidos: string | null }[];
 };

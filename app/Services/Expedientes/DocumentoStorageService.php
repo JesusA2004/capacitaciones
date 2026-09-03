@@ -2,6 +2,10 @@
 
 namespace App\Services\Expedientes;
 
+use App\Enums\EstadoDocumento;
+use App\Models\DocumentType;
+use App\Models\EmployeeDocument;
+use App\Models\User;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\UploadedFile;
@@ -88,6 +92,51 @@ class DocumentoStorageService
         fclose($flujo);
 
         return hash_final($contexto);
+    }
+
+    /**
+     * Sube una nueva version de un documento de expediente: si ya existe una
+     * version vigente del mismo tipo para el colaborador, la archiva y
+     * enlaza la nueva como su sucesora (previous_version_id), igual que
+     * Rh\EmployeeDocumentController::store. Unica fuente de esta logica para
+     * que la subida normal al expediente y la subida de un formato firmado
+     * (Rh\FormatoController::subirFirmado) no la dupliquen.
+     */
+    public function subirVersion(User $colaborador, DocumentType $tipo, UploadedFile $archivo, int $subidoPorId): EmployeeDocument
+    {
+        $anterior = EmployeeDocument::query()
+            ->where('user_id', $colaborador->id)
+            ->where('document_type_id', $tipo->id)
+            ->where('status', '!=', EstadoDocumento::Archivado->value)
+            ->orderByDesc('version')
+            ->first();
+
+        $nombreInterno = $this->nombreInterno($archivo->getClientOriginalName());
+        $ruta = $this->rutaDocumento($colaborador->id, $nombreInterno);
+        $this->guardar($archivo, $ruta);
+
+        $documento = EmployeeDocument::create([
+            'user_id' => $colaborador->id,
+            'empresa_id' => $colaborador->sucursalPrincipal?->empresa_id,
+            'sucursal_id' => $colaborador->sucursal_principal_id,
+            'document_type_id' => $tipo->id,
+            'disk' => config('expedientes.disk'),
+            'path' => $ruta,
+            'original_name' => $archivo->getClientOriginalName(),
+            'stored_name' => $nombreInterno,
+            'mime' => $archivo->getClientMimeType(),
+            'extension' => $archivo->getClientOriginalExtension(),
+            'size' => $archivo->getSize(),
+            'hash' => $this->hashSha256($ruta),
+            'version' => $anterior ? $anterior->version + 1 : 1,
+            'previous_version_id' => $anterior?->id,
+            'status' => EstadoDocumento::EnRevision->value,
+            'uploaded_by' => $subidoPorId,
+        ]);
+
+        $anterior?->update(['status' => EstadoDocumento::Archivado->value]);
+
+        return $documento;
     }
 
     /**

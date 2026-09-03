@@ -70,6 +70,70 @@ Levanta en paralelo el servidor de Laravel, el worker de colas (`queue:listen`) 
 
 `database/seeders/CursoInduccionSeeder.php` crea además un curso de inducción de ejemplo publicado, con módulos y lecciones (texto, video/documento simulados y confirmación de lectura).
 
+## Rutas principales
+
+| Ruta | Qué es |
+|---|---|
+| `/rh/vacantes`, `/rh/candidatos` | Reclutamiento |
+| `/rh/altas` | Altas digitales |
+| `/rh/expedientes` | Explorador de expedientes por empresa/sucursal/colaborador |
+| `/rh/plantillas`, `/rh/formatos` | Catálogo de plantillas DOCX y generación de formatos precargados |
+| `/rh/solicitudes` | Revisión de solicitudes internas (RH/gerencia) |
+| `/rh/vacaciones` | Revisión de solicitudes de vacaciones |
+| `/rh/reportes` | Reportes RH (con exportación Excel/PDF) |
+| `/solicitudes`, `/vacaciones` | Vista del colaborador sobre sus propias solicitudes/vacaciones |
+| `/mi-portal`, `/mi-perfil` | Portal del colaborador (ver `docs/PORTAL_COLABORADOR.md`) |
+| `/administracion/*` | Empresas, sucursales, departamentos, puestos, roles, colaboradores |
+
+Los 8 listados operativos (Vacantes, Candidatos, Altas digitales, Plantillas, Formatos,
+Solicitudes, Expedientes, Vacaciones) tienen filtros completos y botones "Excel"/"PDF"
+que exportan respetando los filtros activos en pantalla.
+
+## Endpoints API (`/api/v1`)
+
+Autenticación por token Sanctum — ver `docs/API_MOVIL.md` para el detalle completo y
+ejemplos de request/response. Resumen:
+
+```
+POST /api/v1/login                    { email, password } -> { token }
+GET  /api/v1/me                       Usuario autenticado
+GET  /api/v1/colaborador/perfil       Perfil del colaborador autenticado
+GET  /api/v1/colaborador/dashboard
+GET  /api/v1/vacaciones/saldo
+GET  /api/v1/vacaciones/solicitudes
+POST /api/v1/solicitudes
+GET  /api/v1/solicitudes
+GET  /api/v1/solicitudes/{solicitud}
+GET  /api/v1/notificaciones
+```
+
+Reclutamiento, expedientes, plantillas/formatos y reportes RH **no tienen API** en
+Fase 1 — quedan solo en la web (ver `docs/SEGURIDAD.md`).
+
+## Dónde subir formatos
+
+Las plantillas DOCX se suben desde **Plantillas** (`/rh/plantillas`) — deben traer
+placeholders `{{...}}` del catálogo en `claude/formatos/placeholders/PLACEHOLDERS.md`.
+Los documentos generados/firmados no se suben a mano al NAS: siempre a través de la UI
+(`/rh/formatos`, o el botón "Generar formato"/"Subir firmado" dentro de una solicitud) —
+ver `docs/PLANTILLAS_FORMATOS.md`.
+
+## Cómo probar la Fase 1
+
+Ver `docs/PRUEBAS_MANUALES.md` para el checklist paso a paso (filtros/exportación,
+generar formato desde una solicitud, subir firmado, verificación de alcance por
+sucursal).
+
+## Fuera de alcance en este cierre de Fase 1
+
+- Firma electrónica avanzada (la firma es física: se imprime, se firma en papel, se
+  escanea y se sube).
+- Detección automática de placeholders al subir una plantilla.
+- Descarga de formatos generados por el propio colaborador (los ve listados en su
+  solicitud, pero la descarga vive del lado de RH).
+- Préstamo interno como tipo de solicitud sin reglas de negocio propias (montos, plazos).
+- Desempeño/Nine Box y Capacitación (Fases 2 y 3), ocultos tras feature flag.
+
 ## Comandos habituales
 
 ```bash
@@ -117,6 +181,7 @@ En producción, agrega la entrada de cron estándar de Laravel apuntando a `sche
 - `docs/ROLES_PERMISOS_RH.md`, `docs/LIMITACIONES.md`, `docs/ROADMAP.md` — gobierno del sistema y alcance/fuera de alcance.
 - `docs/CONFIGURACION_NAS.md` — disco de almacenamiento (local vs. SFTP), compartido con el módulo de capacitación (oculto).
 - `docs/SEGURIDAD.md` — autenticación, autorización, aislamiento por sucursal, y checklist de despliegue a producción.
+- `docs/PRUEBAS_MANUALES.md` — checklist de pruebas manuales del cierre de Fase 1.
 
 Documentación heredada del módulo de capacitación (oculto tras feature flag, no eliminado): `docs/PLAN_IMPLEMENTACION.md`, `docs/PROCESAMIENTO_VIDEO.md`, `docs/SESIONES_EN_VIVO.md`, `docs/CAPACITACION_PROXIMAMENTE.md`.
 

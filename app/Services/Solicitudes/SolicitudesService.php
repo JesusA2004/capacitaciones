@@ -10,6 +10,7 @@ use App\Services\AlcanceOrganizacionalService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -76,13 +77,38 @@ class SolicitudesService
      * Listado de revisión de RH/gerencia, acotado por alcance organizacional
      * y filtros opcionales.
      *
-     * @param  array{estado?: string, tipo?: string, sucursal_id?: string, empresa_id?: string}  $filtros
+     * @param  array<string, mixed>  $filtros
      * @return LengthAwarePaginator<int, SolicitudInterna>
      */
     public function paraRevision(User $revisor, array $filtros = []): LengthAwarePaginator
     {
+        return $this->queryRevision($revisor, $filtros)
+            ->orderByDesc('created_at')
+            ->paginate(15)
+            ->withQueryString();
+    }
+
+    /**
+     * Mismo filtrado que paraRevision(), sin paginar: usado por las
+     * exportaciones Excel/PDF para que respeten exactamente los filtros
+     * activos en pantalla.
+     *
+     * @param  array<string, mixed>  $filtros
+     * @return Collection<int, SolicitudInterna>
+     */
+    public function paraExportar(User $revisor, array $filtros = []): Collection
+    {
+        return $this->queryRevision($revisor, $filtros)->orderByDesc('created_at')->get();
+    }
+
+    /**
+     * @param  array<string, mixed>  $filtros
+     * @return Builder<SolicitudInterna>
+     */
+    private function queryRevision(User $revisor, array $filtros = []): Builder
+    {
         $query = SolicitudInterna::query()
-            ->with(['usuario:id,name,apellidos,sucursal_principal_id,empresa_id', 'revisadoPor:id,name,apellidos']);
+            ->with(['usuario:id,name,apellidos,sucursal_principal_id,empresa_id,departamento_id,puesto_id', 'usuario.departamento:id,nombre', 'usuario.puesto:id,nombre', 'revisadoPor:id,name,apellidos']);
 
         $query = $this->limitarPorAlcance($query, $revisor);
 
@@ -91,9 +117,17 @@ class SolicitudesService
             ->when($filtros['tipo'] ?? null, fn (Builder $q, string $v) => $q->where('tipo', $v))
             ->when($filtros['sucursal_id'] ?? null, fn (Builder $q, string $v) => $q->where('sucursal_id', $v))
             ->when($filtros['empresa_id'] ?? null, fn (Builder $q, string $v) => $q->where('empresa_id', $v))
-            ->orderByDesc('created_at')
-            ->paginate(15)
-            ->withQueryString();
+            ->when($filtros['departamento_id'] ?? null, fn (Builder $q, string $v) => $q->whereHas('usuario', fn (Builder $u) => $u->where('departamento_id', $v)))
+            ->when($filtros['puesto_id'] ?? null, fn (Builder $q, string $v) => $q->whereHas('usuario', fn (Builder $u) => $u->where('puesto_id', $v)))
+            ->when($filtros['revisado_por'] ?? null, fn (Builder $q, string $v) => $q->where('revisado_por', $v))
+            ->when($filtros['fecha_inicio'] ?? null, fn (Builder $q, string $v) => $q->whereDate('created_at', '>=', $v))
+            ->when($filtros['fecha_fin'] ?? null, fn (Builder $q, string $v) => $q->whereDate('created_at', '<=', $v))
+            ->when($filtros['busqueda'] ?? null, function (Builder $q, string $busqueda): void {
+                $q->where(function (Builder $sub) use ($busqueda): void {
+                    $sub->where('folio', 'like', "%{$busqueda}%")
+                        ->orWhere('motivo', 'like', "%{$busqueda}%");
+                });
+            });
     }
 
     /**

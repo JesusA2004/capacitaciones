@@ -86,6 +86,7 @@ export type OpcionesReclutamiento = {
     sucursales: (OpcionSimple & { empresa_id: number | null })[];
     departamentos: OpcionSimple[];
     puestos: (OpcionSimple & { departamento_id: number | null })[];
+    responsables?: { id: number; name: string; apellidos: string | null }[];
     motivos?: OpcionEnum[];
     estados: OpcionEnum[];
     vacantes?: { id: number; puesto_id: number | null }[];

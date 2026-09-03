@@ -50,6 +50,8 @@ class EmployeeDocument extends Model
 
     protected $table = 'employee_documents';
 
+    protected $hidden = ['disk', 'path'];
+
     protected $fillable = [
         'user_id', 'empresa_id', 'sucursal_id', 'document_type_id',
         'disk', 'path', 'original_name', 'stored_name', 'mime', 'extension', 'size', 'hash',

@@ -7,6 +7,7 @@ use Database\Factories\SolicitudVacacionesFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -65,5 +66,13 @@ class SolicitudVacaciones extends Model
     public function revisadoPor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'revisado_por');
+    }
+
+    /**
+     * @return HasMany<GeneratedDocument, $this>
+     */
+    public function documentosGenerados(): HasMany
+    {
+        return $this->hasMany(GeneratedDocument::class, 'solicitud_vacaciones_id');
     }
 }

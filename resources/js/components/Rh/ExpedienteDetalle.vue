@@ -20,6 +20,7 @@ import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import InputError from '@/components/InputError.vue';
 import ExpedienteDocumentos from '@/components/Rh/ExpedienteDocumentos.vue';
 import ProximamenteTab from '@/components/Rh/ProximamenteTab.vue';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -75,21 +76,27 @@ function guardarDatosPersonales() {
     <Head :title="`Expediente de ${colaborador.name}`" />
 
     <div class="flex flex-col gap-6 p-4">
-        <Card class="rounded-3xl border-border/60">
+        <Card
+            class="rounded-3xl border-border/60 shadow-sm transition-shadow hover:shadow-md"
+        >
             <CardContent
                 class="flex flex-col gap-4 sm:flex-row sm:items-center"
             >
-                <span
-                    class="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-primary/10 text-primary"
+                <Avatar
+                    class="size-16 shrink-0 rounded-2xl ring-2 ring-border/60"
                 >
-                    <img
+                    <AvatarImage
                         v-if="colaborador.foto_url"
                         :src="colaborador.foto_url"
                         alt=""
-                        class="size-full object-cover"
+                        class="object-cover"
                     />
-                    <User v-else class="size-7" />
-                </span>
+                    <AvatarFallback
+                        class="rounded-2xl bg-primary/10 text-primary"
+                    >
+                        <User class="size-7" />
+                    </AvatarFallback>
+                </Avatar>
 
                 <div class="min-w-0 flex-1">
                     <div class="flex flex-wrap items-center gap-2">

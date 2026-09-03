@@ -26,43 +26,17 @@ class EmployeeDocumentController extends Controller
     public function store(SubirDocumentoRequest $request, User $colaborador): RedirectResponse
     {
         $tipo = DocumentType::findOrFail($request->integer('document_type_id'));
-        $archivo = $request->file('archivo');
-
-        $anterior = EmployeeDocument::query()
+        $versionAnterior = EmployeeDocument::query()
             ->where('user_id', $colaborador->id)
             ->where('document_type_id', $tipo->id)
             ->where('status', '!=', EstadoDocumento::Archivado->value)
-            ->orderByDesc('version')
-            ->first();
+            ->exists();
 
-        $nombreInterno = $this->storage->nombreInterno($archivo->getClientOriginalName());
-        $ruta = $this->storage->rutaDocumento($colaborador->id, $nombreInterno);
-        $this->storage->guardar($archivo, $ruta);
-
-        $documento = EmployeeDocument::create([
-            'user_id' => $colaborador->id,
-            'empresa_id' => $colaborador->sucursalPrincipal?->empresa_id,
-            'sucursal_id' => $colaborador->sucursal_principal_id,
-            'document_type_id' => $tipo->id,
-            'disk' => config('expedientes.disk'),
-            'path' => $ruta,
-            'original_name' => $archivo->getClientOriginalName(),
-            'stored_name' => $nombreInterno,
-            'mime' => $archivo->getClientMimeType(),
-            'extension' => $archivo->getClientOriginalExtension(),
-            'size' => $archivo->getSize(),
-            'hash' => $this->storage->hashSha256($ruta),
-            'version' => $anterior ? $anterior->version + 1 : 1,
-            'previous_version_id' => $anterior?->id,
-            'status' => EstadoDocumento::EnRevision->value,
-            'uploaded_by' => $request->user()->id,
-        ]);
-
-        $anterior?->update(['status' => EstadoDocumento::Archivado->value]);
+        $documento = $this->storage->subirVersion($colaborador, $tipo, $request->file('archivo'), $request->user()->id);
 
         return back()->with('toast', [
             'type' => 'success',
-            'message' => $anterior
+            'message' => $versionAnterior
                 ? "Nueva versión de «{$tipo->nombre}» cargada (v{$documento->version}). Queda en revisión."
                 : "«{$tipo->nombre}» cargado correctamente. Queda en revisión.",
         ]);

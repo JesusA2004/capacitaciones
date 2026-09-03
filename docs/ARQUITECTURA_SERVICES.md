@@ -65,6 +65,26 @@ Ambos controladores llaman exactamente a `VacacionesService::solicitar()` — el
 
 El mismo patrón aplica a `SolicitudesService` (solicitudes internas, ver `docs/SOLICITUDES_INTERNAS.md`) y a `NotificacionesService` (compartida entre el layout web y la API).
 
+## Patrón de listados con filtros + exportación (Fase 1, cierre)
+
+Los 8 listados operativos de RH (Vacantes, Candidatos, Altas digitales, Plantillas,
+Formatos, Solicitudes, Expedientes, Vacaciones) siguen el mismo patrón para que la
+exportación Excel/PDF respete *exactamente* los filtros activos en pantalla, sin
+duplicar la consulta:
+
+1. Un método privado `queryFiltrada(Request $request): Builder` (o, cuando el listado ya
+   tenía un Service dedicado como `SolicitudesService`, un método del propio Service)
+   aplica todos los `when()` de filtro + `AlcanceOrganizacionalService`.
+2. `index()` pagina/obtiene esa misma query.
+3. `exportarExcel()`/`exportarPdf()` recorren la misma query sin paginar, arman
+   `{columnas, filas}` y reutilizan `App\Exports\ReporteRhExport` (Excel) y la vista
+   genérica `resources/views/pdf/reporte-rh.blade.php` (PDF) — **no se crean clases
+   Export ni vistas Blade nuevas por módulo**, ambas piezas ya son genéricas desde que
+   se escribieron para `Rh\ReporteRhController`.
+4. El frontend arma la URL de exportación con los mismos `filtros` reactivos que ya usa
+   `useFiltros()` para el listado (`urlExportar()` en cada `Index.vue`), así que nunca
+   hay dos fuentes de verdad de qué filtro está activo.
+
 ## Qué NO hacer
 
 - ❌ Calcular el saldo de vacaciones dentro de un controlador (web o API) y volver a calcularlo distinto en el otro.

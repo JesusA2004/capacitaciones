@@ -19,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int|null $user_id
  * @property int|null $candidato_id
  * @property int|null $solicitud_id
+ * @property int|null $solicitud_vacaciones_id
  * @property int|null $empresa_id
  * @property int|null $sucursal_id
  * @property string $disk
@@ -43,6 +44,7 @@ class GeneratedDocument extends Model
         'user_id',
         'candidato_id',
         'solicitud_id',
+        'solicitud_vacaciones_id',
         'empresa_id',
         'sucursal_id',
         'disk',
@@ -94,6 +96,14 @@ class GeneratedDocument extends Model
     public function solicitud(): BelongsTo
     {
         return $this->belongsTo(SolicitudInterna::class, 'solicitud_id');
+    }
+
+    /**
+     * @return BelongsTo<SolicitudVacaciones, $this>
+     */
+    public function solicitudVacaciones(): BelongsTo
+    {
+        return $this->belongsTo(SolicitudVacaciones::class, 'solicitud_vacaciones_id');
     }
 
     /**
