@@ -234,6 +234,18 @@ class User extends Authenticatable
         return $this->hasMany(ProgresoLeccion::class, 'user_id');
     }
 
+    /**
+     * Histórico de movimientos laborales de este colaborador (altas, bajas,
+     * promociones, cambios de puesto/sucursal/departamento/jefe/empresa y
+     * coberturas). Ver docs/MOVIMIENTOS_LABORALES.md.
+     *
+     * @return HasMany<MovimientoLaboral, $this>
+     */
+    public function movimientosLaborales(): HasMany
+    {
+        return $this->hasMany(MovimientoLaboral::class, 'user_id')->orderByDesc('fecha_movimiento')->orderByDesc('id');
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()

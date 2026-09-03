@@ -41,6 +41,8 @@ class UpdateUsuarioRequest extends FormRequest
             'zona_horaria' => ['nullable', 'string', 'max:60'],
             'roles' => ['array'],
             'roles.*' => ['string', 'exists:roles,name'],
+            'motivo_movimiento' => ['nullable', 'string', 'max:500'],
+            'crear_vacante_reemplazo' => ['boolean'],
         ];
     }
 

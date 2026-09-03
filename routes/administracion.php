@@ -51,6 +51,7 @@ Route::middleware(['auth', 'verified'])
 
         Route::prefix('jerarquia-puestos')->name('jerarquia-puestos.')->group(function () {
             Route::get('/', [JerarquiaPuestoController::class, 'index'])->name('index');
+            Route::get('{puesto}/historial', [JerarquiaPuestoController::class, 'historial'])->name('historial');
             Route::put('{puesto}', [JerarquiaPuestoController::class, 'actualizar'])->name('actualizar');
         });
 

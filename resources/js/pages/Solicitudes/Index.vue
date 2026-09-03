@@ -128,7 +128,7 @@ const tipoSeleccionado = () =>
                 >
                     <span>{{ solicitud.created_at }}</span>
                     <Eye
-                        class="size-4 opacity-0 transition-opacity group-hover:opacity-100"
+                        class="size-4 opacity-60 transition-opacity md:opacity-0 md:group-hover:opacity-100"
                     />
                 </div>
             </Link>

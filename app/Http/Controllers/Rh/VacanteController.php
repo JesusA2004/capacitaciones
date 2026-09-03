@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Rh;
 
+use App\Enums\EstadoUsuario;
 use App\Enums\EstadoVacante;
 use App\Enums\MotivoVacante;
 use App\Exports\ReporteRhExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Rh\ActualizarEstadoVacanteRequest;
+use App\Http\Requests\Rh\CubrirVacanteRequest;
 use App\Http\Requests\Rh\StoreVacanteRequest;
 use App\Http\Requests\Rh\UpdateVacanteRequest;
 use App\Models\Departamento;
@@ -16,20 +18,26 @@ use App\Models\Sucursal;
 use App\Models\User;
 use App\Models\Vacante;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class VacanteController extends Controller
 {
     private const FILTROS = ['empresa_id', 'sucursal_id', 'departamento_id', 'puesto_id', 'responsable_rh_id', 'estado', 'busqueda', 'fecha_inicio', 'fecha_fin'];
 
-    public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}
+    public function __construct(
+        private readonly AlcanceOrganizacionalService $alcance,
+        private readonly MovimientoLaboralService $movimientos,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -48,6 +56,11 @@ class VacanteController extends Controller
                 'responsables' => User::query()->role(['rh_admin', 'rh_auxiliar'])->orderBy('name')->get(['id', 'name', 'apellidos']),
                 'motivos' => array_map(fn (MotivoVacante $m) => ['value' => $m->value, 'etiqueta' => $m->etiqueta()], MotivoVacante::cases()),
                 'estados' => array_map(fn (EstadoVacante $e) => ['value' => $e->value, 'etiqueta' => $e->etiqueta()], EstadoVacante::cases()),
+                'colaboradores' => User::query()
+                    ->where('estatus', EstadoUsuario::Activo->value)
+                    ->orderBy('name')
+                    ->get(['id', 'name', 'apellidos', 'puesto_id'])
+                    ->map(fn (User $u) => ['id' => $u->id, 'name' => $u->name, 'apellidos' => $u->apellidos, 'puesto_id' => $u->puesto_id]),
             ],
         ]);
     }
@@ -166,5 +179,71 @@ class VacanteController extends Controller
         $vacante->delete();
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Vacante eliminada correctamente.']);
+    }
+
+    /**
+     * Cubre una vacante en uno de tres modos (ver docs/VACANTES.md):
+     * - colaborador_interno: mueve al colaborador seleccionado al puesto de
+     *   la vacante (promoción o cambio de puesto según niveles) y la cierra.
+     * - cobertura_temporal: registra el movimiento sin tocar el puesto
+     *   definitivo del colaborador; la vacante sigue abierta.
+     * - candidato_externo: no muta nada aquí, solo confirma la intención —
+     *   el enlace real ocurre cuando su Alta Digital se aprueba
+     *   (ConversionColaboradorService ya registra el movimiento de alta).
+     */
+    public function cubrir(CubrirVacanteRequest $request, Vacante $vacante): RedirectResponse
+    {
+        $datos = $request->validated();
+
+        if ($vacante->estado === EstadoVacante::Cubierta || $vacante->estado === EstadoVacante::Cancelada) {
+            throw new RuntimeException('Esta vacante ya no admite cobertura.');
+        }
+
+        if ($datos['modo'] === 'candidato_externo') {
+            return back()->with('toast', [
+                'type' => 'success',
+                'message' => 'Registra o continúa el Alta Digital del candidato enlazándola a esta vacante; la vacante se cerrará automáticamente al aprobarse.',
+            ]);
+        }
+
+        $usuario = User::query()->findOrFail((int) $datos['user_id']);
+
+        if ($datos['modo'] === 'cobertura_temporal') {
+            $puesto = $vacante->puesto_id ? Puesto::query()->find($vacante->puesto_id) : null;
+            abort_unless($puesto !== null, 422, 'La vacante no tiene un puesto asociado.');
+
+            $this->movimientos->registrarCoberturaTemporal(
+                $usuario,
+                $puesto,
+                $request->user(),
+                Carbon::parse($datos['fecha_inicio']),
+                isset($datos['fecha_fin']) ? Carbon::parse($datos['fecha_fin']) : null,
+                $datos['motivo'] ?? null,
+                $vacante->id,
+            );
+
+            return back()->with('toast', ['type' => 'success', 'message' => 'Cobertura temporal registrada. La vacante permanece abierta.']);
+        }
+
+        // colaborador_interno: mueve al colaborador al puesto de la vacante.
+        $antes = $this->movimientos->snapshot($usuario);
+
+        $usuario->update([
+            'puesto_id' => $vacante->puesto_id,
+            'departamento_id' => $vacante->departamento_id ?? $usuario->departamento_id,
+            'sucursal_principal_id' => $vacante->sucursal_id ?? $usuario->sucursal_principal_id,
+        ]);
+
+        $this->movimientos->registrarCambioPuesto(
+            $usuario->fresh(),
+            $antes,
+            $request->user(),
+            $datos['motivo'] ?? null,
+            $vacante->id,
+        );
+
+        $vacante->update(['estado' => EstadoVacante::Cubierta->value]);
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Vacante cubierta con colaborador interno.']);
     }
 }

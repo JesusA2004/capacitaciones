@@ -36,6 +36,27 @@ Ver `docs/PORTAL_RH.md` para el historial de checkpoints previos a este roadmap
 (Fase 1 original "Portal RH base" y Fase 2 "Documentos y alta digital" de ese
 documento, que se retoman y completan aquí).
 
+### Checkpoint — Jerarquía avanzada, histórico laboral y pulido responsive
+
+Sobre el ítem 7 (jerarquía de puestos) y el ítem 26 (pulido visual) ya listados
+arriba:
+
+- Jerarquía de puestos: árbol visual con conectores y zoom (escritorio/tablet) +
+  lista expandible (móvil), filtros por empresa/sucursal/departamento/tipo, panel
+  lateral con pestañas Detalle/Vacantes/Historial, edición bidireccional de
+  cobertura (`respaldos` y `puestos_que_puede_cubrir`), validación real de ciclos
+  jerárquicos y de ruta de crecimiento. Ver `docs/JERARQUIA_PUESTOS.md`.
+- Histórico de movimientos laborales — módulo nuevo (`movimientos_laborales`,
+  `MovimientoLaboralService`), enganchado a alta digital, alta/edición/baja de
+  colaboradores desde Administración, y a "Cubrir vacante" (nueva acción en
+  Vacantes). Visible en el expediente (pestaña "Historial RH", ya no
+  "Próximamente") y en el panel de Jerarquía de puestos. Ver
+  `docs/MOVIMIENTOS_LABORALES.md`.
+- Pulido responsive/estético dirigido: Login y `AuthSimpleLayout` con card y
+  gradiente de marca; acciones ocultas solo tras `:hover` (inutilizables en
+  táctil) corregidas para mostrarse siempre en móvil y revelarse al pasar el mouse
+  en escritorio (`Vacantes/Index.vue`, `Solicitudes/Index.vue`).
+
 ## Fase 2 — Desempeño / Nine Box (futura, oculta)
 
 No se desarrolla en este proyecto. Bandera `desempeno` / `nine_box` en

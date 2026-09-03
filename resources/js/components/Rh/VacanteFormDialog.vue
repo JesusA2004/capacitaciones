@@ -27,6 +27,14 @@ const props = defineProps<{
     open: boolean;
     vacante?: VacanteItem | null;
     opciones: OpcionesReclutamiento;
+    /** Precarga al crear (p. ej. desde "Crear vacante" en Jerarquía de puestos). */
+    prefill?: {
+        puesto_id?: number;
+        departamento_id?: number;
+        empresa_id?: number;
+        sucursal_id?: number;
+        motivo?: string;
+    } | null;
 }>();
 
 const emit = defineEmits<{
@@ -38,13 +46,18 @@ function idComo(valor: { id: number } | null | undefined): string {
 }
 
 const form = useForm({
-    empresa_id: idComo(props.vacante?.empresa),
+    empresa_id:
+        idComo(props.vacante?.empresa) ||
+        String(props.prefill?.empresa_id ?? ''),
     sucursal_id: props.vacante?.sucursal_id
         ? String(props.vacante.sucursal_id)
-        : '',
-    departamento_id: idComo(props.vacante?.departamento),
-    puesto_id: idComo(props.vacante?.puesto),
-    motivo: props.vacante?.motivo ?? '',
+        : String(props.prefill?.sucursal_id ?? ''),
+    departamento_id:
+        idComo(props.vacante?.departamento) ||
+        String(props.prefill?.departamento_id ?? ''),
+    puesto_id:
+        idComo(props.vacante?.puesto) || String(props.prefill?.puesto_id ?? ''),
+    motivo: props.vacante?.motivo ?? props.prefill?.motivo ?? '',
     fecha_apertura:
         props.vacante?.fecha_apertura?.slice(0, 10) ??
         new Date().toISOString().slice(0, 10),

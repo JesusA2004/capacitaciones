@@ -6,12 +6,14 @@ import {
     FileText,
     Plus,
     Trash2,
+    UserCheck,
     Users,
 } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
+import CubrirVacanteDialog from '@/components/Rh/CubrirVacanteDialog.vue';
 import VacanteFormDialog from '@/components/Rh/VacanteFormDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -105,15 +107,54 @@ const columnas = computed(() =>
 
 const dialogoAbierto = ref(false);
 const seleccionada = ref<VacanteItem | null>(null);
+const prefillCreacion = ref<{
+    puesto_id?: number;
+    departamento_id?: number;
+    empresa_id?: number;
+    sucursal_id?: number;
+    motivo?: string;
+} | null>(null);
 
 function abrirCrear() {
     seleccionada.value = null;
     dialogoAbierto.value = true;
 }
 
+// Llegada desde "Crear vacante para este puesto" en Jerarquía de puestos:
+// ?crear=1&puesto_id=..&departamento_id=.. abre el diálogo precargado.
+onMounted(() => {
+    const query = new URLSearchParams(window.location.search);
+
+    if (query.get('crear') !== '1') {
+        return;
+    }
+
+    prefillCreacion.value = {
+        puesto_id: props.filtros.puesto_id
+            ? Number(props.filtros.puesto_id)
+            : undefined,
+        departamento_id: props.filtros.departamento_id
+            ? Number(props.filtros.departamento_id)
+            : undefined,
+        empresa_id: props.filtros.empresa_id
+            ? Number(props.filtros.empresa_id)
+            : undefined,
+        motivo: 'nueva_posicion',
+    };
+    abrirCrear();
+});
+
 function abrirEditar(vacante: VacanteItem) {
     seleccionada.value = vacante;
     dialogoAbierto.value = true;
+}
+
+const dialogoCubrirAbierto = ref(false);
+const vacanteACubrir = ref<VacanteItem | null>(null);
+
+function abrirCubrir(vacante: VacanteItem) {
+    vacanteACubrir.value = vacante;
+    dialogoCubrirAbierto.value = true;
 }
 
 async function eliminar(vacante: VacanteItem) {
@@ -400,13 +441,30 @@ function alSoltar(nuevoEstado: string) {
                             <span class="text-sm font-medium">{{
                                 vacante.puesto?.nombre ?? 'Sin puesto'
                             }}</span>
-                            <button
-                                type="button"
-                                class="text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
-                                @click.stop="eliminar(vacante)"
+                            <div
+                                class="flex shrink-0 items-center gap-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100"
                             >
-                                <Trash2 class="size-3.5" />
-                            </button>
+                                <button
+                                    v-if="
+                                        columna.estado !== 'cubierta' &&
+                                        columna.estado !== 'cancelada'
+                                    "
+                                    type="button"
+                                    class="text-muted-foreground hover:text-primary"
+                                    title="Cubrir vacante"
+                                    @click.stop="abrirCubrir(vacante)"
+                                >
+                                    <UserCheck class="size-3.5" />
+                                </button>
+                                <button
+                                    type="button"
+                                    class="text-muted-foreground hover:text-destructive"
+                                    title="Eliminar"
+                                    @click.stop="eliminar(vacante)"
+                                >
+                                    <Trash2 class="size-3.5" />
+                                </button>
+                            </div>
                         </div>
                         <span class="text-xs text-muted-foreground">{{
                             vacante.sucursal?.nombre ?? 'Sin sucursal'
@@ -438,6 +496,15 @@ function alSoltar(nuevoEstado: string) {
         v-model:open="dialogoAbierto"
         :vacante="seleccionada"
         :opciones="opciones"
+        :prefill="seleccionada ? null : prefillCreacion"
         :key="seleccionada?.id ?? 'nueva'"
+    />
+
+    <CubrirVacanteDialog
+        v-if="dialogoCubrirAbierto && vacanteACubrir"
+        v-model:open="dialogoCubrirAbierto"
+        :vacante="vacanteACubrir"
+        :opciones="opciones"
+        :key="`cubrir-${vacanteACubrir.id}`"
     />
 </template>

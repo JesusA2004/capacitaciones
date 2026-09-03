@@ -85,7 +85,56 @@ problema de código (ver `docs/ARQUITECTURA.md`).
 3. Exporta a Excel/PDF desde esa sesión — el archivo debe traer únicamente esos mismos
    registros (el alcance también se respeta en la exportación, no solo en pantalla).
 
-## 5. Regresión rápida
+## 5. Jerarquía de puestos, movimientos laborales y "Cubrir vacante"
+
+Entra como `rh.admin@mrlana.test` (o `super_admin`).
+
+1. **Árbol**: entra a **Administración → Jerarquía de puestos**. En escritorio debe
+   verse un organigrama con líneas conectoras y botones de zoom (+/−/reset) arriba a
+   la derecha del árbol; en una ventana angosta (< 768px, o DevTools en modo móvil)
+   el árbol se reemplaza por una lista expandible (flechas ▶ para abrir cada rama).
+2. **Filtros**: aplica un filtro de empresa o sucursal — el árbol debe acotarse a los
+   puestos con al menos un colaborador ahí. "Limpiar filtros" debe restaurar todo.
+3. **Panel lateral**: click en cualquier puesto → se abre un panel con pestañas
+   Detalle/Vacantes/Historial. La pestaña Historial tarda un instante en cargar
+   (fetch bajo demanda) y debe mostrar movimientos/vacantes/cambios si existen, o un
+   estado vacío si no.
+4. **Editar jerarquía**: botón "Editar jerarquía" → cambia el puesto superior a otro
+   puesto que ya sea descendiente de este (por ejemplo, intenta poner a un Gerente
+   como subordinado de su propio Subgerente) → debe rechazarlo con un error de
+   validación, no debe romper el árbol.
+5. **Crear vacante desde el árbol**: pestaña Vacantes del panel → "Crear vacante para
+   este puesto" → debe abrir el formulario de Vacantes con el puesto ya seleccionado.
+6. **Cubrir vacante**: en **RH → Vacantes**, pasa el mouse (o toca en móvil) sobre una
+   tarjeta de vacante abierta → ícono de "Cubrir" (✓) junto al de eliminar → elige
+   modo "Colaborador interno", selecciona un colaborador y confirma. La vacante debe
+   pasar a la columna "Cubierta".
+7. **Histórico en expediente**: entra al **Expediente** del colaborador que acabas de
+   mover → pestaña **"Historial RH"** → debe mostrar una línea de tiempo real (no
+   "Próximamente") con el movimiento que acabas de generar, con fecha, descripción en
+   texto natural y quién lo registró.
+
+## 6. Checklist de responsive
+
+Repite en cada pantalla listada abajo, en estos anchos (usa DevTools → responsive
+mode, o cambia el zoom/ventana): **390px**, **430px**, **768px**, **1024px**,
+**1366px**, **1920px**.
+
+Qué buscar en cada uno: sin scroll horizontal de la página completa (una tabla o el
+árbol de jerarquía con su propio `overflow-x-auto` interno sí es válido), botones de
+acción no amontonados ni cortados, filtros usables (en móvil deben caber en un Sheet
+o apilarse, no desbordar), cards no cortadas, texto largo con `truncate`/
+`break-words` en vez de desbordar su contenedor, y en escritorio grande (1920px) que
+el contenido no se vea forzado a una columna angosta en el centro cuando el diseño es
+de tipo listado/tabla (los paneles tipo "portal" con `max-w-2xl` centrado, como
+`/mi-portal`, son la excepción intencional).
+
+Pantallas: Login, Dashboard RH, Reclutamiento, Candidatos, Vacantes, Altas digitales,
+Expedientes (índice y detalle), Jerarquía de puestos, Plantillas, Formatos,
+Solicitudes, Vacaciones, Reportes RH, Portal colaborador, y Administración → Empresas
+/ Sucursales / Departamentos / Puestos / Roles / Colaboradores.
+
+## 6. Regresión rápida
 
 - Login/logout, cambio de tema claro/oscuro.
 - Un CRUD cualquiera de Administración (Empresas, Sucursales, Departamentos) sigue

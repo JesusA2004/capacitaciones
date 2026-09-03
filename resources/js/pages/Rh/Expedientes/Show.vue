@@ -6,6 +6,7 @@ import type {
     AltaDigitalResumenExpediente,
     DocumentoExpedienteItem,
     ExpedienteColaborador,
+    MovimientoLaboralItem,
     OnboardingItem,
     ResumenExpediente,
     SaldoVacaciones,
@@ -23,6 +24,7 @@ defineProps<{
     altaDigital: AltaDigitalResumenExpediente;
     saldoVacaciones: SaldoVacaciones;
     solicitudesVacaciones: SolicitudVacacionesItem[];
+    movimientosLaborales: MovimientoLaboralItem[];
 }>();
 
 defineOptions({
@@ -48,5 +50,6 @@ defineOptions({
         :alta-digital="altaDigital"
         :saldo-vacaciones="saldoVacaciones"
         :solicitudes-vacaciones="solicitudesVacaciones"
+        :movimientos-laborales="movimientosLaborales"
     />
 </template>

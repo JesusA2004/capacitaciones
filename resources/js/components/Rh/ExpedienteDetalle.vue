@@ -9,7 +9,6 @@ import {
     ClipboardList,
     FileSignature,
     FileText,
-    History,
     IdCard,
     ListChecks,
     MapPinned,
@@ -19,6 +18,7 @@ import {
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import InputError from '@/components/InputError.vue';
 import ExpedienteDocumentos from '@/components/Rh/ExpedienteDocumentos.vue';
+import MovimientosLaboralesTimeline from '@/components/Rh/MovimientosLaboralesTimeline.vue';
 import ProximamenteTab from '@/components/Rh/ProximamenteTab.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,7 @@ import type {
     AltaDigitalResumenExpediente,
     DocumentoExpedienteItem,
     ExpedienteColaborador,
+    MovimientoLaboralItem,
     OnboardingItem,
     ResumenExpediente,
     SaldoVacaciones,
@@ -50,6 +51,7 @@ const props = defineProps<{
     altaDigital: AltaDigitalResumenExpediente;
     saldoVacaciones: SaldoVacaciones;
     solicitudesVacaciones: SolicitudVacacionesItem[];
+    movimientosLaborales: MovimientoLaboralItem[];
 }>();
 
 const form = useForm({
@@ -644,10 +646,8 @@ function guardarDatosPersonales() {
                 />
             </TabsContent>
             <TabsContent value="historial" class="pt-4">
-                <ProximamenteTab
-                    :icono="History"
-                    titulo="Historial RH"
-                    descripcion="Movimientos laborales (altas, cambios de puesto/sucursal, bajas) llegan en un checkpoint siguiente."
+                <MovimientosLaboralesTimeline
+                    :movimientos="movimientosLaborales"
                 />
             </TabsContent>
             <TabsContent value="bitacora" class="pt-4">

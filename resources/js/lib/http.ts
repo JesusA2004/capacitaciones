@@ -14,6 +14,19 @@ export function leerCookie(nombre: string): string | null {
         : null;
 }
 
+export async function getJson<T>(url: string): Promise<T> {
+    const respuesta = await fetch(url, {
+        headers: { Accept: 'application/json' },
+        credentials: 'same-origin',
+    });
+
+    if (!respuesta.ok) {
+        throw new Error(`Error ${respuesta.status} al solicitar ${url}`);
+    }
+
+    return respuesta.json() as Promise<T>;
+}
+
 export async function postJson<T>(url: string, cuerpo: unknown): Promise<T> {
     const respuesta = await fetch(url, {
         method: 'POST',

@@ -17,6 +17,7 @@ app/
     Colaboradores/            ColaboradorPerfilService, NotificacionesService
     AltaDigital/               AltaDigitalStorageService, ConversionColaboradorService
     Onboarding/                  OnboardingService
+    MovimientosLaborales/         MovimientoLaboralService (ver docs/MOVIMIENTOS_LABORALES.md)
   Http/
     Controllers/
       Rh/                 Controladores web Inertia (RH)
@@ -84,6 +85,17 @@ duplicar la consulta:
 4. El frontend arma la URL de exportación con los mismos `filtros` reactivos que ya usa
    `useFiltros()` para el listado (`urlExportar()` en cada `Index.vue`), así que nunca
    hay dos fuentes de verdad de qué filtro está activo.
+
+## Histórico como efecto secundario controlado (`MovimientoLaboralService`)
+
+`App\Services\MovimientosLaborales\MovimientoLaboralService` es distinto de los demás
+Services de este catálogo en un sentido: no responde a una acción del usuario propia
+(no hay pantalla "Crear movimiento laboral"), sino que otros Services/controladores lo
+llaman como efecto secundario de acciones que ya existían (aprobar un alta, editar un
+colaborador, cubrir una vacante). La regla se mantiene igual: ese efecto secundario
+vive en el Service, nunca inline en el controlador, para que web y API (cuando la API
+móvil llegue a exponer edición de colaboradores) generen el mismo histórico sin
+duplicar lógica. Ver `docs/MOVIMIENTOS_LABORALES.md` para el detalle completo.
 
 ## Qué NO hacer
 

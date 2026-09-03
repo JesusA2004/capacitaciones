@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Administracion;
 
 use App\Enums\EstadoUsuario;
 use App\Enums\EstatusImss;
+use App\Enums\MotivoVacante;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Administracion\StoreUsuarioRequest;
 use App\Http\Requests\Administracion\UpdateUsuarioRequest;
@@ -11,8 +12,10 @@ use App\Models\Departamento;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
+use App\Models\Vacante;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Asignaciones\AsignacionService;
+use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use App\Services\RolPermisoService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -29,6 +32,7 @@ class UsuarioController extends Controller
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly RolPermisoService $rolPermisoService,
         private readonly AsignacionService $asignacionService,
+        private readonly MovimientoLaboralService $movimientos,
     ) {}
 
     public function index(Request $request): Response
@@ -85,6 +89,7 @@ class UsuarioController extends Controller
         $usuario->sucursalesAdicionales()->sync($request->input('sucursales_adicionales', []));
         $this->rolPermisoService->asignarRoles($usuario, $request->input('roles', []));
         $this->asignacionService->aplicarVigentesA($usuario);
+        $this->movimientos->registrarAlta($usuario, $request->user());
 
         Password::broker()->sendResetLink(['email' => $usuario->email]);
 
@@ -96,11 +101,41 @@ class UsuarioController extends Controller
 
     public function update(UpdateUsuarioRequest $request, User $usuario): RedirectResponse
     {
-        $datos = $request->safe()->except(['sucursales_adicionales', 'roles']);
+        $datos = $request->safe()->except(['sucursales_adicionales', 'roles', 'motivo_movimiento', 'crear_vacante_reemplazo']);
+
+        $antes = $this->movimientos->snapshot($usuario);
+        $puestoAnteriorId = $antes['puesto_id'];
+        $cambiaDePuesto = array_key_exists('puesto_id', $datos)
+            && $puestoAnteriorId !== null
+            && (int) $datos['puesto_id'] !== $puestoAnteriorId;
+
+        $vacanteId = null;
+        if ($cambiaDePuesto && $request->boolean('crear_vacante_reemplazo')) {
+            $vacante = Vacante::create([
+                'empresa_id' => $antes['empresa_id'],
+                'sucursal_id' => $antes['sucursal_id'],
+                'departamento_id' => $antes['departamento_id'],
+                'puesto_id' => $puestoAnteriorId,
+                'motivo' => MotivoVacante::Promocion->value,
+                'estado' => 'abierta',
+                'fecha_apertura' => now(),
+                'observaciones' => $request->string('motivo_movimiento')->toString() ?: null,
+                'creado_por' => $request->user()?->id,
+            ]);
+            $vacanteId = $vacante->id;
+        }
 
         $usuario->update($datos);
         $usuario->sucursalesAdicionales()->sync($request->input('sucursales_adicionales', []));
         $this->rolPermisoService->asignarRoles($usuario, $request->input('roles', []));
+
+        $this->movimientos->registrarCambioPuesto(
+            $usuario->fresh(),
+            $antes,
+            $request->user(),
+            $request->string('motivo_movimiento')->toString() ?: null,
+            $vacanteId,
+        );
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Colaborador actualizado correctamente.']);
     }
@@ -108,6 +143,18 @@ class UsuarioController extends Controller
     public function destroy(Request $request, User $usuario): RedirectResponse
     {
         $this->authorize('delete', $usuario);
+
+        $datos = $request->validate([
+            'motivo' => ['nullable', 'string', 'max:500'],
+            'crear_vacante' => ['boolean'],
+        ]);
+
+        $this->movimientos->registrarBaja(
+            $usuario,
+            $request->user(),
+            $datos['motivo'] ?? null,
+            (bool) ($datos['crear_vacante'] ?? false),
+        );
 
         $usuario->update(['estatus' => EstadoUsuario::Inactivo]);
         $usuario->delete();

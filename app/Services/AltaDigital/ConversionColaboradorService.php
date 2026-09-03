@@ -13,6 +13,7 @@ use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
 use App\Models\User;
 use App\Services\Expedientes\DocumentoStorageService;
+use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use App\Services\Reclutamiento\CvStorageService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -33,6 +34,7 @@ class ConversionColaboradorService
         private readonly AltaDigitalStorageService $altaStorage,
         private readonly DocumentoStorageService $documentoStorage,
         private readonly CvStorageService $cvStorage,
+        private readonly MovimientoLaboralService $movimientos,
     ) {}
 
     public function convertir(AltaDigital $alta, User $aprobadoPor): User
@@ -130,6 +132,8 @@ class ConversionColaboradorService
             if ($alta->vacante && ! in_array($alta->vacante->estado, [EstadoVacante::Cubierta, EstadoVacante::Cancelada], true)) {
                 $alta->vacante->update(['estado' => EstadoVacante::Cubierta]);
             }
+
+            $this->movimientos->registrarAlta($usuario, $aprobadoPor, $alta, $alta->vacante_id);
 
             Password::broker()->sendResetLink(['email' => $usuario->email]);
 

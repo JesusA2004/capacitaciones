@@ -84,3 +84,50 @@ export type AltaDigitalResumenExpediente = {
     consentimiento_datos_aceptado: boolean;
     consentimiento_datos_aceptado_en: string | null;
 } | null;
+
+export type MovimientoLaboralTipo =
+    | 'alta'
+    | 'baja'
+    | 'promocion'
+    | 'cambio_puesto'
+    | 'cambio_sucursal'
+    | 'cambio_departamento'
+    | 'cambio_jefe'
+    | 'cambio_empresa'
+    | 'cobertura_temporal'
+    | 'reingreso'
+    | 'ajuste_manual';
+
+export type MovimientoLaboralItem = {
+    id: number;
+    tipo_movimiento: MovimientoLaboralTipo;
+    descripcion: string;
+    empresa_anterior: { id: number; nombre: string } | null;
+    empresa_nueva: { id: number; nombre: string } | null;
+    sucursal_anterior: { id: number; nombre: string } | null;
+    sucursal_nueva: { id: number; nombre: string } | null;
+    departamento_anterior: { id: number; nombre: string } | null;
+    departamento_nuevo: { id: number; nombre: string } | null;
+    puesto_anterior: { id: number; nombre: string } | null;
+    puesto_nuevo: { id: number; nombre: string } | null;
+    jefe_anterior: {
+        id: number;
+        name: string;
+        apellidos: string | null;
+    } | null;
+    jefe_nuevo: { id: number; name: string; apellidos: string | null } | null;
+    vacante: {
+        id: number;
+        puesto: { id: number; nombre: string } | null;
+    } | null;
+    documento: { id: number; original_name: string } | null;
+    motivo: string | null;
+    observaciones: string | null;
+    fecha_movimiento: string;
+    fecha_fin_cobertura: string | null;
+    registrado_por: {
+        id: number;
+        name: string;
+        apellidos: string | null;
+    } | null;
+};

@@ -55,17 +55,59 @@ Coordinadora → Coordinadora regional → Responsable administrativo/regional
 
 ## Módulo `/administracion/jerarquia-puestos`
 
-Solo lectura del organigrama por tipo de puesto (comercial/administrativo/operativo),
-renderizado como árbol visual (`OrganigramaNodo.vue`, recursivo). Al seleccionar un
-puesto se abre un panel lateral con: descripción, puesto superior, ruta de crecimiento,
-esquema de comisiones, respaldos, puestos que puede cubrir, responsabilidades,
-requisitos y número de colaboradores actuales. Desde ahí se abre el diálogo de edición
-de jerarquía (`JerarquiaPuestoDialog.vue`).
+Organigrama por tipo de puesto (comercial/administrativo/operativo), renderizado como
+árbol visual con conectores en escritorio/tablet (`OrganigramaArbol.vue` +
+`OrganigramaNodo.vue`, recursivo, con zoom in/out/reset vía `transform: scale()` y
+scroll horizontal controlado) y como lista jerárquica expandible en móvil
+(`OrganigramaAccordion.vue`, reutiliza `components/ui/collapsible`, breakpoint `md`).
+Ambas vistas comparten la tarjeta de puesto (`OrganigramaTarjeta.vue`): nombre,
+departamento, nivel, badges de tipo/"Ruta"/"Vacante"/"Sin cobertura"/"Candidatos"/
+"Inactivo", y contador de colaboradores.
 
-El panel también muestra vacantes abiertas y candidatos asociados a ese puesto
-(`Puesto::vacantes()`, `Puesto::candidatos()`), con enlaces directos a los tableros de
-Reclutamiento (`docs/RECLUTAMIENTO.md`) y Vacantes (`docs/VACANTES.md`) ya filtrados
-por ese puesto.
+**Filtros** (`empresa_id`, `sucursal_id`, `departamento_id`, `tipo_puesto`, vía
+`useFiltros`): como un puesto no tiene FK propia a empresa/sucursal, filtrar por
+empresa/sucursal significa "puestos con al menos un colaborador activo en esa
+empresa/sucursal" (`whereHas('usuarios', ...)` en `JerarquiaPuestoController::index()`),
+no "puestos que pertenecen a esa empresa".
+
+Al seleccionar un puesto se abre un panel lateral (`Sheet`) con tres pestañas:
+
+- **Detalle**: descripción, puesto superior, ruta de crecimiento, esquema de
+  comisiones, respaldos, puestos que puede cubrir, responsabilidades, requisitos,
+  colaboradores activos y candidatos relacionados (con enlace a Candidatos).
+- **Vacantes**: vacantes abiertas de ese puesto (enlaza a `/rh/vacantes` filtrado) y
+  botón **"Crear vacante para este puesto"**, que navega a
+  `/rh/vacantes?puesto_id=..&departamento_id=..&crear=1` — `Rh/Vacantes/Index.vue` lee
+  `crear=1` en `onMounted()` y abre el diálogo de creación precargado con esos valores
+  (prop `prefill` de `VacanteFormDialog.vue`).
+- **Historial**: cargado bajo demanda (no en el payload inicial) contra
+  `GET administracion/jerarquia-puestos/{puesto}/historial`
+  (`JerarquiaPuestoController::historial()`), que devuelve tres cosas:
+  1. `cambiosJerarquia` — entradas del activity log de Spatie (`Puesto` usa
+     `LogsActivity` sobre `puesto_superior_id`, `puesto_crecimiento_id`, `tipo_puesto`,
+     `nivel_jerarquico`, `requiere_ruta`, `esquema_comisiones`, `activo`).
+  2. `movimientos` — `MovimientoLaboral` donde este puesto es origen o destino (ver
+     `docs/MOVIMIENTOS_LABORALES.md`).
+  3. `vacantes` — vacantes que ha generado este puesto.
+
+Desde el panel, el botón "Editar jerarquía" abre `JerarquiaPuestoDialog.vue`, que edita
+`puesto_superior_id`, `puesto_crecimiento_id`, nivel, tipo, comisiones, "requiere
+ruta", responsabilidades, requisitos, **respaldos** (quién puede cubrir a este puesto)
+y **puestos que puede cubrir** (a quién puede cubrir este puesto) — ambas direcciones
+de la tabla `puesto_cobertura` editables desde el mismo formulario.
+
+### Validaciones de ciclo
+
+`ActualizarJerarquiaPuestoRequest` rechaza, además de la auto-referencia:
+
+- Un ciclo jerárquico (A → B → C → A) al asignar `puesto_superior_id`.
+- Un ciclo en la ruta de crecimiento al asignar `puesto_crecimiento_id`.
+
+Ambas usan `Puesto::creariaCiclo(string $columna, int $candidatoId)`: camina la cadena
+indicada por `$columna` desde `$candidatoId` y detecta si vuelve a este puesto. No hay
+validación equivalente de "duplicado" entre `respaldos` y `puestos_que_puede_cubrir`
+en direcciones opuestas — dos puestos cubriéndose mutuamente es una configuración
+operativa válida (p. ej. Gerente y Subgerente cubriéndose entre sí), no un error.
 
 Autorización: reutiliza el permiso existente `puestos.administrar` (mismo permiso que
 la administración básica de puestos) — no se creó un permiso nuevo para esta vista.

@@ -84,10 +84,16 @@ Levanta en paralelo el servidor de Laravel, el worker de colas (`queue:listen`) 
 | `/solicitudes`, `/vacaciones` | Vista del colaborador sobre sus propias solicitudes/vacaciones |
 | `/mi-portal`, `/mi-perfil` | Portal del colaborador (ver `docs/PORTAL_COLABORADOR.md`) |
 | `/administracion/*` | Empresas, sucursales, departamentos, puestos, roles, colaboradores |
+| `/administracion/jerarquia-puestos` | Organigrama editable, ver `docs/JERARQUIA_PUESTOS.md` |
 
 Los 8 listados operativos (Vacantes, Candidatos, Altas digitales, Plantillas, Formatos,
 Solicitudes, Expedientes, Vacaciones) tienen filtros completos y botones "Excel"/"PDF"
 que exportan respetando los filtros activos en pantalla.
+
+Histórico de movimientos laborales (altas, bajas, promociones, cambios de puesto/
+sucursal/departamento/jefe, coberturas temporales): visible en el expediente de cada
+colaborador (pestaña "Historial RH") y en el panel de Jerarquía de puestos. Ver
+`docs/MOVIMIENTOS_LABORALES.md`.
 
 ## Endpoints API (`/api/v1`)
 

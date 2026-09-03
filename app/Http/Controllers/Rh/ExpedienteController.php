@@ -11,6 +11,7 @@ use App\Models\Departamento;
 use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
 use App\Models\Empresa;
+use App\Models\MovimientoLaboral;
 use App\Models\Puesto;
 use App\Models\SolicitudVacaciones;
 use App\Models\Sucursal;
@@ -244,6 +245,23 @@ class ExpedienteController extends Controller
                 ->where('user_id', $colaborador->id)
                 ->orderByDesc('created_at')
                 ->limit(10)
+                ->get(),
+            'movimientosLaborales' => MovimientoLaboral::query()
+                ->where('user_id', $colaborador->id)
+                ->with([
+                    'colaborador:id,name,apellidos',
+                    'puestoAnterior:id,nombre', 'puestoNuevo:id,nombre',
+                    'sucursalAnterior:id,nombre', 'sucursalNueva:id,nombre',
+                    'departamentoAnterior:id,nombre', 'departamentoNuevo:id,nombre',
+                    'empresaAnterior:id,nombre', 'empresaNueva:id,nombre',
+                    'jefeAnterior:id,name,apellidos', 'jefeNuevo:id,name,apellidos',
+                    'vacante:id,puesto_id', 'vacante.puesto:id,nombre',
+                    'documento:id,original_name',
+                    'registradoPor:id,name,apellidos',
+                ])
+                ->orderByDesc('fecha_movimiento')
+                ->orderByDesc('id')
+                ->limit(30)
                 ->get(),
             'altaDigital' => $alta ? [
                 'id' => $alta->id,

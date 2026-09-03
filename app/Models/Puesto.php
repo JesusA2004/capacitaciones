@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 /**
  * @property int $id
@@ -29,7 +31,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Puesto extends Model
 {
     /** @use HasFactory<PuestoFactory> */
-    use HasFactory, SoftDeletes;
+    use HasFactory, LogsActivity, SoftDeletes;
 
     protected $fillable = [
         'nombre',
@@ -151,5 +153,79 @@ class Puesto extends Model
     public function candidatos(): HasMany
     {
         return $this->hasMany(Candidato::class, 'puesto_objetivo_id');
+    }
+
+    /**
+     * Movimientos laborales en los que este puesto es el "origen" (salidas,
+     * cambios desde este puesto).
+     *
+     * @return HasMany<MovimientoLaboral, $this>
+     */
+    public function movimientosComoAnterior(): HasMany
+    {
+        return $this->hasMany(MovimientoLaboral::class, 'puesto_anterior_id');
+    }
+
+    /**
+     * Movimientos laborales en los que este puesto es el "destino"
+     * (promociones/altas/coberturas hacia este puesto).
+     *
+     * @return HasMany<MovimientoLaboral, $this>
+     */
+    public function movimientosComoNuevo(): HasMany
+    {
+        return $this->hasMany(MovimientoLaboral::class, 'puesto_nuevo_id');
+    }
+
+    /**
+     * Recorre la cadena jerárquica indicada por $columna
+     * (puesto_superior_id o puesto_crecimiento_id) empezando en
+     * $candidatoId y determina si en algún punto se vuelve a llegar a este
+     * puesto — es decir, si asignar $candidatoId como valor de $columna en
+     * este puesto cerraría un ciclo. Usado por las reglas de validación de
+     * jerarquía (ver docs/JERARQUIA_PUESTOS.md).
+     */
+    public function creariaCiclo(string $columna, int $candidatoId): bool
+    {
+        if ($candidatoId === $this->id) {
+            return true;
+        }
+
+        $visitados = [];
+        $actualId = $candidatoId;
+
+        while ($actualId !== null) {
+            if ($actualId === $this->id) {
+                return true;
+            }
+
+            if (isset($visitados[$actualId])) {
+                // Ciclo preexistente ajeno a este cambio: no lo atribuimos
+                // a esta operación, simplemente dejamos de recorrer.
+                break;
+            }
+
+            $visitados[$actualId] = true;
+
+            $actualId = static::query()->whereKey($actualId)->value($columna);
+        }
+
+        return false;
+    }
+
+    /**
+     * Historial de cambios de jerarquía visible en el panel lateral del
+     * árbol de puestos (ver docs/JERARQUIA_PUESTOS.md).
+     */
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly([
+                'nombre', 'departamento_id', 'nivel_jerarquico',
+                'puesto_superior_id', 'puesto_crecimiento_id', 'tipo_puesto',
+                'requiere_ruta', 'esquema_comisiones', 'activo',
+            ])
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
     }
 }

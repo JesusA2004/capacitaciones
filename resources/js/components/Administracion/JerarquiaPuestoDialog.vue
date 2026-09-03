@@ -55,15 +55,22 @@ const form = useForm({
     responsabilidades: props.puesto.responsabilidades ?? '',
     requisitos: props.puesto.requisitos ?? '',
     respaldos: props.puesto.respaldos.map((r) => r.id),
+    puestos_que_puede_cubrir: props.puesto.puestos_que_puede_cubrir.map(
+        (r) => r.id,
+    ),
 });
 
-function alternarRespaldo(id: number, marcado: boolean) {
+function alternarEnLista(
+    lista: 'respaldos' | 'puestos_que_puede_cubrir',
+    id: number,
+    marcado: boolean,
+) {
     if (marcado) {
-        if (!form.respaldos.includes(id)) {
-            form.respaldos.push(id);
+        if (!form[lista].includes(id)) {
+            form[lista].push(id);
         }
     } else {
-        form.respaldos = form.respaldos.filter((r) => r !== id);
+        form[lista] = form[lista].filter((r) => r !== id);
     }
 }
 
@@ -221,7 +228,48 @@ function enviar() {
                                     form.respaldos.includes(opcion.id)
                                 "
                                 @update:model-value="
-                                    (v) => alternarRespaldo(opcion.id, !!v)
+                                    (v) =>
+                                        alternarEnLista(
+                                            'respaldos',
+                                            opcion.id,
+                                            !!v,
+                                        )
+                                "
+                            />
+                            {{ opcion.nombre }}
+                        </label>
+                        <p
+                            v-if="!opcionesPuesto.length"
+                            class="text-xs text-muted-foreground"
+                        >
+                            No hay otros puestos disponibles.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="grid gap-2">
+                    <Label>Puestos que este puesto puede cubrir</Label>
+                    <div
+                        class="grid max-h-40 gap-2 overflow-y-auto rounded-md border p-3"
+                    >
+                        <label
+                            v-for="opcion in opcionesPuesto"
+                            :key="opcion.id"
+                            class="flex items-center gap-2 text-sm"
+                        >
+                            <Checkbox
+                                :model-value="
+                                    form.puestos_que_puede_cubrir.includes(
+                                        opcion.id,
+                                    )
+                                "
+                                @update:model-value="
+                                    (v) =>
+                                        alternarEnLista(
+                                            'puestos_que_puede_cubrir',
+                                            opcion.id,
+                                            !!v,
+                                        )
                                 "
                             />
                             {{ opcion.nombre }}

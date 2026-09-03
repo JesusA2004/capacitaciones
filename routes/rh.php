@@ -43,6 +43,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/', [VacanteController::class, 'store'])->name('store');
             Route::put('{vacante}', [VacanteController::class, 'update'])->name('update');
             Route::put('{vacante}/estado', [VacanteController::class, 'actualizarEstado'])->name('estado');
+            Route::post('{vacante}/cubrir', [VacanteController::class, 'cubrir'])->name('cubrir');
             Route::delete('{vacante}', [VacanteController::class, 'destroy'])->name('destroy');
         });
 

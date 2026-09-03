@@ -91,4 +91,10 @@ export type OpcionesReclutamiento = {
     estados: OpcionEnum[];
     vacantes?: { id: number; puesto_id: number | null }[];
     tiposSeguimiento?: OpcionEnum[];
+    colaboradores?: {
+        id: number;
+        name: string;
+        apellidos: string | null;
+        puesto_id: number | null;
+    }[];
 };

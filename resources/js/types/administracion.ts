@@ -1,3 +1,5 @@
+import type { MovimientoLaboralItem } from './rh';
+
 export type EmpresaItem = {
     id: number;
     nombre: string;
@@ -66,10 +68,52 @@ export type PuestoJerarquiaItem = {
     requisitos: string | null;
     respaldos: OpcionSimple[];
     puestos_que_puede_cubrir: OpcionSimple[];
+    candidatos: {
+        id: number;
+        nombre: string;
+        apellidos: string | null;
+        estado: string;
+    }[];
     activo: boolean;
     usuarios_count: number;
     candidatos_count: number;
     vacantes_abiertas_count: number;
+};
+
+export type PuestoJerarquiaFiltros = {
+    empresa_id?: string;
+    sucursal_id?: string;
+    departamento_id?: string;
+    tipo_puesto?: string;
+};
+
+export type PuestoJerarquiaOpciones = {
+    empresas: OpcionSimple[];
+    sucursales: (OpcionSimple & { empresa_id: number | null })[];
+    departamentos: OpcionSimple[];
+};
+
+export type PuestoHistorialCambio = {
+    id: number;
+    descripcion: string | null;
+    cambios: Record<string, unknown>;
+    fecha: string | null;
+};
+
+export type PuestoHistorialVacante = {
+    id: number;
+    empresa: OpcionSimple | null;
+    sucursal: OpcionSimple | null;
+    motivo: string;
+    estado: string;
+    fecha_apertura: string;
+    puesto_id: number | null;
+};
+
+export type PuestoHistorialResponse = {
+    cambiosJerarquia: PuestoHistorialCambio[];
+    movimientos: MovimientoLaboralItem[];
+    vacantes: PuestoHistorialVacante[];
 };
 
 export type EstadoUsuarioOpcion = {
