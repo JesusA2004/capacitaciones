@@ -66,12 +66,19 @@ const MAPA_ESTADOS: Record<string, { variante: Variante; etiqueta: string }> = {
         variante: 'info',
         etiqueta: 'Corregida manualmente',
     },
+    enviada: { variante: 'info', etiqueta: 'Enviada' },
 
     // Gris: borrador / archivado / inactivo.
     borrador: { variante: 'secondary', etiqueta: 'Borrador' },
     archivado: { variante: 'secondary', etiqueta: 'Archivado' },
     inactivo: { variante: 'secondary', etiqueta: 'Inactivo' },
     cancelada: { variante: 'secondary', etiqueta: 'Cancelada' },
+    creada: { variante: 'secondary', etiqueta: 'Creada' },
+    cerrada: { variante: 'secondary', etiqueta: 'Cerrada' },
+    requiere_correccion: {
+        variante: 'warning',
+        etiqueta: 'Requiere corrección',
+    },
 };
 
 const info = computed(() => {

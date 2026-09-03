@@ -15,6 +15,7 @@ use App\Models\SolicitudVacaciones;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Onboarding\OnboardingService;
 use App\Services\Vacaciones\VacacionesService;
@@ -23,6 +24,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ExpedienteController extends Controller
 {
@@ -31,6 +33,7 @@ class ExpedienteController extends Controller
         private readonly ExpedienteService $expediente,
         private readonly OnboardingService $onboarding,
         private readonly VacacionesService $vacaciones,
+        private readonly DocumentoStorageService $documentoStorage,
     ) {}
 
     /**
@@ -77,7 +80,7 @@ class ExpedienteController extends Controller
                 'name' => $colaborador->name,
                 'apellidos' => $colaborador->apellidos,
                 'numero_empleado' => $colaborador->numero_empleado,
-                'foto_path' => $colaborador->foto_path,
+                'foto_url' => $this->fotoUrl($colaborador),
                 'estatus' => $colaborador->estatus->value,
                 'empresa' => $colaborador->sucursalPrincipal?->empresa,
                 'sucursal' => $colaborador->sucursalPrincipal,
@@ -139,7 +142,7 @@ class ExpedienteController extends Controller
                 'numero_empleado' => $colaborador->numero_empleado,
                 'email' => $colaborador->email,
                 'telefono' => $colaborador->telefono,
-                'foto_path' => $colaborador->foto_path,
+                'foto_url' => $this->fotoUrl($colaborador),
                 'estatus' => $colaborador->estatus->value,
                 'estatus_imss' => $colaborador->estatus_imss->value,
                 'fecha_alta_imss' => $colaborador->fecha_alta_imss?->toDateString(),
@@ -186,6 +189,36 @@ class ExpedienteController extends Controller
         $colaborador->update($request->validated());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Datos personales actualizados correctamente.']);
+    }
+
+    /**
+     * Sirve la foto de perfil del colaborador de forma protegida: nunca se
+     * expone la ruta física del disco NAS al frontend (ver
+     * DocumentoStorageService), solo esta URL con la misma autorización que
+     * el resto del expediente.
+     */
+    public function descargarFoto(Request $request, User $colaborador): StreamedResponse
+    {
+        abort_unless($this->alcance->puedeVerExpediente($request->user(), $colaborador), 403);
+        abort_unless($colaborador->foto_path !== null, 404);
+
+        return $this->documentoStorage->respuesta($colaborador->foto_path, [
+            'Content-Disposition' => 'inline; filename="foto.jpg"',
+        ]);
+    }
+
+    /**
+     * URL protegida de la foto de perfil, o null si el colaborador no tiene
+     * una. Nunca se expone `foto_path` (ruta física en el disco NAS) al
+     * frontend — ver docs/SEGURIDAD.md.
+     */
+    private function fotoUrl(User $colaborador): ?string
+    {
+        if ($colaborador->foto_path === null) {
+            return null;
+        }
+
+        return route('rh.expedientes.foto', $colaborador);
     }
 
     /**

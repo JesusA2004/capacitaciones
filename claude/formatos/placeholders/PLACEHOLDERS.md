@@ -31,11 +31,15 @@ agregas un placeholder nuevo, debe registrarse ahí primero.
 | `{{fecha_ingreso}}` | Fecha de ingreso (dd/mm/aaaa) | `users.fecha_ingreso` |
 | `{{fecha_actual}}` | Fecha en que se genera el documento | `now()` al momento de generar |
 | `{{dias_vacaciones}}` | Días de vacaciones solicitados/disponibles | `vacation_requests` / cálculo de saldo |
-| `{{fecha_inicio_permiso}}` | Fecha de inicio de la solicitud | `internal_requests.fecha_inicio` |
-| `{{fecha_fin_permiso}}` | Fecha de fin de la solicitud | `internal_requests.fecha_fin` |
-| `{{motivo_permiso}}` | Motivo capturado por el colaborador | `internal_requests.motivo` |
-| `{{tipo_solicitud}}` | Tipo de solicitud (legible) | `internal_requests.tipo` |
-| `{{folio_solicitud}}` | Folio único de la solicitud | `internal_requests.folio` |
+| `{{fecha_inicio_permiso}}` | Fecha de inicio de la solicitud | `solicitudes_internas.fecha_inicio` |
+| `{{fecha_fin_permiso}}` | Fecha de fin de la solicitud | `solicitudes_internas.fecha_fin` |
+| `{{motivo_permiso}}` | Motivo capturado por el colaborador | `solicitudes_internas.motivo` |
+| `{{tipo_solicitud}}` | Tipo de solicitud (legible) | `solicitudes_internas.tipo` |
+| `{{folio_solicitud}}` | Folio único de la solicitud | `solicitudes_internas.folio` |
+| `{{fecha_inicio_incapacidad}}` | Fecha de inicio de la incapacidad | `solicitudes_internas.fecha_inicio` (tipo `incapacidad`) |
+| `{{fecha_fin_incapacidad}}` | Fecha de fin de la incapacidad | `solicitudes_internas.fecha_fin` (tipo `incapacidad`) |
+| `{{motivo_solicitud}}` | Motivo capturado en la solicitud | `solicitudes_internas.motivo` |
+| `{{observaciones}}` | Observaciones adicionales de RH o del colaborador | `solicitudes_internas.observaciones` |
 
 Placeholders sin dato disponible para el contexto de generación (por ejemplo,
 `{{dias_vacaciones}}` en un contrato de alta, donde no aplica) se dejan **en blanco**, no

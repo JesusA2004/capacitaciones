@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
 import {
+    BarChart3,
     Briefcase,
     Building2,
     CalendarDays,
+    ClipboardList,
     FileStack,
     FolderKanban,
     GitBranch,
@@ -40,14 +42,18 @@ import { index as indexRoles } from '@/routes/administracion/roles';
 import { index as indexSucursales } from '@/routes/administracion/sucursales';
 import { index as indexUsuarios } from '@/routes/administracion/usuarios';
 import { proximamente as capacitacionProximamente } from '@/routes/capacitacion';
+import { index as indexPortal } from '@/routes/portal';
 import { reclutamiento as indexReclutamiento } from '@/routes/rh';
 import { index as indexAltas } from '@/routes/rh/altas';
 import { index as indexCandidatos } from '@/routes/rh/candidatos';
 import { index as indexExpedientes } from '@/routes/rh/expedientes';
 import { index as indexFormatos } from '@/routes/rh/formatos';
 import { index as indexPlantillas } from '@/routes/rh/plantillas';
+import { index as indexReportesRh } from '@/routes/rh/reportes';
+import { index as indexRhSolicitudes } from '@/routes/rh/solicitudes';
 import { index as indexRhVacaciones } from '@/routes/rh/vacaciones';
 import { index as indexVacantes } from '@/routes/rh/vacantes';
+import { index as indexSolicitudes } from '@/routes/solicitudes';
 import { index as indexVacaciones } from '@/routes/vacaciones';
 import type { NavItem } from '@/types';
 
@@ -63,6 +69,11 @@ const mainNavItems = computed<NavItem[]>(() => {
             title: 'Inicio',
             href: dashboard(),
             icon: LayoutGrid,
+        },
+        {
+            title: 'Mi portal',
+            href: indexPortal(),
+            icon: UserRound,
         },
     ];
 
@@ -97,6 +108,25 @@ const mainNavItems = computed<NavItem[]>(() => {
             title: 'Vacaciones (revisión)',
             href: indexRhVacaciones(),
             icon: CalendarDays,
+        });
+    }
+
+    if (tienePermiso('solicitudes.crear') || tienePermiso('solicitudes.ver')) {
+        items.push({
+            title: 'Solicitudes',
+            href: indexSolicitudes(),
+            icon: ClipboardList,
+        });
+    }
+
+    if (
+        tienePermiso('solicitudes.revisar') ||
+        tienePermiso('solicitudes.aprobar')
+    ) {
+        items.push({
+            title: 'Solicitudes (revisión)',
+            href: indexRhSolicitudes(),
+            icon: ClipboardList,
         });
     }
 
@@ -142,6 +172,14 @@ const mainNavItems = computed<NavItem[]>(() => {
             title: 'Formatos',
             href: indexFormatos(),
             icon: FileStack,
+        });
+    }
+
+    if (tienePermiso('reportes_rh.ver')) {
+        items.push({
+            title: 'Reportes RH',
+            href: indexReportesRh(),
+            icon: BarChart3,
         });
     }
 

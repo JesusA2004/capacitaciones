@@ -214,6 +214,94 @@ class RolesYPermisosSeeder extends Seeder
             'reportes.sucursal',
         ],
 
+        // --- Roles ampliados (jerarquía comercial/regional, Mr. Lana People Fase 1) ---
+
+        // Alcance global, solo lectura de reportes: no administra expedientes,
+        // documentos ni aprueba solicitudes/vacaciones (eso es de RH/gerencia
+        // de sucursal). Ver AlcanceOrganizacionalService::ROLES_ALCANCE_GLOBAL.
+        'director_comercial' => [
+            'dashboard.global.ver',
+            'usuarios.ver',
+            'empresas.ver',
+            'reportes_rh.ver', 'reportes_rh.globales', 'reportes_rh.exportar',
+            'vacantes.ver', 'vacantes.ver_todos',
+            'candidatos.ver', 'candidatos.ver_todos',
+        ],
+
+        // Ve y administra varias sucursales de su región (sucursal principal +
+        // sucursales adicionales asignadas, mismo mecanismo que
+        // gerente_sucursal — ver AlcanceOrganizacionalService::ROLES_ALCANCE_SUCURSAL
+        // y sucursal_user). Alcance más amplio que "gerente" (una sola sucursal).
+        'gerente_regional' => [
+            'dashboard.sucursal.ver',
+            'usuarios.ver', 'usuarios.editar',
+            'reportes.sucursal', 'reportes.exportar',
+            'expedientes.ver', 'expedientes.ver_sucursal',
+            'documentos.ver',
+            'vacaciones.ver', 'vacaciones.solicitar', 'vacaciones.aprobar', 'vacaciones.rechazar',
+            'solicitudes.ver', 'solicitudes.revisar', 'solicitudes.aprobar',
+            'reportes_rh.ver', 'reportes_rh.sucursal',
+            'vacantes.ver', 'vacantes.ver_sucursal', 'vacantes.crear',
+            'candidatos.ver', 'candidatos.ver_sucursal', 'candidatos.aprobar', 'candidatos.rechazar',
+        ],
+
+        // Administra su propia sucursal (mismo alcance que gerente_sucursal,
+        // catálogo de permisos equivalente). "gerente_sucursal" se conserva
+        // intacto por compatibilidad con datos/roles ya asignados.
+        'gerente' => [
+            'dashboard.sucursal.ver',
+            'usuarios.ver', 'usuarios.editar',
+            'reportes.sucursal', 'reportes.exportar',
+            'expedientes.ver', 'expedientes.ver_sucursal',
+            'documentos.ver',
+            'vacaciones.ver', 'vacaciones.solicitar', 'vacaciones.aprobar', 'vacaciones.rechazar',
+            'solicitudes.ver', 'solicitudes.revisar', 'solicitudes.aprobar',
+            'reportes_rh.ver', 'reportes_rh.sucursal',
+            'vacantes.ver', 'vacantes.ver_sucursal', 'vacantes.crear',
+            'candidatos.ver', 'candidatos.ver_sucursal', 'candidatos.aprobar', 'candidatos.rechazar',
+        ],
+
+        // Puede apoyar/cubrir al gerente de su sucursal según la jerarquía de
+        // puestos: mismo alcance y catálogo funcional que "gerente".
+        'subgerente' => [
+            'dashboard.sucursal.ver',
+            'usuarios.ver',
+            'reportes.sucursal',
+            'expedientes.ver', 'expedientes.ver_sucursal',
+            'documentos.ver',
+            'vacaciones.ver', 'vacaciones.solicitar', 'vacaciones.aprobar', 'vacaciones.rechazar',
+            'solicitudes.ver', 'solicitudes.revisar', 'solicitudes.aprobar',
+            'reportes_rh.ver', 'reportes_rh.sucursal',
+            'vacantes.ver', 'vacantes.ver_sucursal',
+            'candidatos.ver', 'candidatos.ver_sucursal',
+        ],
+
+        // Apoyo administrativo regional: ve procesos (expedientes, documentos,
+        // solicitudes) de varias sucursales de su región, sin autoridad de
+        // reclutamiento ni de aprobar vacaciones/solicitudes (solo revisar).
+        'coordinadora_regional' => [
+            'dashboard.sucursal.ver',
+            'usuarios.ver',
+            'expedientes.ver', 'expedientes.ver_sucursal',
+            'documentos.ver', 'documentos.subir', 'documentos.revisar',
+            'vacaciones.ver',
+            'solicitudes.ver', 'solicitudes.revisar',
+            'reportes_rh.ver', 'reportes_rh.sucursal',
+        ],
+
+        // Mismo catálogo que coordinadora_regional, acotado a su propia
+        // sucursal (el alcance real depende de qué sucursales tenga
+        // asignadas el usuario, no del nombre del rol).
+        'coordinadora' => [
+            'dashboard.sucursal.ver',
+            'usuarios.ver',
+            'expedientes.ver', 'expedientes.ver_sucursal',
+            'documentos.ver', 'documentos.subir', 'documentos.revisar',
+            'vacaciones.ver',
+            'solicitudes.ver', 'solicitudes.revisar',
+            'reportes_rh.ver', 'reportes_rh.sucursal',
+        ],
+
         // Ve y aprueba vacaciones/solicitudes de sus subordinados directos
         // (jefe_id), un alcance mas estrecho que gerente_sucursal (que ve
         // toda la sucursal). Ver AlcanceOrganizacionalService.

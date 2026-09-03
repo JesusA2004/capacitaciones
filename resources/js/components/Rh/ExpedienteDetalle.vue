@@ -83,8 +83,8 @@ function guardarDatosPersonales() {
                     class="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-primary/10 text-primary"
                 >
                     <img
-                        v-if="colaborador.foto_path"
-                        :src="colaborador.foto_path"
+                        v-if="colaborador.foto_url"
+                        :src="colaborador.foto_url"
                         alt=""
                         class="size-full object-cover"
                     />

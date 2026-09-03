@@ -6,7 +6,7 @@ La Fase 1 (actual) cubre reclutamiento y administración de personal: multiempre
 
 ## Stack
 
-Laravel 13 · PHP 8.3+ · Inertia.js 3 · Vue 3 (Composition API) + TypeScript · Tailwind CSS 4 · shadcn-vue (`reka-ui`) · Spatie Laravel Permission · Spatie Laravel Activitylog · hls.js · FFmpeg/FFprobe · Laravel Excel · Laravel Dompdf · date-fns · Pest 4 · MariaDB/MySQL.
+Laravel 13 · PHP 8.3+ · Inertia.js 3 · Vue 3 (Composition API) + TypeScript · Tailwind CSS 4 · shadcn-vue (`reka-ui`) · Spatie Laravel Permission · Spatie Laravel Activitylog · Laravel Sanctum (API móvil, ver `docs/API_MOVIL.md`) · hls.js · FFmpeg/FFprobe · Laravel Excel · Laravel Dompdf · date-fns · Pest 4 · MariaDB/MySQL.
 
 Ver `docs/ARQUITECTURA.md` para el detalle de la organización del código y `docs/PLAN_IMPLEMENTACION.md` para el estado de cada fase del proyecto.
 
@@ -58,6 +58,15 @@ Levanta en paralelo el servidor de Laravel, el worker de colas (`queue:listen`) 
 | supervisor@mrlana.test | supervisor |
 | colaborador1@mrlana.test / colaborador2@mrlana.test | colaborador |
 | auditor@mrlana.test | auditor |
+| rh.admin@mrlana.test | rh_admin |
+| rh.auxiliar@mrlana.test | rh_auxiliar |
+| director.comercial@mrlana.test | director_comercial |
+| gerente.regional@mrlana.test | gerente_regional |
+| gerente@mrlana.test | gerente |
+| subgerente@mrlana.test | subgerente |
+| coordinadora.regional@mrlana.test | coordinadora_regional |
+| coordinadora@mrlana.test | coordinadora |
+| jefe.directo@mrlana.test | jefe_directo |
 
 `database/seeders/CursoInduccionSeeder.php` crea además un curso de inducción de ejemplo publicado, con módulos y lecciones (texto, video/documento simulados y confirmación de lectura).
 
@@ -102,7 +111,10 @@ En producción, agrega la entrada de cron estándar de Laravel apuntando a `sche
 - `docs/ALTA_DIGITAL_COLABORADOR.md`, `docs/ONBOARDING_ADMINISTRATIVO.md` — alta digital y checklist de incorporación.
 - `docs/EXPEDIENTES_DIGITALES.md`, `docs/SYNOLOGY_STORAGE.md`, `docs/PLANTILLAS_FORMATOS.md` — expediente, documentos y formatos precargados.
 - `docs/VACACIONES.md`, `docs/SOLICITUDES_INTERNAS.md`, `docs/REPORTES_RH.md` — procesos de RH del día a día.
-- `docs/ROLES_PERMISOS.md`, `docs/LIMITACIONES.md`, `docs/ROADMAP.md` — gobierno del sistema y alcance/fuera de alcance.
+- `docs/ARQUITECTURA_SERVICES.md` — por qué la lógica vive en Services y cómo se comparte entre la web (Inertia) y la API móvil.
+- `docs/API_MOVIL.md` — API JSON versionada (`/api/v1`) para la futura app móvil de colaboradores: autenticación por token (Sanctum), endpoints, cómo probarla.
+- `docs/PORTAL_COLABORADOR.md` — portal limitado del colaborador (`/mi-portal`), qué ve y qué no ve en Fase 1.
+- `docs/ROLES_PERMISOS_RH.md`, `docs/LIMITACIONES.md`, `docs/ROADMAP.md` — gobierno del sistema y alcance/fuera de alcance.
 - `docs/CONFIGURACION_NAS.md` — disco de almacenamiento (local vs. SFTP), compartido con el módulo de capacitación (oculto).
 - `docs/SEGURIDAD.md` — autenticación, autorización, aislamiento por sucursal, y checklist de despliegue a producción.
 

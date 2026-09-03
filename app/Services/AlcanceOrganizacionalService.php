@@ -20,18 +20,28 @@ class AlcanceOrganizacionalService
      * Roles con acceso a toda la organizacion, sin restriccion de sucursal.
      * rh_admin/rh_auxiliar se agregaron con el Portal RH: el personal de RH
      * opera sobre toda la organizacion, no solo su propia sucursal (a
-     * diferencia de gerente_sucursal). Ver docs/ROLES_PERMISOS_RH.md.
+     * diferencia de gerente_sucursal). director_comercial ve reportes
+     * globales, sin autoridad administrativa. Ver docs/ROLES_PERMISOS_RH.md.
      *
      * @var array<int, string>
      */
-    private const ROLES_ALCANCE_GLOBAL = ['super_admin', 'administrador_capacitacion', 'auditor', 'rh_admin', 'rh_auxiliar'];
+    private const ROLES_ALCANCE_GLOBAL = ['super_admin', 'administrador_capacitacion', 'auditor', 'rh_admin', 'rh_auxiliar', 'director_comercial'];
 
     /**
-     * Roles restringidos a sus sucursales autorizadas (principal + adicionales).
+     * Roles restringidos a sus sucursales autorizadas (principal + adicionales
+     * via sucursal_user). gerente_regional/coordinadora_regional ven varias
+     * sucursales asignando varias sucursales adicionales al usuario — el
+     * mismo mecanismo que gerente_sucursal, sin lógica nueva: el alcance
+     * real depende de qué sucursales tenga asignadas cada usuario, no del
+     * nombre del rol.
      *
      * @var array<int, string>
      */
-    private const ROLES_ALCANCE_SUCURSAL = ['gerente_sucursal', 'supervisor'];
+    private const ROLES_ALCANCE_SUCURSAL = [
+        'gerente_sucursal', 'supervisor',
+        'gerente_regional', 'gerente', 'subgerente',
+        'coordinadora_regional', 'coordinadora',
+    ];
 
     public function tieneAlcanceGlobal(User $usuario): bool
     {

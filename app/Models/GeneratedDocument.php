@@ -89,6 +89,14 @@ class GeneratedDocument extends Model
     }
 
     /**
+     * @return BelongsTo<SolicitudInterna, $this>
+     */
+    public function solicitud(): BelongsTo
+    {
+        return $this->belongsTo(SolicitudInterna::class, 'solicitud_id');
+    }
+
+    /**
      * @return BelongsTo<User, $this>
      */
     public function generadoPor(): BelongsTo

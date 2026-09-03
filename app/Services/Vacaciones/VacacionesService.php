@@ -5,7 +5,9 @@ namespace App\Services\Vacaciones;
 use App\Enums\EstadoSolicitudVacaciones;
 use App\Models\SolicitudVacaciones;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Calcula el saldo de vacaciones de un colaborador segun su antiguedad y la
@@ -73,6 +75,43 @@ class VacacionesService
             'dias_en_solicitud' => $diasEnSolicitud,
             'dias_disponibles' => max(0, $diasGenerados - $diasUsados - $diasEnSolicitud),
         ];
+    }
+
+    /**
+     * @return Collection<int, SolicitudVacaciones>
+     */
+    public function misSolicitudes(User $colaborador): Collection
+    {
+        return SolicitudVacaciones::query()
+            ->where('user_id', $colaborador->id)
+            ->orderByDesc('created_at')
+            ->get();
+    }
+
+    /**
+     * Crea una solicitud de vacaciones validando que el colaborador tenga
+     * saldo suficiente. Usado por el controlador web (Inertia) y por la API
+     * movil (Api\V1\VacacionesController) — misma logica, un solo lugar.
+     *
+     * @param  array<string, mixed>  $datos  Validado por StoreSolicitudVacacionesRequest: fecha_inicio, fecha_fin, dias_solicitados, comentario?.
+     *
+     * @throws ValidationException
+     */
+    public function solicitar(User $colaborador, array $datos): SolicitudVacaciones
+    {
+        $saldo = $this->saldo($colaborador);
+
+        if ($datos['dias_solicitados'] > $saldo['dias_disponibles']) {
+            throw ValidationException::withMessages([
+                'dias_solicitados' => 'No tienes suficientes días disponibles.',
+            ]);
+        }
+
+        return SolicitudVacaciones::create([
+            ...$datos,
+            'user_id' => $colaborador->id,
+            'estado' => EstadoSolicitudVacaciones::Pendiente,
+        ]);
     }
 
     /**

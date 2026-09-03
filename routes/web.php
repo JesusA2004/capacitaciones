@@ -34,6 +34,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 require __DIR__.'/settings.php';
 require __DIR__.'/administracion.php';
 require __DIR__.'/rh.php';
+require __DIR__.'/solicitudes.php';
+require __DIR__.'/portal.php';
 require __DIR__.'/alta-publica.php';
 require __DIR__.'/cursos.php';
 require __DIR__.'/asignaciones.php';

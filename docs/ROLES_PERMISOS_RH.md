@@ -22,6 +22,19 @@ Los permisos de altas/vacaciones/solicitudes/reportes_rh ya están sembrados y a
 - **`rh_auxiliar`**: apoyo operativo con permisos limitados — puede ver, subir y revisar, pero no aprobar/rechazar decisiones finales (documentos, altas, solicitudes).
 - **`jefe_directo`**: ve y aprueba vacaciones/solicitudes/expedientes únicamente de sus **subordinados directos** (`users.jefe_id`), un alcance más estrecho que `gerente_sucursal` (que ve toda la sucursal).
 
+## Roles ampliados (jerarquía comercial/regional)
+
+Añadidos en el checkpoint de Solicitudes internas / API móvil. Todos reutilizan el mecanismo de alcance ya existente en `AlcanceOrganizacionalService` — ninguno necesitó lógica nueva, solo entrar en la lista correcta:
+
+- **`director_comercial`**: alcance global (`ROLES_ALCANCE_GLOBAL`), **solo lectura** de reportes y reclutamiento (`reportes_rh.*`, `vacantes.ver_todos`, `candidatos.ver_todos`). No administra expedientes, documentos ni aprueba vacaciones/solicitudes — eso sigue siendo de RH y de la línea de gerencia.
+- **`gerente_regional`**: alcance de sucursal (`ROLES_ALCANCE_SUCURSAL`), pero pensado para **varias sucursales**: se le asignan varias sucursales adicionales (`sucursal_user`, igual que a `gerente_sucursal`) y ve/aprueba en todas ellas. Mismo catálogo funcional que `gerente`.
+- **`gerente`**: alcance de una sola sucursal, catálogo equivalente a `gerente_sucursal` (que se conserva intacto, no se elimina ni se renombra).
+- **`subgerente`**: mismo alcance y catálogo que `gerente`, para poder **cubrirlo** según la jerarquía de puestos (`docs/JERARQUIA_PUESTOS.md`) — no tiene permisos exclusivos propios.
+- **`coordinadora_regional`**: alcance de varias sucursales (igual mecanismo que `gerente_regional`), pero solo apoyo administrativo — ve expedientes/documentos/solicitudes y puede revisar, **no aprueba** vacaciones ni tiene autoridad de reclutamiento.
+- **`coordinadora`**: mismo catálogo que `coordinadora_regional`, acotada a su propia sucursal (el alcance real lo determina qué sucursales tiene asignadas el usuario, no el nombre del rol).
+
+El "alcance de varias sucursales" de los roles regionales **no es un tercer mecanismo**: es el mismo `ROLES_ALCANCE_SUCURSAL` + `sucursalesAdicionales()` que ya usaba `gerente_sucursal`, solo que a un gerente/coordinadora regional se le asignan varias filas en `sucursal_user` en vez de una.
+
 ## Roles existentes, permisos ampliados
 
 - **`gerente_sucursal`**: gana `expedientes.ver_sucursal`, `documentos.ver`, `vacaciones.*` (ver/solicitar/aprobar), `solicitudes.*` (ver/revisar/aprobar), `reportes_rh.ver`/`reportes_rh.sucursal`.

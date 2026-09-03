@@ -40,6 +40,17 @@ class DocumentoStorageService
         return "expedientes/{$usuarioId}/{$nombreInterno}";
     }
 
+    /**
+     * Ruta de la foto de perfil del colaborador (copiada desde el alta
+     * digital al convertir, ver ConversionColaboradorService). Nunca se
+     * expone esta ruta cruda al frontend: se sirve siempre a través de una
+     * ruta protegida por policy (Rh\ExpedienteController::descargarFoto).
+     */
+    public function rutaFoto(int $usuarioId, string $nombreInterno): string
+    {
+        return "expedientes/{$usuarioId}/foto/{$nombreInterno}";
+    }
+
     public function guardar(UploadedFile $archivo, string $rutaDestino): string
     {
         $carpeta = dirname($rutaDestino);

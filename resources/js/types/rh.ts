@@ -3,7 +3,7 @@ export type ColaboradorExpedienteItem = {
     name: string;
     apellidos: string | null;
     numero_empleado: string | null;
-    foto_path: string | null;
+    foto_url: string | null;
     estatus: string;
     empresa: { id: number; nombre: string } | null;
     sucursal: { id: number; nombre: string; empresa_id: number | null } | null;
@@ -21,7 +21,7 @@ export type ExpedienteColaborador = {
     numero_empleado: string | null;
     email: string;
     telefono: string | null;
-    foto_path: string | null;
+    foto_url: string | null;
     estatus: string;
     estatus_imss: string;
     fecha_alta_imss: string | null;

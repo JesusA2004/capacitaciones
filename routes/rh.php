@@ -7,6 +7,8 @@ use App\Http\Controllers\Rh\ExpedienteController;
 use App\Http\Controllers\Rh\FormatoController;
 use App\Http\Controllers\Rh\PlantillaController;
 use App\Http\Controllers\Rh\ReclutamientoController;
+use App\Http\Controllers\Rh\ReporteRhController;
+use App\Http\Controllers\Rh\SolicitudController;
 use App\Http\Controllers\Rh\VacacionesController;
 use App\Http\Controllers\Rh\VacanteController;
 use Illuminate\Support\Facades\Route;
@@ -18,6 +20,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::prefix('expedientes')->name('expedientes.')->group(function () {
             Route::get('/', [ExpedienteController::class, 'index'])->name('index');
             Route::get('{colaborador}', [ExpedienteController::class, 'show'])->name('show');
+            Route::get('{colaborador}/foto', [ExpedienteController::class, 'descargarFoto'])->name('foto');
             Route::put('{colaborador}/datos-personales', [ExpedienteController::class, 'actualizarDatosPersonales'])->name('datos-personales.update');
             Route::post('{colaborador}/documentos', [EmployeeDocumentController::class, 'store'])->name('documentos.store');
         });
@@ -83,6 +86,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/', [VacacionesController::class, 'index'])->name('index');
             Route::post('{solicitud}/aprobar', [VacacionesController::class, 'aprobar'])->name('aprobar');
             Route::post('{solicitud}/rechazar', [VacacionesController::class, 'rechazar'])->name('rechazar');
+        });
+
+        Route::prefix('solicitudes')->name('solicitudes.')->group(function () {
+            Route::get('/', [SolicitudController::class, 'index'])->name('index');
+            Route::get('{solicitud}', [SolicitudController::class, 'show'])->name('show');
+            Route::post('{solicitud}/revisar', [SolicitudController::class, 'revisar'])->name('revisar');
+            Route::post('{solicitud}/requerir-correccion', [SolicitudController::class, 'requerirCorreccion'])->name('requerir-correccion');
+            Route::post('{solicitud}/aprobar', [SolicitudController::class, 'aprobar'])->name('aprobar');
+            Route::post('{solicitud}/rechazar', [SolicitudController::class, 'rechazar'])->name('rechazar');
+            Route::post('{solicitud}/cerrar', [SolicitudController::class, 'cerrar'])->name('cerrar');
+        });
+
+        Route::prefix('reportes')->name('reportes.')->group(function () {
+            Route::get('/', [ReporteRhController::class, 'index'])->name('index');
+            Route::get('excel', [ReporteRhController::class, 'exportarExcel'])->name('excel');
+            Route::get('pdf', [ReporteRhController::class, 'exportarPdf'])->name('pdf');
         });
     });
 });

@@ -18,6 +18,14 @@
         </include>
     </source>
     <php>
+        <!-- La suite completa (270+ pruebas, generación de DOCX/XLSX/PDF en
+             memoria vía PhpWord/Laravel Excel/Dompdf) supera el
+             memory_limit=128M por defecto del CLI en un solo proceso PHP;
+             sin esto, "php artisan test" completo revienta con "Allowed
+             memory size exhausted" en pruebas que descargan un export real
+             (ver tests/Feature/Rh/ReporteRhTest.php,
+             tests/Feature/Rh/PlantillaFormatoTest.php). -->
+        <ini name="memory_limit" value="512M"/>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>

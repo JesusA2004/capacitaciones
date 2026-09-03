@@ -10,6 +10,14 @@ Este documento resume las decisiones y mecanismos de seguridad del proyecto comp
 - **Rate limiting**: Fortify limita los intentos de login a 5 por minuto por combinación email+IP (`config/fortify.php`, limiter `login`), mitigando fuerza bruta.
 - **Verificación de correo**: habilitada vía el middleware `verified` en todas las rutas autenticadas.
 
+## API móvil (`/api/v1`)
+
+- **Laravel Sanctum, tokens personales puros** (sin cookies, sin `EnsureFrontendRequestsAreStateful`, sin CSRF): cada dispositivo hace login (`POST /api/v1/login`) y recibe su propio token revocable de forma independiente (`$usuario->createToken(...)`). Ver `docs/API_MOVIL.md`.
+- Un usuario con `estatus !== activo` no puede obtener un token nuevo, aunque la contraseña sea correcta.
+- Todas las rutas autenticadas usan el guard `auth:sanctum`; `bootstrap/app.php` ya renderiza JSON (no HTML de error) para cualquier request a `/api/*`.
+- Un colaborador **solo accede a su propia información** por la API: `Api\V1\SolicitudController`/`ColaboradorController`/`VacacionesController` filtran siempre por `$request->user()->id`, nunca aceptan un ID de colaborador ajeno por parámetro. `SolicitudInternaPolicy::view()` sigue aplicando incluso en `GET /api/v1/solicitudes/{solicitud}` (403 si la solicitud no es del usuario autenticado).
+- Reclutamiento, candidatos, vacantes, reportes RH, plantillas, expedientes y documentos **no tienen API** en Fase 1 — quedan solo en la web, con su propia autenticación de sesión.
+
 ## Autorización
 
 - Cada acción administrativa pasa por una **Policy** de Laravel o por `$usuario->can('permiso.especifico')` (Spatie Laravel Permission). Nunca se confía en ocultar un botón en el frontend como único mecanismo de control de acceso — ver `docs/ARQUITECTURA.md`.

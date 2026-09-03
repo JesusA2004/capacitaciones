@@ -22,13 +22,15 @@ Orden de implementación seguido en esta fase:
 16. Plantillas y formatos precargados (DOCX).
 17. Estatus laboral, IMSS, periodo de prueba.
 18. Vacaciones.
-19. Permisos/incapacidades/solicitudes internas.
+19. Permisos/incapacidades/solicitudes internas — **completo**, ver `docs/SOLICITUDES_INTERNAS.md`.
 20. Dashboard RH (actualización).
-21. Reportes RH.
-22. Portal colaborador limitado.
-23. Tests.
-24. Pulido visual.
-25. Build final.
+21. Reportes RH — **completo**, ver `docs/REPORTES_RH.md`.
+22. Portal colaborador limitado — **completo**, ver `docs/PORTAL_COLABORADOR.md`.
+23. Roles ampliados (director_comercial, gerente_regional, gerente, subgerente, coordinadora_regional, coordinadora) — **completo**, ver `docs/ROLES_PERMISOS_RH.md`.
+24. API móvil v1 (Sanctum) — **completo**, ver `docs/API_MOVIL.md`.
+25. Tests.
+26. Pulido visual (filtros + exportación Excel/PDF en el resto de listados, "carpetas" visuales en Expedientes, animaciones/hovers en todo el sistema).
+27. Build final.
 
 Ver `docs/PORTAL_RH.md` para el historial de checkpoints previos a este roadmap
 (Fase 1 original "Portal RH base" y Fase 2 "Documentos y alta digital" de ese

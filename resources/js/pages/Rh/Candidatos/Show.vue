@@ -27,14 +27,18 @@ const props = defineProps<{
     opciones: OpcionesReclutamiento;
 }>();
 
+// `layout` recibe una función en vez de un objeto estático porque
+// `defineOptions()` se compila fuera del scope de setup() y no puede
+// referenciar variables locales como `props`; Inertia la invoca con las
+// props actuales de la página en cada render (ver @inertiajs/vue3).
 defineOptions({
-    layout: {
+    layout: (pageProps: { candidato: CandidatoDetalle }) => ({
         breadcrumbs: [
             { title: 'Inicio', href: dashboard() },
             { title: 'Candidatos', href: index.url() },
-            { title: props.candidato.nombre, href: '' },
+            { title: pageProps.candidato.nombre, href: '' },
         ],
-    },
+    }),
 });
 
 const { mostrarError } = useAlertas();

@@ -70,6 +70,51 @@ class UsuarioDemoSeeder extends Seeder
                 'sucursal' => $monterrey, 'departamento' => $recursosHumanos, 'puesto' => null,
                 'roles' => ['auditor'],
             ],
+            [
+                'datos' => ['name' => 'Sofía', 'apellidos' => 'Reyes Marín', 'email' => 'rh.admin@mrlana.test', 'numero_empleado' => 'EMP-0009'],
+                'sucursal' => $monterrey, 'departamento' => $recursosHumanos, 'puesto' => null,
+                'roles' => ['rh_admin'],
+            ],
+            [
+                'datos' => ['name' => 'Iván', 'apellidos' => 'Cabrera Lomelí', 'email' => 'rh.auxiliar@mrlana.test', 'numero_empleado' => 'EMP-0010'],
+                'sucursal' => $monterrey, 'departamento' => $recursosHumanos, 'puesto' => null,
+                'roles' => ['rh_auxiliar'],
+            ],
+            [
+                'datos' => ['name' => 'Fernanda', 'apellidos' => 'Ochoa Del Río', 'email' => 'director.comercial@mrlana.test', 'numero_empleado' => 'EMP-0011'],
+                'sucursal' => $monterrey, 'departamento' => $operaciones, 'puesto' => null,
+                'roles' => ['director_comercial'],
+            ],
+            [
+                'datos' => ['name' => 'Héctor', 'apellidos' => 'Bravo Núñez', 'email' => 'gerente.regional@mrlana.test', 'numero_empleado' => 'EMP-0012'],
+                'sucursal' => $cdmx, 'departamento' => $operaciones, 'puesto' => $gerenteSucursal,
+                'roles' => ['gerente_regional'],
+            ],
+            [
+                'datos' => ['name' => 'Claudia', 'apellidos' => 'Estrada Peña', 'email' => 'gerente@mrlana.test', 'numero_empleado' => 'EMP-0013'],
+                'sucursal' => $cdmx, 'departamento' => $operaciones, 'puesto' => $gerenteSucursal,
+                'roles' => ['gerente'],
+            ],
+            [
+                'datos' => ['name' => 'Ricardo', 'apellidos' => 'Zamora Vidal', 'email' => 'subgerente@mrlana.test', 'numero_empleado' => 'EMP-0014'],
+                'sucursal' => $cdmx, 'departamento' => $operaciones, 'puesto' => null,
+                'roles' => ['subgerente'],
+            ],
+            [
+                'datos' => ['name' => 'Adriana', 'apellidos' => 'Cortés Beltrán', 'email' => 'coordinadora.regional@mrlana.test', 'numero_empleado' => 'EMP-0015'],
+                'sucursal' => $monterrey, 'departamento' => $operaciones, 'puesto' => null,
+                'roles' => ['coordinadora_regional'],
+            ],
+            [
+                'datos' => ['name' => 'Brenda', 'apellidos' => 'Nájera Solís', 'email' => 'coordinadora@mrlana.test', 'numero_empleado' => 'EMP-0016'],
+                'sucursal' => $monterrey, 'departamento' => $operaciones, 'puesto' => null,
+                'roles' => ['coordinadora'],
+            ],
+            [
+                'datos' => ['name' => 'Diego', 'apellidos' => 'Ponce Aranda', 'email' => 'jefe.directo@mrlana.test', 'numero_empleado' => 'EMP-0017'],
+                'sucursal' => $cdmx, 'departamento' => $operaciones, 'puesto' => null,
+                'roles' => ['jefe_directo'],
+            ],
         ];
 
         foreach ($usuarios as $definicion) {

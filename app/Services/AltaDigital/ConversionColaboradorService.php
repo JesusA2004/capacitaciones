@@ -68,6 +68,18 @@ class ConversionColaboradorService
 
             $usuario->assignRole('colaborador');
 
+            if ($alta->foto_path !== null) {
+                $nombreInterno = $this->documentoStorage->nombreInterno($alta->foto_original_name ?? 'foto.jpg');
+                $rutaDestino = $this->documentoStorage->rutaFoto($usuario->id, $nombreInterno);
+
+                $this->documentoStorage->disco()->put(
+                    $rutaDestino,
+                    $this->altaStorage->disco()->get($alta->foto_path),
+                );
+
+                $usuario->update(['foto_path' => $rutaDestino]);
+            }
+
             foreach ($alta->documentos as $documentoAlta) {
                 $nombreInterno = $this->documentoStorage->nombreInterno($documentoAlta->original_name);
                 $rutaDestino = $this->documentoStorage->rutaDocumento($usuario->id, $nombreInterno);

@@ -3,19 +3,23 @@ import { Head, Link } from '@inertiajs/vue3';
 import { Rocket } from '@lucide/vue';
 import { dashboard } from '@/routes';
 
-const props = defineProps<{
+defineProps<{
     titulo: string;
     descripcion: string;
     fase?: string;
 }>();
 
+// `layout` recibe una función en vez de un objeto estático porque
+// `defineOptions()` se compila fuera del scope de setup() y no puede
+// referenciar variables locales como `props`; Inertia la invoca con las
+// props actuales de la página en cada render (ver @inertiajs/vue3).
 defineOptions({
-    layout: {
+    layout: (pageProps: { titulo: string }) => ({
         breadcrumbs: [
             { title: 'Inicio', href: dashboard() },
-            { title: props.titulo, href: '' },
+            { title: pageProps.titulo, href: '' },
         ],
-    },
+    }),
 });
 </script>
 

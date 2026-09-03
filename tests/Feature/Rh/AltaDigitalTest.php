@@ -145,6 +145,30 @@ test('rh_admin puede aprobar un alta enviada por el candidato y se crea el colab
         ->and(Storage::disk('nas')->exists($documentoCv->path))->toBeTrue();
 });
 
+test('al convertir un alta con foto, la foto se copia al expediente del colaborador', function () {
+    $alta = AltaDigital::factory()->create([
+        'estado' => 'en_revision_rh',
+        'foto_disk' => 'nas',
+        'foto_path' => 'altas/test/foto-original.jpg',
+        'foto_original_name' => 'foto-original.jpg',
+    ]);
+    Storage::disk('nas')->put($alta->foto_path, 'contenido-de-la-foto');
+
+    $usuario = User::factory()->create();
+    $usuario->assignRole('rh_admin');
+
+    $this->actingAs($usuario)
+        ->post(route('rh.altas.aprobar', $alta))
+        ->assertSessionHasNoErrors();
+
+    $colaborador = User::find($alta->refresh()->user_id);
+
+    expect($colaborador->foto_path)->not->toBeNull()
+        ->and($colaborador->foto_path)->not->toBe($alta->foto_path)
+        ->and(Storage::disk('nas')->exists($colaborador->foto_path))->toBeTrue()
+        ->and(Storage::disk('nas')->get($colaborador->foto_path))->toBe('contenido-de-la-foto');
+});
+
 test('rh_auxiliar no puede aprobar un alta digital', function () {
     $alta = AltaDigital::factory()->create(['estado' => 'en_revision_rh']);
     $usuario = User::factory()->create();

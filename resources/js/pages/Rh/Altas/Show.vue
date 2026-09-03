@@ -32,14 +32,21 @@ const props = defineProps<{
     alta: AltaDigitalItem;
 }>();
 
+// `layout` recibe una función en vez de un objeto estático porque
+// `defineOptions()` se compila fuera del scope de setup() y no puede
+// referenciar variables locales como `props`; Inertia la invoca con las
+// props actuales de la página en cada render (ver @inertiajs/vue3).
 defineOptions({
-    layout: {
+    layout: (pageProps: { alta: AltaDigitalItem }) => ({
         breadcrumbs: [
             { title: 'Inicio', href: dashboard() },
             { title: 'Altas digitales', href: index.url() },
-            { title: props.alta.nombre ?? `Alta #${props.alta.id}`, href: '' },
+            {
+                title: pageProps.alta.nombre ?? `Alta #${pageProps.alta.id}`,
+                href: '',
+            },
         ],
-    },
+    }),
 });
 
 const { mostrarExito, mostrarError } = useAlertas();

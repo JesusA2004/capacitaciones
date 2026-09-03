@@ -8,6 +8,7 @@ use App\Models\SolicitudVacaciones;
 use App\Services\Vacaciones\VacacionesService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -19,31 +20,19 @@ class VacacionesController extends Controller
     {
         $usuario = $request->user();
 
-        $solicitudes = SolicitudVacaciones::query()
-            ->where('user_id', $usuario->id)
-            ->orderByDesc('created_at')
-            ->get();
-
         return Inertia::render('Vacaciones/Index', [
             'saldo' => $this->vacaciones->saldo($usuario),
-            'solicitudes' => $solicitudes,
+            'solicitudes' => $this->vacaciones->misSolicitudes($usuario),
         ]);
     }
 
     public function store(StoreSolicitudVacacionesRequest $request): RedirectResponse
     {
-        $usuario = $request->user();
-        $saldo = $this->vacaciones->saldo($usuario);
-
-        if ($request->validated('dias_solicitados') > $saldo['dias_disponibles']) {
-            return back()->withErrors(['dias_solicitados' => 'No tienes suficientes días disponibles.'])->withInput();
+        try {
+            $this->vacaciones->solicitar($request->user(), $request->validated());
+        } catch (ValidationException $e) {
+            return back()->withErrors($e->errors())->withInput();
         }
-
-        SolicitudVacaciones::create([
-            ...$request->validated(),
-            'user_id' => $usuario->id,
-            'estado' => EstadoSolicitudVacaciones::Pendiente,
-        ]);
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Solicitud de vacaciones enviada.']);
     }

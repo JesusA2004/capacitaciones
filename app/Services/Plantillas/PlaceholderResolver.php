@@ -41,6 +41,10 @@ class PlaceholderResolver
             'motivo_permiso' => '',
             'tipo_solicitud' => '',
             'folio_solicitud' => '',
+            'fecha_inicio_incapacidad' => '',
+            'fecha_fin_incapacidad' => '',
+            'motivo_solicitud' => '',
+            'observaciones' => '',
         ];
 
         if ($sujeto instanceof User) {
