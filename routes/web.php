@@ -6,7 +6,13 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\VacacionesController;
 use Illuminate\Support\Facades\Route;
 
-Route::inertia('/', 'Welcome')->name('home');
+// El index del sistema es el login: sin sesion se muestra el login, con
+// sesion se entra directo al dashboard/inicio. No hay landing intermedia.
+Route::get('/', function () {
+    return auth()->check()
+        ? redirect()->route('dashboard')
+        : redirect()->route('login');
+})->name('home');
 
 // Publica (sin sesion iniciada): verificacion de constancias por folio.
 Route::get('constancias/verificar/{folio}', [CertificadoVerificacionController::class, 'show'])->name('constancias.verificar');

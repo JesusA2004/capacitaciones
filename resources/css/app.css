@@ -194,4 +194,12 @@
     body {
         @apply bg-background text-foreground;
     }
+
+    /* Seleccion de texto con la marca en lugar del azul default del
+       navegador; --brand-foreground contrasta bien sobre el verde en
+       ambos temas. */
+    ::selection {
+        background-color: var(--brand-primary);
+        color: var(--brand-foreground);
+    }
 }

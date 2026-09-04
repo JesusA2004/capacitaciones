@@ -29,7 +29,9 @@ defineProps<{
                 >
                     <AppLogoIcon class="size-9 fill-current" />
                 </div>
-                <span class="text-lg font-semibold tracking-tight">
+                <span
+                    class="text-lg font-semibold tracking-tight text-foreground"
+                >
                     MR. LANA
                     <span class="text-[var(--brand-primary)]">PEOPLE</span>
                 </span>
