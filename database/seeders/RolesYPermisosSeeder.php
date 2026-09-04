@@ -138,6 +138,12 @@ class RolesYPermisosSeeder extends Seeder
         'rh.expedientes.documentos.autorizar-cambio',
         'rh.expedientes.incorporacion.aprobar',
         'rh.expedientes.incorporacion.rechazar',
+        // Invitaciones de incorporacion por QR temporal.
+        'rh.incorporacion.invitaciones.ver',
+        'rh.incorporacion.invitaciones.crear',
+        'rh.incorporacion.invitaciones.regenerar',
+        'rh.incorporacion.invitaciones.revocar',
+        'rh.incorporacion.invitaciones.qr.descargar',
     ];
 
     /**
@@ -195,6 +201,9 @@ class RolesYPermisosSeeder extends Seeder
             'rh.expedientes.ver', 'rh.expedientes.detalle', 'rh.expedientes.documentos.ver', 'rh.expedientes.documentos.aprobar',
             'rh.expedientes.documentos.rechazar', 'rh.expedientes.documentos.autorizar-cambio',
             'rh.expedientes.incorporacion.aprobar', 'rh.expedientes.incorporacion.rechazar',
+            'rh.incorporacion.invitaciones.ver', 'rh.incorporacion.invitaciones.crear',
+            'rh.incorporacion.invitaciones.regenerar', 'rh.incorporacion.invitaciones.revocar',
+            'rh.incorporacion.invitaciones.qr.descargar',
         ],
 
         // Apoyo operativo de RH: puede capturar/revisar pero no aprobar
@@ -212,6 +221,7 @@ class RolesYPermisosSeeder extends Seeder
             'candidatos.ver', 'candidatos.ver_todos', 'candidatos.crear', 'candidatos.editar',
             'plantillas.ver', 'plantillas.generar',
             'rh.expedientes.ver', 'rh.expedientes.detalle', 'rh.expedientes.documentos.ver',
+            'rh.incorporacion.invitaciones.ver', 'rh.incorporacion.invitaciones.crear', 'rh.incorporacion.invitaciones.qr.descargar',
         ],
 
         'gerente_sucursal' => [

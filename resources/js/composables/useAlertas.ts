@@ -85,6 +85,28 @@ export function useAlertas() {
         });
     }
 
+    function confirmarRevocacion(
+        entidad = 'esta invitación',
+    ): Promise<boolean> {
+        return confirmar({
+            icono: 'warning',
+            titulo: '¿Revocar invitación?',
+            texto: `${entidad} dejará de aceptar registro de inmediato. No se puede deshacer.`,
+            confirmarTexto: 'Sí, revocar',
+        });
+    }
+
+    function confirmarRegeneracion(
+        entidad = 'esta invitación',
+    ): Promise<boolean> {
+        return confirmar({
+            icono: 'question',
+            titulo: '¿Regenerar QR?',
+            texto: `Se creará un código nuevo y ${entidad} anterior quedará revocada.`,
+            confirmarTexto: 'Sí, regenerar',
+        });
+    }
+
     function avisarSesionExpirada(): Promise<void> {
         return base
             .fire({
@@ -127,6 +149,8 @@ export function useAlertas() {
         confirmarAsignacionMasiva,
         confirmarCambioAsistencia,
         confirmarCierreIntento,
+        confirmarRevocacion,
+        confirmarRegeneracion,
         avisarSesionExpirada,
         mostrarExito,
         mostrarError,

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\ColaboradorController;
 use App\Http\Controllers\Api\V1\IncorporacionController;
+use App\Http\Controllers\Api\V1\IncorporacionInvitacionController;
 use App\Http\Controllers\Api\V1\NotificacionController;
 use App\Http\Controllers\Api\V1\Rh\ExpedienteController as RhExpedienteController;
 use App\Http\Controllers\Api\V1\SolicitudController;
@@ -27,6 +28,23 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->name('api.v1.')->group(function () {
     Route::post('login', [AuthController::class, 'login'])->name('login');
+
+    // Publico (sin auth:sanctum, sin sesion web): el token del QR es la
+    // unica puerta de entrada, validado en cada accion. Un colaborador no
+    // puede registrarse libremente, solo con una invitacion activa que RH
+    // genero antes desde el Portal RH (ver
+    // App\Services\Incorporacion\IncorporacionInvitacionService y
+    // docs/API_MOVIL.md, "Registro por QR temporal"). Throttle propio: son
+    // requests anonimas, no cubiertas por el limite por-usuario del resto
+    // de la API.
+    Route::prefix('incorporacion/invitaciones/{token}')
+        ->name('incorporacion.invitaciones.')
+        ->middleware('throttle:30,1')
+        ->group(function () {
+            Route::get('validar', [IncorporacionInvitacionController::class, 'validar'])->name('validar');
+            Route::get('fases', [IncorporacionInvitacionController::class, 'fases'])->name('fases');
+            Route::post('registrar', [IncorporacionInvitacionController::class, 'registrar'])->name('registrar');
+        });
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('logout', [AuthController::class, 'logout'])->name('logout');

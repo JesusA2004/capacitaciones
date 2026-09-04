@@ -47,6 +47,8 @@ const MAPA_ESTADOS: Record<string, { variante: Variante; etiqueta: string }> = {
     // Rojo: vencido / ausente / error / rechazado.
     vencida: { variante: 'destructive', etiqueta: 'Vencida' },
     vencido: { variante: 'destructive', etiqueta: 'Vencido' },
+    revocado: { variante: 'destructive', etiqueta: 'Revocado' },
+    revocada: { variante: 'destructive', etiqueta: 'Revocada' },
     ausente: { variante: 'destructive', etiqueta: 'Ausente' },
     rechazada: { variante: 'destructive', etiqueta: 'Rechazada' },
     reprobado: { variante: 'destructive', etiqueta: 'Reprobado' },
@@ -62,6 +64,7 @@ const MAPA_ESTADOS: Record<string, { variante: Variante; etiqueta: string }> = {
     programada: { variante: 'info', etiqueta: 'Programada' },
     calificado: { variante: 'info', etiqueta: 'Calificado' },
     sincronizado: { variante: 'info', etiqueta: 'Sincronizado' },
+    usado: { variante: 'info', etiqueta: 'Usado' },
     corregida_manualmente: {
         variante: 'info',
         etiqueta: 'Corregida manualmente',

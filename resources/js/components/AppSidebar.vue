@@ -14,6 +14,7 @@ import {
     Landmark,
     LayoutGrid,
     Map,
+    QrCode,
     ShieldCheck,
     UserRound,
     Users,
@@ -48,6 +49,7 @@ import { index as indexAltas } from '@/routes/rh/altas';
 import { index as indexCandidatos } from '@/routes/rh/candidatos';
 import { index as indexExpedientes } from '@/routes/rh/expedientes';
 import { index as indexFormatos } from '@/routes/rh/formatos';
+import { index as indexIncorporacionInvitaciones } from '@/routes/rh/incorporacion/invitaciones';
 import { index as indexPlantillas } from '@/routes/rh/plantillas';
 import { index as indexReportesRh } from '@/routes/rh/reportes';
 import { index as indexRhSolicitudes } from '@/routes/rh/solicitudes';
@@ -156,6 +158,14 @@ const mainNavItems = computed<NavItem[]>(() => {
             title: 'Altas digitales',
             href: indexAltas(),
             icon: IdCard,
+        });
+    }
+
+    if (tienePermiso('rh.incorporacion.invitaciones.ver')) {
+        items.push({
+            title: 'Invitaciones QR',
+            href: indexIncorporacionInvitaciones(),
+            icon: QrCode,
         });
     }
 

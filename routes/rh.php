@@ -5,6 +5,7 @@ use App\Http\Controllers\Rh\CandidatoController;
 use App\Http\Controllers\Rh\EmployeeDocumentController;
 use App\Http\Controllers\Rh\ExpedienteController;
 use App\Http\Controllers\Rh\FormatoController;
+use App\Http\Controllers\Rh\IncorporacionInvitacionController;
 use App\Http\Controllers\Rh\PlantillaController;
 use App\Http\Controllers\Rh\ReclutamientoController;
 use App\Http\Controllers\Rh\ReporteRhController;
@@ -32,6 +33,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('aprobar', [EmployeeDocumentController::class, 'aprobar'])->name('aprobar');
             Route::post('rechazar', [EmployeeDocumentController::class, 'rechazar'])->name('rechazar');
             Route::post('solicitar-correccion', [EmployeeDocumentController::class, 'solicitarCorreccion'])->name('solicitar-correccion');
+        });
+
+        // Invitaciones de incorporacion por QR temporal: unica puerta de
+        // entrada para que un colaborador pueda registrarse en la app (ver
+        // App\Services\Incorporacion\IncorporacionInvitacionService).
+        Route::prefix('incorporacion/invitaciones')->name('incorporacion.invitaciones.')->group(function () {
+            Route::get('/', [IncorporacionInvitacionController::class, 'index'])->name('index');
+            Route::post('/', [IncorporacionInvitacionController::class, 'store'])->name('store');
+            Route::get('{invitacion}', [IncorporacionInvitacionController::class, 'show'])->name('show');
+            Route::get('{invitacion}/qr', [IncorporacionInvitacionController::class, 'qr'])->name('qr');
+            Route::post('{invitacion}/regenerar', [IncorporacionInvitacionController::class, 'regenerar'])->name('regenerar');
+            Route::post('{invitacion}/revocar', [IncorporacionInvitacionController::class, 'revocar'])->name('revocar');
         });
 
         Route::get('reclutamiento', [ReclutamientoController::class, 'index'])->name('reclutamiento');
