@@ -3,6 +3,7 @@
 use App\Http\Controllers\CalendarioController;
 use App\Http\Controllers\CertificadoVerificacionController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\IncorporacionQrController;
 use App\Http\Controllers\VacacionesController;
 use Illuminate\Support\Facades\Route;
 
@@ -16,6 +17,12 @@ Route::get('/', function () {
 
 // Publica (sin sesion iniciada): verificacion de constancias por folio.
 Route::get('constancias/verificar/{folio}', [CertificadoVerificacionController::class, 'show'])->name('constancias.verificar');
+
+// Publica (sin sesion iniciada): pantalla del QR de incorporacion que RH
+// genera/imprime (ver config('incorporacion.qr_url_base')). Nunca marca la
+// invitacion como usada ni responde 404/500 con un token invalido — ver
+// App\Http\Controllers\IncorporacionQrController.
+Route::get('incorporacion/qr/{token}', [IncorporacionQrController::class, 'show'])->name('incorporacion.qr');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
