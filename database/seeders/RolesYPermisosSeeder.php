@@ -121,6 +121,23 @@ class RolesYPermisosSeeder extends Seeder
         'plantillas.editar',
         'plantillas.eliminar',
         'plantillas.generar',
+
+        // --- Incorporacion documental en la app movil (docs/API_MOVIL.md) ---
+        // Colaborador en proceso de alta: solo su propia checklist, nunca el
+        // expediente completo.
+        'colaborador.incorporacion.ver',
+        'colaborador.incorporacion.documentos.subir',
+        'colaborador.incorporacion.documentos.solicitar-cambio',
+        // RH desde la app movil: expedientes completos, acotados por
+        // AlcanceOrganizacionalService.
+        'rh.expedientes.ver',
+        'rh.expedientes.detalle',
+        'rh.expedientes.documentos.ver',
+        'rh.expedientes.documentos.aprobar',
+        'rh.expedientes.documentos.rechazar',
+        'rh.expedientes.documentos.autorizar-cambio',
+        'rh.expedientes.incorporacion.aprobar',
+        'rh.expedientes.incorporacion.rechazar',
     ];
 
     /**
@@ -175,6 +192,9 @@ class RolesYPermisosSeeder extends Seeder
             'vacantes.ver', 'vacantes.ver_todos', 'vacantes.crear', 'vacantes.editar', 'vacantes.cerrar', 'vacantes.eliminar',
             'candidatos.ver', 'candidatos.ver_todos', 'candidatos.crear', 'candidatos.editar', 'candidatos.aprobar', 'candidatos.rechazar', 'candidatos.eliminar',
             'plantillas.ver', 'plantillas.crear', 'plantillas.editar', 'plantillas.eliminar', 'plantillas.generar',
+            'rh.expedientes.ver', 'rh.expedientes.detalle', 'rh.expedientes.documentos.ver', 'rh.expedientes.documentos.aprobar',
+            'rh.expedientes.documentos.rechazar', 'rh.expedientes.documentos.autorizar-cambio',
+            'rh.expedientes.incorporacion.aprobar', 'rh.expedientes.incorporacion.rechazar',
         ],
 
         // Apoyo operativo de RH: puede capturar/revisar pero no aprobar
@@ -191,6 +211,7 @@ class RolesYPermisosSeeder extends Seeder
             'vacantes.ver', 'vacantes.ver_todos', 'vacantes.crear', 'vacantes.editar',
             'candidatos.ver', 'candidatos.ver_todos', 'candidatos.crear', 'candidatos.editar',
             'plantillas.ver', 'plantillas.generar',
+            'rh.expedientes.ver', 'rh.expedientes.detalle', 'rh.expedientes.documentos.ver',
         ],
 
         'gerente_sucursal' => [
@@ -324,6 +345,7 @@ class RolesYPermisosSeeder extends Seeder
             'documentos.ver', 'documentos.subir', 'documentos.descargar',
             'vacaciones.ver', 'vacaciones.solicitar',
             'solicitudes.ver', 'solicitudes.crear',
+            'colaborador.incorporacion.ver', 'colaborador.incorporacion.documentos.subir', 'colaborador.incorporacion.documentos.solicitar-cambio',
         ],
         'auditor' => [
             'dashboard.global.ver',

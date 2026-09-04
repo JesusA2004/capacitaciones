@@ -42,6 +42,9 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property Carbon|null $reviewed_at
  * @property string|null $comments
  * @property string|null $rejection_reason
+ * @property Carbon|null $change_requested_at
+ * @property int|null $change_authorized_by
+ * @property Carbon|null $change_authorized_at
  */
 class EmployeeDocument extends Model
 {
@@ -57,6 +60,7 @@ class EmployeeDocument extends Model
         'disk', 'path', 'original_name', 'stored_name', 'mime', 'extension', 'size', 'hash',
         'version', 'previous_version_id', 'status',
         'uploaded_by', 'reviewed_by', 'reviewed_at', 'comments', 'rejection_reason',
+        'change_requested_at', 'change_authorized_by', 'change_authorized_at',
     ];
 
     protected function casts(): array
@@ -66,6 +70,8 @@ class EmployeeDocument extends Model
             'reviewed_at' => 'datetime',
             'size' => 'integer',
             'version' => 'integer',
+            'change_requested_at' => 'datetime',
+            'change_authorized_at' => 'datetime',
         ];
     }
 
@@ -125,10 +131,18 @@ class EmployeeDocument extends Model
         return $this->belongsTo(EmployeeDocument::class, 'previous_version_id');
     }
 
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function cambioAutorizadoPor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'change_authorized_by');
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['user_id', 'document_type_id', 'status', 'version', 'reviewed_by', 'rejection_reason'])
+            ->logOnly(['user_id', 'document_type_id', 'status', 'version', 'reviewed_by', 'rejection_reason', 'change_authorized_by'])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs();
     }

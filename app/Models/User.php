@@ -50,6 +50,10 @@ use Spatie\Permission\Traits\HasRoles;
  * @property string|null $correo_personal
  * @property string|null $contacto_emergencia_nombre
  * @property string|null $contacto_emergencia_telefono
+ * @property string|null $incorporacion_decision
+ * @property int|null $incorporacion_decidida_por
+ * @property Carbon|null $incorporacion_decidida_en
+ * @property string|null $incorporacion_motivo_rechazo
  * @property Carbon|null $email_verified_at
  * @property string $password
  * @property string|null $two_factor_secret
@@ -71,6 +75,7 @@ use Spatie\Permission\Traits\HasRoles;
     'zona_horaria', 'preferencias_notificaciones',
     'fecha_nacimiento', 'curp', 'rfc', 'nss', 'domicilio',
     'correo_personal', 'contacto_emergencia_nombre', 'contacto_emergencia_telefono',
+    'incorporacion_decision', 'incorporacion_decidida_por', 'incorporacion_decidida_en', 'incorporacion_motivo_rechazo',
 ])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token', 'foto_path'])]
 class User extends Authenticatable
@@ -109,12 +114,32 @@ class User extends Authenticatable
             'ultimo_acceso' => 'datetime',
             'preferencias_notificaciones' => 'array',
             'fecha_nacimiento' => 'date',
+            'incorporacion_decidida_en' => 'datetime',
         ];
     }
 
     public function nombreCompleto(): string
     {
         return trim("{$this->name} {$this->apellidos}");
+    }
+
+    /**
+     * La app movil nunca deja pasar a un colaborador al portal normal
+     * mientras no este Activo: EnIncorporacion sigue viendo solo la
+     * checklist de su expediente (ver
+     * App\Services\Incorporacion\IncorporacionService).
+     */
+    public function puedeAccederPortal(): bool
+    {
+        return $this->estatus === EstadoUsuario::Activo;
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function incorporacionDecididaPor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'incorporacion_decidida_por');
     }
 
     public function enPeriodoDePrueba(): bool
@@ -249,7 +274,7 @@ class User extends Authenticatable
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['name', 'apellidos', 'email', 'estatus', 'sucursal_principal_id', 'departamento_id', 'puesto_id'])
+            ->logOnly(['name', 'apellidos', 'email', 'estatus', 'sucursal_principal_id', 'departamento_id', 'puesto_id', 'incorporacion_decision'])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs();
     }

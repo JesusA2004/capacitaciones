@@ -13,6 +13,12 @@ enum EstadoDocumento: string
     case Vencido = 'vencido';
     case Archivado = 'archivado';
 
+    /** El colaborador ya subio el documento y pidio poder reemplazarlo; espera autorizacion de RH (ver IncorporacionService::solicitarCambio). */
+    case CambioSolicitado = 'cambio_solicitado';
+
+    /** RH autorizo el reemplazo solicitado: el colaborador ya puede subir la nueva version (ver IncorporacionService::autorizarCambio). */
+    case CambioAutorizado = 'cambio_autorizado';
+
     public function etiqueta(): string
     {
         return match ($this) {
@@ -24,6 +30,8 @@ enum EstadoDocumento: string
             self::RequiereCorreccion => 'Requiere corrección',
             self::Vencido => 'Vencido',
             self::Archivado => 'Archivado',
+            self::CambioSolicitado => 'Cambio solicitado',
+            self::CambioAutorizado => 'Cambio autorizado',
         };
     }
 }

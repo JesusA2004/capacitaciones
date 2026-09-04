@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\EstadoUsuario;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -33,7 +34,11 @@ class AuthController extends Controller
         /** @var User $usuario */
         $usuario = Auth::user();
 
-        if ($usuario->estatus->value !== 'activo') {
+        // Un colaborador EnIncorporacion si puede entrar: solo vera su
+        // checklist de expediente documental (GET /colaborador/incorporacion)
+        // hasta que RH apruebe y quede Activo — ver
+        // App\Services\Incorporacion\IncorporacionService.
+        if (! in_array($usuario->estatus, [EstadoUsuario::Activo, EstadoUsuario::EnIncorporacion], true)) {
             throw ValidationException::withMessages([
                 'email' => 'Tu cuenta no está activa. Contacta a Recursos Humanos.',
             ]);
@@ -48,6 +53,7 @@ class AuthController extends Controller
                 'nombre' => $usuario->name,
                 'apellidos' => $usuario->apellidos,
                 'correo' => $usuario->email,
+                'estatus' => $usuario->estatus->value,
                 'roles' => $usuario->getRoleNames(),
             ],
         ]);
