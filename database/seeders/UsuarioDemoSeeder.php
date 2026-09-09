@@ -117,7 +117,7 @@ class UsuarioDemoSeeder extends Seeder
             ],
         ];
 
-        foreach ($usuarios as $definicion) {
+        foreach ($usuarios as $indice => $definicion) {
             $usuario = User::firstOrCreate(
                 ['email' => $definicion['datos']['email']],
                 [
@@ -129,7 +129,7 @@ class UsuarioDemoSeeder extends Seeder
                     'sucursal_principal_id' => $definicion['sucursal']?->id,
                     'departamento_id' => $definicion['departamento']?->id,
                     'puesto_id' => $definicion['puesto']?->id,
-                    'fecha_ingreso' => now()->subMonths(fake()->numberBetween(1, 36)),
+                    'fecha_ingreso' => now()->subMonths(1 + ($indice % 36)),
                     'estatus' => EstadoUsuario::Activo,
                     'zona_horaria' => 'America/Mexico_City',
                 ],

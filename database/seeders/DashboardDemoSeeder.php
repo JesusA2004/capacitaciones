@@ -87,7 +87,7 @@ class DashboardDemoSeeder extends Seeder
 
         $colaboradores = collect();
 
-        foreach ($definiciones as $definicion) {
+        foreach ($definiciones as $indice => $definicion) {
             $usuario = User::firstOrCreate(
                 ['email' => $definicion['email']],
                 [
@@ -97,7 +97,7 @@ class DashboardDemoSeeder extends Seeder
                     'email_verified_at' => now(),
                     'sucursal_principal_id' => $sucursales[$definicion['sucursal']]->id,
                     'departamento_id' => $departamentos[$definicion['departamento']]->id,
-                    'fecha_ingreso' => now()->subMonths(fake()->numberBetween(1, 24)),
+                    'fecha_ingreso' => now()->subMonths(1 + ($indice % 24)),
                     'estatus' => EstadoUsuario::Activo,
                     'zona_horaria' => 'America/Mexico_City',
                 ],
@@ -206,7 +206,7 @@ class DashboardDemoSeeder extends Seeder
                     'estado' => $estadoInscripcion,
                     'iniciado_en' => $patron === 2 ? null : now()->subMonths(2),
                     'completado_en' => $completadoEn,
-                    'calificacion_final' => $estadoInscripcion === EstadoProgreso::Completada ? fake()->numberBetween(80, 100) : null,
+                    'calificacion_final' => $estadoInscripcion === EstadoProgreso::Completada ? 80 + ($indice % 21) : null,
                 ],
             );
 
@@ -251,7 +251,7 @@ class DashboardDemoSeeder extends Seeder
                     'iniciado_en' => now()->subWeeks(2),
                     'enviado_en' => now()->subWeeks(2),
                     'calificado_en' => now()->subWeeks(2),
-                    'calificacion' => $aprobado ? fake()->numberBetween(80, 100) : fake()->numberBetween(40, 79),
+                    'calificacion' => $aprobado ? 80 + ($indice % 21) : 40 + ($indice % 40),
                     'aprobado' => $aprobado,
                 ],
             );
@@ -280,7 +280,7 @@ class DashboardDemoSeeder extends Seeder
         foreach ($colaboradores->take(3)->values() as $indice => $colaborador) {
             EntregaActividad::firstOrCreate(
                 ['actividad_id' => $actividad->id, 'user_id' => $colaborador->id, 'version' => 1],
-                ['estado' => EstadoEntregaActividad::Entregada, 'contenido_texto' => fake()->paragraph(), 'entregado_en' => $antiguedades[$indice]],
+                ['estado' => EstadoEntregaActividad::Entregada, 'contenido_texto' => 'El cliente llegó molesto por un retraso en su pedido. Lo saludé con calma, reconocí la falla, le ofrecí una disculpa clara y le expliqué los siguientes pasos para resolverlo, dándole seguimiento hasta confirmar que quedó satisfecho.', 'entregado_en' => $antiguedades[$indice]],
             );
         }
     }
