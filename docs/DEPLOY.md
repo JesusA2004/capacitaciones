@@ -23,15 +23,27 @@ Runbook consolidado para desplegar/actualizar MR. LANA PEOPLE en el VPS
 
 ```bash
 composer install --no-dev --optimize-autoloader
-npm ci && npm run build
 
 cp .env.example .env   # solo la primera vez; luego editar con los valores reales
 php artisan key:generate   # solo la primera vez
 
+# IMPORTANTE: limpiar cache de rutas/config ANTES de `npm run build`, no despues.
+# El plugin de Vite @laravel/vite-plugin-wayfinder corre `php artisan wayfinder:generate`
+# como parte de `vite build` y ese comando lee las rutas registradas por Laravel: si
+# `bootstrap/cache/routes-v7.php` quedo cacheado de un deploy anterior (`route:cache` al
+# final de esta misma rutina), el build lee esa cache VIEJA en vez de routes/*.php nuevos
+# y no genera los helpers de las rutas agregadas/renombradas en este deploy -> `npm run
+# build` truena con `[UNLOADABLE_DEPENDENCY]` en imports de `@/routes/...` que en el
+# working tree existen pero en el build no se generaron. `composer install` ya dispara
+# esto automaticamente via el hook `post-autoload-dump` (ver composer.json), pero se deja
+# explicito aqui por si se hace un deploy sin volver a correr composer install.
+php artisan optimize:clear
+
+npm ci && npm run build
+
 php artisan migrate --force
 php artisan db:seed --force     # RolesYPermisosSeeder y BirthdayPhraseSeeder son idempotentes (firstOrCreate)
 
-php artisan optimize:clear
 php artisan permission:cache-reset
 php artisan config:cache
 php artisan route:cache

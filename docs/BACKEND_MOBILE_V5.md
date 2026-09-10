@@ -78,11 +78,17 @@ Ver `.env.example`, bloques "App movil v5", "Push notifications via Expo", "Noti
 
 ```bash
 composer install --no-dev --optimize-autoloader
+
+# Limpiar cache de rutas/config ANTES del build de Vite: si no, el plugin
+# @laravel/vite-plugin-wayfinder puede generar los helpers de `@/routes/...` a partir de
+# una cache de rutas vieja y `npm run build` truena con [UNLOADABLE_DEPENDENCY] en rutas
+# agregadas/renombradas en este deploy. Ver docs/DEPLOY.md.
+php artisan optimize:clear
+
 npm ci && npm run build
 
 php artisan migrate --force
 php artisan db:seed --force            # RolesYPermisosSeeder es idempotente (firstOrCreate)
-php artisan optimize:clear
 php artisan permission:cache-reset
 php artisan config:cache
 php artisan route:cache
