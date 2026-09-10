@@ -121,6 +121,31 @@ test('se puede editar en un mismo request los puestos que un puesto puede cubrir
         ->and($gerente->fresh()->respaldos()->pluck('puestos.id')->all())->toBe([$subgerente->id]);
 });
 
+test('la api movil expone el organigrama con el mismo criterio de permiso que el panel web', function () {
+    $gerente = Puesto::factory()->create(['nombre' => 'Gerente']);
+    Puesto::factory()->create(['nombre' => 'Subgerente', 'puesto_superior_id' => $gerente->id]);
+
+    $usuario = User::factory()->create();
+    $usuario->assignRole('super_admin');
+
+    $respuesta = $this->actingAs($usuario, 'sanctum')
+        ->getJson(route('api.v1.rh.jerarquia-puestos.index'))
+        ->assertOk()
+        ->json('data');
+
+    expect($respuesta)->toHaveCount(2);
+    expect(collect($respuesta)->firstWhere('nombre', 'Subgerente')['puesto_superior_id'])->toBe($gerente->id);
+});
+
+test('la api movil del organigrama rechaza a quien no administra puestos', function () {
+    $usuario = User::factory()->create();
+    $usuario->assignRole('colaborador');
+
+    $this->actingAs($usuario, 'sanctum')
+        ->getJson(route('api.v1.rh.jerarquia-puestos.index'))
+        ->assertForbidden();
+});
+
 test('el historial de un puesto expone cambios de jerarquía, movimientos y vacantes', function () {
     $puesto = Puesto::factory()->create(['nombre' => 'Gerente']);
 

@@ -1,17 +1,27 @@
 <script setup lang="ts">
-import { Pencil, Route, Users } from '@lucide/vue';
+import { ChevronDown, ChevronRight, Pencil, Route, UserPlus, Users, Unlink } from '@lucide/vue';
 import { Badge } from '@/components/ui/badge';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import type { PuestoJerarquiaItem } from '@/types';
 
 defineProps<{
     puesto: PuestoJerarquiaItem;
     /** true dentro del árbol de escritorio, donde el ancho es fijo. */
     compacto?: boolean;
+    tieneHijos?: boolean;
+    colapsado?: boolean;
 }>();
 
 const emit = defineEmits<{
     seleccionar: [];
     editar: [];
+    agregarSubordinado: [];
+    quitarRelacion: [];
+    alternarColapso: [];
 }>();
 
 const TIPO_ETIQUETA: Record<string, string> = {
@@ -32,7 +42,7 @@ const TIPO_ETIQUETA: Record<string, string> = {
             class="flex flex-1 flex-col gap-2 text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             @click="emit('seleccionar')"
         >
-            <div class="flex items-start justify-between gap-2">
+            <div class="flex items-start justify-between gap-2 pr-14">
                 <span class="text-sm font-semibold break-words">{{
                     puesto.nombre
                 }}</span>
@@ -100,13 +110,58 @@ const TIPO_ETIQUETA: Record<string, string> = {
             </div>
         </button>
 
-        <button
-            type="button"
-            title="Editar jerarquía"
-            class="absolute top-3 right-3 flex size-6 items-center justify-center rounded-lg text-muted-foreground opacity-100 transition-all duration-200 hover:bg-accent hover:text-accent-foreground md:opacity-0 md:group-hover:translate-x-0 md:group-hover:opacity-100"
-            @click.stop="emit('editar')"
+        <div
+            class="absolute top-3 right-3 flex items-center gap-0.5 opacity-100 transition-all duration-200 md:opacity-0 md:group-hover:opacity-100"
         >
-            <Pencil class="size-3.5" />
+            <Tooltip>
+                <TooltipTrigger as-child>
+                    <button
+                        type="button"
+                        class="flex size-6 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                        @click.stop="emit('agregarSubordinado')"
+                    >
+                        <UserPlus class="size-3.5" />
+                    </button>
+                </TooltipTrigger>
+                <TooltipContent>Agregar subordinado</TooltipContent>
+            </Tooltip>
+
+            <Tooltip v-if="puesto.puesto_superior_id">
+                <TooltipTrigger as-child>
+                    <button
+                        type="button"
+                        class="flex size-6 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        @click.stop="emit('quitarRelacion')"
+                    >
+                        <Unlink class="size-3.5" />
+                    </button>
+                </TooltipTrigger>
+                <TooltipContent>Quitar relación con su superior</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+                <TooltipTrigger as-child>
+                    <button
+                        type="button"
+                        class="flex size-6 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                        @click.stop="emit('editar')"
+                    >
+                        <Pencil class="size-3.5" />
+                    </button>
+                </TooltipTrigger>
+                <TooltipContent>Editar jerarquía</TooltipContent>
+            </Tooltip>
+        </div>
+
+        <button
+            v-if="tieneHijos"
+            type="button"
+            class="absolute -bottom-3 left-1/2 flex size-6 -translate-x-1/2 items-center justify-center rounded-full border border-border/60 bg-card text-muted-foreground shadow-sm hover:border-primary/40 hover:text-primary"
+            :title="colapsado ? 'Expandir rama' : 'Contraer rama'"
+            @click.stop="emit('alternarColapso')"
+        >
+            <ChevronRight v-if="colapsado" class="size-3.5" />
+            <ChevronDown v-else class="size-3.5" />
         </button>
     </div>
 </template>

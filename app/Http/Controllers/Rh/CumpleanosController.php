@@ -40,6 +40,7 @@ class CumpleanosController extends Controller
 
         $datos = $request->validate([
             'mes' => ['nullable', 'integer', 'min:1', 'max:12'],
+            'anio' => ['nullable', 'integer', 'min:'.(now()->year - 1), 'max:'.(now()->year + 5)],
             'sucursal_id' => ['nullable', 'integer', 'exists:sucursales,id'],
             'departamento_id' => ['nullable', 'integer', 'exists:departamentos,id'],
             'estatus' => ['nullable', 'string'],
@@ -47,6 +48,7 @@ class CumpleanosController extends Controller
         ]);
 
         $mes = (int) ($datos['mes'] ?? now()->month);
+        $anio = (int) ($datos['anio'] ?? now()->year);
         $filtros = array_intersect_key($datos, array_flip(self::FILTROS));
 
         $delMes = $this->cumpleanos->cumpleanosDelMes($mes, $usuario, $filtros)
@@ -66,7 +68,6 @@ class CumpleanosController extends Controller
             ->values();
 
         $puedeCalendario = $usuario->can('rh.cumpleanos.calendario');
-        $anio = now()->year;
 
         return Inertia::render('Rh/Cumpleanos/Index', [
             'mes' => $mes,
@@ -124,11 +125,17 @@ class CumpleanosController extends Controller
 
         $greeting = $this->tarjetas->generar($colaborador, $fecha);
 
+        // Reutiliza tarjetaColaborador() (misma funcion que arma el
+        // calendario) para la foto: nunca expone foto_path, solo la URL
+        // protegida por permiso.
+        $datosColaborador = $this->cumpleanos->tarjetaColaborador($colaborador, false, $usuario);
+
         return Inertia::render('Rh/Cumpleanos/Felicitacion', [
             'colaborador' => [
                 'id' => $colaborador->id,
                 'nombre' => $colaborador->nombreCompleto(),
                 'sucursal' => $colaborador->sucursalPrincipal?->nombre,
+                'foto_url' => $datosColaborador['foto_url'],
             ],
             'greeting' => [
                 'id' => $greeting->id,

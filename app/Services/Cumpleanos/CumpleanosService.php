@@ -141,6 +141,11 @@ class CumpleanosService
      * incluye el anio de nacimiento (solo dia/mes); la edad solo se agrega
      * si config('cumpleanos.show_age') esta activo.
      *
+     * $anio se usa unicamente para resolver el caso de quien nacio un 29 de
+     * febrero: en un anio no bisiesto ese dia no existe en el calendario que
+     * ve RH, asi que su cumpleanos se muestra el 28 de febrero (convencion
+     * usual de RH) en vez de desaparecer del calendario.
+     *
      * @param  array<string, mixed>  $filtros
      * @return array<int, array<int, array<string, mixed>>>
      */
@@ -148,11 +153,17 @@ class CumpleanosService
     {
         $colaboradores = $this->cumpleanosDelMes($mes, $usuario, $filtros);
         $mostrarEdad = (bool) config('cumpleanos.show_age');
+        $esBisiesto = $mes === 2 && Carbon::create($anio)->isLeapYear();
 
         $porDia = [];
 
         foreach ($colaboradores as $colaborador) {
             $dia = (int) $colaborador->fecha_nacimiento->format('d');
+
+            if ($dia === 29 && $mes === 2 && ! $esBisiesto) {
+                $dia = 28;
+            }
+
             $porDia[$dia] ??= [];
             $porDia[$dia][] = $this->tarjetaColaborador($colaborador, $mostrarEdad, $usuario);
         }

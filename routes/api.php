@@ -15,7 +15,9 @@ use App\Http\Controllers\Api\V1\Rh\CumpleanosController as RhCumpleanosControlle
 use App\Http\Controllers\Api\V1\Rh\DashboardController as RhDashboardController;
 use App\Http\Controllers\Api\V1\Rh\DocumentoController as RhDocumentoController;
 use App\Http\Controllers\Api\V1\Rh\ExpedienteController as RhExpedienteController;
+use App\Http\Controllers\Api\V1\Rh\FormatoController as RhFormatoController;
 use App\Http\Controllers\Api\V1\Rh\IncorporacionController as RhIncorporacionController;
+use App\Http\Controllers\Api\V1\Rh\JerarquiaPuestoController as RhJerarquiaPuestoController;
 use App\Http\Controllers\Api\V1\Rh\PendienteController as RhPendienteController;
 use App\Http\Controllers\Api\V1\Rh\SolicitudController as RhSolicitudController;
 use App\Http\Controllers\Api\V1\Rh\VacacionController as RhVacacionController;
@@ -168,6 +170,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('{documento}/ver', [RhDocumentoController::class, 'ver'])->name('ver');
                 Route::post('{documento}/aprobar', [RhDocumentoController::class, 'aprobar'])->name('aprobar');
                 Route::post('{documento}/rechazar', [RhDocumentoController::class, 'rechazar'])->name('rechazar');
+                Route::get('{documento}/extraccion', [RhDocumentoController::class, 'extraccion'])->name('extraccion');
+                Route::post('{documento}/extraccion/aplicar', [RhDocumentoController::class, 'aplicarExtraccion'])->name('extraccion.aplicar');
+                Route::post('{documento}/extraccion/ignorar', [RhDocumentoController::class, 'ignorarExtraccion'])->name('extraccion.ignorar');
             });
 
             Route::prefix('incorporaciones')->name('incorporaciones.')->group(function () {
@@ -199,6 +204,19 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('{colaborador}/foto', [RhCumpleanosController::class, 'foto'])->name('foto');
                 Route::get('{greeting}/imagen', [RhCumpleanosController::class, 'imagen'])->name('imagen');
                 Route::get('{greeting}', [RhCumpleanosController::class, 'show'])->name('show');
+            });
+
+            // Organigrama (solo lectura, mismo permiso puestos.administrar
+            // que el panel web — ver docs/JERARQUIA_PUESTOS.md).
+            Route::get('jerarquia-puestos', [RhJerarquiaPuestoController::class, 'index'])->name('jerarquia-puestos.index');
+
+            // Catalogo de formatos y descarga de documentos ya generados
+            // (generar/vista previa se quedan en el panel web por ahora,
+            // ver docs/FORMATOS.md).
+            Route::prefix('formatos')->name('formatos.')->group(function () {
+                Route::get('/', [RhFormatoController::class, 'index'])->name('index');
+                Route::get('{documento}/descargar', [RhFormatoController::class, 'descargar'])->name('descargar');
+                Route::get('{documento}/descargar-pdf', [RhFormatoController::class, 'descargarPdf'])->name('descargar-pdf');
             });
         });
     });

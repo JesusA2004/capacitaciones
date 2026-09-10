@@ -70,6 +70,22 @@ export type DocumentoExpedienteItem = {
     documento: DocumentoExpedienteInfo | null;
 };
 
+export type DiferenciaExtraccion = {
+    detectado: string;
+    actual: string | null;
+    coincide: boolean;
+};
+
+export type DocumentExtractionItem = {
+    id: number;
+    status: 'pending' | 'processing' | 'processed' | 'failed' | 'reviewed';
+    extracted_data: Record<string, string> | null;
+    confidence: Record<string, string> | null;
+    differences: Record<string, DiferenciaExtraccion> | null;
+    error_message: string | null;
+    reviewed_at: string | null;
+};
+
 export type OnboardingItem = {
     clave: string;
     etiqueta: string;

@@ -121,6 +121,15 @@ class RolesYPermisosSeeder extends Seeder
         'plantillas.editar',
         'plantillas.eliminar',
         'plantillas.generar',
+        // Catalogo de formatos con vista previa y descarga (docs/FORMATOS.md):
+        // permisos aparte de plantillas.* porque generar una plantilla y
+        // poder ver/previsualizar/descargar el catalogo son capacidades
+        // distintas (un rol podria generar sin tener acceso al catalogo
+        // completo, o viceversa).
+        'formatos.ver',
+        'formatos.preview',
+        'formatos.descargar_pdf',
+        'formatos.descargar_docx',
 
         // --- Incorporacion documental en la app movil (docs/API_MOVIL.md) ---
         // Colaborador en proceso de alta: solo su propia checklist, nunca el
@@ -176,6 +185,12 @@ class RolesYPermisosSeeder extends Seeder
         'rh.documentos.ver_archivo',
         'rh.documentos.aprobar',
         'rh.documentos.rechazar',
+        // Extraccion automatica de datos personales de un documento
+        // (docs/DOCUMENT_EXTRACTION.md): sugerencias, nunca aprueba nada sola.
+        'rh.documentos.extraccion.ver',
+        'rh.documentos.extraccion.aplicar',
+        'rh.documentos.extraccion.reprocesar',
+        'rh.documentos.extraccion.ignorar',
         // RH: incorporaciones desde la app (bandeja directa, mapea al mismo
         // service que rh.expedientes.incorporacion.*).
         'rh.incorporaciones.ver',
@@ -259,6 +274,7 @@ class RolesYPermisosSeeder extends Seeder
             'vacantes.ver', 'vacantes.ver_todos', 'vacantes.crear', 'vacantes.editar', 'vacantes.cerrar', 'vacantes.eliminar',
             'candidatos.ver', 'candidatos.ver_todos', 'candidatos.crear', 'candidatos.editar', 'candidatos.aprobar', 'candidatos.rechazar', 'candidatos.eliminar',
             'plantillas.ver', 'plantillas.crear', 'plantillas.editar', 'plantillas.eliminar', 'plantillas.generar',
+            'formatos.ver', 'formatos.preview', 'formatos.descargar_pdf', 'formatos.descargar_docx',
             'rh.expedientes.ver', 'rh.expedientes.detalle', 'rh.expedientes.documentos.ver', 'rh.expedientes.documentos.aprobar',
             'rh.expedientes.documentos.rechazar', 'rh.expedientes.documentos.autorizar-cambio',
             'rh.expedientes.incorporacion.aprobar', 'rh.expedientes.incorporacion.rechazar',
@@ -272,6 +288,7 @@ class RolesYPermisosSeeder extends Seeder
             'rh.solicitudes.ver', 'rh.solicitudes.detalle', 'rh.solicitudes.aprobar', 'rh.solicitudes.rechazar', 'rh.solicitudes.correccion',
             'rh.vacaciones.ver', 'rh.vacaciones.detalle', 'rh.vacaciones.aprobar', 'rh.vacaciones.rechazar',
             'rh.documentos.ver', 'rh.documentos.detalle', 'rh.documentos.ver_archivo', 'rh.documentos.aprobar', 'rh.documentos.rechazar',
+            'rh.documentos.extraccion.ver', 'rh.documentos.extraccion.aplicar', 'rh.documentos.extraccion.reprocesar', 'rh.documentos.extraccion.ignorar',
             'rh.incorporaciones.ver', 'rh.incorporaciones.detalle', 'rh.incorporaciones.aprobar', 'rh.incorporaciones.rechazar',
             'rh.colaboradores.ver', 'rh.colaboradores.detalle',
             'notificaciones.leer_todas',
@@ -295,6 +312,7 @@ class RolesYPermisosSeeder extends Seeder
             'vacantes.ver', 'vacantes.ver_todos', 'vacantes.crear', 'vacantes.editar',
             'candidatos.ver', 'candidatos.ver_todos', 'candidatos.crear', 'candidatos.editar',
             'plantillas.ver', 'plantillas.generar',
+            'formatos.ver', 'formatos.preview', 'formatos.descargar_pdf', 'formatos.descargar_docx',
             'rh.expedientes.ver', 'rh.expedientes.detalle', 'rh.expedientes.documentos.ver',
             'rh.incorporacion.invitaciones.ver', 'rh.incorporacion.invitaciones.crear', 'rh.incorporacion.invitaciones.qr.descargar',
             // Backend movil v5: ve pendientes/documentos/incorporaciones, no aprueba decisiones finales.
@@ -304,6 +322,7 @@ class RolesYPermisosSeeder extends Seeder
             'rh.solicitudes.ver', 'rh.solicitudes.detalle',
             'rh.vacaciones.ver', 'rh.vacaciones.detalle',
             'rh.documentos.ver', 'rh.documentos.detalle', 'rh.documentos.ver_archivo',
+            'rh.documentos.extraccion.ver', 'rh.documentos.extraccion.reprocesar',
             'rh.incorporaciones.ver', 'rh.incorporaciones.detalle',
             'rh.colaboradores.ver', 'rh.colaboradores.detalle',
             'notificaciones.leer_todas',
@@ -320,6 +339,7 @@ class RolesYPermisosSeeder extends Seeder
             'reportes.sucursal', 'reportes.exportar',
             'expedientes.ver', 'expedientes.ver_sucursal',
             'documentos.ver',
+            'formatos.ver', 'formatos.preview', 'formatos.descargar_pdf', 'formatos.descargar_docx',
             'vacaciones.ver', 'vacaciones.solicitar', 'vacaciones.aprobar', 'vacaciones.rechazar',
             'solicitudes.ver', 'solicitudes.revisar', 'solicitudes.aprobar',
             'reportes_rh.ver', 'reportes_rh.sucursal',

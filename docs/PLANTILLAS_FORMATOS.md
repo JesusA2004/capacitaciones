@@ -51,8 +51,10 @@ preexistentes en `league/commonmark` y `phpoffice/phpspreadsheet` (dependencias 
      placeholder mapea a qué dato).
    - Guarda el resultado en el NAS y crea un `GeneratedDocument` (con `solicitud_id` o
      `solicitud_vacaciones_id` si aplica).
-3. RH descarga el documento generado (`GET rh/formatos/{documento}/descargar`, marca el
-   estado como `entregado` en la primera descarga), lo imprime.
+3. RH descarga el documento generado en Word (`GET rh/formatos/{documento}/descargar`,
+   marca el estado como `entregado` en la primera descarga) o en PDF
+   (`GET rh/formatos/{documento}/descargar-pdf`, convertido al vuelo desde el DOCX
+   guardado — no se persisten dos archivos por documento), lo imprime.
 4. El colaborador/candidato firma en papel (**firma física en Fase 1**, no hay firma
    electrónica avanzada).
 5. RH sube el escaneo del documento firmado desde la solicitud (botón "Subir firmado") o
@@ -78,11 +80,50 @@ Ambas son FKs nullables (`solicitud_id` → `solicitudes_internas`, `solicitud_v
 `StoreGeneratedDocumentRequest`): un documento generado está asociado a como mucho una
 solicitud, o a ninguna (generado libremente desde `/rh/formatos`).
 
+## Catálogo (`/rh/formatos`) y vista previa
+
+`/rh/formatos` muestra un catálogo con una card por `DocumentTemplate` activa: nombre,
+tipo, descripción, las variables `{{...}}` que realmente usa esa plantilla (leídas del
+DOCX por `PlantillaDocumentoService::variablesEnPlantilla()`, cacheadas por
+plantilla+versión — no hay que mantener una lista aparte a mano), cuántas veces se ha
+generado y la fecha del último uso. `App\Services\Formatos\FormatoCatalogoService::listar()`
+arma ese catálogo y lo reutilizan tanto el panel web como la API móvil.
+
+Botón "Generar" abre un diálogo para elegir colaborador/candidato y, antes de generar:
+
+- **Vista previa** (`POST rh/formatos/preview`, `App\Services\Formatos\FormatoPreviewService`):
+  fusiona los placeholders igual que `generar()` pero sin persistir nada, convierte el
+  DOCX resultante a HTML (recargándolo con `PhpOffice\PhpWord\IOFactory` y su writer
+  HTML) y lo muestra embebido en un `<iframe>`. Si la plantilla tiene una estructura que
+  PhpWord no puede convertir, `html` regresa `null` y la pantalla ofrece generar y
+  descargar directo para revisar — nunca truena.
+- **Datos faltantes**: la vista previa también regresa qué variables de la plantilla
+  quedaron vacías para ese colaborador/candidato (`faltantes`); el diálogo deja
+  llenarlas a mano solo para ese documento (van en `extra`, no se guardan en el
+  expediente).
+
+`GET rh/formatos/{documento}/descargar-pdf` (y su espejo en la API móvil) usa el mismo
+`FormatoPreviewService` para convertir el DOCX ya generado a PDF con el writer PDF de
+PhpWord + Dompdf (ya es dependencia del proyecto, sin paquetes nuevos). Si la conversión
+falla, RH ve un aviso y sigue teniendo el Word.
+
 ## Permisos
 
-`plantillas.ver`, `plantillas.crear`, `plantillas.editar`, `plantillas.eliminar`
-(administrar catálogo, solo `rh_admin`) y `plantillas.generar` (generar documentos, subir
-firmados, y exportar el listado de formatos; `rh_admin` y `rh_auxiliar`).
+- `plantillas.ver`, `plantillas.crear`, `plantillas.editar`, `plantillas.eliminar`
+  (administrar catálogo de plantillas, solo `rh_admin`).
+- `plantillas.generar` (generar documentos, subir firmados; `rh_admin` y `rh_auxiliar`).
+- `formatos.ver`, `formatos.preview`, `formatos.descargar_pdf`, `formatos.descargar_docx`
+  (catálogo/vista previa/descarga — deliberadamente aparte de `plantillas.*`, ver
+  comentario en `RolesYPermisosSeeder`; `rh_admin`, `rh_auxiliar` y `gerente_sucursal`).
+
+## API móvil de RH
+
+`GET /api/v1/rh/formatos` (catálogo, mismo `FormatoCatalogoService` que el panel web),
+`GET /api/v1/rh/formatos/{documento}/descargar` y `.../descargar-pdf` (respetan
+`AlcanceOrganizacionalService` para documentos de colaboradores). Generar un documento
+nuevo y la vista previa con variables faltantes se quedan solo en el panel web por
+ahora — requieren un flujo de selección/edición más largo del que tiene sentido en la
+app; la app solo consulta el catálogo y descarga lo ya generado. Ver `docs/RH_MOBILE_API.md`.
 
 ## Filtros y exportación
 
@@ -92,8 +133,7 @@ resto de listados operativos, ver `docs/ARQUITECTURA_SERVICES.md`.
 
 ## Fuera de alcance en Fase 1
 
-- Generación de PDF exacto desde plantilla (solo DOCX; PDF solo como referencia de
-  diseño, ver `claude/instrucciones/FORMATO_PLANTILLAS.md`).
-- Detección automática de placeholders al subir una plantilla (RH debe conocer el
-  catálogo y prepararla manualmente).
+- Detección automática de placeholders al **subir** una plantilla (RH debe conocer el
+  catálogo y prepararla manualmente) — sí se detectan al **leerla** para el catálogo y
+  la vista previa (ver arriba), pero no hay validación en el momento de la subida.
 - Firma electrónica avanzada.

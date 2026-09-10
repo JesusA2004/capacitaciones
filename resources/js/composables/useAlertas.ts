@@ -107,6 +107,17 @@ export function useAlertas() {
         });
     }
 
+    function confirmarDesvinculacion(
+        entidad = 'este puesto',
+    ): Promise<boolean> {
+        return confirmar({
+            icono: 'warning',
+            titulo: '¿Quitar relación?',
+            texto: `${entidad} dejará de reportar a su puesto superior actual. Puedes volver a asignarlo cuando quieras.`,
+            confirmarTexto: 'Sí, quitar',
+        });
+    }
+
     function avisarSesionExpirada(): Promise<void> {
         return base
             .fire({
@@ -151,6 +162,7 @@ export function useAlertas() {
         confirmarCierreIntento,
         confirmarRevocacion,
         confirmarRegeneracion,
+        confirmarDesvinculacion,
         avisarSesionExpirada,
         mostrarExito,
         mostrarError,

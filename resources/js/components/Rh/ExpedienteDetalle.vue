@@ -44,6 +44,10 @@ const props = defineProps<{
     esPropio: boolean;
     puedeEditar: boolean;
     puedeRevisarDocumentos: boolean;
+    puedeVerExtraccion: boolean;
+    puedeAplicarExtraccion: boolean;
+    puedeReprocesarExtraccion: boolean;
+    puedeIgnorarExtraccion: boolean;
     colaborador: ExpedienteColaborador;
     resumenExpediente: ResumenExpediente;
     documentosRequeridos: DocumentoExpedienteItem[];
@@ -464,6 +468,10 @@ function guardarDatosPersonales() {
                     :documentos="documentosRequeridos"
                     :puede-subir="esPropio || puedeEditar"
                     :puede-revisar="puedeRevisarDocumentos"
+                    :puede-ver-extraccion="puedeVerExtraccion"
+                    :puede-aplicar-extraccion="puedeAplicarExtraccion"
+                    :puede-reprocesar-extraccion="puedeReprocesarExtraccion"
+                    :puede-ignorar-extraccion="puedeIgnorarExtraccion"
                 />
             </TabsContent>
 

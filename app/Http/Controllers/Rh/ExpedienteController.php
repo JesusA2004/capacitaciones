@@ -208,6 +208,10 @@ class ExpedienteController extends Controller
             'esPropio' => $esPropio,
             'puedeEditar' => $usuario->can('expedientes.editar') || $usuario->is($colaborador),
             'puedeRevisarDocumentos' => $usuario->can('documentos.revisar') && ! $usuario->is($colaborador),
+            'puedeVerExtraccion' => $usuario->can('rh.documentos.extraccion.ver') && ! $usuario->is($colaborador),
+            'puedeAplicarExtraccion' => $usuario->can('rh.documentos.extraccion.aplicar') && ! $usuario->is($colaborador),
+            'puedeReprocesarExtraccion' => $usuario->can('rh.documentos.extraccion.reprocesar') && ! $usuario->is($colaborador),
+            'puedeIgnorarExtraccion' => $usuario->can('rh.documentos.extraccion.ignorar') && ! $usuario->is($colaborador),
             'colaborador' => [
                 'id' => $colaborador->id,
                 'name' => $colaborador->name,

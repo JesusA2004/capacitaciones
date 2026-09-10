@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { Head, router, useForm } from '@inertiajs/vue3';
+import { Head, router } from '@inertiajs/vue3';
 import {
+    Clock,
     Download,
     FileSpreadsheet,
     FileStack,
     FileText,
+    Sparkles,
     Trash2,
 } from '@lucide/vue';
 import { ref } from 'vue';
@@ -15,7 +17,16 @@ import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
 import DataTable from '@/components/DataTable/DataTable.vue';
 import type { ColumnaDataTable } from '@/components/DataTable/DataTable.vue';
+import FormatoGenerarDialog from '@/components/Rh/FormatoGenerarDialog.vue';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -25,19 +36,19 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Spinner } from '@/components/ui/spinner';
 import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
 import {
     descargar,
+    descargarPdf,
     destroy,
     exportarExcel,
     exportarPdf,
     index,
-    store,
 } from '@/routes/rh/formatos';
 import type {
     DocumentoGeneradoItem,
+    FormatoCatalogoItem,
     OpcionEnum,
     RespuestaPaginada,
 } from '@/types';
@@ -52,7 +63,7 @@ const props = defineProps<{
         fecha_inicio?: string;
         fecha_fin?: string;
     };
-    plantillasDisponibles: { id: number; nombre: string; tipo: string }[];
+    plantillasDisponibles: FormatoCatalogoItem[];
     colaboradoresDisponibles: {
         id: number;
         name: string;
@@ -99,23 +110,25 @@ function urlExportar(
 
     return `${destino.url()}?${parametros.toString()}`;
 }
-const { confirmarEliminacion, mostrarExito, mostrarError } = useAlertas();
+const { confirmarEliminacion, mostrarExito } = useAlertas();
 
-const form = useForm({
-    document_template_id: '',
-    tipo_sujeto: 'colaborador' as 'colaborador' | 'candidato',
-    sujeto_id: '',
-});
+const plantillaSeleccionada = ref<FormatoCatalogoItem | null>(null);
+const dialogGenerarAbierto = ref(false);
 
-function generar() {
-    form.transform((datos) => ({
-        ...datos,
-        document_template_id: Number(datos.document_template_id),
-        sujeto_id: Number(datos.sujeto_id),
-    })).post(store.url(), {
-        preserveScroll: true,
-        onSuccess: () => form.reset('sujeto_id'),
-        onError: () => mostrarError('No fue posible generar el documento.'),
+function abrirGenerar(plantilla: FormatoCatalogoItem) {
+    plantillaSeleccionada.value = plantilla;
+    dialogGenerarAbierto.value = true;
+}
+
+function formatearFecha(fecha: string | null): string {
+    if (!fecha) {
+        return 'Nunca generado';
+    }
+
+    return new Date(fecha).toLocaleDateString('es-MX', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
     });
 }
 
@@ -164,6 +177,67 @@ async function eliminar(documento: DocumentoGeneradoItem) {
                 </a>
             </Button>
         </CrudPageHeader>
+
+        <!-- Catalogo de formatos disponibles -->
+        <div v-if="plantillasDisponibles.length === 0">
+            <CrudEmptyState
+                :icono="FileStack"
+                titulo="Sin plantillas activas"
+                descripcion="Sube una plantilla desde Plantillas para poder generar formatos a partir de ella."
+            />
+        </div>
+        <div
+            v-else
+            class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
+        >
+            <Card
+                v-for="plantilla in plantillasDisponibles"
+                :key="plantilla.id"
+                class="group flex flex-col gap-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg"
+            >
+                <CardHeader class="pb-0">
+                    <div class="flex items-start justify-between gap-2">
+                        <CardTitle class="text-base">{{ plantilla.nombre }}</CardTitle>
+                        <Badge variant="outline" class="shrink-0 text-xs">{{ plantilla.tipo_etiqueta }}</Badge>
+                    </div>
+                    <CardDescription>
+                        {{ plantilla.descripcion ?? 'Sin descripción registrada.' }}
+                    </CardDescription>
+                </CardHeader>
+                <CardContent class="flex flex-1 flex-col gap-3">
+                    <div v-if="plantilla.variables.length" class="flex flex-wrap gap-1">
+                        <Badge
+                            v-for="variable in plantilla.variables.slice(0, 5)"
+                            :key="variable"
+                            variant="secondary"
+                            class="text-[10px] font-normal"
+                        >
+                            {{ variable.replaceAll('_', ' ') }}
+                        </Badge>
+                        <Badge
+                            v-if="plantilla.variables.length > 5"
+                            variant="secondary"
+                            class="text-[10px] font-normal"
+                        >
+                            +{{ plantilla.variables.length - 5 }}
+                        </Badge>
+                    </div>
+
+                    <div class="mt-auto flex items-center justify-between text-xs text-muted-foreground">
+                        <span class="inline-flex items-center gap-1">
+                            <Clock class="size-3.5" />
+                            {{ formatearFecha(plantilla.ultimo_uso) }}
+                        </span>
+                        <span>{{ plantilla.veces_generado }} generado(s)</span>
+                    </div>
+
+                    <Button size="sm" class="w-full" @click="abrirGenerar(plantilla)">
+                        <Sparkles class="size-4" />
+                        Generar
+                    </Button>
+                </CardContent>
+            </Card>
+        </div>
 
         <div class="flex flex-wrap items-center gap-2">
             <CrudSearchInput
@@ -289,80 +363,11 @@ async function eliminar(documento: DocumentoGeneradoItem) {
             </Button>
         </div>
 
-        <form
-            class="grid gap-4 rounded-2xl border border-border/60 bg-card p-4 sm:grid-cols-4 sm:items-end"
-            @submit.prevent="generar"
-        >
-            <div class="grid gap-2 sm:col-span-2">
-                <label class="text-sm font-medium">Plantilla</label>
-                <Select v-model="form.document_template_id">
-                    <SelectTrigger class="w-full">
-                        <SelectValue placeholder="Selecciona una plantilla" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem
-                            v-for="opcion in plantillasDisponibles"
-                            :key="opcion.id"
-                            :value="String(opcion.id)"
-                            >{{ opcion.nombre }}</SelectItem
-                        >
-                    </SelectContent>
-                </Select>
-            </div>
-
-            <div class="grid gap-2">
-                <label class="text-sm font-medium">Para</label>
-                <Select v-model="form.tipo_sujeto">
-                    <SelectTrigger class="w-full">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="colaborador">Colaborador</SelectItem>
-                        <SelectItem value="candidato">Candidato</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
-
-            <div class="grid gap-2">
-                <label class="text-sm font-medium">{{
-                    form.tipo_sujeto === 'colaborador'
-                        ? 'Colaborador'
-                        : 'Candidato'
-                }}</label>
-                <Select v-model="form.sujeto_id">
-                    <SelectTrigger class="w-full">
-                        <SelectValue placeholder="Selecciona..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <template v-if="form.tipo_sujeto === 'colaborador'">
-                            <SelectItem
-                                v-for="opcion in colaboradoresDisponibles"
-                                :key="opcion.id"
-                                :value="String(opcion.id)"
-                                >{{ opcion.name }}
-                                {{ opcion.apellidos }}</SelectItem
-                            >
-                        </template>
-                        <template v-else>
-                            <SelectItem
-                                v-for="opcion in candidatosDisponibles"
-                                :key="opcion.id"
-                                :value="String(opcion.id)"
-                                >{{ opcion.nombre }}
-                                {{ opcion.apellidos }}</SelectItem
-                            >
-                        </template>
-                    </SelectContent>
-                </Select>
-            </div>
-
-            <div class="sm:col-span-4">
-                <Button type="submit" :disabled="form.processing">
-                    <Spinner v-if="form.processing" />
-                    Generar documento
-                </Button>
-            </div>
-        </form>
+        <div>
+            <h3 class="text-sm font-semibold text-muted-foreground">
+                Historial de documentos generados
+            </h3>
+        </div>
 
         <DataTable
             :columnas="columnas"
@@ -398,11 +403,19 @@ async function eliminar(documento: DocumentoGeneradoItem) {
                     <a
                         :href="descargar.url(fila.id)"
                         class="inline-flex items-center gap-1 text-sm text-[var(--brand-primary)] hover:underline"
-                        ><Download class="size-4" /> Descargar</a
+                        title="Descargar Word"
+                        ><Download class="size-4" /> Word</a
+                    >
+                    <a
+                        :href="descargarPdf.url(fila.id)"
+                        class="inline-flex items-center gap-1 text-sm text-[var(--brand-primary)] hover:underline"
+                        title="Descargar PDF"
+                        ><FileText class="size-4" /> PDF</a
                     >
                     <button
                         type="button"
                         class="text-muted-foreground hover:text-destructive"
+                        title="Eliminar"
                         @click="eliminar(fila)"
                     >
                         <Trash2 class="size-4" />
@@ -411,4 +424,13 @@ async function eliminar(documento: DocumentoGeneradoItem) {
             </template>
         </DataTable>
     </div>
+
+    <FormatoGenerarDialog
+        v-if="dialogGenerarAbierto && plantillaSeleccionada"
+        v-model:open="dialogGenerarAbierto"
+        :plantilla="plantillaSeleccionada"
+        :colaboradores-disponibles="colaboradoresDisponibles"
+        :candidatos-disponibles="candidatosDisponibles"
+        :key="plantillaSeleccionada.id"
+    />
 </template>

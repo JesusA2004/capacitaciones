@@ -7,6 +7,7 @@ use Database\Factories\EmployeeDocumentFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use Spatie\Activitylog\LogOptions;
@@ -137,6 +138,18 @@ class EmployeeDocument extends Model
     public function cambioAutorizadoPor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'change_authorized_by');
+    }
+
+    /**
+     * Sugerencias de datos personales detectadas automaticamente en este
+     * documento (docs/DOCUMENT_EXTRACTION.md). Null si el tipo de documento
+     * no es elegible o si el job aun no ha corrido.
+     *
+     * @return HasOne<DocumentExtraction, $this>
+     */
+    public function extraccion(): HasOne
+    {
+        return $this->hasOne(DocumentExtraction::class, 'employee_document_id');
     }
 
     public function getActivitylogOptions(): LogOptions

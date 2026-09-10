@@ -17,6 +17,10 @@ defineProps<{
     esPropio: boolean;
     puedeEditar: boolean;
     puedeRevisarDocumentos: boolean;
+    puedeVerExtraccion: boolean;
+    puedeAplicarExtraccion: boolean;
+    puedeReprocesarExtraccion: boolean;
+    puedeIgnorarExtraccion: boolean;
     colaborador: ExpedienteColaborador;
     resumenExpediente: ResumenExpediente;
     documentosRequeridos: DocumentoExpedienteItem[];
@@ -43,6 +47,10 @@ defineOptions({
         :es-propio="esPropio"
         :puede-editar="puedeEditar"
         :puede-revisar-documentos="puedeRevisarDocumentos"
+        :puede-ver-extraccion="puedeVerExtraccion"
+        :puede-aplicar-extraccion="puedeAplicarExtraccion"
+        :puede-reprocesar-extraccion="puedeReprocesarExtraccion"
+        :puede-ignorar-extraccion="puedeIgnorarExtraccion"
         :colaborador="colaborador"
         :resumen-expediente="resumenExpediente"
         :documentos-requeridos="documentosRequeridos"

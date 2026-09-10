@@ -1,8 +1,16 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
-import { CheckCircle2, Download, FileEdit, FileX2, Upload } from '@lucide/vue';
+import {
+    CheckCircle2,
+    Download,
+    FileEdit,
+    FileX2,
+    Sparkles,
+    Upload,
+} from '@lucide/vue';
 import { ref } from 'vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
+import ExtraccionDocumentoDialog from '@/components/Rh/ExtraccionDocumentoDialog.vue';
 import RevisarDocumentoDialog from '@/components/Rh/RevisarDocumentoDialog.vue';
 import { Button } from '@/components/ui/button';
 import { useAlertas } from '@/composables/useAlertas';
@@ -15,6 +23,10 @@ const props = defineProps<{
     documentos: DocumentoExpedienteItem[];
     puedeSubir: boolean;
     puedeRevisar: boolean;
+    puedeVerExtraccion: boolean;
+    puedeAplicarExtraccion: boolean;
+    puedeReprocesarExtraccion: boolean;
+    puedeIgnorarExtraccion: boolean;
 }>();
 
 const { mostrarExito, mostrarError } = useAlertas();
@@ -83,6 +95,14 @@ function abrirCorreccion(documentoId: number, tipoNombre: string) {
     dialogoModo.value = 'corregir';
     dialogoAbierto.value = true;
 }
+
+const dialogoExtraccionAbierto = ref(false);
+const documentoExtraccion = ref<{ id: number; tipoNombre: string } | null>(null);
+
+function abrirExtraccion(documentoId: number, tipoNombre: string) {
+    documentoExtraccion.value = { id: documentoId, tipoNombre };
+    dialogoExtraccionAbierto.value = true;
+}
 </script>
 
 <template>
@@ -139,6 +159,17 @@ function abrirCorreccion(documentoId: number, tipoNombre: string) {
                         <Download class="size-3.5" />
                         Ver
                     </a>
+                </Button>
+
+                <Button
+                    v-if="item.documento && puedeVerExtraccion"
+                    size="sm"
+                    variant="outline"
+                    class="border-primary/40 text-primary hover:bg-primary/10"
+                    @click="abrirExtraccion(item.documento.id, item.tipo.nombre)"
+                >
+                    <Sparkles class="size-3.5" />
+                    Datos detectados
                 </Button>
 
                 <template v-if="puedeSubir">
@@ -222,5 +253,16 @@ function abrirCorreccion(documentoId: number, tipoNombre: string) {
         :modo="dialogoModo"
         :tipo-nombre="documentoActivo.tipoNombre"
         :key="documentoActivo.id"
+    />
+
+    <ExtraccionDocumentoDialog
+        v-if="dialogoExtraccionAbierto && documentoExtraccion"
+        v-model:open="dialogoExtraccionAbierto"
+        :documento-id="documentoExtraccion.id"
+        :tipo-nombre="documentoExtraccion.tipoNombre"
+        :puede-aplicar="puedeAplicarExtraccion"
+        :puede-reprocesar="puedeReprocesarExtraccion"
+        :puede-ignorar="puedeIgnorarExtraccion"
+        :key="`extraccion-${documentoExtraccion.id}`"
     />
 </template>

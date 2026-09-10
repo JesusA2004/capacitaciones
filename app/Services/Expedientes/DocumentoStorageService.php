@@ -3,9 +3,11 @@
 namespace App\Services\Expedientes;
 
 use App\Enums\EstadoDocumento;
+use App\Jobs\ProcesarDocumentoPersonalJob;
 use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
 use App\Models\User;
+use App\Services\Documentos\DocumentExtractionService;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\UploadedFile;
@@ -135,6 +137,14 @@ class DocumentoStorageService
         ]);
 
         $anterior?->update(['status' => EstadoDocumento::Archivado->value]);
+
+        // Extraccion automatica de datos personales (docs/DOCUMENT_EXTRACTION.md):
+        // solo para tipos de documento donde tiene sentido intentarlo (INE,
+        // CURP, RFC, NSS, acta de nacimiento, comprobante de domicilio), y
+        // siempre en cola para no bloquear este request de subida.
+        if (DocumentExtractionService::tipoElegible($tipo->clave)) {
+            ProcesarDocumentoPersonalJob::dispatch($documento);
+        }
 
         return $documento;
     }

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Rh\AltaDigitalController;
 use App\Http\Controllers\Rh\CandidatoController;
 use App\Http\Controllers\Rh\CumpleanosController;
+use App\Http\Controllers\Rh\DocumentExtraccionController;
 use App\Http\Controllers\Rh\EmployeeDocumentController;
 use App\Http\Controllers\Rh\ExpedienteController;
 use App\Http\Controllers\Rh\FormatoController;
@@ -34,6 +35,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('aprobar', [EmployeeDocumentController::class, 'aprobar'])->name('aprobar');
             Route::post('rechazar', [EmployeeDocumentController::class, 'rechazar'])->name('rechazar');
             Route::post('solicitar-correccion', [EmployeeDocumentController::class, 'solicitarCorreccion'])->name('solicitar-correccion');
+
+            // Extraccion automatica de datos personales (docs/DOCUMENT_EXTRACTION.md).
+            Route::prefix('extraccion')->name('extraccion.')->group(function () {
+                Route::get('/', [DocumentExtraccionController::class, 'show'])->name('show');
+                Route::post('aplicar', [DocumentExtraccionController::class, 'aplicar'])->name('aplicar');
+                Route::post('ignorar', [DocumentExtraccionController::class, 'ignorar'])->name('ignorar');
+                Route::post('reprocesar', [DocumentExtraccionController::class, 'reprocesar'])->name('reprocesar');
+            });
         });
 
         // Invitaciones de incorporacion por QR temporal: unica puerta de
@@ -104,8 +113,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/', [FormatoController::class, 'index'])->name('index');
             Route::get('exportar-excel', [FormatoController::class, 'exportarExcel'])->name('exportarExcel');
             Route::get('exportar-pdf', [FormatoController::class, 'exportarPdf'])->name('exportarPdf');
+            Route::post('preview', [FormatoController::class, 'preview'])->name('preview');
             Route::post('/', [FormatoController::class, 'store'])->name('store');
             Route::get('{documento}/descargar', [FormatoController::class, 'descargar'])->name('descargar');
+            Route::get('{documento}/descargar-pdf', [FormatoController::class, 'descargarPdf'])->name('descargar-pdf');
             Route::post('{documento}/subir-firmado', [FormatoController::class, 'subirFirmado'])->name('subir-firmado');
             Route::delete('{documento}', [FormatoController::class, 'destroy'])->name('destroy');
         });

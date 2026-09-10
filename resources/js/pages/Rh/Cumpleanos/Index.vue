@@ -1,18 +1,33 @@
 <script setup lang="ts">
-import { Link, router, useForm } from '@inertiajs/vue3';
-import { Cake, Gift, Plus, Sparkles, Trash2 } from '@lucide/vue';
+import { router, useForm } from '@inertiajs/vue3';
+import {
+    Cake,
+    CalendarDays,
+    ChevronLeft,
+    ChevronRight,
+    Gift,
+    ListChecks,
+    Plus,
+    Search,
+    Settings2,
+    Sparkles,
+    Trash2,
+} from '@lucide/vue';
 import { computed, ref } from 'vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import CrudStats from '@/components/DataTable/CrudStats.vue';
 import ColaboradorCumpleanosCard from '@/components/Rh/ColaboradorCumpleanosCard.vue';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -23,11 +38,11 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAlertas } from '@/composables/useAlertas';
-import { useFiltros } from '@/composables/useFiltros';
+import { useInitials } from '@/composables/useInitials';
+import { mensajeFelicitacion } from '@/lib/cumpleanos';
 import { dashboard } from '@/routes';
-import { felicitacion, index } from '@/routes/rh/cumpleanos';
+import { index } from '@/routes/rh/cumpleanos';
 import {
     destroy as destroyFrase,
     store as storeFrase,
@@ -72,8 +87,11 @@ const MESES = [
     'Diciembre',
 ];
 
+const DIAS_SEMANA = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
 const props = defineProps<{
     mes: number;
+    anio: number;
     filtros: {
         sucursal_id?: string;
         departamento_id?: string;
@@ -118,26 +136,68 @@ defineOptions({
 });
 
 const { mostrarExito, mostrarError } = useAlertas();
+const { getInitials } = useInitials();
 
-const { filtros, aplicar, aplicarConDebounce } = useFiltros(index.url(), {
+const filtros = ref({
     sucursal_id: props.filtros.sucursal_id ?? '',
     departamento_id: props.filtros.departamento_id ?? '',
     estatus: props.filtros.estatus ?? '',
     busqueda: props.filtros.busqueda ?? '',
 });
+const mesActual = ref(props.mes);
+const anioActual = ref(props.anio);
 
-const mesSeleccionado = ref(String(props.mes));
+let temporizadorBusqueda: ReturnType<typeof setTimeout> | undefined;
 
-function cambiarMes() {
+function navegar() {
     router.get(
         index.url(),
-        { ...filtros, mes: mesSeleccionado.value },
+        {
+            ...filtros.value,
+            mes: mesActual.value,
+            anio: anioActual.value,
+        },
         { preserveState: true, preserveScroll: true, replace: true },
     );
 }
 
+function navegarConDebounce() {
+    clearTimeout(temporizadorBusqueda);
+    temporizadorBusqueda = setTimeout(navegar, 400);
+}
+
+function mesAnterior() {
+    if (mesActual.value === 1) {
+        mesActual.value = 12;
+        anioActual.value -= 1;
+    } else {
+        mesActual.value -= 1;
+    }
+
+    navegar();
+}
+
+function mesSiguiente() {
+    if (mesActual.value === 12) {
+        mesActual.value = 1;
+        anioActual.value += 1;
+    } else {
+        mesActual.value += 1;
+    }
+
+    navegar();
+}
+
+const hoyReal = new Date();
+
+function irAHoy() {
+    mesActual.value = hoyReal.getMonth() + 1;
+    anioActual.value = hoyReal.getFullYear();
+    navegar();
+}
+
 async function copiarMensaje(colaborador: { nombre: string }) {
-    const texto = `¡Feliz cumpleaños, ${colaborador.nombre}! De parte de todo el equipo MR. LANA. 🎉`;
+    const texto = mensajeFelicitacion(colaborador.nombre);
 
     try {
         await navigator.clipboard.writeText(texto);
@@ -147,22 +207,79 @@ async function copiarMensaje(colaborador: { nombre: string }) {
     }
 }
 
-const diasDelMesConDatos = computed(() => {
+// --- Calendario: dias reales del mes seleccionado, nunca un "31" fijo ---
+const diasEnMes = computed(() =>
+    new Date(anioActual.value, mesActual.value, 0).getDate(),
+);
+
+// getDay(): 0 = domingo ... 6 = sabado (misma convencion que DIAS_SEMANA).
+const primerDiaSemana = computed(
+    () => new Date(anioActual.value, mesActual.value - 1, 1).getDay(),
+);
+
+type CeldaCalendario = { dia: number | null; colaboradores: Colaborador[] };
+
+const celdas = computed<CeldaCalendario[]>(() => {
+    const lista: CeldaCalendario[] = [];
+
+    for (let i = 0; i < primerDiaSemana.value; i++) {
+        lista.push({ dia: null, colaboradores: [] });
+    }
+
+    for (let dia = 1; dia <= diasEnMes.value; dia++) {
+        lista.push({ dia, colaboradores: props.calendario?.[dia] ?? [] });
+    }
+
+    // Completa la ultima semana para que el grid no quede "cortado" a medias.
+    while (lista.length % 7 !== 0) {
+        lista.push({ dia: null, colaboradores: [] });
+    }
+
+    return lista;
+});
+
+const semanas = computed(() => {
+    const filas: CeldaCalendario[][] = [];
+
+    for (let i = 0; i < celdas.value.length; i += 7) {
+        filas.push(celdas.value.slice(i, i + 7));
+    }
+
+    return filas;
+});
+
+function esHoy(dia: number | null): boolean {
+    return (
+        dia !== null &&
+        anioActual.value === hoyReal.getFullYear() &&
+        mesActual.value === hoyReal.getMonth() + 1 &&
+        dia === hoyReal.getDate()
+    );
+}
+
+const diasConDatos = computed(() => {
     if (!props.calendario) {
         return [];
     }
 
     return Object.entries(props.calendario)
-        .map(([dia, colaboradores]) => ({
-            dia: Number(dia),
-            colaboradores,
-        }))
+        .map(([dia, colaboradores]) => ({ dia: Number(dia), colaboradores }))
         .sort((a, b) => a.dia - b.dia);
 });
 
-const modalDia = ref<number | null>(null);
+// --- Dialog de detalle del dia ---
+const diaSeleccionado = ref<CeldaCalendario | null>(null);
 
-// --- Frases ---
+function abrirDia(celda: CeldaCalendario) {
+    if (celda.dia === null || celda.colaboradores.length === 0) {
+        return;
+    }
+
+    diaSeleccionado.value = celda;
+}
+
+// --- Dialog de gestion de frases ---
+const dialogFrasesAbierto = ref(false);
 const nuevaFrase = useForm({ texto: '', categoria: '' });
 
 function agregarFrase() {
@@ -185,18 +302,32 @@ async function eliminarFrase(frase: Frase) {
         return;
     }
 
-    router.delete(destroyFrase.url(frase.id), {
-        preserveScroll: true,
-    });
+    router.delete(destroyFrase.url(frase.id), { preserveScroll: true });
 }
+
+// --- Sidebar "Proximos cumpleaños": alterna entre 7 y 30 dias ---
+const rangoSidebar = ref<'7' | '30'>('7');
+const proximosSidebar = computed(() =>
+    rangoSidebar.value === '7' ? props.proximos7 : props.proximos30,
+);
 </script>
 
 <template>
     <CrudPageHeader
-        titulo="Cumpleaños"
-        descripcion="Calendario, felicitaciones y tarjetas descargables de los colaboradores."
+        titulo="Calendario de cumpleaños"
+        descripcion="Vista mensual, tarjetas y felicitaciones de los colaboradores."
         :icono="Cake"
-    />
+    >
+        <Button
+            v-if="permisos.gestionarFrases"
+            variant="outline"
+            size="sm"
+            @click="dialogFrasesAbierto = true"
+        >
+            <Settings2 class="size-4" />
+            Frases
+        </Button>
+    </CrudPageHeader>
 
     <div v-if="!config.enabled" class="mt-4">
         <Card class="border-dashed">
@@ -209,12 +340,23 @@ async function eliminarFrase(frase: Frase) {
     </div>
 
     <template v-else>
-        <!-- Cumpleaños de hoy -->
+        <!-- Cards de resumen -->
+        <CrudStats
+            class="mt-4"
+            :estadisticas="[
+                { etiqueta: 'Hoy cumplen', valor: hoy.length, icono: Sparkles, tono: 'success' },
+                { etiqueta: 'Próximos 7 días', valor: proximos7.length, icono: Gift, tono: 'info' },
+                { etiqueta: 'Próximos 30 días', valor: proximos30.length, icono: ListChecks },
+                { etiqueta: `Total en ${MESES[mesActual - 1]}`, valor: delMes.length, icono: CalendarDays },
+            ]"
+        />
+
+        <!-- Banner de hoy: siempre visible, nunca escondido en un tab -->
         <Card
             v-if="hoy.length > 0"
             class="mt-4 border-[var(--success)]/40 bg-[var(--success)]/5"
         >
-            <CardHeader>
+            <CardHeader class="pb-3">
                 <CardTitle class="flex items-center gap-2 text-base">
                     <Sparkles class="size-5 text-[var(--success)]" />
                     Hoy cumplen años ({{ hoy.length }})
@@ -223,64 +365,26 @@ async function eliminarFrase(frase: Frase) {
             <CardContent
                 class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
             >
-                <div
+                <ColaboradorCumpleanosCard
                     v-for="colaborador in hoy"
                     :key="colaborador.id"
-                    class="flex items-center justify-between gap-3 rounded-lg border bg-background p-3"
-                >
-                    <div class="min-w-0">
-                        <p class="truncate font-medium">
-                            {{ colaborador.nombre }}
-                        </p>
-                        <p class="truncate text-xs text-muted-foreground">
-                            {{
-                                [colaborador.sucursal, colaborador.puesto]
-                                    .filter(Boolean)
-                                    .join(' · ') || 'Sin sucursal'
-                            }}
-                        </p>
-                    </div>
-                    <Link :href="felicitacion.url(colaborador.id)">
-                        <Button size="sm" variant="outline">
-                            <Gift class="size-4" /> Felicitar
-                        </Button>
-                    </Link>
-                </div>
+                    :colaborador="colaborador"
+                    :puede-descargar="permisos.descargarImagen"
+                    :puede-enviar="permisos.gestionarNotificaciones"
+                    es-hoy
+                    @copiar="copiarMensaje"
+                />
             </CardContent>
         </Card>
 
         <!-- Filtros -->
         <Card class="mt-4">
             <CardContent
-                class="grid grid-cols-1 gap-3 pt-6 sm:grid-cols-2 lg:grid-cols-5"
+                class="grid grid-cols-1 gap-3 pt-6 sm:grid-cols-2 lg:grid-cols-4"
             >
                 <div class="grid gap-1.5">
-                    <Label>Mes</Label>
-                    <Select
-                        v-model="mesSeleccionado"
-                        @update:model-value="cambiarMes"
-                    >
-                        <SelectTrigger class="w-full">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="(nombre, i) in MESES"
-                                :key="i"
-                                :value="String(i + 1)"
-                            >
-                                {{ nombre }}
-                            </SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-
-                <div class="grid gap-1.5">
                     <Label>Sucursal</Label>
-                    <Select
-                        v-model="filtros.sucursal_id"
-                        @update:model-value="aplicar"
-                    >
+                    <Select v-model="filtros.sucursal_id" @update:model-value="navegar">
                         <SelectTrigger class="w-full">
                             <SelectValue placeholder="Todas" />
                         </SelectTrigger>
@@ -299,10 +403,7 @@ async function eliminarFrase(frase: Frase) {
 
                 <div class="grid gap-1.5">
                     <Label>Departamento</Label>
-                    <Select
-                        v-model="filtros.departamento_id"
-                        @update:model-value="aplicar"
-                    >
+                    <Select v-model="filtros.departamento_id" @update:model-value="navegar">
                         <SelectTrigger class="w-full">
                             <SelectValue placeholder="Todos" />
                         </SelectTrigger>
@@ -321,283 +422,328 @@ async function eliminarFrase(frase: Frase) {
 
                 <div class="grid gap-1.5">
                     <Label>Estatus</Label>
-                    <Select
-                        v-model="filtros.estatus"
-                        @update:model-value="aplicar"
-                    >
+                    <Select v-model="filtros.estatus" @update:model-value="navegar">
                         <SelectTrigger class="w-full">
                             <SelectValue placeholder="Activos" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="">Activos</SelectItem>
                             <SelectItem value="activo">Activo</SelectItem>
-                            <SelectItem value="en_incorporacion"
-                                >En incorporación</SelectItem
-                            >
+                            <SelectItem value="en_incorporacion">En incorporación</SelectItem>
                             <SelectItem value="inactivo">Inactivo</SelectItem>
-                            <SelectItem value="suspendido"
-                                >Suspendido</SelectItem
-                            >
+                            <SelectItem value="suspendido">Suspendido</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
 
                 <div class="grid gap-1.5">
                     <Label>Buscar</Label>
-                    <Input
-                        v-model="filtros.busqueda"
-                        placeholder="Nombre o número de empleado"
-                        @input="aplicarConDebounce()"
-                    />
+                    <div class="relative">
+                        <Search
+                            class="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
+                        />
+                        <Input
+                            v-model="filtros.busqueda"
+                            placeholder="Nombre o número de empleado"
+                            class="pl-8"
+                            @input="navegarConDebounce"
+                        />
+                    </div>
                 </div>
             </CardContent>
         </Card>
 
-        <Tabs default-value="proximos7" class="mt-4">
-            <TabsList>
-                <TabsTrigger value="proximos7"
-                    >Próximos 7 días ({{ proximos7.length }})</TabsTrigger
+        <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-4">
+            <!-- Calendario grande -->
+            <Card class="lg:col-span-3">
+                <CardHeader
+                    class="flex-row items-center justify-between gap-2 space-y-0"
                 >
-                <TabsTrigger value="proximos30"
-                    >Próximos 30 días ({{ proximos30.length }})</TabsTrigger
-                >
-                <TabsTrigger value="delMes"
-                    >{{ MESES[mes - 1] }} ({{ delMes.length }})</TabsTrigger
-                >
-                <TabsTrigger v-if="permisos.calendario" value="calendario"
-                    >Calendario</TabsTrigger
-                >
-                <TabsTrigger v-if="permisos.gestionarFrases" value="frases"
-                    >Frases</TabsTrigger
-                >
-            </TabsList>
-
-            <TabsContent value="proximos7">
-                <div
-                    v-if="proximos7.length === 0"
-                    class="mt-4 rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground"
-                >
-                    No hay cumpleaños en los próximos 7 días.
-                </div>
-                <div
-                    v-else
-                    class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
-                >
-                    <ColaboradorCumpleanosCard
-                        v-for="colaborador in proximos7"
-                        :key="colaborador.id"
-                        :colaborador="colaborador"
-                        :puede-descargar="permisos.descargarImagen"
-                        @copiar="copiarMensaje"
-                    />
-                </div>
-            </TabsContent>
-
-            <TabsContent value="proximos30">
-                <div
-                    v-if="proximos30.length === 0"
-                    class="mt-4 rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground"
-                >
-                    No hay cumpleaños en los próximos 30 días.
-                </div>
-                <div
-                    v-else
-                    class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
-                >
-                    <ColaboradorCumpleanosCard
-                        v-for="colaborador in proximos30"
-                        :key="colaborador.id"
-                        :colaborador="colaborador"
-                        :puede-descargar="permisos.descargarImagen"
-                        @copiar="copiarMensaje"
-                    />
-                </div>
-            </TabsContent>
-
-            <TabsContent value="delMes">
-                <div
-                    v-if="delMes.length === 0"
-                    class="mt-4 rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground"
-                >
-                    Nadie cumple años en {{ MESES[mes - 1] }} con los filtros
-                    actuales.
-                </div>
-                <div
-                    v-else
-                    class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
-                >
-                    <ColaboradorCumpleanosCard
-                        v-for="colaborador in delMes"
-                        :key="colaborador.id"
-                        :colaborador="colaborador"
-                        :puede-descargar="permisos.descargarImagen"
-                        @copiar="copiarMensaje"
-                    />
-                </div>
-            </TabsContent>
-
-            <TabsContent v-if="permisos.calendario" value="calendario">
-                <div
-                    v-if="diasDelMesConDatos.length === 0"
-                    class="mt-4 rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground"
-                >
-                    Sin cumpleaños que mostrar en el calendario de
-                    {{ MESES[mes - 1] }}.
-                </div>
-
-                <!-- Escritorio: grid de días -->
-                <div v-else class="mt-4 hidden grid-cols-7 gap-2 sm:grid">
-                    <div
-                        v-for="dia in 31"
-                        :key="dia"
-                        class="min-h-20 rounded-lg border p-2 text-xs"
-                        :class="
-                            calendario?.[dia]?.length
-                                ? 'border-primary/30 bg-primary/5'
-                                : 'border-transparent'
-                        "
-                    >
-                        <p class="mb-1 font-medium text-muted-foreground">
-                            {{ dia }}
-                        </p>
-                        <template v-if="calendario?.[dia]?.length">
-                            <p
-                                v-for="c in calendario[dia].slice(0, 2)"
-                                :key="c.id"
-                                class="truncate"
-                            >
-                                {{ c.nombre }}
-                            </p>
-                            <button
-                                v-if="calendario[dia].length > 2"
-                                type="button"
-                                class="text-primary underline underline-offset-2"
-                                @click="modalDia = dia"
-                            >
-                                +{{ calendario[dia].length - 2 }} más
-                            </button>
-                        </template>
-                    </div>
-                </div>
-
-                <!-- Móvil: lista agrupada por día -->
-                <div class="mt-4 flex flex-col gap-3 sm:hidden">
-                    <div
-                        v-for="grupo in diasDelMesConDatos"
-                        :key="grupo.dia"
-                        class="rounded-lg border p-3"
-                    >
-                        <p class="mb-2 text-sm font-semibold">
-                            {{ grupo.dia }} de {{ MESES[mes - 1] }}
-                        </p>
-                        <div class="flex flex-col gap-2">
-                            <ColaboradorCumpleanosCard
-                                v-for="colaborador in grupo.colaboradores"
-                                :key="colaborador.id"
-                                :colaborador="colaborador"
-                                :puede-descargar="permisos.descargarImagen"
-                                compacto
-                                @copiar="copiarMensaje"
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Modal "+N más" del grid de escritorio -->
-                <div
-                    v-if="modalDia !== null"
-                    class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-                    @click.self="modalDia = null"
-                >
-                    <Card class="max-h-[80vh] w-full max-w-md overflow-y-auto">
-                        <CardHeader>
-                            <CardTitle
-                                >{{ modalDia }} de
-                                {{ MESES[mes - 1] }}</CardTitle
-                            >
-                        </CardHeader>
-                        <CardContent class="flex flex-col gap-2">
-                            <ColaboradorCumpleanosCard
-                                v-for="colaborador in calendario?.[modalDia] ??
-                                []"
-                                :key="colaborador.id"
-                                :colaborador="colaborador"
-                                :puede-descargar="permisos.descargarImagen"
-                                compacto
-                                @copiar="copiarMensaje"
-                            />
-                            <Button
-                                variant="outline"
-                                class="mt-2"
-                                @click="modalDia = null"
-                                >Cerrar</Button
-                            >
-                        </CardContent>
-                    </Card>
-                </div>
-            </TabsContent>
-
-            <TabsContent v-if="permisos.gestionarFrases" value="frases">
-                <Card class="mt-4">
-                    <CardHeader>
-                        <CardTitle class="text-base"
-                            >Agregar frase de felicitación</CardTitle
-                        >
-                        <CardDescription
-                            >Las frases activas rotan automáticamente para no
-                            repetir siempre la misma.</CardDescription
-                        >
-                    </CardHeader>
-                    <CardContent class="flex flex-col gap-3 sm:flex-row">
-                        <Input
-                            v-model="nuevaFrase.texto"
-                            placeholder="Escribe una nueva frase..."
-                            class="flex-1"
-                        />
-                        <Button
-                            :disabled="
-                                nuevaFrase.processing || !nuevaFrase.texto
-                            "
-                            @click="agregarFrase"
-                        >
-                            <Spinner v-if="nuevaFrase.processing" />
-                            <Plus v-else class="size-4" />
-                            Agregar
+                    <div class="flex items-center gap-1">
+                        <Button variant="ghost" size="icon" @click="mesAnterior">
+                            <ChevronLeft class="size-4" />
                         </Button>
-                    </CardContent>
-                </Card>
+                        <CardTitle class="min-w-[11rem] text-center text-lg">
+                            {{ MESES[mesActual - 1] }} {{ anioActual }}
+                        </CardTitle>
+                        <Button variant="ghost" size="icon" @click="mesSiguiente">
+                            <ChevronRight class="size-4" />
+                        </Button>
+                    </div>
 
-                <div class="mt-4 flex flex-col gap-2">
-                    <div
-                        v-for="frase in opciones.frases"
-                        :key="frase.id"
-                        class="flex items-center justify-between gap-3 rounded-lg border p-3"
+                    <div class="flex items-center gap-2">
+                        <Select
+                            :model-value="String(mesActual)"
+                            @update:model-value="
+                                (v) => {
+                                    mesActual = Number(v);
+                                    navegar();
+                                }
+                            "
+                        >
+                            <SelectTrigger class="w-36">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem
+                                    v-for="(nombre, i) in MESES"
+                                    :key="i"
+                                    :value="String(i + 1)"
+                                >
+                                    {{ nombre }}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <Input
+                            type="number"
+                            :model-value="anioActual"
+                            class="w-24"
+                            @change="
+                                (e: Event) => {
+                                    anioActual = Number(
+                                        (e.target as HTMLInputElement).value,
+                                    );
+                                    navegar();
+                                }
+                            "
+                        />
+                        <Button variant="outline" size="sm" @click="irAHoy">
+                            Hoy
+                        </Button>
+                    </div>
+                </CardHeader>
+
+                <CardContent>
+                    <div v-if="!permisos.calendario" class="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+                        No tienes permiso para ver el calendario completo.
+                    </div>
+
+                    <template v-else>
+                        <!-- Escritorio / tablet: calendario tipo Google Calendar -->
+                        <div class="hidden sm:block">
+                            <div class="grid grid-cols-7 gap-px overflow-hidden rounded-lg border bg-border text-center text-xs font-medium text-muted-foreground">
+                                <div
+                                    v-for="d in DIAS_SEMANA"
+                                    :key="d"
+                                    class="bg-muted/50 py-2"
+                                >
+                                    {{ d }}
+                                </div>
+                            </div>
+
+                            <div
+                                v-for="(semana, i) in semanas"
+                                :key="i"
+                                class="grid grid-cols-7 gap-px bg-border"
+                                :class="i === semanas.length - 1 ? 'rounded-b-lg overflow-hidden' : ''"
+                            >
+                                <button
+                                    v-for="(celda, j) in semana"
+                                    :key="j"
+                                    type="button"
+                                    class="flex min-h-24 flex-col items-stretch gap-1 bg-background p-1.5 text-left transition-colors lg:min-h-28"
+                                    :class="[
+                                        celda.dia === null && 'bg-muted/20',
+                                        celda.colaboradores.length > 0 && 'cursor-pointer hover:bg-primary/[0.04]',
+                                        celda.colaboradores.length === 0 && 'cursor-default',
+                                    ]"
+                                    :disabled="celda.colaboradores.length === 0"
+                                    @click="abrirDia(celda)"
+                                >
+                                    <span
+                                        v-if="celda.dia !== null"
+                                        class="flex size-6 items-center justify-center rounded-full text-xs font-medium"
+                                        :class="
+                                            esHoy(celda.dia)
+                                                ? 'bg-primary text-primary-foreground'
+                                                : 'text-muted-foreground'
+                                        "
+                                    >
+                                        {{ celda.dia }}
+                                    </span>
+
+                                    <div
+                                        v-if="celda.colaboradores.length > 0"
+                                        class="flex flex-col gap-1"
+                                    >
+                                        <div
+                                            v-for="c in celda.colaboradores.slice(0, 2)"
+                                            :key="c.id"
+                                            class="flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[11px] text-primary"
+                                        >
+                                            <Avatar class="size-4 shrink-0">
+                                                <AvatarImage v-if="c.foto_url" :src="c.foto_url" :alt="c.nombre" />
+                                                <AvatarFallback class="text-[8px]">{{ getInitials(c.nombre) }}</AvatarFallback>
+                                            </Avatar>
+                                            <span class="truncate">{{ c.nombre.split(' ')[0] }}</span>
+                                        </div>
+                                        <span
+                                            v-if="celda.colaboradores.length > 2"
+                                            class="text-[11px] font-medium text-muted-foreground"
+                                        >
+                                            +{{ celda.colaboradores.length - 2 }} más
+                                        </span>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Movil: lista agrupada por dia -->
+                        <div class="flex flex-col gap-3 sm:hidden">
+                            <div
+                                v-if="diasConDatos.length === 0"
+                                class="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground"
+                            >
+                                Sin cumpleaños que mostrar en
+                                {{ MESES[mesActual - 1] }}.
+                            </div>
+                            <div
+                                v-for="grupo in diasConDatos"
+                                :key="grupo.dia"
+                                class="rounded-xl border p-3"
+                                :class="esHoy(grupo.dia) && 'border-[var(--success)]/40 bg-[var(--success)]/5'"
+                            >
+                                <p class="mb-2 flex items-center gap-1.5 text-sm font-semibold">
+                                    {{ grupo.dia }} de {{ MESES[mesActual - 1] }}
+                                    <Badge v-if="esHoy(grupo.dia)" variant="outline" class="border-[var(--success)]/40 text-[var(--success)]">Hoy</Badge>
+                                </p>
+                                <div class="flex flex-col gap-2">
+                                    <ColaboradorCumpleanosCard
+                                        v-for="colaborador in grupo.colaboradores"
+                                        :key="colaborador.id"
+                                        :colaborador="colaborador"
+                                        :puede-descargar="permisos.descargarImagen"
+                                        :puede-enviar="permisos.gestionarNotificaciones"
+                                        compacto
+                                        @copiar="copiarMensaje"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </CardContent>
+            </Card>
+
+            <!-- Sidebar: proximos cumpleaños -->
+            <Card class="lg:col-span-1">
+                <CardHeader class="flex-row items-center justify-between gap-2 space-y-0 pb-3">
+                    <CardTitle class="text-base">Próximos cumpleaños</CardTitle>
+                    <div class="flex overflow-hidden rounded-md border text-xs">
+                        <button
+                            type="button"
+                            class="px-2 py-1"
+                            :class="rangoSidebar === '7' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'"
+                            @click="rangoSidebar = '7'"
+                        >
+                            7 días
+                        </button>
+                        <button
+                            type="button"
+                            class="px-2 py-1"
+                            :class="rangoSidebar === '30' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'"
+                            @click="rangoSidebar = '30'"
+                        >
+                            30 días
+                        </button>
+                    </div>
+                </CardHeader>
+                <CardContent class="flex max-h-[36rem] flex-col gap-2 overflow-y-auto">
+                    <p
+                        v-if="proximosSidebar.length === 0"
+                        class="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground"
                     >
-                        <div class="min-w-0">
-                            <p class="truncate text-sm">{{ frase.texto }}</p>
-                            <p class="text-xs text-muted-foreground">
-                                Usada {{ frase.usado_count }} veces
-                            </p>
-                        </div>
-                        <div class="flex shrink-0 items-center gap-2">
-                            <Badge
-                                :variant="frase.activo ? 'default' : 'outline'"
-                                class="cursor-pointer"
-                                @click="alternarFrase(frase)"
-                            >
-                                {{ frase.activo ? 'Activa' : 'Inactiva' }}
-                            </Badge>
-                            <Button
-                                size="icon"
-                                variant="ghost"
-                                @click="eliminarFrase(frase)"
-                            >
-                                <Trash2 class="size-4 text-destructive" />
-                            </Button>
-                        </div>
+                        No hay cumpleaños en este rango.
+                    </p>
+                    <ColaboradorCumpleanosCard
+                        v-for="colaborador in proximosSidebar"
+                        :key="colaborador.id"
+                        :colaborador="colaborador"
+                        :puede-descargar="permisos.descargarImagen"
+                        :puede-enviar="permisos.gestionarNotificaciones"
+                        compacto
+                        @copiar="copiarMensaje"
+                    />
+                </CardContent>
+            </Card>
+        </div>
+    </template>
+
+    <!-- Dialog: detalle de un dia del calendario -->
+    <Dialog :open="diaSeleccionado !== null" @update:open="(v) => !v && (diaSeleccionado = null)">
+        <DialogContent class="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+            <DialogHeader>
+                <DialogTitle>
+                    {{ diaSeleccionado?.dia }} de {{ MESES[mesActual - 1] }}
+                </DialogTitle>
+                <DialogDescription>
+                    {{ diaSeleccionado?.colaboradores.length }} colaborador(es) cumplen años este día.
+                </DialogDescription>
+            </DialogHeader>
+            <div class="flex flex-col gap-2">
+                <ColaboradorCumpleanosCard
+                    v-for="colaborador in diaSeleccionado?.colaboradores ?? []"
+                    :key="colaborador.id"
+                    :colaborador="colaborador"
+                    :puede-descargar="permisos.descargarImagen"
+                    :puede-enviar="permisos.gestionarNotificaciones"
+                    @copiar="copiarMensaje"
+                />
+            </div>
+        </DialogContent>
+    </Dialog>
+
+    <!-- Dialog: gestion de frases -->
+    <Dialog v-model:open="dialogFrasesAbierto">
+        <DialogContent class="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+            <DialogHeader>
+                <DialogTitle>Frases de felicitación</DialogTitle>
+                <DialogDescription>
+                    Las frases activas rotan automáticamente para no repetir siempre la misma.
+                </DialogDescription>
+            </DialogHeader>
+
+            <div class="flex flex-col gap-3 sm:flex-row">
+                <Input
+                    v-model="nuevaFrase.texto"
+                    placeholder="Escribe una nueva frase..."
+                    class="flex-1"
+                />
+                <Button
+                    :disabled="nuevaFrase.processing || !nuevaFrase.texto"
+                    @click="agregarFrase"
+                >
+                    <Spinner v-if="nuevaFrase.processing" />
+                    <Plus v-else class="size-4" />
+                    Agregar
+                </Button>
+            </div>
+
+            <div class="flex flex-col gap-2">
+                <div
+                    v-for="frase in opciones.frases"
+                    :key="frase.id"
+                    class="flex items-center justify-between gap-3 rounded-lg border p-3"
+                >
+                    <div class="min-w-0">
+                        <p class="truncate text-sm">{{ frase.texto }}</p>
+                        <p class="text-xs text-muted-foreground">
+                            Usada {{ frase.usado_count }} veces
+                        </p>
+                    </div>
+                    <div class="flex shrink-0 items-center gap-2">
+                        <Badge
+                            :variant="frase.activo ? 'default' : 'outline'"
+                            class="cursor-pointer"
+                            @click="alternarFrase(frase)"
+                        >
+                            {{ frase.activo ? 'Activa' : 'Inactiva' }}
+                        </Badge>
+                        <Button size="icon" variant="ghost" @click="eliminarFrase(frase)">
+                            <Trash2 class="size-4 text-destructive" />
+                        </Button>
                     </div>
                 </div>
-            </TabsContent>
-        </Tabs>
-    </template>
+            </div>
+        </DialogContent>
+    </Dialog>
 </template>

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\EmployeeDocument;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Documentos\DocumentExtractionService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Incorporacion\IncorporacionService;
 use App\Services\RhMobile\WorkflowService;
@@ -28,6 +29,7 @@ class DocumentoController extends Controller
         private readonly IncorporacionService $incorporacion,
         private readonly DocumentoStorageService $storage,
         private readonly WorkflowService $workflow,
+        private readonly DocumentExtractionService $extraccion,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -128,6 +130,57 @@ class DocumentoController extends Controller
         $this->incorporacion->rechazarDocumento($documento, $usuario, $datos['motivo']);
 
         return response()->json(['message' => 'Documento rechazado correctamente', 'data' => ['id' => $documento->id, 'estado' => $documento->fresh()->status->value]]);
+    }
+
+    /**
+     * Sugerencias de datos detectados automaticamente en este documento
+     * (docs/DOCUMENT_EXTRACTION.md). `extraccion: null` si el tipo no es
+     * elegible o el job aun no corrio; nunca 404 por eso.
+     */
+    public function extraccion(Request $request, EmployeeDocument $documento): JsonResponse
+    {
+        $usuario = $request->user();
+        abort_unless($usuario->can('rh.documentos.extraccion.ver'), 403);
+        abort_unless($this->puedeVer($usuario, $documento), 404);
+
+        return response()->json([
+            'data' => [
+                'elegible' => DocumentExtractionService::tipoElegible($documento->tipo->clave),
+                'extraccion' => $documento->extraccion,
+            ],
+        ]);
+    }
+
+    public function aplicarExtraccion(Request $request, EmployeeDocument $documento): JsonResponse
+    {
+        $usuario = $request->user();
+        abort_unless($usuario->can('rh.documentos.extraccion.aplicar'), 403);
+        abort_unless($this->puedeVer($usuario, $documento), 404);
+
+        $datos = $request->validate([
+            'valores' => ['required', 'array', 'min:1'],
+            'valores.curp' => ['sometimes', 'string', 'max:18'],
+            'valores.rfc' => ['sometimes', 'string', 'max:13'],
+            'valores.nss' => ['sometimes', 'string', 'max:11'],
+            'valores.fecha_nacimiento' => ['sometimes', 'date_format:d/m/Y'],
+        ]);
+
+        $extraccion = $documento->extraccion ?? abort(404, 'Este documento no tiene una extracción registrada.');
+        $this->extraccion->aplicar($extraccion, $datos['valores'], $usuario);
+
+        return response()->json(['message' => 'Datos aplicados al colaborador.']);
+    }
+
+    public function ignorarExtraccion(Request $request, EmployeeDocument $documento): JsonResponse
+    {
+        $usuario = $request->user();
+        abort_unless($usuario->can('rh.documentos.extraccion.ignorar'), 403);
+        abort_unless($this->puedeVer($usuario, $documento), 404);
+
+        $extraccion = $documento->extraccion ?? abort(404, 'Este documento no tiene una extracción registrada.');
+        $this->extraccion->ignorar($extraccion, $usuario);
+
+        return response()->json(['message' => 'Sugerencias descartadas.']);
     }
 
     private function puedeVer(User $usuario, EmployeeDocument $documento): bool

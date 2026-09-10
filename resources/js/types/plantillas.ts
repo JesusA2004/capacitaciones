@@ -25,6 +25,17 @@ export type DocumentoGeneradoItem = {
     created_at: string;
 };
 
+export type FormatoCatalogoItem = {
+    id: number;
+    nombre: string;
+    tipo: string;
+    tipo_etiqueta: string;
+    descripcion: string | null;
+    variables: string[];
+    veces_generado: number;
+    ultimo_uso: string | null;
+};
+
 export type OpcionesPlantillas = {
     empresas: OpcionSimple[];
     sucursales: (OpcionSimple & { empresa_id: number | null })[];

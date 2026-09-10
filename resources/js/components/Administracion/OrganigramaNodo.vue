@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import OrganigramaTarjeta from '@/components/Administracion/OrganigramaTarjeta.vue';
 import type { PuestoJerarquiaItem } from '@/types';
 
@@ -11,7 +12,11 @@ defineProps<{
 const emit = defineEmits<{
     seleccionar: [puesto: PuestoJerarquiaItem];
     editar: [puesto: PuestoJerarquiaItem];
+    agregarSubordinado: [puesto: PuestoJerarquiaItem];
+    quitarRelacion: [puesto: PuestoJerarquiaItem];
 }>();
+
+const colapsado = ref(false);
 </script>
 
 <template>
@@ -19,11 +24,16 @@ const emit = defineEmits<{
         <OrganigramaTarjeta
             :puesto="puesto"
             compacto
+            :tiene-hijos="hijos.length > 0"
+            :colapsado="colapsado"
             @seleccionar="emit('seleccionar', puesto)"
             @editar="emit('editar', puesto)"
+            @agregar-subordinado="emit('agregarSubordinado', puesto)"
+            @quitar-relacion="emit('quitarRelacion', puesto)"
+            @alternar-colapso="colapsado = !colapsado"
         />
 
-        <template v-if="hijos.length">
+        <template v-if="hijos.length && !colapsado">
             <div class="h-6 w-px bg-border" />
             <div class="flex flex-wrap items-start justify-center gap-6">
                 <div
@@ -38,9 +48,17 @@ const emit = defineEmits<{
                         :obtener-hijos="obtenerHijos"
                         @seleccionar="(p) => emit('seleccionar', p)"
                         @editar="(p) => emit('editar', p)"
+                        @agregar-subordinado="(p) => emit('agregarSubordinado', p)"
+                        @quitar-relacion="(p) => emit('quitarRelacion', p)"
                     />
                 </div>
             </div>
         </template>
+        <p
+            v-else-if="hijos.length && colapsado"
+            class="mt-2 text-[11px] text-muted-foreground"
+        >
+            {{ hijos.length }} subordinado{{ hijos.length === 1 ? '' : 's' }} ocultos
+        </p>
     </div>
 </template>

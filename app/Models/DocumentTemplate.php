@@ -31,6 +31,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $version
  * @property bool $activo
  * @property int|null $created_by
+ * @property-read int $documentos_generados_count Solo presente cuando se pide con withCount('documentosGenerados').
  */
 class DocumentTemplate extends Model
 {

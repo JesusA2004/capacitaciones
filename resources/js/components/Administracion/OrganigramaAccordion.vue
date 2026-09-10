@@ -19,6 +19,8 @@ const props = defineProps<{
 const emit = defineEmits<{
     seleccionar: [puesto: PuestoJerarquiaItem];
     editar: [puesto: PuestoJerarquiaItem];
+    agregarSubordinado: [puesto: PuestoJerarquiaItem];
+    quitarRelacion: [puesto: PuestoJerarquiaItem];
 }>();
 
 // Los dos primeros niveles inician expandidos para dar contexto inmediato
@@ -45,6 +47,8 @@ const abierto = ref((props.nivel ?? 0) < 2);
                 :puesto="puesto"
                 @seleccionar="emit('seleccionar', puesto)"
                 @editar="emit('editar', puesto)"
+                @agregar-subordinado="emit('agregarSubordinado', puesto)"
+                @quitar-relacion="emit('quitarRelacion', puesto)"
             />
         </div>
 
@@ -61,6 +65,8 @@ const abierto = ref((props.nivel ?? 0) < 2);
                 :nivel="(nivel ?? 0) + 1"
                 @seleccionar="(p) => emit('seleccionar', p)"
                 @editar="(p) => emit('editar', p)"
+                @agregar-subordinado="(p) => emit('agregarSubordinado', p)"
+                @quitar-relacion="(p) => emit('quitarRelacion', p)"
             />
         </CollapsibleContent>
     </Collapsible>

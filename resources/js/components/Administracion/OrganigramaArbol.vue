@@ -13,6 +13,8 @@ defineProps<{
 const emit = defineEmits<{
     seleccionar: [puesto: PuestoJerarquiaItem];
     editar: [puesto: PuestoJerarquiaItem];
+    agregarSubordinado: [puesto: PuestoJerarquiaItem];
+    quitarRelacion: [puesto: PuestoJerarquiaItem];
 }>();
 
 const zoom = ref(1);
@@ -77,6 +79,8 @@ function restablecer() {
                     :obtener-hijos="obtenerHijos"
                     @seleccionar="(p) => emit('seleccionar', p)"
                     @editar="(p) => emit('editar', p)"
+                    @agregar-subordinado="(p) => emit('agregarSubordinado', p)"
+                    @quitar-relacion="(p) => emit('quitarRelacion', p)"
                 />
             </div>
         </div>

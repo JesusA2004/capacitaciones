@@ -6,6 +6,7 @@ use App\Enums\EstadoDocumentoGenerado;
 use App\Enums\TipoPlantillaDocumento;
 use App\Exports\ReporteRhExport;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Rh\PreviewFormatoRequest;
 use App\Http\Requests\Rh\StoreGeneratedDocumentRequest;
 use App\Http\Requests\Rh\SubirFormatoFirmadoRequest;
 use App\Models\Candidato;
@@ -17,10 +18,13 @@ use App\Models\SolicitudVacaciones;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Expedientes\DocumentoStorageService;
+use App\Services\Formatos\FormatoCatalogoService;
+use App\Services\Formatos\FormatoPreviewService;
 use App\Services\Plantillas\PlantillaDocumentoService;
 use App\Services\Plantillas\PlantillaStorageService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -38,6 +42,8 @@ class FormatoController extends Controller
         private readonly PlantillaDocumentoService $generador,
         private readonly PlantillaStorageService $storage,
         private readonly DocumentoStorageService $documentoStorage,
+        private readonly FormatoPreviewService $previsualizador,
+        private readonly FormatoCatalogoService $catalogo,
     ) {}
 
     public function index(Request $request): Response
@@ -49,7 +55,7 @@ class FormatoController extends Controller
         return Inertia::render('Rh/Formatos/Index', [
             'documentos' => $documentos,
             'filtros' => $request->only(self::FILTROS),
-            'plantillasDisponibles' => DocumentTemplate::query()->where('activo', true)->orderBy('nombre')->get(['id', 'nombre', 'tipo']),
+            'plantillasDisponibles' => $this->catalogo->listar(),
             'colaboradoresDisponibles' => User::query()->orderBy('name')->limit(200)->get(['id', 'name', 'apellidos']),
             'candidatosDisponibles' => Candidato::query()->orderBy('nombre')->limit(200)->get(['id', 'nombre', 'apellidos']),
             'responsablesDisponibles' => User::query()->role(['rh_admin', 'rh_auxiliar'])->orderBy('name')->get(['id', 'name', 'apellidos']),
@@ -141,9 +147,7 @@ class FormatoController extends Controller
             $sujeto = $solicitudVacaciones->usuario;
             $extra = $this->extraDesdeSolicitudVacaciones($solicitudVacaciones);
         } else {
-            $sujeto = $request->validated('tipo_sujeto') === 'colaborador'
-                ? User::query()->firstWhere('id', $request->validated('sujeto_id'))
-                : Candidato::query()->firstWhere('id', $request->validated('sujeto_id'));
+            $sujeto = $this->resolverSujeto((string) $request->validated('tipo_sujeto'), (int) $request->validated('sujeto_id'));
             $extra = $request->validated('extra') ?? [];
         }
 
@@ -209,6 +213,13 @@ class FormatoController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => 'Documento firmado subido y asociado al expediente del colaborador.']);
     }
 
+    private function resolverSujeto(string $tipoSujeto, int $sujetoId): User|Candidato|null
+    {
+        return $tipoSujeto === 'colaborador'
+            ? User::query()->firstWhere('id', $sujetoId)
+            : Candidato::query()->firstWhere('id', $sujetoId);
+    }
+
     /**
      * @return array<string, string>
      */
@@ -241,9 +252,34 @@ class FormatoController extends Controller
         ];
     }
 
-    public function descargar(GeneratedDocument $documento): StreamedResponse
+    /**
+     * Vista previa de un formato antes de generarlo: reutiliza
+     * PlantillaDocumentoService::generar() con los mismos datos, pero no
+     * crea GeneratedDocument ni toca storage — nada se persiste. Si el DOCX
+     * no se puede convertir a HTML (plantilla con estructura muy compleja),
+     * `html` regresa null y el frontend cae a "descarga para revisar".
+     */
+    public function preview(PreviewFormatoRequest $request): JsonResponse
+    {
+        $plantilla = DocumentTemplate::query()->where('id', $request->validated('document_template_id'))->firstOrFail();
+        $this->authorize('generar', $plantilla);
+
+        $sujeto = $this->resolverSujeto((string) $request->validated('tipo_sujeto'), (int) $request->validated('sujeto_id'));
+        abort_unless($sujeto !== null, 404, 'No se encontró el colaborador o candidato indicado.');
+
+        $resultado = $this->previsualizador->previsualizar($plantilla, $sujeto, $request->validated('extra') ?? []);
+
+        return response()->json([
+            'html' => $resultado['html'],
+            'variables' => $resultado['variables'],
+            'faltantes' => $resultado['faltantes'],
+        ]);
+    }
+
+    public function descargar(Request $request, GeneratedDocument $documento): StreamedResponse
     {
         $this->authorize('viewAny', DocumentTemplate::class);
+        abort_unless($request->user()->can('formatos.descargar_docx'), 403);
 
         if ($documento->status === EstadoDocumentoGenerado::Generado) {
             $documento->update(['status' => EstadoDocumentoGenerado::Entregado]);
@@ -251,6 +287,36 @@ class FormatoController extends Controller
 
         return $this->storage->respuesta($documento->path, [
             'Content-Disposition' => 'attachment; filename="'.$documento->generated_name.'"',
+        ]);
+    }
+
+    /**
+     * PDF del documento ya generado, convertido al vuelo desde el DOCX
+     * guardado (no se persisten dos archivos por documento). Si la
+     * conversión falla (estructura no soportada por PhpWord), regresa con
+     * un aviso en vez de una descarga rota: el DOCX original sigue
+     * disponible en descargar().
+     */
+    public function descargarPdf(Request $request, GeneratedDocument $documento): HttpResponse|RedirectResponse
+    {
+        $this->authorize('viewAny', DocumentTemplate::class);
+        abort_unless($request->user()->can('formatos.descargar_pdf'), 403);
+
+        $contenidoDocx = $this->storage->disco()->get($documento->path);
+        $pdf = $this->previsualizador->aPdf($contenidoDocx);
+
+        if ($pdf === null) {
+            return back()->with('toast', [
+                'type' => 'error',
+                'message' => 'No se pudo generar el PDF de este documento. Descarga el Word.',
+            ]);
+        }
+
+        $nombre = pathinfo($documento->generated_name, PATHINFO_FILENAME).'.pdf';
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$nombre.'"',
         ]);
     }
 

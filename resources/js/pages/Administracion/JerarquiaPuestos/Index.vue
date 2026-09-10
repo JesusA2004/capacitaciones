@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import { GitBranch, History, Pencil, Users } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
+import AgregarSubordinadoDialog from '@/components/Administracion/AgregarSubordinadoDialog.vue';
 import JerarquiaPuestoDialog from '@/components/Administracion/JerarquiaPuestoDialog.vue';
 import OrganigramaAccordion from '@/components/Administracion/OrganigramaAccordion.vue';
 import OrganigramaArbol from '@/components/Administracion/OrganigramaArbol.vue';
@@ -25,10 +26,12 @@ import {
 } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
 import { getJson } from '@/lib/http';
 import { dashboard } from '@/routes';
 import {
+    actualizar,
     historial as historialUrl,
     index,
 } from '@/routes/administracion/jerarquia-puestos';
@@ -92,10 +95,37 @@ function obtenerHijos(id: number): PuestoJerarquiaItem[] {
     return props.puestos.filter((p) => p.puesto_superior_id === id);
 }
 
+const { mostrarExito, mostrarError, confirmarDesvinculacion } = useAlertas();
+
 const puestoSeleccionado = ref<PuestoJerarquiaItem | null>(null);
 const panelAbierto = ref(false);
 const dialogoAbierto = ref(false);
+const dialogoSubordinadoAbierto = ref(false);
+const puestoParaSubordinado = ref<PuestoJerarquiaItem | null>(null);
 const tabActiva = ref('detalle');
+
+function abrirAgregarSubordinado(puesto: PuestoJerarquiaItem) {
+    puestoParaSubordinado.value = puesto;
+    dialogoSubordinadoAbierto.value = true;
+}
+
+async function quitarRelacion(puesto: PuestoJerarquiaItem) {
+    const confirmado = await confirmarDesvinculacion(`«${puesto.nombre}»`);
+
+    if (!confirmado) {
+        return;
+    }
+
+    router.put(
+        actualizar.url(puesto.id),
+        { puesto_superior_id: null },
+        {
+            preserveScroll: true,
+            onSuccess: () => mostrarExito('Se quitó la relación jerárquica.'),
+            onError: () => mostrarError('No se pudo quitar la relación.'),
+        },
+    );
+}
 
 const historial = ref<PuestoHistorialResponse | null>(null);
 const historialCargando = ref(false);
@@ -281,6 +311,8 @@ watch(
                     :obtener-hijos="obtenerHijos"
                     @seleccionar="seleccionar"
                     @editar="abrirEdicion"
+                    @agregar-subordinado="abrirAgregarSubordinado"
+                    @quitar-relacion="quitarRelacion"
                 />
             </div>
 
@@ -294,6 +326,8 @@ watch(
                     :obtener-hijos="obtenerHijos"
                     @seleccionar="seleccionar"
                     @editar="abrirEdicion"
+                    @agregar-subordinado="abrirAgregarSubordinado"
+                    @quitar-relacion="quitarRelacion"
                 />
             </div>
         </template>
@@ -662,5 +696,13 @@ watch(
         :puesto="puestoSeleccionado"
         :todos-los-puestos="puestos"
         :key="puestoSeleccionado.id"
+    />
+
+    <AgregarSubordinadoDialog
+        v-if="dialogoSubordinadoAbierto && puestoParaSubordinado"
+        v-model:open="dialogoSubordinadoAbierto"
+        :puesto="puestoParaSubordinado"
+        :todos-los-puestos="puestos"
+        :key="`sub-${puestoParaSubordinado.id}`"
     />
 </template>
