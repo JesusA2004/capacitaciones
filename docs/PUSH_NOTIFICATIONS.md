@@ -49,6 +49,7 @@ Nunca lleva PII sensible (nombres completos, montos, CURP/RFC/NSS): el detalle s
 | `documento` | `rh_documento` |
 | `vacaciones` | `rh_vacaciones` |
 | `incorporacion` | `rh_incorporacion` |
+| `cumpleanos` | `rh_cumpleanos` |
 | `notificacion` (genérico) | `rh_pendiente` (genérico, bandeja) |
 
 ### Eventos que disparan push (todos ya wireados)
@@ -63,6 +64,17 @@ Nunca lleva PII sensible (nombres completos, montos, CURP/RFC/NSS): el detalle s
 | RH aprueba/rechaza documento | `IncorporacionService::aprobarDocumento()`/`rechazarDocumento()` | Colaborador dueño | `documento` |
 | Último documento obligatorio queda aprobado (incorporación "completo") | `IncorporacionService::avisarSiIncorporacionQuedoCompleta()` (interno, llamado desde `aprobarDocumento()`) | Responsables con `rh.incorporaciones.ver` | `rh_incorporacion` |
 | RH aprueba/rechaza incorporación | `IncorporacionService::aprobarIncorporacion()`/`rechazarIncorporacion()` | Colaborador | `incorporacion` |
+| Es el cumpleaños del colaborador (command diario) | `CumpleanosService::felicitarColaborador()` | Colaborador | `cumpleanos` |
+| Recordatorio diario de cumpleaños (hoy/próximos 7 días, por destinatario según su alcance) | `CumpleanosService::notificarRh()` | RH/admin con `rh.cumpleanos.ver` | `rh_cumpleanos` |
+
+**Excepción a "resource_id siempre es un id real":** `rh_cumpleanos` es el único tipo cuyo `resource_id` puede ser `null` — el aviso normalmente resume varios cumpleaños (no un solo recurso), así que en vez de inventar un id (nunca un timestamp ni un conteo) el payload trae `route`/`periodo` para que la app navegue a la bandeja en el estado correcto. Cuando sí hay un único colaborador cumpliendo años hoy dentro del alcance del destinatario, `resource_id` es el `BirthdayGreeting.id` real:
+
+```json
+{ "type": "rh_cumpleanos", "resource_id": null, "route": "rh/cumpleanos", "periodo": "hoy" }
+{ "type": "rh_cumpleanos", "resource_id": 42, "route": "rh/cumpleanos", "periodo": "hoy" }
+```
+
+Ver `docs/CUMPLEANOS.md` y `docs/RH_MOBILE_API.md`.
 
 **Resolución de destinatarios**: `App\Services\RhMobile\ResponsableResolverService::paraColaborador($colaborador, $permiso)` — usuarios con el permiso dado (Spatie, vía roles o directo) cuyo `App\Services\AlcanceOrganizacionalService::puedeVerUsuario()` cubre al colaborador (empresa/sucursal/jefe directo). Nunca hardcodea usuarios ni roles específicos.
 

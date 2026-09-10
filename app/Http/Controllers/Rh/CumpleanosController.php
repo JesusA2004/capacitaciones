@@ -7,6 +7,7 @@ use App\Models\BirthdayPhrase;
 use App\Models\Departamento;
 use App\Models\Sucursal;
 use App\Models\User;
+use App\Services\AlcanceOrganizacionalService;
 use App\Services\Cumpleanos\BirthdayCardService;
 use App\Services\Cumpleanos\CumpleanosService;
 use Illuminate\Http\RedirectResponse;
@@ -29,6 +30,7 @@ class CumpleanosController extends Controller
     public function __construct(
         private readonly CumpleanosService $cumpleanos,
         private readonly BirthdayCardService $tarjetas,
+        private readonly AlcanceOrganizacionalService $alcance,
     ) {}
 
     public function index(Request $request): Response
@@ -36,8 +38,16 @@ class CumpleanosController extends Controller
         $usuario = $request->user();
         abort_unless($usuario->can('rh.cumpleanos.ver'), 403);
 
-        $mes = (int) ($request->integer('mes') ?: now()->month);
-        $filtros = $request->only(self::FILTROS);
+        $datos = $request->validate([
+            'mes' => ['nullable', 'integer', 'min:1', 'max:12'],
+            'sucursal_id' => ['nullable', 'integer', 'exists:sucursales,id'],
+            'departamento_id' => ['nullable', 'integer', 'exists:departamentos,id'],
+            'estatus' => ['nullable', 'string'],
+            'busqueda' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $mes = (int) ($datos['mes'] ?? now()->month);
+        $filtros = array_intersect_key($datos, array_flip(self::FILTROS));
 
         $delMes = $this->cumpleanos->cumpleanosDelMes($mes, $usuario, $filtros)
             ->map(fn (User $c) => $this->cumpleanos->tarjetaColaborador($c, null, $usuario))
@@ -56,18 +66,31 @@ class CumpleanosController extends Controller
             ->values();
 
         $puedeCalendario = $usuario->can('rh.cumpleanos.calendario');
+        $anio = now()->year;
 
         return Inertia::render('Rh/Cumpleanos/Index', [
             'mes' => $mes,
+            'anio' => $anio,
             'filtros' => $filtros,
             'delMes' => $delMes,
             'hoy' => $hoy,
             'proximos7' => $proximos7,
             'proximos30' => $proximos30,
-            'calendario' => $puedeCalendario ? $this->cumpleanos->payloadCalendario(now()->year, $mes, $usuario, $filtros) : null,
+            'calendario' => $puedeCalendario ? $this->cumpleanos->payloadCalendario($anio, $mes, $usuario, $filtros) : null,
             'opciones' => [
-                'sucursales' => Sucursal::query()->orderBy('nombre')->get(['id', 'nombre']),
-                'departamentos' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
+                // Acotadas al alcance organizacional de quien consulta: un
+                // usuario sin alcance global (p. ej. gerente_sucursal) nunca
+                // debe ver sucursales/departamentos fuera de lo suyo en el
+                // selector, aunque tenga permiso rh.cumpleanos.ver via un rol
+                // reconfigurado (ver App\Services\AlcanceOrganizacionalService).
+                'sucursales' => Sucursal::query()
+                    ->whereIn('id', $this->alcance->sucursalesVisiblesIds($usuario))
+                    ->orderBy('nombre')
+                    ->get(['id', 'nombre']),
+                'departamentos' => Departamento::query()
+                    ->whereIn('id', $this->alcance->departamentosVisiblesIds($usuario))
+                    ->orderBy('nombre')
+                    ->get(['id', 'nombre']),
                 'frases' => $usuario->can('rh.cumpleanos.frases.gestionar')
                     ? BirthdayPhrase::query()->orderBy('orden')->orderBy('id')->get()
                     : [],

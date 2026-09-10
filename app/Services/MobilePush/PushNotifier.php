@@ -24,8 +24,20 @@ class PushNotifier
      */
     public function aUsuario(User $usuario, string $type, int $resourceId, string $titulo, string $cuerpo): void
     {
-        $data = ['type' => $type, 'resource_id' => $resourceId];
+        $this->aUsuarioConDatos($usuario, $titulo, $cuerpo, ['type' => $type, 'resource_id' => $resourceId]);
+    }
 
+    /**
+     * Variante para avisos que no apuntan a un solo recurso con id entero
+     * (p. ej. un resumen "N cumpleaños hoy"): en vez de inventar un
+     * resource_id falso (como un timestamp), el llamador arma su propio
+     * payload `data` — típicamente con `resource_id: null` y una `route`
+     * navegable en su lugar. Ver App\Notifications\Mobile\BirthdayRhReminderNotification.
+     *
+     * @param  array<string, mixed>  $data  Siempre debe incluir 'type'; nunca PII.
+     */
+    public function aUsuarioConDatos(User $usuario, string $titulo, string $cuerpo, array $data): void
+    {
         foreach ($this->tokensActivos($usuario) as $token) {
             SendExpoPushJob::dispatch($token, $titulo, $cuerpo, $data);
         }

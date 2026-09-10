@@ -13,6 +13,7 @@ use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -258,22 +259,18 @@ class CumpleanosService
 
     /**
      * Recordatorio a RH/admin (rh.cumpleanos.ver): cumpleanos de hoy y de
-     * los proximos 7 dias en toda la organizacion. No incluye fecha
-     * completa de nacimiento. Todos los roles con este permiso tienen
-     * alcance organizacional global (ver
-     * AlcanceOrganizacionalService::ROLES_ALCANCE_GLOBAL), asi que el conteo
-     * no se calcula por-destinatario.
+     * los proximos 7 dias, calculados **por destinatario** dentro de su
+     * propio alcance organizacional (nunca se asume alcance global solo por
+     * tener el permiso — un rol puede reconfigurarse desde Administracion >
+     * Roles). Si un destinatario no tiene ningun cumpleanos dentro de lo
+     * suyo, no se le notifica. No incluye fecha completa de nacimiento.
+     *
+     * Idempotente por destinatario/dia (cache con TTL hasta medianoche):
+     * correr el command dos veces el mismo dia no duplica el recordatorio.
      */
     public function notificarRh(): void
     {
         if (! (bool) config('cumpleanos.notify_rh')) {
-            return;
-        }
-
-        $hoy = $this->cumpleanosDeHoy();
-        $proximos7 = $this->proximosCumpleanos(null, 7);
-
-        if ($hoy->isEmpty() && $proximos7->isEmpty()) {
             return;
         }
 
@@ -283,18 +280,50 @@ class CumpleanosService
             ->filter(fn (User $u) => $u->can('rh.cumpleanos.ver'));
 
         foreach ($destinatarios as $destinatario) {
-            try {
-                $destinatario->notify(new BirthdayRhReminderNotification($hoy->count(), $proximos7->count()));
+            $hoy = $this->cumpleanosDeHoy($destinatario);
+            $proximos7 = $this->proximosCumpleanos($destinatario, 7);
 
-                $this->push->aUsuario(
+            if ($hoy->isEmpty() && $proximos7->isEmpty()) {
+                continue;
+            }
+
+            $claveDedup = 'cumpleanos:recordatorio_rh:'.$destinatario->id.':'.Carbon::today()->toDateString();
+
+            if (Cache::has($claveDedup)) {
+                continue;
+            }
+
+            // Si hay un unico colaborador cumpliendo anios hoy dentro del
+            // alcance de este destinatario, el aviso puede apuntar a esa
+            // felicitacion concreta; si no, resource_id queda null y la app
+            // navega por `route`/`periodo` en vez de un id inventado.
+            $greetingId = null;
+            $periodo = $hoy->isNotEmpty() ? 'hoy' : 'proximos7';
+
+            if ($hoy->count() === 1) {
+                try {
+                    $greetingId = $this->tarjetas->generar($hoy->first(), Carbon::today())->id;
+                } catch (\Throwable $e) {
+                    Log::error('cumpleanos: fallo al generar la tarjeta para el recordatorio de rh', [
+                        'user_id' => $hoy->first()->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
+            try {
+                $destinatario->notify(new BirthdayRhReminderNotification($hoy->count(), $proximos7->count(), $greetingId, $periodo));
+
+                $this->push->aUsuarioConDatos(
                     $destinatario,
-                    'rh_cumpleanos',
-                    (int) Carbon::today()->timestamp,
                     'Cumpleaños de hoy',
                     $hoy->isNotEmpty()
                         ? "{$hoy->count()} colaborador(es) cumplen años hoy."
                         : "{$proximos7->count()} cumpleaños en los próximos 7 días.",
+                    ['type' => 'rh_cumpleanos', 'resource_id' => $greetingId, 'route' => 'rh/cumpleanos', 'periodo' => $periodo],
                 );
+
+                Cache::put($claveDedup, true, Carbon::today()->endOfDay());
             } catch (\Throwable $e) {
                 Log::error('cumpleanos: fallo al notificar a RH', [
                     'user_id' => $destinatario->id,

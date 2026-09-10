@@ -27,6 +27,11 @@ class ColaboradorCumpleanosController extends Controller
      * es su cumpleanos (mismo dia/mes que fecha_nacimiento). No genera nada
      * nuevo — eso lo hace el command diario cumpleanos:enviar-felicitaciones
      * — solo consulta lo ya generado para hoy.
+     *
+     * Responde siempre 200: `{"data": null}` cuando no es su cumpleanos, en
+     * vez de 404, para que la app no lo trate como un error de red — es un
+     * estado normal y esperado casi todos los dias del anio. Ver
+     * docs/API_MOVIL.md.
      */
     public function felicitacionActual(Request $request): JsonResponse
     {
@@ -34,7 +39,7 @@ class ColaboradorCumpleanosController extends Controller
         $hoy = $this->cumpleanos->cumpleanosDeHoy()->firstWhere('id', $colaborador->id);
 
         if ($hoy === null) {
-            return response()->json(['data' => null], 404);
+            return response()->json(['data' => null]);
         }
 
         $greeting = $this->tarjetas->generar($colaborador, now());

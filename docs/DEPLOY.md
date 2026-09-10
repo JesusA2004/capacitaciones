@@ -83,6 +83,50 @@ directo por SSH sin esperar al cron.
 biblioteca multimedia) son **fragmentos**, no vhosts completos: se pegan dentro del
 `server { ... }` del sitio ya existente, junto al `location /` que reenvía a PHP-FPM.
 
+**Verificación obligatoria tras aplicar `deploy/nginx/reverb.conf`** (ver
+`docs/APP_RELEASES.md`, sección "Nginx: /app colisiona con el WebSocket de Reverb"):
+confirmar que estas cuatro URLs las responde Laravel (HTML/JSON), **no** el proxy de
+Reverb (que respondería `400`/cierre de conexión al no ser un handshake WebSocket
+válido):
+
+```bash
+curl -I https://people.mr-lana.com/app
+curl -I https://people.mr-lana.com/app/versiones
+curl -I https://people.mr-lana.com/app/descargar
+curl -I https://people.mr-lana.com/app/descargar/android
+```
+
+## Subida de APK: límites de Nginx y PHP
+
+El backend valida hasta `MOBILE_APK_MAX_MB` (250 MB por defecto, `config/mobile_releases.php`,
+ver `docs/APP_RELEASES.md`), pero **Nginx y PHP tienen sus propios límites por delante**
+de esa validación — si son menores, la subida falla antes de que Laravel la vea (con un
+error confuso, no el mensaje amable de `StoreMobileAppReleaseRequest`). Deben permitir
+**al menos 300 MB** (margen sobre los 250 MB de la app, para los encabezados
+`multipart/form-data` del propio request):
+
+```nginx
+# Dentro del server{} del sitio (o en el location del formulario de subida):
+client_max_body_size 300M;
+```
+
+```ini
+; php.ini (o un pool de PHP-FPM dedicado si el sitio ya tiene límites más bajos
+; para el resto de la app):
+upload_max_filesize = 300M
+post_max_size = 300M
+```
+
+```bash
+sudo systemctl reload nginx
+sudo systemctl restart php8.4-fpm   # o la version de PHP-FPM real del VPS
+```
+
+Si se sube un APK que excede `MOBILE_APK_MAX_MB` pero SÍ cabe en estos límites de
+infraestructura, la validación de Laravel responde con un mensaje amable en MB (no la
+tecnicoseca "must not be greater than N kilobytes" por defecto) — ver
+`StoreMobileAppReleaseRequest::messages()`.
+
 ## Storage privado
 
 Todo archivo subido por un usuario (documentos de expediente, CVs, formatos, tarjetas

@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\Expedientes\DocumentoStorageService;
 use Carbon\CarbonInterface;
 use GdImage;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -160,34 +161,45 @@ class BirthdayCardService
         imagefilledrectangle($imagen, 0, 0, $ancho, $alto, $fondo);
 
         $this->dibujarGlobos($imagen, $ancho, $alto);
-        $this->dibujarLogo($imagen, $ancho);
+        $logoAlto = $this->dibujarLogo($imagen, $ancho);
 
         $fuenteBold = base_path('vendor/dompdf/dompdf/lib/fonts/DejaVuSans-Bold.ttf');
         $fuenteRegular = base_path('vendor/dompdf/dompdf/lib/fonts/DejaVuSans.ttf');
         $marron = $this->colorRgb($imagen, 74, 52, 30);
         $dorado = $this->colorRgb($imagen, 196, 148, 46);
 
-        $centroY = (int) ($alto * 0.40);
+        // Margen lateral generoso para que el texto envuelva (nombres y
+        // frases largas) sin acercarse nunca al borde ni cortarse.
+        $margenTexto = (int) ($ancho * 0.13);
+        $anchoMaximoTexto = $ancho - ($margenTexto * 2);
+
+        $y = max($logoAlto + 70, (int) ($alto * 0.24));
 
         if ((bool) config('cumpleanos.show_employee_photo') && $colaborador->foto_path !== null) {
-            $this->dibujarFotoCircular($imagen, $colaborador, (int) ($ancho / 2), $centroY, (int) ($ancho * 0.28));
-            $yNombre = $centroY + (int) ($ancho * 0.28) + 90;
-        } else {
-            $yNombre = $centroY;
+            $radioFoto = (int) ($ancho * 0.20);
+            $dibujoFotoOk = $this->dibujarFotoCircular($imagen, $colaborador, (int) ($ancho / 2), $y + $radioFoto, $radioFoto, $dorado);
+
+            if ($dibujoFotoOk) {
+                $y += ($radioFoto * 2) + 60;
+            }
         }
 
-        $this->textoCentrado($imagen, $fuenteBold, 54, $dorado, $ancho, $yNombre, '¡FELIZ CUMPLEAÑOS!');
+        $y += 20;
+        $this->textoCentrado($imagen, $fuenteBold, 42, $dorado, $ancho, $y, '¡FELIZ CUMPLEAÑOS!');
+        $y += 66;
 
         $nombre = mb_strtoupper($colaborador->nombreCompleto());
-        $this->textoCentrado($imagen, $fuenteBold, 46, $marron, $ancho, $yNombre + 80, $nombre);
+        $y = $this->textoParrafo($imagen, $fuenteBold, 48, $marron, $ancho, $y, $nombre, $anchoMaximoTexto, interlineado: 56);
 
-        if ((bool) config('cumpleanos.show_branch') && $colaborador->sucursalPrincipal) {
-            $this->textoCentrado($imagen, $fuenteRegular, 28, $marron, $ancho, $yNombre + 140, $colaborador->sucursalPrincipal->nombre);
+        if ((bool) config('cumpleanos.show_branch') && $colaborador->sucursalPrincipal !== null) {
+            $y += 46;
+            $this->textoCentrado($imagen, $fuenteRegular, 26, $marron, $ancho, $y, $colaborador->sucursalPrincipal->nombre);
         }
 
-        $this->textoParrafo($imagen, $fuenteRegular, 30, $marron, $ancho, $yNombre + 220, $frase, $ancho - 220);
+        $y += 70;
+        $this->textoParrafo($imagen, $fuenteRegular, 30, $marron, $ancho, $y, $frase, $anchoMaximoTexto, interlineado: 46);
 
-        $this->textoCentrado($imagen, $fuenteBold, 32, $dorado, $ancho, $alto - 90, 'MR. LANA');
+        $this->textoCentrado($imagen, $fuenteBold, 30, $dorado, $ancho, $alto - 80, 'MR. LANA');
 
         ob_start();
         imagepng($imagen);

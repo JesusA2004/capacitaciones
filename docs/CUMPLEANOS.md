@@ -102,9 +102,12 @@ GET /api/v1/colaborador/cumpleanos/felicitacion-actual/imagen (auth:sanctum)
 ```
 
 Solo existe felicitación si **hoy** es el cumpleaños del colaborador autenticado; si no,
-`felicitacion-actual` responde `{"data": null}` con `404` y la imagen responde `404`
-controlado. Nunca genera ni notifica nada nuevo (eso es el command diario) — solo
-consulta lo ya generado para hoy. Nunca devuelve la felicitación de otro colaborador.
+`felicitacion-actual` responde **`200` con `{"data": null}`** (no `404`) — no es un
+cumpleaños es un estado normal casi todos los días del año, no un error, así que la app
+no debe tratarlo como falla de red. La imagen (`.../imagen`) sí responde `404` cuando no
+aplica: una respuesta binaria no tiene un equivalente vacío razonable. Nunca genera ni
+notifica nada nuevo (eso es el command diario) — solo consulta lo ya generado para hoy.
+Nunca devuelve la felicitación de otro colaborador.
 
 ## API para la app móvil (RH) — ver `docs/RH_MOBILE_API.md` / `docs/BACKEND_MOBILE_V5.md`
 
@@ -115,10 +118,15 @@ GET /api/v1/rh/cumpleanos/{greeting}/imagen
 GET /api/v1/rh/cumpleanos/{colaborador}/foto
 ```
 
-Permiso `rh.cumpleanos.ver`, acotado por `AlcanceOrganizacionalService`. `{greeting}` es
-el destino del push `{"type": "rh_cumpleanos", "resource_id": greeting_id}`. Nunca
-regresa el año de nacimiento; `foto_url_api`/`card_url` son rutas protegidas, nunca la
-ruta física.
+Permiso `rh.cumpleanos.ver`, acotado por `AlcanceOrganizacionalService` — tanto el
+listado de colaboradores como los conteos `meta.hoy`/`meta.proximos_7_dias`/
+`meta.proximos_30_dias` respetan el alcance de quien consulta (nunca se asume alcance
+global solo por tener el permiso). `{greeting}` es el destino del push, ver
+`docs/PUSH_NOTIFICATIONS.md` para el payload exacto — `resource_id` es el id real de un
+`BirthdayGreeting` solo cuando el aviso apunta a uno concreto; si resume varios
+cumpleaños es `null` y la app navega con `route`/`periodo` en su lugar (nunca un valor
+inventado como un timestamp). Nunca regresa el año de nacimiento; `foto_url_api`/
+`card_url` son rutas protegidas, nunca la ruta física.
 
 ## Permisos
 

@@ -10,10 +10,17 @@ use Illuminate\Notifications\Notification;
 
 /**
  * Recordatorio diario a RH/admin (permiso rh.cumpleanos.ver): cuantos
- * colaboradores cumplen anios hoy y en los proximos 7 dias. Nunca incluye
- * nombres ni fecha completa de nacimiento en la notificacion, solo el
- * conteo — el detalle vive en el modulo web (ver
- * App\Console\Commands\RecordarCumpleanosRh).
+ * colaboradores cumplen anios hoy y en los proximos 7 dias, calculado
+ * dentro del alcance organizacional de cada destinatario (ver
+ * App\Services\Cumpleanos\CumpleanosService::notificarRh() —
+ * App\Console\Commands\RecordarCumpleanosRh). Nunca incluye nombres ni
+ * fecha completa de nacimiento.
+ *
+ * `resourceId` nunca es un valor inventado (como un timestamp): es null
+ * salvo que el aviso apunte a una unica felicitacion concreta (por ejemplo,
+ * un solo colaborador cumple anios hoy dentro del alcance de este
+ * destinatario), en cuyo caso es el id real de ese BirthdayGreeting. La app
+ * navega con `route` + `periodo` cuando no hay un recurso puntual.
  */
 class BirthdayRhReminderNotification extends Notification implements ShouldQueue
 {
@@ -22,6 +29,8 @@ class BirthdayRhReminderNotification extends Notification implements ShouldQueue
     public function __construct(
         private readonly int $hoyCount,
         private readonly int $proximos7Count,
+        private readonly ?int $resourceId = null,
+        private readonly string $periodo = 'hoy',
     ) {}
 
     /**
@@ -47,7 +56,9 @@ class BirthdayRhReminderNotification extends Notification implements ShouldQueue
             'mensaje' => $mensaje,
             'url' => null,
             'type' => 'rh_cumpleanos',
-            'resource_id' => now()->timestamp,
+            'resource_id' => $this->resourceId,
+            'route' => 'rh/cumpleanos',
+            'periodo' => $this->periodo,
         ];
     }
 }

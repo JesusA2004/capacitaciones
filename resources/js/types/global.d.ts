@@ -19,6 +19,10 @@ declare module '@inertiajs/core' {
             name: string;
             auth: Auth;
             sidebarOpen: boolean;
+            features: {
+                capacitacion: boolean;
+            };
+            environment: string;
             [key: string]: unknown;
         };
     }

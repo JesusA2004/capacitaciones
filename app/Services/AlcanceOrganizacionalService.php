@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Departamento;
 use App\Models\Sucursal;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -67,6 +68,30 @@ class AlcanceOrganizacionalService
             ->filter()
             ->unique()
             ->values();
+    }
+
+    /**
+     * IDs de departamentos con al menos un colaborador dentro del alcance de
+     * $usuario (alcance global => todos los departamentos existentes).
+     * `departamentos` no tiene columna de sucursal propia (es un catalogo
+     * compartido entre sucursales, ver App\Models\Departamento), asi que su
+     * alcance se deriva de los colaboradores visibles, no de una relacion
+     * directa. Usado para acotar las opciones de filtro que se le ofrecen a
+     * un usuario sin alcance global (p. ej. Rh\CumpleanosController) — nunca
+     * debe verse un departamento fuera de su alcance en un selector.
+     *
+     * @return Collection<int, int>
+     */
+    public function departamentosVisiblesIds(User $usuario): Collection
+    {
+        if ($this->tieneAlcanceGlobal($usuario)) {
+            return Departamento::query()->pluck('id');
+        }
+
+        return $this->limitarUsuariosPorAlcance(User::query(), $usuario)
+            ->whereNotNull('departamento_id')
+            ->distinct()
+            ->pluck('departamento_id');
     }
 
     /**

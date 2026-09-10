@@ -132,6 +132,17 @@ GET /api/v1/rh/colaboradores/{colaborador}                                      
 
 Datos básicos + contadores (`solicitudes_pendientes`, `vacaciones_pendientes`, `documentos_pendientes`) — nunca el expediente completo (para eso, `rh/expedientes/{colaborador}`).
 
+## Cumpleaños
+
+```
+GET /api/v1/rh/cumpleanos?periodo=hoy|7_dias|30_dias|mes&mes=&sucursal_id=&departamento_id=&q=&page=&per_page=   rh.cumpleanos.ver
+GET /api/v1/rh/cumpleanos/{greeting}                                                                              rh.cumpleanos.ver
+GET /api/v1/rh/cumpleanos/{greeting}/imagen                                                                       rh.cumpleanos.ver
+GET /api/v1/rh/cumpleanos/{colaborador}/foto                                                                      rh.cumpleanos.ver
+```
+
+Igual criterio de alcance que el resto: `AlcanceOrganizacionalService` acota tanto los colaboradores listados como los `meta.hoy`/`meta.proximos_7_dias`/`meta.proximos_30_dias` (nunca cuentan cumpleaños fuera del alcance del destinatario). Nunca regresa el año de nacimiento; `{greeting}` es el destino del push `{"type": "rh_cumpleanos", ...}` (ver `docs/PUSH_NOTIFICATIONS.md` para el payload exacto, incluyendo el caso `resource_id: null` cuando el aviso no apunta a una sola felicitación). Detalle completo: `docs/CUMPLEANOS.md`.
+
 ## Permisos nuevos
 
 Ver `database/seeders/RolesYPermisosSeeder.php`, bloque "Backend movil v5". Asignados a `super_admin` (todo), `rh_admin` (todo lo de RH móvil), `rh_auxiliar`/`coordinadora(_regional)`/`auditor`/`director_comercial` (solo `ver`/`detalle`, sin aprobar), `gerente_sucursal`/`gerente`/`subgerente`/`gerente_regional`/`jefe_directo` (aprueban solicitudes/vacaciones de su alcance, no documentos/incorporaciones — eso queda exclusivo de RH), `colaborador` (solo lo transversal: bootstrap, dispositivos, notificaciones, configuración de solicitudes).

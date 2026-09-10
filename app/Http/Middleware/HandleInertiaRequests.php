@@ -48,6 +48,13 @@ class HandleInertiaRequests extends Middleware
                 ] : null,
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            // Para que el frontend pueda ocultar por completo navegacion de
+            // modulos detras de un feature flag (ver config/features.php),
+            // en vez de mostrar un acceso "falso" a todo el mundo.
+            'features' => [
+                'capacitacion' => (bool) config('features.capacitacion'),
+            ],
+            'environment' => app()->environment(),
         ];
     }
 }

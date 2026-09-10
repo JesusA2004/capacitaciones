@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import {
     BarChart3,
     Briefcase,
@@ -64,11 +64,23 @@ import { index as indexVacaciones } from '@/routes/vacaciones';
 import type { NavItem } from '@/types';
 
 const { tienePermiso, tieneRol } = usePermisos();
+const page = usePage();
 
 // El Portal RH es la experiencia principal (ver docs/PORTAL_RH.md).
-// Capacitación se conserva por completo, pero queda oculta detrás del
-// feature flag `capacitacion` (config/features.php) y solo aparece como un
-// único acceso con badge "Próximamente" (docs/CAPACITACION_PROXIMAMENTE.md).
+// Capacitación se conserva por completo detrás del feature flag
+// `capacitacion` (config/features.php, docs/CAPACITACION_PROXIMAMENTE.md):
+// con la bandera apagada no se muestra ningún acceso a colaboradores
+// normales — nada de "botones falsos" ni textos "Próximamente" para el
+// público general. Solo super_admin (o un ambiente que no sea producción,
+// para poder revisar la pantalla mientras se desarrolla) sigue viendo un
+// acceso, marcado explícitamente como interno.
+const capacitacionActiva = computed(() => page.props.features.capacitacion);
+const capacitacionVisibleParaAdmin = computed(
+    () =>
+        !capacitacionActiva.value &&
+        (tieneRol('super_admin') || page.props.environment !== 'production'),
+);
+
 const mainNavItems = computed<NavItem[]>(() => {
     const items: NavItem[] = [
         {
@@ -205,12 +217,20 @@ const mainNavItems = computed<NavItem[]>(() => {
         });
     }
 
-    items.push({
-        title: 'Capacitación',
-        href: capacitacionProximamente(),
-        icon: GraduationCap,
-        badge: 'Próximamente',
-    });
+    if (capacitacionActiva.value) {
+        items.push({
+            title: 'Capacitación',
+            href: capacitacionProximamente(),
+            icon: GraduationCap,
+        });
+    } else if (capacitacionVisibleParaAdmin.value) {
+        items.push({
+            title: 'Capacitación',
+            href: capacitacionProximamente(),
+            icon: GraduationCap,
+            badge: 'Fase futura',
+        });
+    }
 
     return items;
 });

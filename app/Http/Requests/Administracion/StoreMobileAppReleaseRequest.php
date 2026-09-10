@@ -40,4 +40,23 @@ class StoreMobileAppReleaseRequest extends FormRequest
             'minimum_required' => ['sometimes', 'boolean'],
         ];
     }
+
+    /**
+     * Mensajes en MB (no KB, que es lo que usa el mensaje por defecto de la
+     * regla `max` para archivos) y en español, para que quien sube el APK
+     * entienda de inmediato por qué falló sin tener que consultar `.env`.
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        $maxMb = (int) config('mobile_releases.max_upload_mb');
+
+        return [
+            'apk.required' => 'Selecciona el archivo APK que quieres subir.',
+            'apk.file' => 'El archivo APK no es válido.',
+            'apk.max' => "El archivo pesa más de lo permitido. El tamaño máximo es {$maxMb} MB — comprímelo o pide a soporte técnico que amplíe el límite (MOBILE_APK_MAX_MB).",
+            'version.required' => 'Indica el número de versión (por ejemplo, 1.2.0).',
+        ];
+    }
 }
