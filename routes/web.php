@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AppDownloadController;
 use App\Http\Controllers\CalendarioController;
 use App\Http\Controllers\CertificadoVerificacionController;
 use App\Http\Controllers\DashboardController;
@@ -23,6 +24,15 @@ Route::get('constancias/verificar/{folio}', [CertificadoVerificacionController::
 // invitacion como usada ni responde 404/500 con un token invalido — ver
 // App\Http\Controllers\IncorporacionQrController.
 Route::get('incorporacion/qr/{token}', [IncorporacionQrController::class, 'show'])->name('incorporacion.qr');
+
+// Publica (sin sesion iniciada): descarga directa de la app movil mientras
+// no este en Play Store (ver config('mobile_releases') y docs/APP_RELEASES.md).
+Route::prefix('app')->name('app.')->group(function () {
+    Route::get('/', [AppDownloadController::class, 'index'])->name('index');
+    Route::get('versiones', [AppDownloadController::class, 'versiones'])->name('versiones');
+    Route::get('descargar', [AppDownloadController::class, 'descargar'])->name('descargar');
+    Route::get('descargar/{platform}', [AppDownloadController::class, 'descargarPlataforma'])->name('descargar.plataforma');
+});
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');

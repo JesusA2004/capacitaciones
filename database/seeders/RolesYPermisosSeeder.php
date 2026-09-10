@@ -190,6 +190,21 @@ class RolesYPermisosSeeder extends Seeder
         // Solicitudes: configuracion de formulario y adjuntos (propios).
         'solicitudes.configuracion.ver',
         'solicitudes.adjuntos.subir',
+
+        // --- Modulo de cumpleanos (docs/CUMPLEANOS.md) ---
+        'rh.cumpleanos.ver',
+        'rh.cumpleanos.calendario',
+        'rh.cumpleanos.descargar_imagen',
+        'rh.cumpleanos.configurar',
+        'rh.cumpleanos.frases.gestionar',
+        'rh.cumpleanos.notificaciones.gestionar',
+
+        // --- Descarga de app / APK (docs/APP_RELEASES.md) ---
+        'app_releases.ver',
+        'app_releases.crear',
+        'app_releases.publicar',
+        'app_releases.eliminar',
+        'app_releases.descargar',
     ];
 
     /**
@@ -261,6 +276,9 @@ class RolesYPermisosSeeder extends Seeder
             'rh.colaboradores.ver', 'rh.colaboradores.detalle',
             'notificaciones.leer_todas',
             'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
+            'rh.cumpleanos.ver', 'rh.cumpleanos.calendario', 'rh.cumpleanos.descargar_imagen',
+            'rh.cumpleanos.configurar', 'rh.cumpleanos.frases.gestionar', 'rh.cumpleanos.notificaciones.gestionar',
+            'app_releases.ver', 'app_releases.crear', 'app_releases.publicar', 'app_releases.eliminar', 'app_releases.descargar',
         ],
 
         // Apoyo operativo de RH: puede capturar/revisar pero no aprobar
@@ -290,6 +308,8 @@ class RolesYPermisosSeeder extends Seeder
             'rh.colaboradores.ver', 'rh.colaboradores.detalle',
             'notificaciones.leer_todas',
             'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
+            'rh.cumpleanos.ver', 'rh.cumpleanos.calendario', 'rh.cumpleanos.descargar_imagen',
+            'app_releases.ver',
         ],
 
         'gerente_sucursal' => [

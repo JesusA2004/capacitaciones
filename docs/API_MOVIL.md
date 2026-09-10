@@ -56,7 +56,7 @@ POST /api/v1/notificaciones/{notificacion}/leer
 POST /api/v1/notificaciones/leer-todas
 ```
 
-Contexto de arranque de la app (bootstrap/config/push/tiempo real) y todo lo de RH/aprobadores (dashboard, bandeja, solicitudes, vacaciones, documentos, incorporaciones, colaboradores) se documentan aparte, ver `docs/BACKEND_MOBILE_V5.md`, `docs/RH_MOBILE_API.md` y `docs/PUSH_NOTIFICATIONS.md`.
+Contexto de arranque de la app (bootstrap/config/push/tiempo real) y todo lo de RH/aprobadores (dashboard, bandeja, solicitudes, vacaciones, documentos, incorporaciones, colaboradores) se documentan aparte, ver `docs/BACKEND_MOBILE_V5.md`, `docs/RH_MOBILE_API.md` y `docs/PUSH_NOTIFICATIONS.md`. Cumpleaños (felicitación del colaborador + bandeja RH) y descarga/actualización de la app (APK propio + futuro iOS) se documentan en `docs/CUMPLEANOS.md` y `docs/APP_RELEASES.md`.
 
 ## Registro por QR temporal
 
@@ -74,6 +74,19 @@ POST /api/v1/incorporacion/invitaciones/{token}/registrar   crea la cuenta en es
 ```
 
 5. Si el QR es válido, `POST .../registrar` crea al colaborador (`estatus = en_incorporacion`, rol `colaborador`, empresa/sucursal/departamento/puesto heredados de la invitación), marca la invitación como usada (o incrementa `usos_count` si `max_usos > 1`) y devuelve un token Sanctum — la app ya puede seguir con los endpoints normales (`/colaborador/incorporacion`, sección de abajo). El usuario **no** queda activo todavía; eso solo pasa cuando RH aprueba la incorporación completa.
+
+### Pantalla pública `GET /incorporacion/qr/{token}` (web, no API)
+
+Donde cae el navegador al escanear el QR (`App\Http\Controllers\IncorporacionQrController`,
+Inertia, sin sesión). Token válido: bienvenida, pasos (descarga la app → ábrela →
+continúa tu registro → sube tus documentos), botón principal "Continuar en la app"
+(deep link `mrlanapeople://incorporacion/qr/{token}`) y botón secundario "Descargar app"
+hacia `/app?from=qr&token={token}` (ver `docs/APP_RELEASES.md` — esa pantalla, con el
+token en la URL, muestra los pasos post-instalación y un botón "Ya instalé la app,
+continuar" con el mismo deep link). Token inválido/vencido/revocado/usado: mensaje
+controlado + botón "Ir al login" — **nunca** 404 ni 500. Visitar esta pantalla (o `/app`
+con el token) **nunca** marca la invitación como usada ni guarda el token en sesión;
+eso solo ocurre en el paso 5 (`POST .../registrar`).
 
 `validar`/`registrar` responden con **el mismo motivo explícito** cuando el QR no sirve — nunca dejan pasar el registro:
 

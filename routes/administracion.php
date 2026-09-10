@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Administracion\AppReleaseController;
 use App\Http\Controllers\Administracion\DepartamentoController;
 use App\Http\Controllers\Administracion\EmpresaController;
 use App\Http\Controllers\Administracion\JerarquiaPuestoController;
@@ -60,5 +61,18 @@ Route::middleware(['auth', 'verified'])
             Route::post('/', [UsuarioController::class, 'store'])->name('store');
             Route::put('{usuario}', [UsuarioController::class, 'update'])->name('update');
             Route::delete('{usuario}', [UsuarioController::class, 'destroy'])->name('destroy');
+        });
+
+        // URL en español (app-versiones) tal como la pidió el encargo; nombre
+        // de ruta en inglés (app-releases) para que coincida con el modelo
+        // MobileAppRelease y los servicios App\Services\AppReleases\*.
+        Route::prefix('app-versiones')->name('app-releases.')->group(function () {
+            Route::get('/', [AppReleaseController::class, 'index'])->name('index');
+            Route::post('/', [AppReleaseController::class, 'store'])->name('store');
+            Route::get('{release}', [AppReleaseController::class, 'show'])->name('show');
+            Route::get('{release}/descargar', [AppReleaseController::class, 'descargar'])->name('descargar');
+            Route::post('{release}/publicar', [AppReleaseController::class, 'publicar'])->name('publicar');
+            Route::post('{release}/despublicar', [AppReleaseController::class, 'despublicar'])->name('despublicar');
+            Route::delete('{release}', [AppReleaseController::class, 'destroy'])->name('destroy');
         });
     });

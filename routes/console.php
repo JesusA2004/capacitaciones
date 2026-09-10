@@ -18,3 +18,11 @@ Schedule::command('capacitacion:recordar-calificaciones-pendientes')->dailyAt('0
 // Carga de video por bloques (Fase 9): limpia cargas abandonadas (nunca
 // completadas antes de expira_en) y sus bloques temporales del disco.
 Schedule::command('capacitacion:limpiar-cargas-expiradas')->hourly();
+
+// Modulo de cumpleanos (docs/CUMPLEANOS.md): ambos commands son idempotentes
+// (BirthdayGreeting.enviada_at / no hay nada nuevo que avisar), asi que
+// correrlos manualmente de mas no duplica notificaciones. Zona horaria fija
+// aunque APP_TIMEZONE cambie, porque el horario de envio es un acuerdo de
+// negocio con RH, no un dato de usuario.
+Schedule::command('cumpleanos:enviar-felicitaciones')->dailyAt('08:00')->timezone('America/Mexico_City');
+Schedule::command('cumpleanos:recordar-rh')->dailyAt('07:30')->timezone('America/Mexico_City');

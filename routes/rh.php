@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Rh\AltaDigitalController;
 use App\Http\Controllers\Rh\CandidatoController;
+use App\Http\Controllers\Rh\CumpleanosController;
 use App\Http\Controllers\Rh\EmployeeDocumentController;
 use App\Http\Controllers\Rh\ExpedienteController;
 use App\Http\Controllers\Rh\FormatoController;
@@ -133,6 +134,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/', [ReporteRhController::class, 'index'])->name('index');
             Route::get('excel', [ReporteRhController::class, 'exportarExcel'])->name('excel');
             Route::get('pdf', [ReporteRhController::class, 'exportarPdf'])->name('pdf');
+        });
+
+        Route::prefix('cumpleanos')->name('cumpleanos.')->group(function () {
+            Route::get('/', [CumpleanosController::class, 'index'])->name('index');
+            Route::post('frases', [CumpleanosController::class, 'storeFrase'])->name('frases.store');
+            Route::put('frases/{frase}', [CumpleanosController::class, 'updateFrase'])->name('frases.update');
+            Route::delete('frases/{frase}', [CumpleanosController::class, 'destroyFrase'])->name('frases.destroy');
+            Route::get('{colaborador}/felicitacion', [CumpleanosController::class, 'felicitacion'])->name('felicitacion');
+            Route::post('{colaborador}/felicitacion/generar', [CumpleanosController::class, 'generar'])->name('felicitacion.generar');
+            Route::post('{colaborador}/felicitacion/regenerar', [CumpleanosController::class, 'regenerar'])->name('felicitacion.regenerar');
+            Route::get('{colaborador}/felicitacion/descargar', [CumpleanosController::class, 'descargar'])->name('felicitacion.descargar');
+            Route::post('{colaborador}/felicitacion/enviar', [CumpleanosController::class, 'enviarManual'])->name('felicitacion.enviar');
         });
     });
 });

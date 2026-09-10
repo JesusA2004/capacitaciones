@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Form, Head } from '@inertiajs/vue3';
+import { Smartphone } from '@lucide/vue';
 import InputError from '@/components/InputError.vue';
 import PasswordInput from '@/components/PasswordInput.vue';
 import TextLink from '@/components/TextLink.vue';
@@ -8,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import { index as appIndex } from '@/routes/app';
 import { store } from '@/routes/login';
 import { request } from '@/routes/password';
 
@@ -102,4 +104,18 @@ defineProps<{
             ¿Olvidaste cómo acceder? Contacta a tu administrador de RH.
         </div>
     </Form>
+
+    <div class="mt-6 flex items-center gap-3 rounded-lg border bg-muted/30 p-4">
+        <span
+            class="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"
+        >
+            <Smartphone class="size-4.5" />
+        </span>
+        <div class="flex-1 text-sm">
+            También puedes usar MR. LANA PEOPLE desde tu celular
+        </div>
+        <Button as-child size="sm" variant="outline">
+            <a :href="appIndex.url()">Descargar app</a>
+        </Button>
+    </div>
 </template>

@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
-import { CheckCircle2, Copy, XCircle } from '@lucide/vue';
+import { Head, Link } from '@inertiajs/vue3';
+import { CheckCircle2, Copy, Download, XCircle } from '@lucide/vue';
 import { ref } from 'vue';
 import { Button } from '@/components/ui/button';
+import { login } from '@/routes';
+import { index as appIndex } from '@/routes/app';
 
 const props = defineProps<{
     valida: boolean;
@@ -33,6 +35,10 @@ async function copiarCodigo() {
 function continuarEnApp() {
     window.location.href = props.appLink;
 }
+
+const urlDescargarApp = appIndex.url({
+    query: { from: 'qr', token: props.token },
+});
 </script>
 
 <template>
@@ -61,9 +67,41 @@ function continuarEnApp() {
                     {{ nombrePrellenado }}
                 </p>
 
+                <ol
+                    class="mb-6 space-y-2 rounded-lg bg-muted/40 p-4 text-left text-sm"
+                >
+                    <li class="flex gap-2">
+                        <span class="font-semibold text-primary">1.</span>
+                        Descarga la app MR. LANA PEOPLE
+                    </li>
+                    <li class="flex gap-2">
+                        <span class="font-semibold text-primary">2.</span>
+                        Abre la app
+                    </li>
+                    <li class="flex gap-2">
+                        <span class="font-semibold text-primary">3.</span>
+                        Continúa tu registro
+                    </li>
+                    <li class="flex gap-2">
+                        <span class="font-semibold text-primary">4.</span>
+                        Sube tus documentos
+                    </li>
+                </ol>
+
                 <Button class="w-full" @click="continuarEnApp">
                     Continuar en la app
                 </Button>
+
+                <Button as-child variant="outline" class="mt-2 w-full">
+                    <a :href="urlDescargarApp">
+                        <Download class="size-4" /> Descargar app
+                    </a>
+                </Button>
+
+                <p class="mt-4 text-xs text-muted-foreground">
+                    Si acabas de instalar la app, vuelve a esta pantalla y
+                    toca "Continuar en la app".
+                </p>
 
                 <div
                     v-if="codigoLegible"
@@ -85,10 +123,14 @@ function continuarEnApp() {
 
             <template v-else>
                 <XCircle class="mx-auto mb-3 size-12 text-destructive" />
-                <p class="text-sm font-medium">
+                <p class="mb-4 text-sm font-medium">
                     Este código de incorporación no es válido, venció o fue
                     revocado. Solicita uno nuevo a Recursos Humanos.
                 </p>
+
+                <Button as-child variant="outline" class="w-full">
+                    <Link :href="login()">Ir al login</Link>
+                </Button>
             </template>
         </div>
     </div>

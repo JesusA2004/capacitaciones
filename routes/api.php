@@ -1,14 +1,17 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AppConfigController;
+use App\Http\Controllers\Api\V1\AppReleaseController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\ColaboradorController;
+use App\Http\Controllers\Api\V1\ColaboradorCumpleanosController;
 use App\Http\Controllers\Api\V1\DispositivoController;
 use App\Http\Controllers\Api\V1\IncorporacionController;
 use App\Http\Controllers\Api\V1\IncorporacionInvitacionController;
 use App\Http\Controllers\Api\V1\MobileBootstrapController;
 use App\Http\Controllers\Api\V1\NotificacionController;
 use App\Http\Controllers\Api\V1\Rh\ColaboradorController as RhColaboradorController;
+use App\Http\Controllers\Api\V1\Rh\CumpleanosController as RhCumpleanosController;
 use App\Http\Controllers\Api\V1\Rh\DashboardController as RhDashboardController;
 use App\Http\Controllers\Api\V1\Rh\DocumentoController as RhDocumentoController;
 use App\Http\Controllers\Api\V1\Rh\ExpedienteController as RhExpedienteController;
@@ -40,6 +43,13 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     // Publica (sin auth:sanctum): la app la consulta antes de iniciar sesion
     // para saber si debe forzar actualizacion o mostrar mantenimiento.
     Route::get('app/config', AppConfigController::class)->name('app.config');
+
+    // Publica (sin auth:sanctum): version disponible para descarga directa
+    // mientras la app no este en Play Store (ver docs/APP_RELEASES.md).
+    Route::prefix('app/releases')->name('app.releases.')->group(function () {
+        Route::get('latest', [AppReleaseController::class, 'latest'])->name('latest');
+        Route::get('/', [AppReleaseController::class, 'index'])->name('index');
+    });
 
     // Publico (sin auth:sanctum, sin sesion web): el token del QR es la
     // unica puerta de entrada, validado en cada accion. Un colaborador no
@@ -99,6 +109,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('resumen', [IncorporacionController::class, 'resumen'])->name('resumen');
                 Route::post('documentos/{documentoRequerido}/subir', [IncorporacionController::class, 'subirDocumento'])->name('documentos.subir');
                 Route::post('documentos/{documento}/solicitar-cambio', [IncorporacionController::class, 'solicitarCambio'])->name('documentos.solicitar-cambio');
+            });
+
+            // Felicitacion de cumpleanos del propio colaborador (docs/CUMPLEANOS.md).
+            Route::prefix('cumpleanos')->name('cumpleanos.')->group(function () {
+                Route::get('felicitacion-actual', [ColaboradorCumpleanosController::class, 'felicitacionActual'])->name('felicitacion-actual');
+                Route::get('felicitacion-actual/imagen', [ColaboradorCumpleanosController::class, 'imagen'])->name('felicitacion-actual.imagen');
             });
         });
 
@@ -175,6 +191,14 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('{colaborador}/documentos/{documento}/autorizar-cambio', [RhExpedienteController::class, 'autorizarCambioDocumento'])->name('documentos.autorizar-cambio');
                 Route::post('{colaborador}/aprobar-incorporacion', [RhExpedienteController::class, 'aprobarIncorporacion'])->name('aprobar-incorporacion');
                 Route::post('{colaborador}/rechazar-incorporacion', [RhExpedienteController::class, 'rechazarIncorporacion'])->name('rechazar-incorporacion');
+            });
+
+            // Bandeja de cumpleanos para RH desde la app (docs/CUMPLEANOS.md).
+            Route::prefix('cumpleanos')->name('cumpleanos.')->group(function () {
+                Route::get('/', [RhCumpleanosController::class, 'index'])->name('index');
+                Route::get('{colaborador}/foto', [RhCumpleanosController::class, 'foto'])->name('foto');
+                Route::get('{greeting}/imagen', [RhCumpleanosController::class, 'imagen'])->name('imagen');
+                Route::get('{greeting}', [RhCumpleanosController::class, 'show'])->name('show');
             });
         });
     });

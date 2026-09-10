@@ -28,6 +28,7 @@ class DatabaseSeeder extends Seeder
             UsuarioDemoSeeder::class,
             CursoInduccionSeeder::class,
             DashboardDemoSeeder::class,
+            BirthdayPhraseSeeder::class,
         ]);
     }
 }

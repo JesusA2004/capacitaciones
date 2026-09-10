@@ -4,6 +4,7 @@ import {
     BarChart3,
     Briefcase,
     Building2,
+    Cake,
     CalendarDays,
     ClipboardList,
     FileStack,
@@ -16,6 +17,7 @@ import {
     Map,
     QrCode,
     ShieldCheck,
+    Smartphone,
     UserRound,
     Users,
     Users2,
@@ -35,6 +37,7 @@ import {
 } from '@/components/ui/sidebar';
 import { usePermisos } from '@/composables/usePermisos';
 import { dashboard, miExpediente, planeacionRh } from '@/routes';
+import { index as indexAppReleases } from '@/routes/administracion/app-releases';
 import { index as indexDepartamentos } from '@/routes/administracion/departamentos';
 import { index as indexEmpresas } from '@/routes/administracion/empresas';
 import { index as indexJerarquiaPuestos } from '@/routes/administracion/jerarquia-puestos';
@@ -47,6 +50,7 @@ import { index as indexPortal } from '@/routes/portal';
 import { reclutamiento as indexReclutamiento } from '@/routes/rh';
 import { index as indexAltas } from '@/routes/rh/altas';
 import { index as indexCandidatos } from '@/routes/rh/candidatos';
+import { index as indexCumpleanos } from '@/routes/rh/cumpleanos';
 import { index as indexExpedientes } from '@/routes/rh/expedientes';
 import { index as indexFormatos } from '@/routes/rh/formatos';
 import { index as indexIncorporacionInvitaciones } from '@/routes/rh/incorporacion/invitaciones';
@@ -193,6 +197,14 @@ const mainNavItems = computed<NavItem[]>(() => {
         });
     }
 
+    if (tienePermiso('rh.cumpleanos.ver')) {
+        items.push({
+            title: 'Cumpleaños',
+            href: indexCumpleanos(),
+            icon: Cake,
+        });
+    }
+
     items.push({
         title: 'Capacitación',
         href: capacitacionProximamente(),
@@ -263,6 +275,14 @@ const adminNavItems = computed<NavItem[]>(() => {
             title: 'Planeación RH',
             href: planeacionRh(),
             icon: Map,
+        });
+    }
+
+    if (tienePermiso('app_releases.ver')) {
+        items.push({
+            title: 'Versiones de app',
+            href: indexAppReleases(),
+            icon: Smartphone,
         });
     }
 

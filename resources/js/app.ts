@@ -11,7 +11,13 @@ createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
     layout: (name) => {
         switch (true) {
+            // Paginas publicas (sin sesion): auth.user llega null desde
+            // HandleInertiaRequests, y AppLayout -> NavUser -> UserInfo lee
+            // user.avatar sin optional chaining, asi que envolverlas con
+            // AppLayout revienta el render para un visitante anonimo.
             case name.startsWith('AltaPublica/'):
+            case name.startsWith('Incorporacion/Qr'):
+            case name.startsWith('App/'):
                 return null;
             case name.startsWith('auth/'):
                 return AuthLayout;
