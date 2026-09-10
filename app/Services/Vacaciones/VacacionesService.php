@@ -5,9 +5,20 @@ namespace App\Services\Vacaciones;
 use App\Enums\EstadoSolicitudVacaciones;
 use App\Models\SolicitudVacaciones;
 use App\Models\User;
+use App\Notifications\Mobile\RhVacacionCreadaNotification;
+use App\Notifications\Mobile\VacacionActualizadaNotification;
+use App\Services\AlcanceOrganizacionalService;
+use App\Services\MobilePush\PushNotifier;
+use App\Services\RhMobile\ResponsableResolverService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Notification as NotificationFacade;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 /**
  * Calcula el saldo de vacaciones de un colaborador segun su antiguedad y la
@@ -15,10 +26,18 @@ use Illuminate\Validation\ValidationException;
  * "saldos" persistida: los dias generados se calculan a partir de
  * fecha_ingreso, y los usados/en solicitud se agregan desde
  * solicitudes_vacaciones — igual criterio de "vista calculada" que el
- * expediente digital.
+ * expediente digital. aprobar()/rechazar() son la unica fuente de esa
+ * transicion: tanto App\Http\Controllers\Rh\VacacionesController (web) como
+ * App\Http\Controllers\Api\V1\Rh\VacacionController (app movil) llaman
+ * aqui, nunca actualizan el modelo por su cuenta.
  */
 class VacacionesService
 {
+    public function __construct(
+        private readonly ResponsableResolverService $responsables,
+        private readonly PushNotifier $push,
+        private readonly AlcanceOrganizacionalService $alcance,
+    ) {}
     /**
      * @return array{
      *     antiguedad_anios: int,
@@ -107,11 +126,128 @@ class VacacionesService
             ]);
         }
 
-        return SolicitudVacaciones::create([
+        $solicitud = SolicitudVacaciones::create([
             ...$datos,
             'user_id' => $colaborador->id,
             'estado' => EstadoSolicitudVacaciones::Pendiente,
         ]);
+
+        $this->notificarSinFallar(function () use ($solicitud, $colaborador): void {
+            $responsables = $this->responsables->paraColaborador($colaborador, 'rh.vacaciones.aprobar');
+
+            NotificationFacade::send($responsables, new RhVacacionCreadaNotification($solicitud));
+            $this->push->aUsuarios($responsables, 'rh_vacaciones', $solicitud->id, 'Nueva solicitud de vacaciones', 'Un colaborador solicitó vacaciones.');
+        });
+
+        return $solicitud;
+    }
+
+    /**
+     * Aprueba/rechaza una solicitud de vacaciones: unica fuente de esta
+     * transicion (ver docstring de la clase). Notifica al colaborador y
+     * encola push (type=vacaciones), sin poder tumbar la aprobacion/rechazo
+     * si el envio falla.
+     */
+    public function aprobar(SolicitudVacaciones $solicitud, User $actor): SolicitudVacaciones
+    {
+        return $this->cambiarEstado($solicitud, $actor, EstadoSolicitudVacaciones::Aprobada);
+    }
+
+    public function rechazar(SolicitudVacaciones $solicitud, User $actor, string $motivoRechazo): SolicitudVacaciones
+    {
+        return $this->cambiarEstado($solicitud, $actor, EstadoSolicitudVacaciones::Rechazada, $motivoRechazo);
+    }
+
+    private function cambiarEstado(SolicitudVacaciones $solicitud, User $actor, EstadoSolicitudVacaciones $nuevoEstado, ?string $motivoRechazo = null): SolicitudVacaciones
+    {
+        return DB::transaction(function () use ($solicitud, $actor, $nuevoEstado, $motivoRechazo): SolicitudVacaciones {
+            $datos = [
+                'estado' => $nuevoEstado,
+                'revisado_por' => $actor->id,
+                'revisado_en' => now(),
+            ];
+
+            if ($motivoRechazo !== null) {
+                $datos['motivo_rechazo'] = $motivoRechazo;
+            }
+
+            $solicitud->update($datos);
+            $solicitud->refresh();
+
+            $this->notificarSinFallar(function () use ($solicitud): void {
+                $solicitud->loadMissing('usuario');
+                NotificationFacade::send($solicitud->usuario, new VacacionActualizadaNotification($solicitud));
+                $this->push->aUsuario($solicitud->usuario, 'vacaciones', $solicitud->id, 'Actualización de tus vacaciones', "Tu solicitud de vacaciones ahora está: {$solicitud->estado->etiqueta()}.");
+            });
+
+            return $solicitud;
+        });
+    }
+
+    /**
+     * Un fallo al notificar nunca debe deshacer la accion principal, que ya
+     * quedo persistida antes de llamar aqui: solo se registra en el log.
+     */
+    private function notificarSinFallar(callable $callback): void
+    {
+        try {
+            $callback();
+        } catch (Throwable $e) {
+            Log::warning('VacacionesService: fallo al notificar', ['message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Listado de revision de RH/gerencia, acotado por alcance organizacional
+     * y filtros opcionales. Usado tanto por el Portal RH web
+     * (App\Http\Controllers\Rh\VacacionesController) como por la app movil
+     * (App\Http\Controllers\Api\V1\Rh\VacacionController) — misma logica.
+     *
+     * @param  array<string, mixed>  $filtros  estado, empresa_id, sucursal_id, revisado_por, busqueda, fecha_inicio, fecha_fin
+     * @return LengthAwarePaginator<int, SolicitudVacaciones>
+     */
+    public function paraRevision(User $revisor, array $filtros = []): LengthAwarePaginator
+    {
+        return $this->queryRevision($revisor, $filtros)->orderByDesc('created_at')->paginate(15)->withQueryString();
+    }
+
+    /**
+     * Mismo filtrado que paraRevision(), sin paginar (usado por las
+     * exportaciones Excel/PDF).
+     *
+     * @param  array<string, mixed>  $filtros
+     * @return Collection<int, SolicitudVacaciones>
+     */
+    public function paraExportar(User $revisor, array $filtros = []): Collection
+    {
+        return $this->queryRevision($revisor, $filtros)->orderByDesc('created_at')->get();
+    }
+
+    /**
+     * @param  array<string, mixed>  $filtros
+     * @return Builder<SolicitudVacaciones>
+     */
+    private function queryRevision(User $revisor, array $filtros = []): Builder
+    {
+        $idsPermitidos = $this->alcance->limitarUsuariosPorAlcance(User::query(), $revisor)->pluck('id');
+
+        return SolicitudVacaciones::query()
+            ->with(['usuario:id,name,apellidos,numero_empleado,sucursal_principal_id', 'usuario.sucursalPrincipal:id,nombre', 'revisadoPor:id,name,apellidos'])
+            ->when(
+                ! $this->alcance->tieneAlcanceGlobal($revisor),
+                fn (Builder $query) => $query->whereIn('user_id', $idsPermitidos),
+            )
+            ->when($filtros['empresa_id'] ?? null, fn (Builder $q, $v) => $q->whereHas('usuario.sucursalPrincipal', fn ($sub) => $sub->where('empresa_id', $v)))
+            ->when($filtros['sucursal_id'] ?? null, fn (Builder $q, $v) => $q->whereHas('usuario', fn ($sub) => $sub->where('sucursal_principal_id', $v)))
+            ->when($filtros['revisado_por'] ?? null, fn (Builder $q, $v) => $q->where('revisado_por', $v))
+            ->when($filtros['estado'] ?? null, fn (Builder $q, $v) => $q->where('estado', $v))
+            ->when($filtros['fecha_inicio'] ?? null, fn (Builder $q, $v) => $q->whereDate('fecha_inicio', '>=', $v))
+            ->when($filtros['fecha_fin'] ?? null, fn (Builder $q, $v) => $q->whereDate('fecha_fin', '<=', $v))
+            ->when($filtros['busqueda'] ?? null, function (Builder $q, string $busqueda): void {
+                $q->whereHas('usuario', function ($sub) use ($busqueda): void {
+                    $sub->where('name', 'like', "%{$busqueda}%")->orWhere('apellidos', 'like', "%{$busqueda}%");
+                });
+            });
     }
 
     /**

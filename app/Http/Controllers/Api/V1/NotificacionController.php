@@ -22,4 +22,17 @@ class NotificacionController extends Controller
 
         return response()->json(['estado' => 'ok']);
     }
+
+    public function marcarTodasLeidas(Request $request): JsonResponse
+    {
+        $usuario = $request->user();
+        $actualizadas = $usuario->unreadNotifications()->count();
+
+        $this->notificaciones->marcarTodasLeidas($usuario);
+
+        return response()->json([
+            'message' => 'Notificaciones marcadas como leídas',
+            'updated' => $actualizadas,
+        ]);
+    }
 }

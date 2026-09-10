@@ -58,6 +58,13 @@ class NotificacionesService
             // la muestra tal cual (ver resources/js/components/NotificationBell.vue).
             'creada_en' => $notificacion->created_at?->diffForHumans(),
             'creada_en_iso' => $notificacion->created_at?->toIso8601String(),
+            // Campos para la app movil (docs/API_MOVIL.md): data.type/resource_id
+            // en vez de una URL web, para que la app navegue nativamente.
+            'created_at' => $notificacion->created_at?->toIso8601String(),
+            'data' => [
+                'type' => $notificacion->data['type'] ?? $notificacion->data['tipo'] ?? null,
+                'resource_id' => $notificacion->data['resource_id'] ?? null,
+            ],
         ];
     }
 

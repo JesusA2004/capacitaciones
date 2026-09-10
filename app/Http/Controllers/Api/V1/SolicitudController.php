@@ -48,4 +48,36 @@ class SolicitudController extends Controller
 
         return response()->json(new SolicitudInternaResource($solicitud));
     }
+
+    /**
+     * Catalogo de tipos de solicitud + reglas de formulario, para que la app
+     * construya la pantalla de "nueva solicitud" sin hardcodear nada. Ver
+     * seccion 14 del encargo movil.
+     */
+    public function configuracion(): JsonResponse
+    {
+        return response()->json(['tipos' => $this->solicitudes->tiposConFormulario()]);
+    }
+
+    /**
+     * Adjunta un archivo a una solicitud propia. Nunca a la de otro
+     * colaborador (403), ni PDF/JPG/PNG fuera del limite configurado.
+     */
+    public function adjuntos(Request $request, SolicitudInterna $solicitud): JsonResponse
+    {
+        abort_unless($solicitud->user_id === $request->user()->id, 403);
+
+        $datos = $request->validate([
+            'archivo' => [
+                'required',
+                'file',
+                'max:'.(config('expedientes.max_upload_mb') * 1024),
+                'mimes:'.implode(',', config('expedientes.extensiones_permitidas')),
+            ],
+        ]);
+
+        $this->solicitudes->adjuntarDocumento($solicitud, $datos['archivo'], $request->user());
+
+        return response()->json(['message' => 'Adjunto agregado correctamente.'], 201);
+    }
 }

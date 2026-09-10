@@ -204,6 +204,17 @@ class User extends Authenticatable
     }
 
     /**
+     * Dispositivos moviles registrados (push tokens), incluyendo los
+     * revocados: filtrar con activos() donde solo interese el push vigente.
+     *
+     * @return HasMany<MobileDevice, $this>
+     */
+    public function mobileDevices(): HasMany
+    {
+        return $this->hasMany(MobileDevice::class, 'user_id');
+    }
+
+    /**
      * @return BelongsTo<Departamento, $this>
      */
     public function departamento(): BelongsTo

@@ -7,11 +7,20 @@ use App\Enums\EstadoUsuario;
 use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
 use App\Models\User;
+use App\Notifications\Mobile\DocumentoActualizadoNotification;
+use App\Notifications\Mobile\IncorporacionDecididaNotification;
+use App\Notifications\Mobile\RhDocumentoPendienteNotification;
+use App\Notifications\Mobile\RhIncorporacionCompletaNotification;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Expedientes\ExpedienteService;
+use App\Services\MobilePush\PushNotifier;
+use App\Services\RhMobile\ResponsableResolverService;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Notification as NotificationFacade;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
+use Throwable;
 
 /**
  * Unica fuente de las reglas de negocio de "incorporacion documental" de la
@@ -52,6 +61,8 @@ class IncorporacionService
     public function __construct(
         private readonly ExpedienteService $expediente,
         private readonly DocumentoStorageService $storage,
+        private readonly ResponsableResolverService $responsables,
+        private readonly PushNotifier $push,
     ) {}
 
     /**
@@ -248,7 +259,16 @@ class IncorporacionService
             throw new RuntimeException('Este documento ya fue subido y esta en revision o aprobado. Solicita un cambio si necesitas modificarlo.');
         }
 
-        return $this->storage->subirVersion($colaborador, $tipo, $archivo, $subidoPorId);
+        $documento = $this->storage->subirVersion($colaborador, $tipo, $archivo, $subidoPorId);
+
+        $this->notificarSinFallar(function () use ($documento, $colaborador): void {
+            $responsables = $this->responsables->paraColaborador($colaborador, 'rh.documentos.ver');
+
+            NotificationFacade::send($responsables, new RhDocumentoPendienteNotification($documento));
+            $this->push->aUsuarios($responsables, 'rh_documento', $documento->id, 'Documento por revisar', 'Un colaborador subió un documento.');
+        });
+
+        return $documento;
     }
 
     /**
@@ -285,6 +305,14 @@ class IncorporacionService
             'comments' => $comentario,
             'rejection_reason' => null,
         ]);
+
+        $this->notificarSinFallar(function () use ($documento): void {
+            $documento->loadMissing('usuario');
+            NotificationFacade::send($documento->usuario, new DocumentoActualizadoNotification($documento));
+            $this->push->aUsuario($documento->usuario, 'documento', $documento->id, 'Documento aprobado', 'Uno de tus documentos fue aprobado.');
+
+            $this->avisarSiIncorporacionQuedoCompleta($documento->usuario);
+        });
     }
 
     public function rechazarDocumento(EmployeeDocument $documento, User $revisor, string $motivo): void
@@ -295,6 +323,35 @@ class IncorporacionService
             'reviewed_at' => now(),
             'rejection_reason' => $motivo,
         ]);
+
+        $this->notificarSinFallar(function () use ($documento): void {
+            $documento->loadMissing('usuario');
+            NotificationFacade::send($documento->usuario, new DocumentoActualizadoNotification($documento));
+            $this->push->aUsuario($documento->usuario, 'documento', $documento->id, 'Documento rechazado', 'Uno de tus documentos fue rechazado.');
+        });
+    }
+
+    /**
+     * Tras aprobar un documento, si el colaborador esta en_incorporacion y
+     * ese era el ultimo documento obligatorio pendiente, la incorporacion
+     * queda "completo": avisa a RH que ya puede tomar la decision final
+     * (aprobarIncorporacion/rechazarIncorporacion). Ver seccion 15 y 16 del
+     * encargo movil.
+     */
+    private function avisarSiIncorporacionQuedoCompleta(User $colaborador): void
+    {
+        if ($colaborador->estatus !== EstadoUsuario::EnIncorporacion || $colaborador->incorporacion_decision !== null) {
+            return;
+        }
+
+        if ($this->estado($colaborador) !== 'completo') {
+            return;
+        }
+
+        $responsables = $this->responsables->paraColaborador($colaborador, 'rh.incorporaciones.ver');
+
+        NotificationFacade::send($responsables, new RhIncorporacionCompletaNotification($colaborador));
+        $this->push->aUsuarios($responsables, 'rh_incorporacion', $colaborador->id, 'Incorporación lista para revisión final', 'Un colaborador terminó de subir sus documentos.');
     }
 
     /**
@@ -341,6 +398,11 @@ class IncorporacionService
             'incorporacion_decidida_en' => now(),
             'incorporacion_motivo_rechazo' => null,
         ]);
+
+        $this->notificarSinFallar(function () use ($colaborador): void {
+            NotificationFacade::send($colaborador, new IncorporacionDecididaNotification(true));
+            $this->push->aUsuario($colaborador, 'incorporacion', $colaborador->id, 'Incorporación aprobada', 'Tu incorporación fue aprobada.');
+        });
     }
 
     public function rechazarIncorporacion(User $colaborador, User $revisor, string $motivo): void
@@ -351,10 +413,30 @@ class IncorporacionService
             'incorporacion_decidida_en' => now(),
             'incorporacion_motivo_rechazo' => $motivo,
         ]);
+
+        $this->notificarSinFallar(function () use ($colaborador): void {
+            NotificationFacade::send($colaborador, new IncorporacionDecididaNotification(false));
+            $this->push->aUsuario($colaborador, 'incorporacion', $colaborador->id, 'Incorporación rechazada', 'Tu incorporación fue rechazada.');
+        });
     }
 
     private function documentoVigente(User $colaborador, DocumentType $tipo): ?EmployeeDocument
     {
         return $this->expediente->documentosVigentes($colaborador)->get($tipo->id);
+    }
+
+    /**
+     * Un fallo al notificar (base de datos de notificaciones o encolar
+     * push) nunca debe deshacer la accion principal, que ya quedo
+     * persistida antes de llamar aqui: solo se registra en el log. Ver
+     * seccion 4 y 16 del encargo movil.
+     */
+    private function notificarSinFallar(callable $callback): void
+    {
+        try {
+            $callback();
+        } catch (Throwable $e) {
+            Log::warning('IncorporacionService: fallo al notificar', ['message' => $e->getMessage()]);
+        }
     }
 }

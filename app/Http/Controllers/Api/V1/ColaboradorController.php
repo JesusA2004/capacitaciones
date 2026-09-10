@@ -7,10 +7,12 @@ use App\Http\Requests\Solicitudes\StoreSolicitudInternaRequest;
 use App\Http\Resources\Api\V1\SolicitudInternaResource;
 use App\Services\Colaboradores\ColaboradorPerfilService;
 use App\Services\Colaboradores\NotificacionesService;
+use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Solicitudes\SolicitudesService;
 use App\Services\Vacaciones\VacacionesService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Datos propios del colaborador para la app móvil. Toda la lógica vive en
@@ -26,16 +28,42 @@ class ColaboradorController extends Controller
         private readonly SolicitudesService $solicitudes,
         private readonly NotificacionesService $notificaciones,
         private readonly VacacionesService $vacaciones,
+        private readonly DocumentoStorageService $storage,
     ) {}
 
     public function perfil(Request $request): JsonResponse
     {
-        return response()->json($this->perfil->perfil($request->user()));
+        $datos = $this->perfil->perfil($request->user());
+        // La API movil usa Bearer token (sin sesion web): la foto se sirve
+        // por una ruta propia autenticada con Sanctum, nunca la ruta web
+        // protegida por sesion que usa el resto del portal. Ver foto().
+        $datos['foto_url'] = $request->user()->foto_path !== null ? route('api.v1.colaborador.foto') : null;
+
+        return response()->json($datos);
+    }
+
+    /**
+     * Sirve la foto de perfil del propio colaborador autenticado en
+     * streaming: nunca expone `foto_path` (ruta fisica en el disco NAS) al
+     * cliente, solo el binario. Ver seccion 13 del encargo movil.
+     */
+    public function foto(Request $request): StreamedResponse
+    {
+        $usuario = $request->user();
+        abort_unless($usuario->foto_path !== null, 404);
+
+        return $this->storage->respuesta($usuario->foto_path, [
+            'Content-Type' => 'image/jpeg',
+            'Content-Disposition' => 'inline; filename="foto.jpg"',
+        ]);
     }
 
     public function dashboard(Request $request): JsonResponse
     {
-        return response()->json($this->perfil->dashboard($request->user()));
+        $datos = $this->perfil->dashboard($request->user());
+        $datos['perfil']['foto_url'] = $request->user()->foto_path !== null ? route('api.v1.colaborador.foto') : null;
+
+        return response()->json($datos);
     }
 
     public function vacaciones(Request $request): JsonResponse

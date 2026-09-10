@@ -144,6 +144,52 @@ class RolesYPermisosSeeder extends Seeder
         'rh.incorporacion.invitaciones.regenerar',
         'rh.incorporacion.invitaciones.revocar',
         'rh.incorporacion.invitaciones.qr.descargar',
+
+        // --- Backend movil v5 (docs/BACKEND_MOBILE_V5.md) ---
+        // Mobile / app config: sin gate adicional real en el controlador
+        // (basta auth:sanctum o la ruta es publica), se catalogan para
+        // futura administracion granular desde Administracion > Roles.
+        'mobile.bootstrap.ver',
+        'app.config.ver',
+        // Dispositivos (push tokens): basta auth:sanctum, un usuario siempre
+        // administra sus propios dispositivos.
+        'dispositivos.push_token.registrar',
+        'dispositivos.push_token.revocar',
+        // RH: dashboard y bandeja unificada movil.
+        'rh.mobile.dashboard.ver',
+        'rh.pendientes.ver',
+        // RH: solicitudes internas desde la app.
+        'rh.solicitudes.ver',
+        'rh.solicitudes.detalle',
+        'rh.solicitudes.aprobar',
+        'rh.solicitudes.rechazar',
+        'rh.solicitudes.correccion',
+        // RH: vacaciones desde la app.
+        'rh.vacaciones.ver',
+        'rh.vacaciones.detalle',
+        'rh.vacaciones.aprobar',
+        'rh.vacaciones.rechazar',
+        // RH: documentos de expediente desde la app (bandeja directa,
+        // distinta de rh.expedientes.documentos.* que navega por colaborador).
+        'rh.documentos.ver',
+        'rh.documentos.detalle',
+        'rh.documentos.ver_archivo',
+        'rh.documentos.aprobar',
+        'rh.documentos.rechazar',
+        // RH: incorporaciones desde la app (bandeja directa, mapea al mismo
+        // service que rh.expedientes.incorporacion.*).
+        'rh.incorporaciones.ver',
+        'rh.incorporaciones.detalle',
+        'rh.incorporaciones.aprobar',
+        'rh.incorporaciones.rechazar',
+        // RH: directorio de colaboradores (datos basicos, no el expediente).
+        'rh.colaboradores.ver',
+        'rh.colaboradores.detalle',
+        // Notificaciones.
+        'notificaciones.leer_todas',
+        // Solicitudes: configuracion de formulario y adjuntos (propios).
+        'solicitudes.configuracion.ver',
+        'solicitudes.adjuntos.subir',
     ];
 
     /**
@@ -204,6 +250,17 @@ class RolesYPermisosSeeder extends Seeder
             'rh.incorporacion.invitaciones.ver', 'rh.incorporacion.invitaciones.crear',
             'rh.incorporacion.invitaciones.regenerar', 'rh.incorporacion.invitaciones.revocar',
             'rh.incorporacion.invitaciones.qr.descargar',
+            // Backend movil v5: RH mobile completo.
+            'mobile.bootstrap.ver', 'app.config.ver',
+            'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
+            'rh.mobile.dashboard.ver', 'rh.pendientes.ver',
+            'rh.solicitudes.ver', 'rh.solicitudes.detalle', 'rh.solicitudes.aprobar', 'rh.solicitudes.rechazar', 'rh.solicitudes.correccion',
+            'rh.vacaciones.ver', 'rh.vacaciones.detalle', 'rh.vacaciones.aprobar', 'rh.vacaciones.rechazar',
+            'rh.documentos.ver', 'rh.documentos.detalle', 'rh.documentos.ver_archivo', 'rh.documentos.aprobar', 'rh.documentos.rechazar',
+            'rh.incorporaciones.ver', 'rh.incorporaciones.detalle', 'rh.incorporaciones.aprobar', 'rh.incorporaciones.rechazar',
+            'rh.colaboradores.ver', 'rh.colaboradores.detalle',
+            'notificaciones.leer_todas',
+            'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
         ],
 
         // Apoyo operativo de RH: puede capturar/revisar pero no aprobar
@@ -222,6 +279,17 @@ class RolesYPermisosSeeder extends Seeder
             'plantillas.ver', 'plantillas.generar',
             'rh.expedientes.ver', 'rh.expedientes.detalle', 'rh.expedientes.documentos.ver',
             'rh.incorporacion.invitaciones.ver', 'rh.incorporacion.invitaciones.crear', 'rh.incorporacion.invitaciones.qr.descargar',
+            // Backend movil v5: ve pendientes/documentos/incorporaciones, no aprueba decisiones finales.
+            'mobile.bootstrap.ver', 'app.config.ver',
+            'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
+            'rh.mobile.dashboard.ver', 'rh.pendientes.ver',
+            'rh.solicitudes.ver', 'rh.solicitudes.detalle',
+            'rh.vacaciones.ver', 'rh.vacaciones.detalle',
+            'rh.documentos.ver', 'rh.documentos.detalle', 'rh.documentos.ver_archivo',
+            'rh.incorporaciones.ver', 'rh.incorporaciones.detalle',
+            'rh.colaboradores.ver', 'rh.colaboradores.detalle',
+            'notificaciones.leer_todas',
+            'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
         ],
 
         'gerente_sucursal' => [
@@ -238,12 +306,23 @@ class RolesYPermisosSeeder extends Seeder
             'vacantes.ver', 'vacantes.ver_sucursal', 'vacantes.crear',
             'candidatos.ver', 'candidatos.ver_sucursal', 'candidatos.aprobar', 'candidatos.rechazar',
             'altas.ver', 'altas.revisar', 'altas.aprobar',
+            // Backend movil v5: aprueba solicitudes/vacaciones de su sucursal desde la app.
+            'mobile.bootstrap.ver', 'app.config.ver',
+            'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
+            'rh.mobile.dashboard.ver', 'rh.pendientes.ver',
+            'rh.solicitudes.ver', 'rh.solicitudes.detalle', 'rh.solicitudes.aprobar', 'rh.solicitudes.rechazar', 'rh.solicitudes.correccion',
+            'rh.vacaciones.ver', 'rh.vacaciones.detalle', 'rh.vacaciones.aprobar', 'rh.vacaciones.rechazar',
+            'notificaciones.leer_todas',
+            'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
         ],
         'supervisor' => [
             'dashboard.sucursal.ver',
             'usuarios.ver',
             'asistencias.ver',
             'reportes.sucursal',
+            'mobile.bootstrap.ver', 'app.config.ver',
+            'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
+            'notificaciones.leer_todas', 'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
         ],
 
         // --- Roles ampliados (jerarquía comercial/regional, Mr. Lana People Fase 1) ---
@@ -258,6 +337,14 @@ class RolesYPermisosSeeder extends Seeder
             'reportes_rh.ver', 'reportes_rh.globales', 'reportes_rh.exportar',
             'vacantes.ver', 'vacantes.ver_todos',
             'candidatos.ver', 'candidatos.ver_todos',
+            // Backend movil v5: solo lectura, sin autoridad de aprobacion (igual criterio que en web).
+            'mobile.bootstrap.ver', 'app.config.ver',
+            'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
+            'rh.mobile.dashboard.ver', 'rh.pendientes.ver',
+            'rh.solicitudes.ver', 'rh.solicitudes.detalle',
+            'rh.vacaciones.ver', 'rh.vacaciones.detalle',
+            'rh.colaboradores.ver', 'rh.colaboradores.detalle',
+            'notificaciones.leer_todas',
         ],
 
         // Ve y administra varias sucursales de su región (sucursal principal +
@@ -275,6 +362,13 @@ class RolesYPermisosSeeder extends Seeder
             'reportes_rh.ver', 'reportes_rh.sucursal',
             'vacantes.ver', 'vacantes.ver_sucursal', 'vacantes.crear',
             'candidatos.ver', 'candidatos.ver_sucursal', 'candidatos.aprobar', 'candidatos.rechazar',
+            'mobile.bootstrap.ver', 'app.config.ver',
+            'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
+            'rh.mobile.dashboard.ver', 'rh.pendientes.ver',
+            'rh.solicitudes.ver', 'rh.solicitudes.detalle', 'rh.solicitudes.aprobar', 'rh.solicitudes.rechazar', 'rh.solicitudes.correccion',
+            'rh.vacaciones.ver', 'rh.vacaciones.detalle', 'rh.vacaciones.aprobar', 'rh.vacaciones.rechazar',
+            'notificaciones.leer_todas',
+            'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
         ],
 
         // Administra su propia sucursal (mismo alcance que gerente_sucursal,
@@ -291,6 +385,13 @@ class RolesYPermisosSeeder extends Seeder
             'reportes_rh.ver', 'reportes_rh.sucursal',
             'vacantes.ver', 'vacantes.ver_sucursal', 'vacantes.crear',
             'candidatos.ver', 'candidatos.ver_sucursal', 'candidatos.aprobar', 'candidatos.rechazar',
+            'mobile.bootstrap.ver', 'app.config.ver',
+            'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
+            'rh.mobile.dashboard.ver', 'rh.pendientes.ver',
+            'rh.solicitudes.ver', 'rh.solicitudes.detalle', 'rh.solicitudes.aprobar', 'rh.solicitudes.rechazar', 'rh.solicitudes.correccion',
+            'rh.vacaciones.ver', 'rh.vacaciones.detalle', 'rh.vacaciones.aprobar', 'rh.vacaciones.rechazar',
+            'notificaciones.leer_todas',
+            'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
         ],
 
         // Puede apoyar/cubrir al gerente de su sucursal según la jerarquía de
@@ -306,6 +407,13 @@ class RolesYPermisosSeeder extends Seeder
             'reportes_rh.ver', 'reportes_rh.sucursal',
             'vacantes.ver', 'vacantes.ver_sucursal',
             'candidatos.ver', 'candidatos.ver_sucursal',
+            'mobile.bootstrap.ver', 'app.config.ver',
+            'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
+            'rh.mobile.dashboard.ver', 'rh.pendientes.ver',
+            'rh.solicitudes.ver', 'rh.solicitudes.detalle', 'rh.solicitudes.aprobar', 'rh.solicitudes.rechazar', 'rh.solicitudes.correccion',
+            'rh.vacaciones.ver', 'rh.vacaciones.detalle', 'rh.vacaciones.aprobar', 'rh.vacaciones.rechazar',
+            'notificaciones.leer_todas',
+            'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
         ],
 
         // Apoyo administrativo regional: ve procesos (expedientes, documentos,
@@ -319,6 +427,15 @@ class RolesYPermisosSeeder extends Seeder
             'vacaciones.ver',
             'solicitudes.ver', 'solicitudes.revisar',
             'reportes_rh.ver', 'reportes_rh.sucursal',
+            // Backend movil v5: ve/revisa desde la app, no aprueba decisiones finales.
+            'mobile.bootstrap.ver', 'app.config.ver',
+            'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
+            'rh.mobile.dashboard.ver', 'rh.pendientes.ver',
+            'rh.solicitudes.ver', 'rh.solicitudes.detalle',
+            'rh.vacaciones.ver', 'rh.vacaciones.detalle',
+            'rh.documentos.ver', 'rh.documentos.detalle', 'rh.documentos.ver_archivo',
+            'notificaciones.leer_todas',
+            'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
         ],
 
         // Mismo catálogo que coordinadora_regional, acotado a su propia
@@ -332,6 +449,14 @@ class RolesYPermisosSeeder extends Seeder
             'vacaciones.ver',
             'solicitudes.ver', 'solicitudes.revisar',
             'reportes_rh.ver', 'reportes_rh.sucursal',
+            'mobile.bootstrap.ver', 'app.config.ver',
+            'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
+            'rh.mobile.dashboard.ver', 'rh.pendientes.ver',
+            'rh.solicitudes.ver', 'rh.solicitudes.detalle',
+            'rh.vacaciones.ver', 'rh.vacaciones.detalle',
+            'rh.documentos.ver', 'rh.documentos.detalle', 'rh.documentos.ver_archivo',
+            'notificaciones.leer_todas',
+            'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
         ],
 
         // Ve y aprueba vacaciones/solicitudes de sus subordinados directos
@@ -348,6 +473,13 @@ class RolesYPermisosSeeder extends Seeder
             'documentos.ver',
             'vacaciones.ver', 'vacaciones.solicitar', 'vacaciones.aprobar', 'vacaciones.rechazar',
             'solicitudes.ver', 'solicitudes.revisar', 'solicitudes.aprobar',
+            'mobile.bootstrap.ver', 'app.config.ver',
+            'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
+            'rh.mobile.dashboard.ver', 'rh.pendientes.ver',
+            'rh.solicitudes.ver', 'rh.solicitudes.detalle', 'rh.solicitudes.aprobar', 'rh.solicitudes.rechazar', 'rh.solicitudes.correccion',
+            'rh.vacaciones.ver', 'rh.vacaciones.detalle', 'rh.vacaciones.aprobar', 'rh.vacaciones.rechazar',
+            'notificaciones.leer_todas',
+            'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
         ],
 
         'colaborador' => [
@@ -356,6 +488,11 @@ class RolesYPermisosSeeder extends Seeder
             'vacaciones.ver', 'vacaciones.solicitar',
             'solicitudes.ver', 'solicitudes.crear',
             'colaborador.incorporacion.ver', 'colaborador.incorporacion.documentos.subir', 'colaborador.incorporacion.documentos.solicitar-cambio',
+            // Backend movil v5: cualquier colaborador usa el bootstrap/config/dispositivos/notificaciones/solicitudes de la app.
+            'mobile.bootstrap.ver', 'app.config.ver',
+            'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
+            'notificaciones.leer_todas',
+            'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
         ],
         'auditor' => [
             'dashboard.global.ver',
@@ -372,6 +509,16 @@ class RolesYPermisosSeeder extends Seeder
             'reportes_rh.ver', 'reportes_rh.globales', 'reportes_rh.sucursal',
             'vacantes.ver', 'vacantes.ver_todos',
             'candidatos.ver', 'candidatos.ver_todos',
+            // Backend movil v5: lectura global, sin aprobar decisiones.
+            'mobile.bootstrap.ver', 'app.config.ver',
+            'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
+            'rh.mobile.dashboard.ver', 'rh.pendientes.ver',
+            'rh.solicitudes.ver', 'rh.solicitudes.detalle',
+            'rh.vacaciones.ver', 'rh.vacaciones.detalle',
+            'rh.documentos.ver', 'rh.documentos.detalle', 'rh.documentos.ver_archivo',
+            'rh.incorporaciones.ver', 'rh.incorporaciones.detalle',
+            'rh.colaboradores.ver', 'rh.colaboradores.detalle',
+            'notificaciones.leer_todas',
         ],
     ];
 

@@ -1,33 +1,45 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AppConfigController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\ColaboradorController;
+use App\Http\Controllers\Api\V1\DispositivoController;
 use App\Http\Controllers\Api\V1\IncorporacionController;
 use App\Http\Controllers\Api\V1\IncorporacionInvitacionController;
+use App\Http\Controllers\Api\V1\MobileBootstrapController;
 use App\Http\Controllers\Api\V1\NotificacionController;
+use App\Http\Controllers\Api\V1\Rh\ColaboradorController as RhColaboradorController;
+use App\Http\Controllers\Api\V1\Rh\DashboardController as RhDashboardController;
+use App\Http\Controllers\Api\V1\Rh\DocumentoController as RhDocumentoController;
 use App\Http\Controllers\Api\V1\Rh\ExpedienteController as RhExpedienteController;
+use App\Http\Controllers\Api\V1\Rh\IncorporacionController as RhIncorporacionController;
+use App\Http\Controllers\Api\V1\Rh\PendienteController as RhPendienteController;
+use App\Http\Controllers\Api\V1\Rh\SolicitudController as RhSolicitudController;
+use App\Http\Controllers\Api\V1\Rh\VacacionController as RhVacacionController;
 use App\Http\Controllers\Api\V1\SolicitudController;
 use App\Http\Controllers\Api\V1\VacacionesController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
-| API v1 — app móvil de colaboradores
+| API v1 — app móvil (colaboradores, RH, aprobadores)
 |--------------------------------------------------------------------------
 |
 | Autenticación por token personal (Laravel Sanctum), sin cookies ni CSRF:
 | cada dispositivo obtiene su propio token en /api/v1/login y lo manda como
 | "Authorization: Bearer <token>" en cada request subsecuente. Ver
-| docs/API_MOVIL.md.
-|
-| Fase 1: solo colaborador propio (perfil, vacaciones, solicitudes,
-| notificaciones). RH/reclutamiento/reportes quedan solo en la web por
-| ahora (ver docs/API_MOVIL.md, "Fuera de alcance de Fase 1").
+| docs/API_MOVIL.md y docs/RH_MOBILE_API.md.
 |
 */
 
 Route::prefix('v1')->name('api.v1.')->group(function () {
     Route::post('login', [AuthController::class, 'login'])->name('login');
+
+    // Publica (sin auth:sanctum): la app la consulta antes de iniciar sesion
+    // para saber si debe forzar actualizacion o mostrar mantenimiento.
+    Route::get('app/config', AppConfigController::class)->name('app.config');
 
     // Publico (sin auth:sanctum, sin sesion web): el token del QR es la
     // unica puerta de entrada, validado en cada accion. Un colaborador no
@@ -50,8 +62,28 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::post('logout', [AuthController::class, 'logout'])->name('logout');
         Route::get('me', [AuthController::class, 'me'])->name('me');
 
+        // Contexto inicial de la app tras autenticarse: quien es, que puede
+        // hacer (capabilities/features) y contadores. Ver
+        // App\Services\Mobile\MobileBootstrapService.
+        Route::get('mobile/bootstrap', MobileBootstrapController::class)->name('mobile.bootstrap');
+
+        // Autorizacion de canales privados de Reverb (WebSocket) para
+        // clientes con Bearer token: equivalente movil de /broadcasting/auth
+        // (que usa sesion web). La app aun no la consume (fuera de alcance:
+        // "NO tocar la app movil"), pero queda lista — mismo canal
+        // "App.Models.User.{id}" que usa el portal web (ver
+        // routes/channels.php y docs/PUSH_NOTIFICATIONS.md).
+        Route::post('broadcasting/auth', fn (Request $request) => Broadcast::auth($request))
+            ->name('broadcasting.auth');
+
+        Route::prefix('dispositivos')->name('dispositivos.')->group(function () {
+            Route::post('push-token', [DispositivoController::class, 'registrarPushToken'])->name('push-token.registrar');
+            Route::delete('push-token', [DispositivoController::class, 'revocarPushToken'])->name('push-token.revocar');
+        });
+
         Route::prefix('colaborador')->name('colaborador.')->group(function () {
             Route::get('perfil', [ColaboradorController::class, 'perfil'])->name('perfil');
+            Route::get('foto', [ColaboradorController::class, 'foto'])->name('foto');
             Route::get('dashboard', [ColaboradorController::class, 'dashboard'])->name('dashboard');
             Route::get('vacaciones', [ColaboradorController::class, 'vacaciones'])->name('vacaciones');
             Route::get('solicitudes', [ColaboradorController::class, 'solicitudes'])->name('solicitudes.index');
@@ -79,18 +111,61 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::prefix('solicitudes')->name('solicitudes.')->group(function () {
             Route::get('/', [SolicitudController::class, 'index'])->name('index');
             Route::post('/', [SolicitudController::class, 'store'])->name('store');
+            Route::get('configuracion', [SolicitudController::class, 'configuracion'])->name('configuracion');
             Route::get('{solicitud}', [SolicitudController::class, 'show'])->name('show');
+            Route::post('{solicitud}/adjuntos', [SolicitudController::class, 'adjuntos'])->name('adjuntos');
         });
 
         Route::prefix('notificaciones')->name('notificaciones.')->group(function () {
             Route::get('/', [NotificacionController::class, 'index'])->name('index');
+            Route::post('leer-todas', [NotificacionController::class, 'marcarTodasLeidas'])->name('leer-todas');
             Route::post('{notificacion}/leer', [NotificacionController::class, 'marcarLeida'])->name('leer');
         });
 
-        // RH desde la app movil: expedientes completos, solo dentro del
-        // alcance organizacional y con permisos rh.expedientes.* (ver
-        // App\Http\Controllers\Api\V1\Rh\ExpedienteController).
+        // RH desde la app movil: expedientes completos, bandeja unificada,
+        // solicitudes/vacaciones/documentos/incorporaciones y directorio de
+        // colaboradores, siempre dentro del alcance organizacional y con
+        // permisos rh.* (ver App\Services\AlcanceOrganizacionalService y
+        // docs/RH_MOBILE_API.md).
         Route::prefix('rh')->name('rh.')->group(function () {
+            Route::get('dashboard', RhDashboardController::class)->name('dashboard');
+            Route::get('pendientes', [RhPendienteController::class, 'index'])->name('pendientes');
+
+            Route::prefix('solicitudes')->name('solicitudes.')->group(function () {
+                Route::get('/', [RhSolicitudController::class, 'index'])->name('index');
+                Route::get('{solicitud}', [RhSolicitudController::class, 'show'])->name('show');
+                Route::post('{solicitud}/aprobar', [RhSolicitudController::class, 'aprobar'])->name('aprobar');
+                Route::post('{solicitud}/rechazar', [RhSolicitudController::class, 'rechazar'])->name('rechazar');
+                Route::post('{solicitud}/correccion', [RhSolicitudController::class, 'correccion'])->name('correccion');
+            });
+
+            Route::prefix('vacaciones')->name('vacaciones.')->group(function () {
+                Route::get('/', [RhVacacionController::class, 'index'])->name('index');
+                Route::get('{vacacion}', [RhVacacionController::class, 'show'])->name('show');
+                Route::post('{vacacion}/aprobar', [RhVacacionController::class, 'aprobar'])->name('aprobar');
+                Route::post('{vacacion}/rechazar', [RhVacacionController::class, 'rechazar'])->name('rechazar');
+            });
+
+            Route::prefix('documentos')->name('documentos.')->group(function () {
+                Route::get('/', [RhDocumentoController::class, 'index'])->name('index');
+                Route::get('{documento}', [RhDocumentoController::class, 'show'])->name('show');
+                Route::get('{documento}/ver', [RhDocumentoController::class, 'ver'])->name('ver');
+                Route::post('{documento}/aprobar', [RhDocumentoController::class, 'aprobar'])->name('aprobar');
+                Route::post('{documento}/rechazar', [RhDocumentoController::class, 'rechazar'])->name('rechazar');
+            });
+
+            Route::prefix('incorporaciones')->name('incorporaciones.')->group(function () {
+                Route::get('/', [RhIncorporacionController::class, 'index'])->name('index');
+                Route::get('{colaborador}', [RhIncorporacionController::class, 'show'])->name('show');
+                Route::post('{colaborador}/aprobar', [RhIncorporacionController::class, 'aprobar'])->name('aprobar');
+                Route::post('{colaborador}/rechazar', [RhIncorporacionController::class, 'rechazar'])->name('rechazar');
+            });
+
+            Route::prefix('colaboradores')->name('colaboradores.')->group(function () {
+                Route::get('/', [RhColaboradorController::class, 'index'])->name('index');
+                Route::get('{colaborador}', [RhColaboradorController::class, 'show'])->name('show');
+            });
+
             Route::prefix('expedientes')->name('expedientes.')->group(function () {
                 Route::get('/', [RhExpedienteController::class, 'index'])->name('index');
                 Route::get('{colaborador}', [RhExpedienteController::class, 'show'])->name('show');

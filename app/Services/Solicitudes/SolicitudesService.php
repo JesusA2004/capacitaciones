@@ -6,18 +6,26 @@ use App\Enums\EstadoSolicitudInterna;
 use App\Enums\TipoSolicitudInterna;
 use App\Models\SolicitudInterna;
 use App\Models\User;
+use App\Notifications\Mobile\RhSolicitudCreadaNotification;
+use App\Notifications\Mobile\SolicitudActualizadaNotification;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\MobilePush\PushNotifier;
+use App\Services\RhMobile\ResponsableResolverService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Notification as NotificationFacade;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Unica fuente de logica de negocio de solicitudes internas. Los
  * controladores Inertia (App\Http\Controllers\Solicitudes,
  * App\Http\Controllers\Rh\SolicitudController) y los controladores API
- * (App\Http\Controllers\Api\V1\SolicitudController) llaman siempre a este
+ * (App\Http\Controllers\Api\V1\SolicitudController,
+ * App\Http\Controllers\Api\V1\Rh\SolicitudController) llaman siempre a este
  * servicio, nunca calculan nada por su cuenta (ver seccion 2 del encargo:
  * "no duplicar logica").
  */
@@ -26,6 +34,8 @@ class SolicitudesService
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly SolicitudDocumentoStorageService $storage,
+        private readonly ResponsableResolverService $responsables,
+        private readonly PushNotifier $push,
     ) {}
 
     /**
@@ -50,8 +60,30 @@ class SolicitudesService
             $this->registrarHistorial($solicitud, $solicitante, 'creada');
             $this->registrarHistorial($solicitud, $solicitante, 'enviada');
 
+            $this->notificarSinFallar(function () use ($solicitud, $solicitante): void {
+                $responsables = $this->responsables->paraColaborador($solicitante, 'rh.solicitudes.aprobar');
+
+                NotificationFacade::send($responsables, new RhSolicitudCreadaNotification($solicitud));
+                $this->push->aUsuarios($responsables, 'rh_solicitud', $solicitud->id, 'Nueva solicitud por revisar', 'Un colaborador envió una solicitud.');
+            });
+
             return $solicitud;
         });
+    }
+
+    /**
+     * Un fallo al notificar (base de datos de notificaciones o encolar
+     * push) nunca debe deshacer la accion principal, que ya quedo
+     * persistida antes de llamar aqui: solo se registra en el log. Ver
+     * seccion 4 y 16 del encargo movil.
+     */
+    private function notificarSinFallar(callable $callback): void
+    {
+        try {
+            $callback();
+        } catch (Throwable $e) {
+            Log::warning('SolicitudesService: fallo al notificar', ['message' => $e->getMessage()]);
+        }
     }
 
     private function generarFolio(): string
@@ -199,7 +231,17 @@ class SolicitudesService
 
             $this->registrarHistorial($solicitud, $actor, $nuevoEstado->value, $comentario);
 
-            return $solicitud->refresh();
+            $solicitud->refresh();
+
+            if (in_array($nuevoEstado, [EstadoSolicitudInterna::Aprobada, EstadoSolicitudInterna::Rechazada, EstadoSolicitudInterna::RequiereCorreccion], true)) {
+                $this->notificarSinFallar(function () use ($solicitud): void {
+                    $solicitud->loadMissing('usuario');
+                    NotificationFacade::send($solicitud->usuario, new SolicitudActualizadaNotification($solicitud));
+                    $this->push->aUsuario($solicitud->usuario, 'solicitud', $solicitud->id, 'Actualización de tu solicitud', "Tu solicitud ahora está: {$solicitud->estado->etiqueta()}.");
+                });
+            }
+
+            return $solicitud;
         });
     }
 
@@ -241,5 +283,43 @@ class SolicitudesService
             fn (TipoSolicitudInterna $tipo) => ['value' => $tipo->value, 'label' => $tipo->etiqueta()],
             TipoSolicitudInterna::cases(),
         );
+    }
+
+    /**
+     * Catalogo de tipos con las reglas de formulario que la app movil usa
+     * para construir el formulario de "nueva solicitud" sin hardcodear
+     * nada: que campos mostrar, si requiere rango de fechas, si admite
+     * adjuntos. Ver seccion 14 del encargo movil.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function tiposConFormulario(): array
+    {
+        return array_map(function (TipoSolicitudInterna $tipo): array {
+            $requiereFechas = $tipo->usaRangoFechas();
+
+            $campos = [
+                ['name' => 'motivo', 'type' => 'text', 'required' => true],
+                ['name' => 'observaciones', 'type' => 'text', 'required' => false],
+            ];
+
+            if ($requiereFechas) {
+                array_unshift(
+                    $campos,
+                    ['name' => 'fecha_inicio', 'type' => 'date', 'required' => true],
+                    ['name' => 'fecha_fin', 'type' => 'date', 'required' => true],
+                );
+            }
+
+            return [
+                'clave' => $tipo->value,
+                'nombre' => $tipo->etiqueta(),
+                'requiere_fechas' => $requiereFechas,
+                'requiere_horario' => false,
+                'requiere_motivo' => true,
+                'permite_adjuntos' => true,
+                'campos' => $campos,
+            ];
+        }, TipoSolicitudInterna::cases());
     }
 }

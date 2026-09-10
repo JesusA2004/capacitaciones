@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Rh;
 
-use App\Enums\EstadoSolicitudVacaciones;
 use App\Exports\ReporteRhExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Rh\RechazarSolicitudVacacionesRequest;
@@ -11,6 +10,7 @@ use App\Models\SolicitudVacaciones;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Vacaciones\VacacionesService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -24,7 +24,10 @@ class VacacionesController extends Controller
 {
     private const FILTROS = ['estado', 'empresa_id', 'sucursal_id', 'revisado_por', 'busqueda', 'fecha_inicio', 'fecha_fin'];
 
-    public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}
+    public function __construct(
+        private readonly AlcanceOrganizacionalService $alcance,
+        private readonly VacacionesService $vacaciones,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -119,23 +122,14 @@ class VacacionesController extends Controller
     {
         $this->authorize('aprobar', $solicitud);
 
-        $solicitud->update([
-            'estado' => EstadoSolicitudVacaciones::Aprobada,
-            'revisado_por' => $request->user()?->id,
-            'revisado_en' => now(),
-        ]);
+        $this->vacaciones->aprobar($solicitud, $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Solicitud de vacaciones aprobada.']);
     }
 
     public function rechazar(RechazarSolicitudVacacionesRequest $request, SolicitudVacaciones $solicitud): RedirectResponse
     {
-        $solicitud->update([
-            'estado' => EstadoSolicitudVacaciones::Rechazada,
-            'motivo_rechazo' => $request->validated('motivo_rechazo'),
-            'revisado_por' => $request->user()?->id,
-            'revisado_en' => now(),
-        ]);
+        $this->vacaciones->rechazar($solicitud, $request->user(), $request->validated('motivo_rechazo'));
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Solicitud de vacaciones rechazada.']);
     }

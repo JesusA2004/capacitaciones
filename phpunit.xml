@@ -29,7 +29,11 @@
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
-        <env name="BROADCAST_CONNECTION" value="null"/>
+        <!-- "log" y no "null": las notificaciones moviles (App\Notifications\Mobile\*)
+             transmiten por el canal 'broadcast' (Reverb en dev/produccion, ver
+             docs/PUSH_NOTIFICATIONS.md); en pruebas nunca debe intentar una
+             conexion de red real a un servidor Reverb que no esta corriendo. -->
+        <env name="BROADCAST_CONNECTION" value="log"/>
         <env name="CACHE_STORE" value="array"/>
         <env name="DB_CONNECTION" value="sqlite"/>
         <env name="DB_DATABASE" value=":memory:"/>

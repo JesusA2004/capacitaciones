@@ -34,6 +34,7 @@ Los mismos `FormRequest` de la web (`StoreSolicitudInternaRequest`, `StoreSolici
 
 ```
 GET  /api/v1/colaborador/perfil          nombre, puesto, sucursal, fecha de ingreso, antigüedad
+GET  /api/v1/colaborador/foto            foto de perfil en streaming (nunca ruta física), 404 si no tiene
 GET  /api/v1/colaborador/dashboard       perfil + vacaciones + solicitudes recientes + notificaciones
 GET  /api/v1/colaborador/vacaciones      alias de vacaciones/saldo
 GET  /api/v1/colaborador/solicitudes
@@ -47,10 +48,15 @@ POST /api/v1/vacaciones/solicitudes
 GET  /api/v1/solicitudes
 POST /api/v1/solicitudes
 GET  /api/v1/solicitudes/{solicitud}
+GET  /api/v1/solicitudes/configuracion          catálogo de tipos + reglas de formulario (sin hardcodear en la app)
+POST /api/v1/solicitudes/{solicitud}/adjuntos   solo a solicitudes propias, PDF/JPG/PNG
 
 GET  /api/v1/notificaciones
 POST /api/v1/notificaciones/{notificacion}/leer
+POST /api/v1/notificaciones/leer-todas
 ```
+
+Contexto de arranque de la app (bootstrap/config/push/tiempo real) y todo lo de RH/aprobadores (dashboard, bandeja, solicitudes, vacaciones, documentos, incorporaciones, colaboradores) se documentan aparte, ver `docs/BACKEND_MOBILE_V5.md`, `docs/RH_MOBILE_API.md` y `docs/PUSH_NOTIFICATIONS.md`.
 
 ## Registro por QR temporal
 
@@ -195,10 +201,11 @@ curl http://localhost:8000/api/v1/colaborador/dashboard \
   -H "Authorization: Bearer <token>"
 ```
 
-Tests: `tests/Feature/Api/AuthApiTest.php`, `tests/Feature/Api/ColaboradorApiTest.php`, `tests/Feature/Api/IncorporacionApiTest.php`, `tests/Feature/Api/IncorporacionInvitacionApiTest.php`, `tests/Feature/Rh/IncorporacionInvitacionTest.php`.
+Tests: `tests/Feature/Api/AuthApiTest.php`, `tests/Feature/Api/ColaboradorApiTest.php`, `tests/Feature/Api/IncorporacionApiTest.php`, `tests/Feature/Api/IncorporacionInvitacionApiTest.php`, `tests/Feature/Rh/IncorporacionInvitacionTest.php`, `tests/Feature/Api/MobileBootstrapApiTest.php`, `tests/Feature/Api/DispositivoApiTest.php`, `tests/Feature/Api/NotificacionApiTest.php`, `tests/Feature/Api/Rh/*.php`, `tests/Feature/BroadcastingAuthTest.php`.
 
 ## Pendiente
 
 - Endpoints de incapacidades/permisos como recursos dedicados (hoy se consultan a través de `/solicitudes` filtrando por `tipo`, no hay un endpoint separado — no hacía falta duplicar la ruta).
 - Rate limiting específico de la API (hoy usa el throttle por defecto de Laravel).
-- `colaborador/perfil.foto_url` apunta a una ruta protegida por **sesión web** (`rh.expedientes.foto`), no por token Sanctum: un cliente 100% nativo (sin cookies de sesión) no podrá cargarla directamente. Para la app móvil real, esto necesitará una URL firmada de corta duración (`URL::temporarySignedRoute`, mismo patrón que ya usa la biblioteca multimedia — ver `docs/SEGURIDAD.md`) o servir la imagen en base64 dentro del propio JSON. Se dejó documentado en vez de resuelto a medias.
+
+`colaborador/perfil.foto_url`/`colaborador/dashboard.perfil.foto_url` ya apuntan a `GET /api/v1/colaborador/foto` (streaming, autenticado por Bearer token, nunca la ruta web `rh.expedientes.foto` que requiere sesión) — resuelto en el backend móvil v5, ver `docs/BACKEND_MOBILE_V5.md`.
