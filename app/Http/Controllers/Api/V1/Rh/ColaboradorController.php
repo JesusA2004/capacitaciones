@@ -82,10 +82,10 @@ class ColaboradorController extends Controller
                     'vacaciones_pendientes' => SolicitudVacaciones::query()->where('user_id', $colaborador->id)->where('estado', 'pendiente')->count(),
                     'documentos_pendientes' => $colaborador->documentos()->whereIn('status', ['cargado', 'en_revision', 'cambio_solicitado'])->count(),
                 ],
-                'acciones_permitidas' => array_values(array_filter([
+                'acciones_permitidas' => array_filter([
                     'ver',
                     $usuario->can('rh.expedientes.detalle') ? 'ver_expediente' : null,
-                ])),
+                ]),
             ],
         ]);
     }

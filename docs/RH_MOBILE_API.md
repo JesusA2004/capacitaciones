@@ -108,9 +108,40 @@ GET  /api/v1/rh/documentos/{documento}                             rh.documentos
 GET  /api/v1/rh/documentos/{documento}/ver                         rh.documentos.ver_archivo (streaming, nunca expone disk/path)
 POST /api/v1/rh/documentos/{documento}/aprobar  { comentario? }     rh.documentos.aprobar
 POST /api/v1/rh/documentos/{documento}/rechazar { motivo }          rh.documentos.rechazar
+GET  /api/v1/rh/documentos/{documento}/extraccion                  rh.documentos.extraccion.ver
+POST /api/v1/rh/documentos/{documento}/extraccion/aplicar { valores } rh.documentos.extraccion.aplicar
+POST /api/v1/rh/documentos/{documento}/extraccion/ignorar           rh.documentos.extraccion.ignorar
 ```
 
 `{documento}` es el id real de `employee_documents` (no el tipo). Esta bandeja es la vista "directa" (todos los documentos, cualquier colaborador, filtrable); `rh/expedientes/{colaborador}/documentos/{documento}/*` (ver `docs/API_MOVIL.md`) sigue existiendo para navegar por colaborador — ambas llaman al mismo `IncorporacionService`.
+
+Extracción automática de datos personales (CURP/RFC/NSS/fecha de nacimiento): mismo
+`DocumentExtractionService` que el panel web, ver `docs/DOCUMENT_EXTRACTION.md`.
+Reprocesar solo está disponible en el panel web por ahora.
+
+## Jerarquía de puestos (solo lectura)
+
+```
+GET /api/v1/rh/jerarquia-puestos      permiso: puestos.administrar
+```
+
+Mismo `JerarquiaPuestoService` que el panel web (`Administracion\JerarquiaPuestoController`);
+la app solo consulta el árbol, no puede editarlo. Ver `docs/JERARQUIA_PUESTOS.md`.
+
+## Formatos (catálogo y descarga)
+
+```
+GET /api/v1/rh/formatos                             plantillas.ver
+GET /api/v1/rh/formatos/{documento}/descargar        formatos.descargar_docx o formatos.descargar_pdf
+GET /api/v1/rh/formatos/{documento}/descargar-pdf    formatos.descargar_docx o formatos.descargar_pdf
+```
+
+Mismo `FormatoCatalogoService` que el panel web; la descarga respeta
+`AlcanceOrganizacionalService` para documentos asociados a un colaborador (los de
+candidatos no tienen alcance por sucursal que validar aparte). Generar un documento
+nuevo y la vista previa se quedan solo en el panel web (requieren un flujo de
+selección/edición más largo del que tiene sentido en la app). Ver
+`docs/PLANTILLAS_FORMATOS.md`.
 
 ## Incorporaciones
 

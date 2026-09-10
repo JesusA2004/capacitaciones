@@ -47,50 +47,47 @@ class RhPendientesService
     public function bandeja(User $usuario, array $filtros = []): LengthAwarePaginator
     {
         $tipo = $filtros['tipo'] ?? 'todos';
-        $items = collect();
+        $items = [];
         $conteos = ['solicitudes' => 0, 'vacaciones' => 0, 'documentos' => 0, 'incorporaciones' => 0];
 
         if (in_array($tipo, ['todos', 'solicitud'], true) && $usuario->can('rh.solicitudes.ver')) {
             $solicitudes = $this->solicitudes($usuario, $filtros);
             $conteos['solicitudes'] = $solicitudes->count();
-            $items = $items->merge($solicitudes);
+            $items = array_merge($items, $solicitudes->all());
         }
 
         if (in_array($tipo, ['todos', 'vacaciones'], true) && $usuario->can('rh.vacaciones.ver')) {
             $vacaciones = $this->vacaciones($usuario, $filtros);
             $conteos['vacaciones'] = $vacaciones->count();
-            $items = $items->merge($vacaciones);
+            $items = array_merge($items, $vacaciones->all());
         }
 
         if (in_array($tipo, ['todos', 'documento'], true) && $usuario->can('rh.documentos.ver')) {
             $documentos = $this->documentos($usuario, $filtros);
             $conteos['documentos'] = $documentos->count();
-            $items = $items->merge($documentos);
+            $items = array_merge($items, $documentos->all());
         }
 
         if (in_array($tipo, ['todos', 'incorporacion'], true) && $usuario->can('rh.incorporaciones.ver')) {
             $incorporaciones = $this->incorporaciones($usuario, $filtros);
             $conteos['incorporaciones'] = $incorporaciones->count();
-            $items = $items->merge($incorporaciones);
+            $items = array_merge($items, $incorporaciones->all());
         }
 
-        $items = $items->sortByDesc('creado_en')->values();
+        $coleccion = collect($items)->sortByDesc('creado_en')->values();
 
         $porPagina = max(1, min(100, (int) ($filtros['per_page'] ?? 15)));
         $pagina = max(1, (int) ($filtros['page'] ?? 1));
 
-        $paginador = new LengthAwarePaginator(
-            $items->forPage($pagina, $porPagina)->values(),
-            $items->count(),
+        return (new LengthAwarePaginator(
+            $coleccion->forPage($pagina, $porPagina)->values(),
+            $coleccion->count(),
             $porPagina,
             $pagina,
-        );
-
-        return $paginador->through(fn (array $item) => $item)->setPath('');
+        ))->setPath('');
     }
 
     /**
-     * @param  array<string, mixed>  $filtros
      * @return array{solicitudes: int, vacaciones: int, documentos: int, incorporaciones: int, total: int}
      */
     public function resumenConteos(User $usuario): array
@@ -127,17 +124,17 @@ class RhPendientesService
         }
 
         return $query->orderByDesc('created_at')->limit(self::LIMITE_POR_TIPO)->get()
-            ->map(fn (SolicitudInterna $s) => [
+            ->map(fn (SolicitudInterna $s) => $this->item([
                 'id' => "solicitud:{$s->id}",
                 'tipo' => 'solicitud',
                 'resource_id' => $s->id,
                 'prioridad' => 'normal',
                 'titulo' => $s->tipo->etiqueta(),
                 'colaborador' => $this->colaboradorResumen($s->usuario),
-                'resumen' => $s->motivo !== null ? Str::limit($s->motivo, 120) : null,
+                'resumen' => Str::limit($s->motivo, 120),
                 'creado_en' => $s->created_at?->toIso8601String(),
                 'acciones_permitidas' => $this->accionesRapidasSolicitud($usuario),
-            ]);
+            ]));
     }
 
     /**
@@ -154,7 +151,7 @@ class RhPendientesService
         $query = $this->aplicarFiltrosComunes($query, $filtros, 'usuario');
 
         return $query->orderByDesc('created_at')->limit(self::LIMITE_POR_TIPO)->get()
-            ->map(fn (SolicitudVacaciones $v) => [
+            ->map(fn (SolicitudVacaciones $v) => $this->item([
                 'id' => "vacaciones:{$v->id}",
                 'tipo' => 'vacaciones',
                 'resource_id' => $v->id,
@@ -164,7 +161,7 @@ class RhPendientesService
                 'resumen' => "Del {$v->fecha_inicio->toDateString()} al {$v->fecha_fin->toDateString()} ({$v->dias_solicitados} días)",
                 'creado_en' => $v->created_at?->toIso8601String(),
                 'acciones_permitidas' => $this->accionesRapidasVacacion($usuario),
-            ]);
+            ]));
     }
 
     /**
@@ -181,17 +178,17 @@ class RhPendientesService
         $query = $this->aplicarFiltrosComunes($query, $filtros, 'usuario');
 
         return $query->orderByDesc('created_at')->limit(self::LIMITE_POR_TIPO)->get()
-            ->map(fn (EmployeeDocument $d) => [
+            ->map(fn (EmployeeDocument $d) => $this->item([
                 'id' => "documento:{$d->id}",
                 'tipo' => 'documento',
                 'resource_id' => $d->id,
                 'prioridad' => 'normal',
-                'titulo' => $d->tipo?->nombre ?? 'Documento',
+                'titulo' => $d->tipo->nombre ?? 'Documento',
                 'colaborador' => $this->colaboradorResumen($d->usuario),
                 'resumen' => 'Documento por revisar (v'.$d->version.')',
                 'creado_en' => $d->created_at?->toIso8601String(),
                 'acciones_permitidas' => $this->accionesRapidasDocumento($usuario),
-            ]);
+            ]));
     }
 
     /**
@@ -212,7 +209,7 @@ class RhPendientesService
 
         return $candidatos
             ->filter(fn (User $colaborador) => $this->incorporacion->estado($colaborador) === 'completo')
-            ->map(fn (User $colaborador) => [
+            ->map(fn (User $colaborador) => $this->item([
                 'id' => "incorporacion:{$colaborador->id}",
                 'tipo' => 'incorporacion',
                 'resource_id' => $colaborador->id,
@@ -222,8 +219,24 @@ class RhPendientesService
                 'resumen' => 'Todos los documentos obligatorios están aprobados.',
                 'creado_en' => $colaborador->created_at?->toIso8601String(),
                 'acciones_permitidas' => $this->accionesRapidasIncorporacion($usuario),
-            ])
+            ]))
             ->values();
+    }
+
+    /**
+     * Illuminate\Support\Collection no es covariante en su tipo de valor
+     * (ver https://phpstan.org/blog/whats-up-with-template-covariant), asi
+     * que un array con forma literal (los ->map() de arriba) no se acepta
+     * donde se declaro `Collection<int, array<string, mixed>>` aunque sea
+     * estructuralmente compatible. Este metodo ensancha el tipo en la
+     * frontera de la funcion, que si es una operacion valida para PHPStan.
+     *
+     * @param  array<string, mixed>  $item
+     * @return array<string, mixed>
+     */
+    private function item(array $item): array
+    {
+        return $item;
     }
 
     /**

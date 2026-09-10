@@ -100,7 +100,9 @@ Botón "Generar" abre un diálogo para elegir colaborador/candidato y, antes de 
 - **Datos faltantes**: la vista previa también regresa qué variables de la plantilla
   quedaron vacías para ese colaborador/candidato (`faltantes`); el diálogo deja
   llenarlas a mano solo para ese documento (van en `extra`, no se guardan en el
-  expediente).
+  expediente). Si RH ignora el aviso y genera el documento de todas formas, el
+  placeholder `{{clave}}` sin resolver queda literal en el DOCX final — no se rellena
+  con un valor vacío ni se oculta.
 
 `GET rh/formatos/{documento}/descargar-pdf` (y su espejo en la API móvil) usa el mismo
 `FormatoPreviewService` para convertir el DOCX ya generado a PDF con el writer PDF de

@@ -20,7 +20,12 @@ class DispositivoController extends Controller
 
     public function registrarPushToken(RegistrarPushTokenRequest $request): JsonResponse
     {
-        $dispositivo = $this->dispositivos->registrar($request->user(), $request->validated());
+        $dispositivo = $this->dispositivos->registrar($request->user(), [
+            'token' => $request->string('token')->toString(),
+            'platform' => $request->string('platform')->toString(),
+            'device_name' => $request->filled('device_name') ? $request->string('device_name')->toString() : null,
+            'app_version' => $request->filled('app_version') ? $request->string('app_version')->toString() : null,
+        ]);
 
         return response()->json([
             'message' => 'Dispositivo registrado.',

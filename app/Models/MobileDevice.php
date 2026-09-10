@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Database\Factories\MobileDeviceFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -53,7 +54,11 @@ class MobileDevice extends Model
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function scopeActivos($query)
+    /**
+     * @param  Builder<MobileDevice>  $query
+     * @return Builder<MobileDevice>
+     */
+    public function scopeActivos(Builder $query): Builder
     {
         return $query->whereNull('revoked_at');
     }

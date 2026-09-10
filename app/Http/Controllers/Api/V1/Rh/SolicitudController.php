@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\Rh;
 
 use App\Http\Controllers\Controller;
 use App\Models\SolicitudInterna;
+use App\Models\SolicitudInternaHistorial;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\RhMobile\WorkflowService;
@@ -74,11 +75,11 @@ class SolicitudController extends Controller
                 ])->values(),
                 'acciones_permitidas' => $flujo['acciones_permitidas'],
                 'workflow' => $flujo['workflow'],
-                'historial' => $solicitud->historial->map(fn ($h) => [
+                'historial' => $solicitud->historial->map(fn (SolicitudInternaHistorial $h) => [
                     'accion' => $h->accion,
                     'comentario' => $h->comentario,
                     'usuario' => $h->usuario?->nombreCompleto(),
-                    'fecha' => $h->created_at?->toIso8601String(),
+                    'fecha' => $h->created_at->toIso8601String(),
                 ])->values(),
             ],
         ]);

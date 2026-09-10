@@ -135,3 +135,15 @@ operativa válida (p. ej. Gerente y Subgerente cubriéndose entre sí), no un er
 
 Autorización: reutiliza el permiso existente `puestos.administrar` (mismo permiso que
 la administración básica de puestos) — no se creó un permiso nuevo para esta vista.
+
+## API móvil (solo lectura)
+
+```
+GET /api/v1/rh/jerarquia-puestos      permiso: puestos.administrar
+```
+
+`App\Http\Controllers\Api\V1\Rh\JerarquiaPuestoController::index()` reutiliza el mismo
+`JerarquiaPuestoService` que el panel web y regresa la misma estructura de árbol; la app
+solo consulta, no puede editar jerarquía, agregar subordinados ni quitar relaciones
+desde este endpoint (esas acciones se quedan en el panel web por ahora). Ver
+`docs/RH_MOBILE_API.md`.

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 /**
  * Timeline de una solicitud interna: una fila por cada cambio de estado o
@@ -15,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int|null $user_id
  * @property string $accion
  * @property string|null $comentario
+ * @property Carbon $created_at
  */
 class SolicitudInternaHistorial extends Model
 {

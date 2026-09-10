@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Rh;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Rh\AplicarExtraccionRequest;
 use App\Models\EmployeeDocument;
+use App\Services\AlcanceOrganizacionalService;
 use App\Services\Documentos\DocumentExtractionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -19,11 +20,13 @@ class DocumentExtraccionController extends Controller
 {
     public function __construct(
         private readonly DocumentExtractionService $extraccion,
+        private readonly AlcanceOrganizacionalService $alcance,
     ) {}
 
     public function show(Request $request, EmployeeDocument $documento): JsonResponse
     {
-        abort_unless($request->user()->can('rh.documentos.extraccion.ver'), 403);
+        $usuario = $request->user();
+        abort_unless($usuario->can('rh.documentos.extraccion.ver') && $this->alcance->puedeVerExpediente($usuario, $documento->usuario), 403);
 
         return response()->json([
             'elegible' => DocumentExtractionService::tipoElegible($documento->tipo->clave),
@@ -33,6 +36,8 @@ class DocumentExtraccionController extends Controller
 
     public function aplicar(AplicarExtraccionRequest $request, EmployeeDocument $documento): RedirectResponse
     {
+        abort_unless($this->alcance->puedeVerExpediente($request->user(), $documento->usuario), 403);
+
         $extraccion = $documento->extraccion ?? abort(404, 'Este documento no tiene una extracción registrada.');
 
         $this->extraccion->aplicar($extraccion, $request->validated('valores'), $request->user());
@@ -42,18 +47,20 @@ class DocumentExtraccionController extends Controller
 
     public function ignorar(Request $request, EmployeeDocument $documento): RedirectResponse
     {
-        abort_unless($request->user()->can('rh.documentos.extraccion.ignorar'), 403);
+        $usuario = $request->user();
+        abort_unless($usuario->can('rh.documentos.extraccion.ignorar') && $this->alcance->puedeVerExpediente($usuario, $documento->usuario), 403);
 
         $extraccion = $documento->extraccion ?? abort(404, 'Este documento no tiene una extracción registrada.');
 
-        $this->extraccion->ignorar($extraccion, $request->user());
+        $this->extraccion->ignorar($extraccion, $usuario);
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Sugerencias descartadas.']);
     }
 
     public function reprocesar(Request $request, EmployeeDocument $documento): RedirectResponse
     {
-        abort_unless($request->user()->can('rh.documentos.extraccion.reprocesar'), 403);
+        $usuario = $request->user();
+        abort_unless($usuario->can('rh.documentos.extraccion.reprocesar') && $this->alcance->puedeVerExpediente($usuario, $documento->usuario), 403);
 
         $this->extraccion->reprocesar($documento);
 

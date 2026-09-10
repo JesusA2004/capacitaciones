@@ -160,6 +160,15 @@ física al frontend (`$hidden`, ver p. ej. `MobileAppRelease::$hidden`).
    `cumpleanos:enviar-felicitaciones`/`cumpleanos:recordar-rh`.
 6. `queue:work` corriendo (las notificaciones/push son `ShouldQueue`).
 
+## Extracción automática de documentos
+
+`smalot/pdfparser` (lectura de texto de PDF, sin OCR — ver `docs/DOCUMENT_EXTRACTION.md`)
+se instala solo con `composer install`, no requiere binario ni extensión de PHP
+adicional. `App\Jobs\ProcesarDocumentoPersonalJob` corre en la cola por defecto, así que
+**no necesita un proceso supervisado aparte**: reutiliza el mismo `queue:work` del punto
+6 de arriba. Si `queue:work` no está corriendo, las extracciones simplemente se quedan
+`pending` hasta que el worker vuelva.
+
 ## Ver también
 
 - `docs/CUMPLEANOS.md` — módulo de cumpleaños completo.
@@ -167,4 +176,7 @@ física al frontend (`$hidden`, ver p. ej. `MobileAppRelease::$hidden`).
   con Reverb en Nginx.
 - `docs/BACKEND_MOBILE_V5.md` — resto del backend móvil (bootstrap, push, RH móvil).
 - `docs/CONFIGURACION_NAS.md` / `docs/SYNOLOGY_STORAGE.md` — almacenamiento NAS.
+- `docs/DOCUMENT_EXTRACTION.md` — extracción automática de datos personales,
+  jerarquía de puestos (`docs/JERARQUIA_PUESTOS.md`) y formatos
+  (`docs/PLANTILLAS_FORMATOS.md`).
 - `docs/PUSH_NOTIFICATIONS.md` — Expo (push) y Reverb (tiempo real web).
