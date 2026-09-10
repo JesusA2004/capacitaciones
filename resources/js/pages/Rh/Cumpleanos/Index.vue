@@ -23,12 +23,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
-import {
-    Tabs,
-    TabsContent,
-    TabsList,
-    TabsTrigger,
-} from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
 import { dashboard } from '@/routes';
@@ -63,8 +58,18 @@ type Frase = {
 };
 
 const MESES = [
-    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+    'Enero',
+    'Febrero',
+    'Marzo',
+    'Abril',
+    'Mayo',
+    'Junio',
+    'Julio',
+    'Agosto',
+    'Septiembre',
+    'Octubre',
+    'Noviembre',
+    'Diciembre',
 ];
 
 const props = defineProps<{
@@ -144,8 +149,8 @@ async function copiarMensaje(colaborador: { nombre: string }) {
 
 const diasDelMesConDatos = computed(() => {
     if (!props.calendario) {
-return [];
-}
+        return [];
+    }
 
     return Object.entries(props.calendario)
         .map(([dia, colaboradores]) => ({
@@ -251,7 +256,10 @@ async function eliminarFrase(frase: Frase) {
             >
                 <div class="grid gap-1.5">
                     <Label>Mes</Label>
-                    <Select v-model="mesSeleccionado" @update:model-value="cambiarMes">
+                    <Select
+                        v-model="mesSeleccionado"
+                        @update:model-value="cambiarMes"
+                    >
                         <SelectTrigger class="w-full">
                             <SelectValue />
                         </SelectTrigger>
@@ -313,7 +321,10 @@ async function eliminarFrase(frase: Frase) {
 
                 <div class="grid gap-1.5">
                     <Label>Estatus</Label>
-                    <Select v-model="filtros.estatus" @update:model-value="aplicar">
+                    <Select
+                        v-model="filtros.estatus"
+                        @update:model-value="aplicar"
+                    >
                         <SelectTrigger class="w-full">
                             <SelectValue placeholder="Activos" />
                         </SelectTrigger>
@@ -435,10 +446,7 @@ async function eliminarFrase(frase: Frase) {
                 </div>
 
                 <!-- Escritorio: grid de días -->
-                <div
-                    v-else
-                    class="mt-4 hidden grid-cols-7 gap-2 sm:grid"
-                >
+                <div v-else class="mt-4 hidden grid-cols-7 gap-2 sm:grid">
                     <div
                         v-for="dia in 31"
                         :key="dia"
@@ -504,12 +512,14 @@ async function eliminarFrase(frase: Frase) {
                     <Card class="max-h-[80vh] w-full max-w-md overflow-y-auto">
                         <CardHeader>
                             <CardTitle
-                                >{{ modalDia }} de {{ MESES[mes - 1] }}</CardTitle
+                                >{{ modalDia }} de
+                                {{ MESES[mes - 1] }}</CardTitle
                             >
                         </CardHeader>
                         <CardContent class="flex flex-col gap-2">
                             <ColaboradorCumpleanosCard
-                                v-for="colaborador in calendario?.[modalDia] ?? []"
+                                v-for="colaborador in calendario?.[modalDia] ??
+                                []"
                                 :key="colaborador.id"
                                 :colaborador="colaborador"
                                 :puede-descargar="permisos.descargarImagen"

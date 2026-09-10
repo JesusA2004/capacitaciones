@@ -64,7 +64,11 @@ function enviar() {
 
             <div class="grid gap-2">
                 <Label>Archivo APK</Label>
-                <Input type="file" accept=".apk" @change="alSeleccionarArchivo" />
+                <Input
+                    type="file"
+                    accept=".apk"
+                    @change="alSeleccionarArchivo"
+                />
                 <p v-if="form.errors.apk" class="text-xs text-destructive">
                     {{ form.errors.apk }}
                 </p>

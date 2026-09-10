@@ -51,8 +51,8 @@ const { confirmarEliminacion, confirmarPublicacion } = useAlertas();
 
 async function publicarRelease() {
     if (!(await confirmarPublicacion(`la versión ${props.release.version}`))) {
-return;
-}
+        return;
+    }
 
     router.post(publicar.url(props.release.id), {}, { preserveScroll: true });
 }
@@ -67,8 +67,8 @@ function despublicarRelease() {
 
 async function eliminarRelease() {
     if (!(await confirmarEliminacion(`la versión ${props.release.version}`))) {
-return;
-}
+        return;
+    }
 
     router.delete(destroy.url(props.release.id), {
         onSuccess: () => router.visit(index.url()),
@@ -115,7 +115,7 @@ return;
                 </div>
                 <div>
                     <dt class="text-muted-foreground">SHA-256</dt>
-                    <dd class="break-all font-mono text-xs">
+                    <dd class="font-mono text-xs break-all">
                         {{ release.sha256 ?? '—' }}
                     </dd>
                 </div>

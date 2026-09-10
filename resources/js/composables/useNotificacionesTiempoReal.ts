@@ -44,7 +44,9 @@ export function useNotificacionesTiempoReal(
         .then(({ default: echo }) => {
             echo.private(`App.Models.User.${userId}`).notification(
                 (payload: PayloadNotificacionBroadcast) => {
-                    toast.info(payload.titulo, { description: payload.mensaje });
+                    toast.info(payload.titulo, {
+                        description: payload.mensaje,
+                    });
                     mostrarNotificacionNativa(payload);
                     onNuevaNotificacion(payload);
                 },
@@ -58,7 +60,9 @@ export function useNotificacionesTiempoReal(
         });
 }
 
-function mostrarNotificacionNativa(payload: PayloadNotificacionBroadcast): void {
+function mostrarNotificacionNativa(
+    payload: PayloadNotificacionBroadcast,
+): void {
     if (!('Notification' in window) || Notification.permission !== 'granted') {
         return;
     }

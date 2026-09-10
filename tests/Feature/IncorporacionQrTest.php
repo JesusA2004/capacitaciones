@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\EstadoInvitacionIncorporacion;
+use App\Models\IncorporacionInvitacion;
 use App\Models\User;
 use App\Services\Incorporacion\IncorporacionInvitacionService;
 use Database\Seeders\RolesYPermisosSeeder;
@@ -11,7 +12,7 @@ beforeEach(function () {
 
 /**
  * @param  array<string, mixed>  $datos
- * @return array{invitacion: \App\Models\IncorporacionInvitacion, token: string, rh: User}
+ * @return array{invitacion: IncorporacionInvitacion, token: string, rh: User}
  */
 function crearInvitacionParaQr(array $datos = []): array
 {

@@ -147,6 +147,13 @@ class BirthdayCardService
         return "feliz-cumpleanos-{$slug}-{$greeting->fecha->format('Y')}.png";
     }
 
+    /**
+     * Genera la tarjeta completa: logo arriba, fondo claro, globos, foto
+     * circular si el colaborador tiene una (la tarjeta se ve bien sin ella),
+     * título, nombre, sucursal opcional, frase y firma. Tamaño configurable
+     * vía cumpleanos.card_width / cumpleanos.card_height (1080x1350 por
+     * defecto).
+     */
     private function renderPng(User $colaborador, string $frase): string
     {
         $ancho = max(1, (int) config('cumpleanos.card_width', 1080));
@@ -172,14 +179,15 @@ class BirthdayCardService
         // frases largas) sin acercarse nunca al borde ni cortarse.
         $margenTexto = (int) ($ancho * 0.13);
         $anchoMaximoTexto = $ancho - ($margenTexto * 2);
+        $yFirma = $alto - 80;
 
         $y = max($logoAlto + 70, (int) ($alto * 0.24));
 
         if ((bool) config('cumpleanos.show_employee_photo') && $colaborador->foto_path !== null) {
             $radioFoto = (int) ($ancho * 0.20);
-            $dibujoFotoOk = $this->dibujarFotoCircular($imagen, $colaborador, (int) ($ancho / 2), $y + $radioFoto, $radioFoto, $dorado);
+            $fotoDibujada = $this->dibujarFotoCircular($imagen, $colaborador, (int) ($ancho / 2), $y + $radioFoto, $radioFoto, $dorado);
 
-            if ($dibujoFotoOk) {
+            if ($fotoDibujada) {
                 $y += ($radioFoto * 2) + 60;
             }
         }
@@ -189,7 +197,11 @@ class BirthdayCardService
         $y += 66;
 
         $nombre = mb_strtoupper($colaborador->nombreCompleto());
-        $y = $this->textoParrafo($imagen, $fuenteBold, 48, $marron, $ancho, $y, $nombre, $anchoMaximoTexto, interlineado: 56);
+        $y = $this->textoParrafo(
+            $imagen, $fuenteBold, 48, $marron, $ancho, $y, $nombre, $anchoMaximoTexto,
+            interlineado: 56,
+            altoMaximo: (int) ($alto * 0.20),
+        );
 
         if ((bool) config('cumpleanos.show_branch') && $colaborador->sucursalPrincipal !== null) {
             $y += 46;
@@ -197,9 +209,14 @@ class BirthdayCardService
         }
 
         $y += 70;
-        $this->textoParrafo($imagen, $fuenteRegular, 30, $marron, $ancho, $y, $frase, $anchoMaximoTexto, interlineado: 46);
+        $alturaDisponibleFrase = max(90, $yFirma - 60 - $y);
+        $this->textoParrafo(
+            $imagen, $fuenteRegular, 30, $marron, $ancho, $y, $frase, $anchoMaximoTexto,
+            interlineado: 46,
+            altoMaximo: $alturaDisponibleFrase,
+        );
 
-        $this->textoCentrado($imagen, $fuenteBold, 30, $dorado, $ancho, $alto - 80, 'MR. LANA');
+        $this->textoCentrado($imagen, $fuenteBold, 30, $dorado, $ancho, $yFirma, 'MR. LANA');
 
         ob_start();
         imagepng($imagen);
@@ -209,23 +226,33 @@ class BirthdayCardService
         return $contenido;
     }
 
-    private function dibujarLogo(GdImage $imagen, int $ancho): void
+    /**
+     * Dibuja el logo centrado si existe y es una imagen PNG válida.
+     * Nunca lanza excepción: si el archivo no existe o no se puede leer
+     * simplemente no se dibuja nada y la tarjeta sigue generándose.
+     *
+     * @return int Alto (en px, desde el borde superior) ocupado por el
+     *             logo, para que el resto del layout no se le encime.
+     *             0 si no hay logo.
+     */
+    private function dibujarLogo(GdImage $imagen, int $ancho): int
     {
         $ruta = public_path('images/logoLetras.png');
 
         if (! is_file($ruta)) {
-            return;
+            return 0;
         }
 
         $logo = @imagecreatefrompng($ruta);
 
         if ($logo === false) {
-            return;
+            return 0;
         }
 
         $logoAncho = imagesx($logo);
         $logoAlto = imagesy($logo);
 
+        $margenSuperior = 60;
         $destinoAncho = (int) ($ancho * 0.45);
         $destinoAlto = (int) ($logoAlto * ($destinoAncho / $logoAncho));
 
@@ -233,52 +260,118 @@ class BirthdayCardService
         imagealphablending($imagen, true);
         imagecopyresampled(
             $imagen, $logo,
-            (int) (($ancho - $destinoAncho) / 2), 60,
+            (int) (($ancho - $destinoAncho) / 2), $margenSuperior,
             0, 0,
             $destinoAncho, $destinoAlto,
             $logoAncho, $logoAlto,
         );
 
         imagedestroy($logo);
+
+        return $margenSuperior + $destinoAlto;
     }
 
-    private function dibujarFotoCircular(GdImage $imagen, User $colaborador, int $centroX, int $centroY, int $radio): void
-    {
+    /**
+     * Recorta la foto del colaborador en un círculo real (transparencia
+     * por-píxel fuera del radio, no una máscara rectangular aparte que
+     * puede dejar un recuadro visible en los bordes) y opcionalmente le
+     * dibuja un borde de color. Si algo falla al leer/decodificar la foto
+     * se loggea un warning controlado y se regresa false: la tarjeta se
+     * genera igual, sin foto.
+     */
+    private function dibujarFotoCircular(
+        GdImage $imagen,
+        User $colaborador,
+        int $centroX,
+        int $centroY,
+        int $radio,
+        ?int $colorBorde = null,
+    ): bool {
+        if ($colaborador->foto_path === null) {
+            return false;
+        }
+
         try {
             $bytes = $this->fotos->disco()->get($colaborador->foto_path);
-        } catch (\Throwable) {
-            return;
+        } catch (\Throwable $e) {
+            Log::warning('BirthdayCardService: no se pudo leer la foto del colaborador para la tarjeta.', [
+                'user_id' => $colaborador->id,
+                'foto_path' => $colaborador->foto_path,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
         }
 
-        $foto = @imagecreatefromstring($bytes);
+        $foto = @imagecreatefromstring((string) $bytes);
 
         if ($foto === false) {
-            return;
+            Log::warning('BirthdayCardService: la foto del colaborador no es una imagen válida.', [
+                'user_id' => $colaborador->id,
+                'foto_path' => $colaborador->foto_path,
+            ]);
+
+            return false;
         }
 
-        $diametro = max(1, $radio * 2);
-        $mascara = imagecreatetruecolor($diametro, $diametro);
-        imagealphablending($mascara, false);
-        $transparente = $this->colorTransparente($mascara);
-        imagefill($mascara, 0, 0, $transparente);
-        imagesavealpha($mascara, true);
+        $fotoAncho = imagesx($foto);
+        $fotoAlto = imagesy($foto);
 
-        $blanco = $this->colorRgb($mascara, 255, 255, 255);
-        imagefilledellipse($mascara, $radio, $radio, $diametro, $diametro, $blanco);
+        $diametro = max(1, $radio * 2);
 
         $recorte = imagecreatetruecolor($diametro, $diametro);
         imagealphablending($recorte, false);
         imagesavealpha($recorte, true);
+        $transparente = $this->colorTransparente($recorte);
         imagefill($recorte, 0, 0, $transparente);
 
-        imagecopyresampled($recorte, $foto, 0, 0, 0, 0, $diametro, $diametro, imagesx($foto), imagesy($foto));
-        imagecopymerge($recorte, $mascara, 0, 0, 0, 0, $diametro, $diametro, 100);
+        // "Cover": se reescala la foto para cubrir el círculo completo
+        // (recortando el sobrante) en vez de deformarla al diámetro.
+        $escala = max($diametro / $fotoAncho, $diametro / $fotoAlto);
+        $origenAncho = (int) round($diametro / $escala);
+        $origenAlto = (int) round($diametro / $escala);
+        $origenX = (int) max(0, ($fotoAncho - $origenAncho) / 2);
+        $origenY = (int) max(0, ($fotoAlto - $origenAlto) / 2);
 
-        imagecopy($imagen, $recorte, $centroX - $radio, $centroY - $radio, 0, 0, $diametro, $diametro);
+        imagecopyresampled(
+            $recorte, $foto,
+            0, 0,
+            $origenX, $origenY,
+            $diametro, $diametro,
+            min($origenAncho, $fotoAncho), min($origenAlto, $fotoAlto),
+        );
 
         imagedestroy($foto);
-        imagedestroy($mascara);
+
+        // Recorte circular real: cualquier píxel fuera del radio se vuelve
+        // completamente transparente, píxel por píxel.
+        $centro = $radio;
+        $radioCuadrado = $radio * $radio;
+
+        for ($px = 0; $px < $diametro; $px++) {
+            $dx = $px - $centro;
+            $dxCuadrado = $dx * $dx;
+
+            for ($py = 0; $py < $diametro; $py++) {
+                $dy = $py - $centro;
+
+                if (($dxCuadrado + ($dy * $dy)) > $radioCuadrado) {
+                    imagesetpixel($recorte, $px, $py, $transparente);
+                }
+            }
+        }
+
+        imagealphablending($imagen, true);
+        imagecopy($imagen, $recorte, $centroX - $radio, $centroY - $radio, 0, 0, $diametro, $diametro);
         imagedestroy($recorte);
+
+        if ($colorBorde !== null) {
+            imagesetthickness($imagen, 4);
+            imageellipse($imagen, $centroX, $centroY, $diametro - 2, $diametro - 2, $colorBorde);
+            imagesetthickness($imagen, 1);
+        }
+
+        return true;
     }
 
     private function dibujarGlobos(GdImage $imagen, int $ancho, int $alto): void
@@ -308,25 +401,78 @@ class BirthdayCardService
 
     private function textoCentrado(GdImage $imagen, string $fuente, int $tamano, int $color, int $ancho, int $y, string $texto): void
     {
-        $caja = imagettfbbox($tamano, 0, $fuente, $texto);
-        $anchoTexto = $caja === false ? 0 : abs($caja[4] - $caja[0]);
+        $anchoTexto = $this->anchoTexto($fuente, $tamano, $texto);
         $x = (int) (($ancho - $anchoTexto) / 2);
 
         imagettftext($imagen, $tamano, 0, $x, $y, $color, $fuente, $texto);
     }
 
-    private function textoParrafo(GdImage $imagen, string $fuente, int $tamano, int $color, int $ancho, int $y, string $texto, int $anchoMaximo): void
+    /**
+     * Dibuja un párrafo centrado, partiendo el texto en líneas que respetan
+     * $anchoMaximo (soporta nombres y frases largas sin cortar contenido).
+     * Si $altoMaximo se indica y el párrafo no cabe, la tipografía se
+     * reduce de forma proporcional (nunca se trunca el texto) hasta que
+     * quepa o se llegue a $tamanoMinimo.
+     *
+     * @return int La Y final, justo debajo de la última línea dibujada.
+     */
+    private function textoParrafo(
+        GdImage $imagen,
+        string $fuente,
+        int $tamano,
+        int $color,
+        int $ancho,
+        int $y,
+        string $texto,
+        int $anchoMaximo,
+        int $interlineado,
+        ?int $altoMaximo = null,
+        int $tamanoMinimo = 18,
+    ): int {
+        $tamanoActual = $tamano;
+        $interlineadoActual = $interlineado;
+        $lineas = $this->partirLineas($fuente, $tamanoActual, $texto, $anchoMaximo);
+
+        while ($altoMaximo !== null && $tamanoActual > $tamanoMinimo) {
+            $alturaTotal = count($lineas) * $interlineadoActual;
+
+            if ($alturaTotal <= $altoMaximo) {
+                break;
+            }
+
+            $tamanoAnterior = $tamanoActual;
+            $tamanoActual = max($tamanoMinimo, $tamanoActual - 2);
+            $interlineadoActual = max(
+                $tamanoActual + 8,
+                (int) round($interlineadoActual * ($tamanoActual / $tamanoAnterior)),
+            );
+            $lineas = $this->partirLineas($fuente, $tamanoActual, $texto, $anchoMaximo);
+        }
+
+        foreach ($lineas as $indice => $linea) {
+            $this->textoCentrado($imagen, $fuente, $tamanoActual, $color, $ancho, $y + ($indice * $interlineadoActual), $linea);
+        }
+
+        return $y + (count($lineas) * $interlineadoActual);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function partirLineas(string $fuente, int $tamano, string $texto, int $anchoMaximo): array
     {
-        $palabras = explode(' ', $texto);
+        $palabras = preg_split('/\s+/', trim($texto)) ?: [];
         $lineas = [];
         $lineaActual = '';
 
         foreach ($palabras as $palabra) {
-            $intento = trim("{$lineaActual} {$palabra}");
-            $caja = imagettfbbox($tamano, 0, $fuente, $intento);
-            $anchoIntento = $caja === false ? 0 : abs($caja[4] - $caja[0]);
+            if ($palabra === '') {
+                continue;
+            }
 
-            if ($anchoIntento > $anchoMaximo && $lineaActual !== '') {
+            $intento = $lineaActual === '' ? $palabra : "{$lineaActual} {$palabra}";
+
+            if ($lineaActual !== '' && $this->anchoTexto($fuente, $tamano, $intento) > $anchoMaximo) {
                 $lineas[] = $lineaActual;
                 $lineaActual = $palabra;
             } else {
@@ -338,9 +484,18 @@ class BirthdayCardService
             $lineas[] = $lineaActual;
         }
 
-        foreach ($lineas as $indice => $linea) {
-            $this->textoCentrado($imagen, $fuente, $tamano, $color, $ancho, $y + ($indice * ($tamano + 18)), $linea);
-        }
+        return $lineas === [] ? [''] : $lineas;
+    }
+
+    /**
+     * Centraliza imagettfbbox() (que puede regresar false) para no repetir
+     * el manejo de ese caso en cada llamador.
+     */
+    private function anchoTexto(string $fuente, int $tamano, string $texto): int
+    {
+        $caja = @imagettfbbox($tamano, 0, $fuente, $texto);
+
+        return $caja === false ? 0 : (int) abs($caja[4] - $caja[0]);
     }
 
     /**

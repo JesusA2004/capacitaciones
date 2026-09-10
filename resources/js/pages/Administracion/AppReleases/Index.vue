@@ -73,8 +73,8 @@ const dialogoAbierto = ref(false);
 
 function formatearTamano(bytes: number | null): string {
     if (bytes === null) {
-return '—';
-}
+        return '—';
+    }
 
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
@@ -85,8 +85,8 @@ async function publicarRelease(release: Release) {
     );
 
     if (!confirmado) {
-return;
-}
+        return;
+    }
 
     router.post(publicar.url(release.id), {}, { preserveScroll: true });
 }
@@ -101,8 +101,8 @@ async function eliminarRelease(release: Release) {
     );
 
     if (!confirmado) {
-return;
-}
+        return;
+    }
 
     router.delete(destroy.url(release.id), { preserveScroll: true });
 }
@@ -163,9 +163,7 @@ return;
                         <div class="flex flex-wrap gap-1">
                             <Badge
                                 :variant="
-                                    release.is_published
-                                        ? 'default'
-                                        : 'outline'
+                                    release.is_published ? 'default' : 'outline'
                                 "
                             >
                                 <CheckCircle2
@@ -226,9 +224,7 @@ return;
                                 Publicar
                             </Button>
                             <Button
-                                v-if="
-                                    permisos.publicar && release.is_published
-                                "
+                                v-if="permisos.publicar && release.is_published"
                                 size="sm"
                                 variant="outline"
                                 @click="despublicarRelease(release)"

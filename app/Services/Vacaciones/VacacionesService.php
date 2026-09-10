@@ -12,11 +12,11 @@ use App\Services\MobilePush\PushNotifier;
 use App\Services\RhMobile\ResponsableResolverService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\Notification as NotificationFacade;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification as NotificationFacade;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -38,6 +38,7 @@ class VacacionesService
         private readonly PushNotifier $push,
         private readonly AlcanceOrganizacionalService $alcance,
     ) {}
+
     /**
      * @return array{
      *     antiguedad_anios: int,

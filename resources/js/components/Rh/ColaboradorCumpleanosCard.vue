@@ -75,12 +75,7 @@ const { getInitials } = useInitials();
                     <Gift class="size-4" />
                 </Button>
             </Link>
-            <Button
-                v-if="puedeDescargar"
-                as-child
-                size="icon"
-                variant="ghost"
-            >
+            <Button v-if="puedeDescargar" as-child size="icon" variant="ghost">
                 <a
                     :href="descargarFelicitacion.url(colaborador.id)"
                     title="Descargar imagen"

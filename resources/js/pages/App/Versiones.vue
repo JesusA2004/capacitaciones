@@ -18,8 +18,8 @@ defineProps<{
 
 function fecha(valor: string | null): string {
     if (!valor) {
-return '—';
-}
+        return '—';
+    }
 
     return new Date(valor).toLocaleDateString('es-MX', {
         day: 'numeric',

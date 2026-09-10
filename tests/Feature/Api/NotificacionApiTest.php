@@ -1,8 +1,8 @@
 <?php
 
+use App\Models\SolicitudInterna;
 use App\Models\User;
 use App\Notifications\Mobile\SolicitudActualizadaNotification;
-use App\Models\SolicitudInterna;
 use Database\Seeders\RolesYPermisosSeeder;
 
 beforeEach(function () {

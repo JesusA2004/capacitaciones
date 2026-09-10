@@ -99,8 +99,8 @@ const urlDescargarApp = appIndex.url({
                 </Button>
 
                 <p class="mt-4 text-xs text-muted-foreground">
-                    Si acabas de instalar la app, vuelve a esta pantalla y
-                    toca "Continuar en la app".
+                    Si acabas de instalar la app, vuelve a esta pantalla y toca
+                    "Continuar en la app".
                 </p>
 
                 <div

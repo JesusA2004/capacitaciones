@@ -15,6 +15,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import { etiquetaModulo, etiquetaPermiso } from '@/lib/permisos';
 
 export type PermisoItem = {
     id: number;
@@ -112,11 +113,12 @@ function enviar() {
                         class="rounded-md border p-3"
                     >
                         <div class="mb-2 flex items-center justify-between">
-                            <span class="text-sm font-medium capitalize">{{
-                                modulo
+                            <span class="text-sm font-medium">{{
+                                etiquetaModulo(modulo)
                             }}</span>
                             <label
                                 class="flex items-center gap-2 text-xs text-muted-foreground"
+                                title="Marca o quita todos los permisos de este módulo a la vez"
                             >
                                 <Checkbox
                                     :model-value="
@@ -130,7 +132,7 @@ function enviar() {
                                             )
                                     "
                                 />
-                                Seleccionar todo
+                                Seleccionar todo el módulo
                             </label>
                         </div>
                         <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -138,6 +140,7 @@ function enviar() {
                                 v-for="permiso in permisosModulo"
                                 :key="permiso.id"
                                 class="flex items-center gap-2 text-sm"
+                                :title="permiso.name"
                             >
                                 <Checkbox
                                     :model-value="
@@ -151,7 +154,7 @@ function enviar() {
                                             )
                                     "
                                 />
-                                {{ permiso.name }}
+                                {{ etiquetaPermiso(permiso.name) }}
                             </label>
                         </div>
                     </div>

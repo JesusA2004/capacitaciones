@@ -30,8 +30,8 @@ const props = defineProps<{
 
 const urlDescarga = computed(() => {
     if (!props.token) {
-return descargar.url();
-}
+        return descargar.url();
+    }
 
     return `${descargar.url()}?token=${encodeURIComponent(props.token)}`;
 });
@@ -42,16 +42,16 @@ const deepLink = computed(() =>
 
 const tamanoFormateado = computed(() => {
     if (!props.latest?.fileSize) {
-return null;
-}
+        return null;
+    }
 
     return `${(props.latest.fileSize / (1024 * 1024)).toFixed(1)} MB`;
 });
 
 const fechaFormateada = computed(() => {
     if (!props.latest?.publishedAt) {
-return null;
-}
+        return null;
+    }
 
     return new Date(props.latest.publishedAt).toLocaleDateString('es-MX', {
         day: 'numeric',
@@ -65,7 +65,9 @@ return null;
     <Head title="Descarga MR. LANA PEOPLE" />
 
     <div class="min-h-screen bg-muted/30 px-4 py-10">
-        <div class="mx-auto flex w-full max-w-lg flex-col items-center text-center">
+        <div
+            class="mx-auto flex w-full max-w-lg flex-col items-center text-center"
+        >
             <span
                 class="mb-4 flex size-16 items-center justify-center rounded-2xl bg-primary/10 text-primary"
             >
@@ -76,8 +78,8 @@ return null;
                 Descarga MR. LANA PEOPLE
             </h1>
             <p class="mt-2 text-sm text-muted-foreground">
-                Lleva tus solicitudes, vacaciones, documentos y
-                notificaciones en tu celular.
+                Lleva tus solicitudes, vacaciones, documentos y notificaciones
+                en tu celular.
             </p>
 
             <template v-if="downloadEnabled && latest">
@@ -96,14 +98,18 @@ return null;
                         · {{ tamanoFormateado }}</template
                     >
                     ·
-                    <Link :href="versiones()" class="underline underline-offset-2"
+                    <Link
+                        :href="versiones()"
+                        class="underline underline-offset-2"
                         >Ver historial</Link
                     >
                 </p>
 
                 <Card v-if="latest.changelog" class="mt-4 w-full text-left">
                     <CardContent class="pt-4">
-                        <p class="mb-1 text-xs font-semibold text-muted-foreground">
+                        <p
+                            class="mb-1 text-xs font-semibold text-muted-foreground"
+                        >
                             Notas de esta versión
                         </p>
                         <p class="text-sm whitespace-pre-line">
@@ -118,7 +124,9 @@ return null;
                             <p class="mb-2 text-sm font-semibold">
                                 Después de descargar
                             </p>
-                            <ol class="ml-4 list-decimal space-y-1 text-sm text-muted-foreground">
+                            <ol
+                                class="ml-4 list-decimal space-y-1 text-sm text-muted-foreground"
+                            >
                                 <li>Instala la APK.</li>
                                 <li>Abre nuevamente este enlace QR.</li>
                                 <li>Toca "Continuar en la app".</li>
@@ -126,7 +134,11 @@ return null;
                         </CardContent>
                     </Card>
 
-                    <Button as-child variant="outline" class="mt-3 w-full max-w-xs">
+                    <Button
+                        as-child
+                        variant="outline"
+                        class="mt-3 w-full max-w-xs"
+                    >
                         <a :href="deepLink!">Ya instalé la app, continuar</a>
                     </Button>
                 </template>
@@ -143,7 +155,9 @@ return null;
                 Disponible por ahora para Android.
             </p>
 
-            <div class="mt-8 w-full rounded-xl border bg-background p-4 text-left">
+            <div
+                class="mt-8 w-full rounded-xl border bg-background p-4 text-left"
+            >
                 <p class="mb-3 text-sm font-semibold">
                     ¿Ya tienes la app? Escanea tu QR o inicia sesión.
                 </p>

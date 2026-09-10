@@ -4,12 +4,7 @@ import { ArrowLeft, Download, RefreshCw, Send } from '@lucide/vue';
 import { ref } from 'vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
 import { useAlertas } from '@/composables/useAlertas';
 import { dashboard } from '@/routes';
@@ -58,8 +53,8 @@ async function regenerar() {
     const confirmado = await confirmarRegeneracion('la tarjeta actual');
 
     if (!confirmado) {
-return;
-}
+        return;
+    }
 
     regenerando.value = true;
     router.post(
@@ -90,7 +85,10 @@ async function enviarManual() {
 <template>
     <Head :title="`Felicitación — ${colaborador.nombre}`" />
 
-    <Link :href="index.url()" class="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+    <Link
+        :href="index.url()"
+        class="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+    >
         <ArrowLeft class="size-4" /> Volver a cumpleaños
     </Link>
 
@@ -115,14 +113,28 @@ async function enviarManual() {
                     <CardTitle>{{ colaborador.nombre }}</CardTitle>
                 </CardHeader>
                 <CardContent class="flex flex-col gap-3">
-                    <p v-if="colaborador.sucursal" class="text-sm text-muted-foreground">
+                    <p
+                        v-if="colaborador.sucursal"
+                        class="text-sm text-muted-foreground"
+                    >
                         {{ colaborador.sucursal }}
                     </p>
-                    <blockquote class="border-l-2 border-primary/40 pl-3 text-sm italic">
+                    <blockquote
+                        class="border-l-2 border-primary/40 pl-3 text-sm italic"
+                    >
                         "{{ greeting.frase }}"
                     </blockquote>
-                    <Badge v-if="greeting.enviadaAt" variant="outline" class="w-fit">
-                        Enviada el {{ new Date(greeting.enviadaAt).toLocaleDateString('es-MX') }}
+                    <Badge
+                        v-if="greeting.enviadaAt"
+                        variant="outline"
+                        class="w-fit"
+                    >
+                        Enviada el
+                        {{
+                            new Date(greeting.enviadaAt).toLocaleDateString(
+                                'es-MX',
+                            )
+                        }}
                     </Badge>
                     <Badge v-else variant="outline" class="w-fit">
                         Aún no se ha enviado
@@ -137,7 +149,11 @@ async function enviarManual() {
                     </a>
                 </Button>
 
-                <Button variant="outline" :disabled="regenerando" @click="regenerar">
+                <Button
+                    variant="outline"
+                    :disabled="regenerando"
+                    @click="regenerar"
+                >
                     <Spinner v-if="regenerando" />
                     <RefreshCw v-else class="size-4" />
                     Regenerar (nueva frase)

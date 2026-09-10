@@ -13,11 +13,11 @@ use App\Services\MobilePush\PushNotifier;
 use App\Services\RhMobile\ResponsableResolverService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Notification as NotificationFacade;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification as NotificationFacade;
 use Throwable;
 
 /**

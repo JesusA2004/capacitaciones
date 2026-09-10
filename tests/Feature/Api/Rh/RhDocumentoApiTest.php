@@ -5,6 +5,7 @@ use App\Models\EmployeeDocument;
 use App\Models\MobileDevice;
 use App\Models\User;
 use Database\Seeders\RolesYPermisosSeeder;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
@@ -97,7 +98,7 @@ test('subir un documento de incorporacion notifica y encola push para rh', funct
     $rh->assignRole('rh_admin');
     MobileDevice::factory()->for($rh, 'usuario')->create();
 
-    $archivo = \Illuminate\Http\UploadedFile::fake()->create('doc.pdf', 500, 'application/pdf');
+    $archivo = UploadedFile::fake()->create('doc.pdf', 500, 'application/pdf');
 
     $this->withHeaders(['Authorization' => 'Bearer '.$colaborador->createToken('test')->plainTextToken])
         ->postJson("/api/v1/colaborador/incorporacion/documentos/{$tipo->id}/subir", ['archivo' => $archivo])

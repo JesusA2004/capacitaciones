@@ -45,10 +45,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('{solicitud}/cancelar', [VacacionesController::class, 'cancelar'])->name('cancelar');
     });
 
-    Route::inertia('planeacion-rh', 'PlaneacionRh/Index')
-        ->middleware('role:super_admin')
-        ->name('planeacion-rh');
-
     Route::middleware('feature:capacitacion')->group(function () {
         Route::get('calendario', [CalendarioController::class, 'index'])->name('calendario');
     });

@@ -14,7 +14,6 @@ import {
     IdCard,
     Landmark,
     LayoutGrid,
-    Map,
     QrCode,
     ShieldCheck,
     Smartphone,
@@ -36,7 +35,7 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { usePermisos } from '@/composables/usePermisos';
-import { dashboard, miExpediente, planeacionRh } from '@/routes';
+import { dashboard, miExpediente } from '@/routes';
 import { index as indexAppReleases } from '@/routes/administracion/app-releases';
 import { index as indexDepartamentos } from '@/routes/administracion/departamentos';
 import { index as indexEmpresas } from '@/routes/administracion/empresas';
@@ -287,14 +286,6 @@ const adminNavItems = computed<NavItem[]>(() => {
             title: 'Roles y permisos',
             href: indexRoles(),
             icon: ShieldCheck,
-        });
-    }
-
-    if (tieneRol('super_admin')) {
-        items.push({
-            title: 'Planeación RH',
-            href: planeacionRh(),
-            icon: Map,
         });
     }
 

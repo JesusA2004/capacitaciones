@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\Rh;
 
+use App\Enums\EstadoSolicitudVacaciones;
 use App\Http\Controllers\Controller;
 use App\Models\SolicitudVacaciones;
 use App\Models\User;
@@ -102,7 +103,7 @@ class VacacionController extends Controller
 
     private function validarPendiente(SolicitudVacaciones $vacacion): void
     {
-        abort_unless($vacacion->estado === \App\Enums\EstadoSolicitudVacaciones::Pendiente, 422, 'Esta solicitud ya no admite esta acción.');
+        abort_unless($vacacion->estado === EstadoSolicitudVacaciones::Pendiente, 422, 'Esta solicitud ya no admite esta acción.');
     }
 
     private function puedeVer(User $usuario, SolicitudVacaciones $vacacion): bool

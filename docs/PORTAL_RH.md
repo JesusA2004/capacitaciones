@@ -22,9 +22,8 @@ Simple, visual, sin demasiados módulos sueltos.
 - **Navegación simplificada** (`resources/js/components/AppSidebar.vue`):
   - Inicio.
   - Capacitación — badge "Próximamente" (visible a todos los usuarios autenticados).
-  - Administración: Colaboradores, Sucursales, Departamentos, Puestos, Roles y permisos, y Planeación RH (solo `super_admin`).
+  - Administración: Colaboradores, Sucursales, Departamentos, Puestos y Roles y permisos.
 - **Pantalla "Capacitación y Desempeño" (Próximamente)**: `resources/js/pages/Capacitacion/Proximamente.vue`, ruta `capacitacion.proximamente` (`/capacitacion`).
-- **Página `/planeacion-rh`**: `resources/js/pages/PlaneacionRh/Index.vue`, solo accesible por el rol `super_admin` (middleware `role:super_admin`, requiere el alias de Spatie registrado en `bootstrap/app.php`). Presenta el objetivo, la estructura empresa → sucursal → colaborador, los pilares del portal y el roadmap.
 
 ## Checkpoints 2–4 — multiempresa, roles RH, dashboard RH, expedientes, documentos NAS
 

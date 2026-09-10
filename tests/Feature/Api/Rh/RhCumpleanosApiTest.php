@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\BirthdayGreeting;
 use App\Models\User;
 use App\Services\Cumpleanos\BirthdayCardService;
 use Database\Seeders\BirthdayPhraseSeeder;

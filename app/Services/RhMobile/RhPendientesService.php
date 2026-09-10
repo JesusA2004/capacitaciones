@@ -5,14 +5,17 @@ namespace App\Services\RhMobile;
 use App\Enums\EstadoDocumento;
 use App\Enums\EstadoSolicitudInterna;
 use App\Enums\EstadoSolicitudVacaciones;
+use App\Enums\EstadoUsuario;
 use App\Models\EmployeeDocument;
 use App\Models\SolicitudInterna;
 use App\Models\SolicitudVacaciones;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Incorporacion\IncorporacionService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 /**
  * Bandeja unificada de RH: junta lo pendiente de revision de los 4 tipos de
@@ -131,7 +134,7 @@ class RhPendientesService
                 'prioridad' => 'normal',
                 'titulo' => $s->tipo->etiqueta(),
                 'colaborador' => $this->colaboradorResumen($s->usuario),
-                'resumen' => $s->motivo !== null ? \Illuminate\Support\Str::limit($s->motivo, 120) : null,
+                'resumen' => $s->motivo !== null ? Str::limit($s->motivo, 120) : null,
                 'creado_en' => $s->created_at?->toIso8601String(),
                 'acciones_permitidas' => $this->accionesRapidasSolicitud($usuario),
             ]);
@@ -198,7 +201,7 @@ class RhPendientesService
     private function incorporaciones(User $usuario, array $filtros): Collection
     {
         $query = User::query()
-            ->where('estatus', \App\Enums\EstadoUsuario::EnIncorporacion->value)
+            ->where('estatus', EstadoUsuario::EnIncorporacion->value)
             ->whereNull('incorporacion_decision')
             ->with(['sucursalPrincipal:id,nombre', 'puesto:id,nombre']);
 
@@ -226,8 +229,8 @@ class RhPendientesService
     /**
      * @template TModel of \Illuminate\Database\Eloquent\Model
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<TModel>  $query
-     * @return \Illuminate\Database\Eloquent\Builder<TModel>
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
      */
     private function limitarPorAlcanceViaUsuario($query, User $usuario, string $columnaUserId)
     {
@@ -243,10 +246,10 @@ class RhPendientesService
     /**
      * @template TModel of \Illuminate\Database\Eloquent\Model
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<TModel>  $query
+     * @param  Builder<TModel>  $query
      * @param  array<string, mixed>  $filtros
      * @param  string|null  $relacionUsuario  Nombre de la relacion hacia User, o null si el propio modelo es User.
-     * @return \Illuminate\Database\Eloquent\Builder<TModel>
+     * @return Builder<TModel>
      */
     private function aplicarFiltrosComunes($query, array $filtros, ?string $relacionUsuario)
     {
