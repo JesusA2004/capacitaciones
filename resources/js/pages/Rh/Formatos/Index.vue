@@ -38,14 +38,13 @@ import {
 } from '@/components/ui/select';
 import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
+import { descargar, descargarPdf, destroy } from '@/routes/rh/formatos';
 import {
-    descargar,
-    descargarPdf,
-    destroy,
     exportarExcel,
     exportarPdf,
     index,
-} from '@/routes/rh/formatos';
+} from '@/routes/rh/formatos/catalogo';
+import { index as indexPlantillas } from '@/routes/rh/plantillas';
 import type {
     DocumentoGeneradoItem,
     FormatoCatalogoItem,
@@ -85,7 +84,10 @@ const props = defineProps<{
 
 defineOptions({
     layout: {
-        breadcrumbs: [{ title: 'Formatos', href: '' }],
+        breadcrumbs: [
+            { title: 'Plantillas avanzadas', href: indexPlantillas() },
+            { title: 'Documentos generados', href: '' },
+        ],
     },
 });
 
@@ -156,12 +158,12 @@ async function eliminar(documento: DocumentoGeneradoItem) {
 </script>
 
 <template>
-    <Head title="Formatos" />
+    <Head title="Documentos generados (avanzado)" />
 
     <div class="flex flex-col gap-6 p-4">
         <CrudPageHeader
-            titulo="Formatos"
-            descripcion="Genera documentos precargados a partir de una plantilla."
+            titulo="Documentos generados (avanzado)"
+            descripcion="Genera documentos libres a partir de una plantilla DOCX editable. Para los formatos oficiales fijos de MR. LANA, usa el módulo «Formatos»."
             :icono="FileStack"
         >
             <Button as-child variant="outline" size="sm">

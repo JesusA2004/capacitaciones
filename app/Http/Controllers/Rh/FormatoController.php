@@ -46,9 +46,17 @@ class FormatoController extends Controller
         private readonly FormatoCatalogoService $catalogo,
     ) {}
 
+    /**
+     * Catálogo/tablero avanzado de documentos generados desde plantillas
+     * DOCX editables (ahora en /rh/formatos/catalogo) — a proposito
+     * reservado a quien administra plantillas (`plantillas.crear`), ya que
+     * la pantalla principal de RH operativo es "Formatos oficiales"
+     * (Rh\FormatoOficialController). Ver "Preferido" en
+     * docs/PLANTILLAS_FORMATOS.md.
+     */
     public function index(Request $request): Response
     {
-        $this->authorize('viewAny', DocumentTemplate::class);
+        abort_unless($request->user()->can('plantillas.crear'), 403);
 
         $documentos = $this->queryFiltrada($request)->orderByDesc('created_at')->paginate(15)->withQueryString();
 
@@ -66,7 +74,7 @@ class FormatoController extends Controller
 
     public function exportarExcel(Request $request): HttpResponse
     {
-        $this->authorize('viewAny', DocumentTemplate::class);
+        abort_unless($request->user()->can('plantillas.crear'), 403);
 
         [$columnas, $filas] = $this->tabla($request);
 
@@ -78,7 +86,7 @@ class FormatoController extends Controller
 
     public function exportarPdf(Request $request): HttpResponse
     {
-        $this->authorize('viewAny', DocumentTemplate::class);
+        abort_unless($request->user()->can('plantillas.crear'), 403);
 
         [$columnas, $filas] = $this->tabla($request);
 

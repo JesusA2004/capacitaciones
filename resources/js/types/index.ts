@@ -7,6 +7,7 @@ export * from './calendario';
 export * from './cuestionarios';
 export * from './cursos';
 export * from './dashboardRh';
+export * from './formatos-oficiales';
 export * from './micapacitacion';
 export * from './multimedia';
 export * from './navigation';

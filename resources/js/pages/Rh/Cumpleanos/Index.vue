@@ -5,6 +5,7 @@ import {
     CalendarDays,
     ChevronLeft,
     ChevronRight,
+    FilterX,
     Gift,
     ListChecks,
     Plus,
@@ -25,6 +26,7 @@ import {
     Dialog,
     DialogContent,
     DialogDescription,
+    DialogFooter,
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
@@ -164,6 +166,24 @@ function navegar() {
 function navegarConDebounce() {
     clearTimeout(temporizadorBusqueda);
     temporizadorBusqueda = setTimeout(navegar, 400);
+}
+
+const hayFiltrosActivos = computed(
+    () =>
+        filtros.value.sucursal_id !== '' ||
+        filtros.value.departamento_id !== '' ||
+        filtros.value.estatus !== '' ||
+        filtros.value.busqueda !== '',
+);
+
+function limpiarFiltros() {
+    filtros.value = {
+        sucursal_id: '',
+        departamento_id: '',
+        estatus: '',
+        busqueda: '',
+    };
+    navegar();
 }
 
 function mesAnterior() {
@@ -313,6 +333,7 @@ const proximosSidebar = computed(() =>
 </script>
 
 <template>
+    <div class="mx-auto flex max-w-screen-2xl flex-col p-4 sm:px-6 lg:px-8">
     <CrudPageHeader
         titulo="Calendario de cumpleaños"
         descripcion="Vista mensual, tarjetas y felicitaciones de los colaboradores."
@@ -379,8 +400,9 @@ const proximosSidebar = computed(() =>
 
         <!-- Filtros -->
         <Card class="mt-4">
-            <CardContent
-                class="grid grid-cols-1 gap-3 pt-6 sm:grid-cols-2 lg:grid-cols-4"
+            <CardContent class="flex flex-col gap-3 pt-6">
+            <div
+                class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
             >
                 <div class="grid gap-1.5">
                     <Label>Sucursal</Label>
@@ -450,6 +472,19 @@ const proximosSidebar = computed(() =>
                         />
                     </div>
                 </div>
+            </div>
+
+            <div class="flex justify-end">
+                <Button
+                    variant="secondary"
+                    size="sm"
+                    :disabled="!hayFiltrosActivos"
+                    @click="limpiarFiltros"
+                >
+                    <FilterX class="size-4" />
+                    Limpiar filtros
+                </Button>
+            </div>
             </CardContent>
         </Card>
 
@@ -541,11 +576,13 @@ const proximosSidebar = computed(() =>
                                     v-for="(celda, j) in semana"
                                     :key="j"
                                     type="button"
-                                    class="flex min-h-24 flex-col items-stretch gap-1 bg-background p-1.5 text-left transition-colors lg:min-h-28"
+                                    class="flex min-h-24 flex-col items-stretch gap-1 bg-background p-1.5 text-left transition-all lg:min-h-28"
                                     :class="[
                                         celda.dia === null && 'bg-muted/20',
-                                        celda.colaboradores.length > 0 && 'cursor-pointer hover:bg-primary/[0.04]',
+                                        celda.colaboradores.length > 0 &&
+                                            'cursor-pointer hover:bg-primary/[0.06] hover:shadow-[inset_0_0_0_1px_var(--primary)]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-inset',
                                         celda.colaboradores.length === 0 && 'cursor-default',
+                                        esHoy(celda.dia) && 'ring-2 ring-inset ring-primary/30',
                                     ]"
                                     :disabled="celda.colaboradores.length === 0"
                                     @click="abrirDia(celda)"
@@ -555,7 +592,7 @@ const proximosSidebar = computed(() =>
                                         class="flex size-6 items-center justify-center rounded-full text-xs font-medium"
                                         :class="
                                             esHoy(celda.dia)
-                                                ? 'bg-primary text-primary-foreground'
+                                                ? 'bg-primary text-primary-foreground shadow-sm'
                                                 : 'text-muted-foreground'
                                         "
                                     >
@@ -569,11 +606,11 @@ const proximosSidebar = computed(() =>
                                         <div
                                             v-for="c in celda.colaboradores.slice(0, 2)"
                                             :key="c.id"
-                                            class="flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[11px] text-primary"
+                                            class="flex items-center gap-1.5 rounded-full bg-primary/10 py-0.5 pr-2 pl-0.5 text-[11px] font-medium text-primary"
                                         >
-                                            <Avatar class="size-4 shrink-0">
+                                            <Avatar class="size-5 shrink-0 ring-1 ring-background">
                                                 <AvatarImage v-if="c.foto_url" :src="c.foto_url" :alt="c.nombre" />
-                                                <AvatarFallback class="text-[8px]">{{ getInitials(c.nombre) }}</AvatarFallback>
+                                                <AvatarFallback class="text-[9px]">{{ getInitials(c.nombre) }}</AvatarFallback>
                                             </Avatar>
                                             <span class="truncate">{{ c.nombre.split(' ')[0] }}</span>
                                         </div>
@@ -667,10 +704,13 @@ const proximosSidebar = computed(() =>
             </Card>
         </div>
     </template>
+    </div>
 
     <!-- Dialog: detalle de un dia del calendario -->
     <Dialog :open="diaSeleccionado !== null" @update:open="(v) => !v && (diaSeleccionado = null)">
-        <DialogContent class="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+        <DialogContent
+            class="max-h-[85vh] w-[calc(100vw-2rem)] overflow-x-hidden overflow-y-auto sm:max-w-xl lg:max-w-2xl"
+        >
             <DialogHeader>
                 <DialogTitle>
                     {{ diaSeleccionado?.dia }} de {{ MESES[mesActual - 1] }}
@@ -694,56 +734,83 @@ const proximosSidebar = computed(() =>
 
     <!-- Dialog: gestion de frases -->
     <Dialog v-model:open="dialogFrasesAbierto">
-        <DialogContent class="max-h-[85vh] overflow-y-auto sm:max-w-lg">
-            <DialogHeader>
+        <DialogContent
+            class="flex max-h-[85vh] w-[calc(100vw-2rem)] flex-col overflow-hidden sm:max-w-2xl lg:max-w-4xl"
+        >
+            <DialogHeader class="shrink-0">
                 <DialogTitle>Frases de felicitación</DialogTitle>
                 <DialogDescription>
                     Las frases activas rotan automáticamente para no repetir siempre la misma.
                 </DialogDescription>
             </DialogHeader>
 
-            <div class="flex flex-col gap-3 sm:flex-row">
+            <div class="flex shrink-0 flex-col gap-2 sm:flex-row">
                 <Input
                     v-model="nuevaFrase.texto"
                     placeholder="Escribe una nueva frase..."
                     class="flex-1"
+                    @keyup.enter="agregarFrase"
                 />
                 <Button
+                    class="shrink-0"
                     :disabled="nuevaFrase.processing || !nuevaFrase.texto"
                     @click="agregarFrase"
                 >
                     <Spinner v-if="nuevaFrase.processing" />
                     <Plus v-else class="size-4" />
-                    Agregar
+                    Agregar frase
                 </Button>
             </div>
 
-            <div class="flex flex-col gap-2">
-                <div
-                    v-for="frase in opciones.frases"
-                    :key="frase.id"
-                    class="flex items-center justify-between gap-3 rounded-lg border p-3"
+            <div class="-mx-1 flex-1 overflow-y-auto overflow-x-hidden px-1">
+                <p
+                    v-if="opciones.frases.length === 0"
+                    class="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground"
                 >
-                    <div class="min-w-0">
-                        <p class="truncate text-sm">{{ frase.texto }}</p>
-                        <p class="text-xs text-muted-foreground">
-                            Usada {{ frase.usado_count }} veces
-                        </p>
-                    </div>
-                    <div class="flex shrink-0 items-center gap-2">
-                        <Badge
-                            :variant="frase.activo ? 'default' : 'outline'"
-                            class="cursor-pointer"
-                            @click="alternarFrase(frase)"
-                        >
-                            {{ frase.activo ? 'Activa' : 'Inactiva' }}
-                        </Badge>
-                        <Button size="icon" variant="ghost" @click="eliminarFrase(frase)">
-                            <Trash2 class="size-4 text-destructive" />
-                        </Button>
+                    Todavía no hay frases. Agrega la primera arriba.
+                </p>
+
+                <div v-else class="flex flex-col gap-2">
+                    <div
+                        v-for="frase in opciones.frases"
+                        :key="frase.id"
+                        class="rounded-xl border p-3"
+                        :class="!frase.activo && 'bg-muted/30'"
+                    >
+                        <div class="flex items-start justify-between gap-3">
+                            <p class="min-w-0 flex-1 text-sm break-words whitespace-normal">
+                                {{ frase.texto }}
+                            </p>
+                            <Badge
+                                :variant="frase.activo ? 'default' : 'outline'"
+                                class="shrink-0"
+                            >
+                                {{ frase.activo ? 'Activa' : 'Inactiva' }}
+                            </Badge>
+                        </div>
+                        <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
+                            <p class="text-xs text-muted-foreground">
+                                Usada {{ frase.usado_count }} {{ frase.usado_count === 1 ? 'vez' : 'veces' }}
+                            </p>
+                            <div class="flex items-center gap-2">
+                                <Button size="sm" variant="outline" @click="alternarFrase(frase)">
+                                    {{ frase.activo ? 'Desactivar' : 'Activar' }}
+                                </Button>
+                                <Button size="sm" variant="ghost" @click="eliminarFrase(frase)">
+                                    <Trash2 class="size-4 text-destructive" />
+                                    Eliminar
+                                </Button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
+
+            <DialogFooter class="shrink-0">
+                <Button variant="secondary" @click="dialogFrasesAbierto = false">
+                    Cerrar
+                </Button>
+            </DialogFooter>
         </DialogContent>
     </Dialog>
 </template>

@@ -62,23 +62,16 @@ import { index as indexSolicitudes } from '@/routes/solicitudes';
 import { index as indexVacaciones } from '@/routes/vacaciones';
 import type { NavItem } from '@/types';
 
-const { tienePermiso, tieneRol } = usePermisos();
+const { tienePermiso } = usePermisos();
 const page = usePage();
 
 // El Portal RH es la experiencia principal (ver docs/PORTAL_RH.md).
 // Capacitación se conserva por completo detrás del feature flag
 // `capacitacion` (config/features.php, docs/CAPACITACION_PROXIMAMENTE.md):
-// con la bandera apagada no se muestra ningún acceso a colaboradores
-// normales — nada de "botones falsos" ni textos "Próximamente" para el
-// público general. Solo super_admin (o un ambiente que no sea producción,
-// para poder revisar la pantalla mientras se desarrolla) sigue viendo un
-// acceso, marcado explícitamente como interno.
+// con la bandera apagada no se muestra ningún acceso a NADIE, ni siquiera
+// super_admin — nada de "botones falsos" ni badges "Fase futura" en el
+// menú mientras el módulo no esté terminado.
 const capacitacionActiva = computed(() => page.props.features.capacitacion);
-const capacitacionVisibleParaAdmin = computed(
-    () =>
-        !capacitacionActiva.value &&
-        (tieneRol('super_admin') || page.props.environment !== 'production'),
-);
 
 const mainNavItems = computed<NavItem[]>(() => {
     const items: NavItem[] = [
@@ -184,18 +177,22 @@ const mainNavItems = computed<NavItem[]>(() => {
         });
     }
 
-    if (tienePermiso('plantillas.ver')) {
+    if (tienePermiso('formatos_oficiales.ver')) {
         items.push({
-            title: 'Plantillas',
-            href: indexPlantillas(),
+            title: 'Formatos',
+            href: indexFormatos(),
             icon: FileStack,
         });
     }
 
-    if (tienePermiso('plantillas.generar')) {
+    // "Plantillas avanzadas": administrar el catálogo de plantillas DOCX
+    // editables y generar documentos libres desde ellas — reservado a
+    // quien puede crear/editar plantillas (rh_admin/super_admin), no a RH
+    // operativo (ver "Preferido" en docs/PLANTILLAS_FORMATOS.md).
+    if (tienePermiso('plantillas.crear')) {
         items.push({
-            title: 'Formatos',
-            href: indexFormatos(),
+            title: 'Plantillas avanzadas',
+            href: indexPlantillas(),
             icon: FileStack,
         });
     }
@@ -221,13 +218,6 @@ const mainNavItems = computed<NavItem[]>(() => {
             title: 'Capacitación',
             href: capacitacionProximamente(),
             icon: GraduationCap,
-        });
-    } else if (capacitacionVisibleParaAdmin.value) {
-        items.push({
-            title: 'Capacitación',
-            href: capacitacionProximamente(),
-            icon: GraduationCap,
-            badge: 'Fase futura',
         });
     }
 

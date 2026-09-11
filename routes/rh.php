@@ -7,6 +7,7 @@ use App\Http\Controllers\Rh\DocumentExtraccionController;
 use App\Http\Controllers\Rh\EmployeeDocumentController;
 use App\Http\Controllers\Rh\ExpedienteController;
 use App\Http\Controllers\Rh\FormatoController;
+use App\Http\Controllers\Rh\FormatoOficialController;
 use App\Http\Controllers\Rh\IncorporacionInvitacionController;
 use App\Http\Controllers\Rh\PlantillaController;
 use App\Http\Controllers\Rh\ReclutamientoController;
@@ -109,16 +110,39 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::delete('{plantilla}', [PlantillaController::class, 'destroy'])->name('destroy');
         });
 
+        // "Formatos" es la experiencia principal de RH operativo: formatos
+        // oficiales fijos de MR. LANA, solo generar/descargar (docs/FORMATOS_OFICIALES.md).
+        // El motor de plantillas DOCX editables (Rh\FormatoController) se
+        // conserva intacto para uso avanzado (Solicitudes → "Generar
+        // formato" via GenerarFormatoDialog.vue, y el catálogo bajo
+        // "catalogo/*" para super_admin/rh_admin) — no se muestra como
+        // catálogo principal a RH normal (ver docs/PLANTILLAS_FORMATOS.md).
         Route::prefix('formatos')->name('formatos.')->group(function () {
-            Route::get('/', [FormatoController::class, 'index'])->name('index');
-            Route::get('exportar-excel', [FormatoController::class, 'exportarExcel'])->name('exportarExcel');
-            Route::get('exportar-pdf', [FormatoController::class, 'exportarPdf'])->name('exportarPdf');
+            Route::get('/', [FormatoOficialController::class, 'index'])->name('index');
+            Route::prefix('catalogo')->name('catalogo.')->group(function () {
+                Route::get('/', [FormatoController::class, 'index'])->name('index');
+                Route::get('exportar-excel', [FormatoController::class, 'exportarExcel'])->name('exportarExcel');
+                Route::get('exportar-pdf', [FormatoController::class, 'exportarPdf'])->name('exportarPdf');
+            });
             Route::post('preview', [FormatoController::class, 'preview'])->name('preview');
             Route::post('/', [FormatoController::class, 'store'])->name('store');
             Route::get('{documento}/descargar', [FormatoController::class, 'descargar'])->name('descargar');
             Route::get('{documento}/descargar-pdf', [FormatoController::class, 'descargarPdf'])->name('descargar-pdf');
             Route::post('{documento}/subir-firmado', [FormatoController::class, 'subirFirmado'])->name('subir-firmado');
             Route::delete('{documento}', [FormatoController::class, 'destroy'])->name('destroy');
+        });
+
+        // Configurador visual de posiciones de datos sobre cada formato
+        // oficial (docs/FORMATOS_OFICIALES.md) — solo rh_admin/super_admin.
+        Route::prefix('formatos-oficiales')->name('formatos-oficiales.')->group(function () {
+            Route::get('/', [FormatoOficialController::class, 'index'])->name('index');
+            Route::get('{formato}', [FormatoOficialController::class, 'show'])->name('show');
+            Route::get('{formato}/original', [FormatoOficialController::class, 'original'])->name('original');
+            Route::post('{formato}/configuracion', [FormatoOficialController::class, 'guardarConfiguracion'])->name('configuracion');
+            Route::post('{formato}/vista-previa-configuracion', [FormatoOficialController::class, 'previsualizarConfiguracion'])->name('vista-previa-configuracion');
+            Route::post('{formato}/vista-previa', [FormatoOficialController::class, 'previsualizarGeneracion'])->name('vista-previa');
+            Route::post('{formato}/generar', [FormatoOficialController::class, 'generar'])->name('generar');
+            Route::get('generaciones/{generacion}/descargar', [FormatoOficialController::class, 'descargar'])->name('descargar');
         });
 
         Route::prefix('vacaciones')->name('vacaciones.')->group(function () {

@@ -82,7 +82,7 @@ test('el catalogo de formatos expone las variables reales de cada plantilla', fu
 
     DocumentTemplate::factory()->create(['path' => $ruta, 'tipo' => 'contrato', 'nombre' => 'Contrato de prueba']);
 
-    $respuesta = $this->actingAs($usuario)->get(route('rh.formatos.index'));
+    $respuesta = $this->actingAs($usuario)->get(route('rh.formatos.catalogo.index'));
 
     $respuesta->assertInertia(fn ($page) => $page
         ->has('plantillasDisponibles', 1)

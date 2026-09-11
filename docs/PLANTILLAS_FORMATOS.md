@@ -1,9 +1,17 @@
-# Plantillas y formatos precargados
+# Plantillas avanzadas (motor DOCX editable)
 
-Módulos `/rh/plantillas` (catálogo de formatos oficiales) y `/rh/formatos` (generación
-de documentos precargados). Tablas `document_templates` y `generated_documents` — ver
-migraciones `2026_09_02_100000_create_document_templates_table` y
-`2026_09_02_100001_create_generated_documents_table`.
+> **Este NO es el módulo "Formatos" que ve RH operativo.** Desde el rediseño de
+> formatos, `/rh/formatos` muestra los formatos oficiales fijos de MR. LANA (PDF con
+> overlay, ver `docs/FORMATOS_OFICIALES.md`). Este documento describe el motor de
+> plantillas DOCX editables que queda detrás de "Plantillas avanzadas"
+> (`/rh/plantillas`, solo `plantillas.crear` — rh_admin/super_admin) y el catálogo de
+> documentos generados con él (`/rh/formatos/catalogo`) — sigue siendo el motor real
+> detrás del botón "Generar formato" de una Solicitud.
+
+Módulos `/rh/plantillas` (catálogo de plantillas DOCX) y `/rh/formatos/catalogo`
+(generación de documentos precargados desde ellas). Tablas `document_templates` y
+`generated_documents` — ver migraciones `2026_09_02_100000_create_document_templates_table`
+y `2026_09_02_100001_create_generated_documents_table`.
 
 ## Nota de nomenclatura
 
@@ -29,7 +37,7 @@ preexistentes en `league/commonmark` y `phpoffice/phpspreadsheet` (dependencias 
    (`config('plantillas.disk')`) vía `App\Services\Plantillas\PlantillaStorageService`
    — la base de datos solo guarda metadatos, igual que el resto del proyecto.
 2. RH genera el documento de dos formas:
-   - **Desde `/rh/formatos`**: elige plantilla + colaborador/candidato manualmente.
+   - **Desde `/rh/formatos/catalogo`**: elige plantilla + colaborador/candidato manualmente.
    - **Desde una solicitud** (`/rh/solicitudes/{solicitud}` → botón "Generar formato"):
      `Rh\FormatoController::store` recibe `solicitud_id` (o `solicitud_vacaciones_id`
      para vacaciones) en vez de `tipo_sujeto`/`sujeto_id`; el colaborador se deriva de
@@ -58,7 +66,7 @@ preexistentes en `league/commonmark` y `phpoffice/phpspreadsheet` (dependencias 
 4. El colaborador/candidato firma en papel (**firma física en Fase 1**, no hay firma
    electrónica avanzada).
 5. RH sube el escaneo del documento firmado desde la solicitud (botón "Subir firmado") o
-   desde `/rh/formatos` — `Rh\FormatoController::subirFirmado`. Reutiliza
+   desde `/rh/formatos/catalogo` — `Rh\FormatoController::subirFirmado`. Reutiliza
    `App\Services\Expedientes\DocumentoStorageService::subirVersion()` (misma lógica que
    subir cualquier documento al expediente: versiona si ya existe uno vigente del mismo
    tipo) para crear el `EmployeeDocument` correspondiente, y enlaza ambos registros
@@ -78,11 +86,11 @@ el documento se genera desde una solicitud.
 Ambas son FKs nullables (`solicitud_id` → `solicitudes_internas`, `solicitud_vacaciones_id`
 → `solicitudes_vacaciones`), mutuamente excluyentes (regla `prohibits` en
 `StoreGeneratedDocumentRequest`): un documento generado está asociado a como mucho una
-solicitud, o a ninguna (generado libremente desde `/rh/formatos`).
+solicitud, o a ninguna (generado libremente desde `/rh/formatos/catalogo`).
 
-## Catálogo (`/rh/formatos`) y vista previa
+## Catálogo (`/rh/formatos/catalogo`) y vista previa
 
-`/rh/formatos` muestra un catálogo con una card por `DocumentTemplate` activa: nombre,
+`/rh/formatos/catalogo` muestra un catálogo con una card por `DocumentTemplate` activa: nombre,
 tipo, descripción, las variables `{{...}}` que realmente usa esa plantilla (leídas del
 DOCX por `PlantillaDocumentoService::variablesEnPlantilla()`, cacheadas por
 plantilla+versión — no hay que mantener una lista aparte a mano), cuántas veces se ha
@@ -117,6 +125,9 @@ falla, RH ve un aviso y sigue teniendo el Word.
 - `formatos.ver`, `formatos.preview`, `formatos.descargar_pdf`, `formatos.descargar_docx`
   (catálogo/vista previa/descarga — deliberadamente aparte de `plantillas.*`, ver
   comentario en `RolesYPermisosSeeder`; `rh_admin`, `rh_auxiliar` y `gerente_sucursal`).
+- El sidebar "Plantillas avanzadas" se muestra solo con `plantillas.crear` (no
+  `plantillas.ver`), a propósito más restrictivo que antes — ver "Preferido" arriba.
+  `formatos_oficiales.*` (módulo distinto) está en `docs/FORMATOS_OFICIALES.md`.
 
 ## API móvil de RH
 
@@ -129,7 +140,7 @@ app; la app solo consulta el catálogo y descarga lo ya generado. Ver `docs/RH_M
 
 ## Filtros y exportación
 
-`/rh/plantillas` y `/rh/formatos` tienen filtros (tipo, alcance, responsable, rango de
+`/rh/plantillas` y `/rh/formatos/catalogo` tienen filtros (tipo, alcance, responsable, rango de
 fechas, buscador) y exportación Excel/PDF que respeta esos filtros — mismo patrón que el
 resto de listados operativos, ver `docs/ARQUITECTURA_SERVICES.md`.
 

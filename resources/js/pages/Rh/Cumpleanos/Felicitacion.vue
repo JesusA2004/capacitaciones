@@ -117,6 +117,7 @@ async function copiarMensaje() {
 <template>
     <Head :title="`Felicitación — ${colaborador.nombre}`" />
 
+    <div class="mx-auto flex max-w-screen-2xl flex-col p-4 sm:px-6 lg:px-8">
     <Link
         :href="index.url()"
         class="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
@@ -196,5 +197,6 @@ async function copiarMensaje() {
                 </Button>
             </div>
         </div>
+    </div>
     </div>
 </template>

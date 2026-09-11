@@ -169,6 +169,20 @@ adicional. `App\Jobs\ProcesarDocumentoPersonalJob` corre en la cola por defecto,
 6 de arriba. Si `queue:work` no está corriendo, las extracciones simplemente se quedan
 `pending` hasta que el worker vuelva.
 
+## Formatos oficiales de MR. LANA
+
+`setasign/fpdi-fpdf` (overlay sobre PDF, ver `docs/FORMATOS_OFICIALES.md`) se instala
+solo con `composer install`. Los PDFs oficiales **no viven en Git**
+(`claude/formatos/originales/`, ver `claude/formatos/README.md`): después de un deploy
+nuevo (o si se agregan formatos), colócalos en esa carpeta del servidor y corre:
+
+```bash
+php artisan formatos:importar-originales
+```
+
+Es idempotente — seguro correrlo en cada deploy aunque no haya archivos nuevos
+(`|| true` si se agrega al script de deploy, igual que el resto de comandos opcionales).
+
 ## Ver también
 
 - `docs/CUMPLEANOS.md` — módulo de cumpleaños completo.
@@ -178,5 +192,5 @@ adicional. `App\Jobs\ProcesarDocumentoPersonalJob` corre en la cola por defecto,
 - `docs/CONFIGURACION_NAS.md` / `docs/SYNOLOGY_STORAGE.md` — almacenamiento NAS.
 - `docs/DOCUMENT_EXTRACTION.md` — extracción automática de datos personales,
   jerarquía de puestos (`docs/JERARQUIA_PUESTOS.md`) y formatos
-  (`docs/PLANTILLAS_FORMATOS.md`).
+  (`docs/PLANTILLAS_FORMATOS.md`, `docs/FORMATOS_OFICIALES.md`).
 - `docs/PUSH_NOTIFICATIONS.md` — Expo (push) y Reverb (tiempo real web).

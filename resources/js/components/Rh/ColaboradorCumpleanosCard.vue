@@ -84,7 +84,7 @@ function enviar() {
 
 <template>
     <div
-        class="group flex items-center justify-between gap-3 rounded-xl border p-3 transition-colors hover:border-primary/40 hover:bg-primary/[0.03]"
+        class="group flex flex-col gap-3 rounded-xl border p-3 transition-colors hover:border-primary/40 hover:bg-primary/[0.03] sm:flex-row sm:items-center sm:justify-between"
         :class="[
             compacto ? 'bg-muted/30' : 'bg-background',
             esHoy && 'border-[var(--success)]/40 bg-[var(--success)]/5',
@@ -123,18 +123,22 @@ function enviar() {
             </div>
         </div>
 
+        <!-- Compacto (sidebar/lista movil): solo iconos con tooltip, pero
+             siempre con aria-label para que sigan siendo accesibles sin el
+             texto visible. -->
         <div
+            v-if="compacto"
             class="flex shrink-0 items-center gap-1 opacity-80 group-hover:opacity-100"
         >
             <Tooltip>
                 <TooltipTrigger as-child>
                     <Link :href="felicitacion.url(colaborador.id)">
-                        <Button size="icon" variant="ghost">
+                        <Button size="icon" variant="ghost" aria-label="Ver tarjeta">
                             <Gift class="size-4" />
                         </Button>
                     </Link>
                 </TooltipTrigger>
-                <TooltipContent>Ver felicitación</TooltipContent>
+                <TooltipContent>Ver tarjeta</TooltipContent>
             </Tooltip>
 
             <Tooltip>
@@ -142,6 +146,7 @@ function enviar() {
                     <Button
                         size="icon"
                         variant="ghost"
+                        aria-label="Generar tarjeta"
                         :disabled="generando"
                         @click="generar"
                     >
@@ -154,7 +159,7 @@ function enviar() {
 
             <Tooltip v-if="puedeDescargar">
                 <TooltipTrigger as-child>
-                    <Button as-child size="icon" variant="ghost">
+                    <Button as-child size="icon" variant="ghost" aria-label="Descargar imagen">
                         <a :href="descargarFelicitacion.url(colaborador.id)">
                             <Download class="size-4" />
                         </a>
@@ -168,6 +173,7 @@ function enviar() {
                     <Button
                         size="icon"
                         variant="ghost"
+                        aria-label="Copiar mensaje"
                         @click="emit('copiar', colaborador)"
                     >
                         <Copy class="size-4" />
@@ -181,6 +187,7 @@ function enviar() {
                     <Button
                         size="icon"
                         variant="ghost"
+                        aria-label="Enviar felicitación"
                         :disabled="enviando"
                         @click="enviar"
                     >
@@ -190,6 +197,52 @@ function enviar() {
                 </TooltipTrigger>
                 <TooltipContent>Enviar felicitación</TooltipContent>
             </Tooltip>
+        </div>
+
+        <!-- No compacto (banner "hoy", dialog de dia): botones con icono +
+             texto, claros y entendibles sin tener que adivinar por el
+             icono. -->
+        <div v-else class="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+            <Button as-child size="sm" variant="secondary">
+                <Link :href="felicitacion.url(colaborador.id)">
+                    <Gift class="size-4" />
+                    Ver tarjeta
+                </Link>
+            </Button>
+
+            <Button
+                size="sm"
+                variant="outline"
+                :disabled="generando"
+                @click="generar"
+            >
+                <Spinner v-if="generando" />
+                <Sparkles v-else class="size-4" />
+                Generar
+            </Button>
+
+            <Button v-if="puedeDescargar" as-child size="sm" variant="outline">
+                <a :href="descargarFelicitacion.url(colaborador.id)">
+                    <Download class="size-4" />
+                    Descargar
+                </a>
+            </Button>
+
+            <Button size="sm" variant="outline" @click="emit('copiar', colaborador)">
+                <Copy class="size-4" />
+                Copiar
+            </Button>
+
+            <Button
+                v-if="puedeEnviar"
+                size="sm"
+                :disabled="enviando"
+                @click="enviar"
+            >
+                <Spinner v-if="enviando" />
+                <Send v-else class="size-4" />
+                Enviar
+            </Button>
         </div>
     </div>
 </template>

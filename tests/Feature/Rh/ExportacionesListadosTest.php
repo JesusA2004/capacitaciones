@@ -65,8 +65,8 @@ test('rh_admin puede exportar plantillas a excel y pdf', function () {
 test('rh_admin puede exportar formatos generados a excel y pdf', function () {
     GeneratedDocument::factory()->count(2)->create();
 
-    $this->actingAs($this->rh)->get(route('rh.formatos.exportarExcel'))->assertOk();
-    $this->actingAs($this->rh)->get(route('rh.formatos.exportarPdf'))->assertOk();
+    $this->actingAs($this->rh)->get(route('rh.formatos.catalogo.exportarExcel'))->assertOk();
+    $this->actingAs($this->rh)->get(route('rh.formatos.catalogo.exportarPdf'))->assertOk();
 });
 
 test('rh_admin puede exportar solicitudes internas a excel y pdf', function () {

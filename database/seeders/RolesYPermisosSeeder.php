@@ -131,6 +131,16 @@ class RolesYPermisosSeeder extends Seeder
         'formatos.descargar_pdf',
         'formatos.descargar_docx',
 
+        // --- Formatos oficiales fijos de MR. LANA (docs/FORMATOS_OFICIALES.md) ---
+        // Modulo aparte de formatos.*/plantillas.*: aqui RH nunca sube ni
+        // cambia el documento, solo genera un PDF con overlay sobre el
+        // original. "configurar" (donde se pinta cada dato) queda separado
+        // de "generar" (RH operativo del dia a dia) a proposito.
+        'formatos_oficiales.ver',
+        'formatos_oficiales.generar',
+        'formatos_oficiales.descargar',
+        'formatos_oficiales.configurar',
+
         // --- Incorporacion documental en la app movil (docs/API_MOVIL.md) ---
         // Colaborador en proceso de alta: solo su propia checklist, nunca el
         // expediente completo.
@@ -275,6 +285,7 @@ class RolesYPermisosSeeder extends Seeder
             'candidatos.ver', 'candidatos.ver_todos', 'candidatos.crear', 'candidatos.editar', 'candidatos.aprobar', 'candidatos.rechazar', 'candidatos.eliminar',
             'plantillas.ver', 'plantillas.crear', 'plantillas.editar', 'plantillas.eliminar', 'plantillas.generar',
             'formatos.ver', 'formatos.preview', 'formatos.descargar_pdf', 'formatos.descargar_docx',
+            'formatos_oficiales.ver', 'formatos_oficiales.generar', 'formatos_oficiales.descargar', 'formatos_oficiales.configurar',
             'rh.expedientes.ver', 'rh.expedientes.detalle', 'rh.expedientes.documentos.ver', 'rh.expedientes.documentos.aprobar',
             'rh.expedientes.documentos.rechazar', 'rh.expedientes.documentos.autorizar-cambio',
             'rh.expedientes.incorporacion.aprobar', 'rh.expedientes.incorporacion.rechazar',
@@ -313,6 +324,7 @@ class RolesYPermisosSeeder extends Seeder
             'candidatos.ver', 'candidatos.ver_todos', 'candidatos.crear', 'candidatos.editar',
             'plantillas.ver', 'plantillas.generar',
             'formatos.ver', 'formatos.preview', 'formatos.descargar_pdf', 'formatos.descargar_docx',
+            'formatos_oficiales.ver', 'formatos_oficiales.generar', 'formatos_oficiales.descargar',
             'rh.expedientes.ver', 'rh.expedientes.detalle', 'rh.expedientes.documentos.ver',
             'rh.incorporacion.invitaciones.ver', 'rh.incorporacion.invitaciones.crear', 'rh.incorporacion.invitaciones.qr.descargar',
             // Backend movil v5: ve pendientes/documentos/incorporaciones, no aprueba decisiones finales.
@@ -340,6 +352,7 @@ class RolesYPermisosSeeder extends Seeder
             'expedientes.ver', 'expedientes.ver_sucursal',
             'documentos.ver',
             'formatos.ver', 'formatos.preview', 'formatos.descargar_pdf', 'formatos.descargar_docx',
+            'formatos_oficiales.ver', 'formatos_oficiales.generar', 'formatos_oficiales.descargar',
             'vacaciones.ver', 'vacaciones.solicitar', 'vacaciones.aprobar', 'vacaciones.rechazar',
             'solicitudes.ver', 'solicitudes.revisar', 'solicitudes.aprobar',
             'reportes_rh.ver', 'reportes_rh.sucursal',

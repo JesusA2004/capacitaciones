@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
-import { FileSpreadsheet, FileText, Plus } from '@lucide/vue';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { FileSpreadsheet, FileText, FolderOpen, Plus } from '@lucide/vue';
 import { ref } from 'vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import CrudActionMenu from '@/components/DataTable/CrudActionMenu.vue';
@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select';
 import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
+import { index as catalogo } from '@/routes/rh/formatos/catalogo';
 import {
     destroy,
     exportarExcel,
@@ -46,7 +47,7 @@ const props = defineProps<{
 
 defineOptions({
     layout: {
-        breadcrumbs: [{ title: 'Plantillas', href: '' }],
+        breadcrumbs: [{ title: 'Plantillas avanzadas', href: '' }],
     },
 });
 
@@ -108,10 +109,16 @@ async function eliminar(plantilla: PlantillaItem) {
 
     <div class="flex flex-col gap-6 p-4">
         <CrudPageHeader
-            titulo="Plantillas"
-            descripcion="Formatos oficiales (DOCX) que el sistema usa para generar documentos precargados."
+            titulo="Plantillas avanzadas"
+            descripcion="Plantillas DOCX editables para uso avanzado (solicitudes, documentos libres). Para los formatos oficiales fijos de MR. LANA, usa el módulo «Formatos»."
             :icono="FileText"
         >
+            <Button as-child variant="outline" size="sm">
+                <Link :href="catalogo.url()">
+                    <FolderOpen class="size-4" />
+                    Documentos generados
+                </Link>
+            </Button>
             <Button as-child variant="outline" size="sm">
                 <a :href="urlExportar(exportarExcel)">
                     <FileSpreadsheet class="size-4" />
