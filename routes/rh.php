@@ -159,11 +159,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('exportar-excel', [SolicitudController::class, 'exportarExcel'])->name('exportarExcel');
             Route::get('exportar-pdf', [SolicitudController::class, 'exportarPdf'])->name('exportarPdf');
             Route::get('{solicitud}', [SolicitudController::class, 'show'])->name('show');
+            Route::get('{solicitud}/documentos/{documento}/ver', [SolicitudController::class, 'verDocumento'])->name('documentos.ver');
             Route::post('{solicitud}/revisar', [SolicitudController::class, 'revisar'])->name('revisar');
             Route::post('{solicitud}/requerir-correccion', [SolicitudController::class, 'requerirCorreccion'])->name('requerir-correccion');
             Route::post('{solicitud}/aprobar', [SolicitudController::class, 'aprobar'])->name('aprobar');
             Route::post('{solicitud}/rechazar', [SolicitudController::class, 'rechazar'])->name('rechazar');
             Route::post('{solicitud}/cerrar', [SolicitudController::class, 'cerrar'])->name('cerrar');
+            Route::patch('{solicitud}/estado', [SolicitudController::class, 'actualizarEstado'])->name('actualizar-estado');
         });
 
         Route::prefix('reportes')->name('reportes.')->group(function () {

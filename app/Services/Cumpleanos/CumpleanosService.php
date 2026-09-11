@@ -136,7 +136,26 @@ class CumpleanosService
     {
         $filtrosAcotados = collect($filtros)->only(['sucursal_id', 'departamento_id', 'estatus'])->all();
 
-        return $this->queryBase($usuario, $filtrosAcotados)->orderBy('name')->get();
+        return $this->queryBase($usuario, $filtrosAcotados, requiereFechaNacimiento: false)->orderBy('name')->get();
+    }
+
+    /**
+     * Colaboradores activos (dentro del alcance) sin fecha_nacimiento
+     * capturada: alimenta la metrica "Sin fecha de nacimiento" y la alerta
+     * del panel RH para que se complete el dato en el expediente en vez de
+     * que el colaborador "desaparezca" en silencio del modulo.
+     *
+     * @param  array<string, mixed>  $filtros
+     * @return Collection<int, User>
+     */
+    public function sinFechaNacimiento(?User $usuario, array $filtros = []): Collection
+    {
+        $filtrosAcotados = collect($filtros)->only(['sucursal_id', 'departamento_id', 'estatus'])->all();
+
+        return $this->queryBase($usuario, $filtrosAcotados, requiereFechaNacimiento: false)
+            ->whereNull('fecha_nacimiento')
+            ->orderBy('name')
+            ->get();
     }
 
     /**
@@ -394,9 +413,13 @@ class CumpleanosService
      * @param  array<string, mixed>  $filtros
      * @return Builder<User>
      */
-    private function queryBase(?User $usuario, array $filtros): Builder
+    private function queryBase(?User $usuario, array $filtros, bool $requiereFechaNacimiento = true): Builder
     {
-        $query = User::query()->whereNotNull('fecha_nacimiento');
+        $query = User::query();
+
+        if ($requiereFechaNacimiento) {
+            $query->whereNotNull('fecha_nacimiento');
+        }
 
         if ($usuario !== null) {
             $query = $this->alcance->limitarUsuariosPorAlcance($query, $usuario);

@@ -25,6 +25,11 @@ use Illuminate\Support\Carbon;
  * @property Carbon $fecha_apertura
  * @property Carbon|null $fecha_estimada_cobertura
  * @property string|null $observaciones
+ * @property bool $generada_automaticamente
+ * @property int|null $headcount_target_id
+ * @property int $plazas_requeridas
+ * @property int $plazas_cubiertas
+ * @property int $plazas_disponibles
  * @property int|null $creado_por
  */
 class Vacante extends Model
@@ -46,6 +51,9 @@ class Vacante extends Model
         'observaciones',
         'generada_automaticamente',
         'headcount_target_id',
+        'plazas_requeridas',
+        'plazas_cubiertas',
+        'plazas_disponibles',
         'creado_por',
     ];
 
@@ -57,6 +65,9 @@ class Vacante extends Model
             'fecha_apertura' => 'date',
             'fecha_estimada_cobertura' => 'date',
             'generada_automaticamente' => 'boolean',
+            'plazas_requeridas' => 'integer',
+            'plazas_cubiertas' => 'integer',
+            'plazas_disponibles' => 'integer',
         ];
     }
 

@@ -17,6 +17,7 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\Asignaciones\AsignacionService;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use App\Services\RolPermisoService;
+use App\Services\Vacantes\VacanteAutoGenerationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -33,6 +34,7 @@ class UsuarioController extends Controller
         private readonly RolPermisoService $rolPermisoService,
         private readonly AsignacionService $asignacionService,
         private readonly MovimientoLaboralService $movimientos,
+        private readonly VacanteAutoGenerationService $vacantesAutomaticas,
     ) {}
 
     public function index(Request $request): Response
@@ -149,6 +151,9 @@ class UsuarioController extends Controller
             'crear_vacante' => ['boolean'],
         ]);
 
+        $sucursalId = $usuario->sucursal_principal_id;
+        $puestoId = $usuario->puesto_id;
+
         $this->movimientos->registrarBaja(
             $usuario,
             $request->user(),
@@ -158,6 +163,14 @@ class UsuarioController extends Controller
 
         $usuario->update(['estatus' => EstadoUsuario::Inactivo]);
         $usuario->delete();
+
+        // La plantilla actual acaba de bajar: sincroniza la vacante
+        // automática de (sucursal, puesto) DESPUÉS de que el estatus ya
+        // quedó Inactivo (si no, vacantesDerivadas() todavía contaría a
+        // este colaborador como activo y el faltante saldría desfasado).
+        if ($sucursalId !== null && $puestoId !== null) {
+            $this->vacantesAutomaticas->sincronizar($sucursalId, $puestoId);
+        }
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Colaborador desactivado correctamente.']);
     }

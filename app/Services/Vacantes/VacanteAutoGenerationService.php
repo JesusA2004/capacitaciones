@@ -2,6 +2,7 @@
 
 namespace App\Services\Vacantes;
 
+use App\Enums\EstadoCandidato;
 use App\Enums\EstadoVacante;
 use App\Enums\MotivoVacante;
 use App\Models\HeadcountTarget;
@@ -20,9 +21,9 @@ use Illuminate\Support\Facades\DB;
  *   vacante automática sigue abierta -> se cancela (no se "cubre": nadie la
  *   cubrió, simplemente dejó de hacer falta).
  * - autorizada sube más -> no duplica: ya hay como máximo una vacante
- *   automática abierta por (sucursal, puesto); basta con que exista, el
- *   número de plazas faltantes se lee en HeadcountService, no en el conteo
- *   de filas de `vacantes`.
+ *   automática abierta por (sucursal, puesto); esa misma fila actualiza su
+ *   `plazas_requeridas`/`plazas_disponibles` para reflejar el faltante
+ *   nuevo (2->4, 4->1, etc.), nunca se crea una segunda fila.
  */
 class VacanteAutoGenerationService
 {
@@ -63,14 +64,43 @@ class VacanteAutoGenerationService
                     'observaciones' => 'Generada automáticamente: plantilla autorizada por encima de la actual.',
                     'generada_automaticamente' => true,
                     'headcount_target_id' => $target?->id,
+                    'plazas_requeridas' => $faltantes,
+                    'plazas_cubiertas' => 0,
+                    'plazas_disponibles' => $faltantes,
                 ]);
 
                 return;
             }
 
-            if ($faltantes === 0 && $vacanteAutomatica !== null) {
-                $vacanteAutomatica->update(['estado' => EstadoVacante::Cancelada->value]);
+            if ($vacanteAutomatica === null) {
+                return;
             }
+
+            // Informativo, no se resta del faltante: el faltante ya baja
+            // solo cuando el candidato contratado queda como colaborador
+            // activo (User.estatus), contarlo aquí serviría doble.
+            $cubiertas = $vacanteAutomatica->candidatos()->where('estado', EstadoCandidato::Contratado->value)->count();
+
+            if ($faltantes === 0) {
+                $vacanteAutomatica->update([
+                    'estado' => EstadoVacante::Cancelada->value,
+                    'plazas_requeridas' => 0,
+                    'plazas_cubiertas' => $cubiertas,
+                    'plazas_disponibles' => 0,
+                ]);
+
+                return;
+            }
+
+            // Sigue haciendo falta la misma vacante automática, pero el
+            // numero de plazas cambio (2->4, 4->1, etc.): se mantiene en
+            // sincronia con el faltante real en cada llamada, no solo al
+            // crearla.
+            $vacanteAutomatica->update([
+                'plazas_requeridas' => $faltantes,
+                'plazas_cubiertas' => $cubiertas,
+                'plazas_disponibles' => $faltantes,
+            ]);
         });
     }
 

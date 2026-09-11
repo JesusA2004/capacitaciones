@@ -73,6 +73,10 @@ class ColaboradorController extends Controller
                 'numero_empleado' => $colaborador->numero_empleado,
                 'email' => $colaborador->email,
                 'telefono' => $colaborador->telefono,
+                'contacto_emergencia' => [
+                    'nombre' => $colaborador->contacto_emergencia_nombre,
+                    'telefono' => $colaborador->contacto_emergencia_telefono,
+                ],
                 'estatus' => $colaborador->estatus->value,
                 'sucursal' => $colaborador->sucursalPrincipal?->nombre,
                 'departamento' => $colaborador->departamento?->nombre,

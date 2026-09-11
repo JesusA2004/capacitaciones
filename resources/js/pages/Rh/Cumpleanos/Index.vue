@@ -14,6 +14,8 @@ import {
     Settings2,
     Sparkles,
     Trash2,
+    TriangleAlert,
+    UserRoundX,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import EmojiPicker from '@/components/Common/EmojiPicker.vue';
@@ -111,6 +113,7 @@ const props = defineProps<{
     proximosRango: Colaborador[];
     totalProximos7: number;
     totalProximos30: number;
+    sinFechaNacimiento: { id: number; nombre: string; sucursal: string | null }[];
     calendario: Record<number, Colaborador[]> | null;
     opciones: {
         sucursales: { id: number; nombre: string }[];
@@ -442,8 +445,39 @@ function aplicarRangoRapido(dias: number) {
                 { etiqueta: 'Próximos 7 días', valor: totalProximos7, icono: Gift, tono: 'info' },
                 { etiqueta: 'Próximos 30 días', valor: totalProximos30, icono: ListChecks },
                 { etiqueta: `Total en ${MESES[mesActual - 1]}`, valor: delMes.length, icono: CalendarDays },
+                { etiqueta: 'Sin fecha de nacimiento', valor: sinFechaNacimiento.length, icono: UserRoundX, tono: sinFechaNacimiento.length > 0 ? 'warning' : undefined },
             ]"
         />
+
+        <!-- Alerta: colaboradores activos sin fecha_nacimiento capturada -->
+        <Card
+            v-if="sinFechaNacimiento.length > 0"
+            class="mt-4 border-[var(--warning)]/40 bg-[var(--warning)]/5"
+        >
+            <CardHeader class="pb-3">
+                <CardTitle class="flex items-center gap-2 text-base text-[var(--warning)]">
+                    <TriangleAlert class="size-5" />
+                    Hay {{ sinFechaNacimiento.length }} colaborador{{ sinFechaNacimiento.length === 1 ? '' : 'es' }}
+                    activo{{ sinFechaNacimiento.length === 1 ? '' : 's' }} sin fecha de nacimiento
+                </CardTitle>
+            </CardHeader>
+            <CardContent class="pt-0 text-sm text-muted-foreground">
+                <p class="mb-2">
+                    Completa sus datos en el expediente para que aparezcan en cumpleaños.
+                </p>
+                <div class="flex flex-wrap gap-1.5">
+                    <Badge
+                        v-for="colaborador in sinFechaNacimiento"
+                        :key="colaborador.id"
+                        variant="outline"
+                        class="border-[var(--warning)]/40 text-foreground"
+                    >
+                        {{ colaborador.nombre }}
+                        <span v-if="colaborador.sucursal" class="text-muted-foreground">· {{ colaborador.sucursal }}</span>
+                    </Badge>
+                </div>
+            </CardContent>
+        </Card>
 
         <!-- Banner de hoy: siempre visible, nunca escondido en un tab -->
         <Card

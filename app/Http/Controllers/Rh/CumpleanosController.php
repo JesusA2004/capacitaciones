@@ -78,6 +78,13 @@ class CumpleanosController extends Controller
         $totalProximos7 = $this->cumpleanos->proximosCumpleanos($usuario, 7)->count();
         $totalProximos30 = $this->cumpleanos->proximosCumpleanos($usuario, 30)->count();
 
+        // Colaboradores del alcance sin fecha_nacimiento: nunca pueden salir
+        // en el calendario ni en los conteos anteriores, así que RH necesita
+        // verlos aparte para saber a quién le falta completar el dato.
+        $sinFechaNacimiento = $this->cumpleanos->sinFechaNacimiento($usuario, $filtros)
+            ->map(fn (User $c) => ['id' => $c->id, 'nombre' => $c->nombreCompleto(), 'sucursal' => $c->sucursalPrincipal?->nombre])
+            ->values();
+
         $puedeCalendario = $usuario->can('rh.cumpleanos.calendario');
 
         return Inertia::render('Rh/Cumpleanos/Index', [
@@ -93,6 +100,7 @@ class CumpleanosController extends Controller
             'proximosRango' => $proximosRango,
             'totalProximos7' => $totalProximos7,
             'totalProximos30' => $totalProximos30,
+            'sinFechaNacimiento' => $sinFechaNacimiento,
             'calendario' => $puedeCalendario ? $this->cumpleanos->payloadCalendario($anio, $mes, $usuario, $filtros) : null,
             'opciones' => [
                 // Acotadas al alcance organizacional de quien consulta: un

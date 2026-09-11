@@ -62,6 +62,8 @@ const form = useForm({
     monto_solicitado: '',
     plazo_meses: '',
     colaborador_objetivo_id: '',
+    fecha_efectiva: '',
+    tipo_baja: '',
 });
 
 function enviar() {
@@ -81,6 +83,15 @@ const tipoActual = computed(() =>
 function nombreTipo(clave: string): string {
     return props.tipos.find((t) => t.clave === clave)?.nombre ?? clave;
 }
+
+const TIPOS_BAJA = [
+    { value: 'renuncia', label: 'Renuncia voluntaria' },
+    { value: 'despido', label: 'Despido' },
+    { value: 'mutuo_acuerdo', label: 'Mutuo acuerdo' },
+    { value: 'fin_contrato', label: 'Fin de contrato' },
+    { value: 'abandono', label: 'Abandono de empleo' },
+    { value: 'otro', label: 'Otro' },
+];
 </script>
 
 <template>
@@ -300,6 +311,49 @@ function nombreTipo(clave: string): string {
                     >
                         {{ form.errors.colaborador_objetivo_id }}
                     </p>
+                </div>
+
+                <div
+                    v-if="tipoActual?.requiere_colaborador_objetivo"
+                    class="grid grid-cols-2 gap-3"
+                >
+                    <div class="grid gap-2">
+                        <Label for="fecha_efectiva">Fecha efectiva de baja</Label>
+                        <Input
+                            id="fecha_efectiva"
+                            v-model="form.fecha_efectiva"
+                            type="date"
+                        />
+                        <p
+                            v-if="form.errors.fecha_efectiva"
+                            class="text-sm text-destructive"
+                        >
+                            {{ form.errors.fecha_efectiva }}
+                        </p>
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="tipo_baja">Tipo de baja</Label>
+                        <Select v-model="form.tipo_baja">
+                            <SelectTrigger id="tipo_baja" class="w-full">
+                                <SelectValue placeholder="Selecciona" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem
+                                    v-for="opcion in TIPOS_BAJA"
+                                    :key="opcion.value"
+                                    :value="opcion.value"
+                                >
+                                    {{ opcion.label }}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <p
+                            v-if="form.errors.tipo_baja"
+                            class="text-sm text-destructive"
+                        >
+                            {{ form.errors.tipo_baja }}
+                        </p>
+                    </div>
                 </div>
 
                 <div class="grid gap-2">

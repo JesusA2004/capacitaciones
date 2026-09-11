@@ -59,7 +59,7 @@ import { index as indexVacantes } from '@/routes/rh/vacantes';
 import { index as indexSolicitudes } from '@/routes/solicitudes';
 import type { NavItem } from '@/types';
 
-const { tienePermiso } = usePermisos();
+const { tienePermiso, tieneRol } = usePermisos();
 const page = usePage();
 const { esColaborador, tieneAmbosModos, cambiarModo } = useNavegacion();
 
@@ -170,7 +170,11 @@ const navItemsOperativo = computed<NavItem[]>(() => {
         });
     }
 
-    if (tienePermiso('altas.ver')) {
+    // Altas digitales e Invitaciones QR ya no son módulos sueltos del menú
+    // operativo: son pasos del flujo Candidato -> Alta digital -> QR (ver
+    // botones dentro de Rh/Candidatos/Show.vue). Solo super_admin conserva
+    // acceso directo por si necesita revisar/depurar fuera de ese flujo.
+    if (tienePermiso('altas.ver') && tieneRol('super_admin')) {
         items.push({
             title: 'Altas digitales',
             href: indexAltas(),
@@ -178,7 +182,7 @@ const navItemsOperativo = computed<NavItem[]>(() => {
         });
     }
 
-    if (tienePermiso('rh.incorporacion.invitaciones.ver')) {
+    if (tienePermiso('rh.incorporacion.invitaciones.ver') && tieneRol('super_admin')) {
         items.push({
             title: 'Invitaciones QR',
             href: indexIncorporacionInvitaciones(),

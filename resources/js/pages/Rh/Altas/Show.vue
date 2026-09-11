@@ -5,6 +5,7 @@ import {
     Copy,
     Download,
     IdCard,
+    QrCode,
     Send,
     XCircle,
 } from '@lucide/vue';
@@ -26,6 +27,7 @@ import {
     revisar,
 } from '@/routes/rh/altas';
 import { descargar as descargarDocumento } from '@/routes/rh/altas/documentos';
+import { store as generarInvitacionQr } from '@/routes/rh/incorporacion/invitaciones';
 import type { AltaDigitalItem } from '@/types';
 
 const props = defineProps<{
@@ -93,6 +95,26 @@ function rechazarAlta() {
 const formCancelar = useForm({});
 function cancelarAlta() {
     formCancelar.post(cancelar.url(props.alta.id), { preserveScroll: true });
+}
+
+// Último paso del flujo Candidato -> Alta digital -> QR: una vez que la
+// alta ya convirtió al candidato en colaborador, se genera su invitación de
+// incorporación por QR desde aquí (nunca suelta, ver
+// App\Http\Requests\Rh\StoreIncorporacionInvitacionRequest).
+const formQr = useForm({
+    candidato_id: props.alta.candidato?.id ?? null,
+    empresa_id: props.alta.empresa?.id ?? null,
+    sucursal_id: props.alta.sucursal?.id ?? null,
+    departamento_id: props.alta.departamento?.id ?? null,
+    puesto_id: props.alta.puesto?.id ?? null,
+    nombre_prellenado: `${props.alta.nombre ?? ''} ${props.alta.apellidos ?? ''}`.trim() || null,
+    email: props.alta.correo,
+});
+
+function generarQr() {
+    formQr.post(generarInvitacionQr.url(), {
+        onError: () => mostrarError('No fue posible generar la invitación QR.'),
+    });
 }
 </script>
 
@@ -273,10 +295,19 @@ function cancelarAlta() {
                     <h2 class="mb-2 text-sm font-semibold">
                         Colaborador creado
                     </h2>
-                    <p>
+                    <p class="mb-3">
                         {{ alta.colaborador.name }}
                         {{ alta.colaborador.apellidos }}
                     </p>
+                    <Button
+                        size="sm"
+                        variant="secondary"
+                        :disabled="formQr.processing"
+                        @click="generarQr"
+                    >
+                        <QrCode class="size-4" />
+                        Generar QR de incorporación
+                    </Button>
                 </div>
 
                 <div

@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
 import {
+    AlertTriangle,
     ClipboardList,
     Download,
+    Eye,
     FileStack,
     Paperclip,
     Upload,
@@ -23,6 +25,8 @@ import {
     requerirCorreccion,
     revisar,
 } from '@/routes/rh/solicitudes';
+import { ver as verDocumento } from '@/routes/rh/solicitudes/documentos';
+import { store as subirDocumentoSolicitud } from '@/routes/solicitudes/documentos';
 import type { SolicitudInternaItem } from '@/types';
 
 const props = defineProps<{
@@ -67,6 +71,32 @@ const motivoRechazo = ref('');
 const mostrandoRechazo = ref(false);
 
 const formAccion = useForm({});
+
+// Evidencia/firma del gerente: obligatoria antes de poder aprobar una baja
+// de colaborador (ver App\Services\Solicitudes\SolicitudesService::cambiarEstado()).
+const esBaja = computed(() => props.solicitud.tipo === 'baja_colaborador');
+const sinEvidencia = computed(
+    () => esBaja.value && (props.solicitud.documentos?.length ?? 0) === 0,
+);
+
+const formEvidencia = useForm({ archivo: null as File | null });
+
+function subirEvidencia(event: Event) {
+    const input = event.target as HTMLInputElement;
+    formEvidencia.archivo = input.files?.[0] ?? null;
+
+    if (!formEvidencia.archivo) {
+        return;
+    }
+
+    formEvidencia.post(subirDocumentoSolicitud.url(props.solicitud.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            formEvidencia.reset();
+            input.value = '';
+        },
+    });
+}
 
 function revisarSolicitud() {
     formAccion
@@ -177,6 +207,20 @@ function cerrarSolicitud() {
                         {{ solicitud.colaboradorObjetivo.apellidos ?? '' }}
                     </p>
                 </div>
+                <div v-if="solicitud.fecha_efectiva">
+                    <p class="text-xs text-muted-foreground">
+                        Fecha efectiva de baja
+                    </p>
+                    <p class="text-sm font-medium">
+                        {{ solicitud.fecha_efectiva }}
+                    </p>
+                </div>
+                <div v-if="solicitud.tipo_baja">
+                    <p class="text-xs text-muted-foreground">Tipo de baja</p>
+                    <p class="text-sm font-medium capitalize">
+                        {{ solicitud.tipo_baja.replace(/_/g, ' ') }}
+                    </p>
+                </div>
             </div>
             <div>
                 <p class="text-xs text-muted-foreground">Motivo</p>
@@ -238,20 +282,60 @@ function cerrarSolicitud() {
         </div>
 
         <div class="rounded-2xl border border-border/60 bg-card p-5">
-            <h3 class="mb-3 text-sm font-semibold">Documentos adjuntos</h3>
-            <ul v-if="solicitud.documentos?.length" class="flex flex-col gap-2">
+            <h3 class="mb-3 text-sm font-semibold">
+                {{ esBaja ? 'Evidencia / firma del gerente' : 'Documentos adjuntos' }}
+            </h3>
+
+            <div
+                v-if="sinEvidencia"
+                class="mb-3 flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive"
+            >
+                <AlertTriangle class="size-4 shrink-0" />
+                Esta baja no se puede aprobar sin evidencia (formato firmado, carta o autorización del gerente).
+            </div>
+
+            <ul v-if="solicitud.documentos?.length" class="mb-3 flex flex-col gap-2">
                 <li
                     v-for="doc in solicitud.documentos"
                     :key="doc.id"
-                    class="flex items-center gap-2 text-sm"
+                    class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 p-3 text-sm"
                 >
-                    <Paperclip class="size-4 text-muted-foreground" />
-                    {{ doc.original_name }}
+                    <div class="flex items-center gap-2">
+                        <Paperclip class="size-4 text-muted-foreground" />
+                        <div>
+                            <p>{{ doc.original_name }}</p>
+                            <p v-if="doc.subido_por" class="text-xs text-muted-foreground">
+                                Subido por {{ doc.subido_por.name }} {{ doc.subido_por.apellidos }}
+                            </p>
+                        </div>
+                    </div>
+                    <a
+                        :href="verDocumento.url([solicitud.id, doc.id])"
+                        target="_blank"
+                        rel="noopener"
+                        class="inline-flex items-center gap-1 text-[var(--brand-primary)] hover:underline"
+                    >
+                        <Eye class="size-4" /> Ver
+                    </a>
                 </li>
             </ul>
-            <p v-else class="text-sm text-muted-foreground">
+            <p v-else class="mb-3 text-sm text-muted-foreground">
                 Sin documentos adjuntos.
             </p>
+
+            <label
+                class="flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-dashed px-3 py-2 text-sm text-muted-foreground hover:bg-accent"
+            >
+                <Upload class="size-4" />
+                {{ esBaja ? 'Adjuntar evidencia' : 'Adjuntar documento' }}
+                <input
+                    type="file"
+                    class="hidden"
+                    accept=".pdf,.jpg,.jpeg,.png,.webp"
+                    :disabled="formEvidencia.processing"
+                    @change="subirEvidencia"
+                />
+            </label>
         </div>
 
         <div
@@ -286,7 +370,8 @@ function cerrarSolicitud() {
                 >
                 <Button
                     size="sm"
-                    :disabled="formAccion.processing"
+                    :disabled="formAccion.processing || sinEvidencia"
+                    :title="sinEvidencia ? 'Adjunta la evidencia/firma del gerente antes de aprobar.' : undefined"
                     @click="aprobarSolicitud"
                     >Aprobar</Button
                 >

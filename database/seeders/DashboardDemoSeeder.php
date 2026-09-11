@@ -33,6 +33,7 @@ use App\Models\User;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use App\Services\Solicitudes\BajaColaboradorService;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
 
@@ -51,10 +52,12 @@ class DashboardDemoSeeder extends Seeder
 {
     public function run(): void
     {
-        if (User::where('email', 'colaborador9@mrlana.test')->exists()) {
-            return;
-        }
-
+        // Sin guardia de "ya existe, no hacer nada": cada escritura de este
+        // seeder ya usa firstOrCreate()/chequeos de null, así que correrlo
+        // de nuevo sobre una base ya sembrada es seguro e idempotente — y es
+        // justo lo que permite el backfill de datos nuevos (fecha_nacimiento,
+        // contacto_emergencia) en colaboradores creados por una versión
+        // anterior de este seeder, en vez de dejarlos vacíos para siempre.
         $colaboradores = $this->crearColaboradores();
         $responsable = User::where('email', 'admin.capacitacion@mrlana.test')->firstOrFail();
         $instructor = User::where('email', 'instructor@mrlana.test')->first() ?? $responsable;
@@ -97,6 +100,9 @@ class DashboardDemoSeeder extends Seeder
                 'departamento_id' => $departamento?->id,
                 'puesto_id' => $puesto?->id,
                 'fecha_ingreso' => now()->subMonths(4),
+                'fecha_nacimiento' => Carbon::create(now()->year - 31, now()->month, min(28, now()->day)),
+                'contacto_emergencia_nombre' => 'Martha Elena Vega',
+                'contacto_emergencia_telefono' => '5510000010',
                 'estatus' => EstadoUsuario::Activo,
                 'zona_horaria' => 'America/Mexico_City',
             ],
@@ -105,6 +111,14 @@ class DashboardDemoSeeder extends Seeder
         if ($colaborador->wasRecentlyCreated) {
             $colaborador->syncRoles(['colaborador']);
             app(MovimientoLaboralService::class)->registrarAlta($colaborador, $registradoPor);
+        }
+
+        if ($colaborador->fecha_nacimiento === null) {
+            $colaborador->update(['fecha_nacimiento' => Carbon::create(now()->year - 31, now()->month, min(28, now()->day))]);
+        }
+
+        if ($colaborador->contacto_emergencia_telefono === null) {
+            $colaborador->update(['contacto_emergencia_nombre' => 'Martha Elena Vega', 'contacto_emergencia_telefono' => '5510000010']);
         }
 
         if ($colaborador->estatus === EstadoUsuario::Activo) {
@@ -163,6 +177,8 @@ class DashboardDemoSeeder extends Seeder
                     'departamento_id' => $departamentos[$definicion['departamento']]->id,
                     'puesto_id' => $puestoPorDepartamento[$definicion['departamento']]?->id,
                     'fecha_ingreso' => now()->subMonths(1 + ($indice % 24)),
+                    'fecha_nacimiento' => Carbon::create(now()->year - (26 + $indice), (($indice + now()->month + 5) % 12) + 1, 1 + (($indice * 4) % 27)),
+                    ...$this->contactoEmergenciaDemo($indice),
                     'estatus' => EstadoUsuario::Activo,
                     'zona_horaria' => 'America/Mexico_City',
                 ],
@@ -170,6 +186,14 @@ class DashboardDemoSeeder extends Seeder
 
             if ($usuario->genero === null) {
                 $usuario->update(['genero' => $definicion['genero']]);
+            }
+
+            if ($usuario->fecha_nacimiento === null) {
+                $usuario->update(['fecha_nacimiento' => Carbon::create(now()->year - (26 + $indice), (($indice + now()->month + 5) % 12) + 1, 1 + (($indice * 4) % 27))]);
+            }
+
+            if ($usuario->contacto_emergencia_telefono === null) {
+                $usuario->update($this->contactoEmergenciaDemo($indice));
             }
 
             $usuario->syncRoles(['colaborador']);
@@ -410,5 +434,24 @@ class DashboardDemoSeeder extends Seeder
         return $curso->modulos()->with('lecciones')->get()
             ->flatMap(fn ($modulo) => $modulo->lecciones)
             ->firstWhere('tipo', $tipo);
+    }
+
+    /**
+     * Contacto de emergencia determinista por indice (dato de demostración,
+     * no una persona real) — ver misma necesidad en UsuarioDemoSeeder.
+     *
+     * @return array{contacto_emergencia_nombre: string, contacto_emergencia_telefono: string}
+     */
+    private function contactoEmergenciaDemo(int $indice): array
+    {
+        $nombres = [
+            'Patricia Solano', 'Ricardo Fuentes', 'Alejandra Campos',
+            'Marco Antonio Reyes', 'Beatriz Luna', 'Gerardo Ibarra', 'Norma Angélica Cruz',
+        ];
+
+        return [
+            'contacto_emergencia_nombre' => $nombres[$indice % count($nombres)],
+            'contacto_emergencia_telefono' => sprintf('55%08d', 20000000 + ($indice * 149)),
+        ];
     }
 }

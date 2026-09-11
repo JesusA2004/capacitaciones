@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\EstadoSolicitudInterna;
+use App\Enums\TipoBaja;
 use App\Enums\TipoSolicitudInterna;
 use Database\Factories\SolicitudInternaFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -24,6 +25,8 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property string $folio
  * @property int $user_id
  * @property int|null $colaborador_objetivo_id
+ * @property Carbon|null $fecha_efectiva
+ * @property TipoBaja|null $tipo_baja
  * @property TipoSolicitudInterna $tipo
  * @property EstadoSolicitudInterna $estado
  * @property Carbon|null $fecha_inicio
@@ -50,6 +53,8 @@ class SolicitudInterna extends Model
         'folio',
         'user_id',
         'colaborador_objetivo_id',
+        'fecha_efectiva',
+        'tipo_baja',
         'tipo',
         'estado',
         'fecha_inicio',
@@ -70,9 +75,11 @@ class SolicitudInterna extends Model
     {
         return [
             'tipo' => TipoSolicitudInterna::class,
+            'tipo_baja' => TipoBaja::class,
             'estado' => EstadoSolicitudInterna::class,
             'fecha_inicio' => 'date',
             'fecha_fin' => 'date',
+            'fecha_efectiva' => 'date',
             'dias_solicitados' => 'integer',
             'monto_solicitado' => 'decimal:2',
             'plazo_meses' => 'integer',

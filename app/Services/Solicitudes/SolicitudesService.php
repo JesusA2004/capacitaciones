@@ -5,6 +5,7 @@ namespace App\Services\Solicitudes;
 use App\Enums\EstadoSolicitudInterna;
 use App\Enums\TipoSolicitudInterna;
 use App\Models\SolicitudInterna;
+use App\Models\SolicitudInternaDocumento;
 use App\Models\User;
 use App\Notifications\Mobile\RhSolicitudCreadaNotification;
 use App\Notifications\Mobile\SolicitudActualizadaNotification;
@@ -21,6 +22,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification as NotificationFacade;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
 /**
@@ -79,6 +81,8 @@ class SolicitudesService
                 'folio' => $this->generarFolio(),
                 'user_id' => $solicitante->id,
                 'colaborador_objetivo_id' => $colaboradorObjetivo?->id,
+                'fecha_efectiva' => $datos['fecha_efectiva'] ?? null,
+                'tipo_baja' => $datos['tipo_baja'] ?? null,
                 'tipo' => $datos['tipo'],
                 'estado' => EstadoSolicitudInterna::Enviada,
                 'fecha_inicio' => $datos['fecha_inicio'] ?? null,
@@ -169,6 +173,28 @@ class SolicitudesService
     }
 
     /**
+     * Listado del tablero Kanban de RH (Rh/Solicitudes/Index.vue): mismo
+     * alcance/filtros que paraRevision(), pero sin paginar (las columnas se
+     * arman en el frontend por estado) y sin las solicitudes "creada"
+     * (estado transitorio que nunca se persiste, ver crear()) ni
+     * "cancelada" (el colaborador la retiró antes de que RH actuara; no
+     * requieren ninguna acción del tablero). Acotado con un límite
+     * defensivo: el tablero es para el trabajo del día, no un reporte
+     * histórico (para eso están las exportaciones de paraExportar()).
+     *
+     * @param  array<string, mixed>  $filtros
+     * @return Collection<int, SolicitudInterna>
+     */
+    public function paraTablero(User $revisor, array $filtros = []): Collection
+    {
+        return $this->queryRevision($revisor, $filtros)
+            ->whereNotIn('estado', [EstadoSolicitudInterna::Creada->value, EstadoSolicitudInterna::Cancelada->value])
+            ->orderBy('created_at')
+            ->limit(500)
+            ->get();
+    }
+
+    /**
      * @param  array<string, mixed>  $filtros
      * @return Builder<SolicitudInterna>
      */
@@ -178,7 +204,15 @@ class SolicitudesService
             // 'users' no tiene columna empresa_id propia (se deriva de la
             // sucursal, ver User::empresa()) — solo la propia SolicitudInterna
             // la tiene (snapshot al crear, ver crear() más arriba).
-            ->with(['usuario:id,name,apellidos,sucursal_principal_id,departamento_id,puesto_id', 'usuario.departamento:id,nombre', 'usuario.puesto:id,nombre', 'revisadoPor:id,name,apellidos']);
+            ->with([
+                'usuario:id,name,apellidos,sucursal_principal_id,departamento_id,puesto_id',
+                'usuario.departamento:id,nombre',
+                'usuario.puesto:id,nombre',
+                'revisadoPor:id,name,apellidos',
+                'sucursal:id,nombre',
+                'documentosGenerados:id,solicitud_id,status',
+            ])
+            ->withCount('documentos');
 
         $query = $this->limitarPorAlcance($query, $revisor);
 
@@ -251,8 +285,50 @@ class SolicitudesService
         return $this->cambiarEstado($solicitud, $actor, EstadoSolicitudInterna::Cancelada);
     }
 
+    /**
+     * Cambio de estado unificado usado por el tablero Kanban de RH (drag and
+     * drop, ver Rh/Solicitudes/Index.vue): traduce el estado destino a la
+     * misma accion publica que ya usan los botones del detalle, para nunca
+     * duplicar la logica de cambiarEstado(). $comentario es obligatorio al
+     * mover a "rechazada" o "requiere_correccion" (se pide en el dialog de
+     * confirmacion del tablero antes de soltar la tarjeta).
+     *
+     * @throws ValidationException Estado destino no gestionable desde el tablero, o falta comentario/motivo.
+     */
+    public function moverEnTablero(SolicitudInterna $solicitud, User $actor, EstadoSolicitudInterna $nuevoEstado, ?string $comentario = null): SolicitudInterna
+    {
+        if (in_array($nuevoEstado, [EstadoSolicitudInterna::Rechazada, EstadoSolicitudInterna::RequiereCorreccion], true) && trim((string) $comentario) === '') {
+            throw ValidationException::withMessages([
+                'comentario' => 'Agrega un comentario para mover la solicitud a este estado.',
+            ]);
+        }
+
+        return match ($nuevoEstado) {
+            EstadoSolicitudInterna::EnRevision => $this->marcarEnRevision($solicitud, $actor, $comentario),
+            EstadoSolicitudInterna::RequiereCorreccion => $this->requerirCorreccion($solicitud, $actor, (string) $comentario),
+            EstadoSolicitudInterna::Aprobada => $this->aprobar($solicitud, $actor, $comentario),
+            EstadoSolicitudInterna::Rechazada => $this->rechazar($solicitud, $actor, (string) $comentario),
+            EstadoSolicitudInterna::Cerrada => $this->cerrar($solicitud, $actor, $comentario),
+            default => throw ValidationException::withMessages([
+                'estado' => 'Ese estado no se puede asignar desde el tablero.',
+            ]),
+        };
+    }
+
     private function cambiarEstado(SolicitudInterna $solicitud, User $actor, EstadoSolicitudInterna $nuevoEstado, ?string $comentario = null, ?string $motivoRechazo = null): SolicitudInterna
     {
+        // Nunca se aprueba una baja sin evidencia/firma del gerente
+        // (formato firmado, carta o autorización adjunta): la validación va
+        // antes de la transacción para no dejar nada a medio persistir.
+        if ($nuevoEstado === EstadoSolicitudInterna::Aprobada
+            && $solicitud->tipo === TipoSolicitudInterna::BajaColaborador
+            && $solicitud->documentos()->count() === 0
+        ) {
+            throw ValidationException::withMessages([
+                'evidencia' => 'Adjunta la evidencia/firma del gerente antes de aprobar esta baja.',
+            ]);
+        }
+
         return DB::transaction(function () use ($solicitud, $actor, $nuevoEstado, $comentario, $motivoRechazo): SolicitudInterna {
             $datos = ['estado' => $nuevoEstado];
 
@@ -282,11 +358,26 @@ class SolicitudesService
                 }
             }
 
-            if (in_array($nuevoEstado, [EstadoSolicitudInterna::Aprobada, EstadoSolicitudInterna::Rechazada, EstadoSolicitudInterna::RequiereCorreccion], true)) {
+            // Notifica al colaborador en cada transicion visible del tablero
+            // (no solo aprobada/rechazada): "en_revision" y "cerrada" tambien
+            // son cambios que le interesan, aunque no requieran una accion de
+            // su parte.
+            if (in_array($nuevoEstado, [
+                EstadoSolicitudInterna::EnRevision,
+                EstadoSolicitudInterna::Aprobada,
+                EstadoSolicitudInterna::Rechazada,
+                EstadoSolicitudInterna::RequiereCorreccion,
+                EstadoSolicitudInterna::Cerrada,
+            ], true)) {
                 $this->notificarSinFallar(function () use ($solicitud): void {
                     $solicitud->loadMissing('usuario');
                     NotificationFacade::send($solicitud->usuario, new SolicitudActualizadaNotification($solicitud));
-                    $this->push->aUsuario($solicitud->usuario, 'solicitud', $solicitud->id, 'Actualización de tu solicitud', "Tu solicitud ahora está: {$solicitud->estado->etiqueta()}.");
+                    $this->push->aUsuarioConDatos(
+                        $solicitud->usuario,
+                        'Actualización de tu solicitud',
+                        "Tu solicitud ahora está: {$solicitud->estado->etiqueta()}.",
+                        ['type' => 'solicitud', 'resource_id' => $solicitud->id, 'estado' => $solicitud->estado->value],
+                    );
                 });
             }
 
@@ -321,6 +412,22 @@ class SolicitudesService
         ]);
 
         $this->registrarHistorial($solicitud, $actor, 'comentario', "Documento adjuntado: {$archivo->getClientOriginalName()}");
+    }
+
+    /**
+     * Vista previa/descarga de un adjunto de la solicitud (evidencia de
+     * baja, comprobante, etc.): siempre a través del disco privado, nunca
+     * expone la ruta real. `inline` deja que el navegador previsualice
+     * PDF/imágenes en vez de forzar la descarga.
+     */
+    public function documento(SolicitudInterna $solicitud, SolicitudInternaDocumento $documento): StreamedResponse
+    {
+        abort_unless($documento->solicitud_interna_id === $solicitud->id, 404);
+
+        return $this->storage->respuesta($documento->path, [
+            'Content-Type' => $documento->mime ?? 'application/octet-stream',
+            'Content-Disposition' => 'inline; filename="'.$documento->original_name.'"',
+        ]);
     }
 
     /**

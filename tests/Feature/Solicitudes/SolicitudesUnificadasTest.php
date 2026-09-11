@@ -4,9 +4,12 @@ use App\Enums\EstadoUsuario;
 use App\Models\SolicitudInterna;
 use App\Models\User;
 use Database\Seeders\RolesYPermisosSeeder;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     $this->seed(RolesYPermisosSeeder::class);
+    Storage::fake('nas');
 });
 
 test('una solicitud de vacaciones respeta el saldo disponible del colaborador', function () {
@@ -97,12 +100,20 @@ test('rh_admin puede crear una solicitud de baja y al aprobarla se bloquea el ac
             'tipo' => 'baja_colaborador',
             'motivo' => 'Renuncia voluntaria.',
             'colaborador_objetivo_id' => $colaborador->id,
+            'fecha_efectiva' => now()->addWeek()->toDateString(),
+            'tipo_baja' => 'renuncia',
         ])
         ->assertSessionHasNoErrors();
 
     $solicitud = SolicitudInterna::where('tipo', 'baja_colaborador')->firstOrFail();
     expect($solicitud->colaborador_objetivo_id)->toBe($colaborador->id);
     expect($colaborador->fresh()->estatus)->toBe(EstadoUsuario::Activo);
+
+    // La aprobación requiere evidencia/firma del gerente adjunta (ver
+    // App\Services\Solicitudes\SolicitudesService::cambiarEstado()).
+    $this->actingAs($rh)->post(route('solicitudes.documentos.store', $solicitud), [
+        'archivo' => UploadedFile::fake()->create('autorizacion.pdf', 100, 'application/pdf'),
+    ]);
 
     $this->actingAs($aprobador)
         ->post(route('rh.solicitudes.aprobar', $solicitud))

@@ -55,6 +55,8 @@ export type SolicitudInternaItem = {
     folio: string;
     user_id: number;
     colaborador_objetivo_id: number | null;
+    fecha_efectiva: string | null;
+    tipo_baja: string | null;
     tipo: string;
     estado: string;
     fecha_inicio: string | null;
@@ -76,7 +78,9 @@ export type SolicitudInternaItem = {
         | null;
     colaboradorObjetivo?: UsuarioResumen | null;
     revisado_por?: UsuarioResumen | null;
+    sucursal?: { id: number; nombre: string } | null;
     documentos?: SolicitudInternaDocumentoItem[];
+    documentos_count?: number;
     documentos_generados?: DocumentoGeneradoItem[];
     historial?: SolicitudInternaHistorialItem[];
 };

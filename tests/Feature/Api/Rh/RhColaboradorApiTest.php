@@ -21,12 +21,17 @@ test('rh puede listar colaboradores paginados', function () {
 test('rh puede ver el detalle basico de un colaborador', function () {
     $rh = User::factory()->create();
     $rh->assignRole('rh_admin');
-    $colaborador = User::factory()->create();
+    $colaborador = User::factory()->create([
+        'contacto_emergencia_nombre' => 'María Elena Ruiz',
+        'contacto_emergencia_telefono' => '5510000010',
+    ]);
 
     $this->withHeaders(['Authorization' => 'Bearer '.$rh->createToken('test')->plainTextToken])
         ->getJson("/api/v1/rh/colaboradores/{$colaborador->id}")
         ->assertOk()
-        ->assertJsonStructure(['data' => ['id', 'nombre', 'resumen' => ['solicitudes_pendientes', 'vacaciones_pendientes', 'documentos_pendientes']]]);
+        ->assertJsonStructure(['data' => ['id', 'nombre', 'contacto_emergencia' => ['nombre', 'telefono'], 'resumen' => ['solicitudes_pendientes', 'vacaciones_pendientes', 'documentos_pendientes']]])
+        ->assertJsonPath('data.contacto_emergencia.nombre', 'María Elena Ruiz')
+        ->assertJsonPath('data.contacto_emergencia.telefono', '5510000010');
 });
 
 test('un colaborador sin permiso no puede usar el directorio de rh', function () {

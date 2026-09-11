@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Solicitudes;
 
+use App\Enums\TipoBaja;
 use App\Enums\TipoSolicitudInterna;
 use App\Models\SolicitudInterna;
 use Illuminate\Foundation\Http\FormRequest;
@@ -65,6 +66,17 @@ class StoreSolicitudInternaRequest extends FormRequest
                 'nullable',
                 'integer',
                 'exists:users,id',
+            ],
+            'fecha_efectiva' => [
+                Rule::requiredIf($tipo?->requiereColaboradorObjetivo() === true),
+                'nullable',
+                'date',
+            ],
+            'tipo_baja' => [
+                Rule::requiredIf($tipo?->requiereColaboradorObjetivo() === true),
+                'nullable',
+                'string',
+                Rule::in(array_column(TipoBaja::cases(), 'value')),
             ],
         ];
     }

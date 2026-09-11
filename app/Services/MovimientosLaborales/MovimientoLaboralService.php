@@ -10,6 +10,7 @@ use App\Models\MovimientoLaboral;
 use App\Models\Puesto;
 use App\Models\User;
 use App\Models\Vacante;
+use App\Services\Vacantes\VacanteAutoGenerationService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -21,6 +22,8 @@ use Illuminate\Support\Facades\DB;
  */
 class MovimientoLaboralService
 {
+    public function __construct(private readonly VacanteAutoGenerationService $vacantesAutomaticas) {}
+
     /**
      * Snapshot "antes" de un colaborador, tomado ANTES de aplicar cambios en
      * UsuarioController::update()/destroy() o al cubrir una vacante. Se usa
@@ -51,7 +54,7 @@ class MovimientoLaboralService
     ): MovimientoLaboral {
         $usuario->loadMissing(['sucursalPrincipal']);
 
-        return MovimientoLaboral::create([
+        $movimiento = MovimientoLaboral::create([
             'user_id' => $usuario->id,
             'tipo_movimiento' => TipoMovimientoLaboral::Alta->value,
             'empresa_nueva_id' => $usuario->sucursalPrincipal?->empresa_id,
@@ -66,6 +69,16 @@ class MovimientoLaboralService
             'fecha_movimiento' => $usuario->fecha_ingreso ?? now(),
             'registrado_por' => $registradoPor->id,
         ]);
+
+        // La plantilla actual acaba de subir con este alta: sincroniza la
+        // vacante automática de (sucursal, puesto) para que sus plazas
+        // bajen o se cierre sola si ya no hace falta (ver
+        // App\Services\Vacantes\VacanteAutoGenerationService).
+        if ($usuario->sucursal_principal_id !== null && $usuario->puesto_id !== null) {
+            $this->vacantesAutomaticas->sincronizar($usuario->sucursal_principal_id, $usuario->puesto_id);
+        }
+
+        return $movimiento;
     }
 
     /**

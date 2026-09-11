@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Rh;
 
+use App\Enums\EstadoSolicitudInterna;
 use App\Exports\ReporteRhExport;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Rh\ActualizarEstadoSolicitudInternaRequest;
 use App\Http\Requests\Rh\ComentarioSolicitudInternaRequest;
 use App\Http\Requests\Rh\RechazarSolicitudInternaRequest;
 use App\Models\Departamento;
@@ -12,6 +14,7 @@ use App\Models\DocumentType;
 use App\Models\Empresa;
 use App\Models\Puesto;
 use App\Models\SolicitudInterna;
+use App\Models\SolicitudInternaDocumento;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\Solicitudes\SolicitudesService;
@@ -22,6 +25,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SolicitudController extends Controller
 {
@@ -34,7 +38,7 @@ class SolicitudController extends Controller
         $this->authorize('viewAny', SolicitudInterna::class);
 
         return Inertia::render('Rh/Solicitudes/Index', [
-            'solicitudes' => $this->solicitudes->paraRevision($request->user(), $request->only(self::FILTROS)),
+            'solicitudes' => $this->solicitudes->paraTablero($request->user(), $request->only(self::FILTROS)),
             'filtros' => $request->only(self::FILTROS),
             'tipos' => $this->solicitudes->tiposDisponibles(),
             'opciones' => [
@@ -122,6 +126,13 @@ class SolicitudController extends Controller
         ]);
     }
 
+    public function verDocumento(SolicitudInterna $solicitud, SolicitudInternaDocumento $documento): StreamedResponse
+    {
+        $this->authorize('view', $solicitud);
+
+        return $this->solicitudes->documento($solicitud, $documento);
+    }
+
     public function revisar(ComentarioSolicitudInternaRequest $request, SolicitudInterna $solicitud): RedirectResponse
     {
         $this->authorize('revisar', $solicitud);
@@ -165,5 +176,33 @@ class SolicitudController extends Controller
         $this->solicitudes->cerrar($solicitud, $request->user(), $request->validated('comentario'));
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Solicitud cerrada.']);
+    }
+
+    /**
+     * Cambio de estado unificado del tablero Kanban (drag and drop): traduce
+     * el estado destino a la habilidad de policy correspondiente y delega en
+     * SolicitudesService::moverEnTablero(), que a su vez llama a la misma
+     * accion publica que usan los botones del detalle (nunca duplica la
+     * logica de cambiarEstado()).
+     */
+    public function actualizarEstado(ActualizarEstadoSolicitudInternaRequest $request, SolicitudInterna $solicitud): RedirectResponse
+    {
+        $nuevoEstado = EstadoSolicitudInterna::from($request->validated('estado'));
+
+        $habilidad = match ($nuevoEstado) {
+            EstadoSolicitudInterna::EnRevision, EstadoSolicitudInterna::RequiereCorreccion => 'revisar',
+            EstadoSolicitudInterna::Aprobada => 'aprobar',
+            EstadoSolicitudInterna::Rechazada => 'rechazar',
+            EstadoSolicitudInterna::Cerrada => 'cerrar',
+            default => abort(422, 'Ese estado no se puede asignar desde el tablero.'),
+        };
+
+        $this->authorize($habilidad, $solicitud);
+
+        $comentario = $request->validated('motivo_rechazo') ?? $request->validated('comentario');
+
+        $this->solicitudes->moverEnTablero($solicitud, $request->user(), $nuevoEstado, $comentario);
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Solicitud movida a '.$nuevoEstado->etiqueta().'.']);
     }
 }

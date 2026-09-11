@@ -10,6 +10,7 @@ use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 
 /**
@@ -158,6 +159,8 @@ class UsuarioDemoSeeder extends Seeder
                     'departamento_id' => $definicion['departamento']?->id,
                     'puesto_id' => $definicion['puesto']?->id,
                     'fecha_ingreso' => now()->subMonths(1 + ($indice % 36)),
+                    'fecha_nacimiento' => $this->fechaNacimientoDemo($indice),
+                    ...$this->contactoEmergenciaDemo($indice),
                     'estatus' => EstadoUsuario::Activo,
                     'zona_horaria' => 'America/Mexico_City',
                 ],
@@ -165,6 +168,18 @@ class UsuarioDemoSeeder extends Seeder
 
             if ($usuario->genero === null) {
                 $usuario->update(['genero' => $definicion['datos']['genero']]);
+            }
+
+            // Backfill para bases ya sembradas antes de que este seeder
+            // capturara estos datos (ver docs/CUMPLEANOS.md): sin esto, el
+            // modulo de cumpleanos y el contacto de emergencia quedaban
+            // vacios en cualquier entorno sembrado con una version anterior.
+            if ($usuario->fecha_nacimiento === null) {
+                $usuario->update(['fecha_nacimiento' => $this->fechaNacimientoDemo($indice)]);
+            }
+
+            if ($usuario->contacto_emergencia_telefono === null) {
+                $usuario->update($this->contactoEmergenciaDemo($indice));
             }
 
             $usuario->syncRoles($definicion['roles']);
@@ -177,5 +192,41 @@ class UsuarioDemoSeeder extends Seeder
                 $movimientos->registrarAlta($usuario, $sistema);
             }
         }
+    }
+
+    /**
+     * Fecha de nacimiento determinista por indice: los primeros 3
+     * colaboradores caen en el mes actual (para que el calendario nunca se
+     * vea vacio en un ambiente recien sembrado) y el resto se reparte entre
+     * los demas meses del anio, con edades razonables (25 a 54 anios).
+     */
+    private function fechaNacimientoDemo(int $indice): Carbon
+    {
+        $anioNacimiento = now()->year - (25 + ($indice % 30));
+        $mesNacimiento = $indice < 3 ? now()->month : (($indice + now()->month) % 12) + 1;
+        $diaNacimiento = 1 + (($indice * 5) % 27);
+
+        return Carbon::create($anioNacimiento, $mesNacimiento, $diaNacimiento);
+    }
+
+    /**
+     * Contacto de emergencia determinista por indice (dato de demostración,
+     * no una persona real): la app móvil de RH lo muestra en el detalle del
+     * colaborador para saber a quién llamar si el colaborador no contesta.
+     *
+     * @return array{contacto_emergencia_nombre: string, contacto_emergencia_telefono: string}
+     */
+    private function contactoEmergenciaDemo(int $indice): array
+    {
+        $nombres = [
+            'María Elena Ruiz', 'José Luis Pérez', 'Guadalupe Torres',
+            'Francisco Javier Gómez', 'Rosa María Sánchez', 'Antonio Hernández',
+            'Leticia Ramírez', 'Juan Carlos Domínguez',
+        ];
+
+        return [
+            'contacto_emergencia_nombre' => $nombres[$indice % count($nombres)],
+            'contacto_emergencia_telefono' => sprintf('55%08d', 10000000 + ($indice * 137)),
+        ];
     }
 }
