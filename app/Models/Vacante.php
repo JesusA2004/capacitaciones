@@ -44,6 +44,8 @@ class Vacante extends Model
         'fecha_apertura',
         'fecha_estimada_cobertura',
         'observaciones',
+        'generada_automaticamente',
+        'headcount_target_id',
         'creado_por',
     ];
 
@@ -54,6 +56,7 @@ class Vacante extends Model
             'estado' => EstadoVacante::class,
             'fecha_apertura' => 'date',
             'fecha_estimada_cobertura' => 'date',
+            'generada_automaticamente' => 'boolean',
         ];
     }
 
@@ -119,5 +122,13 @@ class Vacante extends Model
     public function candidatos(): HasMany
     {
         return $this->hasMany(Candidato::class);
+    }
+
+    /**
+     * @return BelongsTo<HeadcountTarget, $this>
+     */
+    public function headcountTarget(): BelongsTo
+    {
+        return $this->belongsTo(HeadcountTarget::class);
     }
 }

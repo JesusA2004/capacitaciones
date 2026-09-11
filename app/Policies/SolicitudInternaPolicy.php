@@ -68,4 +68,20 @@ class SolicitudInternaPolicy
     {
         return $usuario->can('solicitudes.cerrar') && $this->revisar($usuario, $solicitud);
     }
+
+    /**
+     * Crear una solicitud de baja de colaborador: permiso dedicado, no
+     * `solicitudes.crear` genérico — un gerente puede solicitar la baja de
+     * su equipo sin necesariamente poder crear otros tipos de solicitud
+     * sobre sí mismo.
+     */
+    public function crearBaja(User $usuario, User $colaboradorObjetivo): bool
+    {
+        return $usuario->can('solicitudes.bajas.crear') && $this->alcance->puedeVerUsuario($usuario, $colaboradorObjetivo);
+    }
+
+    public function aprobarBaja(User $usuario, SolicitudInterna $solicitud): bool
+    {
+        return $usuario->can('solicitudes.bajas.aprobar') && $this->revisar($usuario, $solicitud);
+    }
 }

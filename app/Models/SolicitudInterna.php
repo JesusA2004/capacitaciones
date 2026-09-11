@@ -23,10 +23,14 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property int $id
  * @property string $folio
  * @property int $user_id
+ * @property int|null $colaborador_objetivo_id
  * @property TipoSolicitudInterna $tipo
  * @property EstadoSolicitudInterna $estado
  * @property Carbon|null $fecha_inicio
  * @property Carbon|null $fecha_fin
+ * @property int|null $dias_solicitados
+ * @property float|null $monto_solicitado
+ * @property int|null $plazo_meses
  * @property string $motivo
  * @property string|null $observaciones
  * @property int|null $revisado_por
@@ -45,10 +49,14 @@ class SolicitudInterna extends Model
     protected $fillable = [
         'folio',
         'user_id',
+        'colaborador_objetivo_id',
         'tipo',
         'estado',
         'fecha_inicio',
         'fecha_fin',
+        'dias_solicitados',
+        'monto_solicitado',
+        'plazo_meses',
         'motivo',
         'observaciones',
         'revisado_por',
@@ -65,6 +73,9 @@ class SolicitudInterna extends Model
             'estado' => EstadoSolicitudInterna::class,
             'fecha_inicio' => 'date',
             'fecha_fin' => 'date',
+            'dias_solicitados' => 'integer',
+            'monto_solicitado' => 'decimal:2',
+            'plazo_meses' => 'integer',
             'revisado_en' => 'datetime',
         ];
     }
@@ -75,6 +86,17 @@ class SolicitudInterna extends Model
     public function usuario(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    /**
+     * Sujeto de la solicitud cuando NO es quien la crea (hoy solo
+     * BajaColaborador: la crea un gerente/RH sobre otro colaborador).
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function colaboradorObjetivo(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'colaborador_objetivo_id');
     }
 
     /**

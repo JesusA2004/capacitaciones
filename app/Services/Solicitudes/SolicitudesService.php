@@ -3,14 +3,18 @@
 namespace App\Services\Solicitudes;
 
 use App\Enums\EstadoSolicitudInterna;
+use App\Enums\EstadoUsuario;
 use App\Enums\TipoSolicitudInterna;
+use App\Models\MobileDevice;
 use App\Models\SolicitudInterna;
 use App\Models\User;
 use App\Notifications\Mobile\RhSolicitudCreadaNotification;
 use App\Notifications\Mobile\SolicitudActualizadaNotification;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\MobilePush\PushNotifier;
+use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use App\Services\RhMobile\ResponsableResolverService;
+use App\Services\Vacantes\VacanteAutoGenerationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -18,6 +22,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification as NotificationFacade;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**

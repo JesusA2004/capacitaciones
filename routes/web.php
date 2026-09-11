@@ -5,6 +5,7 @@ use App\Http\Controllers\CalendarioController;
 use App\Http\Controllers\CertificadoVerificacionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\IncorporacionQrController;
+use App\Http\Controllers\NavigationModeController;
 use App\Http\Controllers\VacacionesController;
 use Illuminate\Support\Facades\Route;
 
@@ -36,6 +37,8 @@ Route::prefix('app')->name('app.')->group(function () {
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    Route::post('modo-navegacion', [NavigationModeController::class, 'update'])->name('modo-navegacion.update');
 
     Route::inertia('capacitacion', 'Capacitacion/Proximamente')->name('capacitacion.proximamente');
 

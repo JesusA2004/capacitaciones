@@ -216,6 +216,30 @@ class RolesYPermisosSeeder extends Seeder
         'solicitudes.configuracion.ver',
         'solicitudes.adjuntos.subir',
 
+        // --- Portal personal / modo colaborador (reestructuracion nav por rol) ---
+        // Separa explicitamente "tengo experiencia personal de colaborador"
+        // de los permisos operativos de arriba: antes "Mi portal"/"Vacaciones"
+        // se mostraban a CUALQUIER usuario autenticado sin importar su rol.
+        // Ver App\Services\Navigation\NavigationService.
+        'portal.ver',
+        'portal.perfil.ver',
+        'portal.solicitudes.ver',
+        'portal.solicitudes.crear',
+        'portal.notificaciones.ver',
+
+        // --- Solicitudes de baja de colaborador (nuevo flujo dentro de Solicitudes) ---
+        'solicitudes.bajas.crear',
+        'solicitudes.bajas.aprobar',
+
+        // --- Headcount / plantilla autorizada ---
+        'headcount.ver',
+        'headcount.editar',
+        'headcount.importar',
+
+        // --- Organigrama (alias operativo de puestos.administrar para nav) ---
+        'organigrama.ver',
+        'organigrama.editar',
+
         // --- Modulo de cumpleanos (docs/CUMPLEANOS.md) ---
         'rh.cumpleanos.ver',
         'rh.cumpleanos.calendario',
@@ -307,6 +331,9 @@ class RolesYPermisosSeeder extends Seeder
             'rh.cumpleanos.ver', 'rh.cumpleanos.calendario', 'rh.cumpleanos.descargar_imagen',
             'rh.cumpleanos.configurar', 'rh.cumpleanos.frases.gestionar', 'rh.cumpleanos.notificaciones.gestionar',
             'app_releases.ver', 'app_releases.crear', 'app_releases.publicar', 'app_releases.eliminar', 'app_releases.descargar',
+            'solicitudes.bajas.crear', 'solicitudes.bajas.aprobar',
+            'headcount.ver', 'headcount.editar', 'headcount.importar',
+            'organigrama.ver', 'organigrama.editar',
         ],
 
         // Apoyo operativo de RH: puede capturar/revisar pero no aprobar
@@ -341,6 +368,7 @@ class RolesYPermisosSeeder extends Seeder
             'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
             'rh.cumpleanos.ver', 'rh.cumpleanos.calendario', 'rh.cumpleanos.descargar_imagen',
             'app_releases.ver',
+            'headcount.ver', 'organigrama.ver',
         ],
 
         'gerente_sucursal' => [
@@ -367,6 +395,7 @@ class RolesYPermisosSeeder extends Seeder
             'rh.vacaciones.ver', 'rh.vacaciones.detalle', 'rh.vacaciones.aprobar', 'rh.vacaciones.rechazar',
             'notificaciones.leer_todas',
             'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
+            'solicitudes.bajas.crear', 'headcount.ver', 'organigrama.ver',
         ],
         'supervisor' => [
             'dashboard.sucursal.ver',
@@ -398,6 +427,7 @@ class RolesYPermisosSeeder extends Seeder
             'rh.vacaciones.ver', 'rh.vacaciones.detalle',
             'rh.colaboradores.ver', 'rh.colaboradores.detalle',
             'notificaciones.leer_todas',
+            'headcount.ver', 'organigrama.ver',
         ],
 
         // Ve y administra varias sucursales de su región (sucursal principal +
@@ -422,6 +452,7 @@ class RolesYPermisosSeeder extends Seeder
             'rh.vacaciones.ver', 'rh.vacaciones.detalle', 'rh.vacaciones.aprobar', 'rh.vacaciones.rechazar',
             'notificaciones.leer_todas',
             'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
+            'solicitudes.bajas.crear', 'headcount.ver', 'organigrama.ver',
         ],
 
         // Administra su propia sucursal (mismo alcance que gerente_sucursal,
@@ -445,6 +476,7 @@ class RolesYPermisosSeeder extends Seeder
             'rh.vacaciones.ver', 'rh.vacaciones.detalle', 'rh.vacaciones.aprobar', 'rh.vacaciones.rechazar',
             'notificaciones.leer_todas',
             'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
+            'solicitudes.bajas.crear', 'headcount.ver', 'organigrama.ver',
         ],
 
         // Puede apoyar/cubrir al gerente de su sucursal según la jerarquía de
@@ -467,6 +499,7 @@ class RolesYPermisosSeeder extends Seeder
             'rh.vacaciones.ver', 'rh.vacaciones.detalle', 'rh.vacaciones.aprobar', 'rh.vacaciones.rechazar',
             'notificaciones.leer_todas',
             'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
+            'solicitudes.bajas.crear', 'headcount.ver', 'organigrama.ver',
         ],
 
         // Apoyo administrativo regional: ve procesos (expedientes, documentos,
@@ -489,6 +522,7 @@ class RolesYPermisosSeeder extends Seeder
             'rh.documentos.ver', 'rh.documentos.detalle', 'rh.documentos.ver_archivo',
             'notificaciones.leer_todas',
             'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
+            'organigrama.ver',
         ],
 
         // Mismo catálogo que coordinadora_regional, acotado a su propia
@@ -510,6 +544,7 @@ class RolesYPermisosSeeder extends Seeder
             'rh.documentos.ver', 'rh.documentos.detalle', 'rh.documentos.ver_archivo',
             'notificaciones.leer_todas',
             'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
+            'organigrama.ver',
         ],
 
         // Ve y aprueba vacaciones/solicitudes de sus subordinados directos
@@ -533,6 +568,7 @@ class RolesYPermisosSeeder extends Seeder
             'rh.vacaciones.ver', 'rh.vacaciones.detalle', 'rh.vacaciones.aprobar', 'rh.vacaciones.rechazar',
             'notificaciones.leer_todas',
             'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
+            'organigrama.ver',
         ],
 
         'colaborador' => [
@@ -540,6 +576,7 @@ class RolesYPermisosSeeder extends Seeder
             'documentos.ver', 'documentos.subir', 'documentos.descargar',
             'vacaciones.ver', 'vacaciones.solicitar',
             'solicitudes.ver', 'solicitudes.crear',
+            'portal.ver', 'portal.perfil.ver', 'portal.solicitudes.ver', 'portal.solicitudes.crear', 'portal.notificaciones.ver',
             'colaborador.incorporacion.ver', 'colaborador.incorporacion.documentos.subir', 'colaborador.incorporacion.documentos.solicitar-cambio',
             // Backend movil v5: cualquier colaborador usa el bootstrap/config/dispositivos/notificaciones/solicitudes de la app.
             'mobile.bootstrap.ver', 'app.config.ver',
@@ -572,6 +609,7 @@ class RolesYPermisosSeeder extends Seeder
             'rh.incorporaciones.ver', 'rh.incorporaciones.detalle',
             'rh.colaboradores.ver', 'rh.colaboradores.detalle',
             'notificaciones.leer_todas',
+            'headcount.ver', 'organigrama.ver',
         ],
     ];
 

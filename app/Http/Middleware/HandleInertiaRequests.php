@@ -2,11 +2,14 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\Navigation\NavigationService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
 {
+    public function __construct(private readonly NavigationService $navegacion) {}
+
     /**
      * The root template that's loaded on the first page visit.
      *
@@ -48,6 +51,13 @@ class HandleInertiaRequests extends Middleware
                 ] : null,
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            // Modo de navegacion (seccion 1 de la reestructuracion): separa
+            // la experiencia personal ("Mi portal") de la operativa, ver
+            // App\Services\Navigation\NavigationService.
+            'navegacion' => $user ? [
+                'modoActual' => $this->navegacion->modoActual($user, $request->cookie(NavigationService::nombreCookie())),
+                'modosDisponibles' => $this->navegacion->modosDisponibles($user),
+            ] : null,
             // Para que el frontend pueda ocultar por completo navegacion de
             // modulos detras de un feature flag (ver config/features.php),
             // en vez de mostrar un acceso "falso" a todo el mundo.

@@ -130,6 +130,26 @@ class PuestoJerarquiaSeeder extends Seeder
             ],
         );
 
+        // Gestor grupal: modalidad de crédito grupal, presente en algunas
+        // sucursales junto a Gestor fijo/volante (ver headcount real,
+        // docs/HEADCOUNT_Y_VACANTES.md). Mismo nivel que Gestor fijo, sin
+        // ruta individual asignada.
+        Puesto::updateOrCreate(
+            ['nombre' => 'Gestor grupal'],
+            [
+                'departamento_id' => $ventas?->id,
+                'descripcion' => 'Responsable de cartera de crédito grupal en sucursal.',
+                'nivel_jerarquico' => 6,
+                'puesto_superior_id' => $subgerente->id,
+                'puesto_crecimiento_id' => $subgerente->id,
+                'tipo_puesto' => TipoPuesto::Comercial,
+                'esquema_comisiones' => 'Comisión por cartera grupal.',
+                'requiere_ruta' => false,
+                'responsabilidades' => 'Responsable de cartera de crédito grupal en sucursal.',
+                'activo' => true,
+            ],
+        );
+
         // Respaldos (puede cubrir a):
         $gestorVolante->puestosQuePuedeCubrir()->syncWithoutDetaching([$gestorFijo->id]);
         $subgerente->puestosQuePuedeCubrir()->syncWithoutDetaching([$gerente->id]);
