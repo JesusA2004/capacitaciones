@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
 import {
+    Activity,
     BarChart3,
     Briefcase,
     Building2,
@@ -46,6 +47,7 @@ import { index as indexSucursales } from '@/routes/administracion/sucursales';
 import { index as indexUsuarios } from '@/routes/administracion/usuarios';
 import { proximamente as capacitacionProximamente } from '@/routes/capacitacion';
 import { index as indexPortal } from '@/routes/portal';
+import { index as indexReportes } from '@/routes/reportes';
 import { reclutamiento as indexReclutamiento } from '@/routes/rh';
 import { index as indexAltas } from '@/routes/rh/altas';
 import { index as indexCandidatos } from '@/routes/rh/candidatos';
@@ -198,6 +200,11 @@ const mainNavItems = computed<NavItem[]>(() => {
     }
 
     if (tienePermiso('reportes_rh.ver')) {
+        items.push({
+            title: 'Reportes',
+            href: indexReportes(),
+            icon: Activity,
+        });
         items.push({
             title: 'Reportes RH',
             href: indexReportesRh(),

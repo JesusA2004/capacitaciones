@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
-import { Download } from '@lucide/vue';
+import { Download, FileText } from '@lucide/vue';
 import DataTable from '@/components/DataTable/DataTable.vue';
 import type { ColumnaDataTable } from '@/components/DataTable/DataTable.vue';
 import Heading from '@/components/Heading.vue';
@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/select';
 import { useFiltros } from '@/composables/useFiltros';
 import { dashboard } from '@/routes';
-import { exportar, index } from '@/routes/reportes/cumplimiento';
+import { exportar, exportarPdf, index } from '@/routes/reportes/cumplimiento';
 import type { ColaboradorCumplimientoItem, RespuestaPaginada } from '@/types';
 
 const props = defineProps<{
@@ -64,12 +64,12 @@ function porcentaje(fila: ColaboradorCumplimientoItem): number {
         : 0;
 }
 
-function urlExportar(): string {
+function urlExportar(destino: { url: () => string }): string {
     const parametros = new URLSearchParams(
         Object.entries(filtros).filter(([, valor]) => valor),
     );
 
-    return `${exportar.url()}?${parametros.toString()}`;
+    return `${destino.url()}?${parametros.toString()}`;
 }
 </script>
 
@@ -82,12 +82,20 @@ function urlExportar(): string {
                 title="Reporte de cumplimiento"
                 description="Progreso de capacitación por colaborador"
             />
-            <Button v-if="puedeExportar" as-child variant="outline">
-                <a :href="urlExportar()">
-                    <Download class="size-4" />
-                    Exportar a Excel
-                </a>
-            </Button>
+            <div v-if="puedeExportar" class="flex items-center gap-2">
+                <Button as-child variant="outline">
+                    <a :href="urlExportar(exportar)">
+                        <Download class="size-4" />
+                        Exportar a Excel
+                    </a>
+                </Button>
+                <Button as-child variant="outline">
+                    <a :href="urlExportar(exportarPdf)">
+                        <FileText class="size-4" />
+                        Exportar a PDF
+                    </a>
+                </Button>
+            </div>
         </div>
 
         <div class="flex flex-wrap items-end gap-3">

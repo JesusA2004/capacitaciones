@@ -94,6 +94,52 @@ class CumpleanosService
     }
 
     /**
+     * Colaboradores cuyo próximo cumpleaños cae dentro de [$desde, $hasta]
+     * (ambos inclusive) — el mini-calendario de rango libre del panel RH,
+     * en vez de los botones fijos de "7 días"/"30 días". Misma lógica de
+     * "próxima fecha" que proximosCumpleanos(), pero calculada desde
+     * $desde en vez de siempre desde hoy, para que un rango que empieza en
+     * el futuro también funcione.
+     *
+     * @param  array<string, mixed>  $filtros
+     * @return Collection<int, User>
+     */
+    public function cumpleanosEnRango(?User $usuario, CarbonInterface $desde, CarbonInterface $hasta, array $filtros = []): Collection
+    {
+        $desde = Carbon::parse($desde)->startOfDay();
+        $hasta = Carbon::parse($hasta)->endOfDay();
+
+        return $this->queryBase($usuario, $filtros)
+            ->get()
+            ->map(function (User $colaborador) use ($desde) {
+                $colaborador->setAttribute('_proxima_fecha', $this->proximaFecha($colaborador->fecha_nacimiento, $desde));
+
+                return $colaborador;
+            })
+            ->filter(fn (User $colaborador) => $colaborador->getAttribute('_proxima_fecha')->between($desde, $hasta))
+            ->sortBy(fn (User $colaborador) => $colaborador->getAttribute('_proxima_fecha')->timestamp)
+            ->values();
+    }
+
+    /**
+     * Colaboradores elegibles para el selector de "Colaborador" del panel
+     * RH: mismo alcance y filtros de sucursal/departamento/estatus que el
+     * resto de la pantalla, pero sin colaborador_id ni busqueda — así el
+     * desplegable siempre ofrece el universo completo para elegir, sin
+     * auto-acotarse por la propia selección o por el texto libre de otro
+     * campo. Ver docs del combobox en Rh/Cumpleanos/Index.vue.
+     *
+     * @param  array<string, mixed>  $filtros
+     * @return Collection<int, User>
+     */
+    public function colaboradoresElegibles(?User $usuario, array $filtros): Collection
+    {
+        $filtrosAcotados = collect($filtros)->only(['sucursal_id', 'departamento_id', 'estatus'])->all();
+
+        return $this->queryBase($usuario, $filtrosAcotados)->orderBy('name')->get();
+    }
+
+    /**
      * Dispatcher usado por la API movil de RH (GET /api/v1/rh/cumpleanos):
      * traduce el parametro `periodo` de la app al metodo de listado
      * correspondiente, todos ya acotados por alcance organizacional y
@@ -364,6 +410,10 @@ class CumpleanosService
 
         if (! empty($filtros['departamento_id'])) {
             $query->where('departamento_id', $filtros['departamento_id']);
+        }
+
+        if (! empty($filtros['colaborador_id'])) {
+            $query->where('id', $filtros['colaborador_id']);
         }
 
         if (! empty($filtros['estatus'])) {

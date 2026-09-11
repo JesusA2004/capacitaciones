@@ -16,7 +16,13 @@ return [
     */
 
     'ssr' => [
-        'enabled' => true,
+        // Apagado: no hay proceso Node de SSR corriendo (bootstrap/ssr/ nunca
+        // se construyo con `npm run build:ssr`) ni nada escuchando en el
+        // puerto de abajo. Con esto en `true` cada request intenta
+        // renderizar contra un server SSR inexistente, lo que puede dejar
+        // paginas a medio cargar hasta forzar un F5. Reactivar solo si se
+        // deja un proceso SSR real corriendo en produccion.
+        'enabled' => env('INERTIA_SSR_ENABLED', false),
         'url' => 'http://127.0.0.1:13714',
         // 'bundle' => base_path('bootstrap/ssr/ssr.mjs'),
 

@@ -26,6 +26,16 @@ class CumpleanosStorageService
         return "cumpleanos/{$userId}/{$fecha}.png";
     }
 
+    /**
+     * Ruta fija del fondo personalizado subido por RH (Configuracion): un
+     * único archivo global, reutilizado por todas las tarjetas. Si no
+     * existe, BirthdayCardService cae de vuelta al fondo dibujado con GD.
+     */
+    public function rutaFondo(): string
+    {
+        return 'cumpleanos/fondo-tarjeta.png';
+    }
+
     public function guardar(string $ruta, string $contenidoPng): void
     {
         $this->disco()->put($ruta, $contenidoPng);

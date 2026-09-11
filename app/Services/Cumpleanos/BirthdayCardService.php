@@ -80,6 +80,29 @@ class BirthdayCardService
         return $greeting->fresh();
     }
 
+    /**
+     * Aplica una frase elegida a mano (desde el selector de
+     * Felicitacion.vue) a la felicitación existente del día, en vez de la
+     * rotación automática de elegirFrase() — y re-renderiza+guarda la
+     * imagen con esa frase. $fraseId es opcional: permite vincular al
+     * catálogo (para las métricas de uso) cuando la frase elegida viene de
+     * ahí, o quedar null si en el futuro se permite texto libre.
+     */
+    public function aplicarFrase(User $colaborador, CarbonInterface $fecha, string $frase, ?int $fraseId): BirthdayGreeting
+    {
+        $greeting = $this->generar($colaborador, $fecha);
+
+        $greeting->update([
+            'birthday_phrase_id' => $fraseId,
+            'frase' => $frase,
+            'nombre_mostrado' => $colaborador->nombreCompleto(),
+        ]);
+
+        $this->renderizarYGuardar($greeting->fresh(), $colaborador, forzar: true);
+
+        return $greeting->fresh();
+    }
+
     public function descargar(BirthdayGreeting $greeting): StreamedResponse
     {
         if ($greeting->card_path === null || ! $this->storage->existe($greeting->card_path)) {
@@ -163,11 +186,14 @@ class BirthdayCardService
         imagesavealpha($imagen, true);
         imagealphablending($imagen, true);
 
-        [$r, $g, $b] = $this->hexARgb((string) config('cumpleanos.default_background', '#FFF8E7'));
-        $fondo = $this->colorRgb($imagen, $r, $g, $b);
-        imagefilledrectangle($imagen, 0, 0, $ancho, $alto, $fondo);
+        if (! $this->dibujarFondoPersonalizado($imagen, $ancho, $alto)) {
+            [$r, $g, $b] = $this->hexARgb((string) config('cumpleanos.default_background', '#FFF8E7'));
+            $fondo = $this->colorRgb($imagen, $r, $g, $b);
+            imagefilledrectangle($imagen, 0, 0, $ancho, $alto, $fondo);
 
-        $this->dibujarGlobos($imagen, $ancho, $alto);
+            $this->dibujarGlobos($imagen, $ancho, $alto);
+        }
+
         $logoAlto = $this->dibujarLogo($imagen, $ancho);
 
         $fuenteBold = base_path('vendor/dompdf/dompdf/lib/fonts/DejaVuSans-Bold.ttf');
@@ -269,6 +295,60 @@ class BirthdayCardService
         imagedestroy($logo);
 
         return $margenSuperior + $destinoAlto;
+    }
+
+    /**
+     * Si RH subió un fondo personalizado (Rh\CumpleanosConfiguracionController,
+     * guardado vía CumpleanosStorageService::rutaFondo()), lo dibuja como
+     * capa base a pantalla completa ("cover": se recorta el sobrante en vez
+     * de deformar la imagen) y regresa true. Si no hay fondo subido, o el
+     * archivo no se puede leer/decodificar, no dibuja nada y regresa false
+     * — el caller cae de vuelta al fondo plano + globos dibujados con GD.
+     */
+    private function dibujarFondoPersonalizado(GdImage $imagen, int $ancho, int $alto): bool
+    {
+        $ruta = $this->storage->rutaFondo();
+
+        if (! $this->storage->existe($ruta)) {
+            return false;
+        }
+
+        try {
+            $bytes = $this->storage->disco()->get($ruta);
+        } catch (\Throwable $e) {
+            Log::warning('BirthdayCardService: no se pudo leer el fondo personalizado.', ['error' => $e->getMessage()]);
+
+            return false;
+        }
+
+        $fondo = @imagecreatefromstring((string) $bytes);
+
+        if ($fondo === false) {
+            Log::warning('BirthdayCardService: el fondo personalizado no es una imagen válida.');
+
+            return false;
+        }
+
+        $fondoAncho = imagesx($fondo);
+        $fondoAlto = imagesy($fondo);
+
+        $escala = max($ancho / $fondoAncho, $alto / $fondoAlto);
+        $origenAncho = (int) round($ancho / $escala);
+        $origenAlto = (int) round($alto / $escala);
+        $origenX = (int) max(0, ($fondoAncho - $origenAncho) / 2);
+        $origenY = (int) max(0, ($fondoAlto - $origenAlto) / 2);
+
+        imagecopyresampled(
+            $imagen, $fondo,
+            0, 0,
+            $origenX, $origenY,
+            $ancho, $alto,
+            min($origenAncho, $fondoAncho), min($origenAlto, $fondoAlto),
+        );
+
+        imagedestroy($fondo);
+
+        return true;
     }
 
     /**

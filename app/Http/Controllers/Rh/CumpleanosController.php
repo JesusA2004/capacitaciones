@@ -12,6 +12,7 @@ use App\Services\Cumpleanos\BirthdayCardService;
 use App\Services\Cumpleanos\CumpleanosService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
@@ -25,7 +26,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  */
 class CumpleanosController extends Controller
 {
-    private const FILTROS = ['sucursal_id', 'departamento_id', 'estatus', 'busqueda'];
+    private const FILTROS = ['sucursal_id', 'departamento_id', 'colaborador_id', 'estatus', 'busqueda'];
 
     public function __construct(
         private readonly CumpleanosService $cumpleanos,
@@ -43,8 +44,11 @@ class CumpleanosController extends Controller
             'anio' => ['nullable', 'integer', 'min:'.(now()->year - 1), 'max:'.(now()->year + 5)],
             'sucursal_id' => ['nullable', 'integer', 'exists:sucursales,id'],
             'departamento_id' => ['nullable', 'integer', 'exists:departamentos,id'],
+            'colaborador_id' => ['nullable', 'integer', 'exists:users,id'],
             'estatus' => ['nullable', 'string'],
             'busqueda' => ['nullable', 'string', 'max:100'],
+            'rango_desde' => ['nullable', 'date'],
+            'rango_hasta' => ['nullable', 'date', 'after_or_equal:rango_desde'],
         ]);
 
         $mes = (int) ($datos['mes'] ?? now()->month);
@@ -59,13 +63,20 @@ class CumpleanosController extends Controller
             ->map(fn (User $c) => $this->cumpleanos->tarjetaColaborador($c, null, $usuario))
             ->values();
 
-        $proximos7 = $this->cumpleanos->proximosCumpleanos($usuario, 7)
+        // Mini-calendario de rango libre en el sidebar "Próximos cumpleaños"
+        // (reemplaza los botones fijos de 7/30 días): por defecto hoy -> +30
+        // días, o lo que el usuario haya elegido en los inputs de fecha.
+        $rangoDesde = isset($datos['rango_desde']) ? Carbon::parse($datos['rango_desde']) : now();
+        $rangoHasta = isset($datos['rango_hasta']) ? Carbon::parse($datos['rango_hasta']) : now()->addDays(30);
+
+        $proximosRango = $this->cumpleanos->cumpleanosEnRango($usuario, $rangoDesde, $rangoHasta)
             ->map(fn (User $c) => $this->cumpleanos->tarjetaColaborador($c, null, $usuario))
             ->values();
 
-        $proximos30 = $this->cumpleanos->proximosCumpleanos($usuario, 30)
-            ->map(fn (User $c) => $this->cumpleanos->tarjetaColaborador($c, null, $usuario))
-            ->values();
+        // Solo conteos (no la lista completa) para las tarjetas KPI fijas
+        // de arriba, independientes del rango libre que el usuario elija.
+        $totalProximos7 = $this->cumpleanos->proximosCumpleanos($usuario, 7)->count();
+        $totalProximos30 = $this->cumpleanos->proximosCumpleanos($usuario, 30)->count();
 
         $puedeCalendario = $usuario->can('rh.cumpleanos.calendario');
 
@@ -75,8 +86,13 @@ class CumpleanosController extends Controller
             'filtros' => $filtros,
             'delMes' => $delMes,
             'hoy' => $hoy,
-            'proximos7' => $proximos7,
-            'proximos30' => $proximos30,
+            'rango' => [
+                'desde' => $rangoDesde->toDateString(),
+                'hasta' => $rangoHasta->toDateString(),
+            ],
+            'proximosRango' => $proximosRango,
+            'totalProximos7' => $totalProximos7,
+            'totalProximos30' => $totalProximos30,
             'calendario' => $puedeCalendario ? $this->cumpleanos->payloadCalendario($anio, $mes, $usuario, $filtros) : null,
             'opciones' => [
                 // Acotadas al alcance organizacional de quien consulta: un
@@ -92,6 +108,9 @@ class CumpleanosController extends Controller
                     ->whereIn('id', $this->alcance->departamentosVisiblesIds($usuario))
                     ->orderBy('nombre')
                     ->get(['id', 'nombre']),
+                'colaboradores' => $this->cumpleanos->colaboradoresElegibles($usuario, $filtros)
+                    ->map(fn (User $c) => ['id' => $c->id, 'nombre' => $c->nombreCompleto()])
+                    ->values(),
                 'frases' => $usuario->can('rh.cumpleanos.frases.gestionar')
                     ? BirthdayPhrase::query()->orderBy('orden')->orderBy('id')->get()
                     : [],
@@ -145,11 +164,47 @@ class CumpleanosController extends Controller
                 'tieneImagen' => $greeting->card_path !== null,
                 'imagenUrl' => route('rh.cumpleanos.felicitacion.descargar', $colaborador),
             ],
+            'opciones' => [
+                'frases' => BirthdayPhrase::query()->orderBy('orden')->orderBy('id')->get(['id', 'texto']),
+            ],
             'permisos' => [
                 'descargarImagen' => $usuario->can('rh.cumpleanos.descargar_imagen'),
                 'gestionarNotificaciones' => $usuario->can('rh.cumpleanos.notificaciones.gestionar'),
             ],
         ]);
+    }
+
+    /**
+     * Vista previa (bytes PNG) de la tarjeta con una frase distinta a la
+     * guardada, sin tocar base de datos ni storage — usada por el selector
+     * de frase en Felicitacion.vue antes de confirmar.
+     */
+    public function previsualizarFrase(Request $request, User $colaborador): HttpResponse
+    {
+        abort_unless($request->user()->can('rh.cumpleanos.ver'), 403);
+
+        $datos = $request->validate(['frase' => ['required', 'string', 'max:1000']]);
+
+        $png = $this->tarjetas->preview($colaborador, $datos['frase']);
+
+        return response($png, 200, ['Content-Type' => 'image/png']);
+    }
+
+    public function confirmarFrase(Request $request, User $colaborador): RedirectResponse
+    {
+        abort_unless($request->user()->can('rh.cumpleanos.ver'), 403);
+
+        $datos = $request->validate([
+            'frase' => ['required', 'string', 'max:1000'],
+            'birthday_phrase_id' => ['nullable', 'integer', 'exists:birthday_phrases,id'],
+        ]);
+
+        $fecha = $this->cumpleanos->fechaEsteAnio($colaborador);
+        abort_if($fecha === null, 404, 'Este colaborador no tiene fecha de nacimiento capturada.');
+
+        $this->tarjetas->aplicarFrase($colaborador, $fecha, $datos['frase'], $datos['birthday_phrase_id'] ?? null);
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Frase actualizada en la tarjeta.']);
     }
 
     public function generar(Request $request, User $colaborador): RedirectResponse

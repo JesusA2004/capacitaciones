@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { router, useForm } from '@inertiajs/vue3';
+import { Link, router, useForm } from '@inertiajs/vue3';
 import {
     Cake,
     CalendarDays,
@@ -7,6 +7,7 @@ import {
     ChevronRight,
     FilterX,
     Gift,
+    Image,
     ListChecks,
     Plus,
     Search,
@@ -15,6 +16,7 @@ import {
     Trash2,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import EmojiPicker from '@/components/Common/EmojiPicker.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudStats from '@/components/DataTable/CrudStats.vue';
 import ColaboradorCumpleanosCard from '@/components/Rh/ColaboradorCumpleanosCard.vue';
@@ -22,6 +24,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Combobox } from '@/components/ui/combobox';
 import {
     Dialog,
     DialogContent,
@@ -45,6 +48,7 @@ import { useInitials } from '@/composables/useInitials';
 import { mensajeFelicitacion } from '@/lib/cumpleanos';
 import { dashboard } from '@/routes';
 import { index } from '@/routes/rh/cumpleanos';
+import { index as configuracionIndex } from '@/routes/rh/cumpleanos/configuracion';
 import {
     destroy as destroyFrase,
     store as storeFrase,
@@ -97,17 +101,21 @@ const props = defineProps<{
     filtros: {
         sucursal_id?: string;
         departamento_id?: string;
+        colaborador_id?: string;
         estatus?: string;
         busqueda?: string;
     };
     delMes: Colaborador[];
     hoy: Colaborador[];
-    proximos7: Colaborador[];
-    proximos30: Colaborador[];
+    rango: { desde: string; hasta: string };
+    proximosRango: Colaborador[];
+    totalProximos7: number;
+    totalProximos30: number;
     calendario: Record<number, Colaborador[]> | null;
     opciones: {
         sucursales: { id: number; nombre: string }[];
         departamentos: { id: number; nombre: string }[];
+        colaboradores: { id: number; nombre: string }[];
         frases: Frase[];
     };
     config: {
@@ -143,13 +151,21 @@ const { getInitials } = useInitials();
 const filtros = ref({
     sucursal_id: props.filtros.sucursal_id ?? '',
     departamento_id: props.filtros.departamento_id ?? '',
+    colaborador_id: props.filtros.colaborador_id ?? '',
     estatus: props.filtros.estatus ?? '',
     busqueda: props.filtros.busqueda ?? '',
 });
+
+const opcionesColaboradores = computed(() =>
+    props.opciones.colaboradores.map((c) => ({ value: String(c.id), label: c.nombre })),
+);
 const mesActual = ref(props.mes);
 const anioActual = ref(props.anio);
+const rangoDesde = ref(props.rango.desde);
+const rangoHasta = ref(props.rango.hasta);
 
 let temporizadorBusqueda: ReturnType<typeof setTimeout> | undefined;
+let temporizadorRango: ReturnType<typeof setTimeout> | undefined;
 
 function navegar() {
     router.get(
@@ -158,6 +174,8 @@ function navegar() {
             ...filtros.value,
             mes: mesActual.value,
             anio: anioActual.value,
+            rango_desde: rangoDesde.value,
+            rango_hasta: rangoHasta.value,
         },
         { preserveState: true, preserveScroll: true, replace: true },
     );
@@ -168,10 +186,20 @@ function navegarConDebounce() {
     temporizadorBusqueda = setTimeout(navegar, 400);
 }
 
+function navegarRangoConDebounce() {
+    if (!rangoDesde.value || !rangoHasta.value || rangoHasta.value < rangoDesde.value) {
+        return;
+    }
+
+    clearTimeout(temporizadorRango);
+    temporizadorRango = setTimeout(navegar, 300);
+}
+
 const hayFiltrosActivos = computed(
     () =>
         filtros.value.sucursal_id !== '' ||
         filtros.value.departamento_id !== '' ||
+        filtros.value.colaborador_id !== '' ||
         filtros.value.estatus !== '' ||
         filtros.value.busqueda !== '',
 );
@@ -180,6 +208,7 @@ function limpiarFiltros() {
     filtros.value = {
         sucursal_id: '',
         departamento_id: '',
+        colaborador_id: '',
         estatus: '',
         busqueda: '',
     };
@@ -325,15 +354,26 @@ async function eliminarFrase(frase: Frase) {
     router.delete(destroyFrase.url(frase.id), { preserveScroll: true });
 }
 
-// --- Sidebar "Proximos cumpleaños": alterna entre 7 y 30 dias ---
-const rangoSidebar = ref<'7' | '30'>('7');
-const proximosSidebar = computed(() =>
-    rangoSidebar.value === '7' ? props.proximos7 : props.proximos30,
-);
+// --- Sidebar "Proximos cumpleaños": rango de fechas libre (mini-calendario) ---
+const RANGOS_RAPIDOS = [
+    { etiqueta: '7 días', dias: 7 },
+    { etiqueta: '30 días', dias: 30 },
+    { etiqueta: '90 días', dias: 90 },
+];
+
+function aplicarRangoRapido(dias: number) {
+    const hoy = new Date();
+    const hasta = new Date(hoy);
+    hasta.setDate(hoy.getDate() + dias);
+
+    rangoDesde.value = hoy.toISOString().slice(0, 10);
+    rangoHasta.value = hasta.toISOString().slice(0, 10);
+    navegar();
+}
 </script>
 
 <template>
-    <div class="mx-auto flex max-w-screen-2xl flex-col p-4 sm:px-6 lg:px-8">
+    <div class="flex w-full flex-col p-4 sm:px-6 lg:px-8">
     <CrudPageHeader
         titulo="Calendario de cumpleaños"
         descripcion="Vista mensual, tarjetas y felicitaciones de los colaboradores."
@@ -347,6 +387,12 @@ const proximosSidebar = computed(() =>
         >
             <Settings2 class="size-4" />
             Frases
+        </Button>
+        <Button v-if="permisos.configurar" as-child variant="outline" size="sm">
+            <Link :href="configuracionIndex.url()">
+                <Image class="size-4" />
+                Fondo de tarjeta
+            </Link>
         </Button>
     </CrudPageHeader>
 
@@ -366,8 +412,8 @@ const proximosSidebar = computed(() =>
             class="mt-4"
             :estadisticas="[
                 { etiqueta: 'Hoy cumplen', valor: hoy.length, icono: Sparkles, tono: 'success' },
-                { etiqueta: 'Próximos 7 días', valor: proximos7.length, icono: Gift, tono: 'info' },
-                { etiqueta: 'Próximos 30 días', valor: proximos30.length, icono: ListChecks },
+                { etiqueta: 'Próximos 7 días', valor: totalProximos7, icono: Gift, tono: 'info' },
+                { etiqueta: 'Próximos 30 días', valor: totalProximos30, icono: ListChecks },
                 { etiqueta: `Total en ${MESES[mesActual - 1]}`, valor: delMes.length, icono: CalendarDays },
             ]"
         />
@@ -402,7 +448,7 @@ const proximosSidebar = computed(() =>
         <Card class="mt-4">
             <CardContent class="flex flex-col gap-3 pt-6">
             <div
-                class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+                class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5"
             >
                 <div class="grid gap-1.5">
                     <Label>Sucursal</Label>
@@ -440,6 +486,17 @@ const proximosSidebar = computed(() =>
                             </SelectItem>
                         </SelectContent>
                     </Select>
+                </div>
+
+                <div class="grid gap-1.5">
+                    <Label>Colaborador</Label>
+                    <Combobox
+                        v-model="filtros.colaborador_id"
+                        :items="opcionesColaboradores"
+                        placeholder="Todos"
+                        empty-text="Sin colaboradores con estos filtros."
+                        @update:model-value="navegar"
+                    />
                 </div>
 
                 <div class="grid gap-1.5">
@@ -661,38 +718,54 @@ const proximosSidebar = computed(() =>
                 </CardContent>
             </Card>
 
-            <!-- Sidebar: proximos cumpleaños -->
+            <!-- Sidebar: proximos cumpleaños, con rango de fechas libre -->
             <Card class="lg:col-span-1">
-                <CardHeader class="flex-row items-center justify-between gap-2 space-y-0 pb-3">
+                <CardHeader class="gap-3 space-y-0 pb-3">
                     <CardTitle class="text-base">Próximos cumpleaños</CardTitle>
-                    <div class="flex overflow-hidden rounded-md border text-xs">
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="grid gap-1">
+                            <Label class="text-xs text-muted-foreground">Desde</Label>
+                            <Input
+                                v-model="rangoDesde"
+                                type="date"
+                                class="h-8 text-xs"
+                                @change="navegarRangoConDebounce"
+                            />
+                        </div>
+                        <div class="grid gap-1">
+                            <Label class="text-xs text-muted-foreground">Hasta</Label>
+                            <Input
+                                v-model="rangoHasta"
+                                type="date"
+                                :min="rangoDesde"
+                                class="h-8 text-xs"
+                                @change="navegarRangoConDebounce"
+                            />
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap gap-1.5">
                         <button
+                            v-for="opcion in RANGOS_RAPIDOS"
+                            :key="opcion.dias"
                             type="button"
-                            class="px-2 py-1"
-                            :class="rangoSidebar === '7' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'"
-                            @click="rangoSidebar = '7'"
+                            class="rounded-full border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                            @click="aplicarRangoRapido(opcion.dias)"
                         >
-                            7 días
-                        </button>
-                        <button
-                            type="button"
-                            class="px-2 py-1"
-                            :class="rangoSidebar === '30' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'"
-                            @click="rangoSidebar = '30'"
-                        >
-                            30 días
+                            {{ opcion.etiqueta }}
                         </button>
                     </div>
                 </CardHeader>
-                <CardContent class="flex max-h-[36rem] flex-col gap-2 overflow-y-auto">
+                <CardContent class="flex max-h-[30rem] flex-col gap-2 overflow-y-auto">
                     <p
-                        v-if="proximosSidebar.length === 0"
+                        v-if="proximosRango.length === 0"
                         class="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground"
                     >
                         No hay cumpleaños en este rango.
                     </p>
                     <ColaboradorCumpleanosCard
-                        v-for="colaborador in proximosSidebar"
+                        v-for="colaborador in proximosRango"
                         :key="colaborador.id"
                         :colaborador="colaborador"
                         :puede-descargar="permisos.descargarImagen"
@@ -703,6 +776,38 @@ const proximosSidebar = computed(() =>
                 </CardContent>
             </Card>
         </div>
+
+        <!-- Lista completa del mes: no solo las tarjetas del calendario grande -->
+        <Card class="mt-4">
+            <CardHeader>
+                <CardTitle class="text-base">
+                    Lista de cumpleaños de {{ MESES[mesActual - 1] }}
+                </CardTitle>
+                <p class="text-xs text-muted-foreground">
+                    {{ delMes.length }} colaborador{{ delMes.length === 1 ? '' : 'es' }}
+                    con cumpleaños este mes, con los filtros aplicados.
+                </p>
+            </CardHeader>
+            <CardContent>
+                <p
+                    v-if="delMes.length === 0"
+                    class="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground"
+                >
+                    Sin cumpleaños que mostrar en {{ MESES[mesActual - 1] }} con estos filtros.
+                </p>
+                <div v-else class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <ColaboradorCumpleanosCard
+                        v-for="colaborador in delMes"
+                        :key="colaborador.id"
+                        :colaborador="colaborador"
+                        :puede-descargar="permisos.descargarImagen"
+                        :puede-enviar="permisos.gestionarNotificaciones"
+                        compacto
+                        @copiar="copiarMensaje"
+                    />
+                </div>
+            </CardContent>
+        </Card>
     </template>
     </div>
 
@@ -751,6 +856,7 @@ const proximosSidebar = computed(() =>
                     class="flex-1"
                     @keyup.enter="agregarFrase"
                 />
+                <EmojiPicker @select="(emoji) => (nuevaFrase.texto += emoji)" />
                 <Button
                     class="shrink-0"
                     :disabled="nuevaFrase.processing || !nuevaFrase.texto"

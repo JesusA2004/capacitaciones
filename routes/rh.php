@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Rh\AltaDigitalController;
 use App\Http\Controllers\Rh\CandidatoController;
+use App\Http\Controllers\Rh\CumpleanosConfiguracionController;
 use App\Http\Controllers\Rh\CumpleanosController;
 use App\Http\Controllers\Rh\DocumentExtraccionController;
 use App\Http\Controllers\Rh\EmployeeDocumentController;
@@ -176,9 +177,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('frases', [CumpleanosController::class, 'storeFrase'])->name('frases.store');
             Route::put('frases/{frase}', [CumpleanosController::class, 'updateFrase'])->name('frases.update');
             Route::delete('frases/{frase}', [CumpleanosController::class, 'destroyFrase'])->name('frases.destroy');
+            Route::prefix('configuracion')->name('configuracion.')->group(function () {
+                Route::get('/', [CumpleanosConfiguracionController::class, 'index'])->name('index');
+                Route::post('fondo', [CumpleanosConfiguracionController::class, 'actualizarFondo'])->name('fondo.actualizar');
+                Route::delete('fondo', [CumpleanosConfiguracionController::class, 'eliminarFondo'])->name('fondo.eliminar');
+                Route::get('fondo/ver', [CumpleanosConfiguracionController::class, 'fondo'])->name('fondo.ver');
+            });
             Route::get('{colaborador}/felicitacion', [CumpleanosController::class, 'felicitacion'])->name('felicitacion');
             Route::post('{colaborador}/felicitacion/generar', [CumpleanosController::class, 'generar'])->name('felicitacion.generar');
             Route::post('{colaborador}/felicitacion/regenerar', [CumpleanosController::class, 'regenerar'])->name('felicitacion.regenerar');
+            Route::post('{colaborador}/felicitacion/previsualizar', [CumpleanosController::class, 'previsualizarFrase'])->name('felicitacion.previsualizar');
+            Route::post('{colaborador}/felicitacion/confirmar-frase', [CumpleanosController::class, 'confirmarFrase'])->name('felicitacion.confirmar-frase');
             Route::get('{colaborador}/felicitacion/descargar', [CumpleanosController::class, 'descargar'])->name('felicitacion.descargar');
             Route::post('{colaborador}/felicitacion/enviar', [CumpleanosController::class, 'enviarManual'])->name('felicitacion.enviar');
         });

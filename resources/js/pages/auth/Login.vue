@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Form, Head } from '@inertiajs/vue3';
-import { Smartphone } from '@lucide/vue';
+import { Download, Lock, Mail, Smartphone } from '@lucide/vue';
 import InputError from '@/components/InputError.vue';
 import PasswordInput from '@/components/PasswordInput.vue';
 import TextLink from '@/components/TextLink.vue';
@@ -40,26 +40,32 @@ defineProps<{
         v-bind="store.form()"
         :reset-on-success="['password']"
         v-slot="{ errors, processing }"
-        class="flex flex-col gap-6"
+        class="flex flex-col gap-4"
     >
-        <div class="grid gap-6">
+        <div class="grid gap-4">
             <div class="grid gap-2">
                 <Label for="email">Correo electrónico</Label>
-                <Input
-                    id="email"
-                    type="email"
-                    name="email"
-                    required
-                    autofocus
-                    :tabindex="1"
-                    autocomplete="email"
-                    placeholder="correo@ejemplo.com"
-                />
+                <div class="group relative">
+                    <Mail
+                        class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-primary"
+                    />
+                    <Input
+                        id="email"
+                        type="email"
+                        name="email"
+                        required
+                        autofocus
+                        :tabindex="1"
+                        autocomplete="email"
+                        placeholder="correo@ejemplo.com"
+                        class="h-10 pl-9"
+                    />
+                </div>
                 <InputError :message="errors.email" />
             </div>
 
             <div class="grid gap-2">
-                <div class="flex items-center justify-between">
+                <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                     <Label for="password">Contraseña</Label>
                     <TextLink
                         v-if="canResetPassword"
@@ -70,14 +76,20 @@ defineProps<{
                         ¿Olvidaste tu contraseña?
                     </TextLink>
                 </div>
-                <PasswordInput
-                    id="password"
-                    name="password"
-                    required
-                    :tabindex="2"
-                    autocomplete="current-password"
-                    placeholder="Contraseña"
-                />
+                <div class="group relative">
+                    <Lock
+                        class="pointer-events-none absolute top-1/2 left-3 z-10 size-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-primary"
+                    />
+                    <PasswordInput
+                        id="password"
+                        name="password"
+                        required
+                        :tabindex="2"
+                        autocomplete="current-password"
+                        placeholder="Contraseña"
+                        class="h-10 pl-9"
+                    />
+                </div>
                 <InputError :message="errors.password" />
             </div>
 
@@ -90,7 +102,7 @@ defineProps<{
 
             <Button
                 type="submit"
-                class="mt-4 w-full"
+                class="mt-1 w-full transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]"
                 :tabindex="4"
                 :disabled="processing"
                 data-test="login-button"
@@ -100,22 +112,34 @@ defineProps<{
             </Button>
         </div>
 
-        <div class="text-center text-sm text-muted-foreground">
+        <div class="text-center text-xs text-muted-foreground">
             ¿Olvidaste cómo acceder? Contacta a tu administrador de RH.
         </div>
     </Form>
 
-    <div class="mt-6 flex items-center gap-3 rounded-lg border bg-muted/30 p-4">
+    <a
+        :href="appIndex.url()"
+        class="group mt-4 flex items-center gap-3 rounded-2xl border border-border/60 bg-muted/30 p-3.5 transition-all duration-300 hover:border-primary/40 hover:bg-muted/50 hover:shadow-md sm:p-4"
+    >
         <span
-            class="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"
+            class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-transform duration-300 group-hover:scale-110"
         >
-            <Smartphone class="size-4.5" />
+            <Smartphone class="size-5" />
         </span>
-        <div class="flex-1 text-sm">
-            También puedes usar MR. LANA PEOPLE desde tu celular
+        <div class="min-w-0 flex-1">
+            <p class="text-sm font-semibold text-foreground">
+                Descargar la app móvil
+            </p>
+            <p class="text-xs text-muted-foreground">
+                Accede a MR. LANA PEOPLE desde tu celular
+            </p>
         </div>
-        <Button as-child size="sm" variant="outline">
-            <a :href="appIndex.url()">Descargar app</a>
-        </Button>
-    </div>
+        <Download
+            class="size-4 shrink-0 text-muted-foreground transition-transform duration-300 group-hover:translate-y-0.5 group-hover:text-primary"
+        />
+    </a>
+
+    <p class="mt-3 text-center text-xs text-muted-foreground/70">
+        © {{ new Date().getFullYear() }} MR. LANA PEOPLE
+    </p>
 </template>

@@ -45,3 +45,27 @@ export async function postJson<T>(url: string, cuerpo: unknown): Promise<T> {
 
     return respuesta.json() as Promise<T>;
 }
+
+/**
+ * Igual que postJson(), pero para endpoints que devuelven un archivo binario
+ * (ej. una vista previa PNG) en vez de JSON — regresa una blob: URL lista
+ * para usarse como src de una imagen. El caller es responsable de revocarla
+ * (URL.revokeObjectURL) cuando ya no la necesite.
+ */
+export async function postBlobUrl(url: string, cuerpo: unknown): Promise<string> {
+    const respuesta = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-XSRF-TOKEN': leerCookie('XSRF-TOKEN') ?? '',
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify(cuerpo),
+    });
+
+    if (!respuesta.ok) {
+        throw new Error(`Error ${respuesta.status} al solicitar ${url}`);
+    }
+
+    return URL.createObjectURL(await respuesta.blob());
+}
