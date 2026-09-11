@@ -6,22 +6,29 @@ namespace App\Enums;
  * Tipos de solicitud interna (docs/SOLICITUDES_UNIFICADAS.md). Vacaciones,
  * préstamo interno y baja de colaborador viven aquí — reestructuración que
  * unifica lo que antes eran módulos separados (Vacaciones tenía su propia
- * tabla `solicitudes_vacaciones`, hoy sin uso nuevo — se conserva intacta,
- * sin datos que migrar porque estaba vacía al unificar).
+ * tabla `solicitudes_vacaciones`, hoy solo endpoint legacy — ver
+ * App\Http\Controllers\VacacionesController — cuyos días sí se descuentan
+ * del mismo saldo, ver App\Services\Vacaciones\VacacionesService::saldo()).
  */
 enum TipoSolicitudInterna: string
 {
     case Vacaciones = 'vacaciones';
     case PermisoConGoce = 'permiso_con_goce';
     case PermisoSinGoce = 'permiso_sin_goce';
+    case PermisoTiempo = 'permiso_tiempo';
+    case SalidaTemprano = 'salida_temprano';
+    case LlegadaTarde = 'llegada_tarde';
     case Incapacidad = 'incapacidad';
     case ConstanciaLaboral = 'constancia_laboral';
     case ActualizacionDatos = 'actualizacion_datos';
     case ActualizacionBancaria = 'actualizacion_bancaria';
     case ReposicionDocumental = 'reposicion_documental';
-    case PrestamoInterno = 'prestamo_interno';
+    case PrestamoInterno = 'prestamo';
     case BajaColaborador = 'baja_colaborador';
-    case General = 'general';
+    case PermisoEspecialCumpleanos = 'permiso_especial_cumpleanos';
+    case PermisoEspecialPaternidad = 'permiso_especial_paternidad';
+    case PermisoEspecialFallecimiento = 'permiso_especial_fallecimiento';
+    case General = 'solicitud_general';
 
     public function etiqueta(): string
     {
@@ -29,6 +36,9 @@ enum TipoSolicitudInterna: string
             self::Vacaciones => 'Vacaciones',
             self::PermisoConGoce => 'Permiso con goce de sueldo',
             self::PermisoSinGoce => 'Permiso sin goce de sueldo',
+            self::PermisoTiempo => 'Permiso por tiempo (horas)',
+            self::SalidaTemprano => 'Salida temprano',
+            self::LlegadaTarde => 'Llegada tarde',
             self::Incapacidad => 'Incapacidad',
             self::ConstanciaLaboral => 'Constancia laboral',
             self::ActualizacionDatos => 'Actualización de datos',
@@ -36,18 +46,41 @@ enum TipoSolicitudInterna: string
             self::ReposicionDocumental => 'Reposición documental',
             self::PrestamoInterno => 'Préstamo interno',
             self::BajaColaborador => 'Baja de colaborador',
+            self::PermisoEspecialCumpleanos => 'Permiso especial: cumpleaños',
+            self::PermisoEspecialPaternidad => 'Permiso especial: paternidad',
+            self::PermisoEspecialFallecimiento => 'Permiso especial: fallecimiento',
             self::General => 'Solicitud general',
         };
     }
 
     /**
-     * true si el tipo usa un rango de fechas (vacaciones/permisos/incapacidad);
-     * el resto solo usa `motivo`/`observaciones` en texto libre.
+     * true si el tipo usa un rango de fechas (vacaciones/permisos por
+     * día(s)/incapacidad/permisos especiales de varios días); los que se
+     * resuelven en un solo día con horario (ver usaHorario()) y el resto
+     * (préstamo, baja, actualización de datos, etc.) no lo usan.
      */
     public function usaRangoFechas(): bool
     {
         return match ($this) {
-            self::Vacaciones, self::PermisoConGoce, self::PermisoSinGoce, self::Incapacidad => true,
+            self::Vacaciones,
+            self::PermisoConGoce,
+            self::PermisoSinGoce,
+            self::Incapacidad,
+            self::PermisoEspecialPaternidad,
+            self::PermisoEspecialFallecimiento => true,
+            default => false,
+        };
+    }
+
+    /**
+     * true si el tipo ocurre en un solo día con hora de inicio/fin (salida
+     * temprano, llegada tarde, permiso por horas) en vez de un rango de
+     * fechas completas.
+     */
+    public function usaHorario(): bool
+    {
+        return match ($this) {
+            self::PermisoTiempo, self::SalidaTemprano, self::LlegadaTarde => true,
             default => false,
         };
     }
@@ -81,17 +114,31 @@ enum TipoSolicitudInterna: string
 
     /**
      * Slug del formato oficial que corresponde generar para este tipo (ver
-     * App\Services\Formatos\OfficialFormatCatalogoService). null si el tipo
-     * no tiene un formato oficial asociado.
+     * config/solicitudes.php y App\Services\Formatos\OfficialFormatOverlayService).
+     * null si el tipo no tiene un formato oficial asociado.
      */
     public function formatoOficialSlug(): ?string
     {
-        return match ($this) {
-            self::Vacaciones => 'formato-vacaciones',
-            self::PermisoConGoce, self::PermisoSinGoce => 'formato-permiso',
-            self::PrestamoInterno => 'contrato-credito-colaboradores',
-            self::BajaColaborador => 'formato-baja-personal',
-            default => null,
-        };
+        return config("solicitudes.formatos.{$this->value}.slug");
+    }
+
+    /**
+     * En qué transición del flujo se genera el formato oficial:
+     * 'creacion' | 'aprobacion' | 'cierre'. null si el tipo no tiene
+     * formato asociado.
+     */
+    public function formatoGenerarEn(): ?string
+    {
+        return config("solicitudes.formatos.{$this->value}.generar_en");
+    }
+
+    /**
+     * true si el formato generado para este tipo espera que RH suba de
+     * vuelta el PDF firmado. false (incluyendo tipos sin formato asociado)
+     * si no aplica.
+     */
+    public function formatoRequiereFirma(): bool
+    {
+        return (bool) config("solicitudes.formatos.{$this->value}.requiere_firma", false);
     }
 }

@@ -29,6 +29,22 @@ class UsuarioDemoSeeder extends Seeder
         $coordinadorCapacitacion = Puesto::where('nombre', 'Coordinador de Capacitación')->first();
         $gerenteSucursal = Puesto::where('nombre', 'Gerente de Sucursal')->first();
 
+        // Todo colaborador ACTIVO debe tener puesto (sección 5/8 de la
+        // reestructuración): antes varios usuarios demo se creaban con
+        // `puesto` null (rh_admin, auditor, subgerente, etc.), lo que
+        // rompía tanto el organigrama como el cálculo de plantilla actual
+        // de headcount (App\Services\Headcount\HeadcountService cuenta
+        // solo colaboradores con puesto_id).
+        $generalistaRh = Puesto::where('nombre', 'Generalista de RH')->first();
+        $gerenteRh = Puesto::where('nombre', 'Gerente de Recursos Humanos')->first();
+        $directorComercial = Puesto::where('nombre', 'Director comercial')->first();
+        $subgerentePuesto = Puesto::where('nombre', 'Subgerente')->first();
+        $coordinadoraRegionalPuesto = Puesto::where('nombre', 'Coordinadora regional')->first();
+        $coordinadoraPuesto = Puesto::where('nombre', 'Coordinadora')->first();
+        $supervisorOperaciones = Puesto::where('nombre', 'Supervisor de Operaciones')->first();
+        $gestorFijo = Puesto::where('nombre', 'Gestor fijo')->first();
+        $gestorVolante = Puesto::where('nombre', 'Gestor volante')->first();
+
         $usuarios = [
             [
                 'datos' => ['name' => 'Ana', 'apellidos' => 'Martínez Ruiz', 'email' => 'superadmin@mrlana.test', 'numero_empleado' => 'EMP-0001'],
@@ -57,32 +73,32 @@ class UsuarioDemoSeeder extends Seeder
             ],
             [
                 'datos' => ['name' => 'Miguel', 'apellidos' => 'Torres Aguilar', 'email' => 'colaborador1@mrlana.test', 'numero_empleado' => 'EMP-0006'],
-                'sucursal' => $monterrey, 'departamento' => $operaciones, 'puesto' => null,
+                'sucursal' => $monterrey, 'departamento' => $operaciones, 'puesto' => $gestorFijo,
                 'roles' => ['colaborador'],
             ],
             [
                 'datos' => ['name' => 'Daniela', 'apellidos' => 'Flores Nava', 'email' => 'colaborador2@mrlana.test', 'numero_empleado' => 'EMP-0007'],
-                'sucursal' => $cdmx, 'departamento' => $operaciones, 'puesto' => null,
+                'sucursal' => $cdmx, 'departamento' => $operaciones, 'puesto' => $gestorVolante,
                 'roles' => ['colaborador'],
             ],
             [
                 'datos' => ['name' => 'Roberto', 'apellidos' => 'Salinas Ibarra', 'email' => 'auditor@mrlana.test', 'numero_empleado' => 'EMP-0008'],
-                'sucursal' => $monterrey, 'departamento' => $recursosHumanos, 'puesto' => null,
+                'sucursal' => $monterrey, 'departamento' => $recursosHumanos, 'puesto' => $generalistaRh,
                 'roles' => ['auditor'],
             ],
             [
                 'datos' => ['name' => 'Sofía', 'apellidos' => 'Reyes Marín', 'email' => 'rh.admin@mrlana.test', 'numero_empleado' => 'EMP-0009'],
-                'sucursal' => $monterrey, 'departamento' => $recursosHumanos, 'puesto' => null,
+                'sucursal' => $monterrey, 'departamento' => $recursosHumanos, 'puesto' => $gerenteRh,
                 'roles' => ['rh_admin'],
             ],
             [
                 'datos' => ['name' => 'Iván', 'apellidos' => 'Cabrera Lomelí', 'email' => 'rh.auxiliar@mrlana.test', 'numero_empleado' => 'EMP-0010'],
-                'sucursal' => $monterrey, 'departamento' => $recursosHumanos, 'puesto' => null,
+                'sucursal' => $monterrey, 'departamento' => $recursosHumanos, 'puesto' => $generalistaRh,
                 'roles' => ['rh_auxiliar'],
             ],
             [
                 'datos' => ['name' => 'Fernanda', 'apellidos' => 'Ochoa Del Río', 'email' => 'director.comercial@mrlana.test', 'numero_empleado' => 'EMP-0011'],
-                'sucursal' => $monterrey, 'departamento' => $operaciones, 'puesto' => null,
+                'sucursal' => $monterrey, 'departamento' => $operaciones, 'puesto' => $directorComercial,
                 'roles' => ['director_comercial'],
             ],
             [
@@ -97,22 +113,22 @@ class UsuarioDemoSeeder extends Seeder
             ],
             [
                 'datos' => ['name' => 'Ricardo', 'apellidos' => 'Zamora Vidal', 'email' => 'subgerente@mrlana.test', 'numero_empleado' => 'EMP-0014'],
-                'sucursal' => $cdmx, 'departamento' => $operaciones, 'puesto' => null,
+                'sucursal' => $cdmx, 'departamento' => $operaciones, 'puesto' => $subgerentePuesto,
                 'roles' => ['subgerente'],
             ],
             [
                 'datos' => ['name' => 'Adriana', 'apellidos' => 'Cortés Beltrán', 'email' => 'coordinadora.regional@mrlana.test', 'numero_empleado' => 'EMP-0015'],
-                'sucursal' => $monterrey, 'departamento' => $operaciones, 'puesto' => null,
+                'sucursal' => $monterrey, 'departamento' => $operaciones, 'puesto' => $coordinadoraRegionalPuesto,
                 'roles' => ['coordinadora_regional'],
             ],
             [
                 'datos' => ['name' => 'Brenda', 'apellidos' => 'Nájera Solís', 'email' => 'coordinadora@mrlana.test', 'numero_empleado' => 'EMP-0016'],
-                'sucursal' => $monterrey, 'departamento' => $operaciones, 'puesto' => null,
+                'sucursal' => $monterrey, 'departamento' => $operaciones, 'puesto' => $coordinadoraPuesto,
                 'roles' => ['coordinadora'],
             ],
             [
                 'datos' => ['name' => 'Diego', 'apellidos' => 'Ponce Aranda', 'email' => 'jefe.directo@mrlana.test', 'numero_empleado' => 'EMP-0017'],
-                'sucursal' => $cdmx, 'departamento' => $operaciones, 'puesto' => null,
+                'sucursal' => $cdmx, 'departamento' => $operaciones, 'puesto' => $supervisorOperaciones,
                 'roles' => ['jefe_directo'],
             ],
         ];

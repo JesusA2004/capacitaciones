@@ -38,7 +38,10 @@ final class ReporteDetalleSheet implements FromArray, WithStyles, WithTitle
         return [$this->columnas, ...$this->filas];
     }
 
-    public function styles(Worksheet $sheet)
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function styles(Worksheet $sheet): array
     {
         ExcelReportStyler::estilizarTabla($sheet, 1, count($this->columnas), count($this->filas));
 

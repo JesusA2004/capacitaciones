@@ -113,7 +113,10 @@ final class ReporteResumenSheet implements FromArray, WithCharts, WithStyles, Wi
         return $charts;
     }
 
-    public function styles(Worksheet $sheet)
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function styles(Worksheet $sheet): array
     {
         $sheet->getStyle('A1')->applyFromArray([
             'font' => ['bold' => true, 'size' => 16, 'color' => ['rgb' => ExcelReportStyler::COLOR_MARCA_OSCURO]],

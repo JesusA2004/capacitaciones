@@ -41,7 +41,10 @@ class CumpleanosConfiguracionController extends Controller
             'fondo' => ['required', 'image', 'mimes:png,jpg,jpeg,webp', 'max:8192'],
         ]);
 
-        $this->storage->guardar($this->storage->rutaFondo(), file_get_contents($datos['fondo']->getRealPath()));
+        $contenido = file_get_contents($datos['fondo']->getRealPath());
+        abort_if($contenido === false, 500, 'No se pudo leer el archivo de fondo.');
+
+        $this->storage->guardar($this->storage->rutaFondo(), $contenido);
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Fondo actualizado. Las próximas tarjetas lo usarán.']);
     }

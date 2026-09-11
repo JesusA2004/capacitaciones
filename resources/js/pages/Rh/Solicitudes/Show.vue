@@ -139,10 +139,42 @@ function cerrarSolicitud() {
                     </p>
                 </div>
                 <div v-if="solicitud.fecha_inicio">
-                    <p class="text-xs text-muted-foreground">Periodo</p>
+                    <p class="text-xs text-muted-foreground">
+                        {{ solicitud.fecha_fin ? 'Periodo' : 'Fecha' }}
+                    </p>
                     <p class="text-sm font-medium">
-                        {{ solicitud.fecha_inicio }} —
-                        {{ solicitud.fecha_fin }}
+                        {{ solicitud.fecha_inicio }}
+                        <template v-if="solicitud.fecha_fin">
+                            — {{ solicitud.fecha_fin }}
+                        </template>
+                    </p>
+                </div>
+                <div v-if="solicitud.dias_solicitados">
+                    <p class="text-xs text-muted-foreground">
+                        Días solicitados
+                    </p>
+                    <p class="text-sm font-medium">
+                        {{ solicitud.dias_solicitados }}
+                    </p>
+                </div>
+                <div v-if="solicitud.monto_solicitado">
+                    <p class="text-xs text-muted-foreground">
+                        Monto solicitado
+                    </p>
+                    <p class="text-sm font-medium">
+                        ${{ solicitud.monto_solicitado }}
+                        <span v-if="solicitud.plazo_meses"
+                            >a {{ solicitud.plazo_meses }} meses</span
+                        >
+                    </p>
+                </div>
+                <div v-if="solicitud.colaboradorObjetivo">
+                    <p class="text-xs text-muted-foreground">
+                        Colaborador a dar de baja
+                    </p>
+                    <p class="text-sm font-medium">
+                        {{ solicitud.colaboradorObjetivo.name }}
+                        {{ solicitud.colaboradorObjetivo.apellidos ?? '' }}
                     </p>
                 </div>
             </div>

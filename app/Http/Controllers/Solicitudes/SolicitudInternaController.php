@@ -2,11 +2,15 @@
 
 namespace App\Http\Controllers\Solicitudes;
 
+use App\Enums\EstadoUsuario;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Solicitudes\StoreSolicitudInternaRequest;
 use App\Http\Requests\Solicitudes\SubirDocumentoSolicitudRequest;
 use App\Models\SolicitudInterna;
+use App\Models\User;
+use App\Services\AlcanceOrganizacionalService;
 use App\Services\Solicitudes\SolicitudesService;
+use App\Services\Vacaciones\VacacionesService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -19,13 +23,29 @@ use Inertia\Response;
  */
 class SolicitudInternaController extends Controller
 {
-    public function __construct(private readonly SolicitudesService $solicitudes) {}
+    public function __construct(
+        private readonly SolicitudesService $solicitudes,
+        private readonly VacacionesService $vacaciones,
+        private readonly AlcanceOrganizacionalService $alcance,
+    ) {}
 
     public function index(Request $request): Response
     {
+        $usuario = $request->user();
+
         return Inertia::render('Solicitudes/Index', [
-            'solicitudes' => $this->solicitudes->paraColaborador($request->user()),
-            'tipos' => $this->solicitudes->tiposDisponibles(),
+            'solicitudes' => $this->solicitudes->paraColaborador($usuario),
+            'tipos' => $this->solicitudes->tiposConFormulario(),
+            'saldoVacaciones' => $this->vacaciones->saldo($usuario),
+            // Solo quien puede solicitar una baja ve a quién puede
+            // seleccionar (su propio alcance organizacional, nunca a todos
+            // los colaboradores) — ver TipoSolicitudInterna::BajaColaborador.
+            'colaboradoresParaBaja' => $usuario->can('solicitudes.bajas.crear')
+                ? $this->alcance->limitarUsuariosPorAlcance(
+                    User::query()->where('estatus', EstadoUsuario::Activo)->where('id', '!=', $usuario->id),
+                    $usuario,
+                )->orderBy('name')->get(['id', 'name', 'apellidos'])
+                : [],
         ]);
     }
 
@@ -40,7 +60,7 @@ class SolicitudInternaController extends Controller
     {
         $this->authorize('view', $solicitud);
 
-        $solicitud->load(['usuario:id,name,apellidos', 'revisadoPor:id,name,apellidos', 'documentos', 'documentosGenerados.plantilla:id,nombre,tipo', 'historial.usuario:id,name,apellidos']);
+        $solicitud->load(['usuario:id,name,apellidos', 'colaboradorObjetivo:id,name,apellidos', 'revisadoPor:id,name,apellidos', 'documentos', 'documentosGenerados.plantilla:id,nombre,tipo', 'historial.usuario:id,name,apellidos']);
 
         return Inertia::render('Solicitudes/Show', [
             'solicitud' => $solicitud,

@@ -63,11 +63,11 @@ class ReporteGeneralExport implements WithMultipleSheets
         ];
 
         foreach ($porGrupo as $clave => [$columna, $titulo]) {
-            $this->agregarBloque($bloques, $columna, $titulo, collect($g[$clave])->map(fn (array $f) => [$f['etiqueta'], $f['valor']])->all());
+            $this->agregarBloque($bloques, $columna, $titulo, collect((array) $g[$clave])->map(fn (array $f) => [$f['etiqueta'], $f['valor']])->all());
         }
 
-        $this->agregarBloque($bloques, 'Estado', 'Expedientes por estado', collect($g['expedientesEstado'])->map(fn (array $f) => [$f['etiqueta'], $f['valor']])->all());
-        $this->agregarBloque($bloques, 'Estado', 'Documentos por estado', collect($g['documentosPorEstado'])->map(fn (array $f) => [$f['etiqueta'], $f['valor']])->all());
+        $this->agregarBloque($bloques, 'Estado', 'Expedientes por estado', collect((array) $g['expedientesEstado'])->map(fn (array $f) => [$f['etiqueta'], $f['valor']])->all());
+        $this->agregarBloque($bloques, 'Estado', 'Documentos por estado', collect((array) $g['documentosPorEstado'])->map(fn (array $f) => [$f['etiqueta'], $f['valor']])->all());
         $this->agregarBloque($bloques, 'Módulo', 'Reclutamiento y solicitudes', collect($this->otrosModulos)->map(fn (array $f) => [$f['etiqueta'], $f['valor']])->all());
 
         return $bloques;

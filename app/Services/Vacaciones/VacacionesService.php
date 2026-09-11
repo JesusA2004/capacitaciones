@@ -2,7 +2,10 @@
 
 namespace App\Services\Vacaciones;
 
+use App\Enums\EstadoSolicitudInterna;
 use App\Enums\EstadoSolicitudVacaciones;
+use App\Enums\TipoSolicitudInterna;
+use App\Models\SolicitudInterna;
 use App\Models\SolicitudVacaciones;
 use App\Models\User;
 use App\Notifications\Mobile\RhVacacionCreadaNotification;
@@ -73,18 +76,47 @@ class VacacionesService
 
         $diasGenerados = $this->diasPorAntiguedad($antiguedadAnios);
 
-        $solicitudesVigentes = SolicitudVacaciones::query()
+        // Cuenta dias tanto del modulo legacy (solicitudes_vacaciones, ver
+        // App\Http\Controllers\VacacionesController — se conserva como
+        // endpoint legacy, ver seccion 13 de la reestructuracion) como del
+        // modulo unificado (solicitudes_internas con tipo=vacaciones, ver
+        // App\Services\Solicitudes\SolicitudesService::crear()). Nunca se
+        // debe poder rebasar el saldo solicitando por cualquiera de los dos
+        // caminos.
+        $solicitudesLegacyVigentes = SolicitudVacaciones::query()
             ->where('user_id', $colaborador->id)
             ->whereBetween('fecha_inicio', [$vigenciaInicio, $vigenciaFin])
             ->get();
 
-        $diasUsados = (int) $solicitudesVigentes
+        $diasUsadosLegacy = (int) $solicitudesLegacyVigentes
             ->where('estado', EstadoSolicitudVacaciones::Aprobada)
             ->sum('dias_solicitados');
 
-        $diasEnSolicitud = (int) $solicitudesVigentes
+        $diasEnSolicitudLegacy = (int) $solicitudesLegacyVigentes
             ->where('estado', EstadoSolicitudVacaciones::Pendiente)
             ->sum('dias_solicitados');
+
+        $solicitudesInternasVigentes = SolicitudInterna::query()
+            ->where('user_id', $colaborador->id)
+            ->where('tipo', TipoSolicitudInterna::Vacaciones)
+            ->whereBetween('fecha_inicio', [$vigenciaInicio, $vigenciaFin])
+            ->get();
+
+        $diasUsadosInternas = (int) $solicitudesInternasVigentes
+            ->where('estado', EstadoSolicitudInterna::Aprobada)
+            ->sum('dias_solicitados');
+
+        $diasEnSolicitudInternas = (int) $solicitudesInternasVigentes
+            ->whereIn('estado', [
+                EstadoSolicitudInterna::Creada,
+                EstadoSolicitudInterna::Enviada,
+                EstadoSolicitudInterna::EnRevision,
+                EstadoSolicitudInterna::RequiereCorreccion,
+            ])
+            ->sum('dias_solicitados');
+
+        $diasUsados = $diasUsadosLegacy + $diasUsadosInternas;
+        $diasEnSolicitud = $diasEnSolicitudLegacy + $diasEnSolicitudInternas;
 
         return [
             'antiguedad_anios' => $antiguedadAnios,

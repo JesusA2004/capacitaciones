@@ -22,6 +22,13 @@ declare module '@inertiajs/core' {
             features: {
                 capacitacion: boolean;
             };
+            // Modo de navegación (App\Services\Navigation\NavigationService):
+            // separa la experiencia personal ("colaborador") de la operativa
+            // ("operativo"). null cuando no hay sesión iniciada.
+            navegacion: {
+                modoActual: 'colaborador' | 'operativo';
+                modosDisponibles: Array<'colaborador' | 'operativo'>;
+            } | null;
             environment: string;
             [key: string]: unknown;
         };

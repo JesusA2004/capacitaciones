@@ -25,6 +25,7 @@ use App\Models\InscripcionCurso;
 use App\Models\IntentoCuestionario;
 use App\Models\Leccion;
 use App\Models\ProgresoLeccion;
+use App\Models\Puesto;
 use App\Models\SesionEnVivo;
 use App\Models\Sucursal;
 use App\Models\User;
@@ -75,6 +76,19 @@ class DashboardDemoSeeder extends Seeder
         $sucursales = Sucursal::all()->keyBy('clave');
         $departamentos = Departamento::all()->keyBy('nombre');
 
+        // Todo colaborador activo debe tener puesto (sección 5/8 de la
+        // reestructuración): un puesto razonable por departamento, ya que
+        // estos colaboradores demo existen para poblar capacitación, no
+        // para modelar headcount operativo (Gestor fijo/volante se reserva
+        // a los colaboradores que sí alimentan la vista de headcount, ver
+        // UsuarioDemoSeeder).
+        $puestoPorDepartamento = [
+            'Recursos Humanos' => Puesto::where('nombre', 'Generalista de RH')->first(),
+            'Sistemas' => Puesto::where('nombre', 'Soporte Técnico')->first(),
+            'Ventas' => Puesto::where('nombre', 'Ejecutivo de Ventas')->first(),
+            'Operaciones' => Puesto::where('nombre', 'Supervisor de Operaciones')->first(),
+        ];
+
         $definiciones = [
             ['email' => 'colaborador3@mrlana.test', 'nombre' => 'Sofía', 'apellidos' => 'Reyes Cano', 'sucursal' => 'MTY01', 'departamento' => 'Recursos Humanos'],
             ['email' => 'colaborador4@mrlana.test', 'nombre' => 'Héctor', 'apellidos' => 'Domínguez Ríos', 'sucursal' => 'MTY01', 'departamento' => 'Sistemas'],
@@ -97,6 +111,7 @@ class DashboardDemoSeeder extends Seeder
                     'email_verified_at' => now(),
                     'sucursal_principal_id' => $sucursales[$definicion['sucursal']]->id,
                     'departamento_id' => $departamentos[$definicion['departamento']]->id,
+                    'puesto_id' => $puestoPorDepartamento[$definicion['departamento']]?->id,
                     'fecha_ingreso' => now()->subMonths(1 + ($indice % 24)),
                     'estatus' => EstadoUsuario::Activo,
                     'zona_horaria' => 'America/Mexico_City',

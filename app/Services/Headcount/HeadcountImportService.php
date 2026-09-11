@@ -8,7 +8,6 @@ use App\Models\Sucursal;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
-use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
@@ -145,7 +144,7 @@ class HeadcountImportService
                             'fuente' => 'excel:'.Str::slug($nombreHoja),
                             'fecha_corte' => Carbon::today(),
                             'updated_by_id' => $usuario->id,
-                            'created_by_id' => $existente?->created_by_id ?? $usuario->id,
+                            'created_by_id' => $existente->created_by_id ?? $usuario->id,
                         ],
                     );
 

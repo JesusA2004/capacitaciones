@@ -100,6 +100,7 @@ class SolicitudController extends Controller
             'usuario:id,name,apellidos,puesto_id,sucursal_principal_id',
             'usuario.puesto:id,nombre',
             'usuario.sucursalPrincipal:id,nombre',
+            'colaboradorObjetivo:id,name,apellidos',
             'revisadoPor:id,name,apellidos',
             'documentos.subidoPor:id,name,apellidos',
             'documentosGenerados.plantilla:id,nombre,tipo',

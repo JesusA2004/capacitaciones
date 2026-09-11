@@ -3,23 +3,21 @@
 namespace App\Services\Solicitudes;
 
 use App\Enums\EstadoSolicitudInterna;
-use App\Enums\EstadoUsuario;
 use App\Enums\TipoSolicitudInterna;
-use App\Models\MobileDevice;
 use App\Models\SolicitudInterna;
 use App\Models\User;
 use App\Notifications\Mobile\RhSolicitudCreadaNotification;
 use App\Notifications\Mobile\SolicitudActualizadaNotification;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\MobilePush\PushNotifier;
-use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use App\Services\RhMobile\ResponsableResolverService;
-use App\Services\Vacantes\VacanteAutoGenerationService;
+use App\Services\Vacaciones\VacacionesService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification as NotificationFacade;
 use Illuminate\Validation\ValidationException;
@@ -41,21 +39,53 @@ class SolicitudesService
         private readonly SolicitudDocumentoStorageService $storage,
         private readonly ResponsableResolverService $responsables,
         private readonly PushNotifier $push,
+        private readonly VacacionesService $vacaciones,
+        private readonly BajaColaboradorService $bajaColaborador,
     ) {}
 
     /**
-     * @param  array<string, mixed>  $datos  Validado por StoreSolicitudInternaRequest: tipo, motivo, fecha_inicio?, fecha_fin?, observaciones?.
+     * @param  array<string, mixed>  $datos  Validado por StoreSolicitudInternaRequest: tipo, motivo, fecha_inicio?, fecha_fin?, observaciones?, dias_solicitados? (vacaciones), monto_solicitado?/plazo_meses? (préstamo), colaborador_objetivo_id? (baja).
+     *
+     * @throws ValidationException Saldo de vacaciones insuficiente, o sin permiso para dar de baja al colaborador objetivo.
      */
     public function crear(User $solicitante, array $datos): SolicitudInterna
     {
-        return DB::transaction(function () use ($solicitante, $datos): SolicitudInterna {
+        $tipo = TipoSolicitudInterna::from($datos['tipo']);
+
+        if ($tipo === TipoSolicitudInterna::Vacaciones && isset($datos['dias_solicitados'])) {
+            $saldo = $this->vacaciones->saldo($solicitante);
+
+            if ((int) $datos['dias_solicitados'] > $saldo['dias_disponibles']) {
+                throw ValidationException::withMessages([
+                    'dias_solicitados' => 'No tienes suficientes días disponibles.',
+                ]);
+            }
+        }
+
+        $colaboradorObjetivo = null;
+
+        if ($tipo === TipoSolicitudInterna::BajaColaborador) {
+            $colaboradorObjetivo = User::query()->where('id', $datos['colaborador_objetivo_id'])->firstOrFail();
+
+            if (Gate::forUser($solicitante)->denies('crearBaja', [SolicitudInterna::class, $colaboradorObjetivo])) {
+                throw ValidationException::withMessages([
+                    'colaborador_objetivo_id' => 'No tienes permiso para solicitar la baja de este colaborador.',
+                ]);
+            }
+        }
+
+        return DB::transaction(function () use ($solicitante, $datos, $colaboradorObjetivo): SolicitudInterna {
             $solicitud = SolicitudInterna::create([
                 'folio' => $this->generarFolio(),
                 'user_id' => $solicitante->id,
+                'colaborador_objetivo_id' => $colaboradorObjetivo?->id,
                 'tipo' => $datos['tipo'],
                 'estado' => EstadoSolicitudInterna::Enviada,
                 'fecha_inicio' => $datos['fecha_inicio'] ?? null,
                 'fecha_fin' => $datos['fecha_fin'] ?? null,
+                'dias_solicitados' => $datos['dias_solicitados'] ?? null,
+                'monto_solicitado' => $datos['monto_solicitado'] ?? null,
+                'plazo_meses' => $datos['plazo_meses'] ?? null,
                 'motivo' => $datos['motivo'],
                 'observaciones' => $datos['observaciones'] ?? null,
                 'empresa_id' => $solicitante->empresa()?->id,
@@ -238,6 +268,17 @@ class SolicitudesService
 
             $solicitud->refresh();
 
+            // Al aprobar una baja de colaborador, se ejecuta el bloqueo de
+            // acceso real (ver App\Services\Solicitudes\BajaColaboradorService):
+            // nunca antes de la aprobación, y nunca en ningún otro estado.
+            if ($nuevoEstado === EstadoSolicitudInterna::Aprobada && $solicitud->tipo === TipoSolicitudInterna::BajaColaborador) {
+                $solicitud->loadMissing('colaboradorObjetivo');
+
+                if ($solicitud->colaboradorObjetivo !== null) {
+                    $this->bajaColaborador->ejecutar($solicitud->colaboradorObjetivo, $actor, $solicitud->motivo);
+                }
+            }
+
             if (in_array($nuevoEstado, [EstadoSolicitudInterna::Aprobada, EstadoSolicitudInterna::Rechazada, EstadoSolicitudInterna::RequiereCorreccion], true)) {
                 $this->notificarSinFallar(function () use ($solicitud): void {
                     $solicitud->loadMissing('usuario');
@@ -302,6 +343,7 @@ class SolicitudesService
     {
         return array_map(function (TipoSolicitudInterna $tipo): array {
             $requiereFechas = $tipo->usaRangoFechas();
+            $requiereHorario = $tipo->usaHorario();
 
             $campos = [
                 ['name' => 'motivo', 'type' => 'text', 'required' => true],
@@ -314,13 +356,31 @@ class SolicitudesService
                     ['name' => 'fecha_inicio', 'type' => 'date', 'required' => true],
                     ['name' => 'fecha_fin', 'type' => 'date', 'required' => true],
                 );
+            } elseif ($requiereHorario) {
+                array_unshift($campos, ['name' => 'fecha_inicio', 'type' => 'date', 'required' => true]);
+            }
+
+            if ($tipo->requiereDias()) {
+                $campos[] = ['name' => 'dias_solicitados', 'type' => 'number', 'required' => true];
+            }
+
+            if ($tipo->requiereMonto()) {
+                $campos[] = ['name' => 'monto_solicitado', 'type' => 'number', 'required' => true];
+                $campos[] = ['name' => 'plazo_meses', 'type' => 'number', 'required' => false];
+            }
+
+            if ($tipo->requiereColaboradorObjetivo()) {
+                $campos[] = ['name' => 'colaborador_objetivo_id', 'type' => 'select', 'required' => true];
             }
 
             return [
                 'clave' => $tipo->value,
                 'nombre' => $tipo->etiqueta(),
                 'requiere_fechas' => $requiereFechas,
-                'requiere_horario' => false,
+                'requiere_horario' => $requiereHorario,
+                'requiere_dias' => $tipo->requiereDias(),
+                'requiere_monto' => $tipo->requiereMonto(),
+                'requiere_colaborador_objetivo' => $tipo->requiereColaboradorObjetivo(),
                 'requiere_motivo' => true,
                 'permite_adjuntos' => true,
                 'campos' => $campos,

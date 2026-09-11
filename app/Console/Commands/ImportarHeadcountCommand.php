@@ -18,17 +18,26 @@ use Illuminate\Console\Command;
  */
 class ImportarHeadcountCommand extends Command
 {
-    protected $signature = 'headcount:importar {archivo : Ruta al .xlsx de headcount}';
+    /**
+     * Ruta por defecto cuando no se pasa {archivo}: el Excel real que RH
+     * entregó, ya versionado en el repo (ver docs/HEADCOUNT_Y_VACANTES.md).
+     */
+    private const RUTA_DEFECTO = 'claude/headcount/HEADCOUNT GENERAL MR LANA 28-08-2026..xlsx';
+
+    protected $signature = 'headcount:importar {archivo? : Ruta al .xlsx de headcount (por defecto, el Excel real en claude/headcount/)}';
 
     protected $description = 'Importa la plantilla autorizada desde el Excel de headcount y sincroniza vacantes automáticas';
 
     public function handle(HeadcountImportService $importador, VacanteAutoGenerationService $vacantes): int
     {
-        $ruta = $this->argument('archivo');
+        $ruta = $this->argument('archivo') ?? self::RUTA_DEFECTO;
         $rutaResuelta = $this->esRutaAbsoluta($ruta) ? $ruta : base_path($ruta);
 
         if (! is_file($rutaResuelta)) {
-            $this->error("No se encontró el archivo: {$rutaResuelta}");
+            // Nunca truena el deploy por esto: solo avisa. El Excel puede
+            // no existir todavía en un entorno nuevo, o RH aún no lo sube.
+            $this->error("No se encontró el archivo de headcount: {$rutaResuelta}");
+            $this->line('Coloca el Excel real en esa ruta, o indica otra con: php artisan headcount:importar "ruta/al/archivo.xlsx"');
 
             return self::FAILURE;
         }

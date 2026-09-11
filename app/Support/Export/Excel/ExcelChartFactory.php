@@ -37,7 +37,8 @@ final class ExcelChartFactory
         string $anclaInferior,
         string $titulo,
     ): Chart {
-        [$colCategoria, $filaDatosInicio] = Coordinate::coordinateFromString($celdaCategoriaInicio);
+        [$colCategoria, $filaDatosInicioBruta] = Coordinate::coordinateFromString($celdaCategoriaInicio);
+        $filaDatosInicio = (int) $filaDatosInicioBruta;
         $filaEncabezado = $filaDatosInicio - 1;
         $filaDatosFin = $filaDatosInicio + count($datos->categorias) - 1;
         $colCategoriaIndice = Coordinate::columnIndexFromString($colCategoria);

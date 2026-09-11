@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { ClipboardList, Eye, Plus } from '@lucide/vue';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
@@ -27,14 +27,18 @@ import { Textarea } from '@/components/ui/textarea';
 import { dashboard } from '@/routes';
 import { index, show, store } from '@/routes/solicitudes';
 import type {
+    ColaboradorParaBaja,
     RespuestaPaginada,
+    SaldoVacaciones,
     SolicitudInternaItem,
-    TipoSolicitudInterna,
+    TipoSolicitudInternaFormulario,
 } from '@/types';
 
 const props = defineProps<{
     solicitudes: RespuestaPaginada<SolicitudInternaItem>;
-    tipos: TipoSolicitudInterna[];
+    tipos: TipoSolicitudInternaFormulario[];
+    saldoVacaciones: SaldoVacaciones;
+    colaboradoresParaBaja: ColaboradorParaBaja[];
 }>();
 
 defineOptions({
@@ -54,6 +58,10 @@ const form = useForm({
     observaciones: '',
     fecha_inicio: '',
     fecha_fin: '',
+    dias_solicitados: '',
+    monto_solicitado: '',
+    plazo_meses: '',
+    colaborador_objetivo_id: '',
 });
 
 function enviar() {
@@ -66,8 +74,13 @@ function enviar() {
     });
 }
 
-const tipoSeleccionado = () =>
-    props.tipos.find((t) => t.value === form.tipo)?.label ?? '';
+const tipoActual = computed(() =>
+    props.tipos.find((t) => t.clave === form.tipo),
+);
+
+function nombreTipo(clave: string): string {
+    return props.tipos.find((t) => t.clave === clave)?.nombre ?? clave;
+}
 </script>
 
 <template>
@@ -76,7 +89,7 @@ const tipoSeleccionado = () =>
     <div class="flex flex-col gap-6 p-4">
         <CrudPageHeader
             titulo="Mis solicitudes"
-            descripcion="Permisos, incapacidades, constancias y otros trámites internos."
+            descripcion="Vacaciones, permisos, préstamos, incapacidades y otros trámites internos, todo en un solo lugar."
             :icono="ClipboardList"
         >
             <Button @click="dialogoAbierto = true">
@@ -112,10 +125,7 @@ const tipoSeleccionado = () =>
                             {{ solicitud.folio }}
                         </p>
                         <p class="text-sm font-semibold">
-                            {{
-                                tipos.find((t) => t.value === solicitud.tipo)
-                                    ?.label ?? solicitud.tipo
-                            }}
+                            {{ nombreTipo(solicitud.tipo) }}
                         </p>
                     </div>
                     <EstadoBadge :estado="solicitud.estado" />
@@ -147,16 +157,16 @@ const tipoSeleccionado = () =>
                     <Select v-model="form.tipo">
                         <SelectTrigger id="tipo" class="w-full">
                             <SelectValue placeholder="Selecciona un tipo">
-                                {{ tipoSeleccionado() }}
+                                {{ tipoActual?.nombre ?? '' }}
                             </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem
                                 v-for="tipo in tipos"
-                                :key="tipo.value"
-                                :value="tipo.value"
+                                :key="tipo.clave"
+                                :value="tipo.clave"
                             >
-                                {{ tipo.label }}
+                                {{ tipo.nombre }}
                             </SelectItem>
                         </SelectContent>
                     </Select>
@@ -165,25 +175,131 @@ const tipoSeleccionado = () =>
                     </p>
                 </div>
 
-                <div class="grid grid-cols-2 gap-4">
+                <!-- Vacaciones: saldo disponible + días a solicitar -->
+                <div
+                    v-if="tipoActual?.requiere_dias"
+                    class="rounded-lg border border-border/60 bg-muted/40 p-3 text-sm"
+                >
+                    Días disponibles:
+                    <span class="font-semibold">{{
+                        saldoVacaciones.dias_disponibles
+                    }}</span>
+                    de {{ saldoVacaciones.dias_generados }} generados este
+                    periodo.
+                </div>
+
+                <div
+                    v-if="tipoActual?.requiere_fechas || tipoActual?.requiere_horario"
+                    class="grid grid-cols-2 gap-4"
+                >
                     <div class="grid gap-2">
-                        <Label for="fecha_inicio"
-                            >Fecha de inicio (si aplica)</Label
-                        >
+                        <Label for="fecha_inicio">{{
+                            tipoActual?.requiere_fechas
+                                ? 'Fecha de inicio'
+                                : 'Fecha'
+                        }}</Label>
                         <Input
                             id="fecha_inicio"
                             v-model="form.fecha_inicio"
                             type="date"
                         />
+                        <p
+                            v-if="form.errors.fecha_inicio"
+                            class="text-sm text-destructive"
+                        >
+                            {{ form.errors.fecha_inicio }}
+                        </p>
                     </div>
-                    <div class="grid gap-2">
-                        <Label for="fecha_fin">Fecha de fin (si aplica)</Label>
+                    <div v-if="tipoActual?.requiere_fechas" class="grid gap-2">
+                        <Label for="fecha_fin">Fecha de fin</Label>
                         <Input
                             id="fecha_fin"
                             v-model="form.fecha_fin"
                             type="date"
                         />
+                        <p
+                            v-if="form.errors.fecha_fin"
+                            class="text-sm text-destructive"
+                        >
+                            {{ form.errors.fecha_fin }}
+                        </p>
                     </div>
+                </div>
+
+                <div v-if="tipoActual?.requiere_dias" class="grid gap-2">
+                    <Label for="dias_solicitados">Días a solicitar</Label>
+                    <Input
+                        id="dias_solicitados"
+                        v-model="form.dias_solicitados"
+                        type="number"
+                        min="1"
+                        :max="saldoVacaciones.dias_disponibles"
+                    />
+                    <p
+                        v-if="form.errors.dias_solicitados"
+                        class="text-sm text-destructive"
+                    >
+                        {{ form.errors.dias_solicitados }}
+                    </p>
+                </div>
+
+                <!-- Préstamo interno: monto y plazo -->
+                <div v-if="tipoActual?.requiere_monto" class="grid grid-cols-2 gap-4">
+                    <div class="grid gap-2">
+                        <Label for="monto_solicitado">Monto solicitado</Label>
+                        <Input
+                            id="monto_solicitado"
+                            v-model="form.monto_solicitado"
+                            type="number"
+                            min="1"
+                            step="0.01"
+                        />
+                        <p
+                            v-if="form.errors.monto_solicitado"
+                            class="text-sm text-destructive"
+                        >
+                            {{ form.errors.monto_solicitado }}
+                        </p>
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="plazo_meses">Plazo (meses)</Label>
+                        <Input
+                            id="plazo_meses"
+                            v-model="form.plazo_meses"
+                            type="number"
+                            min="1"
+                            max="36"
+                        />
+                    </div>
+                </div>
+
+                <!-- Baja de colaborador: a quién se solicita dar de baja -->
+                <div
+                    v-if="tipoActual?.requiere_colaborador_objetivo"
+                    class="grid gap-2"
+                >
+                    <Label for="colaborador_objetivo_id">Colaborador</Label>
+                    <Select v-model="form.colaborador_objetivo_id">
+                        <SelectTrigger id="colaborador_objetivo_id" class="w-full">
+                            <SelectValue placeholder="Selecciona un colaborador" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem
+                                v-for="colaborador in colaboradoresParaBaja"
+                                :key="colaborador.id"
+                                :value="String(colaborador.id)"
+                            >
+                                {{ colaborador.name }}
+                                {{ colaborador.apellidos ?? '' }}
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <p
+                        v-if="form.errors.colaborador_objetivo_id"
+                        class="text-sm text-destructive"
+                    >
+                        {{ form.errors.colaborador_objetivo_id }}
+                    </p>
                 </div>
 
                 <div class="grid gap-2">

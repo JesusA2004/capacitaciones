@@ -25,7 +25,7 @@ class HeadcountService
      * agrupados. Única fuente de "actual" en todo el módulo.
      *
      * @param  Collection<int, int>|null  $sucursalesIds  null = todas (ya acotadas por el caller vía alcance)
-     * @return Collection<string, int> clave "sucursal_id:puesto_id"
+     * @return Collection<non-falsy-string, int> clave "sucursal_id:puesto_id"
      */
     public function plantillaActualPorSucursalPuesto(?Collection $sucursalesIds = null): Collection
     {
@@ -37,7 +37,7 @@ class HeadcountService
             ->selectRaw('sucursal_principal_id, puesto_id, count(*) as total')
             ->groupBy('sucursal_principal_id', 'puesto_id')
             ->get()
-            ->mapWithKeys(fn ($fila) => ["{$fila->sucursal_principal_id}:{$fila->puesto_id}" => (int) $fila->total]);
+            ->mapWithKeys(fn ($fila) => [sprintf('%d:%d', $fila->sucursal_principal_id, $fila->puesto_id) => (int) $fila->getAttribute('total')]);
     }
 
     /**
@@ -87,7 +87,8 @@ class HeadcountService
             ->whereIn('id', $sucursalesIdsUnion)
             ->pluck('nombre', 'id');
 
-        return $sucursalesIdsUnion->map(function (int $sucursalId) use ($autorizadaPorSucursal, $actualPorSucursal, $nombresSucursal) {
+        return $sucursalesIdsUnion->map(function (int|string $sucursalId) use ($autorizadaPorSucursal, $actualPorSucursal, $nombresSucursal) {
+            $sucursalId = (int) $sucursalId;
             $autorizada = (int) ($autorizadaPorSucursal[$sucursalId]->total ?? 0);
             $actual = (int) ($actualPorSucursal[$sucursalId] ?? 0);
 
