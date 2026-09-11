@@ -162,7 +162,12 @@ class CumpleanosController extends Controller
                 'frase' => $greeting->frase,
                 'enviadaAt' => $greeting->enviada_at?->toIso8601String(),
                 'tieneImagen' => $greeting->card_path !== null,
-                'imagenUrl' => route('rh.cumpleanos.felicitacion.descargar', $colaborador),
+                // El querystring `v=` cambia cada vez que se regenera la
+                // imagen (updated_at se actualiza con card_path): sin esto,
+                // la URL es siempre la misma y el navegador sigue mostrando
+                // la tarjeta vieja de caché hasta forzar un F5, aunque el
+                // servidor ya tenga la nueva.
+                'imagenUrl' => route('rh.cumpleanos.felicitacion.descargar', $colaborador).'?v='.$greeting->updated_at?->timestamp,
             ],
             'opciones' => [
                 'frases' => BirthdayPhrase::query()->orderBy('orden')->orderBy('id')->get(['id', 'texto']),

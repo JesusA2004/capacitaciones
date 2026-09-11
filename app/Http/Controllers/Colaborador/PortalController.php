@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Colaborador;
 
 use App\Http\Controllers\Controller;
 use App\Services\Colaboradores\ColaboradorPerfilService;
+use App\Services\Colaboradores\NotificacionesService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -16,7 +17,10 @@ use Inertia\Response;
  */
 class PortalController extends Controller
 {
-    public function __construct(private readonly ColaboradorPerfilService $perfil) {}
+    public function __construct(
+        private readonly ColaboradorPerfilService $perfil,
+        private readonly NotificacionesService $notificaciones,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -27,6 +31,19 @@ class PortalController extends Controller
     {
         return Inertia::render('Portal/Perfil', [
             'perfil' => $this->perfil->perfil($request->user()),
+        ]);
+    }
+
+    /**
+     * Página Inertia con el listado completo de notificaciones — distinta
+     * de App\Http\Controllers\NotificacionController (endpoint JSON para la
+     * campana del encabezado, nunca se navega ahí con un <Link>: causa
+     * "All Inertia requests must receive a valid Inertia response").
+     */
+    public function notificaciones(Request $request): Response
+    {
+        return Inertia::render('Portal/Notificaciones', [
+            'notificaciones' => $this->notificaciones->listar($request->user(), 50),
         ]);
     }
 }

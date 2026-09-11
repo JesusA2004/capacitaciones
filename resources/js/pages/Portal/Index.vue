@@ -2,7 +2,6 @@
 import { Head, Link } from '@inertiajs/vue3';
 import {
     Bell,
-    Briefcase,
     CalendarDays,
     ChevronRight,
     ClipboardList,
@@ -10,11 +9,9 @@ import {
 } from '@lucide/vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { dashboard } from '@/routes';
-import { index as indexNotificaciones } from '@/routes/notificaciones';
-import { perfil as rutaMiPerfil } from '@/routes/portal';
+import { notificaciones as indexNotificaciones, perfil as rutaMiPerfil } from '@/routes/portal';
 import { index as indexSolicitudes } from '@/routes/solicitudes';
 import { index as indexVacaciones } from '@/routes/vacaciones';
 import type {
@@ -148,20 +145,6 @@ const ACCESOS = [
                     }}
                 </span>
             </Link>
-
-            <div
-                class="flex flex-col gap-2 rounded-2xl border border-dashed border-border/60 bg-muted/30 p-4"
-            >
-                <span
-                    class="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground"
-                >
-                    <Briefcase class="size-5" />
-                </span>
-                <span class="text-sm font-semibold text-muted-foreground"
-                    >Capacitación</span
-                >
-                <Badge variant="secondary" class="w-fit">Próximamente</Badge>
-            </div>
         </div>
 
         <!-- Resumen: vacaciones, solicitudes y notificaciones lado a lado en desktop -->

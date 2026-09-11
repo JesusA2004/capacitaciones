@@ -26,10 +26,18 @@ class CumpleanosConfiguracionController extends Controller
         abort_unless($request->user()->can('rh.cumpleanos.configurar'), 403);
 
         $ruta = $this->storage->rutaFondo();
+        $existe = $this->storage->existe($ruta);
 
         return Inertia::render('Rh/Cumpleanos/Configuracion', [
-            'tieneFondo' => $this->storage->existe($ruta),
-            'fondoUrl' => $this->storage->existe($ruta) ? route('rh.cumpleanos.configuracion.fondo.ver') : null,
+            'tieneFondo' => $existe,
+            // El querystring `v=` (fecha de modificación del archivo) hace
+            // que la URL cambie cada vez que se sube/reemplaza el fondo:
+            // sin esto, la ruta es siempre la misma y el navegador seguía
+            // mostrando la imagen vieja de caché hasta un F5, aunque
+            // Inertia ya hubiera recargado los props con el fondo nuevo.
+            'fondoUrl' => $existe
+                ? route('rh.cumpleanos.configuracion.fondo.ver').'?v='.$this->storage->disco()->lastModified($ruta)
+                : null,
         ]);
     }
 

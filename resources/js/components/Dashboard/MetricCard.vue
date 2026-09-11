@@ -31,7 +31,7 @@ const TONOS: Record<string, string> = {
 
 <template>
     <div
-        class="flex items-center gap-3 rounded-2xl border border-border/60 bg-card p-3.5 shadow-sm transition-all duration-200 hover:border-primary/40 hover:shadow-md"
+        class="flex items-center gap-3 rounded-2xl border border-border/60 bg-card p-3.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
     >
         <span
             v-if="icono"

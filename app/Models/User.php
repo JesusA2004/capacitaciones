@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Enums\EstadoUsuario;
 use App\Enums\EstatusImss;
+use App\Enums\Genero;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -25,6 +26,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @property int $id
  * @property string $name
  * @property string|null $apellidos
+ * @property Genero|null $genero
  * @property string|null $numero_empleado
  * @property string $email
  * @property string|null $telefono
@@ -68,7 +70,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @property-read User|null $jefe
  */
 #[Fillable([
-    'name', 'apellidos', 'numero_empleado', 'email', 'password', 'telefono', 'foto_path',
+    'name', 'apellidos', 'genero', 'numero_empleado', 'email', 'password', 'telefono', 'foto_path',
     'sucursal_principal_id', 'departamento_id', 'puesto_id', 'jefe_id',
     'fecha_ingreso', 'estatus', 'estatus_imss', 'fecha_alta_imss',
     'periodo_prueba_inicio', 'periodo_prueba_fin',
@@ -107,6 +109,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'fecha_ingreso' => 'date',
             'estatus' => EstadoUsuario::class,
+            'genero' => Genero::class,
             'estatus_imss' => EstatusImss::class,
             'fecha_alta_imss' => 'date',
             'periodo_prueba_inicio' => 'date',

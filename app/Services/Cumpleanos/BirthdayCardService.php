@@ -112,6 +112,14 @@ class BirthdayCardService
         return $this->storage->respuesta($greeting->card_path, [
             'Content-Type' => 'image/png',
             'Content-Disposition' => 'attachment; filename="'.$this->nombreArchivo($greeting).'"',
+            // Sin esto, el navegador cachea la imagen por heurística (no
+            // hay ningún header de caché) y, como la URL nunca cambia
+            // (mismo colaborador = misma ruta), regenerar/cambiar la frase
+            // seguía mostrando la tarjeta vieja hasta un F5. El querystring
+            // `v=` en 'imagenUrl' (ver CumpleanosController::felicitacion())
+            // ya fuerza una URL distinta en cada cambio; esto es la segunda
+            // capa, por si algo la sirve sin ese parámetro.
+            'Cache-Control' => 'no-store, must-revalidate',
         ]);
     }
 

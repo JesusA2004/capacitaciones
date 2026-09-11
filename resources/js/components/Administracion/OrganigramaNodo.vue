@@ -34,14 +34,32 @@ const colapsado = ref(false);
         />
 
         <template v-if="hijos.length && !colapsado">
-            <div class="h-6 w-px bg-border" />
-            <div class="flex flex-wrap items-start justify-center gap-6">
+            <!-- Tronco: del puesto hacia la barra horizontal que conecta a
+                 todos sus subordinados (patrón clásico de organigrama, no
+                 solo líneas sueltas por hijo). -->
+            <div class="h-6 w-px bg-[var(--brand-primary)]/40" />
+            <div class="flex flex-wrap items-start justify-center">
                 <div
-                    v-for="hijo in hijos"
+                    v-for="(hijo, indice) in hijos"
                     :key="hijo.id"
-                    class="flex flex-col items-center"
+                    class="relative flex flex-col items-center px-5"
                 >
-                    <div class="h-6 w-px bg-border" />
+                    <!-- Barra horizontal: solo la mitad para el primero/
+                         último (para que no sobresalga del árbol), completa
+                         para los del medio — junto con las de los demás
+                         hermanos arma una sola línea continua. -->
+                    <div
+                        v-if="hijos.length > 1"
+                        class="absolute top-0 h-px bg-[var(--brand-primary)]/40"
+                        :class="[
+                            indice === 0
+                                ? 'right-0 left-1/2'
+                                : indice === hijos.length - 1
+                                  ? 'right-1/2 left-0'
+                                  : 'inset-x-0',
+                        ]"
+                    />
+                    <div class="h-6 w-px bg-[var(--brand-primary)]/40" />
                     <OrganigramaNodo
                         :puesto="hijo"
                         :hijos="obtenerHijos(hijo.id)"
@@ -58,7 +76,7 @@ const colapsado = ref(false);
             v-else-if="hijos.length && colapsado"
             class="mt-2 text-[11px] text-muted-foreground"
         >
-            {{ hijos.length }} subordinado{{ hijos.length === 1 ? '' : 's' }} ocultos
+            {{ hijos.length }} puesto{{ hijos.length === 1 ? '' : 's' }} debajo, oculto{{ hijos.length === 1 ? '' : 's' }}
         </p>
     </div>
 </template>

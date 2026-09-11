@@ -123,7 +123,7 @@ const TIPO_ETIQUETA: Record<string, string> = {
                         <UserPlus class="size-3.5" />
                     </button>
                 </TooltipTrigger>
-                <TooltipContent>Agregar subordinado</TooltipContent>
+                <TooltipContent>Agregar puesto debajo</TooltipContent>
             </Tooltip>
 
             <Tooltip v-if="puesto.puesto_superior_id">

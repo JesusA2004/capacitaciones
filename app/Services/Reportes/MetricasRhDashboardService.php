@@ -4,10 +4,15 @@ namespace App\Services\Reportes;
 
 use App\Enums\EstadoDocumento;
 use App\Enums\EstadoUsuario;
+use App\Enums\Genero;
+use App\Enums\TipoMovimientoLaboral;
 use App\Models\EmployeeDocument;
+use App\Models\MovimientoLaboral;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Expedientes\ExpedienteService;
+use App\Services\Headcount\HeadcountService;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
@@ -29,6 +34,7 @@ class MetricasRhDashboardService
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly ExpedienteService $expediente,
+        private readonly HeadcountService $headcount,
     ) {}
 
     /**
@@ -121,6 +127,161 @@ class MetricasRhDashboardService
     }
 
     /**
+     * KPIs de rotación de personal para el dashboard RH: altas, bajas,
+     * plantilla, % de rotación, composición por género, eficiencia de
+     * headcount y tendencia mensual — filtrable por sucursal y rango de
+     * fechas (en vivo, sin recargar la página, ver
+     * App\Http\Controllers\DashboardController::rotacion()).
+     *
+     * % de rotación = bajas del periodo / plantilla actual × 100 (misma
+     * fórmula que el índice de rotación histórico de dirección, ver
+     * claude/rotacion/).
+     *
+     * @param  array{sucursal_id?: int|string|null, departamento_id?: int|string|null, desde?: string|null, hasta?: string|null}  $filtros
+     * @return array<string, mixed>
+     */
+    public function rotacion(User $usuario, array $filtros = []): array
+    {
+        $hasta = ! empty($filtros['hasta']) ? Carbon::parse($filtros['hasta'])->endOfDay() : now()->endOfDay();
+        // Por defecto, 90 días rodantes (no "lo que va del mes"): el día 1
+        // o 2 de cada mes esa ventana casi no tiene datos y el dashboard se
+        // ve vacío sin que nada esté roto. RH puede acotar el rango con los
+        // filtros si quiere ver solo el mes en curso.
+        $desde = ! empty($filtros['desde']) ? Carbon::parse($filtros['desde'])->startOfDay() : $hasta->copy()->subDays(90)->startOfDay();
+        $sucursalId = ! empty($filtros['sucursal_id']) ? (int) $filtros['sucursal_id'] : null;
+        $departamentoId = ! empty($filtros['departamento_id']) ? (int) $filtros['departamento_id'] : null;
+
+        $sucursalesVisiblesIds = $this->alcance->tieneAlcanceGlobal($usuario) ? null : $this->alcance->sucursalesVisiblesIds($usuario);
+
+        $colaboradoresQuery = $this->alcance->limitarUsuariosPorAlcance(User::query(), $usuario)
+            ->when($sucursalId !== null, fn ($q) => $q->where('sucursal_principal_id', $sucursalId))
+            ->when($departamentoId !== null, fn ($q) => $q->where('departamento_id', $departamentoId));
+
+        $plantillaActual = (clone $colaboradoresQuery)->where('estatus', EstadoUsuario::Activo)->count();
+
+        $porDepartamento = (clone $colaboradoresQuery)
+            ->where('estatus', EstadoUsuario::Activo)
+            ->with('departamento:id,nombre')
+            ->get()
+            ->groupBy(fn (User $u) => $u->departamento->nombre ?? 'Sin departamento')
+            ->map(fn (Collection $grupo, string $etiqueta) => ['etiqueta' => $etiqueta, 'valor' => $grupo->count()])
+            ->sortByDesc('valor')
+            ->values();
+
+        $altas = $this->movimientosEnPeriodo(TipoMovimientoLaboral::Alta, 'sucursal_nueva_id', $desde, $hasta, $sucursalId, $sucursalesVisiblesIds);
+        $bajas = $this->movimientosEnPeriodo(TipoMovimientoLaboral::Baja, 'sucursal_anterior_id', $desde, $hasta, $sucursalId, $sucursalesVisiblesIds);
+
+        $genero = (clone $colaboradoresQuery)
+            ->where('estatus', EstadoUsuario::Activo)
+            ->selectRaw('genero, count(*) as total')
+            ->groupBy('genero')
+            ->pluck('total', 'genero');
+
+        $eficiencia = $this->headcount->totalesGenerales($sucursalId !== null ? collect([$sucursalId]) : $sucursalesVisiblesIds);
+
+        return [
+            'periodo' => ['desde' => $desde->toDateString(), 'hasta' => $hasta->toDateString()],
+            'plantilla_actual' => $plantillaActual,
+            'altas' => $altas->count(),
+            'bajas' => $bajas->count(),
+            'rotacion_porcentaje' => $plantillaActual > 0 ? round(($bajas->count() / $plantillaActual) * 100, 2) : 0.0,
+            'eficiencia' => $eficiencia,
+            // "Sin especificar" se calcula por resta (plantilla - masculino -
+            // femenino) en vez de leer su propia clave del pluck(): un
+            // `genero` NULL en la base de datos se agrupa bajo una clave que
+            // PHP no representa de forma consistente (null se castea a ''
+            // como índice de arreglo), así que sumar varias claves candidatas
+            // corre el riesgo de contar el mismo grupo dos veces.
+            'genero' => (function () use ($genero, $plantillaActual): array {
+                $masculino = (int) ($genero[Genero::Masculino->value] ?? 0);
+                $femenino = (int) ($genero[Genero::Femenino->value] ?? 0);
+
+                return [
+                    ['etiqueta' => Genero::Masculino->etiqueta(), 'valor' => $masculino],
+                    ['etiqueta' => Genero::Femenino->etiqueta(), 'valor' => $femenino],
+                    ['etiqueta' => Genero::SinEspecificar->etiqueta(), 'valor' => max($plantillaActual - $masculino - $femenino, 0)],
+                ];
+            })(),
+            'altasPorSucursal' => $this->agruparMovimientosPorSucursal($altas, 'sucursalNueva'),
+            'bajasPorSucursal' => $this->agruparMovimientosPorSucursal($bajas, 'sucursalAnterior'),
+            'tendenciaMensual' => $this->tendenciaMensual($sucursalId, $sucursalesVisiblesIds),
+            'porDepartamento' => $porDepartamento,
+        ];
+    }
+
+    /**
+     * @param  Collection<int, int>|null  $sucursalesVisiblesIds
+     * @return Collection<int, MovimientoLaboral>
+     */
+    private function movimientosEnPeriodo(
+        TipoMovimientoLaboral $tipo,
+        string $columnaSucursal,
+        CarbonInterface $desde,
+        CarbonInterface $hasta,
+        ?int $sucursalId,
+        ?Collection $sucursalesVisiblesIds,
+    ): Collection {
+        return MovimientoLaboral::query()
+            ->where('tipo_movimiento', $tipo->value)
+            ->whereBetween('fecha_movimiento', [$desde, $hasta])
+            ->when($sucursalId !== null, fn ($q) => $q->where($columnaSucursal, $sucursalId))
+            ->when($sucursalesVisiblesIds !== null, fn ($q) => $q->whereIn($columnaSucursal, $sucursalesVisiblesIds))
+            ->with('sucursalNueva:id,nombre', 'sucursalAnterior:id,nombre')
+            ->get();
+    }
+
+    /**
+     * @param  Collection<int, MovimientoLaboral>  $movimientos
+     * @param  'sucursalNueva'|'sucursalAnterior'  $relacion
+     * @return Collection<int, array{etiqueta: string, valor: int}>
+     */
+    private function agruparMovimientosPorSucursal(Collection $movimientos, string $relacion): Collection
+    {
+        return $movimientos
+            ->groupBy(fn (MovimientoLaboral $m) => $m->{$relacion}->nombre ?? 'Sin sucursal')
+            ->map(fn (Collection $grupo, string $etiqueta) => ['etiqueta' => $etiqueta, 'valor' => $grupo->count()])
+            ->sortByDesc('valor')
+            ->values();
+    }
+
+    /**
+     * Últimos 6 meses (incluye el actual): altas/bajas por mes, para la
+     * gráfica de tendencia. La plantilla histórica exacta no se reconstruye
+     * (no hay snapshots mensuales guardados) — solo altas/bajas, que sí son
+     * reconstruibles de forma exacta desde `movimientos_laborales`.
+     *
+     * @param  Collection<int, int>|null  $sucursalesVisiblesIds
+     * @return array<int, array{mes: string, altas: int, bajas: int}>
+     */
+    private function tendenciaMensual(?int $sucursalId, ?Collection $sucursalesVisiblesIds): array
+    {
+        $meses = [];
+
+        for ($i = 5; $i >= 0; $i--) {
+            $inicio = now()->subMonths($i)->startOfMonth();
+            $fin = $inicio->copy()->endOfMonth();
+
+            $altas = MovimientoLaboral::query()
+                ->where('tipo_movimiento', TipoMovimientoLaboral::Alta->value)
+                ->whereBetween('fecha_movimiento', [$inicio, $fin])
+                ->when($sucursalId !== null, fn ($q) => $q->where('sucursal_nueva_id', $sucursalId))
+                ->when($sucursalesVisiblesIds !== null, fn ($q) => $q->whereIn('sucursal_nueva_id', $sucursalesVisiblesIds))
+                ->count();
+
+            $bajas = MovimientoLaboral::query()
+                ->where('tipo_movimiento', TipoMovimientoLaboral::Baja->value)
+                ->whereBetween('fecha_movimiento', [$inicio, $fin])
+                ->when($sucursalId !== null, fn ($q) => $q->where('sucursal_anterior_id', $sucursalId))
+                ->when($sucursalesVisiblesIds !== null, fn ($q) => $q->whereIn('sucursal_anterior_id', $sucursalesVisiblesIds))
+                ->count();
+
+            $meses[] = ['mes' => $inicio->translatedFormat('M Y'), 'altas' => $altas, 'bajas' => $bajas];
+        }
+
+        return $meses;
+    }
+
+    /**
      * @return array<int, EstadoDocumento>
      */
     private function estadosPendientes(): array
@@ -151,13 +312,22 @@ class MetricasRhDashboardService
     }
 
     /**
+     * Cuenta desde `movimientos_laborales` (tipo=baja), no desde
+     * `users.deleted_at`: una baja hecha vía Solicitudes
+     * (App\Services\Solicitudes\BajaColaboradorService) NO hace soft-delete
+     * del usuario (solo bloquea acceso, el expediente sigue activo), así
+     * que contar por `deleted_at` la dejaba fuera. `movimientos_laborales`
+     * se registra igual desde ambos caminos (baja administrativa directa y
+     * baja vía solicitud) — única fuente de verdad.
+     *
      * @param  Collection<int, int>  $idsVisibles
      */
     private function bajasDelMes(Collection $idsVisibles): int
     {
-        return User::onlyTrashed()
-            ->whereIn('id', $idsVisibles)
-            ->whereBetween('deleted_at', [now()->startOfMonth(), now()->endOfMonth()])
+        return MovimientoLaboral::query()
+            ->where('tipo_movimiento', TipoMovimientoLaboral::Baja->value)
+            ->whereIn('user_id', $idsVisibles)
+            ->whereBetween('fecha_movimiento', [now()->startOfMonth(), now()->endOfMonth()])
             ->count();
     }
 

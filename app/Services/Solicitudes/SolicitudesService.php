@@ -175,7 +175,10 @@ class SolicitudesService
     private function queryRevision(User $revisor, array $filtros = []): Builder
     {
         $query = SolicitudInterna::query()
-            ->with(['usuario:id,name,apellidos,sucursal_principal_id,empresa_id,departamento_id,puesto_id', 'usuario.departamento:id,nombre', 'usuario.puesto:id,nombre', 'revisadoPor:id,name,apellidos']);
+            // 'users' no tiene columna empresa_id propia (se deriva de la
+            // sucursal, ver User::empresa()) — solo la propia SolicitudInterna
+            // la tiene (snapshot al crear, ver crear() más arriba).
+            ->with(['usuario:id,name,apellidos,sucursal_principal_id,departamento_id,puesto_id', 'usuario.departamento:id,nombre', 'usuario.puesto:id,nombre', 'revisadoPor:id,name,apellidos']);
 
         $query = $this->limitarPorAlcance($query, $revisor);
 

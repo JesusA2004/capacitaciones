@@ -10,6 +10,7 @@ use App\Enums\EstadoIntentoCuestionario;
 use App\Enums\EstadoProgreso;
 use App\Enums\EstadoSesionEnVivo;
 use App\Enums\EstadoUsuario;
+use App\Enums\Genero;
 use App\Enums\ProveedorSesion;
 use App\Enums\TipoEntregaActividad;
 use App\Enums\TipoLeccion;
@@ -29,6 +30,8 @@ use App\Models\Puesto;
 use App\Models\SesionEnVivo;
 use App\Models\Sucursal;
 use App\Models\User;
+use App\Services\MovimientosLaborales\MovimientoLaboralService;
+use App\Services\Solicitudes\BajaColaboradorService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
@@ -65,6 +68,48 @@ class DashboardDemoSeeder extends Seeder
         $this->sembrarCuestionario($cursoAtencion, $colaboradores);
         $this->sembrarActividad($cursoAtencion, $colaboradores);
         $this->sembrarSesionYAsistencia($cursoAtencion, $colaboradores, $instructor);
+        $this->sembrarBajaDemo($responsable);
+    }
+
+    /**
+     * Sin esto, "bajas" siempre daba 0 en el KPI de rotación del dashboard
+     * (docs/REPORTES.md) sin importar el rango de fechas — ninguna baja real
+     * existía en los datos demo. Ejecuta el flujo REAL de baja
+     * (App\Services\Solicitudes\BajaColaboradorService), no solo inserta un
+     * registro: así también sirve para probar el bloqueo de acceso con un
+     * colaborador demo real.
+     */
+    private function sembrarBajaDemo(User $registradoPor): void
+    {
+        $sucursal = Sucursal::where('clave', 'ATC01')->first();
+        $departamento = Departamento::where('nombre', 'Operaciones')->first();
+        $puesto = Puesto::where('nombre', 'Gestor fijo')->first();
+
+        $colaborador = User::firstOrCreate(
+            ['email' => 'colaborador10@mrlana.test'],
+            [
+                'name' => 'Pablo',
+                'apellidos' => 'Serrano Vega',
+                'genero' => Genero::Masculino,
+                'password' => Hash::make('Capacitacion2026!'),
+                'email_verified_at' => now(),
+                'sucursal_principal_id' => $sucursal?->id,
+                'departamento_id' => $departamento?->id,
+                'puesto_id' => $puesto?->id,
+                'fecha_ingreso' => now()->subMonths(4),
+                'estatus' => EstadoUsuario::Activo,
+                'zona_horaria' => 'America/Mexico_City',
+            ],
+        );
+
+        if ($colaborador->wasRecentlyCreated) {
+            $colaborador->syncRoles(['colaborador']);
+            app(MovimientoLaboralService::class)->registrarAlta($colaborador, $registradoPor);
+        }
+
+        if ($colaborador->estatus === EstadoUsuario::Activo) {
+            app(BajaColaboradorService::class)->ejecutar($colaborador, $registradoPor, 'Renuncia voluntaria (dato de demostración).');
+        }
     }
 
     /**
@@ -90,23 +135,28 @@ class DashboardDemoSeeder extends Seeder
         ];
 
         $definiciones = [
-            ['email' => 'colaborador3@mrlana.test', 'nombre' => 'Sofía', 'apellidos' => 'Reyes Cano', 'sucursal' => 'MTY01', 'departamento' => 'Recursos Humanos'],
-            ['email' => 'colaborador4@mrlana.test', 'nombre' => 'Héctor', 'apellidos' => 'Domínguez Ríos', 'sucursal' => 'MTY01', 'departamento' => 'Sistemas'],
-            ['email' => 'colaborador5@mrlana.test', 'nombre' => 'Valeria', 'apellidos' => 'Cisneros Mora', 'sucursal' => 'CDMX01', 'departamento' => 'Ventas'],
-            ['email' => 'colaborador6@mrlana.test', 'nombre' => 'Iván', 'apellidos' => 'Paredes Luna', 'sucursal' => 'CDMX01', 'departamento' => 'Recursos Humanos'],
-            ['email' => 'colaborador7@mrlana.test', 'nombre' => 'Renata', 'apellidos' => 'Ochoa Vega', 'sucursal' => 'GDL01', 'departamento' => 'Ventas'],
-            ['email' => 'colaborador8@mrlana.test', 'nombre' => 'Emilio', 'apellidos' => 'Guzmán Solís', 'sucursal' => 'GDL01', 'departamento' => 'Sistemas'],
-            ['email' => 'colaborador9@mrlana.test', 'nombre' => 'Ximena', 'apellidos' => 'Beltrán Rico', 'sucursal' => 'GDL01', 'departamento' => 'Operaciones'],
+            ['email' => 'colaborador3@mrlana.test', 'nombre' => 'Sofía', 'apellidos' => 'Reyes Cano', 'sucursal' => 'IXT01', 'departamento' => 'Recursos Humanos', 'genero' => Genero::Femenino],
+            ['email' => 'colaborador4@mrlana.test', 'nombre' => 'Héctor', 'apellidos' => 'Domínguez Ríos', 'sucursal' => 'IXT01', 'departamento' => 'Sistemas', 'genero' => Genero::Masculino],
+            ['email' => 'colaborador5@mrlana.test', 'nombre' => 'Valeria', 'apellidos' => 'Cisneros Mora', 'sucursal' => 'CUE01', 'departamento' => 'Ventas', 'genero' => Genero::Femenino],
+            ['email' => 'colaborador6@mrlana.test', 'nombre' => 'Iván', 'apellidos' => 'Paredes Luna', 'sucursal' => 'CUE01', 'departamento' => 'Recursos Humanos', 'genero' => Genero::Masculino],
+            ['email' => 'colaborador7@mrlana.test', 'nombre' => 'Renata', 'apellidos' => 'Ochoa Vega', 'sucursal' => 'ATC01', 'departamento' => 'Ventas', 'genero' => Genero::Femenino],
+            ['email' => 'colaborador8@mrlana.test', 'nombre' => 'Emilio', 'apellidos' => 'Guzmán Solís', 'sucursal' => 'ATC01', 'departamento' => 'Sistemas', 'genero' => Genero::Masculino],
+            ['email' => 'colaborador9@mrlana.test', 'nombre' => 'Ximena', 'apellidos' => 'Beltrán Rico', 'sucursal' => 'ATC01', 'departamento' => 'Operaciones', 'genero' => Genero::Femenino],
         ];
 
         $colaboradores = collect();
+        $movimientos = app(MovimientoLaboralService::class);
+        $sistema = User::query()->where('email', 'superadmin@mrlana.test')->first();
 
         foreach ($definiciones as $indice => $definicion) {
+            $yaExistia = User::where('email', $definicion['email'])->exists();
+
             $usuario = User::firstOrCreate(
                 ['email' => $definicion['email']],
                 [
                     'name' => $definicion['nombre'],
                     'apellidos' => $definicion['apellidos'],
+                    'genero' => $definicion['genero'],
                     'password' => $passwordDesarrollo,
                     'email_verified_at' => now(),
                     'sucursal_principal_id' => $sucursales[$definicion['sucursal']]->id,
@@ -117,8 +167,17 @@ class DashboardDemoSeeder extends Seeder
                     'zona_horaria' => 'America/Mexico_City',
                 ],
             );
+
+            if ($usuario->genero === null) {
+                $usuario->update(['genero' => $definicion['genero']]);
+            }
+
             $usuario->syncRoles(['colaborador']);
             $colaboradores->push($usuario);
+
+            if (! $yaExistia && $sistema !== null && ! $usuario->movimientosLaborales()->where('tipo_movimiento', 'alta')->exists()) {
+                $movimientos->registrarAlta($usuario, $sistema);
+            }
         }
 
         // Los colaboradores ya conocidos (Miguel, Daniela) van primero para

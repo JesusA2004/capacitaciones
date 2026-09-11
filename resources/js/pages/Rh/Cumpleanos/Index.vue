@@ -156,6 +156,33 @@ const filtros = ref({
     busqueda: props.filtros.busqueda ?? '',
 });
 
+// reka-ui/Radix prohíben value="" en un <SelectItem> (queda reservado para
+// "sin selección" y el click no hace nada) — por eso estos selects no
+// respondían. Se usa un centinela solo en el <Select> y se traduce a ''
+// (el valor real que espera el backend) al leer/escribir en `filtros`.
+const TODAS_SUCURSALES = '__todas__';
+const TODOS_DEPARTAMENTOS = '__todos__';
+const TODOS_ESTATUS = '__activos__';
+
+const sucursalSeleccionada = computed({
+    get: () => filtros.value.sucursal_id || TODAS_SUCURSALES,
+    set: (valor: string) => {
+        filtros.value.sucursal_id = valor === TODAS_SUCURSALES ? '' : valor;
+    },
+});
+const departamentoSeleccionado = computed({
+    get: () => filtros.value.departamento_id || TODOS_DEPARTAMENTOS,
+    set: (valor: string) => {
+        filtros.value.departamento_id = valor === TODOS_DEPARTAMENTOS ? '' : valor;
+    },
+});
+const estatusSeleccionado = computed({
+    get: () => filtros.value.estatus || TODOS_ESTATUS,
+    set: (valor: string) => {
+        filtros.value.estatus = valor === TODOS_ESTATUS ? '' : valor;
+    },
+});
+
 const opcionesColaboradores = computed(() =>
     props.opciones.colaboradores.map((c) => ({ value: String(c.id), label: c.nombre })),
 );
@@ -452,12 +479,12 @@ function aplicarRangoRapido(dias: number) {
             >
                 <div class="grid gap-1.5">
                     <Label>Sucursal</Label>
-                    <Select v-model="filtros.sucursal_id" @update:model-value="navegar">
+                    <Select v-model="sucursalSeleccionada" @update:model-value="navegar">
                         <SelectTrigger class="w-full">
                             <SelectValue placeholder="Todas" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="">Todas</SelectItem>
+                            <SelectItem :value="TODAS_SUCURSALES">Todas</SelectItem>
                             <SelectItem
                                 v-for="s in opciones.sucursales"
                                 :key="s.id"
@@ -471,12 +498,12 @@ function aplicarRangoRapido(dias: number) {
 
                 <div class="grid gap-1.5">
                     <Label>Departamento</Label>
-                    <Select v-model="filtros.departamento_id" @update:model-value="navegar">
+                    <Select v-model="departamentoSeleccionado" @update:model-value="navegar">
                         <SelectTrigger class="w-full">
                             <SelectValue placeholder="Todos" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="">Todos</SelectItem>
+                            <SelectItem :value="TODOS_DEPARTAMENTOS">Todos</SelectItem>
                             <SelectItem
                                 v-for="d in opciones.departamentos"
                                 :key="d.id"
@@ -501,12 +528,12 @@ function aplicarRangoRapido(dias: number) {
 
                 <div class="grid gap-1.5">
                     <Label>Estatus</Label>
-                    <Select v-model="filtros.estatus" @update:model-value="navegar">
+                    <Select v-model="estatusSeleccionado" @update:model-value="navegar">
                         <SelectTrigger class="w-full">
                             <SelectValue placeholder="Activos" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="">Activos</SelectItem>
+                            <SelectItem :value="TODOS_ESTATUS">Activos</SelectItem>
                             <SelectItem value="activo">Activo</SelectItem>
                             <SelectItem value="en_incorporacion">En incorporación</SelectItem>
                             <SelectItem value="inactivo">Inactivo</SelectItem>

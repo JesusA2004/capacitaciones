@@ -24,10 +24,12 @@ class DatabaseSeeder extends Seeder
             DepartamentoSeeder::class,
             PuestoSeeder::class,
             PuestoJerarquiaSeeder::class,
+            MatrizComercialSeeder::class,
             DocumentTypeSeeder::class,
             UsuarioDemoSeeder::class,
             CursoInduccionSeeder::class,
             DashboardDemoSeeder::class,
+            SolicitudesDemoSeeder::class,
             BirthdayPhraseSeeder::class,
         ]);
     }

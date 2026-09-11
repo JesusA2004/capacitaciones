@@ -70,21 +70,28 @@ Levanta en paralelo el servidor de Laravel, el worker de colas (`queue:listen`) 
 
 `database/seeders/CursoInduccionSeeder.php` crea además un curso de inducción de ejemplo publicado, con módulos y lecciones (texto, video/documento simulados y confirmación de lectura).
 
+## Navegación por rol
+
+El sistema separa modo **colaborador** (portal personal) de modo **operativo** (herramientas de RH/gerencia) — nunca mezclados en el mismo menú. Ver `docs/ROLES_Y_NAVEGACION.md` para el detalle completo (permisos que activan cada modo, selector "Mi espacio"/"Operación RH").
+
 ## Rutas principales
 
 | Ruta | Qué es |
 |---|---|
-| `/rh/vacantes`, `/rh/candidatos` | Reclutamiento |
+| `/solicitudes` | Vista del colaborador: vacaciones, permisos, préstamo, incapacidad, etc. — módulo único (`docs/SOLICITUDES_UNIFICADAS.md`) |
+| `/rh/solicitudes` | Bandeja de revisión de solicitudes (RH/gerencia) |
+| `/rh/vacantes`, `/rh/candidatos` | Vacantes y candidatos (reclutamiento se resume aquí, sin menú propio) |
 | `/rh/altas` | Altas digitales |
 | `/rh/expedientes` | Explorador de expedientes por empresa/sucursal/colaborador |
 | `/rh/plantillas`, `/rh/formatos` | Catálogo de plantillas DOCX y generación de formatos precargados |
-| `/rh/solicitudes` | Revisión de solicitudes internas (RH/gerencia) |
-| `/rh/vacaciones` | Revisión de solicitudes de vacaciones |
-| `/rh/reportes` | Reportes RH (con exportación Excel/PDF) |
-| `/solicitudes`, `/vacaciones` | Vista del colaborador sobre sus propias solicitudes/vacaciones |
+| `/reportes` | Reportes — módulo único, con KPIs de rotación de personal en tiempo real (`docs/REPORTES.md`) |
+| `/dashboard` | Dashboard operativo, con filtros de rotación de personal en vivo |
 | `/mi-portal`, `/mi-perfil` | Portal del colaborador (ver `docs/PORTAL_COLABORADOR.md`) |
 | `/administracion/*` | Empresas, sucursales, departamentos, puestos, roles, colaboradores |
-| `/administracion/jerarquia-puestos` | Organigrama editable, ver `docs/JERARQUIA_PUESTOS.md` |
+| `/administracion/jerarquia-puestos` | Organigrama — estructura de puestos (`docs/ORGANIGRAMA.md`) |
+| `/administracion/matriz-comercial` | Organigrama — matriz territorial (regiones/zonas/rutas, `docs/ORGANIGRAMA.md`) |
+
+`/vacaciones` y `/rh/vacaciones` (módulo legacy, previo a la unificación) siguen respondiendo por compatibilidad pero ya no aparecen en el menú — usa `/solicitudes` y `/rh/solicitudes`.
 
 Los 8 listados operativos (Vacantes, Candidatos, Altas digitales, Plantillas, Formatos,
 Solicitudes, Expedientes, Vacaciones) tienen filtros completos y botones "Excel"/"PDF"
@@ -154,6 +161,10 @@ npm run build               # Build de producción del frontend
 
 `composer ci:check` corre lint, format, types y pruebas en una sola invocación.
 
+```bash
+php artisan headcount:importar   # Importa el Excel real de headcount (ver docs/HEADCOUNT_Y_VACANTES.md)
+```
+
 Después de crear o modificar rutas/controladores, regenera los helpers tipados de Wayfinder si no tienes `composer dev` corriendo. **Usa siempre `--with-form`**: sin esa bandera se regeneran todos los helpers sin las variantes `.form()` que usa el componente `<Form>` de Inertia, rompiendo páginas existentes.
 
 ```bash
@@ -180,7 +191,12 @@ En producción, agrega la entrada de cron estándar de Laravel apuntando a `sche
 - `docs/RECLUTAMIENTO.md`, `docs/VACANTES.md`, `docs/JERARQUIA_PUESTOS.md`, `docs/PERFILES_PUESTO.md` — módulos de reclutamiento y estructura organizacional.
 - `docs/ALTA_DIGITAL_COLABORADOR.md`, `docs/ONBOARDING_ADMINISTRATIVO.md` — alta digital y checklist de incorporación.
 - `docs/EXPEDIENTES_DIGITALES.md`, `docs/SYNOLOGY_STORAGE.md`, `docs/PLANTILLAS_FORMATOS.md` — expediente, documentos y formatos precargados.
-- `docs/VACACIONES.md`, `docs/SOLICITUDES_INTERNAS.md`, `docs/REPORTES_RH.md` — procesos de RH del día a día.
+- `docs/ROLES_Y_NAVEGACION.md` — modo colaborador vs. operativo, permisos que los activan.
+- `docs/SOLICITUDES_UNIFICADAS.md` — vacaciones, permisos, préstamo, incapacidad y baja de colaborador en un solo módulo.
+- `docs/HEADCOUNT_Y_VACANTES.md` — plantilla autorizada vs. actual, importar el Excel real, cómo se generan vacantes automáticas.
+- `docs/ORGANIGRAMA.md` — estructura de puestos y matriz comercial (territorial), no confundir entre sí ni con headcount.
+- `docs/REPORTES.md` — módulo único de reportes y KPIs de rotación de personal del dashboard.
+- `docs/VACACIONES.md`, `docs/SOLICITUDES_INTERNAS.md`, `docs/REPORTES_RH.md` — documentación previa a la unificación, conservada por referencia histórica.
 - `docs/ARQUITECTURA_SERVICES.md` — por qué la lógica vive en Services y cómo se comparte entre la web (Inertia) y la API móvil.
 - `docs/API_MOVIL.md` — API JSON versionada (`/api/v1`) para la futura app móvil de colaboradores: autenticación por token (Sanctum), endpoints, cómo probarla.
 - `docs/PORTAL_COLABORADOR.md` — portal limitado del colaborador (`/mi-portal`), qué ve y qué no ve en Fase 1.

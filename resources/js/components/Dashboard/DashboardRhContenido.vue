@@ -1,26 +1,17 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
-import {
-    AlertTriangle,
-    CakeSlice,
-    FileWarning,
-    FolderCheck,
-    FolderX,
-    Info,
-    UserMinus,
-    UserPlus,
-    Users,
-} from '@lucide/vue';
-import EstadoBadge from '@/components/Common/EstadoBadge.vue';
-import DashboardChartCard from '@/components/Dashboard/DashboardChartCard.vue';
+import { CakeSlice, Info, Sparkles } from '@lucide/vue';
 import DashboardSection from '@/components/Dashboard/DashboardSection.vue';
-import MetricCard from '@/components/Dashboard/MetricCard.vue';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { proximamente } from '@/routes/capacitacion';
+import RotacionPersonal from '@/components/Dashboard/RotacionPersonal.vue';
 import type { DashboardRhProps } from '@/types';
 
-defineProps<DashboardRhProps>();
+// rotacion/sucursalesFiltro/departamentosFiltro son opcionales: este
+// componente también lo usa Reportes/Index.vue (hub unificado), que hoy no
+// trae esos datos. Cuando falten, la sección de rotación simplemente no se
+// muestra ahí.
+defineProps<
+    Omit<DashboardRhProps, 'rotacion' | 'sucursalesFiltro' | 'departamentosFiltro'> &
+        Partial<Pick<DashboardRhProps, 'rotacion' | 'sucursalesFiltro' | 'departamentosFiltro'>>
+>();
 
 const TONO_ALERTA: Record<string, string> = {
     warning: 'border-warning/30 bg-warning/10 text-warning',
@@ -31,216 +22,95 @@ const TONO_ALERTA: Record<string, string> = {
 
 <template>
     <div class="flex flex-col gap-8">
-        <DashboardSection titulo="Resumen" :columnas="4">
-            <MetricCard
-                titulo="Colaboradores activos"
-                :valor="cards.colaboradores_activos"
-                :icono="Users"
-                tono="success"
-            />
-            <MetricCard
-                titulo="Altas en proceso"
-                valor="—"
-                subvalor="Próximamente"
-                :icono="UserPlus"
-            />
-            <MetricCard
-                titulo="Bajas del mes"
-                :valor="cards.bajas_del_mes"
-                :icono="UserMinus"
-                tono="danger"
-            />
-            <MetricCard
-                titulo="Documentos pendientes"
-                :valor="cards.documentos_pendientes"
-                :icono="FileWarning"
-                tono="warning"
-            />
-            <MetricCard
-                titulo="Expedientes completos"
-                :valor="cards.expedientes_completos"
-                :icono="FolderCheck"
-                tono="success"
-            />
-            <MetricCard
-                titulo="Expedientes incompletos"
-                :valor="cards.expedientes_incompletos"
-                :icono="FolderX"
-                tono="warning"
-            />
-            <MetricCard
-                titulo="Solicitudes RH pendientes"
-                valor="—"
-                subvalor="Próximamente"
-                :icono="AlertTriangle"
-            />
-            <MetricCard
-                titulo="Vacaciones pendientes"
-                valor="—"
-                subvalor="Próximamente"
-                :icono="CakeSlice"
-            />
-        </DashboardSection>
-
         <DashboardSection
-            titulo="Organización"
-            descripcion="Distribución de colaboradores dentro de tu alcance."
-            :columnas="4"
+            v-if="rotacion"
+            titulo="Rotación de personal"
+            descripcion="Altas, bajas, plantilla y cumplimiento en tiempo real — filtra por sucursal, departamento y periodo."
+            :columnas="1"
         >
-            <DashboardChartCard
-                title="Por empresa"
-                type="bar"
-                :data="graficas.colaboradoresPorEmpresa"
-                x-key="etiqueta"
-                y-key="valor"
-                :height="180"
-                empty-title="Sin datos"
-                empty-description="Todavía no hay colaboradores para mostrar."
-            />
-            <DashboardChartCard
-                title="Por sucursal"
-                type="bar"
-                :data="graficas.colaboradoresPorSucursal"
-                x-key="etiqueta"
-                y-key="valor"
-                :height="180"
-                empty-title="Sin datos"
-                empty-description="Todavía no hay colaboradores para mostrar."
-            />
-            <DashboardChartCard
-                title="Por departamento"
-                type="bar"
-                :data="graficas.colaboradoresPorDepartamento"
-                x-key="etiqueta"
-                y-key="valor"
-                :height="180"
-                empty-title="Sin datos"
-                empty-description="Todavía no hay colaboradores para mostrar."
-            />
-            <DashboardChartCard
-                title="Por puesto"
-                type="bar"
-                :data="graficas.colaboradoresPorPuesto"
-                x-key="etiqueta"
-                y-key="valor"
-                :height="180"
-                empty-title="Sin datos"
-                empty-description="Todavía no hay colaboradores para mostrar."
-            />
-        </DashboardSection>
-
-        <DashboardSection titulo="Expedientes y documentos" :columnas="2">
-            <DashboardChartCard
-                title="Expedientes: completos vs. incompletos"
-                type="donut"
-                :data="graficas.expedientesEstado"
-                label-key="etiqueta"
-                value-key="valor"
-                :height="200"
-                empty-title="Sin expedientes"
-                empty-description="Todavía no hay colaboradores con expediente."
-            />
-            <DashboardChartCard
-                title="Documentos por estado"
-                type="donut"
-                :data="graficas.documentosPorEstado"
-                label-key="etiqueta"
-                value-key="valor"
-                :height="200"
-                empty-title="Sin documentos"
-                empty-description="Todavía no se han cargado documentos."
+            <RotacionPersonal
+                :datos-iniciales="rotacion"
+                :sucursales="sucursalesFiltro ?? []"
+                :departamentos="departamentosFiltro ?? []"
             />
         </DashboardSection>
 
         <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <Card class="rounded-2xl border-border/60 lg:col-span-1">
-                <CardHeader>
-                    <CardTitle class="flex items-center gap-2 text-base">
-                        <CakeSlice class="size-4" />
-                        Próximos aniversarios
-                    </CardTitle>
-                </CardHeader>
-                <CardContent class="flex flex-col gap-3">
-                    <p
-                        v-if="!proximosAniversarios.length"
-                        class="text-sm text-muted-foreground"
-                    >
-                        Sin aniversarios en los próximos 30 días.
-                    </p>
+            <div class="rounded-2xl border border-border/60 bg-card p-5 lg:col-span-2">
+                <div class="mb-3 flex items-center gap-2">
+                    <CakeSlice class="size-4 text-[var(--brand-primary)]" />
+                    <h3 class="text-sm font-semibold">
+                        Próximos aniversarios laborales
+                    </h3>
+                </div>
+
+                <p
+                    v-if="!proximosAniversarios.length"
+                    class="rounded-xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground"
+                >
+                    Sin aniversarios en los próximos 30 días.
+                </p>
+
+                <div v-else class="flex flex-col divide-y divide-border/60">
                     <div
                         v-for="item in proximosAniversarios"
                         :key="item.id"
-                        class="flex items-center justify-between gap-2 text-sm"
+                        class="flex items-center justify-between gap-3 rounded-xl px-2 py-3 transition-colors hover:bg-muted/40"
                     >
-                        <span class="truncate">{{ item.nombre }}</span>
-                        <Badge variant="secondary"
-                            >{{ item.anios }} año(s) · {{ item.dias }}d</Badge
-                        >
-                    </div>
-                </CardContent>
-            </Card>
-
-            <Card class="rounded-2xl border-border/60 lg:col-span-1">
-                <CardHeader>
-                    <CardTitle class="flex items-center gap-2 text-base">
-                        <FileWarning class="size-4" />
-                        Documentos por revisar
-                    </CardTitle>
-                </CardHeader>
-                <CardContent class="flex flex-col gap-3">
-                    <p
-                        v-if="!documentosPendientesRevision.length"
-                        class="text-sm text-muted-foreground"
-                    >
-                        No hay documentos pendientes de revisión.
-                    </p>
-                    <div
-                        v-for="doc in documentosPendientesRevision"
-                        :key="doc.id"
-                        class="flex items-center justify-between gap-2 text-sm"
-                    >
-                        <div class="min-w-0">
-                            <p class="truncate font-medium">{{ doc.tipo }}</p>
-                            <p class="truncate text-xs text-muted-foreground">
-                                {{ doc.colaborador }}
-                            </p>
+                        <div class="flex items-center gap-3">
+                            <span
+                                class="flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--brand-primary)]/10 text-sm font-semibold text-[var(--brand-primary)]"
+                            >
+                                {{ item.anios }}
+                            </span>
+                            <div class="min-w-0">
+                                <p class="truncate text-sm font-medium">
+                                    {{ item.nombre }}
+                                </p>
+                                <p class="text-xs text-muted-foreground">
+                                    {{ item.anios }}
+                                    {{ item.anios === 1 ? 'año' : 'años' }} en
+                                    la empresa
+                                </p>
+                            </div>
                         </div>
-                        <EstadoBadge :estado="doc.status" />
+                        <span
+                            class="shrink-0 rounded-full px-3 py-1 text-xs font-medium"
+                            :class="
+                                item.dias <= 7
+                                    ? 'bg-success/10 text-success'
+                                    : 'bg-muted text-muted-foreground'
+                            "
+                        >
+                            {{ item.dias === 0 ? 'Hoy' : `en ${item.dias}d` }}
+                        </span>
                     </div>
-                </CardContent>
-            </Card>
+                </div>
+            </div>
 
-            <Card class="rounded-2xl border-border/60 lg:col-span-1">
-                <CardHeader>
-                    <CardTitle class="flex items-center gap-2 text-base">
-                        <Info class="size-4" />
-                        Alertas RH
-                    </CardTitle>
-                </CardHeader>
-                <CardContent class="flex flex-col gap-2">
-                    <p
-                        v-if="!alertas.length"
-                        class="text-sm text-muted-foreground"
-                    >
-                        Sin alertas por ahora.
-                    </p>
+            <div class="rounded-2xl border border-border/60 bg-card p-5">
+                <div class="mb-3 flex items-center gap-2">
+                    <Info class="size-4 text-[var(--brand-secondary)]" />
+                    <h3 class="text-sm font-semibold">Alertas RH</h3>
+                </div>
+                <p
+                    v-if="!alertas.length"
+                    class="flex items-center gap-2 rounded-xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground"
+                >
+                    <Sparkles class="size-4 shrink-0" />
+                    Sin alertas por ahora, todo en orden.
+                </p>
+                <div v-else class="flex flex-col gap-2">
                     <div
                         v-for="(alerta, indice) in alertas"
                         :key="indice"
-                        class="rounded-xl border px-3 py-2 text-xs"
+                        class="rounded-xl border px-3 py-2 text-xs transition-colors"
                         :class="TONO_ALERTA[alerta.tono]"
                     >
                         {{ alerta.mensaje }}
                     </div>
-                </CardContent>
-            </Card>
+                </div>
+            </div>
         </div>
-
-        <Link
-            :href="proximamente()"
-            class="text-xs text-muted-foreground underline-offset-4 hover:underline"
-        >
-            Capacitación (Próximamente) →
-        </Link>
     </div>
 </template>

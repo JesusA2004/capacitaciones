@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { GitBranch, History, Pencil, Users } from '@lucide/vue';
+import { GitBranch, History, MapPin, Pencil, Users } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import AgregarSubordinadoDialog from '@/components/Administracion/AgregarSubordinadoDialog.vue';
 import JerarquiaPuestoDialog from '@/components/Administracion/JerarquiaPuestoDialog.vue';
@@ -35,6 +35,7 @@ import {
     historial as historialUrl,
     index,
 } from '@/routes/administracion/jerarquia-puestos';
+import { index as indexMatrizComercial } from '@/routes/administracion/matriz-comercial';
 import { index as indexCandidatos } from '@/routes/rh/candidatos';
 import { index as indexVacantes } from '@/routes/rh/vacantes';
 import type {
@@ -54,7 +55,7 @@ defineOptions({
     layout: {
         breadcrumbs: [
             { title: 'Inicio', href: dashboard() },
-            { title: 'Jerarquía de puestos', href: index.url() },
+            { title: 'Organigrama', href: index.url() },
         ],
     },
 });
@@ -181,14 +182,22 @@ watch(
 </script>
 
 <template>
-    <Head title="Jerarquía de puestos" />
+    <Head title="Organigrama" />
 
     <div class="flex flex-col gap-6 p-4 lg:p-6">
         <CrudPageHeader
-            titulo="Jerarquía de puestos"
-            descripcion="Organigrama, rutas de crecimiento y respaldos de cada puesto."
+            titulo="Organigrama"
+            descripcion="Estructura de puestos, rutas de crecimiento y respaldos. Para la estructura territorial (regiones, zonas y rutas), ve a Matriz comercial."
             :icono="GitBranch"
-        />
+        >
+            <Link
+                :href="indexMatrizComercial()"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-sm font-medium transition-colors hover:border-primary/40 hover:bg-accent"
+            >
+                <MapPin class="size-4" />
+                Matriz comercial
+            </Link>
+        </CrudPageHeader>
 
         <div class="flex flex-wrap items-center gap-2">
             <Select

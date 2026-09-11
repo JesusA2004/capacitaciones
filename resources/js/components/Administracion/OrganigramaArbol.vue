@@ -66,7 +66,11 @@ function restablecer() {
             </Button>
         </div>
 
-        <div class="overflow-x-auto p-6">
+        <!-- Alto acotado con scroll en las dos direcciones DENTRO de esta
+             caja: un árbol grande ya no obliga a bajar hasta el final de la
+             página para encontrar la barra horizontal — queda siempre a la
+             vista, pegada al borde de este panel. -->
+        <div class="max-h-[70vh] overflow-auto p-6">
             <div
                 class="flex w-max min-w-full origin-top flex-wrap items-start justify-center gap-10 transition-transform duration-200 ease-out"
                 :style="{ transform: `scale(${zoom})` }"

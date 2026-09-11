@@ -4,6 +4,7 @@ namespace App\Exports;
 
 use App\Exports\Sheets\ReporteResumenSheet;
 use App\Support\Export\ChartData;
+use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 
@@ -63,14 +64,31 @@ class ReporteGeneralExport implements WithMultipleSheets
         ];
 
         foreach ($porGrupo as $clave => [$columna, $titulo]) {
-            $this->agregarBloque($bloques, $columna, $titulo, collect((array) $g[$clave])->map(fn (array $f) => [$f['etiqueta'], $f['valor']])->all());
+            $this->agregarBloque($bloques, $columna, $titulo, $this->paresEtiquetaValor($g[$clave]));
         }
 
-        $this->agregarBloque($bloques, 'Estado', 'Expedientes por estado', collect((array) $g['expedientesEstado'])->map(fn (array $f) => [$f['etiqueta'], $f['valor']])->all());
-        $this->agregarBloque($bloques, 'Estado', 'Documentos por estado', collect((array) $g['documentosPorEstado'])->map(fn (array $f) => [$f['etiqueta'], $f['valor']])->all());
-        $this->agregarBloque($bloques, 'Módulo', 'Reclutamiento y solicitudes', collect($this->otrosModulos)->map(fn (array $f) => [$f['etiqueta'], $f['valor']])->all());
+        $this->agregarBloque($bloques, 'Estado', 'Expedientes por estado', $this->paresEtiquetaValor($g['expedientesEstado']));
+        $this->agregarBloque($bloques, 'Estado', 'Documentos por estado', $this->paresEtiquetaValor($g['documentosPorEstado']));
+        $this->agregarBloque($bloques, 'Módulo', 'Reclutamiento y solicitudes', $this->paresEtiquetaValor($this->otrosModulos));
 
         return $bloques;
+    }
+
+    /**
+     * `MetricasRhDashboardService::global()['graficas']` mezcla Collections
+     * (de agruparPor()) y arrays planos según la clave — nunca hacer
+     * `(array) $collection`: corrompe su estructura interna en vez de
+     * convertir sus elementos. `collect()` acepta ambas formas por igual.
+     *
+     * @param  Collection<int, array{etiqueta: string, valor: int}>|array<int, array{etiqueta: string, valor: int}>  $datos
+     * @return array<int, array{0: string, 1: int}>
+     */
+    private function paresEtiquetaValor(Collection|array $datos): array
+    {
+        /** @var Collection<int, array{etiqueta: string, valor: int}> $coleccion */
+        $coleccion = $datos instanceof Collection ? $datos : collect($datos);
+
+        return $coleccion->map(fn (array $f) => [$f['etiqueta'], $f['valor']])->all();
     }
 
     /**

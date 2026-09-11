@@ -55,12 +55,46 @@ export type AlertaRh = {
     mensaje: string;
 };
 
+export type EficienciaHeadcount = {
+    plantilla_autorizada: number;
+    plantilla_actual: number;
+    vacantes: number;
+    cumplimiento: number;
+    sucursales_bajo_cobertura: number;
+};
+
+export type TendenciaMesRotacion = {
+    mes: string;
+    altas: number;
+    bajas: number;
+};
+
+export type RotacionPersonalData = {
+    periodo: { desde: string; hasta: string };
+    plantilla_actual: number;
+    altas: number;
+    bajas: number;
+    rotacion_porcentaje: number;
+    eficiencia: EficienciaHeadcount;
+    genero: PuntoConteo[];
+    altasPorSucursal: PuntoConteo[];
+    bajasPorSucursal: PuntoConteo[];
+    tendenciaMensual: TendenciaMesRotacion[];
+    porDepartamento: PuntoConteo[];
+};
+
+export type SucursalFiltro = { id: number; nombre: string };
+export type DepartamentoFiltro = { id: number; nombre: string };
+
 export type DashboardRhProps = {
     cards: DashboardRhCards;
     graficas: DashboardRhGraficas;
     proximosAniversarios: AniversarioItem[];
     documentosPendientesRevision: DocumentoPendienteItem[];
     alertas: AlertaRh[];
+    rotacion: RotacionPersonalData;
+    sucursalesFiltro: SucursalFiltro[];
+    departamentosFiltro: DepartamentoFiltro[];
 };
 
 export type DashboardColaboradorProps = {

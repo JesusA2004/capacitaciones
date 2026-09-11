@@ -67,7 +67,7 @@ function enviar() {
     <Dialog :open="open" @update:open="(valor) => emit('update:open', valor)">
         <DialogContent class="sm:max-w-md">
             <DialogHeader>
-                <DialogTitle>Agregar subordinado a «{{ puesto.nombre }}»</DialogTitle>
+                <DialogTitle>Agregar puesto debajo de «{{ puesto.nombre }}»</DialogTitle>
                 <DialogDescription>
                     Elige un puesto existente que empezará a reportar a
                     {{ puesto.nombre }}. Para crear un puesto nuevo, ve a

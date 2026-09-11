@@ -79,8 +79,14 @@ test('solo quien tiene permiso de bajas puede crear una solicitud de baja de col
 });
 
 test('rh_admin puede crear una solicitud de baja y al aprobarla se bloquea el acceso del colaborador', function () {
+    // Quien crea la solicitud de baja y quien la aprueba deben ser
+    // personas distintas: SolicitudInternaPolicy::revisar() bloquea
+    // revisar/aprobar la propia solicitud (mismo criterio que cualquier
+    // otro tipo), aunque el "sujeto" de la baja sea un tercero.
     $rh = User::factory()->create();
     $rh->assignRole('rh_admin');
+    $aprobador = User::factory()->create();
+    $aprobador->assignRole('rh_admin');
 
     $colaborador = User::factory()->create();
     $colaborador->assignRole('colaborador');
@@ -98,15 +104,20 @@ test('rh_admin puede crear una solicitud de baja y al aprobarla se bloquea el ac
     expect($solicitud->colaborador_objetivo_id)->toBe($colaborador->id);
     expect($colaborador->fresh()->estatus)->toBe(EstadoUsuario::Activo);
 
-    $this->actingAs($rh)
+    $this->actingAs($aprobador)
         ->post(route('rh.solicitudes.aprobar', $solicitud))
-        ->assertSessionHasNoErrors();
+        ->assertRedirect();
 
     $colaboradorTrasBaja = $colaborador->fresh();
     expect($colaboradorTrasBaja->estatus)->toBe(EstadoUsuario::Inactivo)
         ->and($colaboradorTrasBaja->tokens()->count())->toBe(0);
 
-    // El login web también queda bloqueado de inmediato.
+    // El login web también queda bloqueado de inmediato. Cierra la sesión
+    // del aprobador primero: la ruta de login tiene middleware `guest`, así
+    // que intentarlo mientras sigue autenticado como $aprobador redirige
+    // sin validar nada (no es el escenario que se quiere probar aquí).
+    $this->post(route('logout'));
+
     $this->post(route('login.store'), [
         'email' => $colaborador->email,
         'password' => 'password',

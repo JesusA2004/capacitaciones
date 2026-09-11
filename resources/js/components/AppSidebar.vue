@@ -2,7 +2,6 @@
 import { Link, usePage } from '@inertiajs/vue3';
 import {
     Activity,
-    Bell,
     Briefcase,
     Building2,
     Cake,
@@ -36,7 +35,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useNavegacion } from '@/composables/useNavegacion';
 import { usePermisos } from '@/composables/usePermisos';
-import { dashboard, miExpediente } from '@/routes';
+import { dashboard } from '@/routes';
 import { index as indexAppReleases } from '@/routes/administracion/app-releases';
 import { index as indexDepartamentos } from '@/routes/administracion/departamentos';
 import { index as indexEmpresas } from '@/routes/administracion/empresas';
@@ -46,8 +45,7 @@ import { index as indexRoles } from '@/routes/administracion/roles';
 import { index as indexSucursales } from '@/routes/administracion/sucursales';
 import { index as indexUsuarios } from '@/routes/administracion/usuarios';
 import { proximamente as capacitacionProximamente } from '@/routes/capacitacion';
-import { index as indexNotificaciones } from '@/routes/notificaciones';
-import { perfil as portalPerfil, index as indexPortal } from '@/routes/portal';
+import { index as indexPortal } from '@/routes/portal';
 import { index as indexReportes } from '@/routes/reportes';
 import { index as indexAltas } from '@/routes/rh/altas';
 import { index as indexCandidatos } from '@/routes/rh/candidatos';
@@ -95,29 +93,14 @@ const navItemsColaborador = computed<NavItem[]>(() => {
         });
     }
 
-    if (tienePermiso('expedientes.ver')) {
-        items.push({
-            title: 'Mi expediente',
-            href: miExpediente(),
-            icon: FolderKanban,
-        });
-    }
-
-    if (tienePermiso('portal.notificaciones.ver')) {
-        items.push({
-            title: 'Mis notificaciones',
-            href: indexNotificaciones(),
-            icon: Bell,
-        });
-    }
-
-    if (tienePermiso('portal.perfil.ver')) {
-        items.push({
-            title: 'Mi perfil',
-            href: portalPerfil(),
-            icon: IdCard,
-        });
-    }
+    // Nada de "Mi expediente" para el colaborador: el expediente es un
+    // módulo operativo de RH (documentos, revisiones, historial laboral) —
+    // el colaborador ve lo que le toca de su perfil dentro de "Mi portal".
+    // "Mi perfil" tampoco es un módulo aparte: Mi portal ya trae el resumen
+    // del perfil y enlaza al detalle completo desde ahí, un solo destino en
+    // el menú. "Mis notificaciones" tampoco: la campana del encabezado ya
+    // cubre eso (no hay una página Inertia dedicada, solo un endpoint JSON
+    // para la campana — no se debe navegar ahí con un <Link>).
 
     if (capacitacionActiva.value) {
         items.push({

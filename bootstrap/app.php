@@ -22,7 +22,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
+        // 'experiencia_modo' es una preferencia de navegador (qué modo de
+        // navegación eligió el usuario, ver App\Services\Navigation\NavigationService),
+        // mismo criterio que 'appearance'/'sidebar_state': no es dato
+        // sensible, no necesita ir cifrada.
+        $middleware->encryptCookies(except: ['appearance', 'sidebar_state', 'experiencia_modo']);
 
         $middleware->alias([
             'feature' => EnsureFeatureEnabled::class,

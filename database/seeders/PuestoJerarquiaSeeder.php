@@ -324,5 +324,55 @@ class PuestoJerarquiaSeeder extends Seeder
                 'activo' => true,
             ],
         );
+
+        // --- Puestos heredados de la etapa de capacitación (PuestoSeeder,
+        // anterior a esta reestructuración): existen y tienen colaboradores
+        // reales asignados (ver UsuarioDemoSeeder/DashboardDemoSeeder), pero
+        // nunca se engancharon a este árbol — quedaban como raíces sueltas
+        // en el Organigrama. Se cuelgan de la rama real que les corresponde
+        // en vez de eliminarlos (no se borran puestos con colaboradores).
+        $gerenteDeSucursal = Puesto::updateOrCreate(
+            ['nombre' => 'Gerente de Sucursal'],
+            [
+                'nivel_jerarquico' => 4,
+                'puesto_superior_id' => $gerenteRegional->id,
+                'puesto_crecimiento_id' => $gerenteRegional->id,
+                'tipo_puesto' => TipoPuesto::Comercial,
+                'activo' => true,
+            ],
+        );
+
+        Puesto::updateOrCreate(
+            ['nombre' => 'Supervisor de Operaciones'],
+            [
+                'nivel_jerarquico' => 3,
+                'puesto_superior_id' => $responsableAdministrativo->id,
+                'puesto_crecimiento_id' => $responsableAdministrativo->id,
+                'tipo_puesto' => TipoPuesto::Administrativo,
+                'activo' => true,
+            ],
+        );
+
+        Puesto::updateOrCreate(
+            ['nombre' => 'Ejecutivo de Ventas'],
+            [
+                'nivel_jerarquico' => 5,
+                'puesto_superior_id' => $gerenteDeSucursal->id,
+                'puesto_crecimiento_id' => $gerenteDeSucursal->id,
+                'tipo_puesto' => TipoPuesto::Comercial,
+                'activo' => true,
+            ],
+        );
+
+        Puesto::updateOrCreate(
+            ['nombre' => 'Coordinador de Ventas'],
+            [
+                'nivel_jerarquico' => 5,
+                'puesto_superior_id' => $gerenteDeSucursal->id,
+                'puesto_crecimiento_id' => $gerenteDeSucursal->id,
+                'tipo_puesto' => TipoPuesto::Comercial,
+                'activo' => true,
+            ],
+        );
     }
 }

@@ -4,6 +4,7 @@ use App\Http\Controllers\Administracion\AppReleaseController;
 use App\Http\Controllers\Administracion\DepartamentoController;
 use App\Http\Controllers\Administracion\EmpresaController;
 use App\Http\Controllers\Administracion\JerarquiaPuestoController;
+use App\Http\Controllers\Administracion\MatrizComercialController;
 use App\Http\Controllers\Administracion\PuestoController;
 use App\Http\Controllers\Administracion\RolController;
 use App\Http\Controllers\Administracion\SucursalController;
@@ -54,6 +55,13 @@ Route::middleware(['auth', 'verified'])
             Route::get('/', [JerarquiaPuestoController::class, 'index'])->name('index');
             Route::get('{puesto}/historial', [JerarquiaPuestoController::class, 'historial'])->name('historial');
             Route::put('{puesto}', [JerarquiaPuestoController::class, 'actualizar'])->name('actualizar');
+        });
+
+        // Matriz comercial / territorial: vista B del Organigrama, árbol
+        // distinto al de jerarquía de puestos (ver docs/HEADCOUNT_Y_VACANTES.md).
+        Route::prefix('matriz-comercial')->name('matriz-comercial.')->group(function () {
+            Route::get('/', [MatrizComercialController::class, 'index'])->name('index');
+            Route::put('{nodo}/responsable', [MatrizComercialController::class, 'asignarResponsable'])->name('responsable');
         });
 
         Route::prefix('usuarios')->name('usuarios.')->group(function () {
