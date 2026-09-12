@@ -6,7 +6,6 @@ use App\Http\Controllers\CertificadoVerificacionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\IncorporacionQrController;
 use App\Http\Controllers\NavigationModeController;
-use App\Http\Controllers\VacacionesController;
 use Illuminate\Support\Facades\Route;
 
 // El index del sistema es el login: sin sesion se muestra el login, con
@@ -45,12 +44,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::inertia('capacitacion', 'Capacitacion/Proximamente')->name('capacitacion.proximamente');
 
-    Route::prefix('vacaciones')->name('vacaciones.')->group(function () {
-        Route::get('/', [VacacionesController::class, 'index'])->name('index');
-        Route::post('/', [VacacionesController::class, 'store'])->name('store');
-        Route::post('{solicitud}/cancelar', [VacacionesController::class, 'cancelar'])->name('cancelar');
-    });
-
+    // Las vacaciones se solicitan y cancelan desde el módulo unificado de
+    // Solicitudes (tipo `vacaciones`, ver docs/SOLICITUDES_UNIFICADAS.md).
+    // El módulo web standalone `/vacaciones` (App\Http\Controllers\
+    // VacacionesController, tabla legacy solicitudes_vacaciones) se retiró:
+    // seguía activo en "Mi portal" pero enviaba las solicitudes a una tabla
+    // que la bandeja de RH (rh.solicitudes.*) nunca revisaba. La tabla y el
+    // servicio (VacacionesService, saldo()) se conservan para historial,
+    // reportes y compatibilidad con la API móvil (api/v1/vacaciones/*).
     Route::middleware('feature:capacitacion')->group(function () {
         Route::get('calendario', [CalendarioController::class, 'index'])->name('calendario');
     });

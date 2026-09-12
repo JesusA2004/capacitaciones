@@ -230,6 +230,16 @@ class RolesYPermisosSeeder extends Seeder
         // --- Solicitudes de baja de colaborador (nuevo flujo dentro de Solicitudes) ---
         'solicitudes.bajas.crear',
         'solicitudes.bajas.aprobar',
+        // Permiso especial: aprobar una baja sin que su finiquito esté
+        // revisado (ver config('finiquitos.exigir_finiquito_revisado_para_aprobar_baja')).
+        // Reservado a super_admin, nunca a rh_admin.
+        'solicitudes.bajas.omitir_finiquito',
+
+        // --- Finiquito de baja de colaborador (App\Services\Finiquitos\FiniquitoService) ---
+        'finiquitos.ver',
+        'finiquitos.calcular',
+        'finiquitos.revisar',
+        'finiquitos.subir_firmado',
 
         // --- Headcount / plantilla autorizada ---
         'headcount.ver',
@@ -332,6 +342,7 @@ class RolesYPermisosSeeder extends Seeder
             'rh.cumpleanos.configurar', 'rh.cumpleanos.frases.gestionar', 'rh.cumpleanos.notificaciones.gestionar',
             'app_releases.ver', 'app_releases.crear', 'app_releases.publicar', 'app_releases.eliminar', 'app_releases.descargar',
             'solicitudes.bajas.crear', 'solicitudes.bajas.aprobar',
+            'finiquitos.ver', 'finiquitos.calcular', 'finiquitos.revisar', 'finiquitos.subir_firmado',
             'headcount.ver', 'headcount.editar', 'headcount.importar',
             'organigrama.ver', 'organigrama.editar',
         ],
@@ -368,6 +379,7 @@ class RolesYPermisosSeeder extends Seeder
             'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
             'rh.cumpleanos.ver', 'rh.cumpleanos.calendario', 'rh.cumpleanos.descargar_imagen',
             'app_releases.ver',
+            'finiquitos.ver', 'finiquitos.calcular', 'finiquitos.subir_firmado',
             'headcount.ver', 'organigrama.ver',
         ],
 

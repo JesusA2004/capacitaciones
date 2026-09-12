@@ -63,11 +63,11 @@ test('no se puede aprobar una baja de colaborador sin evidencia adjunta', functi
         ->and($colaborador->fresh()->estatus->value)->toBe('activo');
 });
 
-test('una baja de colaborador con evidencia adjunta si se puede aprobar', function () {
+test('una baja de colaborador con evidencia y finiquito revisado si se puede aprobar', function () {
     $rh = User::factory()->create();
     $rh->assignRole('rh_admin');
 
-    $colaborador = User::factory()->create();
+    $colaborador = User::factory()->create(['fecha_ingreso' => now()->subYears(2)]);
     $solicitud = SolicitudInterna::factory()->create([
         'tipo' => 'baja_colaborador',
         'estado' => 'en_revision',
@@ -84,11 +84,24 @@ test('una baja de colaborador con evidencia adjunta si se puede aprobar', functi
 
     $this->actingAs($rh)
         ->post(route('rh.solicitudes.aprobar', $solicitud))
+        ->assertSessionHasErrors('finiquito');
+
+    $this->actingAs($rh)
+        ->post(route('rh.solicitudes.finiquito.calcular', $solicitud), ['sueldo_mensual' => 12000])
+        ->assertSessionHasNoErrors();
+
+    $this->actingAs($rh)
+        ->post(route('rh.solicitudes.finiquito.revisar', $solicitud))
+        ->assertSessionHasNoErrors();
+
+    $this->actingAs($rh)
+        ->post(route('rh.solicitudes.aprobar', $solicitud))
         ->assertSessionHasNoErrors();
 
     expect($solicitud->fresh())
         ->estado->value->toBe('aprobada')
-        ->and($colaborador->fresh()->estatus->value)->toBe('inactivo');
+        ->and($colaborador->fresh()->estatus->value)->toBe('inactivo')
+        ->and($solicitud->fresh()->finiquitoCalculo->estado->value)->toBe('aprobado');
 });
 
 test('rh puede ver la evidencia de una baja y un usuario sin acceso no puede', function () {

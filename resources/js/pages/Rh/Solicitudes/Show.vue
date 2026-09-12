@@ -12,6 +12,7 @@ import {
 import { computed, ref } from 'vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import FiniquitoPanel from '@/components/Rh/FiniquitoPanel.vue';
 import GenerarFormatoDialog from '@/components/Rh/GenerarFormatoDialog.vue';
 import SubirFormatoFirmadoDialog from '@/components/Rh/SubirFormatoFirmadoDialog.vue';
 import { Button } from '@/components/ui/button';
@@ -27,13 +28,14 @@ import {
 } from '@/routes/rh/solicitudes';
 import { ver as verDocumento } from '@/routes/rh/solicitudes/documentos';
 import { store as subirDocumentoSolicitud } from '@/routes/solicitudes/documentos';
-import type { SolicitudInternaItem } from '@/types';
+import type { FiniquitoPermisos, SolicitudInternaItem } from '@/types';
 
 const props = defineProps<{
     solicitud: SolicitudInternaItem;
     puedeGenerarFormato: boolean;
     plantillasSugeridas: { id: number; nombre: string; tipo: string }[];
     tiposDocumentoExpediente: { id: number; nombre: string }[];
+    finiquitoPermisos: FiniquitoPermisos;
 }>();
 
 const TIPO_PLANTILLA_SUGERIDO: Record<string, string> = {
@@ -77,6 +79,14 @@ const formAccion = useForm({});
 const esBaja = computed(() => props.solicitud.tipo === 'baja_colaborador');
 const sinEvidencia = computed(
     () => esBaja.value && (props.solicitud.documentos?.length ?? 0) === 0,
+);
+
+const finiquitoNoRevisado = computed(
+    () =>
+        esBaja.value &&
+        !props.finiquitoPermisos.puedeOmitirRevision &&
+        props.solicitud.finiquitoCalculo?.estado !== 'revisado' &&
+        props.solicitud.finiquitoCalculo?.estado !== 'aprobado',
 );
 
 const formEvidencia = useForm({ archivo: null as File | null });
@@ -158,7 +168,7 @@ function cerrarSolicitud() {
                     <p class="text-xs text-muted-foreground">Sucursal</p>
                     <p class="text-sm font-medium">
                         {{
-                            solicitud.usuario?.sucursalPrincipal?.nombre ?? '—'
+                            solicitud.usuario?.sucursal_principal?.nombre ?? '—'
                         }}
                     </p>
                 </div>
@@ -198,13 +208,13 @@ function cerrarSolicitud() {
                         >
                     </p>
                 </div>
-                <div v-if="solicitud.colaboradorObjetivo">
+                <div v-if="solicitud.colaborador_objetivo">
                     <p class="text-xs text-muted-foreground">
                         Colaborador a dar de baja
                     </p>
                     <p class="text-sm font-medium">
-                        {{ solicitud.colaboradorObjetivo.name }}
-                        {{ solicitud.colaboradorObjetivo.apellidos ?? '' }}
+                        {{ solicitud.colaborador_objetivo.name }}
+                        {{ solicitud.colaborador_objetivo.apellidos ?? '' }}
                     </p>
                 </div>
                 <div v-if="solicitud.fecha_efectiva">
@@ -338,6 +348,13 @@ function cerrarSolicitud() {
             </label>
         </div>
 
+        <FiniquitoPanel
+            v-if="esBaja"
+            :solicitud-id="solicitud.id"
+            :finiquito="solicitud.finiquitoCalculo ?? null"
+            :permisos="finiquitoPermisos"
+        />
+
         <div
             v-if="
                 !['rechazada', 'cancelada', 'cerrada'].includes(
@@ -370,8 +387,14 @@ function cerrarSolicitud() {
                 >
                 <Button
                     size="sm"
-                    :disabled="formAccion.processing || sinEvidencia"
-                    :title="sinEvidencia ? 'Adjunta la evidencia/firma del gerente antes de aprobar.' : undefined"
+                    :disabled="formAccion.processing || sinEvidencia || finiquitoNoRevisado"
+                    :title="
+                        sinEvidencia
+                            ? 'Adjunta la evidencia/firma del gerente antes de aprobar.'
+                            : finiquitoNoRevisado
+                              ? 'Calcula y marca como revisado el finiquito antes de aprobar esta baja.'
+                              : undefined
+                    "
                     @click="aprobarSolicitud"
                     >Aprobar</Button
                 >

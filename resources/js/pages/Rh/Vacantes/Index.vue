@@ -2,14 +2,21 @@
 import { Head, router } from '@inertiajs/vue3';
 import {
     Briefcase,
+    CheckCircle2,
     FileSpreadsheet,
     FileText,
+    ListChecks,
     Plus,
+    Sparkles,
     Trash2,
     UserCheck,
     Users,
+    Wand2,
+    XCircle,
 } from '@lucide/vue';
 import { computed, onMounted, ref } from 'vue';
+import EstadoBadge from '@/components/Common/EstadoBadge.vue';
+import MetricCard from '@/components/Common/MetricCard.vue';
 import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
@@ -36,10 +43,15 @@ import {
     exportarPdf,
     index,
 } from '@/routes/rh/vacantes';
-import type { OpcionesReclutamiento, VacanteItem } from '@/types';
+import type {
+    OpcionesReclutamiento,
+    VacanteItem,
+    VacantesKpis,
+} from '@/types';
 
 const props = defineProps<{
     vacantes: VacanteItem[];
+    kpis: VacantesKpis;
     filtros: {
         empresa_id?: string;
         sucursal_id?: string;
@@ -104,6 +116,51 @@ const columnas = computed(() =>
         vacantes: props.vacantes.filter((v) => v.estado === columna.estado),
     })),
 );
+
+const tarjetasKpi = computed(() => [
+    {
+        etiqueta: 'Vacantes abiertas',
+        valor: props.kpis.vacantes_abiertas,
+        icono: Briefcase,
+        colorClase: 'bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]',
+    },
+    {
+        etiqueta: 'Plazas disponibles',
+        valor: props.kpis.plazas_disponibles,
+        icono: Users,
+        colorClase: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+    },
+    {
+        etiqueta: 'Vacantes automáticas',
+        valor: props.kpis.vacantes_automaticas,
+        icono: Wand2,
+        colorClase: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
+    },
+    {
+        etiqueta: 'Vacantes manuales',
+        valor: props.kpis.vacantes_manuales,
+        icono: ListChecks,
+        colorClase: 'bg-muted text-muted-foreground',
+    },
+    {
+        etiqueta: 'En reclutamiento',
+        valor: props.kpis.en_reclutamiento,
+        icono: Sparkles,
+        colorClase: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+    },
+    {
+        etiqueta: 'Cubiertas este mes',
+        valor: props.kpis.cubiertas_este_mes,
+        icono: CheckCircle2,
+        colorClase: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+    },
+    {
+        etiqueta: 'Canceladas',
+        valor: props.kpis.canceladas,
+        icono: XCircle,
+        colorClase: 'bg-destructive/10 text-destructive',
+    },
+]);
 
 const dialogoAbierto = ref(false);
 const seleccionada = ref<VacanteItem | null>(null);
@@ -198,8 +255,8 @@ function alSoltar(nuevoEstado: string) {
 
     <div class="flex flex-col gap-6 p-4">
         <CrudPageHeader
-            titulo="Vacantes"
-            descripcion="Da seguimiento a las vacantes abiertas y su cobertura."
+            titulo="Vacantes y cobertura de plantilla"
+            descripcion="Da seguimiento a las vacantes abiertas, sus plazas y su cobertura."
             :icono="Briefcase"
         >
             <Button as-child variant="outline" size="sm">
@@ -219,6 +276,19 @@ function alSoltar(nuevoEstado: string) {
                 Nueva vacante
             </Button>
         </CrudPageHeader>
+
+        <div
+            class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7"
+        >
+            <MetricCard
+                v-for="tarjeta in tarjetasKpi"
+                :key="tarjeta.etiqueta"
+                :etiqueta="tarjeta.etiqueta"
+                :valor="tarjeta.valor"
+                :icono="tarjeta.icono"
+                :color-clase="tarjeta.colorClase"
+            />
+        </div>
 
         <div class="flex flex-wrap items-center gap-2">
             <CrudSearchInput
@@ -469,6 +539,54 @@ function alSoltar(nuevoEstado: string) {
                         <span class="text-xs text-muted-foreground">{{
                             vacante.sucursal?.nombre ?? 'Sin sucursal'
                         }}</span>
+                        <span
+                            v-if="vacante.departamento"
+                            class="text-xs text-muted-foreground"
+                            >{{ vacante.departamento.nombre }}</span
+                        >
+
+                        <div class="mt-1 flex flex-wrap items-center gap-1.5">
+                            <EstadoBadge
+                                :estado="
+                                    vacante.generada_automaticamente
+                                        ? 'automatica'
+                                        : 'manual'
+                                "
+                            />
+                            <Badge
+                                v-if="vacante.plazas_disponibles > 0"
+                                variant="outline"
+                                class="border-[var(--brand-primary)]/40 text-[var(--brand-primary)]"
+                            >
+                                {{ vacante.plazas_disponibles }} disponible{{
+                                    vacante.plazas_disponibles === 1 ? '' : 's'
+                                }}
+                            </Badge>
+                        </div>
+
+                        <div
+                            class="mt-1 grid grid-cols-3 gap-1 rounded-lg bg-muted/40 p-1.5 text-center text-[11px] text-muted-foreground"
+                        >
+                            <div>
+                                <p class="font-semibold text-foreground">
+                                    {{ vacante.plazas_requeridas }}
+                                </p>
+                                <p>Requeridas</p>
+                            </div>
+                            <div>
+                                <p class="font-semibold text-foreground">
+                                    {{ vacante.plazas_cubiertas }}
+                                </p>
+                                <p>Cubiertas</p>
+                            </div>
+                            <div>
+                                <p class="font-semibold text-foreground">
+                                    {{ vacante.plazas_disponibles }}
+                                </p>
+                                <p>Disponibles</p>
+                            </div>
+                        </div>
+
                         <div
                             class="mt-1 flex items-center justify-between text-xs text-muted-foreground"
                         >

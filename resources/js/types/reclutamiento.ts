@@ -28,6 +28,20 @@ export type VacanteItem = {
     fecha_estimada_cobertura: string | null;
     observaciones: string | null;
     candidatos_count: number;
+    generada_automaticamente: boolean;
+    plazas_requeridas: number;
+    plazas_cubiertas: number;
+    plazas_disponibles: number;
+};
+
+export type VacantesKpis = {
+    vacantes_abiertas: number;
+    plazas_disponibles: number;
+    vacantes_automaticas: number;
+    vacantes_manuales: number;
+    en_reclutamiento: number;
+    cubiertas_este_mes: number;
+    canceladas: number;
 };
 
 export type CandidatoItem = {

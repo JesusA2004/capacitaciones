@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\SolicitudVacaciones;
+use App\Models\SolicitudInterna;
 use App\Models\User;
 use App\Services\Vacaciones\VacacionesService;
 use Database\Seeders\RolesYPermisosSeeder;
@@ -20,19 +20,27 @@ test('la tabla legal de vacaciones calcula los dias correctos por antiguedad', f
         ->and($servicio->diasPorAntiguedad(11))->toBe(24);
 });
 
+/**
+ * Las vacaciones se solicitan desde el módulo unificado de Solicitudes
+ * (tipo `vacaciones`, ver docs/SOLICITUDES_UNIFICADAS.md) — el módulo web
+ * standalone `/vacaciones` se retiró porque enviaba a una tabla que la
+ * bandeja de RH nunca revisaba.
+ */
 test('un colaborador puede solicitar vacaciones dentro de su saldo disponible', function () {
     $colaborador = User::factory()->create(['fecha_ingreso' => now()->subYears(3)]);
     $colaborador->assignRole('colaborador');
 
     $this->actingAs($colaborador)
-        ->post(route('vacaciones.store'), [
+        ->post(route('solicitudes.store'), [
+            'tipo' => 'vacaciones',
+            'motivo' => 'Vacaciones familiares',
             'fecha_inicio' => now()->addWeek()->toDateString(),
             'fecha_fin' => now()->addWeek()->addDays(4)->toDateString(),
             'dias_solicitados' => 5,
         ])
         ->assertSessionHasNoErrors();
 
-    expect(SolicitudVacaciones::where('user_id', $colaborador->id)->exists())->toBeTrue();
+    expect(SolicitudInterna::where('user_id', $colaborador->id)->where('tipo', 'vacaciones')->exists())->toBeTrue();
 });
 
 test('no se puede solicitar mas dias de los disponibles', function () {
@@ -40,7 +48,9 @@ test('no se puede solicitar mas dias de los disponibles', function () {
     $colaborador->assignRole('colaborador');
 
     $this->actingAs($colaborador)
-        ->post(route('vacaciones.store'), [
+        ->post(route('solicitudes.store'), [
+            'tipo' => 'vacaciones',
+            'motivo' => 'Vacaciones familiares',
             'fecha_inicio' => now()->addWeek()->toDateString(),
             'fecha_fin' => now()->addWeek()->addDays(30)->toDateString(),
             'dias_solicitados' => 30,
@@ -48,33 +58,33 @@ test('no se puede solicitar mas dias de los disponibles', function () {
         ->assertSessionHasErrors('dias_solicitados');
 });
 
-test('un jefe_directo puede aprobar la solicitud de su subordinado pero no la de otro colaborador', function () {
+test('un jefe_directo puede aprobar la solicitud de vacaciones de su subordinado pero no la de otro colaborador', function () {
     $jefe = User::factory()->create();
     $jefe->assignRole('jefe_directo');
 
     $subordinado = User::factory()->create(['jefe_id' => $jefe->id, 'fecha_ingreso' => now()->subYears(2)]);
     $otro = User::factory()->create(['fecha_ingreso' => now()->subYears(2)]);
 
-    $solicitudPropia = SolicitudVacaciones::factory()->create(['user_id' => $subordinado->id]);
-    $solicitudAjena = SolicitudVacaciones::factory()->create(['user_id' => $otro->id]);
+    $solicitudPropia = SolicitudInterna::factory()->create(['tipo' => 'vacaciones', 'user_id' => $subordinado->id]);
+    $solicitudAjena = SolicitudInterna::factory()->create(['tipo' => 'vacaciones', 'user_id' => $otro->id]);
 
     $this->actingAs($jefe)
-        ->post(route('rh.vacaciones.aprobar', $solicitudPropia))
+        ->post(route('rh.solicitudes.aprobar', $solicitudPropia))
         ->assertSessionHasNoErrors();
 
     expect($solicitudPropia->fresh()->estado->value)->toBe('aprobada');
 
     $this->actingAs($jefe)
-        ->post(route('rh.vacaciones.aprobar', $solicitudAjena))
+        ->post(route('rh.solicitudes.aprobar', $solicitudAjena))
         ->assertForbidden();
 });
 
-test('un colaborador puede cancelar su propia solicitud pendiente', function () {
+test('un colaborador puede cancelar su propia solicitud de vacaciones pendiente', function () {
     $colaborador = User::factory()->create();
-    $solicitud = SolicitudVacaciones::factory()->create(['user_id' => $colaborador->id]);
+    $solicitud = SolicitudInterna::factory()->create(['tipo' => 'vacaciones', 'user_id' => $colaborador->id, 'estado' => 'enviada']);
 
     $this->actingAs($colaborador)
-        ->post(route('vacaciones.cancelar', $solicitud))
+        ->post(route('solicitudes.cancelar', $solicitud))
         ->assertSessionHasNoErrors();
 
     expect($solicitud->fresh()->estado->value)->toBe('cancelada');

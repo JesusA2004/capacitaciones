@@ -12,6 +12,7 @@ use App\Models\Departamento;
 use App\Models\DocumentTemplate;
 use App\Models\DocumentType;
 use App\Models\Empresa;
+use App\Models\FiniquitoCalculo;
 use App\Models\Puesto;
 use App\Models\SolicitudInterna;
 use App\Models\SolicitudInternaDocumento;
@@ -110,9 +111,11 @@ class SolicitudController extends Controller
             'documentosGenerados.plantilla:id,nombre,tipo',
             'documentosGenerados.generadoPor:id,name,apellidos',
             'historial.usuario:id,name,apellidos',
+            'finiquitoCalculo.revisadoPor:id,name,apellidos',
         ]);
 
         $puedeGenerarFormato = $request->user()->can('plantillas.generar');
+        $finiquito = $solicitud->finiquitoCalculo;
 
         return Inertia::render('Rh/Solicitudes/Show', [
             'solicitud' => $solicitud,
@@ -123,6 +126,14 @@ class SolicitudController extends Controller
             'tiposDocumentoExpediente' => $puedeGenerarFormato
                 ? DocumentType::query()->where('activo', true)->orderBy('nombre')->get(['id', 'nombre'])
                 : [],
+            'finiquitoPermisos' => [
+                'puedeCalcular' => $finiquito === null
+                    ? $request->user()->can('calcular', [FiniquitoCalculo::class, $solicitud])
+                    : $request->user()->can('editarAjustes', $finiquito),
+                'puedeRevisar' => $finiquito !== null && $request->user()->can('revisar', $finiquito),
+                'puedeSubirFirmado' => $finiquito !== null && $request->user()->can('subirFirmado', $finiquito),
+                'puedeOmitirRevision' => $request->user()->can('solicitudes.bajas.omitir_finiquito'),
+            ],
         ]);
     }
 

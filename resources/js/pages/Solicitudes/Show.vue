@@ -128,11 +128,11 @@ const PUEDE_CANCELAR = [
                         >
                     </p>
                 </div>
-                <div v-if="solicitud.colaboradorObjetivo">
+                <div v-if="solicitud.colaborador_objetivo">
                     <p class="text-xs text-muted-foreground">Colaborador</p>
                     <p class="text-sm font-medium">
-                        {{ solicitud.colaboradorObjetivo.name }}
-                        {{ solicitud.colaboradorObjetivo.apellidos ?? '' }}
+                        {{ solicitud.colaborador_objetivo.name }}
+                        {{ solicitud.colaborador_objetivo.apellidos ?? '' }}
                     </p>
                 </div>
             </div>

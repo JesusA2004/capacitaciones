@@ -50,6 +50,41 @@ export type SolicitudInternaHistorialItem = {
     created_at: string;
 };
 
+export type FiniquitoCalculoItem = {
+    id: number;
+    estado: string;
+    fecha_calculo: string;
+    fecha_ingreso: string;
+    fecha_baja: string;
+    sueldo_mensual: string;
+    sueldo_diario: string;
+    antiguedad_anios: number;
+    antiguedad_meses: number;
+    dias_trabajados_periodo: number;
+    vacaciones_pendientes: number;
+    prima_vacacional: string;
+    aguinaldo_proporcional: string;
+    sueldo_pendiente: string;
+    indemnizacion: string;
+    bonos_extra: string;
+    descuentos: string;
+    adeudos: string;
+    otros_conceptos: Record<string, number> | null;
+    total_calculado: string;
+    total_ajustado: string;
+    comentarios_ajuste: string | null;
+    documento_generado_path: string | null;
+    documento_firmado_path: string | null;
+    revisado_por?: UsuarioResumen | null;
+};
+
+export type FiniquitoPermisos = {
+    puedeCalcular: boolean;
+    puedeRevisar: boolean;
+    puedeSubirFirmado: boolean;
+    puedeOmitirRevision: boolean;
+};
+
 export type SolicitudInternaItem = {
     id: number;
     folio: string;
@@ -73,16 +108,17 @@ export type SolicitudInternaItem = {
         | (UsuarioResumen & {
               puesto?: { id: number; nombre: string } | null;
               sucursal_principal_id?: number | null;
-              sucursalPrincipal?: { id: number; nombre: string } | null;
+              sucursal_principal?: { id: number; nombre: string } | null;
           })
         | null;
-    colaboradorObjetivo?: UsuarioResumen | null;
+    colaborador_objetivo?: UsuarioResumen | null;
     revisado_por?: UsuarioResumen | null;
     sucursal?: { id: number; nombre: string } | null;
     documentos?: SolicitudInternaDocumentoItem[];
     documentos_count?: number;
     documentos_generados?: DocumentoGeneradoItem[];
     historial?: SolicitudInternaHistorialItem[];
+    finiquitoCalculo?: FiniquitoCalculoItem | null;
 };
 
 export type OpcionesSolicitudes = {

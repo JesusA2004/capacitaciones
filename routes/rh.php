@@ -7,14 +7,13 @@ use App\Http\Controllers\Rh\CumpleanosController;
 use App\Http\Controllers\Rh\DocumentExtraccionController;
 use App\Http\Controllers\Rh\EmployeeDocumentController;
 use App\Http\Controllers\Rh\ExpedienteController;
+use App\Http\Controllers\Rh\FiniquitoController;
 use App\Http\Controllers\Rh\FormatoController;
 use App\Http\Controllers\Rh\FormatoOficialController;
 use App\Http\Controllers\Rh\IncorporacionInvitacionController;
 use App\Http\Controllers\Rh\PlantillaController;
-use App\Http\Controllers\Rh\ReclutamientoController;
 use App\Http\Controllers\Rh\ReporteRhController;
 use App\Http\Controllers\Rh\SolicitudController;
-use App\Http\Controllers\Rh\VacacionesController;
 use App\Http\Controllers\Rh\VacanteController;
 use Illuminate\Support\Facades\Route;
 
@@ -59,8 +58,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('{invitacion}/revocar', [IncorporacionInvitacionController::class, 'revocar'])->name('revocar');
         });
 
-        Route::get('reclutamiento', [ReclutamientoController::class, 'index'])->name('reclutamiento');
-
+        // El resumen de reclutamiento (vacantes + candidatos) vive dentro de
+        // Vacantes; el módulo suelto `rh/reclutamiento` (Rh\ReclutamientoController)
+        // no estaba enlazado en ningún menú y se retiró.
         Route::prefix('vacantes')->name('vacantes.')->group(function () {
             Route::get('/', [VacanteController::class, 'index'])->name('index');
             Route::get('exportar-excel', [VacanteController::class, 'exportarExcel'])->name('exportarExcel');
@@ -146,14 +146,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('generaciones/{generacion}/descargar', [FormatoOficialController::class, 'descargar'])->name('descargar');
         });
 
-        Route::prefix('vacaciones')->name('vacaciones.')->group(function () {
-            Route::get('/', [VacacionesController::class, 'index'])->name('index');
-            Route::get('exportar-excel', [VacacionesController::class, 'exportarExcel'])->name('exportarExcel');
-            Route::get('exportar-pdf', [VacacionesController::class, 'exportarPdf'])->name('exportarPdf');
-            Route::post('{solicitud}/aprobar', [VacacionesController::class, 'aprobar'])->name('aprobar');
-            Route::post('{solicitud}/rechazar', [VacacionesController::class, 'rechazar'])->name('rechazar');
-        });
-
+        // La revisión de vacaciones vive en la bandeja unificada de abajo
+        // (rh.solicitudes.*, tipo `vacaciones`) — el módulo suelto
+        // `rh/vacaciones` (Rh\VacacionesController) no estaba enlazado en
+        // ningún menú y RH nunca lo usaba para aprobar/rechazar. La API
+        // móvil legacy (api/v1/rh/vacaciones/*) sigue viva aparte.
         Route::prefix('solicitudes')->name('solicitudes.')->group(function () {
             Route::get('/', [SolicitudController::class, 'index'])->name('index');
             Route::get('exportar-excel', [SolicitudController::class, 'exportarExcel'])->name('exportarExcel');
@@ -166,6 +163,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('{solicitud}/rechazar', [SolicitudController::class, 'rechazar'])->name('rechazar');
             Route::post('{solicitud}/cerrar', [SolicitudController::class, 'cerrar'])->name('cerrar');
             Route::patch('{solicitud}/estado', [SolicitudController::class, 'actualizarEstado'])->name('actualizar-estado');
+
+            Route::prefix('{solicitud}/finiquito')->name('finiquito.')->group(function () {
+                Route::post('calcular', [FiniquitoController::class, 'calcular'])->name('calcular');
+                Route::post('recalcular', [FiniquitoController::class, 'recalcular'])->name('recalcular');
+                Route::put('ajustes', [FiniquitoController::class, 'actualizarAjustes'])->name('ajustes');
+                Route::post('revisar', [FiniquitoController::class, 'revisar'])->name('revisar');
+                Route::post('generar-pdf', [FiniquitoController::class, 'generarPdf'])->name('generar-pdf');
+                Route::get('descargar-pdf', [FiniquitoController::class, 'descargarPdf'])->name('descargar-pdf');
+                Route::post('firmado', [FiniquitoController::class, 'subirFirmado'])->name('firmado');
+            });
         });
 
         Route::prefix('reportes')->name('reportes.')->group(function () {

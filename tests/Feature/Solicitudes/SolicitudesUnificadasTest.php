@@ -91,7 +91,7 @@ test('rh_admin puede crear una solicitud de baja y al aprobarla se bloquea el ac
     $aprobador = User::factory()->create();
     $aprobador->assignRole('rh_admin');
 
-    $colaborador = User::factory()->create();
+    $colaborador = User::factory()->create(['fecha_ingreso' => now()->subYears(2)]);
     $colaborador->assignRole('colaborador');
     $token = $colaborador->createToken('app-movil');
 
@@ -109,11 +109,14 @@ test('rh_admin puede crear una solicitud de baja y al aprobarla se bloquea el ac
     expect($solicitud->colaborador_objetivo_id)->toBe($colaborador->id);
     expect($colaborador->fresh()->estatus)->toBe(EstadoUsuario::Activo);
 
-    // La aprobación requiere evidencia/firma del gerente adjunta (ver
-    // App\Services\Solicitudes\SolicitudesService::cambiarEstado()).
+    // La aprobación requiere evidencia/firma del gerente adjunta y un
+    // cálculo de finiquito revisado (ver App\Services\Solicitudes\
+    // SolicitudesService::cambiarEstado()).
     $this->actingAs($rh)->post(route('solicitudes.documentos.store', $solicitud), [
         'archivo' => UploadedFile::fake()->create('autorizacion.pdf', 100, 'application/pdf'),
     ]);
+    $this->actingAs($rh)->post(route('rh.solicitudes.finiquito.calcular', $solicitud), ['sueldo_mensual' => 12000]);
+    $this->actingAs($rh)->post(route('rh.solicitudes.finiquito.revisar', $solicitud));
 
     $this->actingAs($aprobador)
         ->post(route('rh.solicitudes.aprobar', $solicitud))

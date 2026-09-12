@@ -6,7 +6,6 @@ use App\Models\DocumentTemplate;
 use App\Models\Empresa;
 use App\Models\GeneratedDocument;
 use App\Models\SolicitudInterna;
-use App\Models\SolicitudVacaciones;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Models\Vacante;
@@ -81,13 +80,6 @@ test('rh_admin puede exportar expedientes a excel y pdf', function () {
 
     $this->actingAs($this->rh)->get(route('rh.expedientes.exportarExcel'))->assertOk();
     $this->actingAs($this->rh)->get(route('rh.expedientes.exportarPdf'))->assertOk();
-});
-
-test('rh_admin puede exportar vacaciones a excel y pdf', function () {
-    SolicitudVacaciones::factory()->count(2)->create();
-
-    $this->actingAs($this->rh)->get(route('rh.vacaciones.exportarExcel'))->assertOk();
-    $this->actingAs($this->rh)->get(route('rh.vacaciones.exportarPdf'))->assertOk();
 });
 
 test('un colaborador sin permiso no puede exportar vacantes', function () {

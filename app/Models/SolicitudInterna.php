@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use Spatie\Activitylog\LogOptions;
@@ -152,6 +153,14 @@ class SolicitudInterna extends Model
     public function documentosGenerados(): HasMany
     {
         return $this->hasMany(GeneratedDocument::class, 'solicitud_id');
+    }
+
+    /**
+     * @return HasOne<FiniquitoCalculo, $this>
+     */
+    public function finiquitoCalculo(): HasOne
+    {
+        return $this->hasOne(FiniquitoCalculo::class);
     }
 
     public function getActivitylogOptions(): LogOptions

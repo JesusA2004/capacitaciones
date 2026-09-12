@@ -59,6 +59,7 @@ const MAPA_ESTADOS: Record<string, { variante: Variante; etiqueta: string }> = {
     sin_imss: { variante: 'destructive', etiqueta: 'Sin IMSS' },
 
     // Azul/turquesa: en progreso / asignado / información.
+    automatica: { variante: 'info', etiqueta: 'Automática' },
     en_progreso: { variante: 'info', etiqueta: 'En progreso' },
     asignado: { variante: 'info', etiqueta: 'Asignado' },
     programada: { variante: 'info', etiqueta: 'Programada' },
@@ -72,6 +73,7 @@ const MAPA_ESTADOS: Record<string, { variante: Variante; etiqueta: string }> = {
     enviada: { variante: 'info', etiqueta: 'Enviada' },
 
     // Gris: borrador / archivado / inactivo.
+    manual: { variante: 'secondary', etiqueta: 'Manual' },
     borrador: { variante: 'secondary', etiqueta: 'Borrador' },
     archivado: { variante: 'secondary', etiqueta: 'Archivado' },
     inactivo: { variante: 'secondary', etiqueta: 'Inactivo' },

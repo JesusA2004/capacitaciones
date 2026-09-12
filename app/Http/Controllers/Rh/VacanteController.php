@@ -47,6 +47,7 @@ class VacanteController extends Controller
 
         return Inertia::render('Rh/Vacantes/Index', [
             'vacantes' => $vacantes,
+            'kpis' => $this->kpis($request->user()),
             'filtros' => $request->only(self::FILTROS),
             'opciones' => [
                 'empresas' => Empresa::query()->orderBy('nombre')->get(['id', 'nombre']),
@@ -86,6 +87,34 @@ class VacanteController extends Controller
         return Pdf::loadView('pdf.reporte-rh', ['titulo' => 'Vacantes', 'columnas' => $columnas, 'filas' => $filas])
             ->setPaper('letter', 'landscape')
             ->download('vacantes-'.now()->format('Y-m-d').'.pdf');
+    }
+
+    /**
+     * KPIs del tablero: reflejan el estado general (acotado por alcance
+     * organizacional), no los filtros activos en pantalla — para eso están
+     * las columnas y la exportación.
+     *
+     * @return array<string, int>
+     */
+    private function kpis(User $usuario): array
+    {
+        $vacantes = $this->alcance->limitarPorSucursal(Vacante::query(), $usuario)->get([
+            'estado', 'generada_automaticamente', 'plazas_disponibles', 'updated_at',
+        ]);
+
+        $abiertas = $vacantes->whereNotIn('estado', [EstadoVacante::Cubierta, EstadoVacante::Cancelada]);
+
+        return [
+            'vacantes_abiertas' => $abiertas->count(),
+            'plazas_disponibles' => (int) $abiertas->sum('plazas_disponibles'),
+            'vacantes_automaticas' => $abiertas->where('generada_automaticamente', true)->count(),
+            'vacantes_manuales' => $abiertas->where('generada_automaticamente', false)->count(),
+            'en_reclutamiento' => $vacantes->where('estado', EstadoVacante::EnReclutamiento)->count(),
+            'cubiertas_este_mes' => $vacantes->where('estado', EstadoVacante::Cubierta)
+                ->filter(fn (Vacante $v) => $v->updated_at !== null && $v->updated_at->isCurrentMonth())
+                ->count(),
+            'canceladas' => $vacantes->where('estado', EstadoVacante::Cancelada)->count(),
+        ];
     }
 
     /**
@@ -150,8 +179,16 @@ class VacanteController extends Controller
 
     public function store(StoreVacanteRequest $request): RedirectResponse
     {
+        // Una vacante creada a mano por RH siempre representa una plaza
+        // (a diferencia de las automáticas, que pueden agrupar varias —
+        // ver VacanteAutoGenerationService); sin esto plazas_disponibles se
+        // queda en 0 (default de columna) y la tarjeta se ve "sin plazas".
         Vacante::create([
+            'plazas_requeridas' => 1,
+            'plazas_cubiertas' => 0,
+            'plazas_disponibles' => 1,
             ...$request->validated(),
+            'generada_automaticamente' => false,
             'creado_por' => $request->user()?->id,
         ]);
 

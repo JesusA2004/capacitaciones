@@ -13,7 +13,6 @@ import { Progress } from '@/components/ui/progress';
 import { dashboard } from '@/routes';
 import { notificaciones as indexNotificaciones, perfil as rutaMiPerfil } from '@/routes/portal';
 import { index as indexSolicitudes } from '@/routes/solicitudes';
-import { index as indexVacaciones } from '@/routes/vacaciones';
 import type {
     PerfilColaborador,
     ResumenNotificaciones,
@@ -47,7 +46,7 @@ const ACCESOS = [
         descripcion: 'Datos básicos y antigüedad',
     },
     {
-        href: indexVacaciones,
+        href: indexSolicitudes,
         icono: CalendarDays,
         color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
         titulo: 'Mis vacaciones',
@@ -155,7 +154,7 @@ const ACCESOS = [
                 <div class="flex items-center justify-between">
                     <h2 class="text-sm font-semibold">Vacaciones</h2>
                     <Link
-                        :href="indexVacaciones()"
+                        :href="indexSolicitudes()"
                         class="flex items-center text-xs font-medium text-[var(--brand-primary)] transition-transform duration-200 hover:translate-x-0.5"
                     >
                         Ver detalle <ChevronRight class="size-3.5" />

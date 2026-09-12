@@ -2,14 +2,17 @@
 
 namespace App\Services\Solicitudes;
 
+use App\Enums\EstadoFiniquito;
 use App\Enums\EstadoSolicitudInterna;
 use App\Enums\TipoSolicitudInterna;
+use App\Models\FiniquitoCalculo;
 use App\Models\SolicitudInterna;
 use App\Models\SolicitudInternaDocumento;
 use App\Models\User;
 use App\Notifications\Mobile\RhSolicitudCreadaNotification;
 use App\Notifications\Mobile\SolicitudActualizadaNotification;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Finiquitos\FiniquitoService;
 use App\Services\MobilePush\PushNotifier;
 use App\Services\RhMobile\ResponsableResolverService;
 use App\Services\Vacaciones\VacacionesService;
@@ -43,6 +46,7 @@ class SolicitudesService
         private readonly PushNotifier $push,
         private readonly VacacionesService $vacaciones,
         private readonly BajaColaboradorService $bajaColaborador,
+        private readonly FiniquitoService $finiquito,
     ) {}
 
     /**
@@ -329,6 +333,23 @@ class SolicitudesService
             ]);
         }
 
+        // No se ejecuta una baja sin que RH/contabilidad haya revisado su
+        // cálculo de finiquito — salvo el permiso especial reservado a
+        // super_admin (ver config/finiquitos.php y FiniquitoService).
+        if ($nuevoEstado === EstadoSolicitudInterna::Aprobada
+            && $solicitud->tipo === TipoSolicitudInterna::BajaColaborador
+            && config('finiquitos.exigir_finiquito_revisado_para_aprobar_baja')
+            && ! $actor->can('solicitudes.bajas.omitir_finiquito')
+        ) {
+            $finiquito = FiniquitoCalculo::query()->where('solicitud_interna_id', $solicitud->id)->first();
+
+            if ($finiquito === null || ! in_array($finiquito->estado, [EstadoFiniquito::Revisado, EstadoFiniquito::Aprobado], true)) {
+                throw ValidationException::withMessages([
+                    'finiquito' => 'Calcula y revisa el finiquito antes de aprobar esta baja.',
+                ]);
+            }
+        }
+
         return DB::transaction(function () use ($solicitud, $actor, $nuevoEstado, $comentario, $motivoRechazo): SolicitudInterna {
             $datos = ['estado' => $nuevoEstado];
 
@@ -356,6 +377,8 @@ class SolicitudesService
                 if ($solicitud->colaboradorObjetivo !== null) {
                     $this->bajaColaborador->ejecutar($solicitud->colaboradorObjetivo, $actor, $solicitud->motivo);
                 }
+
+                $this->finiquito->marcarAprobadoConLaBaja($solicitud);
             }
 
             // Notifica al colaborador en cada transicion visible del tablero
