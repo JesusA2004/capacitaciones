@@ -18,6 +18,17 @@ return new class extends Migration
             $table->date('fecha_fin')->nullable();
             $table->text('motivo');
             $table->text('observaciones')->nullable();
+            // Campos que unifican Vacaciones, Préstamo interno y Baja de
+            // colaborador dentro de esta tabla (docs/SOLICITUDES_UNIFICADAS.md).
+            $table->foreignId('colaborador_objetivo_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->unsignedSmallInteger('dias_solicitados')->nullable();
+            $table->decimal('monto_solicitado', 10, 2)->nullable();
+            $table->unsignedSmallInteger('plazo_meses')->nullable();
+            // Datos operativos propios de una solicitud de baja de colaborador:
+            // fecha en la que la baja surte efecto y clasificación del tipo de
+            // baja (para reportes de rotación).
+            $table->date('fecha_efectiva')->nullable();
+            $table->string('tipo_baja', 30)->nullable();
             $table->foreignId('revisado_por')->nullable()->constrained('users')->nullOnDelete();
             $table->dateTime('revisado_en')->nullable();
             $table->text('motivo_rechazo')->nullable();

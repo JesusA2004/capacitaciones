@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\TipoAsignacionNodoComercial;
 use App\Enums\TipoNodoComercial;
 use Database\Factories\NodoComercialFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -102,5 +103,30 @@ class NodoComercial extends Model
     public function responsable(): BelongsTo
     {
         return $this->belongsTo(User::class, 'responsable_user_id');
+    }
+
+    /**
+     * Historial completo de asignaciones (gestor/apoyo/volante) de este
+     * nodo — ver App\Models\AsignacionNodoComercial.
+     *
+     * @return HasMany<AsignacionNodoComercial, $this>
+     */
+    public function asignaciones(): HasMany
+    {
+        return $this->hasMany(AsignacionNodoComercial::class, 'nodo_comercial_id');
+    }
+
+    /**
+     * Apoyos/volantes ACTIVOS de este nodo (el gestor activo vive aparte en
+     * `responsable_user_id`/`responsable()`, siempre uno solo).
+     *
+     * @return HasMany<AsignacionNodoComercial, $this>
+     */
+    public function apoyosYVolantesActivos(): HasMany
+    {
+        return $this->asignaciones()
+            ->where('activo', true)
+            ->whereIn('tipo_asignacion', [TipoAsignacionNodoComercial::Apoyo->value, TipoAsignacionNodoComercial::Volante->value])
+            ->with('usuario:id,name,apellidos,estatus');
     }
 }

@@ -18,6 +18,7 @@ use App\Models\SolicitudInterna;
 use App\Models\SolicitudInternaDocumento;
 use App\Models\Sucursal;
 use App\Models\User;
+use App\Services\Finiquitos\FiniquitoService;
 use App\Services\Solicitudes\SolicitudesService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
@@ -32,7 +33,10 @@ class SolicitudController extends Controller
 {
     private const FILTROS = ['estado', 'tipo', 'sucursal_id', 'empresa_id', 'departamento_id', 'puesto_id', 'revisado_por', 'busqueda', 'fecha_inicio', 'fecha_fin'];
 
-    public function __construct(private readonly SolicitudesService $solicitudes) {}
+    public function __construct(
+        private readonly SolicitudesService $solicitudes,
+        private readonly FiniquitoService $finiquitos,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -133,6 +137,7 @@ class SolicitudController extends Controller
                 'puedeRevisar' => $finiquito !== null && $request->user()->can('revisar', $finiquito),
                 'puedeSubirFirmado' => $finiquito !== null && $request->user()->can('subirFirmado', $finiquito),
                 'puedeOmitirRevision' => $request->user()->can('solicitudes.bajas.omitir_finiquito'),
+                'usaFormatoOficial' => $this->finiquitos->tieneFormatoOficialConfigurado(),
             ],
         ]);
     }

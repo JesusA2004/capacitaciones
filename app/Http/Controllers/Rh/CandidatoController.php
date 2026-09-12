@@ -19,6 +19,7 @@ use App\Models\Sucursal;
 use App\Models\User;
 use App\Models\Vacante;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Candidatos\CandidatoTimelineService;
 use App\Services\Reclutamiento\CvStorageService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
@@ -37,6 +38,7 @@ class CandidatoController extends Controller
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly CvStorageService $cvStorage,
+        private readonly CandidatoTimelineService $timeline,
     ) {}
 
     public function index(Request $request): Response
@@ -149,11 +151,16 @@ class CandidatoController extends Controller
             'responsableRh:id,name,apellidos',
             'gerenteInvolucrado:id,name,apellidos',
             'seguimientos.registradoPor:id,name,apellidos',
+            'altaDigital:id,candidato_id,estado,token,created_at,creado_por',
+            'altaDigital.creadoPor:id,name,apellidos',
+            'altaDigital.colaborador:id,name,apellidos,created_at',
+            'incorporacionInvitacion:id,candidato_id,estado,uuid,used_at,expires_at',
         ]);
 
         return Inertia::render('Rh/Candidatos/Show', [
             'candidato' => $candidato,
             'opciones' => $this->opciones(),
+            'timeline' => $this->timeline->construir($candidato),
         ]);
     }
 

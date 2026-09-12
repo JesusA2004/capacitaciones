@@ -1,17 +1,18 @@
-export type TarjetaDisponible = {
-    valor: number;
-    disponible: false;
-};
-
 export type DashboardRhCards = {
     colaboradores_activos: number;
-    altas_en_proceso: TarjetaDisponible;
+    altas_en_proceso: number;
     bajas_del_mes: number;
     expedientes_completos: number;
     expedientes_incompletos: number;
     documentos_pendientes: number;
-    solicitudes_pendientes: TarjetaDisponible;
-    vacaciones_pendientes: TarjetaDisponible;
+    solicitudes_pendientes: number;
+    vacaciones_pendientes: number;
+    vacantes_disponibles: number;
+    plazas_automaticas: number;
+    candidatos_activos: number;
+    rutas_cubiertas: number;
+    rutas_sin_cubrir: number;
+    cumpleanos_proximos: number;
 };
 
 export type PuntoConteo = {
@@ -32,6 +33,10 @@ export type DashboardRhGraficas = {
     colaboradoresPorPuesto: PuntoConteo[];
     expedientesEstado: PuntoConteoClave[];
     documentosPorEstado: PuntoConteoClave[];
+    vacantesPorPuesto: PuntoConteo[];
+    solicitudesPorEstado: PuntoConteoClave[];
+    candidatosPorEtapa: PuntoConteo[];
+    coberturaRutas: PuntoConteoClave[];
 };
 
 export type AniversarioItem = {
@@ -100,7 +105,7 @@ export type DashboardRhProps = {
 export type DashboardColaboradorProps = {
     miExpediente: { porcentaje: number; pendientes: number };
     misDocumentosPendientes: DocumentoPendienteItem[];
-    misVacaciones: { disponible: false };
-    misSolicitudes: { disponible: false };
+    misVacaciones: { dias_disponibles: number };
+    misSolicitudes: { pendientes: number };
     avisosPendientes: { disponible: false };
 };

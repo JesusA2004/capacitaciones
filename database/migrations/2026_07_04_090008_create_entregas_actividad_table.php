@@ -30,6 +30,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->unique(['actividad_id', 'user_id', 'version']);
+            $table->index('estado');
         });
     }
 

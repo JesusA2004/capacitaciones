@@ -23,6 +23,7 @@ class CalcularFiniquitoRequest extends FormRequest
     {
         return [
             'sueldo_mensual' => ['required', 'numeric', 'min:1'],
+            'sueldo_pendiente' => ['nullable', 'numeric', 'min:0'],
         ];
     }
 }

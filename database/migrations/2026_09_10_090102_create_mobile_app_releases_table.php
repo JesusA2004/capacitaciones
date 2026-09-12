@@ -16,6 +16,11 @@ return new class extends Migration
             // Nunca se expone al frontend: solo se sirve via controller
             // (ver App\Services\AppReleases\AppReleaseStorageService).
             $table->string('file_path')->nullable();
+            // Distribucion iOS futura (TestFlight/App Store): la app movil no
+            // tiene APK que descargar para esta plataforma, solo un enlace
+            // externo. Ver App\Http\Controllers\Api\V1\AppConfigController.
+            $table->string('install_url')->nullable();
+            $table->string('store_url')->nullable();
             $table->string('original_filename')->nullable();
             $table->unsignedBigInteger('file_size')->nullable();
             $table->string('mime_type')->nullable();

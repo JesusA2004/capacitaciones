@@ -5,7 +5,9 @@ import {
     Download,
     Eye,
     FileCheck2,
+    Plus,
     RefreshCw,
+    Trash2,
     Upload,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
@@ -13,6 +15,7 @@ import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { NativeSelect } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
 import {
     ajustes,
@@ -35,26 +38,105 @@ function moneda(valor: string | number): string {
     return `$${Number(valor).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-const formCalculo = useForm({ sueldo_mensual: '' });
+const formCalculo = useForm({
+    sueldo_mensual: props.finiquito?.sueldo_mensual ?? '',
+    sueldo_pendiente: props.finiquito?.sueldo_pendiente ?? '0',
+});
+
+const sueldoInvalido = computed(
+    () =>
+        formCalculo.sueldo_mensual === '' ||
+        Number(formCalculo.sueldo_mensual) <= 0,
+);
 
 function calcularFiniquito() {
+    if (sueldoInvalido.value) {
+        return;
+    }
+
     formCalculo.post(calcular.url(props.solicitudId), { preserveScroll: true });
 }
 
 function recalcularFiniquito() {
+    if (sueldoInvalido.value) {
+        return;
+    }
+
     formCalculo.post(recalcular.url(props.solicitudId), {
         preserveScroll: true,
     });
+}
+
+type OtroConcepto = { nombre: string; monto: string; tipo: 'suma' | 'resta' };
+
+function otrosConceptosDesdeFiniquito(): OtroConcepto[] {
+    const registro = props.finiquito?.otros_conceptos ?? null;
+
+    if (!registro) {
+        return [];
+    }
+
+    return Object.entries(registro).map(([nombre, valor]) => ({
+        nombre,
+        monto: String(Math.abs(Number(valor))),
+        tipo: Number(valor) < 0 ? 'resta' : 'suma',
+    }));
+}
+
+const otrosConceptos = ref<OtroConcepto[]>(otrosConceptosDesdeFiniquito());
+
+function agregarConcepto() {
+    otrosConceptos.value.push({ nombre: '', monto: '0', tipo: 'suma' });
+}
+
+function quitarConcepto(index: number) {
+    otrosConceptos.value.splice(index, 1);
+}
+
+function otrosConceptosComoRegistro(): Record<string, number> {
+    const registro: Record<string, number> = {};
+
+    for (const concepto of otrosConceptos.value) {
+        const nombre = concepto.nombre.trim();
+        const monto = Number(concepto.monto) || 0;
+
+        if (nombre === '' || monto === 0) {
+            continue;
+        }
+
+        registro[nombre] = concepto.tipo === 'resta' ? -monto : monto;
+    }
+
+    return registro;
 }
 
 const formAjustes = useForm({
     bonos_extra: props.finiquito?.bonos_extra ?? '0',
     descuentos: props.finiquito?.descuentos ?? '0',
     adeudos: props.finiquito?.adeudos ?? '0',
+    otros_conceptos: {} as Record<string, number>,
     comentarios_ajuste: props.finiquito?.comentarios_ajuste ?? '',
 });
 
+const totalAjustadoPreview = computed(() => {
+    if (!props.finiquito) {
+        return 0;
+    }
+
+    const base = Number(props.finiquito.total_calculado);
+    const bonos = Number(formAjustes.bonos_extra) || 0;
+    const descuentos = Number(formAjustes.descuentos) || 0;
+    const adeudos = Number(formAjustes.adeudos) || 0;
+    const otros = Object.values(otrosConceptosComoRegistro()).reduce(
+        (suma, valor) => suma + valor,
+        0,
+    );
+
+    return base + bonos - descuentos - adeudos + otros;
+});
+
 function guardarAjustes() {
+    formAjustes.otros_conceptos = otrosConceptosComoRegistro();
     formAjustes.put(ajustes.url(props.solicitudId), { preserveScroll: true });
 }
 
@@ -135,8 +217,26 @@ const puedeEditarAjustes = computed(
                         {{ formCalculo.errors.sueldo_mensual }}
                     </p>
                 </div>
+                <div class="grid gap-1.5">
+                    <Label for="sueldo_pendiente_inicial">Sueldo pendiente</Label>
+                    <Input
+                        id="sueldo_pendiente_inicial"
+                        v-model="formCalculo.sueldo_pendiente"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        class="w-40"
+                        placeholder="0.00"
+                    />
+                    <p
+                        v-if="formCalculo.errors.sueldo_pendiente"
+                        class="text-xs text-destructive"
+                    >
+                        {{ formCalculo.errors.sueldo_pendiente }}
+                    </p>
+                </div>
                 <Button
-                    :disabled="formCalculo.processing"
+                    :disabled="formCalculo.processing || sueldoInvalido"
                     @click="calcularFiniquito"
                 >
                     <Calculator class="size-4" />
@@ -253,6 +353,79 @@ const puedeEditarAjustes = computed(
                         :disabled="!puedeEditarAjustes"
                     />
                 </div>
+                <div class="grid gap-2 sm:col-span-3">
+                    <div class="flex items-center justify-between">
+                        <Label>Otros conceptos</Label>
+                        <Button
+                            v-if="puedeEditarAjustes"
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            @click="agregarConcepto"
+                        >
+                            <Plus class="size-4" />
+                            Agregar concepto
+                        </Button>
+                    </div>
+                    <p
+                        v-if="otrosConceptos.length === 0"
+                        class="text-xs text-muted-foreground"
+                    >
+                        Sin conceptos adicionales.
+                    </p>
+                    <div
+                        v-for="(concepto, index) in otrosConceptos"
+                        :key="index"
+                        class="flex flex-wrap items-end gap-2"
+                    >
+                        <div class="grid min-w-[10rem] flex-1 gap-1.5">
+                            <Label :for="`concepto_nombre_${index}`"
+                                >Concepto</Label
+                            >
+                            <Input
+                                :id="`concepto_nombre_${index}`"
+                                v-model="concepto.nombre"
+                                placeholder="Ej. Vales de despensa"
+                                :disabled="!puedeEditarAjustes"
+                            />
+                        </div>
+                        <div class="grid w-32 gap-1.5">
+                            <Label :for="`concepto_monto_${index}`"
+                                >Monto</Label
+                            >
+                            <Input
+                                :id="`concepto_monto_${index}`"
+                                v-model="concepto.monto"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                :disabled="!puedeEditarAjustes"
+                            />
+                        </div>
+                        <div class="grid w-28 gap-1.5">
+                            <Label :for="`concepto_tipo_${index}`"
+                                >Tipo</Label
+                            >
+                            <NativeSelect
+                                :id="`concepto_tipo_${index}`"
+                                v-model="concepto.tipo"
+                                :disabled="!puedeEditarAjustes"
+                            >
+                                <option value="suma">Suma</option>
+                                <option value="resta">Resta</option>
+                            </NativeSelect>
+                        </div>
+                        <Button
+                            v-if="puedeEditarAjustes"
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            @click="quitarConcepto(index)"
+                        >
+                            <Trash2 class="size-4" />
+                        </Button>
+                    </div>
+                </div>
                 <div class="grid gap-1.5 sm:col-span-3">
                     <Label for="comentarios_ajuste"
                         >Comentarios del ajuste</Label
@@ -270,7 +443,7 @@ const puedeEditarAjustes = computed(
                     <p class="text-sm font-semibold">
                         Total ajustado:
                         <span class="text-[var(--brand-primary)]">{{
-                            moneda(finiquito.total_ajustado)
+                            moneda(totalAjustadoPreview)
                         }}</span>
                     </p>
                     <Button
@@ -288,18 +461,64 @@ const puedeEditarAjustes = computed(
             <p class="rounded-lg bg-amber-500/10 p-2.5 text-xs text-amber-700 dark:text-amber-400">
                 Cálculo editable y sujeto a validación de RH/contabilidad.
             </p>
+            <p
+                v-if="!permisos.usaFormatoOficial"
+                class="rounded-lg bg-muted/50 p-2.5 text-xs text-muted-foreground"
+            >
+                No hay formato oficial de finiquito configurado; se generará
+                un formato interno provisional.
+            </p>
 
-            <div class="flex flex-wrap gap-2">
+            <div
+                v-if="permisos.puedeCalcular && finiquito.estado !== 'firmado'"
+                class="flex flex-wrap items-end gap-2 rounded-xl bg-muted/30 p-3"
+            >
+                <div class="grid gap-1.5">
+                    <Label for="sueldo_mensual_recalculo"
+                        >Sueldo mensual</Label
+                    >
+                    <Input
+                        id="sueldo_mensual_recalculo"
+                        v-model="formCalculo.sueldo_mensual"
+                        type="number"
+                        min="1"
+                        step="0.01"
+                        class="w-40"
+                        placeholder="0.00"
+                    />
+                    <p
+                        v-if="formCalculo.errors.sueldo_mensual"
+                        class="text-xs text-destructive"
+                    >
+                        {{ formCalculo.errors.sueldo_mensual }}
+                    </p>
+                </div>
+                <div class="grid gap-1.5">
+                    <Label for="sueldo_pendiente_recalculo"
+                        >Sueldo pendiente</Label
+                    >
+                    <Input
+                        id="sueldo_pendiente_recalculo"
+                        v-model="formCalculo.sueldo_pendiente"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        class="w-40"
+                        placeholder="0.00"
+                    />
+                </div>
                 <Button
-                    v-if="permisos.puedeCalcular"
                     size="sm"
                     variant="outline"
-                    :disabled="formCalculo.processing || finiquito.estado === 'firmado'"
+                    :disabled="formCalculo.processing || sueldoInvalido"
                     @click="recalcularFiniquito"
                 >
                     <RefreshCw class="size-4" />
                     Recalcular
                 </Button>
+            </div>
+
+            <div class="flex flex-wrap gap-2">
                 <Button
                     v-if="permisos.puedeRevisar"
                     size="sm"

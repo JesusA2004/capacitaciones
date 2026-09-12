@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useNotificaciones } from '@/composables/useNotificaciones';
 import type { NotificacionItem } from '@/composables/useNotificaciones';
+import { colorClaseNotificacion } from '@/lib/notificacionColor';
 
 const { noLeidas, recientes, marcarComoLeida, marcarTodasComoLeidas } =
     useNotificaciones();
@@ -68,19 +69,27 @@ async function abrir(notificacion: NotificacionItem) {
             <DropdownMenuItem
                 v-for="notificacion in recientes"
                 :key="notificacion.id"
-                class="flex flex-col items-start gap-0.5 whitespace-normal"
+                class="flex items-start gap-2.5 whitespace-normal"
                 :class="{ 'bg-accent/50': !notificacion.leida }"
                 @click="abrir(notificacion)"
             >
-                <span class="text-sm font-medium">{{
-                    notificacion.titulo
-                }}</span>
-                <span class="text-xs text-muted-foreground">{{
-                    notificacion.mensaje
-                }}</span>
-                <span class="text-[10px] text-muted-foreground">{{
-                    notificacion.creada_en
-                }}</span>
+                <span
+                    class="flex size-8 shrink-0 items-center justify-center rounded-full text-base"
+                    :class="colorClaseNotificacion(notificacion.color)"
+                >
+                    {{ notificacion.emoji }}
+                </span>
+                <div class="flex flex-col items-start gap-0.5">
+                    <span class="text-sm font-medium">{{
+                        notificacion.titulo
+                    }}</span>
+                    <span class="text-xs text-muted-foreground">{{
+                        notificacion.mensaje
+                    }}</span>
+                    <span class="text-[10px] text-muted-foreground">{{
+                        notificacion.creada_en
+                    }}</span>
+                </div>
             </DropdownMenuItem>
         </DropdownMenuContent>
     </DropdownMenu>

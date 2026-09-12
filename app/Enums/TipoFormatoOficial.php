@@ -14,6 +14,7 @@ enum TipoFormatoOficial: string
     case SolicitudEmpleo = 'solicitud_empleo';
     case Contrato = 'contrato';
     case Baja = 'baja';
+    case Finiquito = 'finiquito';
     case Embarazo = 'embarazo';
     case Lactancia = 'lactancia';
     case Capacitacion = 'capacitacion';
@@ -28,6 +29,7 @@ enum TipoFormatoOficial: string
             self::SolicitudEmpleo => 'Solicitud de empleo',
             self::Contrato => 'Contrato',
             self::Baja => 'Baja de personal',
+            self::Finiquito => 'Finiquito',
             self::Embarazo => 'Embarazo',
             self::Lactancia => 'Lactancia',
             self::Capacitacion => 'Capacitación',

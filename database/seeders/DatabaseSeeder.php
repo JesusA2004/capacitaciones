@@ -24,9 +24,11 @@ class DatabaseSeeder extends Seeder
             DepartamentoSeeder::class,
             PuestoSeeder::class,
             PuestoJerarquiaSeeder::class,
-            MatrizComercialSeeder::class,
             DocumentTypeSeeder::class,
             UsuarioDemoSeeder::class,
+            // Después de UsuarioDemoSeeder: asignarGestoresDemo() necesita
+            // colaboradores activos ya creados para tener a quién asignar.
+            MatrizComercialSeeder::class,
             CursoInduccionSeeder::class,
             DashboardDemoSeeder::class,
             SolicitudesDemoSeeder::class,

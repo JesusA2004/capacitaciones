@@ -34,6 +34,10 @@ return new class extends Migration
             $table->text('comments')->nullable();
             $table->text('rejection_reason')->nullable();
 
+            $table->timestamp('change_requested_at')->nullable();
+            $table->foreignId('change_authorized_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->timestamp('change_authorized_at')->nullable();
+
             $table->timestamps();
             $table->softDeletes();
 

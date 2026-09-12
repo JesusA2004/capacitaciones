@@ -5,6 +5,7 @@ namespace App\Services\MobilePush;
 use App\Jobs\SendExpoPushJob;
 use App\Models\MobileDevice;
 use App\Models\User;
+use App\Services\Colaboradores\NotificacionesService;
 use Illuminate\Support\Collection;
 
 /**
@@ -38,9 +39,28 @@ class PushNotifier
      */
     public function aUsuarioConDatos(User $usuario, string $titulo, string $cuerpo, array $data): void
     {
+        $type = $data['type'] ?? null;
+        $type = is_string($type) ? $type : null;
+
+        $tituloConEmoji = $this->conEmoji($titulo, $type);
+        $data['color'] ??= NotificacionesService::colorHexPara($type);
+
         foreach ($this->tokensActivos($usuario) as $token) {
-            SendExpoPushJob::dispatch($token, $titulo, $cuerpo, $data);
+            SendExpoPushJob::dispatch($token, $tituloConEmoji, $cuerpo, $data);
         }
+    }
+
+    /**
+     * Antepone el emoji del tipo de notificación al título del push nativo
+     * (mismo catálogo que la campana web y la API — ver
+     * App\Services\Colaboradores\NotificacionesService::ESTILOS), sin
+     * duplicarlo si el llamador ya lo incluyó a mano en el título.
+     */
+    private function conEmoji(string $titulo, ?string $type): string
+    {
+        $emoji = NotificacionesService::emojiPara($type);
+
+        return str_starts_with($titulo, $emoji) ? $titulo : "{$emoji} {$titulo}";
     }
 
     /**

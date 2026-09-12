@@ -24,6 +24,7 @@ export type VacanteItem = {
     } | null;
     motivo: string;
     estado: string;
+    motivo_cancelacion: string | null;
     fecha_apertura: string;
     fecha_estimada_cobertura: string | null;
     observaciones: string | null;
@@ -32,6 +33,9 @@ export type VacanteItem = {
     plazas_requeridas: number;
     plazas_cubiertas: number;
     plazas_disponibles: number;
+    plantilla_autorizada: number | null;
+    plantilla_actual: number | null;
+    faltantes_reales: number | null;
 };
 
 export type VacantesKpis = {
@@ -93,6 +97,17 @@ export type CandidatoDetalle = CandidatoItem & {
     departamento: OpcionSimple | null;
     documentos_solicitados: string | null;
     seguimientos: SeguimientoCandidatoItem[];
+    alta_digital: { id: number } | null;
+    incorporacion_invitacion: { id: number } | null;
+};
+
+export type CandidatoTimelineEtapa = {
+    clave: string;
+    titulo: string;
+    estado: 'completado' | 'actual' | 'pendiente' | 'descartado';
+    fecha: string | null;
+    responsable: string | null;
+    accion: string | null;
 };
 
 export type OpcionesReclutamiento = {

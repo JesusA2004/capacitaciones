@@ -8,6 +8,8 @@ import {
     KanbanSquare,
     Paperclip,
     PenLine,
+    ShieldAlert,
+    ShieldCheck,
     UserX,
 } from '@lucide/vue';
 import { computed, reactive, ref, watch } from 'vue';
@@ -155,6 +157,22 @@ function faltaFirma(solicitud: SolicitudInternaItem): boolean {
     const generados = solicitud.documentos_generados ?? [];
 
     return generados.length > 0 && !generados.some((d) => d.status === 'firmado');
+}
+
+// Una baja de colaborador no puede aprobarse sin evidencia adjunta ni
+// finiquito revisado (docs/SOLICITUDES_UNIFICADAS.md): el tablero lo marca
+// desde antes de intentar mover la tarjeta a "Aprobadas".
+function sinEvidencia(solicitud: SolicitudInternaItem): boolean {
+    return (
+        solicitud.tipo === 'baja_colaborador' &&
+        (solicitud.documentos_count ?? 0) === 0
+    );
+}
+
+function finiquitoRevisado(solicitud: SolicitudInternaItem): boolean {
+    const estado = solicitud.finiquitoCalculo?.estado;
+
+    return estado === 'revisado' || estado === 'aprobado' || estado === 'firmado';
 }
 
 // Prioridad derivada del tiempo real de espera (no un campo inventado):
@@ -556,6 +574,25 @@ function confirmarMovimiento() {
                             </Badge>
                             <Badge v-if="esUrgente(solicitud)" variant="warning" class="gap-1 text-[10px]">
                                 <AlertTriangle class="size-3" /> Urgente
+                            </Badge>
+                            <Badge
+                                v-if="sinEvidencia(solicitud)"
+                                variant="destructive"
+                                class="gap-1 text-[10px]"
+                            >
+                                <ShieldAlert class="size-3" /> Sin evidencia
+                            </Badge>
+                            <Badge
+                                v-if="solicitud.tipo === 'baja_colaborador' && solicitud.finiquitoCalculo"
+                                :variant="finiquitoRevisado(solicitud) ? 'success' : 'warning'"
+                                class="gap-1 text-[10px]"
+                            >
+                                <ShieldCheck class="size-3" />
+                                {{
+                                    finiquitoRevisado(solicitud)
+                                        ? 'Finiquito revisado'
+                                        : 'Finiquito pendiente'
+                                }}
                             </Badge>
                         </div>
 

@@ -20,6 +20,7 @@ class ActualizarEstadoVacanteRequest extends FormRequest
     {
         return [
             'estado' => ['required', new Enum(EstadoVacante::class)],
+            'motivo_cancelacion' => ['required_if:estado,cancelada', 'nullable', 'string', 'max:2000'],
         ];
     }
 }

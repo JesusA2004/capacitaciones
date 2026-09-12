@@ -45,3 +45,16 @@ test('el payload de una notificacion trae data.type y data.resource_id', functio
     expect($respuesta->json('data.0.data.type'))->toBe('solicitud')
         ->and($respuesta->json('data.0.data.resource_id'))->toBe($solicitud->id);
 });
+
+test('el payload de una notificacion trae emoji y color segun su tipo', function () {
+    $usuario = User::factory()->create();
+    $solicitud = SolicitudInterna::factory()->create(['user_id' => $usuario->id]);
+    $usuario->notify(new SolicitudActualizadaNotification($solicitud));
+
+    $respuesta = $this->withHeaders(notificacionHeaders($usuario))
+        ->getJson('/api/v1/notificaciones')
+        ->assertOk();
+
+    expect($respuesta->json('data.0.emoji'))->toBe('📝')
+        ->and($respuesta->json('data.0.color'))->toBe('info');
+});

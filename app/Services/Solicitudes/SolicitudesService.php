@@ -215,6 +215,7 @@ class SolicitudesService
                 'revisadoPor:id,name,apellidos',
                 'sucursal:id,nombre',
                 'documentosGenerados:id,solicitud_id,status',
+                'finiquitoCalculo:id,solicitud_interna_id,estado',
             ])
             ->withCount('documentos');
 

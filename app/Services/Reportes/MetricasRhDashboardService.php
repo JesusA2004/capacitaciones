@@ -2,17 +2,29 @@
 
 namespace App\Services\Reportes;
 
+use App\Enums\EstadoAltaDigital;
+use App\Enums\EstadoCandidato;
 use App\Enums\EstadoDocumento;
+use App\Enums\EstadoSolicitudInterna;
 use App\Enums\EstadoUsuario;
+use App\Enums\EstadoVacante;
 use App\Enums\Genero;
 use App\Enums\TipoMovimientoLaboral;
+use App\Models\AltaDigital;
+use App\Models\Candidato;
 use App\Models\EmployeeDocument;
 use App\Models\MovimientoLaboral;
+use App\Models\SolicitudInterna;
 use App\Models\User;
+use App\Models\Vacante;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Cumpleanos\CumpleanosService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Headcount\HeadcountService;
+use App\Services\MatrizComercial\MatrizComercialService;
+use App\Services\Vacaciones\VacacionesService;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
@@ -35,6 +47,9 @@ class MetricasRhDashboardService
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly ExpedienteService $expediente,
         private readonly HeadcountService $headcount,
+        private readonly MatrizComercialService $matriz,
+        private readonly CumpleanosService $cumpleanos,
+        private readonly VacacionesService $vacaciones,
     ) {}
 
     /**
@@ -68,16 +83,34 @@ class MetricasRhDashboardService
 
         [$expedientesCompletos, $expedientesIncompletos] = $this->contarExpedientes($colaboradoresVisibles);
 
+        $vacantesAbiertas = $this->alcance->limitarPorSucursal(
+            Vacante::query()->whereNotIn('estado', [EstadoVacante::Cubierta->value, EstadoVacante::Cancelada->value]),
+            $usuario,
+        )->get(['id', 'estado', 'generada_automaticamente', 'plazas_disponibles', 'puesto_id']);
+
+        $candidatosActivos = $this->alcance->limitarPorSucursal(
+            Candidato::query()->whereNotIn('estado', $this->estadosCandidatoTerminales()),
+            $usuario,
+        );
+
+        $matrizResumen = $this->matriz->resumen();
+
         return [
             'cards' => [
                 'colaboradores_activos' => $colaboradoresVisibles->where('estatus', EstadoUsuario::Activo)->count(),
-                'altas_en_proceso' => ['valor' => 0, 'disponible' => false],
+                'altas_en_proceso' => $this->altasEnProceso($usuario),
                 'bajas_del_mes' => $this->bajasDelMes($idsVisibles),
                 'expedientes_completos' => $expedientesCompletos,
                 'expedientes_incompletos' => $expedientesIncompletos,
                 'documentos_pendientes' => $documentos->whereIn('status', $this->estadosPendientes())->count(),
-                'solicitudes_pendientes' => ['valor' => 0, 'disponible' => false],
-                'vacaciones_pendientes' => ['valor' => 0, 'disponible' => false],
+                'solicitudes_pendientes' => $this->solicitudesPendientes($usuario),
+                'vacaciones_pendientes' => $this->vacacionesPendientes($usuario),
+                'vacantes_disponibles' => (int) $vacantesAbiertas->sum('plazas_disponibles'),
+                'plazas_automaticas' => $vacantesAbiertas->where('generada_automaticamente', true)->count(),
+                'candidatos_activos' => (clone $candidatosActivos)->count(),
+                'rutas_cubiertas' => $matrizResumen['cubiertas'],
+                'rutas_sin_cubrir' => $matrizResumen['sin_cubrir'],
+                'cumpleanos_proximos' => $this->cumpleanos->proximosCumpleanos($usuario, 7)->count(),
             ],
             'graficas' => [
                 'colaboradoresPorEmpresa' => $this->agruparPor($colaboradoresVisibles, function (User $u) {
@@ -100,6 +133,16 @@ class MetricasRhDashboardService
                     ])
                     ->filter(fn (array $fila) => $fila['valor'] > 0)
                     ->values(),
+                'vacantesPorPuesto' => $this->vacantesPorPuesto($vacantesAbiertas),
+                'solicitudesPorEstado' => $this->solicitudesPorEstado($usuario),
+                'candidatosPorEtapa' => $this->agruparPor(
+                    (clone $candidatosActivos)->get(['id', 'estado']),
+                    fn (Candidato $c) => $c->estado->etiqueta(),
+                ),
+                'coberturaRutas' => [
+                    ['clave' => 'cubiertas', 'etiqueta' => 'Cubiertas', 'valor' => $matrizResumen['cubiertas']],
+                    ['clave' => 'sin_cubrir', 'etiqueta' => 'Sin cubrir', 'valor' => $matrizResumen['sin_cubrir']],
+                ],
             ],
             'proximosAniversarios' => $this->proximosAniversarios($colaboradoresVisibles),
             'documentosPendientesRevision' => $this->documentosPendientesRevision($idsVisibles),
@@ -108,7 +151,84 @@ class MetricasRhDashboardService
     }
 
     /**
-     * @return array{miExpediente: array{porcentaje: float, pendientes: int}, misDocumentosPendientes: array<int, array{id: int, colaborador: string|null, tipo: string, status: string, creado_en: string|null}>, avisosPendientes: array{disponible: bool}, misVacaciones: array{disponible: bool}, misSolicitudes: array{disponible: bool}}
+     * @return array<int, EstadoCandidato>
+     */
+    private function estadosCandidatoTerminales(): array
+    {
+        return [EstadoCandidato::Contratado, EstadoCandidato::Rechazado, EstadoCandidato::Descartado, EstadoCandidato::NoViable];
+    }
+
+    private function altasEnProceso(User $usuario): int
+    {
+        return $this->alcance->limitarPorSucursal(
+            AltaDigital::query()->whereNotIn('estado', [
+                EstadoAltaDigital::ConvertidaAColaborador->value,
+                EstadoAltaDigital::Rechazada->value,
+                EstadoAltaDigital::Cancelada->value,
+            ]),
+            $usuario,
+        )->count();
+    }
+
+    private function solicitudesPendientes(User $usuario): int
+    {
+        return $this->alcance->limitarPorSucursal(
+            SolicitudInterna::query()->whereIn('estado', [
+                EstadoSolicitudInterna::Enviada->value,
+                EstadoSolicitudInterna::EnRevision->value,
+                EstadoSolicitudInterna::RequiereCorreccion->value,
+            ]),
+            $usuario,
+        )->count();
+    }
+
+    private function vacacionesPendientes(User $usuario): int
+    {
+        return $this->alcance->limitarPorSucursal(
+            SolicitudInterna::query()
+                ->where('tipo', 'vacaciones')
+                ->whereIn('estado', [
+                    EstadoSolicitudInterna::Enviada->value,
+                    EstadoSolicitudInterna::EnRevision->value,
+                    EstadoSolicitudInterna::RequiereCorreccion->value,
+                ]),
+            $usuario,
+        )->count();
+    }
+
+    /**
+     * Array plano por el mismo motivo que proximosAniversarios(): count()
+     * infiere int<0, max>, que no es covariante con Collection<..., int>.
+     *
+     * @return array<int, array{clave: string, etiqueta: string, valor: int}>
+     */
+    private function solicitudesPorEstado(User $usuario): array
+    {
+        return $this->alcance->limitarPorSucursal(SolicitudInterna::query(), $usuario)
+            ->get(['id', 'estado'])
+            ->groupBy(fn (SolicitudInterna $s) => $s->estado->value)
+            ->map(fn (Collection $grupo, string $clave) => [
+                'clave' => $clave,
+                'etiqueta' => sprintf('%s', $grupo->first()->estado->etiqueta()),
+                'valor' => $grupo->count(),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  EloquentCollection<int, Vacante>  $vacantes
+     * @return Collection<int, array{etiqueta: string, valor: int}>
+     */
+    private function vacantesPorPuesto(EloquentCollection $vacantes): Collection
+    {
+        $vacantes->loadMissing('puesto:id,nombre');
+
+        return $this->agruparPor($vacantes, fn (Vacante $v) => $v->puesto->nombre ?? 'Sin puesto');
+    }
+
+    /**
+     * @return array{miExpediente: array{porcentaje: float, pendientes: int}, misDocumentosPendientes: array<int, array{id: int, colaborador: string|null, tipo: string, status: string, creado_en: string|null}>, avisosPendientes: array{disponible: bool}, misVacaciones: array{dias_disponibles: int}, misSolicitudes: array{pendientes: int}}
      */
     public function colaborador(User $usuario): array
     {
@@ -120,8 +240,17 @@ class MetricasRhDashboardService
                 'pendientes' => $resumen['pendientes'] + $resumen['rechazados'],
             ],
             'misDocumentosPendientes' => $this->documentosPendientesRevision(collect([$usuario->id]), soloPropios: true),
-            'misVacaciones' => ['disponible' => false],
-            'misSolicitudes' => ['disponible' => false],
+            'misVacaciones' => ['dias_disponibles' => $this->vacaciones->saldo($usuario)['dias_disponibles']],
+            'misSolicitudes' => [
+                'pendientes' => SolicitudInterna::query()
+                    ->where('user_id', $usuario->id)
+                    ->whereIn('estado', [
+                        EstadoSolicitudInterna::Enviada->value,
+                        EstadoSolicitudInterna::EnRevision->value,
+                        EstadoSolicitudInterna::RequiereCorreccion->value,
+                    ])
+                    ->count(),
+            ],
             'avisosPendientes' => ['disponible' => false],
         ];
     }
@@ -332,8 +461,10 @@ class MetricasRhDashboardService
     }
 
     /**
-     * @param  Collection<int, User>  $colaboradores
-     * @param  callable(User): string  $clasificador
+     * @template TItem of object
+     *
+     * @param  Collection<int, TItem>  $colaboradores
+     * @param  callable(TItem): string  $clasificador
      * @return Collection<int, array{etiqueta: string, valor: int}>
      */
     private function agruparPor(Collection $colaboradores, callable $clasificador): Collection

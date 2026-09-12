@@ -16,7 +16,9 @@ return new class extends Migration
             $table->unsignedTinyInteger('calificacion_minima')->default(80);
             $table->unsignedInteger('intentos_maximos')->nullable();
             $table->unsignedInteger('tiempo_limite_minutos')->nullable();
+            $table->unsignedInteger('tolerancia_segundos')->default(30);
             $table->boolean('aleatorizar_preguntas')->default(false);
+            $table->boolean('aleatorizar_opciones')->default(false);
             $table->boolean('mostrar_retroalimentacion')->default(true);
             $table->timestamps();
         });

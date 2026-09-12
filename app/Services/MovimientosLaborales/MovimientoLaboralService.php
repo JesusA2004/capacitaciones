@@ -10,6 +10,7 @@ use App\Models\MovimientoLaboral;
 use App\Models\Puesto;
 use App\Models\User;
 use App\Models\Vacante;
+use App\Services\MatrizComercial\MatrizComercialService;
 use App\Services\Vacantes\VacanteAutoGenerationService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -22,7 +23,10 @@ use Illuminate\Support\Facades\DB;
  */
 class MovimientoLaboralService
 {
-    public function __construct(private readonly VacanteAutoGenerationService $vacantesAutomaticas) {}
+    public function __construct(
+        private readonly VacanteAutoGenerationService $vacantesAutomaticas,
+        private readonly MatrizComercialService $matriz,
+    ) {}
 
     /**
      * Snapshot "antes" de un colaborador, tomado ANTES de aplicar cambios en
@@ -185,6 +189,8 @@ class MovimientoLaboralService
     ): array {
         return DB::transaction(function () use ($usuario, $registradoPor, $motivo, $crearVacante) {
             $usuario->loadMissing(['sucursalPrincipal', 'puesto', 'departamento']);
+
+            $this->matriz->cerrarAsignacionesDe($usuario);
 
             $vacante = null;
 

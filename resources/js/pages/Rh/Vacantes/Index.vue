@@ -99,7 +99,8 @@ function urlExportar(
 
     return `${destino.url()}?${parametros.toString()}`;
 }
-const { confirmarEliminacion, mostrarError, mostrarExito } = useAlertas();
+const { confirmarEliminacion, pedirMotivoCancelacionVacante, mostrarError, mostrarExito } =
+    useAlertas();
 
 const COLUMNAS = [
     { estado: 'abierta', titulo: 'Abierta' },
@@ -232,21 +233,38 @@ async function eliminar(vacante: VacanteItem) {
 
 const arrastrando = ref<number | null>(null);
 
-function alSoltar(nuevoEstado: string) {
+async function alSoltar(nuevoEstado: string) {
     if (arrastrando.value === null) {
         return;
     }
 
+    const vacanteId = arrastrando.value;
+    arrastrando.value = null;
+
+    let motivoCancelacion: string | null = null;
+
+    if (nuevoEstado === 'cancelada') {
+        motivoCancelacion = await pedirMotivoCancelacionVacante();
+
+        if (motivoCancelacion === null) {
+            return;
+        }
+    }
+
     router.put(
-        estadoUrl.url(arrastrando.value),
-        { estado: nuevoEstado },
+        estadoUrl.url(vacanteId),
+        {
+            estado: nuevoEstado,
+            ...(motivoCancelacion !== null
+                ? { motivo_cancelacion: motivoCancelacion }
+                : {}),
+        },
         {
             preserveScroll: true,
             onError: () =>
                 mostrarError('No tienes permiso para mover esta vacante.'),
         },
     );
-    arrastrando.value = null;
 }
 </script>
 
@@ -586,6 +604,46 @@ function alSoltar(nuevoEstado: string) {
                                 <p>Disponibles</p>
                             </div>
                         </div>
+
+                        <div
+                            v-if="vacante.plantilla_autorizada !== null"
+                            class="mt-1 grid grid-cols-3 gap-1 rounded-lg bg-muted/40 p-1.5 text-center text-[11px] text-muted-foreground"
+                        >
+                            <div>
+                                <p class="font-semibold text-foreground">
+                                    {{ vacante.plantilla_autorizada }}
+                                </p>
+                                <p>Plantilla aut.</p>
+                            </div>
+                            <div>
+                                <p class="font-semibold text-foreground">
+                                    {{ vacante.plantilla_actual }}
+                                </p>
+                                <p>Plantilla act.</p>
+                            </div>
+                            <div>
+                                <p class="font-semibold text-foreground">
+                                    {{ vacante.faltantes_reales }}
+                                </p>
+                                <p>Faltantes</p>
+                            </div>
+                        </div>
+
+                        <span
+                            v-if="vacante.responsable_rh"
+                            class="text-xs text-muted-foreground"
+                        >
+                            RH: {{ vacante.responsable_rh.name }}
+                            {{ vacante.responsable_rh.apellidos }}
+                        </span>
+
+                        <p
+                            v-if="vacante.motivo_cancelacion"
+                            class="text-xs text-destructive"
+                            :title="vacante.motivo_cancelacion"
+                        >
+                            Motivo: {{ vacante.motivo_cancelacion }}
+                        </p>
 
                         <div
                             class="mt-1 flex items-center justify-between text-xs text-muted-foreground"

@@ -20,9 +20,14 @@ return new class extends Migration
             $table->string('estado')->default('pendiente');
             $table->dateTime('fecha_limite')->nullable();
             $table->timestamp('completado_en')->nullable();
+            // Marca de cuando se envio el ultimo recordatorio automatico, para
+            // que los comandos programados no vuelvan a notificar por la
+            // misma fecha limite en cada ejecucion del scheduler.
+            $table->timestamp('recordatorio_enviado_en')->nullable();
             $table->timestamps();
 
             $table->unique(['asignacion_id', 'user_id'], 'asignaciones_usuario_unico');
+            $table->index(['estado', 'fecha_limite'], 'asignaciones_usuario_estado_fecha_limite_idx');
         });
     }
 

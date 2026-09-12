@@ -13,10 +13,8 @@ return new class extends Migration
             $table->foreignId('document_template_id')->nullable()->constrained('document_templates')->nullOnDelete();
             $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('candidato_id')->nullable()->constrained('candidatos')->nullOnDelete();
-            // solicitud_id: sin FK todavia, la tabla solicitudes_internas se
-            // crea en un bloque posterior (docs/SOLICITUDES_INTERNAS.md). La
-            // constraint se agrega en una migracion aparte cuando exista.
-            $table->unsignedBigInteger('solicitud_id')->nullable();
+            $table->foreignId('solicitud_id')->nullable()->constrained('solicitudes_internas')->nullOnDelete();
+            $table->foreignId('solicitud_vacaciones_id')->nullable()->constrained('solicitudes_vacaciones')->nullOnDelete();
             $table->foreignId('empresa_id')->nullable()->constrained('empresas')->nullOnDelete();
             $table->foreignId('sucursal_id')->nullable()->constrained('sucursales')->nullOnDelete();
             $table->string('disk');

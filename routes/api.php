@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\V1\Rh\JerarquiaPuestoController as RhJerarquiaPuest
 use App\Http\Controllers\Api\V1\Rh\PendienteController as RhPendienteController;
 use App\Http\Controllers\Api\V1\Rh\SolicitudController as RhSolicitudController;
 use App\Http\Controllers\Api\V1\Rh\VacacionController as RhVacacionController;
+use App\Http\Controllers\Api\V1\Rh\VacanteController as RhVacanteController;
 use App\Http\Controllers\Api\V1\SolicitudController;
 use App\Http\Controllers\Api\V1\VacacionesController;
 use Illuminate\Http\Request;
@@ -186,6 +187,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('/', [RhColaboradorController::class, 'index'])->name('index');
                 Route::get('{colaborador}', [RhColaboradorController::class, 'show'])->name('show');
             });
+
+            Route::get('vacantes', [RhVacanteController::class, 'index'])->name('vacantes.index');
 
             Route::prefix('expedientes')->name('expedientes.')->group(function () {
                 Route::get('/', [RhExpedienteController::class, 'index'])->name('index');

@@ -62,6 +62,8 @@ Route::middleware(['auth', 'verified'])
         Route::prefix('matriz-comercial')->name('matriz-comercial.')->group(function () {
             Route::get('/', [MatrizComercialController::class, 'index'])->name('index');
             Route::put('{nodo}/responsable', [MatrizComercialController::class, 'asignarResponsable'])->name('responsable');
+            Route::post('{nodo}/apoyo', [MatrizComercialController::class, 'agregarApoyo'])->name('apoyo.agregar');
+            Route::delete('{nodo}/apoyo', [MatrizComercialController::class, 'quitarApoyo'])->name('apoyo.quitar');
         });
 
         Route::prefix('usuarios')->name('usuarios.')->group(function () {

@@ -22,6 +22,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $responsable_rh_id
  * @property MotivoVacante $motivo
  * @property EstadoVacante $estado
+ * @property string|null $motivo_cancelacion
  * @property Carbon $fecha_apertura
  * @property Carbon|null $fecha_estimada_cobertura
  * @property string|null $observaciones
@@ -46,6 +47,7 @@ class Vacante extends Model
         'responsable_rh_id',
         'motivo',
         'estado',
+        'motivo_cancelacion',
         'fecha_apertura',
         'fecha_estimada_cobertura',
         'observaciones',

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
@@ -163,5 +164,24 @@ class Candidato extends Model
     public function seguimientos(): HasMany
     {
         return $this->hasMany(SeguimientoCandidato::class)->orderByDesc('fecha');
+    }
+
+    /**
+     * Más reciente si hay varias (p. ej. una alta cancelada y luego otra
+     * generada de nuevo) — ver App\Services\Candidatos\CandidatoTimelineService.
+     *
+     * @return HasOne<AltaDigital, $this>
+     */
+    public function altaDigital(): HasOne
+    {
+        return $this->hasOne(AltaDigital::class)->latestOfMany();
+    }
+
+    /**
+     * @return HasOne<IncorporacionInvitacion, $this>
+     */
+    public function incorporacionInvitacion(): HasOne
+    {
+        return $this->hasOne(IncorporacionInvitacion::class)->latestOfMany();
     }
 }

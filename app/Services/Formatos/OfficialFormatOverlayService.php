@@ -48,6 +48,21 @@ class OfficialFormatOverlayService
         'fecha_fin_permiso' => 'Fecha fin de permiso',
         'motivo_permiso' => 'Motivo del permiso',
         'observaciones' => 'Observaciones',
+        'finiquito_fecha_baja' => 'Finiquito: fecha de baja',
+        'finiquito_antiguedad' => 'Finiquito: antigüedad',
+        'finiquito_sueldo_diario' => 'Finiquito: sueldo diario',
+        'finiquito_sueldo_mensual' => 'Finiquito: sueldo mensual',
+        'finiquito_sueldo_pendiente' => 'Finiquito: sueldo pendiente',
+        'finiquito_vacaciones_pendientes' => 'Finiquito: vacaciones pendientes',
+        'finiquito_prima_vacacional' => 'Finiquito: prima vacacional',
+        'finiquito_aguinaldo_proporcional' => 'Finiquito: aguinaldo proporcional',
+        'finiquito_indemnizacion' => 'Finiquito: indemnización',
+        'finiquito_bonos_extra' => 'Finiquito: bonos extra',
+        'finiquito_descuentos' => 'Finiquito: descuentos',
+        'finiquito_adeudos' => 'Finiquito: adeudos',
+        'finiquito_otros_conceptos' => 'Finiquito: otros conceptos',
+        'finiquito_total_ajustado' => 'Finiquito: total ajustado',
+        'finiquito_fecha_generacion' => 'Finiquito: fecha de generación',
     ];
 
     public function __construct(
@@ -82,6 +97,21 @@ class OfficialFormatOverlayService
             'fecha_fin_permiso' => '05/01/2026',
             'motivo_permiso' => 'Motivo de ejemplo',
             'observaciones' => 'Observación de ejemplo',
+            'finiquito_fecha_baja' => now()->format('d/m/Y'),
+            'finiquito_antiguedad' => '2 año(s), 3 mes(es)',
+            'finiquito_sueldo_diario' => '$500.00',
+            'finiquito_sueldo_mensual' => '$15,000.00',
+            'finiquito_sueldo_pendiente' => '$0.00',
+            'finiquito_vacaciones_pendientes' => '12 días',
+            'finiquito_prima_vacacional' => '$1,500.00',
+            'finiquito_aguinaldo_proporcional' => '$1,850.00',
+            'finiquito_indemnizacion' => '$0.00',
+            'finiquito_bonos_extra' => '$0.00',
+            'finiquito_descuentos' => '$0.00',
+            'finiquito_adeudos' => '$0.00',
+            'finiquito_otros_conceptos' => '$0.00',
+            'finiquito_total_ajustado' => '$3,350.00',
+            'finiquito_fecha_generacion' => now()->format('d/m/Y'),
         ];
     }
 

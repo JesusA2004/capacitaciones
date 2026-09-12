@@ -1,11 +1,23 @@
 <?php
 
 use App\Models\FiniquitoCalculo;
+use App\Models\OfficialFormat;
 use App\Models\SolicitudInterna;
 use App\Models\User;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use setasign\Fpdi\Fpdi;
+
+function crearPdfPruebaFiniquito(): string
+{
+    $pdf = new Fpdi;
+    $pdf->AddPage();
+    $pdf->SetFont('Helvetica', '', 14);
+    $pdf->Cell(0, 10, 'Formato de prueba');
+
+    return (string) $pdf->Output('S');
+}
 
 beforeEach(function () {
     $this->seed(RolesYPermisosSeeder::class);
@@ -159,6 +171,57 @@ test('recalcular conserva los ajustes manuales ya capturados', function () {
 
     expect((float) $finiquito->sueldo_mensual)->toBe(16000.0)
         ->and((float) $finiquito->bonos_extra)->toBe(800.0);
+});
+
+test('recalcular sin sueldo_mensual falla la validacion en vez de guardar un sueldo vacio', function () {
+    $solicitud = crearSolicitudBaja();
+    $this->actingAs($this->rh)->post(route('rh.solicitudes.finiquito.calcular', $solicitud), ['sueldo_mensual' => 15000]);
+
+    $this->actingAs($this->rh)
+        ->post(route('rh.solicitudes.finiquito.recalcular', $solicitud), ['sueldo_mensual' => ''])
+        ->assertSessionHasErrors('sueldo_mensual');
+
+    $finiquito = $solicitud->finiquitoCalculo()->first();
+    expect((float) $finiquito->sueldo_mensual)->toBe(15000.0);
+});
+
+test('sueldo_pendiente se incluye en el total calculado', function () {
+    $solicitud = crearSolicitudBaja();
+
+    $this->actingAs($this->rh)
+        ->post(route('rh.solicitudes.finiquito.calcular', $solicitud), [
+            'sueldo_mensual' => 15000,
+            'sueldo_pendiente' => 1000,
+        ])
+        ->assertSessionHasNoErrors();
+
+    $finiquito = $solicitud->finiquitoCalculo()->first();
+
+    expect((float) $finiquito->sueldo_pendiente)->toBe(1000.0)
+        ->and((float) $finiquito->total_calculado)->toBeGreaterThanOrEqual(1000.0);
+});
+
+test('generarPdf usa el formato oficial de finiquito cuando esta activo y configurado', function () {
+    $solicitud = crearSolicitudBaja();
+    $this->actingAs($this->rh)->post(route('rh.solicitudes.finiquito.calcular', $solicitud), ['sueldo_mensual' => 15000]);
+
+    $ruta = 'formatos-oficiales/originales/'.uniqid('finiquito', true).'.pdf';
+    Storage::disk('nas')->put($ruta, crearPdfPruebaFiniquito());
+
+    OfficialFormat::factory()->configurado()->create([
+        'tipo' => 'finiquito',
+        'source_disk' => 'nas',
+        'source_path' => $ruta,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($this->rh)
+        ->post(route('rh.solicitudes.finiquito.generar-pdf', $solicitud))
+        ->assertSessionHasNoErrors();
+
+    $finiquito = $solicitud->finiquitoCalculo()->first();
+    expect($finiquito->documento_generado_path)->not->toBeNull();
+    Storage::disk('nas')->assertExists($finiquito->documento_generado_path);
 });
 
 test('el finiquito no se calcula dos veces para la misma solicitud', function () {

@@ -14,6 +14,8 @@ export type NodoComercialArbol = {
     responsable: { id: number; nombre: string } | null;
     estado_operativo: 'vencidos' | 'castigo' | null;
     cobertura: CoberturaNodoComercial;
+    apoyos: { id: number; nombre: string }[];
+    volantes: { id: number; nombre: string }[];
     hijos: NodoComercialArbol[];
 };
 

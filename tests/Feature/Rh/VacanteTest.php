@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\EstadoVacante;
+use App\Models\HeadcountTarget;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
@@ -95,6 +97,55 @@ test('un gerente_sucursal solo ve vacantes de su sucursal', function () {
 
     expect($vacantes)->toHaveCount(1)
         ->and($vacantes[0]['sucursal_id'])->toBe($sucursalPropia->id);
+});
+
+test('cancelar una vacante exige motivo de cancelacion', function () {
+    $vacante = Vacante::factory()->create(['estado' => 'abierta']);
+    $usuario = User::factory()->create();
+    $usuario->assignRole('rh_admin');
+
+    $this->actingAs($usuario)
+        ->put(route('rh.vacantes.estado', $vacante), ['estado' => 'cancelada'])
+        ->assertSessionHasErrors('motivo_cancelacion');
+
+    $this->actingAs($usuario)
+        ->put(route('rh.vacantes.estado', $vacante), [
+            'estado' => 'cancelada',
+            'motivo_cancelacion' => 'La ruta se dio de baja.',
+        ])
+        ->assertSessionHasNoErrors();
+
+    expect($vacante->fresh())
+        ->estado->toBe(EstadoVacante::Cancelada)
+        ->motivo_cancelacion->toBe('La ruta se dio de baja.');
+});
+
+test('el listado de vacantes anota plantilla autorizada actual y faltantes reales', function () {
+    $sucursal = Sucursal::factory()->create();
+    $puesto = Puesto::factory()->create();
+
+    HeadcountTarget::factory()->create([
+        'sucursal_id' => $sucursal->id,
+        'puesto_id' => $puesto->id,
+        'plantilla_autorizada' => 5,
+    ]);
+    User::factory()->count(2)->create([
+        'sucursal_principal_id' => $sucursal->id,
+        'puesto_id' => $puesto->id,
+        'estatus' => 'activo',
+    ]);
+
+    Vacante::factory()->create(['sucursal_id' => $sucursal->id, 'puesto_id' => $puesto->id]);
+
+    $usuario = User::factory()->create();
+    $usuario->assignRole('rh_admin');
+
+    $respuesta = $this->actingAs($usuario)->get(route('rh.vacantes.index'));
+    $vacante = $respuesta->viewData('page')['props']['vacantes'][0];
+
+    expect($vacante['plantilla_autorizada'])->toBe(5)
+        ->and($vacante['plantilla_actual'])->toBe(2)
+        ->and($vacante['faltantes_reales'])->toBe(3);
 });
 
 test('rh_auxiliar no puede cerrar una vacante', function () {

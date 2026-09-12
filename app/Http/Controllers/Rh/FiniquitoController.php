@@ -20,7 +20,12 @@ class FiniquitoController extends Controller
     {
         $this->authorize('calcular', [FiniquitoCalculo::class, $solicitud]);
 
-        $this->finiquitos->calcular($solicitud, $request->user(), (float) $request->validated('sueldo_mensual'));
+        $this->finiquitos->calcular(
+            $solicitud,
+            $request->user(),
+            (float) $request->validated('sueldo_mensual'),
+            (float) ($request->validated('sueldo_pendiente') ?? 0),
+        );
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Finiquito calculado.']);
     }
@@ -30,7 +35,12 @@ class FiniquitoController extends Controller
         $finiquito = $this->finiquitoDe($solicitud);
         $this->authorize('editarAjustes', $finiquito);
 
-        $this->finiquitos->recalcular($finiquito, $request->user(), (float) $request->validated('sueldo_mensual'));
+        $this->finiquitos->recalcular(
+            $finiquito,
+            $request->user(),
+            (float) $request->validated('sueldo_mensual'),
+            (float) ($request->validated('sueldo_pendiente') ?? 0),
+        );
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Finiquito recalculado.']);
     }
@@ -60,9 +70,15 @@ class FiniquitoController extends Controller
         $finiquito = $this->finiquitoDe($solicitud);
         $this->authorize('ver', $finiquito);
 
+        $usaFormatoOficial = $this->finiquitos->tieneFormatoOficialConfigurado();
         $this->finiquitos->generarPdf($finiquito);
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'PDF de finiquito generado.']);
+        return back()->with('toast', [
+            'type' => 'success',
+            'message' => $usaFormatoOficial
+                ? 'PDF de finiquito generado con el formato oficial.'
+                : 'PDF de finiquito generado (formato interno provisional; no hay formato oficial de finiquito configurado).',
+        ]);
     }
 
     public function descargarPdf(SolicitudInterna $solicitud): StreamedResponse

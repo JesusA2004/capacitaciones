@@ -15,7 +15,7 @@ Ruta `administracion/matriz-comercial` (mismo gate de permisos que A). Árbol te
 - **MATRIZ**: raíz única.
 - **Región**: Q1, Q2 (todavía sin rutas cargadas — se muestra como "pendiente de configurar", nunca como error), Q3.
 - **Zona**: cada una corresponde 1:1 a una `Sucursal` real cuando existe match (`sucursal_id`) — mismo nombre que usa headcount (ver `docs/HEADCOUNT_Y_VACANTES.md`).
-- **Ruta**: la unidad de cobertura real — puede tener un `responsable_user_id` (el gestor asignado) o quedar "sin cubrir".
+- **Ruta**: la unidad de cobertura real — puede tener un gestor asignado (o quedar "sin cubrir"), además de apoyos/volantes adicionales.
 
 Cargada por `database/seeders/MatrizComercialSeeder.php` (idempotente, `updateOrCreate` por parent+tipo+nombre) con la estructura real que entregó dirección. Reglas de esa carga:
 
@@ -23,15 +23,19 @@ Cargada por `database/seeders/MatrizComercialSeeder.php` (idempotente, `updateOr
 - `(VENCIDOS)`/`(CASTIGO)` → **no** desactivan el nodo, se guardan en `metadata.estado_operativo` y se conservan dentro del nombre (a propósito: existen pares como "HUAMANTLA (VENCIDOS)" y "HUAMANTLA (CASTIGO)" como rutas *distintas* de la misma zona — quitarles el sufijo las haría colisionar en el mismo nombre y una sobrescribiría a la otra).
 - Una zona sin sucursal real que le corresponda (como "AGUASCALIENTES (INACTIVA)", que cuelga directo de MATRIZ sin región propia) se guarda igual, con `sucursal_id = null` — nunca se inventa una sucursal para que "cuadre".
 
-### Cobertura
+### Cobertura y asignaciones (gestor / apoyo / volante)
 
-`App\Services\MatrizComercial\MatrizComercialService::cobertura()` clasifica cada ruta:
+`App\Models\AsignacionNodoComercial` (tabla `user_nodo_comercial`) es la fuente de verdad real de quién cubrió qué ruta y cuándo: cada fila tiene `tipo_asignacion` (`gestor`, `apoyo` o `volante`), `activo`, `fecha_inicio`/`fecha_fin`. Solo puede haber un **gestor** activo por ruta a la vez (asignar uno nuevo cierra automáticamente al anterior, conservando su historial); una ruta puede tener varios apoyos/volantes activos simultáneamente. `nodos_comerciales.responsable_user_id` sigue existiendo como **caché sincronizada** del gestor activo (para no tener que hacer join en cada lectura del árbol), mantenida siempre por `App\Services\MatrizComercial\MatrizComercialService::asignarResponsable()` — nunca se escribe a mano.
+
+`MatrizComercialService::cobertura()` clasifica cada ruta:
 
 - `inactiva` — la ruta no opera.
-- `cubierta` — tiene `responsable_user_id` y ese colaborador está `activo`.
+- `cubierta` — tiene un gestor activo y ese colaborador está `activo`.
 - `sin_cubrir` — está activa pero sin gestor asignado (o el asignado ya no está activo).
 
 Este estado es **independiente** de vacantes/headcount: una ruta puede estar "sin cubrir" en la matriz aunque headcount no muestre vacante alguna en esa zona (porque headcount es agregado por zona, no por ruta), y viceversa. Asignar/quitar gestor (`PUT administracion/matriz-comercial/{nodo}/responsable`) no toca headcount ni genera/cierra vacantes — son sistemas de registro distintos que comparten el mismo dato de "colaboradores activos" como fuente, no una tabla en común.
+
+Cuando un colaborador se da de baja (`App\Services\MovimientosLaborales\MovimientoLaboralService::registrarBaja()`), `MatrizComercialService::cerrarAsignacionesDe()` cierra automáticamente todas sus asignaciones activas (gestor/apoyo/volante) y limpia el caché `responsable_user_id` de cualquier ruta que gestionara — nunca queda una ruta "cubierta" por alguien ya inactivo.
 
 ## Organigrama corporativo (holding)
 

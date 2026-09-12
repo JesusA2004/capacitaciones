@@ -15,6 +15,8 @@ return new class extends Migration
             $table->foreignId('opcion_pregunta_id')->nullable()->constrained('opciones_pregunta')->nullOnDelete();
             $table->json('opciones_seleccionadas')->nullable();
             $table->text('respuesta_texto')->nullable();
+            $table->unsignedTinyInteger('valor_numerico')->nullable();
+            $table->foreignId('recurso_multimedia_id')->nullable()->constrained('recursos_multimedia')->nullOnDelete();
             $table->boolean('es_correcta')->nullable();
             $table->unsignedInteger('puntos_obtenidos')->nullable();
             $table->timestamps();

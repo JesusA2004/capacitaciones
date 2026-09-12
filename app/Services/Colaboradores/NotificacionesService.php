@@ -15,7 +15,69 @@ use Illuminate\Support\Collection;
 class NotificacionesService
 {
     /**
-     * @return array{no_leidas: int, recientes: Collection<int, array{id: mixed, tipo: mixed, titulo: mixed, mensaje: mixed, url: mixed, leida: bool, creada_en: mixed, creada_en_iso: mixed}>}
+     * Emoji + color por `tipo` de notificación (mismo catálogo para web y
+     * API móvil, ver docs/API_MOVIL.md): un vistazo visual rápido de qué
+     * tipo de aviso es sin tener que leer el título completo. `color` es
+     * una paleta cerrada (success/info/warning/danger/neutral) para que
+     * cada cliente (web Tailwind, app móvil) la traduzca a sus propios
+     * tokens sin depender de un valor hexadecimal fijo aquí.
+     *
+     * @var array<string, array{emoji: string, color: string}>
+     */
+    public const ESTILOS = [
+        'incorporacion' => ['emoji' => '🎉', 'color' => 'success'],
+        'rh_incorporacion' => ['emoji' => '📋', 'color' => 'info'],
+        'documento' => ['emoji' => '📄', 'color' => 'warning'],
+        'rh_documento' => ['emoji' => '📄', 'color' => 'warning'],
+        'vacaciones' => ['emoji' => '🏖️', 'color' => 'info'],
+        'rh_vacaciones' => ['emoji' => '🏖️', 'color' => 'info'],
+        'solicitud' => ['emoji' => '📝', 'color' => 'info'],
+        'rh_solicitud' => ['emoji' => '📝', 'color' => 'info'],
+        'baja' => ['emoji' => '⚠️', 'color' => 'danger'],
+        'cumpleanos' => ['emoji' => '🎂', 'color' => 'celebracion'],
+        'rh_cumpleanos' => ['emoji' => '🎂', 'color' => 'celebracion'],
+        'sesion_programada' => ['emoji' => '📅', 'color' => 'info'],
+        'sesion_proxima' => ['emoji' => '⏰', 'color' => 'warning'],
+        'fecha_limite_proxima' => ['emoji' => '⏰', 'color' => 'warning'],
+        'asignacion_creada' => ['emoji' => '📚', 'color' => 'info'],
+        'cuestionario_calificado' => ['emoji' => '✅', 'color' => 'success'],
+        'calificaciones_pendientes' => ['emoji' => '📝', 'color' => 'warning'],
+        'actividad_calificada' => ['emoji' => '✅', 'color' => 'success'],
+    ];
+
+    public const ESTILO_DEFAULT = ['emoji' => '🔔', 'color' => 'neutral'];
+
+    /**
+     * Emoji para un `tipo`/`type` de notificación — usado también por
+     * App\Services\MobilePush\PushNotifier para anteponerlo al título del
+     * push nativo, mismo catálogo que la campana web y la API móvil.
+     */
+    public static function emojiPara(?string $tipo): string
+    {
+        return self::ESTILOS[(string) $tipo]['emoji'] ?? self::ESTILO_DEFAULT['emoji'];
+    }
+
+    /**
+     * Color hexadecimal de referencia para un `tipo`/`type` — para clientes
+     * (app móvil) que quieran pintar un acento sin tener que traducir el
+     * nombre de color cerrado (success/info/...) ellos mismos.
+     */
+    public static function colorHexPara(?string $tipo): string
+    {
+        $color = self::ESTILOS[(string) $tipo]['color'] ?? self::ESTILO_DEFAULT['color'];
+
+        return match ($color) {
+            'success' => '#22c55e',
+            'info' => '#0ea5e9',
+            'warning' => '#f59e0b',
+            'danger' => '#ef4444',
+            'celebracion' => '#ec4899',
+            default => '#6b7280',
+        };
+    }
+
+    /**
+     * @return array{no_leidas: int, recientes: Collection<int, array{id: mixed, tipo: mixed, emoji: string, color: string, titulo: mixed, mensaje: mixed, url: mixed, leida: bool, creada_en: mixed, creada_en_iso: mixed}>}
      */
     public function resumen(User $usuario, int $limite = 10): array
     {
@@ -26,7 +88,7 @@ class NotificacionesService
     }
 
     /**
-     * @return Collection<int, array{id: mixed, tipo: mixed, titulo: mixed, mensaje: mixed, url: mixed, leida: bool, creada_en: mixed, creada_en_iso: mixed}>
+     * @return Collection<int, array{id: mixed, tipo: mixed, emoji: string, color: string, titulo: mixed, mensaje: mixed, url: mixed, leida: bool, creada_en: mixed, creada_en_iso: mixed}>
      */
     public function listar(User $usuario, int $limite = 30): Collection
     {
@@ -35,7 +97,7 @@ class NotificacionesService
 
     /**
      * @param  DatabaseNotificationCollection<int, DatabaseNotification>  $notificaciones
-     * @return Collection<int, array{id: mixed, tipo: mixed, titulo: mixed, mensaje: mixed, url: mixed, leida: bool, creada_en: mixed, creada_en_iso: mixed}>
+     * @return Collection<int, array{id: mixed, tipo: mixed, emoji: string, color: string, titulo: mixed, mensaje: mixed, url: mixed, leida: bool, creada_en: mixed, creada_en_iso: mixed}>
      */
     private function transformar($notificaciones): Collection
     {
@@ -43,13 +105,18 @@ class NotificacionesService
     }
 
     /**
-     * @return array{id: mixed, tipo: mixed, titulo: mixed, mensaje: mixed, url: mixed, leida: bool, creada_en: mixed, creada_en_iso: mixed}
+     * @return array{id: mixed, tipo: mixed, emoji: string, color: string, titulo: mixed, mensaje: mixed, url: mixed, leida: bool, creada_en: mixed, creada_en_iso: mixed}
      */
     private function aArray(DatabaseNotification $notificacion): array
     {
+        $tipo = $notificacion->data['tipo'] ?? null;
+        $estilo = self::ESTILOS[(string) $tipo] ?? self::ESTILO_DEFAULT;
+
         return [
             'id' => $notificacion->id,
-            'tipo' => $notificacion->data['tipo'] ?? null,
+            'tipo' => $tipo,
+            'emoji' => $estilo['emoji'],
+            'color' => $estilo['color'],
             'titulo' => $notificacion->data['titulo'] ?? '',
             'mensaje' => $notificacion->data['mensaje'] ?? '',
             'url' => $notificacion->data['url'] ?? null,

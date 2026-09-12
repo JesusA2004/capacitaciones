@@ -35,14 +35,12 @@ defineOptions({
             />
             <MetricCard
                 titulo="Vacaciones disponibles"
-                valor="—"
-                subvalor="Próximamente"
+                :valor="misVacaciones.dias_disponibles"
                 :icono="CalendarDays"
             />
             <MetricCard
-                titulo="Mis solicitudes"
-                valor="—"
-                subvalor="Próximamente"
+                titulo="Mis solicitudes pendientes"
+                :valor="misSolicitudes.pendientes"
                 :icono="ClipboardList"
             />
         </div>

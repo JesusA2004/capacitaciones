@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
-import { CheckCircle2, ChevronDown, MapPin, XCircle } from '@lucide/vue';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { CheckCircle2, ChevronDown, MapPin, Users2, X, XCircle } from '@lucide/vue';
 import { ref } from 'vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
     Collapsible,
     CollapsibleContent,
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { NativeSelect } from '@/components/ui/native-select';
 import {
     Select,
     SelectContent,
@@ -19,7 +21,13 @@ import {
 import { useAlertas } from '@/composables/useAlertas';
 import { dashboard } from '@/routes';
 import { index as indexJerarquiaPuestos } from '@/routes/administracion/jerarquia-puestos';
-import { index, responsable as actualizarResponsable } from '@/routes/administracion/matriz-comercial';
+import {
+    index,
+    responsable as actualizarResponsable,
+} from '@/routes/administracion/matriz-comercial';
+import apoyo from '@/routes/administracion/matriz-comercial/apoyo';
+import { index as indexExpedientes } from '@/routes/rh/expedientes';
+import { index as indexVacantes } from '@/routes/rh/vacantes';
 import type {
     GestorDisponible,
     NodoComercialArbol,
@@ -86,6 +94,43 @@ function asignarGestor(nodo: NodoComercialArbol, valor: string) {
             onSuccess: () => mostrarExito('Gestor actualizado.'),
         },
     );
+}
+
+const seleccionApoyo = ref<Record<number, string>>({});
+
+function agregarApoyoOVolante(
+    nodo: NodoComercialArbol,
+    tipo: 'apoyo' | 'volante',
+) {
+    const userId = seleccionApoyo.value[nodo.id];
+
+    if (!userId) {
+        return;
+    }
+
+    router.post(
+        apoyo.agregar.url(nodo.id),
+        { user_id: userId, tipo },
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                mostrarExito('Colaborador agregado a la ruta.');
+                seleccionApoyo.value[nodo.id] = '';
+            },
+        },
+    );
+}
+
+function quitarApoyoOVolante(
+    nodo: NodoComercialArbol,
+    userId: number,
+    tipo: 'apoyo' | 'volante',
+) {
+    router.delete(apoyo.quitar.url(nodo.id), {
+        data: { user_id: userId, tipo },
+        preserveScroll: true,
+        onSuccess: () => mostrarExito('Colaborador quitado de la ruta.'),
+    });
 }
 </script>
 
@@ -254,6 +299,100 @@ function asignarGestor(nodo: NodoComercialArbol, valor: string) {
                                         </SelectItem>
                                     </SelectContent>
                                 </Select>
+
+                                <div
+                                    v-if="ruta.apoyos.length || ruta.volantes.length"
+                                    class="flex flex-wrap gap-1"
+                                >
+                                    <Badge
+                                        v-for="apoyoItem in ruta.apoyos"
+                                        :key="`apoyo-${apoyoItem.id}`"
+                                        variant="outline"
+                                        class="gap-1 pr-1"
+                                    >
+                                        Apoyo: {{ apoyoItem.nombre }}
+                                        <button
+                                            type="button"
+                                            class="text-muted-foreground hover:text-destructive"
+                                            @click="
+                                                quitarApoyoOVolante(
+                                                    ruta,
+                                                    apoyoItem.id,
+                                                    'apoyo',
+                                                )
+                                            "
+                                        >
+                                            <X class="size-3" />
+                                        </button>
+                                    </Badge>
+                                    <Badge
+                                        v-for="volanteItem in ruta.volantes"
+                                        :key="`volante-${volanteItem.id}`"
+                                        variant="outline"
+                                        class="gap-1 pr-1"
+                                    >
+                                        Volante: {{ volanteItem.nombre }}
+                                        <button
+                                            type="button"
+                                            class="text-muted-foreground hover:text-destructive"
+                                            @click="
+                                                quitarApoyoOVolante(
+                                                    ruta,
+                                                    volanteItem.id,
+                                                    'volante',
+                                                )
+                                            "
+                                        >
+                                            <X class="size-3" />
+                                        </button>
+                                    </Badge>
+                                </div>
+
+                                <div
+                                    v-if="ruta.activa"
+                                    class="flex items-center gap-1"
+                                >
+                                    <NativeSelect
+                                        v-model="seleccionApoyo[ruta.id]"
+                                        class="h-8 flex-1 text-xs"
+                                    >
+                                        <option value="">
+                                            Agregar apoyo/volante...
+                                        </option>
+                                        <option
+                                            v-for="gestor in gestoresDisponibles"
+                                            :key="gestor.id"
+                                            :value="String(gestor.id)"
+                                        >
+                                            {{ gestor.name }}
+                                            {{ gestor.apellidos ?? '' }}
+                                        </option>
+                                    </NativeSelect>
+                                    <Button
+                                        size="icon"
+                                        variant="outline"
+                                        class="size-8 shrink-0"
+                                        title="Agregar como apoyo"
+                                        @click="agregarApoyoOVolante(ruta, 'apoyo')"
+                                    >
+                                        <Users2 class="size-3.5" />
+                                    </Button>
+                                </div>
+
+                                <div class="flex gap-2 text-xs">
+                                    <Link
+                                        v-if="ruta.sucursal"
+                                        class="text-muted-foreground underline-offset-2 hover:underline"
+                                        :href="`${indexExpedientes.url()}?sucursal_id=${ruta.sucursal.id}`"
+                                        >Ver colaboradores</Link
+                                    >
+                                    <Link
+                                        v-if="ruta.sucursal"
+                                        class="text-muted-foreground underline-offset-2 hover:underline"
+                                        :href="`${indexVacantes.url()}?sucursal_id=${ruta.sucursal.id}`"
+                                        >Ver vacantes</Link
+                                    >
+                                </div>
                             </div>
                         </CollapsibleContent>
                     </Collapsible>

@@ -15,6 +15,12 @@ return new class extends Migration
             $table->string('tipo');
             $table->unsignedInteger('puntos')->default(1);
             $table->text('explicacion')->nullable();
+            $table->unsignedTinyInteger('escala_min')->nullable();
+            $table->unsignedTinyInteger('escala_max')->nullable();
+            $table->string('escala_etiqueta_min')->nullable();
+            $table->string('escala_etiqueta_max')->nullable();
+            $table->json('extensiones_permitidas')->nullable();
+            $table->unsignedInteger('tamano_maximo_mb')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

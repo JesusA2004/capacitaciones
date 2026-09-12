@@ -5,6 +5,7 @@ import { ref } from 'vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CandidatoFormDialog from '@/components/Rh/CandidatoFormDialog.vue';
+import CandidatoTimeline from '@/components/Rh/CandidatoTimeline.vue';
 import { Button } from '@/components/ui/button';
 import {
     Select,
@@ -20,11 +21,16 @@ import { store as generarAlta } from '@/routes/rh/altas';
 import { cv, estado as estadoUrl, index } from '@/routes/rh/candidatos';
 import { descargar as descargarCv } from '@/routes/rh/candidatos/cv';
 import seguimientos from '@/routes/rh/candidatos/seguimientos';
-import type { CandidatoDetalle, OpcionesReclutamiento } from '@/types';
+import type {
+    CandidatoDetalle,
+    CandidatoTimelineEtapa,
+    OpcionesReclutamiento,
+} from '@/types';
 
 const props = defineProps<{
     candidato: CandidatoDetalle;
     opciones: OpcionesReclutamiento;
+    timeline: CandidatoTimelineEtapa[];
 }>();
 
 // `layout` recibe una función en vez de un objeto estático porque
@@ -218,6 +224,13 @@ function generarAltaDigital() {
             </div>
 
             <div class="flex flex-col gap-4">
+                <div class="rounded-2xl border border-border/60 bg-card p-4">
+                    <h2 class="mb-3 text-sm font-semibold">
+                        Línea de tiempo
+                    </h2>
+                    <CandidatoTimeline :etapas="timeline" :candidato="candidato" />
+                </div>
+
                 <div class="rounded-2xl border border-border/60 bg-card p-4">
                     <h2 class="mb-3 text-sm font-semibold">Estado actual</h2>
                     <EstadoBadge :estado="candidato.estado" />

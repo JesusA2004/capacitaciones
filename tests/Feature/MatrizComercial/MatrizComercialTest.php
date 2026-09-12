@@ -1,7 +1,10 @@
 <?php
 
+use App\Models\AsignacionNodoComercial;
 use App\Models\NodoComercial;
 use App\Models\User;
+use App\Services\MatrizComercial\MatrizComercialService;
+use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use Database\Seeders\MatrizComercialSeeder;
 use Database\Seeders\RolesYPermisosSeeder;
 use Database\Seeders\SucursalSeeder;
@@ -84,4 +87,66 @@ test('rh_admin puede asignar un gestor a una ruta activa', function () {
         ->assertSessionHasNoErrors();
 
     expect($ruta->fresh()->responsable_user_id)->toBe($gestor->id);
+});
+
+test('asignar un gestor nuevo cierra la asignacion activa anterior y crea historial', function () {
+    $rh = User::factory()->create();
+    $rh->assignRole('rh_admin');
+
+    $gestorAnterior = User::factory()->create(['estatus' => 'activo']);
+    $gestorNuevo = User::factory()->create(['estatus' => 'activo']);
+    $ruta = NodoComercial::where('tipo', 'ruta')->where('activa', true)->first();
+
+    app(MatrizComercialService::class)->asignarResponsable($ruta, $gestorAnterior);
+
+    $this->actingAs($rh)
+        ->put(route('administracion.matriz-comercial.responsable', $ruta), [
+            'responsable_user_id' => $gestorNuevo->id,
+        ])
+        ->assertSessionHasNoErrors();
+
+    expect($ruta->fresh()->responsable_user_id)->toBe($gestorNuevo->id)
+        ->and(AsignacionNodoComercial::where('nodo_comercial_id', $ruta->id)->count())->toBe(2)
+        ->and(AsignacionNodoComercial::where('user_id', $gestorAnterior->id)->first()->activo)->toBeFalse()
+        ->and(AsignacionNodoComercial::where('user_id', $gestorNuevo->id)->first()->activo)->toBeTrue();
+});
+
+test('rh_admin puede agregar y quitar un apoyo de una ruta', function () {
+    $rh = User::factory()->create();
+    $rh->assignRole('rh_admin');
+
+    $apoyo = User::factory()->create(['estatus' => 'activo']);
+    $ruta = NodoComercial::where('tipo', 'ruta')->where('activa', true)->first();
+
+    $this->actingAs($rh)
+        ->post(route('administracion.matriz-comercial.apoyo.agregar', $ruta), [
+            'user_id' => $apoyo->id,
+            'tipo' => 'apoyo',
+        ])
+        ->assertSessionHasNoErrors();
+
+    expect(AsignacionNodoComercial::where('nodo_comercial_id', $ruta->id)->where('activo', true)->count())->toBe(1);
+
+    $this->actingAs($rh)
+        ->delete(route('administracion.matriz-comercial.apoyo.quitar', $ruta), [
+            'user_id' => $apoyo->id,
+            'tipo' => 'apoyo',
+        ])
+        ->assertSessionHasNoErrors();
+
+    expect(AsignacionNodoComercial::where('nodo_comercial_id', $ruta->id)->where('activo', true)->count())->toBe(0);
+});
+
+test('dar de baja a un gestor cierra sus asignaciones activas en la matriz', function () {
+    $gestor = User::factory()->create(['estatus' => 'activo', 'sucursal_principal_id' => null, 'puesto_id' => null]);
+    $ruta = NodoComercial::where('tipo', 'ruta')->where('activa', true)->first();
+
+    app(MatrizComercialService::class)->asignarResponsable($ruta, $gestor);
+    expect($ruta->fresh()->responsable_user_id)->toBe($gestor->id);
+
+    $actor = User::factory()->create();
+    app(MovimientoLaboralService::class)->registrarBaja($gestor, $actor);
+
+    expect($ruta->fresh()->responsable_user_id)->toBeNull()
+        ->and(AsignacionNodoComercial::where('user_id', $gestor->id)->where('activo', true)->count())->toBe(0);
 });

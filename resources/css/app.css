@@ -187,6 +187,49 @@
     --sidebar: hsl(240 5.9% 10%);
 }
 
+/* Personalización visual (Settings/Personalizacion.vue): un colaborador
+   puede cambiar --brand-primary/--brand-secondary sin tocar la identidad
+   de marca real del archivo (verde MR. LANA sigue siendo el valor por
+   defecto sin atributo). Se propaga solo porque --primary/--ring/--chart-*/
+   --sidebar-primary ya se definen en función de estas dos variables. */
+:root[data-tema-color='azul'] {
+    --brand-primary: #3b82f6;
+    --brand-secondary: #06b6d4;
+}
+
+:root[data-tema-color='morado'] {
+    --brand-primary: #8b5cf6;
+    --brand-secondary: #d946ef;
+}
+
+:root[data-tema-color='naranja'] {
+    --brand-primary: #f97316;
+    --brand-secondary: #f59e0b;
+}
+
+:root[data-tema-color='rosa'] {
+    --brand-primary: #ec4899;
+    --brand-secondary: #f472b6;
+}
+
+:root[data-tema-color='gris'] {
+    --brand-primary: #64748b;
+    --brand-secondary: #475569;
+}
+
+/* Preferencia "sin animaciones" (Settings/Personalizacion.vue): igual que
+   prefers-reduced-motion, pero como elección explícita del usuario en vez
+   de una media query del sistema operativo. */
+.sin-animaciones,
+.sin-animaciones *,
+.sin-animaciones *::before,
+.sin-animaciones *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+}
+
 @layer base {
     * {
         @apply border-border outline-ring/50;

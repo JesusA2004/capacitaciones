@@ -163,6 +163,14 @@ GET /api/v1/rh/colaboradores/{colaborador}                                      
 
 Datos básicos + contadores (`solicitudes_pendientes`, `vacaciones_pendientes`, `documentos_pendientes`) — nunca el expediente completo (para eso, `rh/expedientes/{colaborador}`).
 
+## Vacantes (solo lectura)
+
+```
+GET /api/v1/rh/vacantes?estado=&sucursal_id=&page=&per_page=      vacantes.ver
+```
+
+Mismo alcance organizacional y mismo permiso que el panel web (`App\Http\Controllers\Rh\VacanteController`) — gestionar una vacante (crear/editar/cubrir/cancelar) se queda solo en web por ahora. Regresa puesto/departamento/sucursal, motivo/estado, `plazas_requeridas`/`plazas_cubiertas`/`plazas_disponibles` y si es automática, más `candidatos_count`.
+
 ## Cumpleaños
 
 ```
@@ -180,7 +188,7 @@ Ver `database/seeders/RolesYPermisosSeeder.php`, bloque "Backend movil v5". Asig
 
 ## Tests
 
-`tests/Feature/Api/Rh/RhDashboardApiTest.php`, `RhPendientesApiTest.php`, `RhSolicitudApiTest.php`, `RhVacacionApiTest.php`, `RhDocumentoApiTest.php`, `RhIncorporacionApiTest.php`, `RhColaboradorApiTest.php`.
+`tests/Feature/Api/Rh/RhDashboardApiTest.php`, `RhPendientesApiTest.php`, `RhSolicitudApiTest.php`, `RhVacacionApiTest.php`, `RhDocumentoApiTest.php`, `RhIncorporacionApiTest.php`, `RhColaboradorApiTest.php`, `RhVacanteApiTest.php`.
 
 ## Pendiente (fuera de alcance de esta primera versión)
 

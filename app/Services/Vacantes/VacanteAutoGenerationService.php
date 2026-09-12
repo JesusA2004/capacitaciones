@@ -6,6 +6,7 @@ use App\Enums\EstadoCandidato;
 use App\Enums\EstadoVacante;
 use App\Enums\MotivoVacante;
 use App\Models\HeadcountTarget;
+use App\Models\Sucursal;
 use App\Models\Vacante;
 use App\Services\Headcount\HeadcountService;
 use Illuminate\Support\Facades\DB;
@@ -47,7 +48,9 @@ class VacanteAutoGenerationService
                 ->whereIn('estado', [EstadoVacante::Abierta->value, EstadoVacante::EnReclutamiento->value, EstadoVacante::ConCandidatos->value, EstadoVacante::EnRevision->value])
                 ->first();
 
-            if ($faltantes > 0 && $vacanteAutomatica === null) {
+            $sucursalActiva = Sucursal::query()->where('id', $sucursalId)->where('activo', true)->exists();
+
+            if ($faltantes > 0 && $vacanteAutomatica === null && $sucursalActiva) {
                 $target = HeadcountTarget::query()
                     ->where('sucursal_id', $sucursalId)
                     ->where('puesto_id', $puestoId)
@@ -84,6 +87,7 @@ class VacanteAutoGenerationService
             if ($faltantes === 0) {
                 $vacanteAutomatica->update([
                     'estado' => EstadoVacante::Cancelada->value,
+                    'motivo_cancelacion' => 'Cerrada automáticamente: la plantilla actual ya alcanzó a la autorizada.',
                     'plazas_requeridas' => 0,
                     'plazas_cubiertas' => $cubiertas,
                     'plazas_disponibles' => 0,

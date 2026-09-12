@@ -15,6 +15,7 @@ return new class extends Migration
             $table->string('tipo');
             $table->longText('contenido')->nullable();
             $table->string('url')->nullable();
+            $table->foreignId('recurso_multimedia_id')->nullable()->constrained('recursos_multimedia')->nullOnDelete();
             $table->boolean('obligatoria')->default(true);
             $table->unsignedInteger('orden')->default(0);
             $table->unsignedInteger('duracion_estimada_minutos')->nullable();

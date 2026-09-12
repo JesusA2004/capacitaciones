@@ -13,14 +13,17 @@ use App\Http\Requests\Rh\StoreVacanteRequest;
 use App\Http\Requests\Rh\UpdateVacanteRequest;
 use App\Models\Departamento;
 use App\Models\Empresa;
+use App\Models\HeadcountTarget;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Models\Vacante;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Headcount\HeadcountService;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -37,6 +40,7 @@ class VacanteController extends Controller
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly MovimientoLaboralService $movimientos,
+        private readonly HeadcountService $headcount,
     ) {}
 
     public function index(Request $request): Response
@@ -44,6 +48,7 @@ class VacanteController extends Controller
         $this->authorize('viewAny', Vacante::class);
 
         $vacantes = $this->queryFiltrada($request)->orderByDesc('fecha_apertura')->get();
+        $this->anotarPlantilla($vacantes);
 
         return Inertia::render('Rh/Vacantes/Index', [
             'vacantes' => $vacantes,
@@ -115,6 +120,40 @@ class VacanteController extends Controller
                 ->count(),
             'canceladas' => $vacantes->where('estado', EstadoVacante::Cancelada)->count(),
         ];
+    }
+
+    /**
+     * Anota plantilla_autorizada/plantilla_actual/faltantes_reales en cada
+     * vacante (docs/HEADCOUNT_Y_VACANTES.md): "plantilla actual" siempre se
+     * calcula en vivo vía HeadcountService, nunca se importa a esta vista.
+     *
+     * @param  Collection<int, Vacante>  $vacantes
+     */
+    private function anotarPlantilla(Collection $vacantes): void
+    {
+        $autorizadaPorPar = HeadcountTarget::query()
+            ->get(['sucursal_id', 'puesto_id', 'plantilla_autorizada'])
+            ->mapWithKeys(fn (HeadcountTarget $t) => [sprintf('%d:%d', $t->sucursal_id, $t->puesto_id) => $t->plantilla_autorizada]);
+
+        $actualPorPar = $this->headcount->plantillaActualPorSucursalPuesto();
+
+        foreach ($vacantes as $vacante) {
+            if ($vacante->sucursal_id === null || $vacante->puesto_id === null) {
+                $vacante->setAttribute('plantilla_autorizada', null);
+                $vacante->setAttribute('plantilla_actual', null);
+                $vacante->setAttribute('faltantes_reales', null);
+
+                continue;
+            }
+
+            $clave = sprintf('%d:%d', $vacante->sucursal_id, $vacante->puesto_id);
+            $autorizada = $autorizadaPorPar[$clave] ?? null;
+            $actual = (int) ($actualPorPar[$clave] ?? 0);
+
+            $vacante->setAttribute('plantilla_autorizada', $autorizada !== null ? (int) $autorizada : null);
+            $vacante->setAttribute('plantilla_actual', $actual);
+            $vacante->setAttribute('faltantes_reales', $autorizada !== null ? max((int) $autorizada - $actual, 0) : null);
+        }
     }
 
     /**
@@ -204,7 +243,12 @@ class VacanteController extends Controller
 
     public function actualizarEstado(ActualizarEstadoVacanteRequest $request, Vacante $vacante): RedirectResponse
     {
-        $vacante->update(['estado' => $request->validated('estado')]);
+        $vacante->update([
+            'estado' => $request->validated('estado'),
+            'motivo_cancelacion' => $request->validated('estado') === EstadoVacante::Cancelada->value
+                ? $request->validated('motivo_cancelacion')
+                : $vacante->motivo_cancelacion,
+        ]);
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Estado de la vacante actualizado.']);
     }

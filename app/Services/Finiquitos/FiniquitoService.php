@@ -4,9 +4,13 @@ namespace App\Services\Finiquitos;
 
 use App\Enums\EstadoFiniquito;
 use App\Enums\TipoBaja;
+use App\Enums\TipoFormatoOficial;
 use App\Models\FiniquitoCalculo;
+use App\Models\OfficialFormat;
 use App\Models\SolicitudInterna;
 use App\Models\User;
+use App\Services\Formatos\OfficialFormatOverlayService;
+use App\Services\Plantillas\PlaceholderResolver;
 use App\Services\Solicitudes\SolicitudDocumentoStorageService;
 use App\Services\Vacaciones\VacacionesService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -29,13 +33,15 @@ class FiniquitoService
     public function __construct(
         private readonly VacacionesService $vacaciones,
         private readonly SolicitudDocumentoStorageService $storage,
+        private readonly OfficialFormatOverlayService $overlay,
+        private readonly PlaceholderResolver $resolver,
     ) {}
 
     /**
      * Primer cálculo de un finiquito para esta solicitud de baja. Lanza si
      * ya existe uno (usar recalcular() para actualizar montos existentes).
      */
-    public function calcular(SolicitudInterna $solicitud, User $actor, float $sueldoMensual): FiniquitoCalculo
+    public function calcular(SolicitudInterna $solicitud, User $actor, float $sueldoMensual, float $sueldoPendiente = 0): FiniquitoCalculo
     {
         if (FiniquitoCalculo::query()->where('solicitud_interna_id', $solicitud->id)->exists()) {
             throw new RuntimeException('Ya existe un cálculo de finiquito para esta baja; usa recalcular().');
@@ -46,7 +52,7 @@ class FiniquitoService
         abort_unless($colaborador !== null, 422, 'Esta solicitud no tiene un colaborador objetivo.');
         abort_unless($colaborador->fecha_ingreso !== null, 422, 'El colaborador no tiene fecha de ingreso registrada.');
 
-        $automaticos = $this->calcularAutomaticos($solicitud, $colaborador, $sueldoMensual);
+        $automaticos = $this->calcularAutomaticos($solicitud, $colaborador, $sueldoMensual, $sueldoPendiente);
 
         return DB::transaction(function () use ($solicitud, $colaborador, $actor, $automaticos): FiniquitoCalculo {
             $finiquito = FiniquitoCalculo::create([
@@ -75,7 +81,7 @@ class FiniquitoService
      * recalcular no debe borrar trabajo de RH. Regresa el finiquito a
      * "borrador" porque los montos cambiaron y necesita revisarse de nuevo.
      */
-    public function recalcular(FiniquitoCalculo $finiquito, User $actor, float $sueldoMensual): FiniquitoCalculo
+    public function recalcular(FiniquitoCalculo $finiquito, User $actor, float $sueldoMensual, float $sueldoPendiente = 0): FiniquitoCalculo
     {
         $finiquito->loadMissing('solicitudInterna.colaboradorObjetivo');
         $solicitud = $finiquito->solicitudInterna;
@@ -83,7 +89,7 @@ class FiniquitoService
         abort_unless($colaborador !== null, 422, 'Esta solicitud no tiene un colaborador objetivo.');
         abort_unless($colaborador->fecha_ingreso !== null, 422, 'El colaborador no tiene fecha de ingreso registrada.');
 
-        $automaticos = $this->calcularAutomaticos($solicitud, $colaborador, $sueldoMensual);
+        $automaticos = $this->calcularAutomaticos($solicitud, $colaborador, $sueldoMensual, $sueldoPendiente);
 
         return DB::transaction(function () use ($finiquito, $solicitud, $actor, $automaticos): FiniquitoCalculo {
             $totalAjustado = $automaticos['total_calculado']
@@ -184,21 +190,30 @@ class FiniquitoService
     }
 
     /**
-     * Genera y persiste el PDF del finiquito (fallback simple mientras no
-     * exista un overlay de formato oficial configurado — ver sección 8 del
-     * encargo, "Formatos oficiales": conectar el overlay queda pendiente).
-     * Congela un snapshot de los datos usados en este documento.
+     * Genera y persiste el PDF del finiquito: usa el overlay sobre el
+     * formato oficial de finiquito si hay uno activo y configurado (ver
+     * docs/FORMATOS_OFICIALES.md), o el formato interno DomPDF como
+     * respaldo cuando no lo hay. Congela un snapshot de los datos usados.
      */
     public function generarPdf(FiniquitoCalculo $finiquito): FiniquitoCalculo
     {
         $finiquito->loadMissing(['colaborador', 'calculadoPor', 'revisadoPor', 'solicitudInterna']);
 
-        $pdf = Pdf::loadView('pdf.finiquito', ['finiquito' => $finiquito])->setPaper('letter', 'portrait');
+        $formatoOficial = OfficialFormat::query()
+            ->where('tipo', TipoFormatoOficial::Finiquito->value)
+            ->where('is_active', true)
+            ->first();
+
+        $usaFormatoOficial = $formatoOficial !== null && $formatoOficial->tieneConfiguracion();
+
+        $contenido = $usaFormatoOficial
+            ? $this->overlay->generar($formatoOficial, $this->resolver->resolver($finiquito->colaborador, $this->datosOverlay($finiquito)))
+            : Pdf::loadView('pdf.finiquito', ['finiquito' => $finiquito])->setPaper('letter', 'portrait')->output();
 
         $nombreInterno = 'generado-'.now()->timestamp.'.pdf';
         $ruta = "solicitudes/{$finiquito->solicitud_interna_id}/finiquito/{$nombreInterno}";
 
-        $this->storage->disco()->put($ruta, $pdf->output());
+        $this->storage->disco()->put($ruta, $contenido);
 
         $finiquito->update([
             'documento_generado_path' => $ruta,
@@ -214,6 +229,48 @@ class FiniquitoService
         return $finiquito->refresh();
     }
 
+    /**
+     * true si el próximo generarPdf() usará el formato oficial de finiquito
+     * en vez del respaldo DomPDF — para que la UI avise cuál va a usar.
+     */
+    public function tieneFormatoOficialConfigurado(): bool
+    {
+        return OfficialFormat::query()
+            ->where('tipo', TipoFormatoOficial::Finiquito->value)
+            ->where('is_active', true)
+            ->get()
+            ->contains(fn (OfficialFormat $formato) => $formato->tieneConfiguracion());
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function datosOverlay(FiniquitoCalculo $finiquito): array
+    {
+        return [
+            'finiquito_fecha_baja' => $finiquito->fecha_baja->format('d/m/Y'),
+            'finiquito_antiguedad' => "{$finiquito->antiguedad_anios} año(s), {$finiquito->antiguedad_meses} mes(es)",
+            'finiquito_sueldo_diario' => $this->moneda($finiquito->sueldo_diario),
+            'finiquito_sueldo_mensual' => $this->moneda($finiquito->sueldo_mensual),
+            'finiquito_sueldo_pendiente' => $this->moneda($finiquito->sueldo_pendiente),
+            'finiquito_vacaciones_pendientes' => "{$finiquito->vacaciones_pendientes} días",
+            'finiquito_prima_vacacional' => $this->moneda($finiquito->prima_vacacional),
+            'finiquito_aguinaldo_proporcional' => $this->moneda($finiquito->aguinaldo_proporcional),
+            'finiquito_indemnizacion' => $this->moneda($finiquito->indemnizacion),
+            'finiquito_bonos_extra' => $this->moneda($finiquito->bonos_extra),
+            'finiquito_descuentos' => $this->moneda($finiquito->descuentos),
+            'finiquito_adeudos' => $this->moneda($finiquito->adeudos),
+            'finiquito_otros_conceptos' => $this->moneda($this->sumaOtrosConceptos($finiquito->otros_conceptos)),
+            'finiquito_total_ajustado' => $this->moneda($finiquito->total_ajustado),
+            'finiquito_fecha_generacion' => now()->format('d/m/Y'),
+        ];
+    }
+
+    private function moneda(string|float $valor): string
+    {
+        return '$'.number_format((float) $valor, 2);
+    }
+
     public function descargarPdf(FiniquitoCalculo $finiquito): StreamedResponse
     {
         abort_unless($finiquito->documento_generado_path !== null, 404, 'Genera el PDF del finiquito antes de descargarlo.');
@@ -227,7 +284,7 @@ class FiniquitoService
     /**
      * @return array<string, mixed>
      */
-    private function calcularAutomaticos(SolicitudInterna $solicitud, User $colaborador, float $sueldoMensual): array
+    private function calcularAutomaticos(SolicitudInterna $solicitud, User $colaborador, float $sueldoMensual, float $sueldoPendiente = 0): array
     {
         $fechaIngreso = Carbon::parse($colaborador->fecha_ingreso);
         $fechaBaja = $solicitud->fecha_efectiva !== null ? Carbon::parse($solicitud->fecha_efectiva) : Carbon::now();
@@ -252,7 +309,7 @@ class FiniquitoService
 
         $indemnizacion = $this->calcularIndemnizacion($solicitud, $antiguedadAnios, $sueldoDiario);
 
-        $totalCalculado = round($primaVacacional + $aguinaldoProporcional + $indemnizacion, 2);
+        $totalCalculado = round($sueldoPendiente + $primaVacacional + $aguinaldoProporcional + $indemnizacion, 2);
 
         return [
             'fecha_ingreso' => $fechaIngreso->toDateString(),
@@ -265,7 +322,7 @@ class FiniquitoService
             'vacaciones_pendientes' => $vacacionesPendientes,
             'prima_vacacional' => $primaVacacional,
             'aguinaldo_proporcional' => $aguinaldoProporcional,
-            'sueldo_pendiente' => 0,
+            'sueldo_pendiente' => $sueldoPendiente,
             'indemnizacion' => $indemnizacion,
             'total_calculado' => $totalCalculado,
         ];

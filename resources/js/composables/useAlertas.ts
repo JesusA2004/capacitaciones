@@ -118,6 +118,27 @@ export function useAlertas() {
         });
     }
 
+    /**
+     * @returns el motivo capturado, o null si RH cerró el diálogo sin confirmar.
+     */
+    async function pedirMotivoCancelacionVacante(): Promise<string | null> {
+        const resultado = await base.fire({
+            icon: 'warning',
+            title: '¿Cancelar vacante?',
+            text: 'Indica por qué esta plaza ya no se va a cubrir.',
+            input: 'textarea',
+            inputLabel: 'Motivo de cancelación',
+            inputPlaceholder: 'Ej. La ruta se dio de baja y ya no requiere cobertura.',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, cancelar vacante',
+            cancelButtonText: 'Volver',
+            inputValidator: (valor: string) =>
+                valor.trim() === '' ? 'El motivo es obligatorio.' : undefined,
+        });
+
+        return resultado.isConfirmed ? String(resultado.value) : null;
+    }
+
     function avisarSesionExpirada(): Promise<void> {
         return base
             .fire({
@@ -163,6 +184,7 @@ export function useAlertas() {
         confirmarRevocacion,
         confirmarRegeneracion,
         confirmarDesvinculacion,
+        pedirMotivoCancelacionVacante,
         avisarSesionExpirada,
         mostrarExito,
         mostrarError,

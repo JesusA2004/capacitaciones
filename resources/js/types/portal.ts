@@ -18,6 +18,8 @@ export type PerfilColaborador = {
 export type NotificacionPortalItem = {
     id: string;
     tipo: string | null;
+    emoji: string;
+    color: string;
     titulo: string;
     mensaje: string;
     url: string | null;

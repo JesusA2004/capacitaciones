@@ -11,6 +11,12 @@ return new class extends Migration
         Schema::create('recursos_multimedia', function (Blueprint $table) {
             $table->id();
             $table->string('tipo');
+            // Auditoría de cumplimiento: separa un archivo de la biblioteca
+            // administrativa (biblioteca) de una evidencia de entrega de
+            // actividad/cuestionario (actividad/cuestionario), sin duplicar
+            // la tabla ni el servicio de almacenamiento.
+            $table->string('origen', 20)->default('biblioteca');
+            $table->string('visibilidad', 20)->default('publica');
             $table->string('nombre_original');
             $table->string('nombre_interno')->unique();
             $table->string('disco')->default('nas');
@@ -26,8 +32,12 @@ return new class extends Migration
             $table->text('error_procesamiento')->nullable();
             $table->json('metadatos')->nullable();
             $table->foreignId('subido_por')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('propietario_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->boolean('acceso_restringido')->default(false);
             $table->timestamps();
             $table->softDeletes();
+
+            $table->index(['origen', 'visibilidad'], 'recursos_multimedia_origen_visibilidad_idx');
         });
     }
 

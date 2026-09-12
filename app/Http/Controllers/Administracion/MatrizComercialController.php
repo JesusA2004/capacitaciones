@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Administracion;
 
+use App\Enums\TipoAsignacionNodoComercial;
 use App\Http\Controllers\Controller;
 use App\Models\NodoComercial;
 use App\Models\Puesto;
@@ -53,5 +54,35 @@ class MatrizComercialController extends Controller
         );
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Gestor actualizado.']);
+    }
+
+    public function agregarApoyo(Request $request, NodoComercial $nodo): RedirectResponse
+    {
+        abort_unless($request->user()?->can('puestos.administrar') || $request->user()?->can('organigrama.editar'), 403);
+
+        $datos = $request->validate([
+            'user_id' => ['required', 'integer', 'exists:users,id'],
+            'tipo' => ['required', 'in:apoyo,volante'],
+        ]);
+
+        $usuario = User::query()->where('id', $datos['user_id'])->firstOrFail();
+        $this->matriz->agregarApoyo($nodo, $usuario, TipoAsignacionNodoComercial::from($datos['tipo']));
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Colaborador agregado a la ruta.']);
+    }
+
+    public function quitarApoyo(Request $request, NodoComercial $nodo): RedirectResponse
+    {
+        abort_unless($request->user()?->can('puestos.administrar') || $request->user()?->can('organigrama.editar'), 403);
+
+        $datos = $request->validate([
+            'user_id' => ['required', 'integer', 'exists:users,id'],
+            'tipo' => ['required', 'in:apoyo,volante'],
+        ]);
+
+        $usuario = User::query()->where('id', $datos['user_id'])->firstOrFail();
+        $this->matriz->quitarAsignacion($nodo, $usuario, TipoAsignacionNodoComercial::from($datos['tipo']));
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Colaborador quitado de la ruta.']);
     }
 }

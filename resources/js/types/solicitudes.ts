@@ -83,6 +83,7 @@ export type FiniquitoPermisos = {
     puedeRevisar: boolean;
     puedeSubirFirmado: boolean;
     puedeOmitirRevision: boolean;
+    usaFormatoOficial: boolean;
 };
 
 export type SolicitudInternaItem = {

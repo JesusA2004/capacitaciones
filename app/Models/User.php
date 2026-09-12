@@ -44,6 +44,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @property Carbon|null $ultimo_acceso
  * @property string $zona_horaria
  * @property array<string, mixed>|null $preferencias_notificaciones
+ * @property array{tema_color: string, avatar_color: string, animaciones: bool}|null $preferencias_ui
  * @property Carbon|null $fecha_nacimiento
  * @property string|null $curp
  * @property string|null $rfc
@@ -74,7 +75,7 @@ use Spatie\Permission\Traits\HasRoles;
     'sucursal_principal_id', 'departamento_id', 'puesto_id', 'jefe_id',
     'fecha_ingreso', 'estatus', 'estatus_imss', 'fecha_alta_imss',
     'periodo_prueba_inicio', 'periodo_prueba_fin',
-    'zona_horaria', 'preferencias_notificaciones',
+    'zona_horaria', 'preferencias_notificaciones', 'preferencias_ui',
     'fecha_nacimiento', 'curp', 'rfc', 'nss', 'domicilio',
     'correo_personal', 'contacto_emergencia_nombre', 'contacto_emergencia_telefono',
     'incorporacion_decision', 'incorporacion_decidida_por', 'incorporacion_decidida_en', 'incorporacion_motivo_rechazo',
@@ -116,6 +117,7 @@ class User extends Authenticatable
             'periodo_prueba_fin' => 'date',
             'ultimo_acceso' => 'datetime',
             'preferencias_notificaciones' => 'array',
+            'preferencias_ui' => 'array',
             'fecha_nacimiento' => 'date',
             'incorporacion_decidida_en' => 'datetime',
         ];

@@ -5,6 +5,7 @@ import { ref } from 'vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import { Button } from '@/components/ui/button';
 import { postJson } from '@/lib/http';
+import { colorClaseNotificacion } from '@/lib/notificacionColor';
 import { dashboard } from '@/routes';
 import {
     index as indexPortal,
@@ -91,6 +92,12 @@ async function marcarTodas() {
                 :class="!notificacion.leida && 'border-[var(--brand-primary)]/30 bg-[var(--brand-primary)]/[0.03]'"
                 @click="marcarLeida(notificacion)"
             >
+                <span
+                    class="flex size-9 shrink-0 items-center justify-center rounded-full text-lg"
+                    :class="colorClaseNotificacion(notificacion.color)"
+                >
+                    {{ notificacion.emoji }}
+                </span>
                 <span
                     class="mt-1.5 size-2 shrink-0 rounded-full"
                     :class="!notificacion.leida ? 'bg-[var(--brand-primary)]' : 'bg-transparent'"

@@ -8,6 +8,11 @@ export type User = {
     updated_at: string;
     roles?: string[];
     permissions?: string[];
+    preferencias_ui?: {
+        tema_color: string;
+        avatar_color: string;
+        animaciones: boolean;
+    } | null;
     [key: string]: unknown;
 };
 
