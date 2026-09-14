@@ -18,6 +18,7 @@ import {
     UserRoundX,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import DatePicker from '@/components/Common/DatePicker.vue';
 import EmojiPicker from '@/components/Common/EmojiPicker.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudStats from '@/components/DataTable/CrudStats.vue';
@@ -787,21 +788,29 @@ function aplicarRangoRapido(dias: number) {
                     <div class="grid grid-cols-2 gap-2">
                         <div class="grid gap-1">
                             <Label class="text-xs text-muted-foreground">Desde</Label>
-                            <Input
-                                v-model="rangoDesde"
-                                type="date"
+                            <DatePicker
+                                :model-value="rangoDesde"
                                 class="h-8 text-xs"
-                                @change="navegarRangoConDebounce"
+                                @update:model-value="
+                                    (v) => {
+                                        rangoDesde = v;
+                                        navegarRangoConDebounce();
+                                    }
+                                "
                             />
                         </div>
                         <div class="grid gap-1">
                             <Label class="text-xs text-muted-foreground">Hasta</Label>
-                            <Input
-                                v-model="rangoHasta"
-                                type="date"
-                                :min="rangoDesde"
+                            <DatePicker
+                                :model-value="rangoHasta"
+                                :min-value="rangoDesde"
                                 class="h-8 text-xs"
-                                @change="navegarRangoConDebounce"
+                                @update:model-value="
+                                    (v) => {
+                                        rangoHasta = v;
+                                        navegarRangoConDebounce();
+                                    }
+                                "
                             />
                         </div>
                     </div>

@@ -3,7 +3,6 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import {
     AlertTriangle,
     FileCheck2,
-    FileSpreadsheet,
     FileText,
     KanbanSquare,
     Paperclip,
@@ -15,6 +14,8 @@ import {
 import { computed, reactive, ref, watch } from 'vue';
 import type { DraggableEvent } from 'vue-draggable-plus';
 import { VueDraggable } from 'vue-draggable-plus';
+import DatePicker from '@/components/Common/DatePicker.vue';
+import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
@@ -29,7 +30,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -301,18 +301,10 @@ function confirmarMovimiento() {
             descripcion="Tablero de revisión: arrastra una tarjeta entre columnas para cambiar su estado."
             :icono="KanbanSquare"
         >
-            <Button as-child variant="outline" size="sm">
-                <a :href="urlExportar(exportarExcel)">
-                    <FileSpreadsheet class="size-4" />
-                    Excel
-                </a>
-            </Button>
-            <Button as-child variant="outline" size="sm">
-                <a :href="urlExportar(exportarPdf)">
-                    <FileText class="size-4" />
-                    PDF
-                </a>
-            </Button>
+            <CrudExportButtons
+                :url-excel="urlExportar(exportarExcel)"
+                :url-pdf="urlExportar(exportarPdf)"
+            />
         </CrudPageHeader>
 
         <div class="flex flex-wrap items-center gap-2">
@@ -481,23 +473,11 @@ function confirmarMovimiento() {
                 <div class="grid grid-cols-2 gap-2">
                     <div class="grid gap-2">
                         <Label>Registrada desde</Label>
-                        <Input
-                            type="date"
-                            :model-value="filtros.fecha_inicio"
-                            @update:model-value="
-                                (v) => (filtros.fecha_inicio = String(v ?? ''))
-                            "
-                        />
+                        <DatePicker v-model="filtros.fecha_inicio" />
                     </div>
                     <div class="grid gap-2">
                         <Label>Registrada hasta</Label>
-                        <Input
-                            type="date"
-                            :model-value="filtros.fecha_fin"
-                            @update:model-value="
-                                (v) => (filtros.fecha_fin = String(v ?? ''))
-                            "
-                        />
+                        <DatePicker v-model="filtros.fecha_fin" />
                     </div>
                 </div>
             </CrudFilterSheet>

@@ -3,21 +3,23 @@ import { Head, router } from '@inertiajs/vue3';
 import {
     Clock,
     Download,
-    FileSpreadsheet,
     FileStack,
     FileText,
     Sparkles,
     Trash2,
 } from '@lucide/vue';
 import { ref } from 'vue';
+import DatePicker from '@/components/Common/DatePicker.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
+import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
 import DataTable from '@/components/DataTable/DataTable.vue';
 import type { ColumnaDataTable } from '@/components/DataTable/DataTable.vue';
 import FormatoGenerarDialog from '@/components/Rh/FormatoGenerarDialog.vue';
+import FormatosTabsNav from '@/components/Rh/FormatosTabsNav.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -27,7 +29,6 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -38,13 +39,13 @@ import {
 } from '@/components/ui/select';
 import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
+import { index as indexFormatos } from '@/routes/rh/formatos';
 import { descargar, descargarPdf, destroy } from '@/routes/rh/formatos';
 import {
     exportarExcel,
     exportarPdf,
     index,
 } from '@/routes/rh/formatos/catalogo';
-import { index as indexPlantillas } from '@/routes/rh/plantillas';
 import type {
     DocumentoGeneradoItem,
     FormatoCatalogoItem,
@@ -85,8 +86,8 @@ const props = defineProps<{
 defineOptions({
     layout: {
         breadcrumbs: [
-            { title: 'Plantillas avanzadas', href: indexPlantillas() },
-            { title: 'Documentos generados', href: '' },
+            { title: 'Formatos', href: indexFormatos() },
+            { title: 'Generados', href: '' },
         ],
     },
 });
@@ -158,27 +159,21 @@ async function eliminar(documento: DocumentoGeneradoItem) {
 </script>
 
 <template>
-    <Head title="Documentos generados (avanzado)" />
+    <Head title="Generados" />
 
-    <div class="flex flex-col gap-6 p-4">
+    <div class="mx-auto flex max-w-screen-2xl flex-col gap-6 p-4 sm:px-6 lg:px-8">
         <CrudPageHeader
-            titulo="Documentos generados (avanzado)"
-            descripcion="Genera documentos libres a partir de una plantilla DOCX editable. Para los formatos oficiales fijos de MR. LANA, usa el módulo «Formatos»."
+            titulo="Generados"
+            descripcion="Genera documentos libres a partir de una plantilla DOCX editable y consulta el historial."
             :icono="FileStack"
         >
-            <Button as-child variant="outline" size="sm">
-                <a :href="urlExportar(exportarExcel)">
-                    <FileSpreadsheet class="size-4" />
-                    Excel
-                </a>
-            </Button>
-            <Button as-child variant="outline" size="sm">
-                <a :href="urlExportar(exportarPdf)">
-                    <FileText class="size-4" />
-                    PDF
-                </a>
-            </Button>
+            <CrudExportButtons
+                :url-excel="urlExportar(exportarExcel)"
+                :url-pdf="urlExportar(exportarPdf)"
+            />
         </CrudPageHeader>
+
+        <FormatosTabsNav activa="generados" />
 
         <!-- Catalogo de formatos disponibles -->
         <div v-if="plantillasDisponibles.length === 0">
@@ -339,23 +334,11 @@ async function eliminar(documento: DocumentoGeneradoItem) {
                 <div class="grid grid-cols-2 gap-2">
                     <div class="grid gap-2">
                         <Label>Generado desde</Label>
-                        <Input
-                            type="date"
-                            :model-value="filtros.fecha_inicio"
-                            @update:model-value="
-                                (v) => (filtros.fecha_inicio = String(v ?? ''))
-                            "
-                        />
+                        <DatePicker v-model="filtros.fecha_inicio" />
                     </div>
                     <div class="grid gap-2">
                         <Label>Generado hasta</Label>
-                        <Input
-                            type="date"
-                            :model-value="filtros.fecha_fin"
-                            @update:model-value="
-                                (v) => (filtros.fecha_fin = String(v ?? ''))
-                            "
-                        />
+                        <DatePicker v-model="filtros.fecha_fin" />
                     </div>
                 </div>
             </CrudFilterSheet>
@@ -401,27 +384,28 @@ async function eliminar(documento: DocumentoGeneradoItem) {
                 <EstadoBadge :estado="fila.status" />
             </template>
             <template #acciones="{ fila }">
-                <div class="flex justify-end gap-2">
-                    <a
-                        :href="descargar.url(fila.id)"
-                        class="inline-flex items-center gap-1 text-sm text-[var(--brand-primary)] hover:underline"
-                        title="Descargar Word"
-                        ><Download class="size-4" /> Word</a
-                    >
-                    <a
-                        :href="descargarPdf.url(fila.id)"
-                        class="inline-flex items-center gap-1 text-sm text-[var(--brand-primary)] hover:underline"
-                        title="Descargar PDF"
-                        ><FileText class="size-4" /> PDF</a
-                    >
-                    <button
-                        type="button"
-                        class="text-muted-foreground hover:text-destructive"
+                <div class="flex justify-end gap-1.5">
+                    <Button as-child variant="ghost" size="sm" title="Descargar Word">
+                        <a :href="descargar.url(fila.id)">
+                            <Download class="size-4" />
+                            Word
+                        </a>
+                    </Button>
+                    <Button as-child variant="ghost" size="sm" title="Descargar PDF">
+                        <a :href="descargarPdf.url(fila.id)">
+                            <FileText class="size-4" />
+                            PDF
+                        </a>
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        class="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                         title="Eliminar"
                         @click="eliminar(fila)"
                     >
                         <Trash2 class="size-4" />
-                    </button>
+                    </Button>
                 </div>
             </template>
         </DataTable>

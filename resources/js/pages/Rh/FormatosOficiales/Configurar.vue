@@ -3,6 +3,7 @@ import { Link, router } from '@inertiajs/vue3';
 import { RefreshCw, Save, Settings2 } from '@lucide/vue';
 import { reactive, ref } from 'vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import FormatosTabsNav from '@/components/Rh/FormatosTabsNav.vue';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -134,6 +135,8 @@ function guardar() {
                 <Link :href="index.url()">Volver a formatos</Link>
             </Button>
         </CrudPageHeader>
+
+        <FormatosTabsNav activa="configuracion" />
 
         <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
             <Card class="overflow-hidden">

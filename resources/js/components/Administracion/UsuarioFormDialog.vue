@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
+import DatePicker from '@/components/Common/DatePicker.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -136,10 +137,9 @@ function enviar() {
                     </div>
                     <div class="grid gap-2">
                         <Label for="fecha_ingreso">Fecha de ingreso</Label>
-                        <Input
+                        <DatePicker
                             id="fecha_ingreso"
                             v-model="form.fecha_ingreso"
-                            type="date"
                         />
                     </div>
                 </div>
@@ -242,30 +242,27 @@ function enviar() {
                 <div v-if="usuario" class="grid grid-cols-3 gap-4">
                     <div class="grid gap-2">
                         <Label for="fecha_alta_imss">Fecha alta IMSS</Label>
-                        <Input
+                        <DatePicker
                             id="fecha_alta_imss"
                             v-model="form.fecha_alta_imss"
-                            type="date"
                         />
                     </div>
                     <div class="grid gap-2">
                         <Label for="periodo_prueba_inicio"
                             >Inicio periodo de prueba</Label
                         >
-                        <Input
+                        <DatePicker
                             id="periodo_prueba_inicio"
                             v-model="form.periodo_prueba_inicio"
-                            type="date"
                         />
                     </div>
                     <div class="grid gap-2">
                         <Label for="periodo_prueba_fin"
                             >Fin periodo de prueba</Label
                         >
-                        <Input
+                        <DatePicker
                             id="periodo_prueba_fin"
                             v-model="form.periodo_prueba_fin"
-                            type="date"
                         />
                         <InputError :message="form.errors.periodo_prueba_fin" />
                     </div>

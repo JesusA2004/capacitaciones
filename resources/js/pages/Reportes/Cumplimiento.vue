@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
-import { Download, FileText } from '@lucide/vue';
+import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import DataTable from '@/components/DataTable/DataTable.vue';
 import type { ColumnaDataTable } from '@/components/DataTable/DataTable.vue';
 import Heading from '@/components/Heading.vue';
@@ -83,18 +83,10 @@ function urlExportar(destino: { url: () => string }): string {
                 description="Progreso de capacitación por colaborador"
             />
             <div v-if="puedeExportar" class="flex items-center gap-2">
-                <Button as-child variant="outline">
-                    <a :href="urlExportar(exportar)">
-                        <Download class="size-4" />
-                        Exportar a Excel
-                    </a>
-                </Button>
-                <Button as-child variant="outline">
-                    <a :href="urlExportar(exportarPdf)">
-                        <FileText class="size-4" />
-                        Exportar a PDF
-                    </a>
-                </Button>
+                <CrudExportButtons
+                    :url-excel="urlExportar(exportar)"
+                    :url-pdf="urlExportar(exportarPdf)"
+                />
             </div>
         </div>
 

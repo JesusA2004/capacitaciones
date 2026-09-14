@@ -5,6 +5,7 @@ import { ref } from 'vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import FormatoOficialGenerarDialog from '@/components/Rh/FormatoOficialGenerarDialog.vue';
+import FormatosTabsNav from '@/components/Rh/FormatosTabsNav.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -69,15 +70,17 @@ function formatearFecha(fecha: string | null): string {
 
     <div class="mx-auto flex max-w-screen-2xl flex-col gap-6 p-4 sm:px-6 lg:px-8">
         <CrudPageHeader
-            titulo="Formatos oficiales"
+            titulo="Formatos"
             descripcion="Genera documentos de MR. LANA precargados con los datos del colaborador."
             :icono="FileStack"
         />
 
+        <FormatosTabsNav activa="oficiales" />
+
         <CrudEmptyState
             v-if="formatos.length === 0"
-            titulo="Todavía no hay formatos oficiales"
-            descripcion="Pide a un administrador que importe los PDFs oficiales con «php artisan formatos:importar-originales»."
+            titulo="No hay formatos oficiales importados"
+            descripcion="Sube los PDFs oficiales y ejecuta «php artisan formatos:importar-originales»."
             :icono="FileStack"
         />
 

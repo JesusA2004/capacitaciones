@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import DatePicker from '@/components/Common/DatePicker.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,7 +12,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -145,10 +145,9 @@ function enviar() {
                     >
                         <div class="grid gap-2">
                             <Label for="fecha_inicio">Fecha de inicio</Label>
-                            <Input
+                            <DatePicker
                                 id="fecha_inicio"
                                 v-model="form.fecha_inicio"
-                                type="date"
                             />
                             <InputError :message="form.errors.fecha_inicio" />
                         </div>
@@ -156,10 +155,9 @@ function enviar() {
                             <Label for="fecha_fin"
                                 >Fecha de fin (opcional)</Label
                             >
-                            <Input
+                            <DatePicker
                                 id="fecha_fin"
                                 v-model="form.fecha_fin"
-                                type="date"
                             />
                             <InputError :message="form.errors.fecha_fin" />
                         </div>

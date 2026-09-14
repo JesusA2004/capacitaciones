@@ -1,17 +1,19 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { FileSpreadsheet, FileText, FolderOpen, Plus } from '@lucide/vue';
+import { FileText, FolderOpen, Plus } from '@lucide/vue';
 import { ref } from 'vue';
+import DatePicker from '@/components/Common/DatePicker.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import CrudActionMenu from '@/components/DataTable/CrudActionMenu.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
+import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
+import FormatosTabsNav from '@/components/Rh/FormatosTabsNav.vue';
 import PlantillaFormDialog from '@/components/Rh/PlantillaFormDialog.vue';
 import { Button } from '@/components/ui/button';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -22,6 +24,7 @@ import {
 } from '@/components/ui/select';
 import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
+import { index as indexFormatos } from '@/routes/rh/formatos';
 import { index as catalogo } from '@/routes/rh/formatos/catalogo';
 import {
     destroy,
@@ -47,7 +50,10 @@ const props = defineProps<{
 
 defineOptions({
     layout: {
-        breadcrumbs: [{ title: 'Plantillas avanzadas', href: '' }],
+        breadcrumbs: [
+            { title: 'Formatos', href: indexFormatos() },
+            { title: 'Plantillas avanzadas', href: '' },
+        ],
     },
 });
 
@@ -119,23 +125,17 @@ async function eliminar(plantilla: PlantillaItem) {
                     Documentos generados
                 </Link>
             </Button>
-            <Button as-child variant="outline" size="sm">
-                <a :href="urlExportar(exportarExcel)">
-                    <FileSpreadsheet class="size-4" />
-                    Excel
-                </a>
-            </Button>
-            <Button as-child variant="outline" size="sm">
-                <a :href="urlExportar(exportarPdf)">
-                    <FileText class="size-4" />
-                    PDF
-                </a>
-            </Button>
+            <CrudExportButtons
+                :url-excel="urlExportar(exportarExcel)"
+                :url-pdf="urlExportar(exportarPdf)"
+            />
             <Button @click="abrirCrear">
                 <Plus class="size-4" />
                 Nueva plantilla
             </Button>
         </CrudPageHeader>
+
+        <FormatosTabsNav activa="plantillas" />
 
         <div class="flex flex-wrap items-center gap-2">
             <CrudSearchInput
@@ -257,23 +257,11 @@ async function eliminar(plantilla: PlantillaItem) {
                 <div class="grid grid-cols-2 gap-2">
                     <div class="grid gap-2">
                         <Label>Creada desde</Label>
-                        <Input
-                            type="date"
-                            :model-value="filtros.fecha_inicio"
-                            @update:model-value="
-                                (v) => (filtros.fecha_inicio = String(v ?? ''))
-                            "
-                        />
+                        <DatePicker v-model="filtros.fecha_inicio" />
                     </div>
                     <div class="grid gap-2">
                         <Label>Creada hasta</Label>
-                        <Input
-                            type="date"
-                            :model-value="filtros.fecha_fin"
-                            @update:model-value="
-                                (v) => (filtros.fecha_fin = String(v ?? ''))
-                            "
-                        />
+                        <DatePicker v-model="filtros.fecha_fin" />
                     </div>
                 </div>
             </CrudFilterSheet>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
+import DatePicker from '@/components/Common/DatePicker.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -147,10 +148,9 @@ function enviar() {
                         <Label for="fecha_ingreso"
                             >Fecha de ingreso propuesta</Label
                         >
-                        <Input
+                        <DatePicker
                             id="fecha_ingreso"
                             v-model="form.fecha_ingreso_propuesta"
-                            type="date"
                         />
                     </div>
                 </div>

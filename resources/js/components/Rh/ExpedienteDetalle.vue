@@ -15,6 +15,7 @@ import {
     ScrollText,
     User,
 } from '@lucide/vue';
+import DatePicker from '@/components/Common/DatePicker.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import InputError from '@/components/InputError.vue';
 import ExpedienteDocumentos from '@/components/Rh/ExpedienteDocumentos.vue';
@@ -257,10 +258,9 @@ function guardarDatosPersonales() {
                                 <Label for="fecha_nacimiento"
                                     >Fecha de nacimiento</Label
                                 >
-                                <Input
+                                <DatePicker
                                     id="fecha_nacimiento"
                                     v-model="form.fecha_nacimiento"
-                                    type="date"
                                     :disabled="!puedeEditar"
                                 />
                                 <InputError

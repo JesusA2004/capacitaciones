@@ -4,8 +4,6 @@ import {
     Briefcase,
     CalendarClock,
     ClipboardList,
-    Download,
-    FileText,
     RefreshCw,
     UserCheck,
 } from '@lucide/vue';
@@ -13,6 +11,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue';
 import DashboardRhContenido from '@/components/Dashboard/DashboardRhContenido.vue';
 import DashboardSection from '@/components/Dashboard/DashboardSection.vue';
 import MetricCard from '@/components/Dashboard/MetricCard.vue';
+import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import Heading from '@/components/Heading.vue';
 import { Button } from '@/components/ui/button';
 import { dashboard } from '@/routes';
@@ -156,18 +155,10 @@ const iconoModulo: Record<string, typeof Briefcase> = {
                 </Button>
 
                 <template v-if="puedeExportar">
-                    <Button as-child variant="outline" size="sm">
-                        <a :href="excel.url()">
-                            <Download class="size-4" />
-                            Excel
-                        </a>
-                    </Button>
-                    <Button as-child variant="outline" size="sm">
-                        <a :href="pdf.url()">
-                            <FileText class="size-4" />
-                            PDF
-                        </a>
-                    </Button>
+                    <CrudExportButtons
+                        :url-excel="excel.url()"
+                        :url-pdf="pdf.url()"
+                    />
                 </template>
             </div>
         </div>

@@ -1,9 +1,17 @@
 # Formatos oficiales de MR. LANA
 
-Módulo `/rh/formatos`: a diferencia de `docs/PLANTILLAS_FORMATOS.md` (plantillas DOCX
-editables), aquí los documentos son **oficiales y fijos** — RH nunca los sube ni los
-cambia desde el sistema. El sistema solo selecciona colaborador, precarga sus datos y
-pinta ese texto **encima** del PDF oficial (overlay), sin tocar el contenido original.
+Tab "Oficiales PDF" (y "Configuración de campos") dentro del menú único **Formatos**
+(`/rh/formatos`, ver `docs/PLANTILLAS_FORMATOS.md` para el resto de tabs): a diferencia
+de las plantillas DOCX editables, aquí los documentos son **oficiales y fijos** — RH
+nunca los sube ni los cambia desde el sistema. El sistema solo selecciona colaborador,
+precarga sus datos y pinta ese texto **encima** del PDF oficial (overlay), sin tocar el
+contenido original.
+
+Si `claude/formatos/originales/` no tiene PDFs importados todavía, la tab "Oficiales
+PDF" no truena ni queda en blanco: muestra el aviso "No hay formatos oficiales
+importados. Sube los PDFs oficiales y ejecuta
+`php artisan formatos:importar-originales`." (`CrudEmptyState` en
+`Rh/FormatosOficiales/Index.vue`).
 
 Tablas `official_formats` y `official_format_generations` (migraciones
 `2026_09_11_090000_create_official_formats_table` y

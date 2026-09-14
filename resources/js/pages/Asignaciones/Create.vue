@@ -3,6 +3,7 @@ import { Head, useForm } from '@inertiajs/vue3';
 import { Plus } from '@lucide/vue';
 import { ref } from 'vue';
 import DestinoSelector from '@/components/Asignaciones/DestinoSelector.vue';
+import DatePicker from '@/components/Common/DatePicker.vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
@@ -155,18 +156,16 @@ async function enviar() {
             <div class="grid grid-cols-2 gap-4">
                 <div class="grid gap-2">
                     <Label for="fecha_inicio">Fecha de inicio</Label>
-                    <Input
+                    <DatePicker
                         id="fecha_inicio"
                         v-model="form.fecha_inicio"
-                        type="date"
                     />
                 </div>
                 <div class="grid gap-2">
                     <Label for="fecha_limite">Fecha límite</Label>
-                    <Input
+                    <DatePicker
                         id="fecha_limite"
                         v-model="form.fecha_limite"
-                        type="date"
                     />
                     <InputError :message="form.errors.fecha_limite" />
                 </div>

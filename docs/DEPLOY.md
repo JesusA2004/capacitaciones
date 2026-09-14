@@ -19,6 +19,51 @@ Runbook consolidado para desplegar/actualizar MR. LANA PEOPLE en el VPS
 - Cron del sistema (para el scheduler de Laravel) y systemd/Supervisor (para
   `queue:work` y `reverb:start`).
 
+## PRE-DEPLOY OBLIGATORIO (actualización, no primera vez)
+
+En el VPS ya hay historial de migraciones corridas — **nunca uses
+`migrate:fresh` ni `migrate:refresh` en producción**, borran datos reales.
+Consolidar migraciones de desarrollo (98 → 71 archivos, quitando los
+`add_`/`alter_` sueltos) está bien sobre una base fresca de desarrollo, pero
+en el VPS cada migración corre solo si Laravel no la tiene ya registrada en
+`migrations` — antes de tocar nada, confirma el estado real:
+
+```bash
+php artisan migrate:status      # todo lo ya corrido debe seguir marcado "Ran"
+php artisan migrate --pretend   # revisa el SQL que se ejecutaría, sin aplicarlo
+```
+
+Si `migrate:status` muestra como pendiente una migración que ya se aplicó con
+otro nombre/archivo antes de la consolidación, **no corras `migrate` a
+ciegas** — compara contra el esquema real primero (`php artisan
+people:diagnostico`, ver abajo) para no intentar recrear una tabla que ya
+existe.
+
+Verificar columnas críticas (agregadas por fases distintas del encargo sobre
+la base ya consolidada — las más fáciles de perder en una migración a medias
+o un merge conflictivo):
+
+- `finiquito_calculos` (tabla completa)
+- `vacantes.plazas_requeridas`, `.plazas_cubiertas`, `.plazas_disponibles`, `.motivo_cancelacion`
+- `nodos_comerciales`, `user_nodo_comercial` (tablas completas — matriz comercial)
+- `official_formats`, `official_format_generations` (tablas completas — formatos oficiales)
+- `solicitudes_internas.fecha_efectiva`, `.tipo_baja`, `.colaborador_objetivo_id`
+- `mobile_devices` (tabla completa)
+- `users.preferencias_ui` (personalización de tema/avatar)
+
+```bash
+php artisan people:diagnostico
+```
+
+Comando de solo lectura (no modifica nada) que revisa automáticamente esas
+columnas/tablas, si el disco `nas` es escribible, si headcount y formatos
+oficiales ya están importados, si algún colaborador activo quedó con
+puesto/sucursal/departamento/género/fecha de nacimiento vacíos, si la matriz
+comercial tiene rutas cargadas, y si el catálogo completo de permisos/roles
+demo está sembrado — pensado para correrse justo después de `migrate
+--force` + `db:seed --force` en cualquier entorno (VPS o local nuevo), o
+cuando algo no carga y no está claro si falta un import/seed.
+
 ## Deploy (primera vez o rutina)
 
 ```bash
@@ -43,6 +88,7 @@ npm ci && npm run build
 
 php artisan migrate --force
 php artisan db:seed --force     # RolesYPermisosSeeder y BirthdayPhraseSeeder son idempotentes (firstOrCreate)
+php artisan people:diagnostico  # confirma que todo quedó completo antes de seguir (ver PRE-DEPLOY arriba)
 
 php artisan permission:cache-reset
 php artisan config:cache

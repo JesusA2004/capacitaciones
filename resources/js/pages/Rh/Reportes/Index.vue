@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
-import { BarChart3, Download, FileSpreadsheet, FileText } from '@lucide/vue';
+import { BarChart3, Download } from '@lucide/vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
+import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
-import { Button } from '@/components/ui/button';
 import {
     Select,
     SelectContent,
@@ -66,18 +66,10 @@ function urlExportar(destino: typeof excel | typeof pdf): string {
             :icono="BarChart3"
         >
             <template v-if="puedeExportar">
-                <Button as-child variant="outline" size="sm">
-                    <a :href="urlExportar(excel)">
-                        <FileSpreadsheet class="size-4" />
-                        Excel
-                    </a>
-                </Button>
-                <Button as-child variant="outline" size="sm">
-                    <a :href="urlExportar(pdf)">
-                        <FileText class="size-4" />
-                        PDF
-                    </a>
-                </Button>
+                <CrudExportButtons
+                    :url-excel="urlExportar(excel)"
+                    :url-pdf="urlExportar(pdf)"
+                />
             </template>
         </CrudPageHeader>
 

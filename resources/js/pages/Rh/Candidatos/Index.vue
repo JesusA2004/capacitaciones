@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { FileSpreadsheet, FileText, Plus, UserRound } from '@lucide/vue';
+import { Plus, UserRound } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import DatePicker from '@/components/Common/DatePicker.vue';
+import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
 import CandidatoFormDialog from '@/components/Rh/CandidatoFormDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -126,18 +127,10 @@ function alSoltar(nuevoEstado: string) {
             descripcion="Seguimiento de prospectos y candidatos en proceso de reclutamiento."
             :icono="UserRound"
         >
-            <Button as-child variant="outline" size="sm">
-                <a :href="urlExportar(exportarExcel)">
-                    <FileSpreadsheet class="size-4" />
-                    Excel
-                </a>
-            </Button>
-            <Button as-child variant="outline" size="sm">
-                <a :href="urlExportar(exportarPdf)">
-                    <FileText class="size-4" />
-                    PDF
-                </a>
-            </Button>
+            <CrudExportButtons
+                :url-excel="urlExportar(exportarExcel)"
+                :url-pdf="urlExportar(exportarPdf)"
+            />
             <Button @click="abrirCrear">
                 <Plus class="size-4" />
                 Nuevo candidato
@@ -287,23 +280,11 @@ function alSoltar(nuevoEstado: string) {
                 <div class="grid grid-cols-2 gap-2">
                     <div class="grid gap-2">
                         <Label>Registrado desde</Label>
-                        <Input
-                            type="date"
-                            :model-value="filtros.fecha_inicio"
-                            @update:model-value="
-                                (v) => (filtros.fecha_inicio = String(v ?? ''))
-                            "
-                        />
+                        <DatePicker v-model="filtros.fecha_inicio" />
                     </div>
                     <div class="grid gap-2">
                         <Label>Registrado hasta</Label>
-                        <Input
-                            type="date"
-                            :model-value="filtros.fecha_fin"
-                            @update:model-value="
-                                (v) => (filtros.fecha_fin = String(v ?? ''))
-                            "
-                        />
+                        <DatePicker v-model="filtros.fecha_fin" />
                     </div>
                 </div>
             </CrudFilterSheet>

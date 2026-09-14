@@ -1,11 +1,18 @@
 # Plantillas avanzadas (motor DOCX editable)
 
-> **Este NO es el módulo "Formatos" que ve RH operativo.** Desde el rediseño de
-> formatos, `/rh/formatos` muestra los formatos oficiales fijos de MR. LANA (PDF con
-> overlay, ver `docs/FORMATOS_OFICIALES.md`). Este documento describe el motor de
-> plantillas DOCX editables que queda detrás de "Plantillas avanzadas"
-> (`/rh/plantillas`, solo `plantillas.crear` — rh_admin/super_admin) y el catálogo de
-> documentos generados con él (`/rh/formatos/catalogo`) — sigue siendo el motor real
+> **Un solo menú "Formatos", con tabs por dentro.** El sidebar ya no muestra
+> "Formatos" y "Plantillas avanzadas" como dos módulos sueltos: hay un único acceso
+> "Formatos" (`resources/js/components/AppSidebar.vue`) que abre una pantalla con 4
+> tabs — `Oficiales PDF` (formatos fijos MR. LANA con overlay por coordenadas, ver
+> `docs/FORMATOS_OFICIALES.md`), `Plantillas avanzadas DOCX` (este documento),
+> `Generados` (historial) y `Configuración de campos` (coordenadas del overlay,
+> contextual a un formato oficial elegido en la tab "Oficiales PDF"). Cada tab sigue
+> siendo, por dentro, su propia ruta/controlador Inertia (`/rh/formatos`,
+> `/rh/plantillas`, `/rh/formatos/catalogo`, `/rh/formatos-oficiales/{formato}`) — la
+> barra de tabs compartida vive en `resources/js/components/Rh/FormatosTabsNav.vue` y
+> navega entre ellas con `<Link>` (sin F5). Este documento describe el motor de
+> plantillas DOCX editables detrás de la tab "Plantillas avanzadas DOCX" y el catálogo
+> de documentos generados con él (`/rh/formatos/catalogo`) — sigue siendo el motor real
 > detrás del botón "Generar formato" de una Solicitud.
 
 Módulos `/rh/plantillas` (catálogo de plantillas DOCX) y `/rh/formatos/catalogo`
@@ -125,9 +132,11 @@ falla, RH ve un aviso y sigue teniendo el Word.
 - `formatos.ver`, `formatos.preview`, `formatos.descargar_pdf`, `formatos.descargar_docx`
   (catálogo/vista previa/descarga — deliberadamente aparte de `plantillas.*`, ver
   comentario en `RolesYPermisosSeeder`; `rh_admin`, `rh_auxiliar` y `gerente_sucursal`).
-- El sidebar "Plantillas avanzadas" se muestra solo con `plantillas.crear` (no
-  `plantillas.ver`), a propósito más restrictivo que antes — ver "Preferido" arriba.
-  `formatos_oficiales.*` (módulo distinto) está en `docs/FORMATOS_OFICIALES.md`.
+- El sidebar solo muestra el menú "Formatos" (único) con `formatos_oficiales.ver` o
+  `plantillas.ver`; dentro de la pantalla, la tab "Plantillas avanzadas DOCX" y la tab
+  "Generados" se muestran con `plantillas.ver`, y el botón "Nueva plantilla" solo con
+  `plantillas.crear` — ver `FormatosTabsNav.vue`. `formatos_oficiales.*` (tabs
+  "Oficiales PDF" y "Configuración de campos") está en `docs/FORMATOS_OFICIALES.md`.
 
 ## API móvil de RH
 

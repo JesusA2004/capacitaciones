@@ -2,6 +2,7 @@
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { ClipboardList, Eye, Plus } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import DatePicker from '@/components/Common/DatePicker.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
@@ -209,10 +210,9 @@ const TIPOS_BAJA = [
                                 ? 'Fecha de inicio'
                                 : 'Fecha'
                         }}</Label>
-                        <Input
+                        <DatePicker
                             id="fecha_inicio"
                             v-model="form.fecha_inicio"
-                            type="date"
                         />
                         <p
                             v-if="form.errors.fecha_inicio"
@@ -223,10 +223,9 @@ const TIPOS_BAJA = [
                     </div>
                     <div v-if="tipoActual?.requiere_fechas" class="grid gap-2">
                         <Label for="fecha_fin">Fecha de fin</Label>
-                        <Input
+                        <DatePicker
                             id="fecha_fin"
                             v-model="form.fecha_fin"
-                            type="date"
                         />
                         <p
                             v-if="form.errors.fecha_fin"
@@ -319,10 +318,9 @@ const TIPOS_BAJA = [
                 >
                     <div class="grid gap-2">
                         <Label for="fecha_efectiva">Fecha efectiva de baja</Label>
-                        <Input
+                        <DatePicker
                             id="fecha_efectiva"
                             v-model="form.fecha_efectiva"
-                            type="date"
                         />
                         <p
                             v-if="form.errors.fecha_efectiva"

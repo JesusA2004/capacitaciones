@@ -1,18 +1,13 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
-import {
-    ChevronRight,
-    FileSpreadsheet,
-    FileText,
-    FolderOpen,
-} from '@lucide/vue';
+import { ChevronRight, FolderOpen } from '@lucide/vue';
 import { computed } from 'vue';
+import DatePicker from '@/components/Common/DatePicker.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
+import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudToolbar from '@/components/DataTable/CrudToolbar.vue';
 import ColaboradorCarpetaCard from '@/components/Rh/ColaboradorCarpetaCard.vue';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -111,18 +106,10 @@ const sucursalActiva = computed(() =>
             descripcion="Explora los expedientes digitales por empresa, sucursal y colaborador."
             :icono="FolderOpen"
         >
-            <Button as-child variant="outline" size="sm">
-                <a :href="urlExportar(exportarExcel)">
-                    <FileSpreadsheet class="size-4" />
-                    Excel
-                </a>
-            </Button>
-            <Button as-child variant="outline" size="sm">
-                <a :href="urlExportar(exportarPdf)">
-                    <FileText class="size-4" />
-                    PDF
-                </a>
-            </Button>
+            <CrudExportButtons
+                :url-excel="urlExportar(exportarExcel)"
+                :url-pdf="urlExportar(exportarPdf)"
+            />
         </CrudPageHeader>
 
         <nav
@@ -275,13 +262,12 @@ const sucursalActiva = computed(() =>
                     <Label class="text-xs text-muted-foreground"
                         >Ingreso desde</Label
                     >
-                    <Input
-                        type="date"
-                        class="w-40"
+                    <DatePicker
+                        class="h-9 w-40"
                         :model-value="filtros.fecha_inicio"
                         @update:model-value="
                             (v) => {
-                                filtros.fecha_inicio = String(v ?? '');
+                                filtros.fecha_inicio = v;
                                 aplicar();
                             }
                         "
@@ -289,9 +275,8 @@ const sucursalActiva = computed(() =>
                 </div>
                 <div class="flex items-center gap-1.5">
                     <Label class="text-xs text-muted-foreground">hasta</Label>
-                    <Input
-                        type="date"
-                        class="w-40"
+                    <DatePicker
+                        class="h-9 w-40"
                         :model-value="filtros.fecha_fin"
                         @update:model-value="
                             (v) => {

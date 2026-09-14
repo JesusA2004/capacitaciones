@@ -121,6 +121,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             });
         });
 
+        // Legacy: conservar hasta que la app móvil migre por completo a
+        // solicitudes unificadas (usa la tabla legacy `solicitudes_vacaciones`,
+        // no `solicitudes_internas`). La app nueva debe usar en su lugar:
+        // GET /api/v1/solicitudes, POST /api/v1/solicitudes,
+        // GET /api/v1/solicitudes/configuracion — ver docs/API_MOVIL.md y
+        // docs/SOLICITUDES_UNIFICADAS.md.
         Route::prefix('vacaciones')->name('vacaciones.')->group(function () {
             Route::get('saldo', [VacacionesController::class, 'saldo'])->name('saldo');
             Route::get('solicitudes', [VacacionesController::class, 'solicitudes'])->name('solicitudes.index');
@@ -158,6 +164,11 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('{solicitud}/correccion', [RhSolicitudController::class, 'correccion'])->name('correccion');
             });
 
+            // Legacy: conservar hasta que la app móvil migre por completo a
+            // solicitudes unificadas (misma tabla legacy `solicitudes_vacaciones`
+            // que /api/v1/vacaciones arriba). La app nueva debe usar en su
+            // lugar la bandeja RH unificada: GET/POST .../rh/solicitudes/*
+            // — ver docs/API_MOVIL.md y docs/SOLICITUDES_UNIFICADAS.md.
             Route::prefix('vacaciones')->name('vacaciones.')->group(function () {
                 Route::get('/', [RhVacacionController::class, 'index'])->name('index');
                 Route::get('{vacacion}', [RhVacacionController::class, 'show'])->name('show');

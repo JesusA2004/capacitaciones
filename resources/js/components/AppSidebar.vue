@@ -190,22 +190,13 @@ const navItemsOperativo = computed<NavItem[]>(() => {
         });
     }
 
-    if (tienePermiso('formatos_oficiales.ver')) {
+    // "Formatos" es un único menú con tabs (Oficiales PDF, Plantillas
+    // avanzadas DOCX, Generados, Configuración de campos) — ver
+    // docs/PLANTILLAS_FORMATOS.md. No se muestran como módulos sueltos.
+    if (tienePermiso('formatos_oficiales.ver') || tienePermiso('plantillas.ver')) {
         items.push({
             title: 'Formatos',
-            href: indexFormatos(),
-            icon: FileStack,
-        });
-    }
-
-    // "Plantillas avanzadas": administrar el catálogo de plantillas DOCX
-    // editables y generar documentos libres desde ellas — reservado a
-    // quien puede crear/editar plantillas (rh_admin/super_admin), no a RH
-    // operativo (ver "Preferido" en docs/PLANTILLAS_FORMATOS.md).
-    if (tienePermiso('plantillas.crear')) {
-        items.push({
-            title: 'Plantillas avanzadas',
-            href: indexPlantillas(),
+            href: tienePermiso('formatos_oficiales.ver') ? indexFormatos() : indexPlantillas(),
             icon: FileStack,
         });
     }

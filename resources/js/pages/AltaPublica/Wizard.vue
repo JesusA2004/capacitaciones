@@ -2,6 +2,7 @@
 import { Head, useForm } from '@inertiajs/vue3';
 import { CheckCircle2, ChevronLeft, ChevronRight, Upload } from '@lucide/vue';
 import { computed, onMounted, ref } from 'vue';
+import DatePicker from '@/components/Common/DatePicker.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -239,10 +240,9 @@ function enviarAlta() {
                         <Label for="fecha_nacimiento"
                             >Fecha de nacimiento</Label
                         >
-                        <Input
+                        <DatePicker
                             id="fecha_nacimiento"
                             v-model="formDatos.fecha_nacimiento"
-                            type="date"
                         />
                     </div>
                     <div class="grid gap-2">

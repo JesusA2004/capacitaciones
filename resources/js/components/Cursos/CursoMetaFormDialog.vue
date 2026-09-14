@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import DatePicker from '@/components/Common/DatePicker.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -118,18 +119,16 @@ function enviar() {
                 <div class="grid grid-cols-2 gap-4">
                     <div class="grid gap-2">
                         <Label for="disponible_desde">Disponible desde</Label>
-                        <Input
+                        <DatePicker
                             id="disponible_desde"
                             v-model="form.disponible_desde"
-                            type="date"
                         />
                     </div>
                     <div class="grid gap-2">
                         <Label for="disponible_hasta">Disponible hasta</Label>
-                        <Input
+                        <DatePicker
                             id="disponible_hasta"
                             v-model="form.disponible_hasta"
-                            type="date"
                         />
                         <InputError :message="form.errors.disponible_hasta" />
                     </div>

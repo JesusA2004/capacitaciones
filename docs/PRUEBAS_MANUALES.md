@@ -30,9 +30,9 @@ sin duplicarlos — usa `updateOrCreate`, es seguro correrlo varias veces.
 
 ## 1. Filtros y exportación (Prioridad 1)
 
-Entra como `rh.admin@mrlana.test` y repite esto en cada uno de los 8 listados
-(Vacantes, Candidatos, Altas digitales, Plantillas, Formatos, Solicitudes, Expedientes,
-Vacaciones):
+Entra como `rh.admin@mrlana.test` y repite esto en cada uno de los listados
+(Vacantes, Candidatos, Altas digitales, Formatos — tabs "Plantillas avanzadas DOCX" y
+"Generados" incluidas —, Solicitudes, Expedientes):
 
 1. Abre el listado. Debe haber un buscador, selects de filtro visibles y (si el módulo
    tiene más de 4-5 filtros) un botón "Filtros" que abre un panel lateral.
@@ -139,7 +139,24 @@ Expedientes (índice y detalle), Jerarquía de puestos, Plantillas, Formatos,
 Solicitudes, Vacaciones, Reportes RH, Portal colaborador, y Administración → Empresas
 / Sucursales / Departamentos / Puestos / Roles / Colaboradores.
 
-## 6. Regresión rápida
+## 7. Navegación sin F5 (Inertia)
+
+Como `rh.admin@mrlana.test`, navega usando solo los enlaces del sidebar/menú (nunca
+escribas la URL a mano ni refresques la página) en este orden: **Inicio → Solicitudes →
+Vacantes → Candidatos → Reportes → Cumpleaños → Formatos → Organigrama → Perfil**.
+
+Qué buscar:
+
+- Cada paso debe cambiar de pantalla sin parpadeo de página completa ni recarga del
+  navegador (Network del DevTools: solo requests `XHR`/`fetch` con header
+  `X-Inertia: true`, nunca una navegación `document` completa entre estos pasos).
+- Sin errores en la consola del navegador en ningún paso.
+- Los filtros que ya tenías aplicados en un listado (por ejemplo Solicitudes) siguen
+  ahí si regresas a esa pantalla con el botón "atrás" del navegador.
+- Dentro de "Formatos", cambiar entre sus tabs (Oficiales PDF / Plantillas avanzadas
+  DOCX / Generados) también navega sin F5.
+
+## 8. Regresión rápida
 
 - Login/logout, cambio de tema claro/oscuro.
 - Un CRUD cualquiera de Administración (Empresas, Sucursales, Departamentos) sigue

@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { FileSpreadsheet, FileText, IdCard, Plus } from '@lucide/vue';
+import { IdCard, Plus } from '@lucide/vue';
 import { ref } from 'vue';
+import DatePicker from '@/components/Common/DatePicker.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
+import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
@@ -11,7 +13,6 @@ import DataTable from '@/components/DataTable/DataTable.vue';
 import type { ColumnaDataTable } from '@/components/DataTable/DataTable.vue';
 import AltaDigitalFormDialog from '@/components/Rh/AltaDigitalFormDialog.vue';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -96,18 +97,10 @@ const dialogoAbierto = ref(false);
             descripcion="Liga segura para que candidatos aprobados capturen su información de alta."
             :icono="IdCard"
         >
-            <Button as-child variant="outline" size="sm">
-                <a :href="urlExportar(exportarExcel)">
-                    <FileSpreadsheet class="size-4" />
-                    Excel
-                </a>
-            </Button>
-            <Button as-child variant="outline" size="sm">
-                <a :href="urlExportar(exportarPdf)">
-                    <FileText class="size-4" />
-                    PDF
-                </a>
-            </Button>
+            <CrudExportButtons
+                :url-excel="urlExportar(exportarExcel)"
+                :url-pdf="urlExportar(exportarPdf)"
+            />
             <Button @click="dialogoAbierto = true">
                 <Plus class="size-4" />
                 Nueva alta
@@ -257,23 +250,11 @@ const dialogoAbierto = ref(false);
                 <div class="grid grid-cols-2 gap-2">
                     <div class="grid gap-2">
                         <Label>Creada desde</Label>
-                        <Input
-                            type="date"
-                            :model-value="filtros.fecha_inicio"
-                            @update:model-value="
-                                (v) => (filtros.fecha_inicio = String(v ?? ''))
-                            "
-                        />
+                        <DatePicker v-model="filtros.fecha_inicio" />
                     </div>
                     <div class="grid gap-2">
                         <Label>Creada hasta</Label>
-                        <Input
-                            type="date"
-                            :model-value="filtros.fecha_fin"
-                            @update:model-value="
-                                (v) => (filtros.fecha_fin = String(v ?? ''))
-                            "
-                        />
+                        <DatePicker v-model="filtros.fecha_fin" />
                     </div>
                 </div>
             </CrudFilterSheet>

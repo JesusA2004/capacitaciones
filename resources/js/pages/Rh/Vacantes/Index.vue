@@ -3,8 +3,6 @@ import { Head, router } from '@inertiajs/vue3';
 import {
     Briefcase,
     CheckCircle2,
-    FileSpreadsheet,
-    FileText,
     ListChecks,
     Plus,
     Sparkles,
@@ -15,8 +13,10 @@ import {
     XCircle,
 } from '@lucide/vue';
 import { computed, onMounted, ref } from 'vue';
+import DatePicker from '@/components/Common/DatePicker.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import MetricCard from '@/components/Common/MetricCard.vue';
+import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
@@ -24,7 +24,6 @@ import CubrirVacanteDialog from '@/components/Rh/CubrirVacanteDialog.vue';
 import VacanteFormDialog from '@/components/Rh/VacanteFormDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -277,18 +276,10 @@ async function alSoltar(nuevoEstado: string) {
             descripcion="Da seguimiento a las vacantes abiertas, sus plazas y su cobertura."
             :icono="Briefcase"
         >
-            <Button as-child variant="outline" size="sm">
-                <a :href="urlExportar(exportarExcel)">
-                    <FileSpreadsheet class="size-4" />
-                    Excel
-                </a>
-            </Button>
-            <Button as-child variant="outline" size="sm">
-                <a :href="urlExportar(exportarPdf)">
-                    <FileText class="size-4" />
-                    PDF
-                </a>
-            </Button>
+            <CrudExportButtons
+                :url-excel="urlExportar(exportarExcel)"
+                :url-pdf="urlExportar(exportarPdf)"
+            />
             <Button @click="abrirCrear">
                 <Plus class="size-4" />
                 Nueva vacante
@@ -473,23 +464,11 @@ async function alSoltar(nuevoEstado: string) {
                 <div class="grid grid-cols-2 gap-2">
                     <div class="grid gap-2">
                         <Label>Apertura desde</Label>
-                        <Input
-                            type="date"
-                            :model-value="filtros.fecha_inicio"
-                            @update:model-value="
-                                (v) => (filtros.fecha_inicio = String(v ?? ''))
-                            "
-                        />
+                        <DatePicker v-model="filtros.fecha_inicio" />
                     </div>
                     <div class="grid gap-2">
                         <Label>Apertura hasta</Label>
-                        <Input
-                            type="date"
-                            :model-value="filtros.fecha_fin"
-                            @update:model-value="
-                                (v) => (filtros.fecha_fin = String(v ?? ''))
-                            "
-                        />
+                        <DatePicker v-model="filtros.fecha_fin" />
                     </div>
                 </div>
             </CrudFilterSheet>
@@ -532,26 +511,28 @@ async function alSoltar(nuevoEstado: string) {
                             <div
                                 class="flex shrink-0 items-center gap-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100"
                             >
-                                <button
+                                <Button
                                     v-if="
                                         columna.estado !== 'cubierta' &&
                                         columna.estado !== 'cancelada'
                                     "
-                                    type="button"
-                                    class="text-muted-foreground hover:text-primary"
+                                    variant="ghost"
+                                    size="icon-xs"
+                                    class="text-muted-foreground hover:bg-primary/10 hover:text-primary"
                                     title="Cubrir vacante"
                                     @click.stop="abrirCubrir(vacante)"
                                 >
                                     <UserCheck class="size-3.5" />
-                                </button>
-                                <button
-                                    type="button"
-                                    class="text-muted-foreground hover:text-destructive"
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="icon-xs"
+                                    class="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                                     title="Eliminar"
                                     @click.stop="eliminar(vacante)"
                                 >
                                     <Trash2 class="size-3.5" />
-                                </button>
+                                </Button>
                             </div>
                         </div>
                         <span class="text-xs text-muted-foreground">{{

@@ -91,6 +91,12 @@ Errores: `403` sin el permiso o fuera de alcance organizacional (`AlcanceOrganiz
 
 ## Vacaciones
 
+**Legacy** — opera sobre la tabla `solicitudes_vacaciones`, separada de la
+bandeja unificada `rh/solicitudes/*` de arriba (tabla `solicitudes_internas`).
+Conservar solo por compatibilidad; la app nueva debe usar `rh/solicitudes/*`
+para aprobar/rechazar solicitudes de tipo `vacaciones` también — ver la nota
+"legacy" completa en `docs/API_MOVIL.md`.
+
 ```
 GET  /api/v1/rh/vacaciones?estado=&sucursal_id=&empresa_id=&q=      rh.vacaciones.ver
 GET  /api/v1/rh/vacaciones/{vacacion}                                rh.vacaciones.detalle

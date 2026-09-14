@@ -41,9 +41,9 @@ GET  /api/v1/colaborador/solicitudes
 POST /api/v1/colaborador/solicitudes
 GET  /api/v1/colaborador/notificaciones
 
-GET  /api/v1/vacaciones/saldo
-GET  /api/v1/vacaciones/solicitudes
-POST /api/v1/vacaciones/solicitudes
+GET  /api/v1/vacaciones/saldo                   LEGACY, ver nota abajo
+GET  /api/v1/vacaciones/solicitudes             LEGACY, ver nota abajo
+POST /api/v1/vacaciones/solicitudes             LEGACY, ver nota abajo
 
 GET  /api/v1/solicitudes
 POST /api/v1/solicitudes
@@ -55,6 +55,30 @@ GET  /api/v1/notificaciones
 POST /api/v1/notificaciones/{notificacion}/leer
 POST /api/v1/notificaciones/leer-todas
 ```
+
+### `vacaciones/*` y `rh/vacaciones/*` — legacy, no usar en la app nueva
+
+`/api/v1/vacaciones/*` (arriba) y `/api/v1/rh/vacaciones/*` (bandeja RH, ver
+`docs/RH_MOBILE_API.md`) siguen operando sobre la tabla **legacy**
+`solicitudes_vacaciones` vía `VacacionesService`, separada de la tabla
+unificada `solicitudes_internas` que usan `/api/v1/solicitudes` y
+`/api/v1/rh/solicitudes` (ver `docs/SOLICITUDES_UNIFICADAS.md`) — no
+comparten datos entre sí, así que una solicitud de vacaciones creada por
+`/api/v1/vacaciones/solicitudes` **no** aparece en `/api/v1/solicitudes` ni
+en la bandeja unificada de RH, y viceversa.
+
+Se conservan solo por compatibilidad con versiones de la app ya publicadas.
+La app nueva (o cualquier build nuevo del cliente móvil) debe usar
+exclusivamente la bandeja unificada:
+
+- `GET /api/v1/solicitudes/configuracion` — catálogo de tipos, incluye `vacaciones`.
+- `POST /api/v1/solicitudes` — crear, con `tipo: "vacaciones"`.
+- `GET /api/v1/solicitudes` / `GET /api/v1/solicitudes/{solicitud}` — consultar.
+- RH: `GET/POST /api/v1/rh/solicitudes/*` (aprobar/rechazar cualquier tipo, incluido vacaciones).
+
+No se retiran estas rutas legacy hasta confirmar que ninguna versión de la
+app en producción las sigue llamando (ver `docs/APP_RELEASES.md` para el
+historial de versiones publicadas).
 
 Contexto de arranque de la app (bootstrap/config/push/tiempo real) y todo lo de RH/aprobadores (dashboard, bandeja, solicitudes, vacaciones, documentos, incorporaciones, colaboradores) se documentan aparte, ver `docs/BACKEND_MOBILE_V5.md`, `docs/RH_MOBILE_API.md` y `docs/PUSH_NOTIFICATIONS.md`. Cumpleaños (felicitación del colaborador + bandeja RH) y descarga/actualización de la app (APK propio + futuro iOS) se documentan en `docs/CUMPLEANOS.md` y `docs/APP_RELEASES.md`.
 
