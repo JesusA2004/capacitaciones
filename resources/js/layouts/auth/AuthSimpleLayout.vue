@@ -9,6 +9,8 @@ import {
     Sparkles,
     Star,
 } from '@lucide/vue';
+import logo from '@/assets/brand/logo.png';
+import mascotRight from '@/assets/brand/mascot-right.png';
 import { home } from '@/routes';
 
 defineProps<{
@@ -80,7 +82,7 @@ const ICONOS_FLOTANTES = [
                 <span
                     class="flex size-8 items-center justify-center rounded-lg bg-white/15 backdrop-blur-sm"
                 >
-                    <img src="/images/logo.png" alt="" class="size-5 object-contain" />
+                    <img :src="logo" alt="" class="size-5 object-contain" />
                 </span>
                 MR. LANA <span class="font-semibold">PEOPLE</span>
             </Link>
@@ -119,7 +121,7 @@ const ICONOS_FLOTANTES = [
 
             <!-- Mascota: fuera del flujo, anclada a la esquina inferior derecha (estática, sin flotar) -->
             <img
-                src="/images/mascot-right.png"
+                :src="mascotRight"
                 alt=""
                 aria-hidden="true"
                 class="pointer-events-none absolute right-[-12px] bottom-6 z-10 w-[46%] max-w-[270px] drop-shadow-2xl"
@@ -141,9 +143,9 @@ const ICONOS_FLOTANTES = [
                     class="group flex flex-col items-center gap-2 font-medium"
                 >
                     <div
-                        class="flex size-12 items-center justify-center rounded-2xl bg-[var(--brand-primary)] text-[var(--brand-foreground)] shadow-lg shadow-[var(--brand-primary)]/20 transition-transform duration-300 group-hover:scale-105 group-hover:rotate-3"
+                        class="flex size-12 items-center justify-center rounded-2xl bg-[var(--brand-primary)] text-[var(--brand-foreground)] shadow-lg shadow-[var(--brand-primary)]/20 transition-shadow duration-300 group-hover:shadow-xl"
                     >
-                        <img src="/images/logo.png" alt="" class="size-7 object-contain" />
+                        <img :src="logo" alt="" class="size-7 object-contain" />
                     </div>
                     <span class="text-base font-semibold tracking-tight text-foreground">
                         MR. LANA <span class="text-[var(--brand-primary)]">PEOPLE</span>

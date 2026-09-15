@@ -107,7 +107,7 @@ const ACCESOS = [
                 </div>
                 <Link
                     :href="indexNotificaciones()"
-                    class="relative flex size-11 shrink-0 items-center justify-center rounded-full bg-white/15 transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/25"
+                    class="relative flex size-11 shrink-0 items-center justify-center rounded-full bg-white/15 transition-colors duration-200 hover:bg-white/25"
                 >
                     <Bell class="size-5" />
                     <span
@@ -126,10 +126,10 @@ const ACCESOS = [
                 v-for="acceso in ACCESOS"
                 :key="acceso.titulo"
                 :href="acceso.href()"
-                class="group flex flex-col gap-2 rounded-2xl border border-border/60 bg-gradient-to-br from-card to-muted/30 p-4 shadow-sm transition-all duration-200 ease-out hover:-translate-y-1 hover:border-[var(--brand-primary)]/40 hover:shadow-lg"
+                class="group flex flex-col gap-2 rounded-2xl border border-border/60 bg-gradient-to-br from-card to-muted/30 p-4 shadow-sm transition-all duration-200 ease-out hover:border-[var(--brand-primary)]/40 hover:shadow-lg"
             >
                 <span
-                    class="flex size-10 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-110"
+                    class="flex size-10 items-center justify-center rounded-xl"
                     :class="acceso.color"
                 >
                     <component :is="acceso.icono" class="size-5" />

@@ -34,7 +34,7 @@ const TIPO_ETIQUETA: Record<string, string> = {
 
 <template>
     <div
-        class="group relative flex flex-col gap-2 rounded-2xl border border-border/60 bg-gradient-to-br from-card to-muted/30 p-4 text-left shadow-sm transition-all duration-200 ease-out hover:-translate-y-1 hover:border-primary/40 hover:shadow-xl"
+        class="group relative flex flex-col gap-2 rounded-2xl border border-border/60 bg-gradient-to-br from-card to-muted/30 p-4 text-left shadow-sm transition-all duration-200 ease-out hover:border-primary/40 hover:shadow-xl"
         :class="compacto ? 'w-64' : 'w-full'"
     >
         <button

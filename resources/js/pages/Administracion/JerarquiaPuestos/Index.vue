@@ -556,7 +556,7 @@ watch(
                                         },
                                     })
                                 "
-                                class="rounded-xl border border-border/60 bg-card p-3 text-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                                class="rounded-xl border border-border/60 bg-card p-3 text-sm transition-all duration-200 hover:border-primary/40 hover:shadow-md"
                             >
                                 <span class="block text-lg font-semibold">{{
                                     puestoSeleccionado.vacantes_abiertas_count
@@ -577,7 +577,7 @@ watch(
                                         },
                                     })
                                 "
-                                class="flex flex-col items-center justify-center rounded-xl border border-dashed border-primary/40 bg-primary/5 p-3 text-center text-xs font-medium text-primary transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/10"
+                                class="flex flex-col items-center justify-center rounded-xl border border-dashed border-primary/40 bg-primary/5 p-3 text-center text-xs font-medium text-primary transition-all duration-200 hover:bg-primary/10"
                             >
                                 Crear vacante para este puesto
                             </Link>

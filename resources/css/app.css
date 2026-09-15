@@ -187,11 +187,14 @@
     --sidebar: hsl(240 5.9% 10%);
 }
 
-/* Personalización visual (Settings/Personalizacion.vue): un colaborador
-   puede cambiar --brand-primary/--brand-secondary sin tocar la identidad
-   de marca real del archivo (verde MR. LANA sigue siendo el valor por
-   defecto sin atributo). Se propaga solo porque --primary/--ring/--chart-*/
-   --sidebar-primary ya se definen en función de estas dos variables. */
+/*
+ * Personalización visual (Settings/Personalizacion.vue): un colaborador
+ * puede cambiar --brand-primary/--brand-secondary sin tocar la identidad
+ * de marca real del archivo (verde MR. LANA sigue siendo el valor por
+ * defecto sin atributo). Se propaga solo porque --primary, --ring,
+ * --chart-* y --sidebar-primary ya se definen en función de estas dos
+ * variables.
+ */
 :root[data-tema-color='azul'] {
     --brand-primary: #3b82f6;
     --brand-secondary: #06b6d4;

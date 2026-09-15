@@ -42,7 +42,7 @@ const TONOS: Record<Tono, string> = {
     <component
         :is="href ? Link : 'div'"
         :href="href"
-        class="group relative flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg"
+        class="group relative flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm transition-all duration-200 hover:border-primary/40 hover:shadow-lg"
     >
         <div class="flex items-start justify-between gap-2">
             <div class="min-w-0">

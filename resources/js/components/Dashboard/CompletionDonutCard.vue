@@ -19,7 +19,7 @@ const pendientes = computed(() => Math.max(0, props.total - props.completadas));
 
 <template>
     <div
-        class="flex flex-col gap-4 rounded-2xl border border-border/60 bg-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg"
+        class="flex flex-col gap-4 rounded-2xl border border-border/60 bg-card p-5 shadow-sm transition-all duration-200 hover:border-primary/40 hover:shadow-lg"
     >
         <div class="flex items-center justify-between gap-3">
             <div class="flex items-center gap-2.5">

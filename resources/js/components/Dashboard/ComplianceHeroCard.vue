@@ -35,7 +35,7 @@ const estado = computed<{
 
 <template>
     <div
-        class="group relative flex flex-col items-center gap-5 overflow-hidden rounded-2xl border border-border/60 bg-card/80 p-6 text-center shadow-sm backdrop-blur transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg sm:flex-row sm:text-left"
+        class="group relative flex flex-col items-center gap-5 overflow-hidden rounded-2xl border border-border/60 bg-card/80 p-6 text-center shadow-sm backdrop-blur transition-all duration-200 hover:border-primary/40 hover:shadow-lg sm:flex-row sm:text-left"
     >
         <div
             class="pointer-events-none absolute -top-10 -right-10 size-40 rounded-full bg-primary/10 blur-2xl transition-opacity duration-300 group-hover:opacity-80"

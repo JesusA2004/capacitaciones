@@ -102,7 +102,7 @@ defineProps<{
 
             <Button
                 type="submit"
-                class="mt-1 w-full transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                class="mt-1 w-full"
                 :tabindex="4"
                 :disabled="processing"
                 data-test="login-button"
@@ -122,7 +122,7 @@ defineProps<{
         class="group mt-4 flex items-center gap-3 rounded-2xl border border-border/60 bg-muted/30 p-3.5 transition-all duration-300 hover:border-primary/40 hover:bg-muted/50 hover:shadow-md sm:p-4"
     >
         <span
-            class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-transform duration-300 group-hover:scale-110"
+            class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
         >
             <Smartphone class="size-5" />
         </span>

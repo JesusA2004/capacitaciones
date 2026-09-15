@@ -17,7 +17,7 @@ const hayVencidas = computed(() => props.vencidas > 0);
 
 <template>
     <div
-        class="flex flex-col justify-between gap-4 rounded-2xl border p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+        class="flex flex-col justify-between gap-4 rounded-2xl border p-5 shadow-sm transition-all duration-200 hover:shadow-lg"
         :class="
             hayVencidas
                 ? 'border-destructive/20 bg-destructive/5 hover:border-destructive/40'

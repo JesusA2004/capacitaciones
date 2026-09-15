@@ -312,14 +312,14 @@ const queryExportacion = computed(() => ({
             <div class="ml-auto flex gap-2">
                 <a
                     :href="exportarExcel.url({ query: queryExportacion })"
-                    class="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-sm font-medium transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:bg-accent hover:shadow-sm"
+                    class="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-sm font-medium transition-all hover:border-primary/40 hover:bg-accent hover:shadow-sm"
                 >
                     <FileSpreadsheet class="size-4" />
                     Excel
                 </a>
                 <a
                     :href="exportarPdf.url({ query: queryExportacion })"
-                    class="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-sm font-medium transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:bg-accent hover:shadow-sm"
+                    class="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-sm font-medium transition-all hover:border-primary/40 hover:bg-accent hover:shadow-sm"
                 >
                     <FileText class="size-4" />
                     PDF

@@ -190,7 +190,7 @@ async function eliminar(documento: DocumentoGeneradoItem) {
             <Card
                 v-for="plantilla in plantillasDisponibles"
                 :key="plantilla.id"
-                class="group flex flex-col gap-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg"
+                class="group flex flex-col gap-3 transition-all duration-200 hover:border-primary/40 hover:shadow-lg"
             >
                 <CardHeader class="pb-0">
                     <div class="flex items-start justify-between gap-2">

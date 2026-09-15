@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue';
+import logoLetras from '@/assets/brand/logoLetras.png';
 
 defineOptions({
     inheritAttrs: false,
@@ -17,7 +18,7 @@ withDefaults(defineProps<Props>(), {
 
 <template>
     <img
-        src="/images/logoLetras.png"
+        :src="logoLetras"
         :alt="alt"
         :class="className"
         v-bind="$attrs"

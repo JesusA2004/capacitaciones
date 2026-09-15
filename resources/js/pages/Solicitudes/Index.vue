@@ -127,7 +127,7 @@ const TIPOS_BAJA = [
                 v-for="solicitud in solicitudes.data"
                 :key="solicitud.id"
                 :href="show.url(solicitud.id)"
-                class="group flex flex-col gap-2 rounded-2xl border border-border/60 bg-card p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                class="group flex flex-col gap-2 rounded-2xl border border-border/60 bg-card p-4 shadow-sm transition-shadow hover:shadow-md"
             >
                 <div class="flex items-start justify-between gap-2">
                     <div>

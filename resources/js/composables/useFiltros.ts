@@ -1,6 +1,6 @@
 import type { FormDataConvertible } from '@inertiajs/core';
 import { router } from '@inertiajs/vue3';
-import { nextTick, reactive } from 'vue';
+import { reactive } from 'vue';
 
 type OpcionesFiltros = {
     debounceMs?: number;
@@ -19,19 +19,10 @@ export function useFiltros<T extends Record<string, FormDataConvertible>>(
     let temporizador: ReturnType<typeof setTimeout> | undefined;
 
     function aplicar() {
-        // nextTick: un Select/DropdownMenu (reka-ui) que dispara aplicar()
-        // desde su propio @update:model-value todavía está cerrando su
-        // overlay (limpiando el bloqueo de foco/puntero que aplica mientras
-        // está abierto) en el mismo tick. Si Inertia reemplaza el árbol de
-        // props de la página antes de que termine esa limpieza, el bloqueo
-        // se queda pegado y el usuario ya no puede interactuar con nada
-        // hasta refrescar. Esperar un tick deja que reka-ui termine primero.
-        nextTick(() => {
-            router.get(url, filtros, {
-                preserveState: true,
-                preserveScroll: true,
-                replace: true,
-            });
+        router.get(url, filtros, {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
         });
     }
 

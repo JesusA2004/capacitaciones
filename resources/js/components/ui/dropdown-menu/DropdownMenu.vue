@@ -2,7 +2,17 @@
 import type { DropdownMenuRootEmits, DropdownMenuRootProps } from "reka-ui"
 import { DropdownMenuRoot, useForwardPropsEmits } from "reka-ui"
 
-const props = defineProps<DropdownMenuRootProps>()
+/**
+ * `modal` de reka-ui es `true` por defecto: bloquea
+ * `document.body.style.pointerEvents` mientras el menú está abierto (ver
+ * node_modules/reka-ui/dist/DropdownMenu/DropdownMenuRoot.js). Ninguno de
+ * nuestros dropdowns (campana, usuario, acciones de fila) necesita ese
+ * aislamiento de accesibilidad tipo modal, así que se desactiva aquí una
+ * sola vez para toda la app en vez de bloquear body en cada uno.
+ */
+const props = withDefaults(defineProps<DropdownMenuRootProps>(), {
+    modal: false,
+})
 const emits = defineEmits<DropdownMenuRootEmits>()
 
 const forwarded = useForwardPropsEmits(props, emits)

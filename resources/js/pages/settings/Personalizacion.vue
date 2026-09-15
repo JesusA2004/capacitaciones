@@ -70,7 +70,7 @@ function alternarAnimaciones(valor: boolean) {
                     @click="elegirTema(tema.id)"
                 >
                     <span
-                        class="flex size-11 items-center justify-center rounded-full ring-2 ring-offset-2 ring-offset-background transition-transform group-hover:scale-105"
+                        class="flex size-11 items-center justify-center rounded-full ring-2 ring-offset-2 ring-offset-background transition-shadow group-hover:shadow-md"
                         :class="
                             preferencias.tema_color === tema.id
                                 ? 'ring-foreground'
@@ -113,7 +113,7 @@ function alternarAnimaciones(valor: boolean) {
                         v-for="color in AVATAR_COLORES"
                         :key="color.id"
                         type="button"
-                        class="size-8 rounded-full ring-2 ring-offset-2 ring-offset-background transition-transform hover:scale-110"
+                        class="size-8 rounded-full ring-2 ring-offset-2 ring-offset-background transition-shadow hover:shadow-md"
                         :class="
                             preferencias.avatar_color === color.hex
                                 ? 'ring-foreground'

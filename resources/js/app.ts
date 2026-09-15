@@ -41,24 +41,3 @@ initializePersonalizacion();
 
 // This will listen for flash toast data from the server...
 initializeFlashToast();
-
-/**
- * Salvaguarda: reka-ui bloquea `document.body.style.pointerEvents` mientras
- * hay un Select/DropdownMenu/Dialog abierto (ver
- * node_modules/reka-ui/dist/DismissableLayer/DismissableLayer.js) y lo
- * restaura cuando se cierra. En una carrera con una recarga parcial de
- * Inertia (por ejemplo, un filtro con Select que dispara router.get al
- * elegir una opción) ese bloqueo se puede quedar pegado aunque ya no haya
- * ningún overlay abierto -- toda la página deja de responder a clics
- * (incluido el propio elemento atascado) hasta refrescar. Un intervalo es
- * la única forma de autorepararlo: el bloqueo también impide que un click
- * dispare el arreglo.
- */
-setInterval(() => {
-    if (
-        document.body.style.pointerEvents === 'none' &&
-        !document.querySelector('[data-dismissable-layer]')
-    ) {
-        document.body.style.pointerEvents = '';
-    }
-}, 1000);

@@ -15,10 +15,21 @@ defineOptions({
   inheritAttrs: false,
 })
 
+/**
+ * reka-ui bloquea el body mientras un Select está abierto por dos props
+ * independientes, ambas `true` por defecto en esta versión (ver
+ * node_modules/reka-ui/dist/Select/SelectContentImpl.js):
+ * `disableOutsidePointerEvents` pone `document.body.style.pointerEvents =
+ * 'none'` vía DismissableLayer, y `bodyLock` hace lo mismo a través de
+ * useBodyScrollLock. Ninguno de nuestros Select (filtros, formularios) es
+ * modal, así que ambos se desactivan aquí una sola vez para toda la app.
+ */
 const props = withDefaults(
   defineProps<SelectContentProps & { class?: HTMLAttributes["class"] }>(),
   {
     position: "popper",
+    disableOutsidePointerEvents: false,
+    bodyLock: false,
   },
 )
 const emits = defineEmits<SelectContentEmits>()
