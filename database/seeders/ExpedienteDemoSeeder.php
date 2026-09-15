@@ -28,6 +28,8 @@ use Throwable;
  */
 class ExpedienteDemoSeeder extends Seeder
 {
+    private DocumentoStorageService $storage;
+
     private const TEXTO_PLANO_POR_INDICE = [
         'Av. Reforma 123, Col. Centro, CDMX',
         'Calle Juárez 456, Col. Roma Norte, CDMX',
@@ -36,12 +38,15 @@ class ExpedienteDemoSeeder extends Seeder
         'Calle Hidalgo 654, Col. Centro, Cuernavaca',
     ];
 
-    public function __construct(
-        private readonly DocumentoStorageService $storage,
-    ) {}
-
     public function run(): void
     {
+        // Resuelto aquí (no por constructor): Seeder::call() no siempre
+        // instancia vía el contenedor, así que un __construct() con
+        // dependencias truena con "Too few arguments" en ciertos contextos
+        // (ver DatabaseSeederProduccionTest). Mismo patrón que
+        // SolicitudesDemoSeeder.
+        $this->storage = app(DocumentoStorageService::class);
+
         // colaborador3..colaborador10 los crea DashboardDemoSeeder (no
         // duplicar sus datos aquí, ver UsuarioDemoSeeder). colaborador10
         // (Pablo Serrano Vega) ya queda "inactivo" ahí mismo vía

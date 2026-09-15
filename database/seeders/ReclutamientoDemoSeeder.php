@@ -33,13 +33,20 @@ class ReclutamientoDemoSeeder extends Seeder
 {
     private const MARCA = '(demo-recl)';
 
-    public function __construct(
-        private readonly ConversionColaboradorService $conversion,
-        private readonly IncorporacionInvitacionService $invitaciones,
-    ) {}
+    private ConversionColaboradorService $conversion;
+
+    private IncorporacionInvitacionService $invitaciones;
 
     public function run(): void
     {
+        // Resuelto aquí (no por constructor): Seeder::call() no siempre
+        // instancia vía el contenedor, así que un __construct() con
+        // dependencias truena con "Too few arguments" en ciertos contextos
+        // (ver DatabaseSeederProduccionTest). Mismo patrón que
+        // SolicitudesDemoSeeder.
+        $this->conversion = app(ConversionColaboradorService::class);
+        $this->invitaciones = app(IncorporacionInvitacionService::class);
+
         if (Vacante::where('observaciones', 'like', '%'.self::MARCA)->exists()) {
             return;
         }
