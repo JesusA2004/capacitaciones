@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use App\Enums\EstadoFormatoOficialGeneracion;
 use Database\Factories\OfficialFormatGenerationFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 /**
  * Un PDF generado a partir de un OfficialFormat para un colaborador o
@@ -13,8 +15,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * (App\Services\Formatos\OfficialFormatStorageService); esta tabla solo
  * guarda metadatos y el snapshot de los datos usados.
  *
+ * Cuando `solicitud_interna_id` no es null, esta generación fue disparada
+ * automáticamente por App\Services\Solicitudes\SolicitudFormatoOficialService
+ * al aprobar esa solicitud (config/solicitudes.php) — a diferencia de una
+ * generación manual desde /rh/formatos-oficiales.
+ *
  * @property int $id
  * @property int $official_format_id
+ * @property int|null $solicitud_interna_id
  * @property int|null $user_id
  * @property int|null $candidato_id
  * @property int $generated_by_id
@@ -22,16 +30,23 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $generated_path
  * @property string $generated_name
  * @property array<string, string>|null $data_snapshot
+ * @property EstadoFormatoOficialGeneracion $status
+ * @property string|null $signed_disk
+ * @property string|null $signed_path
+ * @property string|null $signed_name
+ * @property int|null $signed_uploaded_by
+ * @property Carbon|null $signed_uploaded_at
  */
 class OfficialFormatGeneration extends Model
 {
     /** @use HasFactory<OfficialFormatGenerationFactory> */
     use HasFactory;
 
-    protected $hidden = ['generated_disk', 'generated_path'];
+    protected $hidden = ['generated_disk', 'generated_path', 'signed_disk', 'signed_path'];
 
     protected $fillable = [
         'official_format_id',
+        'solicitud_interna_id',
         'user_id',
         'candidato_id',
         'generated_by_id',
@@ -39,13 +54,37 @@ class OfficialFormatGeneration extends Model
         'generated_path',
         'generated_name',
         'data_snapshot',
+        'status',
+        'signed_disk',
+        'signed_path',
+        'signed_name',
+        'signed_uploaded_by',
+        'signed_uploaded_at',
     ];
 
     protected function casts(): array
     {
         return [
             'data_snapshot' => 'array',
+            'status' => EstadoFormatoOficialGeneracion::class,
+            'signed_uploaded_at' => 'datetime',
         ];
+    }
+
+    /**
+     * @return BelongsTo<SolicitudInterna, $this>
+     */
+    public function solicitud(): BelongsTo
+    {
+        return $this->belongsTo(SolicitudInterna::class, 'solicitud_interna_id');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function firmadoPor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'signed_uploaded_by');
     }
 
     /**

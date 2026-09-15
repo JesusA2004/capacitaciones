@@ -14,6 +14,7 @@ use App\Services\Formatos\OfficialFormatCatalogoService;
 use App\Services\Formatos\OfficialFormatOverlayService;
 use App\Services\Formatos\OfficialFormatStorageService;
 use App\Services\Plantillas\PlaceholderResolver;
+use App\Services\Solicitudes\SolicitudFormatoOficialService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -35,6 +36,7 @@ class FormatoOficialController extends Controller
         private readonly OfficialFormatStorageService $storage,
         private readonly PlaceholderResolver $resolver,
         private readonly AlcanceOrganizacionalService $alcance,
+        private readonly SolicitudFormatoOficialService $formatoDeSolicitud,
     ) {}
 
     public function index(Request $request): Response
@@ -168,16 +170,49 @@ class FormatoOficialController extends Controller
 
     public function descargar(Request $request, OfficialFormatGeneration $generacion): StreamedResponse
     {
+        $this->autorizarGeneracion($request, $generacion);
+
+        return $this->storage->respuesta($generacion->generated_path, [
+            'Content-Disposition' => 'attachment; filename="'.$generacion->generated_name.'"',
+        ]);
+    }
+
+    /**
+     * Igual que descargar(), pero inline: para que
+     * resources/js/components/people/DocumentPreviewDialog.vue lo pueda
+     * embeber sin forzar la descarga (sección 61 del encargo).
+     */
+    public function previsualizar(Request $request, OfficialFormatGeneration $generacion): StreamedResponse
+    {
+        $this->autorizarGeneracion($request, $generacion);
+
+        return $this->storage->respuesta($generacion->generated_path, [
+            'Content-Disposition' => 'inline; filename="'.$generacion->generated_name.'"',
+        ]);
+    }
+
+    public function subirFirmado(Request $request, OfficialFormatGeneration $generacion): RedirectResponse
+    {
+        $this->autorizarGeneracion($request, $generacion);
+        abort_unless($request->user()->can('formatos_oficiales.generar'), 403);
+
+        $request->validate([
+            'archivo' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:20480'],
+        ]);
+
+        $this->formatoDeSolicitud->archivarFirmado($generacion, $request->file('archivo'), $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Documento firmado archivado.']);
+    }
+
+    private function autorizarGeneracion(Request $request, OfficialFormatGeneration $generacion): void
+    {
         $usuario = $request->user();
         abort_unless($usuario->can('formatos_oficiales.descargar'), 403);
 
         if ($generacion->usuario !== null) {
             abort_unless($this->alcance->puedeVerUsuario($usuario, $generacion->usuario), 404);
         }
-
-        return $this->storage->respuesta($generacion->generated_path, [
-            'Content-Disposition' => 'attachment; filename="'.$generacion->generated_name.'"',
-        ]);
     }
 
     private function resolverSujeto(string $tipoSujeto, int $sujetoId): User|Candidato|null

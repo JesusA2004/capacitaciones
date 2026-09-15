@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -9,7 +11,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -41,10 +42,12 @@ const form = useForm({
     archivo: null as File | null,
 });
 
-function alSeleccionarArchivo(evento: Event) {
-    const input = evento.target as HTMLInputElement;
-    form.archivo = input.files?.[0] ?? null;
-}
+const archivosSeleccionados = computed<File[]>({
+    get: () => (form.archivo ? [form.archivo] : []),
+    set: (archivos) => {
+        form.archivo = archivos[0] ?? null;
+    },
+});
 
 function enviar() {
     form.post(subirFirmado.url(props.documentoId), {
@@ -60,7 +63,7 @@ function enviar() {
 
 <template>
     <Dialog :open="open" @update:open="(valor) => emit('update:open', valor)">
-        <DialogContent class="max-w-md">
+        <DialogContent class="w-[calc(100vw-2rem)] max-w-none sm:w-[min(90vw,800px)]">
             <DialogHeader>
                 <DialogTitle>Subir documento firmado</DialogTitle>
                 <DialogDescription>
@@ -94,7 +97,12 @@ function enviar() {
 
             <div class="grid gap-2">
                 <Label>Archivo firmado (PDF o imagen)</Label>
-                <Input type="file" @change="alSeleccionarArchivo" />
+                <PeopleFileDropzone
+                    v-model="archivosSeleccionados"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    :max-size-mb="20"
+                    :disabled="form.processing"
+                />
                 <p v-if="form.errors.archivo" class="text-xs text-destructive">
                     {{ form.errors.archivo }}
                 </p>

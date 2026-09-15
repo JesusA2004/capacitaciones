@@ -81,7 +81,7 @@ function enviar() {
 
 <template>
     <Dialog :open="open" @update:open="(valor) => emit('update:open', valor)">
-        <DialogContent class="max-w-md">
+        <DialogContent class="w-[calc(100vw-2rem)] max-w-none sm:w-[min(94vw,960px)]">
             <DialogHeader>
                 <DialogTitle>Generar formato</DialogTitle>
                 <DialogDescription>

@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Solicitudes\StoreSolicitudInternaRequest;
 use App\Http\Requests\Solicitudes\SubirDocumentoSolicitudRequest;
 use App\Models\SolicitudInterna;
+use App\Models\SolicitudInternaDocumento;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Solicitudes\SolicitudesService;
@@ -15,6 +16,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Vista del colaborador sobre sus propias solicitudes. La revisión de RH/
@@ -60,7 +62,7 @@ class SolicitudInternaController extends Controller
     {
         $this->authorize('view', $solicitud);
 
-        $solicitud->load(['usuario:id,name,apellidos', 'colaboradorObjetivo:id,name,apellidos', 'revisadoPor:id,name,apellidos', 'documentos', 'documentosGenerados.plantilla:id,nombre,tipo', 'historial.usuario:id,name,apellidos']);
+        $solicitud->load(['usuario:id,name,apellidos', 'colaboradorObjetivo:id,name,apellidos', 'revisadoPor:id,name,apellidos', 'documentos', 'documentosGenerados.plantilla:id,nombre,tipo', 'officialFormatGenerations.formato:id,nombre', 'historial.usuario:id,name,apellidos']);
 
         return Inertia::render('Solicitudes/Show', [
             'solicitud' => $solicitud,
@@ -81,5 +83,12 @@ class SolicitudInternaController extends Controller
         $this->solicitudes->adjuntarDocumento($solicitud, $request->file('archivo'), $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Documento adjuntado.']);
+    }
+
+    public function verDocumento(SolicitudInterna $solicitud, SolicitudInternaDocumento $documento): StreamedResponse
+    {
+        $this->authorize('view', $solicitud);
+
+        return $this->solicitudes->documento($solicitud, $documento);
     }
 }

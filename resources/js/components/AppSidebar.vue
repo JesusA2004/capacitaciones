@@ -10,10 +10,8 @@ import {
     FolderKanban,
     GitBranch,
     GraduationCap,
-    IdCard,
     Landmark,
     LayoutGrid,
-    QrCode,
     ShieldCheck,
     Smartphone,
     UserRound,
@@ -47,19 +45,17 @@ import { index as indexUsuarios } from '@/routes/administracion/usuarios';
 import { proximamente as capacitacionProximamente } from '@/routes/capacitacion';
 import { index as indexPortal } from '@/routes/portal';
 import { index as indexReportes } from '@/routes/reportes';
-import { index as indexAltas } from '@/routes/rh/altas';
 import { index as indexCandidatos } from '@/routes/rh/candidatos';
 import { index as indexCumpleanos } from '@/routes/rh/cumpleanos';
 import { index as indexExpedientes } from '@/routes/rh/expedientes';
 import { index as indexFormatos } from '@/routes/rh/formatos';
-import { index as indexIncorporacionInvitaciones } from '@/routes/rh/incorporacion/invitaciones';
 import { index as indexPlantillas } from '@/routes/rh/plantillas';
 import { index as indexRhSolicitudes } from '@/routes/rh/solicitudes';
 import { index as indexVacantes } from '@/routes/rh/vacantes';
 import { index as indexSolicitudes } from '@/routes/solicitudes';
 import type { NavItem } from '@/types';
 
-const { tienePermiso, tieneRol } = usePermisos();
+const { tienePermiso } = usePermisos();
 const page = usePage();
 const { esColaborador, tieneAmbosModos, cambiarModo } = useNavegacion();
 
@@ -170,25 +166,11 @@ const navItemsOperativo = computed<NavItem[]>(() => {
         });
     }
 
-    // Altas digitales e Invitaciones QR ya no son módulos sueltos del menú
-    // operativo: son pasos del flujo Candidato -> Alta digital -> QR (ver
-    // botones dentro de Rh/Candidatos/Show.vue). Solo super_admin conserva
-    // acceso directo por si necesita revisar/depurar fuera de ese flujo.
-    if (tienePermiso('altas.ver') && tieneRol('super_admin')) {
-        items.push({
-            title: 'Altas digitales',
-            href: indexAltas(),
-            icon: IdCard,
-        });
-    }
-
-    if (tienePermiso('rh.incorporacion.invitaciones.ver') && tieneRol('super_admin')) {
-        items.push({
-            title: 'Invitaciones QR',
-            href: indexIncorporacionInvitaciones(),
-            icon: QrCode,
-        });
-    }
+    // Altas digitales e Invitaciones QR NUNCA son módulos sueltos del menú,
+    // ni siquiera para super_admin: son pasos del flujo Candidato -> Alta
+    // digital -> QR (ver botones dentro de Rh/Candidatos/Show.vue). Las
+    // rutas/controllers siguen existiendo para uso interno/depuración, solo
+    // se quitó la entrada de navegación.
 
     // "Formatos" es un único menú con tabs (Oficiales PDF, Plantillas
     // avanzadas DOCX, Generados, Configuración de campos) — ver

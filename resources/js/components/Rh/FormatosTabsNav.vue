@@ -14,14 +14,13 @@ import { index as indexPlantillas } from '@/routes/rh/plantillas';
  * duplicar los controladores/paginación de cada sección.
  */
 const props = defineProps<{
-    activa: 'oficiales' | 'plantillas' | 'generados' | 'configuracion';
+    activa: 'oficiales' | 'plantillas' | 'generados';
 }>();
 
 const { tienePermiso } = usePermisos();
 
 const puedeVerOficiales = computed(() => tienePermiso('formatos_oficiales.ver'));
 const puedeVerPlantillas = computed(() => tienePermiso('plantillas.ver'));
-const puedeConfigurar = computed(() => tienePermiso('formatos_oficiales.configurar'));
 
 function claseTab(activo: boolean): string {
     return cn(
@@ -57,21 +56,7 @@ function claseTab(activo: boolean): string {
             :href="indexGenerados()"
             :class="claseTab(props.activa === 'generados')"
         >
-            Generados
+            Documentos generados
         </Link>
-        <span
-            v-if="puedeConfigurar"
-            :class="[
-                claseTab(props.activa === 'configuracion'),
-                props.activa !== 'configuracion' && 'cursor-not-allowed opacity-60',
-            ]"
-            :title="
-                props.activa !== 'configuracion'
-                    ? 'Elige un formato en «Oficiales PDF» y usa «Configurar campos»'
-                    : undefined
-            "
-        >
-            Configuración de campos
-        </span>
     </nav>
 </template>

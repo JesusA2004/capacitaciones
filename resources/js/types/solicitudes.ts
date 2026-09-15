@@ -86,6 +86,30 @@ export type FiniquitoPermisos = {
     usaFormatoOficial: boolean;
 };
 
+/**
+ * Documento oficial automático de la solicitud (config/solicitudes.php +
+ * App\Services\Solicitudes\SolicitudFormatoOficialService) — distinto de
+ * documentos_generados (plantillas DOCX manuales/opcionales).
+ */
+export type OfficialFormatGenerationItem = {
+    id: number;
+    generated_name: string;
+    status: 'generado' | 'firmado';
+    signed_name: string | null;
+    signed_uploaded_at: string | null;
+    firmado_por?: UsuarioResumen | null;
+    formato?: { id: number; nombre: string } | null;
+    created_at: string;
+};
+
+export type DocumentoOficialEsperado = {
+    id: number | null;
+    nombre: string;
+    configurado: boolean;
+    requiereFirma: boolean;
+    puedeConfigurar: boolean;
+};
+
 export type SolicitudInternaItem = {
     id: number;
     folio: string;
@@ -118,6 +142,7 @@ export type SolicitudInternaItem = {
     documentos?: SolicitudInternaDocumentoItem[];
     documentos_count?: number;
     documentos_generados?: DocumentoGeneradoItem[];
+    official_format_generations?: OfficialFormatGenerationItem[];
     historial?: SolicitudInternaHistorialItem[];
     finiquitoCalculo?: FiniquitoCalculoItem | null;
 };

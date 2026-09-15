@@ -49,4 +49,40 @@ enum EstadoSolicitudInterna: string
             default => false,
         };
     }
+
+    /**
+     * Mapa de transiciones válidas (docs/SOLICITUDES_UNIFICADAS.md): tanto el
+     * tablero Kanban (drag and drop, SolicitudesService::moverEnTablero())
+     * como las acciones de revisión del detalle pasan por
+     * SolicitudesService::cambiarEstado(), que llama a este método antes de
+     * escribir nada — el frontend nunca es la única autoridad.
+     */
+    public function puedeTransicionarA(self $destino): bool
+    {
+        if ($this === $destino) {
+            return false;
+        }
+
+        if ($destino === self::Cancelada) {
+            return $this->puedeCancelarse();
+        }
+
+        if ($this->esFinal()) {
+            return false;
+        }
+
+        return match ($this) {
+            self::Creada, self::Enviada => in_array($destino, [
+                self::EnRevision, self::RequiereCorreccion, self::Aprobada,
+            ], true),
+            self::EnRevision => in_array($destino, [
+                self::RequiereCorreccion, self::Aprobada, self::Rechazada,
+            ], true),
+            self::RequiereCorreccion => in_array($destino, [
+                self::EnRevision, self::Rechazada,
+            ], true),
+            self::Aprobada => $destino === self::Cerrada,
+            default => false,
+        };
+    }
 }

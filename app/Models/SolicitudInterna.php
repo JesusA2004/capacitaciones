@@ -18,9 +18,14 @@ use Spatie\Activitylog\Traits\LogsActivity;
 
 /**
  * Solicitud interna de un colaborador (permiso, incapacidad, constancia,
- * actualización de datos, etc. — ver docs/SOLICITUDES_INTERNAS.md).
- * Vacaciones tiene su propio modelo (SolicitudVacaciones): no se duplica esa
- * lógica aquí.
+ * actualización de datos, etc. — ver docs/SOLICITUDES_UNIFICADAS.md).
+ *
+ * `TipoSolicitudInterna::Vacaciones` SÍ vive aquí (flujo web unificado,
+ * comparte saldo con App\Services\Vacaciones\VacacionesService::saldo()).
+ * App\Models\SolicitudVacaciones sigue existiendo aparte solo como el
+ * endpoint legacy que usa la app móvil (App\Http\Controllers\VacacionesController) —
+ * ambos caminos descuentan del mismo saldo, pero NO son la misma tabla; no
+ * asumas que unificar esta clase también unificó esa tabla.
  *
  * @property int $id
  * @property string $folio
@@ -153,6 +158,18 @@ class SolicitudInterna extends Model
     public function documentosGenerados(): HasMany
     {
         return $this->hasMany(GeneratedDocument::class, 'solicitud_id');
+    }
+
+    /**
+     * Documento oficial automático de esta solicitud (config/solicitudes.php
+     * + App\Services\Solicitudes\SolicitudFormatoOficialService) — distinto
+     * de documentosGenerados(), que son plantillas DOCX manuales/opcionales.
+     *
+     * @return HasMany<OfficialFormatGeneration, $this>
+     */
+    public function officialFormatGenerations(): HasMany
+    {
+        return $this->hasMany(OfficialFormatGeneration::class, 'solicitud_interna_id');
     }
 
     /**

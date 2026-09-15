@@ -20,6 +20,7 @@ use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\Finiquitos\FiniquitoService;
 use App\Services\Solicitudes\SolicitudesService;
+use App\Services\Solicitudes\SolicitudFormatoOficialService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -36,6 +37,7 @@ class SolicitudController extends Controller
     public function __construct(
         private readonly SolicitudesService $solicitudes,
         private readonly FiniquitoService $finiquitos,
+        private readonly SolicitudFormatoOficialService $formatoOficial,
     ) {}
 
     public function index(Request $request): Response
@@ -121,16 +123,26 @@ class SolicitudController extends Controller
             'documentos.subidoPor:id,name,apellidos',
             'documentosGenerados.plantilla:id,nombre,tipo',
             'documentosGenerados.generadoPor:id,name,apellidos',
+            'officialFormatGenerations.formato:id,nombre',
+            'officialFormatGenerations.firmadoPor:id,name,apellidos',
             'historial.usuario:id,name,apellidos',
             'finiquitoCalculo.revisadoPor:id,name,apellidos',
         ]);
 
         $puedeGenerarFormato = $request->user()->can('plantillas.generar');
         $finiquito = $solicitud->finiquitoCalculo;
+        $formatoEsperado = $this->formatoOficial->formatoEsperado($solicitud);
 
         return Inertia::render('Rh/Solicitudes/Show', [
             'solicitud' => $solicitud,
             'puedeGenerarFormato' => $puedeGenerarFormato,
+            'documentoOficial' => $this->formatoOficial->aplicaPara($solicitud) ? [
+                'id' => $formatoEsperado?->id,
+                'nombre' => $formatoEsperado !== null ? $formatoEsperado->nombre : $solicitud->tipo->etiqueta(),
+                'configurado' => $formatoEsperado !== null && $formatoEsperado->tieneConfiguracion(),
+                'requiereFirma' => $solicitud->tipo->formatoRequiereFirma(),
+                'puedeConfigurar' => $request->user()->can('formatos_oficiales.configurar'),
+            ] : null,
             'plantillasSugeridas' => $puedeGenerarFormato
                 ? DocumentTemplate::query()->where('activo', true)->orderBy('nombre')->get(['id', 'nombre', 'tipo'])
                 : [],

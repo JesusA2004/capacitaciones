@@ -24,6 +24,7 @@ const MAPA_ESTADOS: Record<string, { variante: Variante; etiqueta: string }> = {
     aprobada: { variante: 'success', etiqueta: 'Aprobada' },
     aprobado: { variante: 'success', etiqueta: 'Aprobado' },
     presente: { variante: 'success', etiqueta: 'Presente' },
+    firmado: { variante: 'success', etiqueta: 'Firmado' },
     activo: { variante: 'success', etiqueta: 'Activo' },
     disponible: { variante: 'success', etiqueta: 'Disponible' },
     publicado: { variante: 'success', etiqueta: 'Publicado' },
@@ -66,6 +67,7 @@ const MAPA_ESTADOS: Record<string, { variante: Variante; etiqueta: string }> = {
     calificado: { variante: 'info', etiqueta: 'Calificado' },
     sincronizado: { variante: 'info', etiqueta: 'Sincronizado' },
     usado: { variante: 'info', etiqueta: 'Usado' },
+    generado: { variante: 'info', etiqueta: 'Generado' },
     corregida_manualmente: {
         variante: 'info',
         etiqueta: 'Corregida manualmente',

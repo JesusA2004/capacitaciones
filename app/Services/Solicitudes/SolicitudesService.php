@@ -54,6 +54,7 @@ class SolicitudesService
         private readonly VacacionesService $vacaciones,
         private readonly BajaColaboradorService $bajaColaborador,
         private readonly FiniquitoService $finiquito,
+        private readonly SolicitudFormatoOficialService $formatoOficial,
     ) {}
 
     /**
@@ -354,6 +355,16 @@ class SolicitudesService
 
     private function cambiarEstado(SolicitudInterna $solicitud, User $actor, EstadoSolicitudInterna $nuevoEstado, ?string $comentario = null, ?string $motivoRechazo = null): SolicitudInterna
     {
+        // Única puerta de cambio de estado (tablero Kanban y botones del
+        // detalle pasan por aquí): el mapa de transiciones vive en el enum
+        // (EstadoSolicitudInterna::puedeTransicionarA()) para que el backend
+        // sea la autoridad real, nunca solo el frontend que oculta botones.
+        if (! $solicitud->estado->puedeTransicionarA($nuevoEstado)) {
+            throw ValidationException::withMessages([
+                'estado' => "No se puede mover la solicitud de «{$solicitud->estado->etiqueta()}» a «{$nuevoEstado->etiqueta()}».",
+            ]);
+        }
+
         // Nunca se aprueba una baja sin evidencia/firma del gerente
         // (formato firmado, carta o autorización adjunta): la validación va
         // antes de la transacción para no dejar nada a medio persistir.
@@ -412,6 +423,14 @@ class SolicitudesService
                 }
 
                 $this->finiquito->marcarAprobadoConLaBaja($solicitud);
+            }
+
+            // Documento oficial automático (config/solicitudes.php): se
+            // genera al aprobar, para todos los tipos con formato mapeado,
+            // no solo baja. Nunca revierte la aprobación si falla (ver
+            // SolicitudFormatoOficialService::generarSiAplica()).
+            if ($nuevoEstado === EstadoSolicitudInterna::Aprobada) {
+                $this->formatoOficial->generarSiAplica($solicitud, $actor);
             }
 
             // Notifica al colaborador en cada transicion visible del tablero

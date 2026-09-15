@@ -68,7 +68,7 @@ function formatearFecha(fecha: string | null): string {
 <template>
     <Head title="Formatos" />
 
-    <div class="mx-auto flex max-w-screen-2xl flex-col gap-6 p-4 sm:px-6 lg:px-8">
+    <div class="flex w-full min-w-0 flex-col gap-6 p-4 sm:p-6">
         <CrudPageHeader
             titulo="Formatos"
             descripcion="Genera documentos de MR. LANA precargados con los datos del colaborador."

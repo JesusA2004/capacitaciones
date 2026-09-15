@@ -32,6 +32,7 @@ class DocumentTypeSeeder extends Seeder
             ['clave' => 'permiso', 'nombre' => 'Formato de permiso', 'requerido' => false, 'aplica_alta' => false],
             ['clave' => 'formato_vacaciones', 'nombre' => 'Formato de vacaciones', 'requerido' => false, 'aplica_alta' => false],
             ['clave' => 'documento_baja', 'nombre' => 'Documento de baja', 'requerido' => false, 'aplica_alta' => false],
+            ['clave' => 'contrato_credito_colaborador', 'nombre' => 'Contrato de crédito para colaboradores', 'requerido' => false, 'aplica_alta' => false],
             ['clave' => 'otro', 'nombre' => 'Otro documento', 'requerido' => false, 'aplica_alta' => false],
         ];
 

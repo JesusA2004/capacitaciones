@@ -87,7 +87,7 @@ defineOptions({
     layout: {
         breadcrumbs: [
             { title: 'Formatos', href: indexFormatos() },
-            { title: 'Generados', href: '' },
+            { title: 'Documentos generados', href: '' },
         ],
     },
 });
@@ -159,12 +159,12 @@ async function eliminar(documento: DocumentoGeneradoItem) {
 </script>
 
 <template>
-    <Head title="Generados" />
+    <Head title="Documentos generados" />
 
-    <div class="mx-auto flex max-w-screen-2xl flex-col gap-6 p-4 sm:px-6 lg:px-8">
+    <div class="flex w-full min-w-0 flex-col gap-6 p-4 sm:p-6">
         <CrudPageHeader
-            titulo="Generados"
-            descripcion="Genera documentos libres a partir de una plantilla DOCX editable y consulta el historial."
+            titulo="Documentos generados"
+            descripcion="Genera documentos adicionales desde plantillas internas y consulta el historial de archivos generados."
             :icono="FileStack"
         >
             <CrudExportButtons
@@ -180,7 +180,7 @@ async function eliminar(documento: DocumentoGeneradoItem) {
             <CrudEmptyState
                 :icono="FileStack"
                 titulo="Sin plantillas activas"
-                descripcion="Sube una plantilla desde Plantillas para poder generar formatos a partir de ella."
+                descripcion="Agrega una plantilla desde la pestaña Plantillas DOCX."
             />
         </div>
         <div

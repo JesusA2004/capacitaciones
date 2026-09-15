@@ -147,6 +147,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('{formato}/vista-previa', [FormatoOficialController::class, 'previsualizarGeneracion'])->name('vista-previa');
             Route::post('{formato}/generar', [FormatoOficialController::class, 'generar'])->name('generar');
             Route::get('generaciones/{generacion}/descargar', [FormatoOficialController::class, 'descargar'])->name('descargar');
+            Route::get('generaciones/{generacion}/previsualizar', [FormatoOficialController::class, 'previsualizar'])->name('previsualizar');
+            Route::post('generaciones/{generacion}/subir-firmado', [FormatoOficialController::class, 'subirFirmado'])->name('subir-firmado');
         });
 
         // La revisión de vacaciones vive en la bandeja unificada de abajo

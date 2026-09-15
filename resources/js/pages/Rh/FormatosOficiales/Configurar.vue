@@ -125,7 +125,7 @@ function guardar() {
 </script>
 
 <template>
-    <div class="mx-auto flex max-w-screen-2xl flex-col gap-6 p-4 sm:px-6 lg:px-8">
+    <div class="flex w-full min-w-0 flex-col gap-6 p-4 sm:p-6">
         <CrudPageHeader
             :titulo="`Configurar «${formato.nombre}»`"
             descripcion="Define dónde se pintan los datos del colaborador sobre el PDF oficial."
@@ -136,7 +136,7 @@ function guardar() {
             </Button>
         </CrudPageHeader>
 
-        <FormatosTabsNav activa="configuracion" />
+        <FormatosTabsNav activa="oficiales" />
 
         <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
             <Card class="overflow-hidden">
