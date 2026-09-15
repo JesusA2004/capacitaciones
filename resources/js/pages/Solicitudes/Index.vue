@@ -1,6 +1,23 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ClipboardList, Eye, Plus } from '@lucide/vue';
+import {
+    ArrowLeft,
+    Banknote,
+    Baby,
+    Cake,
+    Calendar,
+    Clock,
+    ClipboardList,
+    Eye,
+    FileEdit,
+    FileWarning,
+    Heart,
+    LogOut,
+    MessageSquare,
+    Plus,
+    Timer,
+    UserX,
+} from '@lucide/vue';
 import { computed, ref } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
@@ -52,6 +69,67 @@ defineOptions({
 });
 
 const dialogoAbierto = ref(false);
+const pasoFormulario = ref<'tipo' | 'detalle'>('tipo');
+
+const ICONO_TIPO: Record<string, typeof ClipboardList> = {
+    vacaciones: Calendar,
+    permiso_con_goce: FileEdit,
+    permiso_sin_goce: FileEdit,
+    permiso_tiempo: Timer,
+    salida_temprano: LogOut,
+    llegada_tarde: Clock,
+    incapacidad: FileWarning,
+    constancia_laboral: ClipboardList,
+    actualizacion_datos: FileEdit,
+    actualizacion_bancaria: Banknote,
+    reposicion_documental: FileWarning,
+    prestamo: Banknote,
+    baja_colaborador: UserX,
+    permiso_especial_cumpleanos: Cake,
+    permiso_especial_paternidad: Baby,
+    permiso_especial_fallecimiento: Heart,
+    solicitud_general: MessageSquare,
+};
+
+const DESCRIPCION_TIPO: Record<string, string> = {
+    vacaciones: 'Solicita días de tu saldo disponible.',
+    permiso_con_goce: 'Permiso pagado por un rango de fechas.',
+    permiso_sin_goce: 'Permiso sin pago por un rango de fechas.',
+    permiso_tiempo: 'Salida por algunas horas en el día.',
+    salida_temprano: 'Terminar tu jornada antes de la hora habitual.',
+    llegada_tarde: 'Llegar después de tu horario habitual.',
+    incapacidad: 'Registra una incapacidad médica y su comprobante.',
+    constancia_laboral: 'Pide una constancia de que trabajas aquí.',
+    actualizacion_datos: 'Corrige o actualiza tus datos personales.',
+    actualizacion_bancaria: 'Actualiza tu cuenta para depósito de nómina.',
+    reposicion_documental: 'Repone un documento de tu expediente.',
+    prestamo: 'Solicita un préstamo con descuento a nómina.',
+    baja_colaborador: 'Inicia la baja de un colaborador a tu cargo.',
+    permiso_especial_cumpleanos: 'Día libre por tu cumpleaños.',
+    permiso_especial_paternidad: 'Permiso especial por paternidad.',
+    permiso_especial_fallecimiento: 'Permiso especial por fallecimiento familiar.',
+    solicitud_general: 'Cualquier otro trámite que no encaje arriba.',
+};
+
+const AVISO_FORMATO_AUTOMATICO: Record<string, string> = {
+    vacaciones: 'Al aprobarse se generará tu formato de vacaciones automáticamente.',
+    permiso_con_goce: 'Al aprobarse se generará el formato de permiso automáticamente.',
+    permiso_sin_goce: 'Al aprobarse se generará el formato de permiso automáticamente.',
+    permiso_tiempo: 'Al aprobarse se generará el formato de permiso automáticamente.',
+    salida_temprano: 'Al aprobarse se generará el formato de permiso automáticamente.',
+    llegada_tarde: 'Al aprobarse se generará el formato de permiso automáticamente.',
+    prestamo: 'Al aprobarse se generará el contrato de crédito correspondiente.',
+};
+
+function seleccionarTipo(clave: string) {
+    form.tipo = clave;
+    pasoFormulario.value = 'detalle';
+}
+
+function abrirNuevaSolicitud() {
+    pasoFormulario.value = 'tipo';
+    dialogoAbierto.value = true;
+}
 
 const form = useForm({
     tipo: '',
@@ -72,6 +150,7 @@ function enviar() {
         preserveScroll: true,
         onSuccess: () => {
             dialogoAbierto.value = false;
+            pasoFormulario.value = 'tipo';
             form.reset();
         },
     });
@@ -104,7 +183,7 @@ const TIPOS_BAJA = [
             descripcion="Vacaciones, permisos, préstamos, incapacidades y otros trámites internos, todo en un solo lugar."
             :icono="ClipboardList"
         >
-            <Button @click="dialogoAbierto = true">
+            <Button @click="abrirNuevaSolicitud">
                 <Plus class="size-4" />
                 Nueva solicitud
             </Button>
@@ -116,7 +195,7 @@ const TIPOS_BAJA = [
             titulo="Todavía no tienes solicitudes"
             descripcion="Crea tu primera solicitud interna con el botón de arriba."
         >
-            <Button @click="dialogoAbierto = true">
+            <Button @click="abrirNuevaSolicitud">
                 <Plus class="size-4" />
                 Crear la primera
             </Button>
@@ -158,34 +237,72 @@ const TIPOS_BAJA = [
     </div>
 
     <Dialog v-model:open="dialogoAbierto">
-        <DialogContent class="sm:max-w-lg">
+        <DialogContent
+            class="max-h-[90vh] w-[calc(100vw-2rem)] max-w-none overflow-y-auto sm:w-[min(94vw,1100px)]"
+        >
             <DialogHeader>
-                <DialogTitle>Nueva solicitud</DialogTitle>
+                <DialogTitle>
+                    {{
+                        pasoFormulario === 'tipo'
+                            ? '¿Qué necesitas solicitar?'
+                            : `Nueva solicitud — ${tipoActual?.nombre ?? ''}`
+                    }}
+                </DialogTitle>
             </DialogHeader>
 
-            <form class="grid gap-4" @submit.prevent="enviar">
-                <div class="grid gap-2">
-                    <Label for="tipo">Tipo de solicitud</Label>
-                    <Select v-model="form.tipo">
-                        <SelectTrigger id="tipo" class="w-full">
-                            <SelectValue placeholder="Selecciona un tipo">
-                                {{ tipoActual?.nombre ?? '' }}
-                            </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="tipo in tipos"
-                                :key="tipo.clave"
-                                :value="tipo.clave"
-                            >
-                                {{ tipo.nombre }}
-                            </SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <p v-if="form.errors.tipo" class="text-sm text-destructive">
-                        {{ form.errors.tipo }}
-                    </p>
+            <div
+                v-if="pasoFormulario === 'tipo'"
+                class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+            >
+                <button
+                    v-for="tipo in tipos"
+                    :key="tipo.clave"
+                    type="button"
+                    class="flex flex-col items-start gap-2 rounded-2xl border border-border/60 bg-card p-4 text-left transition-colors hover:border-primary/40 hover:bg-accent/40"
+                    @click="seleccionarTipo(tipo.clave)"
+                >
+                    <span
+                        class="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary"
+                    >
+                        <component
+                            :is="ICONO_TIPO[tipo.clave] ?? ClipboardList"
+                            class="size-4.5"
+                        />
+                    </span>
+                    <span class="text-sm font-semibold">{{
+                        tipo.nombre
+                    }}</span>
+                    <span class="text-xs text-muted-foreground">{{
+                        DESCRIPCION_TIPO[tipo.clave] ??
+                        'Solicítalo desde aquí.'
+                    }}</span>
+                </button>
+            </div>
+
+            <form
+                v-else
+                class="grid gap-4"
+                @submit.prevent="enviar"
+            >
+                <button
+                    type="button"
+                    class="flex w-fit items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+                    @click="pasoFormulario = 'tipo'"
+                >
+                    <ArrowLeft class="size-3.5" />
+                    Cambiar tipo de solicitud
+                </button>
+
+                <div
+                    v-if="AVISO_FORMATO_AUTOMATICO[form.tipo]"
+                    class="rounded-lg border border-[var(--brand-primary)]/30 bg-[var(--brand-primary)]/5 p-3 text-xs text-foreground"
+                >
+                    {{ AVISO_FORMATO_AUTOMATICO[form.tipo] }}
                 </div>
+
+                <p v-if="form.errors.tipo" class="text-sm text-destructive">
+                    {{ form.errors.tipo }}
+                </p>
 
                 <!-- Vacaciones: saldo disponible + días a solicitar -->
                 <div

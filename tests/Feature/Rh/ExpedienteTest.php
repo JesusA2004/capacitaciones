@@ -22,6 +22,46 @@ test('un colaborador solo puede ver su propio expediente', function () {
     $this->actingAs($colaborador)->get(route('rh.expedientes.show', $otro))->assertForbidden();
 });
 
+test('un colaborador dado de baja sigue siendo visible en expedientes y super_admin puede reactivarlo desde ahi', function () {
+    $rh = User::factory()->create();
+    $rh->assignRole('rh_admin');
+
+    $admin = User::factory()->create();
+    $admin->assignRole('super_admin');
+
+    $sucursal = Sucursal::factory()->create();
+    $colaborador = User::factory()->create(['sucursal_principal_id' => $sucursal->id]);
+    $colaborador->assignRole('colaborador');
+
+    $this->actingAs($admin)
+        ->delete(route('administracion.usuarios.destroy', $colaborador))
+        ->assertRedirect();
+
+    // rh_admin todavia puede abrir el expediente de una baja (antes daba 404
+    // porque la ruta no soportaba soft-deleted).
+    $this->actingAs($rh)
+        ->get(route('rh.expedientes.show', $colaborador->id))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('colaborador.deleted_at', fn ($v) => $v !== null)
+            ->where('puedeReactivar', false)
+        );
+
+    $this->actingAs($admin)
+        ->post(route('administracion.usuarios.reactivar', $colaborador->id))
+        ->assertSessionHasNoErrors();
+
+    $colaborador = User::findOrFail($colaborador->id);
+    expect($colaborador->trashed())->toBeFalse()
+        ->and($colaborador->estatus->value)->toBe('activo');
+
+    $this->actingAs($admin)
+        ->get(route('rh.expedientes.index'))
+        ->assertInertia(fn ($page) => $page
+            ->where('colaboradores.data', fn ($lista) => collect($lista)->pluck('id')->contains($colaborador->id))
+        );
+});
+
 test('el expediente muestra el historial de vacaciones desde solicitudes_internas, no desde la tabla legacy', function () {
     $colaborador = User::factory()->create();
     $colaborador->assignRole('colaborador');

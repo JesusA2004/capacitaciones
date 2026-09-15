@@ -35,4 +35,15 @@ class UserPolicy
             && ! $usuario->is($objetivo)
             && $this->alcance->puedeVerUsuario($usuario, $objetivo);
     }
+
+    /**
+     * Reactivar una baja lógica es más sensible que darla de alta: solo
+     * super_admin la tiene en el catálogo de permisos (ver
+     * RolesYPermisosSeeder), a propósito.
+     */
+    public function reactivar(User $usuario, User $objetivo): bool
+    {
+        return $usuario->can('usuarios.reactivar')
+            && $this->alcance->puedeVerUsuario($usuario, $objetivo);
+    }
 }

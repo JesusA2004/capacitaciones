@@ -73,7 +73,7 @@ enum EstadoSolicitudInterna: string
 
         return match ($this) {
             self::Creada, self::Enviada => in_array($destino, [
-                self::EnRevision, self::RequiereCorreccion, self::Aprobada,
+                self::EnRevision, self::RequiereCorreccion, self::Aprobada, self::Rechazada,
             ], true),
             self::EnRevision => in_array($destino, [
                 self::RequiereCorreccion, self::Aprobada, self::Rechazada,

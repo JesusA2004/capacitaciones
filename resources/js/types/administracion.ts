@@ -126,12 +126,15 @@ export type EstadisticasActivoInactivo = {
     total: number;
     activos: number;
     inactivos: number;
+    /** Solo Administracion/Usuarios: bajas lógicas (soft-deleted), aparte de "inactivos". */
+    bajas?: number;
 };
 
 export type UsuarioItem = {
     id: number;
     name: string;
     apellidos: string | null;
+    deleted_at?: string | null;
     numero_empleado: string | null;
     email: string;
     telefono: string | null;

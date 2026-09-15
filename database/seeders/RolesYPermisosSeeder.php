@@ -42,6 +42,7 @@ class RolesYPermisosSeeder extends Seeder
         'usuarios.crear',
         'usuarios.editar',
         'usuarios.desactivar',
+        'usuarios.reactivar',
         'sucursales.administrar',
         'departamentos.administrar',
         'puestos.administrar',

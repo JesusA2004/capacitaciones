@@ -71,6 +71,10 @@ Route::middleware(['auth', 'verified'])
             Route::post('/', [UsuarioController::class, 'store'])->name('store');
             Route::put('{usuario}', [UsuarioController::class, 'update'])->name('update');
             Route::delete('{usuario}', [UsuarioController::class, 'destroy'])->name('destroy');
+            // Un colaborador dado de baja queda soft-deleted (ver
+            // UsuarioController::destroy()): sin withTrashed() el binding
+            // implícito de {usuario} nunca lo encontraría para reactivarlo.
+            Route::post('{usuario}/reactivar', [UsuarioController::class, 'reactivar'])->name('reactivar')->withTrashed();
         });
 
         // URL en español (app-versiones) tal como la pidió el encargo; nombre

@@ -19,9 +19,20 @@ Soft deletes.
 ## Estados
 
 `abierta` → `en_reclutamiento` → `con_candidatos` → `en_revision` → `cubierta` |
-`cancelada`. El tablero (`/rh/vacantes`) permite arrastrar una tarjeta a otra columna
-para cambiar de estado (`PUT rh/vacantes/{vacante}/estado`); el cambio siempre pasa por
+`cancelada`. El tablero (`/rh/vacantes`, con `vue-draggable-plus` — misma librería que
+el tablero de Solicitudes) permite arrastrar una tarjeta a otra columna para cambiar de
+estado (`PUT rh/vacantes/{vacante}/estado`); el cambio siempre pasa por
 `VacantePolicy::cambiarEstado` en el backend, no solo por la interfaz.
+
+`EstadoVacante::puedeTransicionarA()` es la única fuente de verdad de qué transiciones
+son válidas (`VacanteController::actualizarEstado()` la consulta antes de escribir nada).
+`cubierta` **nunca** es un destino válido ahí a propósito: soltar una tarjeta en esa
+columna abre `CubrirVacanteDialog` (cobertura real: colaborador interno, temporal o
+candidato externo) en vez de mandar el PATCH — la única forma real de llegar a
+`cubierta` es `POST rh/vacantes/{vacante}/cubrir` (ver abajo). Una vacante
+`generada_automaticamente` tampoco admite `DELETE` directo (`VacantePolicy::delete()`):
+se cancela con motivo o se sincroniza sola cuando el faltante desaparece, para conservar
+su auditoría.
 
 ## Relación con candidatos
 

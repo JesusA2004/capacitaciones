@@ -97,8 +97,8 @@ export type CandidatoDetalle = CandidatoItem & {
     departamento: OpcionSimple | null;
     documentos_solicitados: string | null;
     seguimientos: SeguimientoCandidatoItem[];
-    alta_digital: { id: number } | null;
-    incorporacion_invitacion: { id: number } | null;
+    alta_digital: { id: number; estado: string } | null;
+    incorporacion_invitacion: { id: number; estado: string } | null;
 };
 
 export type CandidatoTimelineEtapa = {

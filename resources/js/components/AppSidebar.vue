@@ -243,9 +243,13 @@ const adminNavItems = computed<NavItem[]>(() => {
         });
     }
 
+    // "Colaboradores" ya no es un listado aparte: Expedientes (rh.expedientes)
+    // es la pantalla maestra de personas (activos, inactivos y bajas). Esta
+    // entrada es solo para lo que Expediente no cubre — cuenta de acceso,
+    // roles y permisos — de ahí el nombre distinto.
     if (tienePermiso('usuarios.ver')) {
         items.push({
-            title: 'Colaboradores',
+            title: 'Accesos y roles',
             href: indexUsuarios(),
             icon: Users,
         });

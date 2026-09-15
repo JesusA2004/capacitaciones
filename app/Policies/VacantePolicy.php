@@ -35,9 +35,17 @@ class VacantePolicy
         return $usuario->can('vacantes.cerrar') && $this->visiblePara($usuario, $vacante);
     }
 
+    /**
+     * Una vacante automática (generada por headcount, ver
+     * VacanteAutoGenerationService) nunca se borra directamente: se cancela
+     * (con motivo) o se sincroniza sola cuando el faltante desaparece, para
+     * conservar su auditoría. Solo las manuales admiten eliminación normal.
+     */
     public function delete(User $usuario, Vacante $vacante): bool
     {
-        return $usuario->can('vacantes.eliminar') && $this->visiblePara($usuario, $vacante);
+        return ! $vacante->generada_automaticamente
+            && $usuario->can('vacantes.eliminar')
+            && $this->visiblePara($usuario, $vacante);
     }
 
     private function visiblePara(User $usuario, Vacante $vacante): bool

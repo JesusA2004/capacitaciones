@@ -10,12 +10,14 @@ import type {
     OnboardingItem,
     ResumenExpediente,
     SaldoVacaciones,
+    SolicitudExpedienteItem,
     SolicitudVacacionesItem,
 } from '@/types';
 
 defineProps<{
     esPropio: boolean;
     puedeEditar: boolean;
+    puedeReactivar: boolean;
     puedeRevisarDocumentos: boolean;
     puedeVerExtraccion: boolean;
     puedeAplicarExtraccion: boolean;
@@ -28,6 +30,7 @@ defineProps<{
     altaDigital: AltaDigitalResumenExpediente;
     saldoVacaciones: SaldoVacaciones;
     solicitudesVacaciones: SolicitudVacacionesItem[];
+    solicitudes: SolicitudExpedienteItem[];
     movimientosLaborales: MovimientoLaboralItem[];
 }>();
 
@@ -46,6 +49,7 @@ defineOptions({
     <ExpedienteDetalle
         :es-propio="esPropio"
         :puede-editar="puedeEditar"
+        :puede-reactivar="puedeReactivar"
         :puede-revisar-documentos="puedeRevisarDocumentos"
         :puede-ver-extraccion="puedeVerExtraccion"
         :puede-aplicar-extraccion="puedeAplicarExtraccion"
@@ -58,6 +62,7 @@ defineOptions({
         :alta-digital="altaDigital"
         :saldo-vacaciones="saldoVacaciones"
         :solicitudes-vacaciones="solicitudesVacaciones"
+        :solicitudes="solicitudes"
         :movimientos-laborales="movimientosLaborales"
     />
 </template>

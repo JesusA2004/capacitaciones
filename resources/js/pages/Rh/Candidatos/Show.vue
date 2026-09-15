@@ -1,6 +1,13 @@
 <script setup lang="ts">
-import { Head, useForm } from '@inertiajs/vue3';
-import { Download, IdCard, Pencil, Upload, UserRound } from '@lucide/vue';
+import { Head, Link, useForm } from '@inertiajs/vue3';
+import {
+    Download,
+    IdCard,
+    Pencil,
+    QrCode,
+    Upload,
+    UserRound,
+} from '@lucide/vue';
 import { ref } from 'vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
@@ -17,10 +24,11 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useAlertas } from '@/composables/useAlertas';
 import { dashboard } from '@/routes';
-import { store as generarAlta } from '@/routes/rh/altas';
+import { show as verAlta, store as generarAlta } from '@/routes/rh/altas';
 import { cv, estado as estadoUrl, index } from '@/routes/rh/candidatos';
 import { descargar as descargarCv } from '@/routes/rh/candidatos/cv';
 import seguimientos from '@/routes/rh/candidatos/seguimientos';
+import { show as verInvitacion } from '@/routes/rh/incorporacion/invitaciones';
 import type {
     CandidatoDetalle,
     CandidatoTimelineEtapa,
@@ -107,12 +115,22 @@ function generarAltaDigital() {
             :icono="UserRound"
         >
             <Button
-                v-if="candidato.estado === 'aprobado_rh'"
+                v-if="!candidato.alta_digital && candidato.estado === 'aprobado_rh'"
                 :disabled="formAlta.processing"
                 @click="generarAltaDigital"
             >
                 <IdCard class="size-4" />
                 Generar alta digital
+            </Button>
+            <Button
+                v-else-if="candidato.alta_digital"
+                as-child
+                variant="secondary"
+            >
+                <Link :href="verAlta.url(candidato.alta_digital.id)">
+                    <IdCard class="size-4" />
+                    Continuar alta digital
+                </Link>
             </Button>
             <Button variant="secondary" @click="dialogoAbierto = true">
                 <Pencil class="size-4" />
@@ -150,6 +168,61 @@ function generarAltaDigital() {
                             <dd>{{ candidato.observaciones ?? '—' }}</dd>
                         </div>
                     </dl>
+                </div>
+
+                <div
+                    v-if="candidato.alta_digital"
+                    class="rounded-2xl border border-border/60 bg-card p-4"
+                >
+                    <div class="mb-3 flex items-center justify-between gap-2">
+                        <h2 class="text-sm font-semibold">Alta digital</h2>
+                        <EstadoBadge :estado="candidato.alta_digital.estado" />
+                    </div>
+                    <p class="mb-3 text-sm text-muted-foreground">
+                        La captura, documentos y consentimientos de esta alta
+                        se revisan en su propia pantalla — no es un módulo
+                        aparte, es la incorporación de este candidato.
+                    </p>
+                    <Button as-child size="sm" variant="outline">
+                        <Link :href="verAlta.url(candidato.alta_digital.id)">
+                            <IdCard class="size-4" />
+                            {{
+                                candidato.alta_digital.estado === 'aprobada'
+                                    ? 'Ver alta aprobada'
+                                    : 'Continuar / revisar alta'
+                            }}
+                        </Link>
+                    </Button>
+                </div>
+
+                <div
+                    v-if="candidato.incorporacion_invitacion"
+                    class="rounded-2xl border border-border/60 bg-card p-4"
+                >
+                    <div class="mb-3 flex items-center justify-between gap-2">
+                        <h2 class="text-sm font-semibold">
+                            Invitación de incorporación
+                        </h2>
+                        <EstadoBadge
+                            :estado="candidato.incorporacion_invitacion.estado"
+                        />
+                    </div>
+                    <p class="mb-3 text-sm text-muted-foreground">
+                        QR/liga para que el candidato inicie su incorporación
+                        y suba su expediente desde la app móvil.
+                    </p>
+                    <Button as-child size="sm" variant="outline">
+                        <Link
+                            :href="
+                                verInvitacion.url(
+                                    candidato.incorporacion_invitacion.id,
+                                )
+                            "
+                        >
+                            <QrCode class="size-4" />
+                            Ver QR / gestionar invitación
+                        </Link>
+                    </Button>
                 </div>
 
                 <div class="rounded-2xl border border-border/60 bg-card p-4">

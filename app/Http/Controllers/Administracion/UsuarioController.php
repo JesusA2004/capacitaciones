@@ -41,7 +41,7 @@ class UsuarioController extends Controller
     {
         $this->authorize('viewAny', User::class);
 
-        $usuarios = User::query()
+        $usuarios = User::withTrashed()
             ->tap(fn ($query) => $this->alcance->limitarUsuariosPorAlcance($query, $request->user()))
             ->with(['sucursalPrincipal:id,nombre', 'departamento:id,nombre', 'puesto:id,nombre'])
             ->when($request->string('busqueda')->toString(), function ($query, string $busqueda) {
@@ -58,7 +58,7 @@ class UsuarioController extends Controller
             ->paginate(15)
             ->withQueryString();
 
-        $usuariosVisibles = fn () => $this->alcance->limitarUsuariosPorAlcance(User::query(), $request->user());
+        $usuariosVisibles = fn () => $this->alcance->limitarUsuariosPorAlcance(User::withTrashed(), $request->user());
 
         return Inertia::render('Administracion/Usuarios/Index', [
             'usuarios' => $usuarios,
@@ -71,10 +71,12 @@ class UsuarioController extends Controller
             'estadosImss' => array_map(fn (EstatusImss $estado) => ['value' => $estado->value, 'etiqueta' => $estado->etiqueta()], EstatusImss::cases()),
             // Acotadas por el mismo alcance que la tabla: un gerente de sucursal
             // no debe ver totales de toda la organización en estas tarjetas.
+            'puedeReactivar' => $request->user()->can('usuarios.reactivar'),
             'estadisticas' => [
                 'total' => $usuariosVisibles()->count(),
                 'activos' => $usuariosVisibles()->where('estatus', EstadoUsuario::Activo->value)->count(),
-                'inactivos' => $usuariosVisibles()->where('estatus', '!=', EstadoUsuario::Activo->value)->count(),
+                'inactivos' => $usuariosVisibles()->where('estatus', '!=', EstadoUsuario::Activo->value)->whereNull('deleted_at')->count(),
+                'bajas' => $usuariosVisibles()->whereNotNull('deleted_at')->count(),
             ],
         ]);
     }
@@ -173,5 +175,25 @@ class UsuarioController extends Controller
         }
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Colaborador desactivado correctamente.']);
+    }
+
+    /**
+     * Revierte una baja lógica: solo super_admin (ver UserPolicy::reactivar()
+     * y RolesYPermisosSeeder). El colaborador vuelve a poder iniciar sesión
+     * y a contar en la plantilla activa de su (sucursal, puesto), por lo que
+     * también resincroniza la vacante automática correspondiente.
+     */
+    public function reactivar(Request $request, User $usuario): RedirectResponse
+    {
+        $this->authorize('reactivar', $usuario);
+
+        $usuario->restore();
+        $usuario->update(['estatus' => EstadoUsuario::Activo]);
+
+        if ($usuario->sucursal_principal_id !== null && $usuario->puesto_id !== null) {
+            $this->vacantesAutomaticas->sincronizar($usuario->sucursal_principal_id, $usuario->puesto_id);
+        }
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Colaborador reactivado correctamente.']);
     }
 }

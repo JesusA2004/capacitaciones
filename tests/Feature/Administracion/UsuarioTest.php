@@ -89,6 +89,53 @@ test('rh_admin puede actualizar el estatus IMSS y el periodo de prueba de un col
         ->and($colaborador->enPeriodoDePrueba())->toBeTrue();
 });
 
+test('super_admin puede reactivar a un colaborador dado de baja y reaparece en el listado', function () {
+    $sucursal = Sucursal::factory()->create();
+    $admin = User::factory()->create();
+    $admin->assignRole('super_admin');
+
+    $colaborador = User::factory()->create(['sucursal_principal_id' => $sucursal->id]);
+    $colaborador->assignRole('colaborador');
+
+    $this->actingAs($admin)
+        ->delete(route('administracion.usuarios.destroy', $colaborador))
+        ->assertRedirect();
+
+    $this->actingAs($admin)
+        ->post(route('administracion.usuarios.reactivar', $colaborador->id))
+        ->assertSessionHasNoErrors();
+
+    $colaborador = User::findOrFail($colaborador->id);
+    expect($colaborador->estatus->value)->toBe('activo')
+        ->and($colaborador->trashed())->toBeFalse();
+
+    $this->actingAs($admin)
+        ->get(route('administracion.usuarios.index'))
+        ->assertInertia(fn ($page) => $page
+            ->where('usuarios.data', fn ($lista) => collect($lista)->pluck('id')->contains($colaborador->id))
+        );
+});
+
+test('rh_admin no puede reactivar a un colaborador dado de baja', function () {
+    $sucursal = Sucursal::factory()->create();
+    $admin = User::factory()->create();
+    $admin->assignRole('super_admin');
+
+    $rh = User::factory()->create();
+    $rh->assignRole('rh_admin');
+
+    $colaborador = User::factory()->create(['sucursal_principal_id' => $sucursal->id]);
+    $colaborador->assignRole('colaborador');
+
+    $this->actingAs($admin)
+        ->delete(route('administracion.usuarios.destroy', $colaborador))
+        ->assertRedirect();
+
+    $this->actingAs($rh)
+        ->post(route('administracion.usuarios.reactivar', $colaborador->id))
+        ->assertForbidden();
+});
+
 test('un administrador no puede desactivarse a si mismo', function () {
     $sucursal = Sucursal::factory()->create();
     $admin = User::factory()->create(['sucursal_principal_id' => $sucursal->id]);

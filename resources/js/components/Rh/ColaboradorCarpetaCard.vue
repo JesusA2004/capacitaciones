@@ -71,7 +71,11 @@ defineProps<{
                 </div>
             </div>
 
-            <EstadoBadge :estado="colaborador.estatus" class="w-fit" />
+            <EstadoBadge
+                :estado="colaborador.estatus"
+                :etiqueta="colaborador.deleted_at ? 'Baja' : undefined"
+                class="w-fit"
+            />
 
             <div class="flex flex-col gap-1 text-xs text-muted-foreground">
                 <span

@@ -22,11 +22,11 @@ import {
     enviar,
     firma as descargarFirma,
     foto as descargarFoto,
-    index,
     rechazar,
     revisar,
 } from '@/routes/rh/altas';
 import { descargar as descargarDocumento } from '@/routes/rh/altas/documentos';
+import { index as indexCandidatos, show as showCandidato } from '@/routes/rh/candidatos';
 import { store as generarInvitacionQr } from '@/routes/rh/incorporacion/invitaciones';
 import type { AltaDigitalItem } from '@/types';
 
@@ -38,16 +38,30 @@ const props = defineProps<{
 // `defineOptions()` se compila fuera del scope de setup() y no puede
 // referenciar variables locales como `props`; Inertia la invoca con las
 // props actuales de la página en cada render (ver @inertiajs/vue3).
+//
+// Altas digitales no es un módulo aparte en la navegación (es una etapa del
+// flujo Candidato -> Alta digital, ver Rh/Candidatos/Show.vue): el
+// breadcrumb refleja eso en vez de un falso módulo "Altas digitales".
 defineOptions({
     layout: (pageProps: { alta: AltaDigitalItem }) => ({
-        breadcrumbs: [
-            { title: 'Inicio', href: dashboard() },
-            { title: 'Altas digitales', href: index.url() },
-            {
-                title: pageProps.alta.nombre ?? `Alta #${pageProps.alta.id}`,
-                href: '',
-            },
-        ],
+        breadcrumbs: pageProps.alta.candidato
+            ? [
+                  { title: 'Inicio', href: dashboard() },
+                  { title: 'Candidatos', href: indexCandidatos.url() },
+                  {
+                      title: `${pageProps.alta.candidato.nombre} ${pageProps.alta.candidato.apellidos ?? ''}`,
+                      href: showCandidato.url(pageProps.alta.candidato.id),
+                  },
+                  { title: 'Incorporación', href: '' },
+              ]
+            : [
+                  { title: 'Inicio', href: dashboard() },
+                  { title: 'Candidatos', href: indexCandidatos.url() },
+                  {
+                      title: pageProps.alta.nombre ?? `Incorporación #${pageProps.alta.id}`,
+                      href: '',
+                  },
+              ],
     }),
 });
 

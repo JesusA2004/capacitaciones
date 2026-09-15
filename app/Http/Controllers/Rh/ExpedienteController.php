@@ -72,6 +72,7 @@ class ExpedienteController extends Controller
                 'numero_empleado' => $colaborador->numero_empleado,
                 'foto_url' => $this->fotoUrl($colaborador),
                 'estatus' => $colaborador->estatus->value,
+                'deleted_at' => $colaborador->deleted_at?->toISOString(),
                 'empresa' => $colaborador->sucursalPrincipal?->empresa,
                 'sucursal' => $colaborador->sucursalPrincipal,
                 'departamento' => $colaborador->departamento,
@@ -153,7 +154,7 @@ class ExpedienteController extends Controller
     {
         $usuario = $request->user();
 
-        return User::query()
+        return User::withTrashed()
             ->tap(fn ($query) => $this->alcance->limitarExpedientesPorAlcance($query, $usuario))
             ->with([
                 'sucursalPrincipal:id,nombre,empresa_id',
@@ -208,6 +209,7 @@ class ExpedienteController extends Controller
         return Inertia::render($esPropio ? 'Rh/Expedientes/MiExpediente' : 'Rh/Expedientes/Show', [
             'esPropio' => $esPropio,
             'puedeEditar' => $usuario->can('expedientes.editar') || $usuario->is($colaborador),
+            'puedeReactivar' => $usuario->can('usuarios.reactivar'),
             'puedeRevisarDocumentos' => $usuario->can('documentos.revisar') && ! $usuario->is($colaborador),
             'puedeVerExtraccion' => $usuario->can('rh.documentos.extraccion.ver') && ! $usuario->is($colaborador),
             'puedeAplicarExtraccion' => $usuario->can('rh.documentos.extraccion.aplicar') && ! $usuario->is($colaborador),
@@ -222,6 +224,7 @@ class ExpedienteController extends Controller
                 'telefono' => $colaborador->telefono,
                 'foto_url' => $this->fotoUrl($colaborador),
                 'estatus' => $colaborador->estatus->value,
+                'deleted_at' => $colaborador->deleted_at?->toISOString(),
                 'estatus_imss' => $colaborador->estatus_imss->value,
                 'fecha_alta_imss' => $colaborador->fecha_alta_imss?->toDateString(),
                 'periodo_prueba_inicio' => $colaborador->periodo_prueba_inicio?->toDateString(),
@@ -266,6 +269,23 @@ class ExpedienteController extends Controller
                     'comentario' => $solicitud->motivo,
                     'estado' => $solicitud->estado->value,
                     'motivo_rechazo' => $solicitud->motivo_rechazo,
+                    'created_at' => $solicitud->created_at?->toISOString(),
+                ]),
+            // Tab "Solicitudes" del expediente (sección 40 del encargo): todo
+            // tipo de solicitud interna de este colaborador, no solo
+            // vacaciones — mismo modelo unificado de arriba.
+            'solicitudes' => SolicitudInterna::query()
+                ->where('user_id', $colaborador->id)
+                ->orderByDesc('created_at')
+                ->limit(20)
+                ->get(['id', 'folio', 'tipo', 'estado', 'motivo', 'created_at'])
+                ->map(fn (SolicitudInterna $solicitud) => [
+                    'id' => $solicitud->id,
+                    'folio' => $solicitud->folio,
+                    'tipo' => $solicitud->tipo->value,
+                    'tipo_etiqueta' => $solicitud->tipo->etiqueta(),
+                    'estado' => $solicitud->estado->value,
+                    'motivo' => $solicitud->motivo,
                     'created_at' => $solicitud->created_at?->toISOString(),
                 ]),
             'movimientosLaborales' => MovimientoLaboral::query()

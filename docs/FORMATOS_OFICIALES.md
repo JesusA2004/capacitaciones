@@ -134,6 +134,17 @@ RH operativo (`rh_auxiliar`, `gerente_sucursal`) ya no ve ese catálogo como su 
 principal de "Formatos": ese nombre y esa ruta (`/rh/formatos`) ahora son de este módulo
 (formatos oficiales fijos). Ver `docs/PLANTILLAS_FORMATOS.md` para el motor DOCX.
 
+## Generación automática desde una solicitud
+
+Además de la generación manual descrita arriba (RH elige colaborador/candidato desde
+`/rh/formatos-oficiales`), una `OfficialFormatGeneration` también puede nacer
+automáticamente al aprobar una `SolicitudInterna` — ver `docs/SOLICITUDES_UNIFICADAS.md`
+y `App\Services\Solicitudes\SolicitudFormatoOficialService`. En ese caso la fila queda
+con `solicitud_interna_id` distinto de null, `status` (`generado`/`firmado`) y, tras
+subir el firmado (`FormatoOficialController::subirFirmado()`), los campos `signed_*`.
+`Rh/Solicitudes/Show.vue` la muestra en su propia sección "Documento oficial",
+separada de "Documentos adicionales" (plantillas DOCX manuales de la sección anterior).
+
 ## Fuera de alcance en esta fase
 
 - Configurador drag-and-drop pixel-perfecto sobre el PDF (la versión actual es un

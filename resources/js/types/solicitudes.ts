@@ -147,6 +147,17 @@ export type SolicitudInternaItem = {
     finiquitoCalculo?: FiniquitoCalculoItem | null;
 };
 
+/** Fila resumida para la tab "Solicitudes" del expediente (Rh\ExpedienteController). */
+export type SolicitudExpedienteItem = {
+    id: number;
+    folio: string;
+    tipo: string;
+    tipo_etiqueta: string;
+    estado: string;
+    motivo: string;
+    created_at: string;
+};
+
 export type OpcionesSolicitudes = {
     empresas: { id: number; nombre: string }[];
     sucursales: { id: number; nombre: string; empresa_id: number | null }[];

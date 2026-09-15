@@ -5,6 +5,7 @@ export type ColaboradorExpedienteItem = {
     numero_empleado: string | null;
     foto_url: string | null;
     estatus: string;
+    deleted_at: string | null;
     empresa: { id: number; nombre: string } | null;
     sucursal: { id: number; nombre: string; empresa_id: number | null } | null;
     departamento: { id: number; nombre: string } | null;
@@ -23,6 +24,7 @@ export type ExpedienteColaborador = {
     telefono: string | null;
     foto_url: string | null;
     estatus: string;
+    deleted_at: string | null;
     estatus_imss: string;
     fecha_alta_imss: string | null;
     periodo_prueba_inicio: string | null;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import {
     Briefcase,
     Building2,
@@ -7,8 +7,6 @@ import {
     CheckCircle2,
     CircleDashed,
     ClipboardList,
-    FileSignature,
-    FileText,
     IdCard,
     ListChecks,
     MapPinned,
@@ -29,7 +27,10 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Spinner } from '@/components/ui/spinner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAlertas } from '@/composables/useAlertas';
+import { reactivar } from '@/routes/administracion/usuarios';
 import { update as actualizarDatosPersonales } from '@/routes/rh/expedientes/datos-personales';
+import { show as showSolicitud } from '@/routes/rh/solicitudes';
 import type {
     AltaDigitalResumenExpediente,
     DocumentoExpedienteItem,
@@ -38,12 +39,14 @@ import type {
     OnboardingItem,
     ResumenExpediente,
     SaldoVacaciones,
+    SolicitudExpedienteItem,
     SolicitudVacacionesItem,
 } from '@/types';
 
 const props = defineProps<{
     esPropio: boolean;
     puedeEditar: boolean;
+    puedeReactivar: boolean;
     puedeRevisarDocumentos: boolean;
     puedeVerExtraccion: boolean;
     puedeAplicarExtraccion: boolean;
@@ -56,6 +59,7 @@ const props = defineProps<{
     altaDigital: AltaDigitalResumenExpediente;
     saldoVacaciones: SaldoVacaciones;
     solicitudesVacaciones: SolicitudVacacionesItem[];
+    solicitudes: SolicitudExpedienteItem[];
     movimientosLaborales: MovimientoLaboralItem[];
 }>();
 
@@ -77,12 +81,28 @@ function guardarDatosPersonales() {
         preserveScroll: true,
     });
 }
+
+const { mostrarExito, mostrarError } = useAlertas();
+
+function reactivarColaborador() {
+    router.post(
+        reactivar.url(props.colaborador.id),
+        {},
+        {
+            preserveScroll: true,
+            onSuccess: () =>
+                mostrarExito('Colaborador reactivado correctamente.'),
+            onError: () =>
+                mostrarError('No fue posible reactivar al colaborador.'),
+        },
+    );
+}
 </script>
 
 <template>
     <Head :title="`Expediente de ${colaborador.name}`" />
 
-    <div class="flex flex-col gap-6 p-4">
+    <div class="flex w-full min-w-0 flex-col gap-6 p-4 sm:p-6">
         <Card
             class="rounded-3xl border-border/60 shadow-sm transition-shadow hover:shadow-md"
         >
@@ -110,7 +130,10 @@ function guardarDatosPersonales() {
                         <h1 class="text-lg font-semibold">
                             {{ colaborador.name }} {{ colaborador.apellidos }}
                         </h1>
-                        <EstadoBadge :estado="colaborador.estatus" />
+                        <EstadoBadge
+                            :estado="colaborador.estatus"
+                            :etiqueta="colaborador.deleted_at ? 'Baja' : undefined"
+                        />
                     </div>
                     <p class="text-sm text-muted-foreground">
                         {{
@@ -140,19 +163,35 @@ function guardarDatosPersonales() {
                     </div>
                 </div>
 
-                <div class="flex flex-col items-end gap-1">
-                    <span class="text-xs text-muted-foreground"
-                        >Expediente</span
-                    >
-                    <div class="flex items-center gap-2">
-                        <Progress
-                            :model-value="resumenExpediente.porcentaje"
-                            class="h-2 w-28"
-                        />
-                        <span class="text-sm font-semibold tabular-nums"
-                            >{{ resumenExpediente.porcentaje }}%</span
+                <div class="flex flex-col items-end gap-2">
+                    <div class="flex flex-col items-end gap-1">
+                        <span class="text-xs text-muted-foreground"
+                            >Expediente</span
                         >
+                        <div class="flex items-center gap-2">
+                            <Progress
+                                :model-value="resumenExpediente.porcentaje"
+                                class="h-2 w-28"
+                            />
+                            <span class="text-sm font-semibold tabular-nums"
+                                >{{ resumenExpediente.porcentaje }}%</span
+                            >
+                        </div>
                     </div>
+                    <Button
+                        v-if="colaborador.deleted_at && puedeReactivar"
+                        size="sm"
+                        variant="success"
+                        @click="reactivarColaborador"
+                    >
+                        Reactivar colaborador
+                    </Button>
+                    <p
+                        v-else-if="colaborador.deleted_at"
+                        class="text-xs text-muted-foreground"
+                    >
+                        Baja — solo un administrador puede reactivar.
+                    </p>
                 </div>
             </CardContent>
         </Card>
@@ -164,12 +203,10 @@ function guardarDatosPersonales() {
                 <TabsTrigger value="laborales">Datos laborales</TabsTrigger>
                 <TabsTrigger value="documentos">Documentos</TabsTrigger>
                 <TabsTrigger value="onboarding">Onboarding</TabsTrigger>
-                <TabsTrigger value="contrato">Contrato</TabsTrigger>
                 <TabsTrigger value="avisos">Avisos</TabsTrigger>
                 <TabsTrigger value="vacaciones">Vacaciones</TabsTrigger>
                 <TabsTrigger value="solicitudes">Solicitudes</TabsTrigger>
                 <TabsTrigger value="historial">Historial RH</TabsTrigger>
-                <TabsTrigger value="bitacora">Bitácora</TabsTrigger>
             </TabsList>
 
             <TabsContent value="resumen" class="pt-4">
@@ -508,13 +545,6 @@ function guardarDatosPersonales() {
                 </Card>
             </TabsContent>
 
-            <TabsContent value="contrato" class="pt-4">
-                <ProximamenteTab
-                    :icono="FileSignature"
-                    titulo="Contrato"
-                    descripcion="El contrato firmado se gestiona como documento del expediente (tipo «Contrato», pestaña Documentos). La generación precargada desde plantilla está en docs/PLANTILLAS_FORMATOS.md."
-                />
-            </TabsContent>
             <TabsContent value="avisos" class="pt-4">
                 <Card v-if="altaDigital" class="rounded-2xl border-border/60">
                     <CardHeader>
@@ -647,22 +677,45 @@ function guardarDatosPersonales() {
                 </Card>
             </TabsContent>
             <TabsContent value="solicitudes" class="pt-4">
-                <ProximamenteTab
-                    :icono="ClipboardList"
-                    titulo="Solicitudes"
-                    descripcion="El historial de solicitudes RH de este colaborador llega en la Fase 3 del roadmap."
-                />
+                <Card class="rounded-2xl border-border/60">
+                    <CardHeader>
+                        <CardTitle class="flex items-center gap-2 text-base">
+                            <ClipboardList class="size-4" />
+                            Solicitudes
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent class="flex flex-col gap-2">
+                        <Link
+                            v-for="solicitud in solicitudes"
+                            :key="solicitud.id"
+                            :href="showSolicitud.url(solicitud.id)"
+                            class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 p-3 text-sm transition-colors hover:border-primary/40 hover:bg-accent/40"
+                        >
+                            <div class="min-w-0">
+                                <p class="font-medium">
+                                    {{ solicitud.folio }} ·
+                                    {{ solicitud.tipo_etiqueta }}
+                                </p>
+                                <p
+                                    class="truncate text-xs text-muted-foreground"
+                                >
+                                    {{ solicitud.motivo }}
+                                </p>
+                            </div>
+                            <EstadoBadge :estado="solicitud.estado" />
+                        </Link>
+                        <p
+                            v-if="!solicitudes.length"
+                            class="text-sm text-muted-foreground"
+                        >
+                            Sin solicitudes registradas.
+                        </p>
+                    </CardContent>
+                </Card>
             </TabsContent>
             <TabsContent value="historial" class="pt-4">
                 <MovimientosLaboralesTimeline
                     :movimientos="movimientosLaborales"
-                />
-            </TabsContent>
-            <TabsContent value="bitacora" class="pt-4">
-                <ProximamenteTab
-                    :icono="FileText"
-                    titulo="Bitácora"
-                    descripcion="Bitácora de auditoría del expediente, en preparación."
                 />
             </TabsContent>
         </Tabs>

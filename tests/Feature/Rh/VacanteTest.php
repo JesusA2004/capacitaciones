@@ -148,6 +148,42 @@ test('el listado de vacantes anota plantilla autorizada actual y faltantes reale
         ->and($vacante['faltantes_reales'])->toBe(3);
 });
 
+test('no se puede marcar una vacante como cubierta soltando una tarjeta, solo cubriendola de verdad', function () {
+    $vacante = Vacante::factory()->create(['estado' => 'abierta']);
+    $usuario = User::factory()->create();
+    $usuario->assignRole('rh_admin');
+
+    $this->actingAs($usuario)
+        ->put(route('rh.vacantes.estado', $vacante), ['estado' => 'cubierta'])
+        ->assertSessionHasErrors('estado');
+
+    expect($vacante->fresh()->estado)->toBe(EstadoVacante::Abierta);
+});
+
+test('una vacante automatica no se puede eliminar directamente', function () {
+    $vacante = Vacante::factory()->create(['generada_automaticamente' => true]);
+    $usuario = User::factory()->create();
+    $usuario->assignRole('rh_admin');
+
+    $this->actingAs($usuario)
+        ->delete(route('rh.vacantes.destroy', $vacante))
+        ->assertForbidden();
+
+    expect(Vacante::find($vacante->id))->not->toBeNull();
+});
+
+test('una vacante manual si se puede eliminar', function () {
+    $vacante = Vacante::factory()->create(['generada_automaticamente' => false]);
+    $usuario = User::factory()->create();
+    $usuario->assignRole('rh_admin');
+
+    $this->actingAs($usuario)
+        ->delete(route('rh.vacantes.destroy', $vacante))
+        ->assertSessionHasNoErrors();
+
+    expect(Vacante::find($vacante->id))->toBeNull();
+});
+
 test('rh_auxiliar no puede cerrar una vacante', function () {
     $vacante = Vacante::factory()->create();
     $usuario = User::factory()->create();

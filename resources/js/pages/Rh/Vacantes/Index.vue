@@ -12,7 +12,9 @@ import {
     Wand2,
     XCircle,
 } from '@lucide/vue';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
+import type { DraggableEvent } from 'vue-draggable-plus';
+import { VueDraggable } from 'vue-draggable-plus';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import MetricCard from '@/components/Common/MetricCard.vue';
@@ -110,12 +112,18 @@ const COLUMNAS = [
     { estado: 'cancelada', titulo: 'Cancelada' },
 ];
 
-const columnas = computed(() =>
-    COLUMNAS.map((columna) => ({
-        ...columna,
-        vacantes: props.vacantes.filter((v) => v.estado === columna.estado),
-    })),
+const columnas = reactive<Record<string, VacanteItem[]>>(
+    Object.fromEntries(COLUMNAS.map((c) => [c.estado, []])),
 );
+
+function construirColumnas(lista: VacanteItem[]) {
+    for (const c of COLUMNAS) {
+        columnas[c.estado] = lista.filter((v) => v.estado === c.estado);
+    }
+}
+
+construirColumnas(props.vacantes);
+watch(() => props.vacantes, construirColumnas);
 
 const tarjetasKpi = computed(() => [
     {
@@ -230,38 +238,78 @@ async function eliminar(vacante: VacanteItem) {
     });
 }
 
-const arrastrando = ref<number | null>(null);
+// --- Drag and drop: VueDraggable (misma librería y patrón que el tablero de
+// Solicitudes) con confirmación/reglas antes de escribir nada. "Cubierta"
+// nunca se asigna soltando una tarjeta: abre CubrirVacanteDialog en su lugar
+// (cobertura real), igual que el botón "Cubrir vacante" de la tarjeta.
+function revertirMovimientoVacante(vacante: VacanteItem, estadoOrigen: string) {
+    const destino = columnas[vacante.estado];
+    const idx = destino?.findIndex((v) => v.id === vacante.id) ?? -1;
 
-async function alSoltar(nuevoEstado: string) {
-    if (arrastrando.value === null) {
+    if (idx !== -1) {
+        destino.splice(idx, 1);
+    }
+
+    vacante.estado = estadoOrigen;
+    columnas[estadoOrigen].push(vacante);
+}
+
+async function onAdd(
+    estadoDestino: string,
+    evento: DraggableEvent<VacanteItem>,
+) {
+    const vacante = evento.data;
+
+    if (!vacante) {
         return;
     }
 
-    const vacanteId = arrastrando.value;
-    arrastrando.value = null;
+    const estadoOrigen = vacante.estado;
+
+    if (estadoOrigen === estadoDestino) {
+        return;
+    }
+
+    if (estadoDestino === 'cubierta') {
+        revertirMovimientoVacante(vacante, estadoOrigen);
+        abrirCubrir(vacante);
+
+        return;
+    }
 
     let motivoCancelacion: string | null = null;
 
-    if (nuevoEstado === 'cancelada') {
+    if (estadoDestino === 'cancelada') {
         motivoCancelacion = await pedirMotivoCancelacionVacante();
 
         if (motivoCancelacion === null) {
+            revertirMovimientoVacante(vacante, estadoOrigen);
+
             return;
         }
     }
 
     router.put(
-        estadoUrl.url(vacanteId),
+        estadoUrl.url(vacante.id),
         {
-            estado: nuevoEstado,
+            estado: estadoDestino,
             ...(motivoCancelacion !== null
                 ? { motivo_cancelacion: motivoCancelacion }
                 : {}),
         },
         {
             preserveScroll: true,
-            onError: () =>
-                mostrarError('No tienes permiso para mover esta vacante.'),
+            preserveState: true,
+            onSuccess: () => {
+                vacante.estado = estadoDestino;
+                mostrarExito('Estado de la vacante actualizado.');
+            },
+            onError: () => {
+                revertirMovimientoVacante(vacante, estadoOrigen);
+                mostrarError(
+                    'No se pudo mover la vacante. Verifica el permiso o la transición.',
+                );
+            },
         },
     );
 }
@@ -480,28 +528,31 @@ async function alSoltar(nuevoEstado: string) {
 
         <div class="flex gap-4 overflow-x-auto pb-4">
             <div
-                v-for="columna in columnas"
+                v-for="columna in COLUMNAS"
                 :key="columna.estado"
                 class="flex w-72 shrink-0 flex-col gap-3 rounded-2xl border border-border/60 bg-muted/20 p-3"
-                @dragover.prevent
-                @drop="alSoltar(columna.estado)"
             >
                 <div class="flex items-center justify-between px-1">
                     <h3 class="text-sm font-semibold">{{ columna.titulo }}</h3>
                     <Badge variant="outline">{{
-                        columna.vacantes.length
+                        columnas[columna.estado]?.length ?? 0
                     }}</Badge>
                 </div>
 
-                <div class="flex flex-col gap-2">
+                <VueDraggable
+                    v-model="columnas[columna.estado]"
+                    class="flex min-h-16 flex-col gap-2"
+                    group="vacantes-kanban"
+                    :animation="150"
+                    ghost-class="opacity-40"
+                    @add="(e) => onAdd(columna.estado, e)"
+                >
                     <div
-                        v-for="vacante in columna.vacantes"
+                        v-for="vacante in columnas[columna.estado]"
                         :key="vacante.id"
-                        draggable="true"
                         role="button"
                         tabindex="0"
-                        class="group flex cursor-pointer flex-col gap-1 rounded-xl border border-border/60 bg-card p-3 text-left shadow-sm transition-colors hover:border-primary/40"
-                        @dragstart="arrastrando = vacante.id"
+                        class="group flex cursor-grab flex-col gap-1 rounded-xl border border-border/60 bg-card p-3 text-left shadow-sm transition-colors active:cursor-grabbing hover:border-primary/40"
                         @click="abrirEditar(vacante)"
                     >
                         <div class="flex items-start justify-between gap-2">
@@ -525,6 +576,7 @@ async function alSoltar(nuevoEstado: string) {
                                     <UserCheck class="size-3.5" />
                                 </Button>
                                 <Button
+                                    v-if="!vacante.generada_automaticamente"
                                     variant="ghost"
                                     size="icon-xs"
                                     class="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
@@ -638,12 +690,12 @@ async function alSoltar(nuevoEstado: string) {
                     </div>
 
                     <p
-                        v-if="!columna.vacantes.length"
+                        v-if="!(columnas[columna.estado]?.length ?? 0)"
                         class="rounded-xl border border-dashed p-3 text-center text-xs text-muted-foreground"
                     >
                         Sin vacantes
                     </p>
-                </div>
+                </VueDraggable>
             </div>
         </div>
     </div>

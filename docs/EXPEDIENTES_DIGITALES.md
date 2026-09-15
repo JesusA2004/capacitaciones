@@ -42,16 +42,14 @@ PUT  /rh/expedientes/{colaborador}/datos-personales     rh.expedientes.datos-per
 | Resumen | Real: contacto, jefe directo, contadores de documentos aprobados/pendientes/rechazados |
 | Datos personales | Real: formulario editable (fecha nacimiento, CURP, RFC, NSS, domicilio, correo personal, contacto de emergencia) |
 | Datos laborales | Real, solo lectura (se edita desde Administración → Colaboradores) |
-| Documentos | Real: ver `docs/SYNOLOGY_STORAGE.md` |
+| Documentos | Real: ver `docs/SYNOLOGY_STORAGE.md`. El contrato laboral vive aquí como documento tipo `contrato` — ya no hay una tab "Contrato" aparte, para no duplicar la misma información. |
 | Onboarding | Real: checklist de incorporación (`docs/ONBOARDING_ADMINISTRATIVO.md`) |
-| Contrato | Placeholder informativo: el contrato firmado vive como documento tipo `contrato` en la pestaña Documentos |
 | Avisos y consentimientos | Real si el colaborador tiene un alta digital de origen (`docs/ALTA_DIGITAL_COLABORADOR.md`); si no, mensaje explicando por qué no hay datos |
-| Vacaciones | Placeholder "Próximamente" hasta el Bloque 14 (`docs/VACACIONES.md`) |
-| Solicitudes | Placeholder "Próximamente" hasta el Bloque 15 (`docs/SOLICITUDES_INTERNAS.md`) |
-| Historial RH | Placeholder "Próximamente" |
-| Bitácora | Placeholder "Próximamente" |
+| Vacaciones | Real: `solicitudes_internas` tipo `vacaciones` (ver `docs/SOLICITUDES_UNIFICADAS.md`) |
+| Solicitudes | Real: todas las solicitudes internas del colaborador (cualquier tipo), con link al detalle en `Rh/Solicitudes/Show.vue` |
+| Historial RH | Real: `MovimientosLaboralesTimeline.vue` (altas, bajas, cambios de puesto/sucursal, etc.) — también cubre lo que hubiera sido una "Bitácora" aparte, así que esa tab se quitó para no duplicar el mismo historial dos veces |
 
-Los placeholders usan `resources/js/components/Rh/ProximamenteTab.vue`, el mismo patrón honesto usado en `Capacitacion/Proximamente.vue`: no se fabrican datos falsos para módulos que todavía no existen.
+Ya no quedan tabs placeholder en `ExpedienteDetalle.vue`. `resources/js/components/Rh/ProximamenteTab.vue` sigue existiendo y se reutiliza como estado vacío genérico (p. ej. "Avisos y consentimientos" cuando el colaborador no tiene alta digital, o `MovimientosLaboralesTimeline.vue` cuando no hay movimientos) — no como "módulo futuro", sino como "no aplica/todavía no hay datos aquí". El patrón de no fabricar datos falsos para lo que no existe se mantiene.
 
 ## Estatus laboral, IMSS y periodo de prueba
 

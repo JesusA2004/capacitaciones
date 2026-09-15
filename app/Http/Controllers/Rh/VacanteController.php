@@ -27,6 +27,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
@@ -243,9 +244,22 @@ class VacanteController extends Controller
 
     public function actualizarEstado(ActualizarEstadoVacanteRequest $request, Vacante $vacante): RedirectResponse
     {
+        $destino = EstadoVacante::from($request->validated('estado'));
+
+        // "Cubierta" nunca se asigna soltando una tarjeta: solo a través de
+        // cubrir() (cobertura real). El resto de transiciones sí validan
+        // contra el mapa del enum — el tablero no es la única autoridad.
+        if (! $vacante->estado->puedeTransicionarA($destino)) {
+            throw ValidationException::withMessages([
+                'estado' => $destino === EstadoVacante::Cubierta
+                    ? 'Para marcar esta vacante como cubierta, usa "Cubrir vacante" y registra quién la cubrió.'
+                    : "No se puede mover la vacante de «{$vacante->estado->etiqueta()}» a «{$destino->etiqueta()}».",
+            ]);
+        }
+
         $vacante->update([
-            'estado' => $request->validated('estado'),
-            'motivo_cancelacion' => $request->validated('estado') === EstadoVacante::Cancelada->value
+            'estado' => $destino,
+            'motivo_cancelacion' => $destino === EstadoVacante::Cancelada
                 ? $request->validated('motivo_cancelacion')
                 : $vacante->motivo_cancelacion,
         ]);

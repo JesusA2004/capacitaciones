@@ -25,7 +25,7 @@ import {
 import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
 import { dashboard } from '@/routes';
-import { destroy, index } from '@/routes/administracion/usuarios';
+import { destroy, index, reactivar } from '@/routes/administracion/usuarios';
 import type {
     EstadisticasActivoInactivo,
     EstadoUsuarioOpcion,
@@ -44,13 +44,14 @@ const props = defineProps<{
     estados: EstadoUsuarioOpcion[];
     estadosImss: EstadoUsuarioOpcion[];
     estadisticas: EstadisticasActivoInactivo;
+    puedeReactivar: boolean;
 }>();
 
 defineOptions({
     layout: {
         breadcrumbs: [
             { title: 'Inicio', href: dashboard() },
-            { title: 'Colaboradores', href: index.url() },
+            { title: 'Accesos y roles', href: index.url() },
         ],
     },
 });
@@ -109,15 +110,29 @@ async function desactivar(usuario: UsuarioItem) {
             mostrarError('No fue posible desactivar al colaborador.'),
     });
 }
+
+function reactivarColaborador(usuario: UsuarioItem) {
+    router.post(
+        reactivar.url(usuario.id),
+        {},
+        {
+            preserveScroll: true,
+            onSuccess: () =>
+                mostrarExito('El colaborador se reactivó correctamente.'),
+            onError: () =>
+                mostrarError('No fue posible reactivar al colaborador.'),
+        },
+    );
+}
 </script>
 
 <template>
-    <Head title="Colaboradores" />
+    <Head title="Accesos y roles" />
 
     <div class="flex flex-col gap-6 p-4">
         <CrudPageHeader
-            titulo="Colaboradores"
-            descripcion="Administra colaboradores, sucursal, puesto, roles y asignaciones automáticas."
+            titulo="Accesos y roles"
+            descripcion="Cuenta de acceso, sucursal/puesto y roles de cada colaborador. Para su expediente y documentos, ve a Expedientes."
             :icono="Users"
         >
             <Button @click="abrirCrear">
@@ -142,6 +157,12 @@ async function desactivar(usuario: UsuarioItem) {
                 {
                     etiqueta: 'Inactivos/suspendidos',
                     valor: estadisticas.inactivos,
+                    icono: XCircle,
+                    tono: 'danger',
+                },
+                {
+                    etiqueta: 'Bajas',
+                    valor: estadisticas.bajas ?? 0,
                     icono: XCircle,
                     tono: 'danger',
                 },
@@ -248,14 +269,29 @@ async function desactivar(usuario: UsuarioItem) {
             </template>
             <template #acciones="{ fila }">
                 <CrudActionMenu>
-                    <DropdownMenuItem @select="abrirEditar(fila)"
-                        >Editar</DropdownMenuItem
-                    >
-                    <DropdownMenuItem
-                        variant="destructive"
-                        @select="desactivar(fila)"
-                        >Desactivar</DropdownMenuItem
-                    >
+                    <template v-if="fila.deleted_at">
+                        <DropdownMenuItem
+                            v-if="puedeReactivar"
+                            @select="reactivarColaborador(fila)"
+                            >Reactivar</DropdownMenuItem
+                        >
+                        <p
+                            v-else
+                            class="px-2 py-1.5 text-xs text-muted-foreground"
+                        >
+                            Solo un administrador puede reactivar.
+                        </p>
+                    </template>
+                    <template v-else>
+                        <DropdownMenuItem @select="abrirEditar(fila)"
+                            >Editar</DropdownMenuItem
+                        >
+                        <DropdownMenuItem
+                            variant="destructive"
+                            @select="desactivar(fila)"
+                            >Desactivar</DropdownMenuItem
+                        >
+                    </template>
                 </CrudActionMenu>
             </template>
 
@@ -275,14 +311,23 @@ async function desactivar(usuario: UsuarioItem) {
                     }}</span>
                     <template #acciones>
                         <CrudActionMenu>
-                            <DropdownMenuItem @select="abrirEditar(fila)"
-                                >Editar</DropdownMenuItem
-                            >
-                            <DropdownMenuItem
-                                variant="destructive"
-                                @select="desactivar(fila)"
-                                >Desactivar</DropdownMenuItem
-                            >
+                            <template v-if="fila.deleted_at">
+                                <DropdownMenuItem
+                                    v-if="puedeReactivar"
+                                    @select="reactivarColaborador(fila)"
+                                    >Reactivar</DropdownMenuItem
+                                >
+                            </template>
+                            <template v-else>
+                                <DropdownMenuItem @select="abrirEditar(fila)"
+                                    >Editar</DropdownMenuItem
+                                >
+                                <DropdownMenuItem
+                                    variant="destructive"
+                                    @select="desactivar(fila)"
+                                    >Desactivar</DropdownMenuItem
+                                >
+                            </template>
                         </CrudActionMenu>
                     </template>
                 </CrudMobileCard>
