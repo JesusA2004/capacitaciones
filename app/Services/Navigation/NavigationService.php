@@ -43,6 +43,14 @@ class NavigationService
     }
 
     /**
+     * Nunca cae a `['colaborador']` por defecto cuando un usuario no tiene
+     * ningún permiso de navegación: eso disfrazaba una cuenta mal
+     * configurada (sin `portal.ver` ni `dashboard.*.ver`) de colaborador
+     * real, y el usuario terminaba viendo "Mi portal" en el sidebar para
+     * luego chocar con un 403 en cada pantalla. Un arreglo vacío es una
+     * señal real de configuración inválida — quien la consuma (p. ej.
+     * DashboardController) debe responder 403, no adivinar un modo.
+     *
      * @return array<int, 'colaborador'|'operativo'>
      */
     public function modosDisponibles(User $usuario): array
@@ -57,7 +65,7 @@ class NavigationService
             $modos[] = 'colaborador';
         }
 
-        return $modos === [] ? ['colaborador'] : $modos;
+        return $modos;
     }
 
     /**
@@ -66,10 +74,17 @@ class NavigationService
      * un modo, ese es el único resultado posible (ignora la cookie). Si
      * tiene ambos y no hay cookie, prioriza operativo (es la herramienta de
      * trabajo principal de quien administra el sistema).
+     *
+     * Devuelve cadena vacía si el usuario no tiene ningún modo disponible
+     * (cuenta mal configurada) — nunca inventa uno.
      */
     public function modoActual(User $usuario, ?string $cookieValor): string
     {
         $disponibles = $this->modosDisponibles($usuario);
+
+        if ($disponibles === []) {
+            return '';
+        }
 
         if (count($disponibles) === 1) {
             return $disponibles[0];

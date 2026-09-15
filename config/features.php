@@ -25,4 +25,18 @@ return [
 
     'nine_box' => env('NINE_BOX_ENABLED', false),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Datos de demostración
+    |--------------------------------------------------------------------------
+    |
+    | Controla si DatabaseSeeder ejecuta DemoSeeder (cuentas @mrlana.test con
+    | contraseña conocida, dashboard/solicitudes de ejemplo, gestores demo en
+    | la matriz comercial). NUNCA debe estar en true en producción. Por
+    | defecto se activa en local/testing y se apaga en cualquier otro entorno
+    | sin importar esta bandera — ver DatabaseSeeder::run().
+    |
+    */
+    'seed_demo_data' => env('SEED_DEMO_DATA', false),
+
 ];

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Rh;
 
 use App\Enums\EstadoUsuario;
+use App\Enums\TipoSolicitudInterna;
 use App\Exports\ReporteRhExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Rh\ActualizarDatosPersonalesRequest;
@@ -13,7 +14,7 @@ use App\Models\EmployeeDocument;
 use App\Models\Empresa;
 use App\Models\MovimientoLaboral;
 use App\Models\Puesto;
-use App\Models\SolicitudVacaciones;
+use App\Models\SolicitudInterna;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
@@ -245,11 +246,28 @@ class ExpedienteController extends Controller
             'documentosRequeridos' => $this->documentosParaVista($documentos),
             'onboarding' => $this->onboarding->checklist($colaborador),
             'saldoVacaciones' => $this->vacaciones->saldo($colaborador),
-            'solicitudesVacaciones' => SolicitudVacaciones::query()
+            // Fuente única de verdad (docs/SOLICITUDES_UNIFICADAS.md): las
+            // vacaciones nuevas se crean en solicitudes_internas (tipo
+            // vacaciones), no en la tabla legacy solicitudes_vacaciones —
+            // leer de ahí dejaría el expediente mostrando historial viejo
+            // congelado mientras RH aprueba/rechaza desde el Kanban actual.
+            'solicitudesVacaciones' => SolicitudInterna::query()
                 ->where('user_id', $colaborador->id)
+                ->where('tipo', TipoSolicitudInterna::Vacaciones)
                 ->orderByDesc('created_at')
                 ->limit(10)
-                ->get(),
+                ->get(['id', 'user_id', 'fecha_inicio', 'fecha_fin', 'dias_solicitados', 'motivo', 'estado', 'motivo_rechazo', 'created_at'])
+                ->map(fn (SolicitudInterna $solicitud) => [
+                    'id' => $solicitud->id,
+                    'user_id' => $solicitud->user_id,
+                    'fecha_inicio' => $solicitud->fecha_inicio?->toDateString(),
+                    'fecha_fin' => $solicitud->fecha_fin?->toDateString(),
+                    'dias_solicitados' => $solicitud->dias_solicitados,
+                    'comentario' => $solicitud->motivo,
+                    'estado' => $solicitud->estado->value,
+                    'motivo_rechazo' => $solicitud->motivo_rechazo,
+                    'created_at' => $solicitud->created_at?->toISOString(),
+                ]),
             'movimientosLaborales' => MovimientoLaboral::query()
                 ->where('user_id', $colaborador->id)
                 ->with([

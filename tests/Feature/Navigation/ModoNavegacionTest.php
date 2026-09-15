@@ -8,19 +8,23 @@ beforeEach(function () {
     $this->seed(RolesYPermisosSeeder::class);
 });
 
-test('super_admin entra en modo operativo por default y no ve el portal personal sin cambiar de modo', function () {
+test('super_admin puro entra en modo operativo y no tiene modo colaborador disponible', function () {
     $usuario = User::factory()->create();
     $usuario->assignRole('super_admin');
 
-    // super_admin tiene TODOS los permisos (incluido portal.ver), así que
-    // sí tiene ambos modos disponibles — pero por default entra en
-    // operativo, que es lo que importa: no ve "Mi portal" sin elegirlo.
+    // super_admin es un rol operativo: RolesYPermisosSeeder::PERMISOS ya NO
+    // incluye los permisos personales de "modo colaborador" (portal.*), así
+    // que un super_admin puro no ve "Mi portal" ni por sidebar ni por URL
+    // directa (sección 25 del cierre) — a diferencia de antes, donde
+    // heredaba portal.ver solo por tener todos los permisos en bloque.
     $this->actingAs($usuario)->get(route('dashboard'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->where('navegacion.modoActual', 'operativo')
-            ->where('navegacion.modosDisponibles', ['operativo', 'colaborador'])
+            ->where('navegacion.modosDisponibles', ['operativo'])
         );
+
+    $this->actingAs($usuario)->get(route('portal.index'))->assertForbidden();
 });
 
 test('rh_admin entra en modo operativo y no tiene modo colaborador disponible', function () {
@@ -72,6 +76,16 @@ test('un usuario con permisos de ambos modos puede cambiar de modo y la cookie s
     // navegador, ver docs/PRUEBAS_MANUALES.md).
     $servicio = app(NavigationService::class);
     expect($servicio->modoActual($usuario, 'colaborador'))->toBe('colaborador');
+});
+
+test('un usuario sin ningún permiso de navegación recibe 403 en vez de un modo inventado', function () {
+    // Cuenta mal configurada (sin rol o con un rol sin permisos de
+    // navegación): NavigationService::modosDisponibles() ya no inventa
+    // ['colaborador'] por defecto, así que el dashboard debe rechazar
+    // explícitamente en vez de mostrar una vista de colaborador falsa.
+    $usuario = User::factory()->create();
+
+    $this->actingAs($usuario)->get(route('dashboard'))->assertForbidden();
 });
 
 test('cambiar a un modo no disponible responde 403', function () {

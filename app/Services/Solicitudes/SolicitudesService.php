@@ -39,6 +39,13 @@ use Throwable;
  */
 class SolicitudesService
 {
+    /**
+     * Límite defensivo de tarjetas cargadas en el tablero Kanban (ver
+     * paraTablero()). Si hay más solicitudes activas que esto, el resto no
+     * desaparece en silencio: la vista debe avisar con el total real.
+     */
+    private const LIMITE_TABLERO = 500;
+
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly SolicitudDocumentoStorageService $storage,
@@ -81,8 +88,17 @@ class SolicitudesService
         }
 
         return DB::transaction(function () use ($solicitante, $datos, $colaboradorObjetivo): SolicitudInterna {
+            // El folio final se deriva del id autoincremental real de la
+            // fila (asignado de forma atómica por la base de datos), nunca
+            // de un max(id)+1 leído antes del insert: dos requests
+            // concurrentes podían leer el mismo max(id) y calcular el mismo
+            // folio, chocando contra el índice unique('folio') con un 500
+            // en vez de un folio correcto. El valor temporal solo existe
+            // durante el insert (columna NOT NULL) y se reemplaza abajo,
+            // dentro de la misma transacción, antes de que nadie más pueda
+            // leer la fila.
             $solicitud = SolicitudInterna::create([
-                'folio' => $this->generarFolio(),
+                'folio' => $this->folioTemporal(),
                 'user_id' => $solicitante->id,
                 'colaborador_objetivo_id' => $colaboradorObjetivo?->id,
                 'fecha_efectiva' => $datos['fecha_efectiva'] ?? null,
@@ -99,6 +115,8 @@ class SolicitudesService
                 'empresa_id' => $solicitante->empresa()?->id,
                 'sucursal_id' => $solicitante->sucursal_principal_id,
             ]);
+
+            $solicitud->update(['folio' => sprintf('SOL-%06d', $solicitud->id)]);
 
             $this->registrarHistorial($solicitud, $solicitante, 'creada');
             $this->registrarHistorial($solicitud, $solicitante, 'enviada');
@@ -129,11 +147,15 @@ class SolicitudesService
         }
     }
 
-    private function generarFolio(): string
+    /**
+     * Valor de folio de un solo uso mientras la fila no tiene id todavía
+     * (la columna es NOT NULL + unique). Nunca se le muestra a nadie: se
+     * reemplaza por el folio real (SOL-{id}) en la misma transacción,
+     * segundos — normalmente microsegundos — después de crearse la fila.
+     */
+    private function folioTemporal(): string
     {
-        $ultimoId = (int) (SolicitudInterna::query()->withTrashed()->max('id') ?? 0);
-
-        return sprintf('SOL-%06d', $ultimoId + 1);
+        return 'TMP-'.bin2hex(random_bytes(6));
     }
 
     /**
@@ -183,19 +205,29 @@ class SolicitudesService
      * (estado transitorio que nunca se persiste, ver crear()) ni
      * "cancelada" (el colaborador la retiró antes de que RH actuara; no
      * requieren ninguna acción del tablero). Acotado con un límite
-     * defensivo: el tablero es para el trabajo del día, no un reporte
-     * histórico (para eso están las exportaciones de paraExportar()).
+     * defensivo (self::LIMITE_TABLERO): el tablero es para el trabajo del
+     * día, no un reporte histórico (para eso están las exportaciones de
+     * paraExportar()) — pero el recorte NUNCA es silencioso: se devuelve
+     * también el total real para que la vista avise "mostrando N de
+     * total" en vez de esconder trabajo activo sin decirlo.
      *
      * @param  array<string, mixed>  $filtros
-     * @return Collection<int, SolicitudInterna>
+     * @return array{items: Collection<int, SolicitudInterna>, total: int, limite: int}
      */
-    public function paraTablero(User $revisor, array $filtros = []): Collection
+    public function paraTablero(User $revisor, array $filtros = []): array
     {
-        return $this->queryRevision($revisor, $filtros)
-            ->whereNotIn('estado', [EstadoSolicitudInterna::Creada->value, EstadoSolicitudInterna::Cancelada->value])
-            ->orderBy('created_at')
-            ->limit(500)
-            ->get();
+        $query = $this->queryRevision($revisor, $filtros)
+            ->whereNotIn('estado', [EstadoSolicitudInterna::Creada->value, EstadoSolicitudInterna::Cancelada->value]);
+
+        $total = (clone $query)->count();
+
+        $items = $query->orderBy('created_at')->limit(self::LIMITE_TABLERO)->get();
+
+        return [
+            'items' => $items,
+            'total' => $total,
+            'limite' => self::LIMITE_TABLERO,
+        ];
     }
 
     /**

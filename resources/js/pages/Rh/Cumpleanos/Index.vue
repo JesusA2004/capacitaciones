@@ -22,6 +22,7 @@ import DatePicker from '@/components/Common/DatePicker.vue';
 import EmojiPicker from '@/components/Common/EmojiPicker.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudStats from '@/components/DataTable/CrudStats.vue';
+import PeopleConfirmDialog from '@/components/people/PeopleConfirmDialog.vue';
 import ColaboradorCumpleanosCard from '@/components/Rh/ColaboradorCumpleanosCard.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -377,12 +378,27 @@ function alternarFrase(frase: Frase) {
     );
 }
 
-async function eliminarFrase(frase: Frase) {
-    if (!confirm(`¿Eliminar la frase "${frase.texto.slice(0, 40)}..."?`)) {
+const fraseAEliminar = ref<Frase | null>(null);
+const eliminandoFrase = ref(false);
+
+function pedirEliminarFrase(frase: Frase) {
+    fraseAEliminar.value = frase;
+}
+
+function confirmarEliminarFrase() {
+    if (!fraseAEliminar.value) {
         return;
     }
 
-    router.delete(destroyFrase.url(frase.id), { preserveScroll: true });
+    eliminandoFrase.value = true;
+
+    router.delete(destroyFrase.url(fraseAEliminar.value.id), {
+        preserveScroll: true,
+        onFinish: () => {
+            eliminandoFrase.value = false;
+            fraseAEliminar.value = null;
+        },
+    });
 }
 
 // --- Sidebar "Proximos cumpleaños": rango de fechas libre (mini-calendario) ---
@@ -972,8 +988,12 @@ function aplicarRangoRapido(dias: number) {
                                 <Button size="sm" variant="outline" @click="alternarFrase(frase)">
                                     {{ frase.activo ? 'Desactivar' : 'Activar' }}
                                 </Button>
-                                <Button size="sm" variant="ghost" @click="eliminarFrase(frase)">
-                                    <Trash2 class="size-4 text-destructive" />
+                                <Button
+                                    size="sm"
+                                    variant="outline-destructive"
+                                    @click="pedirEliminarFrase(frase)"
+                                >
+                                    <Trash2 class="size-4" />
                                     Eliminar
                                 </Button>
                             </div>
@@ -989,4 +1009,19 @@ function aplicarRangoRapido(dias: number) {
             </DialogFooter>
         </DialogContent>
     </Dialog>
+
+    <PeopleConfirmDialog
+        :open="fraseAEliminar !== null"
+        titulo="Eliminar frase"
+        :descripcion="
+            fraseAEliminar
+                ? `¿Eliminar la frase “${fraseAEliminar.texto.slice(0, 60)}${fraseAEliminar.texto.length > 60 ? '…' : ''}”? Esta acción no se puede deshacer.`
+                : undefined
+        "
+        destructivo
+        texto-confirmar="Eliminar"
+        :cargando="eliminandoFrase"
+        @update:open="(v) => !v && (fraseAEliminar = null)"
+        @confirm="confirmarEliminarFrase"
+    />
 </template>

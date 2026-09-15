@@ -139,6 +139,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::get('configuracion', [SolicitudController::class, 'configuracion'])->name('configuracion');
             Route::get('{solicitud}', [SolicitudController::class, 'show'])->name('show');
             Route::post('{solicitud}/adjuntos', [SolicitudController::class, 'adjuntos'])->name('adjuntos');
+            Route::post('{solicitud}/cancelar', [SolicitudController::class, 'cancelar'])->name('cancelar');
         });
 
         Route::prefix('notificaciones')->name('notificaciones.')->group(function () {
@@ -162,6 +163,11 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('{solicitud}/aprobar', [RhSolicitudController::class, 'aprobar'])->name('aprobar');
                 Route::post('{solicitud}/rechazar', [RhSolicitudController::class, 'rechazar'])->name('rechazar');
                 Route::post('{solicitud}/correccion', [RhSolicitudController::class, 'correccion'])->name('correccion');
+                // Cambio de estado unificado (mismo tablero Kanban que la web,
+                // ver Rh\SolicitudController::actualizarEstado): reutiliza
+                // SolicitudesService::moverEnTablero(), nunca duplica la lógica
+                // de aprobar/rechazar/correccion/cerrar de arriba.
+                Route::patch('{solicitud}/estado', [RhSolicitudController::class, 'actualizarEstado'])->name('estado');
             });
 
             // Legacy: conservar hasta que la app móvil migre por completo a

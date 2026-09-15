@@ -18,15 +18,24 @@ use Throwable;
 
 /**
  * Diagnóstico previo a considerar un entorno (dev/staging/VPS) "listo para
- * usar". No modifica nada: solo reporta. Pensado para correrse justo después
- * de `migrate --force` + `db:seed --force` en un deploy, o cuando algo no
- * carga y no está claro si falta un import/seed — ver docs/DEPLOY.md.
+ * usar". Diagnóstico no destructivo; realiza una escritura temporal para
+ * comprobar NAS (crea y borra un archivo de prueba en el disco «nas», ver
+ * revisarStorageNas()) pero no toca ninguna tabla ni catálogo. Pensado para
+ * correrse justo después de `migrate --force` + `db:seed --force` en un
+ * deploy, o cuando algo no carga y no está claro si falta un import/seed —
+ * ver docs/DEPLOY.md.
+ *
+ * Cada sección debe llegar hasta el final aunque falte una tabla/catálogo
+ * completo (headcount_targets, official_formats, nodos_comerciales,
+ * permissions, roles, etc.): por eso cada una se protege con
+ * Schema::hasTable() o try/catch en vez de dejar que una excepción SQL
+ * detenga el resto del diagnóstico a medias.
  */
 class PeopleDiagnosticoCommand extends Command
 {
     protected $signature = 'people:diagnostico';
 
-    protected $description = 'Revisa columnas críticas, storage, catálogos y datos demo del portal RH sin modificar nada';
+    protected $description = 'Revisa columnas críticas, storage, catálogos y datos demo del portal RH sin modificar nada (solo escribe un archivo temporal de prueba en el disco NAS)';
 
     /**
      * Tabla => columnas que deben existir. Ver docs/DEPLOY.md, sección
@@ -117,6 +126,12 @@ class PeopleDiagnosticoCommand extends Command
         $this->newLine();
         $this->line('<fg=blue>Headcount</>');
 
+        if (! Schema::hasTable('headcount_targets')) {
+            $this->fallo('Falta la tabla «headcount_targets» — ¿faltó correr `php artisan migrate`?');
+
+            return;
+        }
+
         $total = HeadcountTarget::query()->count();
 
         if ($total === 0) {
@@ -132,6 +147,12 @@ class PeopleDiagnosticoCommand extends Command
     {
         $this->newLine();
         $this->line('<fg=blue>Formatos oficiales</>');
+
+        if (! Schema::hasTable('official_formats')) {
+            $this->fallo('Falta la tabla «official_formats» — ¿faltó correr `php artisan migrate`?');
+
+            return;
+        }
 
         $total = OfficialFormat::query()->count();
 
@@ -176,6 +197,12 @@ class PeopleDiagnosticoCommand extends Command
         $this->newLine();
         $this->line('<fg=blue>Matriz comercial</>');
 
+        if (! Schema::hasTable('nodos_comerciales')) {
+            $this->fallo('Falta la tabla «nodos_comerciales» — ¿faltó correr `php artisan migrate`?');
+
+            return;
+        }
+
         $rutas = DB::table('nodos_comerciales')->where('tipo', TipoNodoComercial::Ruta->value)->count();
 
         if ($rutas === 0) {
@@ -192,8 +219,28 @@ class PeopleDiagnosticoCommand extends Command
         $this->newLine();
         $this->line('<fg=blue>Permisos</>');
 
-        $esperados = (new ReflectionClass(RolesYPermisosSeeder::class))->getConstant('PERMISOS');
-        $existentes = Permission::query()->pluck('name')->all();
+        $tablaPermisos = config('permission.table_names.permissions', 'permissions');
+
+        if (! is_string($tablaPermisos) || ! Schema::hasTable($tablaPermisos)) {
+            $this->fallo("Falta la tabla «{$tablaPermisos}» — ¿faltó correr `php artisan migrate`?");
+
+            return;
+        }
+
+        $reflexion = new ReflectionClass(RolesYPermisosSeeder::class);
+        $esperados = [
+            ...$reflexion->getConstant('PERMISOS'),
+            ...$reflexion->getConstant('PERMISOS_PERSONALES'),
+        ];
+
+        try {
+            $existentes = Permission::query()->pluck('name')->all();
+        } catch (Throwable $e) {
+            $this->fallo('No se pudo leer el catálogo de permisos: '.$e->getMessage());
+
+            return;
+        }
+
         $faltantes = array_diff($esperados, $existentes);
 
         if ($faltantes !== []) {
@@ -210,8 +257,24 @@ class PeopleDiagnosticoCommand extends Command
         $this->newLine();
         $this->line('<fg=blue>Roles demo</>');
 
+        $tablaRoles = config('permission.table_names.roles', 'roles');
+
+        if (! is_string($tablaRoles) || ! Schema::hasTable($tablaRoles)) {
+            $this->fallo("Falta la tabla «{$tablaRoles}» — ¿faltó correr `php artisan migrate`?");
+
+            return;
+        }
+
         $esperados = array_keys((new ReflectionClass(RolesYPermisosSeeder::class))->getConstant('ROLES'));
-        $existentes = Role::query()->pluck('name')->all();
+
+        try {
+            $existentes = Role::query()->pluck('name')->all();
+        } catch (Throwable $e) {
+            $this->fallo('No se pudo leer el catálogo de roles: '.$e->getMessage());
+
+            return;
+        }
+
         $faltantes = array_diff($esperados, $existentes);
 
         if ($faltantes !== []) {

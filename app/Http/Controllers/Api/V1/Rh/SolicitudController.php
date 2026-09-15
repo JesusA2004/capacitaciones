@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Api\V1\Rh;
 
+use App\Enums\EstadoSolicitudInterna;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Rh\ActualizarEstadoSolicitudInternaRequest;
 use App\Models\SolicitudInterna;
 use App\Models\SolicitudInternaHistorial;
 use App\Models\User;
@@ -125,6 +127,36 @@ class SolicitudController extends Controller
         $solicitud = $this->solicitudes->requerirCorreccion($solicitud, $usuario, $datos['motivo']);
 
         return response()->json(['message' => 'Se pidió corrección al colaborador', 'data' => ['id' => $solicitud->id, 'estado' => $solicitud->estado->value]]);
+    }
+
+    /**
+     * Cambio de estado unificado (mismo destino que el tablero Kanban web,
+     * ver Rh\SolicitudController::actualizarEstado): traduce el estado
+     * destino a la misma policy que ya usan aprobar()/rechazar()/
+     * correccion() de arriba, y reutiliza
+     * SolicitudesService::moverEnTablero() en vez de duplicar la lógica de
+     * cambiarEstado() para cada acción.
+     */
+    public function actualizarEstado(ActualizarEstadoSolicitudInternaRequest $request, SolicitudInterna $solicitud): JsonResponse
+    {
+        $usuario = $request->user();
+        $nuevoEstado = EstadoSolicitudInterna::from($request->validated('estado'));
+
+        $habilidad = match ($nuevoEstado) {
+            EstadoSolicitudInterna::EnRevision, EstadoSolicitudInterna::RequiereCorreccion => 'revisar',
+            EstadoSolicitudInterna::Aprobada => 'aprobar',
+            EstadoSolicitudInterna::Rechazada => 'rechazar',
+            EstadoSolicitudInterna::Cerrada => 'cerrar',
+            default => abort(422, 'Ese estado no se puede asignar desde el tablero.'),
+        };
+
+        abort_unless($usuario->can($habilidad, $solicitud), 403);
+
+        $comentario = $request->validated('motivo_rechazo') ?? $request->validated('comentario');
+
+        $solicitud = $this->solicitudes->moverEnTablero($solicitud, $usuario, $nuevoEstado, $comentario);
+
+        return response()->json(['message' => 'Solicitud movida a '.$nuevoEstado->etiqueta().'.', 'data' => ['id' => $solicitud->id, 'estado' => $solicitud->estado->value]]);
     }
 
     private function validarPendiente(SolicitudInterna $solicitud): void

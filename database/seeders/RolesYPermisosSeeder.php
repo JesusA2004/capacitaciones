@@ -15,6 +15,26 @@ class RolesYPermisosSeeder extends Seeder
      *
      * @var array<int, string>
      */
+    /**
+     * Permisos "personales" (experiencia de modo colaborador: Mi portal, mi
+     * perfil, mis solicitudes, mis notificaciones — ver
+     * App\Services\Navigation\NavigationService). Se mantienen fuera del
+     * catálogo operativo de `self::PERMISOS` que se le asigna en bloque a
+     * `super_admin`: ser super_admin no debe implicar automáticamente tener
+     * "Mi portal", ni por sidebar ni por URL directa (sección 25 del cierre).
+     * Si un usuario necesita ambas experiencias, se le asigna también el rol
+     * `colaborador` (o estos permisos de forma explícita).
+     *
+     * @var array<int, string>
+     */
+    private const PERMISOS_PERSONALES = [
+        'portal.ver',
+        'portal.perfil.ver',
+        'portal.solicitudes.ver',
+        'portal.solicitudes.crear',
+        'portal.notificaciones.ver',
+    ];
+
     private const PERMISOS = [
         'dashboard.global.ver',
         'dashboard.sucursal.ver',
@@ -216,17 +236,6 @@ class RolesYPermisosSeeder extends Seeder
         'solicitudes.configuracion.ver',
         'solicitudes.adjuntos.subir',
 
-        // --- Portal personal / modo colaborador (reestructuracion nav por rol) ---
-        // Separa explicitamente "tengo experiencia personal de colaborador"
-        // de los permisos operativos de arriba: antes "Mi portal"/"Vacaciones"
-        // se mostraban a CUALQUIER usuario autenticado sin importar su rol.
-        // Ver App\Services\Navigation\NavigationService.
-        'portal.ver',
-        'portal.perfil.ver',
-        'portal.solicitudes.ver',
-        'portal.solicitudes.crear',
-        'portal.notificaciones.ver',
-
         // --- Solicitudes de baja de colaborador (nuevo flujo dentro de Solicitudes) ---
         'solicitudes.bajas.crear',
         'solicitudes.bajas.aprobar',
@@ -273,6 +282,8 @@ class RolesYPermisosSeeder extends Seeder
      * @var array<string, array<int, string>>
      */
     private const ROLES = [
+        // self::PERMISOS ya NO incluye PERMISOS_PERSONALES (ver su
+        // docblock): super_admin es un rol operativo, no un colaborador.
         'super_admin' => self::PERMISOS,
         'administrador_capacitacion' => [
             'dashboard.global.ver',
@@ -627,7 +638,7 @@ class RolesYPermisosSeeder extends Seeder
 
     public function run(): void
     {
-        foreach (self::PERMISOS as $permiso) {
+        foreach ([...self::PERMISOS, ...self::PERMISOS_PERSONALES] as $permiso) {
             Permission::firstOrCreate(['name' => $permiso, 'guard_name' => 'web']);
         }
 

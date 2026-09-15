@@ -42,8 +42,15 @@ class SolicitudController extends Controller
     {
         $this->authorize('viewAny', SolicitudInterna::class);
 
+        $tablero = $this->solicitudes->paraTablero($request->user(), $request->only(self::FILTROS));
+
         return Inertia::render('Rh/Solicitudes/Index', [
-            'solicitudes' => $this->solicitudes->paraTablero($request->user(), $request->only(self::FILTROS)),
+            'solicitudes' => $tablero['items'],
+            'solicitudesResumen' => [
+                'total' => $tablero['total'],
+                'mostradas' => $tablero['items']->count(),
+                'limite' => $tablero['limite'],
+            ],
             'filtros' => $request->only(self::FILTROS),
             'tipos' => $this->solicitudes->tiposDisponibles(),
             'opciones' => [

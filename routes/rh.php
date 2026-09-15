@@ -18,7 +18,10 @@ use App\Http\Controllers\Rh\VacanteController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('mi-expediente', [ExpedienteController::class, 'miExpediente'])->name('mi-expediente');
+    // Solo la experiencia de "modo colaborador" ve su propio expediente por
+    // esta ruta — un operativo puro sin `portal.ver` recibe 403 (sección 25
+    // del cierre: separación real colaborador/operativo, no solo de sidebar).
+    Route::get('mi-expediente', [ExpedienteController::class, 'miExpediente'])->name('mi-expediente')->middleware('can:portal.ver');
 
     Route::prefix('rh')->name('rh.')->group(function () {
         Route::prefix('expedientes')->name('expedientes.')->group(function () {

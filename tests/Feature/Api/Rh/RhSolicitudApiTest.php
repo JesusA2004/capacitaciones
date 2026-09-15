@@ -97,6 +97,39 @@ test('un colaborador no puede aprobar solicitudes', function () {
         ->assertForbidden();
 });
 
+test('rh puede mover una solicitud a en_revision con PATCH .../estado, reutilizando el mismo workflow que aprobar/rechazar', function () {
+    $rh = User::factory()->create();
+    $rh->assignRole('rh_admin');
+    $solicitud = SolicitudInterna::factory()->create(['estado' => 'enviada']);
+
+    $this->withHeaders(['Authorization' => 'Bearer '.$rh->createToken('test')->plainTextToken])
+        ->patchJson("/api/v1/rh/solicitudes/{$solicitud->id}/estado", ['estado' => 'en_revision'])
+        ->assertOk()
+        ->assertJsonPath('data.estado', 'en_revision');
+
+    expect($solicitud->fresh()->estado->value)->toBe('en_revision');
+});
+
+test('mover a rechazada con PATCH .../estado exige comentario', function () {
+    $rh = User::factory()->create();
+    $rh->assignRole('rh_admin');
+    $solicitud = SolicitudInterna::factory()->create(['estado' => 'enviada']);
+
+    $this->withHeaders(['Authorization' => 'Bearer '.$rh->createToken('test')->plainTextToken])
+        ->patchJson("/api/v1/rh/solicitudes/{$solicitud->id}/estado", ['estado' => 'rechazada'])
+        ->assertUnprocessable();
+});
+
+test('un colaborador no puede mover el estado de una solicitud vía PATCH .../estado', function () {
+    $colaborador = User::factory()->create();
+    $colaborador->assignRole('colaborador');
+    $solicitud = SolicitudInterna::factory()->create(['estado' => 'enviada']);
+
+    $this->withHeaders(['Authorization' => 'Bearer '.$colaborador->createToken('test')->plainTextToken])
+        ->patchJson("/api/v1/rh/solicitudes/{$solicitud->id}/estado", ['estado' => 'aprobada'])
+        ->assertForbidden();
+});
+
 test('crear una solicitud notifica y encola push para rh', function () {
     Http::fake();
 

@@ -39,6 +39,8 @@ class DashboardController extends Controller
             ]);
         }
 
+        abort_unless($usuario->can('portal.ver'), 403, 'Tu cuenta no tiene un modo de acceso configurado (ni operativo ni colaborador). Contacta a un administrador.');
+
         return Inertia::render('Dashboard/Colaborador', $this->metricas->colaborador($usuario));
     }
 

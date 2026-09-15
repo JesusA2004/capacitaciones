@@ -50,6 +50,21 @@ class SolicitudController extends Controller
     }
 
     /**
+     * Cancela una solicitud propia (mismo criterio que la web, ver
+     * Solicitudes\SolicitudInternaController::cancelar): solo mientras
+     * sigue en manos propias o apenas entrando a revisión, nunca una ya
+     * aprobada/rechazada/cerrada.
+     */
+    public function cancelar(Request $request, SolicitudInterna $solicitud): JsonResponse
+    {
+        $this->authorize('cancelar', $solicitud);
+
+        $solicitud = $this->solicitudes->cancelar($solicitud, $request->user());
+
+        return response()->json(['message' => 'Solicitud cancelada.', 'data' => new SolicitudInternaResource($solicitud)]);
+    }
+
+    /**
      * Catalogo de tipos de solicitud + reglas de formulario, para que la app
      * construya la pantalla de "nueva solicitud" sin hardcodear nada. Ver
      * seccion 14 del encargo movil.

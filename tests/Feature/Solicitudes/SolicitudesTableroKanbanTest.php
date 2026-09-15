@@ -116,5 +116,23 @@ test('el tablero solo trae estados gestionables y excluye canceladas', function 
             ->component('Rh/Solicitudes/Index')
             ->where('solicitudes', fn ($lista) => collect($lista)->pluck('id')->contains($enviada->id)
                 && ! collect($lista)->pluck('id')->contains($cancelada->id))
+            ->where('solicitudesResumen.total', 1)
+            ->where('solicitudesResumen.mostradas', 1)
+        );
+});
+
+test('si hay más solicitudes activas que el límite del tablero, el resumen expone el total real en vez de esconderlas', function () {
+    $rh = User::factory()->create();
+    $rh->assignRole('rh_admin');
+
+    SolicitudInterna::factory()->count(3)->create(['estado' => 'enviada']);
+
+    $this->actingAs($rh)
+        ->get(route('rh.solicitudes.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('solicitudesResumen.total', 3)
+            ->where('solicitudesResumen.mostradas', 3)
+            ->where('solicitudesResumen.limite', 500)
         );
 });

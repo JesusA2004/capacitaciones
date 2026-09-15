@@ -71,6 +71,39 @@ test('un colaborador no puede ver por la api la solicitud de otro colaborador', 
         ->assertForbidden();
 });
 
+test('un colaborador puede cancelar su propia solicitud por la api mientras siga pendiente', function () {
+    $colaborador = User::factory()->create();
+    $solicitud = SolicitudInterna::factory()->create(['user_id' => $colaborador->id, 'estado' => 'enviada']);
+
+    $this->withHeaders(actuarConToken($colaborador))
+        ->postJson("/api/v1/solicitudes/{$solicitud->id}/cancelar")
+        ->assertOk()
+        ->assertJsonPath('data.estado', 'cancelada');
+
+    expect($solicitud->fresh()->estado->value)->toBe('cancelada');
+});
+
+test('un colaborador no puede cancelar por la api la solicitud de otro colaborador', function () {
+    $colaborador = User::factory()->create();
+    $otro = User::factory()->create();
+    $solicitudAjena = SolicitudInterna::factory()->create(['user_id' => $otro->id, 'estado' => 'enviada']);
+
+    $this->withHeaders(actuarConToken($colaborador))
+        ->postJson("/api/v1/solicitudes/{$solicitudAjena->id}/cancelar")
+        ->assertForbidden();
+
+    expect($solicitudAjena->fresh()->estado->value)->toBe('enviada');
+});
+
+test('una solicitud ya aprobada no se puede cancelar por la api', function () {
+    $colaborador = User::factory()->create();
+    $solicitud = SolicitudInterna::factory()->create(['user_id' => $colaborador->id, 'estado' => 'aprobada']);
+
+    $this->withHeaders(actuarConToken($colaborador))
+        ->postJson("/api/v1/solicitudes/{$solicitud->id}/cancelar")
+        ->assertForbidden();
+});
+
 test('el saldo de vacaciones de la api coincide con el del colaborador autenticado', function () {
     $colaborador = User::factory()->create(['fecha_ingreso' => now()->subYears(3)]);
 

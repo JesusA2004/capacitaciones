@@ -27,6 +27,34 @@ test('un colaborador puede crear una solicitud interna y queda enviada', functio
         ->and($solicitud->historial()->count())->toBe(2);
 });
 
+test('el folio se deriva del id real de la fila y nunca se duplica, incluso creando muchas solicitudes seguidas', function () {
+    // generarFolio() legacy calculaba max(id)+1 antes del insert: dos
+    // requests concurrentes podían leer el mismo max(id) y calcular el
+    // mismo folio. El folio ahora se deriva del id autoincremental real de
+    // la propia fila (asignado atómicamente por la base de datos), así que
+    // nunca puede colisionar sin importar el orden ni la concurrencia.
+    $colaborador = User::factory()->create();
+    $colaborador->assignRole('colaborador');
+
+    foreach (range(1, 5) as $intento) {
+        $this->actingAs($colaborador)
+            ->post(route('solicitudes.store'), [
+                'tipo' => 'constancia_laboral',
+                'motivo' => "Trámite número {$intento}.",
+            ])
+            ->assertSessionHasNoErrors();
+    }
+
+    $solicitudes = SolicitudInterna::where('user_id', $colaborador->id)->get();
+
+    expect($solicitudes)->toHaveCount(5);
+    expect($solicitudes->pluck('folio')->unique())->toHaveCount(5);
+
+    foreach ($solicitudes as $solicitud) {
+        expect($solicitud->folio)->toBe(sprintf('SOL-%06d', $solicitud->id));
+    }
+});
+
 test('un colaborador solo ve sus propias solicitudes en su listado', function () {
     $colaborador = User::factory()->create();
     $colaborador->assignRole('colaborador');

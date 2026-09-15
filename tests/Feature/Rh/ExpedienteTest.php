@@ -1,5 +1,9 @@
 <?php
 
+use App\Enums\EstadoSolicitudInterna;
+use App\Enums\TipoSolicitudInterna;
+use App\Models\SolicitudInterna;
+use App\Models\SolicitudVacaciones;
 use App\Models\Sucursal;
 use App\Models\User;
 use Database\Seeders\RolesYPermisosSeeder;
@@ -16,6 +20,33 @@ test('un colaborador solo puede ver su propio expediente', function () {
 
     $this->actingAs($colaborador)->get(route('mi-expediente'))->assertOk();
     $this->actingAs($colaborador)->get(route('rh.expedientes.show', $otro))->assertForbidden();
+});
+
+test('el expediente muestra el historial de vacaciones desde solicitudes_internas, no desde la tabla legacy', function () {
+    $colaborador = User::factory()->create();
+    $colaborador->assignRole('colaborador');
+
+    $solicitudUnificada = SolicitudInterna::factory()->create([
+        'user_id' => $colaborador->id,
+        'tipo' => TipoSolicitudInterna::Vacaciones,
+        'estado' => EstadoSolicitudInterna::Aprobada,
+        'fecha_inicio' => now()->addDays(10)->toDateString(),
+        'fecha_fin' => now()->addDays(15)->toDateString(),
+        'dias_solicitados' => 5,
+    ]);
+
+    // Un registro legacy no debe aparecer: es historial congelado de antes
+    // de la unificación (docs/SOLICITUDES_UNIFICADAS.md), no la fuente
+    // vigente de nuevas solicitudes.
+    SolicitudVacaciones::factory()->create(['user_id' => $colaborador->id]);
+
+    $this->actingAs($colaborador)->get(route('mi-expediente'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('solicitudesVacaciones', 1)
+            ->where('solicitudesVacaciones.0.id', $solicitudUnificada->id)
+            ->where('solicitudesVacaciones.0.dias_solicitados', 5)
+        );
 });
 
 test('un rh_admin ve el listado de expedientes de toda la organizacion', function () {

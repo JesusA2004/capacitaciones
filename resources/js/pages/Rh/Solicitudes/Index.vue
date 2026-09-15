@@ -19,6 +19,7 @@ import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -58,6 +59,7 @@ import type {
 
 const props = defineProps<{
     solicitudes: SolicitudInternaItem[];
+    solicitudesResumen: { total: number; mostradas: number; limite: number };
     filtros: {
         tipo?: string;
         empresa_id?: string;
@@ -306,6 +308,17 @@ function confirmarMovimiento() {
                 :url-pdf="urlExportar(exportarPdf)"
             />
         </CrudPageHeader>
+
+        <Alert
+            v-if="solicitudesResumen.total > solicitudesResumen.mostradas"
+            variant="warning"
+        >
+            <AlertTriangle class="size-4" />
+            <AlertTitle>Mostrando {{ solicitudesResumen.mostradas }} de {{ solicitudesResumen.total }} solicitudes activas</AlertTitle>
+            <AlertDescription>
+                El tablero tiene un límite de {{ solicitudesResumen.limite }} tarjetas para mantenerse ágil. Usa los filtros (sucursal, tipo, responsable) para acotar y ver el resto — ninguna solicitud se pierde, solo no se muestra aquí todavía.
+            </AlertDescription>
+        </Alert>
 
         <div class="flex flex-wrap items-center gap-2">
             <CrudSearchInput
