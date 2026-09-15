@@ -12,6 +12,7 @@ import {
     GraduationCap,
     Landmark,
     LayoutGrid,
+    QrCode,
     ShieldCheck,
     Smartphone,
     UserRound,
@@ -49,13 +50,14 @@ import { index as indexCandidatos } from '@/routes/rh/candidatos';
 import { index as indexCumpleanos } from '@/routes/rh/cumpleanos';
 import { index as indexExpedientes } from '@/routes/rh/expedientes';
 import { index as indexFormatos } from '@/routes/rh/formatos';
+import { index as indexIncorporacionInvitaciones } from '@/routes/rh/incorporacion/invitaciones';
 import { index as indexPlantillas } from '@/routes/rh/plantillas';
 import { index as indexRhSolicitudes } from '@/routes/rh/solicitudes';
 import { index as indexVacantes } from '@/routes/rh/vacantes';
 import { index as indexSolicitudes } from '@/routes/solicitudes';
 import type { NavItem } from '@/types';
 
-const { tienePermiso } = usePermisos();
+const { tienePermiso, tieneRol } = usePermisos();
 const page = usePage();
 const { esColaborador, tieneAmbosModos, cambiarModo } = useNavegacion();
 
@@ -166,11 +168,21 @@ const navItemsOperativo = computed<NavItem[]>(() => {
         });
     }
 
-    // Altas digitales e Invitaciones QR NUNCA son módulos sueltos del menú,
-    // ni siquiera para super_admin: son pasos del flujo Candidato -> Alta
-    // digital -> QR (ver botones dentro de Rh/Candidatos/Show.vue). Las
-    // rutas/controllers siguen existiendo para uso interno/depuración, solo
+    // Altas digitales NO es un módulo suelto del menú: es un paso del flujo
+    // Candidato -> Alta digital (ver botones dentro de Rh/Candidatos/Show.vue).
+    // La ruta/controller sigue existiendo para uso interno/depuración, solo
     // se quitó la entrada de navegación.
+    //
+    // Invitaciones QR SÍ se queda: es como un colaborador genera su alta e
+    // incorpora su expediente desde la app móvil (QR de incorporación) — no
+    // es un paso interno de RH, es la puerta de entrada real de ese flujo.
+    if (tienePermiso('rh.incorporacion.invitaciones.ver') && tieneRol('super_admin')) {
+        items.push({
+            title: 'Invitaciones QR',
+            href: indexIncorporacionInvitaciones(),
+            icon: QrCode,
+        });
+    }
 
     // "Formatos" es un único menú con tabs (Oficiales PDF, Plantillas
     // avanzadas DOCX, Generados, Configuración de campos) — ver
