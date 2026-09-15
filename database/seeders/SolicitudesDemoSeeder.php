@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\SolicitudInterna;
 use App\Models\User;
 use App\Services\Solicitudes\SolicitudesService;
+use Closure;
 use Illuminate\Database\Seeder;
 
 /**
@@ -13,10 +14,13 @@ use Illuminate\Database\Seeder;
  * "vacío" en el módulo central de esta reestructuración: cero vacaciones,
  * préstamos, incapacidades o bajas de ejemplo. Usa siempre
  * SolicitudesService (nunca crea el modelo a mano) para que también quede
- * probado el saldo de vacaciones, el folio consecutivo y el historial.
+ * probado el saldo de vacaciones, el folio consecutivo, el historial y —
+ * desde que existe— la generación automática de formato oficial al aprobar.
  *
- * Idempotente por folio implícito: si ya hay solicitudes de este seeder
- * (detectadas por el motivo característico), no vuelve a crearlas.
+ * Idempotente por escenario (cada bloque se salta si ya existe una
+ * solicitud con su motivo característico), no por un único flag global: así
+ * una base ya sembrada con una versión anterior de este seeder recibe los
+ * escenarios nuevos (requiere_correccion, cerrada) sin duplicar los viejos.
  */
 class SolicitudesDemoSeeder extends Seeder
 {
@@ -24,10 +28,6 @@ class SolicitudesDemoSeeder extends Seeder
 
     public function run(): void
     {
-        if (SolicitudInterna::where('motivo', 'like', '%'.self::MARCA)->exists()) {
-            return;
-        }
-
         $servicio = app(SolicitudesService::class);
 
         // jefe.directo es, de los usuarios demo, el que tiene fecha_ingreso
@@ -40,6 +40,7 @@ class SolicitudesDemoSeeder extends Seeder
         $colaborador4 = User::where('email', 'colaborador4@mrlana.test')->first();
         $colaborador5 = User::where('email', 'colaborador5@mrlana.test')->first();
         $colaborador6 = User::where('email', 'colaborador6@mrlana.test')->first();
+        $colaborador7 = User::where('email', 'colaborador7@mrlana.test')->first();
         $rhAdmin = User::where('email', 'rh.admin@mrlana.test')->first();
         $gerente = User::where('email', 'gerente.sucursal@mrlana.test')->first();
 
@@ -47,76 +48,124 @@ class SolicitudesDemoSeeder extends Seeder
             return;
         }
 
-        // Vacaciones: enviada, sin resolver todavía.
-        $servicio->crear($colaboradorVacaciones, [
-            'tipo' => 'vacaciones',
-            'motivo' => 'Vacaciones familiares de fin de año '.self::MARCA,
-            'fecha_inicio' => now()->addDays(15)->toDateString(),
-            'fecha_fin' => now()->addDays(20)->toDateString(),
-            'dias_solicitados' => 5,
-        ]);
+        $this->crearSiNoExiste('Vacaciones familiares de fin de año', function () use ($servicio, $colaboradorVacaciones) {
+            // Enviada, sin resolver todavía — columna "Enviada" del tablero.
+            $servicio->crear($colaboradorVacaciones, [
+                'tipo' => 'vacaciones',
+                'motivo' => 'Vacaciones familiares de fin de año '.self::MARCA,
+                'fecha_inicio' => now()->addDays(15)->toDateString(),
+                'fecha_fin' => now()->addDays(20)->toDateString(),
+                'dias_solicitados' => 5,
+            ]);
+        });
 
-        // Permiso con goce: aprobado.
         if ($colaborador2 !== null) {
-            $solicitud = $servicio->crear($colaborador2, [
-                'tipo' => 'permiso_con_goce',
-                'motivo' => 'Cita médica familiar '.self::MARCA,
-                'fecha_inicio' => now()->subDays(5)->toDateString(),
-                'fecha_fin' => now()->subDays(5)->toDateString(),
-            ]);
-            $servicio->aprobar($solicitud, $rhAdmin, 'Aprobado sin observaciones.');
+            $this->crearSiNoExiste('Cita médica familiar', function () use ($servicio, $colaborador2, $rhAdmin) {
+                // Aprobada — columna "Aprobada"; dispara el formato oficial
+                // automático de permiso (config/solicitudes.php) si el
+                // formato ya está configurado.
+                $solicitud = $servicio->crear($colaborador2, [
+                    'tipo' => 'permiso_con_goce',
+                    'motivo' => 'Cita médica familiar '.self::MARCA,
+                    'fecha_inicio' => now()->subDays(5)->toDateString(),
+                    'fecha_fin' => now()->subDays(5)->toDateString(),
+                ]);
+                $servicio->aprobar($solicitud, $rhAdmin, 'Aprobado sin observaciones.');
+            });
         }
 
-        // Incapacidad: en revisión.
         if ($colaborador3 !== null) {
-            $solicitud = $servicio->crear($colaborador3, [
-                'tipo' => 'incapacidad',
-                'motivo' => 'Incapacidad por gripe '.self::MARCA,
-                'fecha_inicio' => now()->subDays(2)->toDateString(),
-                'fecha_fin' => now()->addDays(1)->toDateString(),
-            ]);
-            $servicio->marcarEnRevision($solicitud, $rhAdmin, 'Esperando el certificado del IMSS.');
+            $this->crearSiNoExiste('Incapacidad por gripe', function () use ($servicio, $colaborador3, $rhAdmin) {
+                // En revisión — columna "En revisión".
+                $solicitud = $servicio->crear($colaborador3, [
+                    'tipo' => 'incapacidad',
+                    'motivo' => 'Incapacidad por gripe '.self::MARCA,
+                    'fecha_inicio' => now()->subDays(2)->toDateString(),
+                    'fecha_fin' => now()->addDays(1)->toDateString(),
+                ]);
+                $servicio->marcarEnRevision($solicitud, $rhAdmin, 'Esperando el certificado del IMSS.');
+            });
         }
 
-        // Préstamo interno: aprobado, con monto y plazo.
         if ($colaborador4 !== null) {
-            $solicitud = $servicio->crear($colaborador4, [
-                'tipo' => 'prestamo',
-                'motivo' => 'Gastos escolares de los hijos '.self::MARCA,
-                'monto_solicitado' => 8000,
-                'plazo_meses' => 6,
-            ]);
-            $servicio->aprobar($solicitud, $rhAdmin, 'Aprobado, se descuenta vía nómina.');
+            $this->crearSiNoExiste('Gastos escolares de los hijos', function () use ($servicio, $colaborador4, $rhAdmin) {
+                // Aprobada, con monto y plazo — dispara el contrato de
+                // crédito automático si el formato ya está configurado.
+                $solicitud = $servicio->crear($colaborador4, [
+                    'tipo' => 'prestamo',
+                    'motivo' => 'Gastos escolares de los hijos '.self::MARCA,
+                    'monto_solicitado' => 8000,
+                    'plazo_meses' => 6,
+                ]);
+                $servicio->aprobar($solicitud, $rhAdmin, 'Aprobado, se descuenta vía nómina.');
+            });
         }
 
-        // Solicitud general: rechazada, con motivo — para ver ese estado
-        // también representado.
         if ($colaborador5 !== null) {
-            $solicitud = $servicio->crear($colaborador5, [
-                'tipo' => 'solicitud_general',
-                'motivo' => 'Cambio de horario de entrada '.self::MARCA,
-            ]);
-            $servicio->rechazar($solicitud, $rhAdmin, 'No es posible por cobertura de sucursal en ese horario.');
+            $this->crearSiNoExiste('Cambio de horario de entrada', function () use ($servicio, $colaborador5, $rhAdmin) {
+                // Rechazada, con motivo — columna "Rechazada".
+                $solicitud = $servicio->crear($colaborador5, [
+                    'tipo' => 'solicitud_general',
+                    'motivo' => 'Cambio de horario de entrada '.self::MARCA,
+                ]);
+                $servicio->rechazar($solicitud, $rhAdmin, 'No es posible por cobertura de sucursal en ese horario.');
+            });
         }
 
-        // Actualización de datos: recién enviada, sin tocar.
         if ($colaborador6 !== null) {
-            $servicio->crear($colaborador6, [
-                'tipo' => 'actualizacion_datos',
-                'motivo' => 'Cambio de domicilio '.self::MARCA,
-            ]);
+            $this->crearSiNoExiste('Cambio de domicilio', function () use ($servicio, $colaborador6) {
+                // Recién enviada, sin tocar — columna "Enviada" (segunda
+                // tarjeta, para no depender de una sola).
+                $servicio->crear($colaborador6, [
+                    'tipo' => 'actualizacion_datos',
+                    'motivo' => 'Cambio de domicilio '.self::MARCA,
+                ]);
+            });
         }
 
-        // Baja de colaborador: PENDIENTE de aprobar (a propósito, para
-        // poder probar el flujo completo de aprobación + bloqueo de acceso
-        // manualmente desde la pantalla de Solicitudes). El colaborador
-        // objetivo sigue activo mientras esto no se apruebe.
         if ($gerente !== null && $colaborador6 !== null) {
-            $servicio->crear($gerente, [
-                'tipo' => 'baja_colaborador',
-                'motivo' => 'Renuncia voluntaria, último día pactado a fin de mes '.self::MARCA,
-                'colaborador_objetivo_id' => $colaborador6->id,
-            ]);
+            $this->crearSiNoExiste('Renuncia voluntaria, último día pactado a fin de mes', function () use ($servicio, $gerente, $colaborador6) {
+                // Baja PENDIENTE de aprobar a propósito (para poder probar
+                // el flujo completo de aprobación + bloqueo de acceso
+                // manualmente). El colaborador objetivo sigue activo.
+                $servicio->crear($gerente, [
+                    'tipo' => 'baja_colaborador',
+                    'motivo' => 'Renuncia voluntaria, último día pactado a fin de mes '.self::MARCA,
+                    'colaborador_objetivo_id' => $colaborador6->id,
+                ]);
+            });
         }
+
+        if ($colaborador7 !== null) {
+            $this->crearSiNoExiste('Corrección de horario de comida', function () use ($servicio, $colaborador7, $rhAdmin) {
+                // Requiere corrección — columna "Requiere corrección".
+                $solicitud = $servicio->crear($colaborador7, [
+                    'tipo' => 'permiso_sin_goce',
+                    'motivo' => 'Corrección de horario de comida '.self::MARCA,
+                    'fecha_inicio' => now()->addDays(3)->toDateString(),
+                    'fecha_fin' => now()->addDays(3)->toDateString(),
+                ]);
+                $servicio->requerirCorreccion($solicitud, $rhAdmin, 'Falta la fecha exacta del permiso, indícala de nuevo.');
+            });
+
+            $this->crearSiNoExiste('Constancia laboral para trámite bancario', function () use ($servicio, $colaborador7, $rhAdmin) {
+                // Aprobada y luego cerrada — columna "Cerrada".
+                $solicitud = $servicio->crear($colaborador7, [
+                    'tipo' => 'constancia_laboral',
+                    'motivo' => 'Constancia laboral para trámite bancario '.self::MARCA,
+                ]);
+                $servicio->aprobar($solicitud, $rhAdmin, 'Constancia entregada.');
+                $servicio->cerrar($solicitud->fresh(), $rhAdmin, 'Trámite concluido.');
+            });
+        }
+    }
+
+    private function crearSiNoExiste(string $motivoUnico, Closure $crear): void
+    {
+        if (SolicitudInterna::where('motivo', 'like', "%{$motivoUnico}%".self::MARCA)->exists()) {
+            return;
+        }
+
+        $crear();
     }
 }

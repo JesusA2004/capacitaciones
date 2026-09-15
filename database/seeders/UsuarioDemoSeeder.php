@@ -138,15 +138,50 @@ class UsuarioDemoSeeder extends Seeder
                 'sucursal' => $sucursalDos, 'departamento' => $operaciones, 'puesto' => $supervisorOperaciones,
                 'roles' => ['jefe_directo'],
             ],
+            // colaborador3..colaborador10 YA existen — los crea
+            // DashboardDemoSeeder::crearColaboradores()/sembrarBajaDemo()
+            // (colaborador10 = Pablo Serrano Vega, dado de baja ahí mismo
+            // con el servicio real). No se dupliquen esos correos aquí: el
+            // orden de DemoSeeder corre este seeder primero, así que
+            // cualquier entrada con el mismo email "ganaría" por
+            // firstOrCreate() y DashboardDemoSeeder ya no podría aplicar su
+            // propia sucursal/departamento a esos registros.
+            //
+            // colaborador11/colaborador12: los únicos correos realmente
+            // libres, exclusivos de ExpedienteDemoSeeder (sección 22).
+            // Pablo (colaborador10) queda "inactivo" por el camino de
+            // BajaColaboradorService (baja vía solicitud aprobada: nunca
+            // hace soft-delete, ver App\Services\Solicitudes\BajaColaboradorService::ejecutar()),
+            // así que nunca muestra el botón "Reactivar" (ese solo aplica a
+            // la baja administrativa directa, Administracion\UsuarioController::destroy(),
+            // que sí hace soft-delete). Se necesitan dos colaboradores más
+            // para probar ESE camino específico:
+            // - colaborador11: baja administrativa directa, se queda así (F).
+            // - colaborador12: baja administrativa directa y reactivado (G).
+            [
+                'datos' => ['name' => 'Raúl', 'apellidos' => 'Espinoza Marín', 'email' => 'colaborador11@mrlana.test', 'numero_empleado' => 'EMP-0023', 'genero' => Genero::Masculino],
+                'sucursal' => $sucursalDos, 'departamento' => $operaciones, 'puesto' => $gestorVolante,
+                'roles' => ['colaborador'],
+            ],
+            [
+                'datos' => ['name' => 'Cecilia', 'apellidos' => 'Herrera Nava', 'email' => 'colaborador12@mrlana.test', 'numero_empleado' => 'EMP-0024', 'genero' => Genero::Femenino],
+                'sucursal' => $sucursalUno, 'departamento' => $operaciones, 'puesto' => $gestorFijo,
+                'roles' => ['colaborador'],
+            ],
         ];
 
         $movimientos = app(MovimientoLaboralService::class);
         $sistema = User::query()->where('email', 'superadmin@mrlana.test')->first();
 
         foreach ($usuarios as $indice => $definicion) {
-            $yaExistia = User::where('email', $definicion['datos']['email'])->exists();
+            // withTrashed(): un colaborador demo puede haber quedado
+            // soft-deleted (ver ExpedienteDemoSeeder, escenarios de
+            // baja/reactivación). Sin esto, firstOrCreate() no lo encuentra
+            // -- el scope de SoftDeletes lo excluye por defecto -- e intenta
+            // insertarlo de nuevo, chocando con el único de `email`.
+            $yaExistia = User::withTrashed()->where('email', $definicion['datos']['email'])->exists();
 
-            $usuario = User::firstOrCreate(
+            $usuario = User::withTrashed()->firstOrCreate(
                 ['email' => $definicion['datos']['email']],
                 [
                     'name' => $definicion['datos']['name'],

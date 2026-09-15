@@ -4,6 +4,7 @@ import {
     AlertTriangle,
     FileCheck2,
     FileText,
+    GripVertical,
     KanbanSquare,
     Paperclip,
     PenLine,
@@ -44,6 +45,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
 import { useInitials } from '@/composables/useInitials';
+import { useKanbanTransition } from '@/composables/useKanbanTransition';
 import {
     actualizarEstado,
     exportarExcel,
@@ -202,7 +204,21 @@ type MovimientoPendiente = {
 const movimientoPendiente = ref<MovimientoPendiente | null>(null);
 const comentarioMovimiento = ref('');
 const dialogMovimientoAbierto = ref(false);
-const enviandoMovimiento = ref(false);
+
+const {
+    processing: enviandoMovimiento,
+    onStart: onStartDrag,
+    onEnd: onEndDragBase,
+    asentarAntesDeConfirmar,
+} = useKanbanTransition();
+
+// El tablero nunca queda "arrastrado" a medio confirmar: soltar restaura de
+// inmediato a `columnas` desde `props.solicitudes` (fuente canónica) y solo
+// hasta que Vue/Sortable terminan su ciclo (nextTick) se abre la
+// confirmación — nunca dentro de `@add`/`@remove` (ver useKanbanTransition).
+const tableroBloqueado = computed(
+    () => dialogMovimientoAbierto.value || enviandoMovimiento.value,
+);
 
 const requiereComentarioObligatorio = computed(
     () =>
@@ -210,38 +226,30 @@ const requiereComentarioObligatorio = computed(
         movimientoPendiente.value?.estadoDestino === 'requiere_correccion',
 );
 
-function revertirMovimiento(mov: MovimientoPendiente) {
-    const destino = columnas[mov.estadoDestino];
-    const idx = destino.findIndex((s) => s.id === mov.solicitud.id);
+async function onEndDrag(evento: DraggableEvent<SolicitudInternaItem>) {
+    onEndDragBase();
 
-    if (idx !== -1) {
-        destino.splice(idx, 1);
-    }
-
-    columnas[mov.estadoOrigen].push(mov.solicitud);
-}
-
-function onAdd(estadoDestino: string, evento: DraggableEvent<SolicitudInternaItem>) {
     const solicitud = evento.data;
+    const estadoOrigen = evento.from?.dataset.estado;
+    const estadoDestino = evento.to?.dataset.estado;
 
-    if (!solicitud || solicitud.estado === estadoDestino) {
+    if (
+        !solicitud ||
+        !estadoOrigen ||
+        !estadoDestino ||
+        estadoOrigen === estadoDestino
+    ) {
         return;
     }
 
-    movimientoPendiente.value = {
-        solicitud,
-        estadoOrigen: solicitud.estado,
-        estadoDestino,
-    };
+    await asentarAntesDeConfirmar(() => construirColumnas(props.solicitudes));
+
+    movimientoPendiente.value = { solicitud, estadoOrigen, estadoDestino };
     comentarioMovimiento.value = '';
     dialogMovimientoAbierto.value = true;
 }
 
 function cancelarMovimiento() {
-    if (movimientoPendiente.value) {
-        revertirMovimiento(movimientoPendiente.value);
-    }
-
     cerrarDialogMovimiento();
 }
 
@@ -264,6 +272,23 @@ function confirmarMovimiento() {
         return;
     }
 
+    if (
+        mov.estadoDestino === 'aprobada' &&
+        mov.solicitud.tipo === 'baja_colaborador'
+    ) {
+        if (sinEvidencia(mov.solicitud)) {
+            mostrarError('Falta evidencia de baja: adjúntala desde el detalle antes de aprobar.');
+
+            return;
+        }
+
+        if (mov.solicitud.finiquitoCalculo && !finiquitoRevisado(mov.solicitud)) {
+            mostrarError('Falta revisar el finiquito antes de aprobar esta baja.');
+
+            return;
+        }
+    }
+
     enviandoMovimiento.value = true;
 
     router.patch(
@@ -277,12 +302,10 @@ function confirmarMovimiento() {
             preserveScroll: true,
             preserveState: true,
             onSuccess: () => {
-                mov.solicitud.estado = mov.estadoDestino;
                 mostrarExito(`Solicitud movida a ${etiquetaColumna(mov.estadoDestino)}.`);
                 cerrarDialogMovimiento();
             },
             onError: () => {
-                revertirMovimiento(mov);
                 mostrarError('No se pudo mover la solicitud. Verifica el permiso o el comentario.');
                 cerrarDialogMovimiento();
             },
@@ -500,12 +523,12 @@ function confirmarMovimiento() {
             </Button>
         </div>
 
-        <!-- Tablero -->
-        <div class="grid grid-cols-1 gap-3 overflow-x-auto pb-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <!-- Tablero: horizontal real, sin comprimir columnas -->
+        <div class="flex w-full min-w-0 gap-4 overflow-x-auto pb-2">
             <div
                 v-for="columna in COLUMNAS"
                 :key="columna.estado"
-                class="flex min-w-0 flex-col rounded-xl border border-t-4 bg-muted/20"
+                class="flex w-[320px] min-w-[320px] shrink-0 flex-col rounded-xl border border-t-4 bg-muted/20"
                 :class="columna.acento"
             >
                 <div class="flex items-center justify-between gap-2 px-3 py-2.5">
@@ -517,11 +540,16 @@ function confirmarMovimiento() {
 
                 <VueDraggable
                     v-model="columnas[columna.estado]"
+                    :data-estado="columna.estado"
                     class="flex min-h-24 flex-1 flex-col gap-2 px-2 pb-2"
                     group="solicitudes-kanban"
                     :animation="150"
+                    :disabled="tableroBloqueado"
+                    handle=".kanban-drag-handle"
+                    filter="a, button, input, textarea, select"
                     ghost-class="opacity-40"
-                    @add="(e) => onAdd(columna.estado, e)"
+                    @start="onStartDrag"
+                    @end="onEndDrag"
                 >
                     <p
                         v-if="(columnas[columna.estado]?.length ?? 0) === 0"
@@ -533,10 +561,16 @@ function confirmarMovimiento() {
                     <div
                         v-for="solicitud in columnas[columna.estado]"
                         :key="solicitud.id"
-                        class="flex cursor-grab flex-col gap-2 rounded-xl border border-border/60 bg-card p-3 text-sm shadow-sm active:cursor-grabbing"
+                        class="flex flex-col gap-2 rounded-xl border border-border/60 bg-card p-3 text-sm shadow-sm"
                     >
                         <div class="flex items-start justify-between gap-2">
-                            <div class="flex items-center gap-2">
+                            <div class="flex min-w-0 items-center gap-2">
+                                <span
+                                    class="kanban-drag-handle -m-1 flex size-6 shrink-0 cursor-grab items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground active:cursor-grabbing"
+                                    title="Arrastrar para mover"
+                                >
+                                    <GripVertical class="size-3.5" />
+                                </span>
                                 <Avatar class="size-7 shrink-0">
                                     <AvatarFallback class="text-[10px]">
                                         {{ getInitials(`${solicitud.usuario?.name ?? ''} ${solicitud.usuario?.apellidos ?? ''}`) }}

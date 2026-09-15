@@ -3,6 +3,7 @@ import { Head, router } from '@inertiajs/vue3';
 import {
     Briefcase,
     CheckCircle2,
+    GripVertical,
     ListChecks,
     Plus,
     Sparkles,
@@ -22,6 +23,7 @@ import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
+import PeopleConfirmDialog from '@/components/people/PeopleConfirmDialog.vue';
 import CubrirVacanteDialog from '@/components/Rh/CubrirVacanteDialog.vue';
 import VacanteFormDialog from '@/components/Rh/VacanteFormDialog.vue';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +38,7 @@ import {
 } from '@/components/ui/select';
 import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
+import { useKanbanTransition } from '@/composables/useKanbanTransition';
 import { dashboard } from '@/routes';
 import {
     destroy,
@@ -100,8 +103,7 @@ function urlExportar(
 
     return `${destino.url()}?${parametros.toString()}`;
 }
-const { confirmarEliminacion, pedirMotivoCancelacionVacante, mostrarError, mostrarExito } =
-    useAlertas();
+const { confirmarEliminacion, mostrarError, mostrarExito } = useAlertas();
 
 const COLUMNAS = [
     { estado: 'abierta', titulo: 'Abierta' },
@@ -239,76 +241,148 @@ async function eliminar(vacante: VacanteItem) {
 }
 
 // --- Drag and drop: VueDraggable (misma librería y patrón que el tablero de
-// Solicitudes) con confirmación/reglas antes de escribir nada. "Cubierta"
-// nunca se asigna soltando una tarjeta: abre CubrirVacanteDialog en su lugar
-// (cobertura real), igual que el botón "Cubrir vacante" de la tarjeta.
-function revertirMovimientoVacante(vacante: VacanteItem, estadoOrigen: string) {
-    const destino = columnas[vacante.estado];
-    const idx = destino?.findIndex((v) => v.id === vacante.id) ?? -1;
+// Solicitudes) con confirmación/reglas SOLO después de que Sortable termina
+// (@end, nunca @add — ver useKanbanTransition). "Cubierta" nunca se asigna
+// soltando una tarjeta: abre CubrirVacanteDialog en su lugar (cobertura
+// real), igual que el botón "Cubrir vacante" de la tarjeta. "Cancelada"
+// pide motivo con PeopleConfirmDialog (no SweetAlert, para no abrir un
+// segundo sistema de overlays). Cualquier otra transición pide una
+// confirmación ligera antes de escribir nada — el tablero se restaura a
+// `columnas` (fuente canónica: props.vacantes) de inmediato al soltar.
+const {
+    processing: enviandoTransicionVacante,
+    onStart: onStartDragVacante,
+    onEnd: onEndDragVacanteBase,
+    asentarAntesDeConfirmar: asentarVacante,
+} = useKanbanTransition();
 
-    if (idx !== -1) {
-        destino.splice(idx, 1);
-    }
+type TransicionVacantePendiente = {
+    vacante: VacanteItem;
+    estadoOrigen: string;
+    estadoDestino: string;
+};
 
-    vacante.estado = estadoOrigen;
-    columnas[estadoOrigen].push(vacante);
+const transicionPendiente = ref<TransicionVacantePendiente | null>(null);
+const dialogTransicionAbierto = ref(false);
+
+const vacanteACancelar = ref<VacanteItem | null>(null);
+const dialogCancelarAbierto = ref(false);
+const motivoCancelacionTexto = ref('');
+
+const tableroVacantesBloqueado = computed(
+    () =>
+        dialogTransicionAbierto.value ||
+        dialogCancelarAbierto.value ||
+        dialogoCubrirAbierto.value ||
+        enviandoTransicionVacante.value,
+);
+
+function etiquetaEstadoVacante(estado: string): string {
+    return COLUMNAS.find((c) => c.estado === estado)?.titulo ?? estado;
 }
 
-async function onAdd(
-    estadoDestino: string,
-    evento: DraggableEvent<VacanteItem>,
-) {
+async function onEndDragVacante(evento: DraggableEvent<VacanteItem>) {
+    onEndDragVacanteBase();
+
     const vacante = evento.data;
+    const estadoOrigen = evento.from?.dataset.estado;
+    const estadoDestino = evento.to?.dataset.estado;
 
-    if (!vacante) {
+    if (
+        !vacante ||
+        !estadoOrigen ||
+        !estadoDestino ||
+        estadoOrigen === estadoDestino
+    ) {
         return;
     }
 
-    const estadoOrigen = vacante.estado;
-
-    if (estadoOrigen === estadoDestino) {
-        return;
-    }
+    await asentarVacante(() => construirColumnas(props.vacantes));
 
     if (estadoDestino === 'cubierta') {
-        revertirMovimientoVacante(vacante, estadoOrigen);
         abrirCubrir(vacante);
 
         return;
     }
 
-    let motivoCancelacion: string | null = null;
-
     if (estadoDestino === 'cancelada') {
-        motivoCancelacion = await pedirMotivoCancelacionVacante();
+        vacanteACancelar.value = vacante;
+        motivoCancelacionTexto.value = '';
+        dialogCancelarAbierto.value = true;
 
-        if (motivoCancelacion === null) {
-            revertirMovimientoVacante(vacante, estadoOrigen);
-
-            return;
-        }
+        return;
     }
+
+    transicionPendiente.value = { vacante, estadoOrigen, estadoDestino };
+    dialogTransicionAbierto.value = true;
+}
+
+function cerrarDialogTransicion() {
+    dialogTransicionAbierto.value = false;
+    transicionPendiente.value = null;
+}
+
+function confirmarTransicionVacante() {
+    const mov = transicionPendiente.value;
+
+    if (!mov) {
+        return;
+    }
+
+    enviandoTransicionVacante.value = true;
+
+    router.put(
+        estadoUrl.url(mov.vacante.id),
+        { estado: mov.estadoDestino },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            onSuccess: () =>
+                mostrarExito('Estado de la vacante actualizado.'),
+            onError: () =>
+                mostrarError(
+                    'No se pudo mover la vacante. Verifica el permiso o la transición.',
+                ),
+            onFinish: () => {
+                enviandoTransicionVacante.value = false;
+                cerrarDialogTransicion();
+            },
+        },
+    );
+}
+
+function cerrarDialogCancelar() {
+    dialogCancelarAbierto.value = false;
+    vacanteACancelar.value = null;
+    motivoCancelacionTexto.value = '';
+}
+
+function confirmarCancelacionVacante() {
+    const vacante = vacanteACancelar.value;
+
+    if (!vacante || !motivoCancelacionTexto.value.trim()) {
+        return;
+    }
+
+    enviandoTransicionVacante.value = true;
 
     router.put(
         estadoUrl.url(vacante.id),
         {
-            estado: estadoDestino,
-            ...(motivoCancelacion !== null
-                ? { motivo_cancelacion: motivoCancelacion }
-                : {}),
+            estado: 'cancelada',
+            motivo_cancelacion: motivoCancelacionTexto.value,
         },
         {
             preserveScroll: true,
             preserveState: true,
-            onSuccess: () => {
-                vacante.estado = estadoDestino;
-                mostrarExito('Estado de la vacante actualizado.');
-            },
-            onError: () => {
-                revertirMovimientoVacante(vacante, estadoOrigen);
+            onSuccess: () => mostrarExito('Vacante cancelada.'),
+            onError: () =>
                 mostrarError(
-                    'No se pudo mover la vacante. Verifica el permiso o la transición.',
-                );
+                    'No se pudo cancelar la vacante. Verifica el permiso.',
+                ),
+            onFinish: () => {
+                enviandoTransicionVacante.value = false;
+                cerrarDialogCancelar();
             },
         },
     );
@@ -541,24 +615,38 @@ async function onAdd(
 
                 <VueDraggable
                     v-model="columnas[columna.estado]"
+                    :data-estado="columna.estado"
                     class="flex min-h-16 flex-col gap-2"
                     group="vacantes-kanban"
                     :animation="150"
+                    :disabled="tableroVacantesBloqueado"
+                    handle=".kanban-drag-handle"
+                    filter="a, button, input, textarea, select"
                     ghost-class="opacity-40"
-                    @add="(e) => onAdd(columna.estado, e)"
+                    @start="onStartDragVacante"
+                    @end="onEndDragVacante"
                 >
                     <div
                         v-for="vacante in columnas[columna.estado]"
                         :key="vacante.id"
                         role="button"
                         tabindex="0"
-                        class="group flex cursor-grab flex-col gap-1 rounded-xl border border-border/60 bg-card p-3 text-left shadow-sm transition-colors active:cursor-grabbing hover:border-primary/40"
+                        class="group flex flex-col gap-1 rounded-xl border border-border/60 bg-card p-3 text-left shadow-sm transition-colors hover:border-primary/40"
                         @click="abrirEditar(vacante)"
                     >
                         <div class="flex items-start justify-between gap-2">
-                            <span class="text-sm font-medium">{{
-                                vacante.puesto?.nombre ?? 'Sin puesto'
-                            }}</span>
+                            <span class="flex min-w-0 items-center gap-1.5 text-sm font-medium">
+                                <span
+                                    class="kanban-drag-handle -m-1 flex size-6 shrink-0 cursor-grab items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground active:cursor-grabbing"
+                                    title="Arrastrar para mover"
+                                    @click.stop
+                                >
+                                    <GripVertical class="size-3.5" />
+                                </span>
+                                <span class="truncate">{{
+                                    vacante.puesto?.nombre ?? 'Sin puesto'
+                                }}</span>
+                            </span>
                             <div
                                 class="flex shrink-0 items-center gap-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100"
                             >
@@ -715,5 +803,35 @@ async function onAdd(
         :vacante="vacanteACubrir"
         :opciones="opciones"
         :key="`cubrir-${vacanteACubrir.id}`"
+    />
+
+    <PeopleConfirmDialog
+        :open="dialogTransicionAbierto"
+        titulo="Mover vacante"
+        :descripcion="
+            transicionPendiente
+                ? `¿Mover de ${etiquetaEstadoVacante(transicionPendiente.estadoOrigen)} a ${etiquetaEstadoVacante(transicionPendiente.estadoDestino)}?`
+                : undefined
+        "
+        :cargando="enviandoTransicionVacante"
+        texto-confirmar="Sí, mover"
+        @update:open="(v) => (v ? null : cerrarDialogTransicion())"
+        @confirm="confirmarTransicionVacante"
+    />
+
+    <PeopleConfirmDialog
+        :open="dialogCancelarAbierto"
+        titulo="¿Cancelar vacante?"
+        descripcion="Indica por qué esta plaza ya no se va a cubrir."
+        pedir-comentario
+        comentario-label="Motivo de cancelación"
+        comentario-placeholder="Ej. La ruta se dio de baja y ya no requiere cobertura."
+        :comentario-model-value="motivoCancelacionTexto"
+        destructivo
+        :cargando="enviandoTransicionVacante"
+        texto-confirmar="Sí, cancelar vacante"
+        @update:open="(v) => (v ? null : cerrarDialogCancelar())"
+        @update:comentario-model-value="(v) => (motivoCancelacionTexto = v)"
+        @confirm="confirmarCancelacionVacante"
     />
 </template>

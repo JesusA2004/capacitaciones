@@ -22,7 +22,13 @@ class DemoSeeder extends Seeder
             // ya creados para tener a quién asignar como gestor de ruta.
             GestoresDemoSeeder::class,
             DashboardDemoSeeder::class,
+            // Documentos/contratos/versionado/bajas de expediente: necesita
+            // los colaboradores de UsuarioDemoSeeder ya creados.
+            ExpedienteDemoSeeder::class,
             SolicitudesDemoSeeder::class,
+            // Vacantes/candidatos/altas/QR: necesita catálogo organizacional
+            // y (para el flujo completo demo) colaboradores ya existentes.
+            ReclutamientoDemoSeeder::class,
         ]);
     }
 }
