@@ -16,7 +16,6 @@ import {
     ShieldCheck,
     Smartphone,
     UserRound,
-    Users,
 } from '@lucide/vue';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
@@ -42,7 +41,6 @@ import { index as indexJerarquiaPuestos } from '@/routes/administracion/jerarqui
 import { index as indexPuestos } from '@/routes/administracion/puestos';
 import { index as indexRoles } from '@/routes/administracion/roles';
 import { index as indexSucursales } from '@/routes/administracion/sucursales';
-import { index as indexUsuarios } from '@/routes/administracion/usuarios';
 import { proximamente as capacitacionProximamente } from '@/routes/capacitacion';
 import { index as indexPortal } from '@/routes/portal';
 import { index as indexReportes } from '@/routes/reportes';
@@ -243,18 +241,9 @@ const adminNavItems = computed<NavItem[]>(() => {
         });
     }
 
-    // "Colaboradores" ya no es un listado aparte: Expedientes (rh.expedientes)
-    // es la pantalla maestra de personas (activos, inactivos y bajas). Esta
-    // entrada es solo para lo que Expediente no cubre — cuenta de acceso,
-    // roles y permisos — de ahí el nombre distinto.
-    if (tienePermiso('usuarios.ver')) {
-        items.push({
-            title: 'Usuarios',
-            href: indexUsuarios(),
-            icon: Users,
-        });
-    }
-
+    // "Usuarios" como listado aparte se retiró: cuenta de acceso, roles y
+    // contraseña ahora se gestionan desde la pestaña «Cuenta» de cada
+    // expediente (rh.expedientes) — ver docs/ROLES_Y_NAVEGACION.md.
     if (tienePermiso('sucursales.administrar')) {
         items.push({
             title: 'Sucursales',

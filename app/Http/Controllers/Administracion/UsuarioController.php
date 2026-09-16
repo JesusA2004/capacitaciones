@@ -7,19 +7,17 @@ use App\Http\Requests\Administracion\StoreUsuarioRequest;
 use App\Http\Requests\Administracion\UpdateUsuarioRequest;
 use App\Models\Colaborador;
 use App\Models\User;
-use App\Services\AlcanceOrganizacionalService;
+use App\Notifications\CredencialesActualizadasNotification;
+use App\Services\Administracion\GeneradorPasswordService;
 use App\Services\RolPermisoService;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password as PasswordRule;
-use Inertia\Inertia;
-use Inertia\Response;
-use Spatie\Permission\Models\Role;
 
 /**
  * Administra únicamente CUENTAS DE ACCESO (correo, roles, estado de acceso,
@@ -27,70 +25,19 @@ use Spatie\Permission\Models\Role;
  * fecha de ingreso, IMSS, periodo de prueba, baja laboral) viven en
  * App\Models\Colaborador y se administran desde
  * App\Http\Controllers\Rh\ExpedienteController — ver docs/ROLES_Y_NAVEGACION.md.
+ *
+ * No expone un listado propio: la cuenta de acceso de cada colaborador se
+ * crea/edita desde la pestaña «Cuenta» de su expediente
+ * (App\Http\Controllers\Rh\ExpedienteController), que ya trae al colaborador
+ * en contexto — un listado aparte de "Usuarios" quedaba duplicado con
+ * Expedientes.
  */
 class UsuarioController extends Controller
 {
     public function __construct(
-        private readonly AlcanceOrganizacionalService $alcance,
         private readonly RolPermisoService $rolPermisoService,
+        private readonly GeneradorPasswordService $generadorPassword,
     ) {}
-
-    public function index(Request $request): Response
-    {
-        $this->authorize('viewAny', User::class);
-
-        $usuarios = User::query()
-            ->tap(fn ($query) => $this->alcance->limitarUsuariosPorAlcance($query, $request->user()))
-            ->with([
-                'colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id,departamento_id,puesto_id',
-                'colaborador.sucursalPrincipal:id,nombre',
-                'colaborador.departamento:id,nombre',
-                'colaborador.puesto:id,nombre',
-                'roles:id,name',
-            ])
-            ->when($request->string('busqueda')->toString(), function (Builder $query, string $busqueda) {
-                $query->where(function (Builder $sub) use ($busqueda) {
-                    $sub->where('name', 'like', "%{$busqueda}%")
-                        ->orWhere('apellidos', 'like', "%{$busqueda}%")
-                        ->orWhere('email', 'like', "%{$busqueda}%")
-                        ->orWhereHas('colaborador', function (Builder $colaboradorQuery) use ($busqueda) {
-                            $colaboradorQuery->where('numero_empleado', 'like', "%{$busqueda}%");
-                        });
-                });
-            })
-            ->when($request->string('estado_acceso')->toString(), function (Builder $query, string $estado) {
-                match ($estado) {
-                    'bloqueado' => $query->whereNotNull('acceso_bloqueado_en'),
-                    'activo' => $query->whereNull('acceso_bloqueado_en'),
-                    default => null,
-                };
-            })
-            ->orderBy('name')
-            ->paginate(15)
-            ->withQueryString();
-
-        $usuariosVisibles = fn () => $this->alcance->limitarUsuariosPorAlcance(User::query(), $request->user());
-
-        return Inertia::render('Administracion/Usuarios/Index', [
-            'usuarios' => $usuarios,
-            'filtros' => $request->only('busqueda', 'estado_acceso'),
-            'colaboradoresSinCuenta' => Colaborador::query()
-                ->whereDoesntHave('user')
-                ->whereNull('deleted_at')
-                ->orderBy('name')
-                ->get(['id', 'name', 'apellidos', 'numero_empleado']),
-            'rolesDisponibles' => Role::query()->orderBy('name')->pluck('name'),
-            'puedeRevocarAcceso' => $request->user()->can('usuarios.desactivar'),
-            // Acotadas por el mismo alcance que la tabla: un gerente de sucursal
-            // no debe ver totales de toda la organización en estas tarjetas.
-            'estadisticas' => [
-                'total' => $usuariosVisibles()->count(),
-                'bloqueados' => $usuariosVisibles()->whereNotNull('acceso_bloqueado_en')->count(),
-                'activos' => $usuariosVisibles()->whereNull('acceso_bloqueado_en')->count(),
-                'sin_verificar' => $usuariosVisibles()->whereNull('email_verified_at')->count(),
-            ],
-        ]);
-    }
 
     public function store(StoreUsuarioRequest $request): RedirectResponse
     {
@@ -166,10 +113,37 @@ class UsuarioController extends Controller
             'password' => ['nullable', 'string', PasswordRule::defaults()],
         ]);
 
-        $passwordNueva = $datos['password'] ?? Str::password(14);
+        $passwordNueva = $datos['password'] ?? $this->generadorPassword->generar();
 
         $usuario->update(['password' => Hash::make($passwordNueva)]);
 
         return response()->json(['password' => $passwordNueva]);
+    }
+
+    /**
+     * Envía la contraseña (ya generada/mostrada por establecerPassword()) al
+     * correo del colaborador. Un fallo de envío se loguea pero nunca revierte
+     * el cambio de contraseña, que ya quedó aplicado.
+     */
+    public function enviarPasswordCorreo(Request $request, User $usuario): JsonResponse
+    {
+        $this->authorize('restablecerPassword', $usuario);
+
+        $datos = $request->validate([
+            'password' => ['required', 'string'],
+        ]);
+
+        try {
+            $usuario->notify(new CredencialesActualizadasNotification($datos['password']));
+
+            return response()->json(['enviado' => true]);
+        } catch (\Throwable $excepcion) {
+            Log::warning('No se pudo enviar la contraseña por correo.', [
+                'usuario_id' => $usuario->id,
+                'error' => $excepcion->getMessage(),
+            ]);
+
+            return response()->json(['enviado' => false], 502);
+        }
     }
 }

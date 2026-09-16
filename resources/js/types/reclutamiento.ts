@@ -120,6 +120,7 @@ export type OpcionesReclutamiento = {
     estados: OpcionEnum[];
     vacantes?: { id: number; puesto_id: number | null }[];
     tiposSeguimiento?: OpcionEnum[];
+    transicionesPermitidas?: Record<string, string[]>;
     colaboradores?: {
         id: number;
         name: string;

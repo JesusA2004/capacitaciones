@@ -19,6 +19,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useAlertas } from '@/composables/useAlertas';
+import { useCelebracion } from '@/composables/useCelebracion';
 import { useFiltros } from '@/composables/useFiltros';
 import { dashboard } from '@/routes';
 import {
@@ -80,8 +81,10 @@ function urlExportar(
     return `${destino.url()}?${parametros.toString()}`;
 }
 const { mostrarError } = useAlertas();
+const { celebrar } = useCelebracion();
 
 const COLUMNAS = props.opciones.estados ?? [];
+const transicionesPermitidas = props.opciones.transicionesPermitidas ?? {};
 
 const columnas = computed(() =>
     COLUMNAS.map((columna) => ({
@@ -98,23 +101,54 @@ function abrirCrear() {
     dialogoAbierto.value = true;
 }
 
-const arrastrando = ref<number | null>(null);
+const arrastrando = ref<CandidatoItem | null>(null);
+
+function columnaPermitida(valorColumna: string): boolean {
+    if (!arrastrando.value) {
+        return true;
+    }
+
+    if (arrastrando.value.estado === valorColumna) {
+        return true;
+    }
+
+    return (transicionesPermitidas[arrastrando.value.estado] ?? []).includes(
+        valorColumna,
+    );
+}
 
 function alSoltar(nuevoEstado: string) {
-    if (arrastrando.value === null) {
+    const candidato = arrastrando.value;
+    arrastrando.value = null;
+
+    if (!candidato || candidato.estado === nuevoEstado) {
+        return;
+    }
+
+    if (
+        !(transicionesPermitidas[candidato.estado] ?? []).includes(
+            nuevoEstado,
+        )
+    ) {
+        mostrarError('Las fases no pueden retroceder.');
+
         return;
     }
 
     router.put(
-        estadoUrl.url(arrastrando.value),
+        estadoUrl.url(candidato.id),
         { estado: nuevoEstado },
         {
             preserveScroll: true,
+            onSuccess: () => {
+                if (nuevoEstado === 'contratado') {
+                    celebrar();
+                }
+            },
             onError: () =>
                 mostrarError('No tienes permiso para mover este candidato.'),
         },
     );
-    arrastrando.value = null;
 }
 </script>
 
@@ -298,7 +332,11 @@ function alSoltar(nuevoEstado: string) {
             <div
                 v-for="columna in columnas"
                 :key="columna.value"
-                class="flex w-64 shrink-0 flex-col gap-3 rounded-2xl border border-border/60 bg-muted/20 p-3"
+                class="flex w-64 shrink-0 flex-col gap-3 rounded-2xl border border-border/60 bg-muted/20 p-3 transition-opacity"
+                :class="
+                    !columnaPermitida(columna.value) &&
+                    'pointer-events-none opacity-30'
+                "
                 @dragover.prevent
                 @drop="alSoltar(columna.value)"
             >
@@ -318,7 +356,8 @@ function alSoltar(nuevoEstado: string) {
                         :href="show.url(candidato.id)"
                         draggable="true"
                         class="flex flex-col gap-1 rounded-xl border border-border/60 bg-card p-3 text-left shadow-sm transition-colors hover:border-primary/40"
-                        @dragstart="arrastrando = candidato.id"
+                        @dragstart="arrastrando = candidato"
+                        @dragend="arrastrando = null"
                     >
                         <span class="text-sm font-medium">{{
                             `${candidato.nombre} ${candidato.apellidos ?? ''}`.trim()

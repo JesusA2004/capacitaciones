@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Copy, KeyRound, ShieldAlert } from '@lucide/vue';
+import { Copy, KeyRound, Mail, ShieldAlert } from '@lucide/vue';
 import { ref } from 'vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { useAlertas } from '@/composables/useAlertas';
 import { postJson } from '@/lib/http';
-import { establecerPassword } from '@/routes/administracion/usuarios';
+import { enviarPasswordCorreo, establecerPassword } from '@/routes/administracion/usuarios';
 
 const props = defineProps<{
     open: boolean;
@@ -31,6 +31,7 @@ const { mostrarExito, mostrarError } = useAlertas();
 
 const passwordPersonalizada = ref('');
 const enviando = ref(false);
+const enviandoCorreo = ref(false);
 const passwordGenerada = ref<string | null>(null);
 
 async function establecer() {
@@ -57,6 +58,25 @@ async function copiar() {
 
     await navigator.clipboard.writeText(passwordGenerada.value);
     mostrarExito('Contraseña copiada al portapapeles.');
+}
+
+async function enviarPorCorreo() {
+    if (!passwordGenerada.value) {
+        return;
+    }
+
+    enviandoCorreo.value = true;
+
+    try {
+        await postJson(enviarPasswordCorreo.url(props.colaboradorId), {
+            password: passwordGenerada.value,
+        });
+        mostrarExito('Contraseña enviada por correo.');
+    } catch {
+        mostrarError('No se pudo enviar la contraseña por correo.');
+    } finally {
+        enviandoCorreo.value = false;
+    }
 }
 
 function cerrar() {
@@ -123,7 +143,12 @@ function cerrar() {
                     </Button>
                 </div>
 
-                <DialogFooter>
+                <DialogFooter class="sm:justify-between">
+                    <Button variant="outline" :disabled="enviandoCorreo" @click="enviarPorCorreo">
+                        <Spinner v-if="enviandoCorreo" />
+                        <Mail v-else class="size-4" />
+                        Enviar por correo
+                    </Button>
                     <Button @click="cerrar">Listo</Button>
                 </DialogFooter>
             </template>

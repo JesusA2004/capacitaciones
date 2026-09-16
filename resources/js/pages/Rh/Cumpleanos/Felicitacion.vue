@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { ArrowLeft, Check, Copy, Download, RefreshCw, Send } from '@lucide/vue';
-import { computed, onBeforeUnmount, ref } from 'vue';
+import { ArrowLeft, Check, Copy, Download, PartyPopper, RefreshCw, Send } from '@lucide/vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { useAlertas } from '@/composables/useAlertas';
+import { useCelebracion } from '@/composables/useCelebracion';
 import { useInitials } from '@/composables/useInitials';
 import { mensajeFelicitacion } from '@/lib/cumpleanos';
 import { postBlobUrl } from '@/lib/http';
@@ -68,8 +69,22 @@ defineOptions({
 
 const { mostrarExito, mostrarError, confirmarRegeneracion } = useAlertas();
 const { getInitials } = useInitials();
+const { celebrar } = useCelebracion();
 const regenerando = ref(false);
 const enviando = ref(false);
+
+const esHoy = computed(() => {
+    const hoy = new Date();
+    const iso = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+
+    return props.greeting.fecha === iso;
+});
+
+onMounted(() => {
+    if (esHoy.value) {
+        celebrar();
+    }
+});
 
 const estado = computed(() => {
     if (props.greeting.enviadaAt) {
@@ -206,21 +221,34 @@ async function copiarMensaje() {
     <Head :title="`Felicitación — ${colaborador.nombre}`" />
 
     <div class="mx-auto flex max-w-screen-2xl flex-col p-4 sm:px-6 lg:px-8">
-    <Link
-        :href="index.url()"
-        class="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-    >
-        <ArrowLeft class="size-4" /> Volver al calendario
-    </Link>
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <Link
+            :href="index.url()"
+            class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
+            <ArrowLeft class="size-4" /> Volver al calendario
+        </Link>
+
+        <Badge
+            v-if="esHoy"
+            class="gap-1.5 border-amber-400/40 bg-gradient-to-r from-amber-400/15 to-pink-400/15 text-amber-700 dark:text-amber-300"
+            variant="outline"
+        >
+            <PartyPopper class="size-3.5" /> Hoy es su cumpleaños
+        </Badge>
+    </div>
 
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card class="overflow-hidden">
-            <CardContent class="flex items-center justify-center bg-muted/20 p-4">
+        <Card
+            class="overflow-hidden"
+            :class="esHoy && 'ring-1 ring-amber-400/30'"
+        >
+            <CardContent class="flex items-center justify-center bg-gradient-to-br from-muted/30 to-muted/10 p-6 sm:p-10">
                 <div v-if="greeting.tieneImagen || imagenMostrada" class="relative w-full">
                     <img
                         :src="imagenMostrada"
                         :alt="`Felicitación de ${colaborador.nombre}`"
-                        class="max-h-[640px] w-full rounded-lg object-contain shadow-md"
+                        class="max-h-[640px] w-full rounded-lg object-contain shadow-lg"
                     />
                     <Badge
                         v-if="hayCambioPendiente"

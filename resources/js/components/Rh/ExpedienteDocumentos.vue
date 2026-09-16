@@ -18,6 +18,7 @@ import ExtraccionDocumentoDialog from '@/components/Rh/ExtraccionDocumentoDialog
 import RevisarDocumentoDialog from '@/components/Rh/RevisarDocumentoDialog.vue';
 import { Button } from '@/components/ui/button';
 import { useAlertas } from '@/composables/useAlertas';
+import { useCelebracion } from '@/composables/useCelebracion';
 import { aprobar } from '@/routes/rh/documentos';
 import type { DocumentoExpedienteItem } from '@/types';
 
@@ -33,6 +34,7 @@ const props = defineProps<{
 }>();
 
 const { mostrarExito } = useAlertas();
+const { celebrarDesdeEvento } = useCelebracion();
 
 const dialogoAbierto = ref(false);
 const dialogoModo = ref<'rechazar' | 'corregir'>('rechazar');
@@ -108,13 +110,20 @@ const tablero = computed(() =>
     })),
 );
 
-async function aprobarDocumento(documentoId: number, tipoNombre: string) {
+async function aprobarDocumento(
+    documentoId: number,
+    tipoNombre: string,
+    evento: MouseEvent,
+) {
     router.post(
         aprobar.url(documentoId),
         {},
         {
             preserveScroll: true,
-            onSuccess: () => mostrarExito(`«${tipoNombre}» aprobado.`),
+            onSuccess: () => {
+                mostrarExito(`«${tipoNombre}» aprobado.`);
+                celebrarDesdeEvento(evento);
+            },
         },
     );
 }
@@ -269,6 +278,7 @@ function abrirPreview(item: DocumentoExpedienteItem) {
                                     aprobarDocumento(
                                         item.documento.id,
                                         item.tipo.nombre,
+                                        $event,
                                     )
                                 "
                             >

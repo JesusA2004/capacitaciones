@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import VueApexCharts from 'vue3-apexcharts';
 import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import DataTable from '@/components/DataTable/DataTable.vue';
 import type { ColumnaDataTable } from '@/components/DataTable/DataTable.vue';
@@ -16,7 +18,7 @@ import {
 import { useFiltros } from '@/composables/useFiltros';
 import { dashboard } from '@/routes';
 import { exportar, exportarPdf, index } from '@/routes/reportes/cumplimiento';
-import type { ColaboradorCumplimientoItem, RespuestaPaginada } from '@/types';
+import type { ColaboradorCumplimientoItem, GraficaReporte, RespuestaPaginada } from '@/types';
 
 const props = defineProps<{
     colaboradores: RespuestaPaginada<ColaboradorCumplimientoItem>;
@@ -25,6 +27,7 @@ const props = defineProps<{
         departamento_id?: string;
         curso_id?: string;
     };
+    grafica: GraficaReporte | null;
     puedeExportar: boolean;
     sucursales: { id: number; nombre: string }[];
     departamentos: { id: number; nombre: string }[];
@@ -71,6 +74,25 @@ function urlExportar(destino: { url: () => string }): string {
 
     return `${destino.url()}?${parametros.toString()}`;
 }
+
+const opcionesGrafica = computed(() => {
+    const g = props.grafica;
+
+    if (!g) {
+return null;
+}
+
+    return {
+        options: {
+            chart: { toolbar: { show: false }, fontFamily: 'inherit' },
+            colors: ['#ef4444', '#f59e0b', '#60a5fa', 'var(--brand-primary)'],
+            dataLabels: { enabled: true },
+            legend: { position: 'bottom' as const },
+            labels: g.categorias,
+        },
+        series: g.series[0]?.valores ?? [],
+    };
+});
 </script>
 
 <template>
@@ -174,6 +196,19 @@ function urlExportar(destino: { url: () => string }): string {
             <Button variant="ghost" size="sm" @click="limpiar">
                 Limpiar filtros
             </Button>
+        </div>
+
+        <div
+            v-if="opcionesGrafica"
+            class="rounded-2xl border border-border/60 bg-card p-4 transition-shadow duration-200 hover:shadow-md"
+        >
+            <p class="mb-2 text-sm font-semibold">Distribución por rango de cumplimiento</p>
+            <VueApexCharts
+                type="donut"
+                height="280"
+                :options="opcionesGrafica.options"
+                :series="opcionesGrafica.series"
+            />
         </div>
 
         <DataTable

@@ -20,6 +20,9 @@ defineProps<{
     puedeReactivar: boolean;
     puedeGestionarAcceso: boolean;
     puedeGestionarPassword: boolean;
+    puedeEditarCuenta: boolean;
+    puedeCrearCuenta: boolean;
+    rolesDisponibles: string[];
     esCuentaPropia: boolean;
     puedeRevisarDocumentos: boolean;
     puedeVerExtraccion: boolean;
@@ -56,6 +59,9 @@ defineOptions({
         :puede-reactivar="puedeReactivar"
         :puede-gestionar-acceso="puedeGestionarAcceso"
         :puede-gestionar-password="puedeGestionarPassword"
+        :puede-editar-cuenta="puedeEditarCuenta"
+        :puede-crear-cuenta="puedeCrearCuenta"
+        :roles-disponibles="rolesDisponibles"
         :es-cuenta-propia="esCuentaPropia"
         :puede-revisar-documentos="puedeRevisarDocumentos"
         :puede-ver-extraccion="puedeVerExtraccion"

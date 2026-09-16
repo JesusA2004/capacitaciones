@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
 import { BarChart3, Download } from '@lucide/vue';
+import { computed } from 'vue';
+import VueApexCharts from 'vue3-apexcharts';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import { Button } from '@/components/ui/button';
 import {
     Select,
     SelectContent,
@@ -16,6 +19,7 @@ import { dashboard } from '@/routes';
 import { excel, index, pdf } from '@/routes/rh/reportes';
 import type {
     FiltrosReporteRh,
+    GraficaReporte,
     GrupoCatalogoReportes,
     OpcionesReportesRh,
     ResultadoReporteRh,
@@ -26,6 +30,7 @@ const props = defineProps<{
     reporte: string;
     filtros: FiltrosReporteRh;
     resultado: ResultadoReporteRh;
+    grafica: GraficaReporte | null;
     puedeExportar: boolean;
     opciones: OpcionesReportesRh;
 }>();
@@ -39,7 +44,7 @@ defineOptions({
     },
 });
 
-const { filtros, aplicar } = useFiltros(index.url(), {
+const { filtros, aplicar, limpiar } = useFiltros(index.url(), {
     reporte: props.reporte,
     empresa_id: props.filtros.empresa_id ?? '',
     sucursal_id: props.filtros.sucursal_id ?? '',
@@ -54,6 +59,50 @@ function urlExportar(destino: typeof excel | typeof pdf): string {
 
     return `${destino.url()}?${parametros.toString()}`;
 }
+
+const paletaMarca = [
+    'var(--brand-primary)',
+    'var(--brand-secondary)',
+    '#f59e0b',
+    '#10b981',
+    '#6366f1',
+    '#ec4899',
+];
+
+const opcionesGrafica = computed(() => {
+    const g = props.grafica;
+
+    if (!g) {
+return null;
+}
+
+    const base = {
+        chart: { toolbar: { show: false }, fontFamily: 'inherit' },
+        colors: paletaMarca,
+        dataLabels: { enabled: false },
+        legend: { position: 'bottom' as const },
+        grid: { borderColor: 'var(--border)' },
+    };
+
+    if (g.tipo === 'distribucion') {
+        return {
+            tipoChart: 'donut' as const,
+            options: { ...base, labels: g.categorias },
+            series: g.series[0]?.valores ?? [],
+        };
+    }
+
+    return {
+        tipoChart: 'bar' as const,
+        options: {
+            ...base,
+            chart: { ...base.chart, type: 'bar' as const },
+            xaxis: { categories: g.categorias },
+            plotOptions: { bar: { borderRadius: 4, columnWidth: g.series.length > 1 ? '55%' : '45%' } },
+        },
+        series: g.series.map((s) => ({ name: s.nombre, data: s.valores })),
+    };
+});
 </script>
 
 <template>
@@ -208,6 +257,27 @@ function urlExportar(destino: typeof excel | typeof pdf): string {
                     </SelectContent>
                 </Select>
             </div>
+
+            <Button variant="ghost" size="sm" @click="limpiar">
+                Limpiar filtros
+            </Button>
+        </div>
+
+        <div
+            v-if="opcionesGrafica"
+            class="rounded-2xl border border-border/60 bg-card p-4 transition-shadow duration-200 hover:shadow-md"
+        >
+            <p class="mb-2 text-sm font-semibold">{{ resultado.titulo }}</p>
+            <p v-if="grafica?.recortado" class="mb-2 text-xs text-muted-foreground">
+                Se muestran las categorías con mayor valor; exporta a Excel o PDF para ver el detalle completo.
+            </p>
+            <VueApexCharts
+                :key="opcionesGrafica.tipoChart"
+                :type="opcionesGrafica.tipoChart"
+                height="280"
+                :options="opcionesGrafica.options"
+                :series="opcionesGrafica.series"
+            />
         </div>
 
         <div

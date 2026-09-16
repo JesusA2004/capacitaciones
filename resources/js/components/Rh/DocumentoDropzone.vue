@@ -137,25 +137,40 @@ function confirmarSubida() {
 
         <div
             v-else-if="archivoPendiente"
-            class="flex flex-col gap-2 rounded-xl border border-primary/40 bg-primary/5 p-3"
+            class="flex flex-col gap-3 rounded-xl border border-primary/40 bg-primary/5 p-3"
         >
-            <div class="flex items-center gap-2">
+            <div class="relative overflow-hidden rounded-lg border border-border/60 bg-background">
+                <button
+                    type="button"
+                    class="absolute top-2 right-2 z-10 rounded-md bg-background/90 p-1.5 text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground"
+                    title="Quitar"
+                    @click="cancelar"
+                >
+                    <X class="size-4" />
+                </button>
+
                 <img
                     v-if="esImagenPendiente && previewUrl"
                     :src="previewUrl"
                     alt=""
-                    class="size-12 shrink-0 rounded-lg border border-border/60 object-cover"
+                    class="max-h-[420px] w-full object-contain"
                 />
                 <iframe
                     v-else-if="esPdfPendiente && previewUrl"
                     :src="previewUrl"
                     title="Vista previa del PDF"
-                    class="h-16 w-14 shrink-0 rounded-lg border border-border/60"
+                    class="h-[420px] w-full"
                 />
-                <FileText
+                <div
                     v-else
-                    class="size-8 shrink-0 text-muted-foreground"
-                />
+                    class="flex h-40 w-full flex-col items-center justify-center gap-2 text-muted-foreground"
+                >
+                    <FileText class="size-10" />
+                    <span class="text-xs">Sin vista previa disponible</span>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
                 <div class="min-w-0 flex-1">
                     <p class="truncate text-xs font-medium">
                         {{ archivoPendiente.name }}
@@ -165,14 +180,6 @@ function confirmarSubida() {
                         listo para subir
                     </p>
                 </div>
-                <button
-                    type="button"
-                    class="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                    title="Quitar"
-                    @click="cancelar"
-                >
-                    <X class="size-3.5" />
-                </button>
             </div>
 
             <Button size="sm" class="w-full" @click="confirmarSubida">

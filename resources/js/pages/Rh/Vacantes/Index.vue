@@ -297,6 +297,38 @@ function etiquetaEstadoVacante(estado: string): string {
     return COLUMNAS.find((c) => c.estado === estado)?.titulo ?? estado;
 }
 
+// Misma matriz que EstadoVacante::puedeTransicionarA() en el backend (viaja
+// en opciones.transicionesPermitidas, no se reimplementa aquí) — evita que el
+// usuario pueda soltar una tarjeta en una columna que el servidor igual va a
+// rechazar. "Cubierta" es un caso especial: nunca aparece en el mapa de
+// transiciones porque no se asigna vía el PUT genérico, pero SÍ es un destino
+// válido para el drag (abre CubrirVacanteDialog en vez de hacer el PUT).
+function permitidoSoltarEnColumna(
+    estadoOrigen: string | null | undefined,
+    estadoDestino: string,
+): boolean {
+    if (!estadoOrigen || estadoOrigen === estadoDestino) {
+        return true;
+    }
+
+    const esOrigenTerminal =
+        estadoOrigen === 'cubierta' || estadoOrigen === 'cancelada';
+
+    if (esOrigenTerminal) {
+        return false;
+    }
+
+    if (estadoDestino === 'cubierta') {
+        return true;
+    }
+
+    return (
+        props.opciones.transicionesPermitidas?.[estadoOrigen]?.includes(
+            estadoDestino,
+        ) ?? true
+    );
+}
+
 function onStartDragVacante(evento: DraggableEvent<VacanteItem>) {
     onStartDragVacanteBase();
 
@@ -376,9 +408,10 @@ function confirmarTransicionVacante() {
             preserveState: true,
             onSuccess: () =>
                 mostrarExito('Estado de la vacante actualizado.'),
-            onError: () =>
+            onError: (errors: Record<string, string>) =>
                 mostrarError(
-                    'No se pudo mover la vacante. Verifica el permiso o la transición.',
+                    errors.estado ??
+                        'No se pudo mover la vacante. Verifica el permiso o la transición.',
                 ),
             onFinish: () => {
                 enviandoTransicionVacante.value = false;
@@ -414,9 +447,10 @@ function confirmarCancelacionVacante() {
             preserveScroll: true,
             preserveState: true,
             onSuccess: () => mostrarExito('Vacante cancelada.'),
-            onError: () =>
+            onError: (errors: Record<string, string>) =>
                 mostrarError(
-                    'No se pudo cancelar la vacante. Verifica el permiso.',
+                    errors.estado ??
+                        'No se pudo cancelar la vacante. Verifica el permiso.',
                 ),
             onFinish: () => {
                 enviandoTransicionVacante.value = false;
@@ -654,8 +688,23 @@ function confirmarCancelacionVacante() {
                 <VueDraggable
                     v-model="columnas[columna.estado]"
                     :data-estado="columna.estado"
-                    class="flex min-h-16 flex-col gap-2"
-                    group="vacantes-kanban"
+                    class="flex min-h-16 flex-col gap-2 rounded-xl transition-colors"
+                    :class="{
+                        'bg-destructive/5 opacity-50':
+                            dragOrigenEstadoVacante &&
+                            !permitidoSoltarEnColumna(
+                                dragOrigenEstadoVacante,
+                                columna.estado,
+                            ),
+                    }"
+                    :group="{
+                        name: 'vacantes-kanban',
+                        put: () =>
+                            permitidoSoltarEnColumna(
+                                dragOrigenEstadoVacante,
+                                columna.estado,
+                            ),
+                    }"
                     :animation="150"
                     :disabled="tableroVacantesBloqueado"
                     handle=".kanban-drag-handle"

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Link, router } from '@inertiajs/vue3';
-import { Cake, Copy, Download, Gift, Send, Sparkles } from '@lucide/vue';
-import { ref } from 'vue';
+import { Cake, Copy, Download, Gift, PartyPopper, Send, Sparkles } from '@lucide/vue';
+import { onMounted, ref } from 'vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
@@ -11,6 +11,7 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useAlertas } from '@/composables/useAlertas';
+import { useCelebracion } from '@/composables/useCelebracion';
 import { useInitials } from '@/composables/useInitials';
 import { felicitacion } from '@/routes/rh/cumpleanos';
 import {
@@ -48,8 +49,17 @@ const emit = defineEmits<{
 
 const { mostrarExito, mostrarError } = useAlertas();
 const { getInitials } = useInitials();
+const { celebrar } = useCelebracion();
 const generando = ref(false);
 const enviando = ref(false);
+const raizCard = ref<HTMLElement | null>(null);
+
+onMounted(() => {
+    if (props.esHoy) {
+        const rect = raizCard.value?.getBoundingClientRect();
+        celebrar(rect ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 } : undefined);
+    }
+});
 
 function generar() {
     generando.value = true;
@@ -84,14 +94,24 @@ function enviar() {
 
 <template>
     <div
-        class="group flex flex-col gap-3 rounded-xl border p-3 transition-colors hover:border-primary/40 hover:bg-primary/[0.03] sm:flex-row sm:items-center sm:justify-between"
+        ref="raizCard"
+        class="group relative flex flex-col gap-3 overflow-hidden rounded-xl border p-3 transition-colors hover:border-primary/40 hover:bg-primary/[0.03] sm:flex-row sm:items-center sm:justify-between"
         :class="[
             compacto ? 'bg-muted/30' : 'bg-background',
-            esHoy && 'border-[var(--success)]/40 bg-[var(--success)]/5',
+            esHoy &&
+                'border-transparent bg-gradient-to-br from-amber-400/15 via-pink-400/10 to-violet-400/15 shadow-sm ring-1 ring-amber-400/30',
         ]"
     >
+        <PartyPopper
+            v-if="esHoy && !compacto"
+            class="pointer-events-none absolute -top-2 -right-2 size-16 rotate-12 text-amber-400/20"
+        />
+
         <div class="flex min-w-0 items-center gap-3">
-            <Avatar class="size-10 shrink-0 ring-2 ring-background">
+            <Avatar
+                class="size-10 shrink-0 ring-2 ring-background"
+                :class="esHoy && 'ring-2 ring-amber-400/50'"
+            >
                 <AvatarImage
                     v-if="colaborador.foto_url"
                     :src="colaborador.foto_url"
@@ -106,7 +126,7 @@ function enviar() {
                     {{ colaborador.nombre }}
                     <Cake
                         v-if="esHoy"
-                        class="size-3.5 shrink-0 text-[var(--success)]"
+                        class="size-3.5 shrink-0 text-amber-500"
                     />
                 </p>
                 <p class="truncate text-xs text-muted-foreground">

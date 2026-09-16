@@ -197,10 +197,10 @@ class BirthdayCardService
 
         if (! $this->dibujarFondoPersonalizado($imagen, $ancho, $alto)) {
             [$r, $g, $b] = $this->hexARgb((string) config('cumpleanos.default_background', '#FFF8E7'));
-            $fondo = $this->colorRgb($imagen, $r, $g, $b);
-            imagefilledrectangle($imagen, 0, 0, $ancho, $alto, $fondo);
-
+            $this->dibujarFondoDegradado($imagen, $ancho, $alto, [$r, $g, $b]);
+            $this->dibujarConfeti($imagen, $ancho, $alto);
             $this->dibujarGlobos($imagen, $ancho, $alto);
+            $this->dibujarMarco($imagen, $ancho, $alto);
         }
 
         $logoAlto = $this->dibujarLogo($imagen, $ancho);
@@ -228,8 +228,8 @@ class BirthdayCardService
         }
 
         $y += 20;
-        $this->textoCentrado($imagen, $fuenteBold, 42, $dorado, $ancho, $y, '¡FELIZ CUMPLEAÑOS!');
-        $y += 66;
+        $this->textoConSombra($imagen, $fuenteBold, 48, $dorado, $ancho, $y, '¡FELIZ CUMPLEAÑOS!');
+        $y += 72;
 
         $nombre = mb_strtoupper($colaborador->nombreCompleto());
         $y = $this->textoParrafo(
@@ -488,12 +488,122 @@ class BirthdayCardService
         }
     }
 
+    /**
+     * Fondo con degradado vertical (del color base configurado hacia un
+     * tono dorado más cálido en la parte inferior) en vez de un relleno
+     * plano — le da profundidad a la tarjeta sin sacrificar el contraste
+     * que necesita el texto marrón/dorado dibujado encima.
+     *
+     * @param  array{0: int, 1: int, 2: int}  $rgbSuperior
+     */
+    private function dibujarFondoDegradado(GdImage $imagen, int $ancho, int $alto, array $rgbSuperior): void
+    {
+        [$r0, $g0, $b0] = $rgbSuperior;
+        $r1 = (int) min(255, ($r0 * 0.92) + 40);
+        $g1 = (int) min(255, ($g0 * 0.85) + 25);
+        $b1 = (int) max(0, $b0 * 0.75);
+
+        for ($fila = 0; $fila < $alto; $fila++) {
+            $t = $fila / max(1, $alto - 1);
+            $color = $this->colorRgb(
+                $imagen,
+                (int) round($r0 + ($r1 - $r0) * $t),
+                (int) round($g0 + ($g1 - $g0) * $t),
+                (int) round($b0 + ($b1 - $b0) * $t),
+            );
+            imagefilledrectangle($imagen, 0, $fila, $ancho, $fila, $color);
+        }
+    }
+
+    /**
+     * Marco decorativo doble (línea marrón exterior + línea dorada interior)
+     * con acentos en las 4 esquinas, para un acabado más "tarjeta de
+     * felicitación" y menos "captura de pantalla".
+     */
+    private function dibujarMarco(GdImage $imagen, int $ancho, int $alto): void
+    {
+        $dorado = $this->colorRgb($imagen, 196, 148, 46);
+        $marron = $this->colorRgb($imagen, 74, 52, 30);
+
+        $margenExterior = (int) ($ancho * 0.035);
+        imagesetthickness($imagen, 3);
+        imagerectangle($imagen, $margenExterior, $margenExterior, $ancho - $margenExterior, $alto - $margenExterior, $marron);
+
+        $margenInterior = $margenExterior + 14;
+        imagesetthickness($imagen, 2);
+        imagerectangle($imagen, $margenInterior, $margenInterior, $ancho - $margenInterior, $alto - $margenInterior, $dorado);
+
+        $longitudAcento = (int) ($ancho * 0.035);
+        $esquinas = [
+            [$margenInterior, $margenInterior, 1, 1],
+            [$ancho - $margenInterior, $margenInterior, -1, 1],
+            [$margenInterior, $alto - $margenInterior, 1, -1],
+            [$ancho - $margenInterior, $alto - $margenInterior, -1, -1],
+        ];
+
+        imagesetthickness($imagen, 4);
+        foreach ($esquinas as [$x, $y, $dx, $dy]) {
+            imageline($imagen, $x, $y, $x + ($longitudAcento * $dx), $y, $dorado);
+            imageline($imagen, $x, $y, $x, $y + ($longitudAcento * $dy), $dorado);
+        }
+        imagesetthickness($imagen, 1);
+    }
+
+    /**
+     * Confeti disperso en los márgenes superior/inferior de la tarjeta
+     * (evita la franja central donde va nombre/frase, para no estorbar la
+     * lectura). Se suma a los globos existentes, no los reemplaza.
+     */
+    private function dibujarConfeti(GdImage $imagen, int $ancho, int $alto): void
+    {
+        $colores = [
+            $this->colorRgb($imagen, 244, 178, 187),
+            $this->colorRgb($imagen, 168, 213, 186),
+            $this->colorRgb($imagen, 247, 214, 157),
+            $this->colorRgb($imagen, 179, 196, 232),
+            $this->colorRgb($imagen, 196, 148, 46),
+            $this->colorRgb($imagen, 226, 152, 171),
+        ];
+
+        $limiteSuperior = (int) ($alto * 0.30);
+        $limiteInferior = $alto - 150;
+
+        for ($i = 0; $i < 90; $i++) {
+            $y = mt_rand(0, $alto);
+
+            if ($y > $limiteSuperior && $y < $limiteInferior) {
+                continue;
+            }
+
+            $x = mt_rand(0, $ancho);
+            $color = $colores[$i % count($colores)];
+            $tamano = mt_rand(6, 14);
+
+            if ($i % 2 === 0) {
+                imagefilledellipse($imagen, $x, $y, $tamano, $tamano, $color);
+            } else {
+                imagefilledrectangle($imagen, $x, $y, $x + $tamano, $y + (int) ($tamano * 0.5), $color);
+            }
+        }
+    }
+
     private function textoCentrado(GdImage $imagen, string $fuente, int $tamano, int $color, int $ancho, int $y, string $texto): void
     {
         $anchoTexto = $this->anchoTexto($fuente, $tamano, $texto);
         $x = (int) (($ancho - $anchoTexto) / 2);
 
         imagettftext($imagen, $tamano, 0, $x, $y, $color, $fuente, $texto);
+    }
+
+    /**
+     * Igual que textoCentrado() pero con una sombra sutil semitransparente
+     * debajo, para que el headline destaque más sobre el fondo degradado.
+     */
+    private function textoConSombra(GdImage $imagen, string $fuente, int $tamano, int $colorPrincipal, int $ancho, int $y, string $texto): void
+    {
+        $sombra = $this->colorRgba($imagen, 74, 52, 30, 75);
+        $this->textoCentrado($imagen, $fuente, $tamano, $sombra, $ancho, $y + 3, $texto);
+        $this->textoCentrado($imagen, $fuente, $tamano, $colorPrincipal, $ancho, $y, $texto);
     }
 
     /**
@@ -603,6 +713,23 @@ class BirthdayCardService
     private function colorTransparente(GdImage $imagen): int
     {
         $color = imagecolorallocatealpha($imagen, 0, 0, 0, 127);
+
+        return $color === false ? 0 : $color;
+    }
+
+    /**
+     * imagecolorallocatealpha() con el mismo clamp que colorRgb(); $alpha va
+     * de 0 (opaco) a 127 (totalmente transparente), como espera GD.
+     */
+    private function colorRgba(GdImage $imagen, int $r, int $g, int $b, int $alpha): int
+    {
+        $color = imagecolorallocatealpha(
+            $imagen,
+            max(0, min(255, $r)),
+            max(0, min(255, $g)),
+            max(0, min(255, $b)),
+            max(0, min(127, $alpha)),
+        );
 
         return $color === false ? 0 : $color;
     }

@@ -64,6 +64,17 @@ class VacanteController extends Controller
                 'responsables' => User::query()->role(['rh_admin', 'rh_auxiliar'])->orderBy('name')->get(['id', 'name', 'apellidos']),
                 'motivos' => array_map(fn (MotivoVacante $m) => ['value' => $m->value, 'etiqueta' => $m->etiqueta()], MotivoVacante::cases()),
                 'estados' => array_map(fn (EstadoVacante $e) => ['value' => $e->value, 'etiqueta' => $e->etiqueta()], EstadoVacante::cases()),
+                // Misma fuente de verdad que actualizarEstado(): el tablero usa esto
+                // para no dejar soltar una tarjeta en una columna que el backend
+                // igual va a rechazar (evita el error genérico "no se pudo mover").
+                'transicionesPermitidas' => collect(EstadoVacante::cases())->mapWithKeys(
+                    fn (EstadoVacante $origen) => [
+                        $origen->value => collect(EstadoVacante::cases())
+                            ->filter(fn (EstadoVacante $destino) => $origen->puedeTransicionarA($destino))
+                            ->map(fn (EstadoVacante $destino) => $destino->value)
+                            ->values(),
+                    ],
+                ),
                 // El id que se manda al frontend/CubrirVacanteRequest bajo la
                 // llave "user_id" es en realidad un Colaborador.id (no un
                 // users.id) — ver App\Http\Controllers\Rh\VacanteController::cubrir().

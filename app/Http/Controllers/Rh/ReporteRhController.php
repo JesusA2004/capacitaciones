@@ -9,6 +9,7 @@ use App\Models\Empresa;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Services\Reportes\ReportesRhService;
+use App\Support\Export\ChartData;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -31,12 +32,20 @@ class ReporteRhController extends Controller
 
         $clave = $request->string('reporte')->toString() ?: 'empleados_total';
         $filtros = $request->only(self::FILTROS);
+        $resultado = $this->reportes->generar($clave, $usuario, $filtros);
+        $grafica = ChartData::fromTable($resultado['columnas'], $resultado['filas']);
 
         return Inertia::render('Rh/Reportes/Index', [
             'catalogo' => $this->reportes->catalogo(),
             'reporte' => $clave,
             'filtros' => $filtros,
-            'resultado' => $this->reportes->generar($clave, $usuario, $filtros),
+            'resultado' => $resultado,
+            'grafica' => $grafica === null ? null : [
+                'tipo' => $grafica->tipo,
+                'categorias' => $grafica->categorias,
+                'series' => $grafica->series,
+                'recortado' => $grafica->recortado,
+            ],
             'puedeExportar' => $usuario->can('reportes_rh.exportar'),
             'opciones' => [
                 'empresas' => Empresa::query()->orderBy('nombre')->get(['id', 'nombre']),

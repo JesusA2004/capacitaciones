@@ -4,13 +4,17 @@ use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use Database\Seeders\RolesYPermisosSeeder;
-use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     $this->seed(RolesYPermisosSeeder::class);
 });
 
-test('un gerente_sucursal solo ve colaboradores de su propia sucursal en el listado', function () {
+// El listado propio de "Usuarios" (administracion.usuarios.index) se retiró
+// — la cuenta de acceso ahora se administra desde la pestaña «Cuenta» de
+// cada expediente (rh.expedientes) — así que el alcance se verifica
+// directamente contra el servicio, misma fuente que usa cualquier pantalla
+// que liste colaboradores/usuarios.
+test('un gerente_sucursal solo ve colaboradores de su propia sucursal', function () {
     $sucursalA = Sucursal::factory()->create();
     $sucursalB = Sucursal::factory()->create();
 
@@ -20,15 +24,13 @@ test('un gerente_sucursal solo ve colaboradores de su propia sucursal en el list
     User::factory()->create(['sucursal_principal_id' => $sucursalA->id]);
     User::factory()->create(['sucursal_principal_id' => $sucursalB->id]);
 
-    $this->actingAs($gerente)
-        ->get(route('administracion.usuarios.index'))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->has('usuarios.data', 2)); // el gerente + su colaborador de la sucursal A
-
-    $idsVisibles = app(AlcanceOrganizacionalService::class)
+    $visibles = app(AlcanceOrganizacionalService::class)
         ->limitarUsuariosPorAlcance(User::query(), $gerente)
-        ->pluck('sucursal_principal_id')
-        ->unique();
+        ->get();
+
+    expect($visibles)->toHaveCount(2); // el gerente + su colaborador de la sucursal A
+
+    $idsVisibles = $visibles->pluck('sucursal_principal_id')->unique();
 
     expect($idsVisibles)->toHaveCount(1)->and($idsVisibles->first())->toBe($sucursalA->id);
 });
@@ -43,10 +45,11 @@ test('un super_admin ve colaboradores de todas las sucursales', function () {
     User::factory()->create(['sucursal_principal_id' => $sucursalA->id]);
     User::factory()->create(['sucursal_principal_id' => $sucursalB->id]);
 
-    $this->actingAs($admin)
-        ->get(route('administracion.usuarios.index'))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->has('usuarios.data', 3));
+    $visibles = app(AlcanceOrganizacionalService::class)
+        ->limitarUsuariosPorAlcance(User::query(), $admin)
+        ->get();
+
+    expect($visibles)->toHaveCount(3);
 });
 
 test('un gerente_sucursal no puede editar a un colaborador de otra sucursal aunque adivine su id', function () {

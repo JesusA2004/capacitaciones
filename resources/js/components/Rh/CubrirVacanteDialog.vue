@@ -22,8 +22,11 @@ import {
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
+import { useCelebracion } from '@/composables/useCelebracion';
 import { cubrir } from '@/routes/rh/vacantes';
 import type { OpcionesReclutamiento, VacanteItem } from '@/types';
+
+const { celebrar } = useCelebracion();
 
 const props = defineProps<{
     open: boolean;
@@ -67,7 +70,16 @@ function enviar() {
 
     transformado.post(cubrir.url(props.vacante.id), {
         preserveScroll: true,
-        onSuccess: () => emit('update:open', false),
+        onSuccess: () => {
+            // Solo el modo "colaborador_interno" cierra la vacante como
+            // Cubierta de inmediato (ver VacanteController::cubrir()); los
+            // otros modos no ameritan la celebración todavía.
+            if (form.modo === 'colaborador_interno') {
+                celebrar();
+            }
+
+            emit('update:open', false);
+        },
     });
 }
 </script>

@@ -25,6 +25,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
@@ -227,6 +228,14 @@ class CandidatoController extends Controller
         $estadoAnterior = $candidato->estado;
         $nuevoEstado = EstadoCandidato::from($request->validated('estado'));
 
+        // Las fases del candidato son sucesivas: el tablero no es la única
+        // autoridad, el enum vuelve a validar que no sea un retroceso.
+        if (! $estadoAnterior->puedeTransicionarA($nuevoEstado)) {
+            throw ValidationException::withMessages([
+                'estado' => "No se puede mover al candidato de «{$estadoAnterior->etiqueta()}» a «{$nuevoEstado->etiqueta()}»: las fases no pueden retroceder.",
+            ]);
+        }
+
         $candidato->update(['estado' => $nuevoEstado]);
 
         $candidato->seguimientos()->create([
@@ -279,6 +288,31 @@ class CandidatoController extends Controller
             'responsables' => User::query()->role(['rh_admin', 'rh_auxiliar'])->orderBy('name')->get(['id', 'name', 'apellidos']),
             'estados' => array_map(fn (EstadoCandidato $e) => ['value' => $e->value, 'etiqueta' => $e->etiqueta()], EstadoCandidato::cases()),
             'tiposSeguimiento' => array_map(fn (TipoSeguimientoCandidato $t) => ['value' => $t->value, 'etiqueta' => $t->etiqueta()], TipoSeguimientoCandidato::cases()),
+            'transicionesPermitidas' => $this->transicionesPermitidas(),
         ];
+    }
+
+    /**
+     * Mapa {estadoOrigen: string[]} con los destinos válidos según
+     * EstadoCandidato::puedeTransicionarA() — fuente de verdad única para que
+     * el tablero de candidatos no duplique la matriz de fases en TypeScript.
+     *
+     * @return array<string, array<int, string>>
+     */
+    private function transicionesPermitidas(): array
+    {
+        $mapa = [];
+
+        foreach (EstadoCandidato::cases() as $origen) {
+            $mapa[$origen->value] = array_values(array_map(
+                fn (EstadoCandidato $destino) => $destino->value,
+                array_filter(
+                    EstadoCandidato::cases(),
+                    fn (EstadoCandidato $destino) => $origen->puedeTransicionarA($destino)
+                )
+            ));
+        }
+
+        return $mapa;
     }
 }

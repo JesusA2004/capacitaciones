@@ -33,6 +33,7 @@ use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
+use Spatie\Permission\Models\Role;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -231,6 +232,13 @@ class ExpedienteController extends Controller
             'puedeIgnorarExtraccion' => $usuario->can('rh.documentos.extraccion.ignorar') && ! $esCuentaPropia,
             'puedeGestionarAcceso' => $usuario->can('usuarios.desactivar') && ! $esCuentaPropia && $cuenta !== null,
             'puedeGestionarPassword' => $usuario->can('usuarios.editar') && ! $esCuentaPropia && $cuenta !== null,
+            'puedeEditarCuenta' => $usuario->can('usuarios.editar') && ! $esCuentaPropia && $cuenta !== null,
+            // La pestaña "Cuenta" del expediente absorbió lo que antes vivía
+            // en Administración → Usuarios (ese listado se retiró, ver
+            // docs/ROLES_Y_NAVEGACION.md): un colaborador sin cuenta todavía
+            // puede recibir una aquí mismo, sin salir del expediente.
+            'puedeCrearCuenta' => $usuario->can('usuarios.crear') && ! $esCuentaPropia && $cuenta === null,
+            'rolesDisponibles' => Role::query()->orderBy('name')->pluck('name'),
             // Distingue "no tienes permiso" de "es tu propia cuenta" en el
             // mensaje del frontend — ambos casos esconden el mismo botón
             // pero la razón (y la acción sugerida) es distinta.

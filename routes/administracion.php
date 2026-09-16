@@ -69,8 +69,10 @@ Route::middleware(['auth', 'verified'])
         // Solo cuenta de acceso (correo, roles, bloqueo) — la baja/reactivación
         // laboral vive en rh.expedientes.dar-de-baja/reactivar (Colaborador,
         // funciona con o sin cuenta), ver App\Http\Controllers\Rh\ExpedienteController.
+        // Sin listado propio: se administra desde la pestaña «Cuenta» del
+        // expediente de cada colaborador (rh.expedientes), no desde un menú
+        // aparte — ver docs/ROLES_Y_NAVEGACION.md.
         Route::prefix('usuarios')->name('usuarios.')->group(function () {
-            Route::get('/', [UsuarioController::class, 'index'])->name('index');
             Route::post('/', [UsuarioController::class, 'store'])->name('store');
             Route::put('{usuario}', [UsuarioController::class, 'update'])->name('update');
             // Revocar/restablecer acceso: bloquea/desbloquea el login sin
@@ -81,6 +83,10 @@ Route::middleware(['auth', 'verified'])
             // necesita la contraseña en texto plano para mostrarla una sola
             // vez, ver UsuarioController::establecerPassword().
             Route::post('{usuario}/establecer-password', [UsuarioController::class, 'establecerPassword'])->name('establecer-password');
+            // Envía por correo la contraseña que acaba de devolver
+            // establecer-password (el admin la pega en el body, no se
+            // regenera aquí), ver UsuarioController::enviarPasswordCorreo().
+            Route::post('{usuario}/enviar-password-correo', [UsuarioController::class, 'enviarPasswordCorreo'])->name('enviar-password-correo');
         });
 
         // URL en español (app-versiones) tal como la pidió el encargo; nombre

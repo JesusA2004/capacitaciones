@@ -14,6 +14,18 @@ export type ResultadoReporteRh = {
     filas: (string | number | null)[][];
 };
 
+export type SerieGraficaReporte = {
+    nombre: string;
+    valores: number[];
+};
+
+export type GraficaReporte = {
+    tipo: 'multi-serie' | 'tiempo' | 'distribucion' | 'barras';
+    categorias: string[];
+    series: SerieGraficaReporte[];
+    recortado: boolean;
+};
+
 export type FiltrosReporteRh = {
     empresa_id?: string;
     sucursal_id?: string;
