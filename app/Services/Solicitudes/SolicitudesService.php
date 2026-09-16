@@ -113,8 +113,8 @@ class SolicitudesService
                 'plazo_meses' => $datos['plazo_meses'] ?? null,
                 'motivo' => $datos['motivo'],
                 'observaciones' => $datos['observaciones'] ?? null,
-                'empresa_id' => $solicitante->empresa()?->id,
-                'sucursal_id' => $solicitante->sucursal_principal_id,
+                'empresa_id' => $solicitante->colaborador?->empresa()?->id,
+                'sucursal_id' => $solicitante->colaborador?->sucursal_principal_id,
             ]);
 
             $solicitud->update(['folio' => sprintf('SOL-%06d', $solicitud->id)]);
@@ -239,12 +239,14 @@ class SolicitudesService
     {
         $query = SolicitudInterna::query()
             // 'users' no tiene columna empresa_id propia (se deriva de la
-            // sucursal, ver User::empresa()) — solo la propia SolicitudInterna
-            // la tiene (snapshot al crear, ver crear() más arriba).
+            // sucursal, ver Colaborador::empresa()) — solo la propia
+            // SolicitudInterna la tiene (snapshot al crear, ver crear() más
+            // arriba).
             ->with([
-                'usuario:id,name,apellidos,sucursal_principal_id,departamento_id,puesto_id',
-                'usuario.departamento:id,nombre',
-                'usuario.puesto:id,nombre',
+                'usuario:id,name,apellidos,colaborador_id',
+                'usuario.colaborador:id,sucursal_principal_id,departamento_id,puesto_id',
+                'usuario.colaborador.departamento:id,nombre',
+                'usuario.colaborador.puesto:id,nombre',
                 'revisadoPor:id,name,apellidos',
                 'sucursal:id,nombre',
                 'documentosGenerados:id,solicitud_id,status',
@@ -259,8 +261,8 @@ class SolicitudesService
             ->when($filtros['tipo'] ?? null, fn (Builder $q, string $v) => $q->where('tipo', $v))
             ->when($filtros['sucursal_id'] ?? null, fn (Builder $q, string $v) => $q->where('sucursal_id', $v))
             ->when($filtros['empresa_id'] ?? null, fn (Builder $q, string $v) => $q->where('empresa_id', $v))
-            ->when($filtros['departamento_id'] ?? null, fn (Builder $q, string $v) => $q->whereHas('usuario', fn (Builder $u) => $u->where('departamento_id', $v)))
-            ->when($filtros['puesto_id'] ?? null, fn (Builder $q, string $v) => $q->whereHas('usuario', fn (Builder $u) => $u->where('puesto_id', $v)))
+            ->when($filtros['departamento_id'] ?? null, fn (Builder $q, string $v) => $q->whereHas('usuario.colaborador', fn (Builder $u) => $u->where('departamento_id', $v)))
+            ->when($filtros['puesto_id'] ?? null, fn (Builder $q, string $v) => $q->whereHas('usuario.colaborador', fn (Builder $u) => $u->where('puesto_id', $v)))
             ->when($filtros['revisado_por'] ?? null, fn (Builder $q, string $v) => $q->where('revisado_por', $v))
             ->when($filtros['fecha_inicio'] ?? null, fn (Builder $q, string $v) => $q->whereDate('created_at', '>=', $v))
             ->when($filtros['fecha_fin'] ?? null, fn (Builder $q, string $v) => $q->whereDate('created_at', '<=', $v))
@@ -287,7 +289,7 @@ class SolicitudesService
         }
 
         if ($revisor->hasRole('jefe_directo')) {
-            return $query->whereHas('usuario', fn (Builder $q) => $q->where('jefe_id', $revisor->id));
+            return $query->whereHas('usuario.colaborador', fn (Builder $q) => $q->where('jefe_id', $revisor->colaborador_id));
         }
 
         return $query->where('user_id', $revisor->id);

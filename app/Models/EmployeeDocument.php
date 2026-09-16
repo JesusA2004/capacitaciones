@@ -23,7 +23,8 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * `EmployeeDocument::where('user_id', ..)->where('document_type_id', ..)`.
  *
  * @property int $id
- * @property int $user_id
+ * @property int|null $user_id
+ * @property int|null $colaborador_id
  * @property int|null $empresa_id
  * @property int|null $sucursal_id
  * @property int $document_type_id
@@ -57,7 +58,7 @@ class EmployeeDocument extends Model
     protected $hidden = ['disk', 'path'];
 
     protected $fillable = [
-        'user_id', 'empresa_id', 'sucursal_id', 'document_type_id',
+        'user_id', 'colaborador_id', 'empresa_id', 'sucursal_id', 'document_type_id',
         'disk', 'path', 'original_name', 'stored_name', 'mime', 'extension', 'size', 'hash',
         'version', 'previous_version_id', 'status',
         'uploaded_by', 'reviewed_by', 'reviewed_at', 'comments', 'rejection_reason',
@@ -74,6 +75,18 @@ class EmployeeDocument extends Model
             'change_requested_at' => 'datetime',
             'change_authorized_at' => 'datetime',
         ];
+    }
+
+    /**
+     * El colaborador dueño de este expediente. `user_id` se conserva por
+     * compatibilidad (deuda técnica Parte B) pero ya no es la fuente real:
+     * un colaborador sin cuenta de acceso no tiene `user_id`.
+     *
+     * @return BelongsTo<Colaborador, $this>
+     */
+    public function colaborador(): BelongsTo
+    {
+        return $this->belongsTo(Colaborador::class, 'colaborador_id');
     }
 
     /**
@@ -155,7 +168,7 @@ class EmployeeDocument extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['user_id', 'document_type_id', 'status', 'version', 'reviewed_by', 'rejection_reason', 'change_authorized_by'])
+            ->logOnly(['colaborador_id', 'document_type_id', 'status', 'version', 'reviewed_by', 'rejection_reason', 'change_authorized_by'])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs();
     }

@@ -15,7 +15,8 @@ use Illuminate\Support\Carbon;
  * recargue la pantalla (ver App\Services\Cumpleanos\CumpleanosService).
  *
  * @property int $id
- * @property int $user_id
+ * @property int|null $user_id
+ * @property int|null $colaborador_id
  * @property int|null $birthday_phrase_id
  * @property Carbon $fecha
  * @property string $nombre_mostrado
@@ -25,7 +26,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $enviada_por_id
  * @property bool $auto_generada
  * @property array<string, mixed>|null $metadata
- * @property-read User $colaborador
+ * @property-read Colaborador $colaborador
  * @property-read BirthdayPhrase|null $frasePlantilla
  */
 class BirthdayGreeting extends Model
@@ -34,7 +35,7 @@ class BirthdayGreeting extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id', 'birthday_phrase_id', 'fecha', 'nombre_mostrado', 'frase',
+        'user_id', 'colaborador_id', 'birthday_phrase_id', 'fecha', 'nombre_mostrado', 'frase',
         'card_path', 'enviada_at', 'enviada_por_id', 'auto_generada', 'metadata',
     ];
 
@@ -49,11 +50,11 @@ class BirthdayGreeting extends Model
     }
 
     /**
-     * @return BelongsTo<User, $this>
+     * @return BelongsTo<Colaborador, $this>
      */
     public function colaborador(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'user_id');
+        return $this->belongsTo(Colaborador::class, 'colaborador_id');
     }
 
     /**

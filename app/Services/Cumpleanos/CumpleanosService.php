@@ -4,6 +4,7 @@ namespace App\Services\Cumpleanos;
 
 use App\Enums\EstadoUsuario;
 use App\Models\BirthdayGreeting;
+use App\Models\Colaborador;
 use App\Models\User;
 use App\Notifications\Mobile\BirthdayGreetingNotification;
 use App\Notifications\Mobile\BirthdayRhReminderNotification;
@@ -22,6 +23,10 @@ use Illuminate\Support\Facades\Log;
  * generacion de la tarjeta/imagen y el registro BirthdayGreeting en si viven
  * en App\Services\Cumpleanos\BirthdayCardService; este service la invoca
  * cuando corresponde, nunca duplica esa logica.
+ *
+ * El "colaborador" de este módulo (fecha_nacimiento, foto, sucursal, etc.)
+ * es siempre App\Models\Colaborador — puede o no tener cuenta de acceso; las
+ * notificaciones (in-app/push) solo se envían cuando sí la tiene.
  */
 class CumpleanosService
 {
@@ -39,7 +44,7 @@ class CumpleanosService
      * departamento_id, estatus, busqueda.
      *
      * @param  array<string, mixed>  $filtros
-     * @return Collection<int, User>
+     * @return Collection<int, Colaborador>
      */
     public function cumpleanosDelMes(int $mes, ?User $usuario, array $filtros = []): Collection
     {
@@ -49,13 +54,13 @@ class CumpleanosService
         return $this->queryBase($usuario, $filtros)
             ->whereMonth('fecha_nacimiento', $mes)
             ->get()
-            ->sortBy(fn (User $colaborador) => (int) $colaborador->fecha_nacimiento->format('d'))
+            ->sortBy(fn (Colaborador $colaborador) => (int) $colaborador->fecha_nacimiento->format('d'))
             ->values();
     }
 
     /**
      * @param  array<string, mixed>  $filtros
-     * @return Collection<int, User>
+     * @return Collection<int, Colaborador>
      */
     public function cumpleanosDeHoy(?User $usuario = null, array $filtros = []): Collection
     {
@@ -75,7 +80,7 @@ class CumpleanosService
      * motores.
      *
      * @param  array<string, mixed>  $filtros
-     * @return Collection<int, User>
+     * @return Collection<int, Colaborador>
      */
     public function proximosCumpleanos(?User $usuario, int $dias, array $filtros = []): Collection
     {
@@ -83,13 +88,13 @@ class CumpleanosService
 
         return $this->queryBase($usuario, $filtros)
             ->get()
-            ->map(function (User $colaborador) use ($hoy) {
+            ->map(function (Colaborador $colaborador) use ($hoy) {
                 $colaborador->setAttribute('_proxima_fecha', $this->proximaFecha($colaborador->fecha_nacimiento, $hoy));
 
                 return $colaborador;
             })
-            ->filter(fn (User $colaborador) => $hoy->diffInDays($colaborador->getAttribute('_proxima_fecha'), false) <= $dias)
-            ->sortBy(fn (User $colaborador) => $colaborador->getAttribute('_proxima_fecha')->timestamp)
+            ->filter(fn (Colaborador $colaborador) => $hoy->diffInDays($colaborador->getAttribute('_proxima_fecha'), false) <= $dias)
+            ->sortBy(fn (Colaborador $colaborador) => $colaborador->getAttribute('_proxima_fecha')->timestamp)
             ->values();
     }
 
@@ -102,7 +107,7 @@ class CumpleanosService
      * el futuro también funcione.
      *
      * @param  array<string, mixed>  $filtros
-     * @return Collection<int, User>
+     * @return Collection<int, Colaborador>
      */
     public function cumpleanosEnRango(?User $usuario, CarbonInterface $desde, CarbonInterface $hasta, array $filtros = []): Collection
     {
@@ -111,13 +116,13 @@ class CumpleanosService
 
         return $this->queryBase($usuario, $filtros)
             ->get()
-            ->map(function (User $colaborador) use ($desde) {
+            ->map(function (Colaborador $colaborador) use ($desde) {
                 $colaborador->setAttribute('_proxima_fecha', $this->proximaFecha($colaborador->fecha_nacimiento, $desde));
 
                 return $colaborador;
             })
-            ->filter(fn (User $colaborador) => $colaborador->getAttribute('_proxima_fecha')->between($desde, $hasta))
-            ->sortBy(fn (User $colaborador) => $colaborador->getAttribute('_proxima_fecha')->timestamp)
+            ->filter(fn (Colaborador $colaborador) => $colaborador->getAttribute('_proxima_fecha')->between($desde, $hasta))
+            ->sortBy(fn (Colaborador $colaborador) => $colaborador->getAttribute('_proxima_fecha')->timestamp)
             ->values();
     }
 
@@ -130,7 +135,7 @@ class CumpleanosService
      * campo. Ver docs del combobox en Rh/Cumpleanos/Index.vue.
      *
      * @param  array<string, mixed>  $filtros
-     * @return Collection<int, User>
+     * @return Collection<int, Colaborador>
      */
     public function colaboradoresElegibles(?User $usuario, array $filtros): Collection
     {
@@ -146,7 +151,7 @@ class CumpleanosService
      * que el colaborador "desaparezca" en silencio del modulo.
      *
      * @param  array<string, mixed>  $filtros
-     * @return Collection<int, User>
+     * @return Collection<int, Colaborador>
      */
     public function sinFechaNacimiento(?User $usuario, array $filtros = []): Collection
     {
@@ -165,7 +170,7 @@ class CumpleanosService
      * filtros. `mes` solo aplica (y es requerido) cuando periodo=mes.
      *
      * @param  array<string, mixed>  $filtros
-     * @return Collection<int, User>
+     * @return Collection<int, Colaborador>
      */
     public function colaboradoresPorPeriodo(string $periodo, ?int $mes, User $usuario, array $filtros = []): Collection
     {
@@ -183,7 +188,7 @@ class CumpleanosService
      * felicitacion de "este anio" bajo demanda, sin esperar al command
      * diario. Null si el colaborador no tiene fecha_nacimiento capturada.
      */
-    public function fechaEsteAnio(User $colaborador): ?CarbonInterface
+    public function fechaEsteAnio(Colaborador $colaborador): ?CarbonInterface
     {
         if ($colaborador->fecha_nacimiento === null) {
             return null;
@@ -192,7 +197,7 @@ class CumpleanosService
         return Carbon::create(Carbon::today()->year, $colaborador->fecha_nacimiento->month, $colaborador->fecha_nacimiento->day);
     }
 
-    public function calcularEdad(User $colaborador, ?CarbonInterface $enFecha = null): ?int
+    public function calcularEdad(Colaborador $colaborador, ?CarbonInterface $enFecha = null): ?int
     {
         if ($colaborador->fecha_nacimiento === null) {
             return null;
@@ -241,7 +246,7 @@ class CumpleanosService
     /**
      * @return array<string, mixed>
      */
-    public function tarjetaColaborador(User $colaborador, ?bool $mostrarEdad = null, ?User $solicitante = null): array
+    public function tarjetaColaborador(Colaborador $colaborador, ?bool $mostrarEdad = null, ?User $solicitante = null): array
     {
         $mostrarEdad ??= (bool) config('cumpleanos.show_age');
 
@@ -270,12 +275,13 @@ class CumpleanosService
 
     /**
      * Genera (si no existe) la felicitacion de hoy y notifica al
-     * colaborador: notificacion in-app + push si tiene dispositivo. No
-     * duplica si ya se notifico este anio/dia (BirthdayGreeting.enviada_at).
-     * Cualquier fallo en tarjeta/push se registra en log y no interrumpe el
-     * resto del lote (usado por el command diario).
+     * colaborador (solo si tiene cuenta de acceso): notificacion in-app +
+     * push si tiene dispositivo. No duplica si ya se notifico este anio/dia
+     * (BirthdayGreeting.enviada_at). Cualquier fallo en tarjeta/push se
+     * registra en log y no interrumpe el resto del lote (usado por el
+     * command diario).
      */
-    public function felicitarColaborador(User $colaborador, CarbonInterface $fecha): BirthdayGreeting
+    public function felicitarColaborador(Colaborador $colaborador, CarbonInterface $fecha): BirthdayGreeting
     {
         $greeting = $this->tarjetas->generar($colaborador, $fecha);
 
@@ -298,7 +304,7 @@ class CumpleanosService
      * siempre notifica aunque ya se haya enviado antes — es una accion
      * explicita de RH, no el envio automatico.
      */
-    public function reenviarManual(User $colaborador, User $ejecutor): BirthdayGreeting
+    public function reenviarManual(Colaborador $colaborador, User $ejecutor): BirthdayGreeting
     {
         $fecha = $this->fechaEsteAnio($colaborador) ?? Carbon::today();
         $greeting = $this->tarjetas->generar($colaborador, $fecha);
@@ -310,15 +316,23 @@ class CumpleanosService
         return $greeting;
     }
 
-    public function notificarColaborador(BirthdayGreeting $greeting, ?User $colaborador = null): void
+    public function notificarColaborador(BirthdayGreeting $greeting, ?Colaborador $colaborador = null): void
     {
         $colaborador ??= $greeting->colaborador;
+        $cuenta = $colaborador->user;
+
+        if ($cuenta === null) {
+            // Sin cuenta de acceso no hay a quién notificar in-app/push; la
+            // tarjeta/felicitación sigue existiendo y es visible en el panel
+            // RH igual.
+            return;
+        }
 
         try {
-            $colaborador->notify(new BirthdayGreetingNotification($greeting));
+            $cuenta->notify(new BirthdayGreetingNotification($greeting));
 
             $this->push->aUsuario(
-                $colaborador,
+                $cuenta,
                 'cumpleanos',
                 $greeting->id,
                 '¡Feliz cumpleaños!',
@@ -326,7 +340,7 @@ class CumpleanosService
             );
         } catch (\Throwable $e) {
             Log::error('cumpleanos: fallo al notificar al colaborador', [
-                'user_id' => $colaborador->id,
+                'colaborador_id' => $colaborador->id,
                 'greeting_id' => $greeting->id,
                 'error' => $e->getMessage(),
             ]);
@@ -351,7 +365,7 @@ class CumpleanosService
         }
 
         $destinatarios = User::role(['super_admin', 'rh_admin', 'rh_auxiliar'])
-            ->where('estatus', EstadoUsuario::Activo->value)
+            ->whereHas('colaborador', fn (Builder $q) => $q->where('estatus', EstadoUsuario::Activo->value))
             ->get()
             ->filter(fn (User $u) => $u->can('rh.cumpleanos.ver'));
 
@@ -381,7 +395,7 @@ class CumpleanosService
                     $greetingId = $this->tarjetas->generar($hoy->first(), Carbon::today())->id;
                 } catch (\Throwable $e) {
                     Log::error('cumpleanos: fallo al generar la tarjeta para el recordatorio de rh', [
-                        'user_id' => $hoy->first()->id,
+                        'colaborador_id' => $hoy->first()->id,
                         'error' => $e->getMessage(),
                     ]);
                 }
@@ -411,18 +425,18 @@ class CumpleanosService
 
     /**
      * @param  array<string, mixed>  $filtros
-     * @return Builder<User>
+     * @return Builder<Colaborador>
      */
     private function queryBase(?User $usuario, array $filtros, bool $requiereFechaNacimiento = true): Builder
     {
-        $query = User::query();
+        $query = Colaborador::query();
 
         if ($requiereFechaNacimiento) {
             $query->whereNotNull('fecha_nacimiento');
         }
 
         if ($usuario !== null) {
-            $query = $this->alcance->limitarUsuariosPorAlcance($query, $usuario);
+            $query = $this->alcance->limitarColaboradoresPorAlcance($query, $usuario);
         }
 
         $query->with(['sucursalPrincipal:id,nombre', 'departamento:id,nombre', 'puesto:id,nombre']);

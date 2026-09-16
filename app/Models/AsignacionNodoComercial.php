@@ -17,7 +17,8 @@ use Illuminate\Support\Carbon;
  * nunca creada/cerrada directamente desde un controlador.
  *
  * @property int $id
- * @property int $user_id
+ * @property int|null $user_id
+ * @property int|null $colaborador_id
  * @property int $nodo_comercial_id
  * @property TipoAsignacionNodoComercial $tipo_asignacion
  * @property bool $activo
@@ -33,6 +34,7 @@ class AsignacionNodoComercial extends Model
 
     protected $fillable = [
         'user_id',
+        'colaborador_id',
         'nodo_comercial_id',
         'tipo_asignacion',
         'activo',
@@ -51,11 +53,11 @@ class AsignacionNodoComercial extends Model
     }
 
     /**
-     * @return BelongsTo<User, $this>
+     * @return BelongsTo<Colaborador, $this>
      */
-    public function usuario(): BelongsTo
+    public function colaborador(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(Colaborador::class, 'colaborador_id');
     }
 
     /**

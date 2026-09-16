@@ -18,7 +18,8 @@ use Illuminate\Support\Carbon;
  * directamente desde un controlador (ver docs/MOVIMIENTOS_LABORALES.md).
  *
  * @property int $id
- * @property int $user_id
+ * @property int|null $user_id
+ * @property int|null $colaborador_id
  * @property TipoMovimientoLaboral $tipo_movimiento
  * @property int|null $empresa_anterior_id
  * @property int|null $empresa_nueva_id
@@ -30,6 +31,8 @@ use Illuminate\Support\Carbon;
  * @property int|null $puesto_nuevo_id
  * @property int|null $jefe_anterior_id
  * @property int|null $jefe_nuevo_id
+ * @property int|null $jefe_anterior_colaborador_id
+ * @property int|null $jefe_nuevo_colaborador_id
  * @property int|null $vacante_id
  * @property int|null $candidato_id
  * @property int|null $alta_digital_id
@@ -49,6 +52,7 @@ class MovimientoLaboral extends Model
 
     protected $fillable = [
         'user_id',
+        'colaborador_id',
         'tipo_movimiento',
         'empresa_anterior_id',
         'empresa_nueva_id',
@@ -60,6 +64,8 @@ class MovimientoLaboral extends Model
         'puesto_nuevo_id',
         'jefe_anterior_id',
         'jefe_nuevo_id',
+        'jefe_anterior_colaborador_id',
+        'jefe_nuevo_colaborador_id',
         'vacante_id',
         'candidato_id',
         'alta_digital_id',
@@ -83,11 +89,11 @@ class MovimientoLaboral extends Model
     }
 
     /**
-     * @return BelongsTo<User, $this>
+     * @return BelongsTo<Colaborador, $this>
      */
     public function colaborador(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'user_id');
+        return $this->belongsTo(Colaborador::class, 'colaborador_id');
     }
 
     /**
@@ -155,19 +161,19 @@ class MovimientoLaboral extends Model
     }
 
     /**
-     * @return BelongsTo<User, $this>
+     * @return BelongsTo<Colaborador, $this>
      */
     public function jefeAnterior(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'jefe_anterior_id');
+        return $this->belongsTo(Colaborador::class, 'jefe_anterior_colaborador_id');
     }
 
     /**
-     * @return BelongsTo<User, $this>
+     * @return BelongsTo<Colaborador, $this>
      */
     public function jefeNuevo(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'jefe_nuevo_id');
+        return $this->belongsTo(Colaborador::class, 'jefe_nuevo_colaborador_id');
     }
 
     /**
@@ -246,8 +252,8 @@ class MovimientoLaboral extends Model
         return is_string($nombre) && $nombre !== '' ? $nombre : $fallback;
     }
 
-    private function nombreCompletoOr(?User $usuario, string $fallback): string
+    private function nombreCompletoOr(?Colaborador $colaborador, string $fallback): string
     {
-        return $usuario?->nombreCompleto() ?: $fallback;
+        return $colaborador?->nombreCompleto() ?: $fallback;
     }
 }

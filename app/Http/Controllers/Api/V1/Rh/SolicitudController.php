@@ -56,7 +56,15 @@ class SolicitudController extends Controller
         abort_unless($usuario->can('rh.solicitudes.detalle'), 403);
         abort_unless($this->puedeVer($usuario, $solicitud), 403);
 
-        $solicitud->load(['usuario:id,name,apellidos,numero_empleado,sucursal_principal_id,puesto_id', 'usuario.sucursalPrincipal:id,nombre', 'usuario.puesto:id,nombre', 'revisadoPor:id,name,apellidos', 'documentos', 'historial.usuario:id,name,apellidos']);
+        $solicitud->load([
+            'usuario:id,name,apellidos,colaborador_id',
+            'usuario.colaborador:id,numero_empleado,sucursal_principal_id,puesto_id',
+            'usuario.colaborador.sucursalPrincipal:id,nombre',
+            'usuario.colaborador.puesto:id,nombre',
+            'revisadoPor:id,name,apellidos',
+            'documentos',
+            'historial.usuario:id,name,apellidos',
+        ]);
 
         $flujo = $this->workflow->paraSolicitud($usuario, $solicitud);
 
@@ -202,9 +210,9 @@ class SolicitudController extends Controller
         return [
             'id' => $colaborador->id,
             'nombre' => $colaborador->nombreCompleto(),
-            'numero_empleado' => $colaborador->numero_empleado,
-            'puesto' => $colaborador->puesto?->nombre,
-            'sucursal' => $colaborador->sucursalPrincipal?->nombre,
+            'numero_empleado' => $colaborador->colaborador?->numero_empleado,
+            'puesto' => $colaborador->colaborador?->puesto?->nombre,
+            'sucursal' => $colaborador->colaborador?->sucursalPrincipal?->nombre,
         ];
     }
 }

@@ -9,6 +9,7 @@ use App\Enums\EstadoUsuario;
 use App\Enums\EstadoVacante;
 use App\Enums\TipoSeguimientoCandidato;
 use App\Models\AltaDigital;
+use App\Models\Colaborador;
 use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
 use App\Models\User;
@@ -22,11 +23,13 @@ use Illuminate\Support\Str;
 use RuntimeException;
 
 /**
- * Convierte un alta digital aprobada en un colaborador real: crea el User,
- * traslada los documentos capturados durante la liga publica al expediente,
- * y cierra el ciclo del candidato/vacante de origen. Es la unica forma
- * valida de crear un colaborador a partir de un alta (el controlador no
- * debe construir el User directamente).
+ * Convierte un alta digital aprobada en un colaborador real: crea el
+ * Colaborador (y su cuenta de acceso, siempre — quien pasa por Alta digital
+ * siempre necesita entrar a la app móvil), traslada los documentos
+ * capturados durante la liga publica al expediente, y cierra el ciclo del
+ * candidato/vacante de origen. Es la unica forma valida de crear un
+ * colaborador a partir de un alta (el controlador no debe construir el
+ * Colaborador/User directamente).
  */
 class ConversionColaboradorService
 {
@@ -48,11 +51,9 @@ class ConversionColaboradorService
         }
 
         return DB::transaction(function () use ($alta, $aprobadoPor) {
-            $usuario = User::create([
+            $colaborador = Colaborador::create([
                 'name' => $alta->nombre,
                 'apellidos' => $alta->apellidos,
-                'email' => $alta->correo,
-                'password' => Hash::make(Str::random(40)),
                 'telefono' => $alta->telefono,
                 'sucursal_principal_id' => $alta->sucursal_id,
                 'departamento_id' => $alta->departamento_id,
@@ -68,29 +69,38 @@ class ConversionColaboradorService
                 'contacto_emergencia_telefono' => $alta->contacto_emergencia_telefono,
             ]);
 
+            $usuario = User::create([
+                'colaborador_id' => $colaborador->id,
+                'name' => $alta->nombre,
+                'apellidos' => $alta->apellidos,
+                'email' => $alta->correo,
+                'password' => Hash::make(Str::random(40)),
+            ]);
+
             $usuario->assignRole('colaborador');
 
             // Recargar con las relaciones que rutaBaseColaborador() necesita
             // para construir la carpeta legible del colaborador (empresa,
-            // sucursal) — el User recién creado no las trae cargadas.
-            $usuario->loadMissing(['sucursalPrincipal.empresa']);
+            // sucursal) — el Colaborador recién creado no las trae cargadas.
+            $colaborador->loadMissing(['sucursalPrincipal.empresa']);
+            $colaborador->setRelation('user', $usuario);
 
             if ($alta->foto_path !== null) {
                 $extension = pathinfo($alta->foto_original_name ?? 'foto.jpg', PATHINFO_EXTENSION);
-                $rutaDestino = $this->documentoStorage->rutaFoto($usuario, $extension);
+                $rutaDestino = $this->documentoStorage->rutaFoto($colaborador, $extension);
 
                 $this->documentoStorage->disco()->put(
                     $rutaDestino,
                     $this->altaStorage->disco()->get($alta->foto_path),
                 );
 
-                $usuario->update(['foto_path' => $rutaDestino]);
+                $colaborador->update(['foto_path' => $rutaDestino]);
             }
 
             foreach ($alta->documentos as $documentoAlta) {
                 $tipoDocumento = DocumentType::query()->findOrFail($documentoAlta->document_type_id);
                 $extension = pathinfo($documentoAlta->original_name, PATHINFO_EXTENSION);
-                $rutaDestino = $this->documentoStorage->rutaDocumento($usuario, $tipoDocumento, 1, $extension);
+                $rutaDestino = $this->documentoStorage->rutaDocumento($colaborador, $tipoDocumento, 1, $extension);
 
                 $this->documentoStorage->disco()->put(
                     $rutaDestino,
@@ -98,6 +108,7 @@ class ConversionColaboradorService
                 );
 
                 EmployeeDocument::create([
+                    'colaborador_id' => $colaborador->id,
                     'user_id' => $usuario->id,
                     'empresa_id' => $alta->empresa_id,
                     'sucursal_id' => $alta->sucursal_id,
@@ -117,7 +128,7 @@ class ConversionColaboradorService
             }
 
             if ($alta->candidato?->cv_path) {
-                $this->copiarCvDelCandidato($alta, $usuario, $aprobadoPor);
+                $this->copiarCvDelCandidato($alta, $colaborador, $usuario, $aprobadoPor);
             }
 
             $alta->update([
@@ -142,7 +153,7 @@ class ConversionColaboradorService
                 $alta->vacante->update(['estado' => EstadoVacante::Cubierta]);
             }
 
-            $this->movimientos->registrarAlta($usuario, $aprobadoPor, $alta, $alta->vacante_id);
+            $this->movimientos->registrarAlta($colaborador, $aprobadoPor, $alta, $alta->vacante_id);
 
             Password::broker()->sendResetLink(['email' => $usuario->email]);
 
@@ -150,7 +161,7 @@ class ConversionColaboradorService
         });
     }
 
-    private function copiarCvDelCandidato(AltaDigital $alta, User $usuario, User $aprobadoPor): void
+    private function copiarCvDelCandidato(AltaDigital $alta, Colaborador $colaborador, User $usuario, User $aprobadoPor): void
     {
         $tipoCv = DocumentType::query()->where('clave', 'cv')->first();
 
@@ -160,7 +171,7 @@ class ConversionColaboradorService
 
         $nombreOriginal = $alta->candidato->cv_original_name ?? 'cv.pdf';
         $extension = pathinfo($nombreOriginal, PATHINFO_EXTENSION);
-        $rutaDestino = $this->documentoStorage->rutaDocumento($usuario, $tipoCv, 1, $extension);
+        $rutaDestino = $this->documentoStorage->rutaDocumento($colaborador, $tipoCv, 1, $extension);
 
         $this->documentoStorage->disco()->put(
             $rutaDestino,
@@ -168,6 +179,7 @@ class ConversionColaboradorService
         );
 
         EmployeeDocument::create([
+            'colaborador_id' => $colaborador->id,
             'user_id' => $usuario->id,
             'empresa_id' => $alta->empresa_id,
             'sucursal_id' => $alta->sucursal_id,

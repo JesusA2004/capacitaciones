@@ -11,6 +11,7 @@ use App\Http\Requests\Rh\ActualizarEstadoVacanteRequest;
 use App\Http\Requests\Rh\CubrirVacanteRequest;
 use App\Http\Requests\Rh\StoreVacanteRequest;
 use App\Http\Requests\Rh\UpdateVacanteRequest;
+use App\Models\Colaborador;
 use App\Models\Departamento;
 use App\Models\Empresa;
 use App\Models\HeadcountTarget;
@@ -63,11 +64,14 @@ class VacanteController extends Controller
                 'responsables' => User::query()->role(['rh_admin', 'rh_auxiliar'])->orderBy('name')->get(['id', 'name', 'apellidos']),
                 'motivos' => array_map(fn (MotivoVacante $m) => ['value' => $m->value, 'etiqueta' => $m->etiqueta()], MotivoVacante::cases()),
                 'estados' => array_map(fn (EstadoVacante $e) => ['value' => $e->value, 'etiqueta' => $e->etiqueta()], EstadoVacante::cases()),
-                'colaboradores' => User::query()
+                // El id que se manda al frontend/CubrirVacanteRequest bajo la
+                // llave "user_id" es en realidad un Colaborador.id (no un
+                // users.id) — ver App\Http\Controllers\Rh\VacanteController::cubrir().
+                'colaboradores' => Colaborador::query()
                     ->where('estatus', EstadoUsuario::Activo->value)
                     ->orderBy('name')
                     ->get(['id', 'name', 'apellidos', 'puesto_id'])
-                    ->map(fn (User $u) => ['id' => $u->id, 'name' => $u->name, 'apellidos' => $u->apellidos, 'puesto_id' => $u->puesto_id]),
+                    ->map(fn (Colaborador $c) => ['id' => $c->id, 'name' => $c->name, 'apellidos' => $c->apellidos, 'puesto_id' => $c->puesto_id]),
             ],
         ]);
     }
@@ -301,14 +305,16 @@ class VacanteController extends Controller
             ]);
         }
 
-        $usuario = User::query()->findOrFail((int) $datos['user_id']);
+        // "user_id" en CubrirVacanteRequest identifica en realidad un
+        // Colaborador (ver comentario en index() más arriba).
+        $colaborador = Colaborador::query()->findOrFail((int) $datos['user_id']);
 
         if ($datos['modo'] === 'cobertura_temporal') {
             $puesto = $vacante->puesto_id ? Puesto::query()->find($vacante->puesto_id) : null;
             abort_unless($puesto !== null, 422, 'La vacante no tiene un puesto asociado.');
 
             $this->movimientos->registrarCoberturaTemporal(
-                $usuario,
+                $colaborador,
                 $puesto,
                 $request->user(),
                 Carbon::parse($datos['fecha_inicio']),
@@ -321,16 +327,16 @@ class VacanteController extends Controller
         }
 
         // colaborador_interno: mueve al colaborador al puesto de la vacante.
-        $antes = $this->movimientos->snapshot($usuario);
+        $antes = $this->movimientos->snapshot($colaborador);
 
-        $usuario->update([
+        $colaborador->update([
             'puesto_id' => $vacante->puesto_id,
-            'departamento_id' => $vacante->departamento_id ?? $usuario->departamento_id,
-            'sucursal_principal_id' => $vacante->sucursal_id ?? $usuario->sucursal_principal_id,
+            'departamento_id' => $vacante->departamento_id ?? $colaborador->departamento_id,
+            'sucursal_principal_id' => $vacante->sucursal_id ?? $colaborador->sucursal_principal_id,
         ]);
 
         $this->movimientos->registrarCambioPuesto(
-            $usuario->fresh(),
+            $colaborador->fresh(),
             $antes,
             $request->user(),
             $datos['motivo'] ?? null,

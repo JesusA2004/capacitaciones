@@ -3,15 +3,11 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
-use App\Enums\EstadoUsuario;
-use App\Enums\EstatusImss;
-use App\Enums\Genero;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -23,47 +19,25 @@ use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Permission\Traits\HasRoles;
 
 /**
+ * Cuenta de acceso al sistema — email, password, 2FA, tokens, dispositivos,
+ * roles, preferencias. Los datos de persona/empleo viven en
+ * App\Models\Colaborador (`colaborador_id`), no aquí — ver
+ * docs/ROLES_Y_NAVEGACION.md. `name`/`apellidos` se conservan como copia de
+ * despliegue (para pantallas que muestran a este usuario como actor —
+ * "revisado por", "subido por", etc. — sin necesitar cargar su colaborador);
+ * `Colaborador::name` es la fuente autoritativa y se sincroniza aquí al
+ * editar el expediente (ver Rh\ExpedienteController).
+ *
  * @property int $id
+ * @property int|null $colaborador_id
  * @property string $name
  * @property string|null $apellidos
- * @property Genero|null $genero
- * @property string|null $numero_empleado
  * @property string $email
- * @property string|null $telefono
- * @property string|null $foto_path
- * @property string|null $expediente_storage_path
- * @property int|null $sucursal_principal_id
- * @property int|null $departamento_id
- * @property int|null $puesto_id
- * @property int|null $jefe_id
- * @property Carbon|null $fecha_ingreso
- * @property EstadoUsuario $estatus
  * @property Carbon|null $acceso_bloqueado_en
- * @property EstatusImss $estatus_imss
- * @property Carbon|null $fecha_alta_imss
- * @property Carbon|null $periodo_prueba_inicio
- * @property Carbon|null $periodo_prueba_fin
  * @property Carbon|null $ultimo_acceso
  * @property string $zona_horaria
  * @property array<string, mixed>|null $preferencias_notificaciones
  * @property array{tema_color: string, avatar_color: string, animaciones: bool}|null $preferencias_ui
- * @property Carbon|null $fecha_nacimiento
- * @property string|null $curp
- * @property string|null $rfc
- * @property string|null $nss
- * @property string|null $domicilio
- * @property string|null $correo_personal
- * @property string|null $contacto_emergencia_nombre
- * @property string|null $contacto_emergencia_telefono
- * @property bool $aviso_privacidad_aceptado
- * @property Carbon|null $aviso_privacidad_aceptado_en
- * @property bool $consentimiento_datos_aceptado
- * @property Carbon|null $consentimiento_datos_aceptado_en
- * @property int|null $avisos_registrado_por_id
- * @property string|null $incorporacion_decision
- * @property int|null $incorporacion_decidida_por
- * @property Carbon|null $incorporacion_decidida_en
- * @property string|null $incorporacion_motivo_rechazo
  * @property Carbon|null $email_verified_at
  * @property string $password
  * @property string|null $two_factor_secret
@@ -72,40 +46,17 @@ use Spatie\Permission\Traits\HasRoles;
  * @property string|null $remember_token
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
- * @property-read Sucursal|null $sucursalPrincipal
- * @property-read Departamento|null $departamento
- * @property-read Puesto|null $puesto
- * @property-read User|null $jefe
+ * @property-read Colaborador|null $colaborador
  */
 #[Fillable([
-    'name', 'apellidos', 'genero', 'numero_empleado', 'email', 'password', 'telefono', 'foto_path',
-    'sucursal_principal_id', 'departamento_id', 'puesto_id', 'jefe_id',
-    'fecha_ingreso', 'estatus', 'estatus_imss', 'fecha_alta_imss',
-    'periodo_prueba_inicio', 'periodo_prueba_fin',
+    'colaborador_id', 'name', 'apellidos', 'email', 'password',
     'zona_horaria', 'preferencias_notificaciones', 'preferencias_ui',
-    'fecha_nacimiento', 'curp', 'rfc', 'nss', 'domicilio',
-    'correo_personal', 'contacto_emergencia_nombre', 'contacto_emergencia_telefono',
-    'aviso_privacidad_aceptado', 'aviso_privacidad_aceptado_en',
-    'consentimiento_datos_aceptado', 'consentimiento_datos_aceptado_en', 'avisos_registrado_por_id',
-    'incorporacion_decision', 'incorporacion_decidida_por', 'incorporacion_decidida_en', 'incorporacion_motivo_rechazo',
 ])]
-#[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token', 'foto_path', 'expediente_storage_path'])]
+#[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, HasRoles, LogsActivity, Notifiable, SoftDeletes;
-
-    /**
-     * Refleja en PHP el mismo default que la columna tiene en la base de
-     * datos: sin esto, un User recien creado (factory, UsuarioController,
-     * ConversionColaboradorService) no trae 'estatus_imss' en memoria hasta
-     * que se recarga desde la BD, y el cast a enum revienta con null.
-     *
-     * @var array<string, mixed>
-     */
-    protected $attributes = [
-        'estatus_imss' => 'pendiente_imss',
-    ];
 
     /**
      * Get the attributes that should be cast.
@@ -117,57 +68,46 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
-            'fecha_ingreso' => 'date',
-            'estatus' => EstadoUsuario::class,
             'acceso_bloqueado_en' => 'datetime',
-            'genero' => Genero::class,
-            'estatus_imss' => EstatusImss::class,
-            'fecha_alta_imss' => 'date',
-            'periodo_prueba_inicio' => 'date',
-            'periodo_prueba_fin' => 'date',
             'ultimo_acceso' => 'datetime',
             'preferencias_notificaciones' => 'array',
             'preferencias_ui' => 'array',
-            'fecha_nacimiento' => 'date',
-            'aviso_privacidad_aceptado' => 'boolean',
-            'aviso_privacidad_aceptado_en' => 'datetime',
-            'consentimiento_datos_aceptado' => 'boolean',
-            'consentimiento_datos_aceptado_en' => 'datetime',
-            'incorporacion_decidida_en' => 'datetime',
         ];
     }
 
+    /**
+     * Nombre para mostrar como actor (subido por, revisado por, etc.):
+     * prefiere el del Colaborador enlazado (fuente autoritativa) y cae al
+     * de la propia cuenta si no hay colaborador (cuentas de servicio).
+     */
     public function nombreCompleto(): string
     {
-        return trim("{$this->name} {$this->apellidos}");
+        return $this->colaborador?->nombreCompleto() ?? trim("{$this->name} {$this->apellidos}");
     }
 
     /**
      * La app movil nunca deja pasar a un colaborador al portal normal
-     * mientras no este Activo: EnIncorporacion sigue viendo solo la
-     * checklist de su expediente (ver
+     * mientras no este Activo, y el acceso puede bloquearse
+     * independientemente del estatus laboral (ver
+     * App\Http\Controllers\Administracion\UsuarioController::revocarAcceso()).
+     * EnIncorporacion sigue viendo solo la checklist de su expediente (ver
      * App\Services\Incorporacion\IncorporacionService).
      */
     public function puedeAccederPortal(): bool
     {
-        return $this->estatus === EstadoUsuario::Activo;
-    }
-
-    /**
-     * @return BelongsTo<User, $this>
-     */
-    public function incorporacionDecididaPor(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'incorporacion_decidida_por');
-    }
-
-    public function enPeriodoDePrueba(): bool
-    {
-        if ($this->periodo_prueba_inicio === null || $this->periodo_prueba_fin === null) {
+        if ($this->acceso_bloqueado_en !== null) {
             return false;
         }
 
-        return now()->betweenIncluded($this->periodo_prueba_inicio, $this->periodo_prueba_fin);
+        return $this->colaborador?->estatus === \App\Enums\EstadoUsuario::Activo;
+    }
+
+    /**
+     * @return BelongsTo<Colaborador, $this>
+     */
+    public function colaborador(): BelongsTo
+    {
+        return $this->belongsTo(Colaborador::class, 'colaborador_id');
     }
 
     /**
@@ -183,46 +123,6 @@ class User extends Authenticatable
     }
 
     /**
-     * @return BelongsTo<Sucursal, $this>
-     */
-    public function sucursalPrincipal(): BelongsTo
-    {
-        return $this->belongsTo(Sucursal::class, 'sucursal_principal_id');
-    }
-
-    /**
-     * Sucursales adicionales autorizadas, ademas de la principal.
-     *
-     * @return BelongsToMany<Sucursal, $this>
-     */
-    public function sucursalesAdicionales(): BelongsToMany
-    {
-        return $this->belongsToMany(Sucursal::class, 'sucursal_user');
-    }
-
-    /**
-     * La empresa se resuelve de forma indirecta a traves de la sucursal
-     * principal (no hay columna empresa_id propia en users): un colaborador
-     * "pertenece" a la empresa de su sucursal. No es una relacion Eloquent
-     * (no existe belongsTo-a-traves-de-belongsTo nativo) sino un helper de
-     * lectura; para evitar N+1 al listar varios usuarios, carga la relacion
-     * con `with(['sucursalPrincipal.empresa'])` antes de llamarlo. Ver
-     * docs/MULTIEMPRESA.md.
-     */
-    public function empresa(): ?Empresa
-    {
-        return $this->sucursalPrincipal?->empresa;
-    }
-
-    /**
-     * @return HasMany<EmployeeDocument, $this>
-     */
-    public function documentos(): HasMany
-    {
-        return $this->hasMany(EmployeeDocument::class, 'user_id');
-    }
-
-    /**
      * Dispositivos moviles registrados (push tokens), incluyendo los
      * revocados: filtrar con activos() donde solo interese el push vigente.
      *
@@ -231,50 +131,6 @@ class User extends Authenticatable
     public function mobileDevices(): HasMany
     {
         return $this->hasMany(MobileDevice::class, 'user_id');
-    }
-
-    /**
-     * @return BelongsTo<Departamento, $this>
-     */
-    public function departamento(): BelongsTo
-    {
-        return $this->belongsTo(Departamento::class);
-    }
-
-    /**
-     * @return BelongsTo<Puesto, $this>
-     */
-    public function puesto(): BelongsTo
-    {
-        return $this->belongsTo(Puesto::class);
-    }
-
-    /**
-     * @return BelongsTo<User, $this>
-     */
-    public function jefe(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'jefe_id');
-    }
-
-    /**
-     * Quién registró manualmente el aviso de privacidad / consentimiento de
-     * datos (ver App\Services\Expedientes\AvisoPrivacidadService) — solo
-     * aplica a colaboradores sin Alta digital real.
-     *
-     * @return BelongsTo<User, $this>
-     */
-    public function avisosRegistradoPor(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'avisos_registrado_por_id');
-    }
-
-    /**
-     * @return HasMany<User, $this>
-     */
-    public function subordinados(): HasMany
-    {
-        return $this->hasMany(User::class, 'jefe_id');
     }
 
     /**
@@ -301,22 +157,10 @@ class User extends Authenticatable
         return $this->hasMany(ProgresoLeccion::class, 'user_id');
     }
 
-    /**
-     * Histórico de movimientos laborales de este colaborador (altas, bajas,
-     * promociones, cambios de puesto/sucursal/departamento/jefe/empresa y
-     * coberturas). Ver docs/MOVIMIENTOS_LABORALES.md.
-     *
-     * @return HasMany<MovimientoLaboral, $this>
-     */
-    public function movimientosLaborales(): HasMany
-    {
-        return $this->hasMany(MovimientoLaboral::class, 'user_id')->orderByDesc('fecha_movimiento')->orderByDesc('id');
-    }
-
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['name', 'apellidos', 'email', 'estatus', 'sucursal_principal_id', 'departamento_id', 'puesto_id', 'incorporacion_decision'])
+            ->logOnly(['name', 'apellidos', 'email', 'colaborador_id'])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs();
     }

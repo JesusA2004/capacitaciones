@@ -3,6 +3,7 @@
 namespace App\Services\Solicitudes;
 
 use App\Enums\EstadoUsuario;
+use App\Models\Colaborador;
 use App\Models\User;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use App\Services\Vacantes\VacanteAutoGenerationService;
@@ -12,13 +13,14 @@ use Illuminate\Support\Facades\DB;
  * Ejecuta la baja REAL de un colaborador cuando una solicitud interna de
  * tipo BajaColaborador queda aprobada (ver
  * App\Services\Solicitudes\SolicitudesService::aprobar()). Distinto del
- * flujo directo de administración (App\Http\Controllers\Administracion\
- * UsuarioController::destroy(), que sigue existiendo para una baja
- * administrativa inmediata sin pasar por aprobación): aquí el bloqueo de
- * acceso viene aparejado a la aprobación de la solicitud, no antes.
+ * flujo directo de administración (App\Http\Controllers\Rh\ExpedienteController::darDeBaja(),
+ * que sigue existiendo para una baja administrativa inmediata sin pasar por
+ * aprobación): aquí el bloqueo de acceso viene aparejado a la aprobación de
+ * la solicitud, no antes.
  *
- * Nunca borra al usuario ni su expediente — solo bloquea acceso y actualiza
- * headcount/vacantes, sección 2 del encargo ("Baja colaborador").
+ * Nunca borra al colaborador ni su expediente — solo bloquea acceso (si
+ * tiene cuenta) y actualiza headcount/vacantes, sección 2 del encargo ("Baja
+ * colaborador").
  */
 class BajaColaboradorService
 {
@@ -27,7 +29,7 @@ class BajaColaboradorService
         private readonly VacanteAutoGenerationService $vacantes,
     ) {}
 
-    public function ejecutar(User $colaborador, User $actor, ?string $motivo = null): void
+    public function ejecutar(Colaborador $colaborador, User $actor, ?string $motivo = null): void
     {
         DB::transaction(function () use ($colaborador, $actor, $motivo): void {
             $sucursalId = $colaborador->sucursal_principal_id;
@@ -35,19 +37,25 @@ class BajaColaboradorService
 
             // Historial laboral + auditoría (MovimientoLaboral guarda
             // motivo/fecha/quién la registró): misma fuente de verdad que
-            // la baja administrativa directa (UsuarioController::destroy),
-            // sin crear una vacante manual aquí — la vacante automática se
-            // sincroniza abajo a partir del headcount real.
+            // la baja administrativa directa, sin crear una vacante manual
+            // aquí — la vacante automática se sincroniza abajo a partir del
+            // headcount real.
             $this->movimientos->registrarBaja($colaborador, $actor, $motivo, false);
 
-            // $colaborador tiene LogsActivity (App\Models\User) con
+            // $colaborador tiene LogsActivity (App\Models\Colaborador) con
             // 'estatus' en logOnly(): este cambio ya queda auditado solo.
             $colaborador->update(['estatus' => EstadoUsuario::Inactivo]);
 
-            // Bloquear login: revocar todos los tokens Sanctum (API/app
-            // móvil) y marcar sus dispositivos móviles como revocados.
-            $colaborador->tokens()->delete();
-            $colaborador->mobileDevices()->whereNull('revoked_at')->update(['revoked_at' => now()]);
+            // Bloquear login si tiene cuenta: revocar todos los tokens
+            // Sanctum (API/app móvil) y marcar sus dispositivos móviles como
+            // revocados. Un colaborador sin cuenta no tiene nada que
+            // revocar aquí.
+            $cuenta = $colaborador->user;
+
+            if ($cuenta !== null) {
+                $cuenta->tokens()->delete();
+                $cuenta->mobileDevices()->whereNull('revoked_at')->update(['revoked_at' => now()]);
+            }
 
             // Headcount/vacantes: la plantilla actual ya bajó (el
             // colaborador dejó de estar activo), así que se sincroniza la

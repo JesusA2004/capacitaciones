@@ -28,6 +28,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int|null $sucursal_id
  * @property int|null $puesto_id
  * @property int|null $responsable_user_id
+ * @property int|null $responsable_colaborador_id
  * @property array<string, mixed>|null $metadata
  */
 class NodoComercial extends Model
@@ -48,6 +49,7 @@ class NodoComercial extends Model
         'sucursal_id',
         'puesto_id',
         'responsable_user_id',
+        'responsable_colaborador_id',
         'metadata',
     ];
 
@@ -95,14 +97,14 @@ class NodoComercial extends Model
 
     /**
      * Gestor/responsable asignado a este nodo (típicamente una ruta). Un
-     * usuario inactivo no cuenta como cobertura real — ver
+     * colaborador inactivo no cuenta como cobertura real — ver
      * App\Services\MatrizComercial\MatrizComercialService::cubierta().
      *
-     * @return BelongsTo<User, $this>
+     * @return BelongsTo<Colaborador, $this>
      */
     public function responsable(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'responsable_user_id');
+        return $this->belongsTo(Colaborador::class, 'responsable_colaborador_id');
     }
 
     /**
@@ -127,6 +129,6 @@ class NodoComercial extends Model
         return $this->asignaciones()
             ->where('activo', true)
             ->whereIn('tipo_asignacion', [TipoAsignacionNodoComercial::Apoyo->value, TipoAsignacionNodoComercial::Volante->value])
-            ->with('usuario:id,name,apellidos,estatus');
+            ->with('colaborador:id,name,apellidos,estatus');
     }
 }
