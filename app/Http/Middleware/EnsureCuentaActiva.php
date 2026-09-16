@@ -22,9 +22,11 @@ class EnsureCuentaActiva
     public function handle(Request $request, Closure $next): Response
     {
         $usuario = $request->user();
+        $estatus = $usuario?->colaborador?->estatus;
 
         if ($usuario !== null && (
-            in_array($usuario->estatus, [EstadoUsuario::Inactivo, EstadoUsuario::Suspendido], true)
+            $estatus === null
+            || in_array($estatus, [EstadoUsuario::Inactivo, EstadoUsuario::Suspendido], true)
             || $usuario->acceso_bloqueado_en !== null
         )) {
             Auth::guard('web')->logout();

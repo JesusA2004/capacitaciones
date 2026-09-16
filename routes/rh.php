@@ -29,13 +29,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('exportar-excel', [ExpedienteController::class, 'exportarExcel'])->name('exportarExcel');
             Route::get('exportar-pdf', [ExpedienteController::class, 'exportarPdf'])->name('exportarPdf');
             // withTrashed(): un colaborador dado de baja (soft-deleted, ver
-            // Administracion\UsuarioController::destroy()) debe poder seguir
-            // abriéndose desde Expedientes -- es donde ahora vive la acción
-            // "Reactivar colaborador", no solo en Usuarios.
+            // ExpedienteController::darDeBaja()) debe poder seguir
+            // abriéndose desde Expedientes -- es donde vive tanto la baja
+            // administrativa directa como "Reactivar colaborador"; Usuarios
+            // (Administracion\UsuarioController) solo administra la cuenta
+            // de acceso (correo/roles/bloqueo), nunca la relación laboral.
             Route::get('{colaborador}', [ExpedienteController::class, 'show'])->name('show')->withTrashed();
             Route::get('{colaborador}/foto', [ExpedienteController::class, 'descargarFoto'])->name('foto')->withTrashed();
             Route::put('{colaborador}/datos-personales', [ExpedienteController::class, 'actualizarDatosPersonales'])->name('datos-personales.update');
             Route::put('{colaborador}/avisos', [ExpedienteController::class, 'registrarAvisos'])->name('avisos.update');
+            Route::delete('{colaborador}', [ExpedienteController::class, 'darDeBaja'])->name('dar-de-baja');
+            Route::post('{colaborador}/reactivar', [ExpedienteController::class, 'reactivar'])->name('reactivar')->withTrashed();
             Route::post('{colaborador}/documentos', [EmployeeDocumentController::class, 'store'])->name('documentos.store');
         });
 

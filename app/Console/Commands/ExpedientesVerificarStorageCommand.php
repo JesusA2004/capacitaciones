@@ -2,8 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Colaborador;
 use App\Models\EmployeeDocument;
-use App\Models\User;
 use App\Services\Expedientes\DocumentoStorageService;
 use Illuminate\Console\Command;
 
@@ -81,13 +81,13 @@ class ExpedientesVerificarStorageCommand extends Command
     {
         $this->line('<fg=blue>Fotos de perfil</>');
 
-        $colaboradores = User::withTrashed()->whereNotNull('foto_path')->orderBy('id')->get();
+        $colaboradores = Colaborador::withTrashed()->whereNotNull('foto_path')->orderBy('id')->get();
         $huboProblemas = false;
 
         foreach ($colaboradores as $colaborador) {
             if (! $storage->existe($colaborador->foto_path)) {
                 $huboProblemas = true;
-                $this->line("  <fg=red>✗</> user_id={$colaborador->id}: falta la foto en «{$colaborador->foto_path}».");
+                $this->line("  <fg=red>✗</> colaborador_id={$colaborador->id}: falta la foto en «{$colaborador->foto_path}».");
             }
         }
 

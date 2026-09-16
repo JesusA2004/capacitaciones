@@ -2,8 +2,8 @@
 
 namespace App\Services\Expedientes;
 
+use App\Models\Colaborador;
 use App\Models\EmployeeDocument;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -37,7 +37,7 @@ class ExpedienteRelocationService
     /**
      * @return array{movido: bool, detalle: string, archivos: int, ruta_anterior: string|null, ruta_nueva: string|null}
      */
-    public function relocalizar(User $colaborador): array
+    public function relocalizar(Colaborador $colaborador): array
     {
         $rutaVieja = $colaborador->expediente_storage_path;
 
@@ -93,12 +93,12 @@ class ExpedienteRelocationService
     /**
      * @return array<int, array{tipo: string, modelo: EmployeeDocument|null, old_path: string, new_path: string}>
      */
-    private function construirItems(User $colaborador, string $rutaVieja, string $rutaNueva): array
+    private function construirItems(Colaborador $colaborador, string $rutaVieja, string $rutaNueva): array
     {
         $items = [];
 
         $documentos = EmployeeDocument::withTrashed()
-            ->where('user_id', $colaborador->id)
+            ->where('colaborador_id', $colaborador->id)
             ->where('disk', config('expedientes.disk'))
             ->get();
 
@@ -131,7 +131,7 @@ class ExpedienteRelocationService
      * @param  array<int, array{tipo: string, modelo: EmployeeDocument|null, old_path: string, new_path: string}>  $items
      * @return array<int, array{tipo: string, modelo: EmployeeDocument|null, old_path: string, new_path: string}>|null
      */
-    private function copiarTodos(array $items, int $userId): ?array
+    private function copiarTodos(array $items, int $colaboradorId): ?array
     {
         $copiados = [];
 
@@ -159,7 +159,7 @@ class ExpedienteRelocationService
                 $this->storage->eliminar($item['new_path']);
             }
 
-            Log::error('ExpedienteRelocationService: fallo al copiar, se revirtieron las copias parciales.', ['user_id' => $userId, 'error' => $e->getMessage()]);
+            Log::error('ExpedienteRelocationService: fallo al copiar, se revirtieron las copias parciales.', ['colaborador_id' => $colaboradorId, 'error' => $e->getMessage()]);
 
             return null;
         }
@@ -170,7 +170,7 @@ class ExpedienteRelocationService
     /**
      * @param  array<int, array{tipo: string, modelo: EmployeeDocument|null, old_path: string, new_path: string}>  $items
      */
-    private function actualizarBd(array $items, User $colaborador, string $rutaNueva): bool
+    private function actualizarBd(array $items, Colaborador $colaborador, string $rutaNueva): bool
     {
         try {
             DB::transaction(function () use ($items, $colaborador, $rutaNueva) {
@@ -185,7 +185,7 @@ class ExpedienteRelocationService
                 $colaborador->forceFill(['expediente_storage_path' => $rutaNueva])->save();
             });
         } catch (Throwable $e) {
-            Log::error('ExpedienteRelocationService: fallo al actualizar BD.', ['user_id' => $colaborador->id, 'error' => $e->getMessage()]);
+            Log::error('ExpedienteRelocationService: fallo al actualizar BD.', ['colaborador_id' => $colaborador->id, 'error' => $e->getMessage()]);
 
             return false;
         }
@@ -196,7 +196,7 @@ class ExpedienteRelocationService
     /**
      * @param  array<int, array{tipo: string, modelo: EmployeeDocument|null, old_path: string, new_path: string}>  $items
      */
-    private function borrarOrigenes(array $items, int $userId): int
+    private function borrarOrigenes(array $items, int $colaboradorId): int
     {
         foreach ($items as $item) {
             $this->storage->eliminar($item['old_path']);
@@ -206,7 +206,7 @@ class ExpedienteRelocationService
 
         if ($huerfanos !== []) {
             Log::warning('ExpedienteRelocationService: algunos archivos de origen no se pudieron borrar tras relocalizar.', [
-                'user_id' => $userId,
+                'colaborador_id' => $colaboradorId,
                 'archivos' => array_column($huerfanos, 'old_path'),
             ]);
         }

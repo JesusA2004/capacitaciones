@@ -4,6 +4,7 @@ namespace App\Services\Incorporacion;
 
 use App\Enums\EstadoDocumento;
 use App\Enums\EstadoUsuario;
+use App\Models\Colaborador;
 use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
 use App\Models\User;
@@ -83,7 +84,7 @@ class IncorporacionService
     public function estadoIncorporacion(User $colaborador): array
     {
         $tipos = $this->tiposDocumento();
-        $vigentes = $this->expediente->documentosVigentes($colaborador);
+        $vigentes = $this->expediente->documentosVigentes($this->personaDe($colaborador));
 
         $documentos = $tipos->map(fn (DocumentType $tipo) => $this->documentoParaColaborador($tipo, $vigentes->get($tipo->id)));
 
@@ -111,7 +112,7 @@ class IncorporacionService
     public function detalleParaRh(User $colaborador): array
     {
         $tipos = $this->tiposDocumento();
-        $vigentes = $this->expediente->documentosVigentes($colaborador);
+        $vigentes = $this->expediente->documentosVigentes($this->personaDe($colaborador));
 
         return $tipos->map(function (DocumentType $tipo) use ($vigentes) {
             $documento = $vigentes->get($tipo->id);
@@ -237,7 +238,7 @@ class IncorporacionService
     public function estado(User $colaborador): string
     {
         $tipos = $this->tiposDocumento();
-        $vigentes = $this->expediente->documentosVigentes($colaborador);
+        $vigentes = $this->expediente->documentosVigentes($this->personaDe($colaborador));
 
         return $this->estadoGeneral($colaborador, $tipos, $vigentes);
     }
@@ -259,7 +260,7 @@ class IncorporacionService
             throw new RuntimeException('Este documento ya fue subido y esta en revision o aprobado. Solicita un cambio si necesitas modificarlo.');
         }
 
-        $documento = $this->storage->subirVersion($colaborador, $tipo, $archivo, $subidoPorId);
+        $documento = $this->storage->subirVersion($this->personaDe($colaborador), $tipo, $archivo, $subidoPorId);
 
         $this->notificarSinFallar(function () use ($documento, $colaborador): void {
             $responsables = $this->responsables->paraColaborador($colaborador, 'rh.documentos.ver');
@@ -340,7 +341,9 @@ class IncorporacionService
      */
     private function avisarSiIncorporacionQuedoCompleta(User $colaborador): void
     {
-        if ($colaborador->estatus !== EstadoUsuario::EnIncorporacion || $colaborador->incorporacion_decision !== null) {
+        $persona = $this->personaDe($colaborador);
+
+        if ($persona->estatus !== EstadoUsuario::EnIncorporacion || $persona->incorporacion_decision !== null) {
             return;
         }
 
@@ -380,7 +383,7 @@ class IncorporacionService
     public function aprobarIncorporacion(User $colaborador, User $revisor): void
     {
         $tipos = $this->tiposDocumento();
-        $vigentes = $this->expediente->documentosVigentes($colaborador);
+        $vigentes = $this->expediente->documentosVigentes($this->personaDe($colaborador));
 
         $requeridos = $tipos->where('requerido', true);
         $todosAprobados = $requeridos->isNotEmpty() && $requeridos->every(
@@ -422,7 +425,23 @@ class IncorporacionService
 
     private function documentoVigente(User $colaborador, DocumentType $tipo): ?EmployeeDocument
     {
-        return $this->expediente->documentosVigentes($colaborador)->get($tipo->id);
+        return $this->expediente->documentosVigentes($this->personaDe($colaborador))->get($tipo->id);
+    }
+
+    /**
+     * Resuelve el Colaborador (persona) enlazado a esta cuenta de acceso.
+     * Deuda técnica conocida (Parte "API móvil" pendiente de la separación
+     * Usuario/Colaborador, ver plan de separación): el resto de este
+     * servicio sigue leyendo/escribiendo `estatus`/`incorporacion_*`
+     * directamente sobre `User`, que ya no son la fuente real — deben
+     * moverse a Colaborador en esa migración, junto con `Notification`/push
+     * (que sí requieren un `User` Notifiable, y por eso el actor sigue
+     * siendo User aquí).
+     */
+    private function personaDe(User $colaborador): Colaborador
+    {
+        return $colaborador->colaborador
+            ?? throw new RuntimeException("La cuenta de acceso (users.id={$colaborador->id}) no tiene un colaborador enlazado.");
     }
 
     /**

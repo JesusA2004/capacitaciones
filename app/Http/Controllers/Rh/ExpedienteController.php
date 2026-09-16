@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Rh\ActualizarDatosPersonalesRequest;
 use App\Http\Requests\Rh\RegistrarAvisosRequest;
 use App\Models\AltaDigital;
+use App\Models\Colaborador;
 use App\Models\Departamento;
 use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
@@ -17,12 +18,12 @@ use App\Models\MovimientoLaboral;
 use App\Models\Puesto;
 use App\Models\SolicitudInterna;
 use App\Models\Sucursal;
-use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Expedientes\AvisoPrivacidadService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Onboarding\OnboardingService;
+use App\Services\Solicitudes\BajaColaboradorService;
 use App\Services\Vacaciones\VacacionesService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
@@ -46,6 +47,7 @@ class ExpedienteController extends Controller
         private readonly VacacionesService $vacaciones,
         private readonly DocumentoStorageService $documentoStorage,
         private readonly AvisoPrivacidadService $avisoPrivacidad,
+        private readonly BajaColaboradorService $baja,
     ) {}
 
     /**
@@ -65,7 +67,7 @@ class ExpedienteController extends Controller
             ->paginate(24)
             ->withQueryString();
 
-        $colaboradores->getCollection()->transform(function (User $colaborador) {
+        $colaboradores->getCollection()->transform(function (Colaborador $colaborador) {
             $resumen = $this->expediente->resumenCompletitud($colaborador);
 
             return [
@@ -131,7 +133,7 @@ class ExpedienteController extends Controller
 
         $columnas = ['Nombre', 'Número de empleado', 'Empresa', 'Sucursal', 'Departamento', 'Puesto', 'Estado', 'Expediente completo', 'Documentos pendientes'];
 
-        $filas = $colaboradores->map(function (User $colaborador) {
+        $filas = $colaboradores->map(function (Colaborador $colaborador) {
             $resumen = $this->expediente->resumenCompletitud($colaborador);
 
             return [
@@ -151,13 +153,13 @@ class ExpedienteController extends Controller
     }
 
     /**
-     * @return Builder<User>
+     * @return Builder<Colaborador>
      */
     private function queryFiltrada(Request $request): Builder
     {
         $usuario = $request->user();
 
-        return User::withTrashed()
+        return Colaborador::withTrashed()
             ->tap(fn ($query) => $this->alcance->limitarExpedientesPorAlcance($query, $usuario))
             ->with([
                 'sucursalPrincipal:id,nombre,empresa_id',
@@ -181,21 +183,29 @@ class ExpedienteController extends Controller
             ->when($request->string('fecha_fin')->toString(), fn ($query, string $valor) => $query->whereDate('fecha_ingreso', '<=', $valor));
     }
 
-    public function show(Request $request, User $colaborador): Response
+    public function show(Request $request, Colaborador $colaborador): Response
     {
         return $this->renderExpediente($request, $colaborador, esPropio: false);
     }
 
     public function miExpediente(Request $request): Response
     {
-        return $this->renderExpediente($request, $request->user(), esPropio: true);
+        $colaborador = $request->user()->colaborador;
+
+        abort_if($colaborador === null, 403, 'Tu cuenta no tiene un colaborador enlazado.');
+
+        return $this->renderExpediente($request, $colaborador, esPropio: true);
     }
 
-    private function renderExpediente(Request $request, User $colaborador, bool $esPropio): Response
+    private function renderExpediente(Request $request, Colaborador $colaborador, bool $esPropio): Response
     {
         $usuario = $request->user();
 
         abort_unless($this->alcance->puedeVerExpediente($usuario, $colaborador), 403);
+
+        $esCuentaPropia = $usuario->colaborador_id === $colaborador->id;
+        $cuenta = $colaborador->user;
+        $idUsuarioColaborador = $cuenta?->id;
 
         $colaborador->loadMissing([
             'sucursalPrincipal:id,nombre,empresa_id',
@@ -208,35 +218,37 @@ class ExpedienteController extends Controller
 
         $resumen = $this->expediente->resumenCompletitud($colaborador);
         $documentos = $this->expediente->documentosVigentes($colaborador);
-        $alta = AltaDigital::query()->where('user_id', $colaborador->id)->first();
+        $alta = AltaDigital::query()->where('colaborador_id', $colaborador->id)->first();
 
         return Inertia::render($esPropio ? 'Rh/Expedientes/MiExpediente' : 'Rh/Expedientes/Show', [
             'esPropio' => $esPropio,
-            'puedeEditar' => $usuario->can('expedientes.editar') || $usuario->is($colaborador),
+            'puedeEditar' => $usuario->can('expedientes.editar') || $esCuentaPropia,
             'puedeReactivar' => $usuario->can('usuarios.reactivar'),
-            'puedeRevisarDocumentos' => $usuario->can('documentos.revisar') && ! $usuario->is($colaborador),
-            'puedeVerExtraccion' => $usuario->can('rh.documentos.extraccion.ver') && ! $usuario->is($colaborador),
-            'puedeAplicarExtraccion' => $usuario->can('rh.documentos.extraccion.aplicar') && ! $usuario->is($colaborador),
-            'puedeReprocesarExtraccion' => $usuario->can('rh.documentos.extraccion.reprocesar') && ! $usuario->is($colaborador),
-            'puedeIgnorarExtraccion' => $usuario->can('rh.documentos.extraccion.ignorar') && ! $usuario->is($colaborador),
-            'puedeGestionarAcceso' => $usuario->can('usuarios.desactivar') && ! $usuario->is($colaborador),
-            'puedeGestionarPassword' => $usuario->can('usuarios.editar') && ! $usuario->is($colaborador),
+            'puedeRevisarDocumentos' => $usuario->can('documentos.revisar') && ! $esCuentaPropia,
+            'puedeVerExtraccion' => $usuario->can('rh.documentos.extraccion.ver') && ! $esCuentaPropia,
+            'puedeAplicarExtraccion' => $usuario->can('rh.documentos.extraccion.aplicar') && ! $esCuentaPropia,
+            'puedeReprocesarExtraccion' => $usuario->can('rh.documentos.extraccion.reprocesar') && ! $esCuentaPropia,
+            'puedeIgnorarExtraccion' => $usuario->can('rh.documentos.extraccion.ignorar') && ! $esCuentaPropia,
+            'puedeGestionarAcceso' => $usuario->can('usuarios.desactivar') && ! $esCuentaPropia && $cuenta !== null,
+            'puedeGestionarPassword' => $usuario->can('usuarios.editar') && ! $esCuentaPropia && $cuenta !== null,
             // Distingue "no tienes permiso" de "es tu propia cuenta" en el
             // mensaje del frontend — ambos casos esconden el mismo botón
             // pero la razón (y la acción sugerida) es distinta.
-            'esCuentaPropia' => $usuario->is($colaborador),
+            'esCuentaPropia' => $esCuentaPropia,
             'colaborador' => [
                 'id' => $colaborador->id,
                 'name' => $colaborador->name,
                 'apellidos' => $colaborador->apellidos,
                 'numero_empleado' => $colaborador->numero_empleado,
-                'email' => $colaborador->email,
+                'email' => $cuenta?->email,
                 'telefono' => $colaborador->telefono,
-                'roles' => $colaborador->getRoleNames(),
+                'tiene_cuenta' => $cuenta !== null,
+                'usuario_id' => $idUsuarioColaborador,
+                'roles' => $cuenta?->getRoleNames() ?? collect(),
                 'foto_url' => $this->fotoUrl($colaborador),
                 'estatus' => $colaborador->estatus->value,
                 'deleted_at' => $colaborador->deleted_at?->toISOString(),
-                'acceso_bloqueado_en' => $colaborador->acceso_bloqueado_en?->toISOString(),
+                'acceso_bloqueado_en' => $cuenta?->acceso_bloqueado_en?->toISOString(),
                 'estatus_imss' => $colaborador->estatus_imss->value,
                 'fecha_alta_imss' => $colaborador->fecha_alta_imss?->toDateString(),
                 'periodo_prueba_inicio' => $colaborador->periodo_prueba_inicio?->toDateString(),
@@ -260,14 +272,20 @@ class ExpedienteController extends Controller
             'resumenExpediente' => $resumen,
             'documentosRequeridos' => $this->documentosParaVista($documentos),
             'onboarding' => $this->onboarding->checklist($colaborador),
-            'saldoVacaciones' => $this->vacaciones->saldo($colaborador),
+            // `solicitudes_internas`/`solicitudes_vacaciones` todavía
+            // identifican a la persona por `user_id` (Parte B de la
+            // separación Usuario/Colaborador solo agregó la columna
+            // `colaborador_id`, sin migrar todavía estos servicios — ver
+            // plan de separación, secciones 5-6): un colaborador sin cuenta
+            // de acceso no puede tener solicitudes/vacaciones todavía.
+            'saldoVacaciones' => $cuenta !== null ? $this->vacaciones->saldo($cuenta) : $this->saldoVacacionesVacio(),
             // Fuente única de verdad (docs/SOLICITUDES_UNIFICADAS.md): las
             // vacaciones nuevas se crean en solicitudes_internas (tipo
             // vacaciones), no en la tabla legacy solicitudes_vacaciones —
             // leer de ahí dejaría el expediente mostrando historial viejo
             // congelado mientras RH aprueba/rechaza desde el Kanban actual.
-            'solicitudesVacaciones' => SolicitudInterna::query()
-                ->where('user_id', $colaborador->id)
+            'solicitudesVacaciones' => $idUsuarioColaborador === null ? [] : SolicitudInterna::query()
+                ->where('user_id', $idUsuarioColaborador)
                 ->where('tipo', TipoSolicitudInterna::Vacaciones)
                 ->orderByDesc('created_at')
                 ->limit(10)
@@ -286,8 +304,8 @@ class ExpedienteController extends Controller
             // Tab "Solicitudes" del expediente (sección 40 del encargo): todo
             // tipo de solicitud interna de este colaborador, no solo
             // vacaciones — mismo modelo unificado de arriba.
-            'solicitudes' => SolicitudInterna::query()
-                ->where('user_id', $colaborador->id)
+            'solicitudes' => $idUsuarioColaborador === null ? [] : SolicitudInterna::query()
+                ->where('user_id', $idUsuarioColaborador)
                 ->orderByDesc('created_at')
                 ->limit(20)
                 ->get(['id', 'folio', 'tipo', 'estado', 'motivo', 'created_at'])
@@ -301,7 +319,7 @@ class ExpedienteController extends Controller
                     'created_at' => $solicitud->created_at?->toISOString(),
                 ]),
             'movimientosLaborales' => MovimientoLaboral::query()
-                ->where('user_id', $colaborador->id)
+                ->where('colaborador_id', $colaborador->id)
                 ->with([
                     'colaborador:id,name,apellidos',
                     'puestoAnterior:id,nombre', 'puestoNuevo:id,nombre',
@@ -337,11 +355,67 @@ class ExpedienteController extends Controller
                     ? trim("{$colaborador->avisosRegistradoPor->name} {$colaborador->avisosRegistradoPor->apellidos}")
                     : null,
             ],
-            'puedeGestionarAvisos' => $usuario->can('expedientes.editar') || $usuario->is($colaborador),
+            'puedeGestionarAvisos' => $usuario->can('expedientes.editar') || $esCuentaPropia,
         ]);
     }
 
-    public function actualizarDatosPersonales(ActualizarDatosPersonalesRequest $request, User $colaborador): RedirectResponse
+    /**
+     * Baja administrativa inmediata sin pasar por el flujo de aprobación de
+     * solicitudes (ver App\Services\Solicitudes\BajaColaboradorService, la
+     * misma fuente que usa la baja aprobada por solicitud). Funciona con o
+     * sin cuenta de acceso.
+     */
+    public function darDeBaja(Request $request, Colaborador $colaborador): RedirectResponse
+    {
+        $this->abortSiNoPuedeGestionarAcceso($request, $colaborador);
+
+        $datos = $request->validate(['motivo' => ['nullable', 'string', 'max:500']]);
+
+        $this->baja->ejecutar($colaborador, $request->user(), $datos['motivo'] ?? null);
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'El colaborador se dio de baja correctamente.']);
+    }
+
+    /**
+     * Reactiva la relación laboral (deshace la baja). Nunca reactiva el
+     * acceso al sistema por su cuenta — ver BajaColaboradorService::reactivar().
+     */
+    public function reactivar(Request $request, Colaborador $colaborador): RedirectResponse
+    {
+        abort_unless($request->user()->can('usuarios.reactivar'), 403);
+
+        $this->baja->reactivar($colaborador);
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'El colaborador se reactivó correctamente.']);
+    }
+
+    private function abortSiNoPuedeGestionarAcceso(Request $request, Colaborador $colaborador): void
+    {
+        $usuario = $request->user();
+
+        abort_unless(
+            $usuario->can('usuarios.desactivar') && $usuario->colaborador_id !== $colaborador->id,
+            403,
+        );
+    }
+
+    /**
+     * @return array{antiguedad_anios: int, vigencia_inicio: string|null, vigencia_fin: string|null, dias_generados: int, dias_usados: int, dias_en_solicitud: int, dias_disponibles: int}
+     */
+    private function saldoVacacionesVacio(): array
+    {
+        return [
+            'antiguedad_anios' => 0,
+            'vigencia_inicio' => null,
+            'vigencia_fin' => null,
+            'dias_generados' => 0,
+            'dias_usados' => 0,
+            'dias_en_solicitud' => 0,
+            'dias_disponibles' => 0,
+        ];
+    }
+
+    public function actualizarDatosPersonales(ActualizarDatosPersonalesRequest $request, Colaborador $colaborador): RedirectResponse
     {
         $colaborador->update($request->validated());
 
@@ -353,7 +427,7 @@ class ExpedienteController extends Controller
      * colaboradores sin Alta digital (ver AvisoPrivacidadService). Nunca se
      * usa si ya existe un alta digital real para este colaborador.
      */
-    public function registrarAvisos(RegistrarAvisosRequest $request, User $colaborador): RedirectResponse
+    public function registrarAvisos(RegistrarAvisosRequest $request, Colaborador $colaborador): RedirectResponse
     {
         $this->avisoPrivacidad->registrar(
             $colaborador,
@@ -371,7 +445,7 @@ class ExpedienteController extends Controller
      * DocumentoStorageService), solo esta URL con la misma autorización que
      * el resto del expediente.
      */
-    public function descargarFoto(Request $request, User $colaborador): StreamedResponse
+    public function descargarFoto(Request $request, Colaborador $colaborador): StreamedResponse
     {
         abort_unless($this->alcance->puedeVerExpediente($request->user(), $colaborador), 403);
         abort_unless($colaborador->foto_path !== null, 404);
@@ -386,7 +460,7 @@ class ExpedienteController extends Controller
      * una. Nunca se expone `foto_path` (ruta física en el disco NAS) al
      * frontend — ver docs/SEGURIDAD.md.
      */
-    private function fotoUrl(User $colaborador): ?string
+    private function fotoUrl(Colaborador $colaborador): ?string
     {
         if ($colaborador->foto_path === null) {
             return null;

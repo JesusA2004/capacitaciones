@@ -4,14 +4,14 @@ namespace App\Services\Onboarding;
 
 use App\Enums\EstadoDocumento;
 use App\Models\AltaDigital;
+use App\Models\Colaborador;
 use App\Models\EmployeeDocument;
-use App\Models\User;
 use App\Services\Expedientes\ExpedienteService;
 
 /**
  * Checklist administrativo de incorporacion de un colaborador nuevo. No es
  * capacitacion: es puramente administrativo (datos, documentos, expediente).
- * No existe una tabla propia: se calcula a partir de User, EmployeeDocument,
+ * No existe una tabla propia: se calcula a partir de Colaborador, EmployeeDocument,
  * AltaDigital y ExpedienteService, siguiendo el mismo criterio de "vista
  * calculada" que el expediente digital (ver docs/EXPEDIENTES_DIGITALES.md).
  */
@@ -22,11 +22,11 @@ class OnboardingService
     /**
      * @return array<int, array{clave: string, etiqueta: string, completado: bool}>
      */
-    public function checklist(User $colaborador): array
+    public function checklist(Colaborador $colaborador): array
     {
-        $alta = AltaDigital::query()->where('user_id', $colaborador->id)->first();
+        $alta = AltaDigital::query()->where('colaborador_id', $colaborador->id)->first();
         $resumen = $this->expediente->resumenCompletitud($colaborador);
-        $documentos = EmployeeDocument::query()->where('user_id', $colaborador->id);
+        $documentos = EmployeeDocument::query()->where('colaborador_id', $colaborador->id);
 
         $tieneContrato = fn (array $estados) => (clone $documentos)
             ->whereHas('tipo', fn ($q) => $q->where('clave', 'contrato'))
@@ -90,7 +90,7 @@ class OnboardingService
         ];
     }
 
-    public function porcentaje(User $colaborador): float
+    public function porcentaje(Colaborador $colaborador): float
     {
         $items = $this->checklist($colaborador);
         $completados = collect($items)->where('completado', true)->count();

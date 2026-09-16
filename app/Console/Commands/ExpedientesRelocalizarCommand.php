@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Models\User;
+use App\Models\Colaborador;
 use App\Services\Expedientes\ExpedienteRelocationService;
 use Illuminate\Console\Command;
 
@@ -13,17 +13,17 @@ use Illuminate\Console\Command;
  * automático: un cambio de sucursal/nombre por sí solo deja el expediente
  * intacto en su carpeta histórica — alguien tiene que pedir esto a propósito.
  *
- * php artisan expedientes:relocalizar {user}
+ * php artisan expedientes:relocalizar {colaborador}
  */
 class ExpedientesRelocalizarCommand extends Command
 {
-    protected $signature = 'expedientes:relocalizar {user : ID del colaborador (users.id)}';
+    protected $signature = 'expedientes:relocalizar {colaborador : ID del colaborador (colaboradores.id)}';
 
     protected $description = 'Mueve el expediente completo de un colaborador a la carpeta del NAS que le corresponde con sus datos actuales';
 
     public function handle(ExpedienteRelocationService $servicio): int
     {
-        $colaborador = User::withTrashed()->where('id', $this->argument('user'))->first();
+        $colaborador = Colaborador::withTrashed()->where('id', $this->argument('colaborador'))->first();
 
         if ($colaborador === null) {
             $this->error('No existe ningún colaborador con ese ID.');

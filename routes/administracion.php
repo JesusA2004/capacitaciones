@@ -66,18 +66,15 @@ Route::middleware(['auth', 'verified'])
             Route::delete('{nodo}/apoyo', [MatrizComercialController::class, 'quitarApoyo'])->name('apoyo.quitar');
         });
 
+        // Solo cuenta de acceso (correo, roles, bloqueo) — la baja/reactivación
+        // laboral vive en rh.expedientes.dar-de-baja/reactivar (Colaborador,
+        // funciona con o sin cuenta), ver App\Http\Controllers\Rh\ExpedienteController.
         Route::prefix('usuarios')->name('usuarios.')->group(function () {
             Route::get('/', [UsuarioController::class, 'index'])->name('index');
             Route::post('/', [UsuarioController::class, 'store'])->name('store');
             Route::put('{usuario}', [UsuarioController::class, 'update'])->name('update');
-            Route::delete('{usuario}', [UsuarioController::class, 'destroy'])->name('destroy');
-            // Un colaborador dado de baja queda soft-deleted (ver
-            // UsuarioController::destroy()): sin withTrashed() el binding
-            // implícito de {usuario} nunca lo encontraría para reactivarlo.
-            Route::post('{usuario}/reactivar', [UsuarioController::class, 'reactivar'])->name('reactivar')->withTrashed();
-            // Revocar/restablecer acceso: distinto de destroy()/reactivar()
-            // (baja laboral) — bloquea/desbloquea el login sin tocar
-            // estatus/headcount, ver UsuarioController::revocarAcceso().
+            // Revocar/restablecer acceso: bloquea/desbloquea el login sin
+            // tocar estatus laboral/headcount, ver UsuarioController::revocarAcceso().
             Route::post('{usuario}/revocar-acceso', [UsuarioController::class, 'revocarAcceso'])->name('revocar-acceso');
             Route::post('{usuario}/restablecer-acceso', [UsuarioController::class, 'restablecerAcceso'])->name('restablecer-acceso');
             // Devuelve JSON (no es una visita Inertia normal): el frontend

@@ -11,6 +11,7 @@ use App\Enums\EstatusImss;
 use App\Enums\TipoMovimientoLaboral;
 use App\Enums\TipoSolicitudInterna;
 use App\Models\Candidato;
+use App\Models\Colaborador;
 use App\Models\EmployeeDocument;
 use App\Models\MovimientoLaboral;
 use App\Models\SolicitudInterna;
@@ -98,9 +99,9 @@ class ReportesRhService
     {
         return match ($clave) {
             'empleados_total' => $this->empleadosTotal($usuario, $filtros),
-            'empleados_por_empresa' => $this->empleadosAgrupados($usuario, $filtros, fn (User $u) => $u->empresa()->nombre ?? 'Sin empresa', 'Empleados por empresa', 'Empresa'),
-            'empleados_por_sucursal' => $this->empleadosAgrupados($usuario, $filtros, fn (User $u) => $u->sucursalPrincipal->nombre ?? 'Sin sucursal', 'Empleados por sucursal', 'Sucursal'),
-            'empleados_por_puesto' => $this->empleadosAgrupados($usuario, $filtros, fn (User $u) => $u->puesto->nombre ?? 'Sin puesto', 'Empleados por puesto', 'Puesto'),
+            'empleados_por_empresa' => $this->empleadosAgrupados($usuario, $filtros, fn (Colaborador $u) => $u->empresa()->nombre ?? 'Sin empresa', 'Empleados por empresa', 'Empresa'),
+            'empleados_por_sucursal' => $this->empleadosAgrupados($usuario, $filtros, fn (Colaborador $u) => $u->sucursalPrincipal->nombre ?? 'Sin sucursal', 'Empleados por sucursal', 'Sucursal'),
+            'empleados_por_puesto' => $this->empleadosAgrupados($usuario, $filtros, fn (Colaborador $u) => $u->puesto->nombre ?? 'Sin puesto', 'Empleados por puesto', 'Puesto'),
             'empleados_imss' => $this->empleadosImss($usuario, $filtros),
             'empleados_periodo_prueba' => $this->empleadosPeriodoPrueba($usuario, $filtros),
             'altas_por_mes' => $this->altasPorMes($usuario, $filtros),
@@ -125,9 +126,9 @@ class ReportesRhService
     }
 
     /**
-     * @param  Builder<User>  $query
+     * @param  Builder<Colaborador>  $query
      * @param  array<string, mixed>  $filtros
-     * @return Builder<User>
+     * @return Builder<Colaborador>
      */
     private function aplicarFiltrosColaborador(Builder $query, array $filtros): Builder
     {
@@ -141,14 +142,33 @@ class ReportesRhService
 
     /**
      * @param  array<string, mixed>  $filtros
-     * @return Collection<int, User>
+     * @return Collection<int, Colaborador>
      */
     private function colaboradoresVisibles(User $usuario, array $filtros): Collection
     {
-        $query = $this->alcance->limitarUsuariosPorAlcance(User::query(), $usuario)
-            ->with(['sucursalPrincipal:id,nombre,empresa_id', 'sucursalPrincipal.empresa:id,nombre', 'departamento:id,nombre', 'puesto:id,nombre']);
+        $query = $this->alcance->limitarColaboradoresPorAlcance(Colaborador::query(), $usuario)
+            ->with(['user:id,colaborador_id', 'sucursalPrincipal:id,nombre,empresa_id', 'sucursalPrincipal.empresa:id,nombre', 'departamento:id,nombre', 'puesto:id,nombre']);
 
         return $this->aplicarFiltrosColaborador($query, $filtros)->get();
+    }
+
+    /**
+     * IDs de `users` (cuentas de acceso) de los colaboradores visibles —
+     * necesario porque `solicitudes_internas`/`solicitudes_vacaciones`
+     * todavía identifican a la persona por `user_id` (Parte B de la
+     * separación Usuario/Colaborador pendiente de migrar estos servicios):
+     * un colaborador sin cuenta de acceso simplemente no puede tener
+     * solicitudes todavía.
+     *
+     * @param  array<string, mixed>  $filtros
+     * @return Collection<int, int>
+     */
+    private function idsUsuariosVisibles(User $usuario, array $filtros): Collection
+    {
+        return $this->colaboradoresVisibles($usuario, $filtros)
+            ->pluck('user.id')
+            ->filter()
+            ->values();
     }
 
     /**
@@ -173,7 +193,7 @@ class ReportesRhService
 
     /**
      * @param  array<string, mixed>  $filtros
-     * @param  callable(User): string  $clasificador
+     * @param  callable(Colaborador): string  $clasificador
      * @return Reporte
      */
     private function empleadosAgrupados(User $usuario, array $filtros, callable $clasificador, string $titulo, string $columna): array
@@ -214,8 +234,8 @@ class ReportesRhService
         $hoy = now();
 
         $filas = $this->colaboradoresVisibles($usuario, $filtros)
-            ->filter(fn (User $u) => $u->periodo_prueba_fin !== null && Carbon::parse($u->periodo_prueba_fin)->isAfter($hoy))
-            ->map(fn (User $u) => [
+            ->filter(fn (Colaborador $u) => $u->periodo_prueba_fin !== null && Carbon::parse($u->periodo_prueba_fin)->isAfter($hoy))
+            ->map(fn (Colaborador $u) => [
                 $u->nombreCompleto(),
                 $u->sucursalPrincipal->nombre ?? '—',
                 $u->periodo_prueba_inicio?->toDateString(),
@@ -241,7 +261,7 @@ class ReportesRhService
      */
     private function idsVisiblesConBajas(User $usuario, array $filtros): Collection
     {
-        $query = $this->alcance->limitarUsuariosPorAlcance(User::withTrashed(), $usuario);
+        $query = $this->alcance->limitarColaboradoresPorAlcance(Colaborador::withTrashed(), $usuario);
 
         return $this->aplicarFiltrosColaborador($query, $filtros)->pluck('id');
     }
@@ -261,7 +281,7 @@ class ReportesRhService
     private function altasPorMes(User $usuario, array $filtros): array
     {
         $fechas = MovimientoLaboral::query()
-            ->whereIn('user_id', $this->idsVisiblesConBajas($usuario, $filtros))
+            ->whereIn('colaborador_id', $this->idsVisiblesConBajas($usuario, $filtros))
             ->where('tipo_movimiento', TipoMovimientoLaboral::Alta->value)
             ->pluck('fecha_movimiento');
 
@@ -281,7 +301,7 @@ class ReportesRhService
     private function bajasPorMes(User $usuario, array $filtros): array
     {
         $fechas = MovimientoLaboral::query()
-            ->whereIn('user_id', $this->idsVisiblesConBajas($usuario, $filtros))
+            ->whereIn('colaborador_id', $this->idsVisiblesConBajas($usuario, $filtros))
             ->where('tipo_movimiento', TipoMovimientoLaboral::Baja->value)
             ->pluck('fecha_movimiento');
 
@@ -413,7 +433,7 @@ class ReportesRhService
     private function expedientesEstado(User $usuario, array $filtros): array
     {
         $filas = $this->colaboradoresVisibles($usuario, $filtros)
-            ->map(function (User $u) {
+            ->map(function (Colaborador $u) {
                 $resumen = $this->expediente->resumenCompletitud($u);
                 $completo = $resumen['requeridos_total'] > 0 && $resumen['porcentaje'] >= 100.0;
 
@@ -433,9 +453,9 @@ class ReportesRhService
         $idsVisibles = $this->colaboradoresVisibles($usuario, $filtros)->pluck('id');
 
         return EmployeeDocument::query()
-            ->whereIn('user_id', $idsVisibles)
+            ->whereIn('colaborador_id', $idsVisibles)
             ->when($filtros['tipo_documento'] ?? null, fn (Builder $q, $v) => $q->where('document_type_id', $v))
-            ->with(['usuario:id,name,apellidos', 'tipo:id,nombre']);
+            ->with(['colaborador:id,name,apellidos', 'tipo:id,nombre']);
     }
 
     /**
@@ -448,7 +468,7 @@ class ReportesRhService
         $filas = $this->documentosVisibles($usuario, $filtros)
             ->whereIn('status', $estados)
             ->get()
-            ->map(fn (EmployeeDocument $d) => [trim(($d->usuario->name ?? '').' '.($d->usuario->apellidos ?? '')), $d->tipo->nombre ?? '—', $d->status->etiqueta(), $d->created_at?->toDateString()])
+            ->map(fn (EmployeeDocument $d) => [trim(($d->colaborador->name ?? '').' '.($d->colaborador->apellidos ?? '')), $d->tipo->nombre ?? '—', $d->status->etiqueta(), $d->created_at?->toDateString()])
             ->all();
 
         return ['titulo' => $titulo, 'columnas' => ['Colaborador', 'Tipo de documento', 'Estado', 'Fecha'], 'filas' => $filas];
@@ -461,8 +481,14 @@ class ReportesRhService
     private function vacacionesDisponibles(User $usuario, array $filtros): array
     {
         $filas = $this->colaboradoresVisibles($usuario, $filtros)
-            ->map(function (User $u) {
-                $saldo = $this->vacaciones->saldo($u);
+            ->map(function (Colaborador $u) {
+                // solicitudes_vacaciones/solicitudes_internas todavía
+                // identifican a la persona por user_id (Parte B pendiente):
+                // un colaborador sin cuenta de acceso no puede tener
+                // vacaciones registradas todavía.
+                $saldo = $u->user !== null
+                    ? $this->vacaciones->saldo($u->user)
+                    : ['dias_generados' => 0, 'dias_usados' => 0, 'dias_en_solicitud' => 0, 'dias_disponibles' => 0];
 
                 return [$u->nombreCompleto(), $u->sucursalPrincipal->nombre ?? '—', $saldo['dias_generados'], $saldo['dias_usados'], $saldo['dias_disponibles']];
             })
@@ -484,7 +510,7 @@ class ReportesRhService
      */
     private function vacacionesSolicitudes(User $usuario, array $filtros): array
     {
-        $idsVisibles = $this->colaboradoresVisibles($usuario, $filtros)->pluck('id');
+        $idsVisibles = $this->idsUsuariosVisibles($usuario, $filtros);
 
         $filas = SolicitudInterna::query()
             ->whereIn('user_id', $idsVisibles)
@@ -513,7 +539,7 @@ class ReportesRhService
      */
     private function solicitudesInternas(User $usuario, array $filtros, ?array $estados, string $titulo, bool $soloIncapacidades = false): array
     {
-        $idsVisibles = $this->colaboradoresVisibles($usuario, $filtros)->pluck('id');
+        $idsVisibles = $this->idsUsuariosVisibles($usuario, $filtros);
 
         $filas = SolicitudInterna::query()
             ->whereIn('user_id', $idsVisibles)
@@ -545,8 +571,8 @@ class ReportesRhService
         $hoy = now()->startOfDay();
 
         $filas = $this->colaboradoresVisibles($usuario, $filtros)
-            ->filter(fn (User $u) => $u->{$campo} !== null)
-            ->map(function (User $u) use ($campo, $hoy) {
+            ->filter(fn (Colaborador $u) => $u->{$campo} !== null)
+            ->map(function (Colaborador $u) use ($campo, $hoy) {
                 $proximo = Carbon::parse($u->{$campo})->year($hoy->year);
 
                 if ($proximo->lt($hoy)) {

@@ -66,4 +66,20 @@ class BajaColaboradorService
             }
         });
     }
+
+    /**
+     * Reactiva la relación laboral de un colaborador dado de baja: revierte
+     * el soft-delete y su estatus. Nunca reactiva el acceso al sistema por su
+     * cuenta — si tiene un `User` bloqueado, sigue bloqueado hasta que
+     * alguien lo restablezca explícitamente desde Administración > Usuarios
+     * (ver sección 24 del encargo: "reactivar relación laboral" y
+     * "reactivar acceso" son decisiones separadas).
+     */
+    public function reactivar(Colaborador $colaborador): void
+    {
+        DB::transaction(function () use ($colaborador): void {
+            $colaborador->restore();
+            $colaborador->update(['estatus' => EstadoUsuario::Activo]);
+        });
+    }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Services\Expedientes;
 
+use App\Models\Colaborador;
 use App\Models\User;
 
 /**
@@ -16,7 +17,7 @@ use App\Models\User;
 class AvisoPrivacidadService
 {
     public function registrar(
-        User $colaborador,
+        Colaborador $colaborador,
         bool $avisoPrivacidad,
         bool $consentimientoDatos,
         User $registradoPor,

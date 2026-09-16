@@ -24,28 +24,30 @@ class ColaboradorPerfilService
     /**
      * @return array<string, mixed>
      */
-    public function perfil(User $colaborador): array
+    public function perfil(User $usuario): array
     {
+        $colaborador = $usuario->colaborador;
+
         return [
-            'id' => $colaborador->id,
-            'nombre' => $colaborador->name,
-            'apellidos' => $colaborador->apellidos,
-            'nombre_completo' => $colaborador->nombreCompleto(),
-            'correo' => $colaborador->email,
-            'numero_empleado' => $colaborador->numero_empleado,
+            'id' => $usuario->id,
+            'nombre' => $colaborador->name ?? $usuario->name,
+            'apellidos' => $colaborador->apellidos ?? $usuario->apellidos,
+            'nombre_completo' => $colaborador?->nombreCompleto() ?? $usuario->nombreCompleto(),
+            'correo' => $usuario->email,
+            'numero_empleado' => $colaborador?->numero_empleado,
             // Nunca se expone `foto_path` (ruta física en el disco NAS): se
             // resuelve a la misma ruta protegida por policy que usa el
             // expediente (ver Rh\ExpedienteController::descargarFoto). En la
             // API móvil esta URL solo funciona con una sesión web válida —
             // limitación conocida de Fase 1, ver docs/API_MOVIL.md.
-            'foto_url' => $colaborador->foto_path !== null ? route('rh.expedientes.foto', $colaborador) : null,
-            'puesto' => $colaborador->puesto?->nombre,
-            'departamento' => $colaborador->departamento?->nombre,
-            'sucursal' => $colaborador->sucursalPrincipal?->nombre,
-            'empresa' => $colaborador->empresa()?->nombre,
-            'jefe_directo' => $colaborador->jefe?->nombreCompleto(),
-            'fecha_ingreso' => $colaborador->fecha_ingreso?->toDateString(),
-            'antiguedad_anios' => (int) ($colaborador->fecha_ingreso?->diffInYears(now()) ?? 0),
+            'foto_url' => $colaborador?->foto_path !== null ? route('rh.expedientes.foto', $colaborador) : null,
+            'puesto' => $colaborador?->puesto?->nombre,
+            'departamento' => $colaborador?->departamento?->nombre,
+            'sucursal' => $colaborador?->sucursalPrincipal?->nombre,
+            'empresa' => $colaborador?->empresa()?->nombre,
+            'jefe_directo' => $colaborador?->jefe?->nombreCompleto(),
+            'fecha_ingreso' => $colaborador?->fecha_ingreso?->toDateString(),
+            'antiguedad_anios' => (int) ($colaborador?->fecha_ingreso?->diffInYears(now()) ?? 0),
         ];
     }
 

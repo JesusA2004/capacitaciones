@@ -20,8 +20,10 @@ export type ExpedienteColaborador = {
     name: string;
     apellidos: string | null;
     numero_empleado: string | null;
-    email: string;
+    email: string | null;
     telefono: string | null;
+    tiene_cuenta: boolean;
+    usuario_id: number | null;
     roles: string[];
     foto_url: string | null;
     estatus: string;

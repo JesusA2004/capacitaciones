@@ -130,28 +130,48 @@ export type EstadisticasActivoInactivo = {
     bajas?: number;
 };
 
-export type UsuarioItem = {
+/** Estadísticas del panel Administración > Usuarios (solo cuenta de acceso, ver UsuarioController::index()). */
+export type EstadisticasUsuarios = {
+    total: number;
+    bloqueados: number;
+    activos: number;
+    sin_verificar: number;
+};
+
+/** Colaborador sin cuenta de acceso todavía (selector de "Nuevo usuario"). */
+export type ColaboradorSinCuenta = {
     id: number;
     name: string;
     apellidos: string | null;
-    deleted_at?: string | null;
-    acceso_bloqueado_en?: string | null;
     numero_empleado: string | null;
+};
+
+/**
+ * Una CUENTA DE ACCESO (Administracion/Usuarios) — no confundir con
+ * ColaboradorItem/expediente: aquí solo viven correo, roles y estado de
+ * acceso; los datos de persona/empleo vienen anidados en `colaborador`.
+ */
+export type UsuarioItem = {
+    id: number;
+    colaborador_id: number | null;
+    name: string;
+    apellidos: string | null;
     email: string;
-    telefono: string | null;
-    sucursal_principal_id: number | null;
-    sucursal_principal: { id: number; nombre: string } | null;
-    departamento_id: number | null;
-    departamento: { id: number; nombre: string } | null;
-    puesto_id: number | null;
-    puesto: { id: number; nombre: string } | null;
-    jefe_id: number | null;
-    fecha_ingreso: string | null;
-    estatus: string;
-    estatus_imss: string;
-    fecha_alta_imss: string | null;
-    periodo_prueba_inicio: string | null;
-    periodo_prueba_fin: string | null;
+    email_verified_at: string | null;
+    acceso_bloqueado_en: string | null;
+    ultimo_acceso: string | null;
     zona_horaria: string;
-    roles?: string[];
+    roles?: { id: number; name: string }[];
+    colaborador: {
+        id: number;
+        name: string;
+        apellidos: string | null;
+        numero_empleado: string | null;
+        sucursal_principal_id: number | null;
+        sucursal_principal: { id: number; nombre: string } | null;
+        departamento_id: number | null;
+        departamento: { id: number; nombre: string } | null;
+        puesto_id: number | null;
+        puesto: { id: number; nombre: string } | null;
+    } | null;
 };

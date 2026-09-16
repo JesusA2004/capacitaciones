@@ -55,7 +55,14 @@ class VacacionesService
      */
     public function saldo(User $colaborador): array
     {
-        if ($colaborador->fecha_ingreso === null) {
+        // fecha_ingreso ya no vive en User (ver App\Models\Colaborador) —
+        // deuda técnica conocida: este servicio sigue identificando al
+        // colaborador por su User (solicitudes_vacaciones.user_id todavía no
+        // migra a colaborador_id, Parte B pendiente), así que resuelve el
+        // dato de antigüedad desde su Colaborador enlazado.
+        $fechaIngreso = $colaborador->colaborador?->fecha_ingreso;
+
+        if ($fechaIngreso === null) {
             return [
                 'antiguedad_anios' => 0,
                 'vigencia_inicio' => null,
@@ -67,7 +74,7 @@ class VacacionesService
             ];
         }
 
-        $ingreso = $colaborador->fecha_ingreso;
+        $ingreso = $fechaIngreso;
         $hoy = Carbon::now();
         $antiguedadAnios = (int) $ingreso->diffInYears($hoy);
 
@@ -265,13 +272,13 @@ class VacacionesService
         $idsPermitidos = $this->alcance->limitarUsuariosPorAlcance(User::query(), $revisor)->pluck('id');
 
         return SolicitudVacaciones::query()
-            ->with(['usuario:id,name,apellidos,numero_empleado,sucursal_principal_id', 'usuario.sucursalPrincipal:id,nombre', 'revisadoPor:id,name,apellidos'])
+            ->with(['usuario:id,name,apellidos,colaborador_id', 'usuario.colaborador:id,numero_empleado,sucursal_principal_id', 'usuario.colaborador.sucursalPrincipal:id,nombre', 'revisadoPor:id,name,apellidos'])
             ->when(
                 ! $this->alcance->tieneAlcanceGlobal($revisor),
                 fn (Builder $query) => $query->whereIn('user_id', $idsPermitidos),
             )
-            ->when($filtros['empresa_id'] ?? null, fn (Builder $q, $v) => $q->whereHas('usuario.sucursalPrincipal', fn ($sub) => $sub->where('empresa_id', $v)))
-            ->when($filtros['sucursal_id'] ?? null, fn (Builder $q, $v) => $q->whereHas('usuario', fn ($sub) => $sub->where('sucursal_principal_id', $v)))
+            ->when($filtros['empresa_id'] ?? null, fn (Builder $q, $v) => $q->whereHas('usuario.colaborador.sucursalPrincipal', fn ($sub) => $sub->where('empresa_id', $v)))
+            ->when($filtros['sucursal_id'] ?? null, fn (Builder $q, $v) => $q->whereHas('usuario.colaborador', fn ($sub) => $sub->where('sucursal_principal_id', $v)))
             ->when($filtros['revisado_por'] ?? null, fn (Builder $q, $v) => $q->where('revisado_por', $v))
             ->when($filtros['estado'] ?? null, fn (Builder $q, $v) => $q->where('estado', $v))
             ->when($filtros['fecha_inicio'] ?? null, fn (Builder $q, $v) => $q->whereDate('fecha_inicio', '>=', $v))

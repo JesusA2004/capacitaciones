@@ -133,6 +133,7 @@ class ConversionColaboradorService
 
             $alta->update([
                 'user_id' => $usuario->id,
+                'colaborador_id' => $colaborador->id,
                 'estado' => EstadoAltaDigital::ConvertidaAColaborador,
             ]);
 

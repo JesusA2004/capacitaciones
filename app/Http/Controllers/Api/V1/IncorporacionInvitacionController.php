@@ -60,7 +60,7 @@ class IncorporacionInvitacionController extends Controller
                 'name' => $usuario->name,
                 'apellidos' => $usuario->apellidos,
                 'email' => $usuario->email,
-                'estatus' => $usuario->estatus->value,
+                'estatus' => $usuario->colaborador?->estatus->value,
                 'roles' => $usuario->getRoleNames(),
                 'permisos' => $usuario->getAllPermissions()->pluck('name'),
             ],

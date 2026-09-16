@@ -41,7 +41,13 @@ class UsuarioController extends Controller
 
         $usuarios = User::query()
             ->tap(fn ($query) => $this->alcance->limitarUsuariosPorAlcance($query, $request->user()))
-            ->with(['colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id,departamento_id', 'colaborador.sucursalPrincipal:id,nombre', 'colaborador.departamento:id,nombre'])
+            ->with([
+                'colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id,departamento_id,puesto_id',
+                'colaborador.sucursalPrincipal:id,nombre',
+                'colaborador.departamento:id,nombre',
+                'colaborador.puesto:id,nombre',
+                'roles:id,name',
+            ])
             ->when($request->string('busqueda')->toString(), function (Builder $query, string $busqueda) {
                 $query->where(function (Builder $sub) use ($busqueda) {
                     $sub->where('name', 'like', "%{$busqueda}%")

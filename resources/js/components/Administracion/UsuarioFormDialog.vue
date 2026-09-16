@@ -1,18 +1,12 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
-import DatePicker from '@/components/Common/DatePicker.vue';
+import { computed } from 'vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Combobox } from '@/components/ui/combobox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import {
     Sheet,
     SheetContent,
@@ -22,44 +16,32 @@ import {
 } from '@/components/ui/sheet';
 import { Spinner } from '@/components/ui/spinner';
 import { store, update } from '@/routes/administracion/usuarios';
-import type { EstadoUsuarioOpcion, OpcionSimple, UsuarioItem } from '@/types';
+import { show as verExpediente } from '@/routes/rh/expedientes';
+import type { ColaboradorSinCuenta, UsuarioItem } from '@/types';
 
 const props = defineProps<{
     open: boolean;
     usuario?: UsuarioItem | null;
-    sucursalesDisponibles: OpcionSimple[];
-    departamentosDisponibles: OpcionSimple[];
-    puestosDisponibles: OpcionSimple[];
+    colaboradoresSinCuenta: ColaboradorSinCuenta[];
     rolesDisponibles: string[];
-    estados: EstadoUsuarioOpcion[];
-    estadosImss: EstadoUsuarioOpcion[];
 }>();
 
 const emit = defineEmits<{
     'update:open': [valor: boolean];
 }>();
 
+const opcionesColaborador = computed(() =>
+    props.colaboradoresSinCuenta.map((colaborador) => ({
+        value: String(colaborador.id),
+        label: `${colaborador.numero_empleado ? `${colaborador.numero_empleado} — ` : ''}${colaborador.name} ${colaborador.apellidos ?? ''}`.trim(),
+    })),
+);
+
 const form = useForm({
-    name: props.usuario?.name ?? '',
-    apellidos: props.usuario?.apellidos ?? '',
-    numero_empleado: props.usuario?.numero_empleado ?? '',
+    colaborador_id: '',
     email: props.usuario?.email ?? '',
-    telefono: props.usuario?.telefono ?? '',
-    sucursal_principal_id: props.usuario?.sucursal_principal_id
-        ? String(props.usuario.sucursal_principal_id)
-        : '',
-    sucursales_adicionales: [] as string[],
-    departamento_id: props.usuario?.departamento_id
-        ? String(props.usuario.departamento_id)
-        : '',
-    puesto_id: props.usuario?.puesto_id ? String(props.usuario.puesto_id) : '',
-    fecha_ingreso: props.usuario?.fecha_ingreso ?? '',
-    estatus: props.usuario?.estatus ?? 'activo',
-    estatus_imss: props.usuario?.estatus_imss ?? 'pendiente_imss',
-    fecha_alta_imss: props.usuario?.fecha_alta_imss ?? '',
-    periodo_prueba_inicio: props.usuario?.periodo_prueba_inicio ?? '',
-    periodo_prueba_fin: props.usuario?.periodo_prueba_fin ?? '',
-    roles: [...(props.usuario?.roles ?? [])] as string[],
+    zona_horaria: props.usuario?.zona_horaria ?? '',
+    roles: [...(props.usuario?.roles?.map((rol) => rol.name) ?? [])] as string[],
 });
 
 function alternarEnLista(
@@ -77,232 +59,99 @@ function enviar() {
         preserveScroll: true,
         onSuccess: () => emit('update:open', false),
     };
-    const transformado = form.transform((datos) => ({
-        ...datos,
-        departamento_id: datos.departamento_id || null,
-        puesto_id: datos.puesto_id || null,
-    }));
 
     if (props.usuario) {
-        transformado.put(update.url(props.usuario.id), opciones);
+        form.transform((datos) => ({
+            email: datos.email,
+            zona_horaria: datos.zona_horaria || null,
+            roles: datos.roles,
+        })).put(update.url(props.usuario.id), opciones);
     } else {
-        transformado.post(store.url(), opciones);
+        form.transform((datos) => ({
+            colaborador_id: datos.colaborador_id || null,
+            email: datos.email,
+            roles: datos.roles,
+        })).post(store.url(), opciones);
     }
 }
 </script>
 
 <template>
     <Sheet :open="open" @update:open="(valor) => emit('update:open', valor)">
-        <SheetContent class="w-full overflow-y-auto sm:max-w-xl">
+        <SheetContent class="w-full overflow-y-auto sm:max-w-lg">
             <SheetHeader>
                 <SheetTitle>{{
-                    usuario ? 'Editar colaborador' : 'Nuevo colaborador'
+                    usuario ? 'Editar usuario' : 'Nuevo usuario'
                 }}</SheetTitle>
             </SheetHeader>
 
             <form class="grid gap-4 px-4 pb-6" @submit.prevent="enviar">
-                <div class="grid grid-cols-2 gap-4">
+                <template v-if="!usuario">
                     <div class="grid gap-2">
-                        <Label for="name">Nombre(s)</Label>
-                        <Input id="name" v-model="form.name" autofocus />
-                        <InputError :message="form.errors.name" />
-                    </div>
-                    <div class="grid gap-2">
-                        <Label for="apellidos">Apellidos</Label>
-                        <Input id="apellidos" v-model="form.apellidos" />
-                        <InputError :message="form.errors.apellidos" />
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="grid gap-2">
-                        <Label for="numero_empleado">Número de empleado</Label>
-                        <Input
-                            id="numero_empleado"
-                            v-model="form.numero_empleado"
+                        <Label>Colaborador</Label>
+                        <Combobox
+                            v-model="form.colaborador_id"
+                            :items="opcionesColaborador"
+                            placeholder="Busca por nombre o número de empleado..."
+                            empty-text="No hay colaboradores sin cuenta."
                         />
-                        <InputError :message="form.errors.numero_empleado" />
+                        <InputError :message="form.errors.colaborador_id" />
+                        <p class="text-xs text-muted-foreground">
+                            Solo aparecen colaboradores que todavía no tienen
+                            cuenta de acceso.
+                        </p>
                     </div>
-                    <div class="grid gap-2">
-                        <Label for="email">Correo electrónico</Label>
-                        <Input id="email" v-model="form.email" type="email" />
-                        <InputError :message="form.errors.email" />
-                    </div>
-                </div>
+                </template>
 
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="grid gap-2">
-                        <Label for="telefono">Teléfono</Label>
-                        <Input id="telefono" v-model="form.telefono" />
-                    </div>
-                    <div class="grid gap-2">
-                        <Label for="fecha_ingreso">Fecha de ingreso</Label>
-                        <DatePicker
-                            id="fecha_ingreso"
-                            v-model="form.fecha_ingreso"
-                        />
-                    </div>
-                </div>
-
-                <div class="grid gap-2">
-                    <Label>Sucursal principal</Label>
-                    <Select v-model="form.sucursal_principal_id">
-                        <SelectTrigger class="w-full">
-                            <SelectValue
-                                placeholder="Selecciona una sucursal"
-                            />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in sucursalesDisponibles"
-                                :key="opcion.id"
-                                :value="String(opcion.id)"
-                            >
-                                {{ opcion.nombre }}
-                            </SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <InputError :message="form.errors.sucursal_principal_id" />
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="grid gap-2">
-                        <Label>Departamento</Label>
-                        <Select v-model="form.departamento_id">
-                            <SelectTrigger class="w-full">
-                                <SelectValue placeholder="Sin departamento" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="opcion in departamentosDisponibles"
-                                    :key="opcion.id"
-                                    :value="String(opcion.id)"
-                                >
-                                    {{ opcion.nombre }}
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div class="grid gap-2">
-                        <Label>Puesto</Label>
-                        <Select v-model="form.puesto_id">
-                            <SelectTrigger class="w-full">
-                                <SelectValue placeholder="Sin puesto" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="opcion in puestosDisponibles"
-                                    :key="opcion.id"
-                                    :value="String(opcion.id)"
-                                >
-                                    {{ opcion.nombre }}
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
-
-                <div v-if="usuario" class="grid grid-cols-2 gap-4">
-                    <div class="grid gap-2">
-                        <Label>Estatus</Label>
-                        <Select v-model="form.estatus">
-                            <SelectTrigger class="w-full">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="opcion in estados"
-                                    :key="opcion.value"
-                                    :value="opcion.value"
-                                >
-                                    {{ opcion.etiqueta }}
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div class="grid gap-2">
-                        <Label>Estatus IMSS</Label>
-                        <Select v-model="form.estatus_imss">
-                            <SelectTrigger class="w-full">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="opcion in estadosImss"
-                                    :key="opcion.value"
-                                    :value="opcion.value"
-                                >
-                                    {{ opcion.etiqueta }}
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
-
-                <div v-if="usuario" class="grid grid-cols-3 gap-4">
-                    <div class="grid gap-2">
-                        <Label for="fecha_alta_imss">Fecha alta IMSS</Label>
-                        <DatePicker
-                            id="fecha_alta_imss"
-                            v-model="form.fecha_alta_imss"
-                        />
-                    </div>
-                    <div class="grid gap-2">
-                        <Label for="periodo_prueba_inicio"
-                            >Inicio periodo de prueba</Label
-                        >
-                        <DatePicker
-                            id="periodo_prueba_inicio"
-                            v-model="form.periodo_prueba_inicio"
-                        />
-                    </div>
-                    <div class="grid gap-2">
-                        <Label for="periodo_prueba_fin"
-                            >Fin periodo de prueba</Label
-                        >
-                        <DatePicker
-                            id="periodo_prueba_fin"
-                            v-model="form.periodo_prueba_fin"
-                        />
-                        <InputError :message="form.errors.periodo_prueba_fin" />
-                    </div>
-                </div>
-
-                <div class="grid gap-2">
-                    <Label>Sucursales adicionales autorizadas</Label>
+                <template v-else>
                     <div
-                        class="grid max-h-32 grid-cols-2 gap-2 overflow-y-auto rounded-md border p-2"
+                        class="grid gap-1 rounded-md border bg-muted/40 p-3 text-sm"
                     >
-                        <label
-                            v-for="opcion in sucursalesDisponibles"
-                            :key="opcion.id"
-                            class="flex items-center gap-2 text-sm"
+                        <p class="font-medium">
+                            {{ usuario.colaborador?.name }}
+                            {{ usuario.colaborador?.apellidos }}
+                        </p>
+                        <p class="text-xs text-muted-foreground">
+                            No. empleado:
+                            {{ usuario.colaborador?.numero_empleado ?? '—' }}
+                            · Sucursal:
+                            {{
+                                usuario.colaborador?.sucursal_principal
+                                    ?.nombre ?? 'Sin asignar'
+                            }}
+                            · Puesto:
+                            {{ usuario.colaborador?.puesto?.nombre ?? 'Sin asignar' }}
+                        </p>
+                        <a
+                            v-if="usuario.colaborador"
+                            :href="verExpediente.url(usuario.colaborador.id)"
+                            class="text-xs text-primary underline underline-offset-2"
                         >
-                            <Checkbox
-                                :model-value="
-                                    form.sucursales_adicionales.includes(
-                                        String(opcion.id),
-                                    )
-                                "
-                                @update:model-value="
-                                    (v) =>
-                                        (form.sucursales_adicionales =
-                                            alternarEnLista(
-                                                form.sucursales_adicionales,
-                                                String(opcion.id),
-                                                !!v,
-                                            ))
-                                "
-                            />
-                            {{ opcion.nombre }}
-                        </label>
+                            Ver expediente del colaborador
+                        </a>
                     </div>
+                </template>
+
+                <div class="grid gap-2">
+                    <Label for="email">Correo de acceso</Label>
+                    <Input id="email" v-model="form.email" type="email" autofocus />
+                    <InputError :message="form.errors.email" />
+                </div>
+
+                <div v-if="usuario" class="grid gap-2">
+                    <Label for="zona_horaria">Zona horaria</Label>
+                    <Input
+                        id="zona_horaria"
+                        v-model="form.zona_horaria"
+                        placeholder="America/Mexico_City"
+                    />
+                    <InputError :message="form.errors.zona_horaria" />
                 </div>
 
                 <div class="grid gap-2">
                     <Label>Roles</Label>
                     <div
-                        class="grid max-h-32 grid-cols-2 gap-2 overflow-y-auto rounded-md border p-2"
+                        class="grid max-h-40 grid-cols-2 gap-2 overflow-y-auto rounded-md border p-2"
                     >
                         <label
                             v-for="rol in rolesDisponibles"

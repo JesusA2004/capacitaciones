@@ -198,15 +198,17 @@ class FormatoController extends Controller
     {
         $this->authorize('viewAny', DocumentTemplate::class);
 
-        $colaborador = $documento->usuario;
+        $cuenta = $documento->usuario;
 
-        if ($colaborador === null && $documento->solicitud !== null) {
-            $colaborador = $documento->solicitud->usuario;
+        if ($cuenta === null && $documento->solicitud !== null) {
+            $cuenta = $documento->solicitud->usuario;
         }
 
-        if ($colaborador === null && $documento->solicitudVacaciones !== null) {
-            $colaborador = $documento->solicitudVacaciones->usuario;
+        if ($cuenta === null && $documento->solicitudVacaciones !== null) {
+            $cuenta = $documento->solicitudVacaciones->usuario;
         }
+
+        $colaborador = $cuenta?->colaborador;
 
         abort_unless($colaborador !== null, 422, 'Este documento no está asociado a un colaborador; no se puede archivar en un expediente.');
 

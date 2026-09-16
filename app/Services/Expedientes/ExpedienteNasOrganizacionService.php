@@ -2,8 +2,8 @@
 
 namespace App\Services\Expedientes;
 
+use App\Models\Colaborador;
 use App\Models\EmployeeDocument;
-use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
@@ -40,19 +40,19 @@ class ExpedienteNasOrganizacionService
         /** @var Collection<int, array<string, mixed>> $documentos */
         $documentos = EmployeeDocument::withTrashed()
             ->where('disk', config('expedientes.disk'))
-            ->with(['usuario.sucursalPrincipal.empresa', 'tipo'])
+            ->with(['colaborador.sucursalPrincipal.empresa', 'tipo'])
             ->orderBy('id')
             ->get()
             ->map(fn (EmployeeDocument $documento) => $this->planificarDocumento($documento))
             ->values();
 
         /** @var Collection<int, array<string, mixed>> $fotos */
-        $fotos = User::withTrashed()
+        $fotos = Colaborador::withTrashed()
             ->whereNotNull('foto_path')
             ->with('sucursalPrincipal.empresa')
             ->orderBy('id')
             ->get()
-            ->map(fn (User $colaborador) => $this->planificarFoto($colaborador))
+            ->map(fn (Colaborador $colaborador) => $this->planificarFoto($colaborador))
             ->filter()
             ->values();
 
@@ -64,11 +64,11 @@ class ExpedienteNasOrganizacionService
      */
     private function planificarDocumento(EmployeeDocument $documento): array
     {
-        if ($documento->usuario === null || $documento->tipo === null) {
+        if ($documento->colaborador === null || $documento->tipo === null) {
             return [
                 'tipo' => 'documento',
                 'employee_document_id' => $documento->id,
-                'user_id' => $documento->user_id,
+                'colaborador_id' => $documento->colaborador_id,
                 'old_path' => $documento->path,
                 'new_path' => null,
                 'accion' => 'sin_colaborador_o_tipo',
@@ -80,15 +80,15 @@ class ExpedienteNasOrganizacionService
         // persistirRutaBase=false: planificar() es de solo lectura (incluye
         // el dry run) y nunca debe escribir expediente_storage_path — eso
         // solo ocurre al aplicar de verdad, en moverUno()/resolverDuplicado().
-        $nuevaRuta = $this->storage->rutaDocumento($documento->usuario, $documento->tipo, $documento->version, $extension, persistirRutaBase: false);
+        $nuevaRuta = $this->storage->rutaDocumento($documento->colaborador, $documento->tipo, $documento->version, $extension, persistirRutaBase: false);
 
-        return $this->clasificar('documento', $documento->id, $documento->user_id, $documento->path, $nuevaRuta, $documento->hash);
+        return $this->clasificar('documento', $documento->id, $documento->colaborador_id, $documento->path, $nuevaRuta, $documento->hash);
     }
 
     /**
      * @return array<string, mixed>|null
      */
-    private function planificarFoto(User $colaborador): ?array
+    private function planificarFoto(Colaborador $colaborador): ?array
     {
         if ($colaborador->foto_path === null) {
             return null;
@@ -103,12 +103,12 @@ class ExpedienteNasOrganizacionService
     /**
      * @return array<string, mixed>
      */
-    private function clasificar(string $tipo, ?int $documentoId, int $userId, string $rutaActual, string $rutaNueva, ?string $hashConocido): array
+    private function clasificar(string $tipo, ?int $documentoId, ?int $colaboradorId, string $rutaActual, string $rutaNueva, ?string $hashConocido): array
     {
         $base = [
             'tipo' => $tipo,
             'employee_document_id' => $documentoId,
-            'user_id' => $userId,
+            'colaborador_id' => $colaboradorId,
             'old_path' => $rutaActual,
             'new_path' => $rutaNueva,
         ];
@@ -219,11 +219,11 @@ class ExpedienteNasOrganizacionService
             return [...$item, 'resultado' => 'error_borrado_origen', 'detalle' => 'El archivo legacy siguió existiendo tras intentar borrarlo; BD ya apunta al nuevo destino — revisar permisos del NAS manualmente.'];
         }
 
-        $this->asegurarRutaBasePersistida((int) $item['user_id']);
+        $this->asegurarRutaBasePersistida((int) $item['colaborador_id']);
 
         Log::info('expedientes:organizar-nas — archivo reorganizado.', [
             'employee_document_id' => $item['employee_document_id'],
-            'user_id' => $item['user_id'],
+            'colaborador_id' => $item['colaborador_id'],
             'old_path' => $rutaActual,
             'new_path' => $rutaNueva,
         ]);
@@ -269,11 +269,11 @@ class ExpedienteNasOrganizacionService
             return [...$item, 'resultado' => 'error_borrado_origen', 'detalle' => 'El archivo legacy duplicado siguió existiendo tras intentar borrarlo; BD ya apunta al destino existente.'];
         }
 
-        $this->asegurarRutaBasePersistida((int) $item['user_id']);
+        $this->asegurarRutaBasePersistida((int) $item['colaborador_id']);
 
         Log::info('expedientes:organizar-nas — duplicado resuelto (BD adoptó el destino existente, se borró el legacy).', [
             'employee_document_id' => $item['employee_document_id'],
-            'user_id' => $item['user_id'],
+            'colaborador_id' => $item['colaborador_id'],
             'old_path' => $rutaActual,
             'new_path' => $rutaNueva,
         ]);
@@ -292,7 +292,7 @@ class ExpedienteNasOrganizacionService
                 'stored_name' => basename($rutaNueva),
             ]);
         } else {
-            User::withTrashed()->whereKey($item['user_id'])->update(['foto_path' => $rutaNueva]);
+            Colaborador::withTrashed()->whereKey($item['colaborador_id'])->update(['foto_path' => $rutaNueva]);
         }
     }
 
@@ -304,9 +304,9 @@ class ExpedienteNasOrganizacionService
      * (DocumentoStorageService::subirVersion) reusarán esta misma ruta
      * aunque el colaborador después cambie de sucursal o de nombre.
      */
-    private function asegurarRutaBasePersistida(int $userId): void
+    private function asegurarRutaBasePersistida(int $colaboradorId): void
     {
-        $colaborador = User::withTrashed()->where('id', $userId)->first();
+        $colaborador = Colaborador::withTrashed()->where('id', $colaboradorId)->first();
 
         if ($colaborador !== null) {
             $this->storage->asignarRutaBaseColaborador($colaborador);
@@ -324,7 +324,7 @@ class ExpedienteNasOrganizacionService
     public function huerfanos(): array
     {
         $conocidas = EmployeeDocument::withTrashed()->where('disk', config('expedientes.disk'))->pluck('path')
-            ->concat(User::withTrashed()->whereNotNull('foto_path')->pluck('foto_path'))
+            ->concat(Colaborador::withTrashed()->whereNotNull('foto_path')->pluck('foto_path'))
             ->map(fn (string $ruta) => str_replace('\\', '/', $ruta))
             ->all();
 
@@ -457,7 +457,7 @@ class ExpedienteNasOrganizacionService
                 'stored_name' => basename($rutaVieja),
             ]);
         } else {
-            User::withTrashed()->whereKey($fila['user_id'])->update(['foto_path' => $rutaVieja]);
+            Colaborador::withTrashed()->whereKey($fila['colaborador_id'])->update(['foto_path' => $rutaVieja]);
         }
 
         $this->storage->eliminar($rutaNueva);

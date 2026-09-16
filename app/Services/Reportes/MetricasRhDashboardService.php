@@ -12,6 +12,7 @@ use App\Enums\Genero;
 use App\Enums\TipoMovimientoLaboral;
 use App\Models\AltaDigital;
 use App\Models\Candidato;
+use App\Models\Colaborador;
 use App\Models\EmployeeDocument;
 use App\Models\MovimientoLaboral;
 use App\Models\SolicitudInterna;
@@ -73,13 +74,13 @@ class MetricasRhDashboardService
      */
     private function paraAlcance(User $usuario): array
     {
-        $colaboradoresVisibles = $this->alcance->limitarUsuariosPorAlcance(User::query(), $usuario)
+        $colaboradoresVisibles = $this->alcance->limitarColaboradoresPorAlcance(Colaborador::query(), $usuario)
             ->with(['sucursalPrincipal:id,nombre,empresa_id', 'sucursalPrincipal.empresa:id,nombre', 'departamento:id,nombre', 'puesto:id,nombre'])
             ->get();
 
         $idsVisibles = $colaboradoresVisibles->pluck('id');
 
-        $documentos = EmployeeDocument::query()->whereIn('user_id', $idsVisibles)->get(['id', 'user_id', 'status', 'document_type_id', 'created_at']);
+        $documentos = EmployeeDocument::query()->whereIn('colaborador_id', $idsVisibles)->get(['id', 'colaborador_id', 'status', 'document_type_id', 'created_at']);
 
         [$expedientesCompletos, $expedientesIncompletos] = $this->contarExpedientes($colaboradoresVisibles);
 
@@ -113,14 +114,14 @@ class MetricasRhDashboardService
                 'cumpleanos_proximos' => $this->cumpleanos->proximosCumpleanos($usuario, 7)->count(),
             ],
             'graficas' => [
-                'colaboradoresPorEmpresa' => $this->agruparPor($colaboradoresVisibles, function (User $u) {
+                'colaboradoresPorEmpresa' => $this->agruparPor($colaboradoresVisibles, function (Colaborador $u) {
                     $sucursal = $u->sucursalPrincipal;
 
                     return $sucursal === null || $sucursal->empresa === null ? 'Sin empresa' : $sucursal->empresa->nombre;
                 }),
-                'colaboradoresPorSucursal' => $this->agruparPor($colaboradoresVisibles, fn (User $u) => $u->sucursalPrincipal === null ? 'Sin sucursal' : $u->sucursalPrincipal->nombre),
-                'colaboradoresPorDepartamento' => $this->agruparPor($colaboradoresVisibles, fn (User $u) => $u->departamento === null ? 'Sin departamento' : $u->departamento->nombre),
-                'colaboradoresPorPuesto' => $this->agruparPor($colaboradoresVisibles, fn (User $u) => $u->puesto === null ? 'Sin puesto' : $u->puesto->nombre),
+                'colaboradoresPorSucursal' => $this->agruparPor($colaboradoresVisibles, fn (Colaborador $u) => $u->sucursalPrincipal === null ? 'Sin sucursal' : $u->sucursalPrincipal->nombre),
+                'colaboradoresPorDepartamento' => $this->agruparPor($colaboradoresVisibles, fn (Colaborador $u) => $u->departamento === null ? 'Sin departamento' : $u->departamento->nombre),
+                'colaboradoresPorPuesto' => $this->agruparPor($colaboradoresVisibles, fn (Colaborador $u) => $u->puesto === null ? 'Sin puesto' : $u->puesto->nombre),
                 'expedientesEstado' => [
                     ['clave' => 'completos', 'etiqueta' => 'Completos', 'valor' => $expedientesCompletos],
                     ['clave' => 'incompletos', 'etiqueta' => 'Incompletos', 'valor' => $expedientesIncompletos],
@@ -232,14 +233,17 @@ class MetricasRhDashboardService
      */
     public function colaborador(User $usuario): array
     {
-        $resumen = $this->expediente->resumenCompletitud($usuario);
+        $colaborador = $usuario->colaborador;
+        $resumen = $colaborador !== null
+            ? $this->expediente->resumenCompletitud($colaborador)
+            : ['porcentaje' => 0.0, 'requeridos_total' => 0, 'requeridos_aprobados' => 0, 'pendientes' => 0, 'rechazados' => 0];
 
         return [
             'miExpediente' => [
                 'porcentaje' => $resumen['porcentaje'],
                 'pendientes' => $resumen['pendientes'] + $resumen['rechazados'],
             ],
-            'misDocumentosPendientes' => $this->documentosPendientesRevision(collect([$usuario->id]), soloPropios: true),
+            'misDocumentosPendientes' => $this->documentosPendientesRevision(collect([$usuario->colaborador_id]), soloPropios: true),
             'misVacaciones' => ['dias_disponibles' => $this->vacaciones->saldo($usuario)['dias_disponibles']],
             'misSolicitudes' => [
                 'pendientes' => SolicitudInterna::query()
@@ -282,7 +286,7 @@ class MetricasRhDashboardService
 
         $sucursalesVisiblesIds = $this->alcance->tieneAlcanceGlobal($usuario) ? null : $this->alcance->sucursalesVisiblesIds($usuario);
 
-        $colaboradoresQuery = $this->alcance->limitarUsuariosPorAlcance(User::query(), $usuario)
+        $colaboradoresQuery = $this->alcance->limitarColaboradoresPorAlcance(Colaborador::query(), $usuario)
             ->when($sucursalId !== null, fn ($q) => $q->where('sucursal_principal_id', $sucursalId))
             ->when($departamentoId !== null, fn ($q) => $q->where('departamento_id', $departamentoId));
 
@@ -292,7 +296,7 @@ class MetricasRhDashboardService
             ->where('estatus', EstadoUsuario::Activo)
             ->with('departamento:id,nombre')
             ->get()
-            ->groupBy(fn (User $u) => $u->departamento->nombre ?? 'Sin departamento')
+            ->groupBy(fn (Colaborador $u) => $u->departamento->nombre ?? 'Sin departamento')
             ->map(fn (Collection $grupo, string $etiqueta) => ['etiqueta' => $etiqueta, 'valor' => $grupo->count()])
             ->sortByDesc('valor')
             ->values();
@@ -419,7 +423,7 @@ class MetricasRhDashboardService
     }
 
     /**
-     * @param  Collection<int, User>  $colaboradores
+     * @param  Collection<int, Colaborador>  $colaboradores
      * @return array{0: int, 1: int}
      */
     private function contarExpedientes(Collection $colaboradores): array
@@ -455,7 +459,7 @@ class MetricasRhDashboardService
     {
         return MovimientoLaboral::query()
             ->where('tipo_movimiento', TipoMovimientoLaboral::Baja->value)
-            ->whereIn('user_id', $idsVisibles)
+            ->whereIn('colaborador_id', $idsVisibles)
             ->whereBetween('fecha_movimiento', [now()->startOfMonth(), now()->endOfMonth()])
             ->count();
     }
@@ -485,7 +489,7 @@ class MetricasRhDashboardService
      * acota "dias" a un rango) no puede declararse de forma estable como
      * Collection<...>. Ver https://phpstan.org/blog/whats-up-with-template-covariant.
      *
-     * @param  Collection<int, User>  $colaboradores
+     * @param  Collection<int, Colaborador>  $colaboradores
      * @return array<int, array{id: int, nombre: string, fecha: string, dias: int, anios: int}>
      */
     private function proximosAniversarios(Collection $colaboradores): array
@@ -493,8 +497,8 @@ class MetricasRhDashboardService
         $hoy = now()->startOfDay();
 
         return $colaboradores
-            ->filter(fn (User $u) => $u->fecha_ingreso !== null)
-            ->map(function (User $u) use ($hoy) {
+            ->filter(fn (Colaborador $u) => $u->fecha_ingreso !== null)
+            ->map(function (Colaborador $u) use ($hoy) {
                 $proximo = Carbon::parse($u->fecha_ingreso)->year($hoy->year);
 
                 if ($proximo->lt($hoy)) {
@@ -527,15 +531,15 @@ class MetricasRhDashboardService
     private function documentosPendientesRevision(Collection $idsVisibles, bool $soloPropios = false): array
     {
         return EmployeeDocument::query()
-            ->whereIn('user_id', $idsVisibles)
+            ->whereIn('colaborador_id', $idsVisibles)
             ->whereIn('status', $this->estadosPendientes())
-            ->with(['usuario:id,name,apellidos', 'tipo:id,nombre'])
+            ->with(['colaborador:id,name,apellidos', 'tipo:id,nombre'])
             ->orderByDesc('created_at')
             ->limit($soloPropios ? 10 : 6)
             ->get()
             ->map(fn (EmployeeDocument $doc) => [
                 'id' => $doc->id,
-                'colaborador' => $soloPropios ? null : trim(($doc->usuario->name ?? '').' '.($doc->usuario->apellidos ?? '')),
+                'colaborador' => $soloPropios ? null : trim(($doc->colaborador->name ?? '').' '.($doc->colaborador->apellidos ?? '')),
                 'tipo' => $doc->tipo->nombre ?? '—',
                 'status' => (string) $doc->status->value,
                 'creado_en' => $doc->created_at?->toDateString(),

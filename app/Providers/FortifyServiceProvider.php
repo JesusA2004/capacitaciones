@@ -48,7 +48,9 @@ class FortifyServiceProvider extends ServiceProvider
         // (mismo criterio que Api\V1\AuthController::login() para la app
         // móvil): `en_incorporacion` sigue pudiendo entrar. Sin esto,
         // Fortify solo valida credenciales y deja entrar a cualquier
-        // usuario sin importar su `estatus`.
+        // usuario sin importar su `estatus`. `estatus` vive en Colaborador
+        // (separación Usuario/Colaborador, ver App\Models\Colaborador) — un
+        // User sin colaborador enlazado no puede iniciar sesión.
         Fortify::authenticateUsing(function (Request $request) {
             $usuario = User::query()->where('email', $request->email)->first();
 
@@ -56,7 +58,9 @@ class FortifyServiceProvider extends ServiceProvider
                 return null;
             }
 
-            if (! in_array($usuario->estatus, [EstadoUsuario::Activo, EstadoUsuario::EnIncorporacion], true)) {
+            $estatus = $usuario->colaborador?->estatus;
+
+            if ($estatus === null || ! in_array($estatus, [EstadoUsuario::Activo, EstadoUsuario::EnIncorporacion], true)) {
                 throw ValidationException::withMessages([
                     Fortify::username() => 'Tu cuenta está desactivada. Contacta a Recursos Humanos.',
                 ]);

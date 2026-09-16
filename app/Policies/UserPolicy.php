@@ -29,28 +29,11 @@ class UserPolicy
         return $usuario->can('usuarios.editar') && $this->alcance->puedeVerUsuario($usuario, $objetivo);
     }
 
-    public function delete(User $usuario, User $objetivo): bool
-    {
-        return $usuario->can('usuarios.desactivar')
-            && ! $usuario->is($objetivo)
-            && $this->alcance->puedeVerUsuario($usuario, $objetivo);
-    }
-
-    /**
-     * Reactivar una baja lógica es más sensible que darla de alta: solo
-     * super_admin la tiene en el catálogo de permisos (ver
-     * RolesYPermisosSeeder), a propósito.
-     */
-    public function reactivar(User $usuario, User $objetivo): bool
-    {
-        return $usuario->can('usuarios.reactivar')
-            && $this->alcance->puedeVerUsuario($usuario, $objetivo);
-    }
-
     /**
      * Revocar/restablecer acceso al sistema (bloquear login sin dar de baja
-     * laboral) reutiliza el permiso de "desactivar" -- es una accion MAS
-     * ligera que la baja completa (delete()), nunca mas restrictiva.
+     * laboral) — la baja/reactivación de la relación laboral vive en
+     * App\Http\Controllers\Rh\ExpedienteController (actúa sobre Colaborador,
+     * funciona con o sin cuenta de acceso), no aquí.
      */
     public function revocarAcceso(User $usuario, User $objetivo): bool
     {

@@ -152,7 +152,7 @@ class ExpedientesOrganizarNasCommand extends Command
 
         $referencia = $item['tipo'] === 'documento'
             ? "employee_document_id={$item['employee_document_id']}"
-            : "foto de user_id={$item['user_id']}";
+            : "foto de colaborador_id={$item['colaborador_id']}";
 
         $this->line("[{$etiqueta}] {$referencia}");
 
@@ -207,7 +207,7 @@ class ExpedientesOrganizarNasCommand extends Command
 
         foreach ($resultados as $fila) {
             if ($fila['rollback'] === 'ok') {
-                $this->line('<fg=green>ok</> '.($fila['tipo'] === 'documento' ? "employee_document_id={$fila['employee_document_id']}" : "foto de user_id={$fila['user_id']}"));
+                $this->line('<fg=green>ok</> '.($fila['tipo'] === 'documento' ? "employee_document_id={$fila['employee_document_id']}" : "foto de colaborador_id={$fila['colaborador_id']}"));
 
                 continue;
             }

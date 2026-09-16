@@ -155,7 +155,7 @@ class SolicitudFormatoOficialService
     {
         $generacion->loadMissing('solicitud', 'usuario');
         $solicitud = $generacion->solicitud;
-        $colaborador = $generacion->usuario;
+        $colaborador = $generacion->usuario?->colaborador;
 
         if ($solicitud === null || $colaborador === null) {
             return;

@@ -5,9 +5,9 @@ namespace App\Http\Controllers\Rh;
 use App\Enums\EstadoDocumento;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Rh\SubirDocumentoRequest;
+use App\Models\Colaborador;
 use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
-use App\Models\User;
 use App\Services\Expedientes\DocumentoStorageService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,11 +23,11 @@ class EmployeeDocumentController extends Controller
      * sucesora (previous_version_id), en vez de sobrescribirla: el
      * historial de versiones queda completo en la tabla.
      */
-    public function store(SubirDocumentoRequest $request, User $colaborador): RedirectResponse
+    public function store(SubirDocumentoRequest $request, Colaborador $colaborador): RedirectResponse
     {
         $tipo = DocumentType::findOrFail($request->integer('document_type_id'));
         $versionAnterior = EmployeeDocument::query()
-            ->where('user_id', $colaborador->id)
+            ->where('colaborador_id', $colaborador->id)
             ->where('document_type_id', $tipo->id)
             ->where('status', '!=', EstadoDocumento::Archivado->value)
             ->exists();

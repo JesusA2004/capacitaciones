@@ -4,9 +4,9 @@ namespace App\Http\Controllers\Rh;
 
 use App\Http\Controllers\Controller;
 use App\Models\BirthdayPhrase;
+use App\Models\Colaborador;
 use App\Models\Departamento;
 use App\Models\Sucursal;
-use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Cumpleanos\BirthdayCardService;
 use App\Services\Cumpleanos\CumpleanosService;
@@ -44,7 +44,7 @@ class CumpleanosController extends Controller
             'anio' => ['nullable', 'integer', 'min:'.(now()->year - 1), 'max:'.(now()->year + 5)],
             'sucursal_id' => ['nullable', 'integer', 'exists:sucursales,id'],
             'departamento_id' => ['nullable', 'integer', 'exists:departamentos,id'],
-            'colaborador_id' => ['nullable', 'integer', 'exists:users,id'],
+            'colaborador_id' => ['nullable', 'integer', 'exists:colaboradores,id'],
             'estatus' => ['nullable', 'string'],
             'busqueda' => ['nullable', 'string', 'max:100'],
             'rango_desde' => ['nullable', 'date'],
@@ -56,11 +56,11 @@ class CumpleanosController extends Controller
         $filtros = array_intersect_key($datos, array_flip(self::FILTROS));
 
         $delMes = $this->cumpleanos->cumpleanosDelMes($mes, $usuario, $filtros)
-            ->map(fn (User $c) => $this->cumpleanos->tarjetaColaborador($c, null, $usuario))
+            ->map(fn (Colaborador $c) => $this->cumpleanos->tarjetaColaborador($c, null, $usuario))
             ->values();
 
         $hoy = $this->cumpleanos->cumpleanosDeHoy($usuario)
-            ->map(fn (User $c) => $this->cumpleanos->tarjetaColaborador($c, null, $usuario))
+            ->map(fn (Colaborador $c) => $this->cumpleanos->tarjetaColaborador($c, null, $usuario))
             ->values();
 
         // Mini-calendario de rango libre en el sidebar "Próximos cumpleaños"
@@ -70,7 +70,7 @@ class CumpleanosController extends Controller
         $rangoHasta = isset($datos['rango_hasta']) ? Carbon::parse($datos['rango_hasta']) : now()->addDays(30);
 
         $proximosRango = $this->cumpleanos->cumpleanosEnRango($usuario, $rangoDesde, $rangoHasta)
-            ->map(fn (User $c) => $this->cumpleanos->tarjetaColaborador($c, null, $usuario))
+            ->map(fn (Colaborador $c) => $this->cumpleanos->tarjetaColaborador($c, null, $usuario))
             ->values();
 
         // Solo conteos (no la lista completa) para las tarjetas KPI fijas
@@ -82,7 +82,7 @@ class CumpleanosController extends Controller
         // en el calendario ni en los conteos anteriores, así que RH necesita
         // verlos aparte para saber a quién le falta completar el dato.
         $sinFechaNacimiento = $this->cumpleanos->sinFechaNacimiento($usuario, $filtros)
-            ->map(fn (User $c) => ['id' => $c->id, 'nombre' => $c->nombreCompleto(), 'sucursal' => $c->sucursalPrincipal?->nombre])
+            ->map(fn (Colaborador $c) => ['id' => $c->id, 'nombre' => $c->nombreCompleto(), 'sucursal' => $c->sucursalPrincipal?->nombre])
             ->values();
 
         $puedeCalendario = $usuario->can('rh.cumpleanos.calendario');
@@ -117,7 +117,7 @@ class CumpleanosController extends Controller
                     ->orderBy('nombre')
                     ->get(['id', 'nombre']),
                 'colaboradores' => $this->cumpleanos->colaboradoresElegibles($usuario, $filtros)
-                    ->map(fn (User $c) => ['id' => $c->id, 'nombre' => $c->nombreCompleto()])
+                    ->map(fn (Colaborador $c) => ['id' => $c->id, 'nombre' => $c->nombreCompleto()])
                     ->values(),
                 'frases' => $usuario->can('rh.cumpleanos.frases.gestionar')
                     ? BirthdayPhrase::query()->orderBy('orden')->orderBy('id')->get()
@@ -142,7 +142,7 @@ class CumpleanosController extends Controller
         ]);
     }
 
-    public function felicitacion(Request $request, User $colaborador): Response
+    public function felicitacion(Request $request, Colaborador $colaborador): Response
     {
         $usuario = $request->user();
         abort_unless($usuario->can('rh.cumpleanos.ver'), 403);
@@ -192,7 +192,7 @@ class CumpleanosController extends Controller
      * guardada, sin tocar base de datos ni storage — usada por el selector
      * de frase en Felicitacion.vue antes de confirmar.
      */
-    public function previsualizarFrase(Request $request, User $colaborador): HttpResponse
+    public function previsualizarFrase(Request $request, Colaborador $colaborador): HttpResponse
     {
         abort_unless($request->user()->can('rh.cumpleanos.ver'), 403);
 
@@ -203,7 +203,7 @@ class CumpleanosController extends Controller
         return response($png, 200, ['Content-Type' => 'image/png']);
     }
 
-    public function confirmarFrase(Request $request, User $colaborador): RedirectResponse
+    public function confirmarFrase(Request $request, Colaborador $colaborador): RedirectResponse
     {
         abort_unless($request->user()->can('rh.cumpleanos.ver'), 403);
 
@@ -220,7 +220,7 @@ class CumpleanosController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => 'Frase actualizada en la tarjeta.']);
     }
 
-    public function generar(Request $request, User $colaborador): RedirectResponse
+    public function generar(Request $request, Colaborador $colaborador): RedirectResponse
     {
         abort_unless($request->user()->can('rh.cumpleanos.ver'), 403);
 
@@ -232,7 +232,7 @@ class CumpleanosController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => 'Felicitación generada.']);
     }
 
-    public function regenerar(Request $request, User $colaborador): RedirectResponse
+    public function regenerar(Request $request, Colaborador $colaborador): RedirectResponse
     {
         abort_unless($request->user()->can('rh.cumpleanos.ver'), 403);
 
@@ -244,7 +244,7 @@ class CumpleanosController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => 'Felicitación regenerada con una nueva frase e imagen.']);
     }
 
-    public function descargar(Request $request, User $colaborador): HttpResponse
+    public function descargar(Request $request, Colaborador $colaborador): HttpResponse
     {
         abort_unless($request->user()->can('rh.cumpleanos.descargar_imagen'), 403);
 
@@ -256,7 +256,7 @@ class CumpleanosController extends Controller
         return $this->tarjetas->descargar($greeting);
     }
 
-    public function enviarManual(Request $request, User $colaborador): RedirectResponse
+    public function enviarManual(Request $request, Colaborador $colaborador): RedirectResponse
     {
         abort_unless($request->user()->can('rh.cumpleanos.notificaciones.gestionar'), 403);
 

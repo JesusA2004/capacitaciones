@@ -48,11 +48,8 @@ import { Progress } from '@/components/ui/progress';
 import { Spinner } from '@/components/ui/spinner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAlertas } from '@/composables/useAlertas';
-import {
-    reactivar,
-    restablecerAcceso,
-    revocarAcceso,
-} from '@/routes/administracion/usuarios';
+import { restablecerAcceso, revocarAcceso } from '@/routes/administracion/usuarios';
+import { darDeBaja, reactivar } from '@/routes/rh/expedientes';
 import { update as actualizarAvisos } from '@/routes/rh/expedientes/avisos';
 import { update as actualizarDatosPersonales } from '@/routes/rh/expedientes/datos-personales';
 import { show as showSolicitud } from '@/routes/rh/solicitudes';
@@ -127,7 +124,7 @@ function guardarAvisosManual() {
     });
 }
 
-const { mostrarExito, mostrarError } = useAlertas();
+const { mostrarExito, mostrarError, confirmarEliminacion } = useAlertas();
 
 function reactivarColaborador() {
     router.post(
@@ -143,9 +140,29 @@ function reactivarColaborador() {
     );
 }
 
+async function darDeBajaColaborador() {
+    const confirmado = await confirmarEliminacion(
+        `a «${props.colaborador.name} ${props.colaborador.apellidos ?? ''}» — esto termina su relación laboral (baja), no solo su acceso`,
+    );
+
+    if (!confirmado) {
+        return;
+    }
+
+    router.delete(darDeBaja.url(props.colaborador.id), {
+        preserveScroll: true,
+        onSuccess: () => mostrarExito('El colaborador se dio de baja correctamente.'),
+        onError: () => mostrarError('No fue posible dar de baja al colaborador.'),
+    });
+}
+
 function revocarAccesoColaborador() {
+    if (props.colaborador.usuario_id === null) {
+        return;
+    }
+
     router.post(
-        revocarAcceso.url(props.colaborador.id),
+        revocarAcceso.url(props.colaborador.usuario_id),
         {},
         {
             preserveScroll: true,
@@ -159,8 +176,12 @@ function revocarAccesoColaborador() {
 }
 
 function restablecerAccesoColaborador() {
+    if (props.colaborador.usuario_id === null) {
+        return;
+    }
+
     router.post(
-        restablecerAcceso.url(props.colaborador.id),
+        restablecerAcceso.url(props.colaborador.usuario_id),
         {},
         {
             preserveScroll: true,
@@ -217,10 +238,7 @@ const onboardingPorcentaje = computed(() => {
                         <h1 class="text-lg font-semibold">
                             {{ colaborador.name }} {{ colaborador.apellidos }}
                         </h1>
-                        <EstadoBadge
-                            :estado="colaborador.estatus"
-                            :etiqueta="colaborador.deleted_at ? 'Baja' : undefined"
-                        />
+                        <EstadoBadge :estado="colaborador.estatus" />
                     </div>
                     <p class="text-sm text-muted-foreground">
                         {{
@@ -282,7 +300,7 @@ const onboardingPorcentaje = computed(() => {
                         </div>
                     </div>
                     <Button
-                        v-if="colaborador.deleted_at && puedeReactivar"
+                        v-if="colaborador.estatus === 'inactivo' && puedeReactivar"
                         size="sm"
                         variant="success"
                         @click="reactivarColaborador"
@@ -290,28 +308,39 @@ const onboardingPorcentaje = computed(() => {
                         Reactivar colaborador
                     </Button>
                     <p
-                        v-else-if="colaborador.deleted_at"
+                        v-else-if="colaborador.estatus === 'inactivo'"
                         class="text-xs text-muted-foreground"
                     >
                         Baja — solo un administrador puede reactivar.
                     </p>
-                    <template v-else-if="puedeGestionarAcceso">
-                        <Button
-                            v-if="colaborador.acceso_bloqueado_en"
-                            size="sm"
-                            variant="success"
-                            @click="restablecerAccesoColaborador"
-                        >
-                            Restablecer acceso
-                        </Button>
-                        <Button
-                            v-else
-                            size="sm"
-                            variant="outline"
-                            @click="revocarAccesoColaborador"
-                        >
-                            Revocar acceso
-                        </Button>
+                    <template v-else>
+                        <div v-if="puedeGestionarAcceso" class="flex flex-wrap justify-end gap-2">
+                            <template v-if="colaborador.tiene_cuenta">
+                                <Button
+                                    v-if="colaborador.acceso_bloqueado_en"
+                                    size="sm"
+                                    variant="success"
+                                    @click="restablecerAccesoColaborador"
+                                >
+                                    Restablecer acceso
+                                </Button>
+                                <Button
+                                    v-else
+                                    size="sm"
+                                    variant="outline"
+                                    @click="revocarAccesoColaborador"
+                                >
+                                    Revocar acceso
+                                </Button>
+                            </template>
+                            <Button
+                                size="sm"
+                                variant="destructive"
+                                @click="darDeBajaColaborador"
+                            >
+                                Dar de baja
+                            </Button>
+                        </div>
                     </template>
                 </div>
             </CardContent>
@@ -680,6 +709,14 @@ const onboardingPorcentaje = computed(() => {
                                     Acceso al sistema
                                 </p>
                                 <p
+                                    v-if="!colaborador.tiene_cuenta"
+                                    class="text-sm text-muted-foreground"
+                                >
+                                    Sin cuenta de acceso todavía — créala
+                                    desde Administración → Usuarios.
+                                </p>
+                                <p
+                                    v-else
                                     class="flex items-center gap-1.5 font-medium"
                                     :class="
                                         colaborador.acceso_bloqueado_en
@@ -1096,9 +1133,9 @@ const onboardingPorcentaje = computed(() => {
     </div>
 
     <EstablecerPasswordDialog
-        v-if="dialogoPasswordAbierto"
+        v-if="dialogoPasswordAbierto && colaborador.usuario_id !== null"
         v-model:open="dialogoPasswordAbierto"
-        :colaborador-id="colaborador.id"
+        :colaborador-id="colaborador.usuario_id"
         :colaborador-nombre="`${colaborador.name} ${colaborador.apellidos ?? ''}`"
     />
 </template>

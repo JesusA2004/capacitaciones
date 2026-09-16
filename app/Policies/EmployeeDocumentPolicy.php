@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Models\Colaborador;
 use App\Models\EmployeeDocument;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
@@ -16,19 +17,19 @@ class EmployeeDocumentPolicy
 {
     public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}
 
-    public function verExpediente(User $usuario, User $colaborador): bool
+    public function verExpediente(User $usuario, Colaborador $colaborador): bool
     {
         return $usuario->can('documentos.ver') && $this->alcance->puedeVerExpediente($usuario, $colaborador);
     }
 
-    public function subir(User $usuario, User $colaborador): bool
+    public function subir(User $usuario, Colaborador $colaborador): bool
     {
         return $usuario->can('documentos.subir') && $this->alcance->puedeVerExpediente($usuario, $colaborador);
     }
 
     public function descargar(User $usuario, EmployeeDocument $documento): bool
     {
-        return $usuario->can('documentos.descargar') && $this->alcance->puedeVerExpediente($usuario, $documento->usuario);
+        return $usuario->can('documentos.descargar') && $this->alcance->puedeVerExpediente($usuario, $documento->colaborador);
     }
 
     /**
@@ -38,8 +39,8 @@ class EmployeeDocumentPolicy
     public function revisar(User $usuario, EmployeeDocument $documento): bool
     {
         return $usuario->can('documentos.revisar')
-            && ! $usuario->is($documento->usuario)
-            && $this->alcance->puedeVerExpediente($usuario, $documento->usuario);
+            && $usuario->colaborador_id !== $documento->colaborador_id
+            && $this->alcance->puedeVerExpediente($usuario, $documento->colaborador);
     }
 
     public function aprobar(User $usuario, EmployeeDocument $documento): bool
@@ -64,6 +65,6 @@ class EmployeeDocumentPolicy
 
     public function verVersiones(User $usuario, EmployeeDocument $documento): bool
     {
-        return $usuario->can('documentos.versiones') && $this->alcance->puedeVerExpediente($usuario, $documento->usuario);
+        return $usuario->can('documentos.versiones') && $this->alcance->puedeVerExpediente($usuario, $documento->colaborador);
     }
 }

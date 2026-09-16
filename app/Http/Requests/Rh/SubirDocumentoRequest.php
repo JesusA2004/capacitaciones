@@ -2,15 +2,15 @@
 
 namespace App\Http\Requests\Rh;
 
+use App\Models\Colaborador;
 use App\Models\EmployeeDocument;
-use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 
 class SubirDocumentoRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        /** @var User $colaborador */
+        /** @var Colaborador $colaborador */
         $colaborador = $this->route('colaborador');
 
         return $this->user()?->can('subir', [EmployeeDocument::class, $colaborador]) ?? false;

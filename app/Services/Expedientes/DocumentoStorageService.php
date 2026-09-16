@@ -4,9 +4,9 @@ namespace App\Services\Expedientes;
 
 use App\Enums\EstadoDocumento;
 use App\Jobs\ProcesarDocumentoPersonalJob;
+use App\Models\Colaborador;
 use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
-use App\Models\User;
 use App\Services\Documentos\DocumentExtractionService;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Filesystem\FilesystemAdapter;
@@ -68,7 +68,7 @@ class DocumentoStorageService
      * "{numero_empleado} - {nombre completo}", único por diseño: el número
      * de empleado (o "SIN-NUMERO-{id}" si no tiene) resuelve homónimos.
      */
-    public function carpetaColaborador(User $colaborador): string
+    public function carpetaColaborador(Colaborador $colaborador): string
     {
         $numero = $colaborador->numero_empleado !== null && trim($colaborador->numero_empleado) !== ''
             ? trim($colaborador->numero_empleado)
@@ -92,17 +92,17 @@ class DocumentoStorageService
      * explícito y lo reporta en el log — nunca lo oculta en silencio (ver
      * CLAUDE.md, "una fila/columna que no cuadra se reporta explícitamente").
      */
-    public function rutaBaseColaborador(User $colaborador): string
+    public function rutaBaseColaborador(Colaborador $colaborador): string
     {
         $empresaNombre = $colaborador->sucursalPrincipal?->empresa?->nombre;
         $sucursalNombre = $colaborador->sucursalPrincipal?->nombre;
 
         if ($empresaNombre === null) {
-            Log::warning('expedientes: colaborador sin empresa al construir ruta NAS.', ['user_id' => $colaborador->id]);
+            Log::warning('expedientes: colaborador sin empresa al construir ruta NAS.', ['colaborador_id' => $colaborador->id]);
         }
 
         if ($sucursalNombre === null) {
-            Log::warning('expedientes: colaborador sin sucursal al construir ruta NAS.', ['user_id' => $colaborador->id]);
+            Log::warning('expedientes: colaborador sin sucursal al construir ruta NAS.', ['colaborador_id' => $colaborador->id]);
         }
 
         return implode('/', [
@@ -123,7 +123,7 @@ class DocumentoStorageService
      * (planificación de migración, reportes) donde escribir en BD sería
      * incorrecto — por ejemplo, un dry run nunca debe tocar la BD.
      */
-    public function rutaBaseColaboradorPersistida(User $colaborador): string
+    public function rutaBaseColaboradorPersistida(Colaborador $colaborador): string
     {
         $actual = $colaborador->expediente_storage_path;
 
@@ -142,7 +142,7 @@ class DocumentoStorageService
      * perfil), para que la identidad de almacenamiento quede fijada desde el
      * primer documento y nunca se recalcule en subidas futuras.
      */
-    public function asignarRutaBaseColaborador(User $colaborador): string
+    public function asignarRutaBaseColaborador(Colaborador $colaborador): string
     {
         $actual = $colaborador->expediente_storage_path;
 
@@ -177,7 +177,7 @@ class DocumentoStorageService
      * todavía no existe. Cualquier subida real de archivo debe dejarlo en
      * true (default) para fijar la identidad de almacenamiento.
      */
-    public function rutaDocumento(User $colaborador, DocumentType $tipo, int $version, ?string $extension, bool $persistirRutaBase = true): string
+    public function rutaDocumento(Colaborador $colaborador, DocumentType $tipo, int $version, ?string $extension, bool $persistirRutaBase = true): string
     {
         $base = $persistirRutaBase
             ? $this->asignarRutaBaseColaborador($colaborador)
@@ -199,7 +199,7 @@ class DocumentoStorageService
      * expone esta ruta cruda al frontend: se sirve siempre a través de una
      * ruta protegida por policy (Rh\ExpedienteController::descargarFoto).
      */
-    public function rutaFoto(User $colaborador, ?string $extension, bool $persistirRutaBase = true): string
+    public function rutaFoto(Colaborador $colaborador, ?string $extension, bool $persistirRutaBase = true): string
     {
         $base = $persistirRutaBase
             ? $this->asignarRutaBaseColaborador($colaborador)
@@ -290,17 +290,17 @@ class DocumentoStorageService
      * versión que alguna vez existió pisaría el nombre de un archivo que
      * pudo seguir vivo en el NAS aunque su fila esté borrada lógicamente.
      */
-    public function subirVersion(User $colaborador, DocumentType $tipo, UploadedFile $archivo, int $subidoPorId): EmployeeDocument
+    public function subirVersion(Colaborador $colaborador, DocumentType $tipo, UploadedFile $archivo, int $subidoPorId): EmployeeDocument
     {
         $anterior = EmployeeDocument::query()
-            ->where('user_id', $colaborador->id)
+            ->where('colaborador_id', $colaborador->id)
             ->where('document_type_id', $tipo->id)
             ->where('status', '!=', EstadoDocumento::Archivado->value)
             ->orderByDesc('version')
             ->first();
 
         $maximoHistorico = (int) EmployeeDocument::withTrashed()
-            ->where('user_id', $colaborador->id)
+            ->where('colaborador_id', $colaborador->id)
             ->where('document_type_id', $tipo->id)
             ->max('version');
 
@@ -311,7 +311,8 @@ class DocumentoStorageService
         try {
             $documento = DB::transaction(function () use ($colaborador, $tipo, $archivo, $ruta, $version, $anterior, $subidoPorId) {
                 $documento = EmployeeDocument::create([
-                    'user_id' => $colaborador->id,
+                    'colaborador_id' => $colaborador->id,
+                    'user_id' => $colaborador->user?->id,
                     'empresa_id' => $colaborador->sucursalPrincipal?->empresa_id,
                     'sucursal_id' => $colaborador->sucursal_principal_id,
                     'document_type_id' => $tipo->id,

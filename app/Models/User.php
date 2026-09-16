@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Enums\EstadoUsuario;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -99,7 +100,7 @@ class User extends Authenticatable
             return false;
         }
 
-        return $this->colaborador?->estatus === \App\Enums\EstadoUsuario::Activo;
+        return $this->colaborador?->estatus === EstadoUsuario::Activo;
     }
 
     /**

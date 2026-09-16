@@ -4,7 +4,7 @@ namespace App\Services\Cumpleanos;
 
 use App\Models\BirthdayGreeting;
 use App\Models\BirthdayPhrase;
-use App\Models\User;
+use App\Models\Colaborador;
 use App\Services\Expedientes\DocumentoStorageService;
 use Carbon\CarbonInterface;
 use GdImage;
@@ -26,10 +26,10 @@ class BirthdayCardService
         private readonly DocumentoStorageService $fotos,
     ) {}
 
-    public function generar(User $colaborador, CarbonInterface $fecha): BirthdayGreeting
+    public function generar(Colaborador $colaborador, CarbonInterface $fecha): BirthdayGreeting
     {
         $greeting = BirthdayGreeting::query()
-            ->where('user_id', $colaborador->id)
+            ->where('colaborador_id', $colaborador->id)
             ->whereDate('fecha', $fecha->toDateString())
             ->first();
 
@@ -44,7 +44,8 @@ class BirthdayCardService
         $frase = $this->elegirFrase();
 
         $greeting = BirthdayGreeting::create([
-            'user_id' => $colaborador->id,
+            'colaborador_id' => $colaborador->id,
+            'user_id' => $colaborador->user?->id,
             'birthday_phrase_id' => $frase !== null ? $frase->id : null,
             'fecha' => $fecha->toDateString(),
             'nombre_mostrado' => $colaborador->nombreCompleto(),
@@ -63,7 +64,7 @@ class BirthdayCardService
      * Fuerza una nueva frase y re-renderiza la imagen, incluso si ya existía
      * una felicitación para ese día (usado por "regenerar" en el panel RH).
      */
-    public function regenerar(User $colaborador, CarbonInterface $fecha): BirthdayGreeting
+    public function regenerar(Colaborador $colaborador, CarbonInterface $fecha): BirthdayGreeting
     {
         $greeting = $this->generar($colaborador, $fecha);
 
@@ -88,7 +89,7 @@ class BirthdayCardService
      * catálogo (para las métricas de uso) cuando la frase elegida viene de
      * ahí, o quedar null si en el futuro se permite texto libre.
      */
-    public function aplicarFrase(User $colaborador, CarbonInterface $fecha, string $frase, ?int $fraseId): BirthdayGreeting
+    public function aplicarFrase(Colaborador $colaborador, CarbonInterface $fecha, string $frase, ?int $fraseId): BirthdayGreeting
     {
         $greeting = $this->generar($colaborador, $fecha);
 
@@ -127,12 +128,12 @@ class BirthdayCardService
      * Bytes PNG de una vista previa sin tocar base de datos ni storage.
      * Reutiliza el mismo render que generar()/regenerar().
      */
-    public function preview(User $colaborador, string $frase): string
+    public function preview(Colaborador $colaborador, string $frase): string
     {
         return $this->renderPng($colaborador, $frase);
     }
 
-    private function renderizarYGuardar(BirthdayGreeting $greeting, User $colaborador, bool $forzar = false): void
+    private function renderizarYGuardar(BirthdayGreeting $greeting, Colaborador $colaborador, bool $forzar = false): void
     {
         if ($greeting->card_path !== null && ! $forzar && $this->storage->existe($greeting->card_path)) {
             return;
@@ -185,7 +186,7 @@ class BirthdayCardService
      * vía cumpleanos.card_width / cumpleanos.card_height (1080x1350 por
      * defecto).
      */
-    private function renderPng(User $colaborador, string $frase): string
+    private function renderPng(Colaborador $colaborador, string $frase): string
     {
         $ancho = max(1, (int) config('cumpleanos.card_width', 1080));
         $alto = max(1, (int) config('cumpleanos.card_height', 1350));
@@ -369,7 +370,7 @@ class BirthdayCardService
      */
     private function dibujarFotoCircular(
         GdImage $imagen,
-        User $colaborador,
+        Colaborador $colaborador,
         int $centroX,
         int $centroY,
         int $radio,
@@ -383,7 +384,7 @@ class BirthdayCardService
             $bytes = $this->fotos->disco()->get($colaborador->foto_path);
         } catch (\Throwable $e) {
             Log::warning('BirthdayCardService: no se pudo leer la foto del colaborador para la tarjeta.', [
-                'user_id' => $colaborador->id,
+                'colaborador_id' => $colaborador->id,
                 'foto_path' => $colaborador->foto_path,
                 'error' => $e->getMessage(),
             ]);
@@ -395,7 +396,7 @@ class BirthdayCardService
 
         if ($foto === false) {
             Log::warning('BirthdayCardService: la foto del colaborador no es una imagen válida.', [
-                'user_id' => $colaborador->id,
+                'colaborador_id' => $colaborador->id,
                 'foto_path' => $colaborador->foto_path,
             ]);
 

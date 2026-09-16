@@ -34,11 +34,16 @@ class AuthController extends Controller
         /** @var User $usuario */
         $usuario = Auth::user();
 
-        // Un colaborador EnIncorporacion si puede entrar: solo vera su
-        // checklist de expediente documental (GET /colaborador/incorporacion)
+        // `estatus` vive en Colaborador, no en User (separación
+        // Usuario/Colaborador) — un User sin colaborador enlazado no puede
+        // entrar. Un colaborador EnIncorporacion si puede entrar: solo vera
+        // su checklist de expediente documental (GET /colaborador/incorporacion)
         // hasta que RH apruebe y quede Activo — ver
         // App\Services\Incorporacion\IncorporacionService.
-        if (! in_array($usuario->estatus, [EstadoUsuario::Activo, EstadoUsuario::EnIncorporacion], true)
+        $colaborador = $usuario->colaborador;
+
+        if ($colaborador === null
+            || ! in_array($colaborador->estatus, [EstadoUsuario::Activo, EstadoUsuario::EnIncorporacion], true)
             || $usuario->acceso_bloqueado_en !== null) {
             throw ValidationException::withMessages([
                 'email' => 'Tu cuenta no está activa. Contacta a Recursos Humanos.',
@@ -54,7 +59,7 @@ class AuthController extends Controller
                 'nombre' => $usuario->name,
                 'apellidos' => $usuario->apellidos,
                 'correo' => $usuario->email,
-                'estatus' => $usuario->estatus->value,
+                'estatus' => $colaborador->estatus->value,
                 'roles' => $usuario->getRoleNames(),
             ],
         ]);
