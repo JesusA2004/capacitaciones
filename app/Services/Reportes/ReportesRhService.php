@@ -8,10 +8,12 @@ use App\Enums\EstadoSolicitudInterna;
 use App\Enums\EstadoUsuario;
 use App\Enums\EstadoVacante;
 use App\Enums\EstatusImss;
+use App\Enums\TipoMovimientoLaboral;
+use App\Enums\TipoSolicitudInterna;
 use App\Models\Candidato;
 use App\Models\EmployeeDocument;
+use App\Models\MovimientoLaboral;
 use App\Models\SolicitudInterna;
-use App\Models\SolicitudVacaciones;
 use App\Models\User;
 use App\Models\Vacante;
 use App\Services\AlcanceOrganizacionalService;
@@ -226,28 +228,64 @@ class ReportesRhService
     }
 
     /**
+     * IDs de colaboradores visibles para $usuario SEGÚN SU ALCANCE
+     * (AlcanceOrganizacionalService), incluyendo bajas (withTrashed): altas
+     * y bajas necesitan poder "ver" tanto colaboradores activos como dados
+     * de baja dentro del alcance — filtrar primero por User::query() (que
+     * excluye soft-deleted) y luego intersectar con onlyTrashed() nunca
+     * encuentra nada, porque un ID nunca puede estar en ambos conjuntos a
+     * la vez (ver CLAUDE.md, bug de reportes de bajas).
+     *
+     * @param  array<string, mixed>  $filtros
+     * @return Collection<int, int>
+     */
+    private function idsVisiblesConBajas(User $usuario, array $filtros): Collection
+    {
+        $query = $this->alcance->limitarUsuariosPorAlcance(User::withTrashed(), $usuario);
+
+        return $this->aplicarFiltrosColaborador($query, $filtros)->pluck('id');
+    }
+
+    /**
+     * Altas por mes desde el histórico inmutable de MovimientoLaboral (tipo
+     * "alta"), no desde `users.created_at`: created_at es cuándo se creó la
+     * fila en BD (puede no coincidir con la fecha de ingreso real, p. ej. en
+     * una carga masiva/migración), mientras que el movimiento de alta guarda
+     * `fecha_movimiento` = fecha_ingreso del colaborador en el momento en que
+     * causó alta (ver MovimientoLaboralService::registrarAlta) — la fuente
+     * correcta según la definición de negocio de "cuándo entró alguien".
+     *
      * @param  array<string, mixed>  $filtros
      * @return Reporte
      */
     private function altasPorMes(User $usuario, array $filtros): array
     {
-        return $this->porMes(
-            $this->colaboradoresVisibles($usuario, $filtros)->pluck('created_at'),
-            'Altas por mes',
-        );
+        $fechas = MovimientoLaboral::query()
+            ->whereIn('user_id', $this->idsVisiblesConBajas($usuario, $filtros))
+            ->where('tipo_movimiento', TipoMovimientoLaboral::Alta->value)
+            ->pluck('fecha_movimiento');
+
+        return $this->porMes($fechas, 'Altas por mes');
     }
 
     /**
+     * Bajas por mes desde MovimientoLaboral (tipo "baja"), registrado por
+     * UsuarioController::destroy() y BajaColaboradorService en el mismo
+     * instante en que se da de baja al colaborador — a diferencia de
+     * `users.deleted_at` intersectado con un listado de IDs que por
+     * construcción nunca incluye bajas (ver idsVisiblesConBajas()).
+     *
      * @param  array<string, mixed>  $filtros
      * @return Reporte
      */
     private function bajasPorMes(User $usuario, array $filtros): array
     {
-        $idsVisibles = $this->aplicarFiltrosColaborador($this->alcance->limitarUsuariosPorAlcance(User::query(), $usuario), $filtros)->pluck('id');
+        $fechas = MovimientoLaboral::query()
+            ->whereIn('user_id', $this->idsVisiblesConBajas($usuario, $filtros))
+            ->where('tipo_movimiento', TipoMovimientoLaboral::Baja->value)
+            ->pluck('fecha_movimiento');
 
-        $bajas = User::onlyTrashed()->whereIn('id', $idsVisibles)->pluck('deleted_at');
-
-        return $this->porMes($bajas, 'Bajas por mes');
+        return $this->porMes($fechas, 'Bajas por mes');
     }
 
     /**
@@ -434,6 +472,13 @@ class ReportesRhService
     }
 
     /**
+     * Lee de `solicitudes_internas` (tipo=vacaciones), el flujo unificado
+     * vigente — nunca de la tabla legacy `SolicitudVacaciones` (ver
+     * docs/SOLICITUDES_UNIFICADAS.md y ExpedienteTest, "el expediente
+     * muestra el historial de vacaciones desde solicitudes_internas, no
+     * desde la tabla legacy"): este reporte no debe dar una cifra distinta
+     * a la que ve un colaborador en su propio expediente.
+     *
      * @param  array<string, mixed>  $filtros
      * @return Reporte
      */
@@ -441,17 +486,18 @@ class ReportesRhService
     {
         $idsVisibles = $this->colaboradoresVisibles($usuario, $filtros)->pluck('id');
 
-        $filas = SolicitudVacaciones::query()
+        $filas = SolicitudInterna::query()
             ->whereIn('user_id', $idsVisibles)
+            ->where('tipo', TipoSolicitudInterna::Vacaciones->value)
             ->when($filtros['estado'] ?? null, fn (Builder $q, $v) => $q->where('estado', $v))
             ->when($filtros['fecha_inicio'] ?? null, fn (Builder $q, $v) => $q->where('fecha_inicio', '>=', $v))
             ->when($filtros['fecha_fin'] ?? null, fn (Builder $q, $v) => $q->where('fecha_fin', '<=', $v))
             ->with('usuario:id,name,apellidos')
             ->get()
-            ->map(fn (SolicitudVacaciones $s) => [
+            ->map(fn (SolicitudInterna $s) => [
                 trim(($s->usuario->name ?? '').' '.($s->usuario->apellidos ?? '')),
-                $s->fecha_inicio->toDateString(),
-                $s->fecha_fin->toDateString(),
+                $s->fecha_inicio?->toDateString(),
+                $s->fecha_fin?->toDateString(),
                 $s->dias_solicitados,
                 $s->estado->etiqueta(),
             ])

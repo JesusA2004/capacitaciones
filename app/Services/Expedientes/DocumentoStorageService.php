@@ -11,11 +11,13 @@ use App\Services\Documentos\DocumentExtractionService;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 /**
  * Unica puerta de entrada al almacenamiento de documentos de expediente
@@ -76,7 +78,16 @@ class DocumentoStorageService
     }
 
     /**
-     * Carpeta del colaborador dentro del NAS: expedientes/{empresa}/{sucursal}/{numero - nombre}.
+     * Carpeta del colaborador dentro del NAS: expedientes/{empresa}/{sucursal}/{numero - nombre},
+     * calculada en FRESCO a partir del estado actual del colaborador (nunca
+     * lee ni escribe `expediente_storage_path`). Uso: (a) primera asignación
+     * en asignarRutaBaseColaborador(), (b) ExpedienteRelocationService para
+     * saber a dónde debería moverse un expediente. Cualquier otro caso debe
+     * usar la ruta PERSISTIDA (ver rutaBaseColaboradorPersistida()) — nunca
+     * esta directamente, o una nueva versión "seguiría" a un cambio de
+     * sucursal/nombre y partiría el expediente en dos carpetas (ver
+     * CLAUDE.md y docs/ESTRUCTURA_EXPEDIENTES_NAS.md).
+     *
      * Si falta empresa/sucursal (colaborador incompleto) usa un placeholder
      * explícito y lo reporta en el log — nunca lo oculta en silencio (ver
      * CLAUDE.md, "una fila/columna que no cuadra se reporta explícitamente").
@@ -103,6 +114,49 @@ class DocumentoStorageService
     }
 
     /**
+     * Ruta base PERSISTIDA del expediente, sin efectos secundarios: si el
+     * colaborador ya tiene `expediente_storage_path` la regresa tal cual
+     * (aunque ya no coincida con su empresa/sucursal/nombre actuales — ver
+     * docs/ESTRUCTURA_EXPEDIENTES_NAS.md, "cambio de nombre/sucursal no
+     * mueve el expediente"); si todavía no tiene, calcula (sin guardar) la
+     * que se le asignaría. Úsala en cualquier lugar de solo-lectura/preview
+     * (planificación de migración, reportes) donde escribir en BD sería
+     * incorrecto — por ejemplo, un dry run nunca debe tocar la BD.
+     */
+    public function rutaBaseColaboradorPersistida(User $colaborador): string
+    {
+        $actual = $colaborador->expediente_storage_path;
+
+        if ($actual !== null && trim($actual) !== '') {
+            return $actual;
+        }
+
+        return $this->rutaBaseColaborador($colaborador);
+    }
+
+    /**
+     * Igual que rutaBaseColaboradorPersistida(), pero si el colaborador
+     * todavía no tiene ruta asignada, la calcula Y LA GUARDA de una vez en
+     * `expediente_storage_path` — esta es la única función que debe usarse
+     * al momento de escribir un archivo real (subirVersion(), foto de
+     * perfil), para que la identidad de almacenamiento quede fijada desde el
+     * primer documento y nunca se recalcule en subidas futuras.
+     */
+    public function asignarRutaBaseColaborador(User $colaborador): string
+    {
+        $actual = $colaborador->expediente_storage_path;
+
+        if ($actual !== null && trim($actual) !== '') {
+            return $actual;
+        }
+
+        $ruta = $this->rutaBaseColaborador($colaborador);
+        $colaborador->forceFill(['expediente_storage_path' => $ruta])->save();
+
+        return $ruta;
+    }
+
+    /**
      * "{DocumentType->nombre} - v{version}.{extension}" — nunca UUID: el
      * sistema ya sabe qué documento es (DocumentType), no hace falta
      * adivinar a partir del nombre que subió el usuario (original_name se
@@ -116,9 +170,20 @@ class DocumentoStorageService
         return $extension !== '' ? "{$nombre}.{$extension}" : $nombre;
     }
 
-    public function rutaDocumento(User $colaborador, DocumentType $tipo, int $version, ?string $extension): string
+    /**
+     * $persistirRutaBase=false se usa solo desde planificación/preview (p.
+     * ej. ExpedienteNasOrganizacionService en dry run): calcula la ruta que
+     * tendría el documento sin asignar/guardar `expediente_storage_path` si
+     * todavía no existe. Cualquier subida real de archivo debe dejarlo en
+     * true (default) para fijar la identidad de almacenamiento.
+     */
+    public function rutaDocumento(User $colaborador, DocumentType $tipo, int $version, ?string $extension, bool $persistirRutaBase = true): string
     {
-        return $this->rutaBaseColaborador($colaborador).'/'.$this->nombreDocumento($tipo, $version, $extension);
+        $base = $persistirRutaBase
+            ? $this->asignarRutaBaseColaborador($colaborador)
+            : $this->rutaBaseColaboradorPersistida($colaborador);
+
+        return $base.'/'.$this->nombreDocumento($tipo, $version, $extension);
     }
 
     public function nombreFoto(?string $extension): string
@@ -134,9 +199,13 @@ class DocumentoStorageService
      * expone esta ruta cruda al frontend: se sirve siempre a través de una
      * ruta protegida por policy (Rh\ExpedienteController::descargarFoto).
      */
-    public function rutaFoto(User $colaborador, ?string $extension): string
+    public function rutaFoto(User $colaborador, ?string $extension, bool $persistirRutaBase = true): string
     {
-        return $this->rutaBaseColaborador($colaborador).'/foto/'.$this->nombreFoto($extension);
+        $base = $persistirRutaBase
+            ? $this->asignarRutaBaseColaborador($colaborador)
+            : $this->rutaBaseColaboradorPersistida($colaborador);
+
+        return $base.'/foto/'.$this->nombreFoto($extension);
     }
 
     /**
@@ -145,9 +214,18 @@ class DocumentoStorageService
      * de escritura (permmisos, disco lleno, NAS caído) no lanza excepción
      * por sí solo — sin esta verificación explícita, la fila de BD podría
      * crearse apuntando a un archivo que nunca se guardó.
+     *
+     * Nunca sobrescribe: si el destino ya existe (colisión de versión por
+     * una carrera entre dos subidas concurrentes, o un bug de cálculo de
+     * versión) se rechaza explícitamente en vez de hacer putFileAs() encima
+     * y perder el archivo anterior en silencio (ver CLAUDE.md).
      */
     public function guardar(UploadedFile $archivo, string $rutaDestino): string
     {
+        if ($this->existe($rutaDestino)) {
+            throw new RuntimeException("Ya existe un archivo en el NAS en «{$rutaDestino}»; no se sobrescribe. Probablemente la versión calculada ya estaba en uso.");
+        }
+
         $carpeta = dirname($rutaDestino);
         $nombre = basename($rutaDestino);
 
@@ -204,6 +282,13 @@ class DocumentoStorageService
      * Rh\EmployeeDocumentController::store. Unica fuente de esta logica para
      * que la subida normal al expediente y la subida de un formato firmado
      * (Rh\FormatoController::subirFirmado) no la dupliquen.
+     *
+     * Atómico frente al archivo: si la fila de BD falla, el archivo recién
+     * guardado se elimina (nunca queda huérfano) y NUNCA se toca el archivo
+     * de la versión anterior. La versión se calcula sobre el máximo
+     * histórico (withTrashed, no solo la vigente): reutilizar un número de
+     * versión que alguna vez existió pisaría el nombre de un archivo que
+     * pudo seguir vivo en el NAS aunque su fila esté borrada lógicamente.
      */
     public function subirVersion(User $colaborador, DocumentType $tipo, UploadedFile $archivo, int $subidoPorId): EmployeeDocument
     {
@@ -214,30 +299,47 @@ class DocumentoStorageService
             ->orderByDesc('version')
             ->first();
 
-        $version = $anterior ? $anterior->version + 1 : 1;
+        $maximoHistorico = (int) EmployeeDocument::withTrashed()
+            ->where('user_id', $colaborador->id)
+            ->where('document_type_id', $tipo->id)
+            ->max('version');
+
+        $version = $maximoHistorico + 1;
         $ruta = $this->rutaDocumento($colaborador, $tipo, $version, $archivo->getClientOriginalExtension());
         $this->guardar($archivo, $ruta);
 
-        $documento = EmployeeDocument::create([
-            'user_id' => $colaborador->id,
-            'empresa_id' => $colaborador->sucursalPrincipal?->empresa_id,
-            'sucursal_id' => $colaborador->sucursal_principal_id,
-            'document_type_id' => $tipo->id,
-            'disk' => config('expedientes.disk'),
-            'path' => $ruta,
-            'original_name' => $archivo->getClientOriginalName(),
-            'stored_name' => basename($ruta),
-            'mime' => $archivo->getClientMimeType(),
-            'extension' => $archivo->getClientOriginalExtension(),
-            'size' => $archivo->getSize(),
-            'hash' => $this->hashSha256($ruta),
-            'version' => $version,
-            'previous_version_id' => $anterior?->id,
-            'status' => EstadoDocumento::EnRevision->value,
-            'uploaded_by' => $subidoPorId,
-        ]);
+        try {
+            $documento = DB::transaction(function () use ($colaborador, $tipo, $archivo, $ruta, $version, $anterior, $subidoPorId) {
+                $documento = EmployeeDocument::create([
+                    'user_id' => $colaborador->id,
+                    'empresa_id' => $colaborador->sucursalPrincipal?->empresa_id,
+                    'sucursal_id' => $colaborador->sucursal_principal_id,
+                    'document_type_id' => $tipo->id,
+                    'disk' => config('expedientes.disk'),
+                    'path' => $ruta,
+                    'original_name' => $archivo->getClientOriginalName(),
+                    'stored_name' => basename($ruta),
+                    'mime' => $archivo->getClientMimeType(),
+                    'extension' => $archivo->getClientOriginalExtension(),
+                    'size' => $archivo->getSize(),
+                    'hash' => $this->hashSha256($ruta),
+                    'version' => $version,
+                    'previous_version_id' => $anterior?->id,
+                    'status' => EstadoDocumento::EnRevision->value,
+                    'uploaded_by' => $subidoPorId,
+                ]);
 
-        $anterior?->update(['status' => EstadoDocumento::Archivado->value]);
+                $anterior?->update(['status' => EstadoDocumento::Archivado->value]);
+
+                return $documento;
+            });
+        } catch (Throwable $e) {
+            // El archivo recién guardado nunca llegó a tener fila en BD:
+            // eliminarlo (nunca la version anterior, que sigue vigente).
+            $this->eliminar($ruta);
+
+            throw $e;
+        }
 
         // Extraccion automatica de datos personales (docs/DOCUMENT_EXTRACTION.md):
         // solo para tipos de documento donde tiene sentido intentarlo (INE,

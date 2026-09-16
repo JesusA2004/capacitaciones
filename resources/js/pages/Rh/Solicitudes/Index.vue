@@ -210,6 +210,7 @@ const {
     onStart: onStartDragBase,
     onEnd: onEndDragBase,
     restaurarCanonico,
+    alSiguienteFrameLibre,
 } = useKanbanTransition();
 
 // El id+columna de origen de la tarjeta se capturan al INICIAR el arrastre
@@ -263,9 +264,16 @@ function onEndDrag(evento: DraggableEvent<SolicitudInternaItem>) {
     // v-model de vue-draggable-plus ya lo reflejó) y solo forzar el estado
     // canónico si el usuario cancela o el servidor rechaza el cambio —
     // momentos desacoplados del gesto de arrastre (ver useKanbanTransition).
-    movimientoPendiente.value = { solicitud, estadoOrigen, estadoDestino };
-    comentarioMovimiento.value = '';
-    dialogMovimientoAbierto.value = true;
+    //
+    // Montar el Dialog se difiere a alSiguienteFrameLibre(): hacerlo
+    // síncrono aquí (dentro del propio @end) seguía dando freeze en
+    // reproducción real — Sortable todavía limpia sus referencias internas
+    // justo después de este callback (ver useKanbanTransition).
+    alSiguienteFrameLibre(() => {
+        movimientoPendiente.value = { solicitud, estadoOrigen, estadoDestino };
+        comentarioMovimiento.value = '';
+        dialogMovimientoAbierto.value = true;
+    });
 }
 
 function cancelarMovimiento() {

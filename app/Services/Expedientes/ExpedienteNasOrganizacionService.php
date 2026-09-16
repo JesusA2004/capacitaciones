@@ -77,7 +77,10 @@ class ExpedienteNasOrganizacionService
         }
 
         $extension = $documento->extension ?: pathinfo($documento->path, PATHINFO_EXTENSION);
-        $nuevaRuta = $this->storage->rutaDocumento($documento->usuario, $documento->tipo, $documento->version, $extension);
+        // persistirRutaBase=false: planificar() es de solo lectura (incluye
+        // el dry run) y nunca debe escribir expediente_storage_path — eso
+        // solo ocurre al aplicar de verdad, en moverUno()/resolverDuplicado().
+        $nuevaRuta = $this->storage->rutaDocumento($documento->usuario, $documento->tipo, $documento->version, $extension, persistirRutaBase: false);
 
         return $this->clasificar('documento', $documento->id, $documento->user_id, $documento->path, $nuevaRuta, $documento->hash);
     }
@@ -92,7 +95,7 @@ class ExpedienteNasOrganizacionService
         }
 
         $extension = pathinfo($colaborador->foto_path, PATHINFO_EXTENSION);
-        $nuevaRuta = $this->storage->rutaFoto($colaborador, $extension);
+        $nuevaRuta = $this->storage->rutaFoto($colaborador, $extension, persistirRutaBase: false);
 
         return $this->clasificar('foto', null, $colaborador->id, $colaborador->foto_path, $nuevaRuta, null);
     }
@@ -143,15 +146,20 @@ class ExpedienteNasOrganizacionService
     public function ejecutar(Collection $plan, bool $aplicar): Collection
     {
         return $plan->map(function (array $item) use ($aplicar) {
-            if ($item['accion'] !== 'mover') {
-                return [...$item, 'resultado' => $item['accion']];
+            if ($item['accion'] === 'mover') {
+                return $aplicar ? $this->moverUno($item) : [...$item, 'resultado' => 'pendiente_de_aplicar'];
             }
 
-            if (! $aplicar) {
-                return [...$item, 'resultado' => 'pendiente_de_aplicar'];
+            // "duplicado": el destino ya existe con el MISMO SHA-256 que el
+            // origen legacy. En dry run solo se reporta; al aplicar se
+            // adopta el destino (BD apunta ahí) y se limpia el origen legacy
+            // — si no, la fila queda apuntando a un UUID legacy aunque el
+            // contenido ya esté duplicado en la ruta legible (ver CLAUDE.md).
+            if ($item['accion'] === 'duplicado' && $aplicar) {
+                return $this->resolverDuplicado($item);
             }
 
-            return $this->moverUno($item);
+            return [...$item, 'resultado' => $item['accion']];
         });
     }
 
@@ -185,13 +193,18 @@ class ExpedienteNasOrganizacionService
             return [...$item, 'resultado' => 'error_copia', 'detalle' => $e->getMessage()];
         }
 
-        if ($item['tipo'] === 'documento') {
-            EmployeeDocument::withTrashed()->whereKey($item['employee_document_id'])->update([
-                'path' => $rutaNueva,
-                'stored_name' => basename($rutaNueva),
-            ]);
-        } else {
-            User::withTrashed()->whereKey($item['user_id'])->update(['foto_path' => $rutaNueva]);
+        try {
+            $this->actualizarReferenciaBd($item, $rutaNueva);
+        } catch (Throwable $e) {
+            // La copia ya quedó verificada en new_path, pero la fila de BD
+            // no cambió: borrar la copia (nunca el origen, que sigue siendo
+            // la fuente de verdad) para no dejar dos archivos de los que BD
+            // no sabe nada.
+            $this->storage->eliminar($rutaNueva);
+
+            Log::error('expedientes:organizar-nas — fallo al actualizar BD tras copiar; se eliminó la copia.', ['item' => $item, 'error' => $e->getMessage()]);
+
+            return [...$item, 'resultado' => 'error_bd', 'detalle' => $e->getMessage()];
         }
 
         if (! $this->storage->existe($rutaNueva)) {
@@ -202,6 +215,12 @@ class ExpedienteNasOrganizacionService
 
         $this->storage->eliminar($rutaActual);
 
+        if ($this->storage->existe($rutaActual)) {
+            return [...$item, 'resultado' => 'error_borrado_origen', 'detalle' => 'El archivo legacy siguió existiendo tras intentar borrarlo; BD ya apunta al nuevo destino — revisar permisos del NAS manualmente.'];
+        }
+
+        $this->asegurarRutaBasePersistida((int) $item['user_id']);
+
         Log::info('expedientes:organizar-nas — archivo reorganizado.', [
             'employee_document_id' => $item['employee_document_id'],
             'user_id' => $item['user_id'],
@@ -210,6 +229,88 @@ class ExpedienteNasOrganizacionService
         ]);
 
         return [...$item, 'resultado' => 'ok'];
+    }
+
+    /**
+     * Resuelve la acción "duplicado" (destino legible ya existe con el
+     * MISMO SHA-256 que el legacy): adopta el destino en BD y borra el
+     * origen legacy — nunca sobrescribe el destino, nunca lo toca. Si al
+     * momento de aplicar el hash ya no coincide (algo modificó alguno de
+     * los dos archivos entre planificar() y ejecutar()), se re-clasifica
+     * como conflicto en vez de adoptar a ciegas.
+     *
+     * @param  array<string, mixed>  $item
+     * @return array<string, mixed>
+     */
+    private function resolverDuplicado(array $item): array
+    {
+        $rutaActual = $item['old_path'];
+        $rutaNueva = $item['new_path'];
+
+        if (! $this->storage->existe($rutaActual) || ! $this->storage->existe($rutaNueva)) {
+            return [...$item, 'resultado' => 'error_verificacion_final', 'detalle' => 'Origen o destino ya no existen al momento de resolver el duplicado; no se tocó nada.'];
+        }
+
+        if ($this->storage->hashSha256($rutaActual) !== $this->storage->hashSha256($rutaNueva)) {
+            return [...$item, 'resultado' => 'conflicto', 'detalle' => 'El SHA-256 ya no coincide al momento de aplicar; se re-clasifica como conflicto, requiere revisión manual.'];
+        }
+
+        try {
+            $this->actualizarReferenciaBd($item, $rutaNueva);
+        } catch (Throwable $e) {
+            Log::error('expedientes:organizar-nas — fallo al actualizar BD al resolver duplicado.', ['item' => $item, 'error' => $e->getMessage()]);
+
+            return [...$item, 'resultado' => 'error_bd', 'detalle' => $e->getMessage()];
+        }
+
+        $this->storage->eliminar($rutaActual);
+
+        if ($this->storage->existe($rutaActual)) {
+            return [...$item, 'resultado' => 'error_borrado_origen', 'detalle' => 'El archivo legacy duplicado siguió existiendo tras intentar borrarlo; BD ya apunta al destino existente.'];
+        }
+
+        $this->asegurarRutaBasePersistida((int) $item['user_id']);
+
+        Log::info('expedientes:organizar-nas — duplicado resuelto (BD adoptó el destino existente, se borró el legacy).', [
+            'employee_document_id' => $item['employee_document_id'],
+            'user_id' => $item['user_id'],
+            'old_path' => $rutaActual,
+            'new_path' => $rutaNueva,
+        ]);
+
+        return [...$item, 'resultado' => 'duplicado_resuelto'];
+    }
+
+    /**
+     * @param  array<string, mixed>  $item
+     */
+    private function actualizarReferenciaBd(array $item, string $rutaNueva): void
+    {
+        if ($item['tipo'] === 'documento') {
+            EmployeeDocument::withTrashed()->whereKey($item['employee_document_id'])->update([
+                'path' => $rutaNueva,
+                'stored_name' => basename($rutaNueva),
+            ]);
+        } else {
+            User::withTrashed()->whereKey($item['user_id'])->update(['foto_path' => $rutaNueva]);
+        }
+    }
+
+    /**
+     * Fija `expediente_storage_path` si todavía no lo tenía: en el momento
+     * en que este método corre, el colaborador ya tiene al menos un archivo
+     * viviendo bajo la ruta legible (recién migrado), así que es el momento
+     * correcto para fijar la identidad de almacenamiento — futuras subidas
+     * (DocumentoStorageService::subirVersion) reusarán esta misma ruta
+     * aunque el colaborador después cambie de sucursal o de nombre.
+     */
+    private function asegurarRutaBasePersistida(int $userId): void
+    {
+        $colaborador = User::withTrashed()->where('id', $userId)->first();
+
+        if ($colaborador !== null) {
+            $this->storage->asignarRutaBaseColaborador($colaborador);
+        }
     }
 
     /**
@@ -258,6 +359,31 @@ class ExpedienteNasOrganizacionService
         }
 
         return $vacias;
+    }
+
+    /**
+     * Borra las carpetas legacy numéricas que carpetasLegacyVacias() detectó
+     * vacías, revalidando cada una justo antes de borrarla (por si algo
+     * escribió ahí entre planificar y podar). Solo debe llamarse después de
+     * una aplicación exitosa de la migración (sin conflictos/errores) — el
+     * comando lo deja detrás de --prune-empty-legacy, nunca automático.
+     *
+     * @return array<int, string> las carpetas efectivamente borradas
+     */
+    public function podarCarpetasLegaciesVacias(): array
+    {
+        $podadas = [];
+
+        foreach ($this->carpetasLegacyVacias() as $carpeta) {
+            if ($this->storage->disco()->allFiles($carpeta) !== [] || $this->storage->disco()->allDirectories($carpeta) !== []) {
+                continue;
+            }
+
+            $this->storage->disco()->deleteDirectory($carpeta);
+            $podadas[] = $carpeta;
+        }
+
+        return $podadas;
     }
 
     /**

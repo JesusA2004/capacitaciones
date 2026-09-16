@@ -52,11 +52,34 @@ export function useKanbanTransition() {
         reconstruirCanonico();
     }
 
+    /**
+     * Difiere `cb` hasta que Sortable terminó de verdad su limpieza interna
+     * del gesto de `@end`: un solo requestAnimationFrame solo garantiza
+     * "antes del próximo repintado" — justo donde Sortable sigue limpiando
+     * sus referencias internas (dragEl/ghostEl, clases sortable-*, captura
+     * de puntero) después de invocar su propio callback onEnd. Encadenar dos
+     * rAF asegura que ya pasó un ciclo de repintado completo antes de tocar
+     * cualquier estado que monte un Dialog/overlay.
+     *
+     * Úsalo para envolver CUALQUIER cosa dentro de `onEnd` que vaya a montar
+     * un Dialog (asignar el movimiento pendiente, abrir el flag
+     * `dialogXAbierto`) — nunca lo hagas de forma síncrona dentro del
+     * handler `@end`, y nunca lo sustituyas por `setTimeout(cb, N)`: un
+     * freeze real reportado en producción seguía ocurriendo con el dialog
+     * abriéndose síncronamente en `@end` aunque ya no se abriera en `@add`.
+     */
+    function alSiguienteFrameLibre(cb: () => void) {
+        requestAnimationFrame(() => {
+            requestAnimationFrame(cb);
+        });
+    }
+
     return {
         isDragging,
         processing,
         onStart,
         onEnd,
         restaurarCanonico,
+        alSiguienteFrameLibre,
     };
 }

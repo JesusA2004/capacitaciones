@@ -31,6 +31,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @property string $email
  * @property string|null $telefono
  * @property string|null $foto_path
+ * @property string|null $expediente_storage_path
  * @property int|null $sucursal_principal_id
  * @property int|null $departamento_id
  * @property int|null $puesto_id
@@ -88,7 +89,7 @@ use Spatie\Permission\Traits\HasRoles;
     'consentimiento_datos_aceptado', 'consentimiento_datos_aceptado_en', 'avisos_registrado_por_id',
     'incorporacion_decision', 'incorporacion_decidida_por', 'incorporacion_decidida_en', 'incorporacion_motivo_rechazo',
 ])]
-#[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token', 'foto_path'])]
+#[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token', 'foto_path', 'expediente_storage_path'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */

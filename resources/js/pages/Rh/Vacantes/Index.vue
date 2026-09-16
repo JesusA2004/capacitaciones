@@ -257,6 +257,7 @@ const {
     onStart: onStartDragVacanteBase,
     onEnd: onEndDragVacanteBase,
     restaurarCanonico: restaurarVacantes,
+    alSiguienteFrameLibre,
 } = useKanbanTransition();
 
 // Id+columna de origen capturados al INICIAR el arrastre (dataset del DOM,
@@ -327,22 +328,29 @@ function onEndDragVacante(evento: DraggableEvent<VacanteItem>) {
         return;
     }
 
-    if (estadoDestino === 'cubierta') {
-        abrirCubrir(vacante);
+    // Montar cualquiera de los tres diálogos se difiere a
+    // alSiguienteFrameLibre(): hacerlo síncrono aquí (dentro del propio
+    // @end) seguía dando freeze en reproducción real — Sortable todavía
+    // limpia sus referencias internas justo después de este callback (ver
+    // useKanbanTransition).
+    alSiguienteFrameLibre(() => {
+        if (estadoDestino === 'cubierta') {
+            abrirCubrir(vacante);
 
-        return;
-    }
+            return;
+        }
 
-    if (estadoDestino === 'cancelada') {
-        vacanteACancelar.value = vacante;
-        motivoCancelacionTexto.value = '';
-        dialogCancelarAbierto.value = true;
+        if (estadoDestino === 'cancelada') {
+            vacanteACancelar.value = vacante;
+            motivoCancelacionTexto.value = '';
+            dialogCancelarAbierto.value = true;
 
-        return;
-    }
+            return;
+        }
 
-    transicionPendiente.value = { vacante, estadoOrigen, estadoDestino };
-    dialogTransicionAbierto.value = true;
+        transicionPendiente.value = { vacante, estadoOrigen, estadoDestino };
+        dialogTransicionAbierto.value = true;
+    });
 }
 
 function cerrarDialogTransicion() {

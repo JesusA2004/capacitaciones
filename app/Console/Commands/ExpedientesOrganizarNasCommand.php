@@ -23,6 +23,7 @@ class ExpedientesOrganizarNasCommand extends Command
     protected $signature = 'expedientes:organizar-nas
         {--apply : Aplica los cambios (por defecto solo se simula)}
         {--confirm : Confirma --apply sin preguntar interactivamente (para uso no interactivo)}
+        {--prune-empty-legacy : Junto con --apply, borra las carpetas legacy numéricas que queden completamente vacías tras aplicar}
         {--rollback= : Ruta a un manifiesto JSON previo; revierte sus filas con resultado=ok}';
 
     protected $description = 'Migra los documentos de expediente en el NAS de rutas legacy (UUID) a la estructura legible por empresa/sucursal/colaborador';
@@ -99,9 +100,37 @@ class ExpedientesOrganizarNasCommand extends Command
 
         $this->reportarHuerfanosYVacias($servicio);
 
-        $huboProblemas = ($conteos['conflicto'] ?? 0) > 0 || ($conteos['error_copia'] ?? 0) > 0 || ($conteos['error_verificacion_final'] ?? 0) > 0;
+        $huboProblemas = ($conteos['conflicto'] ?? 0) > 0
+            || ($conteos['error_copia'] ?? 0) > 0
+            || ($conteos['error_bd'] ?? 0) > 0
+            || ($conteos['error_verificacion_final'] ?? 0) > 0
+            || ($conteos['error_borrado_origen'] ?? 0) > 0;
+
+        if ($aplicar && ! $huboProblemas && $this->option('prune-empty-legacy')) {
+            $this->podarCarpetasLegaciesVacias($servicio);
+        }
 
         return $huboProblemas ? self::FAILURE : self::SUCCESS;
+    }
+
+    private function podarCarpetasLegaciesVacias(ExpedienteNasOrganizacionService $servicio): void
+    {
+        $this->newLine();
+        $this->line('<fg=blue>Podando carpetas legacy numéricas vacías...</>');
+
+        $podadas = $servicio->podarCarpetasLegaciesVacias();
+
+        if ($podadas === []) {
+            $this->line('  Ninguna carpeta para podar.');
+
+            return;
+        }
+
+        foreach ($podadas as $carpeta) {
+            $this->line("  <fg=green>borrada</> {$carpeta}");
+        }
+
+        $this->info(count($podadas).' carpeta(s) legacy vacía(s) borrada(s).');
     }
 
     /**
@@ -111,9 +140,9 @@ class ExpedientesOrganizarNasCommand extends Command
     {
         $resultado = $item['resultado'];
         $etiqueta = match ($resultado) {
-            'ok', 'sin_cambio' => "<fg=green>{$resultado}</>",
+            'ok', 'sin_cambio', 'duplicado_resuelto' => "<fg=green>{$resultado}</>",
             'pendiente_de_aplicar' => '<fg=yellow>MOVER</>',
-            'faltante', 'conflicto', 'error_copia', 'error_verificacion_final', 'sin_colaborador_o_tipo' => "<fg=red>{$resultado}</>",
+            'faltante', 'conflicto', 'error_copia', 'error_bd', 'error_verificacion_final', 'error_borrado_origen', 'sin_colaborador_o_tipo' => "<fg=red>{$resultado}</>",
             default => $resultado,
         };
 
@@ -127,7 +156,7 @@ class ExpedientesOrganizarNasCommand extends Command
 
         $this->line("[{$etiqueta}] {$referencia}");
 
-        if (in_array($resultado, ['pendiente_de_aplicar', 'ok'], true) && $item['new_path'] !== null) {
+        if (in_array($resultado, ['pendiente_de_aplicar', 'ok', 'duplicado_resuelto'], true) && $item['new_path'] !== null) {
             $this->line("    de: {$item['old_path']}");
             $this->line("    a:  {$item['new_path']}");
         }
