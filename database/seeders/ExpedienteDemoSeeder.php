@@ -3,11 +3,12 @@
 namespace Database\Seeders;
 
 use App\Enums\EstadoDocumento;
-use App\Enums\EstadoUsuario;
+use App\Models\Colaborador;
 use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
 use App\Models\User;
 use App\Services\Expedientes\DocumentoStorageService;
+use App\Services\Solicitudes\BajaColaboradorService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Seeder;
 use Illuminate\Http\UploadedFile;
@@ -29,6 +30,8 @@ use Throwable;
 class ExpedienteDemoSeeder extends Seeder
 {
     private DocumentoStorageService $storage;
+
+    private User $actor;
 
     private const TEXTO_PLANO_POR_INDICE = [
         'Av. Reforma 123, Col. Centro, CDMX',
@@ -65,19 +68,29 @@ class ExpedienteDemoSeeder extends Seeder
         // soft-delete). colaborador11/colaborador12 son exclusivos de este
         // seeder para el otro camino de baja (administrativa directa, con
         // soft-delete real — escenarios F/G).
-        $colaboradores = User::whereIn('email', [
+        $correos = [
             'superadmin@mrlana.test', 'admin.capacitacion@mrlana.test', 'instructor@mrlana.test',
             'gerente.sucursal@mrlana.test', 'supervisor@mrlana.test',
             'colaborador1@mrlana.test', 'colaborador2@mrlana.test', 'colaborador3@mrlana.test',
             'colaborador4@mrlana.test', 'colaborador5@mrlana.test', 'colaborador10@mrlana.test',
             'colaborador11@mrlana.test', 'colaborador12@mrlana.test',
-        ])->withTrashed()->get()->keyBy('email');
+        ];
+
+        // Persona/empleo (curp, rfc, documentos, baja...) vive en Colaborador
+        // (separación Usuario/Colaborador) — se resuelve vía el User de cada
+        // correo demo, no por un campo propio de Colaborador.
+        $colaboradores = Colaborador::withTrashed()
+            ->whereHas('user', fn ($q) => $q->whereIn('email', $correos))
+            ->with('user:id,email,colaborador_id')
+            ->get()
+            ->keyBy(fn (Colaborador $c) => $c->user->email);
 
         if ($colaboradores->isEmpty()) {
             return;
         }
 
-        $jefe = User::where('email', 'jefe.directo@mrlana.test')->first();
+        $jefe = User::where('email', 'jefe.directo@mrlana.test')->first()?->colaborador;
+        $this->actor = User::where('email', 'superadmin@mrlana.test')->firstOrFail();
 
         foreach ($colaboradores as $colaborador) {
             $this->completarDatosPersonales($colaborador, $jefe);
@@ -154,7 +167,7 @@ class ExpedienteDemoSeeder extends Seeder
         }
     }
 
-    private function completarDatosPersonales(User $colaborador, ?User $jefe): void
+    private function completarDatosPersonales(Colaborador $colaborador, ?Colaborador $jefe): void
     {
         $indice = $colaborador->id;
         $cambios = [];
@@ -195,7 +208,7 @@ class ExpedienteDemoSeeder extends Seeder
     /**
      * @param  array<int, string>  $omitir  Claves de DocumentType que NO se suben (para simular un expediente incompleto).
      */
-    private function completarTodos(User $colaborador, EstadoDocumento $estado, array $omitir = []): void
+    private function completarTodos(Colaborador $colaborador, EstadoDocumento $estado, array $omitir = []): void
     {
         $claves = ['ine', 'curp', 'rfc', 'nss', 'acta_nacimiento', 'comprobante_domicilio', 'fotografia', 'contrato', 'aviso_privacidad'];
 
@@ -209,7 +222,7 @@ class ExpedienteDemoSeeder extends Seeder
     }
 
     private function subirSiFalta(
-        User $colaborador,
+        Colaborador $colaborador,
         string $claveTipo,
         EstadoDocumento $estado,
         ?string $comentario = null,
@@ -221,7 +234,7 @@ class ExpedienteDemoSeeder extends Seeder
             return;
         }
 
-        $yaVigente = EmployeeDocument::where('user_id', $colaborador->id)
+        $yaVigente = EmployeeDocument::where('colaborador_id', $colaborador->id)
             ->where('document_type_id', $tipo->id)
             ->where('status', '!=', EstadoDocumento::Archivado->value)
             ->exists();
@@ -244,7 +257,7 @@ class ExpedienteDemoSeeder extends Seeder
      * Escenario de versionado real (sección 23 del encargo): v1 rechazado
      * por "Documento vencido", v2 aprobado, con previous_version_id.
      */
-    private function versionadoComprobanteDomicilio(User $colaborador): void
+    private function versionadoComprobanteDomicilio(Colaborador $colaborador): void
     {
         $tipo = DocumentType::where('clave', 'comprobante_domicilio')->first();
 
@@ -252,7 +265,7 @@ class ExpedienteDemoSeeder extends Seeder
             return;
         }
 
-        $existente = EmployeeDocument::where('user_id', $colaborador->id)
+        $existente = EmployeeDocument::where('colaborador_id', $colaborador->id)
             ->where('document_type_id', $tipo->id)
             ->exists();
 
@@ -278,7 +291,7 @@ class ExpedienteDemoSeeder extends Seeder
         // así que no hay nada más que enlazar aquí a mano.
     }
 
-    private function crearDocumentoDemo(User $colaborador, DocumentType $tipo, string $texto): EmployeeDocument
+    private function crearDocumentoDemo(Colaborador $colaborador, DocumentType $tipo, string $texto): EmployeeDocument
     {
         $pdf = Pdf::loadHTML(
             '<h1>DOCUMENTO DE DEMOSTRACIÓN</h1><h2>SIN VALIDEZ</h2><p>'.e($texto).'</p>'
@@ -292,7 +305,7 @@ class ExpedienteDemoSeeder extends Seeder
         );
 
         try {
-            return $this->storage->subirVersion($colaborador, $tipo, $archivo, $colaborador->id);
+            return $this->storage->subirVersion($colaborador, $tipo, $archivo, $colaborador->user->id ?? $this->actor->id);
         } catch (Throwable $e) {
             Log::warning('ExpedienteDemoSeeder: no se pudo generar un documento demo.', [
                 'colaborador_id' => $colaborador->id,
@@ -305,27 +318,25 @@ class ExpedienteDemoSeeder extends Seeder
     }
 
     /**
-     * Mismo efecto que Administracion\UsuarioController::destroy(): estatus
-     * inactivo + soft delete. No se llama al controlador (es HTTP) pero es
-     * exactamente la misma escritura que hace, para no divergir del
-     * comportamiento real.
+     * Mismo flujo real que Rh\ExpedienteController::darDeBaja() (usa
+     * App\Services\Solicitudes\BajaColaboradorService): estatus inactivo +
+     * revoca acceso si tiene cuenta. Nunca hace soft-delete — ver docblock
+     * de BajaColaboradorService.
      */
-    private function darDeBajaDemo(User $colaborador): void
+    private function darDeBajaDemo(Colaborador $colaborador): void
     {
-        if ($colaborador->trashed()) {
+        if ($colaborador->estatus->value === 'inactivo') {
             return;
         }
 
-        $colaborador->update(['estatus' => EstadoUsuario::Inactivo]);
-        $colaborador->delete();
+        app(BajaColaboradorService::class)->ejecutar($colaborador, $this->actor, 'Baja administrativa (dato de demostración).');
     }
 
     /**
-     * Mismo efecto que Administracion\UsuarioController::reactivar().
+     * Mismo flujo real que Rh\ExpedienteController::reactivar().
      */
-    private function reactivarDemo(User $colaborador): void
+    private function reactivarDemo(Colaborador $colaborador): void
     {
-        $colaborador->restore();
-        $colaborador->update(['estatus' => EstadoUsuario::Activo]);
+        app(BajaColaboradorService::class)->reactivar($colaborador);
     }
 }

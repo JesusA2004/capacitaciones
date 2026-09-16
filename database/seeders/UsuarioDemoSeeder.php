@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Enums\EstadoUsuario;
 use App\Enums\Genero;
+use App\Models\Colaborador;
 use App\Models\Departamento;
 use App\Models\Puesto;
 use App\Models\Sucursal;
@@ -174,6 +175,41 @@ class UsuarioDemoSeeder extends Seeder
         $sistema = User::query()->where('email', 'superadmin@mrlana.test')->first();
 
         foreach ($usuarios as $indice => $definicion) {
+            // Persona/empleo vive en Colaborador (separación Usuario/Colaborador,
+            // ver App\Models\Colaborador) — se busca/crea por numero_empleado
+            // (único) para que el seeder sea idempotente igual que antes.
+            $colaborador = Colaborador::withTrashed()->firstOrCreate(
+                ['numero_empleado' => $definicion['datos']['numero_empleado']],
+                [
+                    'name' => $definicion['datos']['name'],
+                    'apellidos' => $definicion['datos']['apellidos'],
+                    'genero' => $definicion['datos']['genero'],
+                    'sucursal_principal_id' => $definicion['sucursal']?->id,
+                    'departamento_id' => $definicion['departamento']?->id,
+                    'puesto_id' => $definicion['puesto']?->id,
+                    'fecha_ingreso' => now()->subMonths(1 + ($indice % 36)),
+                    'fecha_nacimiento' => $this->fechaNacimientoDemo($indice),
+                    ...$this->contactoEmergenciaDemo($indice),
+                    'estatus' => EstadoUsuario::Activo,
+                ],
+            );
+
+            if ($colaborador->genero === null) {
+                $colaborador->update(['genero' => $definicion['datos']['genero']]);
+            }
+
+            // Backfill para bases ya sembradas antes de que este seeder
+            // capturara estos datos (ver docs/CUMPLEANOS.md): sin esto, el
+            // modulo de cumpleanos y el contacto de emergencia quedaban
+            // vacios en cualquier entorno sembrado con una version anterior.
+            if ($colaborador->fecha_nacimiento === null) {
+                $colaborador->update(['fecha_nacimiento' => $this->fechaNacimientoDemo($indice)]);
+            }
+
+            if ($colaborador->contacto_emergencia_telefono === null) {
+                $colaborador->update($this->contactoEmergenciaDemo($indice));
+            }
+
             // withTrashed(): un colaborador demo puede haber quedado
             // soft-deleted (ver ExpedienteDemoSeeder, escenarios de
             // baja/reactivación). Sin esto, firstOrCreate() no lo encuentra
@@ -184,47 +220,27 @@ class UsuarioDemoSeeder extends Seeder
             $usuario = User::withTrashed()->firstOrCreate(
                 ['email' => $definicion['datos']['email']],
                 [
+                    'colaborador_id' => $colaborador->id,
                     'name' => $definicion['datos']['name'],
                     'apellidos' => $definicion['datos']['apellidos'],
-                    'genero' => $definicion['datos']['genero'],
-                    'numero_empleado' => $definicion['datos']['numero_empleado'],
                     'password' => $passwordDesarrollo,
                     'email_verified_at' => now(),
-                    'sucursal_principal_id' => $definicion['sucursal']?->id,
-                    'departamento_id' => $definicion['departamento']?->id,
-                    'puesto_id' => $definicion['puesto']?->id,
-                    'fecha_ingreso' => now()->subMonths(1 + ($indice % 36)),
-                    'fecha_nacimiento' => $this->fechaNacimientoDemo($indice),
-                    ...$this->contactoEmergenciaDemo($indice),
-                    'estatus' => EstadoUsuario::Activo,
                     'zona_horaria' => 'America/Mexico_City',
                 ],
             );
 
-            if ($usuario->genero === null) {
-                $usuario->update(['genero' => $definicion['datos']['genero']]);
-            }
-
-            // Backfill para bases ya sembradas antes de que este seeder
-            // capturara estos datos (ver docs/CUMPLEANOS.md): sin esto, el
-            // modulo de cumpleanos y el contacto de emergencia quedaban
-            // vacios en cualquier entorno sembrado con una version anterior.
-            if ($usuario->fecha_nacimiento === null) {
-                $usuario->update(['fecha_nacimiento' => $this->fechaNacimientoDemo($indice)]);
-            }
-
-            if ($usuario->contacto_emergencia_telefono === null) {
-                $usuario->update($this->contactoEmergenciaDemo($indice));
+            if ($usuario->colaborador_id === null) {
+                $usuario->update(['colaborador_id' => $colaborador->id]);
             }
 
             $usuario->syncRoles($definicion['roles']);
 
             // Historial de alta (para el KPI de rotación del dashboard, ver
-            // MetricasRhDashboardService::rotacion()): solo si el usuario es
-            // nuevo de este seeder Y todavía no tiene un movimiento de alta
-            // (evita duplicar si el seeder corre de nuevo).
-            if (! $yaExistia && $sistema !== null && ! $usuario->movimientosLaborales()->where('tipo_movimiento', 'alta')->exists()) {
-                $movimientos->registrarAlta($usuario, $sistema);
+            // MetricasRhDashboardService::rotacion()): solo si el colaborador
+            // es nuevo de este seeder Y todavía no tiene un movimiento de
+            // alta (evita duplicar si el seeder corre de nuevo).
+            if (! $yaExistia && $sistema !== null && ! $colaborador->movimientosLaborales()->where('tipo_movimiento', 'alta')->exists()) {
+                $movimientos->registrarAlta($colaborador, $sistema);
             }
         }
     }

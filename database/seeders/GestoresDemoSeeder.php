@@ -4,8 +4,8 @@ namespace Database\Seeders;
 
 use App\Enums\EstadoUsuario;
 use App\Enums\TipoNodoComercial;
+use App\Models\Colaborador;
 use App\Models\NodoComercial;
-use App\Models\User;
 use App\Services\MatrizComercial\MatrizComercialService;
 use Illuminate\Database\Seeder;
 
@@ -24,7 +24,7 @@ class GestoresDemoSeeder extends Seeder
 {
     public function run(): void
     {
-        $colaboradores = User::query()
+        $colaboradores = Colaborador::query()
             ->where('estatus', EstadoUsuario::Activo->value)
             ->whereNotNull('puesto_id')
             ->orderBy('id')
@@ -37,7 +37,7 @@ class GestoresDemoSeeder extends Seeder
         $rutasSinGestor = NodoComercial::query()
             ->where('tipo', TipoNodoComercial::Ruta->value)
             ->where('activa', true)
-            ->whereNull('responsable_user_id')
+            ->whereNull('responsable_colaborador_id')
             ->orderBy('id')
             ->get();
 

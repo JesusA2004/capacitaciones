@@ -18,6 +18,7 @@ use App\Models\Actividad;
 use App\Models\Asignacion;
 use App\Models\AsignacionUsuario;
 use App\Models\Asistencia;
+use App\Models\Colaborador;
 use App\Models\Cuestionario;
 use App\Models\Curso;
 use App\Models\Departamento;
@@ -88,14 +89,25 @@ class DashboardDemoSeeder extends Seeder
         $departamento = Departamento::where('nombre', 'Operaciones')->first();
         $puesto = Puesto::where('nombre', 'Gestor fijo')->first();
 
-        $colaborador = User::firstOrCreate(
+        $usuario = User::firstOrCreate(
             ['email' => 'colaborador10@mrlana.test'],
             [
                 'name' => 'Pablo',
                 'apellidos' => 'Serrano Vega',
-                'genero' => Genero::Masculino,
                 'password' => Hash::make('Capacitacion2026!'),
                 'email_verified_at' => now(),
+                'zona_horaria' => 'America/Mexico_City',
+            ],
+        );
+
+        // Persona/empleo vive en Colaborador (separación Usuario/Colaborador).
+        $colaborador = $usuario->colaborador;
+
+        if ($colaborador === null) {
+            $colaborador = Colaborador::create([
+                'name' => 'Pablo',
+                'apellidos' => 'Serrano Vega',
+                'genero' => Genero::Masculino,
                 'sucursal_principal_id' => $sucursal?->id,
                 'departamento_id' => $departamento?->id,
                 'puesto_id' => $puesto?->id,
@@ -104,12 +116,12 @@ class DashboardDemoSeeder extends Seeder
                 'contacto_emergencia_nombre' => 'Martha Elena Vega',
                 'contacto_emergencia_telefono' => '5510000010',
                 'estatus' => EstadoUsuario::Activo,
-                'zona_horaria' => 'America/Mexico_City',
-            ],
-        );
+            ]);
+            $usuario->update(['colaborador_id' => $colaborador->id]);
+        }
 
-        if ($colaborador->wasRecentlyCreated) {
-            $colaborador->syncRoles(['colaborador']);
+        if ($usuario->wasRecentlyCreated) {
+            $usuario->syncRoles(['colaborador']);
             app(MovimientoLaboralService::class)->registrarAlta($colaborador, $registradoPor);
         }
 
@@ -170,9 +182,20 @@ class DashboardDemoSeeder extends Seeder
                 [
                     'name' => $definicion['nombre'],
                     'apellidos' => $definicion['apellidos'],
-                    'genero' => $definicion['genero'],
                     'password' => $passwordDesarrollo,
                     'email_verified_at' => now(),
+                    'zona_horaria' => 'America/Mexico_City',
+                ],
+            );
+
+            // Persona/empleo vive en Colaborador (separación Usuario/Colaborador).
+            $colaborador = $usuario->colaborador;
+
+            if ($colaborador === null) {
+                $colaborador = Colaborador::create([
+                    'name' => $definicion['nombre'],
+                    'apellidos' => $definicion['apellidos'],
+                    'genero' => $definicion['genero'],
                     'sucursal_principal_id' => $sucursales[$definicion['sucursal']]->id,
                     'departamento_id' => $departamentos[$definicion['departamento']]->id,
                     'puesto_id' => $puestoPorDepartamento[$definicion['departamento']]?->id,
@@ -180,27 +203,27 @@ class DashboardDemoSeeder extends Seeder
                     'fecha_nacimiento' => Carbon::create(now()->year - (26 + $indice), (($indice + now()->month + 5) % 12) + 1, 1 + (($indice * 4) % 27)),
                     ...$this->contactoEmergenciaDemo($indice),
                     'estatus' => EstadoUsuario::Activo,
-                    'zona_horaria' => 'America/Mexico_City',
-                ],
-            );
-
-            if ($usuario->genero === null) {
-                $usuario->update(['genero' => $definicion['genero']]);
+                ]);
+                $usuario->update(['colaborador_id' => $colaborador->id]);
             }
 
-            if ($usuario->fecha_nacimiento === null) {
-                $usuario->update(['fecha_nacimiento' => Carbon::create(now()->year - (26 + $indice), (($indice + now()->month + 5) % 12) + 1, 1 + (($indice * 4) % 27))]);
+            if ($colaborador->genero === null) {
+                $colaborador->update(['genero' => $definicion['genero']]);
             }
 
-            if ($usuario->contacto_emergencia_telefono === null) {
-                $usuario->update($this->contactoEmergenciaDemo($indice));
+            if ($colaborador->fecha_nacimiento === null) {
+                $colaborador->update(['fecha_nacimiento' => Carbon::create(now()->year - (26 + $indice), (($indice + now()->month + 5) % 12) + 1, 1 + (($indice * 4) % 27))]);
+            }
+
+            if ($colaborador->contacto_emergencia_telefono === null) {
+                $colaborador->update($this->contactoEmergenciaDemo($indice));
             }
 
             $usuario->syncRoles(['colaborador']);
             $colaboradores->push($usuario);
 
-            if (! $yaExistia && $sistema !== null && ! $usuario->movimientosLaborales()->where('tipo_movimiento', 'alta')->exists()) {
-                $movimientos->registrarAlta($usuario, $sistema);
+            if (! $yaExistia && $sistema !== null && ! $colaborador->movimientosLaborales()->where('tipo_movimiento', 'alta')->exists()) {
+                $movimientos->registrarAlta($colaborador, $sistema);
             }
         }
 

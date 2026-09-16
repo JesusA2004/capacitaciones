@@ -54,6 +54,15 @@ return new class extends Migration
             $table->foreignId('colaborador_id')->nullable()->after('user_id')
                 ->constrained('colaboradores')->cascadeOnDelete();
             $table->unsignedBigInteger('user_id')->nullable()->change();
+
+            // El único índice que cubre `user_id` es el unique(['user_id',
+            // 'fecha']) original: MySQL en modo estricto (a diferencia de
+            // MariaDB, donde esto sí corrió sin problema) rechaza
+            // dropUnique() aquí porque ese índice sigue siendo necesario
+            // para la FK de user_id -> users.id. Se crea primero un índice
+            // simple sobre user_id para que la FK se apoye en ese, y
+            // entonces sí se puede quitar el compuesto.
+            $table->index('user_id', 'birthday_greetings_user_id_idx');
             $table->dropUnique(['user_id', 'fecha']);
             $table->unique(['colaborador_id', 'fecha'], 'birthday_greetings_colaborador_fecha_unico');
         });
@@ -86,6 +95,7 @@ return new class extends Migration
             $table->dropConstrainedForeignId('colaborador_id');
             $table->unsignedBigInteger('user_id')->nullable(false)->change();
             $table->unique(['user_id', 'fecha']);
+            $table->dropIndex('birthday_greetings_user_id_idx');
         });
 
         Schema::table('movimientos_laborales', function (Blueprint $table) {
