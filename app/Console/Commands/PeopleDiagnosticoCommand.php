@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Enums\TipoNodoComercial;
+use App\Models\EmployeeDocument;
 use App\Models\HeadcountTarget;
 use App\Models\OfficialFormat;
 use App\Models\User;
@@ -62,6 +63,7 @@ class PeopleDiagnosticoCommand extends Command
     {
         $this->revisarColumnasCriticas();
         $this->revisarStorageNas();
+        $this->revisarEstructuraExpedientesNas();
         $this->revisarHeadcount();
         $this->revisarFormatosOficiales();
         $this->revisarColaboradoresIncompletos();
@@ -119,6 +121,47 @@ class PeopleDiagnosticoCommand extends Command
         } catch (Throwable $e) {
             $this->fallo('El disco «nas» no es escribible: '.$e->getMessage());
         }
+    }
+
+    /**
+     * Solo cuenta cuántos `employee_documents.path` siguen con la ruta
+     * legacy (`expedientes/{id}/...`) vs. la estructura legible actual
+     * (`expedientes/{empresa}/{sucursal}/{numero - nombre}/...`, ver
+     * docs/ESTRUCTURA_EXPEDIENTES_NAS.md). Deliberadamente NO calcula hash
+     * ni escanea el disco NAS completo aquí (costoso en cada diagnóstico);
+     * para eso están `expedientes:organizar-nas` (dry run) y
+     * `expedientes:verificar-storage`.
+     */
+    private function revisarEstructuraExpedientesNas(): void
+    {
+        $this->newLine();
+        $this->line('<fg=blue>Estructura de expedientes en el NAS</>');
+
+        if (! Schema::hasTable('employee_documents')) {
+            $this->fallo('Falta la tabla «employee_documents» — ¿faltó correr `php artisan migrate`?');
+
+            return;
+        }
+
+        $rutas = EmployeeDocument::withTrashed()
+            ->where('disk', config('expedientes.disk'))
+            ->pluck('path');
+
+        if ($rutas->isEmpty()) {
+            $this->ok('No hay documentos de expediente cargados todavía.');
+
+            return;
+        }
+
+        $legacy = $rutas->filter(fn (string $ruta) => (bool) preg_match('#^expedientes/\d+/#', $ruta))->count();
+
+        if ($legacy > 0) {
+            $this->fallo("{$legacy} de {$rutas->count()} documento(s) siguen en la ruta legacy (UUID sin empresa/sucursal/colaborador) — corre `php artisan expedientes:organizar-nas` para ver el plan de migración.");
+
+            return;
+        }
+
+        $this->ok("Los {$rutas->count()} documento(s) de expediente ya están en la estructura legible (empresa/sucursal/colaborador).");
     }
 
     private function revisarHeadcount(): void

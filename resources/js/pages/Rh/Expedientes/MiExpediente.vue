@@ -3,6 +3,7 @@ import ExpedienteDetalle from '@/components/Rh/ExpedienteDetalle.vue';
 import { dashboard } from '@/routes';
 import type {
     AltaDigitalResumenExpediente,
+    AvisosManualExpediente,
     DocumentoExpedienteItem,
     ExpedienteColaborador,
     MovimientoLaboralItem,
@@ -17,16 +18,21 @@ defineProps<{
     esPropio: boolean;
     puedeEditar: boolean;
     puedeReactivar: boolean;
+    puedeGestionarAcceso: boolean;
+    puedeGestionarPassword: boolean;
+    esCuentaPropia: boolean;
     puedeRevisarDocumentos: boolean;
     puedeVerExtraccion: boolean;
     puedeAplicarExtraccion: boolean;
     puedeReprocesarExtraccion: boolean;
     puedeIgnorarExtraccion: boolean;
+    puedeGestionarAvisos: boolean;
     colaborador: ExpedienteColaborador;
     resumenExpediente: ResumenExpediente;
     documentosRequeridos: DocumentoExpedienteItem[];
     onboarding: OnboardingItem[];
     altaDigital: AltaDigitalResumenExpediente;
+    avisosManual: AvisosManualExpediente;
     saldoVacaciones: SaldoVacaciones;
     solicitudesVacaciones: SolicitudVacacionesItem[];
     solicitudes: SolicitudExpedienteItem[];
@@ -48,16 +54,21 @@ defineOptions({
         :es-propio="esPropio"
         :puede-editar="puedeEditar"
         :puede-reactivar="puedeReactivar"
+        :puede-gestionar-acceso="puedeGestionarAcceso"
+        :puede-gestionar-password="puedeGestionarPassword"
+        :es-cuenta-propia="esCuentaPropia"
         :puede-revisar-documentos="puedeRevisarDocumentos"
         :puede-ver-extraccion="puedeVerExtraccion"
         :puede-aplicar-extraccion="puedeAplicarExtraccion"
         :puede-reprocesar-extraccion="puedeReprocesarExtraccion"
         :puede-ignorar-extraccion="puedeIgnorarExtraccion"
+        :puede-gestionar-avisos="puedeGestionarAvisos"
         :colaborador="colaborador"
         :resumen-expediente="resumenExpediente"
         :documentos-requeridos="documentosRequeridos"
         :onboarding="onboarding"
         :alta-digital="altaDigital"
+        :avisos-manual="avisosManual"
         :saldo-vacaciones="saldoVacaciones"
         :solicitudes-vacaciones="solicitudesVacaciones"
         :solicitudes="solicitudes"

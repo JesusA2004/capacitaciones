@@ -1,8 +1,8 @@
 # Reportes
 
-Un solo módulo: `Reportes` (`/reportes`, `App\Http\Controllers\Reportes\ReporteGeneralController`). El módulo viejo `Reportes RH` (`/rh/reportes`, `Rh\ReporteRhController`) sigue respondiendo por compatibilidad pero **ya no aparece en el menú** — el sidebar solo muestra "Reportes".
+Un solo módulo, una sola implementación: `Reportes` (`/reportes`, `App\Http\Controllers\Rh\ReporteRhController` + `App\Services\Reportes\ReportesRhService`) — tabla filtrable por empresa/sucursal/departamento/puesto, con catálogo de reportes agrupado (Plantilla, Altas y bajas, Reclutamiento, Expedientes y documentos, Vacaciones/permisos/solicitudes, Fechas relevantes). El sidebar solo muestra "Reportes"; la ruta `rh.reportes.*` (`/rh/reportes`) sigue existiendo y apunta al **mismo controlador**, solo para no romper el nombre de ruta usado en pruebas — no es una segunda pantalla ni una segunda consulta.
 
-`ReporteGeneralController::index()` reutiliza `MetricasRhDashboardService::global()` — la misma fuente que ya alimenta el dashboard — más un resumen de "otros módulos" (vacantes abiertas, candidatos viables, vacaciones solicitadas, solicitudes pendientes) tomado de `ReportesRhService`. Lo que ves en pantalla es exactamente lo que exportas: `index()`/`exportarExcel()`/`exportarPdf()` piden los mismos datos.
+Antes existía un `ReporteGeneralController` que reutilizaba `MetricasRhDashboardService::global()` (los mismos componentes del Dashboard) con un `setInterval` de 45s haciendo polling — era una segunda implementación del mismo reporte, no una vista distinta, así que se eliminó junto con `Reportes/Index.vue` y `ReporteGeneralExport`. `index()`/`exportarExcel()`/`exportarPdf()` de `ReporteRhController` piden exactamente los mismos datos (`ReportesRhService::generar()`), así que lo que exportas es siempre lo que ves en pantalla, sin polling: el usuario actualiza con los filtros o recargando la página.
 
 ## Dashboard — Rotación de personal
 

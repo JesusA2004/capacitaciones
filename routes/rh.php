@@ -31,10 +31,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             // withTrashed(): un colaborador dado de baja (soft-deleted, ver
             // Administracion\UsuarioController::destroy()) debe poder seguir
             // abriéndose desde Expedientes -- es donde ahora vive la acción
-            // "Reactivar colaborador", no solo en Accesos y roles.
+            // "Reactivar colaborador", no solo en Usuarios.
             Route::get('{colaborador}', [ExpedienteController::class, 'show'])->name('show')->withTrashed();
             Route::get('{colaborador}/foto', [ExpedienteController::class, 'descargarFoto'])->name('foto')->withTrashed();
             Route::put('{colaborador}/datos-personales', [ExpedienteController::class, 'actualizarDatosPersonales'])->name('datos-personales.update');
+            Route::put('{colaborador}/avisos', [ExpedienteController::class, 'registrarAvisos'])->name('avisos.update');
             Route::post('{colaborador}/documentos', [EmployeeDocumentController::class, 'store'])->name('documentos.store');
         });
 

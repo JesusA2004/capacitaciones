@@ -207,15 +207,19 @@ const dialogMovimientoAbierto = ref(false);
 
 const {
     processing: enviandoMovimiento,
-    onStart: onStartDrag,
+    onStart: onStartDragBase,
     onEnd: onEndDragBase,
-    asentarAntesDeConfirmar,
+    restaurarCanonico,
 } = useKanbanTransition();
 
-// El tablero nunca queda "arrastrado" a medio confirmar: soltar restaura de
-// inmediato a `columnas` desde `props.solicitudes` (fuente canónica) y solo
-// hasta que Vue/Sortable terminan su ciclo (nextTick) se abre la
-// confirmación — nunca dentro de `@add`/`@remove` (ver useKanbanTransition).
+// El id+columna de origen de la tarjeta se capturan al INICIAR el arrastre
+// (dataset del propio DOM, ver `data-kanban-id`/`data-estado` en la
+// plantilla) en vez de confiar solo en `evento.data`/`evento.from` al
+// soltar: para entonces `columnas[estado]` ya pudo mutar por el propio
+// v-model de vue-draggable-plus.
+const dragOrigenId = ref<number | null>(null);
+const dragOrigenEstado = ref<string | null>(null);
+
 const tableroBloqueado = computed(
     () => dialogMovimientoAbierto.value || enviandoMovimiento.value,
 );
@@ -226,12 +230,25 @@ const requiereComentarioObligatorio = computed(
         movimientoPendiente.value?.estadoDestino === 'requiere_correccion',
 );
 
-async function onEndDrag(evento: DraggableEvent<SolicitudInternaItem>) {
+function onStartDrag(evento: DraggableEvent<SolicitudInternaItem>) {
+    onStartDragBase();
+
+    const idDataset = evento.item?.dataset.kanbanId;
+    dragOrigenId.value = idDataset ? Number(idDataset) : null;
+    dragOrigenEstado.value = evento.from?.dataset.estado ?? null;
+}
+
+function onEndDrag(evento: DraggableEvent<SolicitudInternaItem>) {
     onEndDragBase();
 
-    const solicitud = evento.data;
-    const estadoOrigen = evento.from?.dataset.estado;
+    const id =
+        dragOrigenId.value ?? Number(evento.item?.dataset.kanbanId ?? NaN);
+    const estadoOrigen = dragOrigenEstado.value ?? evento.from?.dataset.estado;
     const estadoDestino = evento.to?.dataset.estado;
+    const solicitud = props.solicitudes.find((s) => s.id === id);
+
+    dragOrigenId.value = null;
+    dragOrigenEstado.value = null;
 
     if (
         !solicitud ||
@@ -242,14 +259,17 @@ async function onEndDrag(evento: DraggableEvent<SolicitudInternaItem>) {
         return;
     }
 
-    await asentarAntesDeConfirmar(() => construirColumnas(props.solicitudes));
-
+    // No se reconstruye el tablero aquí: dejar el drop como quedó (el
+    // v-model de vue-draggable-plus ya lo reflejó) y solo forzar el estado
+    // canónico si el usuario cancela o el servidor rechaza el cambio —
+    // momentos desacoplados del gesto de arrastre (ver useKanbanTransition).
     movimientoPendiente.value = { solicitud, estadoOrigen, estadoDestino };
     comentarioMovimiento.value = '';
     dialogMovimientoAbierto.value = true;
 }
 
 function cancelarMovimiento() {
+    restaurarCanonico(() => construirColumnas(props.solicitudes));
     cerrarDialogMovimiento();
 }
 
@@ -307,6 +327,7 @@ function confirmarMovimiento() {
             },
             onError: () => {
                 mostrarError('No se pudo mover la solicitud. Verifica el permiso o el comentario.');
+                restaurarCanonico(() => construirColumnas(props.solicitudes));
                 cerrarDialogMovimiento();
             },
             onFinish: () => {
@@ -561,6 +582,7 @@ function confirmarMovimiento() {
                     <div
                         v-for="solicitud in columnas[columna.estado]"
                         :key="solicitud.id"
+                        :data-kanban-id="solicitud.id"
                         class="flex flex-col gap-2 rounded-xl border border-border/60 bg-card p-3 text-sm shadow-sm"
                     >
                         <div class="flex items-start justify-between gap-2">

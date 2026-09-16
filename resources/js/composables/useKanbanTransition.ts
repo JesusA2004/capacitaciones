@@ -1,4 +1,4 @@
-import { nextTick, ref } from 'vue';
+import { ref } from 'vue';
 
 /**
  * Estado compartido del ciclo de vida de un drag & drop de tablero Kanban
@@ -6,16 +6,29 @@ import { nextTick, ref } from 'vue';
  * reglas de negocio (qué transición es válida, qué requiere comentario,
  * etc.) — eso lo decide quien usa el composable.
  *
- * Por qué existe: abrir un Dialog/confirmación dentro del handler `@add` de
- * vue-draggable-plus (SortableJS) dispara el montaje de un overlay de Reka
- * mientras Sortable todavía está limpiando su propio estado interno
- * (clases `sortable-ghost`/`sortable-chosen`, captura de puntero) del mismo
- * gesto nativo de pointerup — eso puede dejar la página sin responder,
- * misma familia de bug que el freeze de overlays ya corregido antes (ver
- * CLAUDE.md). El patrón correcto es: manejar `@start`/`@end` (nunca
- * `@add`/`@remove` para abrir UI), restaurar el tablero a su estado
- * canónico INMEDIATAMENTE al soltar, esperar un `nextTick()` a que
- * Vue/Sortable terminen su ciclo, y solo entonces mostrar la confirmación.
+ * Dos reglas, aprendidas de un freeze real reportado en producción:
+ *
+ * 1. Nunca abrir un Dialog/confirmación dentro del handler `@add` de
+ *    vue-draggable-plus (SortableJS): eso monta un overlay de Reka mientras
+ *    Sortable todavía está limpiando su propio estado interno (clases
+ *    `sortable-ghost`/`sortable-chosen`, captura de puntero) del mismo
+ *    gesto nativo de pointerup. El patrón correcto es manejar
+ *    `@start`/`@end` (nunca `@add`/`@remove` para abrir UI).
+ *
+ * 2. Nunca pelear con el v-model de vue-draggable-plus reconstruyendo el
+ *    arreglo completo DENTRO del propio handler `@end`. `columnas[estado]`
+ *    ya está enlazado con `v-model` a cada `<VueDraggable>`; si justo al
+ *    soltar reemplazamos ese arreglo por el canónico del servidor (que
+ *    todavía no cambió), Vue mueve el nodo recién soltado de una lista `v-for`
+ *    a otra en el mismo ciclo en que Sortable apenas está terminando de
+ *    limpiar sus referencias internas a ese mismo nodo (`dragEl`/`ghostEl`) —
+ *    dos escrituras al mismo arreglo reactivo desde dos fuentes (la
+ *    reconciliación propia de la librería y la nuestra) en la misma
+ *    ventana. Por eso `restaurarCanonico()` NUNCA se llama automáticamente
+ *    al soltar: se deja que el drop quede como el usuario lo ve, y solo se
+ *    fuerza el estado canónico en respuesta a una acción discreta y
+ *    desacoplada del gesto de arrastre (cancelar el diálogo, o un error del
+ *    servidor) — momentos en los que Sortable ya está completamente inactivo.
  */
 export function useKanbanTransition() {
     const isDragging = ref(false);
@@ -30,13 +43,13 @@ export function useKanbanTransition() {
     }
 
     /**
-     * Restaura el tablero a su estado canónico y espera a que Vue/Sortable
-     * terminen su ciclo antes de devolver el control — recién ahí es seguro
-     * montar un Dialog/confirmación.
+     * Fuerza el tablero a su estado canónico. Solo debe llamarse desde un
+     * evento desacoplado del gesto de arrastre (cancelar, error del
+     * servidor, o el `watch()` sobre los props tras un reload) — nunca
+     * dentro de `@end`.
      */
-    async function asentarAntesDeConfirmar(reconstruirCanonico: () => void) {
+    function restaurarCanonico(reconstruirCanonico: () => void) {
         reconstruirCanonico();
-        await nextTick();
     }
 
     return {
@@ -44,6 +57,6 @@ export function useKanbanTransition() {
         processing,
         onStart,
         onEnd,
-        asentarAntesDeConfirmar,
+        restaurarCanonico,
     };
 }

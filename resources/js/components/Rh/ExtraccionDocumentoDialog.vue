@@ -144,7 +144,15 @@ function reprocesarDocumento() {
         {},
         {
             preserveScroll: true,
-            onSuccess: () => mostrarExito('El documento se enviará a re-procesar en un momento.'),
+            onSuccess: async () => {
+                await cargar();
+                mostrarExito(
+                    campos.value.length > 0
+                        ? 'Documento re-procesado: se detectaron datos nuevos.'
+                        : 'Documento re-procesado: sigue sin detectar datos reconocibles.',
+                );
+            },
+            onError: () => mostrarError('No se pudo re-procesar el documento.'),
             onFinish: () => (reprocesando.value = false),
         },
     );
@@ -163,6 +171,14 @@ function reprocesarDocumento() {
                     Sugerencias automáticas, nunca se aplican solas. Revisa y decide.
                 </DialogDescription>
             </DialogHeader>
+
+            <p class="rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+                ¿Cómo funciona? El sistema busca CURP, RFC, NSS, código postal, sexo y
+                fecha de nacimiento dentro del texto del PDF cargado. Solo funciona si
+                el archivo es un PDF con texto seleccionable (no una foto/escaneo) y si
+                esos datos aparecen con el formato oficial. No usa inteligencia
+                artificial ni adivina el nombre o domicilio.
+            </p>
 
             <div v-if="cargando" class="flex justify-center py-8">
                 <Spinner />
@@ -193,8 +209,14 @@ function reprocesarDocumento() {
                 </div>
 
                 <template v-else>
-                    <div v-if="campos.length === 0" class="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                        No se detectaron datos reconocibles en este documento.
+                    <div v-if="campos.length === 0" class="flex flex-col gap-1 rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                        <p>No se detectaron datos reconocibles en este documento.</p>
+                        <p class="text-xs">
+                            El PDF se leyó correctamente, pero no se encontró CURP, RFC,
+                            NSS, código postal, sexo ni una fecha de nacimiento con el
+                            formato esperado. Captura estos datos manualmente en
+                            «Datos personales».
+                        </p>
                     </div>
 
                     <div v-else class="flex flex-col gap-3">

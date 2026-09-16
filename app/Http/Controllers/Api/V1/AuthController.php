@@ -38,7 +38,8 @@ class AuthController extends Controller
         // checklist de expediente documental (GET /colaborador/incorporacion)
         // hasta que RH apruebe y quede Activo — ver
         // App\Services\Incorporacion\IncorporacionService.
-        if (! in_array($usuario->estatus, [EstadoUsuario::Activo, EstadoUsuario::EnIncorporacion], true)) {
+        if (! in_array($usuario->estatus, [EstadoUsuario::Activo, EstadoUsuario::EnIncorporacion], true)
+            || $usuario->acceso_bloqueado_en !== null) {
             throw ValidationException::withMessages([
                 'email' => 'Tu cuenta no está activa. Contacta a Recursos Humanos.',
             ]);

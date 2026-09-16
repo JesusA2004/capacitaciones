@@ -249,7 +249,7 @@ const adminNavItems = computed<NavItem[]>(() => {
     // roles y permisos — de ahí el nombre distinto.
     if (tienePermiso('usuarios.ver')) {
         items.push({
-            title: 'Accesos y roles',
+            title: 'Usuarios',
             href: indexUsuarios(),
             icon: Users,
         });

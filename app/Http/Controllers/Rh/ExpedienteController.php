@@ -7,6 +7,7 @@ use App\Enums\TipoSolicitudInterna;
 use App\Exports\ReporteRhExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Rh\ActualizarDatosPersonalesRequest;
+use App\Http\Requests\Rh\RegistrarAvisosRequest;
 use App\Models\AltaDigital;
 use App\Models\Departamento;
 use App\Models\DocumentType;
@@ -18,6 +19,7 @@ use App\Models\SolicitudInterna;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Expedientes\AvisoPrivacidadService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Onboarding\OnboardingService;
@@ -43,6 +45,7 @@ class ExpedienteController extends Controller
         private readonly OnboardingService $onboarding,
         private readonly VacacionesService $vacaciones,
         private readonly DocumentoStorageService $documentoStorage,
+        private readonly AvisoPrivacidadService $avisoPrivacidad,
     ) {}
 
     /**
@@ -200,6 +203,7 @@ class ExpedienteController extends Controller
             'departamento:id,nombre',
             'puesto:id,nombre',
             'jefe:id,name,apellidos',
+            'avisosRegistradoPor:id,name,apellidos',
         ]);
 
         $resumen = $this->expediente->resumenCompletitud($colaborador);
@@ -215,6 +219,12 @@ class ExpedienteController extends Controller
             'puedeAplicarExtraccion' => $usuario->can('rh.documentos.extraccion.aplicar') && ! $usuario->is($colaborador),
             'puedeReprocesarExtraccion' => $usuario->can('rh.documentos.extraccion.reprocesar') && ! $usuario->is($colaborador),
             'puedeIgnorarExtraccion' => $usuario->can('rh.documentos.extraccion.ignorar') && ! $usuario->is($colaborador),
+            'puedeGestionarAcceso' => $usuario->can('usuarios.desactivar') && ! $usuario->is($colaborador),
+            'puedeGestionarPassword' => $usuario->can('usuarios.editar') && ! $usuario->is($colaborador),
+            // Distingue "no tienes permiso" de "es tu propia cuenta" en el
+            // mensaje del frontend — ambos casos esconden el mismo botón
+            // pero la razón (y la acción sugerida) es distinta.
+            'esCuentaPropia' => $usuario->is($colaborador),
             'colaborador' => [
                 'id' => $colaborador->id,
                 'name' => $colaborador->name,
@@ -222,9 +232,11 @@ class ExpedienteController extends Controller
                 'numero_empleado' => $colaborador->numero_empleado,
                 'email' => $colaborador->email,
                 'telefono' => $colaborador->telefono,
+                'roles' => $colaborador->getRoleNames(),
                 'foto_url' => $this->fotoUrl($colaborador),
                 'estatus' => $colaborador->estatus->value,
                 'deleted_at' => $colaborador->deleted_at?->toISOString(),
+                'acceso_bloqueado_en' => $colaborador->acceso_bloqueado_en?->toISOString(),
                 'estatus_imss' => $colaborador->estatus_imss->value,
                 'fecha_alta_imss' => $colaborador->fecha_alta_imss?->toDateString(),
                 'periodo_prueba_inicio' => $colaborador->periodo_prueba_inicio?->toDateString(),
@@ -313,6 +325,19 @@ class ExpedienteController extends Controller
                 'consentimiento_datos_aceptado' => $alta->consentimiento_datos_aceptado,
                 'consentimiento_datos_aceptado_en' => $alta->consentimiento_datos_aceptado_en?->toDateTimeString(),
             ] : null,
+            // Solo tiene sentido cuando NO hay alta digital: si ya existe una
+            // (bloque de arriba), esa es la fuente de verdad y esta pestaña
+            // no ofrece el registro manual (ver AvisoPrivacidadService).
+            'avisosManual' => $alta ? null : [
+                'aviso_privacidad_aceptado' => $colaborador->aviso_privacidad_aceptado,
+                'aviso_privacidad_aceptado_en' => $colaborador->aviso_privacidad_aceptado_en?->toDateTimeString(),
+                'consentimiento_datos_aceptado' => $colaborador->consentimiento_datos_aceptado,
+                'consentimiento_datos_aceptado_en' => $colaborador->consentimiento_datos_aceptado_en?->toDateTimeString(),
+                'registrado_por' => $colaborador->avisosRegistradoPor
+                    ? trim("{$colaborador->avisosRegistradoPor->name} {$colaborador->avisosRegistradoPor->apellidos}")
+                    : null,
+            ],
+            'puedeGestionarAvisos' => $usuario->can('expedientes.editar') || $usuario->is($colaborador),
         ]);
     }
 
@@ -321,6 +346,23 @@ class ExpedienteController extends Controller
         $colaborador->update($request->validated());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Datos personales actualizados correctamente.']);
+    }
+
+    /**
+     * Registro manual del aviso de privacidad / consentimiento de datos para
+     * colaboradores sin Alta digital (ver AvisoPrivacidadService). Nunca se
+     * usa si ya existe un alta digital real para este colaborador.
+     */
+    public function registrarAvisos(RegistrarAvisosRequest $request, User $colaborador): RedirectResponse
+    {
+        $this->avisoPrivacidad->registrar(
+            $colaborador,
+            $request->boolean('aviso_privacidad_aceptado'),
+            $request->boolean('consentimiento_datos_aceptado'),
+            $request->user(),
+        );
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Avisos y consentimientos actualizados.']);
     }
 
     /**
@@ -373,6 +415,7 @@ class ExpedienteController extends Controller
                         'status' => $documento->status->value,
                         'version' => $documento->version,
                         'original_name' => $documento->original_name,
+                        'mime' => $documento->mime,
                         'comments' => $documento->comments,
                         'rejection_reason' => $documento->rejection_reason,
                         'subido_por' => $documento->subidoPor ? trim("{$documento->subidoPor->name} {$documento->subidoPor->apellidos}") : null,

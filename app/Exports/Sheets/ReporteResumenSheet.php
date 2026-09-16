@@ -17,9 +17,8 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 /**
  * Hoja "Resumen" reutilizable: título + hasta 4 tarjetas KPI + uno o más
  * bloques de gráfica nativa (tabla de datos + Chart), cada uno con su propio
- * subtítulo. Usada por App\Exports\ReporteRhExport, CumplimientoExport y
- * ReporteGeneralExport — mismo layout para que todos los workbooks de
- * reportes se sientan iguales.
+ * subtítulo. Usada por App\Exports\ReporteRhExport y CumplimientoExport —
+ * mismo layout para que todos los workbooks de reportes se sientan iguales.
  *
  * El orden de llamadas de Maatwebsite\Excel es siempre: array() puebla las
  * celdas -> luego WithStyles/WithCharts se invocan sobre ese estado ya
@@ -27,6 +26,14 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
  * pueden confiar en que $this->bloques (calculado dentro de array()) ya
  * existe. array() reconstruye $this->bloques desde cero en cada llamada
  * para ser seguro aunque el framework lo invoque más de una vez.
+ *
+ * IMPORTANTE (evita que las gráficas se encimen): el ancla visual de cada
+ * Chart (columnas F..N) NUNCA se calcula a partir de cuántas filas ocupó la
+ * tabla de datos del bloque anterior (columnas A..D) — esa tabla puede tener
+ * 2 filas o 40. Cada gráfica reserva un carril propio y fijo de
+ * ALTO_GRAFICA_FILAS + MARGEN_GRAFICA_FILAS, encadenado únicamente a partir
+ * del índice del bloque, así que dos gráficas jamás comparten fila en F..N
+ * sin importar el tamaño de las tablas de datos.
  */
 final class ReporteResumenSheet implements FromArray, WithCharts, WithStyles, WithTitle
 {
@@ -36,10 +43,14 @@ final class ReporteResumenSheet implements FromArray, WithCharts, WithStyles, Wi
 
     private const ALTO_GRAFICA_FILAS = 15;
 
+    private const MARGEN_GRAFICA_FILAS = 2;
+
     private const FILA_KPI = 4;
 
     /** @var array<int, array{fila: int}> */
     private array $bloques = [];
+
+    private int $filaGraficaBase = 1;
 
     /**
      * @param  array<int, array{etiqueta: string, valor: string}>  $kpis  máx. 4
@@ -74,6 +85,7 @@ final class ReporteResumenSheet implements FromArray, WithCharts, WithStyles, Wi
         ];
 
         $filaActual = count($filas) + 1;
+        $this->filaGraficaBase = $filaActual;
 
         foreach ($this->graficas as $bloque) {
             $this->bloques[] = ['fila' => $filaActual];
@@ -95,17 +107,24 @@ final class ReporteResumenSheet implements FromArray, WithCharts, WithStyles, Wi
     public function charts(): array
     {
         $charts = [];
+        $carril = self::ALTO_GRAFICA_FILAS + self::MARGEN_GRAFICA_FILAS;
 
         foreach ($this->graficas as $i => $bloque) {
-            $filaTitulo = $this->bloques[$i]['fila'];
-            $filaPrimeraFilaDatos = $filaTitulo + 2;
+            // Fila de la tabla de datos (columnas A..D) — de aquí lee el Chart
+            // sus referencias de celda, sin importar cuántas filas ocupe.
+            $filaDatos = $this->bloques[$i]['fila'];
+            $filaPrimeraFilaDatos = $filaDatos + 2;
+
+            // Fila del ANCLA VISUAL (columnas F..N) — independiente de la
+            // tabla de datos, para que ninguna gráfica pise a la anterior.
+            $filaGrafica = $this->filaGraficaBase + ($i * $carril);
 
             $charts[] = ExcelChartFactory::construir(
                 $bloque['datos'],
                 $this->hojaTitulo,
                 'A'.$filaPrimeraFilaDatos,
-                self::columna(self::COL_GRAFICA_INICIO).$filaTitulo,
-                self::columna(self::COL_GRAFICA_INICIO + self::ANCHO_GRAFICA_COLS).($filaTitulo + self::ALTO_GRAFICA_FILAS),
+                self::columna(self::COL_GRAFICA_INICIO).$filaGrafica,
+                self::columna(self::COL_GRAFICA_INICIO + self::ANCHO_GRAFICA_COLS).($filaGrafica + self::ALTO_GRAFICA_FILAS),
                 $bloque['titulo'],
             );
         }

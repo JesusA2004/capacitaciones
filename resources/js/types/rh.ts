@@ -22,9 +22,11 @@ export type ExpedienteColaborador = {
     numero_empleado: string | null;
     email: string;
     telefono: string | null;
+    roles: string[];
     foto_url: string | null;
     estatus: string;
     deleted_at: string | null;
+    acceso_bloqueado_en: string | null;
     estatus_imss: string;
     fecha_alta_imss: string | null;
     periodo_prueba_inicio: string | null;
@@ -59,6 +61,7 @@ export type DocumentoExpedienteInfo = {
     status: string;
     version: number;
     original_name: string;
+    mime: string | null;
     comments: string | null;
     rejection_reason: string | null;
     subido_por: string | null;
@@ -101,6 +104,14 @@ export type AltaDigitalResumenExpediente = {
     aviso_privacidad_aceptado_en: string | null;
     consentimiento_datos_aceptado: boolean;
     consentimiento_datos_aceptado_en: string | null;
+} | null;
+
+export type AvisosManualExpediente = {
+    aviso_privacidad_aceptado: boolean;
+    aviso_privacidad_aceptado_en: string | null;
+    consentimiento_datos_aceptado: boolean;
+    consentimiento_datos_aceptado_en: string | null;
+    registrado_por: string | null;
 } | null;
 
 export type MovimientoLaboralTipo =

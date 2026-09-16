@@ -135,6 +135,7 @@ export type UsuarioItem = {
     name: string;
     apellidos: string | null;
     deleted_at?: string | null;
+    acceso_bloqueado_en?: string | null;
     numero_empleado: string | null;
     email: string;
     telefono: string | null;

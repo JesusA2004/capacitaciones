@@ -25,7 +25,13 @@ import {
 import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
 import { dashboard } from '@/routes';
-import { destroy, index, reactivar } from '@/routes/administracion/usuarios';
+import {
+    destroy,
+    index,
+    reactivar,
+    restablecerAcceso,
+    revocarAcceso,
+} from '@/routes/administracion/usuarios';
 import type {
     EstadisticasActivoInactivo,
     EstadoUsuarioOpcion,
@@ -45,13 +51,14 @@ const props = defineProps<{
     estadosImss: EstadoUsuarioOpcion[];
     estadisticas: EstadisticasActivoInactivo;
     puedeReactivar: boolean;
+    puedeRevocarAcceso: boolean;
 }>();
 
 defineOptions({
     layout: {
         breadcrumbs: [
             { title: 'Inicio', href: dashboard() },
-            { title: 'Accesos y roles', href: index.url() },
+            { title: 'Usuarios', href: index.url() },
         ],
     },
 });
@@ -78,6 +85,7 @@ const columnas: ColumnaDataTable[] = [
     { clave: 'sucursal_principal', etiqueta: 'Sucursal' },
     { clave: 'departamento', etiqueta: 'Departamento' },
     { clave: 'estatus', etiqueta: 'Estatus' },
+    { clave: 'acceso', etiqueta: 'Acceso al sistema' },
 ];
 
 const dialogAbierto = ref(false);
@@ -93,9 +101,9 @@ function abrirEditar(usuario: UsuarioItem) {
     dialogAbierto.value = true;
 }
 
-async function desactivar(usuario: UsuarioItem) {
+async function darDeBaja(usuario: UsuarioItem) {
     const confirmado = await confirmarEliminacion(
-        `al colaborador «${usuario.name} ${usuario.apellidos ?? ''}»`,
+        `al colaborador «${usuario.name} ${usuario.apellidos ?? ''}» — esto termina su relación laboral (baja), no solo su acceso`,
     );
 
     if (!confirmado) {
@@ -105,9 +113,9 @@ async function desactivar(usuario: UsuarioItem) {
     router.delete(destroy.url(usuario.id), {
         preserveScroll: true,
         onSuccess: () =>
-            mostrarExito('El colaborador se desactivó correctamente.'),
+            mostrarExito('El colaborador se dio de baja correctamente.'),
         onError: () =>
-            mostrarError('No fue posible desactivar al colaborador.'),
+            mostrarError('No fue posible dar de baja al colaborador.'),
     });
 }
 
@@ -124,15 +132,43 @@ function reactivarColaborador(usuario: UsuarioItem) {
         },
     );
 }
+
+function revocarAccesoUsuario(usuario: UsuarioItem) {
+    router.post(
+        revocarAcceso.url(usuario.id),
+        {},
+        {
+            preserveScroll: true,
+            onSuccess: () =>
+                mostrarExito(
+                    'Acceso revocado. El colaborador sigue activo en la plantilla.',
+                ),
+            onError: () => mostrarError('No fue posible revocar el acceso.'),
+        },
+    );
+}
+
+function restablecerAccesoUsuario(usuario: UsuarioItem) {
+    router.post(
+        restablecerAcceso.url(usuario.id),
+        {},
+        {
+            preserveScroll: true,
+            onSuccess: () => mostrarExito('Acceso restablecido.'),
+            onError: () =>
+                mostrarError('No fue posible restablecer el acceso.'),
+        },
+    );
+}
 </script>
 
 <template>
-    <Head title="Accesos y roles" />
+    <Head title="Usuarios" />
 
     <div class="flex flex-col gap-6 p-4">
         <CrudPageHeader
-            titulo="Accesos y roles"
-            descripcion="Cuenta de acceso, sucursal/puesto y roles de cada colaborador. Para su expediente y documentos, ve a Expedientes."
+            titulo="Usuarios"
+            descripcion="Cuenta de acceso (correo, roles, estatus) de cada colaborador. Para su expediente y documentos, ve a Expedientes."
             :icono="Users"
         >
             <Button @click="abrirCrear">
@@ -267,6 +303,20 @@ function reactivarColaborador(usuario: UsuarioItem) {
             <template #celda-estatus="{ fila }">
                 <EstadoBadge :estado="fila.estatus" />
             </template>
+            <template #celda-acceso="{ fila }">
+                <span
+                    v-if="fila.acceso_bloqueado_en"
+                    class="inline-flex items-center gap-1 text-xs font-medium text-destructive"
+                >
+                    <XCircle class="size-3.5" /> Bloqueado
+                </span>
+                <span
+                    v-else
+                    class="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400"
+                >
+                    <CheckCircle2 class="size-3.5" /> Sí
+                </span>
+            </template>
             <template #acciones="{ fila }">
                 <CrudActionMenu>
                     <template v-if="fila.deleted_at">
@@ -286,10 +336,22 @@ function reactivarColaborador(usuario: UsuarioItem) {
                         <DropdownMenuItem @select="abrirEditar(fila)"
                             >Editar</DropdownMenuItem
                         >
+                        <template v-if="puedeRevocarAcceso">
+                            <DropdownMenuItem
+                                v-if="fila.acceso_bloqueado_en"
+                                @select="restablecerAccesoUsuario(fila)"
+                                >Restablecer acceso</DropdownMenuItem
+                            >
+                            <DropdownMenuItem
+                                v-else
+                                @select="revocarAccesoUsuario(fila)"
+                                >Revocar acceso</DropdownMenuItem
+                            >
+                        </template>
                         <DropdownMenuItem
                             variant="destructive"
-                            @select="desactivar(fila)"
-                            >Desactivar</DropdownMenuItem
+                            @select="darDeBaja(fila)"
+                            >Dar de baja</DropdownMenuItem
                         >
                     </template>
                 </CrudActionMenu>
@@ -322,10 +384,22 @@ function reactivarColaborador(usuario: UsuarioItem) {
                                 <DropdownMenuItem @select="abrirEditar(fila)"
                                     >Editar</DropdownMenuItem
                                 >
+                                <template v-if="puedeRevocarAcceso">
+                                    <DropdownMenuItem
+                                        v-if="fila.acceso_bloqueado_en"
+                                        @select="restablecerAccesoUsuario(fila)"
+                                        >Restablecer acceso</DropdownMenuItem
+                                    >
+                                    <DropdownMenuItem
+                                        v-else
+                                        @select="revocarAccesoUsuario(fila)"
+                                        >Revocar acceso</DropdownMenuItem
+                                    >
+                                </template>
                                 <DropdownMenuItem
                                     variant="destructive"
-                                    @select="desactivar(fila)"
-                                    >Desactivar</DropdownMenuItem
+                                    @select="darDeBaja(fila)"
+                                    >Dar de baja</DropdownMenuItem
                                 >
                             </template>
                         </CrudActionMenu>

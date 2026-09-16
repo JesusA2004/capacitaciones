@@ -247,14 +247,23 @@ async function eliminar(vacante: VacanteItem) {
 // real), igual que el botón "Cubrir vacante" de la tarjeta. "Cancelada"
 // pide motivo con PeopleConfirmDialog (no SweetAlert, para no abrir un
 // segundo sistema de overlays). Cualquier otra transición pide una
-// confirmación ligera antes de escribir nada — el tablero se restaura a
-// `columnas` (fuente canónica: props.vacantes) de inmediato al soltar.
+// confirmación ligera antes de escribir nada — el tablero NO se restaura al
+// soltar (eso pelea con el v-model de vue-draggable-plus, ver
+// useKanbanTransition); solo se fuerza `columnas` a su estado canónico si el
+// usuario cancela cualquiera de los tres diálogos o el servidor rechaza el
+// cambio.
 const {
     processing: enviandoTransicionVacante,
-    onStart: onStartDragVacante,
+    onStart: onStartDragVacanteBase,
     onEnd: onEndDragVacanteBase,
-    asentarAntesDeConfirmar: asentarVacante,
+    restaurarCanonico: restaurarVacantes,
 } = useKanbanTransition();
+
+// Id+columna de origen capturados al INICIAR el arrastre (dataset del DOM,
+// ver `data-kanban-id`/`data-estado`), no al soltar — ver
+// useKanbanTransition y el mismo patrón en Rh/Solicitudes/Index.vue.
+const dragOrigenIdVacante = ref<number | null>(null);
+const dragOrigenEstadoVacante = ref<string | null>(null);
 
 type TransicionVacantePendiente = {
     vacante: VacanteItem;
@@ -269,6 +278,12 @@ const vacanteACancelar = ref<VacanteItem | null>(null);
 const dialogCancelarAbierto = ref(false);
 const motivoCancelacionTexto = ref('');
 
+watch(dialogoCubrirAbierto, (abierto) => {
+    if (!abierto) {
+        restaurarVacantes(() => construirColumnas(props.vacantes));
+    }
+});
+
 const tableroVacantesBloqueado = computed(
     () =>
         dialogTransicionAbierto.value ||
@@ -281,12 +296,27 @@ function etiquetaEstadoVacante(estado: string): string {
     return COLUMNAS.find((c) => c.estado === estado)?.titulo ?? estado;
 }
 
-async function onEndDragVacante(evento: DraggableEvent<VacanteItem>) {
+function onStartDragVacante(evento: DraggableEvent<VacanteItem>) {
+    onStartDragVacanteBase();
+
+    const idDataset = evento.item?.dataset.kanbanId;
+    dragOrigenIdVacante.value = idDataset ? Number(idDataset) : null;
+    dragOrigenEstadoVacante.value = evento.from?.dataset.estado ?? null;
+}
+
+function onEndDragVacante(evento: DraggableEvent<VacanteItem>) {
     onEndDragVacanteBase();
 
-    const vacante = evento.data;
-    const estadoOrigen = evento.from?.dataset.estado;
+    const id =
+        dragOrigenIdVacante.value ??
+        Number(evento.item?.dataset.kanbanId ?? NaN);
+    const estadoOrigen =
+        dragOrigenEstadoVacante.value ?? evento.from?.dataset.estado;
     const estadoDestino = evento.to?.dataset.estado;
+    const vacante = props.vacantes.find((v) => v.id === id);
+
+    dragOrigenIdVacante.value = null;
+    dragOrigenEstadoVacante.value = null;
 
     if (
         !vacante ||
@@ -296,8 +326,6 @@ async function onEndDragVacante(evento: DraggableEvent<VacanteItem>) {
     ) {
         return;
     }
-
-    await asentarVacante(() => construirColumnas(props.vacantes));
 
     if (estadoDestino === 'cubierta') {
         abrirCubrir(vacante);
@@ -320,6 +348,7 @@ async function onEndDragVacante(evento: DraggableEvent<VacanteItem>) {
 function cerrarDialogTransicion() {
     dialogTransicionAbierto.value = false;
     transicionPendiente.value = null;
+    restaurarVacantes(() => construirColumnas(props.vacantes));
 }
 
 function confirmarTransicionVacante() {
@@ -355,6 +384,7 @@ function cerrarDialogCancelar() {
     dialogCancelarAbierto.value = false;
     vacanteACancelar.value = null;
     motivoCancelacionTexto.value = '';
+    restaurarVacantes(() => construirColumnas(props.vacantes));
 }
 
 function confirmarCancelacionVacante() {
@@ -629,6 +659,7 @@ function confirmarCancelacionVacante() {
                     <div
                         v-for="vacante in columnas[columna.estado]"
                         :key="vacante.id"
+                        :data-kanban-id="vacante.id"
                         role="button"
                         tabindex="0"
                         class="group flex flex-col gap-1 rounded-xl border border-border/60 bg-card p-3 text-left shadow-sm transition-colors hover:border-primary/40"

@@ -1,39 +1,66 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import {
+    BadgeCheck,
     Briefcase,
     Building2,
     Calendar,
+    CalendarClock,
+    CalendarDays,
     CheckCircle2,
     CircleDashed,
     ClipboardList,
+    Fingerprint,
+    Home,
+    Hourglass,
     IdCard,
+    KeyRound,
+    Layers,
     ListChecks,
+    Lock,
+    Mail,
     MapPinned,
+    Phone,
+    PhoneCall,
     ScrollText,
+    ShieldCheck,
+    Unlock,
     User,
+    UserCog,
+    UserRound,
 } from '@lucide/vue';
+import { computed, ref } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import InputError from '@/components/InputError.vue';
+import CampoInfo from '@/components/Rh/CampoInfo.vue';
+import EstablecerPasswordDialog from '@/components/Rh/EstablecerPasswordDialog.vue';
 import ExpedienteDocumentos from '@/components/Rh/ExpedienteDocumentos.vue';
 import MovimientosLaboralesTimeline from '@/components/Rh/MovimientosLaboralesTimeline.vue';
-import ProximamenteTab from '@/components/Rh/ProximamenteTab.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Spinner } from '@/components/ui/spinner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAlertas } from '@/composables/useAlertas';
-import { reactivar } from '@/routes/administracion/usuarios';
+import {
+    reactivar,
+    restablecerAcceso,
+    revocarAcceso,
+} from '@/routes/administracion/usuarios';
+import { update as actualizarAvisos } from '@/routes/rh/expedientes/avisos';
 import { update as actualizarDatosPersonales } from '@/routes/rh/expedientes/datos-personales';
 import { show as showSolicitud } from '@/routes/rh/solicitudes';
+import { edit as editSeguridad } from '@/routes/security';
 import type {
     AltaDigitalResumenExpediente,
     DocumentoExpedienteItem,
+    AvisosManualExpediente,
     ExpedienteColaborador,
     MovimientoLaboralItem,
     OnboardingItem,
@@ -47,16 +74,21 @@ const props = defineProps<{
     esPropio: boolean;
     puedeEditar: boolean;
     puedeReactivar: boolean;
+    puedeGestionarAcceso: boolean;
+    puedeGestionarPassword: boolean;
+    esCuentaPropia: boolean;
     puedeRevisarDocumentos: boolean;
     puedeVerExtraccion: boolean;
     puedeAplicarExtraccion: boolean;
     puedeReprocesarExtraccion: boolean;
     puedeIgnorarExtraccion: boolean;
+    puedeGestionarAvisos: boolean;
     colaborador: ExpedienteColaborador;
     resumenExpediente: ResumenExpediente;
     documentosRequeridos: DocumentoExpedienteItem[];
     onboarding: OnboardingItem[];
     altaDigital: AltaDigitalResumenExpediente;
+    avisosManual: AvisosManualExpediente;
     saldoVacaciones: SaldoVacaciones;
     solicitudesVacaciones: SolicitudVacacionesItem[];
     solicitudes: SolicitudExpedienteItem[];
@@ -82,6 +114,19 @@ function guardarDatosPersonales() {
     });
 }
 
+const formAvisos = useForm({
+    aviso_privacidad_aceptado:
+        props.avisosManual?.aviso_privacidad_aceptado ?? false,
+    consentimiento_datos_aceptado:
+        props.avisosManual?.consentimiento_datos_aceptado ?? false,
+});
+
+function guardarAvisosManual() {
+    formAvisos.put(actualizarAvisos.url(props.colaborador.id), {
+        preserveScroll: true,
+    });
+}
+
 const { mostrarExito, mostrarError } = useAlertas();
 
 function reactivarColaborador() {
@@ -97,6 +142,48 @@ function reactivarColaborador() {
         },
     );
 }
+
+function revocarAccesoColaborador() {
+    router.post(
+        revocarAcceso.url(props.colaborador.id),
+        {},
+        {
+            preserveScroll: true,
+            onSuccess: () =>
+                mostrarExito(
+                    'Acceso revocado. El colaborador sigue activo en la plantilla.',
+                ),
+            onError: () => mostrarError('No fue posible revocar el acceso.'),
+        },
+    );
+}
+
+function restablecerAccesoColaborador() {
+    router.post(
+        restablecerAcceso.url(props.colaborador.id),
+        {},
+        {
+            preserveScroll: true,
+            onSuccess: () => mostrarExito('Acceso restablecido.'),
+            onError: () =>
+                mostrarError('No fue posible restablecer el acceso.'),
+        },
+    );
+}
+
+const dialogoPasswordAbierto = ref(false);
+
+const onboardingPorcentaje = computed(() => {
+    if (props.onboarding.length === 0) {
+        return 0;
+    }
+
+    const completados = props.onboarding.filter(
+        (item) => item.completado,
+    ).length;
+
+    return Math.round((completados / props.onboarding.length) * 100);
+});
 </script>
 
 <template>
@@ -160,6 +247,22 @@ function reactivarColaborador() {
                                 colaborador.departamento?.nombre ?? '—'
                             }}</span
                         >
+                        <span class="flex items-center gap-1">
+                            Acceso al sistema:
+                            <span
+                                :class="
+                                    colaborador.acceso_bloqueado_en
+                                        ? 'font-medium text-destructive'
+                                        : 'font-medium text-emerald-600 dark:text-emerald-400'
+                                "
+                            >
+                                {{
+                                    colaborador.acceso_bloqueado_en
+                                        ? 'No (bloqueado)'
+                                        : 'Sí'
+                                }}
+                            </span>
+                        </span>
                     </div>
                 </div>
 
@@ -192,6 +295,24 @@ function reactivarColaborador() {
                     >
                         Baja — solo un administrador puede reactivar.
                     </p>
+                    <template v-else-if="puedeGestionarAcceso">
+                        <Button
+                            v-if="colaborador.acceso_bloqueado_en"
+                            size="sm"
+                            variant="success"
+                            @click="restablecerAccesoColaborador"
+                        >
+                            Restablecer acceso
+                        </Button>
+                        <Button
+                            v-else
+                            size="sm"
+                            variant="outline"
+                            @click="revocarAccesoColaborador"
+                        >
+                            Revocar acceso
+                        </Button>
+                    </template>
                 </div>
             </CardContent>
         </Card>
@@ -201,6 +322,7 @@ function reactivarColaborador() {
                 <TabsTrigger value="resumen">Resumen</TabsTrigger>
                 <TabsTrigger value="personales">Datos personales</TabsTrigger>
                 <TabsTrigger value="laborales">Datos laborales</TabsTrigger>
+                <TabsTrigger v-if="!esPropio" value="usuario">Usuario</TabsTrigger>
                 <TabsTrigger value="documentos">Documentos</TabsTrigger>
                 <TabsTrigger value="onboarding">Onboarding</TabsTrigger>
                 <TabsTrigger value="avisos">Avisos</TabsTrigger>
@@ -249,32 +371,27 @@ function reactivarColaborador() {
                     </Card>
                 </div>
 
-                <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <Card class="rounded-2xl border-border/60">
-                        <CardHeader>
-                            <CardTitle class="text-sm">Contacto</CardTitle>
-                        </CardHeader>
-                        <CardContent class="grid gap-1 text-sm">
-                            <p>{{ colaborador.email }}</p>
-                            <p class="text-muted-foreground">
-                                {{ colaborador.telefono ?? 'Sin teléfono' }}
-                            </p>
-                        </CardContent>
-                    </Card>
-                    <Card class="rounded-2xl border-border/60">
-                        <CardHeader>
-                            <CardTitle class="text-sm">Jefe directo</CardTitle>
-                        </CardHeader>
-                        <CardContent class="text-sm">
-                            <p v-if="colaborador.jefe">
-                                {{ colaborador.jefe.name }}
-                                {{ colaborador.jefe.apellidos }}
-                            </p>
-                            <p v-else class="text-muted-foreground">
-                                Sin asignar
-                            </p>
-                        </CardContent>
-                    </Card>
+                <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <CampoInfo
+                        :icono="Mail"
+                        etiqueta="Correo"
+                        :valor="colaborador.email"
+                    />
+                    <CampoInfo
+                        :icono="Phone"
+                        etiqueta="Teléfono"
+                        :valor="colaborador.telefono"
+                    />
+                    <CampoInfo :icono="UserRound" etiqueta="Jefe directo">
+                        <template v-if="colaborador.jefe">
+                            {{ colaborador.jefe.name }}
+                            {{ colaborador.jefe.apellidos }}
+                        </template>
+                        <template v-else>Sin asignar</template>
+                    </CampoInfo>
+                    <CampoInfo :icono="Building2" etiqueta="Empresa">
+                        {{ colaborador.empresa?.nombre ?? 'Sin asignar' }}
+                    </CampoInfo>
                 </div>
             </TabsContent>
 
@@ -288,109 +405,144 @@ function reactivarColaborador() {
                     </CardHeader>
                     <CardContent>
                         <form
-                            class="grid grid-cols-1 gap-4 sm:grid-cols-2"
+                            class="flex flex-col gap-6"
                             @submit.prevent="guardarDatosPersonales"
                         >
-                            <div class="grid gap-2">
-                                <Label for="fecha_nacimiento"
-                                    >Fecha de nacimiento</Label
+                            <div class="flex flex-col gap-3">
+                                <p
+                                    class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
                                 >
-                                <DatePicker
-                                    id="fecha_nacimiento"
-                                    v-model="form.fecha_nacimiento"
-                                    :disabled="!puedeEditar"
-                                />
-                                <InputError
-                                    :message="form.errors.fecha_nacimiento"
-                                />
-                            </div>
-                            <div class="grid gap-2">
-                                <Label for="curp">CURP</Label>
-                                <Input
-                                    id="curp"
-                                    v-model="form.curp"
-                                    class="uppercase"
-                                    maxlength="18"
-                                    :disabled="!puedeEditar"
-                                />
-                                <InputError :message="form.errors.curp" />
-                            </div>
-                            <div class="grid gap-2">
-                                <Label for="rfc">RFC</Label>
-                                <Input
-                                    id="rfc"
-                                    v-model="form.rfc"
-                                    class="uppercase"
-                                    maxlength="13"
-                                    :disabled="!puedeEditar"
-                                />
-                                <InputError :message="form.errors.rfc" />
-                            </div>
-                            <div class="grid gap-2">
-                                <Label for="nss">NSS</Label>
-                                <Input
-                                    id="nss"
-                                    v-model="form.nss"
-                                    maxlength="11"
-                                    :disabled="!puedeEditar"
-                                />
-                                <InputError :message="form.errors.nss" />
-                            </div>
-                            <div class="grid gap-2 sm:col-span-2">
-                                <Label for="domicilio">Domicilio</Label>
-                                <Input
-                                    id="domicilio"
-                                    v-model="form.domicilio"
-                                    :disabled="!puedeEditar"
-                                />
-                                <InputError :message="form.errors.domicilio" />
-                            </div>
-                            <div class="grid gap-2">
-                                <Label for="correo_personal"
-                                    >Correo personal</Label
-                                >
-                                <Input
-                                    id="correo_personal"
-                                    v-model="form.correo_personal"
-                                    type="email"
-                                    :disabled="!puedeEditar"
-                                />
-                                <InputError
-                                    :message="form.errors.correo_personal"
-                                />
-                            </div>
-                            <div class="grid gap-2">
-                                <Label for="contacto_emergencia_nombre"
-                                    >Contacto de emergencia</Label
-                                >
-                                <Input
-                                    id="contacto_emergencia_nombre"
-                                    v-model="form.contacto_emergencia_nombre"
-                                    :disabled="!puedeEditar"
-                                />
-                                <InputError
-                                    :message="
-                                        form.errors.contacto_emergencia_nombre
-                                    "
-                                />
-                            </div>
-                            <div class="grid gap-2">
-                                <Label for="contacto_emergencia_telefono"
-                                    >Teléfono de emergencia</Label
-                                >
-                                <Input
-                                    id="contacto_emergencia_telefono"
-                                    v-model="form.contacto_emergencia_telefono"
-                                    :disabled="!puedeEditar"
-                                />
-                                <InputError
-                                    :message="
-                                        form.errors.contacto_emergencia_telefono
-                                    "
-                                />
+                                    <Fingerprint class="size-3.5" />
+                                    Identificación
+                                </p>
+                                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    <div class="grid gap-2">
+                                        <Label for="fecha_nacimiento"
+                                            >Fecha de nacimiento</Label
+                                        >
+                                        <DatePicker
+                                            id="fecha_nacimiento"
+                                            v-model="form.fecha_nacimiento"
+                                            :disabled="!puedeEditar"
+                                        />
+                                        <InputError
+                                            :message="form.errors.fecha_nacimiento"
+                                        />
+                                    </div>
+                                    <div class="grid gap-2">
+                                        <Label for="curp">CURP</Label>
+                                        <Input
+                                            id="curp"
+                                            v-model="form.curp"
+                                            class="uppercase"
+                                            maxlength="18"
+                                            :disabled="!puedeEditar"
+                                        />
+                                        <InputError :message="form.errors.curp" />
+                                    </div>
+                                    <div class="grid gap-2">
+                                        <Label for="rfc">RFC</Label>
+                                        <Input
+                                            id="rfc"
+                                            v-model="form.rfc"
+                                            class="uppercase"
+                                            maxlength="13"
+                                            :disabled="!puedeEditar"
+                                        />
+                                        <InputError :message="form.errors.rfc" />
+                                    </div>
+                                    <div class="grid gap-2">
+                                        <Label for="nss">NSS</Label>
+                                        <Input
+                                            id="nss"
+                                            v-model="form.nss"
+                                            maxlength="11"
+                                            :disabled="!puedeEditar"
+                                        />
+                                        <InputError :message="form.errors.nss" />
+                                    </div>
+                                </div>
                             </div>
 
-                            <div v-if="puedeEditar" class="sm:col-span-2">
+                            <div class="flex flex-col gap-3 border-t pt-4">
+                                <p
+                                    class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+                                >
+                                    <Home class="size-3.5" />
+                                    Contacto
+                                </p>
+                                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    <div class="grid gap-2 sm:col-span-2">
+                                        <Label for="domicilio">Domicilio</Label>
+                                        <Input
+                                            id="domicilio"
+                                            v-model="form.domicilio"
+                                            :disabled="!puedeEditar"
+                                        />
+                                        <InputError :message="form.errors.domicilio" />
+                                    </div>
+                                    <div class="grid gap-2">
+                                        <Label for="correo_personal"
+                                            >Correo personal</Label
+                                        >
+                                        <Input
+                                            id="correo_personal"
+                                            v-model="form.correo_personal"
+                                            type="email"
+                                            :disabled="!puedeEditar"
+                                        />
+                                        <InputError
+                                            :message="form.errors.correo_personal"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex flex-col gap-3 border-t pt-4">
+                                <p
+                                    class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+                                >
+                                    <PhoneCall class="size-3.5" />
+                                    Contacto de emergencia
+                                </p>
+                                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    <div class="grid gap-2">
+                                        <Label for="contacto_emergencia_nombre"
+                                            >Nombre</Label
+                                        >
+                                        <Input
+                                            id="contacto_emergencia_nombre"
+                                            v-model="form.contacto_emergencia_nombre"
+                                            :disabled="!puedeEditar"
+                                        />
+                                        <InputError
+                                            :message="
+                                                form.errors.contacto_emergencia_nombre
+                                            "
+                                        />
+                                    </div>
+                                    <div class="grid gap-2">
+                                        <Label for="contacto_emergencia_telefono"
+                                            >Teléfono</Label
+                                        >
+                                        <Input
+                                            id="contacto_emergencia_telefono"
+                                            v-model="
+                                                form.contacto_emergencia_telefono
+                                            "
+                                            :disabled="!puedeEditar"
+                                        />
+                                        <InputError
+                                            :message="
+                                                form.errors
+                                                    .contacto_emergencia_telefono
+                                            "
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div v-if="puedeEditar">
                                 <Button
                                     type="submit"
                                     :disabled="form.processing"
@@ -412,91 +564,213 @@ function reactivarColaborador() {
                             Datos laborales
                         </CardTitle>
                     </CardHeader>
-                    <CardContent class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div>
-                            <p class="text-xs text-muted-foreground">
-                                Fecha de ingreso
+                    <CardContent class="flex flex-col gap-6">
+                        <div class="flex flex-col gap-3">
+                            <p
+                                class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+                            >
+                                <Layers class="size-3.5" />
+                                Ubicación organizacional
                             </p>
-                            <p class="text-sm font-medium">
-                                {{ colaborador.fecha_ingreso ?? '—' }}
-                            </p>
+                            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <CampoInfo :icono="Building2" etiqueta="Empresa">
+                                    {{ colaborador.empresa?.nombre ?? '—' }}
+                                </CampoInfo>
+                                <CampoInfo :icono="MapPinned" etiqueta="Sucursal">
+                                    {{ colaborador.sucursal?.nombre ?? '—' }}
+                                </CampoInfo>
+                                <CampoInfo :icono="Briefcase" etiqueta="Departamento">
+                                    {{ colaborador.departamento?.nombre ?? '—' }}
+                                </CampoInfo>
+                                <CampoInfo :icono="BadgeCheck" etiqueta="Puesto">
+                                    {{ colaborador.puesto?.nombre ?? '—' }}
+                                </CampoInfo>
+                            </div>
                         </div>
-                        <div>
-                            <p class="text-xs text-muted-foreground">
-                                Estado laboral
+
+                        <div class="flex flex-col gap-3 border-t pt-4">
+                            <p
+                                class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+                            >
+                                <ShieldCheck class="size-3.5" />
+                                Estatus laboral e IMSS
                             </p>
-                            <EstadoBadge :estado="colaborador.estatus" />
-                        </div>
-                        <div>
-                            <p class="text-xs text-muted-foreground">Empresa</p>
-                            <p class="text-sm font-medium">
-                                {{ colaborador.empresa?.nombre ?? '—' }}
-                            </p>
-                        </div>
-                        <div>
-                            <p class="text-xs text-muted-foreground">
-                                Sucursal
-                            </p>
-                            <p class="text-sm font-medium">
-                                {{ colaborador.sucursal?.nombre ?? '—' }}
-                            </p>
-                        </div>
-                        <div>
-                            <p class="text-xs text-muted-foreground">
-                                Departamento
-                            </p>
-                            <p class="text-sm font-medium">
-                                {{ colaborador.departamento?.nombre ?? '—' }}
-                            </p>
-                        </div>
-                        <div>
-                            <p class="text-xs text-muted-foreground">Puesto</p>
-                            <p class="text-sm font-medium">
-                                {{ colaborador.puesto?.nombre ?? '—' }}
-                            </p>
-                        </div>
-                        <div>
-                            <p class="text-xs text-muted-foreground">
-                                Estatus IMSS
-                            </p>
-                            <EstadoBadge :estado="colaborador.estatus_imss" />
-                        </div>
-                        <div>
-                            <p class="text-xs text-muted-foreground">
-                                Fecha alta IMSS
-                            </p>
-                            <p class="text-sm font-medium">
-                                {{ colaborador.fecha_alta_imss ?? '—' }}
-                            </p>
-                        </div>
-                        <div>
-                            <p class="text-xs text-muted-foreground">
-                                Periodo de prueba
-                            </p>
-                            <p class="text-sm font-medium">
-                                <template
-                                    v-if="
-                                        colaborador.periodo_prueba_inicio &&
-                                        colaborador.periodo_prueba_fin
-                                    "
+                            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <CampoInfo :icono="CalendarDays" etiqueta="Fecha de ingreso">
+                                    {{ colaborador.fecha_ingreso ?? '—' }}
+                                </CampoInfo>
+                                <CampoInfo etiqueta="Estado laboral">
+                                    <EstadoBadge :estado="colaborador.estatus" />
+                                </CampoInfo>
+                                <CampoInfo etiqueta="Estatus IMSS">
+                                    <EstadoBadge :estado="colaborador.estatus_imss" />
+                                </CampoInfo>
+                                <CampoInfo :icono="CalendarClock" etiqueta="Fecha alta IMSS">
+                                    {{ colaborador.fecha_alta_imss ?? '—' }}
+                                </CampoInfo>
+                                <CampoInfo
+                                    :icono="Hourglass"
+                                    etiqueta="Periodo de prueba"
+                                    class="sm:col-span-2"
                                 >
-                                    {{ colaborador.periodo_prueba_inicio }} —
-                                    {{ colaborador.periodo_prueba_fin }}
-                                    <span
-                                        v-if="colaborador.en_periodo_prueba"
-                                        class="text-warning"
-                                        >(vigente)</span
+                                    <template
+                                        v-if="
+                                            colaborador.periodo_prueba_inicio &&
+                                            colaborador.periodo_prueba_fin
+                                        "
                                     >
-                                </template>
-                                <template v-else>—</template>
-                            </p>
+                                        {{ colaborador.periodo_prueba_inicio }} —
+                                        {{ colaborador.periodo_prueba_fin }}
+                                        <span
+                                            v-if="colaborador.en_periodo_prueba"
+                                            class="text-warning"
+                                            >(vigente)</span
+                                        >
+                                    </template>
+                                    <template v-else>—</template>
+                                </CampoInfo>
+                            </div>
                         </div>
-                        <p class="text-xs text-muted-foreground sm:col-span-2">
-                            Estos datos se editan desde Administración →
-                            Colaboradores.
+
+                        <p class="text-xs text-muted-foreground">
+                            Puesto, sucursal y departamento se editan desde
+                            Administración → Usuarios. La cuenta de acceso
+                            (correo, roles, contraseña) está en la pestaña
+                            «Usuario».
                         </p>
                     </CardContent>
                 </Card>
+            </TabsContent>
+
+            <TabsContent v-if="!esPropio" value="usuario" class="pt-4">
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Card class="rounded-2xl border-border/60">
+                        <CardHeader>
+                            <CardTitle class="flex items-center gap-2 text-base">
+                                <UserCog class="size-4" />
+                                Cuenta de acceso
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent class="grid gap-4 text-sm">
+                            <CampoInfo
+                                :icono="Mail"
+                                etiqueta="Correo (usuario de acceso)"
+                                :valor="colaborador.email"
+                            />
+                            <div>
+                                <p class="text-xs text-muted-foreground">Roles</p>
+                                <div class="mt-1 flex flex-wrap gap-1">
+                                    <Badge
+                                        v-for="rol in colaborador.roles"
+                                        :key="rol"
+                                        variant="outline"
+                                        class="capitalize"
+                                    >
+                                        {{ rol.replace(/_/g, ' ') }}
+                                    </Badge>
+                                    <span
+                                        v-if="colaborador.roles.length === 0"
+                                        class="text-xs text-muted-foreground"
+                                        >Sin roles asignados</span
+                                    >
+                                </div>
+                            </div>
+                            <div>
+                                <p class="text-xs text-muted-foreground">
+                                    Acceso al sistema
+                                </p>
+                                <p
+                                    class="flex items-center gap-1.5 font-medium"
+                                    :class="
+                                        colaborador.acceso_bloqueado_en
+                                            ? 'text-destructive'
+                                            : 'text-[var(--success)]'
+                                    "
+                                >
+                                    <Lock
+                                        v-if="colaborador.acceso_bloqueado_en"
+                                        class="size-3.5"
+                                    />
+                                    <ShieldCheck v-else class="size-3.5" />
+                                    {{
+                                        colaborador.acceso_bloqueado_en
+                                            ? 'Bloqueado'
+                                            : 'Activo'
+                                    }}
+                                </p>
+                            </div>
+
+                            <div
+                                v-if="puedeGestionarAcceso"
+                                class="flex flex-wrap gap-2 border-t pt-3"
+                            >
+                                <Button
+                                    v-if="colaborador.acceso_bloqueado_en"
+                                    size="sm"
+                                    variant="success"
+                                    @click="restablecerAccesoColaborador"
+                                >
+                                    <Unlock class="size-3.5" />
+                                    Restablecer acceso
+                                </Button>
+                                <Button
+                                    v-else
+                                    size="sm"
+                                    variant="outline"
+                                    @click="revocarAccesoColaborador"
+                                >
+                                    <Lock class="size-3.5" />
+                                    Quitar acceso
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card class="rounded-2xl border-border/60">
+                        <CardHeader>
+                            <CardTitle class="flex items-center gap-2 text-base">
+                                <KeyRound class="size-4" />
+                                Contraseña
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent class="flex flex-col gap-3 text-sm">
+                            <p class="text-muted-foreground">
+                                Por seguridad, la contraseña se guarda cifrada
+                                y no se puede consultar la actual — ni un
+                                administrador puede leerla. Solo puedes
+                                establecer una nueva.
+                            </p>
+                            <Button
+                                v-if="puedeGestionarPassword"
+                                size="sm"
+                                class="w-fit"
+                                @click="dialogoPasswordAbierto = true"
+                            >
+                                <KeyRound class="size-3.5" />
+                                Establecer contraseña nueva
+                            </Button>
+                            <p
+                                v-else-if="esCuentaPropia"
+                                class="text-xs text-muted-foreground"
+                            >
+                                Es tu propia cuenta: no puedes restablecerte
+                                la contraseña desde aquí. Usa
+                                <Link
+                                    :href="editSeguridad.url()"
+                                    class="font-medium text-primary underline underline-offset-2"
+                                    >Configuración → Seguridad</Link
+                                >.
+                            </p>
+                            <p
+                                v-else
+                                class="text-xs text-muted-foreground"
+                            >
+                                No tienes permiso para cambiar la contraseña
+                                de este colaborador.
+                            </p>
+                        </CardContent>
+                    </Card>
+                </div>
             </TabsContent>
 
             <TabsContent value="documentos" class="pt-4">
@@ -519,12 +793,27 @@ function reactivarColaborador() {
                             <ListChecks class="size-4" />
                             Checklist de incorporación
                         </CardTitle>
+                        <div class="flex items-center gap-2 pt-1">
+                            <Progress
+                                :model-value="onboardingPorcentaje"
+                                class="h-2 flex-1"
+                            />
+                            <span
+                                class="text-xs font-semibold tabular-nums text-muted-foreground"
+                                >{{ onboardingPorcentaje }}%</span
+                            >
+                        </div>
                     </CardHeader>
                     <CardContent class="flex flex-col gap-2">
                         <div
                             v-for="item in onboarding"
                             :key="item.clave"
-                            class="flex items-center gap-2 text-sm"
+                            class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm"
+                            :class="
+                                item.completado
+                                    ? 'bg-[var(--success)]/5'
+                                    : 'bg-muted/40'
+                            "
                         >
                             <CheckCircle2
                                 v-if="item.completado"
@@ -600,12 +889,97 @@ function reactivarColaborador() {
                         </p>
                     </CardContent>
                 </Card>
-                <ProximamenteTab
-                    v-else
-                    :icono="ScrollText"
-                    titulo="Avisos y consentimientos"
-                    descripcion="Este colaborador no tiene un alta digital registrada, así que no hay aviso/consentimiento capturado."
-                />
+
+                <Card v-else class="rounded-2xl border-border/60">
+                    <CardHeader>
+                        <CardTitle class="flex items-center gap-2 text-base">
+                            <ScrollText class="size-4" />
+                            Avisos y consentimientos
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent class="flex flex-col gap-4">
+                        <p class="rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+                            Este colaborador no tiene un Alta digital
+                            registrada (se dio de alta directamente), así que
+                            no hay firma electrónica de por medio. Puedes
+                            registrar aquí manualmente si ya aceptó el aviso
+                            de privacidad y el consentimiento de datos (por
+                            ejemplo, en papel o por correo).
+                        </p>
+
+                        <form
+                            class="flex flex-col gap-3"
+                            @submit.prevent="guardarAvisosManual"
+                        >
+                            <label
+                                class="flex items-start gap-2.5 rounded-xl border border-border/50 px-3 py-2.5 text-sm"
+                            >
+                                <Checkbox
+                                    v-model="formAvisos.aviso_privacidad_aceptado"
+                                    :disabled="!puedeGestionarAvisos"
+                                />
+                                <span>
+                                    <span class="font-medium">Aviso de privacidad aceptado</span>
+                                    <span
+                                        v-if="avisosManual?.aviso_privacidad_aceptado_en"
+                                        class="block text-xs text-muted-foreground"
+                                        >Registrado el
+                                        {{
+                                            new Date(
+                                                avisosManual.aviso_privacidad_aceptado_en,
+                                            ).toLocaleString()
+                                        }}</span
+                                    >
+                                </span>
+                            </label>
+
+                            <label
+                                class="flex items-start gap-2.5 rounded-xl border border-border/50 px-3 py-2.5 text-sm"
+                            >
+                                <Checkbox
+                                    v-model="
+                                        formAvisos.consentimiento_datos_aceptado
+                                    "
+                                    :disabled="!puedeGestionarAvisos"
+                                />
+                                <span>
+                                    <span class="font-medium">Consentimiento de datos aceptado</span>
+                                    <span
+                                        v-if="
+                                            avisosManual?.consentimiento_datos_aceptado_en
+                                        "
+                                        class="block text-xs text-muted-foreground"
+                                        >Registrado el
+                                        {{
+                                            new Date(
+                                                avisosManual.consentimiento_datos_aceptado_en,
+                                            ).toLocaleString()
+                                        }}</span
+                                    >
+                                </span>
+                            </label>
+
+                            <p
+                                v-if="avisosManual?.registrado_por"
+                                class="text-xs text-muted-foreground"
+                            >
+                                Última vez registrado por
+                                {{ avisosManual.registrado_por }}.
+                            </p>
+
+                            <Button
+                                v-if="puedeGestionarAvisos"
+                                type="submit"
+                                size="sm"
+                                class="w-fit"
+                                :disabled="formAvisos.processing"
+                            >
+                                <Spinner v-if="formAvisos.processing" />
+                                Guardar avisos
+                            </Button>
+                        </form>
+                    </CardContent>
+                </Card>
             </TabsContent>
             <TabsContent value="vacaciones" class="pt-4">
                 <Card class="rounded-2xl border-border/60">
@@ -720,4 +1094,11 @@ function reactivarColaborador() {
             </TabsContent>
         </Tabs>
     </div>
+
+    <EstablecerPasswordDialog
+        v-if="dialogoPasswordAbierto"
+        v-model:open="dialogoPasswordAbierto"
+        :colaborador-id="colaborador.id"
+        :colaborador-nombre="`${colaborador.name} ${colaborador.apellidos ?? ''}`"
+    />
 </template>

@@ -23,7 +23,10 @@ class EnsureCuentaActiva
     {
         $usuario = $request->user();
 
-        if ($usuario !== null && in_array($usuario->estatus, [EstadoUsuario::Inactivo, EstadoUsuario::Suspendido], true)) {
+        if ($usuario !== null && (
+            in_array($usuario->estatus, [EstadoUsuario::Inactivo, EstadoUsuario::Suspendido], true)
+            || $usuario->acceso_bloqueado_en !== null
+        )) {
             Auth::guard('web')->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();

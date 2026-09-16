@@ -75,6 +75,15 @@ Route::middleware(['auth', 'verified'])
             // UsuarioController::destroy()): sin withTrashed() el binding
             // implícito de {usuario} nunca lo encontraría para reactivarlo.
             Route::post('{usuario}/reactivar', [UsuarioController::class, 'reactivar'])->name('reactivar')->withTrashed();
+            // Revocar/restablecer acceso: distinto de destroy()/reactivar()
+            // (baja laboral) — bloquea/desbloquea el login sin tocar
+            // estatus/headcount, ver UsuarioController::revocarAcceso().
+            Route::post('{usuario}/revocar-acceso', [UsuarioController::class, 'revocarAcceso'])->name('revocar-acceso');
+            Route::post('{usuario}/restablecer-acceso', [UsuarioController::class, 'restablecerAcceso'])->name('restablecer-acceso');
+            // Devuelve JSON (no es una visita Inertia normal): el frontend
+            // necesita la contraseña en texto plano para mostrarla una sola
+            // vez, ver UsuarioController::establecerPassword().
+            Route::post('{usuario}/establecer-password', [UsuarioController::class, 'establecerPassword'])->name('establecer-password');
         });
 
         // URL en español (app-versiones) tal como la pidió el encargo; nombre

@@ -37,6 +37,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @property int|null $jefe_id
  * @property Carbon|null $fecha_ingreso
  * @property EstadoUsuario $estatus
+ * @property Carbon|null $acceso_bloqueado_en
  * @property EstatusImss $estatus_imss
  * @property Carbon|null $fecha_alta_imss
  * @property Carbon|null $periodo_prueba_inicio
@@ -53,6 +54,11 @@ use Spatie\Permission\Traits\HasRoles;
  * @property string|null $correo_personal
  * @property string|null $contacto_emergencia_nombre
  * @property string|null $contacto_emergencia_telefono
+ * @property bool $aviso_privacidad_aceptado
+ * @property Carbon|null $aviso_privacidad_aceptado_en
+ * @property bool $consentimiento_datos_aceptado
+ * @property Carbon|null $consentimiento_datos_aceptado_en
+ * @property int|null $avisos_registrado_por_id
  * @property string|null $incorporacion_decision
  * @property int|null $incorporacion_decidida_por
  * @property Carbon|null $incorporacion_decidida_en
@@ -78,6 +84,8 @@ use Spatie\Permission\Traits\HasRoles;
     'zona_horaria', 'preferencias_notificaciones', 'preferencias_ui',
     'fecha_nacimiento', 'curp', 'rfc', 'nss', 'domicilio',
     'correo_personal', 'contacto_emergencia_nombre', 'contacto_emergencia_telefono',
+    'aviso_privacidad_aceptado', 'aviso_privacidad_aceptado_en',
+    'consentimiento_datos_aceptado', 'consentimiento_datos_aceptado_en', 'avisos_registrado_por_id',
     'incorporacion_decision', 'incorporacion_decidida_por', 'incorporacion_decidida_en', 'incorporacion_motivo_rechazo',
 ])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token', 'foto_path'])]
@@ -110,6 +118,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'fecha_ingreso' => 'date',
             'estatus' => EstadoUsuario::class,
+            'acceso_bloqueado_en' => 'datetime',
             'genero' => Genero::class,
             'estatus_imss' => EstatusImss::class,
             'fecha_alta_imss' => 'date',
@@ -119,6 +128,10 @@ class User extends Authenticatable
             'preferencias_notificaciones' => 'array',
             'preferencias_ui' => 'array',
             'fecha_nacimiento' => 'date',
+            'aviso_privacidad_aceptado' => 'boolean',
+            'aviso_privacidad_aceptado_en' => 'datetime',
+            'consentimiento_datos_aceptado' => 'boolean',
+            'consentimiento_datos_aceptado_en' => 'datetime',
             'incorporacion_decidida_en' => 'datetime',
         ];
     }
@@ -241,6 +254,18 @@ class User extends Authenticatable
     public function jefe(): BelongsTo
     {
         return $this->belongsTo(User::class, 'jefe_id');
+    }
+
+    /**
+     * Quién registró manualmente el aviso de privacidad / consentimiento de
+     * datos (ver App\Services\Expedientes\AvisoPrivacidadService) — solo
+     * aplica a colaboradores sin Alta digital real.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function avisosRegistradoPor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'avisos_registrado_por_id');
     }
 
     /**

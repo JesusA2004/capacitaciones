@@ -18,7 +18,7 @@ employee_documents          -- un documento cargado
   timestamps, soft delete
 ```
 
-`disk`/`path` apuntan al disco NAS con una ruta lógica (`expedientes/{user_id}/{uuid}.{ext}`); el nombre original del archivo se conserva solo como metadato (`original_name`), nunca como nombre real en disco (`stored_name` es un UUID, igual que en `MediaStorageService`).
+`disk`/`path` apuntan al disco NAS con una ruta lógica legible por empresa/sucursal/colaborador (`expedientes/{empresa}/{sucursal}/{numero_empleado - nombre}/{tipo de documento} - v{version}.{ext}` — ver `docs/ESTRUCTURA_EXPEDIENTES_NAS.md` para el detalle completo y cómo migrar lo que quedó con la ruta legacy UUID). El nombre que subió el usuario se conserva solo como metadato (`original_name`); `stored_name` es el nombre físico legible (`basename($path)`), no un UUID — a diferencia de `MediaStorageService` (biblioteca multimedia), donde el nombre sí es un UUID porque ahí no aporta valor legible.
 
 ### Versiones sin tabla aparte
 
@@ -36,7 +36,7 @@ EmployeeDocument::where('user_id', $id)->where('document_type_id', $tipoId)->ord
 
 Única puerta de entrada al disco `config('expedientes.disk')` (por defecto `nas`), espejo deliberado de `App\Services\Multimedia\MediaStorageService` para el mismo disco pero con rutas propias de documentos laborales en vez de video. Ningún controlador debe llamar `Storage::disk('nas')` directamente para estos archivos.
 
-Métodos: `nombreInterno()`, `rutaDocumento()`, `guardar()`, `existe()`, `eliminar()`, `hashSha256()`, `respuesta()` (streaming, para visor/descarga).
+Métodos: `sanitizarSegmento()`, `carpetaColaborador()`, `rutaBaseColaborador()`, `nombreDocumento()`, `rutaDocumento()`, `nombreFoto()`, `rutaFoto()`, `guardar()`, `existe()`, `eliminar()`, `hashSha256()`, `respuesta()` (streaming, para visor/descarga). Ver `docs/ESTRUCTURA_EXPEDIENTES_NAS.md` para el detalle de cómo se construye cada ruta.
 
 `config/expedientes.php` — `disk`, `max_upload_mb` (`EXPEDIENTES_MAX_UPLOAD_MB`, default 20MB), `extensiones_permitidas` (`pdf`, `jpg`, `jpeg`, `png`).
 
@@ -65,10 +65,9 @@ POST /rh/documentos/{documento}/solicitar-correccion      rh.documentos.solicita
 
 ## UI
 
-`resources/js/components/Rh/ExpedienteDocumentos.vue` — grid de tarjetas por tipo de documento (badge de estado semántico vía `EstadoBadge`, motivo de rechazo/comentarios visibles, botón "Subir"/"Subir nueva versión" cuando aplica, acciones Aprobar/Corrección/Rechazar para revisores). `RevisarDocumentoDialog.vue` — diálogo compartido para rechazar/pedir corrección (pide motivo).
+`resources/js/components/Rh/ExpedienteDocumentos.vue` — tablero Kanban por estatus (Sin subir / En revisión / Necesita atención / Aprobado), con `DocumentoDropzone.vue` (arrastrar y soltar, o clic, con barra de progreso) para subir, `DocumentoPreviewDialog.vue` (panel lateral tipo `Sheet`, no un modal centrado) para previsualizar PDF/imagen sin salir de la página, y acciones Aprobar/Corrección/Rechazar para revisores. `RevisarDocumentoDialog.vue` — diálogo compartido para rechazar/pedir corrección (pide motivo).
 
 ## Pendiente / limitaciones conocidas
 
 - El backend **no bloquea** técnicamente volver a subir sobre un documento `aprobado` sin pasar antes por "solicitar corrección" — la UI oculta el botón "Subir" en ese caso, pero una llamada directa a la API podría hacerlo. Si se necesita blindar esto a nivel de negocio (no solo UI), agregar la validación en `EmployeeDocumentController::store()`.
-- No hay visor embebido de PDF/imagen todavía: "Ver" abre el archivo en una pestaña nueva del navegador (`target="_blank"`), que el navegador renderiza nativamente para PDF/imágenes. Un visor embebido en la propia página es una mejora futura, no un requisito bloqueante.
 - `X-Accel-Redirect` (Nginx) para descargas de documentos no se implementó por separado; reutiliza el streaming directo por PHP, igual que multimedia en este entorno de desarrollo.

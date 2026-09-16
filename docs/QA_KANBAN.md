@@ -1,49 +1,60 @@
 # QA — Kanban de Solicitudes y Vacantes (drag & drop)
 
-## Causa del freeze
+## Historial
 
-Ambos tableros (`Rh/Solicitudes/Index.vue`, `Rh/Vacantes/Index.vue`) usan
-`vue-draggable-plus` sobre SortableJS. La versión anterior abría un `Dialog`
-de Reka (o, en Vacantes, `CubrirVacanteDialog`/`SweetAlert2` vía
-`pedirMotivoCancelacionVacante()`) **dentro del handler `@add`**, es decir,
-en el mismo call stack síncrono en el que SortableJS todavía está limpiando
-su propio estado (clases `sortable-ghost`/`sortable-chosen`, captura de
-puntero) del gesto nativo `pointerup` que originó el drop.
+**Intento 1 (corregido, pero insuficiente):** ambos tableros abrían un
+`Dialog`/`SweetAlert2` **dentro del handler `@add`** de SortableJS — mismo
+call stack síncrono en el que SortableJS todavía limpia su propio estado
+(`sortable-ghost`/`sortable-chosen`, captura de puntero). Se corrigió
+moviendo toda la UI a `@start`/`@end` (nunca `@add`/`@remove`). Reportado en
+producción como insuficiente: el freeze seguía ocurriendo.
 
-Montar un overlay ahí compite por el mismo ciclo de eventos del navegador
-que SortableJS necesita para terminar su limpieza — la misma familia de
-problema que el freeze de overlays de Reka ya corregido antes (ver
-`resources/js/app.ts`/`CLAUDE.md`), solo que disparado por una librería de
-drag & drop en vez de por un `DropdownMenu`/`Select`.
+**Intento 2 (este):** con `@add` ya descartado, la causa más probable que
+queda es una segunda: **`onEndDrag` reconstruía el arreglo completo de
+`columnas` de forma síncrona dentro del propio handler `@end`**, mientras
+`columnas[estado]` sigue enlazado con `v-model` a cada `<VueDraggable>`.
+`vue-draggable-plus` también escribe a ese mismo arreglo reactivo como parte
+de su propia reconciliación del drop. Dos escrituras al mismo `v-model`
+——la de la librería y la nuestra (`construirColumnas(props.solicitudes)`,
+que además mueve el elemento de la lista `v-for` de una columna a otra en el
+mismo tick, forzando montar/desmontar el nodo que SortableJS acaba de
+soltar)— compitiendo en la misma ventareal de limpieza de Sortable es una
+causa de freeze conocida en integraciones Vue+SortableJS (el nodo que
+Sortable todavía referencia internamente como `dragEl`/`ghostEl` puede
+quedar huérfano si Vue lo desmonta antes de que Sortable termine sus propios
+resets de `pointer-events`/`user-select` en `document.body`).
 
 No se pudo reproducir el freeze en vivo en este entorno (sin navegador
-disponible para el agente), pero el patrón de código —montar un overlay
-reactivo dentro de un callback síncrono de SortableJS— es una causa
-conocida y suficiente por sí sola; el fix aplicado es seguro
-independientemente de si esa era la única causa.
+disponible para el agente) ni confirmar esta causa con un debugger real —
+sigue siendo la hipótesis más fundamentada, no un hecho verificado. Por eso
+esta vez el fix es estructural (dejar de pelear con el `v-model` en vez de
+solo reordenar `await`s) y se agrega instrumentación para que, si el
+usuario lo reproduce de nuevo, quede evidencia concreta en vez de otra
+suposición.
 
-## Fix aplicado
+## Fix aplicado (intento 2)
 
-`resources/js/composables/useKanbanTransition.ts` (nuevo, sin reglas de
-negocio) expone `onStart`/`onEnd`/`asentarAntesDeConfirmar()`. Ambos
-tableros ahora:
+`resources/js/composables/useKanbanTransition.ts` ya NO reconstruye el
+tablero dentro de `@end`. Ambos tableros ahora:
 
-1. Escuchan `@start`/`@end` de `VueDraggable`, **nunca** `@add`/`@remove`.
-2. Al terminar (`@end`), leen `evento.data` (item arrastrado) y
-   `evento.from.dataset.estado` / `evento.to.dataset.estado` (origen/destino
-   reales de SortableJS, vía `:data-estado` en cada `VueDraggable`).
-3. Reconstruyen `columnas` **de inmediato** desde la fuente canónica
-   (`props.solicitudes` / `props.vacantes`) — deshace visualmente el
-   arrastre antes de mostrar cualquier UI.
-4. Esperan un `await nextTick()` (no un `setTimeout`) a que Vue/Sortable
-   terminen su ciclo.
-5. Solo entonces abren la confirmación correspondiente.
-6. Al confirmar, `router.patch`/`router.put` escribe el cambio real;
-   Inertia refresca los props y el `watch` de cada página reconstruye el
-   tablero con el estado ya confirmado por el backend.
-7. Cancelar la confirmación no necesita revertir nada (el tablero ya estaba
-   en su estado canónico desde el paso 3); un error 422/403 tampoco, porque
-   la tarjeta nunca llegó a "moverse" de verdad.
+1. Escuchan `@start`/`@end` de `VueDraggable`, nunca `@add`/`@remove`
+   (se mantiene del intento 1).
+2. **En `@start`** capturan `evento.item.dataset.kanbanId` (id real, ver
+   `data-kanban-id` en cada tarjeta) y `evento.from.dataset.estado` en
+   variables locales (`dragOrigenId`/`dragOrigenEstado`) — en vez de confiar
+   solo en `evento.data`/`evento.from` en `@end`, que para entonces ya
+   pudieron mutar por el propio `v-model` de la librería.
+3. **En `@end`**, buscan la solicitud/vacante por ese id en la fuente
+   canónica (`props.solicitudes`/`props.vacantes`, nunca `evento.data`) y
+   **NO tocan `columnas`** — dejan el drop tal como el usuario lo ve y solo
+   abren la confirmación correspondiente.
+4. `columnas` solo se fuerza a su estado canónico
+   (`restaurarCanonico()`) en tres momentos, todos desacoplados del gesto de
+   arrastre y con SortableJS ya inactivo: al cancelar el diálogo de
+   confirmación, al cerrar `CubrirVacanteDialog` sin cubrir, y si el
+   `router.patch`/`put` responde con error. En éxito no hace falta: el
+   `watch(() => props.solicitudes, construirColumnas)` ya reconstruye desde
+   los props frescos que trae la respuesta de Inertia.
 
 Mientras hay una confirmación abierta o una request en curso
 (`useKanbanTransition().processing`), cada `VueDraggable` recibe
@@ -52,25 +63,73 @@ pendiente.
 
 ## Drag handle
 
-Antes toda la tarjeta era arrastrable, lo que competía con los `Link`,
-botones y el `@click` de editar (Vacantes). Ahora cada tarjeta tiene un
-`GripVertical` con la clase `kanban-drag-handle`, y `VueDraggable` usa
-`handle=".kanban-drag-handle"` + `filter="a, button, input, textarea,
-select"`. Solo ese ícono inicia un drag; clic en el resto de la tarjeta
-(Vacantes) sigue abriendo edición, y los links/botones internos nunca
-inician un drag a medias.
+Cada tarjeta tiene un `GripVertical` con la clase `kanban-drag-handle`, y
+`VueDraggable` usa `handle=".kanban-drag-handle"` +
+`filter="a, button, input, textarea, select"`. Solo ese ícono inicia un
+drag; clic en el resto de la tarjeta (Vacantes) sigue abriendo edición, y
+los links/botones internos nunca inician un drag a medias.
 
 ## Vacantes: reglas que se mantienen
 
 - Soltar en "Cubierta" nunca hace un `PUT` directo: abre
-  `CubrirVacanteDialog` (cobertura real) después de `@end`. Cancelar el
-  diálogo no cambia nada.
+  `CubrirVacanteDialog` (cobertura real) después de `@end`. Cerrar el
+  diálogo sin cubrir restaura `columnas` a su estado canónico.
 - Soltar en "Cancelada" pide motivo obligatorio con `PeopleConfirmDialog`
-  (ya no `SweetAlert2`, para no mezclar dos sistemas de overlay) después de
+  (no `SweetAlert2`, para no mezclar dos sistemas de overlay) después de
   `@end`.
 - Cualquier otra transición pide una confirmación ligera
   (`PeopleConfirmDialog`) antes de escribir nada. El backend sigue siendo la
   autoridad final vía `EstadoVacante::puedeTransicionarA()`.
+
+## Si el freeze vuelve a ocurrir: cómo capturar evidencia real
+
+Sin esto, cualquier siguiente intento de arreglo vuelve a ser una hipótesis
+a ciegas. Antes de reportarlo, con las DevTools abiertas (pestaña Console),
+pegar esto una sola vez ANTES de reproducir el freeze:
+
+```js
+window.__kanbanDebug = true;
+['pointerdown', 'pointerup', 'pointermove'].forEach((ev) =>
+    document.addEventListener(
+        ev,
+        () => {
+            if (!window.__kanbanDebug) return;
+            console.log(ev, {
+                bodyPointerEvents: document.body.style.pointerEvents,
+                bodyUserSelect: document.body.style.userSelect,
+                sortableDrag: document.querySelectorAll('.sortable-drag').length,
+                sortableGhost: document.querySelectorAll('.sortable-ghost').length,
+                sortableChosen: document.querySelectorAll('.sortable-chosen').length,
+                dismissableLayers: document.querySelectorAll('[data-dismissable-layer]').length,
+                activeElement: document.activeElement?.tagName,
+            });
+        },
+        true,
+    ),
+);
+```
+
+Luego reproducir el drag que se congela. En el momento exacto del freeze,
+correr:
+
+```js
+({
+    bodyPointerEvents: document.body.style.pointerEvents,
+    bodyUserSelect: document.body.style.userSelect,
+    bodyStyle: document.body.getAttribute('style'),
+    sortableDrag: document.querySelectorAll('.sortable-drag').length,
+    sortableGhost: document.querySelectorAll('.sortable-ghost').length,
+    sortableChosen: document.querySelectorAll('.sortable-chosen').length,
+    dismissableLayers: document.querySelectorAll('[data-dismissable-layer]').length,
+    activeElement: document.activeElement,
+})
+```
+
+Y copiar: (1) el log completo de eventos `pointerdown/pointerup/pointermove`
+desde que empezó el drag, (2) el resultado del segundo snippet, (3) el
+navegador/versión exacto. Con eso sí es posible confirmar la causa en vez de
+suponerla — sin esa evidencia, cualquier cambio adicional a este código
+seguiría siendo una apuesta, no una corrección verificada.
 
 ## QA manual (a ejecutar por el usuario — no hay navegador disponible para el agente)
 
@@ -102,4 +161,5 @@ document.querySelectorAll('.sortable-chosen').length === 0
 Los cuatro deben cumplirse siempre. Si alguno falla, es una regresión de
 esta misma clase de bug — no agregar un `setTimeout`/`setInterval` para
 parcharlo; revisar si algún overlay nuevo se está abriendo dentro de
-`@add`/`@remove` en vez de `@end`.
+`@add`/`@remove` en vez de `@end`, o si algo volvió a reemplazar `columnas`
+de forma síncrona dentro de `@end`.

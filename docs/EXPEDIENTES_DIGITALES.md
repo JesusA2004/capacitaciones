@@ -25,6 +25,7 @@ GET  /rh/expedientes                                  rh.expedientes.index    (e
 GET  /rh/expedientes/{colaborador}                     rh.expedientes.show     (vista RH de un colaborador)
 GET  /mi-expediente                                    mi-expediente           (vista propia del colaborador)
 PUT  /rh/expedientes/{colaborador}/datos-personales     rh.expedientes.datos-personales.update
+PUT  /rh/expedientes/{colaborador}/avisos                rh.expedientes.avisos.update
 ```
 
 `show` y `mi-expediente` comparten la misma lógica de carga (`ExpedienteController::renderExpediente()`) pero renderizan **páginas Inertia distintas** (`Rh/Expedientes/Show.vue` y `Rh/Expedientes/MiExpediente.vue`), ambas delgadas y montando el mismo componente `resources/js/components/Rh/ExpedienteDetalle.vue`. Se separaron en dos páginas porque el breadcrumb difiere ("Expedientes" vs. "Mi expediente") y Vue no permite que `defineOptions({ layout: { breadcrumbs } })` referencie props del componente (se evalúa fuera de `setup()`); el resto del proyecto ya resuelve esto usando siempre breadcrumbs estáticos por página, así que se siguió la misma convención en vez de introducir una excepción.
@@ -41,10 +42,11 @@ PUT  /rh/expedientes/{colaborador}/datos-personales     rh.expedientes.datos-per
 |---|---|
 | Resumen | Real: contacto, jefe directo, contadores de documentos aprobados/pendientes/rechazados |
 | Datos personales | Real: formulario editable (fecha nacimiento, CURP, RFC, NSS, domicilio, correo personal, contacto de emergencia) |
-| Datos laborales | Real, solo lectura (se edita desde Administración → Colaboradores) |
+| Datos laborales | Real, solo lectura (se edita desde Administración → Usuarios) |
+| Usuario | Real (solo si no es tu propio expediente): correo, roles, estatus de acceso al sistema, y "Establecer contraseña nueva" (temporal, se muestra una sola vez — nunca se puede leer la contraseña actual, se guarda cifrada). Ver `App\Policies\UserPolicy::restablecerPassword()`. |
 | Documentos | Real: ver `docs/SYNOLOGY_STORAGE.md`. El contrato laboral vive aquí como documento tipo `contrato` — ya no hay una tab "Contrato" aparte, para no duplicar la misma información. |
 | Onboarding | Real: checklist de incorporación (`docs/ONBOARDING_ADMINISTRATIVO.md`) |
-| Avisos y consentimientos | Real si el colaborador tiene un alta digital de origen (`docs/ALTA_DIGITAL_COLABORADOR.md`); si no, mensaje explicando por qué no hay datos |
+| Avisos y consentimientos | Real si el colaborador tiene un alta digital de origen (`docs/ALTA_DIGITAL_COLABORADOR.md`). Si no, permite un registro manual (checkboxes + fecha + quién lo registró, ver `App\Services\Expedientes\AvisoPrivacidadService`) para colaboradores sembrados directamente — nunca se mezcla con un alta digital real: si existe una, esa es la única fuente de verdad. |
 | Vacaciones | Real: `solicitudes_internas` tipo `vacaciones` (ver `docs/SOLICITUDES_UNIFICADAS.md`) |
 | Solicitudes | Real: todas las solicitudes internas del colaborador (cualquier tipo), con link al detalle en `Rh/Solicitudes/Show.vue` |
 | Historial RH | Real: `MovimientosLaboralesTimeline.vue` (altas, bajas, cambios de puesto/sucursal, etc.) — también cubre lo que hubiera sido una "Bitácora" aparte, así que esa tab se quitó para no duplicar el mismo historial dos veces |

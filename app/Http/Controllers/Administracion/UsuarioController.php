@@ -18,11 +18,13 @@ use App\Services\Asignaciones\AsignacionService;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use App\Services\RolPermisoService;
 use App\Services\Vacantes\VacanteAutoGenerationService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rules\Password as PasswordRule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Spatie\Permission\Models\Role;
@@ -72,6 +74,7 @@ class UsuarioController extends Controller
             // Acotadas por el mismo alcance que la tabla: un gerente de sucursal
             // no debe ver totales de toda la organización en estas tarjetas.
             'puedeReactivar' => $request->user()->can('usuarios.reactivar'),
+            'puedeRevocarAcceso' => $request->user()->can('usuarios.desactivar'),
             'estadisticas' => [
                 'total' => $usuariosVisibles()->count(),
                 'activos' => $usuariosVisibles()->where('estatus', EstadoUsuario::Activo->value)->count(),
@@ -144,6 +147,15 @@ class UsuarioController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => 'Colaborador actualizado correctamente.']);
     }
 
+    /**
+     * Baja laboral administrativa directa (sin pasar por la aprobación de
+     * una Solicitud interna — ver App\Services\Solicitudes\BajaColaboradorService
+     * para el flujo aprobado). Termina la relación laboral: estatus
+     * Inactivo, soft-delete, historial de movimiento, revoca acceso
+     * (tokens/dispositivos) y sincroniza headcount/vacante. NO es lo mismo
+     * que revocarAcceso() de abajo — esa solo bloquea el login de alguien
+     * que sigue empleado.
+     */
     public function destroy(Request $request, User $usuario): RedirectResponse
     {
         $this->authorize('delete', $usuario);
@@ -164,6 +176,8 @@ class UsuarioController extends Controller
         );
 
         $usuario->update(['estatus' => EstadoUsuario::Inactivo]);
+        $usuario->tokens()->delete();
+        $usuario->mobileDevices()->whereNull('revoked_at')->update(['revoked_at' => now()]);
         $usuario->delete();
 
         // La plantilla actual acaba de bajar: sincroniza la vacante
@@ -174,7 +188,57 @@ class UsuarioController extends Controller
             $this->vacantesAutomaticas->sincronizar($sucursalId, $puestoId);
         }
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Colaborador desactivado correctamente.']);
+        return back()->with('toast', ['type' => 'success', 'message' => 'Colaborador dado de baja correctamente.']);
+    }
+
+    /**
+     * Bloquea el login de un colaborador que SIGUE empleado (a diferencia de
+     * destroy()): no toca estatus, no hace soft-delete, no registra
+     * movimiento laboral y no sincroniza headcount/vacante, porque para
+     * efectos de plantilla sigue activo — solo se le revoca el acceso al
+     * sistema (web + API móvil).
+     */
+    public function revocarAcceso(Request $request, User $usuario): RedirectResponse
+    {
+        $this->authorize('revocarAcceso', $usuario);
+
+        $usuario->update(['acceso_bloqueado_en' => now()]);
+        $usuario->tokens()->delete();
+        $usuario->mobileDevices()->whereNull('revoked_at')->update(['revoked_at' => now()]);
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Acceso al sistema revocado. El colaborador sigue activo en la plantilla.']);
+    }
+
+    public function restablecerAcceso(Request $request, User $usuario): RedirectResponse
+    {
+        $this->authorize('restablecerAcceso', $usuario);
+
+        $usuario->update(['acceso_bloqueado_en' => null]);
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Acceso al sistema restablecido.']);
+    }
+
+    /**
+     * Establece una contraseña nueva para el colaborador desde el panel.
+     * Nunca se puede leer la contraseña actual (se guarda con hash) — esto
+     * solo la sobreescribe. Devuelve la contraseña en texto plano una sola
+     * vez en la respuesta JSON para que el admin la copie y se la dé al
+     * colaborador; no se guarda en texto plano en ningún lado ni se registra
+     * en el log.
+     */
+    public function establecerPassword(Request $request, User $usuario): JsonResponse
+    {
+        $this->authorize('restablecerPassword', $usuario);
+
+        $datos = $request->validate([
+            'password' => ['nullable', 'string', PasswordRule::defaults()],
+        ]);
+
+        $passwordNueva = $datos['password'] ?? Str::password(14);
+
+        $usuario->update(['password' => Hash::make($passwordNueva)]);
+
+        return response()->json(['password' => $passwordNueva]);
     }
 
     /**

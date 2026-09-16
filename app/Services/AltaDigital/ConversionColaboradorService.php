@@ -70,9 +70,14 @@ class ConversionColaboradorService
 
             $usuario->assignRole('colaborador');
 
+            // Recargar con las relaciones que rutaBaseColaborador() necesita
+            // para construir la carpeta legible del colaborador (empresa,
+            // sucursal) — el User recién creado no las trae cargadas.
+            $usuario->loadMissing(['sucursalPrincipal.empresa']);
+
             if ($alta->foto_path !== null) {
-                $nombreInterno = $this->documentoStorage->nombreInterno($alta->foto_original_name ?? 'foto.jpg');
-                $rutaDestino = $this->documentoStorage->rutaFoto($usuario->id, $nombreInterno);
+                $extension = pathinfo($alta->foto_original_name ?? 'foto.jpg', PATHINFO_EXTENSION);
+                $rutaDestino = $this->documentoStorage->rutaFoto($usuario, $extension);
 
                 $this->documentoStorage->disco()->put(
                     $rutaDestino,
@@ -83,8 +88,9 @@ class ConversionColaboradorService
             }
 
             foreach ($alta->documentos as $documentoAlta) {
-                $nombreInterno = $this->documentoStorage->nombreInterno($documentoAlta->original_name);
-                $rutaDestino = $this->documentoStorage->rutaDocumento($usuario->id, $nombreInterno);
+                $tipoDocumento = DocumentType::query()->findOrFail($documentoAlta->document_type_id);
+                $extension = pathinfo($documentoAlta->original_name, PATHINFO_EXTENSION);
+                $rutaDestino = $this->documentoStorage->rutaDocumento($usuario, $tipoDocumento, 1, $extension);
 
                 $this->documentoStorage->disco()->put(
                     $rutaDestino,
@@ -99,9 +105,12 @@ class ConversionColaboradorService
                     'disk' => config('expedientes.disk'),
                     'path' => $rutaDestino,
                     'original_name' => $documentoAlta->original_name,
-                    'stored_name' => $nombreInterno,
+                    'stored_name' => basename($rutaDestino),
                     'mime' => $documentoAlta->mime,
+                    'extension' => $extension !== '' ? $extension : null,
                     'size' => $documentoAlta->size,
+                    'hash' => $this->documentoStorage->hashSha256($rutaDestino),
+                    'version' => 1,
                     'status' => EstadoDocumento::Cargado,
                     'uploaded_by' => $aprobadoPor->id,
                 ]);
@@ -149,8 +158,9 @@ class ConversionColaboradorService
             return;
         }
 
-        $nombreInterno = $this->documentoStorage->nombreInterno($alta->candidato->cv_original_name ?? 'cv.pdf');
-        $rutaDestino = $this->documentoStorage->rutaDocumento($usuario->id, $nombreInterno);
+        $nombreOriginal = $alta->candidato->cv_original_name ?? 'cv.pdf';
+        $extension = pathinfo($nombreOriginal, PATHINFO_EXTENSION);
+        $rutaDestino = $this->documentoStorage->rutaDocumento($usuario, $tipoCv, 1, $extension);
 
         $this->documentoStorage->disco()->put(
             $rutaDestino,
@@ -164,10 +174,13 @@ class ConversionColaboradorService
             'document_type_id' => $tipoCv->id,
             'disk' => config('expedientes.disk'),
             'path' => $rutaDestino,
-            'original_name' => $alta->candidato->cv_original_name ?? 'cv.pdf',
-            'stored_name' => $nombreInterno,
+            'original_name' => $nombreOriginal,
+            'stored_name' => basename($rutaDestino),
             'mime' => $alta->candidato->cv_mime,
+            'extension' => $extension !== '' ? $extension : null,
             'size' => $alta->candidato->cv_size,
+            'hash' => $this->documentoStorage->hashSha256($rutaDestino),
+            'version' => 1,
             'status' => EstadoDocumento::Cargado,
             'uploaded_by' => $aprobadoPor->id,
         ]);
