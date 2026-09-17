@@ -6,6 +6,7 @@ import {
     Building2,
     Cake,
     ClipboardList,
+    Compass,
     FileStack,
     FolderKanban,
     GitBranch,
@@ -105,6 +106,8 @@ const navItemsColaborador = computed<NavItem[]>(() => {
             icon: GraduationCap,
         });
     }
+
+    items.push({ title: 'Ayuda', href: '/ayuda', icon: Compass });
 
     return items;
 });
@@ -216,6 +219,8 @@ const navItemsOperativo = computed<NavItem[]>(() => {
             icon: GraduationCap,
         });
     }
+
+    items.push({ title: 'Ayuda', href: '/ayuda', icon: Compass });
 
     return items;
 });

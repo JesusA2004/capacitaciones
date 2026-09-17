@@ -35,6 +35,9 @@ class IncorporacionInvitacionService
 
     private const QR_MARGEN = 8;
 
+    /** Vigencia máxima de un QR de incorporación: nunca días, solo horas. */
+    private const MAX_HORAS_VIGENCIA = 24;
+
     /**
      * @param  array<string, mixed>  $datos
      * @return array{invitacion: IncorporacionInvitacion, token: string}
@@ -130,11 +133,16 @@ class IncorporacionInvitacionService
      */
     private function resolverExpiracion(array $datos): CarbonInterface
     {
+        $limite = now()->addHours(self::MAX_HORAS_VIGENCIA);
+
         if (! empty($datos['expires_at'])) {
-            return Carbon::parse($datos['expires_at']);
+            $expiracion = Carbon::parse($datos['expires_at']);
+
+            return $expiracion->greaterThan($limite) ? $limite : $expiracion;
         }
 
         $horas = (int) ($datos['duracion_horas'] ?? config('incorporacion.qr_ttl_horas'));
+        $horas = max(1, min(self::MAX_HORAS_VIGENCIA, $horas));
 
         return now()->addHours($horas);
     }

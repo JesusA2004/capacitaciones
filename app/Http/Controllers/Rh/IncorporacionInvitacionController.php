@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Rh;
 
+use App\Enums\EstadoInvitacionIncorporacion;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Rh\StoreIncorporacionInvitacionRequest;
 use App\Models\Departamento;
@@ -92,9 +93,29 @@ class IncorporacionInvitacionController extends Controller
             ->with('toast', ['type' => 'success', 'message' => 'Invitación creada. Copia la liga o descarga el QR: no vuelve a mostrarse.']);
     }
 
-    public function show(Request $request, IncorporacionInvitacion $invitacion): Response
+    public function show(Request $request, IncorporacionInvitacion $invitacion): Response|RedirectResponse
     {
         abort_unless($request->user()->can('rh.incorporacion.invitaciones.ver'), 403);
+
+        $tokenPlano = $this->tokenPlanoDeSesion($invitacion);
+
+        // El token plano nunca se guarda en BD (solo su hash) — vive unos
+        // minutos en sesión tras crear/regenerar. Pasada esa ventana, si la
+        // invitación SIGUE vigente, se regenera aquí de forma transparente
+        // (misma invitación lógica, nuevo token) para que "Ver" siempre
+        // pueda mostrar un QR funcional mientras siga activa; nunca se
+        // persiste ningún secreto nuevo. Si ya venció/fue revocada/usada, no
+        // se regenera nada — se muestra tal cual (sin QR), como antes.
+        if ($tokenPlano === null && $this->puedeRegenerarSilenciosamente($invitacion) && $request->user()->can('rh.incorporacion.invitaciones.regenerar')) {
+            ['invitacion' => $invitacion, 'token' => $tokenPlano] = $this->invitaciones->regenerar($invitacion, $request->user());
+            $this->guardarTokenPlanoEnSesion($invitacion, $tokenPlano);
+
+            // Redirige a la URL de la invitación nueva (regenerar() revoca
+            // la anterior y crea otra con id distinto): así la URL en el
+            // navegador queda consistente y un refresh no vuelve a caer en
+            // la invitación ya revocada.
+            return redirect()->route('rh.incorporacion.invitaciones.show', $invitacion);
+        }
 
         $invitacion->loadMissing([
             'empresa:id,nombre', 'sucursal:id,nombre', 'departamento:id,nombre', 'puesto:id,nombre',
@@ -102,8 +123,6 @@ class IncorporacionInvitacionController extends Controller
             'creadoPor:id,name,apellidos', 'usadoPor:id,name,apellidos',
             'regeneradaDesde:id,uuid,estado',
         ]);
-
-        $tokenPlano = $this->tokenPlanoDeSesion($invitacion);
 
         return Inertia::render('Rh/Incorporacion/Invitaciones/Show', [
             'invitacion' => $invitacion,
@@ -190,6 +209,19 @@ class IncorporacionInvitacionController extends Controller
             'token' => $token,
             'expira_en' => now()->addMinutes(self::MINUTOS_VIGENCIA_TOKEN_EN_SESION)->timestamp,
         ]);
+    }
+
+    /**
+     * True si vale la pena emitirle un token nuevo a esta invitación en vez
+     * de mostrarla como "no disponible": sigue activa, no venció y todavía
+     * le quedan usos — exactamente los mismos requisitos que ya exige
+     * IncorporacionInvitacionService::validar() al escanear el QR.
+     */
+    private function puedeRegenerarSilenciosamente(IncorporacionInvitacion $invitacion): bool
+    {
+        return $invitacion->estado === EstadoInvitacionIncorporacion::Activo
+            && ! $invitacion->expires_at->isPast()
+            && $invitacion->tieneUsosDisponibles();
     }
 
     private function tokenPlanoDeSesion(IncorporacionInvitacion $invitacion): ?string

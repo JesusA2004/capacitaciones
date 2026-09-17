@@ -29,6 +29,7 @@ class UpdateVacanteRequest extends FormRequest
             'fecha_apertura' => ['required', 'date'],
             'fecha_estimada_cobertura' => ['nullable', 'date', 'after_or_equal:fecha_apertura'],
             'observaciones' => ['nullable', 'string', 'max:4000'],
+            'sueldo_mensual' => ['nullable', 'numeric', 'min:0', 'max:9999999.99'],
         ];
     }
 }

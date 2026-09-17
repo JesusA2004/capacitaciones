@@ -31,11 +31,15 @@ const emit = defineEmits<{
     'update:open': [valor: boolean];
 }>();
 
+// El QR es de acceso temporal a un formulario de incorporación: rango
+// deliberadamente corto (1-24 horas), nunca días ni fechas libres.
 const DURACIONES = [
+    { value: '1', etiqueta: '1 hora' },
+    { value: '2', etiqueta: '2 horas' },
+    { value: '4', etiqueta: '4 horas' },
+    { value: '8', etiqueta: '8 horas' },
+    { value: '12', etiqueta: '12 horas' },
     { value: '24', etiqueta: '24 horas' },
-    { value: '72', etiqueta: '3 días' },
-    { value: '168', etiqueta: '7 días' },
-    { value: 'personalizado', etiqueta: 'Personalizado' },
 ];
 
 const form = useForm({
@@ -46,8 +50,7 @@ const form = useForm({
     sucursal_id: '',
     departamento_id: '',
     puesto_id: '',
-    duracion: '72',
-    expires_at: '',
+    duracion: '24',
     observaciones: '',
 });
 
@@ -61,9 +64,7 @@ function enviar() {
         departamento_id: datos.departamento_id || null,
         puesto_id: datos.puesto_id || null,
         observaciones: datos.observaciones || null,
-        ...(datos.duracion === 'personalizado'
-            ? { expires_at: datos.expires_at || null }
-            : { duracion_horas: Number(datos.duracion) }),
+        duracion_horas: Number(datos.duracion),
     }));
 
     transformado.post(store.url(), {
@@ -172,34 +173,25 @@ function enviar() {
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="grid gap-2">
-                        <Label>Vigencia</Label>
-                        <Select v-model="form.duracion">
-                            <SelectTrigger class="w-full">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="opcion in DURACIONES"
-                                    :key="opcion.value"
-                                    :value="opcion.value"
-                                    >{{ opcion.etiqueta }}</SelectItem
-                                >
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div
-                        v-if="form.duracion === 'personalizado'"
-                        class="grid gap-2"
-                    >
-                        <Label for="expires_at">Vence el</Label>
-                        <Input
-                            id="expires_at"
-                            v-model="form.expires_at"
-                            type="datetime-local"
-                        />
-                    </div>
+                <div class="grid gap-2">
+                    <Label>Vigencia del QR</Label>
+                    <Select v-model="form.duracion">
+                        <SelectTrigger class="w-full">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem
+                                v-for="opcion in DURACIONES"
+                                :key="opcion.value"
+                                :value="opcion.value"
+                                >{{ opcion.etiqueta }}</SelectItem
+                            >
+                        </SelectContent>
+                    </Select>
+                    <p class="text-xs text-muted-foreground">
+                        Pasado ese tiempo el QR deja de funcionar. Puedes
+                        regenerarlo cuando quieras desde la invitación.
+                    </p>
                 </div>
 
                 <div class="grid gap-2">

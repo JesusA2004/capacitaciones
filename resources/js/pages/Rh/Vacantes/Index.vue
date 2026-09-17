@@ -3,6 +3,7 @@ import { Head, router } from '@inertiajs/vue3';
 import {
     Briefcase,
     CheckCircle2,
+    CircleDollarSign,
     GripVertical,
     ListChecks,
     Plus,
@@ -10,6 +11,7 @@ import {
     Trash2,
     UserCheck,
     Users,
+    Wallet,
     Wand2,
     XCircle,
 } from '@lucide/vue';
@@ -39,6 +41,7 @@ import {
 import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
 import { useKanbanTransition } from '@/composables/useKanbanTransition';
+import { formatoMoneda } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import {
     destroy,
@@ -169,6 +172,18 @@ const tarjetasKpi = computed(() => [
         valor: props.kpis.canceladas,
         icono: XCircle,
         colorClase: 'bg-destructive/10 text-destructive',
+    },
+    {
+        etiqueta: 'Costo mensual (abiertas)',
+        valor: formatoMoneda(props.kpis.costo_mensual_abiertas),
+        icono: Wallet,
+        colorClase: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+    },
+    {
+        etiqueta: 'Costo promedio por puesto',
+        valor: formatoMoneda(props.kpis.costo_promedio_puesto),
+        icono: CircleDollarSign,
+        colorClase: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
     },
 ]);
 
@@ -481,7 +496,7 @@ function confirmarCancelacionVacante() {
         </CrudPageHeader>
 
         <div
-            class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7"
+            class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-9"
         >
             <MetricCard
                 v-for="tarjeta in tarjetasKpi"

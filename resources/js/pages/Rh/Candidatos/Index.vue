@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { Plus, UserRound } from '@lucide/vue';
+import { CircleDollarSign, Plus, UserCheck2, UserRound, Wallet } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
+import MetricCard from '@/components/Common/MetricCard.vue';
 import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
@@ -21,6 +22,7 @@ import {
 import { useAlertas } from '@/composables/useAlertas';
 import { useCelebracion } from '@/composables/useCelebracion';
 import { useFiltros } from '@/composables/useFiltros';
+import { formatoMoneda } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import {
     estado as estadoUrl,
@@ -29,7 +31,7 @@ import {
     index,
     show,
 } from '@/routes/rh/candidatos';
-import type { CandidatoItem, OpcionesReclutamiento } from '@/types';
+import type { CandidatoItem, CandidatosKpis, OpcionesReclutamiento } from '@/types';
 
 const props = defineProps<{
     candidatos: CandidatoItem[];
@@ -45,7 +47,29 @@ const props = defineProps<{
         fecha_fin?: string;
     };
     opciones: OpcionesReclutamiento;
+    kpis: CandidatosKpis;
 }>();
+
+const tarjetasKpi = computed(() => [
+    {
+        etiqueta: 'Contratados este mes',
+        valor: props.kpis.contratados_mes,
+        icono: UserCheck2,
+        colorClase: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+    },
+    {
+        etiqueta: 'Costo total contratado (mes)',
+        valor: formatoMoneda(props.kpis.costo_total_contratado_mes),
+        icono: Wallet,
+        colorClase: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+    },
+    {
+        etiqueta: 'Costo promedio por contratación',
+        valor: formatoMoneda(props.kpis.costo_promedio_contratacion),
+        icono: CircleDollarSign,
+        colorClase: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+    },
+]);
 
 defineOptions({
     layout: {
@@ -170,6 +194,17 @@ function alSoltar(nuevoEstado: string) {
                 Nuevo candidato
             </Button>
         </CrudPageHeader>
+
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <MetricCard
+                v-for="tarjeta in tarjetasKpi"
+                :key="tarjeta.etiqueta"
+                :etiqueta="tarjeta.etiqueta"
+                :valor="tarjeta.valor"
+                :icono="tarjeta.icono"
+                :color-clase="tarjeta.colorClase"
+            />
+        </div>
 
         <div class="flex flex-wrap items-center gap-2">
             <CrudSearchInput

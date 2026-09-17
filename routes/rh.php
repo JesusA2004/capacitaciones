@@ -37,6 +37,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('{colaborador}', [ExpedienteController::class, 'show'])->name('show')->withTrashed();
             Route::get('{colaborador}/foto', [ExpedienteController::class, 'descargarFoto'])->name('foto')->withTrashed();
             Route::put('{colaborador}/datos-personales', [ExpedienteController::class, 'actualizarDatosPersonales'])->name('datos-personales.update');
+            Route::put('{colaborador}/datos-laborales', [ExpedienteController::class, 'actualizarDatosLaborales'])->name('datos-laborales.update');
+            Route::get('{colaborador}/recibo-nomina', [ExpedienteController::class, 'generarReciboNomina'])->name('recibo-nomina');
             Route::put('{colaborador}/avisos', [ExpedienteController::class, 'registrarAvisos'])->name('avisos.update');
             Route::delete('{colaborador}', [ExpedienteController::class, 'darDeBaja'])->name('dar-de-baja');
             Route::post('{colaborador}/reactivar', [ExpedienteController::class, 'reactivar'])->name('reactivar')->withTrashed();

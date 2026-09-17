@@ -26,6 +26,8 @@ class ActualizarDatosPersonalesRequest extends FormRequest
     {
         return [
             'fecha_nacimiento' => ['nullable', 'date', 'before:today'],
+            'telefono' => ['nullable', 'string', 'max:30'],
+            'telefono_corporativo' => ['nullable', 'string', 'max:30'],
             'curp' => ['nullable', 'string', 'max:18'],
             'rfc' => ['nullable', 'string', 'max:13'],
             'nss' => ['nullable', 'string', 'max:11'],

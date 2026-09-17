@@ -36,6 +36,8 @@ export type VacanteItem = {
     plantilla_autorizada: number | null;
     plantilla_actual: number | null;
     faltantes_reales: number | null;
+    /** Presupuesto mensual de la plaza (opcional) — alimenta los KPIs de costo de contratación. */
+    sueldo_mensual: number | null;
 };
 
 export type VacantesKpis = {
@@ -46,6 +48,14 @@ export type VacantesKpis = {
     en_reclutamiento: number;
     cubiertas_este_mes: number;
     canceladas: number;
+    costo_mensual_abiertas: number;
+    costo_promedio_puesto: number;
+};
+
+export type CandidatosKpis = {
+    contratados_mes: number;
+    costo_total_contratado_mes: number;
+    costo_promedio_contratacion: number;
 };
 
 export type CandidatoItem = {

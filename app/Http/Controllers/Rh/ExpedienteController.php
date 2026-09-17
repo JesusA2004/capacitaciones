@@ -6,6 +6,7 @@ use App\Enums\EstadoUsuario;
 use App\Enums\TipoSolicitudInterna;
 use App\Exports\ReporteRhExport;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Rh\ActualizarDatosLaboralesRequest;
 use App\Http\Requests\Rh\ActualizarDatosPersonalesRequest;
 use App\Http\Requests\Rh\RegistrarAvisosRequest;
 use App\Models\AltaDigital;
@@ -22,6 +23,8 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\Expedientes\AvisoPrivacidadService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Expedientes\ExpedienteService;
+use App\Services\MovimientosLaborales\MovimientoLaboralService;
+use App\Services\Nomina\ReciboNominaService;
 use App\Services\Onboarding\OnboardingService;
 use App\Services\Solicitudes\BajaColaboradorService;
 use App\Services\Vacaciones\VacacionesService;
@@ -49,6 +52,8 @@ class ExpedienteController extends Controller
         private readonly DocumentoStorageService $documentoStorage,
         private readonly AvisoPrivacidadService $avisoPrivacidad,
         private readonly BajaColaboradorService $baja,
+        private readonly MovimientoLaboralService $movimientos,
+        private readonly ReciboNominaService $reciboNomina,
     ) {}
 
     /**
@@ -233,6 +238,20 @@ class ExpedienteController extends Controller
             'puedeGestionarAcceso' => $usuario->can('usuarios.desactivar') && ! $esCuentaPropia && $cuenta !== null,
             'puedeGestionarPassword' => $usuario->can('usuarios.editar') && ! $esCuentaPropia && $cuenta !== null,
             'puedeEditarCuenta' => $usuario->can('usuarios.editar') && ! $esCuentaPropia && $cuenta !== null,
+            // Cambiar empresa/sucursal/departamento/puesto/jefe/sueldo es una
+            // decisión organizacional: siempre RH, nunca autoservicio (a
+            // diferencia de datos personales, donde el propio colaborador
+            // puede editar los suyos).
+            'puedeEditarLaborales' => $usuario->can('expedientes.editar') && ! $esCuentaPropia,
+            'empresasDisponibles' => Empresa::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'sucursalesDisponibles' => Sucursal::query()->orderBy('nombre')->get(['id', 'nombre', 'empresa_id']),
+            'departamentosDisponibles' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'puestosDisponibles' => Puesto::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'jefesDisponibles' => Colaborador::query()
+                ->where('id', '!=', $colaborador->id)
+                ->where('estatus', EstadoUsuario::Activo)
+                ->orderBy('name')
+                ->get(['id', 'name', 'apellidos', 'numero_empleado']),
             // La pestaña "Cuenta" del expediente absorbió lo que antes vivía
             // en Administración → Usuarios (ese listado se retiró, ver
             // docs/ROLES_Y_NAVEGACION.md): un colaborador sin cuenta todavía
@@ -250,6 +269,8 @@ class ExpedienteController extends Controller
                 'numero_empleado' => $colaborador->numero_empleado,
                 'email' => $cuenta?->email,
                 'telefono' => $colaborador->telefono,
+                'telefono_corporativo' => $colaborador->telefono_corporativo,
+                'sueldo_mensual' => $colaborador->sueldo_mensual,
                 'tiene_cuenta' => $cuenta !== null,
                 'usuario_id' => $idUsuarioColaborador,
                 'roles' => $cuenta?->getRoleNames() ?? collect(),
@@ -364,6 +385,8 @@ class ExpedienteController extends Controller
                     : null,
             ],
             'puedeGestionarAvisos' => $usuario->can('expedientes.editar') || $esCuentaPropia,
+            'avisoPrivacidadTexto' => config('legal.aviso_privacidad'),
+            'consentimientoDatosTexto' => config('legal.consentimiento_datos'),
         ]);
     }
 
@@ -428,6 +451,46 @@ class ExpedienteController extends Controller
         $colaborador->update($request->validated());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Datos personales actualizados correctamente.']);
+    }
+
+    /**
+     * Cambia empresa (vía sucursal)/sucursal/departamento/puesto/jefe/sueldo
+     * directamente, sin pasar por una vacante — mismo patrón
+     * snapshot → update → registrarCambioPuesto() que ya usa
+     * VacanteController::cubrir(), aquí con $vacanteId = null.
+     */
+    public function actualizarDatosLaborales(ActualizarDatosLaboralesRequest $request, Colaborador $colaborador): RedirectResponse
+    {
+        $antes = $this->movimientos->snapshot($colaborador);
+
+        $colaborador->update($request->safe()->only([
+            'sucursal_principal_id', 'departamento_id', 'puesto_id', 'jefe_id', 'sueldo_mensual',
+        ]));
+
+        $this->movimientos->registrarCambioPuesto(
+            $colaborador->fresh(),
+            $antes,
+            $request->user(),
+            $request->safe()->string('motivo')->toString() ?: null,
+        );
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Datos laborales actualizados correctamente.']);
+    }
+
+    /**
+     * Recibo de nómina simple e informativo (ver App\Services\Nomina\ReciboNominaService)
+     * a partir del sueldo mensual capturado en el expediente.
+     */
+    public function generarReciboNomina(Request $request, Colaborador $colaborador): HttpResponse
+    {
+        abort_unless($request->user()->can('expedientes.editar') || $request->user()->colaborador_id === $colaborador->id, 403);
+        abort_if($colaborador->sueldo_mensual === null, 422, 'Este colaborador todavía no tiene un sueldo mensual capturado en Datos laborales.');
+
+        $datos = $this->reciboNomina->generar($colaborador);
+
+        return Pdf::loadView('pdf.recibo-nomina', $datos)
+            ->setPaper('letter', 'portrait')
+            ->download('recibo-nomina-'.$colaborador->numero_empleado.'-'.now()->format('Y-m').'.pdf');
     }
 
     /**

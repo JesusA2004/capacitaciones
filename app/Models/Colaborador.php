@@ -33,6 +33,8 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property Genero|null $genero
  * @property string|null $numero_empleado
  * @property string|null $telefono
+ * @property string|null $telefono_corporativo
+ * @property string|null $sueldo_mensual
  * @property string|null $foto_path
  * @property string|null $expediente_storage_path
  * @property int|null $sucursal_principal_id
@@ -71,7 +73,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property-read User|null $user
  */
 #[Fillable([
-    'name', 'apellidos', 'genero', 'numero_empleado', 'telefono', 'foto_path',
+    'name', 'apellidos', 'genero', 'numero_empleado', 'telefono', 'telefono_corporativo', 'sueldo_mensual', 'foto_path',
     'sucursal_principal_id', 'departamento_id', 'puesto_id', 'jefe_id',
     'fecha_ingreso', 'estatus', 'estatus_imss', 'fecha_alta_imss',
     'periodo_prueba_inicio', 'periodo_prueba_fin',
@@ -115,6 +117,7 @@ class Colaborador extends Model
             'consentimiento_datos_aceptado' => 'boolean',
             'consentimiento_datos_aceptado_en' => 'datetime',
             'incorporacion_decidida_en' => 'datetime',
+            'sueldo_mensual' => 'decimal:2',
         ];
     }
 

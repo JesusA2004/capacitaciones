@@ -52,7 +52,38 @@ class CandidatoController extends Controller
             'candidatos' => $candidatos,
             'filtros' => $request->only(self::FILTROS),
             'opciones' => $this->opciones(),
+            'kpis' => $this->kpis($request->user()),
         ]);
+    }
+
+    /**
+     * KPIs de costo de contratación (acotados por alcance organizacional,
+     * no por los filtros activos en pantalla — mismo criterio que
+     * VacanteController::kpis()). El costo se toma del sueldo_mensual
+     * (opcional) capturado en la vacante que el candidato contratado cubrió.
+     *
+     * @return array<string, int|float>
+     */
+    private function kpis(User $usuario): array
+    {
+        $contratadosEsteMes = $this->alcance
+            ->limitarPorSucursal(Candidato::query(), $usuario)
+            ->where('estado', EstadoCandidato::Contratado)
+            ->whereMonth('updated_at', now()->month)
+            ->whereYear('updated_at', now()->year)
+            ->with('vacante:id,sueldo_mensual')
+            ->get();
+
+        $costos = $contratadosEsteMes
+            ->map(fn (Candidato $c) => $c->vacante?->sueldo_mensual)
+            ->filter(fn ($sueldo) => $sueldo !== null)
+            ->map(fn ($sueldo) => (float) $sueldo);
+
+        return [
+            'contratados_mes' => $contratadosEsteMes->count(),
+            'costo_total_contratado_mes' => (float) $costos->sum(),
+            'costo_promedio_contratacion' => $costos->isEmpty() ? 0.0 : (float) $costos->avg(),
+        ];
     }
 
     public function exportarExcel(Request $request): HttpResponse

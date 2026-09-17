@@ -44,6 +44,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::inertia('capacitacion', 'Capacitacion/Proximamente')->name('capacitacion.proximamente');
 
+    // Guía ilustrada del sistema: recorridos guiados por módulo + botón de
+    // ayuda flotante (ver resources/js/components/sistema/*, resources/js/lib/tours/*).
+    Route::inertia('ayuda', 'Ayuda/Index')->name('ayuda');
+
     // Las vacaciones se solicitan y cancelan desde el módulo unificado de
     // Solicitudes (tipo `vacaciones`, ver docs/SOLICITUDES_UNIFICADAS.md).
     // El módulo web standalone `/vacaciones` (App\Http\Controllers\

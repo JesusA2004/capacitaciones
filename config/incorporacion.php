@@ -11,7 +11,7 @@ return [
     | expiracion explicita. Ver App\Services\Incorporacion\IncorporacionInvitacionService.
     |
     */
-    'qr_ttl_horas' => (int) env('INCORPORACION_QR_TTL_HOURS', 72),
+    'qr_ttl_horas' => (int) env('INCORPORACION_QR_TTL_HOURS', 24),
 
     /*
     |--------------------------------------------------------------------------

@@ -22,6 +22,8 @@ export type ExpedienteColaborador = {
     numero_empleado: string | null;
     email: string | null;
     telefono: string | null;
+    telefono_corporativo: string | null;
+    sueldo_mensual: string | null;
     tiene_cuenta: boolean;
     usuario_id: number | null;
     roles: string[];

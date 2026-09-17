@@ -10,6 +10,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -64,6 +65,11 @@ const form = useForm({
     fecha_estimada_cobertura:
         props.vacante?.fecha_estimada_cobertura?.slice(0, 10) ?? '',
     observaciones: props.vacante?.observaciones ?? '',
+    sueldo_mensual:
+        props.vacante?.sueldo_mensual !== null &&
+        props.vacante?.sueldo_mensual !== undefined
+            ? String(props.vacante.sueldo_mensual)
+            : '',
 });
 
 function enviar() {
@@ -74,6 +80,7 @@ function enviar() {
         departamento_id: datos.departamento_id || null,
         puesto_id: datos.puesto_id || null,
         fecha_estimada_cobertura: datos.fecha_estimada_cobertura || null,
+        sueldo_mensual: datos.sueldo_mensual || null,
     }));
 
     const opciones = {
@@ -212,6 +219,31 @@ function enviar() {
                             :message="form.errors.fecha_estimada_cobertura"
                         />
                     </div>
+                </div>
+
+                <div class="grid gap-2">
+                    <Label for="sueldo_mensual">Sueldo mensual (opcional)</Label>
+                    <div class="relative">
+                        <span
+                            class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground"
+                            >$</span
+                        >
+                        <Input
+                            id="sueldo_mensual"
+                            v-model="form.sueldo_mensual"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            class="pl-6"
+                        />
+                    </div>
+                    <p class="text-xs text-muted-foreground">
+                        Se usa para calcular los KPIs de costo de contratación
+                        en Vacantes y Candidatos. Déjalo vacío si todavía no
+                        se define.
+                    </p>
+                    <InputError :message="form.errors.sueldo_mensual" />
                 </div>
 
                 <div class="grid gap-2">

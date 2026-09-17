@@ -32,6 +32,7 @@ use Illuminate\Support\Carbon;
  * @property int $plazas_cubiertas
  * @property int $plazas_disponibles
  * @property int|null $creado_por
+ * @property numeric-string|null $sueldo_mensual
  */
 class Vacante extends Model
 {
@@ -57,6 +58,7 @@ class Vacante extends Model
         'plazas_cubiertas',
         'plazas_disponibles',
         'creado_por',
+        'sueldo_mensual',
     ];
 
     protected function casts(): array
@@ -70,6 +72,7 @@ class Vacante extends Model
             'plazas_requeridas' => 'integer',
             'plazas_cubiertas' => 'integer',
             'plazas_disponibles' => 'integer',
+            'sueldo_mensual' => 'decimal:2',
         ];
     }
 

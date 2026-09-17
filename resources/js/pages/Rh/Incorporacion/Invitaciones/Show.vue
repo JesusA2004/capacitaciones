@@ -164,10 +164,10 @@ const puedeAccionar = computed(() => props.invitacion.estado === 'activo');
                     v-else
                     class="rounded-2xl border border-dashed border-border/60 bg-card p-4 text-sm text-muted-foreground"
                 >
-                    El código de esta invitación ya no está disponible (solo se
-                    muestra una vez, justo al crearla o regenerarla).
+                    Esta invitación ya no tiene un código QR utilizable
+                    ({{ invitacion.estado === 'usado' ? 'ya fue usada' : invitacion.estado === 'revocado' ? 'fue revocada' : 'venció' }}).
                     <template v-if="puedeAccionar && puedeRegenerar">
-                        Genera uno nuevo si el colaborador aún lo necesita.
+                        Genera una nueva si el colaborador todavía la necesita.
                     </template>
                 </div>
 

@@ -115,15 +115,20 @@ class VacanteController extends Controller
      * organizacional), no los filtros activos en pantalla — para eso están
      * las columnas y la exportación.
      *
-     * @return array<string, int>
+     * @return array<string, int|float>
      */
     private function kpis(User $usuario): array
     {
         $vacantes = $this->alcance->limitarPorSucursal(Vacante::query(), $usuario)->get([
-            'estado', 'generada_automaticamente', 'plazas_disponibles', 'updated_at',
+            'estado', 'generada_automaticamente', 'plazas_disponibles', 'updated_at', 'sueldo_mensual',
         ]);
 
         $abiertas = $vacantes->whereNotIn('estado', [EstadoVacante::Cubierta, EstadoVacante::Cancelada]);
+
+        // Costo de contratación (sección 2 del encargo de KPIs): sueldo_mensual
+        // es un campo opcional en la vacante, así que solo se promedia sobre
+        // las que sí lo capturaron — no se asume 0 para las que no.
+        $abiertasConSueldo = $abiertas->filter(fn (Vacante $v) => $v->sueldo_mensual !== null);
 
         return [
             'vacantes_abiertas' => $abiertas->count(),
@@ -135,6 +140,10 @@ class VacanteController extends Controller
                 ->filter(fn (Vacante $v) => $v->updated_at !== null && $v->updated_at->isCurrentMonth())
                 ->count(),
             'canceladas' => $vacantes->where('estado', EstadoVacante::Cancelada)->count(),
+            'costo_mensual_abiertas' => (float) $abiertas->sum(fn (Vacante $v) => (float) ($v->sueldo_mensual ?? 0)),
+            'costo_promedio_puesto' => $abiertasConSueldo->isEmpty()
+                ? 0.0
+                : (float) $abiertasConSueldo->avg(fn (Vacante $v) => (float) $v->sueldo_mensual),
         ];
     }
 

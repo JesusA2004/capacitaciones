@@ -22,7 +22,13 @@ defineProps<{
     puedeGestionarPassword: boolean;
     puedeEditarCuenta: boolean;
     puedeCrearCuenta: boolean;
+    puedeEditarLaborales: boolean;
     rolesDisponibles: string[];
+    empresasDisponibles: { id: number; nombre: string }[];
+    sucursalesDisponibles: { id: number; nombre: string; empresa_id: number | null }[];
+    departamentosDisponibles: { id: number; nombre: string }[];
+    puestosDisponibles: { id: number; nombre: string }[];
+    jefesDisponibles: { id: number; name: string; apellidos: string | null; numero_empleado: string | null }[];
     esCuentaPropia: boolean;
     puedeRevisarDocumentos: boolean;
     puedeVerExtraccion: boolean;
@@ -36,6 +42,8 @@ defineProps<{
     onboarding: OnboardingItem[];
     altaDigital: AltaDigitalResumenExpediente;
     avisosManual: AvisosManualExpediente;
+    avisoPrivacidadTexto: string;
+    consentimientoDatosTexto: string;
     saldoVacaciones: SaldoVacaciones;
     solicitudesVacaciones: SolicitudVacacionesItem[];
     solicitudes: SolicitudExpedienteItem[];
@@ -61,7 +69,13 @@ defineOptions({
         :puede-gestionar-password="puedeGestionarPassword"
         :puede-editar-cuenta="puedeEditarCuenta"
         :puede-crear-cuenta="puedeCrearCuenta"
+        :puede-editar-laborales="puedeEditarLaborales"
         :roles-disponibles="rolesDisponibles"
+        :empresas-disponibles="empresasDisponibles"
+        :sucursales-disponibles="sucursalesDisponibles"
+        :departamentos-disponibles="departamentosDisponibles"
+        :puestos-disponibles="puestosDisponibles"
+        :jefes-disponibles="jefesDisponibles"
         :es-cuenta-propia="esCuentaPropia"
         :puede-revisar-documentos="puedeRevisarDocumentos"
         :puede-ver-extraccion="puedeVerExtraccion"
@@ -75,6 +89,8 @@ defineOptions({
         :onboarding="onboarding"
         :alta-digital="altaDigital"
         :avisos-manual="avisosManual"
+        :aviso-privacidad-texto="avisoPrivacidadTexto"
+        :consentimiento-datos-texto="consentimientoDatosTexto"
         :saldo-vacaciones="saldoVacaciones"
         :solicitudes-vacaciones="solicitudesVacaciones"
         :solicitudes="solicitudes"

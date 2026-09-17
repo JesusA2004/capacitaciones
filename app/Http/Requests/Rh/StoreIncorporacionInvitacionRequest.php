@@ -28,9 +28,13 @@ class StoreIncorporacionInvitacionRequest extends FormRequest
             'departamento_id' => ['nullable', 'integer', 'exists:departamentos,id'],
             'puesto_id' => ['nullable', 'integer', 'exists:puestos,id'],
             'candidato_id' => ['nullable', 'integer', 'exists:candidatos,id'],
-            // Alternativa a duracion_horas: fecha exacta de expiracion.
+            // Alternativa a duracion_horas: fecha exacta de expiracion. El
+            // formulario web ya no la usa (solo horas, 1-24), pero se deja
+            // disponible para otros posibles llamadores del endpoint.
             'expires_at' => ['nullable', 'date', 'after:now'],
-            'duracion_horas' => ['nullable', 'integer', 'min:1', 'max:8760'],
+            // QR de acceso temporal a un formulario de incorporacion: rango
+            // deliberadamente corto, nunca dias ni "hasta 1 año" como antes.
+            'duracion_horas' => ['nullable', 'integer', 'min:1', 'max:24'],
             'max_usos' => ['nullable', 'integer', 'min:1', 'max:100'],
             'observaciones' => ['nullable', 'string', 'max:2000'],
         ];

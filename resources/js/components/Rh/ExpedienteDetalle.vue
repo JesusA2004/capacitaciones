@@ -5,12 +5,15 @@ import {
     Briefcase,
     Building2,
     Calendar,
+    CalendarCheck,
     CalendarClock,
     CalendarDays,
     CheckCircle2,
     ChevronDown,
     CircleDashed,
     ClipboardList,
+    Clock,
+    Eye,
     Fingerprint,
     FolderOpen,
     Hexagon,
@@ -24,16 +27,20 @@ import {
     Lock,
     Mail,
     MapPinned,
+    Network,
     Pencil,
     Phone,
     PhoneCall,
+    Receipt,
     ScrollText,
     ShieldCheck,
+    Sparkles,
     Unlock,
     User,
     UserCog,
     UserPlus,
     UserRound,
+    Wallet,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
@@ -48,6 +55,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Combobox } from '@/components/ui/combobox';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -56,6 +70,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAlertas } from '@/composables/useAlertas';
@@ -65,8 +86,9 @@ import {
     store as crearCuentaUsuario,
     update as actualizarCuentaUsuario,
 } from '@/routes/administracion/usuarios';
-import { darDeBaja, reactivar } from '@/routes/rh/expedientes';
+import { darDeBaja, reactivar, reciboNomina } from '@/routes/rh/expedientes';
 import { update as actualizarAvisos } from '@/routes/rh/expedientes/avisos';
+import { update as actualizarDatosLaborales } from '@/routes/rh/expedientes/datos-laborales';
 import { update as actualizarDatosPersonales } from '@/routes/rh/expedientes/datos-personales';
 import { show as showSolicitud } from '@/routes/rh/solicitudes';
 import { edit as editSeguridad } from '@/routes/security';
@@ -91,7 +113,13 @@ const props = defineProps<{
     puedeGestionarPassword: boolean;
     puedeEditarCuenta: boolean;
     puedeCrearCuenta: boolean;
+    puedeEditarLaborales: boolean;
     rolesDisponibles: string[];
+    empresasDisponibles: { id: number; nombre: string }[];
+    sucursalesDisponibles: { id: number; nombre: string; empresa_id: number | null }[];
+    departamentosDisponibles: { id: number; nombre: string }[];
+    puestosDisponibles: { id: number; nombre: string }[];
+    jefesDisponibles: { id: number; name: string; apellidos: string | null; numero_empleado: string | null }[];
     esCuentaPropia: boolean;
     puedeRevisarDocumentos: boolean;
     puedeVerExtraccion: boolean;
@@ -105,6 +133,8 @@ const props = defineProps<{
     onboarding: OnboardingItem[];
     altaDigital: AltaDigitalResumenExpediente;
     avisosManual: AvisosManualExpediente;
+    avisoPrivacidadTexto: string;
+    consentimientoDatosTexto: string;
     saldoVacaciones: SaldoVacaciones;
     solicitudesVacaciones: SolicitudVacacionesItem[];
     solicitudes: SolicitudExpedienteItem[];
@@ -113,6 +143,8 @@ const props = defineProps<{
 
 const form = useForm({
     fecha_nacimiento: props.colaborador.fecha_nacimiento ?? '',
+    telefono: props.colaborador.telefono ?? '',
+    telefono_corporativo: props.colaborador.telefono_corporativo ?? '',
     curp: props.colaborador.curp ?? '',
     rfc: props.colaborador.rfc ?? '',
     nss: props.colaborador.nss ?? '',
@@ -286,12 +318,131 @@ function guardarCuenta() {
             onError: () => mostrarError('No se pudo actualizar la cuenta.'),
         });
 }
+
+// --- Avisos: mostrar el texto real detrás del checkbox ---
+const avisoDialogAbierto = ref(false);
+const avisoDialogTitulo = ref('');
+const avisoDialogTexto = ref('');
+
+function abrirAviso(tipo: 'privacidad' | 'datos') {
+    avisoDialogTitulo.value =
+        tipo === 'privacidad' ? 'Aviso de privacidad' : 'Consentimiento de datos';
+    avisoDialogTexto.value =
+        tipo === 'privacidad'
+            ? props.avisoPrivacidadTexto
+            : props.consentimientoDatosTexto;
+    avisoDialogAbierto.value = true;
+}
+
+// --- Datos laborales: empresa/sucursal/departamento/puesto/jefe/sueldo ---
+const editandoLaborales = ref(false);
+const empresaSeleccionada = ref(
+    props.colaborador.empresa ? String(props.colaborador.empresa.id) : '',
+);
+
+const formLaborales = useForm({
+    sucursal_principal_id: props.colaborador.sucursal
+        ? String(props.colaborador.sucursal.id)
+        : '',
+    departamento_id: props.colaborador.departamento
+        ? String(props.colaborador.departamento.id)
+        : '',
+    puesto_id: props.colaborador.puesto
+        ? String(props.colaborador.puesto.id)
+        : '',
+    jefe_id: props.colaborador.jefe ? String(props.colaborador.jefe.id) : '',
+    sueldo_mensual: props.colaborador.sueldo_mensual ?? '',
+    motivo: '',
+});
+
+const sucursalesFiltradas = computed(() =>
+    empresaSeleccionada.value
+        ? props.sucursalesDisponibles.filter(
+              (sucursal) =>
+                  String(sucursal.empresa_id) === empresaSeleccionada.value,
+          )
+        : props.sucursalesDisponibles,
+);
+
+function alCambiarEmpresa(valor: string) {
+    empresaSeleccionada.value = valor;
+
+    const sigueDisponible = sucursalesFiltradas.value.some(
+        (sucursal) => String(sucursal.id) === formLaborales.sucursal_principal_id,
+    );
+
+    if (!sigueDisponible) {
+        formLaborales.sucursal_principal_id = '';
+    }
+}
+
+const opcionesJefe = computed(() =>
+    props.jefesDisponibles.map((jefe) => ({
+        value: String(jefe.id),
+        label: `${jefe.numero_empleado ? `${jefe.numero_empleado} — ` : ''}${jefe.name} ${jefe.apellidos ?? ''}`.trim(),
+    })),
+);
+
+function iniciarEdicionLaborales() {
+    empresaSeleccionada.value = props.colaborador.empresa
+        ? String(props.colaborador.empresa.id)
+        : '';
+    formLaborales.sucursal_principal_id = props.colaborador.sucursal
+        ? String(props.colaborador.sucursal.id)
+        : '';
+    formLaborales.departamento_id = props.colaborador.departamento
+        ? String(props.colaborador.departamento.id)
+        : '';
+    formLaborales.puesto_id = props.colaborador.puesto
+        ? String(props.colaborador.puesto.id)
+        : '';
+    formLaborales.jefe_id = props.colaborador.jefe
+        ? String(props.colaborador.jefe.id)
+        : '';
+    formLaborales.sueldo_mensual = props.colaborador.sueldo_mensual ?? '';
+    formLaborales.motivo = '';
+    editandoLaborales.value = true;
+}
+
+function guardarLaborales() {
+    formLaborales
+        .transform((datos) => ({
+            sucursal_principal_id: datos.sucursal_principal_id || null,
+            departamento_id: datos.departamento_id || null,
+            puesto_id: datos.puesto_id || null,
+            jefe_id: datos.jefe_id || null,
+            sueldo_mensual: datos.sueldo_mensual || null,
+            motivo: datos.motivo || null,
+        }))
+        .put(actualizarDatosLaborales.url(props.colaborador.id), {
+            preserveScroll: true,
+            onSuccess: () => {
+                mostrarExito('Datos laborales actualizados correctamente.');
+                editandoLaborales.value = false;
+            },
+            onError: () => mostrarError('No se pudieron actualizar los datos laborales.'),
+        });
+}
+
+const reciboNominaUrl = computed(() => reciboNomina.url(props.colaborador.id));
+
+function sueldoFormateado(valor: string | null): string {
+    if (!valor) {
+        return 'Sin capturar';
+    }
+
+    return Number(valor).toLocaleString('es-MX', {
+        style: 'currency',
+        currency: 'MXN',
+        minimumFractionDigits: 2,
+    });
+}
 </script>
 
 <template>
     <Head :title="`Expediente de ${colaborador.name}`" />
 
-    <div class="mx-auto flex w-full min-w-0 max-w-7xl flex-col gap-6 p-4 sm:p-6">
+    <div class="flex w-full min-w-0 flex-col gap-6 p-4">
         <Card
             class="overflow-hidden rounded-3xl border-border/60 bg-gradient-to-br from-primary/10 via-card to-card shadow-sm transition-shadow hover:shadow-md"
         >
@@ -401,22 +552,44 @@ function guardarCuenta() {
                                 <ChevronDown class="size-3.5" />
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                        <DropdownMenuContent align="end" class="w-80">
                             <template v-if="colaborador.tiene_cuenta">
                                 <DropdownMenuItem
                                     v-if="colaborador.acceso_bloqueado_en"
+                                    class="flex-col items-start gap-0.5 py-2"
                                     @select="restablecerAccesoColaborador"
                                 >
-                                    <Unlock class="size-3.5" />
-                                    Restablecer acceso
+                                    <span class="flex items-center gap-1.5 font-medium">
+                                        <Unlock class="size-3.5" />
+                                        Restablecer acceso
+                                    </span>
+                                    <span class="text-xs whitespace-normal text-muted-foreground">
+                                        Vuelve a permitir el inicio de sesión. El colaborador nunca dejó de estar activo en la plantilla.
+                                    </span>
                                 </DropdownMenuItem>
-                                <DropdownMenuItem v-else @select="revocarAccesoColaborador">
-                                    <Lock class="size-3.5" />
-                                    Revocar acceso
+                                <DropdownMenuItem
+                                    v-else
+                                    class="flex-col items-start gap-0.5 py-2"
+                                    @select="revocarAccesoColaborador"
+                                >
+                                    <span class="flex items-center gap-1.5 font-medium">
+                                        <Lock class="size-3.5" />
+                                        Revocar acceso
+                                    </span>
+                                    <span class="text-xs whitespace-normal text-muted-foreground">
+                                        Solo bloquea el inicio de sesión (ej. incapacidad, suspensión temporal). Sigue activo en la plantilla — su empleo no cambia.
+                                    </span>
                                 </DropdownMenuItem>
                             </template>
-                            <DropdownMenuItem variant="destructive" @select="darDeBajaColaborador">
-                                Dar de baja
+                            <DropdownMenuItem
+                                variant="destructive"
+                                class="flex-col items-start gap-0.5 py-2"
+                                @select="darDeBajaColaborador"
+                            >
+                                <span class="font-medium">Dar de baja</span>
+                                <span class="text-xs whitespace-normal opacity-80">
+                                    Termina la relación laboral y libera la plaza en headcount/vacantes. Se conserva todo el historial — nunca se borra nada (baja lógica).
+                                </span>
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
@@ -602,6 +775,28 @@ function guardarCuenta() {
                                         Contacto
                                     </p>
                                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                        <div class="grid gap-2">
+                                            <Label for="telefono">Teléfono personal</Label>
+                                            <Input
+                                                id="telefono"
+                                                v-model="form.telefono"
+                                                :disabled="!puedeEditar"
+                                            />
+                                            <InputError :message="form.errors.telefono" />
+                                        </div>
+                                        <div class="grid gap-2">
+                                            <Label for="telefono_corporativo"
+                                                >Teléfono corporativo (opcional)</Label
+                                            >
+                                            <Input
+                                                id="telefono_corporativo"
+                                                v-model="form.telefono_corporativo"
+                                                :disabled="!puedeEditar"
+                                            />
+                                            <InputError
+                                                :message="form.errors.telefono_corporativo"
+                                            />
+                                        </div>
                                         <div class="grid gap-2 sm:col-span-2">
                                             <Label for="domicilio">Domicilio</Label>
                                             <Input
@@ -624,6 +819,18 @@ function guardarCuenta() {
                                             <InputError
                                                 :message="form.errors.correo_personal"
                                             />
+                                        </div>
+                                        <div class="grid gap-2">
+                                            <Label>Correo corporativo</Label>
+                                            <Input
+                                                :model-value="colaborador.email ?? 'Sin cuenta de acceso'"
+                                                readonly
+                                                disabled
+                                            />
+                                            <p class="text-xs text-muted-foreground">
+                                                Correo de la cuenta de acceso — se edita
+                                                desde la pestaña «Cuenta».
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
@@ -688,86 +895,250 @@ function guardarCuenta() {
 
                 <TabsContent value="laborales">
                     <Card class="rounded-2xl border-border/60">
-                        <CardHeader>
+                        <CardHeader class="flex flex-row items-center justify-between gap-2">
                             <CardTitle class="flex items-center gap-2 text-base">
                                 <Briefcase class="size-4" />
                                 Datos laborales
                             </CardTitle>
+                            <Button
+                                v-if="puedeEditarLaborales && !editandoLaborales"
+                                size="sm"
+                                variant="ghost"
+                                @click="iniciarEdicionLaborales"
+                            >
+                                <Pencil class="size-3.5" />
+                                Editar
+                            </Button>
                         </CardHeader>
                         <CardContent class="flex flex-col gap-6">
-                            <div class="flex flex-col gap-3">
-                                <p
-                                    class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
-                                >
-                                    <Hexagon class="size-3.5" />
-                                    Ubicación organizacional
-                                </p>
-                                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                    <CampoInfo :icono="Building2" etiqueta="Empresa">
-                                        {{ colaborador.empresa?.nombre ?? '—' }}
-                                    </CampoInfo>
-                                    <CampoInfo :icono="MapPinned" etiqueta="Sucursal">
-                                        {{ colaborador.sucursal?.nombre ?? '—' }}
-                                    </CampoInfo>
-                                    <CampoInfo :icono="Briefcase" etiqueta="Departamento">
-                                        {{ colaborador.departamento?.nombre ?? '—' }}
-                                    </CampoInfo>
-                                    <CampoInfo :icono="BadgeCheck" etiqueta="Puesto">
-                                        {{ colaborador.puesto?.nombre ?? '—' }}
-                                    </CampoInfo>
-                                </div>
-                            </div>
-
-                            <div class="flex flex-col gap-3 border-t pt-4">
-                                <p
-                                    class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
-                                >
-                                    <ShieldCheck class="size-3.5" />
-                                    Estatus laboral e IMSS
-                                </p>
-                                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                    <CampoInfo :icono="CalendarDays" etiqueta="Fecha de ingreso">
-                                        {{ colaborador.fecha_ingreso ?? '—' }}
-                                    </CampoInfo>
-                                    <CampoInfo etiqueta="Estado laboral">
-                                        <EstadoBadge :estado="colaborador.estatus" />
-                                    </CampoInfo>
-                                    <CampoInfo etiqueta="Estatus IMSS">
-                                        <EstadoBadge :estado="colaborador.estatus_imss" />
-                                    </CampoInfo>
-                                    <CampoInfo :icono="CalendarClock" etiqueta="Fecha alta IMSS">
-                                        {{ colaborador.fecha_alta_imss ?? '—' }}
-                                    </CampoInfo>
-                                    <CampoInfo
-                                        :icono="Hourglass"
-                                        etiqueta="Periodo de prueba"
-                                        class="sm:col-span-2"
-                                    >
-                                        <template
-                                            v-if="
-                                                colaborador.periodo_prueba_inicio &&
-                                                colaborador.periodo_prueba_fin
+                            <form
+                                v-if="editandoLaborales"
+                                class="flex flex-col gap-4"
+                                @submit.prevent="guardarLaborales"
+                            >
+                                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    <div class="grid gap-2">
+                                        <Label>Empresa</Label>
+                                        <Select
+                                            :model-value="empresaSeleccionada"
+                                            @update:model-value="
+                                                (v) => alCambiarEmpresa(String(v ?? ''))
                                             "
                                         >
-                                            {{ colaborador.periodo_prueba_inicio }} —
-                                            {{ colaborador.periodo_prueba_fin }}
-                                            <span
-                                                v-if="colaborador.en_periodo_prueba"
-                                                class="text-warning"
-                                                >(vigente)</span
-                                            >
-                                        </template>
-                                        <template v-else>—</template>
-                                    </CampoInfo>
+                                            <SelectTrigger class="w-full">
+                                                <SelectValue placeholder="Selecciona una empresa" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem
+                                                    v-for="empresa in empresasDisponibles"
+                                                    :key="empresa.id"
+                                                    :value="String(empresa.id)"
+                                                >
+                                                    {{ empresa.nombre }}
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div class="grid gap-2">
+                                        <Label>Sucursal</Label>
+                                        <Select v-model="formLaborales.sucursal_principal_id">
+                                            <SelectTrigger class="w-full">
+                                                <SelectValue placeholder="Selecciona una sucursal" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem
+                                                    v-for="sucursal in sucursalesFiltradas"
+                                                    :key="sucursal.id"
+                                                    :value="String(sucursal.id)"
+                                                >
+                                                    {{ sucursal.nombre }}
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <InputError :message="formLaborales.errors.sucursal_principal_id" />
+                                    </div>
+                                    <div class="grid gap-2">
+                                        <Label>Departamento</Label>
+                                        <Select v-model="formLaborales.departamento_id">
+                                            <SelectTrigger class="w-full">
+                                                <SelectValue placeholder="Selecciona un departamento" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem
+                                                    v-for="departamento in departamentosDisponibles"
+                                                    :key="departamento.id"
+                                                    :value="String(departamento.id)"
+                                                >
+                                                    {{ departamento.nombre }}
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <InputError :message="formLaborales.errors.departamento_id" />
+                                    </div>
+                                    <div class="grid gap-2">
+                                        <Label>Puesto</Label>
+                                        <Select v-model="formLaborales.puesto_id">
+                                            <SelectTrigger class="w-full">
+                                                <SelectValue placeholder="Selecciona un puesto" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem
+                                                    v-for="puesto in puestosDisponibles"
+                                                    :key="puesto.id"
+                                                    :value="String(puesto.id)"
+                                                >
+                                                    {{ puesto.nombre }}
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <InputError :message="formLaborales.errors.puesto_id" />
+                                    </div>
+                                    <div class="grid gap-2">
+                                        <Label>Jefe directo</Label>
+                                        <Combobox
+                                            v-model="formLaborales.jefe_id"
+                                            :items="opcionesJefe"
+                                            placeholder="Busca por nombre o número de empleado..."
+                                            empty-text="Sin resultados."
+                                        />
+                                        <InputError :message="formLaborales.errors.jefe_id" />
+                                    </div>
+                                    <div class="grid gap-2">
+                                        <Label for="sueldo_mensual">Sueldo mensual</Label>
+                                        <Input
+                                            id="sueldo_mensual"
+                                            v-model="formLaborales.sueldo_mensual"
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            placeholder="0.00"
+                                        />
+                                        <InputError :message="formLaborales.errors.sueldo_mensual" />
+                                    </div>
+                                    <div class="grid gap-2 sm:col-span-2">
+                                        <Label for="motivo_laboral">Motivo del cambio (opcional)</Label>
+                                        <Input
+                                            id="motivo_laboral"
+                                            v-model="formLaborales.motivo"
+                                            placeholder="Ej. promoción, reubicación, ajuste de sueldo..."
+                                        />
+                                    </div>
                                 </div>
-                            </div>
+                                <div class="flex gap-2">
+                                    <Button type="submit" size="sm" :disabled="formLaborales.processing">
+                                        <Spinner v-if="formLaborales.processing" />
+                                        Guardar cambios
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        @click="editandoLaborales = false"
+                                    >
+                                        Cancelar
+                                    </Button>
+                                </div>
+                            </form>
 
-                            <p class="text-xs text-muted-foreground">
-                                Los cambios de puesto, sucursal o departamento se
-                                registran como movimientos laborales (ver pestaña
-                                «Historial RH»). El correo, los roles y la
-                                contraseña de acceso están en la pestaña «Cuenta».
-                            </p>
+                            <template v-else>
+                                <div class="flex flex-col gap-3">
+                                    <p
+                                        class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+                                    >
+                                        <Network class="size-3.5" />
+                                        Ubicación organizacional
+                                    </p>
+                                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                        <CampoInfo :icono="Building2" etiqueta="Empresa">
+                                            {{ colaborador.empresa?.nombre ?? '—' }}
+                                        </CampoInfo>
+                                        <CampoInfo :icono="MapPinned" etiqueta="Sucursal">
+                                            {{ colaborador.sucursal?.nombre ?? '—' }}
+                                        </CampoInfo>
+                                        <CampoInfo :icono="Hexagon" etiqueta="Departamento">
+                                            {{ colaborador.departamento?.nombre ?? '—' }}
+                                        </CampoInfo>
+                                        <CampoInfo :icono="BadgeCheck" etiqueta="Puesto">
+                                            {{ colaborador.puesto?.nombre ?? '—' }}
+                                        </CampoInfo>
+                                        <CampoInfo :icono="UserRound" etiqueta="Jefe directo">
+                                            <template v-if="colaborador.jefe">
+                                                {{ colaborador.jefe.name }}
+                                                {{ colaborador.jefe.apellidos }}
+                                            </template>
+                                            <template v-else>Sin asignar</template>
+                                        </CampoInfo>
+                                        <CampoInfo :icono="Wallet" etiqueta="Sueldo mensual">
+                                            {{ sueldoFormateado(colaborador.sueldo_mensual) }}
+                                        </CampoInfo>
+                                    </div>
+                                </div>
+
+                                <div class="flex flex-col gap-3 border-t pt-4">
+                                    <p
+                                        class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+                                    >
+                                        <ShieldCheck class="size-3.5" />
+                                        Estatus laboral e IMSS
+                                    </p>
+                                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                        <CampoInfo :icono="CalendarDays" etiqueta="Fecha de ingreso">
+                                            {{ colaborador.fecha_ingreso ?? '—' }}
+                                        </CampoInfo>
+                                        <CampoInfo etiqueta="Estado laboral">
+                                            <EstadoBadge :estado="colaborador.estatus" />
+                                        </CampoInfo>
+                                        <CampoInfo etiqueta="Estatus IMSS">
+                                            <EstadoBadge :estado="colaborador.estatus_imss" />
+                                        </CampoInfo>
+                                        <CampoInfo :icono="CalendarClock" etiqueta="Fecha alta IMSS">
+                                            {{ colaborador.fecha_alta_imss ?? '—' }}
+                                        </CampoInfo>
+                                        <CampoInfo
+                                            :icono="Hourglass"
+                                            etiqueta="Periodo de prueba"
+                                            class="sm:col-span-2"
+                                        >
+                                            <template
+                                                v-if="
+                                                    colaborador.periodo_prueba_inicio &&
+                                                    colaborador.periodo_prueba_fin
+                                                "
+                                            >
+                                                {{ colaborador.periodo_prueba_inicio }} —
+                                                {{ colaborador.periodo_prueba_fin }}
+                                                <span
+                                                    v-if="colaborador.en_periodo_prueba"
+                                                    class="text-warning"
+                                                    >(vigente)</span
+                                                >
+                                            </template>
+                                            <template v-else>—</template>
+                                        </CampoInfo>
+                                    </div>
+                                </div>
+
+                                <div
+                                    v-if="colaborador.sueldo_mensual"
+                                    class="flex items-center justify-between border-t pt-4"
+                                >
+                                    <a
+                                        :href="reciboNominaUrl"
+                                        target="_blank"
+                                        class="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+                                    >
+                                        <Receipt class="size-3.5" />
+                                        Generar recibo de nómina (PDF)
+                                    </a>
+                                </div>
+
+                                <p class="text-xs text-muted-foreground">
+                                    Los cambios de arriba quedan registrados como
+                                    movimientos laborales (ver pestaña «Historial
+                                    RH»). El correo, los roles y la contraseña de
+                                    acceso están en la pestaña «Cuenta».
+                                </p>
+                            </template>
                         </CardContent>
                     </Card>
                 </TabsContent>
@@ -1101,7 +1472,7 @@ function guardarCuenta() {
                             </CardTitle>
                         </CardHeader>
                         <CardContent class="grid gap-3 text-sm">
-                            <p class="flex items-center gap-1.5">
+                            <p class="flex flex-wrap items-center gap-1.5">
                                 <CheckCircle2
                                     v-if="altaDigital.aviso_privacidad_aceptado"
                                     class="size-4 text-[var(--success)]"
@@ -1121,8 +1492,17 @@ function guardarCuenta() {
                                         ).toLocaleString()
                                     }}</span
                                 >
+                                <Button
+                                    variant="link"
+                                    size="sm"
+                                    class="h-auto p-0 text-xs"
+                                    @click="abrirAviso('privacidad')"
+                                >
+                                    <Eye class="size-3" />
+                                    Leer completo
+                                </Button>
                             </p>
-                            <p class="flex items-center gap-1.5">
+                            <p class="flex flex-wrap items-center gap-1.5">
                                 <CheckCircle2
                                     v-if="altaDigital.consentimiento_datos_aceptado"
                                     class="size-4 text-[var(--success)]"
@@ -1144,6 +1524,15 @@ function guardarCuenta() {
                                         ).toLocaleString()
                                     }}</span
                                 >
+                                <Button
+                                    variant="link"
+                                    size="sm"
+                                    class="h-auto p-0 text-xs"
+                                    @click="abrirAviso('datos')"
+                                >
+                                    <Eye class="size-3" />
+                                    Leer completo
+                                </Button>
                             </p>
                         </CardContent>
                     </Card>
@@ -1188,6 +1577,16 @@ function guardarCuenta() {
                                                 ).toLocaleString()
                                             }}</span
                                         >
+                                        <Button
+                                            variant="link"
+                                            size="sm"
+                                            type="button"
+                                            class="h-auto p-0 text-xs"
+                                            @click.stop="abrirAviso('privacidad')"
+                                        >
+                                            <Eye class="size-3" />
+                                            Leer aviso completo
+                                        </Button>
                                     </span>
                                 </label>
 
@@ -1214,6 +1613,16 @@ function guardarCuenta() {
                                                 ).toLocaleString()
                                             }}</span
                                         >
+                                        <Button
+                                            variant="link"
+                                            size="sm"
+                                            type="button"
+                                            class="h-auto p-0 text-xs"
+                                            @click.stop="abrirAviso('datos')"
+                                        >
+                                            <Eye class="size-3" />
+                                            Leer texto completo
+                                        </Button>
                                     </span>
                                 </label>
 
@@ -1246,18 +1655,33 @@ function guardarCuenta() {
                                 <Calendar class="size-4" />
                                 Vacaciones
                             </CardTitle>
+                            <p class="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <Clock class="size-3.5" />
+                                {{ saldoVacaciones.antiguedad_anios }}
+                                {{ saldoVacaciones.antiguedad_anios === 1 ? 'año' : 'años' }} de antigüedad
+                            </p>
                         </CardHeader>
                         <CardContent class="flex flex-col gap-4">
                             <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                                <div class="rounded-xl border p-3 text-center">
+                                <div
+                                    class="group rounded-xl border p-3 text-center transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                                >
+                                    <CalendarCheck
+                                        class="mx-auto mb-1 size-4 text-primary transition-transform group-hover:scale-110"
+                                    />
                                     <p class="text-lg font-semibold">
                                         {{ saldoVacaciones.dias_generados }}
                                     </p>
                                     <p class="text-xs text-muted-foreground">
-                                        Generados
+                                        Te corresponden este año
                                     </p>
                                 </div>
-                                <div class="rounded-xl border p-3 text-center">
+                                <div
+                                    class="group rounded-xl border p-3 text-center transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                                >
+                                    <CheckCircle2
+                                        class="mx-auto mb-1 size-4 text-[var(--success)] transition-transform group-hover:scale-110"
+                                    />
                                     <p class="text-lg font-semibold">
                                         {{ saldoVacaciones.dias_usados }}
                                     </p>
@@ -1265,7 +1689,12 @@ function guardarCuenta() {
                                         Usados
                                     </p>
                                 </div>
-                                <div class="rounded-xl border p-3 text-center">
+                                <div
+                                    class="group rounded-xl border p-3 text-center transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                                >
+                                    <Hourglass
+                                        class="mx-auto mb-1 size-4 text-warning transition-transform group-hover:scale-110"
+                                    />
                                     <p class="text-lg font-semibold">
                                         {{ saldoVacaciones.dias_en_solicitud }}
                                     </p>
@@ -1273,7 +1702,12 @@ function guardarCuenta() {
                                         En solicitud
                                     </p>
                                 </div>
-                                <div class="rounded-xl border p-3 text-center">
+                                <div
+                                    class="group rounded-xl border p-3 text-center transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                                >
+                                    <Sparkles
+                                        class="mx-auto mb-1 size-4 text-[var(--success)] transition-transform group-hover:scale-110"
+                                    />
                                     <p class="text-lg font-semibold">
                                         {{ saldoVacaciones.dias_disponibles }}
                                     </p>
@@ -1360,4 +1794,15 @@ function guardarCuenta() {
         :colaborador-id="colaborador.usuario_id"
         :colaborador-nombre="`${colaborador.name} ${colaborador.apellidos ?? ''}`"
     />
+
+    <Dialog v-model:open="avisoDialogAbierto">
+        <DialogContent class="max-h-[80vh] overflow-y-auto sm:max-w-2xl">
+            <DialogHeader>
+                <DialogTitle>{{ avisoDialogTitulo }}</DialogTitle>
+            </DialogHeader>
+            <p class="text-sm whitespace-pre-line text-muted-foreground">
+                {{ avisoDialogTexto }}
+            </p>
+        </DialogContent>
+    </Dialog>
 </template>
