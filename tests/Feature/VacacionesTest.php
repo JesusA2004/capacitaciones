@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Colaborador;
 use App\Models\SolicitudInterna;
 use App\Models\User;
 use App\Services\Vacaciones\VacacionesService;
@@ -62,11 +63,11 @@ test('un jefe_directo puede aprobar la solicitud de vacaciones de su subordinado
     $jefe = User::factory()->create();
     $jefe->assignRole('jefe_directo');
 
-    $subordinado = User::factory()->create(['jefe_id' => $jefe->id, 'fecha_ingreso' => now()->subYears(2)]);
-    $otro = User::factory()->create(['fecha_ingreso' => now()->subYears(2)]);
+    $subordinado = User::factory()->create(['colaborador_id' => Colaborador::factory()->create(['jefe_id' => $jefe->colaborador_id, 'fecha_ingreso' => now()->subYears(2)])]);
+    $otro = User::factory()->create(['colaborador_id' => Colaborador::factory()->create(['fecha_ingreso' => now()->subYears(2)])]);
 
-    $solicitudPropia = SolicitudInterna::factory()->create(['tipo' => 'vacaciones', 'user_id' => $subordinado->id]);
-    $solicitudAjena = SolicitudInterna::factory()->create(['tipo' => 'vacaciones', 'user_id' => $otro->id]);
+    $solicitudPropia = SolicitudInterna::factory()->create(['tipo' => 'vacaciones', 'user_id' => $subordinado->id, 'colaborador_id' => $subordinado->colaborador_id]);
+    $solicitudAjena = SolicitudInterna::factory()->create(['tipo' => 'vacaciones', 'user_id' => $otro->id, 'colaborador_id' => $otro->colaborador_id]);
 
     $this->actingAs($jefe)
         ->post(route('rh.solicitudes.aprobar', $solicitudPropia))

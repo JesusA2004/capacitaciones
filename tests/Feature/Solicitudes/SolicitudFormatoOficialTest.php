@@ -65,7 +65,7 @@ test('aprobar una solicitud de prestamo genera automaticamente el contrato de cr
     $generacion = OfficialFormatGeneration::where('solicitud_interna_id', $solicitud->id)->first();
 
     expect($generacion)->not->toBeNull()
-        ->and($generacion->user_id)->toBe($colaborador->id)
+        ->and($generacion->colaborador_id)->toBe($colaborador->colaborador_id)
         ->and($generacion->status->value)->toBe('generado')
         ->and(Storage::disk('nas')->exists($generacion->generated_path))->toBeTrue();
 });

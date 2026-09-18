@@ -25,9 +25,11 @@ class FiniquitoCalculoPolicy
      */
     public function calcular(User $usuario, SolicitudInterna $solicitud): bool
     {
+        $colaboradorDeBaja = $solicitud->colaboradorDeBaja();
+
         return $usuario->can('finiquitos.calcular')
-            && $solicitud->colaboradorObjetivo !== null
-            && $this->alcance->puedeVerUsuario($usuario, $solicitud->colaboradorObjetivo);
+            && $colaboradorDeBaja !== null
+            && $this->alcance->puedeVerExpediente($usuario, $colaboradorDeBaja);
     }
 
     public function ver(User $usuario, FiniquitoCalculo $finiquito): bool
