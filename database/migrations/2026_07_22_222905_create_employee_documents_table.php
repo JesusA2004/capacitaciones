@@ -10,7 +10,11 @@ return new class extends Migration
     {
         Schema::create('employee_documents', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            // Dueño real del expediente. Nullable: un colaborador sin cuenta
+            // de acceso también tiene documentos. `user_id` se conserva solo
+            // por compatibilidad histórica y ya no se escribe desde el código.
+            $table->unsignedBigInteger('user_id')->nullable();
+            $table->foreignId('colaborador_id')->nullable()->constrained('colaboradores')->cascadeOnDelete();
             $table->foreignId('empresa_id')->nullable()->constrained('empresas')->nullOnDelete();
             $table->foreignId('sucursal_id')->nullable()->constrained('sucursales')->nullOnDelete();
             $table->foreignId('document_type_id')->constrained('document_types')->restrictOnDelete();
@@ -42,6 +46,7 @@ return new class extends Migration
             $table->softDeletes();
 
             $table->index(['user_id', 'document_type_id']);
+            $table->index(['colaborador_id', 'document_type_id'], 'employee_documents_colaborador_document_type_idx');
             $table->index('status');
         });
     }

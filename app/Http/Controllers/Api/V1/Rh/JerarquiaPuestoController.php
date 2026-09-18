@@ -35,7 +35,7 @@ class JerarquiaPuestoController extends Controller
             'puesto_superior' => $puesto->puestoSuperior?->nombre,
             'tipo_puesto' => $puesto->tipo_puesto?->value,
             'activo' => $puesto->activo,
-            'usuarios_count' => $puesto->usuarios_count,
+            'colaboradores_count' => $puesto->colaboradores_count,
             'vacantes_abiertas_count' => $puesto->vacantes_abiertas_count,
         ]);
 

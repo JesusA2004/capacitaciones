@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Rh;
 
 use App\Enums\EstadoCandidato;
+use App\Enums\FuenteCandidato;
 use App\Enums\TipoSeguimientoCandidato;
 use App\Exports\ReporteRhExport;
 use App\Http\Controllers\Controller;
@@ -22,9 +23,11 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\Candidatos\CandidatoTimelineService;
 use App\Services\Reclutamiento\CvStorageService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -34,7 +37,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CandidatoController extends Controller
 {
-    private const FILTROS = ['empresa_id', 'sucursal_id', 'departamento_id', 'puesto_objetivo_id', 'vacante_id', 'responsable_rh_id', 'busqueda', 'fecha_inicio', 'fecha_fin'];
+    private const FILTROS = ['empresa_id', 'sucursal_id', 'departamento_id', 'puesto_objetivo_id', 'vacante_id', 'responsable_rh_id', 'fuente', 'busqueda', 'fecha_inicio', 'fecha_fin', 'mes'];
 
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
@@ -46,44 +49,104 @@ class CandidatoController extends Controller
     {
         $this->authorize('viewAny', Candidato::class);
 
-        $candidatos = $this->queryFiltrada($request)->orderByDesc('created_at')->get();
+        $candidatos = $this->queryFiltrada($request)
+            ->with(['ultimoSeguimiento.registradoPor:id,name,apellidos', 'ultimoCambioEstado'])
+            ->orderByDesc('created_at')
+            ->get();
 
         return Inertia::render('Rh/Candidatos/Index', [
             'candidatos' => $candidatos,
             'filtros' => $request->only(self::FILTROS),
             'opciones' => $this->opciones(),
-            'kpis' => $this->kpis($request->user()),
+            'kpis' => $this->kpis($request),
         ]);
     }
 
     /**
-     * KPIs de costo de contratación (acotados por alcance organizacional,
-     * no por los filtros activos en pantalla — mismo criterio que
-     * VacanteController::kpis()). El costo se toma del sueldo_mensual
-     * (opcional) capturado en la vacante que el candidato contratado cubrió.
+     * KPIs del header de Candidatos (sección 4 del encargo): recibidos en
+     * el periodo, en proceso, finalistas, contratados, tasa de conversión
+     * y tiempo promedio de contratación. Respeta el alcance organizacional
+     * y los mismos filtros de empresa/sucursal/departamento/puesto/fuente
+     * que la tabla — "mes" (YYYY-MM) acota únicamente lo que es volumen del
+     * periodo (recibidos/contratados/tasa/tiempo promedio); "en proceso" y
+     * "finalistas" son una foto del pipeline actual, no del periodo.
+     *
+     * El gasto de reclutamiento y el costo por candidato/contratación solo
+     * se calculan si el módulo de campañas de reclutamiento
+     * (App\Models\CampanaReclutamiento, construido en paralelo) ya existe
+     * en el momento en que corre este código — mientras no exista, se
+     * omiten esas 3 llaves sin romper nada.
      *
      * @return array<string, int|float>
      */
-    private function kpis(User $usuario): array
+    private function kpis(Request $request): array
     {
-        $contratadosEsteMes = $this->alcance
-            ->limitarPorSucursal(Candidato::query(), $usuario)
-            ->where('estado', EstadoCandidato::Contratado)
-            ->whereMonth('updated_at', now()->month)
-            ->whereYear('updated_at', now()->year)
-            ->with('vacante:id,sueldo_mensual')
-            ->get();
+        $usuario = $request->user();
+        [$inicioPeriodo, $finPeriodo] = $this->rangoMes($request->string('mes')->toString());
 
-        $costos = $contratadosEsteMes
-            ->map(fn (Candidato $c) => $c->vacante?->sueldo_mensual)
-            ->filter(fn ($sueldo) => $sueldo !== null)
-            ->map(fn ($sueldo) => (float) $sueldo);
+        $base = fn () => $this->alcance
+            ->limitarPorSucursal(Candidato::query(), $usuario)
+            ->when($request->integer('empresa_id'), fn ($q, $v) => $q->where('empresa_id', $v))
+            ->when($request->integer('sucursal_id'), fn ($q, $v) => $q->where('sucursal_id', $v))
+            ->when($request->integer('departamento_id'), fn ($q, $v) => $q->where('departamento_id', $v))
+            ->when($request->integer('puesto_objetivo_id'), fn ($q, $v) => $q->where('puesto_objetivo_id', $v))
+            ->when($request->string('fuente')->toString(), fn ($q, string $v) => $q->where('fuente', $v));
+
+        $recibidosPeriodo = $base()->whereBetween('created_at', [$inicioPeriodo, $finPeriodo])->count();
+
+        $enProceso = $base()->whereNotIn('estado', array_map(
+            fn (EstadoCandidato $e) => $e->value,
+            array_filter(EstadoCandidato::cases(), fn (EstadoCandidato $e) => $e->esTerminal()),
+        ))->count();
+
+        $finalistas = $base()->where('estado', EstadoCandidato::ListoParaContratacion)->count();
+
+        // Filtrado en PHP (no whereHas) porque ultimoCambioEstado es una
+        // relación "ofMany" (latestOfMany): la fecha exacta de contratación
+        // de cada candidato solo se conoce con certeza tras cargarla.
+        $contratadosPeriodo = $base()
+            ->where('estado', EstadoCandidato::Contratado)
+            ->with('ultimoCambioEstado')
+            ->get()
+            ->filter(function (Candidato $c) use ($inicioPeriodo, $finPeriodo) {
+                $fecha = $c->ultimoCambioEstado?->estado_nuevo === EstadoCandidato::Contratado->value
+                    ? $c->ultimoCambioEstado->fecha
+                    : $c->updated_at;
+
+                return $fecha !== null && $fecha->between($inicioPeriodo, $finPeriodo);
+            });
+
+        $diasContratacion = $contratadosPeriodo
+            ->map(fn (Candidato $c) => $c->created_at?->diffInDays($c->ultimoCambioEstado?->fecha ?? $c->updated_at))
+            ->filter(fn ($dias) => $dias !== null);
 
         return [
-            'contratados_mes' => $contratadosEsteMes->count(),
-            'costo_total_contratado_mes' => (float) $costos->sum(),
-            'costo_promedio_contratacion' => $costos->isEmpty() ? 0.0 : (float) $costos->avg(),
+            'recibidos_periodo' => $recibidosPeriodo,
+            'en_proceso' => $enProceso,
+            'finalistas' => $finalistas,
+            'contratados_periodo' => $contratadosPeriodo->count(),
+            'tasa_conversion' => $recibidosPeriodo > 0 ? round($contratadosPeriodo->count() / $recibidosPeriodo, 4) : 0.0,
+            'tiempo_promedio_contratacion_dias' => $diasContratacion->isEmpty() ? null : round($diasContratacion->avg(), 1),
         ];
+    }
+
+    /**
+     * Tipado por CarbonInterface (no Illuminate\Support\Carbon): AppServiceProvider
+     * fuerza `Date::use(CarbonImmutable::class)` globalmente, así que
+     * `now()`/`Carbon::parse()` devuelven CarbonImmutable en runtime (ver
+     * mismo comentario en IncorporacionInvitacionService::resolverExpiracion()).
+     *
+     * @return array{0: CarbonInterface, 1: CarbonInterface}
+     */
+    private function rangoMes(string $mes): array
+    {
+        if ($mes !== '' && preg_match('/^\d{4}-\d{2}$/', $mes) === 1) {
+            $inicio = Carbon::parse("{$mes}-01")->startOfDay();
+
+            return [$inicio, $inicio->copy()->endOfMonth()];
+        }
+
+        return [now()->startOfMonth(), now()->copy()->endOfMonth()];
     }
 
     public function exportarExcel(Request $request): HttpResponse
@@ -159,6 +222,7 @@ class CandidatoController extends Controller
             ->when($request->integer('puesto_objetivo_id'), fn ($query, $valor) => $query->where('puesto_objetivo_id', $valor))
             ->when($request->integer('vacante_id'), fn ($query, $valor) => $query->where('vacante_id', $valor))
             ->when($request->integer('responsable_rh_id'), fn ($query, $valor) => $query->where('responsable_rh_id', $valor))
+            ->when($request->string('fuente')->toString(), fn ($query, string $valor) => $query->where('fuente', $valor))
             ->when($request->string('fecha_inicio')->toString(), fn ($query, string $valor) => $query->whereDate('created_at', '>=', $valor))
             ->when($request->string('fecha_fin')->toString(), fn ($query, string $valor) => $query->whereDate('created_at', '<=', $valor))
             ->when($request->string('busqueda')->toString(), function ($query, string $busqueda) {
@@ -262,8 +326,12 @@ class CandidatoController extends Controller
         // Las fases del candidato son sucesivas: el tablero no es la única
         // autoridad, el enum vuelve a validar que no sea un retroceso.
         if (! $estadoAnterior->puedeTransicionarA($nuevoEstado)) {
+            $motivo = $estadoAnterior->esTerminal()
+                ? "«{$estadoAnterior->etiqueta()}» es un estado definitivo: ya no admite ningún cambio posterior."
+                : "las fases no pueden retroceder ni saltarse hacia atrás en el pipeline.";
+
             throw ValidationException::withMessages([
-                'estado' => "No se puede mover al candidato de «{$estadoAnterior->etiqueta()}» a «{$nuevoEstado->etiqueta()}»: las fases no pueden retroceder.",
+                'estado' => "No se puede mover al candidato de «{$estadoAnterior->etiqueta()}» a «{$nuevoEstado->etiqueta()}»: {$motivo}",
             ]);
         }
 
@@ -318,6 +386,7 @@ class CandidatoController extends Controller
             'vacantes' => Vacante::query()->whereNotIn('estado', ['cubierta', 'cancelada'])->orderByDesc('fecha_apertura')->get(['id', 'puesto_id']),
             'responsables' => User::query()->role(['rh_admin', 'rh_auxiliar'])->orderBy('name')->get(['id', 'name', 'apellidos']),
             'estados' => array_map(fn (EstadoCandidato $e) => ['value' => $e->value, 'etiqueta' => $e->etiqueta()], EstadoCandidato::cases()),
+            'fuentes' => array_map(fn (FuenteCandidato $f) => ['value' => $f->value, 'etiqueta' => $f->etiqueta()], FuenteCandidato::cases()),
             'tiposSeguimiento' => array_map(fn (TipoSeguimientoCandidato $t) => ['value' => $t->value, 'etiqueta' => $t->etiqueta()], TipoSeguimientoCandidato::cases()),
             'transicionesPermitidas' => $this->transicionesPermitidas(),
         ];

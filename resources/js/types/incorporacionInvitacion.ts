@@ -28,9 +28,26 @@ export type IncorporacionInvitacionItem = {
     created_at: string;
 };
 
+/**
+ * Candidato "Listo para contratación" ofrecido por el selector del Alta
+ * Digital QR simplificado (ver CandidatoController::candidatosElegibles()):
+ * ya no se captura nada a mano, todo se autocompleta desde aquí.
+ */
+export type CandidatoElegibleIncorporacion = {
+    id: number;
+    nombre: string;
+    correo: string | null;
+    telefono: string | null;
+    empresa: string | null;
+    sucursal: string | null;
+    departamento: string | null;
+    puesto: string | null;
+};
+
 export type OpcionesIncorporacionInvitacion = {
     empresas: OpcionSimple[];
     sucursales: (OpcionSimple & { empresa_id: number | null })[];
     departamentos: OpcionSimple[];
     puestos: (OpcionSimple & { departamento_id: number | null })[];
+    candidatosElegibles: CandidatoElegibleIncorporacion[];
 };

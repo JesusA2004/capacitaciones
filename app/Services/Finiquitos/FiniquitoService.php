@@ -5,6 +5,7 @@ namespace App\Services\Finiquitos;
 use App\Enums\EstadoFiniquito;
 use App\Enums\TipoBaja;
 use App\Enums\TipoFormatoOficial;
+use App\Models\Colaborador;
 use App\Models\FiniquitoCalculo;
 use App\Models\OfficialFormat;
 use App\Models\SolicitudInterna;
@@ -17,9 +18,11 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 /**
  * Único origen del cálculo de finiquito de una baja de colaborador (ver
@@ -47,12 +50,15 @@ class FiniquitoService
             throw new RuntimeException('Ya existe un cálculo de finiquito para esta baja; usa recalcular().');
         }
 
-        $solicitud->loadMissing('colaboradorObjetivo');
-        $colaborador = $solicitud->colaboradorObjetivo;
-        abort_unless($colaborador !== null, 422, 'Esta solicitud no tiene un colaborador objetivo.');
+        $solicitud->loadMissing('colaboradorObjetivo.colaborador');
+        $colaboradorUsuario = $solicitud->colaboradorObjetivo;
+        abort_unless($colaboradorUsuario !== null, 422, 'Esta solicitud no tiene un colaborador objetivo.');
+
+        $colaborador = $colaboradorUsuario->colaborador;
+        abort_unless($colaborador !== null, 422, 'El colaborador objetivo no tiene expediente de colaborador vinculado.');
         abort_unless($colaborador->fecha_ingreso !== null, 422, 'El colaborador no tiene fecha de ingreso registrada.');
 
-        $automaticos = $this->calcularAutomaticos($solicitud, $colaborador, $sueldoMensual, $sueldoPendiente);
+        $automaticos = $this->calcularAutomaticos($solicitud, $colaborador, $colaboradorUsuario, $sueldoMensual, $sueldoPendiente);
 
         return DB::transaction(function () use ($solicitud, $colaborador, $actor, $automaticos): FiniquitoCalculo {
             $finiquito = FiniquitoCalculo::create([
@@ -83,13 +89,18 @@ class FiniquitoService
      */
     public function recalcular(FiniquitoCalculo $finiquito, User $actor, float $sueldoMensual, float $sueldoPendiente = 0): FiniquitoCalculo
     {
-        $finiquito->loadMissing('solicitudInterna.colaboradorObjetivo');
+        $this->asegurarNoFirmado($finiquito);
+
+        $finiquito->loadMissing('solicitudInterna.colaboradorObjetivo.colaborador');
         $solicitud = $finiquito->solicitudInterna;
-        $colaborador = $solicitud->colaboradorObjetivo;
-        abort_unless($colaborador !== null, 422, 'Esta solicitud no tiene un colaborador objetivo.');
+        $colaboradorUsuario = $solicitud->colaboradorObjetivo;
+        abort_unless($colaboradorUsuario !== null, 422, 'Esta solicitud no tiene un colaborador objetivo.');
+
+        $colaborador = $colaboradorUsuario->colaborador;
+        abort_unless($colaborador !== null, 422, 'El colaborador objetivo no tiene expediente de colaborador vinculado.');
         abort_unless($colaborador->fecha_ingreso !== null, 422, 'El colaborador no tiene fecha de ingreso registrada.');
 
-        $automaticos = $this->calcularAutomaticos($solicitud, $colaborador, $sueldoMensual, $sueldoPendiente);
+        $automaticos = $this->calcularAutomaticos($solicitud, $colaborador, $colaboradorUsuario, $sueldoMensual, $sueldoPendiente);
 
         return DB::transaction(function () use ($finiquito, $solicitud, $actor, $automaticos): FiniquitoCalculo {
             $totalAjustado = $automaticos['total_calculado']
@@ -116,6 +127,8 @@ class FiniquitoService
      */
     public function actualizarAjustes(FiniquitoCalculo $finiquito, User $actor, array $datos): FiniquitoCalculo
     {
+        $this->asegurarNoFirmado($finiquito);
+
         $bonosExtra = (float) ($datos['bonos_extra'] ?? $finiquito->bonos_extra);
         $descuentos = (float) ($datos['descuentos'] ?? $finiquito->descuentos);
         $adeudos = (float) ($datos['adeudos'] ?? $finiquito->adeudos);
@@ -133,11 +146,10 @@ class FiniquitoService
                 'total_ajustado' => round($totalAjustado, 2),
                 // Un ajuste manual sobre un cálculo ya revisado obliga a
                 // revisarlo de nuevo — nunca se queda "revisado" con
-                // números distintos a los que se revisaron.
-                'estado' => $finiquito->estado === EstadoFiniquito::Firmado
-                    ? $finiquito->estado->value
-                    : EstadoFiniquito::Borrador->value,
-                'revisado_por_id' => $finiquito->estado === EstadoFiniquito::Firmado ? $finiquito->revisado_por_id : null,
+                // números distintos a los que se revisaron. (asegurarNoFirmado()
+                // ya garantizó arriba que nunca llegamos aquí en estado firmado.)
+                'estado' => EstadoFiniquito::Borrador->value,
+                'revisado_por_id' => null,
             ]);
 
             $this->registrarHistorial($finiquito->solicitudInterna, $actor, 'finiquito_ajustado', $datos['comentarios_ajuste'] ?? null);
@@ -148,6 +160,8 @@ class FiniquitoService
 
     public function aprobarCalculo(FiniquitoCalculo $finiquito, User $actor): FiniquitoCalculo
     {
+        $this->asegurarNoFirmado($finiquito);
+
         $finiquito->update([
             'estado' => EstadoFiniquito::Revisado->value,
             'revisado_por_id' => $actor->id,
@@ -177,7 +191,23 @@ class FiniquitoService
     {
         $nombreInterno = $this->storage->nombreInterno($archivo->getClientOriginalName());
         $ruta = "solicitudes/{$finiquito->solicitud_interna_id}/finiquito/firmado-{$nombreInterno}";
-        $this->storage->guardar($archivo, $ruta);
+
+        try {
+            $this->storage->guardar($archivo, $ruta);
+
+            if (! $this->storage->disco()->exists($ruta)) {
+                throw new RuntimeException('El almacenamiento no confirmó haber guardado el archivo.');
+            }
+        } catch (Throwable $e) {
+            Log::error('FiniquitoService: fallo al guardar el documento firmado en el almacenamiento.', [
+                'finiquito_id' => $finiquito->id,
+                'message' => $e->getMessage(),
+            ]);
+
+            throw ValidationException::withMessages([
+                'archivo' => 'No se pudo guardar el documento firmado en el almacenamiento (NAS/disco no disponible). Intenta de nuevo; si el problema continúa, avisa a sistemas.',
+            ]);
+        }
 
         $finiquito->update([
             'documento_firmado_path' => $ruta,
@@ -197,6 +227,8 @@ class FiniquitoService
      */
     public function generarPdf(FiniquitoCalculo $finiquito): FiniquitoCalculo
     {
+        $this->asegurarNoFirmado($finiquito);
+
         $finiquito->loadMissing(['colaborador', 'calculadoPor', 'revisadoPor', 'solicitudInterna']);
 
         $formatoOficial = OfficialFormat::query()
@@ -213,7 +245,22 @@ class FiniquitoService
         $nombreInterno = 'generado-'.now()->timestamp.'.pdf';
         $ruta = "solicitudes/{$finiquito->solicitud_interna_id}/finiquito/{$nombreInterno}";
 
-        $this->storage->disco()->put($ruta, $contenido);
+        try {
+            $guardado = $this->storage->disco()->put($ruta, $contenido);
+
+            if ($guardado === false || ! $this->storage->disco()->exists($ruta)) {
+                throw new RuntimeException('El almacenamiento no confirmó haber guardado el PDF generado.');
+            }
+        } catch (Throwable $e) {
+            Log::error('FiniquitoService: fallo al guardar el PDF generado en el almacenamiento.', [
+                'finiquito_id' => $finiquito->id,
+                'message' => $e->getMessage(),
+            ]);
+
+            throw ValidationException::withMessages([
+                'documento' => 'No se pudo generar el PDF del finiquito: falló el almacenamiento (NAS/disco no disponible). Intenta de nuevo; si el problema continúa, avisa a sistemas.',
+            ]);
+        }
 
         $finiquito->update([
             'documento_generado_path' => $ruta,
@@ -282,9 +329,16 @@ class FiniquitoService
     }
 
     /**
+     * @param  Colaborador  $colaborador  Fuente de verdad de persona/empleo (fecha_ingreso). El
+     *                                    sueldo se recibe aparte porque RH puede capturarlo/editarlo
+     *                                    antes de aprobarse (ver docblock de la clase).
+     * @param  User  $colaboradorUsuario  Cuenta de acceso enlazada — se sigue usando solo para
+     *                                    VacacionesService::saldo() (solicitudes_vacaciones.user_id
+     *                                    todavía no migra a colaborador_id, deuda técnica documentada
+     *                                    ahí mismo).
      * @return array<string, mixed>
      */
-    private function calcularAutomaticos(SolicitudInterna $solicitud, User $colaborador, float $sueldoMensual, float $sueldoPendiente = 0): array
+    private function calcularAutomaticos(SolicitudInterna $solicitud, Colaborador $colaborador, User $colaboradorUsuario, float $sueldoMensual, float $sueldoPendiente = 0): array
     {
         $fechaIngreso = Carbon::parse($colaborador->fecha_ingreso);
         $fechaBaja = $solicitud->fecha_efectiva !== null ? Carbon::parse($solicitud->fecha_efectiva) : Carbon::now();
@@ -299,7 +353,7 @@ class FiniquitoService
         $diasTrabajadosPeriodo = (int) $ultimoAniversario->diffInDays($fechaBaja);
 
         $sueldoDiario = round($sueldoMensual / 30, 2);
-        $vacacionesPendientes = $this->vacaciones->saldo($colaborador)['dias_disponibles'];
+        $vacacionesPendientes = $this->vacaciones->saldo($colaboradorUsuario)['dias_disponibles'];
 
         $primaVacacionalPorcentaje = (int) config('finiquitos.prima_vacacional_porcentaje');
         $primaVacacional = round($vacacionesPendientes * $sueldoDiario * ($primaVacacionalPorcentaje / 100), 2);
@@ -358,6 +412,24 @@ class FiniquitoService
         }
 
         return array_sum(array_map(static fn ($valor): float => (float) $valor, $otrosConceptos));
+    }
+
+    /**
+     * Invariante de negocio: un finiquito firmado no se recalcula, no se
+     * ajusta, no se vuelve a revisar y no se regenera el PDF por encima del
+     * ya entregado — el documento firmado por el colaborador es definitivo.
+     * Falta por implementar (fuera de alcance de este cambio): un flujo
+     * explícito de "corrección/anulación" que cree una versión nueva en vez
+     * de mutar la firmada, para cuando RH detecte un error después de
+     * firmado.
+     */
+    private function asegurarNoFirmado(FiniquitoCalculo $finiquito): void
+    {
+        if ($finiquito->estado === EstadoFiniquito::Firmado) {
+            throw ValidationException::withMessages([
+                'estado' => 'Este finiquito ya está firmado y no puede modificarse. Si hay un error, genera una corrección/anulación explícita.',
+            ]);
+        }
     }
 
     private function registrarHistorial(SolicitudInterna $solicitud, User $actor, string $accion, ?string $comentario = null): void

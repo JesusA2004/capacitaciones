@@ -58,7 +58,9 @@ class SolicitudInterna extends Model
     protected $fillable = [
         'folio',
         'user_id',
+        'colaborador_id',
         'colaborador_objetivo_id',
+        'objetivo_colaborador_id',
         'fecha_efectiva',
         'tipo_baja',
         'tipo',
@@ -102,14 +104,54 @@ class SolicitudInterna extends Model
     }
 
     /**
+     * Colaborador (persona/empleo) que presenta la solicitud. Fuente de
+     * verdad nueva para "quién es esta solicitud" — `usuario()`/`user_id` se
+     * conserva solo como actor (quién hizo el submit desde su sesión), nunca
+     * como la persona en lógica de negocio nueva. Ver personaSolicitante().
+     *
+     * @return BelongsTo<Colaborador, $this>
+     */
+    public function colaborador(): BelongsTo
+    {
+        return $this->belongsTo(Colaborador::class, 'colaborador_id');
+    }
+
+    /**
      * Sujeto de la solicitud cuando NO es quien la crea (hoy solo
      * BajaColaborador: la crea un gerente/RH sobre otro colaborador).
+     * Legacy: apunta a `users`. Ver objetivoColaborador() para el
+     * equivalente sobre `colaboradores`.
      *
      * @return BelongsTo<User, $this>
      */
     public function colaboradorObjetivo(): BelongsTo
     {
         return $this->belongsTo(User::class, 'colaborador_objetivo_id');
+    }
+
+    /**
+     * Equivalente a colaboradorObjetivo() pero apuntando directo a
+     * `colaboradores` (objetivo_colaborador_id) — fuente de verdad nueva
+     * para el sujeto de una solicitud creada por alguien más (p. ej.
+     * BajaColaborador).
+     *
+     * @return BelongsTo<Colaborador, $this>
+     */
+    public function objetivoColaborador(): BelongsTo
+    {
+        return $this->belongsTo(Colaborador::class, 'objetivo_colaborador_id');
+    }
+
+    /**
+     * El colaborador (persona) dueño de esta solicitud: prefiere
+     * `colaborador_id` (fuente de verdad nueva) y cae a
+     * `usuario->colaborador` mientras el flujo de creación de solicitudes
+     * no puebla esa columna todavía — nunca debe regresar null solo porque
+     * `colaborador_id` sigue sin llenarse en una solicitud existente.
+     */
+    public function personaSolicitante(): ?Colaborador
+    {
+        return $this->colaborador ?? $this->usuario?->colaborador;
     }
 
     /**

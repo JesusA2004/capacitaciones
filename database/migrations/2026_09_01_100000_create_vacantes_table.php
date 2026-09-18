@@ -37,6 +37,9 @@ return new class extends Migration
             $table->unsignedSmallInteger('plazas_requeridas')->default(0);
             $table->unsignedSmallInteger('plazas_cubiertas')->default(0);
             $table->unsignedSmallInteger('plazas_disponibles')->default(0);
+            // Presupuesto mensual de la plaza, opcional: alimenta los KPIs de
+            // costo de contratación en Vacantes/Candidatos.
+            $table->decimal('sueldo_mensual', 10, 2)->nullable();
             $table->foreignId('creado_por')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
             $table->softDeletes();

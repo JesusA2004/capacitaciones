@@ -21,6 +21,7 @@ return new class extends Migration
             $table->foreignId('empresa_id')->nullable()->constrained('empresas')->nullOnDelete();
             $table->foreignId('sucursal_id')->nullable()->constrained('sucursales')->nullOnDelete();
             $table->foreignId('puesto_id')->nullable()->constrained('puestos')->nullOnDelete();
+            $table->foreignId('departamento_id')->nullable()->constrained('departamentos')->nullOnDelete();
             $table->string('disk');
             $table->string('path');
             $table->string('original_name');

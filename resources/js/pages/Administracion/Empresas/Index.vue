@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
-import { Building2, CheckCircle2, MapPinned, Plus, XCircle } from '@lucide/vue';
+import { Building2, CheckCircle2, MapPinned, Plus, Users, XCircle } from '@lucide/vue';
 import { ref } from 'vue';
 import EmpresaFormDialog from '@/components/Administracion/EmpresaFormDialog.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
@@ -48,6 +48,7 @@ const columnas: ColumnaDataTable[] = [
     { clave: 'nombre', etiqueta: 'Empresa' },
     { clave: 'rfc', etiqueta: 'RFC' },
     { clave: 'sucursales_count', etiqueta: 'Sucursales' },
+    { clave: 'colaboradores_count', etiqueta: 'Colaboradores' },
     { clave: 'activo', etiqueta: 'Estado' },
 ];
 
@@ -184,6 +185,14 @@ async function eliminar(empresa: EmpresaItem) {
                 >
                     <MapPinned class="size-3.5" />
                     {{ fila.sucursales_count }}
+                </span>
+            </template>
+            <template #celda-colaboradores_count="{ fila }">
+                <span
+                    class="inline-flex items-center gap-1.5 text-muted-foreground"
+                >
+                    <Users class="size-3.5" />
+                    {{ fila.colaboradores_count }}
                 </span>
             </template>
             <template #celda-activo="{ fila }">

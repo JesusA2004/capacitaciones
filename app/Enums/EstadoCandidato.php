@@ -4,49 +4,48 @@ namespace App\Enums;
 
 enum EstadoCandidato: string
 {
-    case Nuevo = 'nuevo';
-    case Contactado = 'contactado';
-    case Respondio = 'respondio';
-    case NoRespondio = 'no_respondio';
-    case Viable = 'viable';
-    case NoViable = 'no_viable';
-    case EntrevistaProgramada = 'entrevista_programada';
-    case Entrevistado = 'entrevistado';
-    case DocumentacionSolicitada = 'documentacion_solicitada';
-    case EnRevision = 'en_revision';
-    case AprobadoGerencia = 'aprobado_gerencia';
-    case AprobadoRh = 'aprobado_rh';
-    case Rechazado = 'rechazado';
-    case Descartado = 'descartado';
+    case Recibidos = 'recibidos';
+    case Preseleccion = 'preseleccion';
+    case Entrevista = 'entrevista';
+    case Psicometricos = 'psicometricos';
+    case EstudioSocioeconomico = 'estudio_socioeconomico';
+    case Pruebas = 'pruebas';
+    case ValidacionDocumental = 'validacion_documental';
+    case OfertaAprobacion = 'oferta_aprobacion';
+    case ListoParaContratacion = 'listo_para_contratacion';
     case Contratado = 'contratado';
+
+    case NoSeleccionado = 'no_seleccionado';
+    case NoViable = 'no_viable';
+    case NoRespondio = 'no_respondio';
+    case Desistio = 'desistio';
 
     public function etiqueta(): string
     {
         return match ($this) {
-            self::Nuevo => 'Nuevo',
-            self::Contactado => 'Contactado',
-            self::Respondio => 'Respondió',
-            self::NoRespondio => 'No respondió',
-            self::Viable => 'Viable',
-            self::NoViable => 'No viable',
-            self::EntrevistaProgramada => 'Entrevista programada',
-            self::Entrevistado => 'Entrevistado',
-            self::DocumentacionSolicitada => 'Documentación solicitada',
-            self::EnRevision => 'En revisión',
-            self::AprobadoGerencia => 'Aprobado por gerencia',
-            self::AprobadoRh => 'Aprobado por RH',
-            self::Rechazado => 'Rechazado',
-            self::Descartado => 'Descartado',
+            self::Recibidos => 'Recibidos',
+            self::Preseleccion => 'Preselección',
+            self::Entrevista => 'Entrevista',
+            self::Psicometricos => 'Psicométricos',
+            self::EstudioSocioeconomico => 'Estudio socioeconómico',
+            self::Pruebas => 'Pruebas / evaluación',
+            self::ValidacionDocumental => 'Validación documental',
+            self::OfertaAprobacion => 'Oferta / aprobación',
+            self::ListoParaContratacion => 'Listo para contratación',
             self::Contratado => 'Contratado',
+            self::NoSeleccionado => 'No seleccionado',
+            self::NoViable => 'No viable',
+            self::NoRespondio => 'No respondió',
+            self::Desistio => 'Desistió',
         };
     }
 
     /**
-     * Los 4 estados terminales de salida (rechazo/descarte) no forman parte
+     * Los 4 estados terminales de salida (descarte/abandono) no forman parte
      * del pipeline lineal: pueden alcanzarse desde cualquier fase abierta,
      * así que no llevan un número de orden propio.
      */
-    private const ESTADOS_SALIDA = [self::NoRespondio, self::NoViable, self::Rechazado, self::Descartado];
+    private const ESTADOS_SALIDA = [self::NoSeleccionado, self::NoViable, self::NoRespondio, self::Desistio];
 
     /**
      * Posición en el pipeline sucesivo de un candidato. Usado por
@@ -55,18 +54,17 @@ enum EstadoCandidato: string
     public function orden(): int
     {
         return match ($this) {
-            self::Nuevo => 1,
-            self::Contactado => 2,
-            self::Respondio => 3,
-            self::Viable => 4,
-            self::EntrevistaProgramada => 5,
-            self::Entrevistado => 6,
-            self::DocumentacionSolicitada => 7,
-            self::EnRevision => 8,
-            self::AprobadoGerencia => 9,
-            self::AprobadoRh => 10,
-            self::Contratado => 11,
-            self::NoRespondio, self::NoViable, self::Rechazado, self::Descartado => 0,
+            self::Recibidos => 1,
+            self::Preseleccion => 2,
+            self::Entrevista => 3,
+            self::Psicometricos => 4,
+            self::EstudioSocioeconomico => 5,
+            self::Pruebas => 6,
+            self::ValidacionDocumental => 7,
+            self::OfertaAprobacion => 8,
+            self::ListoParaContratacion => 9,
+            self::Contratado => 10,
+            self::NoSeleccionado, self::NoViable, self::NoRespondio, self::Desistio => 0,
         };
     }
 

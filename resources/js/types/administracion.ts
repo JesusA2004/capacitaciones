@@ -9,6 +9,7 @@ export type EmpresaItem = {
     logo_url: string | null;
     activo: boolean;
     sucursales_count: number;
+    colaboradores_count: number;
 };
 
 export type SucursalItem = {
@@ -24,7 +25,9 @@ export type SucursalItem = {
     responsable_id: number | null;
     responsable: { id: number; name: string; apellidos: string | null } | null;
     activo: boolean;
-    usuarios_count: number;
+    colaboradores_count: number;
+    plantilla_permitida?: number;
+    plantilla_vacantes?: number;
 };
 
 export type DepartamentoItem = {
@@ -33,7 +36,7 @@ export type DepartamentoItem = {
     descripcion: string | null;
     activo: boolean;
     puestos_count: number;
-    usuarios_count: number;
+    colaboradores_count: number;
 };
 
 export type PuestoItem = {
@@ -43,7 +46,7 @@ export type PuestoItem = {
     departamento: { id: number; nombre: string } | null;
     descripcion: string | null;
     activo: boolean;
-    usuarios_count: number;
+    colaboradores_count: number;
 };
 
 export type OpcionSimple = {
@@ -75,7 +78,7 @@ export type PuestoJerarquiaItem = {
         estado: string;
     }[];
     activo: boolean;
-    usuarios_count: number;
+    colaboradores_count: number;
     candidatos_count: number;
     vacantes_abiertas_count: number;
 };

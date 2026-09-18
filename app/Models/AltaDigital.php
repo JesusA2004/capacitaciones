@@ -49,6 +49,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $motivo_rechazo
  * @property string|null $comentarios
  * @property int|null $user_id
+ * @property int|null $colaborador_id
  * @property int|null $creado_por
  */
 class AltaDigital extends Model
@@ -102,6 +103,7 @@ class AltaDigital extends Model
         'motivo_rechazo',
         'comentarios',
         'user_id',
+        'colaborador_id',
         'creado_por',
     ];
 
@@ -207,9 +209,25 @@ class AltaDigital extends Model
     }
 
     /**
-     * @return BelongsTo<User, $this>
+     * Colaborador (persona) real creado al convertir esta alta — no la
+     * cuenta de acceso. Ver App\Services\AltaDigital\ConversionColaboradorService::convertir(),
+     * que crea el Colaborador primero y enlaza `colaborador_id` aquí; usa
+     * `usuarioCreado()` si necesitas la cuenta de acceso (`user_id`).
+     *
+     * @return BelongsTo<Colaborador, $this>
      */
     public function colaborador(): BelongsTo
+    {
+        return $this->belongsTo(Colaborador::class, 'colaborador_id');
+    }
+
+    /**
+     * Cuenta de acceso (`users`) creada junto con el Colaborador al
+     * convertir esta alta. Ver colaborador() para la persona real.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function usuarioCreado(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
     }

@@ -31,7 +31,7 @@ class JerarquiaPuestoService
                 'candidatos:id,puesto_objetivo_id,nombre,apellidos,estado',
             ])
             ->withCount([
-                'usuarios',
+                'colaboradores as colaboradores_count' => fn ($query) => $query->where('estatus', 'activo'),
                 'candidatos',
                 'vacantes as vacantes_abiertas_count' => fn ($query) => $query->whereNotIn('estado', ['cubierta', 'cancelada']),
             ])
@@ -39,11 +39,11 @@ class JerarquiaPuestoService
             // "tiene al menos un colaborador activo en esa empresa/sucursal"
             // (ver docs/JERARQUIA_PUESTOS.md).
             ->when($request->integer('empresa_id'), fn ($query, int $id) => $query->whereHas(
-                'usuarios',
+                'colaboradores',
                 fn ($sub) => $sub->whereHas('sucursalPrincipal', fn ($s) => $s->where('empresa_id', $id)),
             ))
             ->when($request->integer('sucursal_id'), fn ($query, int $id) => $query->whereHas(
-                'usuarios',
+                'colaboradores',
                 fn ($sub) => $sub->where('sucursal_principal_id', $id),
             ))
             ->when($request->integer('departamento_id'), fn ($query, int $id) => $query->where('departamento_id', $id))

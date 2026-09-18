@@ -69,11 +69,22 @@ class Puesto extends Model
     }
 
     /**
+     * @deprecated Usar colaboradores(). Se conserva por compatibilidad
+     * histórica de código que aún no migra a Colaborador.
+     *
      * @return HasMany<User, $this>
      */
     public function usuarios(): HasMany
     {
         return $this->hasMany(User::class);
+    }
+
+    /**
+     * @return HasMany<Colaborador, $this>
+     */
+    public function colaboradores(): HasMany
+    {
+        return $this->hasMany(Colaborador::class);
     }
 
     /**

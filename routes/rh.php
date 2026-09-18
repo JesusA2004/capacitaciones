@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Rh\AltaDigitalController;
+use App\Http\Controllers\Rh\CampanaReclutamientoController;
 use App\Http\Controllers\Rh\CandidatoController;
 use App\Http\Controllers\Rh\CumpleanosConfiguracionController;
 use App\Http\Controllers\Rh\CumpleanosController;
@@ -38,7 +39,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('{colaborador}/foto', [ExpedienteController::class, 'descargarFoto'])->name('foto')->withTrashed();
             Route::put('{colaborador}/datos-personales', [ExpedienteController::class, 'actualizarDatosPersonales'])->name('datos-personales.update');
             Route::put('{colaborador}/datos-laborales', [ExpedienteController::class, 'actualizarDatosLaborales'])->name('datos-laborales.update');
-            Route::get('{colaborador}/recibo-nomina', [ExpedienteController::class, 'generarReciboNomina'])->name('recibo-nomina');
+            Route::get('{colaborador}/recibos-nomina', [ExpedienteController::class, 'historialRecibosNomina'])->name('recibos-nomina.index');
+            Route::post('{colaborador}/recibos-nomina', [ExpedienteController::class, 'generarReciboNomina'])->name('recibos-nomina.store');
+            Route::get('recibos-nomina/{recibo}/descargar', [ExpedienteController::class, 'descargarReciboNomina'])->name('recibos-nomina.descargar');
+            Route::get('{colaborador}/prestamos', [ExpedienteController::class, 'historialPrestamos'])->name('prestamos.index');
+            Route::post('prestamos/{prestamo}/movimientos', [ExpedienteController::class, 'registrarPagoPrestamo'])->name('prestamos.movimientos.store');
             Route::put('{colaborador}/avisos', [ExpedienteController::class, 'registrarAvisos'])->name('avisos.update');
             Route::delete('{colaborador}', [ExpedienteController::class, 'darDeBaja'])->name('dar-de-baja');
             Route::post('{colaborador}/reactivar', [ExpedienteController::class, 'reactivar'])->name('reactivar')->withTrashed();
@@ -75,15 +80,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // El resumen de reclutamiento (vacantes + candidatos) vive dentro de
         // Vacantes; el módulo suelto `rh/reclutamiento` (Rh\ReclutamientoController)
         // no estaba enlazado en ningún menú y se retiró.
+        // Vacantes es 100% informativo (derivado de la plantilla): no admite
+        // alta/edición/cobertura manual, ver App\Http\Controllers\Rh\VacanteController.
         Route::prefix('vacantes')->name('vacantes.')->group(function () {
             Route::get('/', [VacanteController::class, 'index'])->name('index');
             Route::get('exportar-excel', [VacanteController::class, 'exportarExcel'])->name('exportarExcel');
             Route::get('exportar-pdf', [VacanteController::class, 'exportarPdf'])->name('exportarPdf');
-            Route::post('/', [VacanteController::class, 'store'])->name('store');
-            Route::put('{vacante}', [VacanteController::class, 'update'])->name('update');
-            Route::put('{vacante}/estado', [VacanteController::class, 'actualizarEstado'])->name('estado');
-            Route::post('{vacante}/cubrir', [VacanteController::class, 'cubrir'])->name('cubrir');
-            Route::delete('{vacante}', [VacanteController::class, 'destroy'])->name('destroy');
         });
 
         Route::prefix('candidatos')->name('candidatos.')->group(function () {
@@ -98,6 +100,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('{candidato}/estado', [CandidatoController::class, 'actualizarEstado'])->name('estado');
             Route::post('{candidato}/seguimientos', [CandidatoController::class, 'agregarSeguimiento'])->name('seguimientos.store');
             Route::delete('{candidato}', [CandidatoController::class, 'destroy'])->name('destroy');
+        });
+
+        Route::prefix('campanas')->name('campanas.')->group(function () {
+            Route::get('/', [CampanaReclutamientoController::class, 'index'])->name('index');
+            Route::post('/', [CampanaReclutamientoController::class, 'store'])->name('store');
+            Route::put('{campana}', [CampanaReclutamientoController::class, 'update'])->name('update');
+            Route::delete('{campana}', [CampanaReclutamientoController::class, 'destroy'])->name('destroy');
         });
 
         Route::prefix('altas')->name('altas.')->group(function () {

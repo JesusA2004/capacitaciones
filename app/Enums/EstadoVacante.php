@@ -2,6 +2,14 @@
 
 namespace App\Enums;
 
+/**
+ * Vacantes es 100% informativo (ver docs/HEADCOUNT_Y_VACANTES.md): ya no
+ * hay tablero ni transición manual de estado. Las únicas escrituras a este
+ * campo las hace App\Services\Vacantes\VacanteAutoGenerationService al
+ * sincronizar con el headcount (abre en Abierta, cierra a Cubierta cuando
+ * ConversionColaboradorService confirma el alta, o a Cancelada cuando el
+ * faltante desaparece) — nunca un usuario arrastrando una tarjeta.
+ */
 enum EstadoVacante: string
 {
     case Abierta = 'abierta';
@@ -20,35 +28,6 @@ enum EstadoVacante: string
             self::EnRevision => 'En revisión',
             self::Cubierta => 'Cubierta',
             self::Cancelada => 'Cancelada',
-        };
-    }
-
-    /**
-     * Mapa de transiciones válidas para App\Http\Controllers\Rh\VacanteController::actualizarEstado()
-     * (drag and drop del tablero, ver docs/VACANTES.md). "Cubierta" NUNCA es
-     * un destino válido aquí a propósito: solo se llega a ese estado a
-     * través de VacanteController::cubrir() (cobertura real: colaborador
-     * interno, temporal o candidato externo), nunca soltando una tarjeta.
-     */
-    public function puedeTransicionarA(self $destino): bool
-    {
-        if ($this === self::Cubierta || $this === self::Cancelada) {
-            return false;
-        }
-
-        if ($destino === self::Cancelada) {
-            return true;
-        }
-
-        if ($destino === self::Cubierta) {
-            return false;
-        }
-
-        return match ($this) {
-            self::Abierta => in_array($destino, [self::EnReclutamiento, self::ConCandidatos], true),
-            self::EnReclutamiento => in_array($destino, [self::ConCandidatos, self::EnRevision], true),
-            self::ConCandidatos => $destino === self::EnRevision,
-            self::EnRevision => $destino === self::ConCandidatos,
         };
     }
 }

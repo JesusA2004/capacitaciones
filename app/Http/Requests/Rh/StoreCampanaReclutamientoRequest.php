@@ -2,15 +2,15 @@
 
 namespace App\Http\Requests\Rh;
 
-use App\Enums\MotivoVacante;
+use App\Enums\CanalReclutamiento;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Enum;
 
-class UpdateVacanteRequest extends FormRequest
+class StoreCampanaReclutamientoRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('update', $this->route('vacante')) ?? false;
+        return $this->user()?->hasAnyRole(['rh_admin', 'super_admin']) ?? false;
     }
 
     /**
@@ -19,17 +19,16 @@ class UpdateVacanteRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'mes' => ['required', 'integer', 'min:1', 'max:12'],
+            'anio' => ['required', 'integer', 'min:2000', 'max:2100'],
+            'canal' => ['required', new Enum(CanalReclutamiento::class)],
             'empresa_id' => ['nullable', 'integer', 'exists:empresas,id'],
             'sucursal_id' => ['nullable', 'integer', 'exists:sucursales,id'],
             'departamento_id' => ['nullable', 'integer', 'exists:departamentos,id'],
             'puesto_id' => ['nullable', 'integer', 'exists:puestos,id'],
-            'gerente_solicitante_id' => ['nullable', 'integer', 'exists:users,id'],
-            'responsable_rh_id' => ['nullable', 'integer', 'exists:users,id'],
-            'motivo' => ['required', new Enum(MotivoVacante::class)],
-            'fecha_apertura' => ['required', 'date'],
-            'fecha_estimada_cobertura' => ['nullable', 'date', 'after_or_equal:fecha_apertura'],
+            'monto' => ['required', 'numeric', 'min:0', 'max:9999999.99'],
+            'candidatos_generados' => ['nullable', 'integer', 'min:0'],
             'observaciones' => ['nullable', 'string', 'max:4000'],
-            'sueldo_mensual' => ['nullable', 'numeric', 'min:0', 'max:9999999.99'],
         ];
     }
 }

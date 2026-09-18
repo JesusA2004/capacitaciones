@@ -12,6 +12,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('document_template_id')->nullable()->constrained('document_templates')->nullOnDelete();
             $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('colaborador_id')->nullable()->constrained('colaboradores')->nullOnDelete();
             $table->foreignId('candidato_id')->nullable()->constrained('candidatos')->nullOnDelete();
             $table->foreignId('solicitud_id')->nullable()->constrained('solicitudes_internas')->nullOnDelete();
             $table->foreignId('solicitud_vacaciones_id')->nullable()->constrained('solicitudes_vacaciones')->nullOnDelete();

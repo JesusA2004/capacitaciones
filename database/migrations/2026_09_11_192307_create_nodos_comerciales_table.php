@@ -30,6 +30,7 @@ return new class extends Migration
             $table->foreignId('sucursal_id')->nullable()->constrained('sucursales')->nullOnDelete();
             $table->foreignId('puesto_id')->nullable()->constrained('puestos')->nullOnDelete();
             $table->foreignId('responsable_user_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('responsable_colaborador_id')->nullable()->constrained('colaboradores')->nullOnDelete();
             $table->json('metadata')->nullable();
             $table->timestamps();
 

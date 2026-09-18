@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\EstadoCandidato;
+use App\Enums\FuenteCandidato;
 use App\Models\Candidato;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -21,8 +22,8 @@ class CandidatoFactory extends Factory
             'apellidos' => fake()->lastName(),
             'telefono' => fake()->phoneNumber(),
             'correo' => fake()->unique()->safeEmail(),
-            'fuente' => fake()->randomElement(['referido', 'bolsa_trabajo', 'redes_sociales', 'volante']),
-            'estado' => EstadoCandidato::Nuevo->value,
+            'fuente' => fake()->randomElement(FuenteCandidato::valores()),
+            'estado' => EstadoCandidato::Recibidos->value,
         ];
     }
 }

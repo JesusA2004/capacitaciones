@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Rh;
 
+use App\Enums\EstadoCandidato;
 use App\Enums\EstadoInvitacionIncorporacion;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Rh\StoreIncorporacionInvitacionRequest;
+use App\Models\Candidato;
 use App\Models\Departamento;
 use App\Models\Empresa;
 use App\Models\IncorporacionInvitacion;
@@ -14,6 +16,7 @@ use App\Services\Incorporacion\IncorporacionInvitacionService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 use RuntimeException;
@@ -58,11 +61,46 @@ class IncorporacionInvitacionController extends Controller
                 'sucursales' => Sucursal::query()->orderBy('nombre')->get(['id', 'nombre', 'empresa_id']),
                 'departamentos' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
                 'puestos' => Puesto::query()->orderBy('nombre')->get(['id', 'nombre', 'departamento_id']),
+                'candidatosElegibles' => $this->candidatosElegibles(),
             ],
             'puedeCrear' => $usuario->can('rh.incorporacion.invitaciones.crear'),
             'puedeRegenerar' => $usuario->can('rh.incorporacion.invitaciones.regenerar'),
             'puedeRevocar' => $usuario->can('rh.incorporacion.invitaciones.revocar'),
         ]);
+    }
+
+    /**
+     * Candidatos que se pueden ofrecer en el selector del Alta Digital QR
+     * (sección 5 del encargo): "Listo para contratación" y sin una
+     * incorporación ya en curso/completada — misma regla de idempotencia
+     * que App\Http\Requests\Rh\StoreIncorporacionInvitacionRequest.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function candidatosElegibles(): Collection
+    {
+        return Candidato::query()
+            ->where('estado', EstadoCandidato::ListoParaContratacion)
+            ->whereDoesntHave('incorporacionInvitacion', function (Builder $query): void {
+                $query->where('estado', EstadoInvitacionIncorporacion::Activo)
+                    ->where('expires_at', '>', now());
+            })
+            ->whereDoesntHave('incorporacionInvitacion', fn (Builder $query) => $query->whereNotNull('user_id'))
+            ->whereDoesntHave('altaDigital', fn (Builder $query) => $query->whereNotNull('colaborador_id'))
+            ->with(['empresa:id,nombre', 'sucursal:id,nombre', 'departamento:id,nombre', 'puestoObjetivo:id,nombre'])
+            ->orderBy('nombre')
+            ->get(['id', 'empresa_id', 'sucursal_id', 'departamento_id', 'puesto_objetivo_id', 'nombre', 'apellidos', 'correo', 'telefono'])
+            ->map(fn (Candidato $candidato) => [
+                'id' => $candidato->id,
+                'nombre' => $candidato->nombreCompleto(),
+                'correo' => $candidato->correo,
+                'telefono' => $candidato->telefono,
+                'empresa' => $candidato->empresa?->nombre,
+                'sucursal' => $candidato->sucursal?->nombre,
+                'departamento' => $candidato->departamento?->nombre,
+                'puesto' => $candidato->puestoObjetivo?->nombre,
+            ])
+            ->values();
     }
 
     /**
@@ -83,9 +121,29 @@ class IncorporacionInvitacionController extends Controller
             });
     }
 
+    /**
+     * El Alta Digital QR simplificado ya no captura nombre/correo/teléfono/
+     * empresa/sucursal/departamento/puesto a mano (sección 5 del encargo):
+     * todo eso se autocompleta aquí desde el Candidato elegido — el
+     * formulario solo pide candidato, vigencia y observaciones.
+     */
     public function store(StoreIncorporacionInvitacionRequest $request): RedirectResponse
     {
-        ['invitacion' => $invitacion, 'token' => $token] = $this->invitaciones->crear($request->validated(), $request->user());
+        $datos = $request->validated();
+        $candidato = Candidato::query()->findOrFail($datos['candidato_id']);
+
+        ['invitacion' => $invitacion, 'token' => $token] = $this->invitaciones->crear([
+            'candidato_id' => $candidato->id,
+            'email' => $candidato->correo,
+            'telefono' => $candidato->telefono,
+            'nombre_prellenado' => $candidato->nombreCompleto(),
+            'empresa_id' => $candidato->empresa_id,
+            'sucursal_id' => $candidato->sucursal_id,
+            'departamento_id' => $candidato->departamento_id,
+            'puesto_id' => $candidato->puesto_objetivo_id,
+            'duracion_horas' => $datos['duracion_horas'],
+            'observaciones' => $datos['observaciones'] ?? null,
+        ], $request->user());
 
         $this->guardarTokenPlanoEnSesion($invitacion, $token);
 

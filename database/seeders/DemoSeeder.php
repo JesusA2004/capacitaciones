@@ -29,6 +29,9 @@ class DemoSeeder extends Seeder
             // Vacantes/candidatos/altas/QR: necesita catálogo organizacional
             // y (para el flujo completo demo) colaboradores ya existentes.
             ReclutamientoDemoSeeder::class,
+            // Gasto de campañas de reclutamiento: necesita sucursal/puesto/
+            // usuario rh_admin ya creados (catálogo organizacional + UsuarioDemoSeeder).
+            CampanaReclutamientoDemoSeeder::class,
         ]);
     }
 }

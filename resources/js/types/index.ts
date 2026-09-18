@@ -4,6 +4,7 @@ export * from './altaDigital';
 export * from './asignaciones';
 export * from './auth';
 export * from './calendario';
+export * from './campanas';
 export * from './cuestionarios';
 export * from './cursos';
 export * from './dashboardRh';

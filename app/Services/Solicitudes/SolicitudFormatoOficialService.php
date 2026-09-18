@@ -15,6 +15,7 @@ use App\Services\Plantillas\PlaceholderResolver;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use League\Flysystem\FilesystemException;
 use Throwable;
 
 /**
@@ -65,16 +66,20 @@ class SolicitudFormatoOficialService
      * generación falla por cualquier razón, se registra un warning y se
      * continúa — la aprobación de la solicitud NUNCA debe tronar por esto
      * (ver CLAUDE.md: un fallo de una acción secundaria no deshace la
-     * principal).
+     * principal). A diferencia de un fallo de notificación, este resultado
+     * SÍ debe mostrarse explícitamente a RH (no solo quedar en el log) — ver
+     * App\Services\Solicitudes\SolicitudesService::ultimoResultadoDocumentoOficial().
+     *
+     * @return array{generacion: ?OfficialFormatGeneration, aplica: bool, motivo_error: ?string}
      */
-    public function generarSiAplica(SolicitudInterna $solicitud, User $actor): ?OfficialFormatGeneration
+    public function generarSiAplica(SolicitudInterna $solicitud, User $actor): array
     {
         $existente = OfficialFormatGeneration::query()
             ->where('solicitud_interna_id', $solicitud->id)
             ->first();
 
         if ($existente !== null) {
-            return $existente;
+            return ['generacion' => $existente, 'aplica' => true, 'motivo_error' => null];
         }
 
         $formato = $this->formatoEsperado($solicitud);
@@ -85,9 +90,15 @@ class SolicitudFormatoOficialService
                     'solicitud_id' => $solicitud->id,
                     'slug' => $solicitud->tipo->formatoOficialSlug(),
                 ]);
+
+                return [
+                    'generacion' => null,
+                    'aplica' => true,
+                    'motivo_error' => 'no hay un formato oficial configurado para este tipo de solicitud',
+                ];
             }
 
-            return null;
+            return ['generacion' => null, 'aplica' => false, 'motivo_error' => null];
         }
 
         try {
@@ -98,7 +109,7 @@ class SolicitudFormatoOficialService
             $ruta = $this->storage->rutaGenerado();
             $this->storage->guardarContenido($ruta, $pdf);
 
-            return OfficialFormatGeneration::create([
+            $generacion = OfficialFormatGeneration::create([
                 'official_format_id' => $formato->id,
                 'solicitud_interna_id' => $solicitud->id,
                 'user_id' => $solicitud->user_id,
@@ -109,14 +120,30 @@ class SolicitudFormatoOficialService
                 'data_snapshot' => $datos,
                 'status' => EstadoFormatoOficialGeneracion::Generado,
             ]);
+
+            return ['generacion' => $generacion, 'aplica' => true, 'motivo_error' => null];
         } catch (Throwable $e) {
             Log::warning('No fue posible generar el documento oficial automático de una solicitud.', [
                 'solicitud_id' => $solicitud->id,
                 'error' => $e->getMessage(),
             ]);
 
-            return null;
+            return ['generacion' => null, 'aplica' => true, 'motivo_error' => $this->motivoLegible($e)];
         }
+    }
+
+    /**
+     * Traduce la excepción capturada a un mensaje de negocio entendible por
+     * RH — nunca el mensaje crudo (puede traer rutas de servidor, nombres de
+     * clase o detalle técnico que no le sirve a quien aprueba la solicitud).
+     */
+    private function motivoLegible(Throwable $e): string
+    {
+        if ($e instanceof FilesystemException) {
+            return 'no se pudo conectar al almacenamiento';
+        }
+
+        return 'ocurrió un error inesperado al generar el documento; revisa el formato oficial configurado o contacta a sistemas';
     }
 
     /**

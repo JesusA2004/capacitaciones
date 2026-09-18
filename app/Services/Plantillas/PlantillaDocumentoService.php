@@ -3,8 +3,8 @@
 namespace App\Services\Plantillas;
 
 use App\Models\Candidato;
+use App\Models\Colaborador;
 use App\Models\DocumentTemplate;
-use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use PhpOffice\PhpWord\TemplateProcessor;
@@ -28,7 +28,7 @@ class PlantillaDocumentoService
      * @param  array<string, mixed>  $extra
      * @return array{contenido: string, nombre_interno: string}
      */
-    public function generar(DocumentTemplate $plantilla, User|Candidato|null $sujeto, array $extra = []): array
+    public function generar(DocumentTemplate $plantilla, Colaborador|Candidato|null $sujeto, array $extra = []): array
     {
         $valores = $this->resolver->resolver($sujeto, $extra);
 

@@ -32,7 +32,7 @@ class FiniquitoCalculoPolicy
 
     public function ver(User $usuario, FiniquitoCalculo $finiquito): bool
     {
-        return $usuario->can('finiquitos.ver') && $this->alcance->puedeVerUsuario($usuario, $finiquito->colaborador);
+        return $usuario->can('finiquitos.ver') && $this->alcance->puedeVerExpediente($usuario, $finiquito->colaborador);
     }
 
     /**
@@ -45,18 +45,18 @@ class FiniquitoCalculoPolicy
     {
         return $usuario->can('finiquitos.calcular')
             && $finiquito->estado !== EstadoFiniquito::Firmado
-            && $this->alcance->puedeVerUsuario($usuario, $finiquito->colaborador);
+            && $this->alcance->puedeVerExpediente($usuario, $finiquito->colaborador);
     }
 
     public function revisar(User $usuario, FiniquitoCalculo $finiquito): bool
     {
         return $usuario->can('finiquitos.revisar')
             && $finiquito->estado === EstadoFiniquito::Borrador
-            && $this->alcance->puedeVerUsuario($usuario, $finiquito->colaborador);
+            && $this->alcance->puedeVerExpediente($usuario, $finiquito->colaborador);
     }
 
     public function subirFirmado(User $usuario, FiniquitoCalculo $finiquito): bool
     {
-        return $usuario->can('finiquitos.subir_firmado') && $this->alcance->puedeVerUsuario($usuario, $finiquito->colaborador);
+        return $usuario->can('finiquitos.subir_firmado') && $this->alcance->puedeVerExpediente($usuario, $finiquito->colaborador);
     }
 }

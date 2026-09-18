@@ -19,7 +19,7 @@ return new class extends Migration
         Schema::create('finiquito_calculos', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('solicitud_interna_id')->unique()->constrained('solicitudes_internas')->cascadeOnDelete();
-            $table->foreignId('colaborador_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('colaborador_id')->constrained('colaboradores')->cascadeOnDelete();
             $table->foreignId('calculado_por_id')->constrained('users');
             $table->foreignId('revisado_por_id')->nullable()->constrained('users')->nullOnDelete();
 

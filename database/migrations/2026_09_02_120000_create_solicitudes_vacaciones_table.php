@@ -11,6 +11,7 @@ return new class extends Migration
         Schema::create('solicitudes_vacaciones', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('colaborador_id')->nullable()->constrained('colaboradores')->nullOnDelete();
             $table->date('fecha_inicio');
             $table->date('fecha_fin');
             $table->unsignedSmallInteger('dias_solicitados');

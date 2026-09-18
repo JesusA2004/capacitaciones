@@ -106,7 +106,16 @@ class SolicitudController extends Controller
 
         $solicitud = $this->solicitudes->aprobar($solicitud, $usuario, $datos['comentario'] ?? null);
 
-        return response()->json(['message' => 'Solicitud aprobada correctamente', 'data' => ['id' => $solicitud->id, 'estado' => $solicitud->estado->value]]);
+        $mensaje = 'Solicitud aprobada correctamente';
+        $resultadoDocumento = $this->solicitudes->ultimoResultadoDocumentoOficial();
+
+        if ($resultadoDocumento !== null && $resultadoDocumento['aplica']) {
+            $mensaje = $resultadoDocumento['motivo_error'] !== null
+                ? "{$mensaje}. Documento oficial NO generado: {$resultadoDocumento['motivo_error']}."
+                : "{$mensaje}. Documento oficial generado correctamente.";
+        }
+
+        return response()->json(['message' => $mensaje, 'data' => ['id' => $solicitud->id, 'estado' => $solicitud->estado->value]]);
     }
 
     public function rechazar(Request $request, SolicitudInterna $solicitud): JsonResponse
@@ -164,7 +173,16 @@ class SolicitudController extends Controller
 
         $solicitud = $this->solicitudes->moverEnTablero($solicitud, $usuario, $nuevoEstado, $comentario);
 
-        return response()->json(['message' => 'Solicitud movida a '.$nuevoEstado->etiqueta().'.', 'data' => ['id' => $solicitud->id, 'estado' => $solicitud->estado->value]]);
+        $mensaje = 'Solicitud movida a '.$nuevoEstado->etiqueta().'.';
+        $resultadoDocumento = $this->solicitudes->ultimoResultadoDocumentoOficial();
+
+        if ($resultadoDocumento !== null && $resultadoDocumento['aplica']) {
+            $mensaje = $resultadoDocumento['motivo_error'] !== null
+                ? "{$mensaje} Documento oficial NO generado: {$resultadoDocumento['motivo_error']}."
+                : "{$mensaje} Documento oficial generado correctamente.";
+        }
+
+        return response()->json(['message' => $mensaje, 'data' => ['id' => $solicitud->id, 'estado' => $solicitud->estado->value]]);
     }
 
     private function validarPendiente(SolicitudInterna $solicitud): void

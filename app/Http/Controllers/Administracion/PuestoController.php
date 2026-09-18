@@ -19,7 +19,7 @@ class PuestoController extends Controller
         $this->authorize('viewAny', Puesto::class);
 
         $puestos = Puesto::query()
-            ->withCount('usuarios')
+            ->withCount(['colaboradores' => fn ($q) => $q->where('estatus', 'activo')])
             ->with('departamento:id,nombre')
             ->when($request->string('busqueda')->toString(), fn ($query, string $busqueda) => $query->where('nombre', 'like', "%{$busqueda}%"))
             ->orderBy('nombre')

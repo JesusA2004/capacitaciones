@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import {
     Building,
     CheckCircle2,
@@ -24,7 +24,7 @@ import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
 import { dashboard } from '@/routes';
-import { destroy, index } from '@/routes/administracion/sucursales';
+import { destroy, index, show } from '@/routes/administracion/sucursales';
 import type {
     EstadisticasActivoInactivo,
     OpcionSimple,
@@ -63,7 +63,7 @@ const columnas: ColumnaDataTable[] = [
     { clave: 'empresa', etiqueta: 'Empresa' },
     { clave: 'clave', etiqueta: 'Clave' },
     { clave: 'ciudad', etiqueta: 'Ciudad' },
-    { clave: 'usuarios_count', etiqueta: 'Colaboradores' },
+    { clave: 'colaboradores_count', etiqueta: 'Colaboradores' },
     { clave: 'activo', etiqueta: 'Estado' },
 ];
 
@@ -179,12 +179,12 @@ async function eliminar(sucursal: SucursalItem) {
                 </span>
                 <span v-else class="text-muted-foreground">—</span>
             </template>
-            <template #celda-usuarios_count="{ fila }">
+            <template #celda-colaboradores_count="{ fila }">
                 <span
                     class="inline-flex items-center gap-1.5 text-muted-foreground"
                 >
                     <Users class="size-3.5" />
-                    {{ fila.usuarios_count }}
+                    {{ fila.colaboradores_count }}
                 </span>
             </template>
             <template #celda-activo="{ fila }">
@@ -192,6 +192,9 @@ async function eliminar(sucursal: SucursalItem) {
             </template>
             <template #acciones="{ fila }">
                 <CrudActionMenu>
+                    <DropdownMenuItem as-child>
+                        <Link :href="show.url(fila.id)">Ver plantilla</Link>
+                    </DropdownMenuItem>
                     <DropdownMenuItem @select="abrirEditar(fila)"
                         >Editar</DropdownMenuItem
                     >
@@ -215,7 +218,7 @@ async function eliminar(sucursal: SucursalItem) {
                     </template>
                     <span class="inline-flex items-center gap-1.5">
                         <Users class="size-3.5" />
-                        {{ fila.usuarios_count }} colaborador(es)
+                        {{ fila.colaboradores_count }} colaborador(es)
                     </span>
                     <template #acciones>
                         <CrudActionMenu>

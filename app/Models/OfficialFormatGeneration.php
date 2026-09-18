@@ -24,6 +24,7 @@ use Illuminate\Support\Carbon;
  * @property int $official_format_id
  * @property int|null $solicitud_interna_id
  * @property int|null $user_id
+ * @property int|null $colaborador_id
  * @property int|null $candidato_id
  * @property int $generated_by_id
  * @property string $generated_disk
@@ -48,6 +49,7 @@ class OfficialFormatGeneration extends Model
         'official_format_id',
         'solicitud_interna_id',
         'user_id',
+        'colaborador_id',
         'candidato_id',
         'generated_by_id',
         'generated_disk',
@@ -80,6 +82,17 @@ class OfficialFormatGeneration extends Model
     }
 
     /**
+     * Alias explícito de solicitud() — mismo `solicitud_interna_id`, para
+     * quien busque el nombre completo de la relación.
+     *
+     * @return BelongsTo<SolicitudInterna, $this>
+     */
+    public function solicitudInterna(): BelongsTo
+    {
+        return $this->belongsTo(SolicitudInterna::class, 'solicitud_interna_id');
+    }
+
+    /**
      * @return BelongsTo<User, $this>
      */
     public function firmadoPor(): BelongsTo
@@ -101,6 +114,18 @@ class OfficialFormatGeneration extends Model
     public function usuario(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    /**
+     * Colaborador (persona/empleo) para quien se generó este documento —
+     * fuente de verdad preferida sobre usuario()/user_id, que ahora es
+     * legacy (ver docs/ROLES_Y_NAVEGACION.md).
+     *
+     * @return BelongsTo<Colaborador, $this>
+     */
+    public function colaborador(): BelongsTo
+    {
+        return $this->belongsTo(Colaborador::class, 'colaborador_id');
     }
 
     /**

@@ -23,6 +23,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int|null $empresa_id
  * @property int|null $sucursal_id
  * @property int|null $puesto_id
+ * @property int|null $departamento_id
  * @property string $disk
  * @property string $path
  * @property string $original_name
@@ -47,6 +48,7 @@ class DocumentTemplate extends Model
         'empresa_id',
         'sucursal_id',
         'puesto_id',
+        'departamento_id',
         'disk',
         'path',
         'original_name',
@@ -89,6 +91,14 @@ class DocumentTemplate extends Model
     public function puesto(): BelongsTo
     {
         return $this->belongsTo(Puesto::class);
+    }
+
+    /**
+     * @return BelongsTo<Departamento, $this>
+     */
+    public function departamento(): BelongsTo
+    {
+        return $this->belongsTo(Departamento::class);
     }
 
     /**

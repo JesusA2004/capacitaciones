@@ -3,10 +3,10 @@
 namespace App\Services\Headcount;
 
 use App\Enums\EstadoUsuario;
+use App\Models\Colaborador;
 use App\Models\HeadcountTarget;
 use App\Models\Puesto;
 use App\Models\Sucursal;
-use App\Models\User;
 use Illuminate\Support\Collection;
 
 /**
@@ -29,7 +29,7 @@ class HeadcountService
      */
     public function plantillaActualPorSucursalPuesto(?Collection $sucursalesIds = null): Collection
     {
-        return User::query()
+        return Colaborador::query()
             ->where('estatus', EstadoUsuario::Activo->value)
             ->whereNotNull('puesto_id')
             ->whereNotNull('sucursal_principal_id')
@@ -49,7 +49,7 @@ class HeadcountService
      */
     public function plantillaActualPorSucursal(?Collection $sucursalesIds = null): Collection
     {
-        return User::query()
+        return Colaborador::query()
             ->where('estatus', EstadoUsuario::Activo->value)
             ->whereNotNull('sucursal_principal_id')
             ->when($sucursalesIds !== null, fn ($q) => $q->whereIn('sucursal_principal_id', $sucursalesIds))
@@ -117,7 +117,7 @@ class HeadcountService
             ->get()
             ->keyBy('puesto_id');
 
-        $actualPorPuesto = User::query()
+        $actualPorPuesto = Colaborador::query()
             ->where('estatus', EstadoUsuario::Activo->value)
             ->where('sucursal_principal_id', $sucursalId)
             ->whereNotNull('puesto_id')
@@ -178,7 +178,7 @@ class HeadcountService
             ->where('puesto_id', $puestoId)
             ->value('plantilla_autorizada');
 
-        $actual = (int) User::query()
+        $actual = (int) Colaborador::query()
             ->where('estatus', EstadoUsuario::Activo->value)
             ->where('sucursal_principal_id', $sucursalId)
             ->where('puesto_id', $puestoId)

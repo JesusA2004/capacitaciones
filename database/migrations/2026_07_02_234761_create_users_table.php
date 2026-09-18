@@ -13,6 +13,12 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id();
+            // Enlace opcional a la persona/colaborador dueño de esta cuenta
+            // de acceso (ver create_colaboradores_table). Un Colaborador
+            // puede no tener cuenta; una cuenta nunca comparte colaborador
+            // con otra.
+            $table->foreignId('colaborador_id')->nullable()->unique()
+                ->constrained('colaboradores')->nullOnDelete();
             $table->string('name');
             $table->string('apellidos')->nullable();
             $table->string('genero', 20)->nullable();
@@ -31,6 +37,10 @@ return new class extends Migration
 
             $table->date('fecha_ingreso')->nullable();
             $table->string('estatus')->default('activo');
+            // Revoca el acceso al sistema sin afectar el estatus laboral del
+            // colaborador (baja laboral real = colaboradores.estatus +
+            // deleted_at). Ver App\Services\Solicitudes\BajaColaboradorService.
+            $table->timestamp('acceso_bloqueado_en')->nullable();
             $table->string('estatus_imss', 20)->default('pendiente_imss');
             $table->date('fecha_alta_imss')->nullable();
             $table->date('periodo_prueba_inicio')->nullable();

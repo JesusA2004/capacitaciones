@@ -10,7 +10,10 @@ return new class extends Migration
     {
         Schema::create('movimientos_laborales', function (Blueprint $table): void {
             $table->id();
-            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            // user_id se conserva por compatibilidad histórica, ya no se
+            // escribe desde el código: colaborador_id es la fuente real.
+            $table->unsignedBigInteger('user_id')->nullable();
+            $table->foreignId('colaborador_id')->nullable()->constrained('colaboradores')->cascadeOnDelete();
             $table->string('tipo_movimiento', 30);
 
             $table->foreignId('empresa_anterior_id')->nullable()->constrained('empresas')->nullOnDelete();
@@ -23,6 +26,8 @@ return new class extends Migration
             $table->foreignId('puesto_nuevo_id')->nullable()->constrained('puestos')->nullOnDelete();
             $table->foreignId('jefe_anterior_id')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('jefe_nuevo_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('jefe_anterior_colaborador_id')->nullable()->constrained('colaboradores')->nullOnDelete();
+            $table->foreignId('jefe_nuevo_colaborador_id')->nullable()->constrained('colaboradores')->nullOnDelete();
 
             $table->foreignId('vacante_id')->nullable()->constrained('vacantes')->nullOnDelete();
             $table->foreignId('candidato_id')->nullable()->constrained('candidatos')->nullOnDelete();
@@ -42,6 +47,7 @@ return new class extends Migration
             $table->index('tipo_movimiento');
             $table->index('fecha_movimiento');
             $table->index(['user_id', 'fecha_movimiento']);
+            $table->index(['colaborador_id', 'fecha_movimiento'], 'movimientos_laborales_colaborador_fecha_idx');
         });
     }
 

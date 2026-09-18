@@ -127,6 +127,7 @@ export type MovimientoLaboralTipo =
     | 'cambio_departamento'
     | 'cambio_jefe'
     | 'cambio_empresa'
+    | 'cambio_sueldo'
     | 'cobertura_temporal'
     | 'reingreso'
     | 'ajuste_manual';
@@ -163,4 +164,58 @@ export type MovimientoLaboralItem = {
         name: string;
         apellidos: string | null;
     } | null;
+};
+
+export type ReciboNominaConcepto = {
+    concepto: string;
+    monto: number;
+    tipo?: string | null;
+    prestamo_id?: number | null;
+};
+
+export type ReciboNominaItem = {
+    id: number;
+    periodo_inicio: string | null;
+    periodo_fin: string | null;
+    fecha_pago: string | null;
+    sueldo_base: number;
+    percepciones: ReciboNominaConcepto[];
+    deducciones: ReciboNominaConcepto[];
+    total_percepciones: number;
+    total_deducciones: number;
+    neto: number;
+    tiene_pdf: boolean;
+    created_at: string | null;
+};
+
+export type PrestamoMovimientoTipo = 'nomina' | 'manual' | 'ajuste';
+
+export type PrestamoMovimientoItem = {
+    id: number;
+    fecha: string | null;
+    monto: number;
+    tipo: PrestamoMovimientoTipo;
+    saldo_anterior: number;
+    saldo_nuevo: number;
+    registrado_por?: string | null;
+};
+
+export type PrestamoEstado =
+    | 'pendiente_entrega'
+    | 'activo'
+    | 'liquidado'
+    | 'cancelado';
+
+export type PrestamoItem = {
+    id: number;
+    monto_original: number;
+    saldo: number;
+    plazo: number;
+    periodicidad: string;
+    pago_programado: number;
+    porcentaje_pagado?: number;
+    fecha_otorgamiento: string | null;
+    fecha_primer_descuento: string | null;
+    estado: PrestamoEstado;
+    movimientos: PrestamoMovimientoItem[];
 };

@@ -39,7 +39,7 @@ class MovimientoLaboralService
      * cubrir una vacante. Se usa para diffear contra el estado ya guardado y
      * decidir qué tipos de movimiento registrar.
      *
-     * @return array{empresa_id: int|null, sucursal_id: int|null, departamento_id: int|null, puesto_id: int|null, jefe_id: int|null, nivel_jerarquico: int|null}
+     * @return array{empresa_id: int|null, sucursal_id: int|null, departamento_id: int|null, puesto_id: int|null, jefe_id: int|null, nivel_jerarquico: int|null, sueldo_mensual: string|null}
      */
     public function snapshot(Colaborador $colaborador): array
     {
@@ -52,6 +52,7 @@ class MovimientoLaboralService
             'puesto_id' => $colaborador->puesto_id,
             'jefe_id' => $colaborador->jefe_id,
             'nivel_jerarquico' => $colaborador->puesto?->nivel_jerarquico,
+            'sueldo_mensual' => $colaborador->sueldo_mensual,
         ];
     }
 
@@ -100,7 +101,7 @@ class MovimientoLaboralService
      * el organigrama), se registra como `promocion` en vez de
      * `cambio_puesto`.
      *
-     * @param  array{empresa_id: int|null, sucursal_id: int|null, departamento_id: int|null, puesto_id: int|null, jefe_id: int|null, nivel_jerarquico: int|null}  $antes
+     * @param  array{empresa_id: int|null, sucursal_id: int|null, departamento_id: int|null, puesto_id: int|null, jefe_id: int|null, nivel_jerarquico: int|null, sueldo_mensual?: string|null}  $antes
      * @return array<int, MovimientoLaboral>
      */
     public function registrarCambioPuesto(
@@ -179,6 +180,22 @@ class MovimientoLaboralService
                 'empresa_anterior_id' => $antes['empresa_id'],
                 'empresa_nueva_id' => $despues['empresa_id'],
                 'motivo' => $motivo,
+                'fecha_movimiento' => now(),
+                'registrado_por' => $registradoPor->id,
+            ]);
+        }
+
+        // Un cambio de sueldo NUNCA debe registrarse (ni quedar mudo) como
+        // "cambio de puesto": es un movimiento propio, aunque
+        // movimientos_laborales no tenga columnas dedicadas para el monto
+        // (se deja explícito en observaciones para el timeline del expediente).
+        $sueldoAntes = $antes['sueldo_mensual'] ?? null;
+        $sueldoDespues = $despues['sueldo_mensual'] ?? null;
+        if ((string) $sueldoAntes !== (string) $sueldoDespues) {
+            $movimientos[] = MovimientoLaboral::create($base + [
+                'tipo_movimiento' => TipoMovimientoLaboral::CambioSueldo->value,
+                'motivo' => $motivo,
+                'observaciones' => sprintf('Sueldo mensual: $%s → $%s', $sueldoAntes ?? '0.00', $sueldoDespues ?? '0.00'),
                 'fecha_movimiento' => now(),
                 'registrado_por' => $registradoPor->id,
             ]);

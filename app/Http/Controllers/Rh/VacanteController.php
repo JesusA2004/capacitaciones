@@ -2,16 +2,11 @@
 
 namespace App\Http\Controllers\Rh;
 
-use App\Enums\EstadoUsuario;
+use App\Enums\EstadoCandidato;
 use App\Enums\EstadoVacante;
-use App\Enums\MotivoVacante;
 use App\Exports\ReporteRhExport;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Rh\ActualizarEstadoVacanteRequest;
-use App\Http\Requests\Rh\CubrirVacanteRequest;
-use App\Http\Requests\Rh\StoreVacanteRequest;
-use App\Http\Requests\Rh\UpdateVacanteRequest;
-use App\Models\Colaborador;
+use App\Models\Candidato;
 use App\Models\Departamento;
 use App\Models\Empresa;
 use App\Models\HeadcountTarget;
@@ -21,27 +16,45 @@ use App\Models\User;
 use App\Models\Vacante;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Headcount\HeadcountService;
-use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
-use RuntimeException;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
+/**
+ * Vacantes es 100% informativo: cada fila es una combinación
+ * (sucursal, puesto) con HeadcountTarget vigente, nunca un registro que RH
+ * captura o mueve a mano (ver docs/HEADCOUNT_Y_VACANTES.md). "Plantilla
+ * cubierta" y las demás cifras se calculan en vivo a partir de
+ * HeadcountService y de las filas `vacantes` que
+ * App\Services\Vacantes\VacanteAutoGenerationService sincroniza solo, para
+ * costo presupuestado y fecha de apertura más antigua.
+ *
+ * @phpstan-type FilaVacante array{
+ *     id: string,
+ *     empresa_id: int|null,
+ *     sucursal: array{id: int, nombre: string}|null,
+ *     departamento: array{id: int, nombre: string}|null,
+ *     puesto: array{id: int, nombre: string}|null,
+ *     plantilla_permitida: int,
+ *     plantilla_cubierta: int,
+ *     vacantes_disponibles: int,
+ *     candidatos_activos: int,
+ *     candidatos_finalistas: int,
+ *     cobertura_pct: float,
+ *     costo_presupuestado_mensual: float|null,
+ *     fecha_apertura_mas_antigua: string|null,
+ * }
+ */
 class VacanteController extends Controller
 {
-    private const FILTROS = ['empresa_id', 'sucursal_id', 'departamento_id', 'puesto_id', 'responsable_rh_id', 'estado', 'busqueda', 'fecha_inicio', 'fecha_fin'];
+    private const FILTROS = ['empresa_id', 'sucursal_id', 'departamento_id', 'puesto_id', 'busqueda'];
 
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
-        private readonly MovimientoLaboralService $movimientos,
         private readonly HeadcountService $headcount,
     ) {}
 
@@ -49,40 +62,18 @@ class VacanteController extends Controller
     {
         $this->authorize('viewAny', Vacante::class);
 
-        $vacantes = $this->queryFiltrada($request)->orderByDesc('fecha_apertura')->get();
-        $this->anotarPlantilla($vacantes);
+        $filasBase = $this->filasPlantilla($request->user());
+        $filasFiltradas = $this->aplicarFiltros($filasBase, $request);
 
         return Inertia::render('Rh/Vacantes/Index', [
-            'vacantes' => $vacantes,
-            'kpis' => $this->kpis($request->user()),
+            'vacantes' => $filasFiltradas->values(),
+            'kpis' => $this->kpis($filasBase),
             'filtros' => $request->only(self::FILTROS),
             'opciones' => [
                 'empresas' => Empresa::query()->orderBy('nombre')->get(['id', 'nombre']),
                 'sucursales' => Sucursal::query()->orderBy('nombre')->get(['id', 'nombre', 'empresa_id']),
                 'departamentos' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
                 'puestos' => Puesto::query()->orderBy('nombre')->get(['id', 'nombre', 'departamento_id']),
-                'responsables' => User::query()->role(['rh_admin', 'rh_auxiliar'])->orderBy('name')->get(['id', 'name', 'apellidos']),
-                'motivos' => array_map(fn (MotivoVacante $m) => ['value' => $m->value, 'etiqueta' => $m->etiqueta()], MotivoVacante::cases()),
-                'estados' => array_map(fn (EstadoVacante $e) => ['value' => $e->value, 'etiqueta' => $e->etiqueta()], EstadoVacante::cases()),
-                // Misma fuente de verdad que actualizarEstado(): el tablero usa esto
-                // para no dejar soltar una tarjeta en una columna que el backend
-                // igual va a rechazar (evita el error genérico "no se pudo mover").
-                'transicionesPermitidas' => collect(EstadoVacante::cases())->mapWithKeys(
-                    fn (EstadoVacante $origen) => [
-                        $origen->value => collect(EstadoVacante::cases())
-                            ->filter(fn (EstadoVacante $destino) => $origen->puedeTransicionarA($destino))
-                            ->map(fn (EstadoVacante $destino) => $destino->value)
-                            ->values(),
-                    ],
-                ),
-                // El id que se manda al frontend/CubrirVacanteRequest bajo la
-                // llave "user_id" es en realidad un Colaborador.id (no un
-                // users.id) — ver App\Http\Controllers\Rh\VacanteController::cubrir().
-                'colaboradores' => Colaborador::query()
-                    ->where('estatus', EstadoUsuario::Activo->value)
-                    ->orderBy('name')
-                    ->get(['id', 'name', 'apellidos', 'puesto_id'])
-                    ->map(fn (Colaborador $c) => ['id' => $c->id, 'name' => $c->name, 'apellidos' => $c->apellidos, 'puesto_id' => $c->puesto_id]),
             ],
         ]);
     }
@@ -111,260 +102,202 @@ class VacanteController extends Controller
     }
 
     /**
-     * KPIs del tablero: reflejan el estado general (acotado por alcance
-     * organizacional), no los filtros activos en pantalla — para eso están
-     * las columnas y la exportación.
+     * KPIs de cabecera: reflejan el estado general acotado por alcance
+     * organizacional, no los filtros activos en pantalla — para eso están
+     * las columnas y la exportación (mismo criterio que el resto de
+     * tableros de RH).
      *
+     * @param  Collection<int, FilaVacante>  $filas
      * @return array<string, int|float>
      */
-    private function kpis(User $usuario): array
+    private function kpis(Collection $filas): array
     {
-        $vacantes = $this->alcance->limitarPorSucursal(Vacante::query(), $usuario)->get([
-            'estado', 'generada_automaticamente', 'plazas_disponibles', 'updated_at', 'sueldo_mensual',
-        ]);
-
-        $abiertas = $vacantes->whereNotIn('estado', [EstadoVacante::Cubierta, EstadoVacante::Cancelada]);
-
-        // Costo de contratación (sección 2 del encargo de KPIs): sueldo_mensual
-        // es un campo opcional en la vacante, así que solo se promedia sobre
-        // las que sí lo capturaron — no se asume 0 para las que no.
-        $abiertasConSueldo = $abiertas->filter(fn (Vacante $v) => $v->sueldo_mensual !== null);
+        $permitidaTotal = (int) $filas->sum('plantilla_permitida');
+        $cubiertaTotal = (int) $filas->sum('plantilla_cubierta');
 
         return [
-            'vacantes_abiertas' => $abiertas->count(),
-            'plazas_disponibles' => (int) $abiertas->sum('plazas_disponibles'),
-            'vacantes_automaticas' => $abiertas->where('generada_automaticamente', true)->count(),
-            'vacantes_manuales' => $abiertas->where('generada_automaticamente', false)->count(),
-            'en_reclutamiento' => $vacantes->where('estado', EstadoVacante::EnReclutamiento)->count(),
-            'cubiertas_este_mes' => $vacantes->where('estado', EstadoVacante::Cubierta)
-                ->filter(fn (Vacante $v) => $v->updated_at !== null && $v->updated_at->isCurrentMonth())
-                ->count(),
-            'canceladas' => $vacantes->where('estado', EstadoVacante::Cancelada)->count(),
-            'costo_mensual_abiertas' => (float) $abiertas->sum(fn (Vacante $v) => (float) ($v->sueldo_mensual ?? 0)),
-            'costo_promedio_puesto' => $abiertasConSueldo->isEmpty()
-                ? 0.0
-                : (float) $abiertasConSueldo->avg(fn (Vacante $v) => (float) $v->sueldo_mensual),
+            'sucursales_bajo_cobertura' => $filas->filter(fn (array $f) => $f['vacantes_disponibles'] > 0)->count(),
+            'plantilla_permitida_total' => $permitidaTotal,
+            'plantilla_cubierta_total' => $cubiertaTotal,
+            'vacantes_totales' => (int) $filas->sum('vacantes_disponibles'),
+            'cobertura_pct_global' => $permitidaTotal > 0 ? round(($cubiertaTotal / $permitidaTotal) * 100, 1) : 0.0,
+            'costo_mensual_total' => (float) $filas->sum(fn (array $f) => $f['costo_presupuestado_mensual'] ?? 0.0),
         ];
     }
 
     /**
-     * Anota plantilla_autorizada/plantilla_actual/faltantes_reales en cada
-     * vacante (docs/HEADCOUNT_Y_VACANTES.md): "plantilla actual" siempre se
-     * calcula en vivo vía HeadcountService, nunca se importa a esta vista.
+     * Una fila por cada (sucursal, puesto) con HeadcountTarget vigente
+     * (universo de App\Services\Headcount\HeadcountService::paresConTarget()),
+     * acotada por el alcance organizacional del usuario — nunca por los
+     * filtros de pantalla, ver kpis().
      *
-     * @param  Collection<int, Vacante>  $vacantes
+     * @return Collection<int, FilaVacante>
      */
-    private function anotarPlantilla(Collection $vacantes): void
+    private function filasPlantilla(User $usuario): Collection
     {
-        $autorizadaPorPar = HeadcountTarget::query()
-            ->get(['sucursal_id', 'puesto_id', 'plantilla_autorizada'])
-            ->mapWithKeys(fn (HeadcountTarget $t) => [sprintf('%d:%d', $t->sucursal_id, $t->puesto_id) => $t->plantilla_autorizada]);
+        $pares = $this->headcount->paresConTarget();
+
+        $targetsPorPar = HeadcountTarget::query()
+            ->with(['sucursal:id,nombre,empresa_id', 'departamento:id,nombre', 'puesto:id,nombre'])
+            ->get()
+            ->keyBy(fn (HeadcountTarget $t) => sprintf('%d:%d', $t->sucursal_id, $t->puesto_id));
 
         $actualPorPar = $this->headcount->plantillaActualPorSucursalPuesto();
 
-        foreach ($vacantes as $vacante) {
-            if ($vacante->sucursal_id === null || $vacante->puesto_id === null) {
-                $vacante->setAttribute('plantilla_autorizada', null);
-                $vacante->setAttribute('plantilla_actual', null);
-                $vacante->setAttribute('faltantes_reales', null);
+        $vacantesPorPar = Vacante::query()
+            ->whereNotNull('sucursal_id')
+            ->whereNotNull('puesto_id')
+            ->get(['sucursal_id', 'puesto_id', 'estado', 'sueldo_mensual', 'fecha_apertura'])
+            ->groupBy(fn (Vacante $v) => sprintf('%d:%d', $v->sucursal_id, $v->puesto_id));
 
-                continue;
-            }
+        $candidatosPorPar = Candidato::query()
+            ->whereNotNull('sucursal_id')
+            ->whereNotNull('puesto_objetivo_id')
+            ->get(['sucursal_id', 'puesto_objetivo_id', 'estado'])
+            ->groupBy(fn (Candidato $c) => sprintf('%d:%d', $c->sucursal_id, $c->puesto_objetivo_id));
 
-            $clave = sprintf('%d:%d', $vacante->sucursal_id, $vacante->puesto_id);
-            $autorizada = $autorizadaPorPar[$clave] ?? null;
-            $actual = (int) ($actualPorPar[$clave] ?? 0);
+        // Última fase no terminal del pipeline de candidatos, calculada en
+        // vivo a partir del enum (nunca por nombre de estado): así este
+        // controlador no depende de cómo se llamen las fases hoy.
+        $ultimaFaseNoTerminal = collect(EstadoCandidato::cases())
+            ->filter(fn (EstadoCandidato $e) => ! $e->esTerminal())
+            ->sortByDesc(fn (EstadoCandidato $e) => $e->orden())
+            ->first();
 
-            $vacante->setAttribute('plantilla_autorizada', $autorizada !== null ? (int) $autorizada : null);
-            $vacante->setAttribute('plantilla_actual', $actual);
-            $vacante->setAttribute('faltantes_reales', $autorizada !== null ? max((int) $autorizada - $actual, 0) : null);
-        }
+        $sucursalesVisibles = $this->alcance->tieneAlcanceGlobal($usuario)
+            ? null
+            : $this->alcance->sucursalesVisiblesIds($usuario);
+
+        return $pares
+            ->map(fn (array $par) => $targetsPorPar->get(sprintf('%d:%d', $par['sucursal_id'], $par['puesto_id'])))
+            ->filter()
+            ->filter(fn (HeadcountTarget $target) => $sucursalesVisibles === null || $sucursalesVisibles->contains($target->sucursal_id))
+            ->map(function (HeadcountTarget $target) use ($actualPorPar, $vacantesPorPar, $candidatosPorPar, $ultimaFaseNoTerminal) {
+                $clave = sprintf('%d:%d', $target->sucursal_id, $target->puesto_id);
+
+                $permitida = (int) $target->plantilla_autorizada;
+                $cubierta = (int) ($actualPorPar[$clave] ?? 0);
+
+                $vacantesFilas = $vacantesPorPar->get($clave);
+                $costoPresupuestado = $vacantesFilas !== null
+                    ? (float) $vacantesFilas->sum(fn (Vacante $v) => (float) ($v->sueldo_mensual ?? 0))
+                    : null;
+
+                $vacantesAbiertas = $vacantesFilas?->filter(
+                    fn (Vacante $v) => ! in_array($v->estado, [EstadoVacante::Cubierta, EstadoVacante::Cancelada], true)
+                );
+                $fechaMasAntigua = $vacantesAbiertas !== null && $vacantesAbiertas->isNotEmpty()
+                    ? $vacantesAbiertas->min('fecha_apertura')
+                    : null;
+
+                $candidatos = $candidatosPorPar->get($clave, collect());
+                $candidatosActivos = $candidatos->filter(fn (Candidato $c) => ! $c->estado->esTerminal())->count();
+                $candidatosFinalistas = $candidatos->filter(fn (Candidato $c) => $c->estado === $ultimaFaseNoTerminal)->count();
+
+                return [
+                    'id' => $clave,
+                    'empresa_id' => $target->sucursal?->empresa_id,
+                    'sucursal' => $target->sucursal ? ['id' => $target->sucursal->id, 'nombre' => $target->sucursal->nombre] : null,
+                    'departamento' => $target->departamento ? ['id' => $target->departamento->id, 'nombre' => $target->departamento->nombre] : null,
+                    'puesto' => $target->puesto ? ['id' => $target->puesto->id, 'nombre' => $target->puesto->nombre] : null,
+                    'plantilla_permitida' => $permitida,
+                    'plantilla_cubierta' => $cubierta,
+                    'vacantes_disponibles' => max($permitida - $cubierta, 0),
+                    'candidatos_activos' => $candidatosActivos,
+                    'candidatos_finalistas' => $candidatosFinalistas,
+                    'cobertura_pct' => $permitida > 0 ? round(($cubierta / $permitida) * 100, 1) : 0.0,
+                    'costo_presupuestado_mensual' => $costoPresupuestado,
+                    'fecha_apertura_mas_antigua' => $fechaMasAntigua?->toDateString(),
+                ];
+            })
+            ->sort(fn (array $a, array $b) => [$a['sucursal']['nombre'] ?? '', $a['puesto']['nombre'] ?? '']
+                <=> [$b['sucursal']['nombre'] ?? '', $b['puesto']['nombre'] ?? ''])
+            ->values();
     }
 
     /**
-     * @return array{0: array<int, string>, 1: array<int, array<int, string|int|null>>}
+     * @param  Collection<int, FilaVacante>  $filas
+     * @return Collection<int, FilaVacante>
+     */
+    private function aplicarFiltros(Collection $filas, Request $request): Collection
+    {
+        $empresaId = $request->integer('empresa_id') ?: null;
+        $sucursalId = $request->integer('sucursal_id') ?: null;
+        $departamentoId = $request->integer('departamento_id') ?: null;
+        $puestoId = $request->integer('puesto_id') ?: null;
+        $busqueda = mb_strtolower(trim($request->string('busqueda')->toString()));
+
+        if ($empresaId !== null) {
+            $filas = $filas->filter(fn (array $f) => $f['empresa_id'] === $empresaId);
+        }
+
+        if ($sucursalId !== null) {
+            $filas = $filas->filter(fn (array $f) => ($f['sucursal']['id'] ?? null) === $sucursalId);
+        }
+
+        if ($departamentoId !== null) {
+            $filas = $filas->filter(fn (array $f) => ($f['departamento']['id'] ?? null) === $departamentoId);
+        }
+
+        if ($puestoId !== null) {
+            $filas = $filas->filter(fn (array $f) => ($f['puesto']['id'] ?? null) === $puestoId);
+        }
+
+        if ($busqueda !== '') {
+            $filas = $filas->filter(
+                fn (array $f) => str_contains(mb_strtolower((string) ($f['puesto']['nombre'] ?? '')), $busqueda)
+                    || str_contains(mb_strtolower((string) ($f['departamento']['nombre'] ?? '')), $busqueda)
+                    || str_contains(mb_strtolower((string) ($f['sucursal']['nombre'] ?? '')), $busqueda)
+            );
+        }
+
+        return $filas;
+    }
+
+    /**
+     * @return array{0: array<int, string>, 1: array<int, array<int, string|int|float|null>>}
      */
     private function tabla(Request $request): array
     {
-        $vacantes = $this->queryFiltrada($request)->orderByDesc('fecha_apertura')->get();
+        $filas = $this->aplicarFiltros($this->filasPlantilla($request->user()), $request);
 
-        $columnas = ['Puesto', 'Departamento', 'Empresa', 'Sucursal', 'Motivo', 'Estado', 'Responsable RH', 'Fecha apertura', 'Fecha estimada cobertura', 'Candidatos'];
+        $columnas = [
+            'Sucursal', 'Departamento', 'Puesto', 'Plantilla permitida', 'Plantilla cubierta',
+            'Vacantes disponibles', 'Candidatos activos', 'Candidatos finalistas', 'Cobertura %',
+            'Costo mensual', 'Fecha faltante más antigua',
+        ];
 
-        $filas = $vacantes->map(fn (Vacante $v) => [
-            $v->puesto?->nombre,
-            $v->departamento?->nombre,
-            $v->empresa?->nombre,
-            $v->sucursal?->nombre,
-            $v->motivo->etiqueta(),
-            $v->estado->etiqueta(),
-            $v->responsableRh ? trim("{$v->responsableRh->name} {$v->responsableRh->apellidos}") : null,
-            $v->fecha_apertura->toDateString(),
-            $v->fecha_estimada_cobertura?->toDateString(),
-            $v->candidatos_count,
+        $filasTabla = $filas->map(fn (array $f) => [
+            $f['sucursal']['nombre'] ?? null,
+            $f['departamento']['nombre'] ?? null,
+            $f['puesto']['nombre'] ?? null,
+            $f['plantilla_permitida'],
+            $f['plantilla_cubierta'],
+            $f['vacantes_disponibles'],
+            $f['candidatos_activos'],
+            $f['candidatos_finalistas'],
+            $f['cobertura_pct'],
+            $f['costo_presupuestado_mensual'],
+            $f['fecha_apertura_mas_antigua'],
         ])->all();
 
-        return [$columnas, $filas];
-    }
+        if ($filas->isNotEmpty()) {
+            $permitidaTotal = (int) $filas->sum('plantilla_permitida');
+            $cubiertaTotal = (int) $filas->sum('plantilla_cubierta');
 
-    /**
-     * @return Builder<Vacante>
-     */
-    private function queryFiltrada(Request $request): Builder
-    {
-        $usuario = $request->user();
-
-        return $this->alcance
-            ->limitarPorSucursal(
-                Vacante::query()->with([
-                    'empresa:id,nombre',
-                    'sucursal:id,nombre',
-                    'departamento:id,nombre',
-                    'puesto:id,nombre',
-                    'gerenteSolicitante:id,name,apellidos',
-                    'responsableRh:id,name,apellidos',
-                ])->withCount('candidatos'),
-                $usuario,
-            )
-            ->when($request->integer('empresa_id'), fn ($query, $valor) => $query->where('empresa_id', $valor))
-            ->when($request->integer('sucursal_id'), fn ($query, $valor) => $query->where('sucursal_id', $valor))
-            ->when($request->integer('departamento_id'), fn ($query, $valor) => $query->where('departamento_id', $valor))
-            ->when($request->integer('puesto_id'), fn ($query, $valor) => $query->where('puesto_id', $valor))
-            ->when($request->integer('responsable_rh_id'), fn ($query, $valor) => $query->where('responsable_rh_id', $valor))
-            ->when($request->string('estado')->toString(), fn ($query, string $estado) => $query->where('estado', $estado))
-            ->when($request->string('fecha_inicio')->toString(), fn ($query, string $valor) => $query->whereDate('fecha_apertura', '>=', $valor))
-            ->when($request->string('fecha_fin')->toString(), fn ($query, string $valor) => $query->whereDate('fecha_apertura', '<=', $valor))
-            ->when($request->string('busqueda')->toString(), function ($query, string $busqueda) {
-                $query->where(function ($sub) use ($busqueda) {
-                    $sub->whereHas('puesto', fn ($q) => $q->where('nombre', 'like', "%{$busqueda}%"))
-                        ->orWhereHas('departamento', fn ($q) => $q->where('nombre', 'like', "%{$busqueda}%"));
-                });
-            });
-    }
-
-    public function store(StoreVacanteRequest $request): RedirectResponse
-    {
-        // Una vacante creada a mano por RH siempre representa una plaza
-        // (a diferencia de las automáticas, que pueden agrupar varias —
-        // ver VacanteAutoGenerationService); sin esto plazas_disponibles se
-        // queda en 0 (default de columna) y la tarjeta se ve "sin plazas".
-        Vacante::create([
-            'plazas_requeridas' => 1,
-            'plazas_cubiertas' => 0,
-            'plazas_disponibles' => 1,
-            ...$request->validated(),
-            'generada_automaticamente' => false,
-            'creado_por' => $request->user()?->id,
-        ]);
-
-        return back()->with('toast', ['type' => 'success', 'message' => 'Vacante creada correctamente.']);
-    }
-
-    public function update(UpdateVacanteRequest $request, Vacante $vacante): RedirectResponse
-    {
-        $vacante->update($request->validated());
-
-        return back()->with('toast', ['type' => 'success', 'message' => 'Vacante actualizada correctamente.']);
-    }
-
-    public function actualizarEstado(ActualizarEstadoVacanteRequest $request, Vacante $vacante): RedirectResponse
-    {
-        $destino = EstadoVacante::from($request->validated('estado'));
-
-        // "Cubierta" nunca se asigna soltando una tarjeta: solo a través de
-        // cubrir() (cobertura real). El resto de transiciones sí validan
-        // contra el mapa del enum — el tablero no es la única autoridad.
-        if (! $vacante->estado->puedeTransicionarA($destino)) {
-            throw ValidationException::withMessages([
-                'estado' => $destino === EstadoVacante::Cubierta
-                    ? 'Para marcar esta vacante como cubierta, usa "Cubrir vacante" y registra quién la cubrió.'
-                    : "No se puede mover la vacante de «{$vacante->estado->etiqueta()}» a «{$destino->etiqueta()}».",
-            ]);
+            $filasTabla[] = [
+                'Total', null, null,
+                $permitidaTotal,
+                $cubiertaTotal,
+                (int) $filas->sum('vacantes_disponibles'),
+                (int) $filas->sum('candidatos_activos'),
+                (int) $filas->sum('candidatos_finalistas'),
+                $permitidaTotal > 0 ? round(($cubiertaTotal / $permitidaTotal) * 100, 1) : 0.0,
+                (float) $filas->sum(fn (array $f) => $f['costo_presupuestado_mensual'] ?? 0.0),
+                null,
+            ];
         }
 
-        $vacante->update([
-            'estado' => $destino,
-            'motivo_cancelacion' => $destino === EstadoVacante::Cancelada
-                ? $request->validated('motivo_cancelacion')
-                : $vacante->motivo_cancelacion,
-        ]);
-
-        return back()->with('toast', ['type' => 'success', 'message' => 'Estado de la vacante actualizado.']);
-    }
-
-    public function destroy(Vacante $vacante): RedirectResponse
-    {
-        $this->authorize('delete', $vacante);
-
-        $vacante->delete();
-
-        return back()->with('toast', ['type' => 'success', 'message' => 'Vacante eliminada correctamente.']);
-    }
-
-    /**
-     * Cubre una vacante en uno de tres modos (ver docs/VACANTES.md):
-     * - colaborador_interno: mueve al colaborador seleccionado al puesto de
-     *   la vacante (promoción o cambio de puesto según niveles) y la cierra.
-     * - cobertura_temporal: registra el movimiento sin tocar el puesto
-     *   definitivo del colaborador; la vacante sigue abierta.
-     * - candidato_externo: no muta nada aquí, solo confirma la intención —
-     *   el enlace real ocurre cuando su Alta Digital se aprueba
-     *   (ConversionColaboradorService ya registra el movimiento de alta).
-     */
-    public function cubrir(CubrirVacanteRequest $request, Vacante $vacante): RedirectResponse
-    {
-        $datos = $request->validated();
-
-        if ($vacante->estado === EstadoVacante::Cubierta || $vacante->estado === EstadoVacante::Cancelada) {
-            throw new RuntimeException('Esta vacante ya no admite cobertura.');
-        }
-
-        if ($datos['modo'] === 'candidato_externo') {
-            return back()->with('toast', [
-                'type' => 'success',
-                'message' => 'Registra o continúa el Alta Digital del candidato enlazándola a esta vacante; la vacante se cerrará automáticamente al aprobarse.',
-            ]);
-        }
-
-        // "user_id" en CubrirVacanteRequest identifica en realidad un
-        // Colaborador (ver comentario en index() más arriba).
-        $colaborador = Colaborador::query()->findOrFail((int) $datos['user_id']);
-
-        if ($datos['modo'] === 'cobertura_temporal') {
-            $puesto = $vacante->puesto_id ? Puesto::query()->find($vacante->puesto_id) : null;
-            abort_unless($puesto !== null, 422, 'La vacante no tiene un puesto asociado.');
-
-            $this->movimientos->registrarCoberturaTemporal(
-                $colaborador,
-                $puesto,
-                $request->user(),
-                Carbon::parse($datos['fecha_inicio']),
-                isset($datos['fecha_fin']) ? Carbon::parse($datos['fecha_fin']) : null,
-                $datos['motivo'] ?? null,
-                $vacante->id,
-            );
-
-            return back()->with('toast', ['type' => 'success', 'message' => 'Cobertura temporal registrada. La vacante permanece abierta.']);
-        }
-
-        // colaborador_interno: mueve al colaborador al puesto de la vacante.
-        $antes = $this->movimientos->snapshot($colaborador);
-
-        $colaborador->update([
-            'puesto_id' => $vacante->puesto_id,
-            'departamento_id' => $vacante->departamento_id ?? $colaborador->departamento_id,
-            'sucursal_principal_id' => $vacante->sucursal_id ?? $colaborador->sucursal_principal_id,
-        ]);
-
-        $this->movimientos->registrarCambioPuesto(
-            $colaborador->fresh(),
-            $antes,
-            $request->user(),
-            $datos['motivo'] ?? null,
-            $vacante->id,
-        );
-
-        $vacante->update(['estado' => EstadoVacante::Cubierta->value]);
-
-        return back()->with('toast', ['type' => 'success', 'message' => 'Vacante cubierta con colaborador interno.']);
+        return [$columnas, $filasTabla];
     }
 }

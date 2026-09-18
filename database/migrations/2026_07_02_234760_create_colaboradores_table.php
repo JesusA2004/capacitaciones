@@ -5,16 +5,20 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Primer paso de la separación Usuario/Colaborador (ver docblock de
- * 2026_09_16_120000_add_expediente_storage_path_a_users.php y
- * docs/ROLES_Y_NAVEGACION.md): esta tabla concentra los datos de
- * persona/empleo que hoy viven en `users` mezclados con las credenciales de
- * acceso. `users` deja de ser dueño de estos datos — `users.colaborador_id`
- * (ver migración add_colaborador_id_a_users) enlaza la cuenta de acceso,
- * cuando existe, con su colaborador.
+ * Separación Usuario/Colaborador (ver docs/ROLES_Y_NAVEGACION.md): esta
+ * tabla concentra TODOS los datos de persona/empleo. `users` es solo la
+ * cuenta de acceso — `users.colaborador_id` enlaza la cuenta, cuando existe,
+ * con su colaborador.
  *
  * Un Colaborador puede existir sin ninguna cuenta de acceso asociada (aún no
  * se le da de alta un usuario, o nunca la necesita).
+ *
+ * Esta tabla se crea ANTES que `users` (users.colaborador_id la referencia).
+ * Por eso `incorporacion_decidida_por` y `avisos_registrado_por_id` — ambas
+ * columnas de ACTOR (quién decidió/registró, no la persona del colaborador)
+ * — se guardan como id plano sin FK de base de datos: `users` todavía no
+ * existe en este punto del orden de migración. La relación Eloquent
+ * (belongsTo) funciona igual; solo no hay constraint a nivel de motor.
  */
 return new class extends Migration
 {
@@ -27,6 +31,11 @@ return new class extends Migration
             $table->string('genero', 20)->nullable();
             $table->string('numero_empleado')->nullable()->unique();
             $table->string('telefono')->nullable();
+            $table->string('telefono_corporativo')->nullable();
+            // Sueldo mensual real del colaborador (no el presupuestado de una
+            // vacante): alimenta el recibo de nómina simple y el costo real
+            // por colaborador en los KPI de Candidatos/Vacantes.
+            $table->decimal('sueldo_mensual', 10, 2)->nullable();
             $table->string('foto_path')->nullable();
             $table->string('expediente_storage_path')->nullable();
 
@@ -43,7 +52,7 @@ return new class extends Migration
             $table->date('periodo_prueba_fin')->nullable();
 
             $table->string('incorporacion_decision', 20)->nullable();
-            $table->foreignId('incorporacion_decidida_por')->nullable()->constrained('users')->nullOnDelete();
+            $table->unsignedBigInteger('incorporacion_decidida_por')->nullable();
             $table->timestamp('incorporacion_decidida_en')->nullable();
             $table->text('incorporacion_motivo_rechazo')->nullable();
 
@@ -60,7 +69,7 @@ return new class extends Migration
             $table->timestamp('aviso_privacidad_aceptado_en')->nullable();
             $table->boolean('consentimiento_datos_aceptado')->default(false);
             $table->timestamp('consentimiento_datos_aceptado_en')->nullable();
-            $table->foreignId('avisos_registrado_por_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->unsignedBigInteger('avisos_registrado_por_id')->nullable();
 
             $table->timestamps();
             $table->softDeletes();

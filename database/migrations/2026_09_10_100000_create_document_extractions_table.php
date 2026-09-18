@@ -19,6 +19,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('employee_document_id')->constrained('employee_documents')->cascadeOnDelete();
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('colaborador_id')->nullable()->constrained('colaboradores')->nullOnDelete();
             $table->string('status')->default('pending');
             $table->longText('extracted_text')->nullable();
             $table->json('extracted_data')->nullable();

@@ -118,11 +118,15 @@ class FiniquitoCalculo extends Model
     }
 
     /**
-     * @return BelongsTo<User, $this>
+     * Colaborador liquidado (fuente de verdad de persona/empleo — ver
+     * App\Models\Colaborador). No es un User: calculadoPor()/revisadoPor()
+     * son los actores que operan el cálculo, este es el sujeto liquidado.
+     *
+     * @return BelongsTo<Colaborador, $this>
      */
     public function colaborador(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'colaborador_id');
+        return $this->belongsTo(Colaborador::class, 'colaborador_id');
     }
 
     /**

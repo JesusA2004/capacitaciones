@@ -32,6 +32,7 @@ return new class extends Migration
             $table->foreignId('candidato_id')->nullable()->constrained('candidatos')->nullOnDelete();
 
             $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('colaborador_id')->nullable()->constrained('colaboradores')->nullOnDelete();
             $table->foreignId('creado_por_id')->constrained('users')->restrictOnDelete();
             $table->foreignId('usado_por_id')->nullable()->constrained('users')->nullOnDelete();
 

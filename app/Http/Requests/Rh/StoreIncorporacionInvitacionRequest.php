@@ -3,10 +3,20 @@
 namespace App\Http\Requests\Rh;
 
 use App\Enums\EstadoCandidato;
+use App\Enums\EstadoInvitacionIncorporacion;
 use App\Models\Candidato;
+use App\Models\IncorporacionInvitacion;
 use Illuminate\Contracts\Validation\Validator as ValidatorContract;
 use Illuminate\Foundation\Http\FormRequest;
 
+/**
+ * Alta Digital QR simplificado (ver sección 5 del encargo): el formulario ya
+ * no captura nombre/correo/teléfono/empresa/sucursal/departamento/puesto a
+ * mano — todo eso se autocompleta desde el Candidato elegido
+ * (IncorporacionInvitacionController::store()). Aquí solo se valida que el
+ * candidato exista, esté "Listo para contratación" y no tenga ya una
+ * incorporación en curso (idempotencia).
+ */
 class StoreIncorporacionInvitacionRequest extends FormRequest
 {
     public function authorize(): bool
@@ -20,32 +30,14 @@ class StoreIncorporacionInvitacionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'nombre_prellenado' => ['nullable', 'string', 'max:150'],
-            'email' => ['nullable', 'email', 'max:255'],
-            'telefono' => ['nullable', 'string', 'max:30'],
-            'empresa_id' => ['nullable', 'integer', 'exists:empresas,id'],
-            'sucursal_id' => ['nullable', 'integer', 'exists:sucursales,id'],
-            'departamento_id' => ['nullable', 'integer', 'exists:departamentos,id'],
-            'puesto_id' => ['nullable', 'integer', 'exists:puestos,id'],
-            'candidato_id' => ['nullable', 'integer', 'exists:candidatos,id'],
-            // Alternativa a duracion_horas: fecha exacta de expiracion. El
-            // formulario web ya no la usa (solo horas, 1-24), pero se deja
-            // disponible para otros posibles llamadores del endpoint.
-            'expires_at' => ['nullable', 'date', 'after:now'],
+            'candidato_id' => ['required', 'integer', 'exists:candidatos,id'],
             // QR de acceso temporal a un formulario de incorporacion: rango
             // deliberadamente corto, nunca dias ni "hasta 1 año" como antes.
-            'duracion_horas' => ['nullable', 'integer', 'min:1', 'max:24'],
-            'max_usos' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'duracion_horas' => ['required', 'integer', 'min:1', 'max:24'],
             'observaciones' => ['nullable', 'string', 'max:2000'],
         ];
     }
 
-    /**
-     * Igual criterio que StoreAltaDigitalRequest: un QR ligado a un
-     * candidato solo se genera si ya está seleccionado (nunca "suelto" para
-     * alguien todavía en evaluación). Sin candidato_id (invitación directa
-     * fuera del embudo de reclutamiento) no aplica.
-     */
     public function withValidator(ValidatorContract $validator): void
     {
         $validator->after(function (ValidatorContract $validator): void {
@@ -56,14 +48,68 @@ class StoreIncorporacionInvitacionRequest extends FormRequest
             }
 
             $candidato = Candidato::query()->where('id', $candidatoId)->first();
-            $estadosElegibles = [EstadoCandidato::AprobadoRh->value, EstadoCandidato::Contratado->value];
 
-            if ($candidato !== null && ! in_array($candidato->estado->value, $estadosElegibles, true)) {
+            if ($candidato === null) {
+                return;
+            }
+
+            if ($candidato->estado !== EstadoCandidato::ListoParaContratacion) {
                 $validator->errors()->add(
                     'candidato_id',
-                    'El candidato debe estar "Aprobado por RH" (seleccionado) antes de generar su invitación QR.',
+                    'El candidato debe estar "Listo para contratación" antes de generar su invitación QR.',
+                );
+
+                return;
+            }
+
+            if ($this->tieneColaboradorCreado($candidato)) {
+                $validator->errors()->add(
+                    'candidato_id',
+                    'Este candidato ya tiene un colaborador dado de alta: no se puede generar otra invitación.',
+                );
+
+                return;
+            }
+
+            if ($this->tieneInvitacionActiva($candidato)) {
+                $validator->errors()->add(
+                    'candidato_id',
+                    'Este candidato ya tiene una invitación QR activa y vigente. Revócala o espera a que venza antes de generar otra.',
                 );
             }
         });
+    }
+
+    /**
+     * Idempotencia: nunca dos invitaciones activas a la vez para el mismo
+     * candidato, ni una nueva mientras la anterior siga sin vencer/usarse/
+     * revocarse.
+     */
+    private function tieneInvitacionActiva(Candidato $candidato): bool
+    {
+        return IncorporacionInvitacion::query()
+            ->where('candidato_id', $candidato->id)
+            ->where('estado', EstadoInvitacionIncorporacion::Activo)
+            ->where('expires_at', '>', now())
+            ->exists();
+    }
+
+    /**
+     * Idempotencia: si el candidato ya fue convertido en colaborador (por
+     * Alta Digital aprobada o por una invitación QR ya usada), no tiene
+     * caso generarle otra invitación.
+     */
+    private function tieneColaboradorCreado(Candidato $candidato): bool
+    {
+        $candidato->loadMissing('altaDigital');
+
+        if ($candidato->altaDigital?->colaborador_id !== null) {
+            return true;
+        }
+
+        return IncorporacionInvitacion::query()
+            ->where('candidato_id', $candidato->id)
+            ->whereNotNull('user_id')
+            ->exists();
     }
 }

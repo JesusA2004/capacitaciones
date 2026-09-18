@@ -192,7 +192,34 @@ class SolicitudController extends Controller
 
         $this->solicitudes->aprobar($solicitud, $request->user(), $request->validated('comentario'));
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Solicitud aprobada.']);
+        return back()->with('toast', $this->toastAprobacion('Solicitud aprobada.'));
+    }
+
+    /**
+     * Enriquece el toast de una aprobación con el resultado de la
+     * generación automática del documento oficial (ver
+     * SolicitudesService::ultimoResultadoDocumentoOficial()): un fallo ahí
+     * nunca revierte la aprobación, pero tampoco se esconde solo en el log
+     * — RH necesita saber si tiene que generar/subir el documento a mano.
+     *
+     * @return array{type: 'success'|'warning', message: string}
+     */
+    private function toastAprobacion(string $mensajeBase): array
+    {
+        $resultado = $this->solicitudes->ultimoResultadoDocumentoOficial();
+
+        if ($resultado === null || ! $resultado['aplica']) {
+            return ['type' => 'success', 'message' => $mensajeBase];
+        }
+
+        if ($resultado['motivo_error'] !== null) {
+            return [
+                'type' => 'warning',
+                'message' => "{$mensajeBase} Documento oficial NO generado: {$resultado['motivo_error']}.",
+            ];
+        }
+
+        return ['type' => 'success', 'message' => "{$mensajeBase} Documento oficial generado correctamente."];
     }
 
     public function rechazar(RechazarSolicitudInternaRequest $request, SolicitudInterna $solicitud): RedirectResponse
@@ -238,6 +265,12 @@ class SolicitudController extends Controller
 
         $this->solicitudes->moverEnTablero($solicitud, $request->user(), $nuevoEstado, $comentario);
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Solicitud movida a '.$nuevoEstado->etiqueta().'.']);
+        $mensajeBase = 'Solicitud movida a '.$nuevoEstado->etiqueta().'.';
+
+        $toast = $nuevoEstado === EstadoSolicitudInterna::Aprobada
+            ? $this->toastAprobacion($mensajeBase)
+            : ['type' => 'success', 'message' => $mensajeBase];
+
+        return back()->with('toast', $toast);
     }
 }

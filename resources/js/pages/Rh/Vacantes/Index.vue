@@ -1,33 +1,21 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
+import { Head } from '@inertiajs/vue3';
 import {
     Briefcase,
-    CheckCircle2,
+    Building2,
     CircleDollarSign,
-    GripVertical,
-    ListChecks,
-    Plus,
-    Sparkles,
-    Trash2,
-    UserCheck,
+    ClipboardList,
+    Percent,
     Users,
-    Wallet,
-    Wand2,
-    XCircle,
 } from '@lucide/vue';
-import { computed, onMounted, reactive, ref, watch } from 'vue';
-import type { DraggableEvent } from 'vue-draggable-plus';
-import { VueDraggable } from 'vue-draggable-plus';
-import DatePicker from '@/components/Common/DatePicker.vue';
-import EstadoBadge from '@/components/Common/EstadoBadge.vue';
-import MetricCard from '@/components/Common/MetricCard.vue';
+import { computed } from 'vue';
+import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
-import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
+import CrudMobileCard from '@/components/DataTable/CrudMobileCard.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
-import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
-import PeopleConfirmDialog from '@/components/people/PeopleConfirmDialog.vue';
-import CubrirVacanteDialog from '@/components/Rh/CubrirVacanteDialog.vue';
-import VacanteFormDialog from '@/components/Rh/VacanteFormDialog.vue';
+import CrudStats from '@/components/DataTable/CrudStats.vue';
+import DataTable from '@/components/DataTable/DataTable.vue';
+import type { ColumnaDataTable } from '@/components/DataTable/DataTable.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -38,20 +26,13 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
-import { useKanbanTransition } from '@/composables/useKanbanTransition';
 import { formatoMoneda } from '@/lib/utils';
 import { dashboard } from '@/routes';
-import {
-    destroy,
-    estado as estadoUrl,
-    exportarExcel,
-    exportarPdf,
-    index,
-} from '@/routes/rh/vacantes';
+import { exportarExcel, exportarPdf, index } from '@/routes/rh/vacantes';
 import type {
     OpcionesReclutamiento,
+    RespuestaPaginada,
     VacanteItem,
     VacantesKpis,
 } from '@/types';
@@ -64,11 +45,7 @@ const props = defineProps<{
         sucursal_id?: string;
         departamento_id?: string;
         puesto_id?: string;
-        responsable_rh_id?: string;
-        estado?: string;
         busqueda?: string;
-        fecha_inicio?: string;
-        fecha_fin?: string;
     };
     opciones: OpcionesReclutamiento;
 }>();
@@ -89,391 +66,81 @@ const { filtros, aplicar, aplicarConDebounce, limpiar } = useFiltros(
         sucursal_id: props.filtros.sucursal_id ?? '',
         departamento_id: props.filtros.departamento_id ?? '',
         puesto_id: props.filtros.puesto_id ?? '',
-        responsable_rh_id: props.filtros.responsable_rh_id ?? '',
-        estado: props.filtros.estado ?? '',
         busqueda: props.filtros.busqueda ?? '',
-        fecha_inicio: props.filtros.fecha_inicio ?? '',
-        fecha_fin: props.filtros.fecha_fin ?? '',
     },
 );
-const filtroSheetAbierto = ref(false);
-function urlExportar(
-    destino: typeof exportarExcel | typeof exportarPdf,
-): string {
+
+function urlExportar(destino: typeof exportarExcel | typeof exportarPdf): string {
     const parametros = new URLSearchParams(
         Object.entries(filtros).filter(([, valor]) => valor),
     );
 
     return `${destino.url()}?${parametros.toString()}`;
 }
-const { confirmarEliminacion, mostrarError, mostrarExito } = useAlertas();
 
-const COLUMNAS = [
-    { estado: 'abierta', titulo: 'Abierta' },
-    { estado: 'en_reclutamiento', titulo: 'En reclutamiento' },
-    { estado: 'con_candidatos', titulo: 'Con candidatos' },
-    { estado: 'en_revision', titulo: 'En revisión' },
-    { estado: 'cubierta', titulo: 'Cubierta' },
-    { estado: 'cancelada', titulo: 'Cancelada' },
+// DataTable.vue espera una respuesta paginada del servidor; este listado no
+// pagina (es el universo de pares sucursal/puesto con headcount vigente,
+// siempre acotado y pequeño), así que se envuelve en una sola página.
+const vacantesPaginadas = computed<RespuestaPaginada<VacanteItem>>(() => ({
+    data: props.vacantes,
+    current_page: 1,
+    last_page: 1,
+    per_page: Math.max(props.vacantes.length, 1),
+    total: props.vacantes.length,
+    from: props.vacantes.length ? 1 : null,
+    to: props.vacantes.length,
+    links: [],
+}));
+
+const columnas: ColumnaDataTable[] = [
+    { clave: 'sucursal', etiqueta: 'Sucursal' },
+    { clave: 'departamento', etiqueta: 'Departamento' },
+    { clave: 'puesto', etiqueta: 'Puesto' },
+    { clave: 'plantilla_permitida', etiqueta: 'Plantilla permitida' },
+    { clave: 'plantilla_cubierta', etiqueta: 'Plantilla cubierta' },
+    { clave: 'vacantes_disponibles', etiqueta: 'Vacantes disponibles' },
+    { clave: 'candidatos_activos', etiqueta: 'Candidatos activos' },
+    { clave: 'candidatos_finalistas', etiqueta: 'Candidatos finalistas' },
+    { clave: 'cobertura_pct', etiqueta: 'Cobertura %' },
+    { clave: 'costo_presupuestado_mensual', etiqueta: 'Costo mensual' },
+    { clave: 'fecha_apertura_mas_antigua', etiqueta: 'Faltante desde' },
 ];
-
-const columnas = reactive<Record<string, VacanteItem[]>>(
-    Object.fromEntries(COLUMNAS.map((c) => [c.estado, []])),
-);
-
-function construirColumnas(lista: VacanteItem[]) {
-    for (const c of COLUMNAS) {
-        columnas[c.estado] = lista.filter((v) => v.estado === c.estado);
-    }
-}
-
-construirColumnas(props.vacantes);
-watch(() => props.vacantes, construirColumnas);
 
 const tarjetasKpi = computed(() => [
     {
-        etiqueta: 'Vacantes abiertas',
-        valor: props.kpis.vacantes_abiertas,
-        icono: Briefcase,
-        colorClase: 'bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]',
+        etiqueta: 'Sucursales bajo cobertura',
+        valor: props.kpis.sucursales_bajo_cobertura,
+        icono: Building2,
+        tono: 'warning' as const,
     },
     {
-        etiqueta: 'Plazas disponibles',
-        valor: props.kpis.plazas_disponibles,
+        etiqueta: 'Plantilla permitida',
+        valor: props.kpis.plantilla_permitida_total,
+        icono: ClipboardList,
+    },
+    {
+        etiqueta: 'Plantilla cubierta',
+        valor: props.kpis.plantilla_cubierta_total,
         icono: Users,
-        colorClase: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+        tono: 'success' as const,
     },
     {
-        etiqueta: 'Vacantes automáticas',
-        valor: props.kpis.vacantes_automaticas,
-        icono: Wand2,
-        colorClase: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
+        etiqueta: 'Vacantes disponibles',
+        valor: props.kpis.vacantes_totales,
+        icono: Briefcase,
+        tono: props.kpis.vacantes_totales > 0 ? ('warning' as const) : ('default' as const),
     },
     {
-        etiqueta: 'Vacantes manuales',
-        valor: props.kpis.vacantes_manuales,
-        icono: ListChecks,
-        colorClase: 'bg-muted text-muted-foreground',
+        etiqueta: 'Cobertura global',
+        valor: `${props.kpis.cobertura_pct_global}%`,
+        icono: Percent,
     },
     {
-        etiqueta: 'En reclutamiento',
-        valor: props.kpis.en_reclutamiento,
-        icono: Sparkles,
-        colorClase: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-    },
-    {
-        etiqueta: 'Cubiertas este mes',
-        valor: props.kpis.cubiertas_este_mes,
-        icono: CheckCircle2,
-        colorClase: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-    },
-    {
-        etiqueta: 'Canceladas',
-        valor: props.kpis.canceladas,
-        icono: XCircle,
-        colorClase: 'bg-destructive/10 text-destructive',
-    },
-    {
-        etiqueta: 'Costo mensual (abiertas)',
-        valor: formatoMoneda(props.kpis.costo_mensual_abiertas),
-        icono: Wallet,
-        colorClase: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
-    },
-    {
-        etiqueta: 'Costo promedio por puesto',
-        valor: formatoMoneda(props.kpis.costo_promedio_puesto),
+        etiqueta: 'Costo mensual presupuestado',
+        valor: formatoMoneda(props.kpis.costo_mensual_total),
         icono: CircleDollarSign,
-        colorClase: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
     },
 ]);
-
-const dialogoAbierto = ref(false);
-const seleccionada = ref<VacanteItem | null>(null);
-const prefillCreacion = ref<{
-    puesto_id?: number;
-    departamento_id?: number;
-    empresa_id?: number;
-    sucursal_id?: number;
-    motivo?: string;
-} | null>(null);
-
-function abrirCrear() {
-    seleccionada.value = null;
-    dialogoAbierto.value = true;
-}
-
-// Llegada desde "Crear vacante para este puesto" en Jerarquía de puestos:
-// ?crear=1&puesto_id=..&departamento_id=.. abre el diálogo precargado.
-onMounted(() => {
-    const query = new URLSearchParams(window.location.search);
-
-    if (query.get('crear') !== '1') {
-        return;
-    }
-
-    prefillCreacion.value = {
-        puesto_id: props.filtros.puesto_id
-            ? Number(props.filtros.puesto_id)
-            : undefined,
-        departamento_id: props.filtros.departamento_id
-            ? Number(props.filtros.departamento_id)
-            : undefined,
-        empresa_id: props.filtros.empresa_id
-            ? Number(props.filtros.empresa_id)
-            : undefined,
-        motivo: 'nueva_posicion',
-    };
-    abrirCrear();
-});
-
-function abrirEditar(vacante: VacanteItem) {
-    seleccionada.value = vacante;
-    dialogoAbierto.value = true;
-}
-
-const dialogoCubrirAbierto = ref(false);
-const vacanteACubrir = ref<VacanteItem | null>(null);
-
-function abrirCubrir(vacante: VacanteItem) {
-    vacanteACubrir.value = vacante;
-    dialogoCubrirAbierto.value = true;
-}
-
-async function eliminar(vacante: VacanteItem) {
-    const confirmado = await confirmarEliminacion(
-        `la vacante de «${vacante.puesto?.nombre ?? 'este puesto'}»`,
-    );
-
-    if (!confirmado) {
-        return;
-    }
-
-    router.delete(destroy.url(vacante.id), {
-        preserveScroll: true,
-        onSuccess: () => mostrarExito('Vacante eliminada.'),
-        onError: () => mostrarError('No fue posible eliminar la vacante.'),
-    });
-}
-
-// --- Drag and drop: VueDraggable (misma librería y patrón que el tablero de
-// Solicitudes) con confirmación/reglas SOLO después de que Sortable termina
-// (@end, nunca @add — ver useKanbanTransition). "Cubierta" nunca se asigna
-// soltando una tarjeta: abre CubrirVacanteDialog en su lugar (cobertura
-// real), igual que el botón "Cubrir vacante" de la tarjeta. "Cancelada"
-// pide motivo con PeopleConfirmDialog (no SweetAlert, para no abrir un
-// segundo sistema de overlays). Cualquier otra transición pide una
-// confirmación ligera antes de escribir nada — el tablero NO se restaura al
-// soltar (eso pelea con el v-model de vue-draggable-plus, ver
-// useKanbanTransition); solo se fuerza `columnas` a su estado canónico si el
-// usuario cancela cualquiera de los tres diálogos o el servidor rechaza el
-// cambio.
-const {
-    processing: enviandoTransicionVacante,
-    onStart: onStartDragVacanteBase,
-    onEnd: onEndDragVacanteBase,
-    restaurarCanonico: restaurarVacantes,
-    alSiguienteFrameLibre,
-} = useKanbanTransition();
-
-// Id+columna de origen capturados al INICIAR el arrastre (dataset del DOM,
-// ver `data-kanban-id`/`data-estado`), no al soltar — ver
-// useKanbanTransition y el mismo patrón en Rh/Solicitudes/Index.vue.
-const dragOrigenIdVacante = ref<number | null>(null);
-const dragOrigenEstadoVacante = ref<string | null>(null);
-
-type TransicionVacantePendiente = {
-    vacante: VacanteItem;
-    estadoOrigen: string;
-    estadoDestino: string;
-};
-
-const transicionPendiente = ref<TransicionVacantePendiente | null>(null);
-const dialogTransicionAbierto = ref(false);
-
-const vacanteACancelar = ref<VacanteItem | null>(null);
-const dialogCancelarAbierto = ref(false);
-const motivoCancelacionTexto = ref('');
-
-watch(dialogoCubrirAbierto, (abierto) => {
-    if (!abierto) {
-        restaurarVacantes(() => construirColumnas(props.vacantes));
-    }
-});
-
-const tableroVacantesBloqueado = computed(
-    () =>
-        dialogTransicionAbierto.value ||
-        dialogCancelarAbierto.value ||
-        dialogoCubrirAbierto.value ||
-        enviandoTransicionVacante.value,
-);
-
-function etiquetaEstadoVacante(estado: string): string {
-    return COLUMNAS.find((c) => c.estado === estado)?.titulo ?? estado;
-}
-
-// Misma matriz que EstadoVacante::puedeTransicionarA() en el backend (viaja
-// en opciones.transicionesPermitidas, no se reimplementa aquí) — evita que el
-// usuario pueda soltar una tarjeta en una columna que el servidor igual va a
-// rechazar. "Cubierta" es un caso especial: nunca aparece en el mapa de
-// transiciones porque no se asigna vía el PUT genérico, pero SÍ es un destino
-// válido para el drag (abre CubrirVacanteDialog en vez de hacer el PUT).
-function permitidoSoltarEnColumna(
-    estadoOrigen: string | null | undefined,
-    estadoDestino: string,
-): boolean {
-    if (!estadoOrigen || estadoOrigen === estadoDestino) {
-        return true;
-    }
-
-    const esOrigenTerminal =
-        estadoOrigen === 'cubierta' || estadoOrigen === 'cancelada';
-
-    if (esOrigenTerminal) {
-        return false;
-    }
-
-    if (estadoDestino === 'cubierta') {
-        return true;
-    }
-
-    return (
-        props.opciones.transicionesPermitidas?.[estadoOrigen]?.includes(
-            estadoDestino,
-        ) ?? true
-    );
-}
-
-function onStartDragVacante(evento: DraggableEvent<VacanteItem>) {
-    onStartDragVacanteBase();
-
-    const idDataset = evento.item?.dataset.kanbanId;
-    dragOrigenIdVacante.value = idDataset ? Number(idDataset) : null;
-    dragOrigenEstadoVacante.value = evento.from?.dataset.estado ?? null;
-}
-
-function onEndDragVacante(evento: DraggableEvent<VacanteItem>) {
-    onEndDragVacanteBase();
-
-    const id =
-        dragOrigenIdVacante.value ??
-        Number(evento.item?.dataset.kanbanId ?? NaN);
-    const estadoOrigen =
-        dragOrigenEstadoVacante.value ?? evento.from?.dataset.estado;
-    const estadoDestino = evento.to?.dataset.estado;
-    const vacante = props.vacantes.find((v) => v.id === id);
-
-    dragOrigenIdVacante.value = null;
-    dragOrigenEstadoVacante.value = null;
-
-    if (
-        !vacante ||
-        !estadoOrigen ||
-        !estadoDestino ||
-        estadoOrigen === estadoDestino
-    ) {
-        return;
-    }
-
-    // Montar cualquiera de los tres diálogos se difiere a
-    // alSiguienteFrameLibre(): hacerlo síncrono aquí (dentro del propio
-    // @end) seguía dando freeze en reproducción real — Sortable todavía
-    // limpia sus referencias internas justo después de este callback (ver
-    // useKanbanTransition).
-    alSiguienteFrameLibre(() => {
-        if (estadoDestino === 'cubierta') {
-            abrirCubrir(vacante);
-
-            return;
-        }
-
-        if (estadoDestino === 'cancelada') {
-            vacanteACancelar.value = vacante;
-            motivoCancelacionTexto.value = '';
-            dialogCancelarAbierto.value = true;
-
-            return;
-        }
-
-        transicionPendiente.value = { vacante, estadoOrigen, estadoDestino };
-        dialogTransicionAbierto.value = true;
-    });
-}
-
-function cerrarDialogTransicion() {
-    dialogTransicionAbierto.value = false;
-    transicionPendiente.value = null;
-    restaurarVacantes(() => construirColumnas(props.vacantes));
-}
-
-function confirmarTransicionVacante() {
-    const mov = transicionPendiente.value;
-
-    if (!mov) {
-        return;
-    }
-
-    enviandoTransicionVacante.value = true;
-
-    router.put(
-        estadoUrl.url(mov.vacante.id),
-        { estado: mov.estadoDestino },
-        {
-            preserveScroll: true,
-            preserveState: true,
-            onSuccess: () =>
-                mostrarExito('Estado de la vacante actualizado.'),
-            onError: (errors: Record<string, string>) =>
-                mostrarError(
-                    errors.estado ??
-                        'No se pudo mover la vacante. Verifica el permiso o la transición.',
-                ),
-            onFinish: () => {
-                enviandoTransicionVacante.value = false;
-                cerrarDialogTransicion();
-            },
-        },
-    );
-}
-
-function cerrarDialogCancelar() {
-    dialogCancelarAbierto.value = false;
-    vacanteACancelar.value = null;
-    motivoCancelacionTexto.value = '';
-    restaurarVacantes(() => construirColumnas(props.vacantes));
-}
-
-function confirmarCancelacionVacante() {
-    const vacante = vacanteACancelar.value;
-
-    if (!vacante || !motivoCancelacionTexto.value.trim()) {
-        return;
-    }
-
-    enviandoTransicionVacante.value = true;
-
-    router.put(
-        estadoUrl.url(vacante.id),
-        {
-            estado: 'cancelada',
-            motivo_cancelacion: motivoCancelacionTexto.value,
-        },
-        {
-            preserveScroll: true,
-            preserveState: true,
-            onSuccess: () => mostrarExito('Vacante cancelada.'),
-            onError: (errors: Record<string, string>) =>
-                mostrarError(
-                    errors.estado ??
-                        'No se pudo cancelar la vacante. Verifica el permiso.',
-                ),
-            onFinish: () => {
-                enviandoTransicionVacante.value = false;
-                cerrarDialogCancelar();
-            },
-        },
-    );
-}
 </script>
 
 <template>
@@ -481,460 +148,228 @@ function confirmarCancelacionVacante() {
 
     <div class="flex flex-col gap-6 p-4">
         <CrudPageHeader
-            titulo="Vacantes y cobertura de plantilla"
-            descripcion="Da seguimiento a las vacantes abiertas, sus plazas y su cobertura."
+            titulo="Vacantes"
+            descripcion="Cobertura de plantilla por sucursal y puesto: plazas permitidas, cubiertas y disponibles, calculadas en vivo."
             :icono="Briefcase"
         >
             <CrudExportButtons
                 :url-excel="urlExportar(exportarExcel)"
                 :url-pdf="urlExportar(exportarPdf)"
             />
-            <Button @click="abrirCrear">
-                <Plus class="size-4" />
-                Nueva vacante
-            </Button>
         </CrudPageHeader>
 
-        <div
-            class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-9"
-        >
-            <MetricCard
-                v-for="tarjeta in tarjetasKpi"
-                :key="tarjeta.etiqueta"
-                :etiqueta="tarjeta.etiqueta"
-                :valor="tarjeta.valor"
-                :icono="tarjeta.icono"
-                :color-clase="tarjeta.colorClase"
-            />
-        </div>
+        <CrudStats :estadisticas="tarjetasKpi" />
 
         <div class="flex flex-wrap items-center gap-2">
-            <CrudSearchInput
-                :model-value="filtros.busqueda"
-                placeholder="Buscar por puesto o departamento..."
-                @update:model-value="
-                    (valor) => {
-                        filtros.busqueda = valor;
-                        aplicarConDebounce();
-                    }
-                "
-            />
+            <div class="grid gap-1.5">
+                <Label class="text-xs text-muted-foreground">Buscar</Label>
+                <input
+                    :value="filtros.busqueda"
+                    type="text"
+                    placeholder="Buscar por sucursal, departamento o puesto..."
+                    class="h-9 w-64 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    @input="
+                        (evento) => {
+                            filtros.busqueda = (
+                                evento.target as HTMLInputElement
+                            ).value;
+                            aplicarConDebounce();
+                        }
+                    "
+                />
+            </div>
 
-            <Select
-                :model-value="filtros.empresa_id"
-                @update:model-value="
-                    (v) => {
-                        filtros.empresa_id = String(v ?? '');
-                        aplicar();
-                    }
-                "
-            >
-                <SelectTrigger class="w-48"
-                    ><SelectValue placeholder="Todas las empresas"
-                /></SelectTrigger>
-                <SelectContent>
-                    <SelectItem
-                        v-for="opcion in opciones.empresas"
-                        :key="opcion.id"
-                        :value="String(opcion.id)"
-                        >{{ opcion.nombre }}</SelectItem
-                    >
-                </SelectContent>
-            </Select>
+            <div class="grid gap-1.5">
+                <Label class="text-xs text-muted-foreground">Empresa</Label>
+                <Select
+                    :model-value="filtros.empresa_id"
+                    @update:model-value="
+                        (v) => {
+                            filtros.empresa_id = String(v ?? '');
+                            aplicar();
+                        }
+                    "
+                >
+                    <SelectTrigger class="w-44"
+                        ><SelectValue placeholder="Todas"
+                    /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem
+                            v-for="opcion in opciones.empresas"
+                            :key="opcion.id"
+                            :value="String(opcion.id)"
+                            >{{ opcion.nombre }}</SelectItem
+                        >
+                    </SelectContent>
+                </Select>
+            </div>
 
-            <Select
-                :model-value="filtros.sucursal_id"
-                @update:model-value="
-                    (v) => {
-                        filtros.sucursal_id = String(v ?? '');
-                        aplicar();
-                    }
-                "
-            >
-                <SelectTrigger class="w-48"
-                    ><SelectValue placeholder="Todas las sucursales"
-                /></SelectTrigger>
-                <SelectContent>
-                    <SelectItem
-                        v-for="opcion in opciones.sucursales"
-                        :key="opcion.id"
-                        :value="String(opcion.id)"
-                        >{{ opcion.nombre }}</SelectItem
-                    >
-                </SelectContent>
-            </Select>
+            <div class="grid gap-1.5">
+                <Label class="text-xs text-muted-foreground">Sucursal</Label>
+                <Select
+                    :model-value="filtros.sucursal_id"
+                    @update:model-value="
+                        (v) => {
+                            filtros.sucursal_id = String(v ?? '');
+                            aplicar();
+                        }
+                    "
+                >
+                    <SelectTrigger class="w-44"
+                        ><SelectValue placeholder="Todas"
+                    /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem
+                            v-for="opcion in opciones.sucursales"
+                            :key="opcion.id"
+                            :value="String(opcion.id)"
+                            >{{ opcion.nombre }}</SelectItem
+                        >
+                    </SelectContent>
+                </Select>
+            </div>
 
-            <Select
-                :model-value="filtros.puesto_id"
-                @update:model-value="
-                    (v) => {
-                        filtros.puesto_id = String(v ?? '');
-                        aplicar();
-                    }
-                "
-            >
-                <SelectTrigger class="w-48"
-                    ><SelectValue placeholder="Todos los puestos"
-                /></SelectTrigger>
-                <SelectContent>
-                    <SelectItem
-                        v-for="opcion in opciones.puestos"
-                        :key="opcion.id"
-                        :value="String(opcion.id)"
-                        >{{ opcion.nombre }}</SelectItem
-                    >
-                </SelectContent>
-            </Select>
+            <div class="grid gap-1.5">
+                <Label class="text-xs text-muted-foreground"
+                    >Departamento</Label
+                >
+                <Select
+                    :model-value="filtros.departamento_id"
+                    @update:model-value="
+                        (v) => {
+                            filtros.departamento_id = String(v ?? '');
+                            aplicar();
+                        }
+                    "
+                >
+                    <SelectTrigger class="w-44"
+                        ><SelectValue placeholder="Todos"
+                    /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem
+                            v-for="opcion in opciones.departamentos"
+                            :key="opcion.id"
+                            :value="String(opcion.id)"
+                            >{{ opcion.nombre }}</SelectItem
+                        >
+                    </SelectContent>
+                </Select>
+            </div>
 
-            <CrudFilterSheet
-                titulo="Más filtros"
-                descripcion="Departamento, responsable y rango de fechas de apertura."
-                :contador-activos="
-                    [
-                        filtros.departamento_id,
-                        filtros.responsable_rh_id,
-                        filtros.estado,
-                        filtros.fecha_inicio,
-                        filtros.fecha_fin,
-                    ].filter(Boolean).length
-                "
-                :open="filtroSheetAbierto"
-                @update:open="(v) => (filtroSheetAbierto = v)"
-                @aplicar="aplicar"
-                @limpiar="limpiar"
-            >
-                <div class="grid gap-2">
-                    <Label>Departamento</Label>
-                    <Select
-                        :model-value="filtros.departamento_id"
-                        @update:model-value="
-                            (v) => (filtros.departamento_id = String(v ?? ''))
-                        "
-                    >
-                        <SelectTrigger
-                            ><SelectValue placeholder="Todos"
-                        /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in opciones.departamentos"
-                                :key="opcion.id"
-                                :value="String(opcion.id)"
-                                >{{ opcion.nombre }}</SelectItem
-                            >
-                        </SelectContent>
-                    </Select>
-                </div>
+            <div class="grid gap-1.5">
+                <Label class="text-xs text-muted-foreground">Puesto</Label>
+                <Select
+                    :model-value="filtros.puesto_id"
+                    @update:model-value="
+                        (v) => {
+                            filtros.puesto_id = String(v ?? '');
+                            aplicar();
+                        }
+                    "
+                >
+                    <SelectTrigger class="w-44"
+                        ><SelectValue placeholder="Todos"
+                    /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem
+                            v-for="opcion in opciones.puestos"
+                            :key="opcion.id"
+                            :value="String(opcion.id)"
+                            >{{ opcion.nombre }}</SelectItem
+                        >
+                    </SelectContent>
+                </Select>
+            </div>
 
-                <div class="grid gap-2">
-                    <Label>Responsable RH</Label>
-                    <Select
-                        :model-value="filtros.responsable_rh_id"
-                        @update:model-value="
-                            (v) => (filtros.responsable_rh_id = String(v ?? ''))
-                        "
-                    >
-                        <SelectTrigger
-                            ><SelectValue placeholder="Todos"
-                        /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in opciones.responsables"
-                                :key="opcion.id"
-                                :value="String(opcion.id)"
-                                >{{ opcion.name }}
-                                {{ opcion.apellidos }}</SelectItem
-                            >
-                        </SelectContent>
-                    </Select>
-                </div>
-
-                <div class="grid gap-2">
-                    <Label>Estado</Label>
-                    <Select
-                        :model-value="filtros.estado"
-                        @update:model-value="
-                            (v) => (filtros.estado = String(v ?? ''))
-                        "
-                    >
-                        <SelectTrigger
-                            ><SelectValue placeholder="Todos"
-                        /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in opciones.estados"
-                                :key="opcion.value"
-                                :value="opcion.value"
-                                >{{ opcion.etiqueta }}</SelectItem
-                            >
-                        </SelectContent>
-                    </Select>
-                </div>
-
-                <div class="grid grid-cols-2 gap-2">
-                    <div class="grid gap-2">
-                        <Label>Apertura desde</Label>
-                        <DatePicker v-model="filtros.fecha_inicio" />
-                    </div>
-                    <div class="grid gap-2">
-                        <Label>Apertura hasta</Label>
-                        <DatePicker v-model="filtros.fecha_fin" />
-                    </div>
-                </div>
-            </CrudFilterSheet>
-
-            <Button variant="ghost" size="sm" @click="limpiar">
+            <Button variant="ghost" size="sm" class="mt-5" @click="limpiar">
                 Limpiar filtros
             </Button>
         </div>
 
-        <div class="flex gap-4 overflow-x-auto pb-4">
-            <div
-                v-for="columna in COLUMNAS"
-                :key="columna.estado"
-                class="flex w-72 shrink-0 flex-col gap-3 rounded-2xl border border-border/60 bg-muted/20 p-3"
-            >
-                <div class="flex items-center justify-between px-1">
-                    <h3 class="text-sm font-semibold">{{ columna.titulo }}</h3>
-                    <Badge variant="outline">{{
-                        columnas[columna.estado]?.length ?? 0
-                    }}</Badge>
-                </div>
+        <DataTable
+            :columnas="columnas"
+            :datos="vacantesPaginadas"
+            mensaje-vacio="No hay combinaciones de sucursal y puesto con plantilla configurada."
+        >
+            <template #vacio>
+                <CrudEmptyState
+                    :icono="Briefcase"
+                    titulo="Sin plantilla configurada"
+                    descripcion="No hay combinaciones de sucursal y puesto con headcount configurado para los filtros actuales."
+                />
+            </template>
 
-                <VueDraggable
-                    v-model="columnas[columna.estado]"
-                    :data-estado="columna.estado"
-                    class="flex min-h-16 flex-col gap-2 rounded-xl transition-colors"
-                    :class="{
-                        'bg-destructive/5 opacity-50':
-                            dragOrigenEstadoVacante &&
-                            !permitidoSoltarEnColumna(
-                                dragOrigenEstadoVacante,
-                                columna.estado,
-                            ),
-                    }"
-                    :group="{
-                        name: 'vacantes-kanban',
-                        put: () =>
-                            permitidoSoltarEnColumna(
-                                dragOrigenEstadoVacante,
-                                columna.estado,
-                            ),
-                    }"
-                    :animation="150"
-                    :disabled="tableroVacantesBloqueado"
-                    handle=".kanban-drag-handle"
-                    filter="a, button, input, textarea, select"
-                    ghost-class="opacity-40"
-                    @start="onStartDragVacante"
-                    @end="onEndDragVacante"
+            <template #celda-sucursal="{ fila }">
+                <span>{{ fila.sucursal?.nombre ?? '—' }}</span>
+            </template>
+            <template #celda-departamento="{ fila }">
+                <span class="text-muted-foreground">{{
+                    fila.departamento?.nombre ?? '—'
+                }}</span>
+            </template>
+            <template #celda-puesto="{ fila }">
+                <span>{{ fila.puesto?.nombre ?? '—' }}</span>
+            </template>
+            <template #celda-vacantes_disponibles="{ fila }">
+                <Badge
+                    v-if="fila.vacantes_disponibles > 0"
+                    variant="outline"
+                    class="border-[var(--brand-primary)]/40 text-[var(--brand-primary)]"
                 >
-                    <div
-                        v-for="vacante in columnas[columna.estado]"
-                        :key="vacante.id"
-                        :data-kanban-id="vacante.id"
-                        role="button"
-                        tabindex="0"
-                        class="group flex flex-col gap-1 rounded-xl border border-border/60 bg-card p-3 text-left shadow-sm transition-colors hover:border-primary/40"
-                        @click="abrirEditar(vacante)"
+                    {{ fila.vacantes_disponibles }}
+                </Badge>
+                <span v-else class="text-muted-foreground">0</span>
+            </template>
+            <template #celda-cobertura_pct="{ fila }">
+                <span>{{ fila.cobertura_pct }}%</span>
+            </template>
+            <template #celda-costo_presupuestado_mensual="{ fila }">
+                <span>{{
+                    fila.costo_presupuestado_mensual !== null
+                        ? formatoMoneda(fila.costo_presupuestado_mensual)
+                        : '—'
+                }}</span>
+            </template>
+            <template #celda-fecha_apertura_mas_antigua="{ fila }">
+                <span class="text-muted-foreground">{{
+                    fila.fecha_apertura_mas_antigua ?? '—'
+                }}</span>
+            </template>
+
+            <template #mobile-card="{ fila }">
+                <CrudMobileCard
+                    :titulo="fila.puesto?.nombre ?? 'Sin puesto'"
+                    :subtitulo="`${fila.sucursal?.nombre ?? 'Sin sucursal'} · ${fila.departamento?.nombre ?? 'Sin departamento'}`"
+                >
+                    <template #badge>
+                        <Badge
+                            v-if="fila.vacantes_disponibles > 0"
+                            variant="outline"
+                            class="border-[var(--brand-primary)]/40 text-[var(--brand-primary)]"
+                        >
+                            {{ fila.vacantes_disponibles }} disponible{{
+                                fila.vacantes_disponibles === 1 ? '' : 's'
+                            }}
+                        </Badge>
+                    </template>
+                    <span
+                        >Plantilla: {{ fila.plantilla_cubierta }}/{{
+                            fila.plantilla_permitida
+                        }}
+                        ({{ fila.cobertura_pct }}%)</span
                     >
-                        <div class="flex items-start justify-between gap-2">
-                            <span class="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-                                <span
-                                    class="kanban-drag-handle -m-1 flex size-6 shrink-0 cursor-grab items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground active:cursor-grabbing"
-                                    title="Arrastrar para mover"
-                                    @click.stop
-                                >
-                                    <GripVertical class="size-3.5" />
-                                </span>
-                                <span class="truncate">{{
-                                    vacante.puesto?.nombre ?? 'Sin puesto'
-                                }}</span>
-                            </span>
-                            <div
-                                class="flex shrink-0 items-center gap-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100"
-                            >
-                                <Button
-                                    v-if="
-                                        columna.estado !== 'cubierta' &&
-                                        columna.estado !== 'cancelada'
-                                    "
-                                    variant="ghost"
-                                    size="icon-xs"
-                                    class="text-muted-foreground hover:bg-primary/10 hover:text-primary"
-                                    title="Cubrir vacante"
-                                    @click.stop="abrirCubrir(vacante)"
-                                >
-                                    <UserCheck class="size-3.5" />
-                                </Button>
-                                <Button
-                                    v-if="!vacante.generada_automaticamente"
-                                    variant="ghost"
-                                    size="icon-xs"
-                                    class="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                                    title="Eliminar"
-                                    @click.stop="eliminar(vacante)"
-                                >
-                                    <Trash2 class="size-3.5" />
-                                </Button>
-                            </div>
-                        </div>
-                        <span class="text-xs text-muted-foreground">{{
-                            vacante.sucursal?.nombre ?? 'Sin sucursal'
-                        }}</span>
-                        <span
-                            v-if="vacante.departamento"
-                            class="text-xs text-muted-foreground"
-                            >{{ vacante.departamento.nombre }}</span
-                        >
-
-                        <div class="mt-1 flex flex-wrap items-center gap-1.5">
-                            <EstadoBadge
-                                :estado="
-                                    vacante.generada_automaticamente
-                                        ? 'automatica'
-                                        : 'manual'
-                                "
-                            />
-                            <Badge
-                                v-if="vacante.plazas_disponibles > 0"
-                                variant="outline"
-                                class="border-[var(--brand-primary)]/40 text-[var(--brand-primary)]"
-                            >
-                                {{ vacante.plazas_disponibles }} disponible{{
-                                    vacante.plazas_disponibles === 1 ? '' : 's'
-                                }}
-                            </Badge>
-                        </div>
-
-                        <div
-                            class="mt-1 grid grid-cols-3 gap-1 rounded-lg bg-muted/40 p-1.5 text-center text-[11px] text-muted-foreground"
-                        >
-                            <div>
-                                <p class="font-semibold text-foreground">
-                                    {{ vacante.plazas_requeridas }}
-                                </p>
-                                <p>Requeridas</p>
-                            </div>
-                            <div>
-                                <p class="font-semibold text-foreground">
-                                    {{ vacante.plazas_cubiertas }}
-                                </p>
-                                <p>Cubiertas</p>
-                            </div>
-                            <div>
-                                <p class="font-semibold text-foreground">
-                                    {{ vacante.plazas_disponibles }}
-                                </p>
-                                <p>Disponibles</p>
-                            </div>
-                        </div>
-
-                        <div
-                            v-if="vacante.plantilla_autorizada !== null"
-                            class="mt-1 grid grid-cols-3 gap-1 rounded-lg bg-muted/40 p-1.5 text-center text-[11px] text-muted-foreground"
-                        >
-                            <div>
-                                <p class="font-semibold text-foreground">
-                                    {{ vacante.plantilla_autorizada }}
-                                </p>
-                                <p>Plantilla aut.</p>
-                            </div>
-                            <div>
-                                <p class="font-semibold text-foreground">
-                                    {{ vacante.plantilla_actual }}
-                                </p>
-                                <p>Plantilla act.</p>
-                            </div>
-                            <div>
-                                <p class="font-semibold text-foreground">
-                                    {{ vacante.faltantes_reales }}
-                                </p>
-                                <p>Faltantes</p>
-                            </div>
-                        </div>
-
-                        <span
-                            v-if="vacante.responsable_rh"
-                            class="text-xs text-muted-foreground"
-                        >
-                            RH: {{ vacante.responsable_rh.name }}
-                            {{ vacante.responsable_rh.apellidos }}
-                        </span>
-
-                        <p
-                            v-if="vacante.motivo_cancelacion"
-                            class="text-xs text-destructive"
-                            :title="vacante.motivo_cancelacion"
-                        >
-                            Motivo: {{ vacante.motivo_cancelacion }}
-                        </p>
-
-                        <div
-                            class="mt-1 flex items-center justify-between text-xs text-muted-foreground"
-                        >
-                            <span class="inline-flex items-center gap-1">
-                                <Users class="size-3" />
-                                {{ vacante.candidatos_count }}
-                            </span>
-                            <span>{{ vacante.fecha_apertura }}</span>
-                        </div>
-                    </div>
-
-                    <p
-                        v-if="!(columnas[columna.estado]?.length ?? 0)"
-                        class="rounded-xl border border-dashed p-3 text-center text-xs text-muted-foreground"
+                    <span
+                        >Candidatos: {{ fila.candidatos_activos }} activos ·
+                        {{ fila.candidatos_finalistas }} finalistas</span
                     >
-                        Sin vacantes
-                    </p>
-                </VueDraggable>
-            </div>
-        </div>
+                    <span v-if="fila.costo_presupuestado_mensual !== null"
+                        >Costo mensual:
+                        {{
+                            formatoMoneda(fila.costo_presupuestado_mensual)
+                        }}</span
+                    >
+                </CrudMobileCard>
+            </template>
+        </DataTable>
     </div>
-
-    <VacanteFormDialog
-        v-if="dialogoAbierto"
-        v-model:open="dialogoAbierto"
-        :vacante="seleccionada"
-        :opciones="opciones"
-        :prefill="seleccionada ? null : prefillCreacion"
-        :key="seleccionada?.id ?? 'nueva'"
-    />
-
-    <CubrirVacanteDialog
-        v-if="dialogoCubrirAbierto && vacanteACubrir"
-        v-model:open="dialogoCubrirAbierto"
-        :vacante="vacanteACubrir"
-        :opciones="opciones"
-        :key="`cubrir-${vacanteACubrir.id}`"
-    />
-
-    <PeopleConfirmDialog
-        :open="dialogTransicionAbierto"
-        titulo="Mover vacante"
-        :descripcion="
-            transicionPendiente
-                ? `¿Mover de ${etiquetaEstadoVacante(transicionPendiente.estadoOrigen)} a ${etiquetaEstadoVacante(transicionPendiente.estadoDestino)}?`
-                : undefined
-        "
-        :cargando="enviandoTransicionVacante"
-        texto-confirmar="Sí, mover"
-        @update:open="(v) => (v ? null : cerrarDialogTransicion())"
-        @confirm="confirmarTransicionVacante"
-    />
-
-    <PeopleConfirmDialog
-        :open="dialogCancelarAbierto"
-        titulo="¿Cancelar vacante?"
-        descripcion="Indica por qué esta plaza ya no se va a cubrir."
-        pedir-comentario
-        comentario-label="Motivo de cancelación"
-        comentario-placeholder="Ej. La ruta se dio de baja y ya no requiere cobertura."
-        :comentario-model-value="motivoCancelacionTexto"
-        destructivo
-        :cargando="enviandoTransicionVacante"
-        texto-confirmar="Sí, cancelar vacante"
-        @update:open="(v) => (v ? null : cerrarDialogCancelar())"
-        @update:comentario-model-value="(v) => (motivoCancelacionTexto = v)"
-        @confirm="confirmarCancelacionVacante"
-    />
 </template>

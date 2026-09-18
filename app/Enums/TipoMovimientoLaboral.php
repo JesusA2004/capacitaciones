@@ -12,6 +12,7 @@ enum TipoMovimientoLaboral: string
     case CambioDepartamento = 'cambio_departamento';
     case CambioJefe = 'cambio_jefe';
     case CambioEmpresa = 'cambio_empresa';
+    case CambioSueldo = 'cambio_sueldo';
     case CoberturaTemporal = 'cobertura_temporal';
     case Reingreso = 'reingreso';
     case AjusteManual = 'ajuste_manual';
@@ -27,6 +28,7 @@ enum TipoMovimientoLaboral: string
             self::CambioDepartamento => 'Cambio de departamento',
             self::CambioJefe => 'Cambio de jefe',
             self::CambioEmpresa => 'Cambio de empresa',
+            self::CambioSueldo => 'Cambio de sueldo',
             self::CoberturaTemporal => 'Cobertura temporal',
             self::Reingreso => 'Reingreso',
             self::AjusteManual => 'Ajuste manual',
@@ -48,6 +50,7 @@ enum TipoMovimientoLaboral: string
             self::CambioDepartamento => 'Building',
             self::CambioJefe => 'UserCog',
             self::CambioEmpresa => 'Landmark',
+            self::CambioSueldo => 'DollarSign',
             self::CoberturaTemporal => 'Shuffle',
             self::AjusteManual => 'Pencil',
         };

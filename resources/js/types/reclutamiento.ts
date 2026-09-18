@@ -5,57 +5,63 @@ export type OpcionEnum = {
     etiqueta: string;
 };
 
+/**
+ * Fila 100% informativa del listado de Vacantes: una combinación
+ * (sucursal, puesto) con HeadcountTarget vigente, nunca un registro que RH
+ * captura o mueve a mano — ver docs/HEADCOUNT_Y_VACANTES.md y
+ * App\Http\Controllers\Rh\VacanteController::filasPlantilla().
+ */
 export type VacanteItem = {
-    id: number;
-    empresa: OpcionSimple | null;
-    sucursal_id: number | null;
+    id: string;
     sucursal: OpcionSimple | null;
     departamento: OpcionSimple | null;
     puesto: OpcionSimple | null;
-    gerente_solicitante: {
-        id: number;
-        name: string;
-        apellidos: string | null;
-    } | null;
-    responsable_rh: {
-        id: number;
-        name: string;
-        apellidos: string | null;
-    } | null;
-    motivo: string;
-    estado: string;
-    motivo_cancelacion: string | null;
-    fecha_apertura: string;
-    fecha_estimada_cobertura: string | null;
-    observaciones: string | null;
-    candidatos_count: number;
-    generada_automaticamente: boolean;
-    plazas_requeridas: number;
-    plazas_cubiertas: number;
-    plazas_disponibles: number;
-    plantilla_autorizada: number | null;
-    plantilla_actual: number | null;
-    faltantes_reales: number | null;
-    /** Presupuesto mensual de la plaza (opcional) — alimenta los KPIs de costo de contratación. */
-    sueldo_mensual: number | null;
+    plantilla_permitida: number;
+    plantilla_cubierta: number;
+    vacantes_disponibles: number;
+    candidatos_activos: number;
+    candidatos_finalistas: number;
+    cobertura_pct: number;
+    /** Suma de sueldo_mensual de las filas `vacantes` materializadas de este par; null si no hay ninguna. */
+    costo_presupuestado_mensual: number | null;
+    /** Fecha de apertura más antigua entre las filas `vacantes` abiertas de este par; null si no hay ninguna. */
+    fecha_apertura_mas_antigua: string | null;
 };
 
 export type VacantesKpis = {
-    vacantes_abiertas: number;
-    plazas_disponibles: number;
-    vacantes_automaticas: number;
-    vacantes_manuales: number;
-    en_reclutamiento: number;
-    cubiertas_este_mes: number;
-    canceladas: number;
-    costo_mensual_abiertas: number;
-    costo_promedio_puesto: number;
+    sucursales_bajo_cobertura: number;
+    plantilla_permitida_total: number;
+    plantilla_cubierta_total: number;
+    vacantes_totales: number;
+    cobertura_pct_global: number;
+    costo_mensual_total: number;
 };
 
 export type CandidatosKpis = {
-    contratados_mes: number;
-    costo_total_contratado_mes: number;
-    costo_promedio_contratacion: number;
+    recibidos_periodo: number;
+    en_proceso: number;
+    finalistas: number;
+    contratados_periodo: number;
+    /** Razón 0..1 (contratados_periodo / recibidos_periodo) — formatear como porcentaje en la UI. */
+    tasa_conversion: number;
+    tiempo_promedio_contratacion_dias: number | null;
+    /** Los 3 KPIs de costo solo llegan si el módulo de campañas de reclutamiento ya existe en el backend. */
+    gasto_reclutamiento_periodo?: number;
+    costo_por_candidato?: number;
+    costo_por_contratacion?: number;
+};
+
+export type SeguimientoResumen = {
+    id: number;
+    tipo: string;
+    nota: string | null;
+    estado_nuevo: string | null;
+    fecha: string;
+    registrado_por: {
+        id: number;
+        name: string;
+        apellidos: string | null;
+    } | null;
 };
 
 export type CandidatoItem = {
@@ -63,6 +69,7 @@ export type CandidatoItem = {
     empresa: OpcionSimple | null;
     sucursal_id: number | null;
     sucursal: OpcionSimple | null;
+    departamento: OpcionSimple | null;
     puesto_objetivo: OpcionSimple | null;
     vacante: { id: number; puesto_id: number | null } | null;
     responsable_rh: {
@@ -87,6 +94,10 @@ export type CandidatoItem = {
     fecha_entrevista: string | null;
     resultado_entrevista: string | null;
     created_at: string;
+    /** Último seguimiento (nota, llamada, cambio de estado...), el que sea más reciente. */
+    ultimo_seguimiento: SeguimientoResumen | null;
+    /** Último cambio de fase registrado — created_at si el candidato todavía no tiene ninguno. */
+    ultimo_cambio_estado: SeguimientoResumen | null;
 };
 
 export type SeguimientoCandidatoItem = {
@@ -104,7 +115,6 @@ export type SeguimientoCandidatoItem = {
 };
 
 export type CandidatoDetalle = CandidatoItem & {
-    departamento: OpcionSimple | null;
     documentos_solicitados: string | null;
     seguimientos: SeguimientoCandidatoItem[];
     alta_digital: { id: number; estado: string } | null;
@@ -128,6 +138,7 @@ export type OpcionesReclutamiento = {
     responsables?: { id: number; name: string; apellidos: string | null }[];
     motivos?: OpcionEnum[];
     estados: OpcionEnum[];
+    fuentes?: OpcionEnum[];
     vacantes?: { id: number; puesto_id: number | null }[];
     tiposSeguimiento?: OpcionEnum[];
     transicionesPermitidas?: Record<string, string[]>;

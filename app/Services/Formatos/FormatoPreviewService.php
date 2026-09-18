@@ -3,8 +3,8 @@
 namespace App\Services\Formatos;
 
 use App\Models\Candidato;
+use App\Models\Colaborador;
 use App\Models\DocumentTemplate;
-use App\Models\User;
 use App\Services\Plantillas\PlaceholderResolver;
 use App\Services\Plantillas\PlantillaDocumentoService;
 use Dompdf\Dompdf;
@@ -39,7 +39,7 @@ class FormatoPreviewService
      *     docx: string,
      * }
      */
-    public function previsualizar(DocumentTemplate $plantilla, User|Candidato|null $sujeto, array $extra = []): array
+    public function previsualizar(DocumentTemplate $plantilla, Colaborador|Candidato|null $sujeto, array $extra = []): array
     {
         $valoresResueltos = $this->resolver->resolver($sujeto, $extra);
         $variablesPlantilla = $this->generador->variablesEnPlantilla($plantilla);

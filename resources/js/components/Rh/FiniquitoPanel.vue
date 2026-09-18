@@ -458,7 +458,17 @@ const puedeEditarAjustes = computed(
                 </div>
             </div>
 
-            <p class="rounded-lg bg-amber-500/10 p-2.5 text-xs text-amber-700 dark:text-amber-400">
+            <p
+                v-if="finiquito.estado === 'firmado'"
+                class="rounded-lg bg-emerald-500/10 p-2.5 text-xs font-medium text-emerald-700 dark:text-emerald-400"
+            >
+                Finiquito firmado — no editable. Si hay un error, se requiere
+                una corrección/anulación explícita (contacta a sistemas/RH).
+            </p>
+            <p
+                v-else
+                class="rounded-lg bg-amber-500/10 p-2.5 text-xs text-amber-700 dark:text-amber-400"
+            >
                 Cálculo editable y sujeto a validación de RH/contabilidad.
             </p>
             <p
@@ -529,6 +539,7 @@ const puedeEditarAjustes = computed(
                     Marcar como revisado
                 </Button>
                 <Button
+                    v-if="finiquito.estado !== 'firmado'"
                     size="sm"
                     variant="outline"
                     :disabled="formGenerarPdf.processing"

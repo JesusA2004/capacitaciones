@@ -20,7 +20,10 @@ return new class extends Migration
     {
         Schema::create('user_nodo_comercial', function (Blueprint $table): void {
             $table->id();
-            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            // user_id se conserva por compatibilidad histórica, ya no se
+            // escribe desde el código: colaborador_id es la fuente real.
+            $table->unsignedBigInteger('user_id')->nullable();
+            $table->foreignId('colaborador_id')->nullable()->constrained('colaboradores')->cascadeOnDelete();
             $table->foreignId('nodo_comercial_id')->constrained('nodos_comerciales')->cascadeOnDelete();
             $table->string('tipo_asignacion', 20);
             $table->boolean('activo')->default(true);

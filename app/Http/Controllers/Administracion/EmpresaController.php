@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Administracion;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Administracion\StoreEmpresaRequest;
 use App\Http\Requests\Administracion\UpdateEmpresaRequest;
+use App\Models\Colaborador;
 use App\Models\Empresa;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -35,6 +36,19 @@ class EmpresaController extends Controller
             ->orderBy('nombre')
             ->paginate(15)
             ->withQueryString();
+
+        $colaboradoresPorEmpresa = Colaborador::query()
+            ->join('sucursales', 'sucursales.id', '=', 'colaboradores.sucursal_principal_id')
+            ->where('colaboradores.estatus', 'activo')
+            ->selectRaw('sucursales.empresa_id, count(*) as total')
+            ->groupBy('sucursales.empresa_id')
+            ->pluck('total', 'empresa_id');
+
+        $empresas->getCollection()->transform(function (Empresa $empresa) use ($colaboradoresPorEmpresa) {
+            $empresa->setAttribute('colaboradores_count', (int) ($colaboradoresPorEmpresa[$empresa->id] ?? 0));
+
+            return $empresa;
+        });
 
         return Inertia::render('Administracion/Empresas/Index', [
             'empresas' => $empresas,

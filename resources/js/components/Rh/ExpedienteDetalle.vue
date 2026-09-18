@@ -31,6 +31,7 @@ import {
     Pencil,
     Phone,
     PhoneCall,
+    Plus,
     Receipt,
     ScrollText,
     ShieldCheck,
@@ -41,6 +42,7 @@ import {
     UserPlus,
     UserRound,
     Wallet,
+    X,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
@@ -59,6 +61,7 @@ import { Combobox } from '@/components/ui/combobox';
 import {
     Dialog,
     DialogContent,
+    DialogFooter,
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
@@ -79,6 +82,14 @@ import {
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { useAlertas } from '@/composables/useAlertas';
 import {
     restablecerAcceso,
@@ -86,10 +97,15 @@ import {
     store as crearCuentaUsuario,
     update as actualizarCuentaUsuario,
 } from '@/routes/administracion/usuarios';
-import { darDeBaja, reactivar, reciboNomina } from '@/routes/rh/expedientes';
+import { darDeBaja, reactivar } from '@/routes/rh/expedientes';
 import { update as actualizarAvisos } from '@/routes/rh/expedientes/avisos';
 import { update as actualizarDatosLaborales } from '@/routes/rh/expedientes/datos-laborales';
 import { update as actualizarDatosPersonales } from '@/routes/rh/expedientes/datos-personales';
+import { store as registrarMovimientoPrestamo } from '@/routes/rh/expedientes/prestamos/movimientos';
+import {
+    descargar as descargarRecibo,
+    store as generarReciboNomina,
+} from '@/routes/rh/expedientes/recibos-nomina';
 import { show as showSolicitud } from '@/routes/rh/solicitudes';
 import { edit as editSeguridad } from '@/routes/security';
 import type {
@@ -99,6 +115,8 @@ import type {
     ExpedienteColaborador,
     MovimientoLaboralItem,
     OnboardingItem,
+    PrestamoItem,
+    ReciboNominaItem,
     ResumenExpediente,
     SaldoVacaciones,
     SolicitudExpedienteItem,
@@ -139,6 +157,8 @@ const props = defineProps<{
     solicitudesVacaciones: SolicitudVacacionesItem[];
     solicitudes: SolicitudExpedienteItem[];
     movimientosLaborales: MovimientoLaboralItem[];
+    recibosNomina: ReciboNominaItem[];
+    prestamos: PrestamoItem[];
 }>();
 
 const form = useForm({
@@ -424,8 +444,6 @@ function guardarLaborales() {
         });
 }
 
-const reciboNominaUrl = computed(() => reciboNomina.url(props.colaborador.id));
-
 function sueldoFormateado(valor: string | null): string {
     if (!valor) {
         return 'Sin capturar';
@@ -435,6 +453,95 @@ function sueldoFormateado(valor: string | null): string {
         style: 'currency',
         currency: 'MXN',
         minimumFractionDigits: 2,
+    });
+}
+
+function moneda(valor: number): string {
+    return valor.toLocaleString('es-MX', {
+        style: 'currency',
+        currency: 'MXN',
+        minimumFractionDigits: 2,
+    });
+}
+
+// --- Recibos de nómina (ver App\Services\Nomina\ReciboNominaService) ---
+
+const prestamoActivo = computed(
+    () => props.prestamos.find((prestamo) => prestamo.estado === 'activo') ?? null,
+);
+
+const dialogoReciboAbierto = ref(false);
+
+type ConceptoForm = { concepto: string; monto: number; tipo?: string; prestamo_id?: number };
+
+const formRecibo = useForm({
+    periodo_inicio: '',
+    periodo_fin: '',
+    fecha_pago: '',
+    percepciones: [] as ConceptoForm[],
+    deducciones: [] as ConceptoForm[],
+});
+
+function abrirDialogoRecibo() {
+    formRecibo.reset();
+    formRecibo.clearErrors();
+    formRecibo.percepciones = [];
+
+    // Sugerencia automática (RH puede quitarla/ajustarla antes de
+    // confirmar): línea de pago del préstamo activo con el pago
+    // programado — ver App\Services\Nomina\ReciboNominaService::generar().
+    formRecibo.deducciones = prestamoActivo.value
+        ? [
+              {
+                  concepto: 'Pago de préstamo interno',
+                  monto: Number(prestamoActivo.value.pago_programado),
+                  tipo: 'prestamo',
+                  prestamo_id: prestamoActivo.value.id,
+              },
+          ]
+        : [];
+
+    dialogoReciboAbierto.value = true;
+}
+
+function agregarPercepcion() {
+    formRecibo.percepciones.push({ concepto: '', monto: 0 });
+}
+
+function agregarDeduccion() {
+    formRecibo.deducciones.push({ concepto: '', monto: 0 });
+}
+
+function generarRecibo() {
+    formRecibo.post(generarReciboNomina.url(props.colaborador.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            mostrarExito('Recibo de nómina generado correctamente.');
+            dialogoReciboAbierto.value = false;
+        },
+        onError: () => mostrarError('No fue posible generar el recibo de nómina.'),
+    });
+}
+
+function descargarReciboUrl(reciboId: number): string {
+    return descargarRecibo.url(reciboId);
+}
+
+// --- Préstamos (ver App\Services\Nomina\PrestamoService) ---
+
+const formPago = useForm({
+    monto: 0,
+    tipo: 'manual',
+});
+
+function registrarPago(prestamoId: number) {
+    formPago.post(registrarMovimientoPrestamo.url(prestamoId), {
+        preserveScroll: true,
+        onSuccess: () => {
+            mostrarExito('Movimiento del préstamo registrado correctamente.');
+            formPago.reset();
+        },
+        onError: () => mostrarError('No fue posible registrar el movimiento.'),
     });
 }
 </script>
@@ -624,6 +731,12 @@ function sueldoFormateado(valor: string | null): string {
                 </TabsTrigger>
                 <TabsTrigger value="vacaciones" class="justify-start gap-2 lg:w-full">
                     <Calendar class="size-4" /> Vacaciones
+                </TabsTrigger>
+                <TabsTrigger value="recibos" class="justify-start gap-2 lg:w-full">
+                    <Receipt class="size-4" /> Recibos de nómina
+                </TabsTrigger>
+                <TabsTrigger value="prestamos" class="justify-start gap-2 lg:w-full">
+                    <Wallet class="size-4" /> Préstamos
                 </TabsTrigger>
                 <TabsTrigger value="solicitudes" class="justify-start gap-2 lg:w-full">
                     <ClipboardList class="size-4" /> Solicitudes
@@ -1742,6 +1855,171 @@ function sueldoFormateado(valor: string | null): string {
                         </CardContent>
                     </Card>
                 </TabsContent>
+                <TabsContent value="recibos">
+                    <Card class="rounded-2xl border-border/60">
+                        <CardHeader class="flex flex-row flex-wrap items-center justify-between gap-2">
+                            <CardTitle class="flex items-center gap-2 text-base">
+                                <Receipt class="size-4" />
+                                Recibos de nómina
+                            </CardTitle>
+                            <Button
+                                v-if="puedeEditar && colaborador.sueldo_mensual"
+                                size="sm"
+                                type="button"
+                                @click="abrirDialogoRecibo"
+                            >
+                                <Plus class="size-4" />
+                                Generar recibo
+                            </Button>
+                        </CardHeader>
+                        <CardContent class="flex flex-col gap-2">
+                            <p
+                                v-if="!colaborador.sueldo_mensual"
+                                class="text-sm text-muted-foreground"
+                            >
+                                Captura el sueldo mensual en «Datos laborales» antes de generar un recibo.
+                            </p>
+                            <div
+                                v-for="recibo in recibosNomina"
+                                :key="recibo.id"
+                                class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 p-3 text-sm"
+                            >
+                                <div class="min-w-0">
+                                    <p class="font-medium">
+                                        {{ recibo.periodo_inicio }} — {{ recibo.periodo_fin }}
+                                    </p>
+                                    <p class="text-xs text-muted-foreground">
+                                        Pago: {{ recibo.fecha_pago }} · Neto: {{ moneda(recibo.neto) }}
+                                    </p>
+                                </div>
+                                <a
+                                    v-if="recibo.tiene_pdf"
+                                    :href="descargarReciboUrl(recibo.id)"
+                                    target="_blank"
+                                    class="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+                                >
+                                    <Receipt class="size-3.5" />
+                                    Descargar
+                                </a>
+                                <span v-else class="text-xs text-muted-foreground">
+                                    PDF no disponible
+                                </span>
+                            </div>
+                            <p
+                                v-if="!recibosNomina.length"
+                                class="text-sm text-muted-foreground"
+                            >
+                                Sin recibos generados.
+                            </p>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="prestamos">
+                    <Card class="rounded-2xl border-border/60">
+                        <CardHeader>
+                            <CardTitle class="flex items-center gap-2 text-base">
+                                <Wallet class="size-4" />
+                                Préstamos
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent class="flex flex-col gap-4">
+                            <p
+                                v-if="!prestamos.length"
+                                class="text-sm text-muted-foreground"
+                            >
+                                Sin préstamos registrados.
+                            </p>
+                            <div
+                                v-for="prestamo in prestamos"
+                                :key="prestamo.id"
+                                class="rounded-xl border border-border/60 p-4"
+                            >
+                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                    <div>
+                                        <p class="font-medium">
+                                            {{ moneda(prestamo.monto_original) }} ·
+                                            {{ prestamo.plazo }} pagos ({{ prestamo.periodicidad }})
+                                        </p>
+                                        <p class="text-xs text-muted-foreground">
+                                            Saldo: {{ moneda(prestamo.saldo) }} ·
+                                            Pago programado: {{ moneda(prestamo.pago_programado) }} ·
+                                            {{ prestamo.porcentaje_pagado ?? 0 }}% pagado
+                                        </p>
+                                        <p class="text-xs text-muted-foreground">
+                                            Próximo descuento: {{ prestamo.fecha_primer_descuento ?? '—' }}
+                                        </p>
+                                    </div>
+                                    <EstadoBadge :estado="prestamo.estado" />
+                                </div>
+
+                                <Table v-if="prestamo.movimientos.length" class="mt-3">
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Fecha</TableHead>
+                                            <TableHead>Tipo</TableHead>
+                                            <TableHead class="text-right">Monto</TableHead>
+                                            <TableHead class="text-right">Saldo</TableHead>
+                                            <TableHead>Registró</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        <TableRow
+                                            v-for="movimiento in prestamo.movimientos"
+                                            :key="movimiento.id"
+                                        >
+                                            <TableCell>{{ movimiento.fecha }}</TableCell>
+                                            <TableCell class="capitalize">{{ movimiento.tipo }}</TableCell>
+                                            <TableCell class="text-right">
+                                                {{ moneda(movimiento.monto) }}
+                                            </TableCell>
+                                            <TableCell class="text-right">
+                                                {{ moneda(movimiento.saldo_nuevo) }}
+                                            </TableCell>
+                                            <TableCell>{{ movimiento.registrado_por ?? '—' }}</TableCell>
+                                        </TableRow>
+                                    </TableBody>
+                                </Table>
+                                <p v-else class="mt-3 text-xs text-muted-foreground">
+                                    Sin movimientos registrados todavía.
+                                </p>
+
+                                <form
+                                    v-if="puedeEditar && prestamo.estado === 'activo'"
+                                    class="mt-3 flex flex-wrap items-end gap-2"
+                                    @submit.prevent="registrarPago(prestamo.id)"
+                                >
+                                    <div class="grid gap-1.5">
+                                        <Label class="text-xs">Monto del abono</Label>
+                                        <Input
+                                            v-model.number="formPago.monto"
+                                            type="number"
+                                            step="0.01"
+                                            min="0.01"
+                                            class="w-36"
+                                        />
+                                    </div>
+                                    <div class="grid gap-1.5">
+                                        <Label class="text-xs">Tipo</Label>
+                                        <Select v-model="formPago.tipo">
+                                            <SelectTrigger class="w-36">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="manual">Manual</SelectItem>
+                                                <SelectItem value="ajuste">Ajuste</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <Button type="submit" size="sm" :disabled="formPago.processing">
+                                        Registrar movimiento
+                                    </Button>
+                                </form>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
                 <TabsContent value="solicitudes">
                     <Card class="rounded-2xl border-border/60">
                         <CardHeader>
@@ -1803,6 +2081,136 @@ function sueldoFormateado(valor: string | null): string {
             <p class="text-sm whitespace-pre-line text-muted-foreground">
                 {{ avisoDialogTexto }}
             </p>
+        </DialogContent>
+    </Dialog>
+
+    <Dialog v-model:open="dialogoReciboAbierto">
+        <DialogContent class="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+            <DialogHeader>
+                <DialogTitle>Generar recibo de nómina</DialogTitle>
+            </DialogHeader>
+            <form class="flex flex-col gap-4" @submit.prevent="generarRecibo">
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div class="grid gap-1.5">
+                        <Label>Inicio del periodo</Label>
+                        <DatePicker v-model="formRecibo.periodo_inicio" />
+                        <InputError :message="formRecibo.errors.periodo_inicio" />
+                    </div>
+                    <div class="grid gap-1.5">
+                        <Label>Fin del periodo</Label>
+                        <DatePicker v-model="formRecibo.periodo_fin" />
+                        <InputError :message="formRecibo.errors.periodo_fin" />
+                    </div>
+                    <div class="grid gap-1.5">
+                        <Label>Fecha de pago</Label>
+                        <DatePicker v-model="formRecibo.fecha_pago" />
+                        <InputError :message="formRecibo.errors.fecha_pago" />
+                    </div>
+                </div>
+
+                <div>
+                    <Label class="mb-2 block">Percepciones</Label>
+                    <div class="flex items-center justify-between rounded-lg border border-border/60 bg-muted/40 p-2.5 text-sm">
+                        <span class="text-muted-foreground">Sueldo mensual (bloqueado)</span>
+                        <span class="font-medium">{{ sueldoFormateado(colaborador.sueldo_mensual) }}</span>
+                    </div>
+                    <div
+                        v-for="(percepcion, indice) in formRecibo.percepciones"
+                        :key="indice"
+                        class="mt-2 flex items-center gap-2"
+                    >
+                        <Input
+                            v-model="percepcion.concepto"
+                            placeholder="Concepto (bono, comisión, otros)"
+                            class="flex-1"
+                        />
+                        <Input
+                            v-model.number="percepcion.monto"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            class="w-32"
+                        />
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            @click="formRecibo.percepciones.splice(indice, 1)"
+                        >
+                            <X class="size-4" />
+                        </Button>
+                    </div>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        class="mt-2"
+                        @click="agregarPercepcion"
+                    >
+                        <Plus class="size-4" />
+                        Agregar percepción
+                    </Button>
+                </div>
+
+                <div>
+                    <Label class="mb-2 block">Deducciones</Label>
+                    <p
+                        v-if="!formRecibo.deducciones.length"
+                        class="text-xs text-muted-foreground"
+                    >
+                        Sin deducciones agregadas.
+                    </p>
+                    <div
+                        v-for="(deduccion, indice) in formRecibo.deducciones"
+                        :key="indice"
+                        class="mt-2 flex items-center gap-2"
+                    >
+                        <Input
+                            v-model="deduccion.concepto"
+                            placeholder="Concepto"
+                            class="flex-1"
+                        />
+                        <Input
+                            v-model.number="deduccion.monto"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            class="w-32"
+                        />
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            @click="formRecibo.deducciones.splice(indice, 1)"
+                        >
+                            <X class="size-4" />
+                        </Button>
+                    </div>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        class="mt-2"
+                        @click="agregarDeduccion"
+                    >
+                        <Plus class="size-4" />
+                        Agregar deducción
+                    </Button>
+                </div>
+
+                <DialogFooter>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        @click="dialogoReciboAbierto = false"
+                    >
+                        Cancelar
+                    </Button>
+                    <Button type="submit" :disabled="formRecibo.processing">
+                        Generar recibo
+                    </Button>
+                </DialogFooter>
+            </form>
         </DialogContent>
     </Dialog>
 </template>

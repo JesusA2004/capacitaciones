@@ -18,7 +18,7 @@ class DepartamentoController extends Controller
         $this->authorize('viewAny', Departamento::class);
 
         $departamentos = Departamento::query()
-            ->withCount(['puestos', 'usuarios'])
+            ->withCount(['puestos', 'colaboradores' => fn ($q) => $q->where('estatus', 'activo')])
             ->when($request->string('busqueda')->toString(), fn ($query, string $busqueda) => $query->where('nombre', 'like', "%{$busqueda}%"))
             ->orderBy('nombre')
             ->paginate(15)

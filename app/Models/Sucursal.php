@@ -59,13 +59,25 @@ class Sucursal extends Model
     }
 
     /**
-     * Colaboradores cuya sucursal principal es esta.
+     * @deprecated Usar colaboradores(). Se conserva por compatibilidad
+     * histórica de código que aún no migra a Colaborador.
      *
      * @return HasMany<User, $this>
      */
     public function usuarios(): HasMany
     {
         return $this->hasMany(User::class, 'sucursal_principal_id');
+    }
+
+    /**
+     * Colaboradores (persona/empleo) cuya sucursal principal es esta —
+     * fuente real para cualquier conteo organizacional.
+     *
+     * @return HasMany<Colaborador, $this>
+     */
+    public function colaboradores(): HasMany
+    {
+        return $this->hasMany(Colaborador::class, 'sucursal_principal_id');
     }
 
     /**

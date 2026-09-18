@@ -72,7 +72,7 @@ const TIPO_ETIQUETA: Record<string, string> = {
                     >Vacante</Badge
                 >
                 <Badge
-                    v-if="puesto.activo && puesto.usuarios_count === 0"
+                    v-if="puesto.activo && puesto.colaboradores_count === 0"
                     variant="destructive"
                     class="text-xs"
                     >Sin cobertura</Badge
@@ -104,8 +104,8 @@ const TIPO_ETIQUETA: Record<string, string> = {
             >
                 <span class="inline-flex items-center gap-1">
                     <Users class="size-3.5" />
-                    {{ puesto.usuarios_count }}
-                    {{ puesto.usuarios_count === 1 ? 'persona' : 'personas' }}
+                    {{ puesto.colaboradores_count }}
+                    {{ puesto.colaboradores_count === 1 ? 'persona' : 'personas' }}
                 </span>
             </div>
         </button>

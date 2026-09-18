@@ -10,17 +10,17 @@ use App\Models\Candidato;
 /**
  * Traduce el estado real de un candidato (App\Enums\EstadoCandidato) más
  * su Alta Digital / Invitación de incorporación, si ya existen, a una
- * línea de tiempo visual de 10 etapas para Rh\Candidatos\Show.vue (ver
- * sección 8 del encargo). Solo lectura/presentación: nunca decide ni
- * cambia el estado real, eso sigue siendo App\Http\Controllers\Rh\CandidatoController.
+ * línea de tiempo visual para Rh\Candidatos\Show.vue. Solo lectura/
+ * presentación: nunca decide ni cambia el estado real, eso sigue siendo
+ * App\Http\Controllers\Rh\CandidatoController.
  */
 class CandidatoTimelineService
 {
     private const ESTADOS_DESCARTE = [
+        EstadoCandidato::NoSeleccionado,
         EstadoCandidato::NoViable,
-        EstadoCandidato::Rechazado,
-        EstadoCandidato::Descartado,
         EstadoCandidato::NoRespondio,
+        EstadoCandidato::Desistio,
     ];
 
     /**
@@ -44,57 +44,68 @@ class CandidatoTimelineService
                 null,
             ),
             $this->etapa(
+                'preseleccion',
+                'Preselección',
+                $this->estadoEtapa($candidato, $descartado, [
+                    'completado' => [EstadoCandidato::Entrevista, EstadoCandidato::Psicometricos, EstadoCandidato::EstudioSocioeconomico, EstadoCandidato::Pruebas, EstadoCandidato::ValidacionDocumental, EstadoCandidato::OfertaAprobacion, EstadoCandidato::ListoParaContratacion, EstadoCandidato::Contratado],
+                    'actual' => [EstadoCandidato::Recibidos, EstadoCandidato::Preseleccion],
+                ]),
+                null,
+                null,
+                $candidato->estado === EstadoCandidato::Recibidos ? 'Preseleccionar candidato' : null,
+            ),
+            $this->etapa(
                 'entrevista',
                 'Entrevista',
                 $this->estadoEtapa($candidato, $descartado, [
-                    'completado' => [EstadoCandidato::Entrevistado, EstadoCandidato::DocumentacionSolicitada, EstadoCandidato::EnRevision, EstadoCandidato::AprobadoGerencia, EstadoCandidato::AprobadoRh, EstadoCandidato::Contratado],
-                    'actual' => [EstadoCandidato::Contactado, EstadoCandidato::Respondio, EstadoCandidato::Viable, EstadoCandidato::EntrevistaProgramada],
+                    'completado' => [EstadoCandidato::Psicometricos, EstadoCandidato::EstudioSocioeconomico, EstadoCandidato::Pruebas, EstadoCandidato::ValidacionDocumental, EstadoCandidato::OfertaAprobacion, EstadoCandidato::ListoParaContratacion, EstadoCandidato::Contratado],
+                    'actual' => [EstadoCandidato::Entrevista],
                 ]),
                 $candidato->fecha_entrevista?->toIso8601String(),
                 null,
-                $candidato->estado === EstadoCandidato::Viable ? 'Programar entrevista' : null,
+                $candidato->estado === EstadoCandidato::Preseleccion ? 'Programar entrevista' : null,
             ),
             $this->etapa(
-                'documentos',
-                'Documentos',
+                'evaluaciones',
+                'Psicométricos, estudio socioeconómico y pruebas',
                 $this->estadoEtapa($candidato, $descartado, [
-                    'completado' => [EstadoCandidato::EnRevision, EstadoCandidato::AprobadoGerencia, EstadoCandidato::AprobadoRh, EstadoCandidato::Contratado],
-                    'actual' => [EstadoCandidato::DocumentacionSolicitada],
-                ]),
-                null,
-                null,
-                $candidato->estado === EstadoCandidato::Entrevistado ? 'Solicitar documentos' : null,
-            ),
-            $this->etapa(
-                'evaluacion',
-                'Evaluación',
-                $this->estadoEtapa($candidato, $descartado, [
-                    'completado' => [EstadoCandidato::AprobadoGerencia, EstadoCandidato::AprobadoRh, EstadoCandidato::Contratado],
-                    'actual' => [EstadoCandidato::EnRevision],
+                    'completado' => [EstadoCandidato::ValidacionDocumental, EstadoCandidato::OfertaAprobacion, EstadoCandidato::ListoParaContratacion, EstadoCandidato::Contratado],
+                    'actual' => [EstadoCandidato::Psicometricos, EstadoCandidato::EstudioSocioeconomico, EstadoCandidato::Pruebas],
                 ]),
                 null,
                 $candidato->gerenteInvolucrado?->nombreCompleto(),
                 null,
             ),
             $this->etapa(
-                'aprobado_rh',
-                'Aprobado RH / Elegible',
+                'validacion_documental',
+                'Validación documental',
                 $this->estadoEtapa($candidato, $descartado, [
-                    'completado' => [EstadoCandidato::AprobadoRh, EstadoCandidato::Contratado],
-                    'actual' => [EstadoCandidato::AprobadoGerencia],
+                    'completado' => [EstadoCandidato::OfertaAprobacion, EstadoCandidato::ListoParaContratacion, EstadoCandidato::Contratado],
+                    'actual' => [EstadoCandidato::ValidacionDocumental],
+                ]),
+                null,
+                null,
+                $candidato->estado === EstadoCandidato::Pruebas ? 'Solicitar documentos' : null,
+            ),
+            $this->etapa(
+                'oferta_aprobacion',
+                'Oferta / aprobación',
+                $this->estadoEtapa($candidato, $descartado, [
+                    'completado' => [EstadoCandidato::ListoParaContratacion, EstadoCandidato::Contratado],
+                    'actual' => [EstadoCandidato::OfertaAprobacion],
                 ]),
                 null,
                 $candidato->responsableRh?->nombreCompleto(),
                 null,
             ),
             $this->etapa(
-                'seleccionado',
-                'Seleccionado',
-                $alta !== null || $candidato->estado === EstadoCandidato::Contratado ? 'completado'
-                    : ($candidato->estado === EstadoCandidato::AprobadoRh ? 'actual' : 'pendiente'),
+                'listo_para_contratacion',
+                'Listo para contratación',
+                $alta !== null || $invitacion !== null || $candidato->estado === EstadoCandidato::Contratado ? 'completado'
+                    : ($candidato->estado === EstadoCandidato::ListoParaContratacion ? 'actual' : 'pendiente'),
                 null,
                 null,
-                $candidato->estado === EstadoCandidato::AprobadoRh && $alta === null ? 'Generar alta digital' : null,
+                $candidato->estado === EstadoCandidato::ListoParaContratacion && $alta === null && $invitacion === null ? 'Generar alta digital o invitación QR' : null,
             ),
             $this->etapa(
                 'alta_digital',

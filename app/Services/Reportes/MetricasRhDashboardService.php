@@ -156,7 +156,7 @@ class MetricasRhDashboardService
      */
     private function estadosCandidatoTerminales(): array
     {
-        return [EstadoCandidato::Contratado, EstadoCandidato::Rechazado, EstadoCandidato::Descartado, EstadoCandidato::NoViable];
+        return [EstadoCandidato::Contratado, EstadoCandidato::NoSeleccionado, EstadoCandidato::NoViable, EstadoCandidato::NoRespondio, EstadoCandidato::Desistio];
     }
 
     private function altasEnProceso(User $usuario): int

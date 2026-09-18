@@ -59,6 +59,7 @@ function enviar() {
         sucursal_id: datos.sucursal_id || null,
         puesto_objetivo_id: datos.puesto_objetivo_id || null,
         vacante_id: datos.vacante_id || null,
+        fuente: datos.fuente || null,
     }));
 
     const opciones = {
@@ -163,12 +164,20 @@ function enviar() {
                 </div>
 
                 <div class="grid gap-2">
-                    <Label for="fuente">Fuente de reclutamiento</Label>
-                    <Input
-                        id="fuente"
-                        v-model="form.fuente"
-                        placeholder="Referido, bolsa de trabajo, redes..."
-                    />
+                    <Label>Fuente / canal</Label>
+                    <Select v-model="form.fuente">
+                        <SelectTrigger class="w-full">
+                            <SelectValue placeholder="Sin especificar" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem
+                                v-for="opcion in opciones.fuentes ?? []"
+                                :key="opcion.value"
+                                :value="opcion.value"
+                                >{{ opcion.etiqueta }}</SelectItem
+                            >
+                        </SelectContent>
+                    </Select>
                     <InputError :message="form.errors.fuente" />
                 </div>
 

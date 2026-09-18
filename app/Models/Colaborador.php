@@ -258,6 +258,33 @@ class Colaborador extends Model
         return $this->hasMany(AsignacionNodoComercial::class, 'colaborador_id');
     }
 
+    /**
+     * @return HasMany<ReciboNomina, $this>
+     */
+    public function recibosNomina(): HasMany
+    {
+        return $this->hasMany(ReciboNomina::class)->orderByDesc('periodo_inicio')->orderByDesc('id');
+    }
+
+    /**
+     * @return HasMany<Prestamo, $this>
+     */
+    public function prestamos(): HasMany
+    {
+        return $this->hasMany(Prestamo::class)->orderByDesc('created_at');
+    }
+
+    /**
+     * Préstamo vigente de este colaborador (el más reciente con
+     * estado='activo'), si tiene alguno — usado para sugerir automáticamente
+     * la línea de deducción de nómina al generar un recibo (ver
+     * App\Services\Nomina\ReciboNominaService).
+     */
+    public function prestamoActivo(): ?Prestamo
+    {
+        return $this->prestamos()->where('estado', 'activo')->first();
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()

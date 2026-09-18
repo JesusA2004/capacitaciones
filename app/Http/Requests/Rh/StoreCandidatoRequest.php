@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests\Rh;
 
+use App\Enums\FuenteCandidato;
 use App\Models\Candidato;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreCandidatoRequest extends FormRequest
 {
@@ -27,7 +29,7 @@ class StoreCandidatoRequest extends FormRequest
             'apellidos' => ['nullable', 'string', 'max:150'],
             'telefono' => ['nullable', 'string', 'max:30'],
             'correo' => ['nullable', 'email', 'max:255'],
-            'fuente' => ['nullable', 'string', 'max:100'],
+            'fuente' => ['nullable', 'string', Rule::in(FuenteCandidato::valores())],
             'observaciones' => ['nullable', 'string', 'max:4000'],
             'responsable_rh_id' => ['nullable', 'integer', 'exists:users,id'],
             'gerente_involucrado_id' => ['nullable', 'integer', 'exists:users,id'],

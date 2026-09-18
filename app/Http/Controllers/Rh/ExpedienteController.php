@@ -8,6 +8,7 @@ use App\Exports\ReporteRhExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Rh\ActualizarDatosLaboralesRequest;
 use App\Http\Requests\Rh\ActualizarDatosPersonalesRequest;
+use App\Http\Requests\Rh\GenerarReciboNominaRequest;
 use App\Http\Requests\Rh\RegistrarAvisosRequest;
 use App\Models\AltaDigital;
 use App\Models\Colaborador;
@@ -16,7 +17,10 @@ use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
 use App\Models\Empresa;
 use App\Models\MovimientoLaboral;
+use App\Models\Prestamo;
+use App\Models\PrestamoMovimiento;
 use App\Models\Puesto;
+use App\Models\ReciboNomina;
 use App\Models\SolicitudInterna;
 use App\Models\Sucursal;
 use App\Services\AlcanceOrganizacionalService;
@@ -24,15 +28,18 @@ use App\Services\Expedientes\AvisoPrivacidadService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
+use App\Services\Nomina\PrestamoService;
 use App\Services\Nomina\ReciboNominaService;
 use App\Services\Onboarding\OnboardingService;
 use App\Services\Solicitudes\BajaColaboradorService;
 use App\Services\Vacaciones\VacacionesService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
@@ -54,6 +61,7 @@ class ExpedienteController extends Controller
         private readonly BajaColaboradorService $baja,
         private readonly MovimientoLaboralService $movimientos,
         private readonly ReciboNominaService $reciboNomina,
+        private readonly PrestamoService $prestamoService,
     ) {}
 
     /**
@@ -347,6 +355,59 @@ class ExpedienteController extends Controller
                     'motivo' => $solicitud->motivo,
                     'created_at' => $solicitud->created_at?->toISOString(),
                 ]),
+            // Tab "Recibos de nómina": historial de recibos informativos ya
+            // generados (ver App\Services\Nomina\ReciboNominaService) — el
+            // PDF se descarga aparte (recibos-nomina.descargar), aquí solo
+            // se manda si el archivo quedó guardado o no.
+            'recibosNomina' => $colaborador->recibosNomina()
+                ->limit(20)
+                ->get()
+                ->map(fn (ReciboNomina $recibo) => [
+                    'id' => $recibo->id,
+                    'periodo_inicio' => $recibo->periodo_inicio?->toDateString(),
+                    'periodo_fin' => $recibo->periodo_fin?->toDateString(),
+                    'fecha_pago' => $recibo->fecha_pago?->toDateString(),
+                    'sueldo_base' => (float) $recibo->sueldo_base,
+                    'percepciones' => $recibo->percepciones,
+                    'deducciones' => $recibo->deducciones,
+                    'total_percepciones' => (float) $recibo->total_percepciones,
+                    'total_deducciones' => (float) $recibo->total_deducciones,
+                    'neto' => (float) $recibo->neto,
+                    'tiene_pdf' => $recibo->pdf_path !== null,
+                    'created_at' => $recibo->created_at?->toISOString(),
+                ]),
+            // Tab "Préstamos": préstamos reales del colaborador (ver
+            // App\Services\Nomina\PrestamoService), cada uno con su
+            // historial de movimientos (ledger append-only).
+            'prestamos' => $colaborador->prestamos()
+                ->with('movimientos.registradoPor:id,name,apellidos')
+                ->limit(10)
+                ->get()
+                ->map(fn (Prestamo $prestamo) => [
+                    'id' => $prestamo->id,
+                    'monto_original' => (float) $prestamo->monto_original,
+                    'saldo' => (float) $prestamo->saldo,
+                    'plazo' => $prestamo->plazo,
+                    'periodicidad' => $prestamo->periodicidad,
+                    'pago_programado' => (float) $prestamo->pago_programado,
+                    'porcentaje_pagado' => (float) $prestamo->monto_original > 0
+                        ? (int) round((1 - ((float) $prestamo->saldo / (float) $prestamo->monto_original)) * 100)
+                        : 0,
+                    'fecha_otorgamiento' => $prestamo->fecha_otorgamiento?->toDateString(),
+                    'fecha_primer_descuento' => $prestamo->fecha_primer_descuento?->toDateString(),
+                    'estado' => $prestamo->estado,
+                    'movimientos' => $prestamo->movimientos->map(fn (PrestamoMovimiento $movimiento) => [
+                        'id' => $movimiento->id,
+                        'fecha' => $movimiento->fecha?->toDateString(),
+                        'monto' => (float) $movimiento->monto,
+                        'tipo' => $movimiento->tipo,
+                        'saldo_anterior' => (float) $movimiento->saldo_anterior,
+                        'saldo_nuevo' => (float) $movimiento->saldo_nuevo,
+                        'registrado_por' => $movimiento->registradoPor
+                            ? trim("{$movimiento->registradoPor->name} {$movimiento->registradoPor->apellidos}")
+                            : null,
+                    ]),
+                ]),
             'movimientosLaborales' => MovimientoLaboral::query()
                 ->where('colaborador_id', $colaborador->id)
                 ->with([
@@ -478,19 +539,122 @@ class ExpedienteController extends Controller
     }
 
     /**
-     * Recibo de nómina simple e informativo (ver App\Services\Nomina\ReciboNominaService)
-     * a partir del sueldo mensual capturado en el expediente.
+     * Historial de recibos de nómina ya generados de este colaborador (ver
+     * App\Services\Nomina\ReciboNominaService) — misma autorización que ver
+     * su expediente.
      */
-    public function generarReciboNomina(Request $request, Colaborador $colaborador): HttpResponse
+    public function historialRecibosNomina(Request $request, Colaborador $colaborador): JsonResponse
     {
-        abort_unless($request->user()->can('expedientes.editar') || $request->user()->colaborador_id === $colaborador->id, 403);
+        abort_unless($this->alcance->puedeVerExpediente($request->user(), $colaborador), 403);
+
+        return response()->json([
+            'recibos' => $colaborador->recibosNomina()->limit(20)->get()->map(fn (ReciboNomina $recibo) => [
+                'id' => $recibo->id,
+                'periodo_inicio' => $recibo->periodo_inicio?->toDateString(),
+                'periodo_fin' => $recibo->periodo_fin?->toDateString(),
+                'fecha_pago' => $recibo->fecha_pago?->toDateString(),
+                'sueldo_base' => (float) $recibo->sueldo_base,
+                'percepciones' => $recibo->percepciones,
+                'deducciones' => $recibo->deducciones,
+                'total_percepciones' => (float) $recibo->total_percepciones,
+                'total_deducciones' => (float) $recibo->total_deducciones,
+                'neto' => (float) $recibo->neto,
+                'tiene_pdf' => $recibo->pdf_path !== null,
+                'created_at' => $recibo->created_at?->toISOString(),
+            ]),
+        ]);
+    }
+
+    /**
+     * Genera y persiste un recibo de nómina informativo (ver
+     * App\Services\Nomina\ReciboNominaService::generar()) a partir del
+     * periodo/percepciones/deducciones capturados en el formulario. Mismo
+     * patrón que FiniquitoController::generarPdf(): esta acción solo
+     * persiste (redirige con toast para que Inertia recargue el historial),
+     * la descarga del PDF va por separado en descargarReciboNomina().
+     */
+    public function generarReciboNomina(GenerarReciboNominaRequest $request, Colaborador $colaborador): RedirectResponse
+    {
         abort_if($colaborador->sueldo_mensual === null, 422, 'Este colaborador todavía no tiene un sueldo mensual capturado en Datos laborales.');
 
-        $datos = $this->reciboNomina->generar($colaborador);
+        $recibo = $this->reciboNomina->generar($colaborador, $request->validated(), $request->user());
 
-        return Pdf::loadView('pdf.recibo-nomina', $datos)
-            ->setPaper('letter', 'portrait')
-            ->download('recibo-nomina-'.$colaborador->numero_empleado.'-'.now()->format('Y-m').'.pdf');
+        return back()->with('toast', [
+            'type' => 'success',
+            'message' => $recibo->pdf_path !== null
+                ? 'Recibo de nómina generado correctamente.'
+                : 'El recibo se generó y guardó, pero el PDF no pudo escribirse en el almacenamiento; intenta descargarlo de nuevo más tarde.',
+        ]);
+    }
+
+    /**
+     * Descarga el PDF ya guardado de un recibo de nómina existente. Si el
+     * PDF no se pudo guardar en su momento (ver ReciboNominaService), no hay
+     * nada que descargar — se avisa explícitamente en vez de fallar en
+     * silencio o regenerar montos distintos a los que ya se persistieron.
+     */
+    public function descargarReciboNomina(Request $request, ReciboNomina $recibo): StreamedResponse
+    {
+        $recibo->loadMissing('colaborador');
+
+        abort_unless($this->alcance->puedeVerExpediente($request->user(), $recibo->colaborador), 403);
+        abort_if($recibo->pdf_path === null || $recibo->pdf_disk === null, 404, 'El PDF de este recibo no está disponible; genera un recibo nuevo.');
+
+        $nombre = 'recibo-nomina-'.($recibo->colaborador->numero_empleado ?? $recibo->colaborador_id).'-'.$recibo->periodo_inicio->format('Y-m').'.pdf';
+
+        return Storage::disk($recibo->pdf_disk)->download($recibo->pdf_path, $nombre);
+    }
+
+    /**
+     * Préstamos internos reales de este colaborador (ver
+     * App\Services\Nomina\PrestamoService), con su historial de movimientos.
+     */
+    public function historialPrestamos(Request $request, Colaborador $colaborador): JsonResponse
+    {
+        abort_unless($this->alcance->puedeVerExpediente($request->user(), $colaborador), 403);
+
+        return response()->json([
+            'prestamos' => $colaborador->prestamos()
+                ->with('movimientos.registradoPor:id,name,apellidos')
+                ->limit(10)
+                ->get()
+                ->map(fn (Prestamo $prestamo) => [
+                    'id' => $prestamo->id,
+                    'monto_original' => (float) $prestamo->monto_original,
+                    'saldo' => (float) $prestamo->saldo,
+                    'plazo' => $prestamo->plazo,
+                    'periodicidad' => $prestamo->periodicidad,
+                    'pago_programado' => (float) $prestamo->pago_programado,
+                    'estado' => $prestamo->estado,
+                    'movimientos' => $prestamo->movimientos->map(fn (PrestamoMovimiento $movimiento) => [
+                        'id' => $movimiento->id,
+                        'fecha' => $movimiento->fecha?->toDateString(),
+                        'monto' => (float) $movimiento->monto,
+                        'tipo' => $movimiento->tipo,
+                        'saldo_anterior' => (float) $movimiento->saldo_anterior,
+                        'saldo_nuevo' => (float) $movimiento->saldo_nuevo,
+                    ]),
+                ]),
+        ]);
+    }
+
+    /**
+     * Registro manual de un abono/ajuste al saldo de un préstamo (fuera del
+     * recibo de nómina automático) — siempre RH, nunca autoservicio, ver
+     * App\Services\Nomina\PrestamoService::registrarMovimiento().
+     */
+    public function registrarPagoPrestamo(Request $request, Prestamo $prestamo): RedirectResponse
+    {
+        abort_unless($request->user()->can('expedientes.editar'), 403);
+
+        $datos = $request->validate([
+            'monto' => ['required', 'numeric', 'min:0.01', 'max:9999999.99'],
+            'tipo' => ['required', 'string', 'in:manual,ajuste'],
+        ]);
+
+        $this->prestamoService->registrarMovimiento($prestamo, (float) $datos['monto'], $datos['tipo'], $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Movimiento del préstamo registrado correctamente.']);
     }
 
     /**

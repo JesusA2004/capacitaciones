@@ -29,7 +29,11 @@
     <div class="encabezado">
         <p class="marca">MR. LANA PEOPLE — Recibo de nómina</p>
         <h1>Recibo de nómina simple</h1>
-        <p class="meta">Periodo {{ $periodo->translatedFormat('F Y') }} · Generado el {{ now()->format('d/m/Y H:i') }}</p>
+        <p class="meta">
+            Periodo {{ $periodo_inicio->format('d/m/Y') }} — {{ $periodo_fin->format('d/m/Y') }} ·
+            Fecha de pago {{ $fecha_pago->format('d/m/Y') }} ·
+            Generado el {{ now()->format('d/m/Y H:i') }}
+        </p>
     </div>
 
     <table class="datos">
@@ -80,8 +84,9 @@
     </table>
 
     <p class="leyenda">
-        Este es un recibo informativo interno, no un CFDI timbrado ante el SAT ni un cálculo de ISR/IMSS —
-        para efectos fiscales, la nómina oficial se procesa con el proveedor certificado de la empresa.
+        Comprobante interno informativo. No sustituye CFDI de nómina timbrado.
+        No es un cálculo de ISR/IMSS — para efectos fiscales, la nómina oficial se procesa con el proveedor
+        certificado de la empresa.
     </p>
 
     <div class="firma">

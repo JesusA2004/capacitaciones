@@ -12,6 +12,7 @@ return new class extends Migration
             $table->id();
             $table->string('folio', 20)->unique();
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('colaborador_id')->nullable()->constrained('colaboradores')->nullOnDelete();
             $table->string('tipo', 30);
             $table->string('estado', 20)->default('creada');
             $table->date('fecha_inicio')->nullable();
@@ -21,6 +22,7 @@ return new class extends Migration
             // Campos que unifican Vacaciones, Préstamo interno y Baja de
             // colaborador dentro de esta tabla (docs/SOLICITUDES_UNIFICADAS.md).
             $table->foreignId('colaborador_objetivo_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('objetivo_colaborador_id')->nullable()->constrained('colaboradores')->nullOnDelete();
             $table->unsignedSmallInteger('dias_solicitados')->nullable();
             $table->decimal('monto_solicitado', 10, 2)->nullable();
             $table->unsignedSmallInteger('plazo_meses')->nullable();

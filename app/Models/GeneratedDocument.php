@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $id
  * @property int|null $document_template_id
  * @property int|null $user_id
+ * @property int|null $colaborador_id
  * @property int|null $candidato_id
  * @property int|null $solicitud_id
  * @property int|null $solicitud_vacaciones_id
@@ -42,6 +43,7 @@ class GeneratedDocument extends Model
     protected $fillable = [
         'document_template_id',
         'user_id',
+        'colaborador_id',
         'candidato_id',
         'solicitud_id',
         'solicitud_vacaciones_id',
@@ -80,6 +82,18 @@ class GeneratedDocument extends Model
     public function usuario(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    /**
+     * Colaborador (persona/empleo) para quien se generó este documento —
+     * fuente de verdad preferida sobre usuario()/user_id, que ahora es
+     * legacy (ver docs/ROLES_Y_NAVEGACION.md).
+     *
+     * @return BelongsTo<Colaborador, $this>
+     */
+    public function colaborador(): BelongsTo
+    {
+        return $this->belongsTo(Colaborador::class, 'colaborador_id');
     }
 
     /**

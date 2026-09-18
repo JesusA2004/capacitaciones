@@ -13,6 +13,7 @@ import {
     GraduationCap,
     Landmark,
     LayoutGrid,
+    Megaphone,
     QrCode,
     ShieldCheck,
     Smartphone,
@@ -45,6 +46,7 @@ import { index as indexSucursales } from '@/routes/administracion/sucursales';
 import { proximamente as capacitacionProximamente } from '@/routes/capacitacion';
 import { index as indexPortal } from '@/routes/portal';
 import { index as indexReportes } from '@/routes/reportes';
+import { index as indexCampanas } from '@/routes/rh/campanas';
 import { index as indexCandidatos } from '@/routes/rh/candidatos';
 import { index as indexCumpleanos } from '@/routes/rh/cumpleanos';
 import { index as indexExpedientes } from '@/routes/rh/expedientes';
@@ -166,6 +168,16 @@ const navItemsOperativo = computed<NavItem[]>(() => {
             title: 'Candidatos',
             href: indexCandidatos(),
             icon: UserRound,
+        });
+    }
+
+    // Gasto de campañas de reclutamiento: autorización simple por rol (sin
+    // permiso granular propio, ver Rh\CampanaReclutamientoController).
+    if (tieneRol('rh_admin') || tieneRol('super_admin')) {
+        items.push({
+            title: 'Campañas',
+            href: indexCampanas(),
+            icon: Megaphone,
         });
     }
 

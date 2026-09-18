@@ -63,6 +63,7 @@ return new class extends Migration
             $table->text('comentarios')->nullable();
 
             $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('colaborador_id')->nullable()->constrained('colaboradores')->nullOnDelete();
             $table->foreignId('creado_por')->nullable()->constrained('users')->nullOnDelete();
 
             $table->timestamps();

@@ -3,6 +3,7 @@ import {
     Briefcase,
     Building,
     Building2,
+    DollarSign,
     History,
     Landmark,
     Pencil,
@@ -30,6 +31,7 @@ const ICONOS: Record<MovimientoLaboralTipo, Component> = {
     cambio_departamento: Building,
     cambio_jefe: UserCog,
     cambio_empresa: Landmark,
+    cambio_sueldo: DollarSign,
     cobertura_temporal: Shuffle,
     reingreso: UserPlus,
     ajuste_manual: Pencil,
@@ -45,6 +47,7 @@ const COLORES: Record<MovimientoLaboralTipo, string> = {
     cambio_departamento: 'bg-accent text-accent-foreground',
     cambio_jefe: 'bg-accent text-accent-foreground',
     cambio_empresa: 'bg-accent text-accent-foreground',
+    cambio_sueldo: 'bg-success/15 text-success',
     cobertura_temporal: 'bg-warning/15 text-warning',
     ajuste_manual: 'bg-muted text-muted-foreground',
 };

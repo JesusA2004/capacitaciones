@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
+import { Combobox } from '@/components/ui/combobox';
 import {
     Dialog,
     DialogContent,
@@ -8,7 +11,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -22,7 +24,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { store } from '@/routes/rh/incorporacion/invitaciones';
 import type { OpcionesIncorporacionInvitacion } from '@/types/incorporacionInvitacion';
 
-defineProps<{
+const props = defineProps<{
     open: boolean;
     opciones: OpcionesIncorporacionInvitacion;
 }>();
@@ -43,28 +45,32 @@ const DURACIONES = [
 ];
 
 const form = useForm({
-    nombre_prellenado: '',
-    email: '',
-    telefono: '',
-    empresa_id: '',
-    sucursal_id: '',
-    departamento_id: '',
-    puesto_id: '',
-    duracion: '24',
+    candidato_id: '',
+    duracion_horas: '24',
     observaciones: '',
 });
 
+// Alta Digital QR simplificado (sección 5 del encargo): el candidato ya
+// trae puesto/sucursal/departamento/empresa desde su ficha — RH solo elige
+// quién es y por cuánto tiempo vale el QR, nunca vuelve a capturarlos.
+const opcionesCandidato = computed(() =>
+    props.opciones.candidatosElegibles.map((candidato) => ({
+        value: String(candidato.id),
+        label: `${candidato.nombre} — ${candidato.puesto ?? 'Sin puesto'} — ${candidato.sucursal ?? 'Sin sucursal'}`,
+    })),
+);
+
+const candidatoSeleccionado = computed(() =>
+    props.opciones.candidatosElegibles.find(
+        (candidato) => String(candidato.id) === form.candidato_id,
+    ) ?? null,
+);
+
 function enviar() {
     const transformado = form.transform((datos) => ({
-        nombre_prellenado: datos.nombre_prellenado || null,
-        email: datos.email || null,
-        telefono: datos.telefono || null,
-        empresa_id: datos.empresa_id || null,
-        sucursal_id: datos.sucursal_id || null,
-        departamento_id: datos.departamento_id || null,
-        puesto_id: datos.puesto_id || null,
+        candidato_id: Number(datos.candidato_id),
+        duracion_horas: Number(datos.duracion_horas),
         observaciones: datos.observaciones || null,
-        duracion_horas: Number(datos.duracion),
     }));
 
     transformado.post(store.url(), {
@@ -78,104 +84,45 @@ function enviar() {
     <Dialog :open="open" @update:open="(valor) => emit('update:open', valor)">
         <DialogContent class="max-h-[85vh] max-w-lg overflow-y-auto">
             <DialogHeader>
-                <DialogTitle
-                    >Nueva invitación de incorporación (QR)</DialogTitle
-                >
+                <DialogTitle>Alta Digital QR</DialogTitle>
             </DialogHeader>
 
             <form class="grid gap-4" @submit.prevent="enviar">
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="grid gap-2">
-                        <Label for="nombre_prellenado">Nombre (opcional)</Label>
-                        <Input
-                            id="nombre_prellenado"
-                            v-model="form.nombre_prellenado"
-                        />
-                    </div>
-                    <div class="grid gap-2">
-                        <Label for="email">Email (opcional)</Label>
-                        <Input id="email" v-model="form.email" type="email" />
-                    </div>
-                </div>
-
                 <div class="grid gap-2">
-                    <Label for="telefono">Teléfono (opcional)</Label>
-                    <Input id="telefono" v-model="form.telefono" />
+                    <Label>Candidato listo para contratación</Label>
+                    <Combobox
+                        v-model="form.candidato_id"
+                        :items="opcionesCandidato"
+                        placeholder="Busca por nombre..."
+                        empty-text="No hay candidatos listos para contratación disponibles."
+                    />
+                    <InputError :message="form.errors.candidato_id" />
                 </div>
 
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="grid gap-2">
-                        <Label>Empresa</Label>
-                        <Select v-model="form.empresa_id">
-                            <SelectTrigger class="w-full">
-                                <SelectValue placeholder="Sin empresa" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="opcion in opciones.empresas"
-                                    :key="opcion.id"
-                                    :value="String(opcion.id)"
-                                    >{{ opcion.nombre }}</SelectItem
-                                >
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div class="grid gap-2">
-                        <Label>Sucursal</Label>
-                        <Select v-model="form.sucursal_id">
-                            <SelectTrigger class="w-full">
-                                <SelectValue placeholder="Sin sucursal" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="opcion in opciones.sucursales"
-                                    :key="opcion.id"
-                                    :value="String(opcion.id)"
-                                    >{{ opcion.nombre }}</SelectItem
-                                >
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="grid gap-2">
-                        <Label>Departamento</Label>
-                        <Select v-model="form.departamento_id">
-                            <SelectTrigger class="w-full">
-                                <SelectValue placeholder="Sin departamento" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="opcion in opciones.departamentos"
-                                    :key="opcion.id"
-                                    :value="String(opcion.id)"
-                                    >{{ opcion.nombre }}</SelectItem
-                                >
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div class="grid gap-2">
-                        <Label>Puesto</Label>
-                        <Select v-model="form.puesto_id">
-                            <SelectTrigger class="w-full">
-                                <SelectValue placeholder="Sin puesto" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="opcion in opciones.puestos"
-                                    :key="opcion.id"
-                                    :value="String(opcion.id)"
-                                    >{{ opcion.nombre }}</SelectItem
-                                >
-                            </SelectContent>
-                        </Select>
-                    </div>
+                <div
+                    v-if="candidatoSeleccionado"
+                    class="rounded-xl border border-border/60 bg-muted/30 p-3 text-sm"
+                >
+                    <p class="font-medium">
+                        {{ candidatoSeleccionado.nombre }} —
+                        {{ candidatoSeleccionado.puesto ?? 'Sin puesto' }} —
+                        {{ candidatoSeleccionado.sucursal ?? 'Sin sucursal' }} —
+                        {{ candidatoSeleccionado.departamento ?? 'Sin departamento' }}
+                    </p>
+                    <p class="mt-1 text-xs text-muted-foreground">
+                        {{ candidatoSeleccionado.empresa ?? 'Sin empresa' }} ·
+                        {{ candidatoSeleccionado.correo ?? 'Sin correo' }} ·
+                        {{ candidatoSeleccionado.telefono ?? 'Sin teléfono' }}
+                    </p>
+                    <p class="mt-2 text-xs text-muted-foreground">
+                        Estos datos se autocompletan desde la ficha del
+                        candidato: ya no se capturan a mano.
+                    </p>
                 </div>
 
                 <div class="grid gap-2">
                     <Label>Vigencia del QR</Label>
-                    <Select v-model="form.duracion">
+                    <Select v-model="form.duracion_horas">
                         <SelectTrigger class="w-full">
                             <SelectValue />
                         </SelectTrigger>
@@ -202,6 +149,7 @@ function enviar() {
                         rows="2"
                         placeholder="Solo visible para RH, nunca para el colaborador."
                     />
+                    <InputError :message="form.errors.observaciones" />
                 </div>
 
                 <DialogFooter>
@@ -211,7 +159,10 @@ function enviar() {
                         @click="emit('update:open', false)"
                         >Cancelar</Button
                     >
-                    <Button type="submit" :disabled="form.processing">
+                    <Button
+                        type="submit"
+                        :disabled="form.processing || !form.candidato_id"
+                    >
                         <Spinner v-if="form.processing" />
                         Generar invitación
                     </Button>

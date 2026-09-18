@@ -16,17 +16,21 @@ class CandidatoPolicy
      * @var array<int, string>
      */
     private const ESTADOS_APROBACION = [
-        EstadoCandidato::AprobadoGerencia->value,
-        EstadoCandidato::AprobadoRh->value,
+        EstadoCandidato::OfertaAprobacion->value,
+        EstadoCandidato::ListoParaContratacion->value,
         EstadoCandidato::Contratado->value,
     ];
 
     /**
+     * Los 4 estados terminales de salida (ver App\Enums\EstadoCandidato::ESTADOS_SALIDA).
+     *
      * @var array<int, string>
      */
     private const ESTADOS_RECHAZO = [
-        EstadoCandidato::Rechazado->value,
-        EstadoCandidato::Descartado->value,
+        EstadoCandidato::NoSeleccionado->value,
+        EstadoCandidato::NoViable->value,
+        EstadoCandidato::NoRespondio->value,
+        EstadoCandidato::Desistio->value,
     ];
 
     public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}

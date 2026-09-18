@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\EstadoCandidato;
+use App\Enums\TipoSeguimientoCandidato;
 use Database\Factories\CandidatoFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -164,6 +165,32 @@ class Candidato extends Model
     public function seguimientos(): HasMany
     {
         return $this->hasMany(SeguimientoCandidato::class)->orderByDesc('fecha');
+    }
+
+    /**
+     * Seguimiento más reciente (cualquier tipo) — usado por la tarjeta del
+     * tablero de candidatos para mostrar la nota/actividad más reciente sin
+     * cargar el historial completo.
+     *
+     * @return HasOne<SeguimientoCandidato, $this>
+     */
+    public function ultimoSeguimiento(): HasOne
+    {
+        return $this->hasOne(SeguimientoCandidato::class)->latestOfMany('fecha');
+    }
+
+    /**
+     * Fecha del último cambio de fase (App\Enums\EstadoCandidato) —
+     * usado por la tarjeta del tablero para calcular "tiempo en la fase
+     * actual" (created_at del candidato si todavía no tiene ninguno).
+     *
+     * @return HasOne<SeguimientoCandidato, $this>
+     */
+    public function ultimoCambioEstado(): HasOne
+    {
+        return $this->hasOne(SeguimientoCandidato::class)
+            ->where('tipo', TipoSeguimientoCandidato::CambioEstado)
+            ->latestOfMany('fecha');
     }
 
     /**

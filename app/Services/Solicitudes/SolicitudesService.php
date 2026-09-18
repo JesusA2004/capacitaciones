@@ -14,6 +14,7 @@ use App\Notifications\Mobile\SolicitudActualizadaNotification;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Finiquitos\FiniquitoService;
 use App\Services\MobilePush\PushNotifier;
+use App\Services\Nomina\PrestamoService;
 use App\Services\RhMobile\ResponsableResolverService;
 use App\Services\Vacaciones\VacacionesService;
 use Illuminate\Database\Eloquent\Builder;
@@ -46,6 +47,16 @@ class SolicitudesService
      */
     private const LIMITE_TABLERO = 500;
 
+    /**
+     * Resultado del último intento de generación automática de documento
+     * oficial (ver cambiarEstado()) — los controladores lo leen justo
+     * después de aprobar()/moverEnTablero() para enriquecer el toast, sin
+     * que esto revierta ni retrase la aprobación en sí.
+     *
+     * @var array{generacion: ?\App\Models\OfficialFormatGeneration, aplica: bool, motivo_error: ?string}|null
+     */
+    private ?array $ultimoResultadoDocumentoOficial = null;
+
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly SolicitudDocumentoStorageService $storage,
@@ -55,6 +66,7 @@ class SolicitudesService
         private readonly BajaColaboradorService $bajaColaborador,
         private readonly FiniquitoService $finiquito,
         private readonly SolicitudFormatoOficialService $formatoOficial,
+        private readonly PrestamoService $prestamo,
     ) {}
 
     /**
@@ -427,12 +439,29 @@ class SolicitudesService
                 $this->finiquito->marcarAprobadoConLaBaja($solicitud);
             }
 
+            // Al aprobar un préstamo interno se crea el registro operativo
+            // real (App\Services\Nomina\PrestamoService) DENTRO de esta
+            // misma transacción: aprobar la solicitud y que exista el
+            // préstamo son la misma operación atómica, nunca dos pasos
+            // separados que puedan quedar a medias. Nace en
+            // 'pendiente_entrega' — RH todavía tiene que confirmar la
+            // entrega del dinero (ver PrestamoService::activar()), eso no
+            // pasa aquí.
+            if ($nuevoEstado === EstadoSolicitudInterna::Aprobada && $solicitud->tipo === TipoSolicitudInterna::PrestamoInterno) {
+                $this->prestamo->crearDesdeSolicitud($solicitud, [], $actor);
+            }
+
             // Documento oficial automático (config/solicitudes.php): se
             // genera al aprobar, para todos los tipos con formato mapeado,
             // no solo baja. Nunca revierte la aprobación si falla (ver
-            // SolicitudFormatoOficialService::generarSiAplica()).
+            // SolicitudFormatoOficialService::generarSiAplica()), pero el
+            // resultado SÍ se guarda para que el controlador lo muestre en
+            // el toast (ultimoResultadoDocumentoOficial()) — a diferencia de
+            // un fallo de notificación, esto no se debe esconder solo en el log.
             if ($nuevoEstado === EstadoSolicitudInterna::Aprobada) {
-                $this->formatoOficial->generarSiAplica($solicitud, $actor);
+                $this->ultimoResultadoDocumentoOficial = $this->formatoOficial->generarSiAplica($solicitud, $actor);
+            } else {
+                $this->ultimoResultadoDocumentoOficial = null;
             }
 
             // Notifica al colaborador en cada transicion visible del tablero
@@ -460,6 +489,21 @@ class SolicitudesService
 
             return $solicitud;
         });
+    }
+
+    /**
+     * Resultado de la generación automática del documento oficial en el
+     * último aprobar()/moverEnTablero() a "aprobada": null si la solicitud
+     * no era de un tipo con formato mapeado o si el último cambio de estado
+     * no fue una aprobación. Los controladores lo consultan justo después de
+     * aprobar() para construir el toast que ve RH (ver
+     * App\Http\Controllers\Rh\SolicitudController::aprobar()).
+     *
+     * @return array{generacion: ?\App\Models\OfficialFormatGeneration, aplica: bool, motivo_error: ?string}|null
+     */
+    public function ultimoResultadoDocumentoOficial(): ?array
+    {
+        return $this->ultimoResultadoDocumentoOficial;
     }
 
     public function registrarHistorial(SolicitudInterna $solicitud, ?User $actor, string $accion, ?string $comentario = null): void

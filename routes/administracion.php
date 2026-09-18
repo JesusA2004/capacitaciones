@@ -32,6 +32,7 @@ Route::middleware(['auth', 'verified'])
 
         Route::prefix('sucursales')->name('sucursales.')->group(function () {
             Route::get('/', [SucursalController::class, 'index'])->name('index');
+            Route::get('{sucursal}', [SucursalController::class, 'show'])->name('show');
             Route::post('/', [SucursalController::class, 'store'])->name('store');
             Route::put('{sucursal}', [SucursalController::class, 'update'])->name('update');
             Route::delete('{sucursal}', [SucursalController::class, 'destroy'])->name('destroy');

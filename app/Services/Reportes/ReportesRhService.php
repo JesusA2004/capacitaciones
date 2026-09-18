@@ -109,7 +109,7 @@ class ReportesRhService
             'rotacion' => $this->rotacion($usuario, $filtros),
             'vacantes_abiertas' => $this->vacantesPorEstado($usuario, $filtros, [EstadoVacante::Abierta, EstadoVacante::EnReclutamiento, EstadoVacante::ConCandidatos, EstadoVacante::EnRevision], 'Vacantes abiertas'),
             'vacantes_cubiertas' => $this->vacantesPorEstado($usuario, $filtros, [EstadoVacante::Cubierta], 'Vacantes cubiertas'),
-            'candidatos_viables' => $this->candidatosPorEstado($usuario, $filtros, [EstadoCandidato::Viable, EstadoCandidato::AprobadoGerencia, EstadoCandidato::AprobadoRh], 'Candidatos viables'),
+            'candidatos_viables' => $this->candidatosPorEstado($usuario, $filtros, [EstadoCandidato::Preseleccion, EstadoCandidato::Entrevista, EstadoCandidato::Psicometricos, EstadoCandidato::EstudioSocioeconomico, EstadoCandidato::Pruebas, EstadoCandidato::ValidacionDocumental, EstadoCandidato::OfertaAprobacion, EstadoCandidato::ListoParaContratacion], 'Candidatos viables'),
             'candidatos_por_sucursal' => $this->candidatosAgrupados($usuario, $filtros, fn (Candidato $c) => $c->sucursal->nombre ?? 'Sin sucursal', 'Candidatos por sucursal', 'Sucursal'),
             'candidatos_por_puesto' => $this->candidatosAgrupados($usuario, $filtros, fn (Candidato $c) => $c->puestoObjetivo->nombre ?? 'Sin puesto', 'Candidatos por puesto', 'Puesto'),
             'expedientes_estado' => $this->expedientesEstado($usuario, $filtros),

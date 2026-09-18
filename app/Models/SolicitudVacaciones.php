@@ -13,6 +13,7 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property int $user_id
+ * @property int|null $colaborador_id
  * @property Carbon $fecha_inicio
  * @property Carbon $fecha_fin
  * @property int $dias_solicitados
@@ -31,6 +32,7 @@ class SolicitudVacaciones extends Model
 
     protected $fillable = [
         'user_id',
+        'colaborador_id',
         'fecha_inicio',
         'fecha_fin',
         'dias_solicitados',
@@ -58,6 +60,25 @@ class SolicitudVacaciones extends Model
     public function usuario(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    /**
+     * @return BelongsTo<Colaborador, $this>
+     */
+    public function colaborador(): BelongsTo
+    {
+        return $this->belongsTo(Colaborador::class, 'colaborador_id');
+    }
+
+    /**
+     * El colaborador (persona) dueño de esta solicitud: prefiere
+     * `colaborador_id` (fuente de verdad nueva) y cae a
+     * `usuario->colaborador` mientras el flujo legacy de vacaciones no
+     * puebla esa columna todavía.
+     */
+    public function personaSolicitante(): ?Colaborador
+    {
+        return $this->colaborador ?? $this->usuario?->colaborador;
     }
 
     /**

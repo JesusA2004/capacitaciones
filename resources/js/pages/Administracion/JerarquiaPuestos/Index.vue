@@ -498,7 +498,7 @@ watch(
                                     class="flex items-center gap-1.5 text-lg font-semibold"
                                 >
                                     <Users class="size-4" />
-                                    {{ puestoSeleccionado.usuarios_count }}
+                                    {{ puestoSeleccionado.colaboradores_count }}
                                 </span>
                                 <span class="text-xs text-muted-foreground"
                                     >Colaboradores activos</span
@@ -547,7 +547,7 @@ watch(
                         value="vacantes"
                         class="flex flex-col gap-4 pt-4"
                     >
-                        <div class="grid grid-cols-2 gap-2">
+                        <div class="grid grid-cols-1">
                             <Link
                                 :href="
                                     indexVacantes.url({
@@ -562,24 +562,8 @@ watch(
                                     puestoSeleccionado.vacantes_abiertas_count
                                 }}</span>
                                 <span class="text-xs text-muted-foreground"
-                                    >Vacantes abiertas</span
+                                    >Vacantes abiertas — ver cobertura de plantilla</span
                                 >
-                            </Link>
-                            <Link
-                                :href="
-                                    indexVacantes.url({
-                                        query: {
-                                            puesto_id: puestoSeleccionado.id,
-                                            departamento_id:
-                                                puestoSeleccionado.departamento
-                                                    ?.id,
-                                            crear: '1',
-                                        },
-                                    })
-                                "
-                                class="flex flex-col items-center justify-center rounded-xl border border-dashed border-primary/40 bg-primary/5 p-3 text-center text-xs font-medium text-primary transition-all duration-200 hover:bg-primary/10"
-                            >
-                                Crear vacante para este puesto
                             </Link>
                         </div>
                     </TabsContent>
