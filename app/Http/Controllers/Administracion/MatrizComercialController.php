@@ -2,11 +2,12 @@
 
 namespace App\Http\Controllers\Administracion;
 
+use App\Enums\EstadoUsuario;
 use App\Enums\TipoAsignacionNodoComercial;
 use App\Http\Controllers\Controller;
+use App\Models\Colaborador;
 use App\Models\NodoComercial;
 use App\Models\Puesto;
-use App\Models\User;
 use App\Services\MatrizComercial\MatrizComercialService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -31,8 +32,8 @@ class MatrizComercialController extends Controller
         return Inertia::render('Administracion/MatrizComercial/Index', [
             'arbol' => $this->matriz->arbol(),
             'resumen' => $this->matriz->resumen(),
-            'gestoresDisponibles' => User::query()
-                ->where('estatus', 'activo')
+            'gestoresDisponibles' => Colaborador::query()
+                ->where('estatus', EstadoUsuario::Activo)
                 ->orderBy('name')
                 ->get(['id', 'name', 'apellidos']),
         ]);
@@ -43,13 +44,13 @@ class MatrizComercialController extends Controller
         abort_unless($request->user()?->can('puestos.administrar') || $request->user()?->can('organigrama.editar'), 403);
 
         $datos = $request->validate([
-            'responsable_user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'responsable_colaborador_id' => ['nullable', 'integer', 'exists:colaboradores,id'],
         ]);
 
         $this->matriz->asignarResponsable(
             $nodo,
-            $datos['responsable_user_id'] !== null
-                ? User::query()->where('id', $datos['responsable_user_id'])->first()
+            $datos['responsable_colaborador_id'] !== null
+                ? Colaborador::query()->where('id', $datos['responsable_colaborador_id'])->first()
                 : null,
         );
 
@@ -61,12 +62,12 @@ class MatrizComercialController extends Controller
         abort_unless($request->user()?->can('puestos.administrar') || $request->user()?->can('organigrama.editar'), 403);
 
         $datos = $request->validate([
-            'user_id' => ['required', 'integer', 'exists:users,id'],
+            'colaborador_id' => ['required', 'integer', 'exists:colaboradores,id'],
             'tipo' => ['required', 'in:apoyo,volante'],
         ]);
 
-        $usuario = User::query()->where('id', $datos['user_id'])->firstOrFail();
-        $this->matriz->agregarApoyo($nodo, $usuario, TipoAsignacionNodoComercial::from($datos['tipo']));
+        $colaborador = Colaborador::query()->where('id', $datos['colaborador_id'])->firstOrFail();
+        $this->matriz->agregarApoyo($nodo, $colaborador, TipoAsignacionNodoComercial::from($datos['tipo']));
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Colaborador agregado a la ruta.']);
     }
@@ -76,12 +77,12 @@ class MatrizComercialController extends Controller
         abort_unless($request->user()?->can('puestos.administrar') || $request->user()?->can('organigrama.editar'), 403);
 
         $datos = $request->validate([
-            'user_id' => ['required', 'integer', 'exists:users,id'],
+            'colaborador_id' => ['required', 'integer', 'exists:colaboradores,id'],
             'tipo' => ['required', 'in:apoyo,volante'],
         ]);
 
-        $usuario = User::query()->where('id', $datos['user_id'])->firstOrFail();
-        $this->matriz->quitarAsignacion($nodo, $usuario, TipoAsignacionNodoComercial::from($datos['tipo']));
+        $colaborador = Colaborador::query()->where('id', $datos['colaborador_id'])->firstOrFail();
+        $this->matriz->quitarAsignacion($nodo, $colaborador, TipoAsignacionNodoComercial::from($datos['tipo']));
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Colaborador quitado de la ruta.']);
     }

@@ -70,10 +70,10 @@ Route::middleware(['auth', 'verified'])
         // Solo cuenta de acceso (correo, roles, bloqueo) — la baja/reactivación
         // laboral vive en rh.expedientes.dar-de-baja/reactivar (Colaborador,
         // funciona con o sin cuenta), ver App\Http\Controllers\Rh\ExpedienteController.
-        // Sin listado propio: se administra desde la pestaña «Cuenta» del
-        // expediente de cada colaborador (rh.expedientes), no desde un menú
-        // aparte — ver docs/ROLES_Y_NAVEGACION.md.
+        // Listado global de cuentas (index) además de la gestión contextual
+        // desde la pestaña «Cuenta» del expediente — ver docs/ROLES_Y_NAVEGACION.md.
         Route::prefix('usuarios')->name('usuarios.')->group(function () {
+            Route::get('/', [UsuarioController::class, 'index'])->name('index');
             Route::post('/', [UsuarioController::class, 'store'])->name('store');
             Route::put('{usuario}', [UsuarioController::class, 'update'])->name('update');
             // Revocar/restablecer acceso: bloquea/desbloquea el login sin

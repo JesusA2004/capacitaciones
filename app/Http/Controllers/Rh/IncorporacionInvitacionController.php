@@ -76,7 +76,7 @@ class IncorporacionInvitacionController extends Controller
      * incorporación ya en curso/completada — misma regla de idempotencia
      * que App\Http\Requests\Rh\StoreIncorporacionInvitacionRequest.
      *
-     * @return Collection<int, array{id: int, nombre: string, correo: string|null, telefono: string|null, empresa: string|null, sucursal: string|null, departamento: string|null, puesto: string|null}>
+     * @return Collection<int, array<string, mixed>>
      */
     private function candidatosElegibles(): Collection
     {
@@ -107,14 +107,43 @@ class IncorporacionInvitacionController extends Controller
 
     /**
      * @param  EloquentCollection<int, Candidato>  $candidatos
-     * @return Collection<int, array{id: int, nombre: string, correo: string|null, telefono: string|null, empresa: string|null, sucursal: string|null, departamento: string|null, puesto: string|null}>
+     * @return Collection<int, array<string, mixed>>
      */
     private function resumirCandidatosElegibles(EloquentCollection $candidatos): Collection
     {
-        return collect(array_map(fn (Candidato $c) => $this->candidatoElegibleResumen($c), $candidatos->all()));
+        return collect(array_map(
+            fn (Candidato $c): array => $this->item($this->candidatoElegibleResumen($c)),
+            $candidatos->all(),
+        ));
     }
 
     /**
+     * Illuminate\Support\Collection no es covariante (ver
+     * https://phpstan.org/blog/whats-up-with-template-covariant): un shape
+     * de array literal preciso no se acepta donde se declaro
+     * `Collection<int, array<string, mixed>>` aunque sea estructuralmente
+     * compatible, ni siquiera devolviendolo del metodo tipado con ese
+     * shape preciso. Ensanchar aqui en la frontera de la funcion si es una
+     * operacion valida para PHPStan (mismo patron que
+     * RhPendientesService::item()).
+     *
+     * @param  array<string, mixed>  $item
+     * @return array<string, mixed>
+     */
+    private function item(array $item): array
+    {
+        return $item;
+    }
+
+    /**
+     * Illuminate\Support\Collection no es covariante (ver
+     * https://phpstan.org/blog/whats-up-with-template-covariant): pasar el
+     * resultado de array_map() directo a collect() hace que PHPStan derive
+     * un shape que ya no calza exactamente con el tipo declarado del
+     * metodo. Un array_map(...) con `first-class callable syntax` sobre un
+     * metodo sin argumentos extra ya fuerza la firma declarada en la
+     * frontera de la funcion.
+     *
      * @return array{id: int, nombre: string, correo: string|null, telefono: string|null, empresa: string|null, sucursal: string|null, departamento: string|null, puesto: string|null}
      */
     private function candidatoElegibleResumen(Candidato $candidato): array

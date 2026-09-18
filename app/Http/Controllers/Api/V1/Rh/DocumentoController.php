@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Rh;
 
 use App\Http\Controllers\Controller;
+use App\Models\Colaborador;
 use App\Models\EmployeeDocument;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
@@ -38,14 +39,14 @@ class DocumentoController extends Controller
         abort_unless($usuario->can('rh.documentos.ver'), 403);
 
         $query = EmployeeDocument::query()
-            ->with(['usuario:id,name,apellidos,numero_empleado,sucursal_principal_id', 'usuario.sucursalPrincipal:id,nombre', 'tipo:id,nombre'])
+            ->with(['colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id', 'colaborador.sucursalPrincipal:id,nombre', 'tipo:id,nombre'])
             ->tap(fn ($q) => $this->alcance->tieneAlcanceGlobal($usuario)
                 ? $q
-                : $q->whereIn('user_id', $this->alcance->limitarUsuariosPorAlcance(User::query(), $usuario)->pluck('id')))
+                : $q->whereIn('colaborador_id', $this->alcance->limitarColaboradoresPorAlcance(Colaborador::query(), $usuario)->pluck('id')))
             ->when($request->string('estado')->toString(), fn ($q, string $estado) => $q->where('status', $estado))
-            ->when($request->integer('sucursal_id'), fn ($q, int $id) => $q->whereHas('usuario', fn ($sub) => $sub->where('sucursal_principal_id', $id)))
+            ->when($request->integer('sucursal_id'), fn ($q, int $id) => $q->whereHas('colaborador', fn ($sub) => $sub->where('sucursal_principal_id', $id)))
             ->when($request->string('q')->toString(), function ($q, string $busqueda): void {
-                $q->whereHas('usuario', fn ($sub) => $sub->where('name', 'like', "%{$busqueda}%")->orWhere('numero_empleado', 'like', "%{$busqueda}%"));
+                $q->whereHas('colaborador', fn ($sub) => $sub->where('name', 'like', "%{$busqueda}%")->orWhere('numero_empleado', 'like', "%{$busqueda}%"));
             });
 
         $documentos = $query->orderByDesc('created_at')->paginate((int) $request->integer('per_page', 15))->withQueryString();
@@ -66,7 +67,7 @@ class DocumentoController extends Controller
         abort_unless($usuario->can('rh.documentos.detalle'), 403);
         abort_unless($this->puedeVer($usuario, $documento), 403);
 
-        $documento->loadMissing(['usuario:id,name,apellidos,numero_empleado,sucursal_principal_id', 'usuario.sucursalPrincipal:id,nombre', 'tipo:id,nombre', 'subidoPor:id,name,apellidos', 'revisadoPor:id,name,apellidos']);
+        $documento->loadMissing(['colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id', 'colaborador.sucursalPrincipal:id,nombre', 'tipo:id,nombre', 'subidoPor:id,name,apellidos', 'revisadoPor:id,name,apellidos']);
 
         $flujo = $this->workflow->paraDocumento($usuario, $documento);
 
@@ -76,7 +77,7 @@ class DocumentoController extends Controller
                 'tipo_documento' => $documento->tipo?->nombre,
                 'estado' => $documento->status->value,
                 'version' => $documento->version,
-                'colaborador' => $this->colaboradorResumen($documento->usuario),
+                'colaborador' => $this->colaboradorResumen($documento->colaborador),
                 'nombre_original' => $documento->original_name,
                 'motivo_rechazo' => $documento->rejection_reason,
                 'comentarios' => $documento->comments,
@@ -185,9 +186,13 @@ class DocumentoController extends Controller
 
     private function puedeVer(User $usuario, EmployeeDocument $documento): bool
     {
-        $documento->loadMissing('usuario');
+        $documento->loadMissing('colaborador');
 
-        return $this->alcance->tieneAlcanceGlobal($usuario) || $this->alcance->puedeVerUsuario($usuario, $documento->usuario);
+        if ($this->alcance->tieneAlcanceGlobal($usuario)) {
+            return true;
+        }
+
+        return $documento->colaborador !== null && $this->alcance->puedeVerExpediente($usuario, $documento->colaborador);
     }
 
     /**
@@ -200,7 +205,7 @@ class DocumentoController extends Controller
             'resource_id' => $d->id,
             'tipo_documento' => $d->tipo?->nombre,
             'estado' => $d->status->value,
-            'colaborador' => $this->colaboradorResumen($d->usuario),
+            'colaborador' => $this->colaboradorResumen($d->colaborador),
             'fecha_subida' => $d->created_at?->toIso8601String(),
             'acciones_permitidas' => $this->workflow->paraDocumento($usuario, $d)['acciones_permitidas'],
         ];
@@ -209,7 +214,7 @@ class DocumentoController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function colaboradorResumen(?User $colaborador): array
+    private function colaboradorResumen(?Colaborador $colaborador): array
     {
         if ($colaborador === null) {
             return ['id' => null, 'nombre' => null, 'numero_empleado' => null, 'sucursal' => null];

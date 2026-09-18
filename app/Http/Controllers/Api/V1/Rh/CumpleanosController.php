@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api\V1\Rh;
 
 use App\Http\Controllers\Controller;
 use App\Models\BirthdayGreeting;
-use App\Models\User;
+use App\Models\Colaborador;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Cumpleanos\BirthdayCardService;
 use App\Services\Cumpleanos\CumpleanosService;
@@ -51,14 +51,14 @@ class CumpleanosController extends Controller
         $pagina = $colaboradores->forPage($page, $perPage)->values();
 
         $greetingsPorColaborador = BirthdayGreeting::query()
-            ->whereIn('user_id', $pagina->pluck('id'))
+            ->whereIn('colaborador_id', $pagina->pluck('id'))
             ->whereYear('fecha', Carbon::today()->year)
             ->get()
-            ->keyBy('user_id');
+            ->keyBy('colaborador_id');
 
         $hoy = Carbon::today();
 
-        $data = $pagina->map(function (User $colaborador) use ($greetingsPorColaborador, $hoy) {
+        $data = $pagina->map(function (Colaborador $colaborador) use ($greetingsPorColaborador, $hoy) {
             /** @var BirthdayGreeting|null $greeting */
             $greeting = $greetingsPorColaborador->get($colaborador->id);
 
@@ -106,7 +106,7 @@ class CumpleanosController extends Controller
         abort_unless($usuario->can('rh.cumpleanos.ver'), 403);
 
         $greeting->loadMissing(['colaborador.sucursalPrincipal:id,nombre', 'colaborador.departamento:id,nombre', 'colaborador.puesto:id,nombre']);
-        abort_unless($this->alcance->puedeVerUsuario($usuario, $greeting->colaborador), 404);
+        abort_unless($this->alcance->puedeVerExpediente($usuario, $greeting->colaborador), 404);
 
         return response()->json([
             'data' => [
@@ -133,11 +133,11 @@ class CumpleanosController extends Controller
     }
 
     /** Foto del colaborador (nunca expone `foto_path`), acotada por alcance. */
-    public function foto(Request $request, User $colaborador): HttpResponse
+    public function foto(Request $request, Colaborador $colaborador): HttpResponse
     {
         $usuario = $request->user();
         abort_unless($usuario->can('rh.cumpleanos.ver'), 403);
-        abort_unless($this->alcance->puedeVerUsuario($usuario, $colaborador), 404);
+        abort_unless($this->alcance->puedeVerExpediente($usuario, $colaborador), 404);
         abort_unless($colaborador->foto_path !== null, 404);
 
         return $this->fotos->respuesta($colaborador->foto_path, [
@@ -151,7 +151,7 @@ class CumpleanosController extends Controller
     {
         $usuario = $request->user();
         abort_unless($usuario->can('rh.cumpleanos.ver'), 403);
-        abort_unless($this->alcance->puedeVerUsuario($usuario, $greeting->colaborador), 404);
+        abort_unless($this->alcance->puedeVerExpediente($usuario, $greeting->colaborador), 404);
 
         return $this->tarjetas->descargar($greeting);
     }

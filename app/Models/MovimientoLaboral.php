@@ -237,6 +237,7 @@ class MovimientoLaboral extends Model
             TipoMovimientoLaboral::CambioEmpresa => "{$colaborador} cambió de empresa: {$this->nombreOr($this->empresaAnterior, '—')} → {$this->nombreOr($this->empresaNueva, '—')}.",
             TipoMovimientoLaboral::CoberturaTemporal => "{$colaborador} cubre temporalmente {$this->nombreOr($this->puestoNuevo, 'un puesto')}".($this->fecha_fin_cobertura ? " hasta el {$this->fecha_fin_cobertura->toDateString()}" : '').'.',
             TipoMovimientoLaboral::Reingreso => "{$colaborador} reingresó a la organización.",
+            TipoMovimientoLaboral::CambioSueldo => "{$colaborador} tuvo un cambio de sueldo.",
             TipoMovimientoLaboral::AjusteManual => "Ajuste manual en el expediente de {$colaborador}.",
         };
     }

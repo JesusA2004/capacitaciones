@@ -88,7 +88,7 @@ function estaAbierto(id: number): boolean {
 function asignarGestor(nodo: NodoComercialArbol, valor: string) {
     router.put(
         actualizarResponsable.url(nodo.id),
-        { responsable_user_id: valor === '__ninguno__' ? null : valor },
+        { responsable_colaborador_id: valor === '__ninguno__' ? null : valor },
         {
             preserveScroll: true,
             onSuccess: () => mostrarExito('Gestor actualizado.'),
@@ -102,15 +102,15 @@ function agregarApoyoOVolante(
     nodo: NodoComercialArbol,
     tipo: 'apoyo' | 'volante',
 ) {
-    const userId = seleccionApoyo.value[nodo.id];
+    const colaboradorId = seleccionApoyo.value[nodo.id];
 
-    if (!userId) {
+    if (!colaboradorId) {
         return;
     }
 
     router.post(
         apoyo.agregar.url(nodo.id),
-        { user_id: userId, tipo },
+        { colaborador_id: colaboradorId, tipo },
         {
             preserveScroll: true,
             onSuccess: () => {
@@ -123,11 +123,11 @@ function agregarApoyoOVolante(
 
 function quitarApoyoOVolante(
     nodo: NodoComercialArbol,
-    userId: number,
+    colaboradorId: number,
     tipo: 'apoyo' | 'volante',
 ) {
     router.delete(apoyo.quitar.url(nodo.id), {
-        data: { user_id: userId, tipo },
+        data: { colaborador_id: colaboradorId, tipo },
         preserveScroll: true,
         onSuccess: () => mostrarExito('Colaborador quitado de la ruta.'),
     });

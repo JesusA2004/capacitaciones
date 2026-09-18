@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Rh;
 
 use App\Http\Controllers\Controller;
+use App\Models\Colaborador;
 use App\Models\EmployeeDocument;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
@@ -40,7 +41,7 @@ class ExpedienteController extends Controller
 
         $colaboradores = $this->queryFiltrada($request)->orderBy('name')->get();
 
-        $filas = $colaboradores->map(fn (User $c) => [
+        $filas = $colaboradores->map(fn (Colaborador $c) => [
             'colaborador' => $c,
             'estado' => $this->incorporacion->estado($c),
         ]);
@@ -58,7 +59,7 @@ class ExpedienteController extends Controller
             return [
                 'id' => $c->id,
                 'nombre' => $c->nombreCompleto(),
-                'correo' => $c->email,
+                'correo' => $c->correo_personal,
                 'numero_empleado' => $c->numero_empleado,
                 'empresa' => $c->sucursalPrincipal?->empresa?->nombre,
                 'sucursal' => $c->sucursalPrincipal?->nombre,
@@ -79,7 +80,7 @@ class ExpedienteController extends Controller
         ]);
     }
 
-    public function show(Request $request, User $colaborador): JsonResponse
+    public function show(Request $request, Colaborador $colaborador): JsonResponse
     {
         abort_unless($this->puedeVerDetalle($request->user(), $colaborador), 403);
 
@@ -99,7 +100,7 @@ class ExpedienteController extends Controller
                 'nombre' => $colaborador->name,
                 'apellidos' => $colaborador->apellidos,
                 'numero_empleado' => $colaborador->numero_empleado,
-                'correo' => $colaborador->email,
+                'correo' => $colaborador->correo_personal,
                 'telefono' => $colaborador->telefono,
                 'estatus' => $colaborador->estatus->value,
                 'fecha_ingreso' => $colaborador->fecha_ingreso?->toDateString(),
@@ -122,11 +123,11 @@ class ExpedienteController extends Controller
      * disco NAS al cliente: el navegador/app solo conoce el id numerico de
      * `documento` y llega aqui siempre autenticado con Bearer token.
      */
-    public function verDocumento(Request $request, User $colaborador, EmployeeDocument $documento): StreamedResponse
+    public function verDocumento(Request $request, Colaborador $colaborador, EmployeeDocument $documento): StreamedResponse
     {
         abort_unless($this->puedeVerDetalle($request->user(), $colaborador), 403);
         abort_unless($request->user()->can('rh.expedientes.documentos.ver'), 403);
-        abort_unless($documento->user_id === $colaborador->id, 404);
+        abort_unless($documento->colaborador_id === $colaborador->id, 404);
 
         return $this->storage->respuesta($documento->path, [
             'Content-Type' => $documento->mime ?? 'application/octet-stream',
@@ -134,12 +135,12 @@ class ExpedienteController extends Controller
         ]);
     }
 
-    public function aprobarDocumento(Request $request, User $colaborador, EmployeeDocument $documento): JsonResponse
+    public function aprobarDocumento(Request $request, Colaborador $colaborador, EmployeeDocument $documento): JsonResponse
     {
         $usuario = $request->user();
         abort_unless($usuario->can('rh.expedientes.documentos.aprobar'), 403);
         abort_unless($this->puedeVerDetalle($usuario, $colaborador), 403);
-        abort_unless($documento->user_id === $colaborador->id, 404);
+        abort_unless($documento->colaborador_id === $colaborador->id, 404);
 
         $datos = $request->validate(['comentario' => ['nullable', 'string', 'max:500']]);
 
@@ -148,12 +149,12 @@ class ExpedienteController extends Controller
         return response()->json(['message' => 'Documento aprobado.']);
     }
 
-    public function rechazarDocumento(Request $request, User $colaborador, EmployeeDocument $documento): JsonResponse
+    public function rechazarDocumento(Request $request, Colaborador $colaborador, EmployeeDocument $documento): JsonResponse
     {
         $usuario = $request->user();
         abort_unless($usuario->can('rh.expedientes.documentos.rechazar'), 403);
         abort_unless($this->puedeVerDetalle($usuario, $colaborador), 403);
-        abort_unless($documento->user_id === $colaborador->id, 404);
+        abort_unless($documento->colaborador_id === $colaborador->id, 404);
 
         $datos = $request->validate(['motivo' => ['required', 'string', 'max:500']]);
 
@@ -162,12 +163,12 @@ class ExpedienteController extends Controller
         return response()->json(['message' => 'Documento rechazado.']);
     }
 
-    public function autorizarCambioDocumento(Request $request, User $colaborador, EmployeeDocument $documento): JsonResponse
+    public function autorizarCambioDocumento(Request $request, Colaborador $colaborador, EmployeeDocument $documento): JsonResponse
     {
         $usuario = $request->user();
         abort_unless($usuario->can('rh.expedientes.documentos.autorizar-cambio'), 403);
         abort_unless($this->puedeVerDetalle($usuario, $colaborador), 403);
-        abort_unless($documento->user_id === $colaborador->id, 404);
+        abort_unless($documento->colaborador_id === $colaborador->id, 404);
 
         try {
             $this->incorporacion->autorizarCambio($documento, $usuario);
@@ -178,7 +179,7 @@ class ExpedienteController extends Controller
         return response()->json(['message' => 'Cambio autorizado. El colaborador ya puede subir la nueva version.']);
     }
 
-    public function aprobarIncorporacion(Request $request, User $colaborador): JsonResponse
+    public function aprobarIncorporacion(Request $request, Colaborador $colaborador): JsonResponse
     {
         $usuario = $request->user();
         abort_unless($usuario->can('rh.expedientes.incorporacion.aprobar'), 403);
@@ -193,7 +194,7 @@ class ExpedienteController extends Controller
         return response()->json(['message' => 'Incorporación aprobada: el colaborador quedó activo.']);
     }
 
-    public function rechazarIncorporacion(Request $request, User $colaborador): JsonResponse
+    public function rechazarIncorporacion(Request $request, Colaborador $colaborador): JsonResponse
     {
         $usuario = $request->user();
         abort_unless($usuario->can('rh.expedientes.incorporacion.rechazar'), 403);
@@ -206,26 +207,26 @@ class ExpedienteController extends Controller
         return response()->json(['message' => 'Incorporación rechazada.']);
     }
 
-    private function puedeVerDetalle(User $usuario, User $colaborador): bool
+    private function puedeVerDetalle(User $usuario, Colaborador $colaborador): bool
     {
-        return $usuario->can('rh.expedientes.detalle') && $this->alcance->puedeVerUsuario($usuario, $colaborador);
+        return $usuario->can('rh.expedientes.detalle') && $this->alcance->puedeVerExpediente($usuario, $colaborador);
     }
 
     /**
-     * @return Builder<User>
+     * @return Builder<Colaborador>
      */
     private function queryFiltrada(Request $request): Builder
     {
         $usuario = $request->user();
 
-        return User::query()
-            ->tap(fn ($query) => $this->alcance->limitarUsuariosPorAlcance($query, $usuario))
+        return Colaborador::query()
+            ->tap(fn ($query) => $this->alcance->limitarColaboradoresPorAlcance($query, $usuario))
             ->with(['sucursalPrincipal:id,nombre,empresa_id', 'sucursalPrincipal.empresa:id,nombre', 'departamento:id,nombre'])
             ->when($request->string('busqueda')->toString(), function ($query, string $busqueda) {
                 $query->where(function ($sub) use ($busqueda) {
                     $sub->where('name', 'like', "%{$busqueda}%")
                         ->orWhere('apellidos', 'like', "%{$busqueda}%")
-                        ->orWhere('email', 'like', "%{$busqueda}%")
+                        ->orWhere('correo_personal', 'like', "%{$busqueda}%")
                         ->orWhere('numero_empleado', 'like', "%{$busqueda}%");
                 });
             })

@@ -104,20 +104,24 @@ class CandidatoController extends Controller
         // Filtrado en PHP (no whereHas) porque ultimoCambioEstado es una
         // relación "ofMany" (latestOfMany): la fecha exacta de contratación
         // de cada candidato solo se conoce con certeza tras cargarla.
+        $fechaContratacion = function (Candidato $c): ?CarbonInterface {
+            return $c->ultimoCambioEstado?->estado_nuevo === EstadoCandidato::Contratado->value
+                ? $c->ultimoCambioEstado->fecha
+                : $c->updated_at;
+        };
+
         $contratadosPeriodo = $base()
             ->where('estado', EstadoCandidato::Contratado)
             ->with('ultimoCambioEstado')
             ->get()
-            ->filter(function (Candidato $c) use ($inicioPeriodo, $finPeriodo) {
-                $fecha = $c->ultimoCambioEstado?->estado_nuevo === EstadoCandidato::Contratado->value
-                    ? $c->ultimoCambioEstado->fecha
-                    : $c->updated_at;
+            ->filter(function (Candidato $c) use ($fechaContratacion, $inicioPeriodo, $finPeriodo) {
+                $fecha = $fechaContratacion($c);
 
                 return $fecha !== null && $fecha->between($inicioPeriodo, $finPeriodo);
             });
 
         $diasContratacion = $contratadosPeriodo
-            ->map(fn (Candidato $c) => $c->created_at?->diffInDays($c->ultimoCambioEstado->fecha ?? $c->updated_at))
+            ->map(fn (Candidato $c) => $c->created_at?->diffInDays($fechaContratacion($c)))
             ->filter(fn ($dias) => $dias !== null);
 
         return [

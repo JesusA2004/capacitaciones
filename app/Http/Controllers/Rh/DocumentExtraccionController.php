@@ -26,7 +26,7 @@ class DocumentExtraccionController extends Controller
     public function show(Request $request, EmployeeDocument $documento): JsonResponse
     {
         $usuario = $request->user();
-        abort_unless($usuario->can('rh.documentos.extraccion.ver') && $this->alcance->puedeVerExpediente($usuario, $documento->usuario), 403);
+        abort_unless($documento->colaborador !== null && $usuario->can('rh.documentos.extraccion.ver') && $this->alcance->puedeVerExpediente($usuario, $documento->colaborador), 403);
 
         return response()->json([
             'elegible' => DocumentExtractionService::tipoElegible($documento->tipo->clave),
@@ -36,7 +36,7 @@ class DocumentExtraccionController extends Controller
 
     public function aplicar(AplicarExtraccionRequest $request, EmployeeDocument $documento): RedirectResponse
     {
-        abort_unless($this->alcance->puedeVerExpediente($request->user(), $documento->usuario), 403);
+        abort_unless($documento->colaborador !== null && $this->alcance->puedeVerExpediente($request->user(), $documento->colaborador), 403);
 
         $extraccion = $documento->extraccion ?? abort(404, 'Este documento no tiene una extracción registrada.');
 
@@ -48,7 +48,7 @@ class DocumentExtraccionController extends Controller
     public function ignorar(Request $request, EmployeeDocument $documento): RedirectResponse
     {
         $usuario = $request->user();
-        abort_unless($usuario->can('rh.documentos.extraccion.ignorar') && $this->alcance->puedeVerExpediente($usuario, $documento->usuario), 403);
+        abort_unless($documento->colaborador !== null && $usuario->can('rh.documentos.extraccion.ignorar') && $this->alcance->puedeVerExpediente($usuario, $documento->colaborador), 403);
 
         $extraccion = $documento->extraccion ?? abort(404, 'Este documento no tiene una extracción registrada.');
 
@@ -60,7 +60,7 @@ class DocumentExtraccionController extends Controller
     public function reprocesar(Request $request, EmployeeDocument $documento): RedirectResponse
     {
         $usuario = $request->user();
-        abort_unless($usuario->can('rh.documentos.extraccion.reprocesar') && $this->alcance->puedeVerExpediente($usuario, $documento->usuario), 403);
+        abort_unless($documento->colaborador !== null && $usuario->can('rh.documentos.extraccion.reprocesar') && $this->alcance->puedeVerExpediente($usuario, $documento->colaborador), 403);
 
         $this->extraccion->reprocesar($documento);
 

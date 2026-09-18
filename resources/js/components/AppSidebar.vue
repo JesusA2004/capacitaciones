@@ -18,6 +18,7 @@ import {
     ShieldCheck,
     Smartphone,
     UserRound,
+    Users,
 } from '@lucide/vue';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
@@ -43,6 +44,7 @@ import { index as indexJerarquiaPuestos } from '@/routes/administracion/jerarqui
 import { index as indexPuestos } from '@/routes/administracion/puestos';
 import { index as indexRoles } from '@/routes/administracion/roles';
 import { index as indexSucursales } from '@/routes/administracion/sucursales';
+import { index as indexUsuarios } from '@/routes/administracion/usuarios';
 import { proximamente as capacitacionProximamente } from '@/routes/capacitacion';
 import { index as indexPortal } from '@/routes/portal';
 import { index as indexReportes } from '@/routes/reportes';
@@ -189,7 +191,7 @@ const navItemsOperativo = computed<NavItem[]>(() => {
     // Invitaciones QR SÍ se queda: es como un colaborador genera su alta e
     // incorpora su expediente desde la app móvil (QR de incorporación) — no
     // es un paso interno de RH, es la puerta de entrada real de ese flujo.
-    if (tienePermiso('rh.incorporacion.invitaciones.ver') && tieneRol('super_admin')) {
+    if (tienePermiso('rh.incorporacion.invitaciones.ver')) {
         items.push({
             title: 'Invitaciones QR',
             href: indexIncorporacionInvitaciones(),
@@ -258,9 +260,18 @@ const adminNavItems = computed<NavItem[]>(() => {
         });
     }
 
-    // "Usuarios" como listado aparte se retiró: cuenta de acceso, roles y
-    // contraseña ahora se gestionan desde la pestaña «Cuenta» de cada
-    // expediente (rh.expedientes) — ver docs/ROLES_Y_NAVEGACION.md.
+    // Cuentas de acceso (correo, roles, estado, 2FA) — listado global,
+    // aparte de Expedientes (que sigue administrando la cuenta en el
+    // contexto de un colaborador desde su pestaña «Cuenta»). Ver
+    // docs/ROLES_Y_NAVEGACION.md.
+    if (tienePermiso('usuarios.ver')) {
+        items.push({
+            title: 'Usuarios',
+            href: indexUsuarios(),
+            icon: Users,
+        });
+    }
+
     if (tienePermiso('sucursales.administrar')) {
         items.push({
             title: 'Sucursales',

@@ -380,7 +380,7 @@ class ExpedienteController extends Controller
             // App\Services\Nomina\PrestamoService), cada uno con su
             // historial de movimientos (ledger append-only).
             'prestamos' => collect(array_map(
-                fn (Prestamo $prestamo) => $this->prestamoResumen($prestamo),
+                $this->prestamoResumen(...),
                 $colaborador->prestamos()
                     ->with('movimientos.registradoPor:id,name,apellidos')
                     ->limit(10)
@@ -674,7 +674,7 @@ class ExpedienteController extends Controller
     }
 
     /**
-     * @return array{id: int, monto_original: float, saldo: float, plazo: int, periodicidad: string, pago_programado: float, porcentaje_pagado: int, fecha_otorgamiento: string|null, fecha_primer_descuento: string|null, estado: string, movimientos: Collection<int, array{id: int, fecha: string, monto: float, tipo: string, saldo_anterior: float, saldo_nuevo: float, registrado_por: string|null}>}
+     * @return array{id: int, monto_original: float, saldo: float, plazo: int, periodicidad: string, pago_programado: float, porcentaje_pagado: int, fecha_otorgamiento: string|null, fecha_primer_descuento: string|null, estado: string, movimientos: Collection<int, array<string, mixed>>}
      */
     private function prestamoResumen(Prestamo $prestamo): array
     {
@@ -691,7 +691,10 @@ class ExpedienteController extends Controller
             'fecha_otorgamiento' => $prestamo->fecha_otorgamiento?->toDateString(),
             'fecha_primer_descuento' => $prestamo->fecha_primer_descuento?->toDateString(),
             'estado' => $prestamo->estado,
-            'movimientos' => collect(array_map(fn (PrestamoMovimiento $m) => $this->movimientoResumen($m), $prestamo->movimientos->all())),
+            'movimientos' => collect(array_map(
+                fn (PrestamoMovimiento $m): array => $this->item($this->movimientoResumen($m)),
+                $prestamo->movimientos->all(),
+            )),
         ];
     }
 
@@ -709,5 +712,22 @@ class ExpedienteController extends Controller
             'saldo_nuevo' => (float) $movimiento->saldo_nuevo,
             'registrado_por' => $this->nombreActor($movimiento->registradoPor),
         ];
+    }
+
+    /**
+     * Illuminate\Support\Collection no es covariante (ver
+     * https://phpstan.org/blog/whats-up-with-template-covariant): un shape
+     * de array literal preciso no se acepta donde se declaro
+     * `Collection<int, array<string, mixed>>` aunque sea estructuralmente
+     * compatible. Ensanchar aqui en la frontera de la funcion si es una
+     * operacion valida para PHPStan (mismo patron que
+     * RhPendientesService::item()).
+     *
+     * @param  array<string, mixed>  $item
+     * @return array<string, mixed>
+     */
+    private function item(array $item): array
+    {
+        return $item;
     }
 }

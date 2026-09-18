@@ -52,7 +52,7 @@ class ReporteCumplimientoService
     private function consultaColaboradores(User $usuarioActual, array $filtros): Builder
     {
         $query = User::query()
-            ->with(['sucursalPrincipal:id,nombre', 'departamento:id,nombre'])
+            ->with(['colaborador.sucursalPrincipal:id,nombre', 'colaborador.departamento:id,nombre'])
             ->withCount([
                 'asignacionesUsuario as asignaciones_total',
                 'asignacionesUsuario as asignaciones_completadas' => fn ($q) => $q->where('estado', EstadoAsignacion::Completada->value),

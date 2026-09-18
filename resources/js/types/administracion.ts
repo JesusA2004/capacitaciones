@@ -30,6 +30,20 @@ export type SucursalItem = {
     plantilla_vacantes?: number;
 };
 
+export type UsuarioItem = {
+    id: number;
+    colaborador_id: number | null;
+    colaborador: { id: number; name: string; apellidos: string | null; estatus: string } | null;
+    name: string;
+    apellidos: string | null;
+    email: string;
+    roles_nombres: string[];
+    acceso_bloqueado_en: string | null;
+    email_verified_at: string | null;
+    tiene_2fa: boolean;
+    ultimo_acceso: string | null;
+};
+
 export type DepartamentoItem = {
     id: number;
     nombre: string;

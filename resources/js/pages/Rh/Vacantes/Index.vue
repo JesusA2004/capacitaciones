@@ -295,7 +295,7 @@ const tarjetasKpi = computed(() => [
                 <CrudEmptyState
                     :icono="Briefcase"
                     titulo="Sin plantilla configurada"
-                    descripcion="No hay combinaciones de sucursal y puesto con headcount configurado para los filtros actuales."
+                    descripcion="No hay combinaciones de sucursal y puesto con plantilla configurada para los filtros actuales."
                 />
             </template>
 

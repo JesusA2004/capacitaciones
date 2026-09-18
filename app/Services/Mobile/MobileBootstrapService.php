@@ -60,20 +60,21 @@ class MobileBootstrapService
      */
     private function usuario(User $usuario): array
     {
-        $usuario->loadMissing(['sucursalPrincipal.empresa', 'departamento', 'puesto']);
+        $usuario->loadMissing(['colaborador.sucursalPrincipal.empresa', 'colaborador.departamento', 'colaborador.puesto']);
+        $colaborador = $usuario->colaborador;
 
         return [
             'id' => $usuario->id,
             'name' => $usuario->name,
             'apellidos' => $usuario->apellidos,
             'email' => $usuario->email,
-            'estatus' => $usuario->estatus->value,
-            'numero_empleado' => $usuario->numero_empleado,
-            'foto_url' => $usuario->foto_path !== null ? route('api.v1.colaborador.foto') : null,
-            'empresa' => $this->entidad($usuario->empresa()),
-            'sucursal' => $this->entidad($usuario->sucursalPrincipal),
-            'departamento' => $this->entidad($usuario->departamento),
-            'puesto' => $this->entidad($usuario->puesto),
+            'estatus' => $colaborador?->estatus->value,
+            'numero_empleado' => $colaborador?->numero_empleado,
+            'foto_url' => $colaborador?->foto_path !== null ? route('api.v1.colaborador.foto') : null,
+            'empresa' => $this->entidad($colaborador?->sucursalPrincipal?->empresa),
+            'sucursal' => $this->entidad($colaborador?->sucursalPrincipal),
+            'departamento' => $this->entidad($colaborador?->departamento),
+            'puesto' => $this->entidad($colaborador?->puesto),
             'roles' => $usuario->getRoleNames()->values(),
             'permissions' => $usuario->getAllPermissions()->pluck('name')->values(),
         ];
@@ -128,11 +129,13 @@ class MobileBootstrapService
      */
     private function counts(User $usuario, array $capabilities): array
     {
-        if ($usuario->estatus === EstadoUsuario::EnIncorporacion) {
-            $progreso = $this->incorporacion->progreso($this->incorporacion->tiposDocumento(), $this->expediente->documentosVigentes($usuario));
+        $colaborador = $usuario->colaborador;
+
+        if ($colaborador !== null && $colaborador->estatus === EstadoUsuario::EnIncorporacion) {
+            $progreso = $this->incorporacion->progreso($this->incorporacion->tiposDocumento(), $this->expediente->documentosVigentes($colaborador));
             $documentosPendientes = $progreso['pendientes'] + $progreso['rechazados'];
         } else {
-            $documentosPendientes = $this->expediente->documentosPendientesCount($usuario);
+            $documentosPendientes = $colaborador !== null ? $this->expediente->documentosPendientesCount($colaborador) : 0;
         }
 
         $rh = $capabilities['rh'] ? $this->rhPendientes->resumenConteos($usuario) : ['solicitudes' => 0, 'vacaciones' => 0, 'documentos' => 0, 'incorporaciones' => 0, 'total' => 0];

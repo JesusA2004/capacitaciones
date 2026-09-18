@@ -5,6 +5,7 @@ namespace App\Services\RhMobile;
 use App\Enums\EstadoDocumento;
 use App\Enums\EstadoSolicitudInterna;
 use App\Enums\EstadoSolicitudVacaciones;
+use App\Models\Colaborador;
 use App\Models\EmployeeDocument;
 use App\Models\SolicitudInterna;
 use App\Models\SolicitudVacaciones;
@@ -117,7 +118,7 @@ class WorkflowService
     /**
      * @return array<string, mixed>
      */
-    public function paraIncorporacion(User $usuario, User $colaborador, string $estadoGeneral): array
+    public function paraIncorporacion(User $usuario, Colaborador $colaborador, string $estadoGeneral): array
     {
         $pendiente = $estadoGeneral === 'completo' && $colaborador->incorporacion_decision === null;
 

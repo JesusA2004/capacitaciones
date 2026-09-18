@@ -108,7 +108,7 @@ class VacanteController extends Controller
      * las columnas y la exportación (mismo criterio que el resto de
      * tableros de RH).
      *
-     * @param  Collection<int, FilaVacante>  $filas
+     * @param  Collection<int, array<string, mixed>>  $filas  cada elemento es una FilaVacante
      * @return array<string, int|float>
      */
     private function kpis(Collection $filas): array
@@ -132,7 +132,7 @@ class VacanteController extends Controller
      * acotada por el alcance organizacional del usuario — nunca por los
      * filtros de pantalla, ver kpis().
      *
-     * @return Collection<int, FilaVacante>
+     * @return Collection<int, array<string, mixed>> cada elemento es una FilaVacante
      */
     private function filasPlantilla(User $usuario): Collection
     {
@@ -190,7 +190,26 @@ class VacanteController extends Controller
         usort($filas, fn (array $a, array $b) => [$a['sucursal']['nombre'] ?? '', $a['puesto']['nombre'] ?? '']
             <=> [$b['sucursal']['nombre'] ?? '', $b['puesto']['nombre'] ?? '']);
 
-        return collect($filas);
+        return collect(array_map($this->fila(...), $filas));
+    }
+
+    /**
+     * Illuminate\Support\Collection no es covariante (ver
+     * https://phpstan.org/blog/whats-up-with-template-covariant): un array
+     * con forma literal (los foreach/map de arriba) no se acepta donde se
+     * declaro `Collection<int, FilaVacante>` aunque sea estructuralmente
+     * compatible, ni siquiera pasandolo por una funcion identidad tipada
+     * con el mismo alias preciso (el alias en si vuelve a triangular el
+     * mismo choque). Ensanchar aqui a `array<string, mixed>` en la
+     * frontera de la funcion si es una operacion valida para PHPStan y
+     * es el mismo patron ya usado en RhPendientesService::item().
+     *
+     * @param  array<string, mixed>  $fila
+     * @return array<string, mixed>
+     */
+    private function fila(array $fila): array
+    {
+        return $fila;
     }
 
     /**
@@ -272,8 +291,8 @@ class VacanteController extends Controller
     }
 
     /**
-     * @param  Collection<int, FilaVacante>  $filas
-     * @return Collection<int, FilaVacante>
+     * @param  Collection<int, array<string, mixed>>  $filas  cada elemento es una FilaVacante
+     * @return Collection<int, array<string, mixed>> cada elemento es una FilaVacante
      */
     private function aplicarFiltros(Collection $filas, Request $request): Collection
     {
@@ -313,7 +332,7 @@ class VacanteController extends Controller
             );
         }
 
-        return collect(array_values($lista));
+        return collect(array_map($this->fila(...), array_values($lista)));
     }
 
     /**

@@ -35,7 +35,7 @@ class ColaboradorCumpleanosController extends Controller
      */
     public function felicitacionActual(Request $request): JsonResponse
     {
-        $colaborador = $request->user();
+        $colaborador = $request->user()->colaborador;
         $hoy = $this->cumpleanos->cumpleanosDeHoy()->firstWhere('id', $colaborador->id);
 
         if ($hoy === null) {
@@ -63,7 +63,7 @@ class ColaboradorCumpleanosController extends Controller
      */
     public function imagen(Request $request): HttpResponse
     {
-        $colaborador = $request->user();
+        $colaborador = $request->user()->colaborador;
         $hoy = $this->cumpleanos->cumpleanosDeHoy()->firstWhere('id', $colaborador->id);
 
         abort_if($hoy === null, 404);

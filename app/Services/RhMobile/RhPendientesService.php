@@ -6,6 +6,7 @@ use App\Enums\EstadoDocumento;
 use App\Enums\EstadoSolicitudInterna;
 use App\Enums\EstadoSolicitudVacaciones;
 use App\Enums\EstadoUsuario;
+use App\Models\Colaborador;
 use App\Models\EmployeeDocument;
 use App\Models\SolicitudInterna;
 use App\Models\SolicitudVacaciones;
@@ -114,7 +115,14 @@ class RhPendientesService
     {
         $query = SolicitudInterna::query()
             ->whereIn('estado', [EstadoSolicitudInterna::Enviada->value, EstadoSolicitudInterna::EnRevision->value])
-            ->with(['usuario:id,name,apellidos,numero_empleado,sucursal_principal_id,puesto_id', 'usuario.sucursalPrincipal:id,nombre', 'usuario.puesto:id,nombre']);
+            ->with([
+                'colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id,puesto_id',
+                'colaborador.sucursalPrincipal:id,nombre',
+                'colaborador.puesto:id,nombre',
+                'usuario.colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id,puesto_id',
+                'usuario.colaborador.sucursalPrincipal:id,nombre',
+                'usuario.colaborador.puesto:id,nombre',
+            ]);
 
         $query = $this->limitarPorAlcanceViaUsuario($query, $usuario, 'user_id');
         $query = $this->aplicarFiltrosComunes($query, $filtros, 'usuario');
@@ -130,7 +138,7 @@ class RhPendientesService
                 'resource_id' => $s->id,
                 'prioridad' => 'normal',
                 'titulo' => $s->tipo->etiqueta(),
-                'colaborador' => $this->colaboradorResumen($s->usuario),
+                'colaborador' => $this->colaboradorResumen($s->personaSolicitante()),
                 'resumen' => Str::limit($s->motivo, 120),
                 'creado_en' => $s->created_at?->toIso8601String(),
                 'acciones_permitidas' => $this->accionesRapidasSolicitud($usuario),
@@ -145,7 +153,14 @@ class RhPendientesService
     {
         $query = SolicitudVacaciones::query()
             ->where('estado', EstadoSolicitudVacaciones::Pendiente->value)
-            ->with(['usuario:id,name,apellidos,numero_empleado,sucursal_principal_id,puesto_id', 'usuario.sucursalPrincipal:id,nombre', 'usuario.puesto:id,nombre']);
+            ->with([
+                'colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id,puesto_id',
+                'colaborador.sucursalPrincipal:id,nombre',
+                'colaborador.puesto:id,nombre',
+                'usuario.colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id,puesto_id',
+                'usuario.colaborador.sucursalPrincipal:id,nombre',
+                'usuario.colaborador.puesto:id,nombre',
+            ]);
 
         $query = $this->limitarPorAlcanceViaUsuario($query, $usuario, 'user_id');
         $query = $this->aplicarFiltrosComunes($query, $filtros, 'usuario');
@@ -157,7 +172,7 @@ class RhPendientesService
                 'resource_id' => $v->id,
                 'prioridad' => 'normal',
                 'titulo' => 'Solicitud de vacaciones',
-                'colaborador' => $this->colaboradorResumen($v->usuario),
+                'colaborador' => $this->colaboradorResumen($v->personaSolicitante()),
                 'resumen' => "Del {$v->fecha_inicio->toDateString()} al {$v->fecha_fin->toDateString()} ({$v->dias_solicitados} días)",
                 'creado_en' => $v->created_at?->toIso8601String(),
                 'acciones_permitidas' => $this->accionesRapidasVacacion($usuario),
@@ -172,10 +187,10 @@ class RhPendientesService
     {
         $query = EmployeeDocument::query()
             ->whereIn('status', [EstadoDocumento::Cargado->value, EstadoDocumento::EnRevision->value, EstadoDocumento::CambioSolicitado->value])
-            ->with(['usuario:id,name,apellidos,numero_empleado,sucursal_principal_id,puesto_id', 'usuario.sucursalPrincipal:id,nombre', 'usuario.puesto:id,nombre', 'tipo:id,nombre']);
+            ->with(['colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id,puesto_id', 'colaborador.sucursalPrincipal:id,nombre', 'colaborador.puesto:id,nombre', 'tipo:id,nombre']);
 
-        $query = $this->limitarPorAlcanceViaUsuario($query, $usuario, 'user_id');
-        $query = $this->aplicarFiltrosComunes($query, $filtros, 'usuario');
+        $query = $this->limitarPorAlcanceViaColaborador($query, $usuario, 'colaborador_id');
+        $query = $this->aplicarFiltrosComunes($query, $filtros, 'colaborador');
 
         return $query->orderByDesc('created_at')->limit(self::LIMITE_POR_TIPO)->get()
             ->map(fn (EmployeeDocument $d) => $this->item([
@@ -184,7 +199,7 @@ class RhPendientesService
                 'resource_id' => $d->id,
                 'prioridad' => 'normal',
                 'titulo' => $d->tipo->nombre ?? 'Documento',
-                'colaborador' => $this->colaboradorResumen($d->usuario),
+                'colaborador' => $this->colaboradorResumen($d->colaborador),
                 'resumen' => 'Documento por revisar (v'.$d->version.')',
                 'creado_en' => $d->created_at?->toIso8601String(),
                 'acciones_permitidas' => $this->accionesRapidasDocumento($usuario),
@@ -197,19 +212,19 @@ class RhPendientesService
      */
     private function incorporaciones(User $usuario, array $filtros): Collection
     {
-        $query = User::query()
+        $query = Colaborador::query()
             ->where('estatus', EstadoUsuario::EnIncorporacion->value)
             ->whereNull('incorporacion_decision')
             ->with(['sucursalPrincipal:id,nombre', 'puesto:id,nombre']);
 
-        $query = $this->alcance->limitarUsuariosPorAlcance($query, $usuario);
+        $query = $this->alcance->limitarColaboradoresPorAlcance($query, $usuario);
         $query = $this->aplicarFiltrosComunes($query, $filtros, null);
 
         $candidatos = $query->orderByDesc('created_at')->limit(self::LIMITE_POR_TIPO)->get();
 
         return $candidatos
-            ->filter(fn (User $colaborador) => $this->incorporacion->estado($colaborador) === 'completo')
-            ->map(fn (User $colaborador) => $this->item([
+            ->filter(fn (Colaborador $colaborador) => $this->incorporacion->estado($colaborador) === 'completo')
+            ->map(fn (Colaborador $colaborador) => $this->item([
                 'id' => "incorporacion:{$colaborador->id}",
                 'tipo' => 'incorporacion',
                 'resource_id' => $colaborador->id,
@@ -260,6 +275,23 @@ class RhPendientesService
      * @template TModel of \Illuminate\Database\Eloquent\Model
      *
      * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
+     */
+    private function limitarPorAlcanceViaColaborador($query, User $usuario, string $columnaColaboradorId)
+    {
+        if ($this->alcance->tieneAlcanceGlobal($usuario)) {
+            return $query;
+        }
+
+        $idsVisibles = $this->alcance->limitarColaboradoresPorAlcance(Colaborador::query(), $usuario)->pluck('id');
+
+        return $query->whereIn($columnaColaboradorId, $idsVisibles);
+    }
+
+    /**
+     * @template TModel of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  Builder<TModel>  $query
      * @param  array<string, mixed>  $filtros
      * @param  string|null  $relacionUsuario  Nombre de la relacion hacia User, o null si el propio modelo es User.
      * @return Builder<TModel>
@@ -290,7 +322,7 @@ class RhPendientesService
     /**
      * @return array<string, mixed>
      */
-    private function colaboradorResumen(?User $colaborador): array
+    private function colaboradorResumen(?Colaborador $colaborador): array
     {
         if ($colaborador === null) {
             return ['id' => null, 'nombre' => null, 'numero_empleado' => null, 'puesto' => null, 'sucursal' => null];

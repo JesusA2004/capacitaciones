@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\SubirDocumentoIncorporacionRequest;
+use App\Models\Colaborador;
 use App\Models\DocumentType;
 use App\Services\Incorporacion\IncorporacionService;
 use Illuminate\Http\JsonResponse;
@@ -27,7 +28,7 @@ class IncorporacionController extends Controller
     {
         abort_unless($request->user()->can('colaborador.incorporacion.ver'), 403);
 
-        return response()->json($this->incorporacion->estadoIncorporacion($request->user()));
+        return response()->json($this->incorporacion->estadoIncorporacion($this->colaboradorDe($request)));
     }
 
     /** Alias de index() por si la app lo necesita bajo otro nombre. */
@@ -41,12 +42,12 @@ class IncorporacionController extends Controller
         $usuario = $request->user();
 
         try {
-            $this->incorporacion->subirDocumento($usuario, $documentoRequerido, $request->file('archivo'), $usuario->id);
+            $this->incorporacion->subirDocumento($this->colaboradorDe($request), $documentoRequerido, $request->file('archivo'), $usuario->id);
         } catch (RuntimeException $e) {
             throw ValidationException::withMessages(['archivo' => $e->getMessage()]);
         }
 
-        return response()->json($this->incorporacion->estadoIncorporacion($usuario));
+        return response()->json($this->incorporacion->estadoIncorporacion($this->colaboradorDe($request)));
     }
 
     public function solicitarCambio(Request $request, DocumentType $documento): JsonResponse
@@ -56,11 +57,17 @@ class IncorporacionController extends Controller
         abort_unless($usuario->can('colaborador.incorporacion.documentos.solicitar-cambio'), 403);
 
         try {
-            $this->incorporacion->solicitarCambio($usuario, $documento);
+            $this->incorporacion->solicitarCambio($this->colaboradorDe($request), $documento);
         } catch (RuntimeException $e) {
             throw ValidationException::withMessages(['documento' => $e->getMessage()]);
         }
 
         return response()->json(['message' => 'Solicitud de cambio enviada a RH']);
+    }
+
+    private function colaboradorDe(Request $request): Colaborador
+    {
+        return $request->user()->colaborador
+            ?? throw new RuntimeException("La cuenta de acceso (users.id={$request->user()->id}) no tiene un colaborador enlazado.");
     }
 }

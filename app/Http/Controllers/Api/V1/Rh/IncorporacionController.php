@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api\V1\Rh;
 
 use App\Enums\EstadoUsuario;
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use App\Models\Colaborador;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Incorporacion\IncorporacionService;
@@ -41,11 +41,11 @@ class IncorporacionController extends Controller
         $usuario = $request->user();
         abort_unless($usuario->can('rh.incorporaciones.ver'), 403);
 
-        $query = User::query()
+        $query = Colaborador::query()
             ->where(fn ($q) => $q->where('estatus', EstadoUsuario::EnIncorporacion->value)->orWhereNotNull('incorporacion_decision'))
             ->with(['sucursalPrincipal:id,nombre', 'puesto:id,nombre']);
 
-        $query = $this->alcance->limitarUsuariosPorAlcance($query, $usuario);
+        $query = $this->alcance->limitarColaboradoresPorAlcance($query, $usuario);
 
         if ($busqueda = $request->string('q')->toString()) {
             $query->where(fn ($q) => $q->where('name', 'like', "%{$busqueda}%")->orWhere('numero_empleado', 'like', "%{$busqueda}%"));
@@ -53,7 +53,7 @@ class IncorporacionController extends Controller
 
         $candidatos = $query->orderByDesc('created_at')->get();
 
-        $filas = $candidatos->map(fn (User $c) => [
+        $filas = $candidatos->map(fn (Colaborador $c) => [
             'colaborador' => $c,
             'estado' => $this->estadoIncorporacion($c),
         ]);
@@ -81,11 +81,11 @@ class IncorporacionController extends Controller
         ]);
     }
 
-    public function show(Request $request, User $colaborador): JsonResponse
+    public function show(Request $request, Colaborador $colaborador): JsonResponse
     {
         $usuario = $request->user();
         abort_unless($usuario->can('rh.incorporaciones.detalle'), 403);
-        abort_unless($this->alcance->puedeVerUsuario($usuario, $colaborador), 403);
+        abort_unless($this->alcance->puedeVerExpediente($usuario, $colaborador), 403);
 
         $estadoGeneral = $this->estadoIncorporacion($colaborador);
         $flujo = $this->workflow->paraIncorporacion($usuario, $colaborador, $estadoGeneral);
@@ -107,11 +107,11 @@ class IncorporacionController extends Controller
         ]);
     }
 
-    public function aprobar(Request $request, User $colaborador): JsonResponse
+    public function aprobar(Request $request, Colaborador $colaborador): JsonResponse
     {
         $usuario = $request->user();
         abort_unless($usuario->can('rh.incorporaciones.aprobar'), 403);
-        abort_unless($this->alcance->puedeVerUsuario($usuario, $colaborador), 404);
+        abort_unless($this->alcance->puedeVerExpediente($usuario, $colaborador), 404);
 
         try {
             $this->incorporacion->aprobarIncorporacion($colaborador, $usuario);
@@ -122,11 +122,11 @@ class IncorporacionController extends Controller
         return response()->json(['message' => 'Incorporación aprobada correctamente', 'data' => ['id' => $colaborador->id, 'estado' => 'aprobada']]);
     }
 
-    public function rechazar(Request $request, User $colaborador): JsonResponse
+    public function rechazar(Request $request, Colaborador $colaborador): JsonResponse
     {
         $usuario = $request->user();
         abort_unless($usuario->can('rh.incorporaciones.rechazar'), 403);
-        abort_unless($this->alcance->puedeVerUsuario($usuario, $colaborador), 404);
+        abort_unless($this->alcance->puedeVerExpediente($usuario, $colaborador), 404);
 
         $datos = $request->validate(['motivo' => ['required', 'string', 'max:500']]);
 
@@ -135,7 +135,7 @@ class IncorporacionController extends Controller
         return response()->json(['message' => 'Incorporación rechazada correctamente', 'data' => ['id' => $colaborador->id, 'estado' => 'rechazada']]);
     }
 
-    private function estadoIncorporacion(User $colaborador): string
+    private function estadoIncorporacion(Colaborador $colaborador): string
     {
         if ($colaborador->incorporacion_decision === 'aprobado') {
             return 'aprobada';
@@ -151,7 +151,7 @@ class IncorporacionController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function colaboradorResumen(User $colaborador): array
+    private function colaboradorResumen(Colaborador $colaborador): array
     {
         $colaborador->loadMissing(['sucursalPrincipal:id,nombre', 'puesto:id,nombre']);
 

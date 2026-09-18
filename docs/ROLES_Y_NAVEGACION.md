@@ -22,7 +22,17 @@ Sin cookie y con ambos modos disponibles, el sistema prioriza **operativo** por 
 
 **Colaborador**: Mi portal, Mis solicitudes, Mi expediente (si tiene `expedientes.ver`), Mis notificaciones, Mi perfil, Capacitación (si el feature flag está activo).
 
-**Operativo**: Inicio (dashboard), Expedientes (listado completo, solo con `expedientes.ver_todos`/`ver_sucursal`), Solicitudes (bandeja de revisión, con `solicitudes.revisar`/`aprobar`), Organigrama (con `organigrama.ver`), Vacantes, Candidatos, Altas digitales, Invitaciones QR, Formatos, Plantillas avanzadas, Reportes, Cumpleaños, Capacitación (si aplica) — y, aparte, un grupo "Administración" (Empresas, Colaboradores, Sucursales, Departamentos, Puestos, Roles y permisos, Versiones de app).
+**Operativo**: Inicio (dashboard), Expedientes (listado completo, solo con `expedientes.ver_todos`/`ver_sucursal`), Solicitudes (bandeja de revisión, con `solicitudes.revisar`/`aprobar`), Organigrama (con `organigrama.ver`), Vacantes, Candidatos, Altas digitales, Invitaciones QR, Formatos, Plantillas avanzadas, Reportes, Cumpleaños, Capacitación (si aplica) — y, aparte, un grupo "Administración" (Empresas, Usuarios, Sucursales, Departamentos, Puestos, Roles y permisos, Versiones de app).
+
+## Expedientes vs. Usuarios vs. Roles y permisos
+
+Tres conceptos relacionados pero distintos, cada uno con su propia pantalla:
+
+- **Expedientes** (`rh.expedientes`): el colaborador/persona — datos laborales, sucursal, departamento, puesto, IMSS, historial. Un colaborador puede existir sin cuenta de acceso.
+- **Usuarios** (`administracion.usuarios`, permiso `usuarios.ver`): listado global de CUENTAS de acceso (correo, roles asignados, estado de acceso, correo verificado, 2FA, último acceso) — `App\Http\Controllers\Administracion\UsuarioController::index()`. No administra datos laborales ni crea colaboradores.
+- **Roles y permisos** (`administracion.roles`): el catálogo/configuración de roles en sí, no las cuentas que los tienen.
+
+La cuenta de acceso de un colaborador puede administrarse desde cualquiera de los dos lugares con datos de esa cuenta — la pestaña «Cuenta» del expediente (contextual, cuando ya estás viendo a ese colaborador) o el listado global de Usuarios (para gestionar cuentas sin pasar por un expediente primero) — ambos llaman a los mismos endpoints de `UsuarioController`, así que nunca quedan desincronizados.
 
 Lo que **ya no existe** como entrada de menú (aunque las rutas sigan vivas por compatibilidad): "Vacaciones" y "Vacaciones (revisión)" como módulos aparte (vacaciones vive dentro de Solicitudes), "Reclutamiento" (se resume en Vacantes), "Reportes RH" duplicado (queda solo "Reportes"), y "Jerarquía de puestos" como texto visible (la pantalla y el menú dicen "Organigrama" — ver `docs/ORGANIGRAMA.md`).
 

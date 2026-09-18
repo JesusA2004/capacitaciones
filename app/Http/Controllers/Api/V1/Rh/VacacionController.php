@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\Rh;
 
 use App\Enums\EstadoSolicitudVacaciones;
 use App\Http\Controllers\Controller;
+use App\Models\Colaborador;
 use App\Models\SolicitudVacaciones;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
@@ -53,19 +54,20 @@ class VacacionController extends Controller
         abort_unless($usuario->can('rh.vacaciones.detalle'), 403);
         abort_unless($this->puedeVer($usuario, $vacacion), 403);
 
-        $vacacion->load(['usuario:id,name,apellidos,numero_empleado,sucursal_principal_id,puesto_id,fecha_ingreso', 'usuario.sucursalPrincipal:id,nombre', 'usuario.puesto:id,nombre', 'revisadoPor:id,name,apellidos']);
+        $vacacion->load(['colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id,puesto_id,fecha_ingreso', 'colaborador.sucursalPrincipal:id,nombre', 'colaborador.puesto:id,nombre', 'usuario', 'revisadoPor:id,name,apellidos']);
 
         $flujo = $this->workflow->paraVacacion($usuario, $vacacion);
+        $persona = $vacacion->personaSolicitante();
 
         return response()->json([
             'data' => [
                 'id' => $vacacion->id,
                 'estado' => $vacacion->estado->value,
-                'colaborador' => $this->colaboradorResumen($vacacion->usuario),
+                'colaborador' => $this->colaboradorResumen($persona),
                 'fecha_inicio' => $vacacion->fecha_inicio->toDateString(),
                 'fecha_fin' => $vacacion->fecha_fin->toDateString(),
                 'dias_solicitados' => $vacacion->dias_solicitados,
-                'saldo_disponible' => $this->vacaciones->saldo($vacacion->usuario)['dias_disponibles'],
+                'saldo_disponible' => $persona !== null ? $this->vacaciones->saldoColaborador($persona)['dias_disponibles'] : 0,
                 'comentario' => $vacacion->comentario,
                 'motivo_rechazo' => $vacacion->motivo_rechazo,
                 'acciones_permitidas' => $flujo['acciones_permitidas'],
@@ -108,9 +110,15 @@ class VacacionController extends Controller
 
     private function puedeVer(User $usuario, SolicitudVacaciones $vacacion): bool
     {
-        $vacacion->loadMissing('usuario');
+        $vacacion->loadMissing(['colaborador', 'usuario.colaborador']);
 
-        return $this->alcance->tieneAlcanceGlobal($usuario) || $this->alcance->puedeVerUsuario($usuario, $vacacion->usuario);
+        if ($this->alcance->tieneAlcanceGlobal($usuario)) {
+            return true;
+        }
+
+        $persona = $vacacion->personaSolicitante();
+
+        return $persona !== null && $this->alcance->puedeVerExpediente($usuario, $persona);
     }
 
     /**
@@ -122,7 +130,7 @@ class VacacionController extends Controller
             'id' => "vacaciones:{$v->id}",
             'resource_id' => $v->id,
             'estado' => $v->estado->value,
-            'colaborador' => $this->colaboradorResumen($v->usuario),
+            'colaborador' => $this->colaboradorResumen($v->personaSolicitante()),
             'fecha_inicio' => $v->fecha_inicio->toDateString(),
             'fecha_fin' => $v->fecha_fin->toDateString(),
             'dias_solicitados' => $v->dias_solicitados,
@@ -134,7 +142,7 @@ class VacacionController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function colaboradorResumen(?User $colaborador): array
+    private function colaboradorResumen(?Colaborador $colaborador): array
     {
         if ($colaborador === null) {
             return ['id' => null, 'nombre' => null, 'numero_empleado' => null, 'puesto' => null, 'sucursal' => null];

@@ -103,8 +103,8 @@ class CumplimientoExport implements WithMultipleSheets
 
             return [
                 trim("{$usuario->name} {$usuario->apellidos}"),
-                $usuario->sucursalPrincipal->nombre ?? '—',
-                $usuario->departamento->nombre ?? '—',
+                $usuario->colaborador?->sucursalPrincipal->nombre ?? '—',
+                $usuario->colaborador?->departamento->nombre ?? '—',
                 $total,
                 $completadas,
                 $vencidas,

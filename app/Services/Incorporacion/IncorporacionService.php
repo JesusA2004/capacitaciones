@@ -81,10 +81,10 @@ class IncorporacionService
      *
      * @return array<string, mixed>
      */
-    public function estadoIncorporacion(User $colaborador): array
+    public function estadoIncorporacion(Colaborador $colaborador): array
     {
         $tipos = $this->tiposDocumento();
-        $vigentes = $this->expediente->documentosVigentes($this->personaDe($colaborador));
+        $vigentes = $this->expediente->documentosVigentes($colaborador);
 
         $documentos = $tipos->map(fn (DocumentType $tipo) => $this->documentoParaColaborador($tipo, $vigentes->get($tipo->id)));
 
@@ -93,7 +93,7 @@ class IncorporacionService
 
         return [
             'estado' => $estado,
-            'puede_acceder_portal' => $colaborador->puedeAccederPortal(),
+            'puede_acceder_portal' => $colaborador->user?->puedeAccederPortal() ?? false,
             'puede_subir_documentos' => $estado !== 'aprobado',
             'puede_solicitar_cambios' => $estado !== 'aprobado',
             'progreso' => $progreso,
@@ -109,10 +109,10 @@ class IncorporacionService
      *
      * @return array<int, array<string, mixed>>
      */
-    public function detalleParaRh(User $colaborador): array
+    public function detalleParaRh(Colaborador $colaborador): array
     {
         $tipos = $this->tiposDocumento();
-        $vigentes = $this->expediente->documentosVigentes($this->personaDe($colaborador));
+        $vigentes = $this->expediente->documentosVigentes($colaborador);
 
         return $tipos->map(function (DocumentType $tipo) use ($vigentes) {
             $documento = $vigentes->get($tipo->id);
@@ -204,7 +204,7 @@ class IncorporacionService
      * @param  Collection<int, DocumentType>  $tipos
      * @param  Collection<int, EmployeeDocument>  $vigentes
      */
-    public function estadoGeneral(User $colaborador, Collection $tipos, Collection $vigentes): string
+    public function estadoGeneral(Colaborador $colaborador, Collection $tipos, Collection $vigentes): string
     {
         if ($colaborador->incorporacion_decision === 'rechazado') {
             return 'rechazado';
@@ -235,10 +235,10 @@ class IncorporacionService
      * Atajo para obtener solo el estado general (usado por RH al listar/
      * filtrar expedientes, donde no hace falta el detalle por documento).
      */
-    public function estado(User $colaborador): string
+    public function estado(Colaborador $colaborador): string
     {
         $tipos = $this->tiposDocumento();
-        $vigentes = $this->expediente->documentosVigentes($this->personaDe($colaborador));
+        $vigentes = $this->expediente->documentosVigentes($colaborador);
 
         return $this->estadoGeneral($colaborador, $tipos, $vigentes);
     }
@@ -252,7 +252,7 @@ class IncorporacionService
      * (misma logica de versionado que usa RH desde la web): el resultado
      * siempre queda en_revision.
      */
-    public function subirDocumento(User $colaborador, DocumentType $tipo, UploadedFile $archivo, int $subidoPorId): EmployeeDocument
+    public function subirDocumento(Colaborador $colaborador, DocumentType $tipo, UploadedFile $archivo, int $subidoPorId): EmployeeDocument
     {
         $vigente = $this->documentoVigente($colaborador, $tipo);
 
@@ -260,10 +260,14 @@ class IncorporacionService
             throw new RuntimeException('Este documento ya fue subido y esta en revision o aprobado. Solicita un cambio si necesitas modificarlo.');
         }
 
-        $documento = $this->storage->subirVersion($this->personaDe($colaborador), $tipo, $archivo, $subidoPorId);
+        $documento = $this->storage->subirVersion($colaborador, $tipo, $archivo, $subidoPorId);
 
         $this->notificarSinFallar(function () use ($documento, $colaborador): void {
-            $responsables = $this->responsables->paraColaborador($colaborador, 'rh.documentos.ver');
+            if ($colaborador->user === null) {
+                return;
+            }
+
+            $responsables = $this->responsables->paraColaborador($colaborador->user, 'rh.documentos.ver');
 
             NotificationFacade::send($responsables, new RhDocumentoPendienteNotification($documento));
             $this->push->aUsuarios($responsables, 'rh_documento', $documento->id, 'Documento por revisar', 'Un colaborador subió un documento.');
@@ -277,7 +281,7 @@ class IncorporacionService
      * autorizarlo (autorizarCambio) antes de que el colaborador pueda subir
      * una nueva version.
      */
-    public function solicitarCambio(User $colaborador, DocumentType $tipo): EmployeeDocument
+    public function solicitarCambio(Colaborador $colaborador, DocumentType $tipo): EmployeeDocument
     {
         $vigente = $this->documentoVigente($colaborador, $tipo);
 
@@ -308,11 +312,17 @@ class IncorporacionService
         ]);
 
         $this->notificarSinFallar(function () use ($documento): void {
-            $documento->loadMissing('usuario');
-            NotificationFacade::send($documento->usuario, new DocumentoActualizadoNotification($documento));
-            $this->push->aUsuario($documento->usuario, 'documento', $documento->id, 'Documento aprobado', 'Uno de tus documentos fue aprobado.');
+            $documento->loadMissing('colaborador.user');
+            $destinatario = $documento->colaborador?->user;
 
-            $this->avisarSiIncorporacionQuedoCompleta($documento->usuario);
+            if ($destinatario === null) {
+                return;
+            }
+
+            NotificationFacade::send($destinatario, new DocumentoActualizadoNotification($documento));
+            $this->push->aUsuario($destinatario, 'documento', $documento->id, 'Documento aprobado', 'Uno de tus documentos fue aprobado.');
+
+            $this->avisarSiIncorporacionQuedoCompleta($documento->colaborador);
         });
     }
 
@@ -326,9 +336,15 @@ class IncorporacionService
         ]);
 
         $this->notificarSinFallar(function () use ($documento): void {
-            $documento->loadMissing('usuario');
-            NotificationFacade::send($documento->usuario, new DocumentoActualizadoNotification($documento));
-            $this->push->aUsuario($documento->usuario, 'documento', $documento->id, 'Documento rechazado', 'Uno de tus documentos fue rechazado.');
+            $documento->loadMissing('colaborador.user');
+            $destinatario = $documento->colaborador?->user;
+
+            if ($destinatario === null) {
+                return;
+            }
+
+            NotificationFacade::send($destinatario, new DocumentoActualizadoNotification($documento));
+            $this->push->aUsuario($destinatario, 'documento', $documento->id, 'Documento rechazado', 'Uno de tus documentos fue rechazado.');
         });
     }
 
@@ -339,11 +355,13 @@ class IncorporacionService
      * (aprobarIncorporacion/rechazarIncorporacion). Ver seccion 15 y 16 del
      * encargo movil.
      */
-    private function avisarSiIncorporacionQuedoCompleta(User $colaborador): void
+    private function avisarSiIncorporacionQuedoCompleta(?Colaborador $colaborador): void
     {
-        $persona = $this->personaDe($colaborador);
+        if ($colaborador === null) {
+            return;
+        }
 
-        if ($persona->estatus !== EstadoUsuario::EnIncorporacion || $persona->incorporacion_decision !== null) {
+        if ($colaborador->estatus !== EstadoUsuario::EnIncorporacion || $colaborador->incorporacion_decision !== null) {
             return;
         }
 
@@ -351,9 +369,13 @@ class IncorporacionService
             return;
         }
 
-        $responsables = $this->responsables->paraColaborador($colaborador, 'rh.incorporaciones.ver');
+        if ($colaborador->user === null) {
+            return;
+        }
 
-        NotificationFacade::send($responsables, new RhIncorporacionCompletaNotification($colaborador));
+        $responsables = $this->responsables->paraColaborador($colaborador->user, 'rh.incorporaciones.ver');
+
+        NotificationFacade::send($responsables, new RhIncorporacionCompletaNotification($colaborador->user));
         $this->push->aUsuarios($responsables, 'rh_incorporacion', $colaborador->id, 'Incorporación lista para revisión final', 'Un colaborador terminó de subir sus documentos.');
     }
 
@@ -380,10 +402,10 @@ class IncorporacionService
      * obligatorios estan aprobados. Activa al colaborador (estatus
      * Activo) para que pueda usar el portal/app normal.
      */
-    public function aprobarIncorporacion(User $colaborador, User $revisor): void
+    public function aprobarIncorporacion(Colaborador $colaborador, User $revisor): void
     {
         $tipos = $this->tiposDocumento();
-        $vigentes = $this->expediente->documentosVigentes($this->personaDe($colaborador));
+        $vigentes = $this->expediente->documentosVigentes($colaborador);
 
         $requeridos = $tipos->where('requerido', true);
         $todosAprobados = $requeridos->isNotEmpty() && $requeridos->every(
@@ -403,12 +425,16 @@ class IncorporacionService
         ]);
 
         $this->notificarSinFallar(function () use ($colaborador): void {
-            NotificationFacade::send($colaborador, new IncorporacionDecididaNotification(true));
-            $this->push->aUsuario($colaborador, 'incorporacion', $colaborador->id, 'Incorporación aprobada', 'Tu incorporación fue aprobada.');
+            if ($colaborador->user === null) {
+                return;
+            }
+
+            NotificationFacade::send($colaborador->user, new IncorporacionDecididaNotification(true));
+            $this->push->aUsuario($colaborador->user, 'incorporacion', $colaborador->id, 'Incorporación aprobada', 'Tu incorporación fue aprobada.');
         });
     }
 
-    public function rechazarIncorporacion(User $colaborador, User $revisor, string $motivo): void
+    public function rechazarIncorporacion(Colaborador $colaborador, User $revisor, string $motivo): void
     {
         $colaborador->update([
             'incorporacion_decision' => 'rechazado',
@@ -418,30 +444,18 @@ class IncorporacionService
         ]);
 
         $this->notificarSinFallar(function () use ($colaborador): void {
-            NotificationFacade::send($colaborador, new IncorporacionDecididaNotification(false));
-            $this->push->aUsuario($colaborador, 'incorporacion', $colaborador->id, 'Incorporación rechazada', 'Tu incorporación fue rechazada.');
+            if ($colaborador->user === null) {
+                return;
+            }
+
+            NotificationFacade::send($colaborador->user, new IncorporacionDecididaNotification(false));
+            $this->push->aUsuario($colaborador->user, 'incorporacion', $colaborador->id, 'Incorporación rechazada', 'Tu incorporación fue rechazada.');
         });
     }
 
-    private function documentoVigente(User $colaborador, DocumentType $tipo): ?EmployeeDocument
+    private function documentoVigente(Colaborador $colaborador, DocumentType $tipo): ?EmployeeDocument
     {
-        return $this->expediente->documentosVigentes($this->personaDe($colaborador))->get($tipo->id);
-    }
-
-    /**
-     * Resuelve el Colaborador (persona) enlazado a esta cuenta de acceso.
-     * Deuda técnica conocida (Parte "API móvil" pendiente de la separación
-     * Usuario/Colaborador, ver plan de separación): el resto de este
-     * servicio sigue leyendo/escribiendo `estatus`/`incorporacion_*`
-     * directamente sobre `User`, que ya no son la fuente real — deben
-     * moverse a Colaborador en esa migración, junto con `Notification`/push
-     * (que sí requieren un `User` Notifiable, y por eso el actor sigue
-     * siendo User aquí).
-     */
-    private function personaDe(User $colaborador): Colaborador
-    {
-        return $colaborador->colaborador
-            ?? throw new RuntimeException("La cuenta de acceso (users.id={$colaborador->id}) no tiene un colaborador enlazado.");
+        return $this->expediente->documentosVigentes($colaborador)->get($tipo->id);
     }
 
     /**
