@@ -82,7 +82,7 @@ class SucursalController extends Controller
             'sucursal' => $sucursal,
             'plantillaPorPuesto' => $plantillaPorPuesto,
             'totales' => $totales,
-            'departamentos' => $sucursal->colaboradores()->where('estatus', 'activo')->distinct()->pluck('departamento_id')->count(),
+            'departamentos' => $sucursal->colaboradores()->where('estatus', 'activo')->whereNotNull('departamento_id')->distinct('departamento_id')->count('departamento_id'),
         ]);
     }
 

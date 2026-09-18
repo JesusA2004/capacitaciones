@@ -35,7 +35,7 @@ return new class extends Migration
             $table->foreignId('responsable_rh_id')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('gerente_involucrado_id')->nullable()->constrained('users')->nullOnDelete();
 
-            $table->string('estado', 30)->default('nuevo');
+            $table->string('estado', 30)->default('recibidos');
 
             $table->dateTime('fecha_entrevista')->nullable();
             $table->text('resultado_entrevista')->nullable();

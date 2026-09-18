@@ -5,6 +5,7 @@ namespace App\Services\Vacaciones;
 use App\Enums\EstadoSolicitudInterna;
 use App\Enums\EstadoSolicitudVacaciones;
 use App\Enums\TipoSolicitudInterna;
+use App\Models\Colaborador;
 use App\Models\SolicitudInterna;
 use App\Models\SolicitudVacaciones;
 use App\Models\User;
@@ -55,23 +56,41 @@ class VacacionesService
      */
     public function saldo(User $colaborador): array
     {
-        // fecha_ingreso ya no vive en User (ver App\Models\Colaborador) —
-        // deuda técnica conocida: este servicio sigue identificando al
-        // colaborador por su User (solicitudes_vacaciones.user_id todavía no
-        // migra a colaborador_id, Parte B pendiente), así que resuelve el
-        // dato de antigüedad desde su Colaborador enlazado.
-        $fechaIngreso = $colaborador->colaborador?->fecha_ingreso;
+        if ($colaborador->colaborador === null) {
+            return $this->saldoVacio();
+        }
+
+        return $this->saldoColaborador($colaborador->colaborador);
+    }
+
+    /**
+     * Igual que saldo(), pero identificando al colaborador directamente por
+     * su expediente (App\Models\Colaborador) en vez de por su cuenta de
+     * acceso — un Colaborador sin User (todavía no tiene alta digital
+     * completa, o nunca necesitó entrar a la app) debe poder tener saldo de
+     * vacaciones para efectos de finiquito (ver
+     * App\Services\Finiquitos\FiniquitoService::calcularAutomaticos()). Si
+     * el colaborador sí tiene cuenta, también cuenta lo que haya solicitado
+     * por el flujo de autoservicio (solicitudes_vacaciones/solicitudes_internas
+     * siguen ligadas a `user_id`, no a `colaborador_id` — deuda técnica
+     * documentada aquí mismo, Parte B pendiente).
+     *
+     * @return array{
+     *     antiguedad_anios: int,
+     *     vigencia_inicio: string|null,
+     *     vigencia_fin: string|null,
+     *     dias_generados: int,
+     *     dias_usados: int,
+     *     dias_en_solicitud: int,
+     *     dias_disponibles: int,
+     * }
+     */
+    public function saldoColaborador(Colaborador $colaborador): array
+    {
+        $fechaIngreso = $colaborador->fecha_ingreso;
 
         if ($fechaIngreso === null) {
-            return [
-                'antiguedad_anios' => 0,
-                'vigencia_inicio' => null,
-                'vigencia_fin' => null,
-                'dias_generados' => 0,
-                'dias_usados' => 0,
-                'dias_en_solicitud' => 0,
-                'dias_disponibles' => 0,
-            ];
+            return $this->saldoVacio();
         }
 
         $ingreso = $fechaIngreso;
@@ -83,47 +102,54 @@ class VacacionesService
 
         $diasGenerados = $this->diasPorAntiguedad($antiguedadAnios);
 
-        // Cuenta dias tanto del modulo legacy (solicitudes_vacaciones, ver
-        // App\Http\Controllers\VacacionesController — se conserva como
-        // endpoint legacy, ver seccion 13 de la reestructuracion) como del
-        // modulo unificado (solicitudes_internas con tipo=vacaciones, ver
-        // App\Services\Solicitudes\SolicitudesService::crear()). Nunca se
-        // debe poder rebasar el saldo solicitando por cualquiera de los dos
-        // caminos.
-        $solicitudesLegacyVigentes = SolicitudVacaciones::query()
-            ->where('user_id', $colaborador->id)
-            ->whereBetween('fecha_inicio', [$vigenciaInicio, $vigenciaFin])
-            ->get();
+        $userId = $colaborador->user?->id;
 
-        $diasUsadosLegacy = (int) $solicitudesLegacyVigentes
-            ->where('estado', EstadoSolicitudVacaciones::Aprobada)
-            ->sum('dias_solicitados');
+        if ($userId === null) {
+            $diasUsados = 0;
+            $diasEnSolicitud = 0;
+        } else {
+            // Cuenta dias tanto del modulo legacy (solicitudes_vacaciones, ver
+            // App\Http\Controllers\VacacionesController — se conserva como
+            // endpoint legacy, ver seccion 13 de la reestructuracion) como del
+            // modulo unificado (solicitudes_internas con tipo=vacaciones, ver
+            // App\Services\Solicitudes\SolicitudesService::crear()). Nunca se
+            // debe poder rebasar el saldo solicitando por cualquiera de los dos
+            // caminos.
+            $solicitudesLegacyVigentes = SolicitudVacaciones::query()
+                ->where('user_id', $userId)
+                ->whereBetween('fecha_inicio', [$vigenciaInicio, $vigenciaFin])
+                ->get();
 
-        $diasEnSolicitudLegacy = (int) $solicitudesLegacyVigentes
-            ->where('estado', EstadoSolicitudVacaciones::Pendiente)
-            ->sum('dias_solicitados');
+            $diasUsadosLegacy = (int) $solicitudesLegacyVigentes
+                ->where('estado', EstadoSolicitudVacaciones::Aprobada)
+                ->sum('dias_solicitados');
 
-        $solicitudesInternasVigentes = SolicitudInterna::query()
-            ->where('user_id', $colaborador->id)
-            ->where('tipo', TipoSolicitudInterna::Vacaciones)
-            ->whereBetween('fecha_inicio', [$vigenciaInicio, $vigenciaFin])
-            ->get();
+            $diasEnSolicitudLegacy = (int) $solicitudesLegacyVigentes
+                ->where('estado', EstadoSolicitudVacaciones::Pendiente)
+                ->sum('dias_solicitados');
 
-        $diasUsadosInternas = (int) $solicitudesInternasVigentes
-            ->where('estado', EstadoSolicitudInterna::Aprobada)
-            ->sum('dias_solicitados');
+            $solicitudesInternasVigentes = SolicitudInterna::query()
+                ->where('user_id', $userId)
+                ->where('tipo', TipoSolicitudInterna::Vacaciones)
+                ->whereBetween('fecha_inicio', [$vigenciaInicio, $vigenciaFin])
+                ->get();
 
-        $diasEnSolicitudInternas = (int) $solicitudesInternasVigentes
-            ->whereIn('estado', [
-                EstadoSolicitudInterna::Creada,
-                EstadoSolicitudInterna::Enviada,
-                EstadoSolicitudInterna::EnRevision,
-                EstadoSolicitudInterna::RequiereCorreccion,
-            ])
-            ->sum('dias_solicitados');
+            $diasUsadosInternas = (int) $solicitudesInternasVigentes
+                ->where('estado', EstadoSolicitudInterna::Aprobada)
+                ->sum('dias_solicitados');
 
-        $diasUsados = $diasUsadosLegacy + $diasUsadosInternas;
-        $diasEnSolicitud = $diasEnSolicitudLegacy + $diasEnSolicitudInternas;
+            $diasEnSolicitudInternas = (int) $solicitudesInternasVigentes
+                ->whereIn('estado', [
+                    EstadoSolicitudInterna::Creada,
+                    EstadoSolicitudInterna::Enviada,
+                    EstadoSolicitudInterna::EnRevision,
+                    EstadoSolicitudInterna::RequiereCorreccion,
+                ])
+                ->sum('dias_solicitados');
+
+            $diasUsados = $diasUsadosLegacy + $diasUsadosInternas;
+            $diasEnSolicitud = $diasEnSolicitudLegacy + $diasEnSolicitudInternas;
+        }
 
         return [
             'antiguedad_anios' => $antiguedadAnios,
@@ -133,6 +159,30 @@ class VacacionesService
             'dias_usados' => $diasUsados,
             'dias_en_solicitud' => $diasEnSolicitud,
             'dias_disponibles' => max(0, $diasGenerados - $diasUsados - $diasEnSolicitud),
+        ];
+    }
+
+    /**
+     * @return array{
+     *     antiguedad_anios: int,
+     *     vigencia_inicio: string|null,
+     *     vigencia_fin: string|null,
+     *     dias_generados: int,
+     *     dias_usados: int,
+     *     dias_en_solicitud: int,
+     *     dias_disponibles: int,
+     * }
+     */
+    private function saldoVacio(): array
+    {
+        return [
+            'antiguedad_anios' => 0,
+            'vigencia_inicio' => null,
+            'vigencia_fin' => null,
+            'dias_generados' => 0,
+            'dias_usados' => 0,
+            'dias_en_solicitud' => 0,
+            'dias_disponibles' => 0,
         ];
     }
 

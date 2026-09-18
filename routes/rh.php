@@ -39,10 +39,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('{colaborador}/foto', [ExpedienteController::class, 'descargarFoto'])->name('foto')->withTrashed();
             Route::put('{colaborador}/datos-personales', [ExpedienteController::class, 'actualizarDatosPersonales'])->name('datos-personales.update');
             Route::put('{colaborador}/datos-laborales', [ExpedienteController::class, 'actualizarDatosLaborales'])->name('datos-laborales.update');
-            Route::get('{colaborador}/recibos-nomina', [ExpedienteController::class, 'historialRecibosNomina'])->name('recibos-nomina.index');
             Route::post('{colaborador}/recibos-nomina', [ExpedienteController::class, 'generarReciboNomina'])->name('recibos-nomina.store');
             Route::get('recibos-nomina/{recibo}/descargar', [ExpedienteController::class, 'descargarReciboNomina'])->name('recibos-nomina.descargar');
-            Route::get('{colaborador}/prestamos', [ExpedienteController::class, 'historialPrestamos'])->name('prestamos.index');
             Route::post('prestamos/{prestamo}/movimientos', [ExpedienteController::class, 'registrarPagoPrestamo'])->name('prestamos.movimientos.store');
             Route::put('{colaborador}/avisos', [ExpedienteController::class, 'registrarAvisos'])->name('avisos.update');
             Route::delete('{colaborador}', [ExpedienteController::class, 'darDeBaja'])->name('dar-de-baja');

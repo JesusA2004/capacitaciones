@@ -1,13 +1,24 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3';
-import { CircleDollarSign, Plus, UserCheck2, UserRound, Wallet } from '@lucide/vue';
+import { Head, router } from '@inertiajs/vue3';
+import {
+    Banknote,
+    CalendarClock,
+    FileText,
+    Percent,
+    Plus,
+    Target,
+    Trophy,
+    UserCheck2,
+    Users,
+    UserRound,
+} from '@lucide/vue';
 import { computed, ref } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
-import MetricCard from '@/components/Common/MetricCard.vue';
 import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
+import CrudStats from '@/components/DataTable/CrudStats.vue';
 import CandidatoFormDialog from '@/components/Rh/CandidatoFormDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -31,6 +42,7 @@ import {
     index,
     show,
 } from '@/routes/rh/candidatos';
+import cv from '@/routes/rh/candidatos/cv';
 import type { CandidatoItem, CandidatosKpis, OpcionesReclutamiento } from '@/types';
 
 const props = defineProps<{
@@ -42,34 +54,70 @@ const props = defineProps<{
         puesto_objetivo_id?: string;
         vacante_id?: string;
         responsable_rh_id?: string;
+        fuente?: string;
         busqueda?: string;
         fecha_inicio?: string;
         fecha_fin?: string;
+        mes?: string;
     };
     opciones: OpcionesReclutamiento;
     kpis: CandidatosKpis;
 }>();
 
-const tarjetasKpi = computed(() => [
+const MESES_NOMBRE = [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+];
+
+const opcionesMes = computed(() => {
+    const hoy = new Date();
+    const opciones: { value: string; etiqueta: string }[] = [];
+
+    for (let i = 0; i < 12; i++) {
+        const fecha = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1);
+        const valor = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`;
+        opciones.push({
+            value: valor,
+            etiqueta: `${MESES_NOMBRE[fecha.getMonth()]} ${fecha.getFullYear()}`,
+        });
+    }
+
+    return opciones;
+});
+
+const pipelineKpi = computed(() => [
+    { etiqueta: 'Recibidos en el periodo', valor: props.kpis.recibidos_periodo, icono: Users },
+    { etiqueta: 'En proceso', valor: props.kpis.en_proceso, icono: UserRound, tono: 'info' as const },
+    { etiqueta: 'Finalistas', valor: props.kpis.finalistas, icono: Trophy, tono: 'warning' as const },
+    { etiqueta: 'Contratados en el periodo', valor: props.kpis.contratados_periodo, icono: UserCheck2, tono: 'success' as const },
+]);
+
+const resultadosKpi = computed(() => [
     {
-        etiqueta: 'Contratados este mes',
-        valor: props.kpis.contratados_mes,
-        icono: UserCheck2,
-        colorClase: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+        etiqueta: 'Tasa de conversión',
+        valor: `${Math.round(props.kpis.tasa_conversion * 1000) / 10}%`,
+        icono: Percent,
     },
     {
-        etiqueta: 'Costo total contratado (mes)',
-        valor: formatoMoneda(props.kpis.costo_total_contratado_mes),
-        icono: Wallet,
-        colorClase: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
-    },
-    {
-        etiqueta: 'Costo promedio por contratación',
-        valor: formatoMoneda(props.kpis.costo_promedio_contratacion),
-        icono: CircleDollarSign,
-        colorClase: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+        etiqueta: 'Tiempo promedio de contratación',
+        valor: props.kpis.tiempo_promedio_contratacion_dias !== null
+            ? `${props.kpis.tiempo_promedio_contratacion_dias} días`
+            : '—',
+        icono: CalendarClock,
     },
 ]);
+
+const costosKpi = computed(() => {
+    if (props.kpis.gasto_reclutamiento_periodo === undefined) {
+        return [];
+    }
+
+    return [
+        { etiqueta: 'Gasto de reclutamiento', valor: formatoMoneda(props.kpis.gasto_reclutamiento_periodo), icono: Banknote },
+        { etiqueta: 'Costo por candidato', valor: formatoMoneda(props.kpis.costo_por_candidato ?? 0), icono: Target },
+        { etiqueta: 'Costo por contratación', valor: formatoMoneda(props.kpis.costo_por_contratacion ?? 0), icono: Banknote, tono: 'warning' as const },
+    ];
+});
 
 defineOptions({
     layout: {
@@ -89,12 +137,35 @@ const { filtros, aplicar, aplicarConDebounce, limpiar } = useFiltros(
         puesto_objetivo_id: props.filtros.puesto_objetivo_id ?? '',
         vacante_id: props.filtros.vacante_id ?? '',
         responsable_rh_id: props.filtros.responsable_rh_id ?? '',
+        fuente: props.filtros.fuente ?? '',
         busqueda: props.filtros.busqueda ?? '',
         fecha_inicio: props.filtros.fecha_inicio ?? '',
         fecha_fin: props.filtros.fecha_fin ?? '',
+        mes: props.filtros.mes ?? opcionesMes.value[0].value,
     },
 );
 const filtroSheetAbierto = ref(false);
+
+function fuenteEtiqueta(valor: string | null): string {
+    if (!valor) {
+        return '—';
+    }
+
+    return props.opciones.fuentes?.find((f) => f.value === valor)?.etiqueta ?? valor;
+}
+
+function diasEnFase(candidato: CandidatoItem): number {
+    const fechaBase = candidato.ultimo_cambio_estado?.fecha ?? candidato.created_at;
+
+    return Math.max(
+        0,
+        Math.floor((Date.now() - new Date(fechaBase).getTime()) / 86_400_000),
+    );
+}
+
+function ultimaNota(candidato: CandidatoItem): string | null {
+    return candidato.ultimo_seguimiento?.nota ?? null;
+}
 function urlExportar(
     destino: typeof exportarExcel | typeof exportarPdf,
 ): string {
@@ -195,15 +266,9 @@ function alSoltar(nuevoEstado: string) {
             </Button>
         </CrudPageHeader>
 
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <MetricCard
-                v-for="tarjeta in tarjetasKpi"
-                :key="tarjeta.etiqueta"
-                :etiqueta="tarjeta.etiqueta"
-                :valor="tarjeta.valor"
-                :icono="tarjeta.icono"
-                :color-clase="tarjeta.colorClase"
-            />
+        <div class="flex flex-col gap-4">
+            <CrudStats :estadisticas="pipelineKpi" />
+            <CrudStats :estadisticas="[...resultadosKpi, ...costosKpi]" />
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
@@ -217,6 +282,50 @@ function alSoltar(nuevoEstado: string) {
                     }
                 "
             />
+
+            <Select
+                :model-value="filtros.mes"
+                @update:model-value="
+                    (v) => {
+                        filtros.mes = String(v ?? '');
+                        aplicar();
+                    }
+                "
+            >
+                <SelectTrigger class="w-44"
+                    ><SelectValue placeholder="Mes"
+                /></SelectTrigger>
+                <SelectContent>
+                    <SelectItem
+                        v-for="opcion in opcionesMes"
+                        :key="opcion.value"
+                        :value="opcion.value"
+                        >{{ opcion.etiqueta }}</SelectItem
+                    >
+                </SelectContent>
+            </Select>
+
+            <Select
+                :model-value="filtros.fuente"
+                @update:model-value="
+                    (v) => {
+                        filtros.fuente = String(v ?? '');
+                        aplicar();
+                    }
+                "
+            >
+                <SelectTrigger class="w-44"
+                    ><SelectValue placeholder="Todas las fuentes"
+                /></SelectTrigger>
+                <SelectContent>
+                    <SelectItem
+                        v-for="opcion in opciones.fuentes"
+                        :key="opcion.value"
+                        :value="opcion.value"
+                        >{{ opcion.etiqueta }}</SelectItem
+                    >
+                </SelectContent>
+            </Select>
 
             <Select
                 :model-value="filtros.empresa_id"
@@ -385,28 +494,72 @@ function alSoltar(nuevoEstado: string) {
                 </div>
 
                 <div class="flex flex-col gap-2">
-                    <Link
+                    <div
                         v-for="candidato in columna.candidatos"
                         :key="candidato.id"
-                        :href="show.url(candidato.id)"
                         draggable="true"
-                        class="flex flex-col gap-1 rounded-xl border border-border/60 bg-card p-3 text-left shadow-sm transition-colors hover:border-primary/40"
+                        class="flex cursor-pointer flex-col gap-2 rounded-xl border border-border/60 bg-card p-3 text-left shadow-sm transition-colors hover:border-primary/40"
+                        @click="router.visit(show.url(candidato.id))"
                         @dragstart="arrastrando = candidato"
                         @dragend="arrastrando = null"
                     >
-                        <span class="text-sm font-medium">{{
-                            `${candidato.nombre} ${candidato.apellidos ?? ''}`.trim()
-                        }}</span>
-                        <span class="text-xs text-muted-foreground">{{
-                            candidato.puesto_objetivo?.nombre ??
-                            'Sin puesto objetivo'
-                        }}</span>
-                        <span
-                            v-if="candidato.tiene_cv"
-                            class="text-xs text-muted-foreground"
-                            >CV cargado</span
+                        <div>
+                            <p class="text-sm font-semibold leading-tight">
+                                {{
+                                    candidato.puesto_objetivo?.nombre ??
+                                    'Sin puesto objetivo'
+                                }}
+                            </p>
+                            <p class="text-xs text-muted-foreground">
+                                {{
+                                    `${candidato.nombre} ${candidato.apellidos ?? ''}`.trim()
+                                }}
+                            </p>
+                        </div>
+
+                        <div class="flex flex-wrap gap-1">
+                            <Badge
+                                v-if="candidato.sucursal"
+                                variant="outline"
+                                class="text-[10px] font-normal"
+                                >{{ candidato.sucursal.nombre }}</Badge
+                            >
+                            <Badge
+                                variant="outline"
+                                class="text-[10px] font-normal"
+                                >{{ fuenteEtiqueta(candidato.fuente) }}</Badge
+                            >
+                        </div>
+
+                        <div class="flex items-center justify-between text-[11px] text-muted-foreground">
+                            <span class="truncate">{{
+                                candidato.responsable_rh
+                                    ? `${candidato.responsable_rh.name} ${candidato.responsable_rh.apellidos ?? ''}`.trim()
+                                    : 'Sin responsable'
+                            }}</span>
+                            <span class="shrink-0"
+                                >{{ diasEnFase(candidato) }} d. en fase</span
+                            >
+                        </div>
+
+                        <p
+                            v-if="ultimaNota(candidato)"
+                            class="line-clamp-1 text-[11px] italic text-muted-foreground"
                         >
-                    </Link>
+                            "{{ ultimaNota(candidato) }}"
+                        </p>
+
+                        <a
+                            v-if="candidato.tiene_cv"
+                            :href="cv.descargar.url(candidato.id)"
+                            target="_blank"
+                            class="flex items-center gap-1 self-start rounded-md bg-muted px-2 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-muted/70"
+                            @click.stop
+                        >
+                            <FileText class="size-3" />
+                            Ver CV
+                        </a>
+                    </div>
 
                     <p
                         v-if="!columna.candidatos.length"

@@ -81,7 +81,6 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
     Table,
     TableBody,
@@ -90,6 +89,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAlertas } from '@/composables/useAlertas';
 import {
     restablecerAcceso,
@@ -1229,20 +1229,6 @@ function registrarPago(prestamoId: number) {
                                             <template v-else>—</template>
                                         </CampoInfo>
                                     </div>
-                                </div>
-
-                                <div
-                                    v-if="colaborador.sueldo_mensual"
-                                    class="flex items-center justify-between border-t pt-4"
-                                >
-                                    <a
-                                        :href="reciboNominaUrl"
-                                        target="_blank"
-                                        class="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-                                    >
-                                        <Receipt class="size-3.5" />
-                                        Generar recibo de nómina (PDF)
-                                    </a>
                                 </div>
 
                                 <p class="text-xs text-muted-foreground">

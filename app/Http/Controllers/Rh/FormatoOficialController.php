@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Rh\GenerarFormatoOficialRequest;
 use App\Http\Requests\Rh\GuardarConfiguracionFormatoOficialRequest;
 use App\Models\Candidato;
+use App\Models\Colaborador;
 use App\Models\OfficialFormat;
 use App\Models\OfficialFormatGeneration;
 use App\Models\User;
@@ -48,7 +49,7 @@ class FormatoOficialController extends Controller
         return Inertia::render('Rh/FormatosOficiales/Index', [
             'formatos' => $this->catalogo->listar(),
             'colaboradoresDisponibles' => $this->alcance
-                ->limitarUsuariosPorAlcance(User::query(), $usuario)
+                ->limitarColaboradoresPorAlcance(Colaborador::query(), $usuario)
                 ->orderBy('name')
                 ->limit(200)
                 ->get(['id', 'name', 'apellidos']),
@@ -150,7 +151,7 @@ class FormatoOficialController extends Controller
 
         $generacion = OfficialFormatGeneration::create([
             'official_format_id' => $formato->id,
-            'user_id' => $sujeto instanceof User ? $sujeto->id : null,
+            'colaborador_id' => $sujeto instanceof Colaborador ? $sujeto->id : null,
             'candidato_id' => $sujeto instanceof Candidato ? $sujeto->id : null,
             'generated_by_id' => $request->user()->id,
             'generated_disk' => config('formatos_oficiales.disk'),
@@ -210,22 +211,22 @@ class FormatoOficialController extends Controller
         $usuario = $request->user();
         abort_unless($usuario->can('formatos_oficiales.descargar'), 403);
 
-        if ($generacion->usuario !== null) {
-            abort_unless($this->alcance->puedeVerUsuario($usuario, $generacion->usuario), 404);
+        if ($generacion->colaborador !== null) {
+            abort_unless($this->alcance->puedeVerExpediente($usuario, $generacion->colaborador), 404);
         }
     }
 
-    private function resolverSujeto(string $tipoSujeto, int $sujetoId): User|Candidato|null
+    private function resolverSujeto(string $tipoSujeto, int $sujetoId): Colaborador|Candidato|null
     {
         return $tipoSujeto === 'colaborador'
-            ? User::query()->firstWhere('id', $sujetoId)
+            ? Colaborador::query()->firstWhere('id', $sujetoId)
             : Candidato::query()->firstWhere('id', $sujetoId);
     }
 
-    private function autorizarSujeto(User $usuario, User|Candidato $sujeto): void
+    private function autorizarSujeto(User $usuario, Colaborador|Candidato $sujeto): void
     {
-        if ($sujeto instanceof User) {
-            abort_unless($this->alcance->puedeVerUsuario($usuario, $sujeto), 404);
+        if ($sujeto instanceof Colaborador) {
+            abort_unless($this->alcance->puedeVerExpediente($usuario, $sujeto), 404);
         }
     }
 

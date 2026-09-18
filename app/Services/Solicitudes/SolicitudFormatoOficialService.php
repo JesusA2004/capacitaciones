@@ -102,8 +102,8 @@ class SolicitudFormatoOficialService
         }
 
         try {
-            $solicitud->loadMissing('usuario');
-            $datos = $this->resolver->resolver($solicitud->usuario, $this->extraDeSolicitud($solicitud));
+            $solicitud->loadMissing(['colaborador', 'usuario.colaborador']);
+            $datos = $this->resolver->resolver($solicitud->personaSolicitante(), $this->extraDeSolicitud($solicitud));
             $pdf = $this->overlay->generar($formato, $datos);
 
             $ruta = $this->storage->rutaGenerado();
@@ -112,7 +112,7 @@ class SolicitudFormatoOficialService
             $generacion = OfficialFormatGeneration::create([
                 'official_format_id' => $formato->id,
                 'solicitud_interna_id' => $solicitud->id,
-                'user_id' => $solicitud->user_id,
+                'colaborador_id' => $solicitud->personaSolicitante()?->id,
                 'generated_by_id' => $actor->id,
                 'generated_disk' => config('formatos_oficiales.disk'),
                 'generated_path' => $ruta,
@@ -180,9 +180,9 @@ class SolicitudFormatoOficialService
 
     private function archivarEnExpedienteSiAplica(OfficialFormatGeneration $generacion, UploadedFile $archivo, User $actor): void
     {
-        $generacion->loadMissing('solicitud', 'usuario');
+        $generacion->loadMissing(['solicitud.colaborador', 'solicitud.usuario.colaborador', 'colaborador']);
         $solicitud = $generacion->solicitud;
-        $colaborador = $generacion->usuario?->colaborador;
+        $colaborador = $generacion->colaborador ?? $solicitud?->personaSolicitante();
 
         if ($solicitud === null || $colaborador === null) {
             return;

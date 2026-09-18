@@ -117,7 +117,7 @@ class CandidatoController extends Controller
             });
 
         $diasContratacion = $contratadosPeriodo
-            ->map(fn (Candidato $c) => $c->created_at?->diffInDays($c->ultimoCambioEstado?->fecha ?? $c->updated_at))
+            ->map(fn (Candidato $c) => $c->created_at?->diffInDays($c->ultimoCambioEstado->fecha ?? $c->updated_at))
             ->filter(fn ($dias) => $dias !== null);
 
         return [
@@ -270,7 +270,7 @@ class CandidatoController extends Controller
         $candidato->seguimientos()->create([
             'tipo' => TipoSeguimientoCandidato::Nota,
             'nota' => 'Candidato registrado.',
-            'estado_nuevo' => EstadoCandidato::Nuevo->value,
+            'estado_nuevo' => EstadoCandidato::Recibidos->value,
             'fecha' => now(),
             'registrado_por' => $request->user()?->id,
         ]);
@@ -328,7 +328,7 @@ class CandidatoController extends Controller
         if (! $estadoAnterior->puedeTransicionarA($nuevoEstado)) {
             $motivo = $estadoAnterior->esTerminal()
                 ? "«{$estadoAnterior->etiqueta()}» es un estado definitivo: ya no admite ningún cambio posterior."
-                : "las fases no pueden retroceder ni saltarse hacia atrás en el pipeline.";
+                : 'las fases no pueden retroceder ni saltarse hacia atrás en el pipeline.';
 
             throw ValidationException::withMessages([
                 'estado' => "No se puede mover al candidato de «{$estadoAnterior->etiqueta()}» a «{$nuevoEstado->etiqueta()}»: {$motivo}",

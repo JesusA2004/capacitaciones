@@ -6,6 +6,7 @@ use App\Enums\EstadoFiniquito;
 use App\Enums\EstadoSolicitudInterna;
 use App\Enums\TipoSolicitudInterna;
 use App\Models\FiniquitoCalculo;
+use App\Models\OfficialFormatGeneration;
 use App\Models\SolicitudInterna;
 use App\Models\SolicitudInternaDocumento;
 use App\Models\User;
@@ -53,7 +54,7 @@ class SolicitudesService
      * después de aprobar()/moverEnTablero() para enriquecer el toast, sin
      * que esto revierta ni retrase la aprobación en sí.
      *
-     * @var array{generacion: ?\App\Models\OfficialFormatGeneration, aplica: bool, motivo_error: ?string}|null
+     * @var array{generacion: ?OfficialFormatGeneration, aplica: bool, motivo_error: ?string}|null
      */
     private ?array $ultimoResultadoDocumentoOficial = null;
 
@@ -114,6 +115,7 @@ class SolicitudesService
                 'folio' => $this->folioTemporal(),
                 'user_id' => $solicitante->id,
                 'colaborador_objetivo_id' => $colaboradorObjetivo?->id,
+                'objetivo_colaborador_id' => $colaboradorObjetivo?->colaborador_id,
                 'fecha_efectiva' => $datos['fecha_efectiva'] ?? null,
                 'tipo_baja' => $datos['tipo_baja'] ?? null,
                 'tipo' => $datos['tipo'],
@@ -430,10 +432,11 @@ class SolicitudesService
             // acceso real (ver App\Services\Solicitudes\BajaColaboradorService):
             // nunca antes de la aprobación, y nunca en ningún otro estado.
             if ($nuevoEstado === EstadoSolicitudInterna::Aprobada && $solicitud->tipo === TipoSolicitudInterna::BajaColaborador) {
-                $solicitud->loadMissing('colaboradorObjetivo');
+                $solicitud->loadMissing(['objetivoColaborador', 'colaboradorObjetivo.colaborador']);
+                $colaboradorDeBaja = $solicitud->colaboradorDeBaja();
 
-                if ($solicitud->colaboradorObjetivo !== null) {
-                    $this->bajaColaborador->ejecutar($solicitud->colaboradorObjetivo, $actor, $solicitud->motivo);
+                if ($colaboradorDeBaja !== null) {
+                    $this->bajaColaborador->ejecutar($colaboradorDeBaja, $actor, $solicitud->motivo);
                 }
 
                 $this->finiquito->marcarAprobadoConLaBaja($solicitud);
@@ -499,7 +502,7 @@ class SolicitudesService
      * aprobar() para construir el toast que ve RH (ver
      * App\Http\Controllers\Rh\SolicitudController::aprobar()).
      *
-     * @return array{generacion: ?\App\Models\OfficialFormatGeneration, aplica: bool, motivo_error: ?string}|null
+     * @return array{generacion: ?OfficialFormatGeneration, aplica: bool, motivo_error: ?string}|null
      */
     public function ultimoResultadoDocumentoOficial(): ?array
     {

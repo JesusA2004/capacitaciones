@@ -17,6 +17,7 @@ use App\Models\Vacante;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Headcount\HeadcountService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
@@ -168,51 +169,106 @@ class VacanteController extends Controller
             ? null
             : $this->alcance->sucursalesVisiblesIds($usuario);
 
-        return $pares
+        $objetivos = $pares
             ->map(fn (array $par) => $targetsPorPar->get(sprintf('%d:%d', $par['sucursal_id'], $par['puesto_id'])))
             ->filter()
-            ->filter(fn (HeadcountTarget $target) => $sucursalesVisibles === null || $sucursalesVisibles->contains($target->sucursal_id))
-            ->map(function (HeadcountTarget $target) use ($actualPorPar, $vacantesPorPar, $candidatosPorPar, $ultimaFaseNoTerminal) {
-                $clave = sprintf('%d:%d', $target->sucursal_id, $target->puesto_id);
+            ->filter(fn (HeadcountTarget $target) => $sucursalesVisibles === null || $sucursalesVisibles->contains($target->sucursal_id));
 
-                $permitida = (int) $target->plantilla_autorizada;
-                $cubierta = (int) ($actualPorPar[$clave] ?? 0);
+        // Construido con un foreach sobre un array plano (no
+        // Collection::map()) a propósito: Collection<TValue> no es
+        // covariante y encadenar map()/sort() sobre un shape de array
+        // literal como FilaVacante hace que PHPStan derive un tipo de
+        // "positive-int" distinto en cada paso de la tubería, terminando en
+        // una unión que ya no calza con el alias declarado — un array plano
+        // no arrastra ese problema.
+        $filas = [];
 
-                $vacantesFilas = $vacantesPorPar->get($clave);
-                $costoPresupuestado = $vacantesFilas !== null
-                    ? (float) $vacantesFilas->sum(fn (Vacante $v) => (float) ($v->sueldo_mensual ?? 0))
-                    : null;
+        foreach ($objetivos as $target) {
+            $filas[] = $this->construirFila($target, $actualPorPar, $vacantesPorPar, $candidatosPorPar, $ultimaFaseNoTerminal);
+        }
 
-                $vacantesAbiertas = $vacantesFilas?->filter(
-                    fn (Vacante $v) => ! in_array($v->estado, [EstadoVacante::Cubierta, EstadoVacante::Cancelada], true)
-                );
-                $fechaMasAntigua = $vacantesAbiertas !== null && $vacantesAbiertas->isNotEmpty()
-                    ? $vacantesAbiertas->min('fecha_apertura')
-                    : null;
+        usort($filas, fn (array $a, array $b) => [$a['sucursal']['nombre'] ?? '', $a['puesto']['nombre'] ?? '']
+            <=> [$b['sucursal']['nombre'] ?? '', $b['puesto']['nombre'] ?? '']);
 
-                $candidatos = $candidatosPorPar->get($clave, collect());
-                $candidatosActivos = $candidatos->filter(fn (Candidato $c) => ! $c->estado->esTerminal())->count();
-                $candidatosFinalistas = $candidatos->filter(fn (Candidato $c) => $c->estado === $ultimaFaseNoTerminal)->count();
+        return collect($filas);
+    }
 
-                return [
-                    'id' => $clave,
-                    'empresa_id' => $target->sucursal?->empresa_id,
-                    'sucursal' => $target->sucursal ? ['id' => $target->sucursal->id, 'nombre' => $target->sucursal->nombre] : null,
-                    'departamento' => $target->departamento ? ['id' => $target->departamento->id, 'nombre' => $target->departamento->nombre] : null,
-                    'puesto' => $target->puesto ? ['id' => $target->puesto->id, 'nombre' => $target->puesto->nombre] : null,
-                    'plantilla_permitida' => $permitida,
-                    'plantilla_cubierta' => $cubierta,
-                    'vacantes_disponibles' => max($permitida - $cubierta, 0),
-                    'candidatos_activos' => $candidatosActivos,
-                    'candidatos_finalistas' => $candidatosFinalistas,
-                    'cobertura_pct' => $permitida > 0 ? round(($cubierta / $permitida) * 100, 1) : 0.0,
-                    'costo_presupuestado_mensual' => $costoPresupuestado,
-                    'fecha_apertura_mas_antigua' => $fechaMasAntigua?->toDateString(),
-                ];
-            })
-            ->sort(fn (array $a, array $b) => [$a['sucursal']['nombre'] ?? '', $a['puesto']['nombre'] ?? '']
-                <=> [$b['sucursal']['nombre'] ?? '', $b['puesto']['nombre'] ?? ''])
-            ->values();
+    /**
+     * Construye una FilaVacante para un HeadcountTarget ya resuelto. Vive en
+     * su propio método (no inline dentro del map() de filasPlantilla()) con
+     * un `@return FilaVacante` explícito: así PHPStan tipa el resultado por
+     * la firma declarada del método en vez de re-derivar (y terminar
+     * uniendo) un literal distinto en cada punto de la tubería
+     * filter()/map()/sort() — Collection<TValue> no es covariante, así que
+     * cualquier variación de un "positive-int" entre pasos rompe el tipo de
+     * retorno declarado.
+     *
+     * @param  Collection<non-falsy-string, int>  $actualPorPar
+     * @param  Collection<int|string, EloquentCollection<int, Vacante>>  $vacantesPorPar
+     * @param  Collection<int|string, EloquentCollection<int, Candidato>>  $candidatosPorPar
+     * @return FilaVacante
+     */
+    private function construirFila(
+        HeadcountTarget $target,
+        Collection $actualPorPar,
+        Collection $vacantesPorPar,
+        Collection $candidatosPorPar,
+        ?EstadoCandidato $ultimaFaseNoTerminal,
+    ): array {
+        $clave = sprintf('%d:%d', $target->sucursal_id, $target->puesto_id);
+
+        $permitida = (int) $target->plantilla_autorizada;
+        $cubierta = (int) ($actualPorPar[$clave] ?? 0);
+
+        $vacantesFilas = $vacantesPorPar->get($clave);
+        $costoPresupuestado = $vacantesFilas !== null
+            ? (float) $vacantesFilas->sum(fn (Vacante $v) => (float) ($v->sueldo_mensual ?? 0))
+            : null;
+
+        $vacantesAbiertas = $vacantesFilas?->filter(
+            fn (Vacante $v) => ! in_array($v->estado, [EstadoVacante::Cubierta, EstadoVacante::Cancelada], true)
+        );
+        $fechaMasAntigua = $vacantesAbiertas !== null && $vacantesAbiertas->isNotEmpty()
+            ? $vacantesAbiertas->min('fecha_apertura')
+            : null;
+
+        $candidatos = $candidatosPorPar->get($clave, collect());
+        $candidatosActivos = (int) sprintf('%d', $candidatos->filter(fn (Candidato $c) => ! $c->estado->esTerminal())->count());
+        $candidatosFinalistas = (int) sprintf('%d', $candidatos->filter(fn (Candidato $c) => $c->estado === $ultimaFaseNoTerminal)->count());
+
+        return [
+            'id' => $clave,
+            'empresa_id' => $target->sucursal?->empresa_id === null ? null : (int) $target->sucursal->empresa_id,
+            'sucursal' => $this->opcionSimple($target->sucursal),
+            'departamento' => $this->opcionSimple($target->departamento),
+            'puesto' => $this->opcionSimple($target->puesto),
+            'plantilla_permitida' => $permitida,
+            'plantilla_cubierta' => $cubierta,
+            'vacantes_disponibles' => (int) sprintf('%d', max($permitida - $cubierta, 0)),
+            'candidatos_activos' => $candidatosActivos,
+            'candidatos_finalistas' => $candidatosFinalistas,
+            'cobertura_pct' => $permitida > 0 ? round(($cubierta / $permitida) * 100, 1) : 0.0,
+            'costo_presupuestado_mensual' => $costoPresupuestado,
+            'fecha_apertura_mas_antigua' => $fechaMasAntigua?->toDateString(),
+        ];
+    }
+
+    /**
+     * Normaliza una relación BelongsTo a la forma {id, nombre} declarada en
+     * FilaVacante — un tipo de retorno explícito (no inferido de un literal
+     * inline) evita que PHPStan derive un "positive-int" distinto por cada
+     * punto de la tubería filter()/map() y termine uniendo variantes
+     * incompatibles entre sí (Collection<TValue> no es covariante).
+     *
+     * @return array{id: int, nombre: string}|null
+     */
+    private function opcionSimple(Sucursal|Departamento|Puesto|null $modelo): ?array
+    {
+        if ($modelo === null) {
+            return null;
+        }
+
+        return ['id' => (int) $modelo->id, 'nombre' => $modelo->nombre];
     }
 
     /**
@@ -227,31 +283,37 @@ class VacanteController extends Controller
         $puestoId = $request->integer('puesto_id') ?: null;
         $busqueda = mb_strtolower(trim($request->string('busqueda')->toString()));
 
+        // Mismo motivo que filasPlantilla(): se filtra sobre un array plano
+        // (no Collection::filter() encadenado) para que PHPStan no derive
+        // una unión de shapes incompatibles entre sí a partir de FilaVacante.
+        $lista = $filas->all();
+
         if ($empresaId !== null) {
-            $filas = $filas->filter(fn (array $f) => $f['empresa_id'] === $empresaId);
+            $lista = array_filter($lista, fn (array $f) => $f['empresa_id'] === $empresaId);
         }
 
         if ($sucursalId !== null) {
-            $filas = $filas->filter(fn (array $f) => ($f['sucursal']['id'] ?? null) === $sucursalId);
+            $lista = array_filter($lista, fn (array $f) => ($f['sucursal']['id'] ?? null) === $sucursalId);
         }
 
         if ($departamentoId !== null) {
-            $filas = $filas->filter(fn (array $f) => ($f['departamento']['id'] ?? null) === $departamentoId);
+            $lista = array_filter($lista, fn (array $f) => ($f['departamento']['id'] ?? null) === $departamentoId);
         }
 
         if ($puestoId !== null) {
-            $filas = $filas->filter(fn (array $f) => ($f['puesto']['id'] ?? null) === $puestoId);
+            $lista = array_filter($lista, fn (array $f) => ($f['puesto']['id'] ?? null) === $puestoId);
         }
 
         if ($busqueda !== '') {
-            $filas = $filas->filter(
+            $lista = array_filter(
+                $lista,
                 fn (array $f) => str_contains(mb_strtolower((string) ($f['puesto']['nombre'] ?? '')), $busqueda)
                     || str_contains(mb_strtolower((string) ($f['departamento']['nombre'] ?? '')), $busqueda)
                     || str_contains(mb_strtolower((string) ($f['sucursal']['nombre'] ?? '')), $busqueda)
             );
         }
 
-        return $filas;
+        return collect(array_values($lista));
     }
 
     /**

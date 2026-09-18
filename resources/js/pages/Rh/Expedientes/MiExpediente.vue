@@ -8,6 +8,8 @@ import type {
     ExpedienteColaborador,
     MovimientoLaboralItem,
     OnboardingItem,
+    PrestamoItem,
+    ReciboNominaItem,
     ResumenExpediente,
     SaldoVacaciones,
     SolicitudExpedienteItem,
@@ -48,6 +50,8 @@ defineProps<{
     solicitudesVacaciones: SolicitudVacacionesItem[];
     solicitudes: SolicitudExpedienteItem[];
     movimientosLaborales: MovimientoLaboralItem[];
+    recibosNomina: ReciboNominaItem[];
+    prestamos: PrestamoItem[];
 }>();
 
 defineOptions({
@@ -95,5 +99,7 @@ defineOptions({
         :solicitudes-vacaciones="solicitudesVacaciones"
         :solicitudes="solicitudes"
         :movimientos-laborales="movimientosLaborales"
+        :recibos-nomina="recibosNomina"
+        :prestamos="prestamos"
     />
 </template>

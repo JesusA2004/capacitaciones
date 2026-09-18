@@ -50,15 +50,12 @@ class FiniquitoService
             throw new RuntimeException('Ya existe un cálculo de finiquito para esta baja; usa recalcular().');
         }
 
-        $solicitud->loadMissing('colaboradorObjetivo.colaborador');
-        $colaboradorUsuario = $solicitud->colaboradorObjetivo;
-        abort_unless($colaboradorUsuario !== null, 422, 'Esta solicitud no tiene un colaborador objetivo.');
-
-        $colaborador = $colaboradorUsuario->colaborador;
-        abort_unless($colaborador !== null, 422, 'El colaborador objetivo no tiene expediente de colaborador vinculado.');
+        $solicitud->loadMissing(['objetivoColaborador', 'colaboradorObjetivo.colaborador']);
+        $colaborador = $solicitud->colaboradorDeBaja();
+        abort_unless($colaborador !== null, 422, 'Esta solicitud no tiene un colaborador objetivo con expediente vinculado.');
         abort_unless($colaborador->fecha_ingreso !== null, 422, 'El colaborador no tiene fecha de ingreso registrada.');
 
-        $automaticos = $this->calcularAutomaticos($solicitud, $colaborador, $colaboradorUsuario, $sueldoMensual, $sueldoPendiente);
+        $automaticos = $this->calcularAutomaticos($solicitud, $colaborador, $sueldoMensual, $sueldoPendiente);
 
         return DB::transaction(function () use ($solicitud, $colaborador, $actor, $automaticos): FiniquitoCalculo {
             $finiquito = FiniquitoCalculo::create([
@@ -91,16 +88,13 @@ class FiniquitoService
     {
         $this->asegurarNoFirmado($finiquito);
 
-        $finiquito->loadMissing('solicitudInterna.colaboradorObjetivo.colaborador');
+        $finiquito->loadMissing(['solicitudInterna.objetivoColaborador', 'solicitudInterna.colaboradorObjetivo.colaborador']);
         $solicitud = $finiquito->solicitudInterna;
-        $colaboradorUsuario = $solicitud->colaboradorObjetivo;
-        abort_unless($colaboradorUsuario !== null, 422, 'Esta solicitud no tiene un colaborador objetivo.');
-
-        $colaborador = $colaboradorUsuario->colaborador;
-        abort_unless($colaborador !== null, 422, 'El colaborador objetivo no tiene expediente de colaborador vinculado.');
+        $colaborador = $solicitud->colaboradorDeBaja();
+        abort_unless($colaborador !== null, 422, 'Esta solicitud no tiene un colaborador objetivo con expediente vinculado.');
         abort_unless($colaborador->fecha_ingreso !== null, 422, 'El colaborador no tiene fecha de ingreso registrada.');
 
-        $automaticos = $this->calcularAutomaticos($solicitud, $colaborador, $colaboradorUsuario, $sueldoMensual, $sueldoPendiente);
+        $automaticos = $this->calcularAutomaticos($solicitud, $colaborador, $sueldoMensual, $sueldoPendiente);
 
         return DB::transaction(function () use ($finiquito, $solicitud, $actor, $automaticos): FiniquitoCalculo {
             $totalAjustado = $automaticos['total_calculado']
@@ -329,16 +323,14 @@ class FiniquitoService
     }
 
     /**
-     * @param  Colaborador  $colaborador  Fuente de verdad de persona/empleo (fecha_ingreso). El
-     *                                    sueldo se recibe aparte porque RH puede capturarlo/editarlo
-     *                                    antes de aprobarse (ver docblock de la clase).
-     * @param  User  $colaboradorUsuario  Cuenta de acceso enlazada — se sigue usando solo para
-     *                                    VacacionesService::saldo() (solicitudes_vacaciones.user_id
-     *                                    todavía no migra a colaborador_id, deuda técnica documentada
-     *                                    ahí mismo).
+     * @param  Colaborador  $colaborador  Fuente de verdad de persona/empleo (fecha_ingreso y saldo
+     *                                    de vacaciones, ver VacacionesService::saldoColaborador()).
+     *                                    El sueldo se recibe aparte porque RH puede capturarlo/editarlo
+     *                                    antes de aprobarse (ver docblock de la clase). No requiere
+     *                                    que el colaborador tenga cuenta de acceso (User).
      * @return array<string, mixed>
      */
-    private function calcularAutomaticos(SolicitudInterna $solicitud, Colaborador $colaborador, User $colaboradorUsuario, float $sueldoMensual, float $sueldoPendiente = 0): array
+    private function calcularAutomaticos(SolicitudInterna $solicitud, Colaborador $colaborador, float $sueldoMensual, float $sueldoPendiente = 0): array
     {
         $fechaIngreso = Carbon::parse($colaborador->fecha_ingreso);
         $fechaBaja = $solicitud->fecha_efectiva !== null ? Carbon::parse($solicitud->fecha_efectiva) : Carbon::now();
@@ -353,7 +345,7 @@ class FiniquitoService
         $diasTrabajadosPeriodo = (int) $ultimoAniversario->diffInDays($fechaBaja);
 
         $sueldoDiario = round($sueldoMensual / 30, 2);
-        $vacacionesPendientes = $this->vacaciones->saldo($colaboradorUsuario)['dias_disponibles'];
+        $vacacionesPendientes = $this->vacaciones->saldoColaborador($colaborador)['dias_disponibles'];
 
         $primaVacacionalPorcentaje = (int) config('finiquitos.prima_vacacional_porcentaje');
         $primaVacacional = round($vacacionesPendientes * $sueldoDiario * ($primaVacacionalPorcentaje / 100), 2);

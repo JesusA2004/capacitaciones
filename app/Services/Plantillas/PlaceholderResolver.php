@@ -4,8 +4,7 @@ namespace App\Services\Plantillas;
 
 use App\Models\Candidato;
 use App\Models\Colaborador;
-use Illuminate\Support\Facades\Schema;
-use Throwable;
+use App\Models\Prestamo;
 
 /**
  * Unica fuente de verdad de que placeholder mapea a que dato (ver
@@ -128,13 +127,12 @@ class PlaceholderResolver
     }
 
     /**
-     * Placeholders del prestamo interno activo del colaborador
-     * (monto_prestamo, plazo_prestamo, pago_prestamo, saldo_prestamo).
-     * App\Models\Prestamo se esta construyendo en paralelo a este cambio y
-     * puede no existir todavia cuando esto se ejecute: se protege con
-     * class_exists() y nunca lanza — sin clase, sin prestamo activo o con
-     * columnas distintas a las esperadas, cada placeholder resuelve a cadena
-     * vacia en vez de tronar la generacion del documento.
+     * Placeholders del préstamo interno activo del colaborador
+     * (monto_prestamo, plazo_prestamo, pago_prestamo, saldo_prestamo). Ver
+     * App\Models\Prestamo / App\Services\Nomina\PrestamoService — nace en
+     * 'pendiente_entrega', pasa a 'activo' al confirmar la entrega y a
+     * 'liquidado' cuando el saldo llega a 0; solo el préstamo 'activo' (si
+     * hay más de uno histórico, el más reciente) alimenta el contrato.
      *
      * @return array<string, string>
      */
@@ -147,46 +145,21 @@ class PlaceholderResolver
             'saldo_prestamo' => '',
         ];
 
-        if (! class_exists(\App\Models\Prestamo::class)) {
-            return $vacio;
-        }
-
-        try {
-            $modelo = new \App\Models\Prestamo;
-            $tabla = $modelo->getTable();
-
-            $query = \App\Models\Prestamo::query()->where('colaborador_id', $sujeto->id);
-
-            if (Schema::hasColumn($tabla, 'activo')) {
-                $query->where('activo', true);
-            } elseif (Schema::hasColumn($tabla, 'estatus')) {
-                $query->where('estatus', 'activo');
-            }
-
-            $prestamo = $query->latest()->first();
-        } catch (Throwable) {
-            return $vacio;
-        }
+        $prestamo = Prestamo::query()
+            ->where('colaborador_id', $sujeto->id)
+            ->where('estado', 'activo')
+            ->latest()
+            ->first();
 
         if ($prestamo === null) {
             return $vacio;
         }
 
-        $tabla = $prestamo->getTable();
-
         return [
-            'monto_prestamo' => Schema::hasColumn($tabla, 'monto') && $prestamo->getAttribute('monto') !== null
-                ? sprintf('$%s', number_format((float) $prestamo->getAttribute('monto'), 2))
-                : '',
-            'plazo_prestamo' => Schema::hasColumn($tabla, 'plazo_meses') && $prestamo->getAttribute('plazo_meses') !== null
-                ? sprintf('%s', $prestamo->getAttribute('plazo_meses'))
-                : '',
-            'pago_prestamo' => Schema::hasColumn($tabla, 'pago_mensual') && $prestamo->getAttribute('pago_mensual') !== null
-                ? sprintf('$%s', number_format((float) $prestamo->getAttribute('pago_mensual'), 2))
-                : '',
-            'saldo_prestamo' => Schema::hasColumn($tabla, 'saldo') && $prestamo->getAttribute('saldo') !== null
-                ? sprintf('$%s', number_format((float) $prestamo->getAttribute('saldo'), 2))
-                : '',
+            'monto_prestamo' => sprintf('$%s', number_format((float) $prestamo->monto_original, 2)),
+            'plazo_prestamo' => sprintf('%s', $prestamo->plazo),
+            'pago_prestamo' => sprintf('$%s', number_format((float) $prestamo->pago_programado, 2)),
+            'saldo_prestamo' => sprintf('$%s', number_format((float) $prestamo->saldo, 2)),
         ];
     }
 }

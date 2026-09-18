@@ -10,6 +10,7 @@ use App\Http\Requests\Rh\PreviewFormatoRequest;
 use App\Http\Requests\Rh\StoreGeneratedDocumentRequest;
 use App\Http\Requests\Rh\SubirFormatoFirmadoRequest;
 use App\Models\Candidato;
+use App\Models\Colaborador;
 use App\Models\DocumentTemplate;
 use App\Models\DocumentType;
 use App\Models\GeneratedDocument;
@@ -64,7 +65,7 @@ class FormatoController extends Controller
             'documentos' => $documentos,
             'filtros' => $request->only(self::FILTROS),
             'plantillasDisponibles' => $this->catalogo->listar(),
-            'colaboradoresDisponibles' => User::query()->orderBy('name')->limit(200)->get(['id', 'name', 'apellidos']),
+            'colaboradoresDisponibles' => Colaborador::query()->orderBy('name')->limit(200)->get(['id', 'name', 'apellidos']),
             'candidatosDisponibles' => Candidato::query()->orderBy('nombre')->limit(200)->get(['id', 'nombre', 'apellidos']),
             'responsablesDisponibles' => User::query()->role(['rh_admin', 'rh_auxiliar'])->orderBy('name')->get(['id', 'name', 'apellidos']),
             'tipos' => array_map(fn (TipoPlantillaDocumento $t) => ['value' => $t->value, 'etiqueta' => $t->etiqueta()], TipoPlantillaDocumento::cases()),
@@ -107,7 +108,7 @@ class FormatoController extends Controller
         $filas = $documentos->map(fn (GeneratedDocument $d) => [
             $d->generated_name,
             $d->plantilla?->nombre,
-            $d->usuario ? trim("{$d->usuario->name} {$d->usuario->apellidos}") : ($d->candidato ? trim("{$d->candidato->nombre} {$d->candidato->apellidos}") : null),
+            $d->colaborador ? trim("{$d->colaborador->name} {$d->colaborador->apellidos}") : ($d->candidato ? trim("{$d->candidato->nombre} {$d->candidato->apellidos}") : null),
             $d->status->etiqueta(),
             $d->generadoPor ? trim("{$d->generadoPor->name} {$d->generadoPor->apellidos}") : null,
             $d->created_at->toDateString(),
@@ -125,7 +126,7 @@ class FormatoController extends Controller
 
         return $this->alcance
             ->limitarPorSucursal(
-                GeneratedDocument::query()->with(['plantilla:id,nombre,tipo', 'usuario:id,name,apellidos', 'candidato:id,nombre,apellidos', 'generadoPor:id,name,apellidos']),
+                GeneratedDocument::query()->with(['plantilla:id,nombre,tipo', 'colaborador:id,name,apellidos', 'candidato:id,nombre,apellidos', 'generadoPor:id,name,apellidos']),
                 $usuario,
             )
             ->when($request->string('tipo')->toString(), fn ($query, string $tipo) => $query->whereHas('plantilla', fn ($q) => $q->where('tipo', $tipo)))
@@ -149,10 +150,10 @@ class FormatoController extends Controller
             : null;
 
         if ($solicitud !== null) {
-            $sujeto = $solicitud->usuario;
+            $sujeto = $solicitud->personaSolicitante();
             $extra = $this->extraDesdeSolicitud($solicitud);
         } elseif ($solicitudVacaciones !== null) {
-            $sujeto = $solicitudVacaciones->usuario;
+            $sujeto = $solicitudVacaciones->personaSolicitante();
             $extra = $this->extraDesdeSolicitudVacaciones($solicitudVacaciones);
         } else {
             $sujeto = $this->resolverSujeto((string) $request->validated('tipo_sujeto'), (int) $request->validated('sujeto_id'));
@@ -169,7 +170,7 @@ class FormatoController extends Controller
 
         GeneratedDocument::create([
             'document_template_id' => $plantilla->id,
-            'user_id' => $sujeto instanceof User ? $sujeto->id : null,
+            'colaborador_id' => $sujeto instanceof Colaborador ? $sujeto->id : null,
             'candidato_id' => $sujeto instanceof Candidato ? $sujeto->id : null,
             'solicitud_id' => $solicitud?->id,
             'solicitud_vacaciones_id' => $solicitudVacaciones?->id,
@@ -198,17 +199,15 @@ class FormatoController extends Controller
     {
         $this->authorize('viewAny', DocumentTemplate::class);
 
-        $cuenta = $documento->usuario;
+        $colaborador = $documento->colaborador;
 
-        if ($cuenta === null && $documento->solicitud !== null) {
-            $cuenta = $documento->solicitud->usuario;
+        if ($colaborador === null && $documento->solicitud !== null) {
+            $colaborador = $documento->solicitud->personaSolicitante();
         }
 
-        if ($cuenta === null && $documento->solicitudVacaciones !== null) {
-            $cuenta = $documento->solicitudVacaciones->usuario;
+        if ($colaborador === null && $documento->solicitudVacaciones !== null) {
+            $colaborador = $documento->solicitudVacaciones->personaSolicitante();
         }
-
-        $colaborador = $cuenta?->colaborador;
 
         abort_unless($colaborador !== null, 422, 'Este documento no está asociado a un colaborador; no se puede archivar en un expediente.');
 
@@ -223,10 +222,10 @@ class FormatoController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => 'Documento firmado subido y asociado al expediente del colaborador.']);
     }
 
-    private function resolverSujeto(string $tipoSujeto, int $sujetoId): User|Candidato|null
+    private function resolverSujeto(string $tipoSujeto, int $sujetoId): Colaborador|Candidato|null
     {
         return $tipoSujeto === 'colaborador'
-            ? User::query()->firstWhere('id', $sujetoId)
+            ? Colaborador::query()->firstWhere('id', $sujetoId)
             : Candidato::query()->firstWhere('id', $sujetoId);
     }
 

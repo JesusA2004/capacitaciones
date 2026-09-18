@@ -155,6 +155,20 @@ class SolicitudInterna extends Model
     }
 
     /**
+     * El colaborador (persona) sujeto de una baja (App\Enums\TipoSolicitudInterna::BajaColaborador):
+     * prefiere `objetivo_colaborador_id` (fuente de verdad nueva) y cae a
+     * `colaboradorObjetivo->colaborador` mientras el flujo de creación de
+     * solicitudes no puebla esa columna en solicitudes antiguas — mismo
+     * criterio que personaSolicitante(). Usado por
+     * App\Services\Finiquitos\FiniquitoService para no encadenar
+     * User->colaborador a mano.
+     */
+    public function colaboradorDeBaja(): ?Colaborador
+    {
+        return $this->objetivoColaborador ?? $this->colaboradorObjetivo?->colaborador;
+    }
+
+    /**
      * @return BelongsTo<User, $this>
      */
     public function revisadoPor(): BelongsTo

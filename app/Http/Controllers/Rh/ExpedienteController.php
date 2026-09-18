@@ -23,6 +23,7 @@ use App\Models\Puesto;
 use App\Models\ReciboNomina;
 use App\Models\SolicitudInterna;
 use App\Models\Sucursal;
+use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Expedientes\AvisoPrivacidadService;
 use App\Services\Expedientes\DocumentoStorageService;
@@ -35,7 +36,6 @@ use App\Services\Solicitudes\BajaColaboradorService;
 use App\Services\Vacaciones\VacacionesService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -364,9 +364,9 @@ class ExpedienteController extends Controller
                 ->get()
                 ->map(fn (ReciboNomina $recibo) => [
                     'id' => $recibo->id,
-                    'periodo_inicio' => $recibo->periodo_inicio?->toDateString(),
-                    'periodo_fin' => $recibo->periodo_fin?->toDateString(),
-                    'fecha_pago' => $recibo->fecha_pago?->toDateString(),
+                    'periodo_inicio' => $recibo->periodo_inicio->toDateString(),
+                    'periodo_fin' => $recibo->periodo_fin->toDateString(),
+                    'fecha_pago' => $recibo->fecha_pago->toDateString(),
                     'sueldo_base' => (float) $recibo->sueldo_base,
                     'percepciones' => $recibo->percepciones,
                     'deducciones' => $recibo->deducciones,
@@ -379,35 +379,14 @@ class ExpedienteController extends Controller
             // Tab "Préstamos": préstamos reales del colaborador (ver
             // App\Services\Nomina\PrestamoService), cada uno con su
             // historial de movimientos (ledger append-only).
-            'prestamos' => $colaborador->prestamos()
-                ->with('movimientos.registradoPor:id,name,apellidos')
-                ->limit(10)
-                ->get()
-                ->map(fn (Prestamo $prestamo) => [
-                    'id' => $prestamo->id,
-                    'monto_original' => (float) $prestamo->monto_original,
-                    'saldo' => (float) $prestamo->saldo,
-                    'plazo' => $prestamo->plazo,
-                    'periodicidad' => $prestamo->periodicidad,
-                    'pago_programado' => (float) $prestamo->pago_programado,
-                    'porcentaje_pagado' => (float) $prestamo->monto_original > 0
-                        ? (int) round((1 - ((float) $prestamo->saldo / (float) $prestamo->monto_original)) * 100)
-                        : 0,
-                    'fecha_otorgamiento' => $prestamo->fecha_otorgamiento?->toDateString(),
-                    'fecha_primer_descuento' => $prestamo->fecha_primer_descuento?->toDateString(),
-                    'estado' => $prestamo->estado,
-                    'movimientos' => $prestamo->movimientos->map(fn (PrestamoMovimiento $movimiento) => [
-                        'id' => $movimiento->id,
-                        'fecha' => $movimiento->fecha?->toDateString(),
-                        'monto' => (float) $movimiento->monto,
-                        'tipo' => $movimiento->tipo,
-                        'saldo_anterior' => (float) $movimiento->saldo_anterior,
-                        'saldo_nuevo' => (float) $movimiento->saldo_nuevo,
-                        'registrado_por' => $movimiento->registradoPor
-                            ? trim("{$movimiento->registradoPor->name} {$movimiento->registradoPor->apellidos}")
-                            : null,
-                    ]),
-                ]),
+            'prestamos' => collect(array_map(
+                fn (Prestamo $prestamo) => $this->prestamoResumen($prestamo),
+                $colaborador->prestamos()
+                    ->with('movimientos.registradoPor:id,name,apellidos')
+                    ->limit(10)
+                    ->get()
+                    ->all(),
+            )),
             'movimientosLaborales' => MovimientoLaboral::query()
                 ->where('colaborador_id', $colaborador->id)
                 ->with([
@@ -539,33 +518,6 @@ class ExpedienteController extends Controller
     }
 
     /**
-     * Historial de recibos de nómina ya generados de este colaborador (ver
-     * App\Services\Nomina\ReciboNominaService) — misma autorización que ver
-     * su expediente.
-     */
-    public function historialRecibosNomina(Request $request, Colaborador $colaborador): JsonResponse
-    {
-        abort_unless($this->alcance->puedeVerExpediente($request->user(), $colaborador), 403);
-
-        return response()->json([
-            'recibos' => $colaborador->recibosNomina()->limit(20)->get()->map(fn (ReciboNomina $recibo) => [
-                'id' => $recibo->id,
-                'periodo_inicio' => $recibo->periodo_inicio?->toDateString(),
-                'periodo_fin' => $recibo->periodo_fin?->toDateString(),
-                'fecha_pago' => $recibo->fecha_pago?->toDateString(),
-                'sueldo_base' => (float) $recibo->sueldo_base,
-                'percepciones' => $recibo->percepciones,
-                'deducciones' => $recibo->deducciones,
-                'total_percepciones' => (float) $recibo->total_percepciones,
-                'total_deducciones' => (float) $recibo->total_deducciones,
-                'neto' => (float) $recibo->neto,
-                'tiene_pdf' => $recibo->pdf_path !== null,
-                'created_at' => $recibo->created_at?->toISOString(),
-            ]),
-        ]);
-    }
-
-    /**
      * Genera y persiste un recibo de nómina informativo (ver
      * App\Services\Nomina\ReciboNominaService::generar()) a partir del
      * periodo/percepciones/deducciones capturados en el formulario. Mismo
@@ -577,7 +529,13 @@ class ExpedienteController extends Controller
     {
         abort_if($colaborador->sueldo_mensual === null, 422, 'Este colaborador todavía no tiene un sueldo mensual capturado en Datos laborales.');
 
-        $recibo = $this->reciboNomina->generar($colaborador, $request->validated(), $request->user());
+        $recibo = $this->reciboNomina->generar($colaborador, [
+            'periodo_inicio' => (string) $request->validated('periodo_inicio'),
+            'periodo_fin' => (string) $request->validated('periodo_fin'),
+            'fecha_pago' => (string) $request->validated('fecha_pago'),
+            'percepciones' => $request->validated('percepciones') ?? [],
+            'deducciones' => $request->validated('deducciones') ?? [],
+        ], $request->user());
 
         return back()->with('toast', [
             'type' => 'success',
@@ -603,39 +561,6 @@ class ExpedienteController extends Controller
         $nombre = 'recibo-nomina-'.($recibo->colaborador->numero_empleado ?? $recibo->colaborador_id).'-'.$recibo->periodo_inicio->format('Y-m').'.pdf';
 
         return Storage::disk($recibo->pdf_disk)->download($recibo->pdf_path, $nombre);
-    }
-
-    /**
-     * Préstamos internos reales de este colaborador (ver
-     * App\Services\Nomina\PrestamoService), con su historial de movimientos.
-     */
-    public function historialPrestamos(Request $request, Colaborador $colaborador): JsonResponse
-    {
-        abort_unless($this->alcance->puedeVerExpediente($request->user(), $colaborador), 403);
-
-        return response()->json([
-            'prestamos' => $colaborador->prestamos()
-                ->with('movimientos.registradoPor:id,name,apellidos')
-                ->limit(10)
-                ->get()
-                ->map(fn (Prestamo $prestamo) => [
-                    'id' => $prestamo->id,
-                    'monto_original' => (float) $prestamo->monto_original,
-                    'saldo' => (float) $prestamo->saldo,
-                    'plazo' => $prestamo->plazo,
-                    'periodicidad' => $prestamo->periodicidad,
-                    'pago_programado' => (float) $prestamo->pago_programado,
-                    'estado' => $prestamo->estado,
-                    'movimientos' => $prestamo->movimientos->map(fn (PrestamoMovimiento $movimiento) => [
-                        'id' => $movimiento->id,
-                        'fecha' => $movimiento->fecha?->toDateString(),
-                        'monto' => (float) $movimiento->monto,
-                        'tipo' => $movimiento->tipo,
-                        'saldo_anterior' => (float) $movimiento->saldo_anterior,
-                        'saldo_nuevo' => (float) $movimiento->saldo_nuevo,
-                    ]),
-                ]),
-        ]);
     }
 
     /**
@@ -735,5 +660,54 @@ class ExpedienteController extends Controller
                 ];
             })
             ->all();
+    }
+
+    /**
+     * "Nombre apellidos" de un actor opcional — tipo de retorno nativo
+     * `?string` (no inferido de un ternario inline) para que PHPStan no
+     * derive `string` en vez de `string|null` en los `map()` que lo usan
+     * (Collection<TValue> no es covariante, ver VacanteController).
+     */
+    private function nombreActor(?User $actor): ?string
+    {
+        return $actor ? trim("{$actor->name} {$actor->apellidos}") : null;
+    }
+
+    /**
+     * @return array{id: int, monto_original: float, saldo: float, plazo: int, periodicidad: string, pago_programado: float, porcentaje_pagado: int, fecha_otorgamiento: string|null, fecha_primer_descuento: string|null, estado: string, movimientos: Collection<int, array{id: int, fecha: string, monto: float, tipo: string, saldo_anterior: float, saldo_nuevo: float, registrado_por: string|null}>}
+     */
+    private function prestamoResumen(Prestamo $prestamo): array
+    {
+        return [
+            'id' => $prestamo->id,
+            'monto_original' => (float) $prestamo->monto_original,
+            'saldo' => (float) $prestamo->saldo,
+            'plazo' => $prestamo->plazo,
+            'periodicidad' => $prestamo->periodicidad,
+            'pago_programado' => (float) $prestamo->pago_programado,
+            'porcentaje_pagado' => (float) $prestamo->monto_original > 0
+                ? (int) round((1 - ((float) $prestamo->saldo / (float) $prestamo->monto_original)) * 100)
+                : 0,
+            'fecha_otorgamiento' => $prestamo->fecha_otorgamiento?->toDateString(),
+            'fecha_primer_descuento' => $prestamo->fecha_primer_descuento?->toDateString(),
+            'estado' => $prestamo->estado,
+            'movimientos' => collect(array_map(fn (PrestamoMovimiento $m) => $this->movimientoResumen($m), $prestamo->movimientos->all())),
+        ];
+    }
+
+    /**
+     * @return array{id: int, fecha: string, monto: float, tipo: string, saldo_anterior: float, saldo_nuevo: float, registrado_por: string|null}
+     */
+    private function movimientoResumen(PrestamoMovimiento $movimiento): array
+    {
+        return [
+            'id' => $movimiento->id,
+            'fecha' => $movimiento->fecha->toDateString(),
+            'monto' => (float) $movimiento->monto,
+            'tipo' => $movimiento->tipo,
+            'saldo_anterior' => (float) $movimiento->saldo_anterior,
+            'saldo_nuevo' => (float) $movimiento->saldo_nuevo,
+            'registrado_por' => $this->nombreActor($movimiento->registradoPor),
+        ];
     }
 }

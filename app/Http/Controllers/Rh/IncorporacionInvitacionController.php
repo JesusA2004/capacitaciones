@@ -14,6 +14,7 @@ use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Services\Incorporacion\IncorporacionInvitacionService;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -75,9 +76,17 @@ class IncorporacionInvitacionController extends Controller
      * incorporación ya en curso/completada — misma regla de idempotencia
      * que App\Http\Requests\Rh\StoreIncorporacionInvitacionRequest.
      *
-     * @return Collection<int, array<string, mixed>>
+     * @return Collection<int, array{id: int, nombre: string, correo: string|null, telefono: string|null, empresa: string|null, sucursal: string|null, departamento: string|null, puesto: string|null}>
      */
     private function candidatosElegibles(): Collection
+    {
+        return $this->resumirCandidatosElegibles($this->queryCandidatosElegibles());
+    }
+
+    /**
+     * @return EloquentCollection<int, Candidato>
+     */
+    private function queryCandidatosElegibles(): EloquentCollection
     {
         return Candidato::query()
             ->where('estado', EstadoCandidato::ListoParaContratacion)
@@ -85,22 +94,41 @@ class IncorporacionInvitacionController extends Controller
                 $query->where('estado', EstadoInvitacionIncorporacion::Activo)
                     ->where('expires_at', '>', now());
             })
-            ->whereDoesntHave('incorporacionInvitacion', fn (Builder $query) => $query->whereNotNull('user_id'))
-            ->whereDoesntHave('altaDigital', fn (Builder $query) => $query->whereNotNull('colaborador_id'))
+            ->whereDoesntHave('incorporacionInvitacion', function (Builder $query): void {
+                $query->whereNotNull('user_id');
+            })
+            ->whereDoesntHave('altaDigital', function (Builder $query): void {
+                $query->whereNotNull('colaborador_id');
+            })
             ->with(['empresa:id,nombre', 'sucursal:id,nombre', 'departamento:id,nombre', 'puestoObjetivo:id,nombre'])
             ->orderBy('nombre')
-            ->get(['id', 'empresa_id', 'sucursal_id', 'departamento_id', 'puesto_objetivo_id', 'nombre', 'apellidos', 'correo', 'telefono'])
-            ->map(fn (Candidato $candidato) => [
-                'id' => $candidato->id,
-                'nombre' => $candidato->nombreCompleto(),
-                'correo' => $candidato->correo,
-                'telefono' => $candidato->telefono,
-                'empresa' => $candidato->empresa?->nombre,
-                'sucursal' => $candidato->sucursal?->nombre,
-                'departamento' => $candidato->departamento?->nombre,
-                'puesto' => $candidato->puestoObjetivo?->nombre,
-            ])
-            ->values();
+            ->get(['id', 'empresa_id', 'sucursal_id', 'departamento_id', 'puesto_objetivo_id', 'nombre', 'apellidos', 'correo', 'telefono']);
+    }
+
+    /**
+     * @param  EloquentCollection<int, Candidato>  $candidatos
+     * @return Collection<int, array{id: int, nombre: string, correo: string|null, telefono: string|null, empresa: string|null, sucursal: string|null, departamento: string|null, puesto: string|null}>
+     */
+    private function resumirCandidatosElegibles(EloquentCollection $candidatos): Collection
+    {
+        return collect(array_map(fn (Candidato $c) => $this->candidatoElegibleResumen($c), $candidatos->all()));
+    }
+
+    /**
+     * @return array{id: int, nombre: string, correo: string|null, telefono: string|null, empresa: string|null, sucursal: string|null, departamento: string|null, puesto: string|null}
+     */
+    private function candidatoElegibleResumen(Candidato $candidato): array
+    {
+        return [
+            'id' => $candidato->id,
+            'nombre' => $candidato->nombreCompleto(),
+            'correo' => $candidato->correo,
+            'telefono' => $candidato->telefono,
+            'empresa' => $candidato->empresa?->nombre,
+            'sucursal' => $candidato->sucursal?->nombre,
+            'departamento' => $candidato->departamento?->nombre,
+            'puesto' => $candidato->puestoObjetivo?->nombre,
+        ];
     }
 
     /**
@@ -130,7 +158,7 @@ class IncorporacionInvitacionController extends Controller
     public function store(StoreIncorporacionInvitacionRequest $request): RedirectResponse
     {
         $datos = $request->validated();
-        $candidato = Candidato::query()->findOrFail($datos['candidato_id']);
+        $candidato = Candidato::query()->where('id', $datos['candidato_id'])->firstOrFail();
 
         ['invitacion' => $invitacion, 'token' => $token] = $this->invitaciones->crear([
             'candidato_id' => $candidato->id,

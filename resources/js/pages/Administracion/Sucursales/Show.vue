@@ -2,6 +2,8 @@
 import { Head, Link } from '@inertiajs/vue3';
 import { ArrowLeft, Building, Users } from '@lucide/vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     Table,
     TableBody,
@@ -10,8 +12,6 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { dashboard } from '@/routes';
 import { index } from '@/routes/administracion/sucursales';
 
@@ -24,7 +24,7 @@ type PlantillaPorPuesto = {
     excedente: number;
 };
 
-const props = defineProps<{
+defineProps<{
     sucursal: {
         id: number;
         nombre: string;
@@ -46,14 +46,18 @@ const props = defineProps<{
     departamentos: number;
 }>();
 
+// `layout` recibe una función en vez de un objeto estático porque
+// `defineOptions()` se compila fuera del scope de setup() y no puede
+// referenciar variables locales como `props`; Inertia la invoca con las
+// props actuales de la página en cada render (ver @inertiajs/vue3).
 defineOptions({
-    layout: {
+    layout: (pageProps: { sucursal: { nombre: string } }) => ({
         breadcrumbs: [
             { title: 'Inicio', href: dashboard() },
             { title: 'Sucursales', href: index.url() },
-            { title: props.sucursal.nombre, href: '#' },
+            { title: pageProps.sucursal.nombre, href: '#' },
         ],
-    },
+    }),
 });
 </script>
 

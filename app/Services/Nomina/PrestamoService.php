@@ -31,8 +31,8 @@ class PrestamoService
      */
     public function crearDesdeSolicitud(SolicitudInterna $solicitud, array $datos, User $registradoPor): Prestamo
     {
-        return DB::transaction(function () use ($solicitud, $datos, $registradoPor): Prestamo {
-            $colaborador = $solicitud->usuario?->colaborador;
+        return DB::transaction(function () use ($solicitud, $datos): Prestamo {
+            $colaborador = $solicitud->personaSolicitante();
 
             abort_if($colaborador === null, 422, 'La solicitud de préstamo no tiene un colaborador enlazado.');
 
