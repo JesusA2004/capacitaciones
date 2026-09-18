@@ -2,6 +2,7 @@
 
 use App\Enums\EstadoSolicitudInterna;
 use App\Enums\TipoSolicitudInterna;
+use App\Models\Colaborador;
 use App\Models\SolicitudInterna;
 use App\Models\SolicitudVacaciones;
 use App\Models\Sucursal;
@@ -109,11 +110,11 @@ test('un gerente de sucursal solo ve expedientes de su propia sucursal', functio
     $sucursalPropia = Sucursal::factory()->create();
     $sucursalAjena = Sucursal::factory()->create();
 
-    $gerente = User::factory()->create(['sucursal_principal_id' => $sucursalPropia->id]);
+    $gerente = User::factory()->create(['colaborador_id' => Colaborador::factory()->create(['sucursal_principal_id' => $sucursalPropia->id])]);
     $gerente->assignRole('gerente_sucursal');
 
-    $colaboradorPropio = User::factory()->create(['sucursal_principal_id' => $sucursalPropia->id]);
-    $colaboradorAjeno = User::factory()->create(['sucursal_principal_id' => $sucursalAjena->id]);
+    $colaboradorPropio = Colaborador::factory()->create(['sucursal_principal_id' => $sucursalPropia->id]);
+    $colaboradorAjeno = Colaborador::factory()->create(['sucursal_principal_id' => $sucursalAjena->id]);
 
     $this->actingAs($gerente)->get(route('rh.expedientes.show', $colaboradorPropio))->assertOk();
     $this->actingAs($gerente)->get(route('rh.expedientes.show', $colaboradorAjeno))->assertForbidden();
@@ -123,8 +124,8 @@ test('un jefe directo ve el expediente de sus subordinados pero no de otros cola
     $jefe = User::factory()->create();
     $jefe->assignRole('jefe_directo');
 
-    $subordinado = User::factory()->create(['jefe_id' => $jefe->id]);
-    $otro = User::factory()->create();
+    $subordinado = Colaborador::factory()->create(['jefe_id' => $jefe->colaborador_id]);
+    $otro = Colaborador::factory()->create();
 
     $this->actingAs($jefe)->get(route('rh.expedientes.show', $subordinado))->assertOk();
     $this->actingAs($jefe)->get(route('rh.expedientes.show', $otro))->assertForbidden();
@@ -135,14 +136,14 @@ test('un colaborador puede actualizar sus datos personales desde su expediente',
     $colaborador->assignRole('colaborador');
 
     $this->actingAs($colaborador)
-        ->put(route('rh.expedientes.datos-personales.update', $colaborador), [
+        ->put(route('rh.expedientes.datos-personales.update', $colaborador->colaborador_id), [
             'curp' => 'XAXX010101HNEXXXA4',
             'rfc' => 'XAXX010101000',
             'nss' => '12345678901',
         ])
         ->assertSessionHasNoErrors();
 
-    expect($colaborador->fresh()->curp)->toBe('XAXX010101HNEXXXA4');
+    expect($colaborador->fresh()->colaborador->curp)->toBe('XAXX010101HNEXXXA4');
 });
 
 test('un colaborador no puede editar los datos personales de otro colaborador', function () {
@@ -160,7 +161,7 @@ test('el listado y el detalle de expedientes nunca exponen la ruta fisica de la 
     $admin = User::factory()->create();
     $admin->assignRole('rh_admin');
 
-    $colaborador = User::factory()->create(['foto_path' => 'expedientes/999/foto/secreto.jpg']);
+    $colaborador = Colaborador::factory()->create(['foto_path' => 'expedientes/999/foto/secreto.jpg']);
 
     $respuestaIndex = $this->actingAs($admin)->get(route('rh.expedientes.index'))->assertOk();
     $respuestaIndex->assertInertia(function ($page) {
@@ -177,13 +178,14 @@ test('el listado y el detalle de expedientes nunca exponen la ruta fisica de la 
 });
 
 test('la foto de un colaborador solo la puede ver quien tiene acceso a su expediente', function () {
-    $colaborador = User::factory()->create(['foto_path' => 'expedientes/1/foto/foto.jpg']);
+    $persona = Colaborador::factory()->create(['foto_path' => 'expedientes/1/foto/foto.jpg']);
+    $colaborador = User::factory()->create(['colaborador_id' => $persona->id]);
     $colaborador->assignRole('colaborador');
-    Storage::disk('nas')->put($colaborador->foto_path, 'contenido-de-foto');
+    Storage::disk('nas')->put($persona->foto_path, 'contenido-de-foto');
 
     $otro = User::factory()->create();
     $otro->assignRole('colaborador');
 
-    $this->actingAs($otro)->get(route('rh.expedientes.foto', $colaborador))->assertForbidden();
-    $this->actingAs($colaborador)->get(route('rh.expedientes.foto', $colaborador))->assertOk();
+    $this->actingAs($otro)->get(route('rh.expedientes.foto', $persona))->assertForbidden();
+    $this->actingAs($colaborador)->get(route('rh.expedientes.foto', $persona))->assertOk();
 });

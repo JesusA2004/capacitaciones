@@ -32,3 +32,4 @@ yarn-error.log
 # El area de trabajo local existe en el repo via .gitkeep; el contenido real no.
 /claude/formatos/originales/*
 !/claude/formatos/originales/.gitkeep
+.test-output.txt

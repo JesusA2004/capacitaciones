@@ -44,11 +44,12 @@ import {
     Wallet,
     X,
 } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import InputError from '@/components/InputError.vue';
 import CampoInfo from '@/components/Rh/CampoInfo.vue';
+import ConfirmarEntregaPrestamoDialog from '@/components/Rh/ConfirmarEntregaPrestamoDialog.vue';
 import EstablecerPasswordDialog from '@/components/Rh/EstablecerPasswordDialog.vue';
 import ExpedienteDocumentos from '@/components/Rh/ExpedienteDocumentos.vue';
 import MovimientosLaboralesTimeline from '@/components/Rh/MovimientosLaboralesTimeline.vue';
@@ -104,6 +105,7 @@ import { update as actualizarDatosPersonales } from '@/routes/rh/expedientes/dat
 import { store as registrarMovimientoPrestamo } from '@/routes/rh/expedientes/prestamos/movimientos';
 import {
     descargar as descargarRecibo,
+    regenerarPdf as regenerarPdfReciboRoute,
     store as generarReciboNomina,
 } from '@/routes/rh/expedientes/recibos-nomina';
 import { show as showSolicitud } from '@/routes/rh/solicitudes';
@@ -264,6 +266,7 @@ function restablecerAccesoColaborador() {
 }
 
 const dialogoPasswordAbierto = ref(false);
+const prestamoConfirmarEntrega = ref<PrestamoItem | null>(null);
 
 const onboardingPorcentaje = computed(() => {
     if (props.onboarding.length === 0) {
@@ -478,14 +481,46 @@ const formRecibo = useForm({
     periodo_inicio: '',
     periodo_fin: '',
     fecha_pago: '',
+    sueldo_base: 0,
     percepciones: [] as ConceptoForm[],
     deducciones: [] as ConceptoForm[],
 });
+
+// Sugerencia simple (nunca un cálculo fiscal: ISR/IMSS quedan fuera) a
+// partir del sueldo mensual registrado y el número de días del periodo —
+// RH siempre puede editar el resultado antes de generar el recibo, ver
+// App\Services\Nomina\ReciboNominaService::generar().
+function sueldoSugeridoPeriodo(): number {
+    const mensual = Number(props.colaborador.sueldo_mensual ?? 0);
+
+    if (!formRecibo.periodo_inicio || !formRecibo.periodo_fin) {
+        return mensual;
+    }
+
+    const inicio = new Date(formRecibo.periodo_inicio);
+    const fin = new Date(formRecibo.periodo_fin);
+    const dias =
+        Math.round((fin.getTime() - inicio.getTime()) / 86400000) + 1;
+
+    if (dias <= 0) {
+        return mensual;
+    }
+
+    return Math.round(((mensual / 30) * dias + Number.EPSILON) * 100) / 100;
+}
+
+watch(
+    [() => formRecibo.periodo_inicio, () => formRecibo.periodo_fin],
+    () => {
+        formRecibo.sueldo_base = sueldoSugeridoPeriodo();
+    },
+);
 
 function abrirDialogoRecibo() {
     formRecibo.reset();
     formRecibo.clearErrors();
     formRecibo.percepciones = [];
+    formRecibo.sueldo_base = Number(props.colaborador.sueldo_mensual ?? 0);
 
     // Sugerencia automática (RH puede quitarla/ajustarla antes de
     // confirmar): línea de pago del préstamo activo con el pago
@@ -520,6 +555,20 @@ function generarRecibo() {
             dialogoReciboAbierto.value = false;
         },
         onError: () => mostrarError('No fue posible generar el recibo de nómina.'),
+    });
+}
+
+const formRegenerarPdf = useForm({});
+const reciboRegenerandoId = ref<number | null>(null);
+
+function regenerarPdfRecibo(reciboId: number) {
+    reciboRegenerandoId.value = reciboId;
+
+    formRegenerarPdf.post(regenerarPdfReciboRoute.url(reciboId), {
+        preserveScroll: true,
+        onSuccess: () => mostrarExito('PDF regenerado correctamente.'),
+        onError: () => mostrarError('No fue posible regenerar el PDF.'),
+        onFinish: () => (reciboRegenerandoId.value = null),
     });
 }
 
@@ -1887,9 +1936,25 @@ function registrarPago(prestamoId: number) {
                                     <Receipt class="size-3.5" />
                                     Descargar
                                 </a>
-                                <span v-else class="text-xs text-muted-foreground">
-                                    PDF no disponible
-                                </span>
+                                <div
+                                    v-else
+                                    class="flex items-center gap-2 text-xs text-muted-foreground"
+                                >
+                                    <span>Recibo guardado, PDF no disponible.</span>
+                                    <Button
+                                        v-if="puedeEditar"
+                                        size="sm"
+                                        variant="outline"
+                                        type="button"
+                                        :disabled="
+                                            formRegenerarPdf.processing &&
+                                            reciboRegenerandoId === recibo.id
+                                        "
+                                        @click="regenerarPdfRecibo(recibo.id)"
+                                    >
+                                        Regenerar PDF
+                                    </Button>
+                                </div>
                             </div>
                             <p
                                 v-if="!recibosNomina.length"
@@ -1936,7 +2001,23 @@ function registrarPago(prestamoId: number) {
                                             Próximo descuento: {{ prestamo.fecha_primer_descuento ?? '—' }}
                                         </p>
                                     </div>
-                                    <EstadoBadge :estado="prestamo.estado" />
+                                    <div class="flex items-center gap-2">
+                                        <EstadoBadge :estado="prestamo.estado" />
+                                        <Button
+                                            v-if="
+                                                puedeEditar &&
+                                                prestamo.estado ===
+                                                    'pendiente_entrega'
+                                            "
+                                            size="sm"
+                                            @click="
+                                                prestamoConfirmarEntrega =
+                                                    prestamo
+                                            "
+                                        >
+                                            Confirmar entrega
+                                        </Button>
+                                    </div>
                                 </div>
 
                                 <Table v-if="prestamo.movimientos.length" class="mt-3">
@@ -2059,6 +2140,15 @@ function registrarPago(prestamoId: number) {
         :colaborador-nombre="`${colaborador.name} ${colaborador.apellidos ?? ''}`"
     />
 
+    <ConfirmarEntregaPrestamoDialog
+        v-if="prestamoConfirmarEntrega"
+        :open="prestamoConfirmarEntrega !== null"
+        :prestamo="prestamoConfirmarEntrega"
+        @update:open="
+            (v) => (prestamoConfirmarEntrega = v ? prestamoConfirmarEntrega : null)
+        "
+    />
+
     <Dialog v-model:open="avisoDialogAbierto">
         <DialogContent class="max-h-[80vh] overflow-y-auto sm:max-w-2xl">
             <DialogHeader>
@@ -2096,9 +2186,32 @@ function registrarPago(prestamoId: number) {
 
                 <div>
                     <Label class="mb-2 block">Percepciones</Label>
-                    <div class="flex items-center justify-between rounded-lg border border-border/60 bg-muted/40 p-2.5 text-sm">
-                        <span class="text-muted-foreground">Sueldo mensual (bloqueado)</span>
-                        <span class="font-medium">{{ sueldoFormateado(colaborador.sueldo_mensual) }}</span>
+                    <div
+                        class="flex items-center justify-between rounded-lg border border-border/60 bg-muted/40 p-2.5 text-sm"
+                    >
+                        <span class="text-muted-foreground"
+                            >Sueldo mensual registrado</span
+                        >
+                        <span class="font-medium">{{
+                            sueldoFormateado(colaborador.sueldo_mensual)
+                        }}</span>
+                    </div>
+                    <div class="mt-2 grid gap-1.5">
+                        <Label for="sueldo-base-periodo" class="text-xs">
+                            Sueldo base de este recibo
+                        </Label>
+                        <Input
+                            id="sueldo-base-periodo"
+                            v-model.number="formRecibo.sueldo_base"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                        />
+                        <p class="text-xs text-muted-foreground">
+                            Sugerido según el periodo seleccionado; RH puede
+                            editarlo antes de generar el recibo.
+                        </p>
+                        <InputError :message="formRecibo.errors.sueldo_base" />
                     </div>
                     <div
                         v-for="(percepcion, indice) in formRecibo.percepciones"

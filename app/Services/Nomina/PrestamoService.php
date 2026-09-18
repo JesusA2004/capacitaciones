@@ -7,6 +7,7 @@ use App\Models\PrestamoMovimiento;
 use App\Models\SolicitudInterna;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Administración real de préstamos internos (ver docs/SOLICITUDES_UNIFICADAS.md
@@ -62,25 +63,76 @@ class PrestamoService
 
     /**
      * Marca el préstamo como activo: RH confirma que el dinero ya se
-     * entregó al colaborador. Antes de esto el préstamo existe pero no
-     * cuenta como deuda vigente en la UI (ver Colaborador::prestamoActivo()).
+     * entregó al colaborador, capturando los datos reales de la entrega
+     * (antes de esto el préstamo existe pero no cuenta como deuda vigente
+     * en la UI, ver Colaborador::prestamoActivo()). Usa lockForUpdate()
+     * para que dos confirmaciones simultáneas del mismo préstamo no
+     * pisen el estado una a la otra.
+     *
+     * @param  array{fecha_otorgamiento: string, fecha_primer_descuento: string, periodicidad: string, pago_programado: float|string}  $datos
      */
-    public function activar(Prestamo $prestamo): Prestamo
+    public function activar(Prestamo $prestamo, array $datos): Prestamo
     {
-        $prestamo->update(['estado' => 'activo']);
+        return DB::transaction(function () use ($prestamo, $datos): Prestamo {
+            /** @var Prestamo $prestamo */
+            $prestamo = Prestamo::query()->lockForUpdate()->findOrFail($prestamo->id);
 
-        return $prestamo->fresh();
+            if ($prestamo->estado !== 'pendiente_entrega') {
+                throw ValidationException::withMessages([
+                    'estado' => 'Este préstamo ya no está pendiente de entrega.',
+                ]);
+            }
+
+            $prestamo->update([
+                'estado' => 'activo',
+                'fecha_otorgamiento' => $datos['fecha_otorgamiento'],
+                'fecha_primer_descuento' => $datos['fecha_primer_descuento'],
+                'periodicidad' => $datos['periodicidad'],
+                'pago_programado' => $datos['pago_programado'],
+            ]);
+
+            return $prestamo->fresh();
+        });
     }
 
     /**
      * Registra un abono/ajuste al saldo del préstamo (ledger append-only:
      * ver PrestamoMovimiento). Si el saldo llega a 0, el préstamo pasa
-     * automáticamente a 'liquidado'.
+     * automáticamente a 'liquidado'. lockForUpdate() evita que dos abonos
+     * concurrentes (p. ej. dos recibos de nómina generados al mismo
+     * tiempo) lean el mismo saldo y se pisen entre sí.
+     *
+     * 'ajuste' es la única excepción que puede exceder el saldo vigente
+     * (una corrección deliberada de RH/contabilidad, no un pago normal):
+     * 'manual'/'nomina' nunca pueden dejar el saldo en negativo en
+     * silencio, se rechazan con una validación explícita.
      */
     public function registrarMovimiento(Prestamo $prestamo, float $monto, string $tipo, User $registradoPor): PrestamoMovimiento
     {
+        if ($monto <= 0) {
+            throw ValidationException::withMessages([
+                'monto' => 'El monto debe ser mayor a cero.',
+            ]);
+        }
+
         return DB::transaction(function () use ($prestamo, $monto, $tipo, $registradoPor): PrestamoMovimiento {
+            /** @var Prestamo $prestamo */
+            $prestamo = Prestamo::query()->lockForUpdate()->findOrFail($prestamo->id);
+
+            if ($prestamo->estado !== 'activo') {
+                throw ValidationException::withMessages([
+                    'estado' => 'Solo se pueden registrar movimientos sobre un préstamo activo.',
+                ]);
+            }
+
             $saldoAnterior = (float) $prestamo->saldo;
+
+            if ($tipo !== 'ajuste' && $monto > $saldoAnterior) {
+                throw ValidationException::withMessages([
+                    'monto' => sprintf('El monto excede el saldo actual del préstamo ($%s).', number_format($saldoAnterior, 2)),
+                ]);
+            }
+
             $saldoNuevo = round(max($saldoAnterior - $monto, 0), 2);
 
             /** @var PrestamoMovimiento $movimiento */

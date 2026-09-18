@@ -22,12 +22,14 @@ use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Formatos\FormatoCatalogoService;
 use App\Services\Formatos\FormatoPreviewService;
 use App\Services\Plantillas\PlantillaDocumentoService;
+use App\Services\Plantillas\PlantillaResolverService;
 use App\Services\Plantillas\PlantillaStorageService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
@@ -41,6 +43,7 @@ class FormatoController extends Controller
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly PlantillaDocumentoService $generador,
+        private readonly PlantillaResolverService $resolver,
         private readonly PlantillaStorageService $storage,
         private readonly DocumentoStorageService $documentoStorage,
         private readonly FormatoPreviewService $previsualizador,
@@ -135,6 +138,31 @@ class FormatoController extends Controller
             ->when($request->string('fecha_inicio')->toString(), fn ($query, string $valor) => $query->whereDate('created_at', '>=', $valor))
             ->when($request->string('fecha_fin')->toString(), fn ($query, string $valor) => $query->whereDate('created_at', '<=', $valor))
             ->when($request->string('busqueda')->toString(), fn ($query, string $busqueda) => $query->where('generated_name', 'like', "%{$busqueda}%"));
+    }
+
+    /**
+     * Sugerencia de plantilla para un colaborador+tipo (ver
+     * PlantillaResolverService): prioridad puesto > departamento >
+     * sucursal > empresa > global. Solo informativo — RH siempre puede
+     * generar con una plantilla distinta desde el catálogo.
+     */
+    public function resolverPlantilla(Request $request): JsonResponse
+    {
+        abort_unless($request->user()->can('plantillas.crear'), 403);
+
+        $datos = $request->validate([
+            'colaborador_id' => ['required', 'integer', 'exists:colaboradores,id'],
+            'tipo' => ['required', 'string', Rule::in(array_column(TipoPlantillaDocumento::cases(), 'value'))],
+        ]);
+
+        $colaborador = Colaborador::query()->where('id', $datos['colaborador_id'])->firstOrFail();
+        $tipo = TipoPlantillaDocumento::from($datos['tipo']);
+
+        $plantilla = $this->resolver->resolverPara($colaborador, $tipo);
+
+        return response()->json([
+            'data' => $plantilla !== null ? ['id' => $plantilla->id, 'nombre' => $plantilla->nombre] : null,
+        ]);
     }
 
     public function store(StoreGeneratedDocumentRequest $request): RedirectResponse

@@ -5,6 +5,7 @@ namespace App\Services\Solicitudes;
 use App\Enums\EstadoFiniquito;
 use App\Enums\EstadoSolicitudInterna;
 use App\Enums\TipoSolicitudInterna;
+use App\Models\Colaborador;
 use App\Models\FiniquitoCalculo;
 use App\Models\OfficialFormatGeneration;
 use App\Models\SolicitudInterna;
@@ -92,7 +93,7 @@ class SolicitudesService
         $colaboradorObjetivo = null;
 
         if ($tipo === TipoSolicitudInterna::BajaColaborador) {
-            $colaboradorObjetivo = User::query()->where('id', $datos['colaborador_objetivo_id'])->firstOrFail();
+            $colaboradorObjetivo = Colaborador::query()->where('id', $datos['colaborador_objetivo_id'])->firstOrFail();
 
             if (Gate::forUser($solicitante)->denies('crearBaja', [SolicitudInterna::class, $colaboradorObjetivo])) {
                 throw ValidationException::withMessages([
@@ -114,8 +115,9 @@ class SolicitudesService
             $solicitud = SolicitudInterna::create([
                 'folio' => $this->folioTemporal(),
                 'user_id' => $solicitante->id,
-                'colaborador_objetivo_id' => $colaboradorObjetivo?->id,
-                'objetivo_colaborador_id' => $colaboradorObjetivo?->colaborador_id,
+                'colaborador_id' => $solicitante->colaborador_id,
+                'colaborador_objetivo_id' => $colaboradorObjetivo?->user?->id,
+                'objetivo_colaborador_id' => $colaboradorObjetivo?->id,
                 'fecha_efectiva' => $datos['fecha_efectiva'] ?? null,
                 'tipo_baja' => $datos['tipo_baja'] ?? null,
                 'tipo' => $datos['tipo'],
@@ -179,7 +181,16 @@ class SolicitudesService
     public function paraColaborador(User $colaborador): LengthAwarePaginator
     {
         return SolicitudInterna::query()
-            ->where('user_id', $colaborador->id)
+            ->where(function (Builder $q) use ($colaborador): void {
+                $q->where('user_id', $colaborador->id);
+
+                // Fallback temporal: solicitudes legacy creadas antes de que
+                // crear() empezara a llenar colaborador_id (ver
+                // SolicitudesService::crear()) solo tienen user_id.
+                if ($colaborador->colaborador_id !== null) {
+                    $q->orWhere('colaborador_id', $colaborador->colaborador_id);
+                }
+            })
             ->with(['revisadoPor:id,name,apellidos'])
             ->orderByDesc('created_at')
             ->paginate(15);
@@ -255,10 +266,16 @@ class SolicitudesService
             // 'users' no tiene columna empresa_id propia (se deriva de la
             // sucursal, ver Colaborador::empresa()) — solo la propia
             // SolicitudInterna la tiene (snapshot al crear, ver crear() más
-            // arriba).
+            // arriba). colaborador_id es la fuente real de "quién es esta
+            // solicitud" (ver SolicitudInterna::personaSolicitante());
+            // usuario.colaborador solo se conserva como fallback de
+            // lectura para solicitudes legacy sin colaborador_id.
             ->with([
+                'colaborador:id,name,apellidos,sucursal_principal_id,departamento_id,puesto_id',
+                'colaborador.departamento:id,nombre',
+                'colaborador.puesto:id,nombre',
                 'usuario:id,name,apellidos,colaborador_id',
-                'usuario.colaborador:id,sucursal_principal_id,departamento_id,puesto_id',
+                'usuario.colaborador:id,name,apellidos,sucursal_principal_id,departamento_id,puesto_id',
                 'usuario.colaborador.departamento:id,nombre',
                 'usuario.colaborador.puesto:id,nombre',
                 'revisadoPor:id,name,apellidos',
@@ -275,8 +292,12 @@ class SolicitudesService
             ->when($filtros['tipo'] ?? null, fn (Builder $q, string $v) => $q->where('tipo', $v))
             ->when($filtros['sucursal_id'] ?? null, fn (Builder $q, string $v) => $q->where('sucursal_id', $v))
             ->when($filtros['empresa_id'] ?? null, fn (Builder $q, string $v) => $q->where('empresa_id', $v))
-            ->when($filtros['departamento_id'] ?? null, fn (Builder $q, string $v) => $q->whereHas('usuario.colaborador', fn (Builder $u) => $u->where('departamento_id', $v)))
-            ->when($filtros['puesto_id'] ?? null, fn (Builder $q, string $v) => $q->whereHas('usuario.colaborador', fn (Builder $u) => $u->where('puesto_id', $v)))
+            ->when($filtros['departamento_id'] ?? null, fn (Builder $q, string $v) => $q->where(fn (Builder $sub) => $sub
+                ->whereHas('colaborador', fn (Builder $u) => $u->where('departamento_id', $v))
+                ->orWhereHas('usuario.colaborador', fn (Builder $u) => $u->where('departamento_id', $v))))
+            ->when($filtros['puesto_id'] ?? null, fn (Builder $q, string $v) => $q->where(fn (Builder $sub) => $sub
+                ->whereHas('colaborador', fn (Builder $u) => $u->where('puesto_id', $v))
+                ->orWhereHas('usuario.colaborador', fn (Builder $u) => $u->where('puesto_id', $v))))
             ->when($filtros['revisado_por'] ?? null, fn (Builder $q, string $v) => $q->where('revisado_por', $v))
             ->when($filtros['fecha_inicio'] ?? null, fn (Builder $q, string $v) => $q->whereDate('created_at', '>=', $v))
             ->when($filtros['fecha_fin'] ?? null, fn (Builder $q, string $v) => $q->whereDate('created_at', '<=', $v))
@@ -303,10 +324,18 @@ class SolicitudesService
         }
 
         if ($revisor->hasRole('jefe_directo')) {
-            return $query->whereHas('usuario.colaborador', fn (Builder $q) => $q->where('jefe_id', $revisor->colaborador_id));
+            return $query->where(fn (Builder $q) => $q
+                ->whereHas('colaborador', fn (Builder $u) => $u->where('jefe_id', $revisor->colaborador_id))
+                ->orWhereHas('usuario.colaborador', fn (Builder $u) => $u->where('jefe_id', $revisor->colaborador_id)));
         }
 
-        return $query->where('user_id', $revisor->id);
+        return $query->where(function (Builder $q) use ($revisor): void {
+            $q->where('user_id', $revisor->id);
+
+            if ($revisor->colaborador_id !== null) {
+                $q->orWhere('colaborador_id', $revisor->colaborador_id);
+            }
+        });
     }
 
     public function marcarEnRevision(SolicitudInterna $solicitud, User $actor, ?string $comentario = null): SolicitudInterna

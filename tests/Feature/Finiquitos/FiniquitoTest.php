@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Colaborador;
 use App\Models\FiniquitoCalculo;
 use App\Models\OfficialFormat;
 use App\Models\SolicitudInterna;
@@ -28,12 +29,12 @@ beforeEach(function () {
 
 function crearSolicitudBaja(array $atributos = []): SolicitudInterna
 {
-    $colaborador = User::factory()->create(['fecha_ingreso' => now()->subYears(2)]);
+    $colaborador = Colaborador::factory()->create(['fecha_ingreso' => now()->subYears(2)]);
 
     return SolicitudInterna::factory()->create([
         'tipo' => 'baja_colaborador',
         'estado' => 'en_revision',
-        'colaborador_objetivo_id' => $colaborador->id,
+        'objetivo_colaborador_id' => $colaborador->id,
         'fecha_efectiva' => now()->addWeek(),
         'tipo_baja' => 'despido',
         ...$atributos,

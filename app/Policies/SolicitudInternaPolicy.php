@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Models\Colaborador;
 use App\Models\SolicitudInterna;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
@@ -75,9 +76,9 @@ class SolicitudInternaPolicy
      * su equipo sin necesariamente poder crear otros tipos de solicitud
      * sobre sí mismo.
      */
-    public function crearBaja(User $usuario, User $colaboradorObjetivo): bool
+    public function crearBaja(User $usuario, Colaborador $colaboradorObjetivo): bool
     {
-        return $usuario->can('solicitudes.bajas.crear') && $this->alcance->puedeVerUsuario($usuario, $colaboradorObjetivo);
+        return $usuario->can('solicitudes.bajas.crear') && $this->alcance->puedeVerExpediente($usuario, $colaboradorObjetivo);
     }
 
     public function aprobarBaja(User $usuario, SolicitudInterna $solicitud): bool

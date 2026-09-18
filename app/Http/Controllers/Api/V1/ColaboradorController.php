@@ -37,7 +37,9 @@ class ColaboradorController extends Controller
         // La API movil usa Bearer token (sin sesion web): la foto se sirve
         // por una ruta propia autenticada con Sanctum, nunca la ruta web
         // protegida por sesion que usa el resto del portal. Ver foto().
-        $datos['foto_url'] = $request->user()->foto_path !== null ? route('api.v1.colaborador.foto') : null;
+        // foto_path vive en Colaborador (users.foto_path es una columna
+        // legacy que nunca se escribe, ver Expedientes\ExpedienteNasOrganizacionService).
+        $datos['foto_url'] = $request->user()->colaborador?->foto_path !== null ? route('api.v1.colaborador.foto') : null;
 
         return response()->json($datos);
     }
@@ -49,10 +51,10 @@ class ColaboradorController extends Controller
      */
     public function foto(Request $request): StreamedResponse
     {
-        $usuario = $request->user();
-        abort_unless($usuario->foto_path !== null, 404);
+        $colaborador = $request->user()->colaborador;
+        abort_unless($colaborador?->foto_path !== null, 404);
 
-        return $this->storage->respuesta($usuario->foto_path, [
+        return $this->storage->respuesta($colaborador->foto_path, [
             'Content-Type' => 'image/jpeg',
             'Content-Disposition' => 'inline; filename="foto.jpg"',
         ]);
@@ -61,7 +63,7 @@ class ColaboradorController extends Controller
     public function dashboard(Request $request): JsonResponse
     {
         $datos = $this->perfil->dashboard($request->user());
-        $datos['perfil']['foto_url'] = $request->user()->foto_path !== null ? route('api.v1.colaborador.foto') : null;
+        $datos['perfil']['foto_url'] = $request->user()->colaborador?->foto_path !== null ? route('api.v1.colaborador.foto') : null;
 
         return response()->json($datos);
     }

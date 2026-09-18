@@ -19,10 +19,11 @@ use Inertia\Response;
 
 /**
  * Gasto de campañas de reclutamiento por canal/periodo (ver
- * App\Services\Reclutamiento\CampanaReclutamientoService). Autorización
- * simple por rol (rh_admin/super_admin) — este módulo no tiene el
- * granularidad de permisos de Vacantes/Candidatos (ver_todos/ver_sucursal),
- * porque el gasto de campañas no es información sensible por sucursal.
+ * App\Services\Reclutamiento\CampanaReclutamientoService). Autorización por
+ * permiso propio (reclutamiento.campanas.ver/administrar, ver
+ * RolesYPermisosSeeder) — este módulo no tiene la granularidad de
+ * Vacantes/Candidatos (ver_todos/ver_sucursal), porque el gasto de
+ * campañas no es información sensible por sucursal.
  */
 class CampanaReclutamientoController extends Controller
 {
@@ -33,7 +34,7 @@ class CampanaReclutamientoController extends Controller
     public function index(Request $request): Response
     {
         $usuario = $request->user();
-        abort_unless($usuario?->hasAnyRole(['rh_admin', 'super_admin']), 403);
+        abort_unless($usuario?->can('reclutamiento.campanas.ver'), 403);
 
         $mes = $request->integer('mes') ?: (int) now()->month;
         $anio = $request->integer('anio') ?: (int) now()->year;
@@ -98,7 +99,7 @@ class CampanaReclutamientoController extends Controller
 
     public function destroy(Request $request, CampanaReclutamiento $campana): RedirectResponse
     {
-        abort_unless($request->user()?->hasAnyRole(['rh_admin', 'super_admin']), 403);
+        abort_unless($request->user()?->can('reclutamiento.campanas.administrar'), 403);
 
         $campana->delete();
 

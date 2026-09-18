@@ -131,7 +131,7 @@ class SolicitudesDemoSeeder extends Seeder
                 $servicio->crear($gerente, [
                     'tipo' => 'baja_colaborador',
                     'motivo' => 'Renuncia voluntaria, último día pactado a fin de mes '.self::MARCA,
-                    'colaborador_objetivo_id' => $colaborador6->id,
+                    'colaborador_objetivo_id' => $colaborador6->colaborador_id,
                 ]);
             });
         }

@@ -309,20 +309,24 @@ class ExpedienteController extends Controller
             'resumenExpediente' => $resumen,
             'documentosRequeridos' => $this->documentosParaVista($documentos),
             'onboarding' => $this->onboarding->checklist($colaborador),
-            // `solicitudes_internas`/`solicitudes_vacaciones` todavía
-            // identifican a la persona por `user_id` (Parte B de la
-            // separación Usuario/Colaborador solo agregó la columna
-            // `colaborador_id`, sin migrar todavía estos servicios — ver
-            // plan de separación, secciones 5-6): un colaborador sin cuenta
-            // de acceso no puede tener solicitudes/vacaciones todavía.
-            'saldoVacaciones' => $cuenta !== null ? $this->vacaciones->saldo($cuenta) : $this->saldoVacacionesVacio(),
+            // colaborador_id es la fuente real de identidad de una
+            // solicitud/vacaciones (ver SolicitudInterna::personaSolicitante()):
+            // un colaborador SIN cuenta de acceso puede — y debe — tener
+            // saldo de vacaciones, solicitudes, finiquito, préstamo y
+            // recibos. user_id se conserva solo como fallback de lectura
+            // para filas legacy creadas antes de que colaborador_id
+            // empezara a llenarse.
+            'saldoVacaciones' => $this->vacaciones->saldoColaborador($colaborador),
             // Fuente única de verdad (docs/SOLICITUDES_UNIFICADAS.md): las
             // vacaciones nuevas se crean en solicitudes_internas (tipo
             // vacaciones), no en la tabla legacy solicitudes_vacaciones —
             // leer de ahí dejaría el expediente mostrando historial viejo
             // congelado mientras RH aprueba/rechaza desde el Kanban actual.
-            'solicitudesVacaciones' => $idUsuarioColaborador === null ? [] : SolicitudInterna::query()
-                ->where('user_id', $idUsuarioColaborador)
+            'solicitudesVacaciones' => SolicitudInterna::query()
+                ->where(fn ($q) => $q->where('colaborador_id', $colaborador->id)->when(
+                    $idUsuarioColaborador !== null,
+                    fn ($sub) => $sub->orWhere('user_id', $idUsuarioColaborador),
+                ))
                 ->where('tipo', TipoSolicitudInterna::Vacaciones)
                 ->orderByDesc('created_at')
                 ->limit(10)
@@ -341,8 +345,11 @@ class ExpedienteController extends Controller
             // Tab "Solicitudes" del expediente (sección 40 del encargo): todo
             // tipo de solicitud interna de este colaborador, no solo
             // vacaciones — mismo modelo unificado de arriba.
-            'solicitudes' => $idUsuarioColaborador === null ? [] : SolicitudInterna::query()
-                ->where('user_id', $idUsuarioColaborador)
+            'solicitudes' => SolicitudInterna::query()
+                ->where(fn ($q) => $q->where('colaborador_id', $colaborador->id)->when(
+                    $idUsuarioColaborador !== null,
+                    fn ($sub) => $sub->orWhere('user_id', $idUsuarioColaborador),
+                ))
                 ->orderByDesc('created_at')
                 ->limit(20)
                 ->get(['id', 'folio', 'tipo', 'estado', 'motivo', 'created_at'])
@@ -470,22 +477,6 @@ class ExpedienteController extends Controller
         );
     }
 
-    /**
-     * @return array{antiguedad_anios: int, vigencia_inicio: string|null, vigencia_fin: string|null, dias_generados: int, dias_usados: int, dias_en_solicitud: int, dias_disponibles: int}
-     */
-    private function saldoVacacionesVacio(): array
-    {
-        return [
-            'antiguedad_anios' => 0,
-            'vigencia_inicio' => null,
-            'vigencia_fin' => null,
-            'dias_generados' => 0,
-            'dias_usados' => 0,
-            'dias_en_solicitud' => 0,
-            'dias_disponibles' => 0,
-        ];
-    }
-
     public function actualizarDatosPersonales(ActualizarDatosPersonalesRequest $request, Colaborador $colaborador): RedirectResponse
     {
         $colaborador->update($request->validated());
@@ -533,6 +524,7 @@ class ExpedienteController extends Controller
             'periodo_inicio' => (string) $request->validated('periodo_inicio'),
             'periodo_fin' => (string) $request->validated('periodo_fin'),
             'fecha_pago' => (string) $request->validated('fecha_pago'),
+            'sueldo_base' => (float) $request->validated('sueldo_base'),
             'percepciones' => $request->validated('percepciones') ?? [],
             'deducciones' => $request->validated('deducciones') ?? [],
         ], $request->user());
@@ -564,6 +556,25 @@ class ExpedienteController extends Controller
     }
 
     /**
+     * Reintenta generar/guardar el PDF de un recibo ya persistido cuyo
+     * primer intento falló (ver ReciboNominaService::regenerarPdf()): nunca
+     * recalcula montos, solo usa el snapshot ya guardado.
+     */
+    public function regenerarPdfReciboNomina(Request $request, ReciboNomina $recibo): RedirectResponse
+    {
+        $recibo->loadMissing('colaborador');
+
+        abort_unless($this->alcance->puedeVerExpediente($request->user(), $recibo->colaborador), 403);
+        abort_unless($request->user()->can('expedientes.editar'), 403);
+
+        $recibo = $this->reciboNomina->regenerarPdf($recibo);
+
+        return back()->with('toast', $recibo->pdf_path !== null
+            ? ['type' => 'success', 'message' => 'PDF regenerado correctamente.']
+            : ['type' => 'warning', 'message' => 'El PDF sigue sin poder guardarse; intenta de nuevo más tarde.']);
+    }
+
+    /**
      * Registro manual de un abono/ajuste al saldo de un préstamo (fuera del
      * recibo de nómina automático) — siempre RH, nunca autoservicio, ver
      * App\Services\Nomina\PrestamoService::registrarMovimiento().
@@ -580,6 +591,28 @@ class ExpedienteController extends Controller
         $this->prestamoService->registrarMovimiento($prestamo, (float) $datos['monto'], $datos['tipo'], $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Movimiento del préstamo registrado correctamente.']);
+    }
+
+    /**
+     * RH confirma que el dinero del préstamo ya se entregó al colaborador
+     * (ver App\Services\Nomina\PrestamoService::activar()): solo entonces
+     * el préstamo pasa de 'pendiente_entrega' a 'activo' y cuenta como
+     * deuda vigente / se sugiere en el recibo de nómina.
+     */
+    public function activarPrestamo(Request $request, Prestamo $prestamo): RedirectResponse
+    {
+        abort_unless($request->user()->can('expedientes.editar'), 403);
+
+        $datos = $request->validate([
+            'fecha_otorgamiento' => ['required', 'date'],
+            'fecha_primer_descuento' => ['required', 'date', 'after_or_equal:fecha_otorgamiento'],
+            'periodicidad' => ['required', 'string', 'in:semanal,quincenal,mensual'],
+            'pago_programado' => ['required', 'numeric', 'min:0.01', 'max:9999999.99'],
+        ]);
+
+        $this->prestamoService->activar($prestamo, $datos);
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Entrega del préstamo confirmada: ya está activo.']);
     }
 
     /**

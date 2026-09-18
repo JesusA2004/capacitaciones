@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
 import { AlertTriangle, Download, Eye, FileWarning } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -22,8 +22,8 @@ import {
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { useAlertas } from '@/composables/useAlertas';
-import { postJson } from '@/lib/http';
-import { preview, store } from '@/routes/rh/formatos';
+import { getJson, postJson } from '@/lib/http';
+import { preview, resolverPlantilla, store } from '@/routes/rh/formatos';
 import type { FormatoCatalogoItem } from '@/types';
 
 const props = defineProps<{
@@ -56,6 +56,30 @@ type PreviewRespuesta = {
 };
 
 const puedeOperar = computed(() => sujetoId.value !== '');
+
+// Sugerencia informativa (ver PlantillaResolverService): qué plantilla se
+// usa normalmente para este colaborador según su puesto/departamento/
+// sucursal/empresa — nunca reemplaza la que RH ya eligió desde el
+// catálogo, solo avisa si hay otra más específica configurada.
+type PlantillaSugerida = { id: number; nombre: string } | null;
+const plantillaSugerida = ref<PlantillaSugerida>(null);
+
+watch([sujetoId, tipoSujeto], async ([id, tipo]) => {
+    plantillaSugerida.value = null;
+
+    if (tipo !== 'colaborador' || !id) {
+        return;
+    }
+
+    try {
+        const respuesta = await getJson<{ data: PlantillaSugerida }>(
+            resolverPlantilla.url({ query: { colaborador_id: id, tipo: props.plantilla.tipo } }),
+        );
+        plantillaSugerida.value = respuesta.data;
+    } catch {
+        plantillaSugerida.value = null;
+    }
+});
 
 async function verVistaPrevia() {
     if (!puedeOperar.value) {
@@ -159,6 +183,24 @@ function generar() {
                     </Select>
                 </div>
             </div>
+
+            <p
+                v-if="plantillaSugerida && plantillaSugerida.id !== plantilla.id"
+                class="rounded-lg border border-border/60 bg-muted/40 p-2.5 text-xs text-muted-foreground"
+            >
+                Para este colaborador normalmente se usa
+                <span class="font-medium text-foreground">{{
+                    plantillaSugerida.nombre
+                }}</span>
+                — puedes cerrar y generar esa desde el catálogo, o
+                continuar con «{{ plantilla.nombre }}».
+            </p>
+            <p
+                v-else-if="plantillaSugerida && plantillaSugerida.id === plantilla.id"
+                class="rounded-lg border border-success/30 bg-success/10 p-2.5 text-xs text-success"
+            >
+                Plantilla aplicada automáticamente para este colaborador.
+            </p>
 
             <Button
                 variant="outline"

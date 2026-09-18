@@ -25,21 +25,28 @@ use Throwable;
  */
 class ReciboNominaService
 {
-    private const DISCO = 'local';
-
     public function __construct(
         private readonly PrestamoService $prestamos,
     ) {}
 
+    private function disco(): string
+    {
+        return config('nomina.disk', 'nas');
+    }
+
     /**
-     * @param  array{periodo_inicio: string, periodo_fin: string, fecha_pago: string, percepciones?: array<int, array{concepto: string, monto: float|string}>, deducciones?: array<int, array{concepto: string, monto: float|string, tipo?: string|null, prestamo_id?: int|null}>}  $datos
+     * @param  array{periodo_inicio: string, periodo_fin: string, fecha_pago: string, sueldo_base: float|string, percepciones?: array<int, array{concepto: string, monto: float|string}>, deducciones?: array<int, array{concepto: string, monto: float|string, tipo?: string|null, prestamo_id?: int|null}>}  $datos
      */
     public function generar(Colaborador $colaborador, array $datos, User $generadoPor): ReciboNomina
     {
-        $sueldoBase = round((float) ($colaborador->sueldo_mensual ?? 0), 2);
+        // Sueldo BASE DE ESTE RECIBO, confirmado/editado por RH en el
+        // diálogo (nunca el sueldo mensual completo aplicado ciegamente a
+        // un periodo de 15 días) — ver GenerarReciboNominaRequest y
+        // ExpedienteController::generarReciboNomina().
+        $sueldoBase = round((float) $datos['sueldo_base'], 2);
 
         $percepciones = [
-            ['concepto' => 'Sueldo mensual', 'monto' => $sueldoBase],
+            ['concepto' => 'Sueldo base del periodo', 'monto' => $sueldoBase],
         ];
 
         foreach ($datos['percepciones'] ?? [] as $item) {
@@ -123,6 +130,19 @@ class ReciboNominaService
     }
 
     /**
+     * Reintenta generar/guardar el PDF de un recibo ya persistido cuyo
+     * pdf_path quedó en null (ver generarPdf()). Nunca recalcula montos:
+     * usa el snapshot de percepciones/deducciones/totales ya guardado en
+     * la fila, tal como quedó confirmado en su momento.
+     */
+    public function regenerarPdf(ReciboNomina $recibo): ReciboNomina
+    {
+        $this->generarPdf($recibo);
+
+        return $recibo->fresh();
+    }
+
+    /**
      * Genera el PDF del recibo y solo guarda pdf_disk/pdf_path si el
      * storage confirma que el archivo quedó escrito — un fallo aquí nunca
      * debe dejar un recibo con una ruta que apunta a nada.
@@ -146,11 +166,12 @@ class ReciboNominaService
             ])->setPaper('letter', 'portrait')->output();
 
             $ruta = sprintf('recibos-nomina/%d/%s.pdf', $recibo->colaborador_id, Str::uuid());
+            $disco = $this->disco();
 
-            Storage::disk(self::DISCO)->put($ruta, $contenido);
+            Storage::disk($disco)->put($ruta, $contenido);
 
-            if (Storage::disk(self::DISCO)->exists($ruta)) {
-                $recibo->update(['pdf_disk' => self::DISCO, 'pdf_path' => $ruta]);
+            if (Storage::disk($disco)->exists($ruta)) {
+                $recibo->update(['pdf_disk' => $disco, 'pdf_path' => $ruta]);
             }
         } catch (Throwable $e) {
             // Un fallo al generar/guardar el PDF nunca revierte el recibo ya

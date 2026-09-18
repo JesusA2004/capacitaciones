@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\EstadoUsuario;
+use App\Models\Colaborador;
 use App\Models\SolicitudInterna;
 use App\Models\User;
 use Database\Seeders\RolesYPermisosSeeder;
@@ -13,7 +14,8 @@ beforeEach(function () {
 });
 
 test('una solicitud de vacaciones respeta el saldo disponible del colaborador', function () {
-    $colaborador = User::factory()->create(['fecha_ingreso' => now()->subYears(3)]);
+    $persona = Colaborador::factory()->create(['fecha_ingreso' => now()->subYears(3)]);
+    $colaborador = User::factory()->create(['colaborador_id' => $persona->id]);
     $colaborador->assignRole('colaborador');
 
     // Antigüedad de 3 años -> 16 días generados (config/vacaciones.php).
@@ -70,7 +72,7 @@ test('una solicitud de préstamo interno requiere monto', function () {
 test('solo quien tiene permiso de bajas puede crear una solicitud de baja de colaborador', function () {
     $colaborador = User::factory()->create();
     $colaborador->assignRole('colaborador');
-    $objetivo = User::factory()->create();
+    $objetivo = Colaborador::factory()->create();
 
     $this->actingAs($colaborador)
         ->post(route('solicitudes.store'), [
@@ -91,7 +93,8 @@ test('rh_admin puede crear una solicitud de baja y al aprobarla se bloquea el ac
     $aprobador = User::factory()->create();
     $aprobador->assignRole('rh_admin');
 
-    $colaborador = User::factory()->create(['fecha_ingreso' => now()->subYears(2)]);
+    $persona = Colaborador::factory()->create(['fecha_ingreso' => now()->subYears(2)]);
+    $colaborador = User::factory()->create(['colaborador_id' => $persona->id]);
     $colaborador->assignRole('colaborador');
     $token = $colaborador->createToken('app-movil');
 
@@ -99,15 +102,15 @@ test('rh_admin puede crear una solicitud de baja y al aprobarla se bloquea el ac
         ->post(route('solicitudes.store'), [
             'tipo' => 'baja_colaborador',
             'motivo' => 'Renuncia voluntaria.',
-            'colaborador_objetivo_id' => $colaborador->id,
+            'colaborador_objetivo_id' => $persona->id,
             'fecha_efectiva' => now()->addWeek()->toDateString(),
             'tipo_baja' => 'renuncia',
         ])
         ->assertSessionHasNoErrors();
 
     $solicitud = SolicitudInterna::where('tipo', 'baja_colaborador')->firstOrFail();
-    expect($solicitud->colaborador_objetivo_id)->toBe($colaborador->id);
-    expect($colaborador->fresh()->estatus)->toBe(EstadoUsuario::Activo);
+    expect($solicitud->objetivo_colaborador_id)->toBe($persona->id);
+    expect($persona->fresh()->estatus)->toBe(EstadoUsuario::Activo);
 
     // La aprobación requiere evidencia/firma del gerente adjunta y un
     // cálculo de finiquito revisado (ver App\Services\Solicitudes\
@@ -122,9 +125,8 @@ test('rh_admin puede crear una solicitud de baja y al aprobarla se bloquea el ac
         ->post(route('rh.solicitudes.aprobar', $solicitud))
         ->assertRedirect();
 
-    $colaboradorTrasBaja = $colaborador->fresh();
-    expect($colaboradorTrasBaja->estatus)->toBe(EstadoUsuario::Inactivo)
-        ->and($colaboradorTrasBaja->tokens()->count())->toBe(0);
+    expect($persona->fresh()->estatus)->toBe(EstadoUsuario::Inactivo)
+        ->and($colaborador->fresh()->tokens()->count())->toBe(0);
 
     // El login web también queda bloqueado de inmediato. Cierra la sesión
     // del aprobador primero: la ruta de login tiene middleware `guest`, así

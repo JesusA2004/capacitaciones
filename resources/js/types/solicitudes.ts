@@ -129,13 +129,24 @@ export type SolicitudInternaItem = {
     motivo_rechazo: string | null;
     revisado_en: string | null;
     created_at: string;
-    usuario?:
+    colaborador?:
         | (UsuarioResumen & {
               puesto?: { id: number; nombre: string } | null;
               sucursal_principal_id?: number | null;
               sucursal_principal?: { id: number; nombre: string } | null;
           })
         | null;
+    usuario?:
+        | (UsuarioResumen & {
+              colaborador?: {
+                  puesto?: { id: number; nombre: string } | null;
+                  sucursal_principal?: { id: number; nombre: string } | null;
+              } | null;
+          })
+        | null;
+    /** Sujeto real de la baja (fuente de verdad nueva, objetivo_colaborador_id). */
+    objetivo_colaborador?: UsuarioResumen | null;
+    /** Legacy: apunta a `users` (colaborador_objetivo_id). */
     colaborador_objetivo?: UsuarioResumen | null;
     revisado_por?: UsuarioResumen | null;
     sucursal?: { id: number; nombre: string } | null;

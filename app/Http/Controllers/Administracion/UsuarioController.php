@@ -52,12 +52,19 @@ class UsuarioController extends Controller
 
         $usuarios = $this->alcance
             ->limitarUsuariosPorAlcance(User::query(), $usuario)
-            ->with(['colaborador:id,name,apellidos,estatus', 'roles:id,name'])
+            ->with(['colaborador:id,name,apellidos,estatus,numero_empleado', 'roles:id,name'])
             ->when($request->string('busqueda')->toString(), function ($query, string $busqueda) {
+                // Nombre/apellidos/numero_empleado se buscan en Colaborador
+                // (fuente real de la persona); name/apellidos en users son
+                // solo una copia de despliegue. email sí vive en users (es
+                // la cuenta de acceso).
                 $query->where(function ($sub) use ($busqueda) {
-                    $sub->where('name', 'like', "%{$busqueda}%")
-                        ->orWhere('apellidos', 'like', "%{$busqueda}%")
-                        ->orWhere('email', 'like', "%{$busqueda}%");
+                    $sub->where('email', 'like', "%{$busqueda}%")
+                        ->orWhereHas('colaborador', function ($c) use ($busqueda) {
+                            $c->where('name', 'like', "%{$busqueda}%")
+                                ->orWhere('apellidos', 'like', "%{$busqueda}%")
+                                ->orWhere('numero_empleado', 'like', "%{$busqueda}%");
+                        });
                 });
             })
             ->orderBy('name')

@@ -36,6 +36,14 @@ class ColaboradorCumpleanosController extends Controller
     public function felicitacionActual(Request $request): JsonResponse
     {
         $colaborador = $request->user()->colaborador;
+
+        // Una cuenta sin colaborador enlazado (p. ej. una cuenta de
+        // servicio/soporte) simplemente no tiene cumpleaños que celebrar
+        // hoy — nunca debe tronar con "Attempt to read property on null".
+        if ($colaborador === null) {
+            return response()->json(['data' => null]);
+        }
+
         $hoy = $this->cumpleanos->cumpleanosDeHoy()->firstWhere('id', $colaborador->id);
 
         if ($hoy === null) {
@@ -64,6 +72,9 @@ class ColaboradorCumpleanosController extends Controller
     public function imagen(Request $request): HttpResponse
     {
         $colaborador = $request->user()->colaborador;
+
+        abort_if($colaborador === null, 404);
+
         $hoy = $this->cumpleanos->cumpleanosDeHoy()->firstWhere('id', $colaborador->id);
 
         abort_if($hoy === null, 404);

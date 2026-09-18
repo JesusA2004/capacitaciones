@@ -344,7 +344,7 @@ const queryExportacion = computed(() => ({
                 tono="warning"
             />
             <MetricCard
-                titulo="Cumplimiento headcount"
+                titulo="Cumplimiento de plantilla"
                 :valor="`${datos.eficiencia.cumplimiento}%`"
                 :subvalor="`${datos.eficiencia.plantilla_actual} de ${datos.eficiencia.plantilla_autorizada}`"
             />

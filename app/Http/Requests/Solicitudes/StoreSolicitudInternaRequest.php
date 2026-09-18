@@ -65,7 +65,7 @@ class StoreSolicitudInternaRequest extends FormRequest
                 Rule::requiredIf($tipo?->requiereColaboradorObjetivo() === true),
                 'nullable',
                 'integer',
-                'exists:users,id',
+                'exists:colaboradores,id',
             ],
             'fecha_efectiva' => [
                 Rule::requiredIf($tipo?->requiereColaboradorObjetivo() === true),

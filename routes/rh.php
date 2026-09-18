@@ -41,7 +41,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('{colaborador}/datos-laborales', [ExpedienteController::class, 'actualizarDatosLaborales'])->name('datos-laborales.update');
             Route::post('{colaborador}/recibos-nomina', [ExpedienteController::class, 'generarReciboNomina'])->name('recibos-nomina.store');
             Route::get('recibos-nomina/{recibo}/descargar', [ExpedienteController::class, 'descargarReciboNomina'])->name('recibos-nomina.descargar');
+            Route::post('recibos-nomina/{recibo}/regenerar-pdf', [ExpedienteController::class, 'regenerarPdfReciboNomina'])->name('recibos-nomina.regenerar-pdf');
             Route::post('prestamos/{prestamo}/movimientos', [ExpedienteController::class, 'registrarPagoPrestamo'])->name('prestamos.movimientos.store');
+            Route::post('prestamos/{prestamo}/activar', [ExpedienteController::class, 'activarPrestamo'])->name('prestamos.activar');
             Route::put('{colaborador}/avisos', [ExpedienteController::class, 'registrarAvisos'])->name('avisos.update');
             Route::delete('{colaborador}', [ExpedienteController::class, 'darDeBaja'])->name('dar-de-baja');
             Route::post('{colaborador}/reactivar', [ExpedienteController::class, 'reactivar'])->name('reactivar')->withTrashed();
@@ -147,6 +149,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::get('exportar-pdf', [FormatoController::class, 'exportarPdf'])->name('exportarPdf');
             });
             Route::post('preview', [FormatoController::class, 'preview'])->name('preview');
+            Route::get('resolver-plantilla', [FormatoController::class, 'resolverPlantilla'])->name('resolver-plantilla');
             Route::post('/', [FormatoController::class, 'store'])->name('store');
             Route::get('{documento}/descargar', [FormatoController::class, 'descargar'])->name('descargar');
             Route::get('{documento}/descargar-pdf', [FormatoController::class, 'descargarPdf'])->name('descargar-pdf');

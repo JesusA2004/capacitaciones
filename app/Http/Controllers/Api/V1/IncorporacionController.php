@@ -67,7 +67,10 @@ class IncorporacionController extends Controller
 
     private function colaboradorDe(Request $request): Colaborador
     {
-        return $request->user()->colaborador
-            ?? throw new RuntimeException("La cuenta de acceso (users.id={$request->user()->id}) no tiene un colaborador enlazado.");
+        $colaborador = $request->user()->colaborador;
+
+        abort_if($colaborador === null, 422, 'Tu cuenta no tiene un colaborador enlazado.');
+
+        return $colaborador;
     }
 }

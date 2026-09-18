@@ -60,7 +60,7 @@ import { index as indexVacantes } from '@/routes/rh/vacantes';
 import { index as indexSolicitudes } from '@/routes/solicitudes';
 import type { NavItem } from '@/types';
 
-const { tienePermiso, tieneRol } = usePermisos();
+const { tienePermiso } = usePermisos();
 const page = usePage();
 const { esColaborador, tieneAmbosModos, cambiarModo } = useNavegacion();
 
@@ -173,9 +173,9 @@ const navItemsOperativo = computed<NavItem[]>(() => {
         });
     }
 
-    // Gasto de campañas de reclutamiento: autorización simple por rol (sin
-    // permiso granular propio, ver Rh\CampanaReclutamientoController).
-    if (tieneRol('rh_admin') || tieneRol('super_admin')) {
+    // Gasto de campañas de reclutamiento: permiso propio (ver
+    // Rh\CampanaReclutamientoController y RolesYPermisosSeeder).
+    if (tienePermiso('reclutamiento.campanas.ver')) {
         items.push({
             title: 'Campañas',
             href: indexCampanas(),

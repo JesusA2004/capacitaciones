@@ -6,9 +6,9 @@ use App\Enums\EstadoUsuario;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Solicitudes\StoreSolicitudInternaRequest;
 use App\Http\Requests\Solicitudes\SubirDocumentoSolicitudRequest;
+use App\Models\Colaborador;
 use App\Models\SolicitudInterna;
 use App\Models\SolicitudInternaDocumento;
-use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Solicitudes\SolicitudesService;
 use App\Services\Vacaciones\VacacionesService;
@@ -43,8 +43,8 @@ class SolicitudInternaController extends Controller
             // seleccionar (su propio alcance organizacional, nunca a todos
             // los colaboradores) — ver TipoSolicitudInterna::BajaColaborador.
             'colaboradoresParaBaja' => $usuario->can('solicitudes.bajas.crear')
-                ? $this->alcance->limitarUsuariosPorAlcance(
-                    User::query()->where('estatus', EstadoUsuario::Activo)->where('id', '!=', $usuario->id),
+                ? $this->alcance->limitarColaboradoresPorAlcance(
+                    Colaborador::query()->where('estatus', EstadoUsuario::Activo)->where('id', '!=', $usuario->colaborador_id),
                     $usuario,
                 )->orderBy('name')->get(['id', 'name', 'apellidos'])
                 : [],

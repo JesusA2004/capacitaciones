@@ -10,7 +10,7 @@ class UpdateCampanaReclutamientoRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->hasAnyRole(['rh_admin', 'super_admin']) ?? false;
+        return $this->user()?->can('reclutamiento.campanas.administrar') ?? false;
     }
 
     /**

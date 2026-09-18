@@ -50,6 +50,11 @@ class AuthController extends Controller
             ]);
         }
 
+        // Mismo punto de escritura que FortifyServiceProvider para el login
+        // web: sin esto, Administración > Usuarios mostraría "Nunca" para
+        // colaboradores que solo usan la app móvil.
+        $usuario->forceFill(['ultimo_acceso' => now()])->save();
+
         $token = $usuario->createToken($credenciales['device_name'] ?? 'app-movil');
 
         return response()->json([

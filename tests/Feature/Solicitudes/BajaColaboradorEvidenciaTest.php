@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Colaborador;
 use App\Models\SolicitudInterna;
 use App\Models\User;
 use Database\Seeders\RolesYPermisosSeeder;
@@ -15,7 +16,7 @@ test('crear una solicitud de baja requiere fecha efectiva y tipo de baja', funct
     $rh = User::factory()->create();
     $rh->assignRole('rh_admin');
 
-    $colaborador = User::factory()->create();
+    $colaborador = Colaborador::factory()->create();
 
     $this->actingAs($rh)
         ->post(route('solicitudes.store'), [
@@ -35,7 +36,7 @@ test('crear una solicitud de baja requiere fecha efectiva y tipo de baja', funct
         ])
         ->assertSessionHasNoErrors();
 
-    $solicitud = SolicitudInterna::where('colaborador_objetivo_id', $colaborador->id)->first();
+    $solicitud = SolicitudInterna::where('objetivo_colaborador_id', $colaborador->id)->first();
 
     expect($solicitud)->not->toBeNull()
         ->and($solicitud->tipo_baja->value)->toBe('renuncia')
@@ -46,11 +47,11 @@ test('no se puede aprobar una baja de colaborador sin evidencia adjunta', functi
     $rh = User::factory()->create();
     $rh->assignRole('rh_admin');
 
-    $colaborador = User::factory()->create();
+    $colaborador = Colaborador::factory()->create();
     $solicitud = SolicitudInterna::factory()->create([
         'tipo' => 'baja_colaborador',
         'estado' => 'en_revision',
-        'colaborador_objetivo_id' => $colaborador->id,
+        'objetivo_colaborador_id' => $colaborador->id,
         'fecha_efectiva' => now()->addWeek(),
         'tipo_baja' => 'renuncia',
     ]);
@@ -67,11 +68,11 @@ test('una baja de colaborador con evidencia y finiquito revisado si se puede apr
     $rh = User::factory()->create();
     $rh->assignRole('rh_admin');
 
-    $colaborador = User::factory()->create(['fecha_ingreso' => now()->subYears(2)]);
+    $colaborador = Colaborador::factory()->create(['fecha_ingreso' => now()->subYears(2)]);
     $solicitud = SolicitudInterna::factory()->create([
         'tipo' => 'baja_colaborador',
         'estado' => 'en_revision',
-        'colaborador_objetivo_id' => $colaborador->id,
+        'objetivo_colaborador_id' => $colaborador->id,
         'fecha_efectiva' => now()->addWeek(),
         'tipo_baja' => 'renuncia',
     ]);

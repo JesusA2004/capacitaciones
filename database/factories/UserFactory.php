@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\EstadoUsuario;
+use App\Models\Colaborador;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -26,6 +27,14 @@ class UserFactory extends Factory
     public function definition(): array
     {
         return [
+            // Una cuenta de acceso sin colaborador enlazado no puede
+            // iniciar sesión de verdad (FortifyServiceProvider::authenticateUsing(),
+            // Api\V1\AuthController::login() leen colaborador->estatus, no
+            // users.estatus — ver docs/ROLES_Y_NAVEGACION.md): un
+            // Colaborador activo por default aquí es lo que hace que
+            // User::factory()->create() sirva para un login real en tests,
+            // no solo para actingAs().
+            'colaborador_id' => Colaborador::factory(),
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
@@ -35,6 +44,8 @@ class UserFactory extends Factory
             // SQLite (motor de pruebas) cuando la columna se agrego via
             // ALTER TABLE; se fija explicitamente aqui, igual que el resto
             // de las factories del proyecto (p. ej. SucursalFactory).
+            // Columna legacy (ver Colaborador::estatus para la fuente
+            // real), pero se deja en 'activo' por si algo todavía la lee.
             'estatus' => EstadoUsuario::Activo->value,
         ];
     }

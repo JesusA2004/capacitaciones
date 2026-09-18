@@ -26,6 +26,12 @@ class DemoSeeder extends Seeder
             // los colaboradores de UsuarioDemoSeeder ya creados.
             ExpedienteDemoSeeder::class,
             SolicitudesDemoSeeder::class,
+            // Colaborador sin cuenta con saldo de vacaciones real, préstamo
+            // ya activo con movimiento y recibo histórico (Parte B, ver
+            // docs/SOLICITUDES_UNIFICADAS.md): necesita rh.admin ya creado
+            // y corre después de SolicitudesDemoSeeder para no chocar con
+            // el préstamo pendiente_entrega que esa ya deja en colaborador4.
+            PrestamoReciboDemoSeeder::class,
             // Vacantes/candidatos/altas/QR: necesita catálogo organizacional
             // y (para el flujo completo demo) colaboradores ya existentes.
             ReclutamientoDemoSeeder::class,

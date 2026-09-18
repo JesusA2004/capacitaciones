@@ -198,7 +198,7 @@ const documentoOficialGeneracion = computed(
     <div class="flex w-full min-w-0 flex-col gap-6 p-4 sm:p-6">
         <CrudPageHeader
             :titulo="`Solicitud ${solicitud.folio}`"
-            :descripcion="`${solicitud.usuario?.name ?? ''} ${solicitud.usuario?.apellidos ?? ''}`"
+            :descripcion="`${solicitud.colaborador?.name ?? solicitud.usuario?.name ?? ''} ${solicitud.colaborador?.apellidos ?? solicitud.usuario?.apellidos ?? ''}`"
             :icono="ClipboardList"
         >
             <EstadoBadge :estado="solicitud.estado" />
@@ -214,7 +214,12 @@ const documentoOficialGeneracion = computed(
                         <div>
                             <p class="text-xs text-muted-foreground">Puesto</p>
                             <p class="text-sm font-medium">
-                                {{ solicitud.usuario?.puesto?.nombre ?? '—' }}
+                                {{
+                                    solicitud.colaborador?.puesto?.nombre ??
+                                    solicitud.usuario?.colaborador?.puesto
+                                        ?.nombre ??
+                                    '—'
+                                }}
                             </p>
                         </div>
                         <div>
@@ -223,8 +228,11 @@ const documentoOficialGeneracion = computed(
                             </p>
                             <p class="text-sm font-medium">
                                 {{
-                                    solicitud.usuario?.sucursal_principal
-                                        ?.nombre ?? '—'
+                                    solicitud.colaborador?.sucursal_principal
+                                        ?.nombre ??
+                                    solicitud.usuario?.colaborador
+                                        ?.sucursal_principal?.nombre ??
+                                    '—'
                                 }}
                             </p>
                         </div>
@@ -264,15 +272,24 @@ const documentoOficialGeneracion = computed(
                                 >
                             </p>
                         </div>
-                        <div v-if="solicitud.colaborador_objetivo">
+                        <div
+                            v-if="
+                                solicitud.objetivo_colaborador ||
+                                solicitud.colaborador_objetivo
+                            "
+                        >
                             <p class="text-xs text-muted-foreground">
                                 Colaborador a dar de baja
                             </p>
                             <p class="text-sm font-medium">
-                                {{ solicitud.colaborador_objetivo.name }}
                                 {{
-                                    solicitud.colaborador_objetivo.apellidos ??
-                                    ''
+                                    (solicitud.objetivo_colaborador ??
+                                        solicitud.colaborador_objetivo)!.name
+                                }}
+                                {{
+                                    (solicitud.objetivo_colaborador ??
+                                        solicitud.colaborador_objetivo)!
+                                        .apellidos ?? ''
                                 }}
                             </p>
                         </div>

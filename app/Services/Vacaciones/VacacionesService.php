@@ -104,52 +104,60 @@ class VacacionesService
 
         $userId = $colaborador->user?->id;
 
-        if ($userId === null) {
-            $diasUsados = 0;
-            $diasEnSolicitud = 0;
-        } else {
-            // Cuenta dias tanto del modulo legacy (solicitudes_vacaciones, ver
-            // App\Http\Controllers\VacacionesController — se conserva como
-            // endpoint legacy, ver seccion 13 de la reestructuracion) como del
-            // modulo unificado (solicitudes_internas con tipo=vacaciones, ver
-            // App\Services\Solicitudes\SolicitudesService::crear()). Nunca se
-            // debe poder rebasar el saldo solicitando por cualquiera de los dos
-            // caminos.
-            $solicitudesLegacyVigentes = SolicitudVacaciones::query()
-                ->where('user_id', $userId)
-                ->whereBetween('fecha_inicio', [$vigenciaInicio, $vigenciaFin])
-                ->get();
+        // colaborador_id es la fuente real (un Colaborador sin User debe
+        // poder tener saldo de vacaciones — finiquito, expediente, etc.);
+        // user_id se conserva como fallback para solicitudes legacy
+        // creadas antes de que colaborador_id empezara a llenarse (ver
+        // SolicitudesService::crear() y VacacionesService::solicitar()).
+        $porIdentidad = function (Builder $q) use ($colaborador, $userId): void {
+            $q->where('colaborador_id', $colaborador->id);
 
-            $diasUsadosLegacy = (int) $solicitudesLegacyVigentes
-                ->where('estado', EstadoSolicitudVacaciones::Aprobada)
-                ->sum('dias_solicitados');
+            if ($userId !== null) {
+                $q->orWhere('user_id', $userId);
+            }
+        };
 
-            $diasEnSolicitudLegacy = (int) $solicitudesLegacyVigentes
-                ->where('estado', EstadoSolicitudVacaciones::Pendiente)
-                ->sum('dias_solicitados');
+        // Cuenta dias tanto del modulo legacy (solicitudes_vacaciones, ver
+        // App\Http\Controllers\VacacionesController — se conserva como
+        // endpoint legacy, ver seccion 13 de la reestructuracion) como del
+        // modulo unificado (solicitudes_internas con tipo=vacaciones, ver
+        // App\Services\Solicitudes\SolicitudesService::crear()). Nunca se
+        // debe poder rebasar el saldo solicitando por cualquiera de los dos
+        // caminos.
+        $solicitudesLegacyVigentes = SolicitudVacaciones::query()
+            ->where($porIdentidad)
+            ->whereBetween('fecha_inicio', [$vigenciaInicio, $vigenciaFin])
+            ->get();
 
-            $solicitudesInternasVigentes = SolicitudInterna::query()
-                ->where('user_id', $userId)
-                ->where('tipo', TipoSolicitudInterna::Vacaciones)
-                ->whereBetween('fecha_inicio', [$vigenciaInicio, $vigenciaFin])
-                ->get();
+        $diasUsadosLegacy = (int) $solicitudesLegacyVigentes
+            ->where('estado', EstadoSolicitudVacaciones::Aprobada)
+            ->sum('dias_solicitados');
 
-            $diasUsadosInternas = (int) $solicitudesInternasVigentes
-                ->where('estado', EstadoSolicitudInterna::Aprobada)
-                ->sum('dias_solicitados');
+        $diasEnSolicitudLegacy = (int) $solicitudesLegacyVigentes
+            ->where('estado', EstadoSolicitudVacaciones::Pendiente)
+            ->sum('dias_solicitados');
 
-            $diasEnSolicitudInternas = (int) $solicitudesInternasVigentes
-                ->whereIn('estado', [
-                    EstadoSolicitudInterna::Creada,
-                    EstadoSolicitudInterna::Enviada,
-                    EstadoSolicitudInterna::EnRevision,
-                    EstadoSolicitudInterna::RequiereCorreccion,
-                ])
-                ->sum('dias_solicitados');
+        $solicitudesInternasVigentes = SolicitudInterna::query()
+            ->where($porIdentidad)
+            ->where('tipo', TipoSolicitudInterna::Vacaciones)
+            ->whereBetween('fecha_inicio', [$vigenciaInicio, $vigenciaFin])
+            ->get();
 
-            $diasUsados = $diasUsadosLegacy + $diasUsadosInternas;
-            $diasEnSolicitud = $diasEnSolicitudLegacy + $diasEnSolicitudInternas;
-        }
+        $diasUsadosInternas = (int) $solicitudesInternasVigentes
+            ->where('estado', EstadoSolicitudInterna::Aprobada)
+            ->sum('dias_solicitados');
+
+        $diasEnSolicitudInternas = (int) $solicitudesInternasVigentes
+            ->whereIn('estado', [
+                EstadoSolicitudInterna::Creada,
+                EstadoSolicitudInterna::Enviada,
+                EstadoSolicitudInterna::EnRevision,
+                EstadoSolicitudInterna::RequiereCorreccion,
+            ])
+            ->sum('dias_solicitados');
+
+        $diasUsados = $diasUsadosLegacy + $diasUsadosInternas;
+        $diasEnSolicitud = $diasEnSolicitudLegacy + $diasEnSolicitudInternas;
 
         return [
             'antiguedad_anios' => $antiguedadAnios,
@@ -192,7 +200,13 @@ class VacacionesService
     public function misSolicitudes(User $colaborador): Collection
     {
         return SolicitudVacaciones::query()
-            ->where('user_id', $colaborador->id)
+            ->where(function (Builder $q) use ($colaborador): void {
+                $q->where('user_id', $colaborador->id);
+
+                if ($colaborador->colaborador_id !== null) {
+                    $q->orWhere('colaborador_id', $colaborador->colaborador_id);
+                }
+            })
             ->orderByDesc('created_at')
             ->get();
     }
@@ -219,6 +233,7 @@ class VacacionesService
         $solicitud = SolicitudVacaciones::create([
             ...$datos,
             'user_id' => $colaborador->id,
+            'colaborador_id' => $colaborador->colaborador_id,
             'estado' => EstadoSolicitudVacaciones::Pendiente,
         ]);
 
@@ -319,23 +334,41 @@ class VacacionesService
      */
     private function queryRevision(User $revisor, array $filtros = []): Builder
     {
-        $idsPermitidos = $this->alcance->limitarUsuariosPorAlcance(User::query(), $revisor)->pluck('id');
+        $idsUsuariosPermitidos = $this->alcance->limitarUsuariosPorAlcance(User::query(), $revisor)->pluck('id');
+        $idsColaboradoresPermitidos = $this->alcance->limitarColaboradoresPorAlcance(Colaborador::query(), $revisor)->pluck('id');
 
         return SolicitudVacaciones::query()
-            ->with(['usuario:id,name,apellidos,colaborador_id', 'usuario.colaborador:id,numero_empleado,sucursal_principal_id', 'usuario.colaborador.sucursalPrincipal:id,nombre', 'revisadoPor:id,name,apellidos'])
+            ->with([
+                'colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id',
+                'colaborador.sucursalPrincipal:id,nombre',
+                'usuario:id,name,apellidos,colaborador_id',
+                'usuario.colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id',
+                'usuario.colaborador.sucursalPrincipal:id,nombre',
+                'revisadoPor:id,name,apellidos',
+            ])
             ->when(
                 ! $this->alcance->tieneAlcanceGlobal($revisor),
-                fn (Builder $query) => $query->whereIn('user_id', $idsPermitidos),
+                fn (Builder $query) => $query->where(fn (Builder $q) => $q
+                    ->whereIn('user_id', $idsUsuariosPermitidos)
+                    ->orWhereIn('colaborador_id', $idsColaboradoresPermitidos)),
             )
-            ->when($filtros['empresa_id'] ?? null, fn (Builder $q, $v) => $q->whereHas('usuario.colaborador.sucursalPrincipal', fn ($sub) => $sub->where('empresa_id', $v)))
-            ->when($filtros['sucursal_id'] ?? null, fn (Builder $q, $v) => $q->whereHas('usuario.colaborador', fn ($sub) => $sub->where('sucursal_principal_id', $v)))
+            ->when($filtros['empresa_id'] ?? null, fn (Builder $q, $v) => $q->where(fn (Builder $sub) => $sub
+                ->whereHas('colaborador.sucursalPrincipal', fn ($s) => $s->where('empresa_id', $v))
+                ->orWhereHas('usuario.colaborador.sucursalPrincipal', fn ($s) => $s->where('empresa_id', $v))))
+            ->when($filtros['sucursal_id'] ?? null, fn (Builder $q, $v) => $q->where(fn (Builder $sub) => $sub
+                ->whereHas('colaborador', fn ($s) => $s->where('sucursal_principal_id', $v))
+                ->orWhereHas('usuario.colaborador', fn ($s) => $s->where('sucursal_principal_id', $v))))
             ->when($filtros['revisado_por'] ?? null, fn (Builder $q, $v) => $q->where('revisado_por', $v))
             ->when($filtros['estado'] ?? null, fn (Builder $q, $v) => $q->where('estado', $v))
             ->when($filtros['fecha_inicio'] ?? null, fn (Builder $q, $v) => $q->whereDate('fecha_inicio', '>=', $v))
             ->when($filtros['fecha_fin'] ?? null, fn (Builder $q, $v) => $q->whereDate('fecha_fin', '<=', $v))
             ->when($filtros['busqueda'] ?? null, function (Builder $q, string $busqueda): void {
-                $q->whereHas('usuario', function ($sub) use ($busqueda): void {
-                    $sub->where('name', 'like', "%{$busqueda}%")->orWhere('apellidos', 'like', "%{$busqueda}%");
+                $q->where(function (Builder $sub) use ($busqueda): void {
+                    $sub->whereHas('colaborador', function ($s) use ($busqueda): void {
+                        $s->where('name', 'like', "%{$busqueda}%")->orWhere('apellidos', 'like', "%{$busqueda}%");
+                    })->orWhereHas('usuario', function ($s) use ($busqueda): void {
+                        $s->where('name', 'like', "%{$busqueda}%")->orWhere('apellidos', 'like', "%{$busqueda}%");
+                    });
                 });
             });
     }

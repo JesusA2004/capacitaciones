@@ -2,6 +2,7 @@
 
 use App\Enums\EstadoDocumento;
 use App\Enums\EstadoUsuario;
+use App\Models\Colaborador;
 use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
 use App\Models\User;
@@ -153,7 +154,7 @@ test('rh con permiso puede ver el detalle de un expediente', function () {
     DocumentType::factory()->create(['requerido' => true]);
 
     $this->withHeaders(headersIncorporacion($rh))
-        ->getJson("/api/v1/rh/expedientes/{$colaborador->id}")
+        ->getJson("/api/v1/rh/expedientes/{$colaborador->colaborador_id}")
         ->assertOk()
         ->assertJsonStructure(['colaborador', 'estado_incorporacion', 'documentos']);
 });
@@ -170,7 +171,7 @@ test('rh puede aprobar y rechazar documentos del expediente', function () {
     ]);
 
     $this->withHeaders(headersIncorporacion($rh))
-        ->postJson("/api/v1/rh/expedientes/{$colaborador->id}/documentos/{$documentoAprobar->id}/aprobar", ['comentario' => 'Todo en orden.'])
+        ->postJson("/api/v1/rh/expedientes/{$colaborador->colaborador_id}/documentos/{$documentoAprobar->id}/aprobar", ['comentario' => 'Todo en orden.'])
         ->assertOk();
     expect($documentoAprobar->fresh()->status)->toBe(EstadoDocumento::Aprobado);
 
@@ -180,11 +181,11 @@ test('rh puede aprobar y rechazar documentos del expediente', function () {
     ]);
 
     $this->withHeaders(headersIncorporacion($rh))
-        ->postJson("/api/v1/rh/expedientes/{$colaborador->id}/documentos/{$documentoRechazar->id}/rechazar", [])
+        ->postJson("/api/v1/rh/expedientes/{$colaborador->colaborador_id}/documentos/{$documentoRechazar->id}/rechazar", [])
         ->assertStatus(422);
 
     $this->withHeaders(headersIncorporacion($rh))
-        ->postJson("/api/v1/rh/expedientes/{$colaborador->id}/documentos/{$documentoRechazar->id}/rechazar", ['motivo' => 'Foto ilegible.'])
+        ->postJson("/api/v1/rh/expedientes/{$colaborador->colaborador_id}/documentos/{$documentoRechazar->id}/rechazar", ['motivo' => 'Foto ilegible.'])
         ->assertOk();
     expect($documentoRechazar->fresh()->status)->toBe(EstadoDocumento::Rechazado);
 });
@@ -200,7 +201,7 @@ test('rh puede autorizar el cambio de un documento que el colaborador solicito',
     ]);
 
     $this->withHeaders(headersIncorporacion($rh))
-        ->postJson("/api/v1/rh/expedientes/{$colaborador->id}/documentos/{$documento->id}/autorizar-cambio")
+        ->postJson("/api/v1/rh/expedientes/{$colaborador->colaborador_id}/documentos/{$documento->id}/autorizar-cambio")
         ->assertOk();
 
     expect($documento->fresh()->status)->toBe(EstadoDocumento::CambioAutorizado);
@@ -216,42 +217,42 @@ test('rh puede autorizar el cambio de un documento que el colaborador solicito',
 test('rh solo puede aprobar la incorporacion si todos los documentos obligatorios estan aprobados', function () {
     $rh = User::factory()->create();
     $rh->assignRole('rh_admin');
-    $colaborador = User::factory()->create(['estatus' => EstadoUsuario::EnIncorporacion->value]);
+    $colaborador = User::factory()->create(['colaborador_id' => Colaborador::factory()->create(['estatus' => EstadoUsuario::EnIncorporacion->value])]);
     $colaborador->assignRole('colaborador');
     $tipo1 = DocumentType::factory()->create(['requerido' => true]);
     $tipo2 = DocumentType::factory()->create(['requerido' => true]);
     EmployeeDocument::factory()->aprobado()->create(['user_id' => $colaborador->id, 'document_type_id' => $tipo1->id]);
 
     $this->withHeaders(headersIncorporacion($rh))
-        ->postJson("/api/v1/rh/expedientes/{$colaborador->id}/aprobar-incorporacion")
+        ->postJson("/api/v1/rh/expedientes/{$colaborador->colaborador_id}/aprobar-incorporacion")
         ->assertStatus(422);
-    expect($colaborador->fresh()->estatus)->toBe(EstadoUsuario::EnIncorporacion);
+    expect($colaborador->fresh()->colaborador->estatus)->toBe(EstadoUsuario::EnIncorporacion);
 
     EmployeeDocument::factory()->aprobado()->create(['user_id' => $colaborador->id, 'document_type_id' => $tipo2->id]);
 
     $this->withHeaders(headersIncorporacion($rh))
-        ->postJson("/api/v1/rh/expedientes/{$colaborador->id}/aprobar-incorporacion")
+        ->postJson("/api/v1/rh/expedientes/{$colaborador->colaborador_id}/aprobar-incorporacion")
         ->assertOk();
 
-    expect($colaborador->fresh()->estatus)->toBe(EstadoUsuario::Activo);
+    expect($colaborador->fresh()->colaborador->estatus)->toBe(EstadoUsuario::Activo);
 });
 
 test('rh puede rechazar la incorporacion con motivo, sin activar al colaborador', function () {
     $rh = User::factory()->create();
     $rh->assignRole('rh_admin');
-    $colaborador = User::factory()->create(['estatus' => EstadoUsuario::EnIncorporacion->value]);
+    $colaborador = User::factory()->create(['colaborador_id' => Colaborador::factory()->create(['estatus' => EstadoUsuario::EnIncorporacion->value])]);
     $colaborador->assignRole('colaborador');
 
     $this->withHeaders(headersIncorporacion($rh))
-        ->postJson("/api/v1/rh/expedientes/{$colaborador->id}/rechazar-incorporacion", [])
+        ->postJson("/api/v1/rh/expedientes/{$colaborador->colaborador_id}/rechazar-incorporacion", [])
         ->assertStatus(422);
 
     $this->withHeaders(headersIncorporacion($rh))
-        ->postJson("/api/v1/rh/expedientes/{$colaborador->id}/rechazar-incorporacion", ['motivo' => 'Documentos incompletos.'])
+        ->postJson("/api/v1/rh/expedientes/{$colaborador->colaborador_id}/rechazar-incorporacion", ['motivo' => 'Documentos incompletos.'])
         ->assertOk();
 
-    expect($colaborador->fresh()->estatus)->toBe(EstadoUsuario::EnIncorporacion);
-    expect($colaborador->fresh()->incorporacion_motivo_rechazo)->toBe('Documentos incompletos.');
+    expect($colaborador->fresh()->colaborador->estatus)->toBe(EstadoUsuario::EnIncorporacion);
+    expect($colaborador->fresh()->colaborador->incorporacion_motivo_rechazo)->toBe('Documentos incompletos.');
 });
 
 test('un usuario sin permiso de rh recibe 403 al usar los endpoints de expedientes', function () {
@@ -265,6 +266,6 @@ test('un usuario sin permiso de rh recibe 403 al usar los endpoints de expedient
         ->assertForbidden();
 
     $this->withHeaders(headersIncorporacion($colaborador))
-        ->getJson("/api/v1/rh/expedientes/{$otro->id}")
+        ->getJson("/api/v1/rh/expedientes/{$otro->colaborador_id}")
         ->assertForbidden();
 });

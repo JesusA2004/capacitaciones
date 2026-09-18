@@ -7,10 +7,11 @@ use Illuminate\Foundation\Http\FormRequest;
 
 /**
  * Datos capturados en el formulario "Generar recibo de nómina" del
- * expediente (ver App\Services\Nomina\ReciboNominaService::generar()). El
- * sueldo base nunca viene en el request: siempre se toma de
- * `Colaborador::sueldo_mensual`, aquí solo se validan los conceptos
- * adicionales que RH agrega/ajusta a mano.
+ * expediente (ver App\Services\Nomina\ReciboNominaService::generar()).
+ * `sueldo_base` es el sueldo de ESTE periodo (RH lo confirma/edita en el
+ * diálogo, precargado con una sugerencia simple según el rango de fechas),
+ * nunca el sueldo mensual completo aplicado ciegamente a un periodo
+ * quincenal — ver ReciboNominaService::generar().
  */
 class GenerarReciboNominaRequest extends FormRequest
 {
@@ -32,6 +33,7 @@ class GenerarReciboNominaRequest extends FormRequest
             'periodo_inicio' => ['required', 'date'],
             'periodo_fin' => ['required', 'date', 'after_or_equal:periodo_inicio'],
             'fecha_pago' => ['required', 'date'],
+            'sueldo_base' => ['required', 'numeric', 'min:0', 'max:9999999.99'],
             'percepciones' => ['array'],
             'percepciones.*.concepto' => ['required_with:percepciones', 'string', 'max:150'],
             'percepciones.*.monto' => ['required_with:percepciones', 'numeric', 'min:0', 'max:9999999.99'],

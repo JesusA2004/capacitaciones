@@ -12,9 +12,11 @@ Cada tipo declara sus propias reglas de formulario vía métodos del enum: `usaR
 
 Única puerta de entrada, usada tanto por el controlador web (`Solicitudes\SolicitudInternaController`) como por la API móvil. Reglas de negocio aplicadas ahí, no en los controladores:
 
-- **Vacaciones**: valida `dias_solicitados` contra el saldo disponible (`App\Services\Vacaciones\VacacionesService::saldo()`, que suma lo ya usado/en trámite tanto del módulo legacy como del unificado — nunca se puede rebasar el saldo por ningún camino).
+- **Vacaciones**: valida `dias_solicitados` contra el saldo disponible (`App\Services\Vacaciones\VacacionesService::saldo()`/`saldoColaborador()`, que suma lo ya usado/en trámite tanto del módulo legacy como del unificado por `colaborador_id` — nunca se puede rebasar el saldo por ningún camino).
 - **Préstamo**: captura `monto_solicitado` y `plazo_meses`.
-- **Baja de colaborador**: requiere el permiso `solicitudes.bajas.crear` (no el genérico `solicitudes.crear` — un gerente puede pedir la baja de su equipo sin poder crear otros tipos de solicitud sobre sí mismo) y valida, vía `SolicitudInternaPolicy::crearBaja()`, que quien la crea tenga alcance organizacional sobre el colaborador objetivo.
+- **Baja de colaborador**: requiere el permiso `solicitudes.bajas.crear` (no el genérico `solicitudes.crear` — un gerente puede pedir la baja de su equipo sin poder crear otros tipos de solicitud sobre sí mismo) y valida, vía `SolicitudInternaPolicy::crearBaja()`, que quien la crea tenga alcance organizacional sobre el colaborador objetivo (`Colaborador`, no `User` — el campo del formulario se llama `colaborador_objetivo_id` mandado por el sujeto, pero se guarda en `objetivo_colaborador_id`, el FK real hacia `colaboradores`).
+
+Cada solicitud guarda `colaborador_id` (la persona dueña de la solicitud, fuente de verdad) además de `user_id` (la cuenta/actor que hizo el submit, se conserva por compatibilidad) — ver `SolicitudInterna::personaSolicitante()`. Un colaborador sin cuenta de acceso puede tener saldo de vacaciones y solicitudes igual que cualquier otro; solo no puede *crear* una desde el portal (necesita sesión), pero sí puede ser el sujeto de una `baja_colaborador` creada por alguien más.
 
 ## Revisión y aprobación
 

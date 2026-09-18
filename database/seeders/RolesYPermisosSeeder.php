@@ -135,6 +135,11 @@ class RolesYPermisosSeeder extends Seeder
         'candidatos.aprobar',
         'candidatos.rechazar',
         'candidatos.eliminar',
+        // Gasto de campañas de reclutamiento por canal/periodo (ver
+        // Rh\CampanaReclutamientoController) — permiso propio, ya no
+        // hardcodeado a rh_admin/super_admin.
+        'reclutamiento.campanas.ver',
+        'reclutamiento.campanas.administrar',
 
         // --- Plantillas y formatos precargados (Mr. Lana People Fase 1) ---
         'plantillas.ver',
@@ -329,6 +334,7 @@ class RolesYPermisosSeeder extends Seeder
             'auditoria.ver',
             'vacantes.ver', 'vacantes.ver_todos', 'vacantes.crear', 'vacantes.editar', 'vacantes.cerrar', 'vacantes.eliminar',
             'candidatos.ver', 'candidatos.ver_todos', 'candidatos.crear', 'candidatos.editar', 'candidatos.aprobar', 'candidatos.rechazar', 'candidatos.eliminar',
+            'reclutamiento.campanas.ver', 'reclutamiento.campanas.administrar',
             'plantillas.ver', 'plantillas.crear', 'plantillas.editar', 'plantillas.eliminar', 'plantillas.generar',
             'formatos.ver', 'formatos.preview', 'formatos.descargar_pdf', 'formatos.descargar_docx',
             'formatos_oficiales.ver', 'formatos_oficiales.generar', 'formatos_oficiales.descargar', 'formatos_oficiales.configurar',
@@ -372,6 +378,7 @@ class RolesYPermisosSeeder extends Seeder
             'reportes_rh.ver',
             'vacantes.ver', 'vacantes.ver_todos', 'vacantes.crear', 'vacantes.editar',
             'candidatos.ver', 'candidatos.ver_todos', 'candidatos.crear', 'candidatos.editar',
+            'reclutamiento.campanas.ver',
             'plantillas.ver', 'plantillas.generar',
             'formatos.ver', 'formatos.preview', 'formatos.descargar_pdf', 'formatos.descargar_docx',
             'formatos_oficiales.ver', 'formatos_oficiales.generar', 'formatos_oficiales.descargar',

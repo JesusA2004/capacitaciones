@@ -115,9 +115,14 @@ class SolicitudController extends Controller
         $this->authorize('view', $solicitud);
 
         $solicitud->load([
-            'usuario:id,name,apellidos,puesto_id,sucursal_principal_id',
-            'usuario.puesto:id,nombre',
-            'usuario.sucursalPrincipal:id,nombre',
+            'colaborador:id,name,apellidos,puesto_id,sucursal_principal_id',
+            'colaborador.puesto:id,nombre',
+            'colaborador.sucursalPrincipal:id,nombre',
+            'usuario:id,name,apellidos,colaborador_id',
+            'usuario.colaborador:id,name,apellidos,puesto_id,sucursal_principal_id',
+            'usuario.colaborador.puesto:id,nombre',
+            'usuario.colaborador.sucursalPrincipal:id,nombre',
+            'objetivoColaborador:id,name,apellidos',
             'colaboradorObjetivo:id,name,apellidos',
             'revisadoPor:id,name,apellidos',
             'documentos.subidoPor:id,name,apellidos',

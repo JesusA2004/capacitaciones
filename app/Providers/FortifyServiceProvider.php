@@ -66,6 +66,12 @@ class FortifyServiceProvider extends ServiceProvider
                 ]);
             }
 
+            // Único punto de escritura de `ultimo_acceso` para el login web
+            // (ver también Api\V1\AuthController::login() para la app
+            // móvil) — sin esto, Administración > Usuarios mostraría
+            // "Nunca" para siempre sin importar cuántas veces entre.
+            $usuario->forceFill(['ultimo_acceso' => now()])->save();
+
             return $usuario;
         });
     }
