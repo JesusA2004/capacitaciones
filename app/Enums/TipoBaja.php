@@ -15,6 +15,7 @@ enum TipoBaja: string
     case MutuoAcuerdo = 'mutuo_acuerdo';
     case FinContrato = 'fin_contrato';
     case Abandono = 'abandono';
+    case NoRenovacion = 'no_renovacion';
     case Otro = 'otro';
 
     public function etiqueta(): string
@@ -25,6 +26,7 @@ enum TipoBaja: string
             self::MutuoAcuerdo => 'Mutuo acuerdo',
             self::FinContrato => 'Fin de contrato',
             self::Abandono => 'Abandono de empleo',
+            self::NoRenovacion => 'No renovación de contrato',
             self::Otro => 'Otro',
         };
     }

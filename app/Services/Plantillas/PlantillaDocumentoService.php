@@ -8,6 +8,7 @@ use App\Models\DocumentTemplate;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use PhpOffice\PhpWord\TemplateProcessor;
+use RuntimeException;
 use ZipArchive;
 
 /**
@@ -32,6 +33,28 @@ class PlantillaDocumentoService
     {
         $valores = $this->resolver->resolver($sujeto, $extra);
 
+        return [
+            'contenido' => $this->generarConValores($plantilla, $valores),
+            'nombre_interno' => $this->storage->nombreInterno("{$plantilla->tipo->value}.docx"),
+        ];
+    }
+
+    /**
+     * Sustituye los {{placeholders}} del DOCX de la plantilla con valores ya
+     * resueltos (el motor documental los resuelve una sola vez y guarda ese
+     * mismo arreglo como snapshot, ver
+     * App\Services\DocumentosLaborales\MotorDocumentalService).
+     *
+     * @param  array<string, string>  $valores
+     *
+     * @throws RuntimeException Si la plantilla no tiene archivo DOCX cargado.
+     */
+    public function generarConValores(DocumentTemplate $plantilla, array $valores): string
+    {
+        if ($plantilla->path === null) {
+            throw new RuntimeException("La plantilla «{$plantilla->nombre}» no tiene archivo DOCX cargado.");
+        }
+
         $archivoOrigen = sys_get_temp_dir().'/'.Str::uuid().'.docx';
         file_put_contents($archivoOrigen, $this->storage->disco()->get($plantilla->path));
 
@@ -52,10 +75,7 @@ class PlantillaDocumentoService
             $contenido = file_get_contents($archivoSalida);
             unlink($archivoSalida);
 
-            return [
-                'contenido' => $contenido !== false ? $contenido : '',
-                'nombre_interno' => $this->storage->nombreInterno("{$plantilla->tipo->value}.docx"),
-            ];
+            return $contenido !== false ? $contenido : '';
         } finally {
             if (file_exists($archivoOrigen)) {
                 unlink($archivoOrigen);
@@ -94,6 +114,10 @@ class PlantillaDocumentoService
         $archivoTemporal = sys_get_temp_dir().'/'.Str::uuid().'.docx';
 
         try {
+            if ($plantilla->path === null) {
+                return [];
+            }
+
             file_put_contents($archivoTemporal, $this->storage->disco()->get($plantilla->path));
 
             $zip = new ZipArchive;

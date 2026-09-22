@@ -33,7 +33,7 @@ class AlcanceOrganizacionalService
      *
      * @var array<int, string>
      */
-    private const ROLES_ALCANCE_GLOBAL = ['super_admin', 'administrador_capacitacion', 'auditor', 'rh_admin', 'rh_auxiliar', 'director_comercial'];
+    private const ROLES_ALCANCE_GLOBAL = ['super_admin', 'administrador_capacitacion', 'auditor', 'rh_admin', 'rh_auxiliar', 'director_comercial', 'direccion', 'juridico', 'sistemas'];
 
     /**
      * Roles restringidos a sus sucursales autorizadas (principal + adicionales
@@ -286,6 +286,31 @@ class AlcanceOrganizacionalService
      * Igual criterio que limitarExpedientesPorAlcance(), pero para un
      * colaborador ya cargado en memoria (vista de expediente individual).
      */
+    /**
+     * Alcance organizacional puro (sin revisar permisos): true si el
+     * colaborador cae dentro de lo que este usuario administra — global,
+     * sus sucursales, o sus subordinados directos si es jefe_directo — o si
+     * es él mismo. Las Policies combinan esto con el permiso específico de
+     * cada acción; nunca se usa solo como autorización.
+     */
+    public function alcanzaColaborador(User $usuario, Colaborador $colaborador): bool
+    {
+        if ($usuario->colaborador_id === $colaborador->id || $this->tieneAlcanceGlobal($usuario)) {
+            return true;
+        }
+
+        if ($this->tieneAlcanceDeSucursal($usuario)) {
+            return $colaborador->sucursal_principal_id !== null
+                && $this->sucursalesVisiblesIds($usuario)->contains($colaborador->sucursal_principal_id);
+        }
+
+        if ($usuario->hasRole('jefe_directo') && $usuario->colaborador_id !== null) {
+            return $colaborador->jefe_id === $usuario->colaborador_id || $colaborador->gerente_id === $usuario->colaborador_id;
+        }
+
+        return false;
+    }
+
     public function puedeVerExpediente(User $usuario, Colaborador $colaborador): bool
     {
         if ($usuario->colaborador_id === $colaborador->id) {

@@ -67,6 +67,8 @@ class ConversionColaboradorService
                 'domicilio' => $alta->domicilio,
                 'contacto_emergencia_nombre' => $alta->contacto_emergencia_nombre,
                 'contacto_emergencia_telefono' => $alta->contacto_emergencia_telefono,
+                'candidato_id' => $alta->candidato_id,
+                'alta_registrada_por' => $aprobadoPor->id,
             ]);
 
             $usuario = User::create([
@@ -139,7 +141,11 @@ class ConversionColaboradorService
 
             if ($alta->candidato) {
                 $estadoAnterior = $alta->candidato->estado;
-                $alta->candidato->update(['estado' => EstadoCandidato::Contratado]);
+                $alta->candidato->update([
+                    'estado' => EstadoCandidato::Contratado,
+                    'colaborador_id' => $colaborador->id,
+                    'contratado_en' => now(),
+                ]);
                 $alta->candidato->seguimientos()->create([
                     'tipo' => TipoSeguimientoCandidato::CambioEstado,
                     'nota' => 'Alta digital aprobada: candidato convertido en colaborador.',
@@ -151,7 +157,12 @@ class ConversionColaboradorService
             }
 
             if ($alta->vacante && ! in_array($alta->vacante->estado, [EstadoVacante::Cubierta, EstadoVacante::Cancelada], true)) {
-                $alta->vacante->update(['estado' => EstadoVacante::Cubierta]);
+                $alta->vacante->update([
+                    'estado' => EstadoVacante::Cubierta,
+                    'candidato_contratado_id' => $alta->candidato_id,
+                    'colaborador_contratado_id' => $colaborador->id,
+                    'fecha_cierre' => now()->toDateString(),
+                ]);
             }
 
             $this->movimientos->registrarAlta($colaborador, $aprobadoPor, $alta, $alta->vacante_id);

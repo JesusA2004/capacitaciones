@@ -26,3 +26,13 @@ Schedule::command('capacitacion:limpiar-cargas-expiradas')->hourly();
 // negocio con RH, no un dato de usuario.
 Schedule::command('cumpleanos:enviar-felicitaciones')->dailyAt('08:00')->timezone('America/Mexico_City');
 Schedule::command('cumpleanos:recordar-rh')->dailyAt('07:30')->timezone('America/Mexico_City');
+
+// Ciclo laboral (docs/backend-rh-completion.md): vencimientos de contratos
+// (evaluación de periodo de prueba, tareas y avisos N días antes, sin
+// duplicar) y barrido de pendientes de expediente. Idempotente;
+// withoutOverlapping/onOneServer evitan dos ejecuciones simultáneas.
+Schedule::command('contratos:revisar-vencimientos')
+    ->dailyAt('06:30')
+    ->timezone('America/Mexico_City')
+    ->withoutOverlapping()
+    ->onOneServer();

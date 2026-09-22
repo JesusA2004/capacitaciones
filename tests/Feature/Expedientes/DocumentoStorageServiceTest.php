@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\EstadoDocumento;
+use App\Models\Colaborador;
 use App\Models\DocumentType;
 use App\Models\Empresa;
 use App\Models\Sucursal;
@@ -17,12 +18,12 @@ use Illuminate\Support\Facades\Storage;
  * vale la pena blindar cada caso con Storage::fake('nas') antes de tocar el
  * NAS real.
  */
-function colaboradorConSucursal(string $sucursal = 'Cuernavaca', string $empresa = 'MR LANA', array $atributos = []): User
+function colaboradorConSucursal(string $sucursal = 'Cuernavaca', string $empresa = 'MR LANA', array $atributos = []): Colaborador
 {
     $empresaModelo = Empresa::factory()->create(['nombre' => $empresa]);
     $sucursalModelo = Sucursal::factory()->create(['empresa_id' => $empresaModelo->id, 'nombre' => $sucursal]);
 
-    return User::factory()->create(array_merge([
+    return Colaborador::factory()->create(array_merge([
         'sucursal_principal_id' => $sucursalModelo->id,
         'numero_empleado' => '00125',
         'name' => 'Juan',
@@ -35,6 +36,13 @@ function archivoFalso(string $nombre = 'documento.pdf'): UploadedFile
     return UploadedFile::fake()->create($nombre, 10, 'application/pdf');
 }
 
+if (! function_exists('subidorId')) {
+    function subidorId(): int
+    {
+        return User::factory()->create()->id;
+    }
+}
+
 beforeEach(function () {
     Storage::fake('nas');
 });
@@ -44,9 +52,9 @@ test('A: la primera subida crea la carpeta legible y persiste la ruta base del c
     $tipo = DocumentType::factory()->create(['nombre' => 'Acta de nacimiento']);
     $storage = app(DocumentoStorageService::class);
 
-    $documento = $storage->subirVersion($colaborador, $tipo, archivoFalso(), $colaborador->id);
+    $documento = $storage->subirVersion($colaborador, $tipo, archivoFalso(), subidorId());
 
-    expect($documento->path)->toBe('expedientes/MR LANA/Cuernavaca/00125 - Juan Perez/Acta de nacimiento - v1.pdf')
+    expect($documento->path)->toBe('expedientes/MR LANA/Cuernavaca/00125 - Juan Perez/Personales/Acta de nacimiento - v1.pdf')
         ->and($documento->version)->toBe(1)
         ->and($colaborador->fresh()->expediente_storage_path)->toBe('expedientes/MR LANA/Cuernavaca/00125 - Juan Perez');
 
@@ -58,8 +66,8 @@ test('B: una segunda version conserva la primera intacta', function () {
     $tipo = DocumentType::factory()->create(['nombre' => 'Comprobante de domicilio']);
     $storage = app(DocumentoStorageService::class);
 
-    $v1 = $storage->subirVersion($colaborador, $tipo, archivoFalso(), $colaborador->id);
-    $v2 = $storage->subirVersion($colaborador, $tipo, archivoFalso(), $colaborador->id);
+    $v1 = $storage->subirVersion($colaborador, $tipo, archivoFalso(), subidorId());
+    $v2 = $storage->subirVersion($colaborador, $tipo, archivoFalso(), subidorId());
 
     expect($v2->version)->toBe(2)
         ->and($v2->previous_version_id)->toBe($v1->id)
@@ -75,14 +83,14 @@ test('C: dos colaboradores homonimos con distinto numero de empleado no colision
     $empresa = Empresa::factory()->create(['nombre' => 'MR LANA']);
     $sucursal = Sucursal::factory()->create(['empresa_id' => $empresa->id, 'nombre' => 'Cuernavaca']);
 
-    $juanA = User::factory()->create(['sucursal_principal_id' => $sucursal->id, 'numero_empleado' => '00125', 'name' => 'Juan', 'apellidos' => 'Perez']);
-    $juanB = User::factory()->create(['sucursal_principal_id' => $sucursal->id, 'numero_empleado' => '00473', 'name' => 'Juan', 'apellidos' => 'Perez']);
+    $juanA = Colaborador::factory()->create(['sucursal_principal_id' => $sucursal->id, 'numero_empleado' => '00125', 'name' => 'Juan', 'apellidos' => 'Perez']);
+    $juanB = Colaborador::factory()->create(['sucursal_principal_id' => $sucursal->id, 'numero_empleado' => '00473', 'name' => 'Juan', 'apellidos' => 'Perez']);
 
     $tipo = DocumentType::factory()->create(['nombre' => 'INE']);
     $storage = app(DocumentoStorageService::class);
 
-    $docA = $storage->subirVersion($juanA, $tipo, archivoFalso(), $juanA->id);
-    $docB = $storage->subirVersion($juanB, $tipo, archivoFalso(), $juanB->id);
+    $docA = $storage->subirVersion($juanA, $tipo, archivoFalso(), subidorId());
+    $docB = $storage->subirVersion($juanB, $tipo, archivoFalso(), subidorId());
 
     expect($docA->path)->not->toBe($docB->path)
         ->and($docA->path)->toContain('00125 - Juan Perez')
@@ -94,7 +102,7 @@ test('D: un colaborador sin numero de empleado usa el placeholder SIN-NUMERO-{id
     $tipo = DocumentType::factory()->create(['nombre' => 'RFC']);
     $storage = app(DocumentoStorageService::class);
 
-    $documento = $storage->subirVersion($colaborador, $tipo, archivoFalso(), $colaborador->id);
+    $documento = $storage->subirVersion($colaborador, $tipo, archivoFalso(), subidorId());
 
     expect($documento->path)->toContain("SIN-NUMERO-{$colaborador->id} - Juan Perez");
 });
@@ -104,15 +112,15 @@ test('E: cambiar el nombre despues de la v1 no mueve la v2 de carpeta', function
     $tipo = DocumentType::factory()->create(['nombre' => 'CURP']);
     $storage = app(DocumentoStorageService::class);
 
-    $v1 = $storage->subirVersion($colaborador, $tipo, archivoFalso(), $colaborador->id);
+    $v1 = $storage->subirVersion($colaborador, $tipo, archivoFalso(), subidorId());
     $rutaOriginal = dirname($v1->path);
 
     $colaborador->update(['apellidos' => 'Perez Hernandez']);
 
-    $v2 = $storage->subirVersion($colaborador->fresh(), $tipo, archivoFalso(), $colaborador->id);
+    $v2 = $storage->subirVersion($colaborador->fresh(), $tipo, archivoFalso(), subidorId());
 
     expect(dirname($v2->path))->toBe($rutaOriginal)
-        ->and($v2->path)->toContain('00125 - Juan Perez/');
+        ->and($v2->path)->toContain('00125 - Juan Perez/Personales/');
 });
 
 test('F: cambiar de sucursal despues de la v1 no parte el expediente', function () {
@@ -120,13 +128,13 @@ test('F: cambiar de sucursal despues de la v1 no parte el expediente', function 
     $tipo = DocumentType::factory()->create(['nombre' => 'NSS']);
     $storage = app(DocumentoStorageService::class);
 
-    $v1 = $storage->subirVersion($colaborador, $tipo, archivoFalso(), $colaborador->id);
+    $v1 = $storage->subirVersion($colaborador, $tipo, archivoFalso(), subidorId());
     $rutaOriginal = dirname($v1->path);
 
     $nuevaSucursal = Sucursal::factory()->create(['nombre' => 'Lerma']);
     $colaborador->update(['sucursal_principal_id' => $nuevaSucursal->id]);
 
-    $v2 = $storage->subirVersion($colaborador->fresh(), $tipo, archivoFalso(), $colaborador->id);
+    $v2 = $storage->subirVersion($colaborador->fresh(), $tipo, archivoFalso(), subidorId());
 
     expect(dirname($v2->path))->toBe($rutaOriginal)
         ->and($v2->path)->not->toContain('Lerma');
@@ -146,7 +154,7 @@ test('G: si falla la creacion en BD, el archivo recien guardado se elimina', fun
     $tipoFantasma->id = $tipoId;
     $tipoFantasma->exists = true;
 
-    expect(fn () => $storage->subirVersion($colaborador, $tipoFantasma, archivoFalso(), $colaborador->id))
+    expect(fn () => $storage->subirVersion($colaborador, $tipoFantasma, archivoFalso(), subidorId()))
         ->toThrow(QueryException::class);
 
     Storage::disk('nas')->assertDirectoryEmpty('expedientes');
@@ -169,14 +177,14 @@ test('la version se calcula sobre el maximo historico, nunca reutiliza un numero
     $tipo = DocumentType::factory()->create(['nombre' => 'Acta de nacimiento']);
     $storage = app(DocumentoStorageService::class);
 
-    $v1 = $storage->subirVersion($colaborador, $tipo, archivoFalso(), $colaborador->id);
-    $v2 = $storage->subirVersion($colaborador, $tipo, archivoFalso(), $colaborador->id);
+    $v1 = $storage->subirVersion($colaborador, $tipo, archivoFalso(), subidorId());
+    $v2 = $storage->subirVersion($colaborador, $tipo, archivoFalso(), subidorId());
 
     // v2 se borra logicamente (soft delete) - la version 2 "desaparece" del
     // listado normal pero el archivo v2 real pudo seguir vivo en el NAS.
     $v2->delete();
 
-    $v3 = $storage->subirVersion($colaborador->fresh(), $tipo, archivoFalso(), $colaborador->id);
+    $v3 = $storage->subirVersion($colaborador->fresh(), $tipo, archivoFalso(), subidorId());
 
     expect($v3->version)->toBe(3)
         ->and($v3->path)->toContain('Acta de nacimiento - v3.pdf');

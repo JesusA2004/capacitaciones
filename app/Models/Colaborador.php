@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Enums\EstadoAltaColaborador;
 use App\Enums\EstadoUsuario;
 use App\Enums\EstatusImss;
 use App\Enums\Genero;
+use App\Enums\TipoContratacion;
 use Database\Factories\ColaboradorFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -41,6 +43,15 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property int|null $departamento_id
  * @property int|null $puesto_id
  * @property int|null $jefe_id
+ * @property int|null $gerente_id
+ * @property TipoContratacion|null $tipo_contratacion
+ * @property EstadoAltaColaborador|null $estado_alta
+ * @property int|null $candidato_id
+ * @property int|null $alta_registrada_por
+ * @property Carbon|null $activado_en
+ * @property Carbon|null $fecha_baja
+ * @property Carbon|null $expediente_cerrado_en
+ * @property int|null $expediente_cerrado_por
  * @property Carbon|null $fecha_ingreso
  * @property EstadoUsuario $estatus
  * @property EstatusImss $estatus_imss
@@ -70,11 +81,14 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property-read Departamento|null $departamento
  * @property-read Puesto|null $puesto
  * @property-read Colaborador|null $jefe
+ * @property-read Colaborador|null $gerente
  * @property-read User|null $user
  */
 #[Fillable([
     'name', 'apellidos', 'genero', 'numero_empleado', 'telefono', 'telefono_corporativo', 'sueldo_mensual', 'foto_path',
-    'sucursal_principal_id', 'departamento_id', 'puesto_id', 'jefe_id',
+    'sucursal_principal_id', 'departamento_id', 'puesto_id', 'jefe_id', 'gerente_id',
+    'tipo_contratacion', 'estado_alta', 'candidato_id', 'alta_registrada_por', 'activado_en',
+    'fecha_baja', 'expediente_cerrado_en', 'expediente_cerrado_por',
     'fecha_ingreso', 'estatus', 'estatus_imss', 'fecha_alta_imss',
     'periodo_prueba_inicio', 'periodo_prueba_fin',
     'fecha_nacimiento', 'curp', 'rfc', 'nss', 'domicilio',
@@ -118,6 +132,11 @@ class Colaborador extends Model
             'consentimiento_datos_aceptado_en' => 'datetime',
             'incorporacion_decidida_en' => 'datetime',
             'sueldo_mensual' => 'decimal:2',
+            'tipo_contratacion' => TipoContratacion::class,
+            'estado_alta' => EstadoAltaColaborador::class,
+            'activado_en' => 'datetime',
+            'fecha_baja' => 'date',
+            'expediente_cerrado_en' => 'datetime',
         ];
     }
 
@@ -192,6 +211,41 @@ class Colaborador extends Model
     public function jefe(): BelongsTo
     {
         return $this->belongsTo(Colaborador::class, 'jefe_id');
+    }
+
+    /**
+     * Gerente del colaborador (puede ser distinto del jefe inmediato). Ver
+     * App\Services\Colaboradores\JerarquiaColaboradorService::gerenteDe().
+     *
+     * @return BelongsTo<Colaborador, $this>
+     */
+    public function gerente(): BelongsTo
+    {
+        return $this->belongsTo(Colaborador::class, 'gerente_id');
+    }
+
+    /**
+     * @return BelongsTo<Candidato, $this>
+     */
+    public function candidatoOrigen(): BelongsTo
+    {
+        return $this->belongsTo(Candidato::class, 'candidato_id');
+    }
+
+    /**
+     * @return HasMany<ContratoLaboral, $this>
+     */
+    public function contratos(): HasMany
+    {
+        return $this->hasMany(ContratoLaboral::class)->orderByDesc('fecha_inicio')->orderByDesc('id');
+    }
+
+    /**
+     * @return HasMany<GeneratedDocument, $this>
+     */
+    public function documentosGenerados(): HasMany
+    {
+        return $this->hasMany(GeneratedDocument::class, 'colaborador_id');
     }
 
     /**
@@ -288,7 +342,12 @@ class Colaborador extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['name', 'apellidos', 'estatus', 'sucursal_principal_id', 'departamento_id', 'puesto_id', 'incorporacion_decision'])
+            ->logOnly([
+                'name', 'apellidos', 'estatus', 'sucursal_principal_id', 'departamento_id', 'puesto_id',
+                'jefe_id', 'gerente_id', 'sueldo_mensual', 'fecha_ingreso', 'tipo_contratacion',
+                'periodo_prueba_inicio', 'periodo_prueba_fin', 'estado_alta', 'fecha_baja',
+                'expediente_cerrado_en', 'incorporacion_decision',
+            ])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs();
     }

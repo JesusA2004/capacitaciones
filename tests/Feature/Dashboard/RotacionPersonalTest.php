@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Genero;
+use App\Models\Colaborador;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
@@ -16,7 +17,7 @@ test('rh_admin puede consultar los KPIs de rotación en vivo', function () {
     $rh = User::factory()->create();
     $rh->assignRole('rh_admin');
 
-    $colaborador = User::factory()->create(['genero' => Genero::Femenino]);
+    $colaborador = Colaborador::factory()->create(['genero' => Genero::Femenino]);
     app(MovimientoLaboralService::class)->registrarAlta($colaborador, $rh);
 
     $respuesta = $this->actingAs($rh)->getJson(route('dashboard.rotacion'));
@@ -41,7 +42,7 @@ test('el filtro de sucursal acota altas/bajas', function () {
     $rh->assignRole('rh_admin');
 
     $sucursal = Sucursal::first();
-    $colaborador = User::factory()->create(['sucursal_principal_id' => $sucursal->id]);
+    $colaborador = Colaborador::factory()->create(['sucursal_principal_id' => $sucursal->id]);
     app(MovimientoLaboralService::class)->registrarAlta($colaborador, $rh);
 
     $otraSucursalId = Sucursal::where('id', '!=', $sucursal->id)->value('id');
@@ -65,7 +66,7 @@ test('un colaborador sin permiso operativo no puede consultar el KPI de rotació
 test('la composición por género no cuenta dos veces a "sin especificar"', function () {
     $rh = User::factory()->create();
     $rh->assignRole('rh_admin');
-    User::factory()->create(['genero' => null, 'estatus' => 'activo']);
+    Colaborador::factory()->create(['genero' => null, 'estatus' => 'activo']);
 
     $respuesta = $this->actingAs($rh)->getJson(route('dashboard.rotacion'));
 

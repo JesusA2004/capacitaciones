@@ -71,7 +71,7 @@ class FiniquitoController extends Controller
         $this->authorize('ver', $finiquito);
 
         $usaFormatoOficial = $this->finiquitos->tieneFormatoOficialConfigurado();
-        $this->finiquitos->generarPdf($finiquito);
+        $this->finiquitos->generarPdf($finiquito, request()->user());
 
         return back()->with('toast', [
             'type' => 'success',

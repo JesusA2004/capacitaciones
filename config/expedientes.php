@@ -14,7 +14,7 @@ return [
     | ruta protegida por policy (ver routes/rh.php).
     |
     */
-    'disk' => 'nas',
+    'disk' => env('EXPEDIENTES_DISK', 'nas'),
 
     /*
     |--------------------------------------------------------------------------

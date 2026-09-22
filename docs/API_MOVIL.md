@@ -246,3 +246,11 @@ Tests: `tests/Feature/Api/AuthApiTest.php`, `tests/Feature/Api/ColaboradorApiTes
 - Rate limiting específico de la API (hoy usa el throttle por defecto de Laravel).
 
 `colaborador/perfil.foto_url`/`colaborador/dashboard.perfil.foto_url` ya apuntan a `GET /api/v1/colaborador/foto` (streaming, autenticado por Bearer token, nunca la ruta web `rh.expedientes.foto` que requiere sesión) — resuelto en el backend móvil v5, ver `docs/BACKEND_MOBILE_V5.md`.
+
+## Ciclo laboral completo (septiembre 2026)
+
+Alta, expediente con estado documental, documentos laborales con firma digital, recibos
+internos semanales (no fiscales), préstamos con visto bueno del jefe, evaluaciones de
+periodo de prueba, cierre laboral, actas, indicadores, organigrama y bandeja de tareas:
+ver `docs/backend-rh-completion.md` (sección 6, tabla de endpoints). Todo el grupo
+autenticado usa `throttle:api` y el login `throttle:api-login`.

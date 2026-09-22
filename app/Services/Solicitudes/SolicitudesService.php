@@ -69,6 +69,9 @@ class SolicitudesService
         private readonly FiniquitoService $finiquito,
         private readonly SolicitudFormatoOficialService $formatoOficial,
         private readonly PrestamoService $prestamo,
+        private readonly AprobacionJerarquicaService $aprobaciones,
+        private readonly TareasSolicitudService $tareasSolicitud,
+        private readonly ComprobanteSolicitudService $comprobantes,
     ) {}
 
     /**
@@ -102,7 +105,7 @@ class SolicitudesService
             }
         }
 
-        return DB::transaction(function () use ($solicitante, $datos, $colaboradorObjetivo): SolicitudInterna {
+        $solicitud = DB::transaction(function () use ($solicitante, $datos, $colaboradorObjetivo): SolicitudInterna {
             // El folio final se deriva del id autoincremental real de la
             // fila (asignado de forma atómica por la base de datos), nunca
             // de un max(id)+1 leído antes del insert: dos requests
@@ -147,6 +150,12 @@ class SolicitudesService
 
             return $solicitud;
         });
+
+        // Bandeja de trabajo: pendiente para el jefe (si el tipo exige su
+        // visto bueno) o para quien autoriza. Nunca revierte la solicitud.
+        $this->notificarSinFallar(fn () => $this->tareasSolicitud->alCrear($solicitud));
+
+        return $solicitud;
     }
 
     /**
@@ -343,9 +352,12 @@ class SolicitudesService
         return $this->cambiarEstado($solicitud, $actor, EstadoSolicitudInterna::EnRevision, $comentario);
     }
 
-    public function aprobar(SolicitudInterna $solicitud, User $actor, ?string $comentario = null): SolicitudInterna
+    /**
+     * @param  array<string, mixed>  $datosAprobacion  Datos que la aprobación fija (p. ej. monto/plazo autorizado de un préstamo, ver PrestamoAutorizacionService).
+     */
+    public function aprobar(SolicitudInterna $solicitud, User $actor, ?string $comentario = null, array $datosAprobacion = []): SolicitudInterna
     {
-        return $this->cambiarEstado($solicitud, $actor, EstadoSolicitudInterna::Aprobada, $comentario);
+        return $this->cambiarEstado($solicitud, $actor, EstadoSolicitudInterna::Aprobada, $comentario, null, $datosAprobacion);
     }
 
     public function rechazar(SolicitudInterna $solicitud, User $actor, string $motivoRechazo): SolicitudInterna
@@ -398,8 +410,22 @@ class SolicitudesService
         };
     }
 
-    private function cambiarEstado(SolicitudInterna $solicitud, User $actor, EstadoSolicitudInterna $nuevoEstado, ?string $comentario = null, ?string $motivoRechazo = null): SolicitudInterna
+    /**
+     * @param  array<string, mixed>  $datosAprobacion
+     */
+    private function cambiarEstado(SolicitudInterna $solicitud, User $actor, EstadoSolicitudInterna $nuevoEstado, ?string $comentario = null, ?string $motivoRechazo = null, array $datosAprobacion = []): SolicitudInterna
     {
+        // Visto bueno jerárquico (config solicitudes.visto_bueno_jefe): la
+        // autorización final nunca se salta al jefe inmediato.
+        if ($nuevoEstado === EstadoSolicitudInterna::Aprobada
+            && $this->aprobaciones->requiereVistoBuenoJefe($solicitud)
+            && ! $this->aprobaciones->tieneVistoBuenoJefe($solicitud)
+        ) {
+            throw ValidationException::withMessages([
+                'visto_bueno' => 'Falta el visto bueno del jefe inmediato del colaborador antes de autorizar.',
+            ]);
+        }
+
         // Única puerta de cambio de estado (tablero Kanban y botones del
         // detalle pasan por aquí): el mapa de transiciones vive en el enum
         // (EstadoSolicitudInterna::puedeTransicionarA()) para que el backend
@@ -432,14 +458,14 @@ class SolicitudesService
         ) {
             $finiquito = FiniquitoCalculo::query()->where('solicitud_interna_id', $solicitud->id)->first();
 
-            if ($finiquito === null || ! in_array($finiquito->estado, [EstadoFiniquito::Revisado, EstadoFiniquito::Aprobado], true)) {
+            if ($finiquito === null || ! in_array($finiquito->estado, [EstadoFiniquito::Revisado, EstadoFiniquito::Aprobado, EstadoFiniquito::Firmado, EstadoFiniquito::Pagado], true)) {
                 throw ValidationException::withMessages([
                     'finiquito' => 'Calcula y revisa el finiquito antes de aprobar esta baja.',
                 ]);
             }
         }
 
-        return DB::transaction(function () use ($solicitud, $actor, $nuevoEstado, $comentario, $motivoRechazo): SolicitudInterna {
+        $solicitud = DB::transaction(function () use ($solicitud, $actor, $nuevoEstado, $comentario, $motivoRechazo, $datosAprobacion): SolicitudInterna {
             $datos = ['estado' => $nuevoEstado];
 
             if ($motivoRechazo !== null) {
@@ -480,7 +506,7 @@ class SolicitudesService
             // entrega del dinero (ver PrestamoService::activar()), eso no
             // pasa aquí.
             if ($nuevoEstado === EstadoSolicitudInterna::Aprobada && $solicitud->tipo === TipoSolicitudInterna::PrestamoInterno) {
-                $this->prestamo->crearDesdeSolicitud($solicitud, [], $actor);
+                $this->prestamo->crearDesdeSolicitud($solicitud, $datosAprobacion, $actor);
             }
 
             // Documento oficial automático (config/solicitudes.php): se
@@ -521,6 +547,17 @@ class SolicitudesService
 
             return $solicitud;
         });
+
+        // Efectos posteriores al commit (nunca revierten el cambio de estado):
+        // pendientes de la bandeja y comprobante PDF de vacaciones/permisos
+        // archivado en el expediente.
+        $this->notificarSinFallar(fn () => $this->tareasSolicitud->alCambiarEstado($solicitud, $actor));
+
+        if ($nuevoEstado === EstadoSolicitudInterna::Aprobada && $this->comprobantes->aplicaPara($solicitud)) {
+            $this->notificarSinFallar(fn () => $this->comprobantes->generarSiAplica($solicitud, $actor));
+        }
+
+        return $solicitud;
     }
 
     /**

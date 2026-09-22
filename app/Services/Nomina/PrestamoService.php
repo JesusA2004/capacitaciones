@@ -28,17 +28,23 @@ class PrestamoService
      * los trae explícitos. Nace en estado 'pendiente_entrega': todavía no
      * cuenta como saldo vivo hasta que RH confirma la entrega (ver activar()).
      *
-     * @param  array{monto?: float|string, plazo?: int, periodicidad?: string, pago_programado?: float|string, fecha_otorgamiento?: string, fecha_primer_descuento?: string}  $datos
+     * @param  array<string, mixed>  $datos  monto_autorizado/plazo_autorizado (o monto/plazo), periodicidad, pago_programado, fechas, observaciones.
      */
     public function crearDesdeSolicitud(SolicitudInterna $solicitud, array $datos, User $registradoPor): Prestamo
     {
-        return DB::transaction(function () use ($solicitud, $datos): Prestamo {
+        return DB::transaction(function () use ($solicitud, $datos, $registradoPor): Prestamo {
             $colaborador = $solicitud->personaSolicitante();
 
             abort_if($colaborador === null, 422, 'La solicitud de préstamo no tiene un colaborador enlazado.');
 
-            $monto = (float) ($datos['monto'] ?? $solicitud->monto_solicitado ?? 0);
-            $plazo = (int) ($datos['plazo'] ?? $solicitud->plazo_meses ?? 1);
+            $existente = Prestamo::query()->where('solicitud_id', $solicitud->id)->first();
+
+            if ($existente !== null) {
+                return $existente;
+            }
+
+            $monto = (float) ($datos['monto_autorizado'] ?? $datos['monto'] ?? $solicitud->monto_solicitado ?? 0);
+            $plazo = (int) ($datos['plazo_autorizado'] ?? $datos['plazo'] ?? $solicitud->plazo_meses ?? 1);
             $plazo = max($plazo, 1);
             $periodicidad = $datos['periodicidad'] ?? 'quincenal';
             $pagoProgramado = (float) ($datos['pago_programado'] ?? round($monto / $plazo, 2));
@@ -55,6 +61,13 @@ class PrestamoService
                 'fecha_otorgamiento' => $datos['fecha_otorgamiento'] ?? null,
                 'fecha_primer_descuento' => $datos['fecha_primer_descuento'] ?? null,
                 'estado' => 'pendiente_entrega',
+                'monto_solicitado' => $solicitud->monto_solicitado,
+                'plazo_solicitado' => $solicitud->plazo_meses,
+                'motivo' => $solicitud->motivo,
+                'fecha_solicitud' => $solicitud->created_at?->toDateString(),
+                'observaciones' => $datos['observaciones'] ?? null,
+                'autorizado_por' => $registradoPor->id,
+                'autorizado_en' => now(),
             ]);
 
             return $prestamo;

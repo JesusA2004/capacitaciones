@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Colaborador;
 use App\Models\SolicitudInterna;
 use App\Models\User;
 use Database\Seeders\RolesYPermisosSeeder;
@@ -14,7 +15,7 @@ function actuarConToken(User $usuario): array
 }
 
 test('un colaborador puede ver su propio perfil basico por la api', function () {
-    $colaborador = User::factory()->create(['fecha_ingreso' => now()->subYears(2)]);
+    $colaborador = User::factory()->for(Colaborador::factory()->state(['fecha_ingreso' => now()->subYears(2)]))->create();
     $colaborador->assignRole('colaborador');
 
     $this->withHeaders(actuarConToken($colaborador))
@@ -25,7 +26,7 @@ test('un colaborador puede ver su propio perfil basico por la api', function () 
 });
 
 test('el dashboard del colaborador trae vacaciones, solicitudes recientes y notificaciones', function () {
-    $colaborador = User::factory()->create(['fecha_ingreso' => now()->subYears(1)]);
+    $colaborador = User::factory()->for(Colaborador::factory()->state(['fecha_ingreso' => now()->subYears(1)]))->create();
     $colaborador->assignRole('colaborador');
     SolicitudInterna::factory()->create(['user_id' => $colaborador->id]);
 
@@ -105,7 +106,7 @@ test('una solicitud ya aprobada no se puede cancelar por la api', function () {
 });
 
 test('el saldo de vacaciones de la api coincide con el del colaborador autenticado', function () {
-    $colaborador = User::factory()->create(['fecha_ingreso' => now()->subYears(3)]);
+    $colaborador = User::factory()->for(Colaborador::factory()->state(['fecha_ingreso' => now()->subYears(3)]))->create();
 
     $respuesta = $this->withHeaders(actuarConToken($colaborador))
         ->getJson('/api/v1/vacaciones/saldo')

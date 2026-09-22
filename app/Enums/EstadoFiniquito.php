@@ -16,6 +16,7 @@ enum EstadoFiniquito: string
     case Revisado = 'revisado';
     case Aprobado = 'aprobado';
     case Firmado = 'firmado';
+    case Pagado = 'pagado';
 
     public function etiqueta(): string
     {
@@ -24,6 +25,7 @@ enum EstadoFiniquito: string
             self::Revisado => 'Revisado',
             self::Aprobado => 'Aprobado',
             self::Firmado => 'Firmado',
+            self::Pagado => 'Pagado',
         };
     }
 }

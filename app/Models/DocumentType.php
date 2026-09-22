@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\CategoriaDocumento;
 use Database\Factories\DocumentTypeFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -20,6 +21,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property bool $requerido
  * @property bool $aplica_alta
  * @property bool $activo
+ * @property CategoriaDocumento $categoria
  */
 class DocumentType extends Model
 {
@@ -28,7 +30,14 @@ class DocumentType extends Model
 
     protected $table = 'document_types';
 
-    protected $fillable = ['nombre', 'clave', 'descripcion', 'requerido', 'aplica_alta', 'activo'];
+    protected $fillable = ['nombre', 'clave', 'categoria', 'descripcion', 'requerido', 'aplica_alta', 'activo'];
+
+    /**
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'categoria' => 'personales',
+    ];
 
     protected function casts(): array
     {
@@ -36,6 +45,7 @@ class DocumentType extends Model
             'requerido' => 'boolean',
             'aplica_alta' => 'boolean',
             'activo' => 'boolean',
+            'categoria' => CategoriaDocumento::class,
         ];
     }
 

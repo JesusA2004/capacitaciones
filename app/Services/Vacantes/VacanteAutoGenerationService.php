@@ -85,12 +85,20 @@ class VacanteAutoGenerationService
             $cubiertas = $vacanteAutomatica->candidatos()->where('estado', EstadoCandidato::Contratado->value)->count();
 
             if ($faltantes === 0) {
+                // Si la plaza se ocupó con candidatos contratados desde esta
+                // vacante, se cierra como "cubierta" (ciclo plaza autorizada →
+                // vacante → reclutamiento → contratado → plaza ocupada);
+                // si el faltante desapareció por otra vía (ajuste de headcount,
+                // movimiento interno), se cancela con su motivo.
+                $cubiertaPorContratacion = $cubiertas > 0 || $vacanteAutomatica->colaborador_contratado_id !== null;
+
                 $vacanteAutomatica->update([
-                    'estado' => EstadoVacante::Cancelada->value,
-                    'motivo_cancelacion' => 'Cerrada automáticamente: la plantilla actual ya alcanzó a la autorizada.',
+                    'estado' => $cubiertaPorContratacion ? EstadoVacante::Cubierta->value : EstadoVacante::Cancelada->value,
+                    'motivo_cancelacion' => $cubiertaPorContratacion ? null : 'Cerrada automáticamente: la plantilla actual ya alcanzó a la autorizada.',
                     'plazas_requeridas' => 0,
                     'plazas_cubiertas' => $cubiertas,
                     'plazas_disponibles' => 0,
+                    'fecha_cierre' => now()->toDateString(),
                 ]);
 
                 return;

@@ -2,6 +2,7 @@
 
 namespace App\Services\Expedientes;
 
+use App\Enums\CategoriaDocumento;
 use App\Enums\EstadoDocumento;
 use App\Jobs\ProcesarDocumentoPersonalJob;
 use App\Models\Colaborador;
@@ -183,7 +184,52 @@ class DocumentoStorageService
             ? $this->asignarRutaBaseColaborador($colaborador)
             : $this->rutaBaseColaboradorPersistida($colaborador);
 
-        return $base.'/'.$this->nombreDocumento($tipo, $version, $extension);
+        // Subcarpeta por categoría documental (Personales, Contratos,
+        // Vacaciones, Permisos, Prestamos, Actas, NominaInterna,
+        // BajaFiniquito...), ver App\Enums\CategoriaDocumento.
+        return $base.'/'.$tipo->categoria->carpeta().'/'.$this->nombreDocumento($tipo, $version, $extension);
+    }
+
+    /**
+     * Carpeta de una categoría dentro del expediente del colaborador
+     * (fija la ruta base del expediente si todavía no existía).
+     */
+    public function rutaCategoria(Colaborador $colaborador, CategoriaDocumento $categoria): string
+    {
+        return $this->asignarRutaBaseColaborador($colaborador).'/'.$categoria->carpeta();
+    }
+
+    /**
+     * Guarda contenido generado por el sistema (PDF de contrato, recibo
+     * interno, finiquito, acta, comprobante...) dentro de la carpeta de su
+     * categoría en el expediente del colaborador. Nunca sobrescribe: si el
+     * nombre ya existe agrega un sufijo incremental. Verifica que el
+     * almacenamiento confirme la escritura antes de regresar la ruta.
+     *
+     * @throws RuntimeException Si el almacenamiento (NAS) no confirma la escritura.
+     */
+    public function guardarContenidoEnExpediente(Colaborador $colaborador, CategoriaDocumento $categoria, string $nombreArchivo, string $contenido): string
+    {
+        $carpeta = $this->rutaCategoria($colaborador, $categoria);
+        $nombre = $this->sanitizarSegmento(pathinfo($nombreArchivo, PATHINFO_FILENAME));
+        $extension = strtolower((string) pathinfo($nombreArchivo, PATHINFO_EXTENSION));
+        $sufijo = $extension !== '' ? ".{$extension}" : '';
+
+        $ruta = "{$carpeta}/{$nombre}{$sufijo}";
+        $intento = 2;
+
+        while ($this->existe($ruta)) {
+            $ruta = "{$carpeta}/{$nombre} ({$intento}){$sufijo}";
+            $intento++;
+        }
+
+        $this->disco()->put($ruta, $contenido);
+
+        if (! $this->existe($ruta)) {
+            throw new RuntimeException("No se pudo guardar el archivo en el almacenamiento: {$ruta}");
+        }
+
+        return $ruta;
     }
 
     public function nombreFoto(?string $extension): string
@@ -290,8 +336,14 @@ class DocumentoStorageService
      * versión que alguna vez existió pisaría el nombre de un archivo que
      * pudo seguir vivo en el NAS aunque su fila esté borrada lógicamente.
      */
-    public function subirVersion(Colaborador $colaborador, DocumentType $tipo, UploadedFile $archivo, int $subidoPorId): EmployeeDocument
-    {
+    public function subirVersion(
+        Colaborador $colaborador,
+        DocumentType $tipo,
+        UploadedFile $archivo,
+        int $subidoPorId,
+        EstadoDocumento $estadoInicial = EstadoDocumento::EnRevision,
+        string $origen = 'carga',
+    ): EmployeeDocument {
         $anterior = EmployeeDocument::query()
             ->where('colaborador_id', $colaborador->id)
             ->where('document_type_id', $tipo->id)
@@ -309,7 +361,7 @@ class DocumentoStorageService
         $this->guardar($archivo, $ruta);
 
         try {
-            $documento = DB::transaction(function () use ($colaborador, $tipo, $archivo, $ruta, $version, $anterior, $subidoPorId) {
+            $documento = DB::transaction(function () use ($colaborador, $tipo, $archivo, $ruta, $version, $anterior, $subidoPorId, $estadoInicial, $origen) {
                 $documento = EmployeeDocument::create([
                     'colaborador_id' => $colaborador->id,
                     'user_id' => $colaborador->user?->id,
@@ -326,8 +378,14 @@ class DocumentoStorageService
                     'hash' => $this->hashSha256($ruta),
                     'version' => $version,
                     'previous_version_id' => $anterior?->id,
-                    'status' => EstadoDocumento::EnRevision->value,
+                    'status' => $estadoInicial->value,
+                    'origen' => $origen,
                     'uploaded_by' => $subidoPorId,
+                    // Un documento que entra ya aprobado (escaneo final de un
+                    // documento firmado, validado en el flujo documental)
+                    // registra quién lo validó y cuándo.
+                    'reviewed_by' => $estadoInicial === EstadoDocumento::Aprobado ? $subidoPorId : null,
+                    'reviewed_at' => $estadoInicial === EstadoDocumento::Aprobado ? now() : null,
                 ]);
 
                 $anterior?->update(['status' => EstadoDocumento::Archivado->value]);

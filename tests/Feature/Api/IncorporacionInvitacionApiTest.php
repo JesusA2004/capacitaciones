@@ -114,7 +114,7 @@ test('registrar con un qr valido crea al colaborador en_incorporacion, con rol c
     expect($respuesta->json('token'))->not->toBeEmpty();
 
     $usuario = User::query()->where('email', 'nuevo@mrlana.test')->firstOrFail();
-    expect($usuario->estatus)->toBe(EstadoUsuario::EnIncorporacion);
+    expect($usuario->colaborador?->estatus)->toBe(EstadoUsuario::EnIncorporacion);
     expect($usuario->hasRole('colaborador'))->toBeTrue();
 });
 
@@ -166,8 +166,8 @@ test('rh puede aprobar la incorporacion de un colaborador registrado por qr y ac
         'password_confirmation' => 'Capacitacion2026!',
     ])->assertCreated();
 
-    $colaborador = User::query()->where('email', 'aprobado@mrlana.test')->firstOrFail();
-    EmployeeDocument::factory()->aprobado()->create(['user_id' => $colaborador->id, 'document_type_id' => $tipo->id]);
+    $colaborador = User::query()->where('email', 'aprobado@mrlana.test')->firstOrFail()->colaborador;
+    EmployeeDocument::factory()->aprobado()->create(['colaborador_id' => $colaborador->id, 'document_type_id' => $tipo->id]);
 
     $rh = User::factory()->create();
     $rh->assignRole('rh_admin');

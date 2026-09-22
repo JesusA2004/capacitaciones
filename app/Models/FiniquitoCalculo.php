@@ -7,6 +7,7 @@ use Database\Factories\FiniquitoCalculoFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -43,6 +44,13 @@ use Illuminate\Support\Carbon;
  * @property EstadoFiniquito $estado
  * @property string|null $documento_generado_path
  * @property string|null $documento_firmado_path
+ * @property string $total_percepciones
+ * @property string $total_deducciones
+ * @property string $neto
+ * @property Carbon|null $pagado_en
+ * @property int|null $pago_confirmado_por
+ * @property string|null $referencia_pago
+ * @property int|null $generated_document_id
  */
 class FiniquitoCalculo extends Model
 {
@@ -80,7 +88,33 @@ class FiniquitoCalculo extends Model
         'estado',
         'documento_generado_path',
         'documento_firmado_path',
+        'total_percepciones',
+        'total_deducciones',
+        'neto',
+        'pagado_en',
+        'pago_confirmado_por',
+        'referencia_pago',
+        'generated_document_id',
     ];
+
+    /**
+     * Conceptos capturados manualmente por RH además de los automáticos
+     * (ver App\Services\Finiquitos\FiniquitoService::desglose()).
+     *
+     * @return HasMany<FiniquitoConcepto, $this>
+     */
+    public function conceptos(): HasMany
+    {
+        return $this->hasMany(FiniquitoConcepto::class, 'finiquito_calculo_id')->orderBy('id');
+    }
+
+    /**
+     * @return BelongsTo<GeneratedDocument, $this>
+     */
+    public function documentoGenerado(): BelongsTo
+    {
+        return $this->belongsTo(GeneratedDocument::class, 'generated_document_id');
+    }
 
     protected function casts(): array
     {
@@ -106,6 +140,10 @@ class FiniquitoCalculo extends Model
             'total_ajustado' => 'decimal:2',
             'snapshot' => 'array',
             'estado' => EstadoFiniquito::class,
+            'total_percepciones' => 'decimal:2',
+            'total_deducciones' => 'decimal:2',
+            'neto' => 'decimal:2',
+            'pagado_en' => 'datetime',
         ];
     }
 

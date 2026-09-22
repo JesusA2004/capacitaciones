@@ -47,6 +47,8 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property Carbon|null $change_requested_at
  * @property int|null $change_authorized_by
  * @property Carbon|null $change_authorized_at
+ * @property string $origen
+ * @property Carbon|null $created_at
  */
 class EmployeeDocument extends Model
 {
@@ -57,10 +59,20 @@ class EmployeeDocument extends Model
 
     protected $hidden = ['disk', 'path'];
 
+    /**
+     * Refleja en PHP el default de BD ('carga' = subido manualmente;
+     * 'generado' = PDF emitido por el motor documental y escaneado final).
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'origen' => 'carga',
+    ];
+
     protected $fillable = [
         'user_id', 'colaborador_id', 'empresa_id', 'sucursal_id', 'document_type_id',
         'disk', 'path', 'original_name', 'stored_name', 'mime', 'extension', 'size', 'hash',
-        'version', 'previous_version_id', 'status',
+        'version', 'previous_version_id', 'status', 'origen',
         'uploaded_by', 'reviewed_by', 'reviewed_at', 'comments', 'rejection_reason',
         'change_requested_at', 'change_authorized_by', 'change_authorized_at',
     ];

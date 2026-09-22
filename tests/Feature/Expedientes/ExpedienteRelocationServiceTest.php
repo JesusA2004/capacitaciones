@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Colaborador;
 use App\Models\DocumentType;
 use App\Models\Empresa;
 use App\Models\Sucursal;
@@ -8,6 +9,13 @@ use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Expedientes\ExpedienteRelocationService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+
+if (! function_exists('subidorId')) {
+    function subidorId(): int
+    {
+        return User::factory()->create()->id;
+    }
+}
 
 beforeEach(function () {
     Storage::fake('nas');
@@ -18,7 +26,7 @@ test('relocalizar mueve todos los documentos y la foto a la nueva carpeta, verif
     $sucursalVieja = Sucursal::factory()->create(['empresa_id' => $empresa->id, 'nombre' => 'Cuernavaca']);
     $sucursalNueva = Sucursal::factory()->create(['empresa_id' => $empresa->id, 'nombre' => 'Lerma']);
 
-    $colaborador = User::factory()->create([
+    $colaborador = Colaborador::factory()->create([
         'sucursal_principal_id' => $sucursalVieja->id,
         'numero_empleado' => '00125',
         'name' => 'Juan',
@@ -29,9 +37,9 @@ test('relocalizar mueve todos los documentos y la foto a la nueva carpeta, verif
     $tipoActa = DocumentType::factory()->create(['nombre' => 'Acta de nacimiento']);
     $tipoCurp = DocumentType::factory()->create(['nombre' => 'CURP']);
 
-    $acta = $storage->subirVersion($colaborador, $tipoActa, UploadedFile::fake()->create('acta.pdf', 5), $colaborador->id);
-    $curpV1 = $storage->subirVersion($colaborador, $tipoCurp, UploadedFile::fake()->create('curp.pdf', 5), $colaborador->id);
-    $curpV2 = $storage->subirVersion($colaborador, $tipoCurp, UploadedFile::fake()->create('curp.pdf', 5), $colaborador->id);
+    $acta = $storage->subirVersion($colaborador, $tipoActa, UploadedFile::fake()->create('acta.pdf', 5), subidorId());
+    $curpV1 = $storage->subirVersion($colaborador, $tipoCurp, UploadedFile::fake()->create('curp.pdf', 5), subidorId());
+    $curpV2 = $storage->subirVersion($colaborador, $tipoCurp, UploadedFile::fake()->create('curp.pdf', 5), subidorId());
 
     $rutaFoto = $storage->rutaFoto($colaborador, 'jpg');
     Storage::disk('nas')->put($rutaFoto, 'contenido-foto');
@@ -71,11 +79,11 @@ test('relocalizar mueve todos los documentos y la foto a la nueva carpeta, verif
 test('relocalizar no hace nada si la ruta calculada no cambio', function () {
     $empresa = Empresa::factory()->create(['nombre' => 'MR LANA']);
     $sucursal = Sucursal::factory()->create(['empresa_id' => $empresa->id, 'nombre' => 'Cuernavaca']);
-    $colaborador = User::factory()->create(['sucursal_principal_id' => $sucursal->id, 'numero_empleado' => '00125', 'name' => 'Juan', 'apellidos' => 'Perez']);
+    $colaborador = Colaborador::factory()->create(['sucursal_principal_id' => $sucursal->id, 'numero_empleado' => '00125', 'name' => 'Juan', 'apellidos' => 'Perez']);
 
     $storage = app(DocumentoStorageService::class);
     $tipo = DocumentType::factory()->create();
-    $storage->subirVersion($colaborador, $tipo, UploadedFile::fake()->create('doc.pdf', 5), $colaborador->id);
+    $storage->subirVersion($colaborador, $tipo, UploadedFile::fake()->create('doc.pdf', 5), subidorId());
 
     $servicio = app(ExpedienteRelocationService::class);
     $resultado = $servicio->relocalizar($colaborador->fresh());
@@ -84,7 +92,7 @@ test('relocalizar no hace nada si la ruta calculada no cambio', function () {
 });
 
 test('relocalizar sin ruta persistida no hace nada', function () {
-    $colaborador = User::factory()->create();
+    $colaborador = Colaborador::factory()->create();
 
     $servicio = app(ExpedienteRelocationService::class);
     $resultado = $servicio->relocalizar($colaborador);

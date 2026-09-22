@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Colaborador;
 use App\Models\HeadcountTarget;
 use App\Models\Puesto;
 use App\Models\Sucursal;
@@ -39,7 +40,7 @@ test('dar de alta a un colaborador baja las plazas disponibles de la vacante aut
     app(VacanteAutoGenerationService::class)->sincronizar($sucursal->id, $puesto->id);
 
     $sistema = User::factory()->create();
-    $nuevo = User::factory()->create(['sucursal_principal_id' => $sucursal->id, 'puesto_id' => $puesto->id, 'estatus' => 'activo']);
+    $nuevo = Colaborador::factory()->create(['sucursal_principal_id' => $sucursal->id, 'puesto_id' => $puesto->id, 'estatus' => 'activo']);
 
     app(MovimientoLaboralService::class)->registrarAlta($nuevo, $sistema);
 
@@ -57,8 +58,8 @@ test('dar de baja a un colaborador sube las plazas disponibles de la vacante aut
     $puesto = Puesto::factory()->create();
     HeadcountTarget::factory()->create(['sucursal_id' => $sucursal->id, 'puesto_id' => $puesto->id, 'plantilla_autorizada' => 2]);
 
-    $colaborador = User::factory()->create(['sucursal_principal_id' => $sucursal->id, 'puesto_id' => $puesto->id, 'estatus' => 'activo']);
-    User::factory()->create(['sucursal_principal_id' => $sucursal->id, 'puesto_id' => $puesto->id, 'estatus' => 'activo']);
+    $colaborador = Colaborador::factory()->create(['sucursal_principal_id' => $sucursal->id, 'puesto_id' => $puesto->id, 'estatus' => 'activo']);
+    Colaborador::factory()->create(['sucursal_principal_id' => $sucursal->id, 'puesto_id' => $puesto->id, 'estatus' => 'activo']);
 
     app(VacanteAutoGenerationService::class)->sincronizar($sucursal->id, $puesto->id);
 

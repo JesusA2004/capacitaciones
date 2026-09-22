@@ -2,6 +2,7 @@
 
 namespace App\Services\Solicitudes;
 
+use App\Enums\EstadoAltaColaborador;
 use App\Enums\EstadoUsuario;
 use App\Models\Colaborador;
 use App\Models\User;
@@ -44,7 +45,11 @@ class BajaColaboradorService
 
             // $colaborador tiene LogsActivity (App\Models\Colaborador) con
             // 'estatus' en logOnly(): este cambio ya queda auditado solo.
-            $colaborador->update(['estatus' => EstadoUsuario::Inactivo]);
+            $colaborador->update([
+                'estatus' => EstadoUsuario::Inactivo,
+                'estado_alta' => EstadoAltaColaborador::Baja,
+                'fecha_baja' => $colaborador->fecha_baja ?? now()->toDateString(),
+            ]);
 
             // Bloquear login si tiene cuenta: revocar todos los tokens
             // Sanctum (API/app móvil) y marcar sus dispositivos móviles como
@@ -79,7 +84,13 @@ class BajaColaboradorService
     {
         DB::transaction(function () use ($colaborador): void {
             $colaborador->restore();
-            $colaborador->update(['estatus' => EstadoUsuario::Activo]);
+            $colaborador->update([
+                'estatus' => EstadoUsuario::Activo,
+                'estado_alta' => EstadoAltaColaborador::Activo,
+                'fecha_baja' => null,
+                'expediente_cerrado_en' => null,
+                'expediente_cerrado_por' => null,
+            ]);
         });
     }
 }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Colaborador;
 use App\Models\User;
 use Database\Seeders\RolesYPermisosSeeder;
 
@@ -8,7 +9,7 @@ beforeEach(function () {
 });
 
 test('un colaborador autenticado puede ver su portal', function () {
-    $colaborador = User::factory()->create(['fecha_ingreso' => now()->subYears(2)]);
+    $colaborador = User::factory()->for(Colaborador::factory()->state(['fecha_ingreso' => now()->subYears(2)]))->create();
     $colaborador->assignRole('colaborador');
 
     $respuesta = $this->actingAs($colaborador)->get(route('portal.index'));

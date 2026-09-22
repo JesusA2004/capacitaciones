@@ -33,6 +33,9 @@ use Illuminate\Support\Carbon;
  * @property int $plazas_disponibles
  * @property int|null $creado_por
  * @property numeric-string|null $sueldo_mensual
+ * @property int|null $candidato_contratado_id
+ * @property int|null $colaborador_contratado_id
+ * @property Carbon|null $fecha_cierre
  */
 class Vacante extends Model
 {
@@ -59,11 +62,42 @@ class Vacante extends Model
         'plazas_disponibles',
         'creado_por',
         'sueldo_mensual',
+        'candidato_contratado_id',
+        'colaborador_contratado_id',
+        'fecha_cierre',
     ];
+
+    /**
+     * Días que la vacante lleva (o llevó) abierta: de fecha_apertura a
+     * fecha_cierre, o a hoy si sigue abierta.
+     */
+    public function diasAbierta(): int
+    {
+        $fin = $this->fecha_cierre ?? now();
+
+        return max(0, (int) $this->fecha_apertura->copy()->startOfDay()->diffInDays($fin->copy()->startOfDay()));
+    }
+
+    /**
+     * @return BelongsTo<Candidato, $this>
+     */
+    public function candidatoContratado(): BelongsTo
+    {
+        return $this->belongsTo(Candidato::class, 'candidato_contratado_id');
+    }
+
+    /**
+     * @return BelongsTo<Colaborador, $this>
+     */
+    public function colaboradorContratado(): BelongsTo
+    {
+        return $this->belongsTo(Colaborador::class, 'colaborador_contratado_id');
+    }
 
     protected function casts(): array
     {
         return [
+            'fecha_cierre' => 'date',
             'motivo' => MotivoVacante::class,
             'estado' => EstadoVacante::class,
             'fecha_apertura' => 'date',

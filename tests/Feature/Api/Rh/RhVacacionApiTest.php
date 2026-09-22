@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Colaborador;
 use App\Models\MobileDevice;
 use App\Models\SolicitudVacaciones;
 use App\Models\User;
@@ -73,7 +74,8 @@ test('un colaborador no tiene permiso para aprobar vacaciones desde rh', functio
 test('solicitar vacaciones notifica y encola push para el aprobador', function () {
     Http::fake();
 
-    $colaborador = User::factory()->create(['fecha_ingreso' => now()->subYears(3)]);
+    // fecha_ingreso vive en Colaborador (User es solo la cuenta de acceso).
+    $colaborador = User::factory()->for(Colaborador::factory()->state(['fecha_ingreso' => now()->subYears(3)]))->create();
     $colaborador->assignRole('colaborador');
     $rh = User::factory()->create();
     $rh->assignRole('rh_admin');

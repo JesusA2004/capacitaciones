@@ -2,9 +2,11 @@
 
 namespace App\Services\Incorporacion;
 
+use App\Enums\EstadoAltaColaborador;
 use App\Enums\EstadoInvitacionIncorporacion;
 use App\Enums\EstadoUsuario;
 use App\Exceptions\Incorporacion\InvitacionInvalidaException;
+use App\Models\Colaborador;
 use App\Models\IncorporacionInvitacion;
 use App\Models\User;
 use BaconQrCode\Renderer\GDLibRenderer;
@@ -247,14 +249,16 @@ class IncorporacionInvitacionService
         }
 
         return DB::transaction(function () use ($invitacion, $datos) {
-            $usuario = User::create([
+            // La persona vive en Colaborador (datos personales, estructura y
+            // estatus); User es solo la cuenta de acceso. Antes esta rutina
+            // escribía esos campos en users (no asignables desde la
+            // separación User/Colaborador) y el colaborador nunca existía.
+            $colaborador = Colaborador::query()->create([
                 'name' => $datos['name'],
                 'apellidos' => $datos['apellidos'] ?? null,
-                'email' => $datos['email'],
-                'password' => Hash::make($datos['password']),
                 'telefono' => $datos['telefono'] ?? $invitacion->telefono,
-                'curp' => $datos['curp'] ?? null,
-                'rfc' => $datos['rfc'] ?? null,
+                'curp' => isset($datos['curp']) ? strtoupper((string) $datos['curp']) : null,
+                'rfc' => isset($datos['rfc']) ? strtoupper((string) $datos['rfc']) : null,
                 'nss' => $datos['nss'] ?? null,
                 'fecha_nacimiento' => $datos['fecha_nacimiento'] ?? null,
                 'domicilio' => $datos['direccion'] ?? null,
@@ -263,8 +267,20 @@ class IncorporacionInvitacionService
                 'sucursal_principal_id' => $invitacion->sucursal_id,
                 'departamento_id' => $invitacion->departamento_id,
                 'puesto_id' => $invitacion->puesto_id,
-                'estatus' => EstadoUsuario::EnIncorporacion->value,
+                'candidato_id' => $invitacion->candidato_id,
+                'estatus' => EstadoUsuario::EnIncorporacion,
+                'estado_alta' => EstadoAltaColaborador::PendienteDocumentos,
             ]);
+
+            $usuario = User::create([
+                'colaborador_id' => $colaborador->id,
+                'name' => $datos['name'],
+                'apellidos' => $datos['apellidos'] ?? null,
+                'email' => $datos['email'],
+                'password' => Hash::make($datos['password']),
+            ]);
+
+            $invitacion->forceFill(['colaborador_id' => $invitacion->colaborador_id ?? $colaborador->id])->save();
 
             $usuario->assignRole('colaborador');
 

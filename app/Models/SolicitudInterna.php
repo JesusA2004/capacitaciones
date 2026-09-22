@@ -229,6 +229,25 @@ class SolicitudInterna extends Model
     }
 
     /**
+     * Vistos buenos / decisiones jerárquicas (jefe inmediato, etc.) — ver
+     * App\Services\Solicitudes\AprobacionJerarquicaService.
+     *
+     * @return HasMany<SolicitudAprobacion, $this>
+     */
+    public function aprobaciones(): HasMany
+    {
+        return $this->hasMany(SolicitudAprobacion::class, 'solicitud_interna_id')->orderBy('id');
+    }
+
+    /**
+     * @return HasOne<Prestamo, $this>
+     */
+    public function prestamo(): HasOne
+    {
+        return $this->hasOne(Prestamo::class, 'solicitud_id');
+    }
+
+    /**
      * @return HasOne<FiniquitoCalculo, $this>
      */
     public function finiquitoCalculo(): HasOne

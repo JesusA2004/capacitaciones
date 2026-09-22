@@ -3,26 +3,39 @@
 use App\Http\Controllers\Api\V1\AppConfigController;
 use App\Http\Controllers\Api\V1\AppReleaseController;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\CicloLaboralColaboradorController;
 use App\Http\Controllers\Api\V1\ColaboradorController;
 use App\Http\Controllers\Api\V1\ColaboradorCumpleanosController;
 use App\Http\Controllers\Api\V1\DispositivoController;
+use App\Http\Controllers\Api\V1\EquipoController;
+use App\Http\Controllers\Api\V1\EvaluacionController;
 use App\Http\Controllers\Api\V1\IncorporacionController;
 use App\Http\Controllers\Api\V1\IncorporacionInvitacionController;
 use App\Http\Controllers\Api\V1\MobileBootstrapController;
 use App\Http\Controllers\Api\V1\NotificacionController;
+use App\Http\Controllers\Api\V1\Rh\ActaController;
+use App\Http\Controllers\Api\V1\Rh\AltaColaboradorController;
+use App\Http\Controllers\Api\V1\Rh\CierreLaboralController;
 use App\Http\Controllers\Api\V1\Rh\ColaboradorController as RhColaboradorController;
+use App\Http\Controllers\Api\V1\Rh\ContratoController;
 use App\Http\Controllers\Api\V1\Rh\CumpleanosController as RhCumpleanosController;
 use App\Http\Controllers\Api\V1\Rh\DashboardController as RhDashboardController;
 use App\Http\Controllers\Api\V1\Rh\DocumentoController as RhDocumentoController;
+use App\Http\Controllers\Api\V1\Rh\DocumentoLaboralController;
+use App\Http\Controllers\Api\V1\Rh\EstructuraController;
 use App\Http\Controllers\Api\V1\Rh\ExpedienteController as RhExpedienteController;
 use App\Http\Controllers\Api\V1\Rh\FormatoController as RhFormatoController;
 use App\Http\Controllers\Api\V1\Rh\IncorporacionController as RhIncorporacionController;
 use App\Http\Controllers\Api\V1\Rh\JerarquiaPuestoController as RhJerarquiaPuestoController;
 use App\Http\Controllers\Api\V1\Rh\PendienteController as RhPendienteController;
+use App\Http\Controllers\Api\V1\Rh\PlantillaDocumentalController;
+use App\Http\Controllers\Api\V1\Rh\PrestamoController as RhPrestamoController;
+use App\Http\Controllers\Api\V1\Rh\ReciboNominaController as RhReciboNominaController;
 use App\Http\Controllers\Api\V1\Rh\SolicitudController as RhSolicitudController;
 use App\Http\Controllers\Api\V1\Rh\VacacionController as RhVacacionController;
 use App\Http\Controllers\Api\V1\Rh\VacanteController as RhVacanteController;
 use App\Http\Controllers\Api\V1\SolicitudController;
+use App\Http\Controllers\Api\V1\TareaController;
 use App\Http\Controllers\Api\V1\VacacionesController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Broadcast;
@@ -41,7 +54,7 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::prefix('v1')->name('api.v1.')->group(function () {
-    Route::post('login', [AuthController::class, 'login'])->name('login');
+    Route::post('login', [AuthController::class, 'login'])->name('login')->middleware('throttle:api-login');
 
     // Publica (sin auth:sanctum): la app la consulta antes de iniciar sesion
     // para saber si debe forzar actualizacion o mostrar mantenimiento.
@@ -71,7 +84,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('registrar', [IncorporacionInvitacionController::class, 'registrar'])->name('registrar');
         });
 
-    Route::middleware('auth:sanctum')->group(function () {
+    Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::post('logout', [AuthController::class, 'logout'])->name('logout');
         Route::get('me', [AuthController::class, 'me'])->name('me');
 
@@ -140,6 +153,52 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::get('{solicitud}', [SolicitudController::class, 'show'])->name('show');
             Route::post('{solicitud}/adjuntos', [SolicitudController::class, 'adjuntos'])->name('adjuntos');
             Route::post('{solicitud}/cancelar', [SolicitudController::class, 'cancelar'])->name('cancelar');
+        });
+
+        /*
+        |------------------------------------------------------------------
+        | Ciclo laboral completo (docs/backend-rh-completion.md)
+        |------------------------------------------------------------------
+        | Autoservicio del colaborador: siempre su propia información (el
+        | colaborador sale de la sesión; los recursos por id pasan por Policy).
+        */
+        Route::prefix('colaborador')->name('colaborador.')->group(function () {
+            Route::get('alta', [CicloLaboralColaboradorController::class, 'alta'])->name('alta');
+            Route::get('expediente', [CicloLaboralColaboradorController::class, 'expediente'])->name('expediente');
+            Route::get('documentos-pendientes', [CicloLaboralColaboradorController::class, 'documentosPendientes'])->name('documentos-pendientes');
+            Route::get('documentos-laborales', [CicloLaboralColaboradorController::class, 'documentosLaborales'])->name('documentos-laborales.index');
+            Route::get('documentos-laborales/{documento}/descargar', [CicloLaboralColaboradorController::class, 'descargarDocumento'])->name('documentos-laborales.descargar');
+            Route::post('documentos-laborales/{documento}/firmar', [CicloLaboralColaboradorController::class, 'firmarDocumento'])->name('documentos-laborales.firmar');
+            Route::get('contratos', [CicloLaboralColaboradorController::class, 'contratos'])->name('contratos');
+            Route::get('recibos', [CicloLaboralColaboradorController::class, 'recibos'])->name('recibos.index');
+            Route::get('recibos/{recibo}', [CicloLaboralColaboradorController::class, 'recibo'])->name('recibos.show');
+            Route::get('recibos/{recibo}/pdf', [CicloLaboralColaboradorController::class, 'reciboPdf'])->name('recibos.pdf');
+            Route::get('prestamos', [CicloLaboralColaboradorController::class, 'prestamos'])->name('prestamos.index');
+            Route::get('prestamos/{prestamo}', [CicloLaboralColaboradorController::class, 'prestamo'])->name('prestamos.show');
+            Route::get('jerarquia', [CicloLaboralColaboradorController::class, 'jerarquia'])->name('jerarquia');
+        });
+
+        // Jefe: equipo directo, pendientes de su equipo y visto bueno.
+        Route::prefix('equipo')->name('equipo.')->group(function () {
+            Route::get('/', [EquipoController::class, 'index'])->name('index');
+            Route::get('pendientes', [EquipoController::class, 'pendientes'])->name('pendientes');
+            Route::post('solicitudes/{solicitud}/visto-bueno', [EquipoController::class, 'vistoBueno'])->name('solicitudes.visto-bueno');
+        });
+
+        // Evaluación de periodo de prueba (jefe captura, RH/Dirección autoriza).
+        Route::prefix('evaluaciones')->name('evaluaciones.')->group(function () {
+            Route::get('/', [EvaluacionController::class, 'index'])->name('index');
+            Route::get('{evaluacion}', [EvaluacionController::class, 'show'])->name('show');
+            Route::post('{evaluacion}/capturar', [EvaluacionController::class, 'capturar'])->name('capturar');
+            Route::post('{evaluacion}/autorizar', [EvaluacionController::class, 'autorizar'])->name('autorizar');
+            Route::post('{evaluacion}/devolver', [EvaluacionController::class, 'devolver'])->name('devolver');
+        });
+
+        // Bandeja de trabajo (pendientes/tareas).
+        Route::prefix('tareas')->name('tareas.')->group(function () {
+            Route::get('/', [TareaController::class, 'index'])->name('index');
+            Route::post('{tarea}/leer', [TareaController::class, 'leer'])->name('leer');
+            Route::post('{tarea}/resolver', [TareaController::class, 'resolver'])->name('resolver');
         });
 
         Route::prefix('notificaciones')->name('notificaciones.')->group(function () {
@@ -229,6 +288,96 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             // Organigrama (solo lectura, mismo permiso puestos.administrar
             // que el panel web — ver docs/JERARQUIA_PUESTOS.md).
             Route::get('jerarquia-puestos', [RhJerarquiaPuestoController::class, 'index'])->name('jerarquia-puestos.index');
+
+            /*
+            | Ciclo laboral completo — operación de RH/Dirección/Jurídico.
+            | Cada acción: FormRequest + Policy (permiso + alcance) + Service.
+            */
+            Route::post('colaboradores', [AltaColaboradorController::class, 'store'])->name('colaboradores.store');
+            Route::get('colaboradores/{colaborador}/alta', [AltaColaboradorController::class, 'show'])->name('colaboradores.alta');
+            Route::post('colaboradores/{colaborador}/activar', [AltaColaboradorController::class, 'activar'])->name('colaboradores.activar');
+            Route::get('colaboradores/{colaborador}/jerarquia', [AltaColaboradorController::class, 'jerarquia'])->name('colaboradores.jerarquia');
+            Route::get('colaboradores/{colaborador}/contratos', [ContratoController::class, 'delColaborador'])->name('colaboradores.contratos');
+            Route::post('colaboradores/{colaborador}/documentos-laborales', [DocumentoLaboralController::class, 'store'])->name('colaboradores.documentos-laborales.store');
+            Route::post('colaboradores/{colaborador}/cierres', [CierreLaboralController::class, 'store'])->name('colaboradores.cierres.store');
+            Route::post('colaboradores/{colaborador}/recibos', [RhReciboNominaController::class, 'store'])->name('colaboradores.recibos.store');
+            Route::post('colaboradores/{colaborador}/actas', [ActaController::class, 'store'])->name('colaboradores.actas.store');
+            Route::post('candidatos/{candidato}/contratar', [AltaColaboradorController::class, 'contratarCandidato'])->name('candidatos.contratar');
+
+            Route::prefix('plantillas-documentales')->name('plantillas-documentales.')->group(function () {
+                Route::get('/', [PlantillaDocumentalController::class, 'index'])->name('index');
+                Route::get('variables', [PlantillaDocumentalController::class, 'variables'])->name('variables');
+                Route::post('/', [PlantillaDocumentalController::class, 'store'])->name('store')->middleware('throttle:api-cargas');
+                Route::patch('{plantilla}', [PlantillaDocumentalController::class, 'update'])->name('update');
+            });
+
+            Route::prefix('documentos-laborales')->name('documentos-laborales.')->group(function () {
+                Route::get('/', [DocumentoLaboralController::class, 'index'])->name('index');
+                Route::get('pendientes', [DocumentoLaboralController::class, 'pendientes'])->name('pendientes');
+                Route::get('{documento}', [DocumentoLaboralController::class, 'show'])->name('show');
+                Route::get('{documento}/descargar', [DocumentoLaboralController::class, 'descargar'])->name('descargar');
+                Route::post('{documento}/imprimir', [DocumentoLaboralController::class, 'imprimir'])->name('imprimir');
+                Route::post('{documento}/firma-fisica', [DocumentoLaboralController::class, 'firmaFisica'])->name('firma-fisica');
+                Route::post('{documento}/envio', [DocumentoLaboralController::class, 'envio'])->name('envio')->middleware('throttle:api-cargas');
+                Route::post('{documento}/recepcion', [DocumentoLaboralController::class, 'recepcion'])->name('recepcion');
+                Route::post('{documento}/escaneo', [DocumentoLaboralController::class, 'escaneo'])->name('escaneo')->middleware('throttle:api-cargas');
+                Route::post('{documento}/archivar', [DocumentoLaboralController::class, 'archivar'])->name('archivar');
+                Route::post('{documento}/cancelar', [DocumentoLaboralController::class, 'cancelar'])->name('cancelar');
+            });
+
+            Route::get('contratos/por-vencer', [ContratoController::class, 'porVencer'])->name('contratos.por-vencer');
+
+            Route::prefix('cierres')->name('cierres.')->group(function () {
+                Route::get('/', [CierreLaboralController::class, 'index'])->name('index');
+                Route::get('{cierre}', [CierreLaboralController::class, 'show'])->name('show');
+                Route::post('{cierre}/aviso', [CierreLaboralController::class, 'aviso'])->name('aviso')->middleware('throttle:api-cargas');
+                Route::post('{cierre}/aviso/generar', [CierreLaboralController::class, 'generarAviso'])->name('aviso.generar');
+                Route::post('{cierre}/finiquito/calcular', [CierreLaboralController::class, 'calcularFiniquito'])->name('finiquito.calcular');
+                Route::post('{cierre}/finiquito/conceptos', [CierreLaboralController::class, 'agregarConcepto'])->name('finiquito.conceptos.store');
+                Route::patch('{cierre}/finiquito/conceptos/{concepto}', [CierreLaboralController::class, 'actualizarConcepto'])->name('finiquito.conceptos.update');
+                Route::delete('{cierre}/finiquito/conceptos/{concepto}', [CierreLaboralController::class, 'eliminarConcepto'])->name('finiquito.conceptos.destroy');
+                Route::post('{cierre}/finiquito/revisar', [CierreLaboralController::class, 'revisarFiniquito'])->name('finiquito.revisar');
+                Route::post('{cierre}/finiquito/documento', [CierreLaboralController::class, 'generarFiniquito'])->name('finiquito.documento');
+                Route::post('{cierre}/finiquito/firmado', [CierreLaboralController::class, 'finiquitoFirmado'])->name('finiquito.firmado')->middleware('throttle:api-cargas');
+                Route::post('{cierre}/finiquito/pago', [CierreLaboralController::class, 'confirmarPago'])->name('finiquito.pago');
+                Route::post('{cierre}/ejecutar-baja', [CierreLaboralController::class, 'ejecutarBaja'])->name('ejecutar-baja');
+                Route::post('{cierre}/cerrar-expediente', [CierreLaboralController::class, 'cerrarExpediente'])->name('cerrar-expediente');
+                Route::post('{cierre}/cancelar', [CierreLaboralController::class, 'cancelar'])->name('cancelar');
+            });
+
+            Route::prefix('recibos')->name('recibos.')->group(function () {
+                Route::get('/', [RhReciboNominaController::class, 'index'])->name('index');
+                Route::post('importar', [RhReciboNominaController::class, 'importar'])->name('importar')->middleware('throttle:api-cargas');
+                Route::get('{recibo}', [RhReciboNominaController::class, 'show'])->name('show');
+                Route::get('{recibo}/pdf', [RhReciboNominaController::class, 'pdf'])->name('pdf');
+                Route::post('{recibo}/regenerar-pdf', [RhReciboNominaController::class, 'regenerarPdf'])->name('regenerar-pdf');
+            });
+
+            Route::prefix('prestamos')->name('prestamos.')->group(function () {
+                Route::get('/', [RhPrestamoController::class, 'index'])->name('index');
+                Route::get('{prestamo}', [RhPrestamoController::class, 'show'])->name('show');
+                Route::post('{prestamo}/documentos', [RhPrestamoController::class, 'generarDocumentos'])->name('documentos');
+                Route::post('{prestamo}/resguardar', [RhPrestamoController::class, 'resguardar'])->name('resguardar');
+            });
+            Route::post('solicitudes/{solicitud}/prestamo/autorizar', [RhPrestamoController::class, 'autorizar'])->name('solicitudes.prestamo.autorizar');
+            Route::post('solicitudes/{solicitud}/prestamo/rechazar', [RhPrestamoController::class, 'rechazar'])->name('solicitudes.prestamo.rechazar');
+
+            Route::prefix('actas')->name('actas.')->group(function () {
+                Route::get('/', [ActaController::class, 'index'])->name('index');
+                Route::get('{acta}', [ActaController::class, 'show'])->name('show');
+                Route::patch('{acta}', [ActaController::class, 'update'])->name('update');
+                Route::post('{acta}/anexos', [ActaController::class, 'anexo'])->name('anexos.store')->middleware('throttle:api-cargas');
+                Route::get('{acta}/anexos/{anexo}', [ActaController::class, 'descargarAnexo'])->name('anexos.show');
+                Route::post('{acta}/documento', [ActaController::class, 'generarDocumento'])->name('documento');
+                Route::post('{acta}/negativa-firma', [ActaController::class, 'negativaFirma'])->name('negativa-firma');
+                Route::post('{acta}/seguimiento', [ActaController::class, 'seguimiento'])->name('seguimiento');
+                Route::post('{acta}/cerrar', [ActaController::class, 'cerrar'])->name('cerrar');
+            });
+
+            Route::get('plantilla/cobertura', [EstructuraController::class, 'cobertura'])->name('plantilla.cobertura');
+            Route::get('indicadores', [EstructuraController::class, 'indicadores'])->name('indicadores');
+            Route::get('organigrama', [EstructuraController::class, 'organigrama'])->name('organigrama');
+            Route::get('vacantes/{vacante}', [EstructuraController::class, 'vacante'])->name('vacantes.show');
 
             // Catalogo de formatos y descarga de documentos ya generados
             // (generar/vista previa se quedan en el panel web por ahora,

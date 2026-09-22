@@ -69,7 +69,12 @@
             @foreach ($finiquito->otros_conceptos ?? [] as $concepto => $monto)
                 <tr><td>{{ ucfirst(str_replace('_', ' ', (string) $concepto)) }}</td><td class="monto">${{ number_format((float) $monto, 2) }}</td></tr>
             @endforeach
-            <tr class="total-final"><td>Total ajustado</td><td class="monto">${{ number_format((float) $finiquito->total_ajustado, 2) }}</td></tr>
+            @foreach (collect($desglose ?? [])->where('origen', 'manual') as $renglon)
+                <tr><td>{{ $renglon['concepto'] }} ({{ $renglon['tipo'] === 'deduccion' ? 'deducción' : 'percepción' }}){{ $renglon['observaciones'] ? ' — '.$renglon['observaciones'] : '' }}</td><td class="monto">{{ $renglon['tipo'] === 'deduccion' ? '-' : '+' }} ${{ number_format((float) $renglon['importe'], 2) }}</td></tr>
+            @endforeach
+            <tr><td>Total percepciones</td><td class="monto">${{ number_format((float) $finiquito->total_percepciones, 2) }}</td></tr>
+            <tr><td>Total deducciones</td><td class="monto">- ${{ number_format((float) $finiquito->total_deducciones, 2) }}</td></tr>
+            <tr class="total-final"><td>Neto a pagar</td><td class="monto">${{ number_format((float) $finiquito->total_ajustado, 2) }}</td></tr>
         </tbody>
     </table>
 

@@ -1,20 +1,20 @@
 <?php
 
 use App\Enums\EstadoDocumento;
+use App\Models\Colaborador;
 use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
 use App\Models\Empresa;
 use App\Models\Sucursal;
-use App\Models\User;
 use App\Services\Expedientes\ExpedienteNasOrganizacionService;
 use Illuminate\Support\Facades\Storage;
 
-function colaboradorLegacy(): User
+function colaboradorLegacy(): Colaborador
 {
     $empresa = Empresa::factory()->create(['nombre' => 'MR LANA']);
     $sucursal = Sucursal::factory()->create(['empresa_id' => $empresa->id, 'nombre' => 'Cuernavaca']);
 
-    return User::factory()->create([
+    return Colaborador::factory()->create([
         'sucursal_principal_id' => $sucursal->id,
         'numero_empleado' => '00125',
         'name' => 'Juan',
@@ -35,7 +35,7 @@ test('un documento legacy se mueve a la ruta legible, BD y NAS quedan consistent
     Storage::disk('nas')->put('expedientes/6/abc123.pdf', $contenido);
 
     $documento = EmployeeDocument::factory()->create([
-        'user_id' => $colaborador->id,
+        'colaborador_id' => $colaborador->id,
         'document_type_id' => $tipo->id,
         'disk' => 'nas',
         'path' => 'expedientes/6/abc123.pdf',
@@ -54,7 +54,7 @@ test('un documento legacy se mueve a la ruta legible, BD y NAS quedan consistent
     expect($fila['resultado'])->toBe('ok');
 
     $documento->refresh();
-    expect($documento->path)->toBe('expedientes/MR LANA/Cuernavaca/00125 - Juan Perez/Acta de nacimiento - v1.pdf')
+    expect($documento->path)->toBe('expedientes/MR LANA/Cuernavaca/00125 - Juan Perez/Personales/Acta de nacimiento - v1.pdf')
         ->and($documento->stored_name)->toBe(basename($documento->path));
 
     Storage::disk('nas')->assertExists($documento->path);
@@ -72,7 +72,7 @@ test('un dry run nunca toca disco ni BD ni asigna expediente_storage_path', func
     Storage::disk('nas')->put('expedientes/7/xyz.pdf', $contenido);
 
     $documento = EmployeeDocument::factory()->create([
-        'user_id' => $colaborador->id,
+        'colaborador_id' => $colaborador->id,
         'document_type_id' => $tipo->id,
         'disk' => 'nas',
         'path' => 'expedientes/7/xyz.pdf',
@@ -97,12 +97,12 @@ test('duplicado (mismo hash en destino) adopta el destino y limpia el legacy al 
     $tipo = DocumentType::factory()->create(['nombre' => 'RFC']);
     $contenido = 'contenido-rfc-identico';
 
-    $rutaNueva = 'expedientes/MR LANA/Cuernavaca/00125 - Juan Perez/RFC - v1.pdf';
+    $rutaNueva = 'expedientes/MR LANA/Cuernavaca/00125 - Juan Perez/Personales/RFC - v1.pdf';
     Storage::disk('nas')->put($rutaNueva, $contenido);
     Storage::disk('nas')->put('expedientes/8/dup.pdf', $contenido);
 
     $documento = EmployeeDocument::factory()->create([
-        'user_id' => $colaborador->id,
+        'colaborador_id' => $colaborador->id,
         'document_type_id' => $tipo->id,
         'disk' => 'nas',
         'path' => 'expedientes/8/dup.pdf',
@@ -129,12 +129,12 @@ test('conflicto (distinto hash en destino) no toca nada, ni en dry run ni al apl
     $colaborador = colaboradorLegacy();
     $tipo = DocumentType::factory()->create(['nombre' => 'NSS']);
 
-    $rutaNueva = 'expedientes/MR LANA/Cuernavaca/00125 - Juan Perez/NSS - v1.pdf';
+    $rutaNueva = 'expedientes/MR LANA/Cuernavaca/00125 - Juan Perez/Personales/NSS - v1.pdf';
     Storage::disk('nas')->put($rutaNueva, 'contenido-diferente-en-destino');
     Storage::disk('nas')->put('expedientes/9/legacy.pdf', 'contenido-legacy-original');
 
     $documento = EmployeeDocument::factory()->create([
-        'user_id' => $colaborador->id,
+        'colaborador_id' => $colaborador->id,
         'document_type_id' => $tipo->id,
         'disk' => 'nas',
         'path' => 'expedientes/9/legacy.pdf',
@@ -162,7 +162,7 @@ test('las carpetas legacy numericas vacias solo se borran cuando de verdad estan
     Storage::disk('nas')->put('expedientes/11/sigue-aqui.pdf', 'huerfano-real');
 
     $documento = EmployeeDocument::factory()->create([
-        'user_id' => $colaborador->id,
+        'colaborador_id' => $colaborador->id,
         'document_type_id' => $tipo->id,
         'disk' => 'nas',
         'path' => 'expedientes/10/uuid.pdf',
@@ -201,7 +201,7 @@ test('rollback revierte un manifiesto aplicado: BD y NAS regresan al estado lega
     Storage::disk('nas')->put('expedientes/13/original.pdf', $contenido);
 
     $documento = EmployeeDocument::factory()->create([
-        'user_id' => $colaborador->id,
+        'colaborador_id' => $colaborador->id,
         'document_type_id' => $tipo->id,
         'disk' => 'nas',
         'path' => 'expedientes/13/original.pdf',

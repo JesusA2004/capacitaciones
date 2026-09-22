@@ -28,7 +28,7 @@ test('la tabla legal de vacaciones calcula los dias correctos por antiguedad', f
  * bandeja de RH nunca revisaba.
  */
 test('un colaborador puede solicitar vacaciones dentro de su saldo disponible', function () {
-    $colaborador = User::factory()->create(['fecha_ingreso' => now()->subYears(3)]);
+    $colaborador = User::factory()->for(Colaborador::factory()->state(['fecha_ingreso' => now()->subYears(3)]))->create();
     $colaborador->assignRole('colaborador');
 
     $this->actingAs($colaborador)
@@ -45,7 +45,7 @@ test('un colaborador puede solicitar vacaciones dentro de su saldo disponible', 
 });
 
 test('no se puede solicitar mas dias de los disponibles', function () {
-    $colaborador = User::factory()->create(['fecha_ingreso' => now()->subYears(2)]);
+    $colaborador = User::factory()->for(Colaborador::factory()->state(['fecha_ingreso' => now()->subYears(2)]))->create();
     $colaborador->assignRole('colaborador');
 
     $this->actingAs($colaborador)

@@ -65,3 +65,18 @@ Se agregaron además `limitarExpedientesPorAlcance()` y `puedeVerExpediente()`, 
 - `Rh\EmployeeDocumentController` — cada acción llama a `$this->authorize()` contra `EmployeeDocumentPolicy`.
 
 Cubierto por tests: `tests/Feature/Administracion/EmpresaTest.php`, `tests/Feature/Rh/ExpedienteTest.php`, `tests/Feature/Rh/EmployeeDocumentTest.php`.
+
+## Roles y permisos del ciclo laboral (septiembre 2026)
+
+Roles nuevos: `direccion` (autoriza evaluaciones, préstamos y bajas; indicadores
+globales), `juridico` (consulta documentación jurídica y administra plantillas del motor
+documental) y `sistemas` (cuentas, roles, releases y auditoría; sin expedientes ni nómina).
+Los tres tienen alcance global en `AlcanceOrganizacionalService`, pero cada acción sigue
+exigiendo su permiso específico.
+
+Permisos nuevos: `colaboradores.alta`, `colaboradores.activar`, `candidatos.contratar`,
+`plantillas_documentales.ver|administrar`, `documentos_laborales.ver|generar|operar_fisico|cancelar`,
+`contratos.ver`, `evaluaciones.ver|capturar|autorizar`, `cierres.ver|gestionar|ejecutar_baja`,
+`finiquitos.confirmar_pago`, `nomina.recibos.ver|crear|importar`,
+`prestamos.ver|autorizar|resguardar`, `actas.ver|crear|gestionar`, `indicadores.ver`.
+Detalle de flujos y Policies en `docs/backend-rh-completion.md`.

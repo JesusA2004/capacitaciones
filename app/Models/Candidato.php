@@ -36,6 +36,9 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $fecha_entrevista
  * @property string|null $resultado_entrevista
  * @property int|null $creado_por
+ * @property int|null $colaborador_id
+ * @property Carbon|null $contratado_en
+ * @property Carbon|null $created_at
  */
 class Candidato extends Model
 {
@@ -74,6 +77,8 @@ class Candidato extends Model
         'fecha_entrevista',
         'resultado_entrevista',
         'creado_por',
+        'colaborador_id',
+        'contratado_en',
     ];
 
     protected function casts(): array
@@ -81,6 +86,7 @@ class Candidato extends Model
         return [
             'estado' => EstadoCandidato::class,
             'fecha_entrevista' => 'datetime',
+            'contratado_en' => 'datetime',
             'cv_size' => 'integer',
         ];
     }
@@ -93,6 +99,17 @@ class Candidato extends Model
     public function getTieneCvAttribute(): bool
     {
         return $this->cv_path !== null;
+    }
+
+    /**
+     * Colaborador creado al contratar a este candidato (trazabilidad
+     * reclutamiento → alta, ver App\Services\Reclutamiento\ContratacionCandidatoService).
+     *
+     * @return BelongsTo<Colaborador, $this>
+     */
+    public function colaborador(): BelongsTo
+    {
+        return $this->belongsTo(Colaborador::class)->withTrashed();
     }
 
     /**

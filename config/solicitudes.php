@@ -75,4 +75,20 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Visto bueno del jefe inmediato
+    |--------------------------------------------------------------------------
+    |
+    | Tipos de solicitud que, antes de la autorización final de RH/Dirección,
+    | requieren el visto bueno del jefe inmediato (o gerente) del colaborador
+    | según la estructura jerárquica real (colaboradores.jefe_id/gerente_id).
+    | Ver App\Services\Solicitudes\AprobacionJerarquicaService.
+    |
+    */
+
+    'visto_bueno_jefe' => [
+        TipoSolicitudInterna::PrestamoInterno->value,
+    ],
+
 ];

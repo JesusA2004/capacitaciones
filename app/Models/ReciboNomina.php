@@ -6,6 +6,7 @@ use Database\Factories\ReciboNominaFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -29,6 +30,14 @@ use Illuminate\Support\Carbon;
  * @property int|null $generado_por
  * @property string|null $pdf_disk
  * @property string|null $pdf_path
+ * @property string|null $folio
+ * @property string|null $tipo_periodo
+ * @property int|null $ejercicio
+ * @property int|null $numero_periodo
+ * @property string|null $observaciones
+ * @property string|null $lote_importacion
+ * @property string|null $checksum
+ * @property-read Colaborador $colaborador
  */
 class ReciboNomina extends Model
 {
@@ -51,7 +60,32 @@ class ReciboNomina extends Model
         'generado_por',
         'pdf_disk',
         'pdf_path',
+        'folio',
+        'tipo_periodo',
+        'ejercicio',
+        'numero_periodo',
+        'observaciones',
+        'lote_importacion',
+        'checksum',
     ];
+
+    /**
+     * El disco/ruta del PDF nunca se exponen: la descarga pasa por un
+     * endpoint autorizado (ReciboNominaPolicy).
+     *
+     * @var list<string>
+     */
+    protected $hidden = ['pdf_disk', 'pdf_path'];
+
+    /**
+     * Detalle de conceptos (percepciones y deducciones).
+     *
+     * @return HasMany<ReciboNominaConcepto, $this>
+     */
+    public function conceptos(): HasMany
+    {
+        return $this->hasMany(ReciboNominaConcepto::class, 'recibo_nomina_id')->orderBy('orden')->orderBy('id');
+    }
 
     protected function casts(): array
     {
@@ -65,6 +99,8 @@ class ReciboNomina extends Model
             'total_percepciones' => 'decimal:2',
             'total_deducciones' => 'decimal:2',
             'neto' => 'decimal:2',
+            'ejercicio' => 'integer',
+            'numero_periodo' => 'integer',
         ];
     }
 

@@ -27,9 +27,11 @@
 </head>
 <body>
     <div class="encabezado">
-        <p class="marca">MR. LANA PEOPLE — Recibo de nómina</p>
-        <h1>Recibo de nómina simple</h1>
+        <p class="marca">MR. LANA PEOPLE</p>
+        <h1>RECIBO INTERNO DE NÓMINA - NO FISCAL</h1>
         <p class="meta">
+            @if ($recibo->folio) Folio {{ $recibo->folio }} · @endif
+            @if ($recibo->tipo_periodo === 'semanal' && $recibo->numero_periodo) Semana {{ $recibo->numero_periodo }}/{{ $recibo->ejercicio }} · @endif
             Periodo {{ $periodo_inicio->format('d/m/Y') }} — {{ $periodo_fin->format('d/m/Y') }} ·
             Fecha de pago {{ $fecha_pago->format('d/m/Y') }} ·
             Generado el {{ now()->format('d/m/Y H:i') }}
@@ -83,8 +85,14 @@
         <tr class="total"><td>Neto a pagar</td><td class="monto">${{ number_format($neto, 2) }}</td></tr>
     </table>
 
+    @if ($recibo->observaciones)
+        <p class="seccion-titulo">Observaciones</p>
+        <p>{{ $recibo->observaciones }}</p>
+    @endif
+
     <p class="leyenda">
-        Comprobante interno informativo. No sustituye CFDI de nómina timbrado.
+        <strong>RECIBO INTERNO DE NÓMINA - NO FISCAL.</strong>
+        Comprobante interno informativo. No es CFDI, no está timbrado y no sustituye al sistema de nómina.
         No es un cálculo de ISR/IMSS — para efectos fiscales, la nómina oficial se procesa con el proveedor
         certificado de la empresa.
     </p>

@@ -61,6 +61,34 @@ class PlaceholderResolver
             'fecha_fin_incapacidad' => '',
             'motivo_solicitud' => '',
             'observaciones' => '',
+            // Ciclo contractual (docs/backend-rh-completion.md).
+            'gerente' => '',
+            'fecha_nacimiento' => '',
+            'empresa_razon_social' => '',
+            'empresa_rfc' => '',
+            'tipo_contratacion' => '',
+            'periodo_prueba_inicio' => '',
+            'periodo_prueba_fin' => '',
+            'fecha_inicio_contrato' => '',
+            'fecha_fin_contrato' => '',
+            // Préstamo autorizado (PrestamoAutorizacionService).
+            'monto_solicitado_prestamo' => '',
+            'periodicidad_prestamo' => '',
+            'motivo_prestamo' => '',
+            // Cierre laboral (CierreLaboralService).
+            'tipo_baja' => '',
+            'motivo_baja' => '',
+            'fecha_baja' => '',
+            // Actas (ActaService).
+            'folio_acta' => '',
+            'tipo_acta' => '',
+            'fecha_acta' => '',
+            'hora_acta' => '',
+            'lugar_acta' => '',
+            'hechos_acta' => '',
+            'responsable_acta' => '',
+            'testigos_acta' => '',
+            'declaraciones_acta' => '',
         ];
 
         if ($sujeto instanceof Colaborador) {
@@ -123,6 +151,13 @@ class PlaceholderResolver
             'fecha_ingreso' => $sujeto->fecha_ingreso?->format('d/m/Y') ?? '',
             'sueldo_mensual' => $sueldoMensual !== null ? sprintf('$%s', number_format($sueldoMensual, 2)) : '',
             'sueldo_diario' => $sueldoMensual !== null ? sprintf('$%s', number_format($sueldoMensual / 30, 2)) : '',
+            'gerente' => ($sujeto->gerente ?? $sujeto->jefe?->jefe)?->nombreCompleto() ?? '',
+            'fecha_nacimiento' => $sujeto->fecha_nacimiento?->format('d/m/Y') ?? '',
+            'empresa_razon_social' => (string) ($sujeto->empresa()->razon_social ?? $sujeto->empresa()?->nombre),
+            'empresa_rfc' => (string) $sujeto->empresa()?->rfc,
+            'tipo_contratacion' => $sujeto->tipo_contratacion?->etiqueta() ?? '',
+            'periodo_prueba_inicio' => $sujeto->periodo_prueba_inicio?->format('d/m/Y') ?? '',
+            'periodo_prueba_fin' => $sujeto->periodo_prueba_fin?->format('d/m/Y') ?? '',
         ];
     }
 

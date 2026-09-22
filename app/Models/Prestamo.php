@@ -27,6 +27,19 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $fecha_otorgamiento
  * @property Carbon|null $fecha_primer_descuento
  * @property string $estado
+ * @property string|null $monto_solicitado
+ * @property int|null $plazo_solicitado
+ * @property string|null $motivo
+ * @property Carbon|null $fecha_solicitud
+ * @property int|null $autorizado_por
+ * @property Carbon|null $autorizado_en
+ * @property string|null $observaciones
+ * @property int|null $contrato_documento_id
+ * @property int|null $pagare_documento_id
+ * @property Carbon|null $resguardado_en
+ * @property int|null $resguardado_por
+ * @property Carbon|null $created_at
+ * @property-read Colaborador $colaborador
  */
 class Prestamo extends Model
 {
@@ -46,6 +59,17 @@ class Prestamo extends Model
         'fecha_otorgamiento',
         'fecha_primer_descuento',
         'estado',
+        'monto_solicitado',
+        'plazo_solicitado',
+        'motivo',
+        'fecha_solicitud',
+        'autorizado_por',
+        'autorizado_en',
+        'observaciones',
+        'contrato_documento_id',
+        'pagare_documento_id',
+        'resguardado_en',
+        'resguardado_por',
     ];
 
     protected function casts(): array
@@ -57,6 +81,11 @@ class Prestamo extends Model
             'pago_programado' => 'decimal:2',
             'fecha_otorgamiento' => 'date',
             'fecha_primer_descuento' => 'date',
+            'monto_solicitado' => 'decimal:2',
+            'plazo_solicitado' => 'integer',
+            'fecha_solicitud' => 'date',
+            'autorizado_en' => 'datetime',
+            'resguardado_en' => 'datetime',
         ];
     }
 
@@ -74,6 +103,30 @@ class Prestamo extends Model
     public function solicitud(): BelongsTo
     {
         return $this->belongsTo(SolicitudInterna::class, 'solicitud_id');
+    }
+
+    /**
+     * @return BelongsTo<GeneratedDocument, $this>
+     */
+    public function contratoDocumento(): BelongsTo
+    {
+        return $this->belongsTo(GeneratedDocument::class, 'contrato_documento_id');
+    }
+
+    /**
+     * @return BelongsTo<GeneratedDocument, $this>
+     */
+    public function pagareDocumento(): BelongsTo
+    {
+        return $this->belongsTo(GeneratedDocument::class, 'pagare_documento_id');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function autorizadoPor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'autorizado_por');
     }
 
     /**

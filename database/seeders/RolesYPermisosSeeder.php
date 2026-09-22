@@ -279,6 +279,35 @@ class RolesYPermisosSeeder extends Seeder
         'app_releases.publicar',
         'app_releases.eliminar',
         'app_releases.descargar',
+
+        // --- Ciclo laboral completo (docs/backend-rh-completion.md) ---
+        'colaboradores.alta',
+        'colaboradores.activar',
+        'candidatos.contratar',
+        'plantillas_documentales.ver',
+        'plantillas_documentales.administrar',
+        'documentos_laborales.ver',
+        'documentos_laborales.generar',
+        'documentos_laborales.operar_fisico',
+        'documentos_laborales.cancelar',
+        'contratos.ver',
+        'evaluaciones.ver',
+        'evaluaciones.capturar',
+        'evaluaciones.autorizar',
+        'cierres.ver',
+        'cierres.gestionar',
+        'cierres.ejecutar_baja',
+        'finiquitos.confirmar_pago',
+        'nomina.recibos.ver',
+        'nomina.recibos.crear',
+        'nomina.recibos.importar',
+        'prestamos.ver',
+        'prestamos.autorizar',
+        'prestamos.resguardar',
+        'actas.ver',
+        'actas.crear',
+        'actas.gestionar',
+        'indicadores.ver',
     ];
 
     /**
@@ -363,6 +392,15 @@ class RolesYPermisosSeeder extends Seeder
             'finiquitos.ver', 'finiquitos.calcular', 'finiquitos.revisar', 'finiquitos.subir_firmado',
             'headcount.ver', 'headcount.editar', 'headcount.importar',
             'organigrama.ver', 'organigrama.editar',
+            // Ciclo laboral completo (docs/backend-rh-completion.md).
+            'colaboradores.alta', 'colaboradores.activar', 'candidatos.contratar',
+            'plantillas_documentales.ver', 'plantillas_documentales.administrar',
+            'documentos_laborales.ver', 'documentos_laborales.generar', 'documentos_laborales.operar_fisico', 'documentos_laborales.cancelar',
+            'contratos.ver', 'evaluaciones.ver', 'evaluaciones.capturar', 'evaluaciones.autorizar',
+            'cierres.ver', 'cierres.gestionar', 'cierres.ejecutar_baja', 'finiquitos.confirmar_pago',
+            'nomina.recibos.ver', 'nomina.recibos.crear', 'nomina.recibos.importar',
+            'prestamos.ver', 'prestamos.autorizar', 'prestamos.resguardar',
+            'actas.ver', 'actas.crear', 'actas.gestionar', 'indicadores.ver',
         ],
 
         // Apoyo operativo de RH: puede capturar/revisar pero no aprobar
@@ -400,6 +438,12 @@ class RolesYPermisosSeeder extends Seeder
             'app_releases.ver',
             'finiquitos.ver', 'finiquitos.calcular', 'finiquitos.subir_firmado',
             'headcount.ver', 'organigrama.ver',
+            // Ciclo laboral completo (docs/backend-rh-completion.md).
+            'colaboradores.alta', 'candidatos.contratar', 'plantillas_documentales.ver',
+            'documentos_laborales.ver', 'documentos_laborales.generar', 'documentos_laborales.operar_fisico',
+            'contratos.ver', 'evaluaciones.ver', 'cierres.ver',
+            'nomina.recibos.ver', 'nomina.recibos.crear', 'nomina.recibos.importar',
+            'prestamos.ver', 'actas.ver', 'actas.crear', 'indicadores.ver',
         ],
 
         'gerente_sucursal' => [
@@ -427,6 +471,9 @@ class RolesYPermisosSeeder extends Seeder
             'notificaciones.leer_todas',
             'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
             'solicitudes.bajas.crear', 'headcount.ver', 'organigrama.ver',
+            // Ciclo laboral completo (docs/backend-rh-completion.md).
+            'contratos.ver', 'evaluaciones.ver', 'evaluaciones.capturar', 'prestamos.ver',
+            'actas.ver', 'actas.crear', 'documentos_laborales.ver', 'indicadores.ver',
         ],
         'supervisor' => [
             'dashboard.sucursal.ver',
@@ -600,6 +647,8 @@ class RolesYPermisosSeeder extends Seeder
             'notificaciones.leer_todas',
             'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
             'organigrama.ver',
+            // Ciclo laboral completo (docs/backend-rh-completion.md).
+            'contratos.ver', 'evaluaciones.ver', 'evaluaciones.capturar', 'prestamos.ver',
         ],
 
         'colaborador' => [
@@ -641,6 +690,51 @@ class RolesYPermisosSeeder extends Seeder
             'rh.colaboradores.ver', 'rh.colaboradores.detalle',
             'notificaciones.leer_todas',
             'headcount.ver', 'organigrama.ver',
+            // Ciclo laboral completo (docs/backend-rh-completion.md).
+            'contratos.ver', 'evaluaciones.ver', 'cierres.ver', 'nomina.recibos.ver', 'prestamos.ver',
+            'actas.ver', 'documentos_laborales.ver', 'plantillas_documentales.ver', 'indicadores.ver',
+        ],
+
+        // Dirección: autorizaciones finales (evaluaciones, préstamos, bajas)
+        // e indicadores globales; no opera la captura diaria de RH.
+        'direccion' => [
+            'dashboard.global.ver',
+            'reportes_rh.ver', 'reportes_rh.exportar', 'reportes_rh.globales', 'reportes_rh.sucursal',
+            'indicadores.ver', 'headcount.ver', 'organigrama.ver', 'auditoria.ver',
+            'expedientes.ver', 'expedientes.ver_todos', 'documentos.ver', 'documentos.descargar',
+            'vacantes.ver', 'vacantes.ver_todos', 'candidatos.ver', 'candidatos.ver_todos',
+            'solicitudes.ver', 'solicitudes.aprobar', 'solicitudes.bajas.aprobar',
+            'rh.solicitudes.ver', 'rh.solicitudes.detalle', 'rh.solicitudes.aprobar', 'rh.solicitudes.rechazar',
+            'contratos.ver', 'evaluaciones.ver', 'evaluaciones.autorizar',
+            'prestamos.ver', 'prestamos.autorizar',
+            'cierres.ver', 'finiquitos.ver', 'finiquitos.revisar',
+            'documentos_laborales.ver', 'actas.ver', 'nomina.recibos.ver',
+            'mobile.bootstrap.ver', 'app.config.ver',
+            'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
+            'notificaciones.leer_todas',
+        ],
+
+        // Jurídico: consulta la documentación jurídica y administra las
+        // plantillas (textos legales) del motor documental.
+        'juridico' => [
+            'expedientes.ver', 'expedientes.ver_todos', 'documentos.ver', 'documentos.descargar',
+            'plantillas_documentales.ver', 'plantillas_documentales.administrar',
+            'documentos_laborales.ver', 'contratos.ver', 'actas.ver', 'cierres.ver', 'finiquitos.ver',
+            'formatos_oficiales.ver', 'formatos_oficiales.descargar',
+            'mobile.bootstrap.ver', 'app.config.ver',
+            'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
+            'notificaciones.leer_todas',
+        ],
+
+        // Sistemas: administra la plataforma (cuentas, roles, releases de la
+        // app, auditoría). Sin acceso a expedientes ni a datos de nómina.
+        'sistemas' => [
+            'usuarios.ver', 'usuarios.crear', 'usuarios.editar', 'usuarios.desactivar', 'usuarios.reactivar',
+            'roles.administrar', 'auditoria.ver',
+            'app_releases.ver', 'app_releases.crear', 'app_releases.publicar', 'app_releases.eliminar', 'app_releases.descargar',
+            'mobile.bootstrap.ver', 'app.config.ver',
+            'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
+            'notificaciones.leer_todas',
         ],
     ];
 

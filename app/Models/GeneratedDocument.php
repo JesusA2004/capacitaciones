@@ -2,11 +2,17 @@
 
 namespace App\Models;
 
+use App\Enums\CategoriaDocumento;
 use App\Enums\EstadoDocumentoGenerado;
+use App\Enums\EstadoFlujoDocumento;
 use Database\Factories\GeneratedDocumentFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Support\Carbon;
 
 /**
  * Documento precargado generado a partir de una DocumentTemplate para un
@@ -32,6 +38,30 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property EstadoDocumentoGenerado $status
  * @property int|null $generated_by
  * @property int|null $signed_document_id
+ * @property string|null $documentable_type
+ * @property int|null $documentable_id
+ * @property string|null $clave_plantilla
+ * @property int|null $version_plantilla
+ * @property CategoriaDocumento|null $categoria
+ * @property string|null $titulo
+ * @property array<string, string>|null $payload
+ * @property string|null $checksum
+ * @property EstadoFlujoDocumento|null $estado_flujo
+ * @property bool $requiere_firma_digital
+ * @property bool $requiere_impresion
+ * @property bool $requiere_firma_fisica
+ * @property bool $requiere_huella
+ * @property bool $requiere_testigos
+ * @property Carbon|null $firmado_digital_en
+ * @property int|null $firmado_digital_por
+ * @property string|null $firma_digital_ip
+ * @property string|null $firma_digital_user_agent
+ * @property string|null $firma_digital_hash
+ * @property string|null $motivo_cancelacion
+ * @property Carbon|null $created_at
+ * @property-read Colaborador|null $colaborador
+ * @property-read DocumentTemplate|null $plantilla
+ * @property-read SeguimientoDocumentoFisico|null $seguimientoFisico
  */
 class GeneratedDocument extends Model
 {
@@ -58,12 +88,79 @@ class GeneratedDocument extends Model
         'status',
         'generated_by',
         'signed_document_id',
+        'documentable_type',
+        'documentable_id',
+        'clave_plantilla',
+        'version_plantilla',
+        'categoria',
+        'titulo',
+        'payload',
+        'checksum',
+        'estado_flujo',
+        'requiere_firma_digital',
+        'requiere_impresion',
+        'requiere_firma_fisica',
+        'requiere_huella',
+        'requiere_testigos',
+        'firmado_digital_en',
+        'firmado_digital_por',
+        'firma_digital_ip',
+        'firma_digital_user_agent',
+        'firma_digital_hash',
+        'motivo_cancelacion',
     ];
+
+    /**
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'requiere_firma_digital' => false,
+        'requiere_impresion' => false,
+        'requiere_firma_fisica' => false,
+        'requiere_huella' => false,
+        'requiere_testigos' => false,
+    ];
+
+    /**
+     * Objeto de negocio que originó el documento (contrato laboral,
+     * préstamo, finiquito, acta, recibo, solicitud...).
+     *
+     * @return MorphTo<Model, $this>
+     */
+    public function documentable(): MorphTo
+    {
+        return $this->morphTo();
+    }
+
+    /**
+     * @return HasOne<SeguimientoDocumentoFisico, $this>
+     */
+    public function seguimientoFisico(): HasOne
+    {
+        return $this->hasOne(SeguimientoDocumentoFisico::class, 'generated_document_id');
+    }
+
+    /**
+     * @return HasMany<DocumentoEvento, $this>
+     */
+    public function eventos(): HasMany
+    {
+        return $this->hasMany(DocumentoEvento::class, 'generated_document_id')->orderBy('id');
+    }
 
     protected function casts(): array
     {
         return [
             'status' => EstadoDocumentoGenerado::class,
+            'estado_flujo' => EstadoFlujoDocumento::class,
+            'categoria' => CategoriaDocumento::class,
+            'payload' => 'array',
+            'requiere_firma_digital' => 'boolean',
+            'requiere_impresion' => 'boolean',
+            'requiere_firma_fisica' => 'boolean',
+            'requiere_huella' => 'boolean',
+            'requiere_testigos' => 'boolean',
+            'firmado_digital_en' => 'datetime',
             'size' => 'integer',
         ];
     }

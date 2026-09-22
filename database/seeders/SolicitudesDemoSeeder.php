@@ -4,7 +4,9 @@ namespace Database\Seeders;
 
 use App\Models\SolicitudInterna;
 use App\Models\User;
+use App\Services\Solicitudes\AprobacionJerarquicaService;
 use App\Services\Solicitudes\SolicitudesService;
+use App\Services\Solicitudes\VistoBuenoService;
 use Closure;
 use Illuminate\Database\Seeder;
 
@@ -97,7 +99,22 @@ class SolicitudesDemoSeeder extends Seeder
                     'monto_solicitado' => 8000,
                     'plazo_meses' => 6,
                 ]);
-                $servicio->aprobar($solicitud, $rhAdmin, 'Aprobado, se descuenta vía nómina.');
+
+                // Mismo flujo real que la app: el préstamo requiere el visto
+                // bueno del jefe inmediato antes de la autorización de RH
+                // (config solicitudes.visto_bueno_jefe). Sin jefe con cuenta,
+                // la solicitud se queda en trámite en vez de saltarse el paso.
+                if (app(AprobacionJerarquicaService::class)->requiereVistoBuenoJefe($solicitud)) {
+                    $jefe = $solicitud->personaSolicitante()?->jefe?->user;
+
+                    if ($jefe === null) {
+                        return;
+                    }
+
+                    app(VistoBuenoService::class)->registrar($solicitud, $jefe, true, 'Visto bueno del jefe inmediato.');
+                }
+
+                $servicio->aprobar($solicitud->refresh(), $rhAdmin, 'Aprobado; el descuento lo aplica el área de nómina.');
             });
         }
 

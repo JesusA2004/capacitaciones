@@ -17,6 +17,18 @@ enum EstadoUsuario: string
      */
     case EnIncorporacion = 'en_incorporacion';
 
+    /**
+     * Estados que ocupan plaza en la plantilla activa: el colaborador en
+     * incorporación ya fue contratado (alta en proceso), así que su plaza ya
+     * no está vacante aunque todavía no se active su acceso completo.
+     *
+     * @return list<string>
+     */
+    public static function valoresVigentes(): array
+    {
+        return [self::Activo->value, self::EnIncorporacion->value];
+    }
+
     public function etiqueta(): string
     {
         return match ($this) {
