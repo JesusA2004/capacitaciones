@@ -37,7 +37,7 @@ class CierreLaboralController extends Controller
         abort_unless($request->user()->can('cierres.ver'), 403);
 
         return $this->paginado(
-            $this->cierres->listar($request->user(), $request->only(['estado', 'per_page'])),
+            $this->cierres->listar($request->user(), $request->only(['estado', 'colaborador_id', 'per_page'])),
             fn (CierreLaboral $c) => $this->cierres->aArray($c),
         );
     }

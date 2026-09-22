@@ -44,6 +44,9 @@ class PushNotifier
 
         $tituloConEmoji = $this->conEmoji($titulo, $type);
         $data['color'] ??= NotificacionesService::colorHexPara($type);
+        // Destinatario (id interno, no PII): si el teléfono cambió de cuenta y
+        // llega/se toca un push de la sesión anterior, la app no lo abre.
+        $data['user_id'] ??= $usuario->id;
 
         foreach ($this->tokensActivos($usuario) as $token) {
             SendExpoPushJob::dispatch($token, $tituloConEmoji, $cuerpo, $data);

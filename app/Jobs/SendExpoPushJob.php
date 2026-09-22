@@ -37,7 +37,14 @@ class SendExpoPushJob implements ShouldQueue
 
     public function handle(ExpoPushService $expo): void
     {
-        $expo->enviar($this->token, $this->titulo, $this->cuerpo, $this->data);
+        $resultado = $expo->enviarConResultado($this->token, $this->titulo, $this->cuerpo, $this->data);
+
+        // Expo caido / MessageRateExceeded: se re-encola con espera en vez de
+        // perder el aviso. Un token invalido ya quedo revocado y nunca se
+        // reintenta (no seguir enviando a dispositivos muertos).
+        if ($resultado === ExpoPushService::RESULTADO_REINTENTAR && $this->attempts() < $this->tries) {
+            $this->release($this->backoff * $this->attempts());
+        }
     }
 
     /**

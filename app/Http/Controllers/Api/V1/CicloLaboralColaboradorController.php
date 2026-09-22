@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\EstadoFlujoDocumento;
 use App\Http\Controllers\Api\V1\Concerns\RespondePaginado;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CicloLaboral\DecisionRequest;
@@ -73,6 +74,28 @@ class CicloLaboralColaboradorController extends Controller
             $this->documentos->delColaborador($this->colaborador($request), $request->string('estado')->toString() ?: null),
             fn (GeneratedDocument $d) => $this->documentos->aArray($d),
         );
+    }
+
+    /**
+     * Detalle de un documento laboral PROPIO con el mismo contrato que el
+     * listado (aArray sin detalle RH). Solo el titular: un documento de otra
+     * persona, en borrador o cancelado responde 404 igual que si no
+     * existiera (el listado tampoco los muestra), sin revelar su existencia.
+     */
+    public function documentoLaboral(Request $request, GeneratedDocument $documento): JsonResponse
+    {
+        $colaborador = $this->colaborador($request);
+
+        abort_unless(
+            $documento->colaborador_id === $colaborador->id
+                && $documento->estado_flujo !== null
+                && ! in_array($documento->estado_flujo, [EstadoFlujoDocumento::Borrador, EstadoFlujoDocumento::Cancelado], true),
+            404,
+            'Este documento ya no está disponible.',
+        );
+        $this->authorize('ver', $documento);
+
+        return response()->json(['data' => $this->documentos->aArray($documento)]);
     }
 
     public function descargarDocumento(GeneratedDocument $documento): StreamedResponse

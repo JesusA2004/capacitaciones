@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\V1\MobileBootstrapController;
 use App\Http\Controllers\Api\V1\NotificacionController;
 use App\Http\Controllers\Api\V1\Rh\ActaController;
 use App\Http\Controllers\Api\V1\Rh\AltaColaboradorController;
+use App\Http\Controllers\Api\V1\Rh\CatalogoController;
 use App\Http\Controllers\Api\V1\Rh\CierreLaboralController;
 use App\Http\Controllers\Api\V1\Rh\ColaboradorController as RhColaboradorController;
 use App\Http\Controllers\Api\V1\Rh\ContratoController;
@@ -105,6 +106,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::prefix('dispositivos')->name('dispositivos.')->group(function () {
             Route::post('push-token', [DispositivoController::class, 'registrarPushToken'])->name('push-token.registrar');
             Route::delete('push-token', [DispositivoController::class, 'revocarPushToken'])->name('push-token.revocar');
+            Route::post('push-prueba', [DispositivoController::class, 'pushPrueba'])->name('push-prueba')->middleware('throttle:5,1');
         });
 
         Route::prefix('colaborador')->name('colaborador.')->group(function () {
@@ -167,6 +169,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::get('expediente', [CicloLaboralColaboradorController::class, 'expediente'])->name('expediente');
             Route::get('documentos-pendientes', [CicloLaboralColaboradorController::class, 'documentosPendientes'])->name('documentos-pendientes');
             Route::get('documentos-laborales', [CicloLaboralColaboradorController::class, 'documentosLaborales'])->name('documentos-laborales.index');
+            Route::get('documentos-laborales/{documento}', [CicloLaboralColaboradorController::class, 'documentoLaboral'])->name('documentos-laborales.show')->whereNumber('documento');
             Route::get('documentos-laborales/{documento}/descargar', [CicloLaboralColaboradorController::class, 'descargarDocumento'])->name('documentos-laborales.descargar');
             Route::post('documentos-laborales/{documento}/firmar', [CicloLaboralColaboradorController::class, 'firmarDocumento'])->name('documentos-laborales.firmar');
             Route::get('contratos', [CicloLaboralColaboradorController::class, 'contratos'])->name('contratos');
@@ -293,6 +296,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             | Ciclo laboral completo — operación de RH/Dirección/Jurídico.
             | Cada acción: FormRequest + Policy (permiso + alcance) + Service.
             */
+            Route::get('catalogos', CatalogoController::class)->name('catalogos');
             Route::post('colaboradores', [AltaColaboradorController::class, 'store'])->name('colaboradores.store');
             Route::get('colaboradores/{colaborador}/alta', [AltaColaboradorController::class, 'show'])->name('colaboradores.alta');
             Route::post('colaboradores/{colaborador}/activar', [AltaColaboradorController::class, 'activar'])->name('colaboradores.activar');

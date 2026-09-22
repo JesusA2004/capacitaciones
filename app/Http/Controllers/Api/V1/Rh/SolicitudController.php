@@ -3,13 +3,17 @@
 namespace App\Http\Controllers\Api\V1\Rh;
 
 use App\Enums\EstadoSolicitudInterna;
+use App\Enums\TipoSolicitudInterna;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Rh\ActualizarEstadoSolicitudInternaRequest;
+use App\Models\Prestamo;
+use App\Models\SolicitudAprobacion;
 use App\Models\SolicitudInterna;
 use App\Models\SolicitudInternaHistorial;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\RhMobile\WorkflowService;
+use App\Services\Solicitudes\AprobacionJerarquicaService;
 use App\Services\Solicitudes\SolicitudesService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,6 +30,7 @@ class SolicitudController extends Controller
         private readonly SolicitudesService $solicitudes,
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly WorkflowService $workflow,
+        private readonly AprobacionJerarquicaService $aprobaciones,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -83,6 +88,9 @@ class SolicitudController extends Controller
                     'id' => $d->id,
                     'nombre' => $d->original_name,
                 ])->values(),
+                'monto_solicitado' => $solicitud->monto_solicitado !== null ? (float) $solicitud->monto_solicitado : null,
+                'plazo_solicitado' => $solicitud->plazo_meses,
+                'prestamo' => $solicitud->tipo === TipoSolicitudInterna::PrestamoInterno ? $this->prestamoDecision($usuario, $solicitud) : null,
                 'acciones_permitidas' => $flujo['acciones_permitidas'],
                 'workflow' => $flujo['workflow'],
                 'historial' => $solicitud->historial->map(fn (SolicitudInternaHistorial $h) => [
@@ -183,6 +191,40 @@ class SolicitudController extends Controller
         }
 
         return response()->json(['message' => $mensaje, 'data' => ['id' => $solicitud->id, 'estado' => $solicitud->estado->value]]);
+    }
+
+    /**
+     * Lo necesario para decidir un préstamo SIN autorizar a ciegas: lo
+     * solicitado, el visto bueno del jefe inmediato (misma regla que
+     * SolicitudesService::cambiarEstado) y si esta cuenta puede autorizar
+     * (PrestamoPolicy::autorizarSolicitud). La app solo pinta estos datos;
+     * el backend sigue siendo la autoridad al autorizar (422/403).
+     *
+     * @return array<string, mixed>
+     */
+    private function prestamoDecision(User $usuario, SolicitudInterna $solicitud): array
+    {
+        $requiereVistoBueno = $this->aprobaciones->requiereVistoBuenoJefe($solicitud);
+        $decision = $this->aprobaciones->decisionJefe($solicitud);
+        $decision?->loadMissing('usuario.colaborador');
+        $pendiente = in_array($solicitud->estado, [EstadoSolicitudInterna::Enviada, EstadoSolicitudInterna::EnRevision], true);
+        $vistoBuenoCumplido = ! $requiereVistoBueno || $decision?->decision === SolicitudAprobacion::DECISION_APROBADO;
+        $puedeDecidir = $pendiente && $usuario->can('autorizarSolicitud', [Prestamo::class, $solicitud]);
+
+        return [
+            'monto_solicitado' => $solicitud->monto_solicitado !== null ? (float) $solicitud->monto_solicitado : null,
+            'plazo_solicitado' => $solicitud->plazo_meses,
+            'visto_bueno' => [
+                'requerido' => $requiereVistoBueno,
+                'estado' => $decision?->decision ?? ($requiereVistoBueno ? 'pendiente' : 'no_aplica'),
+                'jefe' => $decision?->usuario?->nombreCompleto(),
+                'comentario' => $decision?->comentario,
+                'fecha' => $decision?->created_at?->toIso8601String(),
+            ],
+            'prestamo_id' => $solicitud->prestamo()->value('id'),
+            'puede_autorizar' => $puedeDecidir && $vistoBuenoCumplido && $solicitud->monto_solicitado !== null,
+            'puede_rechazar' => $puedeDecidir,
+        ];
     }
 
     private function validarPendiente(SolicitudInterna $solicitud): void

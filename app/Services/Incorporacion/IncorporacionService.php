@@ -147,6 +147,9 @@ class IncorporacionService
 
         return [
             'id' => $tipo->id,
+            // Id del archivo vigente: el push `documento` (aprobado/rechazado)
+            // trae este id como resource_id; la app lo usa para abrir el tipo correcto.
+            'documento_id' => $documento?->id,
             'tipo' => $tipo->clave,
             'nombre' => $tipo->nombre,
             'obligatorio' => $tipo->requerido,

@@ -131,6 +131,12 @@ class NotificacionesService
             'data' => [
                 'type' => $notificacion->data['type'] ?? $notificacion->data['tipo'] ?? null,
                 'resource_id' => $notificacion->data['resource_id'] ?? null,
+                // Ciclo laboral (PendienteRhNotification): objeto y accion esperada
+                // para navegacion determinista en la app; null en avisos antiguos.
+                'related_type' => $notificacion->data['related_type'] ?? null,
+                'accion' => $notificacion->data['accion'] ?? null,
+                // Avisos agregados (rh_cumpleanos) navegan por periodo, no por id.
+                'periodo' => $notificacion->data['periodo'] ?? null,
             ],
         ];
     }

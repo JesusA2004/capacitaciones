@@ -7,6 +7,9 @@ use App\Models\User;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Incorporacion\IncorporacionService;
 use App\Services\RhMobile\RhPendientesService;
+use App\Services\Tareas\TareaService;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Arma el contexto inicial que la app movil carga justo despues de
@@ -30,10 +33,39 @@ class MobileBootstrapService
         'gerente_regional', 'coordinadora_regional', 'coordinadora',
     ];
 
+    /**
+     * Permisos (RolesYPermisosSeeder) que habilitan al menos un modulo de
+     * operacion de "Gestion RH" en la app. Direccion y Juridico NO tienen
+     * rh.pendientes.ver pero si capacidades reales (autorizar prestamos,
+     * indicadores, documentos laborales, cierres...), asi que
+     * capabilities.rh se calcula con cualquiera de ellos. La app sigue
+     * mostrando cada modulo solo con su permiso exacto (user.permissions):
+     * esto decide unicamente si la experiencia existe para la cuenta.
+     *
+     * @var list<string>
+     */
+    public const PERMISOS_EXPERIENCIA_RH = [
+        'rh.pendientes.ver',
+        'rh.mobile.dashboard.ver',
+        'indicadores.ver',
+        'headcount.ver',
+        'organigrama.ver',
+        'plantillas_documentales.ver',
+        'documentos_laborales.ver',
+        'contratos.ver',
+        'evaluaciones.autorizar',
+        'cierres.ver',
+        'nomina.recibos.ver',
+        'prestamos.ver',
+        'prestamos.autorizar',
+        'actas.ver',
+    ];
+
     public function __construct(
         private readonly ExpedienteService $expediente,
         private readonly IncorporacionService $incorporacion,
         private readonly RhPendientesService $rhPendientes,
+        private readonly TareaService $tareas,
     ) {}
 
     /**
@@ -99,7 +131,7 @@ class MobileBootstrapService
     {
         return [
             'employee' => true,
-            'rh' => $usuario->can('rh.pendientes.ver'),
+            'rh' => $usuario->canAny(self::PERMISOS_EXPERIENCIA_RH),
             'manager' => $usuario->hasAnyRole(self::ROLES_MANAGER),
             'director' => $usuario->hasRole('director_comercial'),
         ];
@@ -138,11 +170,13 @@ class MobileBootstrapService
             $documentosPendientes = $colaborador !== null ? $this->expediente->documentosPendientesCount($colaborador) : 0;
         }
 
-        $rh = $capabilities['rh'] ? $this->rhPendientes->resumenConteos($usuario) : ['solicitudes' => 0, 'vacaciones' => 0, 'documentos' => 0, 'incorporaciones' => 0, 'total' => 0];
+        // La bandeja RH unificada exige rh.pendientes.ver (Rh\PendienteController):
+        // Direccion/Juridico entran a Gestion RH sin ella y sus contadores son 0.
+        $rh = $usuario->can('rh.pendientes.ver') ? $this->rhPendientes->resumenConteos($usuario) : ['solicitudes' => 0, 'vacaciones' => 0, 'documentos' => 0, 'incorporaciones' => 0, 'total' => 0];
 
         return [
             'notifications' => $usuario->unreadNotifications()->count(),
-            'tasks' => 0,
+            'tasks' => $this->tareasAbiertas($usuario),
             'documents_pending' => $documentosPendientes,
             'rh_pendientes' => $rh['total'],
             'rh_solicitudes' => $rh['solicitudes'],
@@ -150,5 +184,20 @@ class MobileBootstrapService
             'rh_documentos' => $rh['documentos'],
             'rh_incorporaciones' => $rh['incorporaciones'],
         ];
+    }
+
+    /**
+     * Mismo conteo que GET /tareas (meta.conteos.abiertas). Un fallo aqui no
+     * debe tumbar el bootstrap completo: la app vuelve a consultar /tareas.
+     */
+    private function tareasAbiertas(User $usuario): int
+    {
+        try {
+            return $this->tareas->conteos($usuario)['abiertas'];
+        } catch (Throwable $e) {
+            Log::warning('MobileBootstrapService: no se pudo contar tareas.', ['error' => $e->getMessage()]);
+
+            return 0;
+        }
     }
 }

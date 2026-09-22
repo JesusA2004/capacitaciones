@@ -321,13 +321,15 @@ class CierreLaboralService
     }
 
     /**
-     * @param  array<string, mixed>  $filtros  estado?, per_page?
+     * @param  array<string, mixed>  $filtros  estado?, colaborador_id?, per_page?
      * @return LengthAwarePaginator<int, CierreLaboral>
      */
     public function listar(User $usuario, array $filtros = []): LengthAwarePaginator
     {
         $query = CierreLaboral::query()->with(['colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id']);
 
+        // El alcance se aplica SIEMPRE antes del filtro por colaborador: pedir
+        // el id de alguien fuera del alcance devuelve una lista vacía.
         if (! $this->alcance->tieneAlcanceGlobal($usuario)) {
             $query->whereIn('colaborador_id', $this->alcance->limitarColaboradoresPorAlcance(Colaborador::query()->withTrashed(), $usuario)->select('id'));
         }
@@ -336,6 +338,7 @@ class CierreLaboralService
 
         return $query
             ->when($estado, fn (Builder $q, string $v) => $q->where('estado', $v))
+            ->when($filtros['colaborador_id'] ?? null, fn (Builder $q, int|string $v) => $q->where('colaborador_id', (int) $v))
             ->orderByDesc('id')
             ->paginate(max(1, min(100, (int) ($filtros['per_page'] ?? 20))));
     }
