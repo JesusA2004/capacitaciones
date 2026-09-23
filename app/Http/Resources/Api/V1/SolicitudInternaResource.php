@@ -2,7 +2,9 @@
 
 namespace App\Http\Resources\Api\V1;
 
+use App\Enums\TipoSolicitudInterna;
 use App\Models\SolicitudInterna;
+use App\Services\Nomina\PrestamoSeguimientoService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -30,6 +32,11 @@ class SolicitudInternaResource extends JsonResource
             'motivo_rechazo' => $this->motivo_rechazo,
             'revisado_en' => $this->revisado_en?->toIso8601String(),
             'creada_en' => $this->created_at?->toIso8601String(),
+            // Préstamo: lo que pidió el colaborador y en qué etapa va (visto
+            // bueno → autorización RH → firma). null en cualquier otro tipo.
+            'prestamo' => $this->tipo === TipoSolicitudInterna::PrestamoInterno
+                ? app(PrestamoSeguimientoService::class)->paraColaborador($this->resource)
+                : null,
         ];
     }
 }

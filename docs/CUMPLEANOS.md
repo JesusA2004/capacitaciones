@@ -179,3 +179,37 @@ felicitación, descarga sin exponer ruta física) y
 `tests/Feature/Cumpleanos/EnviarFelicitacionesCommandTest.php` (idempotencia de los
 commands, notificaciones). API: `tests/Feature/Api/ColaboradorCumpleanosApiTest.php` y
 `tests/Feature/Api/Rh/RhCumpleanosApiTest.php`.
+
+## Muro de felicitaciones (app móvil, 2026-09-22)
+
+RH abre el muro de una felicitación y **cualquier colaborador activo** puede
+dejarle al cumpleañero un mensaje (≤ 500 caracteres) y/o una foto
+(jpg/png/webp, ≤ 8 MB).
+
+- Migración `2026_09_22_120000_create_birthday_wall_tables`: columnas
+  `muro_abierto_at`, `muro_abierto_por_id`, `muro_cerrado_at` en
+  `birthday_greetings` + tabla `birthday_wall_messages`.
+- Permiso nuevo `rh.cumpleanos.muro.gestionar` (rol `rh_admin`): abrir/cerrar
+  el muro y borrar cualquier mensaje. El autor siempre puede borrar el suyo.
+  **Correr `RolesYPermisosSeeder` en producción** para crear el permiso.
+- Servicio `App\Services\Cumpleanos\MuroCumpleanosService`; fotos en el disco
+  de cumpleaños (`cumpleanos/muro/{greeting}/{uuid}.ext`), servidas por
+  streaming — la ruta física nunca sale al cliente.
+- Push `cumpleanos_muro` (resource_id = greeting): al **abrir** por primera
+  vez, a todos los colaboradores activos con app (reabrir no vuelve a
+  notificar); al cumpleañero, cada mensaje nuevo.
+- Visible en la app hasta `CUMPLEANOS_MURO_DIAS_VISIBLE` días (default 3)
+  después del cumpleaños; cerrado = solo lectura.
+
+| Método | Ruta | Quién |
+|---|---|---|
+| GET | `/api/v1/cumpleanos/muros` | colaborador activo |
+| GET | `/api/v1/cumpleanos/muros/{greeting}` | colaborador activo (404 si RH no lo abrió) |
+| GET | `/api/v1/cumpleanos/muros/{greeting}/foto` | foto del cumpleañero |
+| GET/POST | `/api/v1/cumpleanos/muros/{greeting}/mensajes` | listar (paginado) / publicar (multipart `mensaje`, `foto`; throttle 20/min) |
+| DELETE | `/api/v1/cumpleanos/muros/{greeting}/mensajes/{mensaje}` | autor o RH |
+| GET | `/api/v1/cumpleanos/muros/{greeting}/mensajes/{mensaje}/foto` | colaborador activo |
+| POST | `/api/v1/rh/cumpleanos/{greeting}/muro/abrir` · `/cerrar` | `rh.cumpleanos.muro.gestionar` + alcance |
+
+`GET /api/v1/rh/cumpleanos/{greeting}` incluye ahora el bloque `muro`.
+Pruebas: `tests/Feature/Api/MuroCumpleanosApiTest.php`.

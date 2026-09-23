@@ -108,6 +108,30 @@ class PrestamoAutorizacionService
     }
 
     /**
+     * Datos PROPIOS del préstamo para llenar cualquier documento (contrato,
+     * pagaré y, cuando exista, el formato oficial de solicitud). Los datos del
+     * colaborador (nombre, número de empleado, empresa, sucursal, puesto,
+     * ingreso, jefe) los resuelve el motor de plantillas a partir del
+     * colaborador — no se duplican aquí. Para el formato oficial: registrar
+     * su plantilla y mapear sus campos contra estas claves + las del motor;
+     * el flujo del préstamo no cambia.
+     *
+     * @return array<string, string>
+     */
+    public function variablesDocumento(Prestamo $prestamo): array
+    {
+        return [
+            'monto_prestamo' => sprintf('$%s', number_format((float) $prestamo->monto_original, 2)),
+            'monto_solicitado_prestamo' => sprintf('$%s', number_format((float) ($prestamo->monto_solicitado ?? $prestamo->monto_original), 2)),
+            'plazo_prestamo' => (string) $prestamo->plazo,
+            'pago_prestamo' => sprintf('$%s', number_format((float) $prestamo->pago_programado, 2)),
+            'saldo_prestamo' => sprintf('$%s', number_format((float) $prestamo->saldo, 2)),
+            'periodicidad_prestamo' => (string) $prestamo->periodicidad,
+            'motivo_prestamo' => (string) $prestamo->motivo,
+        ];
+    }
+
+    /**
      * Contrato de préstamo y pagaré con los datos AUTORIZADOS (snapshot en
      * el documento). Una plantilla faltante queda como pendiente, no como error.
      *
@@ -116,15 +140,7 @@ class PrestamoAutorizacionService
     public function generarDocumentos(Prestamo $prestamo, User $actor): array
     {
         $prestamo->loadMissing('colaborador');
-        $variables = [
-            'monto_prestamo' => sprintf('$%s', number_format((float) $prestamo->monto_original, 2)),
-            'monto_solicitado_prestamo' => sprintf('$%s', number_format((float) ($prestamo->monto_solicitado ?? $prestamo->monto_original), 2)),
-            'plazo_prestamo' => (string) $prestamo->plazo,
-            'pago_prestamo' => sprintf('$%s', number_format((float) $prestamo->pago_programado, 2)),
-            'saldo_prestamo' => sprintf('$%s', number_format((float) $prestamo->saldo, 2)),
-            'periodicidad_prestamo' => $prestamo->periodicidad,
-            'motivo_prestamo' => (string) $prestamo->motivo,
-        ];
+        $variables = $this->variablesDocumento($prestamo);
 
         $pendientes = [];
 

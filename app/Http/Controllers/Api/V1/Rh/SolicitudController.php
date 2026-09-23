@@ -216,7 +216,7 @@ class SolicitudController extends Controller
             'plazo_solicitado' => $solicitud->plazo_meses,
             'visto_bueno' => [
                 'requerido' => $requiereVistoBueno,
-                'estado' => $decision?->decision ?? ($requiereVistoBueno ? 'pendiente' : 'no_aplica'),
+                'estado' => $decision->decision ?? ($requiereVistoBueno ? 'pendiente' : 'no_aplica'),
                 'jefe' => $decision?->usuario?->nombreCompleto(),
                 'comentario' => $decision?->comentario,
                 'fecha' => $decision?->created_at?->toIso8601String(),

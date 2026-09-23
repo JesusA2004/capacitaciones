@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\EvaluacionController;
 use App\Http\Controllers\Api\V1\IncorporacionController;
 use App\Http\Controllers\Api\V1\IncorporacionInvitacionController;
 use App\Http\Controllers\Api\V1\MobileBootstrapController;
+use App\Http\Controllers\Api\V1\MuroCumpleanosController;
 use App\Http\Controllers\Api\V1\NotificacionController;
 use App\Http\Controllers\Api\V1\Rh\ActaController;
 use App\Http\Controllers\Api\V1\Rh\AltaColaboradorController;
@@ -107,6 +108,18 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('push-token', [DispositivoController::class, 'registrarPushToken'])->name('push-token.registrar');
             Route::delete('push-token', [DispositivoController::class, 'revocarPushToken'])->name('push-token.revocar');
             Route::post('push-prueba', [DispositivoController::class, 'pushPrueba'])->name('push-prueba')->middleware('throttle:5,1');
+        });
+
+        // Muro de felicitaciones de cumpleaños (docs/CUMPLEANOS.md): RH lo
+        // abre; cualquier colaborador activo deja mensaje y/o foto.
+        Route::prefix('cumpleanos/muros')->name('cumpleanos.muros.')->group(function () {
+            Route::get('/', [MuroCumpleanosController::class, 'index'])->name('index');
+            Route::get('{greeting}', [MuroCumpleanosController::class, 'show'])->name('show');
+            Route::get('{greeting}/foto', [MuroCumpleanosController::class, 'fotoCumpleanero'])->name('foto-cumpleanero');
+            Route::get('{greeting}/mensajes', [MuroCumpleanosController::class, 'mensajes'])->name('mensajes.index');
+            Route::post('{greeting}/mensajes', [MuroCumpleanosController::class, 'publicar'])->name('mensajes.store')->middleware('throttle:20,1');
+            Route::delete('{greeting}/mensajes/{mensaje}', [MuroCumpleanosController::class, 'eliminar'])->name('mensajes.destroy');
+            Route::get('{greeting}/mensajes/{mensaje}/foto', [MuroCumpleanosController::class, 'foto'])->name('mensajes.foto');
         });
 
         Route::prefix('colaborador')->name('colaborador.')->group(function () {
@@ -285,6 +298,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('/', [RhCumpleanosController::class, 'index'])->name('index');
                 Route::get('{colaborador}/foto', [RhCumpleanosController::class, 'foto'])->name('foto');
                 Route::get('{greeting}/imagen', [RhCumpleanosController::class, 'imagen'])->name('imagen');
+                Route::post('{greeting}/muro/abrir', [RhCumpleanosController::class, 'abrirMuro'])->name('muro.abrir');
+                Route::post('{greeting}/muro/cerrar', [RhCumpleanosController::class, 'cerrarMuro'])->name('muro.cerrar');
                 Route::get('{greeting}', [RhCumpleanosController::class, 'show'])->name('show');
             });
 

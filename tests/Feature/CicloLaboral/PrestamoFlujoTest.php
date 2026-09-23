@@ -32,7 +32,6 @@ function clSolicitarPrestamo(User $cuenta): int
         'tipo' => 'prestamo',
         'motivo' => 'Gastos médicos',
         'monto_solicitado' => 10000,
-        'plazo_meses' => 10,
     ])->assertCreated()->json('id');
 }
 
@@ -71,7 +70,8 @@ test('préstamo: solicitud → visto bueno del jefe → autorización con monto/
 
     expect($prestamo['monto_solicitado'])->toBe('10000.00')
         ->and($prestamo['monto_autorizado'])->toBe('8000.00')
-        ->and($prestamo['plazo_solicitado'])->toBe(10)
+        // El colaborador no propone plazo: lo decide RH al autorizar.
+        ->and($prestamo['plazo_solicitado'])->toBeNull()
         ->and($prestamo['plazo_autorizado'])->toBe(8)
         ->and($prestamo['pago_programado'])->toBe('1000.00')
         ->and($prestamo['contrato']['estado'])->toBe('pendiente_firma_colaborador')

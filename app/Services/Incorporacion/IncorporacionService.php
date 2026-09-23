@@ -14,6 +14,7 @@ use App\Notifications\Mobile\RhDocumentoPendienteNotification;
 use App\Notifications\Mobile\RhIncorporacionCompletaNotification;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Expedientes\ExpedienteService;
+use App\Services\Expedientes\ProgresoExpediente;
 use App\Services\MobilePush\PushNotifier;
 use App\Services\RhMobile\ResponsableResolverService;
 use Illuminate\Http\UploadedFile;
@@ -167,39 +168,31 @@ class IncorporacionService
     }
 
     /**
+     * Avance del expediente: delega en la regla ÚNICA
+     * (App\Services\Expedientes\ProgresoExpediente). `total`/`aprobados`/
+     * `pendientes` se conservan por compatibilidad con el Portal y apps
+     * previas; `pendientes` = por subir (sin archivo), como antes.
+     *
      * @param  Collection<int, DocumentType>  $tipos
      * @param  Collection<int, EmployeeDocument>  $vigentes
-     * @return array{total: int, aprobados: int, pendientes: int, en_revision: int, rechazados: int, porcentaje: float}
+     * @return array<string, int|bool>
      */
     public function progreso(Collection $tipos, Collection $vigentes): array
     {
-        $requeridos = $tipos->where('requerido', true);
-
-        $aprobados = 0;
-        $pendientes = 0;
-        $enRevision = 0;
-        $rechazados = 0;
-
-        foreach ($requeridos as $tipo) {
-            $documento = $vigentes->get($tipo->id);
-
-            match ($documento?->status) {
-                EstadoDocumento::Aprobado => $aprobados++,
-                EstadoDocumento::EnRevision, EstadoDocumento::Cargado, EstadoDocumento::CambioSolicitado, EstadoDocumento::CambioAutorizado => $enRevision++,
-                EstadoDocumento::Rechazado, EstadoDocumento::RequiereCorreccion, EstadoDocumento::Vencido => $rechazados++,
-                default => $pendientes++,
-            };
-        }
-
-        $total = $requeridos->count();
+        $p = ProgresoExpediente::calcular($tipos, $vigentes);
 
         return [
-            'total' => $total,
-            'aprobados' => $aprobados,
-            'pendientes' => $pendientes,
-            'en_revision' => $enRevision,
-            'rechazados' => $rechazados,
-            'porcentaje' => $total > 0 ? round(($aprobados / $total) * 100) : 0,
+            'total' => $p['total_obligatorios'],
+            'aprobados' => $p['completos'],
+            'pendientes' => $p['faltantes'],
+            'en_revision' => $p['en_revision'],
+            'rechazados' => $p['rechazados'],
+            'porcentaje' => $p['porcentaje'],
+            'total_obligatorios' => $p['total_obligatorios'],
+            'completos' => $p['completos'],
+            'faltantes' => $p['faltantes'],
+            'completo' => $p['completo'],
+            'sin_obligatorios' => $p['sin_obligatorios'],
         ];
     }
 

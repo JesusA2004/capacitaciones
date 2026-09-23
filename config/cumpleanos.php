@@ -23,6 +23,12 @@ return [
     'notify_rh' => (bool) env('CUMPLEANOS_NOTIFY_RH', true),
 
     /*
+    | Muro de felicitaciones: días que un muro sigue visible en la app
+    | después del cumpleaños (en solo lectura si RH ya lo cerró).
+    */
+    'muro_dias_visible' => (int) env('CUMPLEANOS_MURO_DIAS_VISIBLE', 3),
+
+    /*
     |--------------------------------------------------------------------------
     | Tarjeta de felicitacion (imagen descargable)
     |--------------------------------------------------------------------------

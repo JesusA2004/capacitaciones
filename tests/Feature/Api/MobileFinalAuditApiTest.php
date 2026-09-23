@@ -76,14 +76,14 @@ test('el detalle RH de un prestamo expone lo solicitado y el visto bueno antes d
     $cuenta->assignRole('colaborador');
 
     Sanctum::actingAs($cuenta);
-    $id = $this->postJson('/api/v1/solicitudes', ['tipo' => 'prestamo', 'motivo' => 'Gastos médicos', 'monto_solicitado' => 15000, 'plazo_meses' => 12])
+    $id = $this->postJson('/api/v1/solicitudes', ['tipo' => 'prestamo', 'motivo' => 'Gastos médicos', 'monto_solicitado' => 15000])
         ->assertCreated()->json('id');
 
     Sanctum::actingAs($direccion);
     $antes = $this->getJson("/api/v1/rh/solicitudes/{$id}")->assertOk();
 
     expect($antes->json('data.monto_solicitado'))->toEqual(15000)
-        ->and($antes->json('data.plazo_solicitado'))->toBe(12)
+        ->and($antes->json('data.plazo_solicitado'))->toBeNull()
         ->and($antes->json('data.prestamo.visto_bueno.requerido'))->toBeTrue()
         ->and($antes->json('data.prestamo.visto_bueno.estado'))->toBe('pendiente')
         // No se autoriza a ciegas: sin visto bueno el backend dice que no.

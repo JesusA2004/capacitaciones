@@ -8,6 +8,7 @@ use App\Models\Colaborador;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Cumpleanos\BirthdayCardService;
 use App\Services\Cumpleanos\CumpleanosService;
+use App\Services\Cumpleanos\MuroCumpleanosService;
 use App\Services\Expedientes\DocumentoStorageService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,6 +28,7 @@ class CumpleanosController extends Controller
         private readonly BirthdayCardService $tarjetas,
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly DocumentoStorageService $fotos,
+        private readonly MuroCumpleanosService $muros,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -114,6 +116,7 @@ class CumpleanosController extends Controller
                 'fecha' => $greeting->fecha->toDateString(),
                 'frase' => $greeting->frase,
                 'enviada' => $greeting->enviada_at !== null,
+                'muro' => $this->muroResumen($request, $greeting),
                 'card_url' => $greeting->card_path !== null
                     ? route('api.v1.rh.cumpleanos.imagen', $greeting)
                     : null,
@@ -130,6 +133,48 @@ class CumpleanosController extends Controller
                 ],
             ],
         ]);
+    }
+
+    /**
+     * Abre el muro de felicitaciones del cumpleañero: todos los
+     * colaboradores activos reciben un push y pueden dejar mensaje/foto.
+     * Idempotente (reabrir un muro cerrado no vuelve a notificar a todos).
+     */
+    public function abrirMuro(Request $request, BirthdayGreeting $greeting): JsonResponse
+    {
+        $usuario = $request->user();
+        abort_unless($usuario->can('rh.cumpleanos.muro.gestionar'), 403);
+        abort_unless($this->alcance->puedeVerExpediente($usuario, $greeting->colaborador), 404);
+
+        $this->muros->abrir($greeting, $usuario);
+
+        return response()->json(['message' => 'Muro de felicitaciones abierto.', 'data' => $this->muroResumen($request, $greeting->refresh())]);
+    }
+
+    public function cerrarMuro(Request $request, BirthdayGreeting $greeting): JsonResponse
+    {
+        $usuario = $request->user();
+        abort_unless($usuario->can('rh.cumpleanos.muro.gestionar'), 403);
+        abort_unless($this->alcance->puedeVerExpediente($usuario, $greeting->colaborador), 404);
+
+        $this->muros->cerrar($greeting);
+
+        return response()->json(['message' => 'Muro de felicitaciones cerrado.', 'data' => $this->muroResumen($request, $greeting->refresh())]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function muroResumen(Request $request, BirthdayGreeting $greeting): array
+    {
+        return [
+            'publicado' => $greeting->muroPublicado(),
+            'abierto' => $greeting->muroAbierto(),
+            'abierto_at' => $greeting->muro_abierto_at?->toIso8601String(),
+            'cerrado_at' => $greeting->muro_cerrado_at?->toIso8601String(),
+            'mensajes_count' => $greeting->mensajesMuro()->count(),
+            'puede_gestionar' => $request->user()->can('rh.cumpleanos.muro.gestionar'),
+        ];
     }
 
     /** Foto del colaborador (nunca expone `foto_path`), acotada por alcance. */

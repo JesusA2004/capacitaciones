@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Solicitudes\StoreSolicitudInternaRequest;
+use App\Http\Requests\Solicitudes\StoreSolicitudAutoservicioRequest;
 use App\Http\Resources\Api\V1\SolicitudInternaResource;
 use App\Models\SolicitudInterna;
 use App\Services\Solicitudes\SolicitudesService;
@@ -33,7 +33,7 @@ class SolicitudController extends Controller
         ]);
     }
 
-    public function store(StoreSolicitudInternaRequest $request): JsonResponse
+    public function store(StoreSolicitudAutoservicioRequest $request): JsonResponse
     {
         $solicitud = $this->solicitudes->crear($request->user(), $request->validated());
 
@@ -71,7 +71,7 @@ class SolicitudController extends Controller
      */
     public function configuracion(): JsonResponse
     {
-        return response()->json(['tipos' => $this->solicitudes->tiposConFormulario()]);
+        return response()->json(['tipos' => $this->solicitudes->tiposConFormulario(autoservicio: true)]);
     }
 
     /**

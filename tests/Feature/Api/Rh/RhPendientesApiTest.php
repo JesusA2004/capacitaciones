@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Colaborador;
 use App\Models\SolicitudInterna;
 use App\Models\SolicitudVacaciones;
 use App\Models\Sucursal;
@@ -47,11 +48,11 @@ test('un gerente de sucursal solo ve pendientes de su propia sucursal', function
     $sucursalA = Sucursal::factory()->create();
     $sucursalB = Sucursal::factory()->create();
 
-    $gerente = User::factory()->create(['sucursal_principal_id' => $sucursalA->id]);
+    $gerente = User::factory()->for(Colaborador::factory()->state(['sucursal_principal_id' => $sucursalA->id]), 'colaborador')->create();
     $gerente->assignRole('gerente_sucursal');
 
-    $colaboradorA = User::factory()->create(['sucursal_principal_id' => $sucursalA->id]);
-    $colaboradorB = User::factory()->create(['sucursal_principal_id' => $sucursalB->id]);
+    $colaboradorA = User::factory()->for(Colaborador::factory()->state(['sucursal_principal_id' => $sucursalA->id]), 'colaborador')->create();
+    $colaboradorB = User::factory()->for(Colaborador::factory()->state(['sucursal_principal_id' => $sucursalB->id]), 'colaborador')->create();
 
     SolicitudInterna::factory()->create(['user_id' => $colaboradorA->id, 'estado' => 'enviada', 'sucursal_id' => $sucursalA->id]);
     SolicitudInterna::factory()->create(['user_id' => $colaboradorB->id, 'estado' => 'enviada', 'sucursal_id' => $sucursalB->id]);

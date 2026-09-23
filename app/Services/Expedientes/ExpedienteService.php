@@ -55,37 +55,14 @@ class ExpedienteService
      */
     public function resumenCompletitud(Colaborador $colaborador): array
     {
-        $tiposRequeridos = $this->tiposRequeridos();
-        $vigentes = $this->documentosVigentes($colaborador);
-
-        $aprobados = 0;
-        $pendientes = 0;
-        $rechazados = 0;
-
-        foreach ($tiposRequeridos as $tipo) {
-            $documento = $vigentes->get($tipo->id);
-
-            if ($documento === null) {
-                $pendientes++;
-
-                continue;
-            }
-
-            match ($documento->status) {
-                EstadoDocumento::Aprobado => $aprobados++,
-                EstadoDocumento::Rechazado, EstadoDocumento::RequiereCorreccion, EstadoDocumento::Vencido => $rechazados++,
-                default => $pendientes++,
-            };
-        }
-
-        $total = $tiposRequeridos->count();
+        $p = ProgresoExpediente::calcular($this->tiposRequeridos(), $this->documentosVigentes($colaborador));
 
         return [
-            'porcentaje' => $total > 0 ? round(($aprobados / $total) * 100, 1) : 0.0,
-            'requeridos_total' => $total,
-            'requeridos_aprobados' => $aprobados,
-            'pendientes' => $pendientes,
-            'rechazados' => $rechazados,
+            'porcentaje' => (float) $p['porcentaje'],
+            'requeridos_total' => $p['total_obligatorios'],
+            'requeridos_aprobados' => $p['completos'],
+            'pendientes' => $p['faltantes'] + $p['en_revision'],
+            'rechazados' => $p['rechazados'],
         ];
     }
 
@@ -98,7 +75,7 @@ class ExpedienteService
      *   distinto de rechazado/vencido/requiere corrección).
      * - aprobados: obligatorios con su versión vigente aprobada.
      * - faltantes: obligatorios sin archivo vigente o con el vigente rechazado/vencido.
-     * - porcentaje: aprobados / requeridos.
+     * - porcentaje/completo: regla única de ProgresoExpediente (floor, solo aprobados).
      *
      * @return array{requeridos: int, entregados: int, aprobados: int, en_revision: int, rechazados: int, faltantes: int, porcentaje: float, completo: bool, documentos: list<array<string, mixed>>}
      */
@@ -108,10 +85,6 @@ class ExpedienteService
         $vigentes = $this->documentosVigentes($colaborador);
 
         $entregados = 0;
-        $aprobados = 0;
-        $enRevision = 0;
-        $rechazados = 0;
-        $faltantes = 0;
         $documentos = [];
 
         foreach ($tiposRequeridos as $tipo) {
@@ -119,18 +92,8 @@ class ExpedienteService
             $estado = $documento?->status;
             $rechazado = in_array($estado, [EstadoDocumento::Rechazado, EstadoDocumento::RequiereCorreccion, EstadoDocumento::Vencido], true);
 
-            if ($documento === null || $rechazado) {
-                $faltantes++;
-            } else {
+            if ($documento !== null && ! $rechazado) {
                 $entregados++;
-            }
-
-            if ($estado === EstadoDocumento::Aprobado) {
-                $aprobados++;
-            } elseif ($rechazado) {
-                $rechazados++;
-            } elseif ($documento !== null) {
-                $enRevision++;
             }
 
             $documentos[] = [
@@ -151,17 +114,18 @@ class ExpedienteService
             ];
         }
 
-        $requeridos = $tiposRequeridos->count();
+        $p = ProgresoExpediente::calcular($tiposRequeridos, $vigentes);
 
         return [
-            'requeridos' => $requeridos,
+            'requeridos' => $p['total_obligatorios'],
             'entregados' => $entregados,
-            'aprobados' => $aprobados,
-            'en_revision' => $enRevision,
-            'rechazados' => $rechazados,
-            'faltantes' => $faltantes,
-            'porcentaje' => $requeridos > 0 ? round(($aprobados / $requeridos) * 100, 1) : 100.0,
-            'completo' => $aprobados === $requeridos,
+            'aprobados' => $p['completos'],
+            'en_revision' => $p['en_revision'],
+            'rechazados' => $p['rechazados'],
+            // Contrato de este payload: por (re)subir = sin archivo o con el vigente rechazado/vencido.
+            'faltantes' => $p['faltantes'] + $p['rechazados'],
+            'porcentaje' => (float) $p['porcentaje'],
+            'completo' => $p['completo'],
             'documentos' => $documentos,
         ];
     }

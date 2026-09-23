@@ -272,6 +272,7 @@ class RolesYPermisosSeeder extends Seeder
         'rh.cumpleanos.configurar',
         'rh.cumpleanos.frases.gestionar',
         'rh.cumpleanos.notificaciones.gestionar',
+        'rh.cumpleanos.muro.gestionar',
 
         // --- Descarga de app / APK (docs/APP_RELEASES.md) ---
         'app_releases.ver',
@@ -386,7 +387,7 @@ class RolesYPermisosSeeder extends Seeder
             'notificaciones.leer_todas',
             'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
             'rh.cumpleanos.ver', 'rh.cumpleanos.calendario', 'rh.cumpleanos.descargar_imagen',
-            'rh.cumpleanos.configurar', 'rh.cumpleanos.frases.gestionar', 'rh.cumpleanos.notificaciones.gestionar',
+            'rh.cumpleanos.configurar', 'rh.cumpleanos.frases.gestionar', 'rh.cumpleanos.notificaciones.gestionar', 'rh.cumpleanos.muro.gestionar',
             'app_releases.ver', 'app_releases.crear', 'app_releases.publicar', 'app_releases.eliminar', 'app_releases.descargar',
             'solicitudes.bajas.crear', 'solicitudes.bajas.aprobar',
             'finiquitos.ver', 'finiquitos.calcular', 'finiquitos.revisar', 'finiquitos.subir_firmado',

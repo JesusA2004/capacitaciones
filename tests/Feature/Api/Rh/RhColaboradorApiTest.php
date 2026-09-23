@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Colaborador;
 use App\Models\User;
 use Database\Seeders\RolesYPermisosSeeder;
 
@@ -21,10 +22,11 @@ test('rh puede listar colaboradores paginados', function () {
 test('rh puede ver el detalle basico de un colaborador', function () {
     $rh = User::factory()->create();
     $rh->assignRole('rh_admin');
-    $colaborador = User::factory()->create([
+    $colaborador = Colaborador::factory()->create([
         'contacto_emergencia_nombre' => 'María Elena Ruiz',
         'contacto_emergencia_telefono' => '5510000010',
     ]);
+    User::factory()->for($colaborador, 'colaborador')->create();
 
     $this->withHeaders(['Authorization' => 'Bearer '.$rh->createToken('test')->plainTextToken])
         ->getJson("/api/v1/rh/colaboradores/{$colaborador->id}")

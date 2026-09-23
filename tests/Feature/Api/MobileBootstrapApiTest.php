@@ -70,3 +70,27 @@ test('app config es publico y trae los flags esperados', function () {
         ->assertOk()
         ->assertJsonStructure(['maintenance', 'minimum_version', 'latest_version', 'force_update', 'message', 'features']);
 });
+
+test('una cuenta administrativa sin expediente de colaborador no recibe Mi espacio', function () {
+    $admin = User::factory()->create(['colaborador_id' => null]);
+    $admin->assignRole('rh_admin');
+
+    $respuesta = $this->withHeaders(bootstrapHeaders($admin))
+        ->getJson('/api/v1/mobile/bootstrap')
+        ->assertOk();
+
+    expect($respuesta->json('capabilities.employee'))->toBeFalse()
+        ->and($respuesta->json('capabilities.rh'))->toBeTrue();
+});
+
+test('un colaborador que tambien tiene permisos de rh recibe ambas experiencias', function () {
+    $ambos = User::factory()->create();
+    $ambos->assignRole('rh_admin');
+
+    $respuesta = $this->withHeaders(bootstrapHeaders($ambos))
+        ->getJson('/api/v1/mobile/bootstrap')
+        ->assertOk();
+
+    expect($respuesta->json('capabilities.employee'))->toBeTrue()
+        ->and($respuesta->json('capabilities.rh'))->toBeTrue();
+});

@@ -113,6 +113,27 @@ enum TipoSolicitudInterna: string
     }
 
     /**
+     * true si el propio colaborador puede crear este tipo desde la app
+     * (autoservicio). La baja NO: un colaborador no solicita su baja; es un
+     * proceso administrativo de RH/Dirección.
+     */
+    public function creableEnAutoservicio(): bool
+    {
+        return $this !== self::BajaColaborador;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function valoresAutoservicio(): array
+    {
+        return array_values(array_map(
+            fn (self $tipo) => $tipo->value,
+            array_filter(self::cases(), fn (self $tipo) => $tipo->creableEnAutoservicio()),
+        ));
+    }
+
+    /**
      * Slug del formato oficial que corresponde generar para este tipo (ver
      * config/solicitudes.php y App\Services\Formatos\OfficialFormatOverlayService).
      * null si el tipo no tiene un formato oficial asociado.

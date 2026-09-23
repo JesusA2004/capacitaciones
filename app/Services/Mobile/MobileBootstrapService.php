@@ -130,7 +130,9 @@ class MobileBootstrapService
     private function capabilities(User $usuario): array
     {
         return [
-            'employee' => true,
+            // Mi espacio solo existe si la cuenta tiene expediente de colaborador:
+            // una cuenta administrativa sin colaborador entra directo a Gestión RH.
+            'employee' => $usuario->colaborador_id !== null,
             'rh' => $usuario->canAny(self::PERMISOS_EXPERIENCIA_RH),
             'manager' => $usuario->hasAnyRole(self::ROLES_MANAGER),
             'director' => $usuario->hasRole('director_comercial'),

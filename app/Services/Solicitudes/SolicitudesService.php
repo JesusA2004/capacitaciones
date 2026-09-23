@@ -637,11 +637,38 @@ class SolicitudesService
      * nada: que campos mostrar, si requiere rango de fechas, si admite
      * adjuntos. Ver seccion 14 del encargo movil.
      *
+     * `$autoservicio` (app móvil del colaborador): sin baja de colaborador y
+     * con el préstamo reducido a monto + motivo (plazo y condiciones son
+     * decisión de RH al autorizar). El Portal web conserva el catálogo
+     * completo.
+     *
      * @return array<int, array<string, mixed>>
      */
-    public function tiposConFormulario(): array
+    public function tiposConFormulario(bool $autoservicio = false): array
     {
-        return array_map(function (TipoSolicitudInterna $tipo): array {
+        $tipos = $autoservicio
+            ? array_values(array_filter(TipoSolicitudInterna::cases(), fn (TipoSolicitudInterna $t) => $t->creableEnAutoservicio()))
+            : TipoSolicitudInterna::cases();
+
+        return array_map(function (TipoSolicitudInterna $tipo) use ($autoservicio): array {
+            if ($autoservicio && $tipo->requiereMonto()) {
+                return [
+                    'clave' => $tipo->value,
+                    'nombre' => $tipo->etiqueta(),
+                    'requiere_fechas' => false,
+                    'requiere_horario' => false,
+                    'requiere_dias' => false,
+                    'requiere_monto' => true,
+                    'requiere_colaborador_objetivo' => false,
+                    'requiere_motivo' => true,
+                    'permite_adjuntos' => false,
+                    'campos' => [
+                        ['name' => 'monto_solicitado', 'type' => 'number', 'required' => true],
+                        ['name' => 'motivo', 'type' => 'text', 'required' => true],
+                    ],
+                ];
+            }
+
             $requiereFechas = $tipo->usaRangoFechas();
             $requiereHorario = $tipo->usaHorario();
 
@@ -685,6 +712,6 @@ class SolicitudesService
                 'permite_adjuntos' => true,
                 'campos' => $campos,
             ];
-        }, TipoSolicitudInterna::cases());
+        }, $tipos);
     }
 }

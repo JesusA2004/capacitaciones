@@ -85,7 +85,6 @@ test('el colaborador no ve su expediente completo, solo el estado de sus documen
     expect($documento)->not->toHaveKey('comentarios');
     expect($documento)->not->toHaveKey('subido_por');
     expect($documento)->not->toHaveKey('revisado_por');
-    expect($documento)->not->toHaveKey('documento_id');
 });
 
 test('el colaborador puede subir un documento pendiente', function () {

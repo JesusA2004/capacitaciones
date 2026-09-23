@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Colaborador;
 use App\Models\User;
 use App\Services\Cumpleanos\BirthdayCardService;
 use Database\Seeders\BirthdayPhraseSeeder;
@@ -21,8 +22,8 @@ test('rh ve la bandeja de cumpleanos de hoy desde la app con el permiso correcto
     $rh = User::factory()->create();
     $rh->assignRole('rh_admin');
 
-    $cumpleaniero = User::factory()->create(['fecha_nacimiento' => now()->subYears(30)]);
-    User::factory()->create(['fecha_nacimiento' => now()->addDays(20)->subYears(30)]);
+    $cumpleaniero = User::factory()->for(Colaborador::factory()->state(['fecha_nacimiento' => now()->subYears(30)]), 'colaborador')->create();
+    User::factory()->for(Colaborador::factory()->state(['fecha_nacimiento' => now()->addDays(20)->subYears(30)]), 'colaborador')->create();
 
     $respuesta = $this->withHeaders(headersBearerRhCumpleanos($rh))
         ->getJson('/api/v1/rh/cumpleanos?periodo=hoy')
@@ -49,8 +50,8 @@ test('el detalle de una felicitacion por greeting_id funciona para abrir un push
     $rh = User::factory()->create();
     $rh->assignRole('rh_admin');
 
-    $colaborador = User::factory()->create(['fecha_nacimiento' => now()->subYears(30)]);
-    $greeting = app(BirthdayCardService::class)->generar($colaborador, now());
+    $colaborador = User::factory()->for(Colaborador::factory()->state(['fecha_nacimiento' => now()->subYears(30)]), 'colaborador')->create();
+    $greeting = app(BirthdayCardService::class)->generar($colaborador->colaborador, now());
 
     $this->withHeaders(headersBearerRhCumpleanos($rh))
         ->getJson("/api/v1/rh/cumpleanos/{$greeting->id}")
@@ -62,7 +63,7 @@ test('las respuestas de la bandeja rh no incluyen el anio de nacimiento', functi
     $rh = User::factory()->create();
     $rh->assignRole('rh_admin');
 
-    User::factory()->create(['fecha_nacimiento' => now()->subYears(30)]);
+    User::factory()->for(Colaborador::factory()->state(['fecha_nacimiento' => now()->subYears(30)]), 'colaborador')->create();
 
     $respuesta = $this->withHeaders(headersBearerRhCumpleanos($rh))
         ->getJson('/api/v1/rh/cumpleanos?periodo=hoy')

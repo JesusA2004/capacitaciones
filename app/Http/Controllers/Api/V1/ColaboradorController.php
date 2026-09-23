@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Solicitudes\StoreSolicitudInternaRequest;
+use App\Http\Requests\Solicitudes\StoreSolicitudAutoservicioRequest;
 use App\Http\Resources\Api\V1\SolicitudInternaResource;
 use App\Services\Colaboradores\ColaboradorPerfilService;
 use App\Services\Colaboradores\NotificacionesService;
@@ -87,7 +87,7 @@ class ColaboradorController extends Controller
         ]);
     }
 
-    public function storeSolicitud(StoreSolicitudInternaRequest $request): JsonResponse
+    public function storeSolicitud(StoreSolicitudAutoservicioRequest $request): JsonResponse
     {
         $solicitud = $this->solicitudes->crear($request->user(), $request->validated());
 

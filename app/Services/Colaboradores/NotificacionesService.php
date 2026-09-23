@@ -36,6 +36,7 @@ class NotificacionesService
         'baja' => ['emoji' => '⚠️', 'color' => 'danger'],
         'cumpleanos' => ['emoji' => '🎂', 'color' => 'celebracion'],
         'rh_cumpleanos' => ['emoji' => '🎂', 'color' => 'celebracion'],
+        'cumpleanos_muro' => ['emoji' => '🎉', 'color' => 'celebracion'],
         'sesion_programada' => ['emoji' => '📅', 'color' => 'info'],
         'sesion_proxima' => ['emoji' => '⏰', 'color' => 'warning'],
         'fecha_limite_proxima' => ['emoji' => '⏰', 'color' => 'warning'],
