@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Rh;
 
 use App\Enums\CanalReclutamiento;
+use App\Enums\TipoCostoReclutamiento;
+use App\Exports\ReporteRhExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Rh\StoreCampanaReclutamientoRequest;
 use App\Http\Requests\Rh\UpdateCampanaReclutamientoRequest;
@@ -11,11 +13,16 @@ use App\Models\Departamento;
 use App\Models\Empresa;
 use App\Models\Puesto;
 use App\Models\Sucursal;
+use App\Models\Vacante;
 use App\Services\Reclutamiento\CampanaReclutamientoService;
+use App\Services\Reclutamiento\CostoReclutamientoService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * Gasto de campañas de reclutamiento por canal/periodo (ver
@@ -46,6 +53,7 @@ class CampanaReclutamientoController extends Controller
                 'sucursal:id,nombre',
                 'departamento:id,nombre',
                 'puesto:id,nombre',
+                'vacante:id,puesto_id,sucursal_id,estado',
                 'creadoPor:id,name,apellidos',
             ])
             ->where('mes', $mes)
@@ -72,6 +80,10 @@ class CampanaReclutamientoController extends Controller
                 'sucursales' => Sucursal::query()->orderBy('nombre')->get(['id', 'nombre', 'empresa_id']),
                 'departamentos' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
                 'puestos' => Puesto::query()->orderBy('nombre')->get(['id', 'nombre', 'departamento_id']),
+                'tiposCosto' => TipoCostoReclutamiento::opciones(),
+                'vacantes' => Vacante::query()->with(['puesto:id,nombre', 'sucursal:id,nombre'])->latest('fecha_apertura')->limit(300)->get()
+                    ->map(fn (Vacante $v) => ['id' => $v->id, 'etiqueta' => sprintf('#%d · %s · %s · %s', $v->id, $v->puesto->nombre ?? 'Sin puesto', $v->sucursal->nombre ?? 'Sin sucursal', $v->estado->etiqueta())])
+                    ->values(),
                 'canales' => array_map(
                     fn (CanalReclutamiento $c) => ['value' => $c->value, 'etiqueta' => $c->etiqueta()],
                     CanalReclutamiento::cases(),
@@ -82,19 +94,35 @@ class CampanaReclutamientoController extends Controller
 
     public function store(StoreCampanaReclutamientoRequest $request): RedirectResponse
     {
-        CampanaReclutamiento::create([
-            ...$request->validated(),
-            'created_by' => $request->user()?->id,
-        ]);
+        $this->servicio->guardar($request->validated(), null, $request->user()?->id);
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Campaña registrada correctamente.']);
     }
 
     public function update(UpdateCampanaReclutamientoRequest $request, CampanaReclutamiento $campana): RedirectResponse
     {
-        $campana->update($request->validated());
+        $this->servicio->guardar($request->validated(), $campana, $request->user()?->id);
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Campaña actualizada correctamente.']);
+    }
+
+    /**
+     * Excel de costo por contratación (resumen ANSI/SHRM + detalle por
+     * persona contratada) del rango ?desde&hasta.
+     */
+    public function exportarCostos(Request $request, CostoReclutamientoService $costos): BinaryFileResponse
+    {
+        abort_unless($request->user()?->can('reclutamiento.campanas.ver'), 403);
+        $desde = Carbon::parse($request->date('desde')?->toDateString() ?? now()->startOfMonth()->toDateString());
+        $hasta = Carbon::parse($request->date('hasta')?->toDateString() ?? now()->toDateString());
+        $resumen = $costos->resumen($desde, $hasta);
+        $filas = array_map(fn (array $f) => [$f['nombre'], $f['puesto'], $f['sucursal'], $f['fuente'], $f['contratado_en'], $f['costo_directo'], $f['prorrateo_general'], $f['costo_total']], $costos->porContratado($desde, $hasta));
+        $filas[] = ['TOTAL PERIODO (ANSI/SHRM)', null, null, null, null, $resumen['gasto_total'], $resumen['contrataciones'], $resumen['costo_por_contratacion']];
+
+        return Excel::download(
+            new ReporteRhExport('Costo por contratación', ['Persona', 'Puesto', 'Sucursal', 'Fuente', 'Contratado', 'Costo directo', 'Prorrateo general', 'Costo total'], $filas),
+            sprintf('costo-contratacion-%s-%s.xlsx', $desde->toDateString(), $hasta->toDateString()),
+        );
     }
 
     public function destroy(Request $request, CampanaReclutamiento $campana): RedirectResponse

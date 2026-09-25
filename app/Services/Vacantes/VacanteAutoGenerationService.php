@@ -9,6 +9,7 @@ use App\Models\HeadcountTarget;
 use App\Models\Sucursal;
 use App\Models\Vacante;
 use App\Services\Headcount\HeadcountService;
+use App\Services\Headcount\PuestosPlantillaService;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -28,7 +29,10 @@ use Illuminate\Support\Facades\DB;
  */
 class VacanteAutoGenerationService
 {
-    public function __construct(private readonly HeadcountService $headcount) {}
+    public function __construct(
+        private readonly HeadcountService $headcount,
+        private readonly PuestosPlantillaService $puestos,
+    ) {}
 
     /**
      * Sincroniza un único (sucursal, puesto) — se llama después de dar de
@@ -38,7 +42,12 @@ class VacanteAutoGenerationService
      */
     public function sincronizar(int $sucursalId, int $puestoId): void
     {
+        // Una baja/alta de un Gestor volante mueve la vacante de Gestor:
+        // es la misma plaza (config/headcount.php).
+        $puestoId = $this->puestos->canonico($puestoId);
+
         DB::transaction(function () use ($sucursalId, $puestoId) {
+            $this->unificarEquivalentes($sucursalId, $puestoId);
             $faltantes = $this->headcount->vacantesDerivadas($sucursalId, $puestoId);
 
             $vacanteAutomatica = Vacante::query()
@@ -114,6 +123,44 @@ class VacanteAutoGenerationService
                 'plazas_disponibles' => $faltantes,
             ]);
         });
+    }
+
+    /**
+     * Vacantes automáticas abiertas de un puesto equivalente (p. ej. Gestor
+     * volante, de antes de unificar) pasan a ser la vacante del puesto de
+     * plantilla si éste no tiene una; si ya la tiene, se cancelan con su
+     * motivo — nunca quedan dos vacantes para la misma plaza.
+     */
+    private function unificarEquivalentes(int $sucursalId, int $puestoId): void
+    {
+        $otros = array_values(array_diff($this->puestos->equivalentes($puestoId), [$puestoId]));
+
+        if ($otros === []) {
+            return;
+        }
+
+        $abiertos = [EstadoVacante::Abierta->value, EstadoVacante::EnReclutamiento->value, EstadoVacante::ConCandidatos->value, EstadoVacante::EnRevision->value];
+
+        $propia = Vacante::query()->where('sucursal_id', $sucursalId)->where('puesto_id', $puestoId)
+            ->where('generada_automaticamente', true)->whereIn('estado', $abiertos)->exists();
+
+        foreach (Vacante::query()->where('sucursal_id', $sucursalId)->whereIn('puesto_id', $otros)
+            ->where('generada_automaticamente', true)->whereIn('estado', $abiertos)->get() as $vacante) {
+            if (! $propia) {
+                $vacante->update(['puesto_id' => $puestoId]);
+                $propia = true;
+
+                continue;
+            }
+
+            $vacante->update([
+                'estado' => EstadoVacante::Cancelada->value,
+                'motivo_cancelacion' => 'Unificada: la plaza de volante es la misma vacante de gestor.',
+                'plazas_requeridas' => 0,
+                'plazas_disponibles' => 0,
+                'fecha_cierre' => now()->toDateString(),
+            ]);
+        }
     }
 
     /**

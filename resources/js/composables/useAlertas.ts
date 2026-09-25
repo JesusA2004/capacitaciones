@@ -188,7 +188,20 @@ export function useAlertas() {
         });
     }
 
+    /**
+     * Confirmación genérica para acciones con consecuencias (publicar una
+     * versión, archivar, avisar a todos…). El texto explica qué pasará.
+     */
+    function confirmarAccion(
+        titulo: string,
+        texto: string,
+        confirmarTexto = 'Confirmar',
+    ): Promise<boolean> {
+        return confirmar({ icono: 'question', titulo, texto, confirmarTexto });
+    }
+
     return {
+        confirmarAccion,
         confirmarFinCobertura,
         confirmarEliminacion,
         confirmarPublicacion,

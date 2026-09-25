@@ -27,6 +27,10 @@ Schedule::command('capacitacion:limpiar-cargas-expiradas')->hourly();
 Schedule::command('cumpleanos:enviar-felicitaciones')->dailyAt('08:00')->timezone('America/Mexico_City');
 Schedule::command('cumpleanos:recordar-rh')->dailyAt('07:30')->timezone('America/Mexico_City');
 
+// Celebraciones (docs/CELEBRACIONES.md): deja listos los eventos y tarjetas
+// de cumpleaños y aniversarios del día antes del horario laboral. Idempotente.
+Schedule::command('celebraciones:preparar')->dailyAt('06:30')->timezone('America/Mexico_City')->withoutOverlapping();
+
 // Ciclo laboral (docs/backend-rh-completion.md): vencimientos de contratos
 // (evaluación de periodo de prueba, tareas y avisos N días antes, sin
 // duplicar) y barrido de pendientes de expediente. Idempotente;

@@ -8,6 +8,7 @@ import {
     Eye,
     FileStack,
     Settings,
+    Sparkles,
     Upload,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
@@ -19,7 +20,9 @@ import FiniquitoPanel from '@/components/Rh/FiniquitoPanel.vue';
 import GenerarFormatoDialog from '@/components/Rh/GenerarFormatoDialog.vue';
 import SubirFormatoFirmadoDialog from '@/components/Rh/SubirFormatoFirmadoDialog.vue';
 import SubirFormatoOficialFirmadoDialog from '@/components/Rh/SubirFormatoOficialFirmadoDialog.vue';
+import FormatoOficialGenerarDialog from '@/components/Rh/FormatoOficialGenerarDialog.vue';
 import { Button } from '@/components/ui/button';
+import { NativeSelect } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
 import { descargar } from '@/routes/rh/formatos';
 import {
@@ -40,6 +43,7 @@ import { store as subirDocumentoSolicitud } from '@/routes/solicitudes/documento
 import type {
     DocumentoOficialEsperado,
     FiniquitoPermisos,
+    FormatoOficialItem,
     OfficialFormatGenerationItem,
     SolicitudInternaDocumentoItem,
     SolicitudInternaItem,
@@ -52,7 +56,18 @@ const props = defineProps<{
     plantillasSugeridas: { id: number; nombre: string; tipo: string }[];
     tiposDocumentoExpediente: { id: number; nombre: string }[];
     finiquitoPermisos: FiniquitoPermisos;
+    formatosOficiales: FormatoOficialItem[];
+    personaSolicitud: { id: number; nombre: string } | null;
 }>();
+
+const formatoOficialId = ref('');
+const formatoOficialDialogo = ref(false);
+const formatoOficialElegido = ref<FormatoOficialItem | null>(null);
+
+function abrirFormatoOficial() {
+    formatoOficialElegido.value = props.formatosOficiales.find((f) => String(f.id) === formatoOficialId.value) ?? null;
+    formatoOficialDialogo.value = formatoOficialElegido.value !== null;
+}
 
 const TIPO_PLANTILLA_SUGERIDO: Record<string, string> = {
     permiso_con_goce: 'formato_permiso',
@@ -320,6 +335,24 @@ const documentoOficialGeneracion = computed(
                             Observaciones
                         </p>
                         <p class="text-sm">{{ solicitud.observaciones }}</p>
+                    </div>
+                </div>
+
+                <!-- Otras plantillas oficiales con los datos de esta solicitud. -->
+                <div
+                    v-if="formatosOficiales.length > 0 && personaSolicitud"
+                    class="flex flex-col gap-2 rounded-2xl border border-border/60 bg-card p-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                    <p class="text-sm font-medium">Generar documento oficial</p>
+                    <div class="flex gap-2">
+                        <NativeSelect v-model="formatoOficialId" class="w-full sm:w-64">
+                            <option value="">Elige un formato…</option>
+                            <option v-for="f in formatosOficiales" :key="f.id" :value="String(f.id)">{{ f.nombre }}</option>
+                        </NativeSelect>
+                        <Button size="sm" :disabled="!formatoOficialId" @click="abrirFormatoOficial">
+                            <Sparkles class="size-3.5" />
+                            Generar
+                        </Button>
                     </div>
                 </div>
 
@@ -747,5 +780,13 @@ const documentoOficialGeneracion = computed(
         :download-url="previewActivo?.descarga ?? null"
         :nombre="previewActivo?.nombre ?? ''"
         @update:open="(v) => (previewAbierto = v)"
+    />
+    <FormatoOficialGenerarDialog
+        v-if="formatoOficialElegido && personaSolicitud"
+        v-model:open="formatoOficialDialogo"
+        :formato="formatoOficialElegido"
+        :sujeto-fijo="{ tipo: 'colaborador', id: personaSolicitud.id, nombre: personaSolicitud.nombre }"
+        :solicitud-id="solicitud.id"
+        :puede-descargar="true"
     />
 </template>

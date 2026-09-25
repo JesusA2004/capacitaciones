@@ -20,6 +20,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $departamento_id
  * @property int|null $puesto_objetivo_id
  * @property int|null $vacante_id
+ * @property int|null $campana_reclutamiento_id
  * @property string $nombre
  * @property string|null $apellidos
  * @property string|null $telefono
@@ -59,6 +60,7 @@ class Candidato extends Model
         'departamento_id',
         'puesto_objetivo_id',
         'vacante_id',
+        'campana_reclutamiento_id',
         'nombre',
         'apellidos',
         'telefono',
@@ -142,6 +144,16 @@ class Candidato extends Model
     public function puestoObjetivo(): BelongsTo
     {
         return $this->belongsTo(Puesto::class, 'puesto_objetivo_id');
+    }
+
+    /**
+     * Campaña de reclutamiento de la que vino (atribución exacta del costo).
+     *
+     * @return BelongsTo<CampanaReclutamiento, $this>
+     */
+    public function campana(): BelongsTo
+    {
+        return $this->belongsTo(CampanaReclutamiento::class, 'campana_reclutamiento_id');
     }
 
     /**

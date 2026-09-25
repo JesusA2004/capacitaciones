@@ -6,6 +6,7 @@ use App\Enums\CanalReclutamiento;
 use App\Enums\EstadoCandidato;
 use App\Models\CampanaReclutamiento;
 use App\Models\Candidato;
+use App\Models\Vacante;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
@@ -28,6 +29,37 @@ use Illuminate\Support\Collection as SupportCollection;
  */
 class CampanaReclutamientoService
 {
+    /**
+     * Alta/edición de un gasto de reclutamiento. Si se liga a una vacante,
+     * la empresa/sucursal/departamento/puesto salen de la vacante (un gasto
+     * de "vacante de Gestor en Córdoba" no puede quedar con otra sucursal).
+     *
+     * @param  array<string, mixed>  $datos  Validado por Store/UpdateCampanaReclutamientoRequest.
+     */
+    public function guardar(array $datos, ?CampanaReclutamiento $campana, ?int $actorId): CampanaReclutamiento
+    {
+        $vacanteId = isset($datos['vacante_id']) && is_numeric($datos['vacante_id']) ? (int) $datos['vacante_id'] : null;
+
+        if ($vacanteId !== null) {
+            $vacante = Vacante::query()->whereKey($vacanteId)->firstOrFail();
+            $datos = [
+                ...$datos,
+                'empresa_id' => $vacante->empresa_id,
+                'sucursal_id' => $vacante->sucursal_id,
+                'departamento_id' => $vacante->departamento_id,
+                'puesto_id' => $vacante->puesto_id,
+            ];
+        }
+
+        if ($campana === null) {
+            return CampanaReclutamiento::query()->create([...$datos, 'created_by' => $actorId]);
+        }
+
+        $campana->update($datos);
+
+        return $campana;
+    }
+
     /**
      * Resumen agregado del periodo (opcionalmente acotado por filtros de
      * empresa/sucursal/departamento/puesto/canal, los mismos que el listado
@@ -167,11 +199,11 @@ class CampanaReclutamientoService
     }
 
     /**
-     * Contratados atribuibles a cada canal dentro del periodo. No existe un
-     * campo de "fecha de conversión a contratado" propio: se usa
-     * `updated_at` del candidato como proxy razonable de cuándo pasó a
-     * EstadoCandidato::Contratado (última vez que se guardó el registro
-     * estando ya en ese estado terminal — ver App\Enums\EstadoCandidato).
+     * Contratados atribuibles a cada canal dentro del periodo, por su fecha
+     * real de contratación (`candidatos.contratado_en`, que llena
+     * ContratacionCandidatoService). Antes se usaba `updated_at`, que cambia
+     * con cualquier edición posterior del candidato y movía la contratación
+     * de mes.
      *
      * @param  Collection<int, CampanaReclutamiento>|SupportCollection<int, CampanaReclutamiento>  $campanas
      * @return SupportCollection<string, int<0, max>>
@@ -187,7 +219,7 @@ class CampanaReclutamientoService
                 $canal->value => Candidato::query()
                     ->where('fuente', $canal->value)
                     ->where('estado', EstadoCandidato::Contratado->value)
-                    ->whereBetween('updated_at', [$inicio, $fin])
+                    ->whereBetween('contratado_en', [$inicio, $fin])
                     ->count(),
             ]);
     }

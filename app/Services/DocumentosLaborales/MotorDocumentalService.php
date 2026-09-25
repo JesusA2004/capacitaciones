@@ -13,7 +13,8 @@ use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Formatos\FormatoPreviewService;
-use App\Services\Formatos\OfficialFormatOverlayService;
+use App\Services\Formatos\GeneradorFormatoService;
+use App\Services\Formatos\Variables\ContextoFormato;
 use App\Services\Plantillas\PlaceholderResolver;
 use App\Services\Plantillas\PlantillaDocumentoService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -52,7 +53,7 @@ class MotorDocumentalService
         private readonly PlaceholderResolver $resolver,
         private readonly PlantillaDocumentoService $docx,
         private readonly FormatoPreviewService $convertidor,
-        private readonly OfficialFormatOverlayService $overlay,
+        private readonly GeneradorFormatoService $formatosOficiales,
         private readonly DocumentoStorageService $expediente,
         private readonly FlujoDocumentalService $flujo,
         private readonly AuditoriaService $auditoria,
@@ -111,7 +112,7 @@ class MotorDocumentalService
         $payload = $this->resolver->resolver($colaborador, [...$extra, 'referencia_documento' => $referencia]);
         $titulo ??= $plantilla->nombre;
 
-        $pdf = $this->renderizar($plantilla, $payload, $titulo, $referencia);
+        $pdf = $this->renderizar($plantilla, $payload, $titulo, $referencia, $colaborador, $documentable, $actor);
 
         return $this->registrarPdf($colaborador, $pdf, $titulo, $actor, [
             'plantilla' => $plantilla,
@@ -224,7 +225,7 @@ class MotorDocumentalService
         $plantilla = $this->resolverPlantilla($plantilla);
         $payload = $this->resolver->resolver($colaborador, [...$extra, 'referencia_documento' => 'VISTA-PREVIA']);
 
-        return $this->renderizar($plantilla, $payload, $plantilla->nombre, 'VISTA-PREVIA');
+        return $this->renderizar($plantilla, $payload, $plantilla->nombre, 'VISTA-PREVIA', $colaborador);
     }
 
     /**
@@ -232,13 +233,13 @@ class MotorDocumentalService
      *
      * @throws ValidationException Si la plantilla no puede renderizarse.
      */
-    public function renderizar(DocumentTemplate $plantilla, array $payload, string $titulo, string $referencia): string
+    public function renderizar(DocumentTemplate $plantilla, array $payload, string $titulo, string $referencia, ?Colaborador $colaborador = null, ?Model $documentable = null, ?User $actor = null): string
     {
         try {
             $pdf = match ($plantilla->motor) {
                 MotorPlantilla::Html => $this->renderizarHtml($plantilla, $payload, $titulo, $referencia),
                 MotorPlantilla::Docx => $this->convertidor->aPdf($this->docx->generarConValores($plantilla, $payload)),
-                MotorPlantilla::PdfOverlay => $this->renderizarOverlay($plantilla, $payload),
+                MotorPlantilla::PdfOverlay => $this->renderizarOverlay($plantilla, $payload, $colaborador, $documentable, $actor, $referencia),
             };
         } catch (ValidationException $e) {
             throw $e;
@@ -354,9 +355,14 @@ class MotorDocumentalService
     }
 
     /**
+     * Formato oficial (plantilla versionada): lo genera el motor de
+     * plantillas oficiales con el contexto del documento de origen
+     * (contrato, préstamo, finiquito…); las variables de `extra` que no
+     * están en el catálogo llenan los campos manuales del mismo nombre.
+     *
      * @param  array<string, string>  $payload
      */
-    private function renderizarOverlay(DocumentTemplate $plantilla, array $payload): string
+    private function renderizarOverlay(DocumentTemplate $plantilla, array $payload, ?Colaborador $colaborador, ?Model $documentable, ?User $actor, string $referencia): string
     {
         $formato = $plantilla->formatoOficial;
 
@@ -366,6 +372,10 @@ class MotorDocumentalService
             ]);
         }
 
-        return $this->overlay->generar($formato, $payload);
+        $contexto = $colaborador !== null
+            ? $this->formatosOficiales->contextoDesde($colaborador, $documentable, $actor, $referencia)
+            : new ContextoFormato(null, referencia: $referencia);
+
+        return $this->formatosOficiales->renderizarPara($formato, $contexto, $payload);
     }
 }

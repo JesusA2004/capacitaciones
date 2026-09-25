@@ -22,6 +22,13 @@ use Illuminate\Support\Carbon;
  *
  * @property int $id
  * @property int $official_format_id
+ * @property int|null $official_format_version_id
+ * @property int|null $version_numero
+ * @property int|null $prestamo_id
+ * @property int|null $contrato_laboral_id
+ * @property array<string, string>|null $valores_manuales
+ * @property string|null $checksum
+ * @property bool $en_expediente
  * @property int|null $solicitud_interna_id
  * @property int|null $user_id
  * @property int|null $colaborador_id
@@ -37,6 +44,12 @@ use Illuminate\Support\Carbon;
  * @property string|null $signed_name
  * @property int|null $signed_uploaded_by
  * @property Carbon|null $signed_uploaded_at
+ * @property Carbon|null $created_at
+ * @property-read OfficialFormat $formato
+ * @property-read OfficialFormatVersion|null $version
+ * @property-read Colaborador|null $colaborador
+ * @property-read Candidato|null $candidato
+ * @property-read User|null $generadoPor
  */
 class OfficialFormatGeneration extends Model
 {
@@ -47,7 +60,14 @@ class OfficialFormatGeneration extends Model
 
     protected $fillable = [
         'official_format_id',
+        'official_format_version_id',
+        'version_numero',
         'solicitud_interna_id',
+        'prestamo_id',
+        'contrato_laboral_id',
+        'valores_manuales',
+        'checksum',
+        'en_expediente',
         'user_id',
         'colaborador_id',
         'candidato_id',
@@ -68,6 +88,8 @@ class OfficialFormatGeneration extends Model
     {
         return [
             'data_snapshot' => 'array',
+            'valores_manuales' => 'array',
+            'en_expediente' => 'boolean',
             'status' => EstadoFormatoOficialGeneracion::class,
             'signed_uploaded_at' => 'datetime',
         ];
@@ -106,6 +128,33 @@ class OfficialFormatGeneration extends Model
     public function formato(): BelongsTo
     {
         return $this->belongsTo(OfficialFormat::class, 'official_format_id');
+    }
+
+    /**
+     * Versión exacta de la plantilla con la que se generó (para reproducir
+     * y auditar lo que se imprimió).
+     *
+     * @return BelongsTo<OfficialFormatVersion, $this>
+     */
+    public function version(): BelongsTo
+    {
+        return $this->belongsTo(OfficialFormatVersion::class, 'official_format_version_id');
+    }
+
+    /**
+     * @return BelongsTo<Prestamo, $this>
+     */
+    public function prestamo(): BelongsTo
+    {
+        return $this->belongsTo(Prestamo::class);
+    }
+
+    /**
+     * @return BelongsTo<ContratoLaboral, $this>
+     */
+    public function contrato(): BelongsTo
+    {
+        return $this->belongsTo(ContratoLaboral::class, 'contrato_laboral_id');
     }
 
     /**

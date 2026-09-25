@@ -166,6 +166,19 @@ class RolesYPermisosSeeder extends Seeder
         'formatos_oficiales.generar',
         'formatos_oficiales.descargar',
         'formatos_oficiales.configurar',
+        // Plantillas oficiales versionadas: subir, versionar/publicar y
+        // archivar son capacidades distintas de mapear campos; los datos
+        // salariales en un documento requieren permiso propio.
+        'formatos_oficiales.crear',
+        'formatos_oficiales.versionar',
+        'formatos_oficiales.archivar',
+        'formatos_oficiales.datos_salariales',
+
+        // --- Celebraciones: cumpleaños y aniversarios (docs/CELEBRACIONES.md) ---
+        'celebraciones.ver',
+        'celebraciones.gestionar',
+        'celebraciones.enviar',
+        'celebraciones.moderar',
 
         // --- Incorporacion documental en la app movil (docs/API_MOVIL.md) ---
         // Colaborador en proceso de alta: solo su propia checklist, nunca el
@@ -368,6 +381,8 @@ class RolesYPermisosSeeder extends Seeder
             'plantillas.ver', 'plantillas.crear', 'plantillas.editar', 'plantillas.eliminar', 'plantillas.generar',
             'formatos.ver', 'formatos.preview', 'formatos.descargar_pdf', 'formatos.descargar_docx',
             'formatos_oficiales.ver', 'formatos_oficiales.generar', 'formatos_oficiales.descargar', 'formatos_oficiales.configurar',
+            'formatos_oficiales.crear', 'formatos_oficiales.versionar', 'formatos_oficiales.archivar', 'formatos_oficiales.datos_salariales',
+            'celebraciones.ver', 'celebraciones.gestionar', 'celebraciones.enviar', 'celebraciones.moderar',
             'rh.expedientes.ver', 'rh.expedientes.detalle', 'rh.expedientes.documentos.ver', 'rh.expedientes.documentos.aprobar',
             'rh.expedientes.documentos.rechazar', 'rh.expedientes.documentos.autorizar-cambio',
             'rh.expedientes.incorporacion.aprobar', 'rh.expedientes.incorporacion.rechazar',
@@ -418,7 +433,7 @@ class RolesYPermisosSeeder extends Seeder
             'vacantes.ver', 'vacantes.ver_todos', 'vacantes.crear', 'vacantes.editar',
             'candidatos.ver', 'candidatos.ver_todos', 'candidatos.crear', 'candidatos.editar',
             'reclutamiento.campanas.ver',
-            'plantillas.ver', 'plantillas.generar',
+            'plantillas.ver', 'plantillas.generar', 'celebraciones.ver',
             'formatos.ver', 'formatos.preview', 'formatos.descargar_pdf', 'formatos.descargar_docx',
             'formatos_oficiales.ver', 'formatos_oficiales.generar', 'formatos_oficiales.descargar',
             'rh.expedientes.ver', 'rh.expedientes.detalle', 'rh.expedientes.documentos.ver',

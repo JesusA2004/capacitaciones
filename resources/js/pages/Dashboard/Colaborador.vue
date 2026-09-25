@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CelebracionesHoyCard from '@/components/Celebraciones/CelebracionesHoyCard.vue';
 import { Head } from '@inertiajs/vue3';
 import { CalendarDays, ClipboardList, FileWarning, ShieldCheck } from '@lucide/vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
@@ -20,6 +21,7 @@ defineOptions({
     <Head title="Inicio" />
 
     <div class="flex flex-col gap-6 p-4">
+        <CelebracionesHoyCard />
 
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <MetricCard

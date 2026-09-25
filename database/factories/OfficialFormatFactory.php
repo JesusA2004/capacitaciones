@@ -2,8 +2,10 @@
 
 namespace Database\Factories;
 
+use App\Enums\EstadoVersionFormato;
 use App\Enums\TipoFormatoOficial;
 use App\Models\OfficialFormat;
+use App\Models\OfficialFormatVersion;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -22,6 +24,7 @@ class OfficialFormatFactory extends Factory
             'slug' => str($nombre)->slug()->toString(),
             'nombre' => $nombre,
             'tipo' => TipoFormatoOficial::Otro->value,
+            'aplica_a' => 'colaborador',
             'source_disk' => 'nas',
             'source_path' => 'formatos-oficiales/'.fake()->uuid().'.pdf',
             'original_filename' => 'formato.pdf',
@@ -31,21 +34,26 @@ class OfficialFormatFactory extends Factory
         ];
     }
 
-    public function configurado(): self
+    /**
+     * Con una versión 1 publicada (vigente) cuyo PDF base es el mismo
+     * `source_path` del formato y que pinta el nombre completo — lo mínimo
+     * para poder generar.
+     *
+     * @param  list<array<string, mixed>>|null  $campos
+     */
+    public function configurado(?array $campos = null): self
     {
-        return $this->state(fn () => [
-            'overlay_config' => [
-                'nombre_completo' => [
-                    'pagina' => 1,
-                    'x' => 20.0,
-                    'y' => 40.0,
-                    'font_size' => 11,
-                    'align' => 'left',
-                    'max_width' => 160.0,
-                    'color' => '#111111',
-                    'enabled' => true,
-                ],
-            ],
-        ]);
+        return $this->afterCreating(function (OfficialFormat $formato) use ($campos): void {
+            $version = OfficialFormatVersion::factory()->create([
+                'official_format_id' => $formato->id,
+                'estado' => EstadoVersionFormato::Publicada->value,
+                'source_path' => (string) $formato->source_path,
+                'base_path' => (string) $formato->source_path,
+                'campos' => $campos ?? [OfficialFormatVersionFactory::campo('colaborador.nombre_completo')],
+                'publicada_en' => now(),
+            ]);
+
+            $formato->update(['version_vigente_id' => $version->id]);
+        });
     }
 }

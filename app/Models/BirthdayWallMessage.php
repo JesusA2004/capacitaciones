@@ -14,16 +14,21 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $birthday_greeting_id
  * @property int $user_id
+ * @property int|null $autor_colaborador_id
  * @property string|null $mensaje
  * @property string|null $foto_path
  * @property string|null $foto_mime
  * @property Carbon $created_at
+ * @property Carbon|null $updated_at
  * @property-read BirthdayGreeting $greeting
  * @property-read User $autor
+ * @property-read Colaborador|null $autorColaborador
  */
 class BirthdayWallMessage extends Model
 {
-    protected $fillable = ['birthday_greeting_id', 'user_id', 'mensaje', 'foto_path', 'foto_mime'];
+    protected $hidden = ['foto_path'];
+
+    protected $fillable = ['birthday_greeting_id', 'user_id', 'autor_colaborador_id', 'mensaje', 'foto_path', 'foto_mime'];
 
     protected function casts(): array
     {
@@ -36,6 +41,16 @@ class BirthdayWallMessage extends Model
     public function greeting(): BelongsTo
     {
         return $this->belongsTo(BirthdayGreeting::class, 'birthday_greeting_id');
+    }
+
+    /**
+     * Autor como persona (fuente de verdad para mostrar nombre/foto).
+     *
+     * @return BelongsTo<Colaborador, $this>
+     */
+    public function autorColaborador(): BelongsTo
+    {
+        return $this->belongsTo(Colaborador::class, 'autor_colaborador_id');
     }
 
     /**

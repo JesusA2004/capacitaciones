@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AppDownloadController;
 use App\Http\Controllers\CalendarioController;
+use App\Http\Controllers\CelebracionController;
 use App\Http\Controllers\CertificadoVerificacionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\IncorporacionQrController;
@@ -47,6 +48,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Guía ilustrada del sistema: recorridos guiados por módulo + botón de
     // ayuda flotante (ver resources/js/components/sistema/*, resources/js/lib/tours/*).
     Route::inertia('ayuda', 'Ayuda/Index')->name('ayuda');
+
+    // Celebraciones (cumpleaños y aniversarios): pantalla del evento, destino
+    // de sus notificaciones; felicitaciones privadas (docs/CELEBRACIONES.md).
+    Route::prefix('celebraciones')->name('celebraciones.')->group(function () {
+        Route::get('hoy', [CelebracionController::class, 'hoy'])->name('hoy');
+        Route::get('{celebracion}', [CelebracionController::class, 'show'])->name('show');
+        Route::get('{celebracion}/tarjeta', [CelebracionController::class, 'tarjeta'])->name('tarjeta');
+        Route::get('{celebracion}/foto', [CelebracionController::class, 'foto'])->name('foto');
+        Route::post('{celebracion}/mensajes', [CelebracionController::class, 'storeMensaje'])->name('mensajes.store')->middleware('throttle:20,1');
+        Route::put('{celebracion}/mensajes/{mensaje}', [CelebracionController::class, 'updateMensaje'])->name('mensajes.update');
+        Route::delete('{celebracion}/mensajes/{mensaje}', [CelebracionController::class, 'destroyMensaje'])->name('mensajes.destroy');
+        Route::get('{celebracion}/mensajes/{mensaje}/foto', [CelebracionController::class, 'mensajeFoto'])->name('mensajes.foto');
+        Route::get('{celebracion}/mensajes/{mensaje}/autor-foto', [CelebracionController::class, 'autorFoto'])->name('mensajes.autor-foto');
+    });
 
     // Las vacaciones se solicitan y cancelan desde el módulo unificado de
     // Solicitudes (tipo `vacaciones`, ver docs/SOLICITUDES_UNIFICADAS.md).

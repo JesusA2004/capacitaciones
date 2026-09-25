@@ -205,8 +205,8 @@ class PeopleDiagnosticoCommand extends Command
             return;
         }
 
-        $sinConfigurar = OfficialFormat::query()->whereNull('overlay_config')->orWhere('overlay_config', '[]')->count();
-        $this->ok("Formatos oficiales importados: {$total} (sin configurar: {$sinConfigurar}).");
+        $sinConfigurar = OfficialFormat::query()->whereNull('archivado_en')->with('versionVigente')->get()->reject(fn (OfficialFormat $f) => $f->tieneConfiguracion())->count();
+        $this->ok("Plantillas oficiales: {$total} (sin versión publicada con campos: {$sinConfigurar}).");
     }
 
     private function revisarColaboradoresIncompletos(): void

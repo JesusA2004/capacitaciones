@@ -11,6 +11,7 @@ use App\Models\NodoComercial;
 use App\Models\Puesto;
 use App\Models\User;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -47,28 +48,33 @@ class CoberturaPuestoService
             throw ValidationException::withMessages(['colaborador_id' => 'Esa persona ya es titular de ese puesto en esa sucursal.']);
         }
 
-        $vigente = $this->vigenteEn($datos['puesto_id'], $sucursalId, $regionId);
+        // Bloqueo + verificación dentro de la misma transacción: dos RH
+        // asignando a la vez no pueden dejar dos coberturas vigentes del
+        // mismo puesto en el mismo ámbito.
+        $cobertura = DB::transaction(function () use ($datos, $colaborador, $sucursalId, $regionId, $actor): CoberturaPuesto {
+            $vigente = $this->vigenteEn($datos['puesto_id'], $sucursalId, $regionId, bloquear: true);
 
-        if ($vigente !== null) {
-            throw ValidationException::withMessages([
-                'colaborador_id' => sprintf(
-                    'Ese puesto ya lo está cubriendo %s. Termina esa cobertura antes de asignar otra.',
-                    trim(sprintf('%s %s', $vigente->colaborador->name, $vigente->colaborador->apellidos ?? '')),
-                ),
+            if ($vigente !== null) {
+                throw ValidationException::withMessages([
+                    'colaborador_id' => sprintf(
+                        'Ese puesto ya lo está cubriendo %s. Termina esa cobertura antes de asignar otra.',
+                        trim(sprintf('%s %s', $vigente->colaborador->name, $vigente->colaborador->apellidos ?? '')),
+                    ),
+                ]);
+            }
+
+            return CoberturaPuesto::query()->create([
+                'colaborador_id' => $colaborador->id,
+                'puesto_id' => $datos['puesto_id'],
+                'sucursal_id' => $sucursalId,
+                'region_id' => $regionId,
+                'motivo' => MotivoCobertura::from($datos['motivo']),
+                'nota' => $datos['nota'] ?? null,
+                'fecha_inicio' => $datos['fecha_inicio'] ?? now()->toDateString(),
+                'activa' => true,
+                'registrada_por' => $actor->id,
             ]);
-        }
-
-        $cobertura = CoberturaPuesto::query()->create([
-            'colaborador_id' => $colaborador->id,
-            'puesto_id' => $datos['puesto_id'],
-            'sucursal_id' => $sucursalId,
-            'region_id' => $regionId,
-            'motivo' => MotivoCobertura::from($datos['motivo']),
-            'nota' => $datos['nota'] ?? null,
-            'fecha_inicio' => $datos['fecha_inicio'] ?? now()->toDateString(),
-            'activa' => true,
-            'registrada_por' => $actor->id,
-        ]);
+        });
 
         activity('organigrama')
             ->performedOn($cobertura)
@@ -114,7 +120,7 @@ class CoberturaPuestoService
             ->get();
     }
 
-    private function vigenteEn(int $puestoId, ?int $sucursalId, ?int $regionId): ?CoberturaPuesto
+    private function vigenteEn(int $puestoId, ?int $sucursalId, ?int $regionId, bool $bloquear = false): ?CoberturaPuesto
     {
         return CoberturaPuesto::query()
             ->with('colaborador:id,name,apellidos')
@@ -122,6 +128,7 @@ class CoberturaPuestoService
             ->where('puesto_id', $puestoId)
             ->when($sucursalId !== null, fn ($query) => $query->where('sucursal_id', $sucursalId))
             ->when($regionId !== null, fn ($query) => $query->where('region_id', $regionId))
+            ->when($bloquear, fn ($query) => $query->lockForUpdate())
             ->first();
     }
 }

@@ -17,7 +17,7 @@ use App\Models\SolicitudInterna;
 use App\Models\User;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\Expedientes\DocumentoStorageService;
-use App\Services\Formatos\OfficialFormatOverlayService;
+use App\Services\Formatos\GeneradorFormatoService;
 use App\Services\Plantillas\PlaceholderResolver;
 use App\Services\Solicitudes\SolicitudDocumentoStorageService;
 use App\Services\Vacaciones\VacacionesService;
@@ -43,7 +43,7 @@ class FiniquitoService
     public function __construct(
         private readonly VacacionesService $vacaciones,
         private readonly SolicitudDocumentoStorageService $storage,
-        private readonly OfficialFormatOverlayService $overlay,
+        private readonly GeneradorFormatoService $formatosOficiales,
         private readonly PlaceholderResolver $resolver,
         private readonly MotorDocumentalService $motor,
         private readonly DocumentoStorageService $expediente,
@@ -438,7 +438,7 @@ class FiniquitoService
                 ->first();
 
             $contenido = $formatoOficial !== null && $formatoOficial->tieneConfiguracion()
-                ? $this->overlay->generar($formatoOficial, $this->resolver->resolver($finiquito->colaborador, $variables))
+                ? $this->formatosOficiales->renderizarPara($formatoOficial, $this->formatosOficiales->contextoDesde($finiquito->colaborador, $finiquito, $actor), $variables)
                 : Pdf::loadView('pdf.finiquito', ['finiquito' => $finiquito, 'desglose' => $desglose])->setPaper('letter', 'portrait')->output();
 
             $documento = $this->motor->registrarPdf($finiquito->colaborador, $contenido, 'Finiquito', $actor, [
@@ -597,7 +597,7 @@ class FiniquitoService
     /**
      * @param  array<string, mixed>|null  $otrosConceptos
      */
-    private function sumaOtrosConceptos(?array $otrosConceptos): float
+    public static function sumaOtrosConceptos(?array $otrosConceptos): float
     {
         if ($otrosConceptos === null) {
             return 0.0;

@@ -7,6 +7,7 @@ use App\Enums\EstadoDocumento;
 use App\Enums\EstadoEvaluacionPrueba;
 use App\Enums\EstadoSolicitudInterna;
 use App\Enums\EstadoSolicitudVacaciones;
+use App\Models\BirthdayGreeting;
 use App\Models\ContratoLaboral;
 use App\Models\EmployeeDocument;
 use App\Models\EvaluacionPeriodoPrueba;
@@ -14,6 +15,7 @@ use App\Models\GeneratedDocument;
 use App\Models\SolicitudInterna;
 use App\Models\SolicitudVacaciones;
 use App\Models\User;
+use App\Services\Celebraciones\FechasCelebracion;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -58,7 +60,8 @@ class DestinoNotificacionService
                 $tipo === 'rh_documento' => $this->documentoRh($id),
                 $tipo === 'documento' => $this->documentoPropio($id),
                 $tipo === 'rh_incorporacion' => $this->incorporacionRh($id),
-                in_array($tipo, ['incorporacion', 'alta_activada', 'cumpleanos', 'cumpleanos_muro'], true) => self::destino(route('portal.index', [], false)),
+                $relacionado === 'Celebracion' || in_array($tipo, ['cumpleanos', 'cumpleanos_muro', 'aniversario_laboral', 'cumpleanos_general', 'aniversario_general', 'celebracion_mensaje'], true) => $this->celebracion($id, $usuario),
+                in_array($tipo, ['incorporacion', 'alta_activada'], true) => self::destino(route('portal.index', [], false)),
                 $tipo === 'expediente_incompleto' => self::destino(route('mi-expediente', ['tab' => 'documentos'], false)),
                 $tipo === 'rh_cumpleanos' => self::destino(route('rh.cumpleanos.index', [], false)),
                 $relacionado === 'EvaluacionPeriodoPrueba' => $this->evaluacion($id, $tipo),
@@ -194,6 +197,30 @@ class DestinoNotificacionService
             $pendiente
                 ? trim(sprintf('El documento %s sigue pendiente de revisión.', $nombre))
                 : trim(sprintf('El documento %s ya fue revisado: está «%s».', $nombre, $estado->etiqueta())),
+        );
+    }
+
+    /**
+     * Celebración (cumpleaños / aniversario): abre la pantalla del evento
+     * si aún existe y el usuario puede verla; si ya pasó, lo dice.
+     *
+     * @return Destino
+     */
+    private function celebracion(?int $id, User $usuario): array
+    {
+        $celebracion = $id !== null ? BirthdayGreeting::query()->where('id', $id)->first() : null;
+
+        if ($celebracion === null || ! $usuario->can('view', $celebracion)) {
+            return self::destino(route('portal.index', [], false), null, 'no_disponible', 'Esta celebración ya no está disponible.');
+        }
+
+        $vigente = $celebracion->fecha->gte(FechasCelebracion::hoy()->subDays(max(0, (int) config('celebraciones.dias_visible', 3))));
+
+        return self::destino(
+            route('celebraciones.show', $celebracion->id, false),
+            null,
+            $vigente ? 'vigente' : 'finalizada',
+            $vigente ? null : 'Esta celebración ya pasó: puedes ver la tarjeta y los mensajes.',
         );
     }
 

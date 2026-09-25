@@ -17,9 +17,14 @@ use Illuminate\Support\Collection;
  * "Vacantes" en este servicio es la cifra derivada (autorizada - actual,
  * nunca negativa), no las filas de la tabla `vacantes` — esas se
  * sincronizan a partir de esta cifra en VacanteAutoGenerationService.
+ *
+ * Todo se agrupa por PUESTO DE PLANTILLA (PuestosPlantillaService): el
+ * Gestor volante cuenta como Gestor — es la misma plaza.
  */
 class HeadcountService
 {
+    public function __construct(private readonly PuestosPlantillaService $puestos) {}
+
     /**
      * Plantilla actual por (sucursal_id, puesto_id): colaboradores activos
      * agrupados. Única fuente de "actual" en todo el módulo.
@@ -37,7 +42,8 @@ class HeadcountService
             ->selectRaw('sucursal_principal_id, puesto_id, count(*) as total')
             ->groupBy('sucursal_principal_id', 'puesto_id')
             ->get()
-            ->mapWithKeys(fn ($fila) => [sprintf('%d:%d', $fila->sucursal_principal_id, $fila->puesto_id) => (int) $fila->getAttribute('total')]);
+            ->groupBy(fn ($fila) => sprintf('%d:%d', $fila->sucursal_principal_id, $this->puestos->canonico((int) $fila->puesto_id)))
+            ->map(fn (Collection $filas) => (int) $filas->sum(fn ($fila) => (int) $fila->getAttribute('total')));
     }
 
     /**
@@ -113,9 +119,9 @@ class HeadcountService
     {
         $targets = HeadcountTarget::query()
             ->where('sucursal_id', $sucursalId)
-            ->with('puesto:id,nombre')
-            ->get()
-            ->keyBy('puesto_id');
+            ->get(['puesto_id', 'plantilla_autorizada'])
+            ->groupBy(fn (HeadcountTarget $t) => $this->puestos->canonico($t->puesto_id))
+            ->map(fn (Collection $lista) => (int) $lista->sum('plantilla_autorizada'));
 
         $actualPorPuesto = Colaborador::query()
             ->whereIn('estatus', EstadoUsuario::valoresVigentes())
@@ -124,14 +130,15 @@ class HeadcountService
             ->selectRaw('puesto_id, count(*) as total')
             ->groupBy('puesto_id')
             ->pluck('total', 'puesto_id')
-            ->map(fn ($v) => (int) $v);
+            ->groupBy(fn ($total, $puestoId) => $this->puestos->canonico((int) $puestoId), true)
+            ->map(fn (Collection $totales) => (int) $totales->sum());
 
         $puestoIdsUnion = $targets->keys()->merge($actualPorPuesto->keys())->unique()->values();
 
         $nombresPuesto = Puesto::query()->whereIn('id', $puestoIdsUnion)->pluck('nombre', 'id');
 
         return $puestoIdsUnion->map(function (int $puestoId) use ($targets, $actualPorPuesto, $nombresPuesto) {
-            $autorizada = (int) ($targets[$puestoId]->plantilla_autorizada ?? 0);
+            $autorizada = (int) ($targets[$puestoId] ?? 0);
             $actual = (int) ($actualPorPuesto[$puestoId] ?? 0);
 
             return [
@@ -188,13 +195,14 @@ class HeadcountService
             ->when($sucursalesIds !== null, fn ($q) => $q->whereIn('sucursal_id', $sucursalesIds))
             ->when($empresaId !== null, fn ($q) => $q->whereHas('sucursal', fn ($s) => $s->where('empresa_id', $empresaId)))
             ->get(['sucursal_id', 'puesto_id', 'plantilla_autorizada'])
-            ->keyBy(fn (HeadcountTarget $t) => sprintf('%d:%d', $t->sucursal_id, $t->puesto_id));
+            ->groupBy(fn (HeadcountTarget $t) => sprintf('%d:%d', $t->sucursal_id, $this->puestos->canonico($t->puesto_id)))
+            ->map(fn (Collection $lista) => (int) $lista->sum('plantilla_autorizada'));
 
         $activos = $this->plantillaActualPorSucursalPuesto($sucursalesIds);
         $claves = $targets->keys()->merge($activos->keys())->unique()->values();
 
-        $sucursales = Sucursal::query()->with('empresa:id,nombre')->whereIn('id', $claves->map(fn (string $c) => (int) explode(':', $c)[0])->unique())->get(['id', 'nombre', 'empresa_id'])->keyBy('id');
-        $puestos = Puesto::query()->whereIn('id', $claves->map(fn (string $c) => (int) explode(':', $c)[1])->unique())->pluck('nombre', 'id');
+        $sucursales = Sucursal::query()->with('empresa:id,nombre')->whereIn('id', $claves->map(fn (int|string $c) => (int) explode(':', (string) $c)[0])->unique())->get(['id', 'nombre', 'empresa_id'])->keyBy('id');
+        $puestos = Puesto::query()->whereIn('id', $claves->map(fn (int|string $c) => (int) explode(':', (string) $c)[1])->unique())->pluck('nombre', 'id');
 
         $filas = [];
 
@@ -206,7 +214,7 @@ class HeadcountService
                 continue;
             }
 
-            $autorizados = (int) ($targets->get($clave)->plantilla_autorizada ?? 0);
+            $autorizados = (int) ($targets->get($clave) ?? 0);
             $activosPar = (int) ($activos->get($clave) ?? 0);
 
             $filas[] = [
@@ -243,15 +251,23 @@ class HeadcountService
 
     public function vacantesDerivadas(int $sucursalId, int $puestoId): int
     {
+        // Las plazas de un puesto equivalente (Gestor volante) se cuentan
+        // en su puesto de plantilla (Gestor), nunca por separado.
+        if (! $this->puestos->esCanonico($puestoId)) {
+            return 0;
+        }
+
+        $equivalentes = $this->puestos->equivalentes($puestoId);
+
         $autorizada = (int) HeadcountTarget::query()
             ->where('sucursal_id', $sucursalId)
-            ->where('puesto_id', $puestoId)
-            ->value('plantilla_autorizada');
+            ->whereIn('puesto_id', $equivalentes)
+            ->sum('plantilla_autorizada');
 
         $actual = (int) Colaborador::query()
             ->whereIn('estatus', EstadoUsuario::valoresVigentes())
             ->where('sucursal_principal_id', $sucursalId)
-            ->where('puesto_id', $puestoId)
+            ->whereIn('puesto_id', $equivalentes)
             ->count();
 
         return max($autorizada - $actual, 0);
@@ -269,6 +285,8 @@ class HeadcountService
         return HeadcountTarget::query()
             ->select('sucursal_id', 'puesto_id')
             ->get()
-            ->map(fn (HeadcountTarget $t) => ['sucursal_id' => $t->sucursal_id, 'puesto_id' => $t->puesto_id]);
+            ->map(fn (HeadcountTarget $t) => ['sucursal_id' => $t->sucursal_id, 'puesto_id' => $this->puestos->canonico($t->puesto_id)])
+            ->unique(fn (array $par) => sprintf('%d:%d', $par['sucursal_id'], $par['puesto_id']))
+            ->values();
     }
 }

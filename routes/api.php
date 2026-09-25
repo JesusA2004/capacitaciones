@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\AppConfigController;
 use App\Http\Controllers\Api\V1\AppReleaseController;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\CelebracionController;
 use App\Http\Controllers\Api\V1\CicloLaboralColaboradorController;
 use App\Http\Controllers\Api\V1\ColaboradorController;
 use App\Http\Controllers\Api\V1\ColaboradorCumpleanosController;
@@ -17,6 +18,7 @@ use App\Http\Controllers\Api\V1\NotificacionController;
 use App\Http\Controllers\Api\V1\Rh\ActaController;
 use App\Http\Controllers\Api\V1\Rh\AltaColaboradorController;
 use App\Http\Controllers\Api\V1\Rh\CatalogoController;
+use App\Http\Controllers\Api\V1\Rh\CelebracionController as RhCelebracionController;
 use App\Http\Controllers\Api\V1\Rh\CierreLaboralController;
 use App\Http\Controllers\Api\V1\Rh\ColaboradorController as RhColaboradorController;
 use App\Http\Controllers\Api\V1\Rh\ContratoController;
@@ -27,6 +29,7 @@ use App\Http\Controllers\Api\V1\Rh\DocumentoLaboralController;
 use App\Http\Controllers\Api\V1\Rh\EstructuraController;
 use App\Http\Controllers\Api\V1\Rh\ExpedienteController as RhExpedienteController;
 use App\Http\Controllers\Api\V1\Rh\FormatoController as RhFormatoController;
+use App\Http\Controllers\Api\V1\Rh\FormatoOficialController as RhFormatoOficialController;
 use App\Http\Controllers\Api\V1\Rh\IncorporacionController as RhIncorporacionController;
 use App\Http\Controllers\Api\V1\Rh\JerarquiaPuestoController as RhJerarquiaPuestoController;
 use App\Http\Controllers\Api\V1\Rh\PendienteController as RhPendienteController;
@@ -120,6 +123,21 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('{greeting}/mensajes', [MuroCumpleanosController::class, 'publicar'])->name('mensajes.store')->middleware('throttle:20,1');
             Route::delete('{greeting}/mensajes/{mensaje}', [MuroCumpleanosController::class, 'eliminar'])->name('mensajes.destroy');
             Route::get('{greeting}/mensajes/{mensaje}/foto', [MuroCumpleanosController::class, 'foto'])->name('mensajes.foto');
+        });
+
+        // Celebraciones: cumpleaños y aniversarios con felicitaciones
+        // PRIVADAS (docs/CELEBRACIONES.md, docs/API_MOVIL.md).
+        Route::prefix('celebraciones')->name('celebraciones.')->group(function () {
+            Route::get('activas', [CelebracionController::class, 'activas'])->name('activas');
+            Route::get('{celebracion}', [CelebracionController::class, 'show'])->name('show');
+            Route::get('{celebracion}/tarjeta', [CelebracionController::class, 'tarjeta'])->name('tarjeta');
+            Route::get('{celebracion}/foto', [CelebracionController::class, 'foto'])->name('foto');
+            Route::get('{celebracion}/mensajes', [CelebracionController::class, 'mensajes'])->name('mensajes.index');
+            Route::post('{celebracion}/mensajes', [CelebracionController::class, 'store'])->name('mensajes.store')->middleware('throttle:20,1');
+            Route::patch('{celebracion}/mensajes/{mensaje}', [CelebracionController::class, 'update'])->name('mensajes.update');
+            Route::delete('{celebracion}/mensajes/{mensaje}', [CelebracionController::class, 'destroy'])->name('mensajes.destroy');
+            Route::get('{celebracion}/mensajes/{mensaje}/foto', [CelebracionController::class, 'mensajeFoto'])->name('mensajes.foto');
+            Route::get('{celebracion}/mensajes/{mensaje}/autor-foto', [CelebracionController::class, 'autorFoto'])->name('autor-foto');
         });
 
         Route::prefix('colaborador')->name('colaborador.')->group(function () {
@@ -295,6 +313,17 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('{colaborador}/rechazar-incorporacion', [RhExpedienteController::class, 'rechazarIncorporacion'])->name('rechazar-incorporacion');
             });
 
+            // Celebraciones para RH (docs/CELEBRACIONES.md): aniversarios y
+            // acciones de ambos tipos (tipo = cumpleanos|aniversario_laboral).
+            Route::prefix('celebraciones')->name('celebraciones.')->group(function () {
+                Route::get('aniversarios', [RhCelebracionController::class, 'aniversarios'])->name('aniversarios');
+                Route::post('evento/{celebracion}/recepcion', [RhCelebracionController::class, 'recepcion'])->name('recepcion');
+                Route::get('{colaborador}/{tipo}', [RhCelebracionController::class, 'evento'])->name('evento');
+                Route::post('{colaborador}/{tipo}/enviar', [RhCelebracionController::class, 'enviar'])->name('enviar');
+                Route::post('{colaborador}/{tipo}/avisar-todos', [RhCelebracionController::class, 'avisarATodos'])->name('avisar-todos')->middleware('throttle:10,1');
+                Route::post('{colaborador}/{tipo}/tarjeta', [RhCelebracionController::class, 'regenerarTarjeta'])->name('tarjeta.regenerar');
+            });
+
             // Bandeja de cumpleanos para RH desde la app (docs/CUMPLEANOS.md).
             Route::prefix('cumpleanos')->name('cumpleanos.')->group(function () {
                 Route::get('/', [RhCumpleanosController::class, 'index'])->name('index');
@@ -399,6 +428,30 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::get('indicadores', [EstructuraController::class, 'indicadores'])->name('indicadores');
             Route::get('organigrama', [EstructuraController::class, 'organigrama'])->name('organigrama');
             Route::get('vacantes/{vacante}', [EstructuraController::class, 'vacante'])->name('vacantes.show');
+
+            // Plantillas oficiales versionadas (docs/FORMATOS_OFICIALES.md):
+            // mismo motor que el panel web — catálogo, variables, generar y
+            // administración de versiones.
+            Route::prefix('formatos-oficiales')->name('formatos-oficiales.')->group(function () {
+                Route::get('/', [RhFormatoOficialController::class, 'index'])->name('index');
+                Route::post('/', [RhFormatoOficialController::class, 'store'])->name('store');
+                Route::get('variables', [RhFormatoOficialController::class, 'variables'])->name('variables');
+                Route::get('generados', [RhFormatoOficialController::class, 'generados'])->name('generados');
+                Route::get('generados/{generacion}/descargar', [RhFormatoOficialController::class, 'descargar'])->name('generaciones.descargar');
+                Route::get('generados/{generacion}/ver', [RhFormatoOficialController::class, 'ver'])->name('generaciones.ver');
+                Route::get('versiones/{version}/base', [RhFormatoOficialController::class, 'base'])->name('versiones.base');
+                Route::put('versiones/{version}/campos', [RhFormatoOficialController::class, 'guardarCampos'])->name('versiones.campos');
+                Route::post('versiones/{version}/analisis', [RhFormatoOficialController::class, 'refinarAnalisis'])->name('versiones.analisis');
+                Route::post('versiones/{version}/publicar', [RhFormatoOficialController::class, 'publicar'])->name('versiones.publicar');
+                Route::delete('versiones/{version}', [RhFormatoOficialController::class, 'descartar'])->name('versiones.descartar');
+                Route::get('{formato}', [RhFormatoOficialController::class, 'show'])->name('show');
+                Route::post('{formato}/versiones', [RhFormatoOficialController::class, 'nuevaVersion'])->name('versiones.store');
+                Route::post('{formato}/archivar', [RhFormatoOficialController::class, 'archivar'])->name('archivar');
+                Route::post('{formato}/reactivar', [RhFormatoOficialController::class, 'reactivar'])->name('reactivar');
+                Route::post('{formato}/preparar', [RhFormatoOficialController::class, 'preparar'])->name('preparar');
+                Route::post('{formato}/vista-previa', [RhFormatoOficialController::class, 'vistaPrevia'])->name('vista-previa');
+                Route::post('{formato}/generar', [RhFormatoOficialController::class, 'generar'])->name('generar');
+            });
 
             // Catalogo de formatos y descarga de documentos ya generados
             // (generar/vista previa se quedan en el panel web por ahora,

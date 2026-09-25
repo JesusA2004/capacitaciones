@@ -40,6 +40,11 @@ class NotificacionesService
         'cumpleanos' => ['emoji' => '🎂', 'color' => 'celebracion'],
         'rh_cumpleanos' => ['emoji' => '🎂', 'color' => 'celebracion'],
         'cumpleanos_muro' => ['emoji' => '🎉', 'color' => 'celebracion'],
+        // Celebraciones (docs/CELEBRACIONES.md).
+        'aniversario_laboral' => ['emoji' => '🏅', 'color' => 'celebracion'],
+        'cumpleanos_general' => ['emoji' => '🎂', 'color' => 'celebracion'],
+        'aniversario_general' => ['emoji' => '🏅', 'color' => 'celebracion'],
+        'celebracion_mensaje' => ['emoji' => '💌', 'color' => 'celebracion'],
         'sesion_programada' => ['emoji' => '📅', 'color' => 'info'],
         'sesion_proxima' => ['emoji' => '⏰', 'color' => 'warning'],
         'fecha_limite_proxima' => ['emoji' => '⏰', 'color' => 'warning'],

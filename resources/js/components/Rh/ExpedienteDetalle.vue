@@ -1952,6 +1952,8 @@ const pestanaInicial = (() => {
                         :puede-reprocesar-extraccion="puedeReprocesarExtraccion"
                         :puede-ignorar-extraccion="puedeIgnorarExtraccion"
                     />
+                    <!-- Documentos generados desde plantillas oficiales (solo vista RH). -->
+                    <slot name="documentos-oficiales" />
                 </TabsContent>
 
                 <TabsContent value="onboarding">

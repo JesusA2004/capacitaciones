@@ -2,42 +2,52 @@
 
 namespace App\Http\Controllers\Rh;
 
+use App\Enums\AplicaFormato;
+use App\Enums\TipoFormatoOficial;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Rh\GenerarFormatoOficialRequest;
-use App\Http\Requests\Rh\GuardarConfiguracionFormatoOficialRequest;
 use App\Models\Candidato;
 use App\Models\Colaborador;
+use App\Models\Empresa;
 use App\Models\OfficialFormat;
 use App\Models\OfficialFormatGeneration;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Expedientes\DocumentoStorageService;
+use App\Services\Formatos\FormatoOficialPresenter;
+use App\Services\Formatos\GeneradorFormatoService;
 use App\Services\Formatos\OfficialFormatCatalogoService;
-use App\Services\Formatos\OfficialFormatOverlayService;
 use App\Services\Formatos\OfficialFormatStorageService;
-use App\Services\Plantillas\PlaceholderResolver;
+use App\Services\Formatos\Variables\CatalogoVariablesFormato;
+use App\Services\Formatos\Variables\ContextoFormato;
 use App\Services\Solicitudes\SolicitudFormatoOficialService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Formatos oficiales fijos de MR. LANA (docs/FORMATOS_OFICIALES.md): a
- * diferencia de Rh\FormatoController (plantillas DOCX editables), aquí RH
- * nunca sube ni cambia el documento — solo selecciona colaborador, revisa
- * los datos detectados y genera un PDF con overlay sobre el original.
+ * Plantillas oficiales — catálogo, generación y documentos generados
+ * (docs/FORMATOS_OFICIALES.md). La administración de plantillas (subir,
+ * mapear, versionar) vive en PlantillaOficialController; la lógica, en
+ * App\Services\Formatos\*.
+ *
+ * @phpstan-import-type Preparacion from GeneradorFormatoService
  */
 class FormatoOficialController extends Controller
 {
     public function __construct(
         private readonly OfficialFormatCatalogoService $catalogo,
-        private readonly OfficialFormatOverlayService $overlay,
+        private readonly GeneradorFormatoService $generador,
         private readonly OfficialFormatStorageService $storage,
-        private readonly PlaceholderResolver $resolver,
+        private readonly DocumentoStorageService $expediente,
+        private readonly CatalogoVariablesFormato $variables,
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly SolicitudFormatoOficialService $formatoDeSolicitud,
+        private readonly FormatoOficialPresenter $presenter,
     ) {}
 
     public function index(Request $request): Response
@@ -45,126 +55,110 @@ class FormatoOficialController extends Controller
         $this->authorize('viewAny', OfficialFormat::class);
 
         $usuario = $request->user();
+        $filtros = [
+            'tipo' => $request->string('tipo')->toString() ?: null,
+            'busqueda' => $request->string('busqueda')->toString() ?: null,
+            'archivados' => $request->boolean('archivados'),
+        ];
 
         return Inertia::render('Rh/FormatosOficiales/Index', [
-            'formatos' => $this->catalogo->listar(),
-            'colaboradoresDisponibles' => $this->alcance
-                ->limitarColaboradoresPorAlcance(Colaborador::query(), $usuario)
-                ->orderBy('name')
-                ->limit(200)
-                ->get(['id', 'name', 'apellidos']),
-            'candidatosDisponibles' => Candidato::query()->orderBy('nombre')->limit(200)->get(['id', 'nombre', 'apellidos']),
-            'permisos' => [
-                'generar' => $usuario->can('formatos_oficiales.generar'),
-                'descargar' => $usuario->can('formatos_oficiales.descargar'),
-                'configurar' => $usuario->can('formatos_oficiales.configurar'),
+            'formatos' => $this->catalogo->listar($filtros),
+            'filtros' => $filtros,
+            'categorias' => TipoFormatoOficial::opciones(),
+            'aplicaA' => array_map(fn (AplicaFormato $a) => ['value' => $a->value, 'etiqueta' => $a->etiqueta()], AplicaFormato::cases()),
+            'empresas' => Empresa::query()->where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
+            'colaboradoresDisponibles' => $this->colaboradoresDisponibles($usuario),
+            'candidatosDisponibles' => Candidato::query()->orderBy('nombre')->limit(300)->get(['id', 'nombre', 'apellidos']),
+            'permisos' => $this->permisos($usuario),
+        ]);
+    }
+
+    /**
+     * Historial de documentos generados, dentro del alcance del usuario.
+     */
+    public function generados(Request $request): Response
+    {
+        $this->authorize('viewAny', OfficialFormat::class);
+        $usuario = $request->user();
+
+        $generaciones = OfficialFormatGeneration::query()
+            ->with(['formato:id,nombre,tipo', 'colaborador:id,name,apellidos', 'candidato:id,nombre,apellidos', 'generadoPor:id,name', 'solicitud:id,folio'])
+            ->where(fn ($q) => $q->whereNull('colaborador_id')
+                ->orWhereIn('colaborador_id', $this->alcance->limitarColaboradoresPorAlcance(Colaborador::query(), $usuario)->select('colaboradores.id')))
+            ->when($request->integer('formato_id'), fn ($q, int $id) => $q->where('official_format_id', $id))
+            ->when($request->string('busqueda')->toString(), fn ($q, string $texto) => $q->where(fn ($s) => $s
+                ->whereHas('colaborador', fn ($c) => $c->where('name', 'like', "%{$texto}%")->orWhere('apellidos', 'like', "%{$texto}%"))
+                ->orWhereHas('candidato', fn ($c) => $c->where('nombre', 'like', "%{$texto}%")->orWhere('apellidos', 'like', "%{$texto}%"))))
+            ->latest()
+            ->paginate(25)
+            ->withQueryString()
+            ->through(fn (OfficialFormatGeneration $g) => $this->presenter->generacion($g));
+
+        return Inertia::render('Rh/FormatosOficiales/Generados', [
+            'generaciones' => $generaciones,
+            'formatos' => OfficialFormat::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'filtros' => ['formato_id' => $request->integer('formato_id') ?: null, 'busqueda' => $request->string('busqueda')->toString()],
+        ]);
+    }
+
+    /**
+     * Catálogo de variables disponibles (lo que People sabe y puede poner
+     * en un documento).
+     */
+    public function variables(Request $request): Response
+    {
+        $this->authorize('viewAny', OfficialFormat::class);
+
+        return Inertia::render('Rh/FormatosOficiales/Variables', [
+            'grupos' => $this->variables->agrupadas($request->user()->can('formatos_oficiales.datos_salariales')),
+            'formatos' => CatalogoVariablesFormato::FORMATOS,
+        ]);
+    }
+
+    /**
+     * Qué falta, qué se pedirá a mano y de qué solicitud/préstamo/contrato
+     * sale el documento, antes de previsualizar o generar.
+     */
+    public function preparar(GenerarFormatoOficialRequest $request, OfficialFormat $formato): JsonResponse
+    {
+        $this->authorize('generar', $formato);
+        [$sujeto, $contexto, $preparacion] = $this->prepararDesde($request, $formato);
+        $version = $preparacion['version'];
+
+        return response()->json($this->presenter->preparacion($preparacion, [
+            'contextos' => [
+                'usados' => $this->generador->contextosQueUsa($version),
+                'opciones' => $this->generador->opcionesContexto($sujeto, $this->generador->contextosQueUsa($version)),
             ],
-        ]);
-    }
-
-    public function show(OfficialFormat $formato): Response
-    {
-        $this->authorize('configurar', $formato);
-
-        return Inertia::render('Rh/FormatosOficiales/Configurar', [
-            'formato' => [
-                'id' => $formato->id,
-                'slug' => $formato->slug,
-                'nombre' => $formato->nombre,
-                'tipo_etiqueta' => $formato->tipo->etiqueta(),
-                'file_type' => $formato->file_type,
-                'overlay_config' => $formato->overlay_config ?? [],
-            ],
-            'camposDisponibles' => collect(OfficialFormatOverlayService::CAMPOS_DISPONIBLES)
-                ->map(fn (string $etiqueta, string $clave) => ['clave' => $clave, 'etiqueta' => $etiqueta])
-                ->values(),
-        ]);
-    }
-
-    public function original(OfficialFormat $formato): StreamedResponse
-    {
-        $this->authorize('view', $formato);
-
-        return $this->storage->respuesta($formato->source_path, [
-            'Content-Disposition' => 'inline; filename="'.$formato->original_filename.'"',
-        ]);
-    }
-
-    public function guardarConfiguracion(GuardarConfiguracionFormatoOficialRequest $request, OfficialFormat $formato): RedirectResponse
-    {
-        $formato->update(['overlay_config' => $request->validated('overlay_config')]);
-
-        return back()->with('toast', ['type' => 'success', 'message' => 'Configuración guardada.']);
-    }
-
-    public function previsualizarConfiguracion(GuardarConfiguracionFormatoOficialRequest $request, OfficialFormat $formato): JsonResponse
-    {
-        abort_unless($formato->file_type === 'pdf', 422, 'La vista previa por overlay solo está disponible para formatos PDF.');
-
-        $formatoTemporal = clone $formato;
-        $formatoTemporal->overlay_config = $request->validated('overlay_config');
-
-        $pdf = $this->overlay->generar($formatoTemporal, OfficialFormatOverlayService::datosMuestra());
-
-        return response()->json(['pdf_base64' => base64_encode($pdf)]);
+            'puede_guardar_en_expediente' => $sujeto instanceof Colaborador,
+        ]));
     }
 
     public function previsualizarGeneracion(GenerarFormatoOficialRequest $request, OfficialFormat $formato): JsonResponse
     {
-        abort_unless($formato->file_type === 'pdf', 422, 'La generación por overlay solo está disponible para formatos PDF.');
+        $this->authorize('generar', $formato);
+        [, , $preparacion] = $this->prepararDesde($request, $formato);
 
-        $sujeto = $this->resolverSujeto((string) $request->validated('tipo_sujeto'), (int) $request->validated('sujeto_id'));
-        abort_unless($sujeto !== null, 404, 'No se encontró el colaborador o candidato indicado.');
-        $this->autorizarSujeto($request->user(), $sujeto);
-
-        if (! $formato->tieneConfiguracion()) {
-            return response()->json([
-                'message' => 'Este formato necesita configurar dónde se colocarán los datos.',
-            ], 422);
-        }
-
-        $datos = $this->resolver->resolver($sujeto, $request->validated('extra') ?? []);
-        $pdf = $this->overlay->generar($formato, $datos);
-
-        return response()->json([
-            'pdf_base64' => base64_encode($pdf),
-            'datos' => $this->datosVisibles($formato, $datos),
-            'faltantes' => $this->calcularFaltantes($formato, $datos),
-        ]);
+        return response()->json($this->presenter->preparacion($preparacion, [
+            'pdf_base64' => base64_encode($this->generador->vistaPrevia($preparacion)),
+        ]));
     }
 
     public function generar(GenerarFormatoOficialRequest $request, OfficialFormat $formato): JsonResponse
     {
-        abort_unless($formato->file_type === 'pdf', 422, 'La generación por overlay solo está disponible para formatos PDF.');
+        $this->authorize('generar', $formato);
+        [, $contexto, $preparacion] = $this->prepararDesde($request, $formato);
 
-        $sujeto = $this->resolverSujeto((string) $request->validated('tipo_sujeto'), (int) $request->validated('sujeto_id'));
-        abort_unless($sujeto !== null, 404, 'No se encontró el colaborador o candidato indicado.');
-        $this->autorizarSujeto($request->user(), $sujeto);
-
-        abort_unless($formato->tieneConfiguracion(), 422, 'Este formato necesita configurar dónde se colocarán los datos.');
-
-        $datos = $this->resolver->resolver($sujeto, $request->validated('extra') ?? []);
-        $pdf = $this->overlay->generar($formato, $datos);
-
-        $ruta = $this->storage->rutaGenerado();
-        $this->storage->guardarContenido($ruta, $pdf);
-
-        $generacion = OfficialFormatGeneration::create([
-            'official_format_id' => $formato->id,
-            'colaborador_id' => $sujeto instanceof Colaborador ? $sujeto->id : null,
-            'candidato_id' => $sujeto instanceof Candidato ? $sujeto->id : null,
-            'generated_by_id' => $request->user()->id,
-            'generated_disk' => config('formatos_oficiales.disk'),
-            'generated_path' => $ruta,
-            'generated_name' => str($formato->nombre)->slug().'-'.now()->format('Y-m-d-His').'.pdf',
-            'data_snapshot' => $datos,
-        ]);
+        $generacion = $this->generador->generar($preparacion, $contexto, $request->user(), $request->boolean('guardar_en_expediente', true));
 
         return response()->json([
             'generacion' => [
                 'id' => $generacion->id,
                 'nombre' => $generacion->generated_name,
+                'version' => $generacion->version_numero,
+                'en_expediente' => $generacion->en_expediente,
                 'descargar_url' => route('rh.formatos-oficiales.descargar', $generacion->id),
+                'ver_url' => route('rh.formatos-oficiales.previsualizar', $generacion->id),
             ],
         ]);
     }
@@ -173,23 +167,17 @@ class FormatoOficialController extends Controller
     {
         $this->autorizarGeneracion($request, $generacion);
 
-        return $this->storage->respuesta($generacion->generated_path, [
-            'Content-Disposition' => 'attachment; filename="'.$generacion->generated_name.'"',
-        ]);
+        return $this->respuestaGeneracion($generacion, 'attachment');
     }
 
     /**
-     * Igual que descargar(), pero inline: para que
-     * resources/js/components/people/DocumentPreviewDialog.vue lo pueda
-     * embeber sin forzar la descarga (sección 61 del encargo).
+     * Igual que descargar(), pero inline (visor embebido).
      */
     public function previsualizar(Request $request, OfficialFormatGeneration $generacion): StreamedResponse
     {
         $this->autorizarGeneracion($request, $generacion);
 
-        return $this->storage->respuesta($generacion->generated_path, [
-            'Content-Disposition' => 'inline; filename="'.$generacion->generated_name.'"',
-        ]);
+        return $this->respuestaGeneracion($generacion, 'inline');
     }
 
     public function subirFirmado(Request $request, OfficialFormatGeneration $generacion): RedirectResponse
@@ -206,6 +194,31 @@ class FormatoOficialController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => 'Documento firmado archivado.']);
     }
 
+    /**
+     * @return array{0: Colaborador|Candidato, 1: ContextoFormato, 2: Preparacion}
+     */
+    private function prepararDesde(GenerarFormatoOficialRequest $request, OfficialFormat $formato): array
+    {
+        [$datos, $manuales] = GeneradorFormatoService::entrada($request->validated());
+        $resultado = $this->generador->prepararPara($formato, $request->user(), $datos, $manuales);
+
+        return [$resultado['sujeto'], $resultado['contexto'], $resultado['preparacion']];
+    }
+
+    private function respuestaGeneracion(OfficialFormatGeneration $generacion, string $disposicion): StreamedResponse
+    {
+        $nombre = str_replace(['"', '\\', '/'], '', $generacion->generated_name);
+        $headers = ['Content-Type' => 'application/pdf', 'Content-Disposition' => sprintf('%s; filename="%s"', $disposicion, $nombre)];
+
+        if ($generacion->generated_disk === config('formatos_oficiales.disk')) {
+            return $this->storage->respuesta($generacion->generated_path, $headers);
+        }
+
+        abort_unless(Storage::disk($generacion->generated_disk)->exists($generacion->generated_path), 404, 'El archivo no está disponible.');
+
+        return $this->expediente->respuesta($generacion->generated_path, $headers);
+    }
+
     private function autorizarGeneracion(Request $request, OfficialFormatGeneration $generacion): void
     {
         $usuario = $request->user();
@@ -216,43 +229,32 @@ class FormatoOficialController extends Controller
         }
     }
 
-    private function resolverSujeto(string $tipoSujeto, int $sujetoId): Colaborador|Candidato|null
+    /**
+     * @return list<array{id: int, name: string, apellidos: string|null}>
+     */
+    private function colaboradoresDisponibles(User $usuario): array
     {
-        return $tipoSujeto === 'colaborador'
-            ? Colaborador::query()->firstWhere('id', $sujetoId)
-            : Candidato::query()->firstWhere('id', $sujetoId);
-    }
-
-    private function autorizarSujeto(User $usuario, Colaborador|Candidato $sujeto): void
-    {
-        if ($sujeto instanceof Colaborador) {
-            abort_unless($this->alcance->puedeVerExpediente($usuario, $sujeto), 404);
-        }
+        return array_values($this->alcance
+            ->limitarColaboradoresPorAlcance(Colaborador::query()->where('estatus', 'activo'), $usuario)
+            ->orderBy('name')
+            ->limit(500)
+            ->get(['id', 'name', 'apellidos'])
+            ->map(fn (Colaborador $c) => ['id' => $c->id, 'name' => $c->name, 'apellidos' => $c->apellidos])
+            ->all());
     }
 
     /**
-     * @param  array<string, string>  $datos
-     * @return array<int, string>
+     * @return array<string, bool>
      */
-    private function calcularFaltantes(OfficialFormat $formato, array $datos): array
+    private function permisos(User $usuario): array
     {
-        return collect($formato->overlay_config ?? [])
-            ->filter(fn (array $campo) => ($campo['enabled'] ?? false) === true)
-            ->keys()
-            ->filter(fn (string $clave) => trim((string) ($datos[$clave] ?? '')) === '')
-            ->values()
-            ->all();
-    }
-
-    /**
-     * Solo los campos realmente configurados en el overlay, para no exponer
-     * al frontend datos que el formato ni siquiera usa.
-     *
-     * @param  array<string, string>  $datos
-     * @return array<string, string>
-     */
-    private function datosVisibles(OfficialFormat $formato, array $datos): array
-    {
-        return array_intersect_key($datos, $formato->overlay_config ?? []);
+        return [
+            'generar' => $usuario->can('formatos_oficiales.generar'),
+            'descargar' => $usuario->can('formatos_oficiales.descargar'),
+            'crear' => $usuario->can('formatos_oficiales.crear'),
+            'configurar' => $usuario->can('formatos_oficiales.configurar'),
+            'versionar' => $usuario->can('formatos_oficiales.versionar'),
+            'archivar' => $usuario->can('formatos_oficiales.archivar'),
+        ];
     }
 }

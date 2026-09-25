@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers\Rh;
 
+use App\Enums\TipoCelebracion;
 use App\Http\Controllers\Controller;
 use App\Models\BirthdayPhrase;
 use App\Models\Colaborador;
 use App\Models\Departamento;
 use App\Models\Sucursal;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Celebraciones\CelebracionService;
 use App\Services\Cumpleanos\BirthdayCardService;
 use App\Services\Cumpleanos\CumpleanosService;
 use Illuminate\Http\RedirectResponse;
@@ -29,6 +31,7 @@ class CumpleanosController extends Controller
     private const FILTROS = ['sucursal_id', 'departamento_id', 'colaborador_id', 'estatus', 'busqueda'];
 
     public function __construct(
+        private readonly CelebracionService $celebraciones,
         private readonly CumpleanosService $cumpleanos,
         private readonly BirthdayCardService $tarjetas,
         private readonly AlcanceOrganizacionalService $alcance,
@@ -60,7 +63,8 @@ class CumpleanosController extends Controller
             ->values();
 
         $hoy = $this->cumpleanos->cumpleanosDeHoy($usuario)
-            ->map(fn (Colaborador $c) => $this->cumpleanos->tarjetaColaborador($c, null, $usuario))
+            // + estado del evento de hoy (enviado / avisado a todos).
+            ->map(fn (Colaborador $c) => [...$this->cumpleanos->tarjetaColaborador($c, null, $usuario), ...$this->celebraciones->estadoHoy($c, TipoCelebracion::Cumpleanos)])
             ->values();
 
         // Mini-calendario de rango libre en el sidebar "Próximos cumpleaños"

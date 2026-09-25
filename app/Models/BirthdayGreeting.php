@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\TipoCelebracion;
 use Database\Factories\BirthdayGreetingFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,14 +11,24 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
- * Felicitacion de cumpleanos de un colaborador para una fecha dada. Unica
- * por user_id+fecha (ver migracion): una vez generada, la frase y la tarjeta
- * quedan fijas para ese dia aunque se vuelva a ejecutar el command o se
- * recargue la pantalla (ver App\Services\Cumpleanos\CumpleanosService).
+ * CELEBRACIÓN de un colaborador en una fecha (docs/CELEBRACIONES.md):
+ * cumpleaños o aniversario laboral (`tipo`). El nombre de la clase/tabla
+ * viene de cuando solo existía cumpleaños; se generalizó en vez de duplicar
+ * tablas. Única por colaborador + fecha + tipo: correr el scheduler dos
+ * veces nunca crea dos eventos. La frase/mensaje y la tarjeta quedan fijas
+ * para ese día hasta que RH las regenere.
+ *
+ * `avisada_todos_at` hace idempotente "Avisar a todos"; `enviada_at`, el
+ * envío al homenajeado. Los mensajes (`mensajesMuro`) son PRIVADOS: ver
+ * App\Policies\BirthdayGreetingPolicy.
  *
  * @property int $id
  * @property int|null $user_id
  * @property int|null $colaborador_id
+ * @property TipoCelebracion $tipo
+ * @property int|null $anios
+ * @property Carbon|null $avisada_todos_at
+ * @property int|null $avisada_todos_por_id
  * @property int|null $birthday_phrase_id
  * @property Carbon $fecha
  * @property string $nombre_mostrado
@@ -39,14 +50,17 @@ class BirthdayGreeting extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id', 'colaborador_id', 'birthday_phrase_id', 'fecha', 'nombre_mostrado', 'frase',
-        'card_path', 'enviada_at', 'enviada_por_id', 'auto_generada', 'metadata',
+        'user_id', 'colaborador_id', 'tipo', 'anios', 'birthday_phrase_id', 'fecha', 'nombre_mostrado', 'frase',
+        'card_path', 'enviada_at', 'enviada_por_id', 'avisada_todos_at', 'avisada_todos_por_id', 'auto_generada', 'metadata',
         'muro_abierto_at', 'muro_abierto_por_id', 'muro_cerrado_at',
     ];
 
     protected function casts(): array
     {
         return [
+            'tipo' => TipoCelebracion::class,
+            'anios' => 'integer',
+            'avisada_todos_at' => 'datetime',
             'fecha' => 'date',
             'enviada_at' => 'datetime',
             'auto_generada' => 'boolean',
@@ -54,6 +68,18 @@ class BirthdayGreeting extends Model
             'muro_abierto_at' => 'datetime',
             'muro_cerrado_at' => 'datetime',
         ];
+    }
+
+    /**
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'tipo' => 'cumpleanos',
+    ];
+
+    public function esAniversario(): bool
+    {
+        return $this->tipo === TipoCelebracion::AniversarioLaboral;
     }
 
     /** El muro existe (RH lo abrió alguna vez), aunque ya esté cerrado. */
@@ -90,6 +116,14 @@ class BirthdayGreeting extends Model
     public function frasePlantilla(): BelongsTo
     {
         return $this->belongsTo(BirthdayPhrase::class, 'birthday_phrase_id');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function avisadaTodosPor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'avisada_todos_por_id');
     }
 
     /**

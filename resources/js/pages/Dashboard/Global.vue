@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CelebracionesHoyCard from '@/components/Celebraciones/CelebracionesHoyCard.vue';
 import { Head } from '@inertiajs/vue3';
 import DashboardRhContenido from '@/components/Dashboard/DashboardRhContenido.vue';
 import { dashboard } from '@/routes';
@@ -17,6 +18,7 @@ defineOptions({
     <Head title="Inicio" />
 
     <div class="flex flex-col gap-6 p-4">
+        <CelebracionesHoyCard />
         <DashboardRhContenido
             :cards="cards"
             :graficas="graficas"

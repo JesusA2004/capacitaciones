@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import ExpedienteDetalle from '@/components/Rh/ExpedienteDetalle.vue';
+import ExpedienteDocumentosOficiales from '@/components/Rh/ExpedienteDocumentosOficiales.vue';
+import { usePermisos } from '@/composables/usePermisos';
 import { dashboard } from '@/routes';
 import { index as indexExpedientes } from '@/routes/rh/expedientes';
 import type {
@@ -7,6 +9,7 @@ import type {
     AvisosManualExpediente,
     DocumentoExpedienteItem,
     ExpedienteColaborador,
+    FormatoOficialItem,
     MovimientoLaboralItem,
     OnboardingItem,
     PrestamoItem,
@@ -17,7 +20,7 @@ import type {
     SolicitudVacacionesItem,
 } from '@/types';
 
-defineProps<{
+const props = defineProps<{
     esPropio: boolean;
     puedeEditar: boolean;
     puedeReactivar: boolean;
@@ -53,7 +56,11 @@ defineProps<{
     movimientosLaborales: MovimientoLaboralItem[];
     recibosNomina: ReciboNominaItem[];
     prestamos: PrestamoItem[];
+    documentosOficiales: InstanceType<typeof ExpedienteDocumentosOficiales>['$props']['documentos'] | null;
+    formatosOficialesDisponibles: FormatoOficialItem[];
 }>();
+
+const { tienePermiso } = usePermisos();
 
 defineOptions({
     layout: {
@@ -103,5 +110,15 @@ defineOptions({
         :movimientos-laborales="movimientosLaborales"
         :recibos-nomina="recibosNomina"
         :prestamos="prestamos"
-    />
+    >
+        <template #documentos-oficiales>
+            <ExpedienteDocumentosOficiales
+                v-if="props.documentosOficiales !== null"
+                :colaborador="{ id: colaborador.id, nombre: `${colaborador.name} ${colaborador.apellidos ?? ''}`.trim() }"
+                :documentos="props.documentosOficiales"
+                :formatos="formatosOficialesDisponibles"
+                :puede-descargar="tienePermiso('formatos_oficiales.descargar')"
+            />
+        </template>
+    </ExpedienteDetalle>
 </template>

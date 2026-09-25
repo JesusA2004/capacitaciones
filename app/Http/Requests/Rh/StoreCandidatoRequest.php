@@ -25,6 +25,7 @@ class StoreCandidatoRequest extends FormRequest
             'departamento_id' => ['nullable', 'integer', 'exists:departamentos,id'],
             'puesto_objetivo_id' => ['nullable', 'integer', 'exists:puestos,id'],
             'vacante_id' => ['nullable', 'integer', 'exists:vacantes,id'],
+            'campana_reclutamiento_id' => ['nullable', 'integer', 'exists:campanas_reclutamiento,id'],
             'nombre' => ['required', 'string', 'max:150'],
             'apellidos' => ['nullable', 'string', 'max:150'],
             'telefono' => ['nullable', 'string', 'max:30'],

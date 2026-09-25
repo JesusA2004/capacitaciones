@@ -5,6 +5,9 @@ namespace App\Services\Plantillas;
 use App\Models\Candidato;
 use App\Models\Colaborador;
 use App\Models\Prestamo;
+use App\Services\Formatos\Variables\ContextoFormato;
+use App\Services\Formatos\Variables\FormateadorValores;
+use App\Services\Formatos\Variables\ResolvedorVariablesFormato;
 
 /**
  * Unica fuente de verdad de que placeholder mapea a que dato (ver
@@ -18,6 +21,11 @@ use App\Models\Prestamo;
  */
 class PlaceholderResolver
 {
+    public function __construct(
+        private readonly ResolvedorVariablesFormato $variables,
+        private readonly FormateadorValores $formateador,
+    ) {}
+
     /**
      * @param  array<string, mixed>  $extra  Placeholders adicionales especificos de una solicitud (fecha_inicio_permiso, motivo_permiso, etc.), fusionados sobre los calculados.
      * @return array<string, string>
@@ -122,42 +130,49 @@ class PlaceholderResolver
     }
 
     /**
+     * Los datos del colaborador salen del resolvedor central de variables
+     * (App\Services\Formatos\Variables\ResolvedorVariablesFormato), el mismo
+     * que usan las plantillas oficiales: aquí solo se traducen a las claves
+     * legacy {{curp}}, {{puesto}}… con su formato histórico (d/m/Y, $0.00).
+     *
      * @return array<string, string>
      */
     private function datosColaborador(Colaborador $sujeto): array
     {
-        $correoCorporativo = $sujeto->user?->email;
-        $sueldoMensual = $sujeto->sueldo_mensual !== null ? (float) $sujeto->sueldo_mensual : null;
+        $v = $this->variables->resolver(new ContextoFormato($sujeto));
+        $texto = fn (string $clave): string => $this->formateador->formatear($v[$clave] ?? null, 'texto');
+        $fecha = fn (string $clave): string => $this->formateador->formatear($v[$clave] ?? null, 'fecha', 'corta');
+        $moneda = fn (string $clave): string => $this->formateador->formatear($v[$clave] ?? null, 'moneda', 'moneda');
 
         return [
-            'nombre_colaborador' => (string) $sujeto->name,
-            'apellidos_colaborador' => (string) $sujeto->apellidos,
-            'nombre_completo' => $sujeto->nombreCompleto(),
-            'numero_empleado' => (string) $sujeto->numero_empleado,
-            'curp' => (string) $sujeto->curp,
-            'rfc' => (string) $sujeto->rfc,
-            'nss' => (string) $sujeto->nss,
-            'domicilio' => (string) $sujeto->domicilio,
-            'telefono' => (string) $sujeto->telefono,
+            'nombre_colaborador' => $texto('colaborador.nombre'),
+            'apellidos_colaborador' => $texto('colaborador.apellidos'),
+            'nombre_completo' => $texto('colaborador.nombre_completo'),
+            'numero_empleado' => $texto('laboral.numero_empleado'),
+            'curp' => $texto('colaborador.curp'),
+            'rfc' => $texto('colaborador.rfc'),
+            'nss' => $texto('colaborador.nss'),
+            'domicilio' => $texto('colaborador.domicilio'),
+            'telefono' => $texto('colaborador.telefono'),
             'telefono_corporativo' => (string) $sujeto->telefono_corporativo,
-            'correo' => (string) ($correoCorporativo ?? $sujeto->correo_personal ?? ''),
-            'correo_personal' => (string) $sujeto->correo_personal,
-            'correo_corporativo' => (string) ($correoCorporativo ?? ''),
-            'empresa' => (string) $sujeto->empresa()?->nombre,
-            'sucursal' => (string) $sujeto->sucursalPrincipal?->nombre,
-            'departamento' => (string) $sujeto->departamento?->nombre,
-            'puesto' => (string) $sujeto->puesto?->nombre,
-            'jefe_directo' => $sujeto->jefe?->nombreCompleto() ?? '',
-            'fecha_ingreso' => $sujeto->fecha_ingreso?->format('d/m/Y') ?? '',
-            'sueldo_mensual' => $sueldoMensual !== null ? sprintf('$%s', number_format($sueldoMensual, 2)) : '',
-            'sueldo_diario' => $sueldoMensual !== null ? sprintf('$%s', number_format($sueldoMensual / 30, 2)) : '',
-            'gerente' => ($sujeto->gerente ?? $sujeto->jefe?->jefe)?->nombreCompleto() ?? '',
-            'fecha_nacimiento' => $sujeto->fecha_nacimiento?->format('d/m/Y') ?? '',
-            'empresa_razon_social' => (string) ($sujeto->empresa()->razon_social ?? $sujeto->empresa()?->nombre),
-            'empresa_rfc' => (string) $sujeto->empresa()?->rfc,
-            'tipo_contratacion' => $sujeto->tipo_contratacion?->etiqueta() ?? '',
-            'periodo_prueba_inicio' => $sujeto->periodo_prueba_inicio?->format('d/m/Y') ?? '',
-            'periodo_prueba_fin' => $sujeto->periodo_prueba_fin?->format('d/m/Y') ?? '',
+            'correo' => $texto('colaborador.correo'),
+            'correo_personal' => $texto('colaborador.correo_personal'),
+            'correo_corporativo' => (string) ($sujeto->user->email ?? ''),
+            'empresa' => $texto('empresa.nombre'),
+            'sucursal' => $texto('laboral.sucursal'),
+            'departamento' => $texto('laboral.departamento'),
+            'puesto' => $texto('laboral.puesto'),
+            'jefe_directo' => $texto('laboral.jefe'),
+            'fecha_ingreso' => $fecha('laboral.fecha_ingreso'),
+            'sueldo_mensual' => $moneda('laboral.sueldo_mensual'),
+            'sueldo_diario' => $moneda('laboral.sueldo_diario'),
+            'gerente' => $texto('laboral.gerente'),
+            'fecha_nacimiento' => $fecha('colaborador.fecha_nacimiento'),
+            'empresa_razon_social' => $texto('empresa.razon_social'),
+            'empresa_rfc' => $texto('empresa.rfc'),
+            'tipo_contratacion' => $texto('laboral.tipo_contratacion'),
+            'periodo_prueba_inicio' => $fecha('laboral.periodo_prueba_inicio'),
+            'periodo_prueba_fin' => $fecha('laboral.periodo_prueba_fin'),
         ];
     }
 

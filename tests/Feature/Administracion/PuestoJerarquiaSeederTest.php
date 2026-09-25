@@ -34,11 +34,13 @@ test('el seeder deja la estructura de puestos definida por dirección', function
         'Gerente regional' => 'Director comercial',
         'Gerente de Sucursal' => 'Gerente regional',
         'Subgerente' => 'Gerente de Sucursal',
-        'Gestor fijo' => 'Subgerente',
+        'Tesorero' => 'Gerente de Contraloría',
+        'Contador' => 'Gerente de Contraloría',
+        'Gestor' => 'Subgerente',
         'Gestor grupal' => 'Subgerente',
-        'Gestor volante' => 'Gestor fijo',
-        'Gerente administrativo regional' => 'Director comercial',
-        'Coordinadora' => 'Gerente administrativo regional',
+        'Gestor volante' => 'Gestor',
+        'Coordinadora regional' => 'Director comercial',
+        'Coordinadora' => 'Coordinadora regional',
     ];
 
     foreach ($estructura as $puesto => $superior) {
@@ -47,8 +49,11 @@ test('el seeder deja la estructura de puestos definida por dirección', function
 
     expect(Puesto::count())->toBe(count($estructura));
 
+    // Nombres obsoletos que no deben reaparecer.
+    expect(Puesto::whereIn('nombre', ['Gestor fijo', 'Gerente administrativo regional'])->exists())->toBeFalse();
+
     // Las gerencias corporativas y la división comercial están al mismo nivel.
-    expect(Puesto::whereIn('nombre', ['Gerente de Sistemas', 'Gerente de Mesa de Control', 'Gerente de Recursos Humanos', 'Gerente de Contraloría', 'Gerente regional', 'Gerente administrativo regional', 'Asistente de Dirección Comercial'])
+    expect(Puesto::whereIn('nombre', ['Gerente de Sistemas', 'Gerente de Mesa de Control', 'Gerente de Recursos Humanos', 'Gerente de Contraloría', 'Gerente regional', 'Coordinadora regional', 'Asistente de Dirección Comercial'])
         ->pluck('nivel_jerarquico')->unique()->all())->toBe([3]);
 });
 
@@ -87,5 +92,28 @@ test('correr el seeder dos veces no duplica puestos ni rompe la jerarquía', fun
     $this->seed(PuestoJerarquiaSeeder::class);
 
     expect(Puesto::count())->toBe($total)
-        ->and(superiorDe('Gestor volante'))->toBe('Gestor fijo');
+        ->and(superiorDe('Gestor volante'))->toBe('Gestor');
+});
+
+test('renombra los puestos obsoletos conservando su id y su gente', function () {
+    $this->seed(DepartamentoSeeder::class);
+
+    $gestorFijo = Puesto::factory()->create(['nombre' => 'Gestor fijo']);
+    $administrativoRegional = Puesto::factory()->create(['nombre' => 'Gerente administrativo regional']);
+    $gestor = Colaborador::factory()->create(['puesto_id' => $gestorFijo->id]);
+
+    $this->seed(PuestoJerarquiaSeeder::class);
+
+    expect($gestorFijo->refresh()->nombre)->toBe('Gestor')
+        ->and($gestorFijo->requiere_ruta)->toBeTrue()
+        ->and($gestor->refresh()->puesto_id)->toBe($gestorFijo->id)
+        ->and($administrativoRegional->refresh()->nombre)->toBe('Coordinadora regional')
+        ->and(Puesto::where('nombre', 'Gestor')->count())->toBe(1);
+});
+
+test('solo el Gestor tiene ruta de cobro', function () {
+    $this->seed(DepartamentoSeeder::class);
+    $this->seed(PuestoJerarquiaSeeder::class);
+
+    expect(Puesto::where('requiere_ruta', true)->pluck('nombre')->all())->toBe(['Gestor']);
 });

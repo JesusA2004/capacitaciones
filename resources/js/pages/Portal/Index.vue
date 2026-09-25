@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CelebracionesHoyCard from '@/components/Celebraciones/CelebracionesHoyCard.vue';
 import { Head, Link } from '@inertiajs/vue3';
 import {
     Bell,
@@ -76,6 +77,7 @@ const ACCESOS = [
     <Head title="Mi portal" />
 
     <div class="flex flex-col gap-6 p-4 lg:p-6">
+        <CelebracionesHoyCard />
         <!-- Encabezado: avatar (precargado desde el expediente) + saludo -->
         <div
             data-tour="portal-encabezado"

@@ -47,8 +47,8 @@ class MuroCumpleanosController extends Controller
         $usuario = $this->participante($request);
         abort_unless($greeting->muroPublicado(), 404);
 
-        $pagina = $greeting->mensajesMuro()
-            ->with(['autor.colaborador.puesto:id,nombre'])
+        // Privado: homenajeado/RH ven todos; los demás solo el suyo.
+        $pagina = $this->muros->mensajesVisibles($greeting, $usuario)
             ->latest()
             ->latest('id')
             ->paginate(min(50, max(1, $request->integer('per_page', 20))));
@@ -85,15 +85,16 @@ class MuroCumpleanosController extends Controller
         abort_unless($mensaje->birthday_greeting_id === $greeting->id, 404);
         abort_unless($this->muros->puedeEliminar($usuario, $mensaje), 403);
 
-        $this->muros->eliminar($mensaje);
+        $this->muros->eliminar($mensaje, $usuario);
 
         return response()->json(['message' => 'Mensaje eliminado.']);
     }
 
     public function foto(Request $request, BirthdayGreeting $greeting, BirthdayWallMessage $mensaje): HttpResponse
     {
-        $this->participante($request);
+        $usuario = $this->participante($request);
         abort_unless($mensaje->birthday_greeting_id === $greeting->id && $greeting->muroPublicado(), 404);
+        abort_unless($mensaje->user_id === $usuario->id || $this->muros->puedeVerTodos($usuario, $greeting), 404);
 
         return $this->muros->foto($mensaje);
     }

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Rh\AltaDigitalController;
 use App\Http\Controllers\Rh\CampanaReclutamientoController;
 use App\Http\Controllers\Rh\CandidatoController;
+use App\Http\Controllers\Rh\CelebracionRhController;
 use App\Http\Controllers\Rh\CumpleanosConfiguracionController;
 use App\Http\Controllers\Rh\CumpleanosController;
 use App\Http\Controllers\Rh\DocumentExtraccionController;
@@ -13,6 +14,7 @@ use App\Http\Controllers\Rh\FormatoController;
 use App\Http\Controllers\Rh\FormatoOficialController;
 use App\Http\Controllers\Rh\IncorporacionInvitacionController;
 use App\Http\Controllers\Rh\PlantillaController;
+use App\Http\Controllers\Rh\PlantillaOficialController;
 use App\Http\Controllers\Rh\ReporteRhController;
 use App\Http\Controllers\Rh\SolicitudController;
 use App\Http\Controllers\Rh\VacanteController;
@@ -106,6 +108,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::prefix('campanas')->name('campanas.')->group(function () {
             Route::get('/', [CampanaReclutamientoController::class, 'index'])->name('index');
+            Route::get('costos/exportar', [CampanaReclutamientoController::class, 'exportarCostos'])->name('costos.exportar');
             Route::post('/', [CampanaReclutamientoController::class, 'store'])->name('store');
             Route::put('{campana}', [CampanaReclutamientoController::class, 'update'])->name('update');
             Route::delete('{campana}', [CampanaReclutamientoController::class, 'destroy'])->name('destroy');
@@ -159,19 +162,35 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::delete('{documento}', [FormatoController::class, 'destroy'])->name('destroy');
         });
 
-        // Configurador visual de posiciones de datos sobre cada formato
-        // oficial (docs/FORMATOS_OFICIALES.md) — solo rh_admin/super_admin.
+        // Plantillas oficiales versionadas (docs/FORMATOS_OFICIALES.md):
+        // catálogo, generación, documentos generados, variables y la
+        // administración de plantillas (subir, editor visual, versiones).
         Route::prefix('formatos-oficiales')->name('formatos-oficiales.')->group(function () {
             Route::get('/', [FormatoOficialController::class, 'index'])->name('index');
-            Route::get('{formato}', [FormatoOficialController::class, 'show'])->name('show');
-            Route::get('{formato}/original', [FormatoOficialController::class, 'original'])->name('original');
-            Route::post('{formato}/configuracion', [FormatoOficialController::class, 'guardarConfiguracion'])->name('configuracion');
-            Route::post('{formato}/vista-previa-configuracion', [FormatoOficialController::class, 'previsualizarConfiguracion'])->name('vista-previa-configuracion');
-            Route::post('{formato}/vista-previa', [FormatoOficialController::class, 'previsualizarGeneracion'])->name('vista-previa');
-            Route::post('{formato}/generar', [FormatoOficialController::class, 'generar'])->name('generar');
+            Route::get('generados', [FormatoOficialController::class, 'generados'])->name('generados');
+            Route::get('variables', [FormatoOficialController::class, 'variables'])->name('variables');
+            Route::get('nuevo', [PlantillaOficialController::class, 'create'])->name('create');
+            Route::post('/', [PlantillaOficialController::class, 'store'])->name('store');
+
+            Route::get('versiones/{version}/base', [PlantillaOficialController::class, 'base'])->name('versiones.base');
+            Route::put('versiones/{version}/campos', [PlantillaOficialController::class, 'guardarCampos'])->name('versiones.campos');
+            Route::post('versiones/{version}/analisis', [PlantillaOficialController::class, 'refinarAnalisis'])->name('versiones.analisis');
+            Route::post('versiones/{version}/vista-previa', [PlantillaOficialController::class, 'vistaPrevia'])->name('versiones.vista-previa');
+            Route::post('versiones/{version}/publicar', [PlantillaOficialController::class, 'publicar'])->name('versiones.publicar');
+            Route::delete('versiones/{version}', [PlantillaOficialController::class, 'descartar'])->name('versiones.descartar');
+
             Route::get('generaciones/{generacion}/descargar', [FormatoOficialController::class, 'descargar'])->name('descargar');
             Route::get('generaciones/{generacion}/previsualizar', [FormatoOficialController::class, 'previsualizar'])->name('previsualizar');
             Route::post('generaciones/{generacion}/subir-firmado', [FormatoOficialController::class, 'subirFirmado'])->name('subir-firmado');
+
+            Route::get('{formato}', [PlantillaOficialController::class, 'show'])->name('show');
+            Route::get('{formato}/original', [PlantillaOficialController::class, 'original'])->name('original');
+            Route::post('{formato}/versiones', [PlantillaOficialController::class, 'nuevaVersion'])->name('versiones.store');
+            Route::post('{formato}/archivar', [PlantillaOficialController::class, 'archivar'])->name('archivar');
+            Route::post('{formato}/reactivar', [PlantillaOficialController::class, 'reactivar'])->name('reactivar');
+            Route::post('{formato}/preparar', [FormatoOficialController::class, 'preparar'])->name('preparar');
+            Route::post('{formato}/vista-previa', [FormatoOficialController::class, 'previsualizarGeneracion'])->name('vista-previa');
+            Route::post('{formato}/generar', [FormatoOficialController::class, 'generar'])->name('generar');
         });
 
         // La revisión de vacaciones vive en la bandeja unificada de abajo
@@ -207,6 +226,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/', [ReporteRhController::class, 'index'])->name('index');
             Route::get('excel', [ReporteRhController::class, 'exportarExcel'])->name('excel');
             Route::get('pdf', [ReporteRhController::class, 'exportarPdf'])->name('pdf');
+        });
+
+        // Aniversarios laborales y acciones comunes de celebraciones
+        // (docs/CELEBRACIONES.md).
+        Route::prefix('aniversarios')->name('aniversarios.')->group(function () {
+            Route::get('/', [CelebracionRhController::class, 'aniversarios'])->name('index');
+            Route::get('configuracion', [CelebracionRhController::class, 'configuracion'])->name('configuracion');
+            Route::post('configuracion', [CelebracionRhController::class, 'guardarConfiguracion'])->name('configuracion.guardar');
+            Route::get('configuracion/vista-previa', [CelebracionRhController::class, 'vistaPrevia'])->name('configuracion.vista-previa');
+        });
+        Route::prefix('celebraciones')->name('celebraciones.')->group(function () {
+            Route::post('evento/{celebracion}/recepcion', [CelebracionRhController::class, 'recepcion'])->name('recepcion');
+            Route::post('{colaborador}/{tipo}/enviar', [CelebracionRhController::class, 'enviar'])->name('enviar');
+            Route::post('{colaborador}/{tipo}/avisar-todos', [CelebracionRhController::class, 'avisarATodos'])->name('avisar-todos');
+            Route::post('{colaborador}/{tipo}/tarjeta', [CelebracionRhController::class, 'regenerarTarjeta'])->name('tarjeta.regenerar');
+            Route::get('{colaborador}/{tipo}/tarjeta', [CelebracionRhController::class, 'descargarTarjeta'])->name('tarjeta');
         });
 
         Route::prefix('cumpleanos')->name('cumpleanos.')->group(function () {

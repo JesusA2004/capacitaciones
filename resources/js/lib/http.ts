@@ -69,3 +69,54 @@ export async function postBlobUrl(url: string, cuerpo: unknown): Promise<string>
 
     return URL.createObjectURL(await respuesta.blob());
 }
+
+/**
+ * Error de una solicitud JSON con el mensaje legible que mandó el backend
+ * (validación 422 de Laravel: primer error de `errors`, o `message`).
+ */
+export class ErrorSolicitud extends Error {
+    constructor(
+        mensaje: string,
+        public readonly estado: number,
+    ) {
+        super(mensaje);
+    }
+}
+
+/**
+ * Como postJson(), pero con cualquier método y regresando el mensaje de
+ * validación del servidor en vez de un error genérico.
+ */
+export async function enviarJson<T>(
+    metodo: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+    url: string,
+    cuerpo?: unknown,
+): Promise<T> {
+    const respuesta = await fetch(url, {
+        method: metodo,
+        headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            'X-XSRF-TOKEN': leerCookie('XSRF-TOKEN') ?? '',
+        },
+        credentials: 'same-origin',
+        body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo),
+    });
+
+    const datos = (await respuesta.json().catch(() => null)) as
+        | (T & { message?: string; errors?: Record<string, string[]> })
+        | null;
+
+    if (!respuesta.ok) {
+        const primerError = datos?.errors
+            ? Object.values(datos.errors)[0]?.[0]
+            : undefined;
+
+        throw new ErrorSolicitud(
+            primerError ?? datos?.message ?? `Error ${respuesta.status}`,
+            respuesta.status,
+        );
+    }
+
+    return datos as T;
+}

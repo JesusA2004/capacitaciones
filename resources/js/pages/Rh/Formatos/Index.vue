@@ -173,7 +173,7 @@ async function eliminar(documento: DocumentoGeneradoItem) {
             />
         </CrudPageHeader>
 
-        <FormatosTabsNav activa="generados" />
+        <FormatosTabsNav activa="word-generados" />
 
         <!-- Catalogo de formatos disponibles -->
         <div v-if="plantillasDisponibles.length === 0">

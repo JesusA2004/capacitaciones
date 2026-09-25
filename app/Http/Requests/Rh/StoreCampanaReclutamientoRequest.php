@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Rh;
 
 use App\Enums\CanalReclutamiento;
+use App\Enums\TipoCostoReclutamiento;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Enum;
 
@@ -29,6 +30,9 @@ class StoreCampanaReclutamientoRequest extends FormRequest
             'monto' => ['required', 'numeric', 'min:0', 'max:9999999.99'],
             'candidatos_generados' => ['nullable', 'integer', 'min:0'],
             'observaciones' => ['nullable', 'string', 'max:4000'],
+            'nombre' => ['nullable', 'string', 'max:150'],
+            'vacante_id' => ['nullable', 'integer', 'exists:vacantes,id'],
+            'tipo_costo' => ['nullable', new Enum(TipoCostoReclutamiento::class)],
         ];
     }
 }

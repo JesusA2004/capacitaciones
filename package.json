@@ -47,6 +47,7 @@
         "hls.js": "^1.6.16",
         "laravel-echo": "^2.5.0",
         "laravel-vite-plugin": "^3.0.0",
+        "pdfjs-dist": "^4.10.38",
         "pusher-js": "^8.6.0",
         "reka-ui": "^2.10.4",
         "sweetalert2": "^11.26.25",

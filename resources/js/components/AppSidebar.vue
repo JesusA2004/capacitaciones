@@ -50,6 +50,7 @@ import { index as indexPortal } from '@/routes/portal';
 import { index as indexReportes } from '@/routes/reportes';
 import { index as indexCampanas } from '@/routes/rh/campanas';
 import { index as indexCandidatos } from '@/routes/rh/candidatos';
+import { index as indexAniversarios } from '@/routes/rh/aniversarios';
 import { index as indexCumpleanos } from '@/routes/rh/cumpleanos';
 import { index as indexExpedientes } from '@/routes/rh/expedientes';
 import { index as indexFormatos } from '@/routes/rh/formatos';
@@ -218,10 +219,11 @@ const navItemsOperativo = computed<NavItem[]>(() => {
         });
     }
 
-    if (tienePermiso('rh.cumpleanos.ver')) {
+    // Celebraciones: Cumpleaños + Aniversarios (pestañas dentro).
+    if (tienePermiso('rh.cumpleanos.ver') || tienePermiso('celebraciones.ver')) {
         items.push({
-            title: 'Cumpleaños',
-            href: indexCumpleanos(),
+            title: 'Celebraciones',
+            href: tienePermiso('rh.cumpleanos.ver') ? indexCumpleanos() : indexAniversarios(),
             icon: Cake,
         });
     }

@@ -2,9 +2,9 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Celebraciones\FechasCelebracion;
 use App\Services\Cumpleanos\CumpleanosService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -29,7 +29,7 @@ class EnviarFelicitacionesCumpleanos extends Command
             return self::SUCCESS;
         }
 
-        $hoy = Carbon::today();
+        $hoy = FechasCelebracion::hoy();
         $colaboradores = $cumpleanos->cumpleanosDeHoy();
 
         $enviadas = 0;

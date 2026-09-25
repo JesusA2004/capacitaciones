@@ -2,9 +2,11 @@
 
 namespace App\Console\Commands;
 
+use App\Enums\EstadoVersionFormato;
 use App\Enums\TipoFormatoOficial;
 use App\Models\OfficialFormat;
-use App\Services\Formatos\OfficialFormatStorageService;
+use App\Models\OfficialFormatVersion;
+use App\Services\Formatos\PlantillaOficialService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 
@@ -18,8 +20,9 @@ use Illuminate\Support\Str;
  * correr el comando).
  *
  * Idempotente: cada archivo conocido se mapea a un slug fijo (ver
- * self::CATALOGO), asi que correrlo varias veces actualiza el mismo
- * registro/archivo en vez de duplicarlo. Un archivo nuevo que no este en el
+ * self::CATALOGO). Un PDF que ya existe (mismo hash) no hace nada; uno
+ * modificado crea una VERSIÓN nueva en borrador (nunca sobrescribe la
+ * vigente, ver docs/FORMATOS_OFICIALES.md). Un archivo nuevo que no este en el
  * catalogo se reporta como "sin mapear" y se omite (no se adivina el
  * tipo/nombre de un PDF desconocido).
  */
@@ -101,7 +104,7 @@ class ImportarFormatosOriginalesCommand extends Command
         ],
     ];
 
-    public function handle(OfficialFormatStorageService $storage): int
+    public function handle(PlantillaOficialService $plantillas): int
     {
         $carpetaConfigurada = (string) config('formatos_oficiales.origen_local');
         $carpeta = $this->esRutaAbsoluta($carpetaConfigurada) ? $carpetaConfigurada : base_path($carpetaConfigurada);
@@ -121,7 +124,8 @@ class ImportarFormatosOriginalesCommand extends Command
         }
 
         $creados = 0;
-        $actualizados = 0;
+        $versionados = 0;
+        $sinCambios = 0;
         $sinMapear = [];
 
         foreach ($archivos as $rutaArchivo) {
@@ -134,32 +138,44 @@ class ImportarFormatosOriginalesCommand extends Command
                 continue;
             }
 
-            $rutaDestino = $storage->rutaOriginal($definicion['slug']);
-            $storage->guardarContenido($rutaDestino, file_get_contents($rutaArchivo) ?: '');
+            $formato = OfficialFormat::query()->where('slug', $definicion['slug'])->first();
+            $hash = hash_file('sha256', $rutaArchivo);
 
-            $existente = OfficialFormat::query()->where('slug', $definicion['slug'])->first();
-
-            OfficialFormat::query()->updateOrCreate(
-                ['slug' => $definicion['slug']],
-                [
+            if ($formato === null) {
+                $formato = OfficialFormat::query()->create([
+                    'slug' => $definicion['slug'],
                     'nombre' => $definicion['nombre'],
                     'tipo' => TipoFormatoOficial::from($definicion['tipo'])->value,
-                    'source_disk' => config('formatos_oficiales.disk'),
-                    'source_path' => $rutaDestino,
-                    'original_filename' => $nombreArchivo,
+                    'aplica_a' => 'colaborador',
                     'file_type' => 'pdf',
                     'is_active' => true,
-                ],
-            );
+                ]);
+                $plantillas->nuevaVersionDesdeRuta($formato, $rutaArchivo, $nombreArchivo, null, 'Importado desde claude/formatos/originales.');
+                $creados++;
 
-            $existente === null ? $creados++ : $actualizados++;
+                continue;
+            }
+
+            // Nunca se sobrescribe una versión: si el PDF cambió, queda como
+            // borrador nuevo para que RH revise el mapeo y lo publique.
+            $existe = OfficialFormatVersion::query()->where('official_format_id', $formato->id)->where('source_hash', $hash)->exists();
+            $borrador = OfficialFormatVersion::query()->where('official_format_id', $formato->id)->where('estado', EstadoVersionFormato::Borrador->value)->exists();
+
+            if ($existe || $borrador) {
+                $sinCambios++;
+
+                continue;
+            }
+
+            $plantillas->nuevaVersionDesdeRuta($formato, $rutaArchivo, $nombreArchivo, null, 'PDF actualizado en claude/formatos/originales.');
+            $versionados++;
         }
 
-        $this->info("Formatos oficiales importados: {$creados} creados, {$actualizados} actualizados.");
+        $this->info("Formatos oficiales: {$creados} nuevos, {$versionados} con versión nueva en borrador, {$sinCambios} sin cambios.");
 
         if ($sinMapear !== []) {
             $this->warn('Archivos sin mapear en el catálogo (se omitieron): '.implode(', ', $sinMapear));
-            $this->warn('Agrega su entrada en ImportarFormatosOriginalesCommand::CATALOGO para importarlos.');
+            $this->warn('Agrega su entrada en ImportarFormatosOriginalesCommand::CATALOGO para importarlos, o súbelos desde Formatos → Nueva plantilla.');
         }
 
         return self::SUCCESS;

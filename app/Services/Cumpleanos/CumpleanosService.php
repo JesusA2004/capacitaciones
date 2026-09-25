@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Notifications\Mobile\BirthdayGreetingNotification;
 use App\Notifications\Mobile\BirthdayRhReminderNotification;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Celebraciones\FechasCelebracion;
 use App\Services\MobilePush\PushNotifier;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -64,12 +65,14 @@ class CumpleanosService
      */
     public function cumpleanosDeHoy(?User $usuario = null, array $filtros = []): Collection
     {
-        $hoy = Carbon::today();
+        $hoy = FechasCelebracion::hoy();
 
+        // Nacidos un 29/feb celebran el 28/feb en años no bisiestos.
         return $this->queryBase($usuario, $filtros)
             ->whereMonth('fecha_nacimiento', $hoy->month)
-            ->whereDay('fecha_nacimiento', $hoy->day)
-            ->get();
+            ->get()
+            ->filter(fn (Colaborador $colaborador) => $colaborador->fecha_nacimiento !== null && FechasCelebracion::esHoy($colaborador->fecha_nacimiento, $hoy))
+            ->values();
     }
 
     /**
@@ -84,7 +87,7 @@ class CumpleanosService
      */
     public function proximosCumpleanos(?User $usuario, int $dias, array $filtros = []): Collection
     {
-        $hoy = Carbon::today();
+        $hoy = FechasCelebracion::hoy();
 
         return $this->queryBase($usuario, $filtros)
             ->get()
@@ -194,7 +197,7 @@ class CumpleanosService
             return null;
         }
 
-        return Carbon::create(Carbon::today()->year, $colaborador->fecha_nacimiento->month, $colaborador->fecha_nacimiento->day);
+        return FechasCelebracion::ocurrenciaEn($colaborador->fecha_nacimiento, FechasCelebracion::hoy()->year);
     }
 
     public function calcularEdad(Colaborador $colaborador, ?CarbonInterface $enFecha = null): ?int
@@ -203,7 +206,7 @@ class CumpleanosService
             return null;
         }
 
-        return (int) $colaborador->fecha_nacimiento->diffInYears($enFecha ?? Carbon::today());
+        return (int) $colaborador->fecha_nacimiento->diffInYears($enFecha ?? FechasCelebracion::hoy());
     }
 
     /**
@@ -306,7 +309,7 @@ class CumpleanosService
      */
     public function reenviarManual(Colaborador $colaborador, User $ejecutor): BirthdayGreeting
     {
-        $fecha = $this->fechaEsteAnio($colaborador) ?? Carbon::today();
+        $fecha = $this->fechaEsteAnio($colaborador) ?? FechasCelebracion::hoy();
         $greeting = $this->tarjetas->generar($colaborador, $fecha);
 
         $this->notificarColaborador($greeting, $colaborador);
@@ -473,12 +476,6 @@ class CumpleanosService
 
     private function proximaFecha(CarbonInterface $fechaNacimiento, CarbonInterface $hoy): CarbonInterface
     {
-        $candidata = Carbon::create($hoy->year, $fechaNacimiento->month, $fechaNacimiento->day);
-
-        if ($candidata->lt($hoy->startOfDay())) {
-            $candidata = $candidata->addYear();
-        }
-
-        return $candidata;
+        return FechasCelebracion::proxima($fechaNacimiento, $hoy);
     }
 }

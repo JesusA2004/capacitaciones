@@ -6,9 +6,11 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 /**
- * Datos para previsualizar/generar un OfficialFormat para un colaborador o
- * candidato (docs/FORMATOS_OFICIALES.md). `extra` permite a RH corregir un
- * dato faltante SOLO para ese documento, sin guardarlo en el expediente.
+ * Preparar / previsualizar / generar un documento desde una plantilla
+ * oficial (docs/FORMATOS_OFICIALES.md). Solo se capturan los CAMPOS
+ * MANUALES que la plantilla declara (`manuales`); los datos que People ya
+ * conoce nunca se piden ni se sobrescriben aquí — si faltan, se completan
+ * en el expediente.
  */
 class GenerarFormatoOficialRequest extends FormRequest
 {
@@ -25,8 +27,12 @@ class GenerarFormatoOficialRequest extends FormRequest
         return [
             'tipo_sujeto' => ['required', Rule::in(['colaborador', 'candidato'])],
             'sujeto_id' => ['required', 'integer'],
-            'extra' => ['nullable', 'array'],
-            'extra.*' => ['nullable', 'string', 'max:255'],
+            'solicitud_id' => ['nullable', 'integer'],
+            'prestamo_id' => ['nullable', 'integer'],
+            'contrato_id' => ['nullable', 'integer'],
+            'manuales' => ['nullable', 'array', 'max:100'],
+            'manuales.*' => ['nullable', 'string', 'max:2000'],
+            'guardar_en_expediente' => ['nullable', 'boolean'],
         ];
     }
 }

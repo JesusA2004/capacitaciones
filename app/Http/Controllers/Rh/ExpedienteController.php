@@ -18,6 +18,7 @@ use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
 use App\Models\Empresa;
 use App\Models\MovimientoLaboral;
+use App\Models\OfficialFormatGeneration;
 use App\Models\Prestamo;
 use App\Models\PrestamoMovimiento;
 use App\Models\Puesto;
@@ -30,6 +31,7 @@ use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Expedientes\AvisoPrivacidadService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Expedientes\ExpedienteService;
+use App\Services\Formatos\OfficialFormatCatalogoService;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use App\Services\Nomina\PrestamoService;
 use App\Services\Nomina\ReciboNominaService;
@@ -65,6 +67,7 @@ class ExpedienteController extends Controller
         private readonly ReciboNominaService $reciboNomina,
         private readonly PrestamoService $prestamoService,
         private readonly FotoColaboradorService $fotos,
+        private readonly OfficialFormatCatalogoService $catalogoFormatos,
     ) {}
 
     /**
@@ -310,6 +313,12 @@ class ExpedienteController extends Controller
                 'contacto_emergencia_telefono' => $colaborador->contacto_emergencia_telefono,
             ],
             'resumenExpediente' => $resumen,
+            // Plantillas oficiales listas y documentos ya generados para esta
+            // persona (docs/FORMATOS_OFICIALES.md) — solo en la vista de RH.
+            'documentosOficiales' => ! $esPropio && $usuario->can('formatos_oficiales.ver') ? $this->documentosOficiales($colaborador) : null,
+            'formatosOficialesDisponibles' => ! $esPropio && $usuario->can('formatos_oficiales.generar')
+                ? $this->catalogoFormatos->listar(['solo_listos' => true, 'aplica_a' => 'colaborador'])
+                : [],
             'documentosRequeridos' => $this->documentosParaVista($documentos),
             'onboarding' => $this->onboarding->checklist($colaborador),
             // colaborador_id es la fuente real de identidad de una
@@ -691,6 +700,32 @@ class ExpedienteController extends Controller
      * una. Nunca se expone `foto_path` (ruta física en el disco NAS) al
      * frontend — ver docs/SEGURIDAD.md.
      */
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function documentosOficiales(Colaborador $colaborador): array
+    {
+        return array_values(OfficialFormatGeneration::query()
+            ->with(['formato:id,nombre,tipo', 'generadoPor:id,name', 'solicitud:id,folio'])
+            ->where('colaborador_id', $colaborador->id)
+            ->latest()
+            ->limit(100)
+            ->get()
+            ->map(fn (OfficialFormatGeneration $g) => [
+                'id' => $g->id,
+                'formato' => $g->formato->nombre,
+                'categoria' => $g->formato->tipo->etiqueta(),
+                'version' => $g->version_numero,
+                'solicitud_folio' => $g->solicitud?->folio,
+                'generado_por' => $g->generadoPor?->name,
+                'generado_en' => $g->created_at?->toIso8601String(),
+                'estado' => $g->status->value,
+                'ver_url' => route('rh.formatos-oficiales.previsualizar', $g->id),
+                'descargar_url' => route('rh.formatos-oficiales.descargar', $g->id),
+            ])
+            ->all());
+    }
+
     private function fotoUrl(Colaborador $colaborador): ?string
     {
         return $this->fotos->url($colaborador);

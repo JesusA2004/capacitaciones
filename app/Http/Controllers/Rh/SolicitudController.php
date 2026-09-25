@@ -20,6 +20,7 @@ use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Finiquitos\FiniquitoService;
+use App\Services\Formatos\OfficialFormatCatalogoService;
 use App\Services\Solicitudes\SolicitudesService;
 use App\Services\Solicitudes\SolicitudFormatoOficialService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -40,6 +41,7 @@ class SolicitudController extends Controller
         private readonly FiniquitoService $finiquitos,
         private readonly SolicitudFormatoOficialService $formatoOficial,
         private readonly FotoColaboradorService $fotos,
+        private readonly OfficialFormatCatalogoService $catalogoFormatos,
     ) {}
 
     public function index(Request $request): Response
@@ -152,6 +154,15 @@ class SolicitudController extends Controller
         return Inertia::render('Rh/Solicitudes/Show', [
             'solicitud' => $solicitud,
             'puedeGenerarFormato' => $puedeGenerarFormato,
+            // Generar cualquier plantilla oficial con los datos de ESTA
+            // solicitud (docs/FORMATOS_OFICIALES.md).
+            'formatosOficiales' => $request->user()->can('formatos_oficiales.generar') && $solicitud->personaSolicitante() !== null
+                ? $this->catalogoFormatos->listar(['solo_listos' => true, 'aplica_a' => 'colaborador'])
+                : [],
+            'personaSolicitud' => $solicitud->personaSolicitante() !== null ? [
+                'id' => $solicitud->personaSolicitante()->id,
+                'nombre' => $solicitud->personaSolicitante()->nombreCompleto(),
+            ] : null,
             'documentoOficial' => $this->formatoOficial->aplicaPara($solicitud) ? [
                 'id' => $formatoEsperado?->id,
                 'nombre' => $formatoEsperado !== null ? $formatoEsperado->nombre : $solicitud->tipo->etiqueta(),

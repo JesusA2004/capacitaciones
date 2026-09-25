@@ -9,9 +9,8 @@ use App\Models\OfficialFormatGeneration;
 use App\Models\SolicitudInterna;
 use App\Models\User;
 use App\Services\Expedientes\DocumentoStorageService;
-use App\Services\Formatos\OfficialFormatOverlayService;
+use App\Services\Formatos\GeneradorFormatoService;
 use App\Services\Formatos\OfficialFormatStorageService;
-use App\Services\Plantillas\PlaceholderResolver;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -26,9 +25,8 @@ use Throwable;
 class SolicitudFormatoOficialService
 {
     public function __construct(
-        private readonly OfficialFormatOverlayService $overlay,
+        private readonly GeneradorFormatoService $generador,
         private readonly OfficialFormatStorageService $storage,
-        private readonly PlaceholderResolver $resolver,
         private readonly DocumentoStorageService $expedienteStorage,
     ) {}
 
@@ -102,24 +100,24 @@ class SolicitudFormatoOficialService
         }
 
         try {
-            $solicitud->loadMissing(['colaborador', 'usuario.colaborador']);
-            $datos = $this->resolver->resolver($solicitud->personaSolicitante(), $this->extraDeSolicitud($solicitud));
-            $pdf = $this->overlay->generar($formato, $datos);
+            $solicitud->loadMissing(['colaborador', 'usuario.colaborador', 'revisadoPor.colaborador']);
+            $persona = $solicitud->personaSolicitante();
 
-            $ruta = $this->storage->rutaGenerado();
-            $this->storage->guardarContenido($ruta, $pdf);
+            if ($persona === null) {
+                return ['generacion' => null, 'aplica' => true, 'motivo_error' => 'la solicitud no tiene un colaborador asociado'];
+            }
 
-            $generacion = OfficialFormatGeneration::create([
-                'official_format_id' => $formato->id,
-                'solicitud_interna_id' => $solicitud->id,
-                'colaborador_id' => $solicitud->personaSolicitante()?->id,
-                'generated_by_id' => $actor->id,
-                'generated_disk' => config('formatos_oficiales.disk'),
-                'generated_path' => $ruta,
-                'generated_name' => str($formato->nombre)->slug().'-'.$solicitud->folio.'.pdf',
-                'data_snapshot' => $datos,
-                'status' => EstadoFormatoOficialGeneracion::Generado,
-            ]);
+            $contexto = $this->generador->contexto($persona, $solicitud->id, null, null, $actor);
+            $preparacion = $this->generador->preparar($this->generador->versionParaGenerar($formato), $contexto, [], $actor->can('formatos_oficiales.datos_salariales'));
+            $bloqueo = $this->generador->motivoBloqueo($preparacion);
+
+            if ($bloqueo !== null) {
+                Log::warning('Documento oficial de solicitud no generado: faltan datos.', ['solicitud_id' => $solicitud->id, 'motivo' => $bloqueo]);
+
+                return ['generacion' => null, 'aplica' => true, 'motivo_error' => mb_strtolower(rtrim($bloqueo, '.'))];
+            }
+
+            $generacion = $this->generador->generar($preparacion, $contexto, $actor);
 
             return ['generacion' => $generacion, 'aplica' => true, 'motivo_error' => null];
         } catch (Throwable $e) {
@@ -206,22 +204,5 @@ class SolicitudFormatoOficialService
         }
 
         $this->expedienteStorage->subirVersion($colaborador, $tipo, $archivo, $actor->id);
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    private function extraDeSolicitud(SolicitudInterna $solicitud): array
-    {
-        return [
-            'folio_solicitud' => $solicitud->folio,
-            'tipo_solicitud' => $solicitud->tipo->etiqueta(),
-            'motivo_solicitud' => $solicitud->motivo,
-            'observaciones' => (string) $solicitud->observaciones,
-            'dias_vacaciones' => $solicitud->dias_solicitados !== null ? (string) $solicitud->dias_solicitados : '',
-            'fecha_inicio_permiso' => $solicitud->fecha_inicio?->format('d/m/Y') ?? '',
-            'fecha_fin_permiso' => $solicitud->fecha_fin?->format('d/m/Y') ?? '',
-            'motivo_permiso' => $solicitud->motivo,
-        ];
     }
 }

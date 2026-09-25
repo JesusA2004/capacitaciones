@@ -23,6 +23,7 @@ import EmojiPicker from '@/components/Common/EmojiPicker.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudStats from '@/components/DataTable/CrudStats.vue';
 import PeopleConfirmDialog from '@/components/people/PeopleConfirmDialog.vue';
+import CelebracionesTabsNav from '@/components/Celebraciones/CelebracionesTabsNav.vue';
 import ColaboradorCumpleanosCard from '@/components/Rh/ColaboradorCumpleanosCard.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -442,6 +443,8 @@ function aplicarRangoRapido(dias: number) {
             </Link>
         </Button>
     </CrudPageHeader>
+
+    <CelebracionesTabsNav activa="cumpleanos" class="mt-2" />
 
     <div v-if="!config.enabled" class="mt-4">
         <Card class="border-dashed">
