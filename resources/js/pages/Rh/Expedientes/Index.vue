@@ -113,6 +113,7 @@ const sucursalActiva = computed(() =>
         </CrudPageHeader>
 
         <nav
+            data-tour="expedientes-ruta"
             class="flex flex-wrap items-center gap-1 text-sm text-muted-foreground"
         >
             <span :class="{ 'font-medium text-foreground': !empresaActiva }"
@@ -146,7 +147,7 @@ const sucursalActiva = computed(() =>
                 @limpiar="limpiar"
             />
 
-            <div class="flex flex-wrap gap-2">
+            <div data-tour="expedientes-filtros" class="flex flex-wrap gap-2">
                 <Select
                     :model-value="filtros.empresa_id"
                     @update:model-value="
@@ -298,6 +299,7 @@ const sucursalActiva = computed(() =>
 
         <div
             v-else
+            data-tour="expedientes-tarjetas"
             class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
         >
             <ColaboradorCarpetaCard

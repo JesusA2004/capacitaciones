@@ -2,7 +2,6 @@
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { ArrowLeft, Image, Trash2, Upload } from '@lucide/vue';
 import { computed, ref } from 'vue';
-import Heading from '@/components/Heading.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
@@ -89,11 +88,6 @@ async function eliminar() {
         >
             <ArrowLeft class="size-4" /> Volver al calendario
         </Link>
-
-        <Heading
-            title="Fondo de tarjeta de cumpleaños"
-            description="La imagen que se usa como base de todas las felicitaciones generadas. Si no subes una, se usa el diseño con globos por defecto."
-        />
 
         <Card>
             <CardHeader>

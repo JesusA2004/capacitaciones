@@ -87,7 +87,7 @@ class DashboardDemoSeeder extends Seeder
     {
         $sucursal = Sucursal::where('clave', 'ATC01')->first();
         $departamento = Departamento::where('nombre', 'Operaciones')->first();
-        $puesto = Puesto::where('nombre', 'Gestor fijo')->first();
+        $puesto = Puesto::where('nombre', 'Gestor')->first();
 
         $usuario = User::firstOrCreate(
             ['email' => 'colaborador10@mrlana.test'],
@@ -147,27 +147,20 @@ class DashboardDemoSeeder extends Seeder
         $sucursales = Sucursal::all()->keyBy('clave');
         $departamentos = Departamento::all()->keyBy('nombre');
 
-        // Todo colaborador activo debe tener puesto (sección 5/8 de la
-        // reestructuración): un puesto razonable por departamento, ya que
-        // estos colaboradores demo existen para poblar capacitación, no
-        // para modelar headcount operativo (Gestor fijo/volante se reserva
-        // a los colaboradores que sí alimentan la vista de headcount, ver
-        // UsuarioDemoSeeder).
-        $puestoPorDepartamento = [
-            'Recursos Humanos' => Puesto::where('nombre', 'Generalista de RH')->first(),
-            'Sistemas' => Puesto::where('nombre', 'Soporte Técnico')->first(),
-            'Ventas' => Puesto::where('nombre', 'Ejecutivo de Ventas')->first(),
-            'Operaciones' => Puesto::where('nombre', 'Supervisor de Operaciones')->first(),
-        ];
+        // Todo colaborador activo debe tener puesto: cada definición trae el
+        // suyo, acomodado a la estructura real (5 analistas de mesa de
+        // control, gestores y coordinadora de sucursal — ver
+        // PuestoJerarquiaSeeder y OrganigramaDemoSeeder).
+        $puestos = Puesto::all()->keyBy('nombre');
 
         $definiciones = [
-            ['email' => 'colaborador3@mrlana.test', 'nombre' => 'Sofía', 'apellidos' => 'Reyes Cano', 'sucursal' => 'IXT01', 'departamento' => 'Recursos Humanos', 'genero' => Genero::Femenino],
-            ['email' => 'colaborador4@mrlana.test', 'nombre' => 'Héctor', 'apellidos' => 'Domínguez Ríos', 'sucursal' => 'IXT01', 'departamento' => 'Sistemas', 'genero' => Genero::Masculino],
-            ['email' => 'colaborador5@mrlana.test', 'nombre' => 'Valeria', 'apellidos' => 'Cisneros Mora', 'sucursal' => 'CUE01', 'departamento' => 'Ventas', 'genero' => Genero::Femenino],
-            ['email' => 'colaborador6@mrlana.test', 'nombre' => 'Iván', 'apellidos' => 'Paredes Luna', 'sucursal' => 'CUE01', 'departamento' => 'Recursos Humanos', 'genero' => Genero::Masculino],
-            ['email' => 'colaborador7@mrlana.test', 'nombre' => 'Renata', 'apellidos' => 'Ochoa Vega', 'sucursal' => 'ATC01', 'departamento' => 'Ventas', 'genero' => Genero::Femenino],
-            ['email' => 'colaborador8@mrlana.test', 'nombre' => 'Emilio', 'apellidos' => 'Guzmán Solís', 'sucursal' => 'ATC01', 'departamento' => 'Sistemas', 'genero' => Genero::Masculino],
-            ['email' => 'colaborador9@mrlana.test', 'nombre' => 'Ximena', 'apellidos' => 'Beltrán Rico', 'sucursal' => 'ATC01', 'departamento' => 'Operaciones', 'genero' => Genero::Femenino],
+            ['email' => 'colaborador3@mrlana.test', 'nombre' => 'Sofía', 'apellidos' => 'Reyes Cano', 'sucursal' => 'IXT01', 'departamento' => 'Mesa de Control', 'puesto' => 'Analista de Mesa de Control', 'genero' => Genero::Femenino],
+            ['email' => 'colaborador4@mrlana.test', 'nombre' => 'Héctor', 'apellidos' => 'Domínguez Ríos', 'sucursal' => 'IXT01', 'departamento' => 'Mesa de Control', 'puesto' => 'Analista de Mesa de Control', 'genero' => Genero::Masculino],
+            ['email' => 'colaborador5@mrlana.test', 'nombre' => 'Valeria', 'apellidos' => 'Cisneros Mora', 'sucursal' => 'CUE01', 'departamento' => 'Ventas', 'puesto' => 'Gestor', 'genero' => Genero::Femenino],
+            ['email' => 'colaborador6@mrlana.test', 'nombre' => 'Iván', 'apellidos' => 'Paredes Luna', 'sucursal' => 'CUE01', 'departamento' => 'Mesa de Control', 'puesto' => 'Analista de Mesa de Control', 'genero' => Genero::Masculino],
+            ['email' => 'colaborador7@mrlana.test', 'nombre' => 'Renata', 'apellidos' => 'Ochoa Vega', 'sucursal' => 'ATC01', 'departamento' => 'Ventas', 'puesto' => 'Gestor', 'genero' => Genero::Femenino],
+            ['email' => 'colaborador8@mrlana.test', 'nombre' => 'Emilio', 'apellidos' => 'Guzmán Solís', 'sucursal' => 'ATC01', 'departamento' => 'Mesa de Control', 'puesto' => 'Analista de Mesa de Control', 'genero' => Genero::Masculino],
+            ['email' => 'colaborador9@mrlana.test', 'nombre' => 'Ximena', 'apellidos' => 'Beltrán Rico', 'sucursal' => 'ATC01', 'departamento' => 'Operaciones', 'puesto' => 'Coordinadora', 'genero' => Genero::Femenino],
         ];
 
         $colaboradores = collect();
@@ -198,7 +191,7 @@ class DashboardDemoSeeder extends Seeder
                     'genero' => $definicion['genero'],
                     'sucursal_principal_id' => $sucursales[$definicion['sucursal']]->id,
                     'departamento_id' => $departamentos[$definicion['departamento']]->id,
-                    'puesto_id' => $puestoPorDepartamento[$definicion['departamento']]?->id,
+                    'puesto_id' => $puestos->get($definicion['puesto'])?->id,
                     'fecha_ingreso' => now()->subMonths(1 + ($indice % 24)),
                     'fecha_nacimiento' => Carbon::create(now()->year - (26 + $indice), (($indice + now()->month + 5) % 12) + 1, 1 + (($indice * 4) % 27)),
                     ...$this->contactoEmergenciaDemo($indice),

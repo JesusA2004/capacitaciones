@@ -69,7 +69,9 @@ function enviar() {
                     <Label>Colaborador</Label>
                     <Select v-model="form.colaborador_id">
                         <SelectTrigger class="w-full">
-                            <SelectValue placeholder="Selecciona un colaborador sin cuenta" />
+                            <SelectValue
+                                placeholder="Selecciona un colaborador sin cuenta"
+                            />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem
@@ -93,7 +95,11 @@ function enviar() {
 
                 <div class="grid gap-2">
                     <Label for="usuario-email">Correo de acceso</Label>
-                    <Input id="usuario-email" v-model="form.email" type="email" />
+                    <Input
+                        id="usuario-email"
+                        v-model="form.email"
+                        type="email"
+                    />
                     <InputError :message="form.errors.email" />
                 </div>
 
@@ -109,7 +115,9 @@ function enviar() {
                         >
                             <Checkbox
                                 :model-value="form.roles.includes(rol)"
-                                @update:model-value="(v) => alternarRol(rol, !!v)"
+                                @update:model-value="
+                                    (v) => alternarRol(rol, !!v)
+                                "
                             />
                             {{ rol.replace(/_/g, ' ') }}
                         </label>
@@ -118,8 +126,8 @@ function enviar() {
                 </div>
 
                 <p class="text-xs text-muted-foreground">
-                    Se enviará un correo al colaborador para que establezca
-                    su propia contraseña.
+                    Se enviará un correo al colaborador para que establezca su
+                    propia contraseña.
                 </p>
 
                 <DialogFooter>
@@ -131,9 +139,7 @@ function enviar() {
                     >
                     <Button
                         type="submit"
-                        :disabled="
-                            form.processing || !form.colaborador_id
-                        "
+                        :disabled="form.processing || !form.colaborador_id"
                     >
                         <Spinner v-if="form.processing" />
                         Crear usuario

@@ -126,7 +126,7 @@ async function eliminarRelease(release: Release) {
         Todavía no se ha subido ninguna versión del APK.
     </div>
 
-    <div v-else class="mt-6 overflow-x-auto rounded-lg border">
+    <div v-else data-tour="tabla" class="mt-6 overflow-x-auto rounded-lg border">
         <Table>
             <TableHeader>
                 <TableRow>

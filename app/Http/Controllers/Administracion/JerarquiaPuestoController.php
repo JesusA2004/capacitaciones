@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Administracion;
 
+use App\Enums\MotivoCobertura;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Administracion\ActualizarJerarquiaPuestoRequest;
 use App\Models\Departamento;
@@ -10,6 +11,7 @@ use App\Models\MovimientoLaboral;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Services\Administracion\JerarquiaPuestoService;
+use App\Services\Organigrama\OrganigramaPersonasService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,14 +23,28 @@ class JerarquiaPuestoController extends Controller
 {
     public function __construct(
         private readonly JerarquiaPuestoService $jerarquia,
+        private readonly OrganigramaPersonasService $organigramaPersonas,
     ) {}
 
     public function index(Request $request): Response
     {
         $this->authorize('viewAny', Puesto::class);
 
+        $usuario = $request->user();
+        $puestos = $this->jerarquia->arbol($request);
+        $this->jerarquia->agregarOcupantes($puestos, $usuario, $request);
+        $puedeEditar = $usuario->can('organigrama.editar') || $usuario->can('puestos.administrar');
+
         return Inertia::render('Administracion/JerarquiaPuestos/Index', [
-            'puestos' => $this->jerarquia->arbol($request),
+            'puestos' => $puestos,
+            // Vista por personas: una tarjeta por colaborador, rama por sucursal.
+            'personas' => $this->organigramaPersonas->arbol($usuario, $request),
+            // Coberturas temporales: quién puede asignarlas y con qué datos.
+            'coberturas' => [
+                'puedeEditar' => $puedeEditar,
+                'motivos' => MotivoCobertura::opciones(),
+                'colaboradores' => $puedeEditar ? $this->organigramaPersonas->candidatosCobertura($usuario) : [],
+            ],
             'filtros' => $request->only($this->jerarquia->filtrosAceptados()),
             'opciones' => [
                 'empresas' => Empresa::query()->orderBy('nombre')->get(['id', 'nombre']),

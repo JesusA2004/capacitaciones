@@ -1,28 +1,47 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
 import {
+    AlarmClock,
     AlertTriangle,
+    Archive,
+    ArrowUpRight,
+    Baby,
+    Cake,
+    CalendarDays,
+    CircleCheckBig,
+    CircleSlash,
+    ClipboardList,
+    Clock,
+    Eye,
     FileCheck2,
     FileText,
+    Flower2,
     GripVertical,
-    KanbanSquare,
+    HeartPulse,
+    Inbox,
+    Landmark,
+    LogOut,
+    MapPin,
+    Palmtree,
     Paperclip,
+    PencilLine,
     PenLine,
     ShieldAlert,
     ShieldCheck,
-    UserX,
+    UserMinus,
+    UserPen,
+    Wallet,
 } from '@lucide/vue';
 import { computed, reactive, ref, watch } from 'vue';
+import type { Component } from 'vue';
 import type { DraggableEvent } from 'vue-draggable-plus';
 import { VueDraggable } from 'vue-draggable-plus';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
-import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -44,7 +63,6 @@ import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
-import { useInitials } from '@/composables/useInitials';
 import { useKanbanTransition } from '@/composables/useKanbanTransition';
 import {
     actualizarEstado,
@@ -84,7 +102,6 @@ defineOptions({
 });
 
 const { mostrarExito, mostrarError } = useAlertas();
-const { getInitials } = useInitials();
 
 const { filtros, aplicar, aplicarConDebounce, limpiar } = useFiltros(
     index.url(),
@@ -113,16 +130,110 @@ function urlExportar(
 }
 
 // --- Tablero Kanban: columnas por fase del flujo de revisión ---
-type ColumnaDefinicion = { estado: string; titulo: string; acento: string };
+// Tonos suaves y sin rojo: "Rechazada" usa pizarra (es un cierre, no una
+// alarma) para que el tablero no se vea agresivo.
+type ColumnaDefinicion = {
+    estado: string;
+    titulo: string;
+    icono: Component;
+    /** Fondo + texto del ícono y del contador. */
+    suave: string;
+    /** Fondo tenue del encabezado de la columna. */
+    cabecera: string;
+    /** Franja lateral de cada tarjeta. */
+    barra: string;
+};
 
 const COLUMNAS: ColumnaDefinicion[] = [
-    { estado: 'enviada', titulo: 'Pendientes / Enviadas', acento: 'border-t-[var(--info)]' },
-    { estado: 'en_revision', titulo: 'En revisión', acento: 'border-t-[var(--warning)]' },
-    { estado: 'requiere_correccion', titulo: 'Requiere corrección', acento: 'border-t-[var(--warning)]' },
-    { estado: 'aprobada', titulo: 'Aprobadas', acento: 'border-t-[var(--success)]' },
-    { estado: 'rechazada', titulo: 'Rechazadas', acento: 'border-t-destructive' },
-    { estado: 'cerrada', titulo: 'Cerradas', acento: 'border-t-muted-foreground' },
+    {
+        estado: 'enviada',
+        titulo: 'Pendientes',
+        icono: Inbox,
+        suave: 'bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300',
+        cabecera: 'bg-sky-50/80 dark:bg-sky-500/5',
+        barra: 'bg-sky-400',
+    },
+    {
+        estado: 'en_revision',
+        titulo: 'En revisión',
+        icono: Eye,
+        suave: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300',
+        cabecera: 'bg-indigo-50/80 dark:bg-indigo-500/5',
+        barra: 'bg-indigo-400',
+    },
+    {
+        estado: 'requiere_correccion',
+        titulo: 'Requiere corrección',
+        icono: PencilLine,
+        suave: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',
+        cabecera: 'bg-amber-50/80 dark:bg-amber-500/5',
+        barra: 'bg-amber-400',
+    },
+    {
+        estado: 'aprobada',
+        titulo: 'Aprobadas',
+        icono: CircleCheckBig,
+        suave: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300',
+        cabecera: 'bg-emerald-50/80 dark:bg-emerald-500/5',
+        barra: 'bg-emerald-400',
+    },
+    {
+        estado: 'rechazada',
+        titulo: 'No aprobadas',
+        icono: CircleSlash,
+        suave: 'bg-slate-200 text-slate-700 dark:bg-slate-500/25 dark:text-slate-300',
+        cabecera: 'bg-slate-100/80 dark:bg-slate-500/5',
+        barra: 'bg-slate-400',
+    },
+    {
+        estado: 'cerrada',
+        titulo: 'Cerradas',
+        icono: Archive,
+        suave: 'bg-teal-100 text-teal-700 dark:bg-teal-500/20 dark:text-teal-300',
+        cabecera: 'bg-teal-50/80 dark:bg-teal-500/5',
+        barra: 'bg-teal-400',
+    },
 ];
+
+const CHIP_BASE =
+    'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium';
+
+const CHIP = {
+    violeta: `${CHIP_BASE} bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300`,
+    naranja: `${CHIP_BASE} bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300`,
+    ambar: `${CHIP_BASE} bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300`,
+    verde: `${CHIP_BASE} bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300`,
+    neutro: `${CHIP_BASE} bg-muted text-muted-foreground`,
+};
+
+const ICONO_TIPO: Record<string, Component> = {
+    vacaciones: Palmtree,
+    permiso_con_goce: Clock,
+    permiso_sin_goce: Clock,
+    permiso_tiempo: Clock,
+    salida_temprano: LogOut,
+    llegada_tarde: AlarmClock,
+    incapacidad: HeartPulse,
+    constancia_laboral: FileText,
+    actualizacion_datos: UserPen,
+    actualizacion_bancaria: Landmark,
+    reposicion_documental: FileText,
+    prestamo: Wallet,
+    baja_colaborador: UserMinus,
+    permiso_especial_cumpleanos: Cake,
+    permiso_especial_paternidad: Baby,
+    permiso_especial_fallecimiento: Flower2,
+};
+
+function iconoTipo(tipo: string): Component {
+    return ICONO_TIPO[tipo] ?? ClipboardList;
+}
+
+function diasEsperando(solicitud: SolicitudInternaItem): number {
+    return Math.floor(
+        (Date.now() - new Date(solicitud.created_at).getTime()) / 86_400_000,
+    );
+}
 
 const columnas = reactive<Record<string, SolicitudInternaItem[]>>(
     Object.fromEntries(COLUMNAS.map((c) => [c.estado, []])),
@@ -160,7 +271,9 @@ function tieneFormatoGenerado(solicitud: SolicitudInternaItem): boolean {
 function faltaFirma(solicitud: SolicitudInternaItem): boolean {
     const generados = solicitud.documentos_generados ?? [];
 
-    return generados.length > 0 && !generados.some((d) => d.status === 'firmado');
+    return (
+        generados.length > 0 && !generados.some((d) => d.status === 'firmado')
+    );
 }
 
 // Una baja de colaborador no puede aprobarse sin evidencia adjunta ni
@@ -176,7 +289,9 @@ function sinEvidencia(solicitud: SolicitudInternaItem): boolean {
 function finiquitoRevisado(solicitud: SolicitudInternaItem): boolean {
     const estado = solicitud.finiquitoCalculo?.estado;
 
-    return estado === 'revisado' || estado === 'aprobado' || estado === 'firmado';
+    return (
+        estado === 'revisado' || estado === 'aprobado' || estado === 'firmado'
+    );
 }
 
 // Prioridad derivada del tiempo real de espera (no un campo inventado):
@@ -189,7 +304,8 @@ function esUrgente(solicitud: SolicitudInternaItem): boolean {
         return false;
     }
 
-    const dias = (Date.now() - new Date(solicitud.created_at).getTime()) / 86_400_000;
+    const dias =
+        (Date.now() - new Date(solicitud.created_at).getTime()) / 86_400_000;
 
     return dias > 5;
 }
@@ -294,8 +410,13 @@ function confirmarMovimiento() {
         return;
     }
 
-    if (requiereComentarioObligatorio.value && !comentarioMovimiento.value.trim()) {
-        mostrarError('Agrega un comentario para mover la solicitud a este estado.');
+    if (
+        requiereComentarioObligatorio.value &&
+        !comentarioMovimiento.value.trim()
+    ) {
+        mostrarError(
+            'Agrega un comentario para mover la solicitud a este estado.',
+        );
 
         return;
     }
@@ -305,13 +426,20 @@ function confirmarMovimiento() {
         mov.solicitud.tipo === 'baja_colaborador'
     ) {
         if (sinEvidencia(mov.solicitud)) {
-            mostrarError('Falta evidencia de baja: adjúntala desde el detalle antes de aprobar.');
+            mostrarError(
+                'Falta evidencia de baja: adjúntala desde el detalle antes de aprobar.',
+            );
 
             return;
         }
 
-        if (mov.solicitud.finiquitoCalculo && !finiquitoRevisado(mov.solicitud)) {
-            mostrarError('Falta revisar el finiquito antes de aprobar esta baja.');
+        if (
+            mov.solicitud.finiquitoCalculo &&
+            !finiquitoRevisado(mov.solicitud)
+        ) {
+            mostrarError(
+                'Falta revisar el finiquito antes de aprobar esta baja.',
+            );
 
             return;
         }
@@ -324,17 +452,24 @@ function confirmarMovimiento() {
         {
             estado: mov.estadoDestino,
             comentario: comentarioMovimiento.value || undefined,
-            motivo_rechazo: mov.estadoDestino === 'rechazada' ? comentarioMovimiento.value : undefined,
+            motivo_rechazo:
+                mov.estadoDestino === 'rechazada'
+                    ? comentarioMovimiento.value
+                    : undefined,
         },
         {
             preserveScroll: true,
             preserveState: true,
             onSuccess: () => {
-                mostrarExito(`Solicitud movida a ${etiquetaColumna(mov.estadoDestino)}.`);
+                mostrarExito(
+                    `Solicitud movida a ${etiquetaColumna(mov.estadoDestino)}.`,
+                );
                 cerrarDialogMovimiento();
             },
             onError: () => {
-                mostrarError('No se pudo mover la solicitud. Verifica el permiso o el comentario.');
+                mostrarError(
+                    'No se pudo mover la solicitud. Verifica el permiso o el comentario.',
+                );
                 restaurarCanonico(() => construirColumnas(props.solicitudes));
                 cerrarDialogMovimiento();
             },
@@ -349,30 +484,30 @@ function confirmarMovimiento() {
 <template>
     <Head title="Solicitudes internas" />
 
-    <div class="flex flex-col gap-4 p-4">
-        <CrudPageHeader
-            titulo="Solicitudes internas"
-            descripcion="Tablero de revisión: arrastra una tarjeta entre columnas para cambiar su estado."
-            :icono="KanbanSquare"
-        >
-            <CrudExportButtons
-                :url-excel="urlExportar(exportarExcel)"
-                :url-pdf="urlExportar(exportarPdf)"
-            />
-        </CrudPageHeader>
-
+    <div class="flex flex-col gap-3 p-3 sm:p-4">
         <Alert
             v-if="solicitudesResumen.total > solicitudesResumen.mostradas"
+            data-tour="solicitudes-limite"
             variant="warning"
         >
             <AlertTriangle class="size-4" />
-            <AlertTitle>Mostrando {{ solicitudesResumen.mostradas }} de {{ solicitudesResumen.total }} solicitudes activas</AlertTitle>
+            <AlertTitle
+                >Mostrando {{ solicitudesResumen.mostradas }} de
+                {{ solicitudesResumen.total }} solicitudes activas</AlertTitle
+            >
             <AlertDescription>
-                El tablero tiene un límite de {{ solicitudesResumen.limite }} tarjetas para mantenerse ágil. Usa los filtros (sucursal, tipo, responsable) para acotar y ver el resto — ninguna solicitud se pierde, solo no se muestra aquí todavía.
+                El tablero tiene un límite de
+                {{ solicitudesResumen.limite }} tarjetas para mantenerse ágil.
+                Usa los filtros (sucursal, tipo, responsable) para acotar y ver
+                el resto — ninguna solicitud se pierde, solo no se muestra aquí
+                todavía.
             </AlertDescription>
         </Alert>
 
-        <div class="flex flex-wrap items-center gap-2">
+        <div
+            data-tour="solicitudes-filtros"
+            class="flex flex-wrap items-center gap-2"
+        >
             <CrudSearchInput
                 :model-value="filtros.busqueda"
                 placeholder="Buscar por folio o motivo..."
@@ -550,27 +685,78 @@ function confirmarMovimiento() {
             <Button variant="ghost" size="sm" @click="limpiar">
                 Limpiar filtros
             </Button>
+            <div
+                data-tour="solicitudes-exportar"
+                class="ml-auto flex items-center gap-2"
+            >
+                <CrudExportButtons
+                    :url-excel="urlExportar(exportarExcel)"
+                    :url-pdf="urlExportar(exportarPdf)"
+                />
+            </div>
+        </div>
+
+        <!-- Resumen visual por estado -->
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+            <div
+                v-for="columna in COLUMNAS"
+                :key="`resumen-${columna.estado}`"
+                class="flex items-center gap-3 rounded-2xl border border-border/60 bg-card p-3.5 shadow-sm"
+            >
+                <span
+                    class="flex size-11 shrink-0 items-center justify-center rounded-xl"
+                    :class="columna.suave"
+                >
+                    <component :is="columna.icono" class="size-5" />
+                </span>
+                <div class="min-w-0">
+                    <p class="text-2xl leading-none font-bold tabular-nums">
+                        {{ columnas[columna.estado]?.length ?? 0 }}
+                    </p>
+                    <p class="mt-1 truncate text-sm text-muted-foreground">
+                        {{ columna.titulo }}
+                    </p>
+                </div>
+            </div>
         </div>
 
         <!-- Tablero: horizontal real, sin comprimir columnas -->
-        <div class="flex w-full min-w-0 gap-4 overflow-x-auto pb-2">
+        <div
+            data-tour="solicitudes-tablero"
+            class="flex w-full min-w-0 gap-4 overflow-x-auto pb-3"
+        >
             <div
                 v-for="columna in COLUMNAS"
                 :key="columna.estado"
-                class="flex w-[320px] min-w-[320px] shrink-0 flex-col rounded-xl border border-t-4 bg-muted/20"
-                :class="columna.acento"
+                class="flex w-[340px] min-w-[340px] shrink-0 flex-col overflow-hidden rounded-2xl border border-border/60 bg-muted/30"
             >
-                <div class="flex items-center justify-between gap-2 px-3 py-2.5">
-                    <p class="text-sm font-semibold">{{ columna.titulo }}</p>
-                    <Badge variant="secondary" class="shrink-0">
+                <div
+                    class="flex items-center justify-between gap-2 border-b border-border/60 px-4 py-3"
+                    :class="columna.cabecera"
+                >
+                    <div class="flex min-w-0 items-center gap-2.5">
+                        <span
+                            class="flex size-8 shrink-0 items-center justify-center rounded-lg"
+                            :class="columna.suave"
+                        >
+                            <component :is="columna.icono" class="size-4" />
+                        </span>
+                        <p class="truncate text-base font-semibold">
+                            {{ columna.titulo }}
+                        </p>
+                    </div>
+                    <span
+                        class="min-w-8 shrink-0 rounded-full px-2.5 py-0.5 text-center text-sm font-semibold tabular-nums"
+                        :class="columna.suave"
+                    >
                         {{ columnas[columna.estado]?.length ?? 0 }}
-                    </Badge>
+                    </span>
                 </div>
 
                 <VueDraggable
                     v-model="columnas[columna.estado]"
                     :data-estado="columna.estado"
-                    class="flex min-h-24 flex-1 flex-col gap-2 px-2 pb-2"
+                    class="flex min-h-32 flex-1 flex-col gap-3 p-3"
                     group="solicitudes-kanban"
                     :animation="150"
                     :disabled="tableroBloqueado"
@@ -580,97 +766,181 @@ function confirmarMovimiento() {
                     @start="onStartDrag"
                     @end="onEndDrag"
                 >
-                    <p
+                    <div
                         v-if="(columnas[columna.estado]?.length ?? 0) === 0"
-                        class="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground"
+                        class="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border/80 p-6 text-center text-sm text-muted-foreground"
                     >
+                        <Inbox class="size-6 opacity-50" />
                         Sin solicitudes aquí.
-                    </p>
+                    </div>
 
                     <div
                         v-for="solicitud in columnas[columna.estado]"
                         :key="solicitud.id"
                         :data-kanban-id="solicitud.id"
-                        class="flex flex-col gap-2 rounded-xl border border-border/60 bg-card p-3 text-sm shadow-sm"
+                        class="group relative flex flex-col gap-3 overflow-hidden rounded-xl border border-border/60 bg-card p-4 pl-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
                     >
+                        <span
+                            class="absolute inset-y-0 left-0 w-1"
+                            :class="columna.barra"
+                            aria-hidden="true"
+                        />
+
                         <div class="flex items-start justify-between gap-2">
-                            <div class="flex min-w-0 items-center gap-2">
-                                <span
-                                    class="kanban-drag-handle -m-1 flex size-6 shrink-0 cursor-grab items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground active:cursor-grabbing"
-                                    title="Arrastrar para mover"
-                                >
-                                    <GripVertical class="size-3.5" />
-                                </span>
-                                <Avatar class="size-7 shrink-0">
-                                    <AvatarFallback class="text-[10px]">
-                                        {{ getInitials(`${solicitud.usuario?.name ?? ''} ${solicitud.usuario?.apellidos ?? ''}`) }}
-                                    </AvatarFallback>
-                                </Avatar>
+                            <div class="flex min-w-0 items-center gap-3">
+                                <ColaboradorAvatar
+                                    :nombre="`${solicitud.usuario?.name ?? ''} ${solicitud.usuario?.apellidos ?? ''}`"
+                                    :foto-url="solicitud.foto_url"
+                                    tamano="md"
+                                />
                                 <div class="min-w-0">
-                                    <p class="truncate text-xs font-semibold">
-                                        {{ solicitud.usuario?.name }} {{ solicitud.usuario?.apellidos }}
+                                    <p
+                                        class="truncate text-[15px] leading-tight font-semibold"
+                                    >
+                                        {{ solicitud.usuario?.name }}
+                                        {{ solicitud.usuario?.apellidos }}
                                     </p>
-                                    <p class="text-[11px] text-muted-foreground">{{ solicitud.folio }}</p>
+                                    <p
+                                        class="mt-0.5 truncate text-xs text-muted-foreground"
+                                    >
+                                        {{ solicitud.folio }}
+                                        <template
+                                            v-if="
+                                                solicitud.usuario?.colaborador
+                                                    ?.puesto
+                                            "
+                                        >
+                                            ·
+                                            {{
+                                                solicitud.usuario.colaborador
+                                                    .puesto.nombre
+                                            }}
+                                        </template>
+                                    </p>
                                 </div>
                             </div>
-                            <Link
-                                :href="show.url(solicitud.id)"
-                                class="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                                title="Abrir detalle"
-                            >
-                                <FileText class="size-3.5" />
-                            </Link>
+                            <div class="flex shrink-0 items-center gap-0.5">
+                                <Link
+                                    :href="show.url(solicitud.id)"
+                                    class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                                    title="Abrir detalle"
+                                >
+                                    <ArrowUpRight class="size-4" />
+                                </Link>
+                                <span
+                                    class="kanban-drag-handle flex size-7 cursor-grab items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground active:cursor-grabbing"
+                                    title="Arrastrar para mover"
+                                >
+                                    <GripVertical class="size-4" />
+                                </span>
+                            </div>
                         </div>
 
                         <div class="flex flex-wrap items-center gap-1.5">
-                            <Badge variant="outline" class="text-[10px] capitalize">
+                            <span
+                                class="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"
+                            >
+                                <component
+                                    :is="iconoTipo(solicitud.tipo)"
+                                    class="size-3.5"
+                                />
                                 {{ etiquetaTipo(solicitud.tipo) }}
-                            </Badge>
-                            <Badge v-if="solicitud.tipo === 'baja_colaborador'" variant="destructive" class="gap-1 text-[10px]">
-                                <UserX class="size-3" /> Baja
-                            </Badge>
-                            <Badge v-if="esUrgente(solicitud)" variant="warning" class="gap-1 text-[10px]">
-                                <AlertTriangle class="size-3" /> Urgente
-                            </Badge>
-                            <Badge
+                            </span>
+                            <span
+                                v-if="solicitud.tipo === 'baja_colaborador'"
+                                :class="CHIP.violeta"
+                            >
+                                <UserMinus class="size-3.5" /> Baja
+                            </span>
+                            <span
+                                v-if="esUrgente(solicitud)"
+                                :class="CHIP.naranja"
+                            >
+                                <AlarmClock class="size-3.5" />
+                                {{ diasEsperando(solicitud) }} días esperando
+                            </span>
+                            <span
                                 v-if="sinEvidencia(solicitud)"
-                                variant="destructive"
-                                class="gap-1 text-[10px]"
+                                :class="CHIP.ambar"
                             >
-                                <ShieldAlert class="size-3" /> Sin evidencia
-                            </Badge>
-                            <Badge
-                                v-if="solicitud.tipo === 'baja_colaborador' && solicitud.finiquitoCalculo"
-                                :variant="finiquitoRevisado(solicitud) ? 'success' : 'warning'"
-                                class="gap-1 text-[10px]"
+                                <ShieldAlert class="size-3.5" /> Sin evidencia
+                            </span>
+                            <span
+                                v-if="
+                                    solicitud.tipo === 'baja_colaborador' &&
+                                    solicitud.finiquitoCalculo
+                                "
+                                :class="
+                                    finiquitoRevisado(solicitud)
+                                        ? CHIP.verde
+                                        : CHIP.ambar
+                                "
                             >
-                                <ShieldCheck class="size-3" />
+                                <ShieldCheck class="size-3.5" />
                                 {{
                                     finiquitoRevisado(solicitud)
                                         ? 'Finiquito revisado'
                                         : 'Finiquito pendiente'
                                 }}
-                            </Badge>
+                            </span>
                         </div>
 
-                        <p class="line-clamp-2 text-xs text-muted-foreground">
+                        <p
+                            v-if="solicitud.motivo"
+                            class="line-clamp-3 text-sm leading-relaxed text-foreground/80"
+                        >
                             {{ solicitud.motivo }}
                         </p>
 
-                        <div class="flex items-center justify-between text-[11px] text-muted-foreground">
-                            <span>{{ solicitud.sucursal?.nombre ?? '—' }}</span>
-                            <span>{{ fechaCorta(solicitud.created_at) }}</span>
+                        <div
+                            v-if="
+                                (solicitud.documentos_count ?? 0) > 0 ||
+                                tieneFormatoGenerado(solicitud)
+                            "
+                            class="flex flex-wrap items-center gap-1.5"
+                        >
+                            <span
+                                v-if="(solicitud.documentos_count ?? 0) > 0"
+                                :class="CHIP.neutro"
+                            >
+                                <Paperclip class="size-3.5" />
+                                {{ solicitud.documentos_count }}
+                                {{
+                                    solicitud.documentos_count === 1
+                                        ? 'adjunto'
+                                        : 'adjuntos'
+                                }}
+                            </span>
+                            <span
+                                v-if="tieneFormatoGenerado(solicitud)"
+                                :class="CHIP.neutro"
+                            >
+                                <FileCheck2 class="size-3.5" /> Formato
+                            </span>
+                            <span
+                                v-if="faltaFirma(solicitud)"
+                                :class="CHIP.ambar"
+                            >
+                                <PenLine class="size-3.5" /> Falta firma
+                            </span>
                         </div>
 
-                        <div v-if="(solicitud.documentos_count ?? 0) > 0 || tieneFormatoGenerado(solicitud)" class="flex flex-wrap items-center gap-1.5">
-                            <span v-if="(solicitud.documentos_count ?? 0) > 0" class="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
-                                <Paperclip class="size-3" /> {{ solicitud.documentos_count }}
+                        <div
+                            class="flex items-center justify-between gap-2 border-t border-border/60 pt-3 text-xs text-muted-foreground"
+                        >
+                            <span
+                                class="inline-flex min-w-0 items-center gap-1"
+                            >
+                                <MapPin class="size-3.5 shrink-0" />
+                                <span class="truncate">{{
+                                    solicitud.sucursal?.nombre ?? 'Sin sucursal'
+                                }}</span>
                             </span>
-                            <span v-if="tieneFormatoGenerado(solicitud)" class="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
-                                <FileCheck2 class="size-3" /> Formato
-                            </span>
-                            <span v-if="faltaFirma(solicitud)" class="inline-flex items-center gap-1 rounded-full bg-[var(--warning)]/10 px-2 py-0.5 text-[10px] text-[var(--warning)]">
-                                <PenLine class="size-3" /> Falta firma
+                            <span
+                                class="inline-flex shrink-0 items-center gap-1"
+                            >
+                                <CalendarDays class="size-3.5" />
+                                {{ fechaCorta(solicitud.created_at) }}
                             </span>
                         </div>
                     </div>
@@ -680,21 +950,34 @@ function confirmarMovimiento() {
     </div>
 
     <!-- Dialog: confirmar movimiento del tablero -->
-    <Dialog :open="dialogMovimientoAbierto" @update:open="(v) => !v && cancelarMovimiento()">
+    <Dialog
+        :open="dialogMovimientoAbierto"
+        @update:open="(v) => !v && cancelarMovimiento()"
+    >
         <DialogContent class="sm:max-w-md">
             <DialogHeader>
                 <DialogTitle>Mover solicitud</DialogTitle>
                 <DialogDescription v-if="movimientoPendiente">
                     {{ movimientoPendiente.solicitud.folio }} pasará de
-                    <strong>{{ etiquetaColumna(movimientoPendiente.estadoOrigen) }}</strong>
-                    a <strong>{{ etiquetaColumna(movimientoPendiente.estadoDestino) }}</strong>.
+                    <strong>{{
+                        etiquetaColumna(movimientoPendiente.estadoOrigen)
+                    }}</strong>
+                    a
+                    <strong>{{
+                        etiquetaColumna(movimientoPendiente.estadoDestino)
+                    }}</strong
+                    >.
                 </DialogDescription>
             </DialogHeader>
 
             <div class="grid gap-2">
                 <Label>
                     Comentario
-                    <span v-if="requiereComentarioObligatorio" class="text-destructive">*</span>
+                    <span
+                        v-if="requiereComentarioObligatorio"
+                        class="text-destructive"
+                        >*</span
+                    >
                 </Label>
                 <Textarea
                     v-model="comentarioMovimiento"
@@ -708,10 +991,17 @@ function confirmarMovimiento() {
             </div>
 
             <DialogFooter>
-                <Button variant="secondary" :disabled="enviandoMovimiento" @click="cancelarMovimiento">
+                <Button
+                    variant="secondary"
+                    :disabled="enviandoMovimiento"
+                    @click="cancelarMovimiento"
+                >
                     Cancelar
                 </Button>
-                <Button :disabled="enviandoMovimiento" @click="confirmarMovimiento">
+                <Button
+                    :disabled="enviandoMovimiento"
+                    @click="confirmarMovimiento"
+                >
                     <Spinner v-if="enviandoMovimiento" />
                     Confirmar
                 </Button>

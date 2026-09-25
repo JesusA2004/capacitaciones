@@ -4,7 +4,7 @@ import { Bell, Check, CheckCheck } from '@lucide/vue';
 import { ref } from 'vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import { Button } from '@/components/ui/button';
-import { postJson } from '@/lib/http';
+import { useNotificaciones } from '@/composables/useNotificaciones';
 import { colorClaseNotificacion } from '@/lib/notificacionColor';
 import { dashboard } from '@/routes';
 import {
@@ -28,26 +28,24 @@ defineOptions({
 });
 
 // Copia local editable: marcar como leída actualiza aquí sin recargar la
-// página (fetch directo al endpoint JSON de la campana, nunca con <Link> —
-// esa es la ruta que causaba "All Inertia requests must receive a valid
-// Inertia response" al navegar ahí en vez de solo hacer fetch).
+// página. Las acciones pasan por el estado compartido de la campana
+// (useNotificaciones), así el contador del encabezado baja al instante.
 const lista = ref<NotificacionPortalItem[]>([...props.notificaciones]);
 const marcandoTodas = ref(false);
+const { abrirNotificacion, marcarTodasComoLeidas } = useNotificaciones();
 
-async function marcarLeida(notificacion: NotificacionPortalItem) {
-    if (notificacion.leida) {
-        return;
-    }
-
+// Abre el recurso que avisa (solicitud, documento, expediente…), la marca
+// como leída y, al llegar, dice si ya fue atendida.
+function abrir(notificacion: NotificacionPortalItem) {
     notificacion.leida = true;
-    await postJson(`/notificaciones/${notificacion.id}/leida`, {});
+    void abrirNotificacion(notificacion.id);
 }
 
 async function marcarTodas() {
     marcandoTodas.value = true;
 
     try {
-        await postJson('/notificaciones/leer-todas', {});
+        await marcarTodasComoLeidas();
         lista.value = lista.value.map((n) => ({ ...n, leida: true }));
     } finally {
         marcandoTodas.value = false;
@@ -90,7 +88,7 @@ async function marcarTodas() {
                 type="button"
                 class="flex items-start gap-3 rounded-2xl border border-border/60 bg-card p-4 text-left shadow-sm transition-colors hover:bg-muted/40"
                 :class="!notificacion.leida && 'border-[var(--brand-primary)]/30 bg-[var(--brand-primary)]/[0.03]'"
-                @click="marcarLeida(notificacion)"
+                @click="abrir(notificacion)"
             >
                 <span
                     class="flex size-9 shrink-0 items-center justify-center rounded-full text-lg"

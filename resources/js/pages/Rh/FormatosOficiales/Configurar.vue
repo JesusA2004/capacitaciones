@@ -127,6 +127,7 @@ function guardar() {
 <template>
     <div class="flex w-full min-w-0 flex-col gap-6 p-4 sm:p-6">
         <CrudPageHeader
+            detalle
             :titulo="`Configurar «${formato.nombre}»`"
             descripcion="Define dónde se pintan los datos del colaborador sobre el PDF oficial."
             :icono="Settings2"

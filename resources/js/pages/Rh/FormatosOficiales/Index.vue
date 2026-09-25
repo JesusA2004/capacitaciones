@@ -84,7 +84,7 @@ function formatearFecha(fecha: string | null): string {
             :icono="FileStack"
         />
 
-        <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div v-else data-tour="formatos-catalogo" class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <Card
                 v-for="formato in formatos"
                 :key="formato.id"

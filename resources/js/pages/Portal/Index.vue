@@ -10,10 +10,12 @@ import {
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
+import { useNotificaciones } from '@/composables/useNotificaciones';
 import { dashboard } from '@/routes';
 import { notificaciones as indexNotificaciones, perfil as rutaMiPerfil } from '@/routes/portal';
 import { index as indexSolicitudes } from '@/routes/solicitudes';
 import type {
+    NotificacionPortalItem,
     PerfilColaborador,
     ResumenNotificaciones,
     SaldoVacaciones,
@@ -32,6 +34,14 @@ defineOptions({
         breadcrumbs: [{ title: 'Inicio', href: dashboard() }],
     },
 });
+
+const { abrirNotificacion } = useNotificaciones();
+
+// Lleva al recurso que avisa y la marca como leída (ver useNotificaciones).
+function abrir(notificacion: NotificacionPortalItem): void {
+    notificacion.leida = true;
+    void abrirNotificacion(notificacion.id);
+}
 
 function iniciales(nombre: string, apellidos: string | null): string {
     return `${nombre.charAt(0)}${apellidos?.charAt(0) ?? ''}`.toUpperCase();
@@ -68,6 +78,7 @@ const ACCESOS = [
     <div class="flex flex-col gap-6 p-4 lg:p-6">
         <!-- Encabezado: avatar (precargado desde el expediente) + saludo -->
         <div
+            data-tour="portal-encabezado"
             class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[var(--brand-primary)] to-[var(--brand-secondary,var(--brand-primary))] p-6 text-white shadow-lg sm:p-8"
         >
             <div
@@ -121,7 +132,7 @@ const ACCESOS = [
         </div>
 
         <!-- Accesos rápidos -->
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div data-tour="portal-accesos" class="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Link
                 v-for="acceso in ACCESOS"
                 :key="acceso.titulo"
@@ -149,6 +160,7 @@ const ACCESOS = [
         <!-- Resumen: vacaciones, solicitudes y notificaciones lado a lado en desktop -->
         <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <div
+                data-tour="portal-vacaciones"
                 class="flex flex-col gap-4 rounded-3xl border border-border/60 bg-card p-5 shadow-sm transition-shadow duration-200 hover:shadow-md"
             >
                 <div class="flex items-center justify-between">
@@ -197,6 +209,7 @@ const ACCESOS = [
             </div>
 
             <div
+                data-tour="portal-solicitudes"
                 class="flex flex-col gap-3 rounded-3xl border border-border/60 bg-card p-5 shadow-sm transition-shadow duration-200 hover:shadow-md"
             >
                 <div class="flex items-center justify-between">
@@ -237,6 +250,7 @@ const ACCESOS = [
             </div>
 
             <div
+                data-tour="portal-notificaciones"
                 class="flex flex-col gap-3 rounded-3xl border border-border/60 bg-card p-5 shadow-sm transition-shadow duration-200 hover:shadow-md"
             >
                 <div class="flex items-center justify-between">
@@ -257,14 +271,16 @@ const ACCESOS = [
                 </div>
 
                 <div v-else class="flex flex-col gap-2">
-                    <div
+                    <button
                         v-for="notificacion in notificaciones.recientes.slice(
                             0,
                             4,
                         )"
                         :key="notificacion.id"
-                        class="flex items-start gap-2 rounded-xl p-2 text-sm transition-colors duration-150"
+                        type="button"
+                        class="flex w-full items-start gap-2 rounded-xl p-2 text-left text-sm transition-colors duration-150 hover:bg-muted/60"
                         :class="!notificacion.leida ? 'bg-muted/40' : ''"
+                        @click="abrir(notificacion)"
                     >
                         <span
                             class="mt-1.5 size-1.5 shrink-0 rounded-full"
@@ -282,7 +298,7 @@ const ACCESOS = [
                                 {{ notificacion.mensaje }}
                             </p>
                         </div>
-                    </div>
+                    </button>
                 </div>
             </div>
         </div>

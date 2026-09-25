@@ -327,6 +327,7 @@ const adminNavItems = computed<NavItem[]>(() => {
                  Si el usuario solo tiene uno, no se muestra selector alguno. -->
             <div
                 v-if="tieneAmbosModos"
+                data-tour="selector-modo"
                 class="mt-1 grid grid-cols-2 gap-1 rounded-lg bg-sidebar-accent/40 p-1 group-data-[collapsible=icon]:hidden"
             >
                 <Button

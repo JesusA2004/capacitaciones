@@ -56,7 +56,9 @@ function enviar() {
                 emit('update:open', false);
             },
             onError: () =>
-                mostrarError('No se pudo asignar la relación. Revisa que no forme un ciclo.'),
+                mostrarError(
+                    'No se pudo asignar la relación. Revisa que no forme un ciclo.',
+                ),
             onFinish: () => (enviando.value = false),
         },
     );
@@ -67,7 +69,9 @@ function enviar() {
     <Dialog :open="open" @update:open="(valor) => emit('update:open', valor)">
         <DialogContent class="sm:max-w-md">
             <DialogHeader>
-                <DialogTitle>Agregar puesto debajo de «{{ puesto.nombre }}»</DialogTitle>
+                <DialogTitle
+                    >Agregar puesto debajo de «{{ puesto.nombre }}»</DialogTitle
+                >
                 <DialogDescription>
                     Elige un puesto existente que empezará a reportar a
                     {{ puesto.nombre }}. Para crear un puesto nuevo, ve a
@@ -83,12 +87,17 @@ function enviar() {
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem
-                            v-for="opcion in todosLosPuestos.filter((p) => p.id !== puesto.id)"
+                            v-for="opcion in todosLosPuestos.filter(
+                                (p) => p.id !== puesto.id,
+                            )"
                             :key="opcion.id"
                             :value="String(opcion.id)"
                         >
                             {{ opcion.nombre }}
-                            <span v-if="opcion.puesto_superior" class="text-muted-foreground">
+                            <span
+                                v-if="opcion.puesto_superior"
+                                class="text-muted-foreground"
+                            >
                                 (hoy: {{ opcion.puesto_superior.nombre }})
                             </span>
                         </SelectItem>
@@ -103,7 +112,10 @@ function enviar() {
                     @click="emit('update:open', false)"
                     >Cancelar</Button
                 >
-                <Button :disabled="!puestoElegidoId || enviando" @click="enviar">
+                <Button
+                    :disabled="!puestoElegidoId || enviando"
+                    @click="enviar"
+                >
                     <Spinner v-if="enviando" />
                     Conectar
                 </Button>

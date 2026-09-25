@@ -129,6 +129,8 @@ export type SolicitudInternaItem = {
     motivo_rechazo: string | null;
     revisado_en: string | null;
     created_at: string;
+    /** Foto (miniatura) del colaborador que solicita, si tiene. */
+    foto_url?: string | null;
     colaborador?:
         | (UsuarioResumen & {
               puesto?: { id: number; nombre: string } | null;

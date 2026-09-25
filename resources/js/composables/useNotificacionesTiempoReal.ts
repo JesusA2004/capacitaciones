@@ -29,6 +29,7 @@ let suscrito = false;
 export function useNotificacionesTiempoReal(
     userId: number,
     onNuevaNotificacion: (notificacion: PayloadNotificacionBroadcast) => void,
+    alAbrir?: (id: string) => void,
 ): void {
     if (suscrito || typeof window === 'undefined' || !userId) {
         return;
@@ -46,6 +47,16 @@ export function useNotificacionesTiempoReal(
                 (payload: PayloadNotificacionBroadcast) => {
                     toast.info(payload.titulo, {
                         description: payload.mensaje,
+                        // Laravel agrega el `id` de la notificación al
+                        // payload del broadcast: "Ver" la abre igual que
+                        // un clic en la campana (marca leída + navega).
+                        action:
+                            alAbrir && payload.id
+                                ? {
+                                      label: 'Ver',
+                                      onClick: () => alAbrir(payload.id),
+                                  }
+                                : undefined,
                     });
                     mostrarNotificacionNativa(payload);
                     onNuevaNotificacion(payload);

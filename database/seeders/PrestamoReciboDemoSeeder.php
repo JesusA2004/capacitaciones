@@ -52,7 +52,7 @@ class PrestamoReciboDemoSeeder extends Seeder
     {
         $sucursal = Sucursal::where('clave', 'IXT01')->first();
         $departamento = Departamento::where('nombre', 'Operaciones')->first();
-        $puesto = Puesto::where('nombre', 'Gestor fijo')->first();
+        $puesto = Puesto::where('nombre', 'Gestor')->first();
 
         Colaborador::firstOrCreate(
             ['numero_empleado' => 'EMP-0090'],

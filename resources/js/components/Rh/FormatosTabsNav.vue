@@ -36,6 +36,7 @@ function claseTab(activo: boolean): string {
     <nav
         class="inline-flex h-9 w-fit max-w-full items-center justify-start gap-1 overflow-x-auto rounded-xl bg-muted p-1 text-muted-foreground"
         aria-label="Secciones de Formatos"
+        data-tour="formatos-pestanas"
     >
         <Link
             v-if="puedeVerOficiales"

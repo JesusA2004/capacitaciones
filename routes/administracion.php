@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Administracion\AppReleaseController;
+use App\Http\Controllers\Administracion\CoberturaPuestoController;
 use App\Http\Controllers\Administracion\DepartamentoController;
 use App\Http\Controllers\Administracion\EmpresaController;
 use App\Http\Controllers\Administracion\JerarquiaPuestoController;
@@ -56,6 +57,10 @@ Route::middleware(['auth', 'verified'])
             Route::get('/', [JerarquiaPuestoController::class, 'index'])->name('index');
             Route::get('{puesto}/historial', [JerarquiaPuestoController::class, 'historial'])->name('historial');
             Route::put('{puesto}', [JerarquiaPuestoController::class, 'actualizar'])->name('actualizar');
+            // Coberturas temporales (alguien actúa en el puesto de otra
+            // sucursal/región sin dejar el suyo).
+            Route::post('coberturas', [CoberturaPuestoController::class, 'store'])->name('coberturas.store');
+            Route::post('coberturas/{cobertura}/finalizar', [CoberturaPuestoController::class, 'finalizar'])->name('coberturas.finalizar');
         });
 
         // Matriz comercial / territorial: vista B del Organigrama, árbol

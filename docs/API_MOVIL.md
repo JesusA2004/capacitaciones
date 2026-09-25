@@ -35,6 +35,7 @@ Los mismos `FormRequest` de la web (`StoreSolicitudInternaRequest`, `StoreSolici
 ```
 GET  /api/v1/colaborador/perfil          nombre, puesto, sucursal, fecha de ingreso, antigüedad
 GET  /api/v1/colaborador/foto            foto de perfil en streaming (nunca ruta física), 404 si no tiene
+POST /api/v1/colaborador/foto            subir/tomar foto de perfil (multipart `foto`, JPG/PNG/WEBP ≤10 MB); se normaliza a 800×800 y responde `foto_url` con `?v=` nuevo
 GET  /api/v1/colaborador/dashboard       perfil + vacaciones + solicitudes recientes + notificaciones
 GET  /api/v1/colaborador/vacaciones      alias de vacaciones/saldo
 GET  /api/v1/colaborador/solicitudes
@@ -53,8 +54,30 @@ POST /api/v1/solicitudes/{solicitud}/adjuntos   solo a solicitudes propias, PDF/
 
 GET  /api/v1/notificaciones
 POST /api/v1/notificaciones/{notificacion}/leer
+POST /api/v1/notificaciones/{notificacion}/abrir   marca leída + estado ACTUAL del recurso (ver abajo)
 POST /api/v1/notificaciones/leer-todas
 ```
+
+### Abrir una notificación: "¿ya fue atendida?"
+
+Al tocar una notificación, la app debe llamar `POST /notificaciones/{id}/abrir`
+(en vez de solo `/leer`) y seguir navegando con `data.type`/`data.resource_id`
+del listado. La respuesta dice si lo que avisaba ya se resolvió — aunque se
+haya resuelto desde la web después de enviado el aviso:
+
+```json
+{ "data": {
+    "url": "/rh/solicitudes/15",          // solo para la web; la app lo ignora
+    "atendida": true,                     // true = ya se hizo, false = sigue pendiente, null = aviso informativo
+    "estado_recurso": "Aprobada",
+    "mensaje_estado": "La solicitud SOL-000015 ya fue atendida por Ana López: está «Aprobada».",
+    "no_leidas": 3                        // contador actualizado para el badge
+} }
+```
+
+Si `mensaje_estado` no es `null`, mostrarlo al llegar a la pantalla del
+recurso. La lógica vive en `App\Services\Notificaciones\DestinoNotificacionService`
+(compartida con la campana web, `POST /notificaciones/{id}/abrir`).
 
 ### `vacaciones/*` y `rh/vacaciones/*` — legacy, no usar en la app nueva
 

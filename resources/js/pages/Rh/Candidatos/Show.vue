@@ -108,6 +108,7 @@ function generarAltaDigital() {
 
     <div class="flex flex-col gap-6 p-4">
         <CrudPageHeader
+            detalle
             :titulo="`${candidato.nombre} ${candidato.apellidos ?? ''}`"
             :descripcion="
                 candidato.puesto_objetivo?.nombre ?? 'Sin puesto objetivo'

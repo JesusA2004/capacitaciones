@@ -280,11 +280,11 @@ class SolicitudesService
             // usuario.colaborador solo se conserva como fallback de
             // lectura para solicitudes legacy sin colaborador_id.
             ->with([
-                'colaborador:id,name,apellidos,sucursal_principal_id,departamento_id,puesto_id',
+                'colaborador:id,name,apellidos,sucursal_principal_id,departamento_id,puesto_id,foto_path',
                 'colaborador.departamento:id,nombre',
                 'colaborador.puesto:id,nombre',
                 'usuario:id,name,apellidos,colaborador_id',
-                'usuario.colaborador:id,name,apellidos,sucursal_principal_id,departamento_id,puesto_id',
+                'usuario.colaborador:id,name,apellidos,sucursal_principal_id,departamento_id,puesto_id,foto_path',
                 'usuario.colaborador.departamento:id,nombre',
                 'usuario.colaborador.puesto:id,nombre',
                 'revisadoPor:id,name,apellidos',

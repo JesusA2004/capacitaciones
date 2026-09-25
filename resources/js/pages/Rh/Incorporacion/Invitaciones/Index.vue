@@ -88,13 +88,17 @@ const columnas: ColumnaDataTable[] = [
             descripcion="QR temporal para que un colaborador nuevo pueda registrarse en la app. Nadie se registra sin una invitación activa."
             :icono="QrCode"
         >
-            <Button v-if="puedeCrear" @click="dialogoAbierto = true">
+            <Button
+                v-if="puedeCrear"
+                data-tour="invitaciones-nueva"
+                @click="dialogoAbierto = true"
+            >
                 <Plus class="size-4" />
                 Nueva invitación
             </Button>
         </CrudPageHeader>
 
-        <div class="flex flex-wrap items-center gap-2">
+        <div data-tour="invitaciones-filtros" class="flex flex-wrap items-center gap-2">
             <CrudSearchInput
                 :model-value="filtros.busqueda"
                 placeholder="Buscar por nombre, correo o código..."

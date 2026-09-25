@@ -28,7 +28,7 @@ class CampanaReclutamientoDemoSeeder extends Seeder
         $anio = (int) now()->year;
 
         $sucursal = Sucursal::where('clave', 'IXT01')->first();
-        $gestorFijo = Puesto::where('nombre', 'Gestor fijo')->first();
+        $gestorFijo = Puesto::where('nombre', 'Gestor')->first();
         $rhAdmin = User::where('email', 'rh.admin@mrlana.test')->first();
 
         CampanaReclutamiento::create([
@@ -41,7 +41,7 @@ class CampanaReclutamientoDemoSeeder extends Seeder
             'puesto_id' => $gestorFijo?->id,
             'monto' => 10000,
             'candidatos_generados' => null,
-            'observaciones' => 'Campaña de Meta Ads dirigida a Gestor fijo '.self::MARCA,
+            'observaciones' => 'Campaña de Meta Ads dirigida a Gestor '.self::MARCA,
             'created_by' => $rhAdmin?->id,
         ]);
 

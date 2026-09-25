@@ -125,6 +125,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::prefix('colaborador')->name('colaborador.')->group(function () {
             Route::get('perfil', [ColaboradorController::class, 'perfil'])->name('perfil');
             Route::get('foto', [ColaboradorController::class, 'foto'])->name('foto');
+            Route::post('foto', [ColaboradorController::class, 'subirFoto'])->name('foto.store');
             Route::get('dashboard', [ColaboradorController::class, 'dashboard'])->name('dashboard');
             Route::get('vacaciones', [ColaboradorController::class, 'vacaciones'])->name('vacaciones');
             Route::get('solicitudes', [ColaboradorController::class, 'solicitudes'])->name('solicitudes.index');
@@ -221,6 +222,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::get('/', [NotificacionController::class, 'index'])->name('index');
             Route::post('leer-todas', [NotificacionController::class, 'marcarTodasLeidas'])->name('leer-todas');
             Route::post('{notificacion}/leer', [NotificacionController::class, 'marcarLeida'])->name('leer');
+            Route::post('{notificacion}/abrir', [NotificacionController::class, 'abrir'])->name('abrir');
         });
 
         // RH desde la app movil: expedientes completos, bandeja unificada,

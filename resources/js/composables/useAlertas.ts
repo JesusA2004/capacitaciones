@@ -128,7 +128,8 @@ export function useAlertas() {
             text: 'Indica por qué esta plaza ya no se va a cubrir.',
             input: 'textarea',
             inputLabel: 'Motivo de cancelación',
-            inputPlaceholder: 'Ej. La ruta se dio de baja y ya no requiere cobertura.',
+            inputPlaceholder:
+                'Ej. La ruta se dio de baja y ya no requiere cobertura.',
             showCancelButton: true,
             confirmButtonText: 'Sí, cancelar vacante',
             cancelButtonText: 'Volver',
@@ -175,7 +176,20 @@ export function useAlertas() {
             .then(() => undefined);
     }
 
+    function confirmarFinCobertura(
+        persona: string,
+        puesto: string,
+    ): Promise<boolean> {
+        return confirmar({
+            icono: 'question',
+            titulo: '¿Terminar cobertura?',
+            texto: `${persona} deja de cubrir «${puesto}». Conserva su propio puesto; el lugar cubierto vuelve a mostrarse sin ocupar.`,
+            confirmarTexto: 'Sí, terminar',
+        });
+    }
+
     return {
+        confirmarFinCobertura,
         confirmarEliminacion,
         confirmarPublicacion,
         confirmarAsignacionMasiva,

@@ -172,8 +172,10 @@ test('el listado y el detalle de expedientes nunca exponen la ruta fisica de la 
     $respuestaShow->assertInertia(function ($page) use ($colaborador) {
         expect(json_encode($page->toArray()['props']['colaborador']))
             ->not->toContain('expedientes/999/foto')
+            // `?v=` versiona la miniatura para que una foto nueva no se
+            // quede oculta por la caché del navegador.
             ->and($page->toArray()['props']['colaborador']['foto_url'])
-            ->toBe(route('rh.expedientes.foto', $colaborador));
+            ->toStartWith(route('rh.expedientes.foto', $colaborador).'?v=');
     });
 });
 

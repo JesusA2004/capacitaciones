@@ -21,7 +21,7 @@ defineProps<{
 </script>
 
 <template>
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div data-tour="indicadores" class="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <MetricCard
             v-for="(item, indice) in estadisticas"
             :key="indice"

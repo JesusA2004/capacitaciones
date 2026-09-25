@@ -27,55 +27,62 @@ Tabla `puesto_cobertura` (muchos a muchos): `puesto_id` puede cubrir a
 
 ## Jerarquía base sembrada (`PuestoJerarquiaSeeder`)
 
-Un solo árbol, con **Dirección General** como única raíz (`puesto_superior_id = null`,
-`nivel_jerarquico = 1`) y cinco ramas colgando directamente de ella. El seeder usa
-`updateOrCreate` (no `firstOrCreate`) precisamente para poder correrse sobre una base
-de datos que ya tenía estos puestos sembrados de forma plana (sin conectar a una
-raíz) y dejarlos bien enganchados, sin duplicarlos.
+Estructura definida por dirección (septiembre 2026). Un solo árbol con
+**Dirección General** como raíz:
 
 ```
 Dirección General
-├── Director comercial
-│   └── Gerente regional → Gerente → Subgerente → Gestor fijo (Gestor de ruta) → Gestor volante
-├── Gerente de Recursos Humanos
-│   ├── Generalista de RH
-│   └── Coordinador de Capacitación
-├── Gerente de Contabilidad
-│   ├── Analista de Nómina
-│   └── Auxiliar Contable
-├── Gerente de Sistemas
-│   ├── Analista de Sistemas
-│   └── Soporte Técnico
-└── Responsable administrativo/regional
-    └── Coordinadora regional → Coordinadora
+├── Asistente de Dirección General          (el puesto existe aunque no esté ocupado)
+└── Director comercial                      (Dirección Comercial de Mr. Lana)
+    ├── Asistente de Dirección Comercial
+    ├── Gerente de Sistemas
+    │   └── Monitorista
+    ├── Gerente de Mesa de Control
+    │   └── Analista de Mesa de Control
+    ├── Gerente de Recursos Humanos
+    │   ├── Administración de Personal
+    │   └── Reclutamiento
+    ├── Gerente de Contraloría               (antes "Gerente de Contabilidad")
+    ├── Gerente regional                     (División comercial)
+    │   └── Gerente de Sucursal
+    │       └── Subgerente
+    │           ├── Gestor fijo (ruta)
+    │           │   └── Gestor volante
+    │           └── Gestor grupal
+    └── Gerente administrativo regional      (= coordinadora regional; antes "Coordinadora regional")
+        └── Coordinadora                     (de sucursal)
 ```
 
-**Rama comercial** (la más profunda, con ruta de crecimiento y cobertura definidas):
+Niveles: 1 Dirección General · 2 asistente de DG y Director comercial · 3
+asistente comercial y todas las gerencias · 4 Monitorista, Analista de Mesa
+de Control, Administración de Personal, Reclutamiento, Gerente de Sucursal y
+Coordinadora · 5 Subgerente · 6 gestores fijo/grupal · 7 Gestor volante.
 
-- **Gestor volante**: cubre rutas cuando falta gestor fijo, apoya rutas lejanas o con
-  carga, candidato natural cuando se libera una ruta. Respaldo de Gestor fijo.
-- **Gestor fijo**: tiene ruta asignada, responsable de cartera/ruta, requiere ruta.
-- **Subgerente**: apoya y cubre al gerente temporalmente, supervisa gestores. Respaldo
-  de Gerente.
-- **Gerente**: responsable de sucursal, participa en aprobación de candidatos y
-  solicitudes.
-- **Gerente regional**: supervisa varias sucursales, revisa indicadores.
-- **Director comercial**: vista global, reportes generales, decisiones estratégicas.
+- **Coordinadora** no la listó dirección, pero existe en el Excel real de
+  headcount ("COORDINADORA DE SUCURSAL", ver
+  `App\Services\Headcount\HeadcountImportService::MAPA_PUESTOS`); se conserva
+  bajo el Gerente administrativo regional hasta que dirección confirme.
+- **"Gerente"** era un duplicado de "Gerente de Sucursal": se retiró y el
+  import de headcount mapea "GERENTE" → "Gerente de Sucursal".
+- **Puestos retirados** (`Gerente`, `Generalista de RH`, `Coordinador de
+  Capacitación`, `Analista de Sistemas`, `Soporte Técnico`, `Analista de
+  Nómina`, `Auxiliar Contable`, `Responsable administrativo/regional`,
+  `Supervisor de Operaciones`, `Ejecutivo de Ventas`, `Coordinador de
+  Ventas`): se eliminan (borrado suave) solo si nada los usa. Si tienen
+  colaboradores, headcount, vacantes o historial de movimientos, quedan
+  `activo = false`, fuera del árbol, y el seeder lo reporta en consola para
+  reasignarlos — borrar un puesto en uso vaciaría el historial y borraría en
+  cascada su headcount. El organigrama oculta los puestos inactivos salvo
+  que alguien activo siga en uno.
+- `PuestoSeeder` (catálogo genérico anterior) ya solo delega en
+  `PuestoJerarquiaSeeder`.
 
-**Otras ramas** (RH, Contabilidad, Sistemas, Operaciones administrativas): cada una
-con un puesto de mando reportando directamente a Dirección General y 1-2 puestos
-operativos debajo. `Generalista de RH`, `Coordinador de Capacitación`, `Analista de
-Sistemas` y `Soporte Técnico` ya existían como catálogo plano en `PuestoSeeder`; este
-seeder los reutiliza (mismo `nombre`) y les agrega `puesto_superior_id`/
-`nivel_jerarquico`/`tipo_puesto` para engancharlos al árbol.
+Respaldos sembrados: Gestor volante puede cubrir a Gestor fijo; Subgerente
+puede cubrir a Gerente de Sucursal.
 
-**Importante para el frontend:** el árbol **no se agrupa ni se corta por
-`tipo_puesto`** — un puesto de tipo `comercial` (Director comercial) cuelga
-correctamente de uno `administrativo` (Dirección General). `tipo_puesto` solo se usa
-como badge informativo en cada tarjeta y como filtro, nunca como criterio para
-separar el árbol en sub-árboles independientes (ver `raices`/`obtenerHijos` en
-`JerarquiaPuestos/Index.vue`, que recorren la lista completa de puestos, no una
-lista pre-filtrada por tipo).
+Para el organigrama **por personas**, los puestos "de sucursal" son
+`Gerente de Sucursal`, `Coordinadora` y todo lo que cuelga de ellos
+(`config/organigrama.php`).
 
 ## Módulo `/administracion/jerarquia-puestos`
 

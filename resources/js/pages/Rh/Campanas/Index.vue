@@ -162,7 +162,7 @@ async function eliminar(campana: CampanaReclutamientoItem) {
             descripcion="Gasto por canal (Meta, Indeed, Computrabajo, LinkedIn, referidos) y su costo por candidato/contratación."
             :icono="Megaphone"
         >
-            <Button @click="abrirCrear">
+            <Button data-tour="campanas-nueva" @click="abrirCrear">
                 <Plus class="size-4" />
                 Nueva campaña
             </Button>
@@ -201,7 +201,7 @@ async function eliminar(campana: CampanaReclutamientoItem) {
             ]"
         />
 
-        <div class="flex flex-wrap gap-2">
+        <div data-tour="campanas-filtros" class="flex flex-wrap gap-2">
             <Select
                 :model-value="filtros.mes"
                 @update:model-value="

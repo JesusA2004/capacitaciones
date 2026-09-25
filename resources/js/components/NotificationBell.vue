@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { router } from '@inertiajs/vue3';
 import { Bell } from '@lucide/vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,24 +14,26 @@ import { useNotificaciones } from '@/composables/useNotificaciones';
 import type { NotificacionItem } from '@/composables/useNotificaciones';
 import { colorClaseNotificacion } from '@/lib/notificacionColor';
 
-const { noLeidas, recientes, marcarComoLeida, marcarTodasComoLeidas } =
+const { noLeidas, recientes, marcarTodasComoLeidas, abrirNotificacion } =
     useNotificaciones();
 
-async function abrir(notificacion: NotificacionItem) {
-    if (!notificacion.leida) {
-        await marcarComoLeida(notificacion.id);
-    }
-
-    if (notificacion.url) {
-        router.visit(notificacion.url);
-    }
+// Siempre pasa por el servidor (aunque ya esté leída): ahí se resuelve la
+// pantalla exacta del recurso y si ya fue atendido.
+function abrir(notificacion: NotificacionItem) {
+    void abrirNotificacion(notificacion.id);
 }
 </script>
 
 <template>
     <DropdownMenu>
         <DropdownMenuTrigger as-child>
-            <Button variant="ghost" size="icon" class="relative">
+            <Button
+                variant="ghost"
+                size="icon"
+                class="relative"
+                data-tour="notificaciones"
+                aria-label="Notificaciones"
+            >
                 <Bell class="size-5" />
                 <Badge
                     v-if="noLeidas > 0"

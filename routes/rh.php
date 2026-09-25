@@ -23,6 +23,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // esta ruta — un operativo puro sin `portal.ver` recibe 403 (sección 25
     // del cierre: separación real colaborador/operativo, no solo de sidebar).
     Route::get('mi-expediente', [ExpedienteController::class, 'miExpediente'])->name('mi-expediente')->middleware('can:portal.ver');
+    Route::post('mi-expediente/foto', [ExpedienteController::class, 'subirFotoPropia'])->name('portal.foto')->middleware('can:portal.ver');
 
     Route::prefix('rh')->name('rh.')->group(function () {
         Route::prefix('expedientes')->name('expedientes.')->group(function () {
@@ -37,6 +38,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             // de acceso (correo/roles/bloqueo), nunca la relación laboral.
             Route::get('{colaborador}', [ExpedienteController::class, 'show'])->name('show')->withTrashed();
             Route::get('{colaborador}/foto', [ExpedienteController::class, 'descargarFoto'])->name('foto')->withTrashed();
+            Route::post('{colaborador}/foto', [ExpedienteController::class, 'subirFoto'])->name('foto.store');
             Route::put('{colaborador}/datos-personales', [ExpedienteController::class, 'actualizarDatosPersonales'])->name('datos-personales.update');
             Route::put('{colaborador}/datos-laborales', [ExpedienteController::class, 'actualizarDatosLaborales'])->name('datos-laborales.update');
             Route::post('{colaborador}/recibos-nomina', [ExpedienteController::class, 'generarReciboNomina'])->name('recibos-nomina.store');

@@ -183,7 +183,7 @@ const TIPOS_BAJA = [
             descripcion="Vacaciones, permisos, préstamos, incapacidades y otros trámites internos, todo en un solo lugar."
             :icono="ClipboardList"
         >
-            <Button @click="abrirNuevaSolicitud">
+            <Button data-tour="mis-solicitudes-nueva" @click="abrirNuevaSolicitud">
                 <Plus class="size-4" />
                 Nueva solicitud
             </Button>
@@ -201,12 +201,16 @@ const TIPOS_BAJA = [
             </Button>
         </CrudEmptyState>
 
-        <div v-else class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div
+            v-else
+            data-tour="mis-solicitudes-lista"
+            class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
+        >
             <Link
                 v-for="solicitud in solicitudes.data"
                 :key="solicitud.id"
                 :href="show.url(solicitud.id)"
-                class="group flex flex-col gap-2 rounded-2xl border border-border/60 bg-card p-4 shadow-sm transition-shadow hover:shadow-md"
+                class="group flex flex-col gap-2.5 rounded-2xl border border-border/60 bg-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
             >
                 <div class="flex items-start justify-between gap-2">
                     <div>
@@ -215,7 +219,7 @@ const TIPOS_BAJA = [
                         >
                             {{ solicitud.folio }}
                         </p>
-                        <p class="text-sm font-semibold">
+                        <p class="text-base font-semibold">
                             {{ nombreTipo(solicitud.tipo) }}
                         </p>
                     </div>

@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Colaboradores\SubirFotoRequest;
 use App\Http\Requests\Solicitudes\StoreSolicitudAutoservicioRequest;
 use App\Http\Resources\Api\V1\SolicitudInternaResource;
 use App\Services\Colaboradores\ColaboradorPerfilService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Colaboradores\NotificacionesService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Solicitudes\SolicitudesService;
@@ -57,6 +59,26 @@ class ColaboradorController extends Controller
         return $this->storage->respuesta($colaborador->foto_path, [
             'Content-Type' => 'image/jpeg',
             'Content-Disposition' => 'inline; filename="foto.jpg"',
+        ]);
+    }
+
+    /**
+     * El colaborador sube o toma su foto de perfil desde la app (al
+     * registrar sus documentos). Misma normalización que la web
+     * (FotoColaboradorService): miniatura cuadrada 800×800.
+     */
+    public function subirFoto(SubirFotoRequest $request, FotoColaboradorService $fotos): JsonResponse
+    {
+        $usuario = $request->user();
+        $colaborador = $usuario->colaborador;
+
+        abort_if($colaborador === null, 403, 'Tu cuenta no tiene un colaborador enlazado.');
+
+        $fotos->actualizar($colaborador, $request->file('foto'), $usuario);
+
+        return response()->json([
+            'message' => 'Tu foto de perfil quedó guardada.',
+            'foto_url' => route('api.v1.colaborador.foto', ['v' => substr(md5((string) $colaborador->foto_path), 0, 10)]),
         ]);
     }
 

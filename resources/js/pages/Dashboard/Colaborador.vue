@@ -3,7 +3,6 @@ import { Head } from '@inertiajs/vue3';
 import { CalendarDays, ClipboardList, FileWarning, ShieldCheck } from '@lucide/vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import MetricCard from '@/components/Dashboard/MetricCard.vue';
-import Heading from '@/components/Heading.vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { dashboard } from '@/routes';
 import type { DashboardColaboradorProps } from '@/types';
@@ -21,10 +20,6 @@ defineOptions({
     <Head title="Inicio" />
 
     <div class="flex flex-col gap-6 p-4">
-        <Heading
-            title="Inicio"
-            description="Tus documentos y solicitudes en un solo lugar."
-        />
 
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <MetricCard

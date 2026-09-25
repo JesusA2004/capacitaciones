@@ -133,6 +133,7 @@ async function eliminar(rol: RolItem) {
         />
 
         <CrudSearchInput
+            data-tour="busqueda"
             v-model="busqueda"
             placeholder="Buscar rol por nombre..."
         />
@@ -151,6 +152,7 @@ async function eliminar(rol: RolItem) {
 
         <template v-else>
             <div
+                data-tour="tabla"
                 class="hidden overflow-hidden rounded-2xl border border-border/60 shadow-sm sm:block"
             >
                 <Table>
@@ -201,7 +203,7 @@ async function eliminar(rol: RolItem) {
                 </Table>
             </div>
 
-            <div class="flex flex-col gap-3 sm:hidden">
+            <div data-tour="tabla" class="flex flex-col gap-3 sm:hidden">
                 <CrudMobileCard
                     v-for="rol in rolesFiltrados"
                     :key="rol.id"

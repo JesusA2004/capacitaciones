@@ -58,7 +58,11 @@ function enviar() {
             <form class="grid gap-4" @submit.prevent="enviar">
                 <div class="grid gap-2">
                     <Label for="editar-email">Correo de acceso</Label>
-                    <Input id="editar-email" v-model="form.email" type="email" />
+                    <Input
+                        id="editar-email"
+                        v-model="form.email"
+                        type="email"
+                    />
                     <InputError :message="form.errors.email" />
                 </div>
 
@@ -74,7 +78,9 @@ function enviar() {
                         >
                             <Checkbox
                                 :model-value="form.roles.includes(rol)"
-                                @update:model-value="(v) => alternarRol(rol, !!v)"
+                                @update:model-value="
+                                    (v) => alternarRol(rol, !!v)
+                                "
                             />
                             {{ rol.replace(/_/g, ' ') }}
                         </label>

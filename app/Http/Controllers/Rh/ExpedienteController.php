@@ -6,6 +6,7 @@ use App\Enums\EstadoUsuario;
 use App\Enums\TipoSolicitudInterna;
 use App\Exports\ReporteRhExport;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Colaboradores\SubirFotoRequest;
 use App\Http\Requests\Rh\ActualizarDatosLaboralesRequest;
 use App\Http\Requests\Rh\ActualizarDatosPersonalesRequest;
 use App\Http\Requests\Rh\GenerarReciboNominaRequest;
@@ -25,6 +26,7 @@ use App\Models\SolicitudInterna;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Expedientes\AvisoPrivacidadService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Expedientes\ExpedienteService;
@@ -62,6 +64,7 @@ class ExpedienteController extends Controller
         private readonly MovimientoLaboralService $movimientos,
         private readonly ReciboNominaService $reciboNomina,
         private readonly PrestamoService $prestamoService,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     /**
@@ -645,7 +648,42 @@ class ExpedienteController extends Controller
 
         return $this->documentoStorage->respuesta($colaborador->foto_path, [
             'Content-Disposition' => 'inline; filename="foto.jpg"',
+            // La URL lleva `?v=` que cambia con cada foto nueva (ver
+            // FotoColaboradorService::url), así que puede cachearse: las
+            // miniaturas de listas y tableros no se vuelven a descargar.
+            'Cache-Control' => 'private, max-age=86400',
         ]);
+    }
+
+    /**
+     * RH (o el propio colaborador desde su expediente) sube o cambia la
+     * foto de perfil — normalizada a miniatura cuadrada por el servicio.
+     */
+    public function subirFoto(SubirFotoRequest $request, Colaborador $colaborador): RedirectResponse
+    {
+        $usuario = $request->user();
+
+        abort_unless($this->alcance->puedeVerExpediente($usuario, $colaborador), 403);
+        abort_unless($usuario->can('expedientes.editar') || $usuario->colaborador_id === $colaborador->id, 403);
+
+        $this->fotos->actualizar($colaborador, $request->file('foto'), $usuario);
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Foto de perfil actualizada.']);
+    }
+
+    /**
+     * El colaborador sube su propia foto al registrar sus documentos.
+     */
+    public function subirFotoPropia(SubirFotoRequest $request): RedirectResponse
+    {
+        $usuario = $request->user();
+        $colaborador = $usuario->colaborador;
+
+        abort_if($colaborador === null, 403, 'Tu cuenta no tiene un colaborador enlazado.');
+
+        $this->fotos->actualizar($colaborador, $request->file('foto'), $usuario);
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Tu foto de perfil quedó guardada.']);
     }
 
     /**
@@ -655,11 +693,7 @@ class ExpedienteController extends Controller
      */
     private function fotoUrl(Colaborador $colaborador): ?string
     {
-        if ($colaborador->foto_path === null) {
-            return null;
-        }
-
-        return route('rh.expedientes.foto', $colaborador);
+        return $this->fotos->url($colaborador);
     }
 
     /**

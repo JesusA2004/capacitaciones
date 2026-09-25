@@ -18,9 +18,6 @@ class DemoSeeder extends Seeder
     {
         $this->call([
             UsuarioDemoSeeder::class,
-            // Después de UsuarioDemoSeeder: necesita colaboradores activos
-            // ya creados para tener a quién asignar como gestor de ruta.
-            GestoresDemoSeeder::class,
             DashboardDemoSeeder::class,
             // Documentos/contratos/versionado/bajas de expediente: necesita
             // los colaboradores de UsuarioDemoSeeder ya creados.
@@ -38,6 +35,11 @@ class DemoSeeder extends Seeder
             // Gasto de campañas de reclutamiento: necesita sucursal/puesto/
             // usuario rh_admin ya creados (catálogo organizacional + UsuarioDemoSeeder).
             CampanaReclutamientoDemoSeeder::class,
+            // Al final: completa cada sucursal (gerente, subgerente,
+            // coordinadora, un gestor por ruta y volante), el corporativo y
+            // las coberturas de ejemplo — reutiliza primero a los gestores que
+            // los seeders anteriores ya crearon sin ruta.
+            OrganigramaDemoSeeder::class,
         ]);
     }
 }

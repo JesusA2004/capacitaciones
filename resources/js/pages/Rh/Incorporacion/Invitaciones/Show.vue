@@ -82,6 +82,7 @@ const puedeAccionar = computed(() => props.invitacion.estado === 'activo');
 
     <div class="flex flex-col gap-6 p-4">
         <CrudPageHeader
+            detalle
             :titulo="
                 invitacion.nombre_prellenado ?? 'Invitación de incorporación'
             "

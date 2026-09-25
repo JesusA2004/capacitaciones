@@ -37,12 +37,12 @@ const colapsado = ref(false);
             <!-- Tronco: del puesto hacia la barra horizontal que conecta a
                  todos sus subordinados (patrón clásico de organigrama, no
                  solo líneas sueltas por hijo). -->
-            <div class="h-6 w-px bg-[var(--brand-primary)]/40" />
+            <div class="h-8 w-0.5 rounded-full bg-primary/25" />
             <div class="flex flex-wrap items-start justify-center">
                 <div
                     v-for="(hijo, indice) in hijos"
                     :key="hijo.id"
-                    class="relative flex flex-col items-center px-5"
+                    class="relative flex flex-col items-center px-4"
                 >
                     <!-- Barra horizontal: solo la mitad para el primero/
                          último (para que no sobresalga del árbol), completa
@@ -50,7 +50,7 @@ const colapsado = ref(false);
                          hermanos arma una sola línea continua. -->
                     <div
                         v-if="hijos.length > 1"
-                        class="absolute top-0 h-px bg-[var(--brand-primary)]/40"
+                        class="absolute top-0 h-0.5 rounded-full bg-primary/25"
                         :class="[
                             indice === 0
                                 ? 'right-0 left-1/2'
@@ -59,14 +59,16 @@ const colapsado = ref(false);
                                   : 'inset-x-0',
                         ]"
                     />
-                    <div class="h-6 w-px bg-[var(--brand-primary)]/40" />
+                    <div class="h-8 w-0.5 rounded-full bg-primary/25" />
                     <OrganigramaNodo
                         :puesto="hijo"
                         :hijos="obtenerHijos(hijo.id)"
                         :obtener-hijos="obtenerHijos"
                         @seleccionar="(p) => emit('seleccionar', p)"
                         @editar="(p) => emit('editar', p)"
-                        @agregar-subordinado="(p) => emit('agregarSubordinado', p)"
+                        @agregar-subordinado="
+                            (p) => emit('agregarSubordinado', p)
+                        "
                         @quitar-relacion="(p) => emit('quitarRelacion', p)"
                     />
                 </div>
@@ -74,9 +76,10 @@ const colapsado = ref(false);
         </template>
         <p
             v-else-if="hijos.length && colapsado"
-            class="mt-2 text-[11px] text-muted-foreground"
+            class="mt-5 rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground"
         >
-            {{ hijos.length }} puesto{{ hijos.length === 1 ? '' : 's' }} debajo, oculto{{ hijos.length === 1 ? '' : 's' }}
+            {{ hijos.length }} puesto{{ hijos.length === 1 ? '' : 's' }} debajo,
+            oculto{{ hijos.length === 1 ? '' : 's' }}
         </p>
     </div>
 </template>

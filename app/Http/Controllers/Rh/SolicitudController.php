@@ -18,6 +18,7 @@ use App\Models\SolicitudInterna;
 use App\Models\SolicitudInternaDocumento;
 use App\Models\Sucursal;
 use App\Models\User;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Finiquitos\FiniquitoService;
 use App\Services\Solicitudes\SolicitudesService;
 use App\Services\Solicitudes\SolicitudFormatoOficialService;
@@ -38,6 +39,7 @@ class SolicitudController extends Controller
         private readonly SolicitudesService $solicitudes,
         private readonly FiniquitoService $finiquitos,
         private readonly SolicitudFormatoOficialService $formatoOficial,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     public function index(Request $request): Response
@@ -45,6 +47,15 @@ class SolicitudController extends Controller
         $this->authorize('viewAny', SolicitudInterna::class);
 
         $tablero = $this->solicitudes->paraTablero($request->user(), $request->only(self::FILTROS));
+
+        // Miniatura del solicitante en cada tarjeta. `foto_path` (ruta del
+        // NAS) se oculta: al frontend solo llega la URL protegida.
+        $tablero['items']->each(function (SolicitudInterna $solicitud): void {
+            $colaborador = $solicitud->colaborador ?? $solicitud->usuario?->colaborador;
+            $solicitud->setAttribute('foto_url', $colaborador !== null ? $this->fotos->url($colaborador) : null);
+            $solicitud->colaborador?->makeHidden('foto_path');
+            $solicitud->usuario?->colaborador?->makeHidden('foto_path');
+        });
 
         return Inertia::render('Rh/Solicitudes/Index', [
             'solicitudes' => $tablero['items'],

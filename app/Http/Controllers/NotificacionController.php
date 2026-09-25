@@ -29,6 +29,15 @@ class NotificacionController extends Controller
         return response()->json(['estado' => 'ok']);
     }
 
+    /**
+     * Clic en una notificación: la marca leída y devuelve a dónde navegar
+     * y si lo que avisaba ya fue atendido.
+     */
+    public function abrir(Request $request, string $notificacion): JsonResponse
+    {
+        return response()->json($this->notificaciones->abrir($request->user(), $notificacion));
+    }
+
     public function marcarTodasLeidas(Request $request): JsonResponse
     {
         $this->notificaciones->marcarTodasLeidas($request->user());

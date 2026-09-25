@@ -53,7 +53,8 @@ const MAPA_ESTADOS: Record<string, { variante: Variante; etiqueta: string }> = {
     revocado: { variante: 'destructive', etiqueta: 'Revocado' },
     revocada: { variante: 'destructive', etiqueta: 'Revocada' },
     ausente: { variante: 'destructive', etiqueta: 'Ausente' },
-    rechazada: { variante: 'destructive', etiqueta: 'Rechazada' },
+    // Un rechazo es un cierre, no una alarma: tono neutro, sin rojo.
+    rechazada: { variante: 'secondary', etiqueta: 'Rechazada' },
     reprobado: { variante: 'destructive', etiqueta: 'Reprobado' },
     reprobada: { variante: 'destructive', etiqueta: 'Reprobada' },
     error: { variante: 'destructive', etiqueta: 'Error' },

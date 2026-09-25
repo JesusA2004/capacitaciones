@@ -122,8 +122,8 @@ return null;
             </template>
         </CrudPageHeader>
 
-        <div class="flex flex-wrap items-end gap-3">
-            <div class="grid gap-2">
+        <div data-tour="reportes-filtros" class="flex flex-wrap items-end gap-3">
+            <div data-tour="reportes-tipo" class="grid gap-2">
                 <label class="text-xs text-muted-foreground">Reporte</label>
                 <Select
                     :model-value="filtros.reporte"
@@ -265,6 +265,7 @@ return null;
 
         <div
             v-if="opcionesGrafica"
+            data-tour="reportes-grafica"
             class="rounded-2xl border border-border/60 bg-card p-4 transition-shadow duration-200 hover:shadow-md"
         >
             <p class="mb-2 text-sm font-semibold">{{ resultado.titulo }}</p>
@@ -281,6 +282,7 @@ return null;
         </div>
 
         <div
+            data-tour="reportes-tabla"
             class="overflow-hidden rounded-2xl border border-border/60 bg-card"
         >
             <div class="border-b border-border/60 px-5 py-3">

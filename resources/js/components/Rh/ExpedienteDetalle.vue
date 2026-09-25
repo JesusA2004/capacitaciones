@@ -47,6 +47,7 @@ import {
 import { computed, ref, watch } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
+import FotoPerfilCaptura from '@/components/Common/FotoPerfilCaptura.vue';
 import InputError from '@/components/InputError.vue';
 import CampoInfo from '@/components/Rh/CampoInfo.vue';
 import ConfirmarEntregaPrestamoDialog from '@/components/Rh/ConfirmarEntregaPrestamoDialog.vue';
@@ -98,10 +99,12 @@ import {
     store as crearCuentaUsuario,
     update as actualizarCuentaUsuario,
 } from '@/routes/administracion/usuarios';
+import { foto as subirFotoPropia } from '@/routes/portal';
 import { darDeBaja, reactivar } from '@/routes/rh/expedientes';
 import { update as actualizarAvisos } from '@/routes/rh/expedientes/avisos';
 import { update as actualizarDatosLaborales } from '@/routes/rh/expedientes/datos-laborales';
 import { update as actualizarDatosPersonales } from '@/routes/rh/expedientes/datos-personales';
+import { store as subirFotoColaborador } from '@/routes/rh/expedientes/foto';
 import { store as registrarMovimientoPrestamo } from '@/routes/rh/expedientes/prestamos/movimientos';
 import {
     descargar as descargarRecibo,
@@ -136,10 +139,19 @@ const props = defineProps<{
     puedeEditarLaborales: boolean;
     rolesDisponibles: string[];
     empresasDisponibles: { id: number; nombre: string }[];
-    sucursalesDisponibles: { id: number; nombre: string; empresa_id: number | null }[];
+    sucursalesDisponibles: {
+        id: number;
+        nombre: string;
+        empresa_id: number | null;
+    }[];
     departamentosDisponibles: { id: number; nombre: string }[];
     puestosDisponibles: { id: number; nombre: string }[];
-    jefesDisponibles: { id: number; name: string; apellidos: string | null; numero_empleado: string | null }[];
+    jefesDisponibles: {
+        id: number;
+        name: string;
+        apellidos: string | null;
+        numero_empleado: string | null;
+    }[];
     esCuentaPropia: boolean;
     puedeRevisarDocumentos: boolean;
     puedeVerExtraccion: boolean;
@@ -224,8 +236,10 @@ async function darDeBajaColaborador() {
 
     router.delete(darDeBaja.url(props.colaborador.id), {
         preserveScroll: true,
-        onSuccess: () => mostrarExito('El colaborador se dio de baja correctamente.'),
-        onError: () => mostrarError('No fue posible dar de baja al colaborador.'),
+        onSuccess: () =>
+            mostrarExito('El colaborador se dio de baja correctamente.'),
+        onError: () =>
+            mostrarError('No fue posible dar de baja al colaborador.'),
     });
 }
 
@@ -281,12 +295,15 @@ const onboardingPorcentaje = computed(() => {
 });
 
 const anilloExpediente = computed(
-    () => `conic-gradient(var(--primary) ${props.resumenExpediente.porcentaje * 3.6}deg, var(--primary-foreground, var(--muted)) 0deg)`,
+    () =>
+        `conic-gradient(var(--primary) ${props.resumenExpediente.porcentaje * 3.6}deg, var(--primary-foreground, var(--muted)) 0deg)`,
 );
 
 // --- Cuenta de acceso: crear (colaborador sin cuenta todavía) ---
 function alternarRol(lista: string[], rol: string, marcado: boolean): string[] {
-    return marcado ? [...new Set([...lista, rol])] : lista.filter((r) => r !== rol);
+    return marcado
+        ? [...new Set([...lista, rol])]
+        : lista.filter((r) => r !== rol);
 }
 
 const formCrearCuenta = useForm({
@@ -307,7 +324,8 @@ function crearCuenta() {
                 mostrarExito(
                     'Cuenta creada. Se envió un correo para que establezca su contraseña.',
                 ),
-            onError: () => mostrarError('No se pudo crear la cuenta de acceso.'),
+            onError: () =>
+                mostrarError('No se pudo crear la cuenta de acceso.'),
         });
 }
 
@@ -349,7 +367,9 @@ const avisoDialogTexto = ref('');
 
 function abrirAviso(tipo: 'privacidad' | 'datos') {
     avisoDialogTitulo.value =
-        tipo === 'privacidad' ? 'Aviso de privacidad' : 'Consentimiento de datos';
+        tipo === 'privacidad'
+            ? 'Aviso de privacidad'
+            : 'Consentimiento de datos';
     avisoDialogTexto.value =
         tipo === 'privacidad'
             ? props.avisoPrivacidadTexto
@@ -391,7 +411,8 @@ function alCambiarEmpresa(valor: string) {
     empresaSeleccionada.value = valor;
 
     const sigueDisponible = sucursalesFiltradas.value.some(
-        (sucursal) => String(sucursal.id) === formLaborales.sucursal_principal_id,
+        (sucursal) =>
+            String(sucursal.id) === formLaborales.sucursal_principal_id,
     );
 
     if (!sigueDisponible) {
@@ -443,7 +464,8 @@ function guardarLaborales() {
                 mostrarExito('Datos laborales actualizados correctamente.');
                 editandoLaborales.value = false;
             },
-            onError: () => mostrarError('No se pudieron actualizar los datos laborales.'),
+            onError: () =>
+                mostrarError('No se pudieron actualizar los datos laborales.'),
         });
 }
 
@@ -470,12 +492,19 @@ function moneda(valor: number): string {
 // --- Recibos de nómina (ver App\Services\Nomina\ReciboNominaService) ---
 
 const prestamoActivo = computed(
-    () => props.prestamos.find((prestamo) => prestamo.estado === 'activo') ?? null,
+    () =>
+        props.prestamos.find((prestamo) => prestamo.estado === 'activo') ??
+        null,
 );
 
 const dialogoReciboAbierto = ref(false);
 
-type ConceptoForm = { concepto: string; monto: number; tipo?: string; prestamo_id?: number };
+type ConceptoForm = {
+    concepto: string;
+    monto: number;
+    tipo?: string;
+    prestamo_id?: number;
+};
 
 const formRecibo = useForm({
     periodo_inicio: '',
@@ -499,8 +528,7 @@ function sueldoSugeridoPeriodo(): number {
 
     const inicio = new Date(formRecibo.periodo_inicio);
     const fin = new Date(formRecibo.periodo_fin);
-    const dias =
-        Math.round((fin.getTime() - inicio.getTime()) / 86400000) + 1;
+    const dias = Math.round((fin.getTime() - inicio.getTime()) / 86400000) + 1;
 
     if (dias <= 0) {
         return mensual;
@@ -509,12 +537,9 @@ function sueldoSugeridoPeriodo(): number {
     return Math.round(((mensual / 30) * dias + Number.EPSILON) * 100) / 100;
 }
 
-watch(
-    [() => formRecibo.periodo_inicio, () => formRecibo.periodo_fin],
-    () => {
-        formRecibo.sueldo_base = sueldoSugeridoPeriodo();
-    },
-);
+watch([() => formRecibo.periodo_inicio, () => formRecibo.periodo_fin], () => {
+    formRecibo.sueldo_base = sueldoSugeridoPeriodo();
+});
 
 function abrirDialogoRecibo() {
     formRecibo.reset();
@@ -554,7 +579,8 @@ function generarRecibo() {
             mostrarExito('Recibo de nómina generado correctamente.');
             dialogoReciboAbierto.value = false;
         },
-        onError: () => mostrarError('No fue posible generar el recibo de nómina.'),
+        onError: () =>
+            mostrarError('No fue posible generar el recibo de nómina.'),
     });
 }
 
@@ -593,6 +619,45 @@ function registrarPago(prestamoId: number) {
         onError: () => mostrarError('No fue posible registrar el movimiento.'),
     });
 }
+
+const urlSubidaFoto = computed(() =>
+    props.esPropio
+        ? subirFotoPropia.url()
+        : subirFotoColaborador.url(props.colaborador.id),
+);
+
+/**
+ * Pestaña con la que abre el expediente: `?tab=documentos` (u otra) permite
+ * que una notificación lleve directo a la sección que avisa — ver
+ * App\Services\Notificaciones\DestinoNotificacionService.
+ */
+const PESTANAS = [
+    'resumen',
+    'personales',
+    'laborales',
+    'cuenta',
+    'documentos',
+    'onboarding',
+    'avisos',
+    'vacaciones',
+    'recibos',
+    'prestamos',
+    'solicitudes',
+    'historial',
+];
+const pestanaInicial = (() => {
+    if (typeof window === 'undefined') {
+        return 'resumen';
+    }
+
+    const solicitada = new URLSearchParams(window.location.search).get('tab');
+
+    return solicitada &&
+        PESTANAS.includes(solicitada) &&
+        !(solicitada === 'cuenta' && props.esPropio)
+        ? solicitada
+        : 'resumen';
+})();
 </script>
 
 <template>
@@ -600,6 +665,7 @@ function registrarPago(prestamoId: number) {
 
     <div class="flex w-full min-w-0 flex-col gap-6 p-4">
         <Card
+            data-tour="expediente-cabecera"
             class="overflow-hidden rounded-3xl border-border/60 bg-gradient-to-br from-primary/10 via-card to-card shadow-sm transition-shadow hover:shadow-md"
         >
             <CardContent
@@ -672,9 +738,13 @@ function registrarPago(prestamoId: number) {
                     </div>
                 </div>
 
-                <div class="flex flex-col items-end gap-3 sm:flex-row sm:items-center">
+                <div
+                    class="flex flex-col items-end gap-3 sm:flex-row sm:items-center"
+                >
                     <div class="flex flex-col items-end gap-1">
-                        <span class="text-xs text-muted-foreground">Expediente</span>
+                        <span class="text-xs text-muted-foreground"
+                            >Expediente</span
+                        >
                         <div
                             class="relative flex size-14 items-center justify-center rounded-full"
                             :style="{ background: anilloExpediente }"
@@ -688,7 +758,9 @@ function registrarPago(prestamoId: number) {
                     </div>
 
                     <Button
-                        v-if="colaborador.estatus === 'inactivo' && puedeReactivar"
+                        v-if="
+                            colaborador.estatus === 'inactivo' && puedeReactivar
+                        "
                         size="sm"
                         variant="success"
                         @click="reactivarColaborador"
@@ -715,12 +787,18 @@ function registrarPago(prestamoId: number) {
                                     class="flex-col items-start gap-0.5 py-2"
                                     @select="restablecerAccesoColaborador"
                                 >
-                                    <span class="flex items-center gap-1.5 font-medium">
+                                    <span
+                                        class="flex items-center gap-1.5 font-medium"
+                                    >
                                         <Unlock class="size-3.5" />
                                         Restablecer acceso
                                     </span>
-                                    <span class="text-xs whitespace-normal text-muted-foreground">
-                                        Vuelve a permitir el inicio de sesión. El colaborador nunca dejó de estar activo en la plantilla.
+                                    <span
+                                        class="text-xs whitespace-normal text-muted-foreground"
+                                    >
+                                        Vuelve a permitir el inicio de sesión.
+                                        El colaborador nunca dejó de estar
+                                        activo en la plantilla.
                                     </span>
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
@@ -728,12 +806,19 @@ function registrarPago(prestamoId: number) {
                                     class="flex-col items-start gap-0.5 py-2"
                                     @select="revocarAccesoColaborador"
                                 >
-                                    <span class="flex items-center gap-1.5 font-medium">
+                                    <span
+                                        class="flex items-center gap-1.5 font-medium"
+                                    >
                                         <Lock class="size-3.5" />
                                         Revocar acceso
                                     </span>
-                                    <span class="text-xs whitespace-normal text-muted-foreground">
-                                        Solo bloquea el inicio de sesión (ej. incapacidad, suspensión temporal). Sigue activo en la plantilla — su empleo no cambia.
+                                    <span
+                                        class="text-xs whitespace-normal text-muted-foreground"
+                                    >
+                                        Solo bloquea el inicio de sesión (ej.
+                                        incapacidad, suspensión temporal). Sigue
+                                        activo en la plantilla — su empleo no
+                                        cambia.
                                     </span>
                                 </DropdownMenuItem>
                             </template>
@@ -743,8 +828,13 @@ function registrarPago(prestamoId: number) {
                                 @select="darDeBajaColaborador"
                             >
                                 <span class="font-medium">Dar de baja</span>
-                                <span class="text-xs whitespace-normal opacity-80">
-                                    Termina la relación laboral y libera la plaza en headcount/vacantes. Se conserva todo el historial — nunca se borra nada (baja lógica).
+                                <span
+                                    class="text-xs whitespace-normal opacity-80"
+                                >
+                                    Termina la relación laboral y libera la
+                                    plaza en headcount/vacantes. Se conserva
+                                    todo el historial — nunca se borra nada
+                                    (baja lógica).
                                 </span>
                             </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -753,44 +843,86 @@ function registrarPago(prestamoId: number) {
             </CardContent>
         </Card>
 
-        <Tabs default-value="resumen" orientation="vertical" class="items-start gap-4 lg:flex-row lg:gap-6">
+        <Tabs
+            :default-value="pestanaInicial"
+            orientation="vertical"
+            class="items-start gap-4 lg:flex-row lg:gap-6"
+        >
             <TabsList
+                data-tour="expediente-pestanas"
                 class="h-auto w-full flex-row justify-start gap-1 overflow-x-auto bg-muted/60 p-1.5 lg:w-56 lg:shrink-0 lg:flex-col lg:items-stretch lg:gap-0.5 lg:overflow-visible lg:rounded-2xl lg:p-2"
             >
-                <TabsTrigger value="resumen" class="justify-start gap-2 lg:w-full">
+                <TabsTrigger
+                    value="resumen"
+                    class="justify-start gap-2 lg:w-full"
+                >
                     <LayoutDashboard class="size-4" /> Resumen
                 </TabsTrigger>
-                <TabsTrigger value="personales" class="justify-start gap-2 lg:w-full">
+                <TabsTrigger
+                    value="personales"
+                    class="justify-start gap-2 lg:w-full"
+                >
                     <IdCard class="size-4" /> Datos personales
                 </TabsTrigger>
-                <TabsTrigger value="laborales" class="justify-start gap-2 lg:w-full">
+                <TabsTrigger
+                    value="laborales"
+                    class="justify-start gap-2 lg:w-full"
+                >
                     <Briefcase class="size-4" /> Datos laborales
                 </TabsTrigger>
-                <TabsTrigger v-if="!esPropio" value="cuenta" class="justify-start gap-2 lg:w-full">
+                <TabsTrigger
+                    v-if="!esPropio"
+                    value="cuenta"
+                    class="justify-start gap-2 lg:w-full"
+                >
                     <UserCog class="size-4" /> Cuenta
                 </TabsTrigger>
-                <TabsTrigger value="documentos" class="justify-start gap-2 lg:w-full">
+                <TabsTrigger
+                    value="documentos"
+                    class="justify-start gap-2 lg:w-full"
+                >
                     <FolderOpen class="size-4" /> Documentos
                 </TabsTrigger>
-                <TabsTrigger value="onboarding" class="justify-start gap-2 lg:w-full">
+                <TabsTrigger
+                    value="onboarding"
+                    class="justify-start gap-2 lg:w-full"
+                >
                     <ListChecks class="size-4" /> Onboarding
                 </TabsTrigger>
-                <TabsTrigger value="avisos" class="justify-start gap-2 lg:w-full">
+                <TabsTrigger
+                    value="avisos"
+                    class="justify-start gap-2 lg:w-full"
+                >
                     <ScrollText class="size-4" /> Avisos
                 </TabsTrigger>
-                <TabsTrigger value="vacaciones" class="justify-start gap-2 lg:w-full">
+                <TabsTrigger
+                    value="vacaciones"
+                    class="justify-start gap-2 lg:w-full"
+                >
                     <Calendar class="size-4" /> Vacaciones
                 </TabsTrigger>
-                <TabsTrigger value="recibos" class="justify-start gap-2 lg:w-full">
+                <TabsTrigger
+                    value="recibos"
+                    class="justify-start gap-2 lg:w-full"
+                >
                     <Receipt class="size-4" /> Recibos de nómina
                 </TabsTrigger>
-                <TabsTrigger value="prestamos" class="justify-start gap-2 lg:w-full">
+                <TabsTrigger
+                    value="prestamos"
+                    class="justify-start gap-2 lg:w-full"
+                >
                     <Wallet class="size-4" /> Préstamos
                 </TabsTrigger>
-                <TabsTrigger value="solicitudes" class="justify-start gap-2 lg:w-full">
+                <TabsTrigger
+                    value="solicitudes"
+                    class="justify-start gap-2 lg:w-full"
+                >
                     <ClipboardList class="size-4" /> Solicitudes
                 </TabsTrigger>
-                <TabsTrigger value="historial" class="justify-start gap-2 lg:w-full">
+                <TabsTrigger
+                    value="historial"
+                    class="justify-start gap-2 lg:w-full"
+                >
                     <History class="size-4" /> Historial RH
                 </TabsTrigger>
             </TabsList>
@@ -801,9 +933,9 @@ function registrarPago(prestamoId: number) {
                         <Card class="rounded-2xl border-border/60">
                             <CardContent class="pt-6 text-center">
                                 <p class="text-2xl font-semibold tabular-nums">
-                                    {{ resumenExpediente.requeridos_aprobados }}/{{
-                                        resumenExpediente.requeridos_total
-                                    }}
+                                    {{
+                                        resumenExpediente.requeridos_aprobados
+                                    }}/{{ resumenExpediente.requeridos_total }}
                                 </p>
                                 <p class="text-xs text-muted-foreground">
                                     Documentos requeridos aprobados
@@ -863,7 +995,9 @@ function registrarPago(prestamoId: number) {
                 <TabsContent value="personales">
                     <Card class="rounded-2xl border-border/60">
                         <CardHeader>
-                            <CardTitle class="flex items-center gap-2 text-base">
+                            <CardTitle
+                                class="flex items-center gap-2 text-base"
+                            >
                                 <IdCard class="size-4" />
                                 Datos personales
                             </CardTitle>
@@ -880,7 +1014,9 @@ function registrarPago(prestamoId: number) {
                                         <Fingerprint class="size-3.5" />
                                         Identificación
                                     </p>
-                                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    <div
+                                        class="grid grid-cols-1 gap-4 sm:grid-cols-2"
+                                    >
                                         <div class="grid gap-2">
                                             <Label for="fecha_nacimiento"
                                                 >Fecha de nacimiento</Label
@@ -891,7 +1027,9 @@ function registrarPago(prestamoId: number) {
                                                 :disabled="!puedeEditar"
                                             />
                                             <InputError
-                                                :message="form.errors.fecha_nacimiento"
+                                                :message="
+                                                    form.errors.fecha_nacimiento
+                                                "
                                             />
                                         </div>
                                         <div class="grid gap-2">
@@ -903,7 +1041,9 @@ function registrarPago(prestamoId: number) {
                                                 maxlength="18"
                                                 :disabled="!puedeEditar"
                                             />
-                                            <InputError :message="form.errors.curp" />
+                                            <InputError
+                                                :message="form.errors.curp"
+                                            />
                                         </div>
                                         <div class="grid gap-2">
                                             <Label for="rfc">RFC</Label>
@@ -914,7 +1054,9 @@ function registrarPago(prestamoId: number) {
                                                 maxlength="13"
                                                 :disabled="!puedeEditar"
                                             />
-                                            <InputError :message="form.errors.rfc" />
+                                            <InputError
+                                                :message="form.errors.rfc"
+                                            />
                                         </div>
                                         <div class="grid gap-2">
                                             <Label for="nss">NSS</Label>
@@ -924,7 +1066,9 @@ function registrarPago(prestamoId: number) {
                                                 maxlength="11"
                                                 :disabled="!puedeEditar"
                                             />
-                                            <InputError :message="form.errors.nss" />
+                                            <InputError
+                                                :message="form.errors.nss"
+                                            />
                                         </div>
                                     </div>
                                 </div>
@@ -936,37 +1080,53 @@ function registrarPago(prestamoId: number) {
                                         <Home class="size-3.5" />
                                         Contacto
                                     </p>
-                                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    <div
+                                        class="grid grid-cols-1 gap-4 sm:grid-cols-2"
+                                    >
                                         <div class="grid gap-2">
-                                            <Label for="telefono">Teléfono personal</Label>
+                                            <Label for="telefono"
+                                                >Teléfono personal</Label
+                                            >
                                             <Input
                                                 id="telefono"
                                                 v-model="form.telefono"
                                                 :disabled="!puedeEditar"
                                             />
-                                            <InputError :message="form.errors.telefono" />
+                                            <InputError
+                                                :message="form.errors.telefono"
+                                            />
                                         </div>
                                         <div class="grid gap-2">
                                             <Label for="telefono_corporativo"
-                                                >Teléfono corporativo (opcional)</Label
+                                                >Teléfono corporativo
+                                                (opcional)</Label
                                             >
                                             <Input
                                                 id="telefono_corporativo"
-                                                v-model="form.telefono_corporativo"
+                                                v-model="
+                                                    form.telefono_corporativo
+                                                "
                                                 :disabled="!puedeEditar"
                                             />
                                             <InputError
-                                                :message="form.errors.telefono_corporativo"
+                                                :message="
+                                                    form.errors
+                                                        .telefono_corporativo
+                                                "
                                             />
                                         </div>
                                         <div class="grid gap-2 sm:col-span-2">
-                                            <Label for="domicilio">Domicilio</Label>
+                                            <Label for="domicilio"
+                                                >Domicilio</Label
+                                            >
                                             <Input
                                                 id="domicilio"
                                                 v-model="form.domicilio"
                                                 :disabled="!puedeEditar"
                                             />
-                                            <InputError :message="form.errors.domicilio" />
+                                            <InputError
+                                                :message="form.errors.domicilio"
+                                            />
                                         </div>
                                         <div class="grid gap-2">
                                             <Label for="correo_personal"
@@ -979,19 +1139,27 @@ function registrarPago(prestamoId: number) {
                                                 :disabled="!puedeEditar"
                                             />
                                             <InputError
-                                                :message="form.errors.correo_personal"
+                                                :message="
+                                                    form.errors.correo_personal
+                                                "
                                             />
                                         </div>
                                         <div class="grid gap-2">
                                             <Label>Correo corporativo</Label>
                                             <Input
-                                                :model-value="colaborador.email ?? 'Sin cuenta de acceso'"
+                                                :model-value="
+                                                    colaborador.email ??
+                                                    'Sin cuenta de acceso'
+                                                "
                                                 readonly
                                                 disabled
                                             />
-                                            <p class="text-xs text-muted-foreground">
-                                                Correo de la cuenta de acceso — se edita
-                                                desde la pestaña «Cuenta».
+                                            <p
+                                                class="text-xs text-muted-foreground"
+                                            >
+                                                Correo de la cuenta de acceso —
+                                                se edita desde la pestaña
+                                                «Cuenta».
                                             </p>
                                         </div>
                                     </div>
@@ -1004,24 +1172,31 @@ function registrarPago(prestamoId: number) {
                                         <PhoneCall class="size-3.5" />
                                         Contacto de emergencia
                                     </p>
-                                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    <div
+                                        class="grid grid-cols-1 gap-4 sm:grid-cols-2"
+                                    >
                                         <div class="grid gap-2">
-                                            <Label for="contacto_emergencia_nombre"
+                                            <Label
+                                                for="contacto_emergencia_nombre"
                                                 >Nombre</Label
                                             >
                                             <Input
                                                 id="contacto_emergencia_nombre"
-                                                v-model="form.contacto_emergencia_nombre"
+                                                v-model="
+                                                    form.contacto_emergencia_nombre
+                                                "
                                                 :disabled="!puedeEditar"
                                             />
                                             <InputError
                                                 :message="
-                                                    form.errors.contacto_emergencia_nombre
+                                                    form.errors
+                                                        .contacto_emergencia_nombre
                                                 "
                                             />
                                         </div>
                                         <div class="grid gap-2">
-                                            <Label for="contacto_emergencia_telefono"
+                                            <Label
+                                                for="contacto_emergencia_telefono"
                                                 >Teléfono</Label
                                             >
                                             <Input
@@ -1057,13 +1232,19 @@ function registrarPago(prestamoId: number) {
 
                 <TabsContent value="laborales">
                     <Card class="rounded-2xl border-border/60">
-                        <CardHeader class="flex flex-row items-center justify-between gap-2">
-                            <CardTitle class="flex items-center gap-2 text-base">
+                        <CardHeader
+                            class="flex flex-row items-center justify-between gap-2"
+                        >
+                            <CardTitle
+                                class="flex items-center gap-2 text-base"
+                            >
                                 <Briefcase class="size-4" />
                                 Datos laborales
                             </CardTitle>
                             <Button
-                                v-if="puedeEditarLaborales && !editandoLaborales"
+                                v-if="
+                                    puedeEditarLaborales && !editandoLaborales
+                                "
                                 size="sm"
                                 variant="ghost"
                                 @click="iniciarEdicionLaborales"
@@ -1078,17 +1259,24 @@ function registrarPago(prestamoId: number) {
                                 class="flex flex-col gap-4"
                                 @submit.prevent="guardarLaborales"
                             >
-                                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                <div
+                                    class="grid grid-cols-1 gap-4 sm:grid-cols-2"
+                                >
                                     <div class="grid gap-2">
                                         <Label>Empresa</Label>
                                         <Select
                                             :model-value="empresaSeleccionada"
                                             @update:model-value="
-                                                (v) => alCambiarEmpresa(String(v ?? ''))
+                                                (v) =>
+                                                    alCambiarEmpresa(
+                                                        String(v ?? ''),
+                                                    )
                                             "
                                         >
                                             <SelectTrigger class="w-full">
-                                                <SelectValue placeholder="Selecciona una empresa" />
+                                                <SelectValue
+                                                    placeholder="Selecciona una empresa"
+                                                />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem
@@ -1103,9 +1291,15 @@ function registrarPago(prestamoId: number) {
                                     </div>
                                     <div class="grid gap-2">
                                         <Label>Sucursal</Label>
-                                        <Select v-model="formLaborales.sucursal_principal_id">
+                                        <Select
+                                            v-model="
+                                                formLaborales.sucursal_principal_id
+                                            "
+                                        >
                                             <SelectTrigger class="w-full">
-                                                <SelectValue placeholder="Selecciona una sucursal" />
+                                                <SelectValue
+                                                    placeholder="Selecciona una sucursal"
+                                                />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem
@@ -1117,31 +1311,53 @@ function registrarPago(prestamoId: number) {
                                                 </SelectItem>
                                             </SelectContent>
                                         </Select>
-                                        <InputError :message="formLaborales.errors.sucursal_principal_id" />
+                                        <InputError
+                                            :message="
+                                                formLaborales.errors
+                                                    .sucursal_principal_id
+                                            "
+                                        />
                                     </div>
                                     <div class="grid gap-2">
                                         <Label>Departamento</Label>
-                                        <Select v-model="formLaborales.departamento_id">
+                                        <Select
+                                            v-model="
+                                                formLaborales.departamento_id
+                                            "
+                                        >
                                             <SelectTrigger class="w-full">
-                                                <SelectValue placeholder="Selecciona un departamento" />
+                                                <SelectValue
+                                                    placeholder="Selecciona un departamento"
+                                                />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem
                                                     v-for="departamento in departamentosDisponibles"
                                                     :key="departamento.id"
-                                                    :value="String(departamento.id)"
+                                                    :value="
+                                                        String(departamento.id)
+                                                    "
                                                 >
                                                     {{ departamento.nombre }}
                                                 </SelectItem>
                                             </SelectContent>
                                         </Select>
-                                        <InputError :message="formLaborales.errors.departamento_id" />
+                                        <InputError
+                                            :message="
+                                                formLaborales.errors
+                                                    .departamento_id
+                                            "
+                                        />
                                     </div>
                                     <div class="grid gap-2">
                                         <Label>Puesto</Label>
-                                        <Select v-model="formLaborales.puesto_id">
+                                        <Select
+                                            v-model="formLaborales.puesto_id"
+                                        >
                                             <SelectTrigger class="w-full">
-                                                <SelectValue placeholder="Selecciona un puesto" />
+                                                <SelectValue
+                                                    placeholder="Selecciona un puesto"
+                                                />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem
@@ -1153,7 +1369,11 @@ function registrarPago(prestamoId: number) {
                                                 </SelectItem>
                                             </SelectContent>
                                         </Select>
-                                        <InputError :message="formLaborales.errors.puesto_id" />
+                                        <InputError
+                                            :message="
+                                                formLaborales.errors.puesto_id
+                                            "
+                                        />
                                     </div>
                                     <div class="grid gap-2">
                                         <Label>Jefe directo</Label>
@@ -1163,22 +1383,37 @@ function registrarPago(prestamoId: number) {
                                             placeholder="Busca por nombre o número de empleado..."
                                             empty-text="Sin resultados."
                                         />
-                                        <InputError :message="formLaborales.errors.jefe_id" />
+                                        <InputError
+                                            :message="
+                                                formLaborales.errors.jefe_id
+                                            "
+                                        />
                                     </div>
                                     <div class="grid gap-2">
-                                        <Label for="sueldo_mensual">Sueldo mensual</Label>
+                                        <Label for="sueldo_mensual"
+                                            >Sueldo mensual</Label
+                                        >
                                         <Input
                                             id="sueldo_mensual"
-                                            v-model="formLaborales.sueldo_mensual"
+                                            v-model="
+                                                formLaborales.sueldo_mensual
+                                            "
                                             type="number"
                                             min="0"
                                             step="0.01"
                                             placeholder="0.00"
                                         />
-                                        <InputError :message="formLaborales.errors.sueldo_mensual" />
+                                        <InputError
+                                            :message="
+                                                formLaborales.errors
+                                                    .sueldo_mensual
+                                            "
+                                        />
                                     </div>
                                     <div class="grid gap-2 sm:col-span-2">
-                                        <Label for="motivo_laboral">Motivo del cambio (opcional)</Label>
+                                        <Label for="motivo_laboral"
+                                            >Motivo del cambio (opcional)</Label
+                                        >
                                         <Input
                                             id="motivo_laboral"
                                             v-model="formLaborales.motivo"
@@ -1187,8 +1422,14 @@ function registrarPago(prestamoId: number) {
                                     </div>
                                 </div>
                                 <div class="flex gap-2">
-                                    <Button type="submit" size="sm" :disabled="formLaborales.processing">
-                                        <Spinner v-if="formLaborales.processing" />
+                                    <Button
+                                        type="submit"
+                                        size="sm"
+                                        :disabled="formLaborales.processing"
+                                    >
+                                        <Spinner
+                                            v-if="formLaborales.processing"
+                                        />
                                         Guardar cambios
                                     </Button>
                                     <Button
@@ -1210,28 +1451,66 @@ function registrarPago(prestamoId: number) {
                                         <Network class="size-3.5" />
                                         Ubicación organizacional
                                     </p>
-                                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                        <CampoInfo :icono="Building2" etiqueta="Empresa">
-                                            {{ colaborador.empresa?.nombre ?? '—' }}
+                                    <div
+                                        class="grid grid-cols-1 gap-3 sm:grid-cols-2"
+                                    >
+                                        <CampoInfo
+                                            :icono="Building2"
+                                            etiqueta="Empresa"
+                                        >
+                                            {{
+                                                colaborador.empresa?.nombre ??
+                                                '—'
+                                            }}
                                         </CampoInfo>
-                                        <CampoInfo :icono="MapPinned" etiqueta="Sucursal">
-                                            {{ colaborador.sucursal?.nombre ?? '—' }}
+                                        <CampoInfo
+                                            :icono="MapPinned"
+                                            etiqueta="Sucursal"
+                                        >
+                                            {{
+                                                colaborador.sucursal?.nombre ??
+                                                '—'
+                                            }}
                                         </CampoInfo>
-                                        <CampoInfo :icono="Hexagon" etiqueta="Departamento">
-                                            {{ colaborador.departamento?.nombre ?? '—' }}
+                                        <CampoInfo
+                                            :icono="Hexagon"
+                                            etiqueta="Departamento"
+                                        >
+                                            {{
+                                                colaborador.departamento
+                                                    ?.nombre ?? '—'
+                                            }}
                                         </CampoInfo>
-                                        <CampoInfo :icono="BadgeCheck" etiqueta="Puesto">
-                                            {{ colaborador.puesto?.nombre ?? '—' }}
+                                        <CampoInfo
+                                            :icono="BadgeCheck"
+                                            etiqueta="Puesto"
+                                        >
+                                            {{
+                                                colaborador.puesto?.nombre ??
+                                                '—'
+                                            }}
                                         </CampoInfo>
-                                        <CampoInfo :icono="UserRound" etiqueta="Jefe directo">
+                                        <CampoInfo
+                                            :icono="UserRound"
+                                            etiqueta="Jefe directo"
+                                        >
                                             <template v-if="colaborador.jefe">
                                                 {{ colaborador.jefe.name }}
                                                 {{ colaborador.jefe.apellidos }}
                                             </template>
-                                            <template v-else>Sin asignar</template>
+                                            <template v-else
+                                                >Sin asignar</template
+                                            >
                                         </CampoInfo>
-                                        <CampoInfo :icono="Wallet" etiqueta="Sueldo mensual">
-                                            {{ sueldoFormateado(colaborador.sueldo_mensual) }}
+                                        <CampoInfo
+                                            :icono="Wallet"
+                                            etiqueta="Sueldo mensual"
+                                        >
+                                            {{
+                                                sueldoFormateado(
+                                                    colaborador.sueldo_mensual,
+                                                )
+                                            }}
                                         </CampoInfo>
                                     </div>
                                 </div>
@@ -1243,18 +1522,37 @@ function registrarPago(prestamoId: number) {
                                         <ShieldCheck class="size-3.5" />
                                         Estatus laboral e IMSS
                                     </p>
-                                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                        <CampoInfo :icono="CalendarDays" etiqueta="Fecha de ingreso">
-                                            {{ colaborador.fecha_ingreso ?? '—' }}
+                                    <div
+                                        class="grid grid-cols-1 gap-3 sm:grid-cols-2"
+                                    >
+                                        <CampoInfo
+                                            :icono="CalendarDays"
+                                            etiqueta="Fecha de ingreso"
+                                        >
+                                            {{
+                                                colaborador.fecha_ingreso ?? '—'
+                                            }}
                                         </CampoInfo>
                                         <CampoInfo etiqueta="Estado laboral">
-                                            <EstadoBadge :estado="colaborador.estatus" />
+                                            <EstadoBadge
+                                                :estado="colaborador.estatus"
+                                            />
                                         </CampoInfo>
                                         <CampoInfo etiqueta="Estatus IMSS">
-                                            <EstadoBadge :estado="colaborador.estatus_imss" />
+                                            <EstadoBadge
+                                                :estado="
+                                                    colaborador.estatus_imss
+                                                "
+                                            />
                                         </CampoInfo>
-                                        <CampoInfo :icono="CalendarClock" etiqueta="Fecha alta IMSS">
-                                            {{ colaborador.fecha_alta_imss ?? '—' }}
+                                        <CampoInfo
+                                            :icono="CalendarClock"
+                                            etiqueta="Fecha alta IMSS"
+                                        >
+                                            {{
+                                                colaborador.fecha_alta_imss ??
+                                                '—'
+                                            }}
                                         </CampoInfo>
                                         <CampoInfo
                                             :icono="Hourglass"
@@ -1267,10 +1565,17 @@ function registrarPago(prestamoId: number) {
                                                     colaborador.periodo_prueba_fin
                                                 "
                                             >
-                                                {{ colaborador.periodo_prueba_inicio }} —
-                                                {{ colaborador.periodo_prueba_fin }}
+                                                {{
+                                                    colaborador.periodo_prueba_inicio
+                                                }}
+                                                —
+                                                {{
+                                                    colaborador.periodo_prueba_fin
+                                                }}
                                                 <span
-                                                    v-if="colaborador.en_periodo_prueba"
+                                                    v-if="
+                                                        colaborador.en_periodo_prueba
+                                                    "
                                                     class="text-warning"
                                                     >(vigente)</span
                                                 >
@@ -1281,10 +1586,11 @@ function registrarPago(prestamoId: number) {
                                 </div>
 
                                 <p class="text-xs text-muted-foreground">
-                                    Los cambios de arriba quedan registrados como
-                                    movimientos laborales (ver pestaña «Historial
-                                    RH»). El correo, los roles y la contraseña de
-                                    acceso están en la pestaña «Cuenta».
+                                    Los cambios de arriba quedan registrados
+                                    como movimientos laborales (ver pestaña
+                                    «Historial RH»). El correo, los roles y la
+                                    contraseña de acceso están en la pestaña
+                                    «Cuenta».
                                 </p>
                             </template>
                         </CardContent>
@@ -1292,24 +1598,41 @@ function registrarPago(prestamoId: number) {
                 </TabsContent>
 
                 <TabsContent v-if="!esPropio" value="cuenta">
-                    <div v-if="!colaborador.tiene_cuenta" class="grid grid-cols-1 gap-4">
-                        <Card v-if="puedeCrearCuenta" class="rounded-2xl border-border/60">
+                    <div
+                        v-if="!colaborador.tiene_cuenta"
+                        class="grid grid-cols-1 gap-4"
+                    >
+                        <Card
+                            v-if="puedeCrearCuenta"
+                            class="rounded-2xl border-border/60"
+                        >
                             <CardHeader>
-                                <CardTitle class="flex items-center gap-2 text-base">
+                                <CardTitle
+                                    class="flex items-center gap-2 text-base"
+                                >
                                     <UserPlus class="size-4" />
                                     Crear cuenta de acceso
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <form class="flex flex-col gap-4" @submit.prevent="crearCuenta">
+                                <form
+                                    class="flex flex-col gap-4"
+                                    @submit.prevent="crearCuenta"
+                                >
                                     <div class="grid gap-2">
-                                        <Label for="crear-email">Correo de acceso</Label>
+                                        <Label for="crear-email"
+                                            >Correo de acceso</Label
+                                        >
                                         <Input
                                             id="crear-email"
                                             v-model="formCrearCuenta.email"
                                             type="email"
                                         />
-                                        <InputError :message="formCrearCuenta.errors.email" />
+                                        <InputError
+                                            :message="
+                                                formCrearCuenta.errors.email
+                                            "
+                                        />
                                     </div>
                                     <div class="grid gap-2">
                                         <Label>Roles</Label>
@@ -1322,46 +1645,61 @@ function registrarPago(prestamoId: number) {
                                                 class="flex items-center gap-2 text-sm capitalize"
                                             >
                                                 <Checkbox
-                                                    :model-value="formCrearCuenta.roles.includes(rol)"
+                                                    :model-value="
+                                                        formCrearCuenta.roles.includes(
+                                                            rol,
+                                                        )
+                                                    "
                                                     @update:model-value="
                                                         (v) =>
-                                                            (formCrearCuenta.roles = alternarRol(
-                                                                formCrearCuenta.roles,
-                                                                rol,
-                                                                !!v,
-                                                            ))
+                                                            (formCrearCuenta.roles =
+                                                                alternarRol(
+                                                                    formCrearCuenta.roles,
+                                                                    rol,
+                                                                    !!v,
+                                                                ))
                                                     "
                                                 />
                                                 {{ rol.replace(/_/g, ' ') }}
                                             </label>
                                         </div>
-                                        <InputError :message="formCrearCuenta.errors.roles" />
+                                        <InputError
+                                            :message="
+                                                formCrearCuenta.errors.roles
+                                            "
+                                        />
                                     </div>
                                     <p class="text-xs text-muted-foreground">
-                                        Se enviará un correo al colaborador para que
-                                        establezca su propia contraseña.
+                                        Se enviará un correo al colaborador para
+                                        que establezca su propia contraseña.
                                     </p>
                                     <Button
                                         type="submit"
                                         class="w-fit"
                                         :disabled="formCrearCuenta.processing"
                                     >
-                                        <Spinner v-if="formCrearCuenta.processing" />
+                                        <Spinner
+                                            v-if="formCrearCuenta.processing"
+                                        />
                                         Crear cuenta
                                     </Button>
                                 </form>
                             </CardContent>
                         </Card>
                         <p v-else class="text-sm text-muted-foreground">
-                            Este colaborador todavía no tiene cuenta de acceso y no
-                            tienes permiso para crear una.
+                            Este colaborador todavía no tiene cuenta de acceso y
+                            no tienes permiso para crear una.
                         </p>
                     </div>
 
                     <div v-else class="grid grid-cols-1 gap-4 lg:grid-cols-2">
                         <Card class="rounded-2xl border-border/60">
-                            <CardHeader class="flex flex-row items-center justify-between gap-2">
-                                <CardTitle class="flex items-center gap-2 text-base">
+                            <CardHeader
+                                class="flex flex-row items-center justify-between gap-2"
+                            >
+                                <CardTitle
+                                    class="flex items-center gap-2 text-base"
+                                >
                                     <UserCog class="size-4" />
                                     Cuenta de acceso
                                 </CardTitle>
@@ -1377,11 +1715,24 @@ function registrarPago(prestamoId: number) {
                             </CardHeader>
                             <CardContent class="grid gap-4 text-sm">
                                 <template v-if="editandoCuenta">
-                                    <form class="flex flex-col gap-4" @submit.prevent="guardarCuenta">
+                                    <form
+                                        class="flex flex-col gap-4"
+                                        @submit.prevent="guardarCuenta"
+                                    >
                                         <div class="grid gap-2">
-                                            <Label for="cuenta-email">Correo de acceso</Label>
-                                            <Input id="cuenta-email" v-model="formCuenta.email" type="email" />
-                                            <InputError :message="formCuenta.errors.email" />
+                                            <Label for="cuenta-email"
+                                                >Correo de acceso</Label
+                                            >
+                                            <Input
+                                                id="cuenta-email"
+                                                v-model="formCuenta.email"
+                                                type="email"
+                                            />
+                                            <InputError
+                                                :message="
+                                                    formCuenta.errors.email
+                                                "
+                                            />
                                         </div>
                                         <div class="grid gap-2">
                                             <Label>Roles</Label>
@@ -1394,24 +1745,41 @@ function registrarPago(prestamoId: number) {
                                                     class="flex items-center gap-2 text-sm capitalize"
                                                 >
                                                     <Checkbox
-                                                        :model-value="formCuenta.roles.includes(rol)"
+                                                        :model-value="
+                                                            formCuenta.roles.includes(
+                                                                rol,
+                                                            )
+                                                        "
                                                         @update:model-value="
                                                             (v) =>
-                                                                (formCuenta.roles = alternarRol(
-                                                                    formCuenta.roles,
-                                                                    rol,
-                                                                    !!v,
-                                                                ))
+                                                                (formCuenta.roles =
+                                                                    alternarRol(
+                                                                        formCuenta.roles,
+                                                                        rol,
+                                                                        !!v,
+                                                                    ))
                                                         "
                                                     />
                                                     {{ rol.replace(/_/g, ' ') }}
                                                 </label>
                                             </div>
-                                            <InputError :message="formCuenta.errors.roles" />
+                                            <InputError
+                                                :message="
+                                                    formCuenta.errors.roles
+                                                "
+                                            />
                                         </div>
                                         <div class="flex gap-2">
-                                            <Button type="submit" size="sm" :disabled="formCuenta.processing">
-                                                <Spinner v-if="formCuenta.processing" />
+                                            <Button
+                                                type="submit"
+                                                size="sm"
+                                                :disabled="
+                                                    formCuenta.processing
+                                                "
+                                            >
+                                                <Spinner
+                                                    v-if="formCuenta.processing"
+                                                />
                                                 Guardar
                                             </Button>
                                             <Button
@@ -1432,7 +1800,11 @@ function registrarPago(prestamoId: number) {
                                         :valor="colaborador.email"
                                     />
                                     <div>
-                                        <p class="text-xs text-muted-foreground">Roles</p>
+                                        <p
+                                            class="text-xs text-muted-foreground"
+                                        >
+                                            Roles
+                                        </p>
                                         <div class="mt-1 flex flex-wrap gap-1">
                                             <Badge
                                                 v-for="rol in colaborador.roles"
@@ -1443,14 +1815,19 @@ function registrarPago(prestamoId: number) {
                                                 {{ rol.replace(/_/g, ' ') }}
                                             </Badge>
                                             <span
-                                                v-if="colaborador.roles.length === 0"
+                                                v-if="
+                                                    colaborador.roles.length ===
+                                                    0
+                                                "
                                                 class="text-xs text-muted-foreground"
                                                 >Sin roles asignados</span
                                             >
                                         </div>
                                     </div>
                                     <div>
-                                        <p class="text-xs text-muted-foreground">
+                                        <p
+                                            class="text-xs text-muted-foreground"
+                                        >
                                             Acceso al sistema
                                         </p>
                                         <p
@@ -1462,10 +1839,15 @@ function registrarPago(prestamoId: number) {
                                             "
                                         >
                                             <Lock
-                                                v-if="colaborador.acceso_bloqueado_en"
+                                                v-if="
+                                                    colaborador.acceso_bloqueado_en
+                                                "
                                                 class="size-3.5"
                                             />
-                                            <ShieldCheck v-else class="size-3.5" />
+                                            <ShieldCheck
+                                                v-else
+                                                class="size-3.5"
+                                            />
                                             {{
                                                 colaborador.acceso_bloqueado_en
                                                     ? 'Bloqueado'
@@ -1479,10 +1861,14 @@ function registrarPago(prestamoId: number) {
                                         class="flex flex-wrap gap-2 border-t pt-3"
                                     >
                                         <Button
-                                            v-if="colaborador.acceso_bloqueado_en"
+                                            v-if="
+                                                colaborador.acceso_bloqueado_en
+                                            "
                                             size="sm"
                                             variant="success"
-                                            @click="restablecerAccesoColaborador"
+                                            @click="
+                                                restablecerAccesoColaborador
+                                            "
                                         >
                                             <Unlock class="size-3.5" />
                                             Restablecer acceso
@@ -1503,17 +1889,19 @@ function registrarPago(prestamoId: number) {
 
                         <Card class="rounded-2xl border-border/60">
                             <CardHeader>
-                                <CardTitle class="flex items-center gap-2 text-base">
+                                <CardTitle
+                                    class="flex items-center gap-2 text-base"
+                                >
                                     <KeyRound class="size-4" />
                                     Contraseña
                                 </CardTitle>
                             </CardHeader>
                             <CardContent class="flex flex-col gap-3 text-sm">
                                 <p class="text-muted-foreground">
-                                    Por seguridad, la contraseña se guarda cifrada
-                                    y no se puede consultar la actual — ni un
-                                    administrador puede leerla. Solo puedes
-                                    establecer una nueva.
+                                    Por seguridad, la contraseña se guarda
+                                    cifrada y no se puede consultar la actual —
+                                    ni un administrador puede leerla. Solo
+                                    puedes establecer una nueva.
                                 </p>
                                 <Button
                                     v-if="puedeGestionarPassword"
@@ -1536,10 +1924,7 @@ function registrarPago(prestamoId: number) {
                                         >Configuración → Seguridad</Link
                                     >.
                                 </p>
-                                <p
-                                    v-else
-                                    class="text-xs text-muted-foreground"
-                                >
+                                <p v-else class="text-xs text-muted-foreground">
                                     No tienes permiso para cambiar la contraseña
                                     de este colaborador.
                                 </p>
@@ -1548,7 +1933,15 @@ function registrarPago(prestamoId: number) {
                     </div>
                 </TabsContent>
 
-                <TabsContent value="documentos">
+                <TabsContent value="documentos" class="flex flex-col gap-4">
+                    <!-- La foto se registra junto con los documentos: es lo
+                         que identifica al colaborador en todos los módulos. -->
+                    <FotoPerfilCaptura
+                        :nombre="`${colaborador.name} ${colaborador.apellidos ?? ''}`"
+                        :foto-url="colaborador.foto_url"
+                        :url-subida="urlSubidaFoto"
+                        :puede-editar="esPropio || puedeEditar"
+                    />
                     <ExpedienteDocumentos
                         :colaborador-id="colaborador.id"
                         :documentos="documentosRequeridos"
@@ -1564,19 +1957,25 @@ function registrarPago(prestamoId: number) {
                 <TabsContent value="onboarding">
                     <Card class="rounded-2xl border-border/60">
                         <CardHeader>
-                            <CardTitle class="flex items-center gap-2 text-base">
+                            <CardTitle
+                                class="flex items-center gap-2 text-base"
+                            >
                                 <ListChecks class="size-4" />
                                 Checklist de incorporación
                             </CardTitle>
                             <div class="flex items-center gap-2 pt-1">
-                                <div class="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+                                <div
+                                    class="h-2 flex-1 overflow-hidden rounded-full bg-muted"
+                                >
                                     <div
                                         class="h-full rounded-full bg-primary transition-all"
-                                        :style="{ width: `${onboardingPorcentaje}%` }"
+                                        :style="{
+                                            width: `${onboardingPorcentaje}%`,
+                                        }"
                                     />
                                 </div>
                                 <span
-                                    class="text-xs font-semibold tabular-nums text-muted-foreground"
+                                    class="text-xs font-semibold text-muted-foreground tabular-nums"
                                     >{{ onboardingPorcentaje }}%</span
                                 >
                             </div>
@@ -1602,7 +2001,8 @@ function registrarPago(prestamoId: number) {
                                 />
                                 <span
                                     :class="{
-                                        'text-muted-foreground': !item.completado,
+                                        'text-muted-foreground':
+                                            !item.completado,
                                     }"
                                     >{{ item.etiqueta }}</span
                                 >
@@ -1612,9 +2012,14 @@ function registrarPago(prestamoId: number) {
                 </TabsContent>
 
                 <TabsContent value="avisos">
-                    <Card v-if="altaDigital" class="rounded-2xl border-border/60">
+                    <Card
+                        v-if="altaDigital"
+                        class="rounded-2xl border-border/60"
+                    >
                         <CardHeader>
-                            <CardTitle class="flex items-center gap-2 text-base">
+                            <CardTitle
+                                class="flex items-center gap-2 text-base"
+                            >
                                 <ScrollText class="size-4" />
                                 Avisos y consentimientos
                             </CardTitle>
@@ -1631,7 +2036,9 @@ function registrarPago(prestamoId: number) {
                                 />
                                 Aviso de privacidad
                                 <span
-                                    v-if="altaDigital.aviso_privacidad_aceptado_en"
+                                    v-if="
+                                        altaDigital.aviso_privacidad_aceptado_en
+                                    "
                                     class="text-xs text-muted-foreground"
                                     >·
                                     {{
@@ -1652,7 +2059,9 @@ function registrarPago(prestamoId: number) {
                             </p>
                             <p class="flex flex-wrap items-center gap-1.5">
                                 <CheckCircle2
-                                    v-if="altaDigital.consentimiento_datos_aceptado"
+                                    v-if="
+                                        altaDigital.consentimiento_datos_aceptado
+                                    "
                                     class="size-4 text-[var(--success)]"
                                 />
                                 <CircleDashed
@@ -1687,19 +2096,23 @@ function registrarPago(prestamoId: number) {
 
                     <Card v-else class="rounded-2xl border-border/60">
                         <CardHeader>
-                            <CardTitle class="flex items-center gap-2 text-base">
+                            <CardTitle
+                                class="flex items-center gap-2 text-base"
+                            >
                                 <ScrollText class="size-4" />
                                 Avisos y consentimientos
                             </CardTitle>
                         </CardHeader>
                         <CardContent class="flex flex-col gap-4">
-                            <p class="rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+                            <p
+                                class="rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground"
+                            >
                                 Este colaborador no tiene un Alta digital
-                                registrada (se dio de alta directamente), así que
-                                no hay firma electrónica de por medio. Puedes
-                                registrar aquí manualmente si ya aceptó el aviso
-                                de privacidad y el consentimiento de datos (por
-                                ejemplo, en papel o por correo).
+                                registrada (se dio de alta directamente), así
+                                que no hay firma electrónica de por medio.
+                                Puedes registrar aquí manualmente si ya aceptó
+                                el aviso de privacidad y el consentimiento de
+                                datos (por ejemplo, en papel o por correo).
                             </p>
 
                             <form
@@ -1710,13 +2123,19 @@ function registrarPago(prestamoId: number) {
                                     class="flex items-start gap-2.5 rounded-xl border border-border/50 px-3 py-2.5 text-sm"
                                 >
                                     <Checkbox
-                                        v-model="formAvisos.aviso_privacidad_aceptado"
+                                        v-model="
+                                            formAvisos.aviso_privacidad_aceptado
+                                        "
                                         :disabled="!puedeGestionarAvisos"
                                     />
                                     <span>
-                                        <span class="font-medium">Aviso de privacidad aceptado</span>
+                                        <span class="font-medium"
+                                            >Aviso de privacidad aceptado</span
+                                        >
                                         <span
-                                            v-if="avisosManual?.aviso_privacidad_aceptado_en"
+                                            v-if="
+                                                avisosManual?.aviso_privacidad_aceptado_en
+                                            "
                                             class="block text-xs text-muted-foreground"
                                             >Registrado el
                                             {{
@@ -1730,7 +2149,9 @@ function registrarPago(prestamoId: number) {
                                             size="sm"
                                             type="button"
                                             class="h-auto p-0 text-xs"
-                                            @click.stop="abrirAviso('privacidad')"
+                                            @click.stop="
+                                                abrirAviso('privacidad')
+                                            "
                                         >
                                             <Eye class="size-3" />
                                             Leer aviso completo
@@ -1748,7 +2169,10 @@ function registrarPago(prestamoId: number) {
                                         :disabled="!puedeGestionarAvisos"
                                     />
                                     <span>
-                                        <span class="font-medium">Consentimiento de datos aceptado</span>
+                                        <span class="font-medium"
+                                            >Consentimiento de datos
+                                            aceptado</span
+                                        >
                                         <span
                                             v-if="
                                                 avisosManual?.consentimiento_datos_aceptado_en
@@ -1799,14 +2223,23 @@ function registrarPago(prestamoId: number) {
                 <TabsContent value="vacaciones">
                     <Card class="rounded-2xl border-border/60">
                         <CardHeader>
-                            <CardTitle class="flex items-center gap-2 text-base">
+                            <CardTitle
+                                class="flex items-center gap-2 text-base"
+                            >
                                 <Calendar class="size-4" />
                                 Vacaciones
                             </CardTitle>
-                            <p class="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <p
+                                class="flex items-center gap-1.5 text-xs text-muted-foreground"
+                            >
                                 <Clock class="size-3.5" />
                                 {{ saldoVacaciones.antiguedad_anios }}
-                                {{ saldoVacaciones.antiguedad_anios === 1 ? 'año' : 'años' }} de antigüedad
+                                {{
+                                    saldoVacaciones.antiguedad_anios === 1
+                                        ? 'año'
+                                        : 'años'
+                                }}
+                                de antigüedad
                             </p>
                         </CardHeader>
                         <CardContent class="flex flex-col gap-4">
@@ -1892,8 +2325,12 @@ function registrarPago(prestamoId: number) {
                 </TabsContent>
                 <TabsContent value="recibos">
                     <Card class="rounded-2xl border-border/60">
-                        <CardHeader class="flex flex-row flex-wrap items-center justify-between gap-2">
-                            <CardTitle class="flex items-center gap-2 text-base">
+                        <CardHeader
+                            class="flex flex-row flex-wrap items-center justify-between gap-2"
+                        >
+                            <CardTitle
+                                class="flex items-center gap-2 text-base"
+                            >
                                 <Receipt class="size-4" />
                                 Recibos de nómina
                             </CardTitle>
@@ -1912,7 +2349,8 @@ function registrarPago(prestamoId: number) {
                                 v-if="!colaborador.sueldo_mensual"
                                 class="text-sm text-muted-foreground"
                             >
-                                Captura el sueldo mensual en «Datos laborales» antes de generar un recibo.
+                                Captura el sueldo mensual en «Datos laborales»
+                                antes de generar un recibo.
                             </p>
                             <div
                                 v-for="recibo in recibosNomina"
@@ -1921,10 +2359,12 @@ function registrarPago(prestamoId: number) {
                             >
                                 <div class="min-w-0">
                                     <p class="font-medium">
-                                        {{ recibo.periodo_inicio }} — {{ recibo.periodo_fin }}
+                                        {{ recibo.periodo_inicio }} —
+                                        {{ recibo.periodo_fin }}
                                     </p>
                                     <p class="text-xs text-muted-foreground">
-                                        Pago: {{ recibo.fecha_pago }} · Neto: {{ moneda(recibo.neto) }}
+                                        Pago: {{ recibo.fecha_pago }} · Neto:
+                                        {{ moneda(recibo.neto) }}
                                     </p>
                                 </div>
                                 <a
@@ -1940,7 +2380,10 @@ function registrarPago(prestamoId: number) {
                                     v-else
                                     class="flex items-center gap-2 text-xs text-muted-foreground"
                                 >
-                                    <span>Recibo guardado, PDF no disponible.</span>
+                                    <span
+                                        >Recibo guardado, PDF no
+                                        disponible.</span
+                                    >
                                     <Button
                                         v-if="puedeEditar"
                                         size="sm"
@@ -1969,7 +2412,9 @@ function registrarPago(prestamoId: number) {
                 <TabsContent value="prestamos">
                     <Card class="rounded-2xl border-border/60">
                         <CardHeader>
-                            <CardTitle class="flex items-center gap-2 text-base">
+                            <CardTitle
+                                class="flex items-center gap-2 text-base"
+                            >
                                 <Wallet class="size-4" />
                                 Préstamos
                             </CardTitle>
@@ -1986,23 +2431,46 @@ function registrarPago(prestamoId: number) {
                                 :key="prestamo.id"
                                 class="rounded-xl border border-border/60 p-4"
                             >
-                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div
+                                    class="flex flex-wrap items-center justify-between gap-2"
+                                >
                                     <div>
                                         <p class="font-medium">
-                                            {{ moneda(prestamo.monto_original) }} ·
-                                            {{ prestamo.plazo }} pagos ({{ prestamo.periodicidad }})
+                                            {{
+                                                moneda(prestamo.monto_original)
+                                            }}
+                                            · {{ prestamo.plazo }} pagos ({{
+                                                prestamo.periodicidad
+                                            }})
                                         </p>
-                                        <p class="text-xs text-muted-foreground">
-                                            Saldo: {{ moneda(prestamo.saldo) }} ·
-                                            Pago programado: {{ moneda(prestamo.pago_programado) }} ·
-                                            {{ prestamo.porcentaje_pagado ?? 0 }}% pagado
+                                        <p
+                                            class="text-xs text-muted-foreground"
+                                        >
+                                            Saldo:
+                                            {{ moneda(prestamo.saldo) }} · Pago
+                                            programado:
+                                            {{
+                                                moneda(prestamo.pago_programado)
+                                            }}
+                                            ·
+                                            {{
+                                                prestamo.porcentaje_pagado ?? 0
+                                            }}% pagado
                                         </p>
-                                        <p class="text-xs text-muted-foreground">
-                                            Próximo descuento: {{ prestamo.fecha_primer_descuento ?? '—' }}
+                                        <p
+                                            class="text-xs text-muted-foreground"
+                                        >
+                                            Próximo descuento:
+                                            {{
+                                                prestamo.fecha_primer_descuento ??
+                                                '—'
+                                            }}
                                         </p>
                                     </div>
                                     <div class="flex items-center gap-2">
-                                        <EstadoBadge :estado="prestamo.estado" />
+                                        <EstadoBadge
+                                            :estado="prestamo.estado"
+                                        />
                                         <Button
                                             v-if="
                                                 puedeEditar &&
@@ -2020,13 +2488,20 @@ function registrarPago(prestamoId: number) {
                                     </div>
                                 </div>
 
-                                <Table v-if="prestamo.movimientos.length" class="mt-3">
+                                <Table
+                                    v-if="prestamo.movimientos.length"
+                                    class="mt-3"
+                                >
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead>Fecha</TableHead>
                                             <TableHead>Tipo</TableHead>
-                                            <TableHead class="text-right">Monto</TableHead>
-                                            <TableHead class="text-right">Saldo</TableHead>
+                                            <TableHead class="text-right"
+                                                >Monto</TableHead
+                                            >
+                                            <TableHead class="text-right"
+                                                >Saldo</TableHead
+                                            >
                                             <TableHead>Registró</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -2035,29 +2510,47 @@ function registrarPago(prestamoId: number) {
                                             v-for="movimiento in prestamo.movimientos"
                                             :key="movimiento.id"
                                         >
-                                            <TableCell>{{ movimiento.fecha }}</TableCell>
-                                            <TableCell class="capitalize">{{ movimiento.tipo }}</TableCell>
+                                            <TableCell>{{
+                                                movimiento.fecha
+                                            }}</TableCell>
+                                            <TableCell class="capitalize">{{
+                                                movimiento.tipo
+                                            }}</TableCell>
                                             <TableCell class="text-right">
                                                 {{ moneda(movimiento.monto) }}
                                             </TableCell>
                                             <TableCell class="text-right">
-                                                {{ moneda(movimiento.saldo_nuevo) }}
+                                                {{
+                                                    moneda(
+                                                        movimiento.saldo_nuevo,
+                                                    )
+                                                }}
                                             </TableCell>
-                                            <TableCell>{{ movimiento.registrado_por ?? '—' }}</TableCell>
+                                            <TableCell>{{
+                                                movimiento.registrado_por ?? '—'
+                                            }}</TableCell>
                                         </TableRow>
                                     </TableBody>
                                 </Table>
-                                <p v-else class="mt-3 text-xs text-muted-foreground">
+                                <p
+                                    v-else
+                                    class="mt-3 text-xs text-muted-foreground"
+                                >
                                     Sin movimientos registrados todavía.
                                 </p>
 
                                 <form
-                                    v-if="puedeEditar && prestamo.estado === 'activo'"
+                                    v-if="
+                                        puedeEditar &&
+                                        prestamo.estado === 'activo'
+                                    "
                                     class="mt-3 flex flex-wrap items-end gap-2"
                                     @submit.prevent="registrarPago(prestamo.id)"
                                 >
                                     <div class="grid gap-1.5">
-                                        <Label class="text-xs">Monto del abono</Label>
+                                        <Label class="text-xs"
+                                            >Monto del abono</Label
+                                        >
                                         <Input
                                             v-model.number="formPago.monto"
                                             type="number"
@@ -2073,12 +2566,20 @@ function registrarPago(prestamoId: number) {
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="manual">Manual</SelectItem>
-                                                <SelectItem value="ajuste">Ajuste</SelectItem>
+                                                <SelectItem value="manual"
+                                                    >Manual</SelectItem
+                                                >
+                                                <SelectItem value="ajuste"
+                                                    >Ajuste</SelectItem
+                                                >
                                             </SelectContent>
                                         </Select>
                                     </div>
-                                    <Button type="submit" size="sm" :disabled="formPago.processing">
+                                    <Button
+                                        type="submit"
+                                        size="sm"
+                                        :disabled="formPago.processing"
+                                    >
                                         Registrar movimiento
                                     </Button>
                                 </form>
@@ -2090,7 +2591,9 @@ function registrarPago(prestamoId: number) {
                 <TabsContent value="solicitudes">
                     <Card class="rounded-2xl border-border/60">
                         <CardHeader>
-                            <CardTitle class="flex items-center gap-2 text-base">
+                            <CardTitle
+                                class="flex items-center gap-2 text-base"
+                            >
                                 <ClipboardList class="size-4" />
                                 Solicitudes
                             </CardTitle>
@@ -2145,7 +2648,8 @@ function registrarPago(prestamoId: number) {
         :open="prestamoConfirmarEntrega !== null"
         :prestamo="prestamoConfirmarEntrega"
         @update:open="
-            (v) => (prestamoConfirmarEntrega = v ? prestamoConfirmarEntrega : null)
+            (v) =>
+                (prestamoConfirmarEntrega = v ? prestamoConfirmarEntrega : null)
         "
     />
 
@@ -2170,7 +2674,9 @@ function registrarPago(prestamoId: number) {
                     <div class="grid gap-1.5">
                         <Label>Inicio del periodo</Label>
                         <DatePicker v-model="formRecibo.periodo_inicio" />
-                        <InputError :message="formRecibo.errors.periodo_inicio" />
+                        <InputError
+                            :message="formRecibo.errors.periodo_inicio"
+                        />
                     </div>
                     <div class="grid gap-1.5">
                         <Label>Fin del periodo</Label>

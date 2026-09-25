@@ -3,9 +3,11 @@
 namespace Database\Seeders;
 
 use App\Enums\TipoNodoComercial;
+use App\Models\AsignacionNodoComercial;
 use App\Models\NodoComercial;
 use App\Models\Sucursal;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
@@ -38,7 +40,6 @@ class MatrizComercialSeeder extends Seeder
             'TENANGO' => ['VOLANTE TENANGO', 'CAPULHUAC', 'CHAPULTEPEC', 'TENANGO-2', 'TENANGO GERENCIA', 'TENANGO SUBGERENCIA', 'TENANCINGO-1', 'TENANGO-1', 'CALIMAYA-2', 'SANTIAGO', 'METEPEC-1 (INACTIVA)', 'METEPEC-2'],
             'SAN LUIS POTOSI' => ['VOLANTE SLP2', 'SAN LUIS SUBGERENCIA', 'SOLEDAD', 'VOLANTE SLP', 'MUÑOZ', 'MAGUEYES', 'ORIENTE-SLP', 'CENTRO-SLP', 'ZONA SUR', 'SAN LUIS GERENCIA'],
         ],
-        'REGION Q2' => [],
         'REGION Q3' => [
             'ATLIXCO' => ['ATLIX-CEN', 'ATLIX-SUBGTE', 'VOLANTE ATLIXCO', 'ATLIX-SUR', 'ATLIX-NOR', 'TOCH', 'TLAX', 'SACHOL', 'HUAQ', 'SJ', 'MAT-CEN', 'ATLIX-MATP', 'ATLIX-MATS', 'ATLIX-GTE', 'CHOL'],
             'CORDOBA' => ['VOLANTE CORDOBA', 'CORDOBA FORTIN', 'CORDOBA PADELMA', 'VILLA JARA', 'CORDOBA CENTRO', 'CORDOBA CENTRO 2', '20 DE NOVIEMBRE', 'CALZADAS', 'CHOCAMAN', 'COSCOMATEPEC', 'CUITLAHUAC', 'FORTN', 'LOPEZ ARIAS', 'PASO DEL MACHO', 'SAN ROMAN', 'TECAMA TOXPAN', 'YANGA', 'CORDOBA GERENCIA', 'CORDOBA SUBGERENCIA', 'CORDOBA ALAMEDA'],
@@ -48,17 +49,6 @@ class MatrizComercialSeeder extends Seeder
             'TULA' => ['VOLANTE TULA', 'ATITALAQUIA', 'TULA GERENCIA', 'TULA SUBGERENCIA', 'TLAXCOAPAN', 'TLAHUELILPAN', 'TEZONTEPEC', 'QUMA', 'TULA CENTRO', 'TEPEJI', 'SANTA ANA', 'CRUZ AZUL', 'ATOTONILCO'],
         ],
     ];
-
-    /**
-     * Zona sin región (cuelga directo de MATRIZ, igual que como la entregó
-     * dirección): toda la rama está inactiva.
-     */
-    private const AGUASCALIENTES_NOMBRE = 'AGUASCALIENTES (INACTIVA)';
-
-    /**
-     * @var array<int, string>
-     */
-    private const AGUASCALIENTES_RUTAS = ['SUR PONIENTE (INACTIVA)', 'CEN-SURO (INACTIVA)', 'JESU-NORO (INACTIVA)', 'SAF-NORE (INACTIVA)', 'SUR-ORI (INACTIVA)', 'CEN-ESTE (INACTIVA)', 'NOR-ORIENTE (INACTIVA)', 'AGS-GTE (INACTIVA)'];
 
     /**
      * Zona (nombre tal cual arriba) -> Sucursal::nombre real, para poder
@@ -96,12 +86,6 @@ class MatrizComercialSeeder extends Seeder
             $codigoRegion = trim(str_replace('REGION', '', $regionCruda));
             $region = $this->upsert($matriz->id, TipoNodoComercial::Region, "Región {$codigoRegion}", $ordenRegion++, region: $codigoRegion);
 
-            if ($zonas === []) {
-                // Región sin datos todavía (p. ej. Q2): se deja creada y
-                // vacía, nunca como error — dirección la completará después.
-                continue;
-            }
-
             $ordenZona = 0;
 
             foreach ($zonas as $nombreZona => $rutas) {
@@ -120,15 +104,15 @@ class MatrizComercialSeeder extends Seeder
             }
         }
 
-        // AGUASCALIENTES cuelga directo de MATRIZ (no tiene región propia
-        // en los datos entregados) y toda la rama nace inactiva.
-        $aguascalientes = $this->upsert($matriz->id, TipoNodoComercial::Zona, self::AGUASCALIENTES_NOMBRE, $ordenRegion++);
-        $this->sembrarRutas($aguascalientes, self::AGUASCALIENTES_RUTAS, forzarInactiva: true);
+        // Q2 (Aguascalientes) desapareció: dirección pidió que no exista en
+        // ningún lado. Se elimina si una base anterior todavía la tiene.
+        $this->eliminarRama($matriz->id, TipoNodoComercial::Region, 'Región Q2');
+        $this->eliminarRama($matriz->id, TipoNodoComercial::Zona, 'AGUASCALIENTES');
 
         // La asignación de responsables por ruta NUNCA se adivina aquí: en
         // producción debe hacerla RH explícitamente. Los datos de demostración
-        // (GestoresDemoSeeder) sí asignan gestores demo a la mitad de las
-        // rutas, pero solo corren en local/testing — ver DemoSeeder.
+        // (OrganigramaDemoSeeder) sí dan a cada ruta de cobro su gestor demo,
+        // pero solo corren en local/testing — ver DemoSeeder.
     }
 
     /**
@@ -139,6 +123,43 @@ class MatrizComercialSeeder extends Seeder
         foreach ($rutas as $orden => $nombreRuta) {
             $this->upsert($zona->id, TipoNodoComercial::Ruta, $nombreRuta, $orden, forzarInactiva: $forzarInactiva);
         }
+    }
+
+    /**
+     * Elimina un nodo y toda su descendencia (zonas, rutas y sus
+     * asignaciones). Solo para ramas que dirección dio de baja por
+     * completo, como Q2/Aguascalientes.
+     */
+    private function eliminarRama(int $parentId, TipoNodoComercial $tipo, string $nombre): void
+    {
+        $nodo = NodoComercial::query()
+            ->where('parent_id', $parentId)
+            ->where('tipo', $tipo->value)
+            ->where('nombre', $nombre)
+            ->first();
+
+        if ($nodo === null) {
+            return;
+        }
+
+        $ids = [$nodo->id];
+        $pendientes = [$nodo->id];
+
+        while ($pendientes !== []) {
+            $hijos = NodoComercial::query()->whereIn('parent_id', $pendientes)->pluck('id')->all();
+            $ids = [...$ids, ...$hijos];
+            $pendientes = $hijos;
+        }
+
+        DB::transaction(function () use ($ids): void {
+            AsignacionNodoComercial::query()->whereIn('nodo_comercial_id', $ids)->delete();
+            // De las hojas hacia la raíz, para no chocar con parent_id.
+            foreach (array_reverse($ids) as $id) {
+                NodoComercial::query()->whereKey($id)->delete();
+            }
+        });
+
+        $this->command->warn(sprintf('Matriz comercial: se eliminó «%s» y su descendencia (%d nodos).', $nombre, count($ids)));
     }
 
     private function upsert(

@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Colaborador;
 use App\Models\Puesto;
 use App\Models\User;
 use App\Models\Vacante;
@@ -166,4 +167,31 @@ test('el historial de un puesto expone cambios de jerarquía, movimientos y vaca
 
     expect($respuesta['cambiosJerarquia'])->not->toBeEmpty()
         ->and($respuesta['vacantes'])->toHaveCount(1);
+});
+
+test('cada puesto del organigrama trae a sus ocupantes activos con nombre y foto, sin exponer la ruta del NAS', function () {
+    $puesto = Puesto::factory()->create(['nombre' => 'Asesor comercial']);
+    Colaborador::factory()->create([
+        'puesto_id' => $puesto->id,
+        'name' => 'Laura',
+        'apellidos' => 'Méndez',
+        'estatus' => 'activo',
+        'foto_path' => 'expedientes/1/foto/secreta.jpg',
+    ]);
+    Colaborador::factory()->create(['puesto_id' => $puesto->id, 'estatus' => 'inactivo']);
+
+    $usuario = User::factory()->create();
+    $usuario->assignRole('super_admin');
+
+    $this->actingAs($usuario)
+        ->get(route('administracion.jerarquia-puestos.index'))
+        ->assertOk()
+        ->assertInertia(function ($page) use ($puesto) {
+            $datos = collect($page->toArray()['props']['puestos'])->firstWhere('id', $puesto->id);
+
+            expect($datos['ocupantes'])->toHaveCount(1)
+                ->and($datos['ocupantes'][0]['nombre'])->toBe('Laura Méndez')
+                ->and($datos['ocupantes'][0]['foto_url'])->toContain('/foto?v=')
+                ->and(json_encode($datos))->not->toContain('secreta.jpg');
+        });
 });

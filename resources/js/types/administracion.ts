@@ -33,7 +33,12 @@ export type SucursalItem = {
 export type UsuarioItem = {
     id: number;
     colaborador_id: number | null;
-    colaborador: { id: number; name: string; apellidos: string | null; estatus: string } | null;
+    colaborador: {
+        id: number;
+        name: string;
+        apellidos: string | null;
+        estatus: string;
+    } | null;
     name: string;
     apellidos: string | null;
     email: string;
@@ -68,7 +73,18 @@ export type OpcionSimple = {
     nombre: string;
 };
 
+/** Colaborador activo que ocupa un puesto (organigrama). */
+export type OcupantePuesto = {
+    id: number;
+    nombre: string;
+    foto_url: string | null;
+    sucursal: string | null;
+    numero_empleado: string | null;
+};
+
 export type PuestoJerarquiaItem = {
+    /** Primeros colaboradores activos en el puesto, con foto (miniatura). */
+    ocupantes?: OcupantePuesto[];
     id: number;
     nombre: string;
     descripcion: string | null;
@@ -147,3 +163,52 @@ export type EstadisticasActivoInactivo = {
     bajas?: number;
 };
 
+/**
+ * Tarjeta del organigrama por personas (OrganigramaPersonasService): una
+ * persona, o un puesto "sin ocupar" en su lugar de la cadena.
+ */
+export type NodoOrganigramaPersona = {
+    clave: string;
+    padre: string | null;
+    /**
+     * persona: titular del puesto · vacante: nadie lo ocupa ·
+     * cobertura: alguien de otra sucursal/región lo cubre temporalmente.
+     */
+    tipo: 'persona' | 'vacante' | 'cobertura';
+    /** Puesto de sucursal (rama propia por sucursal). */
+    de_sucursal: boolean;
+    puesto: {
+        id: number;
+        nombre: string;
+        nivel: number | null;
+        tipo_puesto: string | null;
+    };
+    sucursal: { id: number; nombre: string } | null;
+    /** Región de la matriz comercial (puestos por región: gerente regional). */
+    region: { id: number; nombre: string } | null;
+    persona: {
+        id: number;
+        nombre: string;
+        foto_url: string | null;
+        numero_empleado: string | null;
+        expediente_url: string;
+        /** Sucursal de su puesto titular. */
+        sucursal: string | null;
+    } | null;
+    /** Solo gestores: la ruta que cobran. */
+    rutas: { nombre: string; tipo: string }[];
+    cobertura: {
+        id: number;
+        motivo: string;
+        motivo_etiqueta: string;
+        desde: string;
+        nota: string | null;
+    } | null;
+};
+
+/** Datos para asignar/terminar coberturas desde el organigrama. */
+export type CoberturasOrganigrama = {
+    puedeEditar: boolean;
+    motivos: { value: string; etiqueta: string }[];
+    colaboradores: { value: string; label: string }[];
+};

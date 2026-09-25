@@ -39,7 +39,7 @@ function valorCelda(fila: T, clave: string): unknown {
 </script>
 
 <template>
-    <div class="space-y-3">
+    <div data-tour="tabla" class="space-y-3">
         <div
             v-if="cargando"
             class="flex items-center justify-center rounded-2xl border border-border/60 p-16"

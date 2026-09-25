@@ -160,7 +160,7 @@ const tarjetasKpi = computed(() => [
 
         <CrudStats :estadisticas="tarjetasKpi" />
 
-        <div class="flex flex-wrap items-center gap-2">
+        <div data-tour="vacantes-filtros" class="flex flex-wrap items-center gap-2">
             <div class="grid gap-1.5">
                 <Label class="text-xs text-muted-foreground">Buscar</Label>
                 <input

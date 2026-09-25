@@ -125,6 +125,7 @@ const colaboradoresPorSucursalOpciones = computed(() =>
 <template>
     <div class="flex flex-col gap-8">
         <div
+            data-tour="dashboard-kpis"
             class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7"
         >
             <MetricCard
@@ -138,6 +139,7 @@ const colaboradoresPorSucursalOpciones = computed(() =>
         </div>
 
         <DashboardSection
+            data-tour="dashboard-cobertura"
             titulo="Cobertura y reclutamiento"
             descripcion="Vacantes por puesto, candidatos por etapa, cobertura de rutas y solicitudes por estado."
             :columnas="2"
@@ -211,6 +213,7 @@ const colaboradoresPorSucursalOpciones = computed(() =>
         </DashboardSection>
 
         <DashboardSection
+            data-tour="dashboard-plantilla"
             titulo="Plantilla y cumplimiento documental"
             descripcion="Dónde está la plantilla activa y qué tan al día están los expedientes."
             :columnas="3"
@@ -271,6 +274,7 @@ const colaboradoresPorSucursalOpciones = computed(() =>
 
         <DashboardSection
             v-if="rotacion"
+            data-tour="dashboard-rotacion"
             titulo="Rotación de personal"
             descripcion="Altas, bajas, plantilla y cumplimiento en tiempo real — filtra por sucursal, departamento y periodo."
             :columnas="1"
@@ -283,7 +287,10 @@ const colaboradoresPorSucursalOpciones = computed(() =>
         </DashboardSection>
 
         <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <div class="rounded-2xl border border-border/60 bg-card p-5 lg:col-span-2">
+            <div
+                data-tour="dashboard-aniversarios"
+                class="rounded-2xl border border-border/60 bg-card p-5 lg:col-span-2"
+            >
                 <div class="mb-3 flex items-center gap-2">
                     <CakeSlice class="size-4 text-[var(--brand-primary)]" />
                     <h3 class="text-sm font-semibold">
@@ -335,7 +342,10 @@ const colaboradoresPorSucursalOpciones = computed(() =>
                 </div>
             </div>
 
-            <div class="rounded-2xl border border-border/60 bg-card p-5">
+            <div
+                data-tour="dashboard-alertas"
+                class="rounded-2xl border border-border/60 bg-card p-5"
+            >
                 <div class="mb-3 flex items-center gap-2">
                     <Info class="size-4 text-[var(--brand-secondary)]" />
                     <h3 class="text-sm font-semibold">Alertas RH</h3>

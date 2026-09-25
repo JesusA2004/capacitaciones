@@ -469,6 +469,7 @@ function aplicarRangoRapido(dias: number) {
         <!-- Alerta: colaboradores activos sin fecha_nacimiento capturada -->
         <Card
             v-if="sinFechaNacimiento.length > 0"
+            data-tour="cumpleanos-sin-fecha"
             class="mt-4 border-[var(--warning)]/40 bg-[var(--warning)]/5"
         >
             <CardHeader class="pb-3">
@@ -499,6 +500,7 @@ function aplicarRangoRapido(dias: number) {
         <!-- Banner de hoy: siempre visible, nunca escondido en un tab -->
         <Card
             v-if="hoy.length > 0"
+            data-tour="cumpleanos-hoy"
             class="mt-4 border-[var(--success)]/40 bg-[var(--success)]/5"
         >
             <CardHeader class="pb-3">
@@ -523,7 +525,7 @@ function aplicarRangoRapido(dias: number) {
         </Card>
 
         <!-- Filtros -->
-        <Card class="mt-4">
+        <Card data-tour="cumpleanos-filtros" class="mt-4">
             <CardContent class="flex flex-col gap-3 pt-6">
             <div
                 class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5"
@@ -625,7 +627,7 @@ function aplicarRangoRapido(dias: number) {
 
         <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-4">
             <!-- Calendario grande -->
-            <Card class="lg:col-span-3">
+            <Card data-tour="cumpleanos-calendario" class="lg:col-span-3">
                 <CardHeader
                     class="flex-row items-center justify-between gap-2 space-y-0"
                 >
@@ -797,7 +799,7 @@ function aplicarRangoRapido(dias: number) {
             </Card>
 
             <!-- Sidebar: proximos cumpleaños, con rango de fechas libre -->
-            <Card class="lg:col-span-1">
+            <Card data-tour="cumpleanos-proximos" class="lg:col-span-1">
                 <CardHeader class="gap-3 space-y-0 pb-3">
                     <CardTitle class="text-base">Próximos cumpleaños</CardTitle>
 

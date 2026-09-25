@@ -197,6 +197,7 @@ const documentoOficialGeneracion = computed(
 
     <div class="flex w-full min-w-0 flex-col gap-6 p-4 sm:p-6">
         <CrudPageHeader
+            detalle
             :titulo="`Solicitud ${solicitud.folio}`"
             :descripcion="`${solicitud.colaborador?.name ?? solicitud.usuario?.name ?? ''} ${solicitud.colaborador?.apellidos ?? solicitud.usuario?.apellidos ?? ''}`"
             :icono="ClipboardList"
@@ -212,8 +213,8 @@ const documentoOficialGeneracion = computed(
                 >
                     <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                         <div>
-                            <p class="text-xs text-muted-foreground">Puesto</p>
-                            <p class="text-sm font-medium">
+                            <p class="text-sm text-muted-foreground">Puesto</p>
+                            <p class="text-base font-medium">
                                 {{
                                     solicitud.colaborador?.puesto?.nombre ??
                                     solicitud.usuario?.colaborador?.puesto
@@ -223,10 +224,10 @@ const documentoOficialGeneracion = computed(
                             </p>
                         </div>
                         <div>
-                            <p class="text-xs text-muted-foreground">
+                            <p class="text-sm text-muted-foreground">
                                 Sucursal
                             </p>
-                            <p class="text-sm font-medium">
+                            <p class="text-base font-medium">
                                 {{
                                     solicitud.colaborador?.sucursal_principal
                                         ?.nombre ??
@@ -237,16 +238,16 @@ const documentoOficialGeneracion = computed(
                             </p>
                         </div>
                         <div>
-                            <p class="text-xs text-muted-foreground">Tipo</p>
-                            <p class="text-sm font-medium capitalize">
+                            <p class="text-sm text-muted-foreground">Tipo</p>
+                            <p class="text-base font-medium capitalize">
                                 {{ solicitud.tipo.replace(/_/g, ' ') }}
                             </p>
                         </div>
                         <div v-if="solicitud.fecha_inicio">
-                            <p class="text-xs text-muted-foreground">
+                            <p class="text-sm text-muted-foreground">
                                 {{ solicitud.fecha_fin ? 'Periodo' : 'Fecha' }}
                             </p>
-                            <p class="text-sm font-medium">
+                            <p class="text-base font-medium">
                                 {{ solicitud.fecha_inicio }}
                                 <template v-if="solicitud.fecha_fin">
                                     — {{ solicitud.fecha_fin }}
@@ -254,18 +255,18 @@ const documentoOficialGeneracion = computed(
                             </p>
                         </div>
                         <div v-if="solicitud.dias_solicitados">
-                            <p class="text-xs text-muted-foreground">
+                            <p class="text-sm text-muted-foreground">
                                 Días solicitados
                             </p>
-                            <p class="text-sm font-medium">
+                            <p class="text-base font-medium">
                                 {{ solicitud.dias_solicitados }}
                             </p>
                         </div>
                         <div v-if="solicitud.monto_solicitado">
-                            <p class="text-xs text-muted-foreground">
+                            <p class="text-sm text-muted-foreground">
                                 Monto solicitado
                             </p>
-                            <p class="text-sm font-medium">
+                            <p class="text-base font-medium">
                                 ${{ solicitud.monto_solicitado }}
                                 <span v-if="solicitud.plazo_meses"
                                     >a {{ solicitud.plazo_meses }} meses</span
@@ -278,10 +279,10 @@ const documentoOficialGeneracion = computed(
                                 solicitud.colaborador_objetivo
                             "
                         >
-                            <p class="text-xs text-muted-foreground">
+                            <p class="text-sm text-muted-foreground">
                                 Colaborador a dar de baja
                             </p>
-                            <p class="text-sm font-medium">
+                            <p class="text-base font-medium">
                                 {{
                                     (solicitud.objetivo_colaborador ??
                                         solicitud.colaborador_objetivo)!.name
@@ -294,28 +295,28 @@ const documentoOficialGeneracion = computed(
                             </p>
                         </div>
                         <div v-if="solicitud.fecha_efectiva">
-                            <p class="text-xs text-muted-foreground">
+                            <p class="text-sm text-muted-foreground">
                                 Fecha efectiva de baja
                             </p>
-                            <p class="text-sm font-medium">
+                            <p class="text-base font-medium">
                                 {{ solicitud.fecha_efectiva }}
                             </p>
                         </div>
                         <div v-if="solicitud.tipo_baja">
-                            <p class="text-xs text-muted-foreground">
+                            <p class="text-sm text-muted-foreground">
                                 Tipo de baja
                             </p>
-                            <p class="text-sm font-medium capitalize">
+                            <p class="text-base font-medium capitalize">
                                 {{ solicitud.tipo_baja.replace(/_/g, ' ') }}
                             </p>
                         </div>
                     </div>
                     <div>
-                        <p class="text-xs text-muted-foreground">Motivo</p>
+                        <p class="text-sm text-muted-foreground">Motivo</p>
                         <p class="text-sm">{{ solicitud.motivo }}</p>
                     </div>
                     <div v-if="solicitud.observaciones">
-                        <p class="text-xs text-muted-foreground">
+                        <p class="text-sm text-muted-foreground">
                             Observaciones
                         </p>
                         <p class="text-sm">{{ solicitud.observaciones }}</p>
@@ -372,7 +373,7 @@ const documentoOficialGeneracion = computed(
                             <p class="font-medium">
                                 {{ documentoOficialGeneracion.generated_name }}
                             </p>
-                            <p class="text-xs text-muted-foreground">
+                            <p class="text-sm text-muted-foreground">
                                 {{ documentoOficial.nombre }}
                             </p>
                         </div>
@@ -474,7 +475,7 @@ const documentoOficialGeneracion = computed(
                                 <p class="font-medium">
                                     {{ doc.generated_name }}
                                 </p>
-                                <p class="text-xs text-muted-foreground">
+                                <p class="text-sm text-muted-foreground">
                                     {{ doc.plantilla?.nombre ?? '—' }}
                                 </p>
                             </div>
@@ -514,7 +515,7 @@ const documentoOficialGeneracion = computed(
 
                     <div
                         v-if="sinEvidencia"
-                        class="mb-3 flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive"
+                        class="mb-3 flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
                     >
                         <AlertTriangle class="size-4 shrink-0" />
                         Esta baja no se puede aprobar sin evidencia (formato
@@ -587,7 +588,7 @@ const documentoOficialGeneracion = computed(
                             <span
                                 class="absolute -start-[21px] mt-1 size-2.5 rounded-full bg-[var(--brand-primary)]"
                             />
-                            <p class="text-sm font-medium capitalize">
+                            <p class="text-base font-medium capitalize">
                                 {{ evento.accion.replace(/_/g, ' ') }}
                                 <span
                                     v-if="evento.usuario"
@@ -603,7 +604,7 @@ const documentoOficialGeneracion = computed(
                             >
                                 {{ evento.comentario }}
                             </p>
-                            <p class="text-xs text-muted-foreground">
+                            <p class="text-sm text-muted-foreground">
                                 {{ evento.created_at }}
                             </p>
                         </li>
@@ -663,7 +664,7 @@ const documentoOficialGeneracion = computed(
                         >
                         <Button
                             v-if="!mostrandoRechazo"
-                            variant="destructive"
+                            variant="outline"
                             @click="mostrandoRechazo = true"
                             >Rechazar</Button
                         >
@@ -686,7 +687,7 @@ const documentoOficialGeneracion = computed(
                             rows="2"
                         />
                         <Button
-                            variant="destructive"
+                            variant="secondary"
                             :disabled="
                                 formRechazar.processing || !motivoRechazo
                             "
@@ -706,7 +707,7 @@ const documentoOficialGeneracion = computed(
                     </p>
                     <p
                         v-if="solicitud.motivo_rechazo"
-                        class="mt-3 rounded-lg bg-destructive/10 p-2.5 text-xs text-destructive"
+                        class="mt-3 rounded-lg bg-slate-100 p-3 text-sm text-slate-700 dark:bg-slate-500/15 dark:text-slate-300"
                     >
                         {{ solicitud.motivo_rechazo }}
                     </p>

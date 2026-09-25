@@ -56,7 +56,7 @@ class ReclutamientoDemoSeeder extends Seeder
         $sucursalUno = Sucursal::where('clave', 'IXT01')->first();
         $sucursalDos = Sucursal::where('clave', 'CUE01')->first();
         $departamento = Departamento::where('nombre', 'Operaciones')->first();
-        $gestorFijo = Puesto::where('nombre', 'Gestor fijo')->first();
+        $gestorFijo = Puesto::where('nombre', 'Gestor')->first();
         $gestorVolante = Puesto::where('nombre', 'Gestor volante')->first();
         $rhAdmin = User::where('email', 'rh.admin@mrlana.test')->first();
         $gerente = User::where('email', 'gerente.sucursal@mrlana.test')->first();

@@ -23,6 +23,18 @@ class NotificacionController extends Controller
         return response()->json(['estado' => 'ok']);
     }
 
+    /**
+     * Al tocar una notificación en la app: la marca leída y devuelve el
+     * estado ACTUAL del recurso (`atendida`, `estado_recurso`,
+     * `mensaje_estado`) para avisar "ya fue atendida" si alguien la resolvió
+     * desde la web mientras tanto. La navegación sigue usando
+     * `data.type`/`data.resource_id` del listado.
+     */
+    public function abrir(Request $request, string $notificacion): JsonResponse
+    {
+        return response()->json(['data' => $this->notificaciones->abrir($request->user(), $notificacion)]);
+    }
+
     public function marcarTodasLeidas(Request $request): JsonResponse
     {
         $usuario = $request->user();

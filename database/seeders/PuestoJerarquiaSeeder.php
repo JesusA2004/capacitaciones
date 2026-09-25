@@ -6,373 +6,381 @@ use App\Enums\TipoPuesto;
 use App\Models\Departamento;
 use App\Models\Puesto;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
- * Siembra el organigrama real de Mr. Lana: una sola raíz (Dirección
- * General) de la que cuelgan las direcciones/áreas de la empresa
- * (Comercial, Recursos Humanos, Contabilidad, Sistemas, Operaciones
- * administrativas), cada una con su propia línea de crecimiento. Separado
- * de PuestoSeeder (catálogo genérico de departamentos) porque este es el
- * árbol de reporte/crecimiento/cobertura real, no solo una lista de
- * puestos por departamento. Ver docs/JERARQUIA_PUESTOS.md.
+ * Estructura real de puestos de Mr. Lana (definida por dirección):
+ *
+ * Dirección General
+ * ├── Asistente de Dirección General      (el puesto existe aunque no esté ocupado)
+ * └── Director comercial                  (Dirección Comercial de Mr. Lana)
+ *     ├── Asistente de Dirección Comercial
+ *     ├── Gerente de Sistemas
+ *     │   └── Monitorista
+ *     ├── Gerente de Mesa de Control
+ *     │   └── Analista de Mesa de Control
+ *     ├── Gerente de Recursos Humanos
+ *     │   ├── Administración de Personal
+ *     │   └── Reclutamiento
+ *     ├── Gerente de Contraloría
+ *     │   ├── Tesorero
+ *     │   └── Contador
+ *     ├── Gerente regional                (División comercial)
+ *     │   └── Gerente de Sucursal
+ *     │       └── Subgerente
+ *     │           ├── Gestor (con su ruta: la cartera que cobra)
+ *     │           │   └── Gestor volante
+ *     │           └── Gestor grupal
+ *     └── Coordinadora regional           (una sola para todas las sucursales)
+ *         └── Coordinadora                (de sucursal — viene en el Excel real de headcount)
+ *
+ * Idempotente (updateOrCreate por nombre). Los puestos de la estructura
+ * anterior que ya no existen se RETIRAN (ver retirar()): se eliminan solo
+ * si nadie los usa; si tienen colaboradores, headcount, vacantes o
+ * historial, quedan inactivos y se reporta en consola para reasignarlos —
+ * borrar un puesto en uso vaciaría el historial de movimientos y borraría
+ * en cascada su headcount. Ver docs/JERARQUIA_PUESTOS.md.
  */
 class PuestoJerarquiaSeeder extends Seeder
 {
+    /**
+     * Puestos de la estructura anterior que dirección ya no usa.
+     * "Gerente" era un duplicado de "Gerente de Sucursal".
+     */
+    private const RETIRADOS = [
+        'Gerente',
+        'Generalista de RH',
+        'Coordinador de Capacitación',
+        'Analista de Sistemas',
+        'Soporte Técnico',
+        'Analista de Nómina',
+        'Auxiliar Contable',
+        'Responsable administrativo/regional',
+        'Supervisor de Operaciones',
+        'Ejecutivo de Ventas',
+        'Coordinador de Ventas',
+    ];
+
+    /**
+     * Tablas/columnas que apuntan a `puestos`: si alguna tiene filas, el
+     * puesto está en uso y no se borra.
+     *
+     * @var array<string, list<string>>
+     */
+    private const REFERENCIAS = [
+        'colaboradores' => ['puesto_id'],
+        'users' => ['puesto_id'],
+        'headcount_targets' => ['puesto_id'],
+        'vacantes' => ['puesto_id'],
+        'candidatos' => ['puesto_objetivo_id'],
+        'altas_digitales' => ['puesto_id'],
+        'document_templates' => ['puesto_id'],
+        'movimientos_laborales' => ['puesto_anterior_id', 'puesto_nuevo_id'],
+        'incorporacion_invitaciones' => ['puesto_id'],
+        'nodos_comerciales' => ['puesto_id'],
+        'campanas_reclutamiento' => ['puesto_id'],
+        'contratos_laborales' => ['puesto_id'],
+    ];
+
     public function run(): void
     {
-        $ventas = Departamento::where('nombre', 'Ventas')->first();
-        $operaciones = Departamento::where('nombre', 'Operaciones')->first();
-        $rh = Departamento::where('nombre', 'Recursos Humanos')->first();
-        $contabilidad = Departamento::where('nombre', 'Contabilidad')->first();
-        $sistemas = Departamento::where('nombre', 'Sistemas')->first();
+        $departamento = fn (string $nombre): ?int => Departamento::where('nombre', $nombre)->value('id');
 
-        // --- Raíz: Dirección General ---
-        $direccionGeneral = Puesto::firstOrCreate(
-            ['nombre' => 'Dirección General'],
-            [
-                'departamento_id' => null,
-                'descripcion' => 'Cabeza de la organización. Todas las direcciones/áreas reportan aquí.',
-                'nivel_jerarquico' => 1,
-                'tipo_puesto' => TipoPuesto::Administrativo,
-                'responsabilidades' => 'Dirección estratégica de la empresa, aprobación de decisiones de alto nivel, supervisión de todas las áreas.',
-                'activo' => true,
-            ],
-        );
+        // Renombres de la estructura anterior (conservan su id, su gente y
+        // su historial).
+        $this->renombrar('Gerente de Contabilidad', 'Gerente de Contraloría');
+        // Se revirtió: dirección lo llama "Coordinadora regional" (una sola
+        // para todas las sucursales).
+        $this->renombrar('Gerente administrativo regional', 'Coordinadora regional');
+        // Todos los gestores de ruta son simplemente "Gestor".
+        $this->renombrar('Gestor fijo', 'Gestor');
 
-        // --- Rama Comercial ---
-        // Dirección General -> Director comercial -> Gerente regional -> Gerente -> Subgerente -> Gestor fijo -> Gestor volante
-        $directorComercial = Puesto::updateOrCreate(
-            ['nombre' => 'Director comercial'],
-            [
-                'departamento_id' => $ventas?->id,
-                'descripcion' => 'Vista global del área comercial, reportes generales y decisiones estratégicas.',
-                'nivel_jerarquico' => 2,
-                'puesto_superior_id' => $direccionGeneral->id,
-                'tipo_puesto' => TipoPuesto::Comercial,
-                'responsabilidades' => 'Vista global, reportes generales, decisiones estratégicas.',
-                'activo' => true,
-            ],
-        );
+        // --- Dirección General ---
+        $direccionGeneral = $this->puesto('Dirección General', [
+            'departamento_id' => $departamento('Dirección'),
+            'descripcion' => 'Cabeza de la organización.',
+            'nivel_jerarquico' => 1,
+            'puesto_superior_id' => null,
+            'tipo_puesto' => TipoPuesto::Administrativo,
+            'responsabilidades' => 'Dirección estratégica de la empresa y aprobación de decisiones de alto nivel.',
+        ]);
 
-        $gerenteRegional = Puesto::updateOrCreate(
-            ['nombre' => 'Gerente regional'],
-            [
-                'departamento_id' => $ventas?->id,
-                'descripcion' => 'Supervisa varias sucursales, revisa indicadores y da seguimiento a gerentes.',
-                'nivel_jerarquico' => 3,
-                'puesto_superior_id' => $directorComercial->id,
-                'puesto_crecimiento_id' => $directorComercial->id,
-                'tipo_puesto' => TipoPuesto::Comercial,
-                'responsabilidades' => 'Supervisa varias sucursales, revisa indicadores, da seguimiento a gerentes.',
-                'activo' => true,
-            ],
-        );
+        $this->puesto('Asistente de Dirección General', [
+            'departamento_id' => $departamento('Dirección'),
+            'descripcion' => 'Asistencia directa a Dirección General.',
+            'nivel_jerarquico' => 2,
+            'puesto_superior_id' => $direccionGeneral->id,
+            'tipo_puesto' => TipoPuesto::Administrativo,
+        ]);
 
-        $gerente = Puesto::updateOrCreate(
-            ['nombre' => 'Gerente'],
-            [
-                'departamento_id' => $ventas?->id,
-                'descripcion' => 'Responsable de sucursal, supervisa la operación y participa en la aprobación de candidatos y solicitudes.',
-                'nivel_jerarquico' => 4,
-                'puesto_superior_id' => $gerenteRegional->id,
-                'puesto_crecimiento_id' => $gerenteRegional->id,
-                'tipo_puesto' => TipoPuesto::Comercial,
-                'esquema_comisiones' => 'Comisión por resultados de sucursal.',
-                'responsabilidades' => 'Responsable de sucursal, supervisa operación, participa en aprobación de candidatos y solicitudes.',
-                'activo' => true,
-            ],
-        );
+        // --- Dirección Comercial de Mr. Lana ---
+        $directorComercial = $this->puesto('Director comercial', [
+            'departamento_id' => $departamento('Ventas'),
+            'descripcion' => 'Dirección Comercial de Mr. Lana. A su cargo están las gerencias corporativas y la división comercial.',
+            'nivel_jerarquico' => 2,
+            'puesto_superior_id' => $direccionGeneral->id,
+            'tipo_puesto' => TipoPuesto::Comercial,
+            'responsabilidades' => 'Vista global, reportes generales y decisiones estratégicas.',
+        ]);
 
-        $subgerente = Puesto::updateOrCreate(
-            ['nombre' => 'Subgerente'],
-            [
-                'departamento_id' => $ventas?->id,
-                'descripcion' => 'Apoya al gerente, lo cubre temporalmente y supervisa gestores.',
-                'nivel_jerarquico' => 5,
-                'puesto_superior_id' => $gerente->id,
-                'puesto_crecimiento_id' => $gerente->id,
-                'tipo_puesto' => TipoPuesto::Comercial,
-                'esquema_comisiones' => 'Comisión por equipo de gestores.',
-                'responsabilidades' => 'Apoya gerente, cubre gerente temporalmente, supervisa gestores.',
-                'activo' => true,
-            ],
-        );
+        $this->puesto('Asistente de Dirección Comercial', [
+            'departamento_id' => $departamento('Ventas'),
+            'descripcion' => 'Asistencia directa a la Dirección Comercial.',
+            'nivel_jerarquico' => 3,
+            'puesto_superior_id' => $directorComercial->id,
+            'tipo_puesto' => TipoPuesto::Administrativo,
+        ]);
 
-        $gestorFijo = Puesto::updateOrCreate(
-            ['nombre' => 'Gestor fijo'],
-            [
-                'departamento_id' => $ventas?->id,
-                'descripcion' => 'Gestor de ruta: tiene ruta asignada y es responsable de su cartera.',
-                'nivel_jerarquico' => 6,
-                'puesto_superior_id' => $subgerente->id,
-                'puesto_crecimiento_id' => $subgerente->id,
-                'tipo_puesto' => TipoPuesto::Comercial,
-                'esquema_comisiones' => 'Comisión por cartera/ruta asignada.',
-                'requiere_ruta' => true,
-                'responsabilidades' => 'Tiene ruta asignada, puede recibir mayor comisión, responsable de cartera/ruta.',
-                'activo' => true,
-            ],
-        );
+        // --- Gerencias bajo Dirección Comercial (mismo nivel) ---
+        $gerenteSistemas = $this->puesto('Gerente de Sistemas', [
+            'departamento_id' => $departamento('Sistemas'),
+            'descripcion' => 'Responsable de la plataforma, infraestructura y monitoreo.',
+            'nivel_jerarquico' => 3,
+            'puesto_superior_id' => $directorComercial->id,
+            'tipo_puesto' => TipoPuesto::Administrativo,
+        ]);
 
-        $gestorVolante = Puesto::updateOrCreate(
-            ['nombre' => 'Gestor volante'],
-            [
-                'departamento_id' => $ventas?->id,
-                'descripcion' => 'Cubre rutas cuando falta un gestor fijo y apoya rutas lejanas o con carga.',
-                'nivel_jerarquico' => 7,
-                'puesto_superior_id' => $gestorFijo->id,
-                'puesto_crecimiento_id' => $gestorFijo->id,
-                'tipo_puesto' => TipoPuesto::Comercial,
-                'esquema_comisiones' => 'Comisión variable de apoyo.',
-                'requiere_ruta' => false,
-                'responsabilidades' => 'Cubre rutas cuando falta gestor fijo, apoya rutas lejanas o con carga, candidato natural cuando se libera una ruta.',
-                'activo' => true,
-            ],
-        );
+        $this->puesto('Monitorista', [
+            'departamento_id' => $departamento('Sistemas'),
+            'descripcion' => 'Monitoreo de sistemas y operación.',
+            'nivel_jerarquico' => 4,
+            'puesto_superior_id' => $gerenteSistemas->id,
+            'puesto_crecimiento_id' => $gerenteSistemas->id,
+            'tipo_puesto' => TipoPuesto::Administrativo,
+        ]);
 
-        // Gestor grupal: modalidad de crédito grupal, presente en algunas
-        // sucursales junto a Gestor fijo/volante (ver headcount real,
-        // docs/HEADCOUNT_Y_VACANTES.md). Mismo nivel que Gestor fijo, sin
-        // ruta individual asignada.
-        Puesto::updateOrCreate(
-            ['nombre' => 'Gestor grupal'],
-            [
-                'departamento_id' => $ventas?->id,
-                'descripcion' => 'Responsable de cartera de crédito grupal en sucursal.',
-                'nivel_jerarquico' => 6,
-                'puesto_superior_id' => $subgerente->id,
-                'puesto_crecimiento_id' => $subgerente->id,
-                'tipo_puesto' => TipoPuesto::Comercial,
-                'esquema_comisiones' => 'Comisión por cartera grupal.',
-                'requiere_ruta' => false,
-                'responsabilidades' => 'Responsable de cartera de crédito grupal en sucursal.',
-                'activo' => true,
-            ],
-        );
+        $gerenteMesaControl = $this->puesto('Gerente de Mesa de Control', [
+            'departamento_id' => $departamento('Mesa de Control'),
+            'descripcion' => 'Responsable de la mesa de control.',
+            'nivel_jerarquico' => 3,
+            'puesto_superior_id' => $directorComercial->id,
+            'tipo_puesto' => TipoPuesto::Administrativo,
+        ]);
+
+        $this->puesto('Analista de Mesa de Control', [
+            'departamento_id' => $departamento('Mesa de Control'),
+            'descripcion' => 'Análisis y validación en mesa de control.',
+            'nivel_jerarquico' => 4,
+            'puesto_superior_id' => $gerenteMesaControl->id,
+            'puesto_crecimiento_id' => $gerenteMesaControl->id,
+            'tipo_puesto' => TipoPuesto::Administrativo,
+        ]);
+
+        $gerenteRh = $this->puesto('Gerente de Recursos Humanos', [
+            'departamento_id' => $departamento('Recursos Humanos'),
+            'descripcion' => 'Responsable de Recursos Humanos.',
+            'nivel_jerarquico' => 3,
+            'puesto_superior_id' => $directorComercial->id,
+            'tipo_puesto' => TipoPuesto::Administrativo,
+        ]);
+
+        $this->puesto('Administración de Personal', [
+            'departamento_id' => $departamento('Recursos Humanos'),
+            'descripcion' => 'Expedientes, altas, bajas y trámites de personal.',
+            'nivel_jerarquico' => 4,
+            'puesto_superior_id' => $gerenteRh->id,
+            'puesto_crecimiento_id' => $gerenteRh->id,
+            'tipo_puesto' => TipoPuesto::Administrativo,
+        ]);
+
+        $this->puesto('Reclutamiento', [
+            'departamento_id' => $departamento('Recursos Humanos'),
+            'descripcion' => 'Atracción y selección de candidatos.',
+            'nivel_jerarquico' => 4,
+            'puesto_superior_id' => $gerenteRh->id,
+            'puesto_crecimiento_id' => $gerenteRh->id,
+            'tipo_puesto' => TipoPuesto::Administrativo,
+        ]);
+
+        $gerenteContraloria = $this->puesto('Gerente de Contraloría', [
+            'departamento_id' => $departamento('Contraloría'),
+            'descripcion' => 'Responsable de contraloría.',
+            'nivel_jerarquico' => 3,
+            'puesto_superior_id' => $directorComercial->id,
+            'tipo_puesto' => TipoPuesto::Administrativo,
+        ]);
+
+        $this->puesto('Tesorero', [
+            'departamento_id' => $departamento('Contraloría'),
+            'descripcion' => 'Tesorería: flujo de efectivo, pagos y fondeo.',
+            'nivel_jerarquico' => 4,
+            'puesto_superior_id' => $gerenteContraloria->id,
+            'puesto_crecimiento_id' => $gerenteContraloria->id,
+            'tipo_puesto' => TipoPuesto::Administrativo,
+        ]);
+
+        $this->puesto('Contador', [
+            'departamento_id' => $departamento('Contraloría'),
+            'descripcion' => 'Contabilidad general y cumplimiento fiscal.',
+            'nivel_jerarquico' => 4,
+            'puesto_superior_id' => $gerenteContraloria->id,
+            'puesto_crecimiento_id' => $gerenteContraloria->id,
+            'tipo_puesto' => TipoPuesto::Administrativo,
+        ]);
+
+        // --- División comercial: Gerente regional → sucursal ---
+        $gerenteRegional = $this->puesto('Gerente regional', [
+            'departamento_id' => $departamento('Ventas'),
+            'descripcion' => 'Gerente regional de la división comercial: supervisa varias sucursales.',
+            'nivel_jerarquico' => 3,
+            'puesto_superior_id' => $directorComercial->id,
+            'puesto_crecimiento_id' => $directorComercial->id,
+            'tipo_puesto' => TipoPuesto::Comercial,
+            'responsabilidades' => 'Supervisa varias sucursales, revisa indicadores y da seguimiento a gerentes.',
+        ]);
+
+        $gerenteSucursal = $this->puesto('Gerente de Sucursal', [
+            'departamento_id' => $departamento('Ventas'),
+            'descripcion' => 'Responsable de la sucursal.',
+            'nivel_jerarquico' => 4,
+            'puesto_superior_id' => $gerenteRegional->id,
+            'puesto_crecimiento_id' => $gerenteRegional->id,
+            'tipo_puesto' => TipoPuesto::Comercial,
+            'esquema_comisiones' => 'Comisión por resultados de sucursal.',
+            'responsabilidades' => 'Supervisa la operación de la sucursal y participa en la aprobación de candidatos y solicitudes.',
+        ]);
+
+        $subgerente = $this->puesto('Subgerente', [
+            'departamento_id' => $departamento('Ventas'),
+            'descripcion' => 'Apoya al gerente de sucursal, lo cubre temporalmente y supervisa gestores.',
+            'nivel_jerarquico' => 5,
+            'puesto_superior_id' => $gerenteSucursal->id,
+            'puesto_crecimiento_id' => $gerenteSucursal->id,
+            'tipo_puesto' => TipoPuesto::Comercial,
+            'esquema_comisiones' => 'Comisión por equipo de gestores.',
+        ]);
+
+        $gestor = $this->puesto('Gestor', [
+            'departamento_id' => $departamento('Ventas'),
+            'descripcion' => 'Gestor de crédito: tiene su ruta asignada, que es la cartera que cobra. Es el único puesto con ruta.',
+            'nivel_jerarquico' => 6,
+            'puesto_superior_id' => $subgerente->id,
+            'puesto_crecimiento_id' => $subgerente->id,
+            'tipo_puesto' => TipoPuesto::Comercial,
+            'esquema_comisiones' => 'Comisión por cartera/ruta asignada.',
+            'requiere_ruta' => true,
+        ]);
+
+        $gestorVolante = $this->puesto('Gestor volante', [
+            'departamento_id' => $departamento('Ventas'),
+            'descripcion' => 'Apoya a los gestores y cubre una ruta cuando falta su gestor; no tiene ruta propia.',
+            'nivel_jerarquico' => 7,
+            'puesto_superior_id' => $gestor->id,
+            'puesto_crecimiento_id' => $gestor->id,
+            'tipo_puesto' => TipoPuesto::Comercial,
+            'esquema_comisiones' => 'Comisión variable de apoyo.',
+            'requiere_ruta' => false,
+        ]);
+
+        $this->puesto('Gestor grupal', [
+            'departamento_id' => $departamento('Ventas'),
+            'descripcion' => 'Responsable de cartera de crédito grupal en sucursal.',
+            'nivel_jerarquico' => 6,
+            'puesto_superior_id' => $subgerente->id,
+            'puesto_crecimiento_id' => $subgerente->id,
+            'tipo_puesto' => TipoPuesto::Comercial,
+            'requiere_ruta' => false,
+        ]);
 
         // Respaldos (puede cubrir a):
-        $gestorVolante->puestosQuePuedeCubrir()->syncWithoutDetaching([$gestorFijo->id]);
-        $subgerente->puestosQuePuedeCubrir()->syncWithoutDetaching([$gerente->id]);
+        $gestorVolante->puestosQuePuedeCubrir()->syncWithoutDetaching([$gestor->id]);
+        $subgerente->puestosQuePuedeCubrir()->syncWithoutDetaching([$gerenteSucursal->id]);
 
-        // --- Rama de Recursos Humanos ---
-        // Dirección General -> Gerente de Recursos Humanos -> Coordinador de Capacitación / Generalista de RH
-        $gerenteRh = Puesto::updateOrCreate(
-            ['nombre' => 'Gerente de Recursos Humanos'],
+        // --- Coordinadora regional (una para todas las sucursales) ---
+        $coordinadoraRegional = $this->puesto('Coordinadora regional', [
+            'departamento_id' => $departamento('Operaciones'),
+            'descripcion' => 'Coordinadora regional: una sola para todas las sucursales; supervisa a las coordinadoras de sucursal.',
+            'nivel_jerarquico' => 3,
+            'puesto_superior_id' => $directorComercial->id,
+            'tipo_puesto' => TipoPuesto::Administrativo,
+        ]);
+
+        $this->puesto('Coordinadora', [
+            'departamento_id' => $departamento('Operaciones'),
+            'descripcion' => 'Coordinadora de sucursal: cuadre de caja, control administrativo y procesos internos.',
+            'nivel_jerarquico' => 4,
+            'puesto_superior_id' => $coordinadoraRegional->id,
+            'puesto_crecimiento_id' => $coordinadoraRegional->id,
+            'tipo_puesto' => TipoPuesto::Administrativo,
+        ]);
+
+        foreach (self::RETIRADOS as $nombre) {
+            $this->retirar($nombre);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $atributos
+     */
+    private function puesto(string $nombre, array $atributos): Puesto
+    {
+        return Puesto::updateOrCreate(
+            ['nombre' => $nombre],
             [
-                'departamento_id' => $rh?->id,
-                'descripcion' => 'Responsable del área de Recursos Humanos: reclutamiento, nómina, capacitación y clima laboral.',
-                'nivel_jerarquico' => 2,
-                'puesto_superior_id' => $direccionGeneral->id,
-                'tipo_puesto' => TipoPuesto::Administrativo,
-                'responsabilidades' => 'Dirige reclutamiento, altas/bajas, capacitación y relaciones laborales de toda la empresa.',
+                'puesto_crecimiento_id' => null,
+                'requiere_ruta' => false,
+                ...$atributos,
                 'activo' => true,
             ],
         );
+    }
 
-        Puesto::updateOrCreate(
-            ['nombre' => 'Generalista de RH'],
-            [
-                'departamento_id' => $rh?->id,
-                'descripcion' => 'Reclutamiento, altas digitales, expedientes y trámites de personal.',
-                'nivel_jerarquico' => 3,
-                'puesto_superior_id' => $gerenteRh->id,
-                'puesto_crecimiento_id' => $gerenteRh->id,
-                'tipo_puesto' => TipoPuesto::Administrativo,
-                'responsabilidades' => 'Reclutamiento, altas digitales, expedientes, trámites de personal.',
-                'activo' => true,
-            ],
-        );
+    private function renombrar(string $anterior, string $nuevo): void
+    {
+        if (Puesto::where('nombre', $nuevo)->exists()) {
+            return;
+        }
 
-        Puesto::updateOrCreate(
-            ['nombre' => 'Coordinador de Capacitación'],
-            [
-                'departamento_id' => $rh?->id,
-                'descripcion' => 'Diseña y da seguimiento a la capacitación e inducción de nuevo ingreso.',
-                'nivel_jerarquico' => 3,
-                'puesto_superior_id' => $gerenteRh->id,
-                'puesto_crecimiento_id' => $gerenteRh->id,
-                'tipo_puesto' => TipoPuesto::Administrativo,
-                'responsabilidades' => 'Diseña cursos, da seguimiento a la capacitación e inducción de nuevo ingreso.',
-                'activo' => true,
-            ],
-        );
+        Puesto::where('nombre', $anterior)->update(['nombre' => $nuevo]);
+    }
 
-        // --- Rama de Contabilidad ---
-        // Dirección General -> Gerente de Contabilidad -> Analista de Nómina / Auxiliar Contable
-        $gerenteContabilidad = Puesto::updateOrCreate(
-            ['nombre' => 'Gerente de Contabilidad'],
-            [
-                'departamento_id' => $contabilidad?->id,
-                'descripcion' => 'Responsable de contabilidad, nómina, pagos y cumplimiento fiscal.',
-                'nivel_jerarquico' => 2,
-                'puesto_superior_id' => $direccionGeneral->id,
-                'tipo_puesto' => TipoPuesto::Administrativo,
-                'responsabilidades' => 'Dirige contabilidad general, nómina, pagos a proveedores y cumplimiento fiscal.',
-                'activo' => true,
-            ],
-        );
+    /**
+     * Elimina el puesto si nadie lo usa; si está en uso, lo deja inactivo y
+     * fuera del árbol, y reporta dónde se usa para reasignarlo a mano.
+     */
+    private function retirar(string $nombre): void
+    {
+        $puesto = Puesto::where('nombre', $nombre)->first();
 
-        Puesto::updateOrCreate(
-            ['nombre' => 'Analista de Nómina'],
-            [
-                'departamento_id' => $contabilidad?->id,
-                'descripcion' => 'Cálculo y timbrado de nómina, altas/bajas ante IMSS.',
-                'nivel_jerarquico' => 3,
-                'puesto_superior_id' => $gerenteContabilidad->id,
-                'puesto_crecimiento_id' => $gerenteContabilidad->id,
-                'tipo_puesto' => TipoPuesto::Administrativo,
-                'responsabilidades' => 'Cálculo y timbrado de nómina, altas/bajas ante IMSS.',
-                'activo' => true,
-            ],
-        );
+        if ($puesto === null) {
+            return;
+        }
 
-        Puesto::updateOrCreate(
-            ['nombre' => 'Auxiliar Contable'],
-            [
-                'departamento_id' => $contabilidad?->id,
-                'descripcion' => 'Registro de pólizas, conciliaciones bancarias y apoyo administrativo contable.',
-                'nivel_jerarquico' => 3,
-                'puesto_superior_id' => $gerenteContabilidad->id,
-                'puesto_crecimiento_id' => $gerenteContabilidad->id,
-                'tipo_puesto' => TipoPuesto::Administrativo,
-                'responsabilidades' => 'Registro de pólizas, conciliaciones bancarias, apoyo administrativo contable.',
-                'activo' => true,
-            ],
-        );
+        $usos = [];
 
-        // --- Rama de Sistemas ---
-        // Dirección General -> Gerente de Sistemas -> Analista de Sistemas / Soporte Técnico
-        $gerenteSistemas = Puesto::updateOrCreate(
-            ['nombre' => 'Gerente de Sistemas'],
-            [
-                'departamento_id' => $sistemas?->id,
-                'descripcion' => 'Responsable de la plataforma, infraestructura y soporte técnico de la empresa.',
-                'nivel_jerarquico' => 2,
-                'puesto_superior_id' => $direccionGeneral->id,
-                'tipo_puesto' => TipoPuesto::Administrativo,
-                'responsabilidades' => 'Dirige el área de sistemas: plataforma interna, infraestructura y soporte.',
-                'activo' => true,
-            ],
-        );
+        foreach (self::REFERENCIAS as $tabla => $columnas) {
+            if (! Schema::hasTable($tabla)) {
+                continue;
+            }
 
-        Puesto::updateOrCreate(
-            ['nombre' => 'Analista de Sistemas'],
-            [
-                'departamento_id' => $sistemas?->id,
-                'descripcion' => 'Desarrollo y mantenimiento de sistemas internos.',
-                'nivel_jerarquico' => 3,
-                'puesto_superior_id' => $gerenteSistemas->id,
-                'puesto_crecimiento_id' => $gerenteSistemas->id,
-                'tipo_puesto' => TipoPuesto::Administrativo,
-                'responsabilidades' => 'Desarrollo y mantenimiento de sistemas internos.',
-                'activo' => true,
-            ],
-        );
+            $total = DB::table($tabla)
+                ->where(fn ($query) => collect($columnas)->each(fn (string $columna) => $query->orWhere($columna, $puesto->id)))
+                ->count();
 
-        Puesto::updateOrCreate(
-            ['nombre' => 'Soporte Técnico'],
-            [
-                'departamento_id' => $sistemas?->id,
-                'descripcion' => 'Soporte a usuarios, equipos y conectividad en oficinas y sucursales.',
-                'nivel_jerarquico' => 3,
-                'puesto_superior_id' => $gerenteSistemas->id,
-                'puesto_crecimiento_id' => $gerenteSistemas->id,
-                'tipo_puesto' => TipoPuesto::Administrativo,
-                'responsabilidades' => 'Soporte a usuarios, equipos y conectividad en oficinas y sucursales.',
-                'activo' => true,
-            ],
-        );
+            if ($total > 0) {
+                $usos[] = sprintf('%s: %d', $tabla, $total);
+            }
+        }
 
-        // --- Rama de Operaciones administrativas ---
-        // Dirección General -> Responsable administrativo/regional -> Coordinadora regional -> Coordinadora
-        $responsableAdministrativo = Puesto::updateOrCreate(
-            ['nombre' => 'Responsable administrativo/regional'],
-            [
-                'departamento_id' => $operaciones?->id,
-                'descripcion' => 'Responsable administrativo a nivel regional.',
-                'nivel_jerarquico' => 2,
-                'puesto_superior_id' => $direccionGeneral->id,
-                'tipo_puesto' => TipoPuesto::Administrativo,
-                'activo' => true,
-            ],
-        );
+        // Nadie cuelga de un puesto retirado.
+        Puesto::where('puesto_superior_id', $puesto->id)->update(['puesto_superior_id' => null]);
+        Puesto::where('puesto_crecimiento_id', $puesto->id)->update(['puesto_crecimiento_id' => null]);
 
-        $coordinadoraRegional = Puesto::updateOrCreate(
-            ['nombre' => 'Coordinadora regional'],
-            [
-                'departamento_id' => $operaciones?->id,
-                'descripcion' => 'Supervisa coordinadoras de varias sucursales.',
-                'nivel_jerarquico' => 3,
-                'puesto_superior_id' => $responsableAdministrativo->id,
-                'puesto_crecimiento_id' => $responsableAdministrativo->id,
-                'tipo_puesto' => TipoPuesto::Administrativo,
-                'responsabilidades' => 'Supervisa coordinadoras de varias sucursales.',
-                'activo' => true,
-            ],
-        );
+        if ($usos === []) {
+            $puesto->respaldos()->detach();
+            $puesto->puestosQuePuedeCubrir()->detach();
+            $puesto->delete();
 
-        Puesto::updateOrCreate(
-            ['nombre' => 'Coordinadora'],
-            [
-                'departamento_id' => $operaciones?->id,
-                'descripcion' => 'Cuadre de caja, control administrativo y procesos internos de sucursal.',
-                'nivel_jerarquico' => 4,
-                'puesto_superior_id' => $coordinadoraRegional->id,
-                'puesto_crecimiento_id' => $coordinadoraRegional->id,
-                'tipo_puesto' => TipoPuesto::Administrativo,
-                'responsabilidades' => 'Cuadre de caja, control administrativo, procesos internos.',
-                'activo' => true,
-            ],
-        );
+            return;
+        }
 
-        // --- Puestos heredados de la etapa de capacitación (PuestoSeeder,
-        // anterior a esta reestructuración): existen y tienen colaboradores
-        // reales asignados (ver UsuarioDemoSeeder/DashboardDemoSeeder), pero
-        // nunca se engancharon a este árbol — quedaban como raíces sueltas
-        // en el Organigrama. Se cuelgan de la rama real que les corresponde
-        // en vez de eliminarlos (no se borran puestos con colaboradores).
-        $gerenteDeSucursal = Puesto::updateOrCreate(
-            ['nombre' => 'Gerente de Sucursal'],
-            [
-                'nivel_jerarquico' => 4,
-                'puesto_superior_id' => $gerenteRegional->id,
-                'puesto_crecimiento_id' => $gerenteRegional->id,
-                'tipo_puesto' => TipoPuesto::Comercial,
-                'activo' => true,
-            ],
-        );
+        $puesto->update(['activo' => false, 'puesto_superior_id' => null, 'puesto_crecimiento_id' => null]);
 
-        Puesto::updateOrCreate(
-            ['nombre' => 'Supervisor de Operaciones'],
-            [
-                'nivel_jerarquico' => 3,
-                'puesto_superior_id' => $responsableAdministrativo->id,
-                'puesto_crecimiento_id' => $responsableAdministrativo->id,
-                'tipo_puesto' => TipoPuesto::Administrativo,
-                'activo' => true,
-            ],
-        );
-
-        Puesto::updateOrCreate(
-            ['nombre' => 'Ejecutivo de Ventas'],
-            [
-                'nivel_jerarquico' => 5,
-                'puesto_superior_id' => $gerenteDeSucursal->id,
-                'puesto_crecimiento_id' => $gerenteDeSucursal->id,
-                'tipo_puesto' => TipoPuesto::Comercial,
-                'activo' => true,
-            ],
-        );
-
-        Puesto::updateOrCreate(
-            ['nombre' => 'Coordinador de Ventas'],
-            [
-                'nivel_jerarquico' => 5,
-                'puesto_superior_id' => $gerenteDeSucursal->id,
-                'puesto_crecimiento_id' => $gerenteDeSucursal->id,
-                'tipo_puesto' => TipoPuesto::Comercial,
-                'activo' => true,
-            ],
-        );
+        $this->command->warn(sprintf(
+            'Puesto «%s» retirado de la estructura pero EN USO (%s): quedó inactivo, reasigna esos registros a un puesto vigente.',
+            $nombre,
+            implode(', ', $usos),
+        ));
     }
 }

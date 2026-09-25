@@ -260,18 +260,18 @@ function alSoltar(nuevoEstado: string) {
                 :url-excel="urlExportar(exportarExcel)"
                 :url-pdf="urlExportar(exportarPdf)"
             />
-            <Button @click="abrirCrear">
+            <Button data-tour="candidatos-nuevo" @click="abrirCrear">
                 <Plus class="size-4" />
                 Nuevo candidato
             </Button>
         </CrudPageHeader>
 
-        <div class="flex flex-col gap-4">
+        <div data-tour="candidatos-kpis" class="flex flex-col gap-4">
             <CrudStats :estadisticas="pipelineKpi" />
             <CrudStats :estadisticas="[...resultadosKpi, ...costosKpi]" />
         </div>
 
-        <div class="flex flex-wrap items-center gap-2">
+        <div data-tour="candidatos-filtros" class="flex flex-wrap items-center gap-2">
             <CrudSearchInput
                 :model-value="filtros.busqueda"
                 placeholder="Buscar por nombre o correo..."
@@ -472,7 +472,7 @@ function alSoltar(nuevoEstado: string) {
             </Button>
         </div>
 
-        <div class="flex gap-4 overflow-x-auto pb-4">
+        <div data-tour="candidatos-tablero" class="flex gap-4 overflow-x-auto pb-4">
             <div
                 v-for="columna in columnas"
                 :key="columna.value"

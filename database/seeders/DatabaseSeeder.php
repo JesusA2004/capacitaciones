@@ -29,7 +29,6 @@ class DatabaseSeeder extends Seeder
             EmpresaSeeder::class,
             SucursalSeeder::class,
             DepartamentoSeeder::class,
-            PuestoSeeder::class,
             PuestoJerarquiaSeeder::class,
             DocumentTypeSeeder::class,
             MatrizComercialSeeder::class,

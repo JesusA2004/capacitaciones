@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Minus, Plus, RotateCcw } from '@lucide/vue';
+import { Minus, Plus } from '@lucide/vue';
 import { ref } from 'vue';
 import OrganigramaNodo from '@/components/Administracion/OrganigramaNodo.vue';
 import { Button } from '@/components/ui/button';
@@ -24,7 +24,7 @@ function acercar() {
 }
 
 function alejar() {
-    zoom.value = Math.max(0.6, Math.round((zoom.value - 0.1) * 10) / 10);
+    zoom.value = Math.max(0.3, Math.round((zoom.value - 0.1) * 10) / 10);
 }
 
 function restablecer() {
@@ -35,7 +35,7 @@ function restablecer() {
 <template>
     <div class="relative rounded-2xl border border-border/60 bg-muted/20">
         <div
-            class="absolute top-3 right-3 z-10 flex gap-1 rounded-lg border border-border/60 bg-card/95 p-1 shadow-sm backdrop-blur"
+            class="absolute top-4 right-4 z-10 flex items-center gap-1 rounded-xl border border-border/60 bg-card/95 p-1 shadow-md backdrop-blur"
         >
             <Button
                 variant="ghost"
@@ -48,12 +48,13 @@ function restablecer() {
             </Button>
             <Button
                 variant="ghost"
-                size="icon"
-                class="size-7"
                 title="Restablecer zoom"
+                class="h-7 w-auto px-2"
                 @click="restablecer"
             >
-                <RotateCcw class="size-3.5" />
+                <span class="text-xs font-semibold tabular-nums"
+                    >{{ Math.round(zoom * 100) }}%</span
+                >
             </Button>
             <Button
                 variant="ghost"
@@ -72,8 +73,8 @@ function restablecer() {
              vista, pegada al borde de este panel. -->
         <div class="max-h-[70vh] overflow-auto p-6">
             <div
-                class="flex w-max min-w-full origin-top flex-wrap items-start justify-center gap-10 transition-transform duration-200 ease-out"
-                :style="{ transform: `scale(${zoom})` }"
+                class="flex w-max min-w-full flex-wrap items-start justify-center gap-8"
+                :style="{ zoom }"
             >
                 <OrganigramaNodo
                     v-for="raiz in raices"

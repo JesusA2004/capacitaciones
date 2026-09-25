@@ -3,6 +3,7 @@
 namespace App\Services\Colaboradores;
 
 use App\Models\User;
+use App\Services\Notificaciones\DestinoNotificacionService;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Notifications\DatabaseNotificationCollection;
 use Illuminate\Support\Collection;
@@ -14,6 +15,8 @@ use Illuminate\Support\Collection;
  */
 class NotificacionesService
 {
+    public function __construct(private readonly DestinoNotificacionService $destinos) {}
+
     /**
      * Emoji + color por `tipo` de notificación (mismo catálogo para web y
      * API móvil, ver docs/API_MOVIL.md): un vistazo visual rápido de qué
@@ -145,6 +148,27 @@ class NotificacionesService
     public function marcarLeida(User $usuario, string $notificacionId): void
     {
         $usuario->notifications()->whereKey($notificacionId)->firstOrFail()->markAsRead();
+    }
+
+    /**
+     * Abrir una notificación desde la campana/lista (web) o desde la app:
+     * la marca como leída (idempotente: abrirla otra vez no cambia nada) y
+     * dice a dónde llevar al usuario y si lo que avisaba ya fue atendido,
+     * con el estado ACTUAL del recurso (ver DestinoNotificacionService).
+     * `no_leidas` va de regreso para que el contador se actualice al
+     * instante sin esperar al siguiente sondeo.
+     *
+     * @return array{url: string|null, atendida: bool|null, estado_recurso: string|null, mensaje_estado: string|null, no_leidas: int}
+     */
+    public function abrir(User $usuario, string $notificacionId): array
+    {
+        $notificacion = $usuario->notifications()->whereKey($notificacionId)->firstOrFail();
+        $notificacion->markAsRead();
+
+        return [
+            ...$this->destinos->resolver($notificacion, $usuario),
+            'no_leidas' => $usuario->unreadNotifications()->count(),
+        ];
     }
 
     public function marcarTodasLeidas(User $usuario): void

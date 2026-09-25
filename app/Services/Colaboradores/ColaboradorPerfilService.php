@@ -19,6 +19,7 @@ class ColaboradorPerfilService
         private readonly VacacionesService $vacaciones,
         private readonly SolicitudesService $solicitudes,
         private readonly NotificacionesService $notificaciones,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     /**
@@ -40,7 +41,7 @@ class ColaboradorPerfilService
             // expediente (ver Rh\ExpedienteController::descargarFoto). En la
             // API móvil esta URL solo funciona con una sesión web válida —
             // limitación conocida de Fase 1, ver docs/API_MOVIL.md.
-            'foto_url' => $colaborador?->foto_path !== null ? route('rh.expedientes.foto', $colaborador) : null,
+            'foto_url' => $colaborador !== null ? $this->fotos->url($colaborador) : null,
             'puesto' => $colaborador?->puesto?->nombre,
             'departamento' => $colaborador?->departamento?->nombre,
             'sucursal' => $colaborador?->sucursalPrincipal?->nombre,

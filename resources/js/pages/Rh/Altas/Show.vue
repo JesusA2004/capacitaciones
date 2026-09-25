@@ -137,6 +137,7 @@ function generarQr() {
 
     <div class="flex flex-col gap-6 p-4">
         <CrudPageHeader
+            detalle
             :titulo="
                 `${alta.nombre ?? ''} ${alta.apellidos ?? ''}`.trim() ||
                 'Alta digital'
