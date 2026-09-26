@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api\V1\Rh;
 
 use App\Http\Controllers\Controller;
 use App\Models\Vacante;
-use App\Services\AlcanceOrganizacionalService;
+use App\Services\Vacantes\VacantesListadoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -16,21 +16,22 @@ use Illuminate\Http\Request;
  */
 class VacanteController extends Controller
 {
-    public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}
+    public function __construct(private readonly VacantesListadoService $vacantes) {}
 
     public function index(Request $request): JsonResponse
     {
         $usuario = $request->user();
         abort_unless($usuario->can('vacantes.ver'), 403);
 
-        $query = $this->alcance->limitarPorSucursal(
-            Vacante::query()->with(['sucursal:id,nombre', 'departamento:id,nombre', 'puesto:id,nombre'])->withCount('candidatos'),
-            $usuario,
-        )
-            ->when($request->string('estado')->toString(), fn ($q, string $estado) => $q->where('estado', $estado))
-            ->when($request->integer('sucursal_id'), fn ($q, int $id) => $q->where('sucursal_id', $id));
+        // Misma consulta que la web (alcance, filtros y "activas por
+        // defecto"): App\Services\Vacantes\VacantesListadoService.
+        $query = $this->vacantes->consulta($usuario, [
+            'estado' => $request->string('estado')->toString() ?: null,
+            'sucursal_id' => $request->integer('sucursal_id') ?: null,
+            'busqueda' => $request->string('busqueda')->toString() ?: null,
+        ]);
 
-        $vacantes = $query->orderByDesc('fecha_apertura')->paginate((int) $request->integer('per_page', 15))->withQueryString();
+        $vacantes = $query->reorder()->orderByDesc('fecha_apertura')->paginate((int) $request->integer('per_page', 15))->withQueryString();
 
         return response()->json([
             'data' => collect($vacantes->items())->map(fn (Vacante $v) => [

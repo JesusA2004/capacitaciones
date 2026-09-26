@@ -1,4 +1,5 @@
 import Swal from 'sweetalert2';
+import { avisarExito } from '@/lib/flashToast';
 
 const base = Swal.mixin({
     confirmButtonColor: '#64d64b',
@@ -152,10 +153,15 @@ export function useAlertas() {
             .then(() => undefined);
     }
 
-    function mostrarExito(mensaje: string, titulo = 'Listo'): Promise<void> {
-        return base
-            .fire({ icon: 'success', title: titulo, text: mensaje })
-            .then(() => undefined);
+    /**
+     * Éxito = toast no bloqueante (no un modal que hay que cerrar). Si el
+     * backend ya avisó lo mismo con su flash toast hace un instante, no se
+     * repite (ver avisarExito en lib/flashToast.ts).
+     */
+    function mostrarExito(mensaje: string): Promise<void> {
+        avisarExito(mensaje);
+
+        return Promise.resolve();
     }
 
     function mostrarError(

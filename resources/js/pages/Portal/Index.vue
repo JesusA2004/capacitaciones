@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import CelebracionesHoyCard from '@/components/Celebraciones/CelebracionesHoyCard.vue';
 import { Head, Link } from '@inertiajs/vue3';
 import {
     Bell,
@@ -8,6 +7,7 @@ import {
     ClipboardList,
     UserRound,
 } from '@lucide/vue';
+import CelebracionesHoyCard from '@/components/Celebraciones/CelebracionesHoyCard.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';

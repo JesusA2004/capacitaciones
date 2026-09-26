@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import CelebracionesHoyCard from '@/components/Celebraciones/CelebracionesHoyCard.vue';
 import { Head } from '@inertiajs/vue3';
 import { CalendarDays, ClipboardList, FileWarning, ShieldCheck } from '@lucide/vue';
+import CelebracionesHoyCard from '@/components/Celebraciones/CelebracionesHoyCard.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import MetricCard from '@/components/Dashboard/MetricCard.vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

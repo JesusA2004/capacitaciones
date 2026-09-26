@@ -2,79 +2,54 @@
 
 namespace App\Http\Controllers\Rh;
 
-use App\Enums\EstadoCandidato;
 use App\Enums\EstadoVacante;
 use App\Exports\ReporteRhExport;
 use App\Http\Controllers\Controller;
-use App\Models\Candidato;
 use App\Models\Departamento;
-use App\Models\Empresa;
-use App\Models\HeadcountTarget;
 use App\Models\Puesto;
 use App\Models\Sucursal;
-use App\Models\User;
 use App\Models\Vacante;
 use App\Services\AlcanceOrganizacionalService;
-use App\Services\Headcount\HeadcountService;
+use App\Services\Vacantes\VacantesListadoService;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 /**
- * Vacantes es 100% informativo: cada fila es una combinación
- * (sucursal, puesto) con HeadcountTarget vigente, nunca un registro que RH
- * captura o mueve a mano (ver docs/HEADCOUNT_Y_VACANTES.md). "Plantilla
- * cubierta" y las demás cifras se calculan en vivo a partir de
- * HeadcountService y de las filas `vacantes` que
- * App\Services\Vacantes\VacanteAutoGenerationService sincroniza solo, para
- * costo presupuestado y fecha de apertura más antigua.
- *
- * @phpstan-type FilaVacante array{
- *     id: string,
- *     empresa_id: int|null,
- *     sucursal: array{id: int, nombre: string}|null,
- *     departamento: array{id: int, nombre: string}|null,
- *     puesto: array{id: int, nombre: string}|null,
- *     plantilla_permitida: int,
- *     plantilla_cubierta: int,
- *     vacantes_disponibles: int,
- *     candidatos_activos: int,
- *     candidatos_finalistas: int,
- *     cobertura_pct: float,
- *     costo_presupuestado_mensual: float|null,
- *     fecha_apertura_mas_antigua: string|null,
- * }
+ * Vacantes (docs/HEADCOUNT_Y_VACANTES.md): la lista de las vacantes REALES
+ * — qué puesto falta, dónde, cuántas plazas, desde cuándo y con cuántos
+ * candidatos —, no la tabla de plantilla por sucursal (esa vive en
+ * Administración > Sucursales > detalle). Las vacantes se abren y cierran
+ * solas desde headcount (VacanteAutoGenerationService). Toda la regla vive
+ * en VacantesListadoService, compartido con la API móvil.
  */
 class VacanteController extends Controller
 {
-    private const FILTROS = ['empresa_id', 'sucursal_id', 'departamento_id', 'puesto_id', 'busqueda'];
+    private const FILTROS = ['busqueda', 'sucursal_id', 'puesto_id', 'departamento_id', 'estado'];
 
     public function __construct(
+        private readonly VacantesListadoService $vacantes,
         private readonly AlcanceOrganizacionalService $alcance,
-        private readonly HeadcountService $headcount,
     ) {}
 
     public function index(Request $request): Response
     {
         $this->authorize('viewAny', Vacante::class);
-
-        $filasBase = $this->filasPlantilla($request->user());
-        $filasFiltradas = $this->aplicarFiltros($filasBase, $request);
+        $usuario = $request->user();
+        $sucursales = $this->alcance->sucursalesVisiblesIds($usuario);
 
         return Inertia::render('Rh/Vacantes/Index', [
-            'vacantes' => $filasFiltradas->values(),
-            'kpis' => $this->kpis($filasBase),
+            'vacantes' => $this->vacantes->filas($this->vacantes->consulta($usuario, $this->filtros($request))->get()),
+            'kpis' => $this->vacantes->kpis($usuario),
             'filtros' => $request->only(self::FILTROS),
             'opciones' => [
-                'empresas' => Empresa::query()->orderBy('nombre')->get(['id', 'nombre']),
-                'sucursales' => Sucursal::query()->orderBy('nombre')->get(['id', 'nombre', 'empresa_id']),
+                'sucursales' => Sucursal::query()->whereIn('id', $sucursales)->orderBy('nombre')->get(['id', 'nombre']),
                 'departamentos' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
-                'puestos' => Puesto::query()->orderBy('nombre')->get(['id', 'nombre', 'departamento_id']),
+                'puestos' => Puesto::query()->orderBy('nombre')->get(['id', 'nombre']),
+                'estados' => collect(EstadoVacante::cases())->map(fn (EstadoVacante $e) => ['valor' => $e->value, 'etiqueta' => $e->etiqueta()])->values(),
             ],
         ]);
     }
@@ -103,282 +78,49 @@ class VacanteController extends Controller
     }
 
     /**
-     * KPIs de cabecera: reflejan el estado general acotado por alcance
-     * organizacional, no los filtros activos en pantalla — para eso están
-     * las columnas y la exportación (mismo criterio que el resto de
-     * tableros de RH).
-     *
-     * @param  Collection<int, array<string, mixed>>  $filas  cada elemento es una FilaVacante
-     * @return array<string, int|float>
+     * @return array{busqueda?: string|null, sucursal_id?: int|string|null, puesto_id?: int|string|null, departamento_id?: int|string|null, estado?: string|null}
      */
-    private function kpis(Collection $filas): array
+    private function filtros(Request $request): array
     {
-        $permitidaTotal = (int) $filas->sum('plantilla_permitida');
-        $cubiertaTotal = (int) $filas->sum('plantilla_cubierta');
+        $datos = $request->validate([
+            'busqueda' => ['nullable', 'string', 'max:100'],
+            'sucursal_id' => ['nullable', 'integer'],
+            'puesto_id' => ['nullable', 'integer'],
+            'departamento_id' => ['nullable', 'integer'],
+            'estado' => ['nullable', 'string'],
+        ]);
 
         return [
-            'sucursales_bajo_cobertura' => $filas->filter(fn (array $f) => $f['vacantes_disponibles'] > 0)->count(),
-            'plantilla_permitida_total' => $permitidaTotal,
-            'plantilla_cubierta_total' => $cubiertaTotal,
-            'vacantes_totales' => (int) $filas->sum('vacantes_disponibles'),
-            'cobertura_pct_global' => $permitidaTotal > 0 ? round(($cubiertaTotal / $permitidaTotal) * 100, 1) : 0.0,
-            'costo_mensual_total' => (float) $filas->sum(fn (array $f) => $f['costo_presupuestado_mensual'] ?? 0.0),
+            'busqueda' => isset($datos['busqueda']) ? (string) $datos['busqueda'] : null,
+            'sucursal_id' => isset($datos['sucursal_id']) ? (int) $datos['sucursal_id'] : null,
+            'puesto_id' => isset($datos['puesto_id']) ? (int) $datos['puesto_id'] : null,
+            'departamento_id' => isset($datos['departamento_id']) ? (int) $datos['departamento_id'] : null,
+            'estado' => isset($datos['estado']) ? (string) $datos['estado'] : null,
         ];
     }
 
     /**
-     * Una fila por cada (sucursal, puesto) con HeadcountTarget vigente
-     * (universo de App\Services\Headcount\HeadcountService::paresConTarget()),
-     * acotada por el alcance organizacional del usuario — nunca por los
-     * filtros de pantalla, ver kpis().
-     *
-     * @return Collection<int, array<string, mixed>> cada elemento es una FilaVacante
-     */
-    private function filasPlantilla(User $usuario): Collection
-    {
-        $pares = $this->headcount->paresConTarget();
-
-        $targetsPorPar = HeadcountTarget::query()
-            ->with(['sucursal:id,nombre,empresa_id', 'departamento:id,nombre', 'puesto:id,nombre'])
-            ->get()
-            ->keyBy(fn (HeadcountTarget $t) => sprintf('%d:%d', $t->sucursal_id, $t->puesto_id));
-
-        $actualPorPar = $this->headcount->plantillaActualPorSucursalPuesto();
-
-        $vacantesPorPar = Vacante::query()
-            ->whereNotNull('sucursal_id')
-            ->whereNotNull('puesto_id')
-            ->get(['sucursal_id', 'puesto_id', 'estado', 'sueldo_mensual', 'fecha_apertura'])
-            ->groupBy(fn (Vacante $v) => sprintf('%d:%d', $v->sucursal_id, $v->puesto_id));
-
-        $candidatosPorPar = Candidato::query()
-            ->whereNotNull('sucursal_id')
-            ->whereNotNull('puesto_objetivo_id')
-            ->get(['sucursal_id', 'puesto_objetivo_id', 'estado'])
-            ->groupBy(fn (Candidato $c) => sprintf('%d:%d', $c->sucursal_id, $c->puesto_objetivo_id));
-
-        // Última fase no terminal del pipeline de candidatos, calculada en
-        // vivo a partir del enum (nunca por nombre de estado): así este
-        // controlador no depende de cómo se llamen las fases hoy.
-        $ultimaFaseNoTerminal = collect(EstadoCandidato::cases())
-            ->filter(fn (EstadoCandidato $e) => ! $e->esTerminal())
-            ->sortByDesc(fn (EstadoCandidato $e) => $e->orden())
-            ->first();
-
-        $sucursalesVisibles = $this->alcance->tieneAlcanceGlobal($usuario)
-            ? null
-            : $this->alcance->sucursalesVisiblesIds($usuario);
-
-        $objetivos = $pares
-            ->map(fn (array $par) => $targetsPorPar->get(sprintf('%d:%d', $par['sucursal_id'], $par['puesto_id'])))
-            ->filter()
-            ->filter(fn (HeadcountTarget $target) => $sucursalesVisibles === null || $sucursalesVisibles->contains($target->sucursal_id));
-
-        // Construido con un foreach sobre un array plano (no
-        // Collection::map()) a propósito: Collection<TValue> no es
-        // covariante y encadenar map()/sort() sobre un shape de array
-        // literal como FilaVacante hace que PHPStan derive un tipo de
-        // "positive-int" distinto en cada paso de la tubería, terminando en
-        // una unión que ya no calza con el alias declarado — un array plano
-        // no arrastra ese problema.
-        $filas = [];
-
-        foreach ($objetivos as $target) {
-            $filas[] = $this->construirFila($target, $actualPorPar, $vacantesPorPar, $candidatosPorPar, $ultimaFaseNoTerminal);
-        }
-
-        usort($filas, fn (array $a, array $b) => [$a['sucursal']['nombre'] ?? '', $a['puesto']['nombre'] ?? '']
-            <=> [$b['sucursal']['nombre'] ?? '', $b['puesto']['nombre'] ?? '']);
-
-        return collect(array_map($this->fila(...), $filas));
-    }
-
-    /**
-     * Illuminate\Support\Collection no es covariante (ver
-     * https://phpstan.org/blog/whats-up-with-template-covariant): un array
-     * con forma literal (los foreach/map de arriba) no se acepta donde se
-     * declaro `Collection<int, FilaVacante>` aunque sea estructuralmente
-     * compatible, ni siquiera pasandolo por una funcion identidad tipada
-     * con el mismo alias preciso (el alias en si vuelve a triangular el
-     * mismo choque). Ensanchar aqui a `array<string, mixed>` en la
-     * frontera de la funcion si es una operacion valida para PHPStan y
-     * es el mismo patron ya usado en RhPendientesService::item().
-     *
-     * @param  array<string, mixed>  $fila
-     * @return array<string, mixed>
-     */
-    private function fila(array $fila): array
-    {
-        return $fila;
-    }
-
-    /**
-     * Construye una FilaVacante para un HeadcountTarget ya resuelto. Vive en
-     * su propio método (no inline dentro del map() de filasPlantilla()) con
-     * un `@return FilaVacante` explícito: así PHPStan tipa el resultado por
-     * la firma declarada del método en vez de re-derivar (y terminar
-     * uniendo) un literal distinto en cada punto de la tubería
-     * filter()/map()/sort() — Collection<TValue> no es covariante, así que
-     * cualquier variación de un "positive-int" entre pasos rompe el tipo de
-     * retorno declarado.
-     *
-     * @param  Collection<non-falsy-string, int>  $actualPorPar
-     * @param  Collection<int|string, EloquentCollection<int, Vacante>>  $vacantesPorPar
-     * @param  Collection<int|string, EloquentCollection<int, Candidato>>  $candidatosPorPar
-     * @return FilaVacante
-     */
-    private function construirFila(
-        HeadcountTarget $target,
-        Collection $actualPorPar,
-        Collection $vacantesPorPar,
-        Collection $candidatosPorPar,
-        ?EstadoCandidato $ultimaFaseNoTerminal,
-    ): array {
-        $clave = sprintf('%d:%d', $target->sucursal_id, $target->puesto_id);
-
-        $permitida = (int) $target->plantilla_autorizada;
-        $cubierta = (int) ($actualPorPar[$clave] ?? 0);
-
-        $vacantesFilas = $vacantesPorPar->get($clave);
-        $costoPresupuestado = $vacantesFilas !== null
-            ? (float) $vacantesFilas->sum(fn (Vacante $v) => (float) ($v->sueldo_mensual ?? 0))
-            : null;
-
-        $vacantesAbiertas = $vacantesFilas?->filter(
-            fn (Vacante $v) => ! in_array($v->estado, [EstadoVacante::Cubierta, EstadoVacante::Cancelada], true)
-        );
-        $fechaMasAntigua = $vacantesAbiertas !== null && $vacantesAbiertas->isNotEmpty()
-            ? $vacantesAbiertas->min('fecha_apertura')
-            : null;
-
-        $candidatos = $candidatosPorPar->get($clave, collect());
-        $candidatosActivos = (int) sprintf('%d', $candidatos->filter(fn (Candidato $c) => ! $c->estado->esTerminal())->count());
-        $candidatosFinalistas = (int) sprintf('%d', $candidatos->filter(fn (Candidato $c) => $c->estado === $ultimaFaseNoTerminal)->count());
-
-        return [
-            'id' => $clave,
-            'empresa_id' => $target->sucursal?->empresa_id === null ? null : (int) $target->sucursal->empresa_id,
-            'sucursal' => $this->opcionSimple($target->sucursal),
-            'departamento' => $this->opcionSimple($target->departamento),
-            'puesto' => $this->opcionSimple($target->puesto),
-            'plantilla_permitida' => $permitida,
-            'plantilla_cubierta' => $cubierta,
-            'vacantes_disponibles' => (int) sprintf('%d', max($permitida - $cubierta, 0)),
-            'candidatos_activos' => $candidatosActivos,
-            'candidatos_finalistas' => $candidatosFinalistas,
-            'cobertura_pct' => $permitida > 0 ? round(($cubierta / $permitida) * 100, 1) : 0.0,
-            'costo_presupuestado_mensual' => $costoPresupuestado,
-            'fecha_apertura_mas_antigua' => $fechaMasAntigua?->toDateString(),
-        ];
-    }
-
-    /**
-     * Normaliza una relación BelongsTo a la forma {id, nombre} declarada en
-     * FilaVacante — un tipo de retorno explícito (no inferido de un literal
-     * inline) evita que PHPStan derive un "positive-int" distinto por cada
-     * punto de la tubería filter()/map() y termine uniendo variantes
-     * incompatibles entre sí (Collection<TValue> no es covariante).
-     *
-     * @return array{id: int, nombre: string}|null
-     */
-    private function opcionSimple(Sucursal|Departamento|Puesto|null $modelo): ?array
-    {
-        if ($modelo === null) {
-            return null;
-        }
-
-        return ['id' => (int) $modelo->id, 'nombre' => $modelo->nombre];
-    }
-
-    /**
-     * @param  Collection<int, array<string, mixed>>  $filas  cada elemento es una FilaVacante
-     * @return Collection<int, array<string, mixed>> cada elemento es una FilaVacante
-     */
-    private function aplicarFiltros(Collection $filas, Request $request): Collection
-    {
-        $empresaId = $request->integer('empresa_id') ?: null;
-        $sucursalId = $request->integer('sucursal_id') ?: null;
-        $departamentoId = $request->integer('departamento_id') ?: null;
-        $puestoId = $request->integer('puesto_id') ?: null;
-        $busqueda = mb_strtolower(trim($request->string('busqueda')->toString()));
-
-        // Mismo motivo que filasPlantilla(): se filtra sobre un array plano
-        // (no Collection::filter() encadenado) para que PHPStan no derive
-        // una unión de shapes incompatibles entre sí a partir de FilaVacante.
-        $lista = $filas->all();
-
-        if ($empresaId !== null) {
-            $lista = array_filter($lista, fn (array $f) => $f['empresa_id'] === $empresaId);
-        }
-
-        if ($sucursalId !== null) {
-            $lista = array_filter($lista, fn (array $f) => ($f['sucursal']['id'] ?? null) === $sucursalId);
-        }
-
-        if ($departamentoId !== null) {
-            $lista = array_filter($lista, fn (array $f) => ($f['departamento']['id'] ?? null) === $departamentoId);
-        }
-
-        if ($puestoId !== null) {
-            $lista = array_filter($lista, fn (array $f) => ($f['puesto']['id'] ?? null) === $puestoId);
-        }
-
-        if ($busqueda !== '') {
-            $lista = array_filter(
-                $lista,
-                fn (array $f) => str_contains(mb_strtolower((string) ($f['puesto']['nombre'] ?? '')), $busqueda)
-                    || str_contains(mb_strtolower((string) ($f['departamento']['nombre'] ?? '')), $busqueda)
-                    || str_contains(mb_strtolower((string) ($f['sucursal']['nombre'] ?? '')), $busqueda)
-            );
-        }
-
-        return collect(array_map($this->fila(...), array_values($lista)));
-    }
-
-    /**
-     * @return array{0: array<int, string>, 1: array<int, array<int, string|int|float|null>>}
+     * @return array{0: list<string>, 1: list<list<mixed>>}
      */
     private function tabla(Request $request): array
     {
-        $filas = $this->aplicarFiltros($this->filasPlantilla($request->user()), $request);
+        $filas = $this->vacantes->filas($this->vacantes->consulta($request->user(), $this->filtros($request))->get());
 
-        $columnas = [
-            'Sucursal', 'Departamento', 'Puesto', 'Plantilla permitida', 'Plantilla cubierta',
-            'Vacantes disponibles', 'Candidatos activos', 'Candidatos finalistas', 'Cobertura %',
-            'Costo mensual', 'Fecha faltante más antigua',
-        ];
+        $columnas = ['Puesto', 'Sucursal', 'Estado', 'Plazas por cubrir', 'Abierta desde', 'Días abierta', 'Candidatos activos', 'Plantilla autorizada', 'Plantilla actual', 'Origen'];
 
-        $filasTabla = $filas->map(fn (array $f) => [
-            $f['sucursal']['nombre'] ?? null,
-            $f['departamento']['nombre'] ?? null,
-            $f['puesto']['nombre'] ?? null,
-            $f['plantilla_permitida'],
-            $f['plantilla_cubierta'],
-            $f['vacantes_disponibles'],
+        $tabla = array_map(fn (array $f) => [
+            $f['puesto'],
+            $f['sucursal'],
+            $f['estado_etiqueta'],
+            $f['plazas_disponibles'],
+            $f['fecha_apertura'],
+            $f['dias_abierta'],
             $f['candidatos_activos'],
-            $f['candidatos_finalistas'],
-            $f['cobertura_pct'],
-            $f['costo_presupuestado_mensual'],
-            $f['fecha_apertura_mas_antigua'],
-        ])->all();
+            $f['plantilla_autorizada'],
+            $f['plantilla_actual'],
+            $f['generada_automaticamente'] ? 'Automática (headcount)' : 'Manual',
+        ], $filas);
 
-        if ($filas->isNotEmpty()) {
-            $permitidaTotal = (int) $filas->sum('plantilla_permitida');
-            $cubiertaTotal = (int) $filas->sum('plantilla_cubierta');
-
-            $filasTabla[] = [
-                'Total', null, null,
-                $permitidaTotal,
-                $cubiertaTotal,
-                (int) $filas->sum('vacantes_disponibles'),
-                (int) $filas->sum('candidatos_activos'),
-                (int) $filas->sum('candidatos_finalistas'),
-                $permitidaTotal > 0 ? round(($cubiertaTotal / $permitidaTotal) * 100, 1) : 0.0,
-                (float) $filas->sum(fn (array $f) => $f['costo_presupuestado_mensual'] ?? 0.0),
-                null,
-            ];
-        }
-
-        return [$columnas, $filasTabla];
+        return [$columnas, $tabla];
     }
 }

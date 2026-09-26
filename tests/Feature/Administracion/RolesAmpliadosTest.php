@@ -28,8 +28,8 @@ test('un gerente_regional ve colaboradores de varias sucursales asignadas', func
     $sucursalAdicional = Sucursal::factory()->create();
     $sucursalAjena = Sucursal::factory()->create();
 
-    $gerenteRegional->update(['sucursal_principal_id' => $sucursalPrincipal->id]);
-    $gerenteRegional->sucursalesAdicionales()->attach($sucursalAdicional->id);
+    $gerenteRegional->colaborador->update(['sucursal_principal_id' => $sucursalPrincipal->id]);
+    $gerenteRegional->colaborador->sucursalesAdicionales()->attach($sucursalAdicional->id);
 
     $colaboradorA = User::factory()->create(['sucursal_principal_id' => $sucursalPrincipal->id]);
     $colaboradorB = User::factory()->create(['sucursal_principal_id' => $sucursalAdicional->id]);

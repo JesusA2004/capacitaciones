@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Colaborador;
 use App\Models\User;
 use Database\Seeders\DepartamentoSeeder;
 use Database\Seeders\EmpresaSeeder;
@@ -19,7 +20,7 @@ test('sin filtros el panel devuelve los cumpleanos del mes actual', function () 
 
     $hoy = Carbon::today();
 
-    $festejado = User::factory()->create([
+    $festejado = Colaborador::factory()->create([
         'fecha_nacimiento' => $hoy->copy()->subYears(29),
         'name' => 'Festejado Del Mes',
     ]);
@@ -30,7 +31,7 @@ test('sin filtros el panel devuelve los cumpleanos del mes actual', function () 
         ->assertInertia(fn ($page) => $page
             ->component('Rh/Cumpleanos/Index')
             ->where('mes', $hoy->month)
-            ->where('delMes', fn ($delMes) => collect($delMes)->pluck('id')->contains($festejado->id))
+            ->where('delMes', fn ($delMes) => collect($delMes)->pluck('colaborador_id')->contains($festejado->id))
         );
 });
 
@@ -38,7 +39,7 @@ test('el selector de colaborador incluye activos sin fecha de nacimiento', funct
     $admin = User::factory()->create();
     $admin->assignRole('rh_admin');
 
-    $sinFecha = User::factory()->create(['fecha_nacimiento' => null, 'name' => 'Sin Fecha Capturada']);
+    $sinFecha = Colaborador::factory()->create(['fecha_nacimiento' => null, 'name' => 'Sin Fecha Capturada']);
 
     $this->actingAs($admin)
         ->get(route('rh.cumpleanos.index'))
@@ -51,8 +52,8 @@ test('los colaboradores activos sin fecha de nacimiento se cuentan y se listan a
     $admin = User::factory()->create();
     $admin->assignRole('rh_admin');
 
-    $sinFecha = User::factory()->create(['fecha_nacimiento' => null, 'name' => 'Falta Su Fecha']);
-    $conFecha = User::factory()->create(['fecha_nacimiento' => now()->subYears(30)]);
+    $sinFecha = Colaborador::factory()->create(['fecha_nacimiento' => null, 'name' => 'Falta Su Fecha']);
+    $conFecha = Colaborador::factory()->create(['fecha_nacimiento' => now()->subYears(30)]);
 
     $this->actingAs($admin)
         ->get(route('rh.cumpleanos.index'))
@@ -66,14 +67,14 @@ test('limpiar filtros vuelve a traer el universo completo de datos reales', func
     $admin = User::factory()->create();
     $admin->assignRole('rh_admin');
 
-    $marzo = User::factory()->create(['fecha_nacimiento' => '1990-03-05', 'name' => 'Nacido En Marzo']);
-    $abril = User::factory()->create(['fecha_nacimiento' => '1990-04-05', 'name' => 'Nacido En Abril']);
+    $marzo = Colaborador::factory()->create(['fecha_nacimiento' => '1990-03-05', 'name' => 'Nacido En Marzo']);
+    $abril = Colaborador::factory()->create(['fecha_nacimiento' => '1990-04-05', 'name' => 'Nacido En Abril']);
 
     $this->actingAs($admin)
         ->get(route('rh.cumpleanos.index', ['mes' => 3, 'busqueda' => 'Marzo']))
         ->assertInertia(fn ($page) => $page
-            ->where('delMes', fn ($delMes) => collect($delMes)->pluck('id')->contains($marzo->id)
-                && ! collect($delMes)->pluck('id')->contains($abril->id))
+            ->where('delMes', fn ($delMes) => collect($delMes)->pluck('colaborador_id')->contains($marzo->id)
+                && ! collect($delMes)->pluck('colaborador_id')->contains($abril->id))
         );
 
     // "Limpiar filtros" es una navegacion sin busqueda/colaborador_id (mismo
@@ -82,7 +83,7 @@ test('limpiar filtros vuelve a traer el universo completo de datos reales', func
     $this->actingAs($admin)
         ->get(route('rh.cumpleanos.index', ['mes' => 3]))
         ->assertInertia(fn ($page) => $page
-            ->where('delMes', fn ($delMes) => collect($delMes)->pluck('id')->contains($marzo->id)));
+            ->where('delMes', fn ($delMes) => collect($delMes)->pluck('colaborador_id')->contains($marzo->id)));
 });
 
 test('los seeders de desarrollo dejan cumpleanos visibles en el mes actual', function () {
@@ -92,7 +93,7 @@ test('los seeders de desarrollo dejan cumpleanos visibles en el mes actual', fun
     $this->seed(PuestoSeeder::class);
     $this->seed(UsuarioDemoSeeder::class);
 
-    $conCumpleanosEsteMes = User::query()
+    $conCumpleanosEsteMes = Colaborador::query()
         ->whereNotNull('fecha_nacimiento')
         ->whereMonth('fecha_nacimiento', now()->month)
         ->count();

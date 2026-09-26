@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useResizeObserver } from '@vueuse/core';
+import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { nextTick, onBeforeUnmount, ref, shallowRef, useTemplateRef, watch } from 'vue';
 import { Spinner } from '@/components/ui/spinner';
 import { PT_A_MM, abrirPdf, textoConPosicion } from '@/lib/pdf';

@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Candidato;
+use App\Models\Colaborador;
 use App\Models\DocumentTemplate;
 use App\Models\GeneratedDocument;
 use App\Models\User;
@@ -66,7 +67,7 @@ test('rh_admin puede generar un documento precargado para un colaborador y el pl
     $usuario = User::factory()->create();
     $usuario->assignRole('rh_admin');
 
-    $colaborador = User::factory()->create(['name' => 'Juana', 'apellidos' => 'Pérez']);
+    $colaborador = User::factory()->for(Colaborador::factory()->state(['name' => 'Juana', 'apellidos' => 'Pérez']), 'colaborador')->create();
 
     $rutaPlantilla = 'plantillas/prueba.docx';
     Storage::disk('nas')->put($rutaPlantilla, crearDocxDePrueba('Hola {{nombre_completo}}, bienvenido.'));
@@ -80,13 +81,13 @@ test('rh_admin puede generar un documento precargado para un colaborador y el pl
         ->post(route('rh.formatos.store'), [
             'document_template_id' => $plantilla->id,
             'tipo_sujeto' => 'colaborador',
-            'sujeto_id' => $colaborador->id,
+            'sujeto_id' => $colaborador->colaborador_id,
         ])
         ->assertSessionHasNoErrors();
 
     $documento = GeneratedDocument::where('document_template_id', $plantilla->id)->firstOrFail();
 
-    expect($documento->user_id)->toBe($colaborador->id)
+    expect($documento->colaborador_id)->toBe($colaborador->colaborador_id)
         ->and(Storage::disk('nas')->exists($documento->path))->toBeTrue();
 
     // El docx generado es un zip; el texto sustituido vive en word/document.xml.

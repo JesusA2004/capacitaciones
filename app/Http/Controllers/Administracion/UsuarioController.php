@@ -73,7 +73,6 @@ class UsuarioController extends Controller
 
         $usuarios->getCollection()->transform(function (User $u) {
             $u->setAttribute('roles_nombres', $u->roles->pluck('name'));
-            $u->setAttribute('tiene_2fa', $u->two_factor_confirmed_at !== null);
 
             return $u;
         });
@@ -89,7 +88,6 @@ class UsuarioController extends Controller
             'estadisticas' => [
                 'total' => $this->alcance->limitarUsuariosPorAlcance(User::query(), $usuario)->count(),
                 'bloqueados' => $this->alcance->limitarUsuariosPorAlcance(User::query(), $usuario)->whereNotNull('acceso_bloqueado_en')->count(),
-                'sin_2fa' => $this->alcance->limitarUsuariosPorAlcance(User::query(), $usuario)->whereNull('two_factor_confirmed_at')->count(),
             ],
         ]);
     }

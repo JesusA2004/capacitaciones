@@ -51,6 +51,45 @@ class UserFactory extends Factory
     }
 
     /**
+     * Datos de la PERSONA que muchas pruebas todavía pasan a la cuenta
+     * (`User::factory()->create(['sucursal_principal_id' => ...])`, herencia
+     * de antes de la separación User/Colaborador): se copian a su
+     * Colaborador, que es de donde los lee todo el sistema (alcance,
+     * headcount, cumpleaños, login...). Sin esto la prueba creaba a la
+     * persona en otra sucursal/puesto al azar y fallaba por razones ajenas a
+     * lo que verifica. Solo aplica a lo que la prueba pasó explícitamente.
+     */
+    public function configure(): static
+    {
+        return $this->afterCreating(function (User $usuario): void {
+            $colaborador = $usuario->colaborador;
+
+            if ($colaborador === null) {
+                return;
+            }
+
+            $atributos = $usuario->getAttributes();
+            $datos = [];
+
+            foreach (['sucursal_principal_id', 'puesto_id', 'departamento_id', 'fecha_nacimiento', 'fecha_ingreso', 'numero_empleado', 'foto_path'] as $campo) {
+                if (($atributos[$campo] ?? null) !== null) {
+                    $datos[$campo] = $atributos[$campo];
+                }
+            }
+
+            $estatus = $atributos['estatus'] ?? null;
+
+            if ($estatus !== null && $estatus !== EstadoUsuario::Activo->value) {
+                $datos['estatus'] = $estatus instanceof EstadoUsuario ? $estatus->value : $estatus;
+            }
+
+            if ($datos !== []) {
+                $colaborador->update($datos);
+            }
+        });
+    }
+
+    /**
      * Indicate that the model's email address should be unverified.
      */
     public function unverified(): static

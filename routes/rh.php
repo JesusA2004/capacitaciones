@@ -251,6 +251,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::delete('frases/{frase}', [CumpleanosController::class, 'destroyFrase'])->name('frases.destroy');
             Route::prefix('configuracion')->name('configuracion.')->group(function () {
                 Route::get('/', [CumpleanosConfiguracionController::class, 'index'])->name('index');
+                Route::get('vista-previa', [CumpleanosConfiguracionController::class, 'vistaPrevia'])->name('vista-previa');
                 Route::post('fondo', [CumpleanosConfiguracionController::class, 'actualizarFondo'])->name('fondo.actualizar');
                 Route::delete('fondo', [CumpleanosConfiguracionController::class, 'eliminarFondo'])->name('fondo.eliminar');
                 Route::get('fondo/ver', [CumpleanosConfiguracionController::class, 'fondo'])->name('fondo.ver');

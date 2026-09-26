@@ -16,7 +16,7 @@ beforeEach(function () {
 
 test('aprobar un alta digital registra un movimiento de alta', function () {
     $candidato = Candidato::factory()->create([
-        'estado' => 'aprobado_rh',
+        'estado' => 'listo_para_contratacion',
         'cv_disk' => 'nas',
         'cv_path' => 'candidatos/test/cv.pdf',
         'cv_original_name' => 'cv.pdf',

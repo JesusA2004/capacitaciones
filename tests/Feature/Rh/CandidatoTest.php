@@ -44,7 +44,7 @@ test('rh_auxiliar no puede aprobar ni rechazar candidatos', function () {
     $usuario->assignRole('rh_auxiliar');
 
     $this->actingAs($usuario)
-        ->put(route('rh.candidatos.estado', $candidato), ['estado' => 'aprobado_rh'])
+        ->put(route('rh.candidatos.estado', $candidato), ['estado' => 'listo_para_contratacion'])
         ->assertForbidden();
 
     $this->actingAs($usuario)

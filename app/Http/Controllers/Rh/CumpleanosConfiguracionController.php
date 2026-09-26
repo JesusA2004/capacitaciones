@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Rh;
 
 use App\Http\Controllers\Controller;
+use App\Models\BirthdayPhrase;
+use App\Services\Cumpleanos\BirthdayCardService;
 use App\Services\Cumpleanos\CumpleanosStorageService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,7 +21,10 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  */
 class CumpleanosConfiguracionController extends Controller
 {
-    public function __construct(private readonly CumpleanosStorageService $storage) {}
+    public function __construct(
+        private readonly CumpleanosStorageService $storage,
+        private readonly BirthdayCardService $tarjetas,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -38,7 +43,25 @@ class CumpleanosConfiguracionController extends Controller
             'fondoUrl' => $existe
                 ? route('rh.cumpleanos.configuracion.fondo.ver').'?v='.$this->storage->disco()->lastModified($ruta)
                 : null,
+            // Las frases que rotan en las tarjetas se administran aquí (antes
+            // en un diálogo del calendario): misma pantalla de configuración
+            // que Aniversarios, con fondo + texto + vista previa real.
+            'puedeGestionarFrases' => $request->user()->can('rh.cumpleanos.frases.gestionar'),
+            'frases' => $request->user()->can('rh.cumpleanos.frases.gestionar')
+                ? BirthdayPhrase::query()->orderBy('orden')->orderBy('id')->get(['id', 'texto', 'categoria', 'activo', 'usado_count'])
+                : [],
         ]);
+    }
+
+    /**
+     * Vista previa REAL de la tarjeta (PNG) con datos de ejemplo, el fondo y
+     * la frase actuales. No guarda nada.
+     */
+    public function vistaPrevia(Request $request): HttpResponse
+    {
+        abort_unless($request->user()->can('rh.cumpleanos.configurar'), 403);
+
+        return response($this->tarjetas->previewEjemplo(), 200, ['Content-Type' => 'image/png', 'Cache-Control' => 'no-store']);
     }
 
     public function actualizarFondo(Request $request): RedirectResponse

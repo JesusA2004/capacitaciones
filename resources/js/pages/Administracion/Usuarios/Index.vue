@@ -5,7 +5,6 @@ import {
     KeyRound,
     Lock,
     Plus,
-    ShieldAlert,
     Unlock,
     Users as UsersIcon,
 } from '@lucide/vue';
@@ -40,7 +39,7 @@ const props = defineProps<{
     filtros: { busqueda?: string };
     colaboradoresSinCuenta: { id: number; name: string; apellidos: string | null }[];
     rolesDisponibles: string[];
-    estadisticas: { total: number; bloqueados: number; sin_2fa: number };
+    estadisticas: { total: number; bloqueados: number };
 }>();
 
 defineOptions({
@@ -63,7 +62,6 @@ const columnas: ColumnaDataTable[] = [
     { clave: 'roles_nombres', etiqueta: 'Roles' },
     { clave: 'acceso_bloqueado_en', etiqueta: 'Estado acceso' },
     { clave: 'email_verified_at', etiqueta: 'Correo verificado' },
-    { clave: 'tiene_2fa', etiqueta: '2FA' },
     { clave: 'ultimo_acceso', etiqueta: 'Último acceso' },
 ];
 
@@ -130,12 +128,6 @@ function restablecer(usuario: UsuarioItem) {
                     valor: estadisticas.bloqueados,
                     icono: Lock,
                     tono: 'danger',
-                },
-                {
-                    etiqueta: 'Sin 2FA',
-                    valor: estadisticas.sin_2fa,
-                    icono: ShieldAlert,
-                    tono: 'warning',
                 },
             ]"
         />
@@ -205,14 +197,11 @@ function restablecer(usuario: UsuarioItem) {
                     fila.email_verified_at ? 'Verificado' : 'Sin verificar'
                 }}</span>
             </template>
-            <template #celda-tiene_2fa="{ fila }">
-                <span class="text-muted-foreground">{{
-                    fila.tiene_2fa ? 'Activo' : '—'
-                }}</span>
-            </template>
             <template #celda-ultimo_acceso="{ fila }">
-                <span class="text-muted-foreground">{{
-                    fila.ultimo_acceso ?? 'Nunca'
+                <span class="whitespace-nowrap text-muted-foreground">{{
+                    fila.ultimo_acceso
+                        ? new Date(fila.ultimo_acceso).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })
+                        : 'Nunca'
                 }}</span>
             </template>
             <template #acciones="{ fila }">

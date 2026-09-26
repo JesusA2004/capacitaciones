@@ -68,6 +68,10 @@ const { filtros, aplicar, aplicarConDebounce, limpiar } = useFiltros(
         fecha_fin: props.filtros.fecha_fin ?? '',
     },
 );
+
+const filtrosActivos = computed(() =>
+    (['empresa_id', 'sucursal_id', 'departamento_id', 'puesto_id', 'estatus', 'fecha_inicio', 'fecha_fin'] as const).filter((campo) => Boolean(filtros[campo])).length,
+);
 const { irA } = usePaginacion();
 function urlExportar(
     destino: typeof exportarExcel | typeof exportarPdf,
@@ -112,7 +116,10 @@ const sucursalActiva = computed(() =>
             />
         </CrudPageHeader>
 
+        <!-- Ruta de exploración: solo tiene sentido al entrar a una empresa;
+             sin eso era un "Empresas" suelto ocupando una fila. -->
         <nav
+            v-if="empresaActiva"
             data-tour="expedientes-ruta"
             class="flex flex-wrap items-center gap-1 text-sm text-muted-foreground"
         >
@@ -144,10 +151,13 @@ const sucursalActiva = computed(() =>
                         aplicarConDebounce();
                     }
                 "
+                :contador-filtros-activos="filtrosActivos"
                 @limpiar="limpiar"
-            />
-
-            <div data-tour="expedientes-filtros" class="flex flex-wrap gap-2">
+            >
+                <!-- Filtros poco frecuentes en el panel lateral (no 7 controles
+                     siempre visibles). -->
+                <template #filtros>
+            <div data-tour="expedientes-filtros" class="flex flex-col gap-3 [&_[data-slot=select-trigger]]:w-full">
                 <Select
                     :model-value="filtros.empresa_id"
                     @update:model-value="
@@ -259,12 +269,12 @@ const sucursalActiva = computed(() =>
                     </SelectContent>
                 </Select>
 
-                <div class="flex items-center gap-1.5">
+                <div class="grid gap-1.5">
                     <Label class="text-xs text-muted-foreground"
                         >Ingreso desde</Label
                     >
                     <DatePicker
-                        class="h-9 w-40"
+                        class="h-9 w-full"
                         :model-value="filtros.fecha_inicio"
                         @update:model-value="
                             (v) => {
@@ -274,10 +284,10 @@ const sucursalActiva = computed(() =>
                         "
                     />
                 </div>
-                <div class="flex items-center gap-1.5">
-                    <Label class="text-xs text-muted-foreground">hasta</Label>
+                <div class="grid gap-1.5">
+                    <Label class="text-xs text-muted-foreground">Hasta</Label>
                     <DatePicker
-                        class="h-9 w-40"
+                        class="h-9 w-full"
                         :model-value="filtros.fecha_fin"
                         @update:model-value="
                             (v) => {
@@ -288,6 +298,8 @@ const sucursalActiva = computed(() =>
                     />
                 </div>
             </div>
+                </template>
+            </CrudToolbar>
         </div>
 
         <CrudEmptyState

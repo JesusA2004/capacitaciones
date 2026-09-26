@@ -37,7 +37,7 @@ test('el reporte de empleados por sucursal solo cuenta colaboradores dentro del 
 
     $sucursalPropia = Sucursal::factory()->create();
     $sucursalAjena = Sucursal::factory()->create();
-    $gerente->update(['sucursal_principal_id' => $sucursalPropia->id]);
+    $gerente->colaborador->update(['sucursal_principal_id' => $sucursalPropia->id]);
 
     User::factory()->create(['sucursal_principal_id' => $sucursalPropia->id]);
     User::factory()->create(['sucursal_principal_id' => $sucursalAjena->id]);

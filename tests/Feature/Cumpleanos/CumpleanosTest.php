@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\BirthdayGreeting;
+use App\Models\Colaborador;
 use App\Models\User;
 use App\Services\Cumpleanos\BirthdayCardService;
 use App\Services\Cumpleanos\CumpleanosService;
@@ -34,8 +35,8 @@ test('cumpleanos del mes devuelve solo colaboradores activos que cumplen ese mes
     $admin = User::factory()->create();
     $admin->assignRole('rh_admin');
 
-    $deEnero = User::factory()->create(['fecha_nacimiento' => '1990-01-15']);
-    $deFebrero = User::factory()->create(['fecha_nacimiento' => '1985-02-20']);
+    $deEnero = Colaborador::factory()->create(['fecha_nacimiento' => '1990-01-15']);
+    $deFebrero = Colaborador::factory()->create(['fecha_nacimiento' => '1985-02-20']);
 
     $resultado = app(CumpleanosService::class)->cumpleanosDelMes(1, $admin);
 
@@ -48,8 +49,8 @@ test('proximos cumpleanos respeta la ventana de dias solicitada, incluyendo el c
     $admin->assignRole('rh_admin');
 
     $hoy = now();
-    $enTresDias = User::factory()->create(['fecha_nacimiento' => $hoy->copy()->addDays(3)->subYears(30)]);
-    $enVeinte = User::factory()->create(['fecha_nacimiento' => $hoy->copy()->addDays(20)->subYears(30)]);
+    $enTresDias = Colaborador::factory()->create(['fecha_nacimiento' => $hoy->copy()->addDays(3)->subYears(30)]);
+    $enVeinte = Colaborador::factory()->create(['fecha_nacimiento' => $hoy->copy()->addDays(20)->subYears(30)]);
 
     $servicio = app(CumpleanosService::class);
     $proximos7 = $servicio->proximosCumpleanos($admin, 7);
@@ -62,7 +63,7 @@ test('proximos cumpleanos respeta la ventana de dias solicitada, incluyendo el c
 });
 
 test('la felicitacion se genera una sola vez por colaborador y fecha, con la frase fija', function () {
-    $colaborador = User::factory()->create(['fecha_nacimiento' => now()->subYears(28)]);
+    $colaborador = Colaborador::factory()->create(['fecha_nacimiento' => now()->subYears(28)]);
 
     $servicio = app(BirthdayCardService::class);
     $primera = $servicio->generar($colaborador, now());
@@ -74,7 +75,7 @@ test('la felicitacion se genera una sola vez por colaborador y fecha, con la fra
 });
 
 test('regenerar cambia la imagen pero conserva el mismo registro de felicitacion', function () {
-    $colaborador = User::factory()->create(['fecha_nacimiento' => now()->subYears(28)]);
+    $colaborador = Colaborador::factory()->create(['fecha_nacimiento' => now()->subYears(28)]);
 
     $servicio = app(BirthdayCardService::class);
     $original = $servicio->generar($colaborador, now());
@@ -96,7 +97,7 @@ test('descargar la imagen de felicitacion no expone la ruta fisica del archivo',
     $admin = User::factory()->create();
     $admin->assignRole('rh_admin');
 
-    $colaborador = User::factory()->create(['fecha_nacimiento' => now()->subYears(28), 'name' => 'Ana', 'apellidos' => 'Pérez']);
+    $colaborador = Colaborador::factory()->create(['fecha_nacimiento' => now()->subYears(28), 'name' => 'Ana', 'apellidos' => 'Pérez']);
 
     $respuesta = $this->actingAs($admin)
         ->get(route('rh.cumpleanos.felicitacion.descargar', $colaborador))
@@ -114,7 +115,7 @@ test('descargar la imagen de felicitacion no expone la ruta fisica del archivo',
 test('un colaborador sin permiso no puede descargar la imagen de otro', function () {
     $colaborador = User::factory()->create();
     $colaborador->assignRole('colaborador');
-    $otro = User::factory()->create(['fecha_nacimiento' => now()->subYears(28)]);
+    $otro = Colaborador::factory()->create(['fecha_nacimiento' => now()->subYears(28)]);
 
     $this->actingAs($colaborador)
         ->get(route('rh.cumpleanos.felicitacion.descargar', $otro))

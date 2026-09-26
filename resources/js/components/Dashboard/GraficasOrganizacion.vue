@@ -215,7 +215,7 @@ const totalActividadesPendientes = computed(() => {
                         :key="usuario.id"
                         class="flex items-center justify-between gap-3 py-2.5 text-sm first:pt-0 last:pb-0"
                     >
-                        <span class="truncate">{{ usuario.nombre }}</span>
+                        <span class="min-w-0 break-words">{{ usuario.nombre }}</span>
                         <Badge variant="destructive"
                             >{{ usuario.vencidas }} vencida{{
                                 usuario.vencidas === 1 ? '' : 's'

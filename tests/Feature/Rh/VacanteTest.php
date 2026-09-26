@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\EstadoVacante;
+use App\Models\Colaborador;
 use App\Models\HeadcountTarget;
 use App\Models\Puesto;
 use App\Models\Sucursal;
@@ -12,42 +12,9 @@ beforeEach(function () {
     $this->seed(RolesYPermisosSeeder::class);
 });
 
-test('rh_admin puede crear una vacante', function () {
-    $puesto = Puesto::factory()->create();
-    $usuario = User::factory()->create();
-    $usuario->assignRole('rh_admin');
-
-    $this->actingAs($usuario)
-        ->post(route('rh.vacantes.store'), [
-            'puesto_id' => $puesto->id,
-            'motivo' => 'nueva_posicion',
-            'fecha_apertura' => now()->toDateString(),
-        ])
-        ->assertSessionHasNoErrors();
-
-    expect(Vacante::where('puesto_id', $puesto->id)->exists())->toBeTrue();
-});
-
-test('una vacante creada a mano por rh_admin nace con una plaza disponible', function () {
-    $puesto = Puesto::factory()->create();
-    $usuario = User::factory()->create();
-    $usuario->assignRole('rh_admin');
-
-    $this->actingAs($usuario)
-        ->post(route('rh.vacantes.store'), [
-            'puesto_id' => $puesto->id,
-            'motivo' => 'nueva_posicion',
-            'fecha_apertura' => now()->toDateString(),
-        ])
-        ->assertSessionHasNoErrors();
-
-    $vacante = Vacante::where('puesto_id', $puesto->id)->firstOrFail();
-
-    expect($vacante->generada_automaticamente)->toBeFalse()
-        ->and($vacante->plazas_requeridas)->toBe(1)
-        ->and($vacante->plazas_cubiertas)->toBe(0)
-        ->and($vacante->plazas_disponibles)->toBe(1);
-});
+// Las pruebas de crear/cancelar/eliminar vacantes a mano se retiraron: esas
+// rutas ya no existen porque las vacantes se abren y cierran solas desde
+// headcount (docs/HEADCOUNT_Y_VACANTES.md, VacanteAutoGenerationService).
 
 test('el listado de vacantes incluye los kpis del tablero', function () {
     $usuario = User::factory()->create();
@@ -87,7 +54,7 @@ test('un gerente_sucursal solo ve vacantes de su sucursal', function () {
     Vacante::factory()->create(['sucursal_id' => $sucursalPropia->id]);
     Vacante::factory()->create(['sucursal_id' => $sucursalAjena->id]);
 
-    $gerente = User::factory()->create(['sucursal_principal_id' => $sucursalPropia->id]);
+    $gerente = User::factory()->create(['colaborador_id' => Colaborador::factory()->create(['sucursal_principal_id' => $sucursalPropia->id])->id]);
     $gerente->assignRole('gerente_sucursal');
 
     $respuesta = $this->actingAs($gerente)->get(route('rh.vacantes.index'));
@@ -99,27 +66,6 @@ test('un gerente_sucursal solo ve vacantes de su sucursal', function () {
         ->and($vacantes[0]['sucursal_id'])->toBe($sucursalPropia->id);
 });
 
-test('cancelar una vacante exige motivo de cancelacion', function () {
-    $vacante = Vacante::factory()->create(['estado' => 'abierta']);
-    $usuario = User::factory()->create();
-    $usuario->assignRole('rh_admin');
-
-    $this->actingAs($usuario)
-        ->put(route('rh.vacantes.estado', $vacante), ['estado' => 'cancelada'])
-        ->assertSessionHasErrors('motivo_cancelacion');
-
-    $this->actingAs($usuario)
-        ->put(route('rh.vacantes.estado', $vacante), [
-            'estado' => 'cancelada',
-            'motivo_cancelacion' => 'La ruta se dio de baja.',
-        ])
-        ->assertSessionHasNoErrors();
-
-    expect($vacante->fresh())
-        ->estado->toBe(EstadoVacante::Cancelada)
-        ->motivo_cancelacion->toBe('La ruta se dio de baja.');
-});
-
 test('el listado de vacantes anota plantilla autorizada actual y faltantes reales', function () {
     $sucursal = Sucursal::factory()->create();
     $puesto = Puesto::factory()->create();
@@ -129,7 +75,7 @@ test('el listado de vacantes anota plantilla autorizada actual y faltantes reale
         'puesto_id' => $puesto->id,
         'plantilla_autorizada' => 5,
     ]);
-    User::factory()->count(2)->create([
+    Colaborador::factory()->count(2)->create([
         'sucursal_principal_id' => $sucursal->id,
         'puesto_id' => $puesto->id,
         'estatus' => 'activo',
@@ -146,50 +92,4 @@ test('el listado de vacantes anota plantilla autorizada actual y faltantes reale
     expect($vacante['plantilla_autorizada'])->toBe(5)
         ->and($vacante['plantilla_actual'])->toBe(2)
         ->and($vacante['faltantes_reales'])->toBe(3);
-});
-
-test('no se puede marcar una vacante como cubierta soltando una tarjeta, solo cubriendola de verdad', function () {
-    $vacante = Vacante::factory()->create(['estado' => 'abierta']);
-    $usuario = User::factory()->create();
-    $usuario->assignRole('rh_admin');
-
-    $this->actingAs($usuario)
-        ->put(route('rh.vacantes.estado', $vacante), ['estado' => 'cubierta'])
-        ->assertSessionHasErrors('estado');
-
-    expect($vacante->fresh()->estado)->toBe(EstadoVacante::Abierta);
-});
-
-test('una vacante automatica no se puede eliminar directamente', function () {
-    $vacante = Vacante::factory()->create(['generada_automaticamente' => true]);
-    $usuario = User::factory()->create();
-    $usuario->assignRole('rh_admin');
-
-    $this->actingAs($usuario)
-        ->delete(route('rh.vacantes.destroy', $vacante))
-        ->assertForbidden();
-
-    expect(Vacante::find($vacante->id))->not->toBeNull();
-});
-
-test('una vacante manual si se puede eliminar', function () {
-    $vacante = Vacante::factory()->create(['generada_automaticamente' => false]);
-    $usuario = User::factory()->create();
-    $usuario->assignRole('rh_admin');
-
-    $this->actingAs($usuario)
-        ->delete(route('rh.vacantes.destroy', $vacante))
-        ->assertSessionHasNoErrors();
-
-    expect(Vacante::find($vacante->id))->toBeNull();
-});
-
-test('rh_auxiliar no puede cerrar una vacante', function () {
-    $vacante = Vacante::factory()->create();
-    $usuario = User::factory()->create();
-    $usuario->assignRole('rh_auxiliar');
-
-    $this->actingAs($usuario)
-        ->put(route('rh.vacantes.estado', $vacante), ['estado' => 'cubierta'])
-        ->assertForbidden();
 });

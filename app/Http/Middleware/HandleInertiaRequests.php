@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Services\Navigation\NavigationService;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -39,6 +40,16 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         $user = $request->user();
+
+        // Puente de toasts: casi todos los controllers avisan con
+        // `back()->with('toast', [...])` (flash de sesión), pero el frontend
+        // (resources/js/lib/flashToast.ts) solo escucha el canal `flash` de
+        // Inertia 3. Sin este puente esos mensajes nunca se mostraban.
+        $toast = $request->hasSession() ? $request->session()->get('toast') : null;
+
+        if (is_array($toast) && isset($toast['type'], $toast['message'])) {
+            Inertia::flash('toast', $toast);
+        }
 
         return [
             ...parent::share($request),

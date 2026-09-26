@@ -33,10 +33,24 @@ class SucursalSeeder extends Seeder
             ['nombre' => 'Tlaxcala', 'clave' => 'TLX01', 'ciudad' => 'Tlaxcala', 'estado' => 'Tlaxcala'],
         ];
 
+        // Corporativo: Sistemas, RH, Mesa de Control, Tesorería… (servicio a
+        // todas las sucursales). Domicilios y teléfonos oficiales de
+        // database/data/sucursales_oficiales.php (mr-lana.com/sucursales).
+        $sucursales[] = ['nombre' => 'Corporativo', 'clave' => 'CORP01', 'ciudad' => 'Cuernavaca', 'estado' => 'Morelos'];
+        $oficiales = require database_path('data/sucursales_oficiales.php');
+
         foreach ($sucursales as $sucursal) {
+            $domicilio = $oficiales[$sucursal['clave']] ?? [];
+
             Sucursal::firstOrCreate(
                 ['clave' => $sucursal['clave']],
-                [...$sucursal, 'empresa_id' => $empresaId, 'activo' => true],
+                [
+                    ...$sucursal,
+                    'direccion' => $domicilio['direccion'] ?? null,
+                    'telefono' => $domicilio['telefono'] ?? null,
+                    'empresa_id' => $empresaId,
+                    'activo' => true,
+                ],
             );
         }
     }

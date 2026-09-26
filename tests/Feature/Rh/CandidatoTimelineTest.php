@@ -11,18 +11,19 @@ beforeEach(function () {
     $this->seed(RolesYPermisosSeeder::class);
 });
 
-test('un candidato nuevo solo tiene registro completado', function () {
-    $candidato = Candidato::factory()->create(['estado' => 'nuevo']);
+test('un candidato recibido tiene el registro completado y la preselección en curso', function () {
+    $candidato = Candidato::factory()->create(['estado' => 'recibidos']);
 
     $timeline = app(CandidatoTimelineService::class)->construir($candidato);
 
     expect($timeline[0]['clave'])->toBe('registro')
         ->and($timeline[0]['estado'])->toBe('completado')
-        ->and($timeline[1]['estado'])->toBe('pendiente');
+        ->and($timeline[1]['estado'])->toBe('actual')
+        ->and($timeline[2]['estado'])->toBe('pendiente');
 });
 
 test('un candidato rechazado marca las etapas siguientes como descartadas', function () {
-    $candidato = Candidato::factory()->create(['estado' => 'rechazado']);
+    $candidato = Candidato::factory()->create(['estado' => 'no_seleccionado']);
 
     $timeline = app(CandidatoTimelineService::class)->construir($candidato);
 
@@ -32,20 +33,20 @@ test('un candidato rechazado marca las etapas siguientes como descartadas', func
 });
 
 test('un candidato con alta digital aprobada marca la etapa de alta como completada', function () {
-    $candidato = Candidato::factory()->create(['estado' => 'aprobado_rh']);
+    $candidato = Candidato::factory()->create(['estado' => 'listo_para_contratacion']);
     AltaDigital::factory()->create(['candidato_id' => $candidato->id, 'estado' => 'aprobada']);
 
     $timeline = app(CandidatoTimelineService::class)->construir($candidato->fresh());
 
     $alta = collect($timeline)->firstWhere('clave', 'alta_digital');
-    $seleccionado = collect($timeline)->firstWhere('clave', 'seleccionado');
+    $seleccionado = collect($timeline)->firstWhere('clave', 'listo_para_contratacion');
 
     expect($alta['estado'])->toBe('completado')
         ->and($seleccionado['estado'])->toBe('completado');
 });
 
 test('una invitacion de incorporacion usada marca la etapa de qr como completada', function () {
-    $candidato = Candidato::factory()->create(['estado' => 'aprobado_rh']);
+    $candidato = Candidato::factory()->create(['estado' => 'listo_para_contratacion']);
     $alta = AltaDigital::factory()->create(['candidato_id' => $candidato->id, 'estado' => 'aprobada']);
     IncorporacionInvitacion::factory()->create([
         'candidato_id' => $candidato->id,

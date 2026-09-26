@@ -82,11 +82,11 @@ test('rh_admin puede asignar un gestor a una ruta activa', function () {
 
     $this->actingAs($rh)
         ->put(route('administracion.matriz-comercial.responsable', $ruta), [
-            'responsable_user_id' => $gestor->id,
+            'responsable_colaborador_id' => $gestor->colaborador_id,
         ])
         ->assertSessionHasNoErrors();
 
-    expect($ruta->fresh()->responsable_user_id)->toBe($gestor->id);
+    expect($ruta->fresh()->responsable_colaborador_id)->toBe($gestor->colaborador_id);
 });
 
 test('asignar un gestor nuevo cierra la asignacion activa anterior y crea historial', function () {
@@ -97,18 +97,18 @@ test('asignar un gestor nuevo cierra la asignacion activa anterior y crea histor
     $gestorNuevo = User::factory()->create(['estatus' => 'activo']);
     $ruta = NodoComercial::where('tipo', 'ruta')->where('activa', true)->first();
 
-    app(MatrizComercialService::class)->asignarResponsable($ruta, $gestorAnterior);
+    app(MatrizComercialService::class)->asignarResponsable($ruta, $gestorAnterior->colaborador);
 
     $this->actingAs($rh)
         ->put(route('administracion.matriz-comercial.responsable', $ruta), [
-            'responsable_user_id' => $gestorNuevo->id,
+            'responsable_colaborador_id' => $gestorNuevo->colaborador_id,
         ])
         ->assertSessionHasNoErrors();
 
-    expect($ruta->fresh()->responsable_user_id)->toBe($gestorNuevo->id)
+    expect($ruta->fresh()->responsable_colaborador_id)->toBe($gestorNuevo->colaborador_id)
         ->and(AsignacionNodoComercial::where('nodo_comercial_id', $ruta->id)->count())->toBe(2)
-        ->and(AsignacionNodoComercial::where('user_id', $gestorAnterior->id)->first()->activo)->toBeFalse()
-        ->and(AsignacionNodoComercial::where('user_id', $gestorNuevo->id)->first()->activo)->toBeTrue();
+        ->and(AsignacionNodoComercial::where('colaborador_id', $gestorAnterior->colaborador_id)->first()->activo)->toBeFalse()
+        ->and(AsignacionNodoComercial::where('colaborador_id', $gestorNuevo->colaborador_id)->first()->activo)->toBeTrue();
 });
 
 test('rh_admin puede agregar y quitar un apoyo de una ruta', function () {
@@ -120,7 +120,7 @@ test('rh_admin puede agregar y quitar un apoyo de una ruta', function () {
 
     $this->actingAs($rh)
         ->post(route('administracion.matriz-comercial.apoyo.agregar', $ruta), [
-            'user_id' => $apoyo->id,
+            'colaborador_id' => $apoyo->colaborador_id,
             'tipo' => 'apoyo',
         ])
         ->assertSessionHasNoErrors();
@@ -129,7 +129,7 @@ test('rh_admin puede agregar y quitar un apoyo de una ruta', function () {
 
     $this->actingAs($rh)
         ->delete(route('administracion.matriz-comercial.apoyo.quitar', $ruta), [
-            'user_id' => $apoyo->id,
+            'colaborador_id' => $apoyo->colaborador_id,
             'tipo' => 'apoyo',
         ])
         ->assertSessionHasNoErrors();
@@ -141,12 +141,12 @@ test('dar de baja a un gestor cierra sus asignaciones activas en la matriz', fun
     $gestor = User::factory()->create(['estatus' => 'activo', 'sucursal_principal_id' => null, 'puesto_id' => null]);
     $ruta = NodoComercial::where('tipo', 'ruta')->where('activa', true)->first();
 
-    app(MatrizComercialService::class)->asignarResponsable($ruta, $gestor);
-    expect($ruta->fresh()->responsable_user_id)->toBe($gestor->id);
+    app(MatrizComercialService::class)->asignarResponsable($ruta, $gestor->colaborador);
+    expect($ruta->fresh()->responsable_colaborador_id)->toBe($gestor->colaborador_id);
 
     $actor = User::factory()->create();
-    app(MovimientoLaboralService::class)->registrarBaja($gestor, $actor);
+    app(MovimientoLaboralService::class)->registrarBaja($gestor->colaborador, $actor);
 
-    expect($ruta->fresh()->responsable_user_id)->toBeNull()
-        ->and(AsignacionNodoComercial::where('user_id', $gestor->id)->where('activo', true)->count())->toBe(0);
+    expect($ruta->fresh()->responsable_colaborador_id)->toBeNull()
+        ->and(AsignacionNodoComercial::where('colaborador_id', $gestor->colaborador_id)->where('activo', true)->count())->toBe(0);
 });

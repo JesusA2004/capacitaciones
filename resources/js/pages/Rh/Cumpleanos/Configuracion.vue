@@ -1,18 +1,33 @@
 <script setup lang="ts">
-import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { ArrowLeft, Image, Trash2, Upload } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { Head, router, useForm } from '@inertiajs/vue3';
+import { Plus, Trash2, Upload } from '@lucide/vue';
+import { ref } from 'vue';
+import CelebracionConfiguracionLayout from '@/components/Celebraciones/CelebracionConfiguracionLayout.vue';
+import EmojiPicker from '@/components/Common/EmojiPicker.vue';
+import InputError from '@/components/InputError.vue';
+import PeopleConfirmDialog from '@/components/people/PeopleConfirmDialog.vue';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
-import { useAlertas } from '@/composables/useAlertas';
 import { dashboard } from '@/routes';
 import { index } from '@/routes/rh/cumpleanos';
+import { vistaPrevia } from '@/routes/rh/cumpleanos/configuracion';
 import { actualizar, eliminar as eliminarFondo } from '@/routes/rh/cumpleanos/configuracion/fondo';
+import { destroy as destroyFrase, store as storeFrase, update as updateFrase } from '@/routes/rh/cumpleanos/frases';
 
-const props = defineProps<{
+/**
+ * Configuración de la tarjeta de cumpleaños: fondo propio y frases que
+ * rotan en las tarjetas, con la vista previa REAL a un lado (mismo diseño
+ * que la configuración de Aniversarios).
+ */
+type Frase = { id: number; texto: string; categoria: string | null; activo: boolean; usado_count: number };
+
+defineProps<{
     tieneFondo: boolean;
     fondoUrl: string | null;
+    frases: Frase[];
+    puedeGestionarFrases: boolean;
 }>();
 
 defineOptions({
@@ -20,162 +35,167 @@ defineOptions({
         breadcrumbs: [
             { title: 'Inicio', href: dashboard() },
             { title: 'Cumpleaños', href: index.url() },
-            { title: 'Fondo de tarjeta', href: '' },
+            { title: 'Configuración', href: '' },
         ],
     },
 });
 
-const { mostrarExito, mostrarError, confirmarEliminacion } = useAlertas();
+const version = ref(Date.now());
+const refrescar = () => (version.value = Date.now());
 
-const form = useForm({ fondo: null as File | null });
-const previsualizacion = ref<string | null>(null);
-const eliminando = ref(false);
+// --- Fondo ---
+const formFondo = useForm({ fondo: null as File | null });
+const eliminandoFondo = ref(false);
+const confirmarQuitarFondo = ref(false);
 
-const imagenMostrada = computed(() => previsualizacion.value ?? props.fondoUrl);
+function elegirFondo(evento: Event) {
+    formFondo.fondo = (evento.target as HTMLInputElement).files?.[0] ?? null;
 
-function elegirArchivo(evento: Event) {
-    const input = evento.target as HTMLInputElement;
-    const archivo = input.files?.[0] ?? null;
-    form.fondo = archivo;
-
-    if (previsualizacion.value) {
-        URL.revokeObjectURL(previsualizacion.value);
+    if (formFondo.fondo) {
+        formFondo.post(actualizar.url(), {
+            forceFormData: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                formFondo.reset();
+                refrescar();
+            },
+        });
     }
-
-    previsualizacion.value = archivo ? URL.createObjectURL(archivo) : null;
 }
 
-function guardar() {
-    if (!form.fondo) {
-        return;
-    }
-
-    form.post(actualizar.url(), {
-        forceFormData: true,
+function quitarFondo() {
+    eliminandoFondo.value = true;
+    router.delete(eliminarFondo.url(), {
         preserveScroll: true,
-        onSuccess: () => {
-            mostrarExito('Fondo actualizado.');
-            form.reset();
-            previsualizacion.value = null;
+        onSuccess: refrescar,
+        onFinish: () => {
+            eliminandoFondo.value = false;
+            confirmarQuitarFondo.value = false;
         },
-        onError: () => mostrarError('No se pudo actualizar el fondo.'),
     });
 }
 
-async function eliminar() {
-    const confirmado = await confirmarEliminacion('el fondo personalizado');
+// --- Frases ---
+const nuevaFrase = useForm({ texto: '', categoria: '' });
+const fraseAEliminar = ref<Frase | null>(null);
+const eliminandoFrase = ref(false);
 
-    if (!confirmado) {
+function agregarFrase() {
+    if (!nuevaFrase.texto.trim()) {
         return;
     }
 
-    eliminando.value = true;
-    router.delete(eliminarFondo.url(), {
+    nuevaFrase.post(storeFrase.url(), { preserveScroll: true, onSuccess: () => nuevaFrase.reset() });
+}
+
+function alternarFrase(frase: Frase) {
+    router.put(updateFrase.url(frase.id), { activo: !frase.activo }, { preserveScroll: true, preserveState: true });
+}
+
+function eliminarFrase() {
+    if (!fraseAEliminar.value) {
+        return;
+    }
+
+    eliminandoFrase.value = true;
+    router.delete(destroyFrase.url(fraseAEliminar.value.id), {
         preserveScroll: true,
-        onSuccess: () => mostrarExito('Se volvió al diseño por defecto.'),
-        onFinish: () => (eliminando.value = false),
+        onFinish: () => {
+            eliminandoFrase.value = false;
+            fraseAEliminar.value = null;
+        },
     });
 }
 </script>
 
 <template>
-    <Head title="Fondo de tarjeta de cumpleaños" />
+    <Head title="Configuración de cumpleaños" />
 
-    <div class="flex w-full flex-col gap-6 p-4 sm:px-6 lg:px-8">
-        <Link
-            :href="index.url()"
-            class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-            <ArrowLeft class="size-4" /> Volver al calendario
-        </Link>
+    <CelebracionConfiguracionLayout titulo="Tarjeta de cumpleaños" :volver-url="index.url()" :vista-previa-url="vistaPrevia.url()" :version="version">
+        <section class="flex flex-col gap-3" aria-labelledby="config-fondo">
+            <div>
+                <h2 id="config-fondo" class="text-sm font-semibold">Fondo</h2>
+                <p class="text-sm text-muted-foreground">
+                    {{ tieneFondo ? 'Se usa un fondo propio en todas las tarjetas nuevas o regeneradas.' : 'Se usa el diseño con globos por defecto.' }}
+                    Recomendado: vertical 1080×1350, PNG/JPG/WebP, máximo 8 MB.
+                </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                <img v-if="fondoUrl" :src="fondoUrl" alt="Fondo actual" class="h-20 w-16 rounded-md border object-cover" />
+                <Button as-child variant="outline" size="sm" :disabled="formFondo.processing">
+                    <label class="cursor-pointer">
+                        <Spinner v-if="formFondo.processing" />
+                        <Upload v-else class="size-4" />
+                        {{ tieneFondo ? 'Reemplazar fondo' : 'Subir fondo' }}
+                        <input type="file" accept="image/png,image/jpeg,image/webp" class="sr-only" @change="elegirFondo" />
+                    </label>
+                </Button>
+                <Button v-if="tieneFondo" variant="ghost" size="sm" class="text-destructive" :disabled="eliminandoFondo" @click="confirmarQuitarFondo = true">
+                    <Trash2 class="size-4" />
+                    Quitar fondo
+                </Button>
+            </div>
+            <InputError :message="formFondo.errors.fondo" />
+        </section>
 
-        <Card>
-            <CardHeader>
-                <CardTitle class="text-base">Fondo actual</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <div class="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,22rem)_1fr]">
-                    <div
-                        class="flex aspect-[4/5] w-full items-center justify-center overflow-hidden rounded-xl border border-dashed bg-muted/30"
-                    >
-                        <img
-                            v-if="imagenMostrada"
-                            :src="imagenMostrada"
-                            alt="Fondo de la tarjeta"
-                            class="size-full object-cover"
-                        />
-                        <div
-                            v-else
-                            class="flex flex-col items-center gap-2 p-6 text-center text-sm text-muted-foreground"
-                        >
-                            <Image class="size-8" />
-                            Usando el diseño por defecto (color + globos).
-                        </div>
-                    </div>
+        <section v-if="puedeGestionarFrases" class="flex flex-col gap-3 border-t pt-6" aria-labelledby="config-frases">
+            <div>
+                <h2 id="config-frases" class="text-sm font-semibold">Frases de felicitación</h2>
+                <p class="text-sm text-muted-foreground">Las frases activas rotan en las tarjetas para no repetir siempre la misma.</p>
+            </div>
 
-                    <div class="flex flex-col gap-4">
-                        <div
-                            class="rounded-xl border border-border/60 bg-muted/20 p-4 text-sm"
-                        >
-                            <p class="font-medium">
-                                {{
-                                    tieneFondo
-                                        ? 'Tienes un fondo personalizado activo.'
-                                        : 'Todavía no has subido ningún fondo.'
-                                }}
-                            </p>
-                            <p class="mt-1 text-muted-foreground">
-                                {{
-                                    tieneFondo
-                                        ? 'Se usa tal cual en todas las tarjetas nuevas. Puedes reemplazarlo o quitarlo cuando quieras.'
-                                        : 'Mientras no subas uno, las tarjetas usan el diseño con globos por defecto.'
-                                }}
-                            </p>
-                        </div>
+            <form class="flex flex-col gap-2 sm:flex-row" @submit.prevent="agregarFrase">
+                <Input v-model="nuevaFrase.texto" placeholder="Escribe una nueva frase…" class="flex-1" aria-label="Nueva frase" />
+                <div class="flex gap-2">
+                    <EmojiPicker @select="(emoji) => (nuevaFrase.texto += emoji)" />
+                    <Button type="submit" class="flex-1 sm:flex-none" :disabled="nuevaFrase.processing || !nuevaFrase.texto.trim()">
+                        <Spinner v-if="nuevaFrase.processing" />
+                        <Plus v-else class="size-4" />
+                        Agregar
+                    </Button>
+                </div>
+            </form>
+            <InputError :message="nuevaFrase.errors.texto" />
 
-                        <div class="flex flex-wrap items-center gap-2">
-                            <label
-                                class="inline-flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm hover:bg-accent"
-                            >
-                                <Upload class="size-4" />
-                                {{ tieneFondo ? 'Elegir otra imagen' : 'Elegir imagen' }}
-                                <input
-                                    type="file"
-                                    accept="image/png,image/jpeg,image/webp"
-                                    class="hidden"
-                                    @change="elegirArchivo"
-                                />
-                            </label>
-
-                            <Button
-                                :disabled="!form.fondo || form.processing"
-                                @click="guardar"
-                            >
-                                <Spinner v-if="form.processing" />
-                                Guardar fondo
-                            </Button>
-
-                            <Button
-                                v-if="tieneFondo"
-                                variant="outline"
-                                :disabled="eliminando"
-                                @click="eliminar"
-                            >
-                                <Spinner v-if="eliminando" />
-                                <Trash2 v-else class="size-4 text-destructive" />
-                                Quitar fondo personalizado
-                            </Button>
-                        </div>
-
-                        <p class="text-xs text-muted-foreground">
-                            Recomendado: imagen vertical (ej. 1080×1350), PNG
-                            o JPG, máximo 8&nbsp;MB. El nombre y la frase se
-                            siguen colocando automáticamente encima, en las
-                            mismas zonas de siempre.
+            <p v-if="frases.length === 0" class="py-4 text-sm text-muted-foreground">Todavía no hay frases. Agrega la primera arriba.</p>
+            <ul v-else class="divide-y rounded-lg border">
+                <li v-for="frase in frases" :key="frase.id" class="flex flex-col gap-2 p-3 sm:flex-row sm:items-start" :class="!frase.activo && 'bg-muted/30'">
+                    <div class="min-w-0 flex-1">
+                        <p class="text-sm break-words" :class="!frase.activo && 'text-muted-foreground'">{{ frase.texto }}</p>
+                        <p class="mt-1 text-xs text-muted-foreground">
+                            Usada {{ frase.usado_count }} {{ frase.usado_count === 1 ? 'vez' : 'veces' }}
+                            <Badge v-if="!frase.activo" variant="outline" class="ml-1">Inactiva</Badge>
                         </p>
                     </div>
-                </div>
-            </CardContent>
-        </Card>
-    </div>
+                    <div class="flex shrink-0 gap-1">
+                        <Button size="sm" variant="ghost" @click="alternarFrase(frase)">{{ frase.activo ? 'Desactivar' : 'Activar' }}</Button>
+                        <Button size="icon-sm" variant="ghost" class="text-destructive" :aria-label="`Eliminar frase ${frase.texto.slice(0, 30)}`" @click="fraseAEliminar = frase">
+                            <Trash2 class="size-4" />
+                        </Button>
+                    </div>
+                </li>
+            </ul>
+        </section>
+    </CelebracionConfiguracionLayout>
+
+    <PeopleConfirmDialog
+        :open="confirmarQuitarFondo"
+        titulo="Quitar fondo"
+        descripcion="Las tarjetas nuevas volverán al diseño con globos por defecto."
+        destructivo
+        texto-confirmar="Quitar"
+        :cargando="eliminandoFondo"
+        @update:open="(v) => (confirmarQuitarFondo = v)"
+        @confirm="quitarFondo"
+    />
+    <PeopleConfirmDialog
+        :open="fraseAEliminar !== null"
+        titulo="Eliminar frase"
+        :descripcion="fraseAEliminar ? `¿Eliminar «${fraseAEliminar.texto.slice(0, 60)}${fraseAEliminar.texto.length > 60 ? '…' : ''}»? Esta acción no se puede deshacer.` : undefined"
+        destructivo
+        texto-confirmar="Eliminar"
+        :cargando="eliminandoFrase"
+        @update:open="(v) => !v && (fraseAEliminar = null)"
+        @confirm="eliminarFrase"
+    />
 </template>

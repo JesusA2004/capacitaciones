@@ -55,7 +55,12 @@ const sheetAbierto = ref(false);
             <slot name="filtros" />
         </CrudFilterSheet>
 
-        <Button variant="ghost" size="sm" @click="emit('limpiar')">
+        <Button
+            v-if="modelValue || contadorFiltrosActivos > 0"
+            variant="ghost"
+            size="sm"
+            @click="emit('limpiar')"
+        >
             <X class="size-4" />
             Limpiar filtros
         </Button>

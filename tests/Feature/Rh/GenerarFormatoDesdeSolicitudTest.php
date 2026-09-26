@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\EstadoDocumentoGenerado;
+use App\Models\Colaborador;
 use App\Models\DocumentTemplate;
 use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
@@ -36,9 +37,10 @@ function crearDocxDePruebaSolicitud(string $texto): string
 }
 
 test('generar formato desde una solicitud interna precarga folio y motivo, y queda asociado', function () {
-    $colaborador = User::factory()->create(['name' => 'Luis', 'apellidos' => 'Gómez']);
+    $colaborador = User::factory()->for(Colaborador::factory()->state(['name' => 'Luis', 'apellidos' => 'Gómez']), 'colaborador')->create(['name' => 'Luis', 'apellidos' => 'Gómez']);
     $solicitud = SolicitudInterna::factory()->create([
         'user_id' => $colaborador->id,
+        'colaborador_id' => $colaborador->colaborador_id,
         'folio' => 'SOL-000123',
         'motivo' => 'Cita médica',
         'tipo' => 'permiso_con_goce',
@@ -57,7 +59,7 @@ test('generar formato desde una solicitud interna precarga folio y motivo, y que
 
     $documento = GeneratedDocument::where('solicitud_id', $solicitud->id)->firstOrFail();
 
-    expect($documento->user_id)->toBe($colaborador->id)
+    expect($documento->colaborador_id)->toBe($colaborador->colaborador_id)
         ->and($documento->status)->toBe(EstadoDocumentoGenerado::Generado);
 
     $zip = new ZipArchive;
@@ -90,7 +92,7 @@ test('generar formato desde una solicitud de vacaciones queda asociado a esa sol
 
     $documento = GeneratedDocument::where('solicitud_vacaciones_id', $solicitud->id)->firstOrFail();
 
-    expect($documento->user_id)->toBe($colaborador->id);
+    expect($documento->colaborador_id)->toBe($colaborador->colaborador_id);
 });
 
 test('no se puede enviar solicitud_id y solicitud_vacaciones_id a la vez', function () {
@@ -131,7 +133,7 @@ test('rh_admin puede subir el documento firmado y queda archivado en el expedien
         ->and($documento->signed_document_id)->not->toBeNull();
 
     $firmado = EmployeeDocument::findOrFail($documento->signed_document_id);
-    expect($firmado->user_id)->toBe($colaborador->id)
+    expect($firmado->colaborador_id)->toBe($colaborador->colaborador_id)
         ->and($firmado->document_type_id)->toBe($tipoDocumento->id);
 });
 

@@ -40,6 +40,7 @@ import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
+import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -685,16 +686,18 @@ function confirmarMovimiento() {
             <Button variant="ghost" size="sm" @click="limpiar">
                 Limpiar filtros
             </Button>
-            <div
-                data-tour="solicitudes-exportar"
-                class="ml-auto flex items-center gap-2"
-            >
+        </div>
+
+        <!-- Exportar: en desktop sube a la barra superior (CrudPageHeader),
+             así no ocupa una fila propia debajo de los filtros. -->
+        <CrudPageHeader titulo="Solicitudes">
+            <div data-tour="solicitudes-exportar" class="flex items-center gap-2">
                 <CrudExportButtons
                     :url-excel="urlExportar(exportarExcel)"
                     :url-pdf="urlExportar(exportarPdf)"
                 />
             </div>
-        </div>
+        </CrudPageHeader>
 
         <!-- Resumen visual por estado -->
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
@@ -795,13 +798,13 @@ function confirmarMovimiento() {
                                 />
                                 <div class="min-w-0">
                                     <p
-                                        class="truncate text-[15px] leading-tight font-semibold"
+                                        class="line-clamp-2 text-[15px] leading-tight font-semibold break-words"
                                     >
                                         {{ solicitud.usuario?.name }}
                                         {{ solicitud.usuario?.apellidos }}
                                     </p>
                                     <p
-                                        class="mt-0.5 truncate text-xs text-muted-foreground"
+                                        class="mt-0.5 line-clamp-2 text-xs text-muted-foreground"
                                     >
                                         {{ solicitud.folio }}
                                         <template

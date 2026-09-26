@@ -6,6 +6,7 @@ use App\Enums\TipoCelebracion;
 use App\Models\BirthdayGreeting;
 use App\Models\BirthdayPhrase;
 use App\Models\Colaborador;
+use App\Models\Sucursal;
 use App\Services\Celebraciones\DibujoTarjeta;
 use App\Services\Expedientes\DocumentoStorageService;
 use Carbon\CarbonInterface;
@@ -109,7 +110,7 @@ class BirthdayCardService
         return $greeting->fresh();
     }
 
-    public function descargar(BirthdayGreeting $greeting): StreamedResponse
+    public function descargar(BirthdayGreeting $greeting, bool $enLinea = false): StreamedResponse
     {
         if ($greeting->card_path === null || ! $this->storage->existe($greeting->card_path)) {
             $this->renderizarYGuardar($greeting, $greeting->colaborador, forzar: true);
@@ -117,7 +118,8 @@ class BirthdayCardService
 
         return $this->storage->respuesta($greeting->card_path, [
             'Content-Type' => 'image/png',
-            'Content-Disposition' => 'attachment; filename="'.$this->nombreArchivo($greeting).'"',
+            // `inline` para la vista previa del panel RH (Ver tarjeta).
+            'Content-Disposition' => sprintf('%s; filename="%s"', $enLinea ? 'inline' : 'attachment', $this->nombreArchivo($greeting)),
             // Sin esto, el navegador cachea la imagen por heurística (no
             // hay ningún header de caché) y, como la URL nunca cambia
             // (mismo colaborador = misma ruta), regenerar/cambiar la frase
@@ -136,6 +138,21 @@ class BirthdayCardService
     public function preview(Colaborador $colaborador, string $frase): string
     {
         return $this->renderPng($colaborador, $frase);
+    }
+
+    /**
+     * Vista previa con datos de EJEMPLO para la pantalla de configuración
+     * (fondo + frase activa más reciente): nombre largo a propósito, para
+     * que RH vea cómo se acomoda. No guarda nada.
+     */
+    public function previewEjemplo(): string
+    {
+        $colaborador = (new Colaborador)->forceFill(['name' => 'María Fernanda', 'apellidos' => 'Hernández Rodríguez', 'foto_path' => null]);
+        $colaborador->setRelation('sucursalPrincipal', (new Sucursal)->forceFill(['nombre' => 'Sucursal de ejemplo']));
+
+        $frase = BirthdayPhrase::query()->activas()->orderBy('orden')->value('texto');
+
+        return $this->renderPng($colaborador, is_string($frase) && $frase !== '' ? $frase : 'Feliz cumpleaños. Gracias por ser parte de MR. LANA.');
     }
 
     private function renderizarYGuardar(BirthdayGreeting $greeting, Colaborador $colaborador, bool $forzar = false): void

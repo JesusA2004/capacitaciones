@@ -1,53 +1,38 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
-import {
-    Briefcase,
-    Building2,
-    CircleDollarSign,
-    ClipboardList,
-    Percent,
-    Users,
-} from '@lucide/vue';
-import { computed } from 'vue';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { Briefcase, CalendarClock, CircleDollarSign, FilterX, MapPin, UserSearch, Users } from '@lucide/vue';
+import { computed, ref, watch } from 'vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
-import CrudMobileCard from '@/components/DataTable/CrudMobileCard.vue';
+import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
 import CrudStats from '@/components/DataTable/CrudStats.vue';
-import DataTable from '@/components/DataTable/DataTable.vue';
-import type { ColumnaDataTable } from '@/components/DataTable/DataTable.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import { useFiltros } from '@/composables/useFiltros';
+import { NativeSelect } from '@/components/ui/native-select';
+import { usePermisos } from '@/composables/usePermisos';
 import { formatoMoneda } from '@/lib/utils';
 import { dashboard } from '@/routes';
+import { show as showSucursal } from '@/routes/administracion/sucursales';
+import { index as indexCandidatos } from '@/routes/rh/candidatos';
 import { exportarExcel, exportarPdf, index } from '@/routes/rh/vacantes';
-import type {
-    OpcionesReclutamiento,
-    RespuestaPaginada,
-    VacanteItem,
-    VacantesKpis,
-} from '@/types';
+import type { VacanteItem, VacantesKpis } from '@/types';
+
+/**
+ * Vacantes: QUÉ puestos faltan por cubrir y dónde (una fila por vacante
+ * real), no la plantilla por sucursal — esa vive en el detalle de cada
+ * sucursal (Administración > Sucursales). Las vacantes se abren y cierran
+ * solas con headcount (docs/HEADCOUNT_Y_VACANTES.md).
+ */
+type Opcion = { id: number; nombre: string };
 
 const props = defineProps<{
     vacantes: VacanteItem[];
     kpis: VacantesKpis;
-    filtros: {
-        empresa_id?: string;
-        sucursal_id?: string;
-        departamento_id?: string;
-        puesto_id?: string;
-        busqueda?: string;
-    };
-    opciones: OpcionesReclutamiento;
+    filtros: { busqueda?: string; sucursal_id?: string; puesto_id?: string; departamento_id?: string; estado?: string };
+    opciones: { sucursales: Opcion[]; departamentos: Opcion[]; puestos: Opcion[]; estados: { valor: string; etiqueta: string }[] };
 }>();
 
 defineOptions({
@@ -59,317 +44,168 @@ defineOptions({
     },
 });
 
-const { filtros, aplicar, aplicarConDebounce, limpiar } = useFiltros(
-    index.url(),
-    {
-        empresa_id: props.filtros.empresa_id ?? '',
-        sucursal_id: props.filtros.sucursal_id ?? '',
-        departamento_id: props.filtros.departamento_id ?? '',
-        puesto_id: props.filtros.puesto_id ?? '',
-        busqueda: props.filtros.busqueda ?? '',
-    },
-);
+const { tienePermiso } = usePermisos();
+const busqueda = ref(props.filtros.busqueda ?? '');
+const borrador = ref({
+    sucursal_id: props.filtros.sucursal_id ?? '',
+    puesto_id: props.filtros.puesto_id ?? '',
+    departamento_id: props.filtros.departamento_id ?? '',
+    estado: props.filtros.estado ?? '',
+});
+const sheetAbierto = ref(false);
+let temporizador: ReturnType<typeof setTimeout> | undefined;
 
-function urlExportar(destino: typeof exportarExcel | typeof exportarPdf): string {
-    const parametros = new URLSearchParams(
-        Object.entries(filtros).filter(([, valor]) => valor),
-    );
+const activos = computed(() => Object.values({ ...props.filtros, busqueda: undefined }).filter(Boolean).length);
 
-    return `${destino.url()}?${parametros.toString()}`;
+function parametros(extra: Record<string, string> = {}) {
+    return Object.fromEntries(Object.entries({ busqueda: busqueda.value, ...borrador.value, ...extra }).filter(([, v]) => v));
 }
 
-// DataTable.vue espera una respuesta paginada del servidor; este listado no
-// pagina (es el universo de pares sucursal/puesto con headcount vigente,
-// siempre acotado y pequeño), así que se envuelve en una sola página.
-const vacantesPaginadas = computed<RespuestaPaginada<VacanteItem>>(() => ({
-    data: props.vacantes,
-    current_page: 1,
-    last_page: 1,
-    per_page: Math.max(props.vacantes.length, 1),
-    total: props.vacantes.length,
-    from: props.vacantes.length ? 1 : null,
-    to: props.vacantes.length,
-    links: [],
-}));
+function navegar() {
+    router.get(index.url(), parametros(), { preserveState: true, preserveScroll: true, replace: true });
+}
 
-const columnas: ColumnaDataTable[] = [
-    { clave: 'sucursal', etiqueta: 'Sucursal' },
-    { clave: 'departamento', etiqueta: 'Departamento' },
-    { clave: 'puesto', etiqueta: 'Puesto' },
-    { clave: 'plantilla_permitida', etiqueta: 'Plantilla permitida' },
-    { clave: 'plantilla_cubierta', etiqueta: 'Plantilla cubierta' },
-    { clave: 'vacantes_disponibles', etiqueta: 'Vacantes disponibles' },
-    { clave: 'candidatos_activos', etiqueta: 'Candidatos activos' },
-    { clave: 'candidatos_finalistas', etiqueta: 'Candidatos finalistas' },
-    { clave: 'cobertura_pct', etiqueta: 'Cobertura %' },
-    { clave: 'costo_presupuestado_mensual', etiqueta: 'Costo mensual' },
-    { clave: 'fecha_apertura_mas_antigua', etiqueta: 'Faltante desde' },
-];
+watch(busqueda, () => {
+    clearTimeout(temporizador);
+    temporizador = setTimeout(navegar, 350);
+});
 
-const tarjetasKpi = computed(() => [
-    {
-        etiqueta: 'Sucursales bajo cobertura',
-        valor: props.kpis.sucursales_bajo_cobertura,
-        icono: Building2,
-        tono: 'warning' as const,
-    },
-    {
-        etiqueta: 'Plantilla permitida',
-        valor: props.kpis.plantilla_permitida_total,
-        icono: ClipboardList,
-    },
-    {
-        etiqueta: 'Plantilla cubierta',
-        valor: props.kpis.plantilla_cubierta_total,
-        icono: Users,
-        tono: 'success' as const,
-    },
-    {
-        etiqueta: 'Vacantes disponibles',
-        valor: props.kpis.vacantes_totales,
-        icono: Briefcase,
-        tono: props.kpis.vacantes_totales > 0 ? ('warning' as const) : ('default' as const),
-    },
-    {
-        etiqueta: 'Cobertura global',
-        valor: `${props.kpis.cobertura_pct_global}%`,
-        icono: Percent,
-    },
-    {
-        etiqueta: 'Costo mensual presupuestado',
-        valor: formatoMoneda(props.kpis.costo_mensual_total),
-        icono: CircleDollarSign,
-    },
+function limpiar() {
+    busqueda.value = '';
+    borrador.value = { sucursal_id: '', puesto_id: '', departamento_id: '', estado: '' };
+    navegar();
+}
+
+function urlExportar(destino: typeof exportarExcel | typeof exportarPdf): string {
+    return `${destino.url()}?${new URLSearchParams(parametros()).toString()}`;
+}
+
+const estadisticas = computed(() => [
+    { etiqueta: 'Vacantes abiertas', valor: props.kpis.vacantes_abiertas, icono: Briefcase, tono: props.kpis.vacantes_abiertas > 0 ? ('warning' as const) : undefined },
+    { etiqueta: 'Plazas por cubrir', valor: props.kpis.plazas_disponibles, icono: Users },
+    { etiqueta: 'Candidatos en proceso', valor: props.kpis.candidatos_activos, icono: UserSearch, tono: 'info' as const },
+    { etiqueta: 'Días promedio abiertas', valor: props.kpis.dias_promedio_abierta, icono: CalendarClock },
+    { etiqueta: 'Costo mensual de las plazas', valor: formatoMoneda(props.kpis.costo_mensual), icono: CircleDollarSign },
 ]);
+
+function fecha(valor: string): string {
+    return new Date(`${valor}T12:00:00`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+const TONO_ESTADO: Record<string, string> = {
+    abierta: 'border-[var(--warning)]/40 text-[var(--warning)]',
+    en_reclutamiento: 'border-[var(--brand-secondary)]/40 text-[var(--brand-secondary)]',
+    con_candidatos: 'border-[var(--brand-secondary)]/40 text-[var(--brand-secondary)]',
+    en_revision: 'border-[var(--brand-secondary)]/40 text-[var(--brand-secondary)]',
+    cubierta: 'border-[var(--success)]/40 text-[var(--success)]',
+    cancelada: 'text-muted-foreground',
+};
 </script>
 
 <template>
     <Head title="Vacantes" />
 
-    <div class="flex flex-col gap-6 p-4">
-        <CrudPageHeader
-            titulo="Vacantes"
-            descripcion="Cobertura de plantilla por sucursal y puesto: plazas permitidas, cubiertas y disponibles, calculadas en vivo."
-            :icono="Briefcase"
-        >
-            <CrudExportButtons
-                :url-excel="urlExportar(exportarExcel)"
-                :url-pdf="urlExportar(exportarPdf)"
-            />
+    <div class="mx-auto flex w-full max-w-screen-2xl min-w-0 flex-col gap-4 p-3 sm:p-4 lg:px-6">
+        <CrudPageHeader titulo="Vacantes" :icono="Briefcase">
+            <CrudExportButtons :url-excel="urlExportar(exportarExcel)" :url-pdf="urlExportar(exportarPdf)" />
         </CrudPageHeader>
 
-        <CrudStats :estadisticas="tarjetasKpi" />
+        <CrudStats :estadisticas="estadisticas" />
 
-        <div data-tour="vacantes-filtros" class="flex flex-wrap items-center gap-2">
-            <div class="grid gap-1.5">
-                <Label class="text-xs text-muted-foreground">Buscar</Label>
-                <input
-                    :value="filtros.busqueda"
-                    type="text"
-                    placeholder="Buscar por sucursal, departamento o puesto..."
-                    class="h-9 w-64 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    @input="
-                        (evento) => {
-                            filtros.busqueda = (
-                                evento.target as HTMLInputElement
-                            ).value;
-                            aplicarConDebounce();
-                        }
-                    "
-                />
-            </div>
-
-            <div class="grid gap-1.5">
-                <Label class="text-xs text-muted-foreground">Empresa</Label>
-                <Select
-                    :model-value="filtros.empresa_id"
-                    @update:model-value="
-                        (v) => {
-                            filtros.empresa_id = String(v ?? '');
-                            aplicar();
-                        }
-                    "
-                >
-                    <SelectTrigger class="w-44"
-                        ><SelectValue placeholder="Todas"
-                    /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem
-                            v-for="opcion in opciones.empresas"
-                            :key="opcion.id"
-                            :value="String(opcion.id)"
-                            >{{ opcion.nombre }}</SelectItem
-                        >
-                    </SelectContent>
-                </Select>
-            </div>
-
-            <div class="grid gap-1.5">
-                <Label class="text-xs text-muted-foreground">Sucursal</Label>
-                <Select
-                    :model-value="filtros.sucursal_id"
-                    @update:model-value="
-                        (v) => {
-                            filtros.sucursal_id = String(v ?? '');
-                            aplicar();
-                        }
-                    "
-                >
-                    <SelectTrigger class="w-44"
-                        ><SelectValue placeholder="Todas"
-                    /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem
-                            v-for="opcion in opciones.sucursales"
-                            :key="opcion.id"
-                            :value="String(opcion.id)"
-                            >{{ opcion.nombre }}</SelectItem
-                        >
-                    </SelectContent>
-                </Select>
-            </div>
-
-            <div class="grid gap-1.5">
-                <Label class="text-xs text-muted-foreground"
-                    >Departamento</Label
-                >
-                <Select
-                    :model-value="filtros.departamento_id"
-                    @update:model-value="
-                        (v) => {
-                            filtros.departamento_id = String(v ?? '');
-                            aplicar();
-                        }
-                    "
-                >
-                    <SelectTrigger class="w-44"
-                        ><SelectValue placeholder="Todos"
-                    /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem
-                            v-for="opcion in opciones.departamentos"
-                            :key="opcion.id"
-                            :value="String(opcion.id)"
-                            >{{ opcion.nombre }}</SelectItem
-                        >
-                    </SelectContent>
-                </Select>
-            </div>
-
-            <div class="grid gap-1.5">
-                <Label class="text-xs text-muted-foreground">Puesto</Label>
-                <Select
-                    :model-value="filtros.puesto_id"
-                    @update:model-value="
-                        (v) => {
-                            filtros.puesto_id = String(v ?? '');
-                            aplicar();
-                        }
-                    "
-                >
-                    <SelectTrigger class="w-44"
-                        ><SelectValue placeholder="Todos"
-                    /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem
-                            v-for="opcion in opciones.puestos"
-                            :key="opcion.id"
-                            :value="String(opcion.id)"
-                            >{{ opcion.nombre }}</SelectItem
-                        >
-                    </SelectContent>
-                </Select>
-            </div>
-
-            <Button variant="ghost" size="sm" class="mt-5" @click="limpiar">
-                Limpiar filtros
+        <div data-tour="vacantes-filtros" class="flex min-w-0 items-center gap-2" role="search">
+            <CrudSearchInput v-model="busqueda" placeholder="Buscar puesto o sucursal…" class="min-w-0 flex-1 sm:w-72 sm:flex-none" />
+            <CrudFilterSheet v-model:open="sheetAbierto" :contador-activos="activos" @aplicar="navegar" @limpiar="limpiar">
+                <div class="grid gap-1.5">
+                    <Label for="f-estado">Estado</Label>
+                    <NativeSelect id="f-estado" v-model="borrador.estado" class="w-full">
+                        <option value="">Activas (sin cubiertas ni canceladas)</option>
+                        <option v-for="e in opciones.estados" :key="e.valor" :value="e.valor">{{ e.etiqueta }}</option>
+                    </NativeSelect>
+                </div>
+                <div class="grid gap-1.5">
+                    <Label for="f-sucursal">Sucursal</Label>
+                    <NativeSelect id="f-sucursal" v-model="borrador.sucursal_id" class="w-full">
+                        <option value="">Todas</option>
+                        <option v-for="s in opciones.sucursales" :key="s.id" :value="String(s.id)">{{ s.nombre }}</option>
+                    </NativeSelect>
+                </div>
+                <div class="grid gap-1.5">
+                    <Label for="f-puesto">Puesto</Label>
+                    <NativeSelect id="f-puesto" v-model="borrador.puesto_id" class="w-full">
+                        <option value="">Todos</option>
+                        <option v-for="p in opciones.puestos" :key="p.id" :value="String(p.id)">{{ p.nombre }}</option>
+                    </NativeSelect>
+                </div>
+                <div class="grid gap-1.5">
+                    <Label for="f-departamento">Departamento</Label>
+                    <NativeSelect id="f-departamento" v-model="borrador.departamento_id" class="w-full">
+                        <option value="">Todos</option>
+                        <option v-for="d in opciones.departamentos" :key="d.id" :value="String(d.id)">{{ d.nombre }}</option>
+                    </NativeSelect>
+                </div>
+            </CrudFilterSheet>
+            <Button v-if="activos > 0 || filtros.busqueda" variant="ghost" size="icon-sm" aria-label="Limpiar filtros" title="Limpiar filtros" @click="limpiar">
+                <FilterX class="size-4" />
             </Button>
         </div>
 
-        <DataTable
-            :columnas="columnas"
-            :datos="vacantesPaginadas"
-            mensaje-vacio="No hay combinaciones de sucursal y puesto con plantilla configurada."
-        >
-            <template #vacio>
-                <CrudEmptyState
-                    :icono="Briefcase"
-                    titulo="Sin plantilla configurada"
-                    descripcion="No hay combinaciones de sucursal y puesto con plantilla configurada para los filtros actuales."
-                />
-            </template>
+        <CrudEmptyState
+            v-if="vacantes.length === 0"
+            :icono="Briefcase"
+            titulo="No hay vacantes con estos filtros"
+            descripcion="Las vacantes se abren solas cuando una sucursal tiene menos personas que su plantilla autorizada."
+        />
 
-            <template #celda-sucursal="{ fila }">
-                <span>{{ fila.sucursal?.nombre ?? '—' }}</span>
-            </template>
-            <template #celda-departamento="{ fila }">
-                <span class="text-muted-foreground">{{
-                    fila.departamento?.nombre ?? '—'
-                }}</span>
-            </template>
-            <template #celda-puesto="{ fila }">
-                <span>{{ fila.puesto?.nombre ?? '—' }}</span>
-            </template>
-            <template #celda-vacantes_disponibles="{ fila }">
-                <Badge
-                    v-if="fila.vacantes_disponibles > 0"
-                    variant="outline"
-                    class="border-[var(--brand-primary)]/40 text-[var(--brand-primary)]"
-                >
-                    {{ fila.vacantes_disponibles }}
-                </Badge>
-                <span v-else class="text-muted-foreground">0</span>
-            </template>
-            <template #celda-cobertura_pct="{ fila }">
-                <span>{{ fila.cobertura_pct }}%</span>
-            </template>
-            <template #celda-costo_presupuestado_mensual="{ fila }">
-                <span>{{
-                    fila.costo_presupuestado_mensual !== null
-                        ? formatoMoneda(fila.costo_presupuestado_mensual)
-                        : '—'
-                }}</span>
-            </template>
-            <template #celda-fecha_apertura_mas_antigua="{ fila }">
-                <span class="text-muted-foreground">{{
-                    fila.fecha_apertura_mas_antigua ?? '—'
-                }}</span>
-            </template>
-
-            <template #mobile-card="{ fila }">
-                <CrudMobileCard
-                    :titulo="fila.puesto?.nombre ?? 'Sin puesto'"
-                    :subtitulo="`${fila.sucursal?.nombre ?? 'Sin sucursal'} · ${fila.departamento?.nombre ?? 'Sin departamento'}`"
-                >
-                    <template #badge>
-                        <Badge
-                            v-if="fila.vacantes_disponibles > 0"
-                            variant="outline"
-                            class="border-[var(--brand-primary)]/40 text-[var(--brand-primary)]"
+        <!-- Una fila por vacante: puesto primero (es lo que se busca cubrir). -->
+        <ul v-else class="@container divide-y rounded-xl border bg-card" aria-label="Vacantes">
+            <li
+                v-for="vacante in vacantes"
+                :key="vacante.id"
+                class="grid gap-3 p-4 @3xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_auto] @3xl:items-center"
+            >
+                <div class="min-w-0">
+                    <p class="flex flex-wrap items-center gap-2 font-semibold">
+                        {{ vacante.puesto ?? 'Puesto sin definir' }}
+                        <Badge variant="outline" :class="TONO_ESTADO[vacante.estado]">{{ vacante.estado_etiqueta }}</Badge>
+                        <Badge v-if="!vacante.generada_automaticamente" variant="secondary">Manual</Badge>
+                    </p>
+                    <p class="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
+                        <MapPin class="size-3.5 shrink-0" />
+                        <Link
+                            v-if="vacante.sucursal_id && tienePermiso('sucursales.administrar')"
+                            :href="showSucursal.url(vacante.sucursal_id)"
+                            class="hover:text-foreground hover:underline"
+                            >{{ vacante.sucursal }}</Link
                         >
-                            {{ fila.vacantes_disponibles }} disponible{{
-                                fila.vacantes_disponibles === 1 ? '' : 's'
-                            }}
-                        </Badge>
-                    </template>
-                    <span
-                        >Plantilla: {{ fila.plantilla_cubierta }}/{{
-                            fila.plantilla_permitida
-                        }}
-                        ({{ fila.cobertura_pct }}%)</span
-                    >
-                    <span
-                        >Candidatos: {{ fila.candidatos_activos }} activos ·
-                        {{ fila.candidatos_finalistas }} finalistas</span
-                    >
-                    <span v-if="fila.costo_presupuestado_mensual !== null"
-                        >Costo mensual:
-                        {{
-                            formatoMoneda(fila.costo_presupuestado_mensual)
-                        }}</span
-                    >
-                </CrudMobileCard>
-            </template>
-        </DataTable>
+                        <span v-else>{{ vacante.sucursal ?? 'Sin sucursal' }}</span>
+                        <template v-if="vacante.departamento"><span aria-hidden="true">·</span>{{ vacante.departamento }}</template>
+                    </p>
+                </div>
+
+                <div class="text-sm">
+                    <p class="font-semibold tabular-nums">
+                        {{ vacante.plazas_disponibles }} {{ vacante.plazas_disponibles === 1 ? 'plaza por cubrir' : 'plazas por cubrir' }}
+                    </p>
+                    <p v-if="vacante.plantilla_autorizada !== null" class="text-xs text-muted-foreground">
+                        {{ vacante.plantilla_actual }} de {{ vacante.plantilla_autorizada }} autorizadas ocupadas
+                    </p>
+                    <p v-else class="text-xs text-muted-foreground">{{ vacante.motivo }}</p>
+                </div>
+
+                <div class="text-sm">
+                    <p>Abierta hace {{ vacante.dias_abierta }} {{ vacante.dias_abierta === 1 ? 'día' : 'días' }}</p>
+                    <p class="text-xs text-muted-foreground">Desde el {{ fecha(vacante.fecha_apertura) }}</p>
+                </div>
+
+                <div class="flex items-center gap-2 @3xl:justify-end">
+                    <Button as-child variant="outline" size="sm">
+                        <Link :href="indexCandidatos.url({ query: { vacante_id: vacante.id } })">
+                            <UserSearch class="size-4" />
+                            {{ vacante.candidatos_activos }} {{ vacante.candidatos_activos === 1 ? 'candidato' : 'candidatos' }}
+                        </Link>
+                    </Button>
+                </div>
+            </li>
+        </ul>
     </div>
 </template>

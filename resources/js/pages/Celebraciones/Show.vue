@@ -51,6 +51,7 @@ const props = defineProps<{
         puede_ver_todos: boolean;
         mi_mensaje: Mensaje | null;
         mensajes_count: number | null;
+        enviada_at: string | null;
         avisada_todos_at: string | null;
         puede_enviar: boolean;
         puede_moderar: boolean;
@@ -136,12 +137,13 @@ function fecha(valor: string): string {
             </div>
 
             <!-- RH -->
-            <div v-if="celebracion.puede_enviar && celebracion.es_hoy" class="flex flex-wrap gap-2 rounded-xl border p-3">
+            <div v-if="celebracion.puede_enviar && celebracion.es_hoy" class="@container flex flex-wrap gap-2 rounded-xl border p-3">
                 <AccionesCelebracionHoy
                     :colaborador-id="celebracion.homenajeado.colaborador_id"
                     :tipo="celebracion.tipo"
                     :nombre="celebracion.homenajeado.nombre"
                     :anios="celebracion.anios"
+                    :enviada-at="celebracion.enviada_at"
                     :avisada-todos-at="celebracion.avisada_todos_at"
                 />
                 <Button size="sm" variant="ghost" @click="alternarRecepcion">

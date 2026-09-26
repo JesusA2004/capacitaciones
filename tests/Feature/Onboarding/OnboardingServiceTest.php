@@ -17,7 +17,7 @@ test('el checklist marca datos personales/laborales y expediente segun el estado
     ]);
 
     $servicio = app(OnboardingService::class);
-    $checklist = collect($servicio->checklist($usuario))->keyBy('clave');
+    $checklist = collect($servicio->checklist($usuario->colaborador))->keyBy('clave');
 
     expect($checklist['datos_personales']['completado'])->toBeFalse()
         ->and($checklist['datos_laborales']['completado'])->toBeFalse()
@@ -42,7 +42,7 @@ test('el checklist reconoce el contrato firmado y el alta aprobada', function ()
     ]);
 
     $servicio = app(OnboardingService::class);
-    $checklist = collect($servicio->checklist($usuario))->keyBy('clave');
+    $checklist = collect($servicio->checklist($usuario->colaborador))->keyBy('clave');
 
     expect($checklist['contrato_firmado']['completado'])->toBeTrue()
         ->and($checklist['alta_aprobada']['completado'])->toBeTrue()

@@ -74,46 +74,61 @@ class HeadcountService
      */
     public function resumenPorSucursal(?Collection $sucursalesIds = null): Collection
     {
-        $autorizadaPorSucursal = HeadcountTarget::query()
+        // Se calcula POR PAR (sucursal, puesto) y luego se suma: "ocupada" =
+        // plazas autorizadas que sí tienen a alguien (nunca más que la
+        // autorizada), así el cumplimiento no pasa de 100% porque haya
+        // personas en puestos sin plantilla autorizada en esa sucursal (p.
+        // ej. puestos del Corporativo mal asignados) ni un puesto "tapa" la
+        // vacante de otro.
+        $autorizadaPorPar = HeadcountTarget::query()
             ->when($sucursalesIds !== null, fn ($q) => $q->whereIn('sucursal_id', $sucursalesIds))
-            ->selectRaw('sucursal_id, sum(plantilla_autorizada) as total')
-            ->groupBy('sucursal_id')
-            ->with('sucursal:id,nombre')
-            ->get()
-            ->keyBy('sucursal_id');
+            ->get(['sucursal_id', 'puesto_id', 'plantilla_autorizada'])
+            ->groupBy(fn (HeadcountTarget $t) => sprintf('%d:%d', $t->sucursal_id, $this->puestos->canonico($t->puesto_id)))
+            ->map(fn (Collection $lista) => (int) $lista->sum('plantilla_autorizada'));
 
+        $actualPorPar = $this->plantillaActualPorSucursalPuesto($sucursalesIds);
         $actualPorSucursal = $this->plantillaActualPorSucursal($sucursalesIds);
 
-        $sucursalesIdsUnion = $autorizadaPorSucursal->keys()
-            ->merge($actualPorSucursal->keys())
-            ->unique()
-            ->values();
+        /** @var array<int, array{autorizada: int, ocupada: int, vacantes: int}> $acumulado */
+        $acumulado = [];
+
+        foreach ($autorizadaPorPar as $clave => $autorizada) {
+            $sucursalId = (int) explode(':', (string) $clave)[0];
+            $actual = (int) ($actualPorPar[$clave] ?? 0);
+            $fila = $acumulado[$sucursalId] ?? ['autorizada' => 0, 'ocupada' => 0, 'vacantes' => 0];
+
+            $acumulado[$sucursalId] = [
+                'autorizada' => $fila['autorizada'] + $autorizada,
+                'ocupada' => $fila['ocupada'] + min($actual, $autorizada),
+                'vacantes' => $fila['vacantes'] + max($autorizada - $actual, 0),
+            ];
+        }
+
+        // Sucursales con gente pero sin plantilla autorizada siguen en la
+        // lista (con 0 autorizada) para que se note que falta capturarla.
+        foreach ($actualPorSucursal->keys() as $sucursalId) {
+            $acumulado[(int) $sucursalId] ??= ['autorizada' => 0, 'ocupada' => 0, 'vacantes' => 0];
+        }
 
         $nombresSucursal = Sucursal::query()
-            ->whereIn('id', $sucursalesIdsUnion)
+            ->whereIn('id', array_keys($acumulado))
             ->pluck('nombre', 'id');
 
-        return $sucursalesIdsUnion->map(function (int|string $sucursalId) use ($autorizadaPorSucursal, $actualPorSucursal, $nombresSucursal) {
-            $sucursalId = (int) $sucursalId;
-            $autorizada = (int) ($autorizadaPorSucursal[$sucursalId]->total ?? 0);
-            $actual = (int) ($actualPorSucursal[$sucursalId] ?? 0);
-
-            return [
-                'sucursal_id' => $sucursalId,
-                'sucursal' => (string) ($nombresSucursal[$sucursalId] ?? '—'),
-                'plantilla_autorizada' => $autorizada,
-                'plantilla_actual' => $actual,
-                'vacantes' => max($autorizada - $actual, 0),
-                'cumplimiento' => $autorizada > 0 ? round(($actual / $autorizada) * 100, 1) : 0.0,
-            ];
-        })->sortBy('sucursal')->values();
+        return collect($acumulado)->map(fn (array $fila, int $sucursalId) => [
+            'sucursal_id' => $sucursalId,
+            'sucursal' => (string) ($nombresSucursal[$sucursalId] ?? '—'),
+            'plantilla_autorizada' => $fila['autorizada'],
+            'plantilla_actual' => $fila['ocupada'],
+            'vacantes' => $fila['vacantes'],
+            'cumplimiento' => $fila['autorizada'] > 0 ? round(($fila['ocupada'] / $fila['autorizada']) * 100, 1) : 0.0,
+        ])->sortBy('sucursal')->values();
     }
 
     /**
      * Drilldown por puesto dentro de una sucursal: autorizado, actual,
-     * faltante, excedente.
+     * faltante.
      *
-     * @return Collection<int, array{puesto_id: int, puesto: string, plantilla_autorizada: int, plantilla_actual: int, faltante: int, excedente: int}>
+     * @return Collection<int, array{puesto_id: int, puesto: string, plantilla_autorizada: int, plantilla_actual: int, faltante: int}>
      */
     public function resumenPorPuesto(int $sucursalId): Collection
     {
@@ -147,7 +162,6 @@ class HeadcountService
                 'plantilla_autorizada' => $autorizada,
                 'plantilla_actual' => $actual,
                 'faltante' => max($autorizada - $actual, 0),
-                'excedente' => max($actual - $autorizada, 0),
             ];
         })->sortBy('puesto')->values();
     }

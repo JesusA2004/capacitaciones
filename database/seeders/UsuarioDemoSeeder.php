@@ -34,6 +34,9 @@ class UsuarioDemoSeeder extends Seeder
         $sucursalDos = Sucursal::where('clave', 'CUE01')->first();
         // Gerente de Córdoba: también cubre Cuernavaca (ver OrganigramaDemoSeeder).
         $sucursalCordoba = Sucursal::where('clave', 'COR01')->first();
+        // Puestos generales (Sistemas, RH, Mesa de Control, Contraloría,
+        // Dirección): viven en el Corporativo, nunca en una sucursal.
+        $corporativo = Sucursal::where('clave', 'CORP01')->first();
         $mesaControl = Departamento::where('nombre', 'Mesa de Control')->first();
         $analistaMesaControl = Puesto::where('nombre', 'Analista de Mesa de Control')->first();
         $recursosHumanos = Departamento::where('nombre', 'Recursos Humanos')->first();
@@ -63,17 +66,17 @@ class UsuarioDemoSeeder extends Seeder
         $usuarios = [
             [
                 'datos' => ['name' => 'Ana', 'apellidos' => 'Martínez Ruiz', 'email' => 'superadmin@mrlana.test', 'numero_empleado' => 'EMP-0001', 'genero' => Genero::Femenino],
-                'sucursal' => $sucursalUno, 'departamento' => $recursosHumanos, 'puesto' => $gerenteSistemas,
+                'sucursal' => $corporativo, 'departamento' => $recursosHumanos, 'puesto' => $gerenteSistemas,
                 'roles' => ['super_admin'],
             ],
             [
                 'datos' => ['name' => 'Luis', 'apellidos' => 'Hernández Gómez', 'email' => 'admin.capacitacion@mrlana.test', 'numero_empleado' => 'EMP-0002', 'genero' => Genero::Masculino],
-                'sucursal' => $sucursalUno, 'departamento' => $recursosHumanos, 'puesto' => $administracionPersonal,
+                'sucursal' => $corporativo, 'departamento' => $recursosHumanos, 'puesto' => $administracionPersonal,
                 'roles' => ['administrador_capacitacion'],
             ],
             [
                 'datos' => ['name' => 'Carla', 'apellidos' => 'Villegas Soto', 'email' => 'instructor@mrlana.test', 'numero_empleado' => 'EMP-0003', 'genero' => Genero::Femenino],
-                'sucursal' => $sucursalUno, 'departamento' => $mesaControl, 'puesto' => $analistaMesaControl,
+                'sucursal' => $corporativo, 'departamento' => $mesaControl, 'puesto' => $analistaMesaControl,
                 'roles' => ['instructor'],
             ],
             [
@@ -98,22 +101,22 @@ class UsuarioDemoSeeder extends Seeder
             ],
             [
                 'datos' => ['name' => 'Roberto', 'apellidos' => 'Salinas Ibarra', 'email' => 'auditor@mrlana.test', 'numero_empleado' => 'EMP-0008', 'genero' => Genero::Masculino],
-                'sucursal' => $sucursalUno, 'departamento' => $recursosHumanos, 'puesto' => $gerenteContraloria,
+                'sucursal' => $corporativo, 'departamento' => $recursosHumanos, 'puesto' => $gerenteContraloria,
                 'roles' => ['auditor'],
             ],
             [
                 'datos' => ['name' => 'Sofía', 'apellidos' => 'Reyes Marín', 'email' => 'rh.admin@mrlana.test', 'numero_empleado' => 'EMP-0009', 'genero' => Genero::Femenino],
-                'sucursal' => $sucursalUno, 'departamento' => $recursosHumanos, 'puesto' => $gerenteRh,
+                'sucursal' => $corporativo, 'departamento' => $recursosHumanos, 'puesto' => $gerenteRh,
                 'roles' => ['rh_admin'],
             ],
             [
                 'datos' => ['name' => 'Iván', 'apellidos' => 'Cabrera Lomelí', 'email' => 'rh.auxiliar@mrlana.test', 'numero_empleado' => 'EMP-0010', 'genero' => Genero::Masculino],
-                'sucursal' => $sucursalUno, 'departamento' => $recursosHumanos, 'puesto' => $reclutamiento,
+                'sucursal' => $corporativo, 'departamento' => $recursosHumanos, 'puesto' => $reclutamiento,
                 'roles' => ['rh_auxiliar'],
             ],
             [
                 'datos' => ['name' => 'Fernanda', 'apellidos' => 'Ochoa Del Río', 'email' => 'director.comercial@mrlana.test', 'numero_empleado' => 'EMP-0011', 'genero' => Genero::Femenino],
-                'sucursal' => $sucursalUno, 'departamento' => $operaciones, 'puesto' => $directorComercial,
+                'sucursal' => $corporativo, 'departamento' => $operaciones, 'puesto' => $directorComercial,
                 'roles' => ['director_comercial'],
             ],
             [
@@ -143,7 +146,7 @@ class UsuarioDemoSeeder extends Seeder
             ],
             [
                 'datos' => ['name' => 'Diego', 'apellidos' => 'Ponce Aranda', 'email' => 'jefe.directo@mrlana.test', 'numero_empleado' => 'EMP-0017', 'genero' => Genero::Masculino],
-                'sucursal' => $sucursalDos, 'departamento' => $operaciones, 'puesto' => $gerenteMesaControl,
+                'sucursal' => $corporativo, 'departamento' => $operaciones, 'puesto' => $gerenteMesaControl,
                 'roles' => ['jefe_directo'],
             ],
             // colaborador3..colaborador10 YA existen — los crea

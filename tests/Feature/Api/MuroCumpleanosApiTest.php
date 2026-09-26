@@ -8,15 +8,21 @@ use App\Models\MobileDevice;
 use App\Models\User;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
+    // "Hoy" es America/Mexico_City: reloj fijo a mediodía en México para que
+    // las fechas armadas con now() no fallen de noche (en UTC ya es mañana).
+    Carbon::setTestNow(Carbon::parse('2026-09-25 18:00:00', 'UTC'));
     $this->seed(RolesYPermisosSeeder::class);
     Storage::fake('nas');
     Storage::fake(config('cumpleanos.disk'));
     Queue::fake();
 });
+
+afterEach(fn () => Carbon::setTestNow());
 
 function bearerMuro(User $usuario): array
 {
@@ -51,7 +57,7 @@ function colaboradorMuro(): User
     return $u;
 }
 
-test('rh abre el muro y se avisa por push a los colaboradores con app, con aviso propio al cumpleañero', function () {
+test('rh abre el muro y se avisa por push a los compañeros con app (al cumpleañero se le felicita aparte)', function () {
     $rh = rhMuro();
     $cumpleanero = colaboradorMuro();
     $companero = colaboradorMuro();
@@ -65,11 +71,13 @@ test('rh abre el muro y se avisa por push a los colaboradores con app, con aviso
         ->assertJsonPath('data.abierto', true);
 
     expect($greeting->refresh()->muroAbierto())->toBeTrue();
-    Queue::assertPushed(SendExpoPushJob::class, 2);
+    // Solo el compañero: el homenajeado recibe su propia felicitación con
+    // "Enviar al colaborador" (CelebracionService), no el aviso general.
+    Queue::assertPushed(SendExpoPushJob::class, 1);
 
     // Reabrir no vuelve a notificar a toda la empresa.
     $this->withHeaders(bearerMuro($rh))->postJson("/api/v1/rh/cumpleanos/{$greeting->id}/muro/abrir")->assertOk();
-    Queue::assertPushed(SendExpoPushJob::class, 2);
+    Queue::assertPushed(SendExpoPushJob::class, 1);
 });
 
 test('un colaborador no puede abrir ni cerrar un muro', function () {
@@ -116,14 +124,20 @@ test('un compañero deja mensaje y foto; la foto se sirve por streaming sin expo
     $mensaje = BirthdayWallMessage::firstOrFail();
     Storage::disk(config('cumpleanos.disk'))->assertExists($mensaje->foto_path);
 
-    $this->withHeaders(bearerMuro(colaboradorMuro()))
+    // Privacidad (docs/CELEBRACIONES.md): el autor ve su foto; otro
+    // compañero no ve mensajes ni fotos ajenas.
+    $this->withHeaders(bearerMuro($autor))
         ->get("/api/v1/cumpleanos/muros/{$greeting->id}/mensajes/{$mensaje->id}/foto")
         ->assertOk();
 
     $this->withHeaders(bearerMuro(colaboradorMuro()))
+        ->get("/api/v1/cumpleanos/muros/{$greeting->id}/mensajes/{$mensaje->id}/foto")
+        ->assertNotFound();
+
+    $this->withHeaders(bearerMuro(colaboradorMuro()))
         ->getJson("/api/v1/cumpleanos/muros/{$greeting->id}/mensajes")
         ->assertOk()
-        ->assertJsonPath('meta.total', 1);
+        ->assertJsonPath('meta.total', 0);
 });
 
 test('un mensaje vacio sin foto es 422 y un muro cerrado ya no acepta mensajes', function () {

@@ -10,6 +10,7 @@ use App\Models\Colaborador;
 use App\Models\Departamento;
 use App\Models\Empresa;
 use App\Models\Sucursal;
+use App\Services\AlcanceOrganizacionalService;
 use App\Services\Celebraciones\CelebracionService;
 use App\Services\Celebraciones\FechasCelebracion;
 use App\Services\Celebraciones\TarjetaAniversarioService;
@@ -38,26 +39,48 @@ class CelebracionRhController extends Controller
         private readonly BirthdayCardService $tarjetaCumpleanos,
         private readonly MuroCumpleanosService $muro,
         private readonly CumpleanosStorageService $storage,
+        private readonly AlcanceOrganizacionalService $alcance,
     ) {}
 
     public function aniversarios(Request $request): Response
     {
-        abort_unless($request->user()->can('celebraciones.ver'), 403);
+        $usuario = $request->user();
+        abort_unless($usuario->can('celebraciones.ver'), 403);
+
+        $request->validate([
+            'mes' => ['nullable', 'integer', 'min:1', 'max:12'],
+            'anio' => ['nullable', 'integer', 'min:2000', 'max:2100'],
+            'desde' => ['nullable', 'date'],
+            'hasta' => ['nullable', 'date', 'after_or_equal:desde'],
+        ]);
 
         $filtros = $this->filtros($request);
         $hoy = FechasCelebracion::hoy();
-        $desde = $request->date('desde') ?? $hoy->copy()->addDay();
-        $hasta = $request->date('hasta') ?? $hoy->copy()->addDays(30);
+        $mes = $request->integer('mes') ?: $hoy->month;
+        $anio = $request->integer('anio') ?: $hoy->year;
+        $inicioMes = Carbon::create($anio, $mes, 1)->startOfDay();
+        $desde = Carbon::parse(($request->date('desde') ?? $hoy)->toDateString());
+        $hasta = Carbon::parse(($request->date('hasta') ?? $hoy->copy()->addDays(30))->toDateString());
+        $sucursales = $this->alcance->sucursalesVisiblesIds($usuario);
 
+        // Misma forma y estructura que Cumpleaños (docs/CELEBRACIONES.md).
+        // "Hoy" nunca se filtra: quien celebra hoy siempre está a la vista.
         return Inertia::render('Rh/Aniversarios/Index', [
-            'hoy' => $this->celebraciones->filasAniversarios($request->user(), $hoy, $hoy, $filtros),
-            'proximos' => $this->celebraciones->filasAniversarios($request->user(), Carbon::parse($desde->toDateString()), Carbon::parse($hasta->toDateString()), $filtros),
+            'fechaHoy' => $hoy->toDateString(),
+            'mes' => $mes,
+            'anio' => $anio,
+            'hoy' => $this->celebraciones->filasAniversarios($usuario, $hoy, $hoy),
+            'delMes' => $this->celebraciones->filasAniversarios($usuario, $inicioMes, $inicioMes->copy()->endOfMonth(), $filtros),
+            'proximos' => $this->celebraciones->filasAniversarios($usuario, $desde, $hasta, $filtros),
             'rango' => ['desde' => $desde->toDateString(), 'hasta' => $hasta->toDateString()],
             'filtros' => $filtros,
+            // Acotados al alcance organizacional de quien consulta.
             'catalogos' => [
-                'empresas' => Empresa::query()->where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
-                'sucursales' => Sucursal::query()->where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
-                'departamentos' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
+                'empresas' => Empresa::query()->where('activo', true)
+                    ->whereIn('id', Sucursal::query()->whereIn('id', $sucursales)->select('empresa_id'))
+                    ->orderBy('nombre')->get(['id', 'nombre']),
+                'sucursales' => Sucursal::query()->where('activo', true)->whereIn('id', $sucursales)->orderBy('nombre')->get(['id', 'nombre']),
+                'departamentos' => Departamento::query()->whereIn('id', $this->alcance->departamentosVisiblesIds($usuario))->orderBy('nombre')->get(['id', 'nombre']),
             ],
             'permisos' => $this->permisos($request),
             'configuracionActiva' => CelebracionConfiguracion::de(TipoCelebracion::AniversarioLaboral)->activo,
@@ -109,7 +132,7 @@ class CelebracionRhController extends Controller
 
         return $celebracion->esAniversario()
             ? $this->tarjetaAniversario->descargar($celebracion, enLinea: $request->boolean('ver'))
-            : $this->tarjetaCumpleanos->descargar($celebracion);
+            : $this->tarjetaCumpleanos->descargar($celebracion, enLinea: $request->boolean('ver'));
     }
 
     public function recepcion(Request $request, BirthdayGreeting $celebracion): RedirectResponse

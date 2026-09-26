@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Rh;
 
-use App\Enums\TipoCelebracion;
 use App\Http\Controllers\Controller;
 use App\Models\BirthdayPhrase;
 use App\Models\Colaborador;
@@ -10,6 +9,7 @@ use App\Models\Departamento;
 use App\Models\Sucursal;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Celebraciones\CelebracionService;
+use App\Services\Celebraciones\FechasCelebracion;
 use App\Services\Cumpleanos\BirthdayCardService;
 use App\Services\Cumpleanos\CumpleanosService;
 use Illuminate\Http\RedirectResponse;
@@ -54,64 +54,44 @@ class CumpleanosController extends Controller
             'rango_hasta' => ['nullable', 'date', 'after_or_equal:rango_desde'],
         ]);
 
-        $mes = (int) ($datos['mes'] ?? now()->month);
-        $anio = (int) ($datos['anio'] ?? now()->year);
+        $hoy = FechasCelebracion::hoy();
+        $mes = (int) ($datos['mes'] ?? $hoy->month);
+        $anio = (int) ($datos['anio'] ?? $hoy->year);
         $filtros = array_intersect_key($datos, array_flip(self::FILTROS));
+        $inicioMes = Carbon::create($anio, $mes, 1)->startOfDay();
 
-        $delMes = $this->cumpleanos->cumpleanosDelMes($mes, $usuario, $filtros)
-            ->map(fn (Colaborador $c) => $this->cumpleanos->tarjetaColaborador($c, null, $usuario))
-            ->values();
-
-        $hoy = $this->cumpleanos->cumpleanosDeHoy($usuario)
-            // + estado del evento de hoy (enviado / avisado a todos).
-            ->map(fn (Colaborador $c) => [...$this->cumpleanos->tarjetaColaborador($c, null, $usuario), ...$this->celebraciones->estadoHoy($c, TipoCelebracion::Cumpleanos)])
-            ->values();
-
-        // Mini-calendario de rango libre en el sidebar "Próximos cumpleaños"
-        // (reemplaza los botones fijos de 7/30 días): por defecto hoy -> +30
-        // días, o lo que el usuario haya elegido en los inputs de fecha.
-        $rangoDesde = isset($datos['rango_desde']) ? Carbon::parse($datos['rango_desde']) : now();
-        $rangoHasta = isset($datos['rango_hasta']) ? Carbon::parse($datos['rango_hasta']) : now()->addDays(30);
-
-        $proximosRango = $this->cumpleanos->cumpleanosEnRango($usuario, $rangoDesde, $rangoHasta)
-            ->map(fn (Colaborador $c) => $this->cumpleanos->tarjetaColaborador($c, null, $usuario))
-            ->values();
-
-        // Solo conteos (no la lista completa) para las tarjetas KPI fijas
-        // de arriba, independientes del rango libre que el usuario elija.
-        $totalProximos7 = $this->cumpleanos->proximosCumpleanos($usuario, 7)->count();
-        $totalProximos30 = $this->cumpleanos->proximosCumpleanos($usuario, 30)->count();
+        // "Próximos": por defecto de hoy a +30 días, o el rango elegido en
+        // el panel de filtros.
+        $rangoDesde = isset($datos['rango_desde']) ? Carbon::parse($datos['rango_desde']) : $hoy->copy();
+        $rangoHasta = isset($datos['rango_hasta']) ? Carbon::parse($datos['rango_hasta']) : $hoy->copy()->addDays(30);
 
         // Colaboradores del alcance sin fecha_nacimiento: nunca pueden salir
-        // en el calendario ni en los conteos anteriores, así que RH necesita
-        // verlos aparte para saber a quién le falta completar el dato.
+        // en el calendario ni en las listas, así que RH necesita verlos
+        // aparte para saber a quién le falta completar el dato.
         $sinFechaNacimiento = $this->cumpleanos->sinFechaNacimiento($usuario, $filtros)
             ->map(fn (Colaborador $c) => ['id' => $c->id, 'nombre' => $c->nombreCompleto(), 'sucursal' => $c->sucursalPrincipal?->nombre])
             ->values();
 
-        $puedeCalendario = $usuario->can('rh.cumpleanos.calendario');
-
+        // Misma forma de fila que Aniversarios (CelebracionService): el
+        // frontend comparte calendario, "Próximos" y "Hoy" entre ambos.
+        // "Hoy" nunca se filtra: quien cumple hoy siempre está a la vista.
         return Inertia::render('Rh/Cumpleanos/Index', [
+            'fechaHoy' => $hoy->toDateString(),
             'mes' => $mes,
             'anio' => $anio,
             'filtros' => $filtros,
-            'delMes' => $delMes,
-            'hoy' => $hoy,
+            'hoy' => $this->celebraciones->filasCumpleanos($usuario, $hoy, $hoy),
+            'delMes' => $this->celebraciones->filasCumpleanos($usuario, $inicioMes, $inicioMes->copy()->endOfMonth(), $filtros),
+            'proximos' => $this->celebraciones->filasCumpleanos($usuario, $rangoDesde, $rangoHasta, $filtros),
             'rango' => [
                 'desde' => $rangoDesde->toDateString(),
                 'hasta' => $rangoHasta->toDateString(),
             ],
-            'proximosRango' => $proximosRango,
-            'totalProximos7' => $totalProximos7,
-            'totalProximos30' => $totalProximos30,
             'sinFechaNacimiento' => $sinFechaNacimiento,
-            'calendario' => $puedeCalendario ? $this->cumpleanos->payloadCalendario($anio, $mes, $usuario, $filtros) : null,
             'opciones' => [
                 // Acotadas al alcance organizacional de quien consulta: un
                 // usuario sin alcance global (p. ej. gerente_sucursal) nunca
-                // debe ver sucursales/departamentos fuera de lo suyo en el
-                // selector, aunque tenga permiso rh.cumpleanos.ver via un rol
-                // reconfigurado (ver App\Services\AlcanceOrganizacionalService).
+                // debe ver sucursales/departamentos fuera de lo suyo.
                 'sucursales' => Sucursal::query()
                     ->whereIn('id', $this->alcance->sucursalesVisiblesIds($usuario))
                     ->orderBy('nombre')
@@ -123,25 +103,15 @@ class CumpleanosController extends Controller
                 'colaboradores' => $this->cumpleanos->colaboradoresElegibles($usuario, $filtros)
                     ->map(fn (Colaborador $c) => ['id' => $c->id, 'nombre' => $c->nombreCompleto()])
                     ->values(),
-                'frases' => $usuario->can('rh.cumpleanos.frases.gestionar')
-                    ? BirthdayPhrase::query()->orderBy('orden')->orderBy('id')->get()
-                    : [],
             ],
             'config' => [
                 'enabled' => (bool) config('cumpleanos.enabled'),
-                'notify_employee' => (bool) config('cumpleanos.notify_employee'),
-                'notify_rh' => (bool) config('cumpleanos.notify_rh'),
-                'show_age' => (bool) config('cumpleanos.show_age'),
-                'show_branch' => (bool) config('cumpleanos.show_branch'),
-                'show_employee_photo' => (bool) config('cumpleanos.show_employee_photo'),
-                'auto_generate_cards' => (bool) config('cumpleanos.auto_generate_cards'),
             ],
             'permisos' => [
-                'calendario' => $puedeCalendario,
+                'calendario' => $usuario->can('rh.cumpleanos.calendario'),
                 'descargarImagen' => $usuario->can('rh.cumpleanos.descargar_imagen'),
                 'configurar' => $usuario->can('rh.cumpleanos.configurar'),
-                'gestionarFrases' => $usuario->can('rh.cumpleanos.frases.gestionar'),
-                'gestionarNotificaciones' => $usuario->can('rh.cumpleanos.notificaciones.gestionar'),
+                'enviar' => $usuario->can('celebraciones.enviar'),
             ],
         ]);
     }

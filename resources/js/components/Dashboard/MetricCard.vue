@@ -41,7 +41,7 @@ const TONOS: Record<string, string> = {
             <component :is="icono" class="size-5" />
         </span>
         <div class="min-w-0 flex-1">
-            <p class="truncate text-sm text-muted-foreground">{{ titulo }}</p>
+            <p class="line-clamp-2 text-sm leading-tight text-muted-foreground">{{ titulo }}</p>
             <p class="flex items-baseline gap-1.5">
                 <span class="text-2xl font-bold tracking-tight tabular-nums">{{
                     valor

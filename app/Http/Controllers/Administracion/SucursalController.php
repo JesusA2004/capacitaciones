@@ -9,6 +9,7 @@ use App\Models\Empresa;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\Headcount\HeadcountService;
+use App\Services\Sucursales\SucursalDetalleService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -16,7 +17,10 @@ use Inertia\Response;
 
 class SucursalController extends Controller
 {
-    public function __construct(private readonly HeadcountService $headcount) {}
+    public function __construct(
+        private readonly HeadcountService $headcount,
+        private readonly SucursalDetalleService $detalle,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -66,22 +70,32 @@ class SucursalController extends Controller
     {
         $this->authorize('view', $sucursal);
 
-        $sucursal->load(['empresa:id,nombre', 'responsable:id,name,apellidos']);
+        $sucursal->load('empresa:id,nombre');
 
         $plantillaPorPuesto = $this->headcount->resumenPorPuesto($sucursal->id);
+        // Mismo criterio que HeadcountService::resumenPorSucursal(): por
+        // puesto, "ocupada" nunca pasa de lo autorizado.
+        $autorizada = (int) $plantillaPorPuesto->sum('plantilla_autorizada');
+        $ocupada = (int) $plantillaPorPuesto->sum(fn (array $f) => min($f['plantilla_actual'], $f['plantilla_autorizada']));
         $totales = [
-            'plantilla_autorizada' => (int) $plantillaPorPuesto->sum('plantilla_autorizada'),
-            'plantilla_actual' => (int) $plantillaPorPuesto->sum('plantilla_actual'),
+            'plantilla_autorizada' => $autorizada,
+            'plantilla_actual' => $ocupada,
+            'vacantes' => (int) $plantillaPorPuesto->sum('faltante'),
+            'cobertura' => $autorizada > 0 ? round(($ocupada / $autorizada) * 100, 1) : 0.0,
+            // Personas en puestos SIN plantilla autorizada en esta sucursal:
+            // se reportan (auditable) para que RH las reubique o capture la
+            // plantilla, no se cuentan como cobertura.
+            'fuera_de_plantilla' => (int) $plantillaPorPuesto->filter(fn (array $f) => $f['plantilla_autorizada'] === 0)->sum('plantilla_actual'),
         ];
-        $totales['vacantes'] = max($totales['plantilla_autorizada'] - $totales['plantilla_actual'], 0);
-        $totales['cobertura'] = $totales['plantilla_autorizada'] > 0
-            ? round(($totales['plantilla_actual'] / $totales['plantilla_autorizada']) * 100, 1)
-            : 0.0;
 
         return Inertia::render('Administracion/Sucursales/Show', [
             'sucursal' => $sucursal,
             'plantillaPorPuesto' => $plantillaPorPuesto,
             'totales' => $totales,
+            // Quien responde por la sucursal es su Gerente de Sucursal: no
+            // hay otra figura de "responsable".
+            'gerente' => $this->detalle->gerente($sucursal),
+            'porDepartamento' => $this->detalle->porDepartamento($sucursal),
             'departamentos' => $sucursal->colaboradores()->where('estatus', 'activo')->whereNotNull('departamento_id')->distinct('departamento_id')->count('departamento_id'),
         ]);
     }

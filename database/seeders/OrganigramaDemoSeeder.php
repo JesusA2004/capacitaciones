@@ -83,7 +83,9 @@ class OrganigramaDemoSeeder extends Seeder
             ->get()
             ->keyBy('sucursal_id');
 
-        foreach (Sucursal::query()->where('activo', true)->orderBy('nombre')->get() as $sucursal) {
+        // El Corporativo no es sucursal operativa: no lleva gerente, gestores
+        // ni coordinadora (sus puestos generales se asignan abajo).
+        foreach (Sucursal::query()->where('activo', true)->where('clave', '!=', 'CORP01')->orderBy('nombre')->get() as $sucursal) {
             if ($sucursal->clave !== self::SUCURSAL_CUBIERTA) {
                 $this->asegurar('Gerente de Sucursal', $sucursal, 'Ventas');
             }
@@ -99,9 +101,11 @@ class OrganigramaDemoSeeder extends Seeder
             }
         }
 
-        $this->asegurar('Monitorista', null, 'Sistemas', cantidad: 1);
-        $this->asegurar('Tesorero', null, 'Contraloría', cantidad: 1);
-        $this->asegurar('Analista de Mesa de Control', null, 'Mesa de Control', cantidad: 5);
+        // Puestos generales: viven en el Corporativo, nunca en una sucursal.
+        $corporativo = Sucursal::query()->where('clave', 'CORP01')->first();
+        $this->asegurar('Monitorista', $corporativo, 'Sistemas', cantidad: 1);
+        $this->asegurar('Tesorero', $corporativo, 'Contraloría', cantidad: 1);
+        $this->asegurar('Analista de Mesa de Control', $corporativo, 'Mesa de Control', cantidad: 5);
 
         $this->coberturasDeEjemplo();
     }
@@ -190,7 +194,7 @@ class OrganigramaDemoSeeder extends Seeder
             ->count();
 
         for ($i = $actuales; $i < $cantidad; $i++) {
-            $this->crear($puesto, $sucursal ?? Sucursal::query()->where('clave', 'IXT01')->first(), $departamento, $genero);
+            $this->crear($puesto, $sucursal ?? Sucursal::query()->where('clave', 'CORP01')->first(), $departamento, $genero);
         }
     }
 

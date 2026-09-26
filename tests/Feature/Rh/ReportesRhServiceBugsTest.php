@@ -27,6 +27,7 @@ test('bajas por mes SI cuenta a los colaboradores dados de baja (antes siempre d
 
     MovimientoLaboral::factory()->create([
         'user_id' => $colaborador->id,
+        'colaborador_id' => $colaborador->colaborador_id,
         'tipo_movimiento' => TipoMovimientoLaboral::Baja->value,
         'fecha_movimiento' => now(),
     ]);
@@ -47,6 +48,7 @@ test('altas por mes usa el movimiento de alta (fecha_ingreso), no created_at', f
 
     MovimientoLaboral::factory()->create([
         'user_id' => $colaborador->id,
+        'colaborador_id' => $colaborador->colaborador_id,
         'tipo_movimiento' => TipoMovimientoLaboral::Alta->value,
         'fecha_movimiento' => now()->subMonths(2),
     ]);
@@ -71,6 +73,7 @@ test('vacaciones solicitadas lee de solicitudes_internas, nunca de la tabla lega
 
     $solicitudUnificada = SolicitudInterna::factory()->create([
         'user_id' => $colaborador->id,
+        'colaborador_id' => $colaborador->colaborador_id,
         'tipo' => TipoSolicitudInterna::Vacaciones,
         'estado' => EstadoSolicitudInterna::Aprobada,
         'fecha_inicio' => now()->addDays(10)->toDateString(),

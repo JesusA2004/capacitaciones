@@ -4,13 +4,19 @@ use App\Models\Colaborador;
 use App\Models\User;
 use Database\Seeders\BirthdayPhraseSeeder;
 use Database\Seeders\RolesYPermisosSeeder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
+    // "Hoy" es America/Mexico_City: reloj fijo a mediodía en México para que
+    // las fechas armadas con now() no fallen de noche (en UTC ya es mañana).
+    Carbon::setTestNow(Carbon::parse('2026-09-25 18:00:00', 'UTC'));
     $this->seed(RolesYPermisosSeeder::class);
     $this->seed(BirthdayPhraseSeeder::class);
     Storage::fake('nas');
 });
+
+afterEach(fn () => Carbon::setTestNow());
 
 function headersBearerCumpleanos(User $usuario): array
 {

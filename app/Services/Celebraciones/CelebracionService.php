@@ -18,6 +18,8 @@ use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -331,35 +333,85 @@ class CelebracionService
     public function filasAniversarios(User $usuario, CarbonInterface $desde, CarbonInterface $hasta, array $filtros = []): array
     {
         $lista = $this->aniversarios->enRango($desde, $hasta, $usuario, $filtros);
-        $eventos = BirthdayGreeting::query()
-            ->where('tipo', TipoCelebracion::AniversarioLaboral->value)
-            ->whereIn('colaborador_id', $lista->map(fn (array $a) => $a['colaborador']->id))
+        $eventos = $this->eventosPorColaboradorYFecha(TipoCelebracion::AniversarioLaboral, $lista->map(fn (array $a) => $a['colaborador']->id)->all(), $desde, $hasta);
+
+        return array_values($lista->map(fn (array $a): array => [
+            ...$this->fila($a['colaborador'], $a['fecha'], $a['anios'], sprintf('%s en MR. LANA', FechasCelebracion::textoAnios($a['anios'])), $eventos),
+            'anios_texto' => FechasCelebracion::textoAnios($a['anios']),
+        ])->all());
+    }
+
+    /**
+     * Cumpleaños para el panel RH con la MISMA forma que
+     * filasAniversarios() (calendario, próximos y "hoy" comparten
+     * componentes en el frontend). Nunca expone la fecha de nacimiento: solo
+     * la fecha de la celebración en el periodo y, si la configuración lo
+     * permite (cumpleanos.show_age), la edad que cumple.
+     *
+     * @param  array<string, mixed>  $filtros
+     * @return list<array<string, mixed>>
+     */
+    public function filasCumpleanos(User $usuario, CarbonInterface $desde, CarbonInterface $hasta, array $filtros = []): array
+    {
+        $lista = $this->cumpleanos->cumpleanosEnRango($usuario, $desde, $hasta, $filtros);
+        $eventos = $this->eventosPorColaboradorYFecha(TipoCelebracion::Cumpleanos, $lista->map(fn (Colaborador $c) => $c->id)->all(), $desde, $hasta);
+        $mostrarEdad = (bool) config('cumpleanos.show_age');
+
+        return array_values($lista->map(function (Colaborador $colaborador) use ($eventos, $mostrarEdad): array {
+            $fecha = Carbon::parse($colaborador->getAttribute('_proxima_fecha'));
+            $edad = $mostrarEdad && $colaborador->fecha_nacimiento !== null
+                ? FechasCelebracion::aniosCumplidos($colaborador->fecha_nacimiento, $fecha)
+                : null;
+
+            return $this->fila($colaborador, $fecha, $edad, $edad !== null ? sprintf('Cumple %s', FechasCelebracion::textoAnios($edad)) : null, $eventos);
+        })->all());
+    }
+
+    /**
+     * Eventos ya registrados (enviado / avisado) indexados por
+     * "colaborador:fecha" — una sola consulta para todo el periodo, nunca
+     * una por fila.
+     *
+     * @param  array<int, int>  $colaboradorIds
+     * @return SupportCollection<string, BirthdayGreeting>
+     */
+    private function eventosPorColaboradorYFecha(TipoCelebracion $tipo, array $colaboradorIds, CarbonInterface $desde, CarbonInterface $hasta): SupportCollection
+    {
+        return BirthdayGreeting::query()
+            ->where('tipo', $tipo->value)
+            ->whereIn('colaborador_id', $colaboradorIds)
             ->whereDate('fecha', '>=', $desde->toDateString())
             ->whereDate('fecha', '<=', $hasta->toDateString())
             ->get()
-            ->keyBy(fn (BirthdayGreeting $g) => sprintf('%d:%s', $g->colaborador_id, $g->fecha->toDateString()));
-        $hoy = FechasCelebracion::hoy();
+            ->keyBy(fn (BirthdayGreeting $g) => sprintf('%d:%s', $g->colaborador_id, $g->fecha->toDateString()))
+            ->toBase();
+    }
 
-        return array_values($lista->map(function (array $a) use ($eventos, $hoy): array {
-            $colaborador = $a['colaborador'];
-            $evento = $eventos->get(sprintf('%d:%s', $colaborador->id, $a['fecha']->toDateString()));
+    /**
+     * Fila común de celebración (ver resources/js/types/celebraciones.ts).
+     *
+     * @param  SupportCollection<string, BirthdayGreeting>  $eventos
+     * @return array<string, mixed>
+     */
+    private function fila(Colaborador $colaborador, CarbonInterface $fecha, ?int $anios, ?string $detalle, SupportCollection $eventos): array
+    {
+        $evento = $eventos->get(sprintf('%d:%s', $colaborador->id, $fecha->toDateString()));
 
-            return [
-                'colaborador_id' => $colaborador->id,
-                'nombre' => $colaborador->nombreCompleto(),
-                'puesto' => $colaborador->puesto?->nombre,
-                'sucursal' => $colaborador->sucursalPrincipal?->nombre,
-                'departamento' => $colaborador->departamento?->nombre,
-                'foto_url' => $this->fotos->url($colaborador),
-                'fecha' => $a['fecha']->toDateString(),
-                'es_hoy' => $a['fecha']->isSameDay($hoy),
-                'anios' => $a['anios'],
-                'anios_texto' => FechasCelebracion::textoAnios($a['anios']),
-                'celebracion_id' => $evento?->id,
-                'enviada_at' => $evento?->enviada_at?->toIso8601String(),
-                'avisada_todos_at' => $evento?->avisada_todos_at?->toIso8601String(),
-            ];
-        })->all());
+        return [
+            'colaborador_id' => $colaborador->id,
+            'nombre' => $colaborador->nombreCompleto(),
+            'puesto' => $colaborador->puesto?->nombre,
+            'sucursal' => $colaborador->sucursalPrincipal?->nombre,
+            'departamento' => $colaborador->departamento?->nombre,
+            'foto_url' => $this->fotos->url($colaborador),
+            'fecha' => $fecha->toDateString(),
+            'es_hoy' => $fecha->isSameDay(FechasCelebracion::hoy()),
+            'anios' => $anios,
+            'detalle' => $detalle,
+            'celebracion_id' => $evento?->id,
+            'enviada_at' => $evento?->enviada_at?->toIso8601String(),
+            'avisada_todos_at' => $evento?->avisada_todos_at?->toIso8601String(),
+        ];
     }
 
     /**

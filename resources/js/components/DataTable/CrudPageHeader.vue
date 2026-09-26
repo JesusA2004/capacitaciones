@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useMediaQuery } from '@vueuse/core';
 import type { Component } from 'vue';
 
 /**
@@ -13,6 +14,11 @@ import type { Component } from 'vue';
  *
  * `titulo`/`descripcion`/`icono` se siguen recibiendo en módulos para
  * accesibilidad (aria-label) y para no romper las pantallas existentes.
+ *
+ * En módulos, desde md las acciones se mueven (Teleport) a la barra
+ * superior junto al breadcrumb (#acciones-pagina en AppSidebarHeader): una
+ * fila entera solo para un botón alineado a la derecha era espacio muerto.
+ * En móvil se quedan en la página, donde sí caben.
  */
 const props = withDefaults(
     defineProps<{
@@ -23,6 +29,8 @@ const props = withDefaults(
     }>(),
     { descripcion: undefined, icono: undefined, detalle: false },
 );
+
+const enEscritorio = useMediaQuery('(min-width: 768px)');
 </script>
 
 <template>
@@ -59,13 +67,14 @@ const props = withDefaults(
         </div>
     </div>
 
-    <div
-        v-else-if="$slots.default"
-        data-tour="encabezado"
-        role="toolbar"
-        :aria-label="titulo"
-        class="flex flex-wrap items-center justify-end gap-2"
-    >
-        <slot />
-    </div>
+    <Teleport v-else-if="$slots.default" to="#acciones-pagina" defer :disabled="!enEscritorio">
+        <div
+            data-tour="encabezado"
+            role="toolbar"
+            :aria-label="titulo"
+            class="flex flex-wrap items-center justify-end gap-2"
+        >
+            <slot />
+        </div>
+    </Teleport>
 </template>

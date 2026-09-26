@@ -9,6 +9,7 @@ use App\Services\Solicitudes\SolicitudesService;
 use App\Services\Solicitudes\VistoBuenoService;
 use Closure;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Datos de demostración del módulo unificado de Solicitudes
@@ -140,12 +141,18 @@ class SolicitudesDemoSeeder extends Seeder
             });
         }
 
-        if ($gerente !== null && $colaborador6 !== null) {
-            $this->crearSiNoExiste('Renuncia voluntaria, último día pactado a fin de mes', function () use ($servicio, $gerente, $colaborador6) {
+        if ($gerente !== null && $colaborador6 !== null && $colaborador6->colaborador !== null) {
+            // Quien pide la baja debe tenerla en su alcance (policy
+            // crearBaja): el gerente demo es de otra sucursal, así que si no
+            // la ve la registra RH — antes el seeder tronaba aquí y
+            // `db:seed` no terminaba.
+            $solicitanteBaja = Gate::forUser($gerente)->allows('crearBaja', [SolicitudInterna::class, $colaborador6->colaborador]) ? $gerente : $rhAdmin;
+
+            $this->crearSiNoExiste('Renuncia voluntaria, último día pactado a fin de mes', function () use ($servicio, $solicitanteBaja, $colaborador6) {
                 // Baja PENDIENTE de aprobar a propósito (para poder probar
                 // el flujo completo de aprobación + bloqueo de acceso
                 // manualmente). El colaborador objetivo sigue activo.
-                $servicio->crear($gerente, [
+                $servicio->crear($solicitanteBaja, [
                     'tipo' => 'baja_colaborador',
                     'motivo' => 'Renuncia voluntaria, último día pactado a fin de mes '.self::MARCA,
                     'colaborador_objetivo_id' => $colaborador6->colaborador_id,

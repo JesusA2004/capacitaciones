@@ -1,12 +1,13 @@
+import type * as PdfJs from 'pdfjs-dist';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
 /**
  * Carga perezosa de pdf.js (solo lo descargan las pantallas que dibujan un
  * PDF, como el editor de plantillas oficiales).
  */
-let modulo: Promise<typeof import('pdfjs-dist')> | null = null;
+let modulo: Promise<typeof PdfJs> | null = null;
 
-async function pdfjs(): Promise<typeof import('pdfjs-dist')> {
+async function pdfjs(): Promise<typeof PdfJs> {
     modulo ??= Promise.all([
         import('pdfjs-dist'),
         import('pdfjs-dist/build/pdf.worker.min.mjs?url'),

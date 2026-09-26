@@ -20,7 +20,7 @@ beforeEach(function () {
 });
 
 test('rh_admin puede crear un alta digital a partir de un candidato aprobado', function () {
-    $candidato = Candidato::factory()->create(['estado' => 'aprobado_rh']);
+    $candidato = Candidato::factory()->create(['estado' => 'listo_para_contratacion']);
     $usuario = User::factory()->create();
     $usuario->assignRole('rh_admin');
 
@@ -103,7 +103,7 @@ test('una liga expirada no permite capturar datos', function () {
 test('rh_admin puede aprobar un alta enviada por el candidato y se crea el colaborador', function () {
     $vacante = Vacante::factory()->create(['estado' => 'en_revision']);
     $candidato = Candidato::factory()->create([
-        'estado' => 'aprobado_rh',
+        'estado' => 'listo_para_contratacion',
         'vacante_id' => $vacante->id,
         'cv_disk' => 'nas',
         'cv_path' => 'candidatos/test/cv-original.pdf',

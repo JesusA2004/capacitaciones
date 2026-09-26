@@ -45,7 +45,6 @@ export type UsuarioItem = {
     roles_nombres: string[];
     acceso_bloqueado_en: string | null;
     email_verified_at: string | null;
-    tiene_2fa: boolean;
     ultimo_acceso: string | null;
 };
 

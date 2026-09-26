@@ -154,12 +154,12 @@ class DashboardDemoSeeder extends Seeder
         $puestos = Puesto::all()->keyBy('nombre');
 
         $definiciones = [
-            ['email' => 'colaborador3@mrlana.test', 'nombre' => 'Sofía', 'apellidos' => 'Reyes Cano', 'sucursal' => 'IXT01', 'departamento' => 'Mesa de Control', 'puesto' => 'Analista de Mesa de Control', 'genero' => Genero::Femenino],
-            ['email' => 'colaborador4@mrlana.test', 'nombre' => 'Héctor', 'apellidos' => 'Domínguez Ríos', 'sucursal' => 'IXT01', 'departamento' => 'Mesa de Control', 'puesto' => 'Analista de Mesa de Control', 'genero' => Genero::Masculino],
+            ['email' => 'colaborador3@mrlana.test', 'nombre' => 'Sofía', 'apellidos' => 'Reyes Cano', 'sucursal' => 'CORP01', 'departamento' => 'Mesa de Control', 'puesto' => 'Analista de Mesa de Control', 'genero' => Genero::Femenino],
+            ['email' => 'colaborador4@mrlana.test', 'nombre' => 'Héctor', 'apellidos' => 'Domínguez Ríos', 'sucursal' => 'CORP01', 'departamento' => 'Mesa de Control', 'puesto' => 'Analista de Mesa de Control', 'genero' => Genero::Masculino],
             ['email' => 'colaborador5@mrlana.test', 'nombre' => 'Valeria', 'apellidos' => 'Cisneros Mora', 'sucursal' => 'CUE01', 'departamento' => 'Ventas', 'puesto' => 'Gestor', 'genero' => Genero::Femenino],
-            ['email' => 'colaborador6@mrlana.test', 'nombre' => 'Iván', 'apellidos' => 'Paredes Luna', 'sucursal' => 'CUE01', 'departamento' => 'Mesa de Control', 'puesto' => 'Analista de Mesa de Control', 'genero' => Genero::Masculino],
+            ['email' => 'colaborador6@mrlana.test', 'nombre' => 'Iván', 'apellidos' => 'Paredes Luna', 'sucursal' => 'CORP01', 'departamento' => 'Mesa de Control', 'puesto' => 'Analista de Mesa de Control', 'genero' => Genero::Masculino],
             ['email' => 'colaborador7@mrlana.test', 'nombre' => 'Renata', 'apellidos' => 'Ochoa Vega', 'sucursal' => 'ATC01', 'departamento' => 'Ventas', 'puesto' => 'Gestor', 'genero' => Genero::Femenino],
-            ['email' => 'colaborador8@mrlana.test', 'nombre' => 'Emilio', 'apellidos' => 'Guzmán Solís', 'sucursal' => 'ATC01', 'departamento' => 'Mesa de Control', 'puesto' => 'Analista de Mesa de Control', 'genero' => Genero::Masculino],
+            ['email' => 'colaborador8@mrlana.test', 'nombre' => 'Emilio', 'apellidos' => 'Guzmán Solís', 'sucursal' => 'CORP01', 'departamento' => 'Mesa de Control', 'puesto' => 'Analista de Mesa de Control', 'genero' => Genero::Masculino],
             ['email' => 'colaborador9@mrlana.test', 'nombre' => 'Ximena', 'apellidos' => 'Beltrán Rico', 'sucursal' => 'ATC01', 'departamento' => 'Operaciones', 'puesto' => 'Coordinadora', 'genero' => Genero::Femenino],
         ];
 

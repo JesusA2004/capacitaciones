@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\BirthdayPhrase;
+use App\Models\Colaborador;
 use App\Models\User;
 use Database\Seeders\BirthdayPhraseSeeder;
 use Database\Seeders\RolesYPermisosSeeder;
@@ -17,16 +18,16 @@ test('el filtro de colaborador acota los listados y el combobox recibe el univer
     $admin = User::factory()->create();
     $admin->assignRole('rh_admin');
 
-    $buscado = User::factory()->create(['fecha_nacimiento' => '1990-03-10', 'name' => 'Ana Buscada']);
-    $otro = User::factory()->create(['fecha_nacimiento' => '1990-03-11', 'name' => 'Luis Otro']);
+    $buscado = Colaborador::factory()->create(['fecha_nacimiento' => '1990-03-10', 'name' => 'Ana Buscada']);
+    $otro = Colaborador::factory()->create(['fecha_nacimiento' => '1990-03-11', 'name' => 'Luis Otro']);
 
     $this->actingAs($admin)
         ->get(route('rh.cumpleanos.index', ['mes' => 3, 'colaborador_id' => $buscado->id]))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('Rh/Cumpleanos/Index')
-            ->where('delMes', fn ($delMes) => collect($delMes)->pluck('id')->contains($buscado->id)
-                && ! collect($delMes)->pluck('id')->contains($otro->id))
+            ->where('delMes', fn ($delMes) => collect($delMes)->pluck('colaborador_id')->contains($buscado->id)
+                && ! collect($delMes)->pluck('colaborador_id')->contains($otro->id))
         );
 
     $this->actingAs($admin)
@@ -74,7 +75,7 @@ test('el fondo personalizado se usa como capa base de la tarjeta generada', func
     $admin = User::factory()->create();
     $admin->assignRole('rh_admin');
 
-    $colaborador = User::factory()->create(['fecha_nacimiento' => now()->subYears(30)]);
+    $colaborador = Colaborador::factory()->create(['fecha_nacimiento' => now()->subYears(30)]);
 
     $archivo = UploadedFile::fake()->image('fondo.png', 1080, 1350);
     $this->actingAs($admin)->post(route('rh.cumpleanos.configuracion.fondo.actualizar'), ['fondo' => $archivo]);
@@ -88,7 +89,7 @@ test('previsualizar una frase no guarda nada y confirmar-frase si persiste el ca
     $admin = User::factory()->create();
     $admin->assignRole('rh_admin');
 
-    $colaborador = User::factory()->create(['fecha_nacimiento' => now()->subYears(28)]);
+    $colaborador = Colaborador::factory()->create(['fecha_nacimiento' => now()->subYears(28)]);
 
     // Genera la felicitacion del dia (idempotente) para tener un punto de partida.
     $this->actingAs($admin)->get(route('rh.cumpleanos.felicitacion', $colaborador))->assertOk();
@@ -115,7 +116,7 @@ test('previsualizar una frase no guarda nada y confirmar-frase si persiste el ca
         ->assertRedirect();
 
     $this->assertDatabaseHas('birthday_greetings', [
-        'user_id' => $colaborador->id,
+        'colaborador_id' => $colaborador->id,
         'frase' => 'Frase confirmada de verdad',
         'birthday_phrase_id' => $fraseCatalogo->id,
     ]);

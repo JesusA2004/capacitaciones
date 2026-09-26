@@ -11,30 +11,43 @@ export type OpcionEnum = {
  * captura o mueve a mano — ver docs/HEADCOUNT_Y_VACANTES.md y
  * App\Http\Controllers\Rh\VacanteController::filasPlantilla().
  */
+/**
+ * Una vacante REAL (App\Services\Vacantes\VacantesListadoService): qué
+ * puesto falta y dónde, con la plantilla de ese par como contexto.
+ */
 export type VacanteItem = {
-    id: string;
-    sucursal: OpcionSimple | null;
-    departamento: OpcionSimple | null;
-    puesto: OpcionSimple | null;
-    plantilla_permitida: number;
-    plantilla_cubierta: number;
-    vacantes_disponibles: number;
+    id: number;
+    puesto_id: number | null;
+    puesto: string | null;
+    sucursal_id: number | null;
+    sucursal: string | null;
+    departamento: string | null;
+    estado: string;
+    estado_etiqueta: string;
+    motivo: string;
+    generada_automaticamente: boolean;
+    fecha_apertura: string;
+    dias_abierta: number;
+    plazas_requeridas: number;
+    plazas_disponibles: number;
     candidatos_activos: number;
-    candidatos_finalistas: number;
-    cobertura_pct: number;
-    /** Suma de sueldo_mensual de las filas `vacantes` materializadas de este par; null si no hay ninguna. */
-    costo_presupuestado_mensual: number | null;
-    /** Fecha de apertura más antigua entre las filas `vacantes` abiertas de este par; null si no hay ninguna. */
-    fecha_apertura_mas_antigua: string | null;
+    candidatos_total: number;
+    sueldo_mensual: number | null;
+    plantilla_autorizada: number | null;
+    plantilla_actual: number;
+    faltantes_reales: number | null;
 };
 
 export type VacantesKpis = {
-    sucursales_bajo_cobertura: number;
-    plantilla_permitida_total: number;
-    plantilla_cubierta_total: number;
-    vacantes_totales: number;
-    cobertura_pct_global: number;
-    costo_mensual_total: number;
+    vacantes_abiertas: number;
+    plazas_disponibles: number;
+    vacantes_automaticas: number;
+    vacantes_manuales: number;
+    en_reclutamiento: number;
+    canceladas: number;
+    candidatos_activos: number;
+    dias_promedio_abierta: number;
+    costo_mensual: number;
 };
 
 export type CandidatosKpis = {
