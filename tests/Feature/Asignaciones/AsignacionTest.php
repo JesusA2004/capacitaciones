@@ -1,10 +1,11 @@
 <?php
 
 use App\Enums\EstadoAsignacion;
+use App\Models\AltaDigital;
 use App\Models\Asignacion;
 use App\Models\AsignacionUsuario;
+use App\Models\Candidato;
 use App\Models\Curso;
-use App\Models\Departamento;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\Asignaciones\AsignacionService;
@@ -114,9 +115,14 @@ test('materializar una asignacion dos veces no genera duplicados', function () {
 });
 
 test('al crear un colaborador nuevo se le aplican las asignaciones vigentes de su sucursal', function () {
+    // administracion.usuarios.store solo crea la CUENTA de acceso de un
+    // Colaborador ya existente (UsuarioController::store() exige
+    // colaborador_id) desde el refactor Usuario/Colaborador — la única
+    // forma real de dar de alta a una persona nueva con cuenta desde el
+    // panel web es Alta digital (Candidato → AltaDigital → aprobar), ver
+    // App\Services\AltaDigital\ConversionColaboradorService.
     $curso = Curso::factory()->create();
     $sucursal = Sucursal::factory()->create();
-    $departamento = Departamento::factory()->create();
 
     $this->actingAs($this->admin)->post(route('asignaciones.store'), [
         'nombre' => 'Vigente para la sucursal',
@@ -126,16 +132,20 @@ test('al crear un colaborador nuevo se le aplican las asignaciones vigentes de s
 
     Notification::fake();
 
-    $this->actingAs($this->admin)->post(route('administracion.usuarios.store'), [
-        'name' => 'Nuevo',
-        'apellidos' => 'Ingreso',
-        'email' => 'nuevo.ingreso@mrlana.test',
-        'sucursal_principal_id' => $sucursal->id,
-        'departamento_id' => $departamento->id,
-        'roles' => ['colaborador'],
-    ])->assertSessionHasNoErrors();
+    $candidato = Candidato::factory()->create(['estado' => 'listo_para_contratacion']);
+    $alta = AltaDigital::factory()->create([
+        'candidato_id' => $candidato->id,
+        'sucursal_id' => $sucursal->id,
+        'estado' => 'en_revision_rh',
+        'correo' => 'nuevo.ingreso@mrlana.test',
+    ]);
 
-    $nuevoUsuario = User::where('email', 'nuevo.ingreso@mrlana.test')->first();
+    $rh = User::factory()->create();
+    $rh->assignRole('rh_admin');
+
+    $this->actingAs($rh)->post(route('rh.altas.aprobar', $alta))->assertSessionHasNoErrors();
+
+    $nuevoUsuario = User::where('email', 'nuevo.ingreso@mrlana.test')->firstOrFail();
     $asignacion = Asignacion::where('nombre', 'Vigente para la sucursal')->first();
 
     expect(AsignacionUsuario::where('asignacion_id', $asignacion->id)->where('user_id', $nuevoUsuario->id)->exists())->toBeTrue();

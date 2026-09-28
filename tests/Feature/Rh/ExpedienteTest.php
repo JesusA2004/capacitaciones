@@ -35,7 +35,7 @@ test('un colaborador dado de baja sigue siendo visible en expedientes y super_ad
     $colaborador->assignRole('colaborador');
 
     $this->actingAs($admin)
-        ->delete(route('administracion.usuarios.destroy', $colaborador))
+        ->delete(route('rh.expedientes.dar-de-baja', $colaborador->id))
         ->assertRedirect();
 
     // rh_admin todavia puede abrir el expediente de una baja (antes daba 404
@@ -49,12 +49,12 @@ test('un colaborador dado de baja sigue siendo visible en expedientes y super_ad
         );
 
     $this->actingAs($admin)
-        ->post(route('administracion.usuarios.reactivar', $colaborador->id))
+        ->post(route('rh.expedientes.reactivar', $colaborador->id))
         ->assertSessionHasNoErrors();
 
     $colaborador = User::findOrFail($colaborador->id);
-    expect($colaborador->trashed())->toBeFalse()
-        ->and($colaborador->estatus->value)->toBe('activo');
+    expect($colaborador->colaborador->trashed())->toBeFalse()
+        ->and($colaborador->colaborador->estatus->value)->toBe('activo');
 
     $this->actingAs($admin)
         ->get(route('rh.expedientes.index'))

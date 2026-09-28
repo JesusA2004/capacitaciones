@@ -72,6 +72,27 @@ test('reautenticar con la contrasena correcta responde sin contenido y no toca l
         ->assertOk();
 });
 
+test('10 llamadas seguidas a reautenticar no cambian la cantidad de personal_access_tokens', function () {
+    $colaborador = User::factory()->create();
+    $token = $colaborador->createToken('test');
+    $totalTokensAntes = $colaborador->tokens()->count();
+
+    // El endpoint está throttled a 5/minuto por usuario (AppServiceProvider,
+    // limiter "api-reautenticar") — intencional, evita fuerza bruta contra
+    // la pantalla de bloqueo. Viajar en el tiempo entre llamadas simula 10
+    // intentos reales espaciados sin desactivar esa protección.
+    for ($i = 0; $i < 10; $i++) {
+        $this->travel(61)->seconds();
+
+        $this->withHeader('Authorization', "Bearer {$token->plainTextToken}")
+            ->postJson('/api/v1/reautenticar', ['password' => 'password'])
+            ->assertNoContent();
+    }
+
+    expect($colaborador->tokens()->count())->toBe($totalTokensAntes);
+    expect($colaborador->tokens()->whereKey($token->accessToken->id)->exists())->toBeTrue();
+});
+
 test('reautenticar con la contrasena incorrecta falla sin afectar el token', function () {
     $colaborador = User::factory()->create();
     $token = $colaborador->createToken('test');

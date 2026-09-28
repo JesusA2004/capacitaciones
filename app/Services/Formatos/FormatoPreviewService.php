@@ -57,7 +57,7 @@ class FormatoPreviewService
         // Solo las variables manuales marcadas como requeridas bloquean la
         // generación (`puede_generar`); un dato base del colaborador vacío
         // sigue siendo un aviso, no un bloqueo (comportamiento ya existente).
-        $faltantesRequeridos = array_values(array_intersect($faltantes, $this->mapeo->clavesManualesRequeridas($plantilla)));
+        $faltantesRequeridos = array_values(array_intersect($faltantes, $this->mapeo->clavesRequeridas($plantilla)));
 
         $resultado = $this->generador->generar($plantilla, $sujeto, $extra);
 

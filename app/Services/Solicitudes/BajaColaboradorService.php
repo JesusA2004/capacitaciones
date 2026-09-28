@@ -51,6 +51,13 @@ class BajaColaboradorService
                 'fecha_baja' => $colaborador->fecha_baja ?? now()->toDateString(),
             ]);
 
+            // Soft-delete (SoftDeletes en App\Models\Colaborador): lo que
+            // hace que rh.expedientes.show/foto (Route::withTrashed()) y
+            // BajaColaboradorService::reactivar() (restore()) tengan algo
+            // que mostrar/revertir — nunca borra la fila ni su historial,
+            // ver "Nunca borres usuarios ni expedientes" en CLAUDE.md.
+            $colaborador->delete();
+
             // Bloquear login si tiene cuenta: revocar todos los tokens
             // Sanctum (API/app móvil) y marcar sus dispositivos móviles como
             // revocados. Un colaborador sin cuenta no tiene nada que

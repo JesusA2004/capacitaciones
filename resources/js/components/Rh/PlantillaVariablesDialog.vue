@@ -52,6 +52,8 @@ type VariableManualDef = {
 
 type CatalogoGrupo = { grupo: string; variables: { clave: string; etiqueta: string }[] };
 
+type VariableAutomatica = { clave: string; etiqueta: string; requerido: boolean };
+
 type Fila = Omit<VariableManualDef, 'valor_por_defecto'> & {
     /** true = RH decidió mapear esta variable; si queda en false, el marcador se guarda sin tocar (sigue "sin mapear"). */
     configurar: boolean;
@@ -66,6 +68,7 @@ const cargando = ref(false);
 const detectadas = ref<string[]>([]);
 const catalogo = ref<CatalogoGrupo[]>([]);
 const filas = ref<Fila[]>([]);
+const automaticas = ref<VariableAutomatica[]>([]);
 
 const tiposDisponibles: { value: TipoVariableManual; etiqueta: string }[] = [
     { value: 'text', etiqueta: 'Texto' },
@@ -98,11 +101,13 @@ async function cargar() {
             detectadas: string[];
             sin_mapear: string[];
             manuales: VariableManualDef[];
+            automaticas: VariableAutomatica[];
             catalogo: CatalogoGrupo[];
         }>(variables.url({ plantilla: props.plantilla.id }));
 
         detectadas.value = respuesta.detectadas;
         catalogo.value = respuesta.catalogo;
+        automaticas.value = respuesta.automaticas.map((a) => ({ ...a }));
 
         const clavesManuales = new Set(respuesta.manuales.map((m) => m.clave));
         filas.value = [
@@ -153,7 +158,7 @@ function copiarMarcador(clave: string) {
 }
 
 function guardar() {
-    form.variables = filas.value
+    const manualesConfiguradas = filas.value
         .filter((f) => f.configurar && f.etiqueta.trim() !== '')
         .map((f) => ({
             clave: f.clave,
@@ -164,6 +169,23 @@ function guardar() {
             valor_por_defecto: f.valorPorDefecto.trim() === '' ? null : f.valorPorDefecto,
             opciones: f.tipo === 'select' ? f.opcionesTexto.split(',').map((o) => o.trim()).filter(Boolean) : null,
         }));
+
+    // Automática: solo se guarda si RH la marcó requerida — su
+    // etiqueta/tipo/valor no los administra este formulario, los sigue
+    // resolviendo el dato real del colaborador/candidato.
+    const automaticasRequeridas = automaticas.value
+        .filter((a) => a.requerido)
+        .map((a) => ({
+            clave: a.clave,
+            etiqueta: a.etiqueta,
+            descripcion: null,
+            tipo: 'text' as TipoVariableManual,
+            requerido: true,
+            valor_por_defecto: null,
+            opciones: null,
+        }));
+
+    form.variables = [...manualesConfiguradas, ...automaticasRequeridas];
 
     form.put(actualizarVariables.url({ plantilla: props.plantilla.id }), {
         preserveScroll: true,
@@ -201,6 +223,25 @@ function guardar() {
                     {{ sinConfigurar.length }} marcador(es) sin mapear todavía:
                     <code v-for="clave in sinConfigurar.map((f) => f.clave)" :key="clave" class="mx-0.5 rounded bg-black/5 px-1 dark:bg-white/10">{{ marcador(clave) }}</code>
                     — quedarán literales en el documento hasta que los configures abajo.
+                </div>
+
+                <div v-if="automaticas.length > 0" class="flex flex-col gap-2">
+                    <p class="text-xs font-semibold text-muted-foreground">
+                        Datos automáticos detectados — se llenan solos; marca cuáles no pueden quedar vacíos.
+                    </p>
+                    <div v-for="auto in automaticas" :key="auto.clave" class="flex items-center justify-between gap-3 rounded-xl border border-border/60 p-3">
+                        <div class="flex items-center gap-2">
+                            <code class="text-xs font-medium">{{ marcador(auto.clave) }}</code>
+                            <span class="text-xs text-muted-foreground">{{ auto.etiqueta }}</span>
+                        </div>
+                        <label class="flex items-center gap-2 text-sm">
+                            <Checkbox
+                                :model-value="auto.requerido"
+                                @update:model-value="(v) => (auto.requerido = !!v)"
+                            />
+                            Obligatorio para generar
+                        </label>
+                    </div>
                 </div>
 
                 <div class="flex flex-col gap-3">

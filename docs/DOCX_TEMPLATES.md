@@ -57,9 +57,15 @@ luego abre **"Variables"** en el menú de esa plantilla. Ahí vas a encontrar:
 
 Abre **"Variables"** de tu plantilla recién subida. Vas a ver dos tipos de marcadores:
 
-- **Ya resueltos**: corresponden a un dato real del colaborador (nombre, CURP, puesto,
-  etc.) — no necesitas hacer nada, se llenan solos al generar.
-- **Sin mapear**: el sistema no sabe de dónde sacar ese valor (por ejemplo,
+- **Ya resueltos (automáticos)**: corresponden a un dato real del colaborador (nombre,
+  CURP, puesto, etc.) — no necesitas hacer nada, se llenan solos al generar. Junto a
+  cada uno hay un check **"Obligatorio para generar"**: si lo activas, el sistema no
+  dejará generar el documento mientras ese colaborador no tenga ese dato capturado en
+  su expediente (por ejemplo, marcar `{{curp}}` como obligatorio bloquea generar un
+  contrato para alguien sin CURP capturada, en vez de dejar el marcador literal en el
+  documento sin que nadie lo note). Por default, un dato automático vacío **no**
+  bloquea — solo se avisa.
+- **Sin mapear (manuales)**: el sistema no sabe de dónde sacar ese valor (por ejemplo,
   `{{numero_de_obra}}` si inventaste ese marcador para un dato que no existe en el
   expediente). Para cada uno, decide:
   - **Nombre visible** — cómo se llama ese dato para quien genera el documento.
@@ -68,9 +74,9 @@ Abre **"Variables"** de tu plantilla recién subida. Vas a ver dos tipos de marc
     que alguien capture ese valor.
   - **Valor por defecto** (opcional).
 
-Si dejas un marcador sin configurar, el documento se genera igual, pero el texto
-`{{esa_clave}}` va a quedar **literal** (visible tal cual) en el resultado — nunca se
-borra ni se rellena con un espacio en blanco sin que tú lo decidas.
+Si dejas un marcador manual sin configurar, el documento se genera igual, pero el
+texto `{{esa_clave}}` va a quedar **literal** (visible tal cual) en el resultado —
+nunca se borra ni se rellena con un espacio en blanco sin que tú lo decidas.
 
 ## 5. Prueba antes de usarlo de verdad
 
@@ -110,11 +116,16 @@ nuevos, vuelve a abrir "Variables" para mapearlos.
 
 ## 8. Si un dato falta
 
-- Un dato normal del colaborador que está vacío (por ejemplo, un colaborador sin CURP
-  capturada todavía) se avisa en la vista previa, pero **no bloquea** la generación —
-  el marcador queda literal en el documento.
-- Una variable manual que marcaste como **obligatoria** sí bloquea la generación hasta
-  que alguien la llene.
+- Un dato automático del colaborador que está vacío (por ejemplo, un colaborador sin
+  CURP capturada todavía) se avisa en la vista previa, pero **no bloquea** la
+  generación por default — el marcador queda literal en el documento.
+- Si marcaste ese mismo dato automático como **obligatorio** en "Variables" (paso 4),
+  sí bloquea: el mensaje dice explícitamente qué falta (por ejemplo, "Falta CURP.").
+- Una variable manual que marcaste como **obligatoria** siempre bloquea la generación
+  hasta que alguien la llene — esto no cambió.
+- Las plantillas que ya tenías antes de esta función siguen exactamente igual: ningún
+  dato automático se vuelve obligatorio solo; tienes que entrar a "Variables" y
+  marcarlo tú.
 
 ## 9. Firma
 

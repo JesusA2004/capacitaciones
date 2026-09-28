@@ -3,6 +3,7 @@
 namespace App\Services\Documentos;
 
 use App\Enums\EstadoExtraccion;
+use App\Models\Colaborador;
 use App\Models\DocumentExtraction;
 use App\Models\EmployeeDocument;
 use App\Models\User;
@@ -36,10 +37,11 @@ class DocumentExtractionService
     public const TIPOS_ELEGIBLES = ['ine', 'curp', 'rfc', 'nss', 'acta_nacimiento', 'comprobante_domicilio'];
 
     /**
-     * Campos que sí existen como columna en users y por lo tanto se pueden
-     * comparar/aplicar. codigo_postal y sexo se detectan pero no tienen
-     * columna propia en users (ver domicilio como texto libre), así que se
-     * muestran como "detectado" sin comparación posible.
+     * Campos que sí existen como columna en colaboradores (la fuente real
+     * de datos personales, ver App\Services\Plantillas\PlaceholderResolver)
+     * y por lo tanto se pueden comparar/aplicar. codigo_postal y sexo se
+     * detectan pero no tienen columna propia (ver domicilio como texto
+     * libre), así que se muestran como "detectado" sin comparación posible.
      */
     private const CAMPOS_APLICABLES = ['curp', 'rfc', 'nss', 'fecha_nacimiento'];
 
@@ -95,7 +97,7 @@ class DocumentExtractionService
         }
 
         $resultado = $this->extractor->extraer($texto);
-        $diferencias = $this->calcularDiferencias($documento->usuario, $resultado['data']);
+        $diferencias = $this->calcularDiferencias($documento->colaborador, $resultado['data']);
 
         $extraccion->update([
             'status' => EstadoExtraccion::Procesado->value,
@@ -118,7 +120,7 @@ class DocumentExtractionService
      * RH acepta (o corrige manualmente) los valores indicados y los aplica
      * al colaborador. $valores puede traer el valor detectado tal cual o
      * uno corregido a mano — aquí no se distingue, ambos son una decisión
-     * explícita de RH. Solo escribe columnas reales de users
+     * explícita de RH. Solo escribe columnas reales de colaboradores
      * (self::CAMPOS_APLICABLES); cualquier otra clave se ignora.
      *
      * @param  array<string, string>  $valores
@@ -136,7 +138,12 @@ class DocumentExtractionService
         }
 
         if ($aAplicar !== []) {
-            $extraccion->colaborador->update($aAplicar);
+            // $extraccion->colaborador es un User (nombre heredado de antes
+            // de la separación Usuario/Colaborador) — los datos personales
+            // reales viven en Colaborador (misma fuente que
+            // PlaceholderResolver/AltaColaboradorService), nunca en la
+            // columna legacy de users.
+            $extraccion->documento->colaborador->update($aAplicar);
         }
 
         $extraccion->update([
@@ -195,7 +202,7 @@ class DocumentExtractionService
      * @param  array<string, string>  $detectado
      * @return array<string, array{detectado: string, actual: string|null, coincide: bool}>
      */
-    private function calcularDiferencias(User $colaborador, array $detectado): array
+    private function calcularDiferencias(Colaborador $colaborador, array $detectado): array
     {
         $diferencias = [];
 
@@ -214,7 +221,7 @@ class DocumentExtractionService
         return $diferencias;
     }
 
-    private function valorActual(User $colaborador, string $campo): ?string
+    private function valorActual(Colaborador $colaborador, string $campo): ?string
     {
         $valor = $colaborador->{$campo} ?? null;
 

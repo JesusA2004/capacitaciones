@@ -161,7 +161,11 @@ test('al convertir un alta con foto, la foto se copia al expediente del colabora
         ->post(route('rh.altas.aprobar', $alta))
         ->assertSessionHasNoErrors();
 
-    $colaborador = User::find($alta->refresh()->user_id);
+    // El expediente (App\Models\Colaborador) es donde vive foto_path de
+    // verdad; users.foto_path es una columna legacy que nadie más lee (ver
+    // App\Services\Cumpleanos\MuroCumpleanosService, que sí lee del
+    // Colaborador) — comparar contra el User daría siempre null.
+    $colaborador = User::find($alta->refresh()->user_id)->colaborador;
 
     expect($colaborador->foto_path)->not->toBeNull()
         ->and($colaborador->foto_path)->not->toBe($alta->foto_path)

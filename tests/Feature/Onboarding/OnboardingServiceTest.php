@@ -34,8 +34,11 @@ test('el checklist reconoce el contrato firmado y el alta aprobada', function ()
         'status' => EstadoDocumento::Aprobado->value,
     ]);
 
+    // OnboardingService::checklist() busca el alta por colaborador_id, no
+    // por user_id (ver App\Services\Onboarding\OnboardingService).
     AltaDigital::factory()->create([
         'user_id' => $usuario->id,
+        'colaborador_id' => $usuario->colaborador_id,
         'estado' => 'convertida_a_colaborador',
         'aviso_privacidad_aceptado' => true,
         'consentimiento_datos_aceptado' => true,

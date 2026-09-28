@@ -21,6 +21,7 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Formatos\FormatoCatalogoService;
 use App\Services\Formatos\FormatoPreviewService;
+use App\Services\Formatos\Motor\ConversorDocxPdf;
 use App\Services\Plantillas\PlaceholderResolver;
 use App\Services\Plantillas\PlantillaDocumentoService;
 use App\Services\Plantillas\PlantillaResolverService;
@@ -52,6 +53,7 @@ class FormatoController extends Controller
         private readonly FormatoCatalogoService $catalogo,
         private readonly PlaceholderResolver $placeholders,
         private readonly VariableMappingService $mapeo,
+        private readonly ConversorDocxPdf $conversor,
     ) {}
 
     /**
@@ -195,7 +197,7 @@ class FormatoController extends Controller
         abort_unless($sujeto !== null, 404, 'No se encontró el colaborador o candidato indicado.');
 
         $valoresResueltos = $this->placeholders->resolver($sujeto, $extra);
-        $clavesRequeridas = $this->mapeo->clavesManualesRequeridas($plantilla);
+        $clavesRequeridas = $this->mapeo->clavesRequeridas($plantilla);
         $faltantesRequeridos = array_values(array_filter(
             $clavesRequeridas,
             fn (string $clave) => trim((string) ($valoresResueltos[$clave] ?? '')) === '',
@@ -203,7 +205,7 @@ class FormatoController extends Controller
 
         if ($faltantesRequeridos !== []) {
             return back()->withErrors([
-                'extra' => 'Faltan datos obligatorios de la plantilla: '.implode(', ', $faltantesRequeridos).'.',
+                'extra' => $this->mensajeFaltantes($faltantesRequeridos),
             ]);
         }
 
@@ -359,10 +361,14 @@ class FormatoController extends Controller
         $this->authorize('viewAny', DocumentTemplate::class);
         abort_unless($request->user()->can('formatos.descargar_pdf'), 403);
 
+        // Mismo conversor desacoplado del módulo de formatos oficiales:
+        // prefiere LibreOffice headless si está configurado
+        // (config('formatos_oficiales.libreoffice')), cae a PhpWord/DomPDF
+        // si no — nunca rompe la descarga.
         $contenidoDocx = $this->storage->disco()->get($documento->path);
-        $pdf = $this->previsualizador->aPdf($contenidoDocx);
+        $resultado = $this->conversor->convertir($contenidoDocx);
 
-        if ($pdf === null) {
+        if ($resultado === null) {
             return back()->with('toast', [
                 'type' => 'error',
                 'message' => 'No se pudo generar el PDF de este documento. Descarga el Word.',
@@ -371,10 +377,22 @@ class FormatoController extends Controller
 
         $nombre = pathinfo($documento->generated_name, PATHINFO_FILENAME).'.pdf';
 
-        return response($pdf, 200, [
+        return response($resultado['pdf'], 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'attachment; filename="'.$nombre.'"',
         ]);
+    }
+
+    /**
+     * @param  list<string>  $claves
+     */
+    private function mensajeFaltantes(array $claves): string
+    {
+        $etiquetas = array_map(fn (string $clave) => $this->mapeo->etiquetar($clave), $claves);
+
+        return count($etiquetas) === 1
+            ? "Falta {$etiquetas[0]}."
+            : 'Faltan datos obligatorios de la plantilla: '.implode(', ', $etiquetas).'.';
     }
 
     public function destroy(GeneratedDocument $documento): RedirectResponse

@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\SolicitudInterna;
 use App\Models\User;
+use App\Services\Nomina\PrestamoAutorizacionService;
 use App\Services\Solicitudes\AprobacionJerarquicaService;
 use App\Services\Solicitudes\SolicitudesService;
 use App\Services\Solicitudes\VistoBuenoService;
@@ -115,7 +116,16 @@ class SolicitudesDemoSeeder extends Seeder
                     app(VistoBuenoService::class)->registrar($solicitud, $jefe, true, 'Visto bueno del jefe inmediato.');
                 }
 
-                $servicio->aprobar($solicitud->refresh(), $rhAdmin, 'Aprobado; el descuento lo aplica el área de nómina.');
+                // Un préstamo nunca se aprueba con el botón genérico (ver
+                // SolicitudesService::cambiarEstado()) — solo
+                // PrestamoAutorizacionService::autorizar() fija monto/plazo
+                // autorizados, mismo flujo real de la pantalla "Autorizar
+                // préstamo".
+                app(PrestamoAutorizacionService::class)->autorizar($solicitud->refresh(), [
+                    'monto_autorizado' => 8000,
+                    'plazo_autorizado' => 6,
+                    'observaciones' => 'Aprobado; el descuento lo aplica el área de nómina.',
+                ], $rhAdmin);
             });
         }
 

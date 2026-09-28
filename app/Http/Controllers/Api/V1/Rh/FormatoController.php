@@ -12,6 +12,7 @@ use App\Models\GeneratedDocument;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Formatos\FormatoCatalogoService;
 use App\Services\Formatos\FormatoPreviewService;
+use App\Services\Formatos\Motor\ConversorDocxPdf;
 use App\Services\Plantillas\PlaceholderResolver;
 use App\Services\Plantillas\PlantillaDocumentoService;
 use App\Services\Plantillas\PlantillaStorageService;
@@ -41,6 +42,7 @@ class FormatoController extends Controller
         private readonly PlaceholderResolver $resolver,
         private readonly PlantillaDocumentoService $generador,
         private readonly VariableMappingService $mapeo,
+        private readonly ConversorDocxPdf $conversor,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -75,13 +77,13 @@ class FormatoController extends Controller
 
         $valoresResueltos = $this->resolver->resolver($sujeto, $extra);
         $faltantesRequeridos = array_values(array_filter(
-            $this->mapeo->clavesManualesRequeridas($plantilla),
+            $this->mapeo->clavesRequeridas($plantilla),
             fn (string $clave) => trim((string) ($valoresResueltos[$clave] ?? '')) === '',
         ));
 
         if ($faltantesRequeridos !== []) {
             throw ValidationException::withMessages([
-                'extra' => 'Faltan datos obligatorios de la plantilla: '.implode(', ', $faltantesRequeridos).'.',
+                'extra' => $this->mensajeFaltantes($faltantesRequeridos),
             ]);
         }
 
@@ -140,12 +142,16 @@ class FormatoController extends Controller
         }
 
         $faltantesManuales = array_flip($this->mapeo->clavesManuales($plantilla));
+        $requeridas = array_flip($resultado['faltantes_requeridos']);
         $faltantes = [];
         foreach ($resultado['faltantes'] as $clave) {
             if (isset($faltantesManuales[$clave])) {
                 continue;
             }
-            $faltantes[] = ['variable' => $clave, 'etiqueta' => str_replace('_', ' ', $clave)];
+            // requerido=true aquí SÍ bloquea generar (variable automática
+            // que RH marcó obligatoria y sigue vacía), a diferencia del
+            // resto de faltantes (solo aviso, ver docs/DOCX_TEMPLATES.md).
+            $faltantes[] = ['variable' => $clave, 'etiqueta' => $this->mapeo->etiquetar($clave), 'requerido' => isset($requeridas[$clave])];
         }
 
         $manuales = $this->mapeo->manuales($plantilla)->map(fn (array $def) => [
@@ -207,15 +213,31 @@ class FormatoController extends Controller
     {
         $this->autorizarDocumento($request, $documento);
 
-        $pdf = $this->previsualizador->aPdf($this->storage->disco()->get($documento->path));
-        abort_if($pdf === null, 422, 'No se pudo generar el PDF de este documento. Descarga el Word.');
+        // Mismo conversor desacoplado que ya usa el módulo de formatos
+        // oficiales (App\Services\Formatos\Motor\ConversorDocxPdf): prefiere
+        // LibreOffice headless si está configurado (fidelidad exacta),
+        // nunca rompe la descarga si no lo está (cae a PhpWord/DomPDF).
+        $resultado = $this->conversor->convertir($this->storage->disco()->get($documento->path));
+        abort_if($resultado === null, 422, 'No se pudo generar el PDF de este documento. Descarga el Word.');
 
         $nombre = pathinfo($documento->generated_name, PATHINFO_FILENAME).'.pdf';
 
-        return response($pdf, 200, [
+        return response($resultado['pdf'], 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'attachment; filename="'.$nombre.'"',
         ]);
+    }
+
+    /**
+     * @param  list<string>  $claves
+     */
+    private function mensajeFaltantes(array $claves): string
+    {
+        $etiquetas = array_map(fn (string $clave) => $this->mapeo->etiquetar($clave), $claves);
+
+        return count($etiquetas) === 1
+            ? "Falta {$etiquetas[0]}."
+            : 'Faltan datos obligatorios de la plantilla: '.implode(', ', $etiquetas).'.';
     }
 
     private function autorizarDocumento(Request $request, GeneratedDocument $documento): void

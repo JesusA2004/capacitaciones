@@ -2,6 +2,7 @@
 
 use App\Enums\EstadoExtraccion;
 use App\Jobs\ProcesarDocumentoPersonalJob;
+use App\Models\Colaborador;
 use App\Models\DocumentExtraction;
 use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
@@ -58,7 +59,10 @@ test('subir un documento de un tipo no elegible no encola nada', function () {
 });
 
 test('procesar detecta curp y rfc de un pdf real y calcula diferencias contra el colaborador', function () {
-    $colaborador = User::factory()->create(['curp' => null, 'rfc' => 'DISTINTO000000XX0']);
+    // curp/rfc viven en Colaborador (la fuente real, ver
+    // App\Services\Plantillas\PlaceholderResolver) — users.curp/rfc son
+    // columnas legacy sin relación con lo que compara/aplica el servicio.
+    $colaborador = User::factory()->for(Colaborador::factory()->state(['curp' => null, 'rfc' => 'DISTINTO000000XX0']), 'colaborador')->create();
     $tipo = DocumentType::factory()->create(['clave' => 'curp']);
 
     $ruta = 'expedientes/'.$colaborador->id.'/curp.pdf';
@@ -105,7 +109,7 @@ test('rh_admin puede ver, aplicar y las sugerencias actualizan al colaborador', 
     $usuario = User::factory()->create();
     $usuario->assignRole('rh_admin');
 
-    $colaborador = User::factory()->create(['curp' => null]);
+    $colaborador = User::factory()->for(Colaborador::factory()->state(['curp' => null]), 'colaborador')->create();
     $documento = EmployeeDocument::factory()->create(['user_id' => $colaborador->id]);
     $extraccion = DocumentExtraction::factory()->create([
         'employee_document_id' => $documento->id,
@@ -126,7 +130,7 @@ test('rh_admin puede ver, aplicar y las sugerencias actualizan al colaborador', 
         ])
         ->assertSessionHasNoErrors();
 
-    expect($colaborador->fresh()->curp)->toBe('NUEV123456HDFRRN01')
+    expect($colaborador->colaborador->fresh()->curp)->toBe('NUEV123456HDFRRN01')
         ->and($extraccion->fresh()->status)->toBe(EstadoExtraccion::Revisado);
 });
 
@@ -134,7 +138,7 @@ test('rh_admin puede ignorar una extraccion sin cambiar los datos del colaborado
     $usuario = User::factory()->create();
     $usuario->assignRole('rh_admin');
 
-    $colaborador = User::factory()->create(['curp' => 'ORIGINAL000000XXX00']);
+    $colaborador = User::factory()->for(Colaborador::factory()->state(['curp' => 'ORIGINAL000000XXX00']), 'colaborador')->create();
     $documento = EmployeeDocument::factory()->create(['user_id' => $colaborador->id]);
     DocumentExtraction::factory()->procesada()->create([
         'employee_document_id' => $documento->id,
@@ -145,7 +149,7 @@ test('rh_admin puede ignorar una extraccion sin cambiar los datos del colaborado
         ->post(route('rh.documentos.extraccion.ignorar', $documento))
         ->assertSessionHasNoErrors();
 
-    expect($colaborador->fresh()->curp)->toBe('ORIGINAL000000XXX00');
+    expect($colaborador->colaborador->fresh()->curp)->toBe('ORIGINAL000000XXX00');
 });
 
 test('un colaborador sin permiso no puede ver la extraccion de otro', function () {

@@ -117,12 +117,49 @@ Botón "Generar" abre un diálogo para elegir colaborador/candidato y, antes de 
   llenarlas a mano solo para ese documento (van en `extra`, no se guardan en el
   expediente). Si RH ignora el aviso y genera el documento de todas formas, el
   placeholder `{{clave}}` sin resolver queda literal en el DOCX final — no se rellena
-  con un valor vacío ni se oculta.
+  con un valor vacío ni se oculta. **Excepción**: si RH marcó esa variable como
+  requerida en "Variables" (sea automática o manual, ver abajo), `puede_generar` da
+  `false` y tanto `store()`/`generar()` (web y móvil) rechazan la generación con 422,
+  antes de tocar storage — nunca genera un documento con un hueco silencioso.
 
-`GET rh/formatos/{documento}/descargar-pdf` (y su espejo en la API móvil) usa el mismo
-`FormatoPreviewService` para convertir el DOCX ya generado a PDF con el writer PDF de
-PhpWord + Dompdf (ya es dependencia del proyecto, sin paquetes nuevos). Si la conversión
-falla, RH ve un aviso y sigue teniendo el Word.
+### Variables automáticas requeridas
+
+`document_templates.variables_manuales` no es solo para marcadores "sin mapear": RH
+también puede declarar ahí un marcador que SÍ corresponde a un dato real
+(`{{curp}}`, `{{rfc}}`, `{{domicilio}}`, `{{fecha_ingreso}}`, etc.) solo para marcarlo
+`requerido`. `VariableMappingService` distingue ambos casos por si la clave está en
+`PlaceholderResolver` (automática) o no (manual):
+
+- `VariableMappingService::manuales()` — solo las claves SIN dato real (lo que ve la
+  UI de "llenar a mano").
+- `VariableMappingService::automaticasConfiguradas()` — solo las claves CON dato real
+  que RH configuró (su valor lo sigue resolviendo el dato real, nunca esta
+  configuración; solo importa `requerido`).
+- `VariableMappingService::clavesRequeridas()` — unión de ambas, es lo único que
+  `FormatoPreviewService::previsualizar()` intersecta contra `faltantes` para calcular
+  `puede_generar`.
+
+Retrocompatible: una plantilla creada antes de esta función no tiene ninguna entrada
+automática en `variables_manuales`, así que ningún dato automático es requerido hasta
+que RH entra a "Variables" y lo marca explícitamente.
+
+`GET rh/formatos/{documento}/descargar-pdf` (y su espejo en la API móvil) usa
+`App\Services\Formatos\Motor\ConversorDocxPdf` — el mismo conversor desacoplado que ya
+usa el módulo de formatos oficiales: si `config('formatos_oficiales.libreoffice')`
+apunta a un binario de LibreOffice (`FORMATOS_LIBREOFFICE_PATH` en `.env`), lo prefiere
+(`soffice --headless --convert-to pdf`, fidelidad "exacta" — LibreOffice sí respeta
+tablas/estilos complejos que PhpWord no traduce bien a PDF). Sin esa variable
+configurada, cae al writer PDF de PhpWord + Dompdf que ya existía (fidelidad
+"aproximada", **no** garantiza fidelidad perfecta de un DOCX con estructura compleja).
+Si ambas fallan, RH ve un aviso y sigue teniendo el Word — la conversión nunca bloquea
+la descarga del DOCX original. Instalar LibreOffice en el servidor de producción:
+
+```bash
+# Debian/Ubuntu
+apt-get install -y libreoffice --no-install-recommends
+# confirmar la ruta real del binario (normalmente /usr/bin/soffice) y ponerla en .env:
+FORMATOS_LIBREOFFICE_PATH=/usr/bin/soffice
+```
 
 ## Permisos
 

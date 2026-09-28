@@ -13,6 +13,7 @@ use App\Models\Colaborador;
 use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
 use App\Models\User;
+use App\Services\Asignaciones\AsignacionService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use App\Services\Reclutamiento\CvStorageService;
@@ -38,6 +39,7 @@ class ConversionColaboradorService
         private readonly DocumentoStorageService $documentoStorage,
         private readonly CvStorageService $cvStorage,
         private readonly MovimientoLaboralService $movimientos,
+        private readonly AsignacionService $asignaciones,
     ) {}
 
     public function convertir(AltaDigital $alta, User $aprobadoPor): User
@@ -80,6 +82,13 @@ class ConversionColaboradorService
             ]);
 
             $usuario->assignRole('colaborador');
+
+            // Capacitación (oculta tras el feature flag, ver
+            // docs/CAPACITACION_PROXIMAMENTE.md): mismo llamado que
+            // AltaColaboradorService::registrar() — un colaborador nuevo
+            // entra ya inscrito en las asignaciones vigentes de su
+            // sucursal/departamento/puesto/rol.
+            $this->asignaciones->aplicarVigentesA($usuario);
 
             // Recargar con las relaciones que rutaBaseColaborador() necesita
             // para construir la carpeta legible del colaborador (empresa,

@@ -130,11 +130,15 @@ class AsignacionService
      */
     public function resolverUsuariosDeDestino(AsignacionDestino $destino): Collection
     {
+        // sucursal_principal_id/departamento_id/puesto_id viven en
+        // Colaborador (users.* son columnas legacy, ni siquiera son
+        // fillable en el modelo User — ver App\Models\User), así que se
+        // filtra vía la relación, no columnas directas de users.
         return match ($destino->tipo_destino) {
             TipoDestinoAsignacion::Usuario => User::query()->whereKey($destino->destino_id)->get(),
-            TipoDestinoAsignacion::Sucursal => User::query()->where('sucursal_principal_id', $destino->destino_id)->get(),
-            TipoDestinoAsignacion::Departamento => User::query()->where('departamento_id', $destino->destino_id)->get(),
-            TipoDestinoAsignacion::Puesto => User::query()->where('puesto_id', $destino->destino_id)->get(),
+            TipoDestinoAsignacion::Sucursal => User::query()->whereHas('colaborador', fn ($q) => $q->where('sucursal_principal_id', $destino->destino_id))->get(),
+            TipoDestinoAsignacion::Departamento => User::query()->whereHas('colaborador', fn ($q) => $q->where('departamento_id', $destino->destino_id))->get(),
+            TipoDestinoAsignacion::Puesto => User::query()->whereHas('colaborador', fn ($q) => $q->where('puesto_id', $destino->destino_id))->get(),
             TipoDestinoAsignacion::Rol => User::role($this->nombreRol($destino->destino_id))->get(),
             TipoDestinoAsignacion::Todos => User::all(),
         };
@@ -144,9 +148,9 @@ class AsignacionService
     {
         return match ($destino->tipo_destino) {
             TipoDestinoAsignacion::Usuario => $destino->destino_id === $usuario->id,
-            TipoDestinoAsignacion::Sucursal => $destino->destino_id === $usuario->sucursal_principal_id,
-            TipoDestinoAsignacion::Departamento => $destino->destino_id === $usuario->departamento_id,
-            TipoDestinoAsignacion::Puesto => $destino->destino_id === $usuario->puesto_id,
+            TipoDestinoAsignacion::Sucursal => $destino->destino_id === $usuario->colaborador?->sucursal_principal_id,
+            TipoDestinoAsignacion::Departamento => $destino->destino_id === $usuario->colaborador?->departamento_id,
+            TipoDestinoAsignacion::Puesto => $destino->destino_id === $usuario->colaborador?->puesto_id,
             TipoDestinoAsignacion::Rol => $usuario->roles()->whereKey($destino->destino_id)->exists(),
             TipoDestinoAsignacion::Todos => true,
         };

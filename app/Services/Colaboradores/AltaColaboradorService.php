@@ -11,6 +11,7 @@ use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
 use App\Models\GeneratedDocument;
 use App\Models\User;
+use App\Services\Asignaciones\AsignacionService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Contratos\ContratoLaboralService;
 use App\Services\Expedientes\DocumentoStorageService;
@@ -58,6 +59,7 @@ class AltaColaboradorService
         private readonly TareaService $tareas,
         private readonly NotificadorRhService $notificador,
         private readonly AuditoriaService $auditoria,
+        private readonly AsignacionService $asignaciones,
     ) {}
 
     /**
@@ -118,6 +120,14 @@ class AltaColaboradorService
                 ]);
                 $usuario->assignRole('colaborador');
                 $colaborador->setRelation('user', $usuario);
+
+                // Capacitación (oculta tras el feature flag, ver
+                // docs/CAPACITACION_PROXIMAMENTE.md): un colaborador nuevo
+                // debe entrar ya inscrito en lo que RH dejó vigente para su
+                // sucursal/departamento/puesto/rol/"todos" — sin este
+                // llamado, AsignacionService::aplicarVigentesA() existía
+                // pero nunca se invocaba desde ningún alta real.
+                $this->asignaciones->aplicarVigentesA($usuario);
             }
 
             $this->movimientos->registrarAlta($colaborador, $actor, null, isset($datos['vacante_id']) ? (int) $datos['vacante_id'] : null);

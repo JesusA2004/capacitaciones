@@ -2,6 +2,7 @@
 
 use App\Models\AltaDigital;
 use App\Models\Candidato;
+use App\Models\HeadcountTarget;
 use App\Models\MovimientoLaboral;
 use App\Models\Puesto;
 use App\Models\Sucursal;
@@ -59,11 +60,13 @@ test('cambiar el puesto de un colaborador registra un movimiento de cambio de pu
     $admin = User::factory()->create();
     $admin->assignRole('super_admin');
 
+    // administracion.usuarios.update solo administra la CUENTA de acceso
+    // (email/roles) desde el refactor Usuario/Colaborador — el cambio de
+    // puesto vive en rh.expedientes.datos-laborales.update
+    // (ExpedienteController::actualizarDatosLaborales), ver
+    // docs/ROLES_Y_NAVEGACION.md.
     $this->actingAs($admin)
-        ->put(route('administracion.usuarios.update', $colaborador), [
-            'name' => $colaborador->name,
-            'apellidos' => $colaborador->apellidos,
-            'email' => $colaborador->email,
+        ->put(route('rh.expedientes.datos-laborales.update', $colaborador->colaborador_id), [
             'sucursal_principal_id' => $sucursal->id,
             'puesto_id' => $puestoDestino->id,
         ])
@@ -77,7 +80,7 @@ test('cambiar el puesto de un colaborador registra un movimiento de cambio de pu
         ->and($movimiento->puesto_nuevo_id)->toBe($puestoDestino->id);
 });
 
-test('subir a un puesto de mayor nivel registra una promoción y puede generar la vacante del puesto que se deja', function () {
+test('subir a un puesto de mayor nivel jerárquico registra el movimiento como promoción', function () {
     $sucursal = Sucursal::factory()->create();
     $puestoOrigen = Puesto::factory()->create(['nivel_jerarquico' => 5]);
     $puestoDestino = Puesto::factory()->create(['nivel_jerarquico' => 3]);
@@ -91,30 +94,34 @@ test('subir a un puesto de mayor nivel registra una promoción y puede generar l
     $admin = User::factory()->create();
     $admin->assignRole('super_admin');
 
+    // Las vacantes se derivan de headcount, nunca se crean a mano al mover
+    // a alguien de puesto (docs/HEADCOUNT_Y_VACANTES.md): este movimiento
+    // solo registra la promoción, no abre una vacante de reemplazo por sí
+    // mismo (eso lo hace VacanteAutoGenerationService cuando corresponda).
     $this->actingAs($admin)
-        ->put(route('administracion.usuarios.update', $colaborador), [
-            'name' => $colaborador->name,
-            'apellidos' => $colaborador->apellidos,
-            'email' => $colaborador->email,
+        ->put(route('rh.expedientes.datos-laborales.update', $colaborador->colaborador_id), [
             'sucursal_principal_id' => $sucursal->id,
             'puesto_id' => $puestoDestino->id,
-            'crear_vacante_reemplazo' => true,
-            'motivo_movimiento' => 'Promoción interna',
+            'motivo' => 'Promoción interna',
         ])
         ->assertSessionHasNoErrors();
 
     $movimiento = MovimientoLaboral::where('user_id', $colaborador->id)->first();
-    $vacante = Vacante::where('puesto_id', $puestoOrigen->id)->first();
 
     expect($movimiento->tipo_movimiento->value)->toBe('promocion')
-        ->and($vacante)->not->toBeNull()
-        ->and($vacante->motivo->value)->toBe('promocion')
-        ->and($movimiento->vacante_id)->toBe($vacante->id);
+        ->and($movimiento->puesto_anterior_id)->toBe($puestoOrigen->id)
+        ->and($movimiento->puesto_nuevo_id)->toBe($puestoDestino->id)
+        ->and($movimiento->motivo)->toBe('Promoción interna');
 });
 
-test('dar de baja a un colaborador registra el movimiento y puede generar una vacante de reemplazo', function () {
+test('dar de baja a un colaborador registra el movimiento, bloquea su acceso y sincroniza la vacante automática si el headcount la requiere', function () {
     $sucursal = Sucursal::factory()->create();
     $puesto = Puesto::factory()->create();
+    HeadcountTarget::factory()->create([
+        'sucursal_id' => $sucursal->id,
+        'puesto_id' => $puesto->id,
+        'plantilla_autorizada' => 1,
+    ]);
 
     $colaborador = User::factory()->create([
         'sucursal_principal_id' => $sucursal->id,
@@ -125,68 +132,25 @@ test('dar de baja a un colaborador registra el movimiento y puede generar una va
     $admin = User::factory()->create();
     $admin->assignRole('super_admin');
 
+    // administracion.usuarios.destroy no existe (Nunca borres usuarios ni
+    // expedientes — CLAUDE.md): la baja laboral directa es
+    // rh.expedientes.dar-de-baja (soft-delete + bloqueo de acceso), ver
+    // ExpedienteController::darDeBaja()/BajaColaboradorService.
     $this->actingAs($admin)
-        ->delete(route('administracion.usuarios.destroy', $colaborador), [
+        ->delete(route('rh.expedientes.dar-de-baja', $colaborador->colaborador_id), [
             'motivo' => 'Renuncia voluntaria',
-            'crear_vacante' => true,
         ])
-        ->assertSessionHasNoErrors();
+        ->assertRedirect();
 
     $movimiento = MovimientoLaboral::where('user_id', $colaborador->id)->first();
-    $vacante = Vacante::where('puesto_id', $puesto->id)->first();
+    // No se crea una vacante "de reemplazo" a mano: BajaColaboradorService
+    // sincroniza la vacante automática de (sucursal, puesto) contra el
+    // headcount real, así que aparece sola si la plantilla la sigue exigiendo.
+    $vacante = Vacante::where('sucursal_id', $sucursal->id)->where('puesto_id', $puesto->id)->first();
 
     expect($movimiento->tipo_movimiento->value)->toBe('baja')
+        ->and($colaborador->colaborador->fresh()->estatus->value)->toBe('inactivo')
         ->and($vacante)->not->toBeNull()
-        ->and($vacante->motivo->value)->toBe('baja_colaborador')
-        ->and($colaborador->fresh()->estatus->value)->toBe('inactivo');
-});
-
-test('cubrir una vacante con un colaborador interno mueve su puesto y cierra la vacante', function () {
-    $puestoDestino = Puesto::factory()->create();
-    $vacante = Vacante::factory()->create(['puesto_id' => $puestoDestino->id, 'estado' => 'abierta']);
-
-    $colaborador = User::factory()->create();
-    $colaborador->assignRole('colaborador');
-
-    $rh = User::factory()->create();
-    $rh->assignRole('rh_admin');
-
-    $this->actingAs($rh)
-        ->post(route('rh.vacantes.cubrir', $vacante), [
-            'modo' => 'colaborador_interno',
-            'user_id' => $colaborador->id,
-        ])
-        ->assertSessionHasNoErrors();
-
-    expect($colaborador->fresh()->puesto_id)->toBe($puestoDestino->id)
-        ->and($vacante->fresh()->estado->value)->toBe('cubierta');
-
-    $movimiento = MovimientoLaboral::where('user_id', $colaborador->id)->first();
-    expect($movimiento->vacante_id)->toBe($vacante->id);
-});
-
-test('cubrir una vacante con cobertura temporal no cambia el puesto definitivo del colaborador', function () {
-    $puestoDestino = Puesto::factory()->create();
-    $vacante = Vacante::factory()->create(['puesto_id' => $puestoDestino->id, 'estado' => 'abierta']);
-
-    $puestoOriginal = Puesto::factory()->create();
-    $colaborador = User::factory()->create(['puesto_id' => $puestoOriginal->id]);
-    $colaborador->assignRole('colaborador');
-
-    $rh = User::factory()->create();
-    $rh->assignRole('rh_admin');
-
-    $this->actingAs($rh)
-        ->post(route('rh.vacantes.cubrir', $vacante), [
-            'modo' => 'cobertura_temporal',
-            'user_id' => $colaborador->id,
-            'fecha_inicio' => now()->toDateString(),
-        ])
-        ->assertSessionHasNoErrors();
-
-    expect($colaborador->fresh()->puesto_id)->toBe($puestoOriginal->id)
-        ->and($vacante->fresh()->estado->value)->toBe('abierta');
-
-    $movimiento = MovimientoLaboral::where('user_id', $colaborador->id)->first();
-    expect($movimiento->tipo_movimiento->value)->toBe('cobertura_temporal');
+        ->and($vacante->generada_automaticamente)->toBeTrue()
+        ->and($vacante->estado->value)->toBe('abierta');
 });

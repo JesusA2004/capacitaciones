@@ -7,6 +7,7 @@ use App\Models\OfficialFormat;
 use App\Models\OfficialFormatGeneration;
 use App\Models\SolicitudInterna;
 use App\Models\User;
+use App\Services\Nomina\PrestamoAutorizacionService;
 use App\Services\Solicitudes\SolicitudFormatoOficialService;
 use Database\Seeders\DocumentTypeSeeder;
 use Database\Seeders\RolesYPermisosSeeder;
@@ -58,9 +59,14 @@ test('aprobar una solicitud de prestamo genera automaticamente el contrato de cr
         'plazo_meses' => 6,
     ]);
 
-    $this->actingAs($this->rh)
-        ->post(route('rh.solicitudes.aprobar', $solicitud))
-        ->assertSessionHasNoErrors();
+    // Un préstamo nunca se aprueba con el botón genérico
+    // (SolicitudesService::cambiarEstado() lo bloquea) — solo
+    // PrestamoAutorizacionService::autorizar() (pantalla "Autorizar
+    // préstamo") fija monto/plazo y aprueba de verdad.
+    app(PrestamoAutorizacionService::class)->autorizar($solicitud, [
+        'monto_autorizado' => 5000,
+        'plazo_autorizado' => 6,
+    ], $this->rh);
 
     $generacion = OfficialFormatGeneration::where('solicitud_interna_id', $solicitud->id)->first();
 

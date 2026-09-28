@@ -1,90 +1,70 @@
-# Auditoría final de release — 28/09/2026
+# Auditoría final de release — 28/09/2026 (cierre real)
 
 Snapshot fechado de una sesión de cierre. Si lees esto mucho después de la
 fecha de arriba, verifica contra el código actual antes de confiar en
 cualquier afirmación de "implementado" — este documento describe un punto
 en el tiempo, no una garantía permanente.
 
-Commits base de esta sesión: backend `cc4beeb`, móvil `e69cf7b` (ambos
+Commits base de esta sesión: backend `39ac646`, móvil `cb39751` (ambos
 `main`, sin cambios sin commitear al iniciar).
+
+Esta sesión retoma exactamente donde la anterior (commits `cc4beeb`/
+`e69cf7b`, ver historial git) dejó pendiente: cerrar la suite completa a
+verde, corregir las rutas/enums que esa sesión documentó pero no arregló, e
+implementar el riesgo real detectado en variables automáticas del motor
+DOCX.
 
 ## Qué se cerró en esta sesión
 
 | Área | Resultado |
 |---|---|
-| Onboarding móvil | Revertido de por-usuario a global por instalación, con migración limpia de la llave antigua. Reaparecía en cada cambio de cuenta — era la queja explícita del negocio. |
-| Experiencia (Mi espacio/Gestión RH) | De global-por-dispositivo a por-cuenta, ya no se borra en logout, con migración desde la llave antigua. |
-| Biometría | De global a por-cuenta — corrige una fuga real: la cuenta B heredaba la biometría activada por la cuenta A en el mismo teléfono. |
-| Bloqueo en frío | `appLockStore.lock()` invocado en `restoreSession()` — un proceso matado y reabierto con sesión guardada ahora siempre exige desbloqueo, sin importar el tiempo transcurrido. Antes lo evadía por completo. |
-| Reautenticación | `POST /api/v1/reautenticar` nuevo (Hash::check, throttled, sin crear/revocar tokens). `LockScreen` ya no llama a `login()` para desbloquear — antes minteaba un token nuevo de Sanctum en cada desbloqueo sin revocar el anterior. |
-| Motor DOCX — variables manuales | `document_templates.variables_manuales` + `VariableMappingService`: detecta marcadores `{{...}}` sin mapear, permite declarar etiqueta/tipo/obligatoriedad/default sin que RH memorice códigos, bloquea la generación (`puede_generar`) si falta una variable manual requerida (un dato base vacío sigue siendo solo aviso, sin cambios). Editor visual en Portal RH (`PlantillaVariablesDialog.vue`). |
-| Motor DOCX — móvil | `POST /rh/formatos/{plantilla}/preparar` y `.../generar`, nuevos. El wizard móvil ya existía completo pero apagado (backend real no existía); ahora está conectado. Incluye verificación de alcance (`alcanzaColaborador`) que el panel web no tenía porque no la necesitaba (RH ya filtra por alcance antes de llegar al formulario). |
-| QR de incorporación — condición de carrera | `IncorporacionInvitacionService::registrarUsuario()` ahora re-lee la invitación con `lockForUpdate()` dentro de la transacción antes de verificar `tieneUsosDisponibles()` — dos registros concurrentes con el mismo token de un solo uso ya no podían crear dos colaboradores; el resguardo final (`QueryException` de `users.email` único) se convierte en un error 422 limpio (`correo_registrado`) en vez de un 500. |
-| QR de incorporación — tests desactualizados | 4 tests en `IncorporacionInvitacionTest.php` fallaban por un refactor real ya aplicado (Alta Digital QR simplificado: el formulario ahora pide `candidato_id`+`duracion_horas`, no `nombre_prellenado`/`email` sueltos) — corregidos, no era un bug de la app. |
-| Préstamos — aprobación sin revisar | `SolicitudesService::cambiarEstado()` bloquea aprobar una solicitud tipo préstamo por el botón genérico de "Aprobar" (usado por cualquier otro tipo de solicitud): sin este guardado, `PrestamoService::crearDesdeSolicitud()` caía en sus defaults (monto tal cual lo pidió el colaborador, plazo inventado) simulando una autorización real que RH nunca hizo. Solo `PrestamoAutorizacionService::autorizar()` (pantalla "Autorizar préstamo") puede aprobar un préstamo. |
-| Vacaciones — contador desactualizado | `Api\V1\Rh\ColaboradorController::show()` contaba `vacaciones_pendientes` solo de la tabla legacy `solicitudes_vacaciones`, que ya no recibe nada del flujo unificado actual — mostraba 0 pendientes aunque hubiera una solicitud real esperando revisión. Corregido para contar `solicitudes_internas` tipo `vacaciones`. |
-| Notificaciones sin paginación | `GET /notificaciones` solo devolvía las 30 más recientes sin forma de ver historial más viejo. Ahora pagina de verdad (`meta.current_page/last_page/total`); móvil usa `useInfiniteQuery` con scroll infinito. El badge de la app ya no depende de esa lista (podía subcontar con más de 30 no leídas) — usa el contador autoritativo de `mobile/bootstrap`. |
-| Seguridad — Sanctum sin expiración | `config/sanctum.php` tenía `expiration: null` (nunca expiraban) sin ningún pruning — un dispositivo perdido/robado quedaba con acceso indefinido. Ahora 90 días por defecto (`SANCTUM_TOKEN_EXPIRATION_MINUTES`) + `sanctum:prune-expired` diario en el scheduler. **Cambio de comportamiento que requiere aviso antes de deploy**: sesiones móviles con más de 90 días de inactividad exigirán login real la próxima vez (la app ya maneja esto correctamente — mismo camino que un 401 cualquiera). |
-| Seguridad — DOCX zip bomb | Subir una plantilla DOCX solo validaba `mimes:docx` + tamaño subido, nunca el tamaño DESCOMPRIMIDO — un ZIP pequeño con razón de compresión absurda podía agotar memoria al leerlo con PhpWord. `DocxUploadValidator` ahora rechaza cualquier DOCX cuyo contenido descomprimido exceda 100 MB, en la subida (antes de guardarlo). |
-| Seguridad — reasignación de push token | `PushTokenService::registrar()` reasigna un token a otra cuenta sin dejar rastro (necesario para "cambiar de cuenta en el mismo teléfono", no se bloqueó) — ahora registra un `Log::warning` con el hash del token (nunca el token en claro) cuando la reasignación cruza cuentas, para auditoría si alguna vez se abusa. |
-| Seguridad — `MobileDevice::$hidden` | El modelo no ocultaba `push_token` de una eventual serialización JSON (nada lo serializa hoy, pero cerraba el hueco antes de que alguien agregue un listado de dispositivos). |
+| Suite backend | 738/758 → **783/783 (3 omitidas por 2FA, ver CLAUDE.md)** (ver sección Tests). Los 8 archivos que la sesión anterior dejó documentados como "preexistentes" quedaron corregidos — la mayoría no eran bugs de rutas inexistentes sino contratos de test desactualizados o bugs reales de producto que esas mismas rutas rotas ocultaban. |
+| Rutas `rh.vacantes.cubrir` / `administracion.usuarios.destroy` | Confirmadas **intencionalmente ausentes**, no bugs. `docs/HEADCOUNT_Y_VACANTES.md` documenta que las vacantes se derivan 100% de headcount ("nunca se capturan a mano"); `administracion.usuarios.destroy` viola directamente la regla "Nunca borres usuarios ni expedientes" de CLAUDE.md — la baja laboral real es `rh.expedientes.dar-de-baja`. Se corrigieron los tests para usar el contrato real, no se inventaron rutas. |
+| Enum de `Candidato` | Confirmado: una sola definición real (`App\Enums\EstadoCandidato`, pipeline de 10 fases + 4 estados de salida). Los tests usaban un vocabulario obsoleto (`nuevo`, `aprobado_gerencia`, `rechazado`, `contactado`) de un diseño anterior — corregidos contra el enum real. Ningún consumidor (frontend incluido, que lee `estados`/`transicionesPermitidas` dinámicos del backend) usaba los valores viejos. |
+| **Bug real — baja de colaborador nunca soft-eliminaba** | `BajaColaboradorService::ejecutar()` actualizaba `estatus`/`estado_alta` pero nunca llamaba `$colaborador->delete()` — el soft-delete que `reactivar()` (`restore()`) y las rutas `withTrashed()` de Expedientes daban por hecho simplemente nunca ocurría. Corregido. |
+| **Bug real — corrección de CURP/RFC/NSS vía extracción de documentos se perdía** | `DocumentExtractionService` (revisión de datos detectados por OCR en documentos subidos) comparaba y escribía en `users.curp/rfc/nss` — una columna legacy que ningún otro flujo lee. El dato real vive en `Colaborador` (misma fuente que `PlaceholderResolver`/generación de contratos). RH aceptaba una corrección en pantalla y el contrato seguía sin el dato correcto. Corregido: ahora opera sobre `Colaborador`. |
+| **Bug real — asignaciones de capacitación por sucursal/depto/puesto nunca alcanzaban a nadie** | `AsignacionService` filtraba usuarios comparando `users.sucursal_principal_id/departamento_id/puesto_id` — columnas legacy que **ni siquiera son `Fillable`** en el modelo `User` (ver su atributo `#[Fillable(...)]`, que deliberadamente las excluye desde la separación Usuario/Colaborador). Cualquier asignación de curso "por sucursal/depto/puesto" nunca alcanzaba a nadie nuevo. Corregido para filtrar vía la relación `colaborador`. |
+| **Bug real — nuevo colaborador nunca heredaba asignaciones vigentes** | `AsignacionService::aplicarVigentesA()` existía completo (con su propio job/notificación) pero no se llamaba desde ningún flujo de alta real. Conectado en `AltaColaboradorService::registrar()` y `ConversionColaboradorService::convertir()` (los dos únicos puntos donde se crea un colaborador+cuenta nuevos). |
+| **Bug de datos demo — seeder aprobaba préstamos con el botón genérico** | `SolicitudesDemoSeeder` y `SolicitudFormatoOficialTest` llamaban `SolicitudesService::aprobar()` directo sobre una solicitud tipo préstamo — exactamente lo que el guardado de la sesión anterior bloquea a propósito ("Un préstamo no se aprueba con el botón genérico"). No era un bug de producto: el guardado funciona correctamente: era el seeder/test los que no se habían actualizado al agregarlo. Corregidos para usar `PrestamoAutorizacionService::autorizar()` (mismo flujo real de la pantalla "Autorizar préstamo"). Afectaba en cascada a `DatabaseSeederProduccionTest` y `PeopleDiagnosticoCommandTest` (ambos corren el seeder). |
+| Motor DOCX — variables **automáticas** requeridas | Antes: solo una variable manual (sin dato real, ej. `{{numero_de_obra}}`) podía bloquear `puede_generar`; un dato automático vacío (`{{curp}}`, `{{domicilio}}`, `{{fecha_ingreso}}`...) nunca bloqueaba, aunque el colaborador no lo tuviera capturado — hueco silencioso real. Ahora RH puede marcar **cualquier** marcador detectado (automático o manual) como requerido desde Portal RH → Formatos → Variables; retrocompatible (plantillas existentes quedan igual hasta que RH marque algo explícitamente). Mensaje de error humanizado ("Falta CURP." / "Faltan datos obligatorios: X, Y."). Mobile (`generar.tsx`) ahora respeta `puede_generar` del backend en vez de recalcular solo con variables manuales. |
+| DOCX → PDF, fidelidad | El módulo de plantillas (`FormatoController` web y móvil) generaba PDF solo con PhpWord+DomPDF (aproximado). Se encontró que el módulo de "formatos oficiales" ya tenía un conversor desacoplado (`ConversorDocxPdf`) que prefiere LibreOffice headless si `FORMATOS_LIBREOFFICE_PATH` está configurado, con fallback automático — se reutilizó en ambos `descargarPdf()` (antes solo lo usaba formatos oficiales). LibreOffice no está instalado en este entorno de desarrollo; documentado el comando de instalación en `docs/PLANTILLAS_FORMATOS.md` y `.env.example`. |
+| Seguridad — tokens Sanctum | `SANCTUM_TOKEN_EXPIRATION_MINUTES=129600` (90 días) y `sanctum:prune-expired --hours=24` diario confirmados correctos, sin cambios necesarios. |
+| Migraciones | `php artisan migrate:status` — todas aplicadas, ninguna pendiente (incluida `add_variables_manuales_a_document_templates`). |
+| Móvil | Sin cambios de comportamiento nuevos más allá de `generar.tsx` (arriba). Cross-account (biometría/experiencia), cold start, reautenticación sin token nuevo, y onboarding-una-sola-vez ya estaban cubiertos por tests de la sesión anterior — se verificaron de nuevo tras los cambios de esta sesión. |
 
-Ver el detalle completo (archivos, comandos, tests) en el mensaje de cierre
-de la sesión de conversación — este documento resume, no repite todo.
+## Tests nuevos/corregidos en esta sesión
 
-## Tests
+- `tests/Feature/MovimientosLaborales/MovimientosLaboralesTest.php` — reescrito contra el contrato real (`rh.expedientes.datos-laborales.update`/`dar-de-baja`); se retiraron 2 tests de "cubrir vacante manual", una función que nunca existió así (contradice `docs/HEADCOUNT_Y_VACANTES.md`).
+- `tests/Feature/Rh/ExpedienteTest.php`, `tests/Feature/Rh/AltaDigitalTest.php`, `tests/Feature/Onboarding/OnboardingServiceTest.php`, `tests/Feature/Rh/DocumentExtractionTest.php`, `tests/Feature/Administracion/OrganigramaPersonasTest.php`, `tests/Feature/Rh/CandidatoTest.php`, `tests/Feature/Asignaciones/AsignacionTest.php` — corregidos contra el contrato/modelo real (varios tenían el mismo patrón: asumir un dato en `User` que en realidad vive en `Colaborador`).
+- `tests/Feature/Api/AuthApiTest.php` — nuevo test de 10 llamadas a `/reautenticar` con viaje en el tiempo (el endpoint está throttled a 5/min, intencional) verificando que `personal_access_tokens` no cambia.
+- `tests/Feature/Rh/PlantillaVariablesTest.php` — 7 tests nuevos: marcar automática como requerida, rechazar automática no detectada, 4 escenarios de `puede_generar` (automática opcional/requerida vacía/requerida con valor/mezcla con manual), y generación real end-to-end (DOCX abierto como ZIP/XML verificando reemplazo real de placeholders, no solo JSON).
+- `tests/Feature/Formatos/ConversorDocxPdfTest.php` — nuevo, prueba el selector LibreOffice/DomPDF sin depender de un LibreOffice real instalado.
 
-- Nuevos: `AuthApiTest` (+4 reautenticación), `PlantillaVariablesTest` (8),
-  `RhFormatoGenerarApiTest` (5), `onboardingStore.test.ts`,
-  `experienceStore.test.ts` (reescritos), `biometricStore.test.ts`,
-  `appLockStore.test.ts` (nuevos), extensiones a `authStore.test.ts`,
-  `DocxUploadValidatorTest` (3), `PushTokenServiceTest` (2), extensión a
-  `PrestamoFlujoTest`/`RhColaboradorApiTest`/`NotificacionApiTest`/
-  `DispositivoApiTest`/`IncorporacionInvitacionApiTest`, 4 tests corregidos
-  en `IncorporacionInvitacionTest`.
-- Backend: suite completa `php artisan test` — **738/758 passed** antes de
-  las fases 5-7 (9 fallas + 8 errores, verificados idénticos en un `git
-  worktree` limpio del commit base `cc4beeb`, ninguno es una regresión de
-  esta sesión). Se relanzó una segunda vez después de las fases 5-7 para
-  confirmar que los fixes nuevos no rompieron nada — ver el mensaje de
-  cierre de la conversación para el resultado exacto de esa segunda corrida
-  (tardó ~2h, no se esperó a que terminara para seguir documentando).
-- Móvil: `npx jest` — 416/416 passed. `npx tsc --noEmit` limpio. `npx
-  expo-doctor` 21/21. `npx expo export --platform android` exitoso.
-- Web: `npm run build` exitoso, `vue-tsc`/ESLint limpios.
+## Resultado de validación
 
-## Fallas preexistentes confirmadas (no regresiones)
+```
+BACKEND
+php artisan test:                783/783 (3 omitidas por 2FA, ver CLAUDE.md)
+PINT:                             PASS
+PHPSTAN (nivel 7):                PASS
 
-Verificado corriendo los mismos archivos de prueba en un worktree aislado
-(`git worktree add`, sin ningún cambio de esta sesión) en el commit base
-`cc4beeb`:
+WEB
+types:check (vue-tsc):            PASS
+lint:check (ESLint):              PASS
+build:                            PASS
 
-- `tests/Feature/Asignaciones/AsignacionTest.php`
-- `tests/Feature/MovimientosLaborales/MovimientosLaboralesTest.php`
-- `tests/Feature/Onboarding/OnboardingServiceTest.php` (checklist de
-  incorporación del colaborador — no confundir con el onboarding móvil,
-  que es un módulo distinto sin relación)
-- `tests/Feature/Rh/AltaDigitalTest.php`
-- `tests/Feature/Rh/CandidatoTest.php`
-- `tests/Feature/Rh/DocumentExtractionTest.php`
-- `tests/Feature/Administracion/OrganigramaPersonasTest.php`
-- `tests/Feature/Rh/ExpedienteTest.php`
+MOBILE
+typecheck:                        PASS
+lint:                             PASS
+test:                             416/416 PASS
+expo-doctor:                      21/21 PASS
+expo export --platform android:   PASS
 
-Ninguno de estos archivos aparece en el diff de esta sesión. Algunas fallas
-parecen bugs reales preexistentes (p. ej. rutas `rh.vacantes.cubrir` y
-`administracion.usuarios.destroy` referenciadas por tests pero no
-registradas; valores de enum de `Candidato` que no coinciden entre el test
-y el código actual) — quedan documentadas aquí, no corregidas, porque
-corregirlas no era parte de lo que se me pidió en esta sesión.
+MIGRATIONS PENDING:                Ninguna
+```
 
-**Actualización**: `tests/Feature/Rh/IncorporacionInvitacionTest.php` SÍ se
-corrigió en esta sesión (ver tabla de arriba) — 4 de sus tests fallaban por
-un refactor real ya aplicado en la app (`candidato_id`/`duracion_horas` en
-vez de campos sueltos), no por un bug. Se sacó de esta lista porque ya no
-aplica: el archivo pasa completo ahora.
+## Pendientes reales (no bloquean release, requieren decisión de negocio/QA física)
 
-## Pendientes reales
-
-Ver `docs/RELEASE_CHECKLIST.md` sección 7 y el cierre de la conversación de
-esta sesión para el listado completo de fases no ejecutadas a profundidad
-de implementación.
+- **LibreOffice no está instalado en este servidor de desarrollo** — la conversión PDF sigue funcionando (fallback PhpWord/DomPDF), pero sin fidelidad exacta hasta que se instale en producción (comando en `docs/PLANTILLAS_FORMATOS.md`).
+- **QA en dispositivo físico** (no ejecutable desde este entorno): biometría real, notificaciones push reales, cámara/escaneo de documentos, comportamiento con red intermitente.
+- El código muerto identificado (`MovimientoLaboralService::registrarBaja()`'s parámetro `$crearVacante`, `registrarCoberturaTemporal()`, nunca invocados desde ningún controlador) se documenta aquí pero **no se tocó** — no es bug de esta sesión, es una decisión de producto (¿se retira la cobertura manual o se termina de conectar?) fuera del alcance de "cerrar lo que hay", ver `docs/HEADCOUNT_Y_VACANTES.md`.

@@ -101,17 +101,65 @@ class VariableMappingService
         return $catalogo;
     }
 
-    private function etiquetar(string $clave): string
+    /**
+     * Acepta acrónimos conocidos (CURP, RFC, NSS) tal cual, para que un
+     * mensaje de "falta este dato" no diga "Curp" sino "CURP" — el resto se
+     * humaniza reemplazando guion_bajo por espacio.
+     */
+    private const ACRONIMOS = ['curp' => 'CURP', 'rfc' => 'RFC', 'nss' => 'NSS'];
+
+    public function etiquetar(string $clave): string
     {
-        return Str::of($clave)->replace('_', ' ')->ucfirst()->toString();
+        return self::ACRONIMOS[$clave] ?? Str::of($clave)->replace('_', ' ')->ucfirst()->toString();
     }
 
     /**
+     * Definiciones que RH declaró para esta plantilla en `variables_manuales`,
+     * filtradas a solo las que corresponden a un marcador SIN dato real
+     * conocido (lo que el editor "Variables" llama manuales/fill-in) — un
+     * dato automático marcado como requerido vive en variables_manuales con
+     * la misma forma, pero se consulta aparte con automaticasConfiguradas(),
+     * nunca aquí (nunca se le pide a RH que "llene a mano" un dato
+     * automático, ver docs/DOCX_TEMPLATES.md).
+     *
      * @return Collection<int, array<string, mixed>>
      */
     public function manuales(DocumentTemplate $plantilla): Collection
     {
-        return collect($plantilla->variables_manuales ?? []);
+        $conocidas = $this->clavesConocidas();
+        $resultado = [];
+
+        foreach ($plantilla->variables_manuales ?? [] as $def) {
+            if (! in_array($def['clave'] ?? null, $conocidas, true)) {
+                $resultado[] = $def;
+            }
+        }
+
+        return collect($resultado);
+    }
+
+    /**
+     * Subconjunto de `variables_manuales` que SÍ corresponde a un dato
+     * automático conocido (PlaceholderResolver) — RH solo puede declarar
+     * ahí si lo marca requerido u opcional, nunca su etiqueta/tipo/valor: el
+     * valor lo sigue resolviendo el dato real del colaborador/candidato.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function automaticasConfiguradas(DocumentTemplate $plantilla): Collection
+    {
+        $conocidas = array_flip($this->clavesConocidas());
+        $resultado = [];
+
+        foreach ($plantilla->variables_manuales ?? [] as $def) {
+            $clave = $def['clave'] ?? null;
+
+            if (is_string($clave) && isset($conocidas[$clave])) {
+                $resultado[] = $def;
+            }
+        }
+
+        return collect($resultado);
     }
 
     /**
@@ -123,11 +171,16 @@ class VariableMappingService
     }
 
     /**
+     * Claves marcadas como requeridas en `variables_manuales` — sea un
+     * marcador manual (RH lo llena) o uno automático que RH decidió volver
+     * obligatorio (ej. {{curp}}): ambos bloquean `puede_generar` igual si
+     * resuelven vacío, ver FormatoPreviewService::previsualizar().
+     *
      * @return list<string>
      */
-    public function clavesManualesRequeridas(DocumentTemplate $plantilla): array
+    public function clavesRequeridas(DocumentTemplate $plantilla): array
     {
-        return array_values($this->manuales($plantilla)
+        return array_values(collect($plantilla->variables_manuales ?? [])
             ->where('requerido', true)
             ->pluck('clave')
             ->map(fn (mixed $clave): string => (string) $clave)

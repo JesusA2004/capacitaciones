@@ -188,10 +188,27 @@ class PlantillaController extends Controller
     {
         $this->authorize('update', $plantilla);
 
+        $detectadas = $this->documento->variablesEnPlantilla($plantilla);
+        $conocidas = $this->mapeo->clavesConocidas();
+        $requeridas = array_flip($this->mapeo->clavesRequeridas($plantilla));
+
         return response()->json([
-            'detectadas' => $this->documento->variablesEnPlantilla($plantilla),
+            'detectadas' => $detectadas,
             'sin_mapear' => $this->mapeo->sinMapear($plantilla),
-            'manuales' => $plantilla->variables_manuales ?? [],
+            'manuales' => $this->mapeo->manuales($plantilla)->all(),
+            // Marcadores detectados que YA corresponden a un dato real
+            // (PlaceholderResolver): por default quedan opcionales, RH
+            // puede marcar cualquiera como requerido sin tocar su
+            // etiqueta/tipo/valor (esos los sigue resolviendo el dato real).
+            'automaticas' => collect($detectadas)
+                ->filter(fn (string $clave) => in_array($clave, $conocidas, true))
+                ->values()
+                ->map(fn (string $clave) => [
+                    'clave' => $clave,
+                    'etiqueta' => $this->mapeo->etiquetar($clave),
+                    'requerido' => isset($requeridas[$clave]),
+                ])
+                ->all(),
             'catalogo' => $this->mapeo->catalogoConocidas(),
         ]);
     }

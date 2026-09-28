@@ -59,8 +59,11 @@ test('cada sucursal es su propia rama: una tarjeta por persona, gerente → subg
     $director = Puesto::factory()->create(['nombre' => 'Director comercial', 'nivel_jerarquico' => 2]);
     $gerente = Puesto::factory()->create(['nombre' => 'Gerente de sucursal', 'nivel_jerarquico' => 4, 'puesto_superior_id' => $director->id]);
     $subgerente = Puesto::factory()->create(['nombre' => 'Subgerente', 'nivel_jerarquico' => 5, 'puesto_superior_id' => $gerente->id]);
-    $gestor = Puesto::factory()->create(['nombre' => 'Gestor de crédito', 'nivel_jerarquico' => 6, 'puesto_superior_id' => $subgerente->id]);
-    $volante = Puesto::factory()->create(['nombre' => 'Volante', 'nivel_jerarquico' => 7, 'puesto_superior_id' => $gestor->id]);
+    // requiere_ruta gatea si el nodo trae 'rutas' en la respuesta (solo
+    // gestores/volantes tienen cartera, ver OrganigramaPersonasService) —
+    // el default de la columna es false, así que el fixture debe marcarlo.
+    $gestor = Puesto::factory()->create(['nombre' => 'Gestor de crédito', 'nivel_jerarquico' => 6, 'puesto_superior_id' => $subgerente->id, 'requiere_ruta' => true]);
+    $volante = Puesto::factory()->create(['nombre' => 'Volante', 'nivel_jerarquico' => 7, 'puesto_superior_id' => $gestor->id, 'requiere_ruta' => true]);
 
     $norte = Sucursal::factory()->create(['nombre' => 'Norte']);
     $sur = Sucursal::factory()->create(['nombre' => 'Sur']);
