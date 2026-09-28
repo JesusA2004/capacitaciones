@@ -107,6 +107,35 @@ test('si el jefe no da visto bueno la solicitud de préstamo queda rechazada', f
     expect(Prestamo::query()->count())->toBe(0);
 });
 
+test('el boton generico "Aprobar" nunca autoriza un prestamo: solo "Autorizar prestamo" puede', function () {
+    $solicitudId = clSolicitarPrestamo($this->cuenta);
+
+    Sanctum::actingAs($this->jefe);
+    $this->postJson("/api/v1/equipo/solicitudes/{$solicitudId}/visto-bueno", ['aprobado' => true, 'comentario' => 'De acuerdo'])->assertOk();
+
+    // Con visto bueno ya dado, el endpoint GENÉRICO de aprobar (el mismo
+    // que usan el resto de tipos de solicitud) no debe crear ningún
+    // Prestamo con el monto/plazo sin revisar — bug real encontrado en
+    // auditoría: sin este guardado, PrestamoService::crearDesdeSolicitud()
+    // caía en sus defaults (monto tal cual lo pidió el colaborador, plazo
+    // inventado) como si RH sí hubiera autorizado algo.
+    Sanctum::actingAs($this->direccion);
+    $this->postJson("/api/v1/rh/solicitudes/{$solicitudId}/aprobar", ['comentario' => 'ok'])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('monto_autorizado');
+
+    expect(Prestamo::query()->count())->toBe(0);
+    expect(SolicitudInterna::query()->findOrFail($solicitudId)->estado->value)->not->toBe('aprobada');
+
+    // El camino correcto sigue funcionando igual que antes.
+    $this->postJson("/api/v1/rh/solicitudes/{$solicitudId}/prestamo/autorizar", [
+        'monto_autorizado' => 8000,
+        'plazo_autorizado' => 8,
+    ])->assertCreated();
+
+    expect(Prestamo::query()->count())->toBe(1);
+});
+
 test('un colaborador no puede ver el préstamo de otro', function () {
     $prestamo = Prestamo::factory()->create();
 

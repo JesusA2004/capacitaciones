@@ -141,11 +141,14 @@ falla, RH ve un aviso y sigue teniendo el Word.
 ## API móvil de RH
 
 `GET /api/v1/rh/formatos` (catálogo, mismo `FormatoCatalogoService` que el panel web),
+`POST /api/v1/rh/formatos/{plantilla}/preparar` y `.../generar` (mismo
+`FormatoPreviewService`/`VariableMappingService` que el panel web — RH elige
+colaborador, revisa datos resueltos/faltantes, captura variables manuales y genera),
 `GET /api/v1/rh/formatos/{documento}/descargar` y `.../descargar-pdf` (respetan
-`AlcanceOrganizacionalService` para documentos de colaboradores). Generar un documento
-nuevo y la vista previa con variables faltantes se quedan solo en el panel web por
-ahora — requieren un flujo de selección/edición más largo del que tiene sentido en la
-app; la app solo consulta el catálogo y descarga lo ya generado. Ver `docs/RH_MOBILE_API.md`.
+`AlcanceOrganizacionalService` para documentos de colaboradores; `generar`/`preparar`
+también, vía `alcanzaColaborador()` sobre el `sujeto_id` recibido). Administrar
+plantillas (subir DOCX, mapear variables manuales, versionar) se queda en Portal RH —
+mismo criterio que el resto de módulos de administración. Ver `docs/RH_MOBILE_API.md`.
 
 ## Filtros y exportación
 
@@ -153,9 +156,44 @@ app; la app solo consulta el catálogo y descarga lo ya generado. Ver `docs/RH_M
 fechas, buscador) y exportación Excel/PDF que respeta esos filtros — mismo patrón que el
 resto de listados operativos, ver `docs/ARQUITECTURA_SERVICES.md`.
 
+## Variables manuales (RH ya no necesita saberse los códigos de memoria)
+
+`/rh/plantillas` → menú de acciones de una plantilla → **"Variables"** abre un editor
+(`PlantillaVariablesDialog.vue`) que:
+
+1. Lee los marcadores `{{...}}` que de verdad aparecen en el DOCX
+   (`PlantillaDocumentoService::variablesEnPlantilla()`, el mismo escaneo que ya usaba
+   el catálogo — no se duplica esa lógica).
+2. Separa los detectados en **conocidos** (ya existen en `PlaceholderResolver`, se
+   llenan solos con datos reales) y **sin mapear** (no corresponden a ningún dato del
+   colaborador/candidato — RH debe decidir de dónde sale ese valor).
+3. Para cada marcador sin mapear, RH captura: etiqueta visible, tipo de dato
+   (texto/texto largo/fecha/número/moneda/lista de opciones), si es obligatorio para
+   generar, y un valor por defecto opcional. Se guarda en
+   `document_templates.variables_manuales` (JSON) vía
+   `PUT rh/plantillas/{plantilla}/variables`
+   (`App\Http\Requests\Rh\UpdateDocumentTemplateVariablesRequest`,
+   `App\Services\Plantillas\VariableMappingService`).
+4. Un catálogo de referencia agrupado (Colaborador/Laboral/Empresa/Solicitud/
+   Préstamo/...) permite copiar cualquier marcador conocido con un clic
+   (`VariableMappingService::catalogoConocidas()`).
+
+**Nunca se puede declarar como variable manual** una clave que ya es un dato conocido
+(evita ambigüedad: un mismo marcador no puede significar dos cosas) ni una clave que no
+aparece de verdad en el DOCX (`UpdateDocumentTemplateVariablesRequest::withValidator()`
+lo rechaza explícitamente) — igual que el resto del proyecto, nunca se inventa un campo
+que no existe.
+
+Al generar/previsualizar (`FormatoController::preview`/`store`), una variable manual
+marcada como **obligatoria** que no llegó en `extra` bloquea la generación
+(`puede_generar: false`, `faltantes_requeridos`) — a diferencia de un dato base del
+colaborador vacío, que sigue siendo solo un aviso (comportamiento histórico sin
+cambios). El campo `extra` también rechaza cualquier clave que no sea ni una variable
+conocida ni una manual ya declarada para esa plantilla — nunca se inyecta un
+placeholder arbitrario.
+
 ## Fuera de alcance en Fase 1
 
-- Detección automática de placeholders al **subir** una plantilla (RH debe conocer el
-  catálogo y prepararla manualmente) — sí se detectan al **leerla** para el catálogo y
-  la vista previa (ver arriba), pero no hay validación en el momento de la subida.
-- Firma electrónica avanzada.
+- Firma electrónica avanzada (la firma sigue siendo física + escaneo, ver arriba).
+- Editor de variables manuales solo en Portal RH — la app móvil consume el resultado
+  (`manuales`/`puede_generar`) pero no administra el catálogo de variables.

@@ -41,4 +41,21 @@ class InvitacionInvalidaException extends RuntimeException
     {
         return new self('El correo no coincide con la invitación.', 'correo_no_coincide', 422);
     }
+
+    /**
+     * Dos registros concurrentes con el mismo correo (mismo token de un solo
+     * uso enviado dos veces a la vez, o un doble submit que ganó la
+     * verificación de `tieneUsosDisponibles()` antes de que el primero
+     * terminara) — la restricción única de `users.email` es el último
+     * resguardo cuando el `lockForUpdate()` no alcanzó a serializar ambas
+     * peticiones (ver IncorporacionInvitacionService::registrarUsuario()).
+     */
+    public static function correoRegistrado(): self
+    {
+        // 422 (no 409): el cliente móvil normaliza cualquier 409 a un
+        // mensaje genérico de "esto cambió, refresca la pantalla" (ver
+        // src/utils/errors.ts::normalizeError) — un 422 sí deja pasar el
+        // `message` real del backend.
+        return new self('Ya existe una cuenta con este correo. Si ya te registraste, inicia sesión.', 'correo_registrado', 422);
+    }
 }

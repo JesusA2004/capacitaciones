@@ -53,3 +53,36 @@ test('logout revoca el token actual', function () {
 
     expect($colaborador->tokens()->whereKey($token->accessToken->id)->exists())->toBeFalse();
 });
+
+test('reautenticar con la contrasena correcta responde sin contenido y no toca los tokens', function () {
+    $colaborador = User::factory()->create();
+    $token = $colaborador->createToken('test');
+    $totalTokensAntes = $colaborador->tokens()->count();
+
+    $this->withHeader('Authorization', "Bearer {$token->plainTextToken}")
+        ->postJson('/api/v1/reautenticar', ['password' => 'password'])
+        ->assertNoContent();
+
+    expect($colaborador->tokens()->count())->toBe($totalTokensAntes);
+    expect($colaborador->tokens()->whereKey($token->accessToken->id)->exists())->toBeTrue();
+
+    // El mismo token sigue sirviendo para llamadas posteriores (no se revoco).
+    $this->withHeader('Authorization', "Bearer {$token->plainTextToken}")
+        ->getJson('/api/v1/me')
+        ->assertOk();
+});
+
+test('reautenticar con la contrasena incorrecta falla sin afectar el token', function () {
+    $colaborador = User::factory()->create();
+    $token = $colaborador->createToken('test');
+
+    $this->withHeader('Authorization', "Bearer {$token->plainTextToken}")
+        ->postJson('/api/v1/reautenticar', ['password' => 'incorrecta'])
+        ->assertStatus(422);
+
+    expect($colaborador->tokens()->whereKey($token->accessToken->id)->exists())->toBeTrue();
+});
+
+test('reautenticar sin token no es accesible', function () {
+    $this->postJson('/api/v1/reautenticar', ['password' => 'password'])->assertUnauthorized();
+});

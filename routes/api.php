@@ -92,6 +92,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::post('logout', [AuthController::class, 'logout'])->name('logout');
         Route::get('me', [AuthController::class, 'me'])->name('me');
+        Route::post('reautenticar', [AuthController::class, 'reautenticar'])->name('reautenticar')->middleware('throttle:api-reautenticar');
 
         // Contexto inicial de la app tras autenticarse: quien es, que puede
         // hacer (capabilities/features) y contadores. Ver
@@ -458,6 +459,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             // ver docs/FORMATOS.md).
             Route::prefix('formatos')->name('formatos.')->group(function () {
                 Route::get('/', [RhFormatoController::class, 'index'])->name('index');
+                Route::post('{plantilla}/preparar', [RhFormatoController::class, 'preparar'])->name('preparar');
+                Route::post('{plantilla}/generar', [RhFormatoController::class, 'generar'])->name('generar')->middleware('throttle:api-cargas');
                 Route::get('{documento}/descargar', [RhFormatoController::class, 'descargar'])->name('descargar');
                 Route::get('{documento}/descargar-pdf', [RhFormatoController::class, 'descargarPdf'])->name('descargar-pdf');
             });

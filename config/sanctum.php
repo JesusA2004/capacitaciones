@@ -50,7 +50,12 @@ return [
     |
     */
 
-    'expiration' => null,
+    // Antes null (nunca expiran): un dispositivo perdido/robado con la app
+    // instalada quedaba con acceso indefinido salvo que alguien lo revocara
+    // a mano. 90 días por defecto — generoso para no desloguear gente que
+    // usa la app a diario, pero acotado. Se combina con `sanctum:prune-expired`
+    // en el scheduler (routes/console.php) para limpiar filas ya vencidas.
+    'expiration' => (int) env('SANCTUM_TOKEN_EXPIRATION_MINUTES', 129600),
 
     /*
     |--------------------------------------------------------------------------

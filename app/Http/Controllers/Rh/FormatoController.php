@@ -21,9 +21,11 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Formatos\FormatoCatalogoService;
 use App\Services\Formatos\FormatoPreviewService;
+use App\Services\Plantillas\PlaceholderResolver;
 use App\Services\Plantillas\PlantillaDocumentoService;
 use App\Services\Plantillas\PlantillaResolverService;
 use App\Services\Plantillas\PlantillaStorageService;
+use App\Services\Plantillas\VariableMappingService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -48,6 +50,8 @@ class FormatoController extends Controller
         private readonly DocumentoStorageService $documentoStorage,
         private readonly FormatoPreviewService $previsualizador,
         private readonly FormatoCatalogoService $catalogo,
+        private readonly PlaceholderResolver $placeholders,
+        private readonly VariableMappingService $mapeo,
     ) {}
 
     /**
@@ -190,6 +194,19 @@ class FormatoController extends Controller
 
         abort_unless($sujeto !== null, 404, 'No se encontró el colaborador o candidato indicado.');
 
+        $valoresResueltos = $this->placeholders->resolver($sujeto, $extra);
+        $clavesRequeridas = $this->mapeo->clavesManualesRequeridas($plantilla);
+        $faltantesRequeridos = array_values(array_filter(
+            $clavesRequeridas,
+            fn (string $clave) => trim((string) ($valoresResueltos[$clave] ?? '')) === '',
+        ));
+
+        if ($faltantesRequeridos !== []) {
+            return back()->withErrors([
+                'extra' => 'Faltan datos obligatorios de la plantilla: '.implode(', ', $faltantesRequeridos).'.',
+            ]);
+        }
+
         $resultado = $this->generador->generar($plantilla, $sujeto, $extra);
         $ruta = $this->storage->rutaGenerado($resultado['nombre_interno']);
         $this->storage->guardarContenido($ruta, $resultado['contenido']);
@@ -310,6 +327,9 @@ class FormatoController extends Controller
             'html' => $resultado['html'],
             'variables' => $resultado['variables'],
             'faltantes' => $resultado['faltantes'],
+            'faltantes_requeridos' => $resultado['faltantes_requeridos'],
+            'puede_generar' => $resultado['puede_generar'],
+            'manuales' => $resultado['manuales'],
         ]);
     }
 

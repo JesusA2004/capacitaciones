@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Requests\Rh;
+namespace App\Http\Requests\Api\V1\Rh;
 
 use App\Models\DocumentTemplate;
 use App\Services\Plantillas\VariableMappingService;
@@ -8,11 +8,20 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
-class PreviewFormatoRequest extends FormRequest
+/**
+ * Cuerpo común de `preparar()`/`generar()` en la API móvil de RH para el
+ * motor de plantillas DOCX (App\Http\Controllers\Api\V1\Rh\FormatoController)
+ * — mismas reglas que `App\Http\Requests\Rh\PreviewFormatoRequest`/
+ * `StoreGeneratedDocumentRequest` del panel web, adaptadas a que la
+ * plantilla llega por la ruta ({plantilla}) en vez del cuerpo.
+ */
+class PrepararGenerarFormatoRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('formatos.preview') ?? false;
+        $plantilla = $this->route('plantilla');
+
+        return $plantilla instanceof DocumentTemplate && ($this->user()?->can('generar', $plantilla) ?? false);
     }
 
     /**
@@ -21,7 +30,6 @@ class PreviewFormatoRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'document_template_id' => ['required', 'integer', 'exists:document_templates,id'],
             'tipo_sujeto' => ['required', Rule::in(['colaborador', 'candidato'])],
             'sujeto_id' => ['required', 'integer'],
             'extra' => ['nullable', 'array'],
@@ -37,8 +45,8 @@ class PreviewFormatoRequest extends FormRequest
                 return;
             }
 
-            $plantilla = DocumentTemplate::query()->where('id', $this->input('document_template_id'))->first();
-            if ($plantilla === null) {
+            $plantilla = $this->route('plantilla');
+            if (! $plantilla instanceof DocumentTemplate) {
                 return;
             }
 

@@ -28,6 +28,9 @@ class MobileDevice extends Model
     /** @use HasFactory<MobileDeviceFactory> */
     use HasFactory;
 
+    /** El push token nunca debe viajar en una respuesta JSON (nada lo serializa hoy, pero cierra el hueco antes de que alguien agregue un listado de dispositivos). */
+    protected $hidden = ['push_token'];
+
     protected $fillable = [
         'user_id',
         'push_token',

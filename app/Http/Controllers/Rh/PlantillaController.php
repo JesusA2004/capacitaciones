@@ -7,14 +7,18 @@ use App\Exports\ReporteRhExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Rh\StoreDocumentTemplateRequest;
 use App\Http\Requests\Rh\UpdateDocumentTemplateRequest;
+use App\Http\Requests\Rh\UpdateDocumentTemplateVariablesRequest;
 use App\Models\DocumentTemplate;
 use App\Models\Empresa;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Plantillas\PlantillaDocumentoService;
 use App\Services\Plantillas\PlantillaStorageService;
+use App\Services\Plantillas\VariableMappingService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -29,6 +33,8 @@ class PlantillaController extends Controller
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly PlantillaStorageService $storage,
+        private readonly PlantillaDocumentoService $documento,
+        private readonly VariableMappingService $mapeo,
     ) {}
 
     public function index(Request $request): Response
@@ -170,5 +176,30 @@ class PlantillaController extends Controller
         $plantilla->delete();
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Plantilla eliminada correctamente.']);
+    }
+
+    /**
+     * Marcadores {{...}} detectados en el DOCX, cuáles ya corresponden a un
+     * dato real (PlaceholderResolver), cuáles ya están mapeados como
+     * variable manual, y el catálogo de referencia agrupado para copiar con
+     * un clic — ver docs/DOCX_TEMPLATES.md.
+     */
+    public function variables(DocumentTemplate $plantilla): JsonResponse
+    {
+        $this->authorize('update', $plantilla);
+
+        return response()->json([
+            'detectadas' => $this->documento->variablesEnPlantilla($plantilla),
+            'sin_mapear' => $this->mapeo->sinMapear($plantilla),
+            'manuales' => $plantilla->variables_manuales ?? [],
+            'catalogo' => $this->mapeo->catalogoConocidas(),
+        ]);
+    }
+
+    public function actualizarVariables(UpdateDocumentTemplateVariablesRequest $request, DocumentTemplate $plantilla): RedirectResponse
+    {
+        $plantilla->update(['variables_manuales' => $request->validated('variables')]);
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Variables de la plantilla actualizadas correctamente.']);
     }
 }

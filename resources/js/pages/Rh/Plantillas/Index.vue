@@ -12,6 +12,7 @@ import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
 import FormatosTabsNav from '@/components/Rh/FormatosTabsNav.vue';
 import PlantillaFormDialog from '@/components/Rh/PlantillaFormDialog.vue';
+import PlantillaVariablesDialog from '@/components/Rh/PlantillaVariablesDialog.vue';
 import { Button } from '@/components/ui/button';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
@@ -82,6 +83,8 @@ function urlExportar(
 const { confirmarEliminacion, mostrarExito, mostrarError } = useAlertas();
 const dialogoAbierto = ref(false);
 const seleccionada = ref<PlantillaItem | null>(null);
+const dialogoVariablesAbierto = ref(false);
+const plantillaVariables = ref<PlantillaItem | null>(null);
 
 function abrirCrear() {
     seleccionada.value = null;
@@ -91,6 +94,11 @@ function abrirCrear() {
 function abrirEditar(plantilla: PlantillaItem) {
     seleccionada.value = plantilla;
     dialogoAbierto.value = true;
+}
+
+function abrirVariables(plantilla: PlantillaItem) {
+    plantillaVariables.value = plantilla;
+    dialogoVariablesAbierto.value = true;
 }
 
 async function eliminar(plantilla: PlantillaItem) {
@@ -304,6 +312,9 @@ async function eliminar(plantilla: PlantillaItem) {
                         <DropdownMenuItem @select="abrirEditar(plantilla)"
                             >Editar</DropdownMenuItem
                         >
+                        <DropdownMenuItem @select="abrirVariables(plantilla)"
+                            >Variables</DropdownMenuItem
+                        >
                         <DropdownMenuItem
                             variant="destructive"
                             @select="eliminar(plantilla)"
@@ -344,5 +355,12 @@ async function eliminar(plantilla: PlantillaItem) {
         :plantilla="seleccionada"
         :opciones="opciones"
         :key="seleccionada?.id ?? 'nueva'"
+    />
+
+    <PlantillaVariablesDialog
+        v-if="dialogoVariablesAbierto && plantillaVariables"
+        v-model:open="dialogoVariablesAbierto"
+        :plantilla="plantillaVariables"
+        :key="`variables-${plantillaVariables.id}`"
     />
 </template>

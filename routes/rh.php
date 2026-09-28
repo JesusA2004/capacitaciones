@@ -136,6 +136,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('exportar-pdf', [PlantillaController::class, 'exportarPdf'])->name('exportarPdf');
             Route::post('/', [PlantillaController::class, 'store'])->name('store');
             Route::post('{plantilla}', [PlantillaController::class, 'update'])->name('update');
+            Route::get('{plantilla}/variables', [PlantillaController::class, 'variables'])->name('variables');
+            Route::put('{plantilla}/variables', [PlantillaController::class, 'actualizarVariables'])->name('variables.update');
             Route::delete('{plantilla}', [PlantillaController::class, 'destroy'])->name('destroy');
         });
 

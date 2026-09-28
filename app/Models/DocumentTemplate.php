@@ -32,6 +32,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $mime
  * @property int|null $size
  * @property int $version
+ * @property array<int, array<string, mixed>>|null $variables_manuales Cada elemento: {clave, etiqueta, descripcion, tipo, requerido, valor_por_defecto, opciones}.
  * @property bool $activo
  * @property int|null $created_by
  * @property string|null $clave
@@ -70,6 +71,7 @@ class DocumentTemplate extends Model
         'mime',
         'size',
         'version',
+        'variables_manuales',
         'activo',
         'created_by',
         'clave',
@@ -111,6 +113,7 @@ class DocumentTemplate extends Model
             'activo' => 'boolean',
             'version' => 'integer',
             'size' => 'integer',
+            'variables_manuales' => 'array',
         ];
     }
 

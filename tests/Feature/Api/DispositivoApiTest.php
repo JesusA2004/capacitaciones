@@ -3,6 +3,7 @@
 use App\Models\MobileDevice;
 use App\Models\User;
 use Database\Seeders\RolesYPermisosSeeder;
+use Laravel\Sanctum\Sanctum;
 
 beforeEach(function () {
     $this->seed(RolesYPermisosSeeder::class);
@@ -46,6 +47,31 @@ test('registrar el mismo token actualiza el dispositivo en vez de duplicarlo', f
 
     expect(MobileDevice::query()->where('push_token', 'ExponentPushToken[dup]')->count())->toBe(1)
         ->and(MobileDevice::query()->where('push_token', 'ExponentPushToken[dup]')->first()->app_version)->toBe('2.0.0');
+});
+
+test('reasignar el mismo token a otra cuenta vía HTTP sigue funcionando (cambio de cuenta en el mismo telefono)', function () {
+    // El log de auditoría de esta reasignación (PushTokenService::registrar())
+    // se prueba a nivel de servicio en PushTokenServiceTest — aquí solo se
+    // confirma el comportamiento observable end-to-end: nunca se bloquea.
+    $cuentaA = User::factory()->create();
+    $cuentaA->assignRole('colaborador');
+    $cuentaB = User::factory()->create();
+    $cuentaB->assignRole('colaborador');
+
+    Sanctum::actingAs($cuentaA);
+    $this->postJson('/api/v1/dispositivos/push-token', [
+        'token' => 'ExponentPushToken[compartido]',
+        'platform' => 'android',
+    ])->assertCreated();
+
+    Sanctum::actingAs($cuentaB);
+    $this->postJson('/api/v1/dispositivos/push-token', [
+        'token' => 'ExponentPushToken[compartido]',
+        'platform' => 'android',
+    ])->assertCreated();
+
+    expect(MobileDevice::query()->where('push_token', 'ExponentPushToken[compartido]')->count())->toBe(1)
+        ->and(MobileDevice::query()->where('push_token', 'ExponentPushToken[compartido]')->first()->user_id)->toBe($cuentaB->id);
 });
 
 test('un usuario puede revocar su propio dispositivo', function () {

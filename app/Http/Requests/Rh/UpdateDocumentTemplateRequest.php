@@ -3,8 +3,10 @@
 namespace App\Http\Requests\Rh;
 
 use App\Enums\TipoPlantillaDocumento;
+use App\Services\Plantillas\DocxUploadValidator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Enum;
+use Illuminate\Validation\Validator;
 
 class UpdateDocumentTemplateRequest extends FormRequest
 {
@@ -33,5 +35,16 @@ class UpdateDocumentTemplateRequest extends FormRequest
                 'mimes:'.implode(',', config('plantillas.extensiones_permitidas')),
             ],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $archivo = $this->file('archivo');
+
+            if ($archivo !== null && $archivo->isValid() && ! DocxUploadValidator::esZipSeguro($archivo)) {
+                $validator->errors()->add('archivo', 'El archivo no es un DOCX válido o su contenido es demasiado grande al descomprimir.');
+            }
+        });
     }
 }

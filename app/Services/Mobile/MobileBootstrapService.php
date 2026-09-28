@@ -153,6 +153,7 @@ class MobileBootstrapService
             'notificaciones' => true,
             'push' => (bool) config('mobile.features.push'),
             'rh_mobile' => $capabilities['rh'] && (bool) config('mobile.features.rh_mobile'),
+            'formatos' => (bool) config('mobile.features.formatos'),
             'maintenance' => (bool) config('mobile.maintenance'),
         ];
     }

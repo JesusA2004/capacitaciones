@@ -448,6 +448,21 @@ class SolicitudesService
             ]);
         }
 
+        // Un préstamo NUNCA se aprueba con el botón genérico "Aprobar": sin
+        // monto/plazo autorizados, PrestamoService::crearDesdeSolicitud()
+        // caería en sus defaults (monto/plazo tal cual lo pidió el
+        // colaborador, sin revisión real de RH) — ver
+        // PrestamoAutorizacionService::autorizar(), única puerta que sí
+        // manda `monto_autorizado` en $datosAprobacion.
+        if ($nuevoEstado === EstadoSolicitudInterna::Aprobada
+            && $solicitud->tipo === TipoSolicitudInterna::PrestamoInterno
+            && ! isset($datosAprobacion['monto_autorizado'])
+        ) {
+            throw ValidationException::withMessages([
+                'monto_autorizado' => 'Un préstamo no se aprueba con el botón genérico: usa "Autorizar préstamo" para fijar el monto y el plazo autorizados.',
+            ]);
+        }
+
         // No se ejecuta una baja sin que RH/contabilidad haya revisado su
         // cálculo de finiquito — salvo el permiso especial reservado a
         // super_admin (ver config/finiquitos.php y FiniquitoService).

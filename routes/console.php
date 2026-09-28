@@ -40,3 +40,8 @@ Schedule::command('contratos:revisar-vencimientos')
     ->timezone('America/Mexico_City')
     ->withoutOverlapping()
     ->onOneServer();
+
+// Limpia tokens de Sanctum ya vencidos (config/sanctum.php: expiration ya
+// no es null). Comando propio del paquete, solo borra filas cuyo
+// expires_at ya pasó — nunca toca un token todavía vigente.
+Schedule::command('sanctum:prune-expired --hours=24')->daily();

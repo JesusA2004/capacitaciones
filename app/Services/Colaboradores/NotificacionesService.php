@@ -4,6 +4,7 @@ namespace App\Services\Colaboradores;
 
 use App\Models\User;
 use App\Services\Notificaciones\DestinoNotificacionService;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Notifications\DatabaseNotificationCollection;
 use Illuminate\Support\Collection;
@@ -102,6 +103,21 @@ class NotificacionesService
     public function listar(User $usuario, int $limite = 30): Collection
     {
         return $this->transformar($usuario->notifications()->latest()->limit($limite)->get());
+    }
+
+    /**
+     * Igual que listar(), pero paginado de verdad — para el centro de
+     * notificaciones de la app móvil, que antes solo podía ver las 30 más
+     * recientes sin ninguna forma de ver historial más viejo.
+     *
+     * @return LengthAwarePaginator<int, array{id: mixed, tipo: mixed, emoji: string, color: string, titulo: mixed, mensaje: mixed, url: mixed, leida: bool, creada_en: mixed, creada_en_iso: mixed}>
+     */
+    public function listarPaginado(User $usuario, int $porPagina = 30, int $pagina = 1): LengthAwarePaginator
+    {
+        return $usuario->notifications()
+            ->latest()
+            ->paginate($porPagina, ['*'], 'page', $pagina)
+            ->through($this->aArray(...));
     }
 
     /**

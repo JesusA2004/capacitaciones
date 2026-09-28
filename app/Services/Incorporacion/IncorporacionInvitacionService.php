@@ -15,6 +15,7 @@ use BaconQrCode\Renderer\ImageRenderer;
 use BaconQrCode\Renderer\RendererStyle\RendererStyle;
 use BaconQrCode\Writer;
 use Carbon\CarbonInterface;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -240,45 +241,61 @@ class IncorporacionInvitacionService
      */
     public function registrarUsuario(IncorporacionInvitacion $invitacion, array $datos): User
     {
-        if (! $invitacion->tieneUsosDisponibles()) {
-            throw InvitacionInvalidaException::usado();
-        }
-
-        if ($invitacion->email !== null && mb_strtolower($invitacion->email) !== mb_strtolower($datos['email'])) {
-            throw InvitacionInvalidaException::correoNoCoincide();
-        }
-
         return DB::transaction(function () use ($invitacion, $datos) {
+            // Re-lee la fila CON LOCK dentro de la transacción: dos
+            // peticiones concurrentes con el mismo token de un solo uso
+            // (doble submit, reintento de red, o dos dispositivos) no deben
+            // poder pasar ambas la verificación de `tieneUsosDisponibles()`
+            // antes de que la primera termine de escribir.
+            $invitacion = IncorporacionInvitacion::query()->whereKey($invitacion->id)->lockForUpdate()->firstOrFail();
+
+            if (! $invitacion->tieneUsosDisponibles()) {
+                throw InvitacionInvalidaException::usado();
+            }
+
+            if ($invitacion->email !== null && mb_strtolower($invitacion->email) !== mb_strtolower($datos['email'])) {
+                throw InvitacionInvalidaException::correoNoCoincide();
+            }
+
             // La persona vive en Colaborador (datos personales, estructura y
             // estatus); User es solo la cuenta de acceso. Antes esta rutina
             // escribía esos campos en users (no asignables desde la
             // separación User/Colaborador) y el colaborador nunca existía.
-            $colaborador = Colaborador::query()->create([
-                'name' => $datos['name'],
-                'apellidos' => $datos['apellidos'] ?? null,
-                'telefono' => $datos['telefono'] ?? $invitacion->telefono,
-                'curp' => isset($datos['curp']) ? strtoupper((string) $datos['curp']) : null,
-                'rfc' => isset($datos['rfc']) ? strtoupper((string) $datos['rfc']) : null,
-                'nss' => $datos['nss'] ?? null,
-                'fecha_nacimiento' => $datos['fecha_nacimiento'] ?? null,
-                'domicilio' => $datos['direccion'] ?? null,
-                'contacto_emergencia_nombre' => $datos['contacto_emergencia_nombre'] ?? null,
-                'contacto_emergencia_telefono' => $datos['contacto_emergencia_telefono'] ?? null,
-                'sucursal_principal_id' => $invitacion->sucursal_id,
-                'departamento_id' => $invitacion->departamento_id,
-                'puesto_id' => $invitacion->puesto_id,
-                'candidato_id' => $invitacion->candidato_id,
-                'estatus' => EstadoUsuario::EnIncorporacion,
-                'estado_alta' => EstadoAltaColaborador::PendienteDocumentos,
-            ]);
+            try {
+                $colaborador = Colaborador::query()->create([
+                    'name' => $datos['name'],
+                    'apellidos' => $datos['apellidos'] ?? null,
+                    'telefono' => $datos['telefono'] ?? $invitacion->telefono,
+                    'curp' => isset($datos['curp']) ? strtoupper((string) $datos['curp']) : null,
+                    'rfc' => isset($datos['rfc']) ? strtoupper((string) $datos['rfc']) : null,
+                    'nss' => $datos['nss'] ?? null,
+                    'fecha_nacimiento' => $datos['fecha_nacimiento'] ?? null,
+                    'domicilio' => $datos['direccion'] ?? null,
+                    'contacto_emergencia_nombre' => $datos['contacto_emergencia_nombre'] ?? null,
+                    'contacto_emergencia_telefono' => $datos['contacto_emergencia_telefono'] ?? null,
+                    'sucursal_principal_id' => $invitacion->sucursal_id,
+                    'departamento_id' => $invitacion->departamento_id,
+                    'puesto_id' => $invitacion->puesto_id,
+                    'candidato_id' => $invitacion->candidato_id,
+                    'estatus' => EstadoUsuario::EnIncorporacion,
+                    'estado_alta' => EstadoAltaColaborador::PendienteDocumentos,
+                ]);
 
-            $usuario = User::create([
-                'colaborador_id' => $colaborador->id,
-                'name' => $datos['name'],
-                'apellidos' => $datos['apellidos'] ?? null,
-                'email' => $datos['email'],
-                'password' => Hash::make($datos['password']),
-            ]);
+                $usuario = User::create([
+                    'colaborador_id' => $colaborador->id,
+                    'name' => $datos['name'],
+                    'apellidos' => $datos['apellidos'] ?? null,
+                    'email' => $datos['email'],
+                    'password' => Hash::make($datos['password']),
+                ]);
+            } catch (QueryException $e) {
+                // Resguardo final si dos peticiones concurrentes ganaron
+                // ambas la verificación de arriba con correos distintos (el
+                // lockForUpdate() ya cubre el caso del mismo token/mismo
+                // correo; esto es defensa en profundidad, no el camino
+                // esperado).
+                throw InvitacionInvalidaException::correoRegistrado();
+            }
 
             $invitacion->forceFill(['colaborador_id' => $invitacion->colaborador_id ?? $colaborador->id])->save();
 

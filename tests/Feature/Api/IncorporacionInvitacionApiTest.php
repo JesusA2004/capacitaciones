@@ -2,6 +2,7 @@
 
 use App\Enums\EstadoDocumento;
 use App\Enums\EstadoUsuario;
+use App\Exceptions\Incorporacion\InvitacionInvalidaException;
 use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
 use App\Models\User;
@@ -116,6 +117,29 @@ test('registrar con un qr valido crea al colaborador en_incorporacion, con rol c
     $usuario = User::query()->where('email', 'nuevo@mrlana.test')->firstOrFail();
     expect($usuario->colaborador?->estatus)->toBe(EstadoUsuario::EnIncorporacion);
     expect($usuario->hasRole('colaborador'))->toBeTrue();
+});
+
+test('dos registros con la misma invitacion en vuelo (misma instancia sin refrescar) nunca crean dos colaboradores', function () {
+    // Simula la condicion de carrera de un doble submit: dos peticiones
+    // que cargaron la MISMA fila de invitacion antes de que cualquiera
+    // terminara de escribir. El lockForUpdate() dentro de la transaccion
+    // debe re-leer el estado real y rechazar la segunda, sin importar que
+    // el objeto PHP en memoria siga diciendo "usos disponibles".
+    ['invitacion' => $invitacion] = crearInvitacion(['email' => 'carrera@mrlana.test']);
+    $servicio = app(IncorporacionInvitacionService::class);
+
+    $datos = [
+        'name' => 'Colaborador Carrera',
+        'email' => 'carrera@mrlana.test',
+        'password' => 'Capacitacion2026!',
+    ];
+
+    $servicio->registrarUsuario($invitacion, $datos);
+
+    expect(fn () => $servicio->registrarUsuario($invitacion, $datos))
+        ->toThrow(InvitacionInvalidaException::class);
+
+    expect(User::query()->where('email', 'carrera@mrlana.test')->count())->toBe(1);
 });
 
 test('el usuario creado por qr puede usar de inmediato /colaborador/incorporacion y subir documentos permitidos', function () {

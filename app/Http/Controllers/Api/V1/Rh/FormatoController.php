@@ -2,27 +2,34 @@
 
 namespace App\Http\Controllers\Api\V1\Rh;
 
+use App\Enums\EstadoDocumentoGenerado;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\Rh\PrepararGenerarFormatoRequest;
+use App\Models\Candidato;
+use App\Models\Colaborador;
 use App\Models\DocumentTemplate;
 use App\Models\GeneratedDocument;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Formatos\FormatoCatalogoService;
 use App\Services\Formatos\FormatoPreviewService;
+use App\Services\Plantillas\PlaceholderResolver;
+use App\Services\Plantillas\PlantillaDocumentoService;
 use App\Services\Plantillas\PlantillaStorageService;
+use App\Services\Plantillas\VariableMappingService;
+use Dompdf\Dompdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Catálogo de formatos y descarga de documentos ya generados desde la app
- * móvil de RH (mismos servicios que el panel web — ver
+ * Catálogo, generación y descarga de formatos DOCX desde la app móvil de RH
+ * — mismos servicios que el panel web (ver
  * App\Http\Controllers\Rh\FormatoController — no se duplica la lógica de
- * generación). Generar un documento nuevo y la vista previa con variables
- * faltantes se quedan solo en el panel web por ahora: requieren un flujo de
- * selección/edición más largo del que tiene sentido en la app; aquí RH solo
- * consulta el catálogo y descarga lo ya generado.
+ * generación/mapeo de variables). Administrar plantillas (subir DOCX,
+ * mapear variables manuales, versionar) se queda en Portal RH.
  */
 class FormatoController extends Controller
 {
@@ -31,6 +38,9 @@ class FormatoController extends Controller
         private readonly PlantillaStorageService $storage,
         private readonly FormatoPreviewService $previsualizador,
         private readonly AlcanceOrganizacionalService $alcance,
+        private readonly PlaceholderResolver $resolver,
+        private readonly PlantillaDocumentoService $generador,
+        private readonly VariableMappingService $mapeo,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -38,6 +48,150 @@ class FormatoController extends Controller
         $this->authorize('viewAny', DocumentTemplate::class);
 
         return response()->json(['data' => $this->catalogo->listar()]);
+    }
+
+    /**
+     * Qué se puede resolver solo, qué falta y si ya se puede generar —
+     * nunca genera ni persiste nada (mismo cálculo que
+     * `Rh\FormatoController::preview()`/`FormatoPreviewService`, sin el
+     * HTML que la app no necesita).
+     */
+    public function preparar(PrepararGenerarFormatoRequest $request, DocumentTemplate $plantilla): JsonResponse
+    {
+        $sujeto = $this->resolverSujetoAutorizado($request, $plantilla);
+
+        return response()->json(['data' => $this->prepararRespuesta($plantilla, $sujeto, $request->validated('extra') ?? [])]);
+    }
+
+    /**
+     * Genera el documento y lo archiva en el expediente del colaborador.
+     * Igual que el panel web: una variable manual requerida sin valor
+     * bloquea la generación (422) antes de tocar el almacenamiento.
+     */
+    public function generar(PrepararGenerarFormatoRequest $request, DocumentTemplate $plantilla): JsonResponse
+    {
+        $sujeto = $this->resolverSujetoAutorizado($request, $plantilla);
+        $extra = $request->validated('extra') ?? [];
+
+        $valoresResueltos = $this->resolver->resolver($sujeto, $extra);
+        $faltantesRequeridos = array_values(array_filter(
+            $this->mapeo->clavesManualesRequeridas($plantilla),
+            fn (string $clave) => trim((string) ($valoresResueltos[$clave] ?? '')) === '',
+        ));
+
+        if ($faltantesRequeridos !== []) {
+            throw ValidationException::withMessages([
+                'extra' => 'Faltan datos obligatorios de la plantilla: '.implode(', ', $faltantesRequeridos).'.',
+            ]);
+        }
+
+        $resultado = $this->generador->generar($plantilla, $sujeto, $extra);
+        $ruta = $this->storage->rutaGenerado($resultado['nombre_interno']);
+        $this->storage->guardarContenido($ruta, $resultado['contenido']);
+
+        $nombreGenerado = $plantilla->tipo->etiqueta().' - '.now()->format('Y-m-d').'.docx';
+
+        $documento = GeneratedDocument::create([
+            'document_template_id' => $plantilla->id,
+            'colaborador_id' => $sujeto instanceof Colaborador ? $sujeto->id : null,
+            'candidato_id' => $sujeto instanceof Candidato ? $sujeto->id : null,
+            'empresa_id' => $plantilla->empresa_id,
+            'sucursal_id' => $plantilla->sucursal_id,
+            'disk' => config('plantillas.disk'),
+            'path' => $ruta,
+            'original_name' => $plantilla->original_name,
+            'generated_name' => $nombreGenerado,
+            'mime' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'size' => strlen($resultado['contenido']),
+            'status' => EstadoDocumentoGenerado::Generado,
+            'generated_by' => $request->user()?->id,
+        ]);
+
+        return response()->json(['data' => [
+            'documento_generado_id' => $documento->id,
+            'nombre' => $nombreGenerado,
+            'filename' => $nombreGenerado,
+            'mime_type' => $documento->mime,
+            'created_at' => $documento->created_at?->toIso8601String(),
+            'acciones_permitidas' => [
+                'download',
+                ...(class_exists(Dompdf::class) ? ['preview'] : []),
+            ],
+        ]]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $extra
+     * @return array<string, mixed>
+     */
+    private function prepararRespuesta(DocumentTemplate $plantilla, Colaborador|Candidato $sujeto, array $extra): array
+    {
+        $resultado = $this->previsualizador->previsualizar($plantilla, $sujeto, $extra);
+        $nombreSujeto = $sujeto instanceof Colaborador
+            ? trim("{$sujeto->name} {$sujeto->apellidos}")
+            : trim("{$sujeto->nombre} {$sujeto->apellidos}");
+
+        $datos = [];
+        foreach ($resultado['variables'] as $clave => $valor) {
+            if (trim((string) $valor) === '') {
+                continue;
+            }
+            $datos[] = ['clave' => $clave, 'etiqueta' => str_replace('_', ' ', $clave), 'valor' => $valor];
+        }
+
+        $faltantesManuales = array_flip($this->mapeo->clavesManuales($plantilla));
+        $faltantes = [];
+        foreach ($resultado['faltantes'] as $clave) {
+            if (isset($faltantesManuales[$clave])) {
+                continue;
+            }
+            $faltantes[] = ['variable' => $clave, 'etiqueta' => str_replace('_', ' ', $clave)];
+        }
+
+        $manuales = $this->mapeo->manuales($plantilla)->map(fn (array $def) => [
+            'clave' => $def['clave'],
+            'etiqueta' => $def['etiqueta'],
+            'descripcion' => $def['descripcion'] ?? null,
+            'tipo' => $def['tipo'],
+            'requerido' => (bool) $def['requerido'],
+            'valor' => $extra[$def['clave']] ?? $def['valor_por_defecto'] ?? '',
+            'opciones' => $def['opciones'] ?? null,
+        ])->values()->all();
+
+        return [
+            'plantilla' => ['id' => $plantilla->id, 'nombre' => $plantilla->nombre],
+            'sujeto' => ['id' => $sujeto->id, 'nombre' => $nombreSujeto],
+            'datos' => $datos,
+            'faltantes' => $faltantes,
+            'manuales' => $manuales,
+            'puede_generar' => $resultado['puede_generar'],
+            'output_available' => ['docx' => true, 'pdf' => class_exists(Dompdf::class)],
+        ];
+    }
+
+    private function resolverSujetoAutorizado(PrepararGenerarFormatoRequest $request, DocumentTemplate $plantilla): Colaborador|Candidato
+    {
+        $tipoSujeto = (string) $request->validated('tipo_sujeto');
+        $sujetoId = (int) $request->validated('sujeto_id');
+
+        if ($tipoSujeto === 'candidato') {
+            $candidato = Candidato::query()->where('id', $sujetoId)->first();
+            abort_unless($candidato !== null, 404, 'No se encontró el candidato indicado.');
+
+            return $candidato;
+        }
+
+        $colaborador = Colaborador::query()->where('id', $sujetoId)->first();
+        abort_unless($colaborador !== null, 404, 'No se encontró el colaborador indicado.');
+
+        // Nunca se genera un documento para un colaborador fuera del
+        // alcance del usuario (mismo criterio que el resto de la API RH
+        // móvil) — el panel web no tiene esta restricción porque RH ahí ya
+        // filtra la lista de colaboradores por alcance antes de llegar aquí;
+        // en móvil el sujeto_id llega directo del cliente.
+        abort_unless($this->alcance->alcanzaColaborador($request->user(), $colaborador), 404);
+
+        return $colaborador;
     }
 
     public function descargar(Request $request, GeneratedDocument $documento): StreamedResponse

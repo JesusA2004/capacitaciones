@@ -52,6 +52,10 @@ return [
         'biometrics' => (bool) env('APP_MOBILE_BIOMETRICS_ENABLED', true),
         'qr_onboarding' => (bool) env('APP_MOBILE_QR_ONBOARDING_ENABLED', true),
         'cumpleanos' => (bool) env('CUMPLEANOS_ENABLED', true),
+        // Generar formatos DOCX desde la app RH (App\Http\Controllers\Api\V1\Rh\FormatoController::preparar/generar,
+        // ver docs/PLANTILLAS_FORMATOS.md). Antes fail-closed mientras el
+        // backend no exponía preparar/generar a móvil (docs/BACKEND_GAPS_FINAL.md).
+        'formatos' => (bool) env('APP_MOBILE_FORMATOS_ENABLED', true),
     ],
 
 ];

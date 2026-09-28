@@ -60,5 +60,8 @@ jobs:
       - name: Run Type Analysis
         run: composer types:check
 
+      - name: Run Frontend Type Analysis
+        run: npm run types:check
+
       - name: Tests
         run: php artisan test

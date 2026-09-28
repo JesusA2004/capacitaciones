@@ -7,6 +7,7 @@ use App\Models\Colaborador;
 use App\Models\DocumentTemplate;
 use App\Services\Plantillas\PlaceholderResolver;
 use App\Services\Plantillas\PlantillaDocumentoService;
+use App\Services\Plantillas\VariableMappingService;
 use Dompdf\Dompdf;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -28,6 +29,7 @@ class FormatoPreviewService
     public function __construct(
         private readonly PlantillaDocumentoService $generador,
         private readonly PlaceholderResolver $resolver,
+        private readonly VariableMappingService $mapeo,
     ) {}
 
     /**
@@ -36,6 +38,9 @@ class FormatoPreviewService
      *     html: string|null,
      *     variables: array<string, string>,
      *     faltantes: list<string>,
+     *     faltantes_requeridos: list<string>,
+     *     puede_generar: bool,
+     *     manuales: array<int, array<string, mixed>>,
      *     docx: string,
      * }
      */
@@ -49,12 +54,20 @@ class FormatoPreviewService
             fn (string $clave) => trim((string) ($valoresResueltos[$clave] ?? '')) === '',
         ));
 
+        // Solo las variables manuales marcadas como requeridas bloquean la
+        // generación (`puede_generar`); un dato base del colaborador vacío
+        // sigue siendo un aviso, no un bloqueo (comportamiento ya existente).
+        $faltantesRequeridos = array_values(array_intersect($faltantes, $this->mapeo->clavesManualesRequeridas($plantilla)));
+
         $resultado = $this->generador->generar($plantilla, $sujeto, $extra);
 
         return [
             'html' => $this->aHtml($resultado['contenido']),
             'variables' => array_intersect_key($valoresResueltos, array_flip($variablesPlantilla)),
             'faltantes' => $faltantes,
+            'faltantes_requeridos' => $faltantesRequeridos,
+            'puede_generar' => $faltantesRequeridos === [],
+            'manuales' => $this->mapeo->manuales($plantilla)->all(),
             'docx' => $resultado['contenido'],
         ];
     }

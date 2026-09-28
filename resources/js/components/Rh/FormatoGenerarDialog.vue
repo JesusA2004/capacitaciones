@@ -47,13 +47,34 @@ const cargandoPreview = ref(false);
 const generando = ref(false);
 const previewHtml = ref<string | null>(null);
 const previewFaltantes = ref<string[]>([]);
+const previewFaltantesRequeridos = ref<string[]>([]);
+const previewPuedeGenerar = ref(true);
+const previewManuales = ref<VariableManual[]>([]);
 const previewSolicitado = ref(false);
+
+type VariableManual = {
+    clave: string;
+    etiqueta: string;
+    descripcion: string | null;
+    requerido: boolean;
+};
 
 type PreviewRespuesta = {
     html: string | null;
     variables: Record<string, string>;
     faltantes: string[];
+    faltantes_requeridos: string[];
+    puede_generar: boolean;
+    manuales: VariableManual[];
 };
+
+function etiquetaDe(clave: string): string {
+    return previewManuales.value.find((m) => m.clave === clave)?.etiqueta ?? clave.replaceAll('_', ' ');
+}
+
+function esRequerida(clave: string): boolean {
+    return previewFaltantesRequeridos.value.includes(clave);
+}
 
 const puedeOperar = computed(() => sujetoId.value !== '');
 
@@ -99,6 +120,9 @@ async function verVistaPrevia() {
 
         previewHtml.value = respuesta.html;
         previewFaltantes.value = respuesta.faltantes;
+        previewFaltantesRequeridos.value = respuesta.faltantes_requeridos;
+        previewPuedeGenerar.value = respuesta.puede_generar;
+        previewManuales.value = respuesta.manuales;
     } catch {
         mostrarError('No se pudo generar la vista previa.');
     } finally {
@@ -225,10 +249,16 @@ function generar() {
                 </p>
                 <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <div v-for="clave in previewFaltantes" :key="clave" class="grid gap-1">
-                        <Label class="text-xs">{{ clave.replaceAll('_', ' ') }}</Label>
+                        <Label class="text-xs capitalize"
+                            >{{ etiquetaDe(clave) }}
+                            <span v-if="esRequerida(clave)" class="text-destructive">*</span>
+                        </Label>
                         <Input v-model="valoresExtra[clave]" :placeholder="clave" />
                     </div>
                 </div>
+                <p v-if="!previewPuedeGenerar" class="text-xs font-medium text-destructive">
+                    Completa los campos marcados con * antes de generar el documento.
+                </p>
                 <Button size="sm" variant="outline" class="w-fit" @click="verVistaPrevia">
                     Actualizar vista previa
                 </Button>
@@ -257,7 +287,10 @@ function generar() {
                 <Button type="button" variant="secondary" @click="emit('update:open', false)">
                     Cancelar
                 </Button>
-                <Button :disabled="!puedeOperar || generando" @click="generar">
+                <Button
+                    :disabled="!puedeOperar || generando || (previewSolicitado && !previewPuedeGenerar)"
+                    @click="generar"
+                >
                     <Spinner v-if="generando" />
                     <Download v-else class="size-4" />
                     Generar documento

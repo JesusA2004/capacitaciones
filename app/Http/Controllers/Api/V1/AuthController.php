@@ -7,7 +7,9 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -75,6 +77,29 @@ class AuthController extends Controller
         $request->user()?->currentAccessToken()->delete();
 
         return response()->json(['estado' => 'ok']);
+    }
+
+    /**
+     * Reautenticación para desbloquear la app (LockScreen) sin crear ni
+     * revocar tokens: el usuario ya está autenticado por el Bearer actual,
+     * esto solo confirma que sigue siendo quien dice ser. A diferencia de
+     * login(), nunca llama a createToken() ni a currentAccessToken()->delete().
+     */
+    public function reautenticar(Request $request): Response
+    {
+        $credenciales = $request->validate([
+            'password' => ['required', 'string'],
+        ]);
+
+        $usuario = $request->user();
+
+        if (! Hash::check($credenciales['password'], $usuario->password)) {
+            throw ValidationException::withMessages([
+                'password' => 'La contraseña no es válida.',
+            ]);
+        }
+
+        return response()->noContent();
     }
 
     public function me(Request $request): JsonResponse

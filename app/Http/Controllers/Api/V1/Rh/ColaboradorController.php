@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers\Api\V1\Rh;
 
+use App\Enums\TipoSolicitudInterna;
 use App\Http\Controllers\Controller;
 use App\Models\Colaborador;
 use App\Models\SolicitudInterna;
-use App\Models\SolicitudVacaciones;
 use App\Services\AlcanceOrganizacionalService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -83,7 +83,13 @@ class ColaboradorController extends Controller
                 'puesto' => $colaborador->puesto?->nombre,
                 'resumen' => [
                     'solicitudes_pendientes' => SolicitudInterna::query()->where('colaborador_id', $colaborador->id)->whereIn('estado', ['enviada', 'en_revision'])->count(),
-                    'vacaciones_pendientes' => SolicitudVacaciones::query()->where('colaborador_id', $colaborador->id)->where('estado', 'pendiente')->count(),
+                    // Bug corregido: antes contaba solo la tabla legacy
+                    // `solicitudes_vacaciones` (`SolicitudVacaciones`), que
+                    // ya no recibe las solicitudes de vacaciones creadas por
+                    // el flujo unificado actual (tipo=vacaciones en
+                    // `solicitudes_internas`) — mostraba 0 pendientes aunque
+                    // sí hubiera una solicitud real esperando revisión.
+                    'vacaciones_pendientes' => SolicitudInterna::query()->where('colaborador_id', $colaborador->id)->where('tipo', TipoSolicitudInterna::Vacaciones)->whereIn('estado', ['enviada', 'en_revision'])->count(),
                     'documentos_pendientes' => $colaborador->documentos()->whereIn('status', ['cargado', 'en_revision', 'cambio_solicitado'])->count(),
                 ],
                 'acciones_permitidas' => array_filter([

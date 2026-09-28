@@ -134,13 +134,26 @@ GET /api/v1/rh/jerarquia-puestos      permiso: puestos.administrar
 Mismo `JerarquiaPuestoService` que el panel web (`Administracion\JerarquiaPuestoController`);
 la app solo consulta el árbol, no puede editarlo. Ver `docs/JERARQUIA_PUESTOS.md`.
 
-## Formatos (catálogo y descarga)
+## Formatos (catálogo, generación y descarga)
 
 ```
-GET /api/v1/rh/formatos                             plantillas.ver
-GET /api/v1/rh/formatos/{documento}/descargar        formatos.descargar_docx o formatos.descargar_pdf
-GET /api/v1/rh/formatos/{documento}/descargar-pdf    formatos.descargar_docx o formatos.descargar_pdf
+GET  /api/v1/rh/formatos                             plantillas.ver
+POST /api/v1/rh/formatos/{plantilla}/preparar         plantillas.generar
+POST /api/v1/rh/formatos/{plantilla}/generar          plantillas.generar
+GET  /api/v1/rh/formatos/{documento}/descargar        formatos.descargar_docx o formatos.descargar_pdf
+GET  /api/v1/rh/formatos/{documento}/descargar-pdf    formatos.descargar_docx o formatos.descargar_pdf
 ```
+
+`preparar`/`generar` reutilizan `FormatoPreviewService`/`VariableMappingService`
+(mismo motor que el panel web, ver `docs/PLANTILLAS_FORMATOS.md`): `preparar`
+regresa `datos` (resueltos), `faltantes` (avisos, no bloquean), `manuales`
+(variables declaradas por RH para esa plantilla) y `puede_generar` (false solo
+si falta una manual **requerida**). `generar` valida lo mismo antes de crear
+el `GeneratedDocument` (422 si falta algo requerido) y además exige
+`AlcanceOrganizacionalService::alcanzaColaborador()` sobre el `sujeto_id`
+recibido — el panel web no necesita esa verificación porque ya filtra la
+lista de colaboradores por alcance antes de llegar al formulario; en móvil el
+id llega directo del cliente.
 
 Mismo `FormatoCatalogoService` que el panel web; la descarga respeta
 `AlcanceOrganizacionalService` para documentos asociados a un colaborador (los de

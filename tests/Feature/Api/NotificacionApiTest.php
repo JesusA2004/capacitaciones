@@ -46,6 +46,30 @@ test('el payload de una notificacion trae data.type y data.resource_id', functio
         ->and($respuesta->json('data.0.data.resource_id'))->toBe($solicitud->id);
 });
 
+test('el listado de notificaciones esta paginado de verdad (antes solo mostraba las 30 mas recientes, sin forma de ver mas viejas)', function () {
+    $usuario = User::factory()->create();
+    $solicitud = SolicitudInterna::factory()->create(['user_id' => $usuario->id]);
+
+    for ($i = 0; $i < 35; $i++) {
+        $usuario->notify(new SolicitudActualizadaNotification($solicitud));
+    }
+
+    $primeraPagina = $this->withHeaders(notificacionHeaders($usuario))
+        ->getJson('/api/v1/notificaciones?per_page=30')
+        ->assertOk();
+
+    expect($primeraPagina->json('meta.total'))->toBe(35)
+        ->and($primeraPagina->json('meta.current_page'))->toBe(1)
+        ->and($primeraPagina->json('meta.last_page'))->toBe(2)
+        ->and(count($primeraPagina->json('data')))->toBe(30);
+
+    $segundaPagina = $this->withHeaders(notificacionHeaders($usuario))
+        ->getJson('/api/v1/notificaciones?per_page=30&page=2')
+        ->assertOk();
+
+    expect(count($segundaPagina->json('data')))->toBe(5);
+});
+
 test('el payload de una notificacion trae emoji y color segun su tipo', function () {
     $usuario = User::factory()->create();
     $solicitud = SolicitudInterna::factory()->create(['user_id' => $usuario->id]);

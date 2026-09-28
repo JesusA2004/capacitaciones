@@ -13,7 +13,20 @@ class NotificacionController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        return response()->json(['data' => $this->notificaciones->listar($request->user())]);
+        $porPagina = min(50, max(1, $request->integer('per_page', 30)));
+        $pagina = max(1, $request->integer('page', 1));
+
+        $paginador = $this->notificaciones->listarPaginado($request->user(), $porPagina, $pagina);
+
+        return response()->json([
+            'data' => $paginador->items(),
+            'meta' => [
+                'current_page' => $paginador->currentPage(),
+                'last_page' => $paginador->lastPage(),
+                'per_page' => $paginador->perPage(),
+                'total' => $paginador->total(),
+            ],
+        ]);
     }
 
     public function marcarLeida(Request $request, string $notificacion): JsonResponse
