@@ -82,7 +82,7 @@ const columnas: ColumnaDataTable[] = [
 <template>
     <Head title="Invitaciones de incorporación" />
 
-    <div class="flex flex-col gap-6 p-4">
+    <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
             titulo="Invitaciones de incorporación"
             descripcion="QR temporal para que un colaborador nuevo pueda registrarse en la app. Nadie se registra sin una invitación activa."

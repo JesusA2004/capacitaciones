@@ -73,7 +73,7 @@ const DATOS = [
 <template>
     <Head title="Mi perfil" />
 
-    <div class="grid grid-cols-1 gap-6 p-4 lg:grid-cols-3 lg:p-6">
+    <div class="pagina-media grid grid-cols-1 gap-6 lg:grid-cols-3">
         <!-- Tarjeta de foto: precargada desde el expediente del colaborador. -->
         <div
             class="flex flex-col items-center gap-4 self-start rounded-3xl border border-border/60 bg-gradient-to-br from-card to-muted/30 p-8 text-center shadow-sm transition-shadow duration-200 hover:shadow-md lg:col-span-1"

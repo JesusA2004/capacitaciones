@@ -76,7 +76,7 @@ const ACCESOS = [
 <template>
     <Head title="Mi portal" />
 
-    <div class="flex flex-col gap-6 p-4 lg:p-6">
+    <div class="pagina-media flex flex-col gap-6">
         <CelebracionesHoyCard />
         <!-- Encabezado: avatar (precargado desde el expediente) + saludo -->
         <div

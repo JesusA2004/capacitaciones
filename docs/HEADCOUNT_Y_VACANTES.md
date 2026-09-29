@@ -18,7 +18,21 @@ php artisan headcount:importar
 
 Sin argumento, usa la ruta por defecto: `claude/headcount/HEADCOUNT GENERAL MR LANA 28-08-2026..xlsx` (ya versionado en el repo). También acepta una ruta explícita: `php artisan headcount:importar "ruta/al/archivo.xlsx"`. Si el archivo no existe, el comando avisa con un mensaje claro y termina con código de error — nunca rompe el deploy.
 
-`App\Services\Headcount\HeadcountImportService` lee las hojas del Excel en bloques de dos sucursales por fila (columnas A-D y F-I), cada bloque con su propio encabezado `MODALIDAD | PLANTILLA AUTORIZADA | PLANTILLA ACTUAL | VACANTES` — solo se importa la columna de plantilla autorizada, el resto del Excel se ignora a propósito (esas columnas son historia del propio Excel, no la fuente de verdad del sistema). Modalidades del Excel se mapean a `Puesto` reales (`GESTOR DE RUTA`/`GESTORES DE RUTA` → Gestor fijo, `GESTOR VOLANTE` → Gestor volante, `COORDINADORA DE SUCURSAL` → Coordinadora, etc.); `INCAPACITADOS` se excluye a propósito (no es una modalidad operativa). Una sucursal o modalidad sin match en el sistema **no se crea silenciosamente** — se reporta en la salida del comando como pendiente. Un conflicto entre hojas para el mismo par (sucursal, puesto) también se reporta explícitamente (se conserva el primer valor leído). Idempotente: correrlo varias veces no duplica nada (upsert por sucursal+puesto).
+`App\Services\Headcount\HeadcountImportService` lee las hojas del Excel en bloques de dos sucursales por fila (columnas A-D y F-I), cada bloque con su propio encabezado `MODALIDAD | PLANTILLA AUTORIZADA | PLANTILLA ACTUAL | VACANTES` — solo se importa la columna de plantilla autorizada, el resto del Excel se ignora a propósito (esas columnas son historia del propio Excel, no la fuente de verdad del sistema). Modalidades del Excel se mapean a `Puesto` reales (`GESTOR DE RUTA`/`GESTORES DE RUTA` → Gestor, `GESTOR VOLANTE` → Gestor Volante, `COORDINADORA DE SUCURSAL` → Coordinadora de Sucursal, `GERENTE` → Gerente de Sucursal, `SUBGERENTE` → Subgerente); `INCAPACITADOS` se excluye a propósito (no es una modalidad operativa). Una sucursal o modalidad sin match en el sistema **no se crea silenciosamente** — se reporta en la salida del comando como pendiente. Un conflicto entre hojas para el mismo par (sucursal, puesto) también se reporta explícitamente (se conserva el primer valor leído). Idempotente: correrlo varias veces no duplica nada (upsert por sucursal+puesto).
+
+### Plazas, ocupados, coberturas (reglas)
+
+Headcount cuenta **posiciones autorizadas**, no personas actuales. Por sucursal, típicamente: Gerente de Sucursal 1, Subgerente 1, Gestor N, Gestor Volante 1 si corresponde, Coordinadora de Sucursal 1.
+
+- **Autorizado** = suma de plazas (`headcount_targets`).
+- **Ocupado** = personas **titulares** (colaboradores activos con ese puesto en esa sucursal).
+- **Vacante** = autorizado − ocupado (por par sucursal/puesto, nunca negativo).
+- **Fuera de plantilla** = persona real sin plaza autorizada asociada (se reporta aparte).
+- **Cobertura temporal** (`coberturas_puesto`) **no** aumenta el autorizado ni cuenta como ocupado: si el gerente de Córdoba cubre Cuernavaca, Cuernavaca sigue con su plaza de gerente vacante y Córdoba sigue con 1 ocupado (no son 2 empleados ni 2 puestos).
+- **Gestor Volante** sí cuenta dentro de la plantilla (equivale a la plaza de Gestor para plantilla/vacantes, `config/headcount.php`) aunque no tenga ruta fija.
+- **Una ruta no crea headcount**: las plazas de Gestor vienen de la plantilla autorizada; la ruta es una asignación de la matriz comercial (ver `docs/MATRIZ_COMERCIAL.md`).
+
+Observaciones del Excel real (28-08-2026), reportadas sin corregir: San Juan del Río no autoriza gerente ni subgerente; Tenango del Valle no autoriza gerente ni trae renglón de Gestor; Atlixco no autoriza coordinadora. Ninguna sucursal autoriza más de 1 gerente o 1 subgerente.
 
 ### Cumplimiento / eficiencia
 
@@ -50,4 +64,4 @@ Una fila por **vacante real**: qué puesto falta, en qué sucursal, cuántas pla
 
 ## Matriz comercial vs. headcount
 
-La matriz comercial (`App\Models\NodoComercial`, ver `docs/ORGANIGRAMA.md`) modela **rutas individuales** dentro de una zona (p. ej. "CUERNAVACA" tiene 12 rutas: Yautepec, Barona, Jiutepec...). El Excel de headcount **no trae ese detalle** — solo trae plantilla autorizada por zona (= `Sucursal`) y puesto. Por eso headcount sigue siendo por sucursal, no por ruta: la "cobertura" de una ruta individual (¿tiene gestor asignado hoy?) es un dato de la matriz comercial, independiente del cálculo de vacantes. Una zona puede tener 2 vacantes de "Gestor fijo" según headcount sin que eso diga automáticamente cuáles de sus rutas están cubiertas — eso se ve en Matriz comercial.
+La matriz comercial (`App\Models\NodoComercial`, ver `docs/ORGANIGRAMA.md`) modela **rutas individuales** dentro de una zona (p. ej. "CUERNAVACA" tiene 12 rutas: Yautepec, Barona, Jiutepec...). El Excel de headcount **no trae ese detalle** — solo trae plantilla autorizada por zona (= `Sucursal`) y puesto. Por eso headcount sigue siendo por sucursal, no por ruta: la "cobertura" de una ruta individual (¿tiene gestor asignado hoy?) es un dato de la matriz comercial, independiente del cálculo de vacantes. Una zona puede tener 2 vacantes de "Gestor" según headcount sin que eso diga automáticamente cuáles de sus rutas están cubiertas — eso se ve en Matriz comercial.

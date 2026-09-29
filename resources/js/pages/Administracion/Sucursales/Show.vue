@@ -88,7 +88,7 @@ function porcentaje(fila: PlantillaPorPuesto): number {
 <template>
     <Head :title="sucursal.nombre" />
 
-    <div class="mx-auto flex w-full max-w-screen-2xl min-w-0 flex-col gap-4 p-3 sm:p-4 lg:px-6">
+    <div class="pagina-ancha flex flex-col gap-4">
         <!-- Encabezado de detalle: nombre + datos de contacto + gerente -->
         <header class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div class="flex min-w-0 items-start gap-2">

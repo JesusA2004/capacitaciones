@@ -109,141 +109,143 @@ async function eliminarRelease(release: Release) {
 </script>
 
 <template>
-    <CrudPageHeader
-        titulo="Versiones de app"
-        descripcion="Publica el APK de MR. LANA PEOPLE para descarga directa mientras no esté en Play Store."
-        :icono="Smartphone"
-    >
-        <Button v-if="permisos.crear" @click="dialogoAbierto = true">
-            <Upload class="size-4" /> Subir versión
-        </Button>
-    </CrudPageHeader>
+    <div class="pagina-ancha flex flex-col gap-6">
+        <CrudPageHeader
+            titulo="Versiones de app"
+            descripcion="Publica el APK de MR. LANA PEOPLE para descarga directa mientras no esté en Play Store."
+            :icono="Smartphone"
+        >
+            <Button v-if="permisos.crear" @click="dialogoAbierto = true">
+                <Upload class="size-4" /> Subir versión
+            </Button>
+        </CrudPageHeader>
 
-    <div
-        v-if="releases.length === 0"
-        class="mt-6 rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground"
-    >
-        Todavía no se ha subido ninguna versión del APK.
-    </div>
+        <div
+            v-if="releases.length === 0"
+            class="mt-6 rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground"
+        >
+            Todavía no se ha subido ninguna versión del APK.
+        </div>
 
-    <div v-else data-tour="tabla" class="mt-6 overflow-x-auto rounded-lg border">
-        <Table>
-            <TableHeader>
-                <TableRow>
-                    <TableHead>Versión</TableHead>
-                    <TableHead>Tamaño</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead>Subido por</TableHead>
-                    <TableHead>Publicada</TableHead>
-                    <TableHead class="text-right">Acciones</TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                <TableRow v-for="release in releases" :key="release.id">
-                    <TableCell>
-                        <p class="font-medium">
-                            {{ release.version }}
-                            <span
-                                v-if="release.build_number"
-                                class="text-xs text-muted-foreground"
-                                >(build {{ release.build_number }})</span
-                            >
-                        </p>
-                        <p
-                            v-if="release.minimum_required"
-                            class="text-xs text-destructive"
-                        >
-                            Actualización obligatoria
-                        </p>
-                    </TableCell>
-                    <TableCell>{{
-                        formatearTamano(release.file_size)
-                    }}</TableCell>
-                    <TableCell>
-                        <div class="flex flex-wrap gap-1">
-                            <Badge
-                                :variant="
-                                    release.is_published ? 'default' : 'outline'
-                                "
-                            >
-                                <CheckCircle2
-                                    v-if="release.is_published"
-                                    class="size-3"
-                                />
-                                <XCircle v-else class="size-3" />
-                                {{
-                                    release.is_published
-                                        ? 'Publicada'
-                                        : 'Sin publicar'
-                                }}
-                            </Badge>
-                            <Badge v-if="release.is_latest" variant="secondary"
-                                >Más reciente</Badge
-                            >
-                        </div>
-                    </TableCell>
-                    <TableCell class="text-sm text-muted-foreground">
-                        {{
-                            release.subido_por
-                                ? `${release.subido_por.name} ${release.subido_por.apellidos ?? ''}`
-                                : '—'
-                        }}
-                    </TableCell>
-                    <TableCell class="text-sm text-muted-foreground">
-                        {{
-                            release.published_at
-                                ? new Date(
-                                      release.published_at,
-                                  ).toLocaleDateString('es-MX')
-                                : '—'
-                        }}
-                    </TableCell>
-                    <TableCell class="text-right">
-                        <div class="flex justify-end gap-1">
-                            <Button
-                                v-if="permisos.descargar"
-                                as-child
-                                size="icon"
-                                variant="ghost"
-                            >
-                                <a
-                                    :href="descargar.url(release.id)"
-                                    title="Descargar APK"
+        <div v-else data-tour="tabla" class="overflow-x-auto rounded-lg border">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Versión</TableHead>
+                        <TableHead>Tamaño</TableHead>
+                        <TableHead>Estado</TableHead>
+                        <TableHead>Subido por</TableHead>
+                        <TableHead>Publicada</TableHead>
+                        <TableHead class="text-right">Acciones</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    <TableRow v-for="release in releases" :key="release.id">
+                        <TableCell>
+                            <p class="font-medium">
+                                {{ release.version }}
+                                <span
+                                    v-if="release.build_number"
+                                    class="text-xs text-muted-foreground"
+                                    >(build {{ release.build_number }})</span
                                 >
-                                    <Download class="size-4" />
-                                </a>
-                            </Button>
-                            <Button
-                                v-if="
-                                    permisos.publicar && !release.is_published
-                                "
-                                size="sm"
-                                variant="outline"
-                                @click="publicarRelease(release)"
+                            </p>
+                            <p
+                                v-if="release.minimum_required"
+                                class="text-xs text-destructive"
                             >
-                                Publicar
-                            </Button>
-                            <Button
-                                v-if="permisos.publicar && release.is_published"
-                                size="sm"
-                                variant="outline"
-                                @click="despublicarRelease(release)"
-                            >
-                                Despublicar
-                            </Button>
-                            <Button
-                                v-if="permisos.eliminar"
-                                size="icon"
-                                variant="ghost"
-                                @click="eliminarRelease(release)"
-                            >
-                                <Trash2 class="size-4 text-destructive" />
-                            </Button>
-                        </div>
-                    </TableCell>
-                </TableRow>
-            </TableBody>
-        </Table>
+                                Actualización obligatoria
+                            </p>
+                        </TableCell>
+                        <TableCell>{{
+                            formatearTamano(release.file_size)
+                        }}</TableCell>
+                        <TableCell>
+                            <div class="flex flex-wrap gap-1">
+                                <Badge
+                                    :variant="
+                                        release.is_published ? 'default' : 'outline'
+                                    "
+                                >
+                                    <CheckCircle2
+                                        v-if="release.is_published"
+                                        class="size-3"
+                                    />
+                                    <XCircle v-else class="size-3" />
+                                    {{
+                                        release.is_published
+                                            ? 'Publicada'
+                                            : 'Sin publicar'
+                                    }}
+                                </Badge>
+                                <Badge v-if="release.is_latest" variant="secondary"
+                                    >Más reciente</Badge
+                                >
+                            </div>
+                        </TableCell>
+                        <TableCell class="text-sm text-muted-foreground">
+                            {{
+                                release.subido_por
+                                    ? `${release.subido_por.name} ${release.subido_por.apellidos ?? ''}`
+                                    : '—'
+                            }}
+                        </TableCell>
+                        <TableCell class="text-sm text-muted-foreground">
+                            {{
+                                release.published_at
+                                    ? new Date(
+                                          release.published_at,
+                                      ).toLocaleDateString('es-MX')
+                                    : '—'
+                            }}
+                        </TableCell>
+                        <TableCell class="text-right">
+                            <div class="flex justify-end gap-1">
+                                <Button
+                                    v-if="permisos.descargar"
+                                    as-child
+                                    size="icon"
+                                    variant="ghost"
+                                >
+                                    <a
+                                        :href="descargar.url(release.id)"
+                                        title="Descargar APK"
+                                    >
+                                        <Download class="size-4" />
+                                    </a>
+                                </Button>
+                                <Button
+                                    v-if="
+                                        permisos.publicar && !release.is_published
+                                    "
+                                    size="sm"
+                                    variant="outline"
+                                    @click="publicarRelease(release)"
+                                >
+                                    Publicar
+                                </Button>
+                                <Button
+                                    v-if="permisos.publicar && release.is_published"
+                                    size="sm"
+                                    variant="outline"
+                                    @click="despublicarRelease(release)"
+                                >
+                                    Despublicar
+                                </Button>
+                                <Button
+                                    v-if="permisos.eliminar"
+                                    size="icon"
+                                    variant="ghost"
+                                    @click="eliminarRelease(release)"
+                                >
+                                    <Trash2 class="size-4 text-destructive" />
+                                </Button>
+                            </div>
+                        </TableCell>
+                    </TableRow>
+                </TableBody>
+            </Table>
+        </div>
     </div>
 
     <AppReleaseFormDialog

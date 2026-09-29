@@ -108,7 +108,7 @@ return null;
 <template>
     <Head :title="resultado.titulo" />
 
-    <div class="flex flex-col gap-6 p-4">
+    <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
             titulo="Reportes RH"
             descripcion="Consulta y exporta la información de RH filtrada por empresa, sucursal, departamento o puesto."

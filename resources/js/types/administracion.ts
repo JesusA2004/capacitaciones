@@ -82,6 +82,10 @@ export type OcupantePuesto = {
 };
 
 export type PuestoJerarquiaItem = {
+    /** Región de la matriz a la que está ligado (puestos "Gerente Regional Qx"). */
+    region?: string | null;
+    /** Reporta al regional de SU región (Gerente de Sucursal). */
+    depende_de_region?: boolean;
     /** Primeros colaboradores activos en el puesto, con foto (miniatura). */
     ocupantes?: OcupantePuesto[];
     id: number;
@@ -202,6 +206,8 @@ export type NodoOrganigramaPersona = {
         motivo_etiqueta: string;
         desde: string;
         nota: string | null;
+        /** Puesto titular de quien cubre (no cambia por cubrir). */
+        titular_de?: string | null;
     } | null;
 };
 

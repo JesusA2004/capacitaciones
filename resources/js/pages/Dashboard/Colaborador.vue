@@ -20,7 +20,7 @@ defineOptions({
 <template>
     <Head title="Inicio" />
 
-    <div class="flex flex-col gap-6 p-4">
+    <div class="pagina-ancha flex flex-col gap-6">
         <CelebracionesHoyCard />
 
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">

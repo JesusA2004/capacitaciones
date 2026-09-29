@@ -161,7 +161,7 @@ async function eliminar(documento: DocumentoGeneradoItem) {
 <template>
     <Head title="Documentos generados" />
 
-    <div class="flex w-full min-w-0 flex-col gap-6 p-4 sm:p-6">
+    <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
             titulo="Documentos generados"
             descripcion="Genera documentos adicionales desde plantillas internas y consulta el historial de archivos generados."

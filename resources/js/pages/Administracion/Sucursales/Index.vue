@@ -109,7 +109,7 @@ async function eliminar(sucursal: SucursalItem) {
 <template>
     <Head title="Sucursales" />
 
-    <div class="flex flex-col gap-6 p-4">
+    <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
             titulo="Sucursales"
             descripcion="Organiza la capacitación por ubicación y revisa el alcance de cada responsable."

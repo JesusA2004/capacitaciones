@@ -59,7 +59,7 @@ function fecha(valor: string | null): string {
 <template>
     <Head title="Documentos generados" />
 
-    <div class="flex w-full min-w-0 flex-col gap-4 p-4 sm:p-6">
+    <div class="pagina-ancha flex flex-col gap-4">
         <FormatosTabsNav activa="generados" />
 
         <div class="flex flex-col gap-2 sm:flex-row">

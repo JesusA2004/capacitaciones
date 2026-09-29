@@ -33,6 +33,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  */
 class CelebracionRhController extends Controller
 {
+    /** Datos de ejemplo de la vista previa de la tarjeta de aniversario. */
+    private const EJEMPLO = [
+        'nombre' => 'Nombre de Ejemplo Apellido',
+        'anios' => 6,
+        'puesto' => 'Puesto de ejemplo',
+        'sucursal' => 'Sucursal de ejemplo',
+    ];
+
     public function __construct(
         private readonly CelebracionService $celebraciones,
         private readonly TarjetaAniversarioService $tarjetaAniversario,
@@ -159,6 +167,7 @@ class CelebracionRhController extends Controller
                 'tiene_fondo' => $this->storage->existe($this->tarjetaAniversario->rutaFondo()),
             ],
             'mensajePredeterminado' => (string) config('celebraciones.aniversario.mensaje'),
+            'ejemplo' => self::EJEMPLO,
         ]);
     }
 
@@ -197,7 +206,15 @@ class CelebracionRhController extends Controller
     {
         abort_unless($request->user()->can('celebraciones.gestionar'), 403);
 
-        $png = $this->tarjetaAniversario->renderPng('Nombre de Ejemplo Apellido', 6, 'Sucursal de ejemplo', $this->tarjetaAniversario->mensaje(6, 'Nombre de Ejemplo', 'Sucursal de ejemplo'));
+        // Datos de EJEMPLO (la pantalla los etiqueta como tales): años,
+        // nombre, puesto, sucursal y el mensaje configurado.
+        $png = $this->tarjetaAniversario->renderPng(
+            self::EJEMPLO['nombre'],
+            self::EJEMPLO['anios'],
+            self::EJEMPLO['sucursal'],
+            $this->tarjetaAniversario->mensaje(self::EJEMPLO['anios'], self::EJEMPLO['nombre'], self::EJEMPLO['sucursal']),
+            self::EJEMPLO['puesto'],
+        );
 
         return response($png, 200, ['Content-Type' => 'image/png', 'Cache-Control' => 'no-store']);
     }

@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { Maximize2, Minus, Plus } from '@lucide/vue';
-import { computed, nextTick, provide, ref } from 'vue';
+import { computed, nextTick, onMounted, provide, ref, watch } from 'vue';
 import OrganigramaPersonaNodo from '@/components/Administracion/OrganigramaPersonaNodo.vue';
 import { Button } from '@/components/ui/button';
 import {
+    agruparPersonasPorPadre,
     CLAVE_DETALLE_ORGANIGRAMA,
     detallePorZoom,
     ESTILO_TIPO_PUESTO,
@@ -65,35 +66,32 @@ async function ajustar(): Promise<void> {
     }
 }
 
-const porClave = computed(
-    () => new Map(props.nodos.map((nodo) => [nodo.clave, nodo])),
+/**
+ * La raíz (Dirección General) queda centrada sobre todo el árbol, que es
+ * mucho más ancho que la pantalla: al abrir, el scroll se centra en ella en
+ * vez de empezar en el extremo izquierdo (donde no se ve la cabeza).
+ */
+async function centrarEnRaiz(): Promise<void> {
+    await nextTick();
+    const caja = contenedor.value;
+
+    if (caja) {
+        caja.scrollLeft = Math.max(
+            0,
+            (caja.scrollWidth - caja.clientWidth) / 2,
+        );
+        caja.scrollTop = 0;
+    }
+}
+
+onMounted(centrarEnRaiz);
+watch(
+    () => props.nodos,
+    () => void centrarEnRaiz(),
 );
 
-/** Hijos ordenados: primero los de mayor jerarquía, luego por nombre. */
-const hijosPorPadre = computed(() => {
-    const mapa = new Map<string, NodoOrganigramaPersona[]>();
-
-    for (const nodo of props.nodos) {
-        const padre =
-            nodo.padre && porClave.value.has(nodo.padre) ? nodo.padre : '';
-        mapa.set(padre, [...(mapa.get(padre) ?? []), nodo]);
-    }
-
-    for (const lista of mapa.values()) {
-        lista.sort(
-            (a, b) =>
-                (a.puesto.nivel ?? 99) - (b.puesto.nivel ?? 99) ||
-                (a.sucursal?.nombre ?? '').localeCompare(
-                    b.sucursal?.nombre ?? '',
-                ) ||
-                (a.persona?.nombre ?? '').localeCompare(
-                    b.persona?.nombre ?? '',
-                ),
-        );
-    }
-
-    return mapa;
-});
+/** Hijos ordenados (misma regla que la lista móvil, ver lib/organigrama). */
+const hijosPorPadre = computed(() => agruparPersonasPorPadre(props.nodos));
 
 const raices = computed(() => hijosPorPadre.value.get('') ?? []);
 

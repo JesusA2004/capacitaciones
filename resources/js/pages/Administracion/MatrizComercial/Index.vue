@@ -81,6 +81,15 @@ function alternar(id: number) {
     abiertos.value = new Set(abiertos.value);
 }
 
+/** Solo las rutas de cobro se asignan a un gestor. */
+function rutasDe(zona: NodoComercialArbol): NodoComercialArbol[] {
+    return zona.hijos.filter((h) => !h.es_posicion);
+}
+
+function posicionesDe(zona: NodoComercialArbol): NodoComercialArbol[] {
+    return zona.hijos.filter((h) => h.es_posicion);
+}
+
 function estaAbierto(id: number): boolean {
     return abiertos.value.has(id);
 }
@@ -137,7 +146,7 @@ function quitarApoyoOVolante(
 <template>
     <Head title="Matriz comercial" />
 
-    <div class="flex flex-col gap-6 p-4 lg:p-6">
+    <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
             titulo="Matriz comercial"
             descripcion="Estructura territorial MATRIZ → Región → Zona → Ruta, y quién cubre cada ruta hoy. Las vacantes disponibles se ven en Vacantes, no aquí."
@@ -222,12 +231,28 @@ function quitarApoyoOVolante(
                                 >
                             </span>
                             <span class="text-xs text-muted-foreground">
-                                {{ zona.hijos.length }} ruta(s)
+                                {{ rutasDe(zona).length }} ruta(s)
                             </span>
                         </CollapsibleTrigger>
-                        <CollapsibleContent class="grid grid-cols-1 gap-2 border-t border-border/60 p-3 sm:grid-cols-2 lg:grid-cols-3">
+                        <CollapsibleContent class="grid grid-cols-1 gap-2 border-t border-border/60 p-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                            <!-- Posiciones de la sucursal que dirección listó junto con las
+                                 rutas (GTE, SUBGERENCIA, VOLANTE): no son carteras asignables;
+                                 se ocupan desde el Organigrama. -->
                             <div
-                                v-for="ruta in zona.hijos"
+                                v-if="posicionesDe(zona).length"
+                                class="col-span-full flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground"
+                            >
+                                <span>Posiciones de la sucursal (ver Organigrama):</span>
+                                <Badge
+                                    v-for="posicion in posicionesDe(zona)"
+                                    :key="posicion.id"
+                                    variant="outline"
+                                    :title="posicion.tipo_etiqueta"
+                                    >{{ posicion.nombre }}</Badge
+                                >
+                            </div>
+                            <div
+                                v-for="ruta in rutasDe(zona)"
                                 :key="ruta.id"
                                 class="flex flex-col gap-2 rounded-lg border border-border/60 p-3"
                             >

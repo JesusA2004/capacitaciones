@@ -50,13 +50,14 @@ class TarjetaAniversarioService
             return $celebracion;
         }
 
-        $celebracion->loadMissing('colaborador.sucursalPrincipal');
+        $celebracion->loadMissing(['colaborador.sucursalPrincipal', 'colaborador.puesto']);
         $colaborador = $celebracion->colaborador;
         $png = $this->renderPng(
             $colaborador->nombreCompleto(),
             (int) $celebracion->anios,
             $colaborador->sucursalPrincipal?->nombre,
             $this->mensaje((int) $celebracion->anios, $colaborador->nombreCompleto(), $colaborador->sucursalPrincipal?->nombre),
+            $colaborador->puesto?->nombre,
         );
 
         $ruta = $this->rutaTarjeta($celebracion);
@@ -123,9 +124,10 @@ class TarjetaAniversarioService
     }
 
     /**
-     * PNG completo. Público para la vista previa de Configuración.
+     * PNG completo. Público para la vista previa de Configuración. Debajo
+     * del nombre va "PUESTO · SUCURSAL" (mismo formato que los listados).
      */
-    public function renderPng(string $nombre, int $anios, ?string $sucursal, string $mensaje): string
+    public function renderPng(string $nombre, int $anios, ?string $sucursal, string $mensaje, ?string $puesto = null): string
     {
         $ancho = max(600, (int) config('celebraciones.card_width', 1080));
         $alto = max(750, (int) config('celebraciones.card_height', 1350));
@@ -167,9 +169,11 @@ class TarjetaAniversarioService
         $y = $this->textoParrafo($imagen, $negrita, (int) (54 * $escala), $verde, $ancho, $y, mb_strtoupper($nombre), $anchoTexto,
             interlineado: (int) (64 * $escala), altoMaximo: (int) (190 * $escala), tamanoMinimo: (int) (28 * $escala));
 
-        if ($sucursal !== null && trim($sucursal) !== '') {
+        $subtitulo = implode(' · ', array_filter([trim((string) $puesto), trim((string) $sucursal)], fn (string $parte) => $parte !== ''));
+
+        if ($subtitulo !== '') {
             $y += (int) (6 * $escala);
-            $y = $this->textoParrafo($imagen, $regular, (int) (30 * $escala), $azul, $ancho, $y, mb_strtoupper($sucursal), $anchoTexto,
+            $y = $this->textoParrafo($imagen, $regular, (int) (30 * $escala), $azul, $ancho, $y, mb_strtoupper($subtitulo), $anchoTexto,
                 interlineado: (int) (40 * $escala), altoMaximo: (int) (80 * $escala), tamanoMinimo: (int) (20 * $escala));
         }
 

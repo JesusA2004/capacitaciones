@@ -17,6 +17,6 @@
 
 return [
     'puestos_equivalentes' => [
-        'Gestor volante' => 'Gestor',
+        'Gestor Volante' => 'Gestor',
     ],
 ];

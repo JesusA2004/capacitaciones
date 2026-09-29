@@ -50,7 +50,7 @@ use Illuminate\Support\Collection;
  *     region: Referencia|null,
  *     persona: array{id: int, nombre: string, foto_url: string|null, numero_empleado: string|null, expediente_url: string, sucursal: string|null}|null,
  *     rutas: list<array{nombre: string, tipo: string}>,
- *     cobertura: array{id: int, motivo: string, motivo_etiqueta: string, desde: string, nota: string|null}|null
+ *     cobertura: array{id: int, motivo: string, motivo_etiqueta: string, desde: string, nota: string|null, titular_de?: string|null}|null
  * }
  * @phpstan-type Ambito array{tipo: 'sucursal'|'region'|'corporativo', sucursal: int|null, region: int|null}
  */
@@ -85,6 +85,19 @@ class OrganigramaPersonasService
     /** @var array<int, Referencia> región de la matriz por sucursal_id */
     private array $regionPorSucursal = [];
 
+    /**
+     * Puestos regionales ligados a su región en la matriz comercial
+     * (nodos_comerciales.puesto_id del nodo Región): puesto_id => región y
+     * región => puesto_id. "Gerente Regional Q1" siempre es de Q1, sin
+     * importar en qué sucursal esté registrado quien lo ocupa.
+     *
+     * @var array<int, int>
+     */
+    private array $regionDePuesto = [];
+
+    /** @var array<int, int> */
+    private array $puestoDeRegion = [];
+
     /** @var array<int, string> */
     private array $nombresSucursal = [];
 
@@ -107,7 +120,7 @@ class OrganigramaPersonasService
     {
         $this->nodos = [];
         $this->puestos = Puesto::query()
-            ->get(['id', 'nombre', 'nivel_jerarquico', 'tipo_puesto', 'puesto_superior_id', 'requiere_ruta'])
+            ->get(['id', 'nombre', 'nivel_jerarquico', 'tipo_puesto', 'puesto_superior_id', 'requiere_ruta', 'activo'])
             ->keyBy('id');
         $this->cargarRegiones();
 
@@ -135,7 +148,7 @@ class OrganigramaPersonasService
             $puestoId = (int) $colaborador->puesto_id;
             $this->ocupantes[$puestoId][$colaborador->id] = $colaborador;
             $this->ocupantesPorAmbito[$this->llaveOcupantes('s', $puestoId, $colaborador->sucursal_principal_id)][$colaborador->id] = $colaborador;
-            $this->ocupantesPorAmbito[$this->llaveOcupantes('r', $puestoId, $this->regionDe($colaborador->sucursal_principal_id)['id'] ?? null)][$colaborador->id] = $colaborador;
+            $this->ocupantesPorAmbito[$this->llaveOcupantes('r', $puestoId, $this->regionDePuesto[$puestoId] ?? $this->regionDe($colaborador->sucursal_principal_id)['id'] ?? null)][$colaborador->id] = $colaborador;
         }
 
         $rutas = $this->cargarRutas($colaboradores->pluck('id'));
@@ -157,7 +170,9 @@ class OrganigramaPersonasService
                 'de_sucursal' => $this->esDeSucursal($puesto),
                 'puesto' => $this->datosPuesto($puesto),
                 'sucursal' => $this->referenciaSucursal($sucursalId),
-                'region' => $this->esDeRegion($puesto) ? $this->regionDe($sucursalId) : null,
+                'region' => $this->esDeRegion($puesto)
+                    ? (isset($this->regionDePuesto[$puesto->id]) ? $this->regionPorId($this->regionDePuesto[$puesto->id]) : $this->regionDe($sucursalId))
+                    : null,
                 'persona' => $this->datosPersona($colaborador),
                 'rutas' => $puesto->requiere_ruta ? ($rutas[$colaborador->id] ?? []) : [],
                 'cobertura' => null,
@@ -185,7 +200,47 @@ class OrganigramaPersonasService
         $this->agregarSucursalesSinPersonal($sucursalesVisibles);
         $this->agregarCoberturasRestantes();
 
+        // Sin filtro de sucursal/empresa, la estructura corporativa y
+        // regional se ve completa: un puesto sin nadie aparece VACANTE.
+        if (! $request->integer('sucursal_id') && ! $request->integer('empresa_id') && ! $request->integer('departamento_id') && $request->string('tipo_puesto')->toString() === '') {
+            $this->agregarPuestosVacantes();
+        }
+
         return array_values($this->nodos);
+    }
+
+    /**
+     * Puestos activos NO de sucursal (corporativos y regionales) que nadie
+     * ocupa ni cubre: se muestran como VACANTE en su lugar del árbol en vez
+     * de desaparecer (p. ej. "Gerente Regional Q3", "Asistente de Dirección
+     * Comercial" sin titular).
+     */
+    private function agregarPuestosVacantes(): void
+    {
+        $presentes = [];
+
+        foreach ($this->nodos as $nodo) {
+            $presentes[$nodo['puesto']['id']] = true;
+        }
+
+        foreach ($this->puestos as $puesto) {
+            if (! $puesto->activo || isset($presentes[$puesto->id]) || $this->esDeSucursal($puesto) || ($this->ocupantes[$puesto->id] ?? []) !== []) {
+                continue;
+            }
+
+            $region = $this->regionDePuesto[$puesto->id] ?? null;
+
+            // Genérico de región sin región propia ligada (puesto anterior):
+            // no hay en qué región pintarlo.
+            if ($region === null && $this->esDeRegion($puesto)) {
+                continue;
+            }
+
+            // resolverPadre() crea la tarjeta VACANTE (o la de quien lo
+            // cubre) del propio puesto y la cuelga de su superior.
+            $this->resolverPadre($puesto->id, null, $region, null);
+            $presentes[$puesto->id] = true;
+        }
     }
 
     /**
@@ -232,6 +287,9 @@ class OrganigramaPersonasService
         if ($puestoId === null || in_array($puestoId, $visitados, true)) {
             return null;
         }
+
+        // Quien reporta a "un gerente regional" reporta al de SU región.
+        $puestoId = $this->puestoRegionalPara($puestoId, $regionId ?? ($this->regionDe($sucursalId)['id'] ?? null));
 
         $puesto = $this->puestos->get($puestoId);
 
@@ -317,6 +375,9 @@ class OrganigramaPersonasService
                 'motivo_etiqueta' => $cobertura->motivo->etiqueta(),
                 'desde' => $cobertura->fecha_inicio->toDateString(),
                 'nota' => $cobertura->nota,
+                // "Cubierto temporalmente por X · Titular de <su puesto>":
+                // la cobertura no cambia su puesto titular.
+                'titular_de' => $cobertura->colaborador->puesto?->nombre,
             ],
         ];
         $this->nodos[$clave]['padre'] = $this->resolverPadre(
@@ -417,7 +478,7 @@ class OrganigramaPersonasService
             return ['tipo' => 'sucursal', 'sucursal' => $sucursalId, 'region' => $regionId];
         }
 
-        $region = $regionId ?? ($this->regionDe($sucursalId)['id'] ?? null);
+        $region = $this->regionDePuesto[$puesto->id] ?? $regionId ?? ($this->regionDe($sucursalId)['id'] ?? null);
 
         if ($region !== null && $this->esDeRegion($puesto)) {
             return ['tipo' => 'region', 'sucursal' => null, 'region' => $region];
@@ -518,6 +579,13 @@ class OrganigramaPersonasService
     private function cargarRegiones(): void
     {
         $this->regionPorSucursal = [];
+        $this->regionDePuesto = [];
+        $this->puestoDeRegion = [];
+
+        foreach (NodoComercial::query()->where('tipo', TipoNodoComercial::Region->value)->whereNotNull('puesto_id')->get(['id', 'puesto_id']) as $region) {
+            $this->regionDePuesto[(int) $region->puesto_id] = $region->id;
+            $this->puestoDeRegion[$region->id] = (int) $region->puesto_id;
+        }
         $this->nombresSucursal = Sucursal::query()->pluck('nombre', 'id')->all();
 
         $zonas = NodoComercial::query()
@@ -611,8 +679,27 @@ class OrganigramaPersonasService
         return false;
     }
 
+    /**
+     * Si $puestoId es un puesto regional y la región de quien pregunta tiene
+     * su propio puesto regional, regresa ese (Gerente de Sucursal de una
+     * sucursal de Q3 → "Gerente Regional Q3", aunque el catálogo lo cuelgue
+     * de "Gerente Regional Q1" como superior de referencia).
+     */
+    private function puestoRegionalPara(int $puestoId, ?int $regionId): int
+    {
+        if (! isset($this->regionDePuesto[$puestoId]) || $regionId === null) {
+            return $puestoId;
+        }
+
+        return $this->puestoDeRegion[$regionId] ?? $puestoId;
+    }
+
     private function esDeRegion(Puesto $puesto): bool
     {
+        if (isset($this->regionDePuesto[$puesto->id])) {
+            return true;
+        }
+
         /** @var list<string> $deRegion */
         $deRegion = config('organigrama.puestos_de_region', []);
 

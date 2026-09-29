@@ -15,7 +15,7 @@ use App\Services\Vacantes\VacanteAutoGenerationService;
 beforeEach(function () {
     $this->sucursal = Sucursal::factory()->create();
     $this->gestor = Puesto::factory()->create(['nombre' => 'Gestor']);
-    $this->volante = Puesto::factory()->create(['nombre' => 'Gestor volante']);
+    $this->volante = Puesto::factory()->create(['nombre' => 'Gestor Volante']);
     HeadcountTarget::factory()->create(['sucursal_id' => $this->sucursal->id, 'puesto_id' => $this->gestor->id, 'plantilla_autorizada' => 4]);
     HeadcountTarget::factory()->create(['sucursal_id' => $this->sucursal->id, 'puesto_id' => $this->volante->id, 'plantilla_autorizada' => 1]);
 });

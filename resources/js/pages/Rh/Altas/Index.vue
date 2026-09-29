@@ -91,7 +91,7 @@ const dialogoAbierto = ref(false);
 <template>
     <Head title="Altas digitales" />
 
-    <div class="flex flex-col gap-6 p-4">
+    <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
             titulo="Altas digitales"
             descripcion="Liga segura para que candidatos aprobados capturen su información de alta."

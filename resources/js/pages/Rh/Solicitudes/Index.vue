@@ -485,7 +485,7 @@ function confirmarMovimiento() {
 <template>
     <Head title="Solicitudes internas" />
 
-    <div class="flex flex-col gap-3 p-3 sm:p-4">
+    <div class="pagina-ancha flex flex-col gap-3">
         <Alert
             v-if="solicitudesResumen.total > solicitudesResumen.mostradas"
             data-tour="solicitudes-limite"

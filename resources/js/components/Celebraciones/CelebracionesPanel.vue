@@ -96,7 +96,7 @@ function navegar(cambios: Partial<NavegacionCelebraciones>) {
 
 <template>
     <div
-        class="mx-auto flex w-full max-w-screen-2xl min-w-0 flex-col gap-4 p-3 sm:p-4 lg:px-6"
+        class="pagina-ancha flex flex-col gap-4"
     >
         <CelebracionesTabsNav
             :activa="tipo === 'cumpleanos' ? 'cumpleanos' : 'aniversarios'"
@@ -192,11 +192,14 @@ function navegar(cambios: Partial<NavegacionCelebraciones>) {
         </p>
 
         <div class="@container min-w-0">
+            <!-- Calendario crece; "Próximos" 288–320 px y del alto de su
+                 contenido (no se estira al alto del calendario). Si no caben
+                 lado a lado, Próximos va debajo. -->
             <div
-                class="grid gap-4"
+                class="grid items-start gap-4"
                 :class="
                     permisos.calendario &&
-                    '@4xl:grid-cols-[minmax(0,1fr)_22rem] @6xl:grid-cols-[minmax(0,1fr)_26rem]'
+                    '@4xl:grid-cols-[minmax(0,1fr)_18rem] @6xl:grid-cols-[minmax(0,1fr)_20rem]'
                 "
             >
                 <CelebracionCalendario

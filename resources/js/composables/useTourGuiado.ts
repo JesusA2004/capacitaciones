@@ -5,26 +5,44 @@ import {
     decisionSinElemento,
     esperaParaElemento,
 } from '@/lib/tours/motor';
+import type { EstadoTour } from '@/lib/tours/motor';
 import type { Tour } from '@/lib/tours/tipos';
 
 /**
  * Estado y motor del tour guiado: singleton a nivel de módulo (mismo patrón
  * que `useCurrentUrl`) para que el botón de ayuda, la página /ayuda y el
  * overlay global (montado una sola vez en `AppSidebarLayout.vue`) compartan
- * el mismo estado sin necesidad de una librería de store. Como vive fuera
- * de cualquier componente, sobrevive a las navegaciones de Inertia: eso es
- * lo que permite que un recorrido avance de una pantalla a otra.
+ * el mismo estado. Como vive fuera de cualquier componente, sobrevive a las
+ * navegaciones de Inertia: eso permite avanzar de una pantalla a otra.
+ *
+ * Máquina de estados (lib/tours/motor.ts, EstadoTour):
+ *
+ *   idle ─iniciar→ navigating ─(Inertia terminó)→ waiting-target
+ *        ─(elemento encontrado y ya a la vista, o se agotó la espera)→ showing
+ *   showing ─Siguiente/Atrás→ navigating | waiting-target → showing …
+ *   cualquiera ─Salir/Esc/X/Terminar→ finishing → idle   (inmediato)
+ *
+ * Siguiente/Atrás solo actúan en `showing` (un doble clic no avanza dos
+ * pasos). "Saltar paso" (en el aviso de carga) sí actúa mientras carga. Un
+ * `turno` invalida cualquier espera pendiente cuando el usuario avanza o
+ * sale, y un `finally` garantiza que nunca quede cargando para siempre.
  */
 const CLAVE_STORAGE = 'tours-vistos';
 
 /** Máximo que se espera a que Inertia termine de cambiar de pantalla. */
 const ESPERA_NAVEGACION_MS = 10000;
-
-export type EstadoTour = 'inactivo' | 'cargando' | 'listo';
+/** Máximo que se espera a que termine el scroll hacia el elemento. */
+const ESPERA_SCROLL_MS = 700;
+/** Alto que se reserva para la caja de la guía (con su separación). */
+const ESPACIO_CAJA = 290;
+/** Dónde queda el borde superior del elemento al llevarlo a la vista. */
+const MARGEN_SUPERIOR = 72;
+/** Dos pulsaciones de Siguiente/Atrás más juntas que esto son un doble clic. */
+const PAUSA_ENTRE_PULSACIONES_MS = 350;
 
 const tourActivo = ref<Tour | null>(null);
 const pasoActual = ref(0);
-const estado = ref<EstadoTour>('inactivo');
+const estado = ref<EstadoTour>('idle');
 const elemento = shallowRef<HTMLElement | null>(null);
 
 /** Pantalla en la que se mostró cada paso (para poder volver con "Atrás"). */
@@ -36,12 +54,8 @@ let turno = 0;
  * elementos se cuenta desde aquí (ver esperaParaElemento en motor.ts).
  */
 let llegada: { ruta: string; ms: number } | null = null;
-
-function registrarLlegada(ruta: string): void {
-    if (llegada?.ruta !== ruta) {
-        llegada = { ruta, ms: performance.now() };
-    }
-}
+/** Dónde estaba el usuario al iniciar, para regresarlo al terminar. */
+let origen: { ruta: string; scrollY: number } | null = null;
 
 function leerVistos(): string[] {
     try {
@@ -69,6 +83,12 @@ function normalizarRuta(ruta: string): string {
 
 function rutaActual(): string {
     return normalizarRuta(window.location.pathname);
+}
+
+function prefiereSinMovimiento(): boolean {
+    return (
+        window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+    );
 }
 
 /**
@@ -110,6 +130,72 @@ function esperar(condicion: () => boolean, maximoMs: number): Promise<boolean> {
 
         revisar();
     });
+}
+
+/** Navega con Inertia y espera a que termine (o se agote el tiempo). */
+function navegar(ruta: string): Promise<boolean> {
+    return new Promise((resolver) => {
+        let resuelto = false;
+        const terminar = (ok: boolean): void => {
+            if (!resuelto) {
+                resuelto = true;
+                resolver(ok);
+            }
+        };
+
+        window.setTimeout(
+            () => terminar(rutaActual() === ruta),
+            ESPERA_NAVEGACION_MS,
+        );
+        router.visit(ruta, {
+            preserveScroll: false,
+            onFinish: () => terminar(rutaActual() === ruta),
+        });
+    });
+}
+
+/**
+ * Lleva el elemento al centro de la pantalla y espera a que el scroll se
+ * asiente (la posición no cambia en 3 cuadros seguidos) antes de calcular
+ * dónde va la caja: nunca se posiciona con el rect previo al scroll.
+ */
+async function llevarAVista(nodo: HTMLElement): Promise<void> {
+    const caja = nodo.getBoundingClientRect();
+    const alto = window.innerHeight;
+    const yaVisible = caja.top >= 0 && caja.bottom <= alto;
+    const cabeConLaCaja = caja.height + ESPACIO_CAJA <= alto;
+    const hayLugar =
+        caja.top >= ESPACIO_CAJA || alto - caja.bottom >= ESPACIO_CAJA;
+
+    // Ya se ve y queda espacio arriba o abajo para la caja: no se mueve.
+    // Un elemento más alto que la pantalla solo necesita verse.
+    if (yaVisible && (hayLugar || !cabeConLaCaja)) {
+        return;
+    }
+
+    // Si el elemento y la caja caben juntos, se sube cerca del borde
+    // superior (no al centro): así queda lugar debajo para la caja y no
+    // hay que taparlo. scroll-margin-top funciona también dentro de
+    // contenedores con scroll propio, no solo en la ventana.
+    const margenAnterior = nodo.style.scrollMarginTop;
+    nodo.style.scrollMarginTop = `${MARGEN_SUPERIOR}px`;
+    nodo.scrollIntoView({
+        behavior: prefiereSinMovimiento() ? 'auto' : 'smooth',
+        block: 'start',
+        inline: 'nearest',
+    });
+    nodo.style.scrollMarginTop = margenAnterior;
+
+    let anterior = Number.NaN;
+    let quietos = 0;
+
+    await esperar(() => {
+        const actual = nodo.getBoundingClientRect().top;
+        quietos = Math.abs(actual - anterior) < 0.5 ? quietos + 1 : 0;
+        anterior = actual;
+
+        return quietos >= 3;
+    }, ESPERA_SCROLL_MS);
 }
 
 /**
@@ -166,56 +252,60 @@ async function irAPaso(indice: number, direccion: 1 | -1): Promise<void> {
     const miTurno = ++turno;
     const paso = tour.pasos[indice];
     const destino = resolverRuta(tour, indice);
+    const vigente = (): boolean => miTurno === turno;
 
+    // Síncrono, antes de cualquier await: un segundo clic ya no está en
+    // "showing" y no avanza otro paso.
     pasoActual.value = indice;
     elemento.value = null;
-    estado.value = 'cargando';
+    estado.value =
+        destino && destino !== rutaActual() ? 'navigating' : 'waiting-target';
 
-    // `rutaDesde` sin enlace (p. ej. lista vacía): no hay a dónde ir.
-    if (paso.rutaDesde && !destino) {
-        await irAPaso(indice + direccion, direccion);
-
-        return;
-    }
-
-    const rutaDelPaso = destino ?? rutaActual();
-    rutasResueltas.set(indice, rutaDelPaso);
-
-    if (rutaDelPaso !== rutaActual()) {
-        router.visit(rutaDelPaso, { preserveScroll: false });
-
-        const llego = await esperar(
-            () => rutaActual() === rutaDelPaso,
-            ESPERA_NAVEGACION_MS,
-        );
-
-        if (miTurno !== turno) {
-            return;
-        }
-
-        if (!llego) {
-            // La navegación no se completó (sin conexión, error del
-            // servidor): se explica el paso centrado en vez de colgarse.
-            estado.value = 'listo';
+    try {
+        // `rutaDesde` sin enlace (p. ej. lista vacía): no hay a dónde ir.
+        if (paso.rutaDesde && !destino) {
+            await irAPaso(indice + direccion, direccion);
 
             return;
         }
-    }
 
-    registrarLlegada(rutaDelPaso);
+        const rutaDelPaso = destino ?? rutaActual();
+        rutasResueltas.set(indice, rutaDelPaso);
 
-    if (paso.selector) {
+        if (rutaDelPaso !== rutaActual()) {
+            const llego = await navegar(rutaDelPaso);
+
+            if (!vigente()) {
+                return;
+            }
+
+            if (!llego) {
+                // Sin conexión o error del servidor: se explica el paso
+                // centrado en vez de colgarse.
+                return;
+            }
+        }
+
+        const pantalla: { ruta: string; ms: number } =
+            llegada?.ruta === rutaDelPaso
+                ? llegada
+                : { ruta: rutaDelPaso, ms: performance.now() };
+        llegada = pantalla;
+
+        estado.value = 'waiting-target';
+
+        if (!paso.selector) {
+            return;
+        }
+
         const selector = paso.selector;
 
         await esperar(
             () => buscarElementoVisible(selector) !== null,
-            esperaParaElemento(
-                llegada?.ms ?? performance.now(),
-                performance.now(),
-            ),
+            esperaParaElemento(pantalla.ms, performance.now()),
         );
 
-        if (miTurno !== turno) {
+        if (!vigente()) {
             return;
         }
 
@@ -228,16 +318,30 @@ async function irAPaso(indice: number, direccion: 1 | -1): Promise<void> {
 
             if (decisionSinElemento(paso) === 'omitir') {
                 await irAPaso(indice + direccion, direccion);
-
-                return;
             }
+
+            // Obligatorio sin elemento: paso centrado sin spotlight.
+            return;
         }
 
-        // Sin elemento y obligatorio: paso centrado sin spotlight.
-        elemento.value = encontrado;
-    }
+        await llevarAVista(encontrado);
 
-    estado.value = 'listo';
+        if (vigente()) {
+            elemento.value = encontrado;
+        }
+    } catch (error) {
+        if (import.meta.env.DEV) {
+            console.warn(`[tour "${tour.id}"] paso ${indice + 1}:`, error);
+        }
+    } finally {
+        // Único punto que pasa a "showing": con el elemento a la vista, o
+        // centrado si no apareció / la ruta no cargó / hubo un error. Nunca
+        // queda cargando y los botones siempre vuelven a funcionar. Un paso
+        // que ya no es el vigente (el usuario avanzó o salió) no toca nada.
+        if (vigente() && tourActivo.value) {
+            estado.value = 'showing';
+        }
+    }
 }
 
 function iniciar(tour: Tour): void {
@@ -247,23 +351,55 @@ function iniciar(tour: Tour): void {
 
     rutasResueltas.clear();
     llegada = null;
+    origen = { ruta: rutaActual(), scrollY: window.scrollY };
     tourActivo.value = tour;
     void irAPaso(0, 1);
 }
 
 /**
- * "Siguiente" nunca se bloquea: también funciona mientras un paso está
- * cargando (invalida la espera en curso vía `turno` y avanza).
+ * Un doble clic no avanza dos pasos: si el siguiente paso ya está en la
+ * misma pantalla, la transición termina antes del segundo clic, así que
+ * además de exigir "showing" se ignora una segunda pulsación muy seguida.
  */
+let ultimaPulsacion = 0;
+
+function pulsacionValida(): boolean {
+    const ahora = performance.now();
+
+    if (ahora - ultimaPulsacion < PAUSA_ENTRE_PULSACIONES_MS) {
+        return false;
+    }
+
+    ultimaPulsacion = ahora;
+
+    return true;
+}
+
+/** Siguiente paso. Solo con el paso a la vista y sin doble clic. */
 function siguiente(): void {
-    if (tourActivo.value) {
+    if (tourActivo.value && estado.value === 'showing' && pulsacionValida()) {
         void irAPaso(pasoActual.value + 1, 1);
     }
 }
 
 function anterior(): void {
-    if (tourActivo.value && pasoActual.value > 0) {
+    if (
+        tourActivo.value &&
+        estado.value === 'showing' &&
+        pasoActual.value > 0 &&
+        pulsacionValida()
+    ) {
         void irAPaso(pasoActual.value - 1, -1);
+    }
+}
+
+/**
+ * "Saltar paso" del aviso de carga: funciona aunque el paso actual siga
+ * esperando (invalida la espera en curso y pasa al siguiente).
+ */
+function saltarPaso(): void {
+    if (tourActivo.value && estado.value !== 'finishing') {
+        void irAPaso(pasoActual.value + 1, 1);
     }
 }
 
@@ -271,7 +407,7 @@ function anterior(): void {
 function saltarSeccion(): void {
     const tour = tourActivo.value;
 
-    if (!tour) {
+    if (!tour || estado.value !== 'showing') {
         return;
     }
 
@@ -286,18 +422,31 @@ function saltarSeccion(): void {
     );
 }
 
+/**
+ * Terminar/Salir/Esc/X: cierra de inmediato desde cualquier estado (no
+ * depende de que el elemento exista), recuerda el tour como visto y, si
+ * el usuario sigue en la pantalla donde empezó, le regresa su scroll.
+ */
 function finalizar(): void {
     turno++;
+    estado.value = 'finishing';
 
     if (tourActivo.value) {
         marcarVisto(tourActivo.value.id);
     }
 
+    const regreso = origen;
     tourActivo.value = null;
     pasoActual.value = 0;
-    estado.value = 'inactivo';
     elemento.value = null;
     rutasResueltas.clear();
+    llegada = null;
+    origen = null;
+    estado.value = 'idle';
+
+    if (regreso && regreso.ruta === rutaActual()) {
+        window.scrollTo({ top: regreso.scrollY, behavior: 'auto' });
+    }
 }
 
 export function useTourGuiado() {
@@ -309,6 +458,10 @@ export function useTourGuiado() {
         () => pasoActual.value >= totalPasos.value - 1,
     );
     const esPrimerPaso = computed(() => pasoActual.value === 0);
+    const cargando = computed(
+        () =>
+            estado.value === 'navigating' || estado.value === 'waiting-target',
+    );
 
     /** Secciones (módulos) del tour activo, en orden, sin repetir. */
     const secciones = computed(() => {
@@ -345,12 +498,14 @@ export function useTourGuiado() {
         esUltimoPaso,
         esPrimerPaso,
         estado: computed(() => estado.value),
+        cargando,
         elemento: computed(() => elemento.value),
         secciones,
         haySiguienteSeccion,
         iniciar,
         siguiente,
         anterior,
+        saltarPaso,
         saltarSeccion,
         finalizar,
         haVisto,

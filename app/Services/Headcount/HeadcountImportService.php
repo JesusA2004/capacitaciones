@@ -37,8 +37,8 @@ class HeadcountImportService
     private const MAPA_PUESTOS = [
         'GESTOR DE RUTA' => 'Gestor',
         'GESTORES DE RUTA' => 'Gestor',
-        'GESTOR VOLANTE' => 'Gestor volante',
-        'COORDINADORA DE SUCURSAL' => 'Coordinadora',
+        'GESTOR VOLANTE' => 'Gestor Volante',
+        'COORDINADORA DE SUCURSAL' => 'Coordinadora de Sucursal',
         // "Gerente" era un duplicado de "Gerente de Sucursal" (ver
         // PuestoJerarquiaSeeder): el gerente del Excel es el de sucursal.
         'GERENTE' => 'Gerente de Sucursal',

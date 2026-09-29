@@ -124,7 +124,7 @@ async function eliminar(plantilla: PlantillaItem) {
 <template>
     <Head title="Plantillas" />
 
-    <div class="flex flex-col gap-6 p-4">
+    <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
             titulo="Plantillas avanzadas"
             descripcion="Plantillas DOCX editables para uso avanzado (solicitudes, documentos libres). Para los formatos oficiales fijos de MR. LANA, usa el módulo «Formatos»."

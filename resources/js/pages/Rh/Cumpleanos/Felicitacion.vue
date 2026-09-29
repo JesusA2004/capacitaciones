@@ -220,7 +220,7 @@ async function copiarMensaje() {
 <template>
     <Head :title="`Felicitación — ${colaborador.nombre}`" />
 
-    <div class="mx-auto flex max-w-screen-2xl flex-col p-4 sm:px-6 lg:px-8">
+    <div class="pagina-ancha flex flex-col">
     <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
         <Link
             :href="index.url()"

@@ -537,7 +537,7 @@ const panel = ref<'variables' | 'detectados'>(props.version.analisis.sugerencias
 <template>
     <Head :title="`Editor · ${formato.nombre}`" />
 
-    <div class="flex w-full min-w-0 flex-col gap-4 p-4 sm:p-6">
+    <div class="pagina-ancha flex flex-col gap-4">
         <!-- Encabezado de detalle -->
         <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div class="flex min-w-0 items-start gap-3">

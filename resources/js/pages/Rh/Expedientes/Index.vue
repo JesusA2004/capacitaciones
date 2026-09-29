@@ -104,7 +104,7 @@ const sucursalActiva = computed(() =>
 <template>
     <Head title="Expedientes" />
 
-    <div class="flex flex-col gap-6 p-4">
+    <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
             titulo="Expedientes"
             descripcion="Explora los expedientes digitales por empresa, sucursal y colaborador."

@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { useNavegacion } from '@/composables/useNavegacion';
 import { usePermisos } from '@/composables/usePermisos';
 import { useTourGuiado } from '@/composables/useTourGuiado';
+import { AYUDA_ESCRITA } from '@/lib/tours/ayudaEscrita';
 import {
     modulosDisponibles,
     tourCompleto,
@@ -64,10 +65,20 @@ const modulosFiltrados = computed(() => {
 
     return modulos.value.filter((modulo) => {
         const pasos = tours.value.get(modulo.id)?.pasos ?? [];
+        const ayuda = AYUDA_ESCRITA[modulo.id];
         const texto = [
             modulo.nombre,
             modulo.descripcion,
             ...pasos.flatMap((p) => [p.titulo, p.texto, p.consejo ?? '']),
+            ...(ayuda
+                ? [
+                      ayuda.queEs,
+                      ...ayuda.puedes,
+                      ...ayuda.flujo,
+                      ayuda.permisos,
+                      ...ayuda.errores,
+                  ]
+                : []),
         ].join(' ');
 
         return normalizar(texto).includes(termino);
@@ -109,7 +120,7 @@ const vistos = computed(
 <template>
     <Head title="Ayuda" />
 
-    <div class="mx-auto flex w-full max-w-7xl flex-col gap-8 p-4">
+    <div class="pagina-media flex flex-col gap-8">
         <div
             class="flex flex-col items-center gap-6 rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-6 text-center sm:p-10"
         >
@@ -234,6 +245,80 @@ const vistos = computed(
                             <BookOpen class="size-3.5" />
                             Leer la guía
                         </summary>
+                        <div
+                            v-if="AYUDA_ESCRITA[modulo.id]"
+                            class="mt-3 space-y-3 text-pretty"
+                        >
+                            <section>
+                                <h3
+                                    class="text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+                                >
+                                    Qué es
+                                </h3>
+                                <p>{{ AYUDA_ESCRITA[modulo.id].queEs }}</p>
+                            </section>
+                            <section>
+                                <h3
+                                    class="text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+                                >
+                                    Qué puedes hacer
+                                </h3>
+                                <ul class="list-disc space-y-0.5 pl-5">
+                                    <li
+                                        v-for="punto in AYUDA_ESCRITA[modulo.id]
+                                            .puedes"
+                                        :key="punto"
+                                    >
+                                        {{ punto }}
+                                    </li>
+                                </ul>
+                            </section>
+                            <section>
+                                <h3
+                                    class="text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+                                >
+                                    Flujo principal
+                                </h3>
+                                <ol class="list-decimal space-y-0.5 pl-5">
+                                    <li
+                                        v-for="punto in AYUDA_ESCRITA[modulo.id]
+                                            .flujo"
+                                        :key="punto"
+                                    >
+                                        {{ punto }}
+                                    </li>
+                                </ol>
+                            </section>
+                            <section>
+                                <h3
+                                    class="text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+                                >
+                                    Quién tiene permiso
+                                </h3>
+                                <p>{{ AYUDA_ESCRITA[modulo.id].permisos }}</p>
+                            </section>
+                            <section>
+                                <h3
+                                    class="text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+                                >
+                                    Errores frecuentes
+                                </h3>
+                                <ul class="list-disc space-y-0.5 pl-5">
+                                    <li
+                                        v-for="punto in AYUDA_ESCRITA[modulo.id]
+                                            .errores"
+                                        :key="punto"
+                                    >
+                                        {{ punto }}
+                                    </li>
+                                </ul>
+                            </section>
+                        </div>
+                        <h3
+                            class="mt-4 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+                        >
+                            Paso a paso en pantalla
+                        </h3>
                         <ol
                             class="mt-2 list-decimal space-y-2 pl-5 text-pretty"
                         >

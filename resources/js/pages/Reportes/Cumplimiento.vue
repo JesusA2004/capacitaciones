@@ -98,7 +98,7 @@ return null;
 <template>
     <Head title="Reporte de cumplimiento" />
 
-    <div class="flex flex-col gap-6 p-4">
+    <div class="pagina-ancha flex flex-col gap-6">
         <div class="flex items-center justify-between">
             <Heading
                 title="Reporte de cumplimiento"

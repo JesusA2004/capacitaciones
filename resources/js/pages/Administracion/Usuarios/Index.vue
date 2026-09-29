@@ -124,7 +124,7 @@ function restablecer(usuario: UsuarioItem) {
 <template>
     <Head title="Usuarios" />
 
-    <div class="flex flex-col gap-6 p-4">
+    <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
             titulo="Usuarios"
             descripcion="Cuentas de acceso al sistema: correo, roles, estado y seguridad. Los datos laborales viven en Expedientes."

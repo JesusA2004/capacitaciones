@@ -18,10 +18,13 @@
 */
 
 return [
-    'puestos_raiz_sucursal' => ['Gerente de Sucursal', 'Coordinadora'],
+    'puestos_raiz_sucursal' => ['Gerente de Sucursal', 'Coordinadora de Sucursal'],
 
-    // Un ocupante por región de la matriz comercial (Q1, Q3…): una sucursal
-    // cuelga del de SU región. Si una región no tiene titular, se muestra
-    // quien la cubre (CoberturaPuesto) o "sin ocupar".
+    // Puestos "de región" ADEMÁS de los que la matriz comercial liga a una
+    // región (nodos_comerciales.puesto_id: Región Q1 → "Gerente Regional
+    // Q1", Región Q3 → "Gerente Regional Q3"). El gerente de una sucursal
+    // cuelga del puesto regional de SU región; si nadie lo ocupa, se ve
+    // quien lo cubre (CoberturaPuesto) o VACANTE. "Gerente regional" es el
+    // puesto genérico anterior (solo mientras alguien lo siga ocupando).
     'puestos_de_region' => ['Gerente regional'],
 ];

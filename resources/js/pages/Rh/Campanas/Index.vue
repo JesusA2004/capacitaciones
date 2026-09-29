@@ -156,7 +156,7 @@ async function eliminar(campana: CampanaReclutamientoItem) {
 <template>
     <Head title="Campañas de reclutamiento" />
 
-    <div class="flex flex-col gap-6 p-4">
+    <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
             titulo="Campañas de reclutamiento"
             descripcion="Gasto por canal (Meta, Indeed, Computrabajo, LinkedIn, referidos) y su costo por candidato/contratación."

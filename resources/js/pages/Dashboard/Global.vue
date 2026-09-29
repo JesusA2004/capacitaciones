@@ -17,7 +17,7 @@ defineOptions({
 <template>
     <Head title="Inicio" />
 
-    <div class="flex flex-col gap-6 p-4">
+    <div class="pagina-ancha flex flex-col gap-6">
         <CelebracionesHoyCard />
         <DashboardRhContenido
             :cards="cards"

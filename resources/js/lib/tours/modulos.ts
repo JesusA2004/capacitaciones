@@ -249,7 +249,7 @@ export const MODULOS_GUIA: ModuloGuia[] = [
         grupo: 'Estructura',
         icono: GitBranch,
         descripcion:
-            'Estructura de puestos: quién reporta a quién, rutas de crecimiento y respaldos.',
+            'Quién reporta a quién: Dirección General, Dirección Comercial y sus áreas, gerencias regionales Q1/Q3 y cada sucursal, con vacantes y coberturas.',
         pasos: [
             {
                 titulo: 'Organigrama de puestos',
@@ -273,7 +273,7 @@ export const MODULOS_GUIA: ModuloGuia[] = [
             {
                 selector: sel('organigrama-arbol'),
                 titulo: 'El árbol',
-                texto: '"Por personas" muestra una tarjeta por colaborador y cada sucursal como su propia rama (gerente → subgerente → gestor con su ruta → volante); los puestos vacíos aparecen como "sin ocupar" en su lugar. Pasa el mouse sobre una foto para verla en grande y da clic para abrir su expediente. "Por puestos" muestra la estructura de puestos, que es donde se edita la jerarquía.',
+                texto: '"Por personas" empieza por la estructura corporativa (Dirección General → Dirección Comercial → Asistente, Sistemas, Recursos Humanos, Coordinación Regional y Gerencias Regionales Q1/Q3) y sigue con cada sucursal de su región: Gerente de Sucursal → Subgerente → Gestores (con su ruta) y Gestor Volante. Un puesto sin titular aparece como VACANTE y, si alguien lo cubre temporalmente, se indica quién y cuál es su puesto titular.',
                 consejo:
                     'En celular el árbol se muestra como una lista desplegable, con las mismas acciones.',
                 opcional: true,
@@ -290,11 +290,11 @@ export const MODULOS_GUIA: ModuloGuia[] = [
         grupo: 'Reclutamiento',
         icono: Briefcase,
         descripcion:
-            'Cobertura de plantilla por sucursal y puesto: permitidas, cubiertas y disponibles, en vivo.',
+            'Plazas autorizadas que faltan por cubrir, una fila por vacante, con sus candidatos.',
         pasos: [
             {
-                titulo: 'Cobertura de plantilla',
-                texto: 'Compara, por sucursal y puesto, cuántas plazas están permitidas contra cuántas están cubiertas. Las vacantes disponibles se calculan en vivo: cuando alguien entra o sale, el número se actualiza solo.',
+                titulo: 'Vacantes',
+                texto: 'Una vacante es una plaza autorizada (headcount) que nadie ocupa. Se abren y cierran solas: cuando alguien sale, la vacante aparece; cuando entra alguien a esa plaza, se cierra.',
             },
             {
                 selector: sel('encabezado'),
@@ -304,7 +304,7 @@ export const MODULOS_GUIA: ModuloGuia[] = [
             {
                 selector: sel('indicadores'),
                 titulo: 'Indicadores de cobertura',
-                texto: 'Sucursales bajo cobertura, plantilla permitida, plantilla cubierta, vacantes disponibles, cobertura global y costo mensual presupuestado.',
+                texto: 'Vacantes abiertas, plazas por cubrir, candidatos en proceso, días promedio que llevan abiertas y costo mensual de esas plazas.',
             },
             {
                 selector: sel('vacantes-filtros'),
@@ -312,9 +312,9 @@ export const MODULOS_GUIA: ModuloGuia[] = [
                 texto: 'Busca por sucursal, departamento o puesto, o filtra por empresa, sucursal, departamento y puesto.',
             },
             {
-                selector: sel('tabla'),
-                titulo: 'Detalle por sucursal y puesto',
-                texto: 'Cada fila es una combinación sucursal + puesto: plantilla permitida y cubierta, vacantes disponibles, candidatos activos y finalistas, % de cobertura, costo mensual y desde cuándo falta cubrirla.',
+                selector: sel('vacantes-lista'),
+                titulo: 'Una fila por vacante',
+                texto: 'Cada fila es una vacante real: qué puesto falta, en qué sucursal, cuántas plazas faltan («4 de 5 autorizadas ocupadas»), desde cuándo está abierta y cuántos candidatos lleva. Las vacantes se abren y cierran solas según la plantilla autorizada.',
                 consejo:
                     'Para cubrir una vacante, registra y avanza candidatos en el módulo Candidatos.',
             },
@@ -772,9 +772,9 @@ export const MODULOS_GUIA: ModuloGuia[] = [
             queEs: 'Administra las CUENTAS DE ACCESO (correo, roles, estado, verificación en dos pasos). Los datos laborales no viven aquí sino en Expedientes.',
             crear: '"Nuevo usuario" crea la cuenta de acceso para un colaborador que ya fue dado de alta.',
             indicadores:
-                'Total de cuentas, cuántas tienen el acceso bloqueado y cuántas no tienen verificación en dos pasos (2FA).',
+                'Total de cuentas y cuántas tienen el acceso bloqueado.',
             busqueda: 'Busca por nombre o correo.',
-            tabla: 'Colaborador, correo, roles, estado de acceso, correo verificado, 2FA y último acceso. Desde las acciones de cada fila puedes editar la cuenta y sus roles o gestionar su contraseña.',
+            tabla: 'Colaborador, correo, roles, estado de acceso, correo verificado y último acceso. Desde las acciones de cada fila puedes editar la cuenta y sus roles o gestionar su contraseña.',
             consejo:
                 'Las cuentas nunca se borran: si alguien sale, se bloquea su acceso y se conserva su historial.',
         }),

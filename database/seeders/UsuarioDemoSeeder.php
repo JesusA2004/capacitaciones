@@ -41,11 +41,11 @@ class UsuarioDemoSeeder extends Seeder
         $analistaMesaControl = Puesto::where('nombre', 'Analista de Mesa de Control')->first();
         $recursosHumanos = Departamento::where('nombre', 'Recursos Humanos')->first();
         $operaciones = Departamento::where('nombre', 'Operaciones')->first();
-        $gerenteSistemas = Puesto::where('nombre', 'Gerente de Sistemas')->first();
+        $gerenteSistemas = Puesto::where('nombre', 'Responsable de Sistemas')->first();
         $administracionPersonal = Puesto::where('nombre', 'Administración de Personal')->first();
         $reclutamiento = Puesto::where('nombre', 'Reclutamiento')->first();
         $gerenteContraloria = Puesto::where('nombre', 'Gerente de Contraloría')->first();
-        $gerenteRegional = Puesto::where('nombre', 'Gerente regional')->first();
+        $gerenteRegional = Puesto::where('nombre', 'Gerente Regional Q1')->first();
         $gerenteMesaControl = Puesto::where('nombre', 'Gerente de Mesa de Control')->first();
         $gerenteSucursal = Puesto::where('nombre', 'Gerente de Sucursal')->first();
 
@@ -55,13 +55,13 @@ class UsuarioDemoSeeder extends Seeder
         // rompía tanto el organigrama como el cálculo de plantilla actual
         // de headcount (App\Services\Headcount\HeadcountService cuenta
         // solo colaboradores con puesto_id).
-        $gerenteRh = Puesto::where('nombre', 'Gerente de Recursos Humanos')->first();
-        $directorComercial = Puesto::where('nombre', 'Director comercial')->first();
+        $gerenteRh = Puesto::where('nombre', 'Gerencia de Recursos Humanos')->first();
+        $directorComercial = Puesto::where('nombre', 'Dirección Comercial')->first();
         $subgerentePuesto = Puesto::where('nombre', 'Subgerente')->first();
-        $coordinadoraRegionalPuesto = Puesto::where('nombre', 'Coordinadora regional')->first();
-        $coordinadoraPuesto = Puesto::where('nombre', 'Coordinadora')->first();
+        $coordinadoraRegionalPuesto = Puesto::where('nombre', 'Coordinadora Regional')->first();
+        $coordinadoraPuesto = Puesto::where('nombre', 'Coordinadora de Sucursal')->first();
         $gestorFijo = Puesto::where('nombre', 'Gestor')->first();
-        $gestorVolante = Puesto::where('nombre', 'Gestor volante')->first();
+        $gestorVolante = Puesto::where('nombre', 'Gestor Volante')->first();
 
         $usuarios = [
             [
@@ -136,7 +136,8 @@ class UsuarioDemoSeeder extends Seeder
             ],
             [
                 'datos' => ['name' => 'Adriana', 'apellidos' => 'Cortés Beltrán', 'email' => 'coordinadora.regional@mrlana.test', 'numero_empleado' => 'EMP-0015', 'genero' => Genero::Femenino],
-                'sucursal' => $sucursalUno, 'departamento' => $operaciones, 'puesto' => $coordinadoraRegionalPuesto,
+                // La Coordinadora Regional vive en Corporativo (estructura confirmada).
+                'sucursal' => $corporativo, 'departamento' => $operaciones, 'puesto' => $coordinadoraRegionalPuesto,
                 'roles' => ['coordinadora_regional'],
             ],
             [

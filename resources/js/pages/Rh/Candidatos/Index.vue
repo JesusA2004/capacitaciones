@@ -250,7 +250,7 @@ function alSoltar(nuevoEstado: string) {
 <template>
     <Head title="Candidatos" />
 
-    <div class="flex flex-col gap-6 p-4">
+    <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
             titulo="Candidatos"
             descripcion="Seguimiento de prospectos y candidatos en proceso de reclutamiento."

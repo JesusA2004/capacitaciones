@@ -103,7 +103,7 @@ async function eliminar(rol: RolItem) {
 <template>
     <Head title="Roles y permisos" />
 
-    <div class="flex flex-col gap-6 p-4">
+    <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
             titulo="Roles y permisos"
             descripcion="Crea roles y controla qué puede hacer cada uno mediante permisos."

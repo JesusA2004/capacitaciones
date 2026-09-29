@@ -13,6 +13,9 @@ export type NodoComercialArbol = {
     sucursal: { id: number; nombre: string } | null;
     responsable: { id: number; nombre: string } | null;
     estado_operativo: 'vencidos' | 'castigo' | null;
+    /** Posición de la sucursal (gerencia/subgerencia/volante): no es ruta asignable. */
+    es_posicion?: boolean;
+    tipo_etiqueta?: string;
     cobertura: CoberturaNodoComercial;
     apoyos: { id: number; nombre: string }[];
     volantes: { id: number; nombre: string }[];

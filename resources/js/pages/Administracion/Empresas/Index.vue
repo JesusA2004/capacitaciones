@@ -85,7 +85,7 @@ async function eliminar(empresa: EmpresaItem) {
 <template>
     <Head title="Empresas" />
 
-    <div class="flex flex-col gap-6 p-4">
+    <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
             titulo="Empresas"
             descripcion="Estructura multiempresa: cada sucursal, colaborador y expediente pertenece a una empresa."

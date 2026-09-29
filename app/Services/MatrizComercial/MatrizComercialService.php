@@ -9,6 +9,7 @@ use App\Models\Colaborador;
 use App\Models\NodoComercial;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Árbol de la matriz comercial (MATRIZ -> Región -> Zona -> Ruta) con
@@ -69,6 +70,10 @@ class MatrizComercialService
                 'nombre' => $nodo->responsable->nombreCompleto(),
             ] : null,
             'estado_operativo' => $nodo->metadata['estado_operativo'] ?? null,
+            // Posición de la sucursal (gerencia/subgerencia/volante): se
+            // muestra aparte, nunca como ruta asignable.
+            'es_posicion' => $nodo->tipo->esPosicion(),
+            'tipo_etiqueta' => $nodo->tipo->etiqueta(),
             'cobertura' => $this->cobertura($nodo),
             'apoyos' => $nodo->apoyosYVolantesActivos
                 ->where('tipo_asignacion', TipoAsignacionNodoComercial::Apoyo)
@@ -152,6 +157,10 @@ class MatrizComercialService
      */
     public function asignarResponsable(NodoComercial $nodo, ?Colaborador $colaborador): void
     {
+        if ($colaborador !== null) {
+            $this->asegurarRutaAsignable($nodo);
+        }
+
         DB::transaction(function () use ($nodo, $colaborador): void {
             $this->cerrarAsignacionesActivas($nodo, TipoAsignacionNodoComercial::Gestor);
 
@@ -174,12 +183,28 @@ class MatrizComercialService
     }
 
     /**
+     * Solo una RUTA (cartera de cobro) se le asigna a un gestor, apoyo o
+     * volante. Las posiciones de gerencia/subgerencia/volante de la zona
+     * son puestos de la sucursal y se ocupan desde el Organigrama.
+     */
+    private function asegurarRutaAsignable(NodoComercial $nodo): void
+    {
+        if (! $nodo->tipo->esCobertura()) {
+            throw ValidationException::withMessages([
+                'responsable_colaborador_id' => sprintf('«%s» es una %s, no una ruta de cobro: se ocupa desde el Organigrama.', $nodo->nombre, mb_strtolower($nodo->tipo->etiqueta())),
+            ]);
+        }
+    }
+
+    /**
      * Agrega un apoyo/volante adicional al nodo (no cierra a los demás: a
      * diferencia del gestor, puede haber varios apoyos/volantes activos a
      * la vez).
      */
     public function agregarApoyo(NodoComercial $nodo, Colaborador $colaborador, TipoAsignacionNodoComercial $tipo): void
     {
+        $this->asegurarRutaAsignable($nodo);
+
         $yaActivo = AsignacionNodoComercial::query()
             ->where('nodo_comercial_id', $nodo->id)
             ->where('colaborador_id', $colaborador->id)

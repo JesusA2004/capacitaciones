@@ -119,6 +119,12 @@ php artisan migrate:status | grep -i pending   # debe salir vacío
 # ver antes qué cambiaría.
 php artisan people:sincronizar-permisos
 
+# Estructura organizacional confirmada (puestos, Q1/Q3, clasificación de la
+# matriz). Correr primero con --simular y revisar la sección «Conflictos»:
+# nunca borra datos en uso ni asigna personas. Ver docs/ORGANIGRAMA.md.
+php artisan people:sincronizar-organigrama --simular
+php artisan people:sincronizar-organigrama
+
 php artisan people:diagnostico  # confirma que todo quedó completo antes de seguir (ver PRE-DEPLOY arriba)
 
 php artisan permission:cache-reset

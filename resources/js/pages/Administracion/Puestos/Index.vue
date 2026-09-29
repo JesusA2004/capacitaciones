@@ -86,7 +86,7 @@ async function eliminar(puesto: PuestoItem) {
 <template>
     <Head title="Puestos" />
 
-    <div class="flex flex-col gap-6 p-4">
+    <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
             titulo="Puestos"
             descripcion="Define los puestos de cada departamento y a qué colaboradores están asignados."

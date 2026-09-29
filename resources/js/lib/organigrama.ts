@@ -127,3 +127,36 @@ export type AccionesOrganigrama = {
 
 export const CLAVE_ACCIONES_ORGANIGRAMA: InjectionKey<AccionesOrganigrama> =
     Symbol('acciones-organigrama');
+
+/**
+ * Hijos de cada nodo del organigrama por personas (clave '' = raíces),
+ * ordenados: primero mayor jerarquía, luego sucursal, luego nombre. Lo
+ * comparten el árbol (tablet/escritorio) y la lista jerárquica (móvil) para
+ * que ambos muestren exactamente el mismo orden.
+ */
+export function agruparPersonasPorPadre(
+    nodos: NodoOrganigramaPersona[],
+): Map<string, NodoOrganigramaPersona[]> {
+    const claves = new Set(nodos.map((nodo) => nodo.clave));
+    const mapa = new Map<string, NodoOrganigramaPersona[]>();
+
+    for (const nodo of nodos) {
+        const padre = nodo.padre && claves.has(nodo.padre) ? nodo.padre : '';
+        mapa.set(padre, [...(mapa.get(padre) ?? []), nodo]);
+    }
+
+    for (const lista of mapa.values()) {
+        lista.sort(
+            (a, b) =>
+                (a.puesto.nivel ?? 99) - (b.puesto.nivel ?? 99) ||
+                (a.sucursal?.nombre ?? '').localeCompare(
+                    b.sucursal?.nombre ?? '',
+                ) ||
+                (a.persona?.nombre ?? '').localeCompare(
+                    b.persona?.nombre ?? '',
+                ),
+        );
+    }
+
+    return mapa;
+}

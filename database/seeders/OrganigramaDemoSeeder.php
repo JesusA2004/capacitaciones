@@ -22,16 +22,17 @@ use Illuminate\Support\Collection;
  * Plantilla demo completa para el organigrama (solo local/testing, ver
  * DemoSeeder), con la estructura real que definió dirección:
  *
- *  - En CADA sucursal: 1 Gerente de Sucursal, 1 Subgerente, 1 Coordinadora,
- *    1 Gestor por cada ruta de cobro de su zona (con esa ruta asignada en la
- *    matriz comercial) y 1 Gestor volante.
+ *  - En CADA sucursal: 1 Gerente de Sucursal, 1 Subgerente, 1 Coordinadora
+ *    de Sucursal, 1 Gestor por cada ruta de cobro de su zona (con esa ruta
+ *    asignada en la matriz comercial) y 1 Gestor Volante (sin ruta fija).
  *  - Solo los gestores tienen ruta: se cierran las rutas demo que hubieran
  *    quedado asignadas a cualquier otro puesto.
  *  - Corporativo: 1 Monitorista, 5 Analistas de Mesa de Control, 1 Tesorero
  *    (el Contador queda vacante a propósito).
  *  - Coberturas de ejemplo: la gerencia de Cuernavaca está vacante y la cubre
- *    el gerente de Córdoba; la región Q3 no tiene gerente regional y la cubre
- *    la de Q1.
+ *    el gerente de Córdoba; el puesto "Gerente Regional Q3" está vacante y lo
+ *    cubre temporalmente quien es titular de "Gerente Regional Q1" (su
+ *    puesto titular NO cambia).
  *
  * Idempotente: solo crea lo que falta. Los colaboradores se crean sin cuenta
  * de acceso (válido en el sistema; basta para el organigrama). Nunca usa
@@ -44,9 +45,6 @@ class OrganigramaDemoSeeder extends Seeder
     private const NOMBRES_M = ['Arturo', 'Bernardo', 'César', 'Daniel', 'Eduardo', 'Felipe', 'Gerardo', 'Hugo', 'Ignacio', 'Javier', 'Leonardo', 'Manuel', 'Noé', 'Octavio', 'Pablo', 'Raúl', 'Sergio', 'Tomás', 'Ulises', 'Víctor', 'Rodrigo', 'Alfredo'];
 
     private const APELLIDOS = ['García', 'Hernández', 'López', 'Martínez', 'González', 'Pérez', 'Rodríguez', 'Sánchez', 'Ramírez', 'Cruz', 'Flores', 'Gómez', 'Morales', 'Vázquez', 'Jiménez', 'Reyes', 'Díaz', 'Torres', 'Gutiérrez', 'Ruiz', 'Mendoza', 'Aguilar', 'Ortiz', 'Castillo', 'Romero', 'Álvarez', 'Chávez', 'Rivera', 'Juárez', 'Domínguez'];
-
-    /** Rutas que no son de cobro de un gestor (gerencia, subgerencia, volante). */
-    private const PATRON_RUTA_NO_GESTOR = '/GERENCIA|SUBGERE|GTE|VOLANTE/i';
 
     /** Sucursal cuya gerencia está vacante y la cubre otro gerente. */
     private const SUCURSAL_CUBIERTA = 'CUE01';
@@ -75,6 +73,7 @@ class OrganigramaDemoSeeder extends Seeder
 
         $matriz = app(MatrizComercialService::class);
         $this->soloGestoresConRuta($matriz, $gestor);
+        $this->unaRutaPorGestor();
 
         $zonas = NodoComercial::query()
             ->where('tipo', TipoNodoComercial::Zona->value)
@@ -91,8 +90,8 @@ class OrganigramaDemoSeeder extends Seeder
             }
 
             $this->asegurar('Subgerente', $sucursal, 'Ventas');
-            $this->asegurar('Coordinadora', $sucursal, 'Operaciones', genero: Genero::Femenino);
-            $this->asegurar('Gestor volante', $sucursal, 'Ventas');
+            $this->asegurar('Coordinadora de Sucursal', $sucursal, 'Operaciones', genero: Genero::Femenino);
+            $this->asegurar('Gestor Volante', $sucursal, 'Ventas');
 
             $zona = $zonas->get($sucursal->id);
 
@@ -138,6 +137,42 @@ class OrganigramaDemoSeeder extends Seeder
     }
 
     /**
+     * Datos DEMO de corridas anteriores: una posición de gerencia/
+     * subgerencia/volante nunca tiene "gestor", y un gestor tiene UNA sola
+     * ruta vigente (la primera que se le asignó). Se cierran (con historial)
+     * las asignaciones que no cumplen. Solo demo: en producción esto lo
+     * reporta `people:sincronizar-organigrama` y lo corrige RH.
+     */
+    private function unaRutaPorGestor(): void
+    {
+        $vigentes = AsignacionNodoComercial::query()
+            ->where('activo', true)
+            ->where('tipo_asignacion', TipoAsignacionNodoComercial::Gestor->value)
+            ->with('nodo')
+            ->orderBy('id')
+            ->get();
+
+        $conRuta = [];
+
+        foreach ($vigentes as $asignacion) {
+            $nodo = $asignacion->nodo;
+            $esRuta = $nodo !== null && $nodo->tipo === TipoNodoComercial::Ruta;
+
+            if ($esRuta && ! isset($conRuta[$asignacion->colaborador_id])) {
+                $conRuta[$asignacion->colaborador_id] = true;
+
+                continue;
+            }
+
+            $asignacion->update(['activo' => false, 'fecha_fin' => now()]);
+
+            if ($nodo !== null && $nodo->responsable_colaborador_id === $asignacion->colaborador_id) {
+                $nodo->update(['responsable_colaborador_id' => null, 'responsable_user_id' => null]);
+            }
+        }
+    }
+
+    /**
      * Un gestor por cada ruta de cobro activa de la zona: primero se usan
      * los gestores de la sucursal que aún no tienen ruta; si faltan, se crean.
      */
@@ -145,11 +180,12 @@ class OrganigramaDemoSeeder extends Seeder
     {
         $rutas = NodoComercial::query()
             ->where('parent_id', $zona->id)
+            // Solo rutas de cobro: gerencia/subgerencia/volante ya no son
+            // tipo "ruta" (ClasificadorNodoComercial).
             ->where('tipo', TipoNodoComercial::Ruta->value)
             ->where('activa', true)
             ->orderBy('orden')
-            ->get()
-            ->reject(fn (NodoComercial $ruta) => preg_match(self::PATRON_RUTA_NO_GESTOR, $ruta->nombre) === 1);
+            ->get();
 
         $conRuta = AsignacionNodoComercial::query()
             ->where('activo', true)
@@ -250,25 +286,28 @@ class OrganigramaDemoSeeder extends Seeder
             }
         }
 
-        $gerenteRegional = $this->puestos->get('Gerente regional');
+        $regionalQ1 = $this->puestos->get('Gerente Regional Q1');
+        $regionalQ3 = $this->puestos->get('Gerente Regional Q3');
         $q3 = NodoComercial::query()->where('tipo', TipoNodoComercial::Region->value)->where('nombre', 'Región Q3')->first();
 
-        if ($gerenteRegional === null || $q3 === null) {
+        if ($regionalQ1 === null || $regionalQ3 === null || $q3 === null) {
             return;
         }
 
         $titular = Colaborador::query()
             ->where('estatus', EstadoUsuario::Activo->value)
-            ->where('puesto_id', $gerenteRegional->id)
+            ->where('puesto_id', $regionalQ1->id)
             ->first();
 
-        if ($titular !== null) {
+        $q3Ocupado = Colaborador::query()->where('estatus', EstadoUsuario::Activo->value)->where('puesto_id', $regionalQ3->id)->exists();
+
+        if ($titular !== null && ! $q3Ocupado) {
             CoberturaPuesto::query()->firstOrCreate(
-                ['puesto_id' => $gerenteRegional->id, 'region_id' => $q3->id, 'activa' => true],
+                ['puesto_id' => $regionalQ3->id, 'region_id' => $q3->id, 'activa' => true],
                 [
                     'colaborador_id' => $titular->id,
                     'motivo' => MotivoCobertura::Baja,
-                    'nota' => 'Q3 quedó sin gerente regional; la gerente de Q1 cubre ambas regiones (dato de demostración).',
+                    'nota' => 'Gerente Regional Q3 vacante: la titular de Q1 cubre temporalmente ambas regiones (dato de demostración).',
                     'fecha_inicio' => now()->subMonths(2)->toDateString(),
                 ],
             );

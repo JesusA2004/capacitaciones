@@ -55,7 +55,7 @@ function enviar() {
 <template>
     <Head title="Nueva plantilla" />
 
-    <div class="mx-auto flex w-full max-w-3xl flex-col gap-5 p-4 sm:p-6">
+    <div class="pagina-formulario flex flex-col gap-5">
         <div class="flex items-center gap-2">
             <Button as-child variant="ghost" size="icon"><Link :href="indexFormatos()" aria-label="Volver"><ArrowLeft class="size-4" /></Link></Button>
             <h1 class="text-xl font-semibold tracking-tight">Nueva plantilla</h1>

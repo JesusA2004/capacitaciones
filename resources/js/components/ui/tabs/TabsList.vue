@@ -15,7 +15,7 @@ const forwardedProps = useForwardProps(delegatedProps)
   <TabsList
     data-slot="tabs-list"
     v-bind="forwardedProps"
-    :class="cn('inline-flex h-9 w-fit items-center justify-start gap-1 overflow-x-auto rounded-xl bg-muted p-1 text-muted-foreground', props.class)"
+    :class="cn('inline-flex h-9 w-fit items-center justify-start gap-1 scroll-x-limpio rounded-xl bg-muted p-1 text-muted-foreground', props.class)"
   >
     <slot />
   </TabsList>

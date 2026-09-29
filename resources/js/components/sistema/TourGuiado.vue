@@ -6,6 +6,7 @@ import {
     buscarElementoVisible,
     useTourGuiado,
 } from '@/composables/useTourGuiado';
+import { calcularPosicion, rectSpotlight } from '@/lib/tours/motor';
 
 /**
  * Overlay de "spotlight" para el tour guiado. Se monta UNA sola vez en
@@ -25,11 +26,13 @@ const {
     esUltimoPaso,
     esPrimerPaso,
     estado,
+    cargando,
     elemento,
     secciones,
     haySiguienteSeccion,
     siguiente,
     anterior,
+    saltarPaso,
     saltarSeccion,
     finalizar,
 } = useTourGuiado();
@@ -37,7 +40,7 @@ const {
 const rect = ref<DOMRect | null>(null);
 const viewport = ref({ ancho: 0, alto: 0 });
 const tooltip = ref<HTMLElement | null>(null);
-const altoTooltip = ref(0);
+const tamanoTooltip = ref({ ancho: 0, alto: 0 });
 let rafId: number | null = null;
 
 function objetivoActual(): HTMLElement | null {
@@ -54,12 +57,20 @@ function objetivoActual(): HTMLElement | null {
         : null;
 }
 
+/**
+ * Cada cuadro: rect del objetivo, tamaño REAL de la caja y de la pantalla.
+ * Cubre scroll, redimensionar la ventana, abrir/cerrar el sidebar, zoom y
+ * animaciones sin listeners sueltos.
+ */
 function actualizar(): void {
     viewport.value = { ancho: window.innerWidth, alto: window.innerHeight };
 
-    const objetivo = estado.value === 'listo' ? objetivoActual() : null;
+    const objetivo = estado.value === 'showing' ? objetivoActual() : null;
     rect.value = objetivo ? objetivo.getBoundingClientRect() : null;
-    altoTooltip.value = tooltip.value?.offsetHeight ?? 0;
+    tamanoTooltip.value = {
+        ancho: tooltip.value?.offsetWidth ?? 0,
+        alto: tooltip.value?.offsetHeight ?? 0,
+    };
 
     rafId = requestAnimationFrame(actualizar);
 }
@@ -86,115 +97,93 @@ watch(
     { immediate: true },
 );
 
-watch(elemento, (actual) => {
-    if (!actual) {
-        return;
-    }
-
-    // Si el objetivo es más alto que la pantalla, centrarlo lo dejaría con
-    // ambos extremos fuera de vista; mejor alinear su borde superior.
-    const esAltoCompleto =
-        actual.getBoundingClientRect().height > window.innerHeight * 0.7;
-    actual.scrollIntoView({
-        behavior: 'smooth',
-        block: esAltoCompleto ? 'start' : 'center',
-        inline: 'nearest',
-    });
-});
-
 onBeforeUnmount(detenerSeguimiento);
 
-const MARGEN = 8;
-const SEPARACION = 14;
-const BORDE = 16;
-
 const esCentrado = computed(
-    () => estado.value === 'listo' && rect.value === null,
+    () => estado.value === 'showing' && rect.value === null,
 );
 
-const anchoTooltip = computed(() =>
-    Math.min(esCentrado.value ? 460 : 380, viewport.value.ancho - BORDE * 2),
+/**
+ * Ancho de la caja. Si en un paso la regla de posición tuvo que angostarla
+ * para no tapar el objetivo, ese ancho se FIJA durante el paso: el alto
+ * medido depende del ancho y el ancho de la decisión por alto, así que sin
+ * fijarlo la caja oscilaba entre dos anchos cada cuadro (y sus botones no
+ * se podían presionar). Se libera al cambiar de paso o de tamaño de pantalla.
+ */
+const anchoFijado = ref<number | null>(null);
+const anchoPreferido = computed(
+    () => anchoFijado.value ?? (esCentrado.value ? 460 : 380),
 );
+
+// Getters primitivos: `viewport` se reemplaza cada cuadro, y un getter que
+// regresara un arreglo dispararía (y liberaría el ancho) en cada cuadro.
+const liberarAncho = (): void => {
+    anchoFijado.value = null;
+};
+watch(pasoActual, liberarAncho);
+watch(() => viewport.value.ancho, liberarAncho);
+watch(() => viewport.value.alto, liberarAncho);
+
+/**
+ * Posición calculada por lib/tours/motor.ts (calcularPosicion): nunca sobre
+ * el elemento resaltado si hay forma de evitarlo; en móvil, hoja inferior
+ * (o superior si el elemento quedaría debajo).
+ */
+const posicion = computed(() =>
+    calcularPosicion(
+        rect.value
+            ? {
+                  top: rect.value.top,
+                  left: rect.value.left,
+                  width: rect.value.width,
+                  height: rect.value.height,
+              }
+            : null,
+        {
+            ancho: anchoPreferido.value,
+            // Antes de medir por primera vez se usa un alto razonable.
+            alto: tamanoTooltip.value.alto || 240,
+        },
+        viewport.value,
+    ),
+);
+
+watch(posicion, (actual) => {
+    const esHoja =
+        actual.modo === 'hoja-abajo' || actual.modo === 'hoja-arriba';
+
+    if (
+        anchoFijado.value === null &&
+        !esHoja &&
+        actual.ancho < anchoPreferido.value
+    ) {
+        anchoFijado.value = actual.ancho;
+    }
+});
+
+const estiloTooltip = computed(() => ({
+    width: `${posicion.value.ancho}px`,
+    left: `${posicion.value.left}px`,
+    top: `${posicion.value.top}px`,
+}));
 
 const estiloSpotlight = computed(() => {
     if (!rect.value) {
         return { display: 'none' };
     }
 
+    const hueco = rectSpotlight({
+        top: rect.value.top,
+        left: rect.value.left,
+        width: rect.value.width,
+        height: rect.value.height,
+    });
+
     return {
-        top: `${rect.value.top - MARGEN}px`,
-        left: `${rect.value.left - MARGEN}px`,
-        width: `${rect.value.width + MARGEN * 2}px`,
-        height: `${rect.value.height + MARGEN * 2}px`,
-    };
-});
-
-function limitar(valor: number, minimo: number, maximo: number): number {
-    return Math.max(minimo, Math.min(valor, Math.max(minimo, maximo)));
-}
-
-const estiloTooltip = computed(() => {
-    const { ancho: vw, alto: vh } = viewport.value;
-    const ancho = anchoTooltip.value;
-    const alto = altoTooltip.value || 220;
-
-    if (!rect.value) {
-        return {
-            width: `${ancho}px`,
-            left: `${(vw - ancho) / 2}px`,
-            top: `${limitar((vh - alto) / 2, BORDE, vh - alto - BORDE)}px`,
-        };
-    }
-
-    const r = rect.value;
-    const leftCentrado = limitar(
-        r.left + r.width / 2 - ancho / 2,
-        BORDE,
-        vw - ancho - BORDE,
-    );
-    const cabe = (espacio: number): boolean =>
-        espacio >= alto + SEPARACION + BORDE;
-
-    // 1) Abajo del objetivo, 2) arriba, 3) a la derecha, 4) a la izquierda.
-    if (cabe(vh - r.bottom - MARGEN)) {
-        return {
-            width: `${ancho}px`,
-            left: `${leftCentrado}px`,
-            top: `${r.bottom + MARGEN + SEPARACION}px`,
-        };
-    }
-
-    if (cabe(r.top - MARGEN)) {
-        return {
-            width: `${ancho}px`,
-            left: `${leftCentrado}px`,
-            top: `${r.top - MARGEN - SEPARACION - alto}px`,
-        };
-    }
-
-    const topLateral = limitar(r.top, BORDE, vh - alto - BORDE);
-
-    if (vw - r.right - MARGEN >= ancho + SEPARACION + BORDE) {
-        return {
-            width: `${ancho}px`,
-            left: `${r.right + MARGEN + SEPARACION}px`,
-            top: `${topLateral}px`,
-        };
-    }
-
-    if (r.left - MARGEN >= ancho + SEPARACION + BORDE) {
-        return {
-            width: `${ancho}px`,
-            left: `${r.left - MARGEN - SEPARACION - ancho}px`,
-            top: `${topLateral}px`,
-        };
-    }
-
-    // El objetivo ocupa casi toda la pantalla: tooltip fijo abajo.
-    return {
-        width: `${ancho}px`,
-        left: `${(vw - ancho) / 2}px`,
-        top: `${vh - alto - BORDE}px`,
+        top: `${hueco.top}px`,
+        left: `${hueco.left}px`,
+        width: `${hueco.width}px`,
+        height: `${hueco.height}px`,
     };
 });
 
@@ -271,8 +260,14 @@ onBeforeUnmount(() => window.removeEventListener('keydown', alTeclado));
             />
 
             <!-- Cambiando de pantalla / esperando a que aparezca el elemento -->
+            <!-- Llaves distintas en cada rama: con la llave numérica del paso
+                 (0 en el primero) Vue confundía la caja con este aviso (mismo
+                 tag, misma llave), reutilizaba el elemento y dejaba de poder
+                 actualizarlo ("reading 'style'" en cada cuadro): la guía se
+                 quedaba congelada. -->
             <div
-                v-if="estado === 'cargando'"
+                v-if="cargando"
+                key="tour-cargando"
                 class="absolute top-1/2 left-1/2 z-[9999] flex -translate-x-1/2 -translate-y-1/2 items-center gap-3 rounded-xl border bg-popover px-4 py-3 text-sm text-popover-foreground shadow-2xl"
                 aria-live="polite"
             >
@@ -288,7 +283,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', alTeclado));
                 <button
                     type="button"
                     class="ml-2 text-xs font-medium text-primary underline-offset-2 hover:underline"
-                    @click="siguiente"
+                    @click="saltarPaso"
                 >
                     Saltar paso
                 </button>
@@ -302,10 +297,18 @@ onBeforeUnmount(() => window.removeEventListener('keydown', alTeclado));
             </div>
 
             <div
-                v-else
+                v-else-if="estado === 'showing'"
                 ref="tooltip"
-                :key="pasoActual"
-                class="absolute z-[9999] flex max-h-[calc(100vh-2rem)] animate-in flex-col overflow-hidden rounded-2xl border bg-popover text-popover-foreground shadow-2xl duration-200 zoom-in-95 fade-in"
+                :key="`tour-paso-${pasoActual}`"
+                class="absolute z-[9999] flex max-h-[calc(100dvh-1.5rem)] animate-in flex-col overflow-hidden rounded-2xl border bg-popover text-popover-foreground shadow-2xl duration-200 fade-in"
+                :class="
+                    posicion.modo === 'hoja-abajo'
+                        ? 'slide-in-from-bottom-4'
+                        : posicion.modo === 'hoja-arriba'
+                          ? 'slide-in-from-top-4'
+                          : 'zoom-in-95'
+                "
+                :data-lado="posicion.lado ?? posicion.modo"
                 :style="estiloTooltip"
                 aria-live="polite"
             >

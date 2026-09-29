@@ -105,7 +105,7 @@ const TONO_ESTADO: Record<string, string> = {
 <template>
     <Head title="Vacantes" />
 
-    <div class="mx-auto flex w-full max-w-screen-2xl min-w-0 flex-col gap-4 p-3 sm:p-4 lg:px-6">
+    <div class="pagina-ancha flex flex-col gap-4">
         <CrudPageHeader titulo="Vacantes" :icono="Briefcase">
             <CrudExportButtons :url-excel="urlExportar(exportarExcel)" :url-pdf="urlExportar(exportarPdf)" />
         </CrudPageHeader>
@@ -151,13 +151,14 @@ const TONO_ESTADO: Record<string, string> = {
 
         <CrudEmptyState
             v-if="vacantes.length === 0"
+            data-tour="vacantes-lista"
             :icono="Briefcase"
             titulo="No hay vacantes con estos filtros"
             descripcion="Las vacantes se abren solas cuando una sucursal tiene menos personas que su plantilla autorizada."
         />
 
         <!-- Una fila por vacante: puesto primero (es lo que se busca cubrir). -->
-        <ul v-else class="@container divide-y rounded-xl border bg-card" aria-label="Vacantes">
+        <ul v-else data-tour="vacantes-lista" class="@container divide-y rounded-xl border bg-card" aria-label="Vacantes">
             <li
                 v-for="vacante in vacantes"
                 :key="vacante.id"

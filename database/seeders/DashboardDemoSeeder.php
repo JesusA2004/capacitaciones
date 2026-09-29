@@ -160,7 +160,7 @@ class DashboardDemoSeeder extends Seeder
             ['email' => 'colaborador6@mrlana.test', 'nombre' => 'Iván', 'apellidos' => 'Paredes Luna', 'sucursal' => 'CORP01', 'departamento' => 'Mesa de Control', 'puesto' => 'Analista de Mesa de Control', 'genero' => Genero::Masculino],
             ['email' => 'colaborador7@mrlana.test', 'nombre' => 'Renata', 'apellidos' => 'Ochoa Vega', 'sucursal' => 'ATC01', 'departamento' => 'Ventas', 'puesto' => 'Gestor', 'genero' => Genero::Femenino],
             ['email' => 'colaborador8@mrlana.test', 'nombre' => 'Emilio', 'apellidos' => 'Guzmán Solís', 'sucursal' => 'CORP01', 'departamento' => 'Mesa de Control', 'puesto' => 'Analista de Mesa de Control', 'genero' => Genero::Masculino],
-            ['email' => 'colaborador9@mrlana.test', 'nombre' => 'Ximena', 'apellidos' => 'Beltrán Rico', 'sucursal' => 'ATC01', 'departamento' => 'Operaciones', 'puesto' => 'Coordinadora', 'genero' => Genero::Femenino],
+            ['email' => 'colaborador9@mrlana.test', 'nombre' => 'Ximena', 'apellidos' => 'Beltrán Rico', 'sucursal' => 'ATC01', 'departamento' => 'Operaciones', 'puesto' => 'Coordinadora de Sucursal', 'genero' => Genero::Femenino],
         ];
 
         $colaboradores = collect();

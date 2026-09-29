@@ -86,6 +86,79 @@
     }
 }
 
+/*
+ * Barra de pestañas con scroll horizontal SIN barras ni flechas nativas
+ * (Windows/Chromium dibujaba ↑↓ porque overflow-x:auto vuelve auto también
+ * el eje Y y el subrayado -mb-px desborda 1 px). Sigue desplazándose con
+ * touch, trackpad y rueda.
+ */
+@utility scroll-x-limpio {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+
+    &::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+/*
+ * Sistema de ancho de página (se aplica al contenedor raíz de cada página,
+ * nunca como wrapper extra). El área disponible ya descuenta el sidebar.
+ *  - pagina-ancha: dashboards, listados, calendarios, organigrama,
+ *    expedientes, reportes → prácticamente todo el ancho (solo pantallas
+ *    ultra anchas dejan margen).
+ *  - pagina-media: detalles, perfiles, ayuda, configuración.
+ *  - pagina-formulario: formularios (líneas y campos de largo legible).
+ * Mismo padding en las tres: 16 px en móvil, 24 px en tablet, 32 px a los
+ * lados en escritorio.
+ */
+@utility pagina-ancha {
+    width: 100%;
+    min-width: 0;
+    max-width: 120rem;
+    margin-inline: auto;
+    padding: 1rem;
+
+    @media (width >= 40rem) {
+        padding: 1.5rem;
+    }
+
+    @media (width >= 64rem) {
+        padding-inline: 2rem;
+    }
+}
+
+@utility pagina-media {
+    width: 100%;
+    min-width: 0;
+    max-width: 80rem;
+    margin-inline: auto;
+    padding: 1rem;
+
+    @media (width >= 40rem) {
+        padding: 1.5rem;
+    }
+
+    @media (width >= 64rem) {
+        padding-inline: 2rem;
+    }
+}
+
+@utility pagina-formulario {
+    width: 100%;
+    min-width: 0;
+    max-width: 56rem;
+    margin-inline: auto;
+    padding: 1rem;
+
+    @media (width >= 40rem) {
+        padding: 1.5rem;
+    }
+}
+
 @layer utilities {
     body,
     html {

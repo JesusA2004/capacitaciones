@@ -17,6 +17,7 @@ import OrganigramaAccordion from '@/components/Administracion/OrganigramaAccordi
 import OrganigramaArbol from '@/components/Administracion/OrganigramaArbol.vue';
 import OrganigramaPersona from '@/components/Administracion/OrganigramaPersona.vue';
 import OrganigramaPersonasArbol from '@/components/Administracion/OrganigramaPersonasArbol.vue';
+import OrganigramaPersonasLista from '@/components/Administracion/OrganigramaPersonasLista.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
 import { Badge } from '@/components/ui/badge';
@@ -158,8 +159,17 @@ const raices = computed(() =>
     ),
 );
 
+// Un puesto regional (Gerente Regional Q1, Q3…) muestra debajo la rama de
+// sucursal que depende "del regional de su región", aunque en el catálogo
+// solo cuelgue del superior de referencia.
 function obtenerHijos(id: number): PuestoJerarquiaItem[] {
-    return props.puestos.filter((p) => p.puesto_superior_id === id);
+    const esRegional = props.puestos.some((p) => p.id === id && p.region);
+
+    return props.puestos.filter(
+        (p) =>
+            p.puesto_superior_id === id ||
+            (esRegional && p.depende_de_region === true),
+    );
 }
 
 // Búsqueda de puesto o persona: resalta las tarjetas que coinciden y
@@ -330,7 +340,7 @@ watch(
 <template>
     <Head title="Organigrama" />
 
-    <div class="flex flex-col gap-3 p-3 sm:p-4">
+    <div class="pagina-ancha flex flex-col gap-3">
         <!-- Una sola barra: vista, búsqueda, filtros (en panel lateral) y
              Matriz comercial — el espacio vertical se deja al árbol. -->
         <div
@@ -507,10 +517,18 @@ watch(
         <template v-else>
             <!-- Por personas: una tarjeta por colaborador, rama por sucursal. -->
             <div v-if="vista === 'personas'" data-tour="organigrama-arbol">
-                <OrganigramaPersonasArbol
-                    v-if="personas.length"
-                    :nodos="personas"
-                />
+                <template v-if="personas.length">
+                    <!-- Tablet/escritorio: árbol con zoom. Celular: lista
+                         jerárquica desplegable (el árbol no se lee en 390 px). -->
+                    <OrganigramaPersonasArbol
+                        class="hidden md:block"
+                        :nodos="personas"
+                    />
+                    <OrganigramaPersonasLista
+                        class="md:hidden"
+                        :nodos="personas"
+                    />
+                </template>
                 <CrudEmptyState
                     v-else
                     :icono="Users"

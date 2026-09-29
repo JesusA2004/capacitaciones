@@ -25,7 +25,7 @@ const clase = (activo: boolean) =>
 
 <template>
     <div class="flex flex-wrap items-end justify-between gap-x-4 gap-y-2 border-b">
-        <nav class="flex max-w-full overflow-x-auto" aria-label="Celebraciones" data-tour="celebraciones-tabs">
+        <nav class="scroll-x-limpio flex max-w-full" aria-label="Celebraciones" data-tour="celebraciones-tabs">
             <Link
                 v-if="tienePermiso('rh.cumpleanos.ver')"
                 :href="indexCumpleanos()"

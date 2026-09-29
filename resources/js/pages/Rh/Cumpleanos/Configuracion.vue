@@ -23,6 +23,13 @@ import { destroy as destroyFrase, store as storeFrase, update as updateFrase } f
  */
 type Frase = { id: number; texto: string; categoria: string | null; activo: boolean; usado_count: number };
 
+// Los mismos datos que usa BirthdayCardService::previewEjemplo().
+const datosEjemplo = [
+    { etiqueta: 'Nombre', valor: 'María Fernanda Hernández Rodríguez' },
+    { etiqueta: 'Sucursal', valor: 'Sucursal de ejemplo' },
+    { etiqueta: 'Frase', valor: 'La primera frase activa del catálogo' },
+];
+
 defineProps<{
     tieneFondo: boolean;
     fondoUrl: string | null;
@@ -111,7 +118,14 @@ function eliminarFrase() {
 <template>
     <Head title="Configuración de cumpleaños" />
 
-    <CelebracionConfiguracionLayout titulo="Tarjeta de cumpleaños" :volver-url="index.url()" :vista-previa-url="vistaPrevia.url()" :version="version">
+    <CelebracionConfiguracionLayout
+        titulo="Tarjeta de cumpleaños"
+        :volver-url="index.url()"
+        :vista-previa-url="vistaPrevia.url()"
+        :version="version"
+        :fondo-propio="tieneFondo"
+        :datos-ejemplo="datosEjemplo"
+    >
         <section class="flex flex-col gap-3" aria-labelledby="config-fondo">
             <div>
                 <h2 id="config-fondo" class="text-sm font-semibold">Fondo</h2>

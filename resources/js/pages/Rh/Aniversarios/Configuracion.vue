@@ -22,7 +22,16 @@ import { guardar, vistaPrevia } from '@/routes/rh/aniversarios/configuracion';
 const props = defineProps<{
     configuracion: { activo: boolean; mensaje: string | null; auto_enviar_colaborador: boolean; tiene_fondo: boolean };
     mensajePredeterminado: string;
+    ejemplo: { nombre: string; anios: number; puesto: string; sucursal: string };
 }>();
+
+const datosEjemplo = [
+    { etiqueta: 'Años', valor: props.ejemplo.anios },
+    { etiqueta: 'Nombre', valor: props.ejemplo.nombre },
+    { etiqueta: 'Puesto', valor: props.ejemplo.puesto },
+    { etiqueta: 'Sucursal', valor: props.ejemplo.sucursal },
+    { etiqueta: 'Mensaje', valor: 'El mensaje institucional guardado' },
+];
 
 defineOptions({
     layout: {
@@ -60,7 +69,14 @@ function enviar() {
 <template>
     <Head title="Configuración de aniversarios" />
 
-    <CelebracionConfiguracionLayout titulo="Tarjeta de aniversario" :volver-url="indexAniversarios.url()" :vista-previa-url="vistaPrevia.url()" :version="version">
+    <CelebracionConfiguracionLayout
+        titulo="Tarjeta de aniversario"
+        :volver-url="indexAniversarios.url()"
+        :vista-previa-url="vistaPrevia.url()"
+        :version="version"
+        :fondo-propio="configuracion.tiene_fondo"
+        :datos-ejemplo="datosEjemplo"
+    >
         <form class="flex flex-col gap-6" @submit.prevent="enviar">
             <section class="flex flex-col gap-3" aria-label="Envío">
                 <label class="flex items-start gap-2 text-sm">

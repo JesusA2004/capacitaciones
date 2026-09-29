@@ -663,7 +663,7 @@ const pestanaInicial = (() => {
 <template>
     <Head :title="`Expediente de ${colaborador.name}`" />
 
-    <div class="flex w-full min-w-0 flex-col gap-6 p-4">
+    <div class="pagina-ancha flex flex-col gap-6">
         <Card
             data-tour="expediente-cabecera"
             class="overflow-hidden rounded-3xl border-border/60 bg-gradient-to-br from-primary/10 via-card to-card shadow-sm transition-shadow hover:shadow-md"
@@ -850,7 +850,7 @@ const pestanaInicial = (() => {
         >
             <TabsList
                 data-tour="expediente-pestanas"
-                class="h-auto w-full flex-row justify-start gap-1 overflow-x-auto bg-muted/60 p-1.5 lg:w-56 lg:shrink-0 lg:flex-col lg:items-stretch lg:gap-0.5 lg:overflow-visible lg:rounded-2xl lg:p-2"
+                class="h-auto w-full flex-row justify-start gap-1 scroll-x-limpio bg-muted/60 p-1.5 lg:w-56 lg:shrink-0 lg:flex-col lg:items-stretch lg:gap-0.5 lg:overflow-visible lg:rounded-2xl lg:p-2"
             >
                 <TabsTrigger
                     value="resumen"

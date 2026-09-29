@@ -177,7 +177,7 @@ const TIPOS_BAJA = [
 <template>
     <Head title="Mis solicitudes" />
 
-    <div class="flex flex-col gap-6 p-4">
+    <div class="pagina-media flex flex-col gap-6">
         <CrudPageHeader
             titulo="Mis solicitudes"
             descripcion="Vacaciones, permisos, préstamos, incapacidades y otros trámites internos, todo en un solo lugar."

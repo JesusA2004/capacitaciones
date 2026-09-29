@@ -139,7 +139,7 @@ function abrirExpediente(): void {
             :title="nodo.cobertura.nota ?? undefined"
         >
             <ArrowLeftRight class="size-3" />
-            Cubriendo · {{ nodo.cobertura.motivo_etiqueta }}
+            Vacante · cubierto temporalmente
         </div>
         <div
             v-else-if="!esVacante"
@@ -241,8 +241,13 @@ function abrirExpediente(): void {
                     v-if="esCobertura && detalle !== 'minimo'"
                     class="mt-0.5 text-[11px] text-amber-800 dark:text-amber-300"
                 >
-                    Titular en {{ nodo.persona.sucursal ?? 'otra sucursal' }} ·
-                    desde {{ desde }}
+                    Cubierto temporalmente por esta persona · Titular de
+                    {{
+                        nodo.cobertura?.titular_de ??
+                        nodo.persona.sucursal ??
+                        'otro puesto'
+                    }}
+                    · desde {{ desde }}
                 </p>
             </div>
 
@@ -294,7 +299,12 @@ function abrirExpediente(): void {
             >
                 {{ nodo.puesto.nombre }}
             </p>
-            <p :class="tamano.puesto">Sin ocupar</p>
+            <p
+                class="font-semibold tracking-wide uppercase"
+                :class="tamano.puesto"
+            >
+                Vacante
+            </p>
             <span
                 v-if="(nodo.sucursal || nodo.region) && detalle === 'completo'"
                 class="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-medium dark:bg-orange-500/15"

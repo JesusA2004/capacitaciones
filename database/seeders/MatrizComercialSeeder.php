@@ -2,10 +2,13 @@
 
 namespace Database\Seeders;
 
+use App\Enums\ClaseEntradaMatriz;
 use App\Enums\TipoNodoComercial;
 use App\Models\AsignacionNodoComercial;
 use App\Models\NodoComercial;
+use App\Models\Puesto;
 use App\Models\Sucursal;
+use App\Services\MatrizComercial\ClasificadorNodoComercial;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -86,6 +89,15 @@ class MatrizComercialSeeder extends Seeder
             $codigoRegion = trim(str_replace('REGION', '', $regionCruda));
             $region = $this->upsert($matriz->id, TipoNodoComercial::Region, "Región {$codigoRegion}", $ordenRegion++, region: $codigoRegion);
 
+            // Cada región cuelga de SU puesto de gerente regional (plaza
+            // "Gerente Regional Q1"/"Q3", PuestoJerarquiaSeeder): así el
+            // organigrama sabe de quién dependen las sucursales de la región.
+            // Nunca se asigna a una persona aquí.
+            $puestoRegional = Puesto::query()->where('nombre', "Gerente Regional {$codigoRegion}")->value('id');
+            if ($puestoRegional !== null && $region->puesto_id !== $puestoRegional) {
+                $region->update(['puesto_id' => $puestoRegional]);
+            }
+
             $ordenZona = 0;
 
             foreach ($zonas as $nombreZona => $rutas) {
@@ -120,8 +132,13 @@ class MatrizComercialSeeder extends Seeder
      */
     private function sembrarRutas(NodoComercial $zona, array $rutas, bool $forzarInactiva = false): void
     {
+        $clasificador = app(ClasificadorNodoComercial::class);
+
         foreach ($rutas as $orden => $nombreRuta) {
-            $this->upsert($zona->id, TipoNodoComercial::Ruta, $nombreRuta, $orden, forzarInactiva: $forzarInactiva);
+            // "CUERNAVACA GTE", "MIACATLAN SUBGERENCIA", "VOLANTE X" son
+            // posiciones de la sucursal, no rutas de cobro asignables.
+            $clase = $clasificador->clasificar($nombreRuta);
+            $this->upsert($zona->id, $clase->tipoNodo(), $nombreRuta, $orden, forzarInactiva: $forzarInactiva, clase: $clase);
         }
     }
 
@@ -170,18 +187,29 @@ class MatrizComercialSeeder extends Seeder
         ?string $region = null,
         ?int $sucursalId = null,
         bool $forzarInactiva = false,
+        ?ClaseEntradaMatriz $clase = null,
     ): NodoComercial {
         ['nombre' => $nombre, 'activa' => $activa, 'estado_operativo' => $estadoOperativo] = $this->parsearNombre($nombreCrudo);
 
+        $metadata = array_filter([
+            'estado_operativo' => $estadoOperativo,
+            'clase' => $clase?->value,
+        ]);
+
+        // Llave (padre, nombre) y NO (padre, tipo, nombre): una entrada que
+        // antes se guardó como "ruta" y ahora se reclasifica como
+        // gerencia/subgerencia/volante se actualiza en su lugar (conserva su
+        // id e historial), no se duplica.
         return NodoComercial::query()->updateOrCreate(
-            ['parent_id' => $parentId, 'tipo' => $tipo->value, 'nombre' => $nombre],
+            ['parent_id' => $parentId, 'nombre' => $nombre],
             [
+                'tipo' => $tipo->value,
                 'clave' => Str::slug($nombre),
                 'region' => $region,
                 'activa' => $forzarInactiva ? false : $activa,
                 'orden' => $orden,
                 'sucursal_id' => $sucursalId,
-                'metadata' => $estadoOperativo !== null ? ['estado_operativo' => $estadoOperativo] : null,
+                'metadata' => $metadata !== [] ? $metadata : null,
             ],
         );
     }

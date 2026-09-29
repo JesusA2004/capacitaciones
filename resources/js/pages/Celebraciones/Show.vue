@@ -111,7 +111,7 @@ function fecha(valor: string): string {
 <template>
     <Head :title="celebracion.titulo" />
 
-    <div class="mx-auto grid w-full max-w-6xl grid-cols-1 gap-6 p-4 sm:p-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
+    <div class="pagina-media grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
         <!-- Tarjeta oficial -->
         <section class="flex flex-col gap-3">
             <img :src="celebracion.tarjeta_url" :alt="celebracion.titulo" class="w-full rounded-2xl border shadow-sm" />

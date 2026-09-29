@@ -85,7 +85,7 @@ async function eliminar(departamento: DepartamentoItem) {
 <template>
     <Head title="Departamentos" />
 
-    <div class="flex flex-col gap-6 p-4">
+    <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
             titulo="Departamentos"
             descripcion="Organiza a los colaboradores por área de la empresa y agrupa sus puestos."
