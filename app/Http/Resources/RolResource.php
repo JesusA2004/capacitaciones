@@ -19,7 +19,9 @@ class RolResource extends JsonResource
         return [
             'id' => $this->id,
             'nombre' => $this->name,
-            'permisos' => $this->permissions->pluck('name'),
+            // RolPermisoService::rolesParaListado() ya trae los nombres sin
+            // hidratar modelos Permission.
+            'permisos' => $this->resource->getAttribute('permisos_nombres') ?? $this->permissions->pluck('name'),
             'usuarios_count' => $this->whenCounted('users'),
             'es_protegido' => $this->name === 'super_admin',
         ];

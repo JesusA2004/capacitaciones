@@ -8,7 +8,7 @@ import {
     Users,
     XCircle,
 } from '@lucide/vue';
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import SucursalFormDialog from '@/components/Administracion/SucursalFormDialog.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import CrudActionMenu from '@/components/DataTable/CrudActionMenu.vue';
@@ -35,7 +35,8 @@ import type {
 const props = defineProps<{
     sucursales: RespuestaPaginada<SucursalItem>;
     filtros: { busqueda?: string; empresa_id?: string };
-    responsablesDisponibles: {
+    /** Prop opcional: solo llega al abrir el diálogo (recarga parcial). */
+    responsablesDisponibles?: {
         id: number;
         name: string;
         apellidos: string | null;
@@ -68,6 +69,14 @@ const columnas: ColumnaDataTable[] = [
 ];
 
 const dialogAbierto = ref(false);
+
+// El catálogo de responsables (todas las cuentas) no viaja con el listado:
+// se pide solo al abrir el diálogo (SucursalController::index, Inertia::optional).
+watch(dialogAbierto, (abierto) => {
+    if (abierto && props.responsablesDisponibles === undefined) {
+        router.reload({ only: ['responsablesDisponibles'] });
+    }
+});
 const sucursalSeleccionada = ref<SucursalItem | null>(null);
 
 function abrirCrear() {
@@ -241,7 +250,7 @@ async function eliminar(sucursal: SucursalItem) {
         v-if="dialogAbierto"
         v-model:open="dialogAbierto"
         :sucursal="sucursalSeleccionada"
-        :responsables-disponibles="responsablesDisponibles"
+        :responsables-disponibles="responsablesDisponibles ?? []"
         :empresas-disponibles="empresasDisponibles"
         :key="sucursalSeleccionada?.id ?? 'nueva'"
     />

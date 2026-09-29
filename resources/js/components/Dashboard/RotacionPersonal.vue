@@ -13,7 +13,6 @@ import {
 } from '@lucide/vue';
 import type { DateRange } from 'reka-ui';
 import { computed, ref, shallowRef, watch } from 'vue';
-import VueApexCharts from 'vue3-apexcharts';
 import MetricCard from '@/components/Dashboard/MetricCard.vue';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -27,6 +26,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { VueApexCharts } from '@/lib/apexDiferido';
 import { getJson } from '@/lib/http';
 import { rotacion } from '@/routes/dashboard';
 import { excel as exportarExcel, pdf as exportarPdf } from '@/routes/dashboard/rotacion';

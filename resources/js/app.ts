@@ -19,6 +19,8 @@ createInertiaApp({
             case name.startsWith('AltaPublica/'):
             case name.startsWith('Incorporacion/Qr'):
             case name.startsWith('App/'):
+            // Página de error: puede pintarse sin sesión (404, 500, 503).
+            case name === 'Error':
                 return null;
             case name.startsWith('auth/'):
                 return AuthLayout;

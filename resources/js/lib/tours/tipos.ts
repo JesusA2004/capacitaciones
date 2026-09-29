@@ -32,6 +32,12 @@ export type PasoTour = {
     opcional?: boolean;
     /** Módulo al que pertenece el paso (chip del encabezado del tooltip). */
     seccion?: string;
+    /**
+     * Basta con tener uno para que el paso se incluya (p. ej. una pestaña
+     * que solo ve quien administra plantillas). Sin permisos = siempre. Así
+     * el recorrido nunca navega a una pantalla que respondería 403.
+     */
+    permisos?: string[];
 };
 
 export type Tour = {
@@ -59,6 +65,12 @@ export type ModuloGuia = {
     modo: ModoGuia;
     /** Basta con tener uno; vacío = cualquiera en ese modo. */
     permisos: string[];
+    /**
+     * Selector del acceso al módulo en el recorrido completo, cuando no es
+     * un enlace directo del sidebar (p. ej. Aniversarios es una pestaña de
+     * Celebraciones). Por defecto: el enlace del sidebar a `ruta`.
+     */
+    selectorMenu?: string;
     /** Agrupación en la página de Ayuda. */
     grupo: string;
     icono: Component;

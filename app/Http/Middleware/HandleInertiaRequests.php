@@ -66,7 +66,7 @@ class HandleInertiaRequests extends Middleware
             // la experiencia personal ("Mi portal") de la operativa, ver
             // App\Services\Navigation\NavigationService.
             'navegacion' => $user ? [
-                'modoActual' => $this->navegacion->modoActual($user, $this->cookieModoNavegacion($request)),
+                'modoActual' => $this->navegacion->modoActual($user, NavigationService::cookieDe($request)),
                 'modosDisponibles' => $this->navegacion->modosDisponibles($user),
             ] : null,
             // Para que el frontend pueda ocultar por completo navegacion de
@@ -77,18 +77,5 @@ class HandleInertiaRequests extends Middleware
             ],
             'environment' => app()->environment(),
         ];
-    }
-
-    /**
-     * `Request::cookie()` puede devolver `array|string|null` (un mismo
-     * nombre de cookie repetido en la petición HTTP se agrupa en arreglo);
-     * la cookie de modo de navegación siempre es un valor simple, así que
-     * cualquier otra forma se trata como "sin cookie".
-     */
-    private function cookieModoNavegacion(Request $request): ?string
-    {
-        $valor = $request->cookie(NavigationService::nombreCookie());
-
-        return is_string($valor) ? $valor : null;
     }
 }

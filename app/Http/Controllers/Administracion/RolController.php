@@ -21,11 +21,7 @@ class RolController extends Controller
     {
         $this->authorize('viewAny', Role::class);
 
-        $roles = Role::query()
-            ->withCount('users')
-            ->with('permissions')
-            ->orderBy('name')
-            ->get();
+        $roles = $this->rolPermisoService->rolesParaListado();
 
         return Inertia::render('Administracion/Roles/Index', [
             'roles' => RolResource::collection($roles)->resolve(),

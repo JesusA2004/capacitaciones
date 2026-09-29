@@ -23,6 +23,9 @@ const { tienePermiso } = usePermisos();
 
 const puedeVerOficiales = computed(() => tienePermiso('formatos_oficiales.ver'));
 const puedeVerPlantillas = computed(() => tienePermiso('plantillas.ver'));
+// "Generados (Word)" (Rh/FormatoController::index) exige plantillas.crear:
+// con solo plantillas.ver la pestaña llevaba a un 403.
+const puedeVerWordGenerados = computed(() => tienePermiso('plantillas.crear'));
 
 function claseTab(activo: boolean): string {
     return cn(
@@ -45,9 +48,7 @@ function claseTab(activo: boolean): string {
             <Link :href="generados()" :class="claseTab(props.activa === 'generados')">Documentos generados</Link>
             <Link :href="variables()" :class="claseTab(props.activa === 'variables')">Variables</Link>
         </template>
-        <template v-if="puedeVerPlantillas">
-            <Link :href="indexPlantillas()" :class="claseTab(props.activa === 'plantillas')">Plantillas Word por clave</Link>
-            <Link :href="indexWordGenerados()" :class="claseTab(props.activa === 'word-generados')">Generados (Word)</Link>
-        </template>
+        <Link v-if="puedeVerPlantillas" :href="indexPlantillas()" :class="claseTab(props.activa === 'plantillas')">Plantillas Word por clave</Link>
+        <Link v-if="puedeVerWordGenerados" :href="indexWordGenerados()" :class="claseTab(props.activa === 'word-generados')">Generados (Word)</Link>
     </nav>
 </template>

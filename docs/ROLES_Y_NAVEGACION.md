@@ -5,12 +5,14 @@ MR. LANA PEOPLE separa dos experiencias completamente distintas dentro del mismo
 - **Modo colaborador**: el portal personal de cualquier empleado (mi portal, mis solicitudes, mi expediente, mis notificaciones, mi perfil).
 - **Modo operativo**: las herramientas de RH/gerencia/dirección para operar el sistema (dashboard, colaboradores, solicitudes por revisar, vacantes, candidatos, organigrama, formatos, reportes, cumpleaños, administración).
 
-Un usuario **nunca** ve ambos mezclados en el mismo menú. El gate no depende del nombre del rol, depende de permisos:
+Un usuario **nunca** ve ambos mezclados en el mismo menú. Una misma CUENTA puede representar a la vez a un colaborador real y a alguien con permisos operativos; ninguna capacidad depende del nombre del rol:
 
-- Tiene modo colaborador si tiene el permiso `portal.ver`.
-- Tiene modo operativo si tiene `dashboard.global.ver` o `dashboard.sucursal.ver`.
+- **Modo colaborador ("Mi espacio")** — capacidad central `NavigationService::puedeUsarModoColaborador()`, expuesta como Gate `modo-colaborador`: la cuenta está enlazada a un **Colaborador activo** y no tiene el acceso bloqueado (`User::puedeAccederPortal()`), **o** tiene el permiso explícito `portal.ver` (rol `colaborador`).
+- **Modo operativo ("Operación RH")** — `dashboard.global.ver` o `dashboard.sucursal.ver`.
 
-El rol `colaborador` solo tiene `portal.ver` (y sus permisos personales `portal.*`) — nunca `dashboard.*.ver`. Todos los demás roles (rh_admin, gerente, auditor, etc.) tienen algún `dashboard.*.ver` y **no** tienen `portal.ver`, así que solo ven el modo operativo. Ningún rol sembrado hoy tiene ambos modos, pero el mecanismo ya soporta esa combinación (por ejemplo, un futuro rol "gerente que también es colaborador de otra área").
+Consecuencia (regresión corregida el 2026-09-28): un super_admin, rh_admin o gerente cuya cuenta está enlazada a su Colaborador activo ve **siempre** el selector [Mi espacio] [Operación RH], sin tener que asignarle además el rol `colaborador`. Una cuenta sin colaborador enlazado (o con el colaborador inactivo/suspendido, o con acceso bloqueado) solo tiene el modo operativo. Como el login web exige colaborador activo/en incorporación (`FortifyServiceProvider`, `EnsureCuentaActiva`), en la práctica toda cuenta administrativa que inicia sesión es también un colaborador.
+
+El Gate `modo-colaborador` protege las rutas personales (`mi-portal`, `mi-perfil`, `mis-notificaciones`, `mi-expediente`, `mi-expediente/foto`) y `DashboardController` (el "Inicio" respeta el modo elegido). **Mi espacio siempre opera sobre el colaborador de la cuenta autenticada** (`$request->user()->colaborador`): esas rutas no reciben ningún id, así que ser administrador nunca abre el "Mi espacio" de otra persona.
 
 ## Selector "Mi espacio" / "Operación RH"
 
@@ -38,7 +40,7 @@ Lo que **ya no existe** como entrada de menú (aunque las rutas sigan vivas por 
 
 ## Permisos personales vs operativos
 
-Los permisos `portal.*` (`portal.ver`, `portal.perfil.ver`, `portal.solicitudes.ver`, `portal.solicitudes.crear`, `portal.notificaciones.ver`) son exclusivamente del modo colaborador. Ningún rol operativo los tiene por default — si un admin necesita también experiencia personal, hay que dárselos explícitamente desde Administración → Roles y permisos, y eso automáticamente le habilita el selector de modo.
+Los permisos `portal.*` (`portal.ver`, `portal.perfil.ver`, `portal.solicitudes.ver`, `portal.solicitudes.crear`, `portal.notificaciones.ver`) siguen siendo del rol `colaborador` y ningún rol operativo los tiene por default — pero ya **no** son la única llave de "Mi espacio": una cuenta operativa enlazada a un Colaborador activo lo tiene por el Gate `modo-colaborador` (ver arriba).
 
 ## Bloqueo de cuenta
 

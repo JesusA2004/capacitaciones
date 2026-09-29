@@ -73,7 +73,7 @@ function fecha(valor: string | null): string {
             </NativeSelect>
         </div>
 
-        <DataTable :columnas="columnas" :datos="generaciones" mensaje-vacio="Todavía no se han generado documentos.">
+        <DataTable data-tour="formatos-generados-tabla" :columnas="columnas" :datos="generaciones" mensaje-vacio="Todavía no se han generado documentos.">
             <template #celda-formato="{ fila }">
                 <div class="flex min-w-0 flex-col">
                     <span class="font-medium">{{ fila.formato }}</span>

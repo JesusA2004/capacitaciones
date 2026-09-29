@@ -63,7 +63,7 @@ class AniversariosService
 
         $filas = collect();
 
-        foreach ($this->consulta($usuario, $filtros)->get() as $colaborador) {
+        foreach (FechasCelebracion::limitarAMesesDeVentana($this->consulta($usuario, $filtros), 'fecha_ingreso', $desde, $hasta)->get() as $colaborador) {
             $ingreso = $colaborador->fecha_ingreso;
 
             if ($ingreso === null) {

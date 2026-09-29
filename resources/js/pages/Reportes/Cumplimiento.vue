@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import VueApexCharts from 'vue3-apexcharts';
 import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import DataTable from '@/components/DataTable/DataTable.vue';
 import type { ColumnaDataTable } from '@/components/DataTable/DataTable.vue';
@@ -16,6 +15,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useFiltros } from '@/composables/useFiltros';
+import { VueApexCharts } from '@/lib/apexDiferido';
 import { dashboard } from '@/routes';
 import { exportar, exportarPdf, index } from '@/routes/reportes/cumplimiento';
 import type { ColaboradorCumplimientoItem, GraficaReporte, RespuestaPaginada } from '@/types';

@@ -3,6 +3,7 @@
 namespace App\Services\Navigation;
 
 use App\Models\User;
+use Illuminate\Http\Request;
 
 /**
  * Separa la experiencia "modo colaborador" (portal personal: mis
@@ -11,30 +12,41 @@ use App\Models\User;
  * sistema). Antes de este servicio, AppSidebar.vue mezclaba ambas: un
  * admin veía "Mi portal"/"Vacaciones" como si fuera colaborador.
  *
- * Basado enteramente en permisos ya sembrados (RolesYPermisosSeeder), no en
- * nombres de rol hardcodeados:
- * - Modo colaborador: gate = permiso `portal.ver` (solo el rol
- *   `colaborador` lo tiene hoy).
- * - Modo operativo: gate = tener `dashboard.global.ver` o
- *   `dashboard.sucursal.ver` (todo rol operativo tiene uno de los dos; el
- *   rol `colaborador` no tiene ninguno).
+ * Una misma CUENTA puede representar a la vez a un colaborador real y a
+ * alguien con permisos operativos; ninguna de las dos capacidades depende
+ * del nombre del rol:
+ * - Modo colaborador ("Mi espacio"): puedeUsarModoColaborador() — la
+ *   cuenta está enlazada a un Colaborador activo y no tiene el acceso
+ *   bloqueado (User::puedeAccederPortal()), o tiene el permiso explícito
+ *   `portal.ver` (rol `colaborador`). Un super_admin con Colaborador activo
+ *   tiene Mi espacio sin necesitar también el rol `colaborador`.
+ * - Modo operativo ("Operación RH"): `dashboard.global.ver` o
+ *   `dashboard.sucursal.ver`.
  *
- * Un usuario puede tener ambos modos si algún día un rol combina ambos
- * bloques de permisos (p. ej. un futuro rol "gerente-colaborador"); ese
- * caso ya está soportado aunque ningún rol sembrado lo use todavía.
+ * Es la ÚNICA definición de la capacidad personal: el Gate
+ * `modo-colaborador` (AppServiceProvider) la expone a las rutas personales
+ * (mi-portal, mi-perfil, mis-notificaciones, mi-expediente) y a
+ * DashboardController. Mi espacio siempre opera sobre el colaborador de la
+ * cuenta autenticada — nunca recibe un id de otra persona.
  */
 class NavigationService
 {
     private const COOKIE_MODO = 'experiencia_modo';
 
-    public function esColaborador(User $usuario): bool
+    public const GATE_MODO_COLABORADOR = 'modo-colaborador';
+
+    public function puedeUsarModoColaborador(User $usuario): bool
     {
-        return $usuario->can('portal.ver');
+        if ($usuario->acceso_bloqueado_en !== null) {
+            return false;
+        }
+
+        return $usuario->can('portal.ver') || $usuario->puedeAccederPortal();
     }
 
     public function tieneModoColaborador(User $usuario): bool
     {
-        return $this->esColaborador($usuario);
+        return $this->puedeUsarModoColaborador($usuario);
     }
 
     public function tieneModoOperativo(User $usuario): bool
@@ -100,6 +112,19 @@ class NavigationService
     public static function nombreCookie(): string
     {
         return self::COOKIE_MODO;
+    }
+
+    /**
+     * `Request::cookie()` puede devolver `array|string|null` (un mismo
+     * nombre de cookie repetido en la petición HTTP se agrupa en arreglo);
+     * la cookie de modo siempre es un valor simple, así que cualquier otra
+     * forma se trata como "sin cookie".
+     */
+    public static function cookieDe(Request $request): ?string
+    {
+        $valor = $request->cookie(self::COOKIE_MODO);
+
+        return is_string($valor) ? $valor : null;
     }
 
     /**

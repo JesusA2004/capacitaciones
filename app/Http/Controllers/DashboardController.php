@@ -7,6 +7,7 @@ use App\Models\Departamento;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Navigation\NavigationService;
 use App\Services\Reportes\MetricasRhDashboardService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -22,13 +23,20 @@ class DashboardController extends Controller
     public function __construct(
         private readonly MetricasRhDashboardService $metricas,
         private readonly AlcanceOrganizacionalService $alcance,
+        private readonly NavigationService $navegacion,
     ) {}
 
     public function index(Request $request): Response
     {
         $usuario = $request->user();
+        $modo = $this->navegacion->modoActual($usuario, NavigationService::cookieDe($request));
 
-        if ($usuario->can('dashboard.global.ver') || $usuario->can('dashboard.sucursal.ver')) {
+        abort_if($modo === '', 403, 'Tu cuenta no tiene un modo de acceso configurado (ni operativo ni colaborador). Contacta a un administrador.');
+
+        // "Inicio" respeta el modo elegido en el selector: una cuenta
+        // operativa + colaborador que está en "Mi espacio" ve su inicio
+        // personal, no el tablero de RH (ver NavigationService).
+        if ($modo === 'operativo') {
             $vista = $usuario->can('dashboard.global.ver') ? 'Dashboard/Global' : 'Dashboard/Sucursal';
 
             return Inertia::render($vista, [
@@ -38,8 +46,6 @@ class DashboardController extends Controller
                 'departamentosFiltro' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
             ]);
         }
-
-        abort_unless($usuario->can('portal.ver'), 403, 'Tu cuenta no tiene un modo de acceso configurado (ni operativo ni colaborador). Contacta a un administrador.');
 
         return Inertia::render('Dashboard/Colaborador', $this->metricas->colaborador($usuario));
     }

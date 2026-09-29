@@ -8,7 +8,7 @@ import {
     Unlock,
     Users as UsersIcon,
 } from '@lucide/vue';
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import UsuarioFormDialog from '@/components/Administracion/UsuarioFormDialog.vue';
 import UsuarioRolesDialog from '@/components/Administracion/UsuarioRolesDialog.vue';
 import CrudActionMenu from '@/components/DataTable/CrudActionMenu.vue';
@@ -37,7 +37,8 @@ import type { RespuestaPaginada } from '@/types';
 const props = defineProps<{
     usuarios: RespuestaPaginada<UsuarioItem>;
     filtros: { busqueda?: string };
-    colaboradoresSinCuenta: { id: number; name: string; apellidos: string | null }[];
+    /** Prop opcional: solo llega al abrir "Nuevo usuario" (recarga parcial). */
+    colaboradoresSinCuenta?: { id: number; name: string; apellidos: string | null }[];
     rolesDisponibles: string[];
     estadisticas: { total: number; bloqueados: number };
 }>();
@@ -66,6 +67,21 @@ const columnas: ColumnaDataTable[] = [
 ];
 
 const dialogCrearAbierto = ref(false);
+const cargandoColaboradores = ref(false);
+
+// El catálogo de colaboradores sin cuenta no viaja con el listado: se pide
+// solo cuando se abre el diálogo (UsuarioController::index, Inertia::optional).
+watch(dialogCrearAbierto, (abierto) => {
+    if (!abierto) {
+        return;
+    }
+
+    cargandoColaboradores.value = true;
+    router.reload({
+        only: ['colaboradoresSinCuenta'],
+        onFinish: () => (cargandoColaboradores.value = false),
+    });
+});
 const usuarioEditarRoles = ref<UsuarioItem | null>(null);
 const usuarioPassword = ref<UsuarioItem | null>(null);
 
@@ -275,7 +291,8 @@ function restablecer(usuario: UsuarioItem) {
     <UsuarioFormDialog
         v-if="dialogCrearAbierto"
         v-model:open="dialogCrearAbierto"
-        :colaboradores-sin-cuenta="colaboradoresSinCuenta"
+        :colaboradores-sin-cuenta="colaboradoresSinCuenta ?? []"
+        :cargando="cargandoColaboradores"
         :roles-disponibles="rolesDisponibles"
     />
 

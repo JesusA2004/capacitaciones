@@ -64,10 +64,34 @@ demo está sembrado — pensado para correrse justo después de `migrate
 --force` + `db:seed --force` en cualquier entorno (VPS o local nuevo), o
 cuando algo no carga y no está claro si falta un import/seed.
 
+## `.env` de producción (obligatorio)
+
+```dotenv
+APP_ENV=production
+APP_DEBUG=false          # NUNCA true: la pantalla de excepción expone trazas, SQL, rutas, headers y cookies
+FORMATOS_LIBREOFFICE_PATH=/usr/bin/soffice   # Word → PDF fiel (sin esto, PDF aproximado)
+QUEUE_CONNECTION=database   # o redis; nunca sync en producción
+```
+
+Con `APP_DEBUG=false` los errores muestran la página corporativa
+(`resources/js/pages/Error.vue`, respaldo Blade `resources/views/errors/minimal.blade.php`)
+y un archivo faltante en NAS responde 404/aviso, nunca un 500 (ver `bootstrap/app.php`).
+`people:diagnostico` marca error si `APP_ENV=production` y `APP_DEBUG=true`, si
+hay paquetes de desarrollo instalados, si hay migraciones pendientes, si LibreOffice
+no responde o si los roles base no tienen sus permisos.
+
+Después de cambiar `.env` siempre: `php artisan config:cache`. Verificación rápida:
+
+```bash
+php artisan tinker --execute="dump(config('app.debug'), config('formatos_oficiales.libreoffice'));"
+# false, "/usr/bin/soffice"
+```
+
 ## Deploy (primera vez o rutina)
 
 ```bash
-composer install --no-dev --optimize-autoloader
+# SIN paquetes de desarrollo (Debugbar/Pest/Faker…): nunca `composer install` a secas.
+composer install --no-dev --optimize-autoloader --no-interaction
 
 cp .env.example .env   # solo la primera vez; luego editar con los valores reales
 php artisan key:generate   # solo la primera vez
@@ -86,14 +110,26 @@ php artisan optimize:clear
 
 npm ci && npm run build
 
-php artisan migrate --force
-php artisan db:seed --force     # RolesYPermisosSeeder y BirthdayPhraseSeeder son idempotentes (firstOrCreate)
+php artisan migrate --force           # OBLIGATORIO en cada deploy (el log del último deploy no lo tenía)
+php artisan migrate:status | grep -i pending   # debe salir vacío
+
+# Permisos nuevos del catálogo (p. ej. celebraciones.* → Aniversarios) y los que
+# les falten a los roles base. `git pull` + `migrate` NO los crean. Idempotente,
+# NUNCA quita permisos personalizados desde "Roles y permisos". Usa --simular para
+# ver antes qué cambiaría.
+php artisan people:sincronizar-permisos
+
 php artisan people:diagnostico  # confirma que todo quedó completo antes de seguir (ver PRE-DEPLOY arriba)
 
 php artisan permission:cache-reset
 php artisan config:cache
 php artisan route:cache
+php artisan view:cache
 ```
+
+`php artisan db:seed --force` también es seguro para los permisos: desde este cierre
+`RolesYPermisosSeeder` usa el mismo sincronizador (solo agrega, nunca
+`syncPermissions()`), así que re-sembrar ya no borra personalizaciones de roles.
 
 `db:seed --force` con `composer install --no-dev` funciona sin problema: los seeders de
 producción (`RolesYPermisosSeeder`, `BirthdayPhraseSeeder`) no dependen de

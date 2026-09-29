@@ -7,6 +7,7 @@ use App\Http\Requests\Administracion\StoreEmpresaRequest;
 use App\Http\Requests\Administracion\UpdateEmpresaRequest;
 use App\Models\Colaborador;
 use App\Models\Empresa;
+use App\Support\Consultas\EstadisticasActivoInactivo;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -40,6 +41,7 @@ class EmpresaController extends Controller
         $colaboradoresPorEmpresa = Colaborador::query()
             ->join('sucursales', 'sucursales.id', '=', 'colaboradores.sucursal_principal_id')
             ->where('colaboradores.estatus', 'activo')
+            ->whereIn('sucursales.empresa_id', $empresas->getCollection()->pluck('id'))
             ->selectRaw('sucursales.empresa_id, count(*) as total')
             ->groupBy('sucursales.empresa_id')
             ->pluck('total', 'empresa_id');
@@ -53,11 +55,7 @@ class EmpresaController extends Controller
         return Inertia::render('Administracion/Empresas/Index', [
             'empresas' => $empresas,
             'filtros' => $request->only('busqueda'),
-            'estadisticas' => [
-                'total' => Empresa::count(),
-                'activos' => Empresa::where('activo', true)->count(),
-                'inactivos' => Empresa::where('activo', false)->count(),
-            ],
+            'estadisticas' => EstadisticasActivoInactivo::de(Empresa::query()),
         ]);
     }
 

@@ -20,32 +20,45 @@ export function modulosDisponibles(contexto: ContextoGuia): ModuloGuia[] {
     );
 }
 
-/**
- * Pasos del módulo con su ruta ya resuelta: todos viven en la pantalla del
- * módulo hasta el primer paso con `rutaDesde`; a partir de ahí heredan la
- * pantalla a la que ése llevó (p. ej. el detalle de un expediente).
- */
-function pasosConRuta(modulo: ModuloGuia): PasoTour[] {
-    let enPantallaDelModulo = true;
-
-    return modulo.pasos.map((paso) => {
-        if (paso.rutaDesde) {
-            enPantallaDelModulo = false;
-        }
-
-        return {
-            ...paso,
-            ruta: enPantallaDelModulo ? modulo.ruta : paso.ruta,
-            seccion: modulo.nombre,
-        };
-    });
+function tienePermisoDelPaso(paso: PasoTour, contexto: ContextoGuia): boolean {
+    return (
+        !paso.permisos ||
+        paso.permisos.length === 0 ||
+        paso.permisos.some((permiso) => contexto.tienePermiso(permiso))
+    );
 }
 
-export function tourDeModulo(modulo: ModuloGuia): Tour {
+/**
+ * Pasos del módulo con su ruta ya resuelta: todos viven en la pantalla del
+ * módulo hasta el primer paso con `rutaDesde` o con `ruta` propia (otra
+ * pestaña); a partir de ahí heredan la pantalla a la que ése llevó. Los
+ * pasos cuyo permiso no tiene el usuario se quitan antes de resolver rutas.
+ */
+function pasosConRuta(modulo: ModuloGuia, contexto: ContextoGuia): PasoTour[] {
+    let enPantallaDelModulo = true;
+
+    return modulo.pasos
+        .filter((paso) => tienePermisoDelPaso(paso, contexto))
+        .map((paso) => {
+            if (paso.rutaDesde || paso.ruta) {
+                enPantallaDelModulo = false;
+            }
+
+            return {
+                ...paso,
+                ruta:
+                    paso.ruta ??
+                    (enPantallaDelModulo ? modulo.ruta : undefined),
+                seccion: modulo.nombre,
+            };
+        });
+}
+
+export function tourDeModulo(modulo: ModuloGuia, contexto: ContextoGuia): Tour {
     return {
         id: modulo.id,
         titulo: `Cómo usar ${modulo.nombre}`,
-        pasos: pasosConRuta(modulo),
+        pasos: pasosConRuta(modulo, contexto),
     };
 }
 
@@ -109,12 +122,14 @@ export function tourCompleto(contexto: ContextoGuia): Tour {
     for (const modulo of modulos) {
         pasos.push({
             ruta: modulo.ruta,
-            selector: `[data-sidebar="sidebar"] a[href="${modulo.ruta}"]`,
+            selector:
+                modulo.selectorMenu ??
+                `[data-sidebar="sidebar"] a[href="${modulo.ruta}"]`,
             titulo: modulo.nombre,
             texto: `${modulo.descripcion} Lo encuentras en esta opción del menú.`,
             seccion: modulo.nombre,
         });
-        pasos.push(...pasosConRuta(modulo));
+        pasos.push(...pasosConRuta(modulo, contexto));
     }
 
     pasos.push({
@@ -142,5 +157,5 @@ export function toursDisponibles(
 
     return modulosDisponibles(contexto)
         .filter((modulo) => modulo.patron.test(ruta))
-        .map(tourDeModulo);
+        .map((modulo) => tourDeModulo(modulo, contexto));
 }

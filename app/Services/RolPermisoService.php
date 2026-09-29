@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Contracts\Role as RoleContract;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -44,6 +45,36 @@ class RolPermisoService
     public function eliminar(Role $rol): void
     {
         $rol->delete();
+    }
+
+    /**
+     * Roles para la pantalla "Roles y permisos", con el número de usuarios y
+     * los NOMBRES de sus permisos en `permisos_nombres`. Los nombres se leen
+     * con un join plano sobre role_has_permissions: hidratar ~1,300 modelos
+     * Permission (con pivote) solo para sacar su nombre costaba ~170 ms.
+     *
+     * @return EloquentCollection<int, Role>
+     */
+    public function rolesParaListado(): EloquentCollection
+    {
+        $tablas = config('permission.table_names');
+        $pivote = sprintf('%s', $tablas['role_has_permissions'] ?? 'role_has_permissions');
+        $permisos = sprintf('%s', $tablas['permissions'] ?? 'permissions');
+
+        $nombresPorRol = DB::table($pivote)
+            ->join($permisos, sprintf('%s.id', $permisos), '=', sprintf('%s.permission_id', $pivote))
+            ->orderBy(sprintf('%s.name', $permisos))
+            ->get([sprintf('%s.role_id', $pivote), sprintf('%s.name', $permisos)])
+            ->groupBy('role_id')
+            ->map(fn (Collection $filas) => $filas->pluck('name')->values());
+
+        $roles = Role::query()->withCount('users')->orderBy('name')->get();
+
+        foreach ($roles as $rol) {
+            $rol->setAttribute('permisos_nombres', $nombresPorRol->get($rol->id, collect()));
+        }
+
+        return $roles;
     }
 
     /**

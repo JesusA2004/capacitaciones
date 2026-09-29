@@ -24,7 +24,9 @@ test('an authenticated user with no role (no operativo, no colaborador) gets 403
     // colaborador (App\Services\Navigation\NavigationService::modosDisponibles()
     // inventaba ['colaborador']) — sección 25 del cierre: una cuenta mal
     // configurada debe rechazarse explícitamente, no disfrazarse.
-    $user = User::factory()->create();
+    // En incorporación y sin rol: una cuenta enlazada a un Colaborador
+    // ACTIVO sí tendría "Mi espacio" aunque no tenga rol (NavigationService).
+    $user = User::factory()->create(['estatus' => 'en_incorporacion']);
     $this->actingAs($user);
 
     $response = $this->get(route('dashboard'));

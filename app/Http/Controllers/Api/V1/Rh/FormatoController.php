@@ -13,6 +13,7 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\Formatos\FormatoCatalogoService;
 use App\Services\Formatos\FormatoPreviewService;
 use App\Services\Formatos\Motor\ConversorDocxPdf;
+use App\Services\Plantillas\DocumentoWordGeneradoService;
 use App\Services\Plantillas\PlaceholderResolver;
 use App\Services\Plantillas\PlantillaDocumentoService;
 use App\Services\Plantillas\PlantillaStorageService;
@@ -43,6 +44,7 @@ class FormatoController extends Controller
         private readonly PlantillaDocumentoService $generador,
         private readonly VariableMappingService $mapeo,
         private readonly ConversorDocxPdf $conversor,
+        private readonly DocumentoWordGeneradoService $documentosWord,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -204,9 +206,12 @@ class FormatoController extends Controller
     {
         $this->autorizarDocumento($request, $documento);
 
-        return $this->storage->respuesta($documento->path, [
+        $respuesta = $this->documentosWord->respuesta($documento, [
             'Content-Disposition' => 'attachment; filename="'.$documento->generated_name.'"',
         ]);
+        abort_if($respuesta === null, 404, 'El archivo fuente de este documento ya no está disponible.');
+
+        return $respuesta;
     }
 
     public function descargarPdf(Request $request, GeneratedDocument $documento): HttpResponse|RedirectResponse
@@ -217,7 +222,10 @@ class FormatoController extends Controller
         // oficiales (App\Services\Formatos\Motor\ConversorDocxPdf): prefiere
         // LibreOffice headless si está configurado (fidelidad exacta),
         // nunca rompe la descarga si no lo está (cae a PhpWord/DomPDF).
-        $resultado = $this->conversor->convertir($this->storage->disco()->get($documento->path));
+        $contenidoDocx = $this->documentosWord->contenido($documento);
+        abort_if($contenidoDocx === null, 404, 'El archivo fuente de este documento ya no está disponible.');
+
+        $resultado = $this->conversor->convertir($contenidoDocx);
         abort_if($resultado === null, 422, 'No se pudo generar el PDF de este documento. Descarga el Word.');
 
         $nombre = pathinfo($documento->generated_name, PATHINFO_FILENAME).'.pdf';
@@ -244,6 +252,11 @@ class FormatoController extends Controller
     {
         $usuario = $request->user();
         abort_unless($usuario->can('formatos.descargar_docx') || $usuario->can('formatos.descargar_pdf'), 403);
+
+        // Solo documentos del motor Word editable: un recibo de nómina o
+        // documento laboral en PDF tiene su propio endpoint y nunca pasa
+        // por el conversor DOCX.
+        abort_unless($this->documentosWord->esDelMotorWord($documento), 404, 'Este documento no pertenece al catálogo de formatos Word.');
 
         // Un documento generado para un colaborador nunca se sirve a quien
         // no puede ver a ese colaborador (mismo criterio de alcance que el

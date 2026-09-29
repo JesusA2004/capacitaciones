@@ -77,17 +77,27 @@ class UsuarioController extends Controller
             return $u;
         });
 
+        // Total y bloqueados en una sola consulta dentro del mismo alcance.
+        $estadisticas = $this->alcance->limitarUsuariosPorAlcance(User::query(), $usuario)
+            ->toBase()
+            ->selectRaw('count(*) as total, sum(case when acceso_bloqueado_en is not null then 1 else 0 end) as bloqueados')
+            ->first();
+
         return Inertia::render('Administracion/Usuarios/Index', [
             'usuarios' => $usuarios,
             'filtros' => $request->only('busqueda'),
-            'colaboradoresSinCuenta' => Colaborador::query()
+            // Solo se usa en el diálogo "Nuevo usuario": se pide con una
+            // recarga parcial al abrirlo (Inertia::optional), no viaja en
+            // cada visita al listado — con la plantilla completa eran miles
+            // de filas para un diálogo cerrado.
+            'colaboradoresSinCuenta' => Inertia::optional(fn () => Colaborador::query()
                 ->whereDoesntHave('user')
                 ->orderBy('name')
-                ->get(['id', 'name', 'apellidos']),
+                ->get(['id', 'name', 'apellidos'])),
             'rolesDisponibles' => Role::query()->orderBy('name')->pluck('name'),
             'estadisticas' => [
-                'total' => $this->alcance->limitarUsuariosPorAlcance(User::query(), $usuario)->count(),
-                'bloqueados' => $this->alcance->limitarUsuariosPorAlcance(User::query(), $usuario)->whereNotNull('acceso_bloqueado_en')->count(),
+                'total' => (int) ($estadisticas->total ?? 0),
+                'bloqueados' => (int) ($estadisticas->bloqueados ?? 0),
             ],
         ]);
     }

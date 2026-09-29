@@ -3,6 +3,8 @@
 namespace App\Services\Celebraciones;
 
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 
 /**
@@ -68,6 +70,40 @@ final class FechasCelebracion
         }
 
         return max(0, $anios);
+    }
+
+    /**
+     * Limita en SQL a las personas cuyo mes (de nacimiento o ingreso) cae
+     * en algún mes que toca la ventana [$desde, $hasta]. Es solo un
+     * prefiltro (superconjunto): el cálculo exacto de la fecha sigue en PHP
+     * con proxima()/aniosCumplidos(). Evita hidratar toda la plantilla para
+     * una ventana de 30 días. whereMonth() es portable entre MariaDB y
+     * SQLite. Una ventana de 11 meses o más no se filtra.
+     *
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
+     */
+    public static function limitarAMesesDeVentana(Builder $query, string $columna, CarbonInterface $desde, CarbonInterface $hasta): Builder
+    {
+        $inicio = Carbon::parse($desde->toDateString())->startOfMonth();
+        $fin = Carbon::parse($hasta->toDateString())->startOfMonth();
+
+        if ($inicio->diffInMonths($fin) >= 11) {
+            return $query;
+        }
+
+        $meses = [];
+        for ($mes = $inicio->copy(); $mes->lte($fin); $mes->addMonth()) {
+            $meses[$mes->month] = true;
+        }
+
+        return $query->where(function (Builder $sub) use ($columna, $meses): void {
+            foreach (array_keys($meses) as $mes) {
+                $sub->orWhereMonth($columna, $mes);
+            }
+        });
     }
 
     public static function textoAnios(int $anios): string

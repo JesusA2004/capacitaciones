@@ -16,10 +16,10 @@ import {
     Wand2,
 } from '@lucide/vue';
 import { computed } from 'vue';
-import VueApexCharts from 'vue3-apexcharts';
 import MetricCard from '@/components/Common/MetricCard.vue';
 import DashboardSection from '@/components/Dashboard/DashboardSection.vue';
 import RotacionPersonal from '@/components/Dashboard/RotacionPersonal.vue';
+import { VueApexCharts } from '@/lib/apexDiferido';
 import type { DashboardRhProps, PuntoConteo, PuntoConteoClave } from '@/types';
 
 // rotacion/sucursalesFiltro/departamentosFiltro son opcionales: este

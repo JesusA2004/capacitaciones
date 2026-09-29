@@ -59,8 +59,25 @@ class OrganigramaPersonasService
     /** @var Collection<int, Puesto> */
     private Collection $puestos;
 
-    /** @var array<int, list<Colaborador>> ocupantes activos por puesto_id */
+    /**
+     * Ocupantes activos por puesto_id, en orden alfabético, indexados por
+     * id de colaborador (búsquedas O(1) en elegir()).
+     *
+     * @var array<int, array<int, Colaborador>>
+     */
     private array $ocupantes = [];
+
+    /**
+     * Mismos ocupantes indexados por "s|puesto|sucursal" y "r|puesto|región":
+     * resolverPadre() los consulta por cada persona; filtrar colecciones
+     * Eloquent completas por cada una era O(n²) (13 s con ~2,700 personas).
+     *
+     * @var array<string, array<int, Colaborador>>
+     */
+    private array $ocupantesPorAmbito = [];
+
+    /** @var array<int, bool> memo de esDeSucursal() por puesto_id */
+    private array $deSucursalPorPuesto = [];
 
     /** @var array<int, list<int>> ids de rutas (nodos) por colaborador */
     private array $rutasPorColaborador = [];
@@ -111,9 +128,14 @@ class OrganigramaPersonasService
             ->get(['id', 'name', 'apellidos', 'numero_empleado', 'foto_path', 'puesto_id', 'sucursal_principal_id', 'jefe_id']);
 
         $this->ocupantes = [];
+        $this->ocupantesPorAmbito = [];
+        $this->deSucursalPorPuesto = [];
 
         foreach ($colaboradores as $colaborador) {
-            $this->ocupantes[(int) $colaborador->puesto_id][] = $colaborador;
+            $puestoId = (int) $colaborador->puesto_id;
+            $this->ocupantes[$puestoId][$colaborador->id] = $colaborador;
+            $this->ocupantesPorAmbito[$this->llaveOcupantes('s', $puestoId, $colaborador->sucursal_principal_id)][$colaborador->id] = $colaborador;
+            $this->ocupantesPorAmbito[$this->llaveOcupantes('r', $puestoId, $this->regionDe($colaborador->sucursal_principal_id)['id'] ?? null)][$colaborador->id] = $colaborador;
         }
 
         $rutas = $this->cargarRutas($colaboradores->pluck('id'));
@@ -220,18 +242,16 @@ class OrganigramaPersonasService
         $visitados[] = $puestoId;
         $ambito = $this->ambito($puesto, $sucursalId, $regionId);
 
-        /** @var Collection<int, Colaborador> $candidatos */
-        $candidatos = collect($this->ocupantes[$puestoId] ?? [])
-            ->filter(fn (Colaborador $c) => match ($ambito['tipo']) {
-                'sucursal' => $c->sucursal_principal_id === $ambito['sucursal'],
-                'region' => ($this->regionDe($c->sucursal_principal_id)['id'] ?? null) === $ambito['region'],
-                default => true,
-            })
-            ->when($hijo !== null, fn (Collection $lista) => $lista->where('id', '!=', $hijo?->id))
-            ->values();
+        $ocupantes = match ($ambito['tipo']) {
+            'sucursal' => $this->ocupantesPorAmbito[$this->llaveOcupantes('s', $puestoId, $ambito['sucursal'])] ?? [],
+            'region' => $this->ocupantesPorAmbito[$this->llaveOcupantes('r', $puestoId, $ambito['region'])] ?? [],
+            default => $this->ocupantes[$puestoId] ?? [],
+        };
 
-        if ($candidatos->isNotEmpty()) {
-            return 'p'.$this->elegir($candidatos, $hijo)->id;
+        $elegido = $this->elegir($ocupantes, $hijo);
+
+        if ($elegido !== null) {
+            return 'p'.$elegido->id;
         }
 
         $cobertura = $this->coberturas[$this->llave($puestoId, $ambito)] ?? null;
@@ -419,32 +439,43 @@ class OrganigramaPersonasService
     }
 
     /**
-     * @param  Collection<int, Colaborador>  $candidatos
+     * Superior de `$hijo` entre los ocupantes del puesto (sin contarlo a él
+     * mismo): su jefe directo si está ahí, si no quien comparte ruta con
+     * él, si no el primero en orden alfabético. Null si no hay nadie más.
+     * Recorre arreglos indexados por id (nada de Collection::where sobre
+     * modelos Eloquent, que era el cuello de botella).
+     *
+     * @param  array<int, Colaborador>  $candidatos  indexados por id, en orden alfabético
      */
-    private function elegir(Collection $candidatos, ?Colaborador $hijo): Colaborador
+    private function elegir(array $candidatos, ?Colaborador $hijo): ?Colaborador
     {
-        if ($hijo !== null) {
-            $jefe = $candidatos->firstWhere('id', $hijo->jefe_id);
+        $hijoId = $hijo?->id;
 
-            if ($jefe !== null) {
-                return $jefe;
+        if ($hijo !== null) {
+            $jefeId = $hijo->jefe_id;
+
+            if ($jefeId !== null && $jefeId !== $hijoId && isset($candidatos[$jefeId])) {
+                return $candidatos[$jefeId];
             }
 
-            $rutasHijo = $this->rutasPorColaborador[$hijo->id] ?? [];
+            $rutasHijo = $this->rutasPorColaborador[$hijoId] ?? [];
 
             if ($rutasHijo !== []) {
-                $mismaRuta = $candidatos->first(
-                    fn (Colaborador $c) => array_intersect($this->rutasPorColaborador[$c->id] ?? [], $rutasHijo) !== [],
-                );
-
-                if ($mismaRuta !== null) {
-                    return $mismaRuta;
+                foreach ($candidatos as $id => $candidato) {
+                    if ($id !== $hijoId && array_intersect($this->rutasPorColaborador[$id] ?? [], $rutasHijo) !== []) {
+                        return $candidato;
+                    }
                 }
             }
         }
 
-        /** @var Colaborador */
-        return $candidatos->first();
+        foreach ($candidatos as $id => $candidato) {
+            if ($id !== $hijoId) {
+                return $candidato;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -558,6 +589,11 @@ class OrganigramaPersonasService
      */
     private function esDeSucursal(Puesto $puesto): bool
     {
+        return $this->deSucursalPorPuesto[$puesto->id] ??= $this->calcularEsDeSucursal($puesto);
+    }
+
+    private function calcularEsDeSucursal(Puesto $puesto): bool
+    {
         /** @var list<string> $raices */
         $raices = config('organigrama.puestos_raiz_sucursal', []);
         $visitados = [];
@@ -581,6 +617,11 @@ class OrganigramaPersonasService
         $deRegion = config('organigrama.puestos_de_region', []);
 
         return in_array($puesto->nombre, $deRegion, true);
+    }
+
+    private function llaveOcupantes(string $tipo, int $puestoId, ?int $ambitoId): string
+    {
+        return sprintf('%s|%d|%s', $tipo, $puestoId, $ambitoId ?? '-');
     }
 
     /**

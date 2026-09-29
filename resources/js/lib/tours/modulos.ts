@@ -1,5 +1,6 @@
 import {
     Activity,
+    Award,
     Briefcase,
     Building2,
     Cake,
@@ -445,30 +446,112 @@ export const MODULOS_GUIA: ModuloGuia[] = [
         id: 'formatos',
         nombre: 'Formatos',
         ruta: '/rh/formatos',
-        patron: /^\/rh\/formatos$/,
+        patron: /^\/rh\/(formatos(\/catalogo)?|formatos-oficiales(\/(generados|variables))?|plantillas)$/,
         modo: 'operativo',
         permisos: ['formatos_oficiales.ver'],
         grupo: 'Personal',
         icono: FileStack,
         descripcion:
-            'Documentos oficiales de MR. LANA precargados con los datos del colaborador.',
+            'Documentos oficiales de MR. LANA y plantillas Word por clave, precargados con los datos del colaborador.',
         pasos: [
             {
-                titulo: 'Formatos oficiales',
-                texto: 'Genera los documentos oficiales de MR. LANA ya llenos con los datos del colaborador o candidato, listos para imprimir y firmar.',
+                titulo: 'Formatos',
+                texto: 'Aquí se generan los documentos de MR. LANA ya llenos con los datos del colaborador o candidato. Hay dos motores: las plantillas oficiales (PDF fijos de la empresa) y las plantillas Word por clave (DOCX con marcadores {{...}}).',
             },
             {
                 selector: sel('formatos-pestanas'),
-                titulo: 'Secciones',
-                texto: 'Oficiales PDF (los formatos de la empresa), Plantillas avanzadas DOCX y Documentos generados (historial). Solo ves las pestañas que tu rol permite.',
+                titulo: 'Pestañas',
+                texto: 'Plantillas oficiales, Documentos generados y Variables son del motor oficial (PDF). Plantillas Word por clave y Generados (Word) son del motor Word. Solo ves las pestañas que tu rol permite.',
             },
+            // ── Plantillas oficiales ──
             {
                 selector: sel('formatos-catalogo'),
-                titulo: 'Catálogo de formatos',
-                texto: 'Cada tarjeta es un formato. "Listo" significa que ya puede generarse; "Falta configurar" significa que aún no se ha indicado dónde va cada dato sobre el PDF.',
+                titulo: 'Plantillas oficiales',
+                texto: 'Cada tarjeta es un formato oficial. "Listo" significa que ya puede generarse; "Falta configurar" significa que aún no se ha indicado dónde va cada dato sobre el PDF.',
                 consejo:
-                    'Da clic en "Generar", elige al colaborador o candidato y descarga el documento. "Configurar campos" (solo administradores) ubica los datos sobre el PDF.',
+                    'Da clic en "Generar", elige al colaborador o candidato, revisa la vista previa y descarga. "Configurar campos" (administradores) ubica los datos sobre el PDF y publica una nueva versión.',
                 opcional: true,
+            },
+            // ── Documentos generados (motor oficial) ──
+            {
+                ruta: '/rh/formatos-oficiales/generados',
+                selector: sel('formatos-generados-tabla'),
+                titulo: 'Documentos generados',
+                texto: 'Historial de todo lo generado con las plantillas oficiales: quién, para quién, cuándo y con qué versión. Desde aquí vuelves a descargar un documento o subes el ejemplar firmado.',
+                opcional: true,
+            },
+            // ── Variables ──
+            {
+                ruta: '/rh/formatos-oficiales/variables',
+                selector: sel('formatos-variables'),
+                titulo: 'Variables',
+                texto: 'Catálogo de los datos que las plantillas oficiales saben llenar solas (nombre, CURP, puesto, sucursal, fechas, salario…), con su clave, tipo y un ejemplo. Los datos salariales solo los ve quien tiene permiso.',
+                consejo:
+                    'Estas claves (p. ej. colaborador.curp) son del motor oficial. Las plantillas Word usan claves cortas como {{curp}}: se ven en "Variables" de cada plantilla Word.',
+            },
+            // ── Plantillas Word por clave ──
+            {
+                ruta: '/rh/plantillas',
+                permisos: ['plantillas.ver'],
+                titulo: 'Prepara el Word con {{marcadores}}',
+                texto: 'En Word escribe el documento tal cual y, donde va un dato, pon su clave entre llaves dobles: {{nombre_completo}}, {{curp}}, {{puesto}}, {{fecha_ingreso}}. Guárdalo como .docx.',
+                consejo:
+                    'Claves conocidas: nombre_completo, curp, rfc, nss, puesto, sucursal, departamento, empresa, fecha_ingreso, sueldo_diario, fecha_actual… Escribe cada marcador de corrido, sin cambiarle el formato a la mitad, para que Word no lo parta.',
+            },
+            {
+                selector: sel('plantillas-word-nueva'),
+                permisos: ['plantillas.crear'],
+                titulo: 'Sube la plantilla',
+                texto: '"Nueva plantilla": nombre, tipo de documento, a qué empresa/sucursal/puesto aplica y el archivo .docx. El sistema lee los marcadores del archivo al subirlo.',
+                opcional: true,
+            },
+            {
+                selector: sel('plantillas-word-lista'),
+                permisos: ['plantillas.ver'],
+                titulo: 'Variables conocidas',
+                texto: 'En el menú ⋮ de cada plantilla, "Variables" muestra qué marcadores reconoció el sistema. Los que coinciden con una variable conocida se llenan solos con los datos del expediente.',
+                opcional: true,
+            },
+            {
+                permisos: ['plantillas.editar', 'plantillas.crear'],
+                titulo: 'Variables manuales',
+                texto: 'Un marcador que el sistema no conoce (p. ej. {{monto_prestamo}}) se vuelve variable manual: en "Variables" le das una etiqueta, un tipo (texto, número, fecha, lista) y un valor por defecto, y se captura al generar.',
+            },
+            {
+                permisos: ['plantillas.editar', 'plantillas.crear'],
+                titulo: 'Obligatorio u opcional',
+                texto: 'En "Variables" marca cada dato como obligatorio u opcional. Si un obligatorio queda vacío, el sistema no deja generar el documento y te dice exactamente cuál falta.',
+            },
+            {
+                permisos: ['plantillas.editar'],
+                titulo: 'Nueva versión',
+                texto: 'Para corregir una plantilla usa "Editar" y sube el .docx nuevo: el número de versión (v1, v2…) sube. Los documentos que ya se generaron no cambian.',
+            },
+            // ── Generados (Word) ──
+            {
+                ruta: '/rh/formatos/catalogo',
+                permisos: ['plantillas.crear'],
+                selector: sel('formatos-word-plantillas'),
+                titulo: 'Genera un documento',
+                texto: 'Cada tarjeta es una plantilla Word activa. "Generar" pide al colaborador o candidato y las variables manuales que falten.',
+                opcional: true,
+            },
+            {
+                permisos: ['plantillas.crear'],
+                titulo: 'Vista previa',
+                texto: 'Antes de generar, la vista previa muestra el documento ya lleno y marca los datos faltantes. Si algo falta en el expediente, complétalo ahí primero.',
+            },
+            {
+                permisos: ['plantillas.crear'],
+                selector: sel('formatos-word-historial'),
+                titulo: 'Descargar Word o PDF',
+                texto: 'En el historial, "Word" descarga el .docx generado (editable) y "PDF" lo convierte al momento. Si el archivo ya no está en el almacenamiento, verás un aviso en vez de un error.',
+                opcional: true,
+            },
+            {
+                permisos: ['plantillas.crear'],
+                titulo: 'Histórico',
+                texto: 'El historial de Generados (Word) guarda cada documento con su plantilla, para quién fue, su estado (generado, entregado, firmado) y quién lo generó. Filtra por tipo, estado o fechas y exporta a Excel o PDF.',
             },
         ],
     },
@@ -527,21 +610,23 @@ export const MODULOS_GUIA: ModuloGuia[] = [
         icono: Cake,
         descripcion:
             'Calendario de cumpleaños del equipo, con tarjeta de felicitación personalizable.',
+        // Selectores del componente compartido CelebracionesPanel (idéntico
+        // en Cumpleaños y Aniversarios): no dependen de "encabezado" ni
+        // "indicadores", que esa pantalla ya no tiene.
         pasos: [
             {
-                titulo: 'Calendario de cumpleaños',
-                texto: 'Vista mensual de los cumpleaños del equipo, con tarjetas de felicitación listas para descargar o enviar.',
+                titulo: 'Cumpleaños del equipo',
+                texto: 'Quién cumple hoy, el calendario del mes y los próximos cumpleaños, con una tarjeta de felicitación lista para descargar, copiar o enviar.',
             },
             {
-                selector: sel('encabezado'),
-                titulo: 'Personalizar felicitaciones',
-                texto: '"Frases" administra los mensajes de felicitación y "Fondo de tarjeta" la imagen de fondo. Aparecen según los permisos de tu rol.',
+                selector: sel('celebraciones-tabs'),
+                titulo: 'Cumpleaños | Aniversarios',
+                texto: 'Celebraciones tiene dos pestañas con la misma forma de trabajo. Aniversarios aparece si tu rol puede verlos.',
             },
             {
-                selector: sel('indicadores'),
-                titulo: 'Resumen',
-                texto: 'Quién cumple hoy, en los próximos 7 y 30 días, el total del mes y cuántos colaboradores no tienen fecha de nacimiento capturada.',
-                opcional: true,
+                selector: sel('celebraciones-filtros'),
+                titulo: 'Buscar y filtrar',
+                texto: 'Busca a una persona por nombre y filtra por empresa, sucursal, departamento o estatus. El rango de "Próximos" también se ajusta aquí.',
             },
             {
                 selector: sel('cumpleanos-sin-fecha'),
@@ -550,27 +635,102 @@ export const MODULOS_GUIA: ModuloGuia[] = [
                 opcional: true,
             },
             {
-                selector: sel('cumpleanos-hoy'),
+                selector: sel('celebraciones-hoy'),
                 titulo: 'Cumpleañeros de hoy',
-                texto: 'Siempre visibles arriba. Desde cada tarjeta puedes descargar la imagen, enviar la felicitación o copiar el mensaje.',
-                opcional: true,
+                texto: 'Siempre visibles arriba, con foto, nombre completo y puesto · sucursal. "Ver tarjeta", "Descargar" y "Copiar" trabajan con la tarjeta; "Enviar al colaborador" le manda su felicitación y "Avisar a todos" notifica al resto del equipo.',
+                consejo:
+                    'Cada botón muestra si ya se envió y cuándo, para no felicitar dos veces.',
             },
             {
-                selector: sel('cumpleanos-filtros'),
-                titulo: 'Filtros',
-                texto: 'Sucursal, departamento, colaborador, estatus y búsqueda por nombre o número de empleado.',
-                opcional: true,
-            },
-            {
-                selector: sel('cumpleanos-calendario'),
+                selector: sel('celebraciones-calendario'),
                 titulo: 'Calendario del mes',
-                texto: 'Cambia de mes con las flechas o el selector y regresa al mes actual con "Hoy". Da clic en un día con cumpleaños para ver el detalle.',
+                texto: 'Cambia de mes con las flechas y regresa al actual con "Hoy". Los días con cumpleaños están marcados; da clic para ver quién.',
                 opcional: true,
             },
             {
-                selector: sel('cumpleanos-proximos'),
+                selector: sel('celebraciones-proximos'),
                 titulo: 'Próximos cumpleaños',
-                texto: 'Lista de los siguientes cumpleaños, con un rango de fechas que puedes ajustar libremente.',
+                texto: 'Los siguientes cumpleaños dentro del rango elegido.',
+            },
+            {
+                selector: sel('celebraciones-periodo'),
+                titulo: 'Cumpleaños del mes',
+                texto: 'Listado completo del mes que estás viendo en el calendario.',
+            },
+            {
+                selector: sel('celebraciones-configuracion'),
+                titulo: 'Configurar la tarjeta',
+                texto: 'Fondo de la tarjeta y frases de felicitación, con vista previa. Solo aparece si tu rol puede configurarlo.',
+                opcional: true,
+            },
+        ],
+    },
+    {
+        id: 'aniversarios',
+        nombre: 'Aniversarios',
+        ruta: '/rh/aniversarios',
+        patron: /^\/rh\/aniversarios(\/configuracion)?$/,
+        modo: 'operativo',
+        permisos: ['celebraciones.ver'],
+        grupo: 'Personal',
+        icono: Award,
+        // Aniversarios es una pestaña de Celebraciones: el sidebar solo
+        // enlaza aquí directo si el usuario no ve Cumpleaños.
+        selectorMenu: `[data-sidebar="sidebar"] a[href="/rh/aniversarios"], ${sel('celebraciones-tabs')} a[href="/rh/aniversarios"]`,
+        descripcion:
+            'Aniversarios laborales del equipo (años cumplidos en MR. LANA), con tarjeta y avisos.',
+        pasos: [
+            {
+                titulo: 'Aniversarios laborales',
+                texto: 'Un aniversario laboral es cada año que un colaborador cumple trabajando en MR. LANA. Se calcula con su fecha de ingreso: el día y mes de ingreso, cada año, cuenta un año más.',
+                consejo:
+                    'Quien no tiene fecha de ingreso capturada no aparece: complétala en su expediente.',
+            },
+            {
+                selector: sel('celebraciones-tabs'),
+                titulo: 'Cumpleaños | Aniversarios',
+                texto: 'Misma pantalla y misma forma de trabajo que Cumpleaños: cambia de pestaña cuando quieras.',
+            },
+            {
+                selector: sel('celebraciones-filtros'),
+                titulo: 'Buscar y filtrar',
+                texto: 'Busca por nombre y filtra por empresa, sucursal, departamento o estatus.',
+            },
+            {
+                selector: sel('celebraciones-hoy'),
+                titulo: 'Aniversarios de hoy',
+                texto: 'Quién cumple años en la empresa hoy y cuántos, con foto, nombre completo y puesto · sucursal.',
+            },
+            {
+                selector: sel('celebraciones-hoy'),
+                titulo: 'Tarjeta y mensajes',
+                texto: '"Ver tarjeta" muestra la tarjeta con el mensaje institucional y los años cumplidos; "Generar" la vuelve a crear, "Descargar" y "Copiar" sirven para compartirla por WhatsApp o correo.',
+            },
+            {
+                selector: sel('celebraciones-hoy'),
+                titulo: 'Enviar al colaborador y avisar a todos',
+                texto: '"Enviar al colaborador" le manda su felicitación como notificación en el portal y en la app. "Avisar a todos" notifica a todos los colaboradores activos. Cada botón muestra cuándo se hizo, para no repetirlo por error.',
+            },
+            {
+                selector: sel('celebraciones-calendario'),
+                titulo: 'Calendario',
+                texto: 'Aniversarios del mes, día por día. Cambia de mes con las flechas y regresa con "Hoy".',
+                opcional: true,
+            },
+            {
+                selector: sel('celebraciones-proximos'),
+                titulo: 'Próximos aniversarios',
+                texto: 'Los siguientes aniversarios dentro del rango elegido, con los años que cumplirá cada persona.',
+            },
+            {
+                selector: sel('celebraciones-periodo'),
+                titulo: 'Aniversarios del mes',
+                texto: 'Listado completo del mes del calendario.',
+            },
+            {
+                selector: sel('celebraciones-configuracion'),
+                titulo: 'Configuración',
+                texto: 'Activa o desactiva los aniversarios, edita el mensaje institucional (usa {anios} para los años cumplidos), decide si la felicitación se envía sola al colaborador y cambia el fondo de la tarjeta, con vista previa.',
                 opcional: true,
             },
         ],

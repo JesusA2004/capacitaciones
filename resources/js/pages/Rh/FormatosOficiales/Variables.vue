@@ -59,7 +59,7 @@ const CONTEXTO: Record<string, string> = {
     <div class="flex w-full min-w-0 flex-col gap-4 p-4 sm:p-6">
         <FormatosTabsNav activa="variables" />
 
-        <div class="relative w-full sm:max-w-sm">
+        <div class="relative w-full sm:max-w-sm" data-tour="formatos-variables">
             <Search class="absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
             <Input v-model="busqueda" placeholder="Buscar dato (CURP, puesto, fecha…)" class="pl-8" />
         </div>

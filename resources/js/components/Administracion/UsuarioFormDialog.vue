@@ -27,6 +27,8 @@ type ColaboradorOpcion = { id: number; name: string; apellidos: string | null };
 const props = defineProps<{
     open: boolean;
     colaboradoresSinCuenta: ColaboradorOpcion[];
+    /** El catálogo se carga al abrir el diálogo (recarga parcial). */
+    cargando?: boolean;
     rolesDisponibles: string[];
 }>();
 
@@ -85,7 +87,13 @@ function enviar() {
                     </Select>
                     <InputError :message="form.errors.colaborador_id" />
                     <p
-                        v-if="props.colaboradoresSinCuenta.length === 0"
+                        v-if="props.cargando"
+                        class="flex items-center gap-1.5 text-xs text-muted-foreground"
+                    >
+                        <Spinner class="size-3" /> Cargando colaboradores…
+                    </p>
+                    <p
+                        v-else-if="props.colaboradoresSinCuenta.length === 0"
                         class="text-xs text-muted-foreground"
                     >
                         Todos los colaboradores activos ya tienen cuenta de

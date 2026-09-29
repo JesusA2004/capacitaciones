@@ -284,9 +284,17 @@ onBeforeUnmount(() => window.removeEventListener('keydown', alTeclado));
                             : 'Preparando la guía…'
                     }}
                 </span>
+                <!-- Nunca se bloquea el avance: si un paso tarda, se puede saltar. -->
                 <button
                     type="button"
-                    class="ml-2 text-xs text-muted-foreground underline-offset-2 hover:underline"
+                    class="ml-2 text-xs font-medium text-primary underline-offset-2 hover:underline"
+                    @click="siguiente"
+                >
+                    Saltar paso
+                </button>
+                <button
+                    type="button"
+                    class="text-xs text-muted-foreground underline-offset-2 hover:underline"
                     @click="finalizar"
                 >
                     Salir

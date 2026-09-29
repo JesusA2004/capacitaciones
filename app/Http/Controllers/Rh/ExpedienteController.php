@@ -87,8 +87,10 @@ class ExpedienteController extends Controller
             ->paginate(24)
             ->withQueryString();
 
-        $colaboradores->getCollection()->transform(function (Colaborador $colaborador) {
-            $resumen = $this->expediente->resumenCompletitud($colaborador);
+        $resumenes = $this->expediente->resumenesCompletitud($colaboradores->getCollection()->pluck('id'));
+
+        $colaboradores->getCollection()->transform(function (Colaborador $colaborador) use ($resumenes) {
+            $resumen = $resumenes[$colaborador->id];
 
             return [
                 'id' => $colaborador->id,
@@ -153,8 +155,10 @@ class ExpedienteController extends Controller
 
         $columnas = ['Nombre', 'Número de empleado', 'Empresa', 'Sucursal', 'Departamento', 'Puesto', 'Estado', 'Expediente completo', 'Documentos pendientes'];
 
-        $filas = $colaboradores->map(function (Colaborador $colaborador) {
-            $resumen = $this->expediente->resumenCompletitud($colaborador);
+        $resumenes = $this->expediente->resumenesCompletitud($colaboradores->pluck('id'));
+
+        $filas = $colaboradores->map(function (Colaborador $colaborador) use ($resumenes) {
+            $resumen = $resumenes[$colaborador->id];
 
             return [
                 trim("{$colaborador->name} {$colaborador->apellidos}"),

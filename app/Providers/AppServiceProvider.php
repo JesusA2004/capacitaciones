@@ -4,8 +4,10 @@ namespace App\Providers;
 
 use App\Models\EmployeeDocument;
 use App\Models\GeneratedDocument;
+use App\Models\User;
 use App\Observers\CicloLaboralDocumentoObserver;
 use App\Policies\RolPolicy;
+use App\Services\Navigation\NavigationService;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -38,6 +40,11 @@ class AppServiceProvider extends ServiceProvider
         Schema::defaultStringLength(191);
 
         Gate::policy(Role::class, RolPolicy::class);
+
+        // Capacidad central de "Mi espacio" (ver NavigationService): la usan
+        // las rutas personales (`can:modo-colaborador`), el dashboard y el
+        // selector del sidebar — una sola definición, no `portal.ver` suelto.
+        Gate::define(NavigationService::GATE_MODO_COLABORADOR, fn (User $usuario): bool => app(NavigationService::class)->puedeUsarModoColaborador($usuario));
 
         // Ciclo laboral: el estado del alta y los pendientes de "documento
         // rechazado" se sincronizan sin importar por qué camino cambió un

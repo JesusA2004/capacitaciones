@@ -33,6 +33,11 @@ import type {
  *   CALENDARIO                          PRÓXIMOS
  *   LISTADO DEL MES
  *
+ * Los `data-tour="celebraciones-*"` son los anclajes ESTABLES de la guía
+ * (resources/js/lib/tours/modulos.ts, módulos Cumpleaños y Aniversarios);
+ * existen siempre, haya o no datos — no los quites sin ajustar la guía
+ * (tests/Feature/Ayuda/CoberturaGuiaTest.php lo verifica).
+ *
  * Calendario y Próximos van lado a lado solo cuando el ANCHO DEL CONTENIDO
  * (container query, no el viewport: el sidebar puede estar abierto o no)
  * deja al menos ~75 px por día; si no, se apilan.
@@ -97,6 +102,7 @@ function navegar(cambios: Partial<NavegacionCelebraciones>) {
             :activa="tipo === 'cumpleanos' ? 'cumpleanos' : 'aniversarios'"
         >
             <CelebracionFiltros
+                data-tour="celebraciones-filtros"
                 :filtros="filtros"
                 :rango="rango"
                 :catalogos="catalogos"
@@ -104,6 +110,7 @@ function navegar(cambios: Partial<NavegacionCelebraciones>) {
             />
             <Button
                 v-if="configuracionUrl"
+                data-tour="celebraciones-configuracion"
                 as-child
                 variant="outline"
                 size="sm"
@@ -120,6 +127,7 @@ function navegar(cambios: Partial<NavegacionCelebraciones>) {
 
         <section
             v-if="hoy.length > 0"
+            data-tour="celebraciones-hoy"
             aria-labelledby="celebraciones-hoy"
             class="flex flex-col gap-2"
         >
@@ -170,7 +178,11 @@ function navegar(cambios: Partial<NavegacionCelebraciones>) {
                 </div>
             </div>
         </section>
-        <p v-else class="flex items-center gap-2 text-sm text-muted-foreground">
+        <p
+            v-else
+            data-tour="celebraciones-hoy"
+            class="flex items-center gap-2 text-sm text-muted-foreground"
+        >
             <component :is="icono" class="size-4" aria-hidden="true" />
             {{
                 tipo === 'cumpleanos'
@@ -189,6 +201,7 @@ function navegar(cambios: Partial<NavegacionCelebraciones>) {
             >
                 <CelebracionCalendario
                     v-if="permisos.calendario"
+                    data-tour="celebraciones-calendario"
                     :anio="anio"
                     :mes="mes"
                     :eventos="delMes"
@@ -199,6 +212,7 @@ function navegar(cambios: Partial<NavegacionCelebraciones>) {
                     @navegar="(a, m) => navegar({ anio: a, mes: m })"
                 />
                 <CelebracionLista
+                    data-tour="celebraciones-proximos"
                     :titulo="textos.proximos"
                     :eventos="proximos"
                     :hoy="fechaHoy"
@@ -209,6 +223,7 @@ function navegar(cambios: Partial<NavegacionCelebraciones>) {
         </div>
 
         <CelebracionLista
+            data-tour="celebraciones-periodo"
             :titulo="`${textos.periodo} ${MESES[mes - 1].toLowerCase()} ${anio}`"
             :eventos="delMes"
             :hoy="fechaHoy"

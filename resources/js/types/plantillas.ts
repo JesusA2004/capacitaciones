@@ -17,7 +17,7 @@ export type PlantillaItem = {
 export type DocumentoGeneradoItem = {
     id: number;
     plantilla: { id: number; nombre: string; tipo: string } | null;
-    usuario: { id: number; name: string; apellidos: string | null } | null;
+    colaborador: { id: number; name: string; apellidos: string | null } | null;
     candidato: { id: number; nombre: string; apellidos: string | null } | null;
     generado_por: { id: number; name: string; apellidos: string | null } | null;
     generated_name: string;

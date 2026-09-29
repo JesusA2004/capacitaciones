@@ -36,16 +36,31 @@ final class ProgresoExpediente
      */
     public static function calcular(Collection $tipos, Collection $vigentes): array
     {
-        $requeridos = $tipos->filter(fn (DocumentType $tipo) => (bool) $tipo->requerido);
+        $estados = [];
 
+        foreach ($tipos->filter(fn (DocumentType $tipo) => (bool) $tipo->requerido) as $tipo) {
+            $estados[] = self::estadoDe($vigentes->get($tipo->id));
+        }
+
+        return self::calcularDesdeEstados($estados);
+    }
+
+    /**
+     * La misma regla, a partir del estado vigente de CADA tipo obligatorio
+     * (Pendiente si no hay documento). Permite calcular el avance de miles
+     * de expedientes sin hidratar modelos (ExpedienteService::resumenesCompletitud()).
+     *
+     * @param  list<EstadoDocumento>  $estadosObligatorios  uno por tipo obligatorio
+     * @return array{total_obligatorios: int, completos: int, faltantes: int, en_revision: int, rechazados: int, pendientes: int, porcentaje: int, completo: bool, sin_obligatorios: bool}
+     */
+    public static function calcularDesdeEstados(array $estadosObligatorios): array
+    {
         $completos = 0;
         $faltantes = 0;
         $enRevision = 0;
         $rechazados = 0;
 
-        foreach ($requeridos as $tipo) {
-            $estado = self::estadoDe($vigentes->get($tipo->id));
-
+        foreach ($estadosObligatorios as $estado) {
             if ($estado === EstadoDocumento::Aprobado) {
                 $completos++;
             } elseif (in_array($estado, self::EN_REVISION, true)) {
@@ -58,7 +73,7 @@ final class ProgresoExpediente
             }
         }
 
-        $total = $requeridos->count();
+        $total = count($estadosObligatorios);
 
         return [
             'total_obligatorios' => $total,

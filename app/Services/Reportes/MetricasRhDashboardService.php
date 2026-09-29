@@ -13,6 +13,7 @@ use App\Enums\TipoMovimientoLaboral;
 use App\Models\AltaDigital;
 use App\Models\Candidato;
 use App\Models\Colaborador;
+use App\Models\Departamento;
 use App\Models\EmployeeDocument;
 use App\Models\MovimientoLaboral;
 use App\Models\SolicitudInterna;
@@ -25,6 +26,7 @@ use App\Services\Headcount\HeadcountService;
 use App\Services\MatrizComercial\MatrizComercialService;
 use App\Services\Vacaciones\VacacionesService;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -79,8 +81,13 @@ class MetricasRhDashboardService
             ->get();
 
         $idsVisibles = $colaboradoresVisibles->pluck('id');
+        // Mismo alcance como subconsulta: evita mandar miles de ids en un
+        // IN (...) a las consultas de documentos.
+        $subconsultaVisibles = $this->alcance->limitarColaboradoresPorAlcance(Colaborador::query(), $usuario)->select('colaboradores.id');
 
-        $documentos = EmployeeDocument::query()->whereIn('colaborador_id', $idsVisibles)->get(['id', 'colaborador_id', 'status', 'document_type_id', 'created_at']);
+        // Solo se necesitan conteos por estado: agregado en SQL en vez de
+        // hidratar todos los documentos de la plantilla.
+        $documentosPorEstado = $this->conteoDocumentosPorEstado($subconsultaVisibles);
 
         [$expedientesCompletos, $expedientesIncompletos] = $this->contarExpedientes($colaboradoresVisibles);
 
@@ -100,10 +107,10 @@ class MetricasRhDashboardService
             'cards' => [
                 'colaboradores_activos' => $colaboradoresVisibles->where('estatus', EstadoUsuario::Activo)->count(),
                 'altas_en_proceso' => $this->altasEnProceso($usuario),
-                'bajas_del_mes' => $this->bajasDelMes($idsVisibles),
+                'bajas_del_mes' => $this->bajasDelMes($subconsultaVisibles),
                 'expedientes_completos' => $expedientesCompletos,
                 'expedientes_incompletos' => $expedientesIncompletos,
-                'documentos_pendientes' => $documentos->whereIn('status', $this->estadosPendientes())->count(),
+                'documentos_pendientes' => array_sum(array_map(fn (EstadoDocumento $e): int => $documentosPorEstado[$e->value] ?? 0, $this->estadosPendientes())),
                 'solicitudes_pendientes' => $this->solicitudesPendientes($usuario),
                 'vacaciones_pendientes' => $this->vacacionesPendientes($usuario),
                 'vacantes_disponibles' => (int) $vacantesAbiertas->sum('plazas_disponibles'),
@@ -130,7 +137,7 @@ class MetricasRhDashboardService
                     ->map(fn (EstadoDocumento $estado) => [
                         'clave' => $estado->value,
                         'etiqueta' => $estado->etiqueta(),
-                        'valor' => $documentos->where('status', $estado)->count(),
+                        'valor' => $documentosPorEstado[$estado->value] ?? 0,
                     ])
                     ->filter(fn (array $fila) => $fila['valor'] > 0)
                     ->values(),
@@ -146,8 +153,8 @@ class MetricasRhDashboardService
                 ],
             ],
             'proximosAniversarios' => $this->proximosAniversarios($colaboradoresVisibles),
-            'documentosPendientesRevision' => $this->documentosPendientesRevision($idsVisibles),
-            'alertas' => $this->alertas($expedientesIncompletos, $documentos),
+            'documentosPendientesRevision' => $this->documentosPendientesRevision($subconsultaVisibles),
+            'alertas' => $this->alertas($expedientesIncompletos, $documentosPorEstado),
         ];
     }
 
@@ -205,16 +212,23 @@ class MetricasRhDashboardService
      */
     private function solicitudesPorEstado(User $usuario): array
     {
-        return $this->alcance->limitarPorSucursal(SolicitudInterna::query(), $usuario)
-            ->get(['id', 'estado'])
-            ->groupBy(fn (SolicitudInterna $s) => $s->estado->value)
-            ->map(fn (Collection $grupo, string $clave) => [
-                'clave' => $clave,
-                'etiqueta' => sprintf('%s', $grupo->first()->estado->etiqueta()),
-                'valor' => $grupo->count(),
-            ])
-            ->values()
-            ->all();
+        $totales = $this->alcance->limitarPorSucursal(SolicitudInterna::query(), $usuario)
+            ->toBase()
+            ->selectRaw('estado, count(*) as total')
+            ->groupBy('estado')
+            ->pluck('total', 'estado');
+
+        $resultado = [];
+
+        foreach (EstadoSolicitudInterna::cases() as $estado) {
+            $total = (int) ($totales[$estado->value] ?? 0);
+
+            if ($total > 0) {
+                $resultado[] = ['clave' => $estado->value, 'etiqueta' => $estado->etiqueta(), 'valor' => $total];
+            }
+        }
+
+        return $resultado;
     }
 
     /**
@@ -292,12 +306,24 @@ class MetricasRhDashboardService
 
         $plantillaActual = (clone $colaboradoresQuery)->where('estatus', EstadoUsuario::Activo)->count();
 
-        $porDepartamento = (clone $colaboradoresQuery)
+        // Conteo agrupado en SQL (antes se hidrataba toda la plantilla).
+        $totalesPorDepartamento = (clone $colaboradoresQuery)
             ->where('estatus', EstadoUsuario::Activo)
-            ->with('departamento:id,nombre')
-            ->get()
-            ->groupBy(fn (Colaborador $u) => $u->departamento->nombre ?? 'Sin departamento')
-            ->map(fn (Collection $grupo, string $etiqueta) => ['etiqueta' => $etiqueta, 'valor' => $grupo->count()])
+            ->toBase()
+            ->selectRaw('departamento_id, count(*) as total')
+            ->groupBy('departamento_id')
+            ->pluck('total', 'departamento_id');
+        $nombresDepartamento = Departamento::query()
+            ->whereIn('id', $totalesPorDepartamento->keys()->filter())
+            ->pluck('nombre', 'id');
+
+        $porDepartamento = $totalesPorDepartamento
+            ->map(fn ($total, $departamentoId) => [
+                'etiqueta' => sprintf('%s', $nombresDepartamento[$departamentoId] ?? 'Sin departamento'),
+                'valor' => (int) $total,
+            ])
+            ->groupBy('etiqueta')
+            ->map(fn (Collection $grupo, string $etiqueta) => ['etiqueta' => $etiqueta, 'valor' => (int) $grupo->sum('valor')])
             ->sortByDesc('valor')
             ->values();
 
@@ -388,27 +414,38 @@ class MetricasRhDashboardService
      */
     private function tendenciaMensual(?int $sucursalId, ?Collection $sucursalesVisiblesIds): array
     {
+        // Dos consultas (altas y bajas de los 6 meses) agrupadas por mes en
+        // PHP, en vez de 12 count() — agrupar por mes en SQL cambia de
+        // sintaxis entre MariaDB (producción) y SQLite (pruebas).
+        $inicioPeriodo = now()->subMonths(5)->startOfMonth();
+        $finPeriodo = now()->endOfMonth();
+
+        $porMes = function (TipoMovimientoLaboral $tipo, string $columnaSucursal) use ($inicioPeriodo, $finPeriodo, $sucursalId, $sucursalesVisiblesIds): array {
+            $conteo = [];
+
+            MovimientoLaboral::query()
+                ->where('tipo_movimiento', $tipo->value)
+                ->whereBetween('fecha_movimiento', [$inicioPeriodo, $finPeriodo])
+                ->when($sucursalId !== null, fn ($q) => $q->where($columnaSucursal, $sucursalId))
+                ->when($sucursalesVisiblesIds !== null, fn ($q) => $q->whereIn($columnaSucursal, $sucursalesVisiblesIds))
+                ->pluck('fecha_movimiento')
+                ->each(function ($fecha) use (&$conteo): void {
+                    $mes = Carbon::parse($fecha)->format('Y-m');
+                    $conteo[$mes] = ($conteo[$mes] ?? 0) + 1;
+                });
+
+            return $conteo;
+        };
+
+        $altas = $porMes(TipoMovimientoLaboral::Alta, 'sucursal_nueva_id');
+        $bajas = $porMes(TipoMovimientoLaboral::Baja, 'sucursal_anterior_id');
         $meses = [];
 
         for ($i = 5; $i >= 0; $i--) {
             $inicio = now()->subMonths($i)->startOfMonth();
-            $fin = $inicio->copy()->endOfMonth();
+            $clave = $inicio->format('Y-m');
 
-            $altas = MovimientoLaboral::query()
-                ->where('tipo_movimiento', TipoMovimientoLaboral::Alta->value)
-                ->whereBetween('fecha_movimiento', [$inicio, $fin])
-                ->when($sucursalId !== null, fn ($q) => $q->where('sucursal_nueva_id', $sucursalId))
-                ->when($sucursalesVisiblesIds !== null, fn ($q) => $q->whereIn('sucursal_nueva_id', $sucursalesVisiblesIds))
-                ->count();
-
-            $bajas = MovimientoLaboral::query()
-                ->where('tipo_movimiento', TipoMovimientoLaboral::Baja->value)
-                ->whereBetween('fecha_movimiento', [$inicio, $fin])
-                ->when($sucursalId !== null, fn ($q) => $q->where('sucursal_anterior_id', $sucursalId))
-                ->when($sucursalesVisiblesIds !== null, fn ($q) => $q->whereIn('sucursal_anterior_id', $sucursalesVisiblesIds))
-                ->count();
-
-            $meses[] = ['mes' => $inicio->translatedFormat('M Y'), 'altas' => $altas, 'bajas' => $bajas];
+            $meses[] = ['mes' => $inicio->translatedFormat('M Y'), 'altas' => $altas[$clave] ?? 0, 'bajas' => $bajas[$clave] ?? 0];
         }
 
         return $meses;
@@ -431,9 +468,7 @@ class MetricasRhDashboardService
         $completos = 0;
         $incompletos = 0;
 
-        foreach ($colaboradores as $colaborador) {
-            $resumen = $this->expediente->resumenCompletitud($colaborador);
-
+        foreach ($this->expediente->resumenesCompletitud($colaboradores->pluck('id')) as $resumen) {
             if ($resumen['requeridos_total'] > 0 && $resumen['porcentaje'] >= 100.0) {
                 $completos++;
             } else {
@@ -453,9 +488,9 @@ class MetricasRhDashboardService
      * se registra igual desde ambos caminos (baja administrativa directa y
      * baja vía solicitud) — única fuente de verdad.
      *
-     * @param  Collection<int, int>  $idsVisibles
+     * @param  Collection<int, int>|Builder<Colaborador>  $idsVisibles
      */
-    private function bajasDelMes(Collection $idsVisibles): int
+    private function bajasDelMes(Collection|Builder $idsVisibles): int
     {
         return MovimientoLaboral::query()
             ->where('tipo_movimiento', TipoMovimientoLaboral::Baja->value)
@@ -496,8 +531,18 @@ class MetricasRhDashboardService
     {
         $hoy = now()->startOfDay();
 
+        // Prefiltro barato por "mes-día" (con la plantilla completa, hacer
+        // Carbon::parse + diffInDays para cada persona costaba >1.5 s): solo
+        // los que caen en la ventana de 31 días (o nacieron un 29/feb) pasan
+        // al cálculo exacto de abajo, que no cambia.
+        $ventana = [];
+        for ($d = 0; $d <= 31; $d++) {
+            $ventana[$hoy->copy()->addDays($d)->format('m-d')] = true;
+        }
+        $ventana['02-29'] = true;
+
         return $colaboradores
-            ->filter(fn (Colaborador $u) => $u->fecha_ingreso !== null)
+            ->filter(fn (Colaborador $u) => isset($ventana[substr(sprintf('%s', $u->getRawOriginal('fecha_ingreso')), 5, 5)]))
             ->map(function (Colaborador $u) use ($hoy) {
                 $proximo = Carbon::parse($u->fecha_ingreso)->year($hoy->year);
 
@@ -525,10 +570,10 @@ class MetricasRhDashboardService
      * del enum vuelve un tipo union literal que no puede declararse de forma
      * estable como Collection<...>.
      *
-     * @param  Collection<int, int>  $idsVisibles
+     * @param  Collection<int, int>|Builder<Colaborador>  $idsVisibles
      * @return array<int, array{id: int, colaborador: string|null, tipo: string, status: string, creado_en: string|null}>
      */
-    private function documentosPendientesRevision(Collection $idsVisibles, bool $soloPropios = false): array
+    private function documentosPendientesRevision(Collection|Builder $idsVisibles, bool $soloPropios = false): array
     {
         return EmployeeDocument::query()
             ->whereIn('colaborador_id', $idsVisibles)
@@ -549,10 +594,35 @@ class MetricasRhDashboardService
     }
 
     /**
-     * @param  Collection<int, EmployeeDocument>  $documentos
+     * Número de documentos de expediente por estado (todas las versiones,
+     * igual que antes), agregado en SQL.
+     *
+     * @param  Builder<Colaborador>  $colaboradoresVisibles  subconsulta de ids en alcance
+     * @return array<string, int> estado => total
+     */
+    private function conteoDocumentosPorEstado(Builder $colaboradoresVisibles): array
+    {
+        $conteo = [];
+
+        $filas = EmployeeDocument::query()
+            ->whereIn('colaborador_id', $colaboradoresVisibles)
+            ->toBase()
+            ->selectRaw('status, count(*) as total')
+            ->groupBy('status')
+            ->get();
+
+        foreach ($filas as $fila) {
+            $conteo[sprintf('%s', $fila->status)] = (int) $fila->total;
+        }
+
+        return $conteo;
+    }
+
+    /**
+     * @param  array<string, int>  $documentosPorEstado
      * @return Collection<int, array{tono: string, mensaje: string}>
      */
-    private function alertas(int $expedientesIncompletos, Collection $documentos): Collection
+    private function alertas(int $expedientesIncompletos, array $documentosPorEstado): Collection
     {
         $alertas = collect();
 
@@ -563,7 +633,7 @@ class MetricasRhDashboardService
             ]);
         }
 
-        $rechazados = $documentos->where('status', EstadoDocumento::Rechazado)->count();
+        $rechazados = $documentosPorEstado[EstadoDocumento::Rechazado->value] ?? 0;
 
         if ($rechazados > 0) {
             $alertas->push([
@@ -572,7 +642,7 @@ class MetricasRhDashboardService
             ]);
         }
 
-        $enRevision = $documentos->where('status', EstadoDocumento::EnRevision)->count();
+        $enRevision = $documentosPorEstado[EstadoDocumento::EnRevision->value] ?? 0;
 
         if ($enRevision > 0) {
             $alertas->push([

@@ -41,18 +41,21 @@ test('un usuario no autenticado no puede acceder al portal', function () {
     $this->get(route('portal.index'))->assertRedirect(route('login'));
 });
 
-test('un usuario operativo puro (sin permisos personales) no puede ver el portal ni por URL directa', function () {
-    $superAdminPuro = User::factory()->create();
+test('una cuenta operativa sin colaborador enlazado no puede ver el portal ni por URL directa', function () {
+    $superAdminPuro = User::factory()->create(['colaborador_id' => null]);
     $superAdminPuro->assignRole('super_admin');
 
-    $rhAdminPuro = User::factory()->create();
+    $rhAdminPuro = User::factory()->create(['colaborador_id' => null]);
     $rhAdminPuro->assignRole('rh_admin');
 
+    // (EnsureCuentaActiva además cierra la sesión de una cuenta sin
+    // colaborador; aquí solo importa que nunca obtenga la página.)
     foreach ([$superAdminPuro, $rhAdminPuro] as $usuarioOperativo) {
-        $this->actingAs($usuarioOperativo)->get(route('portal.index'))->assertForbidden();
-        $this->actingAs($usuarioOperativo)->get(route('portal.perfil'))->assertForbidden();
-        $this->actingAs($usuarioOperativo)->get(route('portal.notificaciones'))->assertForbidden();
-        $this->actingAs($usuarioOperativo)->get(route('mi-expediente'))->assertForbidden();
+        expect($usuarioOperativo->can('modo-colaborador'))->toBeFalse();
+
+        foreach (['portal.index', 'portal.perfil', 'portal.notificaciones', 'mi-expediente'] as $ruta) {
+            expect($this->actingAs($usuarioOperativo)->get(route($ruta))->isOk())->toBeFalse();
+        }
     }
 });
 

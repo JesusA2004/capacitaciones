@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Administracion\StoreDepartamentoRequest;
 use App\Http\Requests\Administracion\UpdateDepartamentoRequest;
 use App\Models\Departamento;
+use App\Support\Consultas\EstadisticasActivoInactivo;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -27,11 +28,7 @@ class DepartamentoController extends Controller
         return Inertia::render('Administracion/Departamentos/Index', [
             'departamentos' => $departamentos,
             'filtros' => $request->only('busqueda'),
-            'estadisticas' => [
-                'total' => Departamento::count(),
-                'activos' => Departamento::where('activo', true)->count(),
-                'inactivos' => Departamento::where('activo', false)->count(),
-            ],
+            'estadisticas' => EstadisticasActivoInactivo::de(Departamento::query()),
         ]);
     }
 

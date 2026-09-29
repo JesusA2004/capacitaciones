@@ -7,12 +7,15 @@ use App\Models\EmployeeDocument;
 use App\Models\HeadcountTarget;
 use App\Models\OfficialFormat;
 use App\Models\User;
+use App\Services\Permisos\SincronizadorPermisosService;
+use Composer\InstalledVersions;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
-use ReflectionClass;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Throwable;
@@ -61,6 +64,13 @@ class PeopleDiagnosticoCommand extends Command
 
     public function handle(): int
     {
+        $this->revisarEntorno();
+        $this->revisarBaseDeDatos();
+        $this->revisarMigraciones();
+        $this->revisarCache();
+        $this->revisarCola();
+        $this->revisarCorreo();
+        $this->revisarLibreOffice();
         $this->revisarColumnasCriticas();
         $this->revisarStorageNas();
         $this->revisarEstructuraExpedientesNas();
@@ -84,8 +94,185 @@ class PeopleDiagnosticoCommand extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * APP_DEBUG=true en producción expone la pantalla de excepción de
+     * Laravel (trazas, consultas, rutas, headers, cookies). Nunca se
+     * imprimen valores secretos, solo si cada ajuste está bien o no.
+     */
+    private function revisarEntorno(): void
+    {
+        $this->line('<fg=blue>Entorno</>');
+
+        $this->ok(sprintf('APP_ENV=%s', app()->environment()));
+
+        if (app()->isProduction() && config('app.debug')) {
+            $this->fallo('APP_DEBUG=true en producción: la pantalla de error expone trazas, consultas y cookies. Pon APP_DEBUG=false y corre `php artisan config:cache`.');
+        } else {
+            $this->ok(config('app.debug') ? 'APP_DEBUG=true (aceptable fuera de producción).' : 'APP_DEBUG=false.');
+        }
+
+        // fakerphp/faker es require-dev: si está instalado en producción, el
+        // deploy corrió `composer install` sin --no-dev.
+        if (app()->isProduction() && InstalledVersions::isInstalled('fakerphp/faker')) {
+            $this->fallo('Hay paquetes de desarrollo instalados en producción: usa `composer install --no-dev --optimize-autoloader --no-interaction`.');
+        }
+
+        if (config('app.key') === null || config('app.key') === '') {
+            $this->fallo('APP_KEY vacío — corre `php artisan key:generate` (una sola vez por entorno).');
+        }
+    }
+
+    private function revisarBaseDeDatos(): void
+    {
+        $this->newLine();
+        $this->line('<fg=blue>Base de datos</>');
+
+        try {
+            DB::connection()->getPdo();
+            $this->ok(sprintf('Conexión «%s» disponible.', DB::connection()->getName()));
+        } catch (Throwable $e) {
+            $this->fallo('No hay conexión a la base de datos (revisa DB_* en .env).');
+        }
+    }
+
+    private function revisarMigraciones(): void
+    {
+        $this->newLine();
+        $this->line('<fg=blue>Migraciones</>');
+
+        try {
+            $migrador = app('migrator');
+
+            if (! $migrador->repositoryExists()) {
+                $this->fallo('No existe la tabla de migraciones — corre `php artisan migrate --force`.');
+
+                return;
+            }
+
+            $archivos = array_keys($migrador->getMigrationFiles([database_path('migrations')]));
+            $pendientes = array_values(array_diff($archivos, $migrador->getRepository()->getRan()));
+        } catch (Throwable $e) {
+            $this->fallo('No se pudo revisar el estado de las migraciones.');
+
+            return;
+        }
+
+        if ($pendientes !== []) {
+            $this->fallo(sprintf('%d migración(es) pendiente(s) (%s) — corre `php artisan migrate --force`.', count($pendientes), implode(', ', array_slice($pendientes, 0, 3)).(count($pendientes) > 3 ? '…' : '')));
+
+            return;
+        }
+
+        $this->ok(sprintf('Las %d migraciones están aplicadas.', count($archivos)));
+    }
+
+    private function revisarCache(): void
+    {
+        $this->newLine();
+        $this->line('<fg=blue>Caché</>');
+
+        $clave = 'people:diagnostico:'.uniqid();
+
+        try {
+            Cache::put($clave, 'ok', 30);
+            $valor = Cache::get($clave);
+            Cache::forget($clave);
+            $valor === 'ok'
+                ? $this->ok(sprintf('Caché «%s» lee y escribe.', config('cache.default')))
+                : $this->fallo(sprintf('La caché «%s» no devolvió lo que se guardó.', config('cache.default')));
+        } catch (Throwable $e) {
+            $this->fallo(sprintf('La caché «%s» no responde.', config('cache.default')));
+        }
+    }
+
+    private function revisarCola(): void
+    {
+        $this->newLine();
+        $this->line('<fg=blue>Cola</>');
+
+        $conexion = config('queue.default');
+        $this->ok(sprintf('Conexión de cola: %s.', is_string($conexion) ? $conexion : '—'));
+
+        if ($conexion === 'sync' && app()->isProduction()) {
+            $this->fallo('QUEUE_CONNECTION=sync en producción: correos y notificaciones se envían dentro de la petición (lento). Usa database/redis con un worker.');
+        }
+
+        try {
+            if (Schema::hasTable('failed_jobs')) {
+                $fallidos = DB::table('failed_jobs')->count();
+                $fallidos > 0
+                    ? $this->fallo(sprintf('%d trabajo(s) fallido(s) en la cola — revisa `php artisan queue:failed`.', $fallidos))
+                    : $this->ok('Sin trabajos fallidos.');
+            }
+
+            if ($conexion === 'database' && Schema::hasTable('jobs')) {
+                $viejos = DB::table('jobs')->where('created_at', '<', now()->subMinutes(15)->getTimestamp())->count();
+                $viejos > 0
+                    ? $this->fallo(sprintf('%d trabajo(s) esperando más de 15 min — ¿está corriendo `php artisan queue:work`?', $viejos))
+                    : $this->ok('No hay trabajos atorados.');
+            }
+        } catch (Throwable $e) {
+            $this->fallo('No se pudo leer el estado de la cola.');
+        }
+    }
+
+    /**
+     * Solo verifica que el correo esté configurado; nunca imprime usuario,
+     * contraseña ni host.
+     */
+    private function revisarCorreo(): void
+    {
+        $this->newLine();
+        $this->line('<fg=blue>Correo</>');
+
+        $mailer = config('mail.default');
+        $remitente = config('mail.from.address');
+
+        $this->ok(sprintf('Mailer: %s.', is_string($mailer) ? $mailer : '—'));
+
+        if (app()->isProduction() && in_array($mailer, ['log', 'array', null], true)) {
+            $this->fallo('En producción el mailer es «log»/«array»: ningún correo sale. Configura MAIL_MAILER (smtp, etc.).');
+        }
+
+        if (! is_string($remitente) || $remitente === '' || str_ends_with($remitente, '@example.com')) {
+            $this->fallo('MAIL_FROM_ADDRESS no está configurado con un remitente real.');
+        } else {
+            $this->ok('Remitente configurado.');
+        }
+    }
+
+    /**
+     * FORMATOS_LIBREOFFICE_PATH (config('formatos_oficiales.libreoffice')):
+     * sin él, Word → PDF usa el convertidor aproximado de PhpWord/DomPDF.
+     */
+    private function revisarLibreOffice(): void
+    {
+        $this->newLine();
+        $this->line('<fg=blue>LibreOffice (Word → PDF)</>');
+
+        $ruta = config('formatos_oficiales.libreoffice');
+
+        if (! is_string($ruta) || $ruta === '') {
+            $this->fallo('FORMATOS_LIBREOFFICE_PATH no está configurado: los PDF de plantillas Word serán aproximados.');
+
+            return;
+        }
+
+        $this->ok(sprintf('Ruta configurada: %s', $ruta));
+
+        try {
+            $resultado = Process::timeout(30)->run([$ruta, '--version']);
+            $resultado->successful()
+                ? $this->ok(trim(strtok($resultado->output(), "\n") ?: 'LibreOffice responde.'))
+                : $this->fallo('LibreOffice no respondió a --version (revisa permisos del usuario del servidor web).');
+        } catch (Throwable $e) {
+            $this->fallo('No se pudo ejecutar LibreOffice en la ruta configurada.');
+        }
+    }
+
     private function revisarColumnasCriticas(): void
     {
+        $this->newLine();
         $this->line('<fg=blue>Columnas/tablas críticas</>');
 
         foreach (self::COLUMNAS_CRITICAS as $tabla => $columnas) {
@@ -270,11 +457,7 @@ class PeopleDiagnosticoCommand extends Command
             return;
         }
 
-        $reflexion = new ReflectionClass(RolesYPermisosSeeder::class);
-        $esperados = [
-            ...$reflexion->getConstant('PERMISOS'),
-            ...$reflexion->getConstant('PERMISOS_PERSONALES'),
-        ];
+        $esperados = RolesYPermisosSeeder::catalogoPermisos();
 
         try {
             $existentes = Permission::query()->pluck('name')->all();
@@ -287,12 +470,31 @@ class PeopleDiagnosticoCommand extends Command
         $faltantes = array_diff($esperados, $existentes);
 
         if ($faltantes !== []) {
-            $this->fallo(count($faltantes).' permiso(s) del catálogo no están sembrados: '.implode(', ', array_slice($faltantes, 0, 10)).(count($faltantes) > 10 ? '…' : ''));
+            $this->fallo(count($faltantes).' permiso(s) del catálogo no están sembrados: '.implode(', ', array_slice($faltantes, 0, 10)).(count($faltantes) > 10 ? '…' : '').' — corre `php artisan people:sincronizar-permisos`.');
 
             return;
         }
 
         $this->ok(count($esperados).' permisos del catálogo están sembrados.');
+
+        // Roles base a los que les falta algún permiso del diseño (p. ej.
+        // celebraciones.* tras un git pull): simulación, no escribe nada.
+        try {
+            $pendientes = app(SincronizadorPermisosService::class)->sincronizar(simular: true)['permisos_otorgados'];
+        } catch (Throwable $e) {
+            return;
+        }
+
+        if ($pendientes !== []) {
+            $this->fallo(sprintf(
+                'Roles base sin permisos del catálogo: %s — corre `php artisan people:sincronizar-permisos` (no quita personalizaciones).',
+                implode(', ', array_map(fn (string $rol, array $permisos) => sprintf('%s (%d)', $rol, count($permisos)), array_keys($pendientes), $pendientes)),
+            ));
+
+            return;
+        }
+
+        $this->ok('Los roles base tienen todos sus permisos del catálogo.');
     }
 
     private function revisarRolesDemo(): void
@@ -308,7 +510,7 @@ class PeopleDiagnosticoCommand extends Command
             return;
         }
 
-        $esperados = array_keys((new ReflectionClass(RolesYPermisosSeeder::class))->getConstant('ROLES'));
+        $esperados = array_keys(RolesYPermisosSeeder::permisosBasePorRol());
 
         try {
             $existentes = Role::query()->pluck('name')->all();
@@ -321,7 +523,7 @@ class PeopleDiagnosticoCommand extends Command
         $faltantes = array_diff($esperados, $existentes);
 
         if ($faltantes !== []) {
-            $this->fallo('Faltan roles: '.implode(', ', $faltantes).' — corre `php artisan db:seed --class=RolesYPermisosSeeder`.');
+            $this->fallo('Faltan roles: '.implode(', ', $faltantes).' — corre `php artisan people:sincronizar-permisos`.');
 
             return;
         }

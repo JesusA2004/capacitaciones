@@ -89,7 +89,7 @@ class CumpleanosService
     {
         $hoy = FechasCelebracion::hoy();
 
-        return $this->queryBase($usuario, $filtros)
+        return FechasCelebracion::limitarAMesesDeVentana($this->queryBase($usuario, $filtros), 'fecha_nacimiento', $hoy, $hoy->copy()->addDays(max(0, $dias)))
             ->get()
             ->map(function (Colaborador $colaborador) use ($hoy) {
                 $colaborador->setAttribute('_proxima_fecha', $this->proximaFecha($colaborador->fecha_nacimiento, $hoy));
@@ -117,7 +117,7 @@ class CumpleanosService
         $desde = Carbon::parse($desde)->startOfDay();
         $hasta = Carbon::parse($hasta)->endOfDay();
 
-        return $this->queryBase($usuario, $filtros)
+        return FechasCelebracion::limitarAMesesDeVentana($this->queryBase($usuario, $filtros), 'fecha_nacimiento', $desde, $hasta)
             ->get()
             ->map(function (Colaborador $colaborador) use ($desde) {
                 $colaborador->setAttribute('_proxima_fecha', $this->proximaFecha($colaborador->fecha_nacimiento, $desde));

@@ -22,10 +22,10 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'verified'])->group(function () {
     // Solo la experiencia de "modo colaborador" ve su propio expediente por
-    // esta ruta — un operativo puro sin `portal.ver` recibe 403 (sección 25
-    // del cierre: separación real colaborador/operativo, no solo de sidebar).
-    Route::get('mi-expediente', [ExpedienteController::class, 'miExpediente'])->name('mi-expediente')->middleware('can:portal.ver');
-    Route::post('mi-expediente/foto', [ExpedienteController::class, 'subirFotoPropia'])->name('portal.foto')->middleware('can:portal.ver');
+    // esta ruta (Gate `modo-colaborador`, ver NavigationService) — una
+    // cuenta operativa sin colaborador enlazado recibe 403.
+    Route::get('mi-expediente', [ExpedienteController::class, 'miExpediente'])->name('mi-expediente')->middleware('can:modo-colaborador');
+    Route::post('mi-expediente/foto', [ExpedienteController::class, 'subirFotoPropia'])->name('portal.foto')->middleware('can:modo-colaborador');
 
     Route::prefix('rh')->name('rh.')->group(function () {
         Route::prefix('expedientes')->name('expedientes.')->group(function () {

@@ -7,6 +7,7 @@ use App\Http\Requests\Administracion\StorePuestoRequest;
 use App\Http\Requests\Administracion\UpdatePuestoRequest;
 use App\Models\Departamento;
 use App\Models\Puesto;
+use App\Support\Consultas\EstadisticasActivoInactivo;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -30,11 +31,7 @@ class PuestoController extends Controller
             'puestos' => $puestos,
             'filtros' => $request->only('busqueda'),
             'departamentosDisponibles' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
-            'estadisticas' => [
-                'total' => Puesto::count(),
-                'activos' => Puesto::where('activo', true)->count(),
-                'inactivos' => Puesto::where('activo', false)->count(),
-            ],
+            'estadisticas' => EstadisticasActivoInactivo::de(Puesto::query()),
         ]);
     }
 

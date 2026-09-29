@@ -6,6 +6,7 @@ use App\Enums\CategoriaDocumento;
 use App\Enums\EstadoDocumentoGenerado;
 use App\Enums\EstadoFlujoDocumento;
 use Database\Factories\GeneratedDocumentFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -120,6 +121,30 @@ class GeneratedDocument extends Model
         'requiere_huella' => false,
         'requiere_testigos' => false,
     ];
+
+    public const MIME_DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+    /**
+     * Documentos del motor de plantillas Word editables (catálogo
+     * "Generados (Word)", Rh\FormatoController): creados desde una
+     * DocumentTemplate y guardados como DOCX. Esta tabla también guarda
+     * recibos de nómina, contratos, préstamos y documentos laborales del
+     * motor documental (PDF, aunque algunos también referencian una
+     * DocumentTemplate) — esos NUNCA pasan por el conversor DOCX ni por
+     * las descargas del catálogo Word.
+     *
+     * @param  Builder<GeneratedDocument>  $query
+     * @return Builder<GeneratedDocument>
+     */
+    public function scopeDesdePlantillaEditable(Builder $query): Builder
+    {
+        return $query->whereNotNull('document_template_id')->where('mime', self::MIME_DOCX);
+    }
+
+    public function esDePlantillaEditable(): bool
+    {
+        return $this->document_template_id !== null && $this->mime === self::MIME_DOCX;
+    }
 
     /**
      * Objeto de negocio que originó el documento (contrato laboral,

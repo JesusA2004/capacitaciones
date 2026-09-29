@@ -22,6 +22,7 @@ use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Formatos\FormatoCatalogoService;
 use App\Services\Formatos\FormatoPreviewService;
 use App\Services\Formatos\Motor\ConversorDocxPdf;
+use App\Services\Plantillas\DocumentoWordGeneradoService;
 use App\Services\Plantillas\PlaceholderResolver;
 use App\Services\Plantillas\PlantillaDocumentoService;
 use App\Services\Plantillas\PlantillaResolverService;
@@ -54,6 +55,7 @@ class FormatoController extends Controller
         private readonly PlaceholderResolver $placeholders,
         private readonly VariableMappingService $mapeo,
         private readonly ConversorDocxPdf $conversor,
+        private readonly DocumentoWordGeneradoService $documentosWord,
     ) {}
 
     /**
@@ -135,7 +137,7 @@ class FormatoController extends Controller
 
         return $this->alcance
             ->limitarPorSucursal(
-                GeneratedDocument::query()->with(['plantilla:id,nombre,tipo', 'colaborador:id,name,apellidos', 'candidato:id,nombre,apellidos', 'generadoPor:id,name,apellidos']),
+                GeneratedDocument::query()->desdePlantillaEditable()->with(['plantilla:id,nombre,tipo', 'colaborador:id,name,apellidos', 'candidato:id,nombre,apellidos', 'generadoPor:id,name,apellidos']),
                 $usuario,
             )
             ->when($request->string('tipo')->toString(), fn ($query, string $tipo) => $query->whereHas('plantilla', fn ($q) => $q->where('tipo', $tipo)))
@@ -245,6 +247,7 @@ class FormatoController extends Controller
     public function subirFirmado(SubirFormatoFirmadoRequest $request, GeneratedDocument $documento): RedirectResponse
     {
         $this->authorize('viewAny', DocumentTemplate::class);
+        $this->asegurarDocumentoWord($request, $documento);
 
         $colaborador = $documento->colaborador;
 
@@ -335,18 +338,25 @@ class FormatoController extends Controller
         ]);
     }
 
-    public function descargar(Request $request, GeneratedDocument $documento): StreamedResponse
+    public function descargar(Request $request, GeneratedDocument $documento): StreamedResponse|RedirectResponse
     {
         $this->authorize('viewAny', DocumentTemplate::class);
         abort_unless($request->user()->can('formatos.descargar_docx'), 403);
+        $this->asegurarDocumentoWord($request, $documento);
+
+        $respuesta = $this->documentosWord->respuesta($documento, [
+            'Content-Disposition' => 'attachment; filename="'.$documento->generated_name.'"',
+        ]);
+
+        if ($respuesta === null) {
+            return $this->archivoNoDisponible();
+        }
 
         if ($documento->status === EstadoDocumentoGenerado::Generado) {
             $documento->update(['status' => EstadoDocumentoGenerado::Entregado]);
         }
 
-        return $this->storage->respuesta($documento->path, [
-            'Content-Disposition' => 'attachment; filename="'.$documento->generated_name.'"',
-        ]);
+        return $respuesta;
     }
 
     /**
@@ -360,12 +370,18 @@ class FormatoController extends Controller
     {
         $this->authorize('viewAny', DocumentTemplate::class);
         abort_unless($request->user()->can('formatos.descargar_pdf'), 403);
+        $this->asegurarDocumentoWord($request, $documento);
+
+        $contenidoDocx = $this->documentosWord->contenido($documento);
+
+        if ($contenidoDocx === null) {
+            return $this->archivoNoDisponible();
+        }
 
         // Mismo conversor desacoplado del módulo de formatos oficiales:
         // prefiere LibreOffice headless si está configurado
         // (config('formatos_oficiales.libreoffice')), cae a PhpWord/DomPDF
         // si no — nunca rompe la descarga.
-        $contenidoDocx = $this->storage->disco()->get($documento->path);
         $resultado = $this->conversor->convertir($contenidoDocx);
 
         if ($resultado === null) {
@@ -395,13 +411,40 @@ class FormatoController extends Controller
             : 'Faltan datos obligatorios de la plantilla: '.implode(', ', $etiquetas).'.';
     }
 
-    public function destroy(GeneratedDocument $documento): RedirectResponse
+    public function destroy(Request $request, GeneratedDocument $documento): RedirectResponse
     {
         $this->authorize('viewAny', DocumentTemplate::class);
+        $this->asegurarDocumentoWord($request, $documento);
 
-        $this->storage->eliminar($documento->path);
+        $this->documentosWord->eliminarArchivo($documento);
         $documento->delete();
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Documento generado eliminado.']);
+    }
+
+    /**
+     * Este controlador solo opera documentos del motor Word editable y
+     * dentro del alcance del usuario (mismo criterio que el listado). Un
+     * recibo de nómina, contrato o documento laboral en PDF que viva en
+     * generated_documents responde 404 aquí — tiene su propio módulo.
+     */
+    private function asegurarDocumentoWord(Request $request, GeneratedDocument $documento): void
+    {
+        abort_unless($documento->esDePlantillaEditable(), 404, 'Este documento no pertenece al catálogo de formatos Word.');
+
+        $visible = $this->alcance
+            ->limitarPorSucursal(GeneratedDocument::query()->desdePlantillaEditable(), $request->user())
+            ->whereKey($documento->id)
+            ->exists();
+
+        abort_unless($visible, 404);
+    }
+
+    private function archivoNoDisponible(): RedirectResponse
+    {
+        return back()->with('toast', [
+            'type' => 'error',
+            'message' => 'El archivo fuente de este documento ya no está disponible.',
+        ]);
     }
 }

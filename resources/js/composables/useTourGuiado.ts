@@ -1,5 +1,10 @@
 import { router } from '@inertiajs/vue3';
 import { computed, ref, shallowRef } from 'vue';
+import {
+    avisoSelectorFaltante,
+    decisionSinElemento,
+    esperaParaElemento,
+} from '@/lib/tours/motor';
 import type { Tour } from '@/lib/tours/tipos';
 
 /**
@@ -14,8 +19,6 @@ const CLAVE_STORAGE = 'tours-vistos';
 
 /** Máximo que se espera a que Inertia termine de cambiar de pantalla. */
 const ESPERA_NAVEGACION_MS = 10000;
-/** Máximo que se espera a que aparezca el elemento de un paso. */
-const ESPERA_ELEMENTO_MS = 2500;
 
 export type EstadoTour = 'inactivo' | 'cargando' | 'listo';
 
@@ -28,6 +31,17 @@ const elemento = shallowRef<HTMLElement | null>(null);
 const rutasResueltas = new Map<number, string>();
 /** Invalida esperas pendientes cuando el usuario avanza/sale a mitad. */
 let turno = 0;
+/**
+ * Pantalla actual y cuándo terminó de cargar: el tiempo de espera de los
+ * elementos se cuenta desde aquí (ver esperaParaElemento en motor.ts).
+ */
+let llegada: { ruta: string; ms: number } | null = null;
+
+function registrarLlegada(ruta: string): void {
+    if (llegada?.ruta !== ruta) {
+        llegada = { ruta, ms: performance.now() };
+    }
+}
 
 function leerVistos(): string[] {
     try {
@@ -188,12 +202,17 @@ async function irAPaso(indice: number, direccion: 1 | -1): Promise<void> {
         }
     }
 
+    registrarLlegada(rutaDelPaso);
+
     if (paso.selector) {
         const selector = paso.selector;
 
         await esperar(
             () => buscarElementoVisible(selector) !== null,
-            ESPERA_ELEMENTO_MS,
+            esperaParaElemento(
+                llegada?.ms ?? performance.now(),
+                performance.now(),
+            ),
         );
 
         if (miTurno !== turno) {
@@ -202,12 +221,19 @@ async function irAPaso(indice: number, direccion: 1 | -1): Promise<void> {
 
         const encontrado = buscarElementoVisible(selector);
 
-        if (!encontrado && paso.opcional) {
-            await irAPaso(indice + direccion, direccion);
+        if (!encontrado) {
+            if (import.meta.env.DEV) {
+                console.warn(avisoSelectorFaltante(tour.id, indice, paso));
+            }
 
-            return;
+            if (decisionSinElemento(paso) === 'omitir') {
+                await irAPaso(indice + direccion, direccion);
+
+                return;
+            }
         }
 
+        // Sin elemento y obligatorio: paso centrado sin spotlight.
         elemento.value = encontrado;
     }
 
@@ -220,18 +246,23 @@ function iniciar(tour: Tour): void {
     }
 
     rutasResueltas.clear();
+    llegada = null;
     tourActivo.value = tour;
     void irAPaso(0, 1);
 }
 
+/**
+ * "Siguiente" nunca se bloquea: también funciona mientras un paso está
+ * cargando (invalida la espera en curso vía `turno` y avanza).
+ */
 function siguiente(): void {
-    if (tourActivo.value && estado.value === 'listo') {
+    if (tourActivo.value) {
         void irAPaso(pasoActual.value + 1, 1);
     }
 }
 
 function anterior(): void {
-    if (tourActivo.value && estado.value === 'listo' && pasoActual.value > 0) {
+    if (tourActivo.value && pasoActual.value > 0) {
         void irAPaso(pasoActual.value - 1, -1);
     }
 }
@@ -240,7 +271,7 @@ function anterior(): void {
 function saltarSeccion(): void {
     const tour = tourActivo.value;
 
-    if (!tour || estado.value !== 'listo') {
+    if (!tour) {
         return;
     }
 

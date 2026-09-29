@@ -2,9 +2,8 @@
 
 namespace Database\Seeders;
 
+use App\Services\Permisos\SincronizadorPermisosService;
 use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
 
 class RolesYPermisosSeeder extends Seeder
 {
@@ -16,14 +15,14 @@ class RolesYPermisosSeeder extends Seeder
      * @var array<int, string>
      */
     /**
-     * Permisos "personales" (experiencia de modo colaborador: Mi portal, mi
-     * perfil, mis solicitudes, mis notificaciones — ver
-     * App\Services\Navigation\NavigationService). Se mantienen fuera del
-     * catálogo operativo de `self::PERMISOS` que se le asigna en bloque a
-     * `super_admin`: ser super_admin no debe implicar automáticamente tener
-     * "Mi portal", ni por sidebar ni por URL directa (sección 25 del cierre).
-     * Si un usuario necesita ambas experiencias, se le asigna también el rol
-     * `colaborador` (o estos permisos de forma explícita).
+     * Permisos "personales" del rol `colaborador` (Mi portal, mi perfil,
+     * mis solicitudes, mis notificaciones). Se mantienen fuera del catálogo
+     * operativo de `self::PERMISOS` que se le asigna en bloque a
+     * `super_admin`. Ojo: "Mi espacio" ya NO depende solo de estos
+     * permisos — una cuenta administrativa enlazada a un Colaborador activo
+     * también lo tiene (Gate `modo-colaborador`,
+     * App\Services\Navigation\NavigationService::puedeUsarModoColaborador()),
+     * sin necesitar el rol `colaborador`.
      *
      * @var array<int, string>
      */
@@ -754,15 +753,36 @@ class RolesYPermisosSeeder extends Seeder
         ],
     ];
 
+    /**
+     * Catálogo completo de permisos (operativos + personales).
+     *
+     * @return list<string>
+     */
+    public static function catalogoPermisos(): array
+    {
+        return array_values(array_unique([...self::PERMISOS, ...self::PERMISOS_PERSONALES]));
+    }
+
+    /**
+     * Permisos BASE de cada rol sembrado — lo mínimo que el rol debe tener,
+     * no un techo: un rol editado en "Roles y permisos" puede tener más.
+     *
+     * @return array<string, list<string>>
+     */
+    public static function permisosBasePorRol(): array
+    {
+        return array_map(fn (array $permisos): array => array_values(array_unique($permisos)), self::ROLES);
+    }
+
+    /**
+     * Idempotente y NO destructivo (seguro en producción con `db:seed
+     * --force`): crea permisos/roles faltantes y agrega solo los permisos
+     * base que le falten a cada rol; nunca quita permisos que un
+     * administrador haya agregado desde la pantalla de roles. Misma lógica
+     * que `php artisan people:sincronizar-permisos` (ver docs/DEPLOY.md).
+     */
     public function run(): void
     {
-        foreach ([...self::PERMISOS, ...self::PERMISOS_PERSONALES] as $permiso) {
-            Permission::firstOrCreate(['name' => $permiso, 'guard_name' => 'web']);
-        }
-
-        foreach (self::ROLES as $rol => $permisos) {
-            $role = Role::firstOrCreate(['name' => $rol, 'guard_name' => 'web']);
-            $role->syncPermissions($permisos);
-        }
+        app(SincronizadorPermisosService::class)->sincronizar();
     }
 }

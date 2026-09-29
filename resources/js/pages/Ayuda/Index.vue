@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { CheckCircle2, Compass, Route } from '@lucide/vue';
-import { computed } from 'vue';
+import { BookOpen, CheckCircle2, Compass, Route, Search } from '@lucide/vue';
+import { computed, ref } from 'vue';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useNavegacion } from '@/composables/useNavegacion';
 import { usePermisos } from '@/composables/usePermisos';
 import { useTourGuiado } from '@/composables/useTourGuiado';
@@ -30,6 +31,48 @@ const contexto = computed<ContextoGuia>(() => ({
 }));
 
 const modulos = computed(() => modulosDisponibles(contexto.value));
+const busqueda = ref('');
+
+function normalizar(texto: string): string {
+    return texto
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .toLowerCase();
+}
+
+/**
+ * Tour de cada módulo ya filtrado por los permisos del usuario: la guía
+ * escrita y el recorrido interactivo muestran exactamente los mismos pasos.
+ */
+const tours = computed(
+    () =>
+        new Map(
+            modulos.value.map((modulo) => [
+                modulo.id,
+                tourDeModulo(modulo, contexto.value),
+            ]),
+        ),
+);
+
+/** Búsqueda por nombre, descripción o el texto de cualquiera de sus pasos. */
+const modulosFiltrados = computed(() => {
+    const termino = normalizar(busqueda.value.trim());
+
+    if (termino === '') {
+        return modulos.value;
+    }
+
+    return modulos.value.filter((modulo) => {
+        const pasos = tours.value.get(modulo.id)?.pasos ?? [];
+        const texto = [
+            modulo.nombre,
+            modulo.descripcion,
+            ...pasos.flatMap((p) => [p.titulo, p.texto, p.consejo ?? '']),
+        ].join(' ');
+
+        return normalizar(texto).includes(termino);
+    });
+});
 const recorrido = computed(() => tourCompleto(contexto.value));
 
 const TONO_GRUPO: Record<string, string> = {
@@ -45,7 +88,7 @@ const TONO_GRUPO: Record<string, string> = {
 const grupos = computed(() => {
     const porGrupo = new Map<string, ModuloGuia[]>();
 
-    for (const modulo of modulos.value) {
+    for (const modulo of modulosFiltrados.value) {
         porGrupo.set(modulo.grupo, [
             ...(porGrupo.get(modulo.grupo) ?? []),
             modulo,
@@ -86,7 +129,8 @@ const vistos = computed(
                     El recorrido completo te lleva, pantalla por pantalla, por
                     los {{ modulos.length }} módulos que tienes disponibles y te
                     explica para qué sirve cada parte. También puedes aprender
-                    un solo módulo con "Ver cómo funciona".
+                    un solo módulo con "Iniciar recorrido", o leer su guía
+                    escrita con "Leer la guía".
                 </p>
             </div>
 
@@ -115,6 +159,26 @@ const vistos = computed(
                 </p>
             </div>
         </div>
+
+        <div class="relative mx-auto w-full max-w-xl">
+            <Search
+                class="pointer-events-none absolute top-2.5 left-3 size-4 text-muted-foreground"
+            />
+            <Input
+                v-model="busqueda"
+                type="search"
+                placeholder="Buscar en la guía (p. ej. «vacaciones», «PDF», «aniversario»)…"
+                aria-label="Buscar en la guía"
+                class="pl-9"
+            />
+        </div>
+
+        <p
+            v-if="modulosFiltrados.length === 0"
+            class="text-center text-sm text-muted-foreground"
+        >
+            Ningún módulo de tu guía coincide con «{{ busqueda }}».
+        </p>
 
         <div
             v-for="(grupo, indiceGrupo) in grupos"
@@ -161,17 +225,53 @@ const vistos = computed(
                             </p>
                         </div>
                     </div>
+                    <!-- Guía escrita: el módulo se puede aprender aunque el
+                         recorrido interactivo no encuentre un elemento. -->
+                    <details class="group/guia text-sm">
+                        <summary
+                            class="inline-flex cursor-pointer list-none items-center gap-1.5 text-muted-foreground hover:text-foreground"
+                        >
+                            <BookOpen class="size-3.5" />
+                            Leer la guía
+                        </summary>
+                        <ol
+                            class="mt-2 list-decimal space-y-2 pl-5 text-pretty"
+                        >
+                            <li
+                                v-for="(paso, indice) in tours.get(modulo.id)
+                                    ?.pasos ?? []"
+                                :key="indice"
+                            >
+                                <p class="font-medium">{{ paso.titulo }}</p>
+                                <p class="text-muted-foreground">
+                                    {{ paso.texto }}
+                                </p>
+                                <p
+                                    v-if="paso.consejo"
+                                    class="mt-0.5 text-xs text-muted-foreground italic"
+                                >
+                                    Consejo: {{ paso.consejo }}
+                                </p>
+                            </li>
+                        </ol>
+                    </details>
                     <div class="mt-auto flex items-center gap-2 pt-1">
                         <button
                             type="button"
                             class="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-                            @click="iniciar(tourDeModulo(modulo))"
+                            @click="
+                                iniciar(
+                                    tours.get(modulo.id) ??
+                                        tourDeModulo(modulo, contexto),
+                                )
+                            "
                         >
-                            <Compass class="size-3.5" /> Ver cómo funciona
+                            <Compass class="size-3.5" /> Iniciar recorrido
                             <span
                                 class="text-xs font-normal text-muted-foreground"
                             >
-                                ({{ modulo.pasos.length }} pasos)
+                                ({{ tours.get(modulo.id)?.pasos.length ?? 0 }}
+                                pasos)
                             </span>
                         </button>
                         <Link

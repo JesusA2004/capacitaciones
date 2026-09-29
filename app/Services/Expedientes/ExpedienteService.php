@@ -55,8 +55,68 @@ class ExpedienteService
      */
     public function resumenCompletitud(Colaborador $colaborador): array
     {
-        $p = ProgresoExpediente::calcular($this->tiposRequeridos(), $this->documentosVigentes($colaborador));
+        return $this->formatearResumen(ProgresoExpediente::calcular($this->tiposRequeridos(), $this->documentosVigentes($colaborador)));
+    }
 
+    /**
+     * Mismo resultado que resumenCompletitud(), para muchos colaboradores a
+     * la vez: una consulta por cada 1,000 colaboradores en vez de una por
+     * colaborador (el dashboard y el listado de expedientes hacían N+1:
+     * miles de consultas con la plantilla completa). Solo trae las columnas
+     * y los tipos que ProgresoExpediente necesita.
+     *
+     * @param  Collection<int, int>  $idsColaboradores
+     * @return array<int, array{porcentaje: float, requeridos_total: int, requeridos_aprobados: int, pendientes: int, rechazados: int}> por colaborador_id
+     */
+    public function resumenesCompletitud(Collection $idsColaboradores): array
+    {
+        $idsTipos = $this->tiposRequeridos()
+            ->filter(fn (DocumentType $tipo) => (bool) $tipo->requerido)
+            ->pluck('id')
+            ->all();
+        $resumenes = [];
+
+        foreach ($idsColaboradores->unique()->chunk(1000) as $lote) {
+            // Filas planas (sin hidratar EmployeeDocument): con la plantilla
+            // completa son decenas de miles de documentos. La primera fila
+            // de cada (colaborador, tipo) en orden de versión descendente es
+            // la vigente, igual que documentosVigentes().
+            $filas = EmployeeDocument::query()
+                ->whereIn('colaborador_id', $lote->values())
+                ->whereIn('document_type_id', $idsTipos)
+                ->where('status', '!=', EstadoDocumento::Archivado->value)
+                ->orderByDesc('version')
+                ->toBase()
+                ->get(['colaborador_id', 'document_type_id', 'status']);
+
+            $vigentes = [];
+
+            foreach ($filas as $fila) {
+                $colaboradorId = (int) $fila->colaborador_id;
+                $tipoId = (int) $fila->document_type_id;
+                $vigentes[$colaboradorId][$tipoId] ??= EstadoDocumento::from(sprintf('%s', $fila->status));
+            }
+
+            foreach ($lote as $idColaborador) {
+                $estados = [];
+
+                foreach ($idsTipos as $tipoId) {
+                    $estados[] = $vigentes[$idColaborador][$tipoId] ?? EstadoDocumento::Pendiente;
+                }
+
+                $resumenes[$idColaborador] = $this->formatearResumen(ProgresoExpediente::calcularDesdeEstados($estados));
+            }
+        }
+
+        return $resumenes;
+    }
+
+    /**
+     * @param  array{total_obligatorios: int, completos: int, faltantes: int, en_revision: int, rechazados: int, porcentaje: float|int}  $p
+     * @return array{porcentaje: float, requeridos_total: int, requeridos_aprobados: int, pendientes: int, rechazados: int}
+     */
+    private function formatearResumen(array $p): array
+    {
         return [
             'porcentaje' => (float) $p['porcentaje'],
             'requeridos_total' => $p['total_obligatorios'],

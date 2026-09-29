@@ -8,34 +8,26 @@ beforeEach(function () {
     $this->seed(RolesYPermisosSeeder::class);
 });
 
-test('super_admin puro entra en modo operativo y no tiene modo colaborador disponible', function () {
-    $usuario = User::factory()->create();
+test('super_admin sin colaborador enlazado entra en modo operativo y no tiene modo colaborador', function () {
+    $usuario = User::factory()->create(['colaborador_id' => null]);
     $usuario->assignRole('super_admin');
 
-    // super_admin es un rol operativo: RolesYPermisosSeeder::PERMISOS ya NO
-    // incluye los permisos personales de "modo colaborador" (portal.*), así
-    // que un super_admin puro no ve "Mi portal" ni por sidebar ni por URL
-    // directa (sección 25 del cierre) — a diferencia de antes, donde
-    // heredaba portal.ver solo por tener todos los permisos en bloque.
-    $this->actingAs($usuario)->get(route('dashboard'))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->where('navegacion.modoActual', 'operativo')
-            ->where('navegacion.modosDisponibles', ['operativo'])
-        );
+    // Cuenta sin persona detrás: no tiene "Mi espacio". (Por HTTP ni
+    // siquiera conserva sesión — EnsureCuentaActiva exige colaborador — así
+    // que la capacidad se verifica a nivel de servicio/Gate.)
+    $servicio = app(NavigationService::class);
+    expect($servicio->modosDisponibles($usuario))->toBe(['operativo'])
+        ->and($servicio->modoActual($usuario, 'colaborador'))->toBe('operativo')
+        ->and($usuario->can('modo-colaborador'))->toBeFalse();
 
-    $this->actingAs($usuario)->get(route('portal.index'))->assertForbidden();
+    expect($this->actingAs($usuario)->get(route('portal.index'))->isOk())->toBeFalse();
 });
 
-test('rh_admin entra en modo operativo y no tiene modo colaborador disponible', function () {
-    $usuario = User::factory()->create();
+test('rh_admin sin colaborador enlazado entra en modo operativo y no tiene modo colaborador', function () {
+    $usuario = User::factory()->create(['colaborador_id' => null]);
     $usuario->assignRole('rh_admin');
 
-    $this->actingAs($usuario)->get(route('dashboard'))
-        ->assertInertia(fn ($page) => $page
-            ->where('navegacion.modoActual', 'operativo')
-            ->where('navegacion.modosDisponibles', ['operativo'])
-        );
+    expect(app(NavigationService::class)->modosDisponibles($usuario))->toBe(['operativo']);
 });
 
 test('un colaborador entra en modo colaborador y no tiene modo operativo disponible', function () {
@@ -83,7 +75,9 @@ test('un usuario sin ningún permiso de navegación recibe 403 en vez de un modo
     // navegación): NavigationService::modosDisponibles() ya no inventa
     // ['colaborador'] por defecto, así que el dashboard debe rechazar
     // explícitamente en vez de mostrar una vista de colaborador falsa.
-    $usuario = User::factory()->create();
+    // En incorporación (puede iniciar sesión, pero aún no es colaborador
+    // activo) y sin rol: ningún modo disponible.
+    $usuario = User::factory()->create(['estatus' => 'en_incorporacion']);
 
     $this->actingAs($usuario)->get(route('dashboard'))->assertForbidden();
 });

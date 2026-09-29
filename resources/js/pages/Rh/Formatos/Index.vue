@@ -185,6 +185,7 @@ async function eliminar(documento: DocumentoGeneradoItem) {
         </div>
         <div
             v-else
+            data-tour="formatos-word-plantillas"
             class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
         >
             <Card
@@ -355,6 +356,7 @@ async function eliminar(documento: DocumentoGeneradoItem) {
         </div>
 
         <DataTable
+            data-tour="formatos-word-historial"
             :columnas="columnas"
             :datos="documentos"
             mensaje-vacio="Todavía no se ha generado ningún documento."
@@ -371,8 +373,8 @@ async function eliminar(documento: DocumentoGeneradoItem) {
                 {{ fila.plantilla?.nombre ?? '—' }}
             </template>
             <template #celda-sujeto="{ fila }">
-                <span v-if="fila.usuario"
-                    >{{ fila.usuario.name }} {{ fila.usuario.apellidos }}</span
+                <span v-if="fila.colaborador"
+                    >{{ fila.colaborador.name }} {{ fila.colaborador.apellidos }}</span
                 >
                 <span v-else-if="fila.candidato"
                     >{{ fila.candidato.nombre }}

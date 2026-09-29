@@ -234,3 +234,21 @@ placeholder arbitrario.
 - Firma electrónica avanzada (la firma sigue siendo física + escaneo, ver arriba).
 - Editor de variables manuales solo en Portal RH — la app móvil consume el resultado
   (`manuales`/`puede_generar`) pero no administra el catálogo de variables.
+
+## Qué documentos maneja el catálogo "Generados (Word)"
+
+`generated_documents` no es solo del motor Word: también guarda recibos de
+nómina, contratos, préstamos y documentos laborales del motor documental (PDF,
+con `documentable_type`, y a veces con `document_template_id`). El catálogo
+Word (`Rh\FormatoController` y `Api\V1\Rh\FormatoController`) opera **solo**
+`GeneratedDocument::desdePlantillaEditable()` = `document_template_id` no nulo
+**y** `mime` DOCX. Cualquier otro documento responde 404 en
+descargar / descargar-pdf / subir-firmado / eliminar (regresión de producción
+2026-09-28: un recibo PDF llegaba a `ConversorDocxPdf::convertir(null)` → 500).
+
+El archivo se lee del disco que registró el documento (`$documento->disk`,
+validado contra `config/filesystems.php`), vía
+`App\Services\Plantillas\DocumentoWordGeneradoService`. Si el archivo físico ya
+no existe o el NAS no responde, web regresa con el aviso "El archivo fuente de
+este documento ya no está disponible." y la API responde 404 — nunca 500.
+Pruebas: `tests/Feature/Rh/FormatoDocumentosWordTest.php`.

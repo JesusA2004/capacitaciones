@@ -2,7 +2,6 @@
 import { Head } from '@inertiajs/vue3';
 import { BarChart3, Download } from '@lucide/vue';
 import { computed } from 'vue';
-import VueApexCharts from 'vue3-apexcharts';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
@@ -15,6 +14,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useFiltros } from '@/composables/useFiltros';
+import { VueApexCharts } from '@/lib/apexDiferido';
 import { dashboard } from '@/routes';
 import { excel, index, pdf } from '@/routes/rh/reportes';
 import type {

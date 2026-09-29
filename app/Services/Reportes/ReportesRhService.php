@@ -432,9 +432,12 @@ class ReportesRhService
      */
     private function expedientesEstado(User $usuario, array $filtros): array
     {
-        $filas = $this->colaboradoresVisibles($usuario, $filtros)
-            ->map(function (Colaborador $u) {
-                $resumen = $this->expediente->resumenCompletitud($u);
+        $colaboradores = $this->colaboradoresVisibles($usuario, $filtros);
+        $resumenes = $this->expediente->resumenesCompletitud($colaboradores->pluck('id'));
+
+        $filas = $colaboradores
+            ->map(function (Colaborador $u) use ($resumenes) {
+                $resumen = $resumenes[$u->id];
                 $completo = $resumen['requeridos_total'] > 0 && $resumen['porcentaje'] >= 100.0;
 
                 return [$u->nombreCompleto(), $u->sucursalPrincipal->nombre ?? '—', $completo ? 'Completo' : 'Incompleto', round($resumen['porcentaje'], 1)];

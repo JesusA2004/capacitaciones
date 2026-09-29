@@ -10,6 +10,7 @@ use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\Headcount\HeadcountService;
 use App\Services\Sucursales\SucursalDetalleService;
+use App\Support\Consultas\EstadisticasActivoInactivo;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -40,7 +41,8 @@ class SucursalController extends Controller
             ->paginate(15)
             ->withQueryString();
 
-        $plantillaPorSucursal = $this->headcount->resumenPorSucursal()->keyBy('sucursal_id');
+        // Solo las sucursales de esta página, no la plantilla global.
+        $plantillaPorSucursal = $this->headcount->resumenPorSucursal($sucursales->getCollection()->pluck('id'))->keyBy('sucursal_id');
         $sucursales->getCollection()->transform(function (Sucursal $sucursal) use ($plantillaPorSucursal) {
             $fila = $plantillaPorSucursal->get($sucursal->id);
             $sucursal->setAttribute('plantilla_permitida', (int) ($fila['plantilla_autorizada'] ?? 0));
@@ -52,13 +54,11 @@ class SucursalController extends Controller
         return Inertia::render('Administracion/Sucursales/Index', [
             'sucursales' => $sucursales,
             'filtros' => $request->only('busqueda', 'empresa_id'),
-            'responsablesDisponibles' => User::query()->orderBy('name')->get(['id', 'name', 'apellidos']),
+            // Solo lo usa el diálogo de alta/edición: se pide con una recarga
+            // parcial al abrirlo, no en cada visita al listado.
+            'responsablesDisponibles' => Inertia::optional(fn () => User::query()->orderBy('name')->get(['id', 'name', 'apellidos'])),
             'empresasDisponibles' => Empresa::query()->orderBy('nombre')->get(['id', 'nombre']),
-            'estadisticas' => [
-                'total' => Sucursal::count(),
-                'activos' => Sucursal::where('activo', true)->count(),
-                'inactivos' => Sucursal::where('activo', false)->count(),
-            ],
+            'estadisticas' => EstadisticasActivoInactivo::de(Sucursal::query()),
         ]);
     }
 

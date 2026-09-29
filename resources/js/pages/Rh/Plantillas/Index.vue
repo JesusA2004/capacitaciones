@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/select';
 import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
+import { usePermisos } from '@/composables/usePermisos';
 import { index as indexFormatos } from '@/routes/rh/formatos';
 import { index as catalogo } from '@/routes/rh/formatos/catalogo';
 import {
@@ -34,6 +35,8 @@ import {
     index,
 } from '@/routes/rh/plantillas';
 import type { OpcionesPlantillas, PlantillaItem } from '@/types';
+
+const { tienePermiso } = usePermisos();
 
 const props = defineProps<{
     plantillas: PlantillaItem[];
@@ -127,7 +130,12 @@ async function eliminar(plantilla: PlantillaItem) {
             descripcion="Plantillas DOCX editables para uso avanzado (solicitudes, documentos libres). Para los formatos oficiales fijos de MR. LANA, usa el módulo «Formatos»."
             :icono="FileText"
         >
-            <Button as-child variant="outline" size="sm">
+            <Button
+                v-if="tienePermiso('plantillas.crear')"
+                as-child
+                variant="outline"
+                size="sm"
+            >
                 <Link :href="catalogo.url()">
                     <FolderOpen class="size-4" />
                     Documentos generados
@@ -137,7 +145,7 @@ async function eliminar(plantilla: PlantillaItem) {
                 :url-excel="urlExportar(exportarExcel)"
                 :url-pdf="urlExportar(exportarPdf)"
             />
-            <Button @click="abrirCrear">
+            <Button data-tour="plantillas-word-nueva" @click="abrirCrear">
                 <Plus class="size-4" />
                 Nueva plantilla
             </Button>
@@ -281,6 +289,7 @@ async function eliminar(plantilla: PlantillaItem) {
 
         <CrudEmptyState
             v-if="!plantillas.length"
+            data-tour="plantillas-word-lista"
             :icono="FileText"
             titulo="Todavía no hay plantillas"
             descripcion="Sube el primer formato oficial en DOCX con placeholders para empezar a generar documentos precargados."
@@ -291,7 +300,11 @@ async function eliminar(plantilla: PlantillaItem) {
             </Button>
         </CrudEmptyState>
 
-        <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div
+            v-else
+            data-tour="plantillas-word-lista"
+            class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+        >
             <div
                 v-for="plantilla in plantillas"
                 :key="plantilla.id"
