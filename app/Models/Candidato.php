@@ -93,6 +93,24 @@ class Candidato extends Model
         ];
     }
 
+    /**
+     * El puesto objetivo nunca se captura a mano cuando hay una vacante
+     * ligada: la vacante ya nació de un puesto concreto (baja, headcount
+     * nuevo, etc.), así que aquí se deriva automáticamente para que nunca
+     * queden inconsistentes entre sí — el formulario solo pide "Puesto
+     * objetivo" para un candidato sin vacante activa todavía.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (self $candidato): void {
+            if ($candidato->isDirty('vacante_id') && $candidato->vacante_id !== null) {
+                $candidato->puesto_objetivo_id = Vacante::query()
+                    ->whereKey($candidato->vacante_id)
+                    ->value('puesto_id');
+            }
+        });
+    }
+
     public function nombreCompleto(): string
     {
         return trim("{$this->nombre} {$this->apellidos}");

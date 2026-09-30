@@ -55,8 +55,7 @@ function valorCelda(fila: T, clave: string): unknown {
 
         <template v-else>
             <div
-                class="overflow-hidden rounded-2xl border border-border/60 shadow-sm"
-                :class="{ 'hidden sm:block': $slots['mobile-card'] }"
+                class="hidden overflow-x-auto rounded-2xl border border-border/60 shadow-sm sm:block"
             >
                 <Table>
                     <TableHeader>
@@ -102,6 +101,10 @@ function valorCelda(fila: T, clave: string): unknown {
                 </Table>
             </div>
 
+            <!-- Mobile: cada fila se muestra como tarjeta en vez de tabla
+                 horizontal, nunca se sale de los bordes de la pantalla. Si
+                 la página no define una tarjeta personalizada (#mobile-card),
+                 se arma una genérica a partir de las mismas columnas. -->
             <div
                 v-if="$slots['mobile-card']"
                 class="flex flex-col gap-3 sm:hidden"
@@ -109,6 +112,39 @@ function valorCelda(fila: T, clave: string): unknown {
                 <template v-for="(fila, indice) in datos.data" :key="indice">
                     <slot name="mobile-card" :fila="fila" />
                 </template>
+            </div>
+            <div v-else class="flex flex-col gap-3 sm:hidden">
+                <div
+                    v-for="(fila, indice) in datos.data"
+                    :key="indice"
+                    class="flex flex-col gap-2.5 rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
+                >
+                    <dl class="flex flex-col gap-2 text-sm">
+                        <div
+                            v-for="columna in columnas"
+                            :key="columna.clave"
+                            class="flex items-start justify-between gap-3"
+                        >
+                            <dt class="shrink-0 text-xs font-medium text-muted-foreground">
+                                {{ columna.etiqueta }}
+                            </dt>
+                            <dd class="min-w-0 text-right break-words">
+                                <slot
+                                    :name="`celda-${columna.clave}`"
+                                    :fila="fila"
+                                >
+                                    {{ valorCelda(fila, columna.clave) }}
+                                </slot>
+                            </dd>
+                        </div>
+                    </dl>
+                    <div
+                        v-if="$slots.acciones"
+                        class="flex items-center justify-end gap-1 border-t border-border/60 pt-2"
+                    >
+                        <slot name="acciones" :fila="fila" />
+                    </div>
+                </div>
             </div>
         </template>
 

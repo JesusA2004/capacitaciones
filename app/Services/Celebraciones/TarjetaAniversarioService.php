@@ -149,41 +149,54 @@ class TarjetaAniversarioService
         $anchoTexto = $ancho - 2 * $margen;
         $escala = $ancho / 1080;
 
-        // Logo.
-        $y = $this->logo($imagen, $ancho, (int) (48 * $escala)) + (int) (40 * $escala);
+        $apariencia = CelebracionConfiguracion::de(TipoCelebracion::AniversarioLaboral);
+
+        // Logo (si RH lo desactivó, no ocupa espacio). Cada bloque
+        // (encabezado años+ANIVERSARIO / nombre / mensaje) tiene su propio
+        // anclaje vertical: el que configuró RH arrastrando su marcador en
+        // Configuración → "Apariencia", o la cascada automática de siempre
+        // si todavía no lo ha tocado.
+        $yLogo = $apariencia->mostrar_logo ? $this->logo($imagen, $ancho, (int) (48 * $escala)) : 0;
+        $yEncabezado = $apariencia->texto_titulo_y !== null
+            ? (int) ($alto * $apariencia->texto_titulo_y)
+            : $yLogo + (int) (40 * $escala);
 
         // Número de años destacado, con sombra plata.
         $tamanoNumero = (int) (($anios >= 10 ? 200 : 230) * $escala);
-        $y += $tamanoNumero;
+        $yEncabezado += $tamanoNumero;
         $sombra = $this->colorRgb($imagen, ...self::PLATA);
-        $this->textoCentrado($imagen, $negrita, $tamanoNumero, $sombra, $ancho + (int) (10 * $escala), $y + (int) (8 * $escala), (string) $anios);
-        $this->textoCentrado($imagen, $negrita, $tamanoNumero, $verde, $ancho, $y, (string) $anios);
+        $this->textoCentrado($imagen, $negrita, $tamanoNumero, $sombra, $ancho + (int) (10 * $escala), $yEncabezado + (int) (8 * $escala), (string) $anios);
+        $this->textoCentrado($imagen, $negrita, $tamanoNumero, $verde, $ancho, $yEncabezado, (string) $anios);
 
-        $y += (int) (70 * $escala);
-        $this->textoCentrado($imagen, $negrita, (int) (30 * $escala), $azul, $ancho, $y, mb_strtoupper($anios === 1 ? 'año' : 'años'));
-        $y += (int) (78 * $escala);
-        $this->textoCentrado($imagen, $negrita, (int) (58 * $escala), $grafito, $ancho, $y, 'ANIVERSARIO');
+        $yEncabezado += (int) (70 * $escala);
+        $this->textoCentrado($imagen, $negrita, (int) (30 * $escala), $azul, $ancho, $yEncabezado, mb_strtoupper($anios === 1 ? 'año' : 'años'));
+        $yEncabezado += (int) (78 * $escala);
+        $this->textoCentrado($imagen, $negrita, (int) (58 * $escala), $grafito, $ancho, $yEncabezado, 'ANIVERSARIO');
 
         // Nombre: hasta ~2-3 líneas, reduce tamaño antes que cortar.
-        $y += (int) (92 * $escala);
-        $y = $this->textoParrafo($imagen, $negrita, (int) (54 * $escala), $verde, $ancho, $y, mb_strtoupper($nombre), $anchoTexto,
+        $yNombre = $apariencia->texto_nombre_y !== null
+            ? (int) ($alto * $apariencia->texto_nombre_y)
+            : $yEncabezado + (int) (92 * $escala);
+        $yNombre = $this->textoParrafo($imagen, $negrita, (int) (54 * $escala), $verde, $ancho, $yNombre, mb_strtoupper($nombre), $anchoTexto,
             interlineado: (int) (64 * $escala), altoMaximo: (int) (190 * $escala), tamanoMinimo: (int) (28 * $escala));
 
         $subtitulo = implode(' · ', array_filter([trim((string) $puesto), trim((string) $sucursal)], fn (string $parte) => $parte !== ''));
 
         if ($subtitulo !== '') {
-            $y += (int) (6 * $escala);
-            $y = $this->textoParrafo($imagen, $regular, (int) (30 * $escala), $azul, $ancho, $y, mb_strtoupper($subtitulo), $anchoTexto,
+            $yNombre += (int) (6 * $escala);
+            $yNombre = $this->textoParrafo($imagen, $regular, (int) (30 * $escala), $azul, $ancho, $yNombre, mb_strtoupper($subtitulo), $anchoTexto,
                 interlineado: (int) (40 * $escala), altoMaximo: (int) (80 * $escala), tamanoMinimo: (int) (20 * $escala));
         }
 
         // Mensaje primero, en el espacio sobre la franja inferior (18 % del
         // alto). textoParrafo() recibe la línea base de la primera línea,
         // por eso se descuenta una línea de holgura.
-        $y += (int) (50 * $escala);
+        $yMensaje = $apariencia->texto_frase_y !== null
+            ? (int) ($alto * $apariencia->texto_frase_y)
+            : $yNombre + (int) (50 * $escala);
         $limiteMensaje = (int) ($alto * 0.82);
-        $disponible = max((int) (120 * $escala), $limiteMensaje - (int) (42 * $escala) - $y);
-        $finMensaje = $this->textoParrafo($imagen, $regular, (int) (28 * $escala), $grafito, $ancho, $y, $mensaje, $anchoTexto,
+        $disponible = max((int) (120 * $escala), $limiteMensaje - (int) (42 * $escala) - $yMensaje);
+        $finMensaje = $this->textoParrafo($imagen, $regular, (int) (28 * $escala), $grafito, $ancho, $yMensaje, $mensaje, $anchoTexto,
             interlineado: (int) (42 * $escala), altoMaximo: $disponible, tamanoMinimo: (int) (18 * $escala));
 
         // El personaje ocupa el hueco que quede debajo del mensaje (hasta

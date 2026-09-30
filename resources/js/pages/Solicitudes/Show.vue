@@ -14,6 +14,7 @@ import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
 import { useAlertas } from '@/composables/useAlertas';
+import { formatearFecha, formatearFechaHora, formatearPeriodo } from '@/lib/fechas';
 import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import { cancelar, index } from '@/routes/solicitudes';
@@ -228,10 +229,7 @@ function previsualizar(doc: SolicitudInternaDocumentoItem) {
                                 {{ solicitud.fecha_fin ? 'Periodo' : 'Fecha' }}
                             </p>
                             <p class="text-sm font-medium">
-                                {{ solicitud.fecha_inicio }}
-                                <template v-if="solicitud.fecha_fin">
-                                    — {{ solicitud.fecha_fin }}
-                                </template>
+                                {{ formatearPeriodo(solicitud.fecha_inicio, solicitud.fecha_fin) }}
                             </p>
                         </div>
                         <div v-if="solicitud.dias_solicitados">
@@ -368,7 +366,7 @@ function previsualizar(doc: SolicitudInternaDocumentoItem) {
                                 {{ evento.comentario }}
                             </p>
                             <p class="text-xs text-muted-foreground">
-                                {{ evento.created_at }}
+                                {{ formatearFechaHora(evento.created_at) }}
                             </p>
                         </li>
                     </ol>
@@ -383,7 +381,7 @@ function previsualizar(doc: SolicitudInternaDocumentoItem) {
                     </div>
                     <p class="mt-3 text-xs text-muted-foreground">
                         Folio {{ solicitud.folio }} · creada el
-                        {{ solicitud.created_at }}
+                        {{ formatearFecha(solicitud.created_at) }}
                     </p>
                     <Button
                         v-if="PUEDE_CANCELAR.includes(solicitud.estado)"

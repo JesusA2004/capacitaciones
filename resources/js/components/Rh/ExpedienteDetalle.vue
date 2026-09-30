@@ -145,12 +145,18 @@ const props = defineProps<{
         empresa_id: number | null;
     }[];
     departamentosDisponibles: { id: number; nombre: string }[];
-    puestosDisponibles: { id: number; nombre: string }[];
+    puestosDisponibles: {
+        id: number;
+        nombre: string;
+        puesto_superior_id: number | null;
+    }[];
     jefesDisponibles: {
         id: number;
         name: string;
         apellidos: string | null;
         numero_empleado: string | null;
+        puesto_id: number | null;
+        sucursal_principal_id: number | null;
     }[];
     esCuentaPropia: boolean;
     puedeRevisarDocumentos: boolean;
@@ -418,14 +424,71 @@ function alCambiarEmpresa(valor: string) {
     if (!sigueDisponible) {
         formLaborales.sucursal_principal_id = '';
     }
+
+    limpiarJefeSiYaNoAplica();
 }
 
+/**
+ * El puesto superior en el organigrama de puestos (Puesto::puesto_superior_id)
+ * define quién puede ser "jefe directo" — nunca se deja elegir a cualquier
+ * colaborador del sistema. Si el puesto elegido no tiene puesto superior
+ * (p. ej. Dirección General) o nadie lo ocupa todavía en esa sucursal, el
+ * combo simplemente queda sin opciones (ver Combobox "Sin resultados").
+ */
+const puestoSuperiorId = computed(() => {
+    const puesto = props.puestosDisponibles.find(
+        (p) => String(p.id) === formLaborales.puesto_id,
+    );
+
+    return puesto?.puesto_superior_id ?? null;
+});
+
+const jefesSegunOrganigrama = computed(() => {
+    if (puestoSuperiorId.value === null || !formLaborales.sucursal_principal_id) {
+        return [];
+    }
+
+    return props.jefesDisponibles.filter(
+        (jefe) =>
+            jefe.puesto_id === puestoSuperiorId.value &&
+            String(jefe.sucursal_principal_id) ===
+                formLaborales.sucursal_principal_id,
+    );
+});
+
 const opcionesJefe = computed(() =>
-    props.jefesDisponibles.map((jefe) => ({
+    jefesSegunOrganigrama.value.map((jefe) => ({
         value: String(jefe.id),
         label: `${jefe.numero_empleado ? `${jefe.numero_empleado} — ` : ''}${jefe.name} ${jefe.apellidos ?? ''}`.trim(),
     })),
 );
+
+/**
+ * Si el jefe ya capturado deja de corresponder al organigrama (cambió el
+ * puesto o la sucursal), se limpia — pero solo cuando lo dispara un cambio
+ * real del usuario en el formulario abierto, nunca al precargar los datos
+ * actuales del colaborador (podrían no encajar aún con el organigrama y no
+ * hay por qué borrarlos solo por abrir el formulario).
+ */
+function limpiarJefeSiYaNoAplica() {
+    const sigueValido = jefesSegunOrganigrama.value.some(
+        (jefe) => String(jefe.id) === formLaborales.jefe_id,
+    );
+
+    if (!sigueValido) {
+        formLaborales.jefe_id = '';
+    }
+}
+
+function alCambiarPuestoLaboral(valor: string) {
+    formLaborales.puesto_id = valor;
+    limpiarJefeSiYaNoAplica();
+}
+
+function alCambiarSucursalLaboral(valor: string) {
+    formLaborales.sucursal_principal_id = valor;
+    limpiarJefeSiYaNoAplica();
+}
 
 function iniciarEdicionLaborales() {
     empresaSeleccionada.value = props.colaborador.empresa
@@ -1292,8 +1355,14 @@ const pestanaInicial = (() => {
                                     <div class="grid gap-2">
                                         <Label>Sucursal</Label>
                                         <Select
-                                            v-model="
+                                            :model-value="
                                                 formLaborales.sucursal_principal_id
+                                            "
+                                            @update:model-value="
+                                                (v) =>
+                                                    alCambiarSucursalLaboral(
+                                                        String(v ?? ''),
+                                                    )
                                             "
                                         >
                                             <SelectTrigger class="w-full">
@@ -1352,7 +1421,13 @@ const pestanaInicial = (() => {
                                     <div class="grid gap-2">
                                         <Label>Puesto</Label>
                                         <Select
-                                            v-model="formLaborales.puesto_id"
+                                            :model-value="formLaborales.puesto_id"
+                                            @update:model-value="
+                                                (v) =>
+                                                    alCambiarPuestoLaboral(
+                                                        String(v ?? ''),
+                                                    )
+                                            "
                                         >
                                             <SelectTrigger class="w-full">
                                                 <SelectValue
@@ -1380,9 +1455,15 @@ const pestanaInicial = (() => {
                                         <Combobox
                                             v-model="formLaborales.jefe_id"
                                             :items="opcionesJefe"
-                                            placeholder="Busca por nombre o número de empleado..."
-                                            empty-text="Sin resultados."
+                                            placeholder="Selecciona el puesto y la sucursal primero..."
+                                            empty-text="Nadie ocupa todavía el puesto superior en esa sucursal, según el organigrama."
                                         />
+                                        <p class="text-xs text-muted-foreground">
+                                            Solo se muestra quien ocupa el
+                                            puesto superior a este, en la
+                                            misma sucursal — según el
+                                            organigrama.
+                                        </p>
                                         <InputError
                                             :message="
                                                 formLaborales.errors.jefe_id
@@ -1543,6 +1624,7 @@ const pestanaInicial = (() => {
                                                 :estado="
                                                     colaborador.estatus_imss
                                                 "
+                                                etiqueta="IMSS"
                                             />
                                         </CampoInfo>
                                         <CampoInfo

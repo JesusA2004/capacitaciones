@@ -1,20 +1,30 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { Plus, Trash2, Upload } from '@lucide/vue';
+import { Plus, Save, Trash2, Upload } from '@lucide/vue';
 import { ref } from 'vue';
 import CelebracionConfiguracionLayout from '@/components/Celebraciones/CelebracionConfiguracionLayout.vue';
+import PosicionVerticalTexto from '@/components/Celebraciones/PosicionVerticalTexto.vue';
 import EmojiPicker from '@/components/Common/EmojiPicker.vue';
 import InputError from '@/components/InputError.vue';
 import PeopleConfirmDialog from '@/components/people/PeopleConfirmDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { dashboard } from '@/routes';
 import { index } from '@/routes/rh/cumpleanos';
 import { vistaPrevia } from '@/routes/rh/cumpleanos/configuracion';
+import { actualizar as actualizarApariencia } from '@/routes/rh/cumpleanos/configuracion/apariencia';
 import { actualizar, eliminar as eliminarFondo } from '@/routes/rh/cumpleanos/configuracion/fondo';
 import { destroy as destroyFrase, store as storeFrase, update as updateFrase } from '@/routes/rh/cumpleanos/frases';
+
+// Posiciones por defecto (misma fracción aproximada que calcula
+// BirthdayCardService cuando RH no ha movido cada marcador) — solo para
+// que el marcador arranque en un lugar razonable antes del primer ajuste.
+const POSICION_TITULO_DEFECTO = 0.24;
+const POSICION_NOMBRE_DEFECTO = 0.34;
+const POSICION_FRASE_DEFECTO = 0.55;
 
 /**
  * Configuración de la tarjeta de cumpleaños: fondo propio y frases que
@@ -30,11 +40,15 @@ const datosEjemplo = [
     { etiqueta: 'Frase', valor: 'La primera frase activa del catálogo' },
 ];
 
-defineProps<{
+const props = defineProps<{
     tieneFondo: boolean;
     fondoUrl: string | null;
     frases: Frase[];
     puedeGestionarFrases: boolean;
+    mostrarLogo: boolean;
+    textoTituloY: number | null;
+    textoNombreY: number | null;
+    textoFraseY: number | null;
 }>();
 
 defineOptions({
@@ -68,6 +82,21 @@ function elegirFondo(evento: Event) {
             },
         });
     }
+}
+
+// --- Apariencia: logo y posición del texto ---
+const formApariencia = useForm({
+    mostrar_logo: props.mostrarLogo,
+    texto_titulo_y: props.textoTituloY ?? POSICION_TITULO_DEFECTO,
+    texto_nombre_y: props.textoNombreY ?? POSICION_NOMBRE_DEFECTO,
+    texto_frase_y: props.textoFraseY ?? POSICION_FRASE_DEFECTO,
+});
+
+function guardarApariencia() {
+    formApariencia.put(actualizarApariencia.url(), {
+        preserveScroll: true,
+        onSuccess: refrescar,
+    });
 }
 
 function quitarFondo() {
@@ -126,6 +155,12 @@ function eliminarFrase() {
         :fondo-propio="tieneFondo"
         :datos-ejemplo="datosEjemplo"
     >
+        <template #overlay>
+            <PosicionVerticalTexto v-model="formApariencia.texto_titulo_y" variante="titulo" />
+            <PosicionVerticalTexto v-model="formApariencia.texto_nombre_y" variante="nombre" />
+            <PosicionVerticalTexto v-model="formApariencia.texto_frase_y" variante="frase" />
+        </template>
+
         <section class="flex flex-col gap-3" aria-labelledby="config-fondo">
             <div>
                 <h2 id="config-fondo" class="text-sm font-semibold">Fondo</h2>
@@ -150,6 +185,40 @@ function eliminarFrase() {
                 </Button>
             </div>
             <InputError :message="formFondo.errors.fondo" />
+        </section>
+
+        <section class="flex flex-col gap-3 border-t pt-6" aria-labelledby="config-apariencia">
+            <div>
+                <h2 id="config-apariencia" class="text-sm font-semibold">Apariencia</h2>
+                <p class="text-sm text-muted-foreground">
+                    Arrastra cada marcador de color sobre la vista previa: «Título» mueve «¡Feliz cumpleaños!», «Nombre» mueve el nombre del colaborador y «Frase» mueve la frase — cada uno por separado.
+                </p>
+            </div>
+
+            <label class="flex items-start gap-2 text-sm">
+                <Checkbox
+                    class="mt-0.5"
+                    :model-value="formApariencia.mostrar_logo"
+                    @update:model-value="(v) => (formApariencia.mostrar_logo = !!v)"
+                />
+                Mostrar el logo de MR. LANA en la tarjeta
+            </label>
+            <InputError :message="formApariencia.errors.mostrar_logo" />
+            <InputError :message="formApariencia.errors.texto_titulo_y" />
+            <InputError :message="formApariencia.errors.texto_nombre_y" />
+            <InputError :message="formApariencia.errors.texto_frase_y" />
+
+            <div>
+                <Button
+                    size="sm"
+                    :disabled="formApariencia.processing"
+                    @click="guardarApariencia"
+                >
+                    <Spinner v-if="formApariencia.processing" />
+                    <Save v-else class="size-4" />
+                    Guardar cambios
+                </Button>
+            </div>
         </section>
 
         <section v-if="puedeGestionarFrases" class="flex flex-col gap-3 border-t pt-6" aria-labelledby="config-frases">

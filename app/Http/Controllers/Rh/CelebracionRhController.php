@@ -165,6 +165,10 @@ class CelebracionRhController extends Controller
                 'mensaje' => $configuracion->mensaje,
                 'auto_enviar_colaborador' => $configuracion->auto_enviar_colaborador,
                 'tiene_fondo' => $this->storage->existe($this->tarjetaAniversario->rutaFondo()),
+                'mostrar_logo' => $configuracion->mostrar_logo,
+                'texto_titulo_y' => $configuracion->texto_titulo_y,
+                'texto_nombre_y' => $configuracion->texto_nombre_y,
+                'texto_frase_y' => $configuracion->texto_frase_y,
             ],
             'mensajePredeterminado' => (string) config('celebraciones.aniversario.mensaje'),
             'ejemplo' => self::EJEMPLO,
@@ -181,6 +185,10 @@ class CelebracionRhController extends Controller
             'auto_enviar_colaborador' => ['required', 'boolean'],
             'fondo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192', 'dimensions:min_width=600,min_height=750'],
             'quitar_fondo' => ['nullable', 'boolean'],
+            'mostrar_logo' => ['required', 'boolean'],
+            'texto_titulo_y' => ['nullable', 'numeric', 'min:0.02', 'max:0.9'],
+            'texto_nombre_y' => ['nullable', 'numeric', 'min:0.02', 'max:0.9'],
+            'texto_frase_y' => ['nullable', 'numeric', 'min:0.02', 'max:0.9'],
         ]);
 
         if ($request->hasFile('fondo')) {
@@ -193,6 +201,10 @@ class CelebracionRhController extends Controller
             'activo' => (bool) $datos['activo'],
             'mensaje' => $datos['mensaje'],
             'auto_enviar_colaborador' => (bool) $datos['auto_enviar_colaborador'],
+            'mostrar_logo' => (bool) $datos['mostrar_logo'],
+            'texto_titulo_y' => $datos['texto_titulo_y'] ?? null,
+            'texto_nombre_y' => $datos['texto_nombre_y'] ?? null,
+            'texto_frase_y' => $datos['texto_frase_y'] ?? null,
             'updated_by' => $request->user()->id,
         ]);
 

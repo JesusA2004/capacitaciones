@@ -257,6 +257,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::post('fondo', [CumpleanosConfiguracionController::class, 'actualizarFondo'])->name('fondo.actualizar');
                 Route::delete('fondo', [CumpleanosConfiguracionController::class, 'eliminarFondo'])->name('fondo.eliminar');
                 Route::get('fondo/ver', [CumpleanosConfiguracionController::class, 'fondo'])->name('fondo.ver');
+                Route::put('apariencia', [CumpleanosConfiguracionController::class, 'actualizarApariencia'])->name('apariencia.actualizar');
             });
             Route::get('{colaborador}/felicitacion', [CumpleanosController::class, 'felicitacion'])->name('felicitacion');
             Route::post('{colaborador}/felicitacion/generar', [CumpleanosController::class, 'generar'])->name('felicitacion.generar');

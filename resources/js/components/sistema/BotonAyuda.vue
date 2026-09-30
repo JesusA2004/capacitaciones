@@ -55,7 +55,7 @@ function lanzar(tour: Tour): void {
             <button
                 type="button"
                 data-tour="boton-ayuda"
-                class="fixed right-5 bottom-5 z-50 flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105 hover:bg-primary/90 active:scale-95"
+                class="fixed right-5 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-50 flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105 hover:bg-primary/90 active:scale-95 sm:bottom-5"
                 aria-label="Ayuda y guías del sistema"
             >
                 <span

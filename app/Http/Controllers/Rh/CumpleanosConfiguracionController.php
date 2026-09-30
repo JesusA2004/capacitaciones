@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Rh;
 
+use App\Enums\TipoCelebracion;
 use App\Http\Controllers\Controller;
 use App\Models\BirthdayPhrase;
+use App\Models\CelebracionConfiguracion;
 use App\Services\Cumpleanos\BirthdayCardService;
 use App\Services\Cumpleanos\CumpleanosStorageService;
 use Illuminate\Http\RedirectResponse;
@@ -32,9 +34,14 @@ class CumpleanosConfiguracionController extends Controller
 
         $ruta = $this->storage->rutaFondo();
         $existe = $this->storage->existe($ruta);
+        $apariencia = CelebracionConfiguracion::de(TipoCelebracion::Cumpleanos);
 
         return Inertia::render('Rh/Cumpleanos/Configuracion', [
             'tieneFondo' => $existe,
+            'mostrarLogo' => $apariencia->mostrar_logo,
+            'textoTituloY' => $apariencia->texto_titulo_y,
+            'textoNombreY' => $apariencia->texto_nombre_y,
+            'textoFraseY' => $apariencia->texto_frase_y,
             // El querystring `v=` (fecha de modificación del archivo) hace
             // que la URL cambie cada vez que se sube/reemplaza el fondo:
             // sin esto, la ruta es siempre la misma y el navegador seguía
@@ -87,6 +94,33 @@ class CumpleanosConfiguracionController extends Controller
         $this->storage->eliminar($this->storage->rutaFondo());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Fondo personalizado eliminado. Se vuelve al diseño por defecto.']);
+    }
+
+    /**
+     * Apariencia de la tarjeta: mostrar/ocultar el logo de MR. LANA y en qué
+     * altura va cada bloque de texto (título/nombre/frase), cada uno con su
+     * propio marcador arrastrable (ver BirthdayCardService::renderPng()).
+     */
+    public function actualizarApariencia(Request $request): RedirectResponse
+    {
+        abort_unless($request->user()->can('rh.cumpleanos.configurar'), 403);
+
+        $datos = $request->validate([
+            'mostrar_logo' => ['required', 'boolean'],
+            'texto_titulo_y' => ['nullable', 'numeric', 'min:0.02', 'max:0.9'],
+            'texto_nombre_y' => ['nullable', 'numeric', 'min:0.02', 'max:0.9'],
+            'texto_frase_y' => ['nullable', 'numeric', 'min:0.02', 'max:0.9'],
+        ]);
+
+        CelebracionConfiguracion::de(TipoCelebracion::Cumpleanos)->update([
+            'mostrar_logo' => $datos['mostrar_logo'],
+            'texto_titulo_y' => $datos['texto_titulo_y'] ?? null,
+            'texto_nombre_y' => $datos['texto_nombre_y'] ?? null,
+            'texto_frase_y' => $datos['texto_frase_y'] ?? null,
+            'updated_by' => $request->user()->id,
+        ]);
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Apariencia actualizada. Las próximas tarjetas la usarán.']);
     }
 
     public function fondo(Request $request): HttpResponse

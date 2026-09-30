@@ -42,6 +42,7 @@ import {
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
+import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
 import { index, show, store } from '@/routes/solicitudes';
 import type {
@@ -231,7 +232,7 @@ const TIPOS_BAJA = [
                 <div
                     class="mt-1 flex items-center justify-between text-xs text-muted-foreground"
                 >
-                    <span>{{ solicitud.created_at }}</span>
+                    <span>{{ formatearFecha(solicitud.created_at) }}</span>
                     <Eye
                         class="size-4 opacity-60 transition-opacity md:opacity-0 md:group-hover:opacity-100"
                     />

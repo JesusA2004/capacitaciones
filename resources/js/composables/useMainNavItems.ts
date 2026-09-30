@@ -1,0 +1,267 @@
+import { usePage } from '@inertiajs/vue3';
+import {
+    Activity,
+    Briefcase,
+    Building2,
+    Cake,
+    ClipboardList,
+    Compass,
+    FileStack,
+    FolderKanban,
+    GitBranch,
+    GraduationCap,
+    Landmark,
+    LayoutGrid,
+    Megaphone,
+    QrCode,
+    ShieldCheck,
+    Smartphone,
+    UserRound,
+    Users,
+} from '@lucide/vue';
+import { computed } from 'vue';
+import { useNavegacion } from '@/composables/useNavegacion';
+import { usePermisos } from '@/composables/usePermisos';
+import { dashboard } from '@/routes';
+import { index as indexAppReleases } from '@/routes/administracion/app-releases';
+import { index as indexDepartamentos } from '@/routes/administracion/departamentos';
+import { index as indexEmpresas } from '@/routes/administracion/empresas';
+import { index as indexJerarquiaPuestos } from '@/routes/administracion/jerarquia-puestos';
+import { index as indexPuestos } from '@/routes/administracion/puestos';
+import { index as indexRoles } from '@/routes/administracion/roles';
+import { index as indexSucursales } from '@/routes/administracion/sucursales';
+import { index as indexUsuarios } from '@/routes/administracion/usuarios';
+import { proximamente as capacitacionProximamente } from '@/routes/capacitacion';
+import { index as indexPortal } from '@/routes/portal';
+import { index as indexReportes } from '@/routes/reportes';
+import { index as indexAniversarios } from '@/routes/rh/aniversarios';
+import { index as indexCampanas } from '@/routes/rh/campanas';
+import { index as indexCandidatos } from '@/routes/rh/candidatos';
+import { index as indexCumpleanos } from '@/routes/rh/cumpleanos';
+import { index as indexExpedientes } from '@/routes/rh/expedientes';
+import { index as indexFormatos } from '@/routes/rh/formatos';
+import { index as indexIncorporacionInvitaciones } from '@/routes/rh/incorporacion/invitaciones';
+import { index as indexPlantillas } from '@/routes/rh/plantillas';
+import { index as indexRhSolicitudes } from '@/routes/rh/solicitudes';
+import { index as indexVacantes } from '@/routes/rh/vacantes';
+import { index as indexSolicitudes } from '@/routes/solicitudes';
+import type { NavItem } from '@/types';
+
+/**
+ * Navegación compartida por AppSidebar.vue (menú completo) y
+ * MobileBottomNav.vue (barra inferior en móvil): un solo lugar que decide
+ * qué accesos ve cada usuario según su modo (colaborador/operativo) y sus
+ * permisos — ver docs/ROLES_Y_NAVEGACION.md. Nunca dupliques esta lista en
+ * otro componente.
+ */
+export function useMainNavItems() {
+    const { tienePermiso } = usePermisos();
+    const page = usePage();
+    const { esColaborador, tieneAmbosModos, cambiarModo } = useNavegacion();
+
+    const capacitacionActiva = computed(() => page.props.features.capacitacion);
+
+    const navItemsColaborador = computed<NavItem[]>(() => {
+        const items: NavItem[] = [
+            {
+                title: 'Mi portal',
+                href: indexPortal(),
+                icon: UserRound,
+            },
+        ];
+
+        if (tienePermiso('portal.solicitudes.ver') || tienePermiso('solicitudes.crear')) {
+            items.push({
+                title: 'Mis solicitudes',
+                href: indexSolicitudes(),
+                icon: ClipboardList,
+            });
+        }
+
+        if (capacitacionActiva.value) {
+            items.push({
+                title: 'Capacitación',
+                href: capacitacionProximamente(),
+                icon: GraduationCap,
+            });
+        }
+
+        items.push({ title: 'Ayuda', href: '/ayuda', icon: Compass });
+
+        return items;
+    });
+
+    const navItemsOperativo = computed<NavItem[]>(() => {
+        const items: NavItem[] = [
+            {
+                title: 'Inicio',
+                href: dashboard(),
+                icon: LayoutGrid,
+            },
+        ];
+
+        if (tienePermiso('expedientes.ver_todos') || tienePermiso('expedientes.ver_sucursal')) {
+            items.push({
+                title: 'Expedientes',
+                href: indexExpedientes(),
+                icon: FolderKanban,
+            });
+        }
+
+        if (tienePermiso('solicitudes.revisar') || tienePermiso('solicitudes.aprobar')) {
+            items.push({
+                title: 'Solicitudes',
+                href: indexRhSolicitudes(),
+                icon: ClipboardList,
+            });
+        }
+
+        if (tienePermiso('organigrama.ver')) {
+            items.push({
+                title: 'Organigrama',
+                href: indexJerarquiaPuestos(),
+                icon: GitBranch,
+            });
+        }
+
+        if (tienePermiso('vacantes.ver')) {
+            items.push({
+                title: 'Vacantes',
+                href: indexVacantes(),
+                icon: Briefcase,
+            });
+        }
+
+        if (tienePermiso('candidatos.ver')) {
+            items.push({
+                title: 'Candidatos',
+                href: indexCandidatos(),
+                icon: UserRound,
+            });
+        }
+
+        if (tienePermiso('reclutamiento.campanas.ver')) {
+            items.push({
+                title: 'Campañas',
+                href: indexCampanas(),
+                icon: Megaphone,
+            });
+        }
+
+        if (tienePermiso('rh.incorporacion.invitaciones.ver')) {
+            items.push({
+                title: 'Invitaciones QR',
+                href: indexIncorporacionInvitaciones(),
+                icon: QrCode,
+            });
+        }
+
+        if (tienePermiso('formatos_oficiales.ver') || tienePermiso('plantillas.ver')) {
+            items.push({
+                title: 'Formatos',
+                href: tienePermiso('formatos_oficiales.ver') ? indexFormatos() : indexPlantillas(),
+                icon: FileStack,
+            });
+        }
+
+        if (tienePermiso('reportes_rh.ver')) {
+            items.push({
+                title: 'Reportes',
+                href: indexReportes(),
+                icon: Activity,
+            });
+        }
+
+        if (tienePermiso('rh.cumpleanos.ver') || tienePermiso('celebraciones.ver')) {
+            items.push({
+                title: 'Celebraciones',
+                href: tienePermiso('rh.cumpleanos.ver') ? indexCumpleanos() : indexAniversarios(),
+                icon: Cake,
+            });
+        }
+
+        if (capacitacionActiva.value) {
+            items.push({
+                title: 'Capacitación',
+                href: capacitacionProximamente(),
+                icon: GraduationCap,
+            });
+        }
+
+        items.push({ title: 'Ayuda', href: '/ayuda', icon: Compass });
+
+        return items;
+    });
+
+    const mainNavItems = computed<NavItem[]>(() =>
+        esColaborador.value ? navItemsColaborador.value : navItemsOperativo.value,
+    );
+
+    const adminNavItems = computed<NavItem[]>(() => {
+        if (esColaborador.value) {
+            return [];
+        }
+
+        const items: NavItem[] = [];
+
+        if (tienePermiso('empresas.ver')) {
+            items.push({
+                title: 'Empresas',
+                href: indexEmpresas(),
+                icon: Landmark,
+            });
+        }
+
+        if (tienePermiso('usuarios.ver')) {
+            items.push({
+                title: 'Usuarios',
+                href: indexUsuarios(),
+                icon: Users,
+            });
+        }
+
+        if (tienePermiso('sucursales.administrar')) {
+            items.push({
+                title: 'Sucursales',
+                href: indexSucursales(),
+                icon: Building2,
+            });
+        }
+
+        if (tienePermiso('departamentos.administrar') || tienePermiso('puestos.administrar')) {
+            items.push({
+                title: 'Departamentos',
+                href: indexDepartamentos(),
+                icon: Briefcase,
+            });
+            items.push({ title: 'Puestos', href: indexPuestos(), icon: Briefcase });
+        }
+
+        if (tienePermiso('roles.administrar')) {
+            items.push({
+                title: 'Roles y permisos',
+                href: indexRoles(),
+                icon: ShieldCheck,
+            });
+        }
+
+        if (tienePermiso('app_releases.ver')) {
+            items.push({
+                title: 'Versiones de app',
+                href: indexAppReleases(),
+                icon: Smartphone,
+            });
+        }
+
+        return items;
+    });
+
+    return {
+        capacitacionActiva,
+        mainNavItems,
+        adminNavItems,
+        esColaborador,
+        tieneAmbosModos,
+        cambiarModo,
+    };
+}

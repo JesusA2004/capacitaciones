@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
+import { computed, watch } from 'vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -51,6 +52,35 @@ const form = useForm({
     fuente: props.candidato?.fuente ?? '',
     observaciones: props.candidato?.observaciones ?? '',
 });
+
+// El puesto objetivo se deriva de la vacante seleccionada (la vacante ya
+// nació de un puesto concreto: baja, headcount nuevo, etc.) — ver
+// Candidato::booted(). El select de "Puesto objetivo" solo aparece cuando
+// todavía no hay vacante (candidato en pipeline general, sin apertura
+// concreta), para no pedirle dos veces el mismo dato ni permitir que queden
+// inconsistentes.
+const vacanteSeleccionada = computed(() =>
+    props.opciones.vacantes?.find((v) => String(v.id) === form.vacante_id),
+);
+
+watch(
+    () => form.vacante_id,
+    () => {
+        if (vacanteSeleccionada.value?.puesto_id) {
+            form.puesto_objetivo_id = String(vacanteSeleccionada.value.puesto_id);
+        }
+    },
+);
+
+function etiquetaVacante(vacante: {
+    id: number;
+    puesto?: { nombre: string } | null;
+    sucursal?: { nombre: string } | null;
+}): string {
+    const puesto = vacante.puesto?.nombre ?? `Vacante #${vacante.id}`;
+
+    return vacante.sucursal ? `${puesto} — ${vacante.sucursal.nombre}` : puesto;
+}
 
 function enviar() {
     const transformado = form.transform((datos) => ({
@@ -111,39 +141,21 @@ function enviar() {
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="grid gap-2">
-                        <Label>Sucursal</Label>
-                        <Select v-model="form.sucursal_id">
-                            <SelectTrigger class="w-full">
-                                <SelectValue placeholder="Sin sucursal" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="opcion in opciones.sucursales"
-                                    :key="opcion.id"
-                                    :value="String(opcion.id)"
-                                    >{{ opcion.nombre }}</SelectItem
-                                >
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div class="grid gap-2">
-                        <Label>Puesto objetivo</Label>
-                        <Select v-model="form.puesto_objetivo_id">
-                            <SelectTrigger class="w-full">
-                                <SelectValue placeholder="Sin puesto" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="opcion in opciones.puestos"
-                                    :key="opcion.id"
-                                    :value="String(opcion.id)"
-                                    >{{ opcion.nombre }}</SelectItem
-                                >
-                            </SelectContent>
-                        </Select>
-                    </div>
+                <div class="grid gap-2">
+                    <Label>Sucursal</Label>
+                    <Select v-model="form.sucursal_id">
+                        <SelectTrigger class="w-full">
+                            <SelectValue placeholder="Sin sucursal" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem
+                                v-for="opcion in opciones.sucursales"
+                                :key="opcion.id"
+                                :value="String(opcion.id)"
+                                >{{ opcion.nombre }}</SelectItem
+                            >
+                        </SelectContent>
+                    </Select>
                 </div>
 
                 <div class="grid gap-2">
@@ -157,10 +169,45 @@ function enviar() {
                                 v-for="opcion in opciones.vacantes ?? []"
                                 :key="opcion.id"
                                 :value="String(opcion.id)"
-                                >Vacante #{{ opcion.id }}</SelectItem
+                                >{{ etiquetaVacante(opcion) }}</SelectItem
                             >
                         </SelectContent>
                     </Select>
+                    <p class="text-xs text-muted-foreground">
+                        Si el candidato aplica a una vacante abierta, elígela
+                        aquí: el puesto objetivo se toma automáticamente de
+                        ella.
+                    </p>
+                </div>
+
+                <!-- El puesto objetivo solo se pide a mano cuando el
+                     candidato todavía no tiene una vacante concreta
+                     (pipeline general); si ya eligió vacante, se muestra
+                     de solo lectura para que quede claro de dónde sale. -->
+                <div v-if="!form.vacante_id" class="grid gap-2">
+                    <Label>Puesto objetivo</Label>
+                    <Select v-model="form.puesto_objetivo_id">
+                        <SelectTrigger class="w-full">
+                            <SelectValue placeholder="Sin puesto" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem
+                                v-for="opcion in opciones.puestos"
+                                :key="opcion.id"
+                                :value="String(opcion.id)"
+                                >{{ opcion.nombre }}</SelectItem
+                            >
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div
+                    v-else
+                    class="rounded-lg border border-border/60 bg-muted/40 px-3 py-2 text-sm"
+                >
+                    <span class="text-muted-foreground">Puesto objetivo: </span>
+                    <span class="font-medium">{{
+                        vacanteSeleccionada?.puesto?.nombre ?? '—'
+                    }}</span>
                 </div>
 
                 <div class="grid gap-2">

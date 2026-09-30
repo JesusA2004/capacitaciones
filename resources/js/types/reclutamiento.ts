@@ -152,7 +152,12 @@ export type OpcionesReclutamiento = {
     motivos?: OpcionEnum[];
     estados: OpcionEnum[];
     fuentes?: OpcionEnum[];
-    vacantes?: { id: number; puesto_id: number | null }[];
+    vacantes?: {
+        id: number;
+        puesto_id: number | null;
+        puesto?: { id: number; nombre: string } | null;
+        sucursal?: { id: number; nombre: string } | null;
+    }[];
     tiposSeguimiento?: OpcionEnum[];
     transicionesPermitidas?: Record<string, string[]>;
     colaboradores?: {

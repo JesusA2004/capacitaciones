@@ -42,7 +42,7 @@ function recargar(valor = Date.now()) {
 <template>
     <!-- Configuración a la izquierda (ancho legible) y vista previa REAL a la
          derecha, fija al hacer scroll en escritorio; en móvil va debajo. -->
-    <div class="pagina-media flex flex-col gap-4">
+    <div class="pagina-ancha flex flex-col gap-4">
         <div class="flex items-center gap-2">
             <Button as-child variant="ghost" size="icon-sm">
                 <Link :href="volverUrl" aria-label="Volver"><ArrowLeft class="size-4" /></Link>
@@ -50,7 +50,7 @@ function recargar(valor = Date.now()) {
             <h1 class="text-lg font-semibold">{{ titulo }}</h1>
         </div>
 
-        <div class="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,24rem)] xl:gap-10">
+        <div class="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,30rem)] xl:gap-10">
             <div class="flex min-w-0 flex-col gap-6">
                 <slot />
             </div>
@@ -62,7 +62,7 @@ function recargar(valor = Date.now()) {
                         <RefreshCw class="size-4" />
                     </Button>
                 </div>
-                <div class="relative mx-auto aspect-[4/5] w-full max-w-sm overflow-hidden rounded-xl border bg-muted/40">
+                <div class="relative mx-auto aspect-[4/5] w-full max-w-md overflow-hidden rounded-xl border bg-muted/40">
                     <Skeleton v-if="cargando && !error" class="absolute inset-0" />
                     <div v-if="error" class="absolute inset-0 flex flex-col items-center justify-center gap-2 p-6 text-center text-sm text-muted-foreground">
                         <ImageOff class="size-8" />
@@ -80,6 +80,7 @@ function recargar(valor = Date.now()) {
                             error = true;
                         "
                     />
+                    <slot name="overlay" />
                 </div>
                 <p class="flex items-center gap-2 text-xs">
                     <span class="font-medium">Imagen activa:</span>

@@ -24,6 +24,7 @@ import SubirFormatoOficialFirmadoDialog from '@/components/Rh/SubirFormatoOficia
 import { Button } from '@/components/ui/button';
 import { NativeSelect } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
+import { formatearFecha, formatearFechaHora, formatearPeriodo } from '@/lib/fechas';
 import { descargar } from '@/routes/rh/formatos';
 import {
     descargar as descargarOficial,
@@ -263,10 +264,7 @@ const documentoOficialGeneracion = computed(
                                 {{ solicitud.fecha_fin ? 'Periodo' : 'Fecha' }}
                             </p>
                             <p class="text-base font-medium">
-                                {{ solicitud.fecha_inicio }}
-                                <template v-if="solicitud.fecha_fin">
-                                    — {{ solicitud.fecha_fin }}
-                                </template>
+                                {{ formatearPeriodo(solicitud.fecha_inicio, solicitud.fecha_fin) }}
                             </p>
                         </div>
                         <div v-if="solicitud.dias_solicitados">
@@ -314,7 +312,7 @@ const documentoOficialGeneracion = computed(
                                 Fecha efectiva de baja
                             </p>
                             <p class="text-base font-medium">
-                                {{ solicitud.fecha_efectiva }}
+                                {{ formatearFecha(solicitud.fecha_efectiva) }}
                             </p>
                         </div>
                         <div v-if="solicitud.tipo_baja">
@@ -638,7 +636,7 @@ const documentoOficialGeneracion = computed(
                                 {{ evento.comentario }}
                             </p>
                             <p class="text-sm text-muted-foreground">
-                                {{ evento.created_at }}
+                                {{ formatearFechaHora(evento.created_at) }}
                             </p>
                         </li>
                     </ol>

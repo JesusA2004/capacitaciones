@@ -264,12 +264,17 @@ class ExpedienteController extends Controller
             'empresasDisponibles' => Empresa::query()->orderBy('nombre')->get(['id', 'nombre']),
             'sucursalesDisponibles' => Sucursal::query()->orderBy('nombre')->get(['id', 'nombre', 'empresa_id']),
             'departamentosDisponibles' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
-            'puestosDisponibles' => Puesto::query()->orderBy('nombre')->get(['id', 'nombre']),
+            // `puesto_superior_id` y los datos de puesto/sucursal de cada
+            // candidato viajan al frontend para que el combo de "Jefe
+            // directo" se filtre solo a quien ocupa el puesto superior en la
+            // misma sucursal (ver App\Models\Puesto::puestoSuperior()) — no
+            // se deja elegir a cualquier colaborador del sistema.
+            'puestosDisponibles' => Puesto::query()->orderBy('nombre')->get(['id', 'nombre', 'puesto_superior_id']),
             'jefesDisponibles' => Colaborador::query()
                 ->where('id', '!=', $colaborador->id)
                 ->where('estatus', EstadoUsuario::Activo)
                 ->orderBy('name')
-                ->get(['id', 'name', 'apellidos', 'numero_empleado']),
+                ->get(['id', 'name', 'apellidos', 'numero_empleado', 'puesto_id', 'sucursal_principal_id']),
             // La pestaña "Cuenta" del expediente absorbió lo que antes vivía
             // en Administración → Usuarios (ese listado se retiró, ver
             // docs/ROLES_Y_NAVEGACION.md): un colaborador sin cuenta todavía
@@ -510,9 +515,17 @@ class ExpedienteController extends Controller
     {
         $antes = $this->movimientos->snapshot($colaborador);
 
-        $colaborador->update($request->safe()->only([
+        $datosLaborales = $request->safe()->only([
             'sucursal_principal_id', 'departamento_id', 'puesto_id', 'jefe_id', 'sueldo_mensual',
-        ]));
+        ]);
+
+        // Nunca se deja sin sueldo: si RH no captura uno, se asigna el
+        // salario mínimo vigente (ver config/nomina.php).
+        if (empty($datosLaborales['sueldo_mensual'])) {
+            $datosLaborales['sueldo_mensual'] = config('nomina.salario_minimo_mensual');
+        }
+
+        $colaborador->update($datosLaborales);
 
         $this->movimientos->registrarCambioPuesto(
             $colaborador->fresh(),

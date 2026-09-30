@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { CheckCircle2, ChevronDown, MapPin, Users2, X, XCircle } from '@lucide/vue';
+import {
+    CheckCircle2,
+    ChevronDown,
+    HelpCircle,
+    MapPin,
+    Users2,
+    X,
+    XCircle,
+} from '@lucide/vue';
 import { ref } from 'vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import { Badge } from '@/components/ui/badge';
@@ -11,13 +19,7 @@ import {
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { NativeSelect } from '@/components/ui/native-select';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAlertas } from '@/composables/useAlertas';
 import { dashboard } from '@/routes';
 import { index as indexJerarquiaPuestos } from '@/routes/administracion/jerarquia-puestos';
@@ -151,7 +153,46 @@ function quitarApoyoOVolante(
             titulo="Matriz comercial"
             descripcion="Estructura territorial MATRIZ → Región → Zona → Ruta, y quién cubre cada ruta hoy. Las vacantes disponibles se ven en Vacantes, no aquí."
             :icono="MapPin"
-        />
+        >
+            <Tooltip :delay-duration="0">
+                <TooltipTrigger as-child>
+                    <button
+                        type="button"
+                        class="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                        aria-label="Qué significa cada botón y color de esta pantalla"
+                    >
+                        <HelpCircle class="size-5" />
+                    </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" class="max-w-72 text-left">
+                    <ul class="flex flex-col gap-1.5">
+                        <li>
+                            <span class="font-semibold text-success">Cubierta</span>
+                            — la ruta ya tiene un gestor asignado.
+                        </li>
+                        <li>
+                            <span class="font-semibold text-warning">Sin cubrir</span>
+                            — nadie está a cargo todavía.
+                        </li>
+                        <li>
+                            <span class="font-semibold text-destructive">Vencidos / Castigo</span>
+                            — situación operativa que requiere atención.
+                        </li>
+                        <li>
+                            <span class="font-semibold">Selector "Sin gestor"</span>
+                            — asigna o cambia quién cobra la ruta.
+                        </li>
+                        <li>
+                            <Users2 class="mb-0.5 inline size-3.5" />
+                            <span class="font-semibold">Agregar apoyo/volante</span>
+                            — suma un colaborador extra a la ruta sin quitar
+                            al gestor (elige a la persona y luego presiona el
+                            botón).
+                        </li>
+                    </ul>
+                </TooltipContent>
+            </Tooltip>
+        </CrudPageHeader>
 
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div class="rounded-2xl border border-border/60 bg-card p-4">
@@ -191,7 +232,7 @@ function quitarApoyoOVolante(
             >
                 <button
                     type="button"
-                    class="flex w-full items-center justify-between gap-2 p-4 text-left"
+                    class="flex w-full items-center justify-between gap-2 rounded-t-2xl p-4 text-left transition-colors hover:bg-accent/50"
                     @click="alternar(region.id)"
                 >
                     <span class="font-semibold">{{ region.nombre }}</span>
@@ -219,7 +260,7 @@ function quitarApoyoOVolante(
                         class="rounded-xl border border-border/60"
                     >
                         <CollapsibleTrigger
-                            class="flex w-full items-center justify-between gap-2 p-3 text-left text-sm font-medium"
+                            class="flex w-full items-center justify-between gap-2 rounded-t-xl p-3 text-left text-sm font-medium transition-colors hover:bg-accent/50"
                         >
                             <span class="flex items-center gap-2">
                                 {{ zona.nombre }}
@@ -260,20 +301,30 @@ function quitarApoyoOVolante(
                                     <span class="text-sm font-medium">{{
                                         ruta.nombre
                                     }}</span>
-                                    <component
-                                        :is="
-                                            ruta.cobertura === 'cubierta'
-                                                ? CheckCircle2
-                                                : XCircle
-                                        "
-                                        v-if="ruta.cobertura !== 'inactiva'"
-                                        class="size-4 shrink-0"
-                                        :class="
-                                            ruta.cobertura === 'cubierta'
-                                                ? 'text-success'
-                                                : 'text-warning'
-                                        "
-                                    />
+                                    <Tooltip v-if="ruta.cobertura !== 'inactiva'" :delay-duration="0">
+                                        <TooltipTrigger as-child>
+                                            <component
+                                                :is="
+                                                    ruta.cobertura === 'cubierta'
+                                                        ? CheckCircle2
+                                                        : XCircle
+                                                "
+                                                class="size-4 shrink-0"
+                                                :class="
+                                                    ruta.cobertura === 'cubierta'
+                                                        ? 'text-success'
+                                                        : 'text-warning'
+                                                "
+                                            />
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            {{
+                                                ruta.cobertura === 'cubierta'
+                                                    ? 'Ruta cubierta: ya tiene gestor asignado.'
+                                                    : 'Ruta sin cubrir: todavía nadie está a cargo.'
+                                            }}
+                                        </TooltipContent>
+                                    </Tooltip>
                                 </div>
                                 <div class="flex flex-wrap gap-1">
                                     <Badge
@@ -296,34 +347,28 @@ function quitarApoyoOVolante(
                                     >
                                 </div>
 
-                                <Select
-                                    v-if="ruta.activa"
-                                    :model-value="
-                                        ruta.responsable
-                                            ? String(ruta.responsable.id)
-                                            : '__ninguno__'
-                                    "
-                                    @update:model-value="
-                                        (v) => asignarGestor(ruta, String(v))
-                                    "
-                                >
-                                    <SelectTrigger class="h-8 text-xs">
-                                        <SelectValue placeholder="Sin gestor" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="__ninguno__"
-                                            >Sin gestor</SelectItem
-                                        >
-                                        <SelectItem
+                                <div v-if="ruta.activa" title="Gestor responsable: quien cobra esta ruta hoy." class="[&>div]:w-full">
+                                    <NativeSelect
+                                        class="h-8 text-xs"
+                                        :model-value="
+                                            ruta.responsable
+                                                ? String(ruta.responsable.id)
+                                                : '__ninguno__'
+                                        "
+                                        @update:model-value="
+                                            (v) => asignarGestor(ruta, String(v))
+                                        "
+                                    >
+                                        <option value="__ninguno__">Sin gestor</option>
+                                        <option
                                             v-for="gestor in gestoresDisponibles"
                                             :key="gestor.id"
                                             :value="String(gestor.id)"
                                         >
-                                            {{ gestor.name }}
-                                            {{ gestor.apellidos ?? '' }}
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                            {{ gestor.name }} {{ gestor.apellidos ?? '' }}
+                                        </option>
+                                    </NativeSelect>
+                                </div>
 
                                 <div
                                     v-if="ruta.apoyos.length || ruta.volantes.length"
@@ -338,6 +383,7 @@ function quitarApoyoOVolante(
                                         Apoyo: {{ apoyoItem.nombre }}
                                         <button
                                             type="button"
+                                            title="Quitar este apoyo de la ruta"
                                             class="text-muted-foreground hover:text-destructive"
                                             @click="
                                                 quitarApoyoOVolante(
@@ -359,6 +405,7 @@ function quitarApoyoOVolante(
                                         Volante: {{ volanteItem.nombre }}
                                         <button
                                             type="button"
+                                            title="Quitar este volante de la ruta"
                                             class="text-muted-foreground hover:text-destructive"
                                             @click="
                                                 quitarApoyoOVolante(

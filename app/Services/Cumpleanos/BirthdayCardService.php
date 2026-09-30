@@ -5,6 +5,7 @@ namespace App\Services\Cumpleanos;
 use App\Enums\TipoCelebracion;
 use App\Models\BirthdayGreeting;
 use App\Models\BirthdayPhrase;
+use App\Models\CelebracionConfiguracion;
 use App\Models\Colaborador;
 use App\Models\Sucursal;
 use App\Services\Celebraciones\DibujoTarjeta;
@@ -225,7 +226,8 @@ class BirthdayCardService
             $this->dibujarMarco($imagen, $ancho, $alto);
         }
 
-        $logoAlto = $this->dibujarLogo($imagen, $ancho);
+        $apariencia = CelebracionConfiguracion::de(TipoCelebracion::Cumpleanos);
+        $logoAlto = $apariencia->mostrar_logo ? $this->dibujarLogo($imagen, $ancho) : 0;
 
         $fuenteBold = base_path('vendor/dompdf/dompdf/lib/fonts/DejaVuSans-Bold.ttf');
         $fuenteRegular = base_path('vendor/dompdf/dompdf/lib/fonts/DejaVuSans.ttf');
@@ -238,37 +240,48 @@ class BirthdayCardService
         $anchoMaximoTexto = $ancho - ($margenTexto * 2);
         $yFirma = $alto - 80;
 
-        $y = max($logoAlto + 70, (int) ($alto * 0.24));
+        // Cada bloque (título/nombre/frase) tiene su propio anclaje
+        // vertical: el que configuró RH arrastrando su marcador en la
+        // pantalla de Configuración → "Apariencia", o la cascada automática
+        // de siempre si todavía no lo ha tocado (ver docs/CELEBRACIONES.md).
+        $yTitulo = $apariencia->texto_titulo_y !== null
+            ? (int) ($alto * $apariencia->texto_titulo_y)
+            : max($logoAlto + 70, (int) ($alto * 0.24));
 
         if ((bool) config('cumpleanos.show_employee_photo') && $colaborador->foto_path !== null) {
             $radioFoto = (int) ($ancho * 0.20);
-            $fotoDibujada = $this->dibujarFotoCircular($imagen, $colaborador, (int) ($ancho / 2), $y + $radioFoto, $radioFoto, $dorado);
+            $fotoDibujada = $this->dibujarFotoCircular($imagen, $colaborador, (int) ($ancho / 2), $yTitulo + $radioFoto, $radioFoto, $dorado);
 
             if ($fotoDibujada) {
-                $y += ($radioFoto * 2) + 60;
+                $yTitulo += ($radioFoto * 2) + 60;
             }
         }
 
-        $y += 20;
-        $this->textoConSombra($imagen, $fuenteBold, 48, $dorado, $ancho, $y, '¡FELIZ CUMPLEAÑOS!');
-        $y += 72;
+        $yTitulo += 20;
+        $this->textoConSombra($imagen, $fuenteBold, 48, $dorado, $ancho, $yTitulo, '¡FELIZ CUMPLEAÑOS!');
+
+        $yNombre = $apariencia->texto_nombre_y !== null
+            ? (int) ($alto * $apariencia->texto_nombre_y)
+            : $yTitulo + 72;
 
         $nombre = mb_strtoupper($colaborador->nombreCompleto());
-        $y = $this->textoParrafo(
-            $imagen, $fuenteBold, 48, $marron, $ancho, $y, $nombre, $anchoMaximoTexto,
+        $yNombre = $this->textoParrafo(
+            $imagen, $fuenteBold, 48, $marron, $ancho, $yNombre, $nombre, $anchoMaximoTexto,
             interlineado: 56,
             altoMaximo: (int) ($alto * 0.20),
         );
 
         if ((bool) config('cumpleanos.show_branch') && $colaborador->sucursalPrincipal !== null) {
-            $y += 46;
-            $this->textoCentrado($imagen, $fuenteRegular, 26, $marron, $ancho, $y, $colaborador->sucursalPrincipal->nombre);
+            $yNombre += 46;
+            $this->textoCentrado($imagen, $fuenteRegular, 26, $marron, $ancho, $yNombre, $colaborador->sucursalPrincipal->nombre);
         }
 
-        $y += 70;
-        $alturaDisponibleFrase = max(90, $yFirma - 60 - $y);
+        $yFrase = $apariencia->texto_frase_y !== null
+            ? (int) ($alto * $apariencia->texto_frase_y)
+            : $yNombre + 70;
+        $alturaDisponibleFrase = max(90, $yFirma - 60 - $yFrase);
         $this->textoParrafo(
-            $imagen, $fuenteRegular, 30, $marron, $ancho, $y, $frase, $anchoMaximoTexto,
+            $imagen, $fuenteRegular, 30, $marron, $ancho, $yFrase, $frase, $anchoMaximoTexto,
             interlineado: 46,
             altoMaximo: $alturaDisponibleFrase,
         );

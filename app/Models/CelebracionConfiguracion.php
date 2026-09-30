@@ -15,6 +15,10 @@ use Illuminate\Database\Eloquent\Model;
  * @property string|null $mensaje
  * @property string|null $fondo_path
  * @property bool $auto_enviar_colaborador
+ * @property bool $mostrar_logo
+ * @property float|null $texto_titulo_y
+ * @property float|null $texto_nombre_y
+ * @property float|null $texto_frase_y
  * @property int|null $updated_by
  */
 class CelebracionConfiguracion extends Model
@@ -23,7 +27,10 @@ class CelebracionConfiguracion extends Model
 
     protected $hidden = ['fondo_path'];
 
-    protected $fillable = ['tipo', 'activo', 'mensaje', 'fondo_path', 'auto_enviar_colaborador', 'updated_by'];
+    protected $fillable = [
+        'tipo', 'activo', 'mensaje', 'fondo_path', 'auto_enviar_colaborador',
+        'mostrar_logo', 'texto_titulo_y', 'texto_nombre_y', 'texto_frase_y', 'updated_by',
+    ];
 
     protected function casts(): array
     {
@@ -31,6 +38,10 @@ class CelebracionConfiguracion extends Model
             'tipo' => TipoCelebracion::class,
             'activo' => 'boolean',
             'auto_enviar_colaborador' => 'boolean',
+            'mostrar_logo' => 'boolean',
+            'texto_titulo_y' => 'float',
+            'texto_nombre_y' => 'float',
+            'texto_frase_y' => 'float',
         ];
     }
 
@@ -40,6 +51,7 @@ class CelebracionConfiguracion extends Model
             'activo' => true,
             'mensaje' => $tipo === TipoCelebracion::AniversarioLaboral ? (string) config('celebraciones.aniversario.mensaje') : null,
             'auto_enviar_colaborador' => false,
+            'mostrar_logo' => true,
         ]);
     }
 }

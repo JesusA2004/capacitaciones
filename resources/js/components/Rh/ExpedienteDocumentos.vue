@@ -7,6 +7,7 @@ import {
     Clock3,
     Eye,
     FileEdit,
+    FileText,
     FileX2,
     Sparkles,
 } from '@lucide/vue';
@@ -177,13 +178,13 @@ function abrirPreview(item: DocumentoExpedienteItem) {
             class="flex flex-col gap-3"
         >
             <div
-                class="flex items-center gap-2 rounded-xl border-t-2 bg-muted/40 px-3 py-2"
+                class="flex items-center gap-2.5 rounded-xl border-t-2 bg-muted/40 px-3.5 py-2.5"
                 :class="columna.tono"
             >
-                <component :is="columna.icono" class="size-4 text-muted-foreground" />
-                <p class="text-sm font-semibold">{{ columna.titulo }}</p>
+                <component :is="columna.icono" class="size-5 text-muted-foreground" />
+                <p class="text-base font-semibold">{{ columna.titulo }}</p>
                 <span
-                    class="ml-auto rounded-full bg-background px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground"
+                    class="ml-auto rounded-full bg-background px-2.5 py-0.5 text-sm font-semibold tabular-nums text-muted-foreground"
                 >
                     {{ columna.items.length }}
                 </span>
@@ -193,32 +194,45 @@ function abrirPreview(item: DocumentoExpedienteItem) {
                 <div
                     v-for="item in columna.items"
                     :key="item.tipo.id"
-                    class="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
+                    class="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-5 shadow-sm"
                 >
-                    <div class="flex items-start justify-between gap-2">
-                        <div class="min-w-0">
-                            <p class="truncate text-sm font-medium">
-                                {{ item.tipo.nombre }}
-                                <span
-                                    v-if="item.tipo.requerido"
-                                    class="text-destructive"
-                                    title="Requerido"
-                                    >*</span
-                                >
-                            </p>
+                    <div class="flex items-start gap-3">
+                        <span
+                            class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]"
+                        >
+                            <FileText class="size-5" />
+                        </span>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-start justify-between gap-2">
+                                <p class="text-base leading-tight font-semibold">
+                                    {{ item.tipo.nombre }}
+                                    <span
+                                        v-if="item.tipo.requerido"
+                                        class="text-destructive"
+                                        title="Requerido"
+                                        >*</span
+                                    >
+                                </p>
+                                <EstadoBadge
+                                    v-if="item.documento"
+                                    :estado="item.documento.status"
+                                />
+                            </div>
                             <p
                                 v-if="item.documento"
-                                class="truncate text-xs text-muted-foreground"
+                                class="mt-0.5 truncate text-sm text-muted-foreground"
                             >
                                 {{ item.documento.original_name }} · v{{
                                     item.documento.version
                                 }}
                             </p>
+                            <p
+                                v-else
+                                class="mt-0.5 text-sm text-muted-foreground"
+                            >
+                                Todavía no se ha subido.
+                            </p>
                         </div>
-                        <EstadoBadge
-                            v-if="item.documento"
-                            :estado="item.documento.status"
-                        />
                     </div>
 
                     <p

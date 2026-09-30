@@ -29,8 +29,15 @@ defineProps<{
     empresasDisponibles: { id: number; nombre: string }[];
     sucursalesDisponibles: { id: number; nombre: string; empresa_id: number | null }[];
     departamentosDisponibles: { id: number; nombre: string }[];
-    puestosDisponibles: { id: number; nombre: string }[];
-    jefesDisponibles: { id: number; name: string; apellidos: string | null; numero_empleado: string | null }[];
+    puestosDisponibles: { id: number; nombre: string; puesto_superior_id: number | null }[];
+    jefesDisponibles: {
+        id: number;
+        name: string;
+        apellidos: string | null;
+        numero_empleado: string | null;
+        puesto_id: number | null;
+        sucursal_principal_id: number | null;
+    }[];
     esCuentaPropia: boolean;
     puedeRevisarDocumentos: boolean;
     puedeVerExtraccion: boolean;

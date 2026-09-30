@@ -251,10 +251,29 @@ class CandidatoController extends Controller
             'responsableRh:id,name,apellidos',
             'gerenteInvolucrado:id,name,apellidos',
             'seguimientos.registradoPor:id,name,apellidos',
-            'altaDigital:id,candidato_id,estado,token,created_at,creado_por',
+            // Columnas calificadas con el nombre de tabla (no el atajo
+            // "relacion:col1,col2"): altaDigital/incorporacionInvitacion son
+            // relaciones latestOfMany(), que hacen JOIN contra una subconsulta
+            // derivada con las mismas columnas (candidato_id) — sin calificar,
+            // MariaDB las reporta como ambiguas (error 1052).
+            'altaDigital' => fn ($query) => $query->select(
+                'altas_digitales.id',
+                'altas_digitales.candidato_id',
+                'altas_digitales.estado',
+                'altas_digitales.token',
+                'altas_digitales.created_at',
+                'altas_digitales.creado_por',
+            ),
             'altaDigital.creadoPor:id,name,apellidos',
             'altaDigital.colaborador:id,name,apellidos,created_at',
-            'incorporacionInvitacion:id,candidato_id,estado,uuid,used_at,expires_at',
+            'incorporacionInvitacion' => fn ($query) => $query->select(
+                'incorporacion_invitaciones.id',
+                'incorporacion_invitaciones.candidato_id',
+                'incorporacion_invitaciones.estado',
+                'incorporacion_invitaciones.uuid',
+                'incorporacion_invitaciones.used_at',
+                'incorporacion_invitaciones.expires_at',
+            ),
         ]);
 
         return Inertia::render('Rh/Candidatos/Show', [
@@ -387,7 +406,15 @@ class CandidatoController extends Controller
             'sucursales' => Sucursal::query()->orderBy('nombre')->get(['id', 'nombre', 'empresa_id']),
             'departamentos' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
             'puestos' => Puesto::query()->orderBy('nombre')->get(['id', 'nombre', 'departamento_id']),
-            'vacantes' => Vacante::query()->whereNotIn('estado', ['cubierta', 'cancelada'])->orderByDesc('fecha_apertura')->get(['id', 'puesto_id']),
+            // Con el puesto y la sucursal ya resueltos: el formulario de
+            // candidatos ya no pide "Puesto objetivo" como campo aparte
+            // cuando hay vacante seleccionada, lo deriva de aquí mismo (ver
+            // Candidato::booted()).
+            'vacantes' => Vacante::query()
+                ->whereNotIn('estado', ['cubierta', 'cancelada'])
+                ->with(['puesto:id,nombre', 'sucursal:id,nombre'])
+                ->orderByDesc('fecha_apertura')
+                ->get(['id', 'puesto_id', 'sucursal_id']),
             'responsables' => User::query()->role(['rh_admin', 'rh_auxiliar'])->orderBy('name')->get(['id', 'name', 'apellidos']),
             'estados' => array_map(fn (EstadoCandidato $e) => ['value' => $e->value, 'etiqueta' => $e->etiqueta()], EstadoCandidato::cases()),
             'fuentes' => array_map(fn (FuenteCandidato $f) => ['value' => $f->value, 'etiqueta' => $f->etiqueta()], FuenteCandidato::cases()),

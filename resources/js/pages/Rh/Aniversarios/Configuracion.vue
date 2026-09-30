@@ -3,6 +3,7 @@ import { Head, useForm } from '@inertiajs/vue3';
 import { Save } from '@lucide/vue';
 import { ref } from 'vue';
 import CelebracionConfiguracionLayout from '@/components/Celebraciones/CelebracionConfiguracionLayout.vue';
+import PosicionVerticalTexto from '@/components/Celebraciones/PosicionVerticalTexto.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -14,13 +15,30 @@ import { dashboard } from '@/routes';
 import { index as indexAniversarios } from '@/routes/rh/aniversarios';
 import { guardar, vistaPrevia } from '@/routes/rh/aniversarios/configuracion';
 
+// Posiciones por defecto (misma fracción aproximada que calcula
+// TarjetaAniversarioService cuando RH no ha movido cada marcador) — solo
+// para que el marcador arranque en un lugar razonable antes del primer
+// ajuste.
+const POSICION_TITULO_DEFECTO = 0.15;
+const POSICION_NOMBRE_DEFECTO = 0.42;
+const POSICION_FRASE_DEFECTO = 0.55;
+
 /**
  * Configuración de la tarjeta de aniversario (mensaje con {anios},
  * {nombre}, {sucursal}; fondo propio; activo; envío automático). Mismo
  * diseño que la configuración de Cumpleaños.
  */
 const props = defineProps<{
-    configuracion: { activo: boolean; mensaje: string | null; auto_enviar_colaborador: boolean; tiene_fondo: boolean };
+    configuracion: {
+        activo: boolean;
+        mensaje: string | null;
+        auto_enviar_colaborador: boolean;
+        tiene_fondo: boolean;
+        mostrar_logo: boolean;
+        texto_titulo_y: number | null;
+        texto_nombre_y: number | null;
+        texto_frase_y: number | null;
+    };
     mensajePredeterminado: string;
     ejemplo: { nombre: string; anios: number; puesto: string; sucursal: string };
 }>();
@@ -43,12 +61,26 @@ defineOptions({
     },
 });
 
-const form = useForm<{ activo: boolean; mensaje: string; auto_enviar_colaborador: boolean; fondo: File | null; quitar_fondo: boolean }>({
+const form = useForm<{
+    activo: boolean;
+    mensaje: string;
+    auto_enviar_colaborador: boolean;
+    fondo: File | null;
+    quitar_fondo: boolean;
+    mostrar_logo: boolean;
+    texto_titulo_y: number;
+    texto_nombre_y: number;
+    texto_frase_y: number;
+}>({
     activo: props.configuracion.activo,
     mensaje: props.configuracion.mensaje ?? props.mensajePredeterminado,
     auto_enviar_colaborador: props.configuracion.auto_enviar_colaborador,
     fondo: null,
     quitar_fondo: false,
+    mostrar_logo: props.configuracion.mostrar_logo,
+    texto_titulo_y: props.configuracion.texto_titulo_y ?? POSICION_TITULO_DEFECTO,
+    texto_nombre_y: props.configuracion.texto_nombre_y ?? POSICION_NOMBRE_DEFECTO,
+    texto_frase_y: props.configuracion.texto_frase_y ?? POSICION_FRASE_DEFECTO,
 });
 
 const version = ref(Date.now());
@@ -77,6 +109,12 @@ function enviar() {
         :fondo-propio="configuracion.tiene_fondo"
         :datos-ejemplo="datosEjemplo"
     >
+        <template #overlay>
+            <PosicionVerticalTexto v-model="form.texto_titulo_y" variante="titulo" />
+            <PosicionVerticalTexto v-model="form.texto_nombre_y" variante="nombre" />
+            <PosicionVerticalTexto v-model="form.texto_frase_y" variante="frase" />
+        </template>
+
         <form class="flex flex-col gap-6" @submit.prevent="enviar">
             <section class="flex flex-col gap-3" aria-label="Envío">
                 <label class="flex items-start gap-2 text-sm">
@@ -97,6 +135,19 @@ function enviar() {
                     <button type="button" class="ml-1 text-primary underline" @click="form.mensaje = mensajePredeterminado">Restaurar predeterminado</button>
                 </p>
                 <InputError :message="form.errors.mensaje" />
+            </section>
+
+            <section class="flex flex-col gap-3 border-t pt-6" aria-label="Apariencia">
+                <p class="text-sm text-muted-foreground">
+                    Arrastra cada marcador de color sobre la vista previa: «Título» mueve el número de años + «ANIVERSARIO», «Nombre» mueve el nombre del colaborador y «Frase» mueve el mensaje — cada uno por separado.
+                </p>
+                <label class="flex items-start gap-2 text-sm">
+                    <Checkbox class="mt-0.5" :model-value="form.mostrar_logo" @update:model-value="(v) => (form.mostrar_logo = !!v)" />
+                    Mostrar el logo de MR. LANA en la tarjeta
+                </label>
+                <InputError :message="form.errors.texto_titulo_y" />
+                <InputError :message="form.errors.texto_nombre_y" />
+                <InputError :message="form.errors.texto_frase_y" />
             </section>
 
             <section class="grid gap-1.5 border-t pt-6">
