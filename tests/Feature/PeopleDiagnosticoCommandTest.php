@@ -28,6 +28,16 @@ test('people:diagnostico no truena si faltan headcount_targets, official_formats
         ->assertExitCode(1);
 });
 
+test('people:diagnostico avisa si falta SALARIO_MINIMO_DIARIO, sin inventar un monto', function () {
+    $this->seed();
+
+    config(['nomina.salario_minimo_diario' => null, 'nomina.salario_minimo_mensual' => null]);
+
+    $this->artisan('people:diagnostico')
+        ->expectsOutputToContain('SALARIO_MINIMO_DIARIO no está configurado')
+        ->assertExitCode(1);
+});
+
 test('people:diagnostico no truena si faltan permissions o roles', function () {
     $this->seed();
 

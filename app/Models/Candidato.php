@@ -94,20 +94,34 @@ class Candidato extends Model
     }
 
     /**
-     * El puesto objetivo nunca se captura a mano cuando hay una vacante
-     * ligada: la vacante ya nació de un puesto concreto (baja, headcount
-     * nuevo, etc.), así que aquí se deriva automáticamente para que nunca
-     * queden inconsistentes entre sí — el formulario solo pide "Puesto
-     * objetivo" para un candidato sin vacante activa todavía.
+     * Puesto/sucursal/empresa nunca se capturan a mano cuando hay una
+     * vacante ligada: la vacante ya nació con esos tres datos resueltos
+     * (baja, headcount nuevo, etc.), así que aquí se derivan automáticamente
+     * para que nunca queden inconsistentes entre sí — el formulario solo
+     * pide esos campos por separado para un candidato sin vacante activa
+     * todavía (pipeline general).
      */
     protected static function booted(): void
     {
         static::saving(function (self $candidato): void {
-            if ($candidato->isDirty('vacante_id') && $candidato->vacante_id !== null) {
-                $candidato->puesto_objetivo_id = Vacante::query()
-                    ->whereKey($candidato->vacante_id)
-                    ->value('puesto_id');
+            // Se re-deriva siempre que haya vacante (no solo cuando
+            // vacante_id cambia): así un valor manual enviado junto con la
+            // misma vacante nunca queda inconsistente con ella.
+            if ($candidato->vacante_id === null) {
+                return;
             }
+
+            $vacante = Vacante::query()
+                ->whereKey($candidato->vacante_id)
+                ->first(['puesto_id', 'sucursal_id', 'empresa_id']);
+
+            if ($vacante === null) {
+                return;
+            }
+
+            $candidato->puesto_objetivo_id = $vacante->puesto_id;
+            $candidato->sucursal_id = $vacante->sucursal_id;
+            $candidato->empresa_id = $vacante->empresa_id;
         });
     }
 

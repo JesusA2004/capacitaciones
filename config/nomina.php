@@ -21,16 +21,25 @@ return [
     |--------------------------------------------------------------------------
     |
     | CONASAMI lo publica cada 1° de enero (https://www.gob.mx/conasami) —
-    | verifica el monto diario vigente y actualízalo aquí (o vía la variable
-    | de entorno SALARIO_MINIMO_DIARIO) cuando cambie. Se usa como sueldo
-    | mensual por defecto cuando RH guarda «Datos laborales» de un
-    | colaborador sin capturar un sueldo (ver
-    | Rh\ExpedienteController::actualizarDatosLaborales()) — nunca se deja el
-    | sueldo en null.
+    | un monto legal cambia cada año y NO tiene fallback hardcodeado aquí:
+    | un valor viejo aplicado en silencio es un riesgo real, no un detalle
+    | cosmético. Debe venir de la variable de entorno SALARIO_MINIMO_DIARIO
+    | (ver .env.example); si no está definida, ambas quedan en null.
+    |
+    | Se usa como sueldo mensual por defecto SOLO cuando RH guarda «Datos
+    | laborales» de un colaborador que nunca tuvo un sueldo capturado (ver
+    | Rh\ExpedienteController::actualizarDatosLaborales()) — nunca sobrescribe
+    | un sueldo que ya existe, y si esta variable falta, no inventa un monto:
+    | se registra un aviso y el colaborador queda sin sueldo hasta que RH lo
+    | capture a mano o alguien configure la variable de entorno.
     |
     */
-    'salario_minimo_diario' => (float) env('SALARIO_MINIMO_DIARIO', 278.80),
+    'salario_minimo_diario' => env('SALARIO_MINIMO_DIARIO') !== null
+        ? (float) env('SALARIO_MINIMO_DIARIO')
+        : null,
 
-    'salario_minimo_mensual' => (float) env('SALARIO_MINIMO_DIARIO', 278.80) * 30,
+    'salario_minimo_mensual' => env('SALARIO_MINIMO_DIARIO') !== null
+        ? (float) env('SALARIO_MINIMO_DIARIO') * 30
+        : null,
 
 ];

@@ -141,7 +141,11 @@ function enviar() {
                     </div>
                 </div>
 
-                <div class="grid gap-2">
+                <!-- La sucursal solo se pide a mano cuando el candidato
+                     todavía no tiene una vacante concreta (pipeline
+                     general); si ya eligió vacante, se deriva de ella (ver
+                     Candidato::booted()) y se muestra de solo lectura. -->
+                <div v-if="!form.vacante_id" class="grid gap-2">
                     <Label>Sucursal</Label>
                     <Select v-model="form.sucursal_id">
                         <SelectTrigger class="w-full">
@@ -156,6 +160,12 @@ function enviar() {
                             >
                         </SelectContent>
                     </Select>
+                </div>
+                <div v-else class="rounded-lg border border-border/60 bg-muted/40 px-3 py-2 text-sm">
+                    <span class="text-muted-foreground">Sucursal: </span>
+                    <span class="font-medium">{{
+                        vacanteSeleccionada?.sucursal?.nombre ?? '—'
+                    }}</span>
                 </div>
 
                 <div class="grid gap-2">

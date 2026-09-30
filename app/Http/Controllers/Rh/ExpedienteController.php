@@ -43,6 +43,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -519,10 +520,32 @@ class ExpedienteController extends Controller
             'sucursal_principal_id', 'departamento_id', 'puesto_id', 'jefe_id', 'sueldo_mensual',
         ]);
 
-        // Nunca se deja sin sueldo: si RH no captura uno, se asigna el
-        // salario mínimo vigente (ver config/nomina.php).
+        // Un campo de sueldo vacío en este guardado NUNCA borra un sueldo que
+        // ya existía (el middleware ConvertEmptyStringsToNull convierte "" en
+        // null antes de llegar aquí, y sin este `unset` ese null se habría
+        // guardado tal cual, pisando el valor real). Solo se completa con el
+        // salario mínimo cuando el colaborador NUNCA tuvo un sueldo
+        // capturado. Si falta la variable de entorno SALARIO_MINIMO_DIARIO
+        // no se inventa un monto (ver config/nomina.php): se avisa y el
+        // colaborador se guarda sin sueldo, pendiente de captura manual.
+        $avisoSueldoSinConfigurar = false;
+
         if (empty($datosLaborales['sueldo_mensual'])) {
-            $datosLaborales['sueldo_mensual'] = config('nomina.salario_minimo_mensual');
+            if ($colaborador->sueldo_mensual !== null) {
+                unset($datosLaborales['sueldo_mensual']);
+            } else {
+                $salarioMinimoMensual = config('nomina.salario_minimo_mensual');
+
+                if ($salarioMinimoMensual !== null) {
+                    $datosLaborales['sueldo_mensual'] = $salarioMinimoMensual;
+                } else {
+                    unset($datosLaborales['sueldo_mensual']);
+                    $avisoSueldoSinConfigurar = true;
+                    Log::warning('ExpedienteController::actualizarDatosLaborales(): SALARIO_MINIMO_DIARIO no está definida en el entorno — no se pudo asignar un sueldo por defecto.', [
+                        'colaborador_id' => $colaborador->id,
+                    ]);
+                }
+            }
         }
 
         $colaborador->update($datosLaborales);
@@ -533,6 +556,13 @@ class ExpedienteController extends Controller
             $request->user(),
             $request->safe()->string('motivo')->toString() ?: null,
         );
+
+        if ($avisoSueldoSinConfigurar) {
+            return back()->with('toast', [
+                'type' => 'warning',
+                'message' => 'Datos laborales actualizados, pero no se asignó un sueldo por defecto: falta configurar el salario mínimo vigente en el servidor (SALARIO_MINIMO_DIARIO). Captura el sueldo manualmente o pide a un administrador que configure esa variable.',
+            ]);
+        }
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Datos laborales actualizados correctamente.']);
     }

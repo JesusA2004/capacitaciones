@@ -154,3 +154,84 @@ test('dar de baja a un colaborador registra el movimiento, bloquea su acceso y s
         ->and($vacante->generada_automaticamente)->toBeTrue()
         ->and($vacante->estado->value)->toBe('abierta');
 });
+
+test('guardar datos laborales sin sueldo asigna el salario mínimo SOLO si el colaborador nunca tuvo uno', function () {
+    config(['nomina.salario_minimo_diario' => 278.80, 'nomina.salario_minimo_mensual' => 278.80 * 30]);
+
+    $sucursal = Sucursal::factory()->create();
+    $puesto = Puesto::factory()->create();
+    $colaborador = User::factory()->create([
+        'sucursal_principal_id' => $sucursal->id,
+        'puesto_id' => $puesto->id,
+    ]);
+    $colaborador->assignRole('colaborador');
+    // ColaboradorFactory pone un sueldo aleatorio por defecto (8000-25000):
+    // se limpia a mano para probar de verdad el caso "nunca tuvo sueldo".
+    $colaborador->colaborador->update(['sueldo_mensual' => null]);
+
+    $admin = User::factory()->create();
+    $admin->assignRole('super_admin');
+
+    $this->actingAs($admin)
+        ->put(route('rh.expedientes.datos-laborales.update', $colaborador->colaborador_id), [
+            'sucursal_principal_id' => $sucursal->id,
+            'puesto_id' => $puesto->id,
+        ])
+        ->assertSessionHasNoErrors();
+
+    expect((float) $colaborador->colaborador->fresh()->sueldo_mensual)->toBe(278.80 * 30);
+});
+
+test('guardar datos laborales nunca sobrescribe un sueldo que ya existía, aunque el campo llegue vacío', function () {
+    config(['nomina.salario_minimo_diario' => 278.80, 'nomina.salario_minimo_mensual' => 278.80 * 30]);
+
+    $sucursal = Sucursal::factory()->create();
+    $puesto = Puesto::factory()->create();
+    $colaborador = User::factory()->create([
+        'sucursal_principal_id' => $sucursal->id,
+        'puesto_id' => $puesto->id,
+    ]);
+    $colaborador->assignRole('colaborador');
+    // sueldo_mensual no se sincroniza desde User::factory() (ver
+    // UserFactory::configure()): se fija a mano en el Colaborador real.
+    $colaborador->colaborador->update(['sueldo_mensual' => 15000]);
+
+    $admin = User::factory()->create();
+    $admin->assignRole('super_admin');
+
+    $this->actingAs($admin)
+        ->put(route('rh.expedientes.datos-laborales.update', $colaborador->colaborador_id), [
+            'sucursal_principal_id' => $sucursal->id,
+            'puesto_id' => $puesto->id,
+            'sueldo_mensual' => '',
+        ])
+        ->assertSessionHasNoErrors();
+
+    expect((float) $colaborador->colaborador->fresh()->sueldo_mensual)->toBe(15000.0);
+});
+
+test('sin SALARIO_MINIMO_DIARIO configurado, un colaborador sin sueldo se queda sin sueldo y con aviso — nunca se inventa un monto', function () {
+    config(['nomina.salario_minimo_diario' => null, 'nomina.salario_minimo_mensual' => null]);
+
+    $sucursal = Sucursal::factory()->create();
+    $puesto = Puesto::factory()->create();
+    $colaborador = User::factory()->create([
+        'sucursal_principal_id' => $sucursal->id,
+        'puesto_id' => $puesto->id,
+    ]);
+    $colaborador->assignRole('colaborador');
+    $colaborador->colaborador->update(['sueldo_mensual' => null]);
+
+    $admin = User::factory()->create();
+    $admin->assignRole('super_admin');
+
+    $this->actingAs($admin)
+        ->put(route('rh.expedientes.datos-laborales.update', $colaborador->colaborador_id), [
+            'sucursal_principal_id' => $sucursal->id,
+            'puesto_id' => $puesto->id,
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertSessionHas('toast', fn (array $toast) => $toast['type'] === 'warning');
+
+    expect($colaborador->colaborador->fresh()->sueldo_mensual)->toBeNull();
+});

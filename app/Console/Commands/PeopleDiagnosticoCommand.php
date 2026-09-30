@@ -71,6 +71,7 @@ class PeopleDiagnosticoCommand extends Command
         $this->revisarCola();
         $this->revisarCorreo();
         $this->revisarLibreOffice();
+        $this->revisarSalarioMinimo();
         $this->revisarColumnasCriticas();
         $this->revisarStorageNas();
         $this->revisarEstructuraExpedientesNas();
@@ -239,6 +240,29 @@ class PeopleDiagnosticoCommand extends Command
         } else {
             $this->ok('Remitente configurado.');
         }
+    }
+
+    /**
+     * SALARIO_MINIMO_DIARIO (config('nomina.salario_minimo_mensual')): un
+     * monto legal que CONASAMI cambia cada 1° de enero. Nunca tiene un
+     * fallback hardcodeado en código — si falta, un colaborador sin sueldo
+     * capturado se queda sin sueldo (con aviso) en vez de recibir un monto
+     * inventado o desactualizado.
+     */
+    private function revisarSalarioMinimo(): void
+    {
+        $this->newLine();
+        $this->line('<fg=blue>Salario mínimo (config/nomina.php)</>');
+
+        $mensual = config('nomina.salario_minimo_mensual');
+
+        if ($mensual === null) {
+            $this->fallo('SALARIO_MINIMO_DIARIO no está configurado: si RH guarda "Datos laborales" de un colaborador sin sueldo capturado, se queda sin sueldo (con aviso) — no se inventa un monto. Configura la variable con el monto vigente publicado por CONASAMI (https://www.gob.mx/conasami).');
+
+            return;
+        }
+
+        $this->ok(sprintf('Sueldo mensual por defecto: $%s (diario: $%s) — verifica que sea el monto vigente publicado por CONASAMI.', number_format((float) $mensual, 2), number_format((float) config('nomina.salario_minimo_diario'), 2)));
     }
 
     /**

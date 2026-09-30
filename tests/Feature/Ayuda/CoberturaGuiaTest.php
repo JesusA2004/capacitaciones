@@ -103,7 +103,10 @@ const SIDEBAR_SIN_GUIA = [
 ];
 
 test('todo acceso del sidebar tiene módulo de guía o una justificación explícita', function () {
-    preg_match_all("/title: '([^']+)'/", archivoJs('components/AppSidebar.vue'), $m);
+    // Los accesos viven en useMainNavItems.ts (compartido por AppSidebar.vue
+    // y MobileBottomNav.vue, ver docs/ROLES_Y_NAVEGACION.md) — ya no en
+    // AppSidebar.vue directamente.
+    preg_match_all("/title: '([^']+)'/", archivoJs('composables/useMainNavItems.ts'), $m);
     $titulos = array_values(array_unique($m[1]));
     $modulos = modulosDeLaGuia();
 
