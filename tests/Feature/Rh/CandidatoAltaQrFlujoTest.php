@@ -11,7 +11,7 @@ beforeEach(function () {
 });
 
 test('no se puede generar un alta digital de un candidato que no esta seleccionado', function () {
-    $candidato = Candidato::factory()->create(['estado' => 'entrevista']);
+    $candidato = Candidato::factory()->create(['estado' => 'entrevista_pendiente']);
     $usuario = User::factory()->create();
     $usuario->assignRole('rh_admin');
 
@@ -23,7 +23,7 @@ test('no se puede generar un alta digital de un candidato que no esta selecciona
 });
 
 test('no se puede generar un qr de incorporacion de un candidato que no esta seleccionado', function () {
-    $candidato = Candidato::factory()->create(['estado' => 'entrevista']);
+    $candidato = Candidato::factory()->create(['estado' => 'entrevista_pendiente']);
     $usuario = User::factory()->create();
     $usuario->assignRole('rh_admin');
 
@@ -34,8 +34,8 @@ test('no se puede generar un qr de incorporacion de un candidato que no esta sel
     expect(IncorporacionInvitacion::where('candidato_id', $candidato->id)->exists())->toBeFalse();
 });
 
-test('un candidato seleccionado si genera su alta digital y su qr queda ligado a el', function () {
-    $candidato = Candidato::factory()->create(['estado' => 'listo_para_contratacion']);
+test('un candidato autorizado por rh si genera su alta digital y, ya en contratación, su qr queda ligado a él', function () {
+    $candidato = Candidato::factory()->create(['estado' => 'autorizado_rh']);
     $usuario = User::factory()->create();
     $usuario->assignRole('rh_admin');
 
@@ -45,9 +45,10 @@ test('un candidato seleccionado si genera su alta digital y su qr queda ligado a
 
     expect(AltaDigital::where('candidato_id', $candidato->id)->exists())->toBeTrue();
 
-    // El QR de incorporacion tambien puede generarse para el mismo
-    // candidato ya seleccionado (paso final del flujo, ver
-    // Rh/Altas/Show.vue "Generar QR de incorporación").
+    // El QR se reemite desde Invitaciones para el candidato ya en
+    // contratación (su persona ya existe).
+    $candidato->update(['estado' => 'en_contratacion', 'colaborador_id' => clColaboradorEnContratacion()->id]);
+
     $this->actingAs($usuario)
         ->post(route('rh.incorporacion.invitaciones.store'), ['candidato_id' => $candidato->id, 'duracion_horas' => 24])
         ->assertSessionHasNoErrors();

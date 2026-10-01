@@ -11,6 +11,8 @@ namespace App\Enums;
 enum FuenteCandidato: string
 {
     case Meta = 'meta';
+    case FacebookGrupos = 'facebook_grupos';
+    case Whatsapp = 'whatsapp';
     case Indeed = 'indeed';
     case Computrabajo = 'computrabajo';
     case LinkedIn = 'linkedin';
@@ -21,7 +23,9 @@ enum FuenteCandidato: string
     public function etiqueta(): string
     {
         return match ($this) {
-            self::Meta => 'Meta (Facebook/Instagram)',
+            self::Meta => 'Pauta Meta (Facebook/Instagram)',
+            self::FacebookGrupos => 'Grupos de Facebook',
+            self::Whatsapp => 'WhatsApp (contacto directo)',
             self::Indeed => 'Indeed',
             self::Computrabajo => 'Computrabajo',
             self::LinkedIn => 'LinkedIn',

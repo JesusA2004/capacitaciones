@@ -2,6 +2,8 @@
 
 namespace App\Services\Auditoria;
 
+use App\Models\Candidato;
+use App\Models\Colaborador;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -40,6 +42,17 @@ class AuditoriaService
     {
         try {
             $propiedades = $this->limpiar($propiedades);
+
+            // La timeline única de cada persona (App\Services\CicloLaboral\TimelineService)
+            // lee esta bitácora por colaborador_id/candidato_id: se completan
+            // a partir del sujeto cuando el llamador no los pasó.
+            if ($sujeto instanceof Colaborador) {
+                $propiedades['colaborador_id'] ??= $sujeto->id;
+            } elseif ($sujeto instanceof Candidato) {
+                $propiedades['candidato_id'] ??= $sujeto->id;
+            } elseif ($sujeto !== null && ! isset($propiedades['colaborador_id']) && is_numeric($sujeto->getAttribute('colaborador_id'))) {
+                $propiedades['colaborador_id'] = (int) $sujeto->getAttribute('colaborador_id');
+            }
 
             if ($this->request !== null && $this->request->ip() !== null) {
                 $propiedades['ip'] = $this->request->ip();

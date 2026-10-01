@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property bool $aplica_alta
  * @property bool $activo
  * @property CategoriaDocumento $categoria
+ * @property int|null $vigencia_meses
  */
 class DocumentType extends Model
 {
@@ -30,7 +31,7 @@ class DocumentType extends Model
 
     protected $table = 'document_types';
 
-    protected $fillable = ['nombre', 'clave', 'categoria', 'descripcion', 'requerido', 'aplica_alta', 'activo'];
+    protected $fillable = ['nombre', 'clave', 'categoria', 'descripcion', 'requerido', 'aplica_alta', 'activo', 'vigencia_meses'];
 
     /**
      * @var array<string, mixed>
@@ -46,6 +47,7 @@ class DocumentType extends Model
             'aplica_alta' => 'boolean',
             'activo' => 'boolean',
             'categoria' => CategoriaDocumento::class,
+            'vigencia_meses' => 'integer',
         ];
     }
 

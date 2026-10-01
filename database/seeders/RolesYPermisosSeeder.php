@@ -316,6 +316,21 @@ class RolesYPermisosSeeder extends Seeder
         'nomina.recibos.importar',
         'prestamos.ver',
         'prestamos.autorizar',
+        // --- Cierre definitivo del ciclo laboral (docs/CICLO_LABORAL_FINAL_IMPLEMENTADO.md) ---
+        // ROL = permisos; la cadena de mando sale del organigrama. Preautorizar
+        // exige además ser superior de la persona; autorizar_rh es la
+        // autoridad final y nunca se puede saltar.
+        'ciclo.preautorizar',
+        'ciclo.autorizar_rh',
+        // Gerente: entrevista, revisión de psicométricas y socioeconómico.
+        'candidatos.evaluar',
+        'onboarding.ver',
+        'onboarding.gestionar',
+        'onboarding.entregar_activos',
+        'cierres.solicitar',
+        'cierres.programar_pago',
+        'reingresos.solicitar',
+        'reingresos.gestionar',
         'prestamos.resguardar',
         'actas.ver',
         'actas.crear',
@@ -416,6 +431,7 @@ class RolesYPermisosSeeder extends Seeder
             'nomina.recibos.ver', 'nomina.recibos.crear', 'nomina.recibos.importar',
             'prestamos.ver', 'prestamos.autorizar', 'prestamos.resguardar',
             'actas.ver', 'actas.crear', 'actas.gestionar', 'indicadores.ver',
+            'ciclo.autorizar_rh', 'candidatos.evaluar', 'onboarding.ver', 'onboarding.gestionar', 'onboarding.entregar_activos', 'cierres.solicitar', 'cierres.programar_pago', 'reingresos.solicitar', 'reingresos.gestionar',
         ],
 
         // Apoyo operativo de RH: puede capturar/revisar pero no aprobar
@@ -459,6 +475,7 @@ class RolesYPermisosSeeder extends Seeder
             'contratos.ver', 'evaluaciones.ver', 'cierres.ver',
             'nomina.recibos.ver', 'nomina.recibos.crear', 'nomina.recibos.importar',
             'prestamos.ver', 'actas.ver', 'actas.crear', 'indicadores.ver',
+            'onboarding.ver', 'onboarding.gestionar', 'reingresos.solicitar',
         ],
 
         'gerente_sucursal' => [
@@ -489,6 +506,7 @@ class RolesYPermisosSeeder extends Seeder
             // Ciclo laboral completo (docs/backend-rh-completion.md).
             'contratos.ver', 'evaluaciones.ver', 'evaluaciones.capturar', 'prestamos.ver',
             'actas.ver', 'actas.crear', 'documentos_laborales.ver', 'indicadores.ver',
+            'ciclo.preautorizar', 'candidatos.evaluar', 'onboarding.ver', 'onboarding.entregar_activos', 'cierres.ver', 'cierres.solicitar', 'contratos.ver', 'evaluaciones.ver', 'evaluaciones.capturar', 'documentos_laborales.ver', 'documentos_laborales.operar_fisico', 'reingresos.solicitar',
         ],
         'supervisor' => [
             'dashboard.sucursal.ver',
@@ -546,6 +564,7 @@ class RolesYPermisosSeeder extends Seeder
             'notificaciones.leer_todas',
             'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
             'solicitudes.bajas.crear', 'headcount.ver', 'organigrama.ver',
+            'ciclo.preautorizar', 'candidatos.evaluar', 'onboarding.ver', 'onboarding.entregar_activos', 'cierres.ver', 'cierres.solicitar', 'contratos.ver', 'evaluaciones.ver', 'evaluaciones.capturar', 'documentos_laborales.ver', 'documentos_laborales.operar_fisico', 'reingresos.solicitar',
         ],
 
         // Administra su propia sucursal (mismo alcance que gerente_sucursal,
@@ -570,6 +589,7 @@ class RolesYPermisosSeeder extends Seeder
             'notificaciones.leer_todas',
             'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
             'solicitudes.bajas.crear', 'headcount.ver', 'organigrama.ver',
+            'ciclo.preautorizar', 'candidatos.evaluar', 'onboarding.ver', 'onboarding.entregar_activos', 'cierres.ver', 'cierres.solicitar', 'contratos.ver', 'evaluaciones.ver', 'evaluaciones.capturar', 'documentos_laborales.ver', 'documentos_laborales.operar_fisico', 'reingresos.solicitar',
         ],
 
         // Puede apoyar/cubrir al gerente de su sucursal según la jerarquía de
@@ -593,6 +613,7 @@ class RolesYPermisosSeeder extends Seeder
             'notificaciones.leer_todas',
             'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
             'solicitudes.bajas.crear', 'headcount.ver', 'organigrama.ver',
+            'ciclo.preautorizar', 'candidatos.evaluar', 'onboarding.ver', 'onboarding.entregar_activos', 'cierres.ver', 'cierres.solicitar', 'evaluaciones.ver', 'evaluaciones.capturar', 'documentos_laborales.ver', 'documentos_laborales.operar_fisico',
         ],
 
         // Apoyo administrativo regional: ve procesos (expedientes, documentos,
@@ -616,6 +637,7 @@ class RolesYPermisosSeeder extends Seeder
             'notificaciones.leer_todas',
             'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
             'organigrama.ver',
+            'cierres.ver', 'cierres.programar_pago', 'finiquitos.ver', 'onboarding.ver',
         ],
 
         // Mismo catálogo que coordinadora_regional, acotado a su propia
@@ -664,6 +686,7 @@ class RolesYPermisosSeeder extends Seeder
             'organigrama.ver',
             // Ciclo laboral completo (docs/backend-rh-completion.md).
             'contratos.ver', 'evaluaciones.ver', 'evaluaciones.capturar', 'prestamos.ver',
+            'ciclo.preautorizar', 'onboarding.ver', 'cierres.ver', 'cierres.solicitar', 'solicitudes.bajas.crear',
         ],
 
         'colaborador' => [
@@ -708,6 +731,7 @@ class RolesYPermisosSeeder extends Seeder
             // Ciclo laboral completo (docs/backend-rh-completion.md).
             'contratos.ver', 'evaluaciones.ver', 'cierres.ver', 'nomina.recibos.ver', 'prestamos.ver',
             'actas.ver', 'documentos_laborales.ver', 'plantillas_documentales.ver', 'indicadores.ver',
+            'onboarding.ver', 'cierres.ver',
         ],
 
         // Dirección: autorizaciones finales (evaluaciones, préstamos, bajas)

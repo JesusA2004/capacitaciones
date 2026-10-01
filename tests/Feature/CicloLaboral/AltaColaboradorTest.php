@@ -13,6 +13,7 @@ use App\Models\GeneratedDocument;
 use App\Models\MovimientoLaboral;
 use App\Models\TareaRh;
 use App\Models\User;
+use App\Services\Onboarding\OnboardingService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
@@ -74,17 +75,20 @@ test('rh da de alta un colaborador con estructura, contrato, expediente, cuenta 
 
     expect(MovimientoLaboral::query()->where('colaborador_id', $colaborador->id)->where('tipo_movimiento', 'alta')->exists())->toBeTrue();
 
-    // Sin plantillas cargadas: los documentos contractuales quedan como pendiente explícito (no se inventa un texto).
-    expect(TareaRh::query()->where('tipo', TipoTarea::ContratoPendiente->value)->count())->toBeGreaterThan(0)
+    // Los contratos se generan hasta que el expediente esté completo (todos los obligatorios aprobados).
+    expect(GeneratedDocument::query()->where('colaborador_id', $colaborador->id)->count())->toBe(0)
         ->and($respuesta->json('data.documentos_contractuales_sin_plantilla'))->toContain('contrato_periodo_prueba');
 
     expect(TareaRh::query()->where('tipo', TipoTarea::ExpedienteIncompleto->value)->where('asignado_user_id', $cuenta->id)->exists())->toBeTrue();
 });
 
-test('el alta recorre pendiente_documentos → revisión → firma → activación hasta quedar activa', function () {
+test('el alta recorre pendiente_documentos → revisión → contratos → firma → onboarding → activación', function () {
     Sanctum::actingAs($this->rh);
     $tipo = DocumentType::factory()->create(['requerido' => true, 'activo' => true]);
-    clPlantilla('contrato_periodo_prueba', ['requiere_firma_digital' => true]);
+
+    foreach (['contrato_periodo_prueba', 'contrato_confidencialidad', 'contrato_no_competencia'] as $clave) {
+        clPlantilla($clave, ['requiere_firma_digital' => true]);
+    }
 
     $id = $this->postJson('/api/v1/rh/colaboradores', clDatosAlta($this->estructura))->assertCreated()->json('colaborador_id');
     $colaborador = Colaborador::query()->findOrFail($id);
@@ -97,23 +101,34 @@ test('el alta recorre pendiente_documentos → revisión → firma → activaci�
     // No se puede activar con documentos sin aprobar.
     $this->postJson("/api/v1/rh/colaboradores/{$id}/activar")->assertUnprocessable();
 
-    // RH aprueba: el contrato ya estaba generado y pendiente de firma.
+    // RH aprueba: con el expediente completo se generan los contratos del paquete.
     $documento->update(['status' => EstadoDocumento::Aprobado->value]);
     expect($colaborador->refresh()->estado_alta)->toBe(EstadoAltaColaborador::PendienteFirma);
 
-    $contrato = GeneratedDocument::query()->where('colaborador_id', $id)->where('clave_plantilla', 'contrato_periodo_prueba')->firstOrFail();
-    expect($contrato->estado_flujo)->toBe(EstadoFlujoDocumento::PendienteFirmaColaborador);
+    $contratos = GeneratedDocument::query()->where('colaborador_id', $id)->get();
+    expect($contratos)->toHaveCount(3)
+        ->and($contratos->firstWhere('clave_plantilla', 'contrato_periodo_prueba')->estado_flujo)->toBe(EstadoFlujoDocumento::PendienteFirmaColaborador);
 
     // El colaborador firma digitalmente desde la app.
     Sanctum::actingAs($cuenta);
-    $this->postJson("/api/v1/colaborador/documentos-laborales/{$contrato->id}/firmar", ['acepto' => true])->assertOk();
-    expect($colaborador->refresh()->estado_alta)->toBe(EstadoAltaColaborador::PendienteActivacion);
+
+    foreach ($contratos as $contrato) {
+        $this->postJson("/api/v1/colaborador/documentos-laborales/{$contrato->id}/firmar", ['acepto' => true])->assertOk();
+    }
+
+    // Contratos firmados → Etapa 3: onboarding (todavía no se activa).
+    expect($colaborador->refresh()->estado_alta)->toBe(EstadoAltaColaborador::EnOnboarding);
 
     // Un colaborador no puede activarse a sí mismo.
     $this->postJson("/api/v1/rh/colaboradores/{$id}/activar")->assertForbidden();
 
     Sanctum::actingAs($this->rh);
-    $this->postJson("/api/v1/rh/colaboradores/{$id}/activar")->assertOk()->assertJsonPath('data.estado_alta', 'activo');
+    $this->postJson("/api/v1/rh/colaboradores/{$id}/activar")->assertUnprocessable();
+
+    // Cerrar el onboarding (sin módulos ni activos configurados) activa al colaborador.
+    $this->actingAs($this->rh);
+    $proceso = app(OnboardingService::class)->procesoActual($colaborador);
+    app(OnboardingService::class)->completar($proceso, $this->rh);
 
     expect($colaborador->refresh()->estatus)->toBe(EstadoUsuario::Activo)
         ->and($colaborador->activado_en)->not->toBeNull();
@@ -128,12 +143,16 @@ test('no se duplica una persona: la misma CURP no puede darse de alta dos veces'
         ->assertJsonValidationErrors('curp');
 });
 
-test('el alta exige fecha de vencimiento cuando el contrato no es indeterminado', function () {
+test('sin fecha de vencimiento, el periodo de prueba dura lo que indica el puesto', function () {
     Sanctum::actingAs($this->rh);
+    $this->estructura['puesto']->update(['meses_periodo_prueba' => 2]);
 
-    $this->postJson('/api/v1/rh/colaboradores', clDatosAlta($this->estructura, ['fecha_fin_contrato' => null]))
-        ->assertUnprocessable()
-        ->assertJsonValidationErrors('fecha_fin_contrato');
+    $id = $this->postJson('/api/v1/rh/colaboradores', clDatosAlta($this->estructura, ['fecha_fin_contrato' => null]))
+        ->assertCreated()
+        ->json('colaborador_id');
+
+    expect(Colaborador::query()->findOrFail($id)->periodo_prueba_fin?->toDateString())
+        ->toBe(now()->addMonthsNoOverflow(2)->subDay()->toDateString());
 });
 
 test('un colaborador sin permiso no puede dar de alta personal', function () {

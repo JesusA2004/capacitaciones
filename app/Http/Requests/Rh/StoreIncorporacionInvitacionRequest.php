@@ -53,10 +53,10 @@ class StoreIncorporacionInvitacionRequest extends FormRequest
                 return;
             }
 
-            if ($candidato->estado !== EstadoCandidato::ListoParaContratacion) {
+            if ($candidato->estado !== EstadoCandidato::EnContratacion || $candidato->colaborador_id === null) {
                 $validator->errors()->add(
                     'candidato_id',
-                    'El candidato debe estar "Listo para contratación" antes de generar su invitación QR.',
+                    'El primer QR se genera desde la ficha del candidato autorizado por RH («Generar QR de contratación»); aquí solo se reemite para candidatos ya en contratación.',
                 );
 
                 return;

@@ -14,8 +14,11 @@ beforeEach(function () {
 /** Alta Digital QR simplificado: el formulario ya no captura nombre/correo a mano, se autocompleta desde el Candidato elegido. */
 function candidatoListoParaContratar(array $atributos = []): Candidato
 {
+    // Solo un candidato ya en contratación (autorizado por RH y con su
+    // persona creada) recibe el QR desde este módulo.
     return Candidato::factory()->create([
-        'estado' => EstadoCandidato::ListoParaContratacion,
+        'estado' => EstadoCandidato::EnContratacion,
+        'colaborador_id' => clColaboradorEnContratacion()->id,
         ...$atributos,
     ]);
 }

@@ -3,6 +3,7 @@
 namespace App\Services\Colaboradores;
 
 use App\Enums\EstadoAltaColaborador;
+use App\Enums\EstadoOnboarding;
 use App\Enums\EstadoUsuario;
 use App\Enums\PrioridadTarea;
 use App\Enums\TipoContratacion;
@@ -10,6 +11,7 @@ use App\Enums\TipoTarea;
 use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
 use App\Models\GeneratedDocument;
+use App\Models\OnboardingProceso;
 use App\Models\User;
 use App\Services\Asignaciones\AsignacionService;
 use App\Services\Auditoria\AuditoriaService;
@@ -17,6 +19,8 @@ use App\Services\Contratos\ContratoLaboralService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
+use App\Services\Onboarding\OnboardingService;
+use App\Services\Reclutamiento\ContratacionCandidatoService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Services\Tareas\TareaService;
 use App\Services\Vacantes\VacanteAutoGenerationService;
@@ -30,21 +34,21 @@ use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
- * Alta completa de un colaborador (alta manual de RH o candidato
- * contratado, ver App\Services\Reclutamiento\ContratacionCandidatoService):
+ * Etapa 2 (contratación y expediente digital) de un colaborador — alta
+ * manual de RH o candidato autorizado (App\Services\Reclutamiento\ContratacionCandidatoService):
  *
- *   colaborador + estructura (empresa vía sucursal, sucursal, puesto,
- *   departamento, jefe inmediato, gerente) + sueldo + fecha de ingreso +
- *   tipo de contratación + periodo de prueba/vencimiento
- *   → expediente (carpeta en el NAS) + checklist documental (document_types obligatorios)
- *   → relación contractual (ContratoLaboral) + documentos contractuales pendientes
- *   → cuenta de acceso (rol colaborador) para cargar documentos y firmar desde la app
- *   → estado del alta (EstadoAltaColaborador) recalculado automáticamente
- *   → activación final (estatus Activo) cuando expediente y contrato están completos.
+ *   colaborador + estructura + sueldo + fecha de ingreso + contrato
+ *   (vencimiento del periodo de prueba según el puesto)
+ *   → checklist documental del catálogo (document_types obligatorios)
+ *   → EXPEDIENTE COMPLETO = todos los obligatorios APROBADOS por RH
+ *   → contratos del paquete configurado (sin plantilla = bloqueo explícito)
+ *   → firma física / digital según cada plantilla
+ *   → Etapa 3: onboarding (App\Services\Onboarding\OnboardingService)
+ *   → activación (estatus Activo) al completar el onboarding.
  *
- * Todo lo que escribe en BD pasa en una sola transacción: si algo falla, no
- * queda un colaborador a medias. La generación de PDFs y las notificaciones
- * van después del commit y nunca revierten el alta (faltantes → tareas).
+ * El estado (EstadoAltaColaborador) se recalcula siempre a partir de los
+ * datos reales; nunca se captura a mano. Todo lo que escribe en BD al dar
+ * de alta pasa en una sola transacción.
  */
 class AltaColaboradorService
 {
@@ -60,6 +64,7 @@ class AltaColaboradorService
         private readonly NotificadorRhService $notificador,
         private readonly AuditoriaService $auditoria,
         private readonly AsignacionService $asignaciones,
+        private readonly IdentidadColaboradorService $identidad,
     ) {}
 
     /**
@@ -67,11 +72,16 @@ class AltaColaboradorService
      */
     public function registrar(array $datos, User $actor, ?callable $dentroDeTransaccion = null): Colaborador
     {
-        $this->validarNoDuplicado($datos);
+        $this->identidad->validarNoDuplicado($datos);
 
         $tipo = TipoContratacion::from($datos['tipo_contratacion']);
         $inicio = Carbon::parse($datos['fecha_ingreso'])->startOfDay();
         $fin = isset($datos['fecha_fin_contrato']) ? Carbon::parse($datos['fecha_fin_contrato'])->startOfDay() : null;
+
+        if ($fin === null && $tipo->tieneVencimiento()) {
+            $fin = $this->contratos->fechaFinPeriodoPrueba(isset($datos['puesto_id']) ? (int) $datos['puesto_id'] : null, $inicio);
+        }
+
         $resultado = DB::transaction(function () use ($datos, $actor, $tipo, $inicio, $fin, $dentroDeTransaccion): array {
             $colaborador = Colaborador::query()->create([
                 'name' => $datos['name'],
@@ -123,10 +133,7 @@ class AltaColaboradorService
 
                 // Capacitación (oculta tras el feature flag, ver
                 // docs/CAPACITACION_PROXIMAMENTE.md): un colaborador nuevo
-                // debe entrar ya inscrito en lo que RH dejó vigente para su
-                // sucursal/departamento/puesto/rol/"todos" — sin este
-                // llamado, AsignacionService::aplicarVigentesA() existía
-                // pero nunca se invocaba desde ningún alta real.
+                // entra inscrito en lo que RH dejó vigente para su perfil.
                 $this->asignaciones->aplicarVigentesA($usuario);
             }
 
@@ -142,6 +149,7 @@ class AltaColaboradorService
         $colaborador = $resultado['colaborador'];
 
         $this->auditoria->registrar('colaborador_alta', $colaborador, $actor, [
+            'colaborador_id' => $colaborador->id,
             'numero_empleado' => $colaborador->numero_empleado,
             'sucursal_id' => $colaborador->sucursal_principal_id,
             'puesto_id' => $colaborador->puesto_id,
@@ -150,10 +158,9 @@ class AltaColaboradorService
             'candidato_id' => $colaborador->candidato_id,
         ]);
 
-        // Después del commit: PDFs, tareas y correo. Nada de esto revierte el alta.
-        $paquete = ContratoLaboralService::clavesConfiguradas("contratos.paquetes_alta.{$tipo->value}");
-        $this->contratos->prepararDocumentos($resultado['contrato'], $paquete, $actor);
-
+        // Después del commit: tareas y correo. Los contratos NO se generan
+        // aquí: se generan cuando el expediente queda completo (todos los
+        // obligatorios aprobados), ver recalcularEstado().
         $this->abrirTareasExpediente($colaborador);
 
         if ($resultado['usuario'] !== null) {
@@ -164,16 +171,19 @@ class AltaColaboradorService
             }
         }
 
-        $this->recalcularEstado($colaborador);
+        $this->recalcularEstado($colaborador, $actor);
 
         return $colaborador->refresh();
     }
 
     /**
-     * Recalcula el estado del alta a partir del expediente y del contrato
-     * principal. Nunca retrocede un alta ya "activo" ni una "baja".
+     * Recalcula el estado a partir del expediente, los contratos y el
+     * onboarding, y dispara lo que corresponde al nuevo estado:
+     *  - expediente completo → genera los contratos que falten (si hay actor);
+     *  - contratos firmados → inicia el onboarding y cierra la Etapa 1 del candidato.
+     * Nunca retrocede un alta "activo" ni una "baja".
      */
-    public function recalcularEstado(Colaborador $colaborador): EstadoAltaColaborador
+    public function recalcularEstado(Colaborador $colaborador, ?User $actor = null): EstadoAltaColaborador
     {
         $actual = $colaborador->estado_alta;
 
@@ -182,16 +192,26 @@ class AltaColaboradorService
         }
 
         $nuevo = $this->calcularEstado($colaborador);
+        $contrato = $this->contratos->vigente($colaborador);
 
-        if ($nuevo === EstadoAltaColaborador::PendienteActivacion && $colaborador->estatus === EstadoUsuario::Activo) {
-            // Colaborador ya activado por el flujo previo (aprobación de
-            // incorporación): al completarse expediente y contrato el alta
-            // queda cerrada como activa.
-            $nuevo = EstadoAltaColaborador::Activo;
+        if ($nuevo === EstadoAltaColaborador::PendienteContrato && $contrato !== null && $actor !== null) {
+            $this->contratos->prepararFaltantes($contrato, $actor);
+            $this->notificarContratosListos($colaborador, $contrato);
+            $nuevo = $this->calcularEstado($colaborador->refresh());
         }
 
         if ($nuevo !== $actual) {
             $colaborador->update(['estado_alta' => $nuevo]);
+            $this->auditoria->registrar('alta_estado', $colaborador, $actor, [
+                'colaborador_id' => $colaborador->id,
+                'estado_anterior' => $actual?->value,
+                'estado_nuevo' => $nuevo->value,
+            ]);
+        }
+
+        if ($nuevo === EstadoAltaColaborador::EnOnboarding && $contrato !== null) {
+            app(OnboardingService::class)->iniciar($colaborador, $contrato, $actor);
+            app(ContratacionCandidatoService::class)->marcarContratado($colaborador, $actor);
         }
 
         if ($nuevo === EstadoAltaColaborador::PendienteActivacion) {
@@ -204,7 +224,7 @@ class AltaColaboradorService
             ]);
         }
 
-        if (in_array($nuevo, [EstadoAltaColaborador::PendienteContrato, EstadoAltaColaborador::PendienteFirma, EstadoAltaColaborador::PendienteActivacion, EstadoAltaColaborador::Activo], true)) {
+        if (! in_array($nuevo, [EstadoAltaColaborador::PendienteDocumentos, EstadoAltaColaborador::DocumentacionEnRevision], true)) {
             $this->tareas->resolver(TipoTarea::ExpedienteIncompleto, $colaborador);
         }
 
@@ -224,23 +244,34 @@ class AltaColaboradorService
         }
 
         $contrato = $this->contratos->vigente($colaborador);
-        $documento = $contrato?->documento;
 
-        if ($documento === null || $documento->estado_flujo === null) {
+        if ($contrato === null || ! $this->contratos->paqueteGenerado($contrato)) {
             return EstadoAltaColaborador::PendienteContrato;
         }
 
-        if (! $documento->estado_flujo->estaFirmado()) {
+        if (! $this->contratos->paqueteFirmado($contrato)) {
             return EstadoAltaColaborador::PendienteFirma;
         }
 
-        return EstadoAltaColaborador::PendienteActivacion;
+        if (! (bool) config('ciclo_laboral.onboarding.obligatorio', true)) {
+            return EstadoAltaColaborador::PendienteActivacion;
+        }
+
+        $onboarding = OnboardingProceso::query()
+            ->where('colaborador_id', $colaborador->id)
+            ->where('contrato_laboral_id', $contrato->id)
+            ->latest('id')
+            ->first();
+
+        return $onboarding?->estado === EstadoOnboarding::Completado
+            ? EstadoAltaColaborador::PendienteActivacion
+            : EstadoAltaColaborador::EnOnboarding;
     }
 
     /**
-     * Activación final: expediente con obligatorios aprobados y contrato
-     * principal firmado. Deja al colaborador Activo (portal completo) y
-     * sincroniza vacantes/plantilla.
+     * Activación final (fin de la Etapa 3): expediente aprobado, contratos
+     * firmados y onboarding completado. Deja al colaborador Activo (inicia
+     * operación en campo) y sincroniza vacantes/plantilla.
      */
     public function activar(Colaborador $colaborador, User $actor): Colaborador
     {
@@ -259,7 +290,7 @@ class AltaColaboradorService
 
             if ($estado !== EstadoAltaColaborador::PendienteActivacion) {
                 throw ValidationException::withMessages([
-                    'colaborador' => "No se puede activar todavía: el alta está en «{$estado->etiqueta()}». Se requiere expediente con obligatorios aprobados y contrato firmado.",
+                    'colaborador' => "No se puede activar todavía: está en «{$estado->etiqueta()}». Se requiere expediente aprobado, contratos firmados y onboarding completado.",
                 ]);
             }
 
@@ -280,12 +311,12 @@ class AltaColaboradorService
         });
 
         $this->tareas->resolver([TipoTarea::ActivacionPendiente, TipoTarea::ExpedienteIncompleto], $colaborador, $actor);
-        $this->auditoria->registrar('colaborador_activado', $colaborador, $actor);
+        $this->auditoria->registrar('colaborador_activado', $colaborador, $actor, ['colaborador_id' => $colaborador->id]);
 
         $usuario = $colaborador->user;
 
         if ($usuario !== null) {
-            $this->notificador->notificar([$usuario], 'alta_activada', 'Tu alta quedó activa', 'Tu expediente y contrato están completos. Ya tienes acceso completo al portal.', $colaborador, null, 'media');
+            $this->notificador->notificar([$usuario], 'alta_activada', 'Bienvenido a la operación', 'Completaste tu contratación y onboarding. Ya tienes acceso completo.', $colaborador, null, 'media');
         }
 
         return $colaborador->refresh();
@@ -303,17 +334,14 @@ class AltaColaboradorService
         $documental = $this->expediente->estadoDocumental($colaborador);
         $contrato = $this->contratos->vigente($colaborador);
 
-        $contractuales = $contrato === null ? [] : GeneratedDocument::query()
-            ->where('documentable_type', $contrato->getMorphClass())
-            ->where('documentable_id', $contrato->id)
-            ->orderBy('id')
-            ->get()
+        $contractuales = $contrato === null ? [] : $this->contratos->documentosDelContrato($contrato)
             ->map(fn (GeneratedDocument $d) => [
                 'id' => $d->id,
                 'clave' => $d->clave_plantilla,
                 'titulo' => $d->titulo,
                 'estado' => $d->estado_flujo?->value,
-                'firmado' => $d->estado_flujo?->estaFirmado() ?? false,
+                'estado_etiqueta' => $d->estado_flujo?->etiqueta(),
+                'firmado' => $this->contratos->documentoFirmadoSegunFlujo($d),
             ])->values()->all();
 
         $generadas = collect($contractuales)->pluck('clave')->filter()->all();
@@ -347,6 +375,25 @@ class AltaColaboradorService
         ];
     }
 
+    private function notificarContratosListos(Colaborador $colaborador, ContratoLaboral $contrato): void
+    {
+        $listos = $this->contratos->documentosDelContrato($contrato)->filter(fn (GeneratedDocument $d) => $d->requiere_impresion || $d->requiere_firma_fisica);
+
+        if ($listos->isEmpty()) {
+            return;
+        }
+
+        $this->notificador->notificar(
+            $this->notificador->responsablesDe($colaborador, 'documentos_laborales.operar_fisico'),
+            'contratos_listos',
+            'Contratos listos para imprimir',
+            sprintf('Los contratos de %s están listos: imprime, recaba firma y huella.', $colaborador->nombreCompleto()),
+            $contrato,
+            'imprimir_contratos',
+            'alta',
+        );
+    }
+
     private function abrirTareasExpediente(Colaborador $colaborador): void
     {
         $documental = $this->expediente->estadoDocumental($colaborador);
@@ -375,30 +422,6 @@ class AltaColaboradorService
             ]);
 
             $this->notificador->notificar([$colaborador->user], 'expediente_incompleto', 'Completa tu expediente', $descripcion, $colaborador, 'subir_documentos');
-        }
-    }
-
-    /**
-     * "No duplicar la persona": CURP/RFC/NSS/correo ya registrados en otro
-     * colaborador (incluso dado de baja) bloquean el alta con un mensaje
-     * explícito — un reingreso se hace reactivando el expediente existente.
-     *
-     * @param  array<string, mixed>  $datos
-     */
-    private function validarNoDuplicado(array $datos): void
-    {
-        foreach (['curp', 'rfc', 'nss'] as $campo) {
-            if (empty($datos[$campo])) {
-                continue;
-            }
-
-            $existente = Colaborador::withTrashed()->where($campo, strtoupper((string) $datos[$campo]))->first();
-
-            if ($existente !== null) {
-                throw ValidationException::withMessages([
-                    $campo => sprintf('Ya existe un colaborador con ese %s (%s, #%s). Si es un reingreso, reactiva su expediente en lugar de crear uno nuevo.', strtoupper($campo), $existente->nombreCompleto(), $existente->numero_empleado ?? $existente->id),
-                ]);
-            }
         }
     }
 

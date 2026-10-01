@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Api\V1\Rh;
 use App\Http\Controllers\Api\V1\Concerns\RespondePaginado;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CicloLaboral\ArchivoLaboralRequest;
+use App\Http\Requests\CicloLaboral\DecisionAprobacionRequest;
 use App\Http\Requests\CicloLaboral\DecisionRequest;
 use App\Http\Requests\CicloLaboral\FiniquitoCierreRequest;
-use App\Http\Requests\CicloLaboral\IniciarCierreRequest;
+use App\Http\Requests\CicloLaboral\ProgramarPagoRequest;
+use App\Http\Requests\CicloLaboral\SolicitarCierreRequest;
 use App\Models\CierreLaboral;
 use App\Models\Colaborador;
 use App\Models\FiniquitoConcepto;
@@ -19,8 +21,12 @@ use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 
 /**
- * Cierre laboral: inicio → aviso/renuncia → finiquito (conceptos, revisión,
- * documento, firma, pago) → baja → expediente cerrado.
+ * Cierre laboral (API v1, app administrativa). Delgado: todo pasa por
+ * CierreLaboralService, el mismo que usa la web.
+ *
+ *   solicitar → preautorizar → autorizar (RH) → aviso → finiquito (calcular,
+ *   conceptos, revisar, documento, autorizar) → programar pago → cita →
+ *   firma → pago → cerrar (baja + expediente, desde la fecha efectiva).
  */
 class CierreLaboralController extends Controller
 {
@@ -34,37 +40,65 @@ class CierreLaboralController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        abort_unless($request->user()->can('cierres.ver'), 403);
+        abort_unless($request->user()->can('cierres.ver') || $request->user()->can('cierres.solicitar'), 403);
 
         return $this->paginado(
             $this->cierres->listar($request->user(), $request->only(['estado', 'colaborador_id', 'per_page'])),
-            fn (CierreLaboral $c) => $this->cierres->aArray($c),
+            fn (CierreLaboral $c) => $this->cierres->aArray($c, false, $request->user()),
         );
     }
 
-    public function store(IniciarCierreRequest $request, Colaborador $colaborador): JsonResponse
+    public function store(SolicitarCierreRequest $request, Colaborador $colaborador): JsonResponse
     {
         $this->authorize('iniciarCierre', $colaborador);
 
-        $cierre = $this->cierres->iniciar($colaborador, $request->validated(), $request->user());
+        $cierre = $this->cierres->solicitar($colaborador, $request->safe()->except('evidencias'), $request->user(), array_values($request->file('evidencias', [])));
 
-        return response()->json(['data' => $this->cierres->aArray($cierre, true)], 201);
+        return response()->json(['data' => $this->cierres->aArray($cierre, true, $request->user())], 201);
     }
 
-    public function show(CierreLaboral $cierre): JsonResponse
+    public function show(Request $request, CierreLaboral $cierre): JsonResponse
     {
         $this->authorize('ver', $cierre);
 
-        return $this->respuesta($cierre);
+        return $this->respuesta($request, $cierre);
+    }
+
+    public function preautorizar(DecisionAprobacionRequest $request, CierreLaboral $cierre): JsonResponse
+    {
+        $this->authorize('ver', $cierre);
+
+        return $this->respuesta($request, $this->cierres->preautorizar($cierre, $request->user(), $request->comentario()));
+    }
+
+    public function autorizar(DecisionAprobacionRequest $request, CierreLaboral $cierre): JsonResponse
+    {
+        $this->authorize('ver', $cierre);
+
+        return $this->respuesta($request, $this->cierres->autorizarRh($cierre, $request->user(), $request->comentario()));
+    }
+
+    public function rechazar(DecisionAprobacionRequest $request, CierreLaboral $cierre): JsonResponse
+    {
+        $this->authorize('ver', $cierre);
+
+        return $this->respuesta($request, $this->cierres->rechazar($cierre, $request->user(), $request->motivo()));
+    }
+
+    public function devolver(DecisionAprobacionRequest $request, CierreLaboral $cierre): JsonResponse
+    {
+        $this->authorize('ver', $cierre);
+
+        return $this->respuesta($request, $this->cierres->devolver($cierre, $request->user(), $request->motivo()));
     }
 
     public function aviso(ArchivoLaboralRequest $request, CierreLaboral $cierre): JsonResponse
     {
-        $this->authorize('gestionar', $cierre);
+        $this->authorize('operar', $cierre);
         $archivo = $request->file('archivo');
         abort_unless($archivo instanceof UploadedFile, 422);
 
-        return $this->respuesta($this->cierres->registrarAviso($cierre, $archivo, $request->user()));
+        return $this->respuesta($request, $this->cierres->registrarAviso($cierre, $archivo, $request->user()));
     }
 
     public function generarAviso(Request $request, CierreLaboral $cierre): JsonResponse
@@ -81,7 +115,7 @@ class CierreLaboralController extends Controller
 
         $this->cierres->calcularFiniquito($cierre, $request->user(), (float) $request->validated('sueldo_mensual'), (float) ($request->validated('sueldo_pendiente') ?? 0));
 
-        return $this->respuesta($cierre->refresh());
+        return $this->respuesta($request, $cierre->refresh());
     }
 
     public function agregarConcepto(FiniquitoCierreRequest $request, CierreLaboral $cierre): JsonResponse
@@ -91,7 +125,7 @@ class CierreLaboralController extends Controller
 
         $this->finiquitos->agregarConcepto($this->cierres->exigirFiniquito($cierre), $request->safe()->only(['tipo', 'concepto', 'cantidad', 'importe', 'observaciones']), $request->user());
 
-        return $this->respuesta($cierre->refresh());
+        return $this->respuesta($request, $cierre->refresh());
     }
 
     public function actualizarConcepto(FiniquitoCierreRequest $request, CierreLaboral $cierre, FiniquitoConcepto $concepto): JsonResponse
@@ -101,7 +135,7 @@ class CierreLaboralController extends Controller
 
         $this->finiquitos->actualizarConcepto($concepto, $request->safe()->only(['tipo', 'concepto', 'cantidad', 'importe', 'observaciones']), $request->user());
 
-        return $this->respuesta($cierre->refresh());
+        return $this->respuesta($request, $cierre->refresh());
     }
 
     public function eliminarConcepto(Request $request, CierreLaboral $cierre, FiniquitoConcepto $concepto): JsonResponse
@@ -111,7 +145,7 @@ class CierreLaboralController extends Controller
 
         $this->finiquitos->eliminarConcepto($concepto, $request->user());
 
-        return $this->respuesta($cierre->refresh());
+        return $this->respuesta($request, $cierre->refresh());
     }
 
     public function revisarFiniquito(Request $request, CierreLaboral $cierre): JsonResponse
@@ -120,7 +154,14 @@ class CierreLaboralController extends Controller
 
         $this->finiquitos->aprobarCalculo($this->cierres->exigirFiniquito($cierre), $request->user());
 
-        return $this->respuesta($cierre->refresh());
+        return $this->respuesta($request, $cierre->refresh());
+    }
+
+    public function autorizarFiniquito(Request $request, CierreLaboral $cierre): JsonResponse
+    {
+        $this->authorize('revisarFiniquito', $cierre);
+
+        return $this->respuesta($request, $this->cierres->autorizarFiniquito($cierre, $request->user()));
     }
 
     public function generarFiniquito(Request $request, CierreLaboral $cierre): JsonResponse
@@ -130,18 +171,33 @@ class CierreLaboralController extends Controller
         $finiquito = $this->finiquitos->generarPdf($this->cierres->exigirFiniquito($cierre), $request->user());
 
         return response()->json([
-            'data' => $this->cierres->aArray($cierre->refresh(), true),
+            'data' => $this->cierres->aArray($cierre->refresh(), true, $request->user()),
             'documento_id' => $finiquito->generated_document_id,
         ]);
     }
 
+    public function programarPago(ProgramarPagoRequest $request, CierreLaboral $cierre): JsonResponse
+    {
+        $this->authorize('ver', $cierre);
+
+        return $this->respuesta($request, $this->cierres->programarPago($cierre, $request->user(), $request->validated()));
+    }
+
+    public function cita(Request $request, CierreLaboral $cierre): JsonResponse
+    {
+        $this->authorize('operar', $cierre);
+        $datos = $request->validate(['fecha' => ['required', 'date']]);
+
+        return $this->respuesta($request, $this->cierres->registrarCita($cierre, $request->user(), (string) $datos['fecha']));
+    }
+
     public function finiquitoFirmado(ArchivoLaboralRequest $request, CierreLaboral $cierre): JsonResponse
     {
-        $this->authorize('calcularFiniquito', $cierre);
+        $this->authorize('operar', $cierre);
         $archivo = $request->file('archivo');
         abort_unless($archivo instanceof UploadedFile, 422);
 
-        return $this->respuesta($this->cierres->registrarFiniquitoFirmado($cierre, $archivo, $request->user()));
+        return $this->respuesta($request, $this->cierres->registrarFiniquitoFirmado($cierre, $archivo, $request->user()));
     }
 
     public function confirmarPago(FiniquitoCierreRequest $request, CierreLaboral $cierre): JsonResponse
@@ -149,21 +205,28 @@ class CierreLaboralController extends Controller
         $this->authorize('confirmarPago', $cierre);
         $request->validate(['referencia_pago' => ['required']]);
 
-        return $this->respuesta($this->cierres->confirmarPago($cierre, $request->user(), (string) $request->validated('referencia_pago')));
+        return $this->respuesta($request, $this->cierres->confirmarPago($cierre, $request->user(), (string) $request->validated('referencia_pago')));
     }
 
     public function ejecutarBaja(Request $request, CierreLaboral $cierre): JsonResponse
     {
         $this->authorize('ejecutarBaja', $cierre);
 
-        return $this->respuesta($this->cierres->ejecutarBaja($cierre, $request->user()));
+        return $this->respuesta($request, $this->cierres->ejecutarBaja($cierre, $request->user()));
     }
 
     public function cerrarExpediente(Request $request, CierreLaboral $cierre): JsonResponse
     {
         $this->authorize('ejecutarBaja', $cierre);
 
-        return $this->respuesta($this->cierres->cerrarExpediente($cierre, $request->user()));
+        return $this->respuesta($request, $this->cierres->cerrarExpediente($cierre, $request->user()));
+    }
+
+    public function cerrar(Request $request, CierreLaboral $cierre): JsonResponse
+    {
+        $this->authorize('ejecutarBaja', $cierre);
+
+        return $this->respuesta($request, $this->cierres->cerrar($cierre, $request->user()));
     }
 
     public function cancelar(DecisionRequest $request, CierreLaboral $cierre): JsonResponse
@@ -171,11 +234,11 @@ class CierreLaboralController extends Controller
         $this->authorize('gestionar', $cierre);
         $request->validate(['motivo' => ['required']]);
 
-        return $this->respuesta($this->cierres->cancelar($cierre, $request->user(), (string) $request->validated('motivo')));
+        return $this->respuesta($request, $this->cierres->cancelar($cierre, $request->user(), (string) $request->validated('motivo')));
     }
 
-    private function respuesta(CierreLaboral $cierre): JsonResponse
+    private function respuesta(Request $request, CierreLaboral $cierre): JsonResponse
     {
-        return response()->json(['data' => $this->cierres->aArray($cierre, true)]);
+        return response()->json(['data' => $this->cierres->aArray($cierre, true, $request->user())]);
     }
 }

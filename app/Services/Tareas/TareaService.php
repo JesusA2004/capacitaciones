@@ -2,8 +2,10 @@
 
 namespace App\Services\Tareas;
 
+use App\Enums\EtapaCicloLaboral;
 use App\Enums\PrioridadTarea;
 use App\Enums\TipoTarea;
+use App\Models\Candidato;
 use App\Models\Colaborador;
 use App\Models\TareaRh;
 use App\Models\User;
@@ -35,7 +37,7 @@ class TareaService
     public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}
 
     /**
-     * @param  array{titulo?: string, descripcion?: string|null, prioridad?: PrioridadTarea, colaborador?: Colaborador|null, usuario?: User|null, permiso?: string|null, accion?: string|null, vence_en?: Carbon|string|null, datos?: array<string, mixed>}  $opciones
+     * @param  array{titulo?: string, descripcion?: string|null, prioridad?: PrioridadTarea, colaborador?: Colaborador|null, candidato?: Candidato|null, sucursal_id?: int|null, usuario?: User|null, permiso?: string|null, accion?: string|null, vence_en?: Carbon|string|null, datos?: array<string, mixed>}  $opciones
      */
     public function abrir(TipoTarea $tipo, ?Model $relacionado, array $opciones = []): ?TareaRh
     {
@@ -51,6 +53,7 @@ class TareaService
             }
 
             $colaborador = $opciones['colaborador'] ?? null;
+            $candidato = $opciones['candidato'] ?? null;
 
             return TareaRh::query()->create([
                 'tipo' => $tipo,
@@ -60,6 +63,8 @@ class TareaService
                 'relacionado_type' => $relacionado?->getMorphClass(),
                 'relacionado_id' => $relacionado?->getKey(),
                 'colaborador_id' => $colaborador?->id,
+                'candidato_id' => $candidato?->id,
+                'sucursal_id' => $opciones['sucursal_id'] ?? $colaborador->sucursal_principal_id ?? $candidato?->sucursal_id,
                 'asignado_user_id' => $usuario?->id,
                 'asignado_permiso' => $permiso,
                 'accion' => $opciones['accion'] ?? null,
@@ -144,24 +149,34 @@ class TareaService
             return false;
         }
 
+        if ($this->alcance->tieneAlcanceGlobal($usuario)) {
+            return true;
+        }
+
         $colaborador = $tarea->colaborador;
 
-        return $colaborador === null
-            || $this->alcance->tieneAlcanceGlobal($usuario)
-            || $this->alcance->puedeVerExpediente($usuario, $colaborador);
+        if ($colaborador !== null) {
+            return $this->alcance->alcanzaColaborador($usuario, $colaborador);
+        }
+
+        if ($tarea->candidato_id !== null) {
+            return $tarea->sucursal_id !== null && $this->alcance->sucursalesVisiblesIds($usuario)->contains($tarea->sucursal_id);
+        }
+
+        return true;
     }
 
     /**
      * Bandeja del usuario: tareas asignadas a su cuenta + tareas asignadas
      * por permiso que tiene, acotadas por su alcance organizacional.
      *
-     * @param  array{estado?: string|null, tipo?: string|null, per_page?: int|string|null}  $filtros
+     * @param  array{estado?: string|null, tipo?: string|null, etapa?: string|null, sucursal_id?: int|string|null, urgencia?: string|null, solo_ciclo?: bool|null, per_page?: int|string|null}  $filtros
      * @return LengthAwarePaginator<int, TareaRh>
      */
     public function bandeja(User $usuario, array $filtros = []): LengthAwarePaginator
     {
         return $this->queryBandeja($usuario, $filtros)
-            ->with(['colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id'])
+            ->with(['colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id', 'candidato:id,nombre,apellidos,sucursal_id', 'sucursal:id,nombre'])
             ->orderByRaw("case prioridad when 'urgente' then 4 when 'alta' then 3 when 'media' then 2 else 1 end desc")
             ->orderBy('vence_en')
             ->orderByDesc('id')
@@ -183,36 +198,56 @@ class TareaService
     }
 
     /**
-     * @param  array{estado?: string|null, tipo?: string|null}  $filtros
+     * @param  array{estado?: string|null, tipo?: string|null, etapa?: string|null, sucursal_id?: int|string|null, urgencia?: string|null, solo_ciclo?: bool|null}  $filtros
      * @return Builder<TareaRh>
      */
     private function queryBandeja(User $usuario, array $filtros): Builder
     {
         $permisos = $usuario->getAllPermissions()->pluck('name')->all();
-        $colaboradoresVisibles = $this->alcance->tieneAlcanceGlobal($usuario)
+        $global = $this->alcance->tieneAlcanceGlobal($usuario);
+        $colaboradoresVisibles = $global
             ? null
             : $this->alcance->limitarColaboradoresPorAlcance(Colaborador::query(), $usuario)->select('id');
+        $sucursalesVisibles = $global ? [] : $this->alcance->sucursalesVisiblesIds($usuario)->all();
 
-        $query = TareaRh::query()->where(function (Builder $q) use ($usuario, $permisos, $colaboradoresVisibles): void {
+        $query = TareaRh::query()->where(function (Builder $q) use ($usuario, $permisos, $colaboradoresVisibles, $sucursalesVisibles): void {
             $q->where('asignado_user_id', $usuario->id);
 
             if ($permisos !== []) {
-                $q->orWhere(function (Builder $sub) use ($permisos, $colaboradoresVisibles): void {
+                $q->orWhere(function (Builder $sub) use ($permisos, $colaboradoresVisibles, $sucursalesVisibles): void {
                     $sub->whereNull('asignado_user_id')->whereIn('asignado_permiso', $permisos);
 
                     if ($colaboradoresVisibles !== null) {
-                        $sub->where(fn (Builder $c) => $c->whereNull('colaborador_id')->orWhereIn('colaborador_id', $colaboradoresVisibles));
+                        // Pendientes de una persona: dentro del alcance. Pendientes de
+                        // un candidato (sin colaborador todavía): por su sucursal.
+                        $sub->where(fn (Builder $c) => $c
+                            ->where(fn (Builder $p) => $p->whereNotNull('colaborador_id')->whereIn('colaborador_id', $colaboradoresVisibles))
+                            ->orWhere(fn (Builder $p) => $p->whereNull('colaborador_id')->whereNotNull('candidato_id')->whereIn('sucursal_id', $sucursalesVisibles))
+                            ->orWhere(fn (Builder $p) => $p->whereNull('colaborador_id')->whereNull('candidato_id')));
                     }
                 });
             }
         });
 
         $estado = $filtros['estado'] ?? 'abiertas';
+        $etapa = isset($filtros['etapa']) ? EtapaCicloLaboral::tryFrom((string) $filtros['etapa']) : null;
+        $tiposEtapa = $etapa === null ? null : array_map(
+            fn (TipoTarea $t) => $t->value,
+            array_values(array_filter(TipoTarea::cases(), fn (TipoTarea $t) => $t->etapa() === $etapa)),
+        );
+        $urgencia = $filtros['urgencia'] ?? null;
 
         return $query
             ->when($estado === 'abiertas', fn (Builder $q) => $q->whereNull('resuelta_en'))
             ->when($estado === 'resueltas', fn (Builder $q) => $q->whereNotNull('resuelta_en'))
-            ->when($filtros['tipo'] ?? null, fn (Builder $q, string $tipo) => $q->where('tipo', $tipo));
+            ->when($filtros['tipo'] ?? null, fn (Builder $q, string $tipo) => $q->where('tipo', $tipo))
+            ->when($tiposEtapa !== null, fn (Builder $q) => $q->whereIn('tipo', $tiposEtapa ?? []))
+            ->when((bool) ($filtros['solo_ciclo'] ?? false), fn (Builder $q) => $q->whereIn('tipo', array_map(fn (TipoTarea $t) => $t->value, TipoTarea::delCiclo())))
+            ->when($filtros['sucursal_id'] ?? null, fn (Builder $q, int|string $sucursal) => $q->where('sucursal_id', (int) $sucursal))
+            ->when($urgencia === 'vencidas', fn (Builder $q) => $q->whereNotNull('vence_en')->whereDate('vence_en', '<', now()->toDateString()))
+            ->when($urgencia === 'urgentes', fn (Builder $q) => $q->where(fn (Builder $u) => $u
+                ->whereIn('prioridad', [PrioridadTarea::Alta->value, PrioridadTarea::Urgente->value])
+                ->orWhere(fn (Builder $v) => $v->whereNotNull('vence_en')->whereDate('vence_en', '<=', now()->addDays(3)->toDateString()))));
     }
 
     private function clave(TipoTarea $tipo, ?Model $relacionado, ?User $usuario, ?string $permiso): string
@@ -241,6 +276,16 @@ class TareaService
             'accion' => $tarea->accion,
             'related_type' => $tarea->relacionado_type !== null ? class_basename($tarea->relacionado_type) : null,
             'related_id' => $tarea->relacionado_id,
+            'etapa' => $tarea->tipo->etapa()?->value,
+            'etapa_etiqueta' => $tarea->tipo->etapa()?->etiqueta(),
+            'prioridad_etiqueta' => $tarea->prioridad->etiqueta(),
+            'candidato' => $tarea->candidato !== null ? [
+                'id' => $tarea->candidato->id,
+                'nombre' => $tarea->candidato->nombreCompleto(),
+            ] : null,
+            'sucursal' => $tarea->sucursal?->nombre,
+            'antiguedad_dias' => $tarea->created_at !== null ? (int) $tarea->created_at->diffInDays(now()) : 0,
+            'vencida' => $tarea->vence_en !== null && $tarea->vence_en->lt(now()->startOfDay()),
             'colaborador' => $tarea->colaborador !== null ? [
                 'id' => $tarea->colaborador->id,
                 'nombre' => $tarea->colaborador->nombreCompleto(),

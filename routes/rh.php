@@ -103,6 +103,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('{candidato}/cv/descargar', [CandidatoController::class, 'descargarCv'])->name('cv.descargar');
             Route::put('{candidato}/estado', [CandidatoController::class, 'actualizarEstado'])->name('estado');
             Route::post('{candidato}/seguimientos', [CandidatoController::class, 'agregarSeguimiento'])->name('seguimientos.store');
+            Route::get('{candidato}/evidencias/{evidencia}', [CandidatoController::class, 'descargarEvidencia'])->name('evidencias.descargar');
+            // Workflow de reclutamiento (CandidatoWorkflowService, mismo que la API).
+            Route::post('{candidato}/perfil', [CandidatoController::class, 'evaluarPerfil'])->name('perfil');
+            Route::post('{candidato}/entrevista', [CandidatoController::class, 'registrarEntrevista'])->name('entrevista');
+            Route::post('{candidato}/psicometricas/link', [CandidatoController::class, 'enviarPsicometricas'])->name('psicometricas.link');
+            Route::post('{candidato}/psicometricas/resultados', [CandidatoController::class, 'resultadosPsicometricas'])->name('psicometricas.resultados');
+            Route::post('{candidato}/psicometricas/revision', [CandidatoController::class, 'revisarPsicometricas'])->name('psicometricas.revision');
+            Route::post('{candidato}/socioeconomico', [CandidatoController::class, 'registrarSocioeconomico'])->name('socioeconomico');
+            Route::post('{candidato}/referencias', [CandidatoController::class, 'registrarReferencia'])->name('referencias.store');
+            Route::post('{candidato}/referencias/concluir', [CandidatoController::class, 'concluirReferencias'])->name('referencias.concluir');
+            Route::post('{candidato}/preautorizar', [CandidatoController::class, 'preautorizar'])->name('preautorizar');
+            Route::post('{candidato}/autorizar', [CandidatoController::class, 'autorizarRh'])->name('autorizar');
+            Route::post('{candidato}/rechazar', [CandidatoController::class, 'rechazarRh'])->name('rechazar');
+            Route::post('{candidato}/devolver', [CandidatoController::class, 'devolverRh'])->name('devolver');
+            Route::post('{candidato}/descartar', [CandidatoController::class, 'descartar'])->name('descartar');
+            Route::post('{candidato}/contratacion', [CandidatoController::class, 'iniciarContratacion'])->name('contratacion');
             Route::delete('{candidato}', [CandidatoController::class, 'destroy'])->name('destroy');
         });
 

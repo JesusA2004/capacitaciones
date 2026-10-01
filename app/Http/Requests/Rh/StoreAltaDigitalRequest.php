@@ -52,12 +52,12 @@ class StoreAltaDigitalRequest extends FormRequest
             }
 
             $candidato = Candidato::query()->where('id', $candidatoId)->first();
-            $estadosElegibles = [EstadoCandidato::ListoParaContratacion->value, EstadoCandidato::Contratado->value];
+            $estadosElegibles = [EstadoCandidato::AutorizadoRh->value];
 
             if ($candidato !== null && ! in_array($candidato->estado->value, $estadosElegibles, true)) {
                 $validator->errors()->add(
                     'candidato_id',
-                    'El candidato debe estar "Listo para contratación" antes de generar su alta digital.',
+                    'Solo un candidato con la autorización final de RH puede iniciar su alta.',
                 );
             }
         });

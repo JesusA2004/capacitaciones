@@ -5,6 +5,7 @@ namespace App\Policies;
 use App\Models\Colaborador;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\CicloLaboral\OrganizacionJerarquiaService;
 
 /**
  * Acciones del ciclo laboral sobre un colaborador (alta, activación,
@@ -57,9 +58,21 @@ class ColaboradorPolicy
             || ($usuario->can('contratos.ver') && $this->alcance->alcanzaColaborador($usuario, $colaborador));
     }
 
+    /**
+     * RH (cierres.gestionar) o el jefe/gerente (cierres.solicitar) — el jefe
+     * también por cadena de mando aunque no tenga alcance de sucursal. La
+     * regla completa (causa, preautorización, RH) vive en CierreLaboralService.
+     */
     public function iniciarCierre(User $usuario, Colaborador $colaborador): bool
     {
-        return $this->administrativo($usuario, $colaborador, 'cierres.gestionar');
+        if ($this->administrativo($usuario, $colaborador, 'cierres.gestionar') || $this->administrativo($usuario, $colaborador, 'cierres.solicitar')) {
+            return true;
+        }
+
+        return $usuario->can('cierres.solicitar')
+            && ! $this->esPropio($usuario, $colaborador)
+            && $usuario->colaborador !== null
+            && app(OrganizacionJerarquiaService::class)->estaEnCadenaDeMando($usuario->colaborador, $colaborador);
     }
 
     public function crearRecibo(User $usuario, Colaborador $colaborador): bool

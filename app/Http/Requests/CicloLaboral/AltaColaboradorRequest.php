@@ -68,7 +68,9 @@ class AltaColaboradorRequest extends FormRequest
             'sueldo_mensual' => ['required', 'numeric', 'min:0', 'max:9999999'],
             'fecha_ingreso' => ['required', 'date'],
             'tipo_contratacion' => ['required', Rule::enum(TipoContratacion::class)],
-            'fecha_fin_contrato' => ['nullable', 'required_unless:tipo_contratacion,'.TipoContratacion::Indeterminado->value, 'date', 'after_or_equal:fecha_ingreso'],
+            // Opcional: sin fecha, el periodo de prueba vence según el puesto
+            // (meses_periodo_prueba) — ver ContratoLaboralService::fechaFinPeriodoPrueba().
+            'fecha_fin_contrato' => ['nullable', 'date', 'after_or_equal:fecha_ingreso'],
             'vacante_id' => ['nullable', 'integer', 'exists:vacantes,id'],
             'crear_acceso' => ['sometimes', 'boolean'],
         ];

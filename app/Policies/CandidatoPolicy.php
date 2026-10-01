@@ -7,32 +7,14 @@ use App\Models\Candidato;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 
+/**
+ * Visibilidad y edición de candidatos. Los AVANCES del pipeline no se
+ * autorizan aquí: los valida App\Services\Reclutamiento\CandidatoWorkflowService
+ * (permiso del paso + alcance + organigrama para preautorizar + RH para la
+ * autorización final), igual para web y API.
+ */
 class CandidatoPolicy
 {
-    /**
-     * Transiciones de alto impacto que requieren un permiso de decision
-     * (aprobar/rechazar) en vez del permiso general de edicion.
-     *
-     * @var array<int, string>
-     */
-    private const ESTADOS_APROBACION = [
-        EstadoCandidato::OfertaAprobacion->value,
-        EstadoCandidato::ListoParaContratacion->value,
-        EstadoCandidato::Contratado->value,
-    ];
-
-    /**
-     * Los 4 estados terminales de salida (ver App\Enums\EstadoCandidato::ESTADOS_SALIDA).
-     *
-     * @var array<int, string>
-     */
-    private const ESTADOS_RECHAZO = [
-        EstadoCandidato::NoSeleccionado->value,
-        EstadoCandidato::NoViable->value,
-        EstadoCandidato::NoRespondio->value,
-        EstadoCandidato::Desistio->value,
-    ];
-
     public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}
 
     public function viewAny(User $usuario): bool
@@ -55,26 +37,25 @@ class CandidatoPolicy
         return $usuario->can('candidatos.editar') && $this->visiblePara($usuario, $candidato);
     }
 
+    /**
+     * Desde el tablero solo se puede CERRAR el proceso (estados de salida con
+     * motivo); avanzar es una acción del workflow.
+     */
     public function cambiarEstado(User $usuario, Candidato $candidato, EstadoCandidato $nuevoEstado): bool
     {
-        if (! $this->visiblePara($usuario, $candidato)) {
-            return false;
-        }
-
-        if (in_array($nuevoEstado->value, self::ESTADOS_APROBACION, true)) {
-            return $usuario->can('candidatos.aprobar');
-        }
-
-        if (in_array($nuevoEstado->value, self::ESTADOS_RECHAZO, true)) {
-            return $usuario->can('candidatos.rechazar');
-        }
-
-        return $usuario->can('candidatos.editar');
+        return $this->visiblePara($usuario, $candidato)
+            && $nuevoEstado->esSalida()
+            && ($usuario->can('candidatos.rechazar') || $usuario->can('candidatos.editar') || $usuario->can('candidatos.evaluar'));
     }
 
     public function delete(User $usuario, Candidato $candidato): bool
     {
-        return $usuario->can('candidatos.eliminar') && $this->visiblePara($usuario, $candidato);
+        // Un candidato que ya entró a contratación es el origen de una
+        // persona en Etapa 2: su historial no se borra.
+        return $usuario->can('candidatos.eliminar')
+            && $this->visiblePara($usuario, $candidato)
+            && $candidato->colaborador_id === null
+            && $candidato->estado->orden() < EstadoCandidato::EnContratacion->orden();
     }
 
     private function visiblePara(User $usuario, Candidato $candidato): bool
@@ -88,6 +69,7 @@ class CandidatoPolicy
         }
 
         return $candidato->sucursal_id === null
+            || $candidato->gerente_involucrado_id === $usuario->id
             || $this->alcance->sucursalesVisiblesIds($usuario)->contains($candidato->sucursal_id);
     }
 }

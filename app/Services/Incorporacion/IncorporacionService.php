@@ -12,6 +12,7 @@ use App\Notifications\Mobile\DocumentoActualizadoNotification;
 use App\Notifications\Mobile\IncorporacionDecididaNotification;
 use App\Notifications\Mobile\RhDocumentoPendienteNotification;
 use App\Notifications\Mobile\RhIncorporacionCompletaNotification;
+use App\Services\Colaboradores\AltaColaboradorService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Expedientes\ProgresoExpediente;
@@ -412,21 +413,37 @@ class IncorporacionService
             throw new RuntimeException('No se puede aprobar la incorporacion: hay documentos obligatorios sin aprobar.');
         }
 
+        // En el ciclo laboral, aprobar la incorporación = EXPEDIENTE APROBADO:
+        // la persona sigue a contratos firmados y onboarding; la activación
+        // la hace AltaColaboradorService al completar el onboarding. Solo un
+        // registro previo al ciclo (sin estado_alta) se activa aquí.
+        $enCiclo = $colaborador->estado_alta !== null;
+
         $colaborador->update([
-            'estatus' => EstadoUsuario::Activo,
+            ...($enCiclo ? [] : ['estatus' => EstadoUsuario::Activo]),
             'incorporacion_decision' => 'aprobado',
             'incorporacion_decidida_por' => $revisor->id,
             'incorporacion_decidida_en' => now(),
             'incorporacion_motivo_rechazo' => null,
         ]);
 
-        $this->notificarSinFallar(function () use ($colaborador): void {
+        if ($enCiclo) {
+            app(AltaColaboradorService::class)->recalcularEstado($colaborador->refresh(), $revisor);
+        }
+
+        $this->notificarSinFallar(function () use ($colaborador, $enCiclo): void {
             if ($colaborador->user === null) {
                 return;
             }
 
             NotificationFacade::send($colaborador->user, new IncorporacionDecididaNotification(true));
-            $this->push->aUsuario($colaborador->user, 'incorporacion', $colaborador->id, 'Incorporación aprobada', 'Tu incorporación fue aprobada.');
+            $this->push->aUsuario(
+                $colaborador->user,
+                'incorporacion',
+                $colaborador->id,
+                $enCiclo ? 'Expediente aprobado' : 'Incorporación aprobada',
+                $enCiclo ? 'RH aprobó tu expediente. Siguen tus contratos.' : 'Tu incorporación fue aprobada.',
+            );
         });
     }
 

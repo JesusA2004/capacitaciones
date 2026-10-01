@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\GrupoPuestoIndicador;
 use App\Enums\TipoPuesto;
 use Database\Factories\PuestoFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -27,6 +28,8 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property string|null $responsabilidades
  * @property string|null $requisitos
  * @property bool $activo
+ * @property int|null $meses_periodo_prueba
+ * @property GrupoPuestoIndicador|null $grupo_indicador
  * @property-read int $usuarios_count Solo presente cuando se pide con withCount('usuarios').
  * @property-read int $candidatos_count Solo presente cuando se pide con withCount('candidatos').
  * @property-read int $vacantes_abiertas_count Solo presente cuando se pide con withCount(['vacantes as vacantes_abiertas_count' => ...]).
@@ -49,6 +52,8 @@ class Puesto extends Model
         'responsabilidades',
         'requisitos',
         'activo',
+        'meses_periodo_prueba',
+        'grupo_indicador',
     ];
 
     protected function casts(): array
@@ -57,6 +62,8 @@ class Puesto extends Model
             'activo' => 'boolean',
             'requiere_ruta' => 'boolean',
             'tipo_puesto' => TipoPuesto::class,
+            'meses_periodo_prueba' => 'integer',
+            'grupo_indicador' => GrupoPuestoIndicador::class,
         ];
     }
 

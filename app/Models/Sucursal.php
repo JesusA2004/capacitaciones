@@ -23,6 +23,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property string|null $telefono
  * @property int|null $responsable_id
  * @property bool $activo
+ * @property bool $es_corporativo
  * @property-read Empresa|null $empresa
  * @property-read User|null $responsable
  */
@@ -33,12 +34,13 @@ class Sucursal extends Model
 
     protected $table = 'sucursales';
 
-    protected $fillable = ['empresa_id', 'nombre', 'clave', 'direccion', 'ciudad', 'estado', 'telefono', 'responsable_id', 'activo'];
+    protected $fillable = ['empresa_id', 'nombre', 'clave', 'direccion', 'ciudad', 'estado', 'telefono', 'responsable_id', 'activo', 'es_corporativo'];
 
     protected function casts(): array
     {
         return [
             'activo' => 'boolean',
+            'es_corporativo' => 'boolean',
         ];
     }
 

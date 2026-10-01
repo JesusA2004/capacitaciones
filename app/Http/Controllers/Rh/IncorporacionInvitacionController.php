@@ -89,7 +89,11 @@ class IncorporacionInvitacionController extends Controller
     private function queryCandidatosElegibles(): EloquentCollection
     {
         return Candidato::query()
-            ->where('estado', EstadoCandidato::ListoParaContratacion)
+            // Solo candidatos YA en contratación (autorizados por RH y con su
+            // colaborador creado): el primer QR lo genera la ficha del
+            // candidato con los datos laborales (ContratacionCandidatoService).
+            ->where('estado', EstadoCandidato::EnContratacion)
+            ->whereNotNull('colaborador_id')
             ->whereDoesntHave('incorporacionInvitacion', function (Builder $query): void {
                 $query->where('estado', EstadoInvitacionIncorporacion::Activo)
                     ->where('expires_at', '>', now());
@@ -191,6 +195,7 @@ class IncorporacionInvitacionController extends Controller
 
         ['invitacion' => $invitacion, 'token' => $token] = $this->invitaciones->crear([
             'candidato_id' => $candidato->id,
+            'colaborador_id' => $candidato->colaborador_id,
             'email' => $candidato->correo,
             'telefono' => $candidato->telefono,
             'nombre_prellenado' => $candidato->nombreCompleto(),

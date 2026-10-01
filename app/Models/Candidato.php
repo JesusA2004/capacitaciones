@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
@@ -39,6 +40,12 @@ use Illuminate\Support\Carbon;
  * @property int|null $creado_por
  * @property int|null $colaborador_id
  * @property Carbon|null $contratado_en
+ * @property int $etapa_maxima
+ * @property string|null $motivo_salida
+ * @property Carbon|null $salida_en
+ * @property int|null $salida_por
+ * @property Carbon|null $autorizado_rh_en
+ * @property Carbon|null $updated_at
  * @property Carbon|null $created_at
  */
 class Candidato extends Model
@@ -81,6 +88,11 @@ class Candidato extends Model
         'creado_por',
         'colaborador_id',
         'contratado_en',
+        'etapa_maxima',
+        'motivo_salida',
+        'salida_en',
+        'salida_por',
+        'autorizado_rh_en',
     ];
 
     protected function casts(): array
@@ -90,6 +102,9 @@ class Candidato extends Model
             'fecha_entrevista' => 'datetime',
             'contratado_en' => 'datetime',
             'cv_size' => 'integer',
+            'etapa_maxima' => 'integer',
+            'salida_en' => 'datetime',
+            'autorizado_rh_en' => 'datetime',
         ];
     }
 
@@ -256,7 +271,7 @@ class Candidato extends Model
 
     /**
      * Más reciente si hay varias (p. ej. una alta cancelada y luego otra
-     * generada de nuevo) — ver App\Services\Candidatos\CandidatoTimelineService.
+     * generada de nuevo) — alta digital legacy, fuera del recorrido actual.
      *
      * @return HasOne<AltaDigital, $this>
      */
@@ -271,5 +286,56 @@ class Candidato extends Model
     public function incorporacionInvitacion(): HasOne
     {
         return $this->hasOne(IncorporacionInvitacion::class)->latestOfMany();
+    }
+
+    /**
+     * @return HasMany<CandidatoEntrevista, $this>
+     */
+    public function entrevistas(): HasMany
+    {
+        return $this->hasMany(CandidatoEntrevista::class)->orderByDesc('realizada_en');
+    }
+
+    /**
+     * @return HasMany<CandidatoPsicometrica, $this>
+     */
+    public function psicometricas(): HasMany
+    {
+        return $this->hasMany(CandidatoPsicometrica::class)->orderByDesc('id');
+    }
+
+    /**
+     * @return HasMany<CandidatoSocioeconomico, $this>
+     */
+    public function socioeconomicos(): HasMany
+    {
+        return $this->hasMany(CandidatoSocioeconomico::class)->orderByDesc('fecha_visita');
+    }
+
+    /**
+     * @return HasMany<CandidatoReferencia, $this>
+     */
+    public function referencias(): HasMany
+    {
+        return $this->hasMany(CandidatoReferencia::class)->orderBy('id');
+    }
+
+    /**
+     * @return HasMany<CandidatoEvidencia, $this>
+     */
+    public function evidencias(): HasMany
+    {
+        return $this->hasMany(CandidatoEvidencia::class)->orderBy('id');
+    }
+
+    /**
+     * Aprobaciones de la selección (preautorización del gerente y
+     * autorización final de RH).
+     *
+     * @return MorphMany<Aprobacion, $this>
+     */
+    public function aprobaciones(): MorphMany
+    {
+        return $this->morphMany(Aprobacion::class, 'aprobable')->orderBy('ronda')->orderBy('id');
     }
 }

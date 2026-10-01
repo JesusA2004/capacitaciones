@@ -22,7 +22,16 @@ import CrudStats from '@/components/DataTable/CrudStats.vue';
 import CandidatoFormDialog from '@/components/Rh/CandidatoFormDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
     Select,
     SelectContent,
@@ -31,7 +40,6 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useAlertas } from '@/composables/useAlertas';
-import { useCelebracion } from '@/composables/useCelebracion';
 import { useFiltros } from '@/composables/useFiltros';
 import { formatoMoneda } from '@/lib/utils';
 import { dashboard } from '@/routes';
@@ -176,7 +184,6 @@ function urlExportar(
     return `${destino.url()}?${parametros.toString()}`;
 }
 const { mostrarError } = useAlertas();
-const { celebrar } = useCelebracion();
 
 const COLUMNAS = props.opciones.estados ?? [];
 const transicionesPermitidas = props.opciones.transicionesPermitidas ?? {};
@@ -225,23 +232,36 @@ function alSoltar(nuevoEstado: string) {
             nuevoEstado,
         )
     ) {
-        mostrarError('Las fases no pueden retroceder.');
+        mostrarError(
+            'Desde el tablero solo puedes cerrar el proceso. Para avanzar, abre la ficha del candidato y usa la acción que corresponde.',
+        );
 
         return;
     }
 
+    // Cerrar el proceso exige motivo (queda en la línea de tiempo).
+    salidaPendiente.value = { candidato, estado: nuevoEstado };
+    motivoSalida.value = '';
+}
+
+const salidaPendiente = ref<{ candidato: CandidatoItem; estado: string } | null>(null);
+const motivoSalida = ref('');
+
+function confirmarSalida() {
+    const pendiente = salidaPendiente.value;
+
+    if (!pendiente || motivoSalida.value.trim() === '') {
+        return;
+    }
+
     router.put(
-        estadoUrl.url(candidato.id),
-        { estado: nuevoEstado },
+        estadoUrl.url(pendiente.candidato.id),
+        { estado: pendiente.estado, nota: motivoSalida.value },
         {
             preserveScroll: true,
-            onSuccess: () => {
-                if (nuevoEstado === 'contratado') {
-                    celebrar();
-                }
-            },
+            onSuccess: () => (salidaPendiente.value = null),
             onError: () =>
-                mostrarError('No tienes permiso para mover este candidato.'),
+                mostrarError('No tienes permiso para cerrar el proceso de este candidato.'),
         },
     );
 }
@@ -579,4 +599,32 @@ function alSoltar(nuevoEstado: string) {
         :opciones="opciones"
         :key="seleccionado?.id ?? 'nuevo'"
     />
+
+    <Dialog
+        :open="salidaPendiente !== null"
+        @update:open="(abierto: boolean) => !abierto && (salidaPendiente = null)"
+    >
+        <DialogContent class="sm:max-w-md">
+            <DialogHeader>
+                <DialogTitle>Cerrar proceso del candidato</DialogTitle>
+                <DialogDescription>
+                    {{ salidaPendiente?.candidato.nombre }} ·
+                    {{ opciones.estados.find((e) => e.value === salidaPendiente?.estado)?.etiqueta }}
+                </DialogDescription>
+            </DialogHeader>
+            <div class="grid gap-1.5">
+                <Label for="motivo-salida">Motivo (obligatorio)</Label>
+                <Textarea id="motivo-salida" v-model="motivoSalida" rows="3" />
+            </div>
+            <DialogFooter>
+                <Button variant="ghost" @click="salidaPendiente = null">Cancelar</Button>
+                <Button
+                    variant="destructive"
+                    :disabled="motivoSalida.trim() === ''"
+                    @click="confirmarSalida"
+                    >Cerrar proceso</Button
+                >
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
 </template>

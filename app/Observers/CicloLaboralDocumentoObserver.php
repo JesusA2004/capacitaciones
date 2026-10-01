@@ -9,6 +9,7 @@ use App\Enums\TipoTarea;
 use App\Models\Colaborador;
 use App\Models\EmployeeDocument;
 use App\Models\GeneratedDocument;
+use App\Models\User;
 use App\Services\Colaboradores\AltaColaboradorService;
 use App\Services\Tareas\TareaService;
 use Illuminate\Support\Facades\Log;
@@ -52,6 +53,20 @@ class CicloLaboralDocumentoObserver
                 ]);
             }
 
+            // Bandeja de RH: documento esperando revisión humana.
+            if (in_array($documento->status, [EstadoDocumento::EnRevision, EstadoDocumento::Cargado], true) && $colaborador !== null && $colaborador->estado_alta !== null) {
+                $documento->loadMissing('tipo');
+
+                $tareas->abrir(TipoTarea::DocumentoPorRevisar, $documento, [
+                    'titulo' => sprintf('Revisar %s: %s', $documento->tipo->nombre, $colaborador->nombreCompleto()),
+                    'colaborador' => $colaborador,
+                    'permiso' => 'documentos.revisar',
+                    'accion' => 'revisar_documento',
+                ]);
+            } else {
+                $tareas->resolver(TipoTarea::DocumentoPorRevisar, $documento);
+            }
+
             // Una versión nueva reemplaza a la rechazada: su pendiente se cierra.
             if ($documento->wasRecentlyCreated && $documento->previous_version_id !== null) {
                 $anterior = EmployeeDocument::query()->find($documento->previous_version_id);
@@ -90,6 +105,11 @@ class CicloLaboralDocumentoObserver
             return;
         }
 
-        app(AltaColaboradorService::class)->recalcularEstado($colaborador);
+        // El actor es quien provocó el cambio (RH que aprobó el último
+        // documento, gerente que registró la firma física...): con él se
+        // generan los contratos al completarse el expediente.
+        $actor = auth()->user();
+
+        app(AltaColaboradorService::class)->recalcularEstado($colaborador, $actor instanceof User ? $actor : null);
     }
 }

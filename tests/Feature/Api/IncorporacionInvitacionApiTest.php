@@ -23,6 +23,8 @@ function crearInvitacion(array $datos = []): array
 
     $servicio = app(IncorporacionInvitacionService::class);
 
+    $datos['colaborador_id'] ??= clColaboradorEnContratacion()->id;
+
     return [...$servicio->crear($datos, $rh), 'rh' => $rh];
 }
 
@@ -179,7 +181,7 @@ test('el usuario creado por qr puede usar de inmediato /colaborador/incorporacio
     expect($json)->not->toContain('"path"');
 });
 
-test('rh puede aprobar la incorporacion de un colaborador registrado por qr y activarlo', function () {
+test('rh aprueba el expediente de un colaborador registrado por qr: sigue en contratación hasta firmar contratos y completar onboarding', function () {
     $tipo = DocumentType::factory()->create(['requerido' => true]);
     ['token' => $token] = crearInvitacion();
 
@@ -200,5 +202,9 @@ test('rh puede aprobar la incorporacion de un colaborador registrado por qr y ac
         ->postJson("/api/v1/rh/expedientes/{$colaborador->id}/aprobar-incorporacion")
         ->assertOk();
 
-    expect($colaborador->fresh()->estatus)->toBe(EstadoUsuario::Activo);
+    // Aprobar la incorporación = expediente aprobado; la activación llega al
+    // completar contratos y onboarding.
+    expect($colaborador->fresh()->estatus)->toBe(EstadoUsuario::EnIncorporacion)
+        ->and($colaborador->fresh()->incorporacion_decision)->toBe('aprobado')
+        ->and($colaborador->fresh()->estado_alta?->value)->toBe('pendiente_contrato');
 });

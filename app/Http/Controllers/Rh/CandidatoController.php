@@ -4,15 +4,27 @@ namespace App\Http\Controllers\Rh;
 
 use App\Enums\EstadoCandidato;
 use App\Enums\FuenteCandidato;
-use App\Enums\TipoSeguimientoCandidato;
+use App\Enums\ResultadoEtapaCandidato;
+use App\Enums\ResultadoReferencia;
+use App\Enums\TipoContratacion;
 use App\Exports\ReporteRhExport;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\CicloLaboral\ContratarCandidatoRequest;
+use App\Http\Requests\CicloLaboral\DecisionAprobacionRequest;
+use App\Http\Requests\Reclutamiento\DescartarCandidatoRequest;
+use App\Http\Requests\Reclutamiento\EnviarPsicometricasRequest;
+use App\Http\Requests\Reclutamiento\EvaluarFiltroCandidatoRequest;
+use App\Http\Requests\Reclutamiento\RegistrarEntrevistaRequest;
+use App\Http\Requests\Reclutamiento\RegistrarReferenciaRequest;
+use App\Http\Requests\Reclutamiento\RegistrarSocioeconomicoRequest;
+use App\Http\Requests\Reclutamiento\ResultadosPsicometricasRequest;
 use App\Http\Requests\Rh\ActualizarEstadoCandidatoRequest;
 use App\Http\Requests\Rh\StoreCandidatoRequest;
 use App\Http\Requests\Rh\StoreSeguimientoCandidatoRequest;
 use App\Http\Requests\Rh\SubirCvCandidatoRequest;
 use App\Http\Requests\Rh\UpdateCandidatoRequest;
 use App\Models\Candidato;
+use App\Models\CandidatoEvidencia;
 use App\Models\Departamento;
 use App\Models\Empresa;
 use App\Models\Puesto;
@@ -20,7 +32,10 @@ use App\Models\Sucursal;
 use App\Models\User;
 use App\Models\Vacante;
 use App\Services\AlcanceOrganizacionalService;
-use App\Services\Candidatos\CandidatoTimelineService;
+use App\Services\CicloLaboral\CicloLaboralService;
+use App\Services\Reclutamiento\CandidatoPresenter;
+use App\Services\Reclutamiento\CandidatoWorkflowService;
+use App\Services\Reclutamiento\ContratacionCandidatoService;
 use App\Services\Reclutamiento\CvStorageService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\CarbonInterface;
@@ -28,13 +43,17 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
+/**
+ * Reclutamiento web. Delgado: valida (FormRequest), autoriza la vista
+ * (Policy) y delega TODO avance a CandidatoWorkflowService /
+ * ContratacionCandidatoService — los mismos services que usa la API móvil.
+ */
 class CandidatoController extends Controller
 {
     private const FILTROS = ['empresa_id', 'sucursal_id', 'departamento_id', 'puesto_objetivo_id', 'vacante_id', 'responsable_rh_id', 'fuente', 'busqueda', 'fecha_inicio', 'fecha_fin', 'mes'];
@@ -42,7 +61,10 @@ class CandidatoController extends Controller
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly CvStorageService $cvStorage,
-        private readonly CandidatoTimelineService $timeline,
+        private readonly CandidatoWorkflowService $workflow,
+        private readonly ContratacionCandidatoService $contratacion,
+        private readonly CicloLaboralService $ciclo,
+        private readonly CandidatoPresenter $presenter,
     ) {}
 
     public function index(Request $request): Response
@@ -63,21 +85,11 @@ class CandidatoController extends Controller
     }
 
     /**
-     * KPIs del header de Candidatos (sección 4 del encargo): recibidos en
-     * el periodo, en proceso, finalistas, contratados, tasa de conversión
-     * y tiempo promedio de contratación. Respeta el alcance organizacional
-     * y los mismos filtros de empresa/sucursal/departamento/puesto/fuente
-     * que la tabla — "mes" (YYYY-MM) acota únicamente lo que es volumen del
-     * periodo (recibidos/contratados/tasa/tiempo promedio); "en proceso" y
-     * "finalistas" son una foto del pipeline actual, no del periodo.
+     * KPIs del header de Candidatos: recibidos en el periodo, en proceso,
+     * finalistas (esperando o con autorización de RH), contratados, tasa de
+     * conversión y tiempo promedio de contratación. Respeta alcance y filtros.
      *
-     * El gasto de reclutamiento y el costo por candidato/contratación solo
-     * se calculan si el módulo de campañas de reclutamiento
-     * (App\Models\CampanaReclutamiento, construido en paralelo) ya existe
-     * en el momento en que corre este código — mientras no exista, se
-     * omiten esas 3 llaves sin romper nada.
-     *
-     * @return array<string, int|float>
+     * @return array<string, int|float|null>
      */
     private function kpis(Request $request): array
     {
@@ -93,53 +105,30 @@ class CandidatoController extends Controller
             ->when($request->string('fuente')->toString(), fn ($q, string $v) => $q->where('fuente', $v));
 
         $recibidosPeriodo = $base()->whereBetween('created_at', [$inicioPeriodo, $finPeriodo])->count();
+        $enProceso = $base()->whereIn('estado', array_map(fn (EstadoCandidato $e) => $e->value, EstadoCandidato::abiertos()))->count();
+        $finalistas = $base()->whereIn('estado', [EstadoCandidato::AutorizacionRhPendiente->value, EstadoCandidato::AutorizadoRh->value])->count();
 
-        $enProceso = $base()->whereNotIn('estado', array_map(
-            fn (EstadoCandidato $e) => $e->value,
-            array_filter(EstadoCandidato::cases(), fn (EstadoCandidato $e) => $e->esTerminal()),
-        ))->count();
+        $contratados = $base()
+            ->where('estado', EstadoCandidato::Contratado->value)
+            ->whereNotNull('contratado_en')
+            ->whereBetween('contratado_en', [$inicioPeriodo, $finPeriodo])
+            ->get(['id', 'created_at', 'contratado_en']);
 
-        $finalistas = $base()->where('estado', EstadoCandidato::ListoParaContratacion)->count();
-
-        // Filtrado en PHP (no whereHas) porque ultimoCambioEstado es una
-        // relación "ofMany" (latestOfMany): la fecha exacta de contratación
-        // de cada candidato solo se conoce con certeza tras cargarla.
-        $fechaContratacion = function (Candidato $c): ?CarbonInterface {
-            return $c->ultimoCambioEstado?->estado_nuevo === EstadoCandidato::Contratado->value
-                ? $c->ultimoCambioEstado->fecha
-                : $c->updated_at;
-        };
-
-        $contratadosPeriodo = $base()
-            ->where('estado', EstadoCandidato::Contratado)
-            ->with('ultimoCambioEstado')
-            ->get()
-            ->filter(function (Candidato $c) use ($fechaContratacion, $inicioPeriodo, $finPeriodo) {
-                $fecha = $fechaContratacion($c);
-
-                return $fecha !== null && $fecha->between($inicioPeriodo, $finPeriodo);
-            });
-
-        $diasContratacion = $contratadosPeriodo
-            ->map(fn (Candidato $c) => $c->created_at?->diffInDays($fechaContratacion($c)))
-            ->filter(fn ($dias) => $dias !== null);
+        $dias = $contratados
+            ->map(fn (Candidato $c) => $c->created_at !== null && $c->contratado_en !== null ? $c->created_at->diffInDays($c->contratado_en) : null)
+            ->filter(fn ($d) => $d !== null);
 
         return [
             'recibidos_periodo' => $recibidosPeriodo,
             'en_proceso' => $enProceso,
             'finalistas' => $finalistas,
-            'contratados_periodo' => $contratadosPeriodo->count(),
-            'tasa_conversion' => $recibidosPeriodo > 0 ? round($contratadosPeriodo->count() / $recibidosPeriodo, 4) : 0.0,
-            'tiempo_promedio_contratacion_dias' => $diasContratacion->isEmpty() ? null : round($diasContratacion->avg(), 1),
+            'contratados_periodo' => $contratados->count(),
+            'tasa_conversion' => $recibidosPeriodo > 0 ? round($contratados->count() / $recibidosPeriodo, 4) : 0.0,
+            'tiempo_promedio_contratacion_dias' => $dias->isEmpty() ? null : round((float) $dias->avg(), 1),
         ];
     }
 
     /**
-     * Tipado por CarbonInterface (no Illuminate\Support\Carbon): AppServiceProvider
-     * fuerza `Date::use(CarbonImmutable::class)` globalmente, así que
-     * `now()`/`Carbon::parse()` devuelven CarbonImmutable en runtime (ver
-     * mismo comentario en IncorporacionInvitacionService::resolverExpiracion()).
-     *
      * @return array{0: CarbonInterface, 1: CarbonInterface}
      */
     private function rangoMes(string $mes): array
@@ -159,10 +148,7 @@ class CandidatoController extends Controller
 
         [$columnas, $filas] = $this->tabla($request);
 
-        return Excel::download(
-            new ReporteRhExport('Candidatos', $columnas, $filas),
-            'candidatos-'.now()->format('Y-m-d').'.xlsx',
-        );
+        return Excel::download(new ReporteRhExport('Candidatos', $columnas, $filas), 'candidatos-'.now()->format('Y-m-d').'.xlsx');
     }
 
     public function exportarPdf(Request $request): HttpResponse
@@ -194,7 +180,7 @@ class CandidatoController extends Controller
             $c->sucursal?->nombre,
             $c->responsableRh ? trim("{$c->responsableRh->name} {$c->responsableRh->apellidos}") : null,
             $c->estado->etiqueta(),
-            $c->created_at->toDateString(),
+            $c->created_at?->toDateString(),
         ])->all();
 
         return [$columnas, $filas];
@@ -238,65 +224,20 @@ class CandidatoController extends Controller
             });
     }
 
-    public function show(Candidato $candidato): Response
+    public function show(Request $request, Candidato $candidato): Response
     {
         $this->authorize('view', $candidato);
 
-        $candidato->load([
-            'empresa:id,nombre',
-            'sucursal:id,nombre',
-            'departamento:id,nombre',
-            'puestoObjetivo:id,nombre',
-            'vacante:id,puesto_id,estado',
-            'responsableRh:id,name,apellidos',
-            'gerenteInvolucrado:id,name,apellidos',
-            'seguimientos.registradoPor:id,name,apellidos',
-            // Columnas calificadas con el nombre de tabla (no el atajo
-            // "relacion:col1,col2"): altaDigital/incorporacionInvitacion son
-            // relaciones latestOfMany(), que hacen JOIN contra una subconsulta
-            // derivada con las mismas columnas (candidato_id) — sin calificar,
-            // MariaDB las reporta como ambiguas (error 1052).
-            'altaDigital' => fn ($query) => $query->select(
-                'altas_digitales.id',
-                'altas_digitales.candidato_id',
-                'altas_digitales.estado',
-                'altas_digitales.token',
-                'altas_digitales.created_at',
-                'altas_digitales.creado_por',
-            ),
-            'altaDigital.creadoPor:id,name,apellidos',
-            'altaDigital.colaborador:id,name,apellidos,created_at',
-            'incorporacionInvitacion' => fn ($query) => $query->select(
-                'incorporacion_invitaciones.id',
-                'incorporacion_invitaciones.candidato_id',
-                'incorporacion_invitaciones.estado',
-                'incorporacion_invitaciones.uuid',
-                'incorporacion_invitaciones.used_at',
-                'incorporacion_invitaciones.expires_at',
-            ),
-        ]);
-
         return Inertia::render('Rh/Candidatos/Show', [
-            'candidato' => $candidato,
+            'candidato' => $this->presenter->detalle($candidato),
+            'ciclo' => $this->ciclo->obtenerEstado($candidato, $request->user()),
             'opciones' => $this->opciones(),
-            'timeline' => $this->timeline->construir($candidato),
         ]);
     }
 
     public function store(StoreCandidatoRequest $request): RedirectResponse
     {
-        $candidato = Candidato::create([
-            ...$request->validated(),
-            'creado_por' => $request->user()?->id,
-        ]);
-
-        $candidato->seguimientos()->create([
-            'tipo' => TipoSeguimientoCandidato::Nota,
-            'nota' => 'Candidato registrado.',
-            'estado_nuevo' => EstadoCandidato::Recibidos->value,
-            'fecha' => now(),
-            'registrado_por' => $request->user()?->id,
-        ]);
+        $this->workflow->registrar($request->validated(), $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Candidato registrado correctamente.']);
     }
@@ -323,7 +264,7 @@ class CandidatoController extends Controller
             'cv_disk' => config('reclutamiento.disk'),
             'cv_path' => $ruta,
             'cv_original_name' => $archivo->getClientOriginalName(),
-            'cv_mime' => $archivo->getClientMimeType(),
+            'cv_mime' => $archivo->getMimeType() ?? $archivo->getClientMimeType(),
             'cv_size' => $archivo->getSize(),
         ]);
 
@@ -341,35 +282,139 @@ class CandidatoController extends Controller
         ]);
     }
 
+    /**
+     * Evidencia privada (socioeconómico/psicométricas): Policy + alcance,
+     * nunca URL pública.
+     */
+    public function descargarEvidencia(Candidato $candidato, CandidatoEvidencia $evidencia): StreamedResponse
+    {
+        $this->authorize('view', $candidato);
+        abort_unless($evidencia->candidato_id === $candidato->id, 404);
+
+        return $this->cvStorage->respuesta($evidencia->path, [
+            'Content-Type' => $evidencia->mime ?? 'application/octet-stream',
+            'Content-Disposition' => 'inline; filename="'.$evidencia->original_name.'"',
+        ]);
+    }
+
+    /**
+     * Tablero: arrastrar solo CIERRA el proceso (salida con motivo).
+     */
     public function actualizarEstado(ActualizarEstadoCandidatoRequest $request, Candidato $candidato): RedirectResponse
     {
-        $estadoAnterior = $candidato->estado;
-        $nuevoEstado = EstadoCandidato::from($request->validated('estado'));
+        $estado = EstadoCandidato::from($request->validated('estado'));
+        $this->workflow->descartar($candidato, $request->user(), $estado, (string) ($request->validated('nota') ?? ''));
 
-        // Las fases del candidato son sucesivas: el tablero no es la única
-        // autoridad, el enum vuelve a validar que no sea un retroceso.
-        if (! $estadoAnterior->puedeTransicionarA($nuevoEstado)) {
-            $motivo = $estadoAnterior->esTerminal()
-                ? "«{$estadoAnterior->etiqueta()}» es un estado definitivo: ya no admite ningún cambio posterior."
-                : 'las fases no pueden retroceder ni saltarse hacia atrás en el pipeline.';
+        return back()->with('toast', ['type' => 'success', 'message' => 'Proceso del candidato cerrado.']);
+    }
 
-            throw ValidationException::withMessages([
-                'estado' => "No se puede mover al candidato de «{$estadoAnterior->etiqueta()}» a «{$nuevoEstado->etiqueta()}»: {$motivo}",
-            ]);
-        }
+    public function evaluarPerfil(EvaluarFiltroCandidatoRequest $request, Candidato $candidato): RedirectResponse
+    {
+        $this->workflow->evaluarPerfil($candidato, $request->user(), $request->boolean('viable'), $request->validated('observaciones'));
 
-        $candidato->update(['estado' => $nuevoEstado]);
+        return $this->ok('Revisión de perfil registrada.');
+    }
 
-        $candidato->seguimientos()->create([
-            'tipo' => TipoSeguimientoCandidato::CambioEstado,
-            'nota' => $request->validated('nota') ?? "Estado actualizado a «{$nuevoEstado->etiqueta()}».",
-            'estado_anterior' => $estadoAnterior->value,
-            'estado_nuevo' => $nuevoEstado->value,
-            'fecha' => now(),
-            'registrado_por' => $request->user()?->id,
+    public function registrarEntrevista(RegistrarEntrevistaRequest $request, Candidato $candidato): RedirectResponse
+    {
+        $this->workflow->registrarEntrevista($candidato, $request->user(), $request->validated());
+
+        return $this->ok('Entrevista registrada.');
+    }
+
+    public function enviarPsicometricas(EnviarPsicometricasRequest $request, Candidato $candidato): RedirectResponse
+    {
+        $this->workflow->enviarPsicometricas($candidato, $request->user(), (string) $request->validated('link'));
+
+        return $this->ok('Link de psicométricas registrado.');
+    }
+
+    public function resultadosPsicometricas(ResultadosPsicometricasRequest $request, Candidato $candidato): RedirectResponse
+    {
+        $this->workflow->registrarResultadosPsicometricas($candidato, $request->user(), (string) $request->validated('resumen'), array_values($request->file('archivos', [])));
+
+        return $this->ok('Resultados psicométricos registrados y entregados al gerente.');
+    }
+
+    public function revisarPsicometricas(EvaluarFiltroCandidatoRequest $request, Candidato $candidato): RedirectResponse
+    {
+        $this->workflow->revisarPsicometricas($candidato, $request->user(), $request->boolean('viable'), $request->validated('observaciones'));
+
+        return $this->ok('Revisión de psicométricas registrada.');
+    }
+
+    public function registrarSocioeconomico(RegistrarSocioeconomicoRequest $request, Candidato $candidato): RedirectResponse
+    {
+        $this->workflow->registrarSocioeconomico($candidato, $request->user(), $request->safe()->except('evidencias'), array_values($request->file('evidencias', [])));
+
+        return $this->ok('Estudio socioeconómico registrado.');
+    }
+
+    public function registrarReferencia(RegistrarReferenciaRequest $request, Candidato $candidato): RedirectResponse
+    {
+        $this->workflow->registrarReferencia($candidato, $request->user(), $request->validated());
+
+        return $this->ok('Referencia registrada.');
+    }
+
+    public function concluirReferencias(EvaluarFiltroCandidatoRequest $request, Candidato $candidato): RedirectResponse
+    {
+        $this->workflow->concluirReferencias($candidato, $request->user(), $request->boolean('viable'), $request->validated('observaciones'));
+
+        return $this->ok('Validación de referencias concluida.');
+    }
+
+    public function preautorizar(DecisionAprobacionRequest $request, Candidato $candidato): RedirectResponse
+    {
+        $this->workflow->preautorizar($candidato, $request->user(), $request->comentario());
+
+        return $this->ok('Preautorizado: queda pendiente la autorización final de RH.');
+    }
+
+    public function autorizarRh(DecisionAprobacionRequest $request, Candidato $candidato): RedirectResponse
+    {
+        $this->workflow->autorizarRh($candidato, $request->user(), $request->comentario());
+
+        return $this->ok('Contratación autorizada por RH. Ya puedes generar el QR.');
+    }
+
+    public function rechazarRh(DecisionAprobacionRequest $request, Candidato $candidato): RedirectResponse
+    {
+        $this->workflow->rechazarRh($candidato, $request->user(), $request->motivo());
+
+        return $this->ok('Contratación rechazada.');
+    }
+
+    public function devolverRh(DecisionAprobacionRequest $request, Candidato $candidato): RedirectResponse
+    {
+        $this->workflow->devolverRh($candidato, $request->user(), $request->motivo());
+
+        return $this->ok('Devuelto al gerente para corrección.');
+    }
+
+    public function descartar(DescartarCandidatoRequest $request, Candidato $candidato): RedirectResponse
+    {
+        $this->workflow->descartar($candidato, $request->user(), EstadoCandidato::from((string) $request->validated('estado')), (string) $request->validated('motivo'));
+
+        return $this->ok('Proceso del candidato cerrado.');
+    }
+
+    /**
+     * Etapa 1 → 2: crea al colaborador (sin duplicar persona) y el QR
+     * ligado a él. El token plano solo vive en la sesión de quien lo generó.
+     */
+    public function iniciarContratacion(ContratarCandidatoRequest $request, Candidato $candidato): RedirectResponse
+    {
+        ['invitacion' => $invitacion, 'token' => $token] = $this->contratacion->iniciarContratacion($candidato, $request->validated(), $request->user());
+
+        // Misma clave/vigencia que IncorporacionInvitacionController::show() lee.
+        $request->session()->put("incorporacion_invitacion_token_{$invitacion->id}", [
+            'token' => $token,
+            'expira_en' => now()->addMinutes(5)->timestamp,
         ]);
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Estado del candidato actualizado.']);
+        return redirect()->route('rh.incorporacion.invitaciones.show', $invitacion)
+            ->with('toast', ['type' => 'success', 'message' => 'Contratación iniciada: comparte el QR con el candidato. No vuelve a mostrarse.']);
     }
 
     public function agregarSeguimiento(StoreSeguimientoCandidatoRequest $request, Candidato $candidato): RedirectResponse
@@ -396,6 +441,11 @@ class CandidatoController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => 'Candidato eliminado correctamente.']);
     }
 
+    private function ok(string $mensaje): RedirectResponse
+    {
+        return back()->with('toast', ['type' => 'success', 'message' => $mensaje]);
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -406,27 +456,26 @@ class CandidatoController extends Controller
             'sucursales' => Sucursal::query()->orderBy('nombre')->get(['id', 'nombre', 'empresa_id']),
             'departamentos' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
             'puestos' => Puesto::query()->orderBy('nombre')->get(['id', 'nombre', 'departamento_id']),
-            // Con el puesto y la sucursal ya resueltos: el formulario de
-            // candidatos ya no pide "Puesto objetivo" como campo aparte
-            // cuando hay vacante seleccionada, lo deriva de aquí mismo (ver
-            // Candidato::booted()).
             'vacantes' => Vacante::query()
                 ->whereNotIn('estado', ['cubierta', 'cancelada'])
                 ->with(['puesto:id,nombre', 'sucursal:id,nombre'])
                 ->orderByDesc('fecha_apertura')
                 ->get(['id', 'puesto_id', 'sucursal_id']),
             'responsables' => User::query()->role(['rh_admin', 'rh_auxiliar'])->orderBy('name')->get(['id', 'name', 'apellidos']),
-            'estados' => array_map(fn (EstadoCandidato $e) => ['value' => $e->value, 'etiqueta' => $e->etiqueta()], EstadoCandidato::cases()),
+            'gerentes' => User::query()->permission(CandidatoWorkflowService::PERMISO_GERENTE)->whereNull('acceso_bloqueado_en')->orderBy('name')->get(['id', 'name', 'apellidos']),
+            'estados' => array_map(fn (EstadoCandidato $e) => ['value' => $e->value, 'etiqueta' => $e->etiqueta(), 'salida' => $e->esSalida()], EstadoCandidato::cases()),
+            'salidas' => array_map(fn (EstadoCandidato $e) => ['value' => $e->value, 'etiqueta' => $e->etiqueta()], array_values(array_filter(EstadoCandidato::salidas(), fn (EstadoCandidato $e) => $e !== EstadoCandidato::RechazadoRh))),
             'fuentes' => array_map(fn (FuenteCandidato $f) => ['value' => $f->value, 'etiqueta' => $f->etiqueta()], FuenteCandidato::cases()),
-            'tiposSeguimiento' => array_map(fn (TipoSeguimientoCandidato $t) => ['value' => $t->value, 'etiqueta' => $t->etiqueta()], TipoSeguimientoCandidato::cases()),
+            'resultados' => array_map(fn (ResultadoEtapaCandidato $r) => ['value' => $r->value, 'etiqueta' => $r->etiqueta()], ResultadoEtapaCandidato::cases()),
+            'resultadosReferencia' => array_map(fn (ResultadoReferencia $r) => ['value' => $r->value, 'etiqueta' => $r->etiqueta()], ResultadoReferencia::cases()),
+            'tiposContratacion' => array_map(fn (TipoContratacion $t) => ['value' => $t->value, 'etiqueta' => $t->etiqueta()], TipoContratacion::cases()),
             'transicionesPermitidas' => $this->transicionesPermitidas(),
         ];
     }
 
     /**
-     * Mapa {estadoOrigen: string[]} con los destinos válidos según
-     * EstadoCandidato::puedeTransicionarA() — fuente de verdad única para que
-     * el tablero de candidatos no duplique la matriz de fases en TypeScript.
+     * Mapa {estadoOrigen: string[]} de destinos válidos desde el tablero
+     * (solo salidas): fuente única para que el kanban no duplique la regla.
      *
      * @return array<string, array<int, string>>
      */
@@ -437,10 +486,7 @@ class CandidatoController extends Controller
         foreach (EstadoCandidato::cases() as $origen) {
             $mapa[$origen->value] = array_values(array_map(
                 fn (EstadoCandidato $destino) => $destino->value,
-                array_filter(
-                    EstadoCandidato::cases(),
-                    fn (EstadoCandidato $destino) => $origen->puedeTransicionarA($destino)
-                )
+                array_filter(EstadoCandidato::cases(), fn (EstadoCandidato $destino) => $origen->puedeTransicionarA($destino)),
             ));
         }
 

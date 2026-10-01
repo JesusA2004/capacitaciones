@@ -86,7 +86,7 @@ test('indicadores de RH se calculan en backend (rotación, embudo, costo por con
     $sucursal = $this->estructura['sucursal'];
     Colaborador::factory()->count(4)->create(['sucursal_principal_id' => $sucursal->id]);
 
-    Candidato::factory()->create(['sucursal_id' => $sucursal->id, 'estado' => EstadoCandidato::Entrevista->value]);
+    Candidato::factory()->create(['sucursal_id' => $sucursal->id, 'estado' => EstadoCandidato::EntrevistaPendiente->value]);
     Candidato::factory()->create(['sucursal_id' => $sucursal->id, 'estado' => EstadoCandidato::Contratado->value, 'contratado_en' => now(), 'created_at' => now()->subDays(10)]);
     CampanaReclutamiento::query()->create(['canal' => 'meta', 'mes' => (int) now()->format('n'), 'anio' => (int) now()->format('Y'), 'monto' => 3000, 'sucursal_id' => $sucursal->id]);
     ContratoLaboral::factory()->create(['colaborador_id' => Colaborador::factory()->create(['sucursal_principal_id' => $sucursal->id])->id, 'fecha_fin' => now()->addDays(5)->toDateString()]);
@@ -99,7 +99,7 @@ test('indicadores de RH se calculan en backend (rotación, embudo, costo por con
         ->and($datos['costo_por_contratacion'])->toEqual(3000)
         ->and($datos['tiempo_contratacion_dias']['candidatos'])->toEqual(10)
         ->and($datos['contratos_por_vencer']['total'])->toBe(1)
-        ->and(collect($datos['embudo_candidatos'])->firstWhere('estado', 'entrevista')['total'])->toBe(1);
+        ->and(collect($datos['embudo_candidatos'])->firstWhere('estado', 'entrevista_pendiente')['total'])->toBe(1);
 
     Sanctum::actingAs(clUsuario('colaborador'));
     $this->getJson('/api/v1/rh/indicadores')->assertForbidden();

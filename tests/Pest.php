@@ -118,3 +118,19 @@ function clArchivoPdf(string $nombre = 'documento.pdf'): UploadedFile
 {
     return UploadedFile::fake()->create($nombre, 20, 'application/pdf');
 }
+
+
+/**
+ * Persona ya creada por la contratación (Etapa 2) y todavía sin cuenta: es
+ * a quien se le emite el QR de registro (nunca a "cualquiera").
+ *
+ * @param  array<string, mixed>  $atributos
+ */
+function clColaboradorEnContratacion(array $atributos = []): Colaborador
+{
+    return Colaborador::factory()->create([
+        'estatus' => 'en_incorporacion',
+        'estado_alta' => 'pendiente_documentos',
+        ...$atributos,
+    ]);
+}

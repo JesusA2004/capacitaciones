@@ -34,6 +34,22 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property Carbon|null $expediente_cerrado_en
  * @property int|null $iniciado_por
  * @property string|null $observaciones
+ * @property Carbon|null $autorizado_rh_en
+ * @property int|null $autorizado_rh_por
+ * @property Carbon|null $rechazado_en
+ * @property string|null $motivo_rechazo
+ * @property Carbon|null $finiquito_autorizado_en
+ * @property int|null $finiquito_autorizado_por
+ * @property Carbon|null $pago_programado_para
+ * @property string|null $pago_monto
+ * @property string|null $pago_metodo
+ * @property int|null $pago_responsable_user_id
+ * @property string|null $pago_observaciones
+ * @property int|null $pago_programado_por
+ * @property Carbon|null $pago_programado_en
+ * @property Carbon|null $cita_firma_en
+ * @property int|null $cita_registrada_por
+ * @property Carbon|null $created_at
  * @property-read Colaborador $colaborador
  * @property-read SolicitudInterna|null $solicitud
  */
@@ -48,6 +64,10 @@ class CierreLaboral extends Model
         'fecha_efectiva', 'estado', 'aviso_registrado_en', 'aviso_documento_id',
         'pago_confirmado_en', 'pago_confirmado_por', 'referencia_pago',
         'baja_ejecutada_en', 'expediente_cerrado_en', 'iniciado_por', 'observaciones',
+        'autorizado_rh_en', 'autorizado_rh_por', 'rechazado_en', 'motivo_rechazo',
+        'finiquito_autorizado_en', 'finiquito_autorizado_por', 'pago_programado_para', 'pago_monto',
+        'pago_metodo', 'pago_responsable_user_id', 'pago_observaciones', 'pago_programado_por',
+        'pago_programado_en', 'cita_firma_en', 'cita_registrada_por',
     ];
 
     protected function casts(): array
@@ -60,7 +80,22 @@ class CierreLaboral extends Model
             'pago_confirmado_en' => 'datetime',
             'baja_ejecutada_en' => 'datetime',
             'expediente_cerrado_en' => 'datetime',
+            'autorizado_rh_en' => 'datetime',
+            'rechazado_en' => 'datetime',
+            'finiquito_autorizado_en' => 'datetime',
+            'pago_programado_para' => 'date',
+            'pago_monto' => 'decimal:2',
+            'pago_programado_en' => 'datetime',
+            'cita_firma_en' => 'datetime',
         ];
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function pagoResponsable(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'pago_responsable_user_id');
     }
 
     /**

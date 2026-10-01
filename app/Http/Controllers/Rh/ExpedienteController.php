@@ -35,7 +35,7 @@ use App\Services\Formatos\OfficialFormatCatalogoService;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use App\Services\Nomina\PrestamoService;
 use App\Services\Nomina\ReciboNominaService;
-use App\Services\Onboarding\OnboardingService;
+use App\Services\Onboarding\ChecklistAdministrativoService;
 use App\Services\Solicitudes\BajaColaboradorService;
 use App\Services\Vacaciones\VacacionesService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -59,7 +59,7 @@ class ExpedienteController extends Controller
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly ExpedienteService $expediente,
-        private readonly OnboardingService $onboarding,
+        private readonly ChecklistAdministrativoService $onboarding,
         private readonly VacacionesService $vacaciones,
         private readonly DocumentoStorageService $documentoStorage,
         private readonly AvisoPrivacidadService $avisoPrivacidad,

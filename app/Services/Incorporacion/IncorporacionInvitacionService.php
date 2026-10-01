@@ -3,12 +3,15 @@
 namespace App\Services\Incorporacion;
 
 use App\Enums\EstadoAltaColaborador;
+use App\Enums\EstadoCandidato;
 use App\Enums\EstadoInvitacionIncorporacion;
 use App\Enums\EstadoUsuario;
 use App\Exceptions\Incorporacion\InvitacionInvalidaException;
+use App\Models\Candidato;
 use App\Models\Colaborador;
 use App\Models\IncorporacionInvitacion;
 use App\Models\User;
+use App\Services\Colaboradores\IdentidadColaboradorService;
 use BaconQrCode\Renderer\GDLibRenderer;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
 use BaconQrCode\Renderer\ImageRenderer;
@@ -20,6 +23,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 /**
@@ -41,12 +45,16 @@ class IncorporacionInvitacionService
     /** Vigencia máxima de un QR de incorporación: nunca días, solo horas. */
     private const MAX_HORAS_VIGENCIA = 24;
 
+    public function __construct(private readonly IdentidadColaboradorService $identidad) {}
+
     /**
      * @param  array<string, mixed>  $datos
      * @return array{invitacion: IncorporacionInvitacion, token: string}
      */
     public function crear(array $datos, User $creadoPor): array
     {
+        $this->exigirDestinatarioAutorizado($datos);
+
         $token = $this->generarToken();
 
         $invitacion = IncorporacionInvitacion::create([
@@ -61,6 +69,7 @@ class IncorporacionInvitacionService
             'departamento_id' => $datos['departamento_id'] ?? null,
             'puesto_id' => $datos['puesto_id'] ?? null,
             'candidato_id' => $datos['candidato_id'] ?? null,
+            'colaborador_id' => $datos['colaborador_id'] ?? null,
             'creado_por_id' => $creadoPor->id,
             'expires_at' => $this->resolverExpiracion($datos),
             'max_usos' => $datos['max_usos'] ?? 1,
@@ -89,6 +98,7 @@ class IncorporacionInvitacionService
             'departamento_id' => $invitacion->departamento_id,
             'puesto_id' => $invitacion->puesto_id,
             'candidato_id' => $invitacion->candidato_id,
+            'colaborador_id' => $invitacion->colaborador_id,
             'max_usos' => $invitacion->max_usos,
             'observaciones' => $invitacion->metadata['observaciones'] ?? null,
         ], $creadoPor);
@@ -100,6 +110,48 @@ class IncorporacionInvitacionService
         }
 
         return $resultado;
+    }
+
+    /**
+     * El QR de incorporación es la puerta a la Etapa 2: solo se emite para
+     * (a) un candidato con autorización final de RH (o ya en contratación,
+     * para regenerar un QR vencido) o (b) una persona que ya existe como
+     * colaborador (reingreso o personal sin cuenta). Nunca para "cualquiera".
+     *
+     * @param  array<string, mixed>  $datos
+     */
+    private function exigirDestinatarioAutorizado(array $datos): void
+    {
+        $candidatoId = $datos['candidato_id'] ?? null;
+        $colaboradorId = $datos['colaborador_id'] ?? null;
+
+        if ($candidatoId === null && $colaboradorId === null) {
+            throw ValidationException::withMessages([
+                'candidato_id' => 'El QR de incorporación solo se genera para un candidato autorizado por RH o para un colaborador ya registrado.',
+            ]);
+        }
+
+        if ($candidatoId !== null) {
+            $candidato = Candidato::query()->where('id', $candidatoId)->first();
+
+            if ($candidato === null || ! in_array($candidato->estado, [EstadoCandidato::AutorizadoRh, EstadoCandidato::EnContratacion], true)) {
+                throw ValidationException::withMessages([
+                    'candidato_id' => 'Solo se genera el QR a un candidato con la autorización final de RH.',
+                ]);
+            }
+        }
+
+        if ($colaboradorId !== null) {
+            $colaborador = Colaborador::query()->where('id', $colaboradorId)->first();
+
+            if ($colaborador === null) {
+                throw ValidationException::withMessages(['colaborador_id' => 'El colaborador no existe o está dado de baja.']);
+            }
+
+            if ($colaborador->user !== null && $colaborador->user->acceso_bloqueado_en === null && $candidatoId === null) {
+                throw ValidationException::withMessages(['colaborador_id' => 'Este colaborador ya tiene una cuenta de acceso activa.']);
+            }
+        }
     }
 
     public function revocar(IncorporacionInvitacion $invitacion): void
@@ -257,6 +309,15 @@ class IncorporacionInvitacionService
                 throw InvitacionInvalidaException::correoNoCoincide();
             }
 
+            // El candidato autorizado ya tiene su Colaborador (lo creó la
+            // contratación): el registro completa sus datos y le crea la
+            // cuenta — nunca otra persona.
+            if ($invitacion->colaborador_id !== null) {
+                return $this->registrarSobreColaboradorExistente($invitacion, $datos);
+            }
+
+            $this->identidad->validarNoDuplicado($datos);
+
             // La persona vive en Colaborador (datos personales, estructura y
             // estatus); User es solo la cuenta de acceso. Antes esta rutina
             // escribía esos campos en users (no asignables desde la
@@ -305,6 +366,67 @@ class IncorporacionInvitacionService
 
             return $usuario;
         });
+    }
+
+    /**
+     * Debe llamarse dentro de la transacción de registrarUsuario() con la
+     * invitación ya bloqueada.
+     *
+     * @param  array<string, mixed>  $datos
+     */
+    private function registrarSobreColaboradorExistente(IncorporacionInvitacion $invitacion, array $datos): User
+    {
+        $colaborador = Colaborador::withTrashed()->lockForUpdate()->findOrFail($invitacion->colaborador_id);
+        $cuenta = $colaborador->user;
+
+        if ($cuenta !== null && $cuenta->acceso_bloqueado_en === null) {
+            throw InvitacionInvalidaException::usado();
+        }
+
+        $this->identidad->validarNoDuplicado($datos, $colaborador->id);
+
+        $colaborador->update(array_filter([
+            'name' => $datos['name'] ?? null,
+            'apellidos' => $datos['apellidos'] ?? null,
+            'telefono' => $datos['telefono'] ?? null,
+            'curp' => isset($datos['curp']) ? strtoupper((string) $datos['curp']) : null,
+            'rfc' => isset($datos['rfc']) ? strtoupper((string) $datos['rfc']) : null,
+            'nss' => $datos['nss'] ?? null,
+            'fecha_nacimiento' => $datos['fecha_nacimiento'] ?? null,
+            'domicilio' => $datos['direccion'] ?? null,
+            'contacto_emergencia_nombre' => $datos['contacto_emergencia_nombre'] ?? null,
+            'contacto_emergencia_telefono' => $datos['contacto_emergencia_telefono'] ?? null,
+        ], fn ($valor) => $valor !== null && $valor !== ''));
+
+        try {
+            if ($cuenta !== null) {
+                // Reingreso con cuenta bloqueada: se reutiliza la misma cuenta.
+                $cuenta->forceFill([
+                    'email' => $datos['email'],
+                    'password' => Hash::make($datos['password']),
+                    'acceso_bloqueado_en' => null,
+                ])->save();
+                $usuario = $cuenta;
+            } else {
+                $usuario = User::create([
+                    'colaborador_id' => $colaborador->id,
+                    'name' => $colaborador->name,
+                    'apellidos' => $colaborador->apellidos,
+                    'email' => $datos['email'],
+                    'password' => Hash::make($datos['password']),
+                ]);
+            }
+        } catch (QueryException) {
+            throw InvitacionInvalidaException::correoRegistrado();
+        }
+
+        if (! $usuario->hasRole('colaborador')) {
+            $usuario->assignRole('colaborador');
+        }
+
+        $this->marcarUsada($invitacion, $usuario);
+
+        return $usuario;
     }
 
     public function marcarUsada(IncorporacionInvitacion $invitacion, User $usuario): void

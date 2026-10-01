@@ -372,7 +372,9 @@ class DocumentoStorageService
                     'path' => $ruta,
                     'original_name' => $archivo->getClientOriginalName(),
                     'stored_name' => basename($ruta),
-                    'mime' => $archivo->getClientMimeType(),
+                    // MIME detectado del contenido real (finfo), nunca el
+                    // declarado por el cliente.
+                    'mime' => $archivo->getMimeType() ?? $archivo->getClientMimeType(),
                     'extension' => $archivo->getClientOriginalExtension(),
                     'size' => $archivo->getSize(),
                     'hash' => $this->hashSha256($ruta),

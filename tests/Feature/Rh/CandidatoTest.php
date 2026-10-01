@@ -33,49 +33,54 @@ test('rh_admin puede registrar un candidato y queda un seguimiento inicial', fun
         ->and($candidato->seguimientos()->count())->toBe(1);
 });
 
-test('gerente_sucursal puede aprobar un candidato pero no rechazar fuera de su alcance', function () {
+test('desde el tablero nadie puede avanzar a un candidato: los avances son acciones del workflow', function () {
     $candidato = Candidato::factory()->create(['sucursal_id' => null]);
     $usuario = User::factory()->create();
-    $usuario->assignRole('gerente_sucursal');
+    $usuario->assignRole('rh_admin');
 
-    // 'aprobado_gerencia' no existe en el enum actual: mover a un estado de
-    // la lista ESTADOS_APROBACION (CandidatoPolicy::cambiarEstado) exige el
-    // permiso candidatos.aprobar, que gerente_sucursal sí tiene.
-    $this->actingAs($usuario)
-        ->put(route('rh.candidatos.estado', $candidato), ['estado' => 'oferta_aprobacion'])
-        ->assertSessionHasNoErrors();
+    foreach (['entrevista_pendiente', 'autorizacion_rh_pendiente', 'autorizado_rh', 'contratado'] as $estado) {
+        $this->actingAs($usuario)
+            ->put(route('rh.candidatos.estado', $candidato), ['estado' => $estado])
+            ->assertForbidden();
+    }
 
-    expect($candidato->fresh()->estado->value)->toBe('oferta_aprobacion');
+    expect($candidato->fresh()->estado->value)->toBe('recibidos');
 });
 
-test('rh_auxiliar no puede aprobar ni rechazar candidatos', function () {
+test('cerrar el proceso desde el tablero exige motivo y queda registrado', function () {
     $candidato = Candidato::factory()->create();
     $usuario = User::factory()->create();
     $usuario->assignRole('rh_auxiliar');
 
-    $this->actingAs($usuario)
-        ->put(route('rh.candidatos.estado', $candidato), ['estado' => 'listo_para_contratacion'])
-        ->assertForbidden();
-
-    // 'no_seleccionado' es uno de los 4 estados de salida reales
-    // (ESTADOS_RECHAZO) — exige candidatos.rechazar, que rh_auxiliar no tiene.
     $this->actingAs($usuario)
         ->put(route('rh.candidatos.estado', $candidato), ['estado' => 'no_seleccionado'])
-        ->assertForbidden();
+        ->assertSessionHasErrors('observaciones');
+
+    $this->actingAs($usuario)
+        ->put(route('rh.candidatos.estado', $candidato), ['estado' => 'no_seleccionado', 'nota' => 'Eligió otra vacante.'])
+        ->assertSessionHasNoErrors();
+
+    expect($candidato->fresh()->estado->value)->toBe('no_seleccionado')
+        ->and($candidato->fresh()->motivo_salida)->toBe('Eligió otra vacante.');
 });
 
-test('rh_auxiliar sí puede mover estados rutinarios de un candidato', function () {
+test('reclutamiento revisa el perfil con la acción del workflow y el candidato pasa a entrevista', function () {
     $candidato = Candidato::factory()->create();
     $usuario = User::factory()->create();
     $usuario->assignRole('rh_auxiliar');
 
-    // 'preseleccion' es un estado regular del pipeline (candidatos.editar),
-    // no una decisión de aprobación/rechazo.
     $this->actingAs($usuario)
-        ->put(route('rh.candidatos.estado', $candidato), ['estado' => 'preseleccion'])
+        ->post(route('rh.candidatos.perfil', $candidato), ['viable' => true])
         ->assertSessionHasNoErrors();
 
-    expect($candidato->fresh()->estado->value)->toBe('preseleccion');
+    expect($candidato->fresh()->estado->value)->toBe('entrevista_pendiente');
+
+    // Un colaborador sin permisos no puede ejecutar acciones del workflow.
+    $colaborador = User::factory()->create();
+    $colaborador->assignRole('colaborador');
+    $this->actingAs($colaborador)
+        ->post(route('rh.candidatos.entrevista', $candidato), ['realizada_en' => now()->subHour()->toDateTimeString(), 'resultado' => 'viable'])
+        ->assertForbidden();
 });
 
 test('un colaborador no puede ver candidatos', function () {

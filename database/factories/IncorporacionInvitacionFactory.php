@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\EstadoInvitacionIncorporacion;
+use App\Models\Colaborador;
 use App\Models\IncorporacionInvitacion;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -26,6 +27,8 @@ class IncorporacionInvitacionFactory extends Factory
             'telefono' => null,
             'nombre_prellenado' => null,
             'creado_por_id' => User::factory(),
+            // El QR siempre va ligado a una persona en contratación.
+            'colaborador_id' => Colaborador::factory()->state(['estatus' => 'en_incorporacion', 'estado_alta' => 'pendiente_documentos']),
             'expires_at' => now()->addHours(72),
             'max_usos' => 1,
             'usos_count' => 0,

@@ -5,7 +5,7 @@ use App\Models\AltaDigital;
 use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
 use App\Models\User;
-use App\Services\Onboarding\OnboardingService;
+use App\Services\Onboarding\ChecklistAdministrativoService;
 
 test('el checklist marca datos personales/laborales y expediente segun el estado real del colaborador', function () {
     $usuario = User::factory()->create([
@@ -16,7 +16,7 @@ test('el checklist marca datos personales/laborales y expediente segun el estado
         'fecha_ingreso' => null,
     ]);
 
-    $servicio = app(OnboardingService::class);
+    $servicio = app(ChecklistAdministrativoService::class);
     $checklist = collect($servicio->checklist($usuario->colaborador))->keyBy('clave');
 
     expect($checklist['datos_personales']['completado'])->toBeFalse()
@@ -34,8 +34,8 @@ test('el checklist reconoce el contrato firmado y el alta aprobada', function ()
         'status' => EstadoDocumento::Aprobado->value,
     ]);
 
-    // OnboardingService::checklist() busca el alta por colaborador_id, no
-    // por user_id (ver App\Services\Onboarding\OnboardingService).
+    // ChecklistAdministrativoService::checklist() busca el alta por colaborador_id, no
+    // por user_id (ver App\Services\Onboarding\ChecklistAdministrativoService).
     AltaDigital::factory()->create([
         'user_id' => $usuario->id,
         'colaborador_id' => $usuario->colaborador_id,
@@ -44,7 +44,7 @@ test('el checklist reconoce el contrato firmado y el alta aprobada', function ()
         'consentimiento_datos_aceptado' => true,
     ]);
 
-    $servicio = app(OnboardingService::class);
+    $servicio = app(ChecklistAdministrativoService::class);
     $checklist = collect($servicio->checklist($usuario->colaborador))->keyBy('clave');
 
     expect($checklist['contrato_firmado']['completado'])->toBeTrue()

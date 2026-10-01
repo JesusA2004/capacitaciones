@@ -293,6 +293,48 @@
     --brand-secondary: #475569;
 }
 
+/* Paleta ejecutiva de MR. LANA PEOPLE (tablero de RH y fichas del ciclo
+   laboral). Verde petróleo como identidad, dorado solo como acento, cyan
+   para datos, rojo para rechazo/alerta. Independiente del tema de color
+   personalizable (--brand-*). */
+:root {
+    --mrl-petroleo: #164e50;
+    --mrl-petroleo-2: #174f50;
+    --mrl-verde: #2b604f;
+    --mrl-verde-profundo: #0f362e;
+    --mrl-verde-secundario: #2f5a39;
+    --mrl-dorado: #a28351;
+    --mrl-dorado-oscuro: #73430b;
+    --mrl-gris-verdoso: #a7ac9c;
+    --mrl-navy: #13244d;
+    --mrl-cyan: #09afe3;
+    --mrl-rojo: #df4050;
+    --mrl-fondo: #f7f8f7;
+    --mrl-superficie: #ffffff;
+    --mrl-texto: #0f362e;
+    --mrl-texto-suave: #5b6b63;
+    --mrl-borde: #e3e7e3;
+}
+
+.dark {
+    --mrl-petroleo: #3f9a9d;
+    --mrl-petroleo-2: #3f9a9d;
+    --mrl-verde: #5aa58b;
+    --mrl-verde-profundo: #cfe7dc;
+    --mrl-verde-secundario: #6fae7c;
+    --mrl-dorado: #c9a876;
+    --mrl-dorado-oscuro: #d9a35a;
+    --mrl-gris-verdoso: #7c8273;
+    --mrl-navy: #8ea6e0;
+    --mrl-cyan: #3cc4ee;
+    --mrl-rojo: #f06b78;
+    --mrl-fondo: #0d1513;
+    --mrl-superficie: #121c19;
+    --mrl-texto: #e6efe9;
+    --mrl-texto-suave: #9fb1a8;
+    --mrl-borde: #24332e;
+}
+
 /* Preferencia "sin animaciones" (Settings/Personalizacion.vue): igual que
    prefers-reduced-motion, pero como elección explícita del usuario en vez
    de una media query del sistema operativo. */

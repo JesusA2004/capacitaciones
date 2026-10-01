@@ -21,6 +21,8 @@ function crearInvitacionParaQr(array $datos = []): array
 
     $servicio = app(IncorporacionInvitacionService::class);
 
+    $datos['colaborador_id'] ??= clColaboradorEnContratacion()->id;
+
     return [...$servicio->crear($datos, $rh), 'rh' => $rh];
 }
 

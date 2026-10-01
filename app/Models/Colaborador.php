@@ -339,6 +339,41 @@ class Colaborador extends Model
         return $this->prestamos()->where('estado', 'activo')->first();
     }
 
+    /**
+     * Onboardings (Etapa 3): el de la contratación y, si reingresó, los de
+     * cada reingreso. Se conservan todos.
+     *
+     * @return HasMany<OnboardingProceso, $this>
+     */
+    public function onboardings(): HasMany
+    {
+        return $this->hasMany(OnboardingProceso::class)->orderByDesc('id');
+    }
+
+    /**
+     * @return HasMany<CierreLaboral, $this>
+     */
+    public function cierresLaborales(): HasMany
+    {
+        return $this->hasMany(CierreLaboral::class)->orderByDesc('id');
+    }
+
+    /**
+     * @return HasMany<Reingreso, $this>
+     */
+    public function reingresos(): HasMany
+    {
+        return $this->hasMany(Reingreso::class)->orderByDesc('id');
+    }
+
+    /**
+     * @return HasMany<EntregaActivo, $this>
+     */
+    public function entregasActivo(): HasMany
+    {
+        return $this->hasMany(EntregaActivo::class)->orderByDesc('id');
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()

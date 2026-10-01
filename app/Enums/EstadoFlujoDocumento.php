@@ -54,6 +54,18 @@ enum EstadoFlujoDocumento: string
      * true cuando el documento ya quedó firmado por el colaborador (digital
      * o físicamente) — lo usan el alta (pendiente_firma) y la renovación.
      */
+    /**
+     * true cuando ya existe el original físico firmado (firma + huella
+     * registradas por el gerente), aunque todavía no se envíe o archive.
+     */
+    public function firmaFisicaRegistrada(): bool
+    {
+        return in_array($this, [
+            self::FirmadoFisicamente, self::EnviadoCorporativo, self::RecibidoCorporativo,
+            self::Escaneado, self::Archivado,
+        ], true);
+    }
+
     public function estaFirmado(): bool
     {
         return in_array($this, [

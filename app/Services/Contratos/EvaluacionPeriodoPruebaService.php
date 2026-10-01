@@ -4,6 +4,7 @@ namespace App\Services\Contratos;
 
 use App\Enums\EstadoEvaluacionPrueba;
 use App\Enums\PrioridadTarea;
+use App\Enums\ProcesoAprobacion;
 use App\Enums\ResultadoEvaluacion;
 use App\Enums\TipoBaja;
 use App\Enums\TipoTarea;
@@ -12,6 +13,7 @@ use App\Models\EvaluacionPeriodoPrueba;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\CicloLaboral\AprobacionService;
 use App\Services\CierreLaboral\CierreLaboralService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Services\Tareas\TareaService;
@@ -36,7 +38,12 @@ class EvaluacionPeriodoPruebaService
 {
     public const PERMISO_AUTORIZAR = 'evaluaciones.autorizar';
 
+    public const DECISION_RENOVAR = 'renovar';
+
+    public const DECISION_NO_RENOVAR = 'no_renovar';
+
     public function __construct(
+        private readonly AprobacionService $aprobaciones,
         private readonly ContratoLaboralService $contratos,
         private readonly CierreLaboralService $cierres,
         private readonly TareaService $tareas,
@@ -92,6 +99,25 @@ class EvaluacionPeriodoPruebaService
         });
 
         $evaluacion->loadMissing('colaborador');
+
+        // La recomendación del jefe es la PREAUTORIZACIÓN operativa: nunca
+        // genera por sí sola contrato definitivo ni baja.
+        $decision = $evaluacion->recomienda_renovar ? self::DECISION_RENOVAR : self::DECISION_NO_RENOVAR;
+
+        if ($this->aprobaciones->pendiente($evaluacion, ProcesoAprobacion::PeriodoPrueba) !== null) {
+            $this->aprobaciones->preautorizar($evaluacion, ProcesoAprobacion::PeriodoPrueba, $evaluador, $evaluacion->observaciones, $decision);
+        } else {
+            $this->aprobaciones->abrir($evaluacion, ProcesoAprobacion::PeriodoPrueba, [
+                'colaborador' => $evaluacion->colaborador,
+                'solicitante' => $evaluador,
+                'aprobador_colaborador' => $evaluador->colaborador,
+                'aprobador_user' => $evaluador,
+                'implicita' => true,
+                'decision' => $decision,
+                'comentario' => sprintf('Recomendación del evaluador: %s.', $evaluacion->recomienda_renovar ? 'renovar' : 'no renovar'),
+            ]);
+        }
+
         $this->tareas->resolver(TipoTarea::EvaluacionPendiente, $evaluacion, $evaluador);
         $this->tareas->abrir(TipoTarea::EvaluacionPorAutorizar, $evaluacion, [
             'titulo' => "Autorizar evaluación: {$evaluacion->colaborador->nombreCompleto()}",
@@ -122,13 +148,14 @@ class EvaluacionPeriodoPruebaService
 
     public function devolver(EvaluacionPeriodoPrueba $evaluacion, User $actor, string $motivo): EvaluacionPeriodoPrueba
     {
-        $evaluacion = DB::transaction(function () use ($evaluacion, $motivo): EvaluacionPeriodoPrueba {
+        $evaluacion = DB::transaction(function () use ($evaluacion, $motivo, $actor): EvaluacionPeriodoPrueba {
             $evaluacion = EvaluacionPeriodoPrueba::query()->lockForUpdate()->findOrFail($evaluacion->id);
 
             if ($evaluacion->estado !== EstadoEvaluacionPrueba::Capturada) {
                 throw ValidationException::withMessages(['estado' => 'Solo una evaluación capturada puede devolverse.']);
             }
 
+            $this->aprobaciones->devolver($evaluacion, ProcesoAprobacion::PeriodoPrueba, $actor, $motivo);
             $evaluacion->update(['estado' => EstadoEvaluacionPrueba::Devuelta, 'comentario_autorizacion' => $motivo]);
 
             return $evaluacion;
@@ -171,6 +198,21 @@ class EvaluacionPeriodoPruebaService
                 throw ValidationException::withMessages(['estado' => 'Solo una evaluación capturada puede autorizarse.']);
             }
 
+            // RH puede cambiar la recomendación del jefe, siempre con comentario.
+            $comentario = isset($datos['comentario']) ? trim((string) $datos['comentario']) : '';
+
+            if ($evaluacion->recomienda_renovar !== null && $evaluacion->recomienda_renovar !== $renovar && $comentario === '') {
+                throw ValidationException::withMessages(['comentario' => 'Explica por qué RH decide distinto a la recomendación del jefe.']);
+            }
+
+            $this->aprobaciones->autorizarRh(
+                $evaluacion,
+                ProcesoAprobacion::PeriodoPrueba,
+                $actor,
+                $comentario !== '' ? $comentario : null,
+                $renovar ? self::DECISION_RENOVAR : self::DECISION_NO_RENOVAR,
+            );
+
             $evaluacion->update([
                 'estado' => EstadoEvaluacionPrueba::Autorizada,
                 'autorizada_por' => $actor->id,
@@ -194,7 +236,10 @@ class EvaluacionPeriodoPruebaService
             $contrato = $evaluacion->contrato;
             $fecha = isset($datos['fecha_efectiva']) ? (string) $datos['fecha_efectiva'] : ($contrato->fecha_fin?->toDateString() ?? now()->toDateString());
 
-            $this->cierres->iniciar($evaluacion->colaborador, [
+            // La no renovación ya tiene preautorización (jefe) y autorización
+            // RH: el cierre nace autorizado, genera sus documentos y la baja
+            // NO se ejecuta antes de la fecha efectiva.
+            $this->cierres->iniciarDesdeEvaluacion($evaluacion->colaborador, [
                 'tipo_baja' => TipoBaja::NoRenovacion->value,
                 'motivo' => isset($datos['motivo_no_renovacion']) ? (string) $datos['motivo_no_renovacion'] : 'No renovación de contrato tras evaluación de periodo de prueba.',
                 'fecha_efectiva' => $fecha,

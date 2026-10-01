@@ -24,6 +24,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $relacionado_type
  * @property int|null $relacionado_id
  * @property int|null $colaborador_id
+ * @property int|null $candidato_id
+ * @property int|null $sucursal_id
  * @property int|null $asignado_user_id
  * @property string|null $asignado_permiso
  * @property string|null $accion
@@ -36,6 +38,8 @@ use Illuminate\Support\Carbon;
  * @property array<string, mixed>|null $datos
  * @property Carbon|null $created_at
  * @property-read Colaborador|null $colaborador
+ * @property-read Candidato|null $candidato
+ * @property-read Sucursal|null $sucursal
  */
 class TareaRh extends Model
 {
@@ -45,6 +49,7 @@ class TareaRh extends Model
         'tipo', 'titulo', 'descripcion', 'prioridad', 'relacionado_type', 'relacionado_id',
         'colaborador_id', 'asignado_user_id', 'asignado_permiso', 'accion', 'vence_en',
         'clave', 'clave_abierta', 'read_at', 'resuelta_en', 'resuelta_por', 'datos',
+        'candidato_id', 'sucursal_id',
     ];
 
     protected function casts(): array
@@ -73,6 +78,22 @@ class TareaRh extends Model
     public function colaborador(): BelongsTo
     {
         return $this->belongsTo(Colaborador::class)->withTrashed();
+    }
+
+    /**
+     * @return BelongsTo<Candidato, $this>
+     */
+    public function candidato(): BelongsTo
+    {
+        return $this->belongsTo(Candidato::class);
+    }
+
+    /**
+     * @return BelongsTo<Sucursal, $this>
+     */
+    public function sucursal(): BelongsTo
+    {
+        return $this->belongsTo(Sucursal::class);
     }
 
     /**

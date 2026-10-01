@@ -381,6 +381,14 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::prefix('cierres')->name('cierres.')->group(function () {
                 Route::get('/', [CierreLaboralController::class, 'index'])->name('index');
                 Route::get('{cierre}', [CierreLaboralController::class, 'show'])->name('show');
+                Route::post('{cierre}/preautorizar', [CierreLaboralController::class, 'preautorizar'])->name('preautorizar');
+                Route::post('{cierre}/autorizar', [CierreLaboralController::class, 'autorizar'])->name('autorizar');
+                Route::post('{cierre}/rechazar', [CierreLaboralController::class, 'rechazar'])->name('rechazar');
+                Route::post('{cierre}/devolver', [CierreLaboralController::class, 'devolver'])->name('devolver');
+                Route::post('{cierre}/finiquito/autorizar', [CierreLaboralController::class, 'autorizarFiniquito'])->name('finiquito.autorizar');
+                Route::post('{cierre}/pago/programar', [CierreLaboralController::class, 'programarPago'])->name('pago.programar');
+                Route::post('{cierre}/cita', [CierreLaboralController::class, 'cita'])->name('cita');
+                Route::post('{cierre}/cerrar', [CierreLaboralController::class, 'cerrar'])->name('cerrar');
                 Route::post('{cierre}/aviso', [CierreLaboralController::class, 'aviso'])->name('aviso')->middleware('throttle:api-cargas');
                 Route::post('{cierre}/aviso/generar', [CierreLaboralController::class, 'generarAviso'])->name('aviso.generar');
                 Route::post('{cierre}/finiquito/calcular', [CierreLaboralController::class, 'calcularFiniquito'])->name('finiquito.calcular');

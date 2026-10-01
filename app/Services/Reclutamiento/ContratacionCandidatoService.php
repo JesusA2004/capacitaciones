@@ -5,70 +5,86 @@ namespace App\Services\Reclutamiento;
 use App\Enums\EstadoCandidato;
 use App\Enums\EstadoDocumento;
 use App\Enums\EstadoVacante;
+use App\Enums\ProcesoAprobacion;
+use App\Enums\TipoContratacion;
 use App\Enums\TipoSeguimientoCandidato;
+use App\Enums\TipoTarea;
 use App\Models\Candidato;
 use App\Models\Colaborador;
 use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
+use App\Models\IncorporacionInvitacion;
 use App\Models\User;
 use App\Models\Vacante;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\CicloLaboral\AprobacionService;
+use App\Services\CicloLaboral\OrganizacionJerarquiaService;
 use App\Services\Colaboradores\AltaColaboradorService;
 use App\Services\Expedientes\DocumentoStorageService;
+use App\Services\Incorporacion\IncorporacionInvitacionService;
+use App\Services\Tareas\TareaService;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
- * Enlace reclutamiento → administración de personal. Convierte a un
- * candidato "listo para contratación" (o ya marcado "contratado" en el
- * tablero) en colaborador SIN duplicar la persona:
+ * Enlace Etapa 1 → Etapa 2. SOLO un candidato con autorización final de RH
+ * registrada (aprobación `seleccion_candidato` / `autorizacion_rh`) entra a
+ * contratación. En un solo paso, sin duplicar a la persona:
  *
- *  - los datos del candidato (nombre, contacto, empresa/sucursal/puesto
- *    objetivo, vacante) alimentan el alta; RH solo completa lo laboral
- *    (sueldo, fecha de ingreso, jefe, tipo de contratación...);
- *  - el candidato queda "contratado" y enlazado al colaborador
- *    (candidatos.colaborador_id, colaboradores.candidato_id) con seguimiento;
- *  - la vacante registra candidato/colaborador contratado y, si ya no quedan
- *    plazas, se cierra como cubierta con fecha de cierre;
- *  - el CV pasa al expediente;
- *  - el resto (expediente, checklist, contrato y documentos contractuales,
- *    acceso) lo hace AltaColaboradorService en la misma transacción.
+ *  - crea el Colaborador (AltaColaboradorService: valida que CURP/RFC/NSS no
+ *    pertenezcan a otra persona, fija expediente, contrato de periodo de
+ *    prueba con su vencimiento por puesto) y lo enlaza al candidato;
+ *  - ocupa la plaza de la vacante;
+ *  - copia el CV al expediente;
+ *  - genera la invitación QR (token no predecible, temporal, revocable, de
+ *    un solo uso) LIGADA a ese candidato y a ese colaborador: al escanearla
+ *    la persona crea su cuenta (User) sobre el mismo Colaborador.
+ *
+ * Bloquea la fila del candidato: dos solicitudes simultáneas nunca crean dos
+ * colaboradores ni dos QR.
  */
 class ContratacionCandidatoService
 {
+    public const PERMISO_CONTRATAR = 'candidatos.contratar';
+
     public function __construct(
         private readonly AltaColaboradorService $altas,
         private readonly DocumentoStorageService $expediente,
         private readonly CvStorageService $cvStorage,
         private readonly AuditoriaService $auditoria,
+        private readonly AprobacionService $aprobaciones,
+        private readonly OrganizacionJerarquiaService $jerarquia,
+        private readonly IncorporacionInvitacionService $invitaciones,
+        private readonly TareaService $tareas,
     ) {}
 
     /**
      * @param  array<string, mixed>  $datos  Datos laborales validados por ContratarCandidatoRequest.
+     * @return array{colaborador: Colaborador, invitacion: IncorporacionInvitacion, token: string}
      */
-    public function contratar(Candidato $candidato, array $datos, User $actor): Colaborador
+    public function iniciarContratacion(Candidato $candidato, array $datos, User $actor): array
     {
-        if ($candidato->colaborador_id !== null) {
-            throw ValidationException::withMessages(['candidato' => 'Este candidato ya fue convertido en colaborador.']);
+        if (! $actor->can(self::PERMISO_CONTRATAR) || ! $this->jerarquia->alcanzaCandidato($actor, $candidato)) {
+            throw new AuthorizationException('No tienes permiso para iniciar la contratación de este candidato.');
         }
 
-        if (! in_array($candidato->estado, [EstadoCandidato::ListoParaContratacion, EstadoCandidato::OfertaAprobacion, EstadoCandidato::Contratado], true)) {
-            throw ValidationException::withMessages([
-                'candidato' => "El candidato está en «{$candidato->estado->etiqueta()}»: solo se contrata desde oferta aprobada, listo para contratación o contratado.",
-            ]);
-        }
+        $this->exigirAutorizado($candidato);
 
         $datosAlta = [
             ...$datos,
             'name' => $datos['name'] ?? $candidato->nombre,
             'apellidos' => $datos['apellidos'] ?? $candidato->apellidos,
             'telefono' => $datos['telefono'] ?? $candidato->telefono,
-            'email' => array_key_exists('email', $datos) ? $datos['email'] : $candidato->correo,
+            'email' => null,
+            'crear_acceso' => false,
             'sucursal_principal_id' => $datos['sucursal_principal_id'] ?? $candidato->sucursal_id,
             'departamento_id' => $datos['departamento_id'] ?? $candidato->departamento_id,
             'puesto_id' => $datos['puesto_id'] ?? $candidato->puesto_objetivo_id,
             'vacante_id' => $datos['vacante_id'] ?? $candidato->vacante_id,
+            'tipo_contratacion' => $datos['tipo_contratacion'] ?? TipoContratacion::PeriodoPrueba->value,
             'candidato_id' => $candidato->id,
         ];
 
@@ -78,30 +94,31 @@ class ContratacionCandidatoService
             }
         }
 
-        if (! empty($datosAlta['email']) && User::query()->where('email', $datosAlta['email'])->exists()) {
-            throw ValidationException::withMessages(['email' => 'Ya existe una cuenta con ese correo.']);
+        $correoInvitacion = $datos['email'] ?? $candidato->correo;
+
+        if (! empty($correoInvitacion) && User::query()->where('email', $correoInvitacion)->exists()) {
+            throw ValidationException::withMessages(['email' => 'Ya existe una cuenta con ese correo: si es un reingreso, búscalo en Reingresos.']);
         }
 
         $colaborador = $this->altas->registrar($datosAlta, $actor, function (Colaborador $colaborador) use ($candidato, $actor, $datosAlta): void {
             /** Bloqueo del candidato: dos RH no pueden convertirlo a la vez. */
             $bloqueado = Candidato::query()->lockForUpdate()->findOrFail($candidato->id);
 
-            if ($bloqueado->colaborador_id !== null) {
-                throw ValidationException::withMessages(['candidato' => 'Este candidato ya fue convertido en colaborador.']);
+            if ($bloqueado->colaborador_id !== null || $bloqueado->estado !== EstadoCandidato::AutorizadoRh) {
+                throw ValidationException::withMessages(['candidato' => 'Este candidato ya entró a contratación.']);
             }
 
-            $estadoAnterior = $bloqueado->estado;
             $bloqueado->update([
-                'estado' => EstadoCandidato::Contratado,
+                'estado' => EstadoCandidato::EnContratacion,
+                'etapa_maxima' => max($bloqueado->etapa_maxima, EstadoCandidato::EnContratacion->orden()),
                 'colaborador_id' => $colaborador->id,
-                'contratado_en' => now(),
             ]);
 
             $bloqueado->seguimientos()->create([
                 'tipo' => TipoSeguimientoCandidato::CambioEstado,
-                'nota' => "Contratado: convertido en colaborador {$colaborador->numero_empleado}.",
-                'estado_anterior' => $estadoAnterior->value,
-                'estado_nuevo' => EstadoCandidato::Contratado->value,
+                'nota' => "Inició la contratación: colaborador {$colaborador->numero_empleado} creado y QR de registro generado.",
+                'estado_anterior' => EstadoCandidato::AutorizadoRh->value,
+                'estado_nuevo' => EstadoCandidato::EnContratacion->value,
                 'fecha' => now(),
                 'registrado_por' => $actor->id,
             ]);
@@ -113,9 +130,91 @@ class ContratacionCandidatoService
             $this->copiarCv($bloqueado, $colaborador, $actor);
         });
 
-        $this->auditoria->registrar('candidato_contratado', $candidato, $actor, ['colaborador_id' => $colaborador->id]);
+        ['invitacion' => $invitacion, 'token' => $token] = $this->invitaciones->crear([
+            'candidato_id' => $candidato->id,
+            'colaborador_id' => $colaborador->id,
+            'email' => $correoInvitacion,
+            'telefono' => $colaborador->telefono,
+            'nombre_prellenado' => $colaborador->nombreCompleto(),
+            'empresa_id' => $colaborador->sucursalPrincipal?->empresa_id,
+            'sucursal_id' => $colaborador->sucursal_principal_id,
+            'departamento_id' => $colaborador->departamento_id,
+            'puesto_id' => $colaborador->puesto_id,
+            'duracion_horas' => $datos['duracion_horas'] ?? null,
+        ], $actor);
 
-        return $colaborador;
+        $this->tareas->resolver(TipoTarea::deReclutamiento(), $candidato, $actor);
+        $this->auditoria->registrar('candidato_contratacion_iniciada', $candidato, $actor, [
+            'candidato_id' => $candidato->id,
+            'colaborador_id' => $colaborador->id,
+            'invitacion_id' => $invitacion->id,
+        ]);
+
+        return ['colaborador' => $colaborador, 'invitacion' => $invitacion, 'token' => $token];
+    }
+
+    /**
+     * Compatibilidad con POST /api/v1/rh/candidatos/{candidato}/contratar:
+     * misma regla (solo candidatos autorizados por RH), misma implementación.
+     *
+     * @param  array<string, mixed>  $datos
+     */
+    public function contratar(Candidato $candidato, array $datos, User $actor): Colaborador
+    {
+        return $this->iniciarContratacion($candidato, $datos, $actor)['colaborador'];
+    }
+
+    /**
+     * Cierra la Etapa 1 del candidato cuando su colaborador terminó la
+     * contratación (contratos firmados). Idempotente.
+     */
+    public function marcarContratado(Colaborador $colaborador, ?User $actor = null): void
+    {
+        if ($colaborador->candidato_id === null) {
+            return;
+        }
+
+        try {
+            DB::transaction(function () use ($colaborador, $actor): void {
+                $candidato = Candidato::query()->lockForUpdate()->find($colaborador->candidato_id);
+
+                if ($candidato === null || $candidato->estado !== EstadoCandidato::EnContratacion) {
+                    return;
+                }
+
+                $candidato->update([
+                    'estado' => EstadoCandidato::Contratado,
+                    'etapa_maxima' => EstadoCandidato::Contratado->orden(),
+                    'contratado_en' => now(),
+                ]);
+
+                $candidato->seguimientos()->create([
+                    'tipo' => TipoSeguimientoCandidato::CambioEstado,
+                    'nota' => 'Contratado: contratos firmados, inicia onboarding.',
+                    'estado_anterior' => EstadoCandidato::EnContratacion->value,
+                    'estado_nuevo' => EstadoCandidato::Contratado->value,
+                    'fecha' => now(),
+                    'registrado_por' => $actor?->id,
+                ]);
+            });
+
+            $this->auditoria->registrar('candidato_contratado', $colaborador, $actor, ['candidato_id' => $colaborador->candidato_id, 'colaborador_id' => $colaborador->id]);
+        } catch (Throwable $e) {
+            Log::warning('ContratacionCandidatoService: no se pudo marcar al candidato como contratado.', ['colaborador_id' => $colaborador->id, 'error' => $e->getMessage()]);
+        }
+    }
+
+    private function exigirAutorizado(Candidato $candidato): void
+    {
+        if ($candidato->colaborador_id !== null || $candidato->estado === EstadoCandidato::EnContratacion) {
+            throw ValidationException::withMessages(['candidato' => 'Este candidato ya entró a contratación: si el QR venció, regenéralo desde su invitación.']);
+        }
+
+        if ($candidato->estado !== EstadoCandidato::AutorizadoRh || ! $this->aprobaciones->estaAutorizadoPorRh($candidato, ProcesoAprobacion::SeleccionCandidato)) {
+            throw ValidationException::withMessages([
+                'candidato' => "El candidato está en «{$candidato->estado->etiqueta()}»: solo se contrata con la autorización final de RH registrada.",
+            ]);
+        }
     }
 
     /**

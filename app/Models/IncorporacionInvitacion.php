@@ -54,7 +54,7 @@ class IncorporacionInvitacion extends Model
     protected $fillable = [
         'uuid', 'token_hash', 'codigo_legible',
         'email', 'telefono', 'nombre_prellenado',
-        'empresa_id', 'sucursal_id', 'departamento_id', 'puesto_id', 'candidato_id',
+        'empresa_id', 'sucursal_id', 'departamento_id', 'puesto_id', 'candidato_id', 'colaborador_id',
         'user_id', 'creado_por_id', 'usado_por_id',
         'expires_at', 'used_at', 'revoked_at', 'regenerated_from_id',
         'max_usos', 'usos_count', 'estado', 'metadata',

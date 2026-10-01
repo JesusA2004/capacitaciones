@@ -34,14 +34,19 @@ beforeEach(function () {
     $this->contrato = ContratoLaboral::factory()->create(['colaborador_id' => $this->colaborador->id, 'tipo' => 'indeterminado', 'fecha_fin' => null]);
 });
 
-test('cierre laboral completo: renuncia → aviso → finiquito modular → firma → pago → baja → expediente cerrado', function () {
+test('cierre laboral completo: renuncia → autorización RH → aviso → finiquito → pago programado → firma → pago → baja → expediente cerrado', function () {
     Sanctum::actingAs($this->rh);
 
     $cierreId = $this->postJson("/api/v1/rh/colaboradores/{$this->colaborador->id}/cierres", [
         'tipo_baja' => 'renuncia',
         'motivo' => 'Renuncia voluntaria por cambio de ciudad.',
         'fecha_efectiva' => now()->addDays(5)->toDateString(),
-    ])->assertCreated()->assertJsonPath('data.estado', 'iniciado')->json('data.id');
+    ])->assertCreated()->assertJsonPath('data.estado', 'pendiente_rh')->json('data.id');
+
+    // Sin superior en el organigrama la preautorización queda como «no aplica»;
+    // la autorización final de RH sigue siendo obligatoria.
+    $this->postJson("/api/v1/rh/cierres/{$cierreId}/aviso")->assertUnprocessable();
+    $this->postJson("/api/v1/rh/cierres/{$cierreId}/autorizar", ['comentario' => 'Procede.'])->assertOk()->assertJsonPath('data.estado', 'iniciado')->assertJsonPath('data.aprobaciones.autorizado_rh', true);
 
     // No se permite un segundo cierre en proceso.
     $this->postJson("/api/v1/rh/colaboradores/{$this->colaborador->id}/cierres", [
@@ -79,8 +84,12 @@ test('cierre laboral completo: renuncia → aviso → finiquito modular → firm
     expect($documento->path)->toContain('/BajaFiniquito/')
         ->and($finiquito->refresh()->snapshot['conceptos'])->toHaveCount(count($desglose));
 
-    // Sin firma no hay pago.
+    // Sin pago programado no hay firma ni pago.
     $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/pago", ['referencia_pago' => 'TRF-001'])->assertUnprocessable();
+
+    $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/autorizar")->assertOk()->assertJsonPath('data.estado', 'finiquito_autorizado');
+    $this->postJson("/api/v1/rh/cierres/{$cierreId}/pago/programar", ['fecha' => now()->addDays(5)->toDateString(), 'metodo' => 'transferencia'])
+        ->assertOk()->assertJsonPath('data.estado', 'pago_programado');
 
     $this->post("/api/v1/rh/cierres/{$cierreId}/finiquito/firmado", ['archivo' => clArchivoPdf('finiquito-firmado.pdf')], ['Accept' => 'application/json'])
         ->assertOk()->assertJsonPath('data.estado', 'finiquito_firmado');
@@ -91,12 +100,16 @@ test('cierre laboral completo: renuncia → aviso → finiquito modular → firm
     $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/pago", ['referencia_pago' => 'TRF-001'])->assertOk()->assertJsonPath('data.estado', 'pagado');
     expect($finiquito->refresh()->estado)->toBe(EstadoFiniquito::Pagado);
 
+    // La baja no se ejecuta antes de la fecha efectiva.
+    $this->postJson("/api/v1/rh/cierres/{$cierreId}/ejecutar-baja")->assertUnprocessable();
+    $this->travel(5)->days();
+
     $this->postJson("/api/v1/rh/cierres/{$cierreId}/ejecutar-baja")->assertOk()->assertJsonPath('data.estado', 'baja_ejecutada');
 
     $this->colaborador->refresh();
     expect($this->colaborador->estatus)->toBe(EstadoUsuario::Inactivo)
         ->and($this->colaborador->estado_alta)->toBe(EstadoAltaColaborador::Baja)
-        ->and($this->colaborador->fecha_baja?->toDateString())->toBe(now()->addDays(5)->toDateString())
+        ->and($this->colaborador->fecha_baja?->toDateString())->toBe(now()->toDateString())
         ->and($this->contrato->refresh()->estado)->toBe(EstadoContratoLaboral::Terminado)
         ->and($this->cuenta->tokens()->count())->toBe(0);
 

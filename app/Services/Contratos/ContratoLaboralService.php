@@ -9,6 +9,7 @@ use App\Enums\TipoTarea;
 use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
 use App\Models\GeneratedDocument;
+use App\Models\Puesto;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
@@ -32,6 +33,9 @@ use Throwable;
 class ContratoLaboralService
 {
     public const PERMISO_GENERAR = 'documentos_laborales.generar';
+
+    /** @var array<int, true> Contratos cuyo paquete se está generando en este proceso. */
+    private static array $preparando = [];
 
     public function __construct(
         private readonly MotorDocumentalService $motor,
@@ -126,6 +130,138 @@ class ContratoLaboralService
         }
 
         return ['generados' => $generados, 'pendientes' => $pendientes];
+    }
+
+    /**
+     * Genera SOLO los documentos del paquete que todavía no existen (o cuyo
+     * documento se canceló). Idempotente: llamarlo varias veces nunca
+     * duplica un contrato ya emitido; una plantilla faltante queda como
+     * pendiente explícito.
+     *
+     * @return array{generados: list<GeneratedDocument>, pendientes: list<string>}
+     */
+    public function prepararFaltantes(ContratoLaboral $contrato, User $actor): array
+    {
+        // Reentrancia: generar un documento dispara el observer del flujo
+        // documental, que recalcula el alta y volvería a pedir los
+        // faltantes a mitad de esta misma generación.
+        if (isset(self::$preparando[$contrato->id])) {
+            return ['generados' => [], 'pendientes' => []];
+        }
+
+        self::$preparando[$contrato->id] = true;
+
+        try {
+            return $this->prepararFaltantesBloqueado($contrato, $actor);
+        } finally {
+            unset(self::$preparando[$contrato->id]);
+        }
+    }
+
+    /**
+     * @return array{generados: list<GeneratedDocument>, pendientes: list<string>}
+     */
+    private function prepararFaltantesBloqueado(ContratoLaboral $contrato, User $actor): array
+    {
+        return DB::transaction(function () use ($contrato, $actor): array {
+            // Bloqueo del contrato: dos recálculos simultáneos (p. ej. RH
+            // aprueba dos documentos a la vez) no generan dos paquetes.
+            $contrato = ContratoLaboral::query()->lockForUpdate()->findOrFail($contrato->id);
+            $existentes = $this->documentosDelContrato($contrato)->pluck('clave_plantilla')->filter()->all();
+            $faltantes = array_values(array_diff($this->clavesPaquete($contrato), $existentes));
+
+            if ($faltantes === []) {
+                return ['generados' => [], 'pendientes' => []];
+            }
+
+            $resultado = $this->prepararDocumentos($contrato, $faltantes, $actor);
+
+            if ($contrato->generated_document_id === null) {
+                $principal = $this->clavesPaquete($contrato)[0] ?? null;
+                $documento = $this->documentosDelContrato($contrato)->firstWhere('clave_plantilla', $principal);
+
+                if ($documento !== null) {
+                    $contrato->update(['generated_document_id' => $documento->id]);
+                }
+            }
+
+            return $resultado;
+        });
+    }
+
+    /**
+     * Documentos contractuales vigentes (no cancelados) del contrato.
+     *
+     * @return Collection<int, GeneratedDocument>
+     */
+    public function documentosDelContrato(ContratoLaboral $contrato): Collection
+    {
+        return GeneratedDocument::query()
+            ->where('documentable_type', $contrato->getMorphClass())
+            ->where('documentable_id', $contrato->id)
+            ->where(fn (Builder $q) => $q->whereNull('estado_flujo')->orWhere('estado_flujo', '!=', 'cancelado'))
+            ->orderBy('id')
+            ->get()
+            ->toBase();
+    }
+
+    /**
+     * true si ya existe cada documento del paquete configurado.
+     */
+    public function paqueteGenerado(ContratoLaboral $contrato): bool
+    {
+        $existentes = $this->documentosDelContrato($contrato)->pluck('clave_plantilla')->filter()->all();
+
+        return array_diff($this->clavesPaquete($contrato), $existentes) === []
+            && ($this->clavesPaquete($contrato) !== [] || $contrato->generated_document_id !== null);
+    }
+
+    /**
+     * true si TODOS los documentos del paquete cumplen sus requisitos de
+     * firma según el flujo definido en su plantilla.
+     */
+    public function paqueteFirmado(ContratoLaboral $contrato): bool
+    {
+        $documentos = $this->documentosDelContrato($contrato);
+
+        return $documentos->isNotEmpty()
+            && $documentos->every(fn (GeneratedDocument $d) => $this->documentoFirmadoSegunFlujo($d));
+    }
+
+    /**
+     * El flujo operativo oficial exige el original físico firmado (firma +
+     * huella) cuando la plantilla lo pide; la firma digital es evidencia
+     * adicional y nunca sustituye ese paso.
+     */
+    public function documentoFirmadoSegunFlujo(GeneratedDocument $documento): bool
+    {
+        $estado = $documento->estado_flujo;
+
+        if ($estado === null) {
+            return false;
+        }
+
+        if ($documento->requiere_firma_fisica || $documento->requiere_impresion) {
+            return $estado->firmaFisicaRegistrada();
+        }
+
+        if ($documento->requiere_firma_digital) {
+            return $estado->estaFirmado();
+        }
+
+        return true;
+    }
+
+    /**
+     * Fin del periodo de prueba según el puesto (meses_periodo_prueba:
+     * gestor 2, gerente 3, regional 3) o el valor por defecto configurado.
+     */
+    public function fechaFinPeriodoPrueba(?int $puestoId, CarbonInterface $inicio): CarbonInterface
+    {
+        $meses = $puestoId !== null ? Puesto::query()->whereKey($puestoId)->value('meses_periodo_prueba') : null;
+        $meses = (int) ($meses ?? config('ciclo_laboral.periodo_prueba.meses_por_defecto', 3));
+
+        return $inicio->copy()->addMonthsNoOverflow(max(1, $meses))->subDay();
     }
 
     /**
@@ -275,7 +411,7 @@ class ContratoLaboralService
     {
         $documento = $contrato->documento;
 
-        return $documento?->estado_flujo?->estaFirmado() ?? false;
+        return $documento !== null && $this->documentoFirmadoSegunFlujo($documento);
     }
 
     /**
