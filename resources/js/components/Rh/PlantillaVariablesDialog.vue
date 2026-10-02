@@ -38,7 +38,8 @@ const emit = defineEmits<{
     'update:open': [valor: boolean];
 }>();
 
-type TipoVariableManual = 'text' | 'textarea' | 'date' | 'number' | 'currency' | 'select';
+type TipoVariableManual =
+    'text' | 'textarea' | 'date' | 'number' | 'currency' | 'select';
 
 type VariableManualDef = {
     clave: string;
@@ -50,9 +51,16 @@ type VariableManualDef = {
     opciones: string[] | null;
 };
 
-type CatalogoGrupo = { grupo: string; variables: { clave: string; etiqueta: string }[] };
+type CatalogoGrupo = {
+    grupo: string;
+    variables: { clave: string; etiqueta: string }[];
+};
 
-type VariableAutomatica = { clave: string; etiqueta: string; requerido: boolean };
+type VariableAutomatica = {
+    clave: string;
+    etiqueta: string;
+    requerido: boolean;
+};
 
 type Fila = Omit<VariableManualDef, 'valor_por_defecto'> & {
     /** true = RH decidió mapear esta variable; si queda en false, el marcador se guarda sin tocar (sigue "sin mapear"). */
@@ -122,7 +130,9 @@ async function cargar() {
                 opcionesTexto: (m.opciones ?? []).join(', '),
                 valorPorDefecto: m.valor_por_defecto ?? '',
             })),
-            ...respuesta.sin_mapear.filter((clave) => !clavesManuales.has(clave)).map(filaVacia),
+            ...respuesta.sin_mapear
+                .filter((clave) => !clavesManuales.has(clave))
+                .map(filaVacia),
         ];
     } catch {
         mostrarError('No se pudieron cargar las variables de esta plantilla.');
@@ -166,8 +176,15 @@ function guardar() {
             descripcion: f.descripcion,
             tipo: f.tipo,
             requerido: f.requerido,
-            valor_por_defecto: f.valorPorDefecto.trim() === '' ? null : f.valorPorDefecto,
-            opciones: f.tipo === 'select' ? f.opcionesTexto.split(',').map((o) => o.trim()).filter(Boolean) : null,
+            valor_por_defecto:
+                f.valorPorDefecto.trim() === '' ? null : f.valorPorDefecto,
+            opciones:
+                f.tipo === 'select'
+                    ? f.opcionesTexto
+                          .split(',')
+                          .map((o) => o.trim())
+                          .filter(Boolean)
+                    : null,
         }));
 
     // Automática: solo se guarda si RH la marcó requerida — su
@@ -204,8 +221,9 @@ function guardar() {
             <DialogHeader>
                 <DialogTitle>Variables de «{{ plantilla.nombre }}»</DialogTitle>
                 <DialogDescription>
-                    Marcadores {{ EJEMPLO_MARCADOR }} detectados en el archivo. Los que ya corresponden a un dato del colaborador se
-                    llenan solos; el resto necesita que definas de dónde sale su valor.
+                    Marcadores {{ EJEMPLO_MARCADOR }} detectados en el archivo.
+                    Los que ya corresponden a un dato del colaborador se llenan
+                    solos; el resto necesita que definas de dónde sale su valor.
                 </DialogDescription>
             </DialogHeader>
 
@@ -214,30 +232,54 @@ function guardar() {
             </div>
 
             <template v-else>
-                <p v-if="detectadas.length === 0" class="rounded-lg border border-border/60 bg-muted/40 p-3 text-sm text-muted-foreground">
-                    No se detectó ningún marcador {{ EJEMPLO_MARCADOR }} en este archivo. Revisa que el DOCX use ese formato exacto
-                    (ver la guía «Formatos DOCX»).
+                <p
+                    v-if="detectadas.length === 0"
+                    class="rounded-lg border border-border/60 bg-muted/40 p-3 text-sm text-muted-foreground"
+                >
+                    No se detectó ningún marcador {{ EJEMPLO_MARCADOR }} en este
+                    archivo. Revisa que el DOCX use ese formato exacto (ver la
+                    guía «Formatos DOCX»).
                 </p>
 
-                <div v-if="sinConfigurar.length > 0" class="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-400">
+                <div
+                    v-if="sinConfigurar.length > 0"
+                    class="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-400"
+                >
                     {{ sinConfigurar.length }} marcador(es) sin mapear todavía:
-                    <code v-for="clave in sinConfigurar.map((f) => f.clave)" :key="clave" class="mx-0.5 rounded bg-black/5 px-1 dark:bg-white/10">{{ marcador(clave) }}</code>
-                    — quedarán literales en el documento hasta que los configures abajo.
+                    <code
+                        v-for="clave in sinConfigurar.map((f) => f.clave)"
+                        :key="clave"
+                        class="mx-0.5 rounded bg-black/5 px-1 dark:bg-white/10"
+                        >{{ marcador(clave) }}</code
+                    >
+                    — quedarán literales en el documento hasta que los
+                    configures abajo.
                 </div>
 
                 <div v-if="automaticas.length > 0" class="flex flex-col gap-2">
                     <p class="text-xs font-semibold text-muted-foreground">
-                        Datos automáticos detectados — se llenan solos; marca cuáles no pueden quedar vacíos.
+                        Datos automáticos detectados — se llenan solos; marca
+                        cuáles no pueden quedar vacíos.
                     </p>
-                    <div v-for="auto in automaticas" :key="auto.clave" class="flex items-center justify-between gap-3 rounded-xl border border-border/60 p-3">
+                    <div
+                        v-for="auto in automaticas"
+                        :key="auto.clave"
+                        class="flex items-center justify-between gap-3 rounded-xl border border-border/60 p-3"
+                    >
                         <div class="flex items-center gap-2">
-                            <code class="text-xs font-medium">{{ marcador(auto.clave) }}</code>
-                            <span class="text-xs text-muted-foreground">{{ auto.etiqueta }}</span>
+                            <code class="text-xs font-medium">{{
+                                marcador(auto.clave)
+                            }}</code>
+                            <span class="text-xs text-muted-foreground">{{
+                                auto.etiqueta
+                            }}</span>
                         </div>
                         <label class="flex items-center gap-2 text-sm">
                             <Checkbox
                                 :model-value="auto.requerido"
-                                @update:model-value="(v) => (auto.requerido = !!v)"
+                                @update:model-value="
+                                    (v) => (auto.requerido = !!v)
+                                "
                             />
                             Obligatorio para generar
                         </label>
@@ -255,20 +297,35 @@ function guardar() {
                             <div class="flex items-center gap-2">
                                 <Checkbox
                                     :model-value="fila.configurar"
-                                    @update:model-value="(v) => (fila.configurar = !!v)"
+                                    @update:model-value="
+                                        (v) => (fila.configurar = !!v)
+                                    "
                                 />
-                                <code class="text-xs font-medium">{{ marcador(fila.clave) }}</code>
+                                <code class="text-xs font-medium">{{
+                                    marcador(fila.clave)
+                                }}</code>
                             </div>
-                            <Button type="button" variant="ghost" size="sm" @click="copiarMarcador(fila.clave)">
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                @click="copiarMarcador(fila.clave)"
+                            >
                                 <Copy class="size-3.5" />
                                 Copiar
                             </Button>
                         </div>
 
-                        <div v-if="fila.configurar" class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div
+                            v-if="fila.configurar"
+                            class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2"
+                        >
                             <div class="grid gap-1">
                                 <Label class="text-xs">Etiqueta</Label>
-                                <Input v-model="fila.etiqueta" placeholder="Nombre visible para RH" />
+                                <Input
+                                    v-model="fila.etiqueta"
+                                    placeholder="Nombre visible para RH"
+                                />
                             </div>
                             <div class="grid gap-1">
                                 <Label class="text-xs">Tipo de dato</Label>
@@ -277,22 +334,39 @@ function guardar() {
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem v-for="t in tiposDisponibles" :key="t.value" :value="t.value">{{ t.etiqueta }}</SelectItem>
+                                        <SelectItem
+                                            v-for="t in tiposDisponibles"
+                                            :key="t.value"
+                                            :value="t.value"
+                                            >{{ t.etiqueta }}</SelectItem
+                                        >
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div v-if="fila.tipo === 'select'" class="grid gap-1 sm:col-span-2">
-                                <Label class="text-xs">Opciones (separadas por coma)</Label>
-                                <Input v-model="fila.opcionesTexto" placeholder="Opción A, Opción B, Opción C" />
+                            <div
+                                v-if="fila.tipo === 'select'"
+                                class="grid gap-1 sm:col-span-2"
+                            >
+                                <Label class="text-xs"
+                                    >Opciones (separadas por coma)</Label
+                                >
+                                <Input
+                                    v-model="fila.opcionesTexto"
+                                    placeholder="Opción A, Opción B, Opción C"
+                                />
                             </div>
                             <div class="grid gap-1">
-                                <Label class="text-xs">Valor por defecto (opcional)</Label>
+                                <Label class="text-xs"
+                                    >Valor por defecto (opcional)</Label
+                                >
                                 <Input v-model="fila.valorPorDefecto" />
                             </div>
                             <label class="mt-5 flex items-center gap-2 text-sm">
                                 <Checkbox
                                     :model-value="fila.requerido"
-                                    @update:model-value="(v) => (fila.requerido = !!v)"
+                                    @update:model-value="
+                                        (v) => (fila.requerido = !!v)
+                                    "
                                 />
                                 Obligatoria para generar el documento
                             </label>
@@ -302,10 +376,16 @@ function guardar() {
                 <InputError :message="form.errors.variables" />
 
                 <details class="rounded-xl border border-border/60 p-3">
-                    <summary class="cursor-pointer text-sm font-medium">Catálogo de variables disponibles</summary>
+                    <summary class="cursor-pointer text-sm font-medium">
+                        Catálogo de variables disponibles
+                    </summary>
                     <div class="mt-3 flex flex-col gap-3">
                         <div v-for="grupo in catalogo" :key="grupo.grupo">
-                            <p class="text-xs font-semibold text-muted-foreground">{{ grupo.grupo }}</p>
+                            <p
+                                class="text-xs font-semibold text-muted-foreground"
+                            >
+                                {{ grupo.grupo }}
+                            </p>
                             <div class="mt-1 flex flex-wrap gap-1.5">
                                 <button
                                     v-for="v in grupo.variables"
@@ -324,8 +404,17 @@ function guardar() {
             </template>
 
             <DialogFooter>
-                <Button type="button" variant="secondary" @click="emit('update:open', false)">Cerrar</Button>
-                <Button type="button" :disabled="form.processing || cargando" @click="guardar">
+                <Button
+                    type="button"
+                    variant="secondary"
+                    @click="emit('update:open', false)"
+                    >Cerrar</Button
+                >
+                <Button
+                    type="button"
+                    :disabled="form.processing || cargando"
+                    @click="guardar"
+                >
                     <Spinner v-if="form.processing" />
                     Guardar variables
                 </Button>

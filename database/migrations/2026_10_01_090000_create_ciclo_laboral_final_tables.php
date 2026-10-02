@@ -25,7 +25,11 @@ return new class extends Migration
     {
         Schema::create('aprobaciones', function (Blueprint $table): void {
             $table->id();
-            $table->morphs('aprobable', 'aprobaciones_aprobable_idx');
+            // Tipo acotado a 100: el índice único compuesto de abajo excedía
+            // los 1000 bytes de llave de MariaDB/MyISAM con varchar(191).
+            $table->string('aprobable_type', 100);
+            $table->unsignedBigInteger('aprobable_id');
+            $table->index(['aprobable_type', 'aprobable_id'], 'aprobaciones_aprobable_idx');
             $table->string('proceso', 40);
             $table->string('etapa', 30);
             // Una solicitud devuelta para corrección abre una ronda nueva: la

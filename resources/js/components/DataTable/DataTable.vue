@@ -125,7 +125,9 @@ function valorCelda(fila: T, clave: string): unknown {
                             :key="columna.clave"
                             class="flex items-start justify-between gap-3"
                         >
-                            <dt class="shrink-0 text-xs font-medium text-muted-foreground">
+                            <dt
+                                class="shrink-0 text-xs font-medium text-muted-foreground"
+                            >
                                 {{ columna.etiqueta }}
                             </dt>
                             <dd class="min-w-0 text-right break-words">

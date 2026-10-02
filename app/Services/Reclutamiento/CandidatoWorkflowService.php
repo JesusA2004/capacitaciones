@@ -25,7 +25,6 @@ use App\Services\Tareas\TareaService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -306,9 +305,10 @@ class CandidatoWorkflowService
             $this->transicionar($c, EstadoCandidato::AutorizacionRhPendiente, $actor, $this->nota(sprintf('Preautorizado por %s. Pendiente la autorización final de RH.', $actor->nombreCompleto()), $comentario));
         });
 
-        $this->notificador->notificar(
-            $this->responsablesRh($resultado),
+        $this->notificador->notificarEvento(
             'candidato_preautorizado',
+            $resultado,
+            ['creador' => $actor, 'excluir' => [$actor->id]],
             'Candidato preautorizado',
             sprintf('%s preautorizó a %s. Pendiente tu autorización final.', $actor->nombreCompleto(), $resultado->nombreCompleto()),
             $resultado,
@@ -653,19 +653,6 @@ class CandidatoWorkflowService
             EstadoCandidato::AutorizadoRh => [TipoTarea::CandidatoInvitacion, ['permiso' => ContratacionCandidatoService::PERMISO_CONTRATAR, 'accion' => 'iniciar_contratacion', 'prioridad' => PrioridadTarea::Alta]],
             default => null,
         };
-    }
-
-    /**
-     * @return Collection<int, User>
-     */
-    private function responsablesRh(Candidato $candidato): Collection
-    {
-        return User::query()
-            ->permission(OrganizacionJerarquiaService::PERMISO_AUTORIZAR_RH)
-            ->whereNull('acceso_bloqueado_en')
-            ->get()
-            ->filter(fn (User $u) => $this->jerarquia->alcanzaCandidato($u, $candidato))
-            ->values();
     }
 
     private function autorizar(User $actor, string $permiso, Candidato $candidato): void

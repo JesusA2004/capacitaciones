@@ -8,12 +8,16 @@ import {
     FileStack,
     FolderKanban,
     GitBranch,
+    Inbox,
     Landmark,
     LayoutGrid,
     Megaphone,
     QrCode,
+    RotateCcw,
+    Settings2,
     ShieldCheck,
     Smartphone,
+    Sparkles,
     UserRound,
     Users,
 } from '@lucide/vue';
@@ -92,44 +96,65 @@ export const MODULOS_GUIA: ModuloGuia[] = [
         grupo: 'Panel',
         icono: LayoutGrid,
         descripcion:
-            'Tablero operativo: indicadores, gráficas de cobertura, plantilla, rotación, aniversarios y alertas.',
+            'Tablero de Recursos Humanos: 8 indicadores, embudo de reclutamiento, tiempo de contratación por nivel y rotación mensual.',
         pasos: [
             {
                 titulo: 'Tu tablero de Inicio',
-                texto: 'Es lo primero que ves al entrar. Resume en tiempo real cómo está la operación de RH dentro de las sucursales que te corresponden: no necesitas abrir cada módulo para saber qué requiere atención.',
+                texto: 'Es lo primero que ves al entrar. Resume cómo está RH dentro de las sucursales que te corresponden. Arriba a la derecha eliges el mes y, si ves varias, la sucursal.',
             },
             {
                 selector: sel('dashboard-kpis'),
                 titulo: 'Indicadores clave',
-                texto: 'Colaboradores activos, altas en proceso, bajas del mes, solicitudes y vacaciones pendientes, expedientes completos e incompletos, documentos por revisar, vacantes, candidatos, rutas cubiertas y cumpleaños de la semana.',
-                consejo:
-                    'Los indicadores con ícono rojo o ámbar (bajas, pendientes, incompletos, rutas sin cubrir) son los que suelen pedir atención primero.',
+                texto: 'Plantilla activa contra la autorizada, vacantes abiertas, rotación del mes, costo por contratación, tiempo de contratación, permanencia promedio, contratos por vencer e inversión en campañas.',
             },
             {
-                selector: sel('dashboard-cobertura'),
-                titulo: 'Cobertura y reclutamiento',
-                texto: 'Vacantes por puesto, candidatos por etapa del proceso, cobertura de rutas y solicitudes por estado. Pasa el cursor sobre cada barra o sector para ver el valor exacto.',
+                selector: sel('dashboard-embudo'),
+                titulo: 'Embudo de reclutamiento',
+                texto: 'Cuántas personas llegaron a cada filtro en el periodo. Quien ya fue contratado también cuenta en las etapas que pasó. Pasa el cursor sobre una barra para ver el valor.',
             },
             {
-                selector: sel('dashboard-plantilla'),
-                titulo: 'Plantilla y cumplimiento documental',
-                texto: 'Dónde está la plantilla activa (colaboradores por sucursal) y qué tan al día están los expedientes y sus documentos.',
+                selector: sel('dashboard-tiempo'),
+                titulo: 'Tiempo de contratación por nivel',
+                texto: 'Días promedio desde la postulación hasta la contratación, por grupo de puestos (últimos 12 meses).',
             },
             {
                 selector: sel('dashboard-rotacion'),
-                titulo: 'Rotación de personal',
-                texto: 'Altas, bajas y plantilla del periodo. Aquí mismo puedes filtrar por sucursal, departamento y periodo sin salir de Inicio.',
+                titulo: 'Rotación mensual',
+                texto: 'Bajas del mes entre la plantilla promedio, mes por mes. El mes elegido se resalta.',
+            },
+        ],
+    },
+    {
+        id: 'pendientes',
+        nombre: 'Mis pendientes',
+        ruta: '/rh/pendientes',
+        patron: /^\/rh\/pendientes$/,
+        modo: 'operativo',
+        permisos: [],
+        grupo: 'Panel',
+        icono: Inbox,
+        descripcion:
+            'Tu bandeja: lo que te toca hacer hoy en reclutamiento, contratación, inducción, evaluaciones y bajas.',
+        pasos: [
+            {
+                titulo: '¿Qué me toca hacer?',
+                texto: 'Cada pendiente es una acción concreta que alguien espera de ti (preautorizar, autorizar, evaluar, entregar equipo…). Al resolverla en su pantalla, desaparece de aquí sola.',
+            },
+            {
+                selector: sel('pendientes-conteos'),
+                titulo: 'Resumen',
+                texto: 'Cuántos pendientes tienes abiertos, cuáles no has visto y cuáles ya vencieron.',
+            },
+            {
+                selector: sel('pendientes-filtros'),
+                titulo: 'Filtrar',
+                texto: 'Acota por etapa, sucursal o urgencia para atender primero lo vencido.',
+            },
+            {
+                selector: sel('pendientes-lista'),
+                titulo: 'Abrir y resolver',
+                texto: 'Da clic en un pendiente para ir directo a la persona o candidato donde se hace la acción.',
                 opcional: true,
-            },
-            {
-                selector: sel('dashboard-aniversarios'),
-                titulo: 'Próximos aniversarios laborales',
-                texto: 'Quién cumple años en la empresa en los próximos 30 días. Los que están a una semana o menos se resaltan en verde.',
-            },
-            {
-                selector: sel('dashboard-alertas'),
-                titulo: 'Alertas RH',
-                texto: 'Avisos automáticos de lo que requiere acción. Si todo está en orden, verás "Sin alertas por ahora".',
             },
         ],
     },
@@ -202,13 +227,19 @@ export const MODULOS_GUIA: ModuloGuia[] = [
         grupo: 'Personal',
         icono: ClipboardList,
         descripcion:
-            'Tablero de revisión de vacaciones, permisos, bajas y demás solicitudes de los colaboradores.',
+            'Solicitudes de los colaboradores por tipo (préstamos, permisos, vacaciones…): visto bueno del gerente y del regional, y autorización de RH.',
         pasos: [
             {
-                titulo: 'Bandeja unificada de solicitudes',
-                texto: 'Todo lo que un colaborador pide — vacaciones, permisos, préstamos, incapacidades, bajas y más — llega aquí como una tarjeta. Tu trabajo es moverla por su flujo hasta resolverla.',
+                titulo: 'Solicitudes de los colaboradores',
+                texto: 'Todo lo que un colaborador pide llega aquí. Primero da su visto bueno el gerente de la sucursal, luego el regional, y al final Recursos Humanos autoriza.',
             },
             {
+                selector: sel('solicitudes-tipos'),
+                titulo: 'Elige el tipo',
+                texto: 'Cada tarjeta es un tipo de solicitud con cuántas están recibidas, pendientes de autorizar o en corrección. Da clic en una para abrir su tablero — ahora te llevo a uno.',
+            },
+            {
+                rutaDesde: `${sel('solicitudes-tipos')} a[href]`,
                 selector: sel('solicitudes-limite'),
                 titulo: 'Aviso de límite',
                 texto: 'El tablero muestra hasta cierto número de tarjetas para mantenerse ágil. Cuando aparece este aviso, usa los filtros para ver el resto: ninguna solicitud se pierde.',
@@ -227,7 +258,7 @@ export const MODULOS_GUIA: ModuloGuia[] = [
             {
                 selector: sel('solicitudes-tablero'),
                 titulo: 'El tablero',
-                texto: 'Columnas por estado: Pendientes/Enviadas → En revisión → Requiere corrección → Aprobadas / Rechazadas → Cerradas. Desliza horizontalmente para ver todas.',
+                texto: 'Columnas por estado: Solicitudes recibidas (esperan el visto bueno del gerente y del regional) → Pendiente de autorizar (ya con ambos vistos buenos) → Requiere corrección → Aprobadas / No aprobadas → Cerradas.',
             },
             {
                 selector: '[data-tour="solicitudes-tablero"] [data-kanban-id]',
@@ -890,6 +921,92 @@ export const MODULOS_GUIA: ModuloGuia[] = [
         ],
     },
 
+    {
+        id: 'onboarding',
+        nombre: 'Onboarding',
+        ruta: '/rh/onboarding/configuracion',
+        patron: /^\/rh\/onboarding\/configuracion$/,
+        modo: 'operativo',
+        permisos: ['onboarding.gestionar'],
+        grupo: 'Personal',
+        icono: Sparkles,
+        descripcion:
+            'Lecciones de bienvenida (institucionales y por puesto) y el catálogo de equipo que se entrega al ingresar.',
+        pasos: [
+            {
+                titulo: 'Bienvenida de los nuevos',
+                texto: 'Aquí defines las lecciones que responde cada persona nueva y el equipo que recibe. El colaborador solo ve "lecciones de bienvenida", nunca el nombre interno de la etapa.',
+            },
+            {
+                selector: sel('onboarding-modulos'),
+                titulo: 'Lecciones',
+                texto: 'Material, preguntas y calificación mínima (8 por defecto). Las del puesto solo aparecen a quien ocupa ese puesto.',
+            },
+            {
+                selector: sel('onboarding-activos'),
+                titulo: 'Equipo de trabajo',
+                texto: 'Uniforme, credencial, casco… Al entregarlo se genera la carta responsiva.',
+            },
+        ],
+    },
+    {
+        id: 'reingresos',
+        nombre: 'Reingresos',
+        ruta: '/rh/reingresos',
+        patron: /^\/rh\/reingresos$/,
+        modo: 'operativo',
+        permisos: ['reingresos.solicitar', 'reingresos.gestionar'],
+        grupo: 'Personal',
+        icono: RotateCcw,
+        descripcion:
+            'Reincorporar a un excolaborador como la MISMA persona, con su historial.',
+        pasos: [
+            {
+                titulo: 'Volver a contratar a alguien',
+                texto: 'Nunca se crea otra persona: se reactiva la misma, con su historial, y solo se le piden los documentos vencidos o faltantes.',
+            },
+            {
+                selector: sel('reingresos-busqueda'),
+                titulo: 'Buscar',
+                texto: 'Por número de empleado, CURP, RFC, NSS o nombre. Verás su causa de salida antes de solicitar.',
+            },
+            {
+                selector: sel('reingresos-lista'),
+                titulo: 'Solicitudes',
+                texto: 'Quien solicita propone; Recursos Humanos decide si es viable.',
+            },
+        ],
+    },
+    {
+        id: 'configuracion',
+        nombre: 'Configuración',
+        ruta: '/administracion/configuracion/jerarquia',
+        patron: /^\/administracion\/configuracion(\/.*)?$/,
+        modo: 'operativo',
+        permisos: ['configuracion.ver'],
+        grupo: 'Administración',
+        icono: Settings2,
+        descripcion:
+            'Jefes directos, a quién llega cada aviso, parámetros de RH y colores institucionales.',
+        pasos: [
+            {
+                titulo: 'Configuración del sistema',
+                texto: 'Lo que el negocio ajusta sin programar. Lo esencial no se apaga: Recursos Humanos siempre da la autorización final.',
+            },
+            {
+                selector: sel('configuracion-secciones'),
+                titulo: 'Secciones',
+                texto: 'Solo ves las que tu permiso te deja administrar.',
+            },
+            {
+                selector: sel('configuracion-jefes'),
+                titulo: 'Jefes directos',
+                texto: 'A quién reporta cada persona. De aquí salen las preautorizaciones y los avisos; el sistema impide que alguien sea su propio jefe o que se formen ciclos.',
+                opcional: true,
+            },
+        ],
+    },
+
     // ───────────────────────── Modo colaborador ─────────────────────────
     {
         id: 'portal',
@@ -913,9 +1030,15 @@ export const MODULOS_GUIA: ModuloGuia[] = [
                 texto: 'Tu nombre, puesto, sucursal y número de empleado. La campana de la derecha te lleva a tus notificaciones.',
             },
             {
+                selector: sel('portal-pendientes'),
+                titulo: 'Lo que necesitas hacer',
+                texto: 'Cuando Recursos Humanos te pida algo (subir un documento, firmar, responder tus lecciones de bienvenida) aparece aquí. Toca cualquiera para hacerlo.',
+                opcional: true,
+            },
+            {
                 selector: sel('portal-accesos'),
                 titulo: 'Accesos rápidos',
-                texto: 'Atajos a tu perfil, tus vacaciones y tus solicitudes.',
+                texto: 'Atajos a tu perfil, tu expediente, tus vacaciones y tus solicitudes.',
             },
             {
                 selector: sel('portal-vacaciones'),
@@ -931,6 +1054,33 @@ export const MODULOS_GUIA: ModuloGuia[] = [
                 selector: sel('portal-notificaciones'),
                 titulo: 'Notificaciones',
                 texto: 'Avisos de RH y cambios en tus solicitudes. Las no leídas llevan un punto de color.',
+            },
+        ],
+    },
+    {
+        id: 'mi-expediente',
+        nombre: 'Mi expediente',
+        ruta: '/mi-expediente',
+        patron: /^\/mi-expediente$/,
+        modo: 'colaborador',
+        permisos: [],
+        grupo: 'Mi espacio',
+        icono: FolderKanban,
+        descripcion: 'Tus datos, tus documentos y tu historial en la empresa.',
+        pasos: [
+            {
+                titulo: 'Tu expediente',
+                texto: 'Aquí está todo lo tuyo que guarda Recursos Humanos: datos personales y laborales, documentos, vacaciones, recibos, préstamos y solicitudes.',
+            },
+            {
+                selector: sel('expediente-cabecera'),
+                titulo: 'Tu ficha',
+                texto: 'Tu puesto, sucursal y qué tan completo está tu expediente.',
+            },
+            {
+                selector: sel('expediente-pestanas'),
+                titulo: 'Secciones',
+                texto: 'En "Documentos" subes lo que te pidan y ves si ya fue aprobado; en "Datos personales" mantienes al día tu contacto.',
             },
         ],
     },

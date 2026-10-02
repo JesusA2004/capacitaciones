@@ -95,7 +95,7 @@ class IncorporacionController extends Controller
             'data' => [
                 'colaborador' => $this->colaboradorResumen($colaborador),
                 'estado' => $estadoGeneral,
-                'progreso' => $this->incorporacion->progreso($this->incorporacion->tiposDocumento(), $this->expediente->documentosVigentes($colaborador)),
+                'progreso' => $this->incorporacion->progreso($this->incorporacion->tiposDocumento($colaborador), $this->expediente->documentosVigentes($colaborador)),
                 'documentos' => $documentos,
                 'documentos_faltantes' => collect($documentos)->where('documento_id', null)->values(),
                 'documentos_rechazados' => collect($documentos)->whereIn('estado', ['rechazado', 'requiere_correccion'])->values(),

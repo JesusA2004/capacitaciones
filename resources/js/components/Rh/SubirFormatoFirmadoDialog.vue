@@ -63,7 +63,9 @@ function enviar() {
 
 <template>
     <Dialog :open="open" @update:open="(valor) => emit('update:open', valor)">
-        <DialogContent class="w-[calc(100vw-2rem)] max-w-none sm:w-[min(90vw,800px)]">
+        <DialogContent
+            class="w-[calc(100vw-2rem)] max-w-none sm:w-[min(90vw,800px)]"
+        >
             <DialogHeader>
                 <DialogTitle>Subir documento firmado</DialogTitle>
                 <DialogDescription>

@@ -32,6 +32,24 @@ class ExpedienteService
     }
 
     /**
+     * Obligatorios para ESTA persona. Mientras está en contratación (Etapa
+     * 2) solo cuentan los que aplican al alta (document_types.aplica_alta):
+     * p. ej. "Contrato laboral" es obligatorio en el expediente, pero se
+     * genera DESPUÉS de aprobar el expediente de alta — exigirlo antes
+     * bloquearía el ciclo para siempre.
+     *
+     * @return Collection<int, DocumentType>
+     */
+    public function tiposRequeridosPara(Colaborador $colaborador): Collection
+    {
+        $tipos = $this->tiposRequeridos();
+
+        return $colaborador->estado_alta?->enContratacion() === true
+            ? $tipos->filter(fn (DocumentType $tipo) => (bool) $tipo->aplica_alta)->values()
+            : $tipos;
+    }
+
+    /**
      * El documento vigente de cada tipo para un colaborador: el mas
      * reciente que no este archivado (una nueva version archiva a la
      * anterior al subirse, ver EmployeeDocumentController::subir).
@@ -55,7 +73,7 @@ class ExpedienteService
      */
     public function resumenCompletitud(Colaborador $colaborador): array
     {
-        return $this->formatearResumen(ProgresoExpediente::calcular($this->tiposRequeridos(), $this->documentosVigentes($colaborador)));
+        return $this->formatearResumen(ProgresoExpediente::calcular($this->tiposRequeridosPara($colaborador), $this->documentosVigentes($colaborador)));
     }
 
     /**
@@ -141,7 +159,7 @@ class ExpedienteService
      */
     public function estadoDocumental(Colaborador $colaborador): array
     {
-        $tiposRequeridos = $this->tiposRequeridos();
+        $tiposRequeridos = $this->tiposRequeridosPara($colaborador);
         $vigentes = $this->documentosVigentes($colaborador);
 
         $entregados = 0;

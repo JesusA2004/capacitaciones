@@ -180,7 +180,7 @@ class CierreLaboralController extends Controller
     {
         $this->authorize('ver', $cierre);
 
-        return $this->respuesta($request, $this->cierres->programarPago($cierre, $request->user(), $request->validated()));
+        return $this->respuesta($request, $this->cierres->programarPago($cierre, $request->user(), $request->datosPago()));
     }
 
     public function cita(Request $request, CierreLaboral $cierre): JsonResponse

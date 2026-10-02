@@ -103,7 +103,7 @@ class DocumentoLaboralController extends Controller
     {
         $this->authorize('operar', $documento);
 
-        return $this->respuesta($this->flujo->registrarFirmaFisica($documento, $request->user(), $request->safe()->only(['huella_registrada', 'testigos', 'observaciones'])));
+        return $this->respuesta($this->flujo->registrarFirmaFisica($documento, $request->user(), $request->safe()->only(['huella_registrada', 'testigos', 'observaciones', 'fecha'])));
     }
 
     public function envio(OperacionDocumentoRequest $request, GeneratedDocument $documento): JsonResponse
@@ -119,6 +119,7 @@ class DocumentoLaboralController extends Controller
                 'paqueteria' => (string) $request->validated('paqueteria'),
                 'numero_guia' => (string) $request->validated('numero_guia'),
                 'observaciones' => $request->validated('observaciones'),
+                'fecha' => $request->validated('fecha'),
             ],
             $comprobante instanceof UploadedFile ? $comprobante : null,
         ));
@@ -128,7 +129,7 @@ class DocumentoLaboralController extends Controller
     {
         $this->authorize('operar', $documento);
 
-        return $this->respuesta($this->flujo->registrarRecepcion($documento, $request->user(), $request->validated('observaciones')));
+        return $this->respuesta($this->flujo->registrarRecepcion($documento, $request->user(), $request->validated('observaciones'), $request->validated('fecha')));
     }
 
     public function escaneo(ArchivoLaboralRequest $request, GeneratedDocument $documento): JsonResponse

@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { ArrowLeft, Check, Copy, Download, PartyPopper, RefreshCw, Send } from '@lucide/vue';
+import {
+    ArrowLeft,
+    Check,
+    Copy,
+    Download,
+    PartyPopper,
+    RefreshCw,
+    Send,
+} from '@lucide/vue';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -88,11 +96,17 @@ onMounted(() => {
 
 const estado = computed(() => {
     if (props.greeting.enviadaAt) {
-        return { texto: 'Enviada', tono: 'border-[var(--success)]/40 text-[var(--success)]' };
+        return {
+            texto: 'Enviada',
+            tono: 'border-[var(--success)]/40 text-[var(--success)]',
+        };
     }
 
     if (props.greeting.tieneImagen) {
-        return { texto: 'Generada · pendiente de envío', tono: 'border-amber-500/40 text-amber-600 dark:text-amber-400' };
+        return {
+            texto: 'Generada · pendiente de envío',
+            tono: 'border-amber-500/40 text-amber-600 dark:text-amber-400',
+        };
     }
 
     return { texto: 'Pendiente de generar', tono: 'text-muted-foreground' };
@@ -105,7 +119,9 @@ const confirmando = ref(false);
 const imagenPreview = ref<string | null>(null);
 
 const hayCambioPendiente = computed(() => imagenPreview.value !== null);
-const imagenMostrada = computed(() => imagenPreview.value ?? props.greeting.imagenUrl);
+const imagenMostrada = computed(
+    () => imagenPreview.value ?? props.greeting.imagenUrl,
+);
 
 function liberarPreview() {
     if (imagenPreview.value) {
@@ -147,7 +163,9 @@ function cancelarCambio() {
 }
 
 function confirmarFraseElegida() {
-    const frase = props.opciones.frases.find((f) => String(f.id) === fraseSeleccionadaId.value);
+    const frase = props.opciones.frases.find(
+        (f) => String(f.id) === fraseSeleccionadaId.value,
+    );
 
     if (!frase) {
         return;
@@ -221,157 +239,206 @@ async function copiarMensaje() {
     <Head :title="`Felicitación — ${colaborador.nombre}`" />
 
     <div class="pagina-ancha flex flex-col">
-    <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <Link
-            :href="index.url()"
-            class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-            <ArrowLeft class="size-4" /> Volver al calendario
-        </Link>
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <Link
+                :href="index.url()"
+                class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            >
+                <ArrowLeft class="size-4" /> Volver al calendario
+            </Link>
 
-        <Badge
-            v-if="esHoy"
-            class="gap-1.5 border-amber-400/40 bg-gradient-to-r from-amber-400/15 to-pink-400/15 text-amber-700 dark:text-amber-300"
-            variant="outline"
-        >
-            <PartyPopper class="size-3.5" /> Hoy es su cumpleaños
-        </Badge>
-    </div>
+            <Badge
+                v-if="esHoy"
+                class="gap-1.5 border-amber-400/40 bg-gradient-to-r from-amber-400/15 to-pink-400/15 text-amber-700 dark:text-amber-300"
+                variant="outline"
+            >
+                <PartyPopper class="size-3.5" /> Hoy es su cumpleaños
+            </Badge>
+        </div>
 
-    <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card
-            class="overflow-hidden"
-            :class="esHoy && 'ring-1 ring-amber-400/30'"
-        >
-            <CardContent class="flex items-center justify-center bg-gradient-to-br from-muted/30 to-muted/10 p-6 sm:p-10">
-                <div v-if="greeting.tieneImagen || imagenMostrada" class="relative w-full">
-                    <img
-                        :src="imagenMostrada"
-                        :alt="`Felicitación de ${colaborador.nombre}`"
-                        class="max-h-[640px] w-full rounded-lg object-contain shadow-lg"
-                    />
-                    <Badge
-                        v-if="hayCambioPendiente"
-                        variant="secondary"
-                        class="absolute top-2 right-2 shadow"
-                    >
-                        Vista previa sin guardar
-                    </Badge>
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <Card
+                class="overflow-hidden"
+                :class="esHoy && 'ring-1 ring-amber-400/30'"
+            >
+                <CardContent
+                    class="flex items-center justify-center bg-gradient-to-br from-muted/30 to-muted/10 p-6 sm:p-10"
+                >
                     <div
-                        v-if="previsualizando"
-                        class="absolute inset-0 flex items-center justify-center rounded-lg bg-background/60"
+                        v-if="greeting.tieneImagen || imagenMostrada"
+                        class="relative w-full"
+                    >
+                        <img
+                            :src="imagenMostrada"
+                            :alt="`Felicitación de ${colaborador.nombre}`"
+                            class="max-h-[640px] w-full rounded-lg object-contain shadow-lg"
+                        />
+                        <Badge
+                            v-if="hayCambioPendiente"
+                            variant="secondary"
+                            class="absolute top-2 right-2 shadow"
+                        >
+                            Vista previa sin guardar
+                        </Badge>
+                        <div
+                            v-if="previsualizando"
+                            class="absolute inset-0 flex items-center justify-center rounded-lg bg-background/60"
+                        >
+                            <Spinner />
+                        </div>
+                    </div>
+                    <div
+                        v-else
+                        class="flex flex-col items-center gap-2 py-16 text-sm text-muted-foreground"
                     >
                         <Spinner />
+                        Generando la tarjeta...
                     </div>
-                </div>
-                <div v-else class="flex flex-col items-center gap-2 py-16 text-sm text-muted-foreground">
-                    <Spinner />
-                    Generando la tarjeta...
-                </div>
-            </CardContent>
-        </Card>
-
-        <div class="flex flex-col gap-4">
-            <Card>
-                <CardHeader class="flex-row items-center gap-3 space-y-0">
-                    <Avatar class="size-12">
-                        <AvatarImage v-if="colaborador.foto_url" :src="colaborador.foto_url" :alt="colaborador.nombre" />
-                        <AvatarFallback>{{ getInitials(colaborador.nombre) }}</AvatarFallback>
-                    </Avatar>
-                    <div class="min-w-0">
-                        <CardTitle>{{ colaborador.nombre }}</CardTitle>
-                        <p v-if="colaborador.sucursal" class="text-sm text-muted-foreground">
-                            {{ colaborador.sucursal }}
-                        </p>
-                    </div>
-                </CardHeader>
-                <CardContent class="flex flex-col gap-3">
-                    <blockquote class="border-l-2 border-primary/40 pl-3 text-sm italic">
-                        "{{ greeting.frase }}"
-                    </blockquote>
-                    <Badge variant="outline" class="w-fit" :class="estado.tono">
-                        {{ estado.texto }}
-                    </Badge>
-                    <p v-if="greeting.enviadaAt" class="text-xs text-muted-foreground">
-                        Enviada el {{ new Date(greeting.enviadaAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' }) }}
-                    </p>
                 </CardContent>
             </Card>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle class="text-base">Cambiar frase</CardTitle>
-                </CardHeader>
-                <CardContent class="flex flex-col gap-3">
-                    <Select :model-value="fraseSeleccionadaId" @update:model-value="alElegirFrase">
-                        <SelectTrigger class="w-full">
-                            <SelectValue placeholder="Elegir una frase del catálogo..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="frase in opciones.frases"
-                                :key="frase.id"
-                                :value="String(frase.id)"
+            <div class="flex flex-col gap-4">
+                <Card>
+                    <CardHeader class="flex-row items-center gap-3 space-y-0">
+                        <Avatar class="size-12">
+                            <AvatarImage
+                                v-if="colaborador.foto_url"
+                                :src="colaborador.foto_url"
+                                :alt="colaborador.nombre"
+                            />
+                            <AvatarFallback>{{
+                                getInitials(colaborador.nombre)
+                            }}</AvatarFallback>
+                        </Avatar>
+                        <div class="min-w-0">
+                            <CardTitle>{{ colaborador.nombre }}</CardTitle>
+                            <p
+                                v-if="colaborador.sucursal"
+                                class="text-sm text-muted-foreground"
                             >
-                                {{ frase.texto }}
-                            </SelectItem>
-                        </SelectContent>
-                    </Select>
-
-                    <div v-if="hayCambioPendiente" class="flex flex-wrap gap-2">
-                        <Button
-                            size="sm"
-                            :disabled="confirmando || previsualizando"
-                            @click="confirmarFraseElegida"
+                                {{ colaborador.sucursal }}
+                            </p>
+                        </div>
+                    </CardHeader>
+                    <CardContent class="flex flex-col gap-3">
+                        <blockquote
+                            class="border-l-2 border-primary/40 pl-3 text-sm italic"
                         >
-                            <Spinner v-if="confirmando" />
-                            <Check v-else class="size-4" />
-                            Confirmar esta frase
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="ghost"
-                            :disabled="confirmando"
-                            @click="cancelarCambio"
+                            "{{ greeting.frase }}"
+                        </blockquote>
+                        <Badge
+                            variant="outline"
+                            class="w-fit"
+                            :class="estado.tono"
                         >
-                            Cancelar
-                        </Button>
-                    </div>
-                    <p v-else class="text-xs text-muted-foreground">
-                        Elige una frase para ver la tarjeta actualizada antes de guardarla.
-                    </p>
-                </CardContent>
-            </Card>
+                            {{ estado.texto }}
+                        </Badge>
+                        <p
+                            v-if="greeting.enviadaAt"
+                            class="text-xs text-muted-foreground"
+                        >
+                            Enviada el
+                            {{
+                                new Date(greeting.enviadaAt).toLocaleDateString(
+                                    'es-MX',
+                                    {
+                                        day: 'numeric',
+                                        month: 'long',
+                                        year: 'numeric',
+                                    },
+                                )
+                            }}
+                        </p>
+                    </CardContent>
+                </Card>
 
-            <div class="flex flex-wrap gap-2">
-                <Button v-if="permisos.descargarImagen" as-child>
-                    <a :href="descargarFelicitacion.url(colaborador.id)">
-                        <Download class="size-4" /> Descargar PNG
-                    </a>
-                </Button>
+                <Card>
+                    <CardHeader>
+                        <CardTitle class="text-base">Cambiar frase</CardTitle>
+                    </CardHeader>
+                    <CardContent class="flex flex-col gap-3">
+                        <Select
+                            :model-value="fraseSeleccionadaId"
+                            @update:model-value="alElegirFrase"
+                        >
+                            <SelectTrigger class="w-full">
+                                <SelectValue
+                                    placeholder="Elegir una frase del catálogo..."
+                                />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem
+                                    v-for="frase in opciones.frases"
+                                    :key="frase.id"
+                                    :value="String(frase.id)"
+                                >
+                                    {{ frase.texto }}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
 
-                <Button variant="outline" @click="copiarMensaje">
-                    <Copy class="size-4" /> Copiar mensaje
-                </Button>
+                        <div
+                            v-if="hayCambioPendiente"
+                            class="flex flex-wrap gap-2"
+                        >
+                            <Button
+                                size="sm"
+                                :disabled="confirmando || previsualizando"
+                                @click="confirmarFraseElegida"
+                            >
+                                <Spinner v-if="confirmando" />
+                                <Check v-else class="size-4" />
+                                Confirmar esta frase
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                :disabled="confirmando"
+                                @click="cancelarCambio"
+                            >
+                                Cancelar
+                            </Button>
+                        </div>
+                        <p v-else class="text-xs text-muted-foreground">
+                            Elige una frase para ver la tarjeta actualizada
+                            antes de guardarla.
+                        </p>
+                    </CardContent>
+                </Card>
 
-                <Button variant="outline" :disabled="regenerando" @click="regenerar">
-                    <Spinner v-if="regenerando" />
-                    <RefreshCw v-else class="size-4" />
-                    Regenerar con otra frase
-                </Button>
+                <div class="flex flex-wrap gap-2">
+                    <Button v-if="permisos.descargarImagen" as-child>
+                        <a :href="descargarFelicitacion.url(colaborador.id)">
+                            <Download class="size-4" /> Descargar PNG
+                        </a>
+                    </Button>
 
-                <Button
-                    v-if="permisos.gestionarNotificaciones"
-                    variant="outline"
-                    :disabled="enviando"
-                    @click="enviarManual"
-                >
-                    <Spinner v-if="enviando" />
-                    <Send v-else class="size-4" />
-                    Enviar al colaborador
-                </Button>
+                    <Button variant="outline" @click="copiarMensaje">
+                        <Copy class="size-4" /> Copiar mensaje
+                    </Button>
+
+                    <Button
+                        variant="outline"
+                        :disabled="regenerando"
+                        @click="regenerar"
+                    >
+                        <Spinner v-if="regenerando" />
+                        <RefreshCw v-else class="size-4" />
+                        Regenerar con otra frase
+                    </Button>
+
+                    <Button
+                        v-if="permisos.gestionarNotificaciones"
+                        variant="outline"
+                        :disabled="enviando"
+                        @click="enviarManual"
+                    >
+                        <Spinner v-if="enviando" />
+                        <Send v-else class="size-4" />
+                        Enviar al colaborador
+                    </Button>
+                </div>
             </div>
         </div>
-    </div>
     </div>
 </template>

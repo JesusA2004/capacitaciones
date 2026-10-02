@@ -18,7 +18,11 @@ import { useFiltros } from '@/composables/useFiltros';
 import { VueApexCharts } from '@/lib/apexDiferido';
 import { dashboard } from '@/routes';
 import { exportar, exportarPdf, index } from '@/routes/reportes/cumplimiento';
-import type { ColaboradorCumplimientoItem, GraficaReporte, RespuestaPaginada } from '@/types';
+import type {
+    ColaboradorCumplimientoItem,
+    GraficaReporte,
+    RespuestaPaginada,
+} from '@/types';
 
 const props = defineProps<{
     colaboradores: RespuestaPaginada<ColaboradorCumplimientoItem>;
@@ -79,8 +83,8 @@ const opcionesGrafica = computed(() => {
     const g = props.grafica;
 
     if (!g) {
-return null;
-}
+        return null;
+    }
 
     return {
         options: {
@@ -202,7 +206,9 @@ return null;
             v-if="opcionesGrafica"
             class="rounded-2xl border border-border/60 bg-card p-4 transition-shadow duration-200 hover:shadow-md"
         >
-            <p class="mb-2 text-sm font-semibold">Distribución por rango de cumplimiento</p>
+            <p class="mb-2 text-sm font-semibold">
+                Distribución por rango de cumplimiento
+            </p>
             <VueApexCharts
                 type="donut"
                 height="280"

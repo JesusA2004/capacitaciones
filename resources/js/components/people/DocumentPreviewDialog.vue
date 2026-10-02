@@ -101,7 +101,9 @@ const urlDescarga = computed(() => props.downloadUrl ?? props.previewUrl);
                 </div>
             </div>
 
-            <DialogFooter class="flex-row flex-wrap items-center justify-end gap-2">
+            <DialogFooter
+                class="flex-row flex-wrap items-center justify-end gap-2"
+            >
                 <Button as-child variant="outline" :disabled="!urlDescarga">
                     <a :href="urlDescarga ?? '#'">
                         <Download class="size-4" />

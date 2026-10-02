@@ -111,7 +111,10 @@ function procesarArchivos(lista: FileList | File[]) {
         return;
     }
 
-    emit('update:modelValue', props.multiple ? [...props.modelValue, ...validos] : [validos[0]]);
+    emit(
+        'update:modelValue',
+        props.multiple ? [...props.modelValue, ...validos] : [validos[0]],
+    );
 }
 
 function alSoltar(evento: DragEvent) {

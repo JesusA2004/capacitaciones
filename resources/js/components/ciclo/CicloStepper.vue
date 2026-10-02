@@ -30,8 +30,14 @@ defineProps<{ pasos: PasoCiclo[] }>();
                 :aria-current="paso.estado === 'actual' ? 'step' : undefined"
             >
                 <Check v-if="paso.estado === 'completado'" class="size-4" />
-                <CircleDot v-else-if="paso.estado === 'actual'" class="size-4" />
-                <OctagonX v-else-if="paso.estado === 'detenido'" class="size-4" />
+                <CircleDot
+                    v-else-if="paso.estado === 'actual'"
+                    class="size-4"
+                />
+                <OctagonX
+                    v-else-if="paso.estado === 'detenido'"
+                    class="size-4"
+                />
                 <template v-else>{{ indice + 1 }}</template>
             </span>
             <span

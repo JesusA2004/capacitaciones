@@ -19,7 +19,11 @@ import {
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { NativeSelect } from '@/components/ui/native-select';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useAlertas } from '@/composables/useAlertas';
 import { dashboard } from '@/routes';
 import { index as indexJerarquiaPuestos } from '@/routes/administracion/jerarquia-puestos';
@@ -167,26 +171,36 @@ function quitarApoyoOVolante(
                 <TooltipContent side="bottom" class="max-w-72 text-left">
                     <ul class="flex flex-col gap-1.5">
                         <li>
-                            <span class="font-semibold text-success">Cubierta</span>
+                            <span class="font-semibold text-success"
+                                >Cubierta</span
+                            >
                             — la ruta ya tiene un gestor asignado.
                         </li>
                         <li>
-                            <span class="font-semibold text-warning">Sin cubrir</span>
+                            <span class="font-semibold text-warning"
+                                >Sin cubrir</span
+                            >
                             — nadie está a cargo todavía.
                         </li>
                         <li>
-                            <span class="font-semibold text-destructive">Vencidos / Castigo</span>
+                            <span class="font-semibold text-destructive"
+                                >Vencidos / Castigo</span
+                            >
                             — situación operativa que requiere atención.
                         </li>
                         <li>
-                            <span class="font-semibold">Selector "Sin gestor"</span>
+                            <span class="font-semibold"
+                                >Selector "Sin gestor"</span
+                            >
                             — asigna o cambia quién cobra la ruta.
                         </li>
                         <li>
                             <Users2 class="mb-0.5 inline size-3.5" />
-                            <span class="font-semibold">Agregar apoyo/volante</span>
-                            — suma un colaborador extra a la ruta sin quitar
-                            al gestor (elige a la persona y luego presiona el
+                            <span class="font-semibold"
+                                >Agregar apoyo/volante</span
+                            >
+                            — suma un colaborador extra a la ruta sin quitar al
+                            gestor (elige a la persona y luego presiona el
                             botón).
                         </li>
                     </ul>
@@ -219,9 +233,14 @@ function quitarApoyoOVolante(
             </div>
         </div>
 
-        <div v-if="!arbol" class="rounded-2xl border border-dashed border-border/60 p-8 text-center text-sm text-muted-foreground">
+        <div
+            v-if="!arbol"
+            class="rounded-2xl border border-dashed border-border/60 p-8 text-center text-sm text-muted-foreground"
+        >
             Todavía no hay matriz comercial cargada. Corre
-            <code class="rounded bg-muted px-1.5 py-0.5">php artisan db:seed --class=MatrizComercialSeeder</code>.
+            <code class="rounded bg-muted px-1.5 py-0.5"
+                >php artisan db:seed --class=MatrizComercialSeeder</code
+            >.
         </div>
 
         <div v-else class="flex flex-col gap-4">
@@ -236,7 +255,9 @@ function quitarApoyoOVolante(
                     @click="alternar(region.id)"
                 >
                     <span class="font-semibold">{{ region.nombre }}</span>
-                    <span class="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span
+                        class="flex items-center gap-2 text-xs text-muted-foreground"
+                    >
                         {{ region.hijos.length }} zona(s)
                         <ChevronDown
                             class="size-4 transition-transform"
@@ -245,13 +266,16 @@ function quitarApoyoOVolante(
                     </span>
                 </button>
 
-                <div v-if="estaAbierto(region.id)" class="flex flex-col gap-3 border-t border-border/60 p-4">
+                <div
+                    v-if="estaAbierto(region.id)"
+                    class="flex flex-col gap-3 border-t border-border/60 p-4"
+                >
                     <p
                         v-if="!region.hijos.length"
                         class="text-sm text-muted-foreground"
                     >
-                        Región pendiente de configurar: todavía no tiene
-                        zonas cargadas.
+                        Región pendiente de configurar: todavía no tiene zonas
+                        cargadas.
                     </p>
 
                     <Collapsible
@@ -275,7 +299,9 @@ function quitarApoyoOVolante(
                                 {{ rutasDe(zona).length }} ruta(s)
                             </span>
                         </CollapsibleTrigger>
-                        <CollapsibleContent class="grid grid-cols-1 gap-2 border-t border-border/60 p-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                        <CollapsibleContent
+                            class="grid grid-cols-1 gap-2 border-t border-border/60 p-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
+                        >
                             <!-- Posiciones de la sucursal que dirección listó junto con las
                                  rutas (GTE, SUBGERENCIA, VOLANTE): no son carteras asignables;
                                  se ocupan desde el Organigrama. -->
@@ -283,7 +309,10 @@ function quitarApoyoOVolante(
                                 v-if="posicionesDe(zona).length"
                                 class="col-span-full flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground"
                             >
-                                <span>Posiciones de la sucursal (ver Organigrama):</span>
+                                <span
+                                    >Posiciones de la sucursal (ver
+                                    Organigrama):</span
+                                >
                                 <Badge
                                     v-for="posicion in posicionesDe(zona)"
                                     :key="posicion.id"
@@ -297,21 +326,28 @@ function quitarApoyoOVolante(
                                 :key="ruta.id"
                                 class="flex flex-col gap-2 rounded-lg border border-border/60 p-3"
                             >
-                                <div class="flex items-center justify-between gap-2">
+                                <div
+                                    class="flex items-center justify-between gap-2"
+                                >
                                     <span class="text-sm font-medium">{{
                                         ruta.nombre
                                     }}</span>
-                                    <Tooltip v-if="ruta.cobertura !== 'inactiva'" :delay-duration="0">
+                                    <Tooltip
+                                        v-if="ruta.cobertura !== 'inactiva'"
+                                        :delay-duration="0"
+                                    >
                                         <TooltipTrigger as-child>
                                             <component
                                                 :is="
-                                                    ruta.cobertura === 'cubierta'
+                                                    ruta.cobertura ===
+                                                    'cubierta'
                                                         ? CheckCircle2
                                                         : XCircle
                                                 "
                                                 class="size-4 shrink-0"
                                                 :class="
-                                                    ruta.cobertura === 'cubierta'
+                                                    ruta.cobertura ===
+                                                    'cubierta'
                                                         ? 'text-success'
                                                         : 'text-warning'
                                                 "
@@ -334,20 +370,28 @@ function quitarApoyoOVolante(
                                         {{ COBERTURA_ETIQUETA[ruta.cobertura] }}
                                     </Badge>
                                     <Badge
-                                        v-if="ruta.estado_operativo === 'vencidos'"
+                                        v-if="
+                                            ruta.estado_operativo === 'vencidos'
+                                        "
                                         variant="outline"
                                         class="border-destructive/30 bg-destructive/10 text-destructive"
                                         >Vencidos</Badge
                                     >
                                     <Badge
-                                        v-if="ruta.estado_operativo === 'castigo'"
+                                        v-if="
+                                            ruta.estado_operativo === 'castigo'
+                                        "
                                         variant="outline"
                                         class="border-destructive/30 bg-destructive/10 text-destructive"
                                         >Castigo</Badge
                                     >
                                 </div>
 
-                                <div v-if="ruta.activa" title="Gestor responsable: quien cobra esta ruta hoy." class="[&>div]:w-full">
+                                <div
+                                    v-if="ruta.activa"
+                                    title="Gestor responsable: quien cobra esta ruta hoy."
+                                    class="[&>div]:w-full"
+                                >
                                     <NativeSelect
                                         class="h-8 text-xs"
                                         :model-value="
@@ -356,22 +400,29 @@ function quitarApoyoOVolante(
                                                 : '__ninguno__'
                                         "
                                         @update:model-value="
-                                            (v) => asignarGestor(ruta, String(v))
+                                            (v) =>
+                                                asignarGestor(ruta, String(v))
                                         "
                                     >
-                                        <option value="__ninguno__">Sin gestor</option>
+                                        <option value="__ninguno__">
+                                            Sin gestor
+                                        </option>
                                         <option
                                             v-for="gestor in gestoresDisponibles"
                                             :key="gestor.id"
                                             :value="String(gestor.id)"
                                         >
-                                            {{ gestor.name }} {{ gestor.apellidos ?? '' }}
+                                            {{ gestor.name }}
+                                            {{ gestor.apellidos ?? '' }}
                                         </option>
                                     </NativeSelect>
                                 </div>
 
                                 <div
-                                    v-if="ruta.apoyos.length || ruta.volantes.length"
+                                    v-if="
+                                        ruta.apoyos.length ||
+                                        ruta.volantes.length
+                                    "
                                     class="flex flex-wrap gap-1"
                                 >
                                     <Badge
@@ -445,7 +496,9 @@ function quitarApoyoOVolante(
                                         variant="outline"
                                         class="size-8 shrink-0"
                                         title="Agregar como apoyo"
-                                        @click="agregarApoyoOVolante(ruta, 'apoyo')"
+                                        @click="
+                                            agregarApoyoOVolante(ruta, 'apoyo')
+                                        "
                                     >
                                         <Users2 class="size-3.5" />
                                     </Button>
@@ -473,7 +526,9 @@ function quitarApoyoOVolante(
 
             <!-- Zonas sin región (p. ej. Aguascalientes inactiva). -->
             <div
-                v-for="zonaSuelta in arbol.hijos.filter((h) => h.tipo === 'zona')"
+                v-for="zonaSuelta in arbol.hijos.filter(
+                    (h) => h.tipo === 'zona',
+                )"
                 :key="`suelta-${zonaSuelta.id}`"
                 class="rounded-2xl border border-border/60 bg-card p-4"
             >

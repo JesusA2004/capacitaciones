@@ -27,7 +27,9 @@ const { getInitials } = useInitials();
 
 onMounted(async () => {
     try {
-        items.value = (await getJson<{ data: Item[] }>(celebracionesHoy.url())).data;
+        items.value = (
+            await getJson<{ data: Item[] }>(celebracionesHoy.url())
+        ).data;
     } catch {
         items.value = [];
     }
@@ -41,17 +43,37 @@ onMounted(async () => {
     >
         <p class="flex items-center gap-2 font-semibold">
             <PartyPopper class="size-5 text-pink-500" />
-            {{ items.length === 1 ? 'Hoy celebramos' : `Hoy celebramos a ${items.length} personas` }}
+            {{
+                items.length === 1
+                    ? 'Hoy celebramos'
+                    : `Hoy celebramos a ${items.length} personas`
+            }}
         </p>
         <ul class="flex flex-col gap-2">
-            <li v-for="item in items.slice(0, 5)" :key="item.id" class="flex flex-wrap items-center gap-3">
+            <li
+                v-for="item in items.slice(0, 5)"
+                :key="item.id"
+                class="flex flex-wrap items-center gap-3"
+            >
                 <Avatar class="size-9 shrink-0">
-                    <AvatarImage v-if="item.homenajeado.foto_url" :src="item.homenajeado.foto_url" :alt="item.homenajeado.nombre" />
-                    <AvatarFallback>{{ getInitials(item.homenajeado.nombre) }}</AvatarFallback>
+                    <AvatarImage
+                        v-if="item.homenajeado.foto_url"
+                        :src="item.homenajeado.foto_url"
+                        :alt="item.homenajeado.nombre"
+                    />
+                    <AvatarFallback>{{
+                        getInitials(item.homenajeado.nombre)
+                    }}</AvatarFallback>
                 </Avatar>
-                <span class="min-w-0 flex-1 text-sm">{{ item.es_mia ? '¡Hoy es tu día! Mira tu tarjeta y tus mensajes.' : item.titulo }}</span>
+                <span class="min-w-0 flex-1 text-sm">{{
+                    item.es_mia
+                        ? '¡Hoy es tu día! Mira tu tarjeta y tus mensajes.'
+                        : item.titulo
+                }}</span>
                 <Button as-child size="sm" variant="outline">
-                    <Link :href="item.url">{{ item.es_mia ? 'Ver' : 'Ver y felicitar' }}</Link>
+                    <Link :href="item.url">{{
+                        item.es_mia ? 'Ver' : 'Ver y felicitar'
+                    }}</Link>
                 </Button>
             </li>
         </ul>

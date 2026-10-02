@@ -67,7 +67,12 @@ const enEscritorio = useMediaQuery('(min-width: 768px)');
         </div>
     </div>
 
-    <Teleport v-else-if="$slots.default" to="#acciones-pagina" defer :disabled="!enEscritorio">
+    <Teleport
+        v-else-if="$slots.default"
+        to="#acciones-pagina"
+        defer
+        :disabled="!enEscritorio"
+    >
         <div
             data-tour="encabezado"
             role="toolbar"

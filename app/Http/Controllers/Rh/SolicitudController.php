@@ -21,8 +21,10 @@ use App\Models\User;
 use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Finiquitos\FiniquitoService;
 use App\Services\Formatos\OfficialFormatCatalogoService;
+use App\Services\Solicitudes\AprobacionJerarquicaService;
 use App\Services\Solicitudes\SolicitudesService;
 use App\Services\Solicitudes\SolicitudFormatoOficialService;
+use App\Services\Solicitudes\VistoBuenoService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -42,11 +44,21 @@ class SolicitudController extends Controller
         private readonly SolicitudFormatoOficialService $formatoOficial,
         private readonly FotoColaboradorService $fotos,
         private readonly OfficialFormatCatalogoService $catalogoFormatos,
+        private readonly AprobacionJerarquicaService $aprobaciones,
+        private readonly VistoBuenoService $vistoBueno,
     ) {}
 
     public function index(Request $request): Response
     {
         $this->authorize('viewAny', SolicitudInterna::class);
+
+        // Pantalla de entrada: primero se elige el tipo (préstamos, permisos,
+        // vacaciones…); el tablero se abre ya filtrado por ese tipo.
+        if (! $request->hasAny(self::FILTROS) && ! $request->boolean('todas')) {
+            return Inertia::render('Rh/Solicitudes/Tipos', [
+                'tipos' => $this->solicitudes->resumenPorTipo($request->user()),
+            ]);
+        }
 
         $tablero = $this->solicitudes->paraTablero($request->user(), $request->only(self::FILTROS));
 
@@ -154,6 +166,9 @@ class SolicitudController extends Controller
         return Inertia::render('Rh/Solicitudes/Show', [
             'solicitud' => $solicitud,
             'puedeGenerarFormato' => $puedeGenerarFormato,
+            // Cadena de vistos buenos (gerente → regional) antes de RH.
+            'vistosBuenos' => $this->aprobaciones->resumen($solicitud),
+            'puedeDarVistoBueno' => $this->aprobaciones->puedeDarVistoBueno($request->user(), $solicitud),
             // Generar cualquier plantilla oficial con los datos de ESTA
             // solicitud (docs/FORMATOS_OFICIALES.md).
             'formatosOficiales' => $request->user()->can('formatos_oficiales.generar') && $solicitud->personaSolicitante() !== null
@@ -211,6 +226,24 @@ class SolicitudController extends Controller
         $this->solicitudes->requerirCorreccion($solicitud, $request->user(), (string) $request->validated('comentario'));
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Se pidió corrección al colaborador.']);
+    }
+
+    /**
+     * Visto bueno del gerente de la sucursal o del regional (mismo
+     * VistoBuenoService que la app). No da el visto bueno = se rechaza.
+     */
+    public function vistoBueno(Request $request, SolicitudInterna $solicitud): RedirectResponse
+    {
+        abort_unless($this->aprobaciones->esAprobadorDe($request->user(), $solicitud), 403, 'Este visto bueno no te corresponde.');
+
+        $datos = $request->validate([
+            'aprobado' => ['required', 'boolean'],
+            'comentario' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $this->vistoBueno->registrar($solicitud, $request->user(), (bool) $datos['aprobado'], $datos['comentario'] ?? null);
+
+        return back()->with('toast', ['type' => 'success', 'message' => (bool) $datos['aprobado'] ? 'Visto bueno registrado.' : 'Solicitud rechazada con tu motivo.']);
     }
 
     public function aprobar(ComentarioSolicitudInternaRequest $request, SolicitudInterna $solicitud): RedirectResponse

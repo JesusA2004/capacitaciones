@@ -4,12 +4,7 @@ import { personalizacion as actualizarPersonalizacion } from '@/routes';
 import type { Auth } from '@/types';
 
 export type TemaColorId =
-    | 'verde'
-    | 'azul'
-    | 'morado'
-    | 'naranja'
-    | 'rosa'
-    | 'gris';
+    'verde' | 'azul' | 'morado' | 'naranja' | 'rosa' | 'gris';
 
 export type PreferenciasUi = {
     tema_color: TemaColorId;
@@ -23,12 +18,32 @@ export const TEMAS_COLOR: {
     primario: string;
     secundario: string;
 }[] = [
-    { id: 'verde', nombre: 'Verde MR. LANA', primario: '#64d64b', secundario: '#2dc7d3' },
+    {
+        id: 'verde',
+        nombre: 'Verde MR. LANA',
+        primario: '#64d64b',
+        secundario: '#2dc7d3',
+    },
     { id: 'azul', nombre: 'Azul', primario: '#3b82f6', secundario: '#06b6d4' },
-    { id: 'morado', nombre: 'Morado', primario: '#8b5cf6', secundario: '#d946ef' },
-    { id: 'naranja', nombre: 'Naranja', primario: '#f97316', secundario: '#f59e0b' },
+    {
+        id: 'morado',
+        nombre: 'Morado',
+        primario: '#8b5cf6',
+        secundario: '#d946ef',
+    },
+    {
+        id: 'naranja',
+        nombre: 'Naranja',
+        primario: '#f97316',
+        secundario: '#f59e0b',
+    },
     { id: 'rosa', nombre: 'Rosa', primario: '#ec4899', secundario: '#f472b6' },
-    { id: 'gris', nombre: 'Grafito', primario: '#64748b', secundario: '#475569' },
+    {
+        id: 'gris',
+        nombre: 'Grafito',
+        primario: '#64748b',
+        secundario: '#475569',
+    },
 ];
 
 export const AVATAR_COLORES: { id: string; hex: string }[] = [
@@ -91,7 +106,9 @@ export function initializePersonalizacion(): void {
             (prefs?.tema_color as TemaColorId) ??
                 PREFERENCIAS_UI_DEFAULT.tema_color,
         );
-        aplicarAnimaciones(prefs?.animaciones ?? PREFERENCIAS_UI_DEFAULT.animaciones);
+        aplicarAnimaciones(
+            prefs?.animaciones ?? PREFERENCIAS_UI_DEFAULT.animaciones,
+        );
     } catch {
         aplicarTema(PREFERENCIAS_UI_DEFAULT.tema_color);
         aplicarAnimaciones(PREFERENCIAS_UI_DEFAULT.animaciones);

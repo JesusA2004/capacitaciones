@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
-import { CalendarDays, ClipboardList, FileWarning, ShieldCheck } from '@lucide/vue';
+import {
+    CalendarDays,
+    ClipboardList,
+    FileWarning,
+    ShieldCheck,
+} from '@lucide/vue';
 import CelebracionesHoyCard from '@/components/Celebraciones/CelebracionesHoyCard.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import MetricCard from '@/components/Dashboard/MetricCard.vue';

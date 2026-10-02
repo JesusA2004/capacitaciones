@@ -108,8 +108,8 @@
  * Sistema de ancho de página (se aplica al contenedor raíz de cada página,
  * nunca como wrapper extra). El área disponible ya descuenta el sidebar.
  *  - pagina-ancha: dashboards, listados, calendarios, organigrama,
- *    expedientes, reportes → prácticamente todo el ancho (solo pantallas
- *    ultra anchas dejan margen).
+ *    expedientes, reportes y TODA pantalla nueva → todo el ancho
+ *    disponible, sin tope (decisión del usuario 2026-10-01).
  *  - pagina-media: detalles, perfiles, ayuda, configuración.
  *  - pagina-formulario: formularios (líneas y campos de largo legible).
  * Mismo padding en las tres: 16 px en móvil, 24 px en tablet, 32 px a los
@@ -118,7 +118,7 @@
 @utility pagina-ancha {
     width: 100%;
     min-width: 0;
-    max-width: 120rem;
+    max-width: none;
     margin-inline: auto;
     padding: 1rem;
 
@@ -333,6 +333,24 @@
     --mrl-texto: #e6efe9;
     --mrl-texto-suave: #9fb1a8;
     --mrl-borde: #24332e;
+}
+
+/* Alias semánticos de la paleta (los colores reales los puede cambiar
+   Administración → Configuración → Apariencia; el servidor inyecta
+   :root:not(.dark){--mrl-petroleo:...} en app.blade.php). Los componentes
+   nuevos usan estos nombres, nunca un hex. */
+:root {
+    --mrl-primary: var(--mrl-petroleo);
+    --mrl-primary-alt: var(--mrl-petroleo-2);
+    --mrl-success: var(--mrl-verde);
+    --mrl-secondary: var(--mrl-verde-secundario);
+    --mrl-gold: var(--mrl-dorado);
+    --mrl-gold-dark: var(--mrl-dorado-oscuro);
+    --mrl-muted: var(--mrl-gris-verdoso);
+    --mrl-accent: var(--mrl-cyan);
+    --mrl-danger: var(--mrl-rojo);
+    --mrl-background: var(--mrl-fondo);
+    --mrl-surface: var(--mrl-superficie);
 }
 
 /* Preferencia "sin animaciones" (Settings/Personalizacion.vue): igual que

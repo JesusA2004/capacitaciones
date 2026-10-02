@@ -16,7 +16,11 @@ import { computed, ref, shallowRef, watch } from 'vue';
 import MetricCard from '@/components/Dashboard/MetricCard.vue';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
 import { RangeCalendar } from '@/components/ui/range-calendar';
 import {
     Select,
@@ -29,8 +33,15 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { VueApexCharts } from '@/lib/apexDiferido';
 import { getJson } from '@/lib/http';
 import { rotacion } from '@/routes/dashboard';
-import { excel as exportarExcel, pdf as exportarPdf } from '@/routes/dashboard/rotacion';
-import type { DepartamentoFiltro, RotacionPersonalData, SucursalFiltro } from '@/types';
+import {
+    excel as exportarExcel,
+    pdf as exportarPdf,
+} from '@/routes/dashboard/rotacion';
+import type {
+    DepartamentoFiltro,
+    RotacionPersonalData,
+    SucursalFiltro,
+} from '@/types';
 
 const props = defineProps<{
     datosIniciales: RotacionPersonalData;
@@ -102,8 +113,14 @@ async function recargar() {
         datos.value = await getJson<RotacionPersonalData>(
             rotacion.url({
                 query: {
-                    sucursal_id: sucursalId.value === TODAS ? undefined : sucursalId.value,
-                    departamento_id: departamentoId.value === TODOS ? undefined : departamentoId.value,
+                    sucursal_id:
+                        sucursalId.value === TODAS
+                            ? undefined
+                            : sucursalId.value,
+                    departamento_id:
+                        departamentoId.value === TODOS
+                            ? undefined
+                            : departamentoId.value,
                     desde: desde.value || undefined,
                     hasta: hasta.value || undefined,
                 },
@@ -200,10 +217,10 @@ const departamentoCategorias = computed(() =>
     datos.value.porDepartamento.map((d) => d.etiqueta),
 );
 
-const generoSeries = computed(() =>
-    datos.value.genero.map((g) => g.valor),
+const generoSeries = computed(() => datos.value.genero.map((g) => g.valor));
+const generoEtiquetas = computed(() =>
+    datos.value.genero.map((g) => g.etiqueta),
 );
-const generoEtiquetas = computed(() => datos.value.genero.map((g) => g.etiqueta));
 const generoOpciones = computed(() => ({
     ...opcionesBase.value,
     labels: generoEtiquetas.value,
@@ -219,7 +236,8 @@ function porcentaje(valor: number): string {
 }
 
 const hombres = computed(
-    () => datos.value.genero.find((g) => g.etiqueta === 'Masculino')?.valor ?? 0,
+    () =>
+        datos.value.genero.find((g) => g.etiqueta === 'Masculino')?.valor ?? 0,
 );
 const mujeres = computed(
     () => datos.value.genero.find((g) => g.etiqueta === 'Femenino')?.valor ?? 0,
@@ -227,7 +245,8 @@ const mujeres = computed(
 
 const queryExportacion = computed(() => ({
     sucursal_id: sucursalId.value === TODAS ? undefined : sucursalId.value,
-    departamento_id: departamentoId.value === TODOS ? undefined : departamentoId.value,
+    departamento_id:
+        departamentoId.value === TODOS ? undefined : departamentoId.value,
     desde: desde.value,
     hasta: hasta.value,
 }));
@@ -243,7 +262,9 @@ const queryExportacion = computed(() => ({
                         ><SelectValue placeholder="Todas"
                     /></SelectTrigger>
                     <SelectContent>
-                        <SelectItem :value="TODAS">Todas las sucursales</SelectItem>
+                        <SelectItem :value="TODAS"
+                            >Todas las sucursales</SelectItem
+                        >
                         <SelectItem
                             v-for="s in sucursales"
                             :key="s.id"
@@ -260,7 +281,9 @@ const queryExportacion = computed(() => ({
                         ><SelectValue placeholder="Todos"
                     /></SelectTrigger>
                     <SelectContent>
-                        <SelectItem :value="TODOS">Todos los departamentos</SelectItem>
+                        <SelectItem :value="TODOS"
+                            >Todos los departamentos</SelectItem
+                        >
                         <SelectItem
                             v-for="d in departamentos"
                             :key="d.id"
@@ -278,7 +301,9 @@ const queryExportacion = computed(() => ({
                             variant="outline"
                             class="w-64 justify-start text-left font-normal"
                         >
-                            <CalendarIcon class="size-4 text-muted-foreground" />
+                            <CalendarIcon
+                                class="size-4 text-muted-foreground"
+                            />
                             {{ etiquetaRango }}
                         </Button>
                     </PopoverTrigger>
@@ -388,7 +413,9 @@ const queryExportacion = computed(() => ({
                     Altas vs. bajas (últimos 6 meses)
                 </p>
                 <p
-                    v-if="!datos.tendenciaMensual.some((m) => m.altas || m.bajas)"
+                    v-if="
+                        !datos.tendenciaMensual.some((m) => m.altas || m.bajas)
+                    "
                     class="flex h-[240px] items-center justify-center text-center text-sm text-muted-foreground"
                 >
                     Sin altas ni bajas en los últimos 6 meses.
@@ -420,7 +447,9 @@ const queryExportacion = computed(() => ({
                     :options="{
                         ...opcionesBase,
                         chart: { ...opcionesBase.chart, type: 'bar' },
-                        plotOptions: { bar: { horizontal: true, borderRadius: 4 } },
+                        plotOptions: {
+                            bar: { horizontal: true, borderRadius: 4 },
+                        },
                         xaxis: { categories: departamentoCategorias },
                         colors: ['var(--brand-secondary)'],
                     }"
@@ -466,7 +495,9 @@ const queryExportacion = computed(() => ({
                     :options="{
                         ...opcionesBase,
                         chart: { ...opcionesBase.chart, type: 'bar' },
-                        plotOptions: { bar: { horizontal: true, borderRadius: 4 } },
+                        plotOptions: {
+                            bar: { horizontal: true, borderRadius: 4 },
+                        },
                         xaxis: { categories: sucursalesCategorias },
                         colors: ['var(--brand-primary)'],
                     }"
@@ -492,7 +523,9 @@ const queryExportacion = computed(() => ({
                     :options="{
                         ...opcionesBase,
                         chart: { ...opcionesBase.chart, type: 'bar' },
-                        plotOptions: { bar: { horizontal: true, borderRadius: 4 } },
+                        plotOptions: {
+                            bar: { horizontal: true, borderRadius: 4 },
+                        },
                         xaxis: { categories: bajasSucursalesCategorias },
                         colors: ['var(--destructive)'],
                     }"

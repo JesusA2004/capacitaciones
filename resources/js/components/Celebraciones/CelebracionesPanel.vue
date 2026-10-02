@@ -95,9 +95,7 @@ function navegar(cambios: Partial<NavegacionCelebraciones>) {
 </script>
 
 <template>
-    <div
-        class="pagina-ancha flex flex-col gap-4"
-    >
+    <div class="pagina-ancha flex flex-col gap-4">
         <CelebracionesTabsNav
             :activa="tipo === 'cumpleanos' ? 'cumpleanos' : 'aniversarios'"
         >

@@ -29,8 +29,16 @@ import type { FormatoCatalogoItem } from '@/types';
 const props = defineProps<{
     open: boolean;
     plantilla: FormatoCatalogoItem;
-    colaboradoresDisponibles: { id: number; name: string; apellidos: string | null }[];
-    candidatosDisponibles: { id: number; nombre: string; apellidos: string | null }[];
+    colaboradoresDisponibles: {
+        id: number;
+        name: string;
+        apellidos: string | null;
+    }[];
+    candidatosDisponibles: {
+        id: number;
+        nombre: string;
+        apellidos: string | null;
+    }[];
 }>();
 
 const emit = defineEmits<{
@@ -69,7 +77,10 @@ type PreviewRespuesta = {
 };
 
 function etiquetaDe(clave: string): string {
-    return previewManuales.value.find((m) => m.clave === clave)?.etiqueta ?? clave.replaceAll('_', ' ');
+    return (
+        previewManuales.value.find((m) => m.clave === clave)?.etiqueta ??
+        clave.replaceAll('_', ' ')
+    );
 }
 
 function esRequerida(clave: string): boolean {
@@ -94,7 +105,9 @@ watch([sujetoId, tipoSujeto], async ([id, tipo]) => {
 
     try {
         const respuesta = await getJson<{ data: PlantillaSugerida }>(
-            resolverPlantilla.url({ query: { colaborador_id: id, tipo: props.plantilla.tipo } }),
+            resolverPlantilla.url({
+                query: { colaborador_id: id, tipo: props.plantilla.tipo },
+            }),
         );
         plantillaSugerida.value = respuesta.data;
     } catch {
@@ -159,8 +172,8 @@ function generar() {
             <DialogHeader>
                 <DialogTitle>Generar «{{ plantilla.nombre }}»</DialogTitle>
                 <DialogDescription>
-                    Elige para quién es el documento, revisa la vista previa
-                    y genera. {{ plantilla.tipo_etiqueta }}.
+                    Elige para quién es el documento, revisa la vista previa y
+                    genera. {{ plantilla.tipo_etiqueta }}.
                 </DialogDescription>
             </DialogHeader>
 
@@ -172,7 +185,9 @@ function generar() {
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="colaborador">Colaborador</SelectItem>
+                            <SelectItem value="colaborador"
+                                >Colaborador</SelectItem
+                            >
                             <SelectItem value="candidato">Candidato</SelectItem>
                         </SelectContent>
                     </Select>
@@ -180,7 +195,9 @@ function generar() {
 
                 <div class="grid gap-2">
                     <Label>{{
-                        tipoSujeto === 'colaborador' ? 'Colaborador' : 'Candidato'
+                        tipoSujeto === 'colaborador'
+                            ? 'Colaborador'
+                            : 'Candidato'
                     }}</Label>
                     <Select v-model="sujetoId">
                         <SelectTrigger class="w-full">
@@ -192,7 +209,8 @@ function generar() {
                                     v-for="opcion in colaboradoresDisponibles"
                                     :key="opcion.id"
                                     :value="String(opcion.id)"
-                                    >{{ opcion.name }} {{ opcion.apellidos }}</SelectItem
+                                    >{{ opcion.name }}
+                                    {{ opcion.apellidos }}</SelectItem
                                 >
                             </template>
                             <template v-else>
@@ -200,7 +218,8 @@ function generar() {
                                     v-for="opcion in candidatosDisponibles"
                                     :key="opcion.id"
                                     :value="String(opcion.id)"
-                                    >{{ opcion.nombre }} {{ opcion.apellidos }}</SelectItem
+                                    >{{ opcion.nombre }}
+                                    {{ opcion.apellidos }}</SelectItem
                                 >
                             </template>
                         </SelectContent>
@@ -209,18 +228,22 @@ function generar() {
             </div>
 
             <p
-                v-if="plantillaSugerida && plantillaSugerida.id !== plantilla.id"
+                v-if="
+                    plantillaSugerida && plantillaSugerida.id !== plantilla.id
+                "
                 class="rounded-lg border border-border/60 bg-muted/40 p-2.5 text-xs text-muted-foreground"
             >
                 Para este colaborador normalmente se usa
                 <span class="font-medium text-foreground">{{
                     plantillaSugerida.nombre
                 }}</span>
-                — puedes cerrar y generar esa desde el catálogo, o
-                continuar con «{{ plantilla.nombre }}».
+                — puedes cerrar y generar esa desde el catálogo, o continuar con
+                «{{ plantilla.nombre }}».
             </p>
             <p
-                v-else-if="plantillaSugerida && plantillaSugerida.id === plantilla.id"
+                v-else-if="
+                    plantillaSugerida && plantillaSugerida.id === plantilla.id
+                "
                 class="rounded-lg border border-success/30 bg-success/10 p-2.5 text-xs text-success"
             >
                 Plantilla aplicada automáticamente para este colaborador.
@@ -240,26 +263,50 @@ function generar() {
                 v-if="previewSolicitado && previewFaltantes.length > 0"
                 class="flex flex-col gap-2 rounded-xl border border-amber-500/40 bg-amber-500/5 p-3"
             >
-                <p class="flex items-center gap-2 text-sm font-medium text-amber-700 dark:text-amber-400">
+                <p
+                    class="flex items-center gap-2 text-sm font-medium text-amber-700 dark:text-amber-400"
+                >
                     <AlertTriangle class="size-4" />
                     Datos faltantes para generar este formato
                 </p>
                 <p class="text-xs text-muted-foreground">
-                    Estas variables no tienen valor capturado. Puedes llenarlas aquí solo para este documento (no se guardan en el expediente).
+                    Estas variables no tienen valor capturado. Puedes llenarlas
+                    aquí solo para este documento (no se guardan en el
+                    expediente).
                 </p>
                 <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <div v-for="clave in previewFaltantes" :key="clave" class="grid gap-1">
+                    <div
+                        v-for="clave in previewFaltantes"
+                        :key="clave"
+                        class="grid gap-1"
+                    >
                         <Label class="text-xs capitalize"
                             >{{ etiquetaDe(clave) }}
-                            <span v-if="esRequerida(clave)" class="text-destructive">*</span>
+                            <span
+                                v-if="esRequerida(clave)"
+                                class="text-destructive"
+                                >*</span
+                            >
                         </Label>
-                        <Input v-model="valoresExtra[clave]" :placeholder="clave" />
+                        <Input
+                            v-model="valoresExtra[clave]"
+                            :placeholder="clave"
+                        />
                     </div>
                 </div>
-                <p v-if="!previewPuedeGenerar" class="text-xs font-medium text-destructive">
-                    Completa los campos marcados con * antes de generar el documento.
+                <p
+                    v-if="!previewPuedeGenerar"
+                    class="text-xs font-medium text-destructive"
+                >
+                    Completa los campos marcados con * antes de generar el
+                    documento.
                 </p>
-                <Button size="sm" variant="outline" class="w-fit" @click="verVistaPrevia">
+                <Button
+                    size="sm"
+                    variant="outline"
+                    class="w-fit"
+                    @click="verVistaPrevia"
+                >
                     Actualizar vista previa
                 </Button>
             </div>
@@ -279,16 +326,26 @@ function generar() {
                     class="flex flex-col items-center gap-2 p-8 text-center text-sm text-muted-foreground"
                 >
                     <FileWarning class="size-6" />
-                    Esta plantilla no se pudo convertir a vista previa (estructura no soportada). Puedes generarla y descargarla directamente para revisarla.
+                    Esta plantilla no se pudo convertir a vista previa
+                    (estructura no soportada). Puedes generarla y descargarla
+                    directamente para revisarla.
                 </div>
             </div>
 
             <DialogFooter>
-                <Button type="button" variant="secondary" @click="emit('update:open', false)">
+                <Button
+                    type="button"
+                    variant="secondary"
+                    @click="emit('update:open', false)"
+                >
                     Cancelar
                 </Button>
                 <Button
-                    :disabled="!puedeOperar || generando || (previewSolicitado && !previewPuedeGenerar)"
+                    :disabled="
+                        !puedeOperar ||
+                        generando ||
+                        (previewSolicitado && !previewPuedeGenerar)
+                    "
                     @click="generar"
                 >
                     <Spinner v-if="generando" />

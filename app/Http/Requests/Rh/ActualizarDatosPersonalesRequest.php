@@ -12,8 +12,11 @@ class ActualizarDatosPersonalesRequest extends FormRequest
         $colaborador = $this->route('colaborador');
         $colaboradorId = $colaborador instanceof Colaborador ? $colaborador->id : null;
 
+        // Nadie edita su propio expediente, aunque sea RH o administrador:
+        // la persona pide una "Actualización de datos" (solicitud) y otra
+        // persona de RH la revisa y aplica.
         if ($this->user()?->colaborador_id === $colaboradorId) {
-            return $this->user()->can('expedientes.ver');
+            return false;
         }
 
         return $this->user()?->can('expedientes.editar') ?? false;

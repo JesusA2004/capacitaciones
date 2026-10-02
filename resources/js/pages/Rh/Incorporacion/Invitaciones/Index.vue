@@ -98,7 +98,10 @@ const columnas: ColumnaDataTable[] = [
             </Button>
         </CrudPageHeader>
 
-        <div data-tour="invitaciones-filtros" class="flex flex-wrap items-center gap-2">
+        <div
+            data-tour="invitaciones-filtros"
+            class="flex flex-wrap items-center gap-2"
+        >
             <CrudSearchInput
                 :model-value="filtros.busqueda"
                 placeholder="Buscar por nombre, correo o código..."

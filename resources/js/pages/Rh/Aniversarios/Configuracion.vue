@@ -40,7 +40,12 @@ const props = defineProps<{
         texto_frase_y: number | null;
     };
     mensajePredeterminado: string;
-    ejemplo: { nombre: string; anios: number; puesto: string; sucursal: string };
+    ejemplo: {
+        nombre: string;
+        anios: number;
+        puesto: string;
+        sucursal: string;
+    };
 }>();
 
 const datosEjemplo = [
@@ -78,8 +83,10 @@ const form = useForm<{
     fondo: null,
     quitar_fondo: false,
     mostrar_logo: props.configuracion.mostrar_logo,
-    texto_titulo_y: props.configuracion.texto_titulo_y ?? POSICION_TITULO_DEFECTO,
-    texto_nombre_y: props.configuracion.texto_nombre_y ?? POSICION_NOMBRE_DEFECTO,
+    texto_titulo_y:
+        props.configuracion.texto_titulo_y ?? POSICION_TITULO_DEFECTO,
+    texto_nombre_y:
+        props.configuracion.texto_nombre_y ?? POSICION_NOMBRE_DEFECTO,
     texto_frase_y: props.configuracion.texto_frase_y ?? POSICION_FRASE_DEFECTO,
 });
 
@@ -110,20 +117,40 @@ function enviar() {
         :datos-ejemplo="datosEjemplo"
     >
         <template #overlay>
-            <PosicionVerticalTexto v-model="form.texto_titulo_y" variante="titulo" />
-            <PosicionVerticalTexto v-model="form.texto_nombre_y" variante="nombre" />
-            <PosicionVerticalTexto v-model="form.texto_frase_y" variante="frase" />
+            <PosicionVerticalTexto
+                v-model="form.texto_titulo_y"
+                variante="titulo"
+            />
+            <PosicionVerticalTexto
+                v-model="form.texto_nombre_y"
+                variante="nombre"
+            />
+            <PosicionVerticalTexto
+                v-model="form.texto_frase_y"
+                variante="frase"
+            />
         </template>
 
         <form class="flex flex-col gap-6" @submit.prevent="enviar">
             <section class="flex flex-col gap-3" aria-label="Envío">
                 <label class="flex items-start gap-2 text-sm">
-                    <Checkbox class="mt-0.5" :model-value="form.activo" @update:model-value="(v) => (form.activo = !!v)" />
+                    <Checkbox
+                        class="mt-0.5"
+                        :model-value="form.activo"
+                        @update:model-value="(v) => (form.activo = !!v)"
+                    />
                     Aniversarios activos (preparar las tarjetas cada día)
                 </label>
                 <label class="flex items-start gap-2 text-sm">
-                    <Checkbox class="mt-0.5" :model-value="form.auto_enviar_colaborador" @update:model-value="(v) => (form.auto_enviar_colaborador = !!v)" />
-                    Enviar automáticamente la felicitación al colaborador (nunca avisa a todos sin que RH lo decida)
+                    <Checkbox
+                        class="mt-0.5"
+                        :model-value="form.auto_enviar_colaborador"
+                        @update:model-value="
+                            (v) => (form.auto_enviar_colaborador = !!v)
+                        "
+                    />
+                    Enviar automáticamente la felicitación al colaborador (nunca
+                    avisa a todos sin que RH lo decida)
                 </label>
             </section>
 
@@ -131,18 +158,35 @@ function enviar() {
                 <Label for="mensaje">Mensaje institucional</Label>
                 <Textarea id="mensaje" v-model="form.mensaje" rows="5" />
                 <p class="text-xs text-muted-foreground">
-                    Usa <code>{anios}</code> (se escribe «6 años»), <code>{nombre}</code> y <code>{sucursal}</code>.
-                    <button type="button" class="ml-1 text-primary underline" @click="form.mensaje = mensajePredeterminado">Restaurar predeterminado</button>
+                    Usa <code>{anios}</code> (se escribe «6 años»),
+                    <code>{nombre}</code> y <code>{sucursal}</code>.
+                    <button
+                        type="button"
+                        class="ml-1 text-primary underline"
+                        @click="form.mensaje = mensajePredeterminado"
+                    >
+                        Restaurar predeterminado
+                    </button>
                 </p>
                 <InputError :message="form.errors.mensaje" />
             </section>
 
-            <section class="flex flex-col gap-3 border-t pt-6" aria-label="Apariencia">
+            <section
+                class="flex flex-col gap-3 border-t pt-6"
+                aria-label="Apariencia"
+            >
                 <p class="text-sm text-muted-foreground">
-                    Arrastra cada marcador de color sobre la vista previa: «Título» mueve el número de años + «ANIVERSARIO», «Nombre» mueve el nombre del colaborador y «Frase» mueve el mensaje — cada uno por separado.
+                    Arrastra cada marcador de color sobre la vista previa:
+                    «Título» mueve el número de años + «ANIVERSARIO», «Nombre»
+                    mueve el nombre del colaborador y «Frase» mueve el mensaje —
+                    cada uno por separado.
                 </p>
                 <label class="flex items-start gap-2 text-sm">
-                    <Checkbox class="mt-0.5" :model-value="form.mostrar_logo" @update:model-value="(v) => (form.mostrar_logo = !!v)" />
+                    <Checkbox
+                        class="mt-0.5"
+                        :model-value="form.mostrar_logo"
+                        @update:model-value="(v) => (form.mostrar_logo = !!v)"
+                    />
                     Mostrar el logo de MR. LANA en la tarjeta
                 </label>
                 <InputError :message="form.errors.texto_titulo_y" />
@@ -151,11 +195,32 @@ function enviar() {
             </section>
 
             <section class="grid gap-1.5 border-t pt-6">
-                <Label for="fondo">Fondo propio <span class="font-normal text-muted-foreground">(opcional, vertical 1080×1350)</span></Label>
-                <Input id="fondo" type="file" accept="image/png,image/jpeg,image/webp" @change="(e: Event) => (form.fondo = (e.target as HTMLInputElement).files?.[0] ?? null)" />
+                <Label for="fondo"
+                    >Fondo propio
+                    <span class="font-normal text-muted-foreground"
+                        >(opcional, vertical 1080×1350)</span
+                    ></Label
+                >
+                <Input
+                    id="fondo"
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    @change="
+                        (e: Event) =>
+                            (form.fondo =
+                                (e.target as HTMLInputElement).files?.[0] ??
+                                null)
+                    "
+                />
                 <InputError :message="form.errors.fondo" />
-                <label v-if="configuracion.tiene_fondo" class="flex items-center gap-2 text-sm">
-                    <Checkbox :model-value="form.quitar_fondo" @update:model-value="(v) => (form.quitar_fondo = !!v)" />
+                <label
+                    v-if="configuracion.tiene_fondo"
+                    class="flex items-center gap-2 text-sm"
+                >
+                    <Checkbox
+                        :model-value="form.quitar_fondo"
+                        @update:model-value="(v) => (form.quitar_fondo = !!v)"
+                    />
                     Quitar el fondo propio y usar el diseño de globos
                 </label>
             </section>

@@ -56,7 +56,7 @@ async function marcarTodas() {
 <template>
     <Head title="Mis notificaciones" />
 
-    <div class="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4">
+    <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
             titulo="Mis notificaciones"
             descripcion="Avisos de tus solicitudes, documentos y más."
@@ -87,7 +87,10 @@ async function marcarTodas() {
                 :key="notificacion.id"
                 type="button"
                 class="flex items-start gap-3 rounded-2xl border border-border/60 bg-card p-4 text-left shadow-sm transition-colors hover:bg-muted/40"
-                :class="!notificacion.leida && 'border-[var(--brand-primary)]/30 bg-[var(--brand-primary)]/[0.03]'"
+                :class="
+                    !notificacion.leida &&
+                    'border-[var(--brand-primary)]/30 bg-[var(--brand-primary)]/[0.03]'
+                "
                 @click="abrir(notificacion)"
             >
                 <span
@@ -98,7 +101,11 @@ async function marcarTodas() {
                 </span>
                 <span
                     class="mt-1.5 size-2 shrink-0 rounded-full"
-                    :class="!notificacion.leida ? 'bg-[var(--brand-primary)]' : 'bg-transparent'"
+                    :class="
+                        !notificacion.leida
+                            ? 'bg-[var(--brand-primary)]'
+                            : 'bg-transparent'
+                    "
                 />
                 <div class="min-w-0 flex-1">
                     <p class="font-medium">{{ notificacion.titulo }}</p>
@@ -109,7 +116,10 @@ async function marcarTodas() {
                         {{ notificacion.creada_en }}
                     </p>
                 </div>
-                <Check v-if="notificacion.leida" class="size-4 shrink-0 text-muted-foreground" />
+                <Check
+                    v-if="notificacion.leida"
+                    class="size-4 shrink-0 text-muted-foreground"
+                />
             </button>
         </div>
     </div>

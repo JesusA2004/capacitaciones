@@ -65,7 +65,9 @@ defineProps<{
             </div>
 
             <div class="grid gap-2">
-                <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                <div
+                    class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"
+                >
                     <Label for="password">Contraseña</Label>
                     <TextLink
                         v-if="canResetPassword"

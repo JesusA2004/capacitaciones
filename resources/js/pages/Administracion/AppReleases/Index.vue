@@ -164,7 +164,9 @@ async function eliminarRelease(release: Release) {
                             <div class="flex flex-wrap gap-1">
                                 <Badge
                                     :variant="
-                                        release.is_published ? 'default' : 'outline'
+                                        release.is_published
+                                            ? 'default'
+                                            : 'outline'
                                     "
                                 >
                                     <CheckCircle2
@@ -178,7 +180,9 @@ async function eliminarRelease(release: Release) {
                                             : 'Sin publicar'
                                     }}
                                 </Badge>
-                                <Badge v-if="release.is_latest" variant="secondary"
+                                <Badge
+                                    v-if="release.is_latest"
+                                    variant="secondary"
                                     >Más reciente</Badge
                                 >
                             </div>
@@ -216,7 +220,8 @@ async function eliminarRelease(release: Release) {
                                 </Button>
                                 <Button
                                     v-if="
-                                        permisos.publicar && !release.is_published
+                                        permisos.publicar &&
+                                        !release.is_published
                                     "
                                     size="sm"
                                     variant="outline"
@@ -225,7 +230,10 @@ async function eliminarRelease(release: Release) {
                                     Publicar
                                 </Button>
                                 <Button
-                                    v-if="permisos.publicar && release.is_published"
+                                    v-if="
+                                        permisos.publicar &&
+                                        release.is_published
+                                    "
                                     size="sm"
                                     variant="outline"
                                     @click="despublicarRelease(release)"

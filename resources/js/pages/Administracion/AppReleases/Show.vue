@@ -91,8 +91,12 @@ async function eliminarRelease() {
                     <h2 class="text-xl font-semibold">
                         Versión {{ release.version }}
                     </h2>
-                    <Badge :variant="release.is_published ? 'default' : 'outline'">
-                        {{ release.is_published ? 'Publicada' : 'Sin publicar' }}
+                    <Badge
+                        :variant="release.is_published ? 'default' : 'outline'"
+                    >
+                        {{
+                            release.is_published ? 'Publicada' : 'Sin publicar'
+                        }}
                     </Badge>
                     <Badge v-if="release.is_latest" variant="secondary"
                         >Más reciente</Badge
@@ -134,7 +138,9 @@ async function eliminarRelease() {
 
                 <div v-if="release.changelog" class="mt-2">
                     <p class="mb-1 text-sm font-medium">Notas de versión</p>
-                    <p class="text-sm whitespace-pre-line text-muted-foreground">
+                    <p
+                        class="text-sm whitespace-pre-line text-muted-foreground"
+                    >
                         {{ release.changelog }}
                     </p>
                 </div>

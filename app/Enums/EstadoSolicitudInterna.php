@@ -17,8 +17,8 @@ enum EstadoSolicitudInterna: string
     {
         return match ($this) {
             self::Creada => 'Creada',
-            self::Enviada => 'Enviada',
-            self::EnRevision => 'En revisión',
+            self::Enviada => 'Recibida',
+            self::EnRevision => 'Pendiente de autorizar',
             self::Aprobada => 'Aprobada',
             self::Rechazada => 'Rechazada',
             self::RequiereCorreccion => 'Requiere corrección',

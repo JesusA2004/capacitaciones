@@ -8,10 +8,14 @@ use App\Models\CierreLaboral;
 use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
 use App\Models\EvaluacionPeriodoPrueba;
+use App\Models\NodoComercial;
+use App\Models\Puesto;
 use App\Models\SolicitudInterna;
+use App\Models\Sucursal;
 use App\Models\TareaRh;
 use App\Models\User;
 use App\Notifications\Mobile\PendienteRhNotification;
+use App\Services\Contratos\ContratoLaboralService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
@@ -126,4 +130,68 @@ test('si RH decide no renovar se inicia automáticamente el cierre laboral por n
     // Nunca se elimina al colaborador.
     expect(Colaborador::query()->whereKey($this->colaborador->id)->exists())->toBeTrue()
         ->and(User::query()->where('colaborador_id', $this->colaborador->id)->exists())->toBeFalse();
+});
+
+test('al mes y 15 días del contrato de 2 meses de un gestor se avisa SIEMPRE a su gerente de sucursal, su regional y la Gerencia de RH, una sola vez', function () {
+    Carbon\Carbon::setTestNow(Carbon\Carbon::parse('2026-07-01 12:00:00', 'America/Mexico_City'));
+
+    $sucursal = Sucursal::factory()->create();
+    $otraSucursal = Sucursal::factory()->create();
+    $gestorPuesto = Puesto::factory()->create(['nombre' => 'Gestor', 'meses_periodo_prueba' => 2]);
+    $gerentePuesto = Puesto::factory()->create(['nombre' => 'Gerente de Sucursal']);
+    $regionalPuesto = Puesto::factory()->create(['nombre' => 'Gerente Regional Q1']);
+    $rhPuesto = Puesto::factory()->create(['nombre' => 'Gerencia de Recursos Humanos']);
+
+    $region = NodoComercial::factory()->create(['tipo' => 'region', 'nombre' => 'Q1', 'puesto_id' => $regionalPuesto->id]);
+    NodoComercial::factory()->create(['tipo' => 'zona', 'parent_id' => $region->id, 'sucursal_id' => $sucursal->id]);
+
+    $gerente = clUsuario('colaborador', ['puesto_id' => $gerentePuesto->id, 'sucursal_principal_id' => $sucursal->id]);
+    $gerenteAjeno = clUsuario('colaborador', ['puesto_id' => $gerentePuesto->id, 'sucursal_principal_id' => $otraSucursal->id]);
+    $regional = clUsuario('colaborador', ['puesto_id' => $regionalPuesto->id, 'sucursal_principal_id' => $otraSucursal->id]);
+    $gerenteRh = clUsuario('colaborador', ['puesto_id' => $rhPuesto->id]);
+    $regionalBloqueado = clUsuario('colaborador', ['puesto_id' => $regionalPuesto->id]);
+    $regionalBloqueado->forceFill(['acceso_bloqueado_en' => now()])->save();
+
+    $gestor = Colaborador::factory()->create(['puesto_id' => $gestorPuesto->id, 'sucursal_principal_id' => $sucursal->id, 'jefe_id' => $gerente->colaborador_id]);
+    $inicio = now()->subMonth()->subDays(15)->startOfDay();
+    $fin = app(ContratoLaboralService::class)->fechaFinPeriodoPrueba($gestorPuesto->id, $inicio);
+    expect($fin->toDateString())->toBe($inicio->copy()->addMonths(2)->subDay()->toDateString());
+
+    $contrato = ContratoLaboral::factory()->create(['colaborador_id' => $gestor->id, 'fecha_inicio' => $inicio->toDateString(), 'fecha_fin' => $fin->toDateString()]);
+
+    // Un día antes del mes y 15 días todavía no se avisa.
+    Carbon\Carbon::setTestNow(now()->subDay());
+    $this->artisan('contratos:revisar-vencimientos')->assertSuccessful();
+    expect($contrato->refresh()->aviso_vencimiento_en)->toBeNull();
+
+    Carbon\Carbon::setTestNow(now()->addDay());
+    $this->artisan('contratos:revisar-vencimientos')->assertSuccessful();
+    $this->artisan('contratos:revisar-vencimientos')->assertSuccessful();
+
+    expect($contrato->refresh()->aviso_vencimiento_en)->not->toBeNull();
+
+    $avisoContrato = fn (PendienteRhNotification $n, array $canales, User $destino) => $n->toDatabase($destino)['tipo'] === 'contrato_por_vencer';
+
+    // El gerente es el evaluador: recibe UN aviso (el de evaluar), no dos.
+    Notification::assertSentToTimes($gerente, PendienteRhNotification::class, 1);
+    Notification::assertSentToTimes($regional, PendienteRhNotification::class, 1);
+    Notification::assertSentTo($regional, PendienteRhNotification::class, $avisoContrato);
+    Notification::assertSentToTimes($gerenteRh, PendienteRhNotification::class, 1);
+    Notification::assertSentTo($gerenteRh, PendienteRhNotification::class, $avisoContrato);
+    Notification::assertNotSentTo($gerenteAjeno, PendienteRhNotification::class);
+    Notification::assertNotSentTo($regionalBloqueado, PendienteRhNotification::class);
+
+    Carbon\Carbon::setTestNow();
+});
+
+test('el gerente de sucursal que no es el jefe directo también recibe el aviso de renovación', function () {
+    $sucursal = Sucursal::factory()->create();
+    $gerentePuesto = Puesto::factory()->create(['nombre' => 'Gerente de Sucursal']);
+    $gerente = clUsuario('colaborador', ['puesto_id' => $gerentePuesto->id, 'sucursal_principal_id' => $sucursal->id]);
+    $this->colaborador->update(['sucursal_principal_id' => $sucursal->id]);
+
+    $this->artisan('contratos:revisar-vencimientos')->assertSuccessful();
+
+    Notification::assertSentToTimes($gerente, PendienteRhNotification::class, 1);
+    Notification::assertSentToTimes($this->jefeUsuario, PendienteRhNotification::class, 1);
 });

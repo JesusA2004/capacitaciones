@@ -42,10 +42,13 @@ const MAPA_ESTADOS: Record<string, { variante: Variante; etiqueta: string }> = {
     procesando: { variante: 'warning', etiqueta: 'Procesando' },
     entregada: { variante: 'warning', etiqueta: 'Entregada' },
     enviado: { variante: 'warning', etiqueta: 'Enviado' },
-    en_revision: { variante: 'warning', etiqueta: 'En revisión' },
+    en_revision: { variante: 'warning', etiqueta: 'Pendiente de autorizar' },
     tarde: { variante: 'warning', etiqueta: 'Tarde' },
     pendiente_imss: { variante: 'warning', etiqueta: 'Pendiente de IMSS' },
-    pendiente_entrega: { variante: 'warning', etiqueta: 'Pendiente de entrega' },
+    pendiente_entrega: {
+        variante: 'warning',
+        etiqueta: 'Pendiente de entrega',
+    },
 
     // Rojo: vencido / ausente / error / rechazado.
     vencida: { variante: 'destructive', etiqueta: 'Vencida' },
@@ -75,7 +78,7 @@ const MAPA_ESTADOS: Record<string, { variante: Variante; etiqueta: string }> = {
         variante: 'info',
         etiqueta: 'Corregida manualmente',
     },
-    enviada: { variante: 'info', etiqueta: 'Enviada' },
+    enviada: { variante: 'info', etiqueta: 'Recibida' },
 
     // Gris: borrador / archivado / inactivo.
     manual: { variante: 'secondary', etiqueta: 'Manual' },

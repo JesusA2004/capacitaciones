@@ -7,7 +7,11 @@ import type { NavegacionCelebraciones } from '@/components/Celebraciones/Celebra
 import { dashboard } from '@/routes';
 import { felicitacion, index } from '@/routes/rh/cumpleanos';
 import { index as configuracionIndex } from '@/routes/rh/cumpleanos/configuracion';
-import type { EventoCelebracion, FiltrosCelebracion, OpcionCelebracion } from '@/types';
+import type {
+    EventoCelebracion,
+    FiltrosCelebracion,
+    OpcionCelebracion,
+} from '@/types';
 
 /**
  * Cumpleaños (RH). Toda la pantalla vive en CelebracionesPanel, compartida
@@ -19,12 +23,25 @@ const props = defineProps<{
     fechaHoy: string;
     mes: number;
     anio: number;
-    filtros: Partial<Record<'sucursal_id' | 'departamento_id' | 'colaborador_id' | 'estatus' | 'busqueda', string>>;
+    filtros: Partial<
+        Record<
+            | 'sucursal_id'
+            | 'departamento_id'
+            | 'colaborador_id'
+            | 'estatus'
+            | 'busqueda',
+            string
+        >
+    >;
     hoy: EventoCelebracion[];
     delMes: EventoCelebracion[];
     proximos: EventoCelebracion[];
     rango: { desde: string; hasta: string };
-    sinFechaNacimiento: { id: number; nombre: string; sucursal: string | null }[];
+    sinFechaNacimiento: {
+        id: number;
+        nombre: string;
+        sucursal: string | null;
+    }[];
     opciones: {
         sucursales: OpcionCelebracion[];
         departamentos: OpcionCelebracion[];
@@ -58,9 +75,15 @@ const ESTATUS = [
 
 const filtros = computed<FiltrosCelebracion>(() => ({
     busqueda: props.filtros.busqueda ?? '',
-    sucursal_id: props.filtros.sucursal_id ? String(props.filtros.sucursal_id) : '',
-    departamento_id: props.filtros.departamento_id ? String(props.filtros.departamento_id) : '',
-    colaborador_id: props.filtros.colaborador_id ? String(props.filtros.colaborador_id) : '',
+    sucursal_id: props.filtros.sucursal_id
+        ? String(props.filtros.sucursal_id)
+        : '',
+    departamento_id: props.filtros.departamento_id
+        ? String(props.filtros.departamento_id)
+        : '',
+    colaborador_id: props.filtros.colaborador_id
+        ? String(props.filtros.colaborador_id)
+        : '',
     estatus: props.filtros.estatus ?? '',
     empresa_id: '',
 }));
@@ -98,35 +121,74 @@ function navegar({ anio, mes, filtros: f, rango }: NavegacionCelebraciones) {
         :rango="rango"
         :filtros="filtros"
         :catalogos="{ ...opciones, estatus: ESTATUS }"
-        :permisos="{ gestionar: true, descargar: permisos.descargarImagen, enviar: permisos.enviar, calendario: permisos.calendario }"
-        :configuracion-url="permisos.configurar ? configuracionIndex.url() : null"
+        :permisos="{
+            gestionar: true,
+            descargar: permisos.descargarImagen,
+            enviar: permisos.enviar,
+            calendario: permisos.calendario,
+        }"
+        :configuracion-url="
+            permisos.configurar ? configuracionIndex.url() : null
+        "
         @navegar="navegar"
     >
         <template #avisos>
-            <p v-if="!config.enabled" class="rounded-lg bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
-                Las felicitaciones automáticas están apagadas (<code>CUMPLEANOS_ENABLED=false</code>): nadie recibirá su tarjeta sin que RH la envíe.
+            <p
+                v-if="!config.enabled"
+                class="rounded-lg bg-muted/50 px-3 py-2 text-sm text-muted-foreground"
+            >
+                Las felicitaciones automáticas están apagadas
+                (<code>CUMPLEANOS_ENABLED=false</code>): nadie recibirá su
+                tarjeta sin que RH la envíe.
             </p>
 
-            <details v-if="sinFechaNacimiento.length > 0" data-tour="cumpleanos-sin-fecha" class="group rounded-lg bg-[var(--warning)]/10 px-3 py-2 text-sm">
-                <summary class="flex cursor-pointer list-none items-center gap-2 font-medium text-[var(--warning)]">
+            <details
+                v-if="sinFechaNacimiento.length > 0"
+                data-tour="cumpleanos-sin-fecha"
+                class="group rounded-lg bg-[var(--warning)]/10 px-3 py-2 text-sm"
+            >
+                <summary
+                    class="flex cursor-pointer list-none items-center gap-2 font-medium text-[var(--warning)]"
+                >
                     <TriangleAlert class="size-4 shrink-0" />
                     <span class="min-w-0 flex-1">
-                        {{ sinFechaNacimiento.length }} {{ sinFechaNacimiento.length === 1 ? 'colaborador activo no tiene' : 'colaboradores activos no tienen' }}
+                        {{ sinFechaNacimiento.length }}
+                        {{
+                            sinFechaNacimiento.length === 1
+                                ? 'colaborador activo no tiene'
+                                : 'colaboradores activos no tienen'
+                        }}
                         fecha de nacimiento y no aparecen en cumpleaños
                     </span>
-                    <ChevronDown class="size-4 shrink-0 transition-transform group-open:rotate-180" />
+                    <ChevronDown
+                        class="size-4 shrink-0 transition-transform group-open:rotate-180"
+                    />
                 </summary>
-                <p class="mt-2 text-muted-foreground">Complétala en su expediente:</p>
+                <p class="mt-2 text-muted-foreground">
+                    Complétala en su expediente:
+                </p>
                 <ul class="mt-1 flex flex-wrap gap-x-4 gap-y-1">
-                    <li v-for="colaborador in sinFechaNacimiento" :key="colaborador.id">
-                        {{ colaborador.nombre }}<span v-if="colaborador.sucursal" class="text-muted-foreground"> · {{ colaborador.sucursal }}</span>
+                    <li
+                        v-for="colaborador in sinFechaNacimiento"
+                        :key="colaborador.id"
+                    >
+                        {{ colaborador.nombre
+                        }}<span
+                            v-if="colaborador.sucursal"
+                            class="text-muted-foreground"
+                        >
+                            · {{ colaborador.sucursal }}</span
+                        >
                     </li>
                 </ul>
             </details>
         </template>
 
         <template #dialogo="{ evento }">
-            <Link :href="felicitacion.url(evento.colaborador_id)" class="inline-flex items-center gap-1.5 text-sm text-primary hover:underline">
+            <Link
+                :href="felicitacion.url(evento.colaborador_id)"
+                class="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+            >
                 <PenLine class="size-4" />
                 Elegir otra frase para esta tarjeta
             </Link>

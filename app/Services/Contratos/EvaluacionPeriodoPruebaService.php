@@ -128,9 +128,10 @@ class EvaluacionPeriodoPruebaService
             'accion' => 'autorizar_evaluacion',
         ]);
 
-        $this->notificador->notificar(
-            $this->notificador->responsablesDe($evaluacion->colaborador, self::PERMISO_AUTORIZAR),
+        $this->notificador->notificarEvento(
             'evaluacion_capturada',
+            $evaluacion->colaborador,
+            ['creador' => $evaluador, 'excluir' => [$evaluador->id]],
             'Evaluación de periodo de prueba por autorizar',
             "Se capturó la evaluación de {$evaluacion->colaborador->nombreCompleto()}.",
             $evaluacion,
@@ -175,9 +176,7 @@ class EvaluacionPeriodoPruebaService
             'accion' => 'capturar_evaluacion',
         ]);
 
-        if ($evaluadorUsuario !== null) {
-            $this->notificador->notificar([$evaluadorUsuario], 'evaluacion_devuelta', 'Evaluación devuelta', $motivo, $evaluacion, 'capturar_evaluacion');
-        }
+        $this->notificador->notificarEvento('evaluacion_devuelta', $evaluacion->colaborador, ['evaluador' => $evaluadorUsuario, 'excluir' => [$actor->id]], 'Evaluación devuelta', $motivo, $evaluacion, 'capturar_evaluacion');
 
         $this->auditoria->registrar('evaluacion_devuelta', $evaluacion, $actor, ['motivo' => $motivo]);
 

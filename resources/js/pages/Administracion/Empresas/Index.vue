@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
-import { Building2, CheckCircle2, MapPinned, Plus, Users, XCircle } from '@lucide/vue';
+import {
+    Building2,
+    CheckCircle2,
+    MapPinned,
+    Plus,
+    Users,
+    XCircle,
+} from '@lucide/vue';
 import { ref } from 'vue';
 import EmpresaFormDialog from '@/components/Administracion/EmpresaFormDialog.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';

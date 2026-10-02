@@ -2,10 +2,12 @@
 
 namespace App\Services\Tareas;
 
+use App\Models\Candidato;
 use App\Models\Colaborador;
 use App\Models\User;
 use App\Notifications\Mobile\PendienteRhNotification;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Configuracion\WorkflowRoutingService;
 use App\Services\MobilePush\PushNotifier;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -23,6 +25,7 @@ class NotificadorRhService
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly PushNotifier $push,
+        private readonly WorkflowRoutingService $routing,
     ) {}
 
     /**
@@ -49,20 +52,50 @@ class NotificadorRhService
     }
 
     /**
-     * @param  iterable<User>  $usuarios
+     * Notifica un EVENTO a los destinatarios que resuelve su regla de ruteo
+     * (Administración → Configuración → Notificaciones). Cada notificación
+     * guarda por qué le llegó a ese usuario (route_rule + recipient_reason).
+     * Nunca lanza: un fallo se registra y la acción principal sigue.
+     *
+     * @param  array{solicitante?: User|null, creador?: User|null, evaluador?: User|Colaborador|null, aprobador?: User|null, excluir?: list<int>}  $contexto
+     * @return Collection<int, User> a quiénes se avisó
      */
-    public function notificar(iterable $usuarios, string $tipo, string $titulo, string $mensaje, ?Model $relacionado = null, ?string $accion = null, string $prioridad = 'media'): void
+    public function notificarEvento(string $evento, Colaborador|Candidato|null $sujeto, array $contexto, string $titulo, string $mensaje, ?Model $relacionado = null, ?string $accion = null, string $prioridad = 'media'): Collection
     {
         try {
-            $destinatarios = collect($usuarios)->filter()->unique('id')->values();
+            $destinatarios = $this->routing->resolver($evento, $sujeto, $contexto);
+        } catch (Throwable $e) {
+            Log::warning('NotificadorRhService: no se pudo resolver el ruteo.', ['evento' => $evento, 'error' => $e->getMessage()]);
 
-            if ($destinatarios->isEmpty()) {
-                return;
-            }
+            return collect();
+        }
 
-            $relatedId = $relacionado?->getKey();
-            $relatedId = is_int($relatedId) ? $relatedId : null;
+        foreach ($destinatarios as $destino) {
+            $this->notificar([$destino['usuario']], $evento, $titulo, $mensaje, $relacionado, $accion, $prioridad, [
+                'route_rule' => $evento,
+                'recipient_reason' => implode('; ', array_unique($destino['motivos'])),
+            ]);
+        }
 
+        return $destinatarios->pluck('usuario')->values();
+    }
+
+    /**
+     * @param  iterable<User>  $usuarios
+     * @param  array<string, string>  $ruteo
+     */
+    public function notificar(iterable $usuarios, string $tipo, string $titulo, string $mensaje, ?Model $relacionado = null, ?string $accion = null, string $prioridad = 'media', array $ruteo = []): void
+    {
+        $destinatarios = collect($usuarios)->filter()->unique('id')->values();
+
+        if ($destinatarios->isEmpty()) {
+            return;
+        }
+
+        $relatedId = $relacionado?->getKey();
+        $relatedId = is_int($relatedId) ? $relatedId : null;
+
+        try {
             Notification::send($destinatarios, new PendienteRhNotification(
                 $tipo,
                 $titulo,
@@ -71,18 +104,27 @@ class NotificadorRhService
                 $relatedId,
                 $accion,
                 $prioridad,
+                $ruteo,
             ));
+        } catch (Throwable $e) {
+            Log::warning('NotificadorRhService: fallo al notificar.', ['tipo' => $tipo, 'error' => $e->getMessage()]);
 
-            foreach ($destinatarios as $usuario) {
+            return;
+        }
+
+        // Push por usuario: si falla uno, los demás igual reciben el suyo.
+        // El payload lleva lo necesario para abrir el recurso exacto en la app.
+        foreach ($destinatarios as $usuario) {
+            try {
                 $this->push->aUsuarioConDatos($usuario, $titulo, $mensaje, [
                     'type' => $tipo,
                     'resource_id' => $relatedId,
                     'related_type' => $relacionado !== null ? class_basename($relacionado) : null,
                     'accion' => $accion,
                 ]);
+            } catch (Throwable $e) {
+                Log::warning('NotificadorRhService: fallo el push.', ['tipo' => $tipo, 'user_id' => $usuario->id, 'error' => $e->getMessage()]);
             }
-        } catch (Throwable $e) {
-            Log::warning('NotificadorRhService: fallo al notificar.', ['tipo' => $tipo, 'error' => $e->getMessage()]);
         }
     }
 }

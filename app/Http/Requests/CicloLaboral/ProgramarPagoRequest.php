@@ -28,4 +28,25 @@ class ProgramarPagoRequest extends FormRequest
             'observaciones' => ['nullable', 'string', 'max:2000'],
         ];
     }
+
+    /**
+     * Datos ya validados con la forma que espera
+     * CierreLaboralService::programarPago().
+     *
+     * @return array{fecha: string, monto: string|null, metodo: string, responsable_user_id: int|null, observaciones: string|null}
+     */
+    public function datosPago(): array
+    {
+        $monto = $this->validated('monto');
+        $responsable = $this->validated('responsable_user_id');
+        $observaciones = $this->validated('observaciones');
+
+        return [
+            'fecha' => (string) $this->validated('fecha'),
+            'monto' => $monto !== null ? (string) $monto : null,
+            'metodo' => (string) $this->validated('metodo'),
+            'responsable_user_id' => $responsable !== null ? (int) $responsable : null,
+            'observaciones' => $observaciones !== null ? (string) $observaciones : null,
+        ];
+    }
 }

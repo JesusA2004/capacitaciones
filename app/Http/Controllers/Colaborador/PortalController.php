@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Colaborador;
 
 use App\Http\Controllers\Controller;
+use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\Colaboradores\ColaboradorPerfilService;
 use App\Services\Colaboradores\NotificacionesService;
 use Illuminate\Http\Request;
@@ -20,11 +21,19 @@ class PortalController extends Controller
     public function __construct(
         private readonly ColaboradorPerfilService $perfil,
         private readonly NotificacionesService $notificaciones,
+        private readonly CicloLaboralService $ciclo,
     ) {}
 
     public function index(Request $request): Response
     {
-        return Inertia::render('Portal/Index', $this->perfil->dashboard($request->user()));
+        $usuario = $request->user();
+
+        return Inertia::render('Portal/Index', [
+            ...$this->perfil->dashboard($usuario),
+            // "Lo que necesitas hacer": pendientes en lenguaje llano, sin
+            // nombres de etapas internas (CicloLaboralService::misPendientes).
+            'pendientes' => $usuario->colaborador !== null ? $this->ciclo->misPendientes($usuario->colaborador, $usuario) : null,
+        ]);
     }
 
     public function perfil(Request $request): Response

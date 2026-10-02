@@ -18,7 +18,7 @@ import {
     Timer,
     UserX,
 } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
@@ -108,18 +108,26 @@ const DESCRIPCION_TIPO: Record<string, string> = {
     baja_colaborador: 'Inicia la baja de un colaborador a tu cargo.',
     permiso_especial_cumpleanos: 'Día libre por tu cumpleaños.',
     permiso_especial_paternidad: 'Permiso especial por paternidad.',
-    permiso_especial_fallecimiento: 'Permiso especial por fallecimiento familiar.',
+    permiso_especial_fallecimiento:
+        'Permiso especial por fallecimiento familiar.',
     solicitud_general: 'Cualquier otro trámite que no encaje arriba.',
 };
 
 const AVISO_FORMATO_AUTOMATICO: Record<string, string> = {
-    vacaciones: 'Al aprobarse se generará tu formato de vacaciones automáticamente.',
-    permiso_con_goce: 'Al aprobarse se generará el formato de permiso automáticamente.',
-    permiso_sin_goce: 'Al aprobarse se generará el formato de permiso automáticamente.',
-    permiso_tiempo: 'Al aprobarse se generará el formato de permiso automáticamente.',
-    salida_temprano: 'Al aprobarse se generará el formato de permiso automáticamente.',
-    llegada_tarde: 'Al aprobarse se generará el formato de permiso automáticamente.',
-    prestamo: 'Al aprobarse se generará el contrato de crédito correspondiente.',
+    vacaciones:
+        'Al aprobarse se generará tu formato de vacaciones automáticamente.',
+    permiso_con_goce:
+        'Al aprobarse se generará el formato de permiso automáticamente.',
+    permiso_sin_goce:
+        'Al aprobarse se generará el formato de permiso automáticamente.',
+    permiso_tiempo:
+        'Al aprobarse se generará el formato de permiso automáticamente.',
+    salida_temprano:
+        'Al aprobarse se generará el formato de permiso automáticamente.',
+    llegada_tarde:
+        'Al aprobarse se generará el formato de permiso automáticamente.',
+    prestamo:
+        'Al aprobarse se generará el contrato de crédito correspondiente.',
 };
 
 function seleccionarTipo(clave: string) {
@@ -131,6 +139,18 @@ function abrirNuevaSolicitud() {
     pasoFormulario.value = 'tipo';
     dialogoAbierto.value = true;
 }
+
+// ?nueva=<tipo> (p. ej. "Solicitar corrección" desde Mi expediente) abre
+// el formulario de ese tipo directamente.
+onMounted(() => {
+    const nueva = new URLSearchParams(window.location.search).get('nueva');
+
+    if (nueva && props.tipos.some((t) => t.clave === nueva)) {
+        form.tipo = nueva;
+        pasoFormulario.value = 'detalle';
+        dialogoAbierto.value = true;
+    }
+});
 
 const form = useForm({
     tipo: '',
@@ -178,13 +198,16 @@ const TIPOS_BAJA = [
 <template>
     <Head title="Mis solicitudes" />
 
-    <div class="pagina-media flex flex-col gap-6">
+    <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
             titulo="Mis solicitudes"
             descripcion="Vacaciones, permisos, préstamos, incapacidades y otros trámites internos, todo en un solo lugar."
             :icono="ClipboardList"
         >
-            <Button data-tour="mis-solicitudes-nueva" @click="abrirNuevaSolicitud">
+            <Button
+                data-tour="mis-solicitudes-nueva"
+                @click="abrirNuevaSolicitud"
+            >
                 <Plus class="size-4" />
                 Nueva solicitud
             </Button>
@@ -274,21 +297,14 @@ const TIPOS_BAJA = [
                             class="size-4.5"
                         />
                     </span>
-                    <span class="text-sm font-semibold">{{
-                        tipo.nombre
-                    }}</span>
+                    <span class="text-sm font-semibold">{{ tipo.nombre }}</span>
                     <span class="text-xs text-muted-foreground">{{
-                        DESCRIPCION_TIPO[tipo.clave] ??
-                        'Solicítalo desde aquí.'
+                        DESCRIPCION_TIPO[tipo.clave] ?? 'Solicítalo desde aquí.'
                     }}</span>
                 </button>
             </div>
 
-            <form
-                v-else
-                class="grid gap-4"
-                @submit.prevent="enviar"
-            >
+            <form v-else class="grid gap-4" @submit.prevent="enviar">
                 <button
                     type="button"
                     class="flex w-fit items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
@@ -323,7 +339,10 @@ const TIPOS_BAJA = [
                 </div>
 
                 <div
-                    v-if="tipoActual?.requiere_fechas || tipoActual?.requiere_horario"
+                    v-if="
+                        tipoActual?.requiere_fechas ||
+                        tipoActual?.requiere_horario
+                    "
                     class="grid grid-cols-2 gap-4"
                 >
                     <div class="grid gap-2">
@@ -345,10 +364,7 @@ const TIPOS_BAJA = [
                     </div>
                     <div v-if="tipoActual?.requiere_fechas" class="grid gap-2">
                         <Label for="fecha_fin">Fecha de fin</Label>
-                        <DatePicker
-                            id="fecha_fin"
-                            v-model="form.fecha_fin"
-                        />
+                        <DatePicker id="fecha_fin" v-model="form.fecha_fin" />
                         <p
                             v-if="form.errors.fecha_fin"
                             class="text-sm text-destructive"
@@ -376,7 +392,10 @@ const TIPOS_BAJA = [
                 </div>
 
                 <!-- Préstamo interno: monto y plazo -->
-                <div v-if="tipoActual?.requiere_monto" class="grid grid-cols-2 gap-4">
+                <div
+                    v-if="tipoActual?.requiere_monto"
+                    class="grid grid-cols-2 gap-4"
+                >
                     <div class="grid gap-2">
                         <Label for="monto_solicitado">Monto solicitado</Label>
                         <Input
@@ -412,8 +431,13 @@ const TIPOS_BAJA = [
                 >
                     <Label for="colaborador_objetivo_id">Colaborador</Label>
                     <Select v-model="form.colaborador_objetivo_id">
-                        <SelectTrigger id="colaborador_objetivo_id" class="w-full">
-                            <SelectValue placeholder="Selecciona un colaborador" />
+                        <SelectTrigger
+                            id="colaborador_objetivo_id"
+                            class="w-full"
+                        >
+                            <SelectValue
+                                placeholder="Selecciona un colaborador"
+                            />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem
@@ -439,7 +463,9 @@ const TIPOS_BAJA = [
                     class="grid grid-cols-2 gap-3"
                 >
                     <div class="grid gap-2">
-                        <Label for="fecha_efectiva">Fecha efectiva de baja</Label>
+                        <Label for="fecha_efectiva"
+                            >Fecha efectiva de baja</Label
+                        >
                         <DatePicker
                             id="fecha_efectiva"
                             v-model="form.fecha_efectiva"

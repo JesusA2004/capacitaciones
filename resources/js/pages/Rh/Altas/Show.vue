@@ -26,7 +26,10 @@ import {
     revisar,
 } from '@/routes/rh/altas';
 import { descargar as descargarDocumento } from '@/routes/rh/altas/documentos';
-import { index as indexCandidatos, show as showCandidato } from '@/routes/rh/candidatos';
+import {
+    index as indexCandidatos,
+    show as showCandidato,
+} from '@/routes/rh/candidatos';
 import { store as generarInvitacionQr } from '@/routes/rh/incorporacion/invitaciones';
 import type { AltaDigitalItem } from '@/types';
 
@@ -58,7 +61,9 @@ defineOptions({
                   { title: 'Inicio', href: dashboard() },
                   { title: 'Candidatos', href: indexCandidatos.url() },
                   {
-                      title: pageProps.alta.nombre ?? `Incorporación #${pageProps.alta.id}`,
+                      title:
+                          pageProps.alta.nombre ??
+                          `Incorporación #${pageProps.alta.id}`,
                       href: '',
                   },
               ],
@@ -121,7 +126,9 @@ const formQr = useForm({
     sucursal_id: props.alta.sucursal?.id ?? null,
     departamento_id: props.alta.departamento?.id ?? null,
     puesto_id: props.alta.puesto?.id ?? null,
-    nombre_prellenado: `${props.alta.nombre ?? ''} ${props.alta.apellidos ?? ''}`.trim() || null,
+    nombre_prellenado:
+        `${props.alta.nombre ?? ''} ${props.alta.apellidos ?? ''}`.trim() ||
+        null,
     email: props.alta.correo,
 });
 

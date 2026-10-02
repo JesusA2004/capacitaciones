@@ -74,6 +74,10 @@ function contenidoConImportados(string $ruta, array &$visitados = []): string
  */
 const SIDEBAR_A_GUIA = [
     'Inicio' => ['dashboard'],
+    'Mis pendientes' => ['pendientes'],
+    'Onboarding' => ['onboarding'],
+    'Reingresos' => ['reingresos'],
+    'Configuración' => ['configuracion'],
     'Expedientes' => ['expedientes'],
     'Solicitudes' => ['solicitudes'],
     'Organigrama' => ['organigrama'],
@@ -92,6 +96,7 @@ const SIDEBAR_A_GUIA = [
     'Roles y permisos' => ['roles'],
     'Versiones de app' => ['app-releases'],
     'Mi portal' => ['portal'],
+    'Mi expediente' => ['mi-expediente'],
     'Mis solicitudes' => ['mis-solicitudes'],
 ];
 
@@ -205,7 +210,7 @@ test('Aniversarios está en la guía con su ruta, permiso y temas', function () 
 const PANTALLAS_GUIA = [
     'dashboard' => ['pages/Dashboard/Global.vue', 'pages/Dashboard/Sucursal.vue'],
     'expedientes' => ['pages/Rh/Expedientes/Index.vue', 'pages/Rh/Expedientes/Show.vue'],
-    'solicitudes' => ['pages/Rh/Solicitudes/Index.vue'],
+    'solicitudes' => ['pages/Rh/Solicitudes/Tipos.vue', 'pages/Rh/Solicitudes/Index.vue'],
     'organigrama' => ['pages/Administracion/JerarquiaPuestos/Index.vue'],
     'vacantes' => ['pages/Rh/Vacantes/Index.vue'],
     'candidatos' => ['pages/Rh/Candidatos/Index.vue'],
@@ -223,6 +228,11 @@ const PANTALLAS_GUIA = [
     'roles' => ['pages/Administracion/Roles/Index.vue'],
     'app-releases' => ['pages/Administracion/AppReleases/Index.vue'],
     'portal' => ['pages/Portal/Index.vue'],
+    'mi-expediente' => ['pages/Rh/Expedientes/MiExpediente.vue'],
+    'pendientes' => ['pages/Rh/Pendientes/Index.vue'],
+    'onboarding' => ['pages/Rh/Onboarding/Configuracion.vue'],
+    'reingresos' => ['pages/Rh/Reingresos/Index.vue'],
+    'configuracion' => ['pages/Administracion/Configuracion/Jerarquia.vue'],
     'mis-solicitudes' => ['pages/Solicitudes/Index.vue'],
 ];
 

@@ -17,10 +17,20 @@ interface Particula {
     forma: 'rect' | 'circulo';
 }
 
-const COLORES = ['#F5B400', '#E85D75', '#4ADE80', '#60A5FA', '#C084FC', '#FB923C'];
+const COLORES = [
+    '#F5B400',
+    '#E85D75',
+    '#4ADE80',
+    '#60A5FA',
+    '#C084FC',
+    '#FB923C',
+];
 
 function prefiereMovimientoReducido(): boolean {
-    return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+    return (
+        typeof window !== 'undefined' &&
+        window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
+    );
 }
 
 export function useCelebracion() {
@@ -48,7 +58,10 @@ export function useCelebracion() {
             return;
         }
 
-        const puntoOrigen = origen ?? { x: canvas.width / 2, y: canvas.height / 3 };
+        const puntoOrigen = origen ?? {
+            x: canvas.width / 2,
+            y: canvas.height / 3,
+        };
         const cantidad = 60;
         const particulas: Particula[] = Array.from({ length: cantidad }, () => {
             const angulo = Math.random() * Math.PI * 2;
@@ -76,8 +89,8 @@ export function useCelebracion() {
             const transcurrido = ahora - inicio;
 
             if (!ctx) {
-return;
-}
+                return;
+            }
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -96,7 +109,12 @@ return;
                 ctx.fillStyle = p.color;
 
                 if (p.forma === 'rect') {
-                    ctx.fillRect(-p.tamano / 2, -p.tamano / 2, p.tamano, p.tamano * 0.6);
+                    ctx.fillRect(
+                        -p.tamano / 2,
+                        -p.tamano / 2,
+                        p.tamano,
+                        p.tamano * 0.6,
+                    );
                 } else {
                     ctx.beginPath();
                     ctx.arc(0, 0, p.tamano / 2, 0, Math.PI * 2);

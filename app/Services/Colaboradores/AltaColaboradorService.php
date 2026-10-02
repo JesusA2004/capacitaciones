@@ -316,7 +316,7 @@ class AltaColaboradorService
         $usuario = $colaborador->user;
 
         if ($usuario !== null) {
-            $this->notificador->notificar([$usuario], 'alta_activada', 'Bienvenido a la operación', 'Completaste tu contratación y onboarding. Ya tienes acceso completo.', $colaborador, null, 'media');
+            $this->notificador->notificar([$usuario], 'alta_activada', '¡Bienvenido a MR. LANA!', '¡Listo! Ya tienes acceso completo a tu portal.', $colaborador, null, 'media');
         }
 
         return $colaborador->refresh();
@@ -383,9 +383,10 @@ class AltaColaboradorService
             return;
         }
 
-        $this->notificador->notificar(
-            $this->notificador->responsablesDe($colaborador, 'documentos_laborales.operar_fisico'),
+        $this->notificador->notificarEvento(
             'contratos_listos',
+            $colaborador,
+            [],
             'Contratos listos para imprimir',
             sprintf('Los contratos de %s están listos: imprime, recaba firma y huella.', $colaborador->nombreCompleto()),
             $contrato,

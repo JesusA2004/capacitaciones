@@ -54,13 +54,14 @@ function enviar() {
 
 <template>
     <Dialog :open="open" @update:open="(valor) => emit('update:open', valor)">
-        <DialogContent class="w-[calc(100vw-2rem)] max-w-none sm:w-[min(90vw,800px)]">
+        <DialogContent
+            class="w-[calc(100vw-2rem)] max-w-none sm:w-[min(90vw,800px)]"
+        >
             <DialogHeader>
                 <DialogTitle>Subir documento firmado</DialogTitle>
                 <DialogDescription>
-                    Sube el escaneo del documento oficial ya firmado en
-                    físico. Quedará archivado en el expediente del
-                    colaborador.
+                    Sube el escaneo del documento oficial ya firmado en físico.
+                    Quedará archivado en el expediente del colaborador.
                 </DialogDescription>
             </DialogHeader>
 
@@ -75,7 +76,10 @@ function enviar() {
             </p>
 
             <DialogFooter>
-                <Button :disabled="form.processing || !form.archivo" @click="enviar">
+                <Button
+                    :disabled="form.processing || !form.archivo"
+                    @click="enviar"
+                >
                     <Spinner v-if="form.processing" />
                     Subir y archivar
                 </Button>

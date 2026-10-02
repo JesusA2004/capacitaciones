@@ -195,8 +195,8 @@ const puedeEditarAjustes = computed(
         <div v-else-if="!finiquito" class="flex flex-col gap-3">
             <p class="text-sm text-muted-foreground">
                 Captura el sueldo mensual del colaborador para calcular su
-                finiquito. El cálculo es automático pero queda abierto a
-                ajustes antes de revisarse.
+                finiquito. El cálculo es automático pero queda abierto a ajustes
+                antes de revisarse.
             </p>
             <div class="flex flex-wrap items-end gap-2">
                 <div class="grid gap-1.5">
@@ -218,7 +218,9 @@ const puedeEditarAjustes = computed(
                     </p>
                 </div>
                 <div class="grid gap-1.5">
-                    <Label for="sueldo_pendiente_inicial">Sueldo pendiente</Label>
+                    <Label for="sueldo_pendiente_inicial"
+                        >Sueldo pendiente</Label
+                    >
                     <Input
                         id="sueldo_pendiente_inicial"
                         v-model="formCalculo.sueldo_pendiente"
@@ -294,8 +296,10 @@ const puedeEditarAjustes = computed(
                     </tr>
                     <tr>
                         <td class="py-1.5 text-muted-foreground">
-                            Aguinaldo proporcional
-                            ({{ finiquito.dias_trabajados_periodo }} días)
+                            Aguinaldo proporcional ({{
+                                finiquito.dias_trabajados_periodo
+                            }}
+                            días)
                         </td>
                         <td class="py-1.5 text-right tabular-nums">
                             {{ moneda(finiquito.aguinaldo_proporcional) }}
@@ -403,9 +407,7 @@ const puedeEditarAjustes = computed(
                             />
                         </div>
                         <div class="grid w-28 gap-1.5">
-                            <Label :for="`concepto_tipo_${index}`"
-                                >Tipo</Label
-                            >
+                            <Label :for="`concepto_tipo_${index}`">Tipo</Label>
                             <NativeSelect
                                 :id="`concepto_tipo_${index}`"
                                 v-model="concepto.tipo"
@@ -475,8 +477,8 @@ const puedeEditarAjustes = computed(
                 v-if="!permisos.usaFormatoOficial"
                 class="rounded-lg bg-muted/50 p-2.5 text-xs text-muted-foreground"
             >
-                No hay formato oficial de finiquito configurado; se generará
-                un formato interno provisional.
+                No hay formato oficial de finiquito configurado; se generará un
+                formato interno provisional.
             </p>
 
             <div
@@ -484,9 +486,7 @@ const puedeEditarAjustes = computed(
                 class="flex flex-wrap items-end gap-2 rounded-xl bg-muted/30 p-3"
             >
                 <div class="grid gap-1.5">
-                    <Label for="sueldo_mensual_recalculo"
-                        >Sueldo mensual</Label
-                    >
+                    <Label for="sueldo_mensual_recalculo">Sueldo mensual</Label>
                     <Input
                         id="sueldo_mensual_recalculo"
                         v-model="formCalculo.sueldo_mensual"
@@ -532,7 +532,10 @@ const puedeEditarAjustes = computed(
                 <Button
                     v-if="permisos.puedeRevisar"
                     size="sm"
-                    :disabled="formRevisar.processing || finiquito.estado !== 'borrador'"
+                    :disabled="
+                        formRevisar.processing ||
+                        finiquito.estado !== 'borrador'
+                    "
                     @click="revisarFiniquito"
                 >
                     <FileCheck2 class="size-4" />
@@ -554,13 +557,20 @@ const puedeEditarAjustes = computed(
                     size="sm"
                     variant="outline"
                 >
-                    <a :href="descargarPdf.url(solicitudId)" target="_blank" rel="noopener">
+                    <a
+                        :href="descargarPdf.url(solicitudId)"
+                        target="_blank"
+                        rel="noopener"
+                    >
                         <Download class="size-4" />
                         Descargar PDF
                     </a>
                 </Button>
                 <label
-                    v-if="permisos.puedeSubirFirmado && finiquito.estado !== 'firmado'"
+                    v-if="
+                        permisos.puedeSubirFirmado &&
+                        finiquito.estado !== 'firmado'
+                    "
                     class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-dashed px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent"
                 >
                     <Upload class="size-4" />

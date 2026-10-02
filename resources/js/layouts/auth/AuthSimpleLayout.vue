@@ -19,8 +19,14 @@ defineProps<{
 }>();
 
 const CARACTERISTICAS = [
-    { icono: CalendarClock, texto: 'Solicita tus vacaciones y permisos en minutos' },
-    { icono: ClipboardList, texto: 'Da seguimiento a tus solicitudes y documentos' },
+    {
+        icono: CalendarClock,
+        texto: 'Solicita tus vacaciones y permisos en minutos',
+    },
+    {
+        icono: ClipboardList,
+        texto: 'Da seguimiento a tus solicitudes y documentos',
+    },
     { icono: Smartphone, texto: 'También disponible desde la app móvil' },
 ];
 
@@ -42,7 +48,14 @@ const ICONOS_FLOTANTES = [
             <div
                 aria-hidden="true"
                 class="absolute inset-0 opacity-[0.15]"
-                style="background-image: radial-gradient(circle, white 1.5px, transparent 1.5px); background-size: 26px 26px;"
+                style="
+                    background-image: radial-gradient(
+                        circle,
+                        white 1.5px,
+                        transparent 1.5px
+                    );
+                    background-size: 26px 26px;
+                "
             />
 
             <!-- Manchas suaves de fondo -->
@@ -70,7 +83,11 @@ const ICONOS_FLOTANTES = [
                 :key="i"
                 aria-hidden="true"
                 class="icono-flotante absolute flex size-10 items-center justify-center rounded-2xl bg-white/10 text-white/70 backdrop-blur-sm"
-                :style="{ top: item.top, left: item.left, animationDelay: item.delay }"
+                :style="{
+                    top: item.top,
+                    left: item.left,
+                    animationDelay: item.delay,
+                }"
             >
                 <component :is="item.icono" class="size-4.5" />
             </span>
@@ -87,15 +104,17 @@ const ICONOS_FLOTANTES = [
                 MR. LANA <span class="font-semibold">PEOPLE</span>
             </Link>
 
-            <div class="relative z-10 flex flex-1 flex-col justify-center gap-3 pr-[38%]">
+            <div
+                class="relative z-10 flex flex-1 flex-col justify-center gap-3 pr-[38%]"
+            >
                 <span
-                    class="animate-in fade-in zoom-in-90 flex w-fit items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold tracking-wide text-white/90 backdrop-blur-sm duration-700"
+                    class="flex w-fit animate-in items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold tracking-wide text-white/90 backdrop-blur-sm duration-700 zoom-in-90 fade-in"
                 >
                     <Sparkles class="size-3.5" />
                     BIENVENIDO DE VUELTA
                 </span>
                 <p
-                    class="animate-in fade-in slide-in-from-bottom-2 text-2xl leading-snug font-semibold text-white delay-150 duration-700 xl:text-3xl"
+                    class="animate-in text-2xl leading-snug font-semibold text-white delay-150 duration-700 fade-in slide-in-from-bottom-2 xl:text-3xl"
                 >
                     Reclutamiento, personal y RH en un solo lugar
                 </p>
@@ -106,7 +125,7 @@ const ICONOS_FLOTANTES = [
                     <li
                         v-for="(item, i) in CARACTERISTICAS"
                         :key="item.texto"
-                        class="animate-in fade-in slide-in-from-bottom-2 flex items-center gap-3 text-sm text-white/90 duration-700"
+                        class="flex animate-in items-center gap-3 text-sm text-white/90 duration-700 fade-in slide-in-from-bottom-2"
                         :style="{ animationDelay: `${200 + i * 120}ms` }"
                     >
                         <span
@@ -137,18 +156,23 @@ const ICONOS_FLOTANTES = [
                 class="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,color-mix(in_oklab,var(--brand-primary)_14%,transparent),transparent)] lg:hidden"
             />
 
-            <div class="animate-in fade-in slide-in-from-bottom-4 flex w-full max-w-md flex-col gap-4 duration-500">
+            <div
+                class="flex w-full max-w-md animate-in flex-col gap-4 duration-500 fade-in slide-in-from-bottom-4"
+            >
                 <Link
                     :href="home()"
                     class="group flex flex-col items-center gap-2 font-medium"
                 >
                     <div
-                        class="flex size-12 items-center justify-center rounded-2xl bg-[var(--brand-primary)] text-[var(--brand-foreground)] shadow-lg shadow-[var(--brand-primary)]/20 transition-shadow duration-300 group-hover:shadow-xl"
+                        class="flex size-12 items-center justify-center rounded-2xl bg-[var(--brand-primary)] text-[var(--brand-foreground)] shadow-[var(--brand-primary)]/20 shadow-lg transition-shadow duration-300 group-hover:shadow-xl"
                     >
                         <img :src="logo" alt="" class="size-7 object-contain" />
                     </div>
-                    <span class="text-base font-semibold tracking-tight text-foreground">
-                        MR. LANA <span class="text-[var(--brand-primary)]">PEOPLE</span>
+                    <span
+                        class="text-base font-semibold tracking-tight text-foreground"
+                    >
+                        MR. LANA
+                        <span class="text-[var(--brand-primary)]">PEOPLE</span>
                     </span>
                 </Link>
 

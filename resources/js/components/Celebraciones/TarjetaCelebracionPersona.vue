@@ -37,24 +37,55 @@ const { getInitials } = useInitials();
     <article class="@container min-w-0">
         <div
             class="relative flex h-full min-w-0 flex-col gap-3 rounded-xl border p-3 sm:p-4 @[56rem]:flex-row @[56rem]:items-center @[56rem]:justify-between"
-            :class="destacado ? 'border-amber-400/40 bg-gradient-to-br from-amber-400/10 via-pink-400/5 to-transparent' : 'bg-card'"
+            :class="
+                destacado
+                    ? 'border-amber-400/40 bg-gradient-to-br from-amber-400/10 via-pink-400/5 to-transparent'
+                    : 'bg-card'
+            "
         >
-            <div v-if="destacado" class="pointer-events-none absolute inset-0 overflow-hidden rounded-xl" aria-hidden="true">
-                <PartyPopper class="absolute -top-2 -right-2 size-16 rotate-12 text-amber-400/15" />
+            <div
+                v-if="destacado"
+                class="pointer-events-none absolute inset-0 overflow-hidden rounded-xl"
+                aria-hidden="true"
+            >
+                <PartyPopper
+                    class="absolute -top-2 -right-2 size-16 rotate-12 text-amber-400/15"
+                />
             </div>
 
             <div class="relative flex min-w-0 items-center gap-3">
-                <Avatar class="size-14 shrink-0 ring-2" :class="destacado ? 'ring-amber-400/50' : 'ring-border'">
-                    <AvatarImage v-if="fotoUrl" :src="fotoUrl" :alt="`Foto de ${nombre}`" />
-                    <AvatarFallback class="text-base">{{ getInitials(nombre) }}</AvatarFallback>
+                <Avatar
+                    class="size-14 shrink-0 ring-2"
+                    :class="destacado ? 'ring-amber-400/50' : 'ring-border'"
+                >
+                    <AvatarImage
+                        v-if="fotoUrl"
+                        :src="fotoUrl"
+                        :alt="`Foto de ${nombre}`"
+                    />
+                    <AvatarFallback class="text-base">{{
+                        getInitials(nombre)
+                    }}</AvatarFallback>
                 </Avatar>
                 <div class="min-w-0">
-                    <p class="flex items-start gap-1.5 leading-snug font-semibold break-words">
+                    <p
+                        class="flex items-start gap-1.5 leading-snug font-semibold break-words"
+                    >
                         <span class="min-w-0">{{ nombre }}</span>
                         <slot name="icono" />
                     </p>
-                    <p v-if="detalle" class="text-sm font-medium text-amber-700 dark:text-amber-300">{{ detalle }}</p>
-                    <p v-if="subtitulo" class="text-xs break-words text-muted-foreground">{{ subtitulo }}</p>
+                    <p
+                        v-if="detalle"
+                        class="text-sm font-medium text-amber-700 dark:text-amber-300"
+                    >
+                        {{ detalle }}
+                    </p>
+                    <p
+                        v-if="subtitulo"
+                        class="text-xs break-words text-muted-foreground"
+                    >
+                        {{ subtitulo }}
+                    </p>
                     <slot name="extra" />
                 </div>
             </div>

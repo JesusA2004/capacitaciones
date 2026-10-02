@@ -31,9 +31,17 @@ const props = defineProps<{
     puedeEditarLaborales: boolean;
     rolesDisponibles: string[];
     empresasDisponibles: { id: number; nombre: string }[];
-    sucursalesDisponibles: { id: number; nombre: string; empresa_id: number | null }[];
+    sucursalesDisponibles: {
+        id: number;
+        nombre: string;
+        empresa_id: number | null;
+    }[];
     departamentosDisponibles: { id: number; nombre: string }[];
-    puestosDisponibles: { id: number; nombre: string; puesto_superior_id: number | null }[];
+    puestosDisponibles: {
+        id: number;
+        nombre: string;
+        puesto_superior_id: number | null;
+    }[];
     jefesDisponibles: {
         id: number;
         name: string;
@@ -63,7 +71,11 @@ const props = defineProps<{
     movimientosLaborales: MovimientoLaboralItem[];
     recibosNomina: ReciboNominaItem[];
     prestamos: PrestamoItem[];
-    documentosOficiales: InstanceType<typeof ExpedienteDocumentosOficiales>['$props']['documentos'] | null;
+    documentosOficiales:
+        | InstanceType<
+              typeof ExpedienteDocumentosOficiales
+          >['$props']['documentos']
+        | null;
     formatosOficialesDisponibles: FormatoOficialItem[];
 }>();
 
@@ -121,7 +133,10 @@ defineOptions({
         <template #documentos-oficiales>
             <ExpedienteDocumentosOficiales
                 v-if="props.documentosOficiales !== null"
-                :colaborador="{ id: colaborador.id, nombre: `${colaborador.name} ${colaborador.apellidos ?? ''}`.trim() }"
+                :colaborador="{
+                    id: colaborador.id,
+                    nombre: `${colaborador.name} ${colaborador.apellidos ?? ''}`.trim(),
+                }"
                 :documentos="props.documentosOficiales"
                 :formatos="formatosOficialesDisponibles"
                 :puede-descargar="tienePermiso('formatos_oficiales.descargar')"

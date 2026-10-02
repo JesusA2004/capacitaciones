@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { Briefcase, Clock, Download, MapPin, MessageSquareText, Radio, UserRound } from '@lucide/vue';
+import {
+    Briefcase,
+    Clock,
+    Download,
+    MapPin,
+    MessageSquareText,
+    Radio,
+    UserRound,
+} from '@lucide/vue';
 import { computed } from 'vue';
 import { Badge } from '@/components/ui/badge';
 import { descargar as descargarCv } from '@/routes/rh/candidatos/cv';
@@ -28,7 +36,9 @@ const fechaIngreso = computed(() =>
  * App\Http\Controllers\Rh\CandidatoController::index() / Candidato::ultimoCambioEstado()).
  */
 const diasEnFase = computed(() => {
-    const desde = props.candidato.ultimo_cambio_estado?.fecha ?? props.candidato.created_at;
+    const desde =
+        props.candidato.ultimo_cambio_estado?.fecha ??
+        props.candidato.created_at;
     const dias = Math.floor(
         (Date.now() - new Date(desde).getTime()) / (1000 * 60 * 60 * 24),
     );
@@ -70,7 +80,7 @@ function detenerArrastre(evento: Event) {
 <template>
     <div class="flex flex-col gap-2">
         <div class="flex items-start justify-between gap-2">
-            <span class="text-sm font-semibold leading-tight">{{
+            <span class="text-sm leading-tight font-semibold">{{
                 nombreCompleto
             }}</span>
             <Badge
@@ -81,7 +91,9 @@ function detenerArrastre(evento: Event) {
             >
         </div>
 
-        <div class="flex items-center gap-1.5 text-xs font-medium text-foreground">
+        <div
+            class="flex items-center gap-1.5 text-xs font-medium text-foreground"
+        >
             <Briefcase class="size-3.5 shrink-0 text-[var(--brand-primary)]" />
             <span class="truncate">{{
                 candidato.puesto_objetivo?.nombre ?? 'Sin puesto objetivo'
@@ -141,7 +153,7 @@ function detenerArrastre(evento: Event) {
                 draggable="false"
                 @click="detenerArrastre"
                 @dragstart="detenerArrastre"
-                >
+            >
                 <Download class="size-3.5" />
                 CV
             </a>

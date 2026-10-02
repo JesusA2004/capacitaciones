@@ -4,6 +4,9 @@ namespace App\Services\Mobile;
 
 use App\Enums\EstadoUsuario;
 use App\Models\User;
+use App\Services\CicloLaboral\CicloLaboralService;
+use App\Services\CicloLaboral\OrganizacionJerarquiaService;
+use App\Services\Configuracion\ConfiguracionSistemaService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Incorporacion\IncorporacionService;
 use App\Services\RhMobile\RhPendientesService;
@@ -80,6 +83,10 @@ class MobileBootstrapService
             'capabilities' => $capabilities,
             'features' => $this->features($usuario, $capabilities),
             'counts' => $this->counts($usuario, $capabilities),
+            // Mismo tema que GET /api/v1/app/theme (Configuración → Apariencia).
+            'theme' => app(ConfiguracionSistemaService::class)->tema(),
+            'ciclo_laboral' => $this->cicloLaboral($usuario),
+            'pendientes' => $this->tareas->conteos($usuario),
             'server' => [
                 'time' => now()->toIso8601String(),
                 'timezone' => config('app.mobile_timezone', 'America/Mexico_City'),
@@ -140,6 +147,48 @@ class MobileBootstrapService
     }
 
     /**
+     * Resumen del ciclo laboral propio (si la cuenta es de una persona) y
+     * qué acciones del ciclo puede ejecutar la cuenta. La app muestra
+     * botones con estas capacidades — nunca por el nombre del rol — y el
+     * backend vuelve a autorizar cada acción.
+     *
+     * @return array<string, mixed>
+     */
+    private function cicloLaboral(User $usuario): array
+    {
+        $colaborador = $usuario->colaborador;
+        // La persona nunca ve los nombres internos de sus etapas: solo sus
+        // pendientes en lenguaje llano (detalle en GET /colaborador/mi-proceso).
+        $propio = $colaborador !== null ? app(CicloLaboralService::class)->misPendientes($colaborador, $usuario) : null;
+
+        return [
+            'propio' => $propio === null ? null : [
+                'por_hacer' => count(array_filter($propio['pendientes'], fn (array $p) => $p['tipo'] === 'accion')),
+                'en_espera' => count(array_filter($propio['pendientes'], fn (array $p) => $p['tipo'] === 'espera')),
+                'pendientes' => array_map(fn (array $p) => ['clave' => $p['clave'], 'titulo' => $p['titulo'], 'tipo' => $p['tipo']], $propio['pendientes']),
+                'todo_listo' => $propio['todo_listo'],
+            ],
+            'acciones' => [
+                'ver_candidatos' => $usuario->can('candidatos.ver'),
+                'evaluar_candidatos' => $usuario->can('candidatos.evaluar'),
+                'preautorizar' => $usuario->can(OrganizacionJerarquiaService::PERMISO_PREAUTORIZAR),
+                'autorizar_rh' => $usuario->can(OrganizacionJerarquiaService::PERMISO_AUTORIZAR_RH),
+                'entregar_activos' => $usuario->can('onboarding.entregar_activos'),
+                'gestionar_onboarding' => $usuario->can('onboarding.gestionar'),
+                'capturar_evaluacion' => $usuario->can('evaluaciones.capturar'),
+                'autorizar_evaluacion' => $usuario->can('evaluaciones.autorizar'),
+                'solicitar_baja' => $usuario->can('cierres.solicitar'),
+                'gestionar_cierres' => $usuario->can('cierres.gestionar'),
+                'programar_pago' => $usuario->can('cierres.programar_pago'),
+                'solicitar_reingreso' => $usuario->can('reingresos.solicitar'),
+                'decidir_reingreso' => $usuario->can('reingresos.gestionar') && $usuario->can(OrganizacionJerarquiaService::PERMISO_AUTORIZAR_RH),
+                'operar_documentos_fisicos' => $usuario->can('documentos_laborales.operar_fisico'),
+                'ver_tablero' => $usuario->can('dashboard.global.ver') || $usuario->can('dashboard.sucursal.ver'),
+            ],
+        ];
+    }
+
+    /**
      * @param  array{employee: bool, rh: bool, manager: bool, director: bool}  $capabilities
      * @return array<string, bool>
      */
@@ -167,7 +216,7 @@ class MobileBootstrapService
         $colaborador = $usuario->colaborador;
 
         if ($colaborador !== null && $colaborador->estatus === EstadoUsuario::EnIncorporacion) {
-            $progreso = $this->incorporacion->progreso($this->incorporacion->tiposDocumento(), $this->expediente->documentosVigentes($colaborador));
+            $progreso = $this->incorporacion->progreso($this->incorporacion->tiposDocumento($colaborador), $this->expediente->documentosVigentes($colaborador));
             $documentosPendientes = $progreso['pendientes'] + $progreso['rechazados'];
         } else {
             $documentosPendientes = $colaborador !== null ? $this->expediente->documentosPendientesCount($colaborador) : 0;

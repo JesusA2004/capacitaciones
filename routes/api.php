@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AppConfigController;
 use App\Http\Controllers\Api\V1\AppReleaseController;
+use App\Http\Controllers\Api\V1\AppThemeController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CelebracionController;
 use App\Http\Controllers\Api\V1\CicloLaboralColaboradorController;
@@ -12,13 +13,16 @@ use App\Http\Controllers\Api\V1\EquipoController;
 use App\Http\Controllers\Api\V1\EvaluacionController;
 use App\Http\Controllers\Api\V1\IncorporacionController;
 use App\Http\Controllers\Api\V1\IncorporacionInvitacionController;
+use App\Http\Controllers\Api\V1\MiProcesoController;
 use App\Http\Controllers\Api\V1\MobileBootstrapController;
 use App\Http\Controllers\Api\V1\MuroCumpleanosController;
 use App\Http\Controllers\Api\V1\NotificacionController;
 use App\Http\Controllers\Api\V1\Rh\ActaController;
 use App\Http\Controllers\Api\V1\Rh\AltaColaboradorController;
+use App\Http\Controllers\Api\V1\Rh\CandidatoController as RhCandidatoController;
 use App\Http\Controllers\Api\V1\Rh\CatalogoController;
 use App\Http\Controllers\Api\V1\Rh\CelebracionController as RhCelebracionController;
+use App\Http\Controllers\Api\V1\Rh\CicloLaboralRhController;
 use App\Http\Controllers\Api\V1\Rh\CierreLaboralController;
 use App\Http\Controllers\Api\V1\Rh\ColaboradorController as RhColaboradorController;
 use App\Http\Controllers\Api\V1\Rh\ContratoController;
@@ -36,6 +40,7 @@ use App\Http\Controllers\Api\V1\Rh\PendienteController as RhPendienteController;
 use App\Http\Controllers\Api\V1\Rh\PlantillaDocumentalController;
 use App\Http\Controllers\Api\V1\Rh\PrestamoController as RhPrestamoController;
 use App\Http\Controllers\Api\V1\Rh\ReciboNominaController as RhReciboNominaController;
+use App\Http\Controllers\Api\V1\Rh\ReingresoController as RhReingresoController;
 use App\Http\Controllers\Api\V1\Rh\SolicitudController as RhSolicitudController;
 use App\Http\Controllers\Api\V1\Rh\VacacionController as RhVacacionController;
 use App\Http\Controllers\Api\V1\Rh\VacanteController as RhVacanteController;
@@ -64,6 +69,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     // Publica (sin auth:sanctum): la app la consulta antes de iniciar sesion
     // para saber si debe forzar actualizacion o mostrar mantenimiento.
     Route::get('app/config', AppConfigController::class)->name('app.config');
+
+    // Publica: colores institucionales (Configuración → Apariencia) para que
+    // la app no tenga que publicarse de nuevo al cambiar un color.
+    Route::get('app/theme', AppThemeController::class)->name('app.theme');
 
     // Publica (sin auth:sanctum): version disponible para descarga directa
     // mientras la app no este en Play Store (ver docs/APP_RELEASES.md).
@@ -198,6 +207,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         | colaborador sale de la sesión; los recursos por id pasan por Policy).
         */
         Route::prefix('colaborador')->name('colaborador.')->group(function () {
+            // Mi proceso: etapa, qué falta, siguiente acción, inducción y
+            // expediente (mismo CicloLaboralService que la web).
+            Route::get('mi-proceso', [MiProcesoController::class, 'show'])->name('mi-proceso');
+            Route::post('onboarding/avances/{avance}/evaluacion', [MiProcesoController::class, 'evaluacion'])
+                ->name('onboarding.evaluacion')
+                ->middleware('throttle:30,1');
             Route::get('alta', [CicloLaboralColaboradorController::class, 'alta'])->name('alta');
             Route::get('expediente', [CicloLaboralColaboradorController::class, 'expediente'])->name('expediente');
             Route::get('documentos-pendientes', [CicloLaboralColaboradorController::class, 'documentosPendientes'])->name('documentos-pendientes');
@@ -252,6 +267,40 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::prefix('rh')->name('rh.')->group(function () {
             Route::get('dashboard', RhDashboardController::class)->name('dashboard');
             Route::get('pendientes', [RhPendienteController::class, 'index'])->name('pendientes');
+
+            // Ciclo laboral para aprobadores (docs/CICLO_LABORAL_FINAL_IMPLEMENTADO.md).
+            Route::get('tablero', [CicloLaboralRhController::class, 'tablero'])->name('tablero');
+            Route::get('ciclo/pendientes', [CicloLaboralRhController::class, 'pendientes'])->name('ciclo.pendientes');
+            Route::get('colaboradores/{colaborador}/ciclo', [CicloLaboralRhController::class, 'ciclo'])->name('colaboradores.ciclo')->withTrashed();
+            Route::post('onboarding/{proceso}/activos', [CicloLaboralRhController::class, 'entregarActivo'])->name('onboarding.activos');
+            Route::post('onboarding/{proceso}/completar', [CicloLaboralRhController::class, 'completar'])->name('onboarding.completar');
+            Route::post('onboarding/avances/{avance}/retroalimentacion', [CicloLaboralRhController::class, 'retroalimentar'])->name('onboarding.retroalimentar');
+
+            Route::prefix('candidatos')->name('candidatos.')->group(function () {
+                Route::get('/', [RhCandidatoController::class, 'index'])->name('index');
+                Route::get('{candidato}', [RhCandidatoController::class, 'show'])->name('show')->whereNumber('candidato');
+                Route::post('{candidato}/perfil', [RhCandidatoController::class, 'evaluarPerfil'])->name('perfil');
+                Route::post('{candidato}/entrevista', [RhCandidatoController::class, 'registrarEntrevista'])->name('entrevista');
+                Route::post('{candidato}/psicometricas/enviar', [RhCandidatoController::class, 'enviarPsicometricas'])->name('psicometricas.enviar');
+                Route::post('{candidato}/psicometricas/resultados', [RhCandidatoController::class, 'resultadosPsicometricas'])->name('psicometricas.resultados')->middleware('throttle:api-cargas');
+                Route::post('{candidato}/psicometricas/revision', [RhCandidatoController::class, 'revisarPsicometricas'])->name('psicometricas.revision');
+                Route::post('{candidato}/socioeconomico', [RhCandidatoController::class, 'registrarSocioeconomico'])->name('socioeconomico')->middleware('throttle:api-cargas');
+                Route::post('{candidato}/referencias', [RhCandidatoController::class, 'registrarReferencia'])->name('referencias');
+                Route::post('{candidato}/referencias/concluir', [RhCandidatoController::class, 'concluirReferencias'])->name('referencias.concluir');
+                Route::post('{candidato}/preautorizar', [RhCandidatoController::class, 'preautorizar'])->name('preautorizar');
+                Route::post('{candidato}/autorizar', [RhCandidatoController::class, 'autorizarRh'])->name('autorizar');
+                Route::post('{candidato}/rechazar', [RhCandidatoController::class, 'rechazarRh'])->name('rechazar');
+                Route::post('{candidato}/devolver', [RhCandidatoController::class, 'devolverRh'])->name('devolver');
+                Route::post('{candidato}/descartar', [RhCandidatoController::class, 'descartar'])->name('descartar');
+            });
+
+            Route::prefix('reingresos')->name('reingresos.')->group(function () {
+                Route::get('/', [RhReingresoController::class, 'index'])->name('index');
+                Route::get('buscar', [RhReingresoController::class, 'buscar'])->name('buscar');
+                Route::get('historial/{colaborador}', [RhReingresoController::class, 'historial'])->name('historial')->whereNumber('colaborador');
+                Route::post('/', [RhReingresoController::class, 'store'])->name('store');
+                Route::post('{reingreso}/decidir', [RhReingresoController::class, 'decidir'])->name('decidir');
+            });
 
             Route::prefix('solicitudes')->name('solicitudes.')->group(function () {
                 Route::get('/', [RhSolicitudController::class, 'index'])->name('index');

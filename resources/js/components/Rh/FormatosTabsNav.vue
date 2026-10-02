@@ -16,12 +16,19 @@ import { index as indexPlantillas } from '@/routes/rh/plantillas';
  * plantillas.
  */
 const props = defineProps<{
-    activa: 'oficiales' | 'generados' | 'variables' | 'plantillas' | 'word-generados';
+    activa:
+        | 'oficiales'
+        | 'generados'
+        | 'variables'
+        | 'plantillas'
+        | 'word-generados';
 }>();
 
 const { tienePermiso } = usePermisos();
 
-const puedeVerOficiales = computed(() => tienePermiso('formatos_oficiales.ver'));
+const puedeVerOficiales = computed(() =>
+    tienePermiso('formatos_oficiales.ver'),
+);
 const puedeVerPlantillas = computed(() => tienePermiso('plantillas.ver'));
 // "Generados (Word)" (Rh/FormatoController::index) exige plantillas.crear:
 // con solo plantillas.ver la pestaña llevaba a un 403.
@@ -29,7 +36,7 @@ const puedeVerWordGenerados = computed(() => tienePermiso('plantillas.crear'));
 
 function claseTab(activo: boolean): string {
     return cn(
-        'inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1 text-sm font-medium transition-all',
+        'inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg px-3 py-1 text-sm font-medium whitespace-nowrap transition-all',
         activo
             ? 'bg-background text-foreground shadow-sm'
             : 'text-muted-foreground hover:text-foreground',
@@ -39,16 +46,38 @@ function claseTab(activo: boolean): string {
 
 <template>
     <nav
-        class="inline-flex h-9 w-fit max-w-full items-center justify-start gap-1 scroll-x-limpio rounded-xl bg-muted p-1 text-muted-foreground"
+        class="scroll-x-limpio inline-flex h-9 w-fit max-w-full items-center justify-start gap-1 rounded-xl bg-muted p-1 text-muted-foreground"
         aria-label="Secciones de Formatos"
         data-tour="formatos-pestanas"
     >
         <template v-if="puedeVerOficiales">
-            <Link :href="indexOficiales()" :class="claseTab(props.activa === 'oficiales')">Plantillas oficiales</Link>
-            <Link :href="generados()" :class="claseTab(props.activa === 'generados')">Documentos generados</Link>
-            <Link :href="variables()" :class="claseTab(props.activa === 'variables')">Variables</Link>
+            <Link
+                :href="indexOficiales()"
+                :class="claseTab(props.activa === 'oficiales')"
+                >Plantillas oficiales</Link
+            >
+            <Link
+                :href="generados()"
+                :class="claseTab(props.activa === 'generados')"
+                >Documentos generados</Link
+            >
+            <Link
+                :href="variables()"
+                :class="claseTab(props.activa === 'variables')"
+                >Variables</Link
+            >
         </template>
-        <Link v-if="puedeVerPlantillas" :href="indexPlantillas()" :class="claseTab(props.activa === 'plantillas')">Plantillas Word por clave</Link>
-        <Link v-if="puedeVerWordGenerados" :href="indexWordGenerados()" :class="claseTab(props.activa === 'word-generados')">Generados (Word)</Link>
+        <Link
+            v-if="puedeVerPlantillas"
+            :href="indexPlantillas()"
+            :class="claseTab(props.activa === 'plantillas')"
+            >Plantillas Word por clave</Link
+        >
+        <Link
+            v-if="puedeVerWordGenerados"
+            :href="indexWordGenerados()"
+            :class="claseTab(props.activa === 'word-generados')"
+            >Generados (Word)</Link
+        >
     </nav>
 </template>

@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { useResizeObserver } from '@vueuse/core';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
-import { nextTick, onBeforeUnmount, ref, shallowRef, useTemplateRef, watch } from 'vue';
+import {
+    nextTick,
+    onBeforeUnmount,
+    ref,
+    shallowRef,
+    useTemplateRef,
+    watch,
+} from 'vue';
 import { Spinner } from '@/components/ui/spinner';
 import { PT_A_MM, abrirPdf, textoConPosicion } from '@/lib/pdf';
 import type { BloqueTexto } from '@/lib/pdf';
@@ -21,12 +28,20 @@ const props = withDefaults(
 );
 
 const emit = defineEmits<{
-    cargado: [paginas: { numero: number; ancho: number; alto: number }[], bloques: BloqueTexto[]];
+    cargado: [
+        paginas: { numero: number; ancho: number; alto: number }[],
+        bloques: BloqueTexto[],
+    ];
     error: [];
 }>();
 
 defineSlots<{
-    capa(props: { pagina: number; escala: number; ancho: number; alto: number }): unknown;
+    capa(props: {
+        pagina: number;
+        escala: number;
+        ancho: number;
+        alto: number;
+    }): unknown;
 }>();
 
 type PaginaVisible = { numero: number; anchoMm: number; altoMm: number };
@@ -62,7 +77,11 @@ async function cargar() {
 
         for (let n = 1; n <= doc.numPages; n++) {
             const viewport = (await doc.getPage(n)).getViewport({ scale: 1 });
-            lista.push({ numero: n, anchoMm: viewport.width * PT_A_MM, altoMm: viewport.height * PT_A_MM });
+            lista.push({
+                numero: n,
+                anchoMm: viewport.width * PT_A_MM,
+                altoMm: viewport.height * PT_A_MM,
+            });
         }
 
         paginas.value = lista;
@@ -72,7 +91,11 @@ async function cargar() {
 
         emit(
             'cargado',
-            lista.map((p) => ({ numero: p.numero, ancho: p.anchoMm, alto: p.altoMm })),
+            lista.map((p) => ({
+                numero: p.numero,
+                ancho: p.anchoMm,
+                alto: p.altoMm,
+            })),
             await textoConPosicion(doc),
         );
     } catch {
@@ -105,7 +128,9 @@ async function dibujar() {
 
             const pdfPagina = await doc.getPage(pagina.numero);
             const pxPorMm = escala(pagina);
-            const viewport = pdfPagina.getViewport({ scale: (pxPorMm / PT_A_MM) * densidad });
+            const viewport = pdfPagina.getViewport({
+                scale: (pxPorMm / PT_A_MM) * densidad,
+            });
 
             lienzo.width = Math.floor(viewport.width);
             lienzo.height = Math.floor(viewport.height);
@@ -115,7 +140,8 @@ async function dibujar() {
             const contexto = lienzo.getContext('2d');
 
             if (contexto) {
-                await pdfPagina.render({ canvasContext: contexto, viewport }).promise;
+                await pdfPagina.render({ canvasContext: contexto, viewport })
+                    .promise;
             }
         }
     } finally {
@@ -133,22 +159,41 @@ onBeforeUnmount(() => {
 
 <template>
     <div ref="contenedor" class="w-full min-w-0">
-        <div v-if="cargando" class="flex items-center justify-center gap-2 py-24 text-sm text-muted-foreground">
+        <div
+            v-if="cargando"
+            class="flex items-center justify-center gap-2 py-24 text-sm text-muted-foreground"
+        >
             <Spinner />
             Cargando documento…
         </div>
-        <div v-else-if="fallo" class="py-24 text-center text-sm text-destructive">
+        <div
+            v-else-if="fallo"
+            class="py-24 text-center text-sm text-destructive"
+        >
             No se pudo mostrar el documento base.
         </div>
-        <div v-else class="flex flex-col items-center gap-4 overflow-x-auto pb-4">
+        <div
+            v-else
+            class="flex flex-col items-center gap-4 overflow-x-auto pb-4"
+        >
             <div
                 v-for="pagina in paginas"
                 :key="pagina.numero"
                 class="relative shrink-0 bg-white shadow-md ring-1 ring-black/10"
-                :style="{ width: `${pagina.anchoMm * escala(pagina)}px`, height: `${pagina.altoMm * escala(pagina)}px` }"
+                :style="{
+                    width: `${pagina.anchoMm * escala(pagina)}px`,
+                    height: `${pagina.altoMm * escala(pagina)}px`,
+                }"
                 :data-pagina="pagina.numero"
             >
-                <canvas :ref="(el) => (lienzos[pagina.numero] = el as HTMLCanvasElement | null)" class="block" />
+                <canvas
+                    :ref="
+                        (el) =>
+                            (lienzos[pagina.numero] =
+                                el as HTMLCanvasElement | null)
+                    "
+                    class="block"
+                />
                 <div class="absolute inset-0">
                     <slot
                         name="capa"
@@ -158,7 +203,9 @@ onBeforeUnmount(() => {
                         :alto="pagina.altoMm"
                     />
                 </div>
-                <span class="absolute -top-3 left-2 rounded bg-muted px-1.5 text-[11px] text-muted-foreground">
+                <span
+                    class="absolute -top-3 left-2 rounded bg-muted px-1.5 text-[11px] text-muted-foreground"
+                >
                     Página {{ pagina.numero }}
                 </span>
             </div>

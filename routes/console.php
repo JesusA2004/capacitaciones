@@ -41,6 +41,14 @@ Schedule::command('contratos:revisar-vencimientos')
     ->withoutOverlapping()
     ->onOneServer();
 
+// Cierre laboral: cierres pagados cuya fecha efectiva ya llegó → pendiente
+// "concluir cierre" para RH. Idempotente (un pendiente por cierre).
+Schedule::command('cierres:revisar-fechas')
+    ->dailyAt('06:45')
+    ->timezone('America/Mexico_City')
+    ->withoutOverlapping()
+    ->onOneServer();
+
 // Limpia tokens de Sanctum ya vencidos (config/sanctum.php: expiration ya
 // no es null). Comando propio del paquete, solo borra filas cuyo
 // expires_at ya pasó — nunca toca un token todavía vigente.

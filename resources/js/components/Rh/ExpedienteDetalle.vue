@@ -113,6 +113,7 @@ import {
 } from '@/routes/rh/expedientes/recibos-nomina';
 import { show as showSolicitud } from '@/routes/rh/solicitudes';
 import { edit as editSeguridad } from '@/routes/security';
+import { index as indexSolicitudes } from '@/routes/solicitudes';
 import type {
     AltaDigitalResumenExpediente,
     DocumentoExpedienteItem,
@@ -444,7 +445,10 @@ const puestoSuperiorId = computed(() => {
 });
 
 const jefesSegunOrganigrama = computed(() => {
-    if (puestoSuperiorId.value === null || !formLaborales.sucursal_principal_id) {
+    if (
+        puestoSuperiorId.value === null ||
+        !formLaborales.sucursal_principal_id
+    ) {
         return [];
     }
 
@@ -694,6 +698,12 @@ const urlSubidaFoto = computed(() =>
  * que una notificación lleve directo a la sección que avisa — ver
  * App\Services\Notificaciones\DestinoNotificacionService.
  */
+// En "Mi expediente" nadie edita sus propios datos (ni RH): pide una
+// corrección con la solicitud "Actualización de datos".
+const urlSolicitarCorreccion = indexSolicitudes.url({
+    query: { nueva: 'actualizacion_datos' },
+});
+
 const PESTANAS = [
     'resumen',
     'personales',
@@ -717,7 +727,10 @@ const pestanaInicial = (() => {
 
     return solicitada &&
         PESTANAS.includes(solicitada) &&
-        !(solicitada === 'cuenta' && props.esPropio)
+        !(
+            (solicitada === 'cuenta' || solicitada === 'onboarding') &&
+            props.esPropio
+        )
         ? solicitada
         : 'resumen';
 })();
@@ -913,7 +926,7 @@ const pestanaInicial = (() => {
         >
             <TabsList
                 data-tour="expediente-pestanas"
-                class="h-auto w-full flex-row justify-start gap-1 scroll-x-limpio bg-muted/60 p-1.5 lg:w-56 lg:shrink-0 lg:flex-col lg:items-stretch lg:gap-0.5 lg:overflow-visible lg:rounded-2xl lg:p-2"
+                class="scroll-x-limpio h-auto w-full flex-row justify-start gap-1 bg-muted/60 p-1.5 lg:w-56 lg:shrink-0 lg:flex-col lg:items-stretch lg:gap-0.5 lg:overflow-visible lg:rounded-2xl lg:p-2"
             >
                 <TabsTrigger
                     value="resumen"
@@ -947,6 +960,7 @@ const pestanaInicial = (() => {
                     <FolderOpen class="size-4" /> Documentos
                 </TabsTrigger>
                 <TabsTrigger
+                    v-if="!esPropio"
                     value="onboarding"
                     class="justify-start gap-2 lg:w-full"
                 >
@@ -1288,6 +1302,21 @@ const pestanaInicial = (() => {
                                         Guardar datos personales
                                     </Button>
                                 </div>
+                                <div
+                                    v-else-if="esPropio"
+                                    class="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--mrl-primary)]/25 bg-[var(--mrl-primary)]/5 p-4"
+                                >
+                                    <p class="min-w-0 flex-1 text-sm">
+                                        ¿Algún dato está mal o cambió? Pídele a
+                                        Recursos Humanos que lo corrija.
+                                    </p>
+                                    <Link
+                                        :href="urlSolicitarCorreccion"
+                                        class="inline-flex items-center gap-2 rounded-xl bg-[var(--mrl-primary)] px-4 py-2 text-sm font-medium text-white transition-all hover:gap-3 hover:bg-[var(--mrl-primary-alt)]"
+                                    >
+                                        Solicitar corrección
+                                    </Link>
+                                </div>
                             </form>
                         </CardContent>
                     </Card>
@@ -1421,7 +1450,9 @@ const pestanaInicial = (() => {
                                     <div class="grid gap-2">
                                         <Label>Puesto</Label>
                                         <Select
-                                            :model-value="formLaborales.puesto_id"
+                                            :model-value="
+                                                formLaborales.puesto_id
+                                            "
                                             @update:model-value="
                                                 (v) =>
                                                     alCambiarPuestoLaboral(
@@ -1458,11 +1489,12 @@ const pestanaInicial = (() => {
                                             placeholder="Selecciona el puesto y la sucursal primero..."
                                             empty-text="Nadie ocupa todavía el puesto superior en esa sucursal, según el organigrama."
                                         />
-                                        <p class="text-xs text-muted-foreground">
+                                        <p
+                                            class="text-xs text-muted-foreground"
+                                        >
                                             Solo se muestra quien ocupa el
-                                            puesto superior a este, en la
-                                            misma sucursal — según el
-                                            organigrama.
+                                            puesto superior a este, en la misma
+                                            sucursal — según el organigrama.
                                         </p>
                                         <InputError
                                             :message="
@@ -1637,6 +1669,7 @@ const pestanaInicial = (() => {
                                             }}
                                         </CampoInfo>
                                         <CampoInfo
+                                            v-if="!esPropio"
                                             :icono="Hourglass"
                                             etiqueta="Periodo de prueba"
                                             class="sm:col-span-2"

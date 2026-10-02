@@ -7,23 +7,29 @@ import {
     ClipboardList,
     Compass,
     FileStack,
+    FolderOpen,
     FolderKanban,
     GitBranch,
     GraduationCap,
+    Inbox,
     Landmark,
     LayoutGrid,
     Megaphone,
     QrCode,
+    RotateCcw,
+    Settings2,
     ShieldCheck,
     Smartphone,
+    Sparkles,
     UserRound,
     Users,
 } from '@lucide/vue';
 import { computed } from 'vue';
 import { useNavegacion } from '@/composables/useNavegacion';
 import { usePermisos } from '@/composables/usePermisos';
-import { dashboard } from '@/routes';
+import { dashboard, miExpediente } from '@/routes';
 import { index as indexAppReleases } from '@/routes/administracion/app-releases';
+import { index as indexConfiguracion } from '@/routes/administracion/configuracion';
 import { index as indexDepartamentos } from '@/routes/administracion/departamentos';
 import { index as indexEmpresas } from '@/routes/administracion/empresas';
 import { index as indexJerarquiaPuestos } from '@/routes/administracion/jerarquia-puestos';
@@ -41,7 +47,10 @@ import { index as indexCumpleanos } from '@/routes/rh/cumpleanos';
 import { index as indexExpedientes } from '@/routes/rh/expedientes';
 import { index as indexFormatos } from '@/routes/rh/formatos';
 import { index as indexIncorporacionInvitaciones } from '@/routes/rh/incorporacion/invitaciones';
+import { configuracion as configuracionOnboarding } from '@/routes/rh/onboarding';
+import { index as indexPendientes } from '@/routes/rh/pendientes';
 import { index as indexPlantillas } from '@/routes/rh/plantillas';
+import { index as indexReingresos } from '@/routes/rh/reingresos';
 import { index as indexRhSolicitudes } from '@/routes/rh/solicitudes';
 import { index as indexVacantes } from '@/routes/rh/vacantes';
 import { index as indexSolicitudes } from '@/routes/solicitudes';
@@ -68,9 +77,17 @@ export function useMainNavItems() {
                 href: indexPortal(),
                 icon: UserRound,
             },
+            {
+                title: 'Mi expediente',
+                href: miExpediente(),
+                icon: FolderOpen,
+            },
         ];
 
-        if (tienePermiso('portal.solicitudes.ver') || tienePermiso('solicitudes.crear')) {
+        if (
+            tienePermiso('portal.solicitudes.ver') ||
+            tienePermiso('solicitudes.crear')
+        ) {
             items.push({
                 title: 'Mis solicitudes',
                 href: indexSolicitudes(),
@@ -100,7 +117,30 @@ export function useMainNavItems() {
             },
         ];
 
-        if (tienePermiso('expedientes.ver_todos') || tienePermiso('expedientes.ver_sucursal')) {
+        // Bandeja de pendientes del ciclo laboral: la ve quien participa en
+        // él (preautoriza, autoriza, evalúa, entrega activos u opera bajas).
+        if (
+            [
+                'ciclo.preautorizar',
+                'ciclo.autorizar_rh',
+                'evaluaciones.capturar',
+                'evaluaciones.autorizar',
+                'onboarding.entregar_activos',
+                'cierres.solicitar',
+                'cierres.gestionar',
+            ].some((p) => tienePermiso(p))
+        ) {
+            items.push({
+                title: 'Mis pendientes',
+                href: indexPendientes(),
+                icon: Inbox,
+            });
+        }
+
+        if (
+            tienePermiso('expedientes.ver_todos') ||
+            tienePermiso('expedientes.ver_sucursal')
+        ) {
             items.push({
                 title: 'Expedientes',
                 href: indexExpedientes(),
@@ -108,7 +148,10 @@ export function useMainNavItems() {
             });
         }
 
-        if (tienePermiso('solicitudes.revisar') || tienePermiso('solicitudes.aprobar')) {
+        if (
+            tienePermiso('solicitudes.revisar') ||
+            tienePermiso('solicitudes.aprobar')
+        ) {
             items.push({
                 title: 'Solicitudes',
                 href: indexRhSolicitudes(),
@@ -148,6 +191,25 @@ export function useMainNavItems() {
             });
         }
 
+        if (tienePermiso('onboarding.gestionar')) {
+            items.push({
+                title: 'Onboarding',
+                href: configuracionOnboarding(),
+                icon: Sparkles,
+            });
+        }
+
+        if (
+            tienePermiso('reingresos.solicitar') ||
+            tienePermiso('reingresos.gestionar')
+        ) {
+            items.push({
+                title: 'Reingresos',
+                href: indexReingresos(),
+                icon: RotateCcw,
+            });
+        }
+
         if (tienePermiso('rh.incorporacion.invitaciones.ver')) {
             items.push({
                 title: 'Invitaciones QR',
@@ -156,10 +218,15 @@ export function useMainNavItems() {
             });
         }
 
-        if (tienePermiso('formatos_oficiales.ver') || tienePermiso('plantillas.ver')) {
+        if (
+            tienePermiso('formatos_oficiales.ver') ||
+            tienePermiso('plantillas.ver')
+        ) {
             items.push({
                 title: 'Formatos',
-                href: tienePermiso('formatos_oficiales.ver') ? indexFormatos() : indexPlantillas(),
+                href: tienePermiso('formatos_oficiales.ver')
+                    ? indexFormatos()
+                    : indexPlantillas(),
                 icon: FileStack,
             });
         }
@@ -172,10 +239,15 @@ export function useMainNavItems() {
             });
         }
 
-        if (tienePermiso('rh.cumpleanos.ver') || tienePermiso('celebraciones.ver')) {
+        if (
+            tienePermiso('rh.cumpleanos.ver') ||
+            tienePermiso('celebraciones.ver')
+        ) {
             items.push({
                 title: 'Celebraciones',
-                href: tienePermiso('rh.cumpleanos.ver') ? indexCumpleanos() : indexAniversarios(),
+                href: tienePermiso('rh.cumpleanos.ver')
+                    ? indexCumpleanos()
+                    : indexAniversarios(),
                 icon: Cake,
             });
         }
@@ -194,7 +266,9 @@ export function useMainNavItems() {
     });
 
     const mainNavItems = computed<NavItem[]>(() =>
-        esColaborador.value ? navItemsColaborador.value : navItemsOperativo.value,
+        esColaborador.value
+            ? navItemsColaborador.value
+            : navItemsOperativo.value,
     );
 
     const adminNavItems = computed<NavItem[]>(() => {
@@ -228,13 +302,20 @@ export function useMainNavItems() {
             });
         }
 
-        if (tienePermiso('departamentos.administrar') || tienePermiso('puestos.administrar')) {
+        if (
+            tienePermiso('departamentos.administrar') ||
+            tienePermiso('puestos.administrar')
+        ) {
             items.push({
                 title: 'Departamentos',
                 href: indexDepartamentos(),
                 icon: Briefcase,
             });
-            items.push({ title: 'Puestos', href: indexPuestos(), icon: Briefcase });
+            items.push({
+                title: 'Puestos',
+                href: indexPuestos(),
+                icon: Briefcase,
+            });
         }
 
         if (tienePermiso('roles.administrar')) {
@@ -242,6 +323,16 @@ export function useMainNavItems() {
                 title: 'Roles y permisos',
                 href: indexRoles(),
                 icon: ShieldCheck,
+            });
+        }
+
+        // Jefes directos, ruteo de avisos, parámetros de RH y apariencia
+        // (cada sección exige además su permiso configuracion.*).
+        if (tienePermiso('configuracion.ver')) {
+            items.push({
+                title: 'Configuración',
+                href: indexConfiguracion(),
+                icon: Settings2,
             });
         }
 

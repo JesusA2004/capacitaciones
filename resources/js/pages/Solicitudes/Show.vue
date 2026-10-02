@@ -1,12 +1,6 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
-import {
-    AlertTriangle,
-    Check,
-    ClipboardList,
-    Eye,
-    XCircle,
-} from '@lucide/vue';
+import { AlertTriangle, Check, ClipboardList, Eye, XCircle } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
@@ -14,12 +8,22 @@ import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
 import { useAlertas } from '@/composables/useAlertas';
-import { formatearFecha, formatearFechaHora, formatearPeriodo } from '@/lib/fechas';
+import {
+    formatearFecha,
+    formatearFechaHora,
+    formatearPeriodo,
+} from '@/lib/fechas';
 import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import { cancelar, index } from '@/routes/solicitudes';
-import { store as subirDocumentoSolicitud, ver as verDocumento } from '@/routes/solicitudes/documentos';
-import type { SolicitudInternaDocumentoItem, SolicitudInternaItem } from '@/types';
+import {
+    store as subirDocumentoSolicitud,
+    ver as verDocumento,
+} from '@/routes/solicitudes/documentos';
+import type {
+    SolicitudInternaDocumentoItem,
+    SolicitudInternaItem,
+} from '@/types';
 
 const props = defineProps<{
     solicitud: SolicitudInternaItem;
@@ -105,8 +109,8 @@ const pasoActualIndice = computed(() => {
 });
 
 const ETIQUETAS_PASO: Record<(typeof PASOS)[number], string> = {
-    enviada: 'Enviada',
-    en_revision: 'En revisión',
+    enviada: 'Recibida',
+    en_revision: 'Pendiente de autorizar',
     aprobada: 'Aprobada / Cerrada',
 };
 
@@ -125,7 +129,7 @@ function previsualizar(doc: SolicitudInternaDocumentoItem) {
 <template>
     <Head :title="`Solicitud ${solicitud.folio}`" />
 
-    <div class="pagina-media flex flex-col gap-6">
+    <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
             detalle
             :titulo="`Solicitud ${solicitud.folio}`"
@@ -185,8 +189,8 @@ function previsualizar(doc: SolicitudInternaDocumentoItem) {
                         class="mt-4 flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400"
                     >
                         <AlertTriangle class="mt-0.5 size-4 shrink-0" />
-                        RH pidió una corrección. Revisa el historial abajo
-                        para ver qué falta.
+                        RH pidió una corrección. Revisa el historial abajo para
+                        ver qué falta.
                     </div>
                 </div>
 
@@ -229,7 +233,12 @@ function previsualizar(doc: SolicitudInternaDocumentoItem) {
                                 {{ solicitud.fecha_fin ? 'Periodo' : 'Fecha' }}
                             </p>
                             <p class="text-sm font-medium">
-                                {{ formatearPeriodo(solicitud.fecha_inicio, solicitud.fecha_fin) }}
+                                {{
+                                    formatearPeriodo(
+                                        solicitud.fecha_inicio,
+                                        solicitud.fecha_fin,
+                                    )
+                                }}
                             </p>
                         </div>
                         <div v-if="solicitud.dias_solicitados">
@@ -373,7 +382,9 @@ function previsualizar(doc: SolicitudInternaDocumentoItem) {
                 </div>
             </div>
 
-            <div class="flex flex-col gap-4 lg:sticky lg:top-6 lg:col-span-4 xl:col-span-3">
+            <div
+                class="flex flex-col gap-4 lg:sticky lg:top-6 lg:col-span-4 xl:col-span-3"
+            >
                 <div class="rounded-2xl border border-border/60 bg-card p-5">
                     <h3 class="text-sm font-semibold">Estado</h3>
                     <div class="mt-2">

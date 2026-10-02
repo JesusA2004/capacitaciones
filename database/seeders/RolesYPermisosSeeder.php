@@ -336,6 +336,14 @@ class RolesYPermisosSeeder extends Seeder
         'actas.crear',
         'actas.gestionar',
         'indicadores.ver',
+        // --- Administración → Configuración ---
+        // ver: entrar al módulo; cada sección exige además su permiso. Las
+        // reglas jurídicas (RH es autorización final) NO son configurables.
+        'configuracion.ver',
+        'configuracion.apariencia',
+        'configuracion.organizacion',
+        'configuracion.notificaciones',
+        'configuracion.rh',
     ];
 
     /**
@@ -432,6 +440,9 @@ class RolesYPermisosSeeder extends Seeder
             'prestamos.ver', 'prestamos.autorizar', 'prestamos.resguardar',
             'actas.ver', 'actas.crear', 'actas.gestionar', 'indicadores.ver',
             'ciclo.autorizar_rh', 'candidatos.evaluar', 'onboarding.ver', 'onboarding.gestionar', 'onboarding.entregar_activos', 'cierres.solicitar', 'cierres.programar_pago', 'reingresos.solicitar', 'reingresos.gestionar',
+            // RH administra jefes directos, ruteo de avisos y parámetros de
+            // RH; la apariencia institucional queda en super_admin.
+            'configuracion.ver', 'configuracion.organizacion', 'configuracion.notificaciones', 'configuracion.rh',
         ],
 
         // Apoyo operativo de RH: puede capturar/revisar pero no aprobar

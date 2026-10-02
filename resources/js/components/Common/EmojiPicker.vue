@@ -18,11 +18,46 @@ defineEmits<{
 }>();
 
 const EMOJIS = [
-    '🎂', '🎉', '🎈', '🥳', '🎁', '✨', '🌟', '💫',
-    '🙌', '👏', '😄', '😊', '🤗', '😍', '🥰', '😁',
-    '💚', '💙', '💛', '🧡', '💜', '❤️', '🎊', '🍰',
-    '🧁', '🍾', '🥂', '🎶', '🎵', '🌈', '☀️', '🌻',
-    '🌸', '🍀', '🏆', '🏅', '👑', '💐', '🎀', '🪅',
+    '🎂',
+    '🎉',
+    '🎈',
+    '🥳',
+    '🎁',
+    '✨',
+    '🌟',
+    '💫',
+    '🙌',
+    '👏',
+    '😄',
+    '😊',
+    '🤗',
+    '😍',
+    '🥰',
+    '😁',
+    '💚',
+    '💙',
+    '💛',
+    '🧡',
+    '💜',
+    '❤️',
+    '🎊',
+    '🍰',
+    '🧁',
+    '🍾',
+    '🥂',
+    '🎶',
+    '🎵',
+    '🌈',
+    '☀️',
+    '🌻',
+    '🌸',
+    '🍀',
+    '🏆',
+    '🏅',
+    '👑',
+    '💐',
+    '🎀',
+    '🪅',
 ];
 </script>
 
@@ -39,7 +74,10 @@ const EMOJIS = [
                 <Smile class="size-4" />
             </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" class="grid w-64 grid-cols-8 gap-0.5 p-2">
+        <DropdownMenuContent
+            align="start"
+            class="grid w-64 grid-cols-8 gap-0.5 p-2"
+        >
             <button
                 v-for="emoji in EMOJIS"
                 :key="emoji"

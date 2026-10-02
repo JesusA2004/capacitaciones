@@ -3,12 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Exports\RotacionPersonalExport;
-use App\Models\Departamento;
 use App\Models\Sucursal;
-use App\Models\User;
-use App\Services\AlcanceOrganizacionalService;
 use App\Services\Navigation\NavigationService;
 use App\Services\Reportes\MetricasRhDashboardService;
+use App\Services\Reportes\TableroRhService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,8 +20,8 @@ class DashboardController extends Controller
 {
     public function __construct(
         private readonly MetricasRhDashboardService $metricas,
-        private readonly AlcanceOrganizacionalService $alcance,
         private readonly NavigationService $navegacion,
+        private readonly TableroRhService $tablero,
     ) {}
 
     public function index(Request $request): Response
@@ -39,11 +37,15 @@ class DashboardController extends Controller
         if ($modo === 'operativo') {
             $vista = $usuario->can('dashboard.global.ver') ? 'Dashboard/Global' : 'Dashboard/Sucursal';
 
+            // Inicio operativo = SOLO el tablero de RH definido por el negocio
+            // (8 indicadores, embudo por hito máximo, tiempo de contratación
+            // por nivel y rotación mensual), con filtros de mes y sucursal
+            // acotados al alcance. Nada más en la pantalla.
             return Inertia::render($vista, [
-                ...$this->metricas->global($usuario),
-                'rotacion' => $this->metricas->rotacion($usuario),
-                'sucursalesFiltro' => $this->sucursalesVisibles($usuario),
-                'departamentosFiltro' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
+                'tablero' => $this->tablero->construir($usuario, [
+                    'mes' => $request->string('tablero_mes')->toString() ?: null,
+                    'sucursal_id' => $request->integer('tablero_sucursal_id') ?: null,
+                ]),
             ]);
         }
 
@@ -86,21 +88,5 @@ class DashboardController extends Controller
         $pdf = Pdf::loadView('pdf.rotacion-personal', ['datos' => $datos])->setPaper('letter', 'landscape');
 
         return $pdf->download('rotacion-personal-'.now()->format('Y-m-d-His').'.pdf');
-    }
-
-    /**
-     * @return array<int, array{id: int, nombre: string}>
-     */
-    private function sucursalesVisibles(User $usuario): array
-    {
-        return Sucursal::query()
-            ->when(
-                ! $this->alcance->tieneAlcanceGlobal($usuario),
-                fn ($q) => $q->whereIn('id', $this->alcance->sucursalesVisiblesIds($usuario)),
-            )
-            ->orderBy('nombre')
-            ->get(['id', 'nombre'])
-            ->map(fn (Sucursal $s) => ['id' => $s->id, 'nombre' => $s->nombre])
-            ->all();
     }
 }

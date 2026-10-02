@@ -17,6 +17,7 @@ use App\Services\Auditoria\AuditoriaService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Services\Tareas\TareaService;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -140,7 +141,7 @@ class FlujoDocumentalService
     }
 
     /**
-     * @param  array{huella_registrada?: bool, testigos?: array<int, array{nombre: string, puesto?: string|null}>, observaciones?: string|null}  $datos
+     * @param  array{huella_registrada?: bool, testigos?: array<int, array{nombre: string, puesto?: string|null}>, observaciones?: string|null, fecha?: string|null}  $datos
      */
     public function registrarFirmaFisica(GeneratedDocument $documento, User $actor, array $datos = []): GeneratedDocument
     {
@@ -157,7 +158,7 @@ class FlujoDocumentalService
             }
 
             $this->seguimiento($documento)->fill([
-                'firmado_fisico_en' => now(),
+                'firmado_fisico_en' => $this->fecha($datos['fecha'] ?? null),
                 'firma_fisica_registrada_por' => $actor->id,
                 'huella_registrada' => (bool) ($datos['huella_registrada'] ?? false),
                 'testigos' => $datos['testigos'] ?? null,
@@ -171,7 +172,7 @@ class FlujoDocumentalService
     }
 
     /**
-     * @param  array{paqueteria: string, numero_guia: string, observaciones?: string|null}  $datos
+     * @param  array{paqueteria: string, numero_guia: string, observaciones?: string|null, fecha?: string|null}  $datos
      */
     public function registrarEnvio(GeneratedDocument $documento, User $actor, array $datos, ?UploadedFile $comprobante = null): GeneratedDocument
     {
@@ -181,7 +182,7 @@ class FlujoDocumentalService
 
             $seguimiento = $this->seguimiento($documento);
             $seguimiento->fill([
-                'enviado_en' => now(),
+                'enviado_en' => $this->fecha($datos['fecha'] ?? null),
                 'enviado_por' => $actor->id,
                 'paqueteria' => $datos['paqueteria'],
                 'numero_guia' => $datos['numero_guia'],
@@ -217,13 +218,13 @@ class FlujoDocumentalService
         });
     }
 
-    public function registrarRecepcion(GeneratedDocument $documento, User $actor, ?string $observaciones = null): GeneratedDocument
+    public function registrarRecepcion(GeneratedDocument $documento, User $actor, ?string $observaciones = null, ?string $fecha = null): GeneratedDocument
     {
-        return DB::transaction(function () use ($documento, $actor, $observaciones): GeneratedDocument {
+        return DB::transaction(function () use ($documento, $actor, $observaciones, $fecha): GeneratedDocument {
             $documento = $this->bloquear($documento);
             $this->exigirEstado($documento, [E::EnviadoCorporativo], 'registrar la recepción');
 
-            $this->seguimiento($documento)->fill(['recibido_en' => now(), 'recibido_por' => $actor->id])->save();
+            $this->seguimiento($documento)->fill(['recibido_en' => $this->fecha($fecha), 'recibido_por' => $actor->id])->save();
             $this->mover($documento, E::RecibidoCorporativo, $actor, 'recibido_corporativo', $observaciones);
 
             return $documento;
@@ -276,6 +277,25 @@ class FlujoDocumentalService
 
             return $documento;
         });
+    }
+
+    /**
+     * Fecha real del paso físico (la captura puede hacerse después de que
+     * ocurrió); nunca futura. Sin fecha = ahora.
+     */
+    private function fecha(?string $fecha): CarbonImmutable
+    {
+        if ($fecha === null || trim($fecha) === '') {
+            return CarbonImmutable::now();
+        }
+
+        $valor = CarbonImmutable::parse($fecha);
+
+        if ($valor->isFuture()) {
+            throw ValidationException::withMessages(['fecha' => 'La fecha no puede ser futura.']);
+        }
+
+        return $valor->isStartOfDay() && $valor->isToday() ? CarbonImmutable::now() : $valor;
     }
 
     public function cancelar(GeneratedDocument $documento, User $actor, string $motivo): GeneratedDocument

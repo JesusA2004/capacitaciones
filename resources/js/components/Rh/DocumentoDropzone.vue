@@ -48,7 +48,10 @@ function elegirArchivo(archivo: File) {
     limpiarPreview();
     archivoPendiente.value = archivo;
 
-    if (archivo.type.startsWith('image/') || archivo.type === 'application/pdf') {
+    if (
+        archivo.type.startsWith('image/') ||
+        archivo.type === 'application/pdf'
+    ) {
         previewUrl.value = URL.createObjectURL(archivo);
     }
 }
@@ -139,7 +142,9 @@ function confirmarSubida() {
             v-else-if="archivoPendiente"
             class="flex flex-col gap-3 rounded-xl border border-primary/40 bg-primary/5 p-3"
         >
-            <div class="relative overflow-hidden rounded-lg border border-border/60 bg-background">
+            <div
+                class="relative overflow-hidden rounded-lg border border-border/60 bg-background"
+            >
                 <button
                     type="button"
                     class="absolute top-2 right-2 z-10 rounded-md bg-background/90 p-1.5 text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground"

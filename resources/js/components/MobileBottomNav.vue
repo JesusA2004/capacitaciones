@@ -33,11 +33,19 @@ const accesosDirectos = computed(() =>
             :key="item.title"
             :href="item.href"
             class="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-[0.65rem] font-medium"
-            :class="isCurrentUrl(item.href) ? 'text-[var(--brand-primary)]' : 'text-muted-foreground'"
+            :class="
+                isCurrentUrl(item.href)
+                    ? 'text-[var(--brand-primary)]'
+                    : 'text-muted-foreground'
+            "
         >
             <span
                 class="flex size-9 items-center justify-center rounded-full transition-colors"
-                :class="isCurrentUrl(item.href) ? 'bg-[var(--brand-primary)]/10' : ''"
+                :class="
+                    isCurrentUrl(item.href)
+                        ? 'bg-[var(--brand-primary)]/10'
+                        : ''
+                "
             >
                 <component :is="item.icon" class="size-5" />
             </span>

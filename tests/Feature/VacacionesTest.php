@@ -59,7 +59,7 @@ test('no se puede solicitar mas dias de los disponibles', function () {
         ->assertSessionHasErrors('dias_solicitados');
 });
 
-test('un jefe_directo puede aprobar la solicitud de vacaciones de su subordinado pero no la de otro colaborador', function () {
+test('el jefe directo da el visto bueno a las vacaciones de su subordinado (no a las de otro) y la solicitud pasa a pendiente de autorizar', function () {
     $jefe = User::factory()->create();
     $jefe->assignRole('jefe_directo');
 
@@ -69,14 +69,21 @@ test('un jefe_directo puede aprobar la solicitud de vacaciones de su subordinado
     $solicitudPropia = SolicitudInterna::factory()->create(['tipo' => 'vacaciones', 'user_id' => $subordinado->id, 'colaborador_id' => $subordinado->colaborador_id]);
     $solicitudAjena = SolicitudInterna::factory()->create(['tipo' => 'vacaciones', 'user_id' => $otro->id, 'colaborador_id' => $otro->colaborador_id]);
 
+    // Quien da el visto bueno nunca da la autorización final (esa es de RH).
     $this->actingAs($jefe)
         ->post(route('rh.solicitudes.aprobar', $solicitudPropia))
-        ->assertSessionHasNoErrors();
-
-    expect($solicitudPropia->fresh()->estado->value)->toBe('aprobada');
+        ->assertForbidden();
 
     $this->actingAs($jefe)
-        ->post(route('rh.solicitudes.aprobar', $solicitudAjena))
+        ->post(route('rh.solicitudes.visto-bueno', $solicitudPropia), ['aprobado' => true])
+        ->assertSessionHasNoErrors();
+
+    // Sin gerente de sucursal ni regional capturados, el jefe directo es el
+    // único visto bueno: la solicitud queda lista para que RH autorice.
+    expect($solicitudPropia->fresh()->estado->value)->toBe('en_revision');
+
+    $this->actingAs($jefe)
+        ->post(route('rh.solicitudes.visto-bueno', $solicitudAjena), ['aprobado' => true])
         ->assertForbidden();
 });
 

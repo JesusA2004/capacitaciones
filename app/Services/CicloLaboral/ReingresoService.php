@@ -159,6 +159,7 @@ class ReingresoService
     public function solicitar(Colaborador $colaborador, array $datos, User $actor): Reingreso
     {
         $this->exigirAlguno($actor, [self::PERMISO_GESTIONAR, self::PERMISO_SOLICITAR]);
+        $this->exigirAlcance($actor, $colaborador);
 
         if (! $colaborador->trashed() && $colaborador->estado_alta !== EstadoAltaColaborador::Baja && $colaborador->estatus !== EstadoUsuario::Inactivo) {
             throw ValidationException::withMessages(['colaborador' => 'Esta persona sigue activa: el reingreso aplica solo a excolaboradores.']);
@@ -218,6 +219,8 @@ class ReingresoService
             'accion' => 'decidir_reingreso',
         ]);
 
+        $this->notificador->notificarEvento('reingreso_solicitado', $colaborador, ['solicitante' => $actor, 'excluir' => [$actor->id]], 'Reingreso por decidir', sprintf('Se solicitó el reingreso de %s.', $colaborador->nombreCompleto()), $reingreso, 'decidir_reingreso', 'alta');
+
         return $reingreso;
     }
 
@@ -227,6 +230,17 @@ class ReingresoService
      */
     public function decidir(Reingreso $reingreso, User $actor, bool $viable, ?string $comentario = null): Reingreso
     {
+        // RH es la autorización final: nunca la decide quien solo solicita.
+        if (! $actor->can(OrganizacionJerarquiaService::PERMISO_AUTORIZAR_RH)) {
+            throw new AuthorizationException('Solo RH decide un reingreso.');
+        }
+
+        $persona = Colaborador::withTrashed()->where('id', $reingreso->colaborador_id)->first();
+
+        if ($persona !== null) {
+            $this->exigirAlcance($actor, $persona);
+        }
+
         if (! $viable && trim((string) $comentario) === '') {
             throw ValidationException::withMessages(['comentario' => 'Indica el motivo por el que el reingreso no es viable.']);
         }
@@ -452,6 +466,13 @@ class ReingresoService
         }
 
         return $resultado;
+    }
+
+    private function exigirAlcance(User $usuario, Colaborador $colaborador): void
+    {
+        if (! $this->alcance->tieneAlcanceGlobal($usuario) && ! $this->alcance->alcanzaColaborador($usuario, $colaborador)) {
+            throw new AuthorizationException('La persona está fuera de tu alcance.');
+        }
     }
 
     /**

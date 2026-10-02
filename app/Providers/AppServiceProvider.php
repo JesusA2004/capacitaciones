@@ -7,6 +7,7 @@ use App\Models\GeneratedDocument;
 use App\Models\User;
 use App\Observers\CicloLaboralDocumentoObserver;
 use App\Policies\RolPolicy;
+use App\Services\Configuracion\ConfiguracionSistemaService;
 use App\Services\Navigation\NavigationService;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -40,6 +41,11 @@ class AppServiceProvider extends ServiceProvider
         Schema::defaultStringLength(191);
 
         Gate::policy(Role::class, RolPolicy::class);
+
+        // Administración → Configuración: los parámetros que el negocio
+        // cambió (calificación mínima, días de aviso...) reemplazan su
+        // config() de fábrica. Sin tabla todavía = se quedan los de fábrica.
+        $this->app->booted(fn () => app(ConfiguracionSistemaService::class)->aplicarAConfig());
 
         // Capacidad central de "Mi espacio" (ver NavigationService): la usan
         // las rutas personales (`can:modo-colaborador`), el dashboard y el

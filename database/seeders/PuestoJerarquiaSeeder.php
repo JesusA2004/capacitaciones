@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\GrupoPuestoIndicador;
 use App\Enums\TipoPuesto;
 use App\Models\Departamento;
 use App\Models\Puesto;
@@ -154,6 +155,41 @@ class PuestoJerarquiaSeeder extends Seeder
         foreach (self::RETIRADOS as $nombre) {
             $this->retirar($nombre);
         }
+
+        $this->parametrosCicloLaboral();
+    }
+
+    /**
+     * Duración del contrato de capacitación/inducción (config
+     * ciclo_laboral.periodo_prueba.meses_por_puesto) y grupo para
+     * indicadores. Solo llena lo vacío: nunca pisa lo que RH ya ajustó.
+     */
+    private function parametrosCicloLaboral(): void
+    {
+        if (! Schema::hasColumn('puestos', 'meses_periodo_prueba')) {
+            return;
+        }
+
+        /** @var array<string, int> $meses */
+        $meses = config('ciclo_laboral.periodo_prueba.meses_por_puesto', []);
+
+        foreach ($meses as $nombre => $valor) {
+            Puesto::where('nombre', $nombre)->whereNull('meses_periodo_prueba')->update(['meses_periodo_prueba' => $valor]);
+        }
+
+        $grupos = [
+            GrupoPuestoIndicador::Gestores->value => ['Gestor', 'Gestor Volante', 'Gestor grupal'],
+            GrupoPuestoIndicador::Coordinadoras->value => ['Coordinadora de Sucursal', 'Coordinadora Regional'],
+            GrupoPuestoIndicador::GerenciaSucursal->value => ['Gerente de Sucursal', 'Subgerente'],
+            GrupoPuestoIndicador::Regionales->value => ['Gerente Regional Q1', 'Gerente Regional Q3', 'Gerente regional'],
+            GrupoPuestoIndicador::DireccionComercial->value => ['Dirección Comercial', 'Asistente de Dirección Comercial'],
+        ];
+
+        foreach ($grupos as $grupo => $nombres) {
+            Puesto::whereIn('nombre', $nombres)->whereNull('grupo_indicador')->update(['grupo_indicador' => $grupo]);
+        }
+
+        Puesto::whereNull('grupo_indicador')->update(['grupo_indicador' => GrupoPuestoIndicador::Otros->value]);
     }
 
     /**

@@ -35,7 +35,12 @@ const emit = defineEmits<{
 
 const CONFIG: Record<
     typeof props.variante,
-    { etiqueta: string; posicion: string; claseFondo: string; claseBorde: string }
+    {
+        etiqueta: string;
+        posicion: string;
+        claseFondo: string;
+        claseBorde: string;
+    }
 > = {
     titulo: {
         etiqueta: 'Título',
@@ -65,7 +70,10 @@ function acotar(valor: number): number {
     return Math.min(props.maximo, Math.max(props.minimo, valor));
 }
 
-function posicionDesdeEvento(evento: PointerEvent, contenedor: HTMLElement): number {
+function posicionDesdeEvento(
+    evento: PointerEvent,
+    contenedor: HTMLElement,
+): number {
     const rect = contenedor.getBoundingClientRect();
 
     return acotar((evento.clientY - rect.top) / rect.height);
@@ -86,7 +94,10 @@ function iniciarArrastre(evento: PointerEvent) {
     marcador.setPointerCapture(evento.pointerId);
 
     function mover(e: PointerEvent) {
-        emit('update:modelValue', posicionDesdeEvento(e, contenedor as HTMLElement));
+        emit(
+            'update:modelValue',
+            posicionDesdeEvento(e, contenedor as HTMLElement),
+        );
     }
 
     function soltar() {
@@ -110,7 +121,11 @@ function iniciarArrastre(evento: PointerEvent) {
         <button
             type="button"
             class="absolute flex -translate-y-1/2 cursor-grab touch-none items-center gap-1 rounded-full px-2 py-1 text-[0.65rem] font-semibold text-white shadow-md"
-            :class="[config.posicion, config.claseFondo, arrastrando ? 'cursor-grabbing' : '']"
+            :class="[
+                config.posicion,
+                config.claseFondo,
+                arrastrando ? 'cursor-grabbing' : '',
+            ]"
             :aria-label="`Mover el bloque de ${config.etiqueta.toLowerCase()}`"
             @pointerdown="iniciarArrastre"
         >

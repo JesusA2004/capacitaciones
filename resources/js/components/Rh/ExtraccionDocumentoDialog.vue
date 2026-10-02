@@ -92,11 +92,15 @@ async function cargar() {
 
 onMounted(cargar);
 
-const campos = computed(() => Object.entries(extraccion.value?.differences ?? {}));
+const campos = computed(() =>
+    Object.entries(extraccion.value?.differences ?? {}),
+);
 
 function aplicarSeleccionados() {
     const seleccion = Object.fromEntries(
-        Object.entries(valores.value).filter(([campo]) => seleccionados.value[campo]),
+        Object.entries(valores.value).filter(
+            ([campo]) => seleccionados.value[campo],
+        ),
     );
 
     if (Object.keys(seleccion).length === 0) {
@@ -168,16 +172,20 @@ function reprocesarDocumento() {
                     Datos detectados — {{ tipoNombre }}
                 </DialogTitle>
                 <DialogDescription>
-                    Sugerencias automáticas, nunca se aplican solas. Revisa y decide.
+                    Sugerencias automáticas, nunca se aplican solas. Revisa y
+                    decide.
                 </DialogDescription>
             </DialogHeader>
 
-            <p class="rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
-                ¿Cómo funciona? El sistema busca CURP, RFC, NSS, código postal, sexo y
-                fecha de nacimiento dentro del texto del PDF cargado. Solo funciona si
-                el archivo es un PDF con texto seleccionable (no una foto/escaneo) y si
-                esos datos aparecen con el formato oficial. No usa inteligencia
-                artificial ni adivina el nombre o domicilio.
+            <p
+                class="rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground"
+            >
+                ¿Cómo funciona? El sistema busca CURP, RFC, NSS, código postal,
+                sexo y fecha de nacimiento dentro del texto del PDF cargado.
+                Solo funciona si el archivo es un PDF con texto seleccionable
+                (no una foto/escaneo) y si esos datos aparecen con el formato
+                oficial. No usa inteligencia artificial ni adivina el nombre o
+                domicilio.
             </p>
 
             <div v-if="cargando" class="flex justify-center py-8">
@@ -185,15 +193,29 @@ function reprocesarDocumento() {
             </div>
 
             <template v-else>
-                <div v-if="!elegible" class="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                    Este tipo de documento no tiene extracción automática configurada.
+                <div
+                    v-if="!elegible"
+                    class="rounded-lg border border-dashed p-4 text-sm text-muted-foreground"
+                >
+                    Este tipo de documento no tiene extracción automática
+                    configurada.
                 </div>
 
-                <div v-else-if="!extraccion" class="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                    Todavía no se ha procesado este documento. Puede tardar unos segundos después de subirlo.
+                <div
+                    v-else-if="!extraccion"
+                    class="rounded-lg border border-dashed p-4 text-sm text-muted-foreground"
+                >
+                    Todavía no se ha procesado este documento. Puede tardar unos
+                    segundos después de subirlo.
                 </div>
 
-                <div v-else-if="extraccion.status === 'processing' || extraccion.status === 'pending'" class="flex items-center gap-2 rounded-lg border p-4 text-sm text-muted-foreground">
+                <div
+                    v-else-if="
+                        extraccion.status === 'processing' ||
+                        extraccion.status === 'pending'
+                    "
+                    class="flex items-center gap-2 rounded-lg border p-4 text-sm text-muted-foreground"
+                >
                     <Spinner /> Procesando el documento...
                 </div>
 
@@ -201,21 +223,31 @@ function reprocesarDocumento() {
                     v-else-if="extraccion.status === 'failed'"
                     class="flex flex-col gap-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 text-sm"
                 >
-                    <p class="flex items-center gap-2 font-medium text-amber-700 dark:text-amber-400">
+                    <p
+                        class="flex items-center gap-2 font-medium text-amber-700 dark:text-amber-400"
+                    >
                         <AlertTriangle class="size-4" />
                         No se pudieron leer datos automáticamente
                     </p>
-                    <p class="text-muted-foreground">{{ extraccion.error_message }}</p>
+                    <p class="text-muted-foreground">
+                        {{ extraccion.error_message }}
+                    </p>
                 </div>
 
                 <template v-else>
-                    <div v-if="campos.length === 0" class="flex flex-col gap-1 rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                        <p>No se detectaron datos reconocibles en este documento.</p>
+                    <div
+                        v-if="campos.length === 0"
+                        class="flex flex-col gap-1 rounded-lg border border-dashed p-4 text-sm text-muted-foreground"
+                    >
+                        <p>
+                            No se detectaron datos reconocibles en este
+                            documento.
+                        </p>
                         <p class="text-xs">
-                            El PDF se leyó correctamente, pero no se encontró CURP, RFC,
-                            NSS, código postal, sexo ni una fecha de nacimiento con el
-                            formato esperado. Captura estos datos manualmente en
-                            «Datos personales».
+                            El PDF se leyó correctamente, pero no se encontró
+                            CURP, RFC, NSS, código postal, sexo ni una fecha de
+                            nacimiento con el formato esperado. Captura estos
+                            datos manualmente en «Datos personales».
                         </p>
                     </div>
 
@@ -225,32 +257,59 @@ function reprocesarDocumento() {
                             :key="campo"
                             class="flex flex-col gap-2 rounded-lg border p-3"
                         >
-                            <div class="flex items-center justify-between gap-2">
-                                <label class="flex items-center gap-2 text-sm font-medium">
+                            <div
+                                class="flex items-center justify-between gap-2"
+                            >
+                                <label
+                                    class="flex items-center gap-2 text-sm font-medium"
+                                >
                                     <Checkbox
                                         v-if="puedeAplicar"
                                         :model-value="seleccionados[campo]"
-                                        @update:model-value="(v) => (seleccionados[campo] = !!v)"
+                                        @update:model-value="
+                                            (v) => (seleccionados[campo] = !!v)
+                                        "
                                     />
                                     {{ ETIQUETAS_CAMPO[campo] ?? campo }}
                                 </label>
-                                <Badge v-if="dato.coincide" variant="outline" class="gap-1 text-[var(--success)]">
+                                <Badge
+                                    v-if="dato.coincide"
+                                    variant="outline"
+                                    class="gap-1 text-[var(--success)]"
+                                >
                                     <CheckCircle2 class="size-3" /> Coincide
                                 </Badge>
-                                <Badge v-else-if="dato.actual" variant="outline" class="gap-1 text-destructive">
+                                <Badge
+                                    v-else-if="dato.actual"
+                                    variant="outline"
+                                    class="gap-1 text-destructive"
+                                >
                                     <XCircle class="size-3" /> Distinto
                                 </Badge>
-                                <Badge v-else variant="outline">Sin capturar</Badge>
+                                <Badge v-else variant="outline"
+                                    >Sin capturar</Badge
+                                >
                             </div>
 
                             <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
                                 <div class="grid gap-1">
-                                    <Label class="text-xs text-muted-foreground">Detectado en el documento (puedes corregirlo)</Label>
-                                    <Input v-model="valores[campo]" :disabled="!puedeAplicar" />
+                                    <Label class="text-xs text-muted-foreground"
+                                        >Detectado en el documento (puedes
+                                        corregirlo)</Label
+                                    >
+                                    <Input
+                                        v-model="valores[campo]"
+                                        :disabled="!puedeAplicar"
+                                    />
                                 </div>
                                 <div class="grid gap-1">
-                                    <Label class="text-xs text-muted-foreground">Actual en el sistema</Label>
-                                    <Input :model-value="dato.actual ?? '—'" disabled />
+                                    <Label class="text-xs text-muted-foreground"
+                                        >Actual en el sistema</Label
+                                    >
+                                    <Input
+                                        :model-value="dato.actual ?? '—'"
+                                        disabled
+                                    />
                                 </div>
                             </div>
                         </div>

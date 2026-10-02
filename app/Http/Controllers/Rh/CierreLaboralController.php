@@ -92,7 +92,7 @@ class CierreLaboralController extends Controller
     public function programarPago(ProgramarPagoRequest $request, CierreLaboral $cierre): RedirectResponse
     {
         $this->authorize('ver', $cierre);
-        $this->cierres->programarPago($cierre, $request->user(), $request->validated());
+        $this->cierres->programarPago($cierre, $request->user(), $request->datosPago());
 
         return $this->ok('Pago programado: el gerente cita al excolaborador.');
     }

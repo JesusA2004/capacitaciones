@@ -142,7 +142,9 @@ function abrirCorreccion(documentoId: number, tipoNombre: string) {
 }
 
 const dialogoExtraccionAbierto = ref(false);
-const documentoExtraccion = ref<{ id: number; tipoNombre: string } | null>(null);
+const documentoExtraccion = ref<{ id: number; tipoNombre: string } | null>(
+    null,
+);
 
 function abrirExtraccion(documentoId: number, tipoNombre: string) {
     documentoExtraccion.value = { id: documentoId, tipoNombre };
@@ -181,10 +183,13 @@ function abrirPreview(item: DocumentoExpedienteItem) {
                 class="flex items-center gap-2.5 rounded-xl border-t-2 bg-muted/40 px-3.5 py-2.5"
                 :class="columna.tono"
             >
-                <component :is="columna.icono" class="size-5 text-muted-foreground" />
+                <component
+                    :is="columna.icono"
+                    class="size-5 text-muted-foreground"
+                />
                 <p class="text-base font-semibold">{{ columna.titulo }}</p>
                 <span
-                    class="ml-auto rounded-full bg-background px-2.5 py-0.5 text-sm font-semibold tabular-nums text-muted-foreground"
+                    class="ml-auto rounded-full bg-background px-2.5 py-0.5 text-sm font-semibold text-muted-foreground tabular-nums"
                 >
                     {{ columna.items.length }}
                 </span>
@@ -204,7 +209,9 @@ function abrirPreview(item: DocumentoExpedienteItem) {
                         </span>
                         <div class="min-w-0 flex-1">
                             <div class="flex items-start justify-between gap-2">
-                                <p class="text-base leading-tight font-semibold">
+                                <p
+                                    class="text-base leading-tight font-semibold"
+                                >
                                     {{ item.tipo.nombre }}
                                     <span
                                         v-if="item.tipo.requerido"

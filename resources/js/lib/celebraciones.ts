@@ -21,11 +21,31 @@ export const MESES = [
     'Diciembre',
 ];
 
-const MESES_CORTOS = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+const MESES_CORTOS = [
+    'ENE',
+    'FEB',
+    'MAR',
+    'ABR',
+    'MAY',
+    'JUN',
+    'JUL',
+    'AGO',
+    'SEP',
+    'OCT',
+    'NOV',
+    'DIC',
+];
 
 export const TEXTOS_CELEBRACION: Record<
     TipoCelebracion,
-    { hoy: string; proximos: string; periodo: string; vacioPeriodo: string; vacioProximos: string; tarjeta: string }
+    {
+        hoy: string;
+        proximos: string;
+        periodo: string;
+        vacioPeriodo: string;
+        vacioProximos: string;
+        tarjeta: string;
+    }
 > = {
     cumpleanos: {
         hoy: 'Hoy cumplen años',
@@ -56,7 +76,9 @@ export function diasEntre(a: string, b: string): number {
     const [aa, am, ad] = partes(a);
     const [ba, bm, bd] = partes(b);
 
-    return Math.round((Date.UTC(ba, bm - 1, bd) - Date.UTC(aa, am - 1, ad)) / 86_400_000);
+    return Math.round(
+        (Date.UTC(ba, bm - 1, bd) - Date.UTC(aa, am - 1, ad)) / 86_400_000,
+    );
 }
 
 /** «25 SEP» */
@@ -86,6 +108,8 @@ export function fechaRelativa(fecha: string, hoy: string): string {
 }
 
 /** «Gerente de Sucursal · Cuernavaca» (sin etiquetas tipo formulario). */
-export function subtituloPersona(evento: Pick<EventoCelebracion, 'puesto' | 'sucursal'>): string {
+export function subtituloPersona(
+    evento: Pick<EventoCelebracion, 'puesto' | 'sucursal'>,
+): string {
     return [evento.puesto, evento.sucursal].filter(Boolean).join(' · ');
 }

@@ -30,6 +30,12 @@
             }
         </style>
 
+        {{-- Colores institucionales personalizados en Administración → Configuración → Apariencia (validados como #RRGGBB en el servidor) --}}
+        @php($temaInstitucional = app(\App\Services\Configuracion\ConfiguracionSistemaService::class)->cssVariables())
+        @if ($temaInstitucional !== '')
+            <style id="tema-institucional">{!! $temaInstitucional !!}</style>
+        @endif
+
         <link rel="icon" href="/favicon.ico" sizes="any">
         <link rel="icon" href="/favicon.svg" type="image/svg+xml">
         <link rel="apple-touch-icon" href="/apple-touch-icon.png">

@@ -6,6 +6,7 @@ use App\Enums\EstadoSolicitudInterna;
 use App\Enums\PrioridadTarea;
 use App\Enums\TipoSolicitudInterna;
 use App\Enums\TipoTarea;
+use App\Models\SolicitudAprobacion;
 use App\Models\SolicitudInterna;
 use App\Models\User;
 use App\Services\Tareas\NotificadorRhService;
@@ -34,33 +35,16 @@ class TareasSolicitudService
             return;
         }
 
-        $colaborador = $solicitud->personaSolicitante();
-
-        if ($this->aprobaciones->requiereVistoBuenoJefe($solicitud) && ! $this->aprobaciones->tieneVistoBuenoJefe($solicitud)) {
-            $jefe = $colaborador->jefe->user ?? $colaborador?->gerente?->user;
-
-            if ($jefe !== null) {
-                $this->tareas->abrir($tipo, $solicitud, [
-                    'titulo' => sprintf('Visto bueno pendiente: %s %s', $solicitud->tipo->etiqueta(), $solicitud->folio),
-                    'prioridad' => PrioridadTarea::Alta,
-                    'colaborador' => $colaborador,
-                    'usuario' => $jefe,
-                    'accion' => 'visto_bueno',
-                ]);
-
-                $this->notificador->notificar([$jefe], 'visto_bueno_pendiente', 'Solicitud por revisar de tu equipo', sprintf('%s solicitó %s.', $colaborador?->nombreCompleto() ?? 'Un colaborador', mb_strtolower($solicitud->tipo->etiqueta())), $solicitud, 'visto_bueno', 'alta');
-
-                return;
-            }
+        if (! $this->pedirVistoBuenoPendiente($solicitud, $tipo)) {
+            $this->abrirParaAutorizacion($solicitud, $tipo);
         }
-
-        $this->abrirParaAutorizacion($solicitud, $tipo);
     }
 
     /**
-     * Tras el visto bueno del jefe, el pendiente pasa a quien autoriza.
+     * Tras un visto bueno, el pendiente pasa al siguiente nivel (regional) o,
+     * si ya están todos, a quien autoriza.
      */
-    public function alDarVistoBueno(SolicitudInterna $solicitud, User $jefe): void
+    public function alDarVistoBueno(SolicitudInterna $solicitud, User $usuario): void
     {
         $tipo = $this->tipoTarea($solicitud);
 
@@ -68,8 +52,42 @@ class TareasSolicitudService
             return;
         }
 
-        $this->tareas->resolver($tipo, $solicitud, $jefe);
-        $this->abrirParaAutorizacion($solicitud, $tipo);
+        $this->tareas->resolver($tipo, $solicitud, $usuario);
+
+        if (! $this->pedirVistoBuenoPendiente($solicitud, $tipo)) {
+            $this->abrirParaAutorizacion($solicitud, $tipo);
+        }
+    }
+
+    /**
+     * Abre el pendiente y avisa a quien debe dar el siguiente visto bueno
+     * (gerente, luego regional). false si ya no falta ninguno.
+     */
+    private function pedirVistoBuenoPendiente(SolicitudInterna $solicitud, TipoTarea $tipo): bool
+    {
+        $nivel = $this->aprobaciones->nivelPendiente($solicitud);
+        $aprobadores = $this->aprobaciones->aprobadoresPendientes($solicitud);
+
+        if ($nivel === null || $aprobadores->isEmpty()) {
+            return false;
+        }
+
+        $colaborador = $solicitud->personaSolicitante();
+        $etiqueta = mb_strtolower(SolicitudAprobacion::etiquetaNivel($nivel));
+
+        foreach ($aprobadores as $aprobador) {
+            $this->tareas->abrir($tipo, $solicitud, [
+                'titulo' => sprintf('Visto bueno (%s): %s %s', $etiqueta, $solicitud->tipo->etiqueta(), $solicitud->folio),
+                'prioridad' => PrioridadTarea::Alta,
+                'colaborador' => $colaborador,
+                'usuario' => $aprobador,
+                'accion' => 'visto_bueno',
+            ]);
+
+            $this->notificador->notificarEvento('solicitud_visto_bueno', $colaborador, ['aprobador' => $aprobador, 'solicitante' => $solicitud->usuario], 'Solicitud por revisar de tu equipo', sprintf('%s solicitó %s. Falta tu visto bueno.', $colaborador?->nombreCompleto() ?? 'Un colaborador', mb_strtolower($solicitud->tipo->etiqueta())), $solicitud, 'visto_bueno', 'alta');
+        }
+
+        return true;
     }
 
     public function alCambiarEstado(SolicitudInterna $solicitud, User $actor): void

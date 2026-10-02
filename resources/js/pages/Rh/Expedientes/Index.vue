@@ -69,8 +69,19 @@ const { filtros, aplicar, aplicarConDebounce, limpiar } = useFiltros(
     },
 );
 
-const filtrosActivos = computed(() =>
-    (['empresa_id', 'sucursal_id', 'departamento_id', 'puesto_id', 'estatus', 'fecha_inicio', 'fecha_fin'] as const).filter((campo) => Boolean(filtros[campo])).length,
+const filtrosActivos = computed(
+    () =>
+        (
+            [
+                'empresa_id',
+                'sucursal_id',
+                'departamento_id',
+                'puesto_id',
+                'estatus',
+                'fecha_inicio',
+                'fecha_fin',
+            ] as const
+        ).filter((campo) => Boolean(filtros[campo])).length,
 );
 const { irA } = usePaginacion();
 function urlExportar(
@@ -157,147 +168,152 @@ const sucursalActiva = computed(() =>
                 <!-- Filtros poco frecuentes en el panel lateral (no 7 controles
                      siempre visibles). -->
                 <template #filtros>
-            <div data-tour="expedientes-filtros" class="flex flex-col gap-3 [&_[data-slot=select-trigger]]:w-full">
-                <Select
-                    :model-value="filtros.empresa_id"
-                    @update:model-value="
-                        (v) => {
-                            filtros.empresa_id = String(v ?? '');
-                            filtros.sucursal_id = '';
-                            aplicar();
-                        }
-                    "
-                >
-                    <SelectTrigger class="w-44">
-                        <SelectValue placeholder="Empresa" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem
-                            v-for="opcion in empresasDisponibles"
-                            :key="opcion.id"
-                            :value="String(opcion.id)"
-                            >{{ opcion.nombre }}</SelectItem
-                        >
-                    </SelectContent>
-                </Select>
-
-                <Select
-                    :model-value="filtros.sucursal_id"
-                    @update:model-value="
-                        (v) => {
-                            filtros.sucursal_id = String(v ?? '');
-                            aplicar();
-                        }
-                    "
-                >
-                    <SelectTrigger class="w-44">
-                        <SelectValue placeholder="Sucursal" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem
-                            v-for="opcion in sucursalesFiltradas"
-                            :key="opcion.id"
-                            :value="String(opcion.id)"
-                            >{{ opcion.nombre }}</SelectItem
-                        >
-                    </SelectContent>
-                </Select>
-
-                <Select
-                    :model-value="filtros.departamento_id"
-                    @update:model-value="
-                        (v) => {
-                            filtros.departamento_id = String(v ?? '');
-                            aplicar();
-                        }
-                    "
-                >
-                    <SelectTrigger class="w-44">
-                        <SelectValue placeholder="Departamento" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem
-                            v-for="opcion in departamentosDisponibles"
-                            :key="opcion.id"
-                            :value="String(opcion.id)"
-                            >{{ opcion.nombre }}</SelectItem
-                        >
-                    </SelectContent>
-                </Select>
-
-                <Select
-                    :model-value="filtros.puesto_id"
-                    @update:model-value="
-                        (v) => {
-                            filtros.puesto_id = String(v ?? '');
-                            aplicar();
-                        }
-                    "
-                >
-                    <SelectTrigger class="w-44">
-                        <SelectValue placeholder="Puesto" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem
-                            v-for="opcion in puestosDisponibles"
-                            :key="opcion.id"
-                            :value="String(opcion.id)"
-                            >{{ opcion.nombre }}</SelectItem
-                        >
-                    </SelectContent>
-                </Select>
-
-                <Select
-                    :model-value="filtros.estatus"
-                    @update:model-value="
-                        (v) => {
-                            filtros.estatus = String(v ?? '');
-                            aplicar();
-                        }
-                    "
-                >
-                    <SelectTrigger class="w-40">
-                        <SelectValue placeholder="Estado" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem
-                            v-for="opcion in estados"
-                            :key="opcion.value"
-                            :value="opcion.value"
-                            >{{ opcion.etiqueta }}</SelectItem
-                        >
-                    </SelectContent>
-                </Select>
-
-                <div class="grid gap-1.5">
-                    <Label class="text-xs text-muted-foreground"
-                        >Ingreso desde</Label
+                    <div
+                        data-tour="expedientes-filtros"
+                        class="flex flex-col gap-3 [&_[data-slot=select-trigger]]:w-full"
                     >
-                    <DatePicker
-                        class="h-9 w-full"
-                        :model-value="filtros.fecha_inicio"
-                        @update:model-value="
-                            (v) => {
-                                filtros.fecha_inicio = v;
-                                aplicar();
-                            }
-                        "
-                    />
-                </div>
-                <div class="grid gap-1.5">
-                    <Label class="text-xs text-muted-foreground">Hasta</Label>
-                    <DatePicker
-                        class="h-9 w-full"
-                        :model-value="filtros.fecha_fin"
-                        @update:model-value="
-                            (v) => {
-                                filtros.fecha_fin = String(v ?? '');
-                                aplicar();
-                            }
-                        "
-                    />
-                </div>
-            </div>
+                        <Select
+                            :model-value="filtros.empresa_id"
+                            @update:model-value="
+                                (v) => {
+                                    filtros.empresa_id = String(v ?? '');
+                                    filtros.sucursal_id = '';
+                                    aplicar();
+                                }
+                            "
+                        >
+                            <SelectTrigger class="w-44">
+                                <SelectValue placeholder="Empresa" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem
+                                    v-for="opcion in empresasDisponibles"
+                                    :key="opcion.id"
+                                    :value="String(opcion.id)"
+                                    >{{ opcion.nombre }}</SelectItem
+                                >
+                            </SelectContent>
+                        </Select>
+
+                        <Select
+                            :model-value="filtros.sucursal_id"
+                            @update:model-value="
+                                (v) => {
+                                    filtros.sucursal_id = String(v ?? '');
+                                    aplicar();
+                                }
+                            "
+                        >
+                            <SelectTrigger class="w-44">
+                                <SelectValue placeholder="Sucursal" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem
+                                    v-for="opcion in sucursalesFiltradas"
+                                    :key="opcion.id"
+                                    :value="String(opcion.id)"
+                                    >{{ opcion.nombre }}</SelectItem
+                                >
+                            </SelectContent>
+                        </Select>
+
+                        <Select
+                            :model-value="filtros.departamento_id"
+                            @update:model-value="
+                                (v) => {
+                                    filtros.departamento_id = String(v ?? '');
+                                    aplicar();
+                                }
+                            "
+                        >
+                            <SelectTrigger class="w-44">
+                                <SelectValue placeholder="Departamento" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem
+                                    v-for="opcion in departamentosDisponibles"
+                                    :key="opcion.id"
+                                    :value="String(opcion.id)"
+                                    >{{ opcion.nombre }}</SelectItem
+                                >
+                            </SelectContent>
+                        </Select>
+
+                        <Select
+                            :model-value="filtros.puesto_id"
+                            @update:model-value="
+                                (v) => {
+                                    filtros.puesto_id = String(v ?? '');
+                                    aplicar();
+                                }
+                            "
+                        >
+                            <SelectTrigger class="w-44">
+                                <SelectValue placeholder="Puesto" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem
+                                    v-for="opcion in puestosDisponibles"
+                                    :key="opcion.id"
+                                    :value="String(opcion.id)"
+                                    >{{ opcion.nombre }}</SelectItem
+                                >
+                            </SelectContent>
+                        </Select>
+
+                        <Select
+                            :model-value="filtros.estatus"
+                            @update:model-value="
+                                (v) => {
+                                    filtros.estatus = String(v ?? '');
+                                    aplicar();
+                                }
+                            "
+                        >
+                            <SelectTrigger class="w-40">
+                                <SelectValue placeholder="Estado" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem
+                                    v-for="opcion in estados"
+                                    :key="opcion.value"
+                                    :value="opcion.value"
+                                    >{{ opcion.etiqueta }}</SelectItem
+                                >
+                            </SelectContent>
+                        </Select>
+
+                        <div class="grid gap-1.5">
+                            <Label class="text-xs text-muted-foreground"
+                                >Ingreso desde</Label
+                            >
+                            <DatePicker
+                                class="h-9 w-full"
+                                :model-value="filtros.fecha_inicio"
+                                @update:model-value="
+                                    (v) => {
+                                        filtros.fecha_inicio = v;
+                                        aplicar();
+                                    }
+                                "
+                            />
+                        </div>
+                        <div class="grid gap-1.5">
+                            <Label class="text-xs text-muted-foreground"
+                                >Hasta</Label
+                            >
+                            <DatePicker
+                                class="h-9 w-full"
+                                :model-value="filtros.fecha_fin"
+                                @update:model-value="
+                                    (v) => {
+                                        filtros.fecha_fin = String(v ?? '');
+                                        aplicar();
+                                    }
+                                "
+                            />
+                        </div>
+                    </div>
                 </template>
             </CrudToolbar>
         </div>

@@ -84,7 +84,7 @@ class ExpedienteController extends Controller
     {
         abort_unless($this->puedeVerDetalle($request->user(), $colaborador), 403);
 
-        $tipos = $this->incorporacion->tiposDocumento();
+        $tipos = $this->incorporacion->tiposDocumento($colaborador);
         $documentos = $this->incorporacion->detalleParaRh($colaborador);
 
         $colaborador->loadMissing([

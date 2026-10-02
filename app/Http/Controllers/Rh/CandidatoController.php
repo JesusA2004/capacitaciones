@@ -191,37 +191,8 @@ class CandidatoController extends Controller
      */
     private function queryFiltrada(Request $request): Builder
     {
-        $usuario = $request->user();
-
-        return $this->alcance
-            ->limitarPorSucursal(
-                Candidato::query()->with([
-                    'empresa:id,nombre',
-                    'sucursal:id,nombre',
-                    'departamento:id,nombre',
-                    'puestoObjetivo:id,nombre',
-                    'vacante:id,puesto_id',
-                    'responsableRh:id,name,apellidos',
-                    'gerenteInvolucrado:id,name,apellidos',
-                ]),
-                $usuario,
-            )
-            ->when($request->integer('empresa_id'), fn ($query, $valor) => $query->where('empresa_id', $valor))
-            ->when($request->integer('sucursal_id'), fn ($query, $valor) => $query->where('sucursal_id', $valor))
-            ->when($request->integer('departamento_id'), fn ($query, $valor) => $query->where('departamento_id', $valor))
-            ->when($request->integer('puesto_objetivo_id'), fn ($query, $valor) => $query->where('puesto_objetivo_id', $valor))
-            ->when($request->integer('vacante_id'), fn ($query, $valor) => $query->where('vacante_id', $valor))
-            ->when($request->integer('responsable_rh_id'), fn ($query, $valor) => $query->where('responsable_rh_id', $valor))
-            ->when($request->string('fuente')->toString(), fn ($query, string $valor) => $query->where('fuente', $valor))
-            ->when($request->string('fecha_inicio')->toString(), fn ($query, string $valor) => $query->whereDate('created_at', '>=', $valor))
-            ->when($request->string('fecha_fin')->toString(), fn ($query, string $valor) => $query->whereDate('created_at', '<=', $valor))
-            ->when($request->string('busqueda')->toString(), function ($query, string $busqueda) {
-                $query->where(function ($sub) use ($busqueda): void {
-                    $sub->where('nombre', 'like', "%{$busqueda}%")
-                        ->orWhere('apellidos', 'like', "%{$busqueda}%")
-                        ->orWhere('correo', 'like', "%{$busqueda}%");
-                });
-            });
+        // El tablero web agrupa por estado en columnas: no filtra por estado.
+        return $this->presenter->consulta($request->user(), $request->except('estado'));
     }
 
     public function show(Request $request, Candidato $candidato): Response

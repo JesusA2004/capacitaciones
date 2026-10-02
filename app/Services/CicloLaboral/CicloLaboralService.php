@@ -6,18 +6,23 @@ use App\Enums\EstadoAltaColaborador;
 use App\Enums\EstadoAvanceOnboarding;
 use App\Enums\EstadoCandidato;
 use App\Enums\EstadoCierreLaboral;
+use App\Enums\EstadoDocumento;
 use App\Enums\EstadoEvaluacionPrueba;
+use App\Enums\EstadoFlujoDocumento;
 use App\Enums\EstadoOnboarding;
 use App\Enums\EstadoReingreso;
 use App\Enums\EstadoUsuario;
 use App\Enums\EtapaCicloLaboral;
 use App\Enums\ProcesoAprobacion;
+use App\Enums\TipoBaja;
 use App\Enums\TipoContratacion;
 use App\Enums\TipoTarea;
 use App\Models\Candidato;
 use App\Models\CierreLaboral;
 use App\Models\Colaborador;
+use App\Models\DocumentType;
 use App\Models\EvaluacionPeriodoPrueba;
+use App\Models\GeneratedDocument;
 use App\Models\OnboardingAvance;
 use App\Models\OnboardingProceso;
 use App\Models\Reingreso;
@@ -59,6 +64,7 @@ class CicloLaboralService
         private readonly CierreLaboralService $cierres,
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly OrganizacionJerarquiaService $jerarquia,
+        private readonly EvaluacionPeriodoPruebaService $evaluaciones,
     ) {}
 
     /**
@@ -612,6 +618,225 @@ class CicloLaboralService
             EstadoCandidato::AutorizadoRh => ['clave' => 'iniciar_contratacion', 'etiqueta' => 'RH genera el QR de contratación'],
             EstadoCandidato::EnContratacion => ['clave' => 'contratacion', 'etiqueta' => 'Registro, expediente y contratos (Etapa 2)'],
             default => null,
+        };
+    }
+
+    /**
+     * Ficha completa del colaborador en su ciclo (web "Ciclo laboral" y
+     * GET /api/v1/rh/colaboradores/{id}/ciclo): estado, onboarding,
+     * documentos laborales con su siguiente paso físico, evaluación, cierre
+     * y opciones. Quien la pide ya pasó la autorización de alcance.
+     *
+     * @return array<string, mixed>
+     */
+    public function ficha(Colaborador $colaborador, User $usuario): array
+    {
+        $estado = $this->obtenerEstado($colaborador, $usuario);
+        $colaborador->loadMissing(['puesto:id,nombre', 'sucursalPrincipal:id,nombre']);
+        $proceso = $this->onboarding->procesoActual($colaborador);
+        $evaluacion = isset($estado['evaluacion_id']) ? EvaluacionPeriodoPrueba::query()->with(['contrato', 'colaborador'])->where('id', $estado['evaluacion_id'])->first() : null;
+        $cierre = isset($estado['cierre_id']) ? CierreLaboral::query()->where('id', $estado['cierre_id'])->first() : null;
+        $puedeOperarFisico = $usuario->can('documentos_laborales.operar_fisico');
+
+        $documentos = GeneratedDocument::query()
+            ->where('colaborador_id', $colaborador->id)
+            ->where(fn ($q) => $q->whereNull('estado_flujo')->orWhere('estado_flujo', '!=', EstadoFlujoDocumento::Cancelado->value))
+            ->orderByDesc('id')
+            ->limit(30)
+            ->get()
+            ->map(fn (GeneratedDocument $d) => [
+                'id' => $d->id,
+                'titulo' => $d->titulo,
+                'clave' => $d->clave_plantilla,
+                'estado' => $d->estado_flujo?->value,
+                'estado_etiqueta' => $d->estado_flujo?->etiqueta(),
+                'requiere_huella' => (bool) $d->requiere_huella,
+                'requiere_testigos' => (bool) $d->requiere_testigos,
+                'acciones' => $puedeOperarFisico ? self::pasosFisicos($d->estado_flujo) : [],
+            ])
+            ->values()
+            ->all();
+
+        return [
+            'colaborador' => [
+                'id' => $colaborador->id,
+                'nombre' => $colaborador->nombreCompleto(),
+                'numero_empleado' => $colaborador->numero_empleado,
+                'puesto' => $colaborador->puesto?->nombre,
+                'sucursal' => $colaborador->sucursalPrincipal?->nombre,
+            ],
+            'ciclo' => $estado,
+            'onboarding' => $proceso !== null ? $this->onboarding->aArray($proceso, $usuario) : null,
+            'documentos' => $documentos,
+            'evaluacion' => $evaluacion !== null ? $this->evaluaciones->aArray($evaluacion) : null,
+            'cierre' => $cierre !== null ? $this->cierres->aArray($cierre, true, $usuario) : null,
+            'opciones' => [
+                'causas' => array_values(array_map(
+                    fn (TipoBaja $t) => ['value' => $t->value, 'etiqueta' => $t->etiqueta()],
+                    array_filter(TipoBaja::cases(), fn (TipoBaja $t) => $usuario->can(CierreLaboralService::PERMISO_GESTIONAR) || in_array($t->value, (array) config('ciclo_laboral.cierre.causas_solicitables', []), true)),
+                )),
+                'criterios' => array_values(array_filter((array) config('contratos.criterios_evaluacion', []), 'is_string')),
+            ],
+        ];
+    }
+
+    /**
+     * "Mi espacio" del colaborador (web Mi portal / Mis pendientes y app):
+     * SOLO lo que le toca hacer o esperar, en lenguaje llano. Por decisión
+     * del negocio la persona nunca ve los nombres internos de las etapas
+     * (contratación, onboarding, periodo de prueba): RH le va dando cada
+     * paso. Nunca incluye evaluaciones, recomendaciones ni decisiones sobre
+     * su renovación.
+     *
+     * @return array{pendientes: list<array{clave: string, titulo: string, descripcion: string, tipo: string, accion: array{etiqueta: string, href: string}|null, detalle: list<string>}>, lecciones: list<array<string, mixed>>, documentos: array{requeridos: int, aprobados: int, faltantes: int}|null, todo_listo: bool}
+     */
+    public function misPendientes(Colaborador $colaborador, User $usuario): array
+    {
+        $pendientes = [];
+        $alta = $colaborador->estado_alta;
+        $enIngreso = $alta?->enContratacion() === true;
+        $documental = $this->expediente->estadoDocumental($colaborador);
+
+        // Solo lo que la PERSONA sube (document_types.aplica_alta): contrato
+        // firmado, finiquito, etc. los genera y escanea Recursos Humanos.
+        $tiposPropios = DocumentType::query()->where('aplica_alta', true)->pluck('clave')->all();
+        $propios = collect($documental['documentos'])->filter(fn (array $d) => in_array($d['clave'], $tiposPropios, true));
+        $estadosPorSubir = [EstadoDocumento::Pendiente->value, EstadoDocumento::Rechazado->value, EstadoDocumento::RequiereCorreccion->value, EstadoDocumento::Vencido->value];
+        $porSubir = $propios->filter(fn (array $d) => in_array($d['estado'], $estadosPorSubir, true));
+        $documental = [
+            ...$documental,
+            'requeridos' => $propios->count(),
+            'aprobados' => $propios->where('estado', EstadoDocumento::Aprobado->value)->count(),
+            'faltantes' => $porSubir->count(),
+            'en_revision' => $propios->filter(fn (array $d) => in_array($d['estado'], [EstadoDocumento::EnRevision->value, EstadoDocumento::Cargado->value], true))->count(),
+        ];
+
+        // Documentos por subir o corregir.
+        if ($documental['faltantes'] > 0) {
+            $nombres = array_values($porSubir->pluck('nombre')->map(fn ($n) => (string) $n)->all());
+
+            $pendientes[] = [
+                'clave' => 'subir_documentos',
+                'titulo' => 'Sube tus documentos',
+                'descripcion' => $documental['faltantes'] === 1 ? 'Te falta 1 documento por subir o corregir.' : sprintf('Te faltan %d documentos por subir o corregir.', $documental['faltantes']),
+                'tipo' => 'accion',
+                'accion' => ['etiqueta' => 'Subir documentos', 'href' => route('mi-expediente')],
+                'detalle' => $nombres,
+            ];
+        }
+
+        if ($documental['en_revision'] > 0) {
+            $pendientes[] = $this->espera('documentos_en_revision', 'Estamos revisando tus documentos', 'Recursos Humanos te avisará si hace falta corregir alguno.');
+        }
+
+        // Documentos para firmar en la app/portal.
+        $porFirmar = GeneratedDocument::query()
+            ->where('colaborador_id', $colaborador->id)
+            ->where('estado_flujo', EstadoFlujoDocumento::PendienteFirmaColaborador->value)
+            ->get(['id', 'titulo']);
+
+        if ($porFirmar->isNotEmpty()) {
+            $pendientes[] = [
+                'clave' => 'firmar_documentos',
+                'titulo' => $porFirmar->count() === 1 ? 'Firma un documento' : sprintf('Firma %d documentos', $porFirmar->count()),
+                'descripcion' => 'Revísalos con calma y fírmalos desde tu expediente.',
+                'tipo' => 'accion',
+                'accion' => ['etiqueta' => 'Revisar y firmar', 'href' => route('mi-expediente')],
+                'detalle' => array_values($porFirmar->map(fn (GeneratedDocument $d) => (string) ($d->titulo ?? 'Documento'))->all()),
+            ];
+        }
+
+        if ($enIngreso && $documental['completo'] && $porFirmar->isEmpty()) {
+            $pendientes[] = $alta === EstadoAltaColaborador::PendienteFirma
+                ? $this->espera('firma_en_sucursal', 'Firma de tus documentos en sucursal', 'Tu jefe te entregará tus documentos impresos para firmarlos.')
+                : $this->espera('preparando_documentos', 'Estamos preparando tus documentos', 'Te avisaremos en cuanto estén listos.');
+        }
+
+        // Lecciones de bienvenida (solo mientras estén en curso).
+        $lecciones = [];
+        $proceso = $this->onboarding->procesoActual($colaborador);
+
+        if ($proceso !== null && $proceso->estado !== EstadoOnboarding::Completado && $proceso->estado !== EstadoOnboarding::Cancelado) {
+            $detalle = $this->onboarding->aArray($proceso, $usuario, true);
+
+            foreach ($detalle['modulos'] as $m) {
+                $lecciones[] = [
+                    'avance_id' => $m['avance_id'],
+                    'titulo' => $m['titulo'],
+                    'descripcion' => $m['descripcion'],
+                    'estado' => match ($m['estado']) {
+                        EstadoAvanceOnboarding::Aprobado->value => 'aprobada',
+                        EstadoAvanceOnboarding::Bloqueado->value => 'bloqueada',
+                        EstadoAvanceOnboarding::RequiereRefuerzo->value => 'en_espera',
+                        default => 'disponible',
+                    },
+                    'contenido_url' => $m['contenido_url'],
+                    'contenido' => $m['contenido'],
+                    'preguntas' => $m['preguntas'],
+                    'puede_presentar' => $m['puede_presentar'],
+                    'retroalimentacion' => $m['retroalimentacion'],
+                    'calificacion' => $m['mejor_calificacion'],
+                    'calificacion_minima' => $m['calificacion_minima'],
+                ];
+            }
+
+            $disponibles = collect($lecciones)->where('estado', 'disponible')->count();
+
+            if ($disponibles > 0) {
+                $pendientes[] = [
+                    'clave' => 'lecciones_bienvenida',
+                    'titulo' => 'Responde tus lecciones de bienvenida',
+                    'descripcion' => $disponibles === 1 ? 'Tienes 1 lección lista: revisa el material y responde sus preguntas.' : sprintf('Tienes %d lecciones listas: revisa el material y responde sus preguntas.', $disponibles),
+                    'tipo' => 'accion',
+                    'accion' => ['etiqueta' => 'Empezar', 'href' => '#lecciones'],
+                    'detalle' => [],
+                ];
+            }
+
+            if (collect($lecciones)->contains('estado', 'en_espera')) {
+                $pendientes[] = $this->espera('leccion_retroalimentacion', 'Recursos Humanos revisará tu lección', 'Te dejará un comentario para que vuelvas a intentarlo.');
+            }
+
+            if ($proceso->estado === EstadoOnboarding::EntregaActivos) {
+                $pendientes[] = $this->espera('entrega_equipo', 'Recibirás tu equipo de trabajo', 'Tu jefe te entregará uniforme y equipo, y firmarás de recibido.');
+            }
+        }
+
+        return [
+            'pendientes' => $pendientes,
+            'lecciones' => $lecciones,
+            'documentos' => $enIngreso || $documental['faltantes'] > 0
+                ? ['requeridos' => $documental['requeridos'], 'aprobados' => $documental['aprobados'], 'faltantes' => $documental['faltantes']]
+                : null,
+            'todo_listo' => $pendientes === [] && $lecciones === [],
+        ];
+    }
+
+    /**
+     * @return array{clave: string, titulo: string, descripcion: string, tipo: string, accion: null, detalle: list<string>}
+     */
+    private function espera(string $clave, string $titulo, string $descripcion): array
+    {
+        return ['clave' => $clave, 'titulo' => $titulo, 'descripcion' => $descripcion, 'tipo' => 'espera', 'accion' => null, 'detalle' => []];
+    }
+
+    /**
+     * Paso físico siguiente que el gerente/corporativo puede registrar sobre
+     * un documento laboral. El original recibido se escanea al expediente
+     * antes de archivarse (FlujoDocumentalService::archivar exige Escaneado).
+     *
+     * @return list<string>
+     */
+    public static function pasosFisicos(?EstadoFlujoDocumento $estado): array
+    {
+        return match ($estado) {
+            EstadoFlujoDocumento::PendienteImpresion => ['imprimir'],
+            EstadoFlujoDocumento::Impreso, EstadoFlujoDocumento::PendienteFirmaFisica => ['firma_fisica'],
+            EstadoFlujoDocumento::FirmadoFisicamente => ['envio'],
+            EstadoFlujoDocumento::EnviadoCorporativo => ['recepcion'],
+            EstadoFlujoDocumento::RecibidoCorporativo => ['escaneo'],
+            EstadoFlujoDocumento::Escaneado => ['archivar'],
+            default => [],
         };
     }
 }

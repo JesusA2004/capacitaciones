@@ -247,7 +247,9 @@ class ExpedienteController extends Controller
 
         return Inertia::render($esPropio ? 'Rh/Expedientes/MiExpediente' : 'Rh/Expedientes/Show', [
             'esPropio' => $esPropio,
-            'puedeEditar' => $usuario->can('expedientes.editar') || $esCuentaPropia,
+            // Nadie edita su propio expediente (ni RH ni administración): en
+            // "Mi expediente" se ofrece "Solicitar corrección".
+            'puedeEditar' => $usuario->can('expedientes.editar') && ! $esCuentaPropia,
             'puedeReactivar' => $usuario->can('usuarios.reactivar'),
             'puedeRevisarDocumentos' => $usuario->can('documentos.revisar') && ! $esCuentaPropia,
             'puedeVerExtraccion' => $usuario->can('rh.documentos.extraccion.ver') && ! $esCuentaPropia,
@@ -304,9 +306,11 @@ class ExpedienteController extends Controller
                 'acceso_bloqueado_en' => $cuenta?->acceso_bloqueado_en?->toISOString(),
                 'estatus_imss' => $colaborador->estatus_imss->value,
                 'fecha_alta_imss' => $colaborador->fecha_alta_imss?->toDateString(),
-                'periodo_prueba_inicio' => $colaborador->periodo_prueba_inicio?->toDateString(),
-                'periodo_prueba_fin' => $colaborador->periodo_prueba_fin?->toDateString(),
-                'en_periodo_prueba' => $colaborador->enPeriodoDePrueba(),
+                // La persona no ve los nombres ni fechas de sus etapas
+                // internas (periodo de prueba, onboarding): solo RH.
+                'periodo_prueba_inicio' => $esPropio ? null : $colaborador->periodo_prueba_inicio?->toDateString(),
+                'periodo_prueba_fin' => $esPropio ? null : $colaborador->periodo_prueba_fin?->toDateString(),
+                'en_periodo_prueba' => ! $esPropio && $colaborador->enPeriodoDePrueba(),
                 'fecha_ingreso' => $colaborador->fecha_ingreso?->toDateString(),
                 'empresa' => $colaborador->sucursalPrincipal?->empresa,
                 'sucursal' => $colaborador->sucursalPrincipal,
@@ -330,7 +334,7 @@ class ExpedienteController extends Controller
                 ? $this->catalogoFormatos->listar(['solo_listos' => true, 'aplica_a' => 'colaborador'])
                 : [],
             'documentosRequeridos' => $this->documentosParaVista($documentos),
-            'onboarding' => $this->onboarding->checklist($colaborador),
+            'onboarding' => $esPropio ? [] : $this->onboarding->checklist($colaborador),
             // colaborador_id es la fuente real de identidad de una
             // solicitud/vacaciones (ver SolicitudInterna::personaSolicitante()):
             // un colaborador SIN cuenta de acceso puede — y debe — tener

@@ -40,6 +40,11 @@ class DemoSeeder extends Seeder
             // las coberturas de ejemplo — reutiliza primero a los gestores que
             // los seeders anteriores ya crearon sin ruta.
             OrganigramaDemoSeeder::class,
+            // Ciclo laboral de punta a punta (candidatos en cada filtro,
+            // personas en documentos/onboarding/periodo de prueba, baja, pago
+            // programado y reingreso), todo vía services: necesita a
+            // rh.admin, rh.auxiliar y gerente.sucursal ya creados.
+            CicloLaboralDemoSeeder::class,
         ]);
     }
 }

@@ -5,7 +5,13 @@ import type { EstadoCiclo } from '@/types';
 defineProps<{ ciclo: EstadoCiclo }>();
 
 function fecha(valor: string | null): string {
-    return valor ? new Date(valor).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+    return valor
+        ? new Date(valor).toLocaleDateString('es-MX', {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric',
+          })
+        : '—';
 }
 </script>
 
@@ -18,7 +24,9 @@ function fecha(valor: string | null): string {
             <span
                 class="rounded-full bg-[var(--mrl-petroleo)] px-3 py-1 text-xs font-semibold text-white"
             >
-                <template v-if="ciclo.etapa.numero">Etapa {{ ciclo.etapa.numero }} · </template>{{ ciclo.etapa.etiqueta }}
+                <template v-if="ciclo.etapa.numero"
+                    >Etapa {{ ciclo.etapa.numero }} · </template
+                >{{ ciclo.etapa.etiqueta }}
             </span>
             <span class="text-sm font-semibold text-[var(--mrl-texto)]">{{
                 ciclo.estado.etiqueta
@@ -29,7 +37,9 @@ function fecha(valor: string | null): string {
         </div>
 
         <div>
-            <div class="mb-1 flex justify-between text-xs text-[var(--mrl-texto-suave)]">
+            <div
+                class="mb-1 flex justify-between text-xs text-[var(--mrl-texto-suave)]"
+            >
                 <span>Progreso</span><span>{{ ciclo.progreso }}%</span>
             </div>
             <div class="h-2 overflow-hidden rounded-full bg-[var(--mrl-fondo)]">
@@ -44,10 +54,15 @@ function fecha(valor: string | null): string {
             <div class="flex items-start gap-2">
                 <UserRound class="mt-0.5 size-4 text-[var(--mrl-petroleo)]" />
                 <div>
-                    <dt class="text-xs text-[var(--mrl-texto-suave)]">Responsable actual</dt>
+                    <dt class="text-xs text-[var(--mrl-texto-suave)]">
+                        Responsable actual
+                    </dt>
                     <dd class="font-medium text-[var(--mrl-texto)]">
                         {{ ciclo.responsable_actual.rol }}
-                        <span v-if="ciclo.responsable_actual.nombre" class="font-normal">
+                        <span
+                            v-if="ciclo.responsable_actual.nombre"
+                            class="font-normal"
+                        >
                             · {{ ciclo.responsable_actual.nombre }}</span
                         >
                     </dd>
@@ -56,9 +71,14 @@ function fecha(valor: string | null): string {
             <div class="flex items-start gap-2">
                 <ArrowRight class="mt-0.5 size-4 text-[var(--mrl-dorado)]" />
                 <div>
-                    <dt class="text-xs text-[var(--mrl-texto-suave)]">Siguiente acción</dt>
+                    <dt class="text-xs text-[var(--mrl-texto-suave)]">
+                        Siguiente acción
+                    </dt>
                     <dd class="font-medium text-[var(--mrl-texto)]">
-                        {{ ciclo.siguiente_accion?.etiqueta ?? 'Sin acciones pendientes' }}
+                        {{
+                            ciclo.siguiente_accion?.etiqueta ??
+                            'Sin acciones pendientes'
+                        }}
                     </dd>
                 </div>
             </div>
@@ -73,7 +93,9 @@ function fecha(valor: string | null): string {
                 :key="bloqueo"
                 class="flex items-start gap-2 text-sm text-[var(--mrl-texto)]"
             >
-                <AlertTriangle class="mt-0.5 size-4 shrink-0 text-[var(--mrl-rojo)]" />
+                <AlertTriangle
+                    class="mt-0.5 size-4 shrink-0 text-[var(--mrl-rojo)]"
+                />
                 {{ bloqueo }}
             </li>
         </ul>

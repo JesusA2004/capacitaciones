@@ -30,7 +30,9 @@ defineOptions({
 });
 
 const busqueda = ref(props.filtros.busqueda);
-const formatoId = ref(props.filtros.formato_id ? String(props.filtros.formato_id) : '');
+const formatoId = ref(
+    props.filtros.formato_id ? String(props.filtros.formato_id) : '',
+);
 let temporizador: ReturnType<typeof setTimeout> | undefined;
 
 watch([busqueda, formatoId], () => {
@@ -38,7 +40,10 @@ watch([busqueda, formatoId], () => {
     temporizador = setTimeout(() => {
         router.get(
             generados.url(),
-            { busqueda: busqueda.value || undefined, formato_id: formatoId.value || undefined },
+            {
+                busqueda: busqueda.value || undefined,
+                formato_id: formatoId.value || undefined,
+            },
             { preserveState: true, preserveScroll: true, replace: true },
         );
     }, 300);
@@ -52,7 +57,12 @@ const columnas = [
 ];
 
 function fecha(valor: string | null): string {
-    return valor ? new Date(valor).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
+    return valor
+        ? new Date(valor).toLocaleString('es-MX', {
+              dateStyle: 'medium',
+              timeStyle: 'short',
+          })
+        : '—';
 }
 </script>
 
@@ -64,49 +74,102 @@ function fecha(valor: string | null): string {
 
         <div class="flex flex-col gap-2 sm:flex-row">
             <div class="relative w-full sm:max-w-xs">
-                <Search class="absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
-                <Input v-model="busqueda" placeholder="Buscar por persona…" class="pl-8" />
+                <Search
+                    class="absolute top-2.5 left-2.5 size-4 text-muted-foreground"
+                />
+                <Input
+                    v-model="busqueda"
+                    placeholder="Buscar por persona…"
+                    class="pl-8"
+                />
             </div>
             <NativeSelect v-model="formatoId" class="w-full sm:w-72">
                 <option value="">Todos los formatos</option>
-                <option v-for="f in formatos" :key="f.id" :value="String(f.id)">{{ f.nombre }}</option>
+                <option v-for="f in formatos" :key="f.id" :value="String(f.id)">
+                    {{ f.nombre }}
+                </option>
             </NativeSelect>
         </div>
 
-        <DataTable data-tour="formatos-generados-tabla" :columnas="columnas" :datos="generaciones" mensaje-vacio="Todavía no se han generado documentos.">
+        <DataTable
+            data-tour="formatos-generados-tabla"
+            :columnas="columnas"
+            :datos="generaciones"
+            mensaje-vacio="Todavía no se han generado documentos."
+        >
             <template #celda-formato="{ fila }">
                 <div class="flex min-w-0 flex-col">
                     <span class="font-medium">{{ fila.formato }}</span>
                     <span class="text-xs text-muted-foreground">
-                        {{ fila.categoria }} · v{{ fila.version ?? '—' }}<template v-if="fila.solicitud_folio"> · {{ fila.solicitud_folio }}</template>
+                        {{ fila.categoria }} · v{{ fila.version ?? '—'
+                        }}<template v-if="fila.solicitud_folio">
+                            · {{ fila.solicitud_folio }}</template
+                        >
                     </span>
                 </div>
             </template>
             <template #celda-persona="{ fila }">
                 <span>{{ fila.persona ?? '—' }}</span>
-                <span v-if="fila.tipo_persona === 'candidato'" class="ml-1 text-xs text-muted-foreground">(candidato)</span>
+                <span
+                    v-if="fila.tipo_persona === 'candidato'"
+                    class="ml-1 text-xs text-muted-foreground"
+                    >(candidato)</span
+                >
             </template>
             <template #celda-generado_en="{ fila }">
                 <div class="flex flex-col text-sm">
                     <span>{{ fecha(fila.generado_en) }}</span>
-                    <span class="text-xs text-muted-foreground">{{ fila.generado_por ?? '—' }}</span>
+                    <span class="text-xs text-muted-foreground">{{
+                        fila.generado_por ?? '—'
+                    }}</span>
                 </div>
             </template>
             <template #celda-estado="{ fila }">
                 <div class="flex flex-wrap gap-1">
-                    <Badge :variant="fila.estado === 'firmado' ? 'default' : 'outline'">
-                        <FileCheck2 v-if="fila.estado === 'firmado'" class="size-3" />
+                    <Badge
+                        :variant="
+                            fila.estado === 'firmado' ? 'default' : 'outline'
+                        "
+                    >
+                        <FileCheck2
+                            v-if="fila.estado === 'firmado'"
+                            class="size-3"
+                        />
                         {{ fila.estado === 'firmado' ? 'Firmado' : 'Generado' }}
                     </Badge>
-                    <Badge v-if="fila.en_expediente" variant="outline">En expediente</Badge>
+                    <Badge v-if="fila.en_expediente" variant="outline"
+                        >En expediente</Badge
+                    >
                 </div>
             </template>
             <template #acciones="{ fila }">
                 <div class="flex justify-end gap-1">
-                    <Button as-child size="icon" variant="ghost" aria-label="Ver"><a :href="fila.ver_url" target="_blank"><Eye class="size-4" /></a></Button>
-                    <Button as-child size="icon" variant="ghost" aria-label="Descargar"><a :href="fila.descargar_url"><Download class="size-4" /></a></Button>
-                    <Button v-if="fila.colaborador_id" as-child size="icon" variant="ghost" aria-label="Expediente">
-                        <a :href="showExpediente.url(fila.colaborador_id)"><FolderOpen class="size-4" /></a>
+                    <Button
+                        as-child
+                        size="icon"
+                        variant="ghost"
+                        aria-label="Ver"
+                        ><a :href="fila.ver_url" target="_blank"
+                            ><Eye class="size-4" /></a
+                    ></Button>
+                    <Button
+                        as-child
+                        size="icon"
+                        variant="ghost"
+                        aria-label="Descargar"
+                        ><a :href="fila.descargar_url"
+                            ><Download class="size-4" /></a
+                    ></Button>
+                    <Button
+                        v-if="fila.colaborador_id"
+                        as-child
+                        size="icon"
+                        variant="ghost"
+                        aria-label="Expediente"
+                    >
+                        <a :href="showExpediente.url(fila.colaborador_id)"
+                            ><FolderOpen class="size-4"
+                        /></a>
                     </Button>
                 </div>
             </template>

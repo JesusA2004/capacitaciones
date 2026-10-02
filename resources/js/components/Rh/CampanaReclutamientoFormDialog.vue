@@ -56,11 +56,17 @@ function idComo(valor: { id: number } | null | undefined): string {
 }
 
 const form = useForm({
-    mes: props.campana ? String(props.campana.mes) : String(ahora.getMonth() + 1),
-    anio: props.campana ? String(props.campana.anio) : String(ahora.getFullYear()),
+    mes: props.campana
+        ? String(props.campana.mes)
+        : String(ahora.getMonth() + 1),
+    anio: props.campana
+        ? String(props.campana.anio)
+        : String(ahora.getFullYear()),
     canal: props.campana?.canal ?? '',
     empresa_id: idComo(props.campana?.empresa),
-    sucursal_id: props.campana?.sucursal_id ? String(props.campana.sucursal_id) : '',
+    sucursal_id: props.campana?.sucursal_id
+        ? String(props.campana.sucursal_id)
+        : '',
     departamento_id: idComo(props.campana?.departamento),
     puesto_id: props.campana?.puesto_id ? String(props.campana.puesto_id) : '',
     monto: props.campana ? String(props.campana.monto) : '',
@@ -235,7 +241,9 @@ function enviar() {
                         <Label>Puesto (opcional)</Label>
                         <Select v-model="form.puesto_id">
                             <SelectTrigger class="w-full">
-                                <SelectValue placeholder="General (sin puesto)" />
+                                <SelectValue
+                                    placeholder="General (sin puesto)"
+                                />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem
@@ -247,8 +255,8 @@ function enviar() {
                             </SelectContent>
                         </Select>
                         <p class="text-xs text-muted-foreground">
-                            Déjalo vacío si es gasto general, no dirigido a
-                            una posición en particular.
+                            Déjalo vacío si es gasto general, no dirigido a una
+                            posición en particular.
                         </p>
                     </div>
                 </div>

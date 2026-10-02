@@ -87,8 +87,20 @@ return [
     |
     */
 
+    // Orden: gerente de su sucursal → regional de su región → RH autoriza
+    // (App\Services\Solicitudes\AprobacionJerarquicaService). Constancias,
+    // actualizaciones de datos, incapacidades y bajas van directo a RH.
     'visto_bueno_jefe' => [
+        TipoSolicitudInterna::Vacaciones->value,
+        TipoSolicitudInterna::PermisoConGoce->value,
+        TipoSolicitudInterna::PermisoSinGoce->value,
+        TipoSolicitudInterna::PermisoTiempo->value,
+        TipoSolicitudInterna::SalidaTemprano->value,
+        TipoSolicitudInterna::LlegadaTarde->value,
         TipoSolicitudInterna::PrestamoInterno->value,
+        TipoSolicitudInterna::PermisoEspecialCumpleanos->value,
+        TipoSolicitudInterna::PermisoEspecialPaternidad->value,
+        TipoSolicitudInterna::PermisoEspecialFallecimiento->value,
     ],
 
 ];

@@ -109,8 +109,7 @@ const puestosFiltrados = computed(() =>
 
 function nombreCanal(valor: string): string {
     return (
-        props.opciones.canales.find((c) => c.value === valor)?.etiqueta ??
-        valor
+        props.opciones.canales.find((c) => c.value === valor)?.etiqueta ?? valor
     );
 }
 
@@ -404,9 +403,7 @@ async function eliminar(campana: CampanaReclutamientoItem) {
                 </div>
             </template>
             <template #celda-monto="{ fila }">
-                <span class="font-medium">{{
-                    formatoMoneda(fila.monto)
-                }}</span>
+                <span class="font-medium">{{ formatoMoneda(fila.monto) }}</span>
             </template>
             <template #celda-candidatos_generados="{ fila }">
                 <span class="text-muted-foreground">{{

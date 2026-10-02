@@ -60,10 +60,11 @@ const opcionesCandidato = computed(() =>
     })),
 );
 
-const candidatoSeleccionado = computed(() =>
-    props.opciones.candidatosElegibles.find(
-        (candidato) => String(candidato.id) === form.candidato_id,
-    ) ?? null,
+const candidatoSeleccionado = computed(
+    () =>
+        props.opciones.candidatosElegibles.find(
+            (candidato) => String(candidato.id) === form.candidato_id,
+        ) ?? null,
 );
 
 function enviar() {
@@ -107,7 +108,10 @@ function enviar() {
                         {{ candidatoSeleccionado.nombre }} —
                         {{ candidatoSeleccionado.puesto ?? 'Sin puesto' }} —
                         {{ candidatoSeleccionado.sucursal ?? 'Sin sucursal' }} —
-                        {{ candidatoSeleccionado.departamento ?? 'Sin departamento' }}
+                        {{
+                            candidatoSeleccionado.departamento ??
+                            'Sin departamento'
+                        }}
                     </p>
                     <p class="mt-1 text-xs text-muted-foreground">
                         {{ candidatoSeleccionado.empresa ?? 'Sin empresa' }} ·

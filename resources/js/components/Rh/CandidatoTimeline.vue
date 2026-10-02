@@ -51,9 +51,18 @@ function enlace(etapa: CandidatoTimelineEtapa): string | null {
                             etapa.estado === 'descartado',
                     }"
                 >
-                    <Check v-if="etapa.estado === 'completado'" class="size-4" />
-                    <Clock v-else-if="etapa.estado === 'actual'" class="size-4" />
-                    <Ban v-else-if="etapa.estado === 'descartado'" class="size-4" />
+                    <Check
+                        v-if="etapa.estado === 'completado'"
+                        class="size-4"
+                    />
+                    <Clock
+                        v-else-if="etapa.estado === 'actual'"
+                        class="size-4"
+                    />
+                    <Ban
+                        v-else-if="etapa.estado === 'descartado'"
+                        class="size-4"
+                    />
                     <Circle v-else class="size-3" />
                 </span>
                 <span
@@ -72,7 +81,8 @@ function enlace(etapa: CandidatoTimelineEtapa): string | null {
                     <span
                         class="text-sm font-medium"
                         :class="{
-                            'text-muted-foreground': etapa.estado === 'pendiente',
+                            'text-muted-foreground':
+                                etapa.estado === 'pendiente',
                         }"
                         >{{ etapa.titulo }}</span
                     >

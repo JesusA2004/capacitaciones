@@ -73,8 +73,8 @@ const opcionesGrafica = computed(() => {
     const g = props.grafica;
 
     if (!g) {
-return null;
-}
+        return null;
+    }
 
     const base = {
         chart: { toolbar: { show: false }, fontFamily: 'inherit' },
@@ -98,7 +98,12 @@ return null;
             ...base,
             chart: { ...base.chart, type: 'bar' as const },
             xaxis: { categories: g.categorias },
-            plotOptions: { bar: { borderRadius: 4, columnWidth: g.series.length > 1 ? '55%' : '45%' } },
+            plotOptions: {
+                bar: {
+                    borderRadius: 4,
+                    columnWidth: g.series.length > 1 ? '55%' : '45%',
+                },
+            },
         },
         series: g.series.map((s) => ({ name: s.nombre, data: s.valores })),
     };
@@ -122,7 +127,10 @@ return null;
             </template>
         </CrudPageHeader>
 
-        <div data-tour="reportes-filtros" class="flex flex-wrap items-end gap-3">
+        <div
+            data-tour="reportes-filtros"
+            class="flex flex-wrap items-end gap-3"
+        >
             <div data-tour="reportes-tipo" class="grid gap-2">
                 <label class="text-xs text-muted-foreground">Reporte</label>
                 <Select
@@ -269,8 +277,12 @@ return null;
             class="rounded-2xl border border-border/60 bg-card p-4 transition-shadow duration-200 hover:shadow-md"
         >
             <p class="mb-2 text-sm font-semibold">{{ resultado.titulo }}</p>
-            <p v-if="grafica?.recortado" class="mb-2 text-xs text-muted-foreground">
-                Se muestran las categorías con mayor valor; exporta a Excel o PDF para ver el detalle completo.
+            <p
+                v-if="grafica?.recortado"
+                class="mb-2 text-xs text-muted-foreground"
+            >
+                Se muestran las categorías con mayor valor; exporta a Excel o
+                PDF para ver el detalle completo.
             </p>
             <VueApexCharts
                 :key="opcionesGrafica.tipoChart"

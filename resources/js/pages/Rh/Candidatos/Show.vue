@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { Download, Paperclip, Pencil, QrCode, Upload, UserRound } from '@lucide/vue';
+import {
+    Download,
+    Paperclip,
+    Pencil,
+    QrCode,
+    Upload,
+    UserRound,
+} from '@lucide/vue';
 import { computed, ref } from 'vue';
 import AprobacionesResumen from '@/components/ciclo/AprobacionesResumen.vue';
 import CicloEstadoPanel from '@/components/ciclo/CicloEstadoPanel.vue';
@@ -40,7 +47,14 @@ import { descargar as descargarEvidencia } from '@/routes/rh/candidatos/evidenci
 import psicometricas from '@/routes/rh/candidatos/psicometricas';
 import referencias from '@/routes/rh/candidatos/referencias';
 import { show as verInvitacion } from '@/routes/rh/incorporacion/invitaciones';
-import type { AccionCiclo, CandidatoFicha, CandidatoItem, EstadoCiclo, OpcionesReclutamiento } from '@/types';
+import type {
+    AccionCiclo,
+    CandidatoFicha,
+    CandidatoItem,
+    EstadoCiclo,
+    FormularioAccion,
+    OpcionesReclutamiento,
+} from '@/types';
 
 const props = defineProps<{
     candidato: CandidatoFicha;
@@ -71,39 +85,86 @@ const candidatoFormulario = computed(
     () =>
         ({
             ...props.candidato,
-            empresa: props.candidato.empresa_id ? { id: props.candidato.empresa_id, nombre: props.candidato.empresa ?? '' } : null,
-            sucursal: props.candidato.sucursal_id ? { id: props.candidato.sucursal_id, nombre: props.candidato.sucursal ?? '' } : null,
-            departamento: props.candidato.departamento_id ? { id: props.candidato.departamento_id, nombre: props.candidato.departamento ?? '' } : null,
-            puesto_objetivo: props.candidato.puesto_objetivo_id ? { id: props.candidato.puesto_objetivo_id, nombre: props.candidato.puesto ?? '' } : null,
-            vacante: props.candidato.vacante_id ? { id: props.candidato.vacante_id, puesto_id: props.candidato.puesto_objetivo_id } : null,
+            empresa: props.candidato.empresa_id
+                ? {
+                      id: props.candidato.empresa_id,
+                      nombre: props.candidato.empresa ?? '',
+                  }
+                : null,
+            sucursal: props.candidato.sucursal_id
+                ? {
+                      id: props.candidato.sucursal_id,
+                      nombre: props.candidato.sucursal ?? '',
+                  }
+                : null,
+            departamento: props.candidato.departamento_id
+                ? {
+                      id: props.candidato.departamento_id,
+                      nombre: props.candidato.departamento ?? '',
+                  }
+                : null,
+            puesto_objetivo: props.candidato.puesto_objetivo_id
+                ? {
+                      id: props.candidato.puesto_objetivo_id,
+                      nombre: props.candidato.puesto ?? '',
+                  }
+                : null,
+            vacante: props.candidato.vacante_id
+                ? {
+                      id: props.candidato.vacante_id,
+                      puesto_id: props.candidato.puesto_objetivo_id,
+                  }
+                : null,
         }) as unknown as CandidatoItem,
 );
 
-const form = useForm<Record<string, unknown>>({});
+const form = useForm<FormularioAccion>({});
 
 const hoy = new Date().toISOString().slice(0, 10);
-const camposPorAccion: Record<string, () => Record<string, unknown>> = {
+const camposPorAccion: Record<string, () => FormularioAccion> = {
     evaluar_perfil: () => ({ viable: true, observaciones: '' }),
-    registrar_entrevista: () => ({ realizada_en: `${hoy}T10:00`, resultado: 'viable', observaciones: '' }),
+    registrar_entrevista: () => ({
+        realizada_en: `${hoy}T10:00`,
+        resultado: 'viable',
+        observaciones: '',
+    }),
     enviar_psicometricas: () => ({ link: '' }),
-    registrar_resultados_psicometricas: () => ({ resumen: '', archivos: [] as File[] }),
+    registrar_resultados_psicometricas: () => ({
+        resumen: '',
+        archivos: [] as File[],
+    }),
     revisar_psicometricas: () => ({ viable: true, observaciones: '' }),
     registrar_socioeconomico: () => ({
         fecha_visita: hoy,
         direccion: '',
-        checklist: { vivienda_en_orden: false, vive_con_familia: false, arraigo_anios: 0, resguardo_motocicleta: false },
+        checklist: {
+            vivienda_en_orden: false,
+            vive_con_familia: false,
+            arraigo_anios: 0,
+            resguardo_motocicleta: false,
+        },
         riesgos: '',
         observaciones: '',
         resultado: 'viable',
         evidencias: [] as File[],
     }),
-    registrar_referencia: () => ({ empresa: '', contacto: '', telefono: '', relacion_puesto: '', resultado: 'positiva', observaciones: '' }),
+    registrar_referencia: () => ({
+        empresa: '',
+        contacto: '',
+        telefono: '',
+        relacion_puesto: '',
+        resultado: 'positiva',
+        observaciones: '',
+    }),
     concluir_referencias: () => ({ viable: true, observaciones: '' }),
     preautorizar: () => ({ comentario: '' }),
     autorizar_rh: () => ({ comentario: '' }),
     devolver_rh: () => ({ motivo: '' }),
     rechazar_rh: () => ({ motivo: '' }),
-    descartar: () => ({ estado: props.opciones.salidas[0]?.value ?? 'no_viable', motivo: '' }),
+    descartar: () => ({
+        estado: props.opciones.salidas[0]?.value ?? 'no_viable',
+        motivo: '',
+    }),
     iniciar_contratacion: () => ({
         sueldo_mensual: '',
         fecha_ingreso: hoy,
@@ -130,7 +191,8 @@ function url(clave: string): string {
             evaluar_perfil: perfil.url(id),
             registrar_entrevista: entrevista.url(id),
             enviar_psicometricas: psicometricas.link.url(id),
-            registrar_resultados_psicometricas: psicometricas.resultados.url(id),
+            registrar_resultados_psicometricas:
+                psicometricas.resultados.url(id),
             revisar_psicometricas: psicometricas.revision.url(id),
             registrar_socioeconomico: socioeconomico.url(id),
             registrar_referencia: referencias.store.url(id),
@@ -154,7 +216,10 @@ function enviar() {
 
     form.post(url(accion.clave), {
         preserveScroll: true,
-        forceFormData: ['registrar_resultados_psicometricas', 'registrar_socioeconomico'].includes(accion.clave),
+        forceFormData: [
+            'registrar_resultados_psicometricas',
+            'registrar_socioeconomico',
+        ].includes(accion.clave),
         onSuccess: () => (accionActiva.value = null),
     });
 }
@@ -171,14 +236,28 @@ function subirCv(event: Event) {
     formCv.cv = input.files?.[0] ?? null;
 
     if (formCv.cv) {
-        formCv.post(cv.url(props.candidato.id), { preserveScroll: true, forceFormData: true });
+        formCv.post(cv.url(props.candidato.id), {
+            preserveScroll: true,
+            forceFormData: true,
+        });
     }
 }
 
-const esDecisionViable = computed(() => ['evaluar_perfil', 'revisar_psicometricas', 'concluir_referencias'].includes(accionActiva.value?.clave ?? ''));
+const esDecisionViable = computed(() =>
+    [
+        'evaluar_perfil',
+        'revisar_psicometricas',
+        'concluir_referencias',
+    ].includes(accionActiva.value?.clave ?? ''),
+);
 
 function fecha(valor: string | null): string {
-    return valor ? new Date(valor).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
+    return valor
+        ? new Date(valor).toLocaleString('es-MX', {
+              dateStyle: 'medium',
+              timeStyle: 'short',
+          })
+        : '—';
 }
 
 const claseBoton: Record<string, 'default' | 'secondary' | 'destructive'> = {
@@ -191,7 +270,7 @@ const claseBoton: Record<string, 'default' | 'secondary' | 'destructive'> = {
 <template>
     <Head :title="candidato.nombre_completo" />
 
-    <div class="pagina-media flex flex-col gap-5">
+    <div class="pagina-ancha flex flex-col gap-5">
         <CrudPageHeader
             detalle
             :titulo="candidato.nombre_completo"
@@ -225,25 +304,65 @@ const claseBoton: Record<string, 'default' | 'secondary' | 'destructive'> = {
                     </Button>
                 </section>
 
-                <section class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5">
-                    <h2 class="mb-3 text-sm font-semibold">Datos del candidato</h2>
+                <section
+                    class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5"
+                >
+                    <h2 class="mb-3 text-sm font-semibold">
+                        Datos del candidato
+                    </h2>
                     <dl class="grid gap-3 text-sm sm:grid-cols-2">
-                        <div><dt class="text-muted-foreground">Teléfono</dt><dd>{{ candidato.telefono ?? '—' }}</dd></div>
-                        <div><dt class="text-muted-foreground">Correo</dt><dd>{{ candidato.correo ?? '—' }}</dd></div>
-                        <div><dt class="text-muted-foreground">Fuente</dt><dd>{{ candidato.fuente ?? '—' }}</dd></div>
-                        <div><dt class="text-muted-foreground">Campaña</dt><dd>{{ candidato.campana ?? '—' }}</dd></div>
-                        <div><dt class="text-muted-foreground">Reclutamiento</dt><dd>{{ candidato.responsable_rh ?? '—' }}</dd></div>
-                        <div><dt class="text-muted-foreground">Gerente</dt><dd>{{ candidato.gerente ?? '—' }}</dd></div>
+                        <div>
+                            <dt class="text-muted-foreground">Teléfono</dt>
+                            <dd>{{ candidato.telefono ?? '—' }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-muted-foreground">Correo</dt>
+                            <dd>{{ candidato.correo ?? '—' }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-muted-foreground">Fuente</dt>
+                            <dd>{{ candidato.fuente ?? '—' }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-muted-foreground">Campaña</dt>
+                            <dd>{{ candidato.campana ?? '—' }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-muted-foreground">Reclutamiento</dt>
+                            <dd>{{ candidato.responsable_rh ?? '—' }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-muted-foreground">Gerente</dt>
+                            <dd>{{ candidato.gerente ?? '—' }}</dd>
+                        </div>
                         <div class="sm:col-span-2">
                             <dt class="text-muted-foreground">Currículum</dt>
                             <dd class="flex items-center gap-3">
-                                <a v-if="candidato.tiene_cv" :href="descargarCv.url(candidato.id)" class="inline-flex items-center gap-1 text-[var(--mrl-petroleo)] hover:underline">
+                                <a
+                                    v-if="candidato.tiene_cv"
+                                    :href="descargarCv.url(candidato.id)"
+                                    class="inline-flex items-center gap-1 text-[var(--mrl-petroleo)] hover:underline"
+                                >
                                     <Download class="size-4" /> Descargar CV
                                 </a>
-                                <span v-else class="text-muted-foreground">Sin CV.</span>
-                                <label class="ml-auto inline-flex cursor-pointer items-center gap-1 text-muted-foreground hover:text-foreground">
-                                    <Upload class="size-4" /> {{ candidato.tiene_cv ? 'Reemplazar' : 'Subir CV' }}
-                                    <input type="file" accept=".pdf,.doc,.docx" class="hidden" @change="subirCv" />
+                                <span v-else class="text-muted-foreground"
+                                    >Sin CV.</span
+                                >
+                                <label
+                                    class="ml-auto inline-flex cursor-pointer items-center gap-1 text-muted-foreground hover:text-foreground"
+                                >
+                                    <Upload class="size-4" />
+                                    {{
+                                        candidato.tiene_cv
+                                            ? 'Reemplazar'
+                                            : 'Subir CV'
+                                    }}
+                                    <input
+                                        type="file"
+                                        accept=".pdf,.doc,.docx"
+                                        class="hidden"
+                                        @change="subirCv"
+                                    />
                                 </label>
                             </dd>
                         </div>
@@ -251,62 +370,181 @@ const claseBoton: Record<string, 'default' | 'secondary' | 'destructive'> = {
                 </section>
 
                 <section
-                    v-if="candidato.entrevistas.length || candidato.psicometricas.length || candidato.socioeconomicos.length || candidato.referencias.length"
+                    v-if="
+                        candidato.entrevistas.length ||
+                        candidato.psicometricas.length ||
+                        candidato.socioeconomicos.length ||
+                        candidato.referencias.length
+                    "
                     class="flex flex-col gap-4 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5"
                     aria-label="Evaluaciones del reclutamiento"
                 >
-                    <h2 class="text-sm font-semibold">Evaluaciones registradas</h2>
+                    <h2 class="text-sm font-semibold">
+                        Evaluaciones registradas
+                    </h2>
 
-                    <article v-for="item in candidato.entrevistas" :key="`e${item.id}`" class="rounded-xl bg-[var(--mrl-fondo)] p-3 text-sm">
-                        <p class="font-medium">Entrevista · {{ item.resultado_etiqueta }}</p>
-                        <p class="text-xs text-muted-foreground">{{ fecha(item.realizada_en) }} · {{ item.entrevistador ?? '—' }}</p>
-                        <p v-if="item.observaciones" class="mt-1">{{ item.observaciones }}</p>
+                    <article
+                        v-for="item in candidato.entrevistas"
+                        :key="`e${item.id}`"
+                        class="rounded-xl bg-[var(--mrl-fondo)] p-3 text-sm"
+                    >
+                        <p class="font-medium">
+                            Entrevista · {{ item.resultado_etiqueta }}
+                        </p>
+                        <p class="text-xs text-muted-foreground">
+                            {{ fecha(item.realizada_en) }} ·
+                            {{ item.entrevistador ?? '—' }}
+                        </p>
+                        <p v-if="item.observaciones" class="mt-1">
+                            {{ item.observaciones }}
+                        </p>
                     </article>
 
-                    <article v-for="item in candidato.psicometricas" :key="`p${item.id}`" class="rounded-xl bg-[var(--mrl-fondo)] p-3 text-sm">
+                    <article
+                        v-for="item in candidato.psicometricas"
+                        :key="`p${item.id}`"
+                        class="rounded-xl bg-[var(--mrl-fondo)] p-3 text-sm"
+                    >
                         <p class="font-medium">
-                            Psicométricas<template v-if="item.revision_resultado"> · revisión: {{ item.revision_resultado === 'viable' ? 'en perfil' : 'fuera de perfil' }}</template>
+                            Psicométricas<template
+                                v-if="item.revision_resultado"
+                            >
+                                · revisión:
+                                {{
+                                    item.revision_resultado === 'viable'
+                                        ? 'en perfil'
+                                        : 'fuera de perfil'
+                                }}</template
+                            >
                         </p>
-                        <p v-if="item.link" class="text-xs text-muted-foreground">Link enviado {{ fecha(item.enviada_en) }}</p>
-                        <p v-if="item.resumen_resultados" class="mt-1">{{ item.resumen_resultados }}</p>
-                        <ul v-if="item.evidencias.length" class="mt-2 flex flex-wrap gap-2">
+                        <p
+                            v-if="item.link"
+                            class="text-xs text-muted-foreground"
+                        >
+                            Link enviado {{ fecha(item.enviada_en) }}
+                        </p>
+                        <p v-if="item.resumen_resultados" class="mt-1">
+                            {{ item.resumen_resultados }}
+                        </p>
+                        <ul
+                            v-if="item.evidencias.length"
+                            class="mt-2 flex flex-wrap gap-2"
+                        >
                             <li v-for="ev in item.evidencias" :key="ev.id">
-                                <a :href="descargarEvidencia.url({ candidato: candidato.id, evidencia: ev.id })" target="_blank" class="inline-flex items-center gap-1 text-xs text-[var(--mrl-petroleo)] hover:underline">
+                                <a
+                                    :href="
+                                        descargarEvidencia.url({
+                                            candidato: candidato.id,
+                                            evidencia: ev.id,
+                                        })
+                                    "
+                                    target="_blank"
+                                    class="inline-flex items-center gap-1 text-xs text-[var(--mrl-petroleo)] hover:underline"
+                                >
                                     <Paperclip class="size-3" /> {{ ev.nombre }}
                                 </a>
                             </li>
                         </ul>
                     </article>
 
-                    <article v-for="item in candidato.socioeconomicos" :key="`s${item.id}`" class="rounded-xl bg-[var(--mrl-fondo)] p-3 text-sm">
-                        <p class="font-medium">Estudio socioeconómico · {{ item.resultado_etiqueta }}</p>
-                        <p class="text-xs text-muted-foreground">{{ item.fecha_visita }} · {{ item.visitador ?? '—' }} · {{ item.direccion }}</p>
+                    <article
+                        v-for="item in candidato.socioeconomicos"
+                        :key="`s${item.id}`"
+                        class="rounded-xl bg-[var(--mrl-fondo)] p-3 text-sm"
+                    >
+                        <p class="font-medium">
+                            Estudio socioeconómico ·
+                            {{ item.resultado_etiqueta }}
+                        </p>
+                        <p class="text-xs text-muted-foreground">
+                            {{ item.fecha_visita }} ·
+                            {{ item.visitador ?? '—' }} · {{ item.direccion }}
+                        </p>
                         <ul class="mt-1 flex flex-wrap gap-x-4 text-xs">
-                            <li v-for="(valor, clave) in item.checklist" :key="clave">{{ String(clave).replaceAll('_', ' ') }}: <strong>{{ valor === true ? 'sí' : valor === false ? 'no' : valor }}</strong></li>
+                            <li
+                                v-for="(valor, clave) in item.checklist"
+                                :key="clave"
+                            >
+                                {{ String(clave).replaceAll('_', ' ') }}:
+                                <strong>{{
+                                    valor === true
+                                        ? 'sí'
+                                        : valor === false
+                                          ? 'no'
+                                          : valor
+                                }}</strong>
+                            </li>
                         </ul>
-                        <p v-if="item.riesgos" class="mt-1">Riesgos: {{ item.riesgos }}</p>
-                        <p v-if="item.observaciones" class="mt-1">{{ item.observaciones }}</p>
-                        <ul v-if="item.evidencias.length" class="mt-2 flex flex-wrap gap-2">
+                        <p v-if="item.riesgos" class="mt-1">
+                            Riesgos: {{ item.riesgos }}
+                        </p>
+                        <p v-if="item.observaciones" class="mt-1">
+                            {{ item.observaciones }}
+                        </p>
+                        <ul
+                            v-if="item.evidencias.length"
+                            class="mt-2 flex flex-wrap gap-2"
+                        >
                             <li v-for="ev in item.evidencias" :key="ev.id">
-                                <a :href="descargarEvidencia.url({ candidato: candidato.id, evidencia: ev.id })" target="_blank" class="inline-flex items-center gap-1 text-xs text-[var(--mrl-petroleo)] hover:underline">
-                                    <Paperclip class="size-3" /> {{ ev.tipo_etiqueta }}: {{ ev.nombre }}
+                                <a
+                                    :href="
+                                        descargarEvidencia.url({
+                                            candidato: candidato.id,
+                                            evidencia: ev.id,
+                                        })
+                                    "
+                                    target="_blank"
+                                    class="inline-flex items-center gap-1 text-xs text-[var(--mrl-petroleo)] hover:underline"
+                                >
+                                    <Paperclip class="size-3" />
+                                    {{ ev.tipo_etiqueta }}: {{ ev.nombre }}
                                 </a>
                             </li>
                         </ul>
                     </article>
 
-                    <article v-for="item in candidato.referencias" :key="`r${item.id}`" class="rounded-xl bg-[var(--mrl-fondo)] p-3 text-sm">
-                        <p class="font-medium">Referencia · {{ item.empresa }} · {{ item.resultado_etiqueta }}</p>
-                        <p class="text-xs text-muted-foreground">{{ item.contacto }}<template v-if="item.relacion_puesto"> ({{ item.relacion_puesto }})</template> · {{ item.telefono ?? 'sin teléfono' }} · validó {{ item.validada_por ?? '—' }} el {{ item.fecha_validacion }}</p>
-                        <p v-if="item.observaciones" class="mt-1">{{ item.observaciones }}</p>
+                    <article
+                        v-for="item in candidato.referencias"
+                        :key="`r${item.id}`"
+                        class="rounded-xl bg-[var(--mrl-fondo)] p-3 text-sm"
+                    >
+                        <p class="font-medium">
+                            Referencia · {{ item.empresa }} ·
+                            {{ item.resultado_etiqueta }}
+                        </p>
+                        <p class="text-xs text-muted-foreground">
+                            {{ item.contacto
+                            }}<template v-if="item.relacion_puesto">
+                                ({{ item.relacion_puesto }})</template
+                            >
+                            · {{ item.telefono ?? 'sin teléfono' }} · validó
+                            {{ item.validada_por ?? '—' }} el
+                            {{ item.fecha_validacion }}
+                        </p>
+                        <p v-if="item.observaciones" class="mt-1">
+                            {{ item.observaciones }}
+                        </p>
                     </article>
                 </section>
 
-                <section v-if="candidato.invitacion" class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5 text-sm">
-                    <h2 class="mb-2 text-sm font-semibold">QR de contratación</h2>
-                    <p>Estado: <strong>{{ candidato.invitacion.estado_etiqueta }}</strong> · vence {{ fecha(candidato.invitacion.expira_en) }}</p>
+                <section
+                    v-if="candidato.invitacion"
+                    class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5 text-sm"
+                >
+                    <h2 class="mb-2 text-sm font-semibold">
+                        QR de contratación
+                    </h2>
+                    <p>
+                        Estado:
+                        <strong>{{
+                            candidato.invitacion.estado_etiqueta
+                        }}</strong>
+                        · vence {{ fecha(candidato.invitacion.expira_en) }}
+                    </p>
                     <Button as-child size="sm" variant="outline" class="mt-3">
-                        <Link :href="verInvitacion.url(candidato.invitacion.id)"><QrCode class="size-4" /> Ver / regenerar QR</Link>
+                        <Link :href="verInvitacion.url(candidato.invitacion.id)"
+                            ><QrCode class="size-4" /> Ver / regenerar QR</Link
+                        >
                     </Button>
                 </section>
             </div>
@@ -318,109 +556,408 @@ const claseBoton: Record<string, 'default' | 'secondary' | 'destructive'> = {
         </div>
     </div>
 
-    <Dialog :open="accionActiva !== null" @update:open="(abierto: boolean) => !abierto && (accionActiva = null)">
+    <Dialog
+        :open="accionActiva !== null"
+        @update:open="(abierto: boolean) => !abierto && (accionActiva = null)"
+    >
         <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-lg">
             <DialogHeader>
                 <DialogTitle>{{ accionActiva?.etiqueta }}</DialogTitle>
-                <DialogDescription>{{ candidato.nombre_completo }} · {{ ciclo.estado.etiqueta }}</DialogDescription>
+                <DialogDescription
+                    >{{ candidato.nombre_completo }} ·
+                    {{ ciclo.estado.etiqueta }}</DialogDescription
+                >
             </DialogHeader>
 
             <form class="flex flex-col gap-4" @submit.prevent="enviar">
                 <template v-if="esDecisionViable">
                     <div class="flex gap-2">
-                        <Button type="button" :variant="form.viable ? 'default' : 'outline'" @click="form.viable = true">Viable</Button>
-                        <Button type="button" :variant="!form.viable ? 'destructive' : 'outline'" @click="form.viable = false">No viable</Button>
+                        <Button
+                            type="button"
+                            :variant="form.viable ? 'default' : 'outline'"
+                            @click="form.viable = true"
+                            >Viable</Button
+                        >
+                        <Button
+                            type="button"
+                            :variant="!form.viable ? 'destructive' : 'outline'"
+                            @click="form.viable = false"
+                            >No viable</Button
+                        >
                     </div>
                     <div class="grid gap-1.5">
-                        <Label for="obs">Observaciones {{ form.viable ? '(opcional)' : '(motivo obligatorio)' }}</Label>
-                        <Textarea id="obs" v-model="form.observaciones as string" rows="3" />
+                        <Label for="obs"
+                            >Observaciones
+                            {{
+                                form.viable
+                                    ? '(opcional)'
+                                    : '(motivo obligatorio)'
+                            }}</Label
+                        >
+                        <Textarea
+                            id="obs"
+                            v-model="form.observaciones as string"
+                            rows="3"
+                        />
                         <InputError :message="form.errors.observaciones" />
                     </div>
                 </template>
 
-                <template v-else-if="accionActiva?.clave === 'registrar_entrevista'">
-                    <div class="grid gap-1.5"><Label>Fecha y hora</Label><Input v-model="form.realizada_en as string" type="datetime-local" /><InputError :message="form.errors.realizada_en" /></div>
+                <template
+                    v-else-if="accionActiva?.clave === 'registrar_entrevista'"
+                >
+                    <div class="grid gap-1.5">
+                        <Label>Fecha y hora</Label
+                        ><Input
+                            v-model="form.realizada_en as string"
+                            type="datetime-local"
+                        /><InputError :message="form.errors.realizada_en" />
+                    </div>
                     <div class="flex gap-2">
-                        <Button type="button" :variant="form.resultado === 'viable' ? 'default' : 'outline'" @click="form.resultado = 'viable'">Sigue viable</Button>
-                        <Button type="button" :variant="form.resultado === 'no_viable' ? 'destructive' : 'outline'" @click="form.resultado = 'no_viable'">No viable</Button>
+                        <Button
+                            type="button"
+                            :variant="
+                                form.resultado === 'viable'
+                                    ? 'default'
+                                    : 'outline'
+                            "
+                            @click="form.resultado = 'viable'"
+                            >Sigue viable</Button
+                        >
+                        <Button
+                            type="button"
+                            :variant="
+                                form.resultado === 'no_viable'
+                                    ? 'destructive'
+                                    : 'outline'
+                            "
+                            @click="form.resultado = 'no_viable'"
+                            >No viable</Button
+                        >
                     </div>
-                    <div class="grid gap-1.5"><Label>Observaciones</Label><Textarea v-model="form.observaciones as string" rows="3" /><InputError :message="form.errors.observaciones" /></div>
+                    <div class="grid gap-1.5">
+                        <Label>Observaciones</Label
+                        ><Textarea
+                            v-model="form.observaciones as string"
+                            rows="3"
+                        /><InputError :message="form.errors.observaciones" />
+                    </div>
                 </template>
 
-                <template v-else-if="accionActiva?.clave === 'enviar_psicometricas'">
-                    <div class="grid gap-1.5"><Label>Link de las pruebas</Label><Input v-model="form.link as string" type="url" placeholder="https://" /><InputError :message="form.errors.link" /></div>
+                <template
+                    v-else-if="accionActiva?.clave === 'enviar_psicometricas'"
+                >
+                    <div class="grid gap-1.5">
+                        <Label>Link de las pruebas</Label
+                        ><Input
+                            v-model="form.link as string"
+                            type="url"
+                            placeholder="https://"
+                        /><InputError :message="form.errors.link" />
+                    </div>
                 </template>
 
-                <template v-else-if="accionActiva?.clave === 'registrar_resultados_psicometricas'">
-                    <div class="grid gap-1.5"><Label>Resumen de resultados</Label><Textarea v-model="form.resumen as string" rows="4" /><InputError :message="form.errors.resumen" /></div>
-                    <div class="grid gap-1.5"><Label>Reportes (PDF/imagen)</Label><input type="file" multiple accept=".pdf,.jpg,.jpeg,.png" @change="archivos($event, 'archivos')" /></div>
+                <template
+                    v-else-if="
+                        accionActiva?.clave ===
+                        'registrar_resultados_psicometricas'
+                    "
+                >
+                    <div class="grid gap-1.5">
+                        <Label>Resumen de resultados</Label
+                        ><Textarea
+                            v-model="form.resumen as string"
+                            rows="4"
+                        /><InputError :message="form.errors.resumen" />
+                    </div>
+                    <div class="grid gap-1.5">
+                        <Label>Reportes (PDF/imagen)</Label
+                        ><input
+                            type="file"
+                            multiple
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            @change="archivos($event, 'archivos')"
+                        />
+                    </div>
                 </template>
 
-                <template v-else-if="accionActiva?.clave === 'registrar_socioeconomico'">
+                <template
+                    v-else-if="
+                        accionActiva?.clave === 'registrar_socioeconomico'
+                    "
+                >
                     <div class="grid gap-3 sm:grid-cols-2">
-                        <div class="grid gap-1.5"><Label>Fecha de visita</Label><Input v-model="form.fecha_visita as string" type="date" /><InputError :message="form.errors.fecha_visita" /></div>
-                        <div class="grid gap-1.5"><Label>Arraigo (años)</Label><Input v-model.number="(form.checklist as Record<string, number>).arraigo_anios" type="number" min="0" /></div>
+                        <div class="grid gap-1.5">
+                            <Label>Fecha de visita</Label
+                            ><Input
+                                v-model="form.fecha_visita as string"
+                                type="date"
+                            /><InputError :message="form.errors.fecha_visita" />
+                        </div>
+                        <div class="grid gap-1.5">
+                            <Label>Arraigo (años)</Label
+                            ><Input
+                                v-model.number="
+                                    (form.checklist as Record<string, number>)
+                                        .arraigo_anios
+                                "
+                                type="number"
+                                min="0"
+                            />
+                        </div>
                     </div>
-                    <div class="grid gap-1.5"><Label>Dirección visitada</Label><Input v-model="form.direccion as string" /><InputError :message="form.errors.direccion" /></div>
+                    <div class="grid gap-1.5">
+                        <Label>Dirección visitada</Label
+                        ><Input v-model="form.direccion as string" /><InputError
+                            :message="form.errors.direccion"
+                        />
+                    </div>
                     <fieldset class="grid gap-2 text-sm">
-                        <legend class="mb-1 text-sm font-medium">Criterios (informativos)</legend>
-                        <label class="flex items-center gap-2"><input v-model="(form.checklist as Record<string, boolean>).vivienda_en_orden" type="checkbox" /> Vivienda en orden</label>
-                        <label class="flex items-center gap-2"><input v-model="(form.checklist as Record<string, boolean>).vive_con_familia" type="checkbox" /> Vive con familia</label>
-                        <label class="flex items-center gap-2"><input v-model="(form.checklist as Record<string, boolean>).resguardo_motocicleta" type="checkbox" /> Espacio para resguardar la motocicleta</label>
+                        <legend class="mb-1 text-sm font-medium">
+                            Criterios (informativos)
+                        </legend>
+                        <label class="flex items-center gap-2"
+                            ><input
+                                v-model="
+                                    (form.checklist as Record<string, boolean>)
+                                        .vivienda_en_orden
+                                "
+                                type="checkbox"
+                            />
+                            Vivienda en orden</label
+                        >
+                        <label class="flex items-center gap-2"
+                            ><input
+                                v-model="
+                                    (form.checklist as Record<string, boolean>)
+                                        .vive_con_familia
+                                "
+                                type="checkbox"
+                            />
+                            Vive con familia</label
+                        >
+                        <label class="flex items-center gap-2"
+                            ><input
+                                v-model="
+                                    (form.checklist as Record<string, boolean>)
+                                        .resguardo_motocicleta
+                                "
+                                type="checkbox"
+                            />
+                            Espacio para resguardar la motocicleta</label
+                        >
                     </fieldset>
-                    <div class="grid gap-1.5"><Label>Riesgos o inconsistencias</Label><Textarea v-model="form.riesgos as string" rows="2" /></div>
-                    <div class="flex gap-2">
-                        <Button type="button" :variant="form.resultado === 'viable' ? 'default' : 'outline'" @click="form.resultado = 'viable'">Viable</Button>
-                        <Button type="button" :variant="form.resultado === 'no_viable' ? 'destructive' : 'outline'" @click="form.resultado = 'no_viable'">No viable</Button>
+                    <div class="grid gap-1.5">
+                        <Label>Riesgos o inconsistencias</Label
+                        ><Textarea v-model="form.riesgos as string" rows="2" />
                     </div>
-                    <div class="grid gap-1.5"><Label>Observaciones</Label><Textarea v-model="form.observaciones as string" rows="2" /><InputError :message="form.errors.observaciones" /></div>
-                    <div class="grid gap-1.5"><Label>Fotografías / video / PDF (evidencia privada)</Label><input type="file" multiple accept=".jpg,.jpeg,.png,.pdf,.mp4,.mov" @change="archivos($event, 'evidencias')" /></div>
+                    <div class="flex gap-2">
+                        <Button
+                            type="button"
+                            :variant="
+                                form.resultado === 'viable'
+                                    ? 'default'
+                                    : 'outline'
+                            "
+                            @click="form.resultado = 'viable'"
+                            >Viable</Button
+                        >
+                        <Button
+                            type="button"
+                            :variant="
+                                form.resultado === 'no_viable'
+                                    ? 'destructive'
+                                    : 'outline'
+                            "
+                            @click="form.resultado = 'no_viable'"
+                            >No viable</Button
+                        >
+                    </div>
+                    <div class="grid gap-1.5">
+                        <Label>Observaciones</Label
+                        ><Textarea
+                            v-model="form.observaciones as string"
+                            rows="2"
+                        /><InputError :message="form.errors.observaciones" />
+                    </div>
+                    <div class="grid gap-1.5">
+                        <Label
+                            >Fotografías / video / PDF (evidencia
+                            privada)</Label
+                        ><input
+                            type="file"
+                            multiple
+                            accept=".jpg,.jpeg,.png,.pdf,.mp4,.mov"
+                            @change="archivos($event, 'evidencias')"
+                        />
+                    </div>
                 </template>
 
-                <template v-else-if="accionActiva?.clave === 'registrar_referencia'">
+                <template
+                    v-else-if="accionActiva?.clave === 'registrar_referencia'"
+                >
                     <div class="grid gap-3 sm:grid-cols-2">
-                        <div class="grid gap-1.5"><Label>Empresa</Label><Input v-model="form.empresa as string" /><InputError :message="form.errors.empresa" /></div>
-                        <div class="grid gap-1.5"><Label>Contacto</Label><Input v-model="form.contacto as string" /><InputError :message="form.errors.contacto" /></div>
-                        <div class="grid gap-1.5"><Label>Teléfono</Label><Input v-model="form.telefono as string" /></div>
-                        <div class="grid gap-1.5"><Label>Relación / puesto</Label><Input v-model="form.relacion_puesto as string" /></div>
+                        <div class="grid gap-1.5">
+                            <Label>Empresa</Label
+                            ><Input
+                                v-model="form.empresa as string"
+                            /><InputError :message="form.errors.empresa" />
+                        </div>
+                        <div class="grid gap-1.5">
+                            <Label>Contacto</Label
+                            ><Input
+                                v-model="form.contacto as string"
+                            /><InputError :message="form.errors.contacto" />
+                        </div>
+                        <div class="grid gap-1.5">
+                            <Label>Teléfono</Label
+                            ><Input v-model="form.telefono as string" />
+                        </div>
+                        <div class="grid gap-1.5">
+                            <Label>Relación / puesto</Label
+                            ><Input v-model="form.relacion_puesto as string" />
+                        </div>
                     </div>
                     <div class="flex flex-wrap gap-2">
-                        <Button v-for="r in opciones.resultadosReferencia" :key="r.value" type="button" :variant="form.resultado === r.value ? 'default' : 'outline'" @click="form.resultado = r.value">{{ r.etiqueta }}</Button>
+                        <Button
+                            v-for="r in opciones.resultadosReferencia"
+                            :key="r.value"
+                            type="button"
+                            :variant="
+                                form.resultado === r.value
+                                    ? 'default'
+                                    : 'outline'
+                            "
+                            @click="form.resultado = r.value"
+                            >{{ r.etiqueta }}</Button
+                        >
                     </div>
-                    <div class="grid gap-1.5"><Label>Observaciones</Label><Textarea v-model="form.observaciones as string" rows="2" /></div>
+                    <div class="grid gap-1.5">
+                        <Label>Observaciones</Label
+                        ><Textarea
+                            v-model="form.observaciones as string"
+                            rows="2"
+                        />
+                    </div>
                 </template>
 
-                <template v-else-if="['preautorizar', 'autorizar_rh'].includes(accionActiva?.clave ?? '')">
+                <template
+                    v-else-if="
+                        ['preautorizar', 'autorizar_rh'].includes(
+                            accionActiva?.clave ?? '',
+                        )
+                    "
+                >
                     <p class="text-sm text-muted-foreground">
-                        {{ accionActiva?.clave === 'preautorizar' ? 'Tu preautorización NO contrata: RH dará la autorización final.' : 'Autorización final: después podrás generar el QR de contratación.' }}
+                        {{
+                            accionActiva?.clave === 'preautorizar'
+                                ? 'Tu preautorización NO contrata: RH dará la autorización final.'
+                                : 'Autorización final: después podrás generar el QR de contratación.'
+                        }}
                     </p>
-                    <div class="grid gap-1.5"><Label>Comentario (opcional)</Label><Textarea v-model="form.comentario as string" rows="2" /></div>
+                    <div class="grid gap-1.5">
+                        <Label>Comentario (opcional)</Label
+                        ><Textarea
+                            v-model="form.comentario as string"
+                            rows="2"
+                        />
+                    </div>
                     <InputError :message="form.errors.aprobacion" />
                 </template>
 
-                <template v-else-if="['devolver_rh', 'rechazar_rh'].includes(accionActiva?.clave ?? '')">
-                    <div class="grid gap-1.5"><Label>Motivo (obligatorio)</Label><Textarea v-model="form.motivo as string" rows="3" /><InputError :message="form.errors.motivo" /></div>
+                <template
+                    v-else-if="
+                        ['devolver_rh', 'rechazar_rh'].includes(
+                            accionActiva?.clave ?? '',
+                        )
+                    "
+                >
+                    <div class="grid gap-1.5">
+                        <Label>Motivo (obligatorio)</Label
+                        ><Textarea
+                            v-model="form.motivo as string"
+                            rows="3"
+                        /><InputError :message="form.errors.motivo" />
+                    </div>
                 </template>
 
                 <template v-else-if="accionActiva?.clave === 'descartar'">
                     <div class="flex flex-wrap gap-2">
-                        <Button v-for="s in opciones.salidas" :key="s.value" type="button" :variant="form.estado === s.value ? 'destructive' : 'outline'" @click="form.estado = s.value">{{ s.etiqueta }}</Button>
+                        <Button
+                            v-for="s in opciones.salidas"
+                            :key="s.value"
+                            type="button"
+                            :variant="
+                                form.estado === s.value
+                                    ? 'destructive'
+                                    : 'outline'
+                            "
+                            @click="form.estado = s.value"
+                            >{{ s.etiqueta }}</Button
+                        >
                     </div>
-                    <div class="grid gap-1.5"><Label>Motivo (obligatorio)</Label><Textarea v-model="form.motivo as string" rows="3" /><InputError :message="form.errors.motivo" /></div>
+                    <div class="grid gap-1.5">
+                        <Label>Motivo (obligatorio)</Label
+                        ><Textarea
+                            v-model="form.motivo as string"
+                            rows="3"
+                        /><InputError :message="form.errors.motivo" />
+                    </div>
                 </template>
 
-                <template v-else-if="accionActiva?.clave === 'iniciar_contratacion'">
-                    <p class="text-sm text-muted-foreground">Se crea a la persona en contratación (sin duplicarla) y se genera su QR de registro, temporal y de un solo uso.</p>
+                <template
+                    v-else-if="accionActiva?.clave === 'iniciar_contratacion'"
+                >
+                    <p class="text-sm text-muted-foreground">
+                        Se crea a la persona en contratación (sin duplicarla) y
+                        se genera su QR de registro, temporal y de un solo uso.
+                    </p>
                     <div class="grid gap-3 sm:grid-cols-2">
-                        <div class="grid gap-1.5"><Label>Sueldo mensual</Label><Input v-model="form.sueldo_mensual as string" type="number" min="0" step="0.01" /><InputError :message="form.errors.sueldo_mensual" /></div>
-                        <div class="grid gap-1.5"><Label>Fecha de ingreso</Label><Input v-model="form.fecha_ingreso as string" type="date" /><InputError :message="form.errors.fecha_ingreso" /></div>
+                        <div class="grid gap-1.5">
+                            <Label>Sueldo mensual</Label
+                            ><Input
+                                v-model="form.sueldo_mensual as string"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                            /><InputError
+                                :message="form.errors.sueldo_mensual"
+                            />
+                        </div>
+                        <div class="grid gap-1.5">
+                            <Label>Fecha de ingreso</Label
+                            ><Input
+                                v-model="form.fecha_ingreso as string"
+                                type="date"
+                            /><InputError
+                                :message="form.errors.fecha_ingreso"
+                            />
+                        </div>
                         <div class="grid gap-1.5">
                             <Label>Modalidad</Label>
-                            <select v-model="form.tipo_contratacion" class="h-9 rounded-md border bg-transparent px-3 text-sm">
-                                <option v-for="t in opciones.tiposContratacion" :key="t.value" :value="t.value">{{ t.etiqueta }}</option>
+                            <select
+                                v-model="form.tipo_contratacion"
+                                class="h-9 rounded-md border bg-transparent px-3 text-sm"
+                            >
+                                <option
+                                    v-for="t in opciones.tiposContratacion"
+                                    :key="t.value"
+                                    :value="t.value"
+                                >
+                                    {{ t.etiqueta }}
+                                </option>
                             </select>
                         </div>
-                        <div class="grid gap-1.5"><Label>Fin del periodo (opcional)</Label><Input v-model="form.fecha_fin_contrato as string" type="date" /><p class="text-xs text-muted-foreground">Vacío = según la duración del puesto.</p></div>
+                        <div class="grid gap-1.5">
+                            <Label>Fin del periodo (opcional)</Label
+                            ><Input
+                                v-model="form.fecha_fin_contrato as string"
+                                type="date"
+                            />
+                            <p class="text-xs text-muted-foreground">
+                                Vacío = según la duración del puesto.
+                            </p>
+                        </div>
                     </div>
                     <InputError :message="form.errors.candidato" />
                 </template>
@@ -428,12 +965,31 @@ const claseBoton: Record<string, 'default' | 'secondary' | 'destructive'> = {
                 <InputError :message="form.errors.estado" />
 
                 <DialogFooter>
-                    <Button type="button" variant="ghost" @click="accionActiva = null">Cancelar</Button>
-                    <Button type="submit" :disabled="form.processing" :variant="accionActiva?.tipo === 'peligro' ? 'destructive' : 'default'">Confirmar</Button>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        @click="accionActiva = null"
+                        >Cancelar</Button
+                    >
+                    <Button
+                        type="submit"
+                        :disabled="form.processing"
+                        :variant="
+                            accionActiva?.tipo === 'peligro'
+                                ? 'destructive'
+                                : 'default'
+                        "
+                        >Confirmar</Button
+                    >
                 </DialogFooter>
             </form>
         </DialogContent>
     </Dialog>
 
-    <CandidatoFormDialog v-if="editar" v-model:open="editar" :candidato="candidatoFormulario" :opciones="opciones" />
+    <CandidatoFormDialog
+        v-if="editar"
+        v-model:open="editar"
+        :candidato="candidatoFormulario"
+        :opciones="opciones"
+    />
 </template>

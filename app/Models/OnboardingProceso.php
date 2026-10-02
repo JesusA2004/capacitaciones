@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\EstadoOnboarding;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -24,8 +25,8 @@ use Illuminate\Support\Carbon;
  * @property int|null $colaborador_abierto_id
  * @property Carbon|null $created_at
  * @property-read Colaborador $colaborador
- * @property-read \Illuminate\Database\Eloquent\Collection<int, OnboardingAvance> $avances
- * @property-read \Illuminate\Database\Eloquent\Collection<int, EntregaActivo> $entregas
+ * @property-read Collection<int, OnboardingAvance> $avances
+ * @property-read Collection<int, EntregaActivo> $entregas
  */
 class OnboardingProceso extends Model
 {

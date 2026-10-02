@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Administracion\AppReleaseController;
 use App\Http\Controllers\Administracion\CoberturaPuestoController;
+use App\Http\Controllers\Administracion\ConfiguracionController;
 use App\Http\Controllers\Administracion\DepartamentoController;
 use App\Http\Controllers\Administracion\EmpresaController;
 use App\Http\Controllers\Administracion\JerarquiaPuestoController;
@@ -16,6 +17,30 @@ Route::middleware(['auth', 'verified'])
     ->prefix('administracion')
     ->name('administracion.')
     ->group(function () {
+        // Administración → Configuración (permisos configuracion.*; cada
+        // acción autoriza en ConfiguracionController).
+        Route::prefix('configuracion')->name('configuracion.')->group(function () {
+            Route::get('/', [ConfiguracionController::class, 'index'])->name('index');
+            Route::post('restaurar', [ConfiguracionController::class, 'restaurar'])->name('restaurar');
+
+            Route::get('apariencia', [ConfiguracionController::class, 'apariencia'])->name('apariencia');
+            Route::put('apariencia', [ConfiguracionController::class, 'guardarApariencia'])->name('apariencia.update');
+
+            Route::get('jerarquia', [ConfiguracionController::class, 'jerarquia'])->name('jerarquia');
+            Route::get('jerarquia/buscar', [ConfiguracionController::class, 'buscarJefes'])->name('jerarquia.buscar');
+            Route::get('jerarquia/{colaborador}', [ConfiguracionController::class, 'detalleJerarquia'])->name('jerarquia.detalle');
+            Route::put('jerarquia/{colaborador}', [ConfiguracionController::class, 'asignarJefe'])->name('jerarquia.update');
+
+            Route::get('notificaciones', [ConfiguracionController::class, 'notificaciones'])->name('notificaciones');
+            Route::put('notificaciones/{evento}', [ConfiguracionController::class, 'guardarNotificacion'])->name('notificaciones.update');
+            Route::delete('notificaciones/{evento}', [ConfiguracionController::class, 'restaurarNotificacion'])->name('notificaciones.restaurar');
+
+            Route::get('parametros-rh', [ConfiguracionController::class, 'parametrosRh'])->name('parametros-rh');
+            Route::put('parametros-rh', [ConfiguracionController::class, 'guardarParametrosRh'])->name('parametros-rh.update');
+            Route::put('parametros-rh/puestos/{puesto}', [ConfiguracionController::class, 'guardarPuesto'])->name('parametros-rh.puestos.update');
+            Route::put('parametros-rh/tipos-documento/{tipoDocumento}', [ConfiguracionController::class, 'guardarTipoDocumento'])->name('parametros-rh.tipos-documento.update');
+        });
+
         Route::prefix('empresas')->name('empresas.')->group(function () {
             Route::get('/', [EmpresaController::class, 'index'])->name('index');
             Route::post('/', [EmpresaController::class, 'store'])->name('store');

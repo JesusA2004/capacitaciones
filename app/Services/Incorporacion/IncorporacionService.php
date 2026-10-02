@@ -69,11 +69,19 @@ class IncorporacionService
     ) {}
 
     /**
+     * Tipos documentales activos. Para una persona en contratación (Etapa 2)
+     * solo los que aplican al alta: los demás (contrato firmado, finiquito,
+     * incapacidades...) nacen después y no deben bloquear su expediente.
+     *
      * @return Collection<int, DocumentType>
      */
-    public function tiposDocumento(): Collection
+    public function tiposDocumento(?Colaborador $colaborador = null): Collection
     {
-        return DocumentType::query()->where('activo', true)->orderBy('nombre')->get();
+        return DocumentType::query()
+            ->where('activo', true)
+            ->when($colaborador?->estado_alta?->enContratacion() === true, fn ($q) => $q->where('aplica_alta', true))
+            ->orderBy('nombre')
+            ->get();
     }
 
     /**
@@ -85,7 +93,7 @@ class IncorporacionService
      */
     public function estadoIncorporacion(Colaborador $colaborador): array
     {
-        $tipos = $this->tiposDocumento();
+        $tipos = $this->tiposDocumento($colaborador);
         $vigentes = $this->expediente->documentosVigentes($colaborador);
 
         $documentos = $tipos->map(fn (DocumentType $tipo) => $this->documentoParaColaborador($tipo, $vigentes->get($tipo->id)));
@@ -113,7 +121,7 @@ class IncorporacionService
      */
     public function detalleParaRh(Colaborador $colaborador): array
     {
-        $tipos = $this->tiposDocumento();
+        $tipos = $this->tiposDocumento($colaborador);
         $vigentes = $this->expediente->documentosVigentes($colaborador);
 
         return $tipos->map(function (DocumentType $tipo) use ($vigentes) {
@@ -234,7 +242,7 @@ class IncorporacionService
      */
     public function estado(Colaborador $colaborador): string
     {
-        $tipos = $this->tiposDocumento();
+        $tipos = $this->tiposDocumento($colaborador);
         $vigentes = $this->expediente->documentosVigentes($colaborador);
 
         return $this->estadoGeneral($colaborador, $tipos, $vigentes);
@@ -401,7 +409,7 @@ class IncorporacionService
      */
     public function aprobarIncorporacion(Colaborador $colaborador, User $revisor): void
     {
-        $tipos = $this->tiposDocumento();
+        $tipos = $this->tiposDocumento($colaborador);
         $vigentes = $this->expediente->documentosVigentes($colaborador);
 
         $requeridos = $tipos->where('requerido', true);
@@ -431,7 +439,7 @@ class IncorporacionService
             app(AltaColaboradorService::class)->recalcularEstado($colaborador->refresh(), $revisor);
         }
 
-        $this->notificarSinFallar(function () use ($colaborador, $enCiclo): void {
+        $this->notificarSinFallar(function () use ($colaborador): void {
             if ($colaborador->user === null) {
                 return;
             }
@@ -441,8 +449,8 @@ class IncorporacionService
                 $colaborador->user,
                 'incorporacion',
                 $colaborador->id,
-                $enCiclo ? 'Expediente aprobado' : 'Incorporación aprobada',
-                $enCiclo ? 'RH aprobó tu expediente. Siguen tus contratos.' : 'Tu incorporación fue aprobada.',
+                'Tus documentos fueron aprobados',
+                'Recursos Humanos aprobó tus documentos. En tu portal verás lo que sigue.',
             );
         });
     }
@@ -462,7 +470,7 @@ class IncorporacionService
             }
 
             NotificationFacade::send($colaborador->user, new IncorporacionDecididaNotification(false));
-            $this->push->aUsuario($colaborador->user, 'incorporacion', $colaborador->id, 'Incorporación rechazada', 'Tu incorporación fue rechazada.');
+            $this->push->aUsuario($colaborador->user, 'incorporacion', $colaborador->id, 'Revisa tus documentos', 'Recursos Humanos te pidió revisar tus documentos.');
         });
     }
 

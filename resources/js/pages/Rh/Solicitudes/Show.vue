@@ -21,10 +21,16 @@ import FormatoOficialGenerarDialog from '@/components/Rh/FormatoOficialGenerarDi
 import GenerarFormatoDialog from '@/components/Rh/GenerarFormatoDialog.vue';
 import SubirFormatoFirmadoDialog from '@/components/Rh/SubirFormatoFirmadoDialog.vue';
 import SubirFormatoOficialFirmadoDialog from '@/components/Rh/SubirFormatoOficialFirmadoDialog.vue';
+import type { NivelVistoBueno } from '@/components/Solicitudes/CadenaAutorizacion.vue';
+import CadenaAutorizacion from '@/components/Solicitudes/CadenaAutorizacion.vue';
 import { Button } from '@/components/ui/button';
 import { NativeSelect } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
-import { formatearFecha, formatearFechaHora, formatearPeriodo } from '@/lib/fechas';
+import {
+    formatearFecha,
+    formatearFechaHora,
+    formatearPeriodo,
+} from '@/lib/fechas';
 import { descargar } from '@/routes/rh/formatos';
 import {
     descargar as descargarOficial,
@@ -50,9 +56,14 @@ import type {
     SolicitudInternaItem,
 } from '@/types';
 
+const faltanVistosBuenosCalculo = (niveles: NivelVistoBueno[]) =>
+    niveles.some((n) => n.estado !== 'aprobado');
+
 const props = defineProps<{
     solicitud: SolicitudInternaItem;
     puedeGenerarFormato: boolean;
+    vistosBuenos: NivelVistoBueno[];
+    puedeDarVistoBueno: boolean;
     documentoOficial: DocumentoOficialEsperado | null;
     plantillasSugeridas: { id: number; nombre: string; tipo: string }[];
     tiposDocumentoExpediente: { id: number; nombre: string }[];
@@ -61,12 +72,20 @@ const props = defineProps<{
     personaSolicitud: { id: number; nombre: string } | null;
 }>();
 
+// Sin los vistos buenos (gerente y regional) RH no puede autorizar todavía.
+const faltanVistosBuenos = computed(() =>
+    faltanVistosBuenosCalculo(props.vistosBuenos),
+);
+
 const formatoOficialId = ref('');
 const formatoOficialDialogo = ref(false);
 const formatoOficialElegido = ref<FormatoOficialItem | null>(null);
 
 function abrirFormatoOficial() {
-    formatoOficialElegido.value = props.formatosOficiales.find((f) => String(f.id) === formatoOficialId.value) ?? null;
+    formatoOficialElegido.value =
+        props.formatosOficiales.find(
+            (f) => String(f.id) === formatoOficialId.value,
+        ) ?? null;
     formatoOficialDialogo.value = formatoOficialElegido.value !== null;
 }
 
@@ -211,7 +230,7 @@ const documentoOficialGeneracion = computed(
 <template>
     <Head :title="`Solicitud ${solicitud.folio}`" />
 
-    <div class="pagina-media flex flex-col gap-6">
+    <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
             detalle
             :titulo="`Solicitud ${solicitud.folio}`"
@@ -224,6 +243,13 @@ const documentoOficialGeneracion = computed(
         <div class="grid gap-6 lg:grid-cols-12 lg:items-start">
             <!-- Columna principal -->
             <div class="flex flex-col gap-6 lg:col-span-8 xl:col-span-9">
+                <CadenaAutorizacion
+                    v-if="vistosBuenos.length"
+                    :solicitud-id="solicitud.id"
+                    :estado="solicitud.estado"
+                    :niveles="vistosBuenos"
+                    :puede-dar-visto-bueno="puedeDarVistoBueno"
+                />
                 <div
                     class="grid gap-4 rounded-2xl border border-border/60 bg-card p-5"
                 >
@@ -264,7 +290,12 @@ const documentoOficialGeneracion = computed(
                                 {{ solicitud.fecha_fin ? 'Periodo' : 'Fecha' }}
                             </p>
                             <p class="text-base font-medium">
-                                {{ formatearPeriodo(solicitud.fecha_inicio, solicitud.fecha_fin) }}
+                                {{
+                                    formatearPeriodo(
+                                        solicitud.fecha_inicio,
+                                        solicitud.fecha_fin,
+                                    )
+                                }}
                             </p>
                         </div>
                         <div v-if="solicitud.dias_solicitados">
@@ -343,11 +374,24 @@ const documentoOficialGeneracion = computed(
                 >
                     <p class="text-sm font-medium">Generar documento oficial</p>
                     <div class="flex gap-2">
-                        <NativeSelect v-model="formatoOficialId" class="w-full sm:w-64">
+                        <NativeSelect
+                            v-model="formatoOficialId"
+                            class="w-full sm:w-64"
+                        >
                             <option value="">Elige un formato…</option>
-                            <option v-for="f in formatosOficiales" :key="f.id" :value="String(f.id)">{{ f.nombre }}</option>
+                            <option
+                                v-for="f in formatosOficiales"
+                                :key="f.id"
+                                :value="String(f.id)"
+                            >
+                                {{ f.nombre }}
+                            </option>
                         </NativeSelect>
-                        <Button size="sm" :disabled="!formatoOficialId" @click="abrirFormatoOficial">
+                        <Button
+                            size="sm"
+                            :disabled="!formatoOficialId"
+                            @click="abrirFormatoOficial"
+                        >
                             <Sparkles class="size-3.5" />
                             Generar
                         </Button>
@@ -385,7 +429,13 @@ const documentoOficialGeneracion = computed(
                             variant="outline"
                             class="w-fit"
                         >
-                            <a :href="configurarFormatoOficial.url({ formato: documentoOficial.id })">
+                            <a
+                                :href="
+                                    configurarFormatoOficial.url({
+                                        formato: documentoOficial.id,
+                                    })
+                                "
+                            >
                                 <Settings class="size-3.5" />
                                 Configurar formato
                             </a>
@@ -489,8 +539,8 @@ const documentoOficialGeneracion = computed(
                         </Button>
                     </div>
                     <p class="mb-3 text-xs text-muted-foreground">
-                        Genera un documento adicional a partir de una
-                        plantilla interna cuando el trámite lo requiera.
+                        Genera un documento adicional a partir de una plantilla
+                        interna cuando el trámite lo requiera.
                     </p>
 
                     <ul
@@ -662,12 +712,23 @@ const documentoOficialGeneracion = computed(
                         rows="2"
                     />
                     <div class="flex flex-col gap-2">
+                        <p
+                            v-if="faltanVistosBuenos"
+                            class="rounded-xl bg-[var(--mrl-accent)]/10 p-3 text-xs text-[var(--mrl-texto)]"
+                        >
+                            Esta solicitud espera el visto bueno del gerente y
+                            del regional. Cuando lo den, pasará sola a
+                            «Pendiente de autorizar».
+                        </p>
                         <Button
-                            v-if="solicitud.estado === 'enviada'"
+                            v-if="
+                                solicitud.estado === 'enviada' &&
+                                !faltanVistosBuenos
+                            "
                             variant="secondary"
                             :disabled="formAccion.processing"
                             @click="revisarSolicitud"
-                            >Marcar en revisión</Button
+                            >Pasar a pendiente de autorizar</Button
                         >
                         <Button
                             class="border border-amber-500/40 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 dark:text-amber-400"
@@ -677,6 +738,7 @@ const documentoOficialGeneracion = computed(
                             >Pedir corrección</Button
                         >
                         <Button
+                            v-if="!faltanVistosBuenos"
                             variant="success"
                             :disabled="
                                 formAccion.processing ||
@@ -783,7 +845,11 @@ const documentoOficialGeneracion = computed(
         v-if="formatoOficialElegido && personaSolicitud"
         v-model:open="formatoOficialDialogo"
         :formato="formatoOficialElegido"
-        :sujeto-fijo="{ tipo: 'colaborador', id: personaSolicitud.id, nombre: personaSolicitud.nombre }"
+        :sujeto-fijo="{
+            tipo: 'colaborador',
+            id: personaSolicitud.id,
+            nombre: personaSolicitud.nombre,
+        }"
         :solicitud-id="solicitud.id"
         :puede-descargar="true"
     />

@@ -16,8 +16,15 @@ import { dashboard } from '@/routes';
 import { index } from '@/routes/rh/cumpleanos';
 import { vistaPrevia } from '@/routes/rh/cumpleanos/configuracion';
 import { actualizar as actualizarApariencia } from '@/routes/rh/cumpleanos/configuracion/apariencia';
-import { actualizar, eliminar as eliminarFondo } from '@/routes/rh/cumpleanos/configuracion/fondo';
-import { destroy as destroyFrase, store as storeFrase, update as updateFrase } from '@/routes/rh/cumpleanos/frases';
+import {
+    actualizar,
+    eliminar as eliminarFondo,
+} from '@/routes/rh/cumpleanos/configuracion/fondo';
+import {
+    destroy as destroyFrase,
+    store as storeFrase,
+    update as updateFrase,
+} from '@/routes/rh/cumpleanos/frases';
 
 // Posiciones por defecto (misma fracción aproximada que calcula
 // BirthdayCardService cuando RH no ha movido cada marcador) — solo para
@@ -31,7 +38,13 @@ const POSICION_FRASE_DEFECTO = 0.55;
  * rotan en las tarjetas, con la vista previa REAL a un lado (mismo diseño
  * que la configuración de Aniversarios).
  */
-type Frase = { id: number; texto: string; categoria: string | null; activo: boolean; usado_count: number };
+type Frase = {
+    id: number;
+    texto: string;
+    categoria: string | null;
+    activo: boolean;
+    usado_count: number;
+};
 
 // Los mismos datos que usa BirthdayCardService::previewEjemplo().
 const datosEjemplo = [
@@ -121,11 +134,18 @@ function agregarFrase() {
         return;
     }
 
-    nuevaFrase.post(storeFrase.url(), { preserveScroll: true, onSuccess: () => nuevaFrase.reset() });
+    nuevaFrase.post(storeFrase.url(), {
+        preserveScroll: true,
+        onSuccess: () => nuevaFrase.reset(),
+    });
 }
 
 function alternarFrase(frase: Frase) {
-    router.put(updateFrase.url(frase.id), { activo: !frase.activo }, { preserveScroll: true, preserveState: true });
+    router.put(
+        updateFrase.url(frase.id),
+        { activo: !frase.activo },
+        { preserveScroll: true, preserveState: true },
+    );
 }
 
 function eliminarFrase() {
@@ -156,30 +176,65 @@ function eliminarFrase() {
         :datos-ejemplo="datosEjemplo"
     >
         <template #overlay>
-            <PosicionVerticalTexto v-model="formApariencia.texto_titulo_y" variante="titulo" />
-            <PosicionVerticalTexto v-model="formApariencia.texto_nombre_y" variante="nombre" />
-            <PosicionVerticalTexto v-model="formApariencia.texto_frase_y" variante="frase" />
+            <PosicionVerticalTexto
+                v-model="formApariencia.texto_titulo_y"
+                variante="titulo"
+            />
+            <PosicionVerticalTexto
+                v-model="formApariencia.texto_nombre_y"
+                variante="nombre"
+            />
+            <PosicionVerticalTexto
+                v-model="formApariencia.texto_frase_y"
+                variante="frase"
+            />
         </template>
 
         <section class="flex flex-col gap-3" aria-labelledby="config-fondo">
             <div>
                 <h2 id="config-fondo" class="text-sm font-semibold">Fondo</h2>
                 <p class="text-sm text-muted-foreground">
-                    {{ tieneFondo ? 'Se usa un fondo propio en todas las tarjetas nuevas o regeneradas.' : 'Se usa el diseño con globos por defecto.' }}
+                    {{
+                        tieneFondo
+                            ? 'Se usa un fondo propio en todas las tarjetas nuevas o regeneradas.'
+                            : 'Se usa el diseño con globos por defecto.'
+                    }}
                     Recomendado: vertical 1080×1350, PNG/JPG/WebP, máximo 8 MB.
                 </p>
             </div>
             <div class="flex flex-wrap items-center gap-3">
-                <img v-if="fondoUrl" :src="fondoUrl" alt="Fondo actual" class="h-20 w-16 rounded-md border object-cover" />
-                <Button as-child variant="outline" size="sm" :disabled="formFondo.processing">
+                <img
+                    v-if="fondoUrl"
+                    :src="fondoUrl"
+                    alt="Fondo actual"
+                    class="h-20 w-16 rounded-md border object-cover"
+                />
+                <Button
+                    as-child
+                    variant="outline"
+                    size="sm"
+                    :disabled="formFondo.processing"
+                >
                     <label class="cursor-pointer">
                         <Spinner v-if="formFondo.processing" />
                         <Upload v-else class="size-4" />
                         {{ tieneFondo ? 'Reemplazar fondo' : 'Subir fondo' }}
-                        <input type="file" accept="image/png,image/jpeg,image/webp" class="sr-only" @change="elegirFondo" />
+                        <input
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            class="sr-only"
+                            @change="elegirFondo"
+                        />
                     </label>
                 </Button>
-                <Button v-if="tieneFondo" variant="ghost" size="sm" class="text-destructive" :disabled="eliminandoFondo" @click="confirmarQuitarFondo = true">
+                <Button
+                    v-if="tieneFondo"
+                    variant="ghost"
+                    size="sm"
+                    class="text-destructive"
+                    :disabled="eliminandoFondo"
+                    @click="confirmarQuitarFondo = true"
+                >
                     <Trash2 class="size-4" />
                     Quitar fondo
                 </Button>
@@ -187,11 +242,19 @@ function eliminarFrase() {
             <InputError :message="formFondo.errors.fondo" />
         </section>
 
-        <section class="flex flex-col gap-3 border-t pt-6" aria-labelledby="config-apariencia">
+        <section
+            class="flex flex-col gap-3 border-t pt-6"
+            aria-labelledby="config-apariencia"
+        >
             <div>
-                <h2 id="config-apariencia" class="text-sm font-semibold">Apariencia</h2>
+                <h2 id="config-apariencia" class="text-sm font-semibold">
+                    Apariencia
+                </h2>
                 <p class="text-sm text-muted-foreground">
-                    Arrastra cada marcador de color sobre la vista previa: «Título» mueve «¡Feliz cumpleaños!», «Nombre» mueve el nombre del colaborador y «Frase» mueve la frase — cada uno por separado.
+                    Arrastra cada marcador de color sobre la vista previa:
+                    «Título» mueve «¡Feliz cumpleaños!», «Nombre» mueve el
+                    nombre del colaborador y «Frase» mueve la frase — cada uno
+                    por separado.
                 </p>
             </div>
 
@@ -199,7 +262,9 @@ function eliminarFrase() {
                 <Checkbox
                     class="mt-0.5"
                     :model-value="formApariencia.mostrar_logo"
-                    @update:model-value="(v) => (formApariencia.mostrar_logo = !!v)"
+                    @update:model-value="
+                        (v) => (formApariencia.mostrar_logo = !!v)
+                    "
                 />
                 Mostrar el logo de MR. LANA en la tarjeta
             </label>
@@ -221,17 +286,42 @@ function eliminarFrase() {
             </div>
         </section>
 
-        <section v-if="puedeGestionarFrases" class="flex flex-col gap-3 border-t pt-6" aria-labelledby="config-frases">
+        <section
+            v-if="puedeGestionarFrases"
+            class="flex flex-col gap-3 border-t pt-6"
+            aria-labelledby="config-frases"
+        >
             <div>
-                <h2 id="config-frases" class="text-sm font-semibold">Frases de felicitación</h2>
-                <p class="text-sm text-muted-foreground">Las frases activas rotan en las tarjetas para no repetir siempre la misma.</p>
+                <h2 id="config-frases" class="text-sm font-semibold">
+                    Frases de felicitación
+                </h2>
+                <p class="text-sm text-muted-foreground">
+                    Las frases activas rotan en las tarjetas para no repetir
+                    siempre la misma.
+                </p>
             </div>
 
-            <form class="flex flex-col gap-2 sm:flex-row" @submit.prevent="agregarFrase">
-                <Input v-model="nuevaFrase.texto" placeholder="Escribe una nueva frase…" class="flex-1" aria-label="Nueva frase" />
+            <form
+                class="flex flex-col gap-2 sm:flex-row"
+                @submit.prevent="agregarFrase"
+            >
+                <Input
+                    v-model="nuevaFrase.texto"
+                    placeholder="Escribe una nueva frase…"
+                    class="flex-1"
+                    aria-label="Nueva frase"
+                />
                 <div class="flex gap-2">
-                    <EmojiPicker @select="(emoji) => (nuevaFrase.texto += emoji)" />
-                    <Button type="submit" class="flex-1 sm:flex-none" :disabled="nuevaFrase.processing || !nuevaFrase.texto.trim()">
+                    <EmojiPicker
+                        @select="(emoji) => (nuevaFrase.texto += emoji)"
+                    />
+                    <Button
+                        type="submit"
+                        class="flex-1 sm:flex-none"
+                        :disabled="
+                            nuevaFrase.processing || !nuevaFrase.texto.trim()
+                        "
+                    >
                         <Spinner v-if="nuevaFrase.processing" />
                         <Plus v-else class="size-4" />
                         Agregar
@@ -240,19 +330,53 @@ function eliminarFrase() {
             </form>
             <InputError :message="nuevaFrase.errors.texto" />
 
-            <p v-if="frases.length === 0" class="py-4 text-sm text-muted-foreground">Todavía no hay frases. Agrega la primera arriba.</p>
+            <p
+                v-if="frases.length === 0"
+                class="py-4 text-sm text-muted-foreground"
+            >
+                Todavía no hay frases. Agrega la primera arriba.
+            </p>
             <ul v-else class="divide-y rounded-lg border">
-                <li v-for="frase in frases" :key="frase.id" class="flex flex-col gap-2 p-3 sm:flex-row sm:items-start" :class="!frase.activo && 'bg-muted/30'">
+                <li
+                    v-for="frase in frases"
+                    :key="frase.id"
+                    class="flex flex-col gap-2 p-3 sm:flex-row sm:items-start"
+                    :class="!frase.activo && 'bg-muted/30'"
+                >
                     <div class="min-w-0 flex-1">
-                        <p class="text-sm break-words" :class="!frase.activo && 'text-muted-foreground'">{{ frase.texto }}</p>
+                        <p
+                            class="text-sm break-words"
+                            :class="!frase.activo && 'text-muted-foreground'"
+                        >
+                            {{ frase.texto }}
+                        </p>
                         <p class="mt-1 text-xs text-muted-foreground">
-                            Usada {{ frase.usado_count }} {{ frase.usado_count === 1 ? 'vez' : 'veces' }}
-                            <Badge v-if="!frase.activo" variant="outline" class="ml-1">Inactiva</Badge>
+                            Usada {{ frase.usado_count }}
+                            {{ frase.usado_count === 1 ? 'vez' : 'veces' }}
+                            <Badge
+                                v-if="!frase.activo"
+                                variant="outline"
+                                class="ml-1"
+                                >Inactiva</Badge
+                            >
                         </p>
                     </div>
                     <div class="flex shrink-0 gap-1">
-                        <Button size="sm" variant="ghost" @click="alternarFrase(frase)">{{ frase.activo ? 'Desactivar' : 'Activar' }}</Button>
-                        <Button size="icon-sm" variant="ghost" class="text-destructive" :aria-label="`Eliminar frase ${frase.texto.slice(0, 30)}`" @click="fraseAEliminar = frase">
+                        <Button
+                            size="sm"
+                            variant="ghost"
+                            @click="alternarFrase(frase)"
+                            >{{
+                                frase.activo ? 'Desactivar' : 'Activar'
+                            }}</Button
+                        >
+                        <Button
+                            size="icon-sm"
+                            variant="ghost"
+                            class="text-destructive"
+                            :aria-label="`Eliminar frase ${frase.texto.slice(0, 30)}`"
+                            @click="fraseAEliminar = frase"
+                        >
                             <Trash2 class="size-4" />
                         </Button>
                     </div>
@@ -274,7 +398,11 @@ function eliminarFrase() {
     <PeopleConfirmDialog
         :open="fraseAEliminar !== null"
         titulo="Eliminar frase"
-        :descripcion="fraseAEliminar ? `¿Eliminar «${fraseAEliminar.texto.slice(0, 60)}${fraseAEliminar.texto.length > 60 ? '…' : ''}»? Esta acción no se puede deshacer.` : undefined"
+        :descripcion="
+            fraseAEliminar
+                ? `¿Eliminar «${fraseAEliminar.texto.slice(0, 60)}${fraseAEliminar.texto.length > 60 ? '…' : ''}»? Esta acción no se puede deshacer.`
+                : undefined
+        "
         destructivo
         texto-confirmar="Eliminar"
         :cargando="eliminandoFrase"

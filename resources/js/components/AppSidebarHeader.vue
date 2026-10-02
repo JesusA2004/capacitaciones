@@ -28,7 +28,10 @@ withDefaults(
             <!-- Destino de las acciones de módulo (CrudPageHeader) en md+:
                  así un botón como «Nueva solicitud» no ocupa una fila entera
                  de espacio vacío arriba del contenido. -->
-            <div id="acciones-pagina" class="ml-auto hidden min-w-0 items-center justify-end gap-2 md:flex" />
+            <div
+                id="acciones-pagina"
+                class="ml-auto hidden min-w-0 items-center justify-end gap-2 md:flex"
+            />
             <NotificationBell />
         </div>
     </header>

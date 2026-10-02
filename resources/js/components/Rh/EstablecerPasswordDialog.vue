@@ -15,7 +15,10 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { useAlertas } from '@/composables/useAlertas';
 import { postJson } from '@/lib/http';
-import { enviarPasswordCorreo, establecerPassword } from '@/routes/administracion/usuarios';
+import {
+    enviarPasswordCorreo,
+    establecerPassword,
+} from '@/routes/administracion/usuarios';
 
 const props = defineProps<{
     open: boolean;
@@ -87,7 +90,10 @@ function cerrar() {
 </script>
 
 <template>
-    <Dialog :open="open" @update:open="(v) => (v ? emit('update:open', v) : cerrar())">
+    <Dialog
+        :open="open"
+        @update:open="(v) => (v ? emit('update:open', v) : cerrar())"
+    >
         <DialogContent class="sm:max-w-md">
             <DialogHeader>
                 <DialogTitle class="flex items-center gap-2">
@@ -96,8 +102,8 @@ function cerrar() {
                 </DialogTitle>
                 <DialogDescription>
                     Para {{ colaboradorNombre }}. No es posible ver su
-                    contraseña actual (se guarda cifrada); esto la
-                    reemplaza por una nueva.
+                    contraseña actual (se guarda cifrada); esto la reemplaza por
+                    una nueva.
                 </DialogDescription>
             </DialogHeader>
 
@@ -137,14 +143,22 @@ function cerrar() {
                 </div>
 
                 <div class="flex items-center gap-2">
-                    <Input :model-value="passwordGenerada" readonly class="font-mono" />
+                    <Input
+                        :model-value="passwordGenerada"
+                        readonly
+                        class="font-mono"
+                    />
                     <Button variant="outline" size="icon" @click="copiar">
                         <Copy class="size-4" />
                     </Button>
                 </div>
 
                 <DialogFooter class="sm:justify-between">
-                    <Button variant="outline" :disabled="enviandoCorreo" @click="enviarPorCorreo">
+                    <Button
+                        variant="outline"
+                        :disabled="enviandoCorreo"
+                        @click="enviarPorCorreo"
+                    >
                         <Spinner v-if="enviandoCorreo" />
                         <Mail v-else class="size-4" />
                         Enviar por correo

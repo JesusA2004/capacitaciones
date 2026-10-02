@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Notifications\Mobile\RhSolicitudCreadaNotification;
 use App\Notifications\Mobile\SolicitudActualizadaNotification;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Configuracion\WorkflowRoutingService;
 use App\Services\Finiquitos\FiniquitoService;
 use App\Services\MobilePush\PushNotifier;
 use App\Services\Nomina\PrestamoService;
@@ -72,6 +73,7 @@ class SolicitudesService
         private readonly AprobacionJerarquicaService $aprobaciones,
         private readonly TareasSolicitudService $tareasSolicitud,
         private readonly ComprobanteSolicitudService $comprobantes,
+        private readonly WorkflowRoutingService $routing,
     ) {}
 
     /**
@@ -142,7 +144,12 @@ class SolicitudesService
             $this->registrarHistorial($solicitud, $solicitante, 'enviada');
 
             $this->notificarSinFallar(function () use ($solicitud, $solicitante): void {
-                $responsables = $this->responsables->paraColaborador($solicitante, 'rh.solicitudes.aprobar');
+                // Destinatarios por la regla "solicitud_creada" (Configuración →
+                // Notificaciones) sobre la PERSONA solicitante; sin persona
+                // enlazada se conserva el criterio por permiso + alcance.
+                $responsables = $solicitante->colaborador !== null
+                    ? $this->routing->resolver('solicitud_creada', $solicitante->colaborador, ['solicitante' => $solicitante, 'excluir' => [$solicitante->id]])->pluck('usuario')
+                    : $this->responsables->paraColaborador($solicitante, 'rh.solicitudes.aprobar');
 
                 NotificationFacade::send($responsables, new RhSolicitudCreadaNotification($solicitud));
                 $this->push->aUsuarios($responsables, 'rh_solicitud', $solicitud->id, 'Nueva solicitud por revisar', 'Un colaborador envió una solicitud.');
@@ -415,14 +422,27 @@ class SolicitudesService
      */
     private function cambiarEstado(SolicitudInterna $solicitud, User $actor, EstadoSolicitudInterna $nuevoEstado, ?string $comentario = null, ?string $motivoRechazo = null, array $datosAprobacion = []): SolicitudInterna
     {
-        // Visto bueno jerárquico (config solicitudes.visto_bueno_jefe): la
-        // autorización final nunca se salta al jefe inmediato.
-        if ($nuevoEstado === EstadoSolicitudInterna::Aprobada
-            && $this->aprobaciones->requiereVistoBuenoJefe($solicitud)
+        // Vistos buenos jerárquicos (gerente → regional, config
+        // solicitudes.visto_bueno_jefe): sin ellos la solicitud se queda como
+        // "Recibida"; ni RH la puede pasar a "Pendiente de autorizar" ni autorizarla.
+        if (in_array($nuevoEstado, [EstadoSolicitudInterna::Aprobada, EstadoSolicitudInterna::EnRevision], true)
             && ! $this->aprobaciones->tieneVistoBuenoJefe($solicitud)
         ) {
+            $faltan = implode(' y del ', array_map(
+                fn (array $n) => mb_strtolower($n['etiqueta']),
+                array_values(array_filter($this->aprobaciones->resumen($solicitud), fn (array $n) => $n['estado'] !== 'aprobado')),
+            ));
+
             throw ValidationException::withMessages([
-                'visto_bueno' => 'Falta el visto bueno del jefe inmediato del colaborador antes de autorizar.',
+                'visto_bueno' => "Falta el visto bueno del {$faltan} antes de pasarla a autorización.",
+            ]);
+        }
+
+        // Separación de funciones: el gerente/regional da el visto bueno; la
+        // autorización final es de Recursos Humanos.
+        if ($nuevoEstado === EstadoSolicitudInterna::Aprobada && $this->aprobaciones->esAprobadorDe($actor, $solicitud)) {
+            throw ValidationException::withMessages([
+                'visto_bueno' => 'Quien da el visto bueno no puede dar también la autorización final: le corresponde a Recursos Humanos.',
             ]);
         }
 
@@ -633,6 +653,43 @@ class SolicitudesService
             'Content-Type' => $documento->mime ?? 'application/octet-stream',
             'Content-Disposition' => 'inline; filename="'.$documento->original_name.'"',
         ]);
+    }
+
+    /**
+     * Resumen por tipo de solicitud para la pantalla de entrada de
+     * Operación RH → Solicitudes: cuántas hay recibidas (esperan visto
+     * bueno), pendientes de autorizar, en corrección, abiertas y del último
+     * mes, siempre dentro del alcance del usuario.
+     *
+     * @return list<array{clave: string, etiqueta: string, recibidas: int, por_autorizar: int, correccion: int, abiertas: int, ultimo_mes: int}>
+     */
+    public function resumenPorTipo(User $revisor): array
+    {
+        $filas = $this->limitarPorAlcance(SolicitudInterna::query(), $revisor)
+            ->whereNotIn('estado', [EstadoSolicitudInterna::Creada->value, EstadoSolicitudInterna::Cancelada->value])
+            ->selectRaw('tipo, estado, count(*) as total, sum(case when created_at >= ? then 1 else 0 end) as recientes', [now()->subDays(30)])
+            ->groupBy('tipo', 'estado')
+            ->toBase()
+            ->get();
+
+        $resumen = [];
+
+        foreach (TipoSolicitudInterna::cases() as $tipo) {
+            $delTipo = $filas->where('tipo', $tipo->value);
+            $cuenta = fn (EstadoSolicitudInterna $e): int => (int) ($delTipo->firstWhere('estado', $e->value)->total ?? 0);
+
+            $resumen[] = [
+                'clave' => $tipo->value,
+                'etiqueta' => $tipo->etiqueta(),
+                'recibidas' => $cuenta(EstadoSolicitudInterna::Enviada),
+                'por_autorizar' => $cuenta(EstadoSolicitudInterna::EnRevision),
+                'correccion' => $cuenta(EstadoSolicitudInterna::RequiereCorreccion),
+                'abiertas' => $cuenta(EstadoSolicitudInterna::Enviada) + $cuenta(EstadoSolicitudInterna::EnRevision) + $cuenta(EstadoSolicitudInterna::RequiereCorreccion),
+                'ultimo_mes' => (int) $delTipo->sum('recientes'),
+            ];
+        }
+
+        return $resumen;
     }
 
     /**

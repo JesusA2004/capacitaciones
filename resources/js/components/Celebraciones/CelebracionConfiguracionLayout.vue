@@ -45,26 +45,51 @@ function recargar(valor = Date.now()) {
     <div class="pagina-ancha flex flex-col gap-4">
         <div class="flex items-center gap-2">
             <Button as-child variant="ghost" size="icon-sm">
-                <Link :href="volverUrl" aria-label="Volver"><ArrowLeft class="size-4" /></Link>
+                <Link :href="volverUrl" aria-label="Volver"
+                    ><ArrowLeft class="size-4"
+                /></Link>
             </Button>
             <h1 class="text-lg font-semibold">{{ titulo }}</h1>
         </div>
 
-        <div class="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,30rem)] xl:gap-10">
+        <div
+            class="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,30rem)] xl:gap-10"
+        >
             <div class="flex min-w-0 flex-col gap-6">
                 <slot />
             </div>
 
-            <aside class="flex flex-col gap-2 lg:sticky lg:top-4" aria-label="Vista previa">
+            <aside
+                class="flex flex-col gap-2 lg:sticky lg:top-4"
+                aria-label="Vista previa"
+            >
                 <div class="flex items-center justify-between">
-                    <p class="text-sm font-medium">Vista previa <span class="font-normal text-muted-foreground">(datos de ejemplo)</span></p>
-                    <Button size="icon-sm" variant="ghost" aria-label="Actualizar vista previa" @click="recargar()">
+                    <p class="text-sm font-medium">
+                        Vista previa
+                        <span class="font-normal text-muted-foreground"
+                            >(datos de ejemplo)</span
+                        >
+                    </p>
+                    <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        aria-label="Actualizar vista previa"
+                        @click="recargar()"
+                    >
                         <RefreshCw class="size-4" />
                     </Button>
                 </div>
-                <div class="relative mx-auto aspect-[4/5] w-full max-w-md overflow-hidden rounded-xl border bg-muted/40">
-                    <Skeleton v-if="cargando && !error" class="absolute inset-0" />
-                    <div v-if="error" class="absolute inset-0 flex flex-col items-center justify-center gap-2 p-6 text-center text-sm text-muted-foreground">
+                <div
+                    class="relative mx-auto aspect-[4/5] w-full max-w-md overflow-hidden rounded-xl border bg-muted/40"
+                >
+                    <Skeleton
+                        v-if="cargando && !error"
+                        class="absolute inset-0"
+                    />
+                    <div
+                        v-if="error"
+                        class="absolute inset-0 flex flex-col items-center justify-center gap-2 p-6 text-center text-sm text-muted-foreground"
+                    >
                         <ImageOff class="size-8" />
                         No se pudo generar la vista previa.
                     </div>
@@ -86,19 +111,37 @@ function recargar(valor = Date.now()) {
                     <span class="font-medium">Imagen activa:</span>
                     <span
                         class="rounded-full px-2 py-0.5 font-medium"
-                        :class="fondoPropio ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'bg-muted text-muted-foreground'"
+                        :class="
+                            fondoPropio
+                                ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                                : 'bg-muted text-muted-foreground'
+                        "
                     >
-                        {{ fondoPropio ? 'Fondo propio subido por RH' : 'Diseño predeterminado' }}
+                        {{
+                            fondoPropio
+                                ? 'Fondo propio subido por RH'
+                                : 'Diseño predeterminado'
+                        }}
                     </span>
                 </p>
-                <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-lg border border-dashed bg-muted/30 p-3 text-xs">
-                    <dt class="col-span-2 mb-1 font-medium text-muted-foreground uppercase">Datos de ejemplo (no son reales)</dt>
+                <dl
+                    class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-lg border border-dashed bg-muted/30 p-3 text-xs"
+                >
+                    <dt
+                        class="col-span-2 mb-1 font-medium text-muted-foreground uppercase"
+                    >
+                        Datos de ejemplo (no son reales)
+                    </dt>
                     <template v-for="dato in datosEjemplo" :key="dato.etiqueta">
-                        <dt class="text-muted-foreground">{{ dato.etiqueta }}</dt>
+                        <dt class="text-muted-foreground">
+                            {{ dato.etiqueta }}
+                        </dt>
                         <dd class="min-w-0 truncate">{{ dato.valor }}</dd>
                     </template>
                 </dl>
-                <p class="text-xs text-muted-foreground">Refleja lo guardado. Guarda para ver tus cambios.</p>
+                <p class="text-xs text-muted-foreground">
+                    Refleja lo guardado. Guarda para ver tus cambios.
+                </p>
             </aside>
         </div>
     </div>

@@ -23,7 +23,9 @@ use Throwable;
  *
  *  - crea la evaluación de periodo de prueba (una por contrato: índice único),
  *  - abre las tareas "contrato por vencer" y "evaluación pendiente",
- *  - notifica al jefe inmediato y a RH,
+ *  - avisa al evaluador (regla "evaluacion_pendiente") y que ya se debe
+ *    renovar el contrato (regla "contrato_por_vencer": RH, gerencia de su
+ *    sucursal, su regional y la Gerencia de RH),
  *  - marca aviso_vencimiento_en para no volver a notificar.
  *
  * Idempotente: puede correr varias veces al día o en paralelo sin duplicar
@@ -142,15 +144,36 @@ class VencimientoContratosService
 
         $mensaje = "El contrato de {$nombre} vence el {$vence}. La evaluación de periodo de prueba ya está habilitada.";
 
-        if ($evaluadorUsuario !== null) {
-            $this->notificador->notificar([$evaluadorUsuario], 'evaluacion_pendiente', 'Evaluación de periodo de prueba pendiente', $mensaje, $evaluacion, 'capturar_evaluacion', 'alta');
+        // Evaluador (o, si no hay, su jefe/gerente según la regla).
+        $avisados = $this->notificador->notificarEvento(
+            'evaluacion_pendiente',
+            $colaborador,
+            ['evaluador' => $evaluadorUsuario],
+            'Evaluación de periodo de prueba pendiente',
+            $mensaje,
+            $evaluacion,
+            'capturar_evaluacion',
+            'alta',
+        );
+
+        $colaborador->loadMissing('puesto');
+        $duracion = '';
+
+        if ($contrato->fecha_fin !== null) {
+            $meses = max(1, (int) round($contrato->fecha_inicio->diffInMonths($contrato->fecha_fin->copy()->addDay())));
+            $duracion = sprintf(' (contrato de %d %s%s)', $meses, $meses === 1 ? 'mes' : 'meses', $colaborador->puesto !== null ? ' como '.$colaborador->puesto->nombre : '');
         }
 
-        $this->notificador->notificar(
-            $this->notificador->responsablesDe($colaborador, self::PERMISO_RH),
+        // "Ya se debe renovar el contrato": por defecto RH con alcance y
+        // SIEMPRE la gerencia de su sucursal, su regional y la Gerencia de
+        // RH (regla "contrato_por_vencer"), sin repetir a quien ya recibió
+        // el aviso de evaluar.
+        $this->notificador->notificarEvento(
             'contrato_por_vencer',
-            'Contrato próximo a vencer',
-            $mensaje,
+            $colaborador,
+            ['excluir' => array_values($avisados->map(fn ($usuario) => $usuario->id)->all())],
+            'Ya se debe renovar el contrato',
+            "El contrato de {$nombre}{$duracion} vence el {$vence}. Recuerden evaluar el periodo de prueba y decidir la renovación.",
             $contrato,
             'revisar_vencimiento',
             'alta',

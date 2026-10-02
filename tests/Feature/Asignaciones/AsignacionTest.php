@@ -132,7 +132,7 @@ test('al crear un colaborador nuevo se le aplican las asignaciones vigentes de s
 
     Notification::fake();
 
-    $candidato = Candidato::factory()->create(['estado' => 'listo_para_contratacion']);
+    $candidato = Candidato::factory()->create(['estado' => 'autorizado_rh']);
     $alta = AltaDigital::factory()->create([
         'candidato_id' => $candidato->id,
         'sucursal_id' => $sucursal->id,

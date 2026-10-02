@@ -41,15 +41,18 @@ class EquipoController extends Controller
     {
         $yo = $this->colaborador($request);
 
+        // Solicitudes "Recibidas" donde a MÍ me toca el siguiente visto bueno
+        // (gerente de su sucursal o regional de su región).
         $solicitudes = SolicitudInterna::query()
-            ->whereIn('estado', [EstadoSolicitudInterna::Enviada->value, EstadoSolicitudInterna::EnRevision->value])
-            ->where(fn (Builder $q) => $q
-                ->whereHas('colaborador', fn (Builder $c) => $c->where('jefe_id', $yo->id)->orWhere('gerente_id', $yo->id))
-                ->orWhereHas('usuario.colaborador', fn (Builder $c) => $c->where('jefe_id', $yo->id)->orWhere('gerente_id', $yo->id)))
-            ->with(['colaborador:id,name,apellidos,numero_empleado,jefe_id,gerente_id', 'usuario.colaborador:id,name,apellidos,numero_empleado,jefe_id,gerente_id', 'aprobaciones'])
+            ->where('estado', EstadoSolicitudInterna::Enviada->value)
+            ->whereIn('tipo', (array) config('solicitudes.visto_bueno_jefe', []))
+            ->with(['colaborador:id,name,apellidos,numero_empleado,jefe_id,gerente_id,sucursal_principal_id', 'usuario.colaborador:id,name,apellidos,numero_empleado,jefe_id,gerente_id,sucursal_principal_id', 'aprobaciones'])
             ->orderBy('created_at')
-            ->limit(200)
-            ->get();
+            ->limit(500)
+            ->get()
+            ->filter(fn (SolicitudInterna $s) => $this->aprobaciones->puedeDarVistoBueno($request->user(), $s))
+            ->take(200)
+            ->values();
 
         $evaluaciones = EvaluacionPeriodoPrueba::query()
             ->whereIn('estado', [EstadoEvaluacionPrueba::Pendiente->value, EstadoEvaluacionPrueba::Devuelta->value])
@@ -71,6 +74,7 @@ class EquipoController extends Controller
                 'monto_solicitado' => $s->monto_solicitado,
                 'requiere_visto_bueno' => $this->aprobaciones->requiereVistoBuenoJefe($s),
                 'visto_bueno' => $this->aprobaciones->decisionJefe($s)?->decision,
+                'vistos_buenos' => $this->aprobaciones->resumen($s),
                 'creada_en' => $s->created_at?->toIso8601String(),
             ])->values(),
             'evaluaciones' => $evaluaciones->map(fn (EvaluacionPeriodoPrueba $e) => [
@@ -84,7 +88,7 @@ class EquipoController extends Controller
 
     public function vistoBueno(DecisionRequest $request, SolicitudInterna $solicitud): JsonResponse
     {
-        abort_unless($this->aprobaciones->puedeDarVistoBueno($request->user(), $solicitud), 403, 'Solo el jefe inmediato o gerente del colaborador puede dar el visto bueno.');
+        abort_unless($this->aprobaciones->esAprobadorDe($request->user(), $solicitud), 403, 'Este visto bueno no te corresponde (va primero el gerente de la sucursal y después el regional).');
         $request->validate(['aprobado' => ['required', 'boolean']]);
 
         $decision = $this->vistoBueno->registrar($solicitud, $request->user(), $request->boolean('aprobado'), $request->validated('comentario'));

@@ -42,5 +42,12 @@ class DocumentTypeSeeder extends Seeder
                 [...$tipo, 'activo' => true],
             );
         }
+
+        // Vigencia (meses) de los documentos que caducan: en un reingreso se
+        // vuelven a pedir si ya vencieron. Solo llena lo vacío: RH lo ajusta
+        // en Configuración → Parámetros de RH sin que el seeder lo pise.
+        foreach (['comprobante_domicilio' => 3, 'estado_cuenta' => 3] as $clave => $meses) {
+            DocumentType::query()->where('clave', $clave)->whereNull('vigencia_meses')->update(['vigencia_meses' => $meses]);
+        }
     }
 }

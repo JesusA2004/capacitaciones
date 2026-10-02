@@ -224,6 +224,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('{solicitud}/documentos/{documento}/ver', [SolicitudController::class, 'verDocumento'])->name('documentos.ver');
             Route::post('{solicitud}/revisar', [SolicitudController::class, 'revisar'])->name('revisar');
             Route::post('{solicitud}/requerir-correccion', [SolicitudController::class, 'requerirCorreccion'])->name('requerir-correccion');
+            Route::post('{solicitud}/visto-bueno', [SolicitudController::class, 'vistoBueno'])->name('visto-bueno');
             Route::post('{solicitud}/aprobar', [SolicitudController::class, 'aprobar'])->name('aprobar');
             Route::post('{solicitud}/rechazar', [SolicitudController::class, 'rechazar'])->name('rechazar');
             Route::post('{solicitud}/cerrar', [SolicitudController::class, 'cerrar'])->name('cerrar');

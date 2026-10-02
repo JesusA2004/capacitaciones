@@ -23,6 +23,7 @@ class OperacionDocumentoRequest extends FormRequest
     {
         return [
             'observaciones' => ['nullable', 'string', 'max:1000'],
+            'fecha' => ['nullable', 'date', 'before_or_equal:now'],
             'huella_registrada' => ['sometimes', 'boolean'],
             'testigos' => ['nullable', 'array', 'max:5'],
             'testigos.*.nombre' => ['required_with:testigos', 'string', 'max:160'],

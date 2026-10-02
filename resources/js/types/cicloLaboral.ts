@@ -31,7 +31,14 @@ export type AprobacionItem = {
     etapa: 'preautorizacion' | 'autorizacion_rh' | string;
     etapa_etiqueta: string;
     ronda: number;
-    estado: 'pendiente' | 'aprobado' | 'rechazado' | 'devuelto' | 'omitido' | 'cancelado' | string;
+    estado:
+        | 'pendiente'
+        | 'aprobado'
+        | 'rechazado'
+        | 'devuelto'
+        | 'omitido'
+        | 'cancelado'
+        | string;
     estado_etiqueta: string;
     decision: string | null;
     comentario: string | null;
@@ -47,7 +54,11 @@ export type ResumenAprobaciones = {
     ronda: number;
     preautorizacion: AprobacionItem | null;
     autorizacion_rh: AprobacionItem | null;
-    pendiente: { etapa: string; etapa_etiqueta: string; aprobador: string | null } | null;
+    pendiente: {
+        etapa: string;
+        etapa_etiqueta: string;
+        aprobador: string | null;
+    } | null;
     autorizado_rh: boolean;
     historial: AprobacionItem[];
 };
@@ -186,7 +197,13 @@ export type ModuloOnboarding = {
     tipo_etiqueta: string;
     orden: number;
     obligatorio: boolean;
-    estado: 'bloqueado' | 'disponible' | 'requiere_refuerzo' | 'reevaluacion_habilitada' | 'aprobado' | string;
+    estado:
+        | 'bloqueado'
+        | 'disponible'
+        | 'requiere_refuerzo'
+        | 'reevaluacion_habilitada'
+        | 'aprobado'
+        | string;
     estado_etiqueta: string;
     calificacion_minima: number;
     ultima_calificacion: number | null;
@@ -249,7 +266,11 @@ export type TareaBandeja = {
     related_type: string | null;
     related_id: number | null;
     candidato: { id: number; nombre: string } | null;
-    colaborador: { id: number; nombre: string; numero_empleado: string | null } | null;
+    colaborador: {
+        id: number;
+        nombre: string;
+        numero_empleado: string | null;
+    } | null;
     sucursal: string | null;
     antiguedad_dias: number;
     vencida: boolean;
@@ -262,18 +283,45 @@ export type TareaBandeja = {
 
 export type TableroRhDatos = {
     summary: {
-        plantilla_activa: { valor: number; autorizada: number; porcentaje: number };
-        vacantes_abiertas: { valor: number; sucursales: number; corporativo: number };
-        rotacion_mes: { porcentaje: number; bajas: number; plantilla_promedio: number };
-        costo_por_contratacion: { valor: number | null; inversion: number; contratados: number };
+        plantilla_activa: {
+            valor: number;
+            autorizada: number;
+            porcentaje: number;
+        };
+        vacantes_abiertas: {
+            valor: number;
+            sucursales: number;
+            corporativo: number;
+        };
+        rotacion_mes: {
+            porcentaje: number;
+            bajas: number;
+            plantilla_promedio: number;
+        };
+        costo_por_contratacion: {
+            valor: number | null;
+            inversion: number;
+            contratados: number;
+        };
         tiempo_contratacion: { dias: number | null; contratados: number };
         permanencia_promedio: { meses: number | null; colaboradores: number };
         contratos_por_vencer: { valor: number; dias: number };
         inversion_campanas_mes: { valor: number; campanas: number };
     };
     recruitment_funnel: { clave: string; etiqueta: string; total: number }[];
-    time_to_hire_by_level: { clave: string; etiqueta: string; dias: number | null; contratados: number }[];
-    turnover_monthly: { mes: string; etiqueta: string; bajas: number; plantilla_promedio: number; porcentaje: number }[];
+    time_to_hire_by_level: {
+        clave: string;
+        etiqueta: string;
+        dias: number | null;
+        contratados: number;
+    }[];
+    turnover_monthly: {
+        mes: string;
+        etiqueta: string;
+        bajas: number;
+        plantilla_promedio: number;
+        porcentaje: number;
+    }[];
     filters: {
         mes: string;
         periodo_etiqueta: string;
@@ -281,4 +329,62 @@ export type TableroRhDatos = {
         sucursales: { id: number; nombre: string }[];
     };
     generated_at: string;
+};
+
+/**
+ * Valor de un formulario dinámico de acción del ciclo (los campos dependen
+ * de la acción elegida). Tipo cerrado para que useForm no tenga que inferir
+ * el FormDataConvertible recursivo de Inertia.
+ */
+export type CampoFormularioAccion =
+    | string
+    | number
+    | boolean
+    | null
+    | File
+    | File[]
+    | number[]
+    | Record<string, string | number | boolean | null>
+    | Record<string, string | number | boolean | null>[];
+
+export type FormularioAccion = Record<string, CampoFormularioAccion>;
+
+/**
+ * "Mi espacio" del colaborador (CicloLaboralService::misPendientes): solo
+ * lo que le toca hacer o esperar, en lenguaje llano. Nunca expone los
+ * nombres internos de las etapas (contratación, onboarding, periodo de
+ * prueba): RH le va dando cada paso.
+ */
+export type PendientePersonal = {
+    clave: string;
+    titulo: string;
+    descripcion: string;
+    tipo: 'accion' | 'espera';
+    accion: { etiqueta: string; href: string } | null;
+    detalle: string[];
+};
+
+export type LeccionBienvenida = {
+    avance_id: number;
+    titulo: string;
+    descripcion: string | null;
+    estado: 'bloqueada' | 'disponible' | 'en_espera' | 'aprobada';
+    contenido_url: string | null;
+    contenido: string | null;
+    preguntas: { indice: number; pregunta: string; opciones: string[] }[];
+    puede_presentar: boolean;
+    retroalimentacion: string | null;
+    calificacion: number | null;
+    calificacion_minima: number;
+};
+
+export type MisPendientes = {
+    pendientes: PendientePersonal[];
+    lecciones: LeccionBienvenida[];
+    documentos: {
+        requeridos: number;
+        aprobados: number;
+        faltantes: number;
+    } | null;
+    todo_listo: boolean;
 };

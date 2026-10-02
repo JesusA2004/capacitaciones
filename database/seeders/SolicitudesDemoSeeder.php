@@ -74,7 +74,10 @@ class SolicitudesDemoSeeder extends Seeder
                     'fecha_inicio' => now()->subDays(5)->toDateString(),
                     'fecha_fin' => now()->subDays(5)->toDateString(),
                 ]);
-                $servicio->aprobar($solicitud, $rhAdmin, 'Aprobado sin observaciones.');
+
+                if ($this->darVistosBuenos($solicitud)) {
+                    $servicio->aprobar($solicitud->refresh(), $rhAdmin, 'Aprobado sin observaciones.');
+                }
             });
         }
 
@@ -106,14 +109,8 @@ class SolicitudesDemoSeeder extends Seeder
                 // bueno del jefe inmediato antes de la autorización de RH
                 // (config solicitudes.visto_bueno_jefe). Sin jefe con cuenta,
                 // la solicitud se queda en trámite en vez de saltarse el paso.
-                if (app(AprobacionJerarquicaService::class)->requiereVistoBuenoJefe($solicitud)) {
-                    $jefe = $solicitud->personaSolicitante()?->jefe?->user;
-
-                    if ($jefe === null) {
-                        return;
-                    }
-
-                    app(VistoBuenoService::class)->registrar($solicitud, $jefe, true, 'Visto bueno del jefe inmediato.');
+                if (! $this->darVistosBuenos($solicitud)) {
+                    return;
                 }
 
                 // Un préstamo nunca se aprueba con el botón genérico (ver
@@ -192,6 +189,28 @@ class SolicitudesDemoSeeder extends Seeder
                 $servicio->cerrar($solicitud->fresh(), $rhAdmin, 'Trámite concluido.');
             });
         }
+    }
+
+    /**
+     * Mismo flujo real: gerente de la sucursal y luego regional dan su
+     * visto bueno (AprobacionJerarquicaService). false si falta alguien que
+     * pueda darlo: la solicitud se queda "Recibida" en vez de saltarse el paso.
+     */
+    private function darVistosBuenos(SolicitudInterna $solicitud): bool
+    {
+        $aprobaciones = app(AprobacionJerarquicaService::class);
+
+        for ($i = 0; $i < 3 && $aprobaciones->nivelPendiente($solicitud->refresh()) !== null; $i++) {
+            $aprobador = $aprobaciones->aprobadoresPendientes($solicitud)->first();
+
+            if ($aprobador === null) {
+                return false;
+            }
+
+            app(VistoBuenoService::class)->registrar($solicitud, $aprobador, true, 'Visto bueno (demo).');
+        }
+
+        return $aprobaciones->tieneVistoBuenoJefe($solicitud->refresh());
     }
 
     private function crearSiNoExiste(string $motivoUnico, Closure $crear): void

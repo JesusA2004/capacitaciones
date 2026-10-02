@@ -73,7 +73,7 @@ class TableroRhService
             'turnover_monthly' => $this->rotacionMensual($sucursales, $fin),
             'filters' => [
                 'mes' => $mes->format('Y-m'),
-                'periodo_etiqueta' => ucfirst($mes->locale('es')->translatedFormat('F Y')),
+                'periodo_etiqueta' => ucfirst($mes->settings(['locale' => 'es'])->translatedFormat('F Y')),
                 'sucursal_id' => $sucursalFiltro,
                 'sucursales' => Sucursal::query()->whereIn('id', $visibles)->orderBy('nombre')->get(['id', 'nombre'])
                     ->map(fn (Sucursal $s) => ['id' => $s->id, 'nombre' => $s->nombre])->values()->all(),
@@ -213,7 +213,7 @@ class TableroRhService
 
             $meses[] = [
                 'mes' => $mes->format('Y-m'),
-                'etiqueta' => ucfirst($mes->locale('es')->translatedFormat('M')),
+                'etiqueta' => ucfirst($mes->settings(['locale' => 'es'])->translatedFormat('M')),
                 'bajas' => $bajas,
                 'plantilla_promedio' => round($promedio, 1),
                 'porcentaje' => $promedio > 0 ? round($bajas / $promedio * 100, 1) : 0.0,

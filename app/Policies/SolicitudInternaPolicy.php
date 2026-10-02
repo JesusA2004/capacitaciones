@@ -6,6 +6,7 @@ use App\Models\Colaborador;
 use App\Models\SolicitudInterna;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Solicitudes\AprobacionJerarquicaService;
 
 /**
  * No usa los verbos CRUD por defecto de Laravel: cada método representa una
@@ -57,7 +58,10 @@ class SolicitudInternaPolicy
 
     public function aprobar(User $usuario, SolicitudInterna $solicitud): bool
     {
-        return $usuario->can('solicitudes.aprobar') && $this->revisar($usuario, $solicitud);
+        return $usuario->can('solicitudes.aprobar')
+            && $this->revisar($usuario, $solicitud)
+            // Gerente/regional dan visto bueno; la autorización final es de RH.
+            && ! app(AprobacionJerarquicaService::class)->esAprobadorDe($usuario, $solicitud);
     }
 
     public function rechazar(User $usuario, SolicitudInterna $solicitud): bool

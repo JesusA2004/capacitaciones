@@ -110,7 +110,7 @@ test('el tablero solo trae estados gestionables y excluye canceladas', function 
     $enviada = SolicitudInterna::factory()->create(['estado' => 'enviada']);
 
     $this->actingAs($rh)
-        ->get(route('rh.solicitudes.index'))
+        ->get(route('rh.solicitudes.index', ['todas' => 1]))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('Rh/Solicitudes/Index')
@@ -128,7 +128,7 @@ test('si hay más solicitudes activas que el límite del tablero, el resumen exp
     SolicitudInterna::factory()->count(3)->create(['estado' => 'enviada']);
 
     $this->actingAs($rh)
-        ->get(route('rh.solicitudes.index'))
+        ->get(route('rh.solicitudes.index', ['todas' => 1]))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->where('solicitudesResumen.total', 3)
@@ -161,4 +161,27 @@ test('no se puede mover una solicitud rechazada directo a aprobada', function ()
         ->assertSessionHasErrors('estado');
 
     expect($solicitud->fresh()->estado->value)->toBe('rechazada');
+});
+
+test('la entrada de Solicitudes agrupa por tipo y cada tipo abre el tablero ya filtrado', function () {
+    $rh = User::factory()->create();
+    $rh->assignRole('rh_admin');
+
+    SolicitudInterna::factory()->count(2)->create(['tipo' => 'prestamo', 'estado' => 'enviada']);
+    SolicitudInterna::factory()->create(['tipo' => 'prestamo', 'estado' => 'en_revision']);
+    SolicitudInterna::factory()->create(['tipo' => 'vacaciones', 'estado' => 'cancelada']);
+
+    $this->actingAs($rh)
+        ->get(route('rh.solicitudes.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Rh/Solicitudes/Tipos')
+            ->where('tipos', fn ($tipos) => collect($tipos)->firstWhere('clave', 'prestamo')['recibidas'] === 2
+                && collect($tipos)->firstWhere('clave', 'prestamo')['por_autorizar'] === 1
+                && collect($tipos)->firstWhere('clave', 'vacaciones')['abiertas'] === 0));
+
+    $this->actingAs($rh)
+        ->get(route('rh.solicitudes.index', ['tipo' => 'prestamo']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Rh/Solicitudes/Index')->where('filtros.tipo', 'prestamo')->has('solicitudes', 3));
 });

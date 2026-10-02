@@ -23,8 +23,7 @@
         >
             MR. LANA <span class="text-[var(--brand-primary)]">PEOPLE</span>
         </span>
-        <span
-            class="truncate text-[11px] leading-tight text-muted-foreground"
+        <span class="truncate text-[11px] leading-tight text-muted-foreground"
             >Reclutamiento, Personal y RH</span
         >
     </div>

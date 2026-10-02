@@ -156,17 +156,11 @@ async function enviar() {
             <div class="grid grid-cols-2 gap-4">
                 <div class="grid gap-2">
                     <Label for="fecha_inicio">Fecha de inicio</Label>
-                    <DatePicker
-                        id="fecha_inicio"
-                        v-model="form.fecha_inicio"
-                    />
+                    <DatePicker id="fecha_inicio" v-model="form.fecha_inicio" />
                 </div>
                 <div class="grid gap-2">
                     <Label for="fecha_limite">Fecha límite</Label>
-                    <DatePicker
-                        id="fecha_limite"
-                        v-model="form.fecha_limite"
-                    />
+                    <DatePicker id="fecha_limite" v-model="form.fecha_limite" />
                     <InputError :message="form.errors.fecha_limite" />
                 </div>
             </div>

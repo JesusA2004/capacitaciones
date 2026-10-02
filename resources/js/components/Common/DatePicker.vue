@@ -9,7 +9,11 @@ import { Calendar as CalendarIcon } from '@lucide/vue';
 import { computed } from 'vue';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 
 /**
@@ -39,7 +43,9 @@ const emit = defineEmits<{
 
 const formateador = new DateFormatter('es-MX', { dateStyle: 'long' });
 
-function aFechaCalendario(valor: string | null | undefined): CalendarDate | undefined {
+function aFechaCalendario(
+    valor: string | null | undefined,
+): CalendarDate | undefined {
     if (!valor) {
         return undefined;
     }

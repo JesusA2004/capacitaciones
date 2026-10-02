@@ -198,6 +198,34 @@ class TareaService
     }
 
     /**
+     * Distribución de los pendientes abiertos del ciclo (para las gráficas
+     * de "Mis pendientes"): por etapa y por prioridad.
+     *
+     * @return array{por_etapa: list<array{clave: string, etiqueta: string, total: int}>, por_prioridad: list<array{clave: string, etiqueta: string, total: int}>}
+     */
+    public function distribucion(User $usuario): array
+    {
+        $tareas = $this->queryBandeja($usuario, ['estado' => 'abiertas', 'solo_ciclo' => true])->get(['id', 'tipo', 'prioridad']);
+
+        $porEtapa = [];
+
+        foreach ($tareas->groupBy(fn (TareaRh $t) => $t->tipo->etapa()->value ?? 'otros') as $clave => $grupo) {
+            $etapa = EtapaCicloLaboral::tryFrom((string) $clave);
+            $porEtapa[] = ['clave' => (string) $clave, 'etiqueta' => $etapa?->etiqueta() ?? 'Otros', 'total' => $grupo->count()];
+        }
+
+        usort($porEtapa, fn (array $a, array $b) => $b['total'] <=> $a['total']);
+
+        $porPrioridad = array_map(fn (PrioridadTarea $p) => [
+            'clave' => $p->value,
+            'etiqueta' => $p->etiqueta(),
+            'total' => $tareas->filter(fn (TareaRh $t) => $t->prioridad === $p)->count(),
+        ], array_reverse(PrioridadTarea::cases()));
+
+        return ['por_etapa' => $porEtapa, 'por_prioridad' => $porPrioridad];
+    }
+
+    /**
      * @param  array{estado?: string|null, tipo?: string|null, etapa?: string|null, sucursal_id?: int|string|null, urgencia?: string|null, solo_ciclo?: bool|null}  $filtros
      * @return Builder<TareaRh>
      */

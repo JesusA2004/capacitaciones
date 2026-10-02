@@ -29,10 +29,11 @@ class IncorporacionDecididaNotification extends Notification implements ShouldQu
     {
         return [
             'tipo' => 'incorporacion',
-            'titulo' => $this->aprobada ? 'Incorporación aprobada' : 'Incorporación rechazada',
+            // Lenguaje llano para la persona: nunca nombres de etapas internas.
+            'titulo' => $this->aprobada ? 'Tus documentos fueron aprobados' : 'Revisa tus documentos',
             'mensaje' => $this->aprobada
-                ? 'Tu incorporación fue aprobada. Ya tienes acceso completo.'
-                : 'Tu incorporación fue rechazada. Revisa los detalles en la app.',
+                ? 'Recursos Humanos aprobó tus documentos. En tu portal verás lo que sigue.'
+                : 'Recursos Humanos te pidió revisar tus documentos. Entra a tu portal para ver qué corregir.',
             'url' => null,
             'type' => 'incorporacion',
             'resource_id' => $notifiable->id,

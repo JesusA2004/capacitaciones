@@ -67,7 +67,9 @@ watch(
     () => form.vacante_id,
     () => {
         if (vacanteSeleccionada.value?.puesto_id) {
-            form.puesto_objetivo_id = String(vacanteSeleccionada.value.puesto_id);
+            form.puesto_objetivo_id = String(
+                vacanteSeleccionada.value.puesto_id,
+            );
         }
     },
 );
@@ -161,7 +163,10 @@ function enviar() {
                         </SelectContent>
                     </Select>
                 </div>
-                <div v-else class="rounded-lg border border-border/60 bg-muted/40 px-3 py-2 text-sm">
+                <div
+                    v-else
+                    class="rounded-lg border border-border/60 bg-muted/40 px-3 py-2 text-sm"
+                >
                     <span class="text-muted-foreground">Sucursal: </span>
                     <span class="font-medium">{{
                         vacanteSeleccionada?.sucursal?.nombre ?? '—'

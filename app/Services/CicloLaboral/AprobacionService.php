@@ -10,6 +10,7 @@ use App\Models\Candidato;
 use App\Models\Colaborador;
 use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
@@ -437,9 +438,9 @@ class AprobacionService
     }
 
     /**
-     * @return \Illuminate\Database\Eloquent\Builder<Aprobacion>
+     * @return Builder<Aprobacion>
      */
-    private function query(Model $aprobable, ProcesoAprobacion $proceso): \Illuminate\Database\Eloquent\Builder
+    private function query(Model $aprobable, ProcesoAprobacion $proceso): Builder
     {
         return Aprobacion::query()
             ->where('aprobable_type', $aprobable->getMorphClass())

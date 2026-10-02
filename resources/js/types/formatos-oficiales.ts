@@ -130,8 +130,17 @@ export type PreparacionFormato = {
     version: number;
     puede_generar: boolean;
     motivo: string | null;
-    faltantes: { variable: string; etiqueta: string; completar_url: string | null }[];
-    manuales: { clave: string; etiqueta: string; requerido: boolean; valor: string }[];
+    faltantes: {
+        variable: string;
+        etiqueta: string;
+        completar_url: string | null;
+    }[];
+    manuales: {
+        clave: string;
+        etiqueta: string;
+        requerido: boolean;
+        valor: string;
+    }[];
     contextos_faltantes: string[];
     datos: { etiqueta: string; valor: string }[];
     contextos?: {

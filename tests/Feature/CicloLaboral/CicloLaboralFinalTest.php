@@ -7,7 +7,6 @@ use App\Enums\EstadoCandidato;
 use App\Enums\EstadoCierreLaboral;
 use App\Enums\EstadoContratoLaboral;
 use App\Enums\EstadoDocumento;
-use App\Enums\EstadoEvaluacionPrueba;
 use App\Enums\EstadoOnboarding;
 use App\Enums\EstadoReingreso;
 use App\Enums\EstadoUsuario;
@@ -34,9 +33,12 @@ use App\Models\Sucursal;
 use App\Models\TareaRh;
 use App\Models\TipoActivo;
 use App\Models\User;
+use App\Services\CicloLaboral\AprobacionService;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\CicloLaboral\ReingresoService;
 use App\Services\CierreLaboral\CierreLaboralService;
+use App\Services\Colaboradores\IdentidadColaboradorService;
+use App\Services\Contratos\ContratoLaboralService;
 use App\Services\Contratos\EvaluacionPeriodoPruebaService;
 use App\Services\Contratos\VencimientoContratosService;
 use App\Services\DocumentosLaborales\FlujoDocumentalService;
@@ -45,6 +47,7 @@ use App\Services\Incorporacion\IncorporacionService;
 use App\Services\Onboarding\OnboardingService;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
 use App\Services\Reclutamiento\ContratacionCandidatoService;
+use App\Services\Tareas\TareaService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Carbon;
@@ -465,10 +468,17 @@ test('G: cierre — gerente solicita, RH autoriza, finiquito, regional programa,
     expect(fn () => $cierres->cerrar($cierre, $this->rh))->toThrow(ValidationException::class);
 
     Carbon::setTestNow(now()->addDays(3));
+
+    // El scheduler abre UN pendiente "concluir cierre" aunque corra varias veces.
+    $this->artisan('cierres:revisar-fechas')->assertSuccessful();
+    $this->artisan('cierres:revisar-fechas')->assertSuccessful();
+    expect(TareaRh::query()->where('tipo', TipoTarea::CierrePorConcluir->value)->where('relacionado_id', $cierre->id)->whereNull('resuelta_en')->count())->toBe(1);
+
     $this->actingAs($this->rh);
     $cierre = $cierres->cerrar($cierre->refresh(), $this->rh);
 
     expect($cierre->estado)->toBe(EstadoCierreLaboral::ExpedienteCerrado)
+        ->and(TareaRh::query()->where('relacionado_id', $cierre->id)->where('tipo', TipoTarea::CierrePorConcluir->value)->whereNull('resuelta_en')->count())->toBe(0)
         ->and(Colaborador::withTrashed()->find($colaborador->id))->not->toBeNull()
         ->and(Colaborador::withTrashed()->find($colaborador->id)->estatus)->toBe(EstadoUsuario::Inactivo)
         ->and(User::query()->find($usuario->id))->not->toBeNull();
@@ -490,7 +500,7 @@ test('H: reingreso reutiliza al mismo colaborador y pide solo lo vencido o falta
     $colaborador->delete();
 
     // Un alta nueva con la misma CURP se bloquea: es un reingreso.
-    expect(fn () => app(\App\Services\Colaboradores\IdentidadColaboradorService::class)->validarNoDuplicado(['curp' => 'REIN900101HDFPRN01']))->toThrow(ValidationException::class);
+    expect(fn () => app(IdentidadColaboradorService::class)->validarNoDuplicado(['curp' => 'REIN900101HDFPRN01']))->toThrow(ValidationException::class);
     $this->actingAs($this->rh);
     $encontrados = app(ReingresoService::class)->buscar('REIN900101HDFPRN01', $this->rh);
     expect($encontrados)->toHaveCount(1)
@@ -524,7 +534,7 @@ test('I: un gerente de la sucursal A no ve ni opera candidatos ni bajas de la su
     $colaboradorB = Colaborador::factory()->create(['sucursal_principal_id' => $this->sucursalB->id, 'estatus' => EstadoUsuario::Activo, 'estado_alta' => EstadoAltaColaborador::Activo]);
     expect(fn () => app(CierreLaboralService::class)->solicitar($colaboradorB, ['tipo_baja' => 'renuncia', 'motivo' => 'x', 'fecha_efectiva' => now()->toDateString()], $this->gerenteA))->toThrow(AuthorizationException::class);
 
-    $bandejaA = collect(app(\App\Services\Tareas\TareaService::class)->bandeja($this->gerenteA)->items());
+    $bandejaA = collect(app(TareaService::class)->bandeja($this->gerenteA)->items());
     expect($bandejaA->pluck('candidato_id')->filter()->all())->not->toContain($candidatoB->id);
 });
 
@@ -552,7 +562,7 @@ test('el motor de aprobaciones no permite saltar RH ni que el mismo usuario prea
     expect(fn () => app(CandidatoWorkflowService::class)->autorizarRh($candidato, $this->gerenteA, null))->toThrow(ValidationException::class)
         ->and(Aprobacion::query()->where('candidato_id', $candidato->id)->where('estado', EstadoAprobacion::Pendiente->value)->value('etapa'))->toBe(EtapaAprobacion::AutorizacionRh);
 
-    $resumen = app(\App\Services\CicloLaboral\AprobacionService::class)->resumen($candidato, ProcesoAprobacion::SeleccionCandidato);
+    $resumen = app(AprobacionService::class)->resumen($candidato, ProcesoAprobacion::SeleccionCandidato);
     expect($resumen['preautorizacion']['decidido_por'])->toBe($this->gerenteA->nombreCompleto())
         ->and($resumen['autorizado_rh'])->toBeFalse();
 });
@@ -593,7 +603,7 @@ test('el estado de la persona expone responsable, siguiente acción y pasos sin 
 
 test('los puestos determinan la duración del periodo de prueba', function () {
     $gerencia = Puesto::factory()->create(['meses_periodo_prueba' => 3]);
-    $fin = app(\App\Services\Contratos\ContratoLaboralService::class)->fechaFinPeriodoPrueba($gerencia->id, Carbon::parse('2026-10-01'));
+    $fin = app(ContratoLaboralService::class)->fechaFinPeriodoPrueba($gerencia->id, Carbon::parse('2026-10-01'));
 
     expect($fin->toDateString())->toBe('2026-12-31');
 });

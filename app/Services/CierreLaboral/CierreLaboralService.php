@@ -902,9 +902,7 @@ class CierreLaboralService
                     'permiso' => $aprobador === null ? OrganizacionJerarquiaService::PERMISO_PREAUTORIZAR : null,
                     'accion' => 'preautorizar_cierre',
                 ]);
-                if ($aprobador !== null) {
-                    $this->notificador->notificar([$aprobador], 'cierre_preautorizacion', 'Baja por preautorizar', "Se solicitó la baja de {$nombre} ({$cierre->tipo_baja->etiqueta()}).", $cierre, 'preautorizar_cierre', 'alta');
-                }
+                $this->notificador->notificarEvento('cierre_preautorizacion', $colaborador, ['aprobador' => $aprobador], 'Baja por preautorizar', "Se solicitó la baja de {$nombre} ({$cierre->tipo_baja->etiqueta()}).", $cierre, 'preautorizar_cierre', 'alta');
                 break;
             case EstadoCierreLaboral::PendienteRh:
                 $this->tareas->abrir(TipoTarea::CierreAutorizacionRh, $cierre, [...$base,
@@ -913,7 +911,7 @@ class CierreLaboralService
                     'permiso' => OrganizacionJerarquiaService::PERMISO_AUTORIZAR_RH,
                     'accion' => 'autorizar_cierre',
                 ]);
-                $this->notificador->notificar($this->notificador->responsablesDe($colaborador, OrganizacionJerarquiaService::PERMISO_AUTORIZAR_RH), 'cierre_autorizacion_rh', 'Baja pendiente de tu autorización', "La baja de {$nombre} está preautorizada.", $cierre, 'autorizar_cierre', 'alta');
+                $this->notificador->notificarEvento('cierre_autorizacion_rh', $colaborador, [], 'Baja pendiente de tu autorización', "La baja de {$nombre} está preautorizada.", $cierre, 'autorizar_cierre', 'alta');
                 break;
             case EstadoCierreLaboral::Iniciado:
             case EstadoCierreLaboral::AvisoRegistrado:
@@ -936,7 +934,7 @@ class CierreLaboralService
                     'permiso' => self::PERMISO_PROGRAMAR_PAGO,
                     'accion' => 'programar_pago',
                 ]);
-                $this->notificador->notificar($this->notificador->responsablesDe($colaborador, self::PERMISO_PROGRAMAR_PAGO), 'pago_por_programar', 'Pago de finiquito por programar', "El finiquito de {$nombre} está autorizado.", $cierre, 'programar_pago', 'alta');
+                $this->notificador->notificarEvento('pago_por_programar', $colaborador, [], 'Pago de finiquito por programar', "El finiquito de {$nombre} está autorizado.", $cierre, 'programar_pago', 'alta');
                 break;
             case EstadoCierreLaboral::PagoProgramado:
             case EstadoCierreLaboral::FiniquitoFirmado:
@@ -948,8 +946,8 @@ class CierreLaboralService
                     'permiso' => $jefe === null ? self::PERMISO_SOLICITAR : null,
                     'accion' => 'citar_excolaborador',
                 ]);
-                if ($jefe !== null && $cierre->estado === EstadoCierreLaboral::PagoProgramado) {
-                    $this->notificador->notificar([$jefe], 'cita_finiquito', 'Excolaborador por citar', "El pago del finiquito de {$nombre} está programado: cítalo para firma y pago.", $cierre, 'citar_excolaborador', 'alta');
+                if ($cierre->estado === EstadoCierreLaboral::PagoProgramado) {
+                    $this->notificador->notificarEvento('cita_finiquito', $colaborador, [], 'Excolaborador por citar', "El pago del finiquito de {$nombre} está programado: cítalo para firma y pago.", $cierre, 'citar_excolaborador', 'alta');
                 }
                 break;
             default:

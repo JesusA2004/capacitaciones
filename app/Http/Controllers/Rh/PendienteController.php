@@ -41,6 +41,7 @@ class PendienteController extends Controller
         return Inertia::render('Rh/Pendientes/Index', [
             'tareas' => $tareas,
             'conteos' => $this->tareas->conteos($usuario),
+            'distribucion' => $this->tareas->distribucion($usuario),
             'filtros' => $request->only(['etapa', 'sucursal_id', 'urgencia', 'tipo']),
             'opciones' => [
                 'etapas' => array_map(

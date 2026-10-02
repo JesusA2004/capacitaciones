@@ -195,15 +195,25 @@ async function eliminar(documento: DocumentoGeneradoItem) {
             >
                 <CardHeader class="pb-0">
                     <div class="flex items-start justify-between gap-2">
-                        <CardTitle class="text-base">{{ plantilla.nombre }}</CardTitle>
-                        <Badge variant="outline" class="shrink-0 text-xs">{{ plantilla.tipo_etiqueta }}</Badge>
+                        <CardTitle class="text-base">{{
+                            plantilla.nombre
+                        }}</CardTitle>
+                        <Badge variant="outline" class="shrink-0 text-xs">{{
+                            plantilla.tipo_etiqueta
+                        }}</Badge>
                     </div>
                     <CardDescription>
-                        {{ plantilla.descripcion ?? 'Sin descripción registrada.' }}
+                        {{
+                            plantilla.descripcion ??
+                            'Sin descripción registrada.'
+                        }}
                     </CardDescription>
                 </CardHeader>
                 <CardContent class="flex flex-1 flex-col gap-3">
-                    <div v-if="plantilla.variables.length" class="flex flex-wrap gap-1">
+                    <div
+                        v-if="plantilla.variables.length"
+                        class="flex flex-wrap gap-1"
+                    >
                         <Badge
                             v-for="variable in plantilla.variables.slice(0, 5)"
                             :key="variable"
@@ -221,7 +231,9 @@ async function eliminar(documento: DocumentoGeneradoItem) {
                         </Badge>
                     </div>
 
-                    <div class="mt-auto flex items-center justify-between text-xs text-muted-foreground">
+                    <div
+                        class="mt-auto flex items-center justify-between text-xs text-muted-foreground"
+                    >
                         <span class="inline-flex items-center gap-1">
                             <Clock class="size-3.5" />
                             {{ formatearFecha(plantilla.ultimo_uso) }}
@@ -229,7 +241,11 @@ async function eliminar(documento: DocumentoGeneradoItem) {
                         <span>{{ plantilla.veces_generado }} generado(s)</span>
                     </div>
 
-                    <Button size="sm" class="w-full" @click="abrirGenerar(plantilla)">
+                    <Button
+                        size="sm"
+                        class="w-full"
+                        @click="abrirGenerar(plantilla)"
+                    >
                         <Sparkles class="size-4" />
                         Generar
                     </Button>
@@ -374,7 +390,8 @@ async function eliminar(documento: DocumentoGeneradoItem) {
             </template>
             <template #celda-sujeto="{ fila }">
                 <span v-if="fila.colaborador"
-                    >{{ fila.colaborador.name }} {{ fila.colaborador.apellidos }}</span
+                    >{{ fila.colaborador.name }}
+                    {{ fila.colaborador.apellidos }}</span
                 >
                 <span v-else-if="fila.candidato"
                     >{{ fila.candidato.nombre }}
@@ -387,13 +404,23 @@ async function eliminar(documento: DocumentoGeneradoItem) {
             </template>
             <template #acciones="{ fila }">
                 <div class="flex justify-end gap-1.5">
-                    <Button as-child variant="ghost" size="sm" title="Descargar Word">
+                    <Button
+                        as-child
+                        variant="ghost"
+                        size="sm"
+                        title="Descargar Word"
+                    >
                         <a :href="descargar.url(fila.id)">
                             <Download class="size-4" />
                             Word
                         </a>
                     </Button>
-                    <Button as-child variant="ghost" size="sm" title="Descargar PDF">
+                    <Button
+                        as-child
+                        variant="ghost"
+                        size="sm"
+                        title="Descargar PDF"
+                    >
                         <a :href="descargarPdf.url(fila.id)">
                             <FileText class="size-4" />
                             PDF

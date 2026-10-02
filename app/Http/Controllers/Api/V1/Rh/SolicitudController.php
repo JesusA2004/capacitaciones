@@ -7,7 +7,6 @@ use App\Enums\TipoSolicitudInterna;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Rh\ActualizarEstadoSolicitudInternaRequest;
 use App\Models\Prestamo;
-use App\Models\SolicitudAprobacion;
 use App\Models\SolicitudInterna;
 use App\Models\SolicitudInternaHistorial;
 use App\Models\User;
@@ -208,7 +207,7 @@ class SolicitudController extends Controller
         $decision = $this->aprobaciones->decisionJefe($solicitud);
         $decision?->loadMissing('usuario.colaborador');
         $pendiente = in_array($solicitud->estado, [EstadoSolicitudInterna::Enviada, EstadoSolicitudInterna::EnRevision], true);
-        $vistoBuenoCumplido = ! $requiereVistoBueno || $decision?->decision === SolicitudAprobacion::DECISION_APROBADO;
+        $vistoBuenoCumplido = $this->aprobaciones->tieneVistoBuenoJefe($solicitud);
         $puedeDecidir = $pendiente && $usuario->can('autorizarSolicitud', [Prestamo::class, $solicitud]);
 
         return [
@@ -220,6 +219,7 @@ class SolicitudController extends Controller
                 'jefe' => $decision?->usuario?->nombreCompleto(),
                 'comentario' => $decision?->comentario,
                 'fecha' => $decision?->created_at?->toIso8601String(),
+                'niveles' => $this->aprobaciones->resumen($solicitud),
             ],
             'prestamo_id' => $solicitud->prestamo()->value('id'),
             'puede_autorizar' => $puedeDecidir && $vistoBuenoCumplido && $solicitud->monto_solicitado !== null,

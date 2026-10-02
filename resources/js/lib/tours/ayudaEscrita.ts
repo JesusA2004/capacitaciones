@@ -363,6 +363,98 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
             'Una versión obligatoria obliga a todos a actualizar: úsala solo cuando sea necesario.',
         ],
     },
+    pendientes: {
+        queEs: 'Tu bandeja de trabajo del ciclo laboral: lo que otras personas esperan que hagas.',
+        puedes: [
+            'Ver tus pendientes por etapa, sucursal y urgencia.',
+            'Abrir cada uno directo donde se resuelve.',
+        ],
+        flujo: [
+            'Atiende primero los vencidos.',
+            'Abre el pendiente.',
+            'Haz la acción; el pendiente se cierra solo.',
+        ],
+        permisos:
+            'Quien participa en el ciclo laboral (preautoriza, autoriza, evalúa, entrega equipo u opera bajas).',
+        errores: [
+            'Si un pendiente no es tuyo, revisa en Configuración → Jefes directos quién es el jefe de esa persona.',
+        ],
+    },
+    onboarding: {
+        queEs: 'Catálogo de lecciones de bienvenida y del equipo que se entrega al ingresar.',
+        puedes: [
+            'Crear y editar lecciones con su material y preguntas.',
+            'Definir la calificación mínima.',
+            'Administrar los tipos de equipo y su responsiva.',
+        ],
+        flujo: [
+            'Crea la lección institucional.',
+            'Agrega las del puesto.',
+            'Da de alta el equipo que se entrega.',
+        ],
+        permisos: 'onboarding.gestionar (Recursos Humanos).',
+        errores: [
+            'Una lección sin preguntas no se puede guardar.',
+            'Una lección de puesto necesita el puesto al que aplica.',
+        ],
+    },
+    reingresos: {
+        queEs: 'Reincorporación de excolaboradores sin duplicar a la persona.',
+        puedes: [
+            'Buscar a la persona y ver su historial.',
+            'Solicitar su reingreso.',
+            'Decidir si es viable (RH).',
+        ],
+        flujo: [
+            'Busca a la persona.',
+            'Revisa su causa de salida.',
+            'Solicita el reingreso.',
+            'RH decide y se piden solo los documentos vencidos o faltantes.',
+        ],
+        permisos:
+            'reingresos.solicitar para proponer; reingresos.gestionar y autorización de RH para decidir.',
+        errores: [
+            'Una persona activa no puede reingresar.',
+            'Si tiene un cierre sin concluir, primero termínalo.',
+        ],
+    },
+    configuracion: {
+        queEs: 'Ajustes del sistema que administra el negocio: jefes directos, avisos, parámetros de RH y apariencia.',
+        puedes: [
+            'Cambiar el jefe directo de una persona.',
+            'Elegir a quién llega cada aviso.',
+            'Ajustar días de aviso, calificaciones mínimas y duración del contrato por puesto.',
+            'Cambiar los colores institucionales.',
+        ],
+        flujo: [
+            'Elige la sección.',
+            'Haz el cambio.',
+            'Guarda: queda registrado quién cambió qué y cuándo.',
+        ],
+        permisos:
+            'configuracion.ver más el permiso de cada sección (organización, notificaciones, rh, apariencia).',
+        errores: [
+            'Nadie puede ser su propio jefe ni formar un ciclo de jefes.',
+            'Los colores deben ir en formato #RRGGBB.',
+        ],
+    },
+    'mi-expediente': {
+        queEs: 'Tu expediente: tus datos, documentos, vacaciones, recibos, préstamos y solicitudes.',
+        puedes: [
+            'Subir los documentos que te pidan.',
+            'Ver si fueron aprobados.',
+            'Actualizar tu contacto.',
+        ],
+        flujo: [
+            'Abre "Documentos".',
+            'Sube el archivo que falta.',
+            'Espera la revisión de Recursos Humanos.',
+        ],
+        permisos: 'Toda cuenta ligada a un colaborador.',
+        errores: [
+            'Si un documento fue rechazado, verás el motivo: corrígelo y súbelo de nuevo.',
+        ],
+    },
     portal: {
         queEs: 'Tu espacio personal: tu perfil, vacaciones, solicitudes y avisos.',
         puedes: [

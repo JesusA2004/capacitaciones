@@ -17,10 +17,5 @@ withDefaults(defineProps<Props>(), {
 </script>
 
 <template>
-    <img
-        :src="logoLetras"
-        :alt="alt"
-        :class="className"
-        v-bind="$attrs"
-    />
+    <img :src="logoLetras" :alt="alt" :class="className" v-bind="$attrs" />
 </template>

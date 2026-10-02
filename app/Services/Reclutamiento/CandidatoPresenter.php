@@ -9,6 +9,9 @@ use App\Models\CandidatoPsicometrica;
 use App\Models\CandidatoReferencia;
 use App\Models\CandidatoSocioeconomico;
 use App\Models\IncorporacionInvitacion;
+use App\Models\User;
+use App\Services\AlcanceOrganizacionalService;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Datos de la ficha del candidato (registros estructurados del
@@ -17,6 +20,71 @@ use App\Models\IncorporacionInvitacion;
  */
 class CandidatoPresenter
 {
+    public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}
+
+    /**
+     * Candidatos visibles para el usuario (alcance por sucursal) con los
+     * filtros de la bandeja. Misma consulta para web, exportaciones y API.
+     *
+     * @param  array<string, mixed>  $filtros  empresa_id, sucursal_id, departamento_id, puesto_objetivo_id, vacante_id, responsable_rh_id, fuente, estado, fecha_inicio, fecha_fin, busqueda
+     * @return Builder<Candidato>
+     */
+    public function consulta(User $usuario, array $filtros = []): Builder
+    {
+        $entero = fn (string $clave): int => is_numeric($filtros[$clave] ?? null) ? (int) $filtros[$clave] : 0;
+        $texto = fn (string $clave): string => is_string($filtros[$clave] ?? null) ? trim($filtros[$clave]) : '';
+
+        return $this->alcance
+            ->limitarPorSucursal(
+                Candidato::query()->with([
+                    'empresa:id,nombre',
+                    'sucursal:id,nombre',
+                    'departamento:id,nombre',
+                    'puestoObjetivo:id,nombre',
+                    'vacante:id,puesto_id',
+                    'responsableRh:id,name,apellidos',
+                    'gerenteInvolucrado:id,name,apellidos',
+                ]),
+                $usuario,
+            )
+            ->when($entero('empresa_id'), fn ($query, $valor) => $query->where('empresa_id', $valor))
+            ->when($entero('sucursal_id'), fn ($query, $valor) => $query->where('sucursal_id', $valor))
+            ->when($entero('departamento_id'), fn ($query, $valor) => $query->where('departamento_id', $valor))
+            ->when($entero('puesto_objetivo_id'), fn ($query, $valor) => $query->where('puesto_objetivo_id', $valor))
+            ->when($entero('vacante_id'), fn ($query, $valor) => $query->where('vacante_id', $valor))
+            ->when($entero('responsable_rh_id'), fn ($query, $valor) => $query->where('responsable_rh_id', $valor))
+            ->when($texto('fuente'), fn ($query, string $valor) => $query->where('fuente', $valor))
+            ->when($texto('estado'), fn ($query, string $valor) => $query->where('estado', $valor))
+            ->when($texto('fecha_inicio'), fn ($query, string $valor) => $query->whereDate('created_at', '>=', $valor))
+            ->when($texto('fecha_fin'), fn ($query, string $valor) => $query->whereDate('created_at', '<=', $valor))
+            ->when($texto('busqueda'), function ($query, string $busqueda) {
+                $query->where(function ($sub) use ($busqueda): void {
+                    $sub->where('nombre', 'like', "%{$busqueda}%")
+                        ->orWhere('apellidos', 'like', "%{$busqueda}%")
+                        ->orWhere('correo', 'like', "%{$busqueda}%");
+                });
+            });
+    }
+
+    /**
+     * Renglón de lista (API móvil).
+     *
+     * @return array<string, mixed>
+     */
+    public function fila(Candidato $candidato): array
+    {
+        return [
+            'id' => $candidato->id,
+            'nombre_completo' => $candidato->nombreCompleto(),
+            'puesto_objetivo' => $candidato->puestoObjetivo?->nombre,
+            'sucursal' => $candidato->sucursal?->nombre,
+            'estado' => $candidato->estado->value,
+            'estado_etiqueta' => $candidato->estado->etiqueta(),
+            'etapa_maxima' => $candidato->etapa_maxima,
+            'creado_en' => $candidato->created_at?->toIso8601String(),
+        ];
+    }
+
     /**
      * @return array<string, mixed>
      */

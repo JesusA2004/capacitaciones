@@ -22,7 +22,20 @@ use Illuminate\Support\Carbon;
  */
 class SolicitudAprobacion extends Model
 {
+    /** Visto bueno del gerente de la sucursal (o jefe directo si no hay gerente). */
     public const NIVEL_JEFE_INMEDIATO = 'jefe_inmediato';
+
+    /** Visto bueno del regional de la región de la sucursal. */
+    public const NIVEL_REGIONAL = 'regional';
+
+    public static function etiquetaNivel(string $nivel): string
+    {
+        return match ($nivel) {
+            self::NIVEL_JEFE_INMEDIATO => 'Gerente',
+            self::NIVEL_REGIONAL => 'Regional',
+            default => $nivel,
+        };
+    }
 
     public const DECISION_APROBADO = 'aprobado';
 

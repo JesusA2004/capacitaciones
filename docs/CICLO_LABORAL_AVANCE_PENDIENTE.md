@@ -1,3 +1,5 @@
+> **HISTÓRICO** — nota de traspaso previa al commit 6d521ba. El estado vigente está en [CICLO_LABORAL_FINAL_IMPLEMENTADO.md](CICLO_LABORAL_FINAL_IMPLEMENTADO.md).
+
 # Cierre del ciclo laboral — estado de avance (traspaso)
 
 Última actualización: 2026-10-01. Nada está commiteado todavía (todo en el working tree de `main`).

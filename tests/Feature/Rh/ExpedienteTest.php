@@ -131,19 +131,22 @@ test('un jefe directo ve el expediente de sus subordinados pero no de otros cola
     $this->actingAs($jefe)->get(route('rh.expedientes.show', $otro))->assertForbidden();
 });
 
-test('un colaborador puede actualizar sus datos personales desde su expediente', function () {
-    $colaborador = User::factory()->create();
-    $colaborador->assignRole('colaborador');
+test('nadie edita su propio expediente, ni siendo RH: debe solicitar una corrección', function () {
+    foreach (['colaborador', 'rh_admin'] as $rol) {
+        $usuario = User::factory()->create();
+        $usuario->assignRole($rol);
+        $curpAntes = $usuario->colaborador?->curp;
 
-    $this->actingAs($colaborador)
-        ->put(route('rh.expedientes.datos-personales.update', $colaborador->colaborador_id), [
-            'curp' => 'XAXX010101HNEXXXA4',
-            'rfc' => 'XAXX010101000',
-            'nss' => '12345678901',
-        ])
-        ->assertSessionHasNoErrors();
+        $this->actingAs($usuario)
+            ->put(route('rh.expedientes.datos-personales.update', $usuario->colaborador_id), ['curp' => 'XAXX010101HNEXXXA4'])
+            ->assertForbidden();
 
-    expect($colaborador->fresh()->colaborador->curp)->toBe('XAXX010101HNEXXXA4');
+        $this->actingAs($usuario)
+            ->put(route('rh.expedientes.datos-laborales.update', $usuario->colaborador_id), ['sueldo_mensual' => 99999])
+            ->assertForbidden();
+
+        expect($usuario->fresh()->colaborador?->curp)->toBe($curpAntes);
+    }
 });
 
 test('un colaborador no puede editar los datos personales de otro colaborador', function () {

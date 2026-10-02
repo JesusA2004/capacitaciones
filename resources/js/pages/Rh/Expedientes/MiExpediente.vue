@@ -27,9 +27,17 @@ defineProps<{
     puedeEditarLaborales: boolean;
     rolesDisponibles: string[];
     empresasDisponibles: { id: number; nombre: string }[];
-    sucursalesDisponibles: { id: number; nombre: string; empresa_id: number | null }[];
+    sucursalesDisponibles: {
+        id: number;
+        nombre: string;
+        empresa_id: number | null;
+    }[];
     departamentosDisponibles: { id: number; nombre: string }[];
-    puestosDisponibles: { id: number; nombre: string; puesto_superior_id: number | null }[];
+    puestosDisponibles: {
+        id: number;
+        nombre: string;
+        puesto_superior_id: number | null;
+    }[];
     jefesDisponibles: {
         id: number;
         name: string;

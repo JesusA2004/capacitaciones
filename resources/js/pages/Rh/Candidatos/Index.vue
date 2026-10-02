@@ -31,7 +31,6 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
     Select,
     SelectContent,
@@ -39,6 +38,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
 import { formatoMoneda } from '@/lib/utils';
@@ -51,7 +51,11 @@ import {
     show,
 } from '@/routes/rh/candidatos';
 import cv from '@/routes/rh/candidatos/cv';
-import type { CandidatoItem, CandidatosKpis, OpcionesReclutamiento } from '@/types';
+import type {
+    CandidatoItem,
+    CandidatosKpis,
+    OpcionesReclutamiento,
+} from '@/types';
 
 const props = defineProps<{
     candidatos: CandidatoItem[];
@@ -73,8 +77,18 @@ const props = defineProps<{
 }>();
 
 const MESES_NOMBRE = [
-    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+    'Enero',
+    'Febrero',
+    'Marzo',
+    'Abril',
+    'Mayo',
+    'Junio',
+    'Julio',
+    'Agosto',
+    'Septiembre',
+    'Octubre',
+    'Noviembre',
+    'Diciembre',
 ];
 
 const opcionesMes = computed(() => {
@@ -94,10 +108,29 @@ const opcionesMes = computed(() => {
 });
 
 const pipelineKpi = computed(() => [
-    { etiqueta: 'Recibidos en el periodo', valor: props.kpis.recibidos_periodo, icono: Users },
-    { etiqueta: 'En proceso', valor: props.kpis.en_proceso, icono: UserRound, tono: 'info' as const },
-    { etiqueta: 'Finalistas', valor: props.kpis.finalistas, icono: Trophy, tono: 'warning' as const },
-    { etiqueta: 'Contratados en el periodo', valor: props.kpis.contratados_periodo, icono: UserCheck2, tono: 'success' as const },
+    {
+        etiqueta: 'Recibidos en el periodo',
+        valor: props.kpis.recibidos_periodo,
+        icono: Users,
+    },
+    {
+        etiqueta: 'En proceso',
+        valor: props.kpis.en_proceso,
+        icono: UserRound,
+        tono: 'info' as const,
+    },
+    {
+        etiqueta: 'Finalistas',
+        valor: props.kpis.finalistas,
+        icono: Trophy,
+        tono: 'warning' as const,
+    },
+    {
+        etiqueta: 'Contratados en el periodo',
+        valor: props.kpis.contratados_periodo,
+        icono: UserCheck2,
+        tono: 'success' as const,
+    },
 ]);
 
 const resultadosKpi = computed(() => [
@@ -108,9 +141,10 @@ const resultadosKpi = computed(() => [
     },
     {
         etiqueta: 'Tiempo promedio de contratación',
-        valor: props.kpis.tiempo_promedio_contratacion_dias !== null
-            ? `${props.kpis.tiempo_promedio_contratacion_dias} días`
-            : '—',
+        valor:
+            props.kpis.tiempo_promedio_contratacion_dias !== null
+                ? `${props.kpis.tiempo_promedio_contratacion_dias} días`
+                : '—',
         icono: CalendarClock,
     },
 ]);
@@ -121,9 +155,22 @@ const costosKpi = computed(() => {
     }
 
     return [
-        { etiqueta: 'Gasto de reclutamiento', valor: formatoMoneda(props.kpis.gasto_reclutamiento_periodo), icono: Banknote },
-        { etiqueta: 'Costo por candidato', valor: formatoMoneda(props.kpis.costo_por_candidato ?? 0), icono: Target },
-        { etiqueta: 'Costo por contratación', valor: formatoMoneda(props.kpis.costo_por_contratacion ?? 0), icono: Banknote, tono: 'warning' as const },
+        {
+            etiqueta: 'Gasto de reclutamiento',
+            valor: formatoMoneda(props.kpis.gasto_reclutamiento_periodo),
+            icono: Banknote,
+        },
+        {
+            etiqueta: 'Costo por candidato',
+            valor: formatoMoneda(props.kpis.costo_por_candidato ?? 0),
+            icono: Target,
+        },
+        {
+            etiqueta: 'Costo por contratación',
+            valor: formatoMoneda(props.kpis.costo_por_contratacion ?? 0),
+            icono: Banknote,
+            tono: 'warning' as const,
+        },
     ];
 });
 
@@ -159,11 +206,15 @@ function fuenteEtiqueta(valor: string | null): string {
         return '—';
     }
 
-    return props.opciones.fuentes?.find((f) => f.value === valor)?.etiqueta ?? valor;
+    return (
+        props.opciones.fuentes?.find((f) => f.value === valor)?.etiqueta ??
+        valor
+    );
 }
 
 function diasEnFase(candidato: CandidatoItem): number {
-    const fechaBase = candidato.ultimo_cambio_estado?.fecha ?? candidato.created_at;
+    const fechaBase =
+        candidato.ultimo_cambio_estado?.fecha ?? candidato.created_at;
 
     return Math.max(
         0,
@@ -228,9 +279,7 @@ function alSoltar(nuevoEstado: string) {
     }
 
     if (
-        !(transicionesPermitidas[candidato.estado] ?? []).includes(
-            nuevoEstado,
-        )
+        !(transicionesPermitidas[candidato.estado] ?? []).includes(nuevoEstado)
     ) {
         mostrarError(
             'Desde el tablero solo puedes cerrar el proceso. Para avanzar, abre la ficha del candidato y usa la acción que corresponde.',
@@ -244,7 +293,10 @@ function alSoltar(nuevoEstado: string) {
     motivoSalida.value = '';
 }
 
-const salidaPendiente = ref<{ candidato: CandidatoItem; estado: string } | null>(null);
+const salidaPendiente = ref<{
+    candidato: CandidatoItem;
+    estado: string;
+} | null>(null);
 const motivoSalida = ref('');
 
 function confirmarSalida() {
@@ -261,7 +313,9 @@ function confirmarSalida() {
             preserveScroll: true,
             onSuccess: () => (salidaPendiente.value = null),
             onError: () =>
-                mostrarError('No tienes permiso para cerrar el proceso de este candidato.'),
+                mostrarError(
+                    'No tienes permiso para cerrar el proceso de este candidato.',
+                ),
         },
     );
 }
@@ -291,7 +345,10 @@ function confirmarSalida() {
             <CrudStats :estadisticas="[...resultadosKpi, ...costosKpi]" />
         </div>
 
-        <div data-tour="candidatos-filtros" class="flex flex-wrap items-center gap-2">
+        <div
+            data-tour="candidatos-filtros"
+            class="flex flex-wrap items-center gap-2"
+        >
             <CrudSearchInput
                 :model-value="filtros.busqueda"
                 placeholder="Buscar por nombre o correo..."
@@ -492,7 +549,10 @@ function confirmarSalida() {
             </Button>
         </div>
 
-        <div data-tour="candidatos-tablero" class="flex gap-4 overflow-x-auto pb-4">
+        <div
+            data-tour="candidatos-tablero"
+            class="flex gap-4 overflow-x-auto pb-4"
+        >
             <div
                 v-for="columna in columnas"
                 :key="columna.value"
@@ -524,7 +584,7 @@ function confirmarSalida() {
                         @dragend="arrastrando = null"
                     >
                         <div>
-                            <p class="text-sm font-semibold leading-tight">
+                            <p class="text-sm leading-tight font-semibold">
                                 {{
                                     candidato.puesto_objetivo?.nombre ??
                                     'Sin puesto objetivo'
@@ -551,7 +611,9 @@ function confirmarSalida() {
                             >
                         </div>
 
-                        <div class="flex items-center justify-between text-[11px] text-muted-foreground">
+                        <div
+                            class="flex items-center justify-between text-[11px] text-muted-foreground"
+                        >
                             <span class="truncate">{{
                                 candidato.responsable_rh
                                     ? `${candidato.responsable_rh.name} ${candidato.responsable_rh.apellidos ?? ''}`.trim()
@@ -564,7 +626,7 @@ function confirmarSalida() {
 
                         <p
                             v-if="ultimaNota(candidato)"
-                            class="line-clamp-1 text-[11px] italic text-muted-foreground"
+                            class="line-clamp-1 text-[11px] text-muted-foreground italic"
                         >
                             "{{ ultimaNota(candidato) }}"
                         </p>
@@ -602,14 +664,20 @@ function confirmarSalida() {
 
     <Dialog
         :open="salidaPendiente !== null"
-        @update:open="(abierto: boolean) => !abierto && (salidaPendiente = null)"
+        @update:open="
+            (abierto: boolean) => !abierto && (salidaPendiente = null)
+        "
     >
         <DialogContent class="sm:max-w-md">
             <DialogHeader>
                 <DialogTitle>Cerrar proceso del candidato</DialogTitle>
                 <DialogDescription>
                     {{ salidaPendiente?.candidato.nombre }} ·
-                    {{ opciones.estados.find((e) => e.value === salidaPendiente?.estado)?.etiqueta }}
+                    {{
+                        opciones.estados.find(
+                            (e) => e.value === salidaPendiente?.estado,
+                        )?.etiqueta
+                    }}
                 </DialogDescription>
             </DialogHeader>
             <div class="grid gap-1.5">
@@ -617,7 +685,9 @@ function confirmarSalida() {
                 <Textarea id="motivo-salida" v-model="motivoSalida" rows="3" />
             </div>
             <DialogFooter>
-                <Button variant="ghost" @click="salidaPendiente = null">Cancelar</Button>
+                <Button variant="ghost" @click="salidaPendiente = null"
+                    >Cancelar</Button
+                >
                 <Button
                     variant="destructive"
                     :disabled="motivoSalida.trim() === ''"

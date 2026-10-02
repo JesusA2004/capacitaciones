@@ -58,8 +58,8 @@ function alternarAnimaciones(valor: boolean) {
                 <h3 class="text-sm font-semibold">Color de acento</h3>
             </div>
             <p class="text-sm text-muted-foreground">
-                Cambia el color principal de botones, enlaces y gráficas en
-                toda la aplicación.
+                Cambia el color principal de botones, enlaces y gráficas en toda
+                la aplicación.
             </p>
             <div class="flex flex-wrap gap-3">
                 <button
@@ -136,9 +136,7 @@ function alternarAnimaciones(valor: boolean) {
             >
                 <Checkbox
                     :model-value="animacionesLocal"
-                    @update:model-value="
-                        (v) => alternarAnimaciones(v === true)
-                    "
+                    @update:model-value="(v) => alternarAnimaciones(v === true)"
                 />
                 <span class="flex flex-col gap-0.5">
                     <Label class="cursor-pointer"

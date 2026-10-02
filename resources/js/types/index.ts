@@ -7,6 +7,7 @@ export * from './calendario';
 export * from './campanas';
 export * from './celebraciones';
 export * from './cicloLaboral';
+export * from './configuracion';
 export * from './cuestionarios';
 export * from './cursos';
 export * from './dashboardRh';

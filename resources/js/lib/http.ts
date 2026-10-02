@@ -52,7 +52,10 @@ export async function postJson<T>(url: string, cuerpo: unknown): Promise<T> {
  * para usarse como src de una imagen. El caller es responsable de revocarla
  * (URL.revokeObjectURL) cuando ya no la necesite.
  */
-export async function postBlobUrl(url: string, cuerpo: unknown): Promise<string> {
+export async function postBlobUrl(
+    url: string,
+    cuerpo: unknown,
+): Promise<string> {
     const respuesta = await fetch(url, {
         method: 'POST',
         headers: {
@@ -104,8 +107,7 @@ export async function enviarJson<T>(
     });
 
     const datos = (await respuesta.json().catch(() => null)) as
-        | (T & { message?: string; errors?: Record<string, string[]> })
-        | null;
+        (T & { message?: string; errors?: Record<string, string[]> }) | null;
 
     if (!respuesta.ok) {
         const primerError = datos?.errors

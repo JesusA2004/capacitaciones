@@ -26,8 +26,13 @@ import { dashboard } from '@/routes';
 // La lista de accesos (modo colaborador/operativo + Administración) vive en
 // useMainNavItems() — compartida con MobileBottomNav.vue, ver
 // docs/ROLES_Y_NAVEGACION.md. Nunca dupliques esa lógica aquí.
-const { mainNavItems, adminNavItems, tieneAmbosModos, esColaborador, cambiarModo } =
-    useMainNavItems();
+const {
+    mainNavItems,
+    adminNavItems,
+    tieneAmbosModos,
+    esColaborador,
+    cambiarModo,
+} = useMainNavItems();
 </script>
 
 <template>

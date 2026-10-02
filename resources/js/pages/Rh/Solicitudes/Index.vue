@@ -97,9 +97,22 @@ const props = defineProps<{
 }>();
 
 defineOptions({
-    layout: {
-        breadcrumbs: [{ title: 'Solicitudes', href: '' }],
-    },
+    layout: (pageProps: {
+        filtros: { tipo?: string | null };
+        tipos: { value: string; label: string }[];
+    }) => ({
+        breadcrumbs: [
+            // Regresa a la pantalla de tipos (préstamos, permisos, vacaciones…).
+            { title: 'Solicitudes', href: index() },
+            {
+                title:
+                    pageProps.tipos.find(
+                        (t) => t.value === pageProps.filtros.tipo,
+                    )?.label ?? 'Todas',
+                href: '',
+            },
+        ],
+    }),
 });
 
 const { mostrarExito, mostrarError } = useAlertas();
@@ -148,7 +161,7 @@ type ColumnaDefinicion = {
 const COLUMNAS: ColumnaDefinicion[] = [
     {
         estado: 'enviada',
-        titulo: 'Pendientes',
+        titulo: 'Solicitudes recibidas',
         icono: Inbox,
         suave: 'bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300',
         cabecera: 'bg-sky-50/80 dark:bg-sky-500/5',
@@ -156,7 +169,7 @@ const COLUMNAS: ColumnaDefinicion[] = [
     },
     {
         estado: 'en_revision',
-        titulo: 'En revisión',
+        titulo: 'Pendiente de autorizar',
         icono: Eye,
         suave: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300',
         cabecera: 'bg-indigo-50/80 dark:bg-indigo-500/5',
@@ -691,7 +704,10 @@ function confirmarMovimiento() {
         <!-- Exportar: en desktop sube a la barra superior (CrudPageHeader),
              así no ocupa una fila propia debajo de los filtros. -->
         <CrudPageHeader titulo="Solicitudes">
-            <div data-tour="solicitudes-exportar" class="flex items-center gap-2">
+            <div
+                data-tour="solicitudes-exportar"
+                class="flex items-center gap-2"
+            >
                 <CrudExportButtons
                     :url-excel="urlExportar(exportarExcel)"
                     :url-pdf="urlExportar(exportarPdf)"

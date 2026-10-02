@@ -128,7 +128,7 @@ class OnboardingService
         $usuario = $colaborador->user;
 
         if ($usuario !== null) {
-            $this->notificador->notificar([$usuario], 'onboarding_habilitado', 'Tu inducción está habilitada', 'Revisa el material y presenta tu evaluación desde "Mi proceso".', $proceso, 'ver_onboarding', 'alta');
+            $this->notificador->notificar([$usuario], 'onboarding_habilitado', 'Tienes lecciones de bienvenida', 'Entra a "Mis pendientes" en tu portal para revisarlas y responderlas.', $proceso, 'ver_onboarding', 'alta');
         }
 
         return $proceso;
@@ -227,9 +227,10 @@ class OnboardingService
 
         if (! $intento->aprobado) {
             $colaborador = $avance->proceso->colaborador;
-            $this->notificador->notificar(
-                $this->notificador->responsablesDe($colaborador, self::PERMISO_GESTIONAR),
+            $this->notificador->notificarEvento(
                 'onboarding_refuerzo',
+                $colaborador,
+                ['excluir' => [$usuario->id]],
                 'Onboarding con resultado menor al mínimo',
                 sprintf('%s obtuvo %s en «%s». Da retroalimentación y habilita la reevaluación.', $colaborador->nombreCompleto(), number_format((float) $intento->calificacion, 1), $avance->modulo->titulo),
                 $avance,
@@ -279,7 +280,7 @@ class OnboardingService
         $usuario = $avance->proceso->colaborador->user;
 
         if ($usuario !== null) {
-            $this->notificador->notificar([$usuario], 'onboarding_reevaluacion', 'Reevaluación habilitada', sprintf('RH dejó retroalimentación en «%s». Ya puedes presentar de nuevo.', $avance->modulo->titulo), $avance, 'ver_onboarding');
+            $this->notificador->notificar([$usuario], 'onboarding_reevaluacion', 'Ya puedes volver a intentarlo', sprintf('Recursos Humanos dejó un comentario en «%s». Ya puedes responderla de nuevo.', $avance->modulo->titulo), $avance, 'ver_onboarding');
         }
 
         return $avance;

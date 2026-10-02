@@ -201,10 +201,7 @@ export type PrestamoMovimientoItem = {
 };
 
 export type PrestamoEstado =
-    | 'pendiente_entrega'
-    | 'activo'
-    | 'liquidado'
-    | 'cancelado';
+    'pendiente_entrega' | 'activo' | 'liquidado' | 'cancelado';
 
 export type PrestamoItem = {
     id: number;

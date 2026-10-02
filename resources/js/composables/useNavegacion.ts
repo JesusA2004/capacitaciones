@@ -14,8 +14,12 @@ export function useNavegacion() {
     const page = usePage();
 
     const navegacion = computed(() => page.props.navegacion);
-    const modoActual = computed(() => navegacion.value?.modoActual ?? 'operativo');
-    const modosDisponibles = computed(() => navegacion.value?.modosDisponibles ?? []);
+    const modoActual = computed(
+        () => navegacion.value?.modoActual ?? 'operativo',
+    );
+    const modosDisponibles = computed(
+        () => navegacion.value?.modosDisponibles ?? [],
+    );
     const esColaborador = computed(() => modoActual.value === 'colaborador');
     const esOperativo = computed(() => modoActual.value === 'operativo');
     const tieneAmbosModos = computed(() => modosDisponibles.value.length > 1);

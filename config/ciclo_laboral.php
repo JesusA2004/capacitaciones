@@ -31,6 +31,38 @@ return [
         'meses_por_defecto' => (int) env('PERIODO_PRUEBA_MESES_DEFECTO', 3),
         // Documentos que se generan al autorizar RH una NO renovación.
         'documentos_no_renovacion' => ['aviso_no_renovacion', 'evaluacion_periodo_prueba'],
+        // Duración del contrato de capacitación/inducción (periodo de prueba)
+        // por puesto. Se carga en puestos.meses_periodo_prueba (editable en
+        // el catálogo); aquí solo el valor inicial del seeder. Los puestos
+        // que no aparecen usan meses_por_defecto.
+        'meses_por_puesto' => [
+            'Gestor' => 2,
+            'Gestor Volante' => 2,
+            'Gestor grupal' => 2,
+            'Subgerente' => 3,
+            'Gerente de Sucursal' => 3,
+            'Coordinadora de Sucursal' => 3,
+            'Coordinadora Regional' => 3,
+            'Gerente Regional Q1' => 3,
+            'Gerente Regional Q3' => 3,
+            'Gerente regional' => 3,
+        ],
+        // Aviso de "ya se debe renovar el contrato": se manda
+        // contratos.dias_aviso_vencimiento días antes del fin (15 por
+        // defecto → un gestor con contrato de 2 meses se avisa al mes y 15
+        // días) al evaluador y, por la regla de notificación
+        // "contrato_por_vencer", SIEMPRE a la gerencia de SU sucursal, al
+        // gerente regional de SU región y a la Gerencia de RH (ver
+        // 'organizacion' abajo y config/configuracion_sistema.php).
+    ],
+
+    // Puestos (por nombre del catálogo) que representan a la gerencia de una
+    // sucursal y a la Gerencia de RH para los destinatarios dinámicos de
+    // notificación. El regional se resuelve por la matriz comercial (región
+    // ligada a su puesto) y organigrama.puestos_de_region.
+    'organizacion' => [
+        'puestos_gerencia_sucursal' => ['Gerente de Sucursal'],
+        'puestos_gerencia_rh' => ['Gerencia de Recursos Humanos'],
     ],
 
     'cierre' => [

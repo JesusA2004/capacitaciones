@@ -33,7 +33,10 @@ const emit = defineEmits<{
 }>();
 
 function moneda(valor: number): string {
-    return valor.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
+    return valor.toLocaleString('es-MX', {
+        style: 'currency',
+        currency: 'MXN',
+    });
 }
 
 const form = useForm({
@@ -58,8 +61,8 @@ function enviar() {
                 <DialogTitle>Confirmar entrega del préstamo</DialogTitle>
                 <DialogDescription>
                     Monto aprobado: {{ moneda(prestamo.monto_original) }} ·
-                    {{ prestamo.plazo }} pagos. Al confirmar, el préstamo
-                    pasa a activo y empieza a contar como deuda vigente.
+                    {{ prestamo.plazo }} pagos. Al confirmar, el préstamo pasa a
+                    activo y empieza a contar como deuda vigente.
                 </DialogDescription>
             </DialogHeader>
 

@@ -1,12 +1,16 @@
 export type CoberturaNodoComercial =
-    | 'no_aplica'
-    | 'inactiva'
-    | 'cubierta'
-    | 'sin_cubrir';
+    'no_aplica' | 'inactiva' | 'cubierta' | 'sin_cubrir';
 
 export type NodoComercialArbol = {
     id: number;
-    tipo: 'matriz' | 'region' | 'zona' | 'ruta' | 'sucursal' | 'gerencia' | 'subgerencia';
+    tipo:
+        | 'matriz'
+        | 'region'
+        | 'zona'
+        | 'ruta'
+        | 'sucursal'
+        | 'gerencia'
+        | 'subgerencia';
     nombre: string;
     activa: boolean;
     region: string | null;

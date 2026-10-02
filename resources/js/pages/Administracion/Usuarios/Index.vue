@@ -38,7 +38,11 @@ const props = defineProps<{
     usuarios: RespuestaPaginada<UsuarioItem>;
     filtros: { busqueda?: string };
     /** Prop opcional: solo llega al abrir "Nuevo usuario" (recarga parcial). */
-    colaboradoresSinCuenta?: { id: number; name: string; apellidos: string | null }[];
+    colaboradoresSinCuenta?: {
+        id: number;
+        name: string;
+        apellidos: string | null;
+    }[];
     rolesDisponibles: string[];
     estadisticas: { total: number; bloqueados: number };
 }>();
@@ -115,7 +119,8 @@ function restablecer(usuario: UsuarioItem) {
         {
             preserveScroll: true,
             onSuccess: () => mostrarExito('Acceso restablecido.'),
-            onError: () => mostrarError('No fue posible restablecer el acceso.'),
+            onError: () =>
+                mostrarError('No fue posible restablecer el acceso.'),
         },
     );
 }
@@ -138,7 +143,11 @@ function restablecer(usuario: UsuarioItem) {
 
         <CrudStats
             :estadisticas="[
-                { etiqueta: 'Cuentas', valor: estadisticas.total, icono: UsersIcon },
+                {
+                    etiqueta: 'Cuentas',
+                    valor: estadisticas.total,
+                    icono: UsersIcon,
+                },
                 {
                     etiqueta: 'Acceso bloqueado',
                     valor: estadisticas.bloqueados,
@@ -201,7 +210,11 @@ function restablecer(usuario: UsuarioItem) {
             <template #celda-acceso_bloqueado_en="{ fila }">
                 <span
                     class="inline-flex items-center gap-1.5"
-                    :class="fila.acceso_bloqueado_en ? 'text-destructive' : 'text-[var(--success)]'"
+                    :class="
+                        fila.acceso_bloqueado_en
+                            ? 'text-destructive'
+                            : 'text-[var(--success)]'
+                    "
                 >
                     <Lock v-if="fila.acceso_bloqueado_en" class="size-3.5" />
                     <CheckCircle2 v-else class="size-3.5" />
@@ -216,7 +229,10 @@ function restablecer(usuario: UsuarioItem) {
             <template #celda-ultimo_acceso="{ fila }">
                 <span class="whitespace-nowrap text-muted-foreground">{{
                     fila.ultimo_acceso
-                        ? new Date(fila.ultimo_acceso).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })
+                        ? new Date(fila.ultimo_acceso).toLocaleString('es-MX', {
+                              dateStyle: 'medium',
+                              timeStyle: 'short',
+                          })
                         : 'Nunca'
                 }}</span>
             </template>
@@ -255,11 +271,22 @@ function restablecer(usuario: UsuarioItem) {
                     <template #badge>
                         <span
                             class="inline-flex items-center gap-1.5 text-xs"
-                            :class="fila.acceso_bloqueado_en ? 'text-destructive' : 'text-[var(--success)]'"
+                            :class="
+                                fila.acceso_bloqueado_en
+                                    ? 'text-destructive'
+                                    : 'text-[var(--success)]'
+                            "
                         >
-                            <Lock v-if="fila.acceso_bloqueado_en" class="size-3.5" />
+                            <Lock
+                                v-if="fila.acceso_bloqueado_en"
+                                class="size-3.5"
+                            />
                             <CheckCircle2 v-else class="size-3.5" />
-                            {{ fila.acceso_bloqueado_en ? 'Bloqueado' : 'Activo' }}
+                            {{
+                                fila.acceso_bloqueado_en
+                                    ? 'Bloqueado'
+                                    : 'Activo'
+                            }}
                         </span>
                     </template>
                     <template #acciones>
@@ -301,7 +328,9 @@ function restablecer(usuario: UsuarioItem) {
         :open="usuarioEditarRoles !== null"
         :usuario="usuarioEditarRoles"
         :roles-disponibles="rolesDisponibles"
-        @update:open="(v) => (usuarioEditarRoles = v ? usuarioEditarRoles : null)"
+        @update:open="
+            (v) => (usuarioEditarRoles = v ? usuarioEditarRoles : null)
+        "
     />
 
     <EstablecerPasswordDialog

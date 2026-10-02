@@ -20,6 +20,9 @@ class PendienteRhNotification extends Notification implements ShouldQueue
 {
     use BroadcastsNotificacion, Queueable;
 
+    /**
+     * @param  array<string, string>  $ruteo
+     */
     public function __construct(
         private readonly string $tipo,
         private readonly string $titulo,
@@ -28,6 +31,9 @@ class PendienteRhNotification extends Notification implements ShouldQueue
         private readonly ?int $relatedId = null,
         private readonly ?string $accion = null,
         private readonly string $prioridad = 'media',
+        // Por qué le llegó a este usuario (regla de ruteo y motivo legible):
+        // ["route_rule" => "contrato_por_vencer", "recipient_reason" => "..."].
+        private readonly array $ruteo = [],
     ) {}
 
     /**
@@ -54,6 +60,7 @@ class PendienteRhNotification extends Notification implements ShouldQueue
             'related_id' => $this->relatedId,
             'accion' => $this->accion,
             'prioridad' => $this->prioridad,
+            ...$this->ruteo,
         ];
     }
 }
