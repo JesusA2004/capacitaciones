@@ -11,6 +11,7 @@ import {
 } from '@lucide/vue';
 import { computed } from 'vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
+import { formatearFecha, formatearFechaHora } from '@/lib/fechas';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -157,7 +158,18 @@ function generarQr() {
 
         <div class="grid gap-6 lg:grid-cols-3">
             <div class="flex flex-col gap-4 lg:col-span-2">
-                <div class="rounded-2xl border border-border/60 bg-card p-4">
+                <!-- La liga sólo sirve mientras el candidato captura; ya
+                     convertida/cancelada/rechazada no se reenvía. -->
+                <div
+                    v-if="
+                        ![
+                            'convertida_a_colaborador',
+                            'cancelada',
+                            'rechazada',
+                        ].includes(alta.estado)
+                    "
+                    class="rounded-2xl border border-border/60 bg-card p-4"
+                >
                     <h2 class="mb-3 text-sm font-semibold">Liga segura</h2>
                     <div class="flex flex-wrap items-center gap-2">
                         <code class="rounded bg-muted px-2 py-1 text-xs">{{
@@ -188,8 +200,12 @@ function generarQr() {
                         v-if="alta.token_expira_en"
                         class="mt-2 text-xs text-muted-foreground"
                     >
-                        Vigente hasta
-                        {{ new Date(alta.token_expira_en).toLocaleString() }}
+                        {{
+                            new Date(alta.token_expira_en) < new Date()
+                                ? 'Venció el'
+                                : 'Vigente hasta'
+                        }}
+                        {{ formatearFechaHora(alta.token_expira_en) }}
                     </p>
                 </div>
 
@@ -208,7 +224,7 @@ function generarQr() {
                             <dt class="text-muted-foreground">
                                 Fecha de nacimiento
                             </dt>
-                            <dd>{{ alta.fecha_nacimiento ?? '—' }}</dd>
+                            <dd>{{ formatearFecha(alta.fecha_nacimiento) }}</dd>
                         </div>
                         <div>
                             <dt class="text-muted-foreground">CURP</dt>

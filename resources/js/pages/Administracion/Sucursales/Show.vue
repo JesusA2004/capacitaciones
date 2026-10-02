@@ -373,6 +373,7 @@ function porcentaje(fila: PlantillaPorPuesto): number {
                             <div
                                 class="h-full rounded-full"
                                 :class="
+                                    fila.plantilla_autorizada === 0 ||
                                     fila.faltante > 0
                                         ? 'bg-[var(--warning)]'
                                         : 'bg-[var(--success)]'
@@ -380,8 +381,32 @@ function porcentaje(fila: PlantillaPorPuesto): number {
                                 :style="{ width: `${porcentaje(fila)}%` }"
                             />
                         </div>
+                        <!-- Gente en un puesto sin plaza autorizada: no cubre
+                             plantilla (no se pinta como 100% cubierto). -->
                         <p
-                            v-if="fila.faltante > 0"
+                            v-if="
+                                fila.plantilla_autorizada === 0 &&
+                                fila.plantilla_actual > 0
+                            "
+                            class="col-span-2 text-xs text-[var(--warning)]"
+                        >
+                            Sin plantilla autorizada para este puesto
+                        </p>
+                        <p
+                            v-else-if="
+                                fila.plantilla_actual >
+                                fila.plantilla_autorizada
+                            "
+                            class="col-span-2 text-xs text-muted-foreground"
+                        >
+                            {{
+                                fila.plantilla_actual -
+                                fila.plantilla_autorizada
+                            }}
+                            por encima de la plantilla autorizada
+                        </p>
+                        <p
+                            v-else-if="fila.faltante > 0"
                             class="col-span-2 text-xs text-[var(--warning)]"
                         >
                             {{ fila.faltante }}

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import {
     CheckCircle2,
@@ -18,7 +19,6 @@ import {
     CollapsibleContent,
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { NativeSelect } from '@/components/ui/native-select';
 import {
     Tooltip,
     TooltipContent,
@@ -94,6 +94,10 @@ function rutasDe(zona: NodoComercialArbol): NodoComercialArbol[] {
 
 function posicionesDe(zona: NodoComercialArbol): NodoComercialArbol[] {
     return zona.hijos.filter((h) => h.es_posicion);
+}
+
+function nombreGestor(gestor: GestorDisponible): string {
+    return `${gestor.name} ${gestor.apellidos ?? ''}`.trim();
 }
 
 function estaAbierto(id: number): boolean {
@@ -392,7 +396,7 @@ function quitarApoyoOVolante(
                                     title="Gestor responsable: quien cobra esta ruta hoy."
                                     class="[&>div]:w-full"
                                 >
-                                    <NativeSelect
+                                    <SelectSimple
                                         class="h-8 text-xs"
                                         :model-value="
                                             ruta.responsable
@@ -403,19 +407,19 @@ function quitarApoyoOVolante(
                                             (v) =>
                                                 asignarGestor(ruta, String(v))
                                         "
-                                    >
-                                        <option value="__ninguno__">
-                                            Sin gestor
-                                        </option>
-                                        <option
-                                            v-for="gestor in gestoresDisponibles"
-                                            :key="gestor.id"
-                                            :value="String(gestor.id)"
-                                        >
-                                            {{ gestor.name }}
-                                            {{ gestor.apellidos ?? '' }}
-                                        </option>
-                                    </NativeSelect>
+                                        :opciones="[
+                                            {
+                                                value: '__ninguno__',
+                                                label: 'Sin gestor',
+                                            },
+                                            ...gestoresDisponibles.map(
+                                                (gestor) => ({
+                                                    value: String(gestor.id),
+                                                    label: nombreGestor(gestor),
+                                                }),
+                                            ),
+                                        ]"
+                                    />
                                 </div>
 
                                 <div
@@ -475,22 +479,19 @@ function quitarApoyoOVolante(
                                     v-if="ruta.activa"
                                     class="flex items-center gap-1"
                                 >
-                                    <NativeSelect
+                                    <SelectSimple
                                         v-model="seleccionApoyo[ruta.id]"
                                         class="h-8 flex-1 text-xs"
-                                    >
-                                        <option value="">
-                                            Agregar apoyo/volante...
-                                        </option>
-                                        <option
-                                            v-for="gestor in gestoresDisponibles"
-                                            :key="gestor.id"
-                                            :value="String(gestor.id)"
-                                        >
-                                            {{ gestor.name }}
-                                            {{ gestor.apellidos ?? '' }}
-                                        </option>
-                                    </NativeSelect>
+                                        :opciones="
+                                            gestoresDisponibles.map(
+                                                (gestor) => ({
+                                                    value: String(gestor.id),
+                                                    label: nombreGestor(gestor),
+                                                }),
+                                            )
+                                        "
+                                        opcion-vacia="Agregar apoyo/volante..."
+                                    />
                                     <Button
                                         size="icon"
                                         variant="outline"

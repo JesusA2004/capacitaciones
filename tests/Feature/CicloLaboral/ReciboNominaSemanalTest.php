@@ -50,7 +50,7 @@ test('rh crea un recibo interno semanal con detalle, totales, folio y PDF no fis
         ->and($datos['tipo_periodo'])->toBe('semanal')
         ->and($datos['numero_periodo'])->toBe(38)
         ->and($datos['folio'])->toStartWith('RIN-')
-        ->and($datos['leyenda'])->toBe('RECIBO INTERNO DE NÓMINA - NO FISCAL')
+        ->and($datos['leyenda'])->toBe('RECIBO DE NÓMINA')
         ->and($datos['conceptos'])->toHaveCount(3)
         ->and($datos['tiene_pdf'])->toBeTrue();
 
@@ -59,13 +59,13 @@ test('rh crea un recibo interno semanal con detalle, totales, folio y PDF no fis
     Storage::disk('nas')->assertExists($recibo->pdf_path);
     expect(GeneratedDocument::query()->where('documentable_type', $recibo->getMorphClass())->where('documentable_id', $recibo->id)->exists())->toBeTrue();
 
-    // La leyenda es visible en el formato impreso.
+    // El título es visible en el formato impreso (sin leyendas fiscales).
     $html = view('pdf.recibo-nomina', [
         'recibo' => $recibo, 'colaborador' => $this->colaborador, 'periodo_inicio' => $recibo->periodo_inicio,
         'periodo_fin' => $recibo->periodo_fin, 'fecha_pago' => $recibo->fecha_pago, 'percepciones' => $recibo->percepciones,
         'deducciones' => $recibo->deducciones, 'total_percepciones' => 4100.0, 'total_deducciones' => 400.0, 'neto' => 3700.0,
     ])->render();
-    expect($html)->toContain('RECIBO INTERNO DE NÓMINA - NO FISCAL');
+    expect($html)->toContain('RECIBO DE NÓMINA')->not->toContain('CFDI');
 
     // Mismo periodo: no se duplica.
     $this->postJson("/api/v1/rh/colaboradores/{$this->colaborador->id}/recibos", clReciboPayload())->assertUnprocessable();

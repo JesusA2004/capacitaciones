@@ -94,6 +94,7 @@ class SolicitudController extends Controller
                 'workflow' => $flujo['workflow'],
                 'historial' => $solicitud->historial->map(fn (SolicitudInternaHistorial $h) => [
                     'accion' => $h->accion,
+                    'accion_etiqueta' => $h->accion_etiqueta,
                     'comentario' => $h->comentario,
                     'usuario' => $h->usuario?->nombreCompleto(),
                     'fecha' => $h->created_at->toIso8601String(),
@@ -170,7 +171,6 @@ class SolicitudController extends Controller
             EstadoSolicitudInterna::EnRevision, EstadoSolicitudInterna::RequiereCorreccion => 'revisar',
             EstadoSolicitudInterna::Aprobada => 'aprobar',
             EstadoSolicitudInterna::Rechazada => 'rechazar',
-            EstadoSolicitudInterna::Cerrada => 'cerrar',
             default => abort(422, 'Ese estado no se puede asignar desde el tablero.'),
         };
 

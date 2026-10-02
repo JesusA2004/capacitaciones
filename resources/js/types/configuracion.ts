@@ -13,6 +13,8 @@ export type ParametroConfiguracion = {
     personalizado: boolean;
     opciones: { value: string; etiqueta: string }[] | null;
     css: string | null;
+    /** 'graficas' para los colores de cada gráfica del tablero. */
+    seccion?: string | null;
     actualizado_por: string | null;
     actualizado_en: string | null;
 };

@@ -46,7 +46,7 @@ class FiniquitoCalculoPolicy
     public function editarAjustes(User $usuario, FiniquitoCalculo $finiquito): bool
     {
         return $usuario->can('finiquitos.calcular')
-            && $finiquito->estado !== EstadoFiniquito::Firmado
+            && ! in_array($finiquito->estado, [EstadoFiniquito::Firmado, EstadoFiniquito::Pagado], true)
             && $this->alcance->puedeVerExpediente($usuario, $finiquito->colaborador);
     }
 
@@ -59,6 +59,8 @@ class FiniquitoCalculoPolicy
 
     public function subirFirmado(User $usuario, FiniquitoCalculo $finiquito): bool
     {
-        return $usuario->can('finiquitos.subir_firmado') && $this->alcance->puedeVerExpediente($usuario, $finiquito->colaborador);
+        return $usuario->can('finiquitos.subir_firmado')
+            && ! in_array($finiquito->estado, [EstadoFiniquito::Firmado, EstadoFiniquito::Pagado], true)
+            && $this->alcance->puedeVerExpediente($usuario, $finiquito->colaborador);
     }
 }

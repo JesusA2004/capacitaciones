@@ -100,14 +100,18 @@ const info = computed(() => {
     return (
         MAPA_ESTADOS[clave] ?? {
             variante: 'outline' as Variante,
-            etiqueta: clave.replace(/_/g, ' '),
+            // Sólo la primera letra en mayúscula: «Convertida a colaborador»,
+            // no «Convertida A Colaborador».
+            etiqueta:
+                clave.charAt(0).toUpperCase() +
+                clave.slice(1).replace(/_/g, ' '),
         }
     );
 });
 </script>
 
 <template>
-    <Badge :variant="info.variante" class="capitalize">
+    <Badge :variant="info.variante">
         {{ etiqueta ?? info.etiqueta }}
     </Badge>
 </template>

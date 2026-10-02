@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatearFecha } from '@/lib/fechas';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import {
     Download,
@@ -321,7 +322,7 @@ const claseBoton: Record<string, 'default' | 'secondary' | 'destructive'> = {
                         </div>
                         <div>
                             <dt class="text-muted-foreground">Fuente</dt>
-                            <dd>{{ candidato.fuente ?? '—' }}</dd>
+                            <dd>{{ candidato.fuente_etiqueta ?? '—' }}</dd>
                         </div>
                         <div>
                             <dt class="text-muted-foreground">Campaña</dt>
@@ -457,7 +458,7 @@ const claseBoton: Record<string, 'default' | 'secondary' | 'destructive'> = {
                             {{ item.resultado_etiqueta }}
                         </p>
                         <p class="text-xs text-muted-foreground">
-                            {{ item.fecha_visita }} ·
+                            {{ formatearFecha(item.fecha_visita) }} ·
                             {{ item.visitador ?? '—' }} · {{ item.direccion }}
                         </p>
                         <ul class="mt-1 flex flex-wrap gap-x-4 text-xs">
@@ -519,7 +520,7 @@ const claseBoton: Record<string, 'default' | 'secondary' | 'destructive'> = {
                             >
                             · {{ item.telefono ?? 'sin teléfono' }} · validó
                             {{ item.validada_por ?? '—' }} el
-                            {{ item.fecha_validacion }}
+                            {{ formatearFecha(item.fecha_validacion) }}
                         </p>
                         <p v-if="item.observaciones" class="mt-1">
                             {{ item.observaciones }}

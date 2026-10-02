@@ -137,17 +137,17 @@ test('si hay más solicitudes activas que el límite del tablero, el resumen exp
         );
 });
 
-test('no se puede mover una solicitud cerrada de vuelta a enviada', function () {
+test('no se puede mover una solicitud aprobada (definitiva) de vuelta a enviada', function () {
     $rh = User::factory()->create();
     $rh->assignRole('rh_admin');
 
-    $solicitud = SolicitudInterna::factory()->create(['estado' => 'cerrada']);
+    $solicitud = SolicitudInterna::factory()->create(['estado' => 'aprobada']);
 
     $this->actingAs($rh)
         ->patch(route('rh.solicitudes.actualizar-estado', $solicitud), ['estado' => 'enviada'])
         ->assertSessionHasErrors('estado');
 
-    expect($solicitud->fresh()->estado->value)->toBe('cerrada');
+    expect($solicitud->fresh()->estado->value)->toBe('aprobada');
 });
 
 test('no se puede mover una solicitud rechazada directo a aprobada', function () {

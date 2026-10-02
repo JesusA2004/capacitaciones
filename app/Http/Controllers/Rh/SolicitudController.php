@@ -291,15 +291,6 @@ class SolicitudController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => 'Solicitud rechazada.']);
     }
 
-    public function cerrar(ComentarioSolicitudInternaRequest $request, SolicitudInterna $solicitud): RedirectResponse
-    {
-        $this->authorize('cerrar', $solicitud);
-
-        $this->solicitudes->cerrar($solicitud, $request->user(), $request->validated('comentario'));
-
-        return back()->with('toast', ['type' => 'success', 'message' => 'Solicitud cerrada.']);
-    }
-
     /**
      * Cambio de estado unificado del tablero Kanban (drag and drop): traduce
      * el estado destino a la habilidad de policy correspondiente y delega en
@@ -315,7 +306,6 @@ class SolicitudController extends Controller
             EstadoSolicitudInterna::EnRevision, EstadoSolicitudInterna::RequiereCorreccion => 'revisar',
             EstadoSolicitudInterna::Aprobada => 'aprobar',
             EstadoSolicitudInterna::Rechazada => 'rechazar',
-            EstadoSolicitudInterna::Cerrada => 'cerrar',
             default => abort(422, 'Ese estado no se puede asignar desde el tablero.'),
         };
 

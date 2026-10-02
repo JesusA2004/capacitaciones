@@ -93,7 +93,7 @@ class EvaluacionPeriodoPrueba extends Model
      */
     public function evaluador(): BelongsTo
     {
-        return $this->belongsTo(Colaborador::class, 'evaluador_colaborador_id');
+        return $this->belongsTo(Colaborador::class, 'evaluador_colaborador_id')->withTrashed();
     }
 
     /**

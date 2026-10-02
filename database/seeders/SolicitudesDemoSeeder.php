@@ -180,13 +180,12 @@ class SolicitudesDemoSeeder extends Seeder
             });
 
             $this->crearSiNoExiste('Constancia laboral para trámite bancario', function () use ($servicio, $colaborador7, $rhAdmin) {
-                // Aprobada y luego cerrada — columna "Cerrada".
+                // Aprobada (definitiva: no existe fase "cerrada").
                 $solicitud = $servicio->crear($colaborador7, [
                     'tipo' => 'constancia_laboral',
                     'motivo' => 'Constancia laboral para trámite bancario '.self::MARCA,
                 ]);
                 $servicio->aprobar($solicitud, $rhAdmin, 'Constancia entregada.');
-                $servicio->cerrar($solicitud->fresh(), $rhAdmin, 'Trámite concluido.');
             });
         }
     }

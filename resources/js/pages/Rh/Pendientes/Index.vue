@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatearFecha } from '@/lib/fechas';
 import { Head, Link, router } from '@inertiajs/vue3';
 import {
     AlarmClock,
@@ -111,7 +112,7 @@ function venceEn(tarea: TareaBandeja): { texto: string; clase: string } | null {
               clase: 'bg-[var(--mrl-gold)]/15 text-[var(--mrl-gold-dark)]',
           }
         : {
-              texto: `Vence el ${tarea.vence_en}`,
+              texto: `Vence el ${formatearFecha(tarea.vence_en)}`,
               clase: 'bg-[var(--mrl-fondo)] text-[var(--mrl-texto-suave)]',
           };
 }
@@ -355,8 +356,11 @@ const segmento = (activo: boolean) =>
                                     <template v-if="tarea.sucursal">
                                         · {{ tarea.sucursal }}</template
                                     >
-                                    · hace {{ tarea.antiguedad_dias }} día{{
-                                        tarea.antiguedad_dias === 1 ? '' : 's'
+                                    ·
+                                    {{
+                                        tarea.antiguedad_dias === 0
+                                            ? 'hoy'
+                                            : `hace ${tarea.antiguedad_dias} día${tarea.antiguedad_dias === 1 ? '' : 's'}`
                                     }}
                                 </p>
                                 <p

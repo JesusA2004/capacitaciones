@@ -38,7 +38,7 @@ enum TipoFormatoOficial: string
             self::Carta => 'Carta',
             self::Prestamo => 'Préstamo / pagaré',
             self::Acta => 'Acta',
-            self::Recibo => 'Recibo interno',
+            self::Recibo => 'Recibo de nómina',
             self::Ingreso => 'Formato de ingreso',
             self::SolicitudEmpleo => 'Solicitud de empleo',
             self::Baja => 'Baja de personal',

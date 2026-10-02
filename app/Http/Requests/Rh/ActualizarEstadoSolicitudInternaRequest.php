@@ -32,7 +32,6 @@ class ActualizarEstadoSolicitudInternaRequest extends FormRequest
                     EstadoSolicitudInterna::RequiereCorreccion->value,
                     EstadoSolicitudInterna::Aprobada->value,
                     EstadoSolicitudInterna::Rechazada->value,
-                    EstadoSolicitudInterna::Cerrada->value,
                 ]),
             ],
             'comentario' => ['nullable', 'string', 'max:1000'],

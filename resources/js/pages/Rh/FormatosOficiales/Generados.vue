@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { Download, Eye, FileCheck2, FolderOpen, Search } from '@lucide/vue';
 import { ref, watch } from 'vue';
@@ -7,7 +8,6 @@ import FormatosTabsNav from '@/components/Rh/FormatosTabsNav.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { NativeSelect } from '@/components/ui/native-select';
 import { dashboard } from '@/routes';
 import { show as showExpediente } from '@/routes/rh/expedientes';
 import { generados } from '@/routes/rh/formatos-oficiales';
@@ -83,12 +83,17 @@ function fecha(valor: string | null): string {
                     class="pl-8"
                 />
             </div>
-            <NativeSelect v-model="formatoId" class="w-full sm:w-72">
-                <option value="">Todos los formatos</option>
-                <option v-for="f in formatos" :key="f.id" :value="String(f.id)">
-                    {{ f.nombre }}
-                </option>
-            </NativeSelect>
+            <SelectSimple
+                v-model="formatoId"
+                class="w-full sm:w-72"
+                :opciones="
+                    formatos.map((f) => ({
+                        value: String(f.id),
+                        label: f.nombre,
+                    }))
+                "
+                opcion-vacia="Todos los formatos"
+            />
         </div>
 
         <DataTable

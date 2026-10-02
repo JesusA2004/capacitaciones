@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import {
     AlertTriangle,
     CheckCircle2,
@@ -22,7 +23,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { NativeSelect } from '@/components/ui/native-select';
 import { Spinner } from '@/components/ui/spinner';
 import { useAlertas } from '@/composables/useAlertas';
 import { enviarJson } from '@/lib/http';
@@ -270,10 +270,16 @@ const nombreSujeto = computed(
                     <template v-if="!sujetoFijo">
                         <div class="grid gap-1.5">
                             <Label>Para</Label>
-                            <NativeSelect v-model="tipoSujeto">
-                                <option value="colaborador">Colaborador</option>
-                                <option value="candidato">Candidato</option>
-                            </NativeSelect>
+                            <SelectSimple
+                                v-model="tipoSujeto"
+                                :opciones="[
+                                    {
+                                        value: 'colaborador',
+                                        label: 'Colaborador',
+                                    },
+                                    { value: 'candidato', label: 'Candidato' },
+                                ]"
+                            />
                         </div>
                         <div class="grid gap-1.5">
                             <Label>{{
@@ -306,18 +312,20 @@ const nombreSujeto = computed(
                             <Label>{{
                                 ETIQUETA_CONTEXTO[clave] ?? clave
                             }}</Label>
-                            <NativeSelect v-model="contexto[clave]">
-                                <option value="">Selecciona…</option>
-                                <option
-                                    v-for="o in preparacion.contextos?.opciones[
-                                        clave
-                                    ] ?? []"
-                                    :key="o.id"
-                                    :value="String(o.id)"
-                                >
-                                    {{ o.label }}
-                                </option>
-                            </NativeSelect>
+                            <SelectSimple
+                                v-model="contexto[clave]"
+                                :opciones="
+                                    (
+                                        preparacion.contextos?.opciones[
+                                            clave
+                                        ] ?? []
+                                    ).map((o) => ({
+                                        value: String(o.id),
+                                        label: o.label,
+                                    }))
+                                "
+                                opcion-vacia="Selecciona…"
+                            />
                             <p
                                 v-if="
                                     (

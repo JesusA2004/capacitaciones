@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { ArrowLeft, Info, Upload } from '@lucide/vue';
 import InputError from '@/components/InputError.vue';
@@ -6,7 +7,6 @@ import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { NativeSelect } from '@/components/ui/native-select';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { dashboard } from '@/routes';
@@ -87,41 +87,41 @@ function enviar() {
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div class="grid gap-1.5">
                     <Label>Categoría</Label>
-                    <NativeSelect v-model="form.tipo">
-                        <option
-                            v-for="c in categorias"
-                            :key="c.value"
-                            :value="c.value"
-                        >
-                            {{ c.etiqueta }}
-                        </option>
-                    </NativeSelect>
+                    <SelectSimple
+                        v-model="form.tipo"
+                        :opciones="
+                            categorias.map((c) => ({
+                                value: c.value,
+                                label: c.etiqueta,
+                            }))
+                        "
+                    />
                     <InputError :message="form.errors.tipo" />
                 </div>
                 <div class="grid gap-1.5">
                     <Label>Aplica a</Label>
-                    <NativeSelect v-model="form.aplica_a">
-                        <option
-                            v-for="a in aplicaA"
-                            :key="a.value"
-                            :value="a.value"
-                        >
-                            {{ a.etiqueta }}
-                        </option>
-                    </NativeSelect>
+                    <SelectSimple
+                        v-model="form.aplica_a"
+                        :opciones="
+                            aplicaA.map((a) => ({
+                                value: a.value,
+                                label: a.etiqueta,
+                            }))
+                        "
+                    />
                 </div>
                 <div class="grid gap-1.5">
                     <Label>Empresa</Label>
-                    <NativeSelect v-model="form.empresa_id">
-                        <option value="">Todas</option>
-                        <option
-                            v-for="e in empresas"
-                            :key="e.id"
-                            :value="String(e.id)"
-                        >
-                            {{ e.nombre }}
-                        </option>
-                    </NativeSelect>
+                    <SelectSimple
+                        v-model="form.empresa_id"
+                        :opciones="
+                            empresas.map((e) => ({
+                                value: String(e.id),
+                                label: e.nombre,
+                            }))
+                        "
+                        opcion-vacia="Todas"
+                    />
                 </div>
             </div>
 

@@ -98,7 +98,7 @@ class TareasSolicitudService
             return;
         }
 
-        if (in_array($solicitud->estado, [EstadoSolicitudInterna::Aprobada, EstadoSolicitudInterna::Rechazada, EstadoSolicitudInterna::Cancelada, EstadoSolicitudInterna::Cerrada], true)) {
+        if (in_array($solicitud->estado, [EstadoSolicitudInterna::Aprobada, EstadoSolicitudInterna::Rechazada, EstadoSolicitudInterna::Cancelada], true)) {
             $this->tareas->resolver($tipo, $solicitud, $actor);
         }
     }

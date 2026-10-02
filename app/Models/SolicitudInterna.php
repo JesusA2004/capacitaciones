@@ -113,7 +113,7 @@ class SolicitudInterna extends Model
      */
     public function colaborador(): BelongsTo
     {
-        return $this->belongsTo(Colaborador::class, 'colaborador_id');
+        return $this->belongsTo(Colaborador::class, 'colaborador_id')->withTrashed();
     }
 
     /**
@@ -139,7 +139,7 @@ class SolicitudInterna extends Model
      */
     public function objetivoColaborador(): BelongsTo
     {
-        return $this->belongsTo(Colaborador::class, 'objetivo_colaborador_id');
+        return $this->belongsTo(Colaborador::class, 'objetivo_colaborador_id')->withTrashed();
     }
 
     /**

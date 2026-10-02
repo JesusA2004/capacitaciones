@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { FilterX } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
@@ -7,7 +8,6 @@ import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
 import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
 import { Label } from '@/components/ui/label';
-import { NativeSelect } from '@/components/ui/native-select';
 import type { FiltrosCelebracion, OpcionCelebracion } from '@/types';
 
 /**
@@ -134,54 +134,48 @@ function limpiar() {
         >
             <div v-if="catalogos.empresas" class="grid gap-1.5">
                 <Label for="filtro-empresa">Empresa</Label>
-                <NativeSelect
+                <SelectSimple
                     id="filtro-empresa"
                     v-model="borrador.empresa_id"
                     class="w-full"
-                >
-                    <option value="">Todas las empresas</option>
-                    <option
-                        v-for="e in catalogos.empresas"
-                        :key="e.id"
-                        :value="String(e.id)"
-                    >
-                        {{ e.nombre }}
-                    </option>
-                </NativeSelect>
+                    :opciones="
+                        catalogos.empresas.map((e) => ({
+                            value: String(e.id),
+                            label: e.nombre,
+                        }))
+                    "
+                    opcion-vacia="Todas las empresas"
+                />
             </div>
             <div class="grid gap-1.5">
                 <Label for="filtro-sucursal">Sucursal</Label>
-                <NativeSelect
+                <SelectSimple
                     id="filtro-sucursal"
                     v-model="borrador.sucursal_id"
                     class="w-full"
-                >
-                    <option value="">Todas las sucursales</option>
-                    <option
-                        v-for="s in catalogos.sucursales"
-                        :key="s.id"
-                        :value="String(s.id)"
-                    >
-                        {{ s.nombre }}
-                    </option>
-                </NativeSelect>
+                    :opciones="
+                        catalogos.sucursales.map((s) => ({
+                            value: String(s.id),
+                            label: s.nombre,
+                        }))
+                    "
+                    opcion-vacia="Todas las sucursales"
+                />
             </div>
             <div class="grid gap-1.5">
                 <Label for="filtro-departamento">Departamento</Label>
-                <NativeSelect
+                <SelectSimple
                     id="filtro-departamento"
                     v-model="borrador.departamento_id"
                     class="w-full"
-                >
-                    <option value="">Todos los departamentos</option>
-                    <option
-                        v-for="d in catalogos.departamentos"
-                        :key="d.id"
-                        :value="String(d.id)"
-                    >
-                        {{ d.nombre }}
-                    </option>
-                </NativeSelect>
+                    :opciones="
+                        catalogos.departamentos.map((d) => ({
+                            value: String(d.id),
+                            label: d.nombre,
+                        }))
+                    "
+                    opcion-vacia="Todos los departamentos"
+                />
             </div>
             <div v-if="catalogos.colaboradores" class="grid gap-1.5">
                 <Label for="filtro-colaborador">Colaborador</Label>
@@ -195,20 +189,18 @@ function limpiar() {
             </div>
             <div v-if="catalogos.estatus" class="grid gap-1.5">
                 <Label for="filtro-estatus">Estatus</Label>
-                <NativeSelect
+                <SelectSimple
                     id="filtro-estatus"
                     v-model="borrador.estatus"
                     class="w-full"
-                >
-                    <option value="">Activos</option>
-                    <option
-                        v-for="e in catalogos.estatus"
-                        :key="e.valor"
-                        :value="e.valor"
-                    >
-                        {{ e.etiqueta }}
-                    </option>
-                </NativeSelect>
+                    :opciones="
+                        catalogos.estatus.map((e) => ({
+                            value: e.valor,
+                            label: e.etiqueta,
+                        }))
+                    "
+                    opcion-vacia="Activos"
+                />
             </div>
 
             <fieldset class="grid gap-1.5">

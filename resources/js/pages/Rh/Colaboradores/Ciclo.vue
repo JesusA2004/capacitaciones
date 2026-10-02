@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatearFecha } from '@/lib/fechas';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import {
     CheckCircle2,
@@ -335,14 +336,6 @@ const etiquetaFecha: Record<string, string> = {
     recepcion: 'Fecha de recepción',
 };
 
-function elegirArchivoDocumento(
-    event: Event,
-    campo: 'comprobante' | 'archivo',
-) {
-    formDocumento[campo] =
-        (event.target as HTMLInputElement).files?.[0] ?? null;
-}
-
 const variante: Record<string, 'default' | 'secondary' | 'destructive'> = {
     primaria: 'default',
     secundaria: 'secondary',
@@ -490,8 +483,12 @@ const variante: Record<string, 'default' | 'secondary' | 'destructive'> = {
                                         activo.entrega.identificador
                                             ? `#${activo.entrega.identificador} · `
                                             : ''
-                                    }}{{ activo.entrega.entregado_en }} ·
-                                    responsiva
+                                    }}{{
+                                        formatearFecha(
+                                            activo.entrega.entregado_en,
+                                        )
+                                    }}
+                                    · responsiva
                                     {{
                                         activo.entrega.responsiva_estado ??
                                         'pendiente'
@@ -604,12 +601,17 @@ const variante: Record<string, 'default' | 'secondary' | 'destructive'> = {
                         <Label for="doc-comprobante"
                             >Comprobante de envío (opcional)</Label
                         >
-                        <Input
-                            id="doc-comprobante"
-                            type="file"
-                            accept=".pdf,image/*"
-                            @change="
-                                elegirArchivoDocumento($event, 'comprobante')
+                        <PeopleFileDropzone
+                            :model-value="
+                                formDocumento.comprobante
+                                    ? [formDocumento.comprobante]
+                                    : []
+                            "
+                            accept=".pdf,.jpg,.jpeg,.png,.webp"
+                            label="Arrastra el comprobante aquí"
+                            @update:model-value="
+                                (f) =>
+                                    (formDocumento.comprobante = f[0] ?? null)
                             "
                         />
                         <InputError
@@ -673,12 +675,15 @@ const variante: Record<string, 'default' | 'secondary' | 'destructive'> = {
                     <Label for="doc-archivo"
                         >Escaneo del original firmado</Label
                     >
-                    <Input
-                        id="doc-archivo"
-                        type="file"
-                        accept=".pdf,image/*"
-                        required
-                        @change="elegirArchivoDocumento($event, 'archivo')"
+                    <PeopleFileDropzone
+                        :model-value="
+                            formDocumento.archivo ? [formDocumento.archivo] : []
+                        "
+                        accept=".pdf,.jpg,.jpeg,.png,.webp"
+                        label="Arrastra el escaneo aquí"
+                        @update:model-value="
+                            (f) => (formDocumento.archivo = f[0] ?? null)
+                        "
                     />
                     <InputError :message="formDocumento.errors.archivo" />
                 </div>

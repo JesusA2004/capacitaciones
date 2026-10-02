@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { useForm } from '@inertiajs/vue3';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
@@ -48,11 +49,6 @@ const form = useForm({
     activo: props.plantilla?.activo ?? true,
     archivo: null as File | null,
 });
-
-function alSeleccionarArchivo(event: Event) {
-    const input = event.target as HTMLInputElement;
-    form.archivo = input.files?.[0] ?? null;
-}
 
 function enviar() {
     const transformado = form.transform((datos) => ({
@@ -177,11 +173,13 @@ function enviar() {
                             ? 'Reemplazar archivo (opcional)'
                             : 'Archivo DOCX'
                     }}</Label>
-                    <Input
-                        id="archivo"
-                        type="file"
+                    <PeopleFileDropzone
+                        :model-value="form.archivo ? [form.archivo] : []"
                         accept=".docx"
-                        @change="alSeleccionarArchivo"
+                        label="Arrastra el DOCX aquí"
+                        @update:model-value="
+                            (f) => (form.archivo = f[0] ?? null)
+                        "
                     />
                     <InputError :message="form.errors.archivo" />
                     <p v-if="plantilla" class="text-xs text-muted-foreground">

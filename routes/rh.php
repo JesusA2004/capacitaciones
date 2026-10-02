@@ -227,7 +227,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('{solicitud}/visto-bueno', [SolicitudController::class, 'vistoBueno'])->name('visto-bueno');
             Route::post('{solicitud}/aprobar', [SolicitudController::class, 'aprobar'])->name('aprobar');
             Route::post('{solicitud}/rechazar', [SolicitudController::class, 'rechazar'])->name('rechazar');
-            Route::post('{solicitud}/cerrar', [SolicitudController::class, 'cerrar'])->name('cerrar');
             Route::patch('{solicitud}/estado', [SolicitudController::class, 'actualizarEstado'])->name('actualizar-estado');
 
             Route::prefix('{solicitud}/finiquito')->name('finiquito.')->group(function () {

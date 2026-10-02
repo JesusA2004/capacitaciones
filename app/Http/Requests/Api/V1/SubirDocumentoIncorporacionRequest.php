@@ -2,13 +2,19 @@
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Services\Navigation\NavigationService;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 
 class SubirDocumentoIncorporacionRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('colaborador.incorporacion.documentos.subir') ?? false;
+        $usuario = $this->user();
+
+        // Su propio expediente: mismo criterio que la web (`modo-colaborador`).
+        return $usuario !== null
+            && ($usuario->can('colaborador.incorporacion.documentos.subir') || Gate::forUser($usuario)->allows(NavigationService::GATE_MODO_COLABORADOR));
     }
 
     /**

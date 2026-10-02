@@ -48,6 +48,7 @@ use App\Services\Onboarding\OnboardingService;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
 use App\Services\Reclutamiento\ContratacionCandidatoService;
 use App\Services\Tareas\TareaService;
+use Database\Seeders\PuestoJerarquiaSeeder;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Carbon;
@@ -706,7 +707,7 @@ test('PDF etapa 4: el comando del scheduler corrido 10 veces crea UNA evaluació
 });
 
 test('PDF etapa 4: la duración sale de la configuración del puesto (Gestor 2 meses, Gerente y Regional 3)', function () {
-    $this->seed(\Database\Seeders\PuestoJerarquiaSeeder::class);
+    $this->seed(PuestoJerarquiaSeeder::class);
     $meses = fn (string $nombre) => Puesto::query()->where('nombre', $nombre)->value('meses_periodo_prueba');
 
     expect($meses('Gestor'))->toBe(2)

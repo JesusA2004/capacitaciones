@@ -3,7 +3,6 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import {
     AlarmClock,
     AlertTriangle,
-    Archive,
     ArrowUpRight,
     Baby,
     Cake,
@@ -199,14 +198,6 @@ const COLUMNAS: ColumnaDefinicion[] = [
         cabecera: 'bg-slate-100/80 dark:bg-slate-500/5',
         barra: 'bg-slate-400',
     },
-    {
-        estado: 'cerrada',
-        titulo: 'Cerradas',
-        icono: Archive,
-        suave: 'bg-teal-100 text-teal-700 dark:bg-teal-500/20 dark:text-teal-300',
-        cabecera: 'bg-teal-50/80 dark:bg-teal-500/5',
-        barra: 'bg-teal-400',
-    },
 ];
 
 const CHIP_BASE =
@@ -301,10 +292,13 @@ function sinEvidencia(solicitud: SolicitudInternaItem): boolean {
 }
 
 function finiquitoRevisado(solicitud: SolicitudInternaItem): boolean {
-    const estado = solicitud.finiquitoCalculo?.estado;
+    const estado = solicitud.finiquito_calculo?.estado;
 
     return (
-        estado === 'revisado' || estado === 'aprobado' || estado === 'firmado'
+        estado === 'revisado' ||
+        estado === 'aprobado' ||
+        estado === 'firmado' ||
+        estado === 'pagado'
     );
 }
 
@@ -448,7 +442,7 @@ function confirmarMovimiento() {
         }
 
         if (
-            mov.solicitud.finiquitoCalculo &&
+            mov.solicitud.finiquito_calculo &&
             !finiquitoRevisado(mov.solicitud)
         ) {
             mostrarError(
@@ -887,7 +881,7 @@ function confirmarMovimiento() {
                             <span
                                 v-if="
                                     solicitud.tipo === 'baja_colaborador' &&
-                                    solicitud.finiquitoCalculo
+                                    solicitud.finiquito_calculo
                                 "
                                 :class="
                                     finiquitoRevisado(solicitud)

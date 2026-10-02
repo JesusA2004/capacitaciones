@@ -80,7 +80,7 @@ class ConfiguracionController extends Controller
 
         return Inertia::render('Administracion/Configuracion/Notificaciones', [
             'reglas' => $this->routing->reglas(),
-            'tipos' => array_map(fn (TipoDestinatarioNotificacion $t) => ['value' => $t->value, 'etiqueta' => $t->etiqueta()], TipoDestinatarioNotificacion::cases()),
+            'tipos' => array_map(fn (TipoDestinatarioNotificacion $t) => ['value' => $t->value, 'etiqueta' => $t->etiqueta(), 'ayuda' => $t->ayuda()], TipoDestinatarioNotificacion::cases()),
             'permisos' => Permission::query()->orderBy('name')->pluck('name'),
             'usuarios' => User::query()->whereNull('acceso_bloqueado_en')->orderBy('name')->get(['id', 'name', 'email'])->map(fn (User $u) => ['id' => $u->id, 'nombre' => $u->name, 'email' => $u->email]),
             'secciones' => $this->secciones($request->user()),

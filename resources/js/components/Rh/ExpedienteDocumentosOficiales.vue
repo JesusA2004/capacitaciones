@@ -1,11 +1,11 @@
 <script setup lang="ts">
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { router } from '@inertiajs/vue3';
 import { Download, Eye, FileSignature, Sparkles } from '@lucide/vue';
 import { ref } from 'vue';
 import FormatoOficialGenerarDialog from '@/components/Rh/FormatoOficialGenerarDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { NativeSelect } from '@/components/ui/native-select';
 import type { FormatoOficialItem } from '@/types';
 
 /**
@@ -62,16 +62,17 @@ function fecha(valor: string | null): string {
                 oficiales
             </h3>
             <div v-if="formatos.length > 0" class="flex gap-2">
-                <NativeSelect v-model="formatoId" class="w-full sm:w-64">
-                    <option value="">Elige un formato…</option>
-                    <option
-                        v-for="f in formatos"
-                        :key="f.id"
-                        :value="String(f.id)"
-                    >
-                        {{ f.nombre }}
-                    </option>
-                </NativeSelect>
+                <SelectSimple
+                    v-model="formatoId"
+                    class="w-full sm:w-64"
+                    :opciones="
+                        formatos.map((f) => ({
+                            value: String(f.id),
+                            label: f.nombre,
+                        }))
+                    "
+                    opcion-vacia="Elige un formato…"
+                />
                 <Button :disabled="!formatoId" @click="abrir">
                     <Sparkles class="size-4" />
                     Generar

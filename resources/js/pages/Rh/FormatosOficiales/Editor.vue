@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import {
     AlertTriangle,
@@ -38,7 +39,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { NativeSelect } from '@/components/ui/native-select';
 import {
     Select,
     SelectContent,
@@ -1000,26 +1000,34 @@ const panel = ref<'variables' | 'detectados'>(
                             class="col-span-2 grid gap-1"
                         >
                             <Label class="text-xs">Dato del sistema</Label>
-                            <NativeSelect
-                                v-model="variableSel"
-                                class="h-8 text-xs"
+                            <Select
+                                :model-value="variableSel"
+                                @update:model-value="
+                                    (v) => (variableSel = String(v ?? ''))
+                                "
                             >
-                                <optgroup
-                                    v-for="grupo in grupos"
-                                    :key="grupo.clave"
-                                    :label="grupo.etiqueta"
-                                >
-                                    <option
-                                        v-for="v in grupo.variables.filter(
-                                            (x) => x.tipo !== 'imagen',
-                                        )"
-                                        :key="v.clave"
-                                        :value="v.clave"
+                                <SelectTrigger size="sm" class="w-full text-xs">
+                                    <SelectValue placeholder="Elige el dato" />
+                                </SelectTrigger>
+                                <SelectContent class="max-h-80">
+                                    <SelectGroup
+                                        v-for="grupo in grupos"
+                                        :key="grupo.clave"
                                     >
-                                        {{ v.etiqueta }}
-                                    </option>
-                                </optgroup>
-                            </NativeSelect>
+                                        <SelectLabel>{{
+                                            grupo.etiqueta
+                                        }}</SelectLabel>
+                                        <SelectItem
+                                            v-for="v in grupo.variables.filter(
+                                                (x) => x.tipo !== 'imagen',
+                                            )"
+                                            :key="v.clave"
+                                            :value="v.clave"
+                                            >{{ v.etiqueta }}</SelectItem
+                                        >
+                                    </SelectGroup>
+                                </SelectContent>
+                            </Select>
                         </div>
                         <div class="grid gap-1">
                             <Label class="text-xs">X (mm)</Label
@@ -1073,14 +1081,15 @@ const panel = ref<'variables' | 'detectados'>(
                             </div>
                             <div class="grid gap-1">
                                 <Label class="text-xs">Alineación</Label>
-                                <NativeSelect
+                                <SelectSimple
                                     v-model="seleccionado.align"
                                     class="h-8 text-xs"
-                                >
-                                    <option value="left">Izquierda</option>
-                                    <option value="center">Centro</option>
-                                    <option value="right">Derecha</option>
-                                </NativeSelect>
+                                    :opciones="[
+                                        { value: 'left', label: 'Izquierda' },
+                                        { value: 'center', label: 'Centro' },
+                                        { value: 'right', label: 'Derecha' },
+                                    ]"
+                                />
                             </div>
                             <div
                                 v-if="
@@ -1091,21 +1100,20 @@ const panel = ref<'variables' | 'detectados'>(
                                 class="col-span-2 grid gap-1"
                             >
                                 <Label class="text-xs">Formato</Label>
-                                <NativeSelect
+                                <SelectSimple
                                     v-model="formatoSel"
-                                    class="h-8 text-xs"
-                                >
-                                    <option value="">Predeterminado</option>
-                                    <option
-                                        v-for="(
-                                            etiqueta, clave
-                                        ) in formatosDelSeleccionado"
-                                        :key="clave"
-                                        :value="clave"
-                                    >
-                                        {{ etiqueta }}
-                                    </option>
-                                </NativeSelect>
+                                    size="sm"
+                                    class="text-xs"
+                                    opcion-vacia="Predeterminado"
+                                    :opciones="
+                                        Object.entries(
+                                            formatosDelSeleccionado,
+                                        ).map(([clave, etiqueta]) => ({
+                                            value: clave,
+                                            label: etiqueta,
+                                        }))
+                                    "
+                                />
                             </div>
                             <div class="grid gap-1">
                                 <Label class="text-xs">Máx. caracteres</Label>
@@ -1525,14 +1533,12 @@ const panel = ref<'variables' | 'detectados'>(
             <div class="grid gap-3">
                 <div class="grid gap-1">
                     <Label>Archivo nuevo (opcional)</Label>
-                    <Input
-                        type="file"
+                    <PeopleFileDropzone
+                        :model-value="archivoVersion ? [archivoVersion] : []"
                         accept=".pdf,.docx,.png,.jpg,.jpeg,.webp"
-                        @change="
-                            (e: Event) =>
-                                (archivoVersion =
-                                    (e.target as HTMLInputElement).files?.[0] ??
-                                    null)
+                        label="Arrastra el archivo nuevo aquí"
+                        @update:model-value="
+                            (f) => (archivoVersion = f[0] ?? null)
                         "
                     />
                 </div>

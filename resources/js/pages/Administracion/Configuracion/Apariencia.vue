@@ -2,6 +2,7 @@
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { Palette, RotateCcw } from '@lucide/vue';
 import { computed } from 'vue';
+import AyudaBoton from '@/components/Common/AyudaBoton.vue';
 import ConfiguracionTabs from '@/components/configuracion/ConfiguracionTabs.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import InputError from '@/components/InputError.vue';
@@ -35,6 +36,28 @@ const form = useForm<{ valores: Record<string, string> }>({
 });
 
 const valido = (valor: string) => HEX.test(valor);
+
+// Dos bloques: colores institucionales y un color por cada gráfica.
+const institucionales = computed(() =>
+    props.colores.filter((c) => c.seccion !== 'graficas'),
+);
+const graficas = computed(() =>
+    props.colores.filter((c) => c.seccion === 'graficas'),
+);
+const bloques = computed(() => [
+    {
+        clave: 'institucionales',
+        titulo: 'Colores institucionales',
+        ayuda: 'Los colores de la marca: encabezados, botones, estados (aprobado, en proceso, rechazado) y fondos. Se aplican en la web (modo claro) y en la app.',
+        colores: institucionales.value,
+    },
+    {
+        clave: 'graficas',
+        titulo: 'Colores de las gráficas',
+        ayuda: 'Cada gráfica del tablero de RH tiene su propio color. Cámbialo aquí y se verá así en la web, en modo claro y oscuro.',
+        colores: graficas.value,
+    },
+]);
 const hayCambios = computed(() =>
     props.colores.some(
         (c) => form.valores[c.clave] !== String(c.valor).toUpperCase(),
@@ -86,64 +109,80 @@ function restaurarColor(c: ParametroConfiguracion) {
         <ConfiguracionTabs :secciones="secciones" actual="apariencia" />
 
         <p class="text-sm text-[var(--mrl-texto-suave)]">
-            Estos colores se aplican a toda la plataforma web (modo claro) y la
-            app los recibe sin actualizar la APK. El modo oscuro conserva su
-            paleta adaptada para no perder contraste.
+            Los colores institucionales se aplican a toda la plataforma web
+            (modo claro) y la app los recibe sin actualizar la APK. Los colores
+            de las gráficas aplican al tablero de RH en ambos modos.
         </p>
 
         <div class="grid gap-5 lg:grid-cols-[1fr_320px]">
             <form class="flex flex-col gap-2" @submit.prevent="guardar">
-                <div
-                    v-for="c in colores"
-                    :key="c.clave"
-                    class="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-3"
-                >
-                    <input
-                        v-model="form.valores[c.clave]"
-                        type="color"
-                        class="size-10 shrink-0 cursor-pointer rounded-md border border-[var(--mrl-borde)] bg-transparent"
-                        :aria-label="`Elegir ${c.etiqueta}`"
-                        @change="normalizar(c.clave)"
-                    />
-                    <div class="min-w-0 flex-1">
-                        <p class="text-sm font-medium">
-                            {{ c.etiqueta }}
-                            <span
-                                v-if="c.personalizado"
-                                class="ml-1 rounded-full bg-[var(--mrl-gold)]/15 px-2 py-0.5 text-xs text-[var(--mrl-gold-dark)]"
-                                >personalizado</span
-                            >
-                        </p>
-                        <p class="text-xs text-[var(--mrl-texto-suave)]">
-                            {{ c.descripcion }}
-                        </p>
-                        <InputError
-                            :message="
-                                (form.errors as Record<string, string>)[
-                                    `valores.${c.clave}`
-                                ]
-                            "
-                        />
-                    </div>
-                    <Input
-                        v-model="form.valores[c.clave]"
-                        class="w-28 font-mono uppercase"
-                        maxlength="7"
-                        :aria-invalid="!valido(form.valores[c.clave])"
-                        :aria-label="`Código HEX de ${c.etiqueta}`"
-                        @blur="normalizar(c.clave)"
-                    />
-                    <Button
-                        v-if="c.personalizado"
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        :title="`Restaurar ${c.defecto}`"
-                        @click="restaurarColor(c)"
+                <template v-for="b in bloques" :key="b.clave">
+                    <h2
+                        v-if="b.colores.length"
+                        class="mt-2 flex items-center gap-1.5 text-sm font-semibold first:mt-0"
                     >
-                        <RotateCcw class="size-4" /> {{ c.defecto }}
-                    </Button>
-                </div>
+                        {{ b.titulo }}
+                        <AyudaBoton :titulo="b.titulo" :texto="b.ayuda" />
+                    </h2>
+                    <div
+                        v-for="c in b.colores"
+                        :key="c.clave"
+                        class="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-3"
+                    >
+                        <input
+                            v-model="form.valores[c.clave]"
+                            type="color"
+                            class="size-10 shrink-0 cursor-pointer rounded-md border border-[var(--mrl-borde)] bg-transparent"
+                            :aria-label="`Elegir ${c.etiqueta}`"
+                            @change="normalizar(c.clave)"
+                        />
+                        <div class="min-w-0 flex-1">
+                            <p
+                                class="flex items-center gap-1.5 text-sm font-medium"
+                            >
+                                {{ c.etiqueta }}
+                                <AyudaBoton
+                                    v-if="c.descripcion"
+                                    :titulo="c.etiqueta"
+                                    :texto="c.descripcion"
+                                />
+                                <span
+                                    v-if="c.personalizado"
+                                    class="ml-1 rounded-full bg-[var(--mrl-gold)]/15 px-2 py-0.5 text-xs text-[var(--mrl-gold-dark)]"
+                                    >personalizado</span
+                                >
+                            </p>
+                            <p class="text-xs text-[var(--mrl-texto-suave)]">
+                                {{ c.descripcion }}
+                            </p>
+                            <InputError
+                                :message="
+                                    (form.errors as Record<string, string>)[
+                                        `valores.${c.clave}`
+                                    ]
+                                "
+                            />
+                        </div>
+                        <Input
+                            v-model="form.valores[c.clave]"
+                            class="w-28 font-mono uppercase"
+                            maxlength="7"
+                            :aria-invalid="!valido(form.valores[c.clave])"
+                            :aria-label="`Código HEX de ${c.etiqueta}`"
+                            @blur="normalizar(c.clave)"
+                        />
+                        <Button
+                            v-if="c.personalizado"
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            :title="`Restaurar ${c.defecto}`"
+                            @click="restaurarColor(c)"
+                        >
+                            <RotateCcw class="size-4" /> {{ c.defecto }}
+                        </Button>
+                    </div>
+                </template>
 
                 <div
                     class="sticky bottom-0 flex items-center gap-3 bg-[var(--mrl-fondo)] py-3"
@@ -233,6 +272,36 @@ function restaurarColor(c: ParametroConfiguracion) {
                     <p class="text-xs text-[var(--mrl-gris-verdoso)]">
                         Elemento deshabilitado
                     </p>
+                </div>
+                <div
+                    v-if="graficas.length"
+                    class="flex flex-col gap-2 rounded-xl bg-[var(--mrl-fondo)] p-3"
+                >
+                    <p
+                        class="text-xs font-medium text-[var(--mrl-texto-suave)]"
+                    >
+                        Gráficas
+                    </p>
+                    <div
+                        v-for="(g, i) in graficas"
+                        :key="g.clave"
+                        class="grid grid-cols-[7rem_1fr] items-center gap-2 text-xs"
+                    >
+                        <span class="truncate">{{ g.etiqueta }}</span>
+                        <span
+                            class="h-2.5 overflow-hidden rounded-full bg-muted"
+                        >
+                            <span
+                                class="block h-full rounded-full"
+                                :style="{
+                                    width: `${90 - i * 11}%`,
+                                    background: valido(form.valores[g.clave])
+                                        ? form.valores[g.clave]
+                                        : String(g.defecto),
+                                }"
+                            />
+                        </span>
+                    </div>
                 </div>
             </aside>
         </div>

@@ -11,7 +11,6 @@ enum EstadoSolicitudInterna: string
     case Rechazada = 'rechazada';
     case RequiereCorreccion = 'requiere_correccion';
     case Cancelada = 'cancelada';
-    case Cerrada = 'cerrada';
 
     public function etiqueta(): string
     {
@@ -23,17 +22,19 @@ enum EstadoSolicitudInterna: string
             self::Rechazada => 'Rechazada',
             self::RequiereCorreccion => 'Requiere corrección',
             self::Cancelada => 'Cancelada',
-            self::Cerrada => 'Cerrada',
         };
     }
 
     /**
-     * Estados finales: ya no aceptan más transiciones ni ediciones.
+     * Estados finales: ya no aceptan más transiciones ni ediciones. No
+     * existe un estado "cerrada": una solicitud aprobada ya es definitiva
+     * (lo que pase después — finiquito, expediente — vive en su propio
+     * proceso y queda en el historial).
      */
     public function esFinal(): bool
     {
         return match ($this) {
-            self::Rechazada, self::Cancelada, self::Cerrada => true,
+            self::Aprobada, self::Rechazada, self::Cancelada => true,
             default => false,
         };
     }
@@ -81,7 +82,6 @@ enum EstadoSolicitudInterna: string
             self::RequiereCorreccion => in_array($destino, [
                 self::EnRevision, self::Rechazada,
             ], true),
-            self::Aprobada => $destino === self::Cerrada,
             default => false,
         };
     }

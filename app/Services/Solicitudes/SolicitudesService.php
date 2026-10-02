@@ -377,11 +377,6 @@ class SolicitudesService
         return $this->cambiarEstado($solicitud, $actor, EstadoSolicitudInterna::RequiereCorreccion, $comentario);
     }
 
-    public function cerrar(SolicitudInterna $solicitud, User $actor, ?string $comentario = null): SolicitudInterna
-    {
-        return $this->cambiarEstado($solicitud, $actor, EstadoSolicitudInterna::Cerrada, $comentario);
-    }
-
     public function cancelar(SolicitudInterna $solicitud, User $actor): SolicitudInterna
     {
         return $this->cambiarEstado($solicitud, $actor, EstadoSolicitudInterna::Cancelada);
@@ -410,7 +405,6 @@ class SolicitudesService
             EstadoSolicitudInterna::RequiereCorreccion => $this->requerirCorreccion($solicitud, $actor, (string) $comentario),
             EstadoSolicitudInterna::Aprobada => $this->aprobar($solicitud, $actor, $comentario),
             EstadoSolicitudInterna::Rechazada => $this->rechazar($solicitud, $actor, (string) $comentario),
-            EstadoSolicitudInterna::Cerrada => $this->cerrar($solicitud, $actor, $comentario),
             default => throw ValidationException::withMessages([
                 'estado' => 'Ese estado no se puede asignar desde el tablero.',
             ]),
@@ -507,7 +501,7 @@ class SolicitudesService
                 $datos['motivo_rechazo'] = $motivoRechazo;
             }
 
-            if (in_array($nuevoEstado, [EstadoSolicitudInterna::Aprobada, EstadoSolicitudInterna::Rechazada, EstadoSolicitudInterna::Cerrada], true)) {
+            if (in_array($nuevoEstado, [EstadoSolicitudInterna::Aprobada, EstadoSolicitudInterna::Rechazada], true)) {
                 $datos['revisado_por'] = $actor->id;
                 $datos['revisado_en'] = now();
             }
@@ -558,7 +552,7 @@ class SolicitudesService
             }
 
             // Notifica al colaborador en cada transicion visible del tablero
-            // (no solo aprobada/rechazada): "en_revision" y "cerrada" tambien
+            // (no solo aprobada/rechazada): "en_revision" y "requiere_correccion" tambien
             // son cambios que le interesan, aunque no requieran una accion de
             // su parte.
             if (in_array($nuevoEstado, [
@@ -566,7 +560,6 @@ class SolicitudesService
                 EstadoSolicitudInterna::Aprobada,
                 EstadoSolicitudInterna::Rechazada,
                 EstadoSolicitudInterna::RequiereCorreccion,
-                EstadoSolicitudInterna::Cerrada,
             ], true)) {
                 $this->notificarSinFallar(function () use ($solicitud): void {
                     $solicitud->loadMissing('usuario');
@@ -622,6 +615,14 @@ class SolicitudesService
 
     public function adjuntarDocumento(SolicitudInterna $solicitud, UploadedFile $archivo, User $actor): void
     {
+        // Una solicitud rechazada/cancelada/cerrada ya no acepta cambios:
+        // tampoco evidencia nueva (misma regla para web y app).
+        if ($solicitud->estado->esFinal()) {
+            throw ValidationException::withMessages([
+                'archivo' => 'Esta solicitud ya está finalizada y no acepta más documentos.',
+            ]);
+        }
+
         $nombreInterno = $this->storage->nombreInterno($archivo->getClientOriginalName());
         $ruta = $this->storage->rutaDocumento($solicitud->id, $nombreInterno);
         $this->storage->guardar($archivo, $ruta);
@@ -661,7 +662,7 @@ class SolicitudesService
      * bueno), pendientes de autorizar, en corrección, abiertas y del último
      * mes, siempre dentro del alcance del usuario.
      *
-     * @return list<array{clave: string, etiqueta: string, recibidas: int, por_autorizar: int, correccion: int, abiertas: int, ultimo_mes: int}>
+     * @return list<array{clave: string, etiqueta: string, recibidas: int, por_autorizar: int, correccion: int, abiertas: int, total: int, ultimo_mes: int}>
      */
     public function resumenPorTipo(User $revisor): array
     {
@@ -685,6 +686,7 @@ class SolicitudesService
                 'por_autorizar' => $cuenta(EstadoSolicitudInterna::EnRevision),
                 'correccion' => $cuenta(EstadoSolicitudInterna::RequiereCorreccion),
                 'abiertas' => $cuenta(EstadoSolicitudInterna::Enviada) + $cuenta(EstadoSolicitudInterna::EnRevision) + $cuenta(EstadoSolicitudInterna::RequiereCorreccion),
+                'total' => (int) $delTipo->sum('total'),
                 'ultimo_mes' => (int) $delTipo->sum('recientes'),
             ];
         }

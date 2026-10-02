@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { useForm } from '@inertiajs/vue3';
 import { Building2 } from '@lucide/vue';
 import InputError from '@/components/InputError.vue';
@@ -33,11 +34,6 @@ const form = useForm({
     logo: null as File | null,
     activo: props.empresa?.activo ?? true,
 });
-
-function seleccionarLogo(evento: Event) {
-    const input = evento.target as HTMLInputElement;
-    form.logo = input.files?.[0] ?? null;
-}
 
 function enviar() {
     const opciones = {
@@ -106,12 +102,15 @@ function enviar() {
                             >
                                 <Building2 class="size-4" />
                             </span>
-                            <Input
-                                id="logo"
-                                type="file"
-                                accept="image/*"
-                                class="text-xs"
-                                @change="seleccionarLogo"
+                            <PeopleFileDropzone
+                                class="min-w-0 flex-1"
+                                :model-value="form.logo ? [form.logo] : []"
+                                accept=".png,.jpg,.jpeg,.webp,.svg"
+                                :max-size-mb="5"
+                                label="Arrastra el logo aquí"
+                                @update:model-value="
+                                    (f) => (form.logo = f[0] ?? null)
+                                "
                             />
                         </div>
                         <InputError :message="form.errors.logo" />

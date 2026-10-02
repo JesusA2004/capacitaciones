@@ -514,11 +514,18 @@ class FiniquitoService
 
     public function descargarPdf(FiniquitoCalculo $finiquito): StreamedResponse
     {
-        abort_unless($finiquito->documento_generado_path !== null, 404, 'Genera el PDF del finiquito antes de descargarlo.');
+        // Una vez firmado, el documento que vale es el escaneo firmado; antes,
+        // el PDF generado para firma.
+        $ruta = $finiquito->documento_firmado_path ?? $finiquito->documento_generado_path;
 
-        return $this->storage->respuesta($finiquito->documento_generado_path, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="finiquito-'.$finiquito->solicitud_interna_id.'.pdf"',
+        abort_unless($ruta !== null, 404, 'Genera el PDF del finiquito antes de descargarlo.');
+
+        // El firmado puede ser un escaneo JPG/PNG: el tipo MIME lo infiere el
+        // disco a partir del archivo real, no se fuerza a PDF.
+        $extension = pathinfo($ruta, PATHINFO_EXTENSION) ?: 'pdf';
+
+        return $this->storage->respuesta($ruta, [
+            'Content-Disposition' => sprintf('inline; filename="finiquito-%d.%s"', $finiquito->solicitud_interna_id, $extension),
         ]);
     }
 

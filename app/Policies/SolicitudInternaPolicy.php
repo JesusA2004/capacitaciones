@@ -69,11 +69,6 @@ class SolicitudInternaPolicy
         return $usuario->can('solicitudes.rechazar') && $this->revisar($usuario, $solicitud);
     }
 
-    public function cerrar(User $usuario, SolicitudInterna $solicitud): bool
-    {
-        return $usuario->can('solicitudes.cerrar') && $this->revisar($usuario, $solicitud);
-    }
-
     /**
      * Crear una solicitud de baja de colaborador: permiso dedicado, no
      * `solicitudes.crear` genérico — un gerente puede solicitar la baja de

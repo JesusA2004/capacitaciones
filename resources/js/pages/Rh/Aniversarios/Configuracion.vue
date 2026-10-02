@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { Save } from '@lucide/vue';
 import { ref } from 'vue';
@@ -201,16 +202,12 @@ function enviar() {
                         >(opcional, vertical 1080×1350)</span
                     ></Label
                 >
-                <Input
-                    id="fondo"
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    @change="
-                        (e: Event) =>
-                            (form.fondo =
-                                (e.target as HTMLInputElement).files?.[0] ??
-                                null)
-                    "
+                <PeopleFileDropzone
+                    :model-value="form.fondo ? [form.fondo] : []"
+                    accept=".png,.jpg,.jpeg,.webp"
+                    :max-size-mb="10"
+                    label="Arrastra la imagen de fondo aquí"
+                    @update:model-value="(f) => (form.fondo = f[0] ?? null)"
                 />
                 <InputError :message="form.errors.fondo" />
                 <label

@@ -59,7 +59,7 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
         queEs: 'La bandeja unificada donde RH y los jefes revisan vacaciones, permisos, préstamos, incapacidades, bajas y demás trámites.',
         puedes: [
             'Ver todas las solicitudes en un tablero por estado.',
-            'Mover una solicitud entre columnas (revisar, pedir corrección, aprobar, rechazar, cerrar).',
+            'Mover una solicitud entre columnas (revisar, pedir corrección, aprobar, rechazar).',
             'Abrir el detalle, ver evidencias e historial.',
             'Exportar lo filtrado a Excel o PDF.',
         ],

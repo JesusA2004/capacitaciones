@@ -164,7 +164,7 @@ class FiniquitoCalculo extends Model
      */
     public function colaborador(): BelongsTo
     {
-        return $this->belongsTo(Colaborador::class, 'colaborador_id');
+        return $this->belongsTo(Colaborador::class, 'colaborador_id')->withTrashed();
     }
 
     /**

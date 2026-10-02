@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatearFecha } from '@/lib/fechas';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import {
     BadgeCheck,
@@ -2338,8 +2339,16 @@ const pestanaInicial = (() => {
                                     class="flex items-center justify-between rounded-lg border p-2 text-sm"
                                 >
                                     <span
-                                        >{{ solicitud.fecha_inicio }} —
-                                        {{ solicitud.fecha_fin }} ({{
+                                        >{{
+                                            formatearFecha(
+                                                solicitud.fecha_inicio,
+                                            )
+                                        }}
+                                        —
+                                        {{
+                                            formatearFecha(solicitud.fecha_fin)
+                                        }}
+                                        ({{
                                             solicitud.dias_solicitados
                                         }}
                                         días)</span
@@ -2396,7 +2405,11 @@ const pestanaInicial = (() => {
                                         {{ recibo.periodo_fin }}
                                     </p>
                                     <p class="text-xs text-muted-foreground">
-                                        Pago: {{ recibo.fecha_pago }} · Neto:
+                                        Pago:
+                                        {{
+                                            formatearFecha(recibo.fecha_pago)
+                                        }}
+                                        · Neto:
                                         {{ moneda(recibo.neto) }}
                                     </p>
                                 </div>

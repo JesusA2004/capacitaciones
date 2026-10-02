@@ -80,6 +80,7 @@ class ConfiguracionSistemaService
                 'personalizado' => array_key_exists($clave, $guardados),
                 'opciones' => $opciones,
                 'css' => $p['css'] ?? null,
+                'seccion' => $p['seccion'] ?? null,
                 'actualizado_por' => $fila?->actualizadoPor?->name,
                 'actualizado_en' => $fila?->updated_at?->toIso8601String(),
             ];
@@ -257,20 +258,36 @@ class ConfiguracionSistemaService
     /**
      * Bloque CSS con las variables institucionales personalizadas (modo
      * claro; el modo oscuro conserva su paleta adaptada para no perder
-     * contraste). Vacío si nada se personalizó.
+     * contraste) más los colores de cada gráfica (en ambos modos).
      */
     public function cssVariables(): string
     {
         $declaraciones = [];
         $guardados = $this->guardados();
 
+        $graficas = [];
+
         foreach ($this->catalogo('apariencia') as $clave => $p) {
+            // Colores de gráficas: siempre se declaran (con su valor de
+            // fábrica si no se cambió) y valen en claro y oscuro.
+            if (($p['seccion'] ?? null) === 'graficas' && isset($p['css'])) {
+                $valor = (string) $this->valor($clave);
+
+                if (preg_match('/^#[0-9A-Fa-f]{6}$/', $valor) === 1) {
+                    $graficas[] = sprintf('%s:%s', $p['css'], $valor);
+                }
+
+                continue;
+            }
+
             if (isset($p['css'], $guardados[$clave]) && is_string($guardados[$clave]) && preg_match('/^#[0-9A-Fa-f]{6}$/', $guardados[$clave]) === 1) {
                 $declaraciones[] = sprintf('%s:%s', $p['css'], $guardados[$clave]);
             }
         }
 
-        return $declaraciones === [] ? '' : sprintf(':root:not(.dark){%s}', implode(';', $declaraciones));
+        $css = $graficas === [] ? '' : sprintf(':root{%s}', implode(';', $graficas));
+
+        return $declaraciones === [] ? $css : $css.sprintf(':root:not(.dark){%s}', implode(';', $declaraciones));
     }
 
     /**

@@ -10,6 +10,7 @@ import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
+import { formatearFecha } from '@/lib/fechas';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -162,7 +163,7 @@ function enviarDecision(reingreso: ReingresoFila) {
                         {{ r.curp ?? '—' }}
                     </p>
                     <p v-if="r.dado_de_baja" class="text-xs">
-                        Baja {{ r.fecha_baja ?? '' }} · causa:
+                        Baja {{ formatearFecha(r.fecha_baja) }} · causa:
                         {{ r.causa_salida ?? 'sin registro' }}
                     </p>
                     <p v-else class="text-xs text-[var(--mrl-verde)]">

@@ -258,7 +258,7 @@ export const MODULOS_GUIA: ModuloGuia[] = [
             {
                 selector: sel('solicitudes-tablero'),
                 titulo: 'El tablero',
-                texto: 'Columnas por estado: Solicitudes recibidas (esperan el visto bueno del gerente y del regional) → Pendiente de autorizar (ya con ambos vistos buenos) → Requiere corrección → Aprobadas / No aprobadas → Cerradas.',
+                texto: 'Columnas por estado: Solicitudes recibidas (esperan el visto bueno del gerente y del regional) → Pendiente de autorizar (ya con ambos vistos buenos) → Requiere corrección → Aprobadas / No aprobadas.',
             },
             {
                 selector: '[data-tour="solicitudes-tablero"] [data-kanban-id]',
@@ -997,6 +997,20 @@ export const MODULOS_GUIA: ModuloGuia[] = [
                 selector: sel('configuracion-secciones'),
                 titulo: 'Secciones',
                 texto: 'Solo ves las que tu permiso te deja administrar.',
+            },
+            {
+                titulo: 'Notificaciones: a quién le llega cada aviso',
+                texto: 'Cada renglón es un momento del sistema (por ejemplo, «llegó una solicitud de vacaciones»). Con «Editar» eliges a quién avisar: quien lo pidió, su jefe directo, el regional, RH o personas con nombre. Esto solo decide quién se entera; quién autoriza no cambia.',
+            },
+            {
+                titulo: 'Avisar según lo que pueden hacer',
+                texto: 'Si marcas «Quienes pueden hacer cierta acción», eliges una acción en palabras normales (por ejemplo, «Autorizar préstamos»). Les llega a todas las personas que pueden hacerla y que tienen a esa persona dentro de su sucursal o región.',
+            },
+            {
+                titulo: 'El botón «?»',
+                texto: 'Junto a cada opción hay un «?»: tócalo y te explica para qué sirve antes de cambiar algo.',
+                consejo:
+                    '«Si nadie aplica» es el respaldo: si no se encuentra a nadie (por ejemplo, el puesto del jefe está vacante), el aviso llega a esas personas para que nunca se pierda.',
             },
         ],
     },

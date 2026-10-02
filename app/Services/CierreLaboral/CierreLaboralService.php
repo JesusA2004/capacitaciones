@@ -614,9 +614,9 @@ class CierreLaboralService
 
             $solicitud = $this->solicitud($cierre);
 
-            if ($solicitud->estado === EstadoSolicitudInterna::Aprobada) {
-                $this->solicitudes->cerrar($solicitud, $actor, 'Expediente cerrado.');
-            }
+            // La solicitud de baja ya quedó Aprobada (definitiva); el cierre
+            // del expediente solo se anota en su historial.
+            $this->solicitudes->registrarHistorial($solicitud, $actor, 'comentario', 'Expediente cerrado.');
 
             $cierre->update(['expediente_cerrado_en' => now(), 'estado' => EstadoCierreLaboral::ExpedienteCerrado]);
         });

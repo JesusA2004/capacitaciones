@@ -93,7 +93,7 @@ class MovimientoLaboral extends Model
      */
     public function colaborador(): BelongsTo
     {
-        return $this->belongsTo(Colaborador::class, 'colaborador_id');
+        return $this->belongsTo(Colaborador::class, 'colaborador_id')->withTrashed();
     }
 
     /**
@@ -165,7 +165,7 @@ class MovimientoLaboral extends Model
      */
     public function jefeAnterior(): BelongsTo
     {
-        return $this->belongsTo(Colaborador::class, 'jefe_anterior_colaborador_id');
+        return $this->belongsTo(Colaborador::class, 'jefe_anterior_colaborador_id')->withTrashed();
     }
 
     /**
@@ -173,7 +173,7 @@ class MovimientoLaboral extends Model
      */
     public function jefeNuevo(): BelongsTo
     {
-        return $this->belongsTo(Colaborador::class, 'jefe_nuevo_colaborador_id');
+        return $this->belongsTo(Colaborador::class, 'jefe_nuevo_colaborador_id')->withTrashed();
     }
 
     /**

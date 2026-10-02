@@ -27,8 +27,8 @@ enum CategoriaDocumento: string
             self::Vacaciones => 'Vacaciones',
             self::Permisos => 'Permisos',
             self::Prestamos => 'Préstamos',
-            self::Actas => 'Actas',
-            self::NominaInterna => 'Nómina interna',
+            self::Actas => 'Actas y responsivas',
+            self::NominaInterna => 'Nómina',
             self::BajaFiniquito => 'Baja y finiquito',
             self::Otros => 'Otros',
         };

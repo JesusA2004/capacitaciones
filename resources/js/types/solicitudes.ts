@@ -45,6 +45,8 @@ export type SolicitudInternaDocumentoItem = {
 export type SolicitudInternaHistorialItem = {
     id: number;
     accion: string;
+    /** Texto en español (SolicitudInternaHistorial::accion_etiqueta). */
+    accion_etiqueta: string;
     comentario: string | null;
     usuario?: UsuarioResumen | null;
     created_at: string;
@@ -157,7 +159,7 @@ export type SolicitudInternaItem = {
     documentos_generados?: DocumentoGeneradoItem[];
     official_format_generations?: OfficialFormatGenerationItem[];
     historial?: SolicitudInternaHistorialItem[];
-    finiquitoCalculo?: FiniquitoCalculoItem | null;
+    finiquito_calculo?: FiniquitoCalculoItem | null;
 };
 
 /** Fila resumida para la tab "Solicitudes" del expediente (Rh\ExpedienteController). */

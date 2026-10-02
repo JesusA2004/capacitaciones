@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatearFecha } from '@/lib/fechas';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import {
     GitBranch,
@@ -943,7 +944,11 @@ watch(
                                     <p
                                         class="mt-1 text-xs text-muted-foreground"
                                     >
-                                        {{ movimiento.fecha_movimiento }}
+                                        {{
+                                            formatearFecha(
+                                                movimiento.fecha_movimiento,
+                                            )
+                                        }}
                                     </p>
                                 </div>
                             </div>
@@ -975,7 +980,12 @@ watch(
                                     <p
                                         class="mt-1 text-xs text-muted-foreground"
                                     >
-                                        {{ vacante.fecha_apertura }} ·
+                                        {{
+                                            formatearFecha(
+                                                vacante.fecha_apertura,
+                                            )
+                                        }}
+                                        ·
                                         {{
                                             vacante.sucursal?.nombre ??
                                             'Sin sucursal'
@@ -1002,7 +1012,7 @@ watch(
                                     <p
                                         class="mt-1 text-xs text-muted-foreground"
                                     >
-                                        {{ cambio.fecha }}
+                                        {{ formatearFecha(cambio.fecha) }}
                                     </p>
                                 </div>
                             </div>

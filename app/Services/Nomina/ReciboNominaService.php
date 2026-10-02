@@ -161,7 +161,7 @@ class ReciboNominaService
         $colaborador->loadMissing('user');
 
         if ($colaborador->user !== null && $lote === null) {
-            $this->notificador->notificar([$colaborador->user], 'recibo_nomina', 'Recibo interno disponible', sprintf('Ya puedes consultar tu recibo interno del %s al %s.', $periodoInicio->format('d/m/Y'), $periodoFin->format('d/m/Y')), $recibo, 'ver_recibo', 'baja');
+            $this->notificador->notificar([$colaborador->user], 'recibo_nomina', 'Recibo de nómina disponible', sprintf('Ya puedes consultar tu recibo de nómina del %s al %s.', $periodoInicio->format('d/m/Y'), $periodoFin->format('d/m/Y')), $recibo, 'ver_recibo', 'baja');
         }
 
         return $recibo->refresh();
@@ -248,7 +248,7 @@ class ReciboNominaService
             'neto' => $recibo->neto,
             'observaciones' => $recibo->observaciones,
             'tiene_pdf' => $recibo->pdf_path !== null,
-            'leyenda' => 'RECIBO INTERNO DE NÓMINA - NO FISCAL',
+            'leyenda' => 'RECIBO DE NÓMINA',
         ];
 
         if ($detalle) {
@@ -348,7 +348,7 @@ class ReciboNominaService
                 throw ValidationException::withMessages(['recibo' => 'El recibo no tiene usuario generador.']);
             }
 
-            $documento = $this->motor->registrarPdf($recibo->colaborador, $contenido, sprintf('Recibo interno %s', $recibo->folio ?? $recibo->id), $actor, [
+            $documento = $this->motor->registrarPdf($recibo->colaborador, $contenido, sprintf('Recibo de nómina %s', $recibo->folio ?? $recibo->id), $actor, [
                 'clave' => 'recibo_nomina_interno',
                 'categoria' => CategoriaDocumento::NominaInterna,
                 'payload' => [

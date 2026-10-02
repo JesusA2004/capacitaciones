@@ -12,10 +12,10 @@ import {
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { NativeSelect } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
 import {
     ajustes,
@@ -172,8 +172,16 @@ function subirFirmado(event: Event) {
     });
 }
 
+// Firmado o pagado: el documento entregado ya no se mueve (mismo criterio
+// que FiniquitoService::asegurarNoFirmado()).
+const cerrado = computed(
+    () =>
+        props.finiquito !== null &&
+        ['firmado', 'pagado'].includes(props.finiquito.estado),
+);
+
 const puedeEditarAjustes = computed(
-    () => props.finiquito !== null && props.finiquito.estado !== 'firmado',
+    () => props.finiquito !== null && !cerrado.value,
 );
 </script>
 
@@ -323,7 +331,39 @@ const puedeEditarAjustes = computed(
             </table>
 
             <!-- Ajustes manuales: bonos/descuentos/adeudos/comentarios. -->
-            <div class="grid gap-3 rounded-xl bg-muted/30 p-3 sm:grid-cols-3">
+            <dl
+                v-if="cerrado"
+                class="grid gap-3 rounded-xl bg-muted/30 p-3 text-sm sm:grid-cols-4"
+            >
+                <div>
+                    <dt class="text-xs text-muted-foreground">Bonos extra</dt>
+                    <dd>{{ moneda(finiquito.bonos_extra) }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-muted-foreground">Descuentos</dt>
+                    <dd>{{ moneda(finiquito.descuentos) }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-muted-foreground">Adeudos</dt>
+                    <dd>{{ moneda(finiquito.adeudos) }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-muted-foreground">
+                        Total ajustado
+                    </dt>
+                    <dd class="font-semibold text-[var(--brand-primary)]">
+                        {{ moneda(finiquito.total_ajustado) }}
+                    </dd>
+                </div>
+                <div v-if="finiquito.comentarios_ajuste" class="sm:col-span-4">
+                    <dt class="text-xs text-muted-foreground">Comentarios</dt>
+                    <dd>{{ finiquito.comentarios_ajuste }}</dd>
+                </div>
+            </dl>
+            <div
+                v-else
+                class="grid gap-3 rounded-xl bg-muted/30 p-3 sm:grid-cols-3"
+            >
                 <div class="grid gap-1.5">
                     <Label for="bonos_extra">Bonos extra</Label>
                     <Input
@@ -408,14 +448,15 @@ const puedeEditarAjustes = computed(
                         </div>
                         <div class="grid w-28 gap-1.5">
                             <Label :for="`concepto_tipo_${index}`">Tipo</Label>
-                            <NativeSelect
+                            <SelectSimple
                                 :id="`concepto_tipo_${index}`"
                                 v-model="concepto.tipo"
                                 :disabled="!puedeEditarAjustes"
-                            >
-                                <option value="suma">Suma</option>
-                                <option value="resta">Resta</option>
-                            </NativeSelect>
+                                :opciones="[
+                                    { value: 'suma', label: 'Suma' },
+                                    { value: 'resta', label: 'Resta' },
+                                ]"
+                            />
                         </div>
                         <Button
                             v-if="puedeEditarAjustes"
@@ -461,11 +502,13 @@ const puedeEditarAjustes = computed(
             </div>
 
             <p
-                v-if="finiquito.estado === 'firmado'"
+                v-if="cerrado"
                 class="rounded-lg bg-emerald-500/10 p-2.5 text-xs font-medium text-emerald-700 dark:text-emerald-400"
             >
-                Finiquito firmado — no editable. Si hay un error, se requiere
-                una corrección/anulación explícita (contacta a sistemas/RH).
+                Finiquito
+                {{ finiquito.estado === 'pagado' ? 'pagado' : 'firmado' }} — no
+                editable. Si hay un error, se requiere una corrección/anulación
+                explícita (contacta a sistemas/RH).
             </p>
             <p
                 v-else
@@ -474,7 +517,7 @@ const puedeEditarAjustes = computed(
                 Cálculo editable y sujeto a validación de RH/contabilidad.
             </p>
             <p
-                v-if="!permisos.usaFormatoOficial"
+                v-if="!permisos.usaFormatoOficial && !cerrado"
                 class="rounded-lg bg-muted/50 p-2.5 text-xs text-muted-foreground"
             >
                 No hay formato oficial de finiquito configurado; se generará un
@@ -482,7 +525,7 @@ const puedeEditarAjustes = computed(
             </p>
 
             <div
-                v-if="permisos.puedeCalcular && finiquito.estado !== 'firmado'"
+                v-if="permisos.puedeCalcular && !cerrado"
                 class="flex flex-wrap items-end gap-2 rounded-xl bg-muted/30 p-3"
             >
                 <div class="grid gap-1.5">
@@ -542,7 +585,7 @@ const puedeEditarAjustes = computed(
                     Marcar como revisado
                 </Button>
                 <Button
-                    v-if="finiquito.estado !== 'firmado'"
+                    v-if="!cerrado"
                     size="sm"
                     variant="outline"
                     :disabled="formGenerarPdf.processing"
@@ -552,7 +595,10 @@ const puedeEditarAjustes = computed(
                     Generar / vista previa PDF
                 </Button>
                 <Button
-                    v-if="finiquito.documento_generado_path"
+                    v-if="
+                        finiquito.documento_generado_path ||
+                        finiquito.documento_firmado_path
+                    "
                     as-child
                     size="sm"
                     variant="outline"
@@ -563,14 +609,15 @@ const puedeEditarAjustes = computed(
                         rel="noopener"
                     >
                         <Download class="size-4" />
-                        Descargar PDF
+                        {{
+                            finiquito.documento_firmado_path
+                                ? 'Ver finiquito firmado'
+                                : 'Descargar PDF'
+                        }}
                     </a>
                 </Button>
                 <label
-                    v-if="
-                        permisos.puedeSubirFirmado &&
-                        finiquito.estado !== 'firmado'
-                    "
+                    v-if="permisos.puedeSubirFirmado && !cerrado"
                     class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-dashed px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent"
                 >
                     <Upload class="size-4" />

@@ -29,6 +29,7 @@ type ResumenTipo = {
     por_autorizar: number;
     correccion: number;
     abiertas: number;
+    total: number;
     ultimo_mes: number;
 };
 
@@ -164,7 +165,7 @@ const ancho = (n: number, total: number) => `${total ? (n / total) * 100 : 0}%`;
                 <p
                     class="text-xs font-medium tracking-wide text-[var(--mrl-texto-suave)] uppercase"
                 >
-                    Solicitudes recibidas
+                    Sin revisar
                 </p>
                 <p
                     class="text-3xl font-semibold text-[var(--mrl-accent)] tabular-nums"
@@ -295,12 +296,16 @@ const ancho = (n: number, total: number) => `${total ? (n / total) * 100 : 0}%`;
                                 <p
                                     class="text-[11px] text-[var(--mrl-texto-suave)]"
                                 >
-                                    abiertas
+                                    {{
+                                        t.abiertas === 1
+                                            ? 'pendiente'
+                                            : 'pendientes'
+                                    }}
                                 </p>
                             </div>
                         </div>
 
-                        <!-- Distribución de las abiertas -->
+                        <!-- Distribución de las pendientes -->
                         <div
                             class="flex h-2 overflow-hidden rounded-full bg-[var(--mrl-fondo)]"
                             :style="{
@@ -330,7 +335,7 @@ const ancho = (n: number, total: number) => `${total ? (n / total) * 100 : 0}%`;
                         <div class="flex flex-wrap gap-1.5 text-[11px]">
                             <span
                                 class="rounded-full bg-[var(--mrl-accent)]/10 px-2 py-0.5 text-[var(--mrl-texto)]"
-                                >{{ t.recibidas }} recibidas</span
+                                >{{ t.recibidas }} sin revisar</span
                             >
                             <span
                                 class="rounded-full bg-[var(--mrl-primary)]/10 px-2 py-0.5 text-[var(--mrl-texto)]"
@@ -340,6 +345,10 @@ const ancho = (n: number, total: number) => `${total ? (n / total) * 100 : 0}%`;
                                 v-if="t.correccion"
                                 class="rounded-full bg-[var(--mrl-gold)]/15 px-2 py-0.5 text-[var(--mrl-texto)]"
                                 >{{ t.correccion }} en corrección</span
+                            >
+                            <span
+                                class="rounded-full bg-[var(--mrl-fondo)] px-2 py-0.5 text-[var(--mrl-texto-suave)]"
+                                >{{ t.total }} en total</span
                             >
                             <ArrowRight
                                 class="ml-auto size-4 text-[var(--mrl-texto-suave)] opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100"

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import {
     Briefcase,
@@ -19,7 +20,6 @@ import CrudStats from '@/components/DataTable/CrudStats.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { NativeSelect } from '@/components/ui/native-select';
 import { usePermisos } from '@/composables/usePermisos';
 import { formatoMoneda } from '@/lib/utils';
 import { dashboard } from '@/routes';
@@ -203,73 +203,63 @@ const TONO_ESTADO: Record<string, string> = {
             >
                 <div class="grid gap-1.5">
                     <Label for="f-estado">Estado</Label>
-                    <NativeSelect
+                    <SelectSimple
                         id="f-estado"
                         v-model="borrador.estado"
                         class="w-full"
-                    >
-                        <option value="">
-                            Activas (sin cubiertas ni canceladas)
-                        </option>
-                        <option
-                            v-for="e in opciones.estados"
-                            :key="e.valor"
-                            :value="e.valor"
-                        >
-                            {{ e.etiqueta }}
-                        </option>
-                    </NativeSelect>
+                        :opciones="
+                            opciones.estados.map((e) => ({
+                                value: e.valor,
+                                label: e.etiqueta,
+                            }))
+                        "
+                        opcion-vacia="Activas (sin cubiertas ni canceladas)"
+                    />
                 </div>
                 <div class="grid gap-1.5">
                     <Label for="f-sucursal">Sucursal</Label>
-                    <NativeSelect
+                    <SelectSimple
                         id="f-sucursal"
                         v-model="borrador.sucursal_id"
                         class="w-full"
-                    >
-                        <option value="">Todas</option>
-                        <option
-                            v-for="s in opciones.sucursales"
-                            :key="s.id"
-                            :value="String(s.id)"
-                        >
-                            {{ s.nombre }}
-                        </option>
-                    </NativeSelect>
+                        :opciones="
+                            opciones.sucursales.map((s) => ({
+                                value: String(s.id),
+                                label: s.nombre,
+                            }))
+                        "
+                        opcion-vacia="Todas"
+                    />
                 </div>
                 <div class="grid gap-1.5">
                     <Label for="f-puesto">Puesto</Label>
-                    <NativeSelect
+                    <SelectSimple
                         id="f-puesto"
                         v-model="borrador.puesto_id"
                         class="w-full"
-                    >
-                        <option value="">Todos</option>
-                        <option
-                            v-for="p in opciones.puestos"
-                            :key="p.id"
-                            :value="String(p.id)"
-                        >
-                            {{ p.nombre }}
-                        </option>
-                    </NativeSelect>
+                        :opciones="
+                            opciones.puestos.map((p) => ({
+                                value: String(p.id),
+                                label: p.nombre,
+                            }))
+                        "
+                        opcion-vacia="Todos"
+                    />
                 </div>
                 <div class="grid gap-1.5">
                     <Label for="f-departamento">Departamento</Label>
-                    <NativeSelect
+                    <SelectSimple
                         id="f-departamento"
                         v-model="borrador.departamento_id"
                         class="w-full"
-                    >
-                        <option value="">Todos</option>
-                        <option
-                            v-for="d in opciones.departamentos"
-                            :key="d.id"
-                            :value="String(d.id)"
-                        >
-                            {{ d.nombre }}
-                        </option>
-                    </NativeSelect>
+                        :opciones="
+                            opciones.departamentos.map((d) => ({
+                                value: String(d.id),
+                                label: d.nombre,
+                            }))
+                        "
+                        opcion-vacia="Todos"
+                    />
                 </div>
             </CrudFilterSheet>
             <Button
@@ -364,8 +354,11 @@ const TONO_ESTADO: Record<string, string> = {
 
                 <div class="text-sm">
                     <p>
-                        Abierta hace {{ vacante.dias_abierta }}
-                        {{ vacante.dias_abierta === 1 ? 'día' : 'días' }}
+                        {{
+                            vacante.dias_abierta === 0
+                                ? 'Abierta hoy'
+                                : `Abierta hace ${vacante.dias_abierta} ${vacante.dias_abierta === 1 ? 'día' : 'días'}`
+                        }}
                     </p>
                     <p class="text-xs text-muted-foreground">
                         Desde el {{ fecha(vacante.fecha_apertura) }}

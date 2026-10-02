@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import {
     Archive,
@@ -16,7 +17,6 @@ import FormatosTabsNav from '@/components/Rh/FormatosTabsNav.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { NativeSelect } from '@/components/ui/native-select';
 import { dashboard } from '@/routes';
 import {
     create,
@@ -150,12 +150,17 @@ const etiquetaArchivo: Record<string, string> = {
                     class="pl-8"
                 />
             </div>
-            <NativeSelect v-model="tipo" class="w-full sm:w-56">
-                <option value="">Todas las categorías</option>
-                <option v-for="c in categorias" :key="c.value" :value="c.value">
-                    {{ c.etiqueta }}
-                </option>
-            </NativeSelect>
+            <SelectSimple
+                v-model="tipo"
+                class="w-full sm:w-56"
+                :opciones="
+                    categorias.map((c) => ({
+                        value: c.value,
+                        label: c.etiqueta,
+                    }))
+                "
+                opcion-vacia="Todas las categorías"
+            />
             <Button
                 v-if="permisos.archivar"
                 variant="ghost"

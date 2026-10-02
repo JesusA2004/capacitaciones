@@ -36,9 +36,7 @@ const props = defineProps<{
  * Recibida → Gerente → Regional → RH autoriza. Muestra en qué paso va la
  * solicitud y, a quien le toca, los botones de visto bueno.
  */
-const autorizada = computed(() =>
-    ['aprobada', 'cerrada'].includes(props.estado),
-);
+const autorizada = computed(() => props.estado === 'aprobada');
 const rechazada = computed(() => props.estado === 'rechazada');
 const vistosCompletos = computed(() =>
     props.niveles.every((n) => n.estado === 'aprobado'),

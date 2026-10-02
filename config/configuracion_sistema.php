@@ -35,6 +35,17 @@ $color = fn (string $etiqueta, string $defecto, string $css, string $tema, strin
     'tema' => $tema,
 ];
 
+$grafica = fn (string $etiqueta, string $defecto, string $css, string $descripcion) => [
+    'grupo' => 'apariencia',
+    'seccion' => 'graficas',
+    'tipo' => 'color',
+    'etiqueta' => $etiqueta,
+    'descripcion' => $descripcion,
+    'defecto' => $defecto,
+    'reglas' => ['required', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+    'css' => $css,
+];
+
 return [
 
     'parametros' => [
@@ -51,6 +62,15 @@ return [
         'apariencia.danger' => $color('Peligro', '#DF4050', '--mrl-rojo', 'danger', 'Rechazos, errores y alertas.'),
         'apariencia.background' => $color('Fondo', '#F7F8F7', '--mrl-fondo', 'background', 'Fondo general de las pantallas.'),
         'apariencia.surface' => $color('Superficie', '#FFFFFF', '--mrl-superficie', 'surface', 'Tarjetas, paneles y diálogos.'),
+
+        // Un color por gráfica del tablero de RH (sección "Gráficas" de
+        // Apariencia). Aplica en modo claro y oscuro; la app no los usa.
+        'apariencia.grafica_plantilla' => $grafica('Plantilla activa', '#2B604F', '--grafica-plantilla', 'Barra de avance de la tarjeta «Plantilla activa».'),
+        'apariencia.grafica_rotacion' => $grafica('Rotación mensual', '#164E50', '--grafica-rotacion', 'Línea y área de la gráfica de rotación mes a mes.'),
+        'apariencia.grafica_cobertura' => $grafica('Cobertura de plantilla', '#2F5A39', '--grafica-cobertura', 'Anillo de plazas autorizadas ocupadas.'),
+        'apariencia.grafica_embudo' => $grafica('Embudo de reclutamiento', '#09AFE3', '--grafica-embudo', 'Barras de cada etapa del reclutamiento.'),
+        'apariencia.grafica_tiempo' => $grafica('Tiempo de contratación por nivel', '#A28351', '--grafica-tiempo', 'Barras de días promedio para contratar por nivel de puesto.'),
+        'apariencia.grafica_sucursales' => $grafica('Plantilla por sucursal', '#13244D', '--grafica-sucursales', 'Barras de ocupación de cada sucursal.'),
 
         'rh.onboarding_calificacion_minima' => [
             'grupo' => 'rh',

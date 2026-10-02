@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { useForm } from '@inertiajs/vue3';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -33,11 +34,6 @@ const form = useForm({
     minimum_required: false as boolean,
 });
 
-function alSeleccionarArchivo(evento: Event) {
-    const input = evento.target as HTMLInputElement;
-    form.apk = input.files?.[0] ?? null;
-}
-
 function enviar() {
     form.post(store.url(), {
         forceFormData: true,
@@ -64,10 +60,12 @@ function enviar() {
 
             <div class="grid gap-2">
                 <Label>Archivo APK</Label>
-                <Input
-                    type="file"
+                <PeopleFileDropzone
+                    :model-value="form.apk ? [form.apk] : []"
                     accept=".apk"
-                    @change="alSeleccionarArchivo"
+                    :max-size-mb="maxUploadMb"
+                    label="Arrastra el APK aquí"
+                    @update:model-value="(f) => (form.apk = f[0] ?? null)"
                 />
                 <p v-if="form.errors.apk" class="text-xs text-destructive">
                     {{ form.errors.apk }}

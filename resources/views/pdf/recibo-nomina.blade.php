@@ -28,7 +28,7 @@
 <body>
     <div class="encabezado">
         <p class="marca">MR. LANA PEOPLE</p>
-        <h1>RECIBO INTERNO DE NÓMINA - NO FISCAL</h1>
+        <h1>RECIBO DE NÓMINA</h1>
         <p class="meta">
             @if ($recibo->folio) Folio {{ $recibo->folio }} · @endif
             @if ($recibo->tipo_periodo === 'semanal' && $recibo->numero_periodo) Semana {{ $recibo->numero_periodo }}/{{ $recibo->ejercicio }} · @endif
@@ -89,13 +89,6 @@
         <p class="seccion-titulo">Observaciones</p>
         <p>{{ $recibo->observaciones }}</p>
     @endif
-
-    <p class="leyenda">
-        <strong>RECIBO INTERNO DE NÓMINA - NO FISCAL.</strong>
-        Comprobante interno informativo. No es CFDI, no está timbrado y no sustituye al sistema de nómina.
-        No es un cálculo de ISR/IMSS — para efectos fiscales, la nómina oficial se procesa con el proveedor
-        certificado de la empresa.
-    </p>
 
     <div class="firma">
         <div class="linea"></div>

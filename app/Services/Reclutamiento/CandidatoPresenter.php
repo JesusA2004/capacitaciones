@@ -2,6 +2,7 @@
 
 namespace App\Services\Reclutamiento;
 
+use App\Enums\FuenteCandidato;
 use App\Models\Candidato;
 use App\Models\CandidatoEntrevista;
 use App\Models\CandidatoEvidencia;
@@ -109,6 +110,9 @@ class CandidatoPresenter
             'telefono' => $candidato->telefono,
             'correo' => $candidato->correo,
             'fuente' => $candidato->fuente,
+            'fuente_etiqueta' => $candidato->fuente !== null
+                ? (FuenteCandidato::tryFrom($candidato->fuente)?->etiqueta() ?? $candidato->fuente)
+                : null,
             'campana' => $candidato->campana?->nombre,
             'empresa' => $candidato->empresa?->nombre,
             'sucursal' => $candidato->sucursal?->nombre,

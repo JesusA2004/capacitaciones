@@ -45,7 +45,8 @@ import type { TableroRhDatos } from '@/types';
  * (TableroRhService, el mismo de la API móvil); cada filtro recarga SOLO
  * `tablero`, así KPIs, gráficas y tablas se actualizan juntos.
  *
- * Color: las magnitudes van en un solo tono (--chart-1); "autorizada" es
+ * Color: cada gráfica tiene su propio color (--grafica-*, configurable en
+ * Administración → Configuración → Apariencia → Gráficas); "autorizada" es
  * siempre una pista neutra detrás de lo ocupado, nunca un segundo color.
  */
 const props = defineProps<{ tablero: TableroRhDatos }>();
@@ -133,8 +134,10 @@ const tarjetas = computed(() => [
         titulo: 'Plantilla activa',
         icono: Users,
         valor: numero.format(s.value.plantilla_activa.valor),
-        detalle: `de ${numero.format(s.value.plantilla_activa.autorizada)} autorizada`,
-        avance: Math.min(100, s.value.plantilla_activa.porcentaje),
+        // Misma base que "Cobertura de plantilla": plazas autorizadas
+        // ocupadas (quien está en un puesto sin plantilla no cubre plaza).
+        detalle: `${numero.format(totalesCobertura.value.ocupada)} de ${numero.format(totalesCobertura.value.autorizada)} plazas autorizadas cubiertas`,
+        avance: Math.min(100, totalesCobertura.value.porcentaje),
     },
     {
         clave: 'vacantes',
@@ -424,7 +427,7 @@ const totalesCobertura = computed(() => {
                             :aria-label="`${t.avance}% de la plantilla autorizada`"
                         >
                             <div
-                                class="h-full rounded-full bg-[var(--chart-1)] transition-[width] duration-500"
+                                class="h-full rounded-full bg-[var(--grafica-plantilla,var(--chart-1))] transition-[width] duration-500"
                                 :style="{ width: `${t.avance}%` }"
                             />
                         </div>
@@ -460,13 +463,13 @@ const totalesCobertura = computed(() => {
                             <VisArea
                                 :x="xIndice"
                                 :y="yRotacion"
-                                color="var(--chart-1)"
+                                color="var(--grafica-rotacion, var(--chart-1))"
                                 :opacity="0.12"
                             />
                             <VisLine
                                 :x="xIndice"
                                 :y="yRotacion"
-                                color="var(--chart-1)"
+                                color="var(--grafica-rotacion, var(--chart-1))"
                                 :line-width="2"
                             />
                             <VisAxis
@@ -483,7 +486,7 @@ const totalesCobertura = computed(() => {
                                 :domain-line="false"
                             />
                             <VisCrosshair
-                                color="var(--chart-1)"
+                                color="var(--grafica-rotacion, var(--chart-1))"
                                 :template="tooltipRotacion"
                             />
                             <VisTooltip />
@@ -505,7 +508,7 @@ const totalesCobertura = computed(() => {
                         <div
                             class="relative grid size-44 place-items-center rounded-full"
                             :style="{
-                                background: `conic-gradient(var(--chart-1) ${totalesCobertura.porcentaje * 3.6}deg, var(--muted) 0deg)`,
+                                background: `conic-gradient(var(--grafica-cobertura, var(--chart-1)) ${totalesCobertura.porcentaje * 3.6}deg, var(--muted) 0deg)`,
                             }"
                             role="img"
                             :aria-label="`${totalesCobertura.porcentaje}% de la plantilla autorizada ocupada`"
@@ -590,7 +593,7 @@ const totalesCobertura = computed(() => {
                                     class="h-6 overflow-hidden rounded-md bg-muted/60"
                                 >
                                     <span
-                                        class="block h-full rounded-md bg-[var(--chart-1)] transition-[width,opacity] duration-500 group-hover:opacity-85"
+                                        class="block h-full rounded-md bg-[var(--grafica-embudo,var(--chart-1))] transition-[width,opacity] duration-500 group-hover:opacity-85"
                                         :style="{
                                             width: `${e.ancho}%`,
                                             minWidth: e.total ? '4px' : '0',
@@ -656,7 +659,7 @@ const totalesCobertura = computed(() => {
                             <VisGroupedBar
                                 :x="xIndice"
                                 :y="yTiempo"
-                                color="var(--chart-1)"
+                                color="var(--grafica-tiempo, var(--chart-1))"
                                 :rounded-corners="4"
                                 :bar-max-width="56"
                             />
@@ -748,7 +751,7 @@ const totalesCobertura = computed(() => {
                                         :style="{ width: `${f.pista}%` }"
                                     />
                                     <span
-                                        class="absolute inset-y-0 left-0 rounded-full bg-[var(--chart-1)] transition-[width] duration-500"
+                                        class="absolute inset-y-0 left-0 rounded-full bg-[var(--grafica-sucursales,var(--chart-1))] transition-[width] duration-500"
                                         :style="{ width: `${f.ocupada}%` }"
                                     />
                                 </span>

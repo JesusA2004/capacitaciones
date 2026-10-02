@@ -2,6 +2,7 @@
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { BellRing, RotateCcw, ShieldAlert } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import AyudaBoton from '@/components/Common/AyudaBoton.vue';
 import Casilla from '@/components/Common/Casilla.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import ConfiguracionTabs from '@/components/configuracion/ConfiguracionTabs.vue';
@@ -18,6 +19,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { etiquetaPermiso } from '@/lib/permisos';
 import { dashboard } from '@/routes';
 import {
     restaurar,
@@ -27,7 +29,7 @@ import type { ReglaNotificacion, SeccionConfiguracion } from '@/types';
 
 const props = defineProps<{
     reglas: ReglaNotificacion[];
-    tipos: { value: string; etiqueta: string }[];
+    tipos: { value: string; etiqueta: string; ayuda: string }[];
     permisos: string[];
     usuarios: { id: number; nombre: string; email: string }[];
     secciones: SeccionConfiguracion[];
@@ -96,6 +98,14 @@ function restaurarRegla(regla: ReglaNotificacion) {
     router.delete(restaurar.url(regla.evento), { preserveScroll: true });
 }
 
+// Acciones en lenguaje humano (nunca el nombre técnico del permiso),
+// ordenadas alfabéticamente para encontrarlas fácil.
+const opcionesAccion = computed(() =>
+    props.permisos
+        .map((p) => ({ value: p, label: etiquetaPermiso(p) }))
+        .sort((a, b) => a.label.localeCompare(b.label, 'es')),
+);
+
 const necesitaPermiso = () =>
     form.destinatarios.includes('usuarios_con_permiso') ||
     form.fallback.includes('usuarios_con_permiso');
@@ -133,8 +143,13 @@ const necesitaPermiso = () =>
                 class="flex flex-wrap items-start gap-3 rounded-xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4 text-sm"
             >
                 <div class="min-w-0 flex-1">
-                    <p class="font-medium">
+                    <p class="flex items-center gap-1.5 font-medium">
                         {{ r.etiqueta }}
+                        <AyudaBoton
+                            v-if="r.descripcion"
+                            :titulo="r.etiqueta"
+                            :texto="r.descripcion"
+                        />
                         <span
                             v-if="!r.activa"
                             class="ml-1 rounded-full bg-[var(--mrl-danger)]/10 px-2 py-0.5 text-xs text-[var(--mrl-danger)]"
@@ -158,7 +173,7 @@ const necesitaPermiso = () =>
                             {{ etiquetaTipo(d)
                             }}<template
                                 v-if="d === 'usuarios_con_permiso' && r.permiso"
-                                >: {{ r.permiso }}</template
+                                >: {{ etiquetaPermiso(r.permiso) }}</template
                             >
                         </span>
                         <span
@@ -207,33 +222,42 @@ const necesitaPermiso = () =>
             <form class="flex flex-col gap-4" @submit.prevent="guardar">
                 <fieldset class="grid gap-1.5 text-sm">
                     <legend class="mb-1 font-medium">Avisar a</legend>
-                    <label
+                    <div
                         v-for="t in tipos"
                         :key="t.value"
                         class="flex items-center gap-2"
                     >
-                        <Casilla
-                            v-model="form.destinatarios"
-                            :value="t.value"
-                        />
-                        {{ t.etiqueta }}
-                    </label>
+                        <label class="flex items-center gap-2">
+                            <Casilla
+                                v-model="form.destinatarios"
+                                :value="t.value"
+                            />
+                            {{ t.etiqueta }}
+                        </label>
+                        <AyudaBoton :titulo="t.etiqueta" :texto="t.ayuda" />
+                    </div>
                     <InputError :message="form.errors.destinatarios" />
                 </fieldset>
 
                 <div v-if="necesitaPermiso()" class="grid gap-1.5">
-                    <Label for="regla-permiso">Permiso requerido</Label>
+                    <div class="flex items-center gap-1.5">
+                        <Label for="regla-permiso"
+                            >¿A quiénes, según lo que pueden hacer?</Label
+                        >
+                        <AyudaBoton
+                            titulo="Según lo que pueden hacer"
+                            texto="Elige una acción del sistema, por ejemplo «Autorizar préstamos». Les llega el aviso a todas las personas que pueden hacer esa acción y que además tienen a la persona del trámite dentro de su sucursal o región."
+                        />
+                    </div>
                     <SelectSimple
                         id="regla-permiso"
                         v-model="form.permiso"
-                        :opciones="
-                            permisos.map((p) => ({ value: p, label: p }))
-                        "
-                        placeholder="Elige un permiso"
+                        :opciones="opcionesAccion"
+                        placeholder="Elige una acción"
                     />
                     <p class="text-xs text-[var(--mrl-texto-suave)]">
-                        Solo quienes tengan el permiso Y alcance sobre la
-                        persona.
+                        Solo a quienes pueden hacer esa acción y tienen a la
+                        persona dentro de su sucursal o región.
                     </p>
                     <InputError :message="form.errors.permiso" />
                 </div>
@@ -282,23 +306,30 @@ const necesitaPermiso = () =>
                 </div>
 
                 <fieldset class="grid gap-1.5 text-sm">
-                    <legend class="mb-1 font-medium">
+                    <legend class="mb-1 flex items-center gap-1.5 font-medium">
                         Si nadie aplica, avisar a
+                        <AyudaBoton
+                            titulo="Si nadie aplica"
+                            texto="Respaldo: si con las opciones de arriba no se encuentra a nadie (por ejemplo, el puesto del jefe está vacante en toda la cadena), el aviso se manda a estas personas para que nunca se pierda."
+                        />
                     </legend>
-                    <label
+                    <div
                         v-for="t in tipos.filter(
                             (x) => x.value !== 'usuario_especifico',
                         )"
                         :key="t.value"
                         class="flex items-center gap-2"
                     >
-                        <Casilla v-model="form.fallback" :value="t.value" />
-                        {{ t.etiqueta }}
-                    </label>
+                        <label class="flex items-center gap-2">
+                            <Casilla v-model="form.fallback" :value="t.value" />
+                            {{ t.etiqueta }}
+                        </label>
+                        <AyudaBoton :titulo="t.etiqueta" :texto="t.ayuda" />
+                    </div>
                 </fieldset>
 
                 <label class="flex items-center gap-2 text-sm"
-                    ><Casilla v-model="form.activa" /> Regla activa (si se
+                    ><Casilla v-model="form.activa" /> Enviar este aviso (si se
                     apaga, este evento no avisa a nadie)</label
                 >
 

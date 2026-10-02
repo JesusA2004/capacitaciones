@@ -7,8 +7,10 @@ use App\Http\Requests\Api\V1\SubirDocumentoIncorporacionRequest;
 use App\Models\Colaborador;
 use App\Models\DocumentType;
 use App\Services\Incorporacion\IncorporacionService;
+use App\Services\Navigation\NavigationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
@@ -26,7 +28,7 @@ class IncorporacionController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        abort_unless($request->user()->can('colaborador.incorporacion.ver'), 403);
+        abort_unless($this->esPropio($request, 'colaborador.incorporacion.ver'), 403);
 
         return response()->json($this->incorporacion->estadoIncorporacion($this->colaboradorDe($request)));
     }
@@ -54,7 +56,7 @@ class IncorporacionController extends Controller
     {
         $usuario = $request->user();
 
-        abort_unless($usuario->can('colaborador.incorporacion.documentos.solicitar-cambio'), 403);
+        abort_unless($this->esPropio($request, 'colaborador.incorporacion.documentos.solicitar-cambio'), 403);
 
         try {
             $this->incorporacion->solicitarCambio($this->colaboradorDe($request), $documento);
@@ -63,6 +65,18 @@ class IncorporacionController extends Controller
         }
 
         return response()->json(['message' => 'Solicitud de cambio enviada a RH']);
+    }
+
+    /**
+     * Su propio expediente lo ve cualquier persona en «Mi espacio» (gerente,
+     * regional, RH también son colaboradores) — mismo gate que la web
+     * (`modo-colaborador`, NavigationService), no solo el rol colaborador.
+     */
+    private function esPropio(Request $request, string $permiso): bool
+    {
+        $usuario = $request->user();
+
+        return $usuario->can($permiso) || Gate::forUser($usuario)->allows(NavigationService::GATE_MODO_COLABORADOR);
     }
 
     private function colaboradorDe(Request $request): Colaborador

@@ -93,10 +93,6 @@ const esTerminalAtipico = computed(() =>
     ['rechazada', 'cancelada'].includes(props.solicitud.estado),
 );
 const pasoActualIndice = computed(() => {
-    if (props.solicitud.estado === 'cerrada') {
-        return PASOS.length - 1;
-    }
-
     if (props.solicitud.estado === 'requiere_correccion') {
         return PASOS.indexOf('en_revision');
     }
@@ -111,7 +107,7 @@ const pasoActualIndice = computed(() => {
 const ETIQUETAS_PASO: Record<(typeof PASOS)[number], string> = {
     enviada: 'Recibida',
     en_revision: 'Pendiente de autorizar',
-    aprobada: 'Aprobada / Cerrada',
+    aprobada: 'Aprobada',
 };
 
 const previewAbierto = ref(false);
@@ -358,8 +354,8 @@ function previsualizar(doc: SolicitudInternaDocumentoItem) {
                             <span
                                 class="absolute -start-[21px] mt-1 size-2.5 rounded-full bg-[var(--brand-primary)]"
                             />
-                            <p class="text-sm font-medium capitalize">
-                                {{ evento.accion.replace(/_/g, ' ') }}
+                            <p class="text-sm font-medium">
+                                {{ evento.accion_etiqueta }}
                                 <span
                                     v-if="evento.usuario"
                                     class="font-normal text-muted-foreground"

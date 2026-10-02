@@ -100,6 +100,7 @@ export type CandidatoItem = {
     telefono: string | null;
     correo: string | null;
     fuente: string | null;
+    fuente_etiqueta: string | null;
     tiene_cv: boolean;
     cv_original_name: string | null;
     observaciones: string | null;

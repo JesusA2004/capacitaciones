@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import {
     AlertTriangle,
@@ -24,7 +25,6 @@ import SubirFormatoOficialFirmadoDialog from '@/components/Rh/SubirFormatoOficia
 import type { NivelVistoBueno } from '@/components/Solicitudes/CadenaAutorizacion.vue';
 import CadenaAutorizacion from '@/components/Solicitudes/CadenaAutorizacion.vue';
 import { Button } from '@/components/ui/button';
-import { NativeSelect } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
 import {
     formatearFecha,
@@ -39,7 +39,6 @@ import {
 } from '@/routes/rh/formatos-oficiales';
 import {
     aprobar,
-    cerrar,
     index,
     rechazar,
     requerirCorreccion,
@@ -129,6 +128,12 @@ const formAccion = useForm({});
 // Evidencia/firma del gerente: obligatoria antes de poder aprobar una baja
 // de colaborador (ver App\Services\Solicitudes\SolicitudesService::cambiarEstado()).
 const esBaja = computed(() => props.solicitud.tipo === 'baja_colaborador');
+
+// Aprobada/rechazada/cancelada: ya no acepta cambios (mismo criterio que
+// EstadoSolicitudInterna::esFinal() en el backend).
+const esFinal = computed(() =>
+    ['aprobada', 'rechazada', 'cancelada'].includes(props.solicitud.estado),
+);
 const sinEvidencia = computed(
     () => esBaja.value && (props.solicitud.documentos?.length ?? 0) === 0,
 );
@@ -137,8 +142,9 @@ const finiquitoNoRevisado = computed(
     () =>
         esBaja.value &&
         !props.finiquitoPermisos.puedeOmitirRevision &&
-        props.solicitud.finiquitoCalculo?.estado !== 'revisado' &&
-        props.solicitud.finiquitoCalculo?.estado !== 'aprobado',
+        !['revisado', 'aprobado', 'firmado', 'pagado'].includes(
+            props.solicitud.finiquito_calculo?.estado ?? '',
+        ),
 );
 
 const archivosEvidencia = ref<File[]>([]);
@@ -188,12 +194,6 @@ function rechazarSolicitud() {
         preserveScroll: true,
         onSuccess: () => (mostrandoRechazo.value = false),
     });
-}
-
-function cerrarSolicitud() {
-    formAccion
-        .transform((d) => ({ ...d, comentario: comentario.value }))
-        .post(cerrar.url(props.solicitud.id), { preserveScroll: true });
 }
 
 // Vista previa de documentos (nunca una ruta física del NAS, siempre un
@@ -374,19 +374,17 @@ const documentoOficialGeneracion = computed(
                 >
                     <p class="text-sm font-medium">Generar documento oficial</p>
                     <div class="flex gap-2">
-                        <NativeSelect
+                        <SelectSimple
                             v-model="formatoOficialId"
                             class="w-full sm:w-64"
-                        >
-                            <option value="">Elige un formato…</option>
-                            <option
-                                v-for="f in formatosOficiales"
-                                :key="f.id"
-                                :value="String(f.id)"
-                            >
-                                {{ f.nombre }}
-                            </option>
-                        </NativeSelect>
+                            :opciones="
+                                formatosOficiales.map((f) => ({
+                                    value: String(f.id),
+                                    label: f.nombre,
+                                }))
+                            "
+                            opcion-vacia="Elige un formato…"
+                        />
                         <Button
                             size="sm"
                             :disabled="!formatoOficialId"
@@ -402,7 +400,10 @@ const documentoOficialGeneracion = computed(
                      (config/solicitudes.php) — distinto de los documentos
                      adicionales (plantilla DOCX manual/opcional) de abajo. -->
                 <div
-                    v-if="documentoOficial"
+                    v-if="
+                        documentoOficial &&
+                        (!esFinal || documentoOficialGeneracion)
+                    "
                     class="rounded-2xl border border-border/60 bg-card p-5"
                 >
                     <h3 class="mb-3 text-sm font-semibold">
@@ -522,7 +523,10 @@ const documentoOficialGeneracion = computed(
                 <!-- Documentos adicionales: plantilla DOCX libre y opcional,
                      nunca la acción principal (sección 9 del encargo). -->
                 <div
-                    v-if="puedeGenerarFormato"
+                    v-if="
+                        puedeGenerarFormato &&
+                        (!esFinal || solicitud.documentos_generados?.length)
+                    "
                     class="rounded-2xl border border-border/60 bg-card p-5"
                 >
                     <div class="mb-1 flex items-center justify-between gap-2">
@@ -530,6 +534,7 @@ const documentoOficialGeneracion = computed(
                             Documentos adicionales
                         </h3>
                         <Button
+                            v-if="!esFinal"
                             size="sm"
                             variant="outline"
                             @click="dialogoGenerarAbierto = true"
@@ -589,13 +594,16 @@ const documentoOficialGeneracion = computed(
                                 : 'Documentos adjuntos'
                         }}
                     </h3>
-                    <p v-if="esBaja" class="mb-3 text-xs text-muted-foreground">
+                    <p
+                        v-if="esBaja && !esFinal"
+                        class="mb-3 text-xs text-muted-foreground"
+                    >
                         Adjunta la autorización, carta o formato firmado
                         requerido antes de aprobar.
                     </p>
 
                     <div
-                        v-if="sinEvidencia"
+                        v-if="sinEvidencia && !esFinal"
                         class="mb-3 flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
                     >
                         <AlertTriangle class="size-4 shrink-0" />
@@ -637,6 +645,7 @@ const documentoOficialGeneracion = computed(
                     </p>
 
                     <PeopleFileDropzone
+                        v-if="!esFinal"
                         :model-value="archivosEvidencia"
                         accept=".pdf,.jpg,.jpeg,.png,.webp"
                         :loading="formEvidencia.processing"
@@ -652,7 +661,7 @@ const documentoOficialGeneracion = computed(
                 <FiniquitoPanel
                     v-if="esBaja"
                     :solicitud-id="solicitud.id"
-                    :finiquito="solicitud.finiquitoCalculo ?? null"
+                    :finiquito="solicitud.finiquito_calculo ?? null"
                     :permisos="finiquitoPermisos"
                 />
 
@@ -669,8 +678,8 @@ const documentoOficialGeneracion = computed(
                             <span
                                 class="absolute -start-[21px] mt-1 size-2.5 rounded-full bg-[var(--brand-primary)]"
                             />
-                            <p class="text-base font-medium capitalize">
-                                {{ evento.accion.replace(/_/g, ' ') }}
+                            <p class="text-base font-medium">
+                                {{ evento.accion_etiqueta }}
                                 <span
                                     v-if="evento.usuario"
                                     class="font-normal text-muted-foreground"
@@ -698,11 +707,7 @@ const documentoOficialGeneracion = computed(
                 class="flex flex-col gap-4 lg:sticky lg:top-6 lg:col-span-4 xl:col-span-3"
             >
                 <div
-                    v-if="
-                        !['rechazada', 'cancelada', 'cerrada'].includes(
-                            solicitud.estado,
-                        )
-                    "
+                    v-if="!esFinal"
                     class="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-5"
                 >
                     <h3 class="text-sm font-semibold">Acciones de revisión</h3>
@@ -760,13 +765,6 @@ const documentoOficialGeneracion = computed(
                             variant="outline"
                             @click="mostrandoRechazo = true"
                             >Rechazar</Button
-                        >
-                        <Button
-                            v-if="solicitud.estado === 'aprobada'"
-                            variant="secondary"
-                            :disabled="formAccion.processing"
-                            @click="cerrarSolicitud"
-                            >Cerrar solicitud</Button
                         >
                     </div>
 
