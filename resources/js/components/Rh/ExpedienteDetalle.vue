@@ -922,7 +922,7 @@ const pestanaInicial = (() => {
         <Tabs
             :default-value="pestanaInicial"
             orientation="vertical"
-            class="items-start gap-4 lg:flex-row lg:gap-6"
+            class="items-stretch gap-4 lg:flex-row lg:items-start lg:gap-6"
         >
             <TabsList
                 data-tour="expediente-pestanas"

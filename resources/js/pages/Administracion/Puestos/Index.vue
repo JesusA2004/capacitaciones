@@ -136,6 +136,8 @@ async function eliminar(puesto: PuestoItem) {
             :columnas="columnas"
             :datos="puestos"
             mensaje-vacio="No se encontraron puestos."
+            filas-clicables
+            @click-fila="abrirEditar"
         >
             <template #vacio>
                 <CrudEmptyState
@@ -181,6 +183,7 @@ async function eliminar(puesto: PuestoItem) {
                 <CrudMobileCard
                     :titulo="fila.nombre"
                     :subtitulo="fila.departamento?.nombre ?? 'Sin departamento'"
+                    @click="abrirEditar(fila)"
                 >
                     <template #badge>
                         <EstadoBadge

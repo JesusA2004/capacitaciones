@@ -18,12 +18,20 @@ export type ColumnaDataTable = {
     clase?: string;
 };
 
-defineProps<{
-    columnas: ColumnaDataTable[];
-    datos: RespuestaPaginada<T>;
-    cargando?: boolean;
-    mensajeVacio?: string;
-}>();
+withDefaults(
+    defineProps<{
+        columnas: ColumnaDataTable[];
+        datos: RespuestaPaginada<T>;
+        cargando?: boolean;
+        mensajeVacio?: string;
+        /** Si se pasa, cada fila/tarjeta abre la acción principal al
+         * tocarla, en vez de obligar a usar el menú de acciones. */
+        filasClicables?: boolean;
+    }>(),
+    { filasClicables: false },
+);
+
+const emit = defineEmits<{ 'click-fila': [fila: T] }>();
 
 const { irA } = usePaginacion();
 
@@ -76,7 +84,15 @@ function valorCelda(fila: T, clave: string): unknown {
                         <TableRow
                             v-for="(fila, indice) in datos.data"
                             :key="indice"
-                            class="transition-colors duration-150"
+                            :class="[
+                                'transition-colors duration-150',
+                                filasClicables
+                                    ? 'cursor-pointer hover:bg-muted/40'
+                                    : '',
+                            ]"
+                            @click="
+                                filasClicables && emit('click-fila', fila)
+                            "
                         >
                             <TableCell
                                 v-for="columna in columnas"
@@ -93,6 +109,7 @@ function valorCelda(fila: T, clave: string): unknown {
                             <TableCell
                                 v-if="$slots.acciones"
                                 class="text-right"
+                                @click.stop
                             >
                                 <slot name="acciones" :fila="fila" />
                             </TableCell>
@@ -117,7 +134,13 @@ function valorCelda(fila: T, clave: string): unknown {
                 <div
                     v-for="(fila, indice) in datos.data"
                     :key="indice"
-                    class="flex flex-col gap-2.5 rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
+                    :class="[
+                        'flex flex-col gap-2.5 rounded-2xl border border-border/60 bg-card p-4 shadow-sm transition-colors',
+                        filasClicables ? 'cursor-pointer active:bg-muted/40' : '',
+                    ]"
+                    @click="
+                        filasClicables && emit('click-fila', fila)
+                    "
                 >
                     <dl class="flex flex-col gap-2 text-sm">
                         <div
@@ -143,6 +166,7 @@ function valorCelda(fila: T, clave: string): unknown {
                     <div
                         v-if="$slots.acciones"
                         class="flex items-center justify-end gap-1 border-t border-border/60 pt-2"
+                        @click.stop
                     >
                         <slot name="acciones" :fila="fila" />
                     </div>

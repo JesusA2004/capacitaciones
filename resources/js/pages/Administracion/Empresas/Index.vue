@@ -142,6 +142,8 @@ async function eliminar(empresa: EmpresaItem) {
             :columnas="columnas"
             :datos="empresas"
             mensaje-vacio="No se encontraron empresas."
+            filas-clicables
+            @click-fila="abrirEditar"
         >
             <template #vacio>
                 <CrudEmptyState
@@ -222,6 +224,7 @@ async function eliminar(empresa: EmpresaItem) {
                 <CrudMobileCard
                     :titulo="fila.nombre"
                     :subtitulo="fila.rfc ?? 'Sin RFC'"
+                    @click="abrirEditar(fila)"
                 >
                     <template #badge>
                         <EstadoBadge

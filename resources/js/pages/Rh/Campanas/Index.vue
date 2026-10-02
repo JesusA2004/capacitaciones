@@ -366,6 +366,8 @@ async function eliminar(campana: CampanaReclutamientoItem) {
             :columnas="columnas"
             :datos="campanas"
             mensaje-vacio="No se encontraron campañas en este periodo."
+            filas-clicables
+            @click-fila="abrirEditar"
         >
             <template #vacio>
                 <CrudEmptyState
@@ -432,6 +434,7 @@ async function eliminar(campana: CampanaReclutamientoItem) {
                 <CrudMobileCard
                     :titulo="nombreCanal(fila.canal)"
                     :subtitulo="`${fila.mes}/${fila.anio} · ${formatoMoneda(fila.monto)}`"
+                    @click="abrirEditar(fila)"
                 >
                     <span>{{
                         fila.puesto?.nombre ?? 'General (sin puesto)'

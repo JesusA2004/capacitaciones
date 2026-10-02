@@ -165,7 +165,12 @@ async function eliminar(rol: RolItem) {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        <TableRow v-for="rol in rolesFiltrados" :key="rol.id">
+                        <TableRow
+                            v-for="rol in rolesFiltrados"
+                            :key="rol.id"
+                            class="cursor-pointer hover:bg-muted/40"
+                            @click="abrirEditar(rol)"
+                        >
                             <TableCell class="font-medium">
                                 {{ rol.nombre }}
                                 <Badge
@@ -181,7 +186,7 @@ async function eliminar(rol: RolItem) {
                             <TableCell class="text-muted-foreground">{{
                                 rol.usuarios_count
                             }}</TableCell>
-                            <TableCell class="text-right">
+                            <TableCell class="text-right" @click.stop>
                                 <CrudActionMenu>
                                     <DropdownMenuItem @select="abrirEditar(rol)"
                                         >Editar</DropdownMenuItem
@@ -209,6 +214,7 @@ async function eliminar(rol: RolItem) {
                     :key="rol.id"
                     :titulo="rol.nombre"
                     :subtitulo="`${rol.permisos.length} permiso(s)`"
+                    @click="abrirEditar(rol)"
                 >
                     <template #badge>
                         <Badge v-if="rol.es_protegido" variant="secondary"

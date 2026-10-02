@@ -93,7 +93,16 @@ Administración → **Configuración** (permisos `configuracion.ver` + `configur
 ## 12. Pendientes externos
 
 - Plantillas jurídicas reales y material de inducción.
-- App móvil (`mr-lana-people-app`): consumir `theme`, `ciclo_laboral`, `GET /colaborador/mi-proceso`, candidatos y deep links por `related_type`/`accion`.
+- App móvil (`mr-lana-people-app`), estado 2026-10-01: `theme` (`GET
+  /app/theme`), candidatos (`GET/POST /rh/candidatos/*`) y reingresos
+  (`GET/POST /rh/reingresos/*`) **ya se consumen**; deep links por
+  `related_type` cubren `Candidato`/`Reingreso`/`CierreLaboral`. Sigue
+  pendiente migrar la pantalla "Lo que necesitas hacer" del colaborador al
+  DTO unificado `GET /colaborador/mi-proceso` / `ciclo_laboral.propio` del
+  bootstrap — hoy arma la misma información (sin filtrar nada sensible,
+  verificado) a partir de endpoints más antiguos (`alta`, documentos
+  pendientes, etc.) en vez de la fuente única nueva. Ver
+  `docs/FINAL_MOBILE_AUDIT.md`.
 
 ## 13. Reglas agregadas el 2026-10-01 (tarde)
 

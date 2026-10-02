@@ -308,7 +308,8 @@ async function eliminar(plantilla: PlantillaItem) {
             <div
                 v-for="plantilla in plantillas"
                 :key="plantilla.id"
-                class="flex flex-col gap-2 rounded-2xl border border-border/60 bg-card p-4"
+                class="flex cursor-pointer flex-col gap-2 rounded-2xl border border-border/60 bg-card p-4 transition-all duration-200 hover:border-primary/40 hover:shadow-md"
+                @click="abrirEditar(plantilla)"
             >
                 <div class="flex items-start justify-between gap-2">
                     <div>
@@ -321,7 +322,7 @@ async function eliminar(plantilla: PlantillaItem) {
                             }}
                         </p>
                     </div>
-                    <CrudActionMenu>
+                    <CrudActionMenu @click.stop>
                         <DropdownMenuItem @select="abrirEditar(plantilla)"
                             >Editar</DropdownMenuItem
                         >

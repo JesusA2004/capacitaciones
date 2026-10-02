@@ -173,6 +173,8 @@ function restablecer(usuario: UsuarioItem) {
             :columnas="columnas"
             :datos="usuarios"
             mensaje-vacio="No se encontraron usuarios."
+            filas-clicables
+            @click-fila="abrirEditarRoles"
         >
             <template #vacio>
                 <CrudEmptyState
@@ -267,6 +269,7 @@ function restablecer(usuario: UsuarioItem) {
                 <CrudMobileCard
                     :titulo="`${fila.name} ${fila.apellidos ?? ''}`"
                     :subtitulo="fila.email"
+                    @click="abrirEditarRoles(fila)"
                 >
                     <template #badge>
                         <span
