@@ -5,16 +5,11 @@ namespace App\Http\Controllers\Administracion;
 use App\Enums\GrupoPuestoIndicador;
 use App\Enums\TipoDestinatarioNotificacion;
 use App\Http\Controllers\Controller;
-use App\Models\Colaborador;
 use App\Models\DocumentType;
 use App\Models\Puesto;
-use App\Models\Sucursal;
 use App\Models\User;
-use App\Services\AlcanceOrganizacionalService;
-use App\Services\CicloLaboral\OrganizacionJerarquiaService;
 use App\Services\Configuracion\ConfiguracionSistemaService;
 use App\Services\Configuracion\WorkflowRoutingService;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -23,18 +18,17 @@ use Inertia\Response;
 use Spatie\Permission\Models\Permission;
 
 /**
- * Administración → Configuración: apariencia, jerarquía (jefes directos),
- * ruteo de notificaciones y parámetros de RH. Autoriza por permiso
- * (configuracion.*) y delega todo a ConfiguracionSistemaService,
- * OrganizacionJerarquiaService y WorkflowRoutingService.
+ * Administración → Configuración: apariencia, ruteo de notificaciones y
+ * parámetros de RH. Autoriza por permiso
+ * (configuracion.*) y delega todo a ConfiguracionSistemaService y
+ * WorkflowRoutingService. El jefe directo no se configura aquí: sale del
+ * organigrama (JefeDirectoService).
  */
 class ConfiguracionController extends Controller
 {
     public function __construct(
         private readonly ConfiguracionSistemaService $configuracion,
-        private readonly OrganizacionJerarquiaService $organizacion,
         private readonly WorkflowRoutingService $routing,
-        private readonly AlcanceOrganizacionalService $alcance,
     ) {}
 
     public function index(Request $request): RedirectResponse
@@ -42,7 +36,7 @@ class ConfiguracionController extends Controller
         $usuario = $request->user();
         abort_unless($usuario->can('configuracion.ver'), 403);
 
-        foreach (['configuracion.organizacion' => 'jerarquia', 'configuracion.notificaciones' => 'notificaciones', 'configuracion.rh' => 'parametros-rh', 'configuracion.apariencia' => 'apariencia'] as $permiso => $seccion) {
+        foreach (['configuracion.notificaciones' => 'notificaciones', 'configuracion.rh' => 'parametros-rh', 'configuracion.apariencia' => 'apariencia'] as $permiso => $seccion) {
             if ($usuario->can($permiso)) {
                 return to_route("administracion.configuracion.{$seccion}");
             }
@@ -78,70 +72,6 @@ class ConfiguracionController extends Controller
         $this->configuracion->restaurar($datos['clave'], $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Valor de fábrica restaurado.']);
-    }
-
-    public function jerarquia(Request $request): Response
-    {
-        $this->exigir($request, 'configuracion.organizacion');
-        $usuario = $request->user();
-        $filtros = [
-            'busqueda' => $request->string('busqueda')->toString() ?: null,
-            'sucursal_id' => $request->integer('sucursal_id') ?: null,
-            'solo_sin_jefe' => $request->boolean('solo_sin_jefe'),
-        ];
-
-        $personas = $this->organizacion->listarParaAdministrar($usuario, $filtros)->withQueryString();
-        $personas->getCollection()->transform(fn (Colaborador $c) => $this->organizacion->filaAdministracion($c));
-
-        return Inertia::render('Administracion/Configuracion/Jerarquia', [
-            'personas' => $personas,
-            'filtros' => $filtros,
-            'sucursales' => Sucursal::query()->whereIn('id', $this->alcance->sucursalesVisiblesIds($usuario))->orderBy('nombre')->get(['id', 'nombre']),
-            'secciones' => $this->secciones($usuario),
-        ]);
-    }
-
-    public function buscarJefes(Request $request): JsonResponse
-    {
-        $this->exigir($request, 'configuracion.organizacion');
-
-        return response()->json(['data' => $this->organizacion->buscarPosiblesJefes(
-            $request->string('q')->toString(),
-            $request->integer('excluir') ?: null,
-        )]);
-    }
-
-    public function detalleJerarquia(Request $request, Colaborador $colaborador): JsonResponse
-    {
-        $this->exigir($request, 'configuracion.organizacion');
-        $this->exigirAlcance($request->user(), $colaborador);
-
-        return response()->json(['data' => $this->organizacion->detalleJerarquia($colaborador)]);
-    }
-
-    public function asignarJefe(Request $request, Colaborador $colaborador): RedirectResponse
-    {
-        $this->exigir($request, 'configuracion.organizacion');
-        $this->exigirAlcance($request->user(), $colaborador);
-
-        $datos = $request->validate([
-            'jefe_id' => ['present', 'nullable', 'integer', 'exists:colaboradores,id'],
-            'gerente_id' => ['sometimes', 'nullable', 'integer', 'exists:colaboradores,id'],
-            'motivo' => ['nullable', 'string', 'max:500'],
-        ], [], ['jefe_id' => 'jefe directo', 'gerente_id' => 'gerente']);
-
-        $asignacion = [
-            'jefe_id' => isset($datos['jefe_id']) ? (int) $datos['jefe_id'] : null,
-            'motivo' => isset($datos['motivo']) ? (string) $datos['motivo'] : null,
-        ];
-
-        if (array_key_exists('gerente_id', $datos)) {
-            $asignacion['gerente_id'] = isset($datos['gerente_id']) ? (int) $datos['gerente_id'] : null;
-        }
-
-        $this->organizacion->asignarSuperiores($colaborador, $asignacion, $request->user());
-
-        return back()->with('toast', ['type' => 'success', 'message' => sprintf('Jefe directo de %s actualizado. Las solicitudes nuevas ya se dirigen a la nueva cadena.', $colaborador->nombreCompleto())]);
     }
 
     public function notificaciones(Request $request): Response
@@ -247,11 +177,6 @@ class ConfiguracionController extends Controller
         abort_unless($request->user()->can('configuracion.ver') && $request->user()->can($permiso), 403);
     }
 
-    private function exigirAlcance(User $usuario, Colaborador $colaborador): void
-    {
-        abort_unless($this->alcance->tieneAlcanceGlobal($usuario) || $this->alcance->alcanzaColaborador($usuario, $colaborador), 403);
-    }
-
     /**
      * Pestañas visibles según los permisos del usuario.
      *
@@ -260,7 +185,6 @@ class ConfiguracionController extends Controller
     private function secciones(User $usuario): array
     {
         $todas = [
-            'jerarquia' => ['configuracion.organizacion', 'Jefes directos'],
             'notificaciones' => ['configuracion.notificaciones', 'Notificaciones'],
             'parametros-rh' => ['configuracion.rh', 'Parámetros de RH'],
             'apariencia' => ['configuracion.apariencia', 'Apariencia'],

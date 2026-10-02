@@ -63,7 +63,7 @@ const { filtros, aplicar, aplicarConDebounce, limpiar } = useFiltros(
         sucursal_id: props.filtros.sucursal_id ?? '',
         departamento_id: props.filtros.departamento_id ?? '',
         puesto_id: props.filtros.puesto_id ?? '',
-        estatus: props.filtros.estatus ?? '',
+        estatus: props.filtros.estatus ?? 'activo',
         fecha_inicio: props.filtros.fecha_inicio ?? '',
         fecha_fin: props.filtros.fecha_fin ?? '',
     },
@@ -77,11 +77,11 @@ const filtrosActivos = computed(
                 'sucursal_id',
                 'departamento_id',
                 'puesto_id',
-                'estatus',
                 'fecha_inicio',
                 'fecha_fin',
             ] as const
-        ).filter((campo) => Boolean(filtros[campo])).length,
+        ).filter((campo) => Boolean(filtros[campo])).length +
+        (filtros.estatus && filtros.estatus !== 'activo' ? 1 : 0),
 );
 const { irA } = usePaginacion();
 function urlExportar(
@@ -274,6 +274,9 @@ const sucursalActiva = computed(() =>
                                 <SelectValue placeholder="Estado" />
                             </SelectTrigger>
                             <SelectContent>
+                                <SelectItem value="todos"
+                                    >Todos los estados</SelectItem
+                                >
                                 <SelectItem
                                     v-for="opcion in estados"
                                     :key="opcion.value"

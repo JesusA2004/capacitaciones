@@ -48,6 +48,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property int|null $pago_programado_por
  * @property Carbon|null $pago_programado_en
  * @property Carbon|null $cita_firma_en
+ * @property Carbon|null $acceso_suspendido_en
  * @property int|null $cita_registrada_por
  * @property Carbon|null $created_at
  * @property-read Colaborador $colaborador
@@ -67,7 +68,7 @@ class CierreLaboral extends Model
         'autorizado_rh_en', 'autorizado_rh_por', 'rechazado_en', 'motivo_rechazo',
         'finiquito_autorizado_en', 'finiquito_autorizado_por', 'pago_programado_para', 'pago_monto',
         'pago_metodo', 'pago_responsable_user_id', 'pago_observaciones', 'pago_programado_por',
-        'pago_programado_en', 'cita_firma_en', 'cita_registrada_por',
+        'pago_programado_en', 'cita_firma_en', 'cita_registrada_por', 'acceso_suspendido_en',
     ];
 
     protected function casts(): array
@@ -87,6 +88,7 @@ class CierreLaboral extends Model
             'pago_monto' => 'decimal:2',
             'pago_programado_en' => 'datetime',
             'cita_firma_en' => 'datetime',
+            'acceso_suspendido_en' => 'datetime',
         ];
     }
 

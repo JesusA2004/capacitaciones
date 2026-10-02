@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
 import TableroRh from '@/components/Dashboard/TableroRh.vue';
-import { dashboard } from '@/routes';
 import type { TableroRhDatos } from '@/types';
 
 defineProps<{ tablero: TableroRhDatos }>();
 
+// Sin migas: el título del tablero va hasta arriba (la miga "Inicio"
+// solo repetía la pantalla actual).
 defineOptions({
     layout: {
-        breadcrumbs: [{ title: 'Inicio', href: dashboard() }],
+        breadcrumbs: [],
     },
 });
 </script>
@@ -16,7 +17,7 @@ defineOptions({
 <template>
     <Head title="Inicio" />
 
-    <div class="pagina-ancha flex flex-col gap-6">
+    <div class="pagina-ancha flex flex-col gap-6 !pt-3 sm:!pt-4">
         <TableroRh :tablero="tablero" />
     </div>
 </template>

@@ -42,14 +42,6 @@ const props = defineProps<{
         nombre: string;
         puesto_superior_id: number | null;
     }[];
-    jefesDisponibles: {
-        id: number;
-        name: string;
-        apellidos: string | null;
-        numero_empleado: string | null;
-        puesto_id: number | null;
-        sucursal_principal_id: number | null;
-    }[];
     esCuentaPropia: boolean;
     puedeRevisarDocumentos: boolean;
     puedeVerExtraccion: boolean;
@@ -107,7 +99,6 @@ defineOptions({
         :sucursales-disponibles="sucursalesDisponibles"
         :departamentos-disponibles="departamentosDisponibles"
         :puestos-disponibles="puestosDisponibles"
-        :jefes-disponibles="jefesDisponibles"
         :es-cuenta-propia="esCuentaPropia"
         :puede-revisar-documentos="puedeRevisarDocumentos"
         :puede-ver-extraccion="puedeVerExtraccion"

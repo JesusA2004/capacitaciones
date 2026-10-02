@@ -26,11 +26,6 @@ Route::middleware(['auth', 'verified'])
             Route::get('apariencia', [ConfiguracionController::class, 'apariencia'])->name('apariencia');
             Route::put('apariencia', [ConfiguracionController::class, 'guardarApariencia'])->name('apariencia.update');
 
-            Route::get('jerarquia', [ConfiguracionController::class, 'jerarquia'])->name('jerarquia');
-            Route::get('jerarquia/buscar', [ConfiguracionController::class, 'buscarJefes'])->name('jerarquia.buscar');
-            Route::get('jerarquia/{colaborador}', [ConfiguracionController::class, 'detalleJerarquia'])->name('jerarquia.detalle');
-            Route::put('jerarquia/{colaborador}', [ConfiguracionController::class, 'asignarJefe'])->name('jerarquia.update');
-
             Route::get('notificaciones', [ConfiguracionController::class, 'notificaciones'])->name('notificaciones');
             Route::put('notificaciones/{evento}', [ConfiguracionController::class, 'guardarNotificacion'])->name('notificaciones.update');
             Route::delete('notificaciones/{evento}', [ConfiguracionController::class, 'restaurarNotificacion'])->name('notificaciones.restaurar');
@@ -61,6 +56,7 @@ Route::middleware(['auth', 'verified'])
             Route::get('{sucursal}', [SucursalController::class, 'show'])->name('show');
             Route::post('/', [SucursalController::class, 'store'])->name('store');
             Route::put('{sucursal}', [SucursalController::class, 'update'])->name('update');
+            Route::put('{sucursal}/plantilla/{puesto}', [SucursalController::class, 'actualizarPlantilla'])->name('plantilla.update');
             Route::delete('{sucursal}', [SucursalController::class, 'destroy'])->name('destroy');
         });
 

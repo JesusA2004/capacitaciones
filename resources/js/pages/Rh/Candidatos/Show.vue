@@ -13,8 +13,13 @@ import AprobacionesResumen from '@/components/ciclo/AprobacionesResumen.vue';
 import CicloEstadoPanel from '@/components/ciclo/CicloEstadoPanel.vue';
 import CicloStepper from '@/components/ciclo/CicloStepper.vue';
 import CicloTimeline from '@/components/ciclo/CicloTimeline.vue';
+import Casilla from '@/components/Common/Casilla.vue';
+import DatePicker from '@/components/Common/DatePicker.vue';
+import DateTimePicker from '@/components/Common/DateTimePicker.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import InputError from '@/components/InputError.vue';
+import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import CandidatoFormDialog from '@/components/Rh/CandidatoFormDialog.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -222,11 +227,6 @@ function enviar() {
         ].includes(accion.clave),
         onSuccess: () => (accionActiva.value = null),
     });
-}
-
-function archivos(event: Event, campo: string) {
-    const input = event.target as HTMLInputElement;
-    form[campo] = Array.from(input.files ?? []);
 }
 
 const formCv = useForm({ cv: null as File | null });
@@ -608,9 +608,8 @@ const claseBoton: Record<string, 'default' | 'secondary' | 'destructive'> = {
                 >
                     <div class="grid gap-1.5">
                         <Label>Fecha y hora</Label
-                        ><Input
+                        ><DateTimePicker
                             v-model="form.realizada_en as string"
-                            type="datetime-local"
                         /><InputError :message="form.errors.realizada_en" />
                     </div>
                     <div class="flex gap-2">
@@ -672,11 +671,12 @@ const claseBoton: Record<string, 'default' | 'secondary' | 'destructive'> = {
                     </div>
                     <div class="grid gap-1.5">
                         <Label>Reportes (PDF/imagen)</Label
-                        ><input
-                            type="file"
+                        ><PeopleFileDropzone
+                            :model-value="(form.archivos as File[]) ?? []"
                             multiple
                             accept=".pdf,.jpg,.jpeg,.png"
-                            @change="archivos($event, 'archivos')"
+                            label="Arrastra los archivos o haz clic"
+                            @update:model-value="(f) => (form.archivos = f)"
                         />
                     </div>
                 </template>
@@ -689,9 +689,8 @@ const claseBoton: Record<string, 'default' | 'secondary' | 'destructive'> = {
                     <div class="grid gap-3 sm:grid-cols-2">
                         <div class="grid gap-1.5">
                             <Label>Fecha de visita</Label
-                            ><Input
+                            ><DatePicker
                                 v-model="form.fecha_visita as string"
-                                type="date"
                             /><InputError :message="form.errors.fecha_visita" />
                         </div>
                         <div class="grid gap-1.5">
@@ -717,32 +716,29 @@ const claseBoton: Record<string, 'default' | 'secondary' | 'destructive'> = {
                             Criterios (informativos)
                         </legend>
                         <label class="flex items-center gap-2"
-                            ><input
+                            ><Casilla
                                 v-model="
                                     (form.checklist as Record<string, boolean>)
                                         .vivienda_en_orden
                                 "
-                                type="checkbox"
                             />
                             Vivienda en orden</label
                         >
                         <label class="flex items-center gap-2"
-                            ><input
+                            ><Casilla
                                 v-model="
                                     (form.checklist as Record<string, boolean>)
                                         .vive_con_familia
                                 "
-                                type="checkbox"
                             />
                             Vive con familia</label
                         >
                         <label class="flex items-center gap-2"
-                            ><input
+                            ><Casilla
                                 v-model="
                                     (form.checklist as Record<string, boolean>)
                                         .resguardo_motocicleta
                                 "
-                                type="checkbox"
                             />
                             Espacio para resguardar la motocicleta</label
                         >
@@ -784,11 +780,13 @@ const claseBoton: Record<string, 'default' | 'secondary' | 'destructive'> = {
                         <Label
                             >Fotografías / video / PDF (evidencia
                             privada)</Label
-                        ><input
-                            type="file"
+                        ><PeopleFileDropzone
+                            :model-value="(form.evidencias as File[]) ?? []"
                             multiple
                             accept=".jpg,.jpeg,.png,.pdf,.mp4,.mov"
-                            @change="archivos($event, 'evidencias')"
+                            :max-size-mb="100"
+                            label="Arrastra fotos, PDF o video, o haz clic"
+                            @update:model-value="(f) => (form.evidencias = f)"
                         />
                     </div>
                 </template>
@@ -926,33 +924,34 @@ const claseBoton: Record<string, 'default' | 'secondary' | 'destructive'> = {
                         </div>
                         <div class="grid gap-1.5">
                             <Label>Fecha de ingreso</Label
-                            ><Input
+                            ><DatePicker
                                 v-model="form.fecha_ingreso as string"
-                                type="date"
                             /><InputError
                                 :message="form.errors.fecha_ingreso"
                             />
                         </div>
                         <div class="grid gap-1.5">
                             <Label>Modalidad</Label>
-                            <select
-                                v-model="form.tipo_contratacion"
-                                class="h-9 rounded-md border bg-transparent px-3 text-sm"
-                            >
-                                <option
-                                    v-for="t in opciones.tiposContratacion"
-                                    :key="t.value"
-                                    :value="t.value"
-                                >
-                                    {{ t.etiqueta }}
-                                </option>
-                            </select>
+                            <SelectSimple
+                                :model-value="
+                                    String(form.tipo_contratacion ?? '')
+                                "
+                                @update:model-value="
+                                    (v) => (form.tipo_contratacion = v)
+                                "
+                                :opciones="
+                                    opciones.tiposContratacion.map((t) => ({
+                                        value: t.value,
+                                        label: t.etiqueta,
+                                    }))
+                                "
+                                placeholder="Tipo de contratación"
+                            />
                         </div>
                         <div class="grid gap-1.5">
                             <Label>Fin del periodo (opcional)</Label
-                            ><Input
+                            ><DatePicker
                                 v-model="form.fecha_fin_contrato as string"
-                                type="date"
                             />
                             <p class="text-xs text-muted-foreground">
                                 Vacío = según la duración del puesto.

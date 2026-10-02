@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers\Administracion;
 
+use App\Enums\EstadoCierreLaboral;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Administracion\StoreUsuarioRequest;
 use App\Http\Requests\Administracion\UpdateUsuarioRequest;
+use App\Models\CierreLaboral;
 use App\Models\Colaborador;
 use App\Models\User;
 use App\Notifications\CredencialesActualizadasNotification;
+use App\Services\Administracion\AccesoCuentaService;
 use App\Services\Administracion\GeneradorPasswordService;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\RolPermisoService;
@@ -42,6 +45,7 @@ class UsuarioController extends Controller
         private readonly RolPermisoService $rolPermisoService,
         private readonly GeneradorPasswordService $generadorPassword,
         private readonly AlcanceOrganizacionalService $alcance,
+        private readonly AccesoCuentaService $acceso,
     ) {}
 
     public function index(Request $request): Response
@@ -50,9 +54,20 @@ class UsuarioController extends Controller
 
         $usuario = $request->user();
 
+        // Por defecto solo cuentas ACTIVAS; "inactivos" muestra las dadas de
+        // baja (acceso revocado o colaborador dado de baja), "todos" ambas.
+        $estado = in_array($request->string('estado')->toString(), ['activos', 'inactivos', 'todos'], true)
+            ? $request->string('estado')->toString()
+            : 'activos';
+
         $usuarios = $this->alcance
             ->limitarUsuariosPorAlcance(User::query(), $usuario)
-            ->with(['colaborador:id,name,apellidos,estatus,numero_empleado', 'roles:id,name'])
+            ->with([
+                'colaborador' => fn ($q) => $q->withTrashed()->select(['id', 'name', 'apellidos', 'estatus', 'numero_empleado', 'deleted_at', 'fecha_baja']),
+                'roles:id,name',
+            ])
+            ->when($estado === 'activos', fn ($q) => $this->acceso->soloActivas($q))
+            ->when($estado === 'inactivos', fn ($q) => $q->whereNotIn('id', $this->acceso->soloActivas(User::query())->select('id')))
             ->when($request->string('busqueda')->toString(), function ($query, string $busqueda) {
                 // Nombre/apellidos/numero_empleado se buscan en Colaborador
                 // (fuente real de la persona); name/apellidos en users son
@@ -71,21 +86,29 @@ class UsuarioController extends Controller
             ->paginate(15)
             ->withQueryString();
 
-        $usuarios->getCollection()->transform(function (User $u) {
+        $enBaja = CierreLaboral::query()
+            ->whereIn('colaborador_id', $usuarios->getCollection()->pluck('colaborador_id')->filter())
+            ->whereIn('estado', array_map(fn (EstadoCierreLaboral $e) => $e->value, EstadoCierreLaboral::abiertos()))
+            ->pluck('colaborador_id')
+            ->all();
+
+        $usuarios->getCollection()->transform(function (User $u) use ($enBaja, $usuario) {
             $u->setAttribute('roles_nombres', $u->roles->pluck('name'));
+            $u->setAttribute('estado_cuenta', $this->acceso->cuentaActiva($u) ? 'activa' : 'inactiva');
+            $u->setAttribute('motivo_inactiva', $this->acceso->motivoInactiva($u));
+            $u->setAttribute('estado_colaborador', $this->acceso->estadoColaborador($u, in_array($u->colaborador_id, $enBaja, true)));
+            $u->setAttribute('puede_revocar', $u->acceso_bloqueado_en === null && $usuario->can('revocarAcceso', $u));
+            $u->setAttribute('puede_restablecer', $u->acceso_bloqueado_en !== null && $usuario->can('restablecerAcceso', $u));
 
             return $u;
         });
 
-        // Total y bloqueados en una sola consulta dentro del mismo alcance.
-        $estadisticas = $this->alcance->limitarUsuariosPorAlcance(User::query(), $usuario)
-            ->toBase()
-            ->selectRaw('count(*) as total, sum(case when acceso_bloqueado_en is not null then 1 else 0 end) as bloqueados')
-            ->first();
+        $total = $this->alcance->limitarUsuariosPorAlcance(User::query(), $usuario)->count();
+        $activas = $this->acceso->soloActivas($this->alcance->limitarUsuariosPorAlcance(User::query(), $usuario))->count();
 
         return Inertia::render('Administracion/Usuarios/Index', [
             'usuarios' => $usuarios,
-            'filtros' => $request->only('busqueda'),
+            'filtros' => [...$request->only('busqueda'), 'estado' => $estado],
             // Solo se usa en el diálogo "Nuevo usuario": se pide con una
             // recarga parcial al abrirlo (Inertia::optional), no viaja en
             // cada visita al listado — con la plantilla completa eran miles
@@ -96,8 +119,9 @@ class UsuarioController extends Controller
                 ->get(['id', 'name', 'apellidos'])),
             'rolesDisponibles' => Role::query()->orderBy('name')->pluck('name'),
             'estadisticas' => [
-                'total' => (int) ($estadisticas->total ?? 0),
-                'bloqueados' => (int) ($estadisticas->bloqueados ?? 0),
+                'total' => $total,
+                'activas' => $activas,
+                'inactivas' => $total - $activas,
             ],
         ]);
     }
@@ -133,31 +157,28 @@ class UsuarioController extends Controller
     }
 
     /**
-     * Bloquea el login de un colaborador que SIGUE empleado (a diferencia de
-     * la baja laboral, que ahora vive en App\Http\Controllers\Rh\ExpedienteController::darDeBaja()):
-     * no toca estatus, no hace soft-delete, no registra movimiento laboral y
-     * no sincroniza headcount/vacante, porque para efectos de plantilla
-     * sigue activo — solo se le revoca el acceso al sistema (web + API
-     * móvil).
+     * Baja de CUENTA: bloquea el acceso (web + app) sin tocar la relación
+     * laboral — el colaborador sigue en plantilla. Nada se borra. La regla
+     * vive en AccesoCuentaService.
      */
     public function revocarAcceso(Request $request, User $usuario): RedirectResponse
     {
         $this->authorize('revocarAcceso', $usuario);
 
-        $usuario->update(['acceso_bloqueado_en' => now()]);
-        $usuario->tokens()->delete();
-        $usuario->mobileDevices()->whereNull('revoked_at')->update(['revoked_at' => now()]);
+        $datos = $request->validate(['motivo' => ['nullable', 'string', 'max:255']]);
+        $this->acceso->revocar($usuario, $request->user(), $datos['motivo'] ?? 'Acceso revocado por administración');
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Acceso al sistema revocado. El colaborador sigue activo en la plantilla.']);
+        return back()->with('toast', ['type' => 'success', 'message' => 'Cuenta desactivada: ya no puede entrar a la web ni a la app. Su información se conserva.']);
     }
 
     public function restablecerAcceso(Request $request, User $usuario): RedirectResponse
     {
         $this->authorize('restablecerAcceso', $usuario);
 
-        $usuario->update(['acceso_bloqueado_en' => null]);
+        $datos = $request->validate(['motivo' => ['nullable', 'string', 'max:255']]);
+        $this->acceso->restablecer($usuario, $request->user(), $datos['motivo'] ?? null);
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Acceso al sistema restablecido.']);
+        return back()->with('toast', ['type' => 'success', 'message' => 'Acceso restablecido.']);
     }
 
     /**

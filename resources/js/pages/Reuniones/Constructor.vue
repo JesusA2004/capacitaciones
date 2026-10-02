@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
+import DateTimePicker from '@/components/Common/DateTimePicker.vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
@@ -146,10 +147,9 @@ function guardar() {
 
                     <div class="grid gap-2">
                         <Label for="fecha_inicio">Fecha y hora</Label>
-                        <Input
-                            id="fecha_inicio"
+                        <DateTimePicker
                             v-model="form.fecha_inicio"
-                            type="datetime-local"
+                            id="fecha_inicio"
                         />
                         <InputError :message="form.errors.fecha_inicio" />
                     </div>

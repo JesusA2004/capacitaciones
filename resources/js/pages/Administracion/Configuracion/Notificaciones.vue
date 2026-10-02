@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { BellRing, RotateCcw, ShieldAlert } from '@lucide/vue';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
+import Casilla from '@/components/Common/Casilla.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import ConfiguracionTabs from '@/components/configuracion/ConfiguracionTabs.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import InputError from '@/components/InputError.vue';
@@ -14,6 +16,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { dashboard } from '@/routes';
 import {
@@ -44,6 +47,18 @@ const etiquetaTipo = (valor: string) =>
     props.tipos.find((t) => t.value === valor)?.etiqueta ?? valor;
 
 const editando = ref<ReglaNotificacion | null>(null);
+
+// Lista completa al abrir; se filtra mientras se escribe (sin mínimo).
+const busquedaUsuarios = ref('');
+const usuariosFiltrados = computed(() => {
+    const termino = busquedaUsuarios.value.trim().toLowerCase();
+
+    return termino === ''
+        ? props.usuarios
+        : props.usuarios.filter((u) =>
+              `${u.nombre} ${u.email}`.toLowerCase().includes(termino),
+          );
+});
 const form = useForm<{
     destinatarios: string[];
     fallback: string[];
@@ -197,9 +212,8 @@ const necesitaPermiso = () =>
                         :key="t.value"
                         class="flex items-center gap-2"
                     >
-                        <input
+                        <Casilla
                             v-model="form.destinatarios"
-                            type="checkbox"
                             :value="t.value"
                         />
                         {{ t.etiqueta }}
@@ -209,16 +223,14 @@ const necesitaPermiso = () =>
 
                 <div v-if="necesitaPermiso()" class="grid gap-1.5">
                     <Label for="regla-permiso">Permiso requerido</Label>
-                    <select
+                    <SelectSimple
                         id="regla-permiso"
                         v-model="form.permiso"
-                        class="h-9 rounded-md border bg-transparent px-3 text-sm"
-                    >
-                        <option :value="null">Elige un permiso</option>
-                        <option v-for="p in permisos" :key="p" :value="p">
-                            {{ p }}
-                        </option>
-                    </select>
+                        :opciones="
+                            permisos.map((p) => ({ value: p, label: p }))
+                        "
+                        placeholder="Elige un permiso"
+                    />
                     <p class="text-xs text-[var(--mrl-texto-suave)]">
                         Solo quienes tengan el permiso Y alcance sobre la
                         persona.
@@ -231,16 +243,41 @@ const necesitaPermiso = () =>
                     class="grid gap-1.5"
                 >
                     <Label for="regla-usuarios">Usuarios específicos</Label>
-                    <select
+                    <Input
                         id="regla-usuarios"
-                        v-model="form.usuario_ids"
-                        multiple
-                        class="min-h-28 rounded-md border bg-transparent px-2 py-1 text-sm"
+                        v-model="busquedaUsuarios"
+                        type="search"
+                        placeholder="Buscar por nombre o correo"
+                    />
+                    <ul
+                        class="max-h-48 divide-y overflow-y-auto rounded-md border"
                     >
-                        <option v-for="u in usuarios" :key="u.id" :value="u.id">
-                            {{ u.nombre }} ({{ u.email }})
-                        </option>
-                    </select>
+                        <li v-for="u in usuariosFiltrados" :key="u.id">
+                            <label
+                                class="flex cursor-pointer items-center gap-2.5 px-3 py-2 text-sm hover:bg-muted/60"
+                            >
+                                <Casilla
+                                    v-model="form.usuario_ids"
+                                    :value="u.id"
+                                />
+                                <span class="min-w-0 truncate"
+                                    >{{ u.nombre }}
+                                    <span class="text-muted-foreground"
+                                        >· {{ u.email }}</span
+                                    ></span
+                                >
+                            </label>
+                        </li>
+                        <li
+                            v-if="usuariosFiltrados.length === 0"
+                            class="px-3 py-4 text-center text-sm text-muted-foreground"
+                        >
+                            Sin coincidencias.
+                        </li>
+                    </ul>
+                    <p class="text-xs text-muted-foreground">
+                        {{ form.usuario_ids.length }} seleccionados
+                    </p>
                     <InputError :message="form.errors.usuario_ids" />
                 </div>
 
@@ -255,18 +292,14 @@ const necesitaPermiso = () =>
                         :key="t.value"
                         class="flex items-center gap-2"
                     >
-                        <input
-                            v-model="form.fallback"
-                            type="checkbox"
-                            :value="t.value"
-                        />
+                        <Casilla v-model="form.fallback" :value="t.value" />
                         {{ t.etiqueta }}
                     </label>
                 </fieldset>
 
                 <label class="flex items-center gap-2 text-sm"
-                    ><input v-model="form.activa" type="checkbox" /> Regla
-                    activa (si se apaga, este evento no avisa a nadie)</label
+                    ><Casilla v-model="form.activa" /> Regla activa (si se
+                    apaga, este evento no avisa a nadie)</label
                 >
 
                 <DialogFooter>

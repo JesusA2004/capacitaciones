@@ -53,6 +53,14 @@ Fernanda …   Cubierto temporalmente por esta persona · Titular de Gerente Reg
 - Un puesto sin titular **se muestra como VACANTE**, nunca se oculta (incluye puestos corporativos y regionales sin nadie).
 - Una cobertura no cambia el puesto titular de quien cubre ni suma headcount: si el gerente de Córdoba cubre Cuernavaca, Cuernavaca sigue con su plaza de gerente **vacante** (headcount) y se ve «cubierto temporalmente» (organigrama).
 
+## Jefe directo = organigrama (2026-10-02)
+
+El jefe directo **no se captura en ningún lado** (se retiró la pantalla Configuración → Jefes directos y el combo de jefe en datos laborales y en el alta). Sale del organigrama: el superior es quien ocupa el puesto superior en su misma sucursal/región; si ese puesto está vacante se sube por la cadena hasta la primera persona (o quien lo cubre temporalmente). Solo quien encabeza la estructura queda sin jefe.
+
+- Única fuente: `AppServicesOrganigramaJefeDirectoService` (usa `OrganigramaPersonasService::jefesDerivados()`). `colaboradores.jefe_id` se conserva como copia materializada porque aprobaciones, avisos y alcance lo leen directo; solo este servicio lo escribe, y cada cambio queda en la bitácora (`jefe_directo_cambiado`, motivo "Derivado del organigrama").
+- Se recalcula solo al terminar la petición cuando cambia el puesto, la sucursal o el estatus de alguien, el "reporta a" de un puesto, la región de la matriz o una cobertura (`AppServiceProvider`). Cambiar datos laborales desde el expediente y dar de alta lo recalculan al momento.
+- Red de seguridad diaria y para bases existentes: `php artisan organigrama:sincronizar-jefes` (programado 05:30).
+
 ## Vistas
 
 `Administración → Organigrama` (ruta interna `administracion/jerarquia-puestos`):

@@ -2,6 +2,7 @@
 
 namespace App\Services\Organigrama;
 
+use App\Enums\EstadoUsuario;
 use App\Enums\TipoNodoComercial;
 use App\Models\AsignacionNodoComercial;
 use App\Models\CoberturaPuesto;
@@ -118,11 +119,7 @@ class OrganigramaPersonasService
      */
     public function arbol(User $usuario, Request $request): array
     {
-        $this->nodos = [];
-        $this->puestos = Puesto::query()
-            ->get(['id', 'nombre', 'nivel_jerarquico', 'tipo_puesto', 'puesto_superior_id', 'requiere_ruta', 'activo'])
-            ->keyBy('id');
-        $this->cargarRegiones();
+        $this->prepararCatalogos();
 
         $sucursalesVisibles = $this->sucursalesVisibles($usuario, $request);
 
@@ -140,6 +137,87 @@ class OrganigramaPersonasService
         $colaboradores = $this->alcance->limitarColaboradoresPorAlcance($consulta, $usuario)
             ->get(['id', 'name', 'apellidos', 'numero_empleado', 'foto_path', 'puesto_id', 'sucursal_principal_id', 'jefe_id']);
 
+        $this->construirNodos($colaboradores, $sucursalesVisibles);
+
+        // Sin filtro de sucursal/empresa, la estructura corporativa y
+        // regional se ve completa: un puesto sin nadie aparece VACANTE.
+        if (! $request->integer('sucursal_id') && ! $request->integer('empresa_id') && ! $request->integer('departamento_id') && $request->string('tipo_puesto')->toString() === '') {
+            $this->agregarPuestosVacantes();
+        }
+
+        return array_values($this->nodos);
+    }
+
+    /**
+     * Jefe directo de cada persona vigente SEGÚN EL ORGANIGRAMA (sin
+     * alcance ni filtros: la estructura completa). Es la única fuente del
+     * jefe directo: nadie lo captura a mano. Si el puesto superior está
+     * vacante se sube por la cadena hasta la primera persona (o quien cubre
+     * el puesto); null solo para quien encabeza la estructura.
+     *
+     * @return array<int, int|null> colaborador_id => jefe colaborador_id
+     */
+    public function jefesDerivados(): array
+    {
+        $this->prepararCatalogos();
+
+        $colaboradores = Colaborador::query()
+            ->whereIn('estatus', EstadoUsuario::valoresVigentes())
+            ->whereNotNull('puesto_id')
+            ->orderBy('name')
+            ->orderBy('apellidos')
+            ->get(['id', 'name', 'apellidos', 'numero_empleado', 'foto_path', 'puesto_id', 'sucursal_principal_id', 'jefe_id']);
+
+        $sucursales = Sucursal::query()->where('activo', true)->pluck('id')->map(fn ($id) => (int) $id);
+
+        $this->construirNodos($colaboradores, $sucursales);
+
+        $jefes = [];
+
+        foreach ($colaboradores as $colaborador) {
+            $jefes[$colaborador->id] = $this->personaArriba($this->nodos['p'.$colaborador->id]['padre'] ?? null, $colaborador->id);
+        }
+
+        return $jefes;
+    }
+
+    /**
+     * Primera persona real (titular o quien cubre) subiendo desde `$clave`.
+     */
+    private function personaArriba(?string $clave, int $excluirId): ?int
+    {
+        $visitados = [];
+
+        while ($clave !== null && ! isset($visitados[$clave]) && isset($this->nodos[$clave])) {
+            $visitados[$clave] = true;
+            $nodo = $this->nodos[$clave];
+            $personaId = $nodo['persona']['id'] ?? null;
+
+            if ($personaId !== null && $personaId !== $excluirId) {
+                return $personaId;
+            }
+
+            $clave = $nodo['padre'];
+        }
+
+        return null;
+    }
+
+    private function prepararCatalogos(): void
+    {
+        $this->nodos = [];
+        $this->puestos = Puesto::query()
+            ->get(['id', 'nombre', 'nivel_jerarquico', 'tipo_puesto', 'puesto_superior_id', 'requiere_ruta', 'activo'])
+            ->keyBy('id');
+        $this->cargarRegiones();
+    }
+
+    /**
+     * @param  Collection<int, Colaborador>  $colaboradores
+     * @param  Collection<int, int>  $sucursalesVisibles
+     */
+    private function construirNodos(Collection $colaboradores, Collection $sucursalesVisibles): void
+    {
         $this->ocupantes = [];
         $this->ocupantesPorAmbito = [];
         $this->deSucursalPorPuesto = [];
@@ -199,14 +277,6 @@ class OrganigramaPersonasService
 
         $this->agregarSucursalesSinPersonal($sucursalesVisibles);
         $this->agregarCoberturasRestantes();
-
-        // Sin filtro de sucursal/empresa, la estructura corporativa y
-        // regional se ve completa: un puesto sin nadie aparece VACANTE.
-        if (! $request->integer('sucursal_id') && ! $request->integer('empresa_id') && ! $request->integer('departamento_id') && $request->string('tipo_puesto')->toString() === '') {
-            $this->agregarPuestosVacantes();
-        }
-
-        return array_values($this->nodos);
     }
 
     /**

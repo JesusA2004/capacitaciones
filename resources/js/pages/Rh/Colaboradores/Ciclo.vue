@@ -12,8 +12,13 @@ import AprobacionesResumen from '@/components/ciclo/AprobacionesResumen.vue';
 import CicloEstadoPanel from '@/components/ciclo/CicloEstadoPanel.vue';
 import CicloStepper from '@/components/ciclo/CicloStepper.vue';
 import CicloTimeline from '@/components/ciclo/CicloTimeline.vue';
+import Casilla from '@/components/Common/Casilla.vue';
+import DatePicker from '@/components/Common/DatePicker.vue';
+import DateTimePicker from '@/components/Common/DateTimePicker.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import InputError from '@/components/InputError.vue';
+import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -218,13 +223,6 @@ function enviar() {
         forceFormData: conArchivos.includes(accion.value.clave),
         onSuccess: () => (accion.value = null),
     });
-}
-
-function archivo(event: Event, campo: string, multiple = false) {
-    const input = event.target as HTMLInputElement;
-    form[campo] = multiple
-        ? Array.from(input.files ?? [])
-        : (input.files?.[0] ?? null);
 }
 
 // Control del original físico: cada paso pide los datos reales que exige
@@ -622,10 +620,7 @@ const variante: Record<string, 'default' | 'secondary' | 'destructive'> = {
 
                 <template v-if="pasoDocumento.paso === 'firma_fisica'">
                     <label class="flex items-center gap-2 text-sm">
-                        <input
-                            v-model="formDocumento.huella_registrada"
-                            type="checkbox"
-                        />
+                        <Casilla v-model="formDocumento.huella_registrada" />
                         Se recabó la huella{{
                             pasoDocumento.documento.requiere_huella
                                 ? ' (obligatoria en esta plantilla)'
@@ -695,11 +690,10 @@ const variante: Record<string, 'default' | 'secondary' | 'destructive'> = {
                     <Label for="doc-fecha">{{
                         etiquetaFecha[pasoDocumento.paso]
                     }}</Label>
-                    <Input
-                        id="doc-fecha"
+                    <DatePicker
                         v-model="formDocumento.fecha"
-                        type="date"
-                        :max="hoy"
+                        id="doc-fecha"
+                        :max-value="hoy"
                     />
                     <p
                         v-if="pasoDocumento.paso === 'recepcion'"
@@ -753,20 +747,28 @@ const variante: Record<string, 'default' | 'secondary' | 'destructive'> = {
                 <template v-if="accion?.clave === 'entregar_activos'">
                     <div class="grid gap-1.5">
                         <Label>Activo</Label>
-                        <select
-                            v-model="form.tipo_activo_id"
-                            class="h-9 rounded-md border bg-transparent px-3 text-sm"
-                        >
-                            <option
-                                v-for="a in onboarding?.activos.filter(
-                                    (x) => !x.entregado,
-                                ) ?? []"
-                                :key="a.tipo_activo_id"
-                                :value="a.tipo_activo_id"
-                            >
-                                {{ a.nombre }}
-                            </option>
-                        </select>
+                        <SelectSimple
+                            :model-value="
+                                form.tipo_activo_id
+                                    ? Number(form.tipo_activo_id)
+                                    : null
+                            "
+                            @update:model-value="
+                                (v) => (form.tipo_activo_id = v)
+                            "
+                            numerico
+                            :opciones="
+                                (
+                                    onboarding?.activos.filter(
+                                        (x) => !x.entregado,
+                                    ) ?? []
+                                ).map((a) => ({
+                                    value: a.tipo_activo_id,
+                                    label: a.nombre,
+                                }))
+                            "
+                            placeholder="Elige el activo"
+                        />
                     </div>
                     <div class="grid gap-1.5">
                         <Label>Serie / identificador</Label
@@ -788,20 +790,24 @@ const variante: Record<string, 'default' | 'secondary' | 'destructive'> = {
                 >
                     <div class="grid gap-1.5">
                         <Label>Módulo</Label>
-                        <select
-                            v-model="form.avance_id"
-                            class="h-9 rounded-md border bg-transparent px-3 text-sm"
-                        >
-                            <option
-                                v-for="m in onboarding?.modulos.filter(
-                                    (x) => x.puede_retroalimentar,
-                                ) ?? []"
-                                :key="m.avance_id"
-                                :value="m.avance_id"
-                            >
-                                {{ m.titulo }} ({{ m.ultima_calificacion }})
-                            </option>
-                        </select>
+                        <SelectSimple
+                            :model-value="
+                                form.avance_id ? Number(form.avance_id) : null
+                            "
+                            @update:model-value="(v) => (form.avance_id = v)"
+                            numerico
+                            :opciones="
+                                (
+                                    onboarding?.modulos.filter(
+                                        (x) => x.puede_retroalimentar,
+                                    ) ?? []
+                                ).map((m) => ({
+                                    value: m.avance_id,
+                                    label: `${m.titulo} (${m.ultima_calificacion})`,
+                                }))
+                            "
+                            placeholder="Elige el módulo"
+                        />
                     </div>
                     <div class="grid gap-1.5">
                         <Label>Retroalimentación / refuerzo</Label
@@ -927,9 +933,8 @@ const variante: Record<string, 'default' | 'secondary' | 'destructive'> = {
                     </div>
                     <div class="grid gap-1.5">
                         <Label>Fecha efectiva</Label
-                        ><Input
+                        ><DatePicker
                             v-model="form.fecha_efectiva as string"
-                            type="date"
                         /><InputError :message="form.errors.fecha_efectiva" />
                     </div>
                     <div class="grid gap-1.5">
@@ -941,11 +946,12 @@ const variante: Record<string, 'default' | 'secondary' | 'destructive'> = {
                     </div>
                     <div class="grid gap-1.5">
                         <Label>Evidencia (renuncia firmada, reportes…)</Label
-                        ><input
-                            type="file"
+                        ><PeopleFileDropzone
+                            :model-value="(form.evidencias as File[]) ?? []"
                             multiple
                             accept=".pdf,.jpg,.jpeg,.png"
-                            @change="archivo($event, 'evidencias', true)"
+                            label="Arrastra la evidencia o haz clic"
+                            @update:model-value="(f) => (form.evidencias = f)"
                         />
                     </div>
                     <p class="text-xs text-muted-foreground">
@@ -1005,10 +1011,15 @@ const variante: Record<string, 'default' | 'secondary' | 'destructive'> = {
                                     : 'Finiquito firmado con huella'
                             }}
                             (PDF o imagen)</Label
-                        ><input
-                            type="file"
+                        ><PeopleFileDropzone
+                            :model-value="
+                                form.archivo ? [form.archivo as File] : []
+                            "
                             accept=".pdf,.jpg,.jpeg,.png"
-                            @change="archivo($event, 'archivo')"
+                            label="Arrastra el archivo o haz clic"
+                            @update:model-value="
+                                (f) => (form.archivo = f[0] ?? null)
+                            "
                         /><InputError :message="form.errors.archivo" />
                     </div>
                 </template>
@@ -1038,9 +1049,8 @@ const variante: Record<string, 'default' | 'secondary' | 'destructive'> = {
                     <div class="grid gap-3 sm:grid-cols-2">
                         <div class="grid gap-1.5">
                             <Label>Fecha de pago</Label
-                            ><Input
+                            ><DatePicker
                                 v-model="form.fecha as string"
-                                type="date"
                             /><InputError :message="form.errors.fecha" />
                         </div>
                         <div class="grid gap-1.5">
@@ -1072,9 +1082,8 @@ const variante: Record<string, 'default' | 'secondary' | 'destructive'> = {
                 <template v-else-if="accion?.clave === 'registrar_cita'">
                     <div class="grid gap-1.5">
                         <Label>Fecha y hora de la cita</Label
-                        ><Input
+                        ><DateTimePicker
                             v-model="form.fecha as string"
-                            type="datetime-local"
                         /><InputError :message="form.errors.fecha" />
                     </div>
                 </template>

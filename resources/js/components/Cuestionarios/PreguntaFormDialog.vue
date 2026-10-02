@@ -2,6 +2,7 @@
 import { useForm } from '@inertiajs/vue3';
 import { Plus, Trash2 } from '@lucide/vue';
 import { watch } from 'vue';
+import RadioMarca from '@/components/Common/RadioMarca.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -228,13 +229,12 @@ function enviar() {
                             :key="indice"
                             class="flex items-center gap-2"
                         >
-                            <input
+                            <RadioMarca
                                 v-if="esSeleccionUnica()"
-                                type="radio"
-                                :checked="opcion.es_correcta"
+                                :model-value="opcion.es_correcta"
+                                :value="true"
                                 :disabled="form.tipo === 'verdadero_falso'"
-                                class="size-4"
-                                @change="marcarCorrecta(indice)"
+                                @update:model-value="marcarCorrecta(indice)"
                             />
                             <Checkbox
                                 v-else

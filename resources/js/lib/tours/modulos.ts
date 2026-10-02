@@ -980,14 +980,14 @@ export const MODULOS_GUIA: ModuloGuia[] = [
     {
         id: 'configuracion',
         nombre: 'Configuración',
-        ruta: '/administracion/configuracion/jerarquia',
+        ruta: '/administracion/configuracion/notificaciones',
         patron: /^\/administracion\/configuracion(\/.*)?$/,
         modo: 'operativo',
         permisos: ['configuracion.ver'],
         grupo: 'Administración',
         icono: Settings2,
         descripcion:
-            'Jefes directos, a quién llega cada aviso, parámetros de RH y colores institucionales.',
+            'A quién llega cada aviso, parámetros de RH y colores institucionales. El jefe directo sale del organigrama.',
         pasos: [
             {
                 titulo: 'Configuración del sistema',
@@ -997,12 +997,6 @@ export const MODULOS_GUIA: ModuloGuia[] = [
                 selector: sel('configuracion-secciones'),
                 titulo: 'Secciones',
                 texto: 'Solo ves las que tu permiso te deja administrar.',
-            },
-            {
-                selector: sel('configuracion-jefes'),
-                titulo: 'Jefes directos',
-                texto: 'A quién reporta cada persona. De aquí salen las preautorizaciones y los avisos; el sistema impide que alguien sea su propio jefe o que se formen ciclos.',
-                opcional: true,
             },
         ],
     },

@@ -42,6 +42,9 @@ class RolesYPermisosSeeder extends Seeder
         'usuarios.editar',
         'usuarios.desactivar',
         'usuarios.reactivar',
+        // Rehabilitar el acceso de una cuenta suspendida (p. ej. por una baja
+        // en trámite) sin poder revocar cuentas: RH y regionales.
+        'usuarios.restablecer_acceso',
         'sucursales.administrar',
         'departamentos.administrar',
         'puestos.administrar',
@@ -387,7 +390,7 @@ class RolesYPermisosSeeder extends Seeder
         // (reservado a super_admin).
         'rh_admin' => [
             'dashboard.global.ver',
-            'usuarios.ver', 'usuarios.crear', 'usuarios.editar', 'usuarios.desactivar',
+            'usuarios.ver', 'usuarios.crear', 'usuarios.editar', 'usuarios.desactivar', 'usuarios.restablecer_acceso',
             'sucursales.administrar', 'departamentos.administrar', 'puestos.administrar',
             'empresas.ver', 'empresas.crear', 'empresas.editar',
             'expedientes.ver', 'expedientes.ver_todos', 'expedientes.crear', 'expedientes.editar', 'expedientes.revisar',
@@ -558,7 +561,7 @@ class RolesYPermisosSeeder extends Seeder
         // y sucursal_user). Alcance más amplio que "gerente" (una sola sucursal).
         'gerente_regional' => [
             'dashboard.sucursal.ver',
-            'usuarios.ver', 'usuarios.editar',
+            'usuarios.ver', 'usuarios.editar', 'usuarios.restablecer_acceso',
             'reportes.sucursal', 'reportes.exportar',
             'expedientes.ver', 'expedientes.ver_sucursal',
             'documentos.ver',
@@ -632,7 +635,7 @@ class RolesYPermisosSeeder extends Seeder
         // reclutamiento ni de aprobar vacaciones/solicitudes (solo revisar).
         'coordinadora_regional' => [
             'dashboard.sucursal.ver',
-            'usuarios.ver',
+            'usuarios.ver', 'usuarios.restablecer_acceso',
             'expedientes.ver', 'expedientes.ver_sucursal',
             'documentos.ver', 'documentos.subir', 'documentos.revisar',
             'vacaciones.ver',

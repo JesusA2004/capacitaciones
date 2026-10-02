@@ -405,6 +405,8 @@ class IncorporacionInvitacionService
                     'email' => $datos['email'],
                     'password' => Hash::make($datos['password']),
                     'acceso_bloqueado_en' => null,
+                    'acceso_bloqueado_motivo' => null,
+                    'acceso_bloqueado_por' => null,
                 ])->save();
                 $usuario = $cuenta;
             } else {

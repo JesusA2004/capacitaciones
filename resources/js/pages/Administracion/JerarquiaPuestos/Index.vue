@@ -31,6 +31,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -378,11 +379,11 @@ watch(
                 <Search
                     class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
                 />
-                <input
+                <Input
                     v-model="busqueda"
                     type="search"
                     placeholder="Buscar puesto o persona…"
-                    class="h-10 w-full rounded-xl border border-input bg-card pr-3 pl-9 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    class="h-10 bg-card pl-9"
                 />
             </div>
             <span

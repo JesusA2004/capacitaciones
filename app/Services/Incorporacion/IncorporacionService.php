@@ -69,9 +69,11 @@ class IncorporacionService
     ) {}
 
     /**
-     * Tipos documentales activos. Para una persona en contratación (Etapa 2)
-     * solo los que aplican al alta: los demás (contrato firmado, finiquito,
-     * incapacidades...) nacen después y no deben bloquear su expediente.
+     * Tipos documentales del expediente: solo los REQUERIDOS y activos — el
+     * expediente nunca pide documentos opcionales (incapacidades, permisos,
+     * vacaciones... entran por Solicitudes). Para una persona en
+     * contratación (Etapa 2) solo los que aplican al alta: los demás
+     * (contrato firmado...) nacen después y no deben bloquear su expediente.
      *
      * @return Collection<int, DocumentType>
      */
@@ -79,6 +81,7 @@ class IncorporacionService
     {
         return DocumentType::query()
             ->where('activo', true)
+            ->where('requerido', true)
             ->when($colaborador?->estado_alta?->enContratacion() === true, fn ($q) => $q->where('aplica_alta', true))
             ->orderBy('nombre')
             ->get();

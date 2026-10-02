@@ -2,13 +2,18 @@
 
 namespace App\Providers;
 
+use App\Models\CoberturaPuesto;
+use App\Models\Colaborador;
 use App\Models\EmployeeDocument;
 use App\Models\GeneratedDocument;
+use App\Models\NodoComercial;
+use App\Models\Puesto;
 use App\Models\User;
 use App\Observers\CicloLaboralDocumentoObserver;
 use App\Policies\RolPolicy;
 use App\Services\Configuracion\ConfiguracionSistemaService;
 use App\Services\Navigation\NavigationService;
+use App\Services\Organigrama\JefeDirectoService;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -57,6 +62,29 @@ class AppServiceProvider extends ServiceProvider
         // documento (web, API, flujo documental). Ver CicloLaboralDocumentoObserver.
         EmployeeDocument::saved(fn (EmployeeDocument $d) => app(CicloLaboralDocumentoObserver::class)->savedEmployeeDocument($d));
         GeneratedDocument::updated(fn (GeneratedDocument $d) => app(CicloLaboralDocumentoObserver::class)->updatedGeneratedDocument($d));
+
+        // Jefe directo = organigrama (JefeDirectoService): cualquier cambio
+        // que mueva a alguien en el árbol lo recalcula al terminar la
+        // petición, sin importar por qué pantalla, API o servicio entró.
+        Colaborador::saved(function (Colaborador $c): void {
+            // Alguien sin puesto no ocupa lugar en el organigrama: crearlo
+            // no mueve ningún jefe.
+            if (($c->wasRecentlyCreated && $c->puesto_id !== null) || $c->wasChanged(['puesto_id', 'sucursal_principal_id', 'estatus'])) {
+                app(JefeDirectoService::class)->programar();
+            }
+        });
+        Puesto::saved(function (Puesto $p): void {
+            if ($p->wasRecentlyCreated || $p->wasChanged(['puesto_superior_id', 'activo'])) {
+                app(JefeDirectoService::class)->programar();
+            }
+        });
+        NodoComercial::saved(function (NodoComercial $n): void {
+            if ($n->wasChanged(['puesto_id', 'parent_id', 'sucursal_id'])) {
+                app(JefeDirectoService::class)->programar();
+            }
+        });
+        CoberturaPuesto::saved(fn () => app(JefeDirectoService::class)->programar());
+        CoberturaPuesto::deleted(fn () => app(JefeDirectoService::class)->programar());
 
         $this->configureRateLimiting();
     }

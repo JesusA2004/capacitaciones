@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
+import DatePicker from '@/components/Common/DatePicker.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -72,10 +73,9 @@ function enviar() {
                         <Label for="fecha-otorgamiento"
                             >Fecha de otorgamiento</Label
                         >
-                        <Input
-                            id="fecha-otorgamiento"
+                        <DatePicker
                             v-model="form.fecha_otorgamiento"
-                            type="date"
+                            id="fecha-otorgamiento"
                         />
                         <InputError :message="form.errors.fecha_otorgamiento" />
                     </div>
@@ -83,10 +83,9 @@ function enviar() {
                         <Label for="fecha-primer-descuento"
                             >Fecha primer descuento</Label
                         >
-                        <Input
-                            id="fecha-primer-descuento"
+                        <DatePicker
                             v-model="form.fecha_primer_descuento"
-                            type="date"
+                            id="fecha-primer-descuento"
                         />
                         <InputError
                             :message="form.errors.fecha_primer_descuento"

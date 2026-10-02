@@ -89,57 +89,16 @@ class ExpedienteDemoSeeder extends Seeder
             return;
         }
 
-        $jefe = User::where('email', 'jefe.directo@mrlana.test')->first()?->colaborador;
         $this->actor = User::where('email', 'superadmin@mrlana.test')->firstOrFail();
 
         foreach ($colaboradores as $colaborador) {
-            $this->completarDatosPersonales($colaborador, $jefe);
+            $this->completarDatosPersonales($colaborador);
         }
 
-        // A) Expediente 100% completo: todos los requeridos + contrato aprobados.
-        if ($cual = $colaboradores->get('superadmin@mrlana.test')) {
-            $this->completarTodos($cual, EstadoDocumento::Aprobado);
-        }
-
-        // B) ~90%: todo aprobado salvo un opcional pendiente (no se sube).
-        if ($cual = $colaboradores->get('admin.capacitacion@mrlana.test')) {
-            $this->completarTodos($cual, EstadoDocumento::Aprobado, omitir: ['cv']);
-        }
-
-        // C) Varios documentos pendientes: solo la mitad de los requeridos.
-        if ($cual = $colaboradores->get('colaborador1@mrlana.test')) {
-            $this->subirSiFalta($cual, 'ine', EstadoDocumento::Aprobado);
-            $this->subirSiFalta($cual, 'curp', EstadoDocumento::Aprobado);
-            $this->subirSiFalta($cual, 'fotografia', EstadoDocumento::EnRevision);
-            $this->subirSiFalta($cual, 'contrato', EstadoDocumento::Aprobado);
-            // El resto de requeridos (rfc, nss, acta_nacimiento,
-            // comprobante_domicilio) se deja sin subir a propósito.
-
-            // Versionado real: v1 rechazado, v2 aprobado, mismo tipo.
-            $this->versionadoComprobanteDomicilio($cual);
-        }
-
-        // D) Documento requiere corrección.
-        if ($cual = $colaboradores->get('colaborador2@mrlana.test')) {
-            $this->completarTodos($cual, EstadoDocumento::Aprobado, omitir: ['comprobante_domicilio']);
-            $this->subirSiFalta($cual, 'comprobante_domicilio', EstadoDocumento::RequiereCorreccion, comentario: 'La dirección en el comprobante no coincide con la capturada.');
-        }
-
-        // E) Documento rechazado.
-        if ($cual = $colaboradores->get('colaborador3@mrlana.test')) {
-            $this->completarTodos($cual, EstadoDocumento::Aprobado, omitir: ['ine']);
-            $this->subirSiFalta($cual, 'ine', EstadoDocumento::Rechazado, motivoRechazo: 'La identificación está vencida.');
-        }
-
-        // Contrato pendiente / en revisión para variar el KPI de contratos.
-        if ($cual = $colaboradores->get('colaborador4@mrlana.test')) {
-            $this->completarTodos($cual, EstadoDocumento::Aprobado, omitir: ['contrato']);
-        }
-
-        if ($cual = $colaboradores->get('colaborador5@mrlana.test')) {
-            $this->completarTodos($cual, EstadoDocumento::Aprobado, omitir: ['contrato']);
-            $this->subirSiFalta($cual, 'contrato', EstadoDocumento::EnRevision);
-        }
+        // Los expedientes completos de TODO colaborador activo los deja
+        // CompletarExpedientesDemoSeeder al final de DemoSeeder (aquí solo
+        // quedan los escenarios de baja, que necesitan su historial antes de
+        // darse de baja).
 
         // Bono: colaborador10 (Pablo Serrano Vega) ya lo da de baja
         // DashboardDemoSeeder por el camino de solicitud aprobada
@@ -167,7 +126,7 @@ class ExpedienteDemoSeeder extends Seeder
         }
     }
 
-    private function completarDatosPersonales(Colaborador $colaborador, ?Colaborador $jefe): void
+    private function completarDatosPersonales(Colaborador $colaborador): void
     {
         $indice = $colaborador->id;
         $cambios = [];
@@ -196,28 +155,19 @@ class ExpedienteDemoSeeder extends Seeder
             $cambios['fecha_alta_imss'] = $colaborador->fecha_ingreso;
         }
 
-        if ($colaborador->jefe_id === null && $jefe !== null && $colaborador->id !== $jefe->id) {
-            $cambios['jefe_id'] = $jefe->id;
-        }
-
         if ($cambios !== []) {
             $colaborador->update($cambios);
         }
     }
 
     /**
-     * @param  array<int, string>  $omitir  Claves de DocumentType que NO se suben (para simular un expediente incompleto).
+     * Todos los documentos REQUERIDOS del catálogo (el expediente nunca pide
+     * opcionales).
      */
-    private function completarTodos(Colaborador $colaborador, EstadoDocumento $estado, array $omitir = []): void
+    private function completarTodos(Colaborador $colaborador, EstadoDocumento $estado): void
     {
-        $claves = ['ine', 'curp', 'rfc', 'nss', 'acta_nacimiento', 'comprobante_domicilio', 'fotografia', 'contrato', 'aviso_privacidad'];
-
-        foreach ($claves as $clave) {
-            if (in_array($clave, $omitir, true)) {
-                continue;
-            }
-
-            $this->subirSiFalta($colaborador, $clave, $estado);
+        foreach (DocumentType::query()->where('requerido', true)->where('activo', true)->pluck('clave') as $clave) {
+            $this->subirSiFalta($colaborador, (string) $clave, $estado);
         }
     }
 
@@ -251,44 +201,6 @@ class ExpedienteDemoSeeder extends Seeder
             'rejection_reason' => $motivoRechazo,
             'reviewed_at' => in_array($estado, [EstadoDocumento::Aprobado, EstadoDocumento::Rechazado, EstadoDocumento::RequiereCorreccion], true) ? now() : null,
         ]);
-    }
-
-    /**
-     * Escenario de versionado real (sección 23 del encargo): v1 rechazado
-     * por "Documento vencido", v2 aprobado, con previous_version_id.
-     */
-    private function versionadoComprobanteDomicilio(Colaborador $colaborador): void
-    {
-        $tipo = DocumentType::where('clave', 'comprobante_domicilio')->first();
-
-        if ($tipo === null) {
-            return;
-        }
-
-        $existente = EmployeeDocument::where('colaborador_id', $colaborador->id)
-            ->where('document_type_id', $tipo->id)
-            ->exists();
-
-        if ($existente) {
-            return;
-        }
-
-        $v1 = $this->crearDocumentoDemo($colaborador, $tipo, 'Comprobante de domicilio v1 (demo)');
-        $v1->update([
-            'status' => EstadoDocumento::Rechazado->value,
-            'rejection_reason' => 'Documento vencido.',
-            'reviewed_at' => now()->subDays(10),
-        ]);
-
-        $v2 = $this->crearDocumentoDemo($colaborador, $tipo, 'Comprobante de domicilio v2 (demo)');
-        $v2->update([
-            'status' => EstadoDocumento::Aprobado->value,
-            'reviewed_at' => now(),
-        ]);
-
-        // subirVersion() ya archiva la versión anterior y encadena
-        // previous_version_id automáticamente (ver DocumentoStorageService),
-        // así que no hay nada más que enlazar aquí a mano.
     }
 
     private function crearDocumentoDemo(Colaborador $colaborador, DocumentType $tipo, string $texto): EmployeeDocument

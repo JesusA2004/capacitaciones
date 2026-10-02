@@ -10,6 +10,7 @@ import {
     Sparkles,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import RadioMarca from '@/components/Common/RadioMarca.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { dashboard } from '@/routes';
@@ -303,11 +304,10 @@ const claseBoton =
                                         :key="i"
                                         class="flex cursor-pointer items-center gap-2 rounded-lg border border-transparent px-2 py-1.5 text-sm transition-colors hover:border-[var(--mrl-borde)] hover:bg-[var(--mrl-fondo)] has-[:checked]:border-[var(--mrl-primary)]/40 has-[:checked]:bg-[var(--mrl-primary)]/5"
                                     >
-                                        <input
+                                        <RadioMarca
                                             v-model="form.respuestas[p.indice]"
-                                            type="radio"
-                                            :name="`p${l.avance_id}-${p.indice}`"
                                             :value="i"
+                                            :name="`p${l.avance_id}-${p.indice}`"
                                         />
                                         {{ opcion }}
                                     </label>

@@ -10,6 +10,12 @@ Tres conceptos que se cruzan pero **no son lo mismo** — no confundirlos al lee
 
 `App\Models\HeadcountTarget` (tabla `headcount_targets`) guarda la **plantilla autorizada** por (sucursal, puesto) — editable, viene del Excel real de dirección. La **plantilla actual** nunca se importa ni se captura: siempre se calcula en vivo contando colaboradores activos con esa sucursal/puesto (`App\Services\Headcount\HeadcountService`).
 
+### Carga inicial (seeder) y captura de RH
+
+`PlantillaAutorizadaSeeder` corre dentro de `DatabaseSeeder` (también en producción) y carga el Excel real **solo para los pares (sucursal, puesto) que aún no existen**: nunca pisa lo que RH ya capturó. Sin esto todas las sucursales arrancaban con plantilla 0.
+
+Después, **solo RH** (permiso `headcount.editar`, `SucursalPolicy::editarPlantilla`) cambia la plantilla en Administración → Sucursales → detalle (lápiz por puesto o «Agregar puesto»), con motivo obligatorio. Cada cambio —captura o importación— queda en `headcount_target_historial` (quién, cuándo, antes → después, motivo, fuente) y se ve en el mismo detalle. La regla vive en `AppServicesHeadcountPlantillaAutorizadaService`; al guardar se resincroniza la vacante automática del par.
+
 ### Importar el Excel real
 
 ```bash

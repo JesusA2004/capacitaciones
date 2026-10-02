@@ -10,6 +10,7 @@ import {
     Inbox,
 } from '@lucide/vue';
 import { computed, reactive, watch } from 'vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { dashboard } from '@/routes';
 import { index } from '@/routes/rh/pendientes';
 import type { TareaBandeja } from '@/types';
@@ -241,35 +242,31 @@ const segmento = (activo: boolean) =>
                             Vencidos
                         </button>
                     </div>
-                    <select
+                    <SelectSimple
                         v-model="filtros.etapa"
-                        class="h-10 rounded-xl border border-[var(--mrl-borde)] bg-[var(--mrl-surface)] px-3 text-sm transition-colors hover:border-[var(--mrl-primary)]"
+                        :opciones="
+                            opciones.etapas.map((e) => ({
+                                value: e.value,
+                                label: e.etiqueta,
+                            }))
+                        "
+                        opcion-vacia="Todas las etapas"
+                        class="h-10 w-52"
                         aria-label="Etapa"
-                    >
-                        <option value="">Todas las etapas</option>
-                        <option
-                            v-for="e in opciones.etapas"
-                            :key="e.value"
-                            :value="e.value"
-                        >
-                            {{ e.etiqueta }}
-                        </option>
-                    </select>
-                    <select
+                    />
+                    <SelectSimple
                         v-if="opciones.sucursales.length > 1"
                         v-model="filtros.sucursal_id"
-                        class="h-10 rounded-xl border border-[var(--mrl-borde)] bg-[var(--mrl-surface)] px-3 text-sm transition-colors hover:border-[var(--mrl-primary)]"
+                        :opciones="
+                            opciones.sucursales.map((s) => ({
+                                value: String(s.id),
+                                label: s.nombre,
+                            }))
+                        "
+                        opcion-vacia="Todas las sucursales"
+                        class="h-10 w-56"
                         aria-label="Sucursal"
-                    >
-                        <option value="">Todas las sucursales</option>
-                        <option
-                            v-for="s in opciones.sucursales"
-                            :key="s.id"
-                            :value="String(s.id)"
-                        >
-                            {{ s.nombre }}
-                        </option>
-                    </select>
+                    />
                 </div>
 
                 <div

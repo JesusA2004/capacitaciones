@@ -35,6 +35,8 @@ use Spatie\Permission\Traits\HasRoles;
  * @property string|null $apellidos
  * @property string $email
  * @property Carbon|null $acceso_bloqueado_en
+ * @property string|null $acceso_bloqueado_motivo
+ * @property int|null $acceso_bloqueado_por
  * @property Carbon|null $ultimo_acceso
  * @property string $zona_horaria
  * @property array<string, mixed>|null $preferencias_notificaciones

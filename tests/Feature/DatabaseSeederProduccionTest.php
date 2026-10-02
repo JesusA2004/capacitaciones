@@ -2,6 +2,11 @@
 
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
+use Illuminate\Support\Facades\Storage;
+
+// El demo genera PDFs de expediente: disco falso para no chocar con otras
+// corridas en paralelo sobre el mismo NAS de pruebas.
+beforeEach(fn () => Storage::fake('nas'));
 
 test('DatabaseSeeder en producción nunca crea cuentas de demostración @mrlana.test', function () {
     app()->detectEnvironment(fn () => 'production');

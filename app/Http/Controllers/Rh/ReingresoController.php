@@ -51,7 +51,7 @@ class ReingresoController extends Controller
 
         return Inertia::render('Rh/Reingresos/Index', [
             'busqueda' => $busqueda,
-            'resultados' => mb_strlen($busqueda) >= 3 ? $this->reingresos->buscar($busqueda, $usuario) : [],
+            'resultados' => $this->reingresos->buscar($busqueda, $usuario),
             'historial' => $historial,
             'reingresos' => $listado,
             'opciones' => [

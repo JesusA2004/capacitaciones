@@ -2,6 +2,9 @@
 import { Head, useForm } from '@inertiajs/vue3';
 import { GraduationCap, Plus, Trash2 } from '@lucide/vue';
 import { ref } from 'vue';
+import Casilla from '@/components/Common/Casilla.vue';
+import RadioMarca from '@/components/Common/RadioMarca.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
@@ -175,24 +178,27 @@ void props;
                 </div>
                 <div class="grid gap-1.5">
                     <Label>Tipo</Label>
-                    <select
+                    <SelectSimple
                         v-model="modulo.tipo"
-                        class="h-9 rounded-md border bg-transparent px-3 text-sm"
-                    >
-                        <option value="institucional">Institucional</option>
-                        <option value="puesto">Al puesto</option>
-                    </select>
+                        :opciones="[
+                            { value: 'institucional', label: 'Institucional' },
+                            { value: 'puesto', label: 'Al puesto' },
+                        ]"
+                    />
                 </div>
                 <div v-if="modulo.tipo === 'puesto'" class="grid gap-1.5">
                     <Label>Puesto</Label>
-                    <select
+                    <SelectSimple
                         v-model="modulo.puesto_id"
-                        class="h-9 rounded-md border bg-transparent px-3 text-sm"
-                    >
-                        <option v-for="p in puestos" :key="p.id" :value="p.id">
-                            {{ p.nombre }}
-                        </option>
-                    </select>
+                        numerico
+                        :opciones="
+                            puestos.map((p) => ({
+                                value: p.id,
+                                label: p.nombre,
+                            }))
+                        "
+                        placeholder="Elige el puesto"
+                    />
                     <InputError :message="modulo.errors.puesto_id" />
                 </div>
                 <div class="grid gap-1.5">
@@ -246,12 +252,10 @@ void props;
                         :key="j"
                         class="flex items-center gap-2 text-sm"
                     >
-                        <input
+                        <RadioMarca
                             v-model="p.correcta"
-                            type="radio"
-                            :name="`correcta-${i}`"
                             :value="j"
-                            title="Respuesta correcta"
+                            :name="`correcta-${i}`"
                         />
                         <Input
                             v-model="p.opciones[j]"
@@ -284,7 +288,7 @@ void props;
                 <InputError :message="modulo.errors.preguntas" />
             </div>
             <label class="flex items-center gap-2 text-sm"
-                ><input v-model="modulo.activo" type="checkbox" /> Activo</label
+                ><Casilla v-model="modulo.activo" /> Activo</label
             >
             <div class="flex gap-2">
                 <Button type="submit" :disabled="modulo.processing"
@@ -319,15 +323,12 @@ void props;
                 </div>
             </div>
             <label class="flex items-center gap-2 text-sm"
-                ><input
-                    v-model="activo.requiere_identificador"
-                    type="checkbox"
-                />
-                Requiere serie / identificador</label
+                ><Casilla v-model="activo.requiere_identificador" /> Requiere
+                serie / identificador</label
             >
             <label class="flex items-center gap-2 text-sm"
-                ><input v-model="activo.obligatorio" type="checkbox" />
-                Obligatorio para cerrar el onboarding</label
+                ><Casilla v-model="activo.obligatorio" /> Obligatorio para
+                cerrar el onboarding</label
             >
             <fieldset class="grid gap-1 text-sm">
                 <legend class="mb-1 font-medium">
@@ -337,11 +338,7 @@ void props;
                     v-for="p in puestos"
                     :key="p.id"
                     class="flex items-center gap-2"
-                    ><input
-                        v-model="activo.puesto_ids"
-                        type="checkbox"
-                        :value="p.id"
-                    />
+                    ><Casilla v-model="activo.puesto_ids" :value="p.id" />
                     {{ p.nombre }}</label
                 >
             </fieldset>

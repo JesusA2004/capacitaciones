@@ -43,7 +43,9 @@ class IdentidadColaboradorService
 
     /**
      * Búsqueda de una persona (incluidas las dadas de baja) por número de
-     * empleado, CURP, RFC, NSS o nombre.
+     * empleado, CURP, RFC, NSS o nombre. Sin término regresa las bajas más
+     * recientes: la lista se ve completa desde el primer clic y se va
+     * filtrando conforme se escribe.
      *
      * @return Collection<int, Colaborador>
      */
@@ -51,8 +53,14 @@ class IdentidadColaboradorService
     {
         $termino = trim($termino);
 
-        if (mb_strlen($termino) < 3) {
-            return new Collection;
+        if ($termino === '') {
+            return Colaborador::withTrashed()
+                ->where(fn ($q) => $q->whereNotNull('deleted_at')->orWhere('estatus', 'inactivo')->orWhereNotNull('fecha_baja'))
+                ->with(['puesto:id,nombre', 'sucursalPrincipal:id,nombre'])
+                ->orderByDesc('fecha_baja')
+                ->orderBy('name')
+                ->limit($limite)
+                ->get();
         }
 
         $mayusculas = strtoupper($termino);

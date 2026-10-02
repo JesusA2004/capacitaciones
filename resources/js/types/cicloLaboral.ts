@@ -322,11 +322,22 @@ export type TableroRhDatos = {
         plantilla_promedio: number;
         porcentaje: number;
     }[];
+    headcount_by_branch: {
+        sucursal_id: number;
+        sucursal: string;
+        plantilla_autorizada: number;
+        plantilla_actual: number;
+        vacantes: number;
+        cumplimiento: number;
+    }[];
     filters: {
         mes: string;
         periodo_etiqueta: string;
         sucursal_id: number | null;
-        sucursales: { id: number; nombre: string }[];
+        empresa_id: number | null;
+        meses: number;
+        sucursales: { id: number; nombre: string; empresa_id: number | null }[];
+        empresas: { id: number; nombre: string }[];
     };
     generated_at: string;
 };

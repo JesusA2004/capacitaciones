@@ -18,7 +18,8 @@ use Laravel\Sanctum\Sanctum;
 use Spatie\Activitylog\Models\Activity;
 
 /*
-| Administración → Configuración: organigrama de jefes (escenarios A–F),
+| Administración → Configuración: ruteo por jefe directo (escenarios A–F; el
+| jefe sale del organigrama, ver tests/Feature/Organigrama/JefeDirectoAutomaticoTest),
 | ruteo de notificaciones, apariencia/tema y parámetros de RH.
 */
 
@@ -50,7 +51,7 @@ function pedirPrestamo(User $usuario): int
         ->json('id');
 }
 
-test('A–B: la solicitud llega al jefe directo; al cambiarlo, la nueva llega al jefe nuevo y la anterior conserva al original', function () {
+test('A–B: la solicitud llega al jefe directo; si el organigrama le cambia el jefe, la nueva llega al jefe nuevo y la anterior conserva al original', function () {
     $vieja = pedirPrestamo($this->empleado);
 
     Notification::assertSentTo($this->jefeA, PendienteRhNotification::class, function (PendienteRhNotification $n, array $c, User $d) {
@@ -59,9 +60,9 @@ test('A–B: la solicitud llega al jefe directo; al cambiarlo, la nueva llega al
         return $datos['tipo'] === 'solicitud_visto_bueno' && $datos['route_rule'] === 'solicitud_visto_bueno' && str_contains($datos['recipient_reason'], 'aprobador');
     });
 
-    $this->actingAs($this->rh)
-        ->put(route('administracion.configuracion.jerarquia.update', $this->empleado->colaborador_id), ['jefe_id' => $this->jefeB->colaborador_id, 'motivo' => 'Cambio de equipo'])
-        ->assertSessionHasNoErrors();
+    // El jefe lo materializa JefeDirectoService a partir del organigrama;
+    // aquí se simula el resultado de ese recálculo.
+    Colaborador::query()->whereKey($this->empleado->colaborador_id)->update(['jefe_id' => $this->jefeB->colaborador_id]);
 
     $nueva = pedirPrestamo($this->empleado);
 
@@ -69,41 +70,6 @@ test('A–B: la solicitud llega al jefe directo; al cambiarlo, la nueva llega al
     expect(TareaRh::query()->where('relacionado_id', $nueva)->where('relacionado_type', (new SolicitudInterna)->getMorphClass())->value('asignado_user_id'))->toBe($this->jefeB->id)
         // La solicitud vieja conserva su pendiente con el jefe original.
         ->and(TareaRh::query()->where('relacionado_id', $vieja)->where('relacionado_type', (new SolicitudInterna)->getMorphClass())->value('asignado_user_id'))->toBe($this->jefeA->id);
-
-    // Auditoría del cambio: actor, antes, después y motivo.
-    $registro = Activity::query()->where('event', 'jefe_directo_cambiado')->latest('id')->firstOrFail();
-    expect($registro->causer_id)->toBe($this->rh->id)
-        ->and($registro->properties['antes']['jefe_id'])->toBe($this->jefeA->colaborador_id)
-        ->and($registro->properties['despues']['jefe_id'])->toBe($this->jefeB->colaborador_id)
-        ->and($registro->properties['motivo'])->toBe('Cambio de equipo');
-});
-
-test('C: nadie puede ser su propio jefe (422)', function () {
-    $this->actingAs($this->rh)
-        ->putJson(route('administracion.configuracion.jerarquia.update', $this->jefeB->colaborador_id), ['jefe_id' => $this->jefeB->colaborador_id])
-        ->assertUnprocessable()
-        ->assertJsonValidationErrors('jefe_id');
-});
-
-test('D: se detectan ciclos directos e indirectos', function () {
-    // empleado → A ; A → B. Poner B → empleado cierra el ciclo empleado → A → B → empleado.
-    Colaborador::query()->whereKey($this->jefeA->colaborador_id)->update(['jefe_id' => $this->jefeB->colaborador_id]);
-
-    $this->actingAs($this->rh)
-        ->putJson(route('administracion.configuracion.jerarquia.update', $this->jefeB->colaborador_id), ['jefe_id' => $this->empleado->colaborador_id])
-        ->assertUnprocessable()
-        ->assertJsonValidationErrors('jefe_id');
-
-    $this->actingAs($this->rh)
-        ->putJson(route('administracion.configuracion.jerarquia.update', $this->jefeA->colaborador_id), ['jefe_id' => $this->empleado->colaborador_id])
-        ->assertUnprocessable();
-
-    // La misma regla protege la edición desde el expediente.
-    $this->actingAs($this->rh)
-        ->put(route('rh.expedientes.datos-laborales.update', $this->jefeB->colaborador_id), ['jefe_id' => $this->empleado->colaborador_id])
-        ->assertSessionHasErrors('jefe_id');
-
-    expect(Colaborador::query()->findOrFail($this->jefeB->colaborador_id)->jefe_id)->toBeNull();
 });
 
 test('E: sin jefe no se elige a nadie al azar — la solicitud va directo a quien autoriza y queda registro', function () {
@@ -128,7 +94,7 @@ test('F: un gerente fuera del alcance no ve el ciclo ni recibe avisos de otra su
     $gerenteOtra = clUsuario('gerente', ['sucursal_principal_id' => $otra->id]);
 
     $this->actingAs($gerenteOtra)->get(route('rh.colaboradores.ciclo', $this->empleado->colaborador_id))->assertForbidden();
-    $this->actingAs($gerenteOtra)->get(route('administracion.configuracion.jerarquia'))->assertForbidden();
+    $this->actingAs($gerenteOtra)->get(route('administracion.configuracion.notificaciones'))->assertForbidden();
 
     $destinos = app(WorkflowRoutingService::class)->resolver('contrato_por_vencer', $this->empleado->colaborador)->pluck('usuario.id');
     expect($destinos)->not->toContain($gerenteOtra->id)
@@ -256,8 +222,7 @@ test('parámetros de RH: el cambio aplica de inmediato a la regla del ciclo', fu
 });
 
 test('las pantallas de configuración responden según permisos', function () {
-    $this->actingAs($this->rh)->get(route('administracion.configuracion.index'))->assertRedirect(route('administracion.configuracion.jerarquia'));
-    $this->actingAs($this->rh)->get(route('administracion.configuracion.jerarquia'))->assertOk();
+    $this->actingAs($this->rh)->get(route('administracion.configuracion.index'))->assertRedirect(route('administracion.configuracion.notificaciones'));
     $this->actingAs($this->rh)->get(route('administracion.configuracion.notificaciones'))->assertOk();
     $this->actingAs($this->rh)->get(route('administracion.configuracion.parametros-rh'))->assertOk();
     $this->actingAs($this->rh)->get(route('administracion.configuracion.apariencia'))->assertForbidden();

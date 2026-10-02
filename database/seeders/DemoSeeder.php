@@ -45,6 +45,9 @@ class DemoSeeder extends Seeder
             // programado y reingreso), todo vía services: necesita a
             // rh.admin, rh.auxiliar y gerente.sucursal ya creados.
             CicloLaboralDemoSeeder::class,
+            // Al final, cuando ya existen todas las personas: todo colaborador
+            // ACTIVO queda con su expediente requerido completo y aprobado.
+            CompletarExpedientesDemoSeeder::class,
         ]);
     }
 }

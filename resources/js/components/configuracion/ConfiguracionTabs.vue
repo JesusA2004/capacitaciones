@@ -2,7 +2,6 @@
 import { Link } from '@inertiajs/vue3';
 import {
     apariencia,
-    jerarquia,
     notificaciones,
     parametrosRh,
 } from '@/routes/administracion/configuracion';
@@ -15,7 +14,6 @@ import type { SeccionConfiguracion } from '@/types';
 defineProps<{ secciones: SeccionConfiguracion[]; actual: string }>();
 
 const rutas: Record<string, () => { url: string }> = {
-    jerarquia: () => jerarquia(),
     notificaciones: () => notificaciones(),
     'parametros-rh': () => parametrosRh(),
     apariencia: () => apariencia(),

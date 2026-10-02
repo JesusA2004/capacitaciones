@@ -45,6 +45,8 @@ class DashboardController extends Controller
                 'tablero' => $this->tablero->construir($usuario, [
                     'mes' => $request->string('tablero_mes')->toString() ?: null,
                     'sucursal_id' => $request->integer('tablero_sucursal_id') ?: null,
+                    'empresa_id' => $request->integer('tablero_empresa_id') ?: null,
+                    'meses' => $request->integer('tablero_meses') ?: null,
                 ]),
             ]);
         }

@@ -63,7 +63,6 @@ class AltaColaboradorRequest extends FormRequest
             'sucursal_principal_id' => ['required', 'integer', 'exists:sucursales,id'],
             'departamento_id' => ['nullable', 'integer', 'exists:departamentos,id'],
             'puesto_id' => ['required', 'integer', 'exists:puestos,id'],
-            'jefe_id' => ['nullable', 'integer', 'exists:colaboradores,id'],
             'gerente_id' => ['nullable', 'integer', 'exists:colaboradores,id'],
             'sueldo_mensual' => ['required', 'numeric', 'min:0', 'max:9999999'],
             'fecha_ingreso' => ['required', 'date'],

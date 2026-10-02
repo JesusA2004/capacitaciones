@@ -41,6 +41,8 @@ class CicloLaboralRhController extends Controller
         $filtros = $request->validate([
             'mes' => ['nullable', 'date_format:Y-m'],
             'sucursal_id' => ['nullable', 'integer'],
+            'empresa_id' => ['nullable', 'integer'],
+            'meses' => ['nullable', 'integer', 'in:6,12,24'],
         ]);
 
         return response()->json(['data' => $this->tablero->construir($usuario, $filtros)]);

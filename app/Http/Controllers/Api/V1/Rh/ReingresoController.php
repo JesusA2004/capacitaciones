@@ -40,9 +40,9 @@ class ReingresoController extends Controller
 
     public function buscar(Request $request): JsonResponse
     {
-        $datos = $request->validate(['q' => ['required', 'string', 'min:3', 'max:120']]);
+        $datos = $request->validate(['q' => ['nullable', 'string', 'max:120']]);
 
-        return response()->json(['data' => $this->reingresos->buscar((string) $datos['q'], $request->user())]);
+        return response()->json(['data' => $this->reingresos->buscar((string) ($datos['q'] ?? ''), $request->user())]);
     }
 
     public function historial(Request $request, int $colaborador): JsonResponse

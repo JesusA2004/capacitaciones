@@ -36,6 +36,7 @@ use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use App\Services\Nomina\PrestamoService;
 use App\Services\Nomina\ReciboNominaService;
 use App\Services\Onboarding\ChecklistAdministrativoService;
+use App\Services\Organigrama\JefeDirectoService;
 use App\Services\Solicitudes\BajaColaboradorService;
 use App\Services\Vacaciones\VacacionesService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -69,6 +70,7 @@ class ExpedienteController extends Controller
         private readonly PrestamoService $prestamoService,
         private readonly FotoColaboradorService $fotos,
         private readonly OfficialFormatCatalogoService $catalogoFormatos,
+        private readonly JefeDirectoService $jefes,
     ) {}
 
     /**
@@ -113,7 +115,7 @@ class ExpedienteController extends Controller
 
         return Inertia::render('Rh/Expedientes/Index', [
             'colaboradores' => $colaboradores,
-            'filtros' => $request->only(self::FILTROS),
+            'filtros' => [...$request->only(self::FILTROS), 'estatus' => $this->estatusFiltro($request)],
             'empresasDisponibles' => Empresa::query()->orderBy('nombre')->get(['id', 'nombre']),
             'sucursalesDisponibles' => Sucursal::query()->orderBy('nombre')->get(['id', 'nombre', 'empresa_id']),
             'departamentosDisponibles' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
@@ -178,6 +180,16 @@ class ExpedienteController extends Controller
     }
 
     /**
+     * Estado del listado: por defecto solo activos; "todos" sin filtro.
+     */
+    private function estatusFiltro(Request $request): string
+    {
+        $estatus = $request->string('estatus')->toString();
+
+        return $estatus === 'todos' || EstadoUsuario::tryFrom($estatus) !== null ? $estatus : EstadoUsuario::Activo->value;
+    }
+
+    /**
      * @return Builder<Colaborador>
      */
     private function queryFiltrada(Request $request): Builder
@@ -203,7 +215,9 @@ class ExpedienteController extends Controller
             ->when($request->integer('sucursal_id'), fn ($query, int $id) => $query->where('sucursal_principal_id', $id))
             ->when($request->integer('departamento_id'), fn ($query, int $id) => $query->where('departamento_id', $id))
             ->when($request->integer('puesto_id'), fn ($query, int $id) => $query->where('puesto_id', $id))
-            ->when($request->string('estatus')->toString(), fn ($query, string $estatus) => $query->where('estatus', $estatus))
+            // Por defecto solo ACTIVOS; "todos" quita el filtro. Las bajas
+            // nunca se borran: se ven eligiendo "Inactivo".
+            ->when($this->estatusFiltro($request) !== 'todos', fn ($query) => $query->where('estatus', $this->estatusFiltro($request)))
             ->when($request->string('fecha_inicio')->toString(), fn ($query, string $valor) => $query->whereDate('fecha_ingreso', '>=', $valor))
             ->when($request->string('fecha_fin')->toString(), fn ($query, string $valor) => $query->whereDate('fecha_ingreso', '<=', $valor));
     }
@@ -267,17 +281,9 @@ class ExpedienteController extends Controller
             'empresasDisponibles' => Empresa::query()->orderBy('nombre')->get(['id', 'nombre']),
             'sucursalesDisponibles' => Sucursal::query()->orderBy('nombre')->get(['id', 'nombre', 'empresa_id']),
             'departamentosDisponibles' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
-            // `puesto_superior_id` y los datos de puesto/sucursal de cada
-            // candidato viajan al frontend para que el combo de "Jefe
-            // directo" se filtre solo a quien ocupa el puesto superior en la
-            // misma sucursal (ver App\Models\Puesto::puestoSuperior()) — no
-            // se deja elegir a cualquier colaborador del sistema.
+            // Sin combo de "Jefe directo": el jefe sale del organigrama según
+            // puesto y sucursal (JefeDirectoService).
             'puestosDisponibles' => Puesto::query()->orderBy('nombre')->get(['id', 'nombre', 'puesto_superior_id']),
-            'jefesDisponibles' => Colaborador::query()
-                ->where('id', '!=', $colaborador->id)
-                ->where('estatus', EstadoUsuario::Activo)
-                ->orderBy('name')
-                ->get(['id', 'name', 'apellidos', 'numero_empleado', 'puesto_id', 'sucursal_principal_id']),
             // La pestaña "Cuenta" del expediente absorbió lo que antes vivía
             // en Administración → Usuarios (ese listado se retiró, ver
             // docs/ROLES_Y_NAVEGACION.md): un colaborador sin cuenta todavía
@@ -521,7 +527,7 @@ class ExpedienteController extends Controller
         $antes = $this->movimientos->snapshot($colaborador);
 
         $datosLaborales = $request->safe()->only([
-            'sucursal_principal_id', 'departamento_id', 'puesto_id', 'jefe_id', 'sueldo_mensual',
+            'sucursal_principal_id', 'departamento_id', 'puesto_id', 'sueldo_mensual',
         ]);
 
         // Un campo de sueldo vacío en este guardado NUNCA borra un sueldo que
@@ -553,6 +559,10 @@ class ExpedienteController extends Controller
         }
 
         $colaborador->update($datosLaborales);
+
+        // El jefe sale del organigrama: se recalcula YA (no al terminar la
+        // petición) para que el movimiento laboral registre el cambio de jefe.
+        $this->jefes->sincronizar($request->user());
 
         $this->movimientos->registrarCambioPuesto(
             $colaborador->fresh(),
@@ -788,8 +798,14 @@ class ExpedienteController extends Controller
      */
     private function documentosParaVista(Collection $vigentes): array
     {
+        // El expediente solo pide documentos REQUERIDOS: lo demás
+        // (incapacidades, permisos, vacaciones...) entra por Solicitudes.
+        // Un tipo no requerido solo aparece si ya tiene un archivo, para no
+        // esconder historial.
         return DocumentType::query()
             ->where('activo', true)
+            ->where(fn ($q) => $q->where('requerido', true)->orWhereIn('id', $vigentes->keys()))
+            ->orderByDesc('requerido')
             ->orderBy('nombre')
             ->get()
             ->map(function (DocumentType $tipo) use ($vigentes) {

@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { FilterX } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
+import DatePicker from '@/components/Common/DatePicker.vue';
 import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
 import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
 import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
 import type { FiltrosCelebracion, OpcionCelebracion } from '@/types';
@@ -222,10 +222,9 @@ function limpiar() {
                             class="text-xs text-muted-foreground"
                             >Desde</Label
                         >
-                        <Input
-                            id="filtro-desde"
+                        <DatePicker
                             v-model="rangoBorrador.desde"
-                            type="date"
+                            id="filtro-desde"
                         />
                     </div>
                     <div class="grid gap-1">
@@ -234,11 +233,10 @@ function limpiar() {
                             class="text-xs text-muted-foreground"
                             >Hasta</Label
                         >
-                        <Input
-                            id="filtro-hasta"
+                        <DatePicker
                             v-model="rangoBorrador.hasta"
-                            type="date"
-                            :min="rangoBorrador.desde"
+                            id="filtro-hasta"
+                            :min-value="rangoBorrador.desde"
                         />
                     </div>
                 </div>

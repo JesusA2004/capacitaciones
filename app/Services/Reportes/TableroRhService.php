@@ -12,11 +12,13 @@ use App\Models\CampanaReclutamiento;
 use App\Models\Candidato;
 use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
+use App\Models\Empresa;
 use App\Models\HeadcountTarget;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Models\Vacante;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Headcount\HeadcountService;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -26,7 +28,8 @@ use Illuminate\Support\Collection;
  * Tablero ejecutivo de RH ("MR. LANA PEOPLE · Tablero de Recursos Humanos").
  * Un solo DTO estable para la web y la API:
  *
- *   summary · recruitment_funnel · time_to_hire_by_level · turnover_monthly · filters · generated_at
+ *   summary · recruitment_funnel · time_to_hire_by_level · turnover_monthly ·
+ *   headcount_by_branch · filters · generated_at
  *
  * Todo se calcula con datos reales y respeta el alcance del usuario (RH
  * global ve todo; gerente/regional solo sus sucursales). Fórmulas:
@@ -41,10 +44,15 @@ use Illuminate\Support\Collection;
  */
 class TableroRhService
 {
-    public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}
+    public const MESES_TENDENCIA = [6, 12, 24];
+
+    public function __construct(
+        private readonly AlcanceOrganizacionalService $alcance,
+        private readonly HeadcountService $headcount,
+    ) {}
 
     /**
-     * @param  array{mes?: string|null, sucursal_id?: int|string|null}  $filtros
+     * @param  array{mes?: string|null, sucursal_id?: int|string|null, empresa_id?: int|string|null, meses?: int|string|null}  $filtros
      * @return array<string, mixed>
      */
     public function construir(User $usuario, array $filtros = []): array
@@ -58,25 +66,39 @@ class TableroRhService
         $visibles = $this->alcance->sucursalesVisiblesIds($usuario);
         $sucursalFiltro = isset($filtros['sucursal_id']) && $filtros['sucursal_id'] !== '' ? (int) $filtros['sucursal_id'] : null;
 
-        if ($sucursalFiltro !== null && ! $visibles->contains($sucursalFiltro)) {
+        $empresaFiltro = isset($filtros['empresa_id']) && $filtros['empresa_id'] !== '' ? (int) $filtros['empresa_id'] : null;
+        $meses = in_array((int) ($filtros['meses'] ?? 12), self::MESES_TENDENCIA, true) ? (int) ($filtros['meses'] ?? 12) : 12;
+
+        // La empresa acota las sucursales visibles; una sucursal de otra
+        // empresa (o fuera del alcance) se ignora.
+        $deEmpresa = $empresaFiltro !== null
+            ? Sucursal::query()->whereIn('id', $visibles)->where('empresa_id', $empresaFiltro)->pluck('id')->map(fn ($id) => (int) $id)
+            : $visibles;
+
+        if ($sucursalFiltro !== null && ! $deEmpresa->contains($sucursalFiltro)) {
             $sucursalFiltro = null;
         }
 
         /** @var Collection<int, int> $sucursales */
-        $sucursales = $sucursalFiltro !== null ? collect([$sucursalFiltro]) : $visibles;
-        $todas = $global && $sucursalFiltro === null;
+        $sucursales = $sucursalFiltro !== null ? collect([$sucursalFiltro]) : $deEmpresa;
+        $todas = $global && $sucursalFiltro === null && $empresaFiltro === null;
 
         return [
             'summary' => $this->resumen($sucursales, $todas, $inicio, $fin),
             'recruitment_funnel' => $this->embudo($sucursales, $todas, $inicio, $fin),
             'time_to_hire_by_level' => $this->tiempoPorNivel($sucursales, $todas, $fin),
-            'turnover_monthly' => $this->rotacionMensual($sucursales, $fin),
+            'turnover_monthly' => $this->rotacionMensual($sucursales, $fin, $meses),
+            'headcount_by_branch' => $this->headcount->resumenPorSucursal($sucursales)->values()->all(),
             'filters' => [
                 'mes' => $mes->format('Y-m'),
                 'periodo_etiqueta' => ucfirst($mes->settings(['locale' => 'es'])->translatedFormat('F Y')),
                 'sucursal_id' => $sucursalFiltro,
-                'sucursales' => Sucursal::query()->whereIn('id', $visibles)->orderBy('nombre')->get(['id', 'nombre'])
-                    ->map(fn (Sucursal $s) => ['id' => $s->id, 'nombre' => $s->nombre])->values()->all(),
+                'empresa_id' => $empresaFiltro,
+                'meses' => $meses,
+                'sucursales' => Sucursal::query()->whereIn('id', $visibles)->orderBy('nombre')->get(['id', 'nombre', 'empresa_id'])
+                    ->map(fn (Sucursal $s) => ['id' => $s->id, 'nombre' => $s->nombre, 'empresa_id' => $s->empresa_id])->values()->all(),
+                'empresas' => Empresa::query()->whereIn('id', Sucursal::query()->whereIn('id', $visibles)->select('empresa_id'))->orderBy('nombre')->get(['id', 'nombre'])
+                    ->map(fn (Empresa $e) => ['id' => $e->id, 'nombre' => $e->nombre])->values()->all(),
             ],
             'generated_at' => now()->toIso8601String(),
         ];
@@ -202,18 +224,18 @@ class TableroRhService
      * @param  Collection<int, int>  $sucursales
      * @return list<array{mes: string, etiqueta: string, bajas: int, plantilla_promedio: float, porcentaje: float}>
      */
-    private function rotacionMensual(Collection $sucursales, CarbonImmutable $fin): array
+    private function rotacionMensual(Collection $sucursales, CarbonImmutable $fin, int $cuantos = 12): array
     {
         $meses = [];
 
-        for ($i = 11; $i >= 0; $i--) {
+        for ($i = $cuantos - 1; $i >= 0; $i--) {
             $mes = $fin->startOfMonth()->subMonthsNoOverflow($i);
             $bajas = $this->bajasEntre($sucursales, $mes->startOfMonth(), $mes->endOfMonth());
             $promedio = ($this->plantillaAl($sucursales, $mes->startOfMonth()->subDay()) + $this->plantillaAl($sucursales, $mes->endOfMonth())) / 2;
 
             $meses[] = [
                 'mes' => $mes->format('Y-m'),
-                'etiqueta' => ucfirst($mes->settings(['locale' => 'es'])->translatedFormat('M')),
+                'etiqueta' => ucfirst($mes->settings(['locale' => 'es'])->translatedFormat($cuantos > 12 ? 'M y' : 'M')),
                 'bajas' => $bajas,
                 'plantilla_promedio' => round($promedio, 1),
                 'porcentaje' => $promedio > 0 ? round($bajas / $promedio * 100, 1) : 0.0,

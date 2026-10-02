@@ -15,7 +15,7 @@ Superior operativo **preautoriza**; RH da la **autorización final** (`Aprobacio
 ## 3. Organigrama de personas y jefes directos
 
 - Fuente: `colaboradores.jefe_id` / `gerente_id` (ROL ≠ JEFE). Servicio: `OrganizacionJerarquiaService`.
-- Administración → Configuración → **Jefes directos** (`/administracion/configuracion/jerarquia`): búsqueda, filtro por sucursal, "solo sin jefe que deberían tenerlo", cadena resultante, subordinados directos, cambio con motivo.
+- ~~Administración → Configuración → Jefes directos~~ — retirada el 2026-10-02: el jefe directo sale del organigrama (ver `docs/ORGANIGRAMA.md`, sección «Jefe directo = organigrama»).
 - `validarSuperior()`: rechaza (422) ser su propio jefe, jefes inactivos y ciclos directos o indirectos. La misma regla protege la edición de datos laborales del expediente.
 - `asignarSuperiores()` audita actor, antes, después y motivo (`jefe_directo_cambiado`).
 - Sin jefe: no se elige a nadie al azar; la preautorización queda "no aplica" con motivo y el ruteo registra el receptor faltante en el log.
@@ -88,7 +88,7 @@ Administración → **Configuración** (permisos `configuracion.ver` + `configur
 2. `php artisan people:sincronizar-permisos` (agrega `ciclo.*`, `onboarding.*`, `reingresos.*`, `configuracion.*`…)
 3. `php artisan db:seed --class=PuestoJerarquiaSeeder` y `--class=DocumentTypeSeeder` (solo llenan vacíos)
 4. Cargar plantillas reales (Jurídico) y módulos/activos de onboarding (RH) — sin ellos el sistema crea el pendiente "plantilla faltante" y no inventa texto.
-5. Revisar en Configuración → Jefes directos a las personas "sin jefe que deberían tenerlo".
+5. Correr `php artisan organigrama:sincronizar-jefes` (el jefe directo sale del organigrama).
 
 ## 12. Pendientes externos
 

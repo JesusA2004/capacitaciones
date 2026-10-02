@@ -20,6 +20,7 @@ use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use App\Services\Onboarding\OnboardingService;
+use App\Services\Organigrama\JefeDirectoService;
 use App\Services\Reclutamiento\ContratacionCandidatoService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Services\Tareas\TareaService;
@@ -65,6 +66,7 @@ class AltaColaboradorService
         private readonly AuditoriaService $auditoria,
         private readonly AsignacionService $asignaciones,
         private readonly IdentidadColaboradorService $identidad,
+        private readonly JefeDirectoService $jefes,
     ) {}
 
     /**
@@ -100,7 +102,6 @@ class AltaColaboradorService
                 'sucursal_principal_id' => $datos['sucursal_principal_id'],
                 'departamento_id' => $datos['departamento_id'] ?? null,
                 'puesto_id' => $datos['puesto_id'],
-                'jefe_id' => $datos['jefe_id'] ?? null,
                 'gerente_id' => $datos['gerente_id'] ?? null,
                 'sueldo_mensual' => $datos['sueldo_mensual'],
                 'fecha_ingreso' => $inicio->toDateString(),
@@ -147,6 +148,16 @@ class AltaColaboradorService
         });
 
         $colaborador = $resultado['colaborador'];
+
+        // Jefe directo = organigrama (nunca capturado): se resuelve ya para
+        // que tareas y avisos de esta alta lleguen a quien corresponde. Un
+        // fallo aquí no deshace el alta (la sincronización diaria lo repara).
+        try {
+            $this->jefes->sincronizar($actor);
+            $colaborador->refresh();
+        } catch (Throwable $e) {
+            Log::warning('AltaColaboradorService: no se pudo resolver el jefe directo desde el organigrama.', ['colaborador_id' => $colaborador->id, 'error' => $e->getMessage()]);
+        }
 
         $this->auditoria->registrar('colaborador_alta', $colaborador, $actor, [
             'colaborador_id' => $colaborador->id,

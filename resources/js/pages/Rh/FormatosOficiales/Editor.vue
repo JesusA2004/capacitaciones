@@ -23,6 +23,7 @@ import {
 } from '@lucide/vue';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import VisorPdfFormato from '@/components/Rh/formatos/VisorPdfFormato.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -38,6 +39,15 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
+import {
+    Select,
+    SelectContent,
+    SelectGroup,
+    SelectItem,
+    SelectLabel,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { useAlertas } from '@/composables/useAlertas';
@@ -631,9 +641,7 @@ const maxCaracteresSel = computed({
     },
 });
 
-function cambiarDatoDocx(campo: CampoFormato, evento: Event) {
-    const valor = (evento.target as HTMLSelectElement).value;
-
+function cambiarDatoDocx(campo: CampoFormato, valor: string) {
     if (valor === '__manual__') {
         campo.tipo = 'manual';
         campo.variable = null;
@@ -644,13 +652,10 @@ function cambiarDatoDocx(campo: CampoFormato, evento: Event) {
     }
 }
 
-function cambiarFormatoDocx(campo: CampoFormato, evento: Event) {
-    const valor = (evento.target as HTMLSelectElement).value;
+function cambiarFormatoDocx(campo: CampoFormato, valor: string) {
     campo.formato = valor === '' ? null : valor;
 }
 
-const claseSelect =
-    'h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm shadow-xs disabled:opacity-50';
 const borradorExistente = computed(
     () => props.versiones.find((v) => v.estado === 'borrador') ?? null,
 );
@@ -1401,35 +1406,43 @@ const panel = ref<'variables' | 'detectados'>(
                         '{' + '{' + (campo.placeholder ?? '') + '}' + '}'
                     }}</code>
                     <div class="flex gap-2">
-                        <select
-                            :value="
+                        <Select
+                            :model-value="
                                 campo.tipo === 'manual'
                                     ? '__manual__'
-                                    : (campo.variable ?? '')
+                                    : (campo.variable ?? undefined)
                             "
                             :disabled="!editable"
-                            :class="claseSelect"
-                            @change="cambiarDatoDocx(campo, $event)"
+                            @update:model-value="
+                                (v) => cambiarDatoDocx(campo, String(v))
+                            "
                         >
-                            <option value="__manual__">
-                                Dato manual (se pide al generar)
-                            </option>
-                            <optgroup
-                                v-for="grupo in grupos"
-                                :key="grupo.clave"
-                                :label="grupo.etiqueta"
-                            >
-                                <option
-                                    v-for="v in grupo.variables.filter(
-                                        (x) => x.tipo !== 'imagen',
-                                    )"
-                                    :key="v.clave"
-                                    :value="v.clave"
+                            <SelectTrigger class="w-full">
+                                <SelectValue placeholder="Elige el dato" />
+                            </SelectTrigger>
+                            <SelectContent class="max-h-80">
+                                <SelectItem value="__manual__"
+                                    >Dato manual (se pide al
+                                    generar)</SelectItem
                                 >
-                                    {{ v.etiqueta }}
-                                </option>
-                            </optgroup>
-                        </select>
+                                <SelectGroup
+                                    v-for="grupo in grupos"
+                                    :key="grupo.clave"
+                                >
+                                    <SelectLabel>{{
+                                        grupo.etiqueta
+                                    }}</SelectLabel>
+                                    <SelectItem
+                                        v-for="v in grupo.variables.filter(
+                                            (x) => x.tipo !== 'imagen',
+                                        )"
+                                        :key="v.clave"
+                                        :value="v.clave"
+                                        >{{ v.etiqueta }}</SelectItem
+                                    >
+                                </SelectGroup>
+                            </SelectContent>
+                        </Select>
                         <Input
                             v-if="campo.tipo === 'manual'"
                             :model-value="campo.etiqueta ?? ''"
@@ -1442,24 +1455,23 @@ const panel = ref<'variables' | 'detectados'>(
                             placeholder="Nombre del dato"
                         />
                     </div>
-                    <select
+                    <SelectSimple
                         v-if="campo.tipo === 'variable'"
-                        :value="campo.formato ?? ''"
+                        :model-value="campo.formato ?? ''"
+                        :opciones="
+                            Object.entries(
+                                formatosPorTipo[tipoVariable(campo)] ?? {},
+                            ).map(([clave, etiqueta]) => ({
+                                value: clave,
+                                label: String(etiqueta),
+                            }))
+                        "
+                        opcion-vacia="Formato predeterminado"
                         :disabled="!editable"
-                        :class="claseSelect"
-                        @change="cambiarFormatoDocx(campo, $event)"
-                    >
-                        <option value="">Formato predeterminado</option>
-                        <option
-                            v-for="(etiqueta, clave) in formatosPorTipo[
-                                tipoVariable(campo)
-                            ] ?? {}"
-                            :key="clave"
-                            :value="clave"
-                        >
-                            {{ etiqueta }}
-                        </option>
-                    </select>
+                        @update:model-value="
+                            (v) => cambiarFormatoDocx(campo, v)
+                        "
+                    />
                     <span v-else />
                     <label class="flex items-center gap-2 whitespace-nowrap">
                         <Checkbox

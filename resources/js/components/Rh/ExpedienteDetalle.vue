@@ -59,7 +59,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Combobox } from '@/components/ui/combobox';
 import {
     Dialog,
     DialogContent,
@@ -150,14 +149,6 @@ const props = defineProps<{
         id: number;
         nombre: string;
         puesto_superior_id: number | null;
-    }[];
-    jefesDisponibles: {
-        id: number;
-        name: string;
-        apellidos: string | null;
-        numero_empleado: string | null;
-        puesto_id: number | null;
-        sucursal_principal_id: number | null;
     }[];
     esCuentaPropia: boolean;
     puedeRevisarDocumentos: boolean;
@@ -384,7 +375,8 @@ function abrirAviso(tipo: 'privacidad' | 'datos') {
     avisoDialogAbierto.value = true;
 }
 
-// --- Datos laborales: empresa/sucursal/departamento/puesto/jefe/sueldo ---
+// --- Datos laborales: empresa/sucursal/departamento/puesto/sueldo ---
+// (el jefe directo no se captura: sale del organigrama al guardar)
 const editandoLaborales = ref(false);
 const empresaSeleccionada = ref(
     props.colaborador.empresa ? String(props.colaborador.empresa.id) : '',
@@ -400,7 +392,6 @@ const formLaborales = useForm({
     puesto_id: props.colaborador.puesto
         ? String(props.colaborador.puesto.id)
         : '',
-    jefe_id: props.colaborador.jefe ? String(props.colaborador.jefe.id) : '',
     sueldo_mensual: props.colaborador.sueldo_mensual ?? '',
     motivo: '',
 });
@@ -425,73 +416,14 @@ function alCambiarEmpresa(valor: string) {
     if (!sigueDisponible) {
         formLaborales.sucursal_principal_id = '';
     }
-
-    limpiarJefeSiYaNoAplica();
-}
-
-/**
- * El puesto superior en el organigrama de puestos (Puesto::puesto_superior_id)
- * define quién puede ser "jefe directo" — nunca se deja elegir a cualquier
- * colaborador del sistema. Si el puesto elegido no tiene puesto superior
- * (p. ej. Dirección General) o nadie lo ocupa todavía en esa sucursal, el
- * combo simplemente queda sin opciones (ver Combobox "Sin resultados").
- */
-const puestoSuperiorId = computed(() => {
-    const puesto = props.puestosDisponibles.find(
-        (p) => String(p.id) === formLaborales.puesto_id,
-    );
-
-    return puesto?.puesto_superior_id ?? null;
-});
-
-const jefesSegunOrganigrama = computed(() => {
-    if (
-        puestoSuperiorId.value === null ||
-        !formLaborales.sucursal_principal_id
-    ) {
-        return [];
-    }
-
-    return props.jefesDisponibles.filter(
-        (jefe) =>
-            jefe.puesto_id === puestoSuperiorId.value &&
-            String(jefe.sucursal_principal_id) ===
-                formLaborales.sucursal_principal_id,
-    );
-});
-
-const opcionesJefe = computed(() =>
-    jefesSegunOrganigrama.value.map((jefe) => ({
-        value: String(jefe.id),
-        label: `${jefe.numero_empleado ? `${jefe.numero_empleado} — ` : ''}${jefe.name} ${jefe.apellidos ?? ''}`.trim(),
-    })),
-);
-
-/**
- * Si el jefe ya capturado deja de corresponder al organigrama (cambió el
- * puesto o la sucursal), se limpia — pero solo cuando lo dispara un cambio
- * real del usuario en el formulario abierto, nunca al precargar los datos
- * actuales del colaborador (podrían no encajar aún con el organigrama y no
- * hay por qué borrarlos solo por abrir el formulario).
- */
-function limpiarJefeSiYaNoAplica() {
-    const sigueValido = jefesSegunOrganigrama.value.some(
-        (jefe) => String(jefe.id) === formLaborales.jefe_id,
-    );
-
-    if (!sigueValido) {
-        formLaborales.jefe_id = '';
-    }
 }
 
 function alCambiarPuestoLaboral(valor: string) {
     formLaborales.puesto_id = valor;
-    limpiarJefeSiYaNoAplica();
 }
 
 function alCambiarSucursalLaboral(valor: string) {
     formLaborales.sucursal_principal_id = valor;
-    limpiarJefeSiYaNoAplica();
 }
 
 function iniciarEdicionLaborales() {
@@ -507,9 +439,6 @@ function iniciarEdicionLaborales() {
     formLaborales.puesto_id = props.colaborador.puesto
         ? String(props.colaborador.puesto.id)
         : '';
-    formLaborales.jefe_id = props.colaborador.jefe
-        ? String(props.colaborador.jefe.id)
-        : '';
     formLaborales.sueldo_mensual = props.colaborador.sueldo_mensual ?? '';
     formLaborales.motivo = '';
     editandoLaborales.value = true;
@@ -521,7 +450,6 @@ function guardarLaborales() {
             sucursal_principal_id: datos.sucursal_principal_id || null,
             departamento_id: datos.departamento_id || null,
             puesto_id: datos.puesto_id || null,
-            jefe_id: datos.jefe_id || null,
             sueldo_mensual: datos.sueldo_mensual || null,
             motivo: datos.motivo || null,
         }))
@@ -1483,24 +1411,12 @@ const pestanaInicial = (() => {
                                     </div>
                                     <div class="grid gap-2">
                                         <Label>Jefe directo</Label>
-                                        <Combobox
-                                            v-model="formLaborales.jefe_id"
-                                            :items="opcionesJefe"
-                                            placeholder="Selecciona el puesto y la sucursal primero..."
-                                            empty-text="Nadie ocupa todavía el puesto superior en esa sucursal, según el organigrama."
-                                        />
                                         <p
-                                            class="text-xs text-muted-foreground"
+                                            class="flex min-h-9 items-center rounded-md border border-dashed px-3 text-sm text-muted-foreground"
                                         >
-                                            Solo se muestra quien ocupa el
-                                            puesto superior a este, en la misma
-                                            sucursal — según el organigrama.
+                                            Se asigna solo según el organigrama
+                                            (puesto y sucursal) al guardar.
                                         </p>
-                                        <InputError
-                                            :message="
-                                                formLaborales.errors.jefe_id
-                                            "
-                                        />
                                     </div>
                                     <div class="grid gap-2">
                                         <Label for="sueldo_mensual"

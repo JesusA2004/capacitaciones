@@ -2,6 +2,8 @@
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { RotateCcw, SlidersHorizontal } from '@lucide/vue';
 import { reactive } from 'vue';
+import Casilla from '@/components/Common/Casilla.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import ConfiguracionTabs from '@/components/configuracion/ConfiguracionTabs.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import InputError from '@/components/InputError.vue';
@@ -178,9 +180,8 @@ const error = (clave: string) =>
                         :key="o.value"
                         class="flex items-center gap-2"
                     >
-                        <input
+                        <Casilla
                             v-model="form.valores[p.clave] as string[]"
-                            type="checkbox"
                             :value="o.value"
                         />
                         {{ o.etiqueta }}
@@ -240,20 +241,19 @@ const error = (clave: string) =>
                                 />
                             </td>
                             <td class="px-3 py-2">
-                                <select
+                                <SelectSimple
                                     v-model="p.grupo_indicador"
-                                    class="h-8 rounded-md border bg-transparent px-2 text-sm"
+                                    :opciones="
+                                        grupos.map((g) => ({
+                                            value: g.value,
+                                            label: g.etiqueta,
+                                        }))
+                                    "
+                                    opcion-vacia="Sin grupo"
+                                    size="sm"
+                                    class="w-44"
                                     :aria-label="`Grupo de ${p.nombre}`"
-                                >
-                                    <option :value="null">—</option>
-                                    <option
-                                        v-for="g in grupos"
-                                        :key="g.value"
-                                        :value="g.value"
-                                    >
-                                        {{ g.etiqueta }}
-                                    </option>
-                                </select>
+                                />
                             </td>
                             <td class="px-3 py-2 text-right">
                                 <Button

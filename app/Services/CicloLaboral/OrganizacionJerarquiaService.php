@@ -13,13 +13,9 @@ use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
-use App\Services\Auditoria\AuditoriaService;
 use App\Services\Colaboradores\JerarquiaColaboradorService;
-use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -47,7 +43,6 @@ class OrganizacionJerarquiaService
     public function __construct(
         private readonly JerarquiaColaboradorService $jerarquia,
         private readonly AlcanceOrganizacionalService $alcance,
-        private readonly AuditoriaService $auditoria,
     ) {}
 
     /**
@@ -470,148 +465,5 @@ class OrganizacionJerarquiaService
 
             $actual = $siguiente;
         }
-    }
-
-    /**
-     * Cambia el jefe directo (y opcionalmente el gerente) de una persona.
-     * Las solicitudes y aprobaciones NUEVAS se dirigen al jefe nuevo; las
-     * históricas conservan su snapshot (aprobaciones.aprobador_*). Queda
-     * auditado: actor, antes, después, motivo.
-     *
-     * @param  array{jefe_id: int|null, gerente_id?: int|null, motivo?: string|null}  $datos
-     */
-    public function asignarSuperiores(Colaborador $persona, array $datos, User $actor): Colaborador
-    {
-        if ($actor->colaborador_id !== null && $actor->colaborador_id === $persona->id) {
-            throw new AuthorizationException('No puedes cambiar tu propio jefe: pídelo a Recursos Humanos.');
-        }
-
-        $jefeId = $datos['jefe_id'];
-        $cambiaGerente = array_key_exists('gerente_id', $datos);
-        $gerenteId = $datos['gerente_id'] ?? null;
-
-        $this->validarSuperior($persona, $jefeId, 'jefe_id');
-
-        if ($cambiaGerente) {
-            $this->validarSuperior($persona, $gerenteId, 'gerente_id');
-        }
-
-        [$antes, $despues] = DB::transaction(function () use ($persona, $jefeId, $cambiaGerente, $gerenteId): array {
-            $fila = Colaborador::query()->lockForUpdate()->findOrFail($persona->id);
-            $antes = ['jefe_id' => $fila->jefe_id, 'gerente_id' => $fila->gerente_id];
-
-            $fila->jefe_id = $jefeId;
-
-            if ($cambiaGerente) {
-                $fila->gerente_id = $gerenteId;
-            }
-
-            $fila->save();
-
-            return [$antes, ['jefe_id' => $fila->jefe_id, 'gerente_id' => $fila->gerente_id]];
-        });
-
-        if ($antes !== $despues) {
-            $nombres = Colaborador::query()->whereIn('id', array_filter([...array_values($antes), ...array_values($despues)]))->get()->mapWithKeys(fn (Colaborador $c) => [$c->id => $c->nombreCompleto()]);
-
-            $this->auditoria->registrar('jefe_directo_cambiado', $persona, $actor, [
-                'antes' => ['jefe' => $nombres[$antes['jefe_id']] ?? null, 'jefe_id' => $antes['jefe_id'], 'gerente' => $nombres[$antes['gerente_id']] ?? null, 'gerente_id' => $antes['gerente_id']],
-                'despues' => ['jefe' => $nombres[$despues['jefe_id']] ?? null, 'jefe_id' => $despues['jefe_id'], 'gerente' => $nombres[$despues['gerente_id']] ?? null, 'gerente_id' => $despues['gerente_id']],
-                'motivo' => $datos['motivo'] ?? null,
-            ]);
-        }
-
-        return $persona->refresh();
-    }
-
-    /**
-     * Personas activas para administrar su jefe directo, con su cadena
-     * resultante, subordinados directos y advertencias (sin jefe cuando su
-     * puesto sí tiene un puesto superior).
-     *
-     * @param  array{busqueda?: string|null, sucursal_id?: int|null, solo_sin_jefe?: bool, per_page?: int}  $filtros
-     * @return LengthAwarePaginator<int, Colaborador>
-     */
-    public function listarParaAdministrar(User $usuario, array $filtros = []): LengthAwarePaginator
-    {
-        $consulta = $this->alcance->limitarColaboradoresPorAlcance(Colaborador::query(), $usuario)
-            ->whereIn('estatus', [EstadoUsuario::Activo->value, EstadoUsuario::EnIncorporacion->value])
-            ->with(['puesto:id,nombre,puesto_superior_id', 'departamento:id,nombre', 'sucursalPrincipal:id,nombre', 'jefe:id,name,apellidos,puesto_id', 'jefe.puesto:id,nombre', 'gerente:id,name,apellidos'])
-            ->withCount(['subordinados as subordinados_directos' => fn ($q) => $q->whereIn('estatus', [EstadoUsuario::Activo->value, EstadoUsuario::EnIncorporacion->value])]);
-
-        $busqueda = trim((string) ($filtros['busqueda'] ?? ''));
-
-        if ($busqueda !== '') {
-            $consulta->where(fn ($q) => $q->where('name', 'like', "%{$busqueda}%")->orWhere('apellidos', 'like', "%{$busqueda}%")->orWhere('numero_empleado', 'like', "%{$busqueda}%"));
-        }
-
-        if (! empty($filtros['sucursal_id'])) {
-            $consulta->where('sucursal_principal_id', (int) $filtros['sucursal_id']);
-        }
-
-        if (! empty($filtros['solo_sin_jefe'])) {
-            $consulta->whereNull('jefe_id')->whereNull('gerente_id')->whereHas('puesto', fn ($q) => $q->whereNotNull('puesto_superior_id'));
-        }
-
-        return $consulta->orderBy('name')->orderBy('apellidos')->paginate(max(5, min(100, (int) ($filtros['per_page'] ?? 25))));
-    }
-
-    /**
-     * Fila de la pantalla de jefes directos (persona cargada por
-     * listarParaAdministrar()).
-     *
-     * @return array<string, mixed>
-     */
-    public function filaAdministracion(Colaborador $c): array
-    {
-        return [
-            'id' => $c->id,
-            'nombre' => $c->nombreCompleto(),
-            'numero_empleado' => $c->numero_empleado,
-            'puesto' => $c->puesto?->nombre,
-            'departamento' => $c->departamento?->nombre,
-            'sucursal' => $c->sucursalPrincipal?->nombre,
-            'jefe' => $c->jefe !== null ? ['id' => $c->jefe->id, 'nombre' => $c->jefe->nombreCompleto(), 'puesto' => $c->jefe->puesto?->nombre] : null,
-            'gerente' => $c->gerente !== null ? ['id' => $c->gerente->id, 'nombre' => $c->gerente->nombreCompleto()] : null,
-            'cadena' => $this->cadenaDeMandoDe($c)->map(fn (Colaborador $s) => $s->nombreCompleto())->values()->all(),
-            'subordinados_directos' => (int) ($c->getAttribute('subordinados_directos') ?? 0),
-            'advertencia' => $c->jefe_id === null && $c->gerente_id === null && $c->puesto?->puesto_superior_id !== null
-                ? 'Sin jefe directo: sus solicitudes y preautorizaciones no tienen a quién llegar.'
-                : null,
-        ];
-    }
-
-    /**
-     * Detalle para el panel lateral: cadena resultante y subordinados.
-     *
-     * @return array<string, mixed>
-     */
-    public function detalleJerarquia(Colaborador $persona): array
-    {
-        return [
-            'cadena' => $this->cadenaDeMandoDe($persona)->map(fn (Colaborador $c) => ['id' => $c->id, 'nombre' => $c->nombreCompleto(), 'puesto' => $c->puesto?->nombre])->values()->all(),
-            'subordinados' => $this->subordinadosDe($persona)->map(fn (Colaborador $c) => ['id' => $c->id, 'nombre' => $c->nombreCompleto(), 'puesto' => $c->puesto?->nombre])->values()->all(),
-        ];
-    }
-
-    /**
-     * Personas activas que pueden ser jefe (búsqueda del selector).
-     *
-     * @return list<array{id: int, nombre: string, puesto: string|null, sucursal: string|null}>
-     */
-    public function buscarPosiblesJefes(string $termino, ?int $excluirId = null): array
-    {
-        $termino = trim($termino);
-
-        return array_values(Colaborador::query()
-            ->whereIn('estatus', [EstadoUsuario::Activo->value, EstadoUsuario::EnIncorporacion->value])
-            ->when($excluirId !== null, fn ($q) => $q->where('id', '!=', $excluirId))
-            ->when($termino !== '', fn ($q) => $q->where(fn ($w) => $w->where('name', 'like', "%{$termino}%")->orWhere('apellidos', 'like', "%{$termino}%")->orWhere('numero_empleado', 'like', "%{$termino}%")))
-            ->with(['puesto:id,nombre', 'sucursalPrincipal:id,nombre'])
-            ->orderBy('name')
-            ->limit(20)
-            ->get()
-            ->map(fn (Colaborador $c) => ['id' => $c->id, 'nombre' => $c->nombreCompleto(), 'puesto' => $c->puesto?->nombre, 'sucursal' => $c->sucursalPrincipal?->nombre])
-            ->all());
     }
 }

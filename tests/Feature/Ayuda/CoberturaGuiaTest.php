@@ -232,7 +232,7 @@ const PANTALLAS_GUIA = [
     'pendientes' => ['pages/Rh/Pendientes/Index.vue'],
     'onboarding' => ['pages/Rh/Onboarding/Configuracion.vue'],
     'reingresos' => ['pages/Rh/Reingresos/Index.vue'],
-    'configuracion' => ['pages/Administracion/Configuracion/Jerarquia.vue'],
+    'configuracion' => ['pages/Administracion/Configuracion/Notificaciones.vue'],
     'mis-solicitudes' => ['pages/Solicitudes/Index.vue'],
 ];
 

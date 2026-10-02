@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
+import RadioMarca from '@/components/Common/RadioMarca.vue';
 import Heading from '@/components/Heading.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useAlertas } from '@/composables/useAlertas';
@@ -365,15 +367,15 @@ async function enviarCuestionario(porTiempoAgotado = false) {
                         :key="opcion.id"
                         class="flex items-center gap-2 text-sm"
                     >
-                        <input
-                            type="radio"
-                            :name="`pregunta-${pregunta.id}`"
-                            :checked="
-                                respuestas[pregunta.id]?.opcion_pregunta_id ===
-                                opcion.id
+                        <RadioMarca
+                            :model-value="
+                                respuestas[pregunta.id]?.opcion_pregunta_id ??
+                                null
                             "
-                            class="size-4"
-                            @change="elegirUnica(pregunta.id, opcion.id)"
+                            :value="opcion.id"
+                            @update:model-value="
+                                elegirUnica(pregunta.id, opcion.id)
+                            "
                         />
                         {{ opcion.texto }}
                     </label>
@@ -388,22 +390,19 @@ async function enviarCuestionario(porTiempoAgotado = false) {
                         :key="opcion.id"
                         class="flex items-center gap-2 text-sm"
                     >
-                        <input
-                            type="checkbox"
-                            :checked="
+                        <Checkbox
+                            :model-value="
                                 (
                                     respuestas[pregunta.id]
                                         ?.opciones_seleccionadas ?? []
                                 ).includes(opcion.id)
                             "
-                            class="size-4"
-                            @change="
-                                (evento) =>
+                            @update:model-value="
+                                (v) =>
                                     alternarMultiple(
                                         pregunta.id,
                                         opcion.id,
-                                        (evento.target as HTMLInputElement)
-                                            .checked,
+                                        v === true,
                                     )
                             "
                         />

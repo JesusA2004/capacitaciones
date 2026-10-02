@@ -3,10 +3,12 @@
 namespace App\Services\Headcount;
 
 use App\Models\HeadcountTarget;
+use App\Models\HeadcountTargetHistorial;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
@@ -56,7 +58,7 @@ class HeadcountImportService
      *     conflictos: array<int, string>,
      * }
      */
-    public function importar(string $rutaArchivo, User $usuario): array
+    public function importar(string $rutaArchivo, ?User $usuario, bool $soloFaltantes = false): array
     {
         $spreadsheet = IOFactory::load($rutaArchivo);
 
@@ -132,23 +134,38 @@ class HeadcountImportService
                         ->where('puesto_id', $puesto->id)
                         ->first();
 
-                    if ($existente !== null && (int) $existente->plantilla_autorizada === $fila['plantilla_autorizada']) {
+                    // Seeder/arranque: nunca pisa una plantilla que ya existe
+                    // (pudo capturarla RH después de la primera carga).
+                    if ($existente !== null && ($soloFaltantes || (int) $existente->plantilla_autorizada === $fila['plantilla_autorizada'])) {
                         $resultado['sin_cambio']++;
 
                         continue;
                     }
 
-                    HeadcountTarget::query()->updateOrCreate(
-                        ['sucursal_id' => $sucursal->id, 'puesto_id' => $puesto->id],
-                        [
-                            'empresa_id' => $sucursal->empresa_id,
-                            'plantilla_autorizada' => $fila['plantilla_autorizada'],
+                    DB::transaction(function () use ($sucursal, $puesto, $fila, $nombreHoja, $usuario, $existente): void {
+                        $target = HeadcountTarget::query()->updateOrCreate(
+                            ['sucursal_id' => $sucursal->id, 'puesto_id' => $puesto->id],
+                            [
+                                'empresa_id' => $sucursal->empresa_id,
+                                'plantilla_autorizada' => $fila['plantilla_autorizada'],
+                                'fuente' => 'excel:'.Str::slug($nombreHoja),
+                                'fecha_corte' => Carbon::today(),
+                                'updated_by_id' => $usuario?->id,
+                                'created_by_id' => $existente->created_by_id ?? $usuario?->id,
+                            ],
+                        );
+
+                        HeadcountTargetHistorial::query()->create([
+                            'headcount_target_id' => $target->id,
+                            'sucursal_id' => $sucursal->id,
+                            'puesto_id' => $puesto->id,
+                            'valor_anterior' => $existente?->plantilla_autorizada,
+                            'valor_nuevo' => $fila['plantilla_autorizada'],
                             'fuente' => 'excel:'.Str::slug($nombreHoja),
-                            'fecha_corte' => Carbon::today(),
-                            'updated_by_id' => $usuario->id,
-                            'created_by_id' => $existente->created_by_id ?? $usuario->id,
-                        ],
-                    );
+                            'motivo' => 'Importación del Excel de headcount',
+                            'user_id' => $usuario?->id,
+                        ]);
+                    });
 
                     $existente === null ? $resultado['creados']++ : $resultado['actualizados']++;
                 }

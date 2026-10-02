@@ -3,12 +3,15 @@
 namespace App\Http\Controllers\Administracion;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Administracion\ActualizarPlantillaAutorizadaRequest;
 use App\Http\Requests\Administracion\StoreSucursalRequest;
 use App\Http\Requests\Administracion\UpdateSucursalRequest;
 use App\Models\Empresa;
+use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\Headcount\HeadcountService;
+use App\Services\Headcount\PlantillaAutorizadaService;
 use App\Services\Sucursales\SucursalDetalleService;
 use App\Support\Consultas\EstadisticasActivoInactivo;
 use Illuminate\Http\RedirectResponse;
@@ -21,6 +24,7 @@ class SucursalController extends Controller
     public function __construct(
         private readonly HeadcountService $headcount,
         private readonly SucursalDetalleService $detalle,
+        private readonly PlantillaAutorizadaService $plantilla,
     ) {}
 
     public function index(Request $request): Response
@@ -66,7 +70,7 @@ class SucursalController extends Controller
      * Detalle de sucursal: plantilla por puesto (permitida/cubierta/
      * vacantes/cobertura), igual que la sección "Plantilla" del encargo.
      */
-    public function show(Sucursal $sucursal): Response
+    public function show(Request $request, Sucursal $sucursal): Response
     {
         $this->authorize('view', $sucursal);
 
@@ -97,7 +101,29 @@ class SucursalController extends Controller
             'gerente' => $this->detalle->gerente($sucursal),
             'porDepartamento' => $this->detalle->porDepartamento($sucursal),
             'departamentos' => $sucursal->colaboradores()->where('estatus', 'activo')->whereNotNull('departamento_id')->distinct('departamento_id')->count('departamento_id'),
+            // Solo RH captura plantilla; el histórico (quién, cuándo, antes,
+            // después, motivo) lo ve cualquiera que pueda ver la sucursal.
+            'puedeEditarPlantilla' => $request->user()->can('editarPlantilla', $sucursal),
+            'puestosCapturables' => fn () => $this->plantilla->puestosCapturables(),
+            'historialPlantilla' => $this->plantilla->historial($sucursal),
         ]);
+    }
+
+    /**
+     * Captura de plantilla autorizada de un puesto (solo RH). La regla y el
+     * histórico viven en PlantillaAutorizadaService.
+     */
+    public function actualizarPlantilla(ActualizarPlantillaAutorizadaRequest $request, Sucursal $sucursal, Puesto $puesto): RedirectResponse
+    {
+        $this->plantilla->actualizar(
+            $sucursal,
+            $puesto,
+            $request->integer('plantilla_autorizada'),
+            $request->string('motivo')->toString(),
+            $request->user(),
+        );
+
+        return back()->with('toast', ['type' => 'success', 'message' => sprintf('Plantilla autorizada de %s actualizada.', $puesto->nombre)]);
     }
 
     public function store(StoreSucursalRequest $request): RedirectResponse

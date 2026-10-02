@@ -6,6 +6,7 @@ use App\Enums\EstadoAltaColaborador;
 use App\Enums\EstadoUsuario;
 use App\Models\Colaborador;
 use App\Models\User;
+use App\Services\Administracion\AccesoCuentaService;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use App\Services\Vacantes\VacanteAutoGenerationService;
 use Illuminate\Support\Facades\DB;
@@ -28,6 +29,7 @@ class BajaColaboradorService
     public function __construct(
         private readonly MovimientoLaboralService $movimientos,
         private readonly VacanteAutoGenerationService $vacantes,
+        private readonly AccesoCuentaService $acceso,
     ) {}
 
     public function ejecutar(Colaborador $colaborador, User $actor, ?string $motivo = null): void
@@ -65,8 +67,9 @@ class BajaColaboradorService
             $cuenta = $colaborador->user;
 
             if ($cuenta !== null) {
-                $cuenta->tokens()->delete();
-                $cuenta->mobileDevices()->whereNull('revoked_at')->update(['revoked_at' => now()]);
+                // La cuenta también queda INACTIVA (no solo sin sesiones):
+                // así se ve en Usuarios y nunca vuelve a entrar sola.
+                $this->acceso->revocar($cuenta, $actor, 'Baja laboral');
             }
 
             // Headcount/vacantes: la plantilla actual ya bajó (el

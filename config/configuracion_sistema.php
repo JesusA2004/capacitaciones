@@ -166,6 +166,12 @@ return [
             'destinatarios' => ['evaluador'],
             'fallback' => ['jefe_directo'],
         ],
+        'cierre_baja_solicitada' => [
+            'etiqueta' => 'Baja solicitada (accesos suspendidos)',
+            'descripcion' => 'El gerente solicitó la baja: sus accesos ya se suspendieron. Regionales y RH se enteran y pueden rehabilitarlos.',
+            'destinatarios' => ['regional', 'rh'],
+            'fallback' => ['gerencia_rh'],
+        ],
         'cierre_preautorizacion' => [
             'etiqueta' => 'Baja por preautorizar',
             'descripcion' => 'Se solicitó una baja; su superior debe preautorizarla.',

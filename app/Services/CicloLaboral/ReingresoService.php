@@ -390,7 +390,7 @@ class ReingresoService
             'estado_alta' => EstadoAltaColaborador::PendienteDocumentos,
             'puesto_id' => $reingreso->puesto_id ?? $colaborador->puesto_id,
             'sucursal_principal_id' => $reingreso->sucursal_id ?? $colaborador->sucursal_principal_id,
-            'jefe_id' => $reingreso->jefe_id ?? $colaborador->jefe_id,
+            // jefe_id no se toca: sale del organigrama (JefeDirectoService).
             'sueldo_mensual' => $reingreso->sueldo_mensual ?? $colaborador->sueldo_mensual,
             'fecha_ingreso' => $inicio->toDateString(),
             'fecha_baja' => null,
@@ -424,7 +424,7 @@ class ReingresoService
         $cuenta = $colaborador->user;
 
         if ($cuenta !== null && $cuenta->acceso_bloqueado_en !== null) {
-            $cuenta->forceFill(['acceso_bloqueado_en' => null])->save();
+            $cuenta->forceFill(['acceso_bloqueado_en' => null, 'acceso_bloqueado_motivo' => null, 'acceso_bloqueado_por' => null])->save();
         }
     }
 

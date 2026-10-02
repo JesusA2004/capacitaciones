@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Services\Organigrama\JefeDirectoService;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -32,6 +33,8 @@ class DatabaseSeeder extends Seeder
             PuestoJerarquiaSeeder::class,
             DocumentTypeSeeder::class,
             MatrizComercialSeeder::class,
+            // Necesita sucursales y puestos ya sembrados (empata por nombre).
+            PlantillaAutorizadaSeeder::class,
             CursoInduccionSeeder::class,
             BirthdayPhraseSeeder::class,
         ]);
@@ -39,5 +42,9 @@ class DatabaseSeeder extends Seeder
         if (app()->environment(['local', 'testing']) || config('features.seed_demo_data')) {
             $this->call(DemoSeeder::class);
         }
+
+        // Jefe directo = organigrama: todos quedan con el jefe que les toca
+        // por puesto y sucursal (JefeDirectoService), nunca uno a mano.
+        app(JefeDirectoService::class)->sincronizar();
     }
 }

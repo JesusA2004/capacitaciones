@@ -46,6 +46,13 @@ export type UsuarioItem = {
     acceso_bloqueado_en: string | null;
     email_verified_at: string | null;
     ultimo_acceso: string | null;
+    /** Cuenta (acceso) — independiente del estado laboral. */
+    estado_cuenta: 'activa' | 'inactiva';
+    motivo_inactiva: string | null;
+    /** Estado laboral del colaborador (baja en trámite, baja laboral, activo…). */
+    estado_colaborador: { clave: string; etiqueta: string };
+    puede_revocar: boolean;
+    puede_restablecer: boolean;
 };
 
 export type DepartamentoItem = {

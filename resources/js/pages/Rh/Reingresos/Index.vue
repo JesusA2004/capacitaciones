@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { RotateCcw, Search } from '@lucide/vue';
-import { ref } from 'vue';
+import { useDebounceFn } from '@vueuse/core';
+import { ref, watch } from 'vue';
 import AprobacionesResumen from '@/components/ciclo/AprobacionesResumen.vue';
+import Casilla from '@/components/Common/Casilla.vue';
+import DatePicker from '@/components/Common/DatePicker.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
@@ -73,10 +77,14 @@ const termino = ref(props.busqueda);
 function buscar() {
     router.get(
         index.url(),
-        { busqueda: termino.value },
-        { preserveState: true, replace: true },
+        { busqueda: termino.value || undefined },
+        { preserveState: true, preserveScroll: true, replace: true },
     );
 }
+
+// Sin escribir nada ya se ven las bajas recientes; la lista se actualiza
+// conforme se escribe (sin mínimo de letras ni botón).
+watch(termino, useDebounceFn(buscar, 300));
 
 const seleccionado = ref<Resultado | null>(null);
 const solicitud = useForm({
@@ -202,39 +210,37 @@ function enviarDecision(reingreso: ReingresoFila) {
             <div class="grid gap-3 sm:grid-cols-2">
                 <div class="grid gap-1.5">
                     <Label>Puesto</Label>
-                    <select
+                    <SelectSimple
                         v-model="solicitud.puesto_id"
-                        class="h-9 rounded-md border bg-transparent px-3 text-sm"
-                    >
-                        <option :value="null">El mismo</option>
-                        <option
-                            v-for="p in opciones.puestos"
-                            :key="p.id"
-                            :value="p.id"
-                        >
-                            {{ p.nombre }}
-                        </option>
-                    </select>
+                        numerico
+                        :opciones="
+                            opciones.puestos.map((p) => ({
+                                value: p.id,
+                                label: p.nombre,
+                            }))
+                        "
+                        opcion-vacia="El mismo"
+                        placeholder="El mismo"
+                    />
                 </div>
                 <div class="grid gap-1.5">
                     <Label>Sucursal</Label>
-                    <select
+                    <SelectSimple
                         v-model="solicitud.sucursal_id"
-                        class="h-9 rounded-md border bg-transparent px-3 text-sm"
-                    >
-                        <option :value="null">La misma</option>
-                        <option
-                            v-for="s in opciones.sucursales"
-                            :key="s.id"
-                            :value="s.id"
-                        >
-                            {{ s.nombre }}
-                        </option>
-                    </select>
+                        numerico
+                        :opciones="
+                            opciones.sucursales.map((s) => ({
+                                value: s.id,
+                                label: s.nombre,
+                            }))
+                        "
+                        opcion-vacia="La misma"
+                        placeholder="La misma"
+                    />
                 </div>
                 <div class="grid gap-1.5">
                     <Label>Fecha de reingreso</Label
-                    ><Input v-model="solicitud.fecha_reingreso" type="date" />
+                    ><DatePicker v-model="solicitud.fecha_reingreso" />
                 </div>
                 <div class="grid gap-1.5">
                     <Label>Sueldo mensual</Label
@@ -254,9 +260,8 @@ function enviarDecision(reingreso: ReingresoFila) {
                     v-for="t in opciones.tiposDocumento"
                     :key="t.id"
                     class="flex items-center gap-2"
-                    ><input
+                    ><Casilla
                         v-model="solicitud.documentos_adicionales"
-                        type="checkbox"
                         :value="t.id"
                     />
                     {{ t.nombre }}</label

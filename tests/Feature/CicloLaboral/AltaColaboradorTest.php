@@ -11,6 +11,7 @@ use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
 use App\Models\GeneratedDocument;
 use App\Models\MovimientoLaboral;
+use App\Models\Puesto;
 use App\Models\TareaRh;
 use App\Models\User;
 use App\Services\Onboarding\OnboardingService;
@@ -50,8 +51,14 @@ test('rh da de alta un colaborador con estructura, contrato, expediente, cuenta 
     Sanctum::actingAs($this->rh);
     DocumentType::factory()->create(['requerido' => true, 'activo' => true]);
 
+    // El jefe NO se manda: sale del organigrama (quien ocupa el puesto
+    // superior). Un jefe_id enviado por una app vieja se ignora.
+    $superior = Puesto::factory()->create();
+    $this->jefe->update(['puesto_id' => $superior->id, 'estatus' => 'activo']);
+    $this->estructura['puesto']->update(['puesto_superior_id' => $superior->id]);
+
     $respuesta = $this->postJson('/api/v1/rh/colaboradores', clDatosAlta($this->estructura, [
-        'jefe_id' => $this->jefe->id,
+        'jefe_id' => $this->rh->colaborador_id,
         'gerente_id' => $this->jefe->id,
     ]))->assertCreated();
 

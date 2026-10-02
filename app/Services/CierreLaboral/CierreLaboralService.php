@@ -19,6 +19,7 @@ use App\Models\FiniquitoCalculo;
 use App\Models\GeneratedDocument;
 use App\Models\SolicitudInterna;
 use App\Models\User;
+use App\Services\Administracion\AccesoCuentaService;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\CicloLaboral\AprobacionService;
@@ -49,9 +50,12 @@ use Illuminate\Validation\ValidationException;
  *   6. gerente cita al excolaborador → firma/huella del finiquito → pago
  *   7. cierre: baja (solo desde la fecha efectiva) + expediente cerrado
  *
- * Nada desactiva al colaborador antes de la autorización RH y la fecha
+ * Al SOLICITAR la baja se suspende de inmediato el acceso de la persona
+ * (cuenta inactiva, AccesoCuentaService) y se avisa a regionales y RH, que
+ * pueden rehabilitarlo; si la baja se rechaza o cancela, el acceso vuelve
+ * solo. Su estatus LABORAL no cambia hasta la autorización RH y la fecha
  * efectiva. NUNCA elimina datos: User/Colaborador/expediente/contratos/
- * evaluaciones/documentos/timeline se conservan; solo se bloquea el acceso.
+ * evaluaciones/documentos/timeline se conservan para un posible reingreso.
  *
  * Reutiliza la solicitud interna de baja (folio, evidencia, historial,
  * finiquito) y BajaColaboradorService (bloqueo real, vacante).
@@ -64,6 +68,9 @@ class CierreLaboralService
 
     public const PERMISO_PROGRAMAR_PAGO = 'cierres.programar_pago';
 
+    /** Prefijo del motivo de bloqueo: identifica una suspensión puesta por el trámite de baja. */
+    public const MOTIVO_SUSPENSION = 'Baja en trámite:';
+
     public function __construct(
         private readonly SolicitudesService $solicitudes,
         private readonly FiniquitoService $finiquitos,
@@ -74,6 +81,7 @@ class CierreLaboralService
         private readonly AprobacionService $aprobaciones,
         private readonly OrganizacionJerarquiaService $jerarquia,
         private readonly NotificadorRhService $notificador,
+        private readonly AccesoCuentaService $acceso,
     ) {}
 
     /**
@@ -151,8 +159,28 @@ class CierreLaboralService
                 $cierre->update(['estado' => EstadoCierreLaboral::PendienteRh]);
             }
 
+            // Baja solicitada = accesos fuera desde ya (web y app).
+            $cuenta = $colaborador->user;
+
+            if ($cuenta !== null && $cuenta->acceso_bloqueado_en === null) {
+                $this->acceso->revocar($cuenta, $actor, sprintf('%s %s', self::MOTIVO_SUSPENSION, $tipoBaja->etiqueta()));
+                $cierre->update(['acceso_suspendido_en' => now()]);
+            }
+
             return $cierre;
         });
+
+        $nombre = $colaborador->nombreCompleto();
+        $this->notificador->notificarEvento(
+            'cierre_baja_solicitada',
+            $colaborador,
+            ['solicitante' => $actor, 'excluir' => [$actor->id]],
+            'Baja solicitada',
+            sprintf('%s solicitó la baja de %s (%s, efectiva %s). Sus accesos ya se suspendieron; puedes rehabilitarlos desde Usuarios.', $actor->name, $nombre, $tipoBaja->etiqueta(), $cierre->fecha_efectiva->format('d/m/Y')),
+            $cierre,
+            'ver_cierre',
+            'alta',
+        );
 
         $this->auditoria->registrar('cierre_laboral_solicitado', $cierre, $actor, [
             'colaborador_id' => $colaborador->id,
@@ -288,6 +316,7 @@ class CierreLaboralService
         });
 
         $this->auditoria->registrar('cierre_laboral_rechazado', $cierre, $actor, ['colaborador_id' => $cierre->colaborador_id, 'motivo' => $motivo]);
+        $this->devolverAcceso($cierre, $actor, 'Baja rechazada');
         $this->sincronizarPendientes($cierre, $actor);
 
         return $cierre->refresh();
@@ -628,6 +657,7 @@ class CierreLaboralService
         });
 
         $this->auditoria->registrar('cierre_laboral_cancelado', $cierre, $actor, ['colaborador_id' => $cierre->colaborador_id, 'motivo' => $motivo]);
+        $this->devolverAcceso($cierre, $actor, 'Baja cancelada');
         $this->sincronizarPendientes($cierre->refresh(), $actor);
 
         return $cierre;
@@ -953,6 +983,22 @@ class CierreLaboralService
             default:
                 break;
         }
+    }
+
+    /**
+     * Si la baja no procede, la persona recupera el acceso — solo cuando la
+     * suspensión la puso este trámite (si alguien la bloqueó por otra razón,
+     * se respeta).
+     */
+    private function devolverAcceso(CierreLaboral $cierre, User $actor, string $motivo): void
+    {
+        $cuenta = $cierre->colaborador->user;
+
+        if ($cierre->acceso_suspendido_en === null || $cuenta === null || ! str_starts_with((string) $cuenta->acceso_bloqueado_motivo, self::MOTIVO_SUSPENSION)) {
+            return;
+        }
+
+        $this->acceso->restablecer($cuenta, $actor, $motivo);
     }
 
     private function exigirSinCierreAbierto(Colaborador $colaborador): void

@@ -42,9 +42,13 @@ class UserPolicy
             && $this->alcance->puedeVerUsuario($usuario, $objetivo);
     }
 
+    /**
+     * RH y regionales rehabilitan el acceso (p. ej. una baja en trámite que
+     * se suspendió al solicitarla) aunque no puedan revocar cuentas.
+     */
     public function restablecerAcceso(User $usuario, User $objetivo): bool
     {
-        return $usuario->can('usuarios.desactivar')
+        return ($usuario->can('usuarios.desactivar') || $usuario->can('usuarios.restablecer_acceso'))
             && $this->alcance->puedeVerUsuario($usuario, $objetivo);
     }
 

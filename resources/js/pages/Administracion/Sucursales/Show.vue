@@ -1,14 +1,36 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
-import { ArrowLeft, Building, MapPin, Phone } from '@lucide/vue';
-import { computed } from 'vue';
+import { Head, Link, useForm } from '@inertiajs/vue3';
+import {
+    ArrowLeft,
+    Building,
+    History,
+    MapPin,
+    Pencil,
+    Phone,
+    Plus,
+} from '@lucide/vue';
+import { computed, ref } from 'vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import DashboardChartCard from '@/components/Dashboard/DashboardChartCard.vue';
+import InputError from '@/components/InputError.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { useInitials } from '@/composables/useInitials';
 import { dashboard } from '@/routes';
 import { index } from '@/routes/administracion/sucursales';
+import { update as actualizarPlantilla } from '@/routes/administracion/sucursales/plantilla';
 import { index as indexVacantes } from '@/routes/rh/vacantes';
 
 /**
@@ -53,6 +75,18 @@ const props = defineProps<{
         fuera_de_plantilla: number;
     };
     departamentos: number;
+    puedeEditarPlantilla: boolean;
+    puestosCapturables?: { id: number; nombre: string }[];
+    historialPlantilla: {
+        id: number;
+        puesto: string | null;
+        valor_anterior: number | null;
+        valor_nuevo: number;
+        fuente: string;
+        motivo: string | null;
+        usuario: string | null;
+        fecha: string;
+    }[];
 }>();
 
 defineOptions({
@@ -92,11 +126,59 @@ const donaCobertura = computed(() => [
     { etiqueta: 'Vacantes', valor: props.totales.vacantes },
 ]);
 
+// Con gente o con plantilla: un puesto ocupado sin plantilla también se
+// lista para que RH vea el hueco y lo capture.
 const puestos = computed(() =>
     [...props.plantillaPorPuesto]
-        .filter((fila) => fila.plantilla_autorizada > 0)
+        .filter(
+            (fila) =>
+                fila.plantilla_autorizada > 0 || fila.plantilla_actual > 0,
+        )
         .sort((a, b) => b.plantilla_autorizada - a.plantilla_autorizada),
 );
+
+// --- Captura de plantilla (solo RH; el backend vuelve a autorizar) ---
+const editando = ref<{ puesto_id: number | null; puesto: string } | null>(null);
+const form = useForm({ plantilla_autorizada: 0, motivo: '' });
+
+function editar(fila: PlantillaPorPuesto | null) {
+    form.reset();
+    form.clearErrors();
+    editando.value = fila
+        ? { puesto_id: fila.puesto_id, puesto: fila.puesto }
+        : { puesto_id: null, puesto: '' };
+    form.plantilla_autorizada = fila?.plantilla_autorizada ?? 1;
+}
+
+function guardarPlantilla() {
+    const puestoId = editando.value?.puesto_id;
+
+    if (!puestoId) {
+        form.setError('plantilla_autorizada', 'Elige el puesto.');
+
+        return;
+    }
+
+    form.put(
+        actualizarPlantilla.url({
+            sucursal: props.sucursal.id,
+            puesto: puestoId,
+        }),
+        {
+            preserveScroll: true,
+            onSuccess: () => (editando.value = null),
+        },
+    );
+}
+
+function fuenteEtiqueta(fuente: string): string {
+    return fuente === 'captura' ? 'Captura de RH' : 'Excel de headcount';
+}
+
+const formatoFecha = new Intl.DateTimeFormat('es-MX', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+});
 
 function porcentaje(fila: PlantillaPorPuesto): number {
     return fila.plantilla_autorizada > 0
@@ -224,17 +306,27 @@ function porcentaje(fila: PlantillaPorPuesto): number {
                     <h2 id="plantilla-puesto" class="text-sm font-semibold">
                         Plantilla por puesto
                     </h2>
-                    <Link
-                        v-if="totales.vacantes > 0"
-                        :href="
-                            indexVacantes.url({
-                                query: { sucursal_id: sucursal.id },
-                            })
-                        "
-                        class="text-xs text-primary hover:underline"
-                    >
-                        Ver vacantes
-                    </Link>
+                    <div class="flex items-center gap-3">
+                        <Link
+                            v-if="totales.vacantes > 0"
+                            :href="
+                                indexVacantes.url({
+                                    query: { sucursal_id: sucursal.id },
+                                })
+                            "
+                            class="text-xs text-primary hover:underline"
+                        >
+                            Ver vacantes
+                        </Link>
+                        <Button
+                            v-if="puedeEditarPlantilla"
+                            size="sm"
+                            variant="outline"
+                            @click="editar(null)"
+                        >
+                            <Plus class="size-4" /> Agregar puesto
+                        </Button>
+                    </div>
                 </header>
                 <p
                     v-if="puestos.length === 0"
@@ -251,14 +343,25 @@ function porcentaje(fila: PlantillaPorPuesto): number {
                         <p class="min-w-0 text-sm font-medium break-words">
                             {{ fila.puesto }}
                         </p>
-                        <p class="text-right text-sm tabular-nums">
-                            <span class="font-semibold">{{
-                                fila.plantilla_actual
-                            }}</span>
-                            <span class="text-muted-foreground">
-                                / {{ fila.plantilla_autorizada }}</span
+                        <div class="flex items-center gap-1.5">
+                            <p class="text-right text-sm tabular-nums">
+                                <span class="font-semibold">{{
+                                    fila.plantilla_actual
+                                }}</span>
+                                <span class="text-muted-foreground">
+                                    / {{ fila.plantilla_autorizada }}</span
+                                >
+                            </p>
+                            <Button
+                                v-if="puedeEditarPlantilla"
+                                size="icon-sm"
+                                variant="ghost"
+                                :aria-label="`Editar plantilla autorizada de ${fila.puesto}`"
+                                @click="editar(fila)"
                             >
-                        </p>
+                                <Pencil class="size-3.5" />
+                            </Button>
+                        </div>
                         <div
                             class="col-span-2 h-2 overflow-hidden rounded-full bg-muted"
                             role="progressbar"
@@ -326,5 +429,129 @@ function porcentaje(fila: PlantillaPorPuesto): number {
                 />
             </div>
         </div>
+        <!-- Histórico de la plantilla autorizada: quién, cuándo, antes → después -->
+        <section
+            class="rounded-xl border bg-card"
+            aria-labelledby="historial-plantilla"
+        >
+            <header class="flex items-center gap-2 border-b px-4 py-2.5">
+                <History class="size-4 text-muted-foreground" />
+                <h2 id="historial-plantilla" class="text-sm font-semibold">
+                    Histórico de plantilla autorizada
+                </h2>
+            </header>
+            <p
+                v-if="historialPlantilla.length === 0"
+                class="px-4 py-6 text-center text-sm text-muted-foreground"
+            >
+                Sin cambios registrados.
+            </p>
+            <ul v-else class="divide-y">
+                <li
+                    v-for="cambio in historialPlantilla"
+                    :key="cambio.id"
+                    class="grid gap-1 px-4 py-2.5 text-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                >
+                    <div class="min-w-0">
+                        <p class="font-medium break-words">
+                            {{ cambio.puesto ?? '—' }}:
+                            <span class="text-muted-foreground tabular-nums">{{
+                                cambio.valor_anterior ?? 'sin plantilla'
+                            }}</span>
+                            →
+                            <span class="font-semibold tabular-nums">{{
+                                cambio.valor_nuevo
+                            }}</span>
+                        </p>
+                        <p
+                            v-if="cambio.motivo"
+                            class="text-xs break-words text-muted-foreground"
+                        >
+                            {{ cambio.motivo }}
+                        </p>
+                    </div>
+                    <p class="text-xs text-muted-foreground sm:text-right">
+                        {{ cambio.usuario ?? 'Sistema' }} ·
+                        {{ fuenteEtiqueta(cambio.fuente) }}<br />
+                        {{ formatoFecha.format(new Date(cambio.fecha)) }}
+                    </p>
+                </li>
+            </ul>
+        </section>
     </div>
+
+    <Dialog
+        :open="editando !== null"
+        @update:open="(abierto: boolean) => !abierto && (editando = null)"
+    >
+        <DialogContent class="sm:max-w-md">
+            <DialogHeader>
+                <DialogTitle>
+                    {{
+                        editando?.puesto
+                            ? `Plantilla autorizada: ${editando.puesto}`
+                            : 'Agregar puesto a la plantilla'
+                    }}
+                </DialogTitle>
+                <DialogDescription>
+                    {{ sucursal.nombre }}. El cambio queda en el histórico con
+                    tu nombre y el motivo.
+                </DialogDescription>
+            </DialogHeader>
+
+            <form
+                class="flex flex-col gap-4"
+                @submit.prevent="guardarPlantilla"
+            >
+                <div v-if="editando && !editando.puesto" class="grid gap-1.5">
+                    <Label for="puesto-plantilla">Puesto</Label>
+                    <SelectSimple
+                        id="puesto-plantilla"
+                        v-model="editando.puesto_id"
+                        numerico
+                        :opciones="
+                            (puestosCapturables ?? []).map((p) => ({
+                                value: p.id,
+                                label: p.nombre,
+                            }))
+                        "
+                        placeholder="Elige un puesto"
+                    />
+                </div>
+                <div class="grid gap-1.5">
+                    <Label for="plantilla-autorizada">Plazas autorizadas</Label>
+                    <Input
+                        id="plantilla-autorizada"
+                        v-model.number="form.plantilla_autorizada"
+                        type="number"
+                        min="0"
+                        max="999"
+                        inputmode="numeric"
+                    />
+                    <InputError :message="form.errors.plantilla_autorizada" />
+                </div>
+                <div class="grid gap-1.5">
+                    <Label for="motivo-plantilla">Motivo del cambio</Label>
+                    <Textarea
+                        id="motivo-plantilla"
+                        v-model="form.motivo"
+                        rows="2"
+                        placeholder="Ej. Autorización de dirección por apertura de ruta"
+                    />
+                    <InputError :message="form.errors.motivo" />
+                </div>
+                <DialogFooter>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        @click="editando = null"
+                        >Cancelar</Button
+                    >
+                    <Button type="submit" :disabled="form.processing"
+                        >Guardar</Button
+                    >
+                </DialogFooter>
+            </form>
+        </DialogContent>
+    </Dialog>
 </template>

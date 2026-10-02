@@ -9,12 +9,16 @@ use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Services\Organigrama\SincronizadorOrganigramaService;
 use Database\Seeders\DatabaseSeeder;
+use Illuminate\Support\Facades\Storage;
 
 /*
  * La plantilla completa que deja `php artisan db:seed` (local/testing,
  * incluye DemoSeeder) respeta la estructura confirmada.
  */
 test('la plantilla demo cumple la estructura confirmada', function () {
+    // El demo genera PDFs de expediente: disco falso para no chocar con
+    // otras corridas en paralelo sobre el mismo NAS de pruebas.
+    Storage::fake('nas');
     $this->seed(DatabaseSeeder::class);
 
     $id = fn (string $nombre) => Puesto::query()->where('nombre', $nombre)->value('id');
