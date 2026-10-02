@@ -34,6 +34,9 @@ class PendienteRhNotification extends Notification implements ShouldQueue
         // Por qué le llegó a este usuario (regla de ruteo y motivo legible):
         // ["route_rule" => "contrato_por_vencer", "recipient_reason" => "..."].
         private readonly array $ruteo = [],
+        // Persona del recurso (aunque el recurso sea un avance, contrato o
+        // cierre): la app abre su ficha sin adivinar.
+        private readonly ?int $colaboradorId = null,
     ) {}
 
     /**
@@ -58,6 +61,7 @@ class PendienteRhNotification extends Notification implements ShouldQueue
             'resource_id' => $this->relatedId,
             'related_type' => $this->relatedType,
             'related_id' => $this->relatedId,
+            'colaborador_id' => $this->colaboradorId,
             'accion' => $this->accion,
             'prioridad' => $this->prioridad,
             ...$this->ruteo,

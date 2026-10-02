@@ -17,8 +17,8 @@ encontrados, priorizando cambios directos sobre auditoría repetida.
 - Cadena gerente → regional → RH en solicitudes
   (`AprobacionJerarquicaService`), exactamente como describe
   `config/solicitudes.php`.
-- Ruta `Administración → Configuración → Jefes directos` registrada y
-  completa (`routes/administracion.php`).
+- ~~Ruta `Administración → Configuración → Jefes directos`~~ — retirada el
+  2026-10-02: el jefe directo sale del organigrama (ver `docs/ORGANIGRAMA.md`).
 - `config/configuracion_sistema.php`: apariencia (13 colores), parámetros
   RH, 13 eventos de notificación con destinatarios/fallback — coincide con
   lo documentado.

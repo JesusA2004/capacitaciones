@@ -20,6 +20,7 @@ use App\Models\EvaluacionPeriodoPrueba;
 use App\Models\OnboardingProceso;
 use App\Models\Reingreso;
 use App\Models\User;
+use App\Services\Administracion\AccesoCuentaService;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Colaboradores\AltaColaboradorService;
@@ -67,6 +68,7 @@ class ReingresoService
         private readonly NotificadorRhService $notificador,
         private readonly AuditoriaService $auditoria,
         private readonly AlcanceOrganizacionalService $alcance,
+        private readonly AccesoCuentaService $acceso,
     ) {}
 
     /**
@@ -423,8 +425,10 @@ class ReingresoService
 
         $cuenta = $colaborador->user;
 
-        if ($cuenta !== null && $cuenta->acceso_bloqueado_en !== null) {
-            $cuenta->forceFill(['acceso_bloqueado_en' => null, 'acceso_bloqueado_motivo' => null, 'acceso_bloqueado_por' => null])->save();
+        // Misma cuenta de siempre: se rehabilita (auditado) para que suba lo
+        // que se le pide desde la app.
+        if ($cuenta !== null) {
+            $this->acceso->restablecer($cuenta, $actor, 'Reingreso autorizado');
         }
     }
 

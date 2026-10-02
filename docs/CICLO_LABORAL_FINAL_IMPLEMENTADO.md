@@ -14,10 +14,9 @@ Superior operativo **preautoriza**; RH da la **autorización final** (`Aprobacio
 
 ## 3. Organigrama de personas y jefes directos
 
-- Fuente: `colaboradores.jefe_id` / `gerente_id` (ROL ≠ JEFE). Servicio: `OrganizacionJerarquiaService`.
+- Fuente ÚNICA: el organigrama. `colaboradores.jefe_id` es una copia que SOLO escribe `App\Services\Organigrama\JefeDirectoService` (puesto superior + sucursal/región; vacante → sube por la cadena). Todas las áreas (solicitudes, aprobaciones, equipo, evaluaciones, avisos y bajas) leen ese mismo `jefe_id`. ROL ≠ JEFE.
 - ~~Administración → Configuración → Jefes directos~~ — retirada el 2026-10-02: el jefe directo sale del organigrama (ver `docs/ORGANIGRAMA.md`, sección «Jefe directo = organigrama»).
-- `validarSuperior()`: rechaza (422) ser su propio jefe, jefes inactivos y ciclos directos o indirectos. La misma regla protege la edición de datos laborales del expediente.
-- `asignarSuperiores()` audita actor, antes, después y motivo (`jefe_directo_cambiado`).
+- Nadie captura ni elige un jefe (no hay selector en datos laborales, alta web/app ni configuración). Cada recálculo queda en la bitácora (`jefe_directo_cambiado`, motivo «Derivado del organigrama»). Red de seguridad diaria: `php artisan organigrama:sincronizar-jefes`.
 - Sin jefe: no se elige a nadie al azar; la preautorización queda "no aplica" con motivo y el ruteo registra el receptor faltante en el log.
 
 ## 4. Ruteo de notificaciones
@@ -39,7 +38,6 @@ Administración → **Configuración** (permisos `configuracion.ver` + `configur
 | Sección | Qué guarda | Dónde |
 |---|---|---|
 | Apariencia | 13 colores institucionales (#RRGGBB) | `configuraciones_sistema`; inyectados como `--mrl-*` en `app.blade.php`; `GET /api/v1/app/theme` y `theme` en bootstrap |
-| Jefes directos | jefe/gerente por persona | `colaboradores` + auditoría |
 | Notificaciones | destinatarios por evento | `reglas_notificacion` |
 | Parámetros de RH | calificación mínima de onboarding, días de aviso, duración por defecto, mínimo de evaluación, causas de baja solicitables, meses por puesto, grupo indicador, vigencia documental | `configuraciones_sistema`, `puestos`, `document_types` |
 

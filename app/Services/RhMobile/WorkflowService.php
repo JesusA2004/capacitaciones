@@ -10,6 +10,7 @@ use App\Models\EmployeeDocument;
 use App\Models\SolicitudInterna;
 use App\Models\SolicitudVacaciones;
 use App\Models\User;
+use App\Services\CicloLaboral\OrganizacionJerarquiaService;
 
 /**
  * Primera version del motor de workflow para la app movil: hoy cada tipo de
@@ -65,7 +66,8 @@ class WorkflowService
 
         $acciones = ['ver'];
         if ($pendiente) {
-            if ($usuario->can('rh.vacaciones.aprobar')) {
+            // Legacy: solo RH da la autorización final (nunca un gerente).
+            if ($usuario->can('rh.vacaciones.aprobar') && $usuario->can(OrganizacionJerarquiaService::PERMISO_AUTORIZAR_RH)) {
                 $acciones[] = 'aprobar';
             }
             if ($usuario->can('rh.vacaciones.rechazar')) {

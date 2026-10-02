@@ -8,6 +8,7 @@ use App\Models\Colaborador;
 use App\Models\SolicitudVacaciones;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\CicloLaboral\OrganizacionJerarquiaService;
 use App\Services\RhMobile\WorkflowService;
 use App\Services\Vacaciones\VacacionesService;
 use Illuminate\Http\JsonResponse;
@@ -80,7 +81,9 @@ class VacacionController extends Controller
     public function aprobar(Request $request, SolicitudVacaciones $vacacion): JsonResponse
     {
         $usuario = $request->user();
-        abort_unless($usuario->can('rh.vacaciones.aprobar'), 403);
+        // Solo la autorización FINAL de RH cierra una solicitud legacy: un
+        // gerente nunca aprueba vacaciones en definitiva (ver VacacionesController).
+        abort_unless($usuario->can('rh.vacaciones.aprobar') && $usuario->can(OrganizacionJerarquiaService::PERMISO_AUTORIZAR_RH), 403, 'La autorización final de vacaciones le corresponde a Recursos Humanos.');
         abort_unless($this->puedeVer($usuario, $vacacion), 404);
         $this->validarPendiente($vacacion);
 

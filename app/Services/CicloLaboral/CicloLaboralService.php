@@ -688,7 +688,7 @@ class CicloLaboralService
      * paso. Nunca incluye evaluaciones, recomendaciones ni decisiones sobre
      * su renovación.
      *
-     * @return array{pendientes: list<array{clave: string, titulo: string, descripcion: string, tipo: string, accion: array{etiqueta: string, href: string}|null, detalle: list<string>}>, lecciones: list<array<string, mixed>>, documentos: array{requeridos: int, aprobados: int, faltantes: int}|null, todo_listo: bool}
+     * @return array{pendientes: list<array{clave: string, titulo: string, descripcion: string, tipo: string, accion: array{etiqueta: string, href: string, app: string}|null, detalle: list<string>}>, lecciones: list<array<string, mixed>>, documentos: array{requeridos: int, aprobados: int, faltantes: int}|null, todo_listo: bool}
      */
     public function misPendientes(Colaborador $colaborador, User $usuario): array
     {
@@ -720,7 +720,7 @@ class CicloLaboralService
                 'titulo' => 'Sube tus documentos',
                 'descripcion' => $documental['faltantes'] === 1 ? 'Te falta 1 documento por subir o corregir.' : sprintf('Te faltan %d documentos por subir o corregir.', $documental['faltantes']),
                 'tipo' => 'accion',
-                'accion' => ['etiqueta' => 'Subir documentos', 'href' => route('mi-expediente')],
+                'accion' => ['etiqueta' => 'Subir documentos', 'href' => route('mi-expediente'), 'app' => 'expediente'],
                 'detalle' => $nombres,
             ];
         }
@@ -741,7 +741,7 @@ class CicloLaboralService
                 'titulo' => $porFirmar->count() === 1 ? 'Firma un documento' : sprintf('Firma %d documentos', $porFirmar->count()),
                 'descripcion' => 'Revísalos con calma y fírmalos desde tu expediente.',
                 'tipo' => 'accion',
-                'accion' => ['etiqueta' => 'Revisar y firmar', 'href' => route('mi-expediente')],
+                'accion' => ['etiqueta' => 'Revisar y firmar', 'href' => route('mi-expediente'), 'app' => 'documentos-laborales'],
                 'detalle' => array_values($porFirmar->map(fn (GeneratedDocument $d) => (string) ($d->titulo ?? 'Documento'))->all()),
             ];
         }
@@ -788,7 +788,7 @@ class CicloLaboralService
                     'titulo' => 'Responde tus lecciones de bienvenida',
                     'descripcion' => $disponibles === 1 ? 'Tienes 1 lección lista: revisa el material y responde sus preguntas.' : sprintf('Tienes %d lecciones listas: revisa el material y responde sus preguntas.', $disponibles),
                     'tipo' => 'accion',
-                    'accion' => ['etiqueta' => 'Empezar', 'href' => '#lecciones'],
+                    'accion' => ['etiqueta' => 'Empezar', 'href' => '#lecciones', 'app' => 'lecciones'],
                     'detalle' => [],
                 ];
             }

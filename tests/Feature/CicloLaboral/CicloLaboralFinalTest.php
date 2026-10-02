@@ -607,3 +607,174 @@ test('los puestos determinan la duración del periodo de prueba', function () {
 
     expect($fin->toDateString())->toBe('2026-12-31');
 });
+
+/*
+|--------------------------------------------------------------------------
+| PDF punta a punta — pasos que el E2E principal recorre de forma abreviada
+|--------------------------------------------------------------------------
+*/
+
+test('PDF etapa 2: contratos impresos → firma física → envío → recepción → escaneo → archivo, solo con todos los obligatorios aprobados', function () {
+    $candidato = cfHastaPreautorizado($this, cfRegistrarCandidato($this));
+    ['colaborador' => $colaborador, 'usuario' => $usuario] = cfContratarYRegistrar($this, $candidato);
+
+    // Con UN obligatorio pendiente no hay contratos.
+    $incorporacion = app(IncorporacionService::class);
+    [$ine, $domicilio] = $this->tipos->all();
+    $incorporacion->subirDocumento($colaborador, $ine, clArchivoPdf('ine.pdf'), $usuario->id);
+    $this->actingAs($this->rh);
+    $incorporacion->aprobarDocumento(EmployeeDocument::query()->where('colaborador_id', $colaborador->id)->firstOrFail(), $this->rh, null);
+    expect(GeneratedDocument::query()->where('colaborador_id', $colaborador->id)->count())->toBe(0);
+
+    // Rechazado → se corrige con una versión nueva → aprobado.
+    $incorporacion->subirDocumento($colaborador, $domicilio, clArchivoPdf('domicilio.pdf'), $usuario->id);
+    $doc = EmployeeDocument::query()->where('colaborador_id', $colaborador->id)->where('document_type_id', $domicilio->id)->latest('id')->firstOrFail();
+    $incorporacion->rechazarDocumento($doc, $this->rh, 'Ilegible');
+    expect(GeneratedDocument::query()->where('colaborador_id', $colaborador->id)->count())->toBe(0);
+    $incorporacion->subirDocumento($colaborador->refresh(), $domicilio, clArchivoPdf('domicilio-v2.pdf'), $usuario->id);
+    $incorporacion->aprobarDocumento(EmployeeDocument::query()->where('colaborador_id', $colaborador->id)->where('document_type_id', $domicilio->id)->latest('id')->firstOrFail(), $this->rh, null);
+    $incorporacion->aprobarIncorporacion($colaborador->refresh(), $this->rh);
+
+    $contratos = GeneratedDocument::query()->where('colaborador_id', $colaborador->id)->get();
+    expect($contratos)->toHaveCount(3);
+
+    $flujo = app(FlujoDocumentalService::class);
+    $this->actingAs($this->gerenteA);
+    foreach ($contratos as $documento) {
+        $flujo->marcarImpreso($documento, $this->gerenteA);
+        $flujo->registrarFirmaFisica($documento->refresh(), $this->gerenteA, ['huella_registrada' => true]);
+        $flujo->registrarEnvio($documento->refresh(), $this->gerenteA, ['paqueteria' => 'Estafeta', 'numero_guia' => 'G-'.$documento->id]);
+    }
+
+    $this->actingAs($this->rh);
+    foreach ($contratos as $documento) {
+        $flujo->registrarRecepcion($documento->refresh(), $this->rh);
+        $flujo->registrarEscaneo($documento->refresh(), $this->rh, clArchivoPdf('escaneo.pdf'));
+        $flujo->archivar($documento->refresh(), $this->rh);
+        expect($documento->refresh()->estado_flujo->value)->toBe('archivado');
+    }
+
+    expect($colaborador->refresh()->estado_alta)->toBe(EstadoAltaColaborador::EnOnboarding);
+});
+
+test('PDF etapa 3: 7.9 no pasa (refuerzo RH + reintento), 8.0 sí pasa', function () {
+    // Módulo institucional de 100 preguntas: 79 aciertos = 7.9, 80 = 8.0.
+    $preguntas = array_map(fn (int $i) => ['pregunta' => "P{$i}", 'opciones' => ['bien', 'mal'], 'correcta' => 0], range(1, 100));
+    OnboardingModulo::query()->update(['activo' => false]);
+    OnboardingModulo::query()->create(['titulo' => 'Inducción 100', 'tipo' => TipoModuloOnboarding::Institucional, 'orden' => 1, 'preguntas' => $preguntas, 'calificacion_minima' => 8]);
+
+    $candidato = cfHastaPreautorizado($this, cfRegistrarCandidato($this));
+    ['colaborador' => $colaborador, 'usuario' => $usuario] = cfContratarYRegistrar($this, $candidato);
+    cfExpedienteAprobado($this, $colaborador, $usuario);
+    cfFirmarContratos($this, $colaborador->refresh());
+
+    $onboarding = app(OnboardingService::class);
+    $avance = $onboarding->procesoActual($colaborador->refresh())->avances()->firstOrFail();
+    $respuestas = fn (int $aciertos) => array_map(fn (int $i) => $i < $aciertos ? 0 : 1, range(0, 99));
+
+    $intento = $onboarding->presentarEvaluacion($avance, $usuario, $respuestas(79));
+    expect((float) $intento->calificacion)->toBe(7.9)
+        ->and($intento->aprobado)->toBeFalse()
+        ->and($avance->refresh()->estado)->toBe(EstadoAvanceOnboarding::RequiereRefuerzo);
+
+    // Sin retroalimentación de RH no hay nuevo intento.
+    expect(fn () => $onboarding->presentarEvaluacion($avance->refresh(), $usuario, $respuestas(80)))->toThrow(ValidationException::class);
+    $onboarding->retroalimentar($avance, $this->rh, 'Repasa el reglamento.');
+
+    $intento = $onboarding->presentarEvaluacion($avance->refresh(), $usuario, $respuestas(80));
+    expect((float) $intento->calificacion)->toBe(8.0)
+        ->and($intento->aprobado)->toBeTrue()
+        ->and($avance->refresh()->estado)->toBe(EstadoAvanceOnboarding::Aprobado);
+});
+
+test('PDF etapa 4: el comando del scheduler corrido 10 veces crea UNA evaluación y UNA tarea', function () {
+    $candidato = cfHastaPreautorizado($this, cfRegistrarCandidato($this));
+    ['colaborador' => $colaborador, 'usuario' => $usuario] = cfContratarYRegistrar($this, $candidato);
+    cfExpedienteAprobado($this, $colaborador, $usuario);
+    cfFirmarContratos($this, $colaborador->refresh());
+    cfCompletarOnboarding($this, $colaborador->refresh(), $usuario);
+
+    $contrato = ContratoLaboral::query()->where('colaborador_id', $colaborador->id)->where('estado', EstadoContratoLaboral::Vigente->value)->firstOrFail();
+    Carbon::setTestNow($contrato->fecha_fin->copy()->subDays(15)->setTime(9, 0));
+
+    for ($i = 0; $i < 10; $i++) {
+        $this->artisan('contratos:revisar-vencimientos')->assertSuccessful();
+    }
+
+    expect(EvaluacionPeriodoPrueba::query()->where('contrato_laboral_id', $contrato->id)->count())->toBe(1)
+        ->and(TareaRh::query()->where('tipo', TipoTarea::EvaluacionPendiente->value)->whereNull('resuelta_en')->count())->toBe(1);
+});
+
+test('PDF etapa 4: la duración sale de la configuración del puesto (Gestor 2 meses, Gerente y Regional 3)', function () {
+    $this->seed(\Database\Seeders\PuestoJerarquiaSeeder::class);
+    $meses = fn (string $nombre) => Puesto::query()->where('nombre', $nombre)->value('meses_periodo_prueba');
+
+    expect($meses('Gestor'))->toBe(2)
+        ->and($meses('Gerente de Sucursal'))->toBe(3)
+        ->and($meses('Gerente Regional Q1'))->toBe(3);
+
+    // La regla usa el valor del puesto, no su nombre: si RH lo cambia, cambia.
+    $gestor = Puesto::query()->where('nombre', 'Gestor')->firstOrFail();
+    $inicio = Carbon::parse('2026-10-01');
+    $contratos = app(ContratoLaboralService::class);
+    expect($contratos->fechaFinPeriodoPrueba($gestor->id, $inicio)->toDateString())->toBe('2026-11-30');
+    $gestor->update(['meses_periodo_prueba' => 1]);
+    expect($contratos->fechaFinPeriodoPrueba($gestor->id, $inicio)->toDateString())->toBe('2026-10-31');
+});
+
+test('PDF etapas 6-7: el gerente solicita la baja → acceso fuera al instante; RH autoriza; fecha efectiva → baja definitiva; reingreso con la MISMA persona y cuenta', function () {
+    $colaborador = Colaborador::factory()->create([
+        'sucursal_principal_id' => $this->sucursalA->id,
+        'puesto_id' => $this->puesto->id,
+        'estatus' => EstadoUsuario::Activo,
+        'estado_alta' => EstadoAltaColaborador::Activo,
+        'fecha_ingreso' => now()->subYear()->toDateString(),
+        'sueldo_mensual' => 12000,
+    ]);
+    $usuario = User::factory()->create(['colaborador_id' => $colaborador->id]);
+    $usuario->assignRole('colaborador');
+    $usuario->createToken('app');
+    $cierres = app(CierreLaboralService::class);
+
+    $cierre = $cierres->solicitar($colaborador, ['tipo_baja' => 'renuncia', 'motivo' => 'Cambio de ciudad.', 'fecha_efectiva' => now()->addDays(3)->toDateString()], $this->gerenteA, [clArchivoPdf('renuncia.pdf')]);
+
+    // Acceso fuera YA; la relación laboral sigue hasta la fecha efectiva.
+    expect($usuario->refresh()->acceso_bloqueado_en)->not->toBeNull()
+        ->and($usuario->tokens()->count())->toBe(0)
+        ->and($colaborador->refresh()->estatus)->toBe(EstadoUsuario::Activo)
+        ->and($cierre->acceso_suspendido_en)->not->toBeNull();
+
+    $this->actingAs($this->rh);
+    $cierre = $cierres->autorizarRh($cierre, $this->rh, 'Procede.');
+    $cierres->calcularFiniquito($cierre, $this->rh, 12000);
+    $cierre = $cierres->autorizarFiniquito($cierre->refresh(), $this->rh);
+    $cierre = $cierres->programarPago($cierre, $this->coordinadora, ['fecha' => now()->addDays(3)->toDateString(), 'metodo' => 'transferencia']);
+    $this->actingAs($this->gerenteA);
+    $cierres->registrarCita($cierre, $this->gerenteA, now()->addDays(3)->setTime(10, 0)->toDateTimeString());
+    $cierres->registrarFiniquitoFirmado($cierre->refresh(), clArchivoPdf('finiquito-firmado.pdf'), $this->gerenteA);
+    $cierre = $cierres->confirmarPago($cierre->refresh(), $this->gerenteA, 'SPEI-123');
+
+    // Pagado pero antes de la fecha efectiva: todavía no es baja laboral.
+    expect($colaborador->refresh()->estatus)->toBe(EstadoUsuario::Activo);
+
+    Carbon::setTestNow(now()->addDays(3));
+    $this->actingAs($this->rh);
+    $cierres->cerrar($cierre->refresh(), $this->rh);
+
+    $persona = Colaborador::withTrashed()->findOrFail($colaborador->id);
+    expect($persona->estatus)->toBe(EstadoUsuario::Inactivo)
+        ->and(User::query()->find($usuario->id))->not->toBeNull()
+        ->and(CierreLaboral::query()->where('colaborador_id', $colaborador->id)->count())->toBe(1);
+
+    // Reingreso: misma persona, mismo usuario, historial intacto.
+    $reingresos = app(ReingresoService::class);
+    $reingreso = $reingresos->solicitar($persona, ['motivo' => 'Buen desempeño.'], $this->rh);
+    $reingresos->decidir($reingreso, $this->rh2, true, 'Viable.');
+
+    expect(Colaborador::withTrashed()->where('id', $colaborador->id)->count())->toBe(1)
+        ->and(User::query()->where('colaborador_id', $colaborador->id)->count())->toBe(1)
+        ->and($usuario->refresh()->acceso_bloqueado_en)->toBeNull()
+        ->and(Colaborador::query()->findOrFail($colaborador->id)->estatus)->toBe(EstadoUsuario::EnIncorporacion)
+        ->and(CierreLaboral::query()->where('colaborador_id', $colaborador->id)->count())->toBe(1)
+        ->and(ContratoLaboral::query()->where('colaborador_id', $colaborador->id)->where('estado', EstadoContratoLaboral::Vigente->value)->count())->toBe(1);
+});

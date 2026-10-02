@@ -4,6 +4,7 @@ namespace App\Services\Tareas;
 
 use App\Models\Candidato;
 use App\Models\Colaborador;
+use App\Models\OnboardingAvance;
 use App\Models\User;
 use App\Notifications\Mobile\PendienteRhNotification;
 use App\Services\AlcanceOrganizacionalService;
@@ -105,6 +106,7 @@ class NotificadorRhService
                 $accion,
                 $prioridad,
                 $ruteo,
+                $this->colaboradorIdDe($relacionado),
             ));
         } catch (Throwable $e) {
             Log::warning('NotificadorRhService: fallo al notificar.', ['tipo' => $tipo, 'error' => $e->getMessage()]);
@@ -121,10 +123,38 @@ class NotificadorRhService
                     'resource_id' => $relatedId,
                     'related_type' => $relacionado !== null ? class_basename($relacionado) : null,
                     'accion' => $accion,
+                    'colaborador_id' => $this->colaboradorIdDe($relacionado),
                 ]);
             } catch (Throwable $e) {
                 Log::warning('NotificadorRhService: fallo el push.', ['tipo' => $tipo, 'user_id' => $usuario->id, 'error' => $e->getMessage()]);
             }
         }
+    }
+
+    /**
+     * Persona a la que pertenece el recurso del aviso (directo, o vía su
+     * proceso de onboarding), para que web/app abran su ficha.
+     */
+    private function colaboradorIdDe(?Model $relacionado): ?int
+    {
+        if ($relacionado === null) {
+            return null;
+        }
+
+        if ($relacionado instanceof Colaborador) {
+            return $relacionado->id;
+        }
+
+        $directo = $relacionado->getAttribute('colaborador_id');
+
+        if (is_int($directo)) {
+            return $directo;
+        }
+
+        if ($relacionado instanceof OnboardingAvance) {
+            return $relacionado->proceso()->value('colaborador_id');
+        }
+
+        return null;
     }
 }
