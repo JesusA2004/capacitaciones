@@ -11,11 +11,11 @@ import {
 } from '@lucide/vue';
 import { computed } from 'vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
-import { formatearFecha, formatearFechaHora } from '@/lib/fechas';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useAlertas } from '@/composables/useAlertas';
+import { formatearFecha, formatearFechaHora } from '@/lib/fechas';
 import { dashboard } from '@/routes';
 import {
     aprobar,

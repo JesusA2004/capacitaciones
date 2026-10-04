@@ -10,9 +10,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
- * Recibo de nómina INFORMATIVO ya generado (ver App\Services\Nomina\ReciboNominaService).
- * No es un CFDI timbrado ante el SAT ni calcula ISR/IMSS — es un comprobante
- * interno que RH le entrega al colaborador, con snapshot de
+ * Recibo de nómina ya generado (ver App\Services\Nomina\ReciboNominaService).
+ * No se timbra ni calcula ISR/IMSS — es el comprobante que RH le entrega al
+ * colaborador, con snapshot de
  * percepciones/deducciones en el momento de generarse (un cambio posterior
  * al sueldo del colaborador no reescribe recibos ya emitidos).
  *

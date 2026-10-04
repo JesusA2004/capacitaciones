@@ -114,6 +114,7 @@ export type CandidatoFicha = {
     telefono: string | null;
     correo: string | null;
     fuente: string | null;
+    fuente_etiqueta: string | null;
     campana: string | null;
     empresa: string | null;
     sucursal: string | null;

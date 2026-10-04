@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import {
     Archive,
@@ -10,6 +9,7 @@ import {
     Sparkles,
 } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import FormatoOficialGenerarDialog from '@/components/Rh/FormatoOficialGenerarDialog.vue';

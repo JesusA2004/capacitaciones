@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import {
     AlertTriangle,
@@ -14,6 +13,7 @@ import {
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
@@ -60,6 +60,8 @@ const faltanVistosBuenosCalculo = (niveles: NivelVistoBueno[]) =>
 
 const props = defineProps<{
     solicitud: SolicitudInternaItem;
+    tipoEtiqueta: string;
+    tipoBajaEtiqueta: string | null;
     puedeGenerarFormato: boolean;
     vistosBuenos: NivelVistoBueno[];
     puedeDarVistoBueno: boolean;
@@ -281,8 +283,8 @@ const documentoOficialGeneracion = computed(
                         </div>
                         <div>
                             <p class="text-sm text-muted-foreground">Tipo</p>
-                            <p class="text-base font-medium capitalize">
-                                {{ solicitud.tipo.replace(/_/g, ' ') }}
+                            <p class="text-base font-medium">
+                                {{ tipoEtiqueta }}
                             </p>
                         </div>
                         <div v-if="solicitud.fecha_inicio">
@@ -350,8 +352,8 @@ const documentoOficialGeneracion = computed(
                             <p class="text-sm text-muted-foreground">
                                 Tipo de baja
                             </p>
-                            <p class="text-base font-medium capitalize">
-                                {{ solicitud.tipo_baja.replace(/_/g, ' ') }}
+                            <p class="text-base font-medium">
+                                {{ tipoBajaEtiqueta }}
                             </p>
                         </div>
                     </div>

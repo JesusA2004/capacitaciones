@@ -15,7 +15,7 @@ Reglas que se respetaron en todo el trabajo (ver `CLAUDE.md`):
 - Nunca se borra un colaborador; la baja bloquea acceso y conserva historial.
 - El sistema **no redacta cláusulas**: los textos jurídicos los carga RH/Jurídico como
   plantillas; si falta una plantilla, el documento queda como pendiente explícito.
-- No hay integración con NOI, TIME WORK ni timbrado. El recibo semanal es interno y no fiscal.
+- No hay integración con NOI, TIME WORK ni timbrado. El recibo de nómina semanal no se timbra.
 
 ---
 
@@ -33,7 +33,7 @@ Reglas que se respetaron en todo el trabajo (ver `CLAUDE.md`):
 | Periodo de prueba | Solo 2 fechas en colaborador, sin control | Nuevo: `ContratoLaboral`, scheduler, evaluación, renovación |
 | Baja (`SolicitudInterna` tipo baja + `BajaColaboradorService`) | Completo | Reutilizado dentro del nuevo **cierre laboral** |
 | Finiquito (`FiniquitoService`) | Cálculo automático + ajustes | Mejorado: conceptos percepción/deducción, totales, pago, PDF al expediente |
-| Recibo de nómina (`ReciboNominaService`) | Simple, JSON, sin detalle | Completado: semanal, detalle, folio, leyenda NO FISCAL, importación CSV/XLSX, API |
+| Recibo de nómina (`ReciboNominaService`) | Simple, JSON, sin detalle | Completado: semanal, detalle, folio, PDF «RECIBO DE NÓMINA», importación CSV/XLSX, API |
 | Préstamos (`PrestamoService`) | Se creaba al aprobar la solicitud | Completado: visto bueno del jefe, monto/plazo autorizados, contrato + pagaré, resguardo |
 | Vacaciones/permisos | Completos (solicitudes unificadas + formato oficial) | Integrados al flujo documental: comprobante PDF en expediente + tareas |
 | Actas | No existían | Nuevo módulo |
@@ -160,7 +160,7 @@ DocumentTemplate (clave + versión, motor html|docx|pdf_overlay, categoría, tip
 - `GET .../plantillas-documentales/variables` lista las variables `{{...}}` disponibles.
 - Sin plantilla activa: `422` con aviso; en flujos automáticos se abre la tarea
   "documento contractual pendiente".
-- `registrarPdf()` permite a módulos con vista propia no jurídica (recibo interno,
+- `registrarPdf()` permite a módulos con vista propia no jurídica (recibo de nómina,
   comprobantes, respaldo de finiquito) usar el mismo almacenamiento/snapshot/flujo.
 
 Claves conocidas (`config/contratos.php → plantillas`): `contrato_periodo_prueba`,
@@ -223,12 +223,12 @@ Totales: `total_percepciones`, `total_deducciones`, `neto` (y `total_ajustado = 
 compatibilidad). Snapshot con el desglose completo al generar el documento. Firmado o
 pagado ⇒ inmutable. Exigir firma/pago antes de la baja: `config/contratos.php → cierre`.
 
-### 3.8 Recibo interno de nómina semanal
+### 3.8 Recibo de nómina semanal
 
 `ReciboNominaService` + `ReciboNominaImportService`. NO es CFDI, no se timbra, no calcula
 ISR/IMSS, no se integra con NOI. Detalle en `recibo_nomina_conceptos`; folio `RIN-000001`;
 semana ISO y ejercicio; un recibo por colaborador y periodo (bloqueo + validación); PDF con
-leyenda **"RECIBO INTERNO DE NÓMINA - NO FISCAL"** en `NominaInterna/`.
+título **"RECIBO DE NÓMINA"** en `NominaInterna/`.
 Importación CSV/XLSX (formato largo: `numero_empleado, tipo, concepto, importe, cantidad?,
 observaciones?`) con `simular`, reporte por fila y lote auditable; un colaborador con alguna
 fila inválida no recibe recibo incompleto.

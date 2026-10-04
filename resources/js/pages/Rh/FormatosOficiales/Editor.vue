@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import {
     AlertTriangle,
@@ -25,6 +24,7 @@ import {
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
+import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import VisorPdfFormato from '@/components/Rh/formatos/VisorPdfFormato.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

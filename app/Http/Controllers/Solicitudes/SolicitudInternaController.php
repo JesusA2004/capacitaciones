@@ -66,6 +66,7 @@ class SolicitudInternaController extends Controller
 
         return Inertia::render('Solicitudes/Show', [
             'solicitud' => $solicitud,
+            'tipoEtiqueta' => $solicitud->tipo->etiqueta(),
         ]);
     }
 

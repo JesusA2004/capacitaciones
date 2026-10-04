@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { formatearFecha } from '@/lib/fechas';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import {
     CheckCircle2,
@@ -32,6 +31,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
 import cierres from '@/routes/rh/cierres';
 import colaboradores from '@/routes/rh/colaboradores';

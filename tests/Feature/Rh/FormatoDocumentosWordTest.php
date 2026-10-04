@@ -50,8 +50,8 @@ function reciboNominaPdf(): GeneratedDocument
     return GeneratedDocument::factory()->create([
         'document_template_id' => null,
         'disk' => 'nas',
-        'path' => 'expedientes/recibo-interno.pdf',
-        'generated_name' => 'Recibo interno 2026-09.pdf',
+        'path' => 'expedientes/recibo-nomina.pdf',
+        'generated_name' => 'Recibo de nómina 2026-09.pdf',
         'mime' => 'application/pdf',
         'documentable_type' => $recibo->getMorphClass(),
         'documentable_id' => $recibo->id,

@@ -90,9 +90,7 @@ function valorCelda(fila: T, clave: string): unknown {
                                     ? 'cursor-pointer hover:bg-muted/40'
                                     : '',
                             ]"
-                            @click="
-                                filasClicables && emit('click-fila', fila)
-                            "
+                            @click="filasClicables && emit('click-fila', fila)"
                         >
                             <TableCell
                                 v-for="columna in columnas"
@@ -136,11 +134,11 @@ function valorCelda(fila: T, clave: string): unknown {
                     :key="indice"
                     :class="[
                         'flex flex-col gap-2.5 rounded-2xl border border-border/60 bg-card p-4 shadow-sm transition-colors',
-                        filasClicables ? 'cursor-pointer active:bg-muted/40' : '',
+                        filasClicables
+                            ? 'cursor-pointer active:bg-muted/40'
+                            : '',
                     ]"
-                    @click="
-                        filasClicables && emit('click-fila', fila)
-                    "
+                    @click="filasClicables && emit('click-fila', fila)"
                 >
                     <dl class="flex flex-col gap-2 text-sm">
                         <div

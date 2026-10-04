@@ -24,13 +24,12 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
 /**
- * Recibo INTERNO de nómina (semanal por defecto). NO es CFDI, NO se timbra,
- * NO calcula ISR/IMSS, NO sustituye al sistema de nómina y NO se integra
- * con NOI: RH captura (individualmente o por importación CSV/XLSX
- * administrativa, ver ReciboNominaImportService) los conceptos ya
- * calculados y el sistema emite un comprobante interno con la leyenda
- * "RECIBO INTERNO DE NÓMINA - NO FISCAL", archivado en el expediente del
- * colaborador (carpeta NominaInterna).
+ * Recibo de nómina (semanal por defecto). No se timbra, no calcula
+ * ISR/IMSS, no sustituye al sistema de nómina y no se integra con NOI: RH
+ * captura (individualmente o por importación CSV/XLSX administrativa, ver
+ * ReciboNominaImportService) los conceptos ya calculados y el sistema emite
+ * el "RECIBO DE NÓMINA", archivado en el expediente del colaborador
+ * (carpeta NominaInterna).
  *
  * Cada recibo guarda snapshot de sus conceptos: un cambio posterior de
  * sueldo no reescribe recibos emitidos.
@@ -320,7 +319,7 @@ class ReciboNominaService
     }
 
     /**
-     * Genera el PDF (leyenda NO FISCAL) y lo archiva en el expediente
+     * Genera el PDF del recibo y lo archiva en el expediente
      * (NominaInterna). Un fallo aquí nunca revierte el recibo ya persistido:
      * se registra y RH puede reintentar con regenerarPdf().
      */

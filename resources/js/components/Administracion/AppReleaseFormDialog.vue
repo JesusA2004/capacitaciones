@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { useForm } from '@inertiajs/vue3';
+import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {

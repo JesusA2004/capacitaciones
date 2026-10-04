@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import {
     Briefcase,
@@ -11,6 +10,7 @@ import {
     Users,
 } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';

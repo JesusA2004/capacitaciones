@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { formatearFecha } from '@/lib/fechas';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import {
     GitBranch,
@@ -53,6 +52,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
+import { formatearFecha } from '@/lib/fechas';
 import { getJson } from '@/lib/http';
 import {
     CLAVE_ACCIONES_ORGANIGRAMA,

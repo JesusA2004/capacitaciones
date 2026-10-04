@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { router } from '@inertiajs/vue3';
 import { Download, Eye, FileSignature, Sparkles } from '@lucide/vue';
 import { ref } from 'vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import FormatoOficialGenerarDialog from '@/components/Rh/FormatoOficialGenerarDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

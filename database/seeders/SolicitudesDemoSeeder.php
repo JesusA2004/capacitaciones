@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\Gate;
  * Idempotente por escenario (cada bloque se salta si ya existe una
  * solicitud con su motivo característico), no por un único flag global: así
  * una base ya sembrada con una versión anterior de este seeder recibe los
- * escenarios nuevos (requiere_correccion, cerrada) sin duplicar los viejos.
+ * escenarios nuevos (p. ej. requiere_correccion) sin duplicar los viejos.
  */
 class SolicitudesDemoSeeder extends Seeder
 {

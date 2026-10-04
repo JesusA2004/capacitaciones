@@ -25,12 +25,7 @@ withDefaults(
 <template>
     <DropdownMenu>
         <DropdownMenuTrigger as-child>
-            <Button
-                variant="ghost"
-                size="icon"
-                :title="etiqueta"
-                @click.stop
-            >
+            <Button variant="ghost" size="icon" :title="etiqueta" @click.stop>
                 <MoreVertical class="size-4" />
                 <span class="sr-only">{{ etiqueta }}</span>
             </Button>

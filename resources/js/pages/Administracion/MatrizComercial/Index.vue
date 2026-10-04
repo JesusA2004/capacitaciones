@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import {
     CheckCircle2,
@@ -11,6 +10,7 @@ import {
     XCircle,
 } from '@lucide/vue';
 import { ref } from 'vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

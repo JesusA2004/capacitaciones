@@ -11,7 +11,7 @@ Extiende `database/seeders/RolesYPermisosSeeder.php` con el catálogo de permiso
 | Documentos | `documentos.ver`, `documentos.subir`, `documentos.descargar`, `documentos.revisar`, `documentos.aprobar`, `documentos.rechazar`, `documentos.versiones` |
 | Altas (catálogo, módulo aún no implementado) | `altas.ver`, `altas.crear`, `altas.enviar`, `altas.revisar`, `altas.aprobar`, `altas.cancelar` |
 | Vacaciones (catálogo, módulo aún no implementado) | `vacaciones.ver`, `vacaciones.solicitar`, `vacaciones.aprobar`, `vacaciones.rechazar`, `vacaciones.ajustar`, `vacaciones.reportes` |
-| Solicitudes RH (catálogo, módulo aún no implementado) | `solicitudes.ver`, `solicitudes.crear`, `solicitudes.revisar`, `solicitudes.aprobar`, `solicitudes.rechazar`, `solicitudes.cerrar` |
+| Solicitudes RH (catálogo, módulo aún no implementado) | `solicitudes.ver`, `solicitudes.crear`, `solicitudes.revisar`, `solicitudes.aprobar`, `solicitudes.rechazar` (el permiso `solicitudes.cerrar` se retiró el 2026-10-02: no existe estado «cerrada») |
 | Reportes RH (catálogo, módulo aún no implementado) | `reportes_rh.ver`, `reportes_rh.exportar`, `reportes_rh.globales`, `reportes_rh.sucursal` |
 
 Los permisos de altas/vacaciones/solicitudes/reportes_rh ya están sembrados y asignados a roles (siguiendo el mismo patrón que ya usaba el proyecto: crear el catálogo completo desde ahora aunque el módulo llegue en un checkpoint posterior), pero **todavía no hay ninguna ruta ni pantalla que los use** — se activarán cuando se construyan esos módulos.

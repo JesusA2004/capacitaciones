@@ -1,14 +1,13 @@
 <script setup lang="ts">
-import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { Save } from '@lucide/vue';
 import { ref } from 'vue';
 import CelebracionConfiguracionLayout from '@/components/Celebraciones/CelebracionConfiguracionLayout.vue';
 import PosicionVerticalTexto from '@/components/Celebraciones/PosicionVerticalTexto.vue';
 import InputError from '@/components/InputError.vue';
+import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';

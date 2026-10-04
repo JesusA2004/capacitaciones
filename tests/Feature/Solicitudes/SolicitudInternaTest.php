@@ -159,7 +159,9 @@ test('un auditor solo puede leer solicitudes, no aprobarlas', function () {
 
     $this->actingAs($auditor)
         ->get(route('rh.solicitudes.show', $solicitud))
-        ->assertOk();
+        ->assertOk()
+        // El tipo se muestra con su etiqueta en español, no con el valor crudo del enum.
+        ->assertInertia(fn ($pagina) => $pagina->where('tipoEtiqueta', $solicitud->tipo->etiqueta()));
 
     $this->actingAs($auditor)
         ->post(route('rh.solicitudes.aprobar', $solicitud))

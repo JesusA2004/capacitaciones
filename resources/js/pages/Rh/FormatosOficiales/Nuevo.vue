@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { ArrowLeft, Info, Upload } from '@lucide/vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import InputError from '@/components/InputError.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';

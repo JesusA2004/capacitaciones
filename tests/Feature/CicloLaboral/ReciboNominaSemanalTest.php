@@ -37,7 +37,7 @@ function clReciboPayload(array $extra = []): array
     ];
 }
 
-test('rh crea un recibo interno semanal con detalle, totales, folio y PDF no fiscal en el expediente', function () {
+test('rh crea un recibo de nómina semanal con detalle, totales, folio y PDF en el expediente', function () {
     Sanctum::actingAs($this->rh);
 
     $datos = $this->postJson("/api/v1/rh/colaboradores/{$this->colaborador->id}/recibos", clReciboPayload())

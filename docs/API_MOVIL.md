@@ -273,7 +273,7 @@ Tests: `tests/Feature/Api/AuthApiTest.php`, `tests/Feature/Api/ColaboradorApiTes
 ## Ciclo laboral completo (septiembre 2026)
 
 Alta, expediente con estado documental, documentos laborales con firma digital, recibos
-internos semanales (no fiscales), préstamos con visto bueno del jefe, evaluaciones de
+de nómina semanales, préstamos con visto bueno del jefe, evaluaciones de
 periodo de prueba, cierre laboral, actas, indicadores, organigrama y bandeja de tareas:
 ver `docs/backend-rh-completion.md` (sección 6, tabla de endpoints). Todo el grupo
 autenticado usa `throttle:api` y el login `throttle:api-login`.

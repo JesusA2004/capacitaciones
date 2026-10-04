@@ -615,7 +615,7 @@ class SolicitudesService
 
     public function adjuntarDocumento(SolicitudInterna $solicitud, UploadedFile $archivo, User $actor): void
     {
-        // Una solicitud rechazada/cancelada/cerrada ya no acepta cambios:
+        // Una solicitud aprobada/rechazada/cancelada ya no acepta cambios:
         // tampoco evidencia nueva (misma regla para web y app).
         if ($solicitud->estado->esFinal()) {
             throw ValidationException::withMessages([

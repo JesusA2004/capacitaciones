@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { formatearFecha } from '@/lib/fechas';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import {
     BadgeCheck,
@@ -93,6 +92,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAlertas } from '@/composables/useAlertas';
+import { formatearFecha } from '@/lib/fechas';
 import {
     restablecerAcceso,
     revocarAcceso,
@@ -2406,9 +2406,7 @@ const pestanaInicial = (() => {
                                     </p>
                                     <p class="text-xs text-muted-foreground">
                                         Pago:
-                                        {{
-                                            formatearFecha(recibo.fecha_pago)
-                                        }}
+                                        {{ formatearFecha(recibo.fecha_pago) }}
                                         · Neto:
                                         {{ moneda(recibo.neto) }}
                                     </p>

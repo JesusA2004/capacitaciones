@@ -165,6 +165,8 @@ class SolicitudController extends Controller
 
         return Inertia::render('Rh/Solicitudes/Show', [
             'solicitud' => $solicitud,
+            'tipoEtiqueta' => $solicitud->tipo->etiqueta(),
+            'tipoBajaEtiqueta' => $solicitud->tipo_baja?->etiqueta(),
             'puedeGenerarFormato' => $puedeGenerarFormato,
             // Cadena de vistos buenos (gerente → regional) antes de RH.
             'vistosBuenos' => $this->aprobaciones->resumen($solicitud),

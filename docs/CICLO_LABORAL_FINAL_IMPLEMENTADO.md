@@ -1,6 +1,6 @@
 # Ciclo laboral — implementación final (backend + web + API)
 
-Última actualización: 2026-10-01. Complementa `docs/AUDITORIA_CICLO_LABORAL_FINAL.md` (diagnóstico) y reemplaza a `docs/CICLO_LABORAL_AVANCE_PENDIENTE.md` (nota de traspaso, ahora histórica).
+Última actualización: 2026-10-02 (ver sección 14 y `docs/AUDITORIA_PDF_VS_CODIGO_FINAL.md`). Complementa `docs/AUDITORIA_CICLO_LABORAL_FINAL.md` (diagnóstico) y reemplaza a `docs/CICLO_LABORAL_AVANCE_PENDIENTE.md` (nota de traspaso, ahora histórica).
 
 ## 1. Ciclo y etapas
 
@@ -91,16 +91,13 @@ Administración → **Configuración** (permisos `configuracion.ver` + `configur
 ## 12. Pendientes externos
 
 - Plantillas jurídicas reales y material de inducción.
-- App móvil (`mr-lana-people-app`), estado 2026-10-01: `theme` (`GET
-  /app/theme`), candidatos (`GET/POST /rh/candidatos/*`) y reingresos
-  (`GET/POST /rh/reingresos/*`) **ya se consumen**; deep links por
-  `related_type` cubren `Candidato`/`Reingreso`/`CierreLaboral`. Sigue
-  pendiente migrar la pantalla "Lo que necesitas hacer" del colaborador al
-  DTO unificado `GET /colaborador/mi-proceso` / `ciclo_laboral.propio` del
-  bootstrap — hoy arma la misma información (sin filtrar nada sensible,
-  verificado) a partir de endpoints más antiguos (`alta`, documentos
-  pendientes, etc.) en vez de la fuente única nueva. Ver
-  `docs/FINAL_MOBILE_AUDIT.md`.
+- App móvil (`mr-lana-people-app`), estado 2026-10-02: tema institucional
+  dinámico (`GET /app/theme`, `ThemeProvider` + `useColores()`/`useEstilos()`,
+  repinta en la misma sesión), candidatos, reingresos, onboarding RH y
+  lecciones **ya se consumen**; «Lo que necesitas hacer» usa como fuente
+  única `GET /colaborador/mi-proceso`. Lo único pendiente es externo
+  (credenciales EAS/Apple, QA en teléfono físico) — ver
+  `docs/CIERRE_QA_FINAL.md`.
 
 ## 13. Reglas agregadas el 2026-10-01 (tarde)
 
@@ -109,4 +106,16 @@ Administración → **Configuración** (permisos `configuracion.ver` + `configur
 - **Solicitudes: gerente → regional → RH.** `AprobacionJerarquicaService` exige el visto bueno del gerente de la sucursal (o del jefe directo si no hay gerente) y después del regional de la región, para los tipos de `config/solicitudes.php` (`visto_bueno_jefe`: vacaciones, permisos, préstamos y permisos especiales). Con ambos, la solicitud pasa sola de «Recibida» a «Pendiente de autorizar»; sin ellos nadie (ni RH) la mueve ni la autoriza. Quien da el visto bueno no puede dar la autorización final. Visto bueno en web (`rh.solicitudes.visto-bueno`, con la «Cadena de autorización» en el detalle) y en la app (`POST /api/v1/equipo/solicitudes/{id}/visto-bueno`; `GET /api/v1/equipo/pendientes` solo lista lo que a ese usuario le toca).
 - **Operación RH → Solicitudes** abre primero una pantalla por tipo (préstamos, permisos, vacaciones…) con recibidas, por autorizar, en corrección y últimos 30 días; cada tarjeta abre el tablero ya filtrado (`?tipo=`), y «Ver todas» abre el tablero completo (`?todas=1`). Columnas renombradas: «Solicitudes recibidas» y «Pendiente de autorizar».
 - **Mis pendientes (RH/aprobadores)** rediseñado: encabezado con totales, filtros segmentados, tarjetas por prioridad con vencimiento, y gráficas por etapa (filtran al tocarlas) y por prioridad (`TareaService::distribucion()`).
+
+## 14. Reglas vigentes al 2026-10-02
+
+- **Solicitudes sin estado «cerrada».** Estados finales: `aprobada`, `rechazada`, `cancelada` (`EstadoSolicitudInterna::esFinal()`). Una solicitud aprobada ya terminó; lo que sigue (finiquito, pago, cierre laboral, documentos) vive en su propio modelo e historial. La migración `2026_10_02_180000_quitar_estado_cerrada_de_solicitudes` pasa las antiguas `cerrada` a `aprobada`, conserva el renglón del historial como `comentario` con su texto original y retira el permiso `solicitudes.cerrar`. Una solicitud finalizada no acepta más adjuntos (web y app).
+- **Historial de solicitudes legible**: `SolicitudInternaHistorial::accion_etiqueta` traduce estados, vistos buenos y eventos de finiquito.
+- **Finiquito firmado o pagado** queda bloqueado (`FiniquitoCalculoPolicy`: sin ajustes ni nueva carga del firmado); la descarga entrega el escaneo firmado cuando existe.
+- **Vacaciones** usa el motor unificado de solicitudes: gerente/regional dan visto bueno, RH autoriza; el gerente no puede dar la autorización final.
+- **Periodo de prueba** sale de `puestos.meses_periodo_prueba` (Gestor 2 meses; Gerente y Regional 3), editable en el catálogo de puestos.
+- **Onboarding**: calificación < 8 no pasa (RH da retroalimentación y la persona reintenta); ≥ 8 pasa (`ciclo_laboral.onboarding.calificacion_minima`).
+- **Baja**: al solicitarla se suspende el acceso de inmediato; el estatus laboral solo cambia en la fecha efectiva. **Reingreso**: misma persona, misma cuenta e historial.
+- **Recibos de nómina**: el PDF dice «RECIBO DE NÓMINA» y se archiva en el expediente; la app lo abre sin conexión.
+- **Su propio expediente desde «Mi espacio»**: gerente, regional y RH también son colaboradores; la API de incorporación acepta el gate `modo-colaborador` igual que la web.
 

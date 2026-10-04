@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { formatearFecha } from '@/lib/fechas';
 import { Head, Link, router } from '@inertiajs/vue3';
 import {
     AlarmClock,
@@ -12,6 +11,7 @@ import {
 } from '@lucide/vue';
 import { computed, reactive, watch } from 'vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
+import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
 import { index } from '@/routes/rh/pendientes';
 import type { TareaBandeja } from '@/types';

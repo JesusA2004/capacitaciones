@@ -53,7 +53,7 @@ class SolicitudController extends Controller
      * Cancela una solicitud propia (mismo criterio que la web, ver
      * Solicitudes\SolicitudInternaController::cancelar): solo mientras
      * sigue en manos propias o apenas entrando a revisión, nunca una ya
-     * aprobada/rechazada/cerrada.
+     * aprobada/rechazada.
      */
     public function cancelar(Request $request, SolicitudInterna $solicitud): JsonResponse
     {

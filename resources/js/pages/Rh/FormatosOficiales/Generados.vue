@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { Download, Eye, FileCheck2, FolderOpen, Search } from '@lucide/vue';
 import { ref, watch } from 'vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import DataTable from '@/components/DataTable/DataTable.vue';
 import FormatosTabsNav from '@/components/Rh/FormatosTabsNav.vue';
 import { Badge } from '@/components/ui/badge';

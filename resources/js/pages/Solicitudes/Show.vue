@@ -27,6 +27,7 @@ import type {
 
 const props = defineProps<{
     solicitud: SolicitudInternaItem;
+    tipoEtiqueta: string;
 }>();
 
 // `layout` recibe una función en vez de un objeto estático porque
@@ -220,8 +221,8 @@ function previsualizar(doc: SolicitudInternaDocumentoItem) {
                     <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                         <div>
                             <p class="text-xs text-muted-foreground">Tipo</p>
-                            <p class="text-sm font-medium capitalize">
-                                {{ solicitud.tipo.replace(/_/g, ' ') }}
+                            <p class="text-sm font-medium">
+                                {{ tipoEtiqueta }}
                             </p>
                         </div>
                         <div v-if="solicitud.fecha_inicio">
