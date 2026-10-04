@@ -1,14 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import {
-    Briefcase,
-    CalendarClock,
-    CircleDollarSign,
-    FilterX,
-    MapPin,
-    UserSearch,
-    Users,
-} from '@lucide/vue';
+import { Briefcase, FilterX, MapPin, UserSearch } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
@@ -16,17 +8,15 @@ import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
-import CrudStats from '@/components/DataTable/CrudStats.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { usePermisos } from '@/composables/usePermisos';
-import { formatoMoneda } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import { show as showSucursal } from '@/routes/administracion/sucursales';
 import { index as indexCandidatos } from '@/routes/rh/candidatos';
 import { exportarExcel, exportarPdf, index } from '@/routes/rh/vacantes';
-import type { VacanteItem, VacantesKpis } from '@/types';
+import type { VacanteItem, VacantesResumen } from '@/types';
 
 /**
  * Vacantes: QUÉ puestos faltan por cubrir y dónde (una fila por vacante
@@ -38,7 +28,7 @@ type Opcion = { id: number; nombre: string };
 
 const props = defineProps<{
     vacantes: VacanteItem[];
-    kpis: VacantesKpis;
+    resumen: VacantesResumen;
     filtros: {
         busqueda?: string;
         sucursal_id?: string;
@@ -120,36 +110,19 @@ function urlExportar(
     return `${destino.url()}?${new URLSearchParams(parametros()).toString()}`;
 }
 
-const estadisticas = computed(() => [
-    {
-        etiqueta: 'Vacantes abiertas',
-        valor: props.kpis.vacantes_abiertas,
-        icono: Briefcase,
-        tono:
-            props.kpis.vacantes_abiertas > 0 ? ('warning' as const) : undefined,
-    },
-    {
-        etiqueta: 'Plazas por cubrir',
-        valor: props.kpis.plazas_disponibles,
-        icono: Users,
-    },
-    {
-        etiqueta: 'Candidatos en proceso',
-        valor: props.kpis.candidatos_activos,
-        icono: UserSearch,
-        tono: 'info' as const,
-    },
-    {
-        etiqueta: 'Días promedio abiertas',
-        valor: props.kpis.dias_promedio_abierta,
-        icono: CalendarClock,
-    },
-    {
-        etiqueta: 'Costo mensual de las plazas',
-        valor: formatoMoneda(props.kpis.costo_mensual),
-        icono: CircleDollarSign,
-    },
-]);
+// Clic en un puesto o en una sucursal del resumen: filtra la lista.
+function filtrarPor(puestoId: number | null, sucursalId: number | null = null) {
+    borrador.value = {
+        ...borrador.value,
+        puesto_id: puestoId ? String(puestoId) : '',
+        sucursal_id: sucursalId ? String(sucursalId) : '',
+    };
+    navegar();
+}
+
+function plazas(n: number): string {
+    return n === 1 ? '1 plaza' : `${n} plazas`;
+}
 
 function fecha(valor: string): string {
     return new Date(`${valor}T12:00:00`).toLocaleDateString('es-MX', {
@@ -183,7 +156,62 @@ const TONO_ESTADO: Record<string, string> = {
             />
         </CrudPageHeader>
 
-        <CrudStats :estadisticas="estadisticas" />
+        <!-- Totales concretos: cuántas plazas faltan de cada puesto y en
+             qué sucursales (de lo que se está viendo). -->
+        <section
+            v-if="resumen.por_puesto.length > 0"
+            data-tour="vacantes-resumen"
+            class="rounded-xl border bg-card p-4"
+            aria-label="Resumen de vacantes"
+        >
+            <p class="text-sm text-muted-foreground">
+                <span
+                    class="text-2xl font-semibold text-foreground tabular-nums"
+                    >{{ resumen.plazas }}</span
+                >
+                {{
+                    resumen.plazas === 1
+                        ? 'plaza por cubrir'
+                        : 'plazas por cubrir'
+                }}
+                en {{ resumen.sucursales }}
+                {{ resumen.sucursales === 1 ? 'sucursal' : 'sucursales' }}
+            </p>
+            <ul class="mt-3 divide-y">
+                <li
+                    v-for="p in resumen.por_puesto"
+                    :key="p.puesto_id ?? 0"
+                    class="flex flex-col gap-1.5 py-2.5 sm:flex-row sm:items-baseline sm:gap-4"
+                >
+                    <button
+                        type="button"
+                        class="flex shrink-0 items-baseline gap-2 text-left hover:underline sm:w-64"
+                        :title="`Ver solo ${p.puesto}`"
+                        @click="filtrarPor(p.puesto_id)"
+                    >
+                        <span class="font-semibold tabular-nums">{{
+                            p.plazas
+                        }}</span>
+                        <span class="font-medium">{{ p.puesto }}</span>
+                    </button>
+                    <div class="flex flex-wrap gap-1.5">
+                        <button
+                            v-for="s in p.sucursales"
+                            :key="s.sucursal_id ?? 0"
+                            type="button"
+                            class="rounded-full border px-2.5 py-0.5 text-xs text-muted-foreground hover:border-foreground/40 hover:text-foreground"
+                            :title="`${p.puesto} en ${s.sucursal}: ${plazas(s.plazas)}`"
+                            @click="filtrarPor(p.puesto_id, s.sucursal_id)"
+                        >
+                            {{ s.sucursal }}
+                            <span class="font-semibold tabular-nums">{{
+                                s.plazas
+                            }}</span>
+                        </button>
+                    </div>
+                </li>
+            </ul>
+        </section>
 
         <div
             data-tour="vacantes-filtros"

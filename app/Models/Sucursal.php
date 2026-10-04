@@ -20,6 +20,9 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property string|null $direccion
  * @property string|null $ciudad
  * @property string|null $estado
+ * @property string|null $colonia
+ * @property string|null $municipio
+ * @property string|null $codigo_postal
  * @property string|null $telefono
  * @property int|null $responsable_id
  * @property bool $activo
@@ -34,7 +37,7 @@ class Sucursal extends Model
 
     protected $table = 'sucursales';
 
-    protected $fillable = ['empresa_id', 'nombre', 'clave', 'direccion', 'ciudad', 'estado', 'telefono', 'responsable_id', 'activo', 'es_corporativo'];
+    protected $fillable = ['empresa_id', 'nombre', 'clave', 'direccion', 'ciudad', 'estado', 'colonia', 'municipio', 'codigo_postal', 'telefono', 'responsable_id', 'activo', 'es_corporativo'];
 
     protected function casts(): array
     {
@@ -96,7 +99,7 @@ class Sucursal extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['empresa_id', 'nombre', 'clave', 'direccion', 'ciudad', 'estado', 'telefono', 'responsable_id', 'activo'])
+            ->logOnly(['empresa_id', 'nombre', 'clave', 'direccion', 'ciudad', 'estado', 'colonia', 'municipio', 'codigo_postal', 'telefono', 'responsable_id', 'activo'])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs();
     }

@@ -32,22 +32,26 @@ export type VacanteItem = {
     plazas_disponibles: number;
     candidatos_activos: number;
     candidatos_total: number;
-    sueldo_mensual: number | null;
     plantilla_autorizada: number | null;
     plantilla_actual: number;
     faltantes_reales: number | null;
 };
 
-export type VacantesKpis = {
-    vacantes_abiertas: number;
-    plazas_disponibles: number;
-    vacantes_automaticas: number;
-    vacantes_manuales: number;
-    en_reclutamiento: number;
-    canceladas: number;
-    candidatos_activos: number;
-    dias_promedio_abierta: number;
-    costo_mensual: number;
+/** Totales concretos de Vacantes: plazas por puesto y en qué sucursales. */
+export type VacantesResumen = {
+    vacantes: number;
+    plazas: number;
+    sucursales: number;
+    por_puesto: {
+        puesto_id: number | null;
+        puesto: string;
+        plazas: number;
+        sucursales: {
+            sucursal_id: number | null;
+            sucursal: string;
+            plazas: number;
+        }[];
+    }[];
 };
 
 export type CandidatosKpis = {

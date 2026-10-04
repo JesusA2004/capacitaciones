@@ -1,8 +1,10 @@
 <?php
 
 use App\Enums\EstadoSolicitudInterna;
+use App\Models\Colaborador;
 use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
+use App\Models\GeneratedDocument;
 use App\Models\OfficialFormat;
 use App\Models\OfficialFormatGeneration;
 use App\Models\SolicitudInterna;
@@ -47,10 +49,15 @@ function crearFormatoOficialConfiguradoParaSlug(string $slug): OfficialFormat
     ]);
 }
 
-test('aprobar una solicitud de prestamo genera automaticamente el contrato de credito', function () {
+test('aprobar una solicitud de prestamo genera el contrato de credito desde documentos maestros, no desde el formato oficial anterior', function () {
+    // El formato oficial anterior sigue cargado: ya no debe usarse para préstamos.
     crearFormatoOficialConfiguradoParaSlug('contrato-credito-colaboradores');
 
-    $colaborador = User::factory()->create();
+    foreach (['prestamo_contrato', 'prestamo_pagare', 'prestamo_consentimiento_retencion'] as $clave) {
+        clPlantilla($clave);
+    }
+
+    $colaborador = User::factory()->create(['colaborador_id' => Colaborador::factory()->create()->id]);
     $solicitud = SolicitudInterna::factory()->create([
         'user_id' => $colaborador->id,
         'tipo' => 'prestamo',
@@ -63,17 +70,16 @@ test('aprobar una solicitud de prestamo genera automaticamente el contrato de cr
     // (SolicitudesService::cambiarEstado() lo bloquea) — solo
     // PrestamoAutorizacionService::autorizar() (pantalla "Autorizar
     // préstamo") fija monto/plazo y aprueba de verdad.
-    app(PrestamoAutorizacionService::class)->autorizar($solicitud, [
+    $prestamo = app(PrestamoAutorizacionService::class)->autorizar($solicitud, [
         'monto_autorizado' => 5000,
         'plazo_autorizado' => 6,
     ], $this->rh);
 
-    $generacion = OfficialFormatGeneration::where('solicitud_interna_id', $solicitud->id)->first();
-
-    expect($generacion)->not->toBeNull()
-        ->and($generacion->colaborador_id)->toBe($colaborador->colaborador_id)
-        ->and($generacion->status->value)->toBe('generado')
-        ->and(Storage::disk('nas')->exists($generacion->generated_path))->toBeTrue();
+    expect(OfficialFormatGeneration::where('solicitud_interna_id', $solicitud->id)->exists())->toBeFalse()
+        ->and($prestamo->refresh()->contrato_documento_id)->not->toBeNull()
+        ->and($prestamo->pagare_documento_id)->not->toBeNull()
+        ->and(GeneratedDocument::query()->where('colaborador_id', $colaborador->colaborador_id)->pluck('clave_plantilla')->sort()->values()->all())
+        ->toBe(['prestamo_consentimiento_retencion', 'prestamo_contrato', 'prestamo_pagare']);
 });
 
 test('aprobar una solicitud de vacaciones genera el formato de vacaciones', function () {

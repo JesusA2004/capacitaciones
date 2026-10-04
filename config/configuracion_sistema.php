@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\FuenteDomicilioPatron;
 use App\Enums\TipoBaja;
 
 /*
@@ -117,6 +118,16 @@ return [
             'reglas' => ['required', 'array', 'min:1'],
             'opciones_enum' => TipoBaja::class,
             'config' => 'ciclo_laboral.cierre.causas_solicitables',
+        ],
+        'rh.domicilio_patron_documentos' => [
+            'grupo' => 'rh',
+            'tipo' => 'opcion',
+            'etiqueta' => 'Domicilio del patrón en contratos y convenios',
+            'descripcion' => 'Qué domicilio se escribe donde el documento dice «…el ubicado en». Fiscal: el de la empresa (Empresas). Sucursal: el de la sucursal del colaborador (Sucursales); si la sucursal no tiene domicilio capturado se usa el fiscal.',
+            'defecto' => 'fiscal',
+            'reglas' => ['required', 'string', 'in:fiscal,sucursal'],
+            'opciones_enum' => FuenteDomicilioPatron::class,
+            'config' => 'documentos_maestros.domicilio_patron',
         ],
     ],
 

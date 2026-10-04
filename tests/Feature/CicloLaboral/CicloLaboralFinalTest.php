@@ -42,6 +42,7 @@ use App\Services\Contratos\ContratoLaboralService;
 use App\Services\Contratos\EvaluacionPeriodoPruebaService;
 use App\Services\Contratos\VencimientoContratosService;
 use App\Services\DocumentosLaborales\FlujoDocumentalService;
+use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Incorporacion\IncorporacionInvitacionService;
 use App\Services\Incorporacion\IncorporacionService;
 use App\Services\Onboarding\OnboardingService;
@@ -71,7 +72,12 @@ beforeEach(function () {
 
     $this->estructura = clEstructura();
     $this->puesto = $this->estructura['puesto'];
-    $this->puesto->update(['meses_periodo_prueba' => 2]);
+    // Gestor: firma capacitación/periodo de prueba, confidencialidad y no competencia.
+    $this->puesto->update(['meses_periodo_prueba' => 2, 'grupo_documental' => 'gestor']);
+    // Modo automático (DOCUMENTOS_ALTA_GENERACION_AUTOMATICA=true): el
+    // paquete se genera solo al completarse el expediente. El modo por
+    // defecto (RH pulsa «Generar paquete») se cubre en DocumentosMaestros.
+    config(['documentos_maestros.alta_generacion_automatica' => true]);
     $this->sucursalA = $this->estructura['sucursal'];
     $this->sucursalB = Sucursal::factory()->create(['empresa_id' => $this->estructura['empresa']->id, 'nombre' => 'Sucursal B']);
 
@@ -97,8 +103,10 @@ beforeEach(function () {
     }
 
     clPlantilla('carta_responsiva');
-    clPlantilla('aviso_no_renovacion');
-    clPlantilla('evaluacion_periodo_prueba');
+    // No renovación: formatos de Jurídico (aviso de terminación y evaluación
+    // de capacitación inicial).
+    clPlantilla('aviso_terminacion');
+    clPlantilla('evaluacion_capacitacion');
     clPlantilla('carta_renuncia');
 
     // Onboarding: institucional + puesto, mínimo 8.
@@ -417,7 +425,7 @@ test('F: el jefe recomienda NO renovar — no hay baja hasta que RH autoriza, y 
     expect($cierre->estado)->toBe(EstadoCierreLaboral::Iniciado)
         ->and($cierre->evaluacion_id)->toBe($evaluacion->id)
         ->and($colaborador->refresh()->estatus)->toBe(EstadoUsuario::Activo)
-        ->and(GeneratedDocument::query()->where('documentable_type', $cierre->getMorphClass())->where('documentable_id', $cierre->id)->pluck('clave_plantilla')->sort()->values()->all())->toBe(['aviso_no_renovacion', 'evaluacion_periodo_prueba']);
+        ->and(GeneratedDocument::query()->where('documentable_type', $cierre->getMorphClass())->where('documentable_id', $cierre->id)->pluck('clave_plantilla')->sort()->values()->all())->toBe(['aviso_terminacion', 'evaluacion_capacitacion']);
 
     // No se ejecuta la baja antes de la fecha efectiva.
     expect(fn () => app(CierreLaboralService::class)->ejecutarBaja($cierre, $this->rh))->toThrow(ValidationException::class);
@@ -447,8 +455,14 @@ test('G: cierre — gerente solicita, RH autoriza, finiquito, regional programa,
 
     $this->actingAs($this->rh);
     $cierre = $cierres->autorizarRh($cierre, $this->rh, 'Procede.');
-    expect($cierre->estado)->toBe(EstadoCierreLaboral::Iniciado)
-        ->and(GeneratedDocument::query()->where('documentable_type', $cierre->getMorphClass())->where('documentable_id', $cierre->id)->where('clave_plantilla', 'carta_renuncia')->count())->toBe(1);
+    expect($cierre->estado)->toBe(EstadoCierreLaboral::Iniciado);
+
+    // La carta de renuncia no se genera sola: el gerente la imprime con el
+    // colaborador presente (la firma de puño y letra).
+    $this->actingAs($this->gerenteA);
+    app(DocumentoProcesoService::class)->generar('baja', $cierre, 'carta_renuncia', $this->gerenteA);
+    expect(GeneratedDocument::query()->where('documentable_type', $cierre->getMorphClass())->where('documentable_id', $cierre->id)->where('clave_plantilla', 'carta_renuncia')->count())->toBe(1);
+    $this->actingAs($this->rh);
 
     $cierres->calcularFiniquito($cierre, $this->rh, 12000);
     $cierre = $cierres->autorizarFiniquito($cierre->refresh(), $this->rh);

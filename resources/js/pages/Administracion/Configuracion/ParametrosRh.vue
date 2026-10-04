@@ -9,6 +9,7 @@ import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
 import { parametrosRh, restaurar } from '@/routes/administracion/configuracion';
 import { update as actualizarPuesto } from '@/routes/administracion/configuracion/parametros-rh/puestos';
@@ -21,6 +22,8 @@ type PuestoParametros = {
     nombre: string;
     meses_periodo_prueba: number | null;
     grupo_indicador: string | null;
+    grupo_documental: string | null;
+    historial?: { accion: string; por: string | null; en: string | null }[];
 };
 
 const props = defineProps<{
@@ -32,6 +35,7 @@ const props = defineProps<{
         vigencia_meses: number | null;
     }[];
     grupos: { value: string; etiqueta: string }[];
+    gruposDocumentales: { value: string; etiqueta: string }[];
     secciones: SeccionConfiguracion[];
 }>();
 
@@ -88,6 +92,7 @@ function guardarPuesto(
         {
             meses_periodo_prueba: p.meses_periodo_prueba || null,
             grupo_indicador: p.grupo_indicador || null,
+            grupo_documental: p.grupo_documental || null,
         },
         { preserveScroll: true },
     );
@@ -159,6 +164,18 @@ const error = (clave: string) =>
                         class="w-28"
                         :aria-label="p.etiqueta"
                     />
+                    <SelectSimple
+                        v-else-if="p.tipo === 'opcion' && p.opciones"
+                        v-model="form.valores[p.clave] as string"
+                        :opciones="
+                            p.opciones.map((o) => ({
+                                value: o.value,
+                                label: o.etiqueta,
+                            }))
+                        "
+                        class="w-full sm:w-80"
+                        :aria-label="p.etiqueta"
+                    />
                     <Button
                         v-if="p.personalizado"
                         type="button"
@@ -220,6 +237,9 @@ const error = (clave: string) =>
                             <th class="px-3 py-2">Puesto</th>
                             <th class="px-3 py-2">Meses</th>
                             <th class="px-3 py-2">Grupo para indicadores</th>
+                            <th class="px-3 py-2">
+                                Contratos (grupo documental)
+                            </th>
                             <th class="px-3 py-2" />
                         </tr>
                     </thead>
@@ -229,7 +249,21 @@ const error = (clave: string) =>
                             :key="p.id"
                             class="border-t border-[var(--mrl-borde)]"
                         >
-                            <td class="px-3 py-2">{{ p.nombre }}</td>
+                            <td class="px-3 py-2">
+                                {{ p.nombre }}
+                                <p
+                                    v-if="p.historial?.length"
+                                    class="text-xs text-[var(--mrl-texto-suave)]"
+                                >
+                                    Último cambio:
+                                    {{ p.historial[0].por ?? 'Sistema' }} ·
+                                    {{
+                                        p.historial[0].en
+                                            ? formatearFecha(p.historial[0].en)
+                                            : ''
+                                    }}
+                                </p>
+                            </td>
                             <td class="px-3 py-2">
                                 <Input
                                     v-model.number="p.meses_periodo_prueba"
@@ -253,6 +287,21 @@ const error = (clave: string) =>
                                     size="sm"
                                     class="w-44"
                                     :aria-label="`Grupo de ${p.nombre}`"
+                                />
+                            </td>
+                            <td class="px-3 py-2">
+                                <SelectSimple
+                                    v-model="p.grupo_documental"
+                                    :opciones="
+                                        gruposDocumentales.map((g) => ({
+                                            value: g.value,
+                                            label: g.etiqueta,
+                                        }))
+                                    "
+                                    opcion-vacia="Sin grupo"
+                                    size="sm"
+                                    class="w-48"
+                                    :aria-label="`Grupo documental de ${p.nombre}`"
                                 />
                             </td>
                             <td class="px-3 py-2 text-right">

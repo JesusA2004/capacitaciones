@@ -2,12 +2,9 @@
 
 namespace App\Services\Reclutamiento;
 
-use App\Enums\CanalReclutamiento;
-use App\Enums\EstadoCandidato;
 use App\Models\CampanaReclutamiento;
 use App\Models\Candidato;
 use App\Models\Vacante;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection as SupportCollection;
@@ -58,37 +55,6 @@ class CampanaReclutamientoService
         $campana->update($datos);
 
         return $campana;
-    }
-
-    /**
-     * Resumen agregado del periodo (opcionalmente acotado por filtros de
-     * empresa/sucursal/departamento/puesto/canal, los mismos que el listado
-     * de campañas).
-     *
-     * @param  array<string, int|string|null>  $filtros
-     * @return array{
-     *     gasto_total: float,
-     *     candidatos_generados: int,
-     *     costo_por_candidato: float,
-     *     contratados: int,
-     *     costo_por_contratacion: float,
-     * }
-     */
-    public function resumenPeriodo(int $mes, int $anio, array $filtros = []): array
-    {
-        $campanas = $this->queryFiltrada($mes, $anio, $filtros)->get();
-
-        $gastoTotal = (float) $campanas->sum(fn (CampanaReclutamiento $c) => (float) $c->monto);
-        $candidatosGenerados = $this->candidatosGeneradosPorCanal($campanas, $mes, $anio)->sum();
-        $contratados = $this->contratadosPorCanal($campanas, $mes, $anio)->sum();
-
-        return [
-            'gasto_total' => $gastoTotal,
-            'candidatos_generados' => $candidatosGenerados,
-            'costo_por_candidato' => $candidatosGenerados > 0 ? $gastoTotal / $candidatosGenerados : 0.0,
-            'contratados' => $contratados,
-            'costo_por_contratacion' => $contratados > 0 ? $gastoTotal / $contratados : 0.0,
-        ];
     }
 
     /**
@@ -151,22 +117,6 @@ class CampanaReclutamientoService
     }
 
     /**
-     * @param  array<string, int|string|null>  $filtros
-     * @return Builder<CampanaReclutamiento>
-     */
-    private function queryFiltrada(int $mes, int $anio, array $filtros): Builder
-    {
-        return CampanaReclutamiento::query()
-            ->where('mes', $mes)
-            ->where('anio', $anio)
-            ->when($filtros['empresa_id'] ?? null, fn ($q, $v) => $q->where('empresa_id', $v))
-            ->when($filtros['sucursal_id'] ?? null, fn ($q, $v) => $q->where('sucursal_id', $v))
-            ->when($filtros['departamento_id'] ?? null, fn ($q, $v) => $q->where('departamento_id', $v))
-            ->when($filtros['puesto_id'] ?? null, fn ($q, $v) => $q->where('puesto_id', $v))
-            ->when($filtros['canal'] ?? null, fn ($q, $v) => $q->where('canal', $v));
-    }
-
-    /**
      * Candidatos generados por canal dentro del periodo, sin doble conteo:
      * si al menos una campaña de ese canal en el periodo quedó sin capturar
      * `candidatos_generados`, se cuenta UNA sola vez (no por fila) cuántos
@@ -196,32 +146,6 @@ class CampanaReclutamientoService
 
                 return $total;
             });
-    }
-
-    /**
-     * Contratados atribuibles a cada canal dentro del periodo, por su fecha
-     * real de contratación (`candidatos.contratado_en`, que llena
-     * ContratacionCandidatoService). Antes se usaba `updated_at`, que cambia
-     * con cualquier edición posterior del candidato y movía la contratación
-     * de mes.
-     *
-     * @param  Collection<int, CampanaReclutamiento>|SupportCollection<int, CampanaReclutamiento>  $campanas
-     * @return SupportCollection<string, int<0, max>>
-     */
-    private function contratadosPorCanal(Collection|SupportCollection $campanas, int $mes, int $anio): SupportCollection
-    {
-        [$inicio, $fin] = $this->rangoPeriodo($mes, $anio);
-
-        return $campanas
-            ->pluck('canal')
-            ->unique()
-            ->mapWithKeys(fn (CanalReclutamiento $canal) => [
-                $canal->value => Candidato::query()
-                    ->where('fuente', $canal->value)
-                    ->where('estado', EstadoCandidato::Contratado->value)
-                    ->whereBetween('contratado_en', [$inicio, $fin])
-                    ->count(),
-            ]);
     }
 
     /**

@@ -36,8 +36,11 @@ function clSolicitarPrestamo(User $cuenta): int
 }
 
 test('préstamo: solicitud → visto bueno del jefe → autorización con monto/plazo → contrato y pagaré → resguardo', function () {
-    clPlantilla('contrato_prestamo', ['requiere_firma_digital' => true]);
-    clPlantilla('pagare', ['requiere_firma_digital' => true]);
+    // Formatos de préstamo de Jurídico: contrato de crédito, pagaré y
+    // consentimiento de retención.
+    foreach (['prestamo_contrato', 'prestamo_pagare', 'prestamo_consentimiento_retencion'] as $clave) {
+        clPlantilla($clave, ['requiere_firma_digital' => true]);
+    }
 
     $solicitudId = clSolicitarPrestamo($this->cuenta);
     $solicitud = SolicitudInterna::query()->findOrFail($solicitudId);

@@ -51,6 +51,23 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property Carbon|null $acceso_suspendido_en
  * @property int|null $cita_registrada_por
  * @property Carbon|null $created_at
+ * @property Carbon|null $negativa_firma_en
+ * @property int|null $negativa_firma_por
+ * @property list<string>|null $negativa_documentos Claves de los documentos que se intentaron entregar.
+ * @property string|null $negativa_observaciones
+ * @property array<string, string>|null $negativa_participantes rh_nombre, rh_cargo, jefe_nombre, jefe_cargo, lugar_acta, domicilio_acta, hora_acta.
+ * @property list<array{nombre: string, cargo: string}>|null $testigos
+ * @property bool $finiquito_a_disposicion
+ * @property Carbon|null $notificacion_electronica_en
+ * @property int|null $notificacion_electronica_por
+ * @property list<string>|null $notificacion_medios
+ * @property list<array{tipo: string, documento_id: int, nombre: string}>|null $evidencias
+ * @property Carbon|null $baja_imss_en
+ * @property Carbon|null $baja_asistencia_en
+ * @property Carbon|null $accesos_cancelados_en
+ * @property Carbon|null $aviso_interno_en
+ * @property Carbon|null $consignacion_preventiva_en
+ * @property string|null $consignacion_observaciones
  * @property-read Colaborador $colaborador
  * @property-read SolicitudInterna|null $solicitud
  */
@@ -69,6 +86,10 @@ class CierreLaboral extends Model
         'finiquito_autorizado_en', 'finiquito_autorizado_por', 'pago_programado_para', 'pago_monto',
         'pago_metodo', 'pago_responsable_user_id', 'pago_observaciones', 'pago_programado_por',
         'pago_programado_en', 'cita_firma_en', 'cita_registrada_por', 'acceso_suspendido_en',
+        'negativa_firma_en', 'negativa_firma_por', 'negativa_documentos', 'negativa_observaciones', 'negativa_participantes',
+        'testigos', 'finiquito_a_disposicion', 'notificacion_electronica_en', 'notificacion_electronica_por',
+        'notificacion_medios', 'evidencias', 'baja_imss_en', 'baja_asistencia_en', 'accesos_cancelados_en',
+        'aviso_interno_en', 'consignacion_preventiva_en', 'consignacion_observaciones',
     ];
 
     protected function casts(): array
@@ -89,6 +110,19 @@ class CierreLaboral extends Model
             'pago_programado_en' => 'datetime',
             'cita_firma_en' => 'datetime',
             'acceso_suspendido_en' => 'datetime',
+            'negativa_firma_en' => 'datetime',
+            'negativa_documentos' => 'array',
+            'negativa_participantes' => 'array',
+            'testigos' => 'array',
+            'finiquito_a_disposicion' => 'boolean',
+            'notificacion_electronica_en' => 'datetime',
+            'notificacion_medios' => 'array',
+            'evidencias' => 'array',
+            'baja_imss_en' => 'datetime',
+            'baja_asistencia_en' => 'datetime',
+            'accesos_cancelados_en' => 'datetime',
+            'aviso_interno_en' => 'datetime',
+            'consignacion_preventiva_en' => 'datetime',
         ];
     }
 

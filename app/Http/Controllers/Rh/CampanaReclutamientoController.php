@@ -36,7 +36,10 @@ class CampanaReclutamientoController extends Controller
 {
     private const FILTROS = ['empresa_id', 'sucursal_id', 'departamento_id', 'puesto_id', 'canal'];
 
-    public function __construct(private readonly CampanaReclutamientoService $servicio) {}
+    public function __construct(
+        private readonly CampanaReclutamientoService $servicio,
+        private readonly CostoReclutamientoService $costos,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -47,7 +50,7 @@ class CampanaReclutamientoController extends Controller
         $anio = $request->integer('anio') ?: (int) now()->year;
         $filtros = $request->only(self::FILTROS);
 
-        $campanas = CampanaReclutamiento::query()
+        $consulta = CampanaReclutamiento::query()
             ->with([
                 'empresa:id,nombre',
                 'sucursal:id,nombre',
@@ -63,13 +66,21 @@ class CampanaReclutamientoController extends Controller
             ->when($filtros['departamento_id'] ?? null, fn ($q, $v) => $q->where('departamento_id', $v))
             ->when($filtros['puesto_id'] ?? null, fn ($q, $v) => $q->where('puesto_id', $v))
             ->when($filtros['canal'] ?? null, fn ($q, $v) => $q->where('canal', $v))
-            ->orderByDesc('created_at')
-            ->paginate(15)
-            ->withQueryString();
+            ->orderByDesc('created_at');
+
+        // Totales del periodo (todas las campañas filtradas, no solo la
+        // página) y, por campaña, cuánto costó cada colaborador contratado.
+        $costos = $this->costos->porCampana((clone $consulta)->get());
+        $campanas = $consulta->paginate(15)->withQueryString();
+        $campanas->getCollection()->transform(function (CampanaReclutamiento $campana) use ($costos) {
+            $campana->setAttribute('resultado', $costos['por_campana'][$campana->id] ?? null);
+
+            return $campana;
+        });
 
         return Inertia::render('Rh/Campanas/Index', [
             'campanas' => $campanas,
-            'kpis' => $this->servicio->resumenPeriodo($mes, $anio, $filtros),
+            'totales' => ['gasto' => $costos['gasto'], 'contratados' => $costos['contratados'], 'costo_por_colaborador' => $costos['costo_por_colaborador'], 'campanas' => count($costos['por_campana'])],
             'filtros' => [
                 ...$request->only(self::FILTROS),
                 'mes' => $mes,
@@ -110,8 +121,9 @@ class CampanaReclutamientoController extends Controller
      * Excel de costo por contratación (resumen ANSI/SHRM + detalle por
      * persona contratada) del rango ?desde&hasta.
      */
-    public function exportarCostos(Request $request, CostoReclutamientoService $costos): BinaryFileResponse
+    public function exportarCostos(Request $request): BinaryFileResponse
     {
+        $costos = $this->costos;
         abort_unless($request->user()?->can('reclutamiento.campanas.ver'), 403);
         $desde = Carbon::parse($request->date('desde')?->toDateString() ?? now()->startOfMonth()->toDateString());
         $hasta = Carbon::parse($request->date('hasta')?->toDateString() ?? now()->toDateString());

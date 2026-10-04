@@ -43,4 +43,15 @@ return [
     */
     'libreoffice' => env('FORMATOS_LIBREOFFICE_PATH'),
 
+    /*
+    | Conversor preferido para documentos maestros (contratos, avisos…):
+    | 'auto' (LibreOffice si está configurado; si no, Microsoft Word en
+    | servidores Windows con Office; si no, PhpWord aproximado), o forzar
+    | 'libreoffice' | 'word' | 'phpword'. La salida aproximada se marca en
+    | el documento generado (fidelidad = aproximada) para que RH lo sepa.
+    */
+    'conversor' => env('FORMATOS_CONVERSOR', 'auto'),
+    'word_script' => resource_path('scripts/docx-a-pdf-word.ps1'),
+    'timeout_segundos' => (int) env('FORMATOS_CONVERSOR_TIMEOUT', 180),
+
 ];

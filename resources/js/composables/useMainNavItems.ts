@@ -44,6 +44,7 @@ import { index as indexAniversarios } from '@/routes/rh/aniversarios';
 import { index as indexCampanas } from '@/routes/rh/campanas';
 import { index as indexCandidatos } from '@/routes/rh/candidatos';
 import { index as indexCumpleanos } from '@/routes/rh/cumpleanos';
+import { index as indexDocumentosMaestros } from '@/routes/rh/documentos-maestros';
 import { index as indexExpedientes } from '@/routes/rh/expedientes';
 import { index as indexFormatos } from '@/routes/rh/formatos';
 import { index as indexIncorporacionInvitaciones } from '@/routes/rh/incorporacion/invitaciones';
@@ -277,6 +278,17 @@ export function useMainNavItems() {
         }
 
         const items: NavItem[] = [];
+
+        // Documentos maestros: solo administración (cargar/versionar/probar
+        // los formatos de Jurídico). Los documentos de cada persona se
+        // generan en su proceso, no aquí.
+        if (tienePermiso('plantillas_documentales.administrar')) {
+            items.push({
+                title: 'Documentos maestros',
+                href: indexDocumentosMaestros(),
+                icon: FileStack,
+            });
+        }
 
         if (tienePermiso('empresas.ver')) {
             items.push({

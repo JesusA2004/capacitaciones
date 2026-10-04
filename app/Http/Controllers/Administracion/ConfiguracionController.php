@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\DocumentType;
 use App\Models\Puesto;
 use App\Models\User;
+use App\Services\Auditoria\AuditoriaService;
 use App\Services\Configuracion\ConfiguracionSistemaService;
 use App\Services\Configuracion\WorkflowRoutingService;
 use Illuminate\Http\RedirectResponse;
@@ -29,6 +30,7 @@ class ConfiguracionController extends Controller
     public function __construct(
         private readonly ConfiguracionSistemaService $configuracion,
         private readonly WorkflowRoutingService $routing,
+        private readonly AuditoriaService $auditoria,
     ) {}
 
     public function index(Request $request): RedirectResponse
@@ -129,10 +131,14 @@ class ConfiguracionController extends Controller
 
         return Inertia::render('Administracion/Configuracion/ParametrosRh', [
             'parametros' => $this->configuracion->grupo('rh'),
-            'puestos' => Puesto::query()->where('activo', true)->orderBy('nivel_jerarquico')->orderBy('nombre')->get(['id', 'nombre', 'meses_periodo_prueba', 'grupo_indicador'])
-                ->map(fn (Puesto $p) => ['id' => $p->id, 'nombre' => $p->nombre, 'meses_periodo_prueba' => $p->meses_periodo_prueba, 'grupo_indicador' => $p->grupo_indicador?->value]),
+            'puestos' => Puesto::query()->where('activo', true)->orderBy('nivel_jerarquico')->orderBy('nombre')->get(['id', 'nombre', 'meses_periodo_prueba', 'grupo_indicador', 'grupo_documental'])
+                ->map(fn (Puesto $p) => ['id' => $p->id, 'nombre' => $p->nombre, 'meses_periodo_prueba' => $p->meses_periodo_prueba, 'grupo_indicador' => $p->grupo_indicador?->value, 'grupo_documental' => $p->grupo_documental,
+                    // Quién cambió la configuración del puesto (meses, grupo documental) y cuándo.
+                    'historial' => $this->auditoria->historial($p, ['configuracion_puesto_actualizada'], 5)]),
             'tiposDocumento' => DocumentType::query()->where('activo', true)->orderBy('nombre')->get(['id', 'nombre', 'vigencia_meses']),
             'grupos' => array_map(fn (GrupoPuestoIndicador $g) => ['value' => $g->value, 'etiqueta' => $g->etiqueta()], GrupoPuestoIndicador::cases()),
+            // Variante de documentos jurídicos (contratos) que le toca al puesto.
+            'gruposDocumentales' => array_map(fn (string $valor, string $etiqueta): array => ['value' => $valor, 'etiqueta' => $etiqueta], array_keys((array) config('documentos_maestros.grupos', [])), array_values((array) config('documentos_maestros.grupos', []))),
             'secciones' => $this->secciones($request->user()),
         ]);
     }
@@ -152,11 +158,13 @@ class ConfiguracionController extends Controller
         $datos = $request->validate([
             'meses_periodo_prueba' => ['nullable', 'integer', 'min:1', 'max:12'],
             'grupo_indicador' => ['nullable', 'string', Rule::enum(GrupoPuestoIndicador::class)],
+            'grupo_documental' => ['nullable', 'string', Rule::in(array_keys((array) config('documentos_maestros.grupos', [])))],
         ]);
 
         $this->configuracion->actualizarPuesto($puesto, [
             'meses_periodo_prueba' => isset($datos['meses_periodo_prueba']) ? (int) $datos['meses_periodo_prueba'] : null,
             'grupo_indicador' => isset($datos['grupo_indicador']) ? (string) $datos['grupo_indicador'] : null,
+            'grupo_documental' => isset($datos['grupo_documental']) ? (string) $datos['grupo_documental'] : null,
         ], $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => sprintf('Puesto «%s» actualizado.', $puesto->nombre)]);

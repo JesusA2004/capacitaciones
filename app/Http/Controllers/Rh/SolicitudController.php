@@ -167,6 +167,12 @@ class SolicitudController extends Controller
             'solicitud' => $solicitud,
             'tipoEtiqueta' => $solicitud->tipo->etiqueta(),
             'tipoBajaEtiqueta' => $solicitud->tipo_baja?->etiqueta(),
+            // Documentos oficiales del proceso (motor documental): formato de
+            // permiso de la solicitud y documentos del préstamo autorizado.
+            'documentosProceso' => array_values(array_filter([
+                in_array($solicitud->tipo->value, (array) config('documentos_maestros.tipos_solicitud_permiso', []), true) ? ['tipo' => 'solicitud', 'id' => $solicitud->id] : null,
+                $solicitud->prestamo !== null ? ['tipo' => 'prestamo', 'id' => $solicitud->prestamo->id] : null,
+            ])),
             'puedeGenerarFormato' => $puedeGenerarFormato,
             // Cadena de vistos buenos (gerente → regional) antes de RH.
             'vistosBuenos' => $this->aprobaciones->resumen($solicitud),

@@ -15,6 +15,7 @@ import { computed, ref } from 'vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import DocumentosProceso from '@/components/documentos/DocumentosProceso.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import FiniquitoPanel from '@/components/Rh/FiniquitoPanel.vue';
@@ -71,6 +72,7 @@ const props = defineProps<{
     finiquitoPermisos: FiniquitoPermisos;
     formatosOficiales: FormatoOficialItem[];
     personaSolicitud: { id: number; nombre: string } | null;
+    documentosProceso: { tipo: 'solicitud' | 'prestamo'; id: number }[];
 }>();
 
 // Sin los vistos buenos (gerente y regional) RH no puede autorizar todavía.
@@ -368,6 +370,15 @@ const documentoOficialGeneracion = computed(
                         <p class="text-sm">{{ solicitud.observaciones }}</p>
                     </div>
                 </div>
+
+                <!-- Formato oficial del proceso (permiso / préstamo): lo decide
+                     el backend; se genera, imprime y firma aquí mismo. -->
+                <DocumentosProceso
+                    v-for="d in documentosProceso"
+                    :key="`${d.tipo}-${d.id}`"
+                    :tipo="d.tipo"
+                    :id="d.id"
+                />
 
                 <!-- Otras plantillas oficiales con los datos de esta solicitud. -->
                 <div

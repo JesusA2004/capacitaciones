@@ -10,6 +10,7 @@ export * from './cicloLaboral';
 export * from './configuracion';
 export * from './cuestionarios';
 export * from './cursos';
+export * from './documentosProceso';
 export * from './dashboardRh';
 export * from './formatos-oficiales';
 export * from './matrizComercial';

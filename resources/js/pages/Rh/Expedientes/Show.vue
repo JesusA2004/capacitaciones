@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import DocumentosProceso from '@/components/documentos/DocumentosProceso.vue';
 import ExpedienteDetalle from '@/components/Rh/ExpedienteDetalle.vue';
 import ExpedienteDocumentosOficiales from '@/components/Rh/ExpedienteDocumentosOficiales.vue';
 import { usePermisos } from '@/composables/usePermisos';
@@ -122,6 +123,7 @@ defineOptions({
         :prestamos="prestamos"
     >
         <template #documentos-oficiales>
+            <DocumentosProceso tipo="colaborador" :id="colaborador.id" />
             <ExpedienteDocumentosOficiales
                 v-if="props.documentosOficiales !== null"
                 :colaborador="{

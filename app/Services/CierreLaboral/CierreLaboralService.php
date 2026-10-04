@@ -11,6 +11,7 @@ use App\Enums\ProcesoAprobacion;
 use App\Enums\TipoBaja;
 use App\Enums\TipoSolicitudInterna;
 use App\Enums\TipoTarea;
+use App\Exceptions\DatosDocumentoFaltantesException;
 use App\Models\CierreLaboral;
 use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
@@ -24,8 +25,8 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\CicloLaboral\AprobacionService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
-use App\Services\Contratos\ContratoLaboralService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
+use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Finiquitos\FiniquitoService;
 use App\Services\Solicitudes\SolicitudesService;
 use App\Services\Tareas\NotificadorRhService;
@@ -82,6 +83,7 @@ class CierreLaboralService
         private readonly OrganizacionJerarquiaService $jerarquia,
         private readonly NotificadorRhService $notificador,
         private readonly AccesoCuentaService $acceso,
+        private readonly DocumentoProcesoService $documentosProceso,
     ) {}
 
     /**
@@ -248,7 +250,7 @@ class CierreLaboralService
             'evaluacion_id' => $evaluacion->id,
         ]);
 
-        $this->generarDocumentosDeCausa($cierre, $actor, ContratoLaboralService::clavesConfiguradas('ciclo_laboral.periodo_prueba.documentos_no_renovacion'));
+        $this->generarDocumentosDeCausa($cierre, $actor, $this->documentosProceso->clavesCausa($cierre));
         $this->sincronizarPendientes($cierre->refresh(), $actor);
 
         return $cierre;
@@ -292,7 +294,9 @@ class CierreLaboralService
 
         $this->auditoria->registrar('cierre_laboral_autorizado_rh', $cierre, $actor, ['colaborador_id' => $cierre->colaborador_id]);
 
-        $this->generarDocumentosDeCausa($cierre, $actor, ContratoLaboralService::clavesConfiguradas("ciclo_laboral.cierre.documentos_por_causa.{$cierre->tipo_baja->value}"));
+        // La renuncia la genera el gerente con el colaborador presente; los
+        // documentos del vencimiento (evaluación + aviso) se preparan aquí.
+        $this->generarDocumentosDeCausa($cierre, $actor, array_values(array_diff($this->documentosProceso->clavesCausa($cierre), ['carta_renuncia'])));
         $this->sincronizarPendientes($cierre->refresh(), $actor);
 
         return $cierre;
@@ -370,6 +374,12 @@ class CierreLaboralService
     public function generarAviso(CierreLaboral $cierre, User $actor): GeneratedDocument
     {
         $this->exigirAutorizado($cierre);
+
+        // Vencimiento de capacitación: el aviso oficial de Jurídico (master).
+        if (in_array('aviso_terminacion', $this->documentosProceso->clavesCausa($cierre), true)) {
+            return $this->documentosProceso->documentoVigente($cierre, 'aviso_terminacion')
+                ?? $this->documentosProceso->generar('baja', $cierre, 'aviso_terminacion', $actor);
+        }
 
         return $this->motor->generar($cierre->colaborador, 'aviso_termino', $actor, $this->variables($cierre), $cierre);
     }
@@ -563,11 +573,16 @@ class CierreLaboralService
 
         $finiquito = $this->exigirFiniquito($cierre);
 
-        if (config('contratos.cierre.requiere_finiquito_firmado') && ! in_array($finiquito->estado, [EstadoFiniquito::Firmado, EstadoFiniquito::Pagado], true)) {
+        // Procedimiento integral de baja, escenario B: si el colaborador se
+        // negó a firmar/recibir, el finiquito queda a su disposición (y en su
+        // caso se consigna); la baja operativa no espera su firma ni su pago.
+        $aDisposicion = $cierre->negativa_firma_en !== null && $cierre->finiquito_a_disposicion;
+
+        if (! $aDisposicion && config('contratos.cierre.requiere_finiquito_firmado') && ! in_array($finiquito->estado, [EstadoFiniquito::Firmado, EstadoFiniquito::Pagado], true)) {
             throw ValidationException::withMessages(['finiquito' => 'El finiquito debe estar firmado antes de ejecutar la baja.']);
         }
 
-        if (config('contratos.cierre.requiere_pago_confirmado') && $finiquito->pagado_en === null) {
+        if (! $aDisposicion && config('contratos.cierre.requiere_pago_confirmado') && $finiquito->pagado_en === null) {
             throw ValidationException::withMessages(['finiquito' => 'Confirma el pago del finiquito antes de ejecutar la baja.']);
         }
 
@@ -592,7 +607,7 @@ class CierreLaboralService
 
             $cierre->colaborador->forceFill(['fecha_baja' => $cierre->fecha_efectiva->toDateString()])->save();
 
-            $cierre->update(['baja_ejecutada_en' => now(), 'estado' => EstadoCierreLaboral::BajaEjecutada]);
+            $cierre->update(['baja_ejecutada_en' => now(), 'estado' => EstadoCierreLaboral::BajaEjecutada, 'accesos_cancelados_en' => $cierre->accesos_cancelados_en ?? now()]);
         });
 
         $this->auditoria->registrar('cierre_laboral_baja', $cierre, $actor, ['colaborador_id' => $cierre->colaborador_id]);
@@ -604,6 +619,12 @@ class CierreLaboralService
     {
         if ($cierre->estado !== EstadoCierreLaboral::BajaEjecutada) {
             throw ValidationException::withMessages(['estado' => 'El expediente se cierra después de ejecutar la baja.']);
+        }
+
+        // Checklist final del procedimiento integral de baja (vencimiento de
+        // capacitación): no se cierra sin los documentos que apliquen.
+        if (! $this->documentosProceso->checklistCompleto($cierre)) {
+            throw ValidationException::withMessages(['checklist' => 'Faltan puntos del checklist final del procedimiento de baja (documentos firmados o acta de negativa, evidencia de notificación electrónica, finiquito pagado o consignado, baja IMSS). Revisa «Documentos de la baja».']);
         }
 
         DB::transaction(function () use ($cierre, $actor): void {
@@ -890,11 +911,11 @@ class CierreLaboralService
             }
 
             try {
-                $this->motor->generar($cierre->colaborador, $clave, $actor, $this->variables($cierre), $cierre);
-            } catch (ValidationException $e) {
+                $this->documentosProceso->generar('baja', $cierre, $clave, $actor);
+            } catch (ValidationException|AuthorizationException $e) {
                 $this->tareas->abrir(TipoTarea::PlantillaFaltante, $cierre, [
-                    'titulo' => sprintf('Falta la plantilla «%s» para el cierre de %s', config("ciclo_laboral.plantillas.{$clave}", $clave), $cierre->colaborador->nombreCompleto()),
-                    'descripcion' => collect($e->errors())->flatten()->implode(' '),
+                    'titulo' => sprintf($e instanceof DatosDocumentoFaltantesException ? 'Faltan datos para «%s» del cierre de %s' : 'Documento «%s» pendiente para el cierre de %s', $clave, $cierre->colaborador->nombreCompleto()),
+                    'descripcion' => $e instanceof ValidationException ? collect($e->errors())->flatten()->implode(' ') : $e->getMessage(),
                     'prioridad' => PrioridadTarea::Alta,
                     'colaborador' => $cierre->colaborador,
                     'permiso' => 'plantillas_documentales.administrar',

@@ -13,11 +13,12 @@ use App\Models\SolicitudInterna;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
-use App\Services\DocumentosLaborales\MotorDocumentalService;
+use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Solicitudes\AprobacionJerarquicaService;
 use App\Services\Solicitudes\SolicitudesService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Services\Tareas\TareaService;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -42,7 +43,6 @@ class PrestamoAutorizacionService
     public function __construct(
         private readonly SolicitudesService $solicitudes,
         private readonly AprobacionJerarquicaService $aprobaciones,
-        private readonly MotorDocumentalService $motor,
         private readonly TareaService $tareas,
         private readonly NotificadorRhService $notificador,
         private readonly AuditoriaService $auditoria,
@@ -140,19 +140,23 @@ class PrestamoAutorizacionService
     public function generarDocumentos(Prestamo $prestamo, User $actor): array
     {
         $prestamo->loadMissing('colaborador');
-        $variables = $this->variablesDocumento($prestamo);
-
         $pendientes = [];
+        // Formato oficial "Contrato de crédito para colaboradores" (documentos
+        // maestros): contrato, pagaré y carta de retención, ligados al préstamo
+        // por DocumentoProcesoService (contrato_documento_id / pagare_documento_id).
+        $documentos = app(DocumentoProcesoService::class);
 
-        foreach (['contrato_prestamo' => 'contrato_documento_id', 'pagare' => 'pagare_documento_id'] as $clave => $columna) {
-            if ($prestamo->getAttribute($columna) !== null) {
+        foreach ((array) config('documentos_maestros.documentos_prestamo', []) as $clave) {
+            $clave = (string) $clave;
+
+            if ($documentos->documentoVigente($prestamo, $clave) !== null) {
                 continue;
             }
 
             try {
-                $documento = $this->motor->generar($prestamo->colaborador, $clave, $actor, $variables, $prestamo);
-                $prestamo->update([$columna => $documento->id]);
-            } catch (ValidationException $e) {
+                $documentos->generar('prestamo', $prestamo, $clave, $actor);
+            } catch (ValidationException|AuthorizationException $e) {
+                $e = $e instanceof ValidationException ? $e : ValidationException::withMessages(['documento' => $e->getMessage()]);
                 $pendientes[] = $clave;
                 $this->tareas->abrir(TipoTarea::PrestamoPendiente, $prestamo, [
                     'titulo' => sprintf('Documento de préstamo pendiente: %s', config("contratos.plantillas.{$clave}.nombre", $clave)),

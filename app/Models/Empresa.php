@@ -17,6 +17,10 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property string|null $razon_social
  * @property string|null $rfc
  * @property string|null $logo_path
+ * @property string|null $domicilio_fiscal
+ * @property string|null $ciudad_firma
+ * @property string|null $representante_legal_nombre
+ * @property string|null $representante_legal_cargo
  * @property bool $activo
  */
 class Empresa extends Model
@@ -26,7 +30,7 @@ class Empresa extends Model
 
     protected $table = 'empresas';
 
-    protected $fillable = ['nombre', 'razon_social', 'rfc', 'logo_path', 'activo'];
+    protected $fillable = ['nombre', 'razon_social', 'rfc', 'logo_path', 'activo', 'domicilio_fiscal', 'ciudad_firma', 'representante_legal_nombre', 'representante_legal_cargo'];
 
     protected $appends = ['logo_url'];
 

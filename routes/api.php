@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\V1\Rh\CumpleanosController as RhCumpleanosControlle
 use App\Http\Controllers\Api\V1\Rh\DashboardController as RhDashboardController;
 use App\Http\Controllers\Api\V1\Rh\DocumentoController as RhDocumentoController;
 use App\Http\Controllers\Api\V1\Rh\DocumentoLaboralController;
+use App\Http\Controllers\Api\V1\Rh\DocumentoProcesoController;
 use App\Http\Controllers\Api\V1\Rh\EstructuraController;
 use App\Http\Controllers\Api\V1\Rh\ExpedienteController as RhExpedienteController;
 use App\Http\Controllers\Api\V1\Rh\FormatoController as RhFormatoController;
@@ -410,6 +411,22 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('/', [PlantillaDocumentalController::class, 'store'])->name('store')->middleware('throttle:api-cargas');
                 Route::patch('{plantilla}', [PlantillaDocumentalController::class, 'update'])->name('update');
             });
+
+            /*
+            | Documentos del proceso (motor documental): mismo payload y
+            | reglas que la web. La app solo renderiza documentos_proceso y
+            | acciones; nunca decide qué documento toca.
+            */
+            Route::prefix('documentos-proceso')->name('documentos-proceso.')->group(function () {
+                Route::get('colaborador/{colaborador}', [DocumentoProcesoController::class, 'colaborador'])->name('colaborador')->withTrashed();
+                Route::get('{tipo}/{id}', [DocumentoProcesoController::class, 'show'])->name('show')->whereIn('tipo', ['contrato', 'cierre', 'solicitud', 'prestamo', 'evaluacion', 'entrega_activo'])->whereNumber('id');
+                Route::post('{tipo}/{id}/generar', [DocumentoProcesoController::class, 'generar'])->name('generar')->whereIn('tipo', ['contrato', 'cierre', 'solicitud', 'prestamo', 'evaluacion', 'entrega_activo'])->whereNumber('id')->middleware('throttle:30,1');
+                Route::post('{tipo}/{id}/paquete', [DocumentoProcesoController::class, 'paquete'])->name('paquete')->whereIn('tipo', ['contrato', 'cierre', 'prestamo'])->whereNumber('id')->middleware('throttle:10,1');
+                Route::post('documento/{documento}/{accion}', [DocumentoProcesoController::class, 'operar'])->name('operar')->whereIn('accion', ['imprimir', 'firma-fisica', 'envio', 'recepcion', 'escaneo', 'archivar'])->middleware('throttle:api-cargas');
+            });
+            Route::post('cierres/{cierre}/procedimiento/negativa', [DocumentoProcesoController::class, 'negativa'])->name('cierres.procedimiento.negativa');
+            Route::post('cierres/{cierre}/procedimiento/testigos', [DocumentoProcesoController::class, 'testigos'])->name('cierres.procedimiento.testigos');
+            Route::post('cierres/{cierre}/procedimiento/etapa', [DocumentoProcesoController::class, 'etapa'])->name('cierres.procedimiento.etapa')->middleware('throttle:api-cargas');
 
             Route::prefix('documentos-laborales')->name('documentos-laborales.')->group(function () {
                 Route::get('/', [DocumentoLaboralController::class, 'index'])->name('index');

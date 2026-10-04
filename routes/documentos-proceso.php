@@ -1,0 +1,40 @@
+<?php
+
+use App\Http\Controllers\Rh\DocumentoMaestroController;
+use App\Http\Controllers\Rh\DocumentoProcesoController;
+use Illuminate\Support\Facades\Route;
+
+/*
+| Motor documental (docs/MOTOR_DOCUMENTOS_MAESTROS.md):
+|  - "Documentos del proceso": en contexto (ficha, cierre, solicitud,
+|    préstamo, evaluación, entrega de activo). JSON, mismo controlador que la
+|    API móvil.
+|  - "Documentos maestros": administración (cargar/versionar/activar/probar).
+| La autorización real vive en el Service (alcance + permiso por documento)
+| y en GeneratedDocumentPolicy para el flujo físico.
+*/
+Route::middleware(['auth', 'verified'])->prefix('rh')->name('rh.')->group(function () {
+    Route::prefix('documentos-proceso')->name('documentos-proceso.')->group(function () {
+        Route::get('colaborador/{colaborador}', [DocumentoProcesoController::class, 'colaborador'])->name('colaborador')->withTrashed();
+        Route::get('{tipo}/{id}', [DocumentoProcesoController::class, 'show'])->name('show')->whereIn('tipo', ['contrato', 'cierre', 'solicitud', 'prestamo', 'evaluacion', 'entrega_activo'])->whereNumber('id');
+        Route::post('{tipo}/{id}/generar', [DocumentoProcesoController::class, 'generar'])->name('generar')->whereIn('tipo', ['contrato', 'cierre', 'solicitud', 'prestamo', 'evaluacion', 'entrega_activo'])->whereNumber('id')->middleware('throttle:30,1');
+        Route::post('{tipo}/{id}/paquete', [DocumentoProcesoController::class, 'paquete'])->name('paquete')->whereIn('tipo', ['contrato', 'cierre', 'prestamo'])->whereNumber('id')->middleware('throttle:10,1');
+        Route::post('documento/{documento}/{accion}', [DocumentoProcesoController::class, 'operar'])->name('operar')->whereIn('accion', ['imprimir', 'firma-fisica', 'envio', 'recepcion', 'escaneo', 'archivar']);
+    });
+
+    Route::prefix('cierres/{cierre}/procedimiento')->name('cierres.procedimiento.')->group(function () {
+        Route::post('negativa', [DocumentoProcesoController::class, 'negativa'])->name('negativa');
+        Route::post('testigos', [DocumentoProcesoController::class, 'testigos'])->name('testigos');
+        Route::post('etapa', [DocumentoProcesoController::class, 'etapa'])->name('etapa');
+    });
+
+    Route::prefix('documentos-maestros')->name('documentos-maestros.')->group(function () {
+        Route::get('/', [DocumentoMaestroController::class, 'index'])->name('index');
+        Route::get('{master}', [DocumentoMaestroController::class, 'show'])->name('show')->whereNumber('master');
+        Route::post('familia/{familia}/versiones', [DocumentoMaestroController::class, 'cargarVersion'])->name('versiones.store')->where('familia', '[a-z0-9_.]+');
+        Route::post('{master}/activar', [DocumentoMaestroController::class, 'activar'])->name('activar')->whereNumber('master');
+        Route::post('{master}/desactivar', [DocumentoMaestroController::class, 'desactivar'])->name('desactivar')->whereNumber('master');
+        Route::post('{master}/probar', [DocumentoMaestroController::class, 'probar'])->name('probar')->whereNumber('master')->middleware('throttle:20,1');
+        Route::get('{master}/original', [DocumentoMaestroController::class, 'original'])->name('original')->whereNumber('master');
+    });
+});

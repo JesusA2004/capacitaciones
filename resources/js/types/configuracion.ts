@@ -7,7 +7,14 @@ export type ParametroConfiguracion = {
     clave: string;
     etiqueta: string;
     descripcion: string | null;
-    tipo: 'color' | 'entero' | 'decimal' | 'lista' | 'booleano' | 'texto';
+    tipo:
+        | 'color'
+        | 'entero'
+        | 'decimal'
+        | 'lista'
+        | 'opcion'
+        | 'booleano'
+        | 'texto';
     valor: string | number | boolean | string[];
     defecto: string | number | boolean | string[];
     personalizado: boolean;

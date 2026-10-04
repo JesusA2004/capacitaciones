@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Spatie\Activitylog\Models\Activity;
 use Throwable;
 
 /**
@@ -34,6 +35,47 @@ class AuditoriaService
     private const CLAVES_SENSIBLES = ['password', 'password_confirmation', 'token', 'access_token', 'remember_token', 'two_factor_secret', 'path', 'disk', 'storage_path'];
 
     public function __construct(private readonly ?Request $request = null) {}
+
+    /**
+     * Historial de quién hizo qué sobre un registro (más reciente primero):
+     * para mostrar quién autorizó/cambió/concedió algo.
+     *
+     * @param  list<string>|null  $acciones  Solo estos eventos (null = todos).
+     * @return list<array{accion: string, por: string|null, en: string|null, propiedades: array<string, mixed>}>
+     */
+    public function historial(Model $sujeto, ?array $acciones = null, int $limite = 20): array
+    {
+        $actividades = Activity::query()
+            ->where('log_name', self::LOG)
+            ->where('subject_type', $sujeto->getMorphClass())
+            ->where('subject_id', $sujeto->getKey())
+            ->when($acciones !== null, fn ($q) => $q->whereIn('event', $acciones))
+            ->with('causer')
+            ->latest('id')
+            ->limit($limite)
+            ->get();
+
+        $historial = [];
+
+        foreach ($actividades as $actividad) {
+            $propiedades = [];
+
+            foreach ($actividad->properties->toArray() as $clave => $valor) {
+                if (is_string($clave) && ! in_array($clave, ['ip', 'user_agent'], true)) {
+                    $propiedades[$clave] = $valor;
+                }
+            }
+
+            $historial[] = [
+                'accion' => (string) $actividad->event,
+                'por' => $actividad->causer instanceof User ? $actividad->causer->name : null,
+                'en' => $actividad->created_at?->toIso8601String(),
+                'propiedades' => $propiedades,
+            ];
+        }
+
+        return $historial;
+    }
 
     /**
      * @param  array<string, mixed>  $propiedades

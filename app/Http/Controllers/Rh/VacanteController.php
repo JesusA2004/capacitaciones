@@ -41,9 +41,12 @@ class VacanteController extends Controller
         $usuario = $request->user();
         $sucursales = $this->alcance->sucursalesVisiblesIds($usuario);
 
+        $filas = $this->vacantes->filas($this->vacantes->consulta($usuario, $this->filtros($request))->get());
+
         return Inertia::render('Rh/Vacantes/Index', [
-            'vacantes' => $this->vacantes->filas($this->vacantes->consulta($usuario, $this->filtros($request))->get()),
-            'kpis' => $this->vacantes->kpis($usuario),
+            'vacantes' => $filas,
+            // Totales concretos: cuántas plazas de cada puesto y en qué sucursales.
+            'resumen' => $this->vacantes->resumen($filas),
             'filtros' => $request->only(self::FILTROS),
             'opciones' => [
                 'sucursales' => Sucursal::query()->whereIn('id', $sucursales)->orderBy('nombre')->get(['id', 'nombre']),

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\EstadoAltaColaborador;
+use App\Enums\EstadoCivil;
 use App\Enums\EstadoUsuario;
 use App\Enums\EstatusImss;
 use App\Enums\Genero;
@@ -64,6 +65,17 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property string|null $nss
  * @property string|null $domicilio
  * @property string|null $correo_personal
+ * @property string|null $nacionalidad
+ * @property EstadoCivil|null $estado_civil
+ * @property string|null $lugar_nacimiento
+ * @property string|null $clave_elector
+ * @property string|null $profesion
+ * @property string|null $beneficiario_nombre
+ * @property string|null $beneficiario_parentesco
+ * @property string|null $domicilio_colonia
+ * @property string|null $domicilio_municipio
+ * @property string|null $domicilio_estado
+ * @property string|null $domicilio_cp
  * @property string|null $contacto_emergencia_nombre
  * @property string|null $contacto_emergencia_telefono
  * @property string|null $incorporacion_decision
@@ -96,6 +108,8 @@ use Spatie\Activitylog\Traits\LogsActivity;
     'aviso_privacidad_aceptado', 'aviso_privacidad_aceptado_en',
     'consentimiento_datos_aceptado', 'consentimiento_datos_aceptado_en', 'avisos_registrado_por_id',
     'incorporacion_decision', 'incorporacion_decidida_por', 'incorporacion_decidida_en', 'incorporacion_motivo_rechazo',
+    'nacionalidad', 'estado_civil', 'lugar_nacimiento', 'clave_elector', 'profesion', 'beneficiario_nombre', 'beneficiario_parentesco',
+    'domicilio_colonia', 'domicilio_municipio', 'domicilio_estado', 'domicilio_cp',
 ])]
 class Colaborador extends Model
 {
@@ -137,6 +151,7 @@ class Colaborador extends Model
             'activado_en' => 'datetime',
             'fecha_baja' => 'date',
             'expediente_cerrado_en' => 'datetime',
+            'estado_civil' => EstadoCivil::class,
         ];
     }
 

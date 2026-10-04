@@ -88,30 +88,56 @@ class VacantesListadoService
     }
 
     /**
-     * KPIs del estado general dentro del alcance (no dependen de los
-     * filtros en pantalla).
+     * Totales concretos de lo que se está viendo (mismas filas del listado):
+     * cuántas plazas faltan de cada puesto —gerentes, gestores, etc.— y en
+     * qué sucursales. Sin costos: el costo vive en Campañas.
      *
-     * @return array{vacantes_abiertas: int, plazas_disponibles: int, vacantes_automaticas: int, vacantes_manuales: int, en_reclutamiento: int, canceladas: int, candidatos_activos: int, dias_promedio_abierta: int, costo_mensual: float}
+     * @param  list<array<string, mixed>>  $filas
+     * @return array{vacantes: int, plazas: int, sucursales: int, por_puesto: list<array{puesto_id: int|null, puesto: string, plazas: int, sucursales: list<array{sucursal_id: int|null, sucursal: string, plazas: int}>}>}
      */
-    public function kpis(User $usuario): array
+    public function resumen(array $filas): array
     {
-        $todas = $this->alcance->limitarPorSucursal(
-            Vacante::query()->withCount(['candidatos as candidatos_activos_count' => fn (Builder $q) => $q->whereIn('estado', $this->estadosCandidatoActivos())]),
-            $usuario,
-        )->get();
+        $porPuesto = [];
+        $sucursales = [];
 
-        $activas = $todas->reject(fn (Vacante $v) => in_array($v->estado, [EstadoVacante::Cubierta, EstadoVacante::Cancelada], true));
+        foreach ($filas as $fila) {
+            $puestoId = is_int($fila['puesto_id'] ?? null) ? $fila['puesto_id'] : null;
+            $sucursalId = is_int($fila['sucursal_id'] ?? null) ? $fila['sucursal_id'] : null;
+            $plazas = is_int($fila['plazas_disponibles'] ?? null) ? $fila['plazas_disponibles'] : 0;
+            $clavePuesto = sprintf('p%d', $puestoId ?? 0);
+            $claveSucursal = sprintf('s%d', $sucursalId ?? 0);
+
+            $porPuesto[$clavePuesto] ??= [
+                'puesto_id' => $puestoId,
+                'puesto' => is_string($fila['puesto'] ?? null) ? $fila['puesto'] : 'Puesto sin definir',
+                'plazas' => 0,
+                'sucursales' => [],
+            ];
+            $porPuesto[$clavePuesto]['plazas'] += $plazas;
+            $porPuesto[$clavePuesto]['sucursales'][$claveSucursal] ??= [
+                'sucursal_id' => $sucursalId,
+                'sucursal' => is_string($fila['sucursal'] ?? null) ? $fila['sucursal'] : 'Sin sucursal',
+                'plazas' => 0,
+            ];
+            $porPuesto[$clavePuesto]['sucursales'][$claveSucursal]['plazas'] += $plazas;
+            $sucursales[$claveSucursal] = true;
+        }
+
+        $lista = [];
+
+        foreach ($porPuesto as $puesto) {
+            $detalle = array_values($puesto['sucursales']);
+            usort($detalle, fn (array $a, array $b): int => [$b['plazas'], $a['sucursal']] <=> [$a['plazas'], $b['sucursal']]);
+            $lista[] = [...$puesto, 'sucursales' => $detalle];
+        }
+
+        usort($lista, fn (array $a, array $b): int => [$b['plazas'], $a['puesto']] <=> [$a['plazas'], $b['puesto']]);
 
         return [
-            'vacantes_abiertas' => $activas->count(),
-            'plazas_disponibles' => (int) $activas->sum('plazas_disponibles'),
-            'vacantes_automaticas' => $activas->where('generada_automaticamente', true)->count(),
-            'vacantes_manuales' => $activas->where('generada_automaticamente', false)->count(),
-            'en_reclutamiento' => $activas->filter(fn (Vacante $v) => $v->estado !== EstadoVacante::Abierta)->count(),
-            'canceladas' => $todas->filter(fn (Vacante $v) => $v->estado === EstadoVacante::Cancelada)->count(),
-            'candidatos_activos' => (int) $activas->sum('candidatos_activos_count'),
-            'dias_promedio_abierta' => $activas->isEmpty() ? 0 : (int) round($activas->avg(fn (Vacante $v) => $v->diasAbierta())),
-            'costo_mensual' => (float) $activas->sum(fn (Vacante $v) => (float) ($v->sueldo_mensual ?? 0)),
+            'vacantes' => count($filas),
+            'plazas' => array_sum(array_column($lista, 'plazas')),
+            'sucursales' => count($sucursales),
+            'por_puesto' => $lista,
         ];
     }
 
@@ -143,7 +169,6 @@ class VacantesListadoService
             'plazas_disponibles' => $vacante->plazas_disponibles,
             'candidatos_activos' => (int) $vacante->getAttribute('candidatos_activos_count'),
             'candidatos_total' => (int) $vacante->getAttribute('candidatos_count'),
-            'sueldo_mensual' => $vacante->sueldo_mensual !== null ? (float) $vacante->sueldo_mensual : null,
             'plantilla_autorizada' => $autorizada !== null ? (int) $autorizada : null,
             'plantilla_actual' => $actual,
             'faltantes_reales' => $autorizada !== null ? max((int) $autorizada - $actual, 0) : null,

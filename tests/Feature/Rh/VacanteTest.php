@@ -16,26 +16,37 @@ beforeEach(function () {
 // rutas ya no existen porque las vacantes se abren y cierran solas desde
 // headcount (docs/HEADCOUNT_Y_VACANTES.md, VacanteAutoGenerationService).
 
-test('el listado de vacantes incluye los kpis del tablero', function () {
+test('vacantes: totales concretos por puesto y en qué sucursales, sin costos', function () {
     $usuario = User::factory()->create();
     $usuario->assignRole('rh_admin');
 
-    Vacante::factory()->create(['estado' => 'abierta', 'generada_automaticamente' => true, 'plazas_disponibles' => 2]);
-    Vacante::factory()->create(['estado' => 'en_reclutamiento', 'generada_automaticamente' => false, 'plazas_disponibles' => 1]);
-    Vacante::factory()->create(['estado' => 'cubierta']);
-    Vacante::factory()->create(['estado' => 'cancelada']);
+    $gestor = Puesto::factory()->create(['nombre' => 'Gestor']);
+    $gerente = Puesto::factory()->create(['nombre' => 'Gerente de Sucursal']);
+    $cuernavaca = Sucursal::factory()->create(['nombre' => 'Cuernavaca']);
+    $cordoba = Sucursal::factory()->create(['nombre' => 'Córdoba']);
 
-    $respuesta = $this->actingAs($usuario)->get(route('rh.vacantes.index'));
+    Vacante::factory()->create(['puesto_id' => $gestor->id, 'sucursal_id' => $cuernavaca->id, 'estado' => 'abierta', 'plazas_disponibles' => 3]);
+    Vacante::factory()->create(['puesto_id' => $gestor->id, 'sucursal_id' => $cordoba->id, 'estado' => 'en_reclutamiento', 'plazas_disponibles' => 1]);
+    Vacante::factory()->create(['puesto_id' => $gerente->id, 'sucursal_id' => $cordoba->id, 'estado' => 'abierta', 'plazas_disponibles' => 1]);
+    // Cubiertas y canceladas no cuentan.
+    Vacante::factory()->create(['puesto_id' => $gerente->id, 'sucursal_id' => $cuernavaca->id, 'estado' => 'cubierta', 'plazas_disponibles' => 1]);
+    Vacante::factory()->create(['puesto_id' => $gestor->id, 'sucursal_id' => $cuernavaca->id, 'estado' => 'cancelada', 'plazas_disponibles' => 2]);
 
-    $respuesta->assertOk();
-    $kpis = $respuesta->viewData('page')['props']['kpis'];
+    $props = $this->actingAs($usuario)->get(route('rh.vacantes.index'))->assertOk()->viewData('page')['props'];
+    $resumen = $props['resumen'];
 
-    expect($kpis['vacantes_abiertas'])->toBe(2)
-        ->and($kpis['plazas_disponibles'])->toBe(3)
-        ->and($kpis['vacantes_automaticas'])->toBe(1)
-        ->and($kpis['vacantes_manuales'])->toBe(1)
-        ->and($kpis['en_reclutamiento'])->toBe(1)
-        ->and($kpis['canceladas'])->toBe(1);
+    expect($props)->not->toHaveKey('kpis')
+        ->and($props['vacantes'][0])->not->toHaveKey('sueldo_mensual')
+        ->and($resumen['plazas'])->toBe(5)
+        ->and($resumen['sucursales'])->toBe(2)
+        ->and($resumen['por_puesto'][0]['puesto'])->toBe('Gestor')
+        ->and($resumen['por_puesto'][0]['plazas'])->toBe(4)
+        ->and($resumen['por_puesto'][0]['sucursales'])->toBe([
+            ['sucursal_id' => $cuernavaca->id, 'sucursal' => 'Cuernavaca', 'plazas' => 3],
+            ['sucursal_id' => $cordoba->id, 'sucursal' => 'Córdoba', 'plazas' => 1],
+        ])
+        ->and($resumen['por_puesto'][1]['puesto'])->toBe('Gerente de Sucursal')
+        ->and($resumen['por_puesto'][1]['plazas'])->toBe(1);
 });
 
 test('un colaborador no puede ver vacantes', function () {

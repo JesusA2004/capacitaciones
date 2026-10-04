@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 
 /**
  * Plantilla oficial (DOCX) que RH sube para generar documentos precargados.
@@ -46,6 +47,29 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property bool $requiere_firma_fisica
  * @property bool $requiere_huella
  * @property bool $requiere_testigos
+ * @property string|null $familia Línea del documento maestro (p. ej. contrato_capacitacion.gestor); versiones 1..n, una activa.
+ * @property list<string>|null $grupos_puesto Grupos documentales a los que aplica (null = general).
+ * @property string|null $proceso
+ * @property string|null $evento
+ * @property string|null $causa
+ * @property string|null $original_disk
+ * @property string|null $original_path ORIGINAL inmutable entregado por Jurídico.
+ * @property string|null $original_hash
+ * @property string|null $original_nombre
+ * @property string|null $master_hash
+ * @property array<string, mixed>|null $mapping
+ * @property array<string, mixed>|null $analisis
+ * @property string|null $estado_master listo | con_pendientes | referencia | bloqueado
+ * @property bool $operativo
+ * @property bool $requiere_envio_corporativo
+ * @property int $cantidad_testigos
+ * @property int $orden
+ * @property int $prioridad_especificidad
+ * @property list<array{nombre: string, sha256: string}>|null $fuentes
+ * @property string|null $observaciones
+ * @property Carbon|null $ultima_prueba_en
+ * @property int|null $ultima_prueba_por
+ * @property array<string, mixed>|null $ultima_prueba_resultado
  * @property-read OfficialFormat|null $formatoOficial
  * @property-read DocumentType|null $tipoDocumento
  * @property-read int $documentos_generados_count Solo presente cuando se pide con withCount('documentosGenerados').
@@ -55,7 +79,7 @@ class DocumentTemplate extends Model
     /** @use HasFactory<DocumentTemplateFactory> */
     use HasFactory, SoftDeletes;
 
-    protected $hidden = ['disk', 'path'];
+    protected $hidden = ['disk', 'path', 'original_disk', 'original_path'];
 
     protected $fillable = [
         'nombre',
@@ -85,6 +109,29 @@ class DocumentTemplate extends Model
         'requiere_firma_fisica',
         'requiere_huella',
         'requiere_testigos',
+        'familia',
+        'grupos_puesto',
+        'proceso',
+        'evento',
+        'causa',
+        'original_disk',
+        'original_path',
+        'original_hash',
+        'original_nombre',
+        'master_hash',
+        'mapping',
+        'analisis',
+        'estado_master',
+        'operativo',
+        'requiere_envio_corporativo',
+        'cantidad_testigos',
+        'orden',
+        'prioridad_especificidad',
+        'fuentes',
+        'observaciones',
+        'ultima_prueba_en',
+        'ultima_prueba_por',
+        'ultima_prueba_resultado',
     ];
 
     /**
@@ -97,6 +144,11 @@ class DocumentTemplate extends Model
         'requiere_firma_fisica' => false,
         'requiere_huella' => false,
         'requiere_testigos' => false,
+        'operativo' => true,
+        'requiere_envio_corporativo' => false,
+        'cantidad_testigos' => 0,
+        'orden' => 0,
+        'prioridad_especificidad' => 0,
     ];
 
     protected function casts(): array
@@ -114,6 +166,17 @@ class DocumentTemplate extends Model
             'version' => 'integer',
             'size' => 'integer',
             'variables_manuales' => 'array',
+            'grupos_puesto' => 'array',
+            'mapping' => 'array',
+            'analisis' => 'array',
+            'fuentes' => 'array',
+            'operativo' => 'boolean',
+            'requiere_envio_corporativo' => 'boolean',
+            'cantidad_testigos' => 'integer',
+            'orden' => 'integer',
+            'prioridad_especificidad' => 'integer',
+            'ultima_prueba_en' => 'datetime',
+            'ultima_prueba_resultado' => 'array',
         ];
     }
 

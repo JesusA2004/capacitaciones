@@ -72,11 +72,17 @@ return [
     | una sugerencia editable por RH: la captura acepta cualquier lista de
     | criterios con calificación 0–10.
     */
+    // Son los 7 criterios del FORMATO DE EVALUACIÓN DE CAPACITACIÓN INICIAL
+    // oficial (Jurídico): lo que se captura aquí se traslada a sus casillas
+    // Acredita / No acredita. Un criterio distinto no aparece en el formato.
     'criterios_evaluacion' => [
-        'Cumplimiento de funciones del puesto',
-        'Puntualidad y asistencia',
-        'Trabajo en equipo',
-        'Apego a políticas y procedimientos',
+        'Gestión operativa de la sucursal',
+        'Cumplimiento de KPI’s',
+        'Liderazgo y supervisión',
+        'Reportes y controles administrativos',
+        'Toma de decisiones',
+        'Apego a políticas internas',
+        'Responsabilidad y seguimiento',
     ],
 
     // Calificación mínima (0–10) sugerida para marcar la evaluación como aprobada

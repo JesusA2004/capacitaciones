@@ -19,9 +19,11 @@ use App\Models\TipoActivo;
 use App\Models\User;
 use App\Services\CicloLaboral\ReingresoService;
 use App\Services\CierreLaboral\CierreLaboralService;
+use App\Services\Contratos\ContratoLaboralService;
 use App\Services\Contratos\EvaluacionPeriodoPruebaService;
 use App\Services\Contratos\VencimientoContratosService;
 use App\Services\DocumentosLaborales\FlujoDocumentalService;
+use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Incorporacion\IncorporacionInvitacionService;
 use App\Services\Incorporacion\IncorporacionService;
 use App\Services\Onboarding\OnboardingService;
@@ -31,6 +33,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Seeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
@@ -67,7 +70,7 @@ class CicloLaboralDemoSeeder extends Seeder
         $puesto = Puesto::query()->where('nombre', 'Gestor')->first();
 
         if ($rh === null || $reclutador === null || $gerente?->colaborador?->sucursal_principal_id === null || $puesto === null) {
-            $this->command->warn('CicloLaboralDemoSeeder: faltan los usuarios demo (UsuarioDemoSeeder) o el puesto Gestor; se omite.');
+            $this->aviso('CicloLaboralDemoSeeder: faltan los usuarios demo (UsuarioDemoSeeder) o el puesto Gestor; se omite.');
 
             return;
         }
@@ -313,6 +316,32 @@ class CicloLaboralDemoSeeder extends Seeder
 
         $incorporacion->aprobarIncorporacion($colaborador->refresh(), $this->rh);
 
+        // RH pulsa «Generar paquete de contratación» (modo por defecto; en
+        // modo automático ya se generó y aquí no se duplica nada). Los
+        // datos que piden los contratos de Jurídico se completan con valores
+        // fijos de demostración, nunca con Faker.
+        $colaborador->refresh();
+        $colaborador->update(array_filter([
+            'nacionalidad' => 'Mexicana',
+            'estado_civil' => 'soltero',
+            'lugar_nacimiento' => 'Cuernavaca, Morelos',
+            'fecha_nacimiento' => '1995-01-01',
+            'rfc' => sprintf('DEMC9501%02dAB1', $n),
+            'nss' => sprintf('120000000%02d', $n),
+            'clave_elector' => sprintf('DEMCPR9501%02dH000', $n),
+            'profesion' => 'Bachillerato',
+            'domicilio' => 'Calle Demostración 10, Col. Centro, Cuernavaca, Morelos',
+            'domicilio_colonia' => 'Centro',
+            'domicilio_municipio' => 'Cuernavaca',
+            'domicilio_estado' => 'Morelos',
+            'domicilio_cp' => '62000',
+        ], fn (string $valor, string $campo): bool => blank($colaborador->getAttribute($campo)), ARRAY_FILTER_USE_BOTH));
+        $contrato = app(ContratoLaboralService::class)->vigente($colaborador);
+
+        if ($contrato !== null) {
+            app(DocumentoProcesoService::class)->generarPaquete('alta', $contrato, $this->rh);
+        }
+
         // Firma física de los contratos (impresión + firma con huella).
         $flujo = app(FlujoDocumentalService::class);
         $this->como($this->gerente);
@@ -330,7 +359,7 @@ class CicloLaboralDemoSeeder extends Seeder
         $proceso = $onboarding->procesoActual($colaborador->refresh());
 
         if ($proceso === null) {
-            $this->command->warn("CicloLaboralDemoSeeder: {$correo} no inició onboarding (¿faltan contratos firmados?).");
+            $this->aviso("CicloLaboralDemoSeeder: {$correo} no inició onboarding (¿faltan contratos firmados?).");
 
             return;
         }
@@ -420,7 +449,22 @@ class CicloLaboralDemoSeeder extends Seeder
         try {
             $paso();
         } catch (Throwable $e) {
-            $this->command->warn(sprintf('CicloLaboralDemoSeeder: no se pudo preparar «%s»: %s', $nombre, $e->getMessage()));
+            $this->aviso(sprintf('CicloLaboralDemoSeeder: no se pudo preparar «%s»: %s', $nombre, $e->getMessage()));
         }
+    }
+
+    /**
+     * Aviso en consola cuando corre por artisan; en log cuando lo invoca
+     * otro código (pruebas, DatabaseSeeder sin comando).
+     */
+    private function aviso(string $mensaje): void
+    {
+        if ($this->command !== null) {
+            $this->command->warn($mensaje);
+
+            return;
+        }
+
+        Log::warning($mensaje);
     }
 }

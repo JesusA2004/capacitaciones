@@ -55,14 +55,16 @@ class PlantillaDocumentalService
             $plantilla = DB::transaction(function () use ($datos, $motor, $archivoDocx, $ruta, $actor): DocumentTemplate {
                 // Bloquea las versiones existentes de la clave: dos cargas
                 // simultáneas no pueden calcular el mismo número de versión.
-                $maxima = (int) DocumentTemplate::withTrashed()->where('clave', $datos['clave'])->lockForUpdate()->max('version');
+                $maxima = (int) DocumentTemplate::withTrashed()->where('familia', $datos['clave'])->lockForUpdate()->max('version');
                 $activa = (bool) ($datos['activo'] ?? true);
 
                 if ($activa) {
-                    DocumentTemplate::query()->where('clave', $datos['clave'])->update(['activo' => false]);
+                    // Solo plantillas heredadas de la misma clave: nunca un documento maestro.
+                    DocumentTemplate::query()->where('familia', $datos['clave'])->whereNull('estado_master')->update(['activo' => false]);
                 }
                 $plantilla = DocumentTemplate::query()->create([
                     'clave' => $datos['clave'],
+                    'familia' => $datos['clave'],
                     'nombre' => $datos['nombre'],
                     'descripcion' => $datos['descripcion'] ?? null,
                     'tipo' => $datos['tipo'] ?? TipoPlantillaDocumento::Otro->value,
@@ -113,7 +115,7 @@ class PlantillaDocumentalService
     {
         DB::transaction(function () use ($plantilla, $datos): void {
             if (($datos['activo'] ?? null) === true && $plantilla->clave !== null) {
-                DocumentTemplate::query()->where('clave', $plantilla->clave)->where('id', '!=', $plantilla->id)->update(['activo' => false]);
+                DocumentTemplate::query()->where('familia', $plantilla->familia ?? $plantilla->clave)->where('id', '!=', $plantilla->id)->update(['activo' => false]);
             }
 
             $plantilla->update(array_intersect_key($datos, array_flip([

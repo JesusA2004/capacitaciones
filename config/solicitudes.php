@@ -31,42 +31,11 @@ return [
             'requiere_firma' => true,
             'documento_expediente_clave' => 'formato_vacaciones',
         ],
-        TipoSolicitudInterna::PermisoConGoce->value => [
-            'slug' => 'formato-permiso',
-            'generar_en' => 'aprobacion',
-            'requiere_firma' => true,
-            'documento_expediente_clave' => 'permiso',
-        ],
-        TipoSolicitudInterna::PermisoSinGoce->value => [
-            'slug' => 'formato-permiso',
-            'generar_en' => 'aprobacion',
-            'requiere_firma' => true,
-            'documento_expediente_clave' => 'permiso',
-        ],
-        TipoSolicitudInterna::PermisoTiempo->value => [
-            'slug' => 'formato-permiso',
-            'generar_en' => 'aprobacion',
-            'requiere_firma' => true,
-            'documento_expediente_clave' => 'permiso',
-        ],
-        TipoSolicitudInterna::SalidaTemprano->value => [
-            'slug' => 'formato-permiso',
-            'generar_en' => 'aprobacion',
-            'requiere_firma' => true,
-            'documento_expediente_clave' => 'permiso',
-        ],
-        TipoSolicitudInterna::LlegadaTarde->value => [
-            'slug' => 'formato-permiso',
-            'generar_en' => 'aprobacion',
-            'requiere_firma' => true,
-            'documento_expediente_clave' => 'permiso',
-        ],
-        TipoSolicitudInterna::PrestamoInterno->value => [
-            'slug' => 'contrato-credito-colaboradores',
-            'generar_en' => 'aprobacion',
-            'requiere_firma' => true,
-            'documento_expediente_clave' => 'contrato_credito_colaborador',
-        ],
+        // Permisos (formato_permiso) y préstamos (contrato, pagaré, carta de
+        // retención) ya NO se generan aquí: los produce el motor de
+        // documentos maestros sobre el PDF original de MR. LANA, en la
+        // tarjeta "Formato de permiso" / "Documentos del préstamo" del
+        // propio trámite (config/documentos_maestros.php).
         TipoSolicitudInterna::BajaColaborador->value => [
             'slug' => 'formato-baja-personal',
             'generar_en' => 'aprobacion',

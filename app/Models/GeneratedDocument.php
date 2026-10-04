@@ -59,6 +59,14 @@ use Illuminate\Support\Carbon;
  * @property string|null $firma_digital_user_agent
  * @property string|null $firma_digital_hash
  * @property string|null $motivo_cancelacion
+ * @property string|null $master_familia
+ * @property string|null $master_hash SHA-256 del master con el que se generó (snapshot).
+ * @property string|null $proceso
+ * @property string|null $fidelidad exacta | aproximada (conversión Word→PDF).
+ * @property string|null $docx_path DOCX llenado (respaldo; mismo disco que el PDF).
+ * @property bool $requiere_envio_corporativo
+ * @property int $descargas
+ * @property Carbon|null $ultima_descarga_en
  * @property Carbon|null $created_at
  * @property-read Colaborador|null $colaborador
  * @property-read DocumentTemplate|null $plantilla
@@ -69,7 +77,7 @@ class GeneratedDocument extends Model
     /** @use HasFactory<GeneratedDocumentFactory> */
     use HasFactory;
 
-    protected $hidden = ['disk', 'path'];
+    protected $hidden = ['disk', 'path', 'docx_path'];
 
     protected $fillable = [
         'document_template_id',
@@ -109,6 +117,14 @@ class GeneratedDocument extends Model
         'firma_digital_user_agent',
         'firma_digital_hash',
         'motivo_cancelacion',
+        'master_familia',
+        'master_hash',
+        'proceso',
+        'fidelidad',
+        'docx_path',
+        'requiere_envio_corporativo',
+        'descargas',
+        'ultima_descarga_en',
     ];
 
     /**
@@ -120,6 +136,8 @@ class GeneratedDocument extends Model
         'requiere_firma_fisica' => false,
         'requiere_huella' => false,
         'requiere_testigos' => false,
+        'requiere_envio_corporativo' => false,
+        'descargas' => 0,
     ];
 
     public const MIME_DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
@@ -186,6 +204,9 @@ class GeneratedDocument extends Model
             'requiere_huella' => 'boolean',
             'requiere_testigos' => 'boolean',
             'firmado_digital_en' => 'datetime',
+            'requiere_envio_corporativo' => 'boolean',
+            'descargas' => 'integer',
+            'ultima_descarga_en' => 'datetime',
             'size' => 'integer',
         ];
     }

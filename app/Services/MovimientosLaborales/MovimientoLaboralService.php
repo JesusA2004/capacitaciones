@@ -201,6 +201,16 @@ class MovimientoLaboralService
             ]);
         }
 
+        // Cambió de plaza: el lugar que deja puede quedar con vacante y el
+        // lugar al que llega puede cerrar la suya (headcount → vacantes).
+        if ($antes['puesto_id'] !== $despues['puesto_id'] || $antes['sucursal_id'] !== $despues['sucursal_id']) {
+            foreach ([[$antes['sucursal_id'], $antes['puesto_id']], [$despues['sucursal_id'], $despues['puesto_id']]] as [$sucursalId, $puestoId]) {
+                if ($sucursalId !== null && $puestoId !== null) {
+                    $this->vacantesAutomaticas->sincronizar($sucursalId, $puestoId);
+                }
+            }
+        }
+
         return $movimientos;
     }
 

@@ -153,20 +153,7 @@ class CostoReclutamientoService
         $costo = [];
 
         foreach ($campanas as $campana) {
-            // Contratados atribuidos a la campaña (de cualquier periodo, para
-            // que el costo se reparta entre todos los que produjo).
-            $atribuidos = Candidato::query()
-                ->where('estado', EstadoCandidato::Contratado->value)
-                ->where('campana_reclutamiento_id', $campana->id)
-                ->pluck('id');
-
-            if ($atribuidos->isEmpty() && $campana->vacante_id !== null) {
-                $atribuidos = Candidato::query()
-                    ->where('estado', EstadoCandidato::Contratado->value)
-                    ->where('vacante_id', $campana->vacante_id)
-                    ->whereNull('campana_reclutamiento_id')
-                    ->pluck('id');
-            }
+            $atribuidos = $this->contratadosDeCampana($campana);
 
             if ($atribuidos->isEmpty()) {
                 continue;
@@ -180,6 +167,70 @@ class CostoReclutamientoService
         }
 
         return $costo;
+    }
+
+    /**
+     * Costo por colaborador de cada campaña: su monto entre las personas
+     * contratadas que produjo (misma atribución que el costo por persona).
+     * Sin contratados todavía, el costo por colaborador es null (no se
+     * inventa).
+     *
+     * @param  iterable<CampanaReclutamiento>  $campanas
+     * @return array{gasto: float, contratados: int, costo_por_colaborador: float|null, por_campana: array<int, array{candidatos: int, contratados: int, costo_por_colaborador: float|null}>}
+     */
+    public function porCampana(iterable $campanas): array
+    {
+        $porCampana = [];
+        $todos = [];
+        $gasto = 0.0;
+
+        foreach ($campanas as $campana) {
+            $contratados = $this->contratadosDeCampana($campana);
+            $gasto += (float) $campana->monto;
+
+            foreach ($contratados as $id) {
+                $todos[$id] = true;
+            }
+
+            $porCampana[$campana->id] = [
+                'candidatos' => $campana->candidatos_generados ?? Candidato::query()->where('campana_reclutamiento_id', $campana->id)->count(),
+                'contratados' => $contratados->count(),
+                'costo_por_colaborador' => $contratados->isNotEmpty() ? round((float) $campana->monto / $contratados->count(), 2) : null,
+            ];
+        }
+
+        return [
+            'gasto' => round($gasto, 2),
+            'contratados' => count($todos),
+            'costo_por_colaborador' => $todos !== [] ? round($gasto / count($todos), 2) : null,
+            'por_campana' => $porCampana,
+        ];
+    }
+
+    /**
+     * Personas contratadas que produjo una campaña (de cualquier periodo,
+     * para que su costo se reparta entre todas): las que RH registró como
+     * venidas de ella o, si no hay ninguna y el gasto es de una vacante,
+     * los contratados de esa vacante sin campaña registrada.
+     *
+     * @return Collection<int, int>
+     */
+    private function contratadosDeCampana(CampanaReclutamiento $campana): Collection
+    {
+        $atribuidos = Candidato::query()
+            ->where('estado', EstadoCandidato::Contratado->value)
+            ->where('campana_reclutamiento_id', $campana->id)
+            ->pluck('id');
+
+        if ($atribuidos->isEmpty() && $campana->vacante_id !== null) {
+            $atribuidos = Candidato::query()
+                ->where('estado', EstadoCandidato::Contratado->value)
+                ->where('vacante_id', $campana->vacante_id)
+                ->whereNull('campana_reclutamiento_id')
+                ->pluck('id');
+        }
+
+        return $atribuidos->map(fn (mixed $id): int => (int) $id)->values();
     }
 
     /**

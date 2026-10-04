@@ -19,6 +19,9 @@ export type SucursalItem = {
     nombre: string;
     clave: string;
     direccion: string | null;
+    colonia: string | null;
+    municipio: string | null;
+    codigo_postal: string | null;
     ciudad: string | null;
     estado: string | null;
     telefono: string | null;

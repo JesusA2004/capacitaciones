@@ -99,6 +99,7 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
     vacantes: {
         queEs: 'Las plazas autorizadas que nadie ocupa, una fila por vacante. Se abren y cierran solas según la plantilla autorizada.',
         puedes: [
+            'Ver cuántas plazas faltan de cada puesto (gerentes, gestores…) y en qué sucursales.',
             'Ver qué puesto falta, en qué sucursal y cuántas plazas.',
             'Saber desde cuándo está abierta y cuántos candidatos lleva.',
             'Ir directo a los candidatos de esa vacante.',
@@ -113,6 +114,8 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
             'RH, dirección comercial, gerencias, subgerentes, auditoría y dirección.',
         errores: [
             'No hace falta «crear» una vacante tras una baja: aparece sola.',
+            'Si cambias a alguien de sucursal o de puesto, la vacante del lugar que deja se abre sola.',
+            'El costo no se ve aquí: el costo por colaborador contratado está en Campañas.',
             'Una cobertura temporal no cierra la vacante: la plaza sigue sin titular.',
         ],
     },
@@ -135,10 +138,11 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
         ],
     },
     campanas: {
-        queEs: 'El gasto de reclutamiento por canal, para saber cuánto cuesta un candidato y una contratación.',
+        queEs: 'El gasto de reclutamiento por canal, para saber cuánto costó cada colaborador contratado.',
         puedes: [
             'Registrar lo invertido por mes y canal.',
-            'Ver gasto total, candidatos, contratados y costos por candidato y por contratación.',
+            'Ver por campaña cuántos colaboradores contrató y cuánto costó cada uno.',
+            'Ver los totales del periodo: gasto, contratados y costo promedio por colaborador.',
             'Editar o eliminar una campaña.',
         ],
         flujo: [
@@ -245,6 +249,25 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
         errores: [
             'Sin fecha de ingreso, la persona no aparece.',
             'Un 29 de febrero se celebra el 28 en años no bisiestos.',
+        ],
+    },
+    'documentos-maestros': {
+        queEs: 'Los formatos jurídicos originales (contratos, convenios, actas, permiso, préstamo). Se cargan una vez; PEOPLE los llena con los datos del colaborador en cada proceso.',
+        puedes: [
+            'Ver la versión activa de cada documento y a qué puestos aplica.',
+            'Cargar una nueva versión del original que entregó Jurídico.',
+            'Probar una versión y activarla o desactivarla.',
+            'Ver quién cargó, activó, desactivó o probó cada versión.',
+        ],
+        flujo: [
+            'Carga el original (sin editar ni agregar marcadores).',
+            'Revisa el reporte de campos y genera una prueba.',
+            'Activa la versión: los procesos nuevos la usan; lo ya generado no cambia.',
+        ],
+        permisos: 'Gerencia de RH y super administración.',
+        errores: [
+            'Los blancos que no son datos del colaborador se imprimen tal cual vienen en el original.',
+            'Si un puesto no tiene su formato, el proceso avisa «Formato no cargado» en lugar de usar otro.',
         ],
     },
     empresas: {

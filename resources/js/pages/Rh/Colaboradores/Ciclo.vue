@@ -17,6 +17,7 @@ import DatePicker from '@/components/Common/DatePicker.vue';
 import DateTimePicker from '@/components/Common/DateTimePicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import DocumentosProceso from '@/components/documentos/DocumentosProceso.vue';
 import InputError from '@/components/InputError.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
@@ -499,13 +500,21 @@ const variante: Record<string, 'default' | 'secondary' | 'destructive'> = {
                     </div>
                 </section>
 
+                <DocumentosProceso tipo="colaborador" :id="colaborador.id" />
+                <DocumentosProceso
+                    v-if="evaluacion && !cierre"
+                    tipo="evaluacion"
+                    :id="evaluacionId"
+                />
+                <DocumentosProceso v-if="cierre" tipo="cierre" :id="cierreId" />
+
                 <section
                     v-if="documentos.length"
                     class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5"
                     aria-label="Documentos laborales"
                 >
                     <h2 class="mb-3 text-sm font-semibold">
-                        Contratos y documentos laborales
+                        Historial de documentos laborales
                     </h2>
                     <ul class="flex flex-col gap-2">
                         <li

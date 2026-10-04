@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
+use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Tareas\TareaService;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -301,14 +302,20 @@ class ContratoLaboralService
      */
     public function clavesPaquete(ContratoLaboral $contrato): array
     {
+        // Paquete por grupo documental del puesto (documentos maestros);
+        // la configuración anterior solo aplica si el registro no define uno.
+        $contrato->loadMissing('colaborador.puesto');
+        $documentos = app(DocumentoProcesoService::class);
+
         if ($contrato->contrato_anterior_id !== null) {
-            $claves = self::clavesConfiguradas('contratos.paquete_renovacion');
+            $claves = $documentos->clavesPaquete('renovacion', null, $contrato->colaborador);
 
-            return $claves;
+            return $claves !== [] ? $claves : self::clavesConfiguradas('contratos.paquete_renovacion');
         }
-        $claves = self::clavesConfiguradas("contratos.paquetes_alta.{$contrato->tipo->value}");
 
-        return $claves;
+        $claves = $documentos->clavesAlta($contrato);
+
+        return $claves !== [] ? $claves : self::clavesConfiguradas("contratos.paquetes_alta.{$contrato->tipo->value}");
     }
 
     /**
@@ -336,8 +343,7 @@ class ContratoLaboralService
 
         // Fuera de la transacción: el contrato ya es válido aunque el PDF
         // quede pendiente (la falta de plantilla se vuelve tarea, no error).
-        $claves = self::clavesConfiguradas('contratos.paquete_renovacion');
-        $this->prepararDocumentos($nuevo, $claves, $actor);
+        $this->prepararDocumentos($nuevo, $this->clavesPaquete($nuevo), $actor);
 
         return $nuevo->refresh();
     }

@@ -37,6 +37,9 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property EstadoSolicitudInterna $estado
  * @property Carbon|null $fecha_inicio
  * @property Carbon|null $fecha_fin
+ * @property string|null $hora_salida HH:MM:SS (formato de permiso).
+ * @property string|null $hora_entrada HH:MM:SS (formato de permiso).
+ * @property string|null $modalidad_permiso tiempo_por_tiempo | descuento_nomina | permiso_especial.
  * @property int|null $dias_solicitados
  * @property float|null $monto_solicitado
  * @property int|null $plazo_meses
@@ -67,6 +70,9 @@ class SolicitudInterna extends Model
         'estado',
         'fecha_inicio',
         'fecha_fin',
+        'hora_salida',
+        'hora_entrada',
+        'modalidad_permiso',
         'dias_solicitados',
         'monto_solicitado',
         'plazo_meses',

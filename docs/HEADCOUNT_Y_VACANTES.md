@@ -14,7 +14,7 @@ Tres conceptos que se cruzan pero **no son lo mismo** — no confundirlos al lee
 
 `PlantillaAutorizadaSeeder` corre dentro de `DatabaseSeeder` (también en producción) y carga el Excel real **solo para los pares (sucursal, puesto) que aún no existen**: nunca pisa lo que RH ya capturó. Sin esto todas las sucursales arrancaban con plantilla 0.
 
-Después, **solo RH** (permiso `headcount.editar`, `SucursalPolicy::editarPlantilla`) cambia la plantilla en Administración → Sucursales → detalle (lápiz por puesto o «Agregar puesto»), con motivo obligatorio. Cada cambio —captura o importación— queda en `headcount_target_historial` (quién, cuándo, antes → después, motivo, fuente) y se ve en el mismo detalle. La regla vive en `AppServicesHeadcountPlantillaAutorizadaService`; al guardar se resincroniza la vacante automática del par.
+Después, **solo Gerencia de RH** (rol `rh_admin`, además de `super_admin`; permiso `headcount.editar`, `SucursalPolicy::editarPlantilla`) cambia la plantilla en Administración → Sucursales → detalle (lápiz por puesto o «Agregar puesto»), con motivo obligatorio. Cada cambio —captura o importación— queda en `headcount_target_historial` (quién, cuándo, antes → después, motivo, fuente) y se ve en el mismo detalle. La regla vive en `AppServicesHeadcountPlantillaAutorizadaService`; al guardar se resincroniza la vacante automática del par.
 
 ### Importar el Excel real
 
@@ -60,14 +60,23 @@ Observaciones del Excel real (28-08-2026), reportadas sin corregir: San Juan del
 `App\Services\Vacantes\VacanteAutoGenerationService::sincronizar($sucursalId, $puestoId)` abre o cierra una vacante marcada `generada_automaticamente = true` según si la plantilla autorizada sigue por encima de la actual — nunca duplica (a lo más una vacante automática abierta por par sucursal+puesto) ni toca vacantes creadas a mano por RH. Se llama automáticamente:
 
 - Al aprobar una baja de colaborador (ver `docs/SOLICITUDES_UNIFICADAS.md`).
+- Al dar de alta a un colaborador.
+- Al cambiarlo de puesto o de sucursal: se sincronizan **los dos** pares — el que deja (puede abrir vacante) y al que llega (puede cerrarla).
+- Al capturar plantilla en el detalle de sucursal.
 - Al terminar `headcount:importar` (`sincronizarTodo()`, recorre todos los pares con target).
 
 Regla operativa: cuando alguien se da de baja, plantilla actual baja y la vacante sube sola; cuando alguien se da de alta en esa (sucursal, puesto), plantilla actual sube y la vacante se cierra sola. Nunca hay que "crear la vacante a mano" para que esto funcione.
 
 ### Pantalla RH > Vacantes
 
-Una fila por **vacante real**: qué puesto falta, en qué sucursal, cuántas plazas, desde cuándo (días abierta), cuántos candidatos lleva y la plantilla de ese par como contexto («4 de 5 autorizadas ocupadas»). Por defecto solo activas (sin cubiertas ni canceladas). La regla (alcance, filtros, KPIs) vive en `App\Services\Vacantes\VacantesListadoService`, compartido por la web (`Rh\VacanteController`) y la API móvil (`Api\V1\Rh\VacanteController`; ahora también devuelve solo activas si no se pide `estado`).
+Arriba, **totales concretos** de lo que se está viendo (sin tarjetas de KPIs ni costos): cuántas plazas faltan de cada puesto —gerentes, gestores, etc.— y en qué sucursales (`VacantesListadoService::resumen()`); un clic en el puesto o en la sucursal filtra la lista. El costo **no** vive en Vacantes: el costo por colaborador contratado está en Campañas.
+
+Debajo, una fila por **vacante real**: qué puesto falta, en qué sucursal, cuántas plazas, desde cuándo (días abierta), cuántos candidatos lleva y la plantilla de ese par como contexto («4 de 5 autorizadas ocupadas»). Por defecto solo activas (sin cubiertas ni canceladas). La regla (alcance, filtros, KPIs) vive en `App\Services\Vacantes\VacantesListadoService`, compartido por la web (`Rh\VacanteController`) y la API móvil (`Api\V1\Rh\VacanteController`; ahora también devuelve solo activas si no se pide `estado`).
 
 ## Matriz comercial vs. headcount
 
 La matriz comercial (`App\Models\NodoComercial`, ver `docs/ORGANIGRAMA.md`) modela **rutas individuales** dentro de una zona (p. ej. "CUERNAVACA" tiene 12 rutas: Yautepec, Barona, Jiutepec...). El Excel de headcount **no trae ese detalle** — solo trae plantilla autorizada por zona (= `Sucursal`) y puesto. Por eso headcount sigue siendo por sucursal, no por ruta: la "cobertura" de una ruta individual (¿tiene gestor asignado hoy?) es un dato de la matriz comercial, independiente del cálculo de vacantes. Una zona puede tener 2 vacantes de "Gestor" según headcount sin que eso diga automáticamente cuáles de sus rutas están cubiertas — eso se ve en Matriz comercial.
+
+## Campañas: costo por colaborador
+
+RH → Campañas muestra, por campaña, cuántos colaboradores contrató y **cuánto costó cada uno** (monto ÷ contratados atribuidos; misma atribución que `CostoReclutamientoService`: candidatos registrados como venidos de la campaña o, si no hay, los contratados de su vacante). Sin contratados todavía se muestra «Sin contratados aún» — no se inventa un costo. Arriba, una línea con los totales del periodo filtrado: gasto, colaboradores contratados (sin contar dos veces a la misma persona) y costo promedio por colaborador.

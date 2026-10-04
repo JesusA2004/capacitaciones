@@ -43,6 +43,9 @@ const form = useForm({
     nombre: props.sucursal?.nombre ?? '',
     clave: props.sucursal?.clave ?? '',
     direccion: props.sucursal?.direccion ?? '',
+    colonia: props.sucursal?.colonia ?? '',
+    municipio: props.sucursal?.municipio ?? '',
+    codigo_postal: props.sucursal?.codigo_postal ?? '',
     ciudad: props.sucursal?.ciudad ?? '',
     estado: props.sucursal?.estado ?? '',
     telefono: props.sucursal?.telefono ?? '',
@@ -118,13 +121,42 @@ function enviar() {
                     </div>
                 </div>
 
+                <!-- Domicilio completo: se imprime en los documentos cuando
+                     Configuración usa el domicilio de sucursal. -->
                 <div class="grid gap-2">
-                    <Label for="direccion">Dirección</Label>
-                    <Input id="direccion" v-model="form.direccion" />
+                    <Label for="direccion">Calle y número</Label>
+                    <Input
+                        id="direccion"
+                        v-model="form.direccion"
+                        placeholder="p. ej. Av. Morelos 120"
+                    />
                     <InputError :message="form.errors.direccion" />
                 </div>
 
-                <div class="grid grid-cols-3 gap-4">
+                <div class="grid gap-4 sm:grid-cols-3">
+                    <div class="grid gap-2">
+                        <Label for="colonia">Colonia</Label>
+                        <Input id="colonia" v-model="form.colonia" />
+                        <InputError :message="form.errors.colonia" />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="codigo_postal">Código postal</Label>
+                        <Input
+                            id="codigo_postal"
+                            v-model="form.codigo_postal"
+                            inputmode="numeric"
+                            maxlength="5"
+                        />
+                        <InputError :message="form.errors.codigo_postal" />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="municipio">Municipio</Label>
+                        <Input id="municipio" v-model="form.municipio" />
+                        <InputError :message="form.errors.municipio" />
+                    </div>
+                </div>
+
+                <div class="grid gap-4 sm:grid-cols-3">
                     <div class="grid gap-2">
                         <Label for="ciudad">Ciudad</Label>
                         <Input id="ciudad" v-model="form.ciudad" />

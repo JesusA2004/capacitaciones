@@ -25,7 +25,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property EstadoEvaluacionPrueba $estado
  * @property Carbon|null $fecha_limite
  * @property Carbon|null $fecha_evaluacion
- * @property array<int, array{criterio: string, calificacion: float|int, comentario?: string|null}>|null $criterios
+ * @property array<int, array{criterio: string, calificacion: float|int, comentario?: string|null, acredita?: bool}>|null $criterios
  * @property string|null $calificacion
  * @property ResultadoEvaluacion|null $resultado
  * @property bool|null $recomienda_renovar

@@ -55,6 +55,9 @@ const props = defineProps<{
         ciudad: string | null;
         estado: string | null;
         direccion: string | null;
+        colonia: string | null;
+        municipio: string | null;
+        codigo_postal: string | null;
         telefono: string | null;
         activo: boolean;
         empresa: { id: number; nombre: string } | null;
@@ -100,6 +103,26 @@ defineOptions({
 });
 
 const { getInitials } = useInitials();
+
+// Domicilio completo (el mismo que usan los documentos cuando Configuración
+// elige el domicilio de sucursal).
+const domicilio = computed(() => {
+    const s = props.sucursal;
+
+    if (!s.direccion) {
+        return null;
+    }
+
+    return [
+        s.direccion,
+        s.colonia ? `col. ${s.colonia}` : null,
+        s.codigo_postal ? `C.P. ${s.codigo_postal}` : null,
+        s.municipio ?? s.ciudad,
+        s.estado,
+    ]
+        .filter(Boolean)
+        .join(', ');
+});
 
 const indicadores = computed(() => [
     {
@@ -232,7 +255,7 @@ function porcentaje(fila: PlantillaPorPuesto): number {
                             class="mt-0.5 size-4 shrink-0 text-muted-foreground"
                         />
                         <span class="break-words">{{
-                            sucursal.direccion ?? 'Domicilio sin capturar'
+                            domicilio ?? 'Domicilio sin capturar'
                         }}</span>
                     </p>
                     <p

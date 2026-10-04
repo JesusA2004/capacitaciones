@@ -189,18 +189,19 @@ class ConfiguracionSistemaService
      * Duración del contrato de capacitación/inducción y grupo para
      * indicadores de un puesto (auditado).
      *
-     * @param  array{meses_periodo_prueba: int|null, grupo_indicador: string|null}  $datos
+     * @param  array{meses_periodo_prueba: int|null, grupo_indicador: string|null, grupo_documental?: string|null}  $datos
      */
     public function actualizarPuesto(Puesto $puesto, array $datos, User $actor): void
     {
-        $antes = ['meses_periodo_prueba' => $puesto->meses_periodo_prueba, 'grupo_indicador' => $puesto->grupo_indicador?->value];
+        $antes = ['meses_periodo_prueba' => $puesto->meses_periodo_prueba, 'grupo_indicador' => $puesto->grupo_indicador?->value, 'grupo_documental' => $puesto->grupo_documental];
 
         $puesto->update([
             'meses_periodo_prueba' => $datos['meses_periodo_prueba'],
             'grupo_indicador' => $datos['grupo_indicador'] !== null ? GrupoPuestoIndicador::from($datos['grupo_indicador']) : null,
+            'grupo_documental' => array_key_exists('grupo_documental', $datos) ? $datos['grupo_documental'] : $puesto->grupo_documental,
         ]);
 
-        $despues = ['meses_periodo_prueba' => $puesto->meses_periodo_prueba, 'grupo_indicador' => $puesto->grupo_indicador?->value];
+        $despues = ['meses_periodo_prueba' => $puesto->meses_periodo_prueba, 'grupo_indicador' => $puesto->grupo_indicador?->value, 'grupo_documental' => $puesto->grupo_documental];
 
         if ($antes !== $despues) {
             $this->auditoria->registrar('configuracion_puesto_actualizada', $puesto, $actor, ['antes' => $antes, 'despues' => $despues]);

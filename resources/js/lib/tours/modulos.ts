@@ -333,9 +333,9 @@ export const MODULOS_GUIA: ModuloGuia[] = [
                 texto: 'Descarga la cobertura a Excel o PDF con los filtros aplicados.',
             },
             {
-                selector: sel('indicadores'),
-                titulo: 'Indicadores de cobertura',
-                texto: 'Vacantes abiertas, plazas por cubrir, candidatos en proceso, días promedio que llevan abiertas y costo mensual de esas plazas.',
+                selector: sel('vacantes-resumen'),
+                titulo: 'Cuántas y dónde',
+                texto: 'Plazas por cubrir de cada puesto (gerentes, gestores, coordinadoras…) y en qué sucursales. Un clic en el puesto o en la sucursal filtra la lista.',
             },
             {
                 selector: sel('vacantes-filtros'),
@@ -409,7 +409,7 @@ export const MODULOS_GUIA: ModuloGuia[] = [
         grupo: 'Reclutamiento',
         icono: Megaphone,
         descripcion:
-            'Gasto de reclutamiento por canal y su costo por candidato y por contratación.',
+            'Gasto de reclutamiento por canal y cuánto costó cada colaborador contratado.',
         pasos: [
             {
                 titulo: 'Campañas de reclutamiento',
@@ -421,9 +421,9 @@ export const MODULOS_GUIA: ModuloGuia[] = [
                 texto: 'Captura mes, año, canal y monto invertido. Opcionalmente, a qué empresa, sucursal, departamento o puesto corresponde.',
             },
             {
-                selector: sel('indicadores'),
-                titulo: 'Resultados del periodo',
-                texto: 'Gasto total, candidatos generados, costo por candidato, contratados y costo por contratación.',
+                selector: sel('campanas-resumen'),
+                titulo: 'Totales del periodo',
+                texto: 'Gasto, colaboradores contratados y costo promedio por colaborador de las campañas filtradas.',
             },
             {
                 selector: sel('campanas-filtros'),
@@ -433,7 +433,7 @@ export const MODULOS_GUIA: ModuloGuia[] = [
             {
                 selector: sel('tabla'),
                 titulo: 'Campañas registradas',
-                texto: 'Cada fila es una campaña con su gasto y resultados. Desde el menú de acciones de cada fila puedes editarla o eliminarla.',
+                texto: 'Cada fila es una campaña con su gasto, cuántos colaboradores contrató y cuánto costó cada uno. Desde el menú de acciones de cada fila puedes editarla o eliminarla.',
             },
         ],
     },
@@ -768,6 +768,31 @@ export const MODULOS_GUIA: ModuloGuia[] = [
     },
 
     // ───────────────────────── Administración ─────────────────────────
+    {
+        id: 'documentos-maestros',
+        nombre: 'Documentos maestros',
+        ruta: '/rh/documentos-maestros',
+        patron: /^\/rh\/documentos-maestros$/,
+        modo: 'operativo',
+        permisos: ['plantillas_documentales.administrar'],
+        grupo: 'Administración',
+        icono: FileStack,
+        descripcion:
+            'Formatos jurídicos originales: se cargan una vez y PEOPLE los llena en cada proceso.',
+        pasos: [
+            {
+                titulo: 'Documentos maestros',
+                texto: 'Aquí viven los formatos originales de Jurídico (contratos, convenios, actas, permiso, préstamo…). No se escriben marcadores: PEOPLE pone los datos del colaborador donde corresponden y respeta el diseño original.',
+            },
+            {
+                selector: sel('documentos-maestros-lista'),
+                titulo: 'Versiones y estado',
+                texto: 'Cada documento muestra su versión activa, a qué puestos aplica, cuántos campos se detectaron y si queda alguno pendiente. «Ver» muestra el detalle con quién cargó, activó o probó cada versión.',
+                consejo:
+                    'Los documentos de cada persona se generan desde su proceso (alta, baja, permiso, préstamo), no desde aquí.',
+            },
+        ],
+    },
     {
         id: 'empresas',
         nombre: 'Empresas',

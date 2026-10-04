@@ -1,19 +1,11 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
-import {
-    Banknote,
-    Megaphone,
-    Plus,
-    Target,
-    UserCheck,
-    Users,
-} from '@lucide/vue';
+import { Megaphone, Plus } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import CrudActionMenu from '@/components/DataTable/CrudActionMenu.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudMobileCard from '@/components/DataTable/CrudMobileCard.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
-import CrudStats from '@/components/DataTable/CrudStats.vue';
 import DataTable from '@/components/DataTable/DataTable.vue';
 import type { ColumnaDataTable } from '@/components/DataTable/DataTable.vue';
 import CampanaReclutamientoFormDialog from '@/components/Rh/CampanaReclutamientoFormDialog.vue';
@@ -33,14 +25,14 @@ import { dashboard } from '@/routes';
 import { destroy, index } from '@/routes/rh/campanas';
 import type {
     CampanaReclutamientoItem,
-    CampanasKpis,
+    CampanasTotales,
     OpcionesCampanas,
     RespuestaPaginada,
 } from '@/types';
 
 const props = defineProps<{
     campanas: RespuestaPaginada<CampanaReclutamientoItem>;
-    kpis: CampanasKpis;
+    totales: CampanasTotales;
     filtros: {
         mes: number;
         anio: number;
@@ -119,6 +111,8 @@ const columnas: ColumnaDataTable[] = [
     { clave: 'ubicacion', etiqueta: 'Empresa / Sucursal / Puesto' },
     { clave: 'monto', etiqueta: 'Monto' },
     { clave: 'candidatos_generados', etiqueta: 'Candidatos' },
+    { clave: 'contratados', etiqueta: 'Contratados' },
+    { clave: 'costo_colaborador', etiqueta: 'Costo por colaborador' },
     { clave: 'observaciones', etiqueta: 'Observaciones' },
 ];
 
@@ -158,7 +152,7 @@ async function eliminar(campana: CampanaReclutamientoItem) {
     <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
             titulo="Campañas de reclutamiento"
-            descripcion="Gasto por canal (Meta, Indeed, Computrabajo, LinkedIn, referidos) y su costo por candidato/contratación."
+            descripcion="Gasto por canal (Meta, Indeed, Computrabajo, LinkedIn, referidos) y cuánto costó cada colaborador contratado."
             :icono="Megaphone"
         >
             <Button data-tour="campanas-nueva" @click="abrirCrear">
@@ -167,38 +161,33 @@ async function eliminar(campana: CampanaReclutamientoItem) {
             </Button>
         </CrudPageHeader>
 
-        <CrudStats
-            :estadisticas="[
-                {
-                    etiqueta: 'Gasto del periodo',
-                    valor: formatoMoneda(kpis.gasto_total),
-                    icono: Banknote,
-                },
-                {
-                    etiqueta: 'Candidatos generados',
-                    valor: kpis.candidatos_generados,
-                    icono: Users,
-                    tono: 'info',
-                },
-                {
-                    etiqueta: 'Costo por candidato',
-                    valor: formatoMoneda(kpis.costo_por_candidato),
-                    icono: Target,
-                },
-                {
-                    etiqueta: 'Contratados',
-                    valor: kpis.contratados,
-                    icono: UserCheck,
-                    tono: 'success',
-                },
-                {
-                    etiqueta: 'Costo por contratación',
-                    valor: formatoMoneda(kpis.costo_por_contratacion),
-                    icono: Banknote,
-                    tono: 'warning',
-                },
-            ]"
-        />
+        <!-- Totales concretos del periodo filtrado. -->
+        <p
+            v-if="totales.campanas > 0"
+            data-tour="campanas-resumen"
+            class="rounded-xl border bg-card px-4 py-3 text-sm text-muted-foreground"
+        >
+            <span class="font-semibold text-foreground">{{
+                formatoMoneda(totales.gasto)
+            }}</span>
+            en {{ totales.campanas }}
+            {{ totales.campanas === 1 ? 'campaña' : 'campañas' }} ·
+            <span class="font-semibold text-foreground">{{
+                totales.contratados
+            }}</span>
+            {{
+                totales.contratados === 1
+                    ? 'colaborador contratado'
+                    : 'colaboradores contratados'
+            }}
+            <template v-if="totales.costo_por_colaborador !== null">
+                ·
+                <span class="font-semibold text-foreground">{{
+                    formatoMoneda(totales.costo_por_colaborador)
+                }}</span>
+                por colaborador
+            </template>
+        </p>
 
         <div data-tour="campanas-filtros" class="flex flex-wrap gap-2">
             <Select
@@ -412,6 +401,23 @@ async function eliminar(campana: CampanaReclutamientoItem) {
                     fila.candidatos_generados ?? 'Auto'
                 }}</span>
             </template>
+            <template #celda-contratados="{ fila }">
+                <span class="tabular-nums">{{
+                    fila.resultado?.contratados ?? 0
+                }}</span>
+            </template>
+            <template #celda-costo_colaborador="{ fila }">
+                <span
+                    v-if="fila.resultado?.costo_por_colaborador != null"
+                    class="font-medium"
+                    >{{
+                        formatoMoneda(fila.resultado.costo_por_colaborador)
+                    }}</span
+                >
+                <span v-else class="text-xs text-muted-foreground"
+                    >Sin contratados aún</span
+                >
+            </template>
             <template #celda-observaciones="{ fila }">
                 <span class="line-clamp-2 text-muted-foreground">{{
                     fila.observaciones ?? '—'
@@ -444,6 +450,19 @@ async function eliminar(campana: CampanaReclutamientoItem) {
                             fila.candidatos_generados ?? 'Auto'
                         }}
                         candidatos</span
+                    >
+                    <span
+                        >{{ fila.resultado?.contratados ?? 0 }} contratados
+                        <template
+                            v-if="fila.resultado?.costo_por_colaborador != null"
+                            >·
+                            {{
+                                formatoMoneda(
+                                    fila.resultado.costo_por_colaborador,
+                                )
+                            }}
+                            c/u</template
+                        ></span
                     >
                     <template #acciones>
                         <CrudActionMenu>

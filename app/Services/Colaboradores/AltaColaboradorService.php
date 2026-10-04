@@ -206,9 +206,13 @@ class AltaColaboradorService
         $contrato = $this->contratos->vigente($colaborador);
 
         if ($nuevo === EstadoAltaColaborador::PendienteContrato && $contrato !== null && $actor !== null) {
-            $this->contratos->prepararFaltantes($contrato, $actor);
-            $this->notificarContratosListos($colaborador, $contrato);
-            $nuevo = $this->calcularEstado($colaborador->refresh());
+            if (config('documentos_maestros.alta_generacion_automatica')) {
+                $this->contratos->prepararFaltantes($contrato, $actor);
+                $this->notificarContratosListos($colaborador, $contrato);
+                $nuevo = $this->calcularEstado($colaborador->refresh());
+            } elseif ($actual !== EstadoAltaColaborador::PendienteContrato) {
+                $this->avisarPaqueteDisponible($colaborador, $contrato);
+            }
         }
 
         if ($nuevo !== $actual) {
@@ -384,6 +388,37 @@ class AltaColaboradorService
                 'bloqueado' => $colaborador->user?->acceso_bloqueado_en !== null,
             ],
         ];
+    }
+
+    /**
+     * Expediente completo: en la ficha del colaborador aparece "Generar
+     * paquete de contratación" (no se manda a Formatos/Plantillas).
+     */
+    private function avisarPaqueteDisponible(Colaborador $colaborador, ContratoLaboral $contrato): void
+    {
+        try {
+            $this->tareas->abrir(TipoTarea::ContratoPendiente, $contrato, [
+                'titulo' => sprintf('Generar paquete de contratación: %s', $colaborador->nombreCompleto()),
+                'descripcion' => 'El expediente quedó completo. Desde la ficha del colaborador genera el paquete de contratación de su puesto.',
+                'prioridad' => PrioridadTarea::Alta,
+                'colaborador' => $colaborador,
+                'permiso' => ContratoLaboralService::PERMISO_GENERAR,
+                'accion' => 'generar_paquete_contratacion',
+            ]);
+
+            $this->notificador->notificarEvento(
+                'expediente_completo',
+                $colaborador,
+                [],
+                'Expediente completo',
+                sprintf('El expediente de %s está completo: genera su paquete de contratación desde su ficha.', $colaborador->nombreCompleto()),
+                $colaborador,
+                'ver_documentos_colaborador',
+                'alta',
+            );
+        } catch (Throwable $e) {
+            Log::warning('AltaColaboradorService: no se pudo avisar que el paquete está disponible.', ['colaborador_id' => $colaborador->id, 'error' => $e->getMessage()]);
+        }
     }
 
     private function notificarContratosListos(Colaborador $colaborador, ContratoLaboral $contrato): void

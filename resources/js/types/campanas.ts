@@ -21,14 +21,20 @@ export type CampanaReclutamientoItem = {
         apellidos: string | null;
     } | null;
     created_at: string;
+    /** Lo que produjo la campaña: contratados y cuánto costó cada uno. */
+    resultado: {
+        candidatos: number;
+        contratados: number;
+        costo_por_colaborador: number | null;
+    } | null;
 };
 
-export type CampanasKpis = {
-    gasto_total: number;
-    candidatos_generados: number;
-    costo_por_candidato: number;
+/** Totales del periodo filtrado (todas las campañas, no solo la página). */
+export type CampanasTotales = {
+    gasto: number;
     contratados: number;
-    costo_por_contratacion: number;
+    costo_por_colaborador: number | null;
+    campanas: number;
 };
 
 export type OpcionesCampanas = {

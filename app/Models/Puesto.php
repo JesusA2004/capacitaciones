@@ -30,6 +30,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property bool $activo
  * @property int|null $meses_periodo_prueba
  * @property GrupoPuestoIndicador|null $grupo_indicador
+ * @property string|null $grupo_documental Variante de documentos jurídicos que le toca (config documentos_maestros.grupos).
  * @property-read int $usuarios_count Solo presente cuando se pide con withCount('usuarios').
  * @property-read int $candidatos_count Solo presente cuando se pide con withCount('candidatos').
  * @property-read int $vacantes_abiertas_count Solo presente cuando se pide con withCount(['vacantes as vacantes_abiertas_count' => ...]).
@@ -54,6 +55,7 @@ class Puesto extends Model
         'activo',
         'meses_periodo_prueba',
         'grupo_indicador',
+        'grupo_documental',
     ];
 
     protected function casts(): array

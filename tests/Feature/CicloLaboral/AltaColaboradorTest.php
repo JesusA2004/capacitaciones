@@ -97,6 +97,9 @@ test('el alta recorre pendiente_documentos → revisión → contratos → firma
         clPlantilla($clave, ['requiere_firma_digital' => true]);
     }
 
+    // Gestor: su paquete lleva contrato, confidencialidad y no competencia.
+    $this->estructura['puesto']->update(['grupo_documental' => 'gestor']);
+
     $id = $this->postJson('/api/v1/rh/colaboradores', clDatosAlta($this->estructura))->assertCreated()->json('colaborador_id');
     $colaborador = Colaborador::query()->findOrFail($id);
     $cuenta = User::query()->where('colaborador_id', $id)->firstOrFail();
@@ -108,8 +111,14 @@ test('el alta recorre pendiente_documentos → revisión → contratos → firma
     // No se puede activar con documentos sin aprobar.
     $this->postJson("/api/v1/rh/colaboradores/{$id}/activar")->assertUnprocessable();
 
-    // RH aprueba: con el expediente completo se generan los contratos del paquete.
+    // RH aprueba: con el expediente completo se habilita el paquete y RH lo
+    // genera («Generar paquete de contratación»).
     $documento->update(['status' => EstadoDocumento::Aprobado->value]);
+    expect($colaborador->refresh()->estado_alta)->toBe(EstadoAltaColaborador::PendienteContrato)
+        ->and(GeneratedDocument::query()->where('colaborador_id', $id)->count())->toBe(0);
+
+    $contratoLaboral = ContratoLaboral::query()->where('colaborador_id', $id)->firstOrFail();
+    $this->postJson("/api/v1/rh/documentos-proceso/contrato/{$contratoLaboral->id}/paquete", ['proceso' => 'alta'])->assertCreated();
     expect($colaborador->refresh()->estado_alta)->toBe(EstadoAltaColaborador::PendienteFirma);
 
     $contratos = GeneratedDocument::query()->where('colaborador_id', $id)->get();
