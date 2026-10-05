@@ -14,8 +14,8 @@ import type { MasterDetalle, ResultadoPruebaMaster } from '@/types';
  * como texto listo para mostrar (el primer error de validación o el
  * mensaje del backend), nunca JSON crudo.
  */
-async function solicitar<T>(
-    metodo: 'GET' | 'POST',
+export async function solicitar<T>(
+    metodo: 'GET' | 'POST' | 'PUT' | 'DELETE',
     url: string,
     cuerpo?: FormData | Record<string, unknown>,
 ): Promise<T> {

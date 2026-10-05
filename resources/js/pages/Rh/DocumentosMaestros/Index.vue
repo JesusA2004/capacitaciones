@@ -14,6 +14,7 @@ import {
     Search,
     ShieldQuestion,
     UserRoundX,
+    Images,
     Users,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
@@ -54,6 +55,7 @@ import { useDocumentosMaestros } from '@/composables/useDocumentosMaestros';
 import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
 import { cobertura } from '@/routes/rh/documentos-maestros';
+import { index as indexFondos } from '@/routes/rh/documentos-maestros/fondos';
 import type {
     EstadoEjecutivoMaster,
     KpisMaestros,
@@ -245,6 +247,9 @@ function tamano(bytes: number): string {
         >
             <Button variant="outline" as="a" :href="cobertura.url()">
                 <Users class="size-4" /> Cobertura por puesto
+            </Button>
+            <Button variant="outline" as="a" :href="indexFondos.url()">
+                <Images class="size-4" /> Fondos
             </Button>
         </CrudPageHeader>
 

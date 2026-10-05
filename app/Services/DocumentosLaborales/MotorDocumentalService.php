@@ -27,6 +27,7 @@ use App\Services\DocumentosMaestros\AlmacenMaestrosService;
 use App\Services\DocumentosMaestros\ContextoDocumento;
 use App\Services\DocumentosMaestros\DatosDocumentoService;
 use App\Services\DocumentosMaestros\Docx\RellenadorDocx;
+use App\Services\DocumentosMaestros\LayoutDocumentoService;
 use App\Services\DocumentosMaestros\Pdf\RenderizadorOverlayMaestro;
 use App\Services\DocumentosMaestros\ResolvedorMaestroService;
 use App\Services\Expedientes\DocumentoStorageService;
@@ -85,6 +86,7 @@ class MotorDocumentalService
         private readonly RenderizadorOverlayMaestro $overlay,
         private readonly AlmacenMaestrosService $almacen,
         private readonly ConversorDocxPdf $conversor,
+        private readonly LayoutDocumentoService $layout,
     ) {}
 
     /**
@@ -176,7 +178,7 @@ class MotorDocumentalService
      * generar() y los módulos cuyo PDF se arma con una vista propia no
      * jurídica (recibo interno de nómina, comprobantes, respaldo de finiquito).
      *
-     * @param  array{plantilla?: DocumentTemplate|null, clave?: string|null, version?: int|null, categoria: CategoriaDocumento, payload?: array<string, string>, documentable?: Model|null, requiere_firma_digital?: bool, requiere_impresion?: bool, requiere_firma_fisica?: bool, requiere_huella?: bool, requiere_testigos?: bool, requiere_envio_corporativo?: bool, master_familia?: string|null, master_hash?: string|null, master_version?: int|null, proceso?: string|null, fidelidad?: string|null, conversion_engine?: string|null, paginas?: int|null, docx?: string|null, nombre_archivo?: string|null, revision_de_id?: int|null, motivo_revision?: string|null}  $opciones
+     * @param  array{plantilla?: DocumentTemplate|null, clave?: string|null, version?: int|null, categoria: CategoriaDocumento, payload?: array<string, string>, documentable?: Model|null, requiere_firma_digital?: bool, requiere_impresion?: bool, requiere_firma_fisica?: bool, requiere_huella?: bool, requiere_testigos?: bool, requiere_envio_corporativo?: bool, master_familia?: string|null, master_hash?: string|null, master_version?: int|null, proceso?: string|null, fidelidad?: string|null, conversion_engine?: string|null, paginas?: int|null, docx?: string|null, nombre_archivo?: string|null, revision_de_id?: int|null, motivo_revision?: string|null, layout_snapshot?: array<string, mixed>|null}  $opciones
      */
     public function registrarPdf(Colaborador $colaborador, string $pdf, string $titulo, User $actor, array $opciones): GeneratedDocument
     {
@@ -243,6 +245,7 @@ class MotorDocumentalService
                     'conversion_engine' => $opciones['conversion_engine'] ?? null,
                     'conversion_fidelity' => $opciones['fidelidad'] ?? null,
                     'paginas' => $opciones['paginas'] ?? null,
+                    'layout_snapshot' => $opciones['layout_snapshot'] ?? null,
                     'docx_path' => $rutaDocx,
                     'docx_disk' => $rutaDocx !== null ? config('expedientes.disk') : null,
                     'docx_hash' => isset($opciones['docx']) && $opciones['docx'] !== '' ? hash('sha256', $opciones['docx']) : null,
@@ -361,6 +364,7 @@ class MotorDocumentalService
             'conversion_engine' => $render['conversor'],
             'paginas' => $render['paginas'],
             'docx' => $render['docx'],
+            'layout_snapshot' => $render['layout_snapshot'] ?? null,
             'nombre_archivo' => $this->nombreArchivo($colaborador, $titulo, $contexto->fechaDocumento()),
             'revision_de_id' => $revisionDe?->id,
             'motivo_revision' => $motivoRevision,
@@ -500,7 +504,7 @@ class MotorDocumentalService
      * Sin $definitivo (vista previa de QA) se usa lo que haya y se reporta.
      *
      * @param  array<string, string>  $valores
-     * @return array{pdf: string, fidelidad: string, docx: string|null, conversor: string, paginas: int, desbordes: list<array{campo: string, etiqueta: string, valor: string, razon: string}>}
+     * @return array{pdf: string, fidelidad: string, docx: string|null, conversor: string, paginas: int, desbordes: list<array{campo: string, etiqueta: string, valor: string, razon: string}>, layout_snapshot?: array<string, mixed>|null}
      */
     private function renderizarMaestro(DocumentTemplate $master, array $valores, ?string $leyenda = null, bool $definitivo = true): array
     {
@@ -534,6 +538,9 @@ class MotorDocumentalService
 
             $instancias = RellenadorDocx::instanciasDe($master->mapping);
             $docx = $this->rellenador->rellenar($this->almacen->master($master), $instancias, $valores)['docx'];
+            // Diseño de página (fondo, márgenes, sangría): nunca toca el texto.
+            $disenado = $this->layout->aplicar($master, $docx);
+            $docx = $disenado['docx'];
             $convertido = $definitivo
                 ? $this->conversor->convertirFiel($docx, $this->conversoresPermitidos($master))
                 : $this->conversor->convertir($docx);
@@ -557,18 +564,47 @@ class MotorDocumentalService
 
         $paginas = $this->contarPaginas($convertido['pdf']);
         $desbordes = [];
+        // Con diseño de página, lo esperado es el original CON ese diseño.
+        $esperadas = $disenado['hash'] !== null
+            ? $this->paginasEsperadasConDiseno($master, $disenado['hash'])
+            : $master->page_count_original;
 
         // Un Word que crece una página respecto al original = algún dato no
         // cupo donde el formato lo esperaba (renglón corrido, hoja extra).
-        if ($master->page_count_original !== null && $paginas !== $master->page_count_original) {
-            $desbordes = $this->sospechososDeDesborde($instancias, $valores, $paginas, $master->page_count_original);
+        if ($esperadas !== null && $paginas !== $esperadas) {
+            $desbordes = $this->sospechososDeDesborde($instancias, $valores, $paginas, $esperadas);
 
             if ($definitivo) {
-                throw CampoDocumentoDesbordadoException::para($master->nombre, $desbordes, sprintf('el original tiene %d página(s) y con estos datos saldría de %d', $master->page_count_original, $paginas));
+                throw CampoDocumentoDesbordadoException::para($master->nombre, $desbordes, sprintf('el original tiene %d página(s) y con estos datos saldría de %d', $esperadas, $paginas));
             }
         }
 
-        return ['pdf' => $convertido['pdf'], 'fidelidad' => $convertido['fidelidad'], 'docx' => $docx, 'conversor' => $convertido['conversor'], 'paginas' => $paginas, 'desbordes' => $desbordes];
+        return ['pdf' => $convertido['pdf'], 'fidelidad' => $convertido['fidelidad'], 'docx' => $docx, 'conversor' => $convertido['conversor'], 'paginas' => $paginas, 'desbordes' => $desbordes, 'layout_snapshot' => $disenado['snapshot']];
+    }
+
+    /**
+     * Páginas del original de Jurídico con el diseño aplicado (cacheado en
+     * la versión por hash del diseño; se calcula una vez con el conversor).
+     */
+    private function paginasEsperadasConDiseno(DocumentTemplate $master, string $hash): ?int
+    {
+        $qa = $master->layout_qa;
+
+        if (is_array($qa) && ($qa['hash'] ?? null) === $hash && isset($qa['paginas'])) {
+            return (int) $qa['paginas'];
+        }
+
+        $identidad = $this->rellenador->restaurarOriginal($this->almacen->master($master), RellenadorDocx::instanciasDe($master->mapping));
+        $convertido = $this->conversor->convertirFiel($this->layout->aplicar($master, $identidad)['docx'], $this->conversoresPermitidos($master));
+
+        if ($convertido === null) {
+            return $master->page_count_original;
+        }
+
+        $paginas = $this->contarPaginas($convertido['pdf']);
+        $master->forceFill(['layout_qa' => ['hash' => $hash, 'paginas' => $paginas, 'calculado_en' => now()->toIso8601String()]])->save();
+
+        return $paginas;
     }
 
     /**

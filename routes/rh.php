@@ -13,6 +13,7 @@ use App\Http\Controllers\Rh\FiniquitoController;
 use App\Http\Controllers\Rh\FormatoController;
 use App\Http\Controllers\Rh\FormatoOficialController;
 use App\Http\Controllers\Rh\IncorporacionInvitacionController;
+use App\Http\Controllers\Rh\NominaController;
 use App\Http\Controllers\Rh\PlantillaController;
 use App\Http\Controllers\Rh\PlantillaOficialController;
 use App\Http\Controllers\Rh\ReporteRhController;
@@ -27,7 +28,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('mi-expediente', [ExpedienteController::class, 'miExpediente'])->name('mi-expediente')->middleware('can:modo-colaborador');
     Route::post('mi-expediente/foto', [ExpedienteController::class, 'subirFotoPropia'])->name('portal.foto')->middleware('can:modo-colaborador');
 
+    // Mis recibos de nómina (modo colaborador): solo emitidos.
+    Route::get('mis-recibos', [NominaController::class, 'misRecibos'])->name('portal.recibos')->middleware('can:modo-colaborador');
+    Route::get('mis-recibos/{recibo}/pdf', [NominaController::class, 'pdf'])->name('portal.recibos.pdf');
+
     Route::prefix('rh')->name('rh.')->group(function () {
+        // Recibos de nómina quincenales (docs/NOMINA_QUINCENAL.md).
+        Route::prefix('nomina')->name('nomina.')->group(function () {
+            Route::get('/', [NominaController::class, 'index'])->name('index');
+            Route::post('preparar', [NominaController::class, 'preparar'])->name('preparar');
+            Route::post('emitir', [NominaController::class, 'emitir'])->name('emitir');
+            Route::post('masivo', [NominaController::class, 'masivo'])->name('masivo');
+            Route::get('descargar', [NominaController::class, 'descargar'])->name('descargar');
+            Route::put('recibos/{recibo}', [NominaController::class, 'actualizar'])->name('recibos.update');
+            Route::post('recibos/{recibo}/emitir', [NominaController::class, 'emitirUno'])->name('recibos.emitir');
+            Route::get('recibos/{recibo}/pdf', [NominaController::class, 'pdf'])->name('recibos.pdf');
+        });
+
         Route::prefix('expedientes')->name('expedientes.')->group(function () {
             Route::get('/', [ExpedienteController::class, 'index'])->name('index');
             Route::get('exportar-excel', [ExpedienteController::class, 'exportarExcel'])->name('exportarExcel');

@@ -93,7 +93,7 @@ const solicitud = useForm({
     motivo: '',
     puesto_id: null as number | null,
     sucursal_id: null as number | null,
-    tipo_contratacion: 'periodo_prueba',
+    tipo_contratacion: 'capacitacion_inicial',
     sueldo_mensual: '',
     fecha_reingreso: new Date().toISOString().slice(0, 10),
     documentos_adicionales: [] as number[],

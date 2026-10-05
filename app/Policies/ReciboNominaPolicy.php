@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\EstadoReciboNomina;
 use App\Models\ReciboNomina;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
@@ -16,7 +17,8 @@ class ReciboNominaPolicy
 
     public function ver(User $usuario, ReciboNomina $recibo): bool
     {
-        if ($usuario->colaborador_id !== null && $usuario->colaborador_id === $recibo->colaborador_id) {
+        // Su propio recibo, solo ya emitido (el borrador es trabajo de RH).
+        if ($usuario->colaborador_id !== null && $usuario->colaborador_id === $recibo->colaborador_id && $recibo->estado === EstadoReciboNomina::Emitido) {
             return true;
         }
 
@@ -28,6 +30,12 @@ class ReciboNominaPolicy
     public function importar(User $usuario): bool
     {
         return $usuario->can('nomina.recibos.importar');
+    }
+
+    /** Ajustar conceptos o emitir: quien crea recibos, dentro de su alcance. */
+    public function editar(User $usuario, ReciboNomina $recibo): bool
+    {
+        return $this->regenerar($usuario, $recibo);
     }
 
     public function regenerar(User $usuario, ReciboNomina $recibo): bool

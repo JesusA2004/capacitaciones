@@ -294,6 +294,63 @@ cuerpo); "Probar con colaborador" valida el alcance de quien prueba;
 descargas siempre por endpoint autorizado; `withTrashed` en colaboradores
 para el historial de bajas.
 
+## Diseño de página y fondos
+
+Además del original de Jurídico, una familia puede tener un **diseño de
+página** (`LayoutDocumentoService`). Nunca toca el texto jurídico; se aplica
+al DOCX ya llenado y antes de convertir (`Docx\AplicadorLayoutDocx`):
+
+- **Fondo**: imagen anclada **detrás del texto** (`behindDoc`, `wrapNone`,
+  posición relativa a la página x=0 y=0, tamaño de la hoja) en el primer
+  párrafo de cada encabezado de cada sección → se repite en todas las
+  páginas y no empuja texto ni cambia saltos. Nunca es un `<img>` inline.
+  Ajuste `stretch` (hoja exacta), `contain` o `cover` (centrado); opacidad
+  con `alphaModFix`; «Primera página» usa un encabezado `first` (titlePg).
+- **Logo**: con `header_logo_enabled = false` se retiran los dibujos del
+  encabezado original (el fondo viejo de Jurídico) para no duplicar logo.
+- **Márgenes** (`page.margins_cm`) y **párrafos normales**: sangría izquierda
+  (0.64 cm en el preset de indeterminados), derecha, espacio antes/después,
+  justificado y «mantener líneas juntas». No se tocan títulos centrados,
+  listas numeradas, tablas, firmas, cuadros de texto, párrafos con imagen ni
+  párrafos que traen su propia sangría. Margen de página ≠ sangría de párrafo.
+
+Herencia: **preset** (`document_layout_presets`) → **familia**
+(`document_family_layouts.overrides`) → **versión**
+(`document_templates.layout_overrides`). Un `null` explícito gana (una
+familia puede decir «sin fondo» sobre un preset con fondo).
+
+Biblioteca (`document_assets`: fondo, logo, marca de agua, imagen): PNG/JPG
+(WEBP se convierte a PNG). Identidad por **SHA-256**; reemplazar crea la
+versión siguiente (mismo slug) y mueve presets/familias a ella; los
+documentos ya generados conservan la suya. Solo se elimina un fondo sin uso.
+Área segura por fondo (`safe_area_*_mm`): si márgenes + sangría invaden la
+zona gráfica se avisa («El contenido invade el área gráfica del fondo»); no
+se mueve nada solo.
+
+Snapshot: `generated_documents.layout_snapshot` guarda hash del diseño,
+preset, márgenes, párrafo, logo y fondo (id, slug, versión, SHA-256, ajuste,
+opacidad, aplicar a). Desbordes: con diseño, el número de páginas esperado
+es el del original **con ese diseño** (`document_templates.layout_qa`, por
+hash; se calcula una vez con Word al primer uso).
+
+Preset inicial: «Contrato indeterminado MR. LANA» con fondo
+`docs/imgBG/bgDocs.png` («MR. LANA — Fondo contrato indeterminado», slug
+`mr-lana-contrato-indeterminado`), todas las páginas, estirar, 100 %, sin
+logo extra, sangría 0.64 cm, márgenes 2.9/3.0/2.8/3.0 cm (libran el logo y
+la ola del fondo). Solo para `contrato_indeterminado.*`; los demás documentos
+no heredan fondo.
+
+```bash
+php artisan migrate
+php artisan documentos:instalar-fondo-indeterminado --solo-regional   # primero la Regional
+php artisan documentos:instalar-fondo-indeterminado                   # luego todas las indeterminadas
+```
+
+UI: Documentos maestros → **Fondos** (biblioteca) y, en cada documento,
+**Diseño de página** (preset, fondo, ajuste, opacidad, sangría, vista
+previa con mostrar/ocultar fondo y guías de área segura que nunca salen en
+el PDF).
+
 ## Limitaciones conocidas
 
 - `PERMISO EXTRAORDINARIO CON GOCE DE SUELDO.docx` usa la fuente **Aptos**,

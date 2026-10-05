@@ -474,7 +474,14 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::prefix('recibos')->name('recibos.')->group(function () {
                 Route::get('/', [RhReciboNominaController::class, 'index'])->name('index');
                 Route::post('importar', [RhReciboNominaController::class, 'importar'])->name('importar')->middleware('throttle:api-cargas');
+                // Quincena (docs/NOMINA_QUINCENAL.md): resumen, preparar, emitir, cambio en bloque.
+                Route::get('quincena', [RhReciboNominaController::class, 'quincena'])->name('quincena');
+                Route::post('quincena/preparar', [RhReciboNominaController::class, 'prepararQuincena'])->name('quincena.preparar');
+                Route::post('quincena/emitir', [RhReciboNominaController::class, 'emitirQuincena'])->name('quincena.emitir');
+                Route::post('quincena/masivo', [RhReciboNominaController::class, 'masivo'])->name('quincena.masivo');
                 Route::get('{recibo}', [RhReciboNominaController::class, 'show'])->name('show');
+                Route::put('{recibo}', [RhReciboNominaController::class, 'update'])->name('update');
+                Route::post('{recibo}/emitir', [RhReciboNominaController::class, 'emitir'])->name('emitir');
                 Route::get('{recibo}/pdf', [RhReciboNominaController::class, 'pdf'])->name('pdf');
                 Route::post('{recibo}/regenerar-pdf', [RhReciboNominaController::class, 'regenerarPdf'])->name('regenerar-pdf');
             });

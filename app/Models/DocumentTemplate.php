@@ -59,6 +59,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $original_nombre
  * @property string|null $master_hash
  * @property array<string, mixed>|null $mapping
+ * @property array<string, mixed>|null $layout_overrides
+ * @property array{hash?: string, paginas?: int, calculado_en?: string}|null $layout_qa
  * @property array<string, mixed>|null $analisis
  * @property string|null $estado_master listo | con_pendientes | referencia | bloqueado
  * @property bool $operativo
@@ -96,6 +98,8 @@ class DocumentTemplate extends Model
     protected $hidden = ['disk', 'path', 'original_disk', 'original_path'];
 
     protected $fillable = [
+        'layout_overrides',
+        'layout_qa',
         'nombre',
         'tipo',
         'descripcion',
@@ -194,6 +198,8 @@ class DocumentTemplate extends Model
             'variables_manuales' => 'array',
             'grupos_puesto' => 'array',
             'mapping' => 'array',
+            'layout_overrides' => 'array',
+            'layout_qa' => 'array',
             'analisis' => 'array',
             'fuentes' => 'array',
             'operativo' => 'boolean',

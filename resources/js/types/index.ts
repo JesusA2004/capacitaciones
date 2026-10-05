@@ -11,6 +11,7 @@ export * from './configuracion';
 export * from './cuestionarios';
 export * from './cursos';
 export * from './documentosProceso';
+export * from './disenoDocumentos';
 export * from './dashboardRh';
 export * from './formatos-oficiales';
 export * from './matrizComercial';

@@ -89,6 +89,12 @@ class IncorporacionInvitacionService
      */
     public function regenerar(IncorporacionInvitacion $invitacion, User $creadoPor): array
     {
+        if (! $this->esRegenerable($invitacion)) {
+            throw ValidationException::withMessages([
+                'invitacion' => 'Este QR ya se usó: la persona ya creó su cuenta con él. No se puede generar otro.',
+            ]);
+        }
+
         $resultado = $this->crear([
             'email' => $invitacion->email,
             'telefono' => $invitacion->telefono,
@@ -110,6 +116,26 @@ class IncorporacionInvitacionService
         }
 
         return $resultado;
+    }
+
+    /**
+     * Un QR ya usado (la persona ya creó su cuenta con él), o el de una
+     * persona que ya usó otro QR de la misma cadena, nunca se regenera.
+     */
+    public function esRegenerable(IncorporacionInvitacion $invitacion): bool
+    {
+        if ($invitacion->estado === EstadoInvitacionIncorporacion::Usado) {
+            return false;
+        }
+
+        return ! IncorporacionInvitacion::query()
+            ->where('estado', EstadoInvitacionIncorporacion::Usado->value)
+            ->where(function ($q) use ($invitacion): void {
+                $q->when($invitacion->candidato_id !== null, fn ($q) => $q->orWhere('candidato_id', $invitacion->candidato_id))
+                    ->when($invitacion->colaborador_id !== null, fn ($q) => $q->orWhere('colaborador_id', $invitacion->colaborador_id));
+            })
+            ->when($invitacion->candidato_id === null && $invitacion->colaborador_id === null, fn ($q) => $q->whereRaw('1 = 0'))
+            ->exists();
     }
 
     /**

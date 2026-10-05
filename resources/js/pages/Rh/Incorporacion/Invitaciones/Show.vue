@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
-import { Copy, Download, QrCode, RefreshCw, ShieldOff } from '@lucide/vue';
+import {
+    CircleCheck,
+    Copy,
+    Download,
+    QrCode,
+    RefreshCw,
+    ShieldOff,
+} from '@lucide/vue';
 import { computed } from 'vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
@@ -21,6 +28,7 @@ const props = defineProps<{
     qrUrl: string | null;
     qrSvg: string | null;
     puedeRegenerar: boolean;
+    yaUsada: boolean;
     puedeRevocar: boolean;
     puedeDescargarQr: boolean;
 }>();
@@ -75,12 +83,27 @@ async function revocarInvitacion() {
 }
 
 const puedeAccionar = computed(() => props.invitacion.estado === 'activo');
+
+function fecha(valor: string | null | undefined): string {
+    return valor
+        ? new Date(valor).toLocaleString('es-MX', {
+              dateStyle: 'medium',
+              timeStyle: 'short',
+          })
+        : '—';
+}
+
+function nombreUsuario(
+    u: { name: string; apellidos?: string | null } | null | undefined,
+): string {
+    return u ? [u.name, u.apellidos].filter(Boolean).join(' ') : '—';
+}
 </script>
 
 <template>
     <Head title="Invitación de incorporación" />
 
-    <div class="pagina-media flex flex-col gap-6">
+    <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
             detalle
             :titulo="
@@ -92,223 +115,272 @@ const puedeAccionar = computed(() => props.invitacion.estado === 'activo');
             <EstadoBadge :estado="invitacion.estado" />
         </CrudPageHeader>
 
-        <div class="grid gap-6 lg:grid-cols-3">
-            <div class="flex flex-col gap-4 lg:col-span-2">
-                <div
-                    v-if="tokenPlano && qrUrl"
-                    class="rounded-2xl border border-border/60 bg-card p-4"
-                >
-                    <h2 class="mb-1 text-sm font-semibold">
-                        Código QR (solo se muestra una vez)
-                    </h2>
-                    <p class="mb-3 text-xs text-muted-foreground">
-                        Por seguridad, este código no vuelve a mostrarse después
-                        de salir de esta página. Cópialo, descárgalo o
-                        compártelo ahora; si lo necesitas después, regenera la
-                        invitación.
+        <!-- QR ya usado: aviso claro y sin opción de generar otro. -->
+        <div
+            v-if="yaUsada"
+            class="flex items-start gap-4 rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-5"
+        >
+            <CircleCheck
+                class="mt-0.5 size-7 shrink-0 text-emerald-600 dark:text-emerald-400"
+            />
+            <div class="flex flex-col gap-1">
+                <p class="text-base font-semibold">
+                    Este QR ya se usó — ya no puedes generar otro.
+                </p>
+                <p class="text-sm text-muted-foreground">
+                    {{
+                        nombreUsuario(
+                            invitacion.usado_por ?? invitacion.usuario,
+                        )
+                    }}
+                    ya creó su cuenta con este código<template
+                        v-if="invitacion.used_at"
+                    >
+                        el {{ fecha(invitacion.used_at) }}</template
+                    >. Su proceso continúa desde su expediente.
+                </p>
+            </div>
+        </div>
+
+        <div
+            class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_22rem]"
+        >
+            <!-- QR grande y completo -->
+            <section
+                v-if="tokenPlano && qrUrl"
+                class="flex flex-col gap-4 rounded-2xl border border-border/60 bg-card p-5 xl:col-span-2"
+            >
+                <div>
+                    <h2 class="text-lg font-semibold">Código QR de alta</h2>
+                    <p class="text-sm text-muted-foreground">
+                        La persona lo escanea con la cámara de su celular. Por
+                        seguridad este código solo se muestra unos minutos:
+                        cópialo, descárgalo o compártelo ahora.
                     </p>
+                </div>
 
-                    <div class="flex flex-col gap-4 sm:flex-row sm:items-start">
-                        <div
-                            class="h-40 w-40 shrink-0 rounded-xl border border-border/60 bg-white p-2"
-                            v-html="qrSvg"
-                        />
+                <div
+                    class="flex flex-col items-center gap-6 lg:flex-row lg:items-start"
+                >
+                    <div
+                        class="qr-lienzo aspect-square w-full max-w-[min(32rem,70vh)] shrink-0 rounded-2xl border border-border/60 bg-white p-4 shadow-sm"
+                        v-html="qrSvg"
+                    />
 
-                        <div class="flex flex-1 flex-col gap-2">
+                    <div class="flex w-full min-w-0 flex-1 flex-col gap-5">
+                        <div>
+                            <p
+                                class="mb-1 text-xs font-medium text-muted-foreground uppercase"
+                            >
+                                Código manual
+                            </p>
+                            <p
+                                class="font-mono text-3xl font-bold tracking-[0.3em]"
+                            >
+                                {{ invitacion.codigo_legible ?? '—' }}
+                            </p>
+                        </div>
+                        <div>
+                            <p
+                                class="mb-1 text-xs font-medium text-muted-foreground uppercase"
+                            >
+                                Liga de la invitación
+                            </p>
                             <code
-                                class="rounded bg-muted px-2 py-1 text-xs break-all"
+                                class="block rounded-lg bg-muted px-3 py-2 text-sm break-all"
                                 >{{ qrUrl }}</code
                             >
-                            <div class="flex flex-wrap gap-2">
-                                <Button
-                                    size="sm"
-                                    variant="secondary"
-                                    @click="copiarLiga"
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <Button @click="copiarLiga">
+                                <Copy class="size-4" />
+                                Copiar liga
+                            </Button>
+                            <Button
+                                v-if="puedeDescargarQr"
+                                as-child
+                                variant="outline"
+                            >
+                                <a
+                                    :href="`${qrUrlRoute.url(invitacion.id)}?formato=png`"
+                                    download="invitacion-qr.png"
                                 >
-                                    <Copy class="size-4" />
-                                    Copiar liga
-                                </Button>
-                                <Button
-                                    v-if="puedeDescargarQr"
-                                    as-child
-                                    size="sm"
-                                    variant="outline"
+                                    <Download class="size-4" />
+                                    Descargar PNG
+                                </a>
+                            </Button>
+                            <Button
+                                v-if="puedeDescargarQr"
+                                as-child
+                                variant="outline"
+                            >
+                                <a
+                                    :href="`${qrUrlRoute.url(invitacion.id)}?formato=svg`"
+                                    download="invitacion-qr.svg"
                                 >
-                                    <a
-                                        :href="`${qrUrlRoute.url(invitacion.id)}?formato=svg`"
-                                        download="invitacion-qr.svg"
-                                    >
-                                        <Download class="size-4" />
-                                        SVG
-                                    </a>
-                                </Button>
-                                <Button
-                                    v-if="puedeDescargarQr"
-                                    as-child
-                                    size="sm"
-                                    variant="outline"
-                                >
-                                    <a
-                                        :href="`${qrUrlRoute.url(invitacion.id)}?formato=png`"
-                                        download="invitacion-qr.png"
-                                    >
-                                        <Download class="size-4" />
-                                        PNG
-                                    </a>
-                                </Button>
-                            </div>
+                                    <Download class="size-4" />
+                                    Descargar SVG
+                                </a>
+                            </Button>
                         </div>
                     </div>
                 </div>
+            </section>
 
-                <div
-                    v-else
-                    class="rounded-2xl border border-dashed border-border/60 bg-card p-4 text-sm text-muted-foreground"
-                >
-                    Esta invitación ya no tiene un código QR utilizable ({{
-                        invitacion.estado === 'usado'
-                            ? 'ya fue usada'
-                            : invitacion.estado === 'revocado'
-                              ? 'fue revocada'
-                              : 'venció'
-                    }}).
-                    <template v-if="puedeAccionar && puedeRegenerar">
-                        Genera una nueva si el colaborador todavía la necesita.
+            <section
+                v-else-if="!yaUsada"
+                class="flex flex-col justify-center gap-2 rounded-2xl border border-dashed border-border/60 bg-card p-6 xl:col-span-2"
+            >
+                <p class="text-base font-semibold">
+                    Esta invitación ya no tiene un QR utilizable
+                </p>
+                <p class="text-sm text-muted-foreground">
+                    {{
+                        invitacion.estado === 'revocado'
+                            ? 'Fue revocada.'
+                            : 'Ya venció.'
+                    }}
+                    <template v-if="puedeRegenerar">
+                        Usa «Generar QR nuevo» si la persona todavía lo
+                        necesita.
                     </template>
-                </div>
+                </p>
+            </section>
 
-                <div class="rounded-2xl border border-border/60 bg-card p-4">
-                    <h2 class="mb-3 text-sm font-semibold">
-                        Datos prellenados
-                    </h2>
-                    <dl class="grid grid-cols-2 gap-3 text-sm">
-                        <div>
-                            <dt class="text-muted-foreground">Nombre</dt>
-                            <dd>{{ invitacion.nombre_prellenado ?? '—' }}</dd>
-                        </div>
-                        <div>
-                            <dt class="text-muted-foreground">Correo</dt>
-                            <dd>{{ invitacion.email ?? '—' }}</dd>
-                        </div>
-                        <div>
-                            <dt class="text-muted-foreground">Teléfono</dt>
-                            <dd>{{ invitacion.telefono ?? '—' }}</dd>
-                        </div>
-                        <div>
-                            <dt class="text-muted-foreground">Empresa</dt>
-                            <dd>{{ invitacion.empresa?.nombre ?? '—' }}</dd>
-                        </div>
-                        <div>
-                            <dt class="text-muted-foreground">Sucursal</dt>
-                            <dd>{{ invitacion.sucursal?.nombre ?? '—' }}</dd>
-                        </div>
-                        <div>
-                            <dt class="text-muted-foreground">Departamento</dt>
-                            <dd>
-                                {{ invitacion.departamento?.nombre ?? '—' }}
-                            </dd>
-                        </div>
-                        <div>
-                            <dt class="text-muted-foreground">Puesto</dt>
-                            <dd>{{ invitacion.puesto?.nombre ?? '—' }}</dd>
-                        </div>
-                        <div
-                            class="col-span-2"
-                            v-if="invitacion.metadata?.observaciones"
-                        >
-                            <dt class="text-muted-foreground">
-                                Observaciones internas
-                            </dt>
-                            <dd>{{ invitacion.metadata.observaciones }}</dd>
-                        </div>
-                    </dl>
-                </div>
-            </div>
-
-            <div class="flex flex-col gap-4">
-                <div
-                    class="rounded-2xl border border-border/60 bg-card p-4 text-sm"
+            <section
+                class="rounded-2xl border border-border/60 bg-card p-5 xl:col-span-2"
+            >
+                <h2 class="mb-4 text-base font-semibold">Datos prellenados</h2>
+                <dl
+                    class="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 lg:grid-cols-3"
                 >
-                    <h2 class="mb-3 text-sm font-semibold">Vigencia y uso</h2>
-                    <dl class="grid gap-2">
-                        <div class="flex justify-between">
+                    <div>
+                        <dt class="text-muted-foreground">Nombre</dt>
+                        <dd class="font-medium">
+                            {{ invitacion.nombre_prellenado ?? '—' }}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="text-muted-foreground">Correo</dt>
+                        <dd class="font-medium break-all">
+                            {{ invitacion.email ?? '—' }}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="text-muted-foreground">Teléfono</dt>
+                        <dd class="font-medium">
+                            {{ invitacion.telefono ?? '—' }}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="text-muted-foreground">Empresa</dt>
+                        <dd class="font-medium">
+                            {{ invitacion.empresa?.nombre ?? '—' }}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="text-muted-foreground">Sucursal</dt>
+                        <dd class="font-medium">
+                            {{ invitacion.sucursal?.nombre ?? '—' }}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="text-muted-foreground">Departamento</dt>
+                        <dd class="font-medium">
+                            {{ invitacion.departamento?.nombre ?? '—' }}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="text-muted-foreground">Puesto</dt>
+                        <dd class="font-medium">
+                            {{ invitacion.puesto?.nombre ?? '—' }}
+                        </dd>
+                    </div>
+                    <div
+                        v-if="invitacion.metadata?.observaciones"
+                        class="sm:col-span-2 lg:col-span-3"
+                    >
+                        <dt class="text-muted-foreground">
+                            Observaciones internas
+                        </dt>
+                        <dd>{{ invitacion.metadata.observaciones }}</dd>
+                    </div>
+                </dl>
+            </section>
+
+            <aside
+                class="flex flex-col gap-4 xl:col-start-3 xl:row-span-2 xl:row-start-1"
+            >
+                <div
+                    class="rounded-2xl border border-border/60 bg-card p-5 text-sm"
+                >
+                    <h2 class="mb-4 text-base font-semibold">Vigencia y uso</h2>
+                    <dl class="grid gap-3">
+                        <div class="flex justify-between gap-4">
                             <dt class="text-muted-foreground">Vence</dt>
-                            <dd>
-                                {{
-                                    new Date(
-                                        invitacion.expires_at,
-                                    ).toLocaleString()
-                                }}
+                            <dd class="text-right">
+                                {{ fecha(invitacion.expires_at) }}
                             </dd>
                         </div>
-                        <div class="flex justify-between">
+                        <div class="flex justify-between gap-4">
                             <dt class="text-muted-foreground">Usos</dt>
                             <dd>
                                 {{ invitacion.usos_count }} /
                                 {{ invitacion.max_usos }}
                             </dd>
                         </div>
-                        <div class="flex justify-between">
+                        <div class="flex justify-between gap-4">
                             <dt class="text-muted-foreground">Creada por</dt>
-                            <dd>{{ invitacion.creado_por?.name ?? '—' }}</dd>
+                            <dd class="text-right">
+                                {{ nombreUsuario(invitacion.creado_por) }}
+                            </dd>
                         </div>
                         <div
                             v-if="invitacion.usado_por"
-                            class="flex justify-between"
+                            class="flex justify-between gap-4"
                         >
                             <dt class="text-muted-foreground">Usada por</dt>
-                            <dd>{{ invitacion.usado_por.name }}</dd>
-                        </div>
-                        <div
-                            v-if="invitacion.usuario"
-                            class="flex justify-between"
-                        >
-                            <dt class="text-muted-foreground">Colaborador</dt>
-                            <dd>{{ invitacion.usuario.name }}</dd>
+                            <dd class="text-right">
+                                {{ nombreUsuario(invitacion.usado_por) }}
+                            </dd>
                         </div>
                         <div
                             v-if="invitacion.revoked_at"
-                            class="flex justify-between"
+                            class="flex justify-between gap-4"
                         >
                             <dt class="text-muted-foreground">Revocada</dt>
-                            <dd>
-                                {{
-                                    new Date(
-                                        invitacion.revoked_at,
-                                    ).toLocaleString()
-                                }}
+                            <dd class="text-right">
+                                {{ fecha(invitacion.revoked_at) }}
                             </dd>
                         </div>
                         <div
                             v-if="invitacion.regenerada_desde"
-                            class="flex justify-between"
+                            class="flex justify-between gap-4"
                         >
-                            <dt class="text-muted-foreground">Regenerada de</dt>
+                            <dt class="text-muted-foreground">Reemplaza a</dt>
                             <dd>#{{ invitacion.regenerada_desde.id }}</dd>
                         </div>
                     </dl>
                 </div>
 
                 <div
-                    v-if="puedeRegenerar || puedeRevocar"
-                    class="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4"
+                    v-if="puedeRegenerar || (puedeRevocar && puedeAccionar)"
+                    class="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-5"
                 >
-                    <h2 class="text-sm font-semibold">Acciones</h2>
+                    <h2 class="text-base font-semibold">Acciones</h2>
 
                     <Button
                         v-if="puedeRegenerar"
-                        size="sm"
                         variant="secondary"
                         :disabled="formRegenerar.processing"
                         @click="regenerarInvitacion"
                     >
                         <RefreshCw class="size-4" />
-                        Regenerar QR
+                        Generar QR nuevo
                     </Button>
 
                     <Button
                         v-if="puedeRevocar && puedeAccionar"
-                        size="sm"
                         variant="destructive"
                         :disabled="formRevocar.processing"
                         @click="revocarInvitacion"
@@ -317,7 +389,17 @@ const puedeAccionar = computed(() => props.invitacion.estado === 'activo');
                         Revocar
                     </Button>
                 </div>
-            </div>
+            </aside>
         </div>
     </div>
 </template>
+
+<style scoped>
+/* El SVG del QR trae width/height fijos: se fuerza a llenar el lienzo
+   cuadrado para que nunca se corte ni se vea diminuto. */
+.qr-lienzo :deep(svg) {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+</style>

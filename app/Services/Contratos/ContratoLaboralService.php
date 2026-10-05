@@ -52,6 +52,8 @@ class ContratoLaboralService
      */
     public function crearContrato(Colaborador $colaborador, TipoContratacion $tipo, CarbonInterface $inicio, ?CarbonInterface $fin, User $actor, ?ContratoLaboral $anterior = null): ContratoLaboral
     {
+        $tipo = $tipo->normalizada();
+
         if ($tipo->tieneVencimiento() && $fin === null) {
             throw ValidationException::withMessages(['fecha_fin_contrato' => 'Captura la fecha de vencimiento del contrato.']);
         }
@@ -74,8 +76,8 @@ class ContratoLaboralService
 
         $colaborador->update([
             'tipo_contratacion' => $tipo,
-            'periodo_prueba_inicio' => $tipo === TipoContratacion::PeriodoPrueba ? $inicio->toDateString() : $colaborador->periodo_prueba_inicio,
-            'periodo_prueba_fin' => $tipo === TipoContratacion::PeriodoPrueba ? $fin?->toDateString() : $colaborador->periodo_prueba_fin,
+            'periodo_prueba_inicio' => $tipo === TipoContratacion::CapacitacionInicial ? $inicio->toDateString() : $colaborador->periodo_prueba_inicio,
+            'periodo_prueba_fin' => $tipo === TipoContratacion::CapacitacionInicial ? $fin?->toDateString() : $colaborador->periodo_prueba_fin,
         ]);
 
         $this->auditoria->registrar('contrato_creado', $contrato, $actor, [

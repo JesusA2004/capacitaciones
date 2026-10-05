@@ -52,6 +52,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Celebraciones (cumpleaños y aniversarios): pantalla del evento, destino
     // de sus notificaciones; felicitaciones privadas (docs/CELEBRACIONES.md).
     Route::prefix('celebraciones')->name('celebraciones.')->group(function () {
+        Route::get('/', [CelebracionController::class, 'index'])->name('index');
         Route::get('hoy', [CelebracionController::class, 'hoy'])->name('hoy');
         Route::get('{celebracion}', [CelebracionController::class, 'show'])->name('show');
         Route::get('{celebracion}/tarjeta', [CelebracionController::class, 'tarjeta'])->name('tarjeta');

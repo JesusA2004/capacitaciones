@@ -18,6 +18,7 @@ import {
 import { computed, ref, useTemplateRef, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import BuscadorColaborador from '@/components/documentos/BuscadorColaborador.vue';
+import DisenoPaginaMaestro from '@/components/documentos/maestros/DisenoPaginaMaestro.vue';
 import EstadoDisenoBadge from '@/components/documentos/maestros/EstadoDisenoBadge.vue';
 import EstadoMaestroBadge from '@/components/documentos/maestros/EstadoMaestroBadge.vue';
 import { Badge } from '@/components/ui/badge';
@@ -543,6 +544,23 @@ const fuenteDomicilio: Record<string, string> = {
             >
                 Activada por excepción: «{{ detalle.calidad.excepcion }}»
             </p>
+        </section>
+
+        <!-- DISEÑO DE PÁGINA (preset, fondo, sangría) -->
+        <section
+            v-if="detalle.familia && detalle.motor !== 'pdf_overlay'"
+            class="rounded-2xl border border-[var(--mrl-borde)] p-4"
+        >
+            <h3
+                class="mb-1 text-xs font-semibold tracking-wide text-[var(--mrl-texto-suave)] uppercase"
+            >
+                Diseño de página
+            </h3>
+            <p class="mb-3 text-xs text-[var(--mrl-texto-suave)]">
+                Fondo, márgenes y sangría que se aplican al generar. El texto
+                jurídico nunca cambia; pruébalo abajo con un colaborador.
+            </p>
+            <DisenoPaginaMaestro :familia="detalle.familia" puede-editar />
         </section>
 
         <!-- PROBAR CON COLABORADOR -->

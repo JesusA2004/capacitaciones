@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\EstadoReciboNomina;
 use Database\Factories\ReciboNominaFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -27,6 +28,8 @@ use Illuminate\Support\Carbon;
  * @property string $total_percepciones
  * @property string $total_deducciones
  * @property string $neto
+ * @property EstadoReciboNomina $estado
+ * @property Carbon|null $emitido_at
  * @property int|null $generado_por
  * @property string|null $pdf_disk
  * @property string|null $pdf_path
@@ -46,6 +49,9 @@ class ReciboNomina extends Model
 
     protected $table = 'recibos_nomina';
 
+    /** @var array<string, mixed> */
+    protected $attributes = ['estado' => 'emitido'];
+
     protected $fillable = [
         'colaborador_id',
         'periodo_inicio',
@@ -57,6 +63,8 @@ class ReciboNomina extends Model
         'total_percepciones',
         'total_deducciones',
         'neto',
+        'estado',
+        'emitido_at',
         'generado_por',
         'pdf_disk',
         'pdf_path',
@@ -99,6 +107,8 @@ class ReciboNomina extends Model
             'total_percepciones' => 'decimal:2',
             'total_deducciones' => 'decimal:2',
             'neto' => 'decimal:2',
+            'estado' => EstadoReciboNomina::class,
+            'emitido_at' => 'datetime',
             'ejercicio' => 'integer',
             'numero_periodo' => 'integer',
         ];

@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use RuntimeException;
@@ -252,7 +253,8 @@ class IncorporacionInvitacionController extends Controller
             // dentro de la pagina, no se sirve como archivo .svg (eso lo
             // hace qr(), con el SVG completo tal cual devuelve el Service).
             'qrSvg' => $tokenPlano ? preg_replace('/^<\?xml[^>]*\?>/', '', $this->invitaciones->qrSvg($tokenPlano)) : null,
-            'puedeRegenerar' => $request->user()->can('rh.incorporacion.invitaciones.regenerar'),
+            'puedeRegenerar' => $request->user()->can('rh.incorporacion.invitaciones.regenerar') && $this->invitaciones->esRegenerable($invitacion),
+            'yaUsada' => ! $this->invitaciones->esRegenerable($invitacion),
             'puedeRevocar' => $request->user()->can('rh.incorporacion.invitaciones.revocar'),
             'puedeDescargarQr' => $request->user()->can('rh.incorporacion.invitaciones.qr.descargar'),
         ]);
@@ -262,7 +264,11 @@ class IncorporacionInvitacionController extends Controller
     {
         abort_unless($request->user()->can('rh.incorporacion.invitaciones.regenerar'), 403);
 
-        ['invitacion' => $nueva, 'token' => $token] = $this->invitaciones->regenerar($invitacion, $request->user());
+        try {
+            ['invitacion' => $nueva, 'token' => $token] = $this->invitaciones->regenerar($invitacion, $request->user());
+        } catch (ValidationException $e) {
+            return back()->with('toast', ['type' => 'error', 'message' => (string) collect($e->errors())->flatten()->first()]);
+        }
 
         $this->guardarTokenPlanoEnSesion($nueva, $token);
 
@@ -340,6 +346,7 @@ class IncorporacionInvitacionController extends Controller
     private function puedeRegenerarSilenciosamente(IncorporacionInvitacion $invitacion): bool
     {
         return $invitacion->estado === EstadoInvitacionIncorporacion::Activo
+            && $this->invitaciones->esRegenerable($invitacion)
             && ! $invitacion->expires_at->isPast()
             && $invitacion->tieneUsosDisponibles();
     }

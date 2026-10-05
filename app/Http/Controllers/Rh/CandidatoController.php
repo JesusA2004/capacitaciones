@@ -439,7 +439,7 @@ class CandidatoController extends Controller
             'fuentes' => array_map(fn (FuenteCandidato $f) => ['value' => $f->value, 'etiqueta' => $f->etiqueta()], FuenteCandidato::cases()),
             'resultados' => array_map(fn (ResultadoEtapaCandidato $r) => ['value' => $r->value, 'etiqueta' => $r->etiqueta()], ResultadoEtapaCandidato::cases()),
             'resultadosReferencia' => array_map(fn (ResultadoReferencia $r) => ['value' => $r->value, 'etiqueta' => $r->etiqueta()], ResultadoReferencia::cases()),
-            'tiposContratacion' => array_map(fn (TipoContratacion $t) => ['value' => $t->value, 'etiqueta' => $t->etiqueta()], TipoContratacion::cases()),
+            'tiposContratacion' => array_map(fn (TipoContratacion $t) => ['value' => $t->value, 'etiqueta' => $t->etiqueta()], TipoContratacion::seleccionables()),
             'transicionesPermitidas' => $this->transicionesPermitidas(),
         ];
     }

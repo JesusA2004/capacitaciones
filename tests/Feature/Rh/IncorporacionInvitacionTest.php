@@ -132,3 +132,25 @@ test('regenerar revoca la anterior y crea una invitacion nueva enlazada', functi
     expect($nueva)->not->toBeNull();
     expect($nueva->estado)->toBe(EstadoInvitacionIncorporacion::Activo);
 });
+
+test('un qr ya usado no se puede regenerar: se oculta el botón y el backend lo rechaza', function () {
+    $rh = User::factory()->create();
+    $rh->assignRole('rh_admin');
+    $invitacion = IncorporacionInvitacion::factory()->create([
+        'creado_por_id' => $rh->id,
+        'estado' => EstadoInvitacionIncorporacion::Usado->value,
+        'used_at' => now(),
+        'usos_count' => 1,
+    ]);
+
+    $this->actingAs($rh)
+        ->get(route('rh.incorporacion.invitaciones.show', $invitacion))
+        ->assertInertia(fn ($page) => $page->where('puedeRegenerar', false)->where('yaUsada', true));
+
+    $this->actingAs($rh)
+        ->post(route('rh.incorporacion.invitaciones.regenerar', $invitacion))
+        ->assertRedirect()
+        ->assertSessionHas('toast.type', 'error');
+
+    expect(IncorporacionInvitacion::query()->where('regenerated_from_id', $invitacion->id)->exists())->toBeFalse();
+});

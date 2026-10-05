@@ -98,7 +98,7 @@ beforeEach(function () {
     // Plantillas de Jurídico/RH (el sistema nunca inventa el texto).
     $flujoFisico = ['requiere_impresion' => true, 'requiere_firma_fisica' => true, 'requiere_huella' => true];
 
-    foreach (['contrato_periodo_prueba', 'contrato_confidencialidad', 'contrato_no_competencia', 'contrato_indeterminado'] as $clave) {
+    foreach (['contrato_capacitacion', 'contrato_confidencialidad', 'contrato_no_competencia', 'contrato_indeterminado'] as $clave) {
         clPlantilla($clave, $flujoFisico);
     }
 
@@ -263,7 +263,7 @@ test('E2E: candidato → contratación → onboarding → periodo de prueba → 
     expect($colaborador->estado_alta)->toBe(EstadoAltaColaborador::PendienteFirma)
         ->and($colaborador->estatus)->toBe(EstadoUsuario::EnIncorporacion)
         ->and(GeneratedDocument::query()->where('colaborador_id', $colaborador->id)->pluck('clave_plantilla')->sort()->values()->all())
-        ->toBe(['contrato_confidencialidad', 'contrato_no_competencia', 'contrato_periodo_prueba']);
+        ->toBe(['contrato_capacitacion', 'contrato_confidencialidad', 'contrato_no_competencia']);
 
     cfFirmarContratos($this, $colaborador);
     $colaborador->refresh();

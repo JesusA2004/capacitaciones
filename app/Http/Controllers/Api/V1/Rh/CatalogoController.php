@@ -75,7 +75,7 @@ class CatalogoController extends Controller
                 'puesto' => $c->puesto?->nombre,
                 'sucursal_id' => $c->sucursal_principal_id,
             ])->values(),
-            'tipos_contratacion' => collect(TipoContratacion::cases())->map(fn (TipoContratacion $t) => [
+            'tipos_contratacion' => collect(TipoContratacion::seleccionables())->map(fn (TipoContratacion $t) => [
                 'value' => $t->value,
                 'label' => $t->etiqueta(),
                 'requiere_fecha_fin' => $t->tieneVencimiento(),

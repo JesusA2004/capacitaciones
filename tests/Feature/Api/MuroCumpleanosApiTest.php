@@ -194,3 +194,17 @@ test('el detalle rh incluye el estado del muro', function () {
         ->assertJsonPath('data.muro.publicado', false)
         ->assertJsonPath('data.muro.puede_gestionar', true);
 });
+
+test('el muro de felicitaciones se ve en web: lista los muros abiertos', function () {
+    $cumpleanero = clUsuario('colaborador');
+    $companero = clUsuario('colaborador');
+    $abierto = greetingDeHoy($cumpleanero, ['muro_abierto_at' => now()]);
+
+    app('auth')->forgetGuards();
+    $this->actingAs($companero)
+        ->get('/celebraciones')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Celebraciones/Index')
+            ->has('celebraciones', 1)
+            ->where('celebraciones.0.id', $abierto->id));
+});

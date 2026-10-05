@@ -34,6 +34,22 @@ class CelebracionController extends Controller
     ) {}
 
     /**
+     * Muro de felicitaciones en web: las celebraciones abiertas de los
+     * últimos días (las mismas que ve la app), cada una con su pantalla.
+     */
+    public function index(Request $request): Response
+    {
+        $usuario = $request->user();
+
+        return Inertia::render('Celebraciones/Index', [
+            'celebraciones' => $this->celebraciones->activas($usuario)
+                ->filter(fn (BirthdayGreeting $c) => $usuario->can('view', $c))
+                ->map(fn (BirthdayGreeting $c) => $this->celebraciones->aArray($c, $usuario, api: false) + ['url' => route('celebraciones.show', $c->id)])
+                ->values(),
+        ]);
+    }
+
+    /**
      * Celebraciones de hoy para la tarjeta compacta del inicio.
      */
     public function hoy(Request $request): JsonResponse

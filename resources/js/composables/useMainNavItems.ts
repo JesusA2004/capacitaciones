@@ -15,7 +15,9 @@ import {
     Landmark,
     LayoutGrid,
     Megaphone,
+    PartyPopper,
     QrCode,
+    ReceiptText,
     RotateCcw,
     Settings2,
     ShieldCheck,
@@ -38,7 +40,11 @@ import { index as indexRoles } from '@/routes/administracion/roles';
 import { index as indexSucursales } from '@/routes/administracion/sucursales';
 import { index as indexUsuarios } from '@/routes/administracion/usuarios';
 import { proximamente as capacitacionProximamente } from '@/routes/capacitacion';
-import { index as indexPortal } from '@/routes/portal';
+import { index as indexMuroFelicitaciones } from '@/routes/celebraciones';
+import {
+    index as indexPortal,
+    recibos as misRecibosNomina,
+} from '@/routes/portal';
 import { index as indexReportes } from '@/routes/reportes';
 import { index as indexAniversarios } from '@/routes/rh/aniversarios';
 import { index as indexCampanas } from '@/routes/rh/campanas';
@@ -47,6 +53,7 @@ import { index as indexCumpleanos } from '@/routes/rh/cumpleanos';
 import { index as indexDocumentosMaestros } from '@/routes/rh/documentos-maestros';
 import { index as indexExpedientes } from '@/routes/rh/expedientes';
 import { index as indexIncorporacionInvitaciones } from '@/routes/rh/incorporacion/invitaciones';
+import { index as indexNomina } from '@/routes/rh/nomina';
 import { configuracion as configuracionOnboarding } from '@/routes/rh/onboarding';
 import { index as indexPendientes } from '@/routes/rh/pendientes';
 import { index as indexReingresos } from '@/routes/rh/reingresos';
@@ -93,6 +100,18 @@ export function useMainNavItems() {
                 icon: ClipboardList,
             });
         }
+
+        items.push({
+            title: 'Mis recibos de nómina',
+            href: misRecibosNomina(),
+            icon: ReceiptText,
+        });
+
+        items.push({
+            title: 'Muro de felicitaciones',
+            href: indexMuroFelicitaciones(),
+            icon: PartyPopper,
+        });
 
         if (capacitacionActiva.value) {
             items.push({
@@ -217,6 +236,14 @@ export function useMainNavItems() {
             });
         }
 
+        if (tienePermiso('nomina.recibos.ver')) {
+            items.push({
+                title: 'Recibos de nómina',
+                href: indexNomina(),
+                icon: ReceiptText,
+            });
+        }
+
         if (tienePermiso('reportes_rh.ver')) {
             items.push({
                 title: 'Reportes',
@@ -237,6 +264,12 @@ export function useMainNavItems() {
                 icon: Cake,
             });
         }
+
+        items.push({
+            title: 'Muro de felicitaciones',
+            href: indexMuroFelicitaciones(),
+            icon: PartyPopper,
+        });
 
         if (capacitacionActiva.value) {
             items.push({

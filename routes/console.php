@@ -57,6 +57,15 @@ Schedule::command('organigrama:sincronizar-jefes')
     ->withoutOverlapping()
     ->onOneServer();
 
+// Nómina quincenal (docs/NOMINA_QUINCENAL.md): prepara los recibos como
+// borrador unos días antes del pago y los emite (PDF + aviso) en la fecha
+// de pago. Idempotente.
+Schedule::command('nomina:procesar-quincenas')
+    ->dailyAt('06:15')
+    ->timezone('America/Mexico_City')
+    ->withoutOverlapping()
+    ->onOneServer();
+
 // Limpia tokens de Sanctum ya vencidos (config/sanctum.php: expiration ya
 // no es null). Comando propio del paquete, solo borra filas cuyo
 // expires_at ya pasó — nunca toca un token todavía vigente.

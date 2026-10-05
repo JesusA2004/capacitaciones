@@ -61,7 +61,7 @@ class ReingresoController extends Controller
             'puesto_id' => ['nullable', 'integer', 'exists:puestos,id'],
             'sucursal_id' => ['nullable', 'integer', 'exists:sucursales,id'],
             'jefe_id' => ['nullable', 'integer', 'exists:colaboradores,id'],
-            'tipo_contratacion' => ['nullable', 'string', 'in:'.implode(',', array_column(TipoContratacion::cases(), 'value'))],
+            'tipo_contratacion' => ['nullable', 'string', 'in:'.implode(',', [...array_column(TipoContratacion::seleccionables(), 'value'), TipoContratacion::PeriodoPrueba->value])],
             'sueldo_mensual' => ['nullable', 'numeric', 'min:0'],
             'fecha_reingreso' => ['nullable', 'date'],
             'documentos_adicionales' => ['nullable', 'array'],

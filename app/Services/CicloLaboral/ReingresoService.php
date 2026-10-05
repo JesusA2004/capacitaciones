@@ -186,7 +186,7 @@ class ReingresoService
                     'puesto_id' => $datos['puesto_id'] ?? $colaborador->puesto_id,
                     'sucursal_id' => $datos['sucursal_id'] ?? $colaborador->sucursal_principal_id,
                     'jefe_id' => $datos['jefe_id'] ?? null,
-                    'tipo_contratacion' => $datos['tipo_contratacion'] ?? TipoContratacion::PeriodoPrueba->value,
+                    'tipo_contratacion' => $datos['tipo_contratacion'] ?? TipoContratacion::CapacitacionInicial->value,
                     'sueldo_mensual' => $datos['sueldo_mensual'] ?? $colaborador->sueldo_mensual,
                     'fecha_reingreso' => $datos['fecha_reingreso'] ?? null,
                     'documentos_requeridos' => array_map('intval', $datos['documentos_adicionales'] ?? []),
@@ -415,7 +415,7 @@ class ReingresoService
 
         $reingreso->documentos_requeridos = array_values(array_unique(array_map(fn (array $d) => (int) $d['document_type_id'], $porRenovar)));
 
-        $tipo = $reingreso->tipo_contratacion ?? TipoContratacion::PeriodoPrueba;
+        $tipo = $reingreso->tipo_contratacion ?? TipoContratacion::CapacitacionInicial;
         $fin = $tipo->tieneVencimiento() ? $this->contratos->fechaFinPeriodoPrueba($colaborador->puesto_id, $inicio) : null;
         $contrato = $this->contratos->crearContrato($colaborador, $tipo, $inicio, $fin, $actor);
         $reingreso->contrato_laboral_id = $contrato->id;

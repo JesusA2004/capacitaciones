@@ -30,7 +30,7 @@ class ContratarCandidatoRequest extends AltaColaboradorRequest
         $laborales['puesto_id'] = ['nullable', 'integer', 'exists:puestos,id'];
         // Periodo de prueba por defecto; el vencimiento sale del puesto
         // (meses_periodo_prueba) si RH no lo captura.
-        $laborales['tipo_contratacion'] = ['sometimes', Rule::enum(TipoContratacion::class)];
+        $laborales['tipo_contratacion'] = ['sometimes', Rule::enum(TipoContratacion::class)->except([TipoContratacion::TiempoDeterminado])];
         $laborales['fecha_fin_contrato'] = ['nullable', 'date', 'after_or_equal:fecha_ingreso'];
 
         return [

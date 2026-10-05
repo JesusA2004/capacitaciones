@@ -58,7 +58,7 @@ class ReingresoController extends Controller
                 'puestos' => Puesto::query()->where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
                 'sucursales' => Sucursal::query()->whereIn('id', $this->alcance->sucursalesVisiblesIds($usuario))->orderBy('nombre')->get(['id', 'nombre']),
                 'tiposDocumento' => DocumentType::query()->where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
-                'tiposContratacion' => array_map(fn (TipoContratacion $t) => ['value' => $t->value, 'etiqueta' => $t->etiqueta()], TipoContratacion::cases()),
+                'tiposContratacion' => array_map(fn (TipoContratacion $t) => ['value' => $t->value, 'etiqueta' => $t->etiqueta()], TipoContratacion::seleccionables()),
             ],
             'puedeSolicitar' => $usuario->canAny([ReingresoService::PERMISO_GESTIONAR, ReingresoService::PERMISO_SOLICITAR]),
         ]);
@@ -72,7 +72,7 @@ class ReingresoController extends Controller
             'puesto_id' => ['nullable', 'integer', 'exists:puestos,id'],
             'sucursal_id' => ['nullable', 'integer', 'exists:sucursales,id'],
             'jefe_id' => ['nullable', 'integer', 'exists:colaboradores,id'],
-            'tipo_contratacion' => ['nullable', 'string', 'in:'.implode(',', array_column(TipoContratacion::cases(), 'value'))],
+            'tipo_contratacion' => ['nullable', 'string', 'in:'.implode(',', [...array_column(TipoContratacion::seleccionables(), 'value'), TipoContratacion::PeriodoPrueba->value])],
             'sueldo_mensual' => ['nullable', 'numeric', 'min:0'],
             'fecha_reingreso' => ['nullable', 'date'],
             'documentos_adicionales' => ['nullable', 'array'],

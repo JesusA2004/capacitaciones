@@ -42,4 +42,23 @@ return [
         ? (float) env('SALARIO_MINIMO_DIARIO') * 30
         : null,
 
+    /*
+    |--------------------------------------------------------------------------
+    | Recibos quincenales automáticos (docs/NOMINA_QUINCENAL.md)
+    |--------------------------------------------------------------------------
+    |
+    | Quincenas: del 1 al 15 (pago el 15) y del 16 al último día del mes
+    | (pago el último día). `dias_anticipacion` días antes del pago el
+    | comando `nomina:procesar-quincenas` prepara los recibos de todos los
+    | colaboradores activos con sueldo como BORRADOR (RH los ajusta); en la
+    | fecha de pago los EMITE solo (PDF + aviso). Con `emision_automatica`
+    | en false solo se preparan y RH emite a mano desde «Recibos de nómina».
+    |
+    */
+    'quincenal' => [
+        'emision_automatica' => (bool) env('NOMINA_EMISION_AUTOMATICA', true),
+        'dias_anticipacion' => (int) env('NOMINA_DIAS_ANTICIPACION', 3),
+        'concepto_sueldo' => 'Sueldo quincenal',
+    ],
+
 ];

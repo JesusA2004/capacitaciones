@@ -156,6 +156,11 @@ class WorkflowService
             'progreso' => ['actual' => $etapaTerminada ? 1 : 0, 'total' => 1],
             'flujo' => [
                 [
+                    // `clave`/`nombre` son los que pinta la app (key de la
+                    // lista y etiqueta del paso); `etapa` se conserva por
+                    // compatibilidad.
+                    'clave' => 'rh',
+                    'nombre' => 'Revisión RH',
                     'etapa' => 'rh',
                     'estado' => $etapaTerminada ? $estado : 'pendiente',
                     'usuario' => $revisadoPor?->nombreCompleto(),

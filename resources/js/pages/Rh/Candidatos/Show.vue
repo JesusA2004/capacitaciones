@@ -174,7 +174,7 @@ const camposPorAccion: Record<string, () => FormularioAccion> = {
     iniciar_contratacion: () => ({
         sueldo_mensual: '',
         fecha_ingreso: hoy,
-        tipo_contratacion: 'periodo_prueba',
+        tipo_contratacion: 'capacitacion_inicial',
         fecha_fin_contrato: '',
         duracion_horas: 24,
     }),

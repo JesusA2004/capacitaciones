@@ -84,7 +84,7 @@ class ContratacionCandidatoService
             'departamento_id' => $datos['departamento_id'] ?? $candidato->departamento_id,
             'puesto_id' => $datos['puesto_id'] ?? $candidato->puesto_objetivo_id,
             'vacante_id' => $datos['vacante_id'] ?? $candidato->vacante_id,
-            'tipo_contratacion' => $datos['tipo_contratacion'] ?? TipoContratacion::PeriodoPrueba->value,
+            'tipo_contratacion' => $datos['tipo_contratacion'] ?? TipoContratacion::CapacitacionInicial->value,
             'candidato_id' => $candidato->id,
         ];
 

@@ -3,6 +3,7 @@
 namespace App\Services\Nomina;
 
 use App\Enums\CategoriaDocumento;
+use App\Enums\EstadoReciboNomina;
 use App\Enums\TipoConceptoNomina;
 use App\Models\Colaborador;
 use App\Models\Prestamo;
@@ -38,6 +39,8 @@ class ReciboNominaService
 {
     public const TIPO_PERIODO_SEMANAL = 'semanal';
 
+    public const TIPO_PERIODO_QUINCENAL = 'quincenal';
+
     public function __construct(
         private readonly PrestamoService $prestamos,
         private readonly MotorDocumentalService $motor,
@@ -55,8 +58,12 @@ class ReciboNominaService
      *
      * @throws ValidationException Periodo duplicado o sin conceptos.
      */
-    public function generar(Colaborador $colaborador, array $datos, User $generadoPor, ?string $lote = null): ReciboNomina
+    public function generar(Colaborador $colaborador, array $datos, ?User $generadoPor, ?string $lote = null, bool $borrador = false): ReciboNomina
     {
+        if ($generadoPor === null && ! $borrador) {
+            throw ValidationException::withMessages(['recibo' => 'Un recibo emitido necesita al usuario que lo emite.']);
+        }
+
         $conceptos = $this->normalizarConceptos($datos);
 
         if ($conceptos === []) {
@@ -76,7 +83,7 @@ class ReciboNominaService
         $totalPercepciones = round(array_sum(array_column($percepciones, 'importe')), 2);
         $totalDeducciones = round(array_sum(array_column($deducciones, 'importe')), 2);
 
-        $recibo = DB::transaction(function () use ($colaborador, $datos, $generadoPor, $conceptos, $percepciones, $deducciones, $totalPercepciones, $totalDeducciones, $periodoInicio, $periodoFin, $tipoPeriodo, $lote): ReciboNomina {
+        $recibo = DB::transaction(function () use ($colaborador, $datos, $generadoPor, $conceptos, $percepciones, $deducciones, $totalPercepciones, $totalDeducciones, $periodoInicio, $periodoFin, $tipoPeriodo, $lote, $borrador): ReciboNomina {
             // Bloqueo por colaborador: dos capturas/importaciones simultáneas
             // no pueden emitir dos recibos del mismo periodo.
             Colaborador::query()->whereKey($colaborador->id)->lockForUpdate()->first();
@@ -99,8 +106,15 @@ class ReciboNominaService
                 'periodo_fin' => $periodoFin,
                 'fecha_pago' => Carbon::parse($datos['fecha_pago'] ?? $periodoFin),
                 'tipo_periodo' => $tipoPeriodo,
-                'ejercicio' => (int) $periodoInicio->isoFormat('GGGG'),
-                'numero_periodo' => $tipoPeriodo === self::TIPO_PERIODO_SEMANAL ? $periodoInicio->isoWeek() : null,
+                'ejercicio' => $tipoPeriodo === self::TIPO_PERIODO_QUINCENAL ? $periodoInicio->year : (int) $periodoInicio->isoFormat('GGGG'),
+                'numero_periodo' => match ($tipoPeriodo) {
+                    self::TIPO_PERIODO_SEMANAL => $periodoInicio->isoWeek(),
+                    // 1–24: dos quincenas por mes.
+                    self::TIPO_PERIODO_QUINCENAL => ($periodoInicio->month - 1) * 2 + ($periodoInicio->day <= 15 ? 1 : 2),
+                    default => null,
+                },
+                'estado' => $borrador ? EstadoReciboNomina::Borrador : EstadoReciboNomina::Emitido,
+                'emitido_at' => $borrador ? null : now(),
                 'sueldo_base' => round((float) ($datos['sueldo_base'] ?? $percepciones[0]['importe'] ?? 0), 2),
                 // Snapshot JSON compatible con el portal existente.
                 'percepciones' => array_map(fn (array $c) => ['concepto' => $c['concepto'], 'monto' => $c['importe']], $percepciones),
@@ -115,7 +129,7 @@ class ReciboNominaService
                 'neto' => round($totalPercepciones - $totalDeducciones, 2),
                 'observaciones' => $datos['observaciones'] ?? null,
                 'lote_importacion' => $lote,
-                'generado_por' => $generadoPor->id,
+                'generado_por' => $generadoPor?->id,
             ]);
 
             $recibo->update(['folio' => sprintf('RIN-%06d', $recibo->id)]);
@@ -141,7 +155,7 @@ class ReciboNominaService
 
                 $prestamo = Prestamo::query()->where('id', $deduccion['prestamo_id'])->where('colaborador_id', $colaborador->id)->first();
 
-                if ($prestamo !== null) {
+                if ($prestamo !== null && $generadoPor !== null) {
                     $this->prestamos->registrarMovimiento($prestamo, (float) $deduccion['importe'], 'nomina', $generadoPor);
                 }
             }
@@ -149,21 +163,167 @@ class ReciboNominaService
             return $recibo;
         });
 
-        $this->generarPdf($recibo, $generadoPor);
-        $this->auditoria->registrar('recibo_nomina_generado', $recibo, $generadoPor, [
+        $this->auditoria->registrar($borrador ? 'recibo_nomina_preparado' : 'recibo_nomina_generado', $recibo, $generadoPor, [
             'colaborador_id' => $colaborador->id,
             'periodo' => $periodoInicio->toDateString().' / '.$periodoFin->toDateString(),
             'neto' => $recibo->neto,
             'lote' => $lote,
         ]);
 
-        $colaborador->loadMissing('user');
+        if (! $borrador) {
+            $this->generarPdf($recibo, $generadoPor);
 
-        if ($colaborador->user !== null && $lote === null) {
-            $this->notificador->notificar([$colaborador->user], 'recibo_nomina', 'Recibo de nómina disponible', sprintf('Ya puedes consultar tu recibo de nómina del %s al %s.', $periodoInicio->format('d/m/Y'), $periodoFin->format('d/m/Y')), $recibo, 'ver_recibo', 'baja');
+            if ($lote === null) {
+                $this->notificarColaborador($recibo);
+            }
         }
 
         return $recibo->refresh();
+    }
+
+    /**
+     * Ajusta los conceptos de un recibo (borrador o ya emitido). Si ya se
+     * había emitido, se vuelve a generar su PDF (el anterior queda en el
+     * historial del expediente) y se registra en auditoría.
+     *
+     * @param  array<string, mixed>  $datos  `conceptos` [{tipo, concepto, cantidad?, importe, observaciones?}] y `observaciones?`.
+     */
+    public function actualizar(ReciboNomina $recibo, array $datos, User $actor): ReciboNomina
+    {
+        $conceptos = $this->normalizarConceptos(['conceptos' => $datos['conceptos'] ?? []]);
+
+        if ($conceptos === []) {
+            throw ValidationException::withMessages(['conceptos' => 'Captura al menos un concepto.']);
+        }
+
+        $antes = (string) $recibo->neto;
+
+        DB::transaction(function () use ($recibo, $conceptos, $datos): void {
+            ReciboNomina::query()->whereKey($recibo->id)->lockForUpdate()->first();
+            $this->guardarConceptos($recibo, $conceptos);
+
+            if (array_key_exists('observaciones', $datos)) {
+                $recibo->update(['observaciones' => $datos['observaciones'] !== null ? (string) $datos['observaciones'] : null]);
+            }
+        });
+
+        $this->auditoria->registrar('recibo_nomina_editado', $recibo, $actor, [
+            'neto_anterior' => $antes,
+            'neto_nuevo' => (string) $recibo->neto,
+            'estado' => $recibo->estado->value,
+        ]);
+
+        if ($recibo->estado === EstadoReciboNomina::Emitido) {
+            $this->generarPdf($recibo, $actor);
+        }
+
+        return $recibo->refresh();
+    }
+
+    /**
+     * Emite un borrador: genera su PDF, lo archiva en el expediente y le
+     * avisa al colaborador. Idempotente (un recibo ya emitido no se toca).
+     */
+    public function emitir(ReciboNomina $recibo, User $actor, bool $notificar = true): ReciboNomina
+    {
+        $emitido = DB::transaction(function () use ($recibo): bool {
+            $fila = ReciboNomina::query()->whereKey($recibo->id)->lockForUpdate()->first();
+
+            if ($fila === null || $fila->estado === EstadoReciboNomina::Emitido) {
+                return false;
+            }
+
+            $fila->update(['estado' => EstadoReciboNomina::Emitido, 'emitido_at' => now()]);
+
+            return true;
+        });
+
+        if (! $emitido) {
+            return $recibo->refresh();
+        }
+
+        $recibo->refresh();
+
+        if ($recibo->generado_por === null) {
+            $recibo->update(['generado_por' => $actor->id]);
+        }
+
+        $this->generarPdf($recibo, $actor);
+        $this->auditoria->registrar('recibo_nomina_emitido', $recibo, $actor, ['neto' => (string) $recibo->neto]);
+
+        if ($notificar) {
+            $this->notificarColaborador($recibo);
+        }
+
+        return $recibo->refresh();
+    }
+
+    /**
+     * Un fallo al avisar nunca deshace la emisión (ver CLAUDE.md).
+     */
+    private function notificarColaborador(ReciboNomina $recibo): void
+    {
+        try {
+            $recibo->loadMissing('colaborador.user');
+            $usuario = $recibo->colaborador->user;
+
+            if ($usuario !== null) {
+                $this->notificador->notificar([$usuario], 'recibo_nomina', 'Recibo de nómina disponible', sprintf('Ya puedes consultar tu recibo de nómina del %s al %s.', $recibo->periodo_inicio->format('d/m/Y'), $recibo->periodo_fin->format('d/m/Y')), $recibo, 'ver_recibo', 'baja');
+            }
+        } catch (Throwable $e) {
+            Log::warning('ReciboNominaService: no se pudo avisar al colaborador de su recibo.', ['recibo_id' => $recibo->id, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Reemplaza el detalle de conceptos y recalcula totales y snapshot JSON.
+     * Debe llamarse dentro de una transacción.
+     *
+     * @param  list<array{tipo: string, concepto: string, cantidad: float, importe: float, observaciones: string|null, clasificacion?: string|null, prestamo_id?: int|null}>  $conceptos
+     */
+    private function guardarConceptos(ReciboNomina $recibo, array $conceptos): void
+    {
+        $percepciones = array_values(array_filter($conceptos, fn (array $c) => $c['tipo'] === TipoConceptoNomina::Percepcion->value));
+        $deducciones = array_values(array_filter($conceptos, fn (array $c) => $c['tipo'] === TipoConceptoNomina::Deduccion->value));
+        $totalPercepciones = round(array_sum(array_column($percepciones, 'importe')), 2);
+        $totalDeducciones = round(array_sum(array_column($deducciones, 'importe')), 2);
+
+        $recibo->conceptos()->delete();
+
+        foreach ($conceptos as $orden => $concepto) {
+            $recibo->conceptos()->create([
+                'tipo' => $concepto['tipo'],
+                'concepto' => $concepto['concepto'],
+                'cantidad' => $concepto['cantidad'],
+                'importe' => $concepto['importe'],
+                'observaciones' => $concepto['observaciones'],
+                'orden' => $orden,
+            ]);
+        }
+
+        $recibo->update([
+            'percepciones' => array_map(fn (array $c) => ['concepto' => $c['concepto'], 'monto' => $c['importe']], $percepciones),
+            'deducciones' => array_map(fn (array $c) => ['concepto' => $c['concepto'], 'monto' => $c['importe']], $deducciones),
+            'total_percepciones' => $totalPercepciones,
+            'total_deducciones' => $totalDeducciones,
+            'neto' => round($totalPercepciones - $totalDeducciones, 2),
+        ]);
+    }
+
+    /**
+     * Conceptos actuales de un recibo en la forma que acepta actualizar().
+     *
+     * @return list<array{tipo: string, concepto: string, cantidad: float, importe: float, observaciones: string|null}>
+     */
+    public function conceptosEditables(ReciboNomina $recibo): array
+    {
+        return array_values(array_map(fn (array $c): array => [
+            'tipo' => (string) $c['tipo'],
+            'concepto' => (string) $c['concepto'],
+            'cantidad' => (float) $c['cantidad'],
+            'importe' => (float) $c['importe'],
+            'observaciones' => isset($c['observaciones']) ? (string) $c['observaciones'] : null,
+        ], $this->aArray($recibo, true)['conceptos']));
     }
 
     /**
@@ -182,8 +342,10 @@ class ReciboNominaService
      */
     public function delColaborador(Colaborador $colaborador, int $porPagina = 20): LengthAwarePaginator
     {
+        // El colaborador solo ve recibos emitidos (los borradores son de RH).
         return ReciboNomina::query()
             ->where('colaborador_id', $colaborador->id)
+            ->where('estado', EstadoReciboNomina::Emitido->value)
             ->orderByDesc('periodo_inicio')
             ->orderByDesc('id')
             ->paginate(max(1, min(100, $porPagina)));
@@ -192,7 +354,7 @@ class ReciboNominaService
     /**
      * Listado administrativo (RH) acotado por alcance organizacional.
      *
-     * @param  array{periodo_inicio?: string|null, periodo_fin?: string|null, colaborador_id?: int|string|null, lote?: string|null, per_page?: int|string|null}  $filtros
+     * @param  array{periodo_inicio?: string|null, periodo_fin?: string|null, colaborador_id?: int|string|null, lote?: string|null, estado?: string|null, q?: string|null, per_page?: int|string|null}  $filtros
      * @return LengthAwarePaginator<int, ReciboNomina>
      */
     public function listar(User $usuario, array $filtros = []): LengthAwarePaginator
@@ -208,6 +370,11 @@ class ReciboNominaService
             ->when($filtros['periodo_fin'] ?? null, fn (Builder $q, string $v) => $q->whereDate('periodo_fin', '<=', $v))
             ->when($filtros['colaborador_id'] ?? null, fn (Builder $q, int|string $v) => $q->where('colaborador_id', (int) $v))
             ->when($filtros['lote'] ?? null, fn (Builder $q, string $v) => $q->where('lote_importacion', $v))
+            ->when($filtros['estado'] ?? null, fn (Builder $q, string $v) => $q->where('estado', $v))
+            ->when($filtros['q'] ?? null, fn (Builder $q, string $v) => $q->whereHas('colaborador', fn (Builder $c) => $c->where(fn (Builder $w) => $w
+                ->where('name', 'like', "%{$v}%")
+                ->orWhere('apellidos', 'like', "%{$v}%")
+                ->orWhere('numero_empleado', 'like', "%{$v}%"))))
             ->orderByDesc('periodo_inicio')
             ->orderByDesc('id')
             ->paginate(max(1, min(100, (int) ($filtros['per_page'] ?? 20))));
@@ -246,6 +413,9 @@ class ReciboNominaService
             'total_deducciones' => $recibo->total_deducciones,
             'neto' => $recibo->neto,
             'observaciones' => $recibo->observaciones,
+            'estado' => $recibo->estado->value,
+            'estado_etiqueta' => $recibo->estado->etiqueta(),
+            'emitido_at' => $recibo->emitido_at?->toIso8601String(),
             'tiene_pdf' => $recibo->pdf_path !== null,
             'leyenda' => 'RECIBO DE NÓMINA',
         ];

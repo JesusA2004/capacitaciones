@@ -46,6 +46,7 @@ use Illuminate\Support\Carbon;
  * @property CategoriaDocumento|null $categoria
  * @property string|null $titulo
  * @property array<string, string>|null $payload
+ * @property array<string, mixed>|null $layout_snapshot
  * @property string|null $checksum
  * @property EstadoFlujoDocumento|null $estado_flujo
  * @property bool $requiere_firma_digital
@@ -88,6 +89,7 @@ class GeneratedDocument extends Model
     protected $hidden = ['disk', 'path', 'docx_path', 'docx_disk'];
 
     protected $fillable = [
+        'layout_snapshot',
         'document_template_id',
         'user_id',
         'colaborador_id',
@@ -214,6 +216,7 @@ class GeneratedDocument extends Model
             'estado_flujo' => EstadoFlujoDocumento::class,
             'categoria' => CategoriaDocumento::class,
             'payload' => 'array',
+            'layout_snapshot' => 'array',
             'requiere_firma_digital' => 'boolean',
             'requiere_impresion' => 'boolean',
             'requiere_firma_fisica' => 'boolean',

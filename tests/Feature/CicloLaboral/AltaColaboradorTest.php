@@ -74,7 +74,7 @@ test('rh da de alta un colaborador con estructura, contrato, expediente, cuenta 
         ->and($colaborador->expediente_storage_path)->toContain('expedientes/MR LANA/Cuernavaca/');
 
     $contrato = ContratoLaboral::query()->where('colaborador_id', $colaborador->id)->firstOrFail();
-    expect($contrato->tipo->value)->toBe('periodo_prueba')
+    expect($contrato->tipo->value)->toBe('capacitacion_inicial')
         ->and((float) $contrato->sueldo_mensual)->toBe(15000.0);
 
     $cuenta = User::query()->where('colaborador_id', $colaborador->id)->firstOrFail();
@@ -84,7 +84,7 @@ test('rh da de alta un colaborador con estructura, contrato, expediente, cuenta 
 
     // Los contratos se generan hasta que el expediente esté completo (todos los obligatorios aprobados).
     expect(GeneratedDocument::query()->where('colaborador_id', $colaborador->id)->count())->toBe(0)
-        ->and($respuesta->json('data.documentos_contractuales_sin_plantilla'))->toContain('contrato_periodo_prueba');
+        ->and($respuesta->json('data.documentos_contractuales_sin_plantilla'))->toContain('contrato_capacitacion');
 
     expect(TareaRh::query()->where('tipo', TipoTarea::ExpedienteIncompleto->value)->where('asignado_user_id', $cuenta->id)->exists())->toBeTrue();
 });
@@ -93,7 +93,7 @@ test('el alta recorre pendiente_documentos → revisión → contratos → firma
     Sanctum::actingAs($this->rh);
     $tipo = DocumentType::factory()->create(['requerido' => true, 'activo' => true]);
 
-    foreach (['contrato_periodo_prueba', 'contrato_confidencialidad', 'contrato_no_competencia'] as $clave) {
+    foreach (['contrato_capacitacion', 'contrato_confidencialidad', 'contrato_no_competencia'] as $clave) {
         clPlantilla($clave, ['requiere_firma_digital' => true]);
     }
 
@@ -123,7 +123,7 @@ test('el alta recorre pendiente_documentos → revisión → contratos → firma
 
     $contratos = GeneratedDocument::query()->where('colaborador_id', $id)->get();
     expect($contratos)->toHaveCount(3)
-        ->and($contratos->firstWhere('clave_plantilla', 'contrato_periodo_prueba')->estado_flujo)->toBe(EstadoFlujoDocumento::PendienteFirmaColaborador);
+        ->and($contratos->firstWhere('clave_plantilla', 'contrato_capacitacion')->estado_flujo)->toBe(EstadoFlujoDocumento::PendienteFirmaColaborador);
 
     // El colaborador firma digitalmente desde la app.
     Sanctum::actingAs($cuenta);

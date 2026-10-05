@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Rh\DisenoDocumentoController;
 use App\Http\Controllers\Rh\DocumentoMaestroController;
 use App\Http\Controllers\Rh\DocumentoProcesoController;
 use Illuminate\Support\Facades\Route;
@@ -32,6 +33,17 @@ Route::middleware(['auth', 'verified'])->prefix('rh')->name('rh.')->group(functi
     Route::prefix('documentos-maestros')->name('documentos-maestros.')->group(function () {
         Route::get('/', [DocumentoMaestroController::class, 'index'])->name('index');
         Route::get('cobertura', [DocumentoMaestroController::class, 'cobertura'])->name('cobertura');
+        // Diseño de página y biblioteca de fondos.
+        Route::prefix('fondos')->name('fondos.')->group(function () {
+            Route::get('/', [DisenoDocumentoController::class, 'fondos'])->name('index');
+            Route::post('/', [DisenoDocumentoController::class, 'store'])->name('store');
+            Route::put('{fondo}', [DisenoDocumentoController::class, 'update'])->name('update');
+            Route::post('{fondo}/reemplazar', [DisenoDocumentoController::class, 'reemplazar'])->name('reemplazar');
+            Route::delete('{fondo}', [DisenoDocumentoController::class, 'destroy'])->name('destroy');
+            Route::get('{fondo}/imagen', [DisenoDocumentoController::class, 'imagen'])->name('imagen');
+        });
+        Route::get('diseno/{familia}', [DisenoDocumentoController::class, 'show'])->name('diseno.show')->where('familia', '[a-z0-9_.]+');
+        Route::put('diseno/{familia}', [DisenoDocumentoController::class, 'updateFamilia'])->name('diseno.update')->where('familia', '[a-z0-9_.]+');
         Route::put('cobertura/puestos/{puesto}', [DocumentoMaestroController::class, 'decidirPuesto'])->name('cobertura.puesto');
         Route::get('colaboradores', [DocumentoMaestroController::class, 'buscarColaboradores'])->name('colaboradores')->middleware('throttle:60,1');
         Route::get('{master}', [DocumentoMaestroController::class, 'show'])->name('show')->whereNumber('master');
