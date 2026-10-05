@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\EstadoVacante;
 use App\Models\Colaborador;
 use App\Models\HeadcountTarget;
 use App\Models\Puesto;
@@ -63,8 +64,9 @@ test('dar de baja a un colaborador sube las plazas disponibles de la vacante aut
 
     app(VacanteAutoGenerationService::class)->sincronizar($sucursal->id, $puesto->id);
 
-    // Con 2 activos y 2 autorizados, faltantes=0: todavia no hay vacante automatica.
-    expect(Vacante::where('sucursal_id', $sucursal->id)->where('generada_automaticamente', true)->exists())->toBeFalse();
+    // Con 2 activos y 2 autorizados, faltantes=0: no hay vacante automatica ABIERTA
+    // (la que se abrió con el primer alta ya se cerró sola con el segundo).
+    expect(Vacante::where('sucursal_id', $sucursal->id)->where('generada_automaticamente', true)->whereIn('estado', EstadoVacante::valoresAbiertos())->exists())->toBeFalse();
 
     $actor = User::factory()->create();
     $actor->assignRole('rh_admin');
@@ -74,6 +76,7 @@ test('dar de baja a un colaborador sube las plazas disponibles de la vacante aut
     $vacante = Vacante::where('sucursal_id', $sucursal->id)
         ->where('puesto_id', $puesto->id)
         ->where('generada_automaticamente', true)
+        ->whereIn('estado', EstadoVacante::valoresAbiertos())
         ->first();
 
     expect($vacante)->not->toBeNull();

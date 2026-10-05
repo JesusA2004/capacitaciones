@@ -373,7 +373,13 @@ const TONO_ESTADO: Record<string, string> = {
                         class="text-xs text-muted-foreground"
                     >
                         {{ vacante.plantilla_actual }} de
-                        {{ vacante.plantilla_autorizada }} autorizadas ocupadas
+                        {{ vacante.plantilla_autorizada }} ocupadas ·
+                        {{ vacante.faltantes_reales ?? 0 }}
+                        {{
+                            vacante.faltantes_reales === 1
+                                ? 'vacante en plantilla'
+                                : 'vacantes en plantilla'
+                        }}
                     </p>
                     <p v-else class="text-xs text-muted-foreground">
                         {{ vacante.motivo }}

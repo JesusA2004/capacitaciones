@@ -10,6 +10,7 @@ use App\Models\NodoComercial;
 use App\Models\Puesto;
 use App\Models\User;
 use App\Observers\CicloLaboralDocumentoObserver;
+use App\Observers\ColaboradorPlantillaObserver;
 use App\Policies\RolPolicy;
 use App\Services\Autenticacion\AutenticacionService;
 use App\Services\Configuracion\ConfiguracionSistemaService;
@@ -62,6 +63,10 @@ class AppServiceProvider extends ServiceProvider
         // documento (web, API, flujo documental). Ver CicloLaboralDocumentoObserver.
         EmployeeDocument::saved(fn (EmployeeDocument $d) => app(CicloLaboralDocumentoObserver::class)->savedEmployeeDocument($d));
         GeneratedDocument::updated(fn (GeneratedDocument $d) => app(CicloLaboralDocumentoObserver::class)->updatedGeneratedDocument($d));
+
+        // Vacantes automáticas = autorizada − ocupada: cualquier alta, baja,
+        // cambio de puesto o de sucursal resincroniza origen y destino.
+        Colaborador::observe(ColaboradorPlantillaObserver::class);
 
         // Jefe directo = organigrama (JefeDirectoService): cualquier cambio
         // que mueva a alguien en el árbol lo recalcula al terminar la

@@ -4,11 +4,11 @@ namespace App\Services\Vacantes;
 
 use App\Enums\EstadoCandidato;
 use App\Enums\EstadoVacante;
-use App\Models\HeadcountTarget;
 use App\Models\User;
 use App\Models\Vacante;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Headcount\HeadcountService;
+use App\Services\Headcount\PuestosPlantillaService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
@@ -29,6 +29,7 @@ class VacantesListadoService
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly HeadcountService $headcount,
+        private readonly PuestosPlantillaService $puestos,
     ) {}
 
     /**
@@ -51,6 +52,12 @@ class VacantesListadoService
                 fn (Builder $q) => $q->where('estado', $estado?->value),
                 fn (Builder $q) => $q->whereNotIn('estado', [EstadoVacante::Cubierta->value, EstadoVacante::Cancelada->value]),
             )
+            // Una automática abierta cuya plaza ya está ocupada (fila vieja que
+            // no se cerró) no es una vacante real: nunca se lista como activa.
+            ->when(
+                $estado === null || in_array($estado->value, EstadoVacante::valoresAbiertos(), true),
+                fn (Builder $q) => $q->whereNotIn('id', $this->automaticasSinFaltante()),
+            )
             ->when($filtros['sucursal_id'] ?? null, fn (Builder $q, int|string $id) => $q->where('sucursal_id', (int) $id))
             ->when($filtros['puesto_id'] ?? null, fn (Builder $q, int|string $id) => $q->where('puesto_id', (int) $id))
             ->when($filtros['departamento_id'] ?? null, fn (Builder $q, int|string $id) => $q->where('departamento_id', (int) $id))
@@ -72,11 +79,9 @@ class VacantesListadoService
      */
     public function filas(EloquentCollection $vacantes): array
     {
-        $autorizadas = HeadcountTarget::query()
-            ->whereIn('sucursal_id', $vacantes->pluck('sucursal_id')->filter()->unique())
-            ->get(['sucursal_id', 'puesto_id', 'plantilla_autorizada'])
-            ->keyBy(fn (HeadcountTarget $t) => sprintf('%d:%d', $t->sucursal_id, $t->puesto_id));
-        $actuales = $this->headcount->plantillaActualPorSucursalPuesto($vacantes->pluck('sucursal_id')->filter()->unique()->values());
+        $sucursales = $vacantes->pluck('sucursal_id')->filter()->unique()->values();
+        $autorizadas = $this->headcount->plantillaAutorizadaPorSucursalPuesto($sucursales);
+        $actuales = $this->headcount->plantillaActualPorSucursalPuesto($sucursales);
 
         $filas = [];
 
@@ -142,15 +147,70 @@ class VacantesListadoService
     }
 
     /**
-     * @param  Collection<string, HeadcountTarget>  $autorizadas
+     * Plazas reales de cada vacante: en una AUTOMÁTICA salen siempre del
+     * cálculo en vivo (autorizada − ocupada), nunca de la columna guardada,
+     * para que «plazas por cubrir» y «N de M ocupadas» no se contradigan.
+     *
+     * @param  EloquentCollection<int, Vacante>  $vacantes
+     * @return array<int, int> vacante_id => plazas
+     */
+    public function plazasReales(EloquentCollection $vacantes): array
+    {
+        return collect($this->filas($vacantes))->mapWithKeys(fn (array $f) => [(int) $f['id'] => (int) $f['plazas_disponibles']])->all();
+    }
+
+    /**
+     * IDs de vacantes automáticas abiertas cuya plaza ya no falta
+     * (autorizada − ocupada = 0). `people:sincronizar-vacantes` las cierra;
+     * mientras tanto el listado no las muestra como vacantes reales.
+     *
+     * @return list<int>
+     */
+    private function automaticasSinFaltante(): array
+    {
+        $abiertas = Vacante::query()
+            ->where('generada_automaticamente', true)
+            ->whereIn('estado', EstadoVacante::valoresAbiertos())
+            ->get(['id', 'sucursal_id', 'puesto_id']);
+
+        if ($abiertas->isEmpty()) {
+            return [];
+        }
+
+        $sucursales = $abiertas->pluck('sucursal_id')->filter()->unique()->values();
+        $autorizadas = $this->headcount->plantillaAutorizadaPorSucursalPuesto($sucursales);
+        $actuales = $this->headcount->plantillaActualPorSucursalPuesto($sucursales);
+
+        return array_values($abiertas
+            ->filter(function (Vacante $v) use ($autorizadas, $actuales): bool {
+                $clave = $this->clave($v);
+
+                return max((int) ($autorizadas[$clave] ?? 0) - (int) ($actuales[$clave] ?? 0), 0) === 0;
+            })
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all());
+    }
+
+    private function clave(Vacante $vacante): string
+    {
+        return sprintf('%d:%d', (int) $vacante->sucursal_id, $this->puestos->canonico((int) $vacante->puesto_id));
+    }
+
+    /**
+     * @param  Collection<string, int>  $autorizadas
      * @param  Collection<non-falsy-string, int>  $actuales
      * @return array<string, mixed>
      */
     private function fila(Vacante $vacante, Collection $autorizadas, Collection $actuales): array
     {
-        $clave = sprintf('%d:%d', (int) $vacante->sucursal_id, (int) $vacante->puesto_id);
-        $autorizada = $autorizadas->get($clave)?->plantilla_autorizada;
+        $clave = $this->clave($vacante);
+        $autorizada = $autorizadas->get($clave);
         $actual = (int) ($actuales[$clave] ?? 0);
+        $faltantes = $autorizada !== null ? max($autorizada - $actual, 0) : null;
+        $abierta = in_array($vacante->estado->value, EstadoVacante::valoresAbiertos(), true);
+        // Automática abierta: sus plazas SON el faltante real. Manual: lo que RH capturó.
+        $plazas = $vacante->generada_automaticamente && $abierta ? (int) ($faltantes ?? 0) : $vacante->plazas_disponibles;
 
         return [
             'id' => $vacante->id,
@@ -165,13 +225,13 @@ class VacantesListadoService
             'generada_automaticamente' => $vacante->generada_automaticamente,
             'fecha_apertura' => $vacante->fecha_apertura->toDateString(),
             'dias_abierta' => $vacante->diasAbierta(),
-            'plazas_requeridas' => $vacante->plazas_requeridas,
-            'plazas_disponibles' => $vacante->plazas_disponibles,
+            'plazas_requeridas' => $vacante->generada_automaticamente && $abierta ? $plazas : $vacante->plazas_requeridas,
+            'plazas_disponibles' => $plazas,
             'candidatos_activos' => (int) $vacante->getAttribute('candidatos_activos_count'),
             'candidatos_total' => (int) $vacante->getAttribute('candidatos_count'),
-            'plantilla_autorizada' => $autorizada !== null ? (int) $autorizada : null,
+            'plantilla_autorizada' => $autorizada,
             'plantilla_actual' => $actual,
-            'faltantes_reales' => $autorizada !== null ? max((int) $autorizada - $actual, 0) : null,
+            'faltantes_reales' => $faltantes,
         ];
     }
 

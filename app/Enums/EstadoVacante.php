@@ -30,4 +30,14 @@ enum EstadoVacante: string
             self::Cancelada => 'Cancelada',
         };
     }
+
+    /**
+     * Estados en los que la vacante sigue viva (no cubierta ni cancelada).
+     *
+     * @return list<string>
+     */
+    public static function valoresAbiertos(): array
+    {
+        return [self::Abierta->value, self::EnReclutamiento->value, self::ConCandidatos->value, self::EnRevision->value];
+    }
 }
