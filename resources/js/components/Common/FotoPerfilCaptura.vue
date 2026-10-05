@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
-import { Camera, CheckCircle2, ImageUp, RotateCcw } from '@lucide/vue';
-import { onBeforeUnmount, ref } from 'vue';
+import {
+    Camera,
+    CheckCircle2,
+    Clock,
+    ImageUp,
+    RotateCcw,
+    XCircle,
+} from '@lucide/vue';
+import { computed, onBeforeUnmount, ref } from 'vue';
 import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,6 +20,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
+import type { FotoPerfilEstado } from '@/types';
 
 /**
  * Foto de perfil del colaborador: subir un archivo o tomarla en el momento
@@ -20,6 +28,11 @@ import { Spinner } from '@/components/ui/spinner';
  * en un cuadrado de 800×800 px — así se ve bien como miniatura en todos los
  * módulos sin importar la orientación original. El servidor la vuelve a
  * validar y normalizar (App\Services\Colaboradores\FotoColaboradorService).
+ *
+ * Con `estado` (expediente propio): sin foto → «Agregar foto de perfil» y
+ * queda oficial al instante; con foto oficial → «Solicitar cambio de foto»
+ * y la nueva queda pendiente de RH (la actual sigue visible); con un cambio
+ * pendiente no se puede enviar otro.
  */
 const props = withDefaults(
     defineProps<{
@@ -29,8 +42,18 @@ const props = withDefaults(
         urlSubida: string;
         puedeEditar?: boolean;
         compacto?: boolean;
+        estado?: FotoPerfilEstado | null;
     }>(),
-    { fotoUrl: null, puedeEditar: true, compacto: false },
+    { fotoUrl: null, puedeEditar: true, compacto: false, estado: null },
+);
+
+/** Autoservicio con foto oficial: la nueva va a revisión de RH. */
+const requiereRevision = computed(
+    () => props.estado !== null && !props.estado.puede_subir_directo,
+);
+const pendiente = computed(() => props.estado?.pendiente ?? null);
+const ultimoCambio = computed(() =>
+    pendiente.value ? null : (props.estado?.ultimo_cambio ?? null),
 );
 
 const LADO = 800;
@@ -265,7 +288,22 @@ onBeforeUnmount(reiniciar);
 
         <div class="flex min-w-0 flex-1 flex-col gap-2">
             <div>
-                <p class="text-base font-semibold">Foto de perfil</p>
+                <div class="flex flex-wrap items-center gap-2">
+                    <p class="text-base font-semibold">Foto de perfil</p>
+                    <span
+                        v-if="estado"
+                        class="rounded-full px-2 py-0.5 text-xs font-medium"
+                        :class="{
+                            'bg-muted text-muted-foreground':
+                                estado.estado === 'sin_foto',
+                            'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400':
+                                estado.estado === 'oficial',
+                            'bg-amber-500/10 text-amber-700 dark:text-amber-400':
+                                estado.estado === 'cambio_pendiente',
+                        }"
+                        >{{ estado.etiqueta }}</span
+                    >
+                </div>
                 <p class="text-sm text-muted-foreground">
                     {{
                         fotoUrl
@@ -276,21 +314,82 @@ onBeforeUnmount(reiniciar);
                 <p class="mt-1 text-xs text-muted-foreground">
                     Foto formal de trabajo: de frente, rostro descubierto, fondo
                     claro y buena iluminación.
+                    <template v-if="requiereRevision">
+                        Tu foto nueva la revisa RH; la actual se conserva
+                        mientras tanto.
+                    </template>
                 </p>
             </div>
 
-            <div v-if="puedeEditar" class="flex flex-wrap gap-2">
-                <Button size="sm" @click="abrirCamara">
+            <!-- Cambio pendiente: se ve la propuesta, no se puede mandar otro. -->
+            <div
+                v-if="pendiente"
+                class="flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3"
+            >
+                <img
+                    :src="pendiente.foto_url"
+                    alt="Foto propuesta"
+                    class="size-12 rounded-lg object-cover"
+                />
+                <p class="flex items-center gap-1.5 text-sm">
+                    <Clock class="size-4 text-amber-600" />
+                    Tu nueva foto está esperando la aprobación de RH.
+                </p>
+            </div>
+            <p
+                v-else-if="ultimoCambio?.estado === 'rechazado'"
+                class="flex items-start gap-1.5 text-sm text-amber-700 dark:text-amber-400"
+            >
+                <XCircle class="mt-0.5 size-4 shrink-0" />
+                <span
+                    >RH no aprobó tu último cambio de foto{{
+                        ultimoCambio.motivo_rechazo
+                            ? `: ${ultimoCambio.motivo_rechazo}`
+                            : '.'
+                    }}</span
+                >
+            </p>
+            <p
+                v-else-if="ultimoCambio?.estado === 'aprobado'"
+                class="flex items-center gap-1.5 text-sm text-emerald-700 dark:text-emerald-400"
+            >
+                <CheckCircle2 class="size-4" />
+                RH aprobó tu último cambio de foto.
+            </p>
+
+            <div v-if="puedeEditar && !pendiente" class="flex flex-wrap gap-2">
+                <p
+                    v-if="estado"
+                    class="w-full text-xs font-medium text-muted-foreground"
+                >
+                    {{
+                        requiereRevision
+                            ? 'Solicitar cambio de foto'
+                            : 'Agregar foto de perfil'
+                    }}
+                </p>
+                <Button
+                    size="sm"
+                    class="transition-transform hover:-translate-y-0.5"
+                    @click="abrirCamara"
+                >
                     <Camera class="size-4" />
                     Tomar foto
                 </Button>
                 <Button
                     size="sm"
                     variant="outline"
+                    class="transition-transform hover:-translate-y-0.5"
                     @click="inputArchivo?.click()"
                 >
                     <ImageUp class="size-4" />
-                    {{ fotoUrl ? 'Cambiar foto' : 'Subir foto' }}
+                    {{
+                        estado
+                            ? 'Elegir de galería'
+                            : fotoUrl
+                              ? 'Cambiar foto'
+                              : 'Subir foto'
+                    }}
                 </Button>
             </div>
             <p v-if="error && !dialogoAbierto" class="text-sm text-amber-600">
@@ -377,7 +476,11 @@ onBeforeUnmount(reiniciar);
                             @click="guardar"
                         >
                             <Spinner v-if="enviando" />
-                            Usar esta foto
+                            {{
+                                requiereRevision
+                                    ? 'Enviar a RH para aprobación'
+                                    : 'Usar esta foto'
+                            }}
                         </Button>
                     </template>
                 </DialogFooter>

@@ -22,7 +22,7 @@ class SubirFotoRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'foto' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
+            'foto' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'mimetypes:image/jpeg,image/png,image/webp', 'max:8192'],
         ];
     }
 
@@ -35,7 +35,8 @@ class SubirFotoRequest extends FormRequest
             'foto.required' => 'Selecciona o toma una foto.',
             'foto.image' => 'El archivo debe ser una imagen.',
             'foto.mimes' => 'La foto debe ser JPG, PNG o WEBP.',
-            'foto.max' => 'La foto no debe pesar más de 10 MB.',
+            'foto.max' => 'La foto no debe pesar más de 8 MB.',
+            'foto.mimetypes' => 'La foto debe ser JPG, PNG o WEBP.',
         ];
     }
 }

@@ -10,6 +10,7 @@ use App\Notifications\Mobile\BirthdayGreetingNotification;
 use App\Notifications\Mobile\BirthdayRhReminderNotification;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Celebraciones\FechasCelebracion;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\MobilePush\PushNotifier;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -257,7 +258,7 @@ class CumpleanosService
         // expedientes (Rh\ExpedienteController::descargarFoto): nunca se
         // expone foto_path, solo esta URL si quien consulta tiene permiso.
         $fotoUrl = $colaborador->foto_path !== null && $solicitante?->can('expedientes.ver')
-            ? route('rh.expedientes.foto', $colaborador)
+            ? route('rh.expedientes.foto', ['colaborador' => $colaborador, 'v' => FotoColaboradorService::version($colaborador->foto_path)])
             : null;
 
         return [

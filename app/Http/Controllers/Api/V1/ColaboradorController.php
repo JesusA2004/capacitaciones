@@ -31,6 +31,7 @@ class ColaboradorController extends Controller
         private readonly NotificacionesService $notificaciones,
         private readonly VacacionesService $vacaciones,
         private readonly DocumentoStorageService $storage,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     public function perfil(Request $request): JsonResponse
@@ -40,10 +41,35 @@ class ColaboradorController extends Controller
         // por una ruta propia autenticada con Sanctum, nunca la ruta web
         // protegida por sesion que usa el resto del portal. Ver foto().
         // foto_path vive en Colaborador (users.foto_path es una columna
-        // legacy que nunca se escribe, ver Expedientes\ExpedienteNasOrganizacionService).
-        $datos['foto_url'] = $request->user()->colaborador?->foto_path !== null ? route('api.v1.colaborador.foto') : null;
+        // legacy que nunca se escribe). La URL lleva `v` (versión de la
+        // foto) para que la app no muestre la anterior desde su caché.
+        $colaborador = $request->user()->colaborador;
+        $datos['foto_url'] = $colaborador !== null ? $this->fotos->urlPropiaApi($colaborador) : null;
+        $datos['foto'] = $colaborador !== null ? $this->fotos->estadoPara($colaborador) : null;
 
         return response()->json($datos);
+    }
+
+    /**
+     * Estado de la foto propia: sin_foto | oficial | cambio_pendiente, y la
+     * última decisión de RH (aprobado / rechazado con motivo).
+     */
+    public function estadoFoto(Request $request): JsonResponse
+    {
+        $colaborador = $request->user()->colaborador;
+        abort_if($colaborador === null, 403, 'Tu cuenta no tiene un colaborador enlazado.');
+
+        return response()->json($this->fotos->estadoPara($colaborador));
+    }
+
+    /** Propuesta de foto pendiente del propio colaborador. */
+    public function fotoPropuesta(Request $request): StreamedResponse
+    {
+        $colaborador = $request->user()->colaborador;
+        $pendiente = $colaborador !== null ? $this->fotos->pendienteDe($colaborador) : null;
+        abort_if($pendiente === null, 404);
+
+        return $this->fotos->respuestaPropuesta($pendiente);
     }
 
     /**
@@ -63,29 +89,35 @@ class ColaboradorController extends Controller
     }
 
     /**
-     * El colaborador sube o toma su foto de perfil desde la app (al
-     * registrar sus documentos). Misma normalización que la web
-     * (FotoColaboradorService): miniatura cuadrada 800×800.
+     * El colaborador sube o toma su foto de perfil desde la app. La primera
+     * queda oficial al instante; si ya tiene una, la nueva queda pendiente
+     * de RH (FotoColaboradorService::subirPropia()).
      */
-    public function subirFoto(SubirFotoRequest $request, FotoColaboradorService $fotos): JsonResponse
+    public function subirFoto(SubirFotoRequest $request): JsonResponse
     {
         $usuario = $request->user();
         $colaborador = $usuario->colaborador;
 
         abort_if($colaborador === null, 403, 'Tu cuenta no tiene un colaborador enlazado.');
 
-        $fotos->actualizar($colaborador, $request->file('foto'), $usuario);
+        $resultado = $this->fotos->subirPropia($colaborador, $request->file('foto'), $usuario);
+        $colaborador->refresh();
 
         return response()->json([
-            'message' => 'Tu foto de perfil quedó guardada.',
-            'foto_url' => route('api.v1.colaborador.foto', ['v' => substr(md5((string) $colaborador->foto_path), 0, 10)]),
-        ]);
+            'message' => $resultado['resultado'] === 'oficial'
+                ? 'Tu foto de perfil quedó guardada.'
+                : 'Enviamos tu nueva foto a RH. Tu foto actual se conserva hasta que la aprueben.',
+            'resultado' => $resultado['resultado'],
+            'foto_url' => $this->fotos->urlPropiaApi($colaborador),
+            'foto' => $this->fotos->estadoPara($colaborador),
+        ], $resultado['resultado'] === 'oficial' ? 200 : 202);
     }
 
     public function dashboard(Request $request): JsonResponse
     {
         $datos = $this->perfil->dashboard($request->user());
-        $datos['perfil']['foto_url'] = $request->user()->colaborador?->foto_path !== null ? route('api.v1.colaborador.foto') : null;
+        $colaborador = $request->user()->colaborador;
+        $datos['perfil']['foto_url'] = $colaborador !== null ? $this->fotos->urlPropiaApi($colaborador) : null;
 
         return response()->json($datos);
     }

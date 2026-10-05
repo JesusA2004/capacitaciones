@@ -11,6 +11,7 @@ import {
     FolderKanban,
     GitBranch,
     GraduationCap,
+    ImageIcon,
     Inbox,
     Landmark,
     LayoutGrid,
@@ -47,6 +48,7 @@ import {
 } from '@/routes/portal';
 import { index as indexReportes } from '@/routes/reportes';
 import { index as indexAniversarios } from '@/routes/rh/aniversarios';
+import { index as indexCambiosFoto } from '@/routes/rh/cambios-foto';
 import { index as indexCampanas } from '@/routes/rh/campanas';
 import { index as indexCandidatos } from '@/routes/rh/candidatos';
 import { index as indexCumpleanos } from '@/routes/rh/cumpleanos';
@@ -163,6 +165,15 @@ export function useMainNavItems() {
                 title: 'Expedientes',
                 href: indexExpedientes(),
                 icon: FolderKanban,
+            });
+        }
+
+        // Fotos de perfil que los colaboradores pidieron cambiar (aprobación de RH).
+        if (tienePermiso('expedientes.revisar')) {
+            items.push({
+                title: 'Cambios de foto',
+                href: indexCambiosFoto(),
+                icon: ImageIcon,
             });
         }
 

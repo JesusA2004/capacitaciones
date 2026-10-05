@@ -306,6 +306,8 @@ class ExpedienteController extends Controller
                 'usuario_id' => $idUsuarioColaborador,
                 'roles' => $cuenta?->getRoleNames() ?? collect(),
                 'foto_url' => $this->fotoUrl($colaborador),
+                // Solo la propia persona ve si su cambio de foto está pendiente/aprobado/rechazado.
+                'foto_estado' => $esPropio ? $this->fotos->estadoPara($colaborador, api: false) : null,
                 'estatus' => $colaborador->estatus->value,
                 'deleted_at' => $colaborador->deleted_at?->toISOString(),
                 'acceso_bloqueado_en' => $cuenta?->acceso_bloqueado_en?->toISOString(),
@@ -760,9 +762,11 @@ class ExpedienteController extends Controller
 
         abort_if($colaborador === null, 403, 'Tu cuenta no tiene un colaborador enlazado.');
 
-        $this->fotos->actualizar($colaborador, $request->file('foto'), $usuario);
+        $resultado = $this->fotos->subirPropia($colaborador, $request->file('foto'), $usuario);
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Tu foto de perfil quedó guardada.']);
+        return back()->with('toast', ['type' => 'success', 'message' => $resultado['resultado'] === 'oficial'
+            ? 'Tu foto de perfil quedó guardada.'
+            : 'Enviamos tu nueva foto a RH. Tu foto actual se conserva hasta que la aprueben.']);
     }
 
     /**

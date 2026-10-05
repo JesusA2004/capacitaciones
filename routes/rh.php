@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Rh\AltaDigitalController;
+use App\Http\Controllers\Rh\CambioFotoController;
 use App\Http\Controllers\Rh\CampanaReclutamientoController;
 use App\Http\Controllers\Rh\CandidatoController;
 use App\Http\Controllers\Rh\CelebracionRhController;
@@ -39,6 +40,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // (docs/AUTENTICACION.md). Permiso y alcance en CredencialesService.
         Route::post('colaboradores/{colaborador}/credenciales', [CredencialesController::class, 'store'])
             ->name('colaboradores.credenciales')->middleware('throttle:20,1');
+
+        // Cambios de foto de perfil por revisar (FotoColaboradorService).
+        Route::prefix('cambios-foto')->name('cambios-foto.')->group(function () {
+            Route::get('/', [CambioFotoController::class, 'index'])->name('index');
+            Route::get('{cambio}/propuesta', [CambioFotoController::class, 'propuesta'])->name('propuesta');
+            Route::post('{cambio}/aprobar', [CambioFotoController::class, 'aprobar'])->name('aprobar');
+            Route::post('{cambio}/rechazar', [CambioFotoController::class, 'rechazar'])->name('rechazar');
+        });
 
         // Recibos de nómina quincenales (docs/NOMINA_QUINCENAL.md).
         Route::prefix('nomina')->name('nomina.')->group(function () {

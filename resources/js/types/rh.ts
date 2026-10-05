@@ -28,6 +28,8 @@ export type ExpedienteColaborador = {
     usuario_id: number | null;
     roles: string[];
     foto_url: string | null;
+    /** Solo en el expediente propio: estado de la foto y del cambio pendiente. */
+    foto_estado?: FotoPerfilEstado | null;
     estatus: string;
     deleted_at: string | null;
     acceso_bloqueado_en: string | null;
@@ -216,3 +218,36 @@ export type PrestamoItem = {
     estado: PrestamoEstado;
     movimientos: PrestamoMovimientoItem[];
 };
+
+/** Estado de la foto de perfil (FotoColaboradorService::estadoPara). */
+export interface FotoPerfilEstado {
+    estado: 'sin_foto' | 'oficial' | 'cambio_pendiente';
+    etiqueta: string;
+    foto_url: string | null;
+    puede_subir_directo: boolean;
+    pendiente: { id: number; solicitada_en: string; foto_url: string } | null;
+    ultimo_cambio: {
+        id: number;
+        estado: 'aprobado' | 'rechazado';
+        etiqueta: string;
+        motivo_rechazo: string | null;
+        revisado_en: string | null;
+    } | null;
+}
+
+/** Fila de revisión de un cambio de foto (Rh/CambiosFoto). */
+export interface CambioFotoRevision {
+    id: number;
+    estado: string;
+    etiqueta: string;
+    solicitada_en: string;
+    colaborador: {
+        id: number;
+        nombre: string;
+        numero_empleado: string | null;
+        puesto: string | null;
+        sucursal: string | null;
+    };
+    foto_actual_url: string | null;
+    foto_propuesta_url: string;
+}

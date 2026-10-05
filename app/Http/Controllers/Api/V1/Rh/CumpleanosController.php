@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BirthdayGreeting;
 use App\Models\Colaborador;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Cumpleanos\BirthdayCardService;
 use App\Services\Cumpleanos\CumpleanosService;
 use App\Services\Cumpleanos\MuroCumpleanosService;
@@ -71,7 +72,7 @@ class CumpleanosController extends Controller
                     'nombre' => $colaborador->nombreCompleto(),
                     'numero_empleado' => $colaborador->numero_empleado,
                     'foto_url_api' => $colaborador->foto_path !== null
-                        ? route('api.v1.rh.cumpleanos.foto', $colaborador)
+                        ? route('api.v1.rh.cumpleanos.foto', ['colaborador' => $colaborador, 'v' => FotoColaboradorService::version($colaborador->foto_path)])
                         : null,
                     'puesto' => $colaborador->puesto?->nombre,
                     'sucursal' => $colaborador->sucursalPrincipal?->nombre,
@@ -125,7 +126,7 @@ class CumpleanosController extends Controller
                     'nombre' => $greeting->colaborador->nombreCompleto(),
                     'numero_empleado' => $greeting->colaborador->numero_empleado,
                     'foto_url_api' => $greeting->colaborador->foto_path !== null
-                        ? route('api.v1.rh.cumpleanos.foto', $greeting->colaborador)
+                        ? route('api.v1.rh.cumpleanos.foto', ['colaborador' => $greeting->colaborador, 'v' => FotoColaboradorService::version($greeting->colaborador->foto_path)])
                         : null,
                     'puesto' => $greeting->colaborador->puesto?->nombre,
                     'sucursal' => $greeting->colaborador->sucursalPrincipal?->nombre,

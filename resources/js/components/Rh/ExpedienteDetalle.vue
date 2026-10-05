@@ -2023,6 +2023,7 @@ const pestanaInicial = (() => {
                         :foto-url="colaborador.foto_url"
                         :url-subida="urlSubidaFoto"
                         :puede-editar="esPropio || puedeEditar"
+                        :estado="esPropio ? colaborador.foto_estado : null"
                     />
                     <ExpedienteDocumentos
                         :colaborador-id="colaborador.id"

@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\V1\MuroCumpleanosController;
 use App\Http\Controllers\Api\V1\NotificacionController;
 use App\Http\Controllers\Api\V1\Rh\ActaController;
 use App\Http\Controllers\Api\V1\Rh\AltaColaboradorController;
+use App\Http\Controllers\Api\V1\Rh\CambioFotoController as RhCambioFotoController;
 use App\Http\Controllers\Api\V1\Rh\CandidatoController as RhCandidatoController;
 use App\Http\Controllers\Api\V1\Rh\CatalogoController;
 use App\Http\Controllers\Api\V1\Rh\CelebracionController as RhCelebracionController;
@@ -159,6 +160,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::get('perfil', [ColaboradorController::class, 'perfil'])->name('perfil');
             Route::get('foto', [ColaboradorController::class, 'foto'])->name('foto');
             Route::post('foto', [ColaboradorController::class, 'subirFoto'])->name('foto.store');
+            Route::get('foto/estado', [ColaboradorController::class, 'estadoFoto'])->name('foto.estado');
+            Route::get('foto/propuesta', [ColaboradorController::class, 'fotoPropuesta'])->name('foto.propuesta');
             Route::get('dashboard', [ColaboradorController::class, 'dashboard'])->name('dashboard');
             Route::get('vacaciones', [ColaboradorController::class, 'vacaciones'])->name('vacaciones');
             Route::get('solicitudes', [ColaboradorController::class, 'solicitudes'])->name('solicitudes.index');
@@ -379,6 +382,14 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('{colaborador}/{tipo}/enviar', [RhCelebracionController::class, 'enviar'])->name('enviar');
                 Route::post('{colaborador}/{tipo}/avisar-todos', [RhCelebracionController::class, 'avisarATodos'])->name('avisar-todos')->middleware('throttle:10,1');
                 Route::post('{colaborador}/{tipo}/tarjeta', [RhCelebracionController::class, 'regenerarTarjeta'])->name('tarjeta.regenerar');
+            });
+
+            // Cambios de foto de perfil por revisar (FotoColaboradorService).
+            Route::prefix('cambios-foto')->name('cambios-foto.')->group(function () {
+                Route::get('/', [RhCambioFotoController::class, 'index'])->name('index');
+                Route::get('{cambio}/propuesta', [RhCambioFotoController::class, 'propuesta'])->name('propuesta');
+                Route::post('{cambio}/aprobar', [RhCambioFotoController::class, 'aprobar'])->name('aprobar');
+                Route::post('{cambio}/rechazar', [RhCambioFotoController::class, 'rechazar'])->name('rechazar');
             });
 
             // Bandeja de cumpleanos para RH desde la app (docs/CUMPLEANOS.md).

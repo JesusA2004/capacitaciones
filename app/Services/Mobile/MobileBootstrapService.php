@@ -6,6 +6,7 @@ use App\Enums\EstadoUsuario;
 use App\Models\User;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Configuracion\ConfiguracionSistemaService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Incorporacion\IncorporacionService;
@@ -109,7 +110,7 @@ class MobileBootstrapService
             'email' => $usuario->email,
             'estatus' => $colaborador?->estatus->value,
             'numero_empleado' => $colaborador?->numero_empleado,
-            'foto_url' => $colaborador?->foto_path !== null ? route('api.v1.colaborador.foto') : null,
+            'foto_url' => $colaborador?->foto_path !== null ? route('api.v1.colaborador.foto', ['v' => FotoColaboradorService::version($colaborador->foto_path)]) : null,
             'empresa' => $this->entidad($colaborador?->sucursalPrincipal?->empresa),
             'sucursal' => $this->entidad($colaborador?->sucursalPrincipal),
             'departamento' => $this->entidad($colaborador?->departamento),
