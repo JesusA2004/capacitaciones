@@ -7,7 +7,12 @@ API JSON versionada para la futura app móvil/web móvil de colaboradores (proye
 Laravel Sanctum, **tokens personales puros** (sin cookies, sin CSRF, sin `EnsureFrontendRequestsAreStateful`): cada dispositivo hace login y recibe su propio token, independiente de la sesión web.
 
 ```
-POST /api/v1/login        { email, password, device_name? }  →  { token, usuario }
+POST /api/v1/login        { username, password, device_name? }  →  { token, debe_cambiar_contrasena, usuario }
+```
+
+El usuario es **primer nombre + primer apellido** («Jesus Arizmendi»), sin distinguir mayúsculas/acentos y tolerante a espacios; la contraseña solo se recorta (`trim`). `email` se acepta temporalmente en lugar de `username`. Con `debe_cambiar_contrasena: true` la app debe llamar `POST /api/v1/cambiar-contrasena` (`password_actual`, `password`, `password_confirmation`); mientras tanto el resto de la API responde `403 { codigo: "cambio_contrasena_requerido" }`. Ver `docs/AUTENTICACION.md`.
+
+```
 POST /api/v1/logout       (Bearer token)                     →  revoca el token actual
 GET  /api/v1/me           (Bearer token)                     →  usuario, roles, permisos
 ```
@@ -254,7 +259,7 @@ Comentarios internos de RH, quién subió/revisó cada documento, ni el id inter
 # Login
 curl -X POST http://localhost:8000/api/v1/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"colaborador1@mrlana.test","password":"Capacitacion2026!","device_name":"curl"}'
+  -d '{"username":"Nombre Apellido","password":"Capacitacion2026!","device_name":"curl"}'
 
 # Con el token devuelto:
 curl http://localhost:8000/api/v1/colaborador/dashboard \

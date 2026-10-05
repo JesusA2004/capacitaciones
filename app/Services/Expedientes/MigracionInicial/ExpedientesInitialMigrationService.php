@@ -2,6 +2,7 @@
 
 namespace App\Services\Expedientes\MigracionInicial;
 
+use App\Enums\EstadoCuentaMigracion;
 use App\Models\Colaborador;
 use App\Models\ExpedienteHistorico;
 use App\Models\MigracionExpedientes;
@@ -176,13 +177,25 @@ class ExpedientesInitialMigrationService
             }
 
             fwrite($salida, "\xEF\xBB\xBF");
-            fputcsv($salida, ['Fila', 'Clave', 'Nombre', 'Empresa', 'Sucursal', 'Puesto', 'CURP', 'Operación', 'Colaborador ID', 'Carpeta NAS', 'PDFs', 'Tipo de match', 'Score', 'Conflictos', 'Advertencias']);
+            // Usuario propuesto/Estado cuenta: para verificar los usernames antes de aplicar.
+            fputcsv($salida, ['Fila', 'Clave', 'Nombre', 'Empresa', 'Sucursal', 'Departamento', 'Puesto', 'Usuario propuesto', 'Estado cuenta', 'Estado importación', 'CURP', 'Colaborador ID', 'Carpeta NAS', 'PDF', 'Tipo de match', 'Score', 'Conflictos', 'Advertencias', 'Operación']);
 
             foreach ($plan['filas'] ?? [] as $f) {
+                $estadoCuenta = EstadoCuentaMigracion::tryFrom((string) ($f['cuenta']['estado'] ?? '')) ?? EstadoCuentaMigracion::NoAplica;
+
                 fputcsv($salida, [
-                    $f['fila'], $f['clave'], $f['nombre_completo'], $f['empresa_nombre'], $f['sucursal_nombre'] ?? $f['sucursal_excel'], $f['puesto_nombre'] ?? $f['puesto_excel'],
-                    $f['curp'], $f['operacion'], $f['colaborador_id'], $f['nas']['carpeta'] ?? '', count($f['nas']['pdfs'] ?? []), $f['nas']['tipo'], $f['nas']['score'],
+                    $f['fila'], $f['clave'], $f['nombre_completo'], $f['empresa_nombre'] ?? $f['empresa_excel'] ?? '', $f['sucursal_nombre'] ?? $f['sucursal_excel'],
+                    $f['departamento_nombre'] ?? $f['departamento_excel'] ?? '', $f['puesto_nombre'] ?? $f['puesto_excel'],
+                    $f['cuenta']['usuario'] ?? '', $estadoCuenta->etiqueta(), $f['operacion'],
+                    $f['curp'], $f['colaborador_id'], $f['nas']['carpeta'] ?? '', count($f['nas']['pdfs'] ?? []), $f['nas']['tipo'], $f['nas']['score'],
                     implode(' | ', $f['motivos']), implode(' | ', $f['advertencias']),
+                    match ($f['operacion']) {
+                        'crear' => 'Alta nueva',
+                        'actualizar' => 'Actualiza: '.implode(', ', array_keys((array) $f['cambios'])),
+                        'conflicto' => 'No se aplica',
+                        'omitir' => 'Se omite',
+                        default => 'Ya está igual',
+                    },
                 ]);
             }
 
@@ -298,10 +311,11 @@ class ExpedientesInitialMigrationService
             }
 
             fwrite($salida, "\xEF\xBB\xBF");
-            fputcsv($salida, ['Persona', 'Número de empleado', 'Sucursal', 'Puesto', 'Usuario', 'Contraseña temporal', 'Estado']);
+            // Usuario = primer nombre + primer apellido (no el correo). Entregar en privado.
+            fputcsv($salida, ['Persona', 'Sucursal', 'Puesto', 'Usuario', 'Contraseña temporal', 'Estado', 'Número de empleado']);
 
             foreach ($lista as $fila) {
-                fputcsv($salida, [$fila['persona'] ?? '', $fila['numero_empleado'] ?? '', $fila['sucursal'] ?? '', $fila['puesto'] ?? '', $fila['usuario'] ?? '', $fila['contrasena'] ?? '', $fila['estado'] ?? '']);
+                fputcsv($salida, [$fila['persona'] ?? '', $fila['sucursal'] ?? '', $fila['puesto'] ?? '', $fila['usuario'] ?? '', $fila['contrasena'] ?? '', $fila['estado'] ?? '', $fila['numero_empleado'] ?? '']);
             }
 
             fclose($salida);

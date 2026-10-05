@@ -71,7 +71,7 @@ function mfColaborador(string $grupo, array $extra = []): Colaborador
     $estructura['sucursal']->update(['direccion' => 'Av. Morelos 120', 'ciudad' => 'Cuernavaca', 'estado' => 'Morelos', 'codigo_postal' => '62000']);
     $puesto = Puesto::factory()->create(['nombre' => 'Puesto '.$grupo, 'grupo_documental' => $grupo, 'meses_periodo_prueba' => $grupo === 'gestor' ? 2 : 3]);
 
-    return Colaborador::factory()->create([
+    return clExpedienteCompleto(Colaborador::factory()->create([
         'name' => 'Juan', 'apellidos' => 'Pérez López',
         'sucursal_principal_id' => $estructura['sucursal']->id, 'departamento_id' => $estructura['departamento']->id, 'puesto_id' => $puesto->id,
         'genero' => 'masculino', 'fecha_nacimiento' => '1990-05-10', 'curp' => 'PELJ900510HMSRPN01', 'rfc' => 'PELJ900510AB1', 'nss' => '12345678901',
@@ -80,7 +80,7 @@ function mfColaborador(string $grupo, array $extra = []): Colaborador
         'nacionalidad' => 'Mexicana', 'estado_civil' => 'soltero', 'lugar_nacimiento' => 'Cuernavaca, Morelos', 'clave_elector' => 'PELJ900510HMS',
         'profesion' => 'Licenciado', 'fecha_ingreso' => '2026-10-05', 'sueldo_mensual' => 15000,
         ...$extra,
-    ]);
+    ]));
 }
 
 function mfContrato(Colaborador $colaborador, ?ContratoLaboral $anterior = null): ContratoLaboral

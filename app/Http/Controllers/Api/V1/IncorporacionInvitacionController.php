@@ -57,6 +57,8 @@ class IncorporacionInvitacionController extends Controller
             'token' => $tokenSanctum->plainTextToken,
             'usuario' => [
                 'id' => $usuario->id,
+                // Con este usuario (no con el correo) vuelve a iniciar sesión.
+                'username' => $usuario->username,
                 'name' => $usuario->name,
                 'apellidos' => $usuario->apellidos,
                 'email' => $usuario->email,

@@ -23,7 +23,8 @@ class GuardarDatosPersonalesRequest extends FormRequest
             'nombre' => ['required', 'string', 'max:150'],
             'apellidos' => ['required', 'string', 'max:150'],
             'telefono' => ['required', 'string', 'max:30'],
-            'correo' => ['required', 'email', 'max:255'],
+            // Opcional: el acceso es con usuario (primer nombre + primer apellido).
+            'correo' => ['nullable', 'email', 'max:255'],
             'fecha_nacimiento' => ['required', 'date', 'before:-18 years'],
             'curp' => ['required', 'string', 'max:18'],
             'rfc' => ['nullable', 'string', 'max:13'],

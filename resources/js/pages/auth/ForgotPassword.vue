@@ -13,7 +13,7 @@ defineOptions({
     layout: {
         title: 'Recuperar contraseña',
         description:
-            'Ingresa tu correo para recibir un enlace de restablecimiento',
+            'Si tienes un correo registrado, te enviamos un enlace para restablecerla. Si no tienes correo, pide a Recursos Humanos una contraseña temporal.',
     },
 });
 

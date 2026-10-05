@@ -51,3 +51,27 @@ test('convertir() con contenido que no es un DOCX real nunca truena (nunca rompe
 
     expect(fn () => app(ConversorDocxPdf::class)->convertir('esto no es un docx'))->not->toThrow(Throwable::class);
 });
+
+test('Windows: los procesos del conversor siempre reciben SystemRoot, TEMP y el resto del entorno (artisan serve/Apache no los heredan)', function () {
+    $entorno = app(ConversorDocxPdf::class)->entornoWindows();
+
+    if (PHP_OS_FAMILY !== 'Windows') {
+        expect($entorno)->toBe([]);
+
+        return;
+    }
+
+    foreach (['SystemRoot', 'windir', 'ComSpec', 'TEMP', 'TMP', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'PATH'] as $clave) {
+        expect($entorno[$clave] ?? '')->not->toBe('', "Falta {$clave}");
+    }
+
+    expect($entorno['PATH'])->toContain('WindowsPowerShell');
+});
+
+test('la aproximación de PhpWord solo se acepta en entornos declarados sin Word (FORMATOS_CONVERSOR=phpword)', function () {
+    config(['formatos_oficiales.conversor' => 'phpword']);
+    expect(app(ConversorDocxPdf::class)->permiteAproximada())->toBeTrue();
+
+    config(['formatos_oficiales.conversor' => 'auto']);
+    expect(app(ConversorDocxPdf::class)->permiteAproximada())->toBeFalse();
+});

@@ -11,6 +11,7 @@ use App\Models\Puesto;
 use App\Models\User;
 use App\Observers\CicloLaboralDocumentoObserver;
 use App\Policies\RolPolicy;
+use App\Services\Autenticacion\AutenticacionService;
 use App\Services\Configuracion\ConfiguracionSistemaService;
 use App\Services\Navigation\NavigationService;
 use App\Services\Organigrama\JefeDirectoService;
@@ -23,7 +24,6 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 use Spatie\Permission\Models\Role;
 
@@ -96,7 +96,7 @@ class AppServiceProvider extends ServiceProvider
     protected function configureRateLimiting(): void
     {
         RateLimiter::for('api', fn (Request $request) => Limit::perMinute(120)->by($request->user()?->id ?: $request->ip()));
-        RateLimiter::for('api-login', fn (Request $request) => Limit::perMinute(10)->by(Str::lower((string) $request->input('email')).'|'.$request->ip()));
+        RateLimiter::for('api-login', fn (Request $request) => Limit::perMinute(10)->by(app(AutenticacionService::class)->llaveLimite($request->input('username') ?? $request->input('email'), $request->ip())));
         RateLimiter::for('api-cargas', fn (Request $request) => Limit::perMinute(30)->by($request->user()?->id ?: $request->ip()));
         RateLimiter::for('api-reautenticar', fn (Request $request) => Limit::perMinute(5)->by($request->user()?->id.'|'.$request->ip()));
     }

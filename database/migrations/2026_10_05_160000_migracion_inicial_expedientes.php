@@ -154,6 +154,13 @@ return new class extends Migration
 
         $tieneCategoria = Schema::hasColumn('document_types', 'categoria');
 
+        // Solo se reconcilia un catálogo que ya existe (BD en uso). En una BD
+        // nueva el catálogo lo crea DocumentTypeSeeder con estos mismos 14:
+        // insertarlo aquí además metía datos en cada BD de pruebas.
+        if (DB::table('document_types')->doesntExist()) {
+            return;
+        }
+
         foreach ($catorce as $orden => [$clave, $nombre, $categoria]) {
             $datos = ['nombre' => $nombre, 'requerido' => true, 'activo' => true, 'orden' => $orden + 1, 'updated_at' => $ahora];
 

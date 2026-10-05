@@ -156,11 +156,14 @@ class DatosDocumentoService
         $duracion = $meses !== null ? $this->duracion($meses) : '';
         $representante = trim((string) ($empresa?->representante_legal_nombre ?: ($defecto['representante_legal_nombre'] ?? '')));
 
+        // Toda la plantilla es mexicana: sin dato capturado, «Mexicana»
+        // (nunca un hueco ni un «falta» en el contrato).
+        $nacionalidad = trim((string) $c->nacionalidad) !== '' ? (string) $c->nacionalidad : 'Mexicana';
         $datos = [
             'nombre_completo' => $nombre,
             'nombre_completo_mayusculas' => $this->mayus($nombre),
-            'nacionalidad' => (string) $c->nacionalidad,
-            'nacionalidad_mayusculas' => $this->mayus((string) $c->nacionalidad),
+            'nacionalidad' => $nacionalidad,
+            'nacionalidad_mayusculas' => $this->mayus($nacionalidad),
             'sexo' => $sexo,
             'sexo_mayusculas' => $this->mayus($sexo),
             'edad' => $edad !== null ? sprintf('%d años', $edad) : '',

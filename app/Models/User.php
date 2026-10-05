@@ -4,9 +4,11 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Enums\EstadoUsuario;
+use App\Services\Autenticacion\NombreUsuarioService;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -20,8 +22,11 @@ use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Permission\Traits\HasRoles;
 
 /**
- * Cuenta de acceso al sistema — email, password, 2FA, tokens, dispositivos,
- * roles, preferencias. Los datos de persona/empleo viven en
+ * Cuenta de acceso al sistema — username, password, 2FA, tokens,
+ * dispositivos, roles, preferencias. Se inicia sesión con `username`
+ * («Jesus Arizmendi», ver App\Services\Autenticacion\NombreUsuarioService y
+ * docs/AUTENTICACION.md); `email` es opcional (contacto y recuperación de
+ * contraseña) y nunca se inventa. Los datos de persona/empleo viven en
  * App\Models\Colaborador (`colaborador_id`), no aquí — ver
  * docs/ROLES_Y_NAVEGACION.md. `name`/`apellidos` se conservan como copia de
  * despliegue (para pantallas que muestran a este usuario como actor —
@@ -33,7 +38,9 @@ use Spatie\Permission\Traits\HasRoles;
  * @property int|null $colaborador_id
  * @property string $name
  * @property string|null $apellidos
- * @property string $email
+ * @property string $username
+ * @property string|null $email
+ * @property bool $debe_cambiar_contrasena
  * @property Carbon|null $acceso_bloqueado_en
  * @property string|null $acceso_bloqueado_motivo
  * @property int|null $acceso_bloqueado_por
@@ -52,7 +59,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @property-read Colaborador|null $colaborador
  */
 #[Fillable([
-    'colaborador_id', 'name', 'apellidos', 'email', 'password',
+    'colaborador_id', 'username', 'name', 'apellidos', 'email', 'password',
     'zona_horaria', 'preferencias_notificaciones', 'preferencias_ui',
 ])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
@@ -71,11 +78,30 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'debe_cambiar_contrasena' => 'boolean',
             'acceso_bloqueado_en' => 'datetime',
             'ultimo_acceso' => 'datetime',
             'preferencias_notificaciones' => 'array',
             'preferencias_ui' => 'array',
         ];
+    }
+
+    /**
+     * Toda cuenta nace con username: quien la crea sin uno explícito (alta
+     * digital, administración, QR, seeders…) recibe el de la regla oficial
+     * a partir de su colaborador. Después de creado nunca se cambia solo.
+     * Aquí y no en el evento `creating`: los seeders corren con
+     * WithoutModelEvents y saveQuietly() tampoco dispara eventos.
+     *
+     * @param  Builder<static>  $query
+     */
+    protected function performInsert(Builder $query): bool
+    {
+        if (trim((string) $this->username) === '') {
+            $this->username = app(NombreUsuarioService::class)->paraCuenta($this);
+        }
+
+        return parent::performInsert($query);
     }
 
     /**
@@ -163,7 +189,7 @@ class User extends Authenticatable
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['name', 'apellidos', 'email', 'colaborador_id'])
+            ->logOnly(['username', 'name', 'apellidos', 'email', 'colaborador_id'])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs();
     }

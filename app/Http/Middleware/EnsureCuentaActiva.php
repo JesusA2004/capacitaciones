@@ -34,7 +34,7 @@ class EnsureCuentaActiva
             $request->session()->regenerateToken();
 
             return redirect()->route('login')->withErrors([
-                'email' => 'Tu cuenta está desactivada. Contacta a Recursos Humanos.',
+                'username' => 'Tu cuenta está desactivada. Contacta a Recursos Humanos.',
             ]);
         }
 

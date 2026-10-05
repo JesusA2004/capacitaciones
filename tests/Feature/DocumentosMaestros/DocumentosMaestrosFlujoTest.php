@@ -38,7 +38,7 @@ function dmColaborador(string $grupo, array $estructura, array $extra = []): Col
 {
     $puesto = Puesto::factory()->create(['nombre' => 'Puesto '.$grupo, 'grupo_documental' => $grupo, 'meses_periodo_prueba' => $grupo === 'gestor' ? 2 : 3]);
 
-    return Colaborador::factory()->create([
+    return clExpedienteCompleto(Colaborador::factory()->create([
         'name' => 'Juan',
         'apellidos' => 'Pérez López',
         'sucursal_principal_id' => $estructura['sucursal']->id,
@@ -64,7 +64,7 @@ function dmColaborador(string $grupo, array $estructura, array $extra = []): Col
         'fecha_ingreso' => '2026-10-05',
         'sueldo_mensual' => 15000,
         ...$extra,
-    ]);
+    ]));
 }
 
 function dmContrato(Colaborador $colaborador, ?ContratoLaboral $anterior = null): ContratoLaboral
@@ -169,13 +169,14 @@ test('datos faltantes: 422 DATOS_FALTANTES y se completan en la ficha sin volver
 
     $respuesta = $this->postJson("/api/v1/rh/documentos-proceso/contrato/{$contrato->id}/generar", ['clave' => 'contrato_capacitacion', 'proceso' => 'alta'])
         ->assertUnprocessable()->assertJsonPath('code', 'DATOS_FALTANTES');
-    expect(array_column($respuesta->json('faltantes'), 'columna'))->toContain('nacionalidad', 'estado_civil');
+    // Sin nacionalidad capturada el documento dice «Mexicana»: nunca falta.
+    expect(array_column($respuesta->json('faltantes'), 'columna'))->toContain('estado_civil')->not->toContain('nacionalidad');
 
     $this->postJson("/api/v1/rh/documentos-proceso/contrato/{$contrato->id}/generar", [
-        'clave' => 'contrato_capacitacion', 'proceso' => 'alta', 'completar' => ['nacionalidad' => 'Mexicana', 'estado_civil' => 'casado'],
+        'clave' => 'contrato_capacitacion', 'proceso' => 'alta', 'completar' => ['estado_civil' => 'casado'],
     ])->assertCreated();
 
-    expect($colaborador->refresh()->nacionalidad)->toBe('Mexicana');
+    expect($colaborador->refresh()->estado_civil)->not->toBeNull();
 });
 
 test('formato faltante: 422 DOCUMENT_TEMPLATE_MISSING, nunca otro formato en silencio', function () {

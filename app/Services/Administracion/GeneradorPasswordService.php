@@ -3,35 +3,47 @@
 namespace App\Services\Administracion;
 
 /**
- * Genera contraseñas temporales fáciles de dictar/transcribir para un
- * colaborador (8 caracteres: 1 mayúscula, 1 dígito, 1 símbolo, el resto
- * minúsculas) en vez de una cadena totalmente aleatoria de 14 caracteres.
- * No se usa para validar contraseñas capturadas por un admin — esas siguen
- * pasando por Illuminate\Validation\Rules\Password::defaults().
+ * Contraseñas temporales (migración inicial, «Establecer contraseña» en
+ * Administración > Usuarios): exactamente 8 caracteres con al menos una
+ * mayúscula, una minúscula, un número y un especial de un conjunto
+ * controlado (!@#$%&*?) para que se puedan dictar/copiar sin problemas. Sin
+ * caracteres ambiguos (0/O, 1/l/I). Todo con random_int() (CSPRNG), incluso
+ * el revuelto final. Nunca usa datos personales.
+ *
+ * No valida contraseñas capturadas por una persona — esas siguen pasando
+ * por Illuminate\Validation\Rules\Password::defaults().
  */
 class GeneradorPasswordService
 {
-    private const MINUSCULAS = 'abcdefghjkmnpqrstuvwxyz';
+    public const LONGITUD = 8;
 
-    private const MAYUSCULAS = 'ABCDEFGHJKMNPQRSTUVWXYZ';
+    public const MINUSCULAS = 'abcdefghjkmnpqrstuvwxyz';
 
-    private const DIGITOS = '23456789';
+    public const MAYUSCULAS = 'ABCDEFGHJKMNPQRSTUVWXYZ';
 
-    private const SIMBOLOS = '!@#$%&*';
+    public const DIGITOS = '23456789';
+
+    public const ESPECIALES = '!@#$%&*?';
 
     public function generar(): string
     {
         $caracteres = [
             self::caracterAleatorio(self::MAYUSCULAS),
+            self::caracterAleatorio(self::MINUSCULAS),
             self::caracterAleatorio(self::DIGITOS),
-            self::caracterAleatorio(self::SIMBOLOS),
+            self::caracterAleatorio(self::ESPECIALES),
         ];
+        $todos = self::MAYUSCULAS.self::MINUSCULAS.self::DIGITOS.self::ESPECIALES;
 
-        for ($i = 0; $i < 5; $i++) {
-            $caracteres[] = self::caracterAleatorio(self::MINUSCULAS);
+        while (count($caracteres) < self::LONGITUD) {
+            $caracteres[] = self::caracterAleatorio($todos);
         }
 
-        shuffle($caracteres);
+        // Fisher–Yates con random_int (shuffle() no es criptográficamente seguro).
+        for ($i = count($caracteres) - 1; $i > 0; $i--) {
+            $j = random_int(0, $i);
+            [$caracteres[$i], $caracteres[$j]] = [$caracteres[$j], $caracteres[$i]];
+        }
 
         return implode('', $caracteres);
     }

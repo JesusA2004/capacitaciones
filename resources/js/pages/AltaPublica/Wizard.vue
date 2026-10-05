@@ -227,7 +227,7 @@ function enviarAlta() {
                         <Input id="telefono" v-model="formDatos.telefono" />
                     </div>
                     <div class="grid gap-2">
-                        <Label for="correo">Correo</Label>
+                        <Label for="correo">Correo (opcional)</Label>
                         <Input
                             id="correo"
                             v-model="formDatos.correo"

@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\V1\Rh\CicloLaboralRhController;
 use App\Http\Controllers\Api\V1\Rh\CierreLaboralController;
 use App\Http\Controllers\Api\V1\Rh\ColaboradorController as RhColaboradorController;
 use App\Http\Controllers\Api\V1\Rh\ContratoController;
+use App\Http\Controllers\Api\V1\Rh\CredencialesController as RhCredencialesController;
 use App\Http\Controllers\Api\V1\Rh\CumpleanosController as RhCumpleanosController;
 use App\Http\Controllers\Api\V1\Rh\DashboardController as RhDashboardController;
 use App\Http\Controllers\Api\V1\Rh\DocumentoController as RhDocumentoController;
@@ -99,9 +100,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('registrar', [IncorporacionInvitacionController::class, 'registrar'])->name('registrar');
         });
 
-    Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
+    // contrasena.temporal: con contraseña temporal solo responden logout, me
+    // y cambiar-contrasena; lo demás da 403 «cambio_contrasena_requerido».
+    Route::middleware(['auth:sanctum', 'throttle:api', 'contrasena.temporal'])->group(function () {
         Route::post('logout', [AuthController::class, 'logout'])->name('logout');
         Route::get('me', [AuthController::class, 'me'])->name('me');
+        Route::post('cambiar-contrasena', [AuthController::class, 'cambiarContrasena'])->name('cambiar-contrasena')->middleware('throttle:api-reautenticar');
         Route::post('reautenticar', [AuthController::class, 'reautenticar'])->name('reautenticar')->middleware('throttle:api-reautenticar');
 
         // Contexto inicial de la app tras autenticarse: quien es, que puede
@@ -349,6 +353,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::prefix('colaboradores')->name('colaboradores.')->group(function () {
                 Route::get('/', [RhColaboradorController::class, 'index'])->name('index');
                 Route::get('{colaborador}', [RhColaboradorController::class, 'show'])->name('show');
+                // Usuario + contraseña temporal (sin correo), docs/AUTENTICACION.md.
+                Route::post('{colaborador}/credenciales', [RhCredencialesController::class, 'store'])->name('credenciales')->middleware('throttle:api-reautenticar');
             });
 
             Route::get('vacantes', [RhVacanteController::class, 'index'])->name('vacantes.index');

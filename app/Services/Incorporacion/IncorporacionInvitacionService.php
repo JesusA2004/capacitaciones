@@ -331,7 +331,7 @@ class IncorporacionInvitacionService
                 throw InvitacionInvalidaException::usado();
             }
 
-            if ($invitacion->email !== null && mb_strtolower($invitacion->email) !== mb_strtolower($datos['email'])) {
+            if ($invitacion->email !== null && filled($datos['email'] ?? null) && mb_strtolower($invitacion->email) !== mb_strtolower((string) $datos['email'])) {
                 throw InvitacionInvalidaException::correoNoCoincide();
             }
 
@@ -372,7 +372,7 @@ class IncorporacionInvitacionService
                     'colaborador_id' => $colaborador->id,
                     'name' => $datos['name'],
                     'apellidos' => $datos['apellidos'] ?? null,
-                    'email' => $datos['email'],
+                    'email' => $datos['email'] ?? null,
                     'password' => Hash::make($datos['password']),
                 ]);
             } catch (QueryException $e) {
@@ -428,7 +428,7 @@ class IncorporacionInvitacionService
             if ($cuenta !== null) {
                 // Reingreso con cuenta bloqueada: se reutiliza la misma cuenta.
                 $cuenta->forceFill([
-                    'email' => $datos['email'],
+                    'email' => $datos['email'] ?? $cuenta->email,
                     'password' => Hash::make($datos['password']),
                     'acceso_bloqueado_en' => null,
                     'acceso_bloqueado_motivo' => null,
@@ -440,7 +440,7 @@ class IncorporacionInvitacionService
                     'colaborador_id' => $colaborador->id,
                     'name' => $colaborador->name,
                     'apellidos' => $colaborador->apellidos,
-                    'email' => $datos['email'],
+                    'email' => $datos['email'] ?? null,
                     'password' => Hash::make($datos['password']),
                 ]);
             }

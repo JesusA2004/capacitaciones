@@ -38,8 +38,9 @@ trait ProfileValidationRules
      */
     protected function emailRules(?int $userId = null): array
     {
+        // Opcional: el login es por usuario, no por correo (docs/AUTENTICACION.md).
         return [
-            'required',
+            'nullable',
             'string',
             'email',
             'max:255',

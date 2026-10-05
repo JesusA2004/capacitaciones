@@ -45,28 +45,38 @@ composer dev
 
 Levanta en paralelo el servidor de Laravel, el worker de colas (`queue:listen`) y Vite. La app queda disponible en `http://localhost:8000`.
 
+## Autenticación MR. LANA PEOPLE
+
+- **Usuario: primer nombre + primer apellido** (p. ej. `Jesus Arizmendi`; si se repite, `Jesus Arizmendi2`).
+- **Contraseña inicial: temporal, generada por el sistema** (8 caracteres); se pide cambiarla al primer inicio de sesión.
+- **El correo es opcional** y ya no se usa como identificador principal para iniciar sesión.
+
+Detalle en `docs/AUTENTICACION.md`.
+
 ## Usuarios de desarrollo (seeder)
 
-`database/seeders/UsuarioDemoSeeder.php` crea un colaborador por cada rol del sistema. **Contraseña de todos ellos, exclusiva para desarrollo: `Capacitacion2026!`** (nunca usar en producción).
+`database/seeders/UsuarioDemoSeeder.php` crea un colaborador por cada rol del sistema. **Se entra con el USUARIO (primer nombre + primer apellido), no con el correo.** Contraseña de todos ellos, exclusiva para desarrollo: `Capacitacion2026!` (nunca usar en producción). El correo es solo un dato de contacto (opcional).
 
-| Correo | Rol |
-|---|---|
-| superadmin@mrlana.test | super_admin |
-| admin.capacitacion@mrlana.test | administrador_capacitacion |
-| instructor@mrlana.test | instructor |
-| gerente.sucursal@mrlana.test | gerente_sucursal |
-| supervisor@mrlana.test | supervisor |
-| colaborador1@mrlana.test / colaborador2@mrlana.test | colaborador |
-| auditor@mrlana.test | auditor |
-| rh.admin@mrlana.test | rh_admin |
-| rh.auxiliar@mrlana.test | rh_auxiliar |
-| director.comercial@mrlana.test | director_comercial |
-| gerente.regional@mrlana.test | gerente_regional |
-| gerente@mrlana.test | gerente |
-| subgerente@mrlana.test | subgerente |
-| coordinadora.regional@mrlana.test | coordinadora_regional |
-| coordinadora@mrlana.test | coordinadora |
-| jefe.directo@mrlana.test | jefe_directo |
+| Usuario | Rol | Correo (opcional) |
+|---|---|---|
+| Ana Martinez | super_admin | superadmin@mrlana.test |
+| Luis Hernandez | administrador_capacitacion | admin.capacitacion@mrlana.test |
+| Carla Villegas | instructor | instructor@mrlana.test |
+| Jorge Ramirez | gerente_sucursal | gerente.sucursal@mrlana.test |
+| Paola Cordero | supervisor | supervisor@mrlana.test |
+| Miguel Torres / Daniela Flores | colaborador | colaborador1@mrlana.test / colaborador2@mrlana.test |
+| Roberto Salinas | auditor | auditor@mrlana.test |
+| Sofia Reyes | rh_admin | rh.admin@mrlana.test |
+| Ivan Cabrera | rh_auxiliar | rh.auxiliar@mrlana.test |
+| Fernanda Ochoa | director_comercial | director.comercial@mrlana.test |
+| Hector Bravo | gerente_regional | gerente.regional@mrlana.test |
+| Claudia Estrada | gerente | gerente@mrlana.test |
+| Ricardo Zamora | subgerente | subgerente@mrlana.test |
+| Adriana Cortes | coordinadora_regional | coordinadora.regional@mrlana.test |
+| Brenda Najera | coordinadora | coordinadora@mrlana.test |
+| Diego Ponce | jefe_directo | jefe.directo@mrlana.test |
+
+El usuario no distingue mayúsculas ni acentos («sofia reyes» = «Sofía Reyes»). Si dos personas comparten primer nombre + primer apellido, la segunda queda con sufijo («Sofia Reyes2»).
 
 `database/seeders/CursoInduccionSeeder.php` crea además un curso de inducción de ejemplo publicado, con módulos y lecciones (texto, video/documento simulados y confirmación de lectura).
 
@@ -108,7 +118,7 @@ Autenticación por token Sanctum — ver `docs/API_MOVIL.md` para el detalle com
 ejemplos de request/response. Resumen:
 
 ```
-POST /api/v1/login                    { email, password } -> { token }
+POST /api/v1/login                    { username, password } -> { token, debe_cambiar_contrasena }
 GET  /api/v1/me                       Usuario autenticado
 GET  /api/v1/colaborador/perfil       Perfil del colaborador autenticado
 GET  /api/v1/colaborador/dashboard
@@ -209,6 +219,6 @@ Documentación heredada del módulo de capacitación (oculto tras feature flag, 
 
 ## Notas de seguridad
 
-- Los colaboradores no se auto-registran: los crea un administrador desde **Administración → Colaboradores**, y el sistema les envía un correo para establecer su propia contraseña (nunca se genera ni se envía una contraseña en texto plano).
+- Los colaboradores no se auto-registran: los crea RH/administración. Inician sesión con su usuario (primer nombre + primer apellido); quien tiene correo puede recibir un enlace para establecer su contraseña, y quien no, recibe de RH una contraseña temporal que debe cambiar al entrar (`docs/AUTENTICACION.md`). En la BD solo se guarda el hash.
 - La autorización de cada acción vive en el backend (Policies + permisos de Spatie), no solo en la interfaz.
 - Ver `docs/SEGURIDAD.md` para el detalle completo y el checklist antes de desplegar a producción (`APP_DEBUG=false`, caché de config/rutas/vistas, HTTPS, colas, scheduler, correo real).

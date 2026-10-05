@@ -3,6 +3,8 @@
 use App\Models\Colaborador;
 use App\Models\Departamento;
 use App\Models\DocumentTemplate;
+use App\Models\DocumentType;
+use App\Models\EmployeeDocument;
 use App\Models\Empresa;
 use App\Models\Puesto;
 use App\Models\Sucursal;
@@ -141,6 +143,24 @@ function dmMotorFielDePrueba(): array
 function clArchivoPdf(string $nombre = 'documento.pdf'): UploadedFile
 {
     return UploadedFile::fake()->create($nombre, 20, 'application/pdf');
+}
+
+/**
+ * Aprueba los documentos obligatorios del checklist (migración
+ * 2026_10_05_160000): el paquete de alta solo se habilita con el
+ * expediente completo.
+ */
+function clExpedienteCompleto(Colaborador $colaborador): Colaborador
+{
+    foreach (DocumentType::query()->where('requerido', true)->where('activo', true)->get() as $tipo) {
+        EmployeeDocument::factory()->aprobado()->create([
+            'user_id' => null,
+            'colaborador_id' => $colaborador->id,
+            'document_type_id' => $tipo->id,
+        ]);
+    }
+
+    return $colaborador;
 }
 
 /**

@@ -51,8 +51,8 @@ import FotoPerfilCaptura from '@/components/Common/FotoPerfilCaptura.vue';
 import InputError from '@/components/InputError.vue';
 import CampoInfo from '@/components/Rh/CampoInfo.vue';
 import ConfirmarEntregaPrestamoDialog from '@/components/Rh/ConfirmarEntregaPrestamoDialog.vue';
-import EstablecerPasswordDialog from '@/components/Rh/EstablecerPasswordDialog.vue';
 import ExpedienteDocumentos from '@/components/Rh/ExpedienteDocumentos.vue';
+import GenerarCredencialesDialog from '@/components/Rh/GenerarCredencialesDialog.vue';
 import MovimientosLaboralesTimeline from '@/components/Rh/MovimientosLaboralesTimeline.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -96,7 +96,6 @@ import { formatearFecha } from '@/lib/fechas';
 import {
     restablecerAcceso,
     revocarAcceso,
-    store as crearCuentaUsuario,
     update as actualizarCuentaUsuario,
 } from '@/routes/administracion/usuarios';
 import { foto as subirFotoPropia } from '@/routes/portal';
@@ -317,34 +316,11 @@ const anilloExpediente = computed(
         `conic-gradient(var(--primary) ${props.resumenExpediente.porcentaje * 3.6}deg, var(--primary-foreground, var(--muted)) 0deg)`,
 );
 
-// --- Cuenta de acceso: crear (colaborador sin cuenta todavía) ---
+// --- Cuenta de acceso: la crea «Generar credenciales» (sin correo) ---
 function alternarRol(lista: string[], rol: string, marcado: boolean): string[] {
     return marcado
         ? [...new Set([...lista, rol])]
         : lista.filter((r) => r !== rol);
-}
-
-const formCrearCuenta = useForm({
-    email: props.colaborador.correo_personal ?? '',
-    roles: [] as string[],
-});
-
-function crearCuenta() {
-    formCrearCuenta
-        .transform((datos) => ({
-            colaborador_id: props.colaborador.id,
-            email: datos.email,
-            roles: datos.roles,
-        }))
-        .post(crearCuentaUsuario.url(), {
-            preserveScroll: true,
-            onSuccess: () =>
-                mostrarExito(
-                    'Cuenta creada. Se envió un correo para que establezca su contraseña.',
-                ),
-            onError: () =>
-                mostrarError('No se pudo crear la cuenta de acceso.'),
-        });
 }
 
 // --- Cuenta de acceso: editar correo/roles (colaborador con cuenta) ---
@@ -1715,75 +1691,22 @@ const pestanaInicial = (() => {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <form
-                                    class="flex flex-col gap-4"
-                                    @submit.prevent="crearCuenta"
-                                >
-                                    <div class="grid gap-2">
-                                        <Label for="crear-email"
-                                            >Correo de acceso</Label
-                                        >
-                                        <Input
-                                            id="crear-email"
-                                            v-model="formCrearCuenta.email"
-                                            type="email"
-                                        />
-                                        <InputError
-                                            :message="
-                                                formCrearCuenta.errors.email
-                                            "
-                                        />
-                                    </div>
-                                    <div class="grid gap-2">
-                                        <Label>Roles</Label>
-                                        <div
-                                            class="grid max-h-40 grid-cols-2 gap-2 overflow-y-auto rounded-lg border p-2"
-                                        >
-                                            <label
-                                                v-for="rol in rolesDisponibles"
-                                                :key="rol"
-                                                class="flex items-center gap-2 text-sm capitalize"
-                                            >
-                                                <Checkbox
-                                                    :model-value="
-                                                        formCrearCuenta.roles.includes(
-                                                            rol,
-                                                        )
-                                                    "
-                                                    @update:model-value="
-                                                        (v) =>
-                                                            (formCrearCuenta.roles =
-                                                                alternarRol(
-                                                                    formCrearCuenta.roles,
-                                                                    rol,
-                                                                    !!v,
-                                                                ))
-                                                    "
-                                                />
-                                                {{ rol.replace(/_/g, ' ') }}
-                                            </label>
-                                        </div>
-                                        <InputError
-                                            :message="
-                                                formCrearCuenta.errors.roles
-                                            "
-                                        />
-                                    </div>
-                                    <p class="text-xs text-muted-foreground">
-                                        Se enviará un correo al colaborador para
-                                        que establezca su propia contraseña.
+                                <div class="flex flex-col gap-3">
+                                    <p class="text-sm text-muted-foreground">
+                                        Usuario = primer nombre + primer
+                                        apellido; no se necesita correo. Se crea
+                                        la cuenta con una contraseña temporal
+                                        que copias y entregas en privado.
                                     </p>
                                     <Button
-                                        type="submit"
                                         class="w-fit"
-                                        :disabled="formCrearCuenta.processing"
+                                        data-test="abrir-generar-credenciales"
+                                        @click="dialogoPasswordAbierto = true"
                                     >
-                                        <Spinner
-                                            v-if="formCrearCuenta.processing"
-                                        />
-                                        Crear cuenta
+                                        <KeyRound class="size-4" />
+                                        Generar credenciales
                                     </Button>
-                                </form>
+                                </div>
                             </CardContent>
                         </Card>
                         <p v-else class="text-sm text-muted-foreground">
@@ -1821,7 +1744,7 @@ const pestanaInicial = (() => {
                                     >
                                         <div class="grid gap-2">
                                             <Label for="cuenta-email"
-                                                >Correo de acceso</Label
+                                                >Correo (opcional)</Label
                                             >
                                             <Input
                                                 id="cuenta-email"
@@ -2010,7 +1933,7 @@ const pestanaInicial = (() => {
                                     @click="dialogoPasswordAbierto = true"
                                 >
                                     <KeyRound class="size-3.5" />
-                                    Establecer contraseña nueva
+                                    Generar credenciales
                                 </Button>
                                 <p
                                     v-else-if="esCuentaPropia"
@@ -2807,11 +2730,13 @@ const pestanaInicial = (() => {
         </Tabs>
     </div>
 
-    <EstablecerPasswordDialog
-        v-if="dialogoPasswordAbierto && colaborador.usuario_id !== null"
+    <GenerarCredencialesDialog
+        v-if="dialogoPasswordAbierto"
         v-model:open="dialogoPasswordAbierto"
-        :colaborador-id="colaborador.usuario_id"
+        :colaborador-id="colaborador.id"
         :colaborador-nombre="`${colaborador.name} ${colaborador.apellidos ?? ''}`"
+        :tiene-cuenta="colaborador.tiene_cuenta"
+        @generadas="router.reload()"
     />
 
     <ConfirmarEntregaPrestamoDialog

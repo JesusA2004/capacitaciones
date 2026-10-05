@@ -77,7 +77,8 @@ class ConversionColaboradorService
                 'colaborador_id' => $colaborador->id,
                 'name' => $alta->nombre,
                 'apellidos' => $alta->apellidos,
-                'email' => $alta->correo,
+                // Opcional y nunca inventado; si otra cuenta ya lo usa, se omite.
+                'email' => $alta->correo !== null && User::withTrashed()->where('email', $alta->correo)->doesntExist() ? $alta->correo : null,
                 'password' => Hash::make(Str::random(40)),
             ]);
 
@@ -176,7 +177,10 @@ class ConversionColaboradorService
 
             $this->movimientos->registrarAlta($colaborador, $aprobadoPor, $alta, $alta->vacante_id);
 
-            Password::broker()->sendResetLink(['email' => $usuario->email]);
+            // Sin correo no hay enlace: RH entrega el acceso con «Generar credenciales».
+            if ($usuario->email !== null) {
+                Password::broker()->sendResetLink(['email' => $usuario->email]);
+            }
 
             return $usuario;
         });

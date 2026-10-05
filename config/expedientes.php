@@ -77,6 +77,9 @@ return [
         // se hace match aproximado: sin match = conflicto.
         'alias_puestos' => [],
 
+        // Igual para «Departamento»: sin match = CONFLICTO, nunca se crea.
+        'alias_departamentos' => [],
+
         // Personas de la hoja CONTACTOS_SIN_MATCH: nunca se importan solas.
         'personas_excluidas' => [
             'JESUS ENRIQUE OCAMPO PEREZ',

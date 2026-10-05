@@ -121,12 +121,14 @@ class AltaColaboradorService
 
             $usuario = null;
 
-            if (($datos['crear_acceso'] ?? true) && ! empty($datos['email'])) {
+            // Cuenta con o sin correo: usuario = primer nombre + primer apellido
+            // (lo asigna User). RH le entrega acceso con «Generar credenciales».
+            if ($datos['crear_acceso'] ?? true) {
                 $usuario = User::query()->create([
                     'colaborador_id' => $colaborador->id,
                     'name' => $colaborador->name,
                     'apellidos' => $colaborador->apellidos,
-                    'email' => $datos['email'],
+                    'email' => filled($datos['email'] ?? null) ? $datos['email'] : null,
                     'password' => Hash::make(Str::random(40)),
                 ]);
                 $usuario->assignRole('colaborador');
@@ -174,7 +176,8 @@ class AltaColaboradorService
         // obligatorios aprobados), ver recalcularEstado().
         $this->abrirTareasExpediente($colaborador);
 
-        if ($resultado['usuario'] !== null) {
+        // Solo quien dio correo recibe el enlace; sin correo, RH usa «Generar credenciales».
+        if ($resultado['usuario'] !== null && $resultado['usuario']->email !== null) {
             try {
                 Password::broker()->sendResetLink(['email' => $resultado['usuario']->email]);
             } catch (Throwable $e) {

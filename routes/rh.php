@@ -4,6 +4,7 @@ use App\Http\Controllers\Rh\AltaDigitalController;
 use App\Http\Controllers\Rh\CampanaReclutamientoController;
 use App\Http\Controllers\Rh\CandidatoController;
 use App\Http\Controllers\Rh\CelebracionRhController;
+use App\Http\Controllers\Rh\CredencialesController;
 use App\Http\Controllers\Rh\CumpleanosConfiguracionController;
 use App\Http\Controllers\Rh\CumpleanosController;
 use App\Http\Controllers\Rh\DocumentExtraccionController;
@@ -34,6 +35,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('mis-recibos/{recibo}/pdf', [NominaController::class, 'pdf'])->name('portal.recibos.pdf');
 
     Route::prefix('rh')->name('rh.')->group(function () {
+        // «Generar credenciales»: usuario + contraseña temporal, sin correo
+        // (docs/AUTENTICACION.md). Permiso y alcance en CredencialesService.
+        Route::post('colaboradores/{colaborador}/credenciales', [CredencialesController::class, 'store'])
+            ->name('colaboradores.credenciales')->middleware('throttle:20,1');
+
         // Recibos de nómina quincenales (docs/NOMINA_QUINCENAL.md).
         Route::prefix('nomina')->name('nomina.')->group(function () {
             Route::get('/', [NominaController::class, 'index'])->name('index');

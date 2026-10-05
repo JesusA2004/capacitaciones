@@ -2,6 +2,7 @@
 
 use App\Enums\EstadoUsuario;
 use App\Models\Colaborador;
+use App\Models\Departamento;
 use App\Models\Empresa;
 use App\Models\ExpedienteHistorico;
 use App\Models\MigracionExpedientes;
@@ -11,6 +12,8 @@ use App\Models\User;
 use App\Services\Expedientes\MigracionInicial\ExpedientesInitialMigrationService;
 use Database\Seeders\DocumentTypeSeeder;
 use Database\Seeders\RolesYPermisosSeeder;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -31,12 +34,16 @@ beforeEach(function () {
     $this->cuernavaca = Sucursal::factory()->create(['nombre' => 'Cuernavaca', 'empresa_id' => $empresa->id]);
     $this->atlacomulco = Sucursal::factory()->create(['nombre' => 'Atlacomulco', 'empresa_id' => $empresa->id]);
     Sucursal::factory()->create(['nombre' => 'Corporativo', 'empresa_id' => $empresa->id]);
-    $this->puesto = Puesto::factory()->create(['nombre' => 'Gestor']);
+    $this->departamento = Departamento::factory()->create(['nombre' => 'Ventas']);
+    $this->puesto = Puesto::factory()->create(['nombre' => 'Gestor', 'departamento_id' => $this->departamento->id]);
     $this->rh = clUsuario('rh_admin');
     $this->servicio = app(ExpedientesInitialMigrationService::class);
 });
 
 /**
+ * Encabezados de MR_LANA_PEOPLE_BASE_GENERAL_MIGRACION_FINAL.xlsx, en un
+ * orden DISTINTO al real (el lector reconoce por nombre, no por posición).
+ *
  * @param  list<array<string, string|null>>  $filas
  */
 function miExcel(array $filas): string
@@ -44,7 +51,7 @@ function miExcel(array $filas): string
     $libro = new Spreadsheet;
     $hoja = $libro->getActiveSheet();
     $hoja->setTitle('BASE_GENERAL');
-    $encabezados = ['Clave', 'Nombre', 'Apellido paterno', 'Apellido materno', 'Correo electrónico', 'CURP', 'RFC', 'Fecha de nacimiento', 'Fecha de alta', 'Estatus laboral', 'Sucursal', 'Puesto', 'Condición médica', 'Alergias'];
+    $encabezados = ['Clave', 'Puesto', 'Nombre completo', 'Nombre', 'Apellido paterno', 'Apellido materno', 'Departamento', 'Correo electrónico', 'Teléfono BD', 'RFC', 'CURP', 'NSS / Afiliación IMSS', 'Fecha de nacimiento', 'Sexo', 'Fecha de alta', 'Estatus laboral', 'Sucursal origen', 'Sucursal normalizada', 'Teléfono personal (contactos)', 'Condición médica crónica', 'Alergias', 'Contacto de emergencia', 'Parentesco', 'Teléfono emergencia', 'Dirección contacto emergencia', 'Match contacto', 'Score match', 'Migrar expediente NAS', 'Observaciones de calidad', 'Hoja origen', 'Fila origen', 'Empresa', 'Sucursal oficial'];
     $hoja->fromArray($encabezados, null, 'A1');
 
     foreach ($filas as $i => $f) {
@@ -65,7 +72,9 @@ function miFila(array $extra = []): array
         'Clave' => '130', 'Nombre' => 'José Alberto', 'Apellido paterno' => 'Carlos', 'Apellido materno' => 'Bueno',
         'Correo electrónico' => 'jose.carlos@mrlana.test', 'CURP' => 'CABA900101HMSRNL09', 'RFC' => null,
         'Fecha de nacimiento' => '01/01/1990', 'Fecha de alta' => '19/02/2024', 'Estatus laboral' => 'Alta',
-        'Sucursal' => 'CUERNAVACA', 'Puesto' => 'Gestor', 'Condición médica' => 'Asma', 'Alergias' => 'Penicilina',
+        'Sucursal oficial' => 'CUERNAVACA', 'Sucursal origen' => 'CUERNAVACA 2', 'Empresa' => 'Mr. Lana', 'Departamento' => 'Ventas',
+        'Puesto' => 'Gestor', 'Condición médica crónica' => 'Asma', 'Alergias' => 'Penicilina', 'Match contacto' => 'SI',
+        'Contacto de emergencia' => 'MARIA BUENO', 'Parentesco' => 'Madre', 'Teléfono emergencia' => '7771234567', 'Hoja origen' => 'CUERNAVACA', 'Fila origen' => '12',
         ...$extra,
     ];
 }
@@ -99,15 +108,15 @@ test('BD vacía: crea colaborador, vincula su PDF histórico único en sitio y g
         ->and($colaborador->expedientesHistoricos()->count())->toBe(1)
         // El PDF histórico NO es un documento del checklist.
         ->and($colaborador->documentos()->count())->toBe(0)
-        ->and(User::query()->where('email', 'jose.carlos@mrlana.test')->exists())->toBeTrue();
+        ->and(User::query()->where('username', 'Jose Carlos')->value('email'))->toBe('jose.carlos@mrlana.test');
 
     // No se copió ni se renombró nada: el archivo sigue donde estaba.
     Storage::disk('nas')->assertExists('expedientes/Mr. Lana/CUERNAVACA/ALBERTO CARLOS BUENO 19-02-2024/José Alberto Carlos Bueno (1).pdf');
     expect(Storage::disk('nas')->allFiles('expedientes'))->toHaveCount(1);
 
     $credenciales = $this->servicio->credenciales($migracion->fresh());
-    expect($credenciales[0]['usuario'])->toBe('jose.carlos@mrlana.test')
-        ->and($credenciales[0]['contrasena'])->toStartWith('Lana-')
+    expect($credenciales[0]['usuario'])->toBe('Jose Carlos')
+        ->and(strlen((string) $credenciales[0]['contrasena']))->toBe(8)
         ->and($credenciales[0]['puesto'])->toBe('Gestor');
 });
 
@@ -123,7 +132,7 @@ test('reimportar el mismo Excel es idempotente', function () {
 
     expect(Colaborador::query()->count())->toBe(2) // + la persona del usuario RH de la prueba
         ->and(ExpedienteHistorico::query()->count())->toBe(1)
-        ->and(User::query()->where('email', 'jose.carlos@mrlana.test')->count())->toBe(1);
+        ->and(User::query()->where('username', 'Jose Carlos')->count())->toBe(1);
 });
 
 test('CURP repetida y Clave repetida: la CURP es conflicto, la Clave solo advertencia', function () {
@@ -142,9 +151,9 @@ test('CURP repetida y Clave repetida: la CURP es conflicto, la Clave solo advert
 test('sucursal: alias aceptado, desconocida o fuera de whitelist es conflicto, excluida se omite', function () {
     $sucursalesAntes = Sucursal::query()->count();
     $plan = $this->servicio->analizar(miExcel([
-        miFila(['Sucursal' => 'ATLACOMULC']),
-        miFila(['CURP' => 'AAAA900101HMSRNL01', 'Nombre' => 'Uno', 'Correo electrónico' => null, 'Sucursal' => 'PACHUCA']),
-        miFila(['CURP' => 'BBBB900101HMSRNL02', 'Nombre' => 'Dos', 'Correo electrónico' => null, 'Sucursal' => 'AGUASCALIENTES']),
+        miFila(['Sucursal oficial' => 'ATLACOMULC']),
+        miFila(['CURP' => 'AAAA900101HMSRNL01', 'Nombre' => 'Uno', 'Correo electrónico' => null, 'Sucursal oficial' => 'PACHUCA']),
+        miFila(['CURP' => 'BBBB900101HMSRNL02', 'Nombre' => 'Dos', 'Correo electrónico' => null, 'Sucursal oficial' => 'AGUASCALIENTES']),
     ]), 'base.xlsx', $this->rh)->planArray();
 
     expect($plan['filas'][0]['sucursal_id'])->toBe($this->atlacomulco->id)
@@ -251,4 +260,148 @@ test('solo quien tiene expedientes.migrar ve y usa la migración', function () {
     $migracion = MigracionExpedientes::query()->create(['archivo_nombre' => 'x.xlsx', 'archivo_hash' => 'x', 'estado' => 'analizado', 'plan' => '{}']);
     $this->actingAs($colaborador)->post("/rh/expedientes/migracion-inicial/{$migracion->id}/aplicar", ['modo' => 'copiar', 'confirmacion' => true])->assertForbidden();
     $this->actingAs($colaborador)->get("/rh/expedientes/migracion-inicial/{$migracion->id}/credenciales")->assertForbidden();
+});
+
+test('cuentas: JESUS ENRIQUE + ARIZMENDI → «Jesus Arizmendi»; sin correo también obtiene cuenta; colisiones 2 y 3', function () {
+    $migracion = $this->servicio->analizar(miExcel([
+        miFila(['Nombre' => 'JESUS ENRIQUE', 'Apellido paterno' => 'ARIZMENDI', 'Apellido materno' => 'PEREZ', 'CURP' => 'AIPJ900101HMSRRS01', 'Correo electrónico' => 'jesus@mrlana.test']),
+        miFila(['Nombre' => 'JESUS', 'Apellido paterno' => 'ARIZMENDI', 'Apellido materno' => 'LOPEZ', 'CURP' => 'AILJ900101HMSRRS02', 'Correo electrónico' => null, 'Clave' => '131']),
+        miFila(['Nombre' => 'JESÚS MARÍA', 'Apellido paterno' => 'ARIZMENDI', 'Apellido materno' => 'RUIZ', 'CURP' => 'AIRJ900101HMSRRS03', 'Correo electrónico' => null, 'Clave' => '132']),
+    ]), 'base.xlsx', $this->rh);
+
+    $plan = $migracion->planArray();
+    expect(array_column(array_column($plan['filas'], 'cuenta'), 'usuario'))->toBe(['Jesus Arizmendi', 'Jesus Arizmendi2', 'Jesus Arizmendi3'])
+        ->and(array_column(array_column($plan['filas'], 'cuenta'), 'estado'))->toBe(['nueva', 'colision_resuelta', 'colision_resuelta'])
+        // Dry-run: no reserva ni escribe cuentas.
+        ->and(User::query()->where('username', 'like', 'Jesus Arizmendi%')->count())->toBe(0);
+
+    $resultado = $this->servicio->aplicar($migracion, $this->rh);
+
+    expect($resultado['cuentas_creadas'])->toBe(3);
+
+    $sinCorreo = User::query()->where('username', 'Jesus Arizmendi2')->firstOrFail();
+    $conCorreo = User::query()->where('username', 'Jesus Arizmendi')->firstOrFail();
+
+    expect($sinCorreo->email)->toBeNull()
+        ->and($conCorreo->email)->toBe('jesus@mrlana.test')
+        // Mismo tipo de cuenta, con o sin correo.
+        ->and($sinCorreo->debe_cambiar_contrasena)->toBeTrue()
+        ->and($conCorreo->debe_cambiar_contrasena)->toBeTrue()
+        ->and($sinCorreo->hasRole('colaborador'))->toBeTrue()
+        ->and($conCorreo->hasRole('colaborador'))->toBeTrue();
+
+    // users.password es solo el hash; la contraseña en claro solo vive en la lista cifrada.
+    $credenciales = collect($this->servicio->credenciales($migracion->fresh()))->keyBy('usuario');
+    $temporal = (string) $credenciales['Jesus Arizmendi2']['contrasena'];
+
+    expect($sinCorreo->password)->not->toBe($temporal)
+        ->and(Hash::check($temporal, $sinCorreo->password))->toBeTrue()
+        ->and(Storage::disk('local')->get((string) $migracion->fresh()->credenciales_path))->not->toContain($temporal);
+
+    // Y con ella entra por usuario (sin correo) y se le pide cambiarla.
+    $this->post(route('logout'));
+    $this->post(route('login.store'), ['username' => ' jesus arizmendi2 ', 'password' => " {$temporal} "]);
+    $this->assertAuthenticatedAs($sinCorreo);
+    $this->get(route('dashboard'))->assertRedirect(route('contrasena-temporal.edit'));
+});
+
+test('reimportar conserva el username ya asignado y no cambia la contraseña', function () {
+    $this->servicio->aplicar($this->servicio->analizar(miExcel([miFila()]), 'base.xlsx', $this->rh), $this->rh);
+    $cuenta = User::query()->where('username', 'Jose Carlos')->firstOrFail();
+    $hash = $cuenta->password;
+
+    // Aunque cambie el nombre en el Excel, la cuenta existente conserva su usuario.
+    $segunda = $this->servicio->analizar(miExcel([miFila(['Nombre' => 'Alberto'])]), 'base.xlsx', $this->rh);
+    expect($segunda->planArray()['filas'][0]['cuenta'])->toBe(['usuario' => 'Jose Carlos', 'estado' => 'existente']);
+
+    $resultado = $this->servicio->aplicar($segunda, $this->rh);
+
+    expect($resultado['cuentas_creadas'])->toBe(0)
+        ->and($resultado['cuentas_existentes'])->toBe(1)
+        ->and($cuenta->fresh()->username)->toBe('Jose Carlos')
+        ->and($cuenta->fresh()->password)->toBe($hash)
+        ->and(User::query()->count())->toBe(2);
+});
+
+test('una baja no obtiene cuenta nueva; si reingresa reutiliza el colaborador y obtiene cuenta', function () {
+    $migracion = $this->servicio->analizar(miExcel([miFila(['Estatus laboral' => 'Baja'])]), 'base.xlsx', $this->rh);
+
+    expect($migracion->planArray()['filas'][0]['cuenta']['estado'])->toBe('baja');
+    $this->servicio->aplicar($migracion, $this->rh);
+
+    $colaborador = Colaborador::query()->where('curp', 'CABA900101HMSRNL09')->firstOrFail();
+    expect($colaborador->estatus)->toBe(EstadoUsuario::Inactivo)
+        ->and(User::query()->where('colaborador_id', $colaborador->id)->exists())->toBeFalse();
+
+    $this->servicio->aplicar($this->servicio->analizar(miExcel([miFila()]), 'base.xlsx', $this->rh), $this->rh);
+
+    expect(Colaborador::query()->where('curp', 'CABA900101HMSRNL09')->count())->toBe(1)
+        ->and($colaborador->fresh()->estatus)->toBe(EstadoUsuario::Activo)
+        ->and(User::query()->where('colaborador_id', $colaborador->id)->value('username'))->toBe('Jose Carlos');
+});
+
+test('reingreso con cuenta previa bloqueada: conserva el username y le devuelve el acceso', function () {
+    $this->servicio->aplicar($this->servicio->analizar(miExcel([miFila()]), 'base.xlsx', $this->rh), $this->rh);
+    $cuenta = User::query()->where('username', 'Jose Carlos')->firstOrFail();
+    Colaborador::query()->where('id', $cuenta->colaborador_id)->update(['estatus' => EstadoUsuario::Inactivo->value]);
+    $cuenta->forceFill(['acceso_bloqueado_en' => now(), 'acceso_bloqueado_motivo' => 'Baja'])->save();
+
+    $resultado = $this->servicio->aplicar($this->servicio->analizar(miExcel([miFila()]), 'base.xlsx', $this->rh), $this->rh);
+
+    expect($resultado['cuentas_reactivadas'])->toBe(1)
+        ->and($cuenta->fresh()->acceso_bloqueado_en)->toBeNull()
+        ->and($cuenta->fresh()->username)->toBe('Jose Carlos');
+});
+
+test('departamento/puesto/empresa: solo match exacto; desconocido es conflicto y no se crea', function () {
+    $antes = [Departamento::query()->count(), Puesto::query()->count()];
+    $plan = $this->servicio->analizar(miExcel([
+        miFila(['Departamento' => 'Astronáutica']),
+        miFila(['CURP' => 'AAAA900101HMSRNL01', 'Nombre' => 'Uno', 'Correo electrónico' => null, 'Puesto' => 'Gestora']),
+        miFila(['CURP' => 'BBBB900101HMSRNL02', 'Nombre' => 'Dos', 'Correo electrónico' => null, 'Empresa' => 'Otra SA']),
+        miFila(['CURP' => 'CCCC900101HMSRNL03', 'Nombre' => 'Tres', 'Correo electrónico' => null, 'Departamento' => null]),
+    ]), 'base.xlsx', $this->rh)->planArray();
+
+    expect(array_column($plan['filas'], 'operacion'))->toBe(['conflicto', 'conflicto', 'conflicto', 'conflicto'])
+        ->and(implode(' ', $plan['filas'][0]['motivos']))->toContain('DEPARTAMENTO NO ENCONTRADO')
+        ->and(implode(' ', $plan['filas'][1]['motivos']))->toContain('PUESTO NO ENCONTRADO')
+        ->and(implode(' ', $plan['filas'][2]['motivos']))->toContain('EMPRESA NO ENCONTRADA')
+        ->and(implode(' ', $plan['filas'][3]['motivos']))->toContain('Falta «Departamento»')
+        ->and($plan['filas'][0]['cuenta']['estado'])->toBe('no_aplica');
+    expect([Departamento::query()->count(), Puesto::query()->count()])->toBe($antes);
+});
+
+test('«Sucursal oficial» manda sobre «Sucursal origen»; Match contacto = NO no importa el contacto', function () {
+    $fila = $this->servicio->analizar(miExcel([miFila(['Sucursal origen' => 'PACHUCA', 'Match contacto' => 'NO'])]), 'base.xlsx', $this->rh)->planArray()['filas'][0];
+
+    expect($fila['sucursal_id'])->toBe($this->cuernavaca->id)
+        ->and($fila['departamento_nombre'])->toBe('Ventas')
+        ->and($fila['datos']['contacto_emergencia_nombre'])->toBeNull()
+        ->and($fila['datos']['departamento_id'])->toBe($this->departamento->id);
+});
+
+test('las contraseñas temporales no aparecen en el log, el manifiesto ni el plan', function () {
+    Log::spy();
+    $migracion = $this->servicio->analizar(miExcel([miFila()]), 'base.xlsx', $this->rh);
+    $this->servicio->aplicar($migracion, $this->rh);
+    $temporal = (string) $this->servicio->credenciales($migracion->fresh())[0]['contrasena'];
+
+    expect(strlen($temporal))->toBe(8)
+        ->and(Storage::disk('local')->get((string) $migracion->fresh()->manifiesto_path))->not->toContain($temporal)
+        ->and((string) $migracion->fresh()->getRawOriginal('plan'))->not->toContain($temporal);
+
+    foreach (['debug', 'info', 'notice', 'warning', 'error', 'critical'] as $nivel) {
+        Log::shouldNotHaveReceived($nivel, fn ($mensaje, $contexto = []) => str_contains($mensaje.json_encode($contexto), $temporal));
+    }
+});
+
+test('la lista de credenciales solo la descarga quien tiene expedientes.migrar', function () {
+    $migracion = $this->servicio->analizar(miExcel([miFila()]), 'base.xlsx', $this->rh);
+    $this->servicio->aplicar($migracion, $this->rh);
+
+    $this->actingAs(clUsuario('colaborador'))->get("/rh/expedientes/migracion-inicial/{$migracion->id}/credenciales")->assertForbidden();
+    $csv = $this->actingAs($this->rh)->get("/rh/expedientes/migracion-inicial/{$migracion->id}/credenciales")->assertOk()->streamedContent();
+
+    expect($csv)->toContain('Usuario,"Contraseña temporal",Estado')
+        ->and($csv)->toContain('Jose Carlos');
 });

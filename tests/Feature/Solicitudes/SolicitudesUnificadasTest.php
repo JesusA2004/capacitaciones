@@ -135,7 +135,7 @@ test('rh_admin puede crear una solicitud de baja y al aprobarla se bloquea el ac
     $this->post(route('logout'));
 
     $this->post(route('login.store'), [
-        'email' => $colaborador->email,
+        'username' => $colaborador->username,
         'password' => 'password',
     ])->assertSessionHasErrors();
 

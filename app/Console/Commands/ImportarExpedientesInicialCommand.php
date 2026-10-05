@@ -2,7 +2,9 @@
 
 namespace App\Console\Commands;
 
+use App\Enums\EstadoCuentaMigracion;
 use App\Models\User;
+use App\Services\Autenticacion\NombreUsuarioService;
 use App\Services\Expedientes\MigracionInicial\EjecutorMigracion;
 use App\Services\Expedientes\MigracionInicial\ExpedientesInitialMigrationService;
 use Illuminate\Console\Command;
@@ -11,7 +13,7 @@ use Throwable;
 /**
  * php artisan expedientes:importar-inicial archivo.xlsx               (dry run)
  * php artisan expedientes:importar-inicial archivo.xlsx --dry-run     (dry run)
- * php artisan expedientes:importar-inicial archivo.xlsx --apply --confirm [--mover] [--usuario=correo]
+ * php artisan expedientes:importar-inicial archivo.xlsx --apply --confirm [--mover] [--usuario="Jesus Arizmendi"]
  *
  * Mismo servicio que la pantalla de RH (no duplica lógica). Sin --apply
  * nunca modifica BD ni NAS. Ver docs/MIGRACION_INICIAL_EXPEDIENTES.md.
@@ -24,7 +26,7 @@ class ImportarExpedientesInicialCommand extends Command
                             {--apply : Ejecuta la migración}
                             {--confirm : Confirma la ejecución sin preguntar}
                             {--mover : Mueve en vez de copiar (solo origen legacy)}
-                            {--usuario= : Correo del usuario que ejecuta (por defecto, el primer super_admin)}';
+                            {--usuario= : Usuario (username) de quien ejecuta (por defecto, el primer super_admin)}';
 
     protected $description = 'Migración inicial de colaboradores (Excel) y expedientes históricos del NAS';
 
@@ -39,11 +41,11 @@ class ImportarExpedientesInicialCommand extends Command
         }
 
         $actor = $this->option('usuario')
-            ? User::query()->where('email', (string) $this->option('usuario'))->first()
+            ? app(NombreUsuarioService::class)->buscar((string) $this->option('usuario'))
             : User::role('super_admin')->orderBy('id')->first();
 
         if ($actor === null) {
-            $this->error('No se encontró el usuario que ejecuta (usa --usuario=correo).');
+            $this->error('No se encontró el usuario que ejecuta (usa --usuario="Nombre Apellido").');
 
             return self::FAILURE;
         }
@@ -60,6 +62,16 @@ class ImportarExpedientesInicialCommand extends Command
         $this->info(sprintf('Análisis #%d — origen %s: %s', $migracion->id, $plan['origen']['modo'] ?? '', $plan['origen']['ruta'] ?? ''));
         $totales = $migracion->totales ?? [];
         $this->table(['Concepto', 'Total'], array_map(fn (string $k) => [$k, $totales[$k]], array_keys($totales)));
+
+        // Usuarios propuestos (solo en memoria: el análisis no reserva nada).
+        $this->table(
+            ['Fila', 'Nombre', 'Empresa', 'Sucursal', 'Departamento', 'Puesto', 'Usuario propuesto', 'Estado cuenta', 'Estado importación'],
+            array_map(fn (array $f) => [
+                $f['fila'], $f['nombre_completo'], $f['empresa_nombre'] ?? $f['empresa_excel'] ?? '—', $f['sucursal_nombre'] ?? $f['sucursal_excel'] ?? '—',
+                $f['departamento_nombre'] ?? $f['departamento_excel'] ?? '—', $f['puesto_nombre'] ?? $f['puesto_excel'] ?? '—',
+                $f['cuenta']['usuario'] ?? '—', (EstadoCuentaMigracion::tryFrom((string) ($f['cuenta']['estado'] ?? '')) ?? EstadoCuentaMigracion::NoAplica)->etiqueta(), $f['operacion'],
+            ], array_values(array_filter((array) ($plan['filas'] ?? []), 'is_array'))),
+        );
 
         foreach (array_slice(array_values(array_filter((array) ($plan['filas'] ?? []), fn ($f) => is_array($f) && ($f['operacion'] ?? null) === 'conflicto')), 0, 50) as $f) {
             $this->warn(sprintf(' - Fila %d %s: %s', $f['fila'], $f['nombre_completo'], implode(' | ', $f['motivos'])));

@@ -11,6 +11,9 @@ use App\Models\ExpedienteHistorico;
 use App\Models\MigracionExpedientes;
 use App\Models\Sucursal;
 use App\Models\User;
+use App\Services\Administracion\AccesoCuentaService;
+use App\Services\Administracion\GeneradorPasswordService;
+use App\Services\Autenticacion\NombreUsuarioService;
 use App\Services\Colaboradores\NumeroEmpleadoService;
 use App\Services\Expedientes\DocumentoStorageService;
 use Illuminate\Support\Facades\Crypt;
@@ -18,6 +21,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -45,13 +49,19 @@ class EjecutorMigracion
     /** @var array<string, int> */
     private array $conteo = [];
 
-    /** @var array<int, int> colaborador_id => fila del Excel */
+    /** @var array<int, array<string, mixed>> colaborador_id => fila del plan */
     private array $procesados = [];
+
+    /** @var array<int, true> colaboradores que estaban de baja y el Excel reactiva (reingreso) */
+    private array $reactivados = [];
 
     public function __construct(
         private readonly DocumentoStorageService $storage,
         private readonly InventarioNasHistorico $inventario,
         private readonly NumeroEmpleadoService $numeros,
+        private readonly NombreUsuarioService $nombresUsuario,
+        private readonly GeneradorPasswordService $generadorPassword,
+        private readonly AccesoCuentaService $acceso,
     ) {}
 
     /**
@@ -62,8 +72,9 @@ class EjecutorMigracion
         $plan = $migracion->planArray();
         $decisiones = $migracion->decisiones ?? [];
         $this->manifiesto = [];
-        $this->conteo = array_fill_keys(['creados', 'actualizados', 'sin_cambios', 'conflictos', 'omitidos', 'pdfs_registrados', 'pdfs_copiados', 'pdfs_duplicados', 'pdfs_conflicto', 'historicos_creados', 'pendientes_vincular', 'sin_match', 'cuentas_creadas', 'cuentas_existentes', 'cuentas_sin_correo', 'cuentas_conflicto', 'errores'], 0);
+        $this->conteo = array_fill_keys(['creados', 'actualizados', 'sin_cambios', 'conflictos', 'omitidos', 'pdfs_registrados', 'pdfs_copiados', 'pdfs_duplicados', 'pdfs_conflicto', 'historicos_creados', 'pendientes_vincular', 'sin_match', 'revision_pendiente', 'cuentas_creadas', 'cuentas_existentes', 'cuentas_reactivadas', 'errores'], 0);
         $this->procesados = [];
+        $this->reactivados = [];
         $migracion->update(['estado' => 'aplicando', 'etapa' => 'Colaboradores y expedientes', 'modo' => $modo, 'iniciada_en' => now(), 'progreso' => 0, 'progreso_total' => count($plan['filas'] ?? []) + count($plan['carpetas_sin_persona'] ?? []), 'error' => null]);
         $rutasDecididas = [];
 
@@ -82,16 +93,26 @@ class EjecutorMigracion
                 continue;
             }
 
+            $decision = $decisiones['filas'][(string) $fila['fila']] ?? null;
+
+            // Carpeta NAS ambigua sin decisión de RH: la fila completa espera
+            // (no se crea a la persona sin su expediente decidido).
+            if (($fila['nas']['tipo'] ?? null) === 'revision' && ! is_array($decision)) {
+                $this->conteo['revision_pendiente']++;
+                $this->registrar('fila_en_revision', ['fila' => $fila['fila']]);
+
+                continue;
+            }
+
             try {
                 $colaborador = $this->guardarColaborador($fila, $actor);
-                $this->procesados[$colaborador->id] = (int) $fila['fila'];
+                $this->procesados[$colaborador->id] = $fila;
             } catch (Throwable $e) {
                 $this->error('colaborador', ['fila' => $fila['fila'], 'nombre' => $fila['nombre_completo']], $e);
 
                 continue;
             }
 
-            $decision = $decisiones['filas'][(string) $fila['fila']] ?? null;
             $ruta = is_array($decision) ? ($decision['ruta'] ?? null) : (in_array($fila['nas']['tipo'], ['exacto', 'alto'], true) ? ($fila['nas']['ruta'] ?? null) : null);
 
             if ($ruta === null || $ruta === '') {
@@ -144,75 +165,79 @@ class EjecutorMigracion
     }
 
     /**
-     * Cuenta de acceso para cada colaborador ACTIVO procesado que no tenga
-     * una. Usuario = su correo REAL del Excel (el login es por correo); sin
-     * correo no se fabrica uno: queda en la lista como «sin correo» para
-     * darle acceso después por el flujo normal. La contraseña es temporal y
-     * aleatoria; solo vive cifrada en la lista de credenciales.
+     * Cuenta de acceso para cada colaborador ACTIVO procesado
+     * (docs/AUTENTICACION.md). El correo ya no decide nada:
+     *  - Usuario = primer nombre + apellido paterno del Excel («Jesus
+     *    Arizmendi»), único; si se repite, «Jesus Arizmendi2», «…3». La
+     *    unicidad se revalida aquí (no se confía en lo propuesto en el
+     *    dry-run) y el índice UNIQUE cubre las carreras.
+     *  - Ya tenía cuenta → se conserva su username (solo se asigna si
+     *    estuviera vacío) y su contraseña. Si era un reingreso, se le
+     *    devuelve el acceso que la baja le había quitado.
+     *  - Baja → nunca se le crea cuenta (colaborador y expediente sí se conservan).
+     * Contraseña temporal: 8 caracteres (GeneradorPasswordService); en
+     * `users.password` solo va el hash y se exige cambiarla al entrar. El
+     * texto plano solo existe en la lista cifrada de credenciales: nunca en
+     * el manifiesto ni en el log.
      *
-     * @param  array<int, int>  $colaboradorIds  colaborador_id => fila
+     * @param  array<int, array<string, mixed>>  $procesados  colaborador_id => fila del plan
      * @return list<array{persona: string, numero_empleado: string|null, sucursal: string|null, puesto: string|null, usuario: string|null, contrasena: string|null, estado: string}>
      */
-    private function crearCuentas(array $colaboradorIds, User $actor): array
+    private function crearCuentas(array $procesados, User $actor): array
     {
         $lista = [];
 
-        foreach (array_keys($colaboradorIds) as $id) {
-            $c = Colaborador::withTrashed()->with(['user', 'sucursalPrincipal:id,nombre', 'puesto:id,nombre'])->where('id', $id)->first();
+        foreach ($procesados as $id => $fila) {
+            $c = Colaborador::withTrashed()->with(['sucursalPrincipal:id,nombre', 'puesto:id,nombre'])->where('id', $id)->first();
 
             if ($c === null || $c->estatus !== EstadoUsuario::Activo) {
                 continue;
             }
 
             $base = ['persona' => $c->nombreCompleto(), 'numero_empleado' => $c->numero_empleado, 'sucursal' => $c->sucursalPrincipal?->nombre, 'puesto' => $c->puesto?->nombre];
+            $existente = User::withTrashed()->where('colaborador_id', $c->id)->first();
 
-            if ($c->user !== null) {
-                $lista[] = [...$base, 'usuario' => $c->user->email, 'contrasena' => null, 'estado' => 'Ya tenía cuenta (no se cambió su contraseña)'];
+            if ($existente !== null) {
+                $lista[] = [...$base, 'usuario' => $this->conservarCuenta($existente, $c, $fila, $actor), 'contrasena' => null, 'estado' => isset($this->reactivados[$c->id]) ? 'Reingreso: se reactivó su cuenta (misma contraseña)' : 'Ya tenía cuenta (no se cambió su contraseña)'];
                 $this->conteo['cuentas_existentes']++;
 
                 continue;
             }
 
-            $correo = $c->correo_personal !== null ? Normalizador::correo($c->correo_personal) : null;
-
-            if ($correo === null) {
-                $lista[] = [...$base, 'usuario' => null, 'contrasena' => null, 'estado' => 'Sin correo en el Excel: dar acceso después'];
-                $this->conteo['cuentas_sin_correo']++;
-
-                continue;
-            }
-
-            if (User::withTrashed()->where('email', $correo)->exists()) {
-                $lista[] = [...$base, 'usuario' => $correo, 'contrasena' => null, 'estado' => 'El correo ya lo usa otra cuenta: revisar'];
-                $this->conteo['cuentas_conflicto']++;
-
-                continue;
-            }
-
-            $contrasena = $this->contrasenaTemporal();
+            $acceso = (array) ($fila['acceso'] ?? []);
+            $usernameBase = $this->nombresUsuario->base($acceso['nombre'] ?? $c->name, $acceso['apellido_paterno'] ?? $this->nombresUsuario->apellidoPaternoDe($c->apellidos));
+            $contrasena = $this->generadorPassword->generar();
+            $correo = Normalizador::correo($c->correo_personal);
+            $correoLibre = $correo !== null && User::withTrashed()->whereRaw('LOWER(email) = ?', [$correo])->doesntExist();
 
             try {
-                DB::transaction(function () use ($c, $correo, $contrasena): void {
+                $usuario = $this->nombresUsuario->crearConUsuario($usernameBase, function (string $username) use ($c, $correo, $correoLibre, $contrasena): User {
                     $usuario = User::query()->create([
                         'colaborador_id' => $c->id,
+                        'username' => $username,
                         'name' => $c->name,
                         'apellidos' => $c->apellidos,
-                        'email' => $correo,
+                        // Dato opcional: solo si existe y nadie más lo usa.
+                        'email' => $correoLibre ? $correo : null,
                         'password' => Hash::make($contrasena),
                     ]);
-                    $usuario->forceFill(['email_verified_at' => now()])->save();
+                    $usuario->forceFill(['email_verified_at' => $correoLibre ? now() : null, 'debe_cambiar_contrasena' => true])->save();
                     $usuario->assignRole('colaborador');
+
+                    return $usuario;
                 });
             } catch (Throwable $e) {
-                $this->error('cuenta', ['colaborador_id' => $c->id], $e);
-                $lista[] = [...$base, 'usuario' => $correo, 'contrasena' => null, 'estado' => 'Error al crear la cuenta'];
+                // Sin el mensaje de la excepción: un error SQL incluiría los valores del INSERT.
+                $this->error('cuenta', ['colaborador_id' => $c->id], new RuntimeException(sprintf('No se pudo crear la cuenta (%s).', $e::class)));
+                $lista[] = [...$base, 'usuario' => null, 'contrasena' => null, 'estado' => 'Error al crear la cuenta'];
 
                 continue;
             }
 
-            $lista[] = [...$base, 'usuario' => $correo, 'contrasena' => $contrasena, 'estado' => 'Cuenta creada'];
+            $nota = $correo !== null && ! $correoLibre ? ' (su correo ya lo usa otra cuenta: no se guardó en la suya)' : '';
+            $lista[] = [...$base, 'usuario' => $usuario->username, 'contrasena' => $contrasena, 'estado' => 'Cuenta creada'.$nota];
             $this->conteo['cuentas_creadas']++;
-            $this->registrar('cuenta_creada', ['colaborador_id' => $c->id, 'usuario' => $correo, 'por' => $actor->id]);
+            $this->registrar('cuenta_creada', ['colaborador_id' => $c->id, 'usuario' => $usuario->username, 'por' => $actor->id]);
         }
 
         usort($lista, fn ($a, $b) => [$a['sucursal'], $a['persona']] <=> [$b['sucursal'], $b['persona']]);
@@ -220,17 +245,34 @@ class EjecutorMigracion
         return $lista;
     }
 
-    /** Legible y sin caracteres ambiguos (0/O, 1/l/I): «Lana-7K4P-2931». */
-    private function contrasenaTemporal(): string
+    /**
+     * Cuenta que ya existía: conserva su username (solo lo asigna si
+     * estuviera vacío). En un reingreso (estaba de baja y el Excel la trae
+     * activa) se recupera la cuenta y se le devuelve el acceso, igual que
+     * CicloLaboral\ReingresoService. Devuelve el username.
+     *
+     * @param  array<string, mixed>  $fila
+     */
+    private function conservarCuenta(User $cuenta, Colaborador $c, array $fila, User $actor): string
     {
-        $letras = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-        $bloque = '';
-
-        for ($i = 0; $i < 4; $i++) {
-            $bloque .= $letras[random_int(0, strlen($letras) - 1)];
+        if (trim((string) $cuenta->username) === '') {
+            $acceso = (array) ($fila['acceso'] ?? []);
+            $usernameBase = $this->nombresUsuario->base($acceso['nombre'] ?? $c->name, $acceso['apellido_paterno'] ?? $this->nombresUsuario->apellidoPaternoDe($c->apellidos));
+            $cuenta->forceFill(['username' => $this->nombresUsuario->disponible($usernameBase)])->save();
+            $this->registrar('username_asignado', ['colaborador_id' => $c->id, 'usuario' => $cuenta->username]);
         }
 
-        return sprintf('Lana-%s-%04d', $bloque, random_int(0, 9999));
+        if (isset($this->reactivados[$c->id])) {
+            if ($cuenta->trashed()) {
+                $cuenta->restore();
+            }
+
+            $this->acceso->restablecer($cuenta, $actor, 'Reingreso (migración inicial)');
+            $this->conteo['cuentas_reactivadas']++;
+            $this->registrar('cuenta_reactivada', ['colaborador_id' => $c->id, 'usuario' => $cuenta->username]);
+        }
+
+        return $cuenta->username;
     }
 
     /**
@@ -262,6 +304,20 @@ class EjecutorMigracion
                 $this->registrar('colaborador_creado', ['fila' => $fila['fila'], 'colaborador_id' => $colaborador->id, 'numero_empleado' => $colaborador->numero_empleado]);
             } else {
                 $cambios = [];
+
+                // Reingreso: estaba de baja y el Excel lo trae activo → se
+                // reutilizan el mismo colaborador y expediente (y su cuenta,
+                // ver conservarCuenta()).
+                if ($activo && in_array($colaborador->estatus, [EstadoUsuario::Inactivo, EstadoUsuario::Suspendido], true)) {
+                    $this->reactivados[$colaborador->id] = true;
+
+                    if ($colaborador->trashed()) {
+                        $colaborador->restore();
+                    }
+
+                    $colaborador->forceFill(['estado_alta' => EstadoAltaColaborador::Activo])->save();
+                    $this->registrar('colaborador_reingreso', ['fila' => $fila['fila'], 'colaborador_id' => $colaborador->id]);
+                }
 
                 foreach ($datos as $campo => $valor) {
                     $actual = $colaborador->getAttribute($campo);

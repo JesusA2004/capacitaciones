@@ -2,71 +2,77 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Enums\EstadoUsuario;
+use App\Concerns\PasswordValidationRules;
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use App\Services\Autenticacion\AutenticacionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
 /**
  * Autenticación por token personal (Sanctum) para la app móvil de
  * colaboradores. No usa cookies ni sesión de Laravel: cada dispositivo
  * recibe un token propio, revocable de forma independiente.
+ *
+ * Se entra con `username` («Jesus Arizmendi») + `password`, con las mismas
+ * reglas que el login web (App\Services\Autenticacion\AutenticacionService,
+ * docs/AUTENTICACION.md). `email` se acepta temporalmente en lugar de
+ * `username` para apps que aún no se actualizan; ya no es la fuente oficial.
  */
 class AuthController extends Controller
 {
+    use PasswordValidationRules;
+
+    public function __construct(private readonly AutenticacionService $autenticacion) {}
+
     public function login(Request $request): JsonResponse
     {
         $credenciales = $request->validate([
-            'email' => ['required', 'email'],
+            'username' => ['required_without:email', 'nullable', 'string', 'max:150'],
+            'email' => ['nullable', 'string', 'max:255'],
             'password' => ['required', 'string'],
             'device_name' => ['nullable', 'string', 'max:100'],
+        ], [
+            'username.required_without' => 'Escribe tu usuario.',
         ]);
 
-        if (! Auth::once(['email' => $credenciales['email'], 'password' => $credenciales['password']])) {
+        $campo = filled($credenciales['username'] ?? null) ? 'username' : 'email';
+        $usuario = $this->autenticacion->verificar((string) $credenciales[$campo], (string) $request->input('password'));
+
+        if ($usuario === null) {
             throw ValidationException::withMessages([
-                'email' => 'Las credenciales no coinciden con nuestros registros.',
+                $campo => 'El usuario o la contraseña no son correctos.',
             ]);
         }
 
-        /** @var User $usuario */
-        $usuario = Auth::user();
+        // `estatus` vive en Colaborador, no en User — un User sin
+        // colaborador enlazado no puede entrar. EnIncorporacion sí entra:
+        // solo verá su checklist de expediente (GET /colaborador/incorporacion)
+        // hasta que RH apruebe — ver App\Services\Incorporacion\IncorporacionService.
+        if (! $this->autenticacion->puedeIniciarSesion($usuario)) {
+            throw ValidationException::withMessages([
+                $campo => 'Tu cuenta no está activa. Contacta a Recursos Humanos.',
+            ]);
+        }
 
-        // `estatus` vive en Colaborador, no en User (separación
-        // Usuario/Colaborador) — un User sin colaborador enlazado no puede
-        // entrar. Un colaborador EnIncorporacion si puede entrar: solo vera
-        // su checklist de expediente documental (GET /colaborador/incorporacion)
-        // hasta que RH apruebe y quede Activo — ver
-        // App\Services\Incorporacion\IncorporacionService.
+        $this->autenticacion->registrarAcceso($usuario);
         $colaborador = $usuario->colaborador;
-
-        if ($colaborador === null
-            || ! in_array($colaborador->estatus, [EstadoUsuario::Activo, EstadoUsuario::EnIncorporacion], true)
-            || $usuario->acceso_bloqueado_en !== null) {
-            throw ValidationException::withMessages([
-                'email' => 'Tu cuenta no está activa. Contacta a Recursos Humanos.',
-            ]);
-        }
-
-        // Mismo punto de escritura que FortifyServiceProvider para el login
-        // web: sin esto, Administración > Usuarios mostraría "Nunca" para
-        // colaboradores que solo usan la app móvil.
-        $usuario->forceFill(['ultimo_acceso' => now()])->save();
-
         $token = $usuario->createToken($credenciales['device_name'] ?? 'app-movil');
 
         return response()->json([
             'token' => $token->plainTextToken,
+            // Con contraseña temporal la app debe mandar a la pantalla de
+            // cambio (POST /cambiar-contrasena); el resto de la API responde
+            // 403 «cambio_contrasena_requerido» mientras tanto.
+            'debe_cambiar_contrasena' => $usuario->debe_cambiar_contrasena,
             'usuario' => [
                 'id' => $usuario->id,
+                'username' => $usuario->username,
                 'nombre' => $usuario->name,
                 'apellidos' => $usuario->apellidos,
                 'correo' => $usuario->email,
-                'estatus' => $colaborador->estatus->value,
+                'estatus' => $colaborador?->estatus->value,
                 'roles' => $usuario->getRoleNames(),
             ],
         ]);
@@ -87,13 +93,11 @@ class AuthController extends Controller
      */
     public function reautenticar(Request $request): Response
     {
-        $credenciales = $request->validate([
+        $request->validate([
             'password' => ['required', 'string'],
         ]);
 
-        $usuario = $request->user();
-
-        if (! Hash::check($credenciales['password'], $usuario->password)) {
+        if (! $this->autenticacion->contrasenaCoincide($request->user(), (string) $request->input('password'))) {
             throw ValidationException::withMessages([
                 'password' => 'La contraseña no es válida.',
             ]);
@@ -102,15 +106,43 @@ class AuthController extends Controller
         return response()->noContent();
     }
 
+    /**
+     * Cambio de la contraseña temporal (o cualquier cambio propio): pide la
+     * actual y una nueva que cumpla Password::defaults().
+     */
+    public function cambiarContrasena(Request $request): JsonResponse
+    {
+        $request->validate([
+            'password_actual' => ['required', 'string'],
+            'password' => $this->passwordRules(),
+        ]);
+
+        $usuario = $request->user();
+
+        if (! $this->autenticacion->contrasenaCoincide($usuario, (string) $request->input('password_actual'))) {
+            throw ValidationException::withMessages(['password_actual' => 'La contraseña actual no es correcta.']);
+        }
+
+        if ($this->autenticacion->contrasenaCoincide($usuario, (string) $request->input('password'))) {
+            throw ValidationException::withMessages(['password' => 'La nueva contraseña debe ser distinta de la actual.']);
+        }
+
+        $this->autenticacion->cambiarContrasena($usuario, (string) $request->input('password'));
+
+        return response()->json(['estado' => 'ok', 'debe_cambiar_contrasena' => false]);
+    }
+
     public function me(Request $request): JsonResponse
     {
         $usuario = $request->user();
 
         return response()->json([
             'id' => $usuario->id,
+            'username' => $usuario->username,
             'nombre' => $usuario->name,
             'apellidos' => $usuario->apellidos,
             'correo' => $usuario->email,
+            'debe_cambiar_contrasena' => $usuario->debe_cambiar_contrasena,
             'roles' => $usuario->getRoleNames(),
             'permisos' => $usuario->getAllPermissions()->pluck('name'),
         ]);

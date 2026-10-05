@@ -83,7 +83,7 @@ class ExpedienteDemoSeeder extends Seeder
             ->whereHas('user', fn ($q) => $q->whereIn('email', $correos))
             ->with('user:id,email,colaborador_id')
             ->get()
-            ->keyBy(fn (Colaborador $c) => $c->user->email);
+            ->keyBy('user.email');
 
         if ($colaboradores->isEmpty()) {
             return;

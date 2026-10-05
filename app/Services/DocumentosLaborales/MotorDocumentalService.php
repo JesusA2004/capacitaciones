@@ -373,8 +373,9 @@ class MotorDocumentalService
 
     /**
      * QA administrativo ("Probar con colaborador"): mismo render que
-     * generarDesdeMaestro() pero sin persistir y marcando los datos que
-     * falten como «[FALTA: …]» para detectarlos a simple vista. No exige
+     * generarDesdeMaestro() pero sin persistir. Los datos que falten quedan
+     * EN BLANCO en el PDF (nunca «[FALTA: …]» impreso en el documento) y se
+     * listan aparte en `faltantes` para mostrarlos en pantalla. No exige
      * conversor fiel ni QA aprobado (justo sirve para revisar), pero lo
      * reporta: fidelidad, páginas, desbordes y de dónde salió cada dato
      * sensible (domicilio del patrón, representante legal).
@@ -388,7 +389,7 @@ class MotorDocumentalService
         $reales = $valores;
 
         foreach ($faltantes as $faltante) {
-            $valores[$faltante['campo']] = sprintf('[FALTA: %s]', $faltante['etiqueta']);
+            $valores[$faltante['campo']] = '';
         }
 
         $render = $this->renderizarMaestro($master, $valores, 'VISTA PREVIA — NO VÁLIDA PARA FIRMA', false);
@@ -541,9 +542,15 @@ class MotorDocumentalService
             // Diseño de página (fondo, márgenes, sangría): nunca toca el texto.
             $disenado = $this->layout->aplicar($master, $docx);
             $docx = $disenado['docx'];
-            $convertido = $definitivo
-                ? $this->conversor->convertirFiel($docx, $this->conversoresPermitidos($master))
-                : $this->conversor->convertir($docx);
+            // Vista previa: también fiel. La aproximación de PhpWord pierde el
+            // fondo, las sangrías, las tablas y la tipografía, y se veía como
+            // «el formato viejo» aunque el diseño estuviera bien; solo se
+            // permite si el entorno lo declara explícitamente (sin Word).
+            $convertido = match (true) {
+                $definitivo => $this->conversor->convertirFiel($docx, $this->conversoresPermitidos($master)),
+                $this->conversor->permiteAproximada() => $this->conversor->convertir($docx),
+                default => $this->conversor->convertirFiel($docx),
+            };
         } catch (DocumentoMotorException $e) {
             throw $e;
         } catch (Throwable $e) {
@@ -559,7 +566,7 @@ class MotorDocumentalService
                     : 'No hay Microsoft Word ni LibreOffice configurado en el servidor.');
             }
 
-            throw ValidationException::withMessages(['documento' => sprintf('No se pudo convertir «%s» a PDF.', $master->nombre)]);
+            throw ValidationException::withMessages(['documento' => sprintf('No se pudo convertir «%s» a PDF con Word. No se muestra una vista aproximada porque no respeta el diseño (fondo, sangrías, tablas, tipografía). Intenta de nuevo; si continúa, revisa el log («ConversorDocxPdf»).', $master->nombre)]);
         }
 
         $paginas = $this->contarPaginas($convertido['pdf']);

@@ -48,7 +48,8 @@ export type UsuarioItem = {
     } | null;
     name: string;
     apellidos: string | null;
-    email: string;
+    username: string;
+    email: string | null;
     roles_nombres: string[];
     acceso_bloqueado_en: string | null;
     email_verified_at: string | null;

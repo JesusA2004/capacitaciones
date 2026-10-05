@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Form, Head } from '@inertiajs/vue3';
-import { Download, Lock, Mail, Smartphone } from '@lucide/vue';
+import { Download, Lock, Smartphone, UserRound } from '@lucide/vue';
 import InputError from '@/components/InputError.vue';
 import PasswordInput from '@/components/PasswordInput.vue';
 import TextLink from '@/components/TextLink.vue';
@@ -16,7 +16,7 @@ import { request } from '@/routes/password';
 defineOptions({
     layout: {
         title: 'Inicia sesión en tu cuenta',
-        description: 'Ingresa tu correo y contraseña para acceder al portal',
+        description: 'Ingresa tu usuario y contraseña para acceder al portal',
     },
 });
 
@@ -44,24 +44,30 @@ defineProps<{
     >
         <div class="grid gap-4">
             <div class="grid gap-2">
-                <Label for="email">Correo electrónico</Label>
+                <Label for="username">Usuario</Label>
                 <div class="group relative">
-                    <Mail
+                    <UserRound
                         class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-primary"
                     />
                     <Input
-                        id="email"
-                        type="email"
-                        name="email"
+                        id="username"
+                        type="text"
+                        name="username"
                         required
                         autofocus
                         :tabindex="1"
-                        autocomplete="email"
-                        placeholder="correo@ejemplo.com"
+                        autocomplete="username"
+                        autocapitalize="words"
+                        spellcheck="false"
+                        placeholder="Nombre Apellido"
                         class="h-10 pl-9"
                     />
                 </div>
-                <InputError :message="errors.email" />
+                <InputError :message="errors.username" />
+                <p class="text-xs text-muted-foreground">
+                    Tu usuario es tu primer nombre y tu primer apellido, por
+                    ejemplo «Jesus Arizmendi».
+                </p>
             </div>
 
             <div class="grid gap-2">

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AppDownloadController;
+use App\Http\Controllers\Auth\ContrasenaTemporalController;
 use App\Http\Controllers\CalendarioController;
 use App\Http\Controllers\CelebracionController;
 use App\Http\Controllers\CertificadoVerificacionController;
@@ -33,6 +34,13 @@ Route::prefix('app')->name('app.')->group(function () {
     Route::get('versiones', [AppDownloadController::class, 'versiones'])->name('versiones');
     Route::get('descargar', [AppDownloadController::class, 'descargar'])->name('descargar');
     Route::get('descargar/{platform}', [AppDownloadController::class, 'descargarPlataforma'])->name('descargar.plataforma');
+});
+
+// Contraseña temporal (primer inicio de sesión): única pantalla disponible
+// hasta cambiarla — ver App\Http\Middleware\ExigirCambioContrasena.
+Route::middleware('auth')->prefix('cambiar-contrasena')->name('contrasena-temporal.')->group(function () {
+    Route::get('/', [ContrasenaTemporalController::class, 'edit'])->name('edit');
+    Route::put('/', [ContrasenaTemporalController::class, 'update'])->name('update');
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {

@@ -109,6 +109,16 @@ class ConversorDocxPdf
         return $pdf !== null && $pdf !== '' ? ['pdf' => $pdf, 'fidelidad' => FidelidadConversion::Aproximada->value, 'conversor' => 'phpword'] : null;
     }
 
+    /**
+     * Solo un entorno declarado sin conversor fiel (FORMATOS_CONVERSOR=phpword:
+     * pruebas, desarrollo sin Office) acepta la aproximación en vistas
+     * previas de documentos maestros.
+     */
+    public function permiteAproximada(): bool
+    {
+        return config('formatos_oficiales.conversor') === 'phpword';
+    }
+
     public function wordDisponible(): bool
     {
         $script = (string) config('formatos_oficiales.word_script');
@@ -129,10 +139,61 @@ class ConversorDocxPdf
     private function detectarWord(): bool
     {
         try {
-            return Process::timeout(15)->run(['reg', 'query', 'HKCR\\Word.Application\\CLSID'])->successful();
+            return Process::timeout(15)->env($this->entornoWindows())->run(['reg', 'query', 'HKCR\\Word.Application\\CLSID'])->successful();
         } catch (Throwable) {
             return false;
         }
+    }
+
+    /**
+     * Variables de entorno mínimas de Windows para los procesos hijos.
+     * PHP dentro de Apache (servicio de WAMP como LocalSystem) no hereda
+     * `SystemRoot` ni el resto del entorno de usuario: PowerShell no arranca
+     * («No se pudo cargar Windows PowerShell administrado. Error:
+     * 8009001d»), Word nunca convierte y la vista previa caía a la
+     * aproximación de PhpWord (sin fondo, sangrías, tablas ni tipografía).
+     * Solo se completan las que falten; las existentes no se tocan.
+     *
+     * @return array<string, string>
+     */
+    public function entornoWindows(): array
+    {
+        if (PHP_OS_FAMILY !== 'Windows') {
+            return [];
+        }
+
+        $raiz = (string) (getenv('SystemRoot') ?: getenv('windir') ?: 'C:\\Windows');
+        $temporal = rtrim(sys_get_temp_dir(), '\\/');
+        $perfil = (string) (getenv('USERPROFILE') ?: $raiz.'\\System32\\config\\systemprofile');
+        $base = [
+            'SystemRoot' => $raiz,
+            'windir' => $raiz,
+            'SystemDrive' => substr($raiz, 0, 2),
+            'ComSpec' => $raiz.'\\System32\\cmd.exe',
+            'PATHEXT' => '.COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC',
+            'TEMP' => $temporal,
+            'TMP' => $temporal,
+            'USERPROFILE' => $perfil,
+            'APPDATA' => $perfil.'\\AppData\\Roaming',
+            'LOCALAPPDATA' => $perfil.'\\AppData\\Local',
+            'ProgramData' => substr($raiz, 0, 2).'\\ProgramData',
+            'ProgramFiles' => substr($raiz, 0, 2).'\\Program Files',
+            'ProgramFiles(x86)' => substr($raiz, 0, 2).'\\Program Files (x86)',
+            'PSModulePath' => $raiz.'\\System32\\WindowsPowerShell\\v1.0\\Modules',
+        ];
+        $entorno = [];
+
+        foreach ($base as $clave => $valor) {
+            $actual = getenv($clave);
+            $entorno[$clave] = is_string($actual) && $actual !== '' ? $actual : $valor;
+        }
+
+        // PowerShell y reg.exe deben encontrarse aunque el PATH de Apache venga recortado.
+        $ruta = (string) (getenv('PATH') ?: getenv('Path') ?: '');
+        $sistema = implode(';', [$raiz.'\\System32', $raiz, $raiz.'\\System32\\Wbem', $raiz.'\\System32\\WindowsPowerShell\\v1.0']);
+        $entorno['PATH'] = $ruta === '' ? $sistema : $ruta.';'.$sistema;
+
+        return $entorno;
     }
 
     private function libreOfficeConfigurado(): bool
@@ -152,7 +213,7 @@ class ConversorDocxPdf
             // Perfil de usuario aislado por conversión: dos conversiones
             // simultáneas no se bloquean ni heredan configuración.
             $perfil = 'file:///'.ltrim(str_replace('\\', '/', $carpeta.DIRECTORY_SEPARATOR.'perfil'), '/');
-            $resultado = Process::timeout($this->timeout())->run([
+            $resultado = Process::timeout($this->timeout())->env($this->entornoWindows())->run([
                 (string) config('formatos_oficiales.libreoffice'),
                 '-env:UserInstallation='.$perfil,
                 '--headless',
@@ -188,7 +249,7 @@ class ConversorDocxPdf
             $archivoPid = $carpeta.DIRECTORY_SEPARATOR.'word.pid';
 
             try {
-                $resultado = Process::timeout($this->timeout())->run([
+                $resultado = Process::timeout($this->timeout())->env($this->entornoWindows())->run([
                     'powershell', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', $script,
                     '-Origen', $origen, '-Destino', $salida, '-ArchivoPid', $archivoPid,
                 ]);

@@ -58,8 +58,16 @@ type Fila = {
     empresa_nombre: string | null;
     sucursal_excel: string | null;
     sucursal_nombre: string | null;
+    departamento_excel?: string | null;
+    departamento_nombre?: string | null;
     puesto_excel: string | null;
     puesto_nombre: string | null;
+    /** Usuario propuesto (primer nombre + apellido paterno); no se reserva en el análisis. */
+    cuenta: {
+        usuario: string | null;
+        estado:
+            'nueva' | 'existente' | 'colision_resuelta' | 'baja' | 'no_aplica';
+    };
     curp: string | null;
     operacion: 'crear' | 'actualizar' | 'sin_cambios' | 'conflicto' | 'omitir';
     colaborador_id: number | null;
@@ -189,6 +197,15 @@ const etiquetaOperacion: Record<Fila['operacion'], string> = {
     sin_cambios: 'Sin cambios',
     conflicto: 'Conflicto',
     omitir: 'Omitir',
+};
+
+/** Espejo de App\Enums\EstadoCuentaMigracion::etiqueta(). */
+const etiquetaCuenta: Record<Fila['cuenta']['estado'], string> = {
+    nueva: 'NUEVA',
+    existente: 'YA EXISTE',
+    colision_resuelta: 'COLISIÓN RESUELTA',
+    baja: 'SIN CUENTA (BAJA)',
+    no_aplica: 'NO APLICA',
 };
 
 const etiquetaMatch: Record<Fila['nas']['tipo'], string> = {
@@ -668,7 +685,10 @@ function colorMatch(t: Fila['nas']['tipo']): string {
                                 <th class="p-3">Nombre</th>
                                 <th class="p-3">Empresa</th>
                                 <th class="p-3">Sucursal</th>
+                                <th class="p-3">Departamento</th>
                                 <th class="p-3">Puesto</th>
+                                <th class="p-3">Usuario propuesto</th>
+                                <th class="p-3">Estado cuenta</th>
                                 <th class="p-3">Estado importación</th>
                                 <th class="p-3">Carpeta NAS</th>
                                 <th class="p-3">PDF</th>
@@ -705,7 +725,24 @@ function colorMatch(t: Fila['nas']['tipo']): string {
                                 </td>
                                 <td class="p-3">
                                     {{
+                                        f.departamento_nombre ??
+                                        f.departamento_excel ??
+                                        '—'
+                                    }}
+                                </td>
+                                <td class="p-3">
+                                    {{
                                         f.puesto_nombre ?? f.puesto_excel ?? '—'
+                                    }}
+                                </td>
+                                <td class="p-3 font-medium whitespace-nowrap">
+                                    {{ f.cuenta?.usuario ?? '—' }}
+                                </td>
+                                <td class="p-3 text-xs whitespace-nowrap">
+                                    {{
+                                        etiquetaCuenta[
+                                            f.cuenta?.estado ?? 'no_aplica'
+                                        ]
                                     }}
                                 </td>
                                 <td class="p-3">
@@ -1030,9 +1067,10 @@ function colorMatch(t: Fila['nas']['tipo']): string {
                             Accesos de colaboradores
                         </h2>
                         <p class="text-sm text-muted-foreground">
-                            Usuario = su correo. La contraseña es temporal:
-                            compártela de forma privada. Quien no tiene correo
-                            en el Excel queda sin cuenta (no se inventa uno).
+                            Usuario = primer nombre + primer apellido (p. ej.
+                            «Jesus Arizmendi»); el correo no es necesario. La
+                            contraseña es temporal: entrégala de forma privada a
+                            cada persona; al entrar se le pedirá cambiarla.
                         </p>
                     </div>
                     <Button as-child>
@@ -1052,7 +1090,7 @@ function colorMatch(t: Fila['nas']['tipo']): string {
                                 <th class="p-3">Sucursal</th>
                                 <th class="p-3">Puesto</th>
                                 <th class="p-3">Usuario</th>
-                                <th class="p-3">Contraseña</th>
+                                <th class="p-3">Contraseña temporal</th>
                                 <th class="p-3">Estado</th>
                             </tr>
                         </thead>

@@ -64,8 +64,8 @@ test('una cuenta con el acceso quitado no puede iniciar sesion ni en la web ni e
     auth()->guard('web')->logout();
 
     // Web: se rechaza en el login mismo, sin abrir sesión ni marcar el último acceso.
-    $this->post(route('login.store'), ['email' => $this->cuenta->email, 'password' => 'password'])
-        ->assertSessionHasErrors(['email' => 'Tu cuenta está desactivada. Contacta a Recursos Humanos.']);
+    $this->post(route('login.store'), ['username' => $this->cuenta->username, 'password' => 'password'])
+        ->assertSessionHasErrors(['username' => 'Tu cuenta está desactivada. Contacta a Recursos Humanos.']);
     $this->assertGuest('web');
     expect($this->cuenta->fresh()->ultimo_acceso)->toBeNull();
 

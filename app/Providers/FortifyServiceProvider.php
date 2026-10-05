@@ -3,14 +3,11 @@
 namespace App\Providers;
 
 use App\Actions\Fortify\ResetUserPassword;
-use App\Enums\EstadoUsuario;
-use App\Models\User;
+use App\Services\Autenticacion\AutenticacionService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -44,38 +41,30 @@ class FortifyServiceProvider extends ServiceProvider
     {
         Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
 
-        // Bloquea el login web de un colaborador dado de baja/suspendido
-        // (mismo criterio que Api\V1\AuthController::login() para la app
-        // móvil): `en_incorporacion` sigue pudiendo entrar. Sin esto,
-        // Fortify solo valida credenciales y deja entrar a cualquier
-        // usuario sin importar su `estatus`. `estatus` vive en Colaborador
-        // (separación Usuario/Colaborador, ver App\Models\Colaborador) — un
-        // User sin colaborador enlazado no puede iniciar sesión.
+        // Login web por USUARIO («Jesus Arizmendi»), no por correo — mismas
+        // reglas que Api\V1\AuthController::login() para la app móvil, en
+        // App\Services\Autenticacion\AutenticacionService (docs/AUTENTICACION.md).
+        // Bloquea al colaborador dado de baja/suspendido o con el acceso
+        // revocado (`en_incorporacion` sí entra): sin esto Fortify solo
+        // validaría credenciales. `estatus` vive en Colaborador — un User
+        // sin colaborador enlazado no puede iniciar sesión.
         Fortify::authenticateUsing(function (Request $request) {
-            $usuario = User::query()->where('email', $request->email)->first();
+            $autenticacion = app(AutenticacionService::class);
+            $usuario = $autenticacion->verificar((string) $request->input(Fortify::username()), (string) $request->input('password'));
 
-            if ($usuario === null || ! Hash::check((string) $request->password, $usuario->password)) {
+            if ($usuario === null) {
                 return null;
             }
 
-            $estatus = $usuario->colaborador?->estatus;
-
-            // Cuenta con el acceso quitado (Administración > Usuarios >
-            // "Revocar acceso"): se rechaza aquí, sin abrir sesión ni marcar
-            // `ultimo_acceso` — misma regla que Api\V1\AuthController::login().
-            if ($estatus === null
-                || ! in_array($estatus, [EstadoUsuario::Activo, EstadoUsuario::EnIncorporacion], true)
-                || $usuario->acceso_bloqueado_en !== null) {
+            // Se rechaza aquí, sin abrir sesión ni marcar `ultimo_acceso`.
+            if (! $autenticacion->puedeIniciarSesion($usuario)) {
                 throw ValidationException::withMessages([
                     Fortify::username() => 'Tu cuenta está desactivada. Contacta a Recursos Humanos.',
                 ]);
             }
 
-            // Único punto de escritura de `ultimo_acceso` para el login web
-            // (ver también Api\V1\AuthController::login() para la app
-            // móvil) — sin esto, Administración > Usuarios mostraría
-            // "Nunca" para siempre sin importar cuántas veces entre.
-            $usuario->forceFill(['ultimo_acceso' => now()])->save();
+            // Sin esto, Administración > Usuarios mostraría "Nunca" para siempre.
+            $autenticacion->registrarAcceso($usuario);
 
             return $usuario;
         });
@@ -107,12 +96,9 @@ class FortifyServiceProvider extends ServiceProvider
      */
     private function configureRateLimiting(): void
     {
-
-        RateLimiter::for('login', function (Request $request) {
-            $throttleKey = Str::transliterate(Str::lower($request->input(Fortify::username())).'|'.$request->ip());
-
-            return Limit::perMinute(5)->by($throttleKey);
-        });
-
+        // Misma llave para «Jesus Arizmendi», « jesus  arizmendi », etc.
+        RateLimiter::for('login', fn (Request $request) => Limit::perMinute(5)->by(
+            app(AutenticacionService::class)->llaveLimite($request->input(Fortify::username()), $request->ip()),
+        ));
     }
 }

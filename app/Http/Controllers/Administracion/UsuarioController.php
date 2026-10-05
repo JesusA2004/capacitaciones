@@ -71,10 +71,11 @@ class UsuarioController extends Controller
             ->when($request->string('busqueda')->toString(), function ($query, string $busqueda) {
                 // Nombre/apellidos/numero_empleado se buscan en Colaborador
                 // (fuente real de la persona); name/apellidos en users son
-                // solo una copia de despliegue. email sí vive en users (es
-                // la cuenta de acceso).
+                // solo una copia de despliegue. username/email sí viven en
+                // users (son la cuenta de acceso).
                 $query->where(function ($sub) use ($busqueda) {
-                    $sub->where('email', 'like', "%{$busqueda}%")
+                    $sub->where('username', 'like', "%{$busqueda}%")
+                        ->orWhere('email', 'like', "%{$busqueda}%")
                         ->orWhereHas('colaborador', function ($c) use ($busqueda) {
                             $c->where('name', 'like', "%{$busqueda}%")
                                 ->orWhere('apellidos', 'like', "%{$busqueda}%")
@@ -134,23 +135,32 @@ class UsuarioController extends Controller
             'colaborador_id' => $colaborador->id,
             'name' => $colaborador->name,
             'apellidos' => $colaborador->apellidos,
-            'email' => $request->string('email')->toString(),
+            'email' => $request->filled('email') ? $request->string('email')->toString() : null,
             'password' => Hash::make(Str::random(40)),
         ]);
 
         $this->rolPermisoService->asignarRoles($usuario, $request->input('roles', []));
 
+        // Sin correo no hay enlace que mandar: la pantalla abre «Generar
+        // credenciales» para copiar usuario + contraseña temporal.
+        if ($usuario->email === null) {
+            return back()->with('toast', [
+                'type' => 'success',
+                'message' => sprintf('Cuenta creada. Usuario: %s.', $usuario->username),
+            ]);
+        }
+
         Password::broker()->sendResetLink(['email' => $usuario->email]);
 
         return back()->with('toast', [
             'type' => 'success',
-            'message' => 'Usuario creado. Se envió un correo para que establezca su contraseña.',
+            'message' => sprintf('Cuenta creada. Usuario: %s. Se envió un correo para que establezca su contraseña.', $usuario->username),
         ]);
     }
 
     public function update(UpdateUsuarioRequest $request, User $usuario): RedirectResponse
     {
-        $usuario->update($request->safe()->only(['email', 'zona_horaria']));
+        $usuario->update($request->safe()->only(['username', 'email', 'zona_horaria']));
         $this->rolPermisoService->asignarRoles($usuario, $request->input('roles', []));
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Usuario actualizado correctamente.']);
@@ -199,7 +209,8 @@ class UsuarioController extends Controller
 
         $passwordNueva = $datos['password'] ?? $this->generadorPassword->generar();
 
-        $usuario->update(['password' => Hash::make($passwordNueva)]);
+        // La define otra persona: es temporal y se pide cambiarla al entrar.
+        $usuario->forceFill(['password' => Hash::make($passwordNueva), 'debe_cambiar_contrasena' => true])->save();
 
         return response()->json(['password' => $passwordNueva]);
     }
@@ -216,6 +227,10 @@ class UsuarioController extends Controller
         $datos = $request->validate([
             'password' => ['required', 'string'],
         ]);
+
+        if ($usuario->email === null) {
+            return response()->json(['enviado' => false, 'message' => 'Esta cuenta no tiene correo: entrega la contraseña en privado.'], 422);
+        }
 
         try {
             $usuario->notify(new CredencialesActualizadasNotification($datos['password']));

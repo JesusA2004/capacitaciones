@@ -57,17 +57,20 @@ const user = computed(() => page.props.auth.user);
             </div>
 
             <div class="grid gap-2">
-                <Label for="email">Correo electrónico</Label>
+                <Label for="email">Correo electrónico (opcional)</Label>
                 <Input
                     id="email"
                     type="email"
                     class="mt-1 block w-full"
                     name="email"
-                    :default-value="user.email"
-                    required
-                    autocomplete="username"
+                    :default-value="user.email ?? ''"
+                    autocomplete="email"
                     placeholder="Correo electrónico"
                 />
+                <p class="text-xs text-muted-foreground">
+                    Para iniciar sesión usas tu usuario:
+                    <span class="font-medium">{{ user.username }}</span>
+                </p>
                 <InputError class="mt-2" :message="errors.email" />
             </div>
 

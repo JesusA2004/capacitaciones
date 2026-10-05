@@ -29,7 +29,8 @@ class RegistrarDesdeQrRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:150'],
             'apellidos' => ['nullable', 'string', 'max:150'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            // Opcional: se entra con el usuario (primer nombre + primer apellido).
+            'email' => ['nullable', 'email', 'max:255', 'unique:users,email'],
             'password' => $this->passwordRules(),
             'telefono' => ['nullable', 'string', 'max:30'],
             'curp' => ['nullable', 'string', 'max:18'],

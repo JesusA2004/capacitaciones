@@ -27,7 +27,8 @@ const emit = defineEmits<{
 }>();
 
 const form = useForm({
-    email: props.usuario.email,
+    username: props.usuario.username,
+    email: props.usuario.email ?? '',
     roles: [...props.usuario.roles_nombres],
 });
 
@@ -57,7 +58,24 @@ function enviar() {
 
             <form class="grid gap-4" @submit.prevent="enviar">
                 <div class="grid gap-2">
-                    <Label for="editar-email">Correo de acceso</Label>
+                    <Label for="editar-username"
+                        >Usuario (para iniciar sesión)</Label
+                    >
+                    <Input
+                        id="editar-username"
+                        v-model="form.username"
+                        autocomplete="off"
+                        spellcheck="false"
+                    />
+                    <p class="text-xs text-muted-foreground">
+                        Primer nombre + primer apellido. Si cambia, avísale a la
+                        persona: el anterior deja de funcionar.
+                    </p>
+                    <InputError :message="form.errors.username" />
+                </div>
+
+                <div class="grid gap-2">
+                    <Label for="editar-email">Correo (opcional)</Label>
                     <Input
                         id="editar-email"
                         v-model="form.email"

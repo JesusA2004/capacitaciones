@@ -30,8 +30,9 @@ class CredencialesActualizadasNotification extends Notification
             ->subject('Tu contraseña de acceso fue actualizada')
             ->greeting("Hola {$notifiable->nombreCompleto()},")
             ->line('Un administrador estableció una nueva contraseña para tu cuenta en MR. LANA PEOPLE.')
-            ->line("Contraseña nueva: **{$this->passwordNueva}**")
-            ->line('Guárdala en un lugar seguro e inicia sesión para cambiarla cuando puedas.')
+            ->line("Usuario: **{$notifiable->username}**")
+            ->line("Contraseña temporal: **{$this->passwordNueva}**")
+            ->line('Al iniciar sesión se te pedirá cambiarla por una contraseña personal.')
             ->line('Si no esperabas este cambio, contacta a Recursos Humanos de inmediato.')
             ->action('Iniciar sesión', route('login'));
     }

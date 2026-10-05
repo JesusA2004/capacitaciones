@@ -10,7 +10,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -34,11 +33,12 @@ const props = defineProps<{
 
 const emit = defineEmits<{
     'update:open': [valor: boolean];
+    /** Cuenta creada: la página abre «Generar credenciales» para copiarlas. */
+    creado: [colaborador: ColaboradorOpcion];
 }>();
 
 const form = useForm({
     colaborador_id: '',
-    email: '',
     roles: [] as string[],
 });
 
@@ -49,11 +49,19 @@ function alternarRol(rol: string, marcado: boolean) {
 }
 
 function enviar() {
+    const elegido = props.colaboradoresSinCuenta.find(
+        (c) => String(c.id) === form.colaborador_id,
+    );
+
     form.post(store.url(), {
         preserveScroll: true,
         onSuccess: () => {
             form.reset();
             emit('update:open', false);
+
+            if (elegido) {
+                emit('creado', elegido);
+            }
         },
     });
 }
@@ -101,15 +109,10 @@ function enviar() {
                     </p>
                 </div>
 
-                <div class="grid gap-2">
-                    <Label for="usuario-email">Correo de acceso</Label>
-                    <Input
-                        id="usuario-email"
-                        v-model="form.email"
-                        type="email"
-                    />
-                    <InputError :message="form.errors.email" />
-                </div>
+                <p class="text-xs text-muted-foreground">
+                    Usuario = primer nombre + primer apellido. Al crear la
+                    cuenta se generan sus credenciales para copiarlas.
+                </p>
 
                 <div class="grid gap-2">
                     <Label>Roles</Label>

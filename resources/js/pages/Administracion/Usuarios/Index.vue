@@ -22,7 +22,7 @@ import CrudToolbar from '@/components/DataTable/CrudToolbar.vue';
 import DataTable from '@/components/DataTable/DataTable.vue';
 import type { ColumnaDataTable } from '@/components/DataTable/DataTable.vue';
 import InputError from '@/components/InputError.vue';
-import EstablecerPasswordDialog from '@/components/Rh/EstablecerPasswordDialog.vue';
+import GenerarCredencialesDialog from '@/components/Rh/GenerarCredencialesDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -87,6 +87,7 @@ const { mostrarExito, mostrarError } = useAlertas();
 
 const columnas: ColumnaDataTable[] = [
     { clave: 'colaborador', etiqueta: 'Colaborador' },
+    { clave: 'username', etiqueta: 'Usuario' },
     { clave: 'email', etiqueta: 'Correo' },
     { clave: 'roles_nombres', etiqueta: 'Roles' },
     { clave: 'estado_cuenta', etiqueta: 'Cuenta' },
@@ -121,6 +122,13 @@ function abrirEditarRoles(usuario: UsuarioItem) {
 function abrirPassword(usuario: UsuarioItem) {
     usuarioPassword.value = usuario;
 }
+
+// Recién creada desde «Nuevo usuario»: se abre directo «Generar credenciales».
+const credencialesNueva = ref<{
+    id: number;
+    name: string;
+    apellidos: string | null;
+} | null>(null);
 
 // Baja de CUENTA: se confirma y se pide motivo (queda en la bitácora).
 const usuarioRevocar = ref<UsuarioItem | null>(null);
@@ -215,7 +223,7 @@ function restablecer(usuario: UsuarioItem) {
             <CrudToolbar
                 class="flex-1"
                 :model-value="filtros.busqueda"
-                placeholder="Buscar por nombre o correo..."
+                placeholder="Buscar por nombre, usuario o correo..."
                 @update:model-value="
                     (valor) => {
                         filtros.busqueda = valor;
@@ -323,9 +331,12 @@ function restablecer(usuario: UsuarioItem) {
                     <DropdownMenuItem @select="abrirEditarRoles(fila)"
                         >Editar cuenta</DropdownMenuItem
                     >
-                    <DropdownMenuItem @select="abrirPassword(fila)">
+                    <DropdownMenuItem
+                        v-if="fila.colaborador_id !== null"
+                        @select="abrirPassword(fila)"
+                    >
                         <KeyRound class="size-3.5" />
-                        Establecer contraseña
+                        Generar credenciales
                     </DropdownMenuItem>
                     <DropdownMenuItem
                         v-if="fila.puede_restablecer"
@@ -348,7 +359,7 @@ function restablecer(usuario: UsuarioItem) {
             <template #mobile-card="{ fila }">
                 <CrudMobileCard
                     :titulo="`${fila.name} ${fila.apellidos ?? ''}`"
-                    :subtitulo="fila.email"
+                    :subtitulo="fila.username"
                     @click="abrirEditarRoles(fila)"
                 >
                     <template #badge>
@@ -378,8 +389,10 @@ function restablecer(usuario: UsuarioItem) {
                             <DropdownMenuItem @select="abrirEditarRoles(fila)"
                                 >Editar cuenta</DropdownMenuItem
                             >
-                            <DropdownMenuItem @select="abrirPassword(fila)"
-                                >Establecer contraseña</DropdownMenuItem
+                            <DropdownMenuItem
+                                v-if="fila.colaborador_id !== null"
+                                @select="abrirPassword(fila)"
+                                >Generar credenciales</DropdownMenuItem
                             >
                             <DropdownMenuItem
                                 v-if="fila.puede_restablecer"
@@ -405,6 +418,16 @@ function restablecer(usuario: UsuarioItem) {
         :colaboradores-sin-cuenta="colaboradoresSinCuenta ?? []"
         :cargando="cargandoColaboradores"
         :roles-disponibles="rolesDisponibles"
+        @creado="(c) => (credencialesNueva = c)"
+    />
+
+    <GenerarCredencialesDialog
+        v-if="credencialesNueva"
+        :open="credencialesNueva !== null"
+        :colaborador-id="credencialesNueva.id"
+        :colaborador-nombre="`${credencialesNueva.name} ${credencialesNueva.apellidos ?? ''}`"
+        :tiene-cuenta="false"
+        @update:open="(v) => (credencialesNueva = v ? credencialesNueva : null)"
     />
 
     <UsuarioRolesDialog
@@ -463,11 +486,12 @@ function restablecer(usuario: UsuarioItem) {
         </DialogContent>
     </Dialog>
 
-    <EstablecerPasswordDialog
-        v-if="usuarioPassword"
+    <GenerarCredencialesDialog
+        v-if="usuarioPassword && usuarioPassword.colaborador_id !== null"
         :open="usuarioPassword !== null"
-        :colaborador-id="usuarioPassword.id"
+        :colaborador-id="usuarioPassword.colaborador_id"
         :colaborador-nombre="`${usuarioPassword.name} ${usuarioPassword.apellidos ?? ''}`"
+        tiene-cuenta
         @update:open="(v) => (usuarioPassword = v ? usuarioPassword : null)"
     />
 </template>

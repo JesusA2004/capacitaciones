@@ -26,7 +26,9 @@ class StoreUsuarioRequest extends FormRequest
     {
         return [
             'colaborador_id' => ['required', 'integer', 'exists:colaboradores,id', Rule::unique('users', 'colaborador_id')],
-            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
+            // Opcional: el login es por usuario (se genera solo, ver
+            // App\Services\Autenticacion\NombreUsuarioService).
+            'email' => ['nullable', 'email', 'max:255', Rule::unique('users', 'email')],
             'roles' => ['array'],
             'roles.*' => ['string', 'exists:roles,name'],
         ];

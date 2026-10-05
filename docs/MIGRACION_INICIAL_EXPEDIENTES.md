@@ -130,15 +130,22 @@ Como el histórico es un colaborador real (de baja), un reingreso lo recupera po
 
 ## 8. Cuentas de acceso
 
-Al terminar, cada colaborador **activo** procesado sin cuenta recibe una:
+Al terminar, cada colaborador **activo** procesado recibe una cuenta (ver `docs/AUTENTICACION.md`). **El correo ya no decide nada**: con o sin correo, todos reciben el mismo tipo de cuenta.
 
-- Usuario = su **correo real del Excel** (el login es por correo).
-- Contraseña temporal aleatoria (`Lana-XXXX-9999`).
+- **Usuario = primer nombre + primer apellido**, de las columnas «Nombre» y «Apellido paterno» (nunca de «Nombre completo» ni del materno): `JESUS ENRIQUE` + `ARIZMENDI` → `Jesus Arizmendi`. Si ya existe: `Jesus Arizmendi2`, `Jesus Arizmendi3`… (determinístico). Se revalida al aplicar; el índice UNIQUE cubre las carreras.
+- Ya tenía cuenta → **conserva su usuario y su contraseña**. Reingreso (estaba de baja y el Excel lo trae activo) → mismo colaborador, mismo expediente, misma cuenta reactivada.
+- **Baja** → no se le crea cuenta (colaborador y expediente sí se conservan).
+- Contraseña temporal de **8 caracteres** (mayúscula, minúscula, número y especial de `!@#$%&*?`), generada con CSPRNG. En `users.password` solo va el hash; al entrar se le obliga a cambiarla.
+- El correo, si viene, se guarda como dato opcional (si nadie más lo usa). Nunca se inventa.
 - Rol `colaborador`.
 
-Sin correo **no se inventa uno**: queda en la lista como «sin correo» para darle acceso después. Si el correo ya lo usa otra cuenta, se marca para revisión.
+El dry-run muestra por fila **Usuario propuesto** y **Estado cuenta** (`NUEVA`, `YA EXISTE`, `COLISIÓN RESUELTA`, `SIN CUENTA (BAJA)`, `NO APLICA`) sin reservar ni escribir nada.
 
-La lista (persona, sucursal, puesto, usuario, contraseña) se guarda **cifrada** (`storage/app/private/migraciones-expedientes/credenciales-{id}.enc`). Se ve en el resultado y se descarga en CSV solo con `expedientes.migrar`.
+La lista (Persona | Sucursal | Puesto | Usuario | Contraseña temporal | Estado) se guarda **cifrada** (`storage/app/private/migraciones-expedientes/credenciales-{id}.enc`), nunca en el manifiesto, el plan ni el log. Se ve en el resultado y se descarga en CSV solo con `expedientes.migrar`. Entrégala **en privado** a cada persona.
+
+## 8.1 Validación por fila (BASE_GENERAL)
+
+Encabezados reconocidos por nombre (el orden de las columnas no importa). Mínimos: Nombre, Apellido paterno, Empresa, Sucursal oficial, Departamento y Puesto. No se aplica sola una fila con sucursal fuera de la whitelist, `DEPARTAMENTO NO ENCONTRADO`, `PUESTO NO ENCONTRADO`, empresa desconocida, identidad ambigua, carpeta NAS ambigua sin decisión de RH o conflicto de archivo/hash. Departamento y puesto: solo match exacto normalizado o alias explícito (`alias_departamentos`, `alias_puestos` en `config/expedientes.php`). «Sucursal origen», «Match contacto», «Score match», «Migrar expediente NAS», «Observaciones de calidad», «Hoja origen» y «Fila origen» son de control/auditoría; con `Match contacto = NO` no se importa el contacto de emergencia.
 
 ## 9. Ejecución, auditoría y reintento
 

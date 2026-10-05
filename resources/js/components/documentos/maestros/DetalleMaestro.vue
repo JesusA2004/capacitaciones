@@ -746,8 +746,8 @@ const fuenteDomicilio: Record<string, string> = {
                         v-if="prueba.faltantes.length"
                         class="text-amber-700 dark:text-amber-300"
                     >
-                        Faltan datos (marcados [FALTA] en el PDF):
-                        {{ prueba.faltantes.join(', ') }}
+                        Faltan datos del colaborador (en el PDF quedan en
+                        blanco): {{ prueba.faltantes.join(', ') }}
                     </li>
                     <li
                         v-for="d in prueba.desbordes"

@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnsureCuentaActiva;
 use App\Http\Middleware\EnsureFeatureEnabled;
+use App\Http\Middleware\ExigirCambioContrasena;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Contracts\Filesystem\FileNotFoundException;
@@ -40,12 +41,14 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => RoleMiddleware::class,
             'permission' => PermissionMiddleware::class,
             'role_or_permission' => RoleOrPermissionMiddleware::class,
+            'contrasena.temporal' => ExigirCambioContrasena::class,
         ]);
 
         $middleware->web(append: [
             HandleAppearance::class,
             HandleInertiaRequests::class,
             EnsureCuentaActiva::class,
+            ExigirCambioContrasena::class,
             AddLinkHeadersForPreloadedAssets::class,
         ]);
 

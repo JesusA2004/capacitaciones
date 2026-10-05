@@ -45,7 +45,9 @@ return [
     |
     */
 
-    'username' => 'email',
+    // Login por nombre de usuario («Jesus Arizmendi»), no por correo:
+    // ver AutenticacionService (app/Services/Autenticacion) y docs/AUTENTICACION.md.
+    'username' => 'username',
 
     'email' => 'email',
 
@@ -60,6 +62,8 @@ return [
     |
     */
 
+    // Inocuo para el login (el username se compara sin distinguir
+    // mayúsculas) y normaliza el correo al pedir enlace de recuperación.
     'lowercase_usernames' => true,
 
     /*
