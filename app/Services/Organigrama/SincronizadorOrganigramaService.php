@@ -31,6 +31,12 @@ use Illuminate\Support\Facades\Schema;
  *       ├── Gerencia de Recursos Humanos
  *       │   ├── Administración de Personal
  *       │   └── Reclutamiento
+ *       ├── Gerente de Mesa de Control
+ *       │   └── Analista de Mesa de Control
+ *       ├── Gerente de Contraloría
+ *       │   ├── Auditora
+ *       │   ├── Tesorero
+ *       │   └── Contador
  *       ├── Coordinadora Regional                    (vive en Corporativo)
  *       │   └── Coordinadora de Sucursal             (1 por sucursal; Corporativo no tiene)
  *       ├── Gerente Regional Q1   ─┐  cada una ligada a su región de la matriz
@@ -87,6 +93,15 @@ class SincronizadorOrganigramaService
         'Gerencia de Recursos Humanos' => ['superior' => 'Dirección Comercial', 'departamento' => 'Recursos Humanos', 'nivel' => 3, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Responsable de Recursos Humanos.'],
         'Administración de Personal' => ['superior' => 'Gerencia de Recursos Humanos', 'departamento' => 'Recursos Humanos', 'nivel' => 4, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Expedientes, altas, bajas y trámites de personal.', 'extra' => ['crecimiento' => 'Gerencia de Recursos Humanos']],
         'Reclutamiento' => ['superior' => 'Gerencia de Recursos Humanos', 'departamento' => 'Recursos Humanos', 'nivel' => 4, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Atracción y selección de candidatos.', 'extra' => ['crecimiento' => 'Gerencia de Recursos Humanos']],
+        // Mesa de Control y Contraloría son áreas DISTINTAS, cada una con su
+        // gerente bajo Dirección Comercial. La Auditora es de Contraloría:
+        // nunca cuelga de Mesa de Control ni comparte su nodo.
+        'Gerente de Mesa de Control' => ['superior' => 'Dirección Comercial', 'departamento' => 'Mesa de Control', 'nivel' => 3, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Responsable de la mesa de control: validación de operaciones de crédito.'],
+        'Analista de Mesa de Control' => ['superior' => 'Gerente de Mesa de Control', 'departamento' => 'Mesa de Control', 'nivel' => 4, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Análisis y validación en mesa de control.', 'extra' => ['crecimiento' => 'Gerente de Mesa de Control']],
+        'Gerente de Contraloría' => ['superior' => 'Dirección Comercial', 'departamento' => 'Contraloría', 'nivel' => 3, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Responsable de contraloría: auditoría, tesorería y contabilidad.'],
+        'Auditora' => ['superior' => 'Gerente de Contraloría', 'departamento' => 'Contraloría', 'nivel' => 4, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Auditoría interna de sucursales y procesos.', 'extra' => ['crecimiento' => 'Gerente de Contraloría']],
+        'Tesorero' => ['superior' => 'Gerente de Contraloría', 'departamento' => 'Contraloría', 'nivel' => 4, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Tesorería: flujo de efectivo, pagos y fondeo.', 'extra' => ['crecimiento' => 'Gerente de Contraloría']],
+        'Contador' => ['superior' => 'Gerente de Contraloría', 'departamento' => 'Contraloría', 'nivel' => 4, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Contabilidad general y cumplimiento fiscal.', 'extra' => ['crecimiento' => 'Gerente de Contraloría']],
         'Coordinadora Regional' => ['superior' => 'Dirección Comercial', 'departamento' => 'Operaciones', 'nivel' => 3, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Coordinadora Regional: una sola, ubicada en Corporativo; de ella dependen las coordinadoras de sucursal.'],
         'Coordinadora de Sucursal' => ['superior' => 'Coordinadora Regional', 'departamento' => 'Operaciones', 'nivel' => 4, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Una por sucursal (Corporativo no tiene): cuadre de caja, control administrativo y procesos internos.', 'extra' => ['crecimiento' => 'Coordinadora Regional']],
         'Gerente Regional Q1' => ['superior' => 'Dirección Comercial', 'departamento' => 'Ventas', 'nivel' => 3, 'tipo' => TipoPuesto::Comercial, 'descripcion' => 'Gerente de la Región Q1: de él dependen los gerentes de las sucursales de Q1.', 'extra' => ['crecimiento' => 'Dirección Comercial']],
@@ -106,11 +121,6 @@ class SincronizadorOrganigramaService
      */
     private const FUERA_DE_ESTRUCTURA = [
         'Asistente de Dirección General',
-        'Gerente de Mesa de Control',
-        'Analista de Mesa de Control',
-        'Gerente de Contraloría',
-        'Tesorero',
-        'Contador',
         'Gestor grupal',
     ];
 
@@ -264,6 +274,18 @@ class SincronizadorOrganigramaService
 
     private function asegurarEstructura(): void
     {
+        // Departamentos de la estructura (Mesa de Control, Contraloría…): se
+        // crean si faltan; nunca se renombran ni se borran.
+        foreach (array_unique(array_column(self::ESTRUCTURA, 'departamento')) as $nombreDepartamento) {
+            if (Departamento::query()->where('nombre', $nombreDepartamento)->doesntExist()) {
+                $this->reporte['puestos_nuevos'][] = sprintf('Departamento «%s»', $nombreDepartamento);
+
+                if (! $this->simular) {
+                    Departamento::query()->create(['nombre' => $nombreDepartamento, 'activo' => true]);
+                }
+            }
+        }
+
         $departamentos = Departamento::query()->pluck('id', 'nombre');
         $ids = [];
 

@@ -18,7 +18,8 @@ use Illuminate\Support\Facades\Schema;
  * Solo agrega lo que existe en el Excel y NO tiene equivalente en el
  * organigrama confirmado (App\Services\Organigrama\SincronizadorOrganigramaService):
  *   - departamentos: Jurídico, Mantenimiento;
- *   - puestos: Abogado, Auditora, Escolta, Limpieza, Jardinero.
+ *   - puestos: Abogado, Escolta, Limpieza, Jardinero (Auditora es parte de la
+ *     estructura canónica de SincronizadorOrganigramaService: Contraloría).
  * Los nombres legacy con equivalente canónico NO se crean: se traducen con
  * los alias de config/expedientes.php (migracion_inicial.alias_*) y las
  * reglas de contexto de ResolutorCatalogoMigracion.
@@ -38,7 +39,6 @@ class CatalogosBaseGeneralSeeder extends Seeder
      */
     public const PUESTOS = [
         'Abogado' => ['Jurídico', 'Dirección General', 3, TipoPuesto::Administrativo, 'Asuntos jurídicos y laborales de la empresa (Corporativo).'],
-        'Auditora' => ['Contraloría', 'Gerente de Contraloría', 4, TipoPuesto::Administrativo, 'Auditoría interna de sucursales y procesos.'],
         'Escolta' => ['Dirección', 'Dirección General', 3, TipoPuesto::Operativo, 'Seguridad y acompañamiento de la Dirección.'],
         'Limpieza' => ['Mantenimiento', 'Dirección Comercial', 4, TipoPuesto::Operativo, 'Limpieza de instalaciones (Corporativo/sucursales).'],
         'Jardinero' => ['Mantenimiento', 'Dirección Comercial', 4, TipoPuesto::Operativo, 'Mantenimiento de áreas verdes.'],

@@ -222,3 +222,29 @@ test('people:sincronizar-organigrama --simular no escribe nada', function () {
     expect(Puesto::query()->where('nombre', 'Dirección Comercial')->exists())->toBeTrue()
         ->and(NodoComercial::query()->where('nombre', 'CUERNAVACA GTE')->value('tipo'))->toBe(TipoNodoComercial::Gerencia);
 });
+
+test('Auditora mal colgada de Mesa de Control queda en Contraloría bajo su gerente, sin tocar a la persona', function () {
+    $mesa = ($this->puesto)('Gerente de Mesa de Control');
+    $auditora = ($this->puesto)('Auditora');
+    // Como quedó en producción: mismo nivel/nodo que Mesa de Control.
+    $auditora->update(['puesto_superior_id' => $mesa->puesto_superior_id, 'nivel_jerarquico' => 3, 'departamento_id' => $mesa->departamento_id, 'puesto_crecimiento_id' => null]);
+    $daniela = Colaborador::factory()->create(['name' => 'Daniela', 'apellidos' => 'Dominguez Hernandez', 'puesto_id' => $auditora->id]);
+    $antes = $daniela->only(['puesto_id', 'sucursal_principal_id', 'estatus']);
+
+    $this->artisan('people:sincronizar-organigrama', ['--simular' => true])
+        ->expectsOutputToContain('«Auditora» ahora reporta a «Gerente de Contraloría»')
+        ->assertSuccessful();
+    expect($auditora->fresh()->nivel_jerarquico)->toBe(3);
+
+    $this->artisan('people:sincronizar-organigrama')->assertSuccessful();
+
+    $auditora->refresh();
+    $contraloria = ($this->puesto)('Gerente de Contraloría');
+    expect($auditora->puesto_superior_id)->toBe($contraloria->id)
+        ->and($auditora->puesto_crecimiento_id)->toBe($contraloria->id)
+        ->and($auditora->nivel_jerarquico)->toBe(4)
+        ->and($auditora->departamento?->nombre)->toBe('Contraloría')
+        ->and($contraloria->puesto_superior_id)->toBe(($this->puesto)('Dirección Comercial')->id)
+        ->and(($this->puesto)('Analista de Mesa de Control')->puesto_superior_id)->toBe($mesa->id)
+        ->and($daniela->fresh()->only(['puesto_id', 'sucursal_principal_id', 'estatus']))->toBe($antes);
+});

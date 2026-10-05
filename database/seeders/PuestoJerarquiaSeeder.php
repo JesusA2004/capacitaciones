@@ -27,8 +27,8 @@ use Illuminate\Support\Facades\Schema;
  *         └── Gerente de Sucursal → Subgerente → Gestor, Gestor Volante
  *
  * Aquí además se conservan, sin cambios, los puestos que no forman parte
- * de esa estructura (Asistente de Dirección General, Mesa de Control,
- * Contraloría, Gestor grupal) y se RETIRAN los de la estructura anterior
+ * de esa estructura (Asistente de Dirección General,
+ * Gestor grupal; Mesa de Control y Contraloría ya son parte de ella) y se RETIRAN los de la estructura anterior
  * (ver retirar()): se eliminan solo si nadie los usa; si tienen
  * colaboradores, headcount, vacantes o historial, quedan inactivos y se
  * reporta en consola. Idempotente. Ver docs/ORGANIGRAMA.md.
@@ -87,7 +87,6 @@ class PuestoJerarquiaSeeder extends Seeder
 
         $departamento = fn (string $nombre): ?int => Departamento::where('nombre', $nombre)->value('id');
         $direccionGeneral = Puesto::where('nombre', 'Dirección General')->firstOrFail();
-        $direccionComercial = Puesto::where('nombre', 'Dirección Comercial')->firstOrFail();
         $subgerente = Puesto::where('nombre', 'Subgerente')->firstOrFail();
 
         // --- Puestos fuera de la estructura confirmada: se conservan tal
@@ -97,49 +96,6 @@ class PuestoJerarquiaSeeder extends Seeder
             'descripcion' => 'Asistencia directa a Dirección General.',
             'nivel_jerarquico' => 2,
             'puesto_superior_id' => $direccionGeneral->id,
-            'tipo_puesto' => TipoPuesto::Administrativo,
-        ]);
-
-        $gerenteMesaControl = $this->puesto('Gerente de Mesa de Control', [
-            'departamento_id' => $departamento('Mesa de Control'),
-            'descripcion' => 'Responsable de la mesa de control.',
-            'nivel_jerarquico' => 3,
-            'puesto_superior_id' => $direccionComercial->id,
-            'tipo_puesto' => TipoPuesto::Administrativo,
-        ]);
-
-        $this->puesto('Analista de Mesa de Control', [
-            'departamento_id' => $departamento('Mesa de Control'),
-            'descripcion' => 'Análisis y validación en mesa de control.',
-            'nivel_jerarquico' => 4,
-            'puesto_superior_id' => $gerenteMesaControl->id,
-            'puesto_crecimiento_id' => $gerenteMesaControl->id,
-            'tipo_puesto' => TipoPuesto::Administrativo,
-        ]);
-
-        $gerenteContraloria = $this->puesto('Gerente de Contraloría', [
-            'departamento_id' => $departamento('Contraloría'),
-            'descripcion' => 'Responsable de contraloría.',
-            'nivel_jerarquico' => 3,
-            'puesto_superior_id' => $direccionComercial->id,
-            'tipo_puesto' => TipoPuesto::Administrativo,
-        ]);
-
-        $this->puesto('Tesorero', [
-            'departamento_id' => $departamento('Contraloría'),
-            'descripcion' => 'Tesorería: flujo de efectivo, pagos y fondeo.',
-            'nivel_jerarquico' => 4,
-            'puesto_superior_id' => $gerenteContraloria->id,
-            'puesto_crecimiento_id' => $gerenteContraloria->id,
-            'tipo_puesto' => TipoPuesto::Administrativo,
-        ]);
-
-        $this->puesto('Contador', [
-            'departamento_id' => $departamento('Contraloría'),
-            'descripcion' => 'Contabilidad general y cumplimiento fiscal.',
-            'nivel_jerarquico' => 4,
-            'puesto_superior_id' => $gerenteContraloria->id,
-            'puesto_crecimiento_id' => $gerenteContraloria->id,
             'tipo_puesto' => TipoPuesto::Administrativo,
         ]);
 

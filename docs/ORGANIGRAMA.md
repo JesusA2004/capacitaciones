@@ -34,7 +34,19 @@ Dirección General
 
 Definición única en código: `App\Services\Organigrama\SincronizadorOrganigramaService` (la usa `PuestoJerarquiaSeeder` y el comando de sincronización). No se inventan otros puestos.
 
-**Fuera de la estructura confirmada, conservados sin cambios** (decisión de dirección): Asistente de Dirección General, Gerente/Analista de Mesa de Control, Gerente de Contraloría, Tesorero, Contador y Gestor grupal. El comando de sincronización los lista en «Puestos fuera de la estructura confirmada».
+**Mesa de Control y Contraloría** son áreas distintas dentro de la estructura confirmada (una sola definición: `SincronizadorOrganigramaService::ESTRUCTURA`):
+
+```
+Dirección Comercial
+├── Gerente de Mesa de Control
+│   └── Analista de Mesa de Control
+└── Gerente de Contraloría
+    ├── Auditora      (nivel 4, crecimiento: Gerente de Contraloría)
+    ├── Tesorero
+    └── Contador
+```
+
+**Fuera de la estructura confirmada, conservados sin cambios** (decisión de dirección): Asistente de Dirección General y Gestor grupal. El comando de sincronización los lista en «Puestos fuera de la estructura confirmada».
 
 ### Gerentes regionales
 

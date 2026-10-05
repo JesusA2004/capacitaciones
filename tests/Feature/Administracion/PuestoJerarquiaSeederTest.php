@@ -36,13 +36,15 @@ test('el seeder deja la estructura confirmada por dirección (y conserva los pue
         'Subgerente' => 'Gerente de Sucursal',
         'Gestor' => 'Subgerente',
         'Gestor Volante' => 'Subgerente',
-        // Fuera de la estructura confirmada: se conservan sin cambios.
-        'Asistente de Dirección General' => 'Dirección General',
+        // Mesa de Control y Contraloría: áreas distintas, cada una con su gerente.
         'Gerente de Mesa de Control' => 'Dirección Comercial',
         'Analista de Mesa de Control' => 'Gerente de Mesa de Control',
         'Gerente de Contraloría' => 'Dirección Comercial',
+        'Auditora' => 'Gerente de Contraloría',
         'Tesorero' => 'Gerente de Contraloría',
         'Contador' => 'Gerente de Contraloría',
+        // Fuera de la estructura confirmada: se conservan sin cambios.
+        'Asistente de Dirección General' => 'Dirección General',
         'Gestor grupal' => 'Subgerente',
     ];
 
