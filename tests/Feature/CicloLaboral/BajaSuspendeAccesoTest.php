@@ -57,6 +57,23 @@ test('revocar acceso deja la CUENTA inactiva con motivo, sin tocar el estatus la
                 && $f['estado_colaborador']['clave'] === 'activo')));
 });
 
+test('una cuenta con el acceso quitado no puede iniciar sesion ni en la web ni en la app', function () {
+    $this->actingAs($this->rh)
+        ->post(route('administracion.usuarios.revocar-acceso', $this->cuenta), ['motivo' => 'Ya no usa el sistema'])
+        ->assertSessionHasNoErrors();
+    auth()->guard('web')->logout();
+
+    // Web: se rechaza en el login mismo, sin abrir sesión ni marcar el último acceso.
+    $this->post(route('login.store'), ['email' => $this->cuenta->email, 'password' => 'password'])
+        ->assertSessionHasErrors(['email' => 'Tu cuenta está desactivada. Contacta a Recursos Humanos.']);
+    $this->assertGuest('web');
+    expect($this->cuenta->fresh()->ultimo_acceso)->toBeNull();
+
+    // App móvil.
+    $this->postJson(route('api.v1.login'), ['email' => $this->cuenta->email, 'password' => 'password', 'device_name' => 'qa'])
+        ->assertStatus(422);
+});
+
 test('al solicitar la baja se suspende el acceso al instante, se avisa a RH y si se rechaza el acceso vuelve', function () {
     Sanctum::actingAs($this->rh);
 

@@ -32,7 +32,7 @@ class PreparadorMasterDocx
 
     /**
      * @param  list<array<string, mixed>>  $reglas
-     * @return array{master: string, instancias: array<int, array{campo: string, original: string, opcional: bool}>, aplicadas: list<array<string, mixed>>, pendientes: list<array<string, mixed>>, documento: DocumentoWord}
+     * @return array{master: string, instancias: array<int, array{campo: string, original: string, opcional: bool, prefijo?: string, sufijo?: string, piezas?: list<array{rpr: string, texto: string}>}>, aplicadas: list<array<string, mixed>>, pendientes: list<array<string, mixed>>, documento: DocumentoWord}
      */
     public function preparar(string $original, array $reglas): array
     {
@@ -58,9 +58,28 @@ class PreparadorMasterDocx
             foreach ($candidatos as $parrafo) {
                 foreach ($this->rangos($parrafo, $regla) as [$inicio, $fin, $prefijo, $sufijo]) {
                     $original = mb_substr($parrafo->texto(), $inicio, $fin - $inicio);
+                    $piezas = $parrafo->piezas($inicio, $fin);
                     $n = $siguiente++;
                     $parrafo->reemplazar($inicio, $fin, sprintf('%s{{%s@%d}}%s', $prefijo, $campo, $n, $sufijo));
-                    $instancias[$n] = ['campo' => $campo, 'original' => $original, 'opcional' => $opcional];
+                    // prefijo/sufijo: espacios que el SISTEMA agregó para que el
+                    // dato no quede pegado al texto fijo; piezas: formato por
+                    // tramo si el blanco mezclaba formatos. Ambos permiten
+                    // restaurar el original exacto (dato opcional vacío y QA).
+                    $instancia = ['campo' => $campo, 'original' => $original, 'opcional' => $opcional];
+
+                    if ($prefijo !== '') {
+                        $instancia['prefijo'] = $prefijo;
+                    }
+
+                    if ($sufijo !== '') {
+                        $instancia['sufijo'] = $sufijo;
+                    }
+
+                    if (count(array_unique(array_column($piezas, 'rpr'))) > 1) {
+                        $instancia['piezas'] = $piezas;
+                    }
+
+                    $instancias[$n] = $instancia;
                     $aplicados++;
                 }
             }

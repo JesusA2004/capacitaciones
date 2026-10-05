@@ -17,6 +17,60 @@ versionado `config/documentos_maestros.php`, después de correr
 Ver también: `docs/MATRIZ_DOCUMENTOS_POR_FLUJO.md`,
 `docs/FORMATOS_JURIDICOS_OBSERVACIONES.md`, `docs/MOTOR_DOCUMENTOS_MAESTROS.md`.
 
+## Verificación de fuentes y QA visual (2026-10-04)
+
+**Hashes revalidados por CONTENIDO** (no por nombre): para cada uno de los 33
+archivos se recalculó el SHA-256 y se leyó el documento (encabezado del
+texto y puestos mencionados) para confirmar que corresponde a la familia
+registrada. Resultado: los 33 archivos están registrados, ningún hash
+apunta a una familia equivocada y no hay archivos fuente sin registrar. Los
+dos archivos de renuncia son byte a byte idénticos.
+
+**QA visual con Microsoft Word (fidelidad nativa) + rasterizado nativo de
+Windows**, por versión (similitud = mínima por página entre el ORIGINAL y el
+master restaurado; páginas = original → con datos largos):
+
+| Familia | Ver. | Páginas | Similitud | Diseño | Activa | Nota |
+|---|---|---|---|---|---|---|
+| acta_negativa_firma.general | v1 | 3 → 3 | 1.000 | Validado | Sí | |
+| aviso_terminacion.general | v1 | 2 → 2 | 1.000 | Validado | Sí | |
+| carta_renuncia.general | v1 | 1 → 1 | 1.000 | Validado | Sí | |
+| contrato_capacitacion.administrativo | v1 | 9 → 9 | 1.000 | Validado | Sí | |
+| contrato_capacitacion.coordinadora | v1 | 9 → 9 | 1.000 | Validado | Sí | |
+| contrato_capacitacion.gerente | v1 | 7 → 8 | 1.000 | Validado | No | ⚠ con datos muy largos crece 1 página |
+| contrato_capacitacion.gerente | v2 | 9 → 9 | 1.000 | Validado | Sí | |
+| contrato_capacitacion.gestor | v1 | 9 → 9 | 1.000 | Validado | Sí | |
+| contrato_capacitacion.regional | v1 | 7 → 7 | 1.000 | Validado | Sí | |
+| contrato_capacitacion.subgerente | v1 | 9 → 9 | 1.000 | Validado | Sí | |
+| contrato_confidencialidad.coordinadora | v1 | 11 → 11 | 1.000 | Validado | Sí | |
+| contrato_confidencialidad.general | v1 | 5 → 5 | 1.000 | Validado | No | |
+| contrato_confidencialidad.general | v2 | 11 → 11 | 1.000 | Validado | Sí | |
+| contrato_confidencialidad.gerente | v1 | 11 → 11 | 1.000 | Validado | Sí | |
+| contrato_confidencialidad.gerente | v2 | 21 | — | — | No | Bloqueada (borrador de otra empresa) |
+| contrato_confidencialidad.gestor | v1 | 11 → 11 | 1.000 | Validado | Sí | |
+| contrato_confidencialidad.subgerente | v1 | 11 → 11 | 1.000 | Validado | Sí | |
+| contrato_indeterminado.administrativo_confianza | v1 | 9 → 9 | 1.000 | Validado | Sí | |
+| contrato_indeterminado.administrativo_no_confianza | v1 | 9 → 10 | 1.000 | Validado | Sí | ⚠ con datos muy largos crece 1 página |
+| contrato_indeterminado.coordinadora | v1 | 10 → 11 | 1.000 | Validado | Sí | ⚠ con datos muy largos crece 1 página |
+| contrato_indeterminado.gerente | v1 | 10 → 10 | 1.000 | Validado | Sí | |
+| contrato_indeterminado.gestor | v1 | 10 → 10 | 1.000 | Validado | Sí | |
+| contrato_indeterminado.regional | v1 | 7 → 7 | 1.000 | Validado | Sí | |
+| contrato_indeterminado.subgerente | v1 | 10 → 10 | 1.000 | Validado | Sí | |
+| contrato_no_competencia.gerente | v1 | 5 → 5 | 1.000 | Validado | Sí | |
+| contrato_no_competencia.gestor | v1 | 5 → 5 | 1.000 | Validado | Sí | |
+| evaluacion_capacitacion.general | v1 | 3 → 3 | 1.000 | Validado | Sí | |
+| formato_permiso.general | v1 | 1 → 1 | 1.000 | Validado | Sí | Overlay; dos copias por hoja |
+| permiso_extraordinario.maternidad | v1 | 2 → 2 | 1.000 | **No validado** | Sí (no genera) | Fuente **Aptos** no instalada en el servidor |
+| prestamo_consentimiento_retencion.general | v1 | 1 → 1 | 1.000 | Validado | Sí | Overlay |
+| prestamo_contrato.general | v1 | 2 → 2 | 0.992 | Validado | Sí | Overlay; celda "Calle" a 3 renglones |
+| prestamo_pagare.general | v1 | 1 → 1 | 1.000 | Validado | Sí | Overlay; celda "Calle y No." a 3 renglones |
+
+Fuentes usadas por los Word: Century Gothic, Calibri, Calibri Light, Arial,
+Times New Roman, Segoe UI Symbol/Emoji — todas instaladas en el servidor de
+desarrollo — y **Aptos** (solo el permiso extraordinario), no instalada. En
+Linux con LibreOffice hay que instalar estas fuentes (Century Gothic no
+tiene sustituto de métrica compatible) antes de validar.
+
 | # | Archivo fuente | SHA-256 | Tipo | Proceso | Evento | Empresa | Puesto/grupo | Motor | Campos dinámicos | Firma | Huella | Testigos | Versión | Master activo | Estado | Observaciones |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | 1 | ACTA ADMINISTRATIVA-POR NEGATIVA DE FIRMA Y RECEPCIÓN DE DOCUMENTOS.docx | `4e7faa4f7994…` | DOCX | Negativa de firma | negativa_firma | Todas | General | DOCX | 25 | Sí | No | 2 | v1 | Sí | listo | acta_negativa_firma.general — Solo se genera dentro del cierre laboral, cuando se registró que el colaborador se negó a firmar/recibir (Fase 3, escenario B del procedimiento integral de baja). Nunca como acta genérica. |

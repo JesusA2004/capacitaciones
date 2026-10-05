@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\CategoriaDocumento;
+use App\Enums\EstadoValidacionVisual;
 use App\Enums\MotorPlantilla;
 use App\Enums\TipoPlantillaDocumento;
 use Database\Factories\DocumentTemplateFactory;
@@ -70,6 +71,19 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $ultima_prueba_en
  * @property int|null $ultima_prueba_por
  * @property array<string, mixed>|null $ultima_prueba_resultado
+ * @property EstadoValidacionVisual $visual_validation_status QA visual de ESTA versión (pending | passed | failed).
+ * @property float|null $visual_similarity Similitud mínima por página entre ORIGINAL y GENERADO (0..1).
+ * @property int|null $page_count_original
+ * @property int|null $page_count_output
+ * @property Carbon|null $visual_checked_at
+ * @property string|null $visual_engine Conversor con el que se validó (word | libreoffice | overlay).
+ * @property array<string, mixed>|null $visual_report
+ * @property array<string, mixed>|null $diagnostico_fuentes
+ * @property int|null $activado_por
+ * @property Carbon|null $activado_en
+ * @property string|null $activacion_excepcional_motivo Activación sin QA visual aprobado (solo super_admin, auditada).
+ * @property-read User|null $activadoPor
+ * @property-read User|null $creadoPor
  * @property-read OfficialFormat|null $formatoOficial
  * @property-read DocumentType|null $tipoDocumento
  * @property-read int $documentos_generados_count Solo presente cuando se pide con withCount('documentosGenerados').
@@ -132,6 +146,17 @@ class DocumentTemplate extends Model
         'ultima_prueba_en',
         'ultima_prueba_por',
         'ultima_prueba_resultado',
+        'visual_validation_status',
+        'visual_similarity',
+        'page_count_original',
+        'page_count_output',
+        'visual_checked_at',
+        'visual_engine',
+        'visual_report',
+        'diagnostico_fuentes',
+        'activado_por',
+        'activado_en',
+        'activacion_excepcional_motivo',
     ];
 
     /**
@@ -149,6 +174,7 @@ class DocumentTemplate extends Model
         'cantidad_testigos' => 0,
         'orden' => 0,
         'prioridad_especificidad' => 0,
+        'visual_validation_status' => 'pending',
     ];
 
     protected function casts(): array
@@ -177,6 +203,14 @@ class DocumentTemplate extends Model
             'prioridad_especificidad' => 'integer',
             'ultima_prueba_en' => 'datetime',
             'ultima_prueba_resultado' => 'array',
+            'visual_validation_status' => EstadoValidacionVisual::class,
+            'visual_similarity' => 'float',
+            'page_count_original' => 'integer',
+            'page_count_output' => 'integer',
+            'visual_checked_at' => 'datetime',
+            'visual_report' => 'array',
+            'diagnostico_fuentes' => 'array',
+            'activado_en' => 'datetime',
         ];
     }
 
@@ -218,6 +252,24 @@ class DocumentTemplate extends Model
     public function creadoPor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function activadoPor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'activado_por');
+    }
+
+    /**
+     * true si la versión pasó el QA visual o fue activada por excepción
+     * (super_admin, con motivo auditado).
+     */
+    public function disenoValidado(): bool
+    {
+        return $this->visual_validation_status === EstadoValidacionVisual::Aprobada
+            || ($this->activacion_excepcional_motivo !== null && $this->activacion_excepcional_motivo !== '');
     }
 
     /**

@@ -2,16 +2,12 @@
 
 namespace App\Http\Controllers\Rh;
 
-use App\Enums\TipoPlantillaDocumento;
 use App\Exports\ReporteRhExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Rh\StoreDocumentTemplateRequest;
 use App\Http\Requests\Rh\UpdateDocumentTemplateRequest;
 use App\Http\Requests\Rh\UpdateDocumentTemplateVariablesRequest;
 use App\Models\DocumentTemplate;
-use App\Models\Empresa;
-use App\Models\Puesto;
-use App\Models\Sucursal;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Plantillas\PlantillaDocumentoService;
 use App\Services\Plantillas\PlantillaStorageService;
@@ -21,39 +17,17 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
-use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class PlantillaController extends Controller
 {
-    private const FILTROS = ['tipo', 'empresa_id', 'sucursal_id', 'puesto_id', 'busqueda', 'fecha_inicio', 'fecha_fin'];
-
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly PlantillaStorageService $storage,
         private readonly PlantillaDocumentoService $documento,
         private readonly VariableMappingService $mapeo,
     ) {}
-
-    public function index(Request $request): Response
-    {
-        $this->authorize('viewAny', DocumentTemplate::class);
-
-        $plantillas = $this->queryFiltrada($request)->orderBy('nombre')->get();
-
-        return Inertia::render('Rh/Plantillas/Index', [
-            'plantillas' => $plantillas,
-            'filtros' => $request->only(self::FILTROS),
-            'opciones' => [
-                'empresas' => Empresa::query()->orderBy('nombre')->get(['id', 'nombre']),
-                'sucursales' => Sucursal::query()->orderBy('nombre')->get(['id', 'nombre', 'empresa_id']),
-                'puestos' => Puesto::query()->orderBy('nombre')->get(['id', 'nombre']),
-                'tipos' => array_map(fn (TipoPlantillaDocumento $t) => ['value' => $t->value, 'etiqueta' => $t->etiqueta()], TipoPlantillaDocumento::cases()),
-            ],
-        ]);
-    }
 
     public function exportarExcel(Request $request): HttpResponse
     {

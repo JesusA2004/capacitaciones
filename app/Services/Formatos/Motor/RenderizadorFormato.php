@@ -3,6 +3,7 @@
 namespace App\Services\Formatos\Motor;
 
 use App\Enums\EstrategiaFormato;
+use App\Exceptions\ConversorFielNoDisponibleException;
 use App\Models\OfficialFormatVersion;
 use App\Services\Formatos\OfficialFormatStorageService;
 use GdImage;
@@ -261,7 +262,8 @@ class RenderizadorFormato
             }
 
             $procesador->saveAs($salida);
-            $convertido = $this->conversor->convertir((string) file_get_contents($salida));
+            // Documento definitivo: solo conversor fiel (nunca PhpWord/DomPDF).
+            $convertido = $this->conversor->convertirFiel((string) file_get_contents($salida));
         } catch (Throwable $e) {
             throw ValidationException::withMessages(['plantilla' => 'No se pudo rellenar el Word de la plantilla ('.class_basename($e).').']);
         } finally {
@@ -270,6 +272,10 @@ class RenderizadorFormato
         }
 
         if ($convertido === null) {
+            if (! $this->conversor->fiel()) {
+                throw ConversorFielNoDisponibleException::para($version->formato->nombre ?? 'formato oficial');
+            }
+
             throw ValidationException::withMessages(['plantilla' => 'No se pudo convertir el Word a PDF.']);
         }
 

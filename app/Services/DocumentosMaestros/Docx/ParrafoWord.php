@@ -138,6 +138,49 @@ class ParrafoWord
     }
 
     /**
+     * Texto del rango [inicio, fin) partido por formato: una pieza por cada
+     * tramo consecutivo con las mismas propiedades de run (<w:rPr>). Sirve
+     * para restaurar EXACTAMENTE un blanco que mezclaba formatos (p. ej.
+     * "____ de ____" con el "de" en negritas subrayado).
+     *
+     * @return list<array{rpr: string, texto: string}>
+     */
+    public function piezas(int $inicio, int $fin): array
+    {
+        $piezas = [];
+
+        foreach ($this->segmentos() as $segmento) {
+            if ($segmento['fin'] <= $inicio || $segmento['inicio'] >= $fin) {
+                continue;
+            }
+
+            $desde = max($inicio, $segmento['inicio']) - $segmento['inicio'];
+            $hasta = min($fin, $segmento['fin']) - $segmento['inicio'];
+            $texto = mb_substr($segmento['texto'], $desde, $hasta - $desde);
+            $run = $segmento['nodo']->parentNode;
+            $rpr = '';
+
+            if ($run instanceof DOMElement && $run->localName === 'r') {
+                foreach ($run->childNodes as $hijo) {
+                    if ($hijo instanceof DOMElement && $hijo->localName === 'rPr') {
+                        $rpr = (string) $hijo->ownerDocument?->saveXML($hijo);
+                    }
+                }
+            }
+
+            $ultima = array_key_last($piezas);
+
+            if ($ultima !== null && $piezas[$ultima]['rpr'] === $rpr) {
+                $piezas[$ultima]['texto'] .= $texto;
+            } else {
+                $piezas[] = ['rpr' => $rpr, 'texto' => $texto];
+            }
+        }
+
+        return $piezas;
+    }
+
+    /**
      * Sustituye TODO el texto del párrafo (o lo crea si está vacío,
      * copiando las propiedades del run de referencia sin negritas).
      */

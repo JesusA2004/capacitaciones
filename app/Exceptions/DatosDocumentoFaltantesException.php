@@ -41,6 +41,7 @@ class DatosDocumentoFaltantesException extends ValidationException
             'code' => 'DATOS_FALTANTES',
             'message' => sprintf('Faltan %d dato(s) requerido(s) para generar «%s».', count($this->faltantes), $this->documento),
             'documento' => $this->documento,
+            'detalle' => ['documento' => $this->documento],
             'faltantes' => $this->faltantes,
             'errors' => $this->errors(),
         ], 422);

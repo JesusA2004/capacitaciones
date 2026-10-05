@@ -37,21 +37,25 @@ return [
     ],
 
     /*
-    | Conversión Word → PDF. Con LibreOffice (soffice) la conversión es
-    | fiel al documento; sin él se usa PhpWord + DomPDF (aproximada, se
-    | avisa en pantalla).
+    | Conversión Word → PDF (App\Services\Formatos\Motor\ConversorDocxPdf).
+    | Niveles de fidelidad (App\Enums\FidelidadConversion):
+    |   nativa     Microsoft Word por COM (Windows con Office).
+    |   alta       LibreOffice headless; válida para documentos definitivos
+    |              SOLO si la versión del master pasó el QA visual con
+    |              LibreOffice en ese servidor.
+    |   aproximada PhpWord + DomPDF: solo vista previa. NUNCA un documento
+    |              laboral definitivo (422 DOCUMENT_CONVERTER_UNAVAILABLE).
     */
     'libreoffice' => env('FORMATOS_LIBREOFFICE_PATH'),
 
     /*
-    | Conversor preferido para documentos maestros (contratos, avisos…):
-    | 'auto' (LibreOffice si está configurado; si no, Microsoft Word en
-    | servidores Windows con Office; si no, PhpWord aproximado), o forzar
-    | 'libreoffice' | 'word' | 'phpword'. La salida aproximada se marca en
-    | el documento generado (fidelidad = aproximada) para que RH lo sepa.
+    | 'auto' (Word si está instalado; si no, LibreOffice si está
+    | configurado), o forzar 'word' | 'libreoffice' | 'phpword' (este último
+    | deja SIN conversor fiel: los documentos definitivos se bloquean).
     */
     'conversor' => env('FORMATOS_CONVERSOR', 'auto'),
     'word_script' => resource_path('scripts/docx-a-pdf-word.ps1'),
+    'word_habilitado' => (bool) env('FORMATOS_WORD_HABILITADO', true),
     'timeout_segundos' => (int) env('FORMATOS_CONVERSOR_TIMEOUT', 180),
 
 ];

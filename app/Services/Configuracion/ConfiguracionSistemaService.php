@@ -194,11 +194,21 @@ class ConfiguracionSistemaService
     public function actualizarPuesto(Puesto $puesto, array $datos, User $actor): void
     {
         $antes = ['meses_periodo_prueba' => $puesto->meses_periodo_prueba, 'grupo_indicador' => $puesto->grupo_indicador?->value, 'grupo_documental' => $puesto->grupo_documental];
+        $grupo = array_key_exists('grupo_documental', $datos) ? $datos['grupo_documental'] : $puesto->grupo_documental;
+
+        // Un puesto nunca queda ambiguo en silencio: quitarle el grupo
+        // documental sin marcarlo como "no requiere documentos" se rechaza
+        // (esa decisión, con motivo, vive en Cobertura documental).
+        if ($grupo === null && $puesto->grupo_documental !== null && ! $puesto->no_requiere_documentos_laborales) {
+            throw ValidationException::withMessages(['grupo_documental' => sprintf('«%s» quedaría sin grupo documental. Elige uno, o márcalo como "no requiere documentos laborales" (con motivo) en Documentos maestros → Cobertura por puesto.', $puesto->nombre)]);
+        }
 
         $puesto->update([
             'meses_periodo_prueba' => $datos['meses_periodo_prueba'],
             'grupo_indicador' => $datos['grupo_indicador'] !== null ? GrupoPuestoIndicador::from($datos['grupo_indicador']) : null,
-            'grupo_documental' => array_key_exists('grupo_documental', $datos) ? $datos['grupo_documental'] : $puesto->grupo_documental,
+            'grupo_documental' => $grupo,
+            // Con grupo documental, el puesto sí firma documentos laborales.
+            ...($grupo !== null ? ['no_requiere_documentos_laborales' => false, 'motivo_sin_documentos' => null] : []),
         ]);
 
         $despues = ['meses_periodo_prueba' => $puesto->meses_periodo_prueba, 'grupo_indicador' => $puesto->grupo_indicador?->value, 'grupo_documental' => $puesto->grupo_documental];

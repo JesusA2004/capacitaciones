@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Rh;
 
 use App\Enums\EstadoDocumentoGenerado;
+use App\Exceptions\ConversorFielNoDisponibleException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Rh\PrepararGenerarFormatoRequest;
 use App\Models\Candidato;
@@ -218,14 +219,16 @@ class FormatoController extends Controller
     {
         $this->autorizarDocumento($request, $documento);
 
-        // Mismo conversor desacoplado que ya usa el módulo de formatos
-        // oficiales (App\Services\Formatos\Motor\ConversorDocxPdf): prefiere
-        // LibreOffice headless si está configurado (fidelidad exacta),
-        // nunca rompe la descarga si no lo está (cae a PhpWord/DomPDF).
+        // El PDF es lo que se imprime: solo con conversor FIEL (Word nativo o
+        // LibreOffice); nunca PhpWord/DomPDF aproximado.
         $contenidoDocx = $this->documentosWord->contenido($documento);
         abort_if($contenidoDocx === null, 404, 'El archivo fuente de este documento ya no está disponible.');
 
-        $resultado = $this->conversor->convertir($contenidoDocx);
+        if (! $this->conversor->fiel()) {
+            throw ConversorFielNoDisponibleException::para($documento->original_name);
+        }
+
+        $resultado = $this->conversor->convertirFiel($contenidoDocx);
         abort_if($resultado === null, 422, 'No se pudo generar el PDF de este documento. Descarga el Word.');
 
         $nombre = pathinfo($documento->generated_name, PATHINFO_FILENAME).'.pdf';

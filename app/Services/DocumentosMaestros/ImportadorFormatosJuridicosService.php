@@ -3,11 +3,14 @@
 namespace App\Services\DocumentosMaestros;
 
 use App\Enums\CategoriaDocumento;
+use App\Enums\EstadoValidacionVisual;
 use App\Enums\MotorPlantilla;
 use App\Enums\TipoPlantillaDocumento;
 use App\Models\DocumentTemplate;
 use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\DocumentosMaestros\Calidad\ValidacionVisualMaestroService;
+use App\Services\Formatos\Motor\ConversorDocxPdf;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -32,6 +35,8 @@ class ImportadorFormatosJuridicosService
         private readonly PreparacionMaestroService $preparacion,
         private readonly AlmacenMaestrosService $almacen,
         private readonly AuditoriaService $auditoria,
+        private readonly ValidacionVisualMaestroService $validacion,
+        private readonly ConversorDocxPdf $conversor,
     ) {}
 
     /**
@@ -103,6 +108,10 @@ class ImportadorFormatosJuridicosService
 
                     foreach ((array) ($master->analisis['reglas_pendientes'] ?? []) as $pendiente) {
                         $anomalias[] = sprintf('%s v%d: regla #%s (%s) sin contexto %s', $fuente['familia'], $fuente['version'], $pendiente['regla'] ?? '?', $pendiente['campo'] ?? '', $pendiente['contexto'] ?? '');
+                    }
+
+                    if ($master->operativo && $master->estado_master === 'listo' && ! $master->disenoValidado()) {
+                        $anomalias[] = sprintf('%s v%d: diseño NO validado (%s) — %s', $fuente['familia'], $fuente['version'], $master->visual_validation_status->etiqueta(), implode(' ', array_slice((array) (($master->visual_report ?? [])['problemas'] ?? []), 0, 2)));
                     }
 
                     if ($fuente['bloqueada']) {
@@ -206,10 +215,16 @@ class ImportadorFormatosJuridicosService
             'version' => $version,
         ];
 
-        return DB::transaction(function () use ($existente, $datos, $quiereActiva, $familia, $actor): DocumentTemplate {
+        $master = DB::transaction(function () use ($existente, $datos, $familia, $actor): DocumentTemplate {
             if ($existente !== null) {
                 if ($existente->trashed()) {
                     $existente->restore();
+                }
+
+                // Si el master técnico o su mapa de campos cambiaron (reglas
+                // nuevas), su QA visual anterior ya no vale: se vuelve a validar.
+                if ($existente->master_hash !== $datos['master_hash'] || json_encode($existente->mapping) !== json_encode($datos['mapping'])) {
+                    $datos = [...$datos, 'visual_validation_status' => EstadoValidacionVisual::Pendiente, 'visual_similarity' => null, 'visual_checked_at' => null, 'visual_report' => null, 'page_count_output' => null, 'activacion_excepcional_motivo' => null];
                 }
 
                 // Una versión activada a mano por RH no se desactiva en
@@ -222,9 +237,19 @@ class ImportadorFormatosJuridicosService
                 $this->auditoria->registrar('documento_maestro_importado', $master, $actor, ['familia' => $familia, 'version' => $master->version, 'hash' => $datos['original_hash']]);
             }
 
+            return $master;
+        });
+
+        // QA visual al importar/cargar (fuera de la transacción: convierte
+        // con Word y rasteriza, puede tardar).
+        if ($estado === 'listo' && $master->operativo && ! $master->disenoValidado() && config('documentos_maestros.validacion_visual.al_importar', true)) {
+            $master = $this->validacion->validar($master, $actor);
+        }
+
+        return DB::transaction(function () use ($master, $quiereActiva, $familia, $actor): DocumentTemplate {
             $hayActiva = DocumentTemplate::query()->where('familia', $familia)->where('activo', true)->where('id', '!=', $master->id)->exists();
 
-            if ($quiereActiva && ! $hayActiva && ! $master->activo) {
+            if ($quiereActiva && ! $hayActiva && ! $master->activo && $this->bloqueosActivacion($master) === []) {
                 $this->activar($master, $actor);
             }
 
@@ -238,21 +263,102 @@ class ImportadorFormatosJuridicosService
     }
 
     /**
-     * Activa una versión y desactiva las demás de su familia (una sola
-     * activa). Solo masters listos.
+     * Por qué una versión NO puede activarse todavía (lista vacía = puede).
+     * Se muestran tal cual en la UI junto al botón "Activar" deshabilitado.
+     *
+     * @return list<array{clave: string, mensaje: string, excepcionable: bool}>
      */
-    public function activar(DocumentTemplate $master, ?User $actor): DocumentTemplate
+    public function bloqueosActivacion(DocumentTemplate $master): array
     {
-        if ($master->estado_master !== 'listo') {
-            throw ValidationException::withMessages(['master' => sprintf('«%s» v%d no puede activarse: tiene campos pendientes o está bloqueado. Revisa el reporte de campos.', $master->nombre, $master->version)]);
+        $bloqueos = [];
+        $analisis = (array) ($master->analisis ?? []);
+        $detectados = (int) ($analisis['detectados'] ?? 0);
+        $mapeados = (int) ($analisis['mapeados'] ?? 0);
+        // Las líneas de firma/huella nunca se mapean (quedan en blanco para firmar).
+        $firmas = (int) ($analisis['firmas'] ?? 0);
+        $pendientes = count((array) ($analisis['pendientes'] ?? [])) + count((array) ($analisis['reglas_pendientes'] ?? []));
+        $reporte = (array) ($master->visual_report ?? []);
+
+        if ($master->estado_master === 'bloqueado') {
+            $bloqueos[] = ['clave' => 'bloqueado', 'mensaje' => 'La versión está bloqueada en el registro jurídico (borrador o formato de otra empresa).', 'excepcionable' => false];
+        } elseif ($master->estado_master === 'referencia' || ! $master->operativo) {
+            $bloqueos[] = ['clave' => 'referencia', 'mensaje' => 'Es un documento de referencia: no se genera para colaboradores.', 'excepcionable' => false];
         }
 
-        DB::transaction(function () use ($master): void {
+        if ($detectados > 0 && $mapeados < $detectados - $firmas) {
+            $bloqueos[] = ['clave' => 'campos', 'mensaje' => sprintf('Campos mapeados %d de %d: faltan %d por mapear.', $mapeados, $detectados - $firmas, $detectados - $firmas - $mapeados), 'excepcionable' => false];
+        }
+
+        if ($pendientes > 0) {
+            $bloqueos[] = ['clave' => 'reglas', 'mensaje' => sprintf('%d regla(s) o dato(s) pendientes en el reporte de campos.', $pendientes), 'excepcionable' => false];
+        }
+
+        if (($reporte['desbordes'] ?? []) !== []) {
+            $bloqueos[] = ['clave' => 'desborde', 'mensaje' => sprintf('%d campo(s) se desbordan de su caja con datos largos.', count((array) $reporte['desbordes'])), 'excepcionable' => false];
+        }
+
+        if ($master->motor->value === 'docx' && $master->operativo) {
+            // Word (nativa) siempre sirve; LibreOffice solo si validó esta
+            // versión — ambos casos los cubre "hay al menos uno".
+            if ($this->conversor->conversoresFieles() === []) {
+                $bloqueos[] = ['clave' => 'conversor', 'mensaje' => 'No hay un conversor fiel (Microsoft Word o LibreOffice) en este servidor.', 'excepcionable' => false];
+            }
+        }
+
+        if ($master->visual_checked_at === null) {
+            $bloqueos[] = ['clave' => 'qa', 'mensaje' => 'Falta la prueba de diseño (vista previa ORIGINAL vs GENERADO).', 'excepcionable' => true];
+        } elseif ($master->visual_validation_status !== EstadoValidacionVisual::Aprobada) {
+            $bloqueos[] = ['clave' => 'qa', 'mensaje' => sprintf('El diseño no está validado: %s', implode(' ', array_slice((array) ($reporte['problemas'] ?? ['la prueba de diseño no pasó.']), 0, 2))), 'excepcionable' => true];
+        }
+
+        return $bloqueos;
+    }
+
+    /**
+     * Activa una versión y desactiva las demás de su familia (una sola
+     * activa). Sin bloqueos, o con activación EXCEPCIONAL: solo cuando lo
+     * único que falta es el QA visual, con el permiso
+     * documentos_maestros.activar_excepcional (super_admin) y un motivo,
+     * que queda auditado y visible en la versión.
+     */
+    public function activar(DocumentTemplate $master, ?User $actor, ?string $motivoExcepcional = null): DocumentTemplate
+    {
+        $bloqueos = $this->bloqueosActivacion($master);
+        $motivoExcepcional = $motivoExcepcional !== null ? trim($motivoExcepcional) : null;
+        $excepcional = false;
+
+        if ($bloqueos !== []) {
+            $soloExcepcionables = array_filter($bloqueos, fn (array $b): bool => ! $b['excepcionable']) === [];
+            $autorizado = $actor !== null && $actor->can('documentos_maestros.activar_excepcional');
+
+            if (! $soloExcepcionables || ! $autorizado || $motivoExcepcional === null || mb_strlen($motivoExcepcional) < 15) {
+                throw ValidationException::withMessages(['master' => sprintf(
+                    '«%s» v%d no puede activarse: %s',
+                    $master->nombre,
+                    $master->version,
+                    implode(' ', array_column($bloqueos, 'mensaje')),
+                )]);
+            }
+
+            $excepcional = true;
+        }
+
+        DB::transaction(function () use ($master, $actor, $excepcional, $motivoExcepcional): void {
             DocumentTemplate::query()->where('familia', $master->familia)->where('id', '!=', $master->id)->update(['activo' => false]);
-            $master->update(['activo' => true]);
+            $master->update([
+                'activo' => true,
+                'activado_por' => $actor?->id,
+                'activado_en' => now(),
+                'activacion_excepcional_motivo' => $excepcional ? $motivoExcepcional : null,
+            ]);
         });
 
-        $this->auditoria->registrar('documento_maestro_activado', $master, $actor, ['familia' => $master->familia, 'version' => $master->version]);
+        $this->auditoria->registrar($excepcional ? 'documento_maestro_activado_excepcion' : 'documento_maestro_activado', $master, $actor, array_filter([
+            'familia' => $master->familia,
+            'version' => $master->version,
+            'motivo' => $excepcional ? $motivoExcepcional : null,
+            'bloqueos' => $excepcional ? array_column($bloqueos, 'mensaje') : null,
+        ]));
 
         return $master->refresh();
     }

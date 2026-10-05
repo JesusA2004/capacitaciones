@@ -29,6 +29,10 @@ class GenerarDocumentoProcesoRequest extends FormRequest
             'clave' => ['sometimes', 'required', 'string', 'max:80', 'regex:/^[a-z0-9_]+$/'],
             'proceso' => ['nullable', 'string', 'in:alta,renovacion,evaluacion,baja,negativa_firma,permiso,prestamo,activos'],
             'regenerar' => ['sometimes', 'boolean'],
+            // Nueva revisión de un documento YA firmado: permiso
+            // documentos_laborales.revisar_firmado + motivo (auditado).
+            'revision' => ['sometimes', 'boolean'],
+            'motivo' => ['required_if:revision,true,1', 'nullable', 'string', 'min:15', 'max:500'],
             'completar' => ['nullable', 'array', 'max:30'],
             'completar.*' => ['nullable', 'string', 'max:191'],
             'manuales' => ['nullable', 'array', 'max:20'],

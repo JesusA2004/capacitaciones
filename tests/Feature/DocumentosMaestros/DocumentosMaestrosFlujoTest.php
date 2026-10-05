@@ -24,9 +24,9 @@ use Laravel\Sanctum\Sanctum;
 /*
 | Motor de documentos maestros de punta a punta con los ORIGINALES reales de
 | Jurídico (docs/formatos_fuente/). Esos binarios no viven en el repositorio:
-| si la carpeta no está, la prueba se omite. La conversión usa el motor
-| PhpWord (rápido; fidelidad "aproximada") — la fiel (LibreOffice/Word) se
-| verifica en el smoke manual.
+| si la carpeta no está, la prueba se omite. La conversión y el QA visual
+| son falsos (tests/Support): aquí se prueban reglas, datos y flujo; la
+| fidelidad REAL (Word + rasterizado) está en FidelidadRealTest.php.
 */
 
 function dmFuente(): string
@@ -90,7 +90,7 @@ beforeEach(function () {
     $this->seed(RolesYPermisosSeeder::class);
     Storage::fake('nas');
     Notification::fake();
-    config(['formatos_oficiales.conversor' => 'phpword']);
+    $this->motorFiel = dmMotorFielDePrueba();
 
     app(ImportadorFormatosJuridicosService::class)->importarCarpeta(dmFuente());
 

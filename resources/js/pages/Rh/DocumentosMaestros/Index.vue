@@ -1,34 +1,77 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
-import { FileStack } from '@lucide/vue';
-import { ref } from 'vue';
+import { Head, router } from '@inertiajs/vue3';
+import {
+    Banknote,
+    CalendarClock,
+    FileCheck2,
+    FileClock,
+    FileSignature,
+    FileStack,
+    FileWarning,
+    Handshake,
+    Loader2,
+    LogOut,
+    Search,
+    ShieldQuestion,
+    UserRoundX,
+    Users,
+} from '@lucide/vue';
+import { computed, ref } from 'vue';
+import type { Component } from 'vue';
 import { toast } from 'vue-sonner';
+import KpiCard from '@/components/Dashboard/KpiCard.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
-import { Badge } from '@/components/ui/badge';
+import DetalleMaestro from '@/components/documentos/maestros/DetalleMaestro.vue';
+import EstadoDisenoBadge from '@/components/documentos/maestros/EstadoDisenoBadge.vue';
+import EstadoMaestroBadge from '@/components/documentos/maestros/EstadoMaestroBadge.vue';
+import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
     DialogDescription,
+    DialogFooter,
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import {
+    Sheet,
+    SheetContent,
+    SheetDescription,
+    SheetHeader,
+    SheetTitle,
+} from '@/components/ui/sheet';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useDocumentosMaestros } from '@/composables/useDocumentosMaestros';
 import { formatearFecha } from '@/lib/fechas';
-import { leerCookie } from '@/lib/http';
 import { dashboard } from '@/routes';
-import type { MasterAdminFila, MasterDetalle } from '@/types';
+import { cobertura } from '@/routes/rh/documentos-maestros';
+import type {
+    EstadoEjecutivoMaster,
+    KpisMaestros,
+    MasterAdminFila,
+    MasterDetalle,
+} from '@/types';
 
 /**
- * Administración → Documentos maestros. RH carga UNA VEZ el documento
- * jurídico original (DOCX/PDF); el sistema prepara el master técnico y su
- * mapa de campos. Aquí solo se versiona, activa y prueba. Los documentos
+ * Administración → Documentos maestros: los formatos oficiales de Jurídico
+ * que PEOPLE usa automáticamente en cada proceso. Aquí solo se cargan
+ * versiones, se valida su diseño, se prueban y se activan; los documentos
  * de cada persona se generan en su proceso (ficha, cierre, solicitud…).
  */
 const props = defineProps<{
     masters: MasterAdminFila[];
+    kpis: KpisMaestros;
     grupos: Record<string, string>;
+    procesos: Record<string, string>;
 }>();
 
 defineOptions({
@@ -40,275 +83,429 @@ defineOptions({
     },
 });
 
-const filas = ref<MasterAdminFila[]>(props.masters);
-const detalle = ref<MasterDetalle | null>(null);
-const familiaCarga = ref<MasterAdminFila | null>(null);
-const archivo = ref<File | null>(null);
-const colaboradorPrueba = ref('');
-const ocupado = ref(false);
-const faltantesPrueba = ref<string[] | null>(null);
+const api = useDocumentosMaestros();
 
-async function pedir<T>(metodo: 'GET' | 'POST', url: string, cuerpo?: FormData | Record<string, unknown>): Promise<T> {
-    const esForm = cuerpo instanceof FormData;
-    const r = await fetch(url, {
-        method: metodo,
-        credentials: 'same-origin',
-        headers: {
-            Accept: 'application/json',
-            'X-XSRF-TOKEN': leerCookie('XSRF-TOKEN') ?? '',
-            ...(cuerpo && !esForm ? { 'Content-Type': 'application/json' } : {}),
-        },
-        body: cuerpo === undefined ? undefined : esForm ? cuerpo : JSON.stringify(cuerpo),
-    });
-    const datos = (await r.json().catch(() => null)) as (T & { message?: string; errors?: Record<string, string[]> }) | null;
+// ───────── Filtros ─────────
+const filtroProceso = ref('todos');
+const filtroGrupo = ref('todos');
+const filtroEstado = ref<'todos' | EstadoEjecutivoMaster | 'sin_validar'>(
+    'todos',
+);
+const busqueda = ref('');
 
-    if (!r.ok) {
-        throw new Error((datos?.errors ? Object.values(datos.errors)[0]?.[0] : undefined) ?? datos?.message ?? `Error ${r.status}`);
-    }
-
-    return datos as T;
+function normalizar(texto: string): string {
+    return texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 }
 
-async function verDetalle(id: number | null) {
+const filtradas = computed(() =>
+    props.masters.filter((f) => {
+        if (
+            filtroProceso.value !== 'todos' &&
+            f.proceso !== filtroProceso.value
+        ) {
+            return false;
+        }
+
+        if (filtroGrupo.value === 'general' && f.grupos.length > 0) {
+            return false;
+        }
+
+        if (
+            filtroGrupo.value !== 'todos' &&
+            filtroGrupo.value !== 'general' &&
+            !f.grupos.includes(filtroGrupo.value)
+        ) {
+            return false;
+        }
+
+        if (filtroEstado.value === 'sin_validar') {
+            if (
+                f.versiones_sin_validar === 0 &&
+                f.diseno !== 'sin_validar' &&
+                f.diseno !== 'fallido'
+            ) {
+                return false;
+            }
+        } else if (
+            filtroEstado.value !== 'todos' &&
+            f.estado_ejecutivo !== filtroEstado.value
+        ) {
+            return false;
+        }
+
+        const termino = normalizar(busqueda.value.trim());
+
+        return (
+            termino === '' ||
+            normalizar(
+                `${f.nombre} ${f.aplica_a} ${f.proceso_etiqueta ?? ''}`,
+            ).includes(termino)
+        );
+    }),
+);
+
+const iconoProceso: Record<string, Component> = {
+    alta: FileSignature,
+    renovacion: CalendarClock,
+    evaluacion: FileCheck2,
+    baja: LogOut,
+    negativa_firma: UserRoundX,
+    permiso: FileClock,
+    prestamo: Banknote,
+    activos: Handshake,
+    referencia: ShieldQuestion,
+};
+
+// ───────── Detalle ─────────
+const detalle = ref<MasterDetalle | null>(null);
+const cargandoDetalle = ref(false);
+const panelAbierto = ref(false);
+
+async function abrir(id: number | null) {
     if (id === null) {
         return;
     }
 
-    faltantesPrueba.value = null;
-    detalle.value = (await pedir<{ data: MasterDetalle }>('GET', `/rh/documentos-maestros/${id}`)).data;
+    panelAbierto.value = true;
+    cargandoDetalle.value = true;
+
+    try {
+        detalle.value = await api.detalle(id);
+    } catch (e) {
+        toast.error(
+            e instanceof Error ? e.message : 'No se pudo abrir el documento.',
+        );
+        panelAbierto.value = false;
+    } finally {
+        cargandoDetalle.value = false;
+    }
+}
+
+function alActualizar(nuevo: MasterDetalle) {
+    detalle.value = nuevo;
+    router.reload({ only: ['masters', 'kpis'] });
+}
+
+// ───────── Nueva versión ─────────
+const familiaCarga = ref<MasterAdminFila | null>(null);
+const archivos = ref<File[]>([]);
+const subiendo = ref(false);
+
+function nuevaVersion(fila: MasterAdminFila | null) {
+    familiaCarga.value = fila;
+    archivos.value = [];
+}
+
+function nuevaVersionDesdeDetalle() {
+    const fila =
+        props.masters.find((f) => f.familia === detalle.value?.familia) ?? null;
+    nuevaVersion(fila);
 }
 
 async function cargarVersion() {
-    if (!familiaCarga.value || !archivo.value) {
+    const archivo = archivos.value[0];
+
+    if (!familiaCarga.value || !archivo) {
         return;
     }
 
-    const datos = new FormData();
-    datos.append('archivo', archivo.value);
-    ocupado.value = true;
+    subiendo.value = true;
 
     try {
-        const r = await pedir<{ message: string; data: MasterDetalle }>('POST', `/rh/documentos-maestros/familia/${familiaCarga.value.familia}/versiones`, datos);
+        const r = await api.cargarVersion(familiaCarga.value.familia, archivo);
         toast.success(r.message);
         familiaCarga.value = null;
         detalle.value = r.data;
-        window.location.reload();
+        panelAbierto.value = true;
+        router.reload({ only: ['masters', 'kpis'] });
     } catch (e) {
-        toast.error(e instanceof Error ? e.message : 'No se pudo cargar.');
+        toast.error(
+            e instanceof Error ? e.message : 'No se pudo cargar la versión.',
+        );
     } finally {
-        ocupado.value = false;
+        subiendo.value = false;
     }
 }
 
-async function cambiarActivo(activar: boolean) {
-    if (!detalle.value) {
-        return;
-    }
-
-    ocupado.value = true;
-
-    try {
-        const r = await pedir<{ message: string; data: MasterDetalle }>('POST', `/rh/documentos-maestros/${detalle.value.id}/${activar ? 'activar' : 'desactivar'}`);
-        toast.success(r.message);
-        detalle.value = r.data;
-        filas.value = filas.value.map((f) => (f.familia === r.data.familia ? { ...f, activo: activar && r.data.activo, version_activa: activar ? r.data.version : null } : f));
-    } catch (e) {
-        toast.error(e instanceof Error ? e.message : 'No se pudo cambiar.');
-    } finally {
-        ocupado.value = false;
-    }
+function tamano(bytes: number): string {
+    return bytes > 1024 * 1024
+        ? `${(bytes / 1024 / 1024).toFixed(1)} MB`
+        : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
-
-async function probar() {
-    if (!detalle.value || !colaboradorPrueba.value) {
-        return;
-    }
-
-    ocupado.value = true;
-
-    try {
-        const r = await fetch(`/rh/documentos-maestros/${detalle.value.id}/probar`, {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-XSRF-TOKEN': leerCookie('XSRF-TOKEN') ?? '',
-            },
-            body: JSON.stringify({ colaborador_id: Number(colaboradorPrueba.value) }),
-        });
-
-        if (!r.ok) {
-            const datos = (await r.json().catch(() => null)) as { message?: string } | null;
-
-            throw new Error(datos?.message ?? `Error ${r.status}`);
-        }
-
-        faltantesPrueba.value = JSON.parse(r.headers.get('X-Faltantes') ?? '[]') as string[];
-        window.open(URL.createObjectURL(await r.blob()), '_blank', 'noopener');
-    } catch (e) {
-        toast.error(e instanceof Error ? e.message : 'No se pudo generar la prueba.');
-    } finally {
-        ocupado.value = false;
-    }
-}
-
-function varianteEstado(estado: string): 'success' | 'warning' | 'destructive' | 'outline' {
-    return estado === 'listo' ? 'success' : estado === 'referencia' ? 'outline' : estado === 'con_pendientes' ? 'warning' : 'destructive';
-}
-
-const etiquetaAccion: Record<string, string> = {
-    documento_maestro_importado: 'Versión cargada',
-    documento_maestro_activado: 'Activada',
-    documento_maestro_desactivado: 'Desactivada',
-    documento_maestro_probado: 'Probada con colaborador',
-};
-
-const etiquetaEstado: Record<string, string> = {
-    listo: 'Listo',
-    con_pendientes: 'Con pendientes',
-    bloqueado: 'Bloqueado',
-    referencia: 'Referencia (no se genera)',
-    sin_original: 'Sin original cargado',
-};
 </script>
 
 <template>
     <Head title="Documentos maestros" />
 
-    <div class="pagina-ancha flex flex-col gap-5">
+    <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
             titulo="Documentos maestros"
-            descripcion="Formatos jurídicos originales de RH/Jurídico. Se cargan una vez; PEOPLE los llena en cada proceso (alta, baja, permiso, préstamo…)."
+            descripcion="Formatos oficiales utilizados automáticamente por PEOPLE en cada proceso."
             :icono="FileStack"
-        />
+        >
+            <Button variant="outline" as="a" :href="cobertura.url()">
+                <Users class="size-4" /> Cobertura por puesto
+            </Button>
+        </CrudPageHeader>
+
+        <header class="flex flex-col gap-1">
+            <h1 class="text-xl font-semibold">Documentos maestros</h1>
+            <p class="text-sm text-[var(--mrl-texto-suave)]">
+                Formatos oficiales utilizados automáticamente por PEOPLE en cada
+                proceso. El original de Jurídico nunca se modifica: cada
+                documento sale idéntico, solo con los datos de la persona.
+            </p>
+        </header>
 
         <div
-            data-tour="documentos-maestros-lista"
-            class="overflow-x-auto rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)]"
+            data-tour="documentos-maestros-kpis"
+            class="grid grid-cols-2 gap-3 lg:grid-cols-4"
         >
-            <table class="w-full text-sm">
-                <thead class="text-left text-xs text-[var(--mrl-texto-suave)] uppercase">
-                    <tr>
-                        <th class="p-3">Documento</th>
-                        <th class="p-3">Proceso</th>
-                        <th class="p-3">Aplica a</th>
-                        <th class="p-3">Empresa</th>
-                        <th class="p-3">Versión</th>
-                        <th class="p-3">Estado</th>
-                        <th class="p-3">Campos</th>
-                        <th class="p-3">Última prueba</th>
-                        <th class="p-3"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="f in filas" :key="f.familia" class="border-t border-[var(--mrl-borde)]">
-                        <td class="p-3 font-medium">{{ f.nombre }}</td>
-                        <td class="p-3">{{ f.proceso_etiqueta ?? '—' }}</td>
-                        <td class="p-3">{{ f.aplica_a }}</td>
-                        <td class="p-3">{{ f.empresa }}</td>
-                        <td class="p-3">{{ f.version_activa ? `v${f.version_activa}` : '—' }}</td>
-                        <td class="p-3">
-                            <Badge :variant="varianteEstado(f.estado)">{{ etiquetaEstado[f.estado] ?? f.estado }}</Badge>
-                            <span v-if="f.operativo && !f.activo && f.estado === 'listo'" class="ml-1 text-xs text-[var(--mrl-texto-suave)]">(inactivo)</span>
-                        </td>
-                        <td class="p-3 text-xs">
-                            {{ f.detectados }} detectados · {{ f.mapeados }} mapeados ·
-                            <span :class="f.pendientes ? 'font-semibold text-red-700' : ''">{{ f.pendientes }} pendientes</span>
-                        </td>
-                        <td class="p-3 text-xs">{{ f.ultima_prueba_en ? formatearFecha(f.ultima_prueba_en) : '—' }}</td>
-                        <td class="p-3">
-                            <div class="flex gap-2">
-                                <Button size="sm" variant="outline" :disabled="f.master_id === null" @click="verDetalle(f.master_id)">Ver</Button>
-                                <Button v-if="f.operativo" size="sm" variant="outline" @click="familiaCarga = f; archivo = null">Nueva versión</Button>
-                            </div>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+            <KpiCard
+                titulo="Formatos activos"
+                :valor="kpis.formatos_activos"
+                :icono="FileCheck2"
+                tono="success"
+            />
+            <KpiCard
+                titulo="Requieren revisión"
+                :valor="kpis.requieren_revision"
+                :icono="FileWarning"
+                :tono="kpis.requieren_revision ? 'warning' : 'default'"
+            />
+            <KpiCard
+                titulo="Puestos sin cobertura"
+                :valor="kpis.puestos_sin_cobertura"
+                :icono="Users"
+                :tono="kpis.puestos_sin_cobertura ? 'danger' : 'default'"
+                :href="cobertura.url()"
+            />
+            <KpiCard
+                titulo="Versiones sin validar"
+                :valor="kpis.versiones_sin_validar"
+                :icono="ShieldQuestion"
+                :tono="kpis.versiones_sin_validar ? 'warning' : 'default'"
+            />
         </div>
+
+        <div
+            class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center"
+        >
+            <Select v-model="filtroProceso">
+                <SelectTrigger class="sm:w-52" aria-label="Proceso"
+                    ><SelectValue placeholder="Proceso"
+                /></SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="todos">Todos los procesos</SelectItem>
+                    <SelectItem
+                        v-for="(etiqueta, clave) in procesos"
+                        :key="clave"
+                        :value="String(clave)"
+                        >{{ etiqueta }}</SelectItem
+                    >
+                </SelectContent>
+            </Select>
+            <Select v-model="filtroGrupo">
+                <SelectTrigger class="sm:w-52" aria-label="Grupo"
+                    ><SelectValue placeholder="Grupo"
+                /></SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="todos">Todos los puestos</SelectItem>
+                    <SelectItem value="general">General</SelectItem>
+                    <SelectItem
+                        v-for="(etiqueta, clave) in grupos"
+                        :key="clave"
+                        :value="String(clave)"
+                        >{{ etiqueta }}</SelectItem
+                    >
+                </SelectContent>
+            </Select>
+            <Select v-model="filtroEstado">
+                <SelectTrigger class="sm:w-52" aria-label="Estado"
+                    ><SelectValue placeholder="Estado"
+                /></SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="todos">Todos los estados</SelectItem>
+                    <SelectItem value="listo">Listo</SelectItem>
+                    <SelectItem value="requiere_revision"
+                        >Requiere revisión</SelectItem
+                    >
+                    <SelectItem value="bloqueado">Bloqueado</SelectItem>
+                    <SelectItem value="sin_formato">Sin formato</SelectItem>
+                    <SelectItem value="sin_validar"
+                        >Falta validar diseño</SelectItem
+                    >
+                    <SelectItem value="referencia">Referencia</SelectItem>
+                </SelectContent>
+            </Select>
+            <div class="relative sm:ml-auto sm:w-72">
+                <Search
+                    class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[var(--mrl-texto-suave)]"
+                />
+                <Input
+                    v-model="busqueda"
+                    type="search"
+                    placeholder="Buscar documento…"
+                    class="pl-9"
+                />
+            </div>
+        </div>
+
+        <p
+            v-if="filtradas.length === 0"
+            class="rounded-2xl border border-dashed border-[var(--mrl-borde)] p-8 text-center text-sm text-[var(--mrl-texto-suave)]"
+        >
+            Ningún documento coincide con los filtros.
+        </p>
+
+        <ul
+            data-tour="documentos-maestros-lista"
+            class="grid gap-3 md:grid-cols-2 xl:grid-cols-3"
+        >
+            <li v-for="f in filtradas" :key="f.familia">
+                <button
+                    type="button"
+                    class="group flex h-full w-full flex-col gap-3 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4 text-left shadow-sm transition-all hover:border-primary/40 hover:shadow-md disabled:cursor-default disabled:opacity-70"
+                    :disabled="f.master_id === null"
+                    @click="abrir(f.master_id)"
+                >
+                    <div class="flex items-start gap-3">
+                        <span
+                            class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
+                        >
+                            <component
+                                :is="iconoProceso[f.proceso ?? ''] ?? FileStack"
+                                class="size-5"
+                            />
+                        </span>
+                        <div class="min-w-0 flex-1">
+                            <p class="leading-snug font-medium">
+                                {{ f.nombre }}
+                            </p>
+                            <p class="text-xs text-[var(--mrl-texto-suave)]">
+                                {{ f.proceso_etiqueta ?? '—' }} ·
+                                {{ f.aplica_a }}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <EstadoMaestroBadge :estado="f.estado_ejecutivo" />
+                        <EstadoDisenoBadge :diseno="f.diseno" />
+                    </div>
+                    <div
+                        class="mt-auto flex items-center justify-between gap-2 text-xs text-[var(--mrl-texto-suave)]"
+                    >
+                        <span>{{
+                            f.version_activa
+                                ? `Versión activa v${f.version_activa}`
+                                : 'Sin versión activa'
+                        }}</span>
+                        <span v-if="f.ultima_prueba_en"
+                            >Probado
+                            {{ formatearFecha(f.ultima_prueba_en) }}</span
+                        >
+                        <span v-else-if="f.master_id === null"
+                            >Falta el original de Jurídico</span
+                        >
+                    </div>
+                    <p
+                        v-if="f.versiones_sin_validar > 0 && f.operativo"
+                        class="text-xs text-amber-700 dark:text-amber-300"
+                    >
+                        {{ f.versiones_sin_validar }} versión(es) sin validar
+                    </p>
+                </button>
+            </li>
+        </ul>
     </div>
 
-    <Dialog :open="familiaCarga !== null" @update:open="(v: boolean) => !v && (familiaCarga = null)">
+    <!-- Detalle -->
+    <Sheet v-model:open="panelAbierto">
+        <SheetContent side="right" class="w-full overflow-y-auto sm:max-w-3xl">
+            <SheetHeader>
+                <SheetTitle>{{
+                    detalle?.nombre ?? 'Documento maestro'
+                }}</SheetTitle>
+                <SheetDescription>
+                    {{
+                        detalle
+                            ? `${detalle.proceso ?? ''} · ${detalle.grupos.length ? detalle.grupos.join(', ') : 'General'}`
+                            : ''
+                    }}
+                </SheetDescription>
+            </SheetHeader>
+            <div class="px-4 pb-6">
+                <div v-if="cargandoDetalle" class="flex flex-col gap-3">
+                    <Skeleton class="h-8 w-1/2" />
+                    <Skeleton class="h-32 w-full" />
+                    <Skeleton class="h-40 w-full" />
+                </div>
+                <DetalleMaestro
+                    v-else-if="detalle"
+                    :detalle="detalle"
+                    @actualizado="alActualizar"
+                    @nueva-version="nuevaVersionDesdeDetalle"
+                    @ver-version="abrir"
+                />
+            </div>
+        </SheetContent>
+    </Sheet>
+
+    <!-- Nueva versión -->
+    <Dialog
+        :open="familiaCarga !== null"
+        @update:open="(v: boolean) => !v && !subiendo && (familiaCarga = null)"
+    >
         <DialogContent class="sm:max-w-lg">
             <DialogHeader>
-                <DialogTitle>Nueva versión: {{ familiaCarga?.nombre }}</DialogTitle>
+                <DialogTitle
+                    >Nueva versión: {{ familiaCarga?.nombre }}</DialogTitle
+                >
                 <DialogDescription>
-                    Sube el archivo ORIGINAL que entregó Jurídico (sin editar
-                    ni agregar marcadores). PEOPLE aplica el mismo mapa de
-                    campos de esta familia y te muestra el reporte; la versión
-                    queda inactiva hasta que la pruebes y la actives.
+                    Sube el archivo ORIGINAL que entregó Jurídico, sin editarlo.
+                    PEOPLE lo conserva intacto, prepara su copia técnica, valida
+                    que el resultado se vea idéntico y deja la versión inactiva
+                    hasta que la actives.
                 </DialogDescription>
             </DialogHeader>
-            <Input type="file" :accept="familiaCarga?.motor === 'pdf_overlay' ? '.pdf' : '.docx'" @change="(e: Event) => (archivo = (e.target as HTMLInputElement).files?.[0] ?? null)" />
-            <Button :disabled="ocupado || !archivo" @click="cargarVersion">Cargar y preparar</Button>
-        </DialogContent>
-    </Dialog>
-
-    <Dialog :open="detalle !== null" @update:open="(v: boolean) => !v && (detalle = null)">
-        <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-            <DialogHeader>
-                <DialogTitle>{{ detalle?.nombre }} · v{{ detalle?.version }}</DialogTitle>
-                <DialogDescription>
-                    {{ detalle?.proceso }} · {{ detalle?.grupos.length ? detalle.grupos.join(', ') : 'General' }} ·
-                    motor {{ detalle?.motor === 'pdf_overlay' ? 'PDF original + overlay' : 'Word original preparado' }}
-                </DialogDescription>
-            </DialogHeader>
-            <div v-if="detalle" class="flex flex-col gap-4 text-sm">
-                <div class="flex flex-wrap items-center gap-2">
-                    <Badge :variant="varianteEstado(detalle.estado ?? '')">{{ etiquetaEstado[detalle.estado ?? ''] ?? detalle.estado }}</Badge>
-                    <Badge :variant="detalle.activo ? 'success' : 'outline'">{{ detalle.activo ? 'Activa' : 'Inactiva' }}</Badge>
-                    <a class="text-xs underline" :href="`/rh/documentos-maestros/${detalle.id}/original`">Descargar original de Jurídico</a>
-                </div>
-                <p>
-                    <strong>{{ detalle.reporte.detectados }}</strong> campos detectados ·
-                    <strong>{{ detalle.reporte.mapeados }}</strong> mapeados ·
-                    {{ detalle.reporte.firmas }} líneas de firma (se dejan en blanco) ·
-                    <strong :class="detalle.reporte.pendientes.length + detalle.reporte.reglas_pendientes.length ? 'text-red-700' : ''">
-                        {{ detalle.reporte.pendientes.length + detalle.reporte.reglas_pendientes.length }} pendientes
-                    </strong>
-                </p>
-                <ul v-if="detalle.reporte.pendientes.length || detalle.reporte.reglas_pendientes.length" class="list-disc pl-5 text-xs text-red-800">
-                    <li v-for="(p, i) in detalle.reporte.pendientes" :key="`p${i}`">{{ p.tipo }}: {{ p.contexto }}</li>
-                    <li v-for="(p, i) in detalle.reporte.reglas_pendientes" :key="`r${i}`">Regla {{ p.regla }} ({{ p.campo }}) sin contexto {{ p.contexto }}</li>
-                </ul>
-                <p class="text-xs text-[var(--mrl-texto-suave)]">Datos que llena PEOPLE: {{ detalle.reporte.campos.join(', ') }}</p>
-                <p class="text-xs text-[var(--mrl-texto-suave)]">
-                    Requiere: {{ detalle.banderas.impresion ? 'impresión' : '' }} {{ detalle.banderas.firma_fisica ? '· firma física' : '' }}
-                    {{ detalle.banderas.huella ? '· huella' : '' }} {{ detalle.banderas.testigos ? `· ${detalle.banderas.cantidad_testigos} testigos` : '' }}
-                    {{ detalle.banderas.envio_corporativo ? '· envío del original a corporativo' : '' }}
-                </p>
-                <div v-if="detalle.observaciones.length">
-                    <p class="text-xs font-semibold">Observaciones para RH/Jurídico</p>
-                    <ul class="list-disc pl-5 text-xs">
-                        <li v-for="(o, i) in detalle.observaciones" :key="i">{{ o }}</li>
-                    </ul>
-                </div>
-                <div v-if="detalle.historial.length">
-                    <p class="text-xs font-semibold">Historial (quién cargó, activó o probó)</p>
-                    <ul class="text-xs">
-                        <li v-for="(h, i) in detalle.historial" :key="i">
-                            {{ h.en ? formatearFecha(h.en) : '' }} ·
-                            {{ etiquetaAccion[h.accion] ?? h.accion }} ·
-                            {{ h.por ?? 'Sistema (importador)' }}
-                        </li>
-                    </ul>
-                </div>
-                <div class="rounded-xl bg-[var(--mrl-fondo)] p-3">
-                    <Label for="prueba">Probar con colaborador (ID)</Label>
-                    <div class="mt-1 flex gap-2">
-                        <Input id="prueba" v-model="colaboradorPrueba" type="number" min="1" class="w-32" />
-                        <Button size="sm" :disabled="ocupado || !colaboradorPrueba" @click="probar">Generar vista previa</Button>
-                    </div>
-                    <p v-if="faltantesPrueba" class="mt-2 text-xs">
-                        {{ faltantesPrueba.length ? `Faltan: ${faltantesPrueba.join(', ')} (marcados [FALTA] en el PDF).` : 'Sin datos faltantes.' }}
-                    </p>
-                    <p class="mt-1 text-xs text-[var(--mrl-texto-suave)]">QA administrativo: la vista previa no se guarda en ningún expediente.</p>
-                </div>
-                <div class="flex gap-2">
-                    <Button v-if="!detalle.activo" :disabled="ocupado || detalle.estado !== 'listo'" @click="cambiarActivo(true)">Activar esta versión</Button>
-                    <Button v-else variant="outline" :disabled="ocupado" @click="cambiarActivo(false)">Desactivar</Button>
-                </div>
-            </div>
+            <PeopleFileDropzone
+                v-model="archivos"
+                :accept="
+                    familiaCarga?.motor === 'pdf_overlay' ? '.pdf' : '.docx'
+                "
+                :max-size-mb="20"
+                :loading="subiendo"
+                label="Arrastra aquí el documento oficial"
+                :hint="`${familiaCarga?.motor === 'pdf_overlay' ? 'PDF' : 'DOCX'} · Máx. 20 MB`"
+                @error="(m: string) => toast.error(m)"
+            />
+            <p v-if="archivos[0]" class="text-xs text-[var(--mrl-texto-suave)]">
+                {{ archivos[0].name }} · {{ tamano(archivos[0].size) }} ·
+                {{
+                    archivos[0].name.toLowerCase().endsWith('.pdf')
+                        ? 'PDF'
+                        : 'Word (DOCX)'
+                }}
+            </p>
+            <DialogFooter>
+                <Button
+                    variant="outline"
+                    :disabled="subiendo"
+                    @click="familiaCarga = null"
+                    >Cancelar</Button
+                >
+                <Button
+                    :disabled="subiendo || archivos.length === 0"
+                    @click="cargarVersion"
+                >
+                    <Loader2 v-if="subiendo" class="size-4 animate-spin" />
+                    {{
+                        subiendo
+                            ? 'Preparando y validando diseño…'
+                            : 'Cargar y validar'
+                    }}
+                </Button>
+            </DialogFooter>
         </DialogContent>
     </Dialog>
 </template>

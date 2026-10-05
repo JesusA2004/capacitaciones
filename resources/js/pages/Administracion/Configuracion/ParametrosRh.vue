@@ -14,6 +14,7 @@ import { dashboard } from '@/routes';
 import { parametrosRh, restaurar } from '@/routes/administracion/configuracion';
 import { update as actualizarPuesto } from '@/routes/administracion/configuracion/parametros-rh/puestos';
 import { update as actualizarTipoDocumento } from '@/routes/administracion/configuracion/parametros-rh/tipos-documento';
+import { cobertura as coberturaDocumental } from '@/routes/rh/documentos-maestros';
 import { configuracion as configuracionOnboarding } from '@/routes/rh/onboarding';
 import type { ParametroConfiguracion, SeccionConfiguracion } from '@/types';
 
@@ -226,6 +227,13 @@ const error = (clave: string) =>
                 Vacío = se usa la duración por defecto. El aviso de renovación
                 sale los días configurados antes del fin.
             </p>
+            <Link
+                :href="coberturaDocumental.url()"
+                class="flex w-fit items-center gap-2 rounded-xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] px-3 py-2 text-xs font-medium hover:border-primary/40"
+            >
+                Ver cobertura documental por puesto (qué contrato le toca a cada
+                puesto y qué falta)
+            </Link>
             <div
                 class="overflow-x-auto rounded-xl border border-[var(--mrl-borde)]"
             >

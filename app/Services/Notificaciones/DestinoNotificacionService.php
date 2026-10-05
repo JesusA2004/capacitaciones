@@ -66,7 +66,7 @@ class DestinoNotificacionService
                 $tipo === 'rh_cumpleanos' => self::destino(route('rh.cumpleanos.index', [], false)),
                 $relacionado === 'EvaluacionPeriodoPrueba' => $this->evaluacion($id, $tipo),
                 $relacionado === 'ContratoLaboral' => $this->contrato($id),
-                $relacionado === 'GeneratedDocument' => $this->documentoLaboral($id),
+                $relacionado === 'GeneratedDocument' => $this->documentoLaboral($id, $usuario),
                 $relacionado === 'Prestamo' => self::destino(route('mi-expediente', ['tab' => 'prestamos'], false)),
                 $relacionado === 'ReciboNomina' => self::destino(route('mi-expediente', ['tab' => 'recibos'], false)),
                 default => self::destino(null),
@@ -324,14 +324,35 @@ class DestinoNotificacionService
     }
 
     /**
-     * Documento laboral por firmar (contrato, pagaré, etc.) del colaborador.
+     * Documento laboral: el colaborador va a "Mi expediente"; RH, gerente o
+     * regional van al PROCESO de la persona donde se opera el documento
+     * (solicitud de permiso, o el ciclo del colaborador para contrato,
+     * evaluación, cierre y préstamo) — nunca a Documentos maestros.
+     */
+    private function documentoLaboralDestinoUrl(GeneratedDocument $documento, User $usuario): string
+    {
+        if ($usuario->colaborador_id !== null && $usuario->colaborador_id === $documento->colaborador_id) {
+            return route('mi-expediente', ['tab' => 'documentos'], false);
+        }
+
+        if ($documento->documentable_type === (new SolicitudInterna)->getMorphClass() && $documento->documentable_id !== null) {
+            return route('rh.solicitudes.show', $documento->documentable_id, false);
+        }
+
+        return $documento->colaborador_id !== null
+            ? route('rh.colaboradores.ciclo', $documento->colaborador_id, false)
+            : route('rh.expedientes.index', [], false);
+    }
+
+    /**
+     * Documento laboral (contrato, renuncia, permiso, pagaré…).
      *
      * @return Destino
      */
-    private function documentoLaboral(?int $id): array
+    private function documentoLaboral(?int $id, User $usuario): array
     {
-        $url = route('mi-expediente', ['tab' => 'documentos'], false);
         $documento = $id !== null ? GeneratedDocument::query()->where('id', $id)->first() : null;
+        $url = $documento !== null ? $this->documentoLaboralDestinoUrl($documento, $usuario) : route('mi-expediente', ['tab' => 'documentos'], false);
         $estado = $documento?->estado_flujo;
 
         if ($estado === null) {
@@ -346,7 +367,9 @@ class DestinoNotificacionService
             $estado->etiqueta(),
             $atendido
                 ? sprintf('Este documento ya fue atendido: está «%s».', $estado->etiqueta())
-                : 'Este documento sigue pendiente de tu firma.',
+                : ($usuario->colaborador_id !== null && $usuario->colaborador_id === $documento->colaborador_id
+                    ? 'Este documento sigue pendiente de tu firma.'
+                    : sprintf('Este documento sigue en proceso: está «%s».', $estado->etiqueta())),
         );
     }
 

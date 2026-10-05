@@ -10,10 +10,12 @@ use App\Models\Colaborador;
 use App\Models\GeneratedDocument;
 use App\Services\CierreLaboral\ProcedimientoBajaService;
 use App\Services\DocumentosLaborales\FlujoDocumentalService;
+use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * "Documentos del proceso" (JSON): lo consume el componente web
@@ -31,6 +33,7 @@ class DocumentoProcesoController extends Controller
         protected readonly DocumentoProcesoService $documentos,
         protected readonly FlujoDocumentalService $flujo,
         protected readonly ProcedimientoBajaService $procedimiento,
+        protected readonly MotorDocumentalService $motor,
     ) {}
 
     /**
@@ -60,6 +63,8 @@ class DocumentoProcesoController extends Controller
             $request->completar(),
             $request->manuales(),
             (bool) $request->validated('regenerar', false),
+            (bool) $request->validated('revision', false),
+            $request->validated('motivo') !== null ? (string) $request->validated('motivo') : null,
         );
 
         return response()->json([
@@ -80,6 +85,17 @@ class DocumentoProcesoController extends Controller
             'documentos' => array_map(fn (GeneratedDocument $d): int => $d->id, $generados),
             'data' => $this->documentos->seccion($proceso, $registro->refresh(), $request->user()),
         ], 201);
+    }
+
+    /**
+     * Word llenado del documento (misma estructura del original de
+     * Jurídico). Solo quien opera el documento: GeneratedDocumentPolicy.
+     */
+    public function word(GeneratedDocument $documento): StreamedResponse
+    {
+        $this->authorize('descargarWord', $documento);
+
+        return $this->motor->respuestaDocx($documento);
     }
 
     /**

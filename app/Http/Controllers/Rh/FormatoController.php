@@ -16,10 +16,8 @@ use App\Models\DocumentType;
 use App\Models\GeneratedDocument;
 use App\Models\SolicitudInterna;
 use App\Models\SolicitudVacaciones;
-use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Expedientes\DocumentoStorageService;
-use App\Services\Formatos\FormatoCatalogoService;
 use App\Services\Formatos\FormatoPreviewService;
 use App\Services\Formatos\Motor\ConversorDocxPdf;
 use App\Services\Plantillas\DocumentoWordGeneradoService;
@@ -34,16 +32,12 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
-use Inertia\Inertia;
-use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class FormatoController extends Controller
 {
-    private const FILTROS = ['tipo', 'status', 'generated_by', 'busqueda', 'fecha_inicio', 'fecha_fin'];
-
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly PlantillaDocumentoService $generador,
@@ -51,38 +45,11 @@ class FormatoController extends Controller
         private readonly PlantillaStorageService $storage,
         private readonly DocumentoStorageService $documentoStorage,
         private readonly FormatoPreviewService $previsualizador,
-        private readonly FormatoCatalogoService $catalogo,
         private readonly PlaceholderResolver $placeholders,
         private readonly VariableMappingService $mapeo,
         private readonly ConversorDocxPdf $conversor,
         private readonly DocumentoWordGeneradoService $documentosWord,
     ) {}
-
-    /**
-     * Catálogo/tablero avanzado de documentos generados desde plantillas
-     * DOCX editables (ahora en /rh/formatos/catalogo) — a proposito
-     * reservado a quien administra plantillas (`plantillas.crear`), ya que
-     * la pantalla principal de RH operativo es "Formatos oficiales"
-     * (Rh\FormatoOficialController). Ver "Preferido" en
-     * docs/PLANTILLAS_FORMATOS.md.
-     */
-    public function index(Request $request): Response
-    {
-        abort_unless($request->user()->can('plantillas.crear'), 403);
-
-        $documentos = $this->queryFiltrada($request)->orderByDesc('created_at')->paginate(15)->withQueryString();
-
-        return Inertia::render('Rh/Formatos/Index', [
-            'documentos' => $documentos,
-            'filtros' => $request->only(self::FILTROS),
-            'plantillasDisponibles' => $this->catalogo->listar(),
-            'colaboradoresDisponibles' => Colaborador::query()->orderBy('name')->limit(200)->get(['id', 'name', 'apellidos']),
-            'candidatosDisponibles' => Candidato::query()->orderBy('nombre')->limit(200)->get(['id', 'nombre', 'apellidos']),
-            'responsablesDisponibles' => User::query()->role(['rh_admin', 'rh_auxiliar'])->orderBy('name')->get(['id', 'name', 'apellidos']),
-            'tipos' => array_map(fn (TipoPlantillaDocumento $t) => ['value' => $t->value, 'etiqueta' => $t->etiqueta()], TipoPlantillaDocumento::cases()),
-            'estados' => array_map(fn (EstadoDocumentoGenerado $e) => ['value' => $e->value, 'etiqueta' => $e->etiqueta()], EstadoDocumentoGenerado::cases()),
-        ]);
-    }
 
     public function exportarExcel(Request $request): HttpResponse
     {
@@ -378,16 +345,17 @@ class FormatoController extends Controller
             return $this->archivoNoDisponible();
         }
 
-        // Mismo conversor desacoplado del módulo de formatos oficiales:
-        // prefiere LibreOffice headless si está configurado
-        // (config('formatos_oficiales.libreoffice')), cae a PhpWord/DomPDF
-        // si no — nunca rompe la descarga.
-        $resultado = $this->conversor->convertir($contenidoDocx);
+        // El PDF es lo que RH imprime: solo con conversor FIEL (Word nativo o
+        // LibreOffice). Nunca PhpWord/DomPDF aproximado; sin conversor fiel
+        // se avisa y el Word (idéntico al original) sigue disponible.
+        $resultado = $this->conversor->convertirFiel($contenidoDocx);
 
         if ($resultado === null) {
             return back()->with('toast', [
                 'type' => 'error',
-                'message' => 'No se pudo generar el PDF de este documento. Descarga el Word.',
+                'message' => $this->conversor->fiel()
+                    ? 'No se pudo generar el PDF de este documento. Descarga el Word.'
+                    : 'No hay un motor de conversión fiel disponible para generar el PDF oficial. Descarga el Word.',
             ]);
         }
 

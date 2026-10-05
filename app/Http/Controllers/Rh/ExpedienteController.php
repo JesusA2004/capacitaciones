@@ -31,7 +31,6 @@ use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Expedientes\AvisoPrivacidadService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Expedientes\ExpedienteService;
-use App\Services\Formatos\OfficialFormatCatalogoService;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use App\Services\Nomina\PrestamoService;
 use App\Services\Nomina\ReciboNominaService;
@@ -69,7 +68,6 @@ class ExpedienteController extends Controller
         private readonly ReciboNominaService $reciboNomina,
         private readonly PrestamoService $prestamoService,
         private readonly FotoColaboradorService $fotos,
-        private readonly OfficialFormatCatalogoService $catalogoFormatos,
         private readonly JefeDirectoService $jefes,
     ) {}
 
@@ -333,12 +331,10 @@ class ExpedienteController extends Controller
                 'contacto_emergencia_telefono' => $colaborador->contacto_emergencia_telefono,
             ],
             'resumenExpediente' => $resumen,
-            // Plantillas oficiales listas y documentos ya generados para esta
-            // persona (docs/FORMATOS_OFICIALES.md) — solo en la vista de RH.
+            // Historial de solo lectura de lo emitido con el motor anterior de
+            // formatos oficiales: ya no se genera nada ahí (todo sale de
+            // Documentos maestros), pero el expediente conserva lo que tenía.
             'documentosOficiales' => ! $esPropio && $usuario->can('formatos_oficiales.ver') ? $this->documentosOficiales($colaborador) : null,
-            'formatosOficialesDisponibles' => ! $esPropio && $usuario->can('formatos_oficiales.generar')
-                ? $this->catalogoFormatos->listar(['solo_listos' => true, 'aplica_a' => 'colaborador'])
-                : [],
             'documentosRequeridos' => $this->documentosParaVista($documentos),
             'onboarding' => $esPropio ? [] : $this->onboarding->checklist($colaborador),
             // colaborador_id es la fuente real de identidad de una

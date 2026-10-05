@@ -73,20 +73,13 @@ test('un rol sin formatos.preview no puede previsualizar', function () {
         ->assertForbidden();
 });
 
-test('el catalogo de formatos expone las variables reales de cada plantilla', function () {
+test('el catálogo del módulo anterior se retiró: redirige a Documentos maestros', function () {
     $usuario = User::factory()->create();
     $usuario->assignRole('rh_admin');
 
-    $ruta = 'plantillas/catalogo.docx';
-    Storage::disk('nas')->put($ruta, crearDocxPreviewPrueba('{{nombre_completo}} — {{rfc}}'));
-
-    DocumentTemplate::factory()->create(['path' => $ruta, 'tipo' => 'contrato', 'nombre' => 'Contrato de prueba']);
-
-    $respuesta = $this->actingAs($usuario)->get(route('rh.formatos.catalogo.index'));
-
-    $respuesta->assertInertia(fn ($page) => $page
-        ->has('plantillasDisponibles', 1)
-        ->where('plantillasDisponibles.0.variables', ['nombre_completo', 'rfc']));
+    foreach (['rh.formatos.index', 'rh.formatos.catalogo.index', 'rh.plantillas.index', 'rh.formatos-oficiales.index', 'rh.formatos-oficiales.generados', 'rh.formatos-oficiales.variables'] as $ruta) {
+        $this->actingAs($usuario)->get(route($ruta))->assertRedirect(route('rh.documentos-maestros.index'));
+    }
 });
 
 test('descargar el pdf de un documento generado no truena aunque la conversion falle', function () {

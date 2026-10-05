@@ -19,7 +19,31 @@ los puestos sin convenio propio) → **422
 DOCUMENT_TEMPLATE_MISSING** ("No está cargado el formato de … para …").
 
 El grupo documental se asigna por puesto en Administración → Parámetros RH
-(columna "Contratos (grupo documental)").
+(columna "Contratos (grupo documental)") o en **Documentos maestros →
+Cobertura por puesto**, donde también se marca un puesto como "no requiere
+documentos laborales" (con motivo). Todo puesto activo debe tener una de
+las dos decisiones; la cobertura avisa ANTES ("N puestos tienen
+configuración documental incompleta") en vez de enterarse cuando alguien
+espera su contrato. Un puesto excluido no muestra documentos de
+contratación; uno sin decisión muestra el aviso con enlace a la cobertura.
+
+## Antes de generar (en todos los flujos)
+
+| Situación | Qué ve el usuario |
+|---|---|
+| Faltan datos | Modal "Faltan N datos para generar…" con el control adecuado (selector de estado civil/sexo, fecha, hora, texto); los de la persona se guardan en su ficha, los del acto solo en el documento |
+| No hay formato | Tarjeta roja "No está cargado el formato de … para …" + enlace "Ver cobertura documental" (RH autorizado) |
+| Formato sin diseño validado | Estado "Formato sin validar"; no hay botón Generar (422 `DOCUMENT_VISUAL_VALIDATION_FAILED` si se fuerza) |
+| Sin conversor fiel | Aviso de infraestructura (422 `DOCUMENT_CONVERTER_UNAVAILABLE`); nunca un PDF aproximado |
+| Un dato no cabe | Aviso con el campo y la razón (422 `DOCUMENT_FIELD_OVERFLOW`) |
+
+Después de generar: **Ver PDF**, **Descargar Word** (RH/gerente/regional
+que operan el documento; nunca el colaborador titular), una sola acción
+principal según el estado (Imprimir → Registrar firma → Enviar → Recibido
+→ Subir documento firmado → Archivar) y el resto en el menú "…"
+(Historial, Regenerar antes de imprimir, Nueva revisión con motivo si ya
+está firmado). La línea de tiempo y la siguiente acción las calcula el
+backend; web y app solo las pintan.
 
 ## Alta (contratación) — ficha del colaborador, "Documentos de contratación"
 
@@ -76,7 +100,11 @@ Regional, Coordinadora, Administrativo confianza/no confianza).
 ## Evaluación de capacitación — evaluación / cierre
 
 `Formato de evaluación de capacitación inicial`: solo con resultado **NO
-acredita** validado por RH (su sección VI solo contempla esa determinación).
+acredita** validado por RH (su sección VI solo contempla esa determinación)
+y con el cierre de la no renovación ya abierto (su fecha efectiva es la
+fecha de entrega del formato; generarlo desde la evaluación lo liga a ese
+cierre). Las casillas Acredita/No acredita salen del resultado capturado,
+nunca de un valor fijo.
 Los 7 criterios oficiales (`contratos.criterios_evaluacion`) marcan
 Acredita/No acredita; ELABORÓ = quien capturó, VALIDÓ = RH que autorizó.
 
@@ -107,7 +135,9 @@ especificación del flujo (no se imprime para nadie). Etapas en PEOPLE:
 
 ## Negativa de firma
 
-Solo existe como rama del cierre (Fase 3-B). Acta precargada con lugar,
+Solo existe como rama del cierre (Fase 3-B): el acta no aparece hasta
+registrar "El colaborador se negó a firmar/recibir" y no se genera sin
+nombre y cargo de los dos testigos. Acta precargada con lugar,
 fecha/hora, RH participante, jefe, colaborador, puesto, inicio/fin del
 contrato y testigos (nombre y cargo); las firmas son físicas.
 
@@ -125,7 +155,9 @@ con modalidad `extraordinario_maternidad`.
 ## Préstamo — autorización final de RH, "Documentos del préstamo"
 
 Del original *Contrato de crédito para colaboradores*: carta de no adeudo y
-retención en nómina, contrato de crédito para trabajadores y pagaré.
+retención en nómina, contrato de crédito para trabajadores y pagaré. Se
+habilitan con la autorización final y usan SIEMPRE el monto y plazo
+autorizados (`monto_original`, `plazo`), nunca los solicitados.
 
 ## Activos — entrega de activo, "Responsiva"
 

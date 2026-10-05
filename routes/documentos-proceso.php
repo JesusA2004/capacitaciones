@@ -19,6 +19,7 @@ Route::middleware(['auth', 'verified'])->prefix('rh')->name('rh.')->group(functi
         Route::get('{tipo}/{id}', [DocumentoProcesoController::class, 'show'])->name('show')->whereIn('tipo', ['contrato', 'cierre', 'solicitud', 'prestamo', 'evaluacion', 'entrega_activo'])->whereNumber('id');
         Route::post('{tipo}/{id}/generar', [DocumentoProcesoController::class, 'generar'])->name('generar')->whereIn('tipo', ['contrato', 'cierre', 'solicitud', 'prestamo', 'evaluacion', 'entrega_activo'])->whereNumber('id')->middleware('throttle:30,1');
         Route::post('{tipo}/{id}/paquete', [DocumentoProcesoController::class, 'paquete'])->name('paquete')->whereIn('tipo', ['contrato', 'cierre', 'prestamo'])->whereNumber('id')->middleware('throttle:10,1');
+        Route::get('documento/{documento}/word', [DocumentoProcesoController::class, 'word'])->name('word');
         Route::post('documento/{documento}/{accion}', [DocumentoProcesoController::class, 'operar'])->name('operar')->whereIn('accion', ['imprimir', 'firma-fisica', 'envio', 'recepcion', 'escaneo', 'archivar']);
     });
 
@@ -30,11 +31,17 @@ Route::middleware(['auth', 'verified'])->prefix('rh')->name('rh.')->group(functi
 
     Route::prefix('documentos-maestros')->name('documentos-maestros.')->group(function () {
         Route::get('/', [DocumentoMaestroController::class, 'index'])->name('index');
+        Route::get('cobertura', [DocumentoMaestroController::class, 'cobertura'])->name('cobertura');
+        Route::put('cobertura/puestos/{puesto}', [DocumentoMaestroController::class, 'decidirPuesto'])->name('cobertura.puesto');
+        Route::get('colaboradores', [DocumentoMaestroController::class, 'buscarColaboradores'])->name('colaboradores')->middleware('throttle:60,1');
         Route::get('{master}', [DocumentoMaestroController::class, 'show'])->name('show')->whereNumber('master');
-        Route::post('familia/{familia}/versiones', [DocumentoMaestroController::class, 'cargarVersion'])->name('versiones.store')->where('familia', '[a-z0-9_.]+');
+        Route::post('familia/{familia}/versiones', [DocumentoMaestroController::class, 'cargarVersion'])->name('versiones.store')->where('familia', '[a-z0-9_.]+')->middleware('throttle:10,1');
+        Route::post('{master}/validar-diseno', [DocumentoMaestroController::class, 'validarDiseno'])->name('validar-diseno')->whereNumber('master')->middleware('throttle:10,1');
         Route::post('{master}/activar', [DocumentoMaestroController::class, 'activar'])->name('activar')->whereNumber('master');
         Route::post('{master}/desactivar', [DocumentoMaestroController::class, 'desactivar'])->name('desactivar')->whereNumber('master');
         Route::post('{master}/probar', [DocumentoMaestroController::class, 'probar'])->name('probar')->whereNumber('master')->middleware('throttle:20,1');
+        Route::get('{master}/prueba/{token}', [DocumentoMaestroController::class, 'pdfPrueba'])->name('prueba')->whereNumber('master')->whereUuid('token');
         Route::get('{master}/original', [DocumentoMaestroController::class, 'original'])->name('original')->whereNumber('master');
+        Route::get('{master}/original-pdf', [DocumentoMaestroController::class, 'originalPdf'])->name('original-pdf')->whereNumber('master');
     });
 });

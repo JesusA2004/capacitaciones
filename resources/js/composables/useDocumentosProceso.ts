@@ -16,6 +16,7 @@ export class ErrorDocumento extends Error {
         public readonly estado: number,
         public readonly codigo: string | null,
         public readonly faltantes: DatoFaltante[] = [],
+        public readonly detalle: Record<string, unknown> = {},
     ) {
         super(mensaje);
     }
@@ -52,6 +53,7 @@ async function solicitar<T>(
               message?: string;
               code?: string;
               faltantes?: DatoFaltante[];
+              detalle?: Record<string, unknown>;
               errors?: Record<string, string[]>;
           })
         | null;
@@ -65,13 +67,14 @@ async function solicitar<T>(
             datos?.message && datos.code
                 ? datos.message
                 : (primerError ??
-                  datos?.message ??
-                  (respuesta.status === 403
-                      ? 'No tienes permiso para esta acción.'
-                      : `Error ${respuesta.status}`)),
+                      datos?.message ??
+                      (respuesta.status === 403
+                          ? 'No tienes permiso para esta acción.'
+                          : `Error ${respuesta.status}`)),
             respuesta.status,
             datos?.code ?? null,
             datos?.faltantes ?? [],
+            datos?.detalle ?? {},
         );
     }
 
@@ -101,6 +104,8 @@ export function useDocumentosProceso() {
                 clave: string;
                 proceso?: string;
                 regenerar?: boolean;
+                revision?: boolean;
+                motivo?: string;
                 completar?: Record<string, string>;
                 manuales?: Record<string, string>;
             },
@@ -142,5 +147,8 @@ export function useDocumentosProceso() {
 
         urlDescarga: (documentoId: number) =>
             `/rh/documentos-laborales/${documentoId}/descargar`,
+
+        urlWord: (documentoId: number) =>
+            `${base}/documento/${documentoId}/word`,
     };
 }

@@ -1,13 +1,11 @@
 <?php
 
-use App\Models\DocumentTemplate;
 use App\Models\GeneratedDocument;
 use App\Models\ReciboNomina;
 use App\Models\User;
 use App\Services\Formatos\Motor\ConversorDocxPdf;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Support\Facades\Storage;
-use Inertia\Testing\AssertableInertia as Assert;
 use PhpOffice\PhpWord\PhpWord;
 
 /*
@@ -72,13 +70,10 @@ test('A: un recibo de nómina PDF no aparece en el catálogo Generados (Word)', 
     $recibo = reciboNominaPdf();
     $word = wordGenerado();
 
+    // La pantalla del módulo anterior se retiró: redirige a Documentos maestros.
     $this->actingAs(adminFormatos())
         ->get(route('rh.formatos.catalogo.index'))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('Rh/Formatos/Index')
-            ->has('documentos.data', 1)
-            ->where('documentos.data.0.id', $word->id));
+        ->assertRedirect(route('rh.documentos-maestros.index'));
 
     expect(GeneratedDocument::query()->desdePlantillaEditable()->pluck('id')->all())
         ->toBe([$word->id])
@@ -147,7 +142,19 @@ test('D: un Word válido se descarga como DOCX', function () {
     expect($respuesta->headers->get('Content-Disposition'))->toContain('Contrato - 2026-09-28.docx');
 });
 
-test('E: un Word válido se descarga como PDF', function () {
+test('E: sin conversor fiel no se entrega un PDF aproximado: aviso y el Word sigue disponible', function () {
+    $word = wordGenerado();
+    Storage::disk('nas')->put($word->path, docxDePrueba('Contrato de prueba'));
+
+    $this->actingAs(adminFormatos())
+        ->from('/rh/documentos-maestros')
+        ->get(route('rh.formatos.descargar-pdf', $word))
+        ->assertRedirect('/rh/documentos-maestros')
+        ->assertSessionHas('toast.message', 'No hay un motor de conversión fiel disponible para generar el PDF oficial. Descarga el Word.');
+});
+
+test('E2: con conversor fiel, un Word válido se descarga como PDF', function () {
+    dmMotorFielDePrueba();
     $word = wordGenerado();
     Storage::disk('nas')->put($word->path, docxDePrueba('Contrato de prueba'));
 
@@ -201,14 +208,4 @@ test('G2: un disco que no existe en la configuración se rechaza de forma contro
         ->get(route('rh.formatos.descargar', $word))
         ->assertRedirect(route('rh.formatos.catalogo.index'))
         ->assertSessionHas('toast.type', 'error');
-});
-
-test('el catálogo Word sigue listando los documentos de plantilla con su plantilla', function () {
-    $plantilla = DocumentTemplate::factory()->create(['nombre' => 'Contrato base']);
-    wordGenerado(['document_template_id' => $plantilla->id]);
-
-    $this->actingAs(adminFormatos())
-        ->get(route('rh.formatos.catalogo.index'))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->where('documentos.data.0.plantilla.nombre', 'Contrato base'));
 });

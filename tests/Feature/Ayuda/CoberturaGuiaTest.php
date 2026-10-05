@@ -85,7 +85,6 @@ const SIDEBAR_A_GUIA = [
     'Candidatos' => ['candidatos'],
     'Campañas' => ['campanas'],
     'Invitaciones QR' => ['invitaciones'],
-    'Formatos' => ['formatos'],
     'Reportes' => ['reportes'],
     'Celebraciones' => ['cumpleanos', 'aniversarios'],
     'Documentos maestros' => ['documentos-maestros'],
@@ -168,30 +167,6 @@ test('Cumpleaños y Aniversarios solo usan anclajes que existen en su pantalla r
     }
 });
 
-test('la guía de Formatos cubre sus cinco pestañas y cada anclaje existe en su pantalla', function () {
-    $bloque = modulosDeLaGuia()['formatos'];
-    $pantallas = implode("\n", [
-        contenidoConImportados('pages/Rh/FormatosOficiales/Index.vue'),
-        contenidoConImportados('pages/Rh/FormatosOficiales/Generados.vue'),
-        contenidoConImportados('pages/Rh/FormatosOficiales/Variables.vue'),
-        contenidoConImportados('pages/Rh/Plantillas/Index.vue'),
-        contenidoConImportados('pages/Rh/Formatos/Index.vue'),
-    ]);
-
-    foreach (['/rh/formatos-oficiales/generados', '/rh/formatos-oficiales/variables', '/rh/plantillas', '/rh/formatos/catalogo'] as $ruta) {
-        expect($bloque)->toContain("ruta: '{$ruta}'");
-    }
-
-    foreach (['marcadores', 'Variables manuales', 'Obligatorio', 'Vista previa', 'Descargar Word o PDF', 'Nueva versión', 'Histórico'] as $tema) {
-        expect($bloque)->toContain($tema);
-    }
-
-    foreach (selectoresDe($bloque) as $selector) {
-        expect(str_contains($pantallas, sprintf('data-tour="%s"', $selector)))
-            ->toBeTrue("Guía «formatos»: [data-tour=\"{$selector}\"] no está en las pantallas de Formatos.");
-    }
-});
-
 test('Aniversarios está en la guía con su ruta, permiso y temas', function () {
     $bloque = modulosDeLaGuia()['aniversarios'];
 
@@ -217,7 +192,6 @@ const PANTALLAS_GUIA = [
     'candidatos' => ['pages/Rh/Candidatos/Index.vue'],
     'campanas' => ['pages/Rh/Campanas/Index.vue'],
     'invitaciones' => ['pages/Rh/Incorporacion/Invitaciones/Index.vue'],
-    'formatos' => ['pages/Rh/FormatosOficiales/Index.vue', 'pages/Rh/FormatosOficiales/Generados.vue', 'pages/Rh/FormatosOficiales/Variables.vue', 'pages/Rh/Plantillas/Index.vue', 'pages/Rh/Formatos/Index.vue'],
     'reportes' => ['pages/Rh/Reportes/Index.vue'],
     'cumpleanos' => ['pages/Rh/Cumpleanos/Index.vue'],
     'aniversarios' => ['pages/Rh/Aniversarios/Index.vue'],

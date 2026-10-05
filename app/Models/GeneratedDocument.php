@@ -62,8 +62,16 @@ use Illuminate\Support\Carbon;
  * @property string|null $master_familia
  * @property string|null $master_hash SHA-256 del master con el que se generó (snapshot).
  * @property string|null $proceso
- * @property string|null $fidelidad exacta | aproximada (conversión Word→PDF).
- * @property string|null $docx_path DOCX llenado (respaldo; mismo disco que el PDF).
+ * @property string|null $fidelidad Histórico (exacta | aproximada); los nuevos usan conversion_fidelity.
+ * @property string|null $conversion_engine word | libreoffice | overlay | phpword
+ * @property string|null $conversion_fidelity nativa | alta | aproximada (FidelidadConversion)
+ * @property int|null $master_version Versión del master con la que se generó.
+ * @property string|null $docx_path DOCX llenado (representación más cercana al original de Jurídico).
+ * @property string|null $docx_disk
+ * @property string|null $docx_hash SHA-256 del DOCX llenado.
+ * @property int|null $paginas Páginas del PDF emitido.
+ * @property int|null $revision_de_id Documento firmado que esta revisión excepcional sustituye (el anterior se conserva).
+ * @property string|null $motivo_revision
  * @property bool $requiere_envio_corporativo
  * @property int $descargas
  * @property Carbon|null $ultima_descarga_en
@@ -77,7 +85,7 @@ class GeneratedDocument extends Model
     /** @use HasFactory<GeneratedDocumentFactory> */
     use HasFactory;
 
-    protected $hidden = ['disk', 'path', 'docx_path'];
+    protected $hidden = ['disk', 'path', 'docx_path', 'docx_disk'];
 
     protected $fillable = [
         'document_template_id',
@@ -122,6 +130,14 @@ class GeneratedDocument extends Model
         'proceso',
         'fidelidad',
         'docx_path',
+        'conversion_engine',
+        'conversion_fidelity',
+        'master_version',
+        'docx_disk',
+        'docx_hash',
+        'paginas',
+        'revision_de_id',
+        'motivo_revision',
         'requiere_envio_corporativo',
         'descargas',
         'ultima_descarga_en',

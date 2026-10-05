@@ -7,8 +7,13 @@ use App\Models\Empresa;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
+use App\Services\DocumentosMaestros\Calidad\ValidacionVisualMaestroService;
+use App\Services\Formatos\FormatoPreviewService;
+use App\Services\Formatos\Motor\ConversorDocxPdf;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Tests\Support\ConversorFielDePrueba;
+use Tests\Support\ValidacionVisualDePrueba;
 use Tests\TestCase;
 
 /*
@@ -112,6 +117,25 @@ function clEstructura(): array
         'departamento' => Departamento::factory()->create(),
         'puesto' => Puesto::factory()->create(),
     ];
+}
+
+/**
+ * Motor documental "fiel" de PRUEBA (conversor + QA visual falsos, ver
+ * tests/Support). Sin esto, la suite no tiene conversor fiel (phpunit.xml)
+ * y todo documento Word definitivo responde 422, como en un servidor sin
+ * Word ni LibreOffice. Debe llamarse ANTES de importar masters.
+ *
+ * @return array{conversor: ConversorFielDePrueba, validacion: ValidacionVisualDePrueba}
+ */
+function dmMotorFielDePrueba(): array
+{
+    $conversor = new ConversorFielDePrueba(app(FormatoPreviewService::class));
+    $validacion = new ValidacionVisualDePrueba;
+    app()->instance(ConversorDocxPdf::class, $conversor);
+    app()->instance(ValidacionVisualMaestroService::class, $validacion);
+    config(['documentos_maestros.validacion_visual.al_importar' => true]);
+
+    return ['conversor' => $conversor, 'validacion' => $validacion];
 }
 
 function clArchivoPdf(string $nombre = 'documento.pdf'): UploadedFile

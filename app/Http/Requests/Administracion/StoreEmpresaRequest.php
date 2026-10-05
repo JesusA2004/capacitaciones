@@ -23,6 +23,13 @@ class StoreEmpresaRequest extends FormRequest
             'rfc' => ['nullable', 'string', 'max:13'],
             'logo' => ['nullable', 'image', 'max:1024'],
             'activo' => ['boolean'],
+            // Datos del patrón en los documentos laborales (contratos, convenios…).
+            // Vacíos = el documento usa el valor predeterminado del registro
+            // jurídico y la vista previa lo advierte.
+            'domicilio_fiscal' => ['nullable', 'string', 'max:500'],
+            'ciudad_firma' => ['nullable', 'string', 'max:191'],
+            'representante_legal_nombre' => ['nullable', 'string', 'max:191'],
+            'representante_legal_cargo' => ['nullable', 'string', 'max:191'],
         ];
     }
 }

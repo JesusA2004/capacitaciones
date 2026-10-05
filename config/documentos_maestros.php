@@ -139,6 +139,32 @@ return [
     'carpeta_fuente' => env('DOCUMENTOS_MAESTROS_FUENTE', base_path('docs/formatos_fuente')),
 
     /*
+    | QA visual por VERSIÓN del master (App\Services\DocumentosMaestros\
+    | Calidad\ValidacionVisualMaestroService). Corre al importar/cargar una
+    | versión, cuando RH pulsa "Probar diseño" y antes de activar — nunca en
+    | cada generación de un colaborador.
+    |
+    |   umbral_identidad  ORIGINAL vs master rellenado con el texto original:
+    |                     debe verse idéntico (mide la preparación del master).
+    |   umbral_bandas     encabezado/pie (logo, membrete) con datos largos.
+    |   umbral_overlay    PDF original vs overlay, fuera de las cajas de campo.
+    |   reflow_minimo     similitud mínima de cuerpo con datos largos (debajo
+    |                     de esto se considera "reflow fuerte").
+    */
+    'validacion_visual' => [
+        'al_importar' => (bool) env('DOCUMENTOS_QA_AL_IMPORTAR', true),
+        'dpi' => 40,
+        'umbral_identidad' => 0.985,
+        'umbral_bandas' => 0.97,
+        'umbral_overlay' => 0.985,
+        'reflow_minimo' => 0.35,
+        'pdftoppm' => env('DOCUMENTOS_QA_PDFTOPPM_PATH'),
+        'script_windows' => resource_path('scripts/pdf-a-png-windows.ps1'),
+        // Solo pruebas: lista fija de familias instaladas (null = detectar).
+        'fuentes_disponibles' => null,
+    ],
+
+    /*
     | Valores de empresa usados SOLO cuando la empresa no los tiene
     | capturados (Empresas → domicilio fiscal / representante). Salen de los
     | propios formatos de Jurídico 2026 (no se inventan). Ver
@@ -296,6 +322,28 @@ return [
         'prestamo_contrato' => ['documentos_laborales.generar', 'prestamos.autorizar'],
         'prestamo_pagare' => ['documentos_laborales.generar', 'prestamos.autorizar'],
         'prestamo_consentimiento_retencion' => ['documentos_laborales.generar', 'prestamos.autorizar'],
+    ],
+
+    /*
+    | Cobertura documental por puesto (Administración → Documentos maestros
+    | → Cobertura). Columnas que se muestran por puesto y cuáles cuentan
+    | para marcar un puesto como "incompleto": solo las modalidades que la
+    | empresa usa hoy (capacitación inicial 39-B y su renovación por tiempo
+    | indeterminado). Periodo de prueba y tiempo determinado se muestran,
+    | pero Jurídico no ha entregado esos contratos: no cuentan como faltante
+    | hasta que se agreguen aquí.
+    */
+    'cobertura' => [
+        'columnas' => [
+            'capacitacion' => ['etiqueta' => 'Capacitación inicial', 'clave' => 'contrato_capacitacion', 'modalidades' => ['alta.capacitacion_inicial']],
+            'periodo_prueba' => ['etiqueta' => 'Periodo de prueba', 'clave' => 'contrato_periodo_prueba', 'modalidades' => ['alta.periodo_prueba']],
+            'tiempo_determinado' => ['etiqueta' => 'Tiempo determinado', 'clave' => 'contrato_tiempo_determinado', 'modalidades' => ['alta.tiempo_determinado']],
+            'indeterminado' => ['etiqueta' => 'Indeterminado', 'clave' => 'contrato_indeterminado', 'modalidades' => ['alta.indeterminado', 'renovacion']],
+            'confidencialidad' => ['etiqueta' => 'Confidencialidad', 'clave' => 'contrato_confidencialidad', 'modalidades' => ['alta.capacitacion_inicial', 'alta.indeterminado']],
+            'no_competencia' => ['etiqueta' => 'No competencia', 'clave' => 'contrato_no_competencia', 'modalidades' => ['alta.capacitacion_inicial', 'alta.indeterminado']],
+            'responsiva' => ['etiqueta' => 'Responsivas', 'clave' => 'carta_responsiva', 'modalidades' => []],
+        ],
+        'requeridas' => ['capacitacion', 'indeterminado', 'confidencialidad', 'no_competencia'],
     ],
 
     // false: el paquete de contratación se genera desde la ficha del
@@ -1025,7 +1073,9 @@ return [
                 ['campo' => 'domicilio_municipio_mayusculas', 'pagina' => 2, 'x' => 51.5, 'y' => 108.9, 'ancho' => 30, 'alto' => 4.4, 'tamano' => 8],
                 ['campo' => 'domicilio_estado_mayusculas', 'pagina' => 2, 'x' => 83.7, 'y' => 108.9, 'ancho' => 38, 'alto' => 4.4, 'tamano' => 8],
                 ['campo' => 'telefono', 'pagina' => 2, 'x' => 176.5, 'y' => 108.9, 'ancho' => 27, 'alto' => 4.4, 'tamano' => 9],
-                ['campo' => 'domicilio_mayusculas', 'pagina' => 2, 'x' => 13, 'y' => 120.8, 'ancho' => 68, 'alto' => 4.4, 'tamano' => 7.5],
+                // Celda "Calle": el domicilio se captura completo en un solo campo;
+                // hasta 3 renglones dentro de la celda (nunca encima de Nacionalidad).
+                ['campo' => 'domicilio_mayusculas', 'pagina' => 2, 'x' => 13, 'y' => 119.2, 'ancho' => 68, 'alto' => 6.6, 'tamano' => 7, 'tamano_minimo' => 5, 'multilinea' => true, 'interlineado' => 3.1],
                 ['campo' => 'nacionalidad_mayusculas', 'pagina' => 2, 'x' => 84, 'y' => 120.8, 'ancho' => 63, 'alto' => 4.4, 'tamano' => 9],
                 ['campo' => 'curp', 'pagina' => 2, 'x' => 149, 'y' => 120.8, 'ancho' => 54, 'alto' => 4.4, 'tamano' => 9],
                 ['campo' => 'monto_prestamo', 'pagina' => 2, 'x' => 13, 'y' => 133, 'ancho' => 34, 'alto' => 4.4, 'tamano' => 9],
@@ -1055,7 +1105,8 @@ return [
                 ['campo' => 'marca_pagos_semanales', 'pagina' => 4, 'x' => 41.5, 'y' => 72, 'ancho' => 3, 'alto' => 3, 'tamano' => 8, 'alineacion' => 'C'],
                 ['campo' => 'marca_pagos_diarios', 'pagina' => 4, 'x' => 41.5, 'y' => 76.5, 'ancho' => 3, 'alto' => 3, 'tamano' => 8, 'alineacion' => 'C'],
                 ['campo' => 'pago_prestamo_numero', 'pagina' => 4, 'x' => 81.5, 'y' => 73.3, 'ancho' => 36, 'alto' => 4.4, 'tamano' => 10],
-                ['campo' => 'pago_prestamo_letra', 'pagina' => 4, 'x' => 117, 'y' => 73.3, 'ancho' => 80, 'alto' => 4.4, 'tamano' => 7.5],
+                // Termina antes de la leyenda impresa "Moneda Nacional" (≈178 mm).
+                ['campo' => 'pago_prestamo_letra', 'pagina' => 4, 'x' => 117, 'y' => 72.6, 'ancho' => 60, 'alto' => 6.2, 'tamano' => 7.5, 'tamano_minimo' => 5.5, 'multilinea' => true, 'interlineado' => 2.9],
                 ['campo' => 'primer_pago_dia', 'pagina' => 4, 'x' => 105.7, 'y' => 90.3, 'ancho' => 8.4, 'alto' => 4.4, 'tamano' => 9, 'alineacion' => 'C'],
                 ['campo' => 'primer_pago_mes', 'pagina' => 4, 'x' => 119, 'y' => 90.3, 'ancho' => 15.4, 'alto' => 4.4, 'tamano' => 8, 'alineacion' => 'C'],
                 ['campo' => 'primer_pago_anio_corto', 'pagina' => 4, 'x' => 144.7, 'y' => 90.3, 'ancho' => 7, 'alto' => 4.4, 'tamano' => 9, 'alineacion' => 'C'],
@@ -1068,7 +1119,7 @@ return [
                 ['campo' => 'nombre_mayusculas', 'pagina' => 4, 'x' => 13, 'y' => 188, 'ancho' => 60, 'alto' => 4.4, 'tamano' => 9],
                 ['campo' => 'apellido_paterno_mayusculas', 'pagina' => 4, 'x' => 75.6, 'y' => 188, 'ancho' => 60, 'alto' => 4.4, 'tamano' => 9],
                 ['campo' => 'apellido_materno_mayusculas', 'pagina' => 4, 'x' => 139, 'y' => 188, 'ancho' => 60, 'alto' => 4.4, 'tamano' => 9],
-                ['campo' => 'domicilio_mayusculas', 'pagina' => 4, 'x' => 12.5, 'y' => 199.2, 'ancho' => 56, 'alto' => 6.4, 'tamano' => 7, 'multilinea' => true, 'interlineado' => 3.1],
+                ['campo' => 'domicilio_mayusculas', 'pagina' => 4, 'x' => 12.5, 'y' => 199.8, 'ancho' => 56, 'alto' => 6.0, 'tamano' => 7, 'tamano_minimo' => 5, 'multilinea' => true, 'interlineado' => 3.1],
                 ['campo' => 'domicilio_colonia_mayusculas', 'pagina' => 4, 'x' => 70.6, 'y' => 200.5, 'ancho' => 42, 'alto' => 4.4, 'tamano' => 8],
                 ['campo' => 'domicilio_municipio_mayusculas', 'pagina' => 4, 'x' => 116.2, 'y' => 200.5, 'ancho' => 37, 'alto' => 4.4, 'tamano' => 8],
                 ['campo' => 'domicilio_estado_mayusculas', 'pagina' => 4, 'x' => 156, 'y' => 200.5, 'ancho' => 25, 'alto' => 4.4, 'tamano' => 8],

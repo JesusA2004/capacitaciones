@@ -32,6 +32,20 @@ class GeneratedDocumentPolicy
         return $this->ver($usuario, $documento);
     }
 
+    /**
+     * Word llenado: solo quien opera el documento en su proceso (RH, gerente,
+     * regional dentro de su alcance). El colaborador recibe el PDF, no el
+     * Word editable.
+     */
+    public function descargarWord(User $usuario, GeneratedDocument $documento): bool
+    {
+        return $documento->docx_path !== null
+            && ! $this->esPropio($usuario, $documento)
+            && $usuario->can('documentos_laborales.ver')
+            && ($usuario->can('documentos_laborales.generar') || $usuario->can('documentos_laborales.operar_fisico'))
+            && $this->enAlcance($usuario, $documento);
+    }
+
     public function firmar(User $usuario, GeneratedDocument $documento): bool
     {
         return $this->esPropio($usuario, $documento) && $documento->estado_flujo === EstadoFlujoDocumento::PendienteFirmaColaborador;

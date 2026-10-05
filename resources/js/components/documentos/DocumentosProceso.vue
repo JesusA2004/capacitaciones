@@ -1,8 +1,17 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue';
+import { Link } from '@inertiajs/vue3';
+import {
+    AlertTriangle,
+    FileWarning,
+    Loader2,
+    ServerCrash,
+    ShieldAlert,
+} from '@lucide/vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import Casilla from '@/components/Common/Casilla.vue';
 import SeccionDocumentosProceso from '@/components/documentos/SeccionDocumentosProceso.vue';
+import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -14,7 +23,14 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import {
     ErrorDocumento,
@@ -31,8 +47,9 @@ import type {
 /**
  * "Documentos del proceso" en contexto: ficha del colaborador (tipo
  * "colaborador"), cierre, solicitud de permiso, préstamo, evaluación o
- * entrega de activo. Nunca manda al usuario a "Formatos/Plantillas": aquí
- * se genera, descarga, imprime y se registra el flujo físico.
+ * entrega de activo. Nunca manda al usuario a "Documentos maestros": aquí
+ * se genera, se ve el PDF, se descarga el Word, se imprime y se registra el
+ * flujo físico. Todo error esperable del motor tiene su propio aviso.
  */
 const props = defineProps<{
     tipo: TipoRegistroDocumental | 'colaborador';
@@ -43,7 +60,8 @@ const props = defineProps<{
 const api = useDocumentosProceso();
 const secciones = ref<Seccion[]>([]);
 const cargando = ref(true);
-const ocupado = ref(false);
+/** Acción en curso ("clave:accion" o "seccion:accion"): un solo click a la vez. */
+const ocupado = ref<string | null>(null);
 const error = ref<string | null>(null);
 
 async function cargar() {
@@ -56,7 +74,10 @@ async function cargar() {
                 ? await api.delColaborador(props.id)
                 : [await api.seccion(props.tipo, props.id, props.proceso)];
     } catch (e) {
-        error.value = e instanceof Error ? e.message : 'No se pudieron cargar los documentos.';
+        error.value =
+            e instanceof Error
+                ? e.message
+                : 'No se pudieron cargar los documentos.';
         secciones.value = [];
     } finally {
         cargando.value = false;
@@ -66,23 +87,129 @@ async function cargar() {
 onMounted(cargar);
 watch(() => [props.tipo, props.id], cargar);
 
-// ───────── Datos faltantes ─────────
+function reemplazar(nueva: Seccion) {
+    const i = secciones.value.findIndex(
+        (s) =>
+            s.registro.tipo === nueva.registro.tipo &&
+            s.registro.id === nueva.registro.id &&
+            s.proceso === nueva.proceso,
+    );
+
+    if (i >= 0) {
+        secciones.value[i] = nueva;
+    } else {
+        void cargar();
+    }
+}
+
+// ───────── Avisos de errores esperables del motor ─────────
+type Aviso = {
+    titulo: string;
+    mensaje: string;
+    detalles: string[];
+    enlace: string | null;
+    tono: 'error' | 'infra' | 'aviso';
+};
+const aviso = ref<Aviso | null>(null);
+
+function mostrarError(e: unknown) {
+    if (!(e instanceof ErrorDocumento) || e.codigo === null) {
+        toast.error(
+            e instanceof Error ? e.message : 'No se pudo completar la acción.',
+        );
+
+        return;
+    }
+
+    const detalle = e.detalle as {
+        campos?: { etiqueta: string; razon: string }[];
+        razon?: string;
+        cobertura_url?: string;
+    };
+
+    switch (e.codigo) {
+        case 'DOCUMENT_TEMPLATE_MISSING':
+            aviso.value = {
+                titulo: 'Falta el formato oficial',
+                mensaje: e.message,
+                detalles: [],
+                enlace: '/rh/documentos-maestros/cobertura',
+                tono: 'error',
+            };
+            break;
+        case 'DOCUMENT_CONVERTER_UNAVAILABLE':
+            aviso.value = {
+                titulo: 'Motor de conversión no disponible',
+                mensaje:
+                    'No hay un motor de conversión fiel disponible para generar este documento oficial. Es un tema de infraestructura: avisa a Sistemas. No se generó un documento aproximado.',
+                detalles: detalle.razon ? [detalle.razon] : [],
+                enlace: null,
+                tono: 'infra',
+            };
+            break;
+        case 'DOCUMENT_VISUAL_VALIDATION_FAILED':
+            aviso.value = {
+                titulo: 'Formato sin validar',
+                mensaje:
+                    'La versión del formato no está validada para generar documentos oficiales. RH debe validar su diseño en Documentos maestros.',
+                detalles: detalle.razon ? [detalle.razon] : [],
+                enlace: null,
+                tono: 'aviso',
+            };
+            break;
+        case 'DOCUMENT_FIELD_OVERFLOW':
+            aviso.value = {
+                titulo: 'Un dato no cabe en el formato',
+                mensaje: e.message,
+                detalles: [
+                    ...(detalle.campos ?? []).map(
+                        (c) => `${c.etiqueta}: ${c.razon}`,
+                    ),
+                    ...(detalle.razon && !(detalle.campos ?? []).length
+                        ? [detalle.razon]
+                        : []),
+                ],
+                enlace: null,
+                tono: 'aviso',
+            };
+            break;
+        default:
+            toast.error(e.message);
+    }
+}
+
+// ───────── Generación y datos faltantes ─────────
 type Pendiente = {
     seccion: Seccion;
     clave: string | null;
     regenerar: boolean;
+    revision?: { motivo: string };
 };
 const faltantes = ref<DatoFaltante[]>([]);
 const pendiente = ref<Pendiente | null>(null);
 const valores = ref<Record<string, string>>({});
-const mensajeFaltantes = ref('');
+const nombreDocumentoFaltantes = ref('');
 
 function columnaDe(f: DatoFaltante): string {
     return f.fuente === 'sucursal' ? `sucursal.${f.columna}` : f.columna;
 }
 
-async function ejecutarGeneracion(p: Pendiente, completar: Record<string, string> = {}) {
-    ocupado.value = true;
+const editables = computed(() => faltantes.value.filter((f) => f.editable));
+const noEditables = computed(() => faltantes.value.filter((f) => !f.editable));
+const completo = computed(() =>
+    editables.value.every(
+        (f) => (valores.value[columnaDe(f)] ?? '').trim() !== '',
+    ),
+);
+
+async function ejecutarGeneracion(
+    p: Pendiente,
+    completar: Record<string, string> = {},
+) {
+    ocupado.value =
+        p.clave === null
+            ? 'seccion:generar_paquete'
+            : `${p.clave}:${p.revision ? 'nueva_revision' : p.regenerar ? 'regenerar' : 'generar'}`;
     const { registro, proceso } = p.seccion;
     const manuales: Record<string, string> = {};
     const datosColaborador: Record<string, string> = {};
@@ -90,7 +217,7 @@ async function ejecutarGeneracion(p: Pendiente, completar: Record<string, string
     for (const [columna, valor] of Object.entries(completar)) {
         const dato = faltantes.value.find((f) => columnaDe(f) === columna);
 
-        if (dato?.fuente === 'manual') {
+        if (dato?.persistencia === 'documento' || dato?.fuente === 'manual') {
             manuales[dato.columna] = valor;
         } else {
             datosColaborador[columna] = valor;
@@ -100,34 +227,46 @@ async function ejecutarGeneracion(p: Pendiente, completar: Record<string, string
     try {
         const respuesta =
             p.clave === null
-                ? await api.paquete(registro.tipo, registro.id, { proceso, completar: datosColaborador })
+                ? await api.paquete(registro.tipo, registro.id, {
+                      proceso,
+                      completar: datosColaborador,
+                  })
                 : await api.generar(registro.tipo, registro.id, {
                       clave: p.clave,
                       proceso,
                       regenerar: p.regenerar,
                       completar: datosColaborador,
                       manuales,
+                      ...(p.revision
+                          ? { revision: true, motivo: p.revision.motivo }
+                          : {}),
                   });
         reemplazar(respuesta.data);
         pendiente.value = null;
         faltantes.value = [];
-        toast.success(p.clave === null ? 'Paquete generado.' : 'Documento generado.');
+        revision.value = null;
+        toast.success(
+            p.clave === null ? 'Paquete generado.' : 'Documento generado.',
+        );
     } catch (e) {
         if (e instanceof ErrorDocumento && e.codigo === 'DATOS_FALTANTES') {
             pendiente.value = p;
             faltantes.value = e.faltantes;
-            mensajeFaltantes.value = e.message;
-            valores.value = Object.fromEntries(e.faltantes.map((f) => [columnaDe(f), '']));
+            nombreDocumentoFaltantes.value =
+                (e.detalle as { documento?: string }).documento ?? '';
+            valores.value = Object.fromEntries(
+                e.faltantes.map((f) => [columnaDe(f), '']),
+            );
         } else {
-            toast.error(e instanceof Error ? e.message : 'No se pudo generar.');
+            mostrarError(e);
         }
     } finally {
-        ocupado.value = false;
+        ocupado.value = null;
     }
 }
 
 function completarYGenerar() {
-    if (!pendiente.value) {
+    if (!pendiente.value || !completo.value) {
         return;
     }
 
@@ -137,16 +276,24 @@ function completarYGenerar() {
     void ejecutarGeneracion(pendiente.value, completar);
 }
 
-function reemplazar(nueva: Seccion) {
-    const i = secciones.value.findIndex(
-        (s) => s.registro.tipo === nueva.registro.tipo && s.registro.id === nueva.registro.id && s.proceso === nueva.proceso,
-    );
+// ───────── Nueva revisión de un documento firmado ─────────
+const revision = ref<{
+    seccion: Seccion;
+    item: ItemDocumentoProceso;
+    motivo: string;
+} | null>(null);
 
-    if (i >= 0) {
-        secciones.value[i] = nueva;
-    } else {
-        void cargar();
+function confirmarRevision() {
+    if (!revision.value || revision.value.motivo.trim().length < 15) {
+        return;
     }
+
+    void ejecutarGeneracion({
+        seccion: revision.value.seccion,
+        clave: revision.value.item.clave,
+        regenerar: false,
+        revision: { motivo: revision.value.motivo.trim() },
+    });
 }
 
 // ───────── Flujo físico ─────────
@@ -160,7 +307,7 @@ const formPaso = ref({
     numero_guia: '',
     testigos: [] as { nombre: string; puesto: string }[],
 });
-const archivo = ref<File | null>(null);
+const archivos = ref<File[]>([]);
 
 const accionApi: Record<string, string> = {
     marcar_impreso: 'imprimir',
@@ -172,23 +319,43 @@ const accionApi: Record<string, string> = {
 };
 
 const tituloPaso: Record<string, string> = {
-    imprimir: 'Marcar como impreso',
-    'firma-fisica': 'Registrar firma física',
+    imprimir: 'Imprimir y marcar como impreso',
+    'firma-fisica': 'Registrar firma',
     envio: 'Enviar original a corporativo',
     recepcion: 'Registrar recepción en corporativo',
-    escaneo: 'Subir escaneo firmado',
+    escaneo: 'Subir documento firmado',
     archivar: 'Archivar original',
 };
 
-async function alAccionar(seccion: Seccion, item: ItemDocumentoProceso, accion: AccionDocumento) {
+async function alAccionar(
+    seccion: Seccion,
+    item: ItemDocumentoProceso,
+    accion: AccionDocumento,
+) {
     if (accion.clave === 'generar' || accion.clave === 'regenerar') {
-        await ejecutarGeneracion({ seccion, clave: item.clave, regenerar: accion.clave === 'regenerar' });
+        await ejecutarGeneracion({
+            seccion,
+            clave: item.clave,
+            regenerar: accion.clave === 'regenerar',
+        });
+
+        return;
+    }
+
+    if (accion.clave === 'nueva_revision') {
+        revision.value = { seccion, item, motivo: '' };
 
         return;
     }
 
     if (accion.clave === 'descargar' && item.documento) {
         window.open(api.urlDescarga(item.documento.id), '_blank', 'noopener');
+
+        return;
+    }
+
+    if (accion.clave === 'descargar_word' && item.documento) {
+        window.open(api.urlWord(item.documento.id), '_blank', 'noopener');
 
         return;
     }
@@ -211,15 +378,37 @@ async function alAccionar(seccion: Seccion, item: ItemDocumentoProceso, accion: 
         paqueteria: '',
         numero_guia: '',
         testigos: item.requiere.testigos
-            ? Array.from({ length: Math.max(1, item.requiere.cantidad_testigos) }, () => ({ nombre: '', puesto: '' }))
+            ? Array.from(
+                  { length: Math.max(1, item.requiere.cantidad_testigos) },
+                  () => ({ nombre: '', puesto: '' }),
+              )
             : [],
     };
-    archivo.value = null;
+    archivos.value = [];
     paso.value = { item, seccion, accion: destino };
 }
 
+const pasoValido = computed(() => {
+    if (!paso.value) {
+        return false;
+    }
+
+    if (paso.value.accion === 'escaneo') {
+        return archivos.value.length > 0;
+    }
+
+    if (paso.value.accion === 'envio') {
+        return (
+            formPaso.value.paqueteria.trim() !== '' &&
+            formPaso.value.numero_guia.trim() !== ''
+        );
+    }
+
+    return true;
+});
+
 async function confirmarPaso() {
-    if (!paso.value?.item.documento) {
+    if (!paso.value?.item.documento || !pasoValido.value) {
         return;
     }
 
@@ -248,31 +437,38 @@ async function confirmarPaso() {
         datos.append('paqueteria', f.paqueteria);
         datos.append('numero_guia', f.numero_guia);
 
-        if (archivo.value) {
-            datos.append('comprobante', archivo.value);
+        if (archivos.value[0]) {
+            datos.append('comprobante', archivos.value[0]);
         }
     }
 
-    if (paso.value.accion === 'escaneo' && archivo.value) {
-        datos.append('archivo', archivo.value);
+    if (paso.value.accion === 'escaneo' && archivos.value[0]) {
+        datos.append('archivo', archivos.value[0]);
     }
 
-    ocupado.value = true;
+    ocupado.value = `${paso.value.item.clave}:${paso.value.accion}`;
 
     try {
-        const r = await api.operar(paso.value.item.documento.id, paso.value.accion, datos);
+        const r = await api.operar(
+            paso.value.item.documento.id,
+            paso.value.accion,
+            datos,
+        );
         toast.success(r.message);
         paso.value = null;
         await cargar();
     } catch (e) {
-        toast.error(e instanceof Error ? e.message : 'No se pudo registrar.');
+        mostrarError(e);
     } finally {
-        ocupado.value = false;
+        ocupado.value = null;
     }
 }
 
 // ───────── Procedimiento de baja ─────────
-const dialogoBaja = ref<{ seccion: Seccion; tipo: 'negativa' | 'testigos' | 'etapa' } | null>(null);
+const dialogoBaja = ref<{
+    seccion: Seccion;
+    tipo: 'negativa' | 'testigos' | 'etapa';
+} | null>(null);
 const formBaja = ref({
     documentos: [] as string[],
     observaciones: '',
@@ -311,17 +507,34 @@ function alAccionSeccion(seccion: Seccion, accion: AccionDocumento) {
         return;
     }
 
-    const tipo = accion.clave === 'registrar_negativa' ? 'negativa' : accion.clave === 'capturar_testigos' ? 'testigos' : 'etapa';
+    const tipo =
+        accion.clave === 'registrar_negativa'
+            ? 'negativa'
+            : accion.clave === 'capturar_testigos'
+              ? 'testigos'
+              : 'etapa';
     const actual = seccion.negativa;
-    formBaja.value.documentos = seccion.documentos.filter((d) => d.documento).map((d) => d.clave);
+    formBaja.value.documentos = seccion.documentos
+        .filter((d) => d.documento)
+        .map((d) => d.clave);
     formBaja.value.testigos = [0, 1].map((i) => ({
         nombre: actual?.testigos[i]?.nombre ?? '',
         cargo: actual?.testigos[i]?.cargo ?? '',
     }));
-    formBaja.value.participantes = { ...formBaja.value.participantes, ...(actual?.participantes ?? {}) };
+    formBaja.value.participantes = {
+        ...formBaja.value.participantes,
+        ...(actual?.participantes ?? {}),
+    };
+    formBaja.value.observaciones = '';
     evidencias.value = [];
     dialogoBaja.value = { seccion, tipo };
 }
+
+const testigosCompletos = computed(() =>
+    formBaja.value.testigos.every(
+        (t) => t.nombre.trim() !== '' && t.cargo.trim() !== '',
+    ),
+);
 
 async function confirmarBaja() {
     if (!dialogoBaja.value) {
@@ -334,7 +547,10 @@ async function confirmarBaja() {
 
     if (tipo === 'negativa') {
         f.documentos.forEach((d) => datos.append('documentos[]', d));
-        datos.append('finiquito_a_disposicion', f.finiquito_a_disposicion ? '1' : '0');
+        datos.append(
+            'finiquito_a_disposicion',
+            f.finiquito_a_disposicion ? '1' : '0',
+        );
     }
 
     if (tipo !== 'etapa') {
@@ -342,7 +558,9 @@ async function confirmarBaja() {
             datos.append(`testigos[${i}][nombre]`, t.nombre);
             datos.append(`testigos[${i}][cargo]`, t.cargo);
         });
-        Object.entries(f.participantes).forEach(([k, v]) => v && datos.append(`participantes[${k}]`, v));
+        Object.entries(f.participantes).forEach(
+            ([k, v]) => v && datos.append(`participantes[${k}]`, v),
+        );
     }
 
     if (tipo === 'etapa') {
@@ -355,7 +573,7 @@ async function confirmarBaja() {
         datos.append('observaciones', f.observaciones);
     }
 
-    ocupado.value = true;
+    ocupado.value = `seccion:${tipo}`;
 
     try {
         const r = await api.procedimiento(seccion.registro.id, tipo, datos);
@@ -363,29 +581,29 @@ async function confirmarBaja() {
         toast.success(r.message);
         dialogoBaja.value = null;
     } catch (e) {
-        toast.error(e instanceof Error ? e.message : 'No se pudo registrar.');
+        mostrarError(e);
     } finally {
-        ocupado.value = false;
-    }
-}
-
-function elegirArchivos(evento: Event, multiple: boolean) {
-    const lista = Array.from((evento.target as HTMLInputElement).files ?? []);
-
-    if (multiple) {
-        evidencias.value = lista;
-    } else {
-        archivo.value = lista[0] ?? null;
+        ocupado.value = null;
     }
 }
 </script>
 
 <template>
     <div class="flex flex-col gap-5">
-        <p v-if="cargando" class="text-sm text-[var(--mrl-texto-suave)]">
-            Cargando documentos…
-        </p>
-        <p v-else-if="error" class="text-sm text-red-700">{{ error }}</p>
+        <div v-if="cargando" class="flex flex-col gap-3" aria-busy="true">
+            <Skeleton class="h-6 w-56" />
+            <Skeleton class="h-28 w-full" />
+            <Skeleton class="h-28 w-full" />
+        </div>
+        <div
+            v-else-if="error"
+            class="flex items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-900 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-100"
+        >
+            <span>{{ error }}</span>
+            <Button size="sm" variant="outline" @click="cargar"
+                >Reintentar</Button
+            >
+        </div>
 
         <SeccionDocumentosProceso
             v-for="s in secciones"
@@ -397,106 +615,323 @@ function elegirArchivos(evento: Event, multiple: boolean) {
         />
     </div>
 
+    <!-- Avisos de errores esperables -->
+    <Dialog
+        :open="aviso !== null"
+        @update:open="(v: boolean) => !v && (aviso = null)"
+    >
+        <DialogContent class="sm:max-w-md">
+            <DialogHeader>
+                <DialogTitle class="flex items-center gap-2">
+                    <ServerCrash
+                        v-if="aviso?.tono === 'infra'"
+                        class="size-5 text-destructive"
+                    />
+                    <FileWarning
+                        v-else-if="aviso?.tono === 'error'"
+                        class="size-5 text-destructive"
+                    />
+                    <AlertTriangle v-else class="size-5 text-amber-600" />
+                    {{ aviso?.titulo }}
+                </DialogTitle>
+                <DialogDescription>{{ aviso?.mensaje }}</DialogDescription>
+            </DialogHeader>
+            <ul v-if="aviso?.detalles.length" class="list-disc pl-5 text-sm">
+                <li v-for="(d, i) in aviso.detalles" :key="i">{{ d }}</li>
+            </ul>
+            <DialogFooter>
+                <Button v-if="aviso?.enlace" variant="outline" as-child>
+                    <Link :href="aviso.enlace">Ver cobertura documental</Link>
+                </Button>
+                <Button @click="aviso = null">Entendido</Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+
     <!-- Datos faltantes -->
-    <Dialog :open="pendiente !== null" @update:open="(v: boolean) => !v && (pendiente = null)">
+    <Dialog
+        :open="pendiente !== null"
+        @update:open="
+            (v: boolean) => !v && ocupado === null && (pendiente = null)
+        "
+    >
         <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-lg">
             <DialogHeader>
-                <DialogTitle>Faltan {{ faltantes.length }} dato(s) requerido(s)</DialogTitle>
+                <DialogTitle>
+                    Faltan {{ faltantes.length }} dato{{
+                        faltantes.length === 1 ? '' : 's'
+                    }}
+                    para generar
+                    {{ nombreDocumentoFaltantes || 'el documento' }}
+                </DialogTitle>
                 <DialogDescription>
-                    {{ mensajeFaltantes }} Lo que captures aquí se guarda en la
-                    ficha del colaborador (no se vuelve a pedir).
+                    Captura solo lo que falta. Los datos de la persona se
+                    guardan en su ficha (no se vuelven a pedir); los datos del
+                    acto quedan solo en este documento.
                 </DialogDescription>
             </DialogHeader>
-            <div class="flex flex-col gap-3">
-                <div v-for="f in faltantes" :key="columnaDe(f)" class="flex flex-col gap-1">
+            <div class="flex flex-col gap-4">
+                <div
+                    v-for="f in editables"
+                    :key="columnaDe(f)"
+                    class="flex flex-col gap-1"
+                >
                     <Label :for="`falta-${f.campo}`">{{ f.etiqueta }}</Label>
-                    <template v-if="f.editable">
-                        <NativeSelect
-                            v-if="f.tipo === 'estado_civil'"
-                            :id="`falta-${f.campo}`"
-                            v-model="valores[columnaDe(f)]"
-                        >
-                            <NativeSelectOption value="">Selecciona…</NativeSelectOption>
-                            <NativeSelectOption value="soltero">Soltero(a)</NativeSelectOption>
-                            <NativeSelectOption value="casado">Casado(a)</NativeSelectOption>
-                            <NativeSelectOption value="union_libre">Unión libre</NativeSelectOption>
-                            <NativeSelectOption value="divorciado">Divorciado(a)</NativeSelectOption>
-                            <NativeSelectOption value="viudo">Viudo(a)</NativeSelectOption>
-                        </NativeSelect>
-                        <NativeSelect
-                            v-else-if="f.tipo === 'genero'"
-                            :id="`falta-${f.campo}`"
-                            v-model="valores[columnaDe(f)]"
-                        >
-                            <NativeSelectOption value="">Selecciona…</NativeSelectOption>
-                            <NativeSelectOption value="masculino">Masculino</NativeSelectOption>
-                            <NativeSelectOption value="femenino">Femenino</NativeSelectOption>
-                        </NativeSelect>
+                    <Select
+                        v-if="f.control === 'select' && f.opciones?.length"
+                        v-model="valores[columnaDe(f)]"
+                    >
+                        <SelectTrigger :id="`falta-${f.campo}`"
+                            ><SelectValue placeholder="Selecciona…"
+                        /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem
+                                v-for="o in f.opciones"
+                                :key="o.value"
+                                :value="o.value"
+                                >{{ o.label }}</SelectItem
+                            >
+                        </SelectContent>
+                    </Select>
+                    <template v-else>
                         <Input
-                            v-else
                             :id="`falta-${f.campo}`"
                             v-model="valores[columnaDe(f)]"
-                            :type="f.tipo === 'fecha' ? 'date' : f.tipo === 'hora' ? 'time' : f.tipo === 'correo' ? 'email' : 'text'"
+                            :type="
+                                f.control === 'fecha'
+                                    ? 'date'
+                                    : f.control === 'hora'
+                                      ? 'time'
+                                      : f.control === 'correo'
+                                        ? 'email'
+                                        : 'text'
+                            "
+                            :list="
+                                f.sugerencias?.length
+                                    ? `sugerencias-${f.campo}`
+                                    : undefined
+                            "
+                            :inputmode="
+                                f.control === 'moneda' ? 'decimal' : undefined
+                            "
                         />
+                        <datalist
+                            v-if="f.sugerencias?.length"
+                            :id="`sugerencias-${f.campo}`"
+                        >
+                            <option
+                                v-for="s in f.sugerencias"
+                                :key="s"
+                                :value="s"
+                            />
+                        </datalist>
                     </template>
-                    <p v-else class="text-xs text-[var(--mrl-texto-suave)]">
-                        Se completa en su módulo ({{ f.fuente }}): no se puede
-                        capturar aquí.
+                    <p class="text-xs text-[var(--mrl-texto-suave)]">
+                        {{
+                            f.persistencia === 'documento'
+                                ? 'Solo para este documento.'
+                                : f.persistencia === 'sucursal'
+                                  ? 'Se guarda en la sucursal.'
+                                  : 'Se guarda en la ficha del colaborador.'
+                        }}
+                        <template v-if="f.documentos?.length">
+                            Lo piden: {{ f.documentos.join(', ') }}.</template
+                        >
                     </p>
-                    <p v-if="f.documentos?.length" class="text-xs text-[var(--mrl-texto-suave)]">
-                        Lo piden: {{ f.documentos.join(', ') }}
+                </div>
+                <div
+                    v-if="noEditables.length"
+                    class="rounded-xl bg-[var(--mrl-fondo)] p-3 text-xs"
+                >
+                    <p class="font-medium">
+                        Se completan en su módulo (no desde el documento):
                     </p>
+                    <ul class="mt-1 list-disc pl-5">
+                        <li v-for="f in noEditables" :key="columnaDe(f)">
+                            {{ f.etiqueta }}
+                        </li>
+                    </ul>
                 </div>
             </div>
             <DialogFooter>
-                <Button variant="outline" @click="pendiente = null">Cancelar</Button>
-                <Button :disabled="ocupado" @click="completarYGenerar">Guardar y generar</Button>
+                <Button
+                    variant="outline"
+                    :disabled="ocupado !== null"
+                    @click="pendiente = null"
+                    >Cancelar</Button
+                >
+                <Button
+                    :disabled="
+                        ocupado !== null || !completo || editables.length === 0
+                    "
+                    @click="completarYGenerar"
+                >
+                    <Loader2
+                        v-if="ocupado !== null"
+                        class="size-4 animate-spin"
+                    />
+                    Guardar y generar
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+
+    <!-- Nueva revisión de un documento firmado -->
+    <Dialog
+        :open="revision !== null"
+        @update:open="
+            (v: boolean) => !v && ocupado === null && (revision = null)
+        "
+    >
+        <DialogContent class="sm:max-w-md">
+            <DialogHeader>
+                <DialogTitle class="flex items-center gap-2"
+                    ><ShieldAlert class="size-5 text-destructive" /> Nueva
+                    revisión</DialogTitle
+                >
+                <DialogDescription>
+                    {{ revision?.item.nombre }} ya está firmado. El documento
+                    firmado se conserva intacto; se emite una nueva instancia
+                    ligada a él, con motivo y auditoría.
+                </DialogDescription>
+            </DialogHeader>
+            <div v-if="revision" class="flex flex-col gap-1">
+                <Label for="motivo-revision">Motivo (obligatorio)</Label>
+                <Textarea
+                    id="motivo-revision"
+                    v-model="revision.motivo"
+                    rows="3"
+                    maxlength="500"
+                />
+                <p class="text-xs text-[var(--mrl-texto-suave)]">
+                    Mínimo 15 caracteres.
+                </p>
+            </div>
+            <DialogFooter>
+                <Button
+                    variant="outline"
+                    :disabled="ocupado !== null"
+                    @click="revision = null"
+                    >Cancelar</Button
+                >
+                <Button
+                    variant="destructive"
+                    :disabled="
+                        ocupado !== null ||
+                        (revision?.motivo.trim().length ?? 0) < 15
+                    "
+                    @click="confirmarRevision"
+                >
+                    <Loader2
+                        v-if="ocupado !== null"
+                        class="size-4 animate-spin"
+                    />
+                    Emitir nueva revisión
+                </Button>
             </DialogFooter>
         </DialogContent>
     </Dialog>
 
     <!-- Paso del flujo físico -->
-    <Dialog :open="paso !== null" @update:open="(v: boolean) => !v && (paso = null)">
+    <Dialog
+        :open="paso !== null"
+        @update:open="(v: boolean) => !v && ocupado === null && (paso = null)"
+    >
         <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-lg">
             <DialogHeader>
-                <DialogTitle>{{ paso ? tituloPaso[paso.accion] : '' }}</DialogTitle>
+                <DialogTitle>{{
+                    paso ? tituloPaso[paso.accion] : ''
+                }}</DialogTitle>
                 <DialogDescription>{{ paso?.item.nombre }}</DialogDescription>
             </DialogHeader>
             <div v-if="paso" class="flex flex-col gap-3">
                 <template v-if="paso.accion === 'firma-fisica'">
-                    <label v-if="paso.item.requiere.huella" class="flex items-center gap-2 text-sm">
-                        <Casilla v-model="formPaso.huella_registrada" /> Se recabó la huella
+                    <label
+                        v-if="paso.item.requiere.huella"
+                        class="flex items-center gap-2 text-sm"
+                    >
+                        <Casilla v-model="formPaso.huella_registrada" /> Se
+                        recabó la huella
                     </label>
-                    <div v-for="(t, i) in formPaso.testigos" :key="i" class="grid gap-2 sm:grid-cols-2">
-                        <Input v-model="t.nombre" :placeholder="`Testigo ${i + 1}: nombre`" />
+                    <div
+                        v-for="(t, i) in formPaso.testigos"
+                        :key="i"
+                        class="grid gap-2 sm:grid-cols-2"
+                    >
+                        <Input
+                            v-model="t.nombre"
+                            :placeholder="`Testigo ${i + 1}: nombre`"
+                        />
                         <Input v-model="t.puesto" placeholder="Cargo" />
                     </div>
                 </template>
                 <template v-if="paso.accion === 'envio'">
-                    <Input v-model="formPaso.paqueteria" placeholder="Paquetería" />
-                    <Input v-model="formPaso.numero_guia" placeholder="Número de guía" />
+                    <Input
+                        v-model="formPaso.paqueteria"
+                        placeholder="Paquetería"
+                    />
+                    <Input
+                        v-model="formPaso.numero_guia"
+                        placeholder="Número de guía"
+                    />
                     <Label>Comprobante (opcional)</Label>
-                    <input type="file" accept=".pdf,.jpg,.jpeg,.png" @change="(e) => elegirArchivos(e, false)" />
+                    <PeopleFileDropzone
+                        v-model="archivos"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        label="Arrastra el comprobante de envío"
+                        @error="(m: string) => toast.error(m)"
+                    />
                 </template>
                 <template v-if="paso.accion === 'escaneo'">
-                    <Label>Escaneo o foto del documento firmado</Label>
-                    <input type="file" accept=".pdf,.jpg,.jpeg,.png" capture="environment" @change="(e) => elegirArchivos(e, false)" />
+                    <PeopleFileDropzone
+                        v-model="archivos"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        label="Arrastra aquí el documento firmado"
+                        hint="PDF o foto · Máx. 20 MB · El documento generado se conserva aparte"
+                        @error="(m: string) => toast.error(m)"
+                    />
                 </template>
-                <template v-if="paso.accion !== 'escaneo' && paso.accion !== 'imprimir'">
+                <template
+                    v-if="
+                        paso.accion !== 'escaneo' && paso.accion !== 'imprimir'
+                    "
+                >
                     <Label>Fecha real (opcional)</Label>
                     <Input v-model="formPaso.fecha" type="date" />
                 </template>
-                <Textarea v-model="formPaso.observaciones" placeholder="Observaciones (opcional)" />
+                <Textarea
+                    v-model="formPaso.observaciones"
+                    placeholder="Observaciones (opcional)"
+                />
             </div>
             <DialogFooter>
-                <Button variant="outline" @click="paso = null">Cancelar</Button>
-                <Button :disabled="ocupado" @click="confirmarPaso">Confirmar</Button>
+                <Button
+                    variant="outline"
+                    :disabled="ocupado !== null"
+                    @click="paso = null"
+                    >Cancelar</Button
+                >
+                <Button
+                    :disabled="ocupado !== null || !pasoValido"
+                    @click="confirmarPaso"
+                >
+                    <Loader2
+                        v-if="ocupado !== null"
+                        class="size-4 animate-spin"
+                    />
+                    Confirmar
+                </Button>
             </DialogFooter>
         </DialogContent>
     </Dialog>
 
     <!-- Procedimiento de baja -->
-    <Dialog :open="dialogoBaja !== null" @update:open="(v: boolean) => !v && (dialogoBaja = null)">
+    <Dialog
+        :open="dialogoBaja !== null"
+        @update:open="
+            (v: boolean) => !v && ocupado === null && (dialogoBaja = null)
+        "
+    >
         <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-xl">
             <DialogHeader>
                 <DialogTitle>
@@ -510,8 +945,8 @@ function elegirArchivos(evento: Event, multiple: boolean) {
                 </DialogTitle>
                 <DialogDescription v-if="dialogoBaja?.tipo === 'negativa'">
                     No se tratará como firmado. Se habilita el Acta
-                    administrativa de negativa con dos testigos; las firmas son
-                    físicas.
+                    administrativa de negativa con dos testigos (nombre y
+                    cargo); las firmas quedan en blanco para firmarse en papel.
                 </DialogDescription>
             </DialogHeader>
             <div v-if="dialogoBaja" class="flex flex-col gap-3">
@@ -522,50 +957,144 @@ function elegirArchivos(evento: Event, multiple: boolean) {
                         :key="d.clave"
                         class="flex items-center gap-2 text-sm"
                     >
-                        <Casilla v-model="formBaja.documentos" :value="d.clave" /> {{ d.nombre }}
+                        <Casilla
+                            v-model="formBaja.documentos"
+                            :value="d.clave"
+                        />
+                        {{ d.nombre }}
                     </label>
                     <label class="flex items-center gap-2 text-sm">
-                        <Casilla v-model="formBaja.finiquito_a_disposicion" /> El finiquito
-                        queda a su disposición
+                        <Casilla v-model="formBaja.finiquito_a_disposicion" />
+                        El finiquito queda a su disposición
                     </label>
                 </template>
                 <template v-if="dialogoBaja.tipo !== 'etapa'">
-                    <div v-for="(t, i) in formBaja.testigos" :key="i" class="grid gap-2 sm:grid-cols-2">
-                        <Input v-model="t.nombre" :placeholder="`Testigo ${i + 1}: nombre`" />
-                        <Input v-model="t.cargo" placeholder="Cargo" />
+                    <div
+                        v-for="(t, i) in formBaja.testigos"
+                        :key="i"
+                        class="grid gap-2 sm:grid-cols-2"
+                    >
+                        <Input
+                            v-model="t.nombre"
+                            :placeholder="`Testigo ${i + 1}: nombre`"
+                        />
+                        <Input
+                            v-model="t.cargo"
+                            :placeholder="`Testigo ${i + 1}: cargo`"
+                        />
                     </div>
+                    <p
+                        v-if="!testigosCompletos"
+                        class="text-xs text-amber-700 dark:text-amber-300"
+                    >
+                        El acta exige nombre y cargo de los dos testigos{{
+                            dialogoBaja.tipo === 'negativa'
+                                ? ' (puedes capturarlos después, antes de generarla)'
+                                : ''
+                        }}.
+                    </p>
                     <div class="grid gap-2 sm:grid-cols-2">
-                        <Input v-model="formBaja.participantes.rh_nombre" placeholder="RH: nombre" />
-                        <Input v-model="formBaja.participantes.rh_cargo" placeholder="RH: cargo" />
-                        <Input v-model="formBaja.participantes.jefe_nombre" placeholder="Jefe inmediato: nombre" />
-                        <Input v-model="formBaja.participantes.jefe_cargo" placeholder="Jefe inmediato: cargo" />
-                        <Input v-model="formBaja.participantes.lugar_acta" placeholder="Ciudad (p. ej. Cuernavaca, Morelos)" />
-                        <Input v-model="formBaja.participantes.hora_acta" type="time" placeholder="Hora" />
+                        <Input
+                            v-model="formBaja.participantes.rh_nombre"
+                            placeholder="RH: nombre"
+                        />
+                        <Input
+                            v-model="formBaja.participantes.rh_cargo"
+                            placeholder="RH: cargo"
+                        />
+                        <Input
+                            v-model="formBaja.participantes.jefe_nombre"
+                            placeholder="Jefe inmediato: nombre"
+                        />
+                        <Input
+                            v-model="formBaja.participantes.jefe_cargo"
+                            placeholder="Jefe inmediato: cargo"
+                        />
+                        <Input
+                            v-model="formBaja.participantes.lugar_acta"
+                            placeholder="Ciudad (p. ej. Cuernavaca, Morelos)"
+                        />
+                        <Input
+                            v-model="formBaja.participantes.hora_acta"
+                            type="time"
+                            placeholder="Hora"
+                        />
                     </div>
-                    <Input v-model="formBaja.participantes.domicilio_acta" placeholder="Domicilio donde se levanta el acta" />
+                    <Input
+                        v-model="formBaja.participantes.domicilio_acta"
+                        placeholder="Domicilio donde se levanta el acta"
+                    />
                     <p class="text-xs text-[var(--mrl-texto-suave)]">
-                        Lo que dejes vacío se propone desde PEOPLE (RH que opera,
-                        jefe del colaborador, ciudad y domicilio de su sucursal).
+                        Lo que dejes vacío se propone desde PEOPLE (RH que
+                        opera, jefe del colaborador, ciudad y domicilio de su
+                        sucursal).
                     </p>
                 </template>
                 <template v-if="dialogoBaja.tipo === 'etapa'">
-                    <NativeSelect v-model="formBaja.etapa">
-                        <NativeSelectOption v-for="(etiqueta, clave) in etapas" :key="clave" :value="clave">
-                            {{ etiqueta }}
-                        </NativeSelectOption>
-                    </NativeSelect>
-                    <div v-if="formBaja.etapa === 'notificacion_electronica'" class="flex gap-4 text-sm">
-                        <label class="flex items-center gap-2"><Casilla v-model="formBaja.medios" value="correo" /> Correo</label>
-                        <label class="flex items-center gap-2"><Casilla v-model="formBaja.medios" value="whatsapp" /> WhatsApp corporativo</label>
+                    <Select v-model="formBaja.etapa">
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem
+                                v-for="(etiqueta, clave) in etapas"
+                                :key="clave"
+                                :value="String(clave)"
+                                >{{ etiqueta }}</SelectItem
+                            >
+                        </SelectContent>
+                    </Select>
+                    <div
+                        v-if="formBaja.etapa === 'notificacion_electronica'"
+                        class="flex gap-4 text-sm"
+                    >
+                        <label class="flex items-center gap-2"
+                            ><Casilla
+                                v-model="formBaja.medios"
+                                value="correo"
+                            />
+                            Correo</label
+                        >
+                        <label class="flex items-center gap-2"
+                            ><Casilla
+                                v-model="formBaja.medios"
+                                value="whatsapp"
+                            />
+                            WhatsApp corporativo</label
+                        >
                     </div>
                     <Label>Evidencias (capturas, correos, acuses)</Label>
-                    <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png" @change="(e) => elegirArchivos(e, true)" />
+                    <PeopleFileDropzone
+                        v-model="evidencias"
+                        multiple
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        label="Arrastra las evidencias"
+                        @error="(m: string) => toast.error(m)"
+                    />
                 </template>
-                <Textarea v-model="formBaja.observaciones" placeholder="Observaciones (opcional)" />
+                <Textarea
+                    v-model="formBaja.observaciones"
+                    placeholder="Observaciones (opcional)"
+                />
             </div>
             <DialogFooter>
-                <Button variant="outline" @click="dialogoBaja = null">Cancelar</Button>
-                <Button :disabled="ocupado" @click="confirmarBaja">Guardar</Button>
+                <Button
+                    variant="outline"
+                    :disabled="ocupado !== null"
+                    @click="dialogoBaja = null"
+                    >Cancelar</Button
+                >
+                <Button
+                    :disabled="
+                        ocupado !== null ||
+                        (dialogoBaja?.tipo === 'testigos' && !testigosCompletos)
+                    "
+                    @click="confirmarBaja"
+                >
+                    <Loader2
+                        v-if="ocupado !== null"
+                        class="size-4 animate-spin"
+                    />
+                    Guardar
+                </Button>
             </DialogFooter>
         </DialogContent>
     </Dialog>

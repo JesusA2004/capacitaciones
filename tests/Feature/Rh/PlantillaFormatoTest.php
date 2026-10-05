@@ -58,9 +58,10 @@ test('un colaborador no puede administrar plantillas', function () {
     $usuario = User::factory()->create();
     $usuario->assignRole('colaborador');
 
-    $this->actingAs($usuario)
-        ->get(route('rh.plantillas.index'))
-        ->assertForbidden();
+    // La pantalla anterior redirige a Documentos maestros, que exige permiso.
+    $this->actingAs($usuario)->get(route('rh.plantillas.index'))->assertRedirect(route('rh.documentos-maestros.index'));
+    $this->actingAs($usuario)->get(route('rh.documentos-maestros.index'))->assertForbidden();
+    $this->actingAs($usuario)->post(route('rh.plantillas.store'), [])->assertForbidden();
 });
 
 test('rh_admin puede generar un documento precargado para un colaborador y el placeholder se reemplaza', function () {

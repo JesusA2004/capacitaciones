@@ -33,6 +33,10 @@ const form = useForm({
     rfc: props.empresa?.rfc ?? '',
     logo: null as File | null,
     activo: props.empresa?.activo ?? true,
+    domicilio_fiscal: props.empresa?.domicilio_fiscal ?? '',
+    ciudad_firma: props.empresa?.ciudad_firma ?? '',
+    representante_legal_nombre: props.empresa?.representante_legal_nombre ?? '',
+    representante_legal_cargo: props.empresa?.representante_legal_cargo ?? '',
 });
 
 function enviar() {
@@ -52,7 +56,7 @@ function enviar() {
 
 <template>
     <Dialog :open="open" @update:open="(valor) => emit('update:open', valor)">
-        <DialogContent class="sm:max-w-lg">
+        <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-lg">
             <DialogHeader>
                 <DialogTitle>{{
                     empresa ? 'Editar empresa' : 'Nueva empresa'
@@ -116,6 +120,65 @@ function enviar() {
                         <InputError :message="form.errors.logo" />
                     </div>
                 </div>
+
+                <fieldset
+                    class="grid gap-3 rounded-xl border border-border/60 p-3"
+                >
+                    <legend
+                        class="px-1 text-xs font-semibold text-muted-foreground"
+                    >
+                        Datos del patrón en documentos laborales
+                    </legend>
+                    <p class="text-xs text-muted-foreground">
+                        Se imprimen en contratos y convenios. Si quedan vacíos,
+                        PEOPLE usa el valor predeterminado del registro jurídico
+                        y lo advierte en la vista previa.
+                    </p>
+                    <div class="grid gap-2">
+                        <Label for="representante_legal_nombre"
+                            >Representante legal</Label
+                        >
+                        <Input
+                            id="representante_legal_nombre"
+                            v-model="form.representante_legal_nombre"
+                        />
+                        <InputError
+                            :message="form.errors.representante_legal_nombre"
+                        />
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="grid gap-2">
+                            <Label for="representante_legal_cargo"
+                                >Cargo del representante</Label
+                            >
+                            <Input
+                                id="representante_legal_cargo"
+                                v-model="form.representante_legal_cargo"
+                                placeholder="Representante Legal"
+                            />
+                            <InputError
+                                :message="form.errors.representante_legal_cargo"
+                            />
+                        </div>
+                        <div class="grid gap-2">
+                            <Label for="ciudad_firma">Ciudad de firma</Label>
+                            <Input
+                                id="ciudad_firma"
+                                v-model="form.ciudad_firma"
+                                placeholder="Cuernavaca, Morelos"
+                            />
+                            <InputError :message="form.errors.ciudad_firma" />
+                        </div>
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="domicilio_fiscal">Domicilio fiscal</Label>
+                        <Input
+                            id="domicilio_fiscal"
+                            v-model="form.domicilio_fiscal"
+                        />
+                        <InputError :message="form.errors.domicilio_fiscal" />
+                    </div>
+                </fieldset>
 
                 <label class="flex items-center gap-2 text-sm">
                     <Checkbox

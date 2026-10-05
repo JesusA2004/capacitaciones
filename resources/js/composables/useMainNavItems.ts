@@ -46,11 +46,9 @@ import { index as indexCandidatos } from '@/routes/rh/candidatos';
 import { index as indexCumpleanos } from '@/routes/rh/cumpleanos';
 import { index as indexDocumentosMaestros } from '@/routes/rh/documentos-maestros';
 import { index as indexExpedientes } from '@/routes/rh/expedientes';
-import { index as indexFormatos } from '@/routes/rh/formatos';
 import { index as indexIncorporacionInvitaciones } from '@/routes/rh/incorporacion/invitaciones';
 import { configuracion as configuracionOnboarding } from '@/routes/rh/onboarding';
 import { index as indexPendientes } from '@/routes/rh/pendientes';
-import { index as indexPlantillas } from '@/routes/rh/plantillas';
 import { index as indexReingresos } from '@/routes/rh/reingresos';
 import { index as indexRhSolicitudes } from '@/routes/rh/solicitudes';
 import { index as indexVacantes } from '@/routes/rh/vacantes';
@@ -216,19 +214,6 @@ export function useMainNavItems() {
                 title: 'Invitaciones QR',
                 href: indexIncorporacionInvitaciones(),
                 icon: QrCode,
-            });
-        }
-
-        if (
-            tienePermiso('formatos_oficiales.ver') ||
-            tienePermiso('plantillas.ver')
-        ) {
-            items.push({
-                title: 'Formatos',
-                href: tienePermiso('formatos_oficiales.ver')
-                    ? indexFormatos()
-                    : indexPlantillas(),
-                icon: FileStack,
             });
         }
 

@@ -147,7 +147,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         });
 
         Route::prefix('plantillas')->name('plantillas.')->group(function () {
-            Route::get('/', [PlantillaController::class, 'index'])->name('index');
+            Route::get('/', fn () => redirect()->route('rh.documentos-maestros.index'))->name('index');
             Route::get('exportar-excel', [PlantillaController::class, 'exportarExcel'])->name('exportarExcel');
             Route::get('exportar-pdf', [PlantillaController::class, 'exportarPdf'])->name('exportarPdf');
             Route::post('/', [PlantillaController::class, 'store'])->name('store');
@@ -157,7 +157,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::delete('{plantilla}', [PlantillaController::class, 'destroy'])->name('destroy');
         });
 
-        // "Formatos" es la experiencia principal de RH operativo: formatos
+        // MÓDULO ANTERIOR retirado de la interfaz: sus pantallas redirigen a
+        // Documentos maestros (único lugar de formatos oficiales). Se conservan
+        // las descargas/subidas de documentos ya emitidos con él (historial) y
+        // la API móvil. Antes: "Formatos" era la experiencia principal de RH operativo: formatos
         // oficiales fijos de MR. LANA, solo generar/descargar (docs/FORMATOS_OFICIALES.md).
         // El motor de plantillas DOCX editables (Rh\FormatoController) se
         // conserva intacto para uso avanzado (Solicitudes → "Generar
@@ -165,9 +168,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // "catalogo/*" para super_admin/rh_admin) — no se muestra como
         // catálogo principal a RH normal (ver docs/PLANTILLAS_FORMATOS.md).
         Route::prefix('formatos')->name('formatos.')->group(function () {
-            Route::get('/', [FormatoOficialController::class, 'index'])->name('index');
+            Route::get('/', fn () => redirect()->route('rh.documentos-maestros.index'))->name('index');
             Route::prefix('catalogo')->name('catalogo.')->group(function () {
-                Route::get('/', [FormatoController::class, 'index'])->name('index');
+                Route::get('/', fn () => redirect()->route('rh.documentos-maestros.index'))->name('index');
                 Route::get('exportar-excel', [FormatoController::class, 'exportarExcel'])->name('exportarExcel');
                 Route::get('exportar-pdf', [FormatoController::class, 'exportarPdf'])->name('exportarPdf');
             });
@@ -184,10 +187,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // catálogo, generación, documentos generados, variables y la
         // administración de plantillas (subir, editor visual, versiones).
         Route::prefix('formatos-oficiales')->name('formatos-oficiales.')->group(function () {
-            Route::get('/', [FormatoOficialController::class, 'index'])->name('index');
-            Route::get('generados', [FormatoOficialController::class, 'generados'])->name('generados');
-            Route::get('variables', [FormatoOficialController::class, 'variables'])->name('variables');
-            Route::get('nuevo', [PlantillaOficialController::class, 'create'])->name('create');
+            Route::get('/', fn () => redirect()->route('rh.documentos-maestros.index'))->name('index');
+            Route::get('generados', fn () => redirect()->route('rh.documentos-maestros.index'))->name('generados');
+            Route::get('variables', fn () => redirect()->route('rh.documentos-maestros.index'))->name('variables');
+            Route::get('nuevo', fn () => redirect()->route('rh.documentos-maestros.index'))->name('create');
             Route::post('/', [PlantillaOficialController::class, 'store'])->name('store');
 
             Route::get('versiones/{version}/base', [PlantillaOficialController::class, 'base'])->name('versiones.base');
@@ -201,7 +204,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('generaciones/{generacion}/previsualizar', [FormatoOficialController::class, 'previsualizar'])->name('previsualizar');
             Route::post('generaciones/{generacion}/subir-firmado', [FormatoOficialController::class, 'subirFirmado'])->name('subir-firmado');
 
-            Route::get('{formato}', [PlantillaOficialController::class, 'show'])->name('show');
+            Route::get('{formato}', fn () => redirect()->route('rh.documentos-maestros.index'))->name('show');
             Route::get('{formato}/original', [PlantillaOficialController::class, 'original'])->name('original');
             Route::post('{formato}/versiones', [PlantillaOficialController::class, 'nuevaVersion'])->name('versiones.store');
             Route::post('{formato}/archivar', [PlantillaOficialController::class, 'archivar'])->name('archivar');

@@ -1,20 +1,15 @@
 <script setup lang="ts">
-import { router } from '@inertiajs/vue3';
-import { Download, Eye, FileSignature, Sparkles } from '@lucide/vue';
-import { ref } from 'vue';
-import SelectSimple from '@/components/Common/SelectSimple.vue';
-import FormatoOficialGenerarDialog from '@/components/Rh/FormatoOficialGenerarDialog.vue';
+import { Download, Eye, History } from '@lucide/vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import type { FormatoOficialItem } from '@/types';
 
 /**
- * Pestaña Documentos del expediente (vista RH): documentos generados desde
- * plantillas oficiales para esta persona y botón "Generar documento" con
- * el colaborador ya fijo (docs/FORMATOS_OFICIALES.md).
+ * Historial de solo lectura de lo que se emitió con el motor anterior de
+ * formatos oficiales. Ya no se genera nada desde aquí — todo documento
+ * nuevo sale de Documentos maestros (sección "Documentos del proceso") —,
+ * pero el expediente conserva lo que ya tenía.
  */
-const props = defineProps<{
-    colaborador: { id: number; nombre: string };
+defineProps<{
     documentos: {
         id: number;
         formato: string;
@@ -27,19 +22,8 @@ const props = defineProps<{
         ver_url: string;
         descargar_url: string;
     }[];
-    formatos: FormatoOficialItem[];
     puedeDescargar: boolean;
 }>();
-
-const formatoId = ref('');
-const dialogo = ref(false);
-const formatoElegido = ref<FormatoOficialItem | null>(null);
-
-function abrir() {
-    formatoElegido.value =
-        props.formatos.find((f) => String(f.id) === formatoId.value) ?? null;
-    dialogo.value = formatoElegido.value !== null;
-}
 
 function fecha(valor: string | null): string {
     return valor
@@ -53,37 +37,16 @@ function fecha(valor: string | null): string {
 </script>
 
 <template>
-    <section class="rounded-2xl border p-4">
-        <div
-            class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
-        >
-            <h3 class="flex items-center gap-2 font-medium">
-                <FileSignature class="size-4 text-muted-foreground" />Documentos
-                oficiales
-            </h3>
-            <div v-if="formatos.length > 0" class="flex gap-2">
-                <SelectSimple
-                    v-model="formatoId"
-                    class="w-full sm:w-64"
-                    :opciones="
-                        formatos.map((f) => ({
-                            value: String(f.id),
-                            label: f.nombre,
-                        }))
-                    "
-                    opcion-vacia="Elige un formato…"
-                />
-                <Button :disabled="!formatoId" @click="abrir">
-                    <Sparkles class="size-4" />
-                    Generar
-                </Button>
-            </div>
-        </div>
-
-        <p v-if="documentos.length === 0" class="text-sm text-muted-foreground">
-            Aún no se han generado documentos para esta persona.
+    <section v-if="documentos.length > 0" class="rounded-2xl border p-4">
+        <h3 class="mb-1 flex items-center gap-2 font-medium">
+            <History class="size-4 text-muted-foreground" />Documentos
+            anteriores
+        </h3>
+        <p class="mb-3 text-xs text-muted-foreground">
+            Emitidos antes de Documentos maestros. Solo consulta: los documentos
+            nuevos se generan arriba, en los documentos del proceso.
         </p>
-        <ul v-else class="divide-y">
+        <ul class="divide-y">
             <li
                 v-for="d in documentos"
                 :key="d.id"
@@ -130,17 +93,4 @@ function fecha(valor: string | null): string {
             </li>
         </ul>
     </section>
-
-    <FormatoOficialGenerarDialog
-        v-if="formatoElegido"
-        v-model:open="dialogo"
-        :formato="formatoElegido"
-        :sujeto-fijo="{
-            tipo: 'colaborador',
-            id: colaborador.id,
-            nombre: colaborador.nombre,
-        }"
-        :puede-descargar="puedeDescargar"
-        @generado="router.reload({ only: ['documentosOficiales'] })"
-    />
 </template>

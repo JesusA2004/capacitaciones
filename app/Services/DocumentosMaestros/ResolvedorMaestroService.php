@@ -80,10 +80,44 @@ class ResolvedorMaestroService
     public function buscar(string $clave, Colaborador $colaborador): ?DocumentTemplate
     {
         $colaborador->loadMissing(['puesto', 'sucursalPrincipal']);
-        $empresaId = $colaborador->sucursalPrincipal?->empresa_id;
-        $puestoId = $colaborador->puesto_id;
-        $grupo = $colaborador->puesto?->grupo_documental;
 
+        return $this->buscarPara($clave, $colaborador->puesto_id, $colaborador->puesto?->grupo_documental, $colaborador->sucursalPrincipal?->empresa_id);
+    }
+
+    /**
+     * Misma resolución sin colaborador concreto (cobertura documental por
+     * puesto): puesto+empresa > puesto > grupo+empresa > grupo > general.
+     */
+    public function buscarPara(string $clave, ?int $puestoId, ?string $grupo, ?int $empresaId): ?DocumentTemplate
+    {
+        $mejor = $this->candidatosPara($clave, $puestoId, $grupo, $empresaId)->first();
+
+        return is_array($mejor) ? $mejor['master'] : null;
+    }
+
+    /**
+     * Cómo se resolvió: 'puesto' | 'grupo' | 'general' | null.
+     */
+    public function nivelPara(string $clave, ?int $puestoId, ?string $grupo, ?int $empresaId): ?string
+    {
+        $mejor = $this->candidatosPara($clave, $puestoId, $grupo, $empresaId)->first();
+
+        if (! is_array($mejor)) {
+            return null;
+        }
+
+        return match (true) {
+            $mejor['puntos'] >= 40 => 'puesto',
+            $mejor['puntos'] >= 20 => 'grupo',
+            default => 'general',
+        };
+    }
+
+    /**
+     * @return Collection<int, array{master: DocumentTemplate, puntos: int<1, max>}>
+     */
+    private function candidatosPara(string $clave, ?int $puestoId, ?string $grupo, ?int $empresaId): Collection
+    {
         /** @var Collection<int, DocumentTemplate> $candidatos */
         $candidatos = DocumentTemplate::query()
             ->where('clave', $clave)
@@ -93,14 +127,11 @@ class ResolvedorMaestroService
             ->where('operativo', true)
             ->get();
 
-        $puntuados = $candidatos
+        return $candidatos
             ->map(fn (DocumentTemplate $m): array => ['master' => $m, 'puntos' => $this->puntos($m, $empresaId, $puestoId, $grupo, $clave)])
             ->filter(fn (array $c): bool => $c['puntos'] > 0)
-            ->sortByDesc('puntos');
-
-        $mejor = $puntuados->first();
-
-        return is_array($mejor) ? $mejor['master'] : null;
+            ->sortByDesc('puntos')
+            ->values();
     }
 
     /**

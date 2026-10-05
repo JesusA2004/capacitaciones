@@ -10,7 +10,6 @@ import type {
     AvisosManualExpediente,
     DocumentoExpedienteItem,
     ExpedienteColaborador,
-    FormatoOficialItem,
     MovimientoLaboralItem,
     OnboardingItem,
     PrestamoItem,
@@ -69,7 +68,6 @@ const props = defineProps<{
               typeof ExpedienteDocumentosOficiales
           >['$props']['documentos']
         | null;
-    formatosOficialesDisponibles: FormatoOficialItem[];
 }>();
 
 const { tienePermiso } = usePermisos();
@@ -126,12 +124,7 @@ defineOptions({
             <DocumentosProceso tipo="colaborador" :id="colaborador.id" />
             <ExpedienteDocumentosOficiales
                 v-if="props.documentosOficiales !== null"
-                :colaborador="{
-                    id: colaborador.id,
-                    nombre: `${colaborador.name} ${colaborador.apellidos ?? ''}`.trim(),
-                }"
                 :documentos="props.documentosOficiales"
-                :formatos="formatosOficialesDisponibles"
                 :puede-descargar="tienePermiso('formatos_oficiales.descargar')"
             />
         </template>

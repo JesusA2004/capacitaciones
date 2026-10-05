@@ -173,28 +173,6 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
             'Una invitación vencida no se reactiva: genera una nueva.',
         ],
     },
-    formatos: {
-        queEs: 'Documentos de MR. LANA llenos con los datos del colaborador: plantillas oficiales (PDF) y plantillas Word por clave (DOCX con {{marcadores}}).',
-        puedes: [
-            'Generar formatos oficiales y ver su historial.',
-            'Consultar las variables que el sistema llena solo.',
-            'Subir plantillas Word, declarar variables manuales y marcarlas obligatorias u opcionales.',
-            'Generar documentos Word con vista previa y descargarlos en Word o PDF.',
-        ],
-        flujo: [
-            'Prepara el Word con {{marcadores}} y súbelo en «Plantillas Word por clave».',
-            'Revisa sus variables (conocidas y manuales) y marca las obligatorias.',
-            'En «Generados (Word)», elige la plantilla, la persona, revisa la vista previa y genera.',
-            'Descarga en Word o PDF; para corregir la plantilla, sube una nueva versión.',
-        ],
-        permisos:
-            'Plantillas oficiales: RH, gerentes de sucursal y jurídico. Plantillas Word: RH (crearlas y generar: administración de RH).',
-        errores: [
-            'Si falta un dato obligatorio, no se genera: se indica cuál falta.',
-            'Un marcador partido por cambios de formato en Word no se reconoce: escríbelo de corrido.',
-            'Si el archivo ya no está en el almacenamiento, verás un aviso en vez de la descarga.',
-        ],
-    },
     reportes: {
         queEs: 'Reportes cruzados de RH con gráfica y tabla, listos para exportar.',
         puedes: [

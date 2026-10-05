@@ -248,6 +248,48 @@ class DatosDocumentoService
     }
 
     /**
+     * Cómo pide la UI (web y app) un dato faltante:
+     *  - editable: se puede capturar desde el modal del documento. Nunca
+     *    los datos de relación (puesto, sucursal, departamento, jefe) ni los
+     *    del proceso: esos se corrigen en su módulo, no "a mano" en un
+     *    documento;
+     *  - persistencia: 'colaborador' / 'sucursal' (se guarda en la ficha y
+     *    no se vuelve a pedir) o 'documento' (dato del acto: testigos, hora
+     *    del acta… solo vive en el snapshot del documento);
+     *  - control + opciones: selector, fecha, hora, correo, texto.
+     *
+     * @param  array{fuente: string, tipo: string, base: string}  $fuente
+     * @return array{editable: bool, persistencia: string, control: string, opciones: list<array{value: string, label: string}>, sugerencias: list<string>}
+     */
+    public function captura(array $fuente): array
+    {
+        $editable = in_array($fuente['fuente'], ['colaborador', 'sucursal', 'manual'], true) && ! in_array($fuente['tipo'], ['relacion', 'proceso'], true);
+
+        return [
+            'editable' => $editable,
+            'persistencia' => match ($fuente['fuente']) {
+                'manual' => 'documento',
+                'sucursal' => 'sucursal',
+                default => 'colaborador',
+            },
+            'control' => match ($fuente['tipo']) {
+                'estado_civil', 'genero' => 'select',
+                'fecha' => 'fecha',
+                'hora' => 'hora',
+                'correo' => 'correo',
+                'moneda' => 'moneda',
+                default => 'texto',
+            },
+            'opciones' => match ($fuente['tipo']) {
+                'estado_civil' => EstadoCivil::opciones(),
+                'genero' => [['value' => 'masculino', 'label' => 'Masculino'], ['value' => 'femenino', 'label' => 'Femenino']],
+                default => [],
+            },
+            'sugerencias' => $fuente['base'] === 'nacionalidad' ? ['Mexicana'] : [],
+        ];
+    }
+
+    /**
      * Columnas del colaborador que la UI puede completar desde el modal de
      * faltantes (y su validación).
      *
@@ -574,6 +616,40 @@ class DatosDocumentoService
         }
 
         return trim((string) $empresa?->ciudad_firma);
+    }
+
+    /**
+     * De dónde salen los datos del PATRÓN para esta persona — para que RH
+     * vea en la vista previa qué domicilio y qué representante legal se
+     * imprimirán (y si se está usando el valor predeterminado del registro
+     * jurídico en vez del capturado en la empresa).
+     *
+     * @return array{domicilio: array{valor: string, fuente: string, configurado: string}, representante: array{valor: string, fuente: string}}
+     */
+    public function origenesPatron(ContextoDocumento $contexto): array
+    {
+        $contexto->colaborador->loadMissing('sucursalPrincipal.empresa');
+        $sucursal = $contexto->colaborador->sucursalPrincipal;
+        $empresa = $sucursal?->empresa;
+        $defecto = (array) config('documentos_maestros.empresa_defecto', []);
+        $configurado = FuenteDomicilioPatron::tryFrom((string) config('documentos_maestros.domicilio_patron')) === FuenteDomicilioPatron::Sucursal ? 'sucursal' : 'fiscal';
+        $fiscalEmpresa = trim((string) $empresa?->domicilio_fiscal);
+        $deSucursal = $this->domicilioSucursal($sucursal);
+
+        [$domicilio, $fuenteDomicilio] = match (true) {
+            $configurado === 'sucursal' && $deSucursal !== '' => [$deSucursal, 'sucursal'],
+            $fiscalEmpresa !== '' => [$fiscalEmpresa, 'fiscal'],
+            default => [(string) ($defecto['domicilio'] ?? ''), 'predeterminado'],
+        };
+
+        $representanteEmpresa = trim((string) $empresa?->representante_legal_nombre);
+
+        return [
+            'domicilio' => ['valor' => $domicilio, 'fuente' => $fuenteDomicilio, 'configurado' => $configurado],
+            'representante' => $representanteEmpresa !== ''
+                ? ['valor' => $representanteEmpresa, 'fuente' => 'empresa']
+                : ['valor' => trim((string) ($defecto['representante_legal_nombre'] ?? '')), 'fuente' => 'predeterminado'],
+        ];
     }
 
     /**

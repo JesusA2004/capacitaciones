@@ -301,10 +301,15 @@ class RolesYPermisosSeeder extends Seeder
         'candidatos.contratar',
         'plantillas_documentales.ver',
         'plantillas_documentales.administrar',
+        // Activar una versión de documento maestro SIN QA visual aprobado
+        // (motivo obligatorio, auditado). Reservado a super_admin.
+        'documentos_maestros.activar_excepcional',
         'documentos_laborales.ver',
         'documentos_laborales.generar',
         'documentos_laborales.operar_fisico',
         'documentos_laborales.cancelar',
+        // Nueva revisión de un documento YA firmado (el firmado se conserva).
+        'documentos_laborales.revisar_firmado',
         'contratos.ver',
         'evaluaciones.ver',
         'evaluaciones.capturar',
@@ -435,7 +440,7 @@ class RolesYPermisosSeeder extends Seeder
             // Ciclo laboral completo (docs/backend-rh-completion.md).
             'colaboradores.alta', 'colaboradores.activar', 'candidatos.contratar',
             'plantillas_documentales.ver', 'plantillas_documentales.administrar',
-            'documentos_laborales.ver', 'documentos_laborales.generar', 'documentos_laborales.operar_fisico', 'documentos_laborales.cancelar',
+            'documentos_laborales.ver', 'documentos_laborales.generar', 'documentos_laborales.operar_fisico', 'documentos_laborales.cancelar', 'documentos_laborales.revisar_firmado',
             'contratos.ver', 'evaluaciones.ver', 'evaluaciones.capturar', 'evaluaciones.autorizar',
             'cierres.ver', 'cierres.gestionar', 'cierres.ejecutar_baja', 'finiquitos.confirmar_pago',
             'nomina.recibos.ver', 'nomina.recibos.crear', 'nomina.recibos.importar',

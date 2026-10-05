@@ -2,29 +2,21 @@
 
 namespace App\Http\Controllers\Rh;
 
-use App\Enums\AplicaFormato;
-use App\Enums\EstadoVersionFormato;
-use App\Enums\TipoFormatoOficial;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Rh\GuardarCamposFormatoRequest;
 use App\Http\Requests\Rh\NuevaVersionFormatoRequest;
 use App\Http\Requests\Rh\RefinarAnalisisFormatoRequest;
 use App\Http\Requests\Rh\StorePlantillaOficialRequest;
-use App\Models\Empresa;
 use App\Models\OfficialFormat;
 use App\Models\OfficialFormatVersion;
 use App\Services\Formatos\Analisis\AnalisisPlantillaService;
 use App\Services\Formatos\FormatoOficialPresenter;
 use App\Services\Formatos\GeneradorFormatoService;
-use App\Services\Formatos\Motor\ConversorDocxPdf;
 use App\Services\Formatos\OfficialFormatStorageService;
 use App\Services\Formatos\PlantillaOficialService;
-use App\Services\Formatos\Variables\CatalogoVariablesFormato;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
-use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -40,23 +32,8 @@ class PlantillaOficialController extends Controller
         private readonly AnalisisPlantillaService $analisis,
         private readonly GeneradorFormatoService $generador,
         private readonly OfficialFormatStorageService $storage,
-        private readonly CatalogoVariablesFormato $variables,
-        private readonly ConversorDocxPdf $conversor,
         private readonly FormatoOficialPresenter $presenter,
     ) {}
-
-    public function create(): Response
-    {
-        $this->authorize('create', OfficialFormat::class);
-
-        return Inertia::render('Rh/FormatosOficiales/Nuevo', [
-            'categorias' => TipoFormatoOficial::opciones(),
-            'aplicaA' => array_map(fn (AplicaFormato $a) => ['value' => $a->value, 'etiqueta' => $a->etiqueta()], AplicaFormato::cases()),
-            'empresas' => Empresa::query()->where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
-            'maxMb' => intdiv((int) config('formatos_oficiales.max_kb', 20480), 1024),
-            'conversionWordFiel' => $this->conversor->fiel(),
-        ]);
-    }
 
     public function store(StorePlantillaOficialRequest $request): RedirectResponse
     {
@@ -73,74 +50,6 @@ class PlantillaOficialController extends Controller
         return redirect()
             ->route('rh.formatos-oficiales.show', $formato->id)
             ->with('toast', ['type' => 'success', 'message' => 'Plantilla subida y analizada. Revisa el mapeo de campos antes de publicarla.']);
-    }
-
-    /**
-     * Editor visual de una versión (por omisión: el borrador si existe, si
-     * no la vigente, si no la más reciente).
-     */
-    public function show(Request $request, OfficialFormat $formato): Response
-    {
-        $this->authorize('configurar', $formato);
-
-        $versiones = $formato->versiones()->with(['creadaPor:id,name', 'publicadaPor:id,name'])->withCount('generaciones')->get();
-        $version = $versiones->firstWhere('id', $request->integer('version'))
-            ?? $versiones->firstWhere('estado', EstadoVersionFormato::Borrador)
-            ?? $versiones->firstWhere('id', $formato->version_vigente_id)
-            ?? $versiones->first();
-
-        abort_if($version === null, 404, 'Este formato no tiene versiones.');
-
-        $usuario = $request->user();
-
-        return Inertia::render('Rh/FormatosOficiales/Editor', [
-            'formato' => [
-                'id' => $formato->id,
-                'nombre' => $formato->nombre,
-                'tipo_etiqueta' => $formato->tipo->etiqueta(),
-                'aplica_a' => $formato->aplica_a->value,
-                'archivado' => $formato->estaArchivado(),
-                'version_vigente_id' => $formato->version_vigente_id,
-            ],
-            'version' => [
-                'id' => $version->id,
-                'numero' => $version->numero,
-                'estado' => $version->estado->value,
-                'estado_etiqueta' => $version->estado->etiqueta(),
-                'editable' => $version->esEditable(),
-                'estrategia' => $version->estrategia->value,
-                'file_type' => $version->file_type->value,
-                'fidelidad' => $version->fidelidad,
-                'paginas' => $version->paginas ?? [],
-                'campos' => $version->camposConfigurados(),
-                'analisis' => $this->presenter->analisis($version),
-                'archivo_url' => route('rh.formatos-oficiales.versiones.base', $version->id),
-                'original_filename' => $version->original_filename,
-                'hash' => $version->source_hash !== null ? substr($version->source_hash, 0, 12) : null,
-                'notas' => $version->notas,
-            ],
-            'versiones' => $versiones->map(fn (OfficialFormatVersion $v) => [
-                'id' => $v->id,
-                'numero' => $v->numero,
-                'estado' => $v->estado->value,
-                'estado_etiqueta' => $v->estado->etiqueta(),
-                'creada_por' => $v->creadaPor?->name,
-                'creada_en' => $v->created_at?->toIso8601String(),
-                'publicada_por' => $v->publicadaPor?->name,
-                'publicada_en' => $v->publicada_en?->toIso8601String(),
-                'archivo' => $v->original_filename,
-                'hash' => $v->source_hash !== null ? substr($v->source_hash, 0, 12) : null,
-                'generaciones' => (int) $v->getAttribute('generaciones_count'),
-                'notas' => $v->notas,
-            ])->values(),
-            'grupos' => $this->variables->agrupadas($usuario->can('formatos_oficiales.datos_salariales')),
-            'formatosPorTipo' => CatalogoVariablesFormato::FORMATOS,
-            'permisos' => [
-                'configurar' => $usuario->can('configurar', $formato),
-                'versionar' => $usuario->can('versionar', $formato),
-                'archivar' => $usuario->can('archivar', $formato),
-            ],
-        ]);
     }
 
     /**

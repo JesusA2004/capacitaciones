@@ -6,6 +6,7 @@ use App\Enums\GrupoPuestoIndicador;
 use App\Enums\TipoPuesto;
 use App\Models\Departamento;
 use App\Models\Puesto;
+use App\Services\DocumentosMaestros\CoberturaDocumentalService;
 use App\Services\Organigrama\SincronizadorOrganigramaService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -157,6 +158,15 @@ class PuestoJerarquiaSeeder extends Seeder
         }
 
         $this->parametrosCicloLaboral();
+
+        // Grupo documental inicial (qué variante de contrato le toca a cada
+        // puesto). La migración que lo siembra corre ANTES de que este seeder
+        // cree los puestos en un migrate:fresh --seed; sin esto todos
+        // quedaban sin grupo y la contratación mostraba "formato no cargado".
+        // Nunca pisa la decisión que RH ya tomó.
+        if (Schema::hasColumn('puestos', 'no_requiere_documentos_laborales')) {
+            app(CoberturaDocumentalService::class)->aplicarGruposIniciales();
+        }
     }
 
     /**

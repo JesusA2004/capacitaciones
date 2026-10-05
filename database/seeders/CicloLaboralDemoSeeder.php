@@ -129,7 +129,11 @@ class CicloLaboralDemoSeeder extends Seeder
     private function catalogosDemo(): void
     {
         $fisico = ['requiere_impresion' => true, 'requiere_firma_fisica' => true, 'requiere_huella' => true];
+        // Solo si NO se importaron los formatos de Jurídico
+        // (people:importar-formatos-juridicos): con masters cargados, la
+        // demo usa los originales reales y estas no se tocan.
         $plantillas = [
+            'contrato_capacitacion' => $fisico,
             'contrato_periodo_prueba' => $fisico,
             'contrato_confidencialidad' => $fisico,
             'contrato_no_competencia' => $fisico,

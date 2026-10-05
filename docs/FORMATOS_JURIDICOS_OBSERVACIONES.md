@@ -47,3 +47,43 @@ en Administración → Documentos maestros).
   master y cada cambio de grupo documental o meses de un puesto queda en la
   bitácora (quién y cuándo) y se muestra en Documentos maestros y en
   Parámetros RH.
+
+## Hallazgos del QA visual (2026-10-04)
+
+Prueba ORIGINAL vs GENERADO con Microsoft Word y rasterizado página por
+página (ver `docs/INVENTARIO_FORMATOS_JURIDICOS.md`):
+
+- **Todos los Word activos se ven idénticos al original** una vez
+  preparados (similitud 1.000 por página). Para lograrlo el motor ahora
+  conserva el formato por tramo de los blancos que mezclan formatos (p. ej.
+  "en la ciudad de ____, ____ a los ____ de ____" con el "de" en negritas
+  subrayado en los convenios de confidencialidad) y quita los espacios
+  separadores que agrega el sistema cuando restaura un blanco vacío.
+- **PERMISO EXTRAORDINARIO CON GOCE DE SUELDO.docx** usa la fuente
+  **Aptos** (la nueva fuente predeterminada de Office), que no está
+  instalada en el servidor. Mientras no se instale, la versión queda "Diseño
+  no validado" y no genera documentos (el PDF cambiaría de tipografía).
+  Opciones: instalar Aptos en el servidor o que Jurídico lo guarde con
+  Century Gothic como el resto de los formatos.
+- **Párrafos vacíos al final del documento** en
+  `CONTRATO INDETERMINADO COORDINADORAS`, `CONTRATO
+  INDETERMINADO-ADMINISTRATIVOS-NO CONFIANZA` y la versión anterior de
+  capacitación de Gerente: con datos MUY largos (nombre, domicilio, puesto y
+  sueldo largos a la vez) empujan una hoja extra en blanco con membrete. No
+  se alteran los originales; PEOPLE lo advierte en la versión y, si le
+  ocurre a una persona real, bloquea la generación indicando qué dato no
+  cabe. Sugerencia para Jurídico: eliminar los párrafos vacíos finales.
+- **Contrato de crédito para colaboradores (PDF)**: las celdas "Calle" del
+  contrato y "Calle y No." del pagaré son de un renglón, pero PEOPLE captura
+  el domicilio completo en un solo campo. Ahora se escribe hasta en 3
+  renglones dentro de la celda (mínimo 5 pt), sin invadir las celdas
+  vecinas; el importe con letra del pago termina antes de la leyenda
+  impresa "Moneda Nacional". Si un domicilio aún no cabe, se bloquea con
+  `DOCUMENT_FIELD_OVERFLOW` (nunca texto encimado).
+- **Representante legal**: ahora se captura en Administración → Empresas
+  ("Datos del patrón en documentos laborales"). Aplica a los documentos
+  donde el representante es un dato (aviso de terminación, acta de
+  negativa, contrato de crédito); en contratos y convenios sigue fijo en las
+  declaraciones notariales del original. Mientras esté vacío se usa el
+  valor predeterminado del registro (Lesli Maribel Rodríguez Herrera) y la
+  vista previa lo advierte.

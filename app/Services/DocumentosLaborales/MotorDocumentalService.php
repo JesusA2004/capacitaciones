@@ -5,8 +5,14 @@ namespace App\Services\DocumentosLaborales;
 use App\Enums\CategoriaDocumento;
 use App\Enums\EstadoDocumentoGenerado;
 use App\Enums\EstadoFlujoDocumento;
+use App\Enums\EstadoValidacionVisual;
+use App\Enums\FidelidadConversion;
 use App\Enums\MotorPlantilla;
+use App\Exceptions\CampoDocumentoDesbordadoException;
+use App\Exceptions\ConversorFielNoDisponibleException;
 use App\Exceptions\DatosDocumentoFaltantesException;
+use App\Exceptions\DocumentoMotorException;
+use App\Exceptions\ValidacionVisualPendienteException;
 use App\Models\CierreLaboral;
 use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
@@ -24,7 +30,6 @@ use App\Services\DocumentosMaestros\Docx\RellenadorDocx;
 use App\Services\DocumentosMaestros\Pdf\RenderizadorOverlayMaestro;
 use App\Services\DocumentosMaestros\ResolvedorMaestroService;
 use App\Services\Expedientes\DocumentoStorageService;
-use App\Services\Formatos\FormatoPreviewService;
 use App\Services\Formatos\GeneradorFormatoService;
 use App\Services\Formatos\Motor\ConversorDocxPdf;
 use App\Services\Formatos\Variables\ContextoFormato;
@@ -40,6 +45,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
+use setasign\Fpdi\Fpdi;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
@@ -49,7 +55,10 @@ use Throwable;
  *
  *   plantilla (DocumentTemplate: clave + versión + motor + banderas)
  *   + variables del colaborador (PlaceholderResolver) + extra del contexto
- *   → PDF (HTML→DomPDF, DOCX→PhpWord→PDF, o overlay sobre formato oficial)
+ *   → PDF (HTML→DomPDF para documentos internos; Word→PDF solo con
+ *     conversor FIEL — Word nativo o LibreOffice validado —; o el PDF
+ *     original de Jurídico + overlay). Masters DOCX conservan también el
+ *     Word llenado (docx_path + docx_hash).
  *   → archivo en el expediente del colaborador (carpeta de su categoría en el NAS)
  *   → GeneratedDocument con SNAPSHOT del payload usado + checksum + flujo.
  *
@@ -66,7 +75,6 @@ class MotorDocumentalService
     public function __construct(
         private readonly PlaceholderResolver $resolver,
         private readonly PlantillaDocumentoService $docx,
-        private readonly FormatoPreviewService $convertidor,
         private readonly GeneradorFormatoService $formatosOficiales,
         private readonly DocumentoStorageService $expediente,
         private readonly FlujoDocumentalService $flujo,
@@ -168,7 +176,7 @@ class MotorDocumentalService
      * generar() y los módulos cuyo PDF se arma con una vista propia no
      * jurídica (recibo interno de nómina, comprobantes, respaldo de finiquito).
      *
-     * @param  array{plantilla?: DocumentTemplate|null, clave?: string|null, version?: int|null, categoria: CategoriaDocumento, payload?: array<string, string>, documentable?: Model|null, requiere_firma_digital?: bool, requiere_impresion?: bool, requiere_firma_fisica?: bool, requiere_huella?: bool, requiere_testigos?: bool, requiere_envio_corporativo?: bool, master_familia?: string|null, master_hash?: string|null, proceso?: string|null, fidelidad?: string|null, docx?: string|null, nombre_archivo?: string|null}  $opciones
+     * @param  array{plantilla?: DocumentTemplate|null, clave?: string|null, version?: int|null, categoria: CategoriaDocumento, payload?: array<string, string>, documentable?: Model|null, requiere_firma_digital?: bool, requiere_impresion?: bool, requiere_firma_fisica?: bool, requiere_huella?: bool, requiere_testigos?: bool, requiere_envio_corporativo?: bool, master_familia?: string|null, master_hash?: string|null, master_version?: int|null, proceso?: string|null, fidelidad?: string|null, conversion_engine?: string|null, paginas?: int|null, docx?: string|null, nombre_archivo?: string|null, revision_de_id?: int|null, motivo_revision?: string|null}  $opciones
      */
     public function registrarPdf(Colaborador $colaborador, string $pdf, string $titulo, User $actor, array $opciones): GeneratedDocument
     {
@@ -229,9 +237,17 @@ class MotorDocumentalService
                     'requiere_envio_corporativo' => $opciones['requiere_envio_corporativo'] ?? false,
                     'master_familia' => $opciones['master_familia'] ?? null,
                     'master_hash' => $opciones['master_hash'] ?? null,
+                    'master_version' => $opciones['master_version'] ?? null,
                     'proceso' => $opciones['proceso'] ?? null,
                     'fidelidad' => $opciones['fidelidad'] ?? null,
+                    'conversion_engine' => $opciones['conversion_engine'] ?? null,
+                    'conversion_fidelity' => $opciones['fidelidad'] ?? null,
+                    'paginas' => $opciones['paginas'] ?? null,
                     'docx_path' => $rutaDocx,
+                    'docx_disk' => $rutaDocx !== null ? config('expedientes.disk') : null,
+                    'docx_hash' => isset($opciones['docx']) && $opciones['docx'] !== '' ? hash('sha256', $opciones['docx']) : null,
+                    'revision_de_id' => $opciones['revision_de_id'] ?? null,
+                    'motivo_revision' => $opciones['motivo_revision'] ?? null,
                 ]);
 
                 $this->flujo->iniciar($documento, $actor);
@@ -286,7 +302,9 @@ class MotorDocumentalService
         try {
             $pdf = match ($plantilla->motor) {
                 MotorPlantilla::Html => $this->renderizarHtml($plantilla, $payload, $titulo, $referencia),
-                MotorPlantilla::Docx => $this->convertidor->aPdf($this->docx->generarConValores($plantilla, $payload)),
+                // Plantilla Word heredada: también solo con conversor fiel.
+                MotorPlantilla::Docx => $this->conversor->convertirFiel($this->docx->generarConValores($plantilla, $payload))['pdf']
+                    ?? throw ConversorFielNoDisponibleException::para($plantilla->nombre),
                 MotorPlantilla::PdfOverlay => $this->renderizarOverlay($plantilla, $payload, $colaborador, $documentable, $actor, $referencia),
             };
         } catch (ValidationException $e) {
@@ -312,7 +330,7 @@ class MotorDocumentalService
      *
      * @throws DatosDocumentoFaltantesException Si faltan datos requeridos (422 DATOS_FALTANTES).
      */
-    public function generarDesdeMaestro(DocumentTemplate $master, ContextoDocumento $contexto, User $actor, ?Model $documentable = null, ?string $titulo = null, ?string $proceso = null): GeneratedDocument
+    public function generarDesdeMaestro(DocumentTemplate $master, ContextoDocumento $contexto, User $actor, ?Model $documentable = null, ?string $titulo = null, ?string $proceso = null, ?GeneratedDocument $revisionDe = null, ?string $motivoRevision = null): GeneratedDocument
     {
         $colaborador = $contexto->colaborador;
         $valores = $this->datos->resolver($contexto);
@@ -337,32 +355,49 @@ class MotorDocumentalService
             'requiere_envio_corporativo' => $master->requiere_envio_corporativo,
             'master_familia' => $master->familia,
             'master_hash' => $master->master_hash,
+            'master_version' => $master->version,
             'proceso' => $proceso ?? $master->proceso,
             'fidelidad' => $render['fidelidad'],
+            'conversion_engine' => $render['conversor'],
+            'paginas' => $render['paginas'],
             'docx' => $render['docx'],
             'nombre_archivo' => $this->nombreArchivo($colaborador, $titulo, $contexto->fechaDocumento()),
+            'revision_de_id' => $revisionDe?->id,
+            'motivo_revision' => $motivoRevision,
         ]);
     }
 
     /**
      * QA administrativo ("Probar con colaborador"): mismo render que
      * generarDesdeMaestro() pero sin persistir y marcando los datos que
-     * falten como «[FALTA: …]» para detectarlos a simple vista.
+     * falten como «[FALTA: …]» para detectarlos a simple vista. No exige
+     * conversor fiel ni QA aprobado (justo sirve para revisar), pero lo
+     * reporta: fidelidad, páginas, desbordes y de dónde salió cada dato
+     * sensible (domicilio del patrón, representante legal).
      *
-     * @return array{pdf: string, fidelidad: string, faltantes: list<array<string, mixed>>, conversor: string}
+     * @return array{pdf: string, fidelidad: string, faltantes: list<array<string, mixed>>, conversor: string, paginas: int, desbordes: list<array<string, mixed>>, valores: array<string, string>}
      */
     public function previsualizarMaestro(DocumentTemplate $master, ContextoDocumento $contexto): array
     {
         $valores = $this->datos->resolver($contexto);
         $faltantes = $this->faltantesDe($master, $valores);
+        $reales = $valores;
 
         foreach ($faltantes as $faltante) {
             $valores[$faltante['campo']] = sprintf('[FALTA: %s]', $faltante['etiqueta']);
         }
 
-        $render = $this->renderizarMaestro($master, $valores, 'VISTA PREVIA — NO VÁLIDA PARA FIRMA');
+        $render = $this->renderizarMaestro($master, $valores, 'VISTA PREVIA — NO VÁLIDA PARA FIRMA', false);
 
-        return ['pdf' => $render['pdf'], 'fidelidad' => $render['fidelidad'], 'faltantes' => $faltantes, 'conversor' => $render['conversor']];
+        return [
+            'pdf' => $render['pdf'],
+            'fidelidad' => $render['fidelidad'],
+            'faltantes' => $faltantes,
+            'conversor' => $render['conversor'],
+            'paginas' => $render['paginas'],
+            'desbordes' => $render['desbordes'],
+            'valores' => array_intersect_key($reales, array_flip($this->camposDelMaestro($master))),
+        ];
     }
 
     /**
@@ -402,7 +437,7 @@ class MotorDocumentalService
             }
 
             $bases[$fuente['base']] = true;
-            $faltantes[] = [...$fuente, 'editable' => in_array($fuente['fuente'], ['colaborador', 'sucursal', 'manual'], true)];
+            $faltantes[] = [...$fuente, ...$this->datos->captura($fuente)];
         }
 
         return $faltantes;
@@ -456,16 +491,30 @@ class MotorDocumentalService
     }
 
     /**
+     * Render de un master. $definitivo = documento oficial de una persona:
+     *  - la versión debe tener el diseño validado (QA visual o excepción);
+     *  - Word solo con conversor FIEL (Word nativo; LibreOffice solo si esa
+     *    versión se validó con LibreOffice) — nunca PhpWord/DomPDF;
+     *  - ningún dato puede desbordarse: un campo que no cabe en su caja
+     *    (overlay) o un Word que cambia de número de páginas → 422.
+     * Sin $definitivo (vista previa de QA) se usa lo que haya y se reporta.
+     *
      * @param  array<string, string>  $valores
-     * @return array{pdf: string, fidelidad: string, docx: string|null, conversor: string}
+     * @return array{pdf: string, fidelidad: string, docx: string|null, conversor: string, paginas: int, desbordes: list<array{campo: string, etiqueta: string, valor: string, razon: string}>}
      */
-    private function renderizarMaestro(DocumentTemplate $master, array $valores, ?string $leyenda = null): array
+    private function renderizarMaestro(DocumentTemplate $master, array $valores, ?string $leyenda = null, bool $definitivo = true): array
     {
         $mapping = (array) ($master->mapping ?? []);
 
+        if ($definitivo && ! $master->disenoValidado()) {
+            throw ValidacionVisualPendienteException::para($master, $master->visual_validation_status === EstadoValidacionVisual::Fallida
+                ? 'La última prueba de diseño falló: revisa el reporte en Documentos maestros.'
+                : 'Falta correr la prueba de diseño de esta versión.');
+        }
+
         try {
             if (($mapping['motor'] ?? 'docx') === 'pdf_overlay') {
-                $pdf = $this->overlay->renderizar(
+                $render = $this->overlay->renderizarConReporte(
                     $this->almacen->master($master),
                     array_values(array_filter((array) ($mapping['campos'] ?? []), 'is_array')),
                     $valores,
@@ -473,20 +522,23 @@ class MotorDocumentalService
                     array_values(array_map('floatval', (array) ($mapping['copias_offset_y'] ?? [0.0]))),
                     $leyenda,
                 );
+                $desbordes = $this->etiquetarDesbordes($render['desbordes']);
 
-                return ['pdf' => $pdf, 'fidelidad' => 'exacta', 'docx' => null, 'conversor' => 'overlay'];
-            }
-
-            $instancias = [];
-
-            foreach ((array) ($mapping['instancias'] ?? []) as $n => $instancia) {
-                if (is_array($instancia)) {
-                    $instancias[(int) $n] = ['campo' => (string) ($instancia['campo'] ?? ''), 'original' => (string) ($instancia['original'] ?? ''), 'opcional' => (bool) ($instancia['opcional'] ?? false)];
+                if ($definitivo && $desbordes !== []) {
+                    throw CampoDocumentoDesbordadoException::para($master->nombre, $desbordes);
                 }
+
+                // El PDF original de Jurídico es el fondo vectorial intacto.
+                return ['pdf' => $render['pdf'], 'fidelidad' => FidelidadConversion::Nativa->value, 'docx' => null, 'conversor' => 'overlay', 'paginas' => $render['paginas'], 'desbordes' => $desbordes];
             }
 
+            $instancias = RellenadorDocx::instanciasDe($master->mapping);
             $docx = $this->rellenador->rellenar($this->almacen->master($master), $instancias, $valores)['docx'];
-            $convertido = $this->conversor->convertir($docx);
+            $convertido = $definitivo
+                ? $this->conversor->convertirFiel($docx, $this->conversoresPermitidos($master))
+                : $this->conversor->convertir($docx);
+        } catch (DocumentoMotorException $e) {
+            throw $e;
         } catch (Throwable $e) {
             Log::warning('MotorDocumentalService: fallo al generar desde el documento maestro.', ['master_id' => $master->id, 'familia' => $master->familia, 'error' => $e->getMessage()]);
 
@@ -494,10 +546,111 @@ class MotorDocumentalService
         }
 
         if ($convertido === null) {
-            throw ValidationException::withMessages(['documento' => sprintf('No se pudo convertir «%s» a PDF (no hay conversor disponible).', $master->nombre)]);
+            if ($definitivo) {
+                throw ConversorFielNoDisponibleException::para($master->nombre, $this->conversor->fiel()
+                    ? sprintf('La versión v%d se validó con %s y ese conversor no está disponible o falló.', $master->version, $master->visual_engine ?? 'otro conversor')
+                    : 'No hay Microsoft Word ni LibreOffice configurado en el servidor.');
+            }
+
+            throw ValidationException::withMessages(['documento' => sprintf('No se pudo convertir «%s» a PDF.', $master->nombre)]);
         }
 
-        return ['pdf' => $convertido['pdf'], 'fidelidad' => $convertido['fidelidad'], 'docx' => $docx, 'conversor' => $convertido['conversor']];
+        $paginas = $this->contarPaginas($convertido['pdf']);
+        $desbordes = [];
+
+        // Un Word que crece una página respecto al original = algún dato no
+        // cupo donde el formato lo esperaba (renglón corrido, hoja extra).
+        if ($master->page_count_original !== null && $paginas !== $master->page_count_original) {
+            $desbordes = $this->sospechososDeDesborde($instancias, $valores, $paginas, $master->page_count_original);
+
+            if ($definitivo) {
+                throw CampoDocumentoDesbordadoException::para($master->nombre, $desbordes, sprintf('el original tiene %d página(s) y con estos datos saldría de %d', $master->page_count_original, $paginas));
+            }
+        }
+
+        return ['pdf' => $convertido['pdf'], 'fidelidad' => $convertido['fidelidad'], 'docx' => $docx, 'conversor' => $convertido['conversor'], 'paginas' => $paginas, 'desbordes' => $desbordes];
+    }
+
+    /**
+     * Word siempre (nativa). LibreOffice solo si ESTA versión se validó con
+     * LibreOffice (o la activó super_admin por excepción auditada).
+     *
+     * @return list<string>
+     */
+    private function conversoresPermitidos(DocumentTemplate $master): array
+    {
+        $permitidos = ['word'];
+
+        if ($master->visual_engine === 'libreoffice' || ($master->activacion_excepcional_motivo ?? '') !== '') {
+            $permitidos[] = 'libreoffice';
+        }
+
+        return $permitidos;
+    }
+
+    /**
+     * @param  list<array{campo: string, valor: string, razon: string}>  $desbordes
+     * @return list<array{campo: string, etiqueta: string, valor: string, razon: string}>
+     */
+    private function etiquetarDesbordes(array $desbordes): array
+    {
+        return array_map(fn (array $d): array => [...$d, 'etiqueta' => (string) $this->datos->fuente($d['campo'])['etiqueta']], $desbordes);
+    }
+
+    /**
+     * Campos cuyo dato es mucho más largo que el texto/blanco que ocupaba
+     * su lugar en el original: los candidatos a causar la página extra.
+     *
+     * @param  array<int, array{campo: string, original: string}>  $instancias
+     * @param  array<string, string>  $valores
+     * @return list<array{campo: string, etiqueta: string, valor: string, razon: string}>
+     */
+    private function sospechososDeDesborde(array $instancias, array $valores, int $paginas, int $esperadas): array
+    {
+        $candidatos = [];
+
+        foreach ($instancias as $instancia) {
+            $valor = (string) ($valores[$instancia['campo']] ?? '');
+            $exceso = mb_strlen($valor) - mb_strlen($instancia['original']);
+
+            if ($exceso > 8 && ! isset($candidatos[$instancia['campo']])) {
+                $candidatos[$instancia['campo']] = ['exceso' => $exceso, 'valor' => $valor];
+            }
+        }
+
+        uasort($candidatos, fn (array $a, array $b): int => $b['exceso'] <=> $a['exceso']);
+        $resultado = [];
+
+        foreach (array_slice($candidatos, 0, 3, true) as $campo => $c) {
+            $resultado[] = [
+                'campo' => (string) $campo,
+                'etiqueta' => (string) $this->datos->fuente((string) $campo)['etiqueta'],
+                'valor' => $c['valor'],
+                'razon' => sprintf('%d caracteres más que el espacio del formato; el documento pasa de %d a %d páginas.', $c['exceso'], $esperadas, $paginas),
+            ];
+        }
+
+        return $resultado;
+    }
+
+    public function contarPaginas(string $pdf): int
+    {
+        $temporal = tempnam(sys_get_temp_dir(), 'pag');
+
+        if ($temporal === false) {
+            return 0;
+        }
+
+        file_put_contents($temporal, $pdf);
+
+        try {
+            return (new Fpdi)->setSourceFile($temporal);
+        } catch (Throwable) {
+            // Fallback: conteo de objetos /Type /Page (PDF con compresión no soportada por FPDI gratuito).
+            return max(0, preg_match_all('#/Type\s*/Page[^s]#', $pdf));
+        } finally {
+            @unlink($temporal);
+        }
     }
 
     /**
@@ -571,6 +724,39 @@ class MotorDocumentalService
         return $disco->response($documento->path, $nombre, [
             'Content-Type' => $documento->mime ?? 'application/pdf',
             'Content-Disposition' => ($inline ? 'inline' : 'attachment').'; filename="'.$nombre.'"',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    /**
+     * true si el documento conserva su Word llenado (masters DOCX).
+     */
+    public function tieneDocx(GeneratedDocument $documento): bool
+    {
+        return $documento->docx_path !== null && $documento->docx_path !== '';
+    }
+
+    /**
+     * Word llenado del documento (misma estructura y diseño que el original
+     * de Jurídico). Mismo streaming privado y misma auditoría que el PDF.
+     */
+    public function respuestaDocx(GeneratedDocument $documento): StreamedResponse
+    {
+        abort_unless($this->tieneDocx($documento), 404, 'Este documento no tiene versión Word.');
+        $disco = Storage::disk($documento->docx_disk ?? $documento->disk);
+        abort_unless($disco->exists((string) $documento->docx_path), 404, 'El archivo Word del documento no está disponible.');
+
+        try {
+            $this->auditoria->registrar('documento_descargado_word', $documento, auth()->user() instanceof User ? auth()->user() : null, ['colaborador_id' => $documento->colaborador_id, 'clave_plantilla' => $documento->clave_plantilla]);
+        } catch (Throwable $e) {
+            Log::warning('MotorDocumentalService: no se pudo registrar la descarga del Word.', ['documento_id' => $documento->id, 'error' => $e->getMessage()]);
+        }
+
+        $nombre = str_replace(['"', '\\', '/'], '', (string) preg_replace('/\.pdf$/i', '.docx', $documento->original_name));
+
+        return $disco->response((string) $documento->docx_path, $nombre, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'Content-Disposition' => 'attachment; filename="'.$nombre.'"',
             'X-Content-Type-Options' => 'nosniff',
         ]);
     }

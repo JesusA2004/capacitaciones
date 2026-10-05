@@ -47,5 +47,12 @@
         <!-- Capacitacion se oculta del frontend por defecto (ver config/features.php),
              pero las pruebas existentes siguen ejercitando esas rutas directamente. -->
         <env name="CAPACITACION_ENABLED" value="true"/>
+        <!-- La suite nunca abre Microsoft Word ni LibreOffice: sin conversor
+             fiel por defecto (documentos Word definitivos → 422). Las pruebas
+             que necesitan emitir un documento definitivo usan el conversor
+             falso de tests/Support/MotorDocumentalDePrueba.php; las de
+             fidelidad real (grupo "fidelidad") lo reactivan explícitamente. -->
+        <env name="FORMATOS_CONVERSOR" value="phpword"/>
+        <env name="DOCUMENTOS_QA_AL_IMPORTAR" value="false"/>
     </php>
 </phpunit>

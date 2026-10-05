@@ -60,7 +60,12 @@ class FortifyServiceProvider extends ServiceProvider
 
             $estatus = $usuario->colaborador?->estatus;
 
-            if ($estatus === null || ! in_array($estatus, [EstadoUsuario::Activo, EstadoUsuario::EnIncorporacion], true)) {
+            // Cuenta con el acceso quitado (Administración > Usuarios >
+            // "Revocar acceso"): se rechaza aquí, sin abrir sesión ni marcar
+            // `ultimo_acceso` — misma regla que Api\V1\AuthController::login().
+            if ($estatus === null
+                || ! in_array($estatus, [EstadoUsuario::Activo, EstadoUsuario::EnIncorporacion], true)
+                || $usuario->acceso_bloqueado_en !== null) {
                 throw ValidationException::withMessages([
                     Fortify::username() => 'Tu cuenta está desactivada. Contacta a Recursos Humanos.',
                 ]);

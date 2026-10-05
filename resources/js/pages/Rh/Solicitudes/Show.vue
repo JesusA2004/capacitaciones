@@ -1,28 +1,13 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
-import {
-    AlertTriangle,
-    CheckCircle2,
-    ClipboardList,
-    Download,
-    Eye,
-    FileStack,
-    Settings,
-    Sparkles,
-    Upload,
-} from '@lucide/vue';
+import { AlertTriangle, ClipboardList, Eye } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
-import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import DocumentosProceso from '@/components/documentos/DocumentosProceso.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import FiniquitoPanel from '@/components/Rh/FiniquitoPanel.vue';
-import FormatoOficialGenerarDialog from '@/components/Rh/FormatoOficialGenerarDialog.vue';
-import GenerarFormatoDialog from '@/components/Rh/GenerarFormatoDialog.vue';
-import SubirFormatoFirmadoDialog from '@/components/Rh/SubirFormatoFirmadoDialog.vue';
-import SubirFormatoOficialFirmadoDialog from '@/components/Rh/SubirFormatoOficialFirmadoDialog.vue';
 import type { NivelVistoBueno } from '@/components/Solicitudes/CadenaAutorizacion.vue';
 import CadenaAutorizacion from '@/components/Solicitudes/CadenaAutorizacion.vue';
 import { Button } from '@/components/ui/button';
@@ -32,12 +17,6 @@ import {
     formatearFechaHora,
     formatearPeriodo,
 } from '@/lib/fechas';
-import { descargar } from '@/routes/rh/formatos';
-import {
-    descargar as descargarOficial,
-    previsualizar as previsualizarOficial,
-    show as configurarFormatoOficial,
-} from '@/routes/rh/formatos-oficiales';
 import {
     aprobar,
     index,
@@ -51,7 +30,6 @@ import type {
     DocumentoOficialEsperado,
     FiniquitoPermisos,
     FormatoOficialItem,
-    OfficialFormatGenerationItem,
     SolicitudInternaDocumentoItem,
     SolicitudInternaItem,
 } from '@/types';
@@ -79,36 +57,6 @@ const props = defineProps<{
 const faltanVistosBuenos = computed(() =>
     faltanVistosBuenosCalculo(props.vistosBuenos),
 );
-
-const formatoOficialId = ref('');
-const formatoOficialDialogo = ref(false);
-const formatoOficialElegido = ref<FormatoOficialItem | null>(null);
-
-function abrirFormatoOficial() {
-    formatoOficialElegido.value =
-        props.formatosOficiales.find(
-            (f) => String(f.id) === formatoOficialId.value,
-        ) ?? null;
-    formatoOficialDialogo.value = formatoOficialElegido.value !== null;
-}
-
-const TIPO_PLANTILLA_SUGERIDO: Record<string, string> = {
-    permiso_con_goce: 'formato_permiso',
-    permiso_sin_goce: 'formato_permiso',
-    incapacidad: 'formato_incapacidad',
-    constancia_laboral: 'constancia_laboral',
-    actualizacion_datos: 'actualizacion_datos',
-    actualizacion_bancaria: 'actualizacion_datos',
-    reposicion_documental: 'reposicion_documental',
-    general: 'solicitud_general',
-};
-const tipoSugerido = computed(
-    () => TIPO_PLANTILLA_SUGERIDO[props.solicitud.tipo] ?? null,
-);
-
-const dialogoGenerarAbierto = ref(false);
-const documentoGeneradoFirmando = ref<number | null>(null);
-const oficialFirmando = ref<number | null>(null);
 
 // `layout` recibe una función en vez de un objeto estático porque
 // `defineOptions()` se compila fuera del scope de setup() y no puede
@@ -216,19 +164,6 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
     };
     previewAbierto.value = true;
 }
-
-function previsualizarOficialGeneracion(gen: OfficialFormatGenerationItem) {
-    previewActivo.value = {
-        url: previsualizarOficial.url(gen.id),
-        descarga: descargarOficial.url(gen.id),
-        nombre: gen.generated_name,
-    };
-    previewAbierto.value = true;
-}
-
-const documentoOficialGeneracion = computed(
-    () => props.solicitud.official_format_generations?.[0] ?? null,
-);
 </script>
 
 <template>
@@ -379,225 +314,6 @@ const documentoOficialGeneracion = computed(
                     :tipo="d.tipo"
                     :id="d.id"
                 />
-
-                <!-- Otras plantillas oficiales con los datos de esta solicitud. -->
-                <div
-                    v-if="formatosOficiales.length > 0 && personaSolicitud"
-                    class="flex flex-col gap-2 rounded-2xl border border-border/60 bg-card p-4 sm:flex-row sm:items-center sm:justify-between"
-                >
-                    <p class="text-sm font-medium">Generar documento oficial</p>
-                    <div class="flex gap-2">
-                        <SelectSimple
-                            v-model="formatoOficialId"
-                            class="w-full sm:w-64"
-                            :opciones="
-                                formatosOficiales.map((f) => ({
-                                    value: String(f.id),
-                                    label: f.nombre,
-                                }))
-                            "
-                            opcion-vacia="Elige un formato…"
-                        />
-                        <Button
-                            size="sm"
-                            :disabled="!formatoOficialId"
-                            @click="abrirFormatoOficial"
-                        >
-                            <Sparkles class="size-3.5" />
-                            Generar
-                        </Button>
-                    </div>
-                </div>
-
-                <!-- Documento oficial: automático según el tipo de solicitud
-                     (config/solicitudes.php) — distinto de los documentos
-                     adicionales (plantilla DOCX manual/opcional) de abajo. -->
-                <div
-                    v-if="
-                        documentoOficial &&
-                        (!esFinal || documentoOficialGeneracion)
-                    "
-                    class="rounded-2xl border border-border/60 bg-card p-5"
-                >
-                    <h3 class="mb-3 text-sm font-semibold">
-                        Documento oficial
-                    </h3>
-
-                    <div
-                        v-if="!documentoOficial.configurado"
-                        class="flex flex-col gap-2 rounded-xl border border-warning/40 bg-warning/5 p-3 text-sm"
-                    >
-                        <p class="flex items-start gap-2 text-warning">
-                            <AlertTriangle class="mt-0.5 size-4 shrink-0" />
-                            Este trámite requiere el formato «{{
-                                documentoOficial.nombre
-                            }}», pero todavía no está configurado.
-                        </p>
-                        <Button
-                            v-if="
-                                documentoOficial.puedeConfigurar &&
-                                documentoOficial.id !== null
-                            "
-                            as-child
-                            size="sm"
-                            variant="outline"
-                            class="w-fit"
-                        >
-                            <a
-                                :href="
-                                    configurarFormatoOficial.url({
-                                        formato: documentoOficial.id,
-                                    })
-                                "
-                            >
-                                <Settings class="size-3.5" />
-                                Configurar formato
-                            </a>
-                        </Button>
-                        <p v-else class="text-xs text-muted-foreground">
-                            Solicita a un administrador que configure este
-                            formato.
-                        </p>
-                    </div>
-
-                    <div
-                        v-else-if="documentoOficialGeneracion"
-                        class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 p-3 text-sm"
-                    >
-                        <div class="min-w-0">
-                            <p class="font-medium">
-                                {{ documentoOficialGeneracion.generated_name }}
-                            </p>
-                            <p class="text-sm text-muted-foreground">
-                                {{ documentoOficial.nombre }}
-                            </p>
-                        </div>
-                        <div class="flex flex-wrap items-center gap-2">
-                            <EstadoBadge
-                                :estado="documentoOficialGeneracion.status"
-                            />
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                @click="
-                                    previsualizarOficialGeneracion(
-                                        documentoOficialGeneracion,
-                                    )
-                                "
-                            >
-                                <Eye class="size-3.5" />
-                                Previsualizar
-                            </Button>
-                            <Button as-child size="sm" variant="outline">
-                                <a
-                                    :href="
-                                        descargarOficial.url(
-                                            documentoOficialGeneracion.id,
-                                        )
-                                    "
-                                >
-                                    <Download class="size-3.5" />
-                                    Descargar
-                                </a>
-                            </Button>
-                            <Button
-                                v-if="
-                                    documentoOficial.requiereFirma &&
-                                    documentoOficialGeneracion.status ===
-                                        'generado'
-                                "
-                                size="sm"
-                                @click="
-                                    oficialFirmando =
-                                        documentoOficialGeneracion.id
-                                "
-                            >
-                                <Upload class="size-3.5" />
-                                Subir firmado
-                            </Button>
-                            <span
-                                v-else-if="
-                                    documentoOficialGeneracion.status ===
-                                    'firmado'
-                                "
-                                class="inline-flex items-center gap-1 text-xs text-success"
-                            >
-                                <CheckCircle2 class="size-3.5" />
-                                Firmado
-                            </span>
-                        </div>
-                    </div>
-
-                    <p v-else class="text-sm text-muted-foreground">
-                        Se generará automáticamente al aprobar la solicitud.
-                    </p>
-                </div>
-
-                <!-- Documentos adicionales: plantilla DOCX libre y opcional,
-                     nunca la acción principal (sección 9 del encargo). -->
-                <div
-                    v-if="
-                        puedeGenerarFormato &&
-                        (!esFinal || solicitud.documentos_generados?.length)
-                    "
-                    class="rounded-2xl border border-border/60 bg-card p-5"
-                >
-                    <div class="mb-1 flex items-center justify-between gap-2">
-                        <h3 class="text-sm font-semibold">
-                            Documentos adicionales
-                        </h3>
-                        <Button
-                            v-if="!esFinal"
-                            size="sm"
-                            variant="outline"
-                            @click="dialogoGenerarAbierto = true"
-                        >
-                            <FileStack class="size-4" />
-                            Generar documento adicional
-                        </Button>
-                    </div>
-                    <p class="mb-3 text-xs text-muted-foreground">
-                        Genera un documento adicional a partir de una plantilla
-                        interna cuando el trámite lo requiera.
-                    </p>
-
-                    <ul
-                        v-if="solicitud.documentos_generados?.length"
-                        class="flex flex-col gap-2"
-                    >
-                        <li
-                            v-for="doc in solicitud.documentos_generados"
-                            :key="doc.id"
-                            class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 p-3 text-sm"
-                        >
-                            <div>
-                                <p class="font-medium">
-                                    {{ doc.generated_name }}
-                                </p>
-                                <p class="text-sm text-muted-foreground">
-                                    {{ doc.plantilla?.nombre ?? '—' }}
-                                </p>
-                            </div>
-                            <div class="flex flex-wrap items-center gap-2">
-                                <EstadoBadge :estado="doc.status" />
-                                <Button as-child size="sm" variant="outline">
-                                    <a :href="descargar.url(doc.id)">
-                                        <Download class="size-3.5" />
-                                        Descargar
-                                    </a>
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    @click="documentoGeneradoFirmando = doc.id"
-                                >
-                                    <Upload class="size-3.5" />
-                                    Subir firmado
-                                </Button>
-                            </div>
-                        </li>
-                    </ul>
-                </div>
 
                 <div class="rounded-2xl border border-border/60 bg-card p-5">
                     <h3 class="mb-3 text-sm font-semibold">
@@ -820,48 +536,11 @@ const documentoOficialGeneracion = computed(
         </div>
     </div>
 
-    <GenerarFormatoDialog
-        v-if="puedeGenerarFormato"
-        v-model:open="dialogoGenerarAbierto"
-        :solicitud-id="solicitud.id"
-        :tipo-sugerido="tipoSugerido"
-        :plantillas="plantillasSugeridas"
-    />
-
-    <SubirFormatoFirmadoDialog
-        v-if="documentoGeneradoFirmando !== null"
-        :open="documentoGeneradoFirmando !== null"
-        :documento-id="documentoGeneradoFirmando"
-        :tipos-documento="tiposDocumentoExpediente"
-        @update:open="
-            (valor) => (valor ? null : (documentoGeneradoFirmando = null))
-        "
-    />
-
-    <SubirFormatoOficialFirmadoDialog
-        v-if="oficialFirmando !== null"
-        :open="oficialFirmando !== null"
-        :generacion-id="oficialFirmando"
-        @update:open="(valor) => (valor ? null : (oficialFirmando = null))"
-    />
-
     <DocumentPreviewDialog
         :open="previewAbierto"
         :preview-url="previewActivo?.url ?? null"
         :download-url="previewActivo?.descarga ?? null"
         :nombre="previewActivo?.nombre ?? ''"
         @update:open="(v) => (previewAbierto = v)"
-    />
-    <FormatoOficialGenerarDialog
-        v-if="formatoOficialElegido && personaSolicitud"
-        v-model:open="formatoOficialDialogo"
-        :formato="formatoOficialElegido"
-        :sujeto-fijo="{
-            tipo: 'colaborador',
-            id: personaSolicitud.id,
-            nombre: personaSolicitud.nombre,
-        }"
-        :solicitud-id="solicitud.id"
-        :puede-descargar="true"
     />
 </template>
