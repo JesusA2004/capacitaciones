@@ -36,6 +36,7 @@ class PlanificadorMigracion
     public function __construct(
         private readonly InventarioNasHistorico $inventario,
         private readonly NombreUsuarioService $nombresUsuario,
+        private readonly ResolutorCatalogoMigracion $catalogo,
     ) {}
 
     /**
@@ -45,14 +46,11 @@ class PlanificadorMigracion
     public function planificar(array $excel): array
     {
         $colaboradores = Colaborador::withTrashed()->with('user:id,colaborador_id,email')->get();
-        $catalogos = [
-            'puestos' => Puesto::query()->get(['id', 'nombre', 'departamento_id']),
-            'departamentos' => Departamento::query()->get(['id', 'nombre']),
-            'empresas' => Empresa::query()->get(['id', 'nombre']),
-        ];
+        // Cada análisis parte de los catálogos que hay HOY en BD.
+        $this->catalogo->recargar();
         $excluidas = array_values(array_map(fn ($n) => Normalizador::clave((string) $n), (array) config('expedientes.migracion_inicial.personas_excluidas', [])));
 
-        $filas = array_map(fn (array $f) => $this->planFila($f, $excluidas, $catalogos), $excel['filas']);
+        $filas = array_map(fn (array $f) => $this->planFila($f, $excluidas), $excel['filas']);
         $filas = $this->identificar($filas, $colaboradores);
         $filas = $this->proponerCuentas($filas);
 
@@ -61,7 +59,7 @@ class PlanificadorMigracion
 
         $plan = [
             'excel' => ['hoja' => $excel['hoja'], 'columnas' => $excel['columnas'], 'sin_reconocer' => $excel['sin_reconocer'], 'total_filas' => count($excel['filas'])],
-            'origen' => ['modo' => $this->inventario->enSitio() ? 'sitio' : 'legacy', 'disco' => $this->inventario->nombreDisco(), 'ruta' => $this->inventario->raiz(), 'existe' => $nas['origen_existe']],
+            'origen' => ['modo' => $this->inventario->enSitio() ? 'sitio' : 'legacy', 'disco' => $this->inventario->nombreDisco(), 'ruta' => $this->inventario->raiz(), 'existe' => $nas['origen_existe'], 'diagnostico' => $nas['diagnostico']],
             'filas' => $filas,
             'carpetas_sin_persona' => $huerfanas,
             'sucursales_no_autorizadas_nas' => $nas['sucursales_no_autorizadas'],
@@ -74,11 +72,10 @@ class PlanificadorMigracion
 
     /**
      * @param  list<string>  $excluidas
-     * @param  array{puestos: Collection<int, Puesto>, departamentos: Collection<int, Departamento>, empresas: Collection<int, Empresa>}  $catalogos
      * @param  array<string, mixed>  $f
      * @return array<string, mixed>
      */
-    private function planFila(array $f, array $excluidas, array $catalogos): array
+    private function planFila(array $f, array $excluidas): array
     {
         $advertencias = [];
         $motivos = [];
@@ -122,7 +119,7 @@ class PlanificadorMigracion
                 $motivos[] = 'Falta «Empresa».';
             }
         } else {
-            $empresa = $catalogos['empresas']->first(fn (Empresa $e) => Normalizador::clave($e->nombre) === Normalizador::clave($f['empresa']));
+            $empresa = $this->catalogo->empresa($f['empresa']);
 
             if ($empresa === null && $operacion !== 'omitir') {
                 $operacion = 'conflicto';
@@ -133,8 +130,9 @@ class PlanificadorMigracion
             }
         }
 
-        // Departamento: match exacto (normalizado) o alias EXPLÍCITO; nunca aproximado ni se crea.
-        $departamento = null;
+        // Departamento del Excel: debe ser reconocible (exacto normalizado o
+        // alias explícito). Nunca aproximado ni se crea.
+        $departamentoExcel = null;
 
         if (($f['departamento'] ?? null) === null) {
             if ($operacion !== 'omitir') {
@@ -142,10 +140,9 @@ class PlanificadorMigracion
                 $motivos[] = 'Falta «Departamento».';
             }
         } else {
-            $buscado = $this->conAlias('alias_departamentos', $f['departamento']);
-            $departamento = $catalogos['departamentos']->first(fn (Departamento $d) => Normalizador::clave($d->nombre) === $buscado);
+            $departamentoExcel = $this->catalogo->departamento($f['departamento']);
 
-            if ($departamento === null && $operacion !== 'omitir') {
+            if ($departamentoExcel === null && $operacion !== 'omitir') {
                 $operacion = 'conflicto';
                 $motivos[] = sprintf('CONFLICTO: DEPARTAMENTO NO ENCONTRADO «%s» (agrega el departamento o un alias explícito).', $f['departamento']);
             }
@@ -161,27 +158,22 @@ class PlanificadorMigracion
             $sexo = substr((string) $f['curp'], 10, 1) === 'H' ? 'masculino' : (substr((string) $f['curp'], 10, 1) === 'M' ? 'femenino' : null);
         }
 
-        // Puesto: match exacto (normalizado) o alias EXPLÍCITO; nunca
-        // aproximado. Si el nombre existe en varios departamentos, manda el
-        // del Excel; un puesto de OTRO departamento es conflicto.
-        $puesto = null;
+        // Puesto: regla de contexto (Regional de Operaciones, Asistente de
+        // Dirección, Coordinadora Administrativa), alias explícito o nombre
+        // igual. El departamento que se guarda es el del puesto CANÓNICO
+        // (organigrama confirmado); el del Excel solo se audita.
+        $resuelto = $this->catalogo->puesto($f['puesto'], $departamentoExcel, $sucursal);
+        $puesto = $resuelto['puesto'];
 
-        if ($f['puesto'] !== null) {
-            $buscado = $this->conAlias('alias_puestos', $f['puesto']);
-            $candidatos = $catalogos['puestos']->filter(fn (Puesto $p) => Normalizador::clave($p->nombre) === $buscado);
-            $puesto = $candidatos->first(fn (Puesto $p) => $departamento !== null && $p->departamento_id === $departamento->id)
-                ?? $candidatos->first(fn (Puesto $p) => $p->departamento_id === null)
-                ?? ($departamento === null ? $candidatos->first() : null);
-
-            if ($puesto === null && $operacion !== 'omitir') {
-                $operacion = 'conflicto';
-                $motivos[] = $candidatos->isNotEmpty()
-                    ? sprintf('CONFLICTO: PUESTO NO ENCONTRADO en el departamento «%s»: «%s» existe pero en otro departamento.', $f['departamento'], $f['puesto'])
-                    : sprintf('CONFLICTO: PUESTO NO ENCONTRADO «%s» (agrega el puesto o un alias explícito).', $f['puesto']);
-            }
-        } elseif ($operacion !== 'omitir') {
+        if ($puesto === null && $operacion !== 'omitir') {
             $operacion = 'conflicto';
-            $motivos[] = 'Falta «Puesto».';
+            $motivos[] = (string) $resuelto['motivo'];
+        }
+
+        $departamento = $puesto?->departamento_id !== null ? $this->departamentoPorId($puesto->departamento_id) : $departamentoExcel;
+
+        if ($departamentoExcel !== null && $departamento !== null && $departamento->id !== $departamentoExcel->id) {
+            $advertencias[] = sprintf('Departamento del Excel «%s»; en el organigrama «%s» pertenece a «%s» (se usa este).', $f['departamento'], $puesto?->nombre, $departamento->nombre);
         }
 
         if ($f['match_contacto'] === 'NO') {
@@ -209,6 +201,8 @@ class PlanificadorMigracion
             'departamento_nombre' => $departamento?->nombre,
             'puesto_excel' => $f['puesto'],
             'puesto_nombre' => $puesto?->nombre,
+            // Cómo se resolvió el puesto: exacto | alias | region_Q1 | region_Q3 | departamento_* | sucursal.
+            'puesto_regla' => $resuelto['regla'],
             // Para el username: Nombre + Apellido paterno tal como vienen separados.
             'acceso' => ['nombre' => $f['nombre'], 'apellido_paterno' => $f['apellido_paterno']],
             'cuenta' => ['usuario' => null, 'estado' => EstadoCuentaMigracion::NoAplica->value],
@@ -391,13 +385,12 @@ class PlanificadorMigracion
         return $filas;
     }
 
-    /** Valor del Excel ya traducido por un alias EXPLÍCITO de config, normalizado. */
-    private function conAlias(string $config, string $valor): string
-    {
-        $alias = collect((array) config('expedientes.migracion_inicial.'.$config, []))
-            ->mapWithKeys(fn ($destino, $origen) => [Normalizador::clave((string) $origen) => Normalizador::clave((string) $destino)]);
+    /** @var array<int, Departamento|null> */
+    private array $departamentosPorId = [];
 
-        return (string) $alias->get(Normalizador::clave($valor), Normalizador::clave($valor));
+    private function departamentoPorId(int $id): ?Departamento
+    {
+        return $this->departamentosPorId[$id] ??= Departamento::query()->where('id', $id)->first(['id', 'nombre']);
     }
 
     /**

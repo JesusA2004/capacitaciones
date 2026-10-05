@@ -25,12 +25,17 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        // A) CATÁLOGOS PRODUCTIVOS REALES: idempotentes, sin personas.
         $this->call([
             RolesYPermisosSeeder::class,
             EmpresaSeeder::class,
             SucursalSeeder::class,
             DepartamentoSeeder::class,
             PuestoJerarquiaSeeder::class,
+            // Departamentos/puestos reales de BASE_GENERAL sin equivalente
+            // canónico (Jurídico, Mantenimiento, Abogado…). Después de la
+            // estructura confirmada, de la que cuelgan.
+            CatalogosBaseGeneralSeeder::class,
             DocumentTypeSeeder::class,
             MatrizComercialSeeder::class,
             // Necesita sucursales y puestos ya sembrados (empata por nombre).
@@ -39,6 +44,7 @@ class DatabaseSeeder extends Seeder
             BirthdayPhraseSeeder::class,
         ]);
 
+        // B) DEMO: nunca en producción.
         if (app()->environment(['local', 'testing']) || config('features.seed_demo_data')) {
             $this->call(DemoSeeder::class);
         }

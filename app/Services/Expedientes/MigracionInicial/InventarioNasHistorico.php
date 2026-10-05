@@ -7,6 +7,7 @@ use App\Models\GeneratedDocument;
 use App\Models\Sucursal;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -48,15 +49,82 @@ class InventarioNasHistorico
     }
 
     /**
-     * @return array{carpetas: list<array<string, mixed>>, sucursales_no_autorizadas: list<array{carpeta: string, expedientes: int}>, origen_existe: bool}
+     * ¿Existe la carpeta de origen? Se pregunta como DIRECTORIO y, si el
+     * adaptador no lo reporta, se confirma listando la carpeta padre (algunos
+     * montajes/adaptadores responden false a exists() sobre directorios).
+     */
+    public function origenExiste(): bool
+    {
+        $disco = $this->disco();
+        $raiz = $this->raiz();
+
+        if ($disco->directoryExists($raiz) || $disco->exists($raiz)) {
+            return true;
+        }
+
+        $padre = dirname($raiz);
+
+        return in_array($raiz, $padre === '.' ? $disco->directories() : $disco->directories($padre), true);
+    }
+
+    /**
+     * Por qué el PROCESO ACTUAL (web/PHP-FPM, no tinker) ve o no ve el
+     * origen: disco, raíz configurada, ruta absoluta, permisos, open_basedir
+     * y usuario del proceso. Los discos tienen 'throw' => false, así que un
+     * error de permisos llegaba como un simple «no existe» sin explicación.
+     *
+     * @return array<string, mixed>
+     */
+    public function diagnosticoOrigen(): array
+    {
+        $nombre = $this->nombreDisco();
+        $config = (array) config("filesystems.disks.{$nombre}", []);
+        $diagnostico = [
+            'disco' => $nombre,
+            'driver' => $config['driver'] ?? null,
+            'root' => $config['root'] ?? null,
+            'ruta' => $this->raiz(),
+            'usuario_proceso' => function_exists('posix_geteuid') && function_exists('posix_getpwuid')
+                ? (posix_getpwuid(posix_geteuid())['name'] ?? (string) posix_geteuid())
+                : get_current_user(),
+            'sapi' => PHP_SAPI,
+            'open_basedir' => (string) ini_get('open_basedir') ?: null,
+            'config_cacheada' => app()->configurationIsCached(),
+        ];
+
+        if (($config['driver'] ?? null) === 'local' && is_string($config['root'] ?? null)) {
+            $absoluta = rtrim((string) $config['root'], '/\\').DIRECTORY_SEPARATOR.$this->raiz();
+            $diagnostico['ruta_absoluta'] = $absoluta;
+            $diagnostico['root_es_directorio'] = @is_dir((string) $config['root']);
+            $diagnostico['es_directorio'] = @is_dir($absoluta);
+            $diagnostico['legible'] = @is_readable($absoluta);
+            $error = error_get_last();
+            $diagnostico['error_php'] = $error !== null ? mb_substr((string) $error['message'], 0, 300) : null;
+        }
+
+        try {
+            $diagnostico['carpetas_en_padre'] = array_slice($this->disco()->directories(dirname($this->raiz()) === '.' ? '' : dirname($this->raiz())), 0, 20);
+        } catch (\Throwable $e) {
+            $diagnostico['carpetas_en_padre'] = [];
+            $diagnostico['error_listado'] = mb_substr($e->getMessage(), 0, 300);
+        }
+
+        return $diagnostico;
+    }
+
+    /**
+     * @return array{carpetas: list<array<string, mixed>>, sucursales_no_autorizadas: list<array{carpeta: string, expedientes: int}>, origen_existe: bool, diagnostico: array<string, mixed>|null}
      */
     public function inventario(): array
     {
         $disco = $this->disco();
         $raiz = $this->raiz();
 
-        if (! $disco->exists($raiz)) {
-            return ['carpetas' => [], 'sucursales_no_autorizadas' => [], 'origen_existe' => false];
+        if (! $this->origenExiste()) {
+            $diagnostico = $this->diagnosticoOrigen();
+            Log::warning('Migración inicial: la carpeta de origen no se ve desde este proceso.', $diagnostico);
+
+            return ['carpetas' => [], 'sucursales_no_autorizadas' => [], 'origen_existe' => false, 'diagnostico' => $diagnostico];
         }
 
         $carpetas = [];
@@ -94,7 +162,7 @@ class InventarioNasHistorico
             }
         }
 
-        return ['carpetas' => $carpetas, 'sucursales_no_autorizadas' => $noAutorizadas, 'origen_existe' => true];
+        return ['carpetas' => $carpetas, 'sucursales_no_autorizadas' => $noAutorizadas, 'origen_existe' => true, 'diagnostico' => null];
     }
 
     /**

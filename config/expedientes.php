@@ -73,12 +73,40 @@ return [
             'TULA DE ALLENDE' => 'Tula',
         ],
 
-        // Alias EXPLÍCITOS de puesto (Excel → nombre del catálogo). Nunca
-        // se hace match aproximado: sin match = conflicto.
-        'alias_puestos' => [],
+        // Alias EXPLÍCITOS de puesto: nombre legacy de BASE_GENERAL → puesto
+        // CANÓNICO del organigrama confirmado (SincronizadorOrganigramaService).
+        // La comparación ignora mayúsculas/acentos/signos («gestor de Credito»
+        // = «Gestor de Crédito»). Sin match = conflicto; nunca aproximado.
+        // NO van aquí los ambiguos (dependen de sucursal/región/departamento):
+        // «Regional de Operaciones», «Asistente de Dirección» y «Coordinadora
+        // Administrativa» los resuelve ResolutorCatalogoMigracion.
+        // Iguales sin alias: Gerente de Sucursal, Subgerente, Monitorista,
+        // Reclutamiento, Gerente/Analista de Mesa de Control. Nuevos reales
+        // (CatalogosBaseGeneralSeeder): Abogado, Auditora, Escolta, Limpieza, Jardinero.
+        'alias_puestos' => [
+            'Gestor de Credito' => 'Gestor',
+            'Director General' => 'Dirección General',
+            'Director Comercial' => 'Dirección Comercial',
+            'Gerente R.H.' => 'Gerencia de Recursos Humanos',
+            'Jefe de sistemas' => 'Responsable de Sistemas',
+            'Admon de personal' => 'Administración de Personal',
+            'Tesoreria' => 'Tesorero',
+            'Contralora' => 'Gerente de Contraloría',
+            'Regional Administrativa' => 'Coordinadora Regional',
+        ],
 
-        // Igual para «Departamento»: sin match = CONFLICTO, nunca se crea.
-        'alias_departamentos' => [],
+        // Igual para «Departamento» (solo se valida y audita: el departamento
+        // que se guarda es el del puesto canónico). Iguales sin alias:
+        // Dirección, Sistemas, Mesa de Control, Operaciones, Contraloria
+        // (= Contraloría), Juridico (= Jurídico) y Mantenimiento (estos dos,
+        // de CatalogosBaseGeneralSeeder). Sin match = CONFLICTO, nunca se crea.
+        'alias_departamentos' => [
+            'R.H.' => 'Recursos Humanos',
+            'Operación' => 'Operaciones',
+            // En el organigrama la coordinación administrativa de sucursal
+            // (Coordinadora de Sucursal / Regional) vive en Operaciones.
+            'Administración' => 'Operaciones',
+        ],
 
         // Personas de la hoja CONTACTOS_SIN_MATCH: nunca se importan solas.
         'personas_excluidas' => [

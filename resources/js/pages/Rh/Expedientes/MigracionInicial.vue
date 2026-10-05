@@ -120,7 +120,12 @@ type Migracion = {
         >;
     } | null;
     plan: {
-        origen: { modo: string; ruta: string; existe: boolean };
+        origen: {
+            modo: string;
+            ruta: string;
+            existe: boolean;
+            diagnostico?: Record<string, unknown> | null;
+        };
         filas: Fila[];
         carpetas_sin_persona: CarpetaSinPersona[];
         sucursales_no_autorizadas_nas: {
@@ -572,14 +577,36 @@ function colorMatch(t: Fila['nas']['tipo']): string {
                         </a>
                     </Button>
                 </div>
-                <p
+                <div
                     v-if="!plan.origen.existe"
                     class="rounded-xl bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200"
                 >
-                    No se encontró la carpeta de origen en el NAS ({{
-                        plan.origen.ruta
-                    }}): solo se importarán los colaboradores, sin expedientes.
-                </p>
+                    <p>
+                        El servidor web no ve la carpeta de origen en el NAS ({{
+                            plan.origen.ruta
+                        }}): solo se importarán los colaboradores, sin
+                        expedientes.
+                    </p>
+                    <!-- Lo que vio ESTE proceso (no tinker): permisos, open_basedir, ruta real. -->
+                    <dl
+                        v-if="plan.origen.diagnostico"
+                        class="mt-2 grid grid-cols-1 gap-x-4 gap-y-0.5 font-mono text-xs sm:grid-cols-[auto_1fr]"
+                    >
+                        <template
+                            v-for="(valor, clave) in plan.origen.diagnostico"
+                            :key="clave"
+                        >
+                            <dt class="font-semibold">{{ clave }}</dt>
+                            <dd class="break-all">
+                                {{
+                                    typeof valor === 'object'
+                                        ? JSON.stringify(valor)
+                                        : String(valor)
+                                }}
+                            </dd>
+                        </template>
+                    </dl>
+                </div>
                 <div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
                     <MetricCard
                         etiqueta="Colaboradores en Excel"

@@ -40,7 +40,7 @@ class SucursalSeeder extends Seeder
         foreach ($sucursales as $sucursal) {
             $domicilio = $oficiales[$sucursal['clave']] ?? [];
 
-            Sucursal::firstOrCreate(
+            $registro = Sucursal::firstOrCreate(
                 ['clave' => $sucursal['clave']],
                 [
                     ...$sucursal,
@@ -50,6 +50,14 @@ class SucursalSeeder extends Seeder
                     'activo' => true,
                 ],
             );
+
+            // La migración 2026_09_25_190000 crea Corporativo ANTES de que
+            // exista la empresa (migrate:fresh): quedaba sin empresa y la
+            // migración inicial marcaba «Corporativo no pertenece a Mr. Lana»
+            // para todo el personal de Corporativo. Solo se llena lo vacío.
+            if ($registro->empresa_id === null && $empresaId !== null) {
+                $registro->update(['empresa_id' => $empresaId]);
+            }
         }
     }
 }

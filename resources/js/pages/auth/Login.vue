@@ -64,10 +64,6 @@ defineProps<{
                     />
                 </div>
                 <InputError :message="errors.username" />
-                <p class="text-xs text-muted-foreground">
-                    Tu usuario es tu primer nombre y tu primer apellido, por
-                    ejemplo «Jesus Arizmendi».
-                </p>
             </div>
 
             <div class="grid gap-2">
