@@ -337,8 +337,11 @@ class SincronizadorOrganigramaService
 
         if (! $this->simular) {
             // Respaldos: el volante cubre al gestor; el subgerente al gerente.
-            Puesto::query()->where('nombre', 'Gestor Volante')->first()?->puestosQuePuedeCubrir()->syncWithoutDetaching([$ids['Gestor']]);
-            Puesto::query()->where('nombre', 'Subgerente')->first()?->puestosQuePuedeCubrir()->syncWithoutDetaching([$ids['Gerente de Sucursal']]);
+            foreach (['Gestor Volante' => 'Gestor', 'Subgerente' => 'Gerente de Sucursal'] as $respaldo => $cubierto) {
+                if (isset($ids[$cubierto])) {
+                    Puesto::query()->where('nombre', $respaldo)->first()?->puestosQuePuedeCubrir()->syncWithoutDetaching([$ids[$cubierto]]);
+                }
+            }
         }
     }
 
