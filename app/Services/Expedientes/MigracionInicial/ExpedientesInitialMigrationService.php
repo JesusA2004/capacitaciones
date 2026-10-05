@@ -178,7 +178,7 @@ class ExpedientesInitialMigrationService
 
             fwrite($salida, "\xEF\xBB\xBF");
             // Usuario propuesto/Estado cuenta: para verificar los usernames antes de aplicar.
-            fputcsv($salida, ['Fila', 'Clave', 'Nombre', 'Empresa', 'Sucursal', 'Departamento', 'Puesto', 'Usuario propuesto', 'Estado cuenta', 'Estado importación', 'CURP', 'Colaborador ID', 'Carpeta NAS', 'PDF', 'Tipo de match', 'Score', 'Conflictos', 'Advertencias', 'Operación']);
+            fputcsv($salida, ['Fila', 'Clave', 'Nombre', 'Empresa', 'Sucursal', 'Departamento', 'Puesto', 'Usuario propuesto', 'Estado cuenta', 'Estado importación', 'CURP', 'Colaborador ID', 'Carpeta NAS', 'PDF', 'Tipo de match', 'Score', 'Conflictos', 'Advertencias', 'Operación', 'Nombre normalizado (match)', 'Carpetas candidatas', 'Mejor carpeta', 'Mejor score', 'Razón match NAS']);
 
             foreach ($plan['filas'] ?? [] as $f) {
                 $estadoCuenta = EstadoCuentaMigracion::tryFrom((string) ($f['cuenta']['estado'] ?? '')) ?? EstadoCuentaMigracion::NoAplica;
@@ -196,6 +196,9 @@ class ExpedientesInitialMigrationService
                         'omitir' => 'Se omite',
                         default => 'Ya está igual',
                     },
+                    // Diagnóstico del match NAS (solo para comparar; nada de esto se guarda en el colaborador).
+                    $f['nas']['diagnostico']['nombre_normalizado'] ?? '', $f['nas']['diagnostico']['candidatos'] ?? 0,
+                    $f['nas']['diagnostico']['mejor_carpeta'] ?? '', $f['nas']['diagnostico']['mejor_score'] ?? '', $f['nas']['diagnostico']['razon'] ?? '',
                 ]);
             }
 
@@ -205,6 +208,14 @@ class ExpedientesInitialMigrationService
 
             foreach ($plan['carpetas_sin_persona'] ?? [] as $c) {
                 fputcsv($salida, [$c['sucursal_carpeta'], $c['carpeta'], $c['nombre_detectado'], count($c['pdfs']), $c['accion']]);
+            }
+
+            fputcsv($salida, []);
+            fputcsv($salida, ['Carpetas del NAS que no son una persona (no se usan como candidatas)']);
+            fputcsv($salida, ['Sucursal', 'Carpeta', 'Motivo']);
+
+            foreach ($plan['carpetas_omitidas_nas'] ?? [] as $c) {
+                fputcsv($salida, [$c['sucursal'], $c['carpeta'], $c['motivo'] === 'sistema' ? 'Carpeta creada por el sistema' : 'Carpeta auxiliar']);
             }
 
             if ($migracion->resultado !== null) {

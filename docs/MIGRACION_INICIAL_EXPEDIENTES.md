@@ -89,9 +89,18 @@ Para comparar se usan los tokens del nombre de la carpeta **y** del PDF, sin fec
 | Tipo | Regla | ¿Automático? |
 |---|---|---|
 | Match exacto | Los mismos tokens | Sí |
-| Match alto | Un nombre contenido en el otro con ≥ 3 palabras (p. ej. «ALBERTO CARLOS BUENO» ⊂ «JOSE ALBERTO CARLOS BUENO»), o una letra de diferencia en palabras largas | Sí, solo si es de la **misma sucursal** y sin competencia |
+| Match alto | Un nombre contenido en el otro con ≥ 3 palabras y **una** palabra de diferencia (p. ej. «ALBERTO CARLOS BUENO» ⊂ «JOSE ALBERTO CARLOS BUENO»), o una letra de diferencia en palabras de ≥ 5 letras con el mismo número de palabras | Sí, solo si es de la **misma sucursal** y sin competencia |
 | Revisión manual | Parecido, de otra sucursal, o varias carpetas/personas compiten | **No**: RH elige en la tabla |
 | Sin match | — | — |
+
+La normalización (mayúsculas, sin acentos —también en forma descompuesta—, sin signos, sin fechas ni números, p. ej. «23 - 09-206») es **solo para comparar**: nunca se guarda ni se renombra nada.
+
+No son candidatas (se listan aparte en el CSV como «Carpetas del NAS que no son una persona»):
+
+- carpetas auxiliares: «Pendientes de vincular» y `carpetas_excluidas` (BAJAS, FOTOS, Historico);
+- las carpetas que crea el propio sistema (`EMP-0007 - Nombre`, `SIN-NUMERO-22 - Nombre`). Antes competían (≈ 0.9) con la carpeta histórica real y todo colaborador que ya tenía expediente en el sistema quedaba en «varias carpetas compiten» → 0 matches automáticos.
+
+El CSV del análisis trae por fila el diagnóstico del match: nombre normalizado, carpetas candidatas, mejor carpeta, mejor score y razón (`exacto`, `alto`, `revision`, `sin_candidato`, `multiples_candidatos`, `diferente_sucursal`, `fila_en_conflicto`). El mismo resumen va al log (`Migración inicial: match de carpetas NAS.`).
 
 ## 6. Expediente histórico (PDF único)
 

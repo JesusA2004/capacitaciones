@@ -125,6 +125,12 @@ return [
         'carpeta_historico' => 'Historico',
         'nombre_pdf' => 'Expediente historico unificado',
         'carpeta_pendientes' => 'Pendientes de vincular',
+
+        // Carpetas dentro de una sucursal que NO son una persona: nunca son
+        // candidatas de nadie (se comparan sin acentos/mayúsculas). Además se
+        // ignoran siempre «Pendientes de vincular» y las carpetas que crea el
+        // propio sistema («EMP-0007 - Nombre», «SIN-NUMERO-22 - Nombre»).
+        'carpetas_excluidas' => ['BAJAS', 'BAJA', 'FOTOS', 'FOTO', 'Historico'],
     ],
 
 ];

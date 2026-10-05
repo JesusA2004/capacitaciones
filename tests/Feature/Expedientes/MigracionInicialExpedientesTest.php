@@ -405,3 +405,142 @@ test('la lista de credenciales solo la descarga quien tiene expedientes.migrar',
     expect($csv)->toContain('Usuario,"Contraseña temporal",Estado')
         ->and($csv)->toContain('Jose Carlos');
 });
+
+/*
+ * Match de carpetas NAS con nombres reales (Córdoba / Cuernavaca). La
+ * normalización es SOLO para comparar: nombres, carpetas y PDFs conservan
+ * su forma original.
+ */
+function miPersona(string $nombre, string $paterno, string $materno, string $sucursal, int $n): array
+{
+    return miFila([
+        'Clave' => (string) (500 + $n), 'Nombre' => $nombre, 'Apellido paterno' => $paterno, 'Apellido materno' => $materno,
+        'Nombre completo' => "{$nombre} {$paterno} {$materno}", 'CURP' => null, 'Correo electrónico' => "persona{$n}@mrlana.test",
+        'Sucursal oficial' => $sucursal, 'Sucursal origen' => $sucursal,
+    ]);
+}
+
+/** @return array<string, array<string, mixed>> fila por nombre completo */
+function miPlanPorNombre(MigracionExpedientes $migracion): array
+{
+    return collect($migracion->planArray()['filas'])->keyBy('nombre_completo')->all();
+}
+
+function miCordoba(Sucursal $referencia): Sucursal
+{
+    return Sucursal::factory()->create(['nombre' => 'Córdoba', 'empresa_id' => $referencia->empresa_id]);
+}
+
+test('nombres reales con acentos, fechas y fechas mal escritas son match exacto aunque la carpeta no tenga PDFs', function () {
+    miCordoba($this->cuernavaca);
+    $nas = Storage::disk('nas');
+    $nas->makeDirectory('expedientes/Mr. Lana/CÓRDOBA/José Alfredo Jiménez Flores 06-09-2022');
+    // Acento en forma descompuesta (NFD), como lo guardan algunos clientes SMB/macOS.
+    miPdf("expedientes/Mr. Lana/CÓRDOBA/Berenice Jua\u{0301}rez Temoxtle 08-12-21/INE.pdf");
+    $nas->makeDirectory('expedientes/Mr. Lana/CUERNAVACA/CESAR EMMANUEL HERNANDEZ ORTIZ 23 - 09-206');
+    $nas->makeDirectory('expedientes/Mr. Lana/CUERNAVACA/GUADALUPE MODESTO OCAMPO 05-01-2026');
+
+    $migracion = $this->servicio->analizar(miExcel([
+        miPersona('Jose Alfredo', 'Jimenez', 'Flores', 'Córdoba', 1),
+        miPersona('Berenice', 'Juarez', 'Temoxtle', 'CÓRDOBA', 2),
+        miPersona('Cesar Emmanuel', 'Hernandez', 'Ortiz', 'Cuernavaca', 3),
+        miPersona('Guadalupe', 'Modesto', 'Ocampo', 'Cuernavaca', 4),
+    ]), 'base.xlsx', $this->rh);
+    $filas = miPlanPorNombre($migracion);
+
+    expect($filas['Jose Alfredo Jimenez Flores']['nas']['tipo'])->toBe('exacto')
+        ->and($filas['Jose Alfredo Jimenez Flores']['nas']['carpeta'])->toBe('José Alfredo Jiménez Flores 06-09-2022')
+        ->and($filas['Jose Alfredo Jimenez Flores']['nas']['pdfs'])->toBe([])
+        ->and($filas['Berenice Juarez Temoxtle']['nas']['tipo'])->toBe('exacto')
+        ->and($filas['Cesar Emmanuel Hernandez Ortiz']['nas']['tipo'])->toBe('exacto')
+        ->and($filas['Cesar Emmanuel Hernandez Ortiz']['nas']['diagnostico']['nombre_normalizado'])->toBe('CESAR EMMANUEL HERNANDEZ ORTIZ')
+        ->and($filas['Guadalupe Modesto Ocampo']['nas']['tipo'])->toBe('exacto')
+        ->and($migracion->totales['match_exacto'])->toBe(4)
+        ->and($migracion->planArray()['carpetas_sin_persona'])->toBe([]);
+
+    // Analizar no modificó nada: el nombre real se conserva con su acento.
+    $nas->assertExists('expedientes/Mr. Lana/CÓRDOBA/José Alfredo Jiménez Flores 06-09-2022');
+    expect(ExpedienteHistorico::query()->count())->toBe(0);
+
+    // Al aplicar, la carpeta sin PDFs igual queda como expediente del colaborador.
+    $this->servicio->aplicar($migracion, $this->rh);
+    expect(Colaborador::query()->where('correo_personal', 'persona1@mrlana.test')->value('expediente_storage_path'))
+        ->toBe('expedientes/Mr. Lana/CÓRDOBA/José Alfredo Jiménez Flores 06-09-2022');
+});
+
+test('la carpeta «EMP-… - Nombre» que crea el sistema no compite con la carpeta histórica (causa de 0 matches)', function () {
+    $cordoba = miCordoba($this->cuernavaca);
+    $existente = Colaborador::factory()->create(['name' => 'Miguel Angel', 'apellidos' => 'Trejo Peralta', 'sucursal_principal_id' => $cordoba->id, 'correo_personal' => 'persona7@mrlana.test', 'numero_empleado' => 'EMP-0007']);
+    Storage::disk('nas')->makeDirectory('expedientes/Mr. Lana/Cordoba/EMP-0007 - Miguel Angel Trejo Peralta');
+    Storage::disk('nas')->makeDirectory('expedientes/Mr. Lana/Cordoba/SIN-NUMERO-22 - Otra Persona Distinta');
+    miPdf('expedientes/Mr. Lana/CÓRDOBA/Miguel Angel Trejo Peralta 10-02-2025/expediente.pdf');
+
+    $plan = $this->servicio->analizar(miExcel([miPersona('Miguel Angel', 'Trejo', 'Peralta', 'Córdoba', 7)]), 'base.xlsx', $this->rh)->planArray();
+    $fila = $plan['filas'][0];
+
+    expect($fila['colaborador_id'])->toBe($existente->id)
+        ->and($fila['nas']['tipo'])->toBe('exacto')
+        ->and($fila['nas']['carpeta'])->toBe('Miguel Angel Trejo Peralta 10-02-2025')
+        ->and($fila['nas']['diagnostico']['candidatos'])->toBe(1)
+        ->and(array_column($plan['carpetas_omitidas_nas'], 'motivo', 'carpeta'))->toBe([
+            'EMP-0007 - Miguel Angel Trejo Peralta' => 'sistema',
+            'SIN-NUMERO-22 - Otra Persona Distinta' => 'sistema',
+        ]);
+});
+
+test('dos carpetas con variantes de apellido compiten: revisión manual, nunca automático', function () {
+    Storage::disk('nas')->makeDirectory('expedientes/Mr. Lana/CUERNAVACA/JAIME VALVERDE ERIVEZ 21-09-26');
+    Storage::disk('nas')->makeDirectory('expedientes/Mr. Lana/CUERNAVACA/JAIME VALVERE ERIVES 21-09-26');
+
+    $migracion = $this->servicio->analizar(miExcel([miPersona('Jaime', 'Valverde', 'Erives', 'Cuernavaca', 8)]), 'base.xlsx', $this->rh);
+    $nas = $migracion->planArray()['filas'][0]['nas'];
+
+    expect($nas['tipo'])->toBe('revision')
+        ->and($nas['diagnostico']['razon'])->toBe('multiples_candidatos')
+        ->and($nas['diagnostico']['candidatos'])->toBe(2)
+        ->and($migracion->totales['match_exacto'] + $migracion->totales['match_alto'])->toBe(0);
+
+    $this->servicio->aplicar($migracion, $this->rh);
+    expect(Colaborador::query()->where('correo_personal', 'persona8@mrlana.test')->value('expediente_storage_path'))->toBeNull();
+});
+
+test('una sola variante de apellido (Levenshtein 1) en la misma sucursal es match alto', function () {
+    Storage::disk('nas')->makeDirectory('expedientes/Mr. Lana/CUERNAVACA/JAIME VALVERDE ERIVEZ 21-09-26');
+
+    $nas = $this->servicio->analizar(miExcel([miPersona('Jaime', 'Valverde', 'Erives', 'Cuernavaca', 9)]), 'base.xlsx', $this->rh)->planArray()['filas'][0]['nas'];
+
+    expect($nas['tipo'])->toBe('alto')
+        ->and($nas['carpeta'])->toBe('JAIME VALVERDE ERIVEZ 21-09-26');
+});
+
+test('el mismo nombre exacto en otra sucursal nunca se vincula solo', function () {
+    miCordoba($this->cuernavaca);
+    Storage::disk('nas')->makeDirectory('expedientes/Mr. Lana/CÓRDOBA/GUADALUPE MODESTO OCAMPO 05-01-2026');
+
+    $nas = $this->servicio->analizar(miExcel([miPersona('Guadalupe', 'Modesto', 'Ocampo', 'Cuernavaca', 10)]), 'base.xlsx', $this->rh)->planArray()['filas'][0]['nas'];
+
+    expect($nas['tipo'])->toBe('revision')
+        ->and($nas['diagnostico']['razon'])->toBe('diferente_sucursal')
+        ->and($nas['carpeta'])->toBeNull();
+});
+
+test('BAJAS, FOTOS y Pendientes de vincular no son candidatas ni expedientes sin persona', function () {
+    miPdf('expedientes/Mr. Lana/CUERNAVACA/BAJAS/a.pdf');
+    miPdf('expedientes/Mr. Lana/CUERNAVACA/FOTOS/b.pdf');
+    miPdf('expedientes/Mr. Lana/CUERNAVACA/Pendientes de vincular/c.pdf');
+
+    $plan = $this->servicio->analizar(miExcel([miFila()]), 'base.xlsx', $this->rh)->planArray();
+
+    expect($plan['filas'][0]['nas']['diagnostico']['razon'])->toBe('sin_candidato')
+        ->and($plan['carpetas_sin_persona'])->toBe([])
+        ->and(collect($plan['carpetas_omitidas_nas'])->pluck('motivo')->unique()->values()->all())->toBe(['auxiliar'])
+        ->and($plan['carpetas_omitidas_nas'])->toHaveCount(3);
+});
+
+test('un nombre contenido en otro con dos palabras de más no es automático', function () {
+    Storage::disk('nas')->makeDirectory('expedientes/Mr. Lana/CUERNAVACA/JUAN CARLOS ANTONIO PEREZ LOPEZ');
+
+    $nas = $this->servicio->analizar(miExcel([miPersona('Juan', 'Perez', 'Lopez', 'Cuernavaca', 11)]), 'base.xlsx', $this->rh)->planArray()['filas'][0]['nas'];
+
+    expect($nas['tipo'])->toBe('revision');
+});

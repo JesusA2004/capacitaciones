@@ -142,7 +142,7 @@ final class Normalizador
 
     /**
      * Similitud 0..1 entre dos nombres (tokens). 1 = mismos tokens; un
-     * nombre contenido en el otro con ≥ 3 tokens ≈ 0.9 (p. ej. «ALBERTO
+     * nombre contenido en el otro con ≥ 3 tokens y una palabra de diferencia ≈ 0.9 (p. ej. «ALBERTO
      * CARLOS BUENO» ⊂ «JOSE ALBERTO CARLOS BUENO»); lo demás se calcula por
      * tokens parecidos (una letra de diferencia en palabras largas).
      *
@@ -168,7 +168,9 @@ final class Normalizador
         $menor = min(count($sa), count($sb));
         $mayor = max(count($sa), count($sb));
 
-        if ($comunes === $menor && $menor >= 3) {
+        // Solo si sobra a lo más UNA palabra: «JUAN PEREZ LOPEZ» no es seguro
+        // contra «JUAN CARLOS ANTONIO PEREZ LOPEZ» (eso queda en revisión).
+        if ($comunes === $menor && $menor >= 3 && $mayor - $menor <= 1) {
             return 0.9;
         }
 

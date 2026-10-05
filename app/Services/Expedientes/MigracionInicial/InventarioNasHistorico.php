@@ -113,7 +113,7 @@ class InventarioNasHistorico
     }
 
     /**
-     * @return array{carpetas: list<array<string, mixed>>, sucursales_no_autorizadas: list<array{carpeta: string, expedientes: int}>, origen_existe: bool, diagnostico: array<string, mixed>|null}
+     * @return array{carpetas: list<array<string, mixed>>, sucursales_no_autorizadas: list<array{carpeta: string, expedientes: int}>, carpetas_omitidas: list<array{sucursal: string, carpeta: string, motivo: string}>, origen_existe: bool, diagnostico: array<string, mixed>|null}
      */
     public function inventario(): array
     {
@@ -124,12 +124,12 @@ class InventarioNasHistorico
             $diagnostico = $this->diagnosticoOrigen();
             Log::warning('Migración inicial: la carpeta de origen no se ve desde este proceso.', $diagnostico);
 
-            return ['carpetas' => [], 'sucursales_no_autorizadas' => [], 'origen_existe' => false, 'diagnostico' => $diagnostico];
+            return ['carpetas' => [], 'sucursales_no_autorizadas' => [], 'carpetas_omitidas' => [], 'origen_existe' => false, 'diagnostico' => $diagnostico];
         }
 
         $carpetas = [];
         $noAutorizadas = [];
-        $pendientes = Normalizador::clave((string) config('expedientes.migracion_inicial.carpeta_pendientes', 'Pendientes de vincular'));
+        $omitidas = [];
 
         foreach ($disco->directories($raiz) as $rutaSucursal) {
             $nombreSucursal = basename($rutaSucursal);
@@ -147,7 +147,11 @@ class InventarioNasHistorico
             }
 
             foreach ($disco->directories($rutaSucursal) as $rutaCarpeta) {
-                if (Normalizador::clave(basename($rutaCarpeta)) === $pendientes) {
+                $motivo = $this->motivoNoEsPersona(basename($rutaCarpeta));
+
+                if ($motivo !== null) {
+                    $omitidas[] = ['sucursal' => $nombreSucursal, 'carpeta' => basename($rutaCarpeta), 'motivo' => $motivo];
+
                     continue;
                 }
 
@@ -162,7 +166,32 @@ class InventarioNasHistorico
             }
         }
 
-        return ['carpetas' => $carpetas, 'sucursales_no_autorizadas' => $noAutorizadas, 'origen_existe' => true, 'diagnostico' => null];
+        return ['carpetas' => $carpetas, 'sucursales_no_autorizadas' => $noAutorizadas, 'carpetas_omitidas' => $omitidas, 'origen_existe' => true, 'diagnostico' => null];
+    }
+
+    /**
+     * Por qué una subcarpeta de sucursal NO es el expediente histórico de
+     * una persona (null = sí lo es):
+     *  - auxiliar: «Pendientes de vincular» o config carpetas_excluidas
+     *    (BAJAS, FOTOS…);
+     *  - sistema: la que crea DocumentoStorageService::carpetaColaborador()
+     *    («EMP-0007 - Nombre», «SIN-NUMERO-22 - Nombre»). Sin quitarla, su
+     *    nombre (≈ 0.9 contra la persona) competía con la carpeta histórica
+     *    real y TODO colaborador que ya tenía expediente en el sistema
+     *    quedaba en «varias carpetas compiten» → 0 matches automáticos.
+     */
+    public function motivoNoEsPersona(string $carpeta): ?string
+    {
+        $auxiliares = array_map(
+            fn ($n) => Normalizador::clave((string) $n),
+            [(string) config('expedientes.migracion_inicial.carpeta_pendientes', 'Pendientes de vincular'), ...(array) config('expedientes.migracion_inicial.carpetas_excluidas', [])],
+        );
+
+        if (in_array(Normalizador::clave($carpeta), $auxiliares, true)) {
+            return 'auxiliar';
+        }
+
+        return preg_match('/^(?:SIN-NUMERO-\d+|[A-Z]{2,6}-\d{2,}) - \S/i', trim($carpeta)) === 1 ? 'sistema' : null;
     }
 
     /**

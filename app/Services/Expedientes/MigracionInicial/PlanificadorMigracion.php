@@ -11,6 +11,7 @@ use App\Models\Puesto;
 use App\Models\User;
 use App\Services\Autenticacion\NombreUsuarioService;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Arma el PLAN de la migración inicial sin modificar nada (dry run).
@@ -63,9 +64,17 @@ class PlanificadorMigracion
             'filas' => $filas,
             'carpetas_sin_persona' => $huerfanas,
             'sucursales_no_autorizadas_nas' => $nas['sucursales_no_autorizadas'],
+            // Auxiliares (BAJAS, FOTOS…) y las «EMP-… - Nombre» del sistema: no son candidatas.
+            'carpetas_omitidas_nas' => $nas['carpetas_omitidas'],
             'carpetas_total' => count($nas['carpetas']),
         ];
         $plan['totales'] = $this->totales($plan);
+
+        Log::info('Migración inicial: match de carpetas NAS.', [
+            'carpetas_persona' => count($nas['carpetas']),
+            'carpetas_omitidas' => collect($nas['carpetas_omitidas'])->countBy('motivo')->all(),
+            'razones' => collect($filas)->countBy(fn (array $f) => $f['nas']['diagnostico']['razon'] ?? 'omitida')->all(),
+        ]);
 
         return $plan;
     }
@@ -499,6 +508,12 @@ class PlanificadorMigracion
                 : 'Carpeta parecida pero no segura: confírmala manualmente.';
         }
 
+        foreach ($filas as $i => $f) {
+            if ($f['operacion'] !== 'omitir') {
+                $filas[$i]['nas']['diagnostico'] = $this->diagnosticoNas($f, $candidatos[$i] ?? [], $carpetas, $alto);
+            }
+        }
+
         // Carpetas que nadie del Excel reclama (ni como candidata).
         $reclamadas = [];
 
@@ -545,6 +560,43 @@ class PlanificadorMigracion
         }
 
         return [$filas, $huerfanas];
+    }
+
+    /**
+     * Por qué una fila quedó (o no) con carpeta del NAS, para el CSV y el
+     * log del análisis: exacto | alto | revision | sin_candidato |
+     * multiples_candidatos | diferente_sucursal | fila_en_conflicto.
+     *
+     * @param  array<string, mixed>  $f
+     * @param  array<int, float>  $lista  carpeta => score (ya topado si es de otra sucursal)
+     * @param  list<array<string, mixed>>  $carpetas
+     * @return array<string, mixed>
+     */
+    private function diagnosticoNas(array $f, array $lista, array $carpetas, float $alto): array
+    {
+        arsort($lista);
+        $mejor = array_key_first($lista);
+        $fuertes = count(array_filter($lista, fn ($s) => $s >= $alto));
+        $mismaSucursal = array_filter($lista, fn ($s, $j) => $f['sucursal_id'] !== null && $carpetas[$j]['sucursal_id'] === $f['sucursal_id'], ARRAY_FILTER_USE_BOTH);
+
+        $razon = match (true) {
+            in_array($f['nas']['tipo'], ['exacto', 'alto'], true) => $f['nas']['tipo'],
+            $lista === [] => 'sin_candidato',
+            ! isset($mismaSucursal[$mejor]) => 'diferente_sucursal',
+            $fuertes > 1 => 'multiples_candidatos',
+            $fuertes === 1 && $f['operacion'] === 'conflicto' => 'fila_en_conflicto',
+            $fuertes === 1 => 'multiples_candidatos',
+            default => 'revision',
+        };
+
+        return [
+            'nombre_normalizado' => implode(' ', (array) $f['tokens']),
+            'sucursal' => $f['sucursal_nombre'] ?? $f['sucursal_excel'],
+            'candidatos' => count($lista),
+            'mejor_score' => $mejor !== null ? $lista[$mejor] : 0.0,
+            'mejor_carpeta' => $mejor !== null ? sprintf('%s/%s', $carpetas[$mejor]['sucursal_carpeta'], $carpetas[$mejor]['carpeta']) : null,
+            'razon' => $razon,
+        ];
     }
 
     /**
