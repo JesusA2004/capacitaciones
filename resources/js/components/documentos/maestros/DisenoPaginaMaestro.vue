@@ -95,9 +95,7 @@ const altoMm = computed(() => geometria.value?.page_h_mm ?? 279.4);
 const estiloFondo = computed(() => ({
     opacity: String(opacidad.value / 100),
     objectFit: (ajuste.value === 'stretch' ? 'fill' : ajuste.value) as
-        | 'fill'
-        | 'contain'
-        | 'cover',
+        'fill' | 'contain' | 'cover',
 }));
 
 /** Advertencias del área segura recalculadas al instante. */

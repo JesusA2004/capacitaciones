@@ -31,6 +31,7 @@ use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Expedientes\AvisoPrivacidadService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Expedientes\ExpedienteService;
+use App\Services\Expedientes\MigracionInicial\ExpedientesInitialMigrationService;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use App\Services\Nomina\PrestamoService;
 use App\Services\Nomina\ReciboNominaService;
@@ -390,6 +391,18 @@ class ExpedienteController extends Controller
                     'motivo' => $solicitud->motivo,
                     'created_at' => $solicitud->created_at?->toISOString(),
                 ]),
+            // PDF(s) históricos únicos de la migración inicial: sección
+            // aparte, NO cuentan en el checklist de 14 documentos.
+            'expedienteHistorico' => app(ExpedientesInitialMigrationService::class)->historicosDe($colaborador),
+            // Datos médicos: sensibles, solo con permiso explícito.
+            'datosMedicos' => $usuario->can('expedientes.datos_medicos.ver') ? [
+                'condicion_medica' => $colaborador->datosMedicos?->condicion_medica,
+                'alergias' => $colaborador->datosMedicos?->alergias,
+            ] : null,
+            'contactoEmergenciaExtra' => [
+                'parentesco' => $colaborador->contacto_emergencia_parentesco,
+                'direccion' => $colaborador->contacto_emergencia_direccion,
+            ],
             // Tab "Recibos de nómina": historial de recibos informativos ya
             // generados (ver App\Services\Nomina\ReciboNominaService) — el
             // PDF se descarga aparte (recibos-nomina.descargar), aquí solo
@@ -802,6 +815,7 @@ class ExpedienteController extends Controller
             ->where('activo', true)
             ->where(fn ($q) => $q->where('requerido', true)->orWhereIn('id', $vigentes->keys()))
             ->orderByDesc('requerido')
+            ->orderBy('orden')
             ->orderBy('nombre')
             ->get()
             ->map(function (DocumentType $tipo) use ($vigentes) {

@@ -103,6 +103,8 @@ const ETIQUETAS_PERMISO: Record<string, string> = {
     'expedientes.crear': 'Crear expedientes',
     'expedientes.editar': 'Editar expedientes',
     'expedientes.eliminar': 'Eliminar expedientes',
+    'expedientes.migrar': 'Migración inicial de expedientes',
+    'expedientes.datos_medicos.ver': 'Ver datos médicos del colaborador',
     'expedientes.revisar': 'Revisar expedientes',
     'expedientes.ver': 'Ver expedientes',
     'expedientes.ver_sucursal': 'Ver expedientes de mi sucursal',

@@ -80,6 +80,23 @@ return [
             'visibility' => 'private',
         ],
 
+        // Árbol HISTÓRICO de expedientes (solo lectura para la migración
+        // inicial, docs/MIGRACION_INICIAL_EXPEDIENTES.md). Por defecto es el
+        // mismo volumen que `nas`; si el área «RH/» vive en otra carpeta
+        // compartida del Synology, móntala y apunta NAS_LEGACY_ROOT ahí.
+        'nas_legacy' => [
+            'driver' => env('NAS_LEGACY_DRIVER', env('NAS_DRIVER', 'local')),
+            'root' => env('NAS_LEGACY_ROOT', env('NAS_ROOT', storage_path('app/private/capacitacion'))),
+            'host' => env('NAS_LEGACY_HOST', env('NAS_HOST')),
+            'port' => (int) env('NAS_LEGACY_PORT', env('NAS_PORT', 22)),
+            'username' => env('NAS_LEGACY_USERNAME', env('NAS_USERNAME')),
+            'password' => env('NAS_LEGACY_PASSWORD', env('NAS_PASSWORD')),
+            'privateKey' => env('NAS_LEGACY_PRIVATE_KEY', env('NAS_PRIVATE_KEY')),
+            'throw' => false,
+            'report' => false,
+            'visibility' => 'private',
+        ],
+
     ],
 
     /*

@@ -74,7 +74,7 @@ class MatrizComercialSeeder extends Seeder
         'HUAMANTLA' => 'Huamantla',
         'ORIZABA' => 'Orizaba',
         'TLAXCALA' => 'Tlaxcala',
-        'TULA' => 'Tula de Allende',
+        'TULA' => 'Tula',
     ];
 
     public function run(): void

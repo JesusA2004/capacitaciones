@@ -86,6 +86,9 @@ class RolesYPermisosSeeder extends Seeder
         'expedientes.editar',
         'expedientes.revisar',
         'expedientes.eliminar',
+        // Migración inicial de colaboradores/expedientes históricos y datos médicos (sensibles).
+        'expedientes.migrar',
+        'expedientes.datos_medicos.ver',
         // Documentos
         'documentos.ver',
         'documentos.subir',
@@ -398,6 +401,7 @@ class RolesYPermisosSeeder extends Seeder
             'sucursales.administrar', 'departamentos.administrar', 'puestos.administrar',
             'empresas.ver', 'empresas.crear', 'empresas.editar',
             'expedientes.ver', 'expedientes.ver_todos', 'expedientes.crear', 'expedientes.editar', 'expedientes.revisar',
+            'expedientes.migrar', 'expedientes.datos_medicos.ver',
             'documentos.ver', 'documentos.subir', 'documentos.descargar', 'documentos.revisar', 'documentos.aprobar', 'documentos.rechazar', 'documentos.versiones',
             'altas.ver', 'altas.crear', 'altas.enviar', 'altas.revisar', 'altas.aprobar', 'altas.cancelar',
             'vacaciones.ver', 'vacaciones.solicitar', 'vacaciones.aprobar', 'vacaciones.rechazar', 'vacaciones.ajustar', 'vacaciones.reportes',

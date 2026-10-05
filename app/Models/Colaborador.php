@@ -78,6 +78,11 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property string|null $domicilio_cp
  * @property string|null $contacto_emergencia_nombre
  * @property string|null $contacto_emergencia_telefono
+ * @property string|null $contacto_emergencia_parentesco
+ * @property string|null $contacto_emergencia_direccion
+ * @property string|null $clave_legacy
+ * @property string|null $estatus_origen
+ * @property string|null $importado_de
  * @property string|null $incorporacion_decision
  * @property int|null $incorporacion_decidida_por
  * @property Carbon|null $incorporacion_decidida_en
@@ -105,6 +110,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
     'periodo_prueba_inicio', 'periodo_prueba_fin',
     'fecha_nacimiento', 'curp', 'rfc', 'nss', 'domicilio',
     'correo_personal', 'contacto_emergencia_nombre', 'contacto_emergencia_telefono',
+    'contacto_emergencia_parentesco', 'contacto_emergencia_direccion', 'clave_legacy', 'importado_de', 'estatus_origen',
     'aviso_privacidad_aceptado', 'aviso_privacidad_aceptado_en',
     'consentimiento_datos_aceptado', 'consentimiento_datos_aceptado_en', 'avisos_registrado_por_id',
     'incorporacion_decision', 'incorporacion_decidida_por', 'incorporacion_decidida_en', 'incorporacion_motivo_rechazo',
@@ -184,6 +190,26 @@ class Colaborador extends Model
     public function user(): HasOne
     {
         return $this->hasOne(User::class, 'colaborador_id');
+    }
+
+    /**
+     * Datos médicos (sensibles, cifrados): solo con expedientes.datos_medicos.ver.
+     *
+     * @return HasOne<ColaboradorDatosMedicos, $this>
+     */
+    public function datosMedicos(): HasOne
+    {
+        return $this->hasOne(ColaboradorDatosMedicos::class, 'colaborador_id');
+    }
+
+    /**
+     * PDF(s) históricos únicos de la migración inicial (no cuentan en el checklist).
+     *
+     * @return HasMany<ExpedienteHistorico, $this>
+     */
+    public function expedientesHistoricos(): HasMany
+    {
+        return $this->hasMany(ExpedienteHistorico::class, 'colaborador_id');
     }
 
     /**

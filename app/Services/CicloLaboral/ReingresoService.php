@@ -448,6 +448,7 @@ class ReingresoService
         $tipos = DocumentType::query()
             ->where('activo', true)
             ->where(fn ($q) => $q->where('requerido', true)->orWhereIn('id', $adicionales))
+            ->orderBy('orden')
             ->orderBy('nombre')
             ->get();
 

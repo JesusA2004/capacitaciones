@@ -31,7 +31,7 @@ class DocumentType extends Model
 
     protected $table = 'document_types';
 
-    protected $fillable = ['nombre', 'clave', 'categoria', 'descripcion', 'requerido', 'aplica_alta', 'activo', 'vigencia_meses'];
+    protected $fillable = ['nombre', 'clave', 'categoria', 'descripcion', 'requerido', 'aplica_alta', 'activo', 'vigencia_meses', 'orden'];
 
     /**
      * @var array<string, mixed>

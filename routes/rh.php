@@ -13,6 +13,7 @@ use App\Http\Controllers\Rh\FiniquitoController;
 use App\Http\Controllers\Rh\FormatoController;
 use App\Http\Controllers\Rh\FormatoOficialController;
 use App\Http\Controllers\Rh\IncorporacionInvitacionController;
+use App\Http\Controllers\Rh\MigracionExpedientesController;
 use App\Http\Controllers\Rh\NominaController;
 use App\Http\Controllers\Rh\PlantillaController;
 use App\Http\Controllers\Rh\PlantillaOficialController;
@@ -49,6 +50,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/', [ExpedienteController::class, 'index'])->name('index');
             Route::get('exportar-excel', [ExpedienteController::class, 'exportarExcel'])->name('exportarExcel');
             Route::get('exportar-pdf', [ExpedienteController::class, 'exportarPdf'])->name('exportarPdf');
+            // Migración inicial de colaboradores y expedientes históricos
+            // (docs/MIGRACION_INICIAL_EXPEDIENTES.md). Antes de {colaborador}.
+            Route::prefix('migracion-inicial')->name('migracion.')->group(function () {
+                Route::get('/', [MigracionExpedientesController::class, 'index'])->name('index');
+                Route::post('analizar', [MigracionExpedientesController::class, 'analizar'])->name('analizar')->middleware('throttle:10,1');
+                Route::post('{migracion}/decidir', [MigracionExpedientesController::class, 'decidir'])->name('decidir');
+                Route::post('{migracion}/aplicar', [MigracionExpedientesController::class, 'aplicar'])->name('aplicar');
+                Route::get('{migracion}/estado', [MigracionExpedientesController::class, 'estado'])->name('estado');
+                Route::get('{migracion}/reporte', [MigracionExpedientesController::class, 'reporte'])->name('reporte');
+                Route::get('{migracion}/credenciales', [MigracionExpedientesController::class, 'credenciales'])->name('credenciales');
+            });
+            Route::get('historico/{historico}', [MigracionExpedientesController::class, 'verHistorico'])->name('historico.ver');
+            Route::post('historico/{historico}/vincular', [MigracionExpedientesController::class, 'vincularHistorico'])->name('historico.vincular');
             // withTrashed(): un colaborador dado de baja (soft-deleted, ver
             // ExpedienteController::darDeBaja()) debe poder seguir
             // abriéndose desde Expedientes -- es donde vive tanto la baja

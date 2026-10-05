@@ -172,6 +172,25 @@ const props = defineProps<{
     movimientosLaborales: MovimientoLaboralItem[];
     recibosNomina: ReciboNominaItem[];
     prestamos: PrestamoItem[];
+    /** PDF(s) históricos únicos (migración inicial): fuera del checklist. */
+    expedienteHistorico?: {
+        id: number;
+        nombre: string;
+        original: string;
+        size: number | null;
+        migrado_en: string | null;
+        url: string;
+        descargar_url: string;
+    }[];
+    /** Solo llega con permiso expedientes.datos_medicos.ver. */
+    datosMedicos?: {
+        condicion_medica: string | null;
+        alergias: string | null;
+    } | null;
+    contactoEmergenciaExtra?: {
+        parentesco: string | null;
+        direccion: string | null;
+    };
 }>();
 
 const form = useForm({
@@ -1249,6 +1268,55 @@ const pestanaInicial = (() => {
                             </form>
                         </CardContent>
                     </Card>
+                    <Card
+                        v-if="
+                            contactoEmergenciaExtra?.parentesco ||
+                            contactoEmergenciaExtra?.direccion ||
+                            datosMedicos
+                        "
+                        class="mt-4 rounded-2xl border-border/60"
+                    >
+                        <CardContent
+                            class="grid gap-4 p-5 text-sm sm:grid-cols-2"
+                        >
+                            <div v-if="contactoEmergenciaExtra?.parentesco">
+                                <p class="text-muted-foreground">
+                                    Parentesco del contacto de emergencia
+                                </p>
+                                <p class="font-medium">
+                                    {{ contactoEmergenciaExtra.parentesco }}
+                                </p>
+                            </div>
+                            <div v-if="contactoEmergenciaExtra?.direccion">
+                                <p class="text-muted-foreground">
+                                    Dirección del contacto de emergencia
+                                </p>
+                                <p class="font-medium">
+                                    {{ contactoEmergenciaExtra.direccion }}
+                                </p>
+                            </div>
+                            <template v-if="datosMedicos">
+                                <div>
+                                    <p class="text-muted-foreground">
+                                        Condición médica (confidencial)
+                                    </p>
+                                    <p class="font-medium">
+                                        {{
+                                            datosMedicos.condicion_medica ?? '—'
+                                        }}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p class="text-muted-foreground">
+                                        Alergias (confidencial)
+                                    </p>
+                                    <p class="font-medium">
+                                        {{ datosMedicos.alergias ?? '—' }}
+                                    </p>
+                                </div>
+                            </template>
+                        </CardContent>
+                    </Card>
                 </TabsContent>
 
                 <TabsContent value="laborales">
@@ -1966,6 +2034,65 @@ const pestanaInicial = (() => {
                 </TabsContent>
 
                 <TabsContent value="documentos" class="flex flex-col gap-4">
+                    <!-- Expediente histórico: el PDF único anterior al sistema.
+                         NO es parte del checklist ni cuenta en el avance. -->
+                    <Card
+                        v-if="expedienteHistorico && expedienteHistorico.length"
+                        class="rounded-2xl border-border/60"
+                    >
+                        <CardContent class="flex flex-col gap-3 p-5">
+                            <div>
+                                <h3 class="text-base font-semibold">
+                                    Expediente histórico
+                                </h3>
+                                <p class="text-sm text-muted-foreground">
+                                    Documentación anterior al sistema en un solo
+                                    archivo. Se conserva íntegra; no cuenta en
+                                    el checklist de documentos.
+                                </p>
+                            </div>
+                            <div
+                                v-for="h in expedienteHistorico"
+                                :key="h.id"
+                                class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 p-3"
+                            >
+                                <div class="min-w-0">
+                                    <p class="truncate text-sm font-medium">
+                                        {{ h.nombre }}
+                                    </p>
+                                    <p class="text-xs text-muted-foreground">
+                                        Original: {{ h.original
+                                        }}{{
+                                            h.size
+                                                ? ` · ${(h.size / 1048576).toFixed(1)} MB`
+                                                : ''
+                                        }}
+                                    </p>
+                                </div>
+                                <div class="flex gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        as-child
+                                    >
+                                        <a
+                                            :href="h.url"
+                                            target="_blank"
+                                            rel="noopener"
+                                            >Ver</a
+                                        >
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        as-child
+                                    >
+                                        <a :href="h.descargar_url">Descargar</a>
+                                    </Button>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
                     <!-- La foto se registra junto con los documentos: es lo
                          que identifica al colaborador en todos los módulos. -->
                     <FotoPerfilCaptura

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
-import { ChevronRight, FolderOpen } from '@lucide/vue';
+import { Head, Link } from '@inertiajs/vue3';
+import { ChevronRight, DatabaseZap, FolderOpen } from '@lucide/vue';
 import { computed } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
@@ -8,6 +8,7 @@ import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudToolbar from '@/components/DataTable/CrudToolbar.vue';
 import ColaboradorCarpetaCard from '@/components/Rh/ColaboradorCarpetaCard.vue';
+import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -18,14 +19,18 @@ import {
 } from '@/components/ui/select';
 import { useFiltros } from '@/composables/useFiltros';
 import { usePaginacion } from '@/composables/usePaginacion';
+import { usePermisos } from '@/composables/usePermisos';
 import { dashboard } from '@/routes';
 import { exportarExcel, exportarPdf, index } from '@/routes/rh/expedientes';
+import { index as indexMigracion } from '@/routes/rh/expedientes/migracion';
 import type {
     ColaboradorExpedienteItem,
     EstadoUsuarioOpcion,
     OpcionSimple,
     RespuestaPaginada,
 } from '@/types';
+
+const { tienePermiso } = usePermisos();
 
 const props = defineProps<{
     colaboradores: RespuestaPaginada<ColaboradorExpedienteItem>;
@@ -121,6 +126,16 @@ const sucursalActiva = computed(() =>
             descripcion="Explora los expedientes digitales por empresa, sucursal y colaborador."
             :icono="FolderOpen"
         >
+            <Button
+                v-if="tienePermiso('expedientes.migrar')"
+                variant="outline"
+                as-child
+            >
+                <Link :href="indexMigracion()">
+                    <DatabaseZap class="size-4" />
+                    Migración inicial de expedientes
+                </Link>
+            </Button>
             <CrudExportButtons
                 :url-excel="urlExportar(exportarExcel)"
                 :url-pdf="urlExportar(exportarPdf)"

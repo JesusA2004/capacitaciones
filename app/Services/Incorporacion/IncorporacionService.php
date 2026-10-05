@@ -83,6 +83,7 @@ class IncorporacionService
             ->where('activo', true)
             ->where('requerido', true)
             ->when($colaborador?->estado_alta?->enContratacion() === true, fn ($q) => $q->where('aplica_alta', true))
+            ->orderBy('orden')
             ->orderBy('nombre')
             ->get();
     }

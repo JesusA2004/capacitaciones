@@ -306,7 +306,21 @@ class DocumentoStorageService
 
     public function hashSha256(string $ruta): string
     {
-        $flujo = $this->disco()->readStream($ruta);
+        return $this->hashEnDisco($this->disco(), $ruta);
+    }
+
+    /**
+     * SHA-256 en streaming de un archivo de cualquier disco (el árbol
+     * histórico de la migración inicial vive en otro disco).
+     */
+    public function hashEnDisco(Filesystem $disco, string $ruta): string
+    {
+        $flujo = $disco->readStream($ruta);
+
+        if (! is_resource($flujo)) {
+            throw new RuntimeException("No se pudo leer el archivo: {$ruta}");
+        }
+
         $contexto = hash_init('sha256');
 
         while (! feof($flujo)) {
@@ -319,6 +333,77 @@ class DocumentoStorageService
         fclose($flujo);
 
         return hash_final($contexto);
+    }
+
+    /**
+     * Ruta del PDF histórico ÚNICO dentro del expediente del colaborador
+     * (migración inicial): {base}/Historico/Expediente historico unificado.pdf
+     * y, si la carpeta histórica traía más de un PDF, «… (2).pdf», «… (3).pdf»
+     * en orden estable. No es un tipo de documento (no va en Personales).
+     */
+    public function rutaHistorico(Colaborador $colaborador, int $indice, bool $persistirRutaBase = true): string
+    {
+        $base = $persistirRutaBase ? $this->asignarRutaBaseColaborador($colaborador) : $this->rutaBaseColaboradorPersistida($colaborador);
+        $nombre = (string) config('expedientes.migracion_inicial.nombre_pdf', 'Expediente historico unificado');
+
+        return sprintf('%s/%s/%s.pdf', $base, $this->sanitizarSegmento((string) config('expedientes.migracion_inicial.carpeta_historico', 'Historico')), $this->sanitizarSegmento($indice > 1 ? "{$nombre} ({$indice})" : $nombre));
+    }
+
+    /**
+     * Expediente histórico sin persona identificable: se conserva (nunca se
+     * borra) en expedientes/{empresa}/{sucursal}/Pendientes de vincular/{carpeta original}/.
+     */
+    public function rutaPendienteVincular(string $empresa, string $sucursal, string $carpetaOriginal, string $archivo): string
+    {
+        return implode('/', [
+            'expedientes',
+            $this->sanitizarSegmento($empresa),
+            $this->sanitizarSegmento($sucursal),
+            $this->sanitizarSegmento((string) config('expedientes.migracion_inicial.carpeta_pendientes', 'Pendientes de vincular')),
+            $this->sanitizarSegmento($carpetaOriginal),
+            $this->sanitizarSegmento(pathinfo($archivo, PATHINFO_FILENAME)).'.'.strtolower((string) pathinfo($archivo, PATHINFO_EXTENSION) ?: 'pdf'),
+        ]);
+    }
+
+    /**
+     * Copia un archivo de otro disco al de expedientes SIN sobrescribir:
+     *  - destino existente con el mismo SHA-256 → `duplicado` (idempotente);
+     *  - destino existente con otro SHA-256 → `conflicto` (no se toca nada);
+     *  - si no existe: copia en streaming y verifica el SHA-256 del destino;
+     *    si no coincide, borra SOLO la copia recién escrita y falla.
+     * Nunca toca el origen (moverlo es decisión del llamador, después de
+     * registrar la BD).
+     *
+     * @return array{estado: 'copiado'|'duplicado'|'conflicto', hash: string, size: int}
+     */
+    public function copiarDesdeDisco(Filesystem $origen, string $rutaOrigen, string $rutaDestino): array
+    {
+        $hash = $this->hashEnDisco($origen, $rutaOrigen);
+        $tamano = (int) $origen->size($rutaOrigen);
+
+        if ($this->existe($rutaDestino)) {
+            return ['estado' => $this->hashSha256($rutaDestino) === $hash ? 'duplicado' : 'conflicto', 'hash' => $hash, 'size' => $tamano];
+        }
+
+        $flujo = $origen->readStream($rutaOrigen);
+
+        if (! is_resource($flujo)) {
+            throw new RuntimeException("No se pudo leer el origen: {$rutaOrigen}");
+        }
+
+        try {
+            $this->disco()->writeStream($rutaDestino, $flujo);
+        } finally {
+            fclose($flujo);
+        }
+
+        if (! $this->existe($rutaDestino) || $this->hashSha256($rutaDestino) !== $hash) {
+            $this->eliminar($rutaDestino);
+
+            throw new RuntimeException("La copia no se verificó (SHA-256 distinto o no se escribió): {$rutaDestino}");
+        }
+
+        return ['estado' => 'copiado', 'hash' => $hash, 'size' => $tamano];
     }
 
     /**

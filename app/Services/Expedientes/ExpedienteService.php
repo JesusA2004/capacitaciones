@@ -28,7 +28,7 @@ class ExpedienteService
      */
     private function tiposRequeridos(): Collection
     {
-        return $this->tiposRequeridosCache ??= DocumentType::query()->where('requerido', true)->where('activo', true)->get();
+        return $this->tiposRequeridosCache ??= DocumentType::query()->where('requerido', true)->where('activo', true)->orderBy('orden')->orderBy('id')->get();
     }
 
     /**

@@ -478,12 +478,6 @@ class AltaColaboradorService
      */
     private function siguienteNumeroEmpleado(): string
     {
-        $maximo = Colaborador::withTrashed()
-            ->where('numero_empleado', 'like', 'EMP-%')
-            ->pluck('numero_empleado')
-            ->map(fn (?string $n) => (int) preg_replace('/\D/', '', (string) $n))
-            ->max() ?? 0;
-
-        return sprintf('EMP-%04d', ((int) $maximo) + 1);
+        return app(NumeroEmpleadoService::class)->siguiente();
     }
 }

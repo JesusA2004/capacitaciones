@@ -62,6 +62,15 @@ const props = defineProps<{
     solicitudes: SolicitudExpedienteItem[];
     movimientosLaborales: MovimientoLaboralItem[];
     recibosNomina: ReciboNominaItem[];
+    expedienteHistorico?: InstanceType<
+        typeof ExpedienteDetalle
+    >['$props']['expedienteHistorico'];
+    datosMedicos?: InstanceType<
+        typeof ExpedienteDetalle
+    >['$props']['datosMedicos'];
+    contactoEmergenciaExtra?: InstanceType<
+        typeof ExpedienteDetalle
+    >['$props']['contactoEmergenciaExtra'];
     prestamos: PrestamoItem[];
     documentosOficiales:
         | InstanceType<
@@ -118,6 +127,9 @@ defineOptions({
         :solicitudes="solicitudes"
         :movimientos-laborales="movimientosLaborales"
         :recibos-nomina="recibosNomina"
+        :expediente-historico="expedienteHistorico"
+        :datos-medicos="datosMedicos"
+        :contacto-emergencia-extra="contactoEmergenciaExtra"
         :prestamos="prestamos"
     >
         <template #documentos-oficiales>
