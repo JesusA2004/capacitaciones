@@ -5,6 +5,7 @@ namespace App\Services\Finiquitos;
 use App\Enums\CategoriaDocumento;
 use App\Enums\EstadoDocumento;
 use App\Enums\EstadoFiniquito;
+use App\Enums\FamiliaAdministrativa;
 use App\Enums\TipoBaja;
 use App\Enums\TipoConceptoNomina;
 use App\Enums\TipoFormatoOficial;
@@ -15,13 +16,14 @@ use App\Models\FiniquitoConcepto;
 use App\Models\OfficialFormat;
 use App\Models\SolicitudInterna;
 use App\Models\User;
+use App\Services\DocumentosAdministrativos\DatosDocumentoAdministrativo;
+use App\Services\DocumentosAdministrativos\DocumentoAdministrativoService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Formatos\GeneradorFormatoService;
 use App\Services\Plantillas\PlaceholderResolver;
 use App\Services\Solicitudes\SolicitudDocumentoStorageService;
 use App\Services\Vacaciones\VacacionesService;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -47,6 +49,8 @@ class FiniquitoService
         private readonly PlaceholderResolver $resolver,
         private readonly MotorDocumentalService $motor,
         private readonly DocumentoStorageService $expediente,
+        private readonly DocumentoAdministrativoService $documentosAdministrativos,
+        private readonly DatosDocumentoAdministrativo $datosDocumento,
     ) {}
 
     /**
@@ -437,18 +441,24 @@ class FiniquitoService
                 ->where('is_active', true)
                 ->first();
 
-            $contenido = $formatoOficial !== null && $formatoOficial->tieneConfiguracion()
-                ? $this->formatosOficiales->renderizarPara($formatoOficial, $this->formatosOficiales->contextoDesde($finiquito->colaborador, $finiquito, $actor), $variables)
-                : Pdf::loadView('pdf.finiquito', ['finiquito' => $finiquito, 'desglose' => $desglose])->setPaper('letter', 'portrait')->output();
-
-            $documento = $this->motor->registrarPdf($finiquito->colaborador, $contenido, 'Finiquito', $actor, [
+            $opciones = [
                 'clave' => 'finiquito',
                 'categoria' => CategoriaDocumento::BajaFiniquito,
                 'payload' => $this->resolver->resolver($finiquito->colaborador, $variables),
                 'documentable' => $finiquito,
                 'requiere_impresion' => true,
                 'requiere_firma_fisica' => true,
-            ]);
+            ];
+
+            if ($formatoOficial !== null && $formatoOficial->tieneConfiguracion()) {
+                $contenido = $this->formatosOficiales->renderizarPara($formatoOficial, $this->formatosOficiales->contextoDesde($finiquito->colaborador, $finiquito, $actor), $variables);
+                $documento = $this->motor->registrarPdf($finiquito->colaborador, $contenido, 'Finiquito', $actor, $opciones);
+            } else {
+                // Sin formato oficial: documento administrativo con el diseño vigente
+                // (Documentos maestros → Documentos administrativos → Finiquito).
+                $administrativo = $this->documentosAdministrativos->generar(FamiliaAdministrativa::Finiquito, $this->datosDocumento->finiquito($finiquito, $desglose), $actor);
+                $documento = $this->motor->registrarPdf($finiquito->colaborador, $administrativo['pdf'], 'Finiquito', $actor, [...$administrativo['opciones_registro'], ...$opciones]);
+            }
         }
 
         $finiquito->update([

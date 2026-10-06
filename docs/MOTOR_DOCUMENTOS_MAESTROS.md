@@ -351,6 +351,10 @@ UI: Documentos maestros → **Fondos** (biblioteca) y, en cada documento,
 previa con mostrar/ocultar fondo y guías de área segura que nunca salen en
 el PDF).
 
+## Documentos administrativos (HTML → PDF)
+
+Recibo de nómina, finiquito (sin formato oficial), comprobante de solicitud y constancia laboral **no** usan este motor DOCX/overlay: tienen diseño versionado propio en Documentos maestros → Documentos administrativos y se imprimen con Chrome (Browsershot) o DomPDF. Ver `docs/DOCUMENTOS_ADMINISTRATIVOS_PDF.md`. Los contratos y demás plantillas jurídicas siguen exactamente igual aquí.
+
 ## Limitaciones conocidas
 
 - `PERMISO EXTRAORDINARIO CON GOCE DE SUELDO.docx` usa la fuente **Aptos**,

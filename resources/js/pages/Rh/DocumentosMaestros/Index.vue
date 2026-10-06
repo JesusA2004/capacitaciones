@@ -25,6 +25,7 @@ import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import DetalleMaestro from '@/components/documentos/maestros/DetalleMaestro.vue';
 import EstadoDisenoBadge from '@/components/documentos/maestros/EstadoDisenoBadge.vue';
 import EstadoMaestroBadge from '@/components/documentos/maestros/EstadoMaestroBadge.vue';
+import SeccionesDocumentosMaestros from '@/components/documentos/maestros/SeccionesDocumentosMaestros.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -252,6 +253,8 @@ function tamano(bytes: number): string {
                 <Images class="size-4" /> Fondos
             </Button>
         </CrudPageHeader>
+
+        <SeccionesDocumentosMaestros actual="juridicos" />
 
         <header class="flex flex-col gap-1">
             <h1 class="text-xl font-semibold">Documentos maestros</h1>

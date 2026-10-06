@@ -278,6 +278,7 @@ Es idempotente — seguro correrlo en cada deploy aunque no haya archivos nuevos
 
 ## Ver también
 
+- `docs/DOCUMENTOS_ADMINISTRATIVOS_PDF.md` — recibo de nómina, finiquito, comprobante y constancia (Chrome/Browsershot o DomPDF): `.env`, paquetes de Ubuntu y `php artisan people:diagnostico-pdf`.
 - `docs/CUMPLEANOS.md` — módulo de cumpleaños completo.
 - `docs/APP_RELEASES.md` — descarga de app / APK, incluyendo el detalle de la colisión
   con Reverb en Nginx.

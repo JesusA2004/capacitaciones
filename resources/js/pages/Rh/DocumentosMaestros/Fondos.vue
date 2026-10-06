@@ -5,6 +5,7 @@ import { ref } from 'vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import SeccionesDocumentosMaestros from '@/components/documentos/maestros/SeccionesDocumentosMaestros.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -58,10 +59,19 @@ const opcionesAjuste = [
     { value: 'cover', label: 'Cubrir' },
 ];
 
+const opcionesTipo = [
+    { value: 'background', label: 'Fondo de página' },
+    { value: 'logo', label: 'Logo' },
+    { value: 'stamp', label: 'Sello' },
+    { value: 'watermark', label: 'Marca de agua' },
+    { value: 'image', label: 'Imagen' },
+];
+
 // --- Alta --------------------------------------------------------------------
 const dialogoNuevo = ref(false);
 const formNuevo = useForm({
     nombre: '',
+    tipo: 'background',
     archivo: null as File | null,
     fit_mode: 'stretch',
     default_opacity: 100,
@@ -186,15 +196,17 @@ async function eliminar(f: FondoDocumento) {
 
     <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
-            titulo="Fondos de documentos"
-            descripcion="Fondos de página completos que se colocan detrás del texto de los documentos maestros. Cada familia elige el suyo en «Diseño de página»."
+            titulo="Fondos y recursos"
+            descripcion="Fondos de página, logos, sellos y marcas de agua para los documentos maestros y administrativos. Reemplazar un recurso crea otra versión: los documentos ya generados conservan el anterior."
             :icono="Images"
         >
             <Button v-if="puedeEditar" @click="dialogoNuevo = true">
                 <ImagePlus class="size-4" />
-                Añadir fondo
+                Añadir recurso
             </Button>
         </CrudPageHeader>
+
+        <SeccionesDocumentosMaestros actual="recursos" />
 
         <EmptyState
             v-if="fondos.length === 0"
@@ -325,6 +337,14 @@ async function eliminar(f: FondoDocumento) {
                         placeholder="MR LANA — Responsivas"
                     />
                     <InputError :message="formNuevo.errors.nombre" />
+                </div>
+                <div class="grid gap-1.5">
+                    <Label>Tipo de recurso</Label>
+                    <SelectSimple
+                        v-model="formNuevo.tipo"
+                        :opciones="opcionesTipo"
+                    />
+                    <InputError :message="formNuevo.errors.tipo" />
                 </div>
                 <div class="grid gap-1.5">
                     <Label>Archivo</Label>

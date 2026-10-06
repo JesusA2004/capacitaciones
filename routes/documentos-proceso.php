@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Rh\DisenoDocumentoController;
+use App\Http\Controllers\Rh\DocumentoAdministrativoController;
 use App\Http\Controllers\Rh\DocumentoMaestroController;
 use App\Http\Controllers\Rh\DocumentoProcesoController;
 use Illuminate\Support\Facades\Route;
@@ -41,6 +42,17 @@ Route::middleware(['auth', 'verified'])->prefix('rh')->name('rh.')->group(functi
             Route::post('{fondo}/reemplazar', [DisenoDocumentoController::class, 'reemplazar'])->name('reemplazar');
             Route::delete('{fondo}', [DisenoDocumentoController::class, 'destroy'])->name('destroy');
             Route::get('{fondo}/imagen', [DisenoDocumentoController::class, 'imagen'])->name('imagen');
+        });
+        // Documentos administrativos HTML (recibo de nómina, finiquito,
+        // comprobante, constancia): diseño versionado + vista previa real.
+        Route::prefix('administrativos')->name('administrativos.')->group(function () {
+            Route::get('/', [DocumentoAdministrativoController::class, 'index'])->name('index');
+            Route::get('{familia}', [DocumentoAdministrativoController::class, 'editar'])->name('editar');
+            Route::post('{familia}/borrador', [DocumentoAdministrativoController::class, 'borrador'])->name('borrador');
+            Route::get('{familia}/vista-previa', [DocumentoAdministrativoController::class, 'vistaPrevia'])->name('vista-previa')->middleware('throttle:30,1');
+            Route::put('version/{plantilla}', [DocumentoAdministrativoController::class, 'guardar'])->name('guardar');
+            Route::post('version/{plantilla}/activar', [DocumentoAdministrativoController::class, 'activar'])->name('activar');
+            Route::delete('version/{plantilla}', [DocumentoAdministrativoController::class, 'descartar'])->name('descartar');
         });
         Route::get('diseno/{familia}', [DisenoDocumentoController::class, 'show'])->name('diseno.show')->where('familia', '[a-z0-9_.]+');
         Route::put('diseno/{familia}', [DisenoDocumentoController::class, 'updateFamilia'])->name('diseno.update')->where('familia', '[a-z0-9_.]+');

@@ -33,7 +33,8 @@ class DisenoDocumentoController extends Controller
         $this->exigir($request);
 
         return Inertia::render('Rh/DocumentosMaestros/Fondos', [
-            'fondos' => DocumentAsset::query()->with('creadoPor:id,name,apellidos')->where('tipo', TipoDocumentAsset::Fondo->value)
+            // Biblioteca completa: fondos, logos, sellos, marcas de agua e imágenes.
+            'fondos' => DocumentAsset::query()->with('creadoPor:id,name,apellidos')
                 ->orderBy('nombre')->orderByDesc('version')->get()
                 ->map(fn (DocumentAsset $a) => $this->diseno->assetArray($a))->values(),
             'presets' => DocumentLayoutPreset::query()->orderBy('nombre')->get()->map(fn (DocumentLayoutPreset $p) => [
@@ -52,6 +53,7 @@ class DisenoDocumentoController extends Controller
         $this->exigir($request);
         $datos = $request->validate([
             'nombre' => ['required', 'string', 'max:150'],
+            'tipo' => ['nullable', 'string', Rule::in(array_column(TipoDocumentAsset::cases(), 'value'))],
             'archivo' => ['required', 'file', 'mimes:png,jpg,jpeg,webp', 'max:20480'],
             ...$this->reglasConfiguracion(),
         ]);
@@ -60,7 +62,7 @@ class DisenoDocumentoController extends Controller
 
         $this->diseno->subirFondo($archivo, $datos, $request->user());
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Fondo agregado a la biblioteca.']);
+        return back()->with('toast', ['type' => 'success', 'message' => 'Recurso agregado a la biblioteca.']);
     }
 
     public function update(Request $request, DocumentAsset $fondo): RedirectResponse

@@ -4,6 +4,7 @@ namespace App\Services\Nomina;
 
 use App\Enums\CategoriaDocumento;
 use App\Enums\EstadoReciboNomina;
+use App\Enums\FamiliaAdministrativa;
 use App\Enums\TipoConceptoNomina;
 use App\Models\Colaborador;
 use App\Models\Prestamo;
@@ -11,9 +12,10 @@ use App\Models\ReciboNomina;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\DocumentosAdministrativos\DatosDocumentoAdministrativo;
+use App\Services\DocumentosAdministrativos\DocumentoAdministrativoService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\Tareas\NotificadorRhService;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
@@ -47,6 +49,8 @@ class ReciboNominaService
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly AuditoriaService $auditoria,
         private readonly NotificadorRhService $notificador,
+        private readonly DocumentoAdministrativoService $documentosAdministrativos,
+        private readonly DatosDocumentoAdministrativo $datosDocumento,
     ) {}
 
     /**
@@ -499,25 +503,17 @@ class ReciboNominaService
         $actor ??= $recibo->generadoPor;
 
         try {
-            $contenido = Pdf::loadView('pdf.recibo-nomina', [
-                'recibo' => $recibo,
-                'colaborador' => $recibo->colaborador,
-                'periodo_inicio' => $recibo->periodo_inicio,
-                'periodo_fin' => $recibo->periodo_fin,
-                'fecha_pago' => $recibo->fecha_pago,
-                'percepciones' => $recibo->percepciones,
-                'deducciones' => $recibo->deducciones,
-                'conceptos' => $recibo->conceptos()->get(),
-                'total_percepciones' => (float) $recibo->total_percepciones,
-                'total_deducciones' => (float) $recibo->total_deducciones,
-                'neto' => (float) $recibo->neto,
-            ])->setPaper('letter', 'portrait')->output();
-
             if ($actor === null) {
                 throw ValidationException::withMessages(['recibo' => 'El recibo no tiene usuario generador.']);
             }
 
+            // DATOS del recibo (snapshot) + DISEÑO vigente de Documentos
+            // maestros → Documentos administrativos. El diseño no toca montos.
+            $documento = $this->documentosAdministrativos->generar(FamiliaAdministrativa::ReciboNomina, $this->datosDocumento->recibo($recibo), $actor);
+            $contenido = $documento['pdf'];
+
             $documento = $this->motor->registrarPdf($recibo->colaborador, $contenido, sprintf('Recibo de nómina %s', $recibo->folio ?? $recibo->id), $actor, [
+                ...$documento['opciones_registro'],
                 'clave' => 'recibo_nomina_interno',
                 'categoria' => CategoriaDocumento::NominaInterna,
                 'payload' => [

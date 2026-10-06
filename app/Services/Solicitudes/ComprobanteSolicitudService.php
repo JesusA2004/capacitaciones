@@ -3,24 +3,28 @@
 namespace App\Services\Solicitudes;
 
 use App\Enums\CategoriaDocumento;
+use App\Enums\FamiliaAdministrativa;
 use App\Enums\TipoSolicitudInterna;
 use App\Models\GeneratedDocument;
 use App\Models\SolicitudInterna;
 use App\Models\User;
+use App\Services\DocumentosAdministrativos\DatosDocumentoAdministrativo;
+use App\Services\DocumentosAdministrativos\DocumentoAdministrativoService;
 use App\Services\DocumentosLaborales\FlujoDocumentalService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Comprobante PDF de vacaciones y permisos aprobados, integrado al flujo
- * documental general: se archiva en el expediente (carpetas Vacaciones /
- * Permisos) como documento laboral del colaborador.
+ * Comprobante PDF de vacaciones y permisos aprobados, y constancia laboral
+ * de una solicitud de constancia aprobada, integrados al flujo documental
+ * general: se archivan en el expediente como documento del colaborador.
  *
  * Si Jurídico cargó una plantilla (claves comprobante_vacaciones /
- * comprobante_permiso) se usa esa; si no, se emite un comprobante interno
- * de datos (folio, fechas, días, quién aprobó) — no es un formato jurídico.
+ * comprobante_permiso / constancia_laboral) se usa esa; si no, se emite el
+ * documento administrativo con el diseño vigente de Documentos maestros →
+ * Documentos administrativos (Comprobante de solicitud / Constancia
+ * laboral) — no es un formato jurídico.
  * El formato oficial con firma (config/solicitudes.php → formatos) sigue
  * funcionando aparte, sin cambios.
  *
@@ -31,6 +35,8 @@ class ComprobanteSolicitudService
     public function __construct(
         private readonly MotorDocumentalService $motor,
         private readonly FlujoDocumentalService $flujo,
+        private readonly DocumentoAdministrativoService $documentosAdministrativos,
+        private readonly DatosDocumentoAdministrativo $datosDocumento,
     ) {}
 
     public function aplicaPara(SolicitudInterna $solicitud): bool
@@ -64,20 +70,27 @@ class ComprobanteSolicitudService
                 return null;
             }
 
-            $titulo = sprintf('%s %s', $solicitud->tipo === TipoSolicitudInterna::Vacaciones ? 'Comprobante de vacaciones' : 'Comprobante de permiso', $solicitud->folio);
+            $titulo = sprintf('%s %s', match ($solicitud->tipo) {
+                TipoSolicitudInterna::Vacaciones => 'Comprobante de vacaciones',
+                TipoSolicitudInterna::ConstanciaLaboral => 'Constancia laboral',
+                default => 'Comprobante de permiso',
+            }, $solicitud->folio);
 
             if ($this->motor->tienePlantillaActiva($clave)) {
                 $documento = $this->motor->generar($colaborador, $clave, $actor, $this->variables($solicitud), $solicitud, $titulo);
             } else {
-                $pdf = Pdf::loadView('pdf.comprobante-solicitud', [
-                    'solicitud' => $solicitud,
-                    'colaborador' => $colaborador,
-                    'titulo' => $titulo,
-                ])->setPaper('letter', 'portrait')->output();
+                $administrativo = $solicitud->tipo === TipoSolicitudInterna::ConstanciaLaboral
+                    ? $this->documentosAdministrativos->generar(FamiliaAdministrativa::ConstanciaLaboral, $this->datosDocumento->constancia($colaborador), $actor)
+                    : $this->documentosAdministrativos->generar(FamiliaAdministrativa::ComprobanteSolicitud, $this->datosDocumento->comprobante($solicitud, $colaborador), $actor);
 
-                $documento = $this->motor->registrarPdf($colaborador, $pdf, $titulo, $actor, [
+                $documento = $this->motor->registrarPdf($colaborador, $administrativo['pdf'], $titulo, $actor, [
+                    ...$administrativo['opciones_registro'],
                     'clave' => $clave,
-                    'categoria' => $solicitud->tipo === TipoSolicitudInterna::Vacaciones ? CategoriaDocumento::Vacaciones : CategoriaDocumento::Permisos,
+                    'categoria' => match ($solicitud->tipo) {
+                        TipoSolicitudInterna::Vacaciones => CategoriaDocumento::Vacaciones,
+                        TipoSolicitudInterna::ConstanciaLaboral => CategoriaDocumento::Personales,
+                        default => CategoriaDocumento::Permisos,
+                    },
                     'payload' => $this->variables($solicitud),
                     'documentable' => $solicitud,
                 ]);
@@ -100,6 +113,7 @@ class ComprobanteSolicitudService
     {
         return match ($solicitud->tipo) {
             TipoSolicitudInterna::Vacaciones => 'comprobante_vacaciones',
+            TipoSolicitudInterna::ConstanciaLaboral => 'constancia_laboral',
             TipoSolicitudInterna::PermisoConGoce,
             TipoSolicitudInterna::PermisoSinGoce,
             TipoSolicitudInterna::PermisoTiempo,

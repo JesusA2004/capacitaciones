@@ -6,13 +6,23 @@ Un solo módulo (`App\Models\SolicitudInterna`, tabla `solicitudes_internas`) pa
 
 `vacaciones`, `permiso_con_goce`, `permiso_sin_goce`, `permiso_tiempo`, `salida_temprano`, `llegada_tarde`, `incapacidad`, `constancia_laboral`, `actualizacion_datos`, `actualizacion_bancaria`, `reposicion_documental`, `prestamo`, `baja_colaborador`, `permiso_especial_cumpleanos`, `permiso_especial_paternidad`, `permiso_especial_fallecimiento`, `solicitud_general`.
 
-Cada tipo declara sus propias reglas de formulario vía métodos del enum: `usaRangoFechas()`, `usaHorario()` (un solo día, sin rango — permiso por horas/salida temprano/llegada tarde), `requiereDias()` (solo vacaciones), `requiereMonto()` (solo préstamo), `requiereColaboradorObjetivo()` (solo baja). El frontend (`Solicitudes/Index.vue`) muestra/oculta campos del formulario según esas banderas — no hay un formulario genérico único, cada tipo pide justo lo que necesita.
+Cada tipo declara cómo captura fechas con `modoFechas()` (`App\Enums\ModoFechasSolicitud`) y el catálogo `SolicitudesService::tiposConFormulario()` manda **solo** los campos de ese tipo (web y app construyen el formulario desde ahí):
+
+| Modo | Tipos | Campos | Regla |
+|---|---|---|---|
+| `duracion` | incapacidad, permiso con/sin goce, paternidad, fallecimiento | fecha de inicio + número de días | `fecha_fin = inicio + (días − 1)`, días **naturales** (incluye sábado y domingo). Ej.: 14-oct + 5 días → 18-oct |
+| `dias_especificos` | vacaciones | lista de días (`dias[]`) | días sueltos, sin domingo (`config/vacaciones.php` → `dias_no_computables`), sin repetidos, desde hoy, sin traslape con otras vacaciones vigentes, contra el saldo |
+| `horario` | permiso por horas, salida temprano, llegada tarde | fecha | un solo día |
+| `fecha_unica` | permiso de cumpleaños | fecha | un solo día |
+| `ninguna` | constancia, actualización de datos/bancaria, reposición, préstamo, general, baja | — | sin fechas |
+
+La fecha fin **nunca** se captura: la calcula `App\Services\Solicitudes\FechasSolicitudService`. Vacaciones guarda sus días en `solicitud_vacaciones_dias` (fecha única por solicitud) como fuente real; `fecha_inicio`/`fecha_fin`/`dias_solicitados` se siguen llenando (primer día, último día, cuántos) por compatibilidad con reportes, formatos y el saldo. Clientes anteriores que mandan `fecha_inicio` + `fecha_fin` se traducen a la misma regla (rango → duración natural; rango de vacaciones → sus días sin domingo). Feriados: todavía no hay catálogo, no se descuentan.
 
 ## Flujo de creación (`App\Services\Solicitudes\SolicitudesService::crear()`)
 
 Única puerta de entrada, usada tanto por el controlador web (`Solicitudes\SolicitudInternaController`) como por la API móvil. Reglas de negocio aplicadas ahí, no en los controladores:
 
-- **Vacaciones**: valida `dias_solicitados` contra el saldo disponible (`App\Services\Vacaciones\VacacionesService::saldo()`/`saldoColaborador()`, que suma lo ya usado/en trámite tanto del módulo legacy como del unificado por `colaborador_id` — nunca se puede rebasar el saldo por ningún camino).
+- **Vacaciones**: valida el número de días elegidos contra el saldo disponible (`App\Services\Vacaciones\VacacionesService::saldo()`/`saldoColaborador()`, que suma lo ya usado/en trámite tanto del módulo legacy como del unificado por `colaborador_id` — nunca se puede rebasar el saldo por ningún camino).
 - **Préstamo**: captura `monto_solicitado` y `plazo_meses`.
 - **Baja de colaborador**: requiere el permiso `solicitudes.bajas.crear` (no el genérico `solicitudes.crear` — un gerente puede pedir la baja de su equipo sin poder crear otros tipos de solicitud sobre sí mismo) y valida, vía `SolicitudInternaPolicy::crearBaja()`, que quien la crea tenga alcance organizacional sobre el colaborador objetivo (`Colaborador`, no `User` — el campo del formulario se llama `colaborador_objetivo_id` mandado por el sujeto, pero se guarda en `objetivo_colaborador_id`, el FK real hacia `colaboradores`).
 

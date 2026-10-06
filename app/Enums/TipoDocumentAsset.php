@@ -11,6 +11,7 @@ enum TipoDocumentAsset: string
     case Logo = 'logo';
     case MarcaAgua = 'watermark';
     case Imagen = 'image';
+    case Sello = 'stamp';
 
     public function etiqueta(): string
     {
@@ -19,6 +20,7 @@ enum TipoDocumentAsset: string
             self::Logo => 'Logo',
             self::MarcaAgua => 'Marca de agua',
             self::Imagen => 'Imagen',
+            self::Sello => 'Sello',
         };
     }
 }

@@ -57,13 +57,26 @@ Observaciones del Excel real (28-08-2026), reportadas sin corregir: San Juan del
 
 ## Vacantes automáticas
 
-`App\Services\Vacantes\VacanteAutoGenerationService::sincronizar($sucursalId, $puestoId)` abre o cierra una vacante marcada `generada_automaticamente = true` según si la plantilla autorizada sigue por encima de la actual — nunca duplica (a lo más una vacante automática abierta por par sucursal+puesto) ni toca vacantes creadas a mano por RH. Se llama automáticamente:
+**Regla única** (`HeadcountService::plantillaDePar()`):
 
-- Al aprobar una baja de colaborador (ver `docs/SOLICITUDES_UNIFICADAS.md`).
-- Al dar de alta a un colaborador.
-- Al cambiarlo de puesto o de sucursal: se sincronizan **los dos** pares — el que deja (puede abrir vacante) y al que llega (puede cerrarla).
+```
+faltantes = max(plantilla autorizada − ocupados reales, 0)
+```
+
+Ocupados reales = colaboradores vigentes (activo / en incorporación) titulares de ese puesto en esa sucursal (el Gestor volante cuenta como Gestor). `App\Services\Vacantes\VacanteAutoGenerationService::sincronizar($sucursalId, $puestoId)` abre, ajusta o cierra la vacante marcada `generada_automaticamente = true` con esa cifra — nunca duplica (a lo más una automática abierta por par sucursal+puesto; si quedaran dos, se cancela la más nueva) ni toca vacantes creadas a mano por RH. Se llama automáticamente:
+
+- **Cualquier** alta, baja, reactivación, cambio de puesto o de sucursal de un colaborador, venga de donde venga (alta digital, baja, movimiento laboral, edición de expediente, **migración inicial**, API): `App\Observers\ColaboradorPlantillaObserver` sincroniza el par de origen y el de destino al confirmar la transacción. Antes solo lo hacían algunos flujos y quedaban vacantes «1 plaza por cubrir» con la plaza ya ocupada (caso real: Coordinadora de Sucursal en Cuernavaca, «1 de 1 autorizadas ocupadas»).
 - Al capturar plantilla en el detalle de sucursal.
-- Al terminar `headcount:importar` (`sincronizarTodo()`, recorre todos los pares con target).
+- Al terminar `headcount:importar` (`sincronizarTodo()`).
+
+Resincronizar todo (producción incluida, idempotente, no toca vacantes manuales, no borra nada; cierra con motivo):
+
+```bash
+php artisan people:sincronizar-vacantes --simular   # solo muestra qué haría
+php artisan people:sincronizar-vacantes             # aplica (queda en la auditoría)
+```
+
+El listado (web y API) además se protege solo: una automática abierta cuya plaza ya no falta no se muestra como vacante real, y sus «plazas por cubrir» siempre salen del cálculo en vivo, nunca de la columna guardada.
 
 Regla operativa: cuando alguien se da de baja, plantilla actual baja y la vacante sube sola; cuando alguien se da de alta en esa (sucursal, puesto), plantilla actual sube y la vacante se cierra sola. Nunca hay que "crear la vacante a mano" para que esto funcione.
 
@@ -71,7 +84,7 @@ Regla operativa: cuando alguien se da de baja, plantilla actual baja y la vacant
 
 Arriba, **totales concretos** de lo que se está viendo (sin tarjetas de KPIs ni costos): cuántas plazas faltan de cada puesto —gerentes, gestores, etc.— y en qué sucursales (`VacantesListadoService::resumen()`); un clic en el puesto o en la sucursal filtra la lista. El costo **no** vive en Vacantes: el costo por colaborador contratado está en Campañas.
 
-Debajo, una fila por **vacante real**: qué puesto falta, en qué sucursal, cuántas plazas, desde cuándo (días abierta), cuántos candidatos lleva y la plantilla de ese par como contexto («4 de 5 autorizadas ocupadas»). Por defecto solo activas (sin cubiertas ni canceladas). La regla (alcance, filtros, KPIs) vive en `App\Services\Vacantes\VacantesListadoService`, compartido por la web (`Rh\VacanteController`) y la API móvil (`Api\V1\Rh\VacanteController`; ahora también devuelve solo activas si no se pide `estado`).
+Debajo, una fila por **vacante real**: qué puesto falta, en qué sucursal, cuántas plazas, desde cuándo (días abierta), cuántos candidatos lleva y la plantilla de ese par como contexto («4 de 5 ocupadas · 1 vacante en plantilla»). Por defecto solo activas (sin cubiertas ni canceladas). La regla (alcance, filtros, KPIs) vive en `App\Services\Vacantes\VacantesListadoService`, compartido por la web (`Rh\VacanteController`) y la API móvil (`Api\V1\Rh\VacanteController`; ahora también devuelve solo activas si no se pide `estado`).
 
 ## Matriz comercial vs. headcount
 

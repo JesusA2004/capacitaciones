@@ -1,9 +1,13 @@
 <?php
 
+use App\Enums\FamiliaAdministrativa;
 use App\Models\Colaborador;
 use App\Models\GeneratedDocument;
 use App\Models\ReciboNomina;
 use App\Models\User;
+use App\Services\DocumentosAdministrativos\DatosDocumentoAdministrativo;
+use App\Services\DocumentosAdministrativos\DisenoAdministrativoService;
+use App\Services\DocumentosAdministrativos\DocumentoAdministrativoService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Notification;
@@ -60,12 +64,14 @@ test('rh crea un recibo de nómina semanal con detalle, totales, folio y PDF en 
     expect(GeneratedDocument::query()->where('documentable_type', $recibo->getMorphClass())->where('documentable_id', $recibo->id)->exists())->toBeTrue();
 
     // El título es visible en el formato impreso (sin leyendas fiscales).
-    $html = view('pdf.recibo-nomina', [
-        'recibo' => $recibo, 'colaborador' => $this->colaborador, 'periodo_inicio' => $recibo->periodo_inicio,
-        'periodo_fin' => $recibo->periodo_fin, 'fecha_pago' => $recibo->fecha_pago, 'percepciones' => $recibo->percepciones,
-        'deducciones' => $recibo->deducciones, 'total_percepciones' => 4100.0, 'total_deducciones' => 400.0, 'neto' => 3700.0,
-    ])->render();
-    expect($html)->toContain('RECIBO DE NÓMINA')->not->toContain('CFDI');
+    // Mismo HTML que imprime el motor (diseño vigente de Documentos administrativos).
+    $familia = FamiliaAdministrativa::ReciboNomina;
+    $html = app(DocumentoAdministrativoService::class)->html(
+        $familia,
+        app(DatosDocumentoAdministrativo::class)->recibo($recibo),
+        app(DisenoAdministrativoService::class)->porDefecto($familia),
+    );
+    expect($html)->toContain('RECIBO DE NÓMINA')->toContain('$3,700.00')->not->toContain('CFDI');
 
     // Mismo periodo: no se duplica.
     $this->postJson("/api/v1/rh/colaboradores/{$this->colaborador->id}/recibos", clReciboPayload())->assertUnprocessable();

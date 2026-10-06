@@ -49,6 +49,7 @@
         "laravel-echo": "^2.5.0",
         "laravel-vite-plugin": "^3.0.0",
         "pdfjs-dist": "^4.10.38",
+        "puppeteer": "^25.12.0",
         "pusher-js": "^8.6.0",
         "reka-ui": "^2.10.4",
         "sweetalert2": "^11.26.25",

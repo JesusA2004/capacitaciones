@@ -324,7 +324,7 @@ class LayoutDocumentoService
     // ---------------------------------------------------------------------
 
     /**
-     * @param  array{nombre: string, fit_mode?: string|null, default_opacity?: int|string|null, safe_area_top_mm?: float|string|null, safe_area_right_mm?: float|string|null, safe_area_bottom_mm?: float|string|null, safe_area_left_mm?: float|string|null}  $datos
+     * @param  array{nombre: string, tipo?: string|null, fit_mode?: string|null, default_opacity?: int|string|null, safe_area_top_mm?: float|string|null, safe_area_right_mm?: float|string|null, safe_area_bottom_mm?: float|string|null, safe_area_left_mm?: float|string|null}  $datos
      */
     public function subirFondo(UploadedFile $archivo, array $datos, ?User $actor): DocumentAsset
     {
@@ -335,7 +335,7 @@ class LayoutDocumentoService
      * Registra un fondo desde bytes. Idempotente por SHA-256: si ese mismo
      * archivo ya existe con ese slug, devuelve el registro existente.
      *
-     * @param  array{nombre: string, fit_mode?: string|null, default_opacity?: int|string|null, safe_area_top_mm?: float|string|null, safe_area_right_mm?: float|string|null, safe_area_bottom_mm?: float|string|null, safe_area_left_mm?: float|string|null}  $datos
+     * @param  array{nombre: string, tipo?: string|null, fit_mode?: string|null, default_opacity?: int|string|null, safe_area_top_mm?: float|string|null, safe_area_right_mm?: float|string|null, safe_area_bottom_mm?: float|string|null, safe_area_left_mm?: float|string|null}  $datos
      */
     public function registrar(string $bytes, string $mime, array $datos, string $slug, ?User $actor, ?DocumentAsset $reemplazaA = null): DocumentAsset
     {
@@ -364,7 +364,8 @@ class LayoutDocumentoService
             $version = (int) DocumentAsset::query()->where('slug', $slug)->lockForUpdate()->max('version') + 1;
 
             return DocumentAsset::query()->create([
-                'tipo' => TipoDocumentAsset::Fondo,
+                // Fondo por defecto; la biblioteca también guarda logos, sellos y marcas de agua.
+                'tipo' => TipoDocumentAsset::tryFrom((string) ($datos['tipo'] ?? '')) ?? TipoDocumentAsset::Fondo,
                 'nombre' => $datos['nombre'],
                 'slug' => $slug,
                 'version' => $version,
@@ -400,6 +401,7 @@ class LayoutDocumentoService
     {
         $nuevo = $this->registrar((string) file_get_contents($archivo->getRealPath() ?: ''), (string) $archivo->getMimeType(), [
             'nombre' => $anterior->nombre,
+            'tipo' => $anterior->tipo->value,
             'fit_mode' => $anterior->fit_mode->value,
             'default_opacity' => $anterior->default_opacity,
             'safe_area_top_mm' => $anterior->safe_area_top_mm,
@@ -519,6 +521,7 @@ class LayoutDocumentoService
             'slug' => $asset->slug,
             'version' => $asset->version,
             'tipo' => $asset->tipo->value,
+            'tipo_etiqueta' => $asset->tipo->etiqueta(),
             'url_imagen' => route('rh.documentos-maestros.fondos.imagen', $asset),
             'mime_type' => $asset->mime_type,
             'width' => $asset->width,

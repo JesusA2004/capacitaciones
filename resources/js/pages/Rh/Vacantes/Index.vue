@@ -320,7 +320,7 @@ const TONO_ESTADO: Record<string, string> = {
             <li
                 v-for="vacante in vacantes"
                 :key="vacante.id"
-                class="grid gap-3 p-4 @3xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_auto] @3xl:items-center"
+                class="grid gap-3 p-4 transition-colors duration-150 first:rounded-t-xl last:rounded-b-xl hover:bg-muted/40 @3xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_auto] @3xl:items-center"
             >
                 <div class="min-w-0">
                     <p class="flex flex-wrap items-center gap-2 font-semibold">
