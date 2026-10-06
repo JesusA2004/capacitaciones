@@ -92,6 +92,10 @@ class SolicitudController extends Controller
                 'prestamo' => $solicitud->tipo === TipoSolicitudInterna::PrestamoInterno ? $this->prestamoDecision($usuario, $solicitud) : null,
                 'acciones_permitidas' => $flujo['acciones_permitidas'],
                 'workflow' => $flujo['workflow'],
+                // Cadena de vistos buenos jerárquicos (Gerente → Regional →
+                // Dirección Comercial) antes de llegar a RH — vacío si este
+                // tipo de solicitud no la requiere (ver AprobacionJerarquicaService).
+                'vistos_buenos' => $this->aprobaciones->resumen($solicitud),
                 'historial' => $solicitud->historial->map(fn (SolicitudInternaHistorial $h) => [
                     'accion' => $h->accion,
                     'accion_etiqueta' => $h->accion_etiqueta,

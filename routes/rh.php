@@ -147,6 +147,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('{candidato}', [CandidatoController::class, 'update'])->name('update');
             Route::post('{candidato}/cv', [CandidatoController::class, 'subirCv'])->name('cv');
             Route::get('{candidato}/cv/descargar', [CandidatoController::class, 'descargarCv'])->name('cv.descargar');
+            Route::get('{candidato}/cv/previsualizar', [CandidatoController::class, 'previsualizarCv'])->name('cv.previsualizar');
             Route::put('{candidato}/estado', [CandidatoController::class, 'actualizarEstado'])->name('estado');
             Route::post('{candidato}/seguimientos', [CandidatoController::class, 'agregarSeguimiento'])->name('seguimientos.store');
             Route::get('{candidato}/evidencias/{evidencia}', [CandidatoController::class, 'descargarEvidencia'])->name('evidencias.descargar');

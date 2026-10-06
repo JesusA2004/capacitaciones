@@ -88,12 +88,12 @@ test('paraColaborador(): incluye los de "todos" y los propios, y marcarLeido() s
     $item = $pagina->firstWhere('id', $general->id);
 
     expect($item)->not->toBeNull()
-        ->and($item->leido)->toBeFalse();
+        ->and($item['leido'])->toBeFalse();
 
     app(AvisoService::class)->marcarLeido($general, $usuario);
 
     $despues = app(AvisoService::class)->paraColaborador($colaborador)->firstWhere('id', $general->id);
-    expect($despues->leido)->toBeTrue()
+    expect($despues['leido'])->toBeTrue()
         ->and($general->lecturas()->count())->toBe(1);
 
     // Idempotente: abrirlo otra vez no duplica la fila.

@@ -3,7 +3,6 @@ import { Head, router } from '@inertiajs/vue3';
 import {
     Banknote,
     CalendarClock,
-    FileText,
     Percent,
     Plus,
     Target,
@@ -20,6 +19,7 @@ import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
 import CrudStats from '@/components/DataTable/CrudStats.vue';
 import CandidatoFormDialog from '@/components/Rh/CandidatoFormDialog.vue';
+import CandidatoTarjeta from '@/components/Rh/CandidatoTarjeta.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -50,7 +50,6 @@ import {
     index,
     show,
 } from '@/routes/rh/candidatos';
-import cv from '@/routes/rh/candidatos/cv';
 import type {
     CandidatoItem,
     CandidatosKpis,
@@ -201,30 +200,6 @@ const { filtros, aplicar, aplicarConDebounce, limpiar } = useFiltros(
 );
 const filtroSheetAbierto = ref(false);
 
-function fuenteEtiqueta(valor: string | null): string {
-    if (!valor) {
-        return '—';
-    }
-
-    return (
-        props.opciones.fuentes?.find((f) => f.value === valor)?.etiqueta ??
-        valor
-    );
-}
-
-function diasEnFase(candidato: CandidatoItem): number {
-    const fechaBase =
-        candidato.ultimo_cambio_estado?.fecha ?? candidato.created_at;
-
-    return Math.max(
-        0,
-        Math.floor((Date.now() - new Date(fechaBase).getTime()) / 86_400_000),
-    );
-}
-
-function ultimaNota(candidato: CandidatoItem): string | null {
-    return candidato.ultimo_seguimiento?.nota ?? null;
-}
 function urlExportar(
     destino: typeof exportarExcel | typeof exportarPdf,
 ): string {
@@ -578,69 +553,15 @@ function confirmarSalida() {
                         v-for="candidato in columna.candidatos"
                         :key="candidato.id"
                         draggable="true"
-                        class="flex cursor-pointer flex-col gap-2 rounded-xl border border-border/60 bg-card p-3 text-left shadow-sm transition-colors hover:border-primary/40"
+                        class="cursor-pointer rounded-xl border border-border/60 bg-card p-3 text-left shadow-sm transition-colors hover:border-primary/40"
                         @click="router.visit(show.url(candidato.id))"
                         @dragstart="arrastrando = candidato"
                         @dragend="arrastrando = null"
                     >
-                        <div>
-                            <p class="text-sm leading-tight font-semibold">
-                                {{
-                                    candidato.puesto_objetivo?.nombre ??
-                                    'Sin puesto objetivo'
-                                }}
-                            </p>
-                            <p class="text-xs text-muted-foreground">
-                                {{
-                                    `${candidato.nombre} ${candidato.apellidos ?? ''}`.trim()
-                                }}
-                            </p>
-                        </div>
-
-                        <div class="flex flex-wrap gap-1">
-                            <Badge
-                                v-if="candidato.sucursal"
-                                variant="outline"
-                                class="text-[10px] font-normal"
-                                >{{ candidato.sucursal.nombre }}</Badge
-                            >
-                            <Badge
-                                variant="outline"
-                                class="text-[10px] font-normal"
-                                >{{ fuenteEtiqueta(candidato.fuente) }}</Badge
-                            >
-                        </div>
-
-                        <div
-                            class="flex items-center justify-between text-[11px] text-muted-foreground"
-                        >
-                            <span class="truncate">{{
-                                candidato.responsable_rh
-                                    ? `${candidato.responsable_rh.name} ${candidato.responsable_rh.apellidos ?? ''}`.trim()
-                                    : 'Sin responsable'
-                            }}</span>
-                            <span class="shrink-0"
-                                >{{ diasEnFase(candidato) }} d. en fase</span
-                            >
-                        </div>
-
-                        <p
-                            v-if="ultimaNota(candidato)"
-                            class="line-clamp-1 text-[11px] text-muted-foreground italic"
-                        >
-                            "{{ ultimaNota(candidato) }}"
-                        </p>
-
-                        <a
-                            v-if="candidato.tiene_cv"
-                            :href="cv.descargar.url(candidato.id)"
-                            target="_blank"
-                            class="flex items-center gap-1 self-start rounded-md bg-muted px-2 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-muted/70"
-                            @click.stop
-                        >
-                            <FileText class="size-3" />
-                            Ver CV
-                        </a>
+                        <CandidatoTarjeta
+                            :candidato="candidato"
+                            :fuentes="opciones.fuentes"
+                        />
                     </div>
 
                     <p

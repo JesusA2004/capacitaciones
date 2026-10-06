@@ -253,6 +253,18 @@ class CandidatoController extends Controller
         ]);
     }
 
+    /** Vista previa embebida (iframe/img, nunca descarga forzada) — mismo patrón que descargarEvidencia(). */
+    public function previsualizarCv(Candidato $candidato): StreamedResponse
+    {
+        $this->authorize('view', $candidato);
+
+        abort_unless($candidato->cv_path !== null, 404);
+
+        return $this->cvStorage->respuesta($candidato->cv_path, [
+            'Content-Disposition' => 'inline; filename="'.$candidato->cv_original_name.'"',
+        ]);
+    }
+
     /**
      * Evidencia privada (socioeconómico/psicométricas): Policy + alcance,
      * nunca URL pública.
