@@ -89,6 +89,8 @@ export type CandidatoItem = {
     departamento: OpcionSimple | null;
     puesto_objetivo: OpcionSimple | null;
     vacante: { id: number; puesto_id: number | null } | null;
+    /** Sin vacante ligada todavía: pipeline general, no puede avanzar a contratación (CLAUDE.md §3). */
+    espontaneo: boolean;
     responsable_rh: {
         id: number;
         name: string;

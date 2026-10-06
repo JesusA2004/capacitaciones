@@ -10,6 +10,7 @@ use App\Enums\EstadoDocumento;
 use App\Enums\EstadoOnboarding;
 use App\Enums\EstadoReingreso;
 use App\Enums\EstadoUsuario;
+use App\Enums\EstadoVacante;
 use App\Enums\EtapaAprobacion;
 use App\Enums\ProcesoAprobacion;
 use App\Enums\TipoContratacion;
@@ -33,6 +34,7 @@ use App\Models\Sucursal;
 use App\Models\TareaRh;
 use App\Models\TipoActivo;
 use App\Models\User;
+use App\Models\Vacante;
 use App\Services\CicloLaboral\AprobacionService;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\CicloLaboral\ReingresoService;
@@ -125,11 +127,28 @@ afterEach(fn () => Carbon::setTestNow());
 
 function cfRegistrarCandidato(object $t, array $extra = []): Candidato
 {
+    $sucursalId = $extra['sucursal_id'] ?? $t->sucursalA->id;
+    $puestoId = $extra['puesto_objetivo_id'] ?? $t->puesto->id;
+
+    // Ya no existe el "pipeline general" sin vacante (CLAUDE.md §2-3): el
+    // candidato real del ciclo laboral siempre llega ligado a una vacante
+    // con plaza disponible, igual que en producción.
+    $vacanteId = $extra['vacante_id'] ?? Vacante::factory()->create([
+        'empresa_id' => $t->estructura['empresa']->id,
+        'sucursal_id' => $sucursalId,
+        'puesto_id' => $puestoId,
+        'estado' => EstadoVacante::Abierta->value,
+        'plazas_requeridas' => 1,
+        'plazas_disponibles' => 1,
+        'plazas_cubiertas' => 0,
+    ])->id;
+
     return app(CandidatoWorkflowService::class)->registrar([
         'empresa_id' => $t->estructura['empresa']->id,
-        'sucursal_id' => $t->sucursalA->id,
+        'sucursal_id' => $sucursalId,
         'departamento_id' => $t->estructura['departamento']->id,
-        'puesto_objetivo_id' => $t->puesto->id,
+        'puesto_objetivo_id' => $puestoId,
+        'vacante_id' => $vacanteId,
         'nombre' => 'Ana',
         'apellidos' => 'López Prueba',
         'telefono' => '5512345678',

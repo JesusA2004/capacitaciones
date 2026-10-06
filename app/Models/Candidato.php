@@ -21,6 +21,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $departamento_id
  * @property int|null $puesto_objetivo_id
  * @property int|null $vacante_id
+ * @property bool $espontaneo
  * @property int|null $campana_reclutamiento_id
  * @property string $nombre
  * @property string|null $apellidos
@@ -67,6 +68,7 @@ class Candidato extends Model
         'departamento_id',
         'puesto_objetivo_id',
         'vacante_id',
+        'espontaneo',
         'campana_reclutamiento_id',
         'nombre',
         'apellidos',
@@ -99,6 +101,7 @@ class Candidato extends Model
     {
         return [
             'estado' => EstadoCandidato::class,
+            'espontaneo' => 'boolean',
             'fecha_entrevista' => 'datetime',
             'contratado_en' => 'datetime',
             'cv_size' => 'integer',

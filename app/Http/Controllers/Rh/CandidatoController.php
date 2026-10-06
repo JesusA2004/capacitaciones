@@ -30,13 +30,13 @@ use App\Models\Empresa;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
-use App\Models\Vacante;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\Reclutamiento\CandidatoPresenter;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
 use App\Services\Reclutamiento\ContratacionCandidatoService;
 use App\Services\Reclutamiento\CvStorageService;
+use App\Services\Vacantes\VacantesListadoService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -65,6 +65,7 @@ class CandidatoController extends Controller
         private readonly ContratacionCandidatoService $contratacion,
         private readonly CicloLaboralService $ciclo,
         private readonly CandidatoPresenter $presenter,
+        private readonly VacantesListadoService $vacantesListado,
     ) {}
 
     public function index(Request $request): Response
@@ -79,7 +80,7 @@ class CandidatoController extends Controller
         return Inertia::render('Rh/Candidatos/Index', [
             'candidatos' => $candidatos,
             'filtros' => $request->only(self::FILTROS),
-            'opciones' => $this->opciones(),
+            'opciones' => $this->opciones($request->user()),
             'kpis' => $this->kpis($request),
         ]);
     }
@@ -202,7 +203,7 @@ class CandidatoController extends Controller
         return Inertia::render('Rh/Candidatos/Show', [
             'candidato' => $this->presenter->detalle($candidato),
             'ciclo' => $this->ciclo->obtenerEstado($candidato, $request->user()),
-            'opciones' => $this->opciones(),
+            'opciones' => $this->opciones($request->user()),
         ]);
     }
 
@@ -215,7 +216,7 @@ class CandidatoController extends Controller
 
     public function update(UpdateCandidatoRequest $request, Candidato $candidato): RedirectResponse
     {
-        $candidato->update($request->validated());
+        $this->workflow->actualizar($candidato, $request->validated(), $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Candidato actualizado correctamente.']);
     }
@@ -432,18 +433,21 @@ class CandidatoController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function opciones(): array
+    private function opciones(User $usuario): array
     {
         return [
             'empresas' => Empresa::query()->orderBy('nombre')->get(['id', 'nombre']),
             'sucursales' => Sucursal::query()->orderBy('nombre')->get(['id', 'nombre', 'empresa_id']),
             'departamentos' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
             'puestos' => Puesto::query()->orderBy('nombre')->get(['id', 'nombre', 'departamento_id']),
-            'vacantes' => Vacante::query()
-                ->whereNotIn('estado', ['cubierta', 'cancelada'])
+            // Única fuente de verdad de "vacante real" (plazas_autorizadas −
+            // ocupadas > 0): App\Services\Vacantes\VacantesListadoService,
+            // la misma que usa el listado de Vacantes (CLAUDE.md §2). Nunca
+            // una query propia aquí.
+            'vacantes' => $this->vacantesListado->consulta($usuario)
                 ->with(['puesto:id,nombre', 'sucursal:id,nombre'])
                 ->orderByDesc('fecha_apertura')
-                ->get(['id', 'puesto_id', 'sucursal_id']),
+                ->get(['id', 'puesto_id', 'sucursal_id', 'estado']),
             'responsables' => User::query()->role(['rh_admin', 'rh_auxiliar'])->orderBy('name')->get(['id', 'name', 'apellidos']),
             'gerentes' => User::query()->permission(CandidatoWorkflowService::PERMISO_GERENTE)->whereNull('acceso_bloqueado_en')->orderBy('name')->get(['id', 'name', 'apellidos']),
             'estados' => array_map(fn (EstadoCandidato $e) => ['value' => $e->value, 'etiqueta' => $e->etiqueta(), 'salida' => $e->esSalida()], EstadoCandidato::cases()),

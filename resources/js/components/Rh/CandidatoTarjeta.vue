@@ -83,12 +83,10 @@ const etiquetaFuente = computed(() => {
 });
 
 /**
- * La vacante define puesto/sucursal reales (no se vuelven a capturar
- * libres): si el candidato no tiene vacante asociada todavía es "pipeline
- * general" — se marca claramente para que RH sepa que falta vincularlo
- * antes de avanzar (sección 5 del encargo de rediseño).
+ * Marca explícita (CLAUDE.md §3): un candidato espontáneo no tiene vacante
+ * todavía y no puede avanzar a contratación hasta vincularse a una real.
  */
-const esEspontaneo = computed(() => props.candidato.vacante === null);
+const esEspontaneo = computed(() => props.candidato.espontaneo);
 
 function detenerArrastre(evento: Event) {
     // El botón de CV vive dentro de una tarjeta arrastrable (drag and drop

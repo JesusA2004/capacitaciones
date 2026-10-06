@@ -17,11 +17,13 @@ use App\Models\CandidatoPsicometrica;
 use App\Models\CandidatoReferencia;
 use App\Models\CandidatoSocioeconomico;
 use App\Models\User;
+use App\Models\Vacante;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\CicloLaboral\AprobacionService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Services\Tareas\TareaService;
+use App\Services\Vacantes\VacantesListadoService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
@@ -65,7 +67,29 @@ class CandidatoWorkflowService
         private readonly NotificadorRhService $notificador,
         private readonly AuditoriaService $auditoria,
         private readonly CvStorageService $almacenamiento,
+        private readonly VacantesListadoService $vacantesListado,
     ) {}
+
+    /**
+     * Única puerta de entrada para ligar (o relegar) un candidato a una
+     * vacante: bajo `lockForUpdate()` para que sea race-safe (CLAUDE.md §2)
+     * — si la plaza se cubrió entre que RH abrió el formulario y guardó,
+     * rechaza con un mensaje claro en vez de crear una sobre-ocupación.
+     */
+    private function validarVacanteDisponible(?int $vacanteId): void
+    {
+        if ($vacanteId === null) {
+            return;
+        }
+
+        $vacante = Vacante::query()->lockForUpdate()->find($vacanteId);
+
+        if ($vacante === null || ! $this->vacantesListado->tieneCupo($vacante)) {
+            throw ValidationException::withMessages([
+                'vacante_id' => 'Esta vacante ya fue cubierta. Elige otra vacante disponible.',
+            ]);
+        }
+    }
 
     /**
      * @param  array<string, mixed>  $datos  Validado por StoreCandidatoRequest.
@@ -73,6 +97,8 @@ class CandidatoWorkflowService
     public function registrar(array $datos, User $actor): Candidato
     {
         $candidato = DB::transaction(function () use ($datos, $actor): Candidato {
+            $this->validarVacanteDisponible(isset($datos['vacante_id']) ? (int) $datos['vacante_id'] : null);
+
             $candidato = Candidato::query()->create([
                 ...$datos,
                 'estado' => EstadoCandidato::Recibidos,
@@ -101,6 +127,40 @@ class CandidatoWorkflowService
         $this->abrirPendiente($candidato);
 
         return $candidato;
+    }
+
+    /**
+     * Edición de los datos del candidato (UpdateCandidatoRequest): bajo
+     * lockForUpdate para que, si cambia la vacante, sea race-safe igual que
+     * registrar(). No valida de nuevo una vacante que no cambió — RH no
+     * pierde al candidato porque alguien más haya cubierto esa plaza
+     * mientras tanto, esa consecuencia la resuelve la contratación.
+     *
+     * @param  array<string, mixed>  $datos  Validado por UpdateCandidatoRequest.
+     */
+    public function actualizar(Candidato $candidato, array $datos, User $actor): Candidato
+    {
+        $actualizado = DB::transaction(function () use ($candidato, $datos): Candidato {
+            $actual = Candidato::query()->lockForUpdate()->findOrFail($candidato->id);
+
+            $nuevaVacanteId = isset($datos['vacante_id']) ? (int) $datos['vacante_id'] : null;
+
+            if ($nuevaVacanteId !== $actual->vacante_id) {
+                $this->validarVacanteDisponible($nuevaVacanteId);
+            }
+
+            $actual->update($datos);
+
+            return $actual;
+        });
+
+        $this->auditoria->registrar('candidato_actualizado', $actualizado, $actor, [
+            'candidato_id' => $actualizado->id,
+            'vacante_id' => $actualizado->vacante_id,
+            'espontaneo' => $actualizado->espontaneo,
+        ]);
+
+        return $actualizado;
     }
 
     public function evaluarPerfil(Candidato $candidato, User $actor, bool $viable, ?string $observaciones): Candidato

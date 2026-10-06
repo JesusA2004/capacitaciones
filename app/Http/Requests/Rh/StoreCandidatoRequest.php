@@ -24,7 +24,10 @@ class StoreCandidatoRequest extends FormRequest
             'sucursal_id' => ['nullable', 'integer', 'exists:sucursales,id'],
             'departamento_id' => ['nullable', 'integer', 'exists:departamentos,id'],
             'puesto_objetivo_id' => ['nullable', 'integer', 'exists:puestos,id'],
-            'vacante_id' => ['nullable', 'integer', 'exists:vacantes,id'],
+            'espontaneo' => ['sometimes', 'boolean'],
+            // Sin vacante solo si el candidato es explícitamente espontáneo
+            // (CLAUDE.md §3): ya no existe el "pipeline general" implícito.
+            'vacante_id' => [Rule::requiredIf(fn () => ! $this->boolean('espontaneo')), 'nullable', 'integer', 'exists:vacantes,id'],
             'campana_reclutamiento_id' => ['nullable', 'integer', 'exists:campanas_reclutamiento,id'],
             'nombre' => ['required', 'string', 'max:150'],
             'apellidos' => ['nullable', 'string', 'max:150'],

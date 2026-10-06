@@ -160,6 +160,29 @@ class VacantesListadoService
     }
 
     /**
+     * Única fuente para decidir si una vacante todavía puede recibir un
+     * candidato (CLAUDE.md §2): cubierta/cancelada nunca, y una automática
+     * abierta solo si de verdad le falta plaza (autorizada − ocupada > 0),
+     * nunca por la columna guardada. Úsala SIEMPRE antes de ligar un
+     * candidato a una vacante (alta, edición, campañas) — bajo
+     * `lockForUpdate()` para que sea race-safe.
+     */
+    public function tieneCupo(Vacante $vacante): bool
+    {
+        if (in_array($vacante->estado, [EstadoVacante::Cubierta, EstadoVacante::Cancelada], true)) {
+            return false;
+        }
+
+        if (! $vacante->generada_automaticamente) {
+            return $vacante->plazas_disponibles > 0;
+        }
+
+        $plazas = $this->plazasReales(new EloquentCollection([$vacante]));
+
+        return ($plazas[$vacante->id] ?? 0) > 0;
+    }
+
+    /**
      * IDs de vacantes automáticas abiertas cuya plaza ya no falta
      * (autorizada − ocupada = 0). `people:sincronizar-vacantes` las cierra;
      * mientras tanto el listado no las muestra como vacantes reales.

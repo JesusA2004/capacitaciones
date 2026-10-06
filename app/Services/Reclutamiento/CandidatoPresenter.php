@@ -121,6 +121,7 @@ class CandidatoPresenter
             'puesto' => $candidato->puestoObjetivo?->nombre,
             'puesto_objetivo_id' => $candidato->puesto_objetivo_id,
             'vacante_id' => $candidato->vacante_id,
+            'espontaneo' => $candidato->espontaneo,
             'empresa_id' => $candidato->empresa_id,
             'departamento_id' => $candidato->departamento_id,
             'responsable_rh_id' => $candidato->responsable_rh_id,

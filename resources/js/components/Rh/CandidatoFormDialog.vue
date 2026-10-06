@@ -3,6 +3,7 @@ import { useForm } from '@inertiajs/vue3';
 import { computed, watch } from 'vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
     DialogContent,
@@ -45,6 +46,7 @@ const form = useForm({
         : '',
     puesto_objetivo_id: idComo(props.candidato?.puesto_objetivo),
     vacante_id: idComo(props.candidato?.vacante),
+    espontaneo: props.candidato?.espontaneo ?? false,
     nombre: props.candidato?.nombre ?? '',
     apellidos: props.candidato?.apellidos ?? '',
     telefono: props.candidato?.telefono ?? '',
@@ -53,12 +55,11 @@ const form = useForm({
     observaciones: props.candidato?.observaciones ?? '',
 });
 
-// El puesto objetivo se deriva de la vacante seleccionada (la vacante ya
-// nació de un puesto concreto: baja, headcount nuevo, etc.) — ver
-// Candidato::booted(). El select de "Puesto objetivo" solo aparece cuando
-// todavía no hay vacante (candidato en pipeline general, sin apertura
-// concreta), para no pedirle dos veces el mismo dato ni permitir que queden
-// inconsistentes.
+// El puesto/sucursal/empresa se derivan SIEMPRE de la vacante elegida (la
+// vacante ya nació de un puesto y sucursal concretos: baja, headcount
+// nuevo, etc.) — ver Candidato::booted(). Los selects manuales de puesto y
+// sucursal solo aparecen para un candidato EXPLÍCITAMENTE espontáneo (sin
+// vacante todavía): nunca se vuelve a preguntar lo que la vacante ya trae.
 const vacanteSeleccionada = computed(() =>
     props.opciones.vacantes?.find((v) => String(v.id) === form.vacante_id),
 );
@@ -70,6 +71,18 @@ watch(
             form.puesto_objetivo_id = String(
                 vacanteSeleccionada.value.puesto_id,
             );
+        }
+    },
+);
+
+watch(
+    () => form.espontaneo,
+    (esEspontaneo) => {
+        if (esEspontaneo) {
+            form.vacante_id = '';
+        } else {
+            form.puesto_objetivo_id = '';
+            form.sucursal_id = '';
         }
     },
 );
@@ -143,41 +156,14 @@ function enviar() {
                     </div>
                 </div>
 
-                <!-- La sucursal solo se pide a mano cuando el candidato
-                     todavía no tiene una vacante concreta (pipeline
-                     general); si ya eligió vacante, se deriva de ella (ver
-                     Candidato::booted()) y se muestra de solo lectura. -->
-                <div v-if="!form.vacante_id" class="grid gap-2">
-                    <Label>Sucursal</Label>
-                    <Select v-model="form.sucursal_id">
-                        <SelectTrigger class="w-full">
-                            <SelectValue placeholder="Sin sucursal" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in opciones.sucursales"
-                                :key="opcion.id"
-                                :value="String(opcion.id)"
-                                >{{ opcion.nombre }}</SelectItem
-                            >
-                        </SelectContent>
-                    </Select>
-                </div>
-                <div
-                    v-else
-                    class="rounded-lg border border-border/60 bg-muted/40 px-3 py-2 text-sm"
-                >
-                    <span class="text-muted-foreground">Sucursal: </span>
-                    <span class="font-medium">{{
-                        vacanteSeleccionada?.sucursal?.nombre ?? '—'
-                    }}</span>
-                </div>
-
-                <div class="grid gap-2">
-                    <Label>Vacante relacionada</Label>
+                <!-- Vacante: campo principal del alta. Puesto, sucursal y
+                     empresa salen SIEMPRE de ella (Candidato::booted()); no
+                     se vuelven a pedir aquí. -->
+                <div v-if="!form.espontaneo" class="grid gap-2">
+                    <Label>Vacante <span class="text-destructive">*</span></Label>
                     <Select v-model="form.vacante_id">
                         <SelectTrigger class="w-full">
-                            <SelectValue placeholder="Sin vacante asociada" />
+                            <SelectValue placeholder="Elige una vacante disponible" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem
@@ -188,41 +174,91 @@ function enviar() {
                             >
                         </SelectContent>
                     </Select>
+                    <InputError :message="form.errors.vacante_id" />
                     <p class="text-xs text-muted-foreground">
-                        Si el candidato aplica a una vacante abierta, elígela
-                        aquí: el puesto objetivo se toma automáticamente de
-                        ella.
+                        Solo se listan vacantes con plaza real disponible. Al
+                        elegirla, puesto y sucursal se toman automáticamente
+                        de ella.
                     </p>
                 </div>
 
-                <!-- El puesto objetivo solo se pide a mano cuando el
-                     candidato todavía no tiene una vacante concreta
-                     (pipeline general); si ya eligió vacante, se muestra
-                     de solo lectura para que quede claro de dónde sale. -->
-                <div v-if="!form.vacante_id" class="grid gap-2">
-                    <Label>Puesto objetivo</Label>
-                    <Select v-model="form.puesto_objetivo_id">
-                        <SelectTrigger class="w-full">
-                            <SelectValue placeholder="Sin puesto" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in opciones.puestos"
-                                :key="opcion.id"
-                                :value="String(opcion.id)"
-                                >{{ opcion.nombre }}</SelectItem
-                            >
-                        </SelectContent>
-                    </Select>
-                </div>
                 <div
-                    v-else
-                    class="rounded-lg border border-border/60 bg-muted/40 px-3 py-2 text-sm"
+                    v-if="!form.espontaneo && form.vacante_id"
+                    class="grid grid-cols-2 gap-4"
                 >
-                    <span class="text-muted-foreground">Puesto objetivo: </span>
-                    <span class="font-medium">{{
-                        vacanteSeleccionada?.puesto?.nombre ?? '—'
-                    }}</span>
+                    <div
+                        class="rounded-lg border border-border/60 bg-muted/40 px-3 py-2 text-sm"
+                    >
+                        <span class="text-muted-foreground">Puesto: </span>
+                        <span class="font-medium">{{
+                            vacanteSeleccionada?.puesto?.nombre ?? '—'
+                        }}</span>
+                    </div>
+                    <div
+                        class="rounded-lg border border-border/60 bg-muted/40 px-3 py-2 text-sm"
+                    >
+                        <span class="text-muted-foreground">Sucursal: </span>
+                        <span class="font-medium">{{
+                            vacanteSeleccionada?.sucursal?.nombre ?? '—'
+                        }}</span>
+                    </div>
+                </div>
+
+                <div class="flex items-start gap-2 rounded-lg border border-border/60 px-3 py-2">
+                    <Checkbox
+                        id="espontaneo"
+                        class="mt-0.5"
+                        :model-value="form.espontaneo"
+                        @update:model-value="(v) => (form.espontaneo = !!v)"
+                    />
+                    <label for="espontaneo" class="text-sm leading-snug">
+                        <span class="font-medium"
+                            >Candidato espontáneo / sin vacante actual</span
+                        >
+                        <p class="text-xs text-muted-foreground">
+                            Úsalo solo si todavía no hay una vacante abierta
+                            para él. No podrá avanzar a contratación hasta
+                            vincularlo a una vacante real disponible.
+                        </p>
+                    </label>
+                </div>
+
+                <!-- Candidato espontáneo: puesto de interés y sucursal son
+                     preferencia, no una vacante — se piden a mano porque
+                     todavía no existe una apertura concreta. -->
+                <div v-if="form.espontaneo" class="grid grid-cols-2 gap-4">
+                    <div class="grid gap-2">
+                        <Label>Puesto de interés</Label>
+                        <Select v-model="form.puesto_objetivo_id">
+                            <SelectTrigger class="w-full">
+                                <SelectValue placeholder="Sin puesto" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem
+                                    v-for="opcion in opciones.puestos"
+                                    :key="opcion.id"
+                                    :value="String(opcion.id)"
+                                    >{{ opcion.nombre }}</SelectItem
+                                >
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div class="grid gap-2">
+                        <Label>Sucursal preferida</Label>
+                        <Select v-model="form.sucursal_id">
+                            <SelectTrigger class="w-full">
+                                <SelectValue placeholder="Sin sucursal" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem
+                                    v-for="opcion in opciones.sucursales"
+                                    :key="opcion.id"
+                                    :value="String(opcion.id)"
+                                    >{{ opcion.nombre }}</SelectItem
+                                >
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </div>
 
                 <div class="grid gap-2">

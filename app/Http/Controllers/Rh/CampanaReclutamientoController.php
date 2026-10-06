@@ -13,9 +13,11 @@ use App\Models\Departamento;
 use App\Models\Empresa;
 use App\Models\Puesto;
 use App\Models\Sucursal;
+use App\Models\User;
 use App\Models\Vacante;
 use App\Services\Reclutamiento\CampanaReclutamientoService;
 use App\Services\Reclutamiento\CostoReclutamientoService;
+use App\Services\Vacantes\VacantesListadoService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -39,6 +41,7 @@ class CampanaReclutamientoController extends Controller
     public function __construct(
         private readonly CampanaReclutamientoService $servicio,
         private readonly CostoReclutamientoService $costos,
+        private readonly VacantesListadoService $vacantesListado,
     ) {}
 
     public function index(Request $request): Response
@@ -92,15 +95,45 @@ class CampanaReclutamientoController extends Controller
                 'departamentos' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
                 'puestos' => Puesto::query()->orderBy('nombre')->get(['id', 'nombre', 'departamento_id']),
                 'tiposCosto' => TipoCostoReclutamiento::opciones(),
-                'vacantes' => Vacante::query()->with(['puesto:id,nombre', 'sucursal:id,nombre'])->latest('fecha_apertura')->limit(300)->get()
-                    ->map(fn (Vacante $v) => ['id' => $v->id, 'etiqueta' => sprintf('#%d · %s · %s · %s', $v->id, $v->puesto->nombre ?? 'Sin puesto', $v->sucursal->nombre ?? 'Sin sucursal', $v->estado->etiqueta())])
-                    ->values(),
+                // Misma fuente de verdad que Candidatos/Vacantes
+                // (VacantesListadoService, CLAUDE.md §2): vacantes reales
+                // primero; se completan con las ya ligadas a una campaña
+                // existente (aunque hoy estén cubiertas/canceladas) para no
+                // romper el histórico de gasto de campañas pasadas.
+                'vacantes' => $this->vacantesSeleccionables($usuario),
                 'canales' => array_map(
                     fn (CanalReclutamiento $c) => ['value' => $c->value, 'etiqueta' => $c->etiqueta()],
                     CanalReclutamiento::cases(),
                 ),
             ],
         ]);
+    }
+
+    /**
+     * @return list<array{id: int, etiqueta: string}>
+     */
+    private function vacantesSeleccionables(User $usuario): array
+    {
+        $reales = $this->vacantesListado->consulta($usuario)
+            ->with(['puesto:id,nombre', 'sucursal:id,nombre'])
+            ->latest('fecha_apertura')
+            ->limit(300)
+            ->get();
+
+        $historicasIds = CampanaReclutamiento::query()
+            ->whereNotNull('vacante_id')
+            ->whereNotIn('vacante_id', $reales->pluck('id'))
+            ->distinct()
+            ->pluck('vacante_id');
+
+        $historicas = Vacante::query()
+            ->whereIn('id', $historicasIds)
+            ->with(['puesto:id,nombre', 'sucursal:id,nombre'])
+            ->get();
+
+        return array_values($reales->concat($historicas)
+            ->map(fn (Vacante $v) => ['id' => $v->id, 'etiqueta' => sprintf('#%d · %s · %s · %s', $v->id, $v->puesto->nombre ?? 'Sin puesto', $v->sucursal->nombre ?? 'Sin sucursal', $v->estado->etiqueta())])
+            ->all());
     }
 
     public function store(StoreCampanaReclutamientoRequest $request): RedirectResponse

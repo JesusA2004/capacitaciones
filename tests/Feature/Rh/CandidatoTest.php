@@ -1,12 +1,15 @@
 <?php
 
+use App\Enums\EstadoCandidato;
 use App\Models\Candidato;
 use App\Models\Empresa;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Models\Vacante;
+use App\Services\Reclutamiento\ContratacionCandidatoService;
 use Database\Seeders\RolesYPermisosSeeder;
+use Illuminate\Validation\ValidationException;
 
 beforeEach(function () {
     $this->seed(RolesYPermisosSeeder::class);
@@ -21,6 +24,8 @@ test('rh_admin puede registrar un candidato y queda un seguimiento inicial', fun
             'nombre' => 'Ana',
             'apellidos' => 'García',
             'correo' => 'ana.garcia@example.com',
+            // Sin vacante solo es válido si es explícitamente espontáneo.
+            'espontaneo' => true,
         ])
         ->assertSessionHasNoErrors();
 
@@ -134,4 +139,67 @@ test('puesto, sucursal y empresa del candidato se derivan de la vacante seleccio
     $candidato->refresh();
     expect($candidato->puesto_objetivo_id)->toBe($puesto->id)
         ->and($candidato->sucursal_id)->toBe($sucursal->id);
+});
+
+test('registrar un candidato sin vacante exige marcarlo explícitamente como espontáneo', function () {
+    $usuario = User::factory()->create();
+    $usuario->assignRole('rh_admin');
+
+    $this->actingAs($usuario)
+        ->post(route('rh.candidatos.store'), ['nombre' => 'Sin Vacante'])
+        ->assertSessionHasErrors('vacante_id');
+
+    $this->actingAs($usuario)
+        ->post(route('rh.candidatos.store'), ['nombre' => 'Espontáneo', 'espontaneo' => true])
+        ->assertSessionHasNoErrors();
+
+    $candidato = Candidato::where('nombre', 'Espontáneo')->firstOrFail();
+    expect($candidato->espontaneo)->toBeTrue()
+        ->and($candidato->vacante_id)->toBeNull();
+});
+
+test('una vacante ya cubierta se rechaza al guardar el candidato, race-safe', function () {
+    $usuario = User::factory()->create();
+    $usuario->assignRole('rh_admin');
+    $vacante = Vacante::factory()->create([
+        'estado' => 'cubierta',
+        'plazas_requeridas' => 1,
+        'plazas_disponibles' => 0,
+        'plazas_cubiertas' => 1,
+    ]);
+
+    $this->actingAs($usuario)
+        ->post(route('rh.candidatos.store'), ['nombre' => 'Tarde', 'vacante_id' => $vacante->id])
+        ->assertSessionHasErrors('vacante_id');
+
+    expect(Candidato::where('nombre', 'Tarde')->exists())->toBeFalse();
+});
+
+test('el listado de vacantes del formulario de candidato nunca incluye una vacante cubierta', function () {
+    $usuario = User::factory()->create();
+    $usuario->assignRole('rh_admin');
+    $abierta = Vacante::factory()->create(['estado' => 'abierta', 'plazas_disponibles' => 1]);
+    $cubierta = Vacante::factory()->create(['estado' => 'cubierta', 'plazas_disponibles' => 0]);
+
+    $this->actingAs($usuario)
+        ->get(route('rh.candidatos.index'))
+        ->assertInertia(fn ($page) => $page
+            ->where('opciones.vacantes', fn ($vacantes) => collect($vacantes)->pluck('id')->contains($abierta->id)
+                && ! collect($vacantes)->pluck('id')->contains($cubierta->id)));
+});
+
+test('un candidato espontáneo no puede iniciar contratación sin vincularse antes a una vacante', function () {
+    $usuario = User::factory()->create();
+    $usuario->assignRole('rh_admin');
+    $candidato = Candidato::factory()->create([
+        'vacante_id' => null,
+        'espontaneo' => true,
+        'estado' => EstadoCandidato::AutorizadoRh,
+    ]);
+
+    expect(fn () => app(ContratacionCandidatoService::class)->iniciarContratacion(
+        $candidato,
+        ['sucursal_principal_id' => Sucursal::factory()->create()->id, 'puesto_id' => Puesto::factory()->create()->id],
+        $usuario,
+    ))->toThrow(ValidationException::class);
 });

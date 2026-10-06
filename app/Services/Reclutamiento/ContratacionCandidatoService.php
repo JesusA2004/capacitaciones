@@ -73,6 +73,15 @@ class ContratacionCandidatoService
 
         $this->exigirAutorizado($candidato);
 
+        // Un espontáneo no puede avanzar a contratación sin vincularse antes
+        // a una vacante real disponible (CLAUDE.md §3): nunca se inventa una
+        // plaza para poder contratarlo.
+        if ($candidato->vacante_id === null) {
+            throw ValidationException::withMessages([
+                'vacante_id' => 'Este candidato es espontáneo: vincúlalo a una vacante disponible antes de iniciar su contratación.',
+            ]);
+        }
+
         $datosAlta = [
             ...$datos,
             'name' => $datos['name'] ?? $candidato->nombre,
