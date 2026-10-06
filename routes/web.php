@@ -8,7 +8,12 @@ use App\Http\Controllers\CertificadoVerificacionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\IncorporacionQrController;
 use App\Http\Controllers\NavigationModeController;
+use App\Http\Controllers\SeoController;
 use Illuminate\Support\Facades\Route;
+
+// SEO del sitio público (robots.txt y sitemap.xml con la URL real).
+Route::get('robots.txt', [SeoController::class, 'robots'])->name('seo.robots');
+Route::get('sitemap.xml', [SeoController::class, 'sitemap'])->name('seo.sitemap');
 
 // El index del sistema es el login: sin sesion se muestra el login, con
 // sesion se entra directo al dashboard/inicio. No hay landing intermedia.
