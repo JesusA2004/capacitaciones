@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { ChevronRight, DatabaseZap, FolderOpen } from '@lucide/vue';
+import { ChevronRight, DatabaseZap, FolderOpen, UserCog } from '@lucide/vue';
 import { computed } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
@@ -49,6 +49,7 @@ const props = defineProps<{
     departamentosDisponibles: OpcionSimple[];
     puestosDisponibles: OpcionSimple[];
     estados: EstadoUsuarioOpcion[];
+    datosIncompletosTotal: number;
 }>();
 
 defineOptions({
@@ -141,6 +142,21 @@ const sucursalActiva = computed(() =>
                 :url-pdf="urlExportar(exportarPdf)"
             />
         </CrudPageHeader>
+
+        <div
+            v-if="datosIncompletosTotal > 0"
+            class="flex items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100"
+        >
+            <UserCog class="size-4 shrink-0" />
+            <p>
+                <span class="font-semibold">{{ datosIncompletosTotal }}</span>
+                colaborador{{ datosIncompletosTotal === 1 ? '' : 'es' }}
+                requiere{{ datosIncompletosTotal === 1 ? '' : 'n' }} completar
+                información para poder generarle(s) documentos (contratos,
+                constancias…). Búscalo en la lista: su tarjeta lo marca con
+                «Faltan datos para generar documentos».
+            </p>
+        </div>
 
         <!-- Ruta de exploración: solo tiene sentido al entrar a una empresa;
              sin eso era un "Empresas" suelto ocupando una fila. -->

@@ -37,8 +37,12 @@ class VistoBuenoService
             if (! $aprobado) {
                 $this->solicitudes->rechazar($solicitud, $usuario, (string) $comentario);
             } elseif ($this->aprobaciones->tieneVistoBuenoJefe($solicitud) && $solicitud->estado === EstadoSolicitudInterna::Enviada) {
-                // Último visto bueno: ya puede autorizarla RH.
-                $this->solicitudes->marcarEnRevision($solicitud, $usuario, 'Con visto bueno del gerente y del regional.');
+                // Último visto bueno: ya puede autorizarla RH. El mensaje
+                // lista los niveles que REALMENTE aplicaron a esta
+                // solicitud (pueden ser 1, 2 o 3: gerente, regional y/o
+                // dirección comercial), nunca un texto fijo.
+                $niveles = implode(', ', array_map(fn (array $n): string => $n['etiqueta'], $this->aprobaciones->resumen($solicitud)));
+                $this->solicitudes->marcarEnRevision($solicitud, $usuario, sprintf('Con visto bueno de: %s.', $niveles));
             }
 
             return $decision;

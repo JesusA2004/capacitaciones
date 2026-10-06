@@ -3,6 +3,7 @@
 namespace App\Services\Colaboradores;
 
 use App\Models\User;
+use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Solicitudes\SolicitudesService;
 use App\Services\Vacaciones\VacacionesService;
 
@@ -20,6 +21,7 @@ class ColaboradorPerfilService
         private readonly SolicitudesService $solicitudes,
         private readonly NotificacionesService $notificaciones,
         private readonly FotoColaboradorService $fotos,
+        private readonly DocumentoProcesoService $documentoProceso,
     ) {}
 
     /**
@@ -49,6 +51,10 @@ class ColaboradorPerfilService
             'jefe_directo' => $colaborador?->jefe?->nombreCompleto(),
             'fecha_ingreso' => $colaborador?->fecha_ingreso?->toDateString(),
             'antiguedad_anios' => (int) ($colaborador?->fecha_ingreso?->diffInYears(now()) ?? 0),
+            // Mismo cálculo que el banner "Expediente incompleto" del
+            // sitio web (completitudAlta): el colaborador solo ve qué le
+            // falta, nunca edita el porcentaje ni el cálculo.
+            'completitud_datos' => $colaborador !== null ? $this->documentoProceso->completitudAlta($colaborador) : ['aplica' => false, 'porcentaje' => 100, 'total' => 0, 'completos' => 0, 'grupos' => [], 'faltantes' => []],
         ];
     }
 

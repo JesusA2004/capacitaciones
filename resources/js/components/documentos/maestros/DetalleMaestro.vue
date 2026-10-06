@@ -965,6 +965,20 @@ const fuenteDomicilio: Record<string, string> = {
                                         : ''
                                 }}</span
                             >
+                            <span
+                                v-else-if="
+                                    f.familia_encontrada &&
+                                    f.familia_encontrada !== f.fuente
+                                "
+                                class="text-[var(--mrl-texto-suave)]"
+                                >(resuelta como {{ f.familia_encontrada }})</span
+                            >
+                            <span
+                                v-if="f.archivo"
+                                class="truncate text-[var(--mrl-texto-suave)]"
+                                :title="f.archivo"
+                                >· {{ f.archivo.split(/[\\/]/).pop() }}</span
+                            >
                         </li>
                     </ul>
                 </div>

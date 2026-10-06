@@ -1,6 +1,7 @@
 import { usePage } from '@inertiajs/vue3';
 import {
     Activity,
+    BellRing,
     Briefcase,
     Building2,
     Cake,
@@ -40,6 +41,7 @@ import { index as indexPuestos } from '@/routes/administracion/puestos';
 import { index as indexRoles } from '@/routes/administracion/roles';
 import { index as indexSucursales } from '@/routes/administracion/sucursales';
 import { index as indexUsuarios } from '@/routes/administracion/usuarios';
+import { index as indexAvisosColaborador } from '@/routes/avisos';
 import { proximamente as capacitacionProximamente } from '@/routes/capacitacion';
 import { index as indexMuroFelicitaciones } from '@/routes/celebraciones';
 import {
@@ -48,6 +50,7 @@ import {
 } from '@/routes/portal';
 import { index as indexReportes } from '@/routes/reportes';
 import { index as indexAniversarios } from '@/routes/rh/aniversarios';
+import { index as indexAvisos } from '@/routes/rh/avisos';
 import { index as indexCambiosFoto } from '@/routes/rh/cambios-foto';
 import { index as indexCampanas } from '@/routes/rh/campanas';
 import { index as indexCandidatos } from '@/routes/rh/candidatos';
@@ -89,6 +92,11 @@ export function useMainNavItems() {
                 title: 'Mi expediente',
                 href: miExpediente(),
                 icon: FolderOpen,
+            },
+            {
+                title: 'Avisos',
+                href: indexAvisosColaborador(),
+                icon: BellRing,
             },
         ];
 
@@ -316,6 +324,15 @@ export function useMainNavItems() {
                 title: 'Documentos maestros',
                 href: indexDocumentosMaestros(),
                 icon: FileStack,
+            });
+        }
+
+        // Avisos: mensaje + imagen a toda la empresa o a un colaborador.
+        if (tienePermiso('avisos.enviar')) {
+            items.push({
+                title: 'Avisos',
+                href: indexAvisos(),
+                icon: BellRing,
             });
         }
 

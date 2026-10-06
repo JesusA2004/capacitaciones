@@ -28,6 +28,7 @@ use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Colaboradores\FotoColaboradorService;
+use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Expedientes\AvisoPrivacidadService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Expedientes\ExpedienteService;
@@ -70,6 +71,7 @@ class ExpedienteController extends Controller
         private readonly PrestamoService $prestamoService,
         private readonly FotoColaboradorService $fotos,
         private readonly JefeDirectoService $jefes,
+        private readonly DocumentoProcesoService $documentoProceso,
     ) {}
 
     /**
@@ -90,9 +92,14 @@ class ExpedienteController extends Controller
             ->withQueryString();
 
         $resumenes = $this->expediente->resumenesCompletitud($colaboradores->getCollection()->pluck('id'));
+        // Mismas columnas que exige el motor documental real (ver
+        // completitudAlta): se revisan en memoria sobre las filas ya
+        // cargadas, sin ninguna consulta extra por colaborador.
+        $columnasRequeridas = array_keys($this->documentoProceso->columnasColaboradorRequeridasGlobal());
 
-        $colaboradores->getCollection()->transform(function (Colaborador $colaborador) use ($resumenes) {
+        $colaboradores->getCollection()->transform(function (Colaborador $colaborador) use ($resumenes, $columnasRequeridas) {
             $resumen = $resumenes[$colaborador->id];
+            $datosFaltantes = collect($columnasRequeridas)->contains(fn (string $columna): bool => trim((string) ($colaborador->{$columna} ?? '')) === '');
 
             return [
                 'id' => $colaborador->id,
@@ -108,6 +115,7 @@ class ExpedienteController extends Controller
                 'puesto' => $colaborador->puesto,
                 'expediente_porcentaje' => $resumen['porcentaje'],
                 'documentos_pendientes' => $resumen['pendientes'] + $resumen['rechazados'],
+                'datos_incompletos' => $datosFaltantes,
                 'actualizado_en' => $colaborador->updated_at?->toDateString(),
             ];
         });
@@ -120,6 +128,10 @@ class ExpedienteController extends Controller
             'departamentosDisponibles' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
             'puestosDisponibles' => Puesto::query()->orderBy('nombre')->get(['id', 'nombre']),
             'estados' => array_map(fn (EstadoUsuario $estado) => ['value' => $estado->value, 'etiqueta' => $estado->etiqueta()], EstadoUsuario::cases()),
+            // Conteo real (no de esta página): cuántos colaboradores dentro
+            // de tu alcance tienen algún dato base vacío que un documento
+            // maestro activo requiere.
+            'datosIncompletosTotal' => $this->documentoProceso->contarDatosFaltantesRh($this->queryFiltrada($request)),
         ]);
     }
 
@@ -255,6 +267,7 @@ class ExpedienteController extends Controller
         ]);
 
         $resumen = $this->expediente->resumenCompletitud($colaborador);
+        $completitudDatos = $this->documentoProceso->completitudAlta($colaborador);
         $documentos = $this->expediente->documentosVigentes($colaborador);
         $alta = AltaDigital::query()->where('colaborador_id', $colaborador->id)->first();
 
@@ -334,6 +347,11 @@ class ExpedienteController extends Controller
                 'contacto_emergencia_telefono' => $colaborador->contacto_emergencia_telefono,
             ],
             'resumenExpediente' => $resumen,
+            // Datos (no documentos) que faltan para el paquete de
+            // contratación de ESTE puesto: distinto de resumenExpediente
+            // (documentos cargados/aprobados). Sale del mapping real de
+            // cada master, nunca de una lista de "obligatorios" inventada.
+            'completitudDatos' => $completitudDatos,
             // Historial de solo lectura de lo emitido con el motor anterior de
             // formatos oficiales: ya no se genera nada ahí (todo sale de
             // Documentos maestros), pero el expediente conserva lo que tenía.

@@ -12,6 +12,8 @@ export type ColaboradorExpedienteItem = {
     puesto: { id: number; nombre: string } | null;
     expediente_porcentaje: number;
     documentos_pendientes: number;
+    /** Le falta algún dato base (estado civil, domicilio, salario…) que un documento maestro activo requiere. */
+    datos_incompletos: boolean;
     actualizado_en: string | null;
 };
 
@@ -60,6 +62,16 @@ export type ResumenExpediente = {
     requeridos_aprobados: number;
     pendientes: number;
     rechazados: number;
+};
+
+/** Datos (no documentos) que faltan para el paquete de contratación del puesto. */
+export type CompletitudDatos = {
+    aplica: boolean;
+    porcentaje: number;
+    total: number;
+    completos: number;
+    grupos: Record<string, { etiqueta: string; ok: boolean; faltantes: string[] }>;
+    faltantes: { etiqueta: string; columna: string; documentos: string[] }[];
 };
 
 export type DocumentoExpedienteInfo = {

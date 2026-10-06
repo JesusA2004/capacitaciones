@@ -4,6 +4,7 @@ import { dashboard } from '@/routes';
 import type {
     AltaDigitalResumenExpediente,
     AvisosManualExpediente,
+    CompletitudDatos,
     DocumentoExpedienteItem,
     ExpedienteColaborador,
     MovimientoLaboralItem,
@@ -47,6 +48,7 @@ defineProps<{
     puedeGestionarAvisos: boolean;
     colaborador: ExpedienteColaborador;
     resumenExpediente: ResumenExpediente;
+    completitudDatos: CompletitudDatos;
     documentosRequeridos: DocumentoExpedienteItem[];
     onboarding: OnboardingItem[];
     altaDigital: AltaDigitalResumenExpediente;
@@ -104,6 +106,7 @@ defineOptions({
         :puede-gestionar-avisos="puedeGestionarAvisos"
         :colaborador="colaborador"
         :resumen-expediente="resumenExpediente"
+        :completitud-datos="completitudDatos"
         :documentos-requeridos="documentosRequeridos"
         :onboarding="onboarding"
         :alta-digital="altaDigital"

@@ -68,6 +68,9 @@ class RolesYPermisosSeeder extends Seeder
         'reportes.globales',
         'reportes.sucursal',
         'reportes.exportar',
+        // Avisos de RH: mensaje + imagen a toda la empresa o a un colaborador.
+        'avisos.ver',
+        'avisos.enviar',
         'integraciones.administrar',
         'configuracion.administrar',
         'auditoria.ver',
@@ -454,6 +457,7 @@ class RolesYPermisosSeeder extends Seeder
             // RH administra jefes directos, ruteo de avisos y parámetros de
             // RH; la apariencia institucional queda en super_admin.
             'configuracion.ver', 'configuracion.organizacion', 'configuracion.notificaciones', 'configuracion.rh',
+            'avisos.ver', 'avisos.enviar',
         ],
 
         // Apoyo operativo de RH: puede capturar/revisar pero no aprobar

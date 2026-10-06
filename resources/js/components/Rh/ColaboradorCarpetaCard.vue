@@ -6,6 +6,7 @@ import {
     FileWarning,
     MapPinned,
     User,
+    UserCog,
 } from '@lucide/vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -119,6 +120,13 @@ defineProps<{
                     <FileWarning class="size-3.5 shrink-0" />
                     {{ colaborador.documentos_pendientes }} documento(s)
                     pendiente(s)
+                </span>
+                <span
+                    v-if="colaborador.datos_incompletos"
+                    class="flex items-center gap-1.5 text-xs text-destructive"
+                >
+                    <UserCog class="size-3.5 shrink-0" />
+                    Faltan datos para generar documentos
                 </span>
             </div>
         </div>

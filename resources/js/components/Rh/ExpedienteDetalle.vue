@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import {
+    AlertTriangle,
     BadgeCheck,
     Briefcase,
     Building2,
@@ -115,6 +116,7 @@ import { edit as editSeguridad } from '@/routes/security';
 import { index as indexSolicitudes } from '@/routes/solicitudes';
 import type {
     AltaDigitalResumenExpediente,
+    CompletitudDatos,
     DocumentoExpedienteItem,
     AvisosManualExpediente,
     ExpedienteColaborador,
@@ -159,6 +161,7 @@ const props = defineProps<{
     puedeGestionarAvisos: boolean;
     colaborador: ExpedienteColaborador;
     resumenExpediente: ResumenExpediente;
+    completitudDatos: CompletitudDatos;
     documentosRequeridos: DocumentoExpedienteItem[];
     onboarding: OnboardingItem[];
     altaDigital: AltaDigitalResumenExpediente;
@@ -658,6 +661,15 @@ const pestanaInicial = (() => {
         ? solicitada
         : 'resumen';
 })();
+
+/** Mismo mecanismo que usan las notificaciones (?tab=…) para abrir la pestaña correcta. */
+function irACompletarExpediente() {
+    router.get(
+        window.location.pathname,
+        { tab: 'personales' },
+        { preserveScroll: true },
+    );
+}
 </script>
 
 <template>
@@ -839,6 +851,45 @@ const pestanaInicial = (() => {
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
+                </div>
+            </CardContent>
+        </Card>
+
+        <Card
+            v-if="completitudDatos.aplica && completitudDatos.porcentaje < 100"
+            class="border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950"
+        >
+            <CardContent class="flex flex-col gap-2 py-4">
+                <p
+                    class="flex items-center gap-2 text-sm font-medium text-amber-800 dark:text-amber-200"
+                >
+                    <AlertTriangle class="size-4" />
+                    Expediente incompleto
+                </p>
+                <p class="text-sm text-amber-800 dark:text-amber-200">
+                    Faltan
+                    {{ completitudDatos.faltantes.length }}
+                    dato{{ completitudDatos.faltantes.length === 1 ? '' : 's' }}
+                    que impiden generar los documentos de contratación:
+                </p>
+                <ul class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-amber-900 dark:text-amber-100">
+                    <li
+                        v-for="f in completitudDatos.faltantes"
+                        :key="f.columna"
+                        class="flex items-center gap-1"
+                    >
+                        • {{ f.etiqueta }}
+                    </li>
+                </ul>
+                <div class="mt-1">
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        class="border-amber-400 text-amber-900 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-100"
+                        @click="irACompletarExpediente"
+                    >
+                        Completar expediente
+                    </Button>
                 </div>
             </CardContent>
         </Card>

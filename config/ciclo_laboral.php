@@ -63,6 +63,11 @@ return [
     'organizacion' => [
         'puestos_gerencia_sucursal' => ['Gerente de Sucursal'],
         'puestos_gerencia_rh' => ['Gerencia de Recursos Humanos'],
+        // Nivel extra de visto bueno (antes de RH) cuando quien solicita YA
+        // es de gerencia o superior (Gerente de Mesa de Control, Contraloría,
+        // Responsable de Sistemas, Coordinadora Regional…): ver
+        // AprobacionJerarquicaService::esGerenciaOSuperior().
+        'puestos_direccion_comercial' => ['Dirección Comercial'],
     ],
 
     'cierre' => [

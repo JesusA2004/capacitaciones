@@ -28,11 +28,15 @@ class SolicitudAprobacion extends Model
     /** Visto bueno del regional de la región de la sucursal. */
     public const NIVEL_REGIONAL = 'regional';
 
+    /** Visto bueno extra cuando quien solicita ya es de gerencia o superior (antes de RH). */
+    public const NIVEL_DIRECCION_COMERCIAL = 'direccion_comercial';
+
     public static function etiquetaNivel(string $nivel): string
     {
         return match ($nivel) {
             self::NIVEL_JEFE_INMEDIATO => 'Gerente',
             self::NIVEL_REGIONAL => 'Regional',
+            self::NIVEL_DIRECCION_COMERCIAL => 'Dirección Comercial',
             default => $nivel,
         };
     }

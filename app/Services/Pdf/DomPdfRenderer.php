@@ -43,7 +43,9 @@ class DomPdfRenderer implements PdfRendererInterface
 
             return (string) $dompdf->output();
         } catch (Throwable $e) {
-            throw new PdfRendererException('DomPDF no pudo generar el documento: '.$e->getMessage(), 0, $e);
+            // Detalle técnico al log vía $e (excepción anterior); al
+            // usuario final solo un mensaje legible.
+            throw new PdfRendererException('El servicio de impresión (DomPDF) no pudo generar el documento.', 0, $e);
         }
     }
 }

@@ -80,11 +80,20 @@ class BrowsershotRenderer implements PdfRendererInterface
 
             return $navegador->pdf();
         } catch (Throwable $e) {
-            throw new PdfRendererException('Chrome (Browsershot) no pudo generar el documento: '.$e->getMessage(), 0, $e);
+            // El mensaje de Browsershot/Puppeteer incluye el comando de node
+            // completo, rutas del servidor y stack trace: nunca al usuario
+            // final (CLAUDE.md "No quiero pantallas técnicas"). Va completo
+            // al log vía la excepción anterior ($e); aquí solo un mensaje
+            // legible para RH.
+            throw new PdfRendererException('El servicio de impresión (Chrome) no está disponible en este momento.', 0, $e);
         }
     }
 
-    /** Chrome/Chromium en el PATH del proceso, o null si no hay. */
+    /**
+     * Chrome/Chromium del sistema (PATH) o, si no hay, el que Puppeteer
+     * descargó para esta versión (ver DetectorChromeHeadlessService): nunca
+     * se deja la ruta a la suerte del HOME del proceso.
+     */
     private function chromeDelSistema(): ?string
     {
         $buscador = new ExecutableFinder;
@@ -97,6 +106,6 @@ class BrowsershotRenderer implements PdfRendererInterface
             }
         }
 
-        return null;
+        return app(DetectorChromeHeadlessService::class)->detectar()['ruta'];
     }
 }

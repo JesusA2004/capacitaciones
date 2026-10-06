@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\AppConfigController;
 use App\Http\Controllers\Api\V1\AppReleaseController;
 use App\Http\Controllers\Api\V1\AppThemeController;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\AvisoController;
 use App\Http\Controllers\Api\V1\CelebracionController;
 use App\Http\Controllers\Api\V1\CicloLaboralColaboradorController;
 use App\Http\Controllers\Api\V1\ColaboradorController;
@@ -265,6 +266,15 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('leer-todas', [NotificacionController::class, 'marcarTodasLeidas'])->name('leer-todas');
             Route::post('{notificacion}/leer', [NotificacionController::class, 'marcarLeida'])->name('leer');
             Route::post('{notificacion}/abrir', [NotificacionController::class, 'abrir'])->name('abrir');
+        });
+
+        // Avisos de RH (mensaje + imagen, a toda la empresa o a este
+        // colaborador). Solo lectura: enviarlos sigue siendo exclusivo del
+        // Portal RH web (App\Http\Controllers\Rh\AvisoController).
+        Route::prefix('avisos')->name('avisos.')->group(function () {
+            Route::get('/', [AvisoController::class, 'index'])->name('index');
+            Route::post('{aviso}/leido', [AvisoController::class, 'marcarLeido'])->name('leido');
+            Route::get('{aviso}/imagen', [AvisoController::class, 'imagen'])->name('imagen');
         });
 
         // RH desde la app movil: expedientes completos, bandeja unificada,

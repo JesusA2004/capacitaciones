@@ -58,6 +58,7 @@ Route::middleware(['auth', 'verified'])->prefix('rh')->name('rh.')->group(functi
         Route::put('diseno/{familia}', [DisenoDocumentoController::class, 'updateFamilia'])->name('diseno.update')->where('familia', '[a-z0-9_.]+');
         Route::put('cobertura/puestos/{puesto}', [DocumentoMaestroController::class, 'decidirPuesto'])->name('cobertura.puesto');
         Route::get('colaboradores', [DocumentoMaestroController::class, 'buscarColaboradores'])->name('colaboradores')->middleware('throttle:60,1');
+        Route::post('revalidar-pendientes', [DocumentoMaestroController::class, 'revalidarPendientes'])->name('revalidar-pendientes')->middleware('throttle:5,1');
         Route::get('{master}', [DocumentoMaestroController::class, 'show'])->name('show')->whereNumber('master');
         Route::post('familia/{familia}/versiones', [DocumentoMaestroController::class, 'cargarVersion'])->name('versiones.store')->where('familia', '[a-z0-9_.]+')->middleware('throttle:10,1');
         Route::post('{master}/validar-diseno', [DocumentoMaestroController::class, 'validarDiseno'])->name('validar-diseno')->whereNumber('master')->middleware('throttle:10,1');

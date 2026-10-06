@@ -369,6 +369,21 @@ class OrganizacionJerarquiaService
     }
 
     /**
+     * Dirección Comercial: ocupantes activos de los puestos configurados
+     * (ciclo_laboral.organizacion.puestos_direccion_comercial). Visto bueno
+     * extra para quien YA es de gerencia o superior (ver
+     * AprobacionJerarquicaService::esGerenciaOSuperior).
+     *
+     * @return Collection<int, User>
+     */
+    public function direccionComercialDe(?Colaborador $persona = null): Collection
+    {
+        $puestos = $this->puestosConfigurados('puestos_direccion_comercial');
+
+        return $puestos === [] ? collect() : $this->usuariosDe($this->activos()->whereIn('puesto_id', $puestos)->get(), $persona);
+    }
+
+    /**
      * @return list<int>
      */
     private function puestosConfigurados(string $clave): array

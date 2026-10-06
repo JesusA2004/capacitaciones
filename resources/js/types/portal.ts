@@ -1,3 +1,5 @@
+import type { CompletitudDatos } from './rh';
+
 export type PerfilColaborador = {
     id: number;
     nombre: string;
@@ -13,6 +15,7 @@ export type PerfilColaborador = {
     jefe_directo: string | null;
     fecha_ingreso: string | null;
     antiguedad_anios: number;
+    completitud_datos: CompletitudDatos;
 };
 
 export type NotificacionPortalItem = {

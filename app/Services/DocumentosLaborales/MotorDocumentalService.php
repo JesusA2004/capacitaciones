@@ -413,23 +413,10 @@ class MotorDocumentalService
      */
     public function faltantesDe(DocumentTemplate $master, array $valores): array
     {
-        $mapping = (array) ($master->mapping ?? []);
-        $requeridos = [];
-
-        if (($mapping['motor'] ?? 'docx') === 'pdf_overlay') {
-            $requeridos = array_map('strval', (array) ($mapping['requeridos'] ?? []));
-        } else {
-            foreach ((array) ($mapping['instancias'] ?? []) as $instancia) {
-                if (is_array($instancia) && ! ($instancia['opcional'] ?? false)) {
-                    $requeridos[] = (string) $instancia['campo'];
-                }
-            }
-        }
-
         $faltantes = [];
         $bases = [];
 
-        foreach (array_unique($requeridos) as $campo) {
+        foreach ($this->camposRequeridosDe($master) as $campo) {
             if (trim((string) ($valores[$campo] ?? '')) !== '') {
                 continue;
             }
@@ -446,6 +433,73 @@ class MotorDocumentalService
         }
 
         return $faltantes;
+    }
+
+    /**
+     * Datos base (no campos de plantilla) que el master REQUIERE, sin
+     * importar si la persona ya los tiene o no — para medir completitud de
+     * expediente sin inventar una lista aparte de "obligatorios". Mismo
+     * mapping real que usa faltantesDe().
+     *
+     * @return array<string, string> base => un campo de plantilla representativo de esa base
+     */
+    public function basesRequeridasDe(DocumentTemplate $master): array
+    {
+        $bases = [];
+
+        foreach ($this->camposRequeridosDe($master) as $campo) {
+            $base = $this->datos->fuente($campo)['base'];
+            $bases[$base] ??= $campo;
+        }
+
+        return $bases;
+    }
+
+    /**
+     * Columnas REALES de `colaboradores` (nunca de relación, sucursal,
+     * proceso o captura manual) que este master requiere, con su tipo (para
+     * saber si además de NULL hay que revisar cadena vacía) — para revisar
+     * en bloque con una sola consulta SQL qué colaboradores tienen ese dato
+     * vacío (dashboard de RH), sin mantener la lista de columnas por
+     * separado del mapping real del documento.
+     *
+     * @return array<string, string> columna => tipo
+     */
+    public function columnasColaboradorRequeridasDe(DocumentTemplate $master): array
+    {
+        $columnas = [];
+
+        foreach ($this->basesRequeridasDe($master) as $campo) {
+            $fuente = $this->datos->fuente($campo);
+
+            if ($fuente['fuente'] === 'colaborador' && $fuente['tipo'] !== 'relacion') {
+                $columnas[$fuente['columna']] = $fuente['tipo'];
+            }
+        }
+
+        return $columnas;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function camposRequeridosDe(DocumentTemplate $master): array
+    {
+        $mapping = (array) ($master->mapping ?? []);
+
+        if (($mapping['motor'] ?? 'docx') === 'pdf_overlay') {
+            return array_values(array_unique(array_map('strval', (array) ($mapping['requeridos'] ?? []))));
+        }
+
+        $requeridos = [];
+
+        foreach ((array) ($mapping['instancias'] ?? []) as $instancia) {
+            if (is_array($instancia) && ! ($instancia['opcional'] ?? false)) {
+                $requeridos[] = (string) $instancia['campo'];
+            }
+        }
+
+        return array_values(array_unique($requeridos));
     }
 
     /**

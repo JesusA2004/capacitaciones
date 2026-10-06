@@ -225,10 +225,19 @@ export type BloqueoActivacion = {
     excepcionable: boolean;
 };
 
+export type ResultadoRevalidacion = {
+    familia: string;
+    version: number;
+    estado: 'validado' | 'fallido' | 'pendiente';
+    motivo: string;
+};
+
 export type FuenteDocumento = {
     fuente: string;
     disponible: boolean;
     sustitucion: string | null;
+    familia_encontrada: string | null;
+    archivo: string | null;
 };
 
 export type MasterDetalle = {

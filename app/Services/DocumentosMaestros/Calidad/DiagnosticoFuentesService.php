@@ -40,8 +40,11 @@ class DiagnosticoFuentesService
     /** Familias genéricas que todo conversor resuelve sin cambiar el diseño. */
     private const IGNORADAS = ['symbol', 'wingdings', 'ms mincho', 'ms gothic', 'simsun', 'mangal', 'arial unicode ms'];
 
+    /** Prefijo de la clave de caché de familias instaladas (ver {@see invalidarCache()}). */
+    private const CACHE_KEY_PREFIX = 'documentos-maestros:fuentes:';
+
     /**
-     * @return list<array{fuente: string, disponible: bool, sustitucion: string|null}>
+     * @return list<array{fuente: string, disponible: bool, sustitucion: string|null, familia_encontrada: string|null, archivo: string|null}>
      */
     public function diagnosticar(string $docx): array
     {
@@ -50,17 +53,31 @@ class DiagnosticoFuentesService
 
         foreach ($this->fuentesUsadas($docx) as $fuente) {
             $clave = mb_strtolower($fuente);
-            $existe = isset($disponibles[$clave]) || in_array($clave, self::IGNORADAS, true);
+            $info = $disponibles[$clave] ?? null;
+            $existe = $info !== null || in_array($clave, self::IGNORADAS, true);
             $sustituto = self::SUSTITUTOS[$clave] ?? null;
+            $infoSustituto = $sustituto !== null ? ($disponibles[mb_strtolower($sustituto)] ?? null) : null;
 
             $resultado[] = [
                 'fuente' => $fuente,
                 'disponible' => $existe,
-                'sustitucion' => ! $existe && $sustituto !== null && isset($disponibles[mb_strtolower($sustituto)]) ? $sustituto : null,
+                'sustitucion' => ! $existe && $infoSustituto !== null ? $sustituto : null,
+                'familia_encontrada' => $info['familia'] ?? null,
+                'archivo' => $info['archivo'] ?? null,
             ];
         }
 
         return $resultado;
+    }
+
+    /**
+     * Borra SOLO el caché de familias instaladas de este sistema operativo
+     * (no `cache:clear` global). Se llama antes de cada "Probar diseño" para
+     * que una fuente instalada hace un minuto se detecte de inmediato.
+     */
+    public function invalidarCache(): void
+    {
+        Cache::forget(self::CACHE_KEY_PREFIX.PHP_OS_FAMILY);
     }
 
     /**
@@ -115,21 +132,29 @@ class DiagnosticoFuentesService
     }
 
     /**
-     * Familias instaladas (minúsculas → true). Se cachea un día: instalar
-     * una fuente requiere limpiar caché (php artisan cache:clear).
+     * Familias instaladas (clave en minúsculas → nombre real y archivo que
+     * la resuelve). Se cachea un día, pero {@see invalidarCache()} se llama
+     * antes de cada prueba de diseño para que nunca quede una lista vieja.
      *
-     * @return array<string, true>
+     * @return array<string, array{familia: string, archivo: string|null}>
      */
     public function disponibles(): array
     {
         $forzadas = config('documentos_maestros.validacion_visual.fuentes_disponibles');
 
         if (is_array($forzadas)) {
-            return array_fill_keys(array_map(fn (mixed $f): string => mb_strtolower((string) $f), $forzadas), true);
+            $resultado = [];
+
+            foreach ($forzadas as $f) {
+                $nombre = (string) $f;
+                $resultado[mb_strtolower($nombre)] = ['familia' => $nombre, 'archivo' => null];
+            }
+
+            return $resultado;
         }
 
-        /** @var array<string, true> $familias */
-        $familias = Cache::remember('documentos-maestros:fuentes:'.PHP_OS_FAMILY, now()->addDay(), fn (): array => PHP_OS_FAMILY === 'Windows' ? $this->familiasWindows() : $this->familiasFontconfig());
+        /** @var array<string, array{familia: string, archivo: string|null}> $familias */
+        $familias = Cache::remember(self::CACHE_KEY_PREFIX.PHP_OS_FAMILY, now()->addDay(), fn (): array => PHP_OS_FAMILY === 'Windows' ? $this->familiasWindows() : $this->familiasFontconfig());
 
         return $familias;
     }
@@ -283,7 +308,7 @@ class DiagnosticoFuentesService
     }
 
     /**
-     * @return array<string, true>
+     * @return array<string, array{familia: string, archivo: string|null}>
      */
     private function familiasWindows(): array
     {
@@ -300,7 +325,11 @@ class DiagnosticoFuentesService
                 }
 
                 foreach (LectorNombreFuente::familias($archivo) as $familia) {
-                    $familias[mb_strtolower($familia)] = true;
+                    $clave = mb_strtolower($familia);
+
+                    if (! isset($familias[$clave])) {
+                        $familias[$clave] = ['familia' => $familia, 'archivo' => $archivo];
+                    }
                 }
             }
         }
@@ -309,12 +338,12 @@ class DiagnosticoFuentesService
     }
 
     /**
-     * @return array<string, true>
+     * @return array<string, array{familia: string, archivo: string|null}>
      */
     private function familiasFontconfig(): array
     {
         try {
-            $resultado = Process::timeout(30)->run(['fc-list', ':', 'family']);
+            $resultado = Process::timeout(30)->run(['fc-list', '--format', '%{file}\t%{family}\n']);
         } catch (Throwable) {
             return [];
         }
@@ -326,11 +355,24 @@ class DiagnosticoFuentesService
         $familias = [];
 
         foreach (preg_split('/\R/', $resultado->output()) ?: [] as $linea) {
-            foreach (explode(',', $linea) as $familia) {
+            if (! str_contains($linea, "\t")) {
+                continue;
+            }
+
+            [$archivo, $nombres] = explode("\t", $linea, 2);
+            $archivo = trim($archivo);
+
+            foreach (explode(',', $nombres) as $familia) {
                 $familia = trim(str_replace('\\-', '-', $familia));
 
-                if ($familia !== '') {
-                    $familias[mb_strtolower($familia)] = true;
+                if ($familia === '') {
+                    continue;
+                }
+
+                $clave = mb_strtolower($familia);
+
+                if (! isset($familias[$clave])) {
+                    $familias[$clave] = ['familia' => $familia, 'archivo' => $archivo !== '' ? $archivo : null];
                 }
             }
         }

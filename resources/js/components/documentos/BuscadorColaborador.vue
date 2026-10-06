@@ -6,11 +6,19 @@ import { colaboradores } from '@/routes/rh/documentos-maestros';
 import type { ColaboradorBusqueda } from '@/types';
 
 /**
- * Buscador de colaboradores para "Probar con colaborador": escribe nombre
- * o número de empleado y elige de la lista (nombre, número, puesto y
- * sucursal). Busca en el servidor (dentro del alcance de quien prueba);
- * nunca se captura un ID a mano.
+ * Buscador de colaboradores: escribe nombre o número de empleado y elige de
+ * la lista (nombre, número, puesto y sucursal). Busca en el servidor
+ * (dentro del alcance de quien pregunta); nunca se captura un ID a mano.
+ * Reutilizado por "Probar con colaborador" (documentos maestros) y por
+ * Avisos — cada quien pasa su propio endpoint de búsqueda, mismo criterio
+ * (DocumentosMaestrosAdminService::buscarColaboradores), nunca un segundo
+ * buscador.
  */
+const props = withDefaults(
+    defineProps<{ buscarUrl?: (texto: string) => string }>(),
+    { buscarUrl: (texto: string) => colaboradores.url({ query: { q: texto } }) },
+);
+
 const modelo = defineModel<ColaboradorBusqueda | null>({ default: null });
 
 const raiz = useTemplateRef('raiz');
@@ -31,7 +39,7 @@ const buscar = useDebounceFn(async (texto: string) => {
     error.value = null;
 
     try {
-        const r = await fetch(colaboradores.url({ query: { q: texto } }), {
+        const r = await fetch(props.buscarUrl(texto), {
             headers: { Accept: 'application/json' },
             credentials: 'same-origin',
         });

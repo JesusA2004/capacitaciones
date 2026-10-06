@@ -56,10 +56,53 @@ class AprobacionJerarquicaService
             ->reject(fn (User $u) => $gerentes->contains('id', $u->id))
             ->values();
 
-        return array_filter([
+        $niveles = array_filter([
             SolicitudAprobacion::NIVEL_JEFE_INMEDIATO => $this->sinPersona($gerentes, $persona),
             SolicitudAprobacion::NIVEL_REGIONAL => $this->sinPersona($regionales, $persona),
         ], fn (Collection $c) => $c->isNotEmpty());
+
+        // Quien YA es de gerencia o superior (p. ej. Gerente de Mesa de
+        // Control, Contraloría, Responsable de Sistemas, Coordinadora
+        // Regional…) no debe pasar directo a RH: falta Dirección Comercial.
+        // Los niveles anteriores suelen quedar vacíos para estos puestos
+        // (son ellos mismos la gerencia), así que esto casi siempre es el
+        // ÚNICO nivel previo a RH para esta gente.
+        if ($this->esGerenciaOSuperior($persona)) {
+            $yaIncluidos = collect($niveles)->flatMap(fn (Collection $c) => $c->pluck('id'));
+            $direccion = $this->sinPersona($this->organizacion->direccionComercialDe(), $persona)
+                ->reject(fn (User $u) => $yaIncluidos->contains($u->id))
+                ->values();
+
+            if ($direccion->isNotEmpty()) {
+                $niveles[SolicitudAprobacion::NIVEL_DIRECCION_COMERCIAL] = $direccion;
+            }
+        }
+
+        return $niveles;
+    }
+
+    /**
+     * true si la persona ocupa un puesto de gerencia o superior: el mismo
+     * puesto que normalmente APRUEBA a otros (gerente de sucursal, regional)
+     * o un nivel jerárquico de gerencia (1-3, ver SincronizadorOrganigramaService)
+     * capturado en su puesto. Nunca por el nombre del rol a mano: por el
+     * organigrama real ya configurado.
+     */
+    private function esGerenciaOSuperior(Colaborador $persona): bool
+    {
+        $puesto = $persona->puesto;
+
+        if ($puesto === null) {
+            return false;
+        }
+
+        $nombresGerencia = [...(array) config('ciclo_laboral.organizacion.puestos_gerencia_sucursal', []), ...(array) config('organigrama.puestos_de_region', [])];
+
+        if (in_array($puesto->nombre, $nombresGerencia, true)) {
+            return true;
+        }
+
+        return $puesto->nivel_jerarquico !== null && $puesto->nivel_jerarquico <= 3;
     }
 
     public function requiereVistoBuenoJefe(SolicitudInterna $solicitud): bool

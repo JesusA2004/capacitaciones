@@ -38,6 +38,12 @@ return [
         'chrome_path' => env('BROWSERSHOT_CHROME_PATH'),
         // Carpeta donde está node_modules/puppeteer (por defecto, la del proyecto).
         'node_modules_path' => env('BROWSERSHOT_NODE_MODULES_PATH', base_path('node_modules')),
+        // Dónde descarga Puppeteer chrome-headless-shell. Fijo por
+        // .puppeteerrc.cjs (base_path('.cache/puppeteer')) para que el
+        // usuario que corre `npm ci` (deploy) y www-data (PHP-FPM) miren la
+        // MISMA carpeta sin depender de HOME. Solo se sobreescribe aquí si
+        // el servidor usa una ruta distinta a propósito.
+        'puppeteer_cache_dir' => env('PUPPETEER_CACHE_DIR', base_path('.cache/puppeteer')),
         // PHP-FPM corre como www-data sin sandbox de usuario de Chrome.
         'no_sandbox' => (bool) env('BROWSERSHOT_NO_SANDBOX', true),
         'timeout' => (int) env('BROWSERSHOT_TIMEOUT', 60),

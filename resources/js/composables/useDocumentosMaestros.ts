@@ -3,11 +3,16 @@ import {
     activar,
     desactivar,
     probar,
+    revalidarPendientes,
     show,
     validarDiseno,
 } from '@/routes/rh/documentos-maestros';
 import { store as cargarVersionRuta } from '@/routes/rh/documentos-maestros/versiones';
-import type { MasterDetalle, ResultadoPruebaMaster } from '@/types';
+import type {
+    MasterDetalle,
+    ResultadoPruebaMaster,
+    ResultadoRevalidacion,
+} from '@/types';
 
 /**
  * Cliente JSON de Administración → Documentos maestros. Los errores llegan
@@ -98,5 +103,11 @@ export function useDocumentosMaestros() {
             solicitar<{ data: ResultadoPruebaMaster }>('POST', probar.url(id), {
                 colaborador_id: colaboradorId,
             }).then((r) => r.data),
+
+        revalidarPendientes: () =>
+            solicitar<{ message: string; data: ResultadoRevalidacion[] }>(
+                'POST',
+                revalidarPendientes.url(),
+            ),
     };
 }

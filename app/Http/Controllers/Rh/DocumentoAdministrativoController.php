@@ -135,9 +135,18 @@ class DocumentoAdministrativoController extends Controller
         try {
             $pdf = $this->documentos->vistaPrevia($familia, $plantilla);
         } catch (PdfRendererException $e) {
-            Log::warning('Vista previa de documento administrativo: el motor falló.', ['familia' => $familia->value, 'error' => $e->getMessage()]);
+            // El detalle técnico (comando de node, rutas, stack) va al log;
+            // RH solo ve un mensaje corto y una acción concreta.
+            Log::warning('Vista previa de documento administrativo: el motor de impresión falló.', [
+                'familia' => $familia->value,
+                'error' => $e->getPrevious()?->getMessage() ?? $e->getMessage(),
+            ]);
 
-            return response($e->getMessage().' Revisa la configuración del servidor (php artisan people:diagnostico-pdf) o cambia el motor de esta versión a DomPDF.', 503, ['Content-Type' => 'text/plain; charset=UTF-8']);
+            return response(
+                $e->getMessage().' Sistemas puede revisar el diagnóstico del servidor (php artisan people:diagnostico-pdf) o cambiar el motor de esta versión a DomPDF.',
+                503,
+                ['Content-Type' => 'text/plain; charset=UTF-8'],
+            );
         }
 
         return response($pdf, 200, [

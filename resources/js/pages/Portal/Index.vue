@@ -9,6 +9,7 @@ import {
     Clock,
     FolderOpen,
     ListChecks,
+    UserCog,
     UserRound,
 } from '@lucide/vue';
 import { computed } from 'vue';
@@ -65,6 +66,10 @@ const porHacer = computed(
 const enEspera = computed(
     () => props.pendientes?.pendientes.filter((p) => p.tipo === 'espera') ?? [],
 );
+
+const urlCompletarDatos = indexSolicitudes.url({
+    query: { nueva: 'actualizacion_datos' },
+});
 
 const accesos = computed(() => [
     {
@@ -167,6 +172,32 @@ const enlace =
                 </Link>
             </div>
         </div>
+
+        <section
+            v-if="
+                perfil.completitud_datos.aplica &&
+                perfil.completitud_datos.porcentaje < 100
+            "
+            class="flex flex-col gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950"
+        >
+            <p
+                class="flex items-center gap-2 text-sm font-medium text-amber-800 dark:text-amber-200"
+            >
+                <UserCog class="size-4 shrink-0" />
+                Te faltan
+                {{ perfil.completitud_datos.faltantes.length }}
+                dato{{
+                    perfil.completitud_datos.faltantes.length === 1 ? '' : 's'
+                }}
+                para que podamos generarte tus documentos de contratación.
+            </p>
+            <Link
+                :href="urlCompletarDatos"
+                class="self-start text-sm font-semibold text-amber-900 underline underline-offset-2 dark:text-amber-100"
+            >
+                Solicitar actualización de mis datos
+            </Link>
+        </section>
 
         <!-- Lo que necesitas hacer (sin nombres de etapas internas) -->
         <section

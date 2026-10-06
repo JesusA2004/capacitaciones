@@ -11,6 +11,7 @@ import {
     Handshake,
     Loader2,
     LogOut,
+    RefreshCw,
     Search,
     ShieldQuestion,
     UserRoundX,
@@ -189,6 +190,30 @@ function alActualizar(nuevo: MasterDetalle) {
     router.reload({ only: ['masters', 'kpis'] });
 }
 
+// ───────── Revalidar pendientes (con el estado actual del servidor) ─────────
+const revalidando = ref(false);
+
+async function revalidarPendientes() {
+    revalidando.value = true;
+
+    try {
+        const r = await api.revalidarPendientes();
+        const fallidas = r.data.filter((f) => f.estado === 'fallido').length;
+        toast[fallidas > 0 ? 'warning' : 'success'](r.message);
+        router.reload({ only: ['masters', 'kpis'] });
+
+        if (detalle.value) {
+            detalle.value = await api.detalle(detalle.value.id);
+        }
+    } catch (e) {
+        toast.error(
+            e instanceof Error ? e.message : 'No se pudo revalidar.',
+        );
+    } finally {
+        revalidando.value = false;
+    }
+}
+
 // ───────── Nueva versión ─────────
 const familiaCarga = ref<MasterAdminFila | null>(null);
 const archivos = ref<File[]>([]);
@@ -246,6 +271,15 @@ function tamano(bytes: number): string {
             descripcion="Formatos oficiales utilizados automáticamente por PEOPLE en cada proceso."
             :icono="FileStack"
         >
+            <Button
+                variant="outline"
+                :disabled="revalidando"
+                @click="revalidarPendientes"
+            >
+                <Loader2 v-if="revalidando" class="size-4 animate-spin" />
+                <RefreshCw v-else class="size-4" />
+                Revalidar pendientes
+            </Button>
             <Button variant="outline" as="a" :href="cobertura.url()">
                 <Users class="size-4" /> Cobertura por puesto
             </Button>

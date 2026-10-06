@@ -214,6 +214,46 @@ class DocumentosMaestrosAdminService
     }
 
     /**
+     * "Revalidar pendientes": repite el QA visual de TODAS las versiones
+     * operativas pendientes o fallidas con el estado ACTUAL del servidor
+     * (p. ej. después de instalar una fuente). No reimporta, no crea
+     * versiones nuevas y nunca activa nada; usa el mismo
+     * ValidacionVisualMaestroService::validar() que "Probar diseño", así
+     * que también invalida el caché de fuentes antes de cada corrida.
+     *
+     * @return list<array{familia: string, version: int, estado: string, motivo: string}>
+     */
+    public function revalidarPendientes(?User $actor = null): array
+    {
+        $pendientes = DocumentTemplate::query()
+            ->whereNotNull('estado_master')
+            ->where('operativo', true)
+            ->whereIn('visual_validation_status', [EstadoValidacionVisual::Pendiente, EstadoValidacionVisual::Fallida])
+            ->orderBy('familia')
+            ->orderByDesc('version')
+            ->get();
+
+        $mapeado = $pendientes->map(function (DocumentTemplate $master) use ($actor): array {
+            try {
+                $resultado = $this->validacion->validar($master, $actor);
+            } catch (Throwable $e) {
+                return ['familia' => $master->familia ?? '', 'version' => $master->version, 'estado' => 'fallido', 'motivo' => mb_substr($e->getMessage(), 0, 150)];
+            }
+
+            $estado = match ($resultado->visual_validation_status) {
+                EstadoValidacionVisual::Aprobada => 'validado',
+                EstadoValidacionVisual::Fallida => 'fallido',
+                EstadoValidacionVisual::Pendiente => 'pendiente',
+            };
+            $problemas = (array) ($resultado->visual_report['problemas'] ?? []);
+
+            return ['familia' => $master->familia ?? '', 'version' => $master->version, 'estado' => $estado, 'motivo' => $estado === 'validado' ? '' : (string) ($problemas[0] ?? 'Sin detalle.')];
+        })->all();
+
+        return array_values($mapeado);
+    }
+
+    /**
      * "Probar con colaborador": vista previa (no se guarda en el expediente)
      * + resumen comparativo ORIGINAL vs GENERADO. El PDF de la prueba se
      * guarda en el disco privado con un token de un solo uso de lectura
@@ -430,7 +470,7 @@ class DocumentosMaestrosAdminService
     }
 
     /**
-     * @return list<array{fuente: string, disponible: bool, sustitucion: string|null}>
+     * @return list<array{fuente: string, disponible: bool, sustitucion: string|null, familia_encontrada: string|null, archivo: string|null}>
      */
     private function diagnosticoFuentes(DocumentTemplate $master): array
     {
@@ -445,7 +485,13 @@ class DocumentosMaestrosAdminService
 
             foreach ($guardado as $fuente) {
                 if (is_array($fuente) && isset($fuente['fuente'])) {
-                    $lista[] = ['fuente' => (string) $fuente['fuente'], 'disponible' => (bool) ($fuente['disponible'] ?? false), 'sustitucion' => isset($fuente['sustitucion']) ? (string) $fuente['sustitucion'] : null];
+                    $lista[] = [
+                        'fuente' => (string) $fuente['fuente'],
+                        'disponible' => (bool) ($fuente['disponible'] ?? false),
+                        'sustitucion' => isset($fuente['sustitucion']) ? (string) $fuente['sustitucion'] : null,
+                        'familia_encontrada' => isset($fuente['familia_encontrada']) ? (string) $fuente['familia_encontrada'] : null,
+                        'archivo' => isset($fuente['archivo']) ? (string) $fuente['archivo'] : null,
+                    ];
                 }
             }
 

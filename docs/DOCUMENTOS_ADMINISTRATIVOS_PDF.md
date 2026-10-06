@@ -69,4 +69,22 @@ cd /var/www/people && PUPPETEER_SKIP_DOWNLOAD=1 npm ci
 php artisan people:diagnostico-pdf
 ```
 
-`people:diagnostico-pdf` muestra las rutas detectadas y hace una impresión real de prueba con cada motor (no guarda nada).
+`people:diagnostico-pdf` muestra node/npm con versión, Chrome del sistema, el `chrome-headless-shell` que Puppeteer haya descargado, permiso de ejecución, usuario del proceso, y hace una impresión real de prueba con cada motor (no guarda nada). Corre también como lo hace PHP-FPM:
+
+```bash
+sudo -u www-data php artisan people:diagnostico-pdf
+```
+
+### "Could not find chrome-headless-shell" (Puppeteer no encuentra su navegador)
+
+Si se optó por NO usar `PUPPETEER_SKIP_DOWNLOAD=1` (Puppeteer descarga su propio navegador), ese navegador se guarda bajo el `HOME` del usuario que corrió `npm ci` (p. ej. `root` en el deploy: `/root/.cache/puppeteer`). PHP-FPM corre como `www-data`, con otro `HOME` (típicamente `/var/www`): busca en `/var/www/.cache/puppeteer`, no lo encuentra, y falla aunque la instalación fue correcta.
+
+`.puppeteerrc.cjs` fija esa carpeta DENTRO del proyecto (`.cache/puppeteer`, ignorada en git) para que el deploy y `www-data` lean la misma ruta sin depender de ningún `HOME`. `App\Services\Pdf\DetectorChromeHeadlessService` escanea esa carpeta (nunca adivina el nombre de la build) y `BrowsershotRenderer` la usa como respaldo si no hay Chrome del sistema en el `PATH` ni `BROWSERSHOT_CHROME_PATH` configurado.
+
+Para reinstalar con la ruta correcta:
+
+```bash
+PUPPETEER_CACHE_DIR=/var/www/people/.cache/puppeteer npx puppeteer browsers install chrome-headless-shell
+```
+
+Sigue siendo preferible la Opción A documentada arriba (Chrome del sistema vía apt + `BROWSERSHOT_CHROME_PATH`): es la ruta que `people:diagnostico-pdf` recomienda primero si no encuentra nada.

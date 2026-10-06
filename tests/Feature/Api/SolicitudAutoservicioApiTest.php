@@ -116,7 +116,7 @@ test('el colaborador ve el avance de su prestamo sin datos internos de RH', func
         ->and($prestamo['prestamo_id'])->toBeNull()
         ->and(collect($prestamo['etapas'])->pluck('estado', 'clave')->all())->toBe([
             'solicitud' => 'hecho',
-            'visto_bueno' => 'actual',
+            'visto_bueno_jefe_inmediato' => 'actual',
             'autorizacion' => 'pendiente',
             'firma' => 'pendiente',
         ]);
@@ -126,7 +126,7 @@ test('el colaborador ve el avance de su prestamo sin datos internos de RH', func
 
     Sanctum::actingAs($cuenta);
     $despues = $this->getJson("/api/v1/solicitudes/{$id}")->json('prestamo') ?? $this->getJson("/api/v1/solicitudes/{$id}")->json('data.prestamo');
-    expect(collect($despues['etapas'])->pluck('estado', 'clave')->all())->toMatchArray(['visto_bueno' => 'hecho', 'autorizacion' => 'actual']);
+    expect(collect($despues['etapas'])->pluck('estado', 'clave')->all())->toMatchArray(['visto_bueno_jefe_inmediato' => 'hecho', 'autorizacion' => 'actual']);
 });
 
 test('una solicitud que no es prestamo no trae bloque de seguimiento', function () {

@@ -29,10 +29,14 @@ use App\Services\CicloLaboral\OrganizacionJerarquiaService;
 use App\Services\DocumentosLaborales\FlujoDocumentalService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\Expedientes\ExpedienteService;
+use App\Services\Expedientes\ProgresoExpediente;
 use App\Services\Nomina\PrestamoAutorizacionService;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -153,6 +157,203 @@ class DocumentoProcesoService
             'documentos' => $items,
             'cobertura_url' => $this->puedeVerCobertura($viewer) ? '/rh/documentos-maestros/cobertura' : null,
         ];
+    }
+
+    /**
+     * Completitud del expediente: SOLO LECTURA (no genera nada). Qué dato
+     * base (estado civil, domicilio, salario…) falta para el paquete de
+     * contratación de ESTE colaborador, sacado del mapping real de cada
+     * master (mismo motor que bloquea la generación): nunca una lista
+     * inventada de campos "obligatorios".
+     *
+     * @return array{aplica: bool, porcentaje: int, total: int, completos: int, grupos: array<string, array{etiqueta: string, ok: bool, faltantes: list<string>}>, faltantes: list<array<string, mixed>>}
+     */
+    public function completitudAlta(Colaborador $colaborador): array
+    {
+        $colaborador->loadMissing('puesto');
+
+        if ($colaborador->puesto?->no_requiere_documentos_laborales) {
+            return ['aplica' => false, 'porcentaje' => 100, 'total' => 0, 'completos' => 0, 'grupos' => [], 'faltantes' => []];
+        }
+
+        $contrato = ContratoLaboral::query()->where('colaborador_id', $colaborador->id)->orderByDesc('fecha_inicio')->first();
+
+        if ($contrato === null) {
+            return ['aplica' => false, 'porcentaje' => 0, 'total' => 0, 'completos' => 0, 'grupos' => [], 'faltantes' => []];
+        }
+
+        $faltantesPorBase = [];
+        $totalBases = [];
+
+        foreach ($this->clavesAlta($contrato) as $clave) {
+            try {
+                $master = $this->masterPara($clave, $colaborador, 'alta');
+            } catch (DocumentoMaestroFaltanteException) {
+                continue;
+            }
+
+            if ($master->estado_master === null) {
+                continue;
+            }
+
+            $contexto = $this->motor->contextoDesde($colaborador, $contrato, null, $this->extraPorClave($clave, $contrato));
+            $valores = $this->datos->resolver($contexto);
+
+            foreach ($this->motor->basesRequeridasDe($master) as $base => $campoRepresentativo) {
+                $totalBases[$base] = true;
+            }
+
+            foreach ($this->motor->faltantesDe($master, $valores) as $faltante) {
+                $faltantesPorBase[$faltante['base']] ??= [...$faltante, 'documentos' => []];
+                $faltantesPorBase[$faltante['base']]['documentos'][] = $master->nombre;
+            }
+        }
+
+        $total = count($totalBases);
+        $completos = $total - count($faltantesPorBase);
+        $grupos = [];
+
+        foreach (array_keys($totalBases) as $base) {
+            $categoria = $this->categoriaDeBase($base);
+            $grupos[$categoria] ??= ['etiqueta' => $this->etiquetaCategoria($categoria), 'ok' => true, 'faltantes' => []];
+
+            if (isset($faltantesPorBase[$base])) {
+                $grupos[$categoria]['ok'] = false;
+                $grupos[$categoria]['faltantes'][] = $faltantesPorBase[$base]['etiqueta'];
+            }
+        }
+
+        return [
+            'aplica' => true,
+            'porcentaje' => ProgresoExpediente::porcentaje($completos, $total),
+            'total' => $total,
+            'completos' => $completos,
+            'grupos' => $grupos,
+            'faltantes' => array_values($faltantesPorBase),
+        ];
+    }
+
+    private function categoriaDeBase(string $base): string
+    {
+        return match ($base) {
+            'nombre', 'genero', 'fecha_nacimiento', 'estado_civil', 'nacionalidad', 'lugar_nacimiento', 'clave_elector', 'profesion' => 'personales',
+            'curp', 'rfc', 'nss' => 'fiscales',
+            'domicilio' => 'domicilio',
+            'telefono', 'correo' => 'contacto',
+            'puesto', 'departamento', 'sucursal', 'fecha_ingreso', 'sueldo_mensual', 'contrato', 'jefe' => 'laborales',
+            default => 'otros',
+        };
+    }
+
+    private function etiquetaCategoria(string $categoria): string
+    {
+        return match ($categoria) {
+            'personales' => 'Datos personales',
+            'fiscales' => 'Datos fiscales',
+            'domicilio' => 'Domicilio',
+            'contacto' => 'Contacto',
+            'laborales' => 'Datos laborales',
+            default => 'Otros datos',
+        };
+    }
+
+    /**
+     * Columnas de `colaboradores` que ALGÚN documento maestro activo
+     * requiere, unión de todas las familias (contrato, confidencialidad,
+     * finiquito…). Se computa una sola vez (no por persona): el dashboard
+     * de RH la usa para encontrar en bloque, con una sola consulta SQL,
+     * quién tiene ese dato vacío — nunca mantiene su propia lista de
+     * "obligatorios" aparte del mapping real.
+     *
+     * @return array<string, string> columna => tipo
+     */
+    public function columnasColaboradorRequeridasGlobal(): array
+    {
+        return Cache::remember('people:completitud-datos:columnas', now()->addHour(), function (): array {
+            $columnas = [];
+
+            foreach (DocumentTemplate::query()->whereNotNull('estado_master')->where('operativo', true)->where('activo', true)->where('motor', 'docx')->get() as $master) {
+                $columnas = [...$columnas, ...$this->motor->columnasColaboradorRequeridasDe($master)];
+            }
+
+            return $columnas;
+        });
+    }
+
+    /**
+     * Cuántos colaboradores (dentro de `$query`) tienen vacía alguna de esas
+     * columnas: una sola consulta agregada, sin hidratar modelos. Para la
+     * tarjeta del dashboard de RH.
+     *
+     * @param  Builder<Colaborador>  $query
+     */
+    public function contarDatosFaltantesRh(Builder $query): int
+    {
+        $columnas = $this->columnasColaboradorRequeridasGlobal();
+
+        if ($columnas === []) {
+            return 0;
+        }
+
+        return (clone $query)->where(function (Builder $q) use ($columnas): void {
+            foreach ($columnas as $columna => $tipo) {
+                $q->orWhereNull($columna);
+
+                if (! in_array($tipo, ['fecha', 'moneda'], true)) {
+                    $q->orWhere($columna, '');
+                }
+            }
+        })->count();
+    }
+
+    /**
+     * Detalle para la pantalla de RH: por cada colaborador con algo
+     * faltante (dentro de `$query`, ya acotado por alcance), qué le falta y
+     * en qué grupo — mismo cálculo exacto que el banner del Expediente
+     * (completitudAlta), corrido SOLO sobre quienes ya fallaron el filtro
+     * SQL en bloque (nunca sobre toda la plantilla).
+     *
+     * @param  Builder<Colaborador>  $query
+     * @return list<array{colaborador_id: int, nombre: string, numero_empleado: string|null, porcentaje: int, grupos: array<string, array{etiqueta: string, ok: bool, faltantes: list<string>}>}>
+     */
+    public function listarDatosFaltantesRh(Builder $query, int $limite = 100): array
+    {
+        $columnas = $this->columnasColaboradorRequeridasGlobal();
+
+        if ($columnas === []) {
+            return [];
+        }
+
+        $candidatos = (clone $query)->where(function (Builder $q) use ($columnas): void {
+            foreach ($columnas as $columna => $tipo) {
+                $q->orWhereNull($columna);
+
+                if (! in_array($tipo, ['fecha', 'moneda'], true)) {
+                    $q->orWhere($columna, '');
+                }
+            }
+        })->with('puesto:id,nombre')->limit($limite)->get();
+
+        $resultado = Collection::make($candidatos)
+            ->map(function (Colaborador $colaborador): ?array {
+                $completitud = $this->completitudAlta($colaborador);
+
+                if (! $completitud['aplica'] || $completitud['porcentaje'] >= 100) {
+                    return null;
+                }
+
+                return [
+                    'colaborador_id' => $colaborador->id,
+                    'nombre' => $colaborador->nombreCompleto(),
+                    'numero_empleado' => $colaborador->numero_empleado,
+                    'porcentaje' => $completitud['porcentaje'],
+                    'grupos' => $completitud['grupos'],
+                ];
+            })
+            ->filter()
+            ->all();
+
+        return array_values($resultado);
     }
 
     /**

@@ -3,6 +3,7 @@ export * from './administracion';
 export * from './altaDigital';
 export * from './asignaciones';
 export * from './auth';
+export * from './avisos';
 export * from './calendario';
 export * from './campanas';
 export * from './celebraciones';

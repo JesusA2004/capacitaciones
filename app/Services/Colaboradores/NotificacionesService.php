@@ -53,6 +53,7 @@ class NotificacionesService
         'cuestionario_calificado' => ['emoji' => '✅', 'color' => 'success'],
         'calificaciones_pendientes' => ['emoji' => '📝', 'color' => 'warning'],
         'actividad_calificada' => ['emoji' => '✅', 'color' => 'success'],
+        'aviso_rh' => ['emoji' => '📢', 'color' => 'info'],
     ];
 
     public const ESTILO_DEFAULT = ['emoji' => '🔔', 'color' => 'neutral'];

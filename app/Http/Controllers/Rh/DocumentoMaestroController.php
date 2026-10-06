@@ -118,6 +118,26 @@ class DocumentoMaestroController extends Controller
         ]);
     }
 
+    /**
+     * "Revalidar pendientes": vuelve a correr el QA visual de todas las
+     * versiones operativas pendientes/fallidas con el estado ACTUAL del
+     * servidor (p. ej. tras instalar una fuente). No reimporta, no crea
+     * versiones ni activa nada.
+     */
+    public function revalidarPendientes(Request $request): JsonResponse
+    {
+        $this->exigir($request);
+        $resultados = $this->admin->revalidarPendientes($request->user());
+        $fallidas = count(array_filter($resultados, fn (array $r): bool => $r['estado'] === 'fallido'));
+
+        return response()->json([
+            'message' => $resultados === []
+                ? 'No había versiones pendientes o fallidas por revalidar.'
+                : sprintf('%d versión(es) revalidada(s), %d con fallas.', count($resultados), $fallidas),
+            'data' => $resultados,
+        ]);
+    }
+
     public function activar(Request $request, DocumentTemplate $master): JsonResponse
     {
         $this->exigir($request);
