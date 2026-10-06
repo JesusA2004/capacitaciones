@@ -47,6 +47,7 @@ class StoreSolicitudAutoservicioRequest extends StoreSolicitudInternaRequest
     public function messages(): array
     {
         return [
+            ...parent::messages(),
             'tipo.in' => 'Ese tipo de solicitud no está disponible.',
         ];
     }

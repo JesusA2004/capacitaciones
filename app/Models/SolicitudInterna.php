@@ -207,6 +207,17 @@ class SolicitudInterna extends Model
     }
 
     /**
+     * Días específicos de una solicitud de vacaciones (fuente real; el
+     * rango fecha_inicio/fecha_fin solo es el primer y último día).
+     *
+     * @return HasMany<SolicitudVacacionDia, $this>
+     */
+    public function diasVacaciones(): HasMany
+    {
+        return $this->hasMany(SolicitudVacacionDia::class, 'solicitud_interna_id')->orderBy('fecha');
+    }
+
+    /**
      * @return HasMany<SolicitudInternaHistorial, $this>
      */
     public function historial(): HasMany

@@ -23,6 +23,7 @@ import DatePicker from '@/components/Common/DatePicker.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import SelectorDiasVacaciones from '@/components/Solicitudes/SelectorDiasVacaciones.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -157,8 +158,8 @@ const form = useForm({
     motivo: '',
     observaciones: '',
     fecha_inicio: '',
-    fecha_fin: '',
-    dias_solicitados: '',
+    duracion_dias: '',
+    dias: [] as string[],
     monto_solicitado: '',
     plazo_meses: '',
     colaborador_objetivo_id: '',
@@ -181,6 +182,30 @@ const tipoActual = computed(() =>
     props.tipos.find((t) => t.clave === form.tipo),
 );
 
+const modoFechas = computed(() => tipoActual.value?.modo_fechas ?? 'ninguna');
+
+/** Vista previa de la fecha de término: inicio + (días − 1), naturales. */
+const fechaTermino = computed(() => {
+    const dias = Number(form.duracion_dias);
+
+    if (!form.fecha_inicio || !Number.isInteger(dias) || dias < 1) {
+        return null;
+    }
+
+    const [a, m, d] = form.fecha_inicio.split('-').map(Number);
+    const fin = new Date(a, m - 1, d + dias - 1);
+
+    return fin.toLocaleDateString('es-MX', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+    });
+});
+
+const saldoRestante = computed(
+    () => props.saldoVacaciones.dias_disponibles - form.dias.length,
+);
 function nombreTipo(clave: string): string {
     return props.tipos.find((t) => t.clave === clave)?.nombre ?? clave;
 }
@@ -338,16 +363,19 @@ const TIPOS_BAJA = [
                     periodo.
                 </div>
 
+                <!-- Fechas según el tipo: el backend calcula la fecha fin
+                     (FechasSolicitudService), nunca se captura a mano. -->
                 <div
                     v-if="
-                        tipoActual?.requiere_fechas ||
-                        tipoActual?.requiere_horario
+                        modoFechas === 'duracion' ||
+                        modoFechas === 'horario' ||
+                        modoFechas === 'fecha_unica'
                     "
-                    class="grid grid-cols-2 gap-4"
+                    class="grid gap-4 sm:grid-cols-2"
                 >
                     <div class="grid gap-2">
                         <Label for="fecha_inicio">{{
-                            tipoActual?.requiere_fechas
+                            modoFechas === 'duracion'
                                 ? 'Fecha de inicio'
                                 : 'Fecha'
                         }}</Label>
@@ -362,32 +390,60 @@ const TIPOS_BAJA = [
                             {{ form.errors.fecha_inicio }}
                         </p>
                     </div>
-                    <div v-if="tipoActual?.requiere_fechas" class="grid gap-2">
-                        <Label for="fecha_fin">Fecha de fin</Label>
-                        <DatePicker id="fecha_fin" v-model="form.fecha_fin" />
+                    <div v-if="modoFechas === 'duracion'" class="grid gap-2">
+                        <Label for="duracion_dias">Número de días</Label>
+                        <Input
+                            id="duracion_dias"
+                            v-model="form.duracion_dias"
+                            type="number"
+                            min="1"
+                            max="365"
+                        />
                         <p
-                            v-if="form.errors.fecha_fin"
+                            v-if="form.errors.duracion_dias"
                             class="text-sm text-destructive"
                         >
-                            {{ form.errors.fecha_fin }}
+                            {{ form.errors.duracion_dias }}
                         </p>
                     </div>
+                    <p
+                        v-if="modoFechas === 'duracion' && fechaTermino"
+                        class="text-sm text-muted-foreground sm:col-span-2"
+                    >
+                        Termina el
+                        <span class="font-semibold text-foreground">{{
+                            fechaTermino
+                        }}</span>
+                        (días naturales: incluye sábado y domingo).
+                    </p>
                 </div>
 
-                <div v-if="tipoActual?.requiere_dias" class="grid gap-2">
-                    <Label for="dias_solicitados">Días a solicitar</Label>
-                    <Input
-                        id="dias_solicitados"
-                        v-model="form.dias_solicitados"
-                        type="number"
-                        min="1"
-                        :max="saldoVacaciones.dias_disponibles"
+                <div
+                    v-if="modoFechas === 'dias_especificos'"
+                    class="grid gap-2"
+                >
+                    <Label>Días de vacaciones</Label>
+                    <SelectorDiasVacaciones
+                        v-model="form.dias"
+                        :dias-no-seleccionables="
+                            tipoActual?.dias_no_seleccionables ?? [0]
+                        "
                     />
-                    <p
-                        v-if="form.errors.dias_solicitados"
-                        class="text-sm text-destructive"
-                    >
-                        {{ form.errors.dias_solicitados }}
+                    <p class="text-sm text-muted-foreground">
+                        Te quedarían
+                        <span
+                            class="font-semibold"
+                            :class="
+                                saldoRestante < 0
+                                    ? 'text-destructive'
+                                    : 'text-foreground'
+                            "
+                            >{{ saldoRestante }}</span
+                        >
+                        días disponibles. El domingo no cuenta como vacaciones.
+                    </p>
+                    <p v-if="form.errors.dias" class="text-sm text-destructive">
+                        {{ form.errors.dias }}
                     </p>
                 </div>
 

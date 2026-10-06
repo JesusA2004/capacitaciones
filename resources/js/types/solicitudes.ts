@@ -14,6 +14,12 @@ export type TipoSolicitudInterna = {
 export type TipoSolicitudInternaFormulario = {
     clave: string;
     nombre: string;
+    /** Cómo se capturan las fechas (App\Enums\ModoFechasSolicitud). */
+    modo_fechas:
+        'duracion' | 'dias_especificos' | 'horario' | 'fecha_unica' | 'ninguna';
+    modo_fechas_etiqueta: string;
+    /** Vacaciones: días de la semana que no se pueden elegir (0 = domingo). */
+    dias_no_seleccionables: number[];
     requiere_fechas: boolean;
     requiere_horario: boolean;
     requiere_dias: boolean;

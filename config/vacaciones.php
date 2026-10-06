@@ -25,4 +25,17 @@ return [
 
     'anios_por_bloque' => 5,
 
+    /*
+    |--------------------------------------------------------------------------
+    | Días que NO cuentan como vacaciones (regla MR. LANA)
+    |--------------------------------------------------------------------------
+    |
+    | 0 = domingo … 6 = sábado (Carbon::dayOfWeek). El domingo no se puede
+    | elegir ni descuenta saldo; el sábado sí cuenta. Ver
+    | App\Services\Solicitudes\FechasSolicitudService.
+    |
+    */
+
+    'dias_no_computables' => [0],
+
 ];

@@ -54,40 +54,44 @@ enum TipoSolicitudInterna: string
     }
 
     /**
-     * true si el tipo usa un rango de fechas (vacaciones/permisos por
-     * día(s)/incapacidad/permisos especiales de varios días); los que se
-     * resuelven en un solo día con horario (ver usaHorario()) y el resto
-     * (préstamo, baja, actualización de datos, etc.) no lo usan.
+     * Cómo captura fechas este tipo (ModoFechasSolicitud). Incapacidad y
+     * permisos por días: inicio + número de días naturales (el backend
+     * calcula la fecha fin). Vacaciones: días sueltos elegidos en un
+     * calendario, sin domingos.
      */
-    public function usaRangoFechas(): bool
+    public function modoFechas(): ModoFechasSolicitud
     {
         return match ($this) {
-            self::Vacaciones,
+            self::Vacaciones => ModoFechasSolicitud::DiasEspecificos,
             self::PermisoConGoce,
             self::PermisoSinGoce,
             self::Incapacidad,
             self::PermisoEspecialPaternidad,
-            self::PermisoEspecialFallecimiento => true,
-            default => false,
+            self::PermisoEspecialFallecimiento => ModoFechasSolicitud::Duracion,
+            self::PermisoTiempo, self::SalidaTemprano, self::LlegadaTarde => ModoFechasSolicitud::Horario,
+            self::PermisoEspecialCumpleanos => ModoFechasSolicitud::FechaUnica,
+            default => ModoFechasSolicitud::Ninguna,
         };
+    }
+
+    /** true si el tipo abarca uno o varios días completos (tiene periodo). */
+    public function usaRangoFechas(): bool
+    {
+        return in_array($this->modoFechas(), [ModoFechasSolicitud::Duracion, ModoFechasSolicitud::DiasEspecificos, ModoFechasSolicitud::FechaUnica], true);
     }
 
     /**
      * true si el tipo ocurre en un solo día con hora de inicio/fin (salida
-     * temprano, llegada tarde, permiso por horas) en vez de un rango de
-     * fechas completas.
+     * temprano, llegada tarde, permiso por horas).
      */
     public function usaHorario(): bool
     {
-        return match ($this) {
-            self::PermisoTiempo, self::SalidaTemprano, self::LlegadaTarde => true,
-            default => false,
-        };
+        return $this->modoFechas() === ModoFechasSolicitud::Horario;
     }
 
     /**
-     * true si el tipo requiere `dias_solicitados` (se valida contra el
-     * saldo disponible del colaborador, ver VacacionesService::saldo()).
+     * true si los días se descuentan del saldo de vacaciones
+     * (VacacionesService::saldo()).
      */
     public function requiereDias(): bool
     {

@@ -18,14 +18,25 @@ test('una solicitud de vacaciones respeta el saldo disponible del colaborador', 
     $colaborador = User::factory()->create(['colaborador_id' => $persona->id]);
     $colaborador->assignRole('colaborador');
 
+    // Días hábiles para vacaciones (sin domingo) a partir de una fecha.
+    $diasDesde = function (int $desde, int $cuantos): array {
+        $dias = [];
+
+        for ($d = now()->addDays($desde)->startOfDay(); count($dias) < $cuantos; $d = $d->copy()->addDay()) {
+            if (! $d->isSunday()) {
+                $dias[] = $d->toDateString();
+            }
+        }
+
+        return $dias;
+    };
+
     // Antigüedad de 3 años -> 16 días generados (config/vacaciones.php).
     $this->actingAs($colaborador)
         ->post(route('solicitudes.store'), [
             'tipo' => 'vacaciones',
             'motivo' => 'Vacaciones de fin de año.',
-            'fecha_inicio' => now()->addDays(10)->toDateString(),
-            'fecha_fin' => now()->addDays(15)->toDateString(),
-            'dias_solicitados' => 5,
+            'dias' => $diasDesde(10, 5),
         ])
         ->assertSessionHasNoErrors();
 
@@ -33,15 +44,14 @@ test('una solicitud de vacaciones respeta el saldo disponible del colaborador', 
         ->tipo->value->toBe('vacaciones')
         ->dias_solicitados->toBe(5);
 
+    // 11 disponibles: 12 días no alcanzan.
     $this->actingAs($colaborador)
         ->post(route('solicitudes.store'), [
             'tipo' => 'vacaciones',
             'motivo' => 'Más vacaciones.',
-            'fecha_inicio' => now()->addDays(20)->toDateString(),
-            'fecha_fin' => now()->addDays(40)->toDateString(),
-            'dias_solicitados' => 100,
+            'dias' => $diasDesde(30, 12),
         ])
-        ->assertSessionHasErrors('dias_solicitados');
+        ->assertSessionHasErrors('dias');
 });
 
 test('una solicitud de préstamo interno requiere monto', function () {

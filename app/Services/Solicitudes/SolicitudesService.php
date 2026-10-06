@@ -4,6 +4,7 @@ namespace App\Services\Solicitudes;
 
 use App\Enums\EstadoFiniquito;
 use App\Enums\EstadoSolicitudInterna;
+use App\Enums\ModoFechasSolicitud;
 use App\Enums\TipoSolicitudInterna;
 use App\Models\Colaborador;
 use App\Models\FiniquitoCalculo;
@@ -74,6 +75,7 @@ class SolicitudesService
         private readonly TareasSolicitudService $tareasSolicitud,
         private readonly ComprobanteSolicitudService $comprobantes,
         private readonly WorkflowRoutingService $routing,
+        private readonly FechasSolicitudService $fechas,
     ) {}
 
     /**
@@ -84,13 +86,20 @@ class SolicitudesService
     public function crear(User $solicitante, array $datos): SolicitudInterna
     {
         $tipo = TipoSolicitudInterna::from($datos['tipo']);
+        // Clientes anteriores (rango + dias_solicitados) reciben el error en su campo de siempre.
+        $campoDias = isset($datos['dias']) ? 'dias' : 'dias_solicitados';
 
-        if ($tipo === TipoSolicitudInterna::Vacaciones && isset($datos['dias_solicitados'])) {
+        // Fechas calculadas por el backend según el tipo (duración natural,
+        // días específicos de vacaciones, un día…): nunca una fecha fin
+        // capturada a mano (FechasSolicitudService).
+        $datos = $this->fechas->normalizar($tipo, $datos, $solicitante->colaborador);
+
+        if ($tipo === TipoSolicitudInterna::Vacaciones) {
             $saldo = $this->vacaciones->saldo($solicitante);
 
             if ((int) $datos['dias_solicitados'] > $saldo['dias_disponibles']) {
                 throw ValidationException::withMessages([
-                    'dias_solicitados' => 'No tienes suficientes días disponibles.',
+                    $campoDias => sprintf('Pediste %d días y tienes %d disponibles.', (int) $datos['dias_solicitados'], $saldo['dias_disponibles']),
                 ]);
             }
         }
@@ -139,6 +148,11 @@ class SolicitudesService
             ]);
 
             $solicitud->update(['folio' => sprintf('SOL-%06d', $solicitud->id)]);
+
+            // Vacaciones: la lista de días es la fuente real (fecha única por solicitud).
+            foreach ($datos['dias_vacaciones'] as $dia) {
+                $solicitud->diasVacaciones()->create(['colaborador_id' => $solicitante->colaborador_id, 'fecha' => $dia]);
+            }
 
             $this->registrarHistorial($solicitud, $solicitante, 'creada');
             $this->registrarHistorial($solicitud, $solicitante, 'enviada');
@@ -207,7 +221,7 @@ class SolicitudesService
                     $q->orWhere('colaborador_id', $colaborador->colaborador_id);
                 }
             })
-            ->with(['revisadoPor:id,name,apellidos'])
+            ->with(['revisadoPor:id,name,apellidos', 'diasVacaciones'])
             ->orderByDesc('created_at')
             ->paginate(15);
     }
@@ -725,65 +739,64 @@ class SolicitudesService
             : TipoSolicitudInterna::cases();
 
         return array_map(function (TipoSolicitudInterna $tipo) use ($autoservicio): array {
-            if ($autoservicio && $tipo->requiereMonto()) {
-                return [
-                    'clave' => $tipo->value,
-                    'nombre' => $tipo->etiqueta(),
-                    'requiere_fechas' => false,
-                    'requiere_horario' => false,
-                    'requiere_dias' => false,
-                    'requiere_monto' => true,
-                    'requiere_colaborador_objetivo' => false,
-                    'requiere_motivo' => true,
-                    'permite_adjuntos' => false,
-                    'campos' => [
-                        ['name' => 'monto_solicitado', 'type' => 'number', 'required' => true],
-                        ['name' => 'motivo', 'type' => 'text', 'required' => true],
-                    ],
-                ];
-            }
+            $modo = $tipo->modoFechas();
 
-            $requiereFechas = $tipo->usaRangoFechas();
-            $requiereHorario = $tipo->usaHorario();
-
-            $campos = [
-                ['name' => 'motivo', 'type' => 'text', 'required' => true],
-                ['name' => 'observaciones', 'type' => 'text', 'required' => false],
-            ];
-
-            if ($requiereFechas) {
-                array_unshift(
-                    $campos,
-                    ['name' => 'fecha_inicio', 'type' => 'date', 'required' => true],
-                    ['name' => 'fecha_fin', 'type' => 'date', 'required' => true],
-                );
-            } elseif ($requiereHorario) {
-                array_unshift($campos, ['name' => 'fecha_inicio', 'type' => 'date', 'required' => true]);
-            }
-
-            if ($tipo->requiereDias()) {
-                $campos[] = ['name' => 'dias_solicitados', 'type' => 'number', 'required' => true];
-            }
+            // Solo los campos que el tipo necesita, en orden de captura.
+            $campos = match ($modo) {
+                ModoFechasSolicitud::Duracion => [
+                    ['name' => 'fecha_inicio', 'type' => 'date', 'required' => true, 'label' => 'Fecha de inicio'],
+                    ['name' => 'duracion_dias', 'type' => 'number', 'required' => true, 'label' => 'Número de días', 'min' => 1, 'max' => 365,
+                        'ayuda' => 'Días naturales consecutivos (incluye sábado y domingo). La fecha de término se calcula sola.'],
+                ],
+                ModoFechasSolicitud::DiasEspecificos => [
+                    ['name' => 'dias', 'type' => 'dates', 'required' => true, 'label' => 'Días de vacaciones', 'max' => 60,
+                        'ayuda' => 'Elige los días que quieres. El domingo no cuenta como vacaciones; el sábado sí.'],
+                ],
+                ModoFechasSolicitud::Horario => [
+                    ['name' => 'fecha_inicio', 'type' => 'date', 'required' => true, 'label' => 'Fecha'],
+                ],
+                ModoFechasSolicitud::FechaUnica => [
+                    ['name' => 'fecha_inicio', 'type' => 'date', 'required' => true, 'label' => 'Fecha'],
+                ],
+                ModoFechasSolicitud::Ninguna => [],
+            };
 
             if ($tipo->requiereMonto()) {
-                $campos[] = ['name' => 'monto_solicitado', 'type' => 'number', 'required' => true];
-                $campos[] = ['name' => 'plazo_meses', 'type' => 'number', 'required' => false];
+                $campos[] = ['name' => 'monto_solicitado', 'type' => 'number', 'required' => true, 'label' => 'Monto solicitado'];
+
+                // App del colaborador: plazo y condiciones los decide RH al autorizar.
+                if (! $autoservicio) {
+                    $campos[] = ['name' => 'plazo_meses', 'type' => 'number', 'required' => false, 'label' => 'Plazo (meses)'];
+                }
             }
 
             if ($tipo->requiereColaboradorObjetivo()) {
-                $campos[] = ['name' => 'colaborador_objetivo_id', 'type' => 'select', 'required' => true];
+                $campos[] = ['name' => 'colaborador_objetivo_id', 'type' => 'select', 'required' => true, 'label' => 'Colaborador'];
+            }
+
+            $campos[] = ['name' => 'motivo', 'type' => 'text', 'required' => true, 'label' => 'Motivo'];
+
+            if (! ($autoservicio && $tipo->requiereMonto())) {
+                $campos[] = ['name' => 'observaciones', 'type' => 'text', 'required' => false, 'label' => 'Observaciones'];
             }
 
             return [
                 'clave' => $tipo->value,
                 'nombre' => $tipo->etiqueta(),
-                'requiere_fechas' => $requiereFechas,
-                'requiere_horario' => $requiereHorario,
+                'modo_fechas' => $modo->value,
+                'modo_fechas_etiqueta' => $modo->etiqueta(),
+                // Banderas que ya leían clientes anteriores (se conservan).
+                'requiere_fechas' => $tipo->usaRangoFechas(),
+                'requiere_horario' => $tipo->usaHorario(),
                 'requiere_dias' => $tipo->requiereDias(),
                 'requiere_monto' => $tipo->requiereMonto(),
                 'requiere_colaborador_objetivo' => $tipo->requiereColaboradorObjetivo(),
                 'requiere_motivo' => true,
-                'permite_adjuntos' => true,
+                'permite_adjuntos' => ! ($autoservicio && $tipo->requiereMonto()),
+                // Vacaciones: días de la semana que no se pueden elegir (0 = domingo).
+                'dias_no_seleccionables' => $modo === ModoFechasSolicitud::DiasEspecificos
+                    ? array_values(array_map('intval', (array) config('vacaciones.dias_no_computables', [0])))
+                    : [],
                 'campos' => $campos,
             ];
         }, $tipos);

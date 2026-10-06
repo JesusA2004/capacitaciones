@@ -27,6 +27,13 @@ class SolicitudInternaResource extends JsonResource
             'estado_etiqueta' => $this->estado->etiqueta(),
             'fecha_inicio' => $this->fecha_inicio?->toDateString(),
             'fecha_fin' => $this->fecha_fin?->toDateString(),
+            'modo_fechas' => $this->tipo->modoFechas()->value,
+            // Duración (días naturales) o cuántos días de vacaciones.
+            'dias_solicitados' => $this->dias_solicitados,
+            // Vacaciones: los días específicos elegidos (fuente real).
+            'dias' => $this->tipo === TipoSolicitudInterna::Vacaciones
+                ? $this->diasVacaciones->map(fn ($d) => $d->fecha->toDateString())->values()->all()
+                : [],
             'motivo' => $this->motivo,
             'observaciones' => $this->observaciones,
             'motivo_rechazo' => $this->motivo_rechazo,
