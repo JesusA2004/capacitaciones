@@ -6,6 +6,7 @@ use App\Enums\FamiliaAdministrativa;
 use App\Enums\MotorPdf;
 use App\Enums\TipoDocumentAsset;
 use App\Http\Controllers\Controller;
+use App\Models\Colaborador;
 use App\Models\DocumentAsset;
 use App\Models\PlantillaAdministrativa;
 use App\Services\DocumentosAdministrativos\DisenoAdministrativoService;
@@ -122,8 +123,10 @@ class DocumentoAdministrativoController extends Controller
     }
 
     /**
-     * Vista previa REAL en PDF (mismo HTML y motor que la generación) con
-     * datos ficticios. ?plantilla={id} para una versión; sin él, la vigente.
+     * Vista previa REAL en PDF (mismo HTML y motor que la generación).
+     * ?plantilla={id} para una versión; sin él, la vigente. ?colaborador={id}
+     * para "Probar con colaborador" (datos reales si existen; si no, el
+     * motivo en texto plano, nunca una excepción ni un PDF roto).
      */
     public function vistaPrevia(Request $request, FamiliaAdministrativa $familia): HttpResponse
     {
@@ -133,7 +136,18 @@ class DocumentoAdministrativoController extends Controller
             : $this->plantillas->activa($familia);
 
         try {
-            $pdf = $this->documentos->vistaPrevia($familia, $plantilla);
+            if ($request->filled('colaborador')) {
+                $colaborador = Colaborador::query()->whereKey($request->integer('colaborador'))->firstOrFail();
+                $resultado = $this->documentos->vistaPreviaConColaborador($familia, $plantilla, $colaborador);
+
+                if (isset($resultado['faltante'])) {
+                    return response($resultado['faltante'], 200, ['Content-Type' => 'text/plain; charset=UTF-8']);
+                }
+
+                $pdf = $resultado['pdf'];
+            } else {
+                $pdf = $this->documentos->vistaPrevia($familia, $plantilla);
+            }
         } catch (PdfRendererException $e) {
             // El detalle técnico (comando de node, rutas, stack) va al log;
             // RH solo ve un mensaje corto y una acción concreta.

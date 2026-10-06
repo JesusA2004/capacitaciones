@@ -2,10 +2,13 @@
 
 namespace App\Services\DocumentosAdministrativos;
 
+use App\Enums\EstadoReciboNomina;
 use App\Enums\FamiliaAdministrativa;
 use App\Enums\MotorPdf;
+use App\Models\Colaborador;
 use App\Models\DocumentAsset;
 use App\Models\PlantillaAdministrativa;
+use App\Models\ReciboNomina;
 use App\Models\User;
 use App\Services\Pdf\OpcionesPdf;
 use App\Services\Pdf\PdfRendererFactory;
@@ -75,6 +78,57 @@ class DocumentoAdministrativoService
         $motor = $plantilla?->motorEfectivo() ?? MotorPdf::porDefecto();
 
         return $this->renderizar($familia, $this->datos->ejemplo($familia), $diseno, $motor)['pdf'];
+    }
+
+    /**
+     * Vista previa con los datos REALES de un colaborador ("Probar con
+     * colaborador" del editor), en vez de los datos ficticios — mismo motor
+     * y mismo HTML que la generación real. Nunca inventa ni calcula nada:
+     * solo reutiliza el registro más reciente que ya existe. Si ese
+     * colaborador no tiene un registro real para esta familia, devuelve el
+     * motivo (nunca una excepción) para que la pantalla lo muestre tal cual.
+     *
+     * Solo recibo de nómina y constancia laboral tienen una fuente de datos
+     * reales segura de resolver aquí sin más contexto (folio/solicitud
+     * concreta); finiquito y comprobante de solicitud dependen de un
+     * trámite específico y se quedan fuera de este atajo a propósito.
+     *
+     * @return array{pdf: string}|array{faltante: string}
+     */
+    public function vistaPreviaConColaborador(FamiliaAdministrativa $familia, ?PlantillaAdministrativa $plantilla, Colaborador $colaborador): array
+    {
+        $datos = match ($familia) {
+            FamiliaAdministrativa::ReciboNomina => $this->reciboRealDe($colaborador),
+            FamiliaAdministrativa::ConstanciaLaboral => $this->datos->constancia($colaborador),
+            default => null,
+        };
+
+        if ($datos === null) {
+            return ['faltante' => match ($familia) {
+                FamiliaAdministrativa::ReciboNomina => sprintf('%s todavía no tiene un recibo de nómina emitido.', $colaborador->nombreCompleto()),
+                FamiliaAdministrativa::Finiquito, FamiliaAdministrativa::ComprobanteSolicitud => 'La vista previa con colaborador real todavía no está disponible para este tipo de documento (depende de un trámite concreto). Usa la vista previa con datos de ejemplo.',
+                default => 'No se encontraron datos reales para este colaborador.',
+            }];
+        }
+
+        $diseno = $plantilla !== null ? $this->disenos->normalizar($familia, $plantilla->diseno) : $this->disenos->porDefecto($familia);
+        $motor = $plantilla?->motorEfectivo() ?? MotorPdf::porDefecto();
+
+        return ['pdf' => $this->renderizar($familia, $datos, $diseno, $motor)['pdf']];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function reciboRealDe(Colaborador $colaborador): ?array
+    {
+        $recibo = ReciboNomina::query()
+            ->where('colaborador_id', $colaborador->id)
+            ->where('estado', EstadoReciboNomina::Emitido->value)
+            ->latest('fecha_pago')
+            ->first();
+
+        return $recibo !== null ? $this->datos->recibo($recibo) : null;
     }
 
     /**
