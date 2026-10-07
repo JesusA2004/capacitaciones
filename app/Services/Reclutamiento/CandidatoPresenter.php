@@ -10,6 +10,7 @@ use App\Models\CandidatoPsicometrica;
 use App\Models\CandidatoReferencia;
 use App\Models\CandidatoSocioeconomico;
 use App\Models\IncorporacionInvitacion;
+use App\Models\IntervencionCandidato;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use Illuminate\Database\Eloquent\Builder;
@@ -37,15 +38,19 @@ class CandidatoPresenter
 
         return $this->alcance
             ->limitarPorSucursal(
-                Candidato::query()->with([
-                    'empresa:id,nombre',
-                    'sucursal:id,nombre',
-                    'departamento:id,nombre',
-                    'puestoObjetivo:id,nombre',
-                    'vacante:id,puesto_id',
-                    'responsableRh:id,name,apellidos',
-                    'gerenteInvolucrado:id,name,apellidos',
-                ]),
+                Candidato::query()
+                    ->with([
+                        'empresa:id,nombre',
+                        'sucursal:id,nombre',
+                        'departamento:id,nombre',
+                        'puestoObjetivo:id,nombre',
+                        'vacante:id,puesto_id',
+                        'responsableRh:id,name,apellidos',
+                        'gerenteInvolucrado:id,name,apellidos',
+                    ])
+                    // Checks de la tarjeta (CLAUDE.md §12): hecho/pendiente de
+                    // cada etapa sin cargar los registros completos.
+                    ->withCount(['psicometricas', 'socioeconomicos']),
                 $usuario,
             )
             ->when($entero('empresa_id'), fn ($query, $valor) => $query->where('empresa_id', $valor))
@@ -81,6 +86,7 @@ class CandidatoPresenter
             'sucursal' => $candidato->sucursal?->nombre,
             'estado' => $candidato->estado->value,
             'estado_etiqueta' => $candidato->estado->etiqueta(),
+            'fase' => $candidato->estado->faseCanonica(),
             'etapa_maxima' => $candidato->etapa_maxima,
             'creado_en' => $candidato->created_at?->toIso8601String(),
         ];
@@ -98,6 +104,9 @@ class CandidatoPresenter
             'entrevistas.entrevistador:id,name,apellidos,colaborador_id',
             'psicometricas.evidencias', 'socioeconomicos.evidencias', 'socioeconomicos.visitador:id,name,apellidos,colaborador_id',
             'referencias.validadaPor:id,name,apellidos,colaborador_id',
+            'intervenciones.gerenteSolicitante:id,name,apellidos',
+            'intervenciones.rechazoRhPor:id,name,apellidos',
+            'intervenciones.aprobador:id,name,apellidos',
         ]);
 
         $invitacion = IncorporacionInvitacion::query()->where('candidato_id', $candidato->id)->latest('id')->first();
@@ -131,7 +140,9 @@ class CandidatoPresenter
             'observaciones' => $candidato->observaciones,
             'estado' => $candidato->estado->value,
             'estado_etiqueta' => $candidato->estado->etiqueta(),
+            'fase' => $candidato->estado->faseCanonica(),
             'motivo_salida' => $candidato->motivo_salida,
+            'salida_en' => $candidato->salida_en?->toIso8601String(),
             'tiene_cv' => $candidato->tiene_cv,
             'colaborador_id' => $candidato->colaborador_id,
             'creado_en' => $candidato->created_at?->toIso8601String(),
@@ -186,6 +197,24 @@ class CandidatoPresenter
                 'expira_en' => $invitacion->expires_at->toIso8601String(),
                 'usada_en' => $invitacion->used_at?->toIso8601String(),
             ] : null,
+            // Excepción jerárquica sobre un rechazo de RH (CLAUDE.md §10-12):
+            // nunca otra fase del kanban, siempre auditable.
+            'intervenciones' => $candidato->intervenciones->map(fn (IntervencionCandidato $i) => [
+                'id' => $i->id,
+                'ruta' => $i->ruta->value,
+                'ruta_etiqueta' => $i->ruta->etiqueta(),
+                'estado' => $i->estado->value,
+                'estado_etiqueta' => $i->estado->etiqueta(),
+                'rechazo_rh_por' => $i->rechazoRhPor?->nombreCompleto(),
+                'rechazo_rh_motivo' => $i->rechazo_rh_motivo,
+                'rechazo_rh_en' => $i->rechazo_rh_en?->toIso8601String(),
+                'gerente_solicitante' => $i->gerenteSolicitante?->nombreCompleto(),
+                'motivo_solicitud' => $i->motivo_solicitud,
+                'solicitada_en' => $i->solicitada_en->toIso8601String(),
+                'aprobador' => $i->aprobador?->nombreCompleto(),
+                'comentario_decision' => $i->comentario_decision,
+                'decidida_en' => $i->decidida_en?->toIso8601String(),
+            ])->values()->all(),
         ];
     }
 

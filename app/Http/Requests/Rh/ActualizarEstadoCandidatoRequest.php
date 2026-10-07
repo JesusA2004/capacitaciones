@@ -4,6 +4,7 @@ namespace App\Http\Requests\Rh;
 
 use App\Enums\EstadoCandidato;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
 
 class ActualizarEstadoCandidatoRequest extends FormRequest
@@ -28,6 +29,8 @@ class ActualizarEstadoCandidatoRequest extends FormRequest
         return [
             'estado' => ['required', new Enum(EstadoCandidato::class)],
             'nota' => ['nullable', 'string', 'max:2000'],
+            'motivo_rechazo_id' => ['nullable', 'integer', Rule::exists('motivos_rechazo_candidato', 'id')->where('activo', true)],
+            'recontratable' => ['nullable', 'boolean'],
         ];
     }
 }

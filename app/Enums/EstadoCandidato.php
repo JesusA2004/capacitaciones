@@ -95,6 +95,47 @@ enum EstadoCandidato: string
         };
     }
 
+    /**
+     * Fase canónica para el tablero (CLAUDE.md §4): agrupa los sub-estados
+     * técnicos del workflow en las columnas que RH realmente necesita ver.
+     * "Autorizado por RH" y "en contratación" nunca son columnas propias —
+     * son hitos dentro de "Contratación"; las 4 salidas técnicas son un
+     * único "Rechazado" con el motivo capturado en motivo_salida.
+     */
+    public function faseCanonica(): string
+    {
+        return match ($this) {
+            self::Recibidos => 'filtro_rh',
+            self::EntrevistaPendiente => 'entrevista',
+            self::PsicometricasPendientes, self::RevisionPsicometricas => 'psicometricos',
+            self::SocioeconomicoPendiente => 'socioeconomico',
+            self::ReferenciasPendientes, self::PreseleccionGerente, self::AutorizacionRhPendiente, self::AutorizadoRh, self::EnContratacion => 'contratacion',
+            self::Contratado => 'contratado',
+            self::NoViable, self::NoSeleccionado, self::RechazadoRh, self::NoRespondio => 'rechazado',
+            self::Desistio => 'desistido',
+        };
+    }
+
+    /**
+     * Columnas del tablero, en orden (clave => etiqueta). Única fuente para
+     * web y app: nunca una fase "inventada" en el frontend.
+     *
+     * @return array<string, string>
+     */
+    public static function fases(): array
+    {
+        return [
+            'filtro_rh' => 'Filtro RH',
+            'entrevista' => 'Entrevista',
+            'psicometricos' => 'Psicométricos',
+            'socioeconomico' => 'Socioeconómico',
+            'contratacion' => 'Contratación',
+            'contratado' => 'Contratado',
+            'rechazado' => 'Rechazado',
+            'desistido' => 'Desistió',
+        ];
+    }
+
     public function esSalida(): bool
     {
         return $this->orden() === 0;

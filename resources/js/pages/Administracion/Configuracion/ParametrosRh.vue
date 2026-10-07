@@ -12,6 +12,10 @@ import { Input } from '@/components/ui/input';
 import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
 import { parametrosRh, restaurar } from '@/routes/administracion/configuracion';
+import {
+    store as crearMotivoRechazoUrl,
+    update as actualizarMotivoRechazo,
+} from '@/routes/administracion/configuracion/parametros-rh/motivos-rechazo';
 import { update as actualizarPuesto } from '@/routes/administracion/configuracion/parametros-rh/puestos';
 import { update as actualizarTipoDocumento } from '@/routes/administracion/configuracion/parametros-rh/tipos-documento';
 import { cobertura as coberturaDocumental } from '@/routes/rh/documentos-maestros';
@@ -34,6 +38,13 @@ const props = defineProps<{
         id: number;
         nombre: string;
         vigencia_meses: number | null;
+    }[];
+    motivosRechazo: {
+        id: number;
+        clave: string;
+        nombre: string;
+        activo: boolean;
+        no_recontratable_por_defecto: boolean;
     }[];
     grupos: { value: string; etiqueta: string }[];
     gruposDocumentales: { value: string; etiqueta: string }[];
@@ -97,6 +108,39 @@ function guardarPuesto(
         },
         { preserveScroll: true },
     );
+}
+
+const motivosRechazo = reactive(props.motivosRechazo.map((m) => ({ ...m })));
+const formNuevoMotivo = useForm({
+    clave: '',
+    nombre: '',
+    no_recontratable_por_defecto: false,
+});
+
+function guardarMotivoRechazo(m: {
+    id: number;
+    clave: string;
+    nombre: string;
+    activo: boolean;
+    no_recontratable_por_defecto: boolean;
+}) {
+    router.put(
+        actualizarMotivoRechazo.url(m.id),
+        {
+            clave: m.clave,
+            nombre: m.nombre,
+            activo: m.activo,
+            no_recontratable_por_defecto: m.no_recontratable_por_defecto,
+        },
+        { preserveScroll: true },
+    );
+}
+
+function crearMotivoRechazo() {
+    formNuevoMotivo.post(crearMotivoRechazoUrl.url(), {
+        preserveScroll: true,
+        onSuccess: () => formNuevoMotivo.reset(),
+    });
 }
 
 function guardarVigencia(t: {
@@ -357,6 +401,75 @@ const error = (clave: string) =>
                     >
                 </li>
             </ul>
+        </section>
+
+        <section class="flex flex-col gap-2" aria-label="Motivos de rechazo de candidatos">
+            <h2 class="text-sm font-semibold">
+                Motivos de rechazo de candidatos
+            </h2>
+            <p class="text-xs text-[var(--mrl-texto-suave)]">
+                Catálogo que usa Reclutamiento al cerrar un proceso o
+                rechazar a un candidato. Un motivo ya usado nunca se borra:
+                solo se desactiva.
+            </p>
+            <ul class="grid gap-2 sm:grid-cols-2">
+                <li
+                    v-for="m in motivosRechazo"
+                    :key="m.id"
+                    class="flex flex-col gap-2 rounded-xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-3 text-sm"
+                >
+                    <Input v-model="m.nombre" class="h-8" />
+                    <div class="flex items-center justify-between gap-3 text-xs">
+                        <label class="flex items-center gap-1.5">
+                            <Casilla v-model="m.activo" /> Activo
+                        </label>
+                        <label class="flex items-center gap-1.5">
+                            <Casilla v-model="m.no_recontratable_por_defecto" />
+                            No recontratable por defecto
+                        </label>
+                        <Button
+                            size="sm"
+                            variant="ghost"
+                            @click="guardarMotivoRechazo(m)"
+                            >Guardar</Button
+                        >
+                    </div>
+                </li>
+            </ul>
+
+            <div
+                class="flex flex-wrap items-end gap-2 rounded-xl border border-dashed border-[var(--mrl-borde)] p-3"
+            >
+                <div class="grid gap-1">
+                    <label class="text-xs text-[var(--mrl-texto-suave)]"
+                        >Clave única</label
+                    >
+                    <Input
+                        v-model="formNuevoMotivo.clave"
+                        placeholder="otro_motivo"
+                        class="h-8 w-40"
+                    />
+                    <InputError :message="formNuevoMotivo.errors.clave" />
+                </div>
+                <div class="grid gap-1">
+                    <label class="text-xs text-[var(--mrl-texto-suave)]"
+                        >Nombre</label
+                    >
+                    <Input
+                        v-model="formNuevoMotivo.nombre"
+                        placeholder="Otro motivo"
+                        class="h-8 w-48"
+                    />
+                    <InputError :message="formNuevoMotivo.errors.nombre" />
+                </div>
+                <label class="mb-1.5 flex items-center gap-1.5 text-xs">
+                    <Casilla v-model="formNuevoMotivo.no_recontratable_por_defecto" />
+                    No recontratable por defecto
+                </label>
+                <Button size="sm" @click="crearMotivoRechazo"
+                    >Agregar motivo</Button
+                >
+            </div>
         </section>
     </div>
 </template>

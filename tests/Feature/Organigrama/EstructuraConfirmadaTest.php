@@ -242,9 +242,35 @@ test('Auditora mal colgada de Mesa de Control queda en Contraloría bajo su gere
     $contraloria = ($this->puesto)('Gerente de Contraloría');
     expect($auditora->puesto_superior_id)->toBe($contraloria->id)
         ->and($auditora->puesto_crecimiento_id)->toBe($contraloria->id)
+        // Conserva su nivel original (4): AprobacionJerarquicaService::esGerenciaOSuperior()
+        // usa nivel_jerarquico <= 3 como umbral de "es gerencia" — Auditora
+        // no es gerencia y no debe cruzarlo solo porque su jefe subió de nivel.
         ->and($auditora->nivel_jerarquico)->toBe(4)
         ->and($auditora->departamento?->nombre)->toBe('Contraloría')
-        ->and($contraloria->puesto_superior_id)->toBe(($this->puesto)('Dirección Comercial')->id)
+        // Contraloría reporta directo a Dirección General, al mismo nivel
+        // que Dirección Comercial (CLAUDE.md §27, estructura confirmada
+        // 2026-10-06): nunca cuelga de Comercial.
+        ->and($contraloria->puesto_superior_id)->toBe(($this->puesto)('Dirección General')->id)
         ->and(($this->puesto)('Analista de Mesa de Control')->puesto_superior_id)->toBe($mesa->id)
         ->and($daniela->fresh()->only(['puesto_id', 'sucursal_principal_id', 'estatus']))->toBe($antes);
+});
+
+test('Contraloría, Recursos Humanos y Sistemas reportan directo a Dirección General, al mismo nivel que Dirección Comercial', function () {
+    $direccionGeneral = ($this->puesto)('Dirección General');
+    $comercial = ($this->puesto)('Dirección Comercial');
+    $contraloria = ($this->puesto)('Gerente de Contraloría');
+    $rh = ($this->puesto)('Gerencia de Recursos Humanos');
+    $sistemas = ($this->puesto)('Responsable de Sistemas');
+
+    expect($comercial->puesto_superior_id)->toBe($direccionGeneral->id)
+        ->and($contraloria->puesto_superior_id)->toBe($direccionGeneral->id)
+        ->and($rh->puesto_superior_id)->toBe($direccionGeneral->id)
+        ->and($sistemas->puesto_superior_id)->toBe($direccionGeneral->id)
+        ->and($contraloria->nivel_jerarquico)->toBe($comercial->nivel_jerarquico)
+        ->and($rh->nivel_jerarquico)->toBe($comercial->nivel_jerarquico)
+        ->and($sistemas->nivel_jerarquico)->toBe($comercial->nivel_jerarquico)
+        // Mesa de Control y la rama comercial (regionales, sucursales,
+        // gestores) sí siguen bajo Dirección Comercial: el cambio de nivel
+        // es solo para Contraloría, RH y Sistemas.
+        ->and(($this->puesto)('Gerente de Mesa de Control')->puesto_superior_id)->toBe($comercial->id);
 });

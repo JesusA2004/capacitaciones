@@ -12,6 +12,7 @@ import {
     UserRound,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import Casilla from '@/components/Common/Casilla.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
@@ -211,15 +212,50 @@ function urlExportar(
 }
 const { mostrarError } = useAlertas();
 
-const COLUMNAS = props.opciones.estados ?? [];
+// Columnas canónicas del tablero (CLAUDE.md §4): nunca los 16 sub-estados
+// técnicos — esos solo viven en el detalle y en el historial.
+const COLUMNAS = props.opciones.fases ?? [];
 const transicionesPermitidas = props.opciones.transicionesPermitidas ?? {};
+const estadoAFase = Object.fromEntries(
+    (props.opciones.estados ?? []).map((e) => [e.value, e.fase]),
+);
 
 const columnas = computed(() =>
     COLUMNAS.map((columna) => ({
         ...columna,
-        candidatos: props.candidatos.filter((c) => c.estado === columna.value),
+        candidatos: props.candidatos.filter((c) => c.fase === columna.value),
     })),
 );
+
+// Móvil: tabs/chips en vez del tablero horizontal (CLAUDE.md §12). "Cerrados"
+// agrupa las 3 fases de salida en un solo chip.
+const FASES_CERRADAS = ['contratado', 'rechazado', 'desistido'];
+const chipsMobile = computed(() => [
+    { value: 'todos', etiqueta: 'Todos' },
+    ...COLUMNAS.filter((c) => !FASES_CERRADAS.includes(c.value)),
+    { value: 'cerrados', etiqueta: 'Cerrados' },
+]);
+const chipSeleccionado = ref('todos');
+const candidatosMobile = computed(() => {
+    if (chipSeleccionado.value === 'todos') {
+        return props.candidatos;
+    }
+
+    if (chipSeleccionado.value === 'cerrados') {
+        return props.candidatos.filter((c) =>
+            FASES_CERRADAS.includes(c.fase),
+        );
+    }
+
+    return props.candidatos.filter((c) => c.fase === chipSeleccionado.value);
+});
+
+/** Destinos (sub-estados) válidos desde el estado actual que caen en esa fase. */
+function destinosDeFase(estadoOrigen: string, fase: string): string[] {
+    return (transicionesPermitidas[estadoOrigen] ?? []).filter(
+        (destino) => estadoAFase[destino] === fase,
+    );
+}
 
 const dialogoAbierto = ref(false);
 const seleccionado = ref<CandidatoItem | null>(null);
@@ -236,26 +272,24 @@ function columnaPermitida(valorColumna: string): boolean {
         return true;
     }
 
-    if (arrastrando.value.estado === valorColumna) {
+    if (arrastrando.value.fase === valorColumna) {
         return true;
     }
 
-    return (transicionesPermitidas[arrastrando.value.estado] ?? []).includes(
-        valorColumna,
-    );
+    return destinosDeFase(arrastrando.value.estado, valorColumna).length > 0;
 }
 
-function alSoltar(nuevoEstado: string) {
+function alSoltar(nuevaFase: string) {
     const candidato = arrastrando.value;
     arrastrando.value = null;
 
-    if (!candidato || candidato.estado === nuevoEstado) {
+    if (!candidato || candidato.fase === nuevaFase) {
         return;
     }
 
-    if (
-        !(transicionesPermitidas[candidato.estado] ?? []).includes(nuevoEstado)
-    ) {
+    const destinos = destinosDeFase(candidato.estado, nuevaFase);
+
+    if (destinos.length === 0) {
         mostrarError(
             'Desde el tablero solo puedes cerrar el proceso. Para avanzar, abre la ficha del candidato y usa la acción que corresponde.',
         );
@@ -263,27 +297,49 @@ function alSoltar(nuevoEstado: string) {
         return;
     }
 
-    // Cerrar el proceso exige motivo (queda en la línea de tiempo).
-    salidaPendiente.value = { candidato, estado: nuevoEstado };
+    // Cerrar el proceso exige motivo (queda en la línea de tiempo). Si la
+    // fase agrupa más de un sub-estado de salida (p. ej. «Rechazado» cubre
+    // varios motivos técnicos), RH elige cuál antes de confirmar.
+    salidaPendiente.value = { candidato, estado: destinos[0], opciones: destinos };
     motivoSalida.value = '';
+    motivoRechazoId.value = null;
+    recontratable.value = true;
 }
 
 const salidaPendiente = ref<{
     candidato: CandidatoItem;
     estado: string;
+    opciones: string[];
 } | null>(null);
 const motivoSalida = ref('');
+const motivoRechazoId = ref<number | null>(null);
+const recontratable = ref(true);
+
+function alElegirMotivoRechazo(id: number | null) {
+    motivoRechazoId.value = id;
+    const motivo = props.opciones.motivosRechazo?.find((m) => m.id === id);
+    recontratable.value = motivo ? !motivo.no_recontratable_por_defecto : true;
+}
 
 function confirmarSalida() {
     const pendiente = salidaPendiente.value;
 
-    if (!pendiente || motivoSalida.value.trim() === '') {
+    if (!pendiente || motivoRechazoId.value === null) {
         return;
     }
 
+    const motivoCatalogo = props.opciones.motivosRechazo?.find(
+        (m) => m.id === motivoRechazoId.value,
+    );
+
     router.put(
         estadoUrl.url(pendiente.candidato.id),
-        { estado: pendiente.estado, nota: motivoSalida.value },
+        {
+            estado: pendiente.estado,
+            nota: motivoSalida.value.trim() || motivoCatalogo?.nombre || '',
+            motivo_rechazo_id: motivoRechazoId.value,
+            recontratable: recontratable.value,
+        },
         {
             preserveScroll: true,
             onSuccess: () => (salidaPendiente.value = null),
@@ -524,9 +580,50 @@ function confirmarSalida() {
             </Button>
         </div>
 
+        <!-- Móvil: chips de fase + lista vertical, nunca el tablero horizontal. -->
+        <div class="flex flex-col gap-3 md:hidden">
+            <div class="flex gap-2 overflow-x-auto pb-1">
+                <Button
+                    v-for="chip in chipsMobile"
+                    :key="chip.value"
+                    type="button"
+                    size="sm"
+                    :variant="
+                        chipSeleccionado === chip.value
+                            ? 'default'
+                            : 'outline'
+                    "
+                    class="shrink-0"
+                    @click="chipSeleccionado = chip.value"
+                    >{{ chip.etiqueta }}</Button
+                >
+            </div>
+
+            <div class="flex flex-col gap-2">
+                <div
+                    v-for="candidato in candidatosMobile"
+                    :key="candidato.id"
+                    class="cursor-pointer rounded-xl border border-border/60 bg-card p-3 text-left shadow-sm transition-colors hover:border-primary/40"
+                    @click="router.visit(show.url(candidato.id))"
+                >
+                    <CandidatoTarjeta
+                        :candidato="candidato"
+                        :fuentes="opciones.fuentes"
+                    />
+                </div>
+
+                <p
+                    v-if="!candidatosMobile.length"
+                    class="rounded-xl border border-dashed p-3 text-center text-xs text-muted-foreground"
+                >
+                    Sin candidatos
+                </p>
+            </div>
+        </div>
+
         <div
             data-tour="candidatos-tablero"
-            class="flex gap-4 overflow-x-auto pb-4"
+            class="hidden gap-4 overflow-x-auto pb-4 md:flex"
         >
             <div
                 v-for="columna in columnas"
@@ -601,17 +698,66 @@ function confirmarSalida() {
                     }}
                 </DialogDescription>
             </DialogHeader>
+            <div v-if="(salidaPendiente?.opciones.length ?? 0) > 1" class="grid gap-1.5">
+                <Label>Motivo específico</Label>
+                <Select
+                    :model-value="salidaPendiente?.estado"
+                    @update:model-value="
+                        (v) => {
+                            if (salidaPendiente) salidaPendiente.estado = String(v ?? '');
+                        }
+                    "
+                >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem
+                            v-for="valor in salidaPendiente?.opciones ?? []"
+                            :key="valor"
+                            :value="valor"
+                            >{{
+                                opciones.estados.find((e) => e.value === valor)
+                                    ?.etiqueta
+                            }}</SelectItem
+                        >
+                    </SelectContent>
+                </Select>
+            </div>
             <div class="grid gap-1.5">
-                <Label for="motivo-salida">Motivo (obligatorio)</Label>
+                <Label>Motivo *</Label>
+                <Select
+                    :model-value="motivoRechazoId ? String(motivoRechazoId) : undefined"
+                    @update:model-value="
+                        (v) => alElegirMotivoRechazo(v ? Number(v) : null)
+                    "
+                >
+                    <SelectTrigger
+                        ><SelectValue placeholder="Elige un motivo"
+                    /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem
+                            v-for="motivo in opciones.motivosRechazo ?? []"
+                            :key="motivo.id"
+                            :value="String(motivo.id)"
+                            >{{ motivo.nombre }}</SelectItem
+                        >
+                    </SelectContent>
+                </Select>
+            </div>
+            <div class="grid gap-1.5">
+                <Label for="motivo-salida">Comentario (opcional)</Label>
                 <Textarea id="motivo-salida" v-model="motivoSalida" rows="3" />
             </div>
+            <label class="flex items-center gap-2 text-sm">
+                <Casilla v-model="recontratable" />
+                ¿Puede ser considerado de nuevo?
+            </label>
             <DialogFooter>
                 <Button variant="ghost" @click="salidaPendiente = null"
                     >Cancelar</Button
                 >
                 <Button
                     variant="destructive"
-                    :disabled="motivoSalida.trim() === ''"
+                    :disabled="motivoRechazoId === null"
                     @click="confirmarSalida"
                     >Cerrar proceso</Button
                 >

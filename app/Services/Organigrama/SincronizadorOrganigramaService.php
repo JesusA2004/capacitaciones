@@ -18,41 +18,44 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Estructura organizacional CONFIRMADA por dirección (2026-09-29) y su
+ * Estructura organizacional CONFIRMADA por dirección (2026-10-06, reemplaza
+ * la versión anterior del 2026-09-29: Sistemas, Recursos Humanos y
+ * Contraloría dejaron de depender de Dirección Comercial — ahora son áreas
+ * directas de Dirección General, al mismo nivel que ella) y su
  * sincronización segura con una base existente (producción incluida). La
  * usan PuestoJerarquiaSeeder y `php artisan people:sincronizar-organigrama`
  * (con --simular no escribe nada). Ver docs/ORGANIGRAMA.md.
  *
  *   Dirección General
- *   └── Dirección Comercial
- *       ├── Asistente de Dirección Comercial        (1 plaza)
- *       ├── Responsable de Sistemas
- *       │   └── Monitorista                          (hoy 1)
- *       ├── Gerencia de Recursos Humanos
- *       │   ├── Administración de Personal
- *       │   └── Reclutamiento
- *       ├── Gerente de Mesa de Control
- *       │   └── Analista de Mesa de Control
- *       ├── Gerente de Contraloría
- *       │   ├── Auditora
- *       │   ├── Tesorero
- *       │   └── Contador
- *       ├── Coordinadora Regional                    (vive en Corporativo)
- *       │   └── Coordinadora de Sucursal             (1 por sucursal; Corporativo no tiene)
- *       ├── Gerente Regional Q1   ─┐  cada una ligada a su región de la matriz
- *       └── Gerente Regional Q3   ─┘  (Q2 no existe)
- *           └── Gerente de Sucursal                  (1 por sucursal, depende del regional de SU región)
- *               └── Subgerente                       (1 por sucursal)
- *                   ├── Gestor                       (1 ruta de cobro vigente, 1 plaza)
- *                   └── Gestor Volante               (plaza de plantilla, sin ruta fija)
+ *   ├── Dirección Comercial
+ *   │   ├── Asistente de Dirección Comercial        (1 plaza)
+ *   │   ├── Gerente de Mesa de Control
+ *   │   │   └── Analista de Mesa de Control
+ *   │   ├── Coordinadora Regional                    (vive en Corporativo)
+ *   │   │   └── Coordinadora de Sucursal             (1 por sucursal; Corporativo no tiene)
+ *   │   ├── Gerente Regional Q1   ─┐  cada una ligada a su región de la matriz
+ *   │   └── Gerente Regional Q3   ─┘  (Q2 no existe)
+ *   │       └── Gerente de Sucursal                  (1 por sucursal, depende del regional de SU región)
+ *   │           └── Subgerente                       (1 por sucursal)
+ *   │               ├── Gestor                       (1 ruta de cobro vigente, 1 plaza)
+ *   │               └── Gestor Volante               (plaza de plantilla, sin ruta fija)
+ *   ├── Responsable de Sistemas
+ *   │   └── Monitorista                               (hoy 1)
+ *   ├── Gerencia de Recursos Humanos
+ *   │   ├── Administración de Personal
+ *   │   └── Reclutamiento
+ *   └── Gerente de Contraloría
+ *       ├── Auditora
+ *       ├── Tesorero
+ *       └── Contador
  *
  * Reglas de seguridad: nunca borra datos en uso ni asigna personas; solo
  * crea/renombra puestos (conserva id, gente e historial), corrige
  * "reporta a", liga regiones con su puesto regional y reclasifica las
  * entradas de la matriz. Todo lo que no puede decidir solo lo REPORTA como
- * conflicto. Los puestos fuera de la estructura confirmada (Contraloría,
- * Mesa de Control, Gestor grupal, Asistente de Dirección General) se
- * conservan sin tocar, por decisión de dirección.
+ * conflicto. Los puestos fuera de la estructura confirmada (Asistente de
+ * Dirección General, Gestor grupal) se conservan sin tocar, por decisión de
+ * dirección.
  */
 class SincronizadorOrganigramaService
 {
@@ -86,19 +89,27 @@ class SincronizadorOrganigramaService
      */
     private const ESTRUCTURA = [
         'Dirección General' => ['superior' => null, 'departamento' => 'Dirección', 'nivel' => 1, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Cabeza de la organización.', 'extra' => ['responsabilidades' => 'Dirección estratégica de la empresa y aprobación de decisiones de alto nivel.']],
-        'Dirección Comercial' => ['superior' => 'Dirección General', 'departamento' => 'Ventas', 'nivel' => 2, 'tipo' => TipoPuesto::Comercial, 'descripcion' => 'Dirección Comercial de Mr. Lana: de ella dependen la asistente, Sistemas, Recursos Humanos, la Coordinación Regional y las Gerencias Regionales.', 'extra' => ['responsabilidades' => 'Vista global, reportes generales y decisiones estratégicas.']],
+        'Dirección Comercial' => ['superior' => 'Dirección General', 'departamento' => 'Ventas', 'nivel' => 2, 'tipo' => TipoPuesto::Comercial, 'descripcion' => 'Dirección Comercial de Mr. Lana: de ella dependen la asistente, la Coordinación Regional y las Gerencias Regionales.', 'extra' => ['responsabilidades' => 'Vista global, reportes generales y decisiones estratégicas.']],
         'Asistente de Dirección Comercial' => ['superior' => 'Dirección Comercial', 'departamento' => 'Ventas', 'nivel' => 3, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Asistencia directa a la Dirección Comercial. Una sola plaza.'],
-        'Responsable de Sistemas' => ['superior' => 'Dirección Comercial', 'departamento' => 'Sistemas', 'nivel' => 3, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Responsable de la plataforma, infraestructura y monitoreo.'],
+        // Sistemas, Recursos Humanos y Contraloría son áreas directas de
+        // Dirección General, al mismo nivel que Dirección Comercial — nunca
+        // subordinadas a ella (CLAUDE.md §27, decisión de dirección que
+        // reemplaza la estructura anterior). Sus propios subordinados
+        // CONSERVAN su nivel original (4): AprobacionJerarquicaService::esGerenciaOSuperior()
+        // usa nivel_jerarquico <= 3 como "es gerencia" — Auditora, Tesorero,
+        // Contador, etc. no son gerencia y nunca deben cruzar ese umbral
+        // solo porque su jefe cambió de nivel.
+        'Responsable de Sistemas' => ['superior' => 'Dirección General', 'departamento' => 'Sistemas', 'nivel' => 2, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Responsable de la plataforma, infraestructura y monitoreo.'],
         'Monitorista' => ['superior' => 'Responsable de Sistemas', 'departamento' => 'Sistemas', 'nivel' => 4, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Monitoreo de sistemas y operación.', 'extra' => ['crecimiento' => 'Responsable de Sistemas']],
-        'Gerencia de Recursos Humanos' => ['superior' => 'Dirección Comercial', 'departamento' => 'Recursos Humanos', 'nivel' => 3, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Responsable de Recursos Humanos.'],
+        'Gerencia de Recursos Humanos' => ['superior' => 'Dirección General', 'departamento' => 'Recursos Humanos', 'nivel' => 2, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Responsable de Recursos Humanos.'],
         'Administración de Personal' => ['superior' => 'Gerencia de Recursos Humanos', 'departamento' => 'Recursos Humanos', 'nivel' => 4, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Expedientes, altas, bajas y trámites de personal.', 'extra' => ['crecimiento' => 'Gerencia de Recursos Humanos']],
         'Reclutamiento' => ['superior' => 'Gerencia de Recursos Humanos', 'departamento' => 'Recursos Humanos', 'nivel' => 4, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Atracción y selección de candidatos.', 'extra' => ['crecimiento' => 'Gerencia de Recursos Humanos']],
-        // Mesa de Control y Contraloría son áreas DISTINTAS, cada una con su
-        // gerente bajo Dirección Comercial. La Auditora es de Contraloría:
-        // nunca cuelga de Mesa de Control ni comparte su nodo.
+        // Mesa de Control sigue bajo Dirección Comercial (no forma parte del
+        // cambio de nivel §27). Mesa de Control y Contraloría son áreas
+        // DISTINTAS; la Auditora es de Contraloría, nunca de Mesa de Control.
         'Gerente de Mesa de Control' => ['superior' => 'Dirección Comercial', 'departamento' => 'Mesa de Control', 'nivel' => 3, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Responsable de la mesa de control: validación de operaciones de crédito.'],
         'Analista de Mesa de Control' => ['superior' => 'Gerente de Mesa de Control', 'departamento' => 'Mesa de Control', 'nivel' => 4, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Análisis y validación en mesa de control.', 'extra' => ['crecimiento' => 'Gerente de Mesa de Control']],
-        'Gerente de Contraloría' => ['superior' => 'Dirección Comercial', 'departamento' => 'Contraloría', 'nivel' => 3, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Responsable de contraloría: auditoría, tesorería y contabilidad.'],
+        'Gerente de Contraloría' => ['superior' => 'Dirección General', 'departamento' => 'Contraloría', 'nivel' => 2, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Responsable de contraloría: auditoría, tesorería y contabilidad.'],
         'Auditora' => ['superior' => 'Gerente de Contraloría', 'departamento' => 'Contraloría', 'nivel' => 4, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Auditoría interna de sucursales y procesos.', 'extra' => ['crecimiento' => 'Gerente de Contraloría']],
         'Tesorero' => ['superior' => 'Gerente de Contraloría', 'departamento' => 'Contraloría', 'nivel' => 4, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Tesorería: flujo de efectivo, pagos y fondeo.', 'extra' => ['crecimiento' => 'Gerente de Contraloría']],
         'Contador' => ['superior' => 'Gerente de Contraloría', 'departamento' => 'Contraloría', 'nivel' => 4, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Contabilidad general y cumplimiento fiscal.', 'extra' => ['crecimiento' => 'Gerente de Contraloría']],

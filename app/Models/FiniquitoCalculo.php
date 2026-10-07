@@ -29,6 +29,7 @@ use Illuminate\Support\Carbon;
  * @property int $antiguedad_meses
  * @property int $dias_trabajados_periodo
  * @property int $vacaciones_pendientes
+ * @property string $vacaciones_pendientes_pago
  * @property string $prima_vacacional
  * @property string $aguinaldo_proporcional
  * @property string $sueldo_pendiente
@@ -73,6 +74,7 @@ class FiniquitoCalculo extends Model
         'antiguedad_meses',
         'dias_trabajados_periodo',
         'vacaciones_pendientes',
+        'vacaciones_pendientes_pago',
         'prima_vacacional',
         'aguinaldo_proporcional',
         'sueldo_pendiente',
@@ -128,6 +130,7 @@ class FiniquitoCalculo extends Model
             'antiguedad_meses' => 'integer',
             'dias_trabajados_periodo' => 'integer',
             'vacaciones_pendientes' => 'integer',
+            'vacaciones_pendientes_pago' => 'decimal:2',
             'prima_vacacional' => 'decimal:2',
             'aguinaldo_proporcional' => 'decimal:2',
             'sueldo_pendiente' => 'decimal:2',

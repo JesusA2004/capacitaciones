@@ -20,7 +20,7 @@ class ResultadosPsicometricasRequest extends FormRequest
             'resumen' => ['required', 'string', 'max:4000'],
             'archivos' => ['nullable', 'array', 'max:5'],
             // MIME real del contenido (mimes: usa finfo), tamaño acotado.
-            'archivos.*' => ['file', 'mimes:pdf,jpg,jpeg,png', 'max:'.((int) config('contratos.max_upload_mb', 20) * 1024)],
+            'archivos.*' => ['file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:'.((int) config('contratos.max_upload_mb', 20) * 1024)],
         ];
     }
 }

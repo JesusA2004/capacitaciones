@@ -28,6 +28,7 @@ import { ver as verDocumento } from '@/routes/rh/solicitudes/documentos';
 import { store as subirDocumentoSolicitud } from '@/routes/solicitudes/documentos';
 import type {
     DocumentoOficialEsperado,
+    FiniquitoDesgloseItem,
     FiniquitoPermisos,
     FormatoOficialItem,
     SolicitudInternaDocumentoItem,
@@ -48,6 +49,7 @@ const props = defineProps<{
     plantillasSugeridas: { id: number; nombre: string; tipo: string }[];
     tiposDocumentoExpediente: { id: number; nombre: string }[];
     finiquitoPermisos: FiniquitoPermisos;
+    finiquitoDesglose: FiniquitoDesgloseItem[];
     formatosOficiales: FormatoOficialItem[];
     personaSolicitud: { id: number; nombre: string } | null;
     documentosProceso: { tipo: 'solicitud' | 'prestamo'; id: number }[];
@@ -391,6 +393,7 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
                     v-if="esBaja"
                     :solicitud-id="solicitud.id"
                     :finiquito="solicitud.finiquito_calculo ?? null"
+                    :desglose="finiquitoDesglose"
                     :permisos="finiquitoPermisos"
                 />
 

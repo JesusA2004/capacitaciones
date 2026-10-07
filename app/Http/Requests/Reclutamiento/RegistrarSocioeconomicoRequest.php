@@ -37,7 +37,7 @@ class RegistrarSocioeconomicoRequest extends FormRequest
             'visitador_user_id' => ['nullable', 'integer', 'exists:users,id'],
             'evidencias' => ['nullable', 'array', 'max:12'],
             // Fotografías, video corto o PDF: evidencia privada en el NAS.
-            'evidencias.*' => ['file', 'mimes:jpg,jpeg,png,pdf,mp4,mov', 'max:'.((int) config('contratos.max_upload_mb', 20) * 1024 * 3)],
+            'evidencias.*' => ['file', 'mimes:jpg,jpeg,png,webp,pdf,mp4,mov', 'max:'.((int) config('contratos.max_upload_mb', 20) * 1024 * 3)],
         ];
     }
 

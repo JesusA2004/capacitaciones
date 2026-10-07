@@ -70,6 +70,7 @@ export type FiniquitoCalculoItem = {
     antiguedad_meses: number;
     dias_trabajados_periodo: number;
     vacaciones_pendientes: number;
+    vacaciones_pendientes_pago: string;
     prima_vacacional: string;
     aguinaldo_proporcional: string;
     sueldo_pendiente: string;
@@ -84,6 +85,20 @@ export type FiniquitoCalculoItem = {
     documento_generado_path: string | null;
     documento_firmado_path: string | null;
     revisado_por?: UsuarioResumen | null;
+};
+
+/**
+ * Una fila del desglose editable del finiquito (automática o capturada por
+ * RH) — misma fuente que usa el PDF (App\Services\Finiquitos\FiniquitoService::desglose()).
+ */
+export type FiniquitoDesgloseItem = {
+    id: number | null;
+    concepto: string;
+    tipo: 'percepcion' | 'deduccion' | string;
+    cantidad: number;
+    importe: number;
+    observaciones: string | null;
+    origen: 'automatico' | 'manual' | string;
 };
 
 export type FiniquitoPermisos = {

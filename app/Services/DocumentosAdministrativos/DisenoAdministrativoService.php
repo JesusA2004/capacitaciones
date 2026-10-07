@@ -36,7 +36,11 @@ class DisenoAdministrativoService
             'typography' => ['font_family' => 'Helvetica', 'base_size_pt' => 9.5, 'line_height' => 1.4, 'color' => '#1f2937', 'weight' => 400],
             'paragraph' => ['indent_left_mm' => 0, 'indent_right_mm' => 0, 'first_line_mm' => 0, 'space_before_pt' => 0, 'space_after_pt' => 4, 'align' => 'left'],
             'colors' => ['primary' => '#274754', 'accent' => '#2dc7d3', 'muted' => '#6b7280', 'table_header_bg' => '#274754', 'table_header_text' => '#ffffff', 'total_bg' => '#dcfce7', 'total_text' => '#166534'],
-            'header' => ['show' => true, 'logo_asset_id' => null, 'logo_height_mm' => 12, 'logo_position' => 'left', 'height_mm' => 18, 'brand_text' => 'MR. LANA PEOPLE'],
+            // Encabezado patronal: la razón social REAL del colaborador
+            // (CLAUDE.md §21), nunca "MR. LANA PEOPLE" (eso es el sistema,
+            // no el patrón). El placeholder lo resuelve DocumentoAdministrativoService::html()
+            // igual que el resto del contenido, contra los datos reales del documento.
+            'header' => ['show' => true, 'logo_asset_id' => null, 'logo_height_mm' => 12, 'logo_position' => 'left', 'height_mm' => 18, 'brand_text' => '{{empresa_razon_social}}'],
             'footer' => ['show' => true, 'text' => 'MR. LANA PEOPLE · Documento generado por el sistema', 'page_numbers' => true, 'distance_mm' => 8],
             'background' => ['asset_id' => null, 'apply_to' => 'all_pages', 'fit' => 'stretch', 'opacity' => 100, 'position' => 'center', 'safe_area_mm' => 0],
             'tables' => ['font_size_pt' => 9, 'padding_mm' => 1.6, 'border_color' => '#e5e7eb', 'border_width_px' => 1, 'header_style' => 'solid', 'repeat_header' => true, 'avoid_row_break' => true, 'zebra' => false],
@@ -95,7 +99,7 @@ class DisenoAdministrativoService
                 'logo_height_mm' => $this->numero($g('header.logo_height_mm', 12), 4, 50),
                 'logo_position' => $this->opcion($g('header.logo_position', 'left'), ['left', 'center', 'right'], 'left'),
                 'height_mm' => $this->numero($g('header.height_mm', 18), 0, 80),
-                'brand_text' => $this->texto($g('header.brand_text', 'MR. LANA PEOPLE'), 80),
+                'brand_text' => $this->texto($g('header.brand_text', '{{empresa_razon_social}}'), 80),
             ],
             'footer' => [
                 'show' => (bool) $g('footer.show', true),

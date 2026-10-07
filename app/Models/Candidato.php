@@ -43,6 +43,8 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $contratado_en
  * @property int $etapa_maxima
  * @property string|null $motivo_salida
+ * @property int|null $motivo_rechazo_id
+ * @property bool|null $recontratable
  * @property Carbon|null $salida_en
  * @property int|null $salida_por
  * @property Carbon|null $autorizado_rh_en
@@ -60,7 +62,7 @@ class Candidato extends Model
      */
     protected $hidden = ['cv_disk', 'cv_path'];
 
-    protected $appends = ['tiene_cv'];
+    protected $appends = ['tiene_cv', 'fase'];
 
     protected $fillable = [
         'empresa_id',
@@ -92,6 +94,8 @@ class Candidato extends Model
         'contratado_en',
         'etapa_maxima',
         'motivo_salida',
+        'motivo_rechazo_id',
+        'recontratable',
         'salida_en',
         'salida_por',
         'autorizado_rh_en',
@@ -108,7 +112,16 @@ class Candidato extends Model
             'etapa_maxima' => 'integer',
             'salida_en' => 'datetime',
             'autorizado_rh_en' => 'datetime',
+            'recontratable' => 'boolean',
         ];
+    }
+
+    /**
+     * @return BelongsTo<MotivoRechazoCandidato, $this>
+     */
+    public function motivoRechazo(): BelongsTo
+    {
+        return $this->belongsTo(MotivoRechazoCandidato::class);
     }
 
     /**
@@ -151,6 +164,15 @@ class Candidato extends Model
     public function getTieneCvAttribute(): bool
     {
         return $this->cv_path !== null;
+    }
+
+    /**
+     * Columna canónica del tablero (CLAUDE.md §4): nunca los 16 sub-estados
+     * técnicos del workflow.
+     */
+    public function getFaseAttribute(): string
+    {
+        return $this->estado->faseCanonica();
     }
 
     /**
@@ -204,6 +226,14 @@ class Candidato extends Model
     public function campana(): BelongsTo
     {
         return $this->belongsTo(CampanaReclutamiento::class, 'campana_reclutamiento_id');
+    }
+
+    /**
+     * @return HasMany<IntervencionCandidato, $this>
+     */
+    public function intervenciones(): HasMany
+    {
+        return $this->hasMany(IntervencionCandidato::class);
     }
 
     /**

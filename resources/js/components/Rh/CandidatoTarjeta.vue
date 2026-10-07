@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
     Briefcase,
+    CircleDashed,
     Clock,
     Eye,
     Mail,
@@ -8,6 +9,7 @@ import {
     MessageSquareText,
     Phone,
     Radio,
+    ShieldCheck,
     Sparkles,
     UserRound,
 } from '@lucide/vue';
@@ -179,6 +181,17 @@ function abrirPreview(evento: Event) {
         </div>
 
         <div
+            v-if="candidato.gerente_involucrado"
+            class="flex items-center gap-1.5 text-xs text-muted-foreground"
+        >
+            <UserRound class="size-3.5 shrink-0" />
+            <span class="truncate"
+                >Gerente: {{ candidato.gerente_involucrado.name }}
+                {{ candidato.gerente_involucrado.apellidos }}</span
+            >
+        </div>
+
+        <div
             v-if="etiquetaFuente"
             class="flex items-center gap-1.5 text-xs text-muted-foreground"
         >
@@ -195,6 +208,59 @@ function abrirPreview(evento: Event) {
                 candidato.ultimo_seguimiento.nota
             }}</span>
         </p>
+
+        <div class="flex flex-wrap items-center gap-2 text-[11px]">
+            <span
+                class="flex items-center gap-1"
+                :class="
+                    candidato.tiene_cv
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-muted-foreground'
+                "
+            >
+                <component
+                    :is="candidato.tiene_cv ? ShieldCheck : CircleDashed"
+                    class="size-3.5"
+                />
+                CV
+            </span>
+            <span
+                class="flex items-center gap-1"
+                :class="
+                    candidato.psicometricas_count > 0
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-muted-foreground'
+                "
+            >
+                <component
+                    :is="
+                        candidato.psicometricas_count > 0
+                            ? ShieldCheck
+                            : CircleDashed
+                    "
+                    class="size-3.5"
+                />
+                Psicométricos
+            </span>
+            <span
+                class="flex items-center gap-1"
+                :class="
+                    candidato.socioeconomicos_count > 0
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-muted-foreground'
+                "
+            >
+                <component
+                    :is="
+                        candidato.socioeconomicos_count > 0
+                            ? ShieldCheck
+                            : CircleDashed
+                    "
+                    class="size-3.5"
+                />
+                Socioeco
+            </span>
+        </div>
 
         <div
             class="flex items-center justify-between gap-2 border-t border-border/60 pt-2 text-[11px] text-muted-foreground"

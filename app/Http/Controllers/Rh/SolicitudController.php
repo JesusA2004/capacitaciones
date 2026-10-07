@@ -208,6 +208,9 @@ class SolicitudController extends Controller
                 'puedeOmitirRevision' => $request->user()->can('solicitudes.bajas.omitir_finiquito'),
                 'usaFormatoOficial' => $this->finiquitos->tieneFormatoOficialConfigurado(),
             ],
+            // Desglose editable antes del PDF (CLAUDE.md §20): automáticos +
+            // manuales en un solo listado, misma fuente que usa el PDF.
+            'finiquitoDesglose' => $finiquito !== null ? $this->finiquitos->desglose($finiquito) : [],
         ]);
     }
 

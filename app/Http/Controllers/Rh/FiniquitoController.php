@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Rh;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\CicloLaboral\FiniquitoCierreRequest;
 use App\Http\Requests\Rh\ActualizarAjustesFiniquitoRequest;
 use App\Http\Requests\Rh\CalcularFiniquitoRequest;
 use App\Http\Requests\Rh\SubirFiniquitoFirmadoRequest;
 use App\Models\FiniquitoCalculo;
+use App\Models\FiniquitoConcepto;
 use App\Models\SolicitudInterna;
 use App\Services\Finiquitos\FiniquitoService;
 use Illuminate\Http\RedirectResponse;
@@ -53,6 +55,44 @@ class FiniquitoController extends Controller
         $this->finiquitos->actualizarAjustes($finiquito, $request->user(), $request->validated());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Ajustes del finiquito guardados.']);
+    }
+
+    /**
+     * Desglose editable antes del PDF (CLAUDE.md §20): agregar/editar/
+     * eliminar un concepto manual recalcula el total server-side y vuelve a
+     * dejar el finiquito en borrador para que se revise de nuevo.
+     */
+    public function agregarConcepto(FiniquitoCierreRequest $request, SolicitudInterna $solicitud): RedirectResponse
+    {
+        $finiquito = $this->finiquitoDe($solicitud);
+        $this->authorize('editarAjustes', $finiquito);
+        $request->validate(['tipo' => ['required'], 'concepto' => ['required'], 'importe' => ['required']]);
+
+        $this->finiquitos->agregarConcepto($finiquito, $request->safe()->only(['tipo', 'concepto', 'cantidad', 'importe', 'observaciones']), $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Concepto agregado.']);
+    }
+
+    public function actualizarConcepto(FiniquitoCierreRequest $request, SolicitudInterna $solicitud, FiniquitoConcepto $concepto): RedirectResponse
+    {
+        $finiquito = $this->finiquitoDe($solicitud);
+        $this->authorize('editarAjustes', $finiquito);
+        abort_unless($concepto->finiquito_calculo_id === $finiquito->id, 404);
+
+        $this->finiquitos->actualizarConcepto($concepto, $request->safe()->only(['tipo', 'concepto', 'cantidad', 'importe', 'observaciones']), $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Concepto actualizado.']);
+    }
+
+    public function eliminarConcepto(SolicitudInterna $solicitud, FiniquitoConcepto $concepto): RedirectResponse
+    {
+        $finiquito = $this->finiquitoDe($solicitud);
+        $this->authorize('editarAjustes', $finiquito);
+        abort_unless($concepto->finiquito_calculo_id === $finiquito->id, 404);
+
+        $this->finiquitos->eliminarConcepto($concepto, request()->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Concepto eliminado.']);
     }
 
     public function revisar(SolicitudInterna $solicitud): RedirectResponse

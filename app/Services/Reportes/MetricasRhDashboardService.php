@@ -7,7 +7,6 @@ use App\Enums\EstadoCandidato;
 use App\Enums\EstadoDocumento;
 use App\Enums\EstadoSolicitudInterna;
 use App\Enums\EstadoUsuario;
-use App\Enums\EstadoVacante;
 use App\Enums\Genero;
 use App\Enums\TipoMovimientoLaboral;
 use App\Models\AltaDigital;
@@ -25,6 +24,7 @@ use App\Services\Expedientes\ExpedienteService;
 use App\Services\Headcount\HeadcountService;
 use App\Services\MatrizComercial\MatrizComercialService;
 use App\Services\Vacaciones\VacacionesService;
+use App\Services\Vacantes\VacantesListadoService;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -53,6 +53,7 @@ class MetricasRhDashboardService
         private readonly MatrizComercialService $matriz,
         private readonly CumpleanosService $cumpleanos,
         private readonly VacacionesService $vacaciones,
+        private readonly VacantesListadoService $vacantesListado,
     ) {}
 
     /**
@@ -91,10 +92,11 @@ class MetricasRhDashboardService
 
         [$expedientesCompletos, $expedientesIncompletos] = $this->contarExpedientes($colaboradoresVisibles);
 
-        $vacantesAbiertas = $this->alcance->limitarPorSucursal(
-            Vacante::query()->whereNotIn('estado', [EstadoVacante::Cubierta->value, EstadoVacante::Cancelada->value]),
-            $usuario,
-        )->get(['id', 'estado', 'generada_automaticamente', 'plazas_disponibles', 'puesto_id']);
+        // Única fuente de "vacantes disponibles" (CLAUDE.md §13): la misma
+        // consulta que alimenta el módulo de Vacantes — nunca cuenta una
+        // automática cuya plaza ya no falta ni suma su columna guardada.
+        $vacantesAbiertas = $this->vacantesListado->consulta($usuario)->get();
+        $plazasVacantesAbiertas = array_sum(array_column($this->vacantesListado->filas($vacantesAbiertas), 'plazas_disponibles'));
 
         $candidatosActivos = $this->alcance->limitarPorSucursal(
             Candidato::query()->whereNotIn('estado', $this->estadosCandidatoTerminales()),
@@ -113,7 +115,7 @@ class MetricasRhDashboardService
                 'documentos_pendientes' => array_sum(array_map(fn (EstadoDocumento $e): int => $documentosPorEstado[$e->value] ?? 0, $this->estadosPendientes())),
                 'solicitudes_pendientes' => $this->solicitudesPendientes($usuario),
                 'vacaciones_pendientes' => $this->vacacionesPendientes($usuario),
-                'vacantes_disponibles' => (int) $vacantesAbiertas->sum('plazas_disponibles'),
+                'vacantes_disponibles' => (int) $plazasVacantesAbiertas,
                 'plazas_automaticas' => $vacantesAbiertas->where('generada_automaticamente', true)->count(),
                 'candidatos_activos' => (clone $candidatosActivos)->count(),
                 'rutas_cubiertas' => $matrizResumen['cubiertas'],

@@ -105,6 +105,13 @@ const SIDEBAR_SIN_GUIA = [
     'Ayuda',
     // Oculto tras el feature flag `capacitacion` (docs/CAPACITACION_PROXIMAMENTE.md).
     'Capacitación',
+    // Pantallas sencillas de un solo propósito (bandeja o lista plana): aún
+    // no tienen módulo de guía propio.
+    'Avisos',
+    'Mis recibos de nómina',
+    'Muro de felicitaciones',
+    'Cambios de foto',
+    'Recibos de nómina',
 ];
 
 test('todo acceso del sidebar tiene módulo de guía o una justificación explícita', function () {

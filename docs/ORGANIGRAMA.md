@@ -10,41 +10,41 @@ Cinco conceptos relacionados que **no se fusionan** — no los confundas al leer
 | **Headcount** | ¿Cuántas plazas están autorizadas y cuántas ocupadas? | `headcount_targets` (ver `docs/HEADCOUNT_Y_VACANTES.md`) |
 | **Cobertura temporal** | ¿Quién cubre un puesto vacante sin dejar el suyo? | `coberturas_puesto` |
 
-## Estructura confirmada (dirección, 2026-09-29)
+## Estructura confirmada (dirección, 2026-10-06)
+
+Reemplaza la versión anterior del 2026-09-29: Sistemas, Recursos Humanos y
+Contraloría dejaron de depender de Dirección Comercial — ahora son áreas
+directas de Dirección General, al mismo nivel que ella.
 
 ```
 Dirección General
-└── Dirección Comercial
-    ├── Asistente de Dirección Comercial          1 plaza
-    ├── Responsable de Sistemas
-    │   └── Monitorista                           hoy 1
-    ├── Gerencia de Recursos Humanos
-    │   ├── Administración de Personal
-    │   └── Reclutamiento
-    ├── Coordinadora Regional                     vive en Corporativo
-    │   └── Coordinadora de Sucursal              1 por sucursal (Corporativo NO tiene)
-    ├── Gerente Regional Q1   ─┐ cada una ligada a su región de la matriz
-    └── Gerente Regional Q3   ─┘ (Q2 no existe)
-        └── (sucursales de esa región)
-            Gerente de Sucursal                   exactamente 1 por sucursal
-            └── Subgerente                        exactamente 1 por sucursal
-                ├── Gestor                        1 plaza + 1 ruta de cobro vigente
-                └── Gestor Volante                plaza de plantilla, SIN ruta fija
+├── Dirección Comercial
+│   ├── Asistente de Dirección Comercial          1 plaza
+│   ├── Gerente de Mesa de Control
+│   │   └── Analista de Mesa de Control
+│   ├── Coordinadora Regional                     vive en Corporativo
+│   │   └── Coordinadora de Sucursal              1 por sucursal (Corporativo NO tiene)
+│   ├── Gerente Regional Q1   ─┐ cada una ligada a su región de la matriz
+│   └── Gerente Regional Q3   ─┘ (Q2 no existe)
+│       └── (sucursales de esa región)
+│           Gerente de Sucursal                   exactamente 1 por sucursal
+│           └── Subgerente                        exactamente 1 por sucursal
+│               ├── Gestor                        1 plaza + 1 ruta de cobro vigente
+│               └── Gestor Volante                plaza de plantilla, SIN ruta fija
+├── Responsable de Sistemas
+│   └── Monitorista                                hoy 1
+├── Gerencia de Recursos Humanos
+│   ├── Administración de Personal
+│   └── Reclutamiento
+└── Gerente de Contraloría
+    ├── Auditora      (crecimiento: Gerente de Contraloría)
+    ├── Tesorero
+    └── Contador
 ```
 
 Definición única en código: `App\Services\Organigrama\SincronizadorOrganigramaService` (la usa `PuestoJerarquiaSeeder` y el comando de sincronización). No se inventan otros puestos.
 
-**Mesa de Control y Contraloría** son áreas distintas dentro de la estructura confirmada (una sola definición: `SincronizadorOrganigramaService::ESTRUCTURA`):
-
-```
-Dirección Comercial
-├── Gerente de Mesa de Control
-│   └── Analista de Mesa de Control
-└── Gerente de Contraloría
-    ├── Auditora      (nivel 4, crecimiento: Gerente de Contraloría)
-    ├── Tesorero
-    └── Contador
-```
+**Mesa de Control y Contraloría** son áreas distintas (una sola definición: `SincronizadorOrganigramaService::ESTRUCTURA`): Mesa de Control sigue bajo Dirección Comercial; Contraloría reporta directo a Dirección General, al mismo nivel que Dirección Comercial — nunca cuelga de ella ni de Mesa de Control.
 
 **Fuera de la estructura confirmada, conservados sin cambios** (decisión de dirección): Asistente de Dirección General y Gestor grupal. El comando de sincronización los lista en «Puestos fuera de la estructura confirmada».
 

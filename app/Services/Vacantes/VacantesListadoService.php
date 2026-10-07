@@ -33,7 +33,7 @@ class VacantesListadoService
     ) {}
 
     /**
-     * @param  array{busqueda?: string|null, sucursal_id?: int|string|null, puesto_id?: int|string|null, departamento_id?: int|string|null, estado?: string|null}  $filtros
+     * @param  array{busqueda?: string|null, sucursal_id?: int|string|null, puesto_id?: int|string|null, departamento_id?: int|string|null, empresa_id?: int|string|null, estado?: string|null}  $filtros
      * @return Builder<Vacante>
      */
     public function consulta(User $usuario, array $filtros = []): Builder
@@ -61,6 +61,7 @@ class VacantesListadoService
             ->when($filtros['sucursal_id'] ?? null, fn (Builder $q, int|string $id) => $q->where('sucursal_id', (int) $id))
             ->when($filtros['puesto_id'] ?? null, fn (Builder $q, int|string $id) => $q->where('puesto_id', (int) $id))
             ->when($filtros['departamento_id'] ?? null, fn (Builder $q, int|string $id) => $q->where('departamento_id', (int) $id))
+            ->when($filtros['empresa_id'] ?? null, fn (Builder $q, int|string $id) => $q->where('empresa_id', (int) $id))
             ->when($busqueda !== '', fn (Builder $q) => $q->where(fn (Builder $s) => $s
                 ->whereHas('puesto', fn (Builder $p) => $p->where('nombre', 'like', "%{$busqueda}%"))
                 ->orWhereHas('sucursal', fn (Builder $p) => $p->where('nombre', 'like', "%{$busqueda}%"))))
@@ -180,6 +181,49 @@ class VacantesListadoService
         $plazas = $this->plazasReales(new EloquentCollection([$vacante]));
 
         return ($plazas[$vacante->id] ?? 0) > 0;
+    }
+
+    /**
+     * Plazas reales abiertas por sucursal (misma regla que `fila()`, pero
+     * ya acumulada): para dashboards/reportes que necesitan un único total
+     * por sucursal en vez del listado completo de vacantes. Nunca cuenta
+     * una automática sin faltante real ni usa la columna guardada de una
+     * automática — siempre el cálculo en vivo contra Headcount.
+     *
+     * @param  Collection<int, int>  $sucursalesIds
+     * @return Collection<int, int> sucursal_id => plazas reales
+     */
+    public function plazasPorSucursal(Collection $sucursalesIds): Collection
+    {
+        if ($sucursalesIds->isEmpty()) {
+            return collect();
+        }
+
+        $vacantes = Vacante::query()
+            ->whereIn('sucursal_id', $sucursalesIds)
+            ->whereNotIn('estado', [EstadoVacante::Cubierta->value, EstadoVacante::Cancelada->value])
+            ->whereNotIn('id', $this->automaticasSinFaltante())
+            ->get(['id', 'sucursal_id', 'puesto_id', 'estado', 'generada_automaticamente', 'plazas_disponibles']);
+
+        if ($vacantes->isEmpty()) {
+            return collect();
+        }
+
+        $autorizadas = $this->headcount->plantillaAutorizadaPorSucursalPuesto($sucursalesIds);
+        $actuales = $this->headcount->plantillaActualPorSucursalPuesto($sucursalesIds);
+
+        return $vacantes
+            ->groupBy('sucursal_id')
+            ->map(fn (EloquentCollection $grupo) => (int) $grupo->sum(function (Vacante $v) use ($autorizadas, $actuales) {
+                if (! $v->generada_automaticamente) {
+                    return (int) $v->plazas_disponibles;
+                }
+
+                $clave = $this->clave($v);
+                $autorizada = $autorizadas->get($clave);
+
+                return $autorizada !== null ? max($autorizada - (int) ($actuales[$clave] ?? 0), 0) : 0;
+            }));
     }
 
     /**

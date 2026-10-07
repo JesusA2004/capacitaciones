@@ -6,6 +6,10 @@ use App\Models\HeadcountTarget;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\Vacante;
+use App\Services\Reportes\IndicadoresRhService;
+use App\Services\Reportes\MetricasRhDashboardService;
+use App\Services\Reportes\ReportesRhService;
+use App\Services\Reportes\TableroRhService;
 use App\Services\Vacantes\VacanteAutoGenerationService;
 use App\Services\Vacantes\VacantesListadoService;
 use Database\Seeders\RolesYPermisosSeeder;
@@ -122,6 +126,25 @@ test('un cambio de sucursal resincroniza origen y destino', function () {
 
     expect(vfAbierta($this->cuernavaca, $this->coordinadora)?->plazas_disponibles)->toBe(1)
         ->and(vfAbierta($cordoba, $this->coordinadora))->toBeNull();
+});
+
+test('Tablero, Métricas, Indicadores y Reportes RH tampoco cuentan la automática vieja ya sin faltante', function () {
+    vfAutorizar($this->cuernavaca, $this->coordinadora, 1);
+    // Misma fila vieja del caso Maribel: automática abierta cuya plaza ya
+    // está ocupada porque la persona entró sin pasar por la sincronización.
+    Vacante::factory()->create([
+        'sucursal_id' => $this->cuernavaca->id, 'puesto_id' => $this->coordinadora->id, 'generada_automaticamente' => true,
+        'estado' => EstadoVacante::Abierta->value, 'plazas_requeridas' => 1, 'plazas_disponibles' => 1, 'plazas_cubiertas' => 0,
+    ]);
+    $maribel = vfPersona($this->cuernavaca, Puesto::factory()->create());
+    DB::table('colaboradores')->where('id', $maribel->id)->update(['puesto_id' => $this->coordinadora->id]);
+
+    $rh = clUsuario('rh_admin');
+
+    expect(app(TableroRhService::class)->construir($rh)['summary']['vacantes_abiertas']['valor'])->toBe(0)
+        ->and(app(MetricasRhDashboardService::class)->global($rh)['cards']['vacantes_disponibles'])->toBe(0)
+        ->and(app(IndicadoresRhService::class)->calcular($rh)['vacantes_abiertas'])->toBe(0)
+        ->and(app(ReportesRhService::class)->generar('vacantes_abiertas', $rh, [])['filas'])->toBe([]);
 });
 
 test('el comando no toca vacantes manuales de RH y --simular no escribe', function () {

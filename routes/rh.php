@@ -15,6 +15,7 @@ use App\Http\Controllers\Rh\FiniquitoController;
 use App\Http\Controllers\Rh\FormatoController;
 use App\Http\Controllers\Rh\FormatoOficialController;
 use App\Http\Controllers\Rh\IncorporacionInvitacionController;
+use App\Http\Controllers\Rh\IntervencionCandidatoController;
 use App\Http\Controllers\Rh\MigracionExpedientesController;
 use App\Http\Controllers\Rh\NominaController;
 use App\Http\Controllers\Rh\PlantillaController;
@@ -166,7 +167,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('{candidato}/devolver', [CandidatoController::class, 'devolverRh'])->name('devolver');
             Route::post('{candidato}/descartar', [CandidatoController::class, 'descartar'])->name('descartar');
             Route::post('{candidato}/contratacion', [CandidatoController::class, 'iniciarContratacion'])->name('contratacion');
+            // Intervención por jerarquía sobre un rechazo de RH (CLAUDE.md
+            // §10-11): el gerente solicita, Regional o Dirección Comercial
+            // decide — nunca otra fase del kanban.
+            Route::post('{candidato}/intervencion', [IntervencionCandidatoController::class, 'solicitar'])->name('intervencion.solicitar');
             Route::delete('{candidato}', [CandidatoController::class, 'destroy'])->name('destroy');
+        });
+
+        Route::prefix('intervenciones')->name('intervenciones.')->group(function () {
+            Route::post('{intervencion}/decidir', [IntervencionCandidatoController::class, 'decidir'])->name('decidir');
         });
 
         Route::prefix('campanas')->name('campanas.')->group(function () {
@@ -283,6 +292,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::post('calcular', [FiniquitoController::class, 'calcular'])->name('calcular');
                 Route::post('recalcular', [FiniquitoController::class, 'recalcular'])->name('recalcular');
                 Route::put('ajustes', [FiniquitoController::class, 'actualizarAjustes'])->name('ajustes');
+                Route::post('conceptos', [FiniquitoController::class, 'agregarConcepto'])->name('conceptos.store');
+                Route::patch('conceptos/{concepto}', [FiniquitoController::class, 'actualizarConcepto'])->name('conceptos.update');
+                Route::delete('conceptos/{concepto}', [FiniquitoController::class, 'eliminarConcepto'])->name('conceptos.destroy');
                 Route::post('revisar', [FiniquitoController::class, 'revisar'])->name('revisar');
                 Route::post('generar-pdf', [FiniquitoController::class, 'generarPdf'])->name('generar-pdf');
                 Route::get('descargar-pdf', [FiniquitoController::class, 'descargarPdf'])->name('descargar-pdf');

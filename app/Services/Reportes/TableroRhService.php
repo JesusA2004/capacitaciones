@@ -5,7 +5,6 @@ namespace App\Services\Reportes;
 use App\Enums\EstadoCandidato;
 use App\Enums\EstadoContratoLaboral;
 use App\Enums\EstadoUsuario;
-use App\Enums\EstadoVacante;
 use App\Enums\GrupoPuestoIndicador;
 use App\Enums\TipoContratacion;
 use App\Models\CampanaReclutamiento;
@@ -16,9 +15,9 @@ use App\Models\Empresa;
 use App\Models\HeadcountTarget;
 use App\Models\Sucursal;
 use App\Models\User;
-use App\Models\Vacante;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Headcount\HeadcountService;
+use App\Services\Vacantes\VacantesListadoService;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -49,6 +48,7 @@ class TableroRhService
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly HeadcountService $headcount,
+        private readonly VacantesListadoService $vacantesListado,
     ) {}
 
     /**
@@ -114,13 +114,9 @@ class TableroRhService
         $autorizada = (int) HeadcountTarget::query()->whereIn('sucursal_id', $sucursales)->sum('plantilla_autorizada');
 
         $corporativas = Sucursal::query()->whereIn('id', $sucursales)->where('es_corporativo', true)->pluck('id');
-        $vacantes = Vacante::query()
-            ->whereIn('sucursal_id', $sucursales)
-            ->whereNotIn('estado', [EstadoVacante::Cubierta->value, EstadoVacante::Cancelada->value])
-            ->get(['sucursal_id', 'plazas_disponibles']);
-        $plazas = fn (Collection $v): int => (int) $v->sum(fn (Vacante $x) => max(1, (int) $x->plazas_disponibles));
-        $vacantesCorporativo = $plazas($vacantes->filter(fn (Vacante $v) => $corporativas->contains($v->sucursal_id)));
-        $vacantesSucursales = $plazas($vacantes) - $vacantesCorporativo;
+        $plazasPorSucursal = $this->vacantesListado->plazasPorSucursal($sucursales);
+        $vacantesCorporativo = (int) $plazasPorSucursal->filter(fn (int $_, int $sucursalId) => $corporativas->contains($sucursalId))->sum();
+        $vacantesSucursales = (int) $plazasPorSucursal->sum() - $vacantesCorporativo;
 
         $bajas = $this->bajasEntre($sucursales, $inicio, $fin);
         $promedio = ($this->plantillaAl($sucursales, $inicio->subDay()) + $this->plantillaAl($sucursales, $fin)) / 2;

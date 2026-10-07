@@ -185,7 +185,10 @@ class FiniquitoService
         };
 
         $agregar('Sueldo pendiente', TipoConceptoNomina::Percepcion, (float) $finiquito->sueldo_pendiente);
-        $agregar('Vacaciones pendientes (prima vacacional)', TipoConceptoNomina::Percepcion, (float) $finiquito->prima_vacacional, (float) $finiquito->vacaciones_pendientes, 'Días pendientes como cantidad');
+        // Vacaciones pendientes y prima vacacional son conceptos distintos
+        // (CLAUDE.md §20/§36): nunca una sola fila.
+        $agregar('Vacaciones pendientes', TipoConceptoNomina::Percepcion, (float) $finiquito->vacaciones_pendientes_pago, (float) $finiquito->vacaciones_pendientes, 'Días pendientes pagados a sueldo diario');
+        $agregar('Prima vacacional', TipoConceptoNomina::Percepcion, (float) $finiquito->prima_vacacional, (float) $finiquito->vacaciones_pendientes, sprintf('%d%% sobre los días pendientes', (int) config('finiquitos.prima_vacacional_porcentaje')));
         $agregar('Aguinaldo proporcional', TipoConceptoNomina::Percepcion, (float) $finiquito->aguinaldo_proporcional);
         $agregar('Indemnización', TipoConceptoNomina::Percepcion, (float) $finiquito->indemnizacion);
         $agregar('Bonos extra', TipoConceptoNomina::Percepcion, (float) $finiquito->bonos_extra);
@@ -467,7 +470,7 @@ class FiniquitoService
             'snapshot' => [
                 ...$finiquito->only([
                     'sueldo_mensual', 'sueldo_diario', 'antiguedad_anios', 'antiguedad_meses',
-                    'dias_trabajados_periodo', 'vacaciones_pendientes', 'prima_vacacional',
+                    'dias_trabajados_periodo', 'vacaciones_pendientes', 'vacaciones_pendientes_pago', 'prima_vacacional',
                     'aguinaldo_proporcional', 'sueldo_pendiente', 'indemnizacion', 'bonos_extra',
                     'descuentos', 'adeudos', 'otros_conceptos', 'total_calculado', 'total_ajustado',
                     'comentarios_ajuste', 'total_percepciones', 'total_deducciones', 'neto',
@@ -505,6 +508,7 @@ class FiniquitoService
             'finiquito_sueldo_mensual' => $this->moneda($finiquito->sueldo_mensual),
             'finiquito_sueldo_pendiente' => $this->moneda($finiquito->sueldo_pendiente),
             'finiquito_vacaciones_pendientes' => "{$finiquito->vacaciones_pendientes} días",
+            'finiquito_vacaciones_pendientes_pago' => $this->moneda($finiquito->vacaciones_pendientes_pago),
             'finiquito_prima_vacacional' => $this->moneda($finiquito->prima_vacacional),
             'finiquito_aguinaldo_proporcional' => $this->moneda($finiquito->aguinaldo_proporcional),
             'finiquito_indemnizacion' => $this->moneda($finiquito->indemnizacion),
@@ -564,6 +568,11 @@ class FiniquitoService
         $sueldoDiario = round($sueldoMensual / 30, 2);
         $vacacionesPendientes = $this->vacaciones->saldoColaborador($colaborador)['dias_disponibles'];
 
+        // Vacaciones pendientes (el pago de los días a sueldo diario) y
+        // prima vacacional (el % extra sobre esos días) son conceptos
+        // legales distintos (CLAUDE.md §20/§36): nunca se combinan en un
+        // solo monto.
+        $vacacionesPendientesPago = round($vacacionesPendientes * $sueldoDiario, 2);
         $primaVacacionalPorcentaje = (int) config('finiquitos.prima_vacacional_porcentaje');
         $primaVacacional = round($vacacionesPendientes * $sueldoDiario * ($primaVacacionalPorcentaje / 100), 2);
 
@@ -572,7 +581,7 @@ class FiniquitoService
 
         $indemnizacion = $this->calcularIndemnizacion($solicitud, $antiguedadAnios, $sueldoDiario);
 
-        $totalCalculado = round($sueldoPendiente + $primaVacacional + $aguinaldoProporcional + $indemnizacion, 2);
+        $totalCalculado = round($sueldoPendiente + $vacacionesPendientesPago + $primaVacacional + $aguinaldoProporcional + $indemnizacion, 2);
 
         return [
             'fecha_ingreso' => $fechaIngreso->toDateString(),
@@ -583,6 +592,7 @@ class FiniquitoService
             'antiguedad_meses' => $antiguedadMeses,
             'dias_trabajados_periodo' => $diasTrabajadosPeriodo,
             'vacaciones_pendientes' => $vacacionesPendientes,
+            'vacaciones_pendientes_pago' => $vacacionesPendientesPago,
             'prima_vacacional' => $primaVacacional,
             'aguinaldo_proporcional' => $aguinaldoProporcional,
             'sueldo_pendiente' => $sueldoPendiente,

@@ -25,7 +25,7 @@ class DatosDocumentoAdministrativo
      */
     public function recibo(ReciboNomina $recibo): array
     {
-        $recibo->loadMissing(['colaborador.puesto', 'colaborador.sucursalPrincipal']);
+        $recibo->loadMissing(['colaborador.puesto', 'colaborador.sucursalPrincipal.empresa']);
         $conceptos = $recibo->conceptos()->orderBy('orden')->get();
 
         $lista = fn (TipoConceptoNomina $tipo, array $respaldo) => $conceptos->isNotEmpty()
@@ -34,6 +34,7 @@ class DatosDocumentoAdministrativo
 
         return [
             'colaborador' => $this->colaborador($recibo->colaborador),
+            'empresa_razon_social' => $this->empresaRazonSocial($recibo->colaborador),
             'periodo' => ['inicio' => $this->fecha($recibo->periodo_inicio), 'fin' => $this->fecha($recibo->periodo_fin)],
             'fecha_pago' => $this->fecha($recibo->fecha_pago),
             'folio' => (string) ($recibo->folio ?? $recibo->id),
@@ -52,7 +53,7 @@ class DatosDocumentoAdministrativo
      */
     public function finiquito(FiniquitoCalculo $finiquito, array $desglose): array
     {
-        $finiquito->loadMissing(['colaborador.puesto', 'colaborador.sucursalPrincipal', 'solicitudInterna']);
+        $finiquito->loadMissing(['colaborador.puesto', 'colaborador.sucursalPrincipal.empresa', 'solicitudInterna']);
         $renglones = fn (string $tipo) => array_values(array_map(
             fn (array $r) => ['concepto' => (string) $r['concepto'].(($r['observaciones'] ?? null) && ($r['origen'] ?? '') === 'manual' ? ' — '.$r['observaciones'] : ''), 'importe' => $this->dinero((float) $r['importe'])],
             array_filter($desglose, fn (array $r) => ($r['tipo'] ?? null) === $tipo),
@@ -60,6 +61,7 @@ class DatosDocumentoAdministrativo
 
         return [
             'colaborador' => $this->colaborador($finiquito->colaborador),
+            'empresa_razon_social' => $this->empresaRazonSocial($finiquito->colaborador),
             'folio' => (string) ($finiquito->solicitudInterna->folio ?? $finiquito->id),
             'fecha_ingreso' => $this->fecha($finiquito->fecha_ingreso),
             'fecha_baja' => $this->fecha($finiquito->fecha_baja),
@@ -81,13 +83,14 @@ class DatosDocumentoAdministrativo
     public function comprobante(SolicitudInterna $solicitud, Colaborador $colaborador): array
     {
         $solicitud->loadMissing(['revisadoPor', 'diasVacaciones']);
-        $colaborador->loadMissing(['puesto', 'sucursalPrincipal']);
+        $colaborador->loadMissing(['puesto', 'sucursalPrincipal.empresa']);
         $dias = $solicitud->tipo === TipoSolicitudInterna::Vacaciones
             ? $solicitud->diasVacaciones->map(fn ($d) => $d->fecha->format('d/m/Y'))->implode(', ')
             : '';
 
         return [
             'colaborador' => $this->colaborador($colaborador),
+            'empresa_razon_social' => $this->empresaRazonSocial($colaborador),
             'folio' => (string) $solicitud->folio,
             'tipo' => mb_strtolower($solicitud->tipo->etiqueta()),
             'periodo' => $solicitud->fecha_inicio !== null
@@ -110,12 +113,13 @@ class DatosDocumentoAdministrativo
     public function constancia(Colaborador $colaborador): array
     {
         $colaborador->loadMissing(['puesto', 'sucursalPrincipal.empresa']);
-        $empresa = (string) ($colaborador->sucursalPrincipal->empresa->nombre ?? 'la empresa');
+        $empresa = $this->empresaRazonSocial($colaborador);
         $datos = $this->colaborador($colaborador);
 
         return [
             'colaborador' => $datos,
             'empresa' => $empresa,
+            'empresa_razon_social' => $empresa,
             'fecha_ingreso' => $this->fecha($colaborador->fecha_ingreso),
             'lugar_fecha' => sprintf('%s, a %s', (string) ($colaborador->sucursalPrincipal->nombre ?? 'México'), $this->fechaLarga(Carbon::now())),
             'cuerpo' => sprintf(
@@ -136,32 +140,47 @@ class DatosDocumentoAdministrativo
         $percepciones = [['concepto' => 'Sueldo base', 'importe' => '$4,500.00'], ['concepto' => 'Bono de productividad', 'importe' => '$750.00']];
         $deducciones = [['concepto' => 'Préstamo interno', 'importe' => '$300.00']];
 
+        $empresaEjemplo = 'Empresa de Ejemplo S.A. de C.V.';
+
         return match ($familia) {
             FamiliaAdministrativa::ReciboNomina => [
-                'colaborador' => $colaborador, 'periodo' => ['inicio' => '01/10/2026', 'fin' => '15/10/2026'], 'fecha_pago' => '15/10/2026',
+                'colaborador' => $colaborador, 'empresa_razon_social' => $empresaEjemplo, 'periodo' => ['inicio' => '01/10/2026', 'fin' => '15/10/2026'], 'fecha_pago' => '15/10/2026',
                 'folio' => 'RIN-EJEMPLO', 'percepciones' => $percepciones, 'deducciones' => $deducciones,
                 'total_percepciones' => '$5,250.00', 'total_deducciones' => '$300.00', 'neto' => '$4,950.00',
                 'observaciones' => 'Vista previa con datos ficticios.',
             ],
             FamiliaAdministrativa::Finiquito => [
-                'colaborador' => $colaborador, 'folio' => 'SOL-EJEMPLO', 'fecha_ingreso' => '01/03/2024', 'fecha_baja' => '15/10/2026',
+                'colaborador' => $colaborador, 'empresa_razon_social' => $empresaEjemplo, 'folio' => 'SOL-EJEMPLO', 'fecha_ingreso' => '01/03/2024', 'fecha_baja' => '15/10/2026',
                 'antiguedad' => '2 año(s), 7 mes(es)', 'sueldo_mensual' => '$9,000.00', 'sueldo_diario' => '$300.00',
-                'percepciones' => [['concepto' => 'Sueldo pendiente', 'importe' => '$1,500.00'], ['concepto' => 'Aguinaldo proporcional', 'importe' => '$3,452.05'], ['concepto' => 'Vacaciones pendientes (prima vacacional)', 'importe' => '$600.00']],
+                'percepciones' => [['concepto' => 'Sueldo pendiente', 'importe' => '$1,500.00'], ['concepto' => 'Aguinaldo proporcional', 'importe' => '$3,452.05'], ['concepto' => 'Vacaciones pendientes', 'importe' => '$2,400.00'], ['concepto' => 'Prima vacacional', 'importe' => '$600.00']],
                 'deducciones' => [['concepto' => 'Adeudos', 'importe' => '$500.00']],
-                'total_percepciones' => '$5,552.05', 'total_deducciones' => '$500.00', 'neto' => '$5,052.05',
+                'total_percepciones' => '$7,952.05', 'total_deducciones' => '$500.00', 'neto' => '$7,452.05',
                 'observaciones' => 'Vista previa con datos ficticios.',
             ],
             FamiliaAdministrativa::ComprobanteSolicitud => [
-                'colaborador' => $colaborador, 'folio' => 'SOL-EJEMPLO', 'tipo' => 'vacaciones', 'periodo' => '12/10/2026 — 17/10/2026',
+                'colaborador' => $colaborador, 'empresa_razon_social' => $empresaEjemplo, 'folio' => 'SOL-EJEMPLO', 'tipo' => 'vacaciones', 'periodo' => '12/10/2026 — 17/10/2026',
                 'dias' => '5', 'dias_detalle' => '12/10/2026, 13/10/2026, 14/10/2026, 16/10/2026, 17/10/2026', 'motivo' => 'Viaje familiar (ejemplo)',
                 'autorizo' => 'Recursos Humanos', 'fecha_autorizacion' => '05/10/2026', 'observaciones' => '',
             ],
             FamiliaAdministrativa::ConstanciaLaboral => [
-                'colaborador' => $colaborador, 'empresa' => 'Empresa de ejemplo', 'fecha_ingreso' => '01/03/2024',
+                'colaborador' => $colaborador, 'empresa' => $empresaEjemplo, 'empresa_razon_social' => $empresaEjemplo, 'fecha_ingreso' => '01/03/2024',
                 'lugar_fecha' => 'Sucursal de ejemplo, a 5 de octubre de 2026',
-                'cuerpo' => 'Por medio de la presente se hace constar que Colaborador de Ejemplo labora en Empresa de ejemplo desde el 01/03/2024, desempeñando el puesto de Gestor.',
+                'cuerpo' => "Por medio de la presente se hace constar que Colaborador de Ejemplo labora en {$empresaEjemplo} desde el 01/03/2024, desempeñando el puesto de Gestor.",
             ],
         };
+    }
+
+    /**
+     * Razón social real de la empresa del colaborador (CLAUDE.md §21): nunca
+     * "MR. LANA PEOPLE" (eso es el sistema, no el patrón). Si la empresa no
+     * tiene razón social capturada, cae al nombre corto antes que a un
+     * genérico.
+     */
+    private function empresaRazonSocial(Colaborador $colaborador): string
+    {
+        $empresa = $colaborador->sucursalPrincipal?->empresa;
+
+        return (string) ($empresa?->razon_social ?: $empresa?->nombre ?: 'la empresa');
     }
 
     /**

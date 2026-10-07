@@ -20,6 +20,10 @@ enum TipoTarea: string
     case CandidatoPreautorizacion = 'candidato_preautorizacion';
     case CandidatoAutorizacionRh = 'candidato_autorizacion_rh';
     case CandidatoInvitacion = 'candidato_invitacion';
+    // Solo se abre cuando el gerente solicita explícitamente una
+    // intervención sobre un rechazo de RH (CLAUDE.md §10-12) — nunca por un
+    // rechazo normal.
+    case CandidatoIntervencionPendiente = 'candidato_intervencion_pendiente';
 
     // Etapa 2 — contratación y expediente
     case ExpedienteIncompleto = 'expediente_incompleto';
@@ -73,6 +77,7 @@ enum TipoTarea: string
             self::CandidatoPreautorizacion => 'Candidato por preautorizar',
             self::CandidatoAutorizacionRh => 'Candidato pendiente de autorización final',
             self::CandidatoInvitacion => 'Generar QR de contratación',
+            self::CandidatoIntervencionPendiente => 'Intervención de candidato pendiente',
             self::ExpedienteIncompleto => 'Expediente incompleto',
             self::DocumentoPorRevisar => 'Documento por revisar',
             self::DocumentoRechazado => 'Documento rechazado',
@@ -115,7 +120,8 @@ enum TipoTarea: string
         return match ($this) {
             self::CandidatoRevisionPerfil, self::CandidatoEntrevista, self::CandidatoPsicometricas,
             self::CandidatoRevisionPsicometricas, self::CandidatoSocioeconomico, self::CandidatoReferencias,
-            self::CandidatoPreautorizacion, self::CandidatoAutorizacionRh => EtapaCicloLaboral::Reclutamiento,
+            self::CandidatoPreautorizacion, self::CandidatoAutorizacionRh,
+            self::CandidatoIntervencionPendiente => EtapaCicloLaboral::Reclutamiento,
             self::CandidatoInvitacion, self::ExpedienteIncompleto, self::DocumentoPorRevisar, self::DocumentoRechazado,
             self::ContratoPendiente, self::FirmaPendiente, self::ImpresionPendiente, self::FirmaFisicaPendiente,
             self::EnvioOriginalPendiente, self::RecepcionOriginalPendiente, self::EscaneoPendiente,

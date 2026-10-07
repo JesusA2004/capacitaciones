@@ -5,12 +5,15 @@ namespace App\Http\Controllers\Administracion;
 use App\Enums\GrupoPuestoIndicador;
 use App\Enums\TipoDestinatarioNotificacion;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Reclutamiento\GuardarMotivoRechazoCandidatoRequest;
 use App\Models\DocumentType;
+use App\Models\MotivoRechazoCandidato;
 use App\Models\Puesto;
 use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Configuracion\ConfiguracionSistemaService;
 use App\Services\Configuracion\WorkflowRoutingService;
+use App\Services\Reclutamiento\MotivoRechazoCandidatoService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -31,6 +34,7 @@ class ConfiguracionController extends Controller
         private readonly ConfiguracionSistemaService $configuracion,
         private readonly WorkflowRoutingService $routing,
         private readonly AuditoriaService $auditoria,
+        private readonly MotivoRechazoCandidatoService $motivosRechazo,
     ) {}
 
     public function index(Request $request): RedirectResponse
@@ -136,6 +140,9 @@ class ConfiguracionController extends Controller
                     // Quién cambió la configuración del puesto (meses, grupo documental) y cuándo.
                     'historial' => $this->auditoria->historial($p, ['configuracion_puesto_actualizada'], 5)]),
             'tiposDocumento' => DocumentType::query()->where('activo', true)->orderBy('nombre')->get(['id', 'nombre', 'vigencia_meses']),
+            // Catálogo de motivos de rechazo de candidatos (CLAUDE.md §10): se
+            // administra aquí, nunca se borra (solo se desactiva).
+            'motivosRechazo' => MotivoRechazoCandidato::query()->orderByDesc('activo')->orderBy('nombre')->get(['id', 'clave', 'nombre', 'activo', 'no_recontratable_por_defecto']),
             'grupos' => array_map(fn (GrupoPuestoIndicador $g) => ['value' => $g->value, 'etiqueta' => $g->etiqueta()], GrupoPuestoIndicador::cases()),
             // Variante de documentos jurídicos (contratos) que le toca al puesto.
             'gruposDocumentales' => array_map(fn (string $valor, string $etiqueta): array => ['value' => $valor, 'etiqueta' => $etiqueta], array_keys((array) config('documentos_maestros.grupos', [])), array_values((array) config('documentos_maestros.grupos', []))),
@@ -178,6 +185,20 @@ class ConfiguracionController extends Controller
         $this->configuracion->actualizarVigenciaDocumento($tipoDocumento, isset($datos['vigencia_meses']) ? (int) $datos['vigencia_meses'] : null, $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => sprintf('Vigencia de «%s» actualizada.', $tipoDocumento->nombre)]);
+    }
+
+    public function crearMotivoRechazo(GuardarMotivoRechazoCandidatoRequest $request): RedirectResponse
+    {
+        $motivo = $this->motivosRechazo->guardar($request->validated(), $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => sprintf('Motivo «%s» creado.', $motivo->nombre)]);
+    }
+
+    public function guardarMotivoRechazo(GuardarMotivoRechazoCandidatoRequest $request, MotivoRechazoCandidato $motivoRechazo): RedirectResponse
+    {
+        $motivo = $this->motivosRechazo->guardar($request->validated(), $request->user(), $motivoRechazo);
+
+        return back()->with('toast', ['type' => 'success', 'message' => sprintf('Motivo «%s» actualizado.', $motivo->nombre)]);
     }
 
     private function exigir(Request $request, string $permiso): void

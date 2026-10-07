@@ -5,10 +5,12 @@ import {
     Paperclip,
     Pencil,
     QrCode,
+    ShieldAlert,
     Upload,
     UserRound,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import { decidir, solicitar as solicitarIntervencion } from '@/actions/App/Http/Controllers/Rh/IntervencionCandidatoController';
 import AprobacionesResumen from '@/components/ciclo/AprobacionesResumen.vue';
 import CicloEstadoPanel from '@/components/ciclo/CicloEstadoPanel.vue';
 import CicloStepper from '@/components/ciclo/CicloStepper.vue';
@@ -20,6 +22,7 @@ import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import InputError from '@/components/InputError.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
+import CandidatoEvidenciaPreviewDialog from '@/components/Rh/CandidatoEvidenciaPreviewDialog.vue';
 import CandidatoFormDialog from '@/components/Rh/CandidatoFormDialog.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -49,7 +52,6 @@ import {
     socioeconomico,
 } from '@/routes/rh/candidatos';
 import { descargar as descargarCv } from '@/routes/rh/candidatos/cv';
-import { descargar as descargarEvidencia } from '@/routes/rh/candidatos/evidencias';
 import psicometricas from '@/routes/rh/candidatos/psicometricas';
 import referencias from '@/routes/rh/candidatos/referencias';
 import { show as verInvitacion } from '@/routes/rh/incorporacion/invitaciones';
@@ -58,6 +60,7 @@ import type {
     CandidatoFicha,
     CandidatoItem,
     EstadoCiclo,
+    EvidenciaCandidato,
     FormularioAccion,
     OpcionesReclutamiento,
 } from '@/types';
@@ -71,6 +74,8 @@ const props = defineProps<{
         resultadosReferencia: { value: string; etiqueta: string }[];
         tiposContratacion: { value: string; etiqueta: string }[];
     };
+    /** Intervención pendiente que el usuario actual tiene autoridad para decidir (null si no aplica). */
+    intervencionPendienteId: number | null;
 }>();
 
 defineOptions({
@@ -85,6 +90,7 @@ defineOptions({
 
 const editar = ref(false);
 const accionActiva = ref<AccionCiclo | null>(null);
+const evidenciaActiva = ref<EvidenciaCandidato | null>(null);
 
 // El formulario de edición del candidato espera la forma del listado.
 const candidatoFormulario = computed(
@@ -166,10 +172,13 @@ const camposPorAccion: Record<string, () => FormularioAccion> = {
     preautorizar: () => ({ comentario: '' }),
     autorizar_rh: () => ({ comentario: '' }),
     devolver_rh: () => ({ motivo: '' }),
-    rechazar_rh: () => ({ motivo: '' }),
+    rechazar_rh: () => ({ motivo: '', motivo_rechazo_id: null, recontratable: true }),
+    solicitar_intervencion: () => ({ motivo: '' }),
     descartar: () => ({
         estado: props.opciones.salidas[0]?.value ?? 'no_viable',
         motivo: '',
+        motivo_rechazo_id: null,
+        recontratable: true,
     }),
     iniciar_contratacion: () => ({
         sueldo_mensual: '',
@@ -207,10 +216,18 @@ function url(clave: string): string {
             autorizar_rh: autorizar.url(id),
             devolver_rh: devolver.url(id),
             rechazar_rh: rechazar.url(id),
+            solicitar_intervencion: solicitarIntervencion.url(id),
             descartar: descartar.url(id),
             iniciar_contratacion: contratacion.url(id),
         } as Record<string, string>
     )[clave];
+}
+
+function alElegirMotivoRechazoForm(id: string) {
+    const motivoId = id ? Number(id) : null;
+    form.motivo_rechazo_id = motivoId;
+    const motivo = props.opciones.motivosRechazo?.find((m) => m.id === motivoId);
+    form.recontratable = motivo ? !motivo.no_recontratable_por_defecto : true;
 }
 
 function enviar() {
@@ -218,6 +235,19 @@ function enviar() {
 
     if (!accion) {
         return;
+    }
+
+    // El comentario es opcional en pantalla; si RH no escribió nada, el
+    // motivo del catálogo (obligatorio) sirve de texto para el histórico.
+    if (['rechazar_rh', 'descartar'].includes(accion.clave)) {
+        const motivoTexto = String(form.motivo ?? '').trim();
+
+        if (motivoTexto === '') {
+            const catalogo = props.opciones.motivosRechazo?.find(
+                (m) => m.id === form.motivo_rechazo_id,
+            );
+            form.motivo = catalogo?.nombre ?? '';
+        }
     }
 
     form.post(url(accion.clave), {
@@ -228,6 +258,30 @@ function enviar() {
         ].includes(accion.clave),
         onSuccess: () => (accionActiva.value = null),
     });
+}
+
+const decisionIntervencion = ref<{ aprueba: boolean } | null>(null);
+const formDecision = useForm({ comentario: '' });
+
+function abrirDecision(aprueba: boolean) {
+    formDecision.reset();
+    formDecision.comentario = '';
+    decisionIntervencion.value = { aprueba };
+}
+
+function enviarDecision() {
+    const pendiente = decisionIntervencion.value;
+
+    if (!pendiente || !props.intervencionPendienteId) {
+        return;
+    }
+
+    formDecision
+        .transform((datos) => ({ ...datos, aprueba: pendiente.aprueba }))
+        .post(decidir.url(props.intervencionPendienteId), {
+            preserveScroll: true,
+            onSuccess: () => (decisionIntervencion.value = null),
+        });
 }
 
 const formCv = useForm({ cv: null as File | null });
@@ -432,18 +486,13 @@ const claseBoton: Record<string, 'default' | 'secondary' | 'destructive'> = {
                             class="mt-2 flex flex-wrap gap-2"
                         >
                             <li v-for="ev in item.evidencias" :key="ev.id">
-                                <a
-                                    :href="
-                                        descargarEvidencia.url({
-                                            candidato: candidato.id,
-                                            evidencia: ev.id,
-                                        })
-                                    "
-                                    target="_blank"
+                                <button
+                                    type="button"
                                     class="inline-flex items-center gap-1 text-xs text-[var(--mrl-petroleo)] hover:underline"
+                                    @click="evidenciaActiva = ev"
                                 >
                                     <Paperclip class="size-3" /> {{ ev.nombre }}
-                                </a>
+                                </button>
                             </li>
                         </ul>
                     </article>
@@ -487,19 +536,14 @@ const claseBoton: Record<string, 'default' | 'secondary' | 'destructive'> = {
                             class="mt-2 flex flex-wrap gap-2"
                         >
                             <li v-for="ev in item.evidencias" :key="ev.id">
-                                <a
-                                    :href="
-                                        descargarEvidencia.url({
-                                            candidato: candidato.id,
-                                            evidencia: ev.id,
-                                        })
-                                    "
-                                    target="_blank"
+                                <button
+                                    type="button"
                                     class="inline-flex items-center gap-1 text-xs text-[var(--mrl-petroleo)] hover:underline"
+                                    @click="evidenciaActiva = ev"
                                 >
                                     <Paperclip class="size-3" />
                                     {{ ev.tipo_etiqueta }}: {{ ev.nombre }}
-                                </a>
+                                </button>
                             </li>
                         </ul>
                     </article>
@@ -525,6 +569,80 @@ const claseBoton: Record<string, 'default' | 'secondary' | 'destructive'> = {
                         <p v-if="item.observaciones" class="mt-1">
                             {{ item.observaciones }}
                         </p>
+                    </article>
+                </section>
+
+                <section
+                    v-if="candidato.intervenciones.length"
+                    class="rounded-2xl border border-amber-500/40 bg-amber-500/5 p-5 text-sm"
+                    aria-label="Intervención sobre el rechazo de RH"
+                >
+                    <h2
+                        class="mb-3 flex items-center gap-2 text-sm font-semibold text-amber-700 dark:text-amber-400"
+                    >
+                        <ShieldAlert class="size-4" /> Intervención sobre el
+                        rechazo de RH
+                    </h2>
+
+                    <article
+                        v-for="item in candidato.intervenciones"
+                        :key="item.id"
+                        class="mb-3 rounded-xl bg-[var(--mrl-fondo)] p-3 last:mb-0"
+                    >
+                        <p>
+                            <strong>RH rechazó</strong>
+                            <template v-if="item.rechazo_rh_por">
+                                · {{ item.rechazo_rh_por }}</template
+                            >
+                            <template v-if="item.rechazo_rh_en">
+                                · {{ fecha(item.rechazo_rh_en) }}</template
+                            >
+                        </p>
+                        <p
+                            v-if="item.rechazo_rh_motivo"
+                            class="text-muted-foreground"
+                        >
+                            {{ item.rechazo_rh_motivo }}
+                        </p>
+
+                        <p class="mt-2">
+                            <strong>Intervención solicitada por</strong>
+                            {{ item.gerente_solicitante ?? '—' }} ·
+                            {{ fecha(item.solicitada_en) }} ·
+                            {{ item.ruta_etiqueta }}
+                        </p>
+                        <p class="text-muted-foreground">
+                            {{ item.motivo_solicitud }}
+                        </p>
+
+                        <p class="mt-2">
+                            <strong>{{ item.estado_etiqueta }}</strong>
+                            <template v-if="item.aprobador">
+                                · {{ item.aprobador }} ·
+                                {{ fecha(item.decidida_en) }}</template
+                            >
+                        </p>
+                        <p
+                            v-if="item.comentario_decision"
+                            class="text-muted-foreground"
+                        >
+                            {{ item.comentario_decision }}
+                        </p>
+
+                        <div
+                            v-if="intervencionPendienteId === item.id"
+                            class="mt-3 flex gap-2"
+                        >
+                            <Button size="sm" @click="abrirDecision(true)"
+                                >Aprobar intervención</Button
+                            >
+                            <Button
+                                size="sm"
+                                variant="destructive"
+                                @click="abrirDecision(false)"
+                                >Confirmar rechazo</Button
+                            >
+                        </div>
                     </article>
                 </section>
 
@@ -864,18 +982,64 @@ const claseBoton: Record<string, 'default' | 'secondary' | 'destructive'> = {
                     <InputError :message="form.errors.aprobacion" />
                 </template>
 
-                <template
-                    v-else-if="
-                        ['devolver_rh', 'rechazar_rh'].includes(
-                            accionActiva?.clave ?? '',
-                        )
-                    "
-                >
+                <template v-else-if="accionActiva?.clave === 'devolver_rh'">
                     <div class="grid gap-1.5">
                         <Label>Motivo (obligatorio)</Label
                         ><Textarea
                             v-model="form.motivo as string"
                             rows="3"
+                        /><InputError :message="form.errors.motivo" />
+                    </div>
+                </template>
+
+                <template v-else-if="accionActiva?.clave === 'rechazar_rh'">
+                    <div class="grid gap-1.5">
+                        <Label>Motivo *</Label>
+                        <SelectSimple
+                            :model-value="
+                                form.motivo_rechazo_id
+                                    ? String(form.motivo_rechazo_id)
+                                    : ''
+                            "
+                            @update:model-value="alElegirMotivoRechazoForm"
+                            :opciones="
+                                (opciones.motivosRechazo ?? []).map((m) => ({
+                                    value: String(m.id),
+                                    label: m.nombre,
+                                }))
+                            "
+                            placeholder="Elige un motivo"
+                        />
+                        <InputError :message="form.errors.motivo_rechazo_id" />
+                    </div>
+                    <div class="grid gap-1.5">
+                        <Label>Comentario (opcional)</Label
+                        ><Textarea
+                            v-model="form.motivo as string"
+                            rows="3"
+                        /><InputError :message="form.errors.motivo" />
+                    </div>
+                    <label class="flex items-center gap-2 text-sm">
+                        <Casilla v-model="form.recontratable as boolean" />
+                        ¿Puede ser considerado de nuevo?
+                    </label>
+                </template>
+
+                <template
+                    v-else-if="accionActiva?.clave === 'solicitar_intervencion'"
+                >
+                    <p class="text-sm text-muted-foreground">
+                        Pide revisar este rechazo de RH. Según el puesto, la
+                        decisión la toma la Gerencia Regional (Gestor/Volante)
+                        o Dirección Comercial (cualquier otro puesto) — nadie
+                        se entera si no envías esta solicitud.
+                    </p>
+                    <div class="grid gap-1.5">
+                        <Label>Motivo (obligatorio)</Label
+                        ><Textarea
+                            v-model="form.motivo as string"
+                            rows="3"
+                            placeholder="Explica por qué debería reconsiderarse este rechazo..."
                         /><InputError :message="form.errors.motivo" />
                     </div>
                 </template>
@@ -896,12 +1060,35 @@ const claseBoton: Record<string, 'default' | 'secondary' | 'destructive'> = {
                         >
                     </div>
                     <div class="grid gap-1.5">
-                        <Label>Motivo (obligatorio)</Label
+                        <Label>Motivo *</Label>
+                        <SelectSimple
+                            :model-value="
+                                form.motivo_rechazo_id
+                                    ? String(form.motivo_rechazo_id)
+                                    : ''
+                            "
+                            @update:model-value="alElegirMotivoRechazoForm"
+                            :opciones="
+                                (opciones.motivosRechazo ?? []).map((m) => ({
+                                    value: String(m.id),
+                                    label: m.nombre,
+                                }))
+                            "
+                            placeholder="Elige un motivo"
+                        />
+                        <InputError :message="form.errors.motivo_rechazo_id" />
+                    </div>
+                    <div class="grid gap-1.5">
+                        <Label>Comentario (opcional)</Label
                         ><Textarea
                             v-model="form.motivo as string"
                             rows="3"
                         /><InputError :message="form.errors.motivo" />
                     </div>
+                    <label class="flex items-center gap-2 text-sm">
+                        <Casilla v-model="form.recontratable as boolean" />
+                        ¿Puede ser considerado de nuevo?
+                    </label>
                 </template>
 
                 <template
@@ -973,7 +1160,13 @@ const claseBoton: Record<string, 'default' | 'secondary' | 'destructive'> = {
                     >
                     <Button
                         type="submit"
-                        :disabled="form.processing"
+                        :disabled="
+                            form.processing ||
+                            (['rechazar_rh', 'descartar'].includes(
+                                accionActiva?.clave ?? '',
+                            ) &&
+                                !form.motivo_rechazo_id)
+                        "
                         :variant="
                             accionActiva?.tipo === 'peligro'
                                 ? 'destructive'
@@ -991,5 +1184,60 @@ const claseBoton: Record<string, 'default' | 'secondary' | 'destructive'> = {
         v-model:open="editar"
         :candidato="candidatoFormulario"
         :opciones="opciones"
+    />
+
+    <Dialog
+        :open="decisionIntervencion !== null"
+        @update:open="
+            (abierto: boolean) => !abierto && (decisionIntervencion = null)
+        "
+    >
+        <DialogContent class="sm:max-w-md">
+            <DialogHeader>
+                <DialogTitle>{{
+                    decisionIntervencion?.aprueba
+                        ? 'Aprobar intervención'
+                        : 'Confirmar rechazo'
+                }}</DialogTitle>
+                <DialogDescription>
+                    {{ candidato.nombre_completo }} ·
+                    {{
+                        decisionIntervencion?.aprueba
+                            ? 'El candidato pasará a contratación.'
+                            : 'El candidato queda rechazado de forma definitiva.'
+                    }}
+                </DialogDescription>
+            </DialogHeader>
+            <div class="grid gap-1.5">
+                <Label>Comentario (opcional)</Label>
+                <Textarea v-model="formDecision.comentario" rows="3" />
+            </div>
+            <DialogFooter>
+                <Button
+                    variant="ghost"
+                    @click="decisionIntervencion = null"
+                    >Cancelar</Button
+                >
+                <Button
+                    :variant="
+                        decisionIntervencion?.aprueba ? 'default' : 'destructive'
+                    "
+                    :disabled="formDecision.processing"
+                    @click="enviarDecision"
+                    >Confirmar</Button
+                >
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+
+    <CandidatoEvidenciaPreviewDialog
+        v-if="evidenciaActiva"
+        :open="evidenciaActiva !== null"
+        :candidato-id="candidato.id"
+        :evidencia-id="evidenciaActiva.id"
+        :nombre-archivo="evidenciaActiva.nombre"
+        :tipo="evidenciaActiva.tipo"
+        :mime="evidenciaActiva.mime"
+        @update:open="(abierto: boolean) => !abierto && (evidenciaActiva = null)"
     />
 </template>

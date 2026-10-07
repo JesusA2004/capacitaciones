@@ -337,6 +337,10 @@ class RolesYPermisosSeeder extends Seeder
         'ciclo.autorizar_rh',
         // Gerente: entrevista, revisión de psicométricas y socioeconómico.
         'candidatos.evaluar',
+        // Decidir una intervención (CLAUDE.md §11): solo Regional (Gestor/
+        // Volante) y Dirección Comercial (puesto superior). Nunca se asigna
+        // a RH ni al gerente que solicitó la intervención.
+        'candidatos.intervencion_decidir',
         'onboarding.ver',
         'onboarding.gestionar',
         'onboarding.entregar_activos',
@@ -565,6 +569,10 @@ class RolesYPermisosSeeder extends Seeder
             'rh.colaboradores.ver', 'rh.colaboradores.detalle',
             'notificaciones.leer_todas',
             'headcount.ver', 'organigrama.ver',
+            // Única autoridad que decide una intervención de un puesto
+            // superior a Gestor/Volante (CLAUDE.md §11-B) — no aprueba
+            // candidatos normales, solo esta excepción.
+            'candidatos.intervencion_decidir',
         ],
 
         // Ve y administra varias sucursales de su región (sucursal principal +
@@ -591,6 +599,9 @@ class RolesYPermisosSeeder extends Seeder
             'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
             'solicitudes.bajas.crear', 'headcount.ver', 'organigrama.ver',
             'ciclo.preautorizar', 'candidatos.evaluar', 'onboarding.ver', 'onboarding.entregar_activos', 'cierres.ver', 'cierres.solicitar', 'contratos.ver', 'evaluaciones.ver', 'evaluaciones.capturar', 'documentos_laborales.ver', 'documentos_laborales.operar_fisico', 'reingresos.solicitar',
+            // Única autoridad que decide una intervención de Gestor/Volante
+            // (CLAUDE.md §11-A) — la de SU región, nunca otra.
+            'candidatos.intervencion_decidir',
         ],
 
         // Administra su propia sucursal (mismo alcance que gerente_sucursal,

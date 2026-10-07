@@ -123,6 +123,8 @@ export type CandidatoFicha = {
     puesto: string | null;
     puesto_objetivo_id: number | null;
     vacante_id: number | null;
+    /** Sin vacante ligada todavía: pipeline general, no puede avanzar a contratación (CLAUDE.md §3). */
+    espontaneo: boolean;
     empresa_id: number | null;
     departamento_id: number | null;
     responsable_rh_id: number | null;
@@ -132,7 +134,10 @@ export type CandidatoFicha = {
     observaciones: string | null;
     estado: string;
     estado_etiqueta: string;
+    /** Columna canónica del tablero (CLAUDE.md §4) — nunca el sub-estado técnico. */
+    fase: string;
     motivo_salida: string | null;
+    salida_en: string | null;
     tiene_cv: boolean;
     colaborador_id: number | null;
     creado_en: string | null;
@@ -187,6 +192,23 @@ export type CandidatoFicha = {
         expira_en: string;
         usada_en: string | null;
     } | null;
+    /** Excepción jerárquica sobre un rechazo de RH (CLAUDE.md §10-12), historial completo. */
+    intervenciones: {
+        id: number;
+        ruta: string;
+        ruta_etiqueta: string;
+        estado: string;
+        estado_etiqueta: string;
+        rechazo_rh_por: string | null;
+        rechazo_rh_motivo: string | null;
+        rechazo_rh_en: string | null;
+        gerente_solicitante: string | null;
+        motivo_solicitud: string;
+        solicitada_en: string;
+        aprobador: string | null;
+        comentario_decision: string | null;
+        decidida_en: string | null;
+    }[];
 };
 
 export type ModuloOnboarding = {

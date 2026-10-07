@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Models\Vacante;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Headcount\HeadcountService;
+use App\Services\Vacantes\VacantesListadoService;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -44,6 +45,7 @@ class IndicadoresRhService
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly HeadcountService $headcount,
+        private readonly VacantesListadoService $vacantesListado,
     ) {}
 
     /**
@@ -81,9 +83,10 @@ class IndicadoresRhService
             'cobertura' => $cobertura['totales']['cobertura'],
             'vacantes_plantilla' => $cobertura['totales']['vacantes'],
             'excedentes_plantilla' => $cobertura['totales']['excedentes'],
-            'vacantes_abiertas' => $this->vacantes($sucursales, $empresaId)
-                ->whereIn('estado', [EstadoVacante::Abierta->value, EstadoVacante::EnReclutamiento->value, EstadoVacante::ConCandidatos->value, EstadoVacante::EnRevision->value])
-                ->count(),
+            // Única fuente de "vacantes abiertas" (CLAUDE.md §13): la misma
+            // consulta del módulo de Vacantes, nunca una automática ya sin
+            // faltante real.
+            'vacantes_abiertas' => $this->vacantesListado->consulta($usuario, ['sucursal_id' => $filtros['sucursal_id'] ?? null, 'empresa_id' => $empresaId])->count(),
             'altas_periodo' => $altas,
             'bajas_periodo' => $bajas,
             'rotacion' => $promedio > 0 ? round($bajas / $promedio * 100, 2) : 0.0,

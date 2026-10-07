@@ -4,6 +4,7 @@ namespace App\Services\CicloLaboral;
 
 use App\Enums\EstadoCandidato;
 use App\Enums\ProcesoAprobacion;
+use App\Enums\RutaIntervencionCandidato;
 use App\Models\Candidato;
 use App\Models\Colaborador;
 use App\Models\SeguimientoCandidato;
@@ -83,6 +84,9 @@ class TimelineService
         'reingreso_autorizado' => ['RH autorizó el reingreso', 'reingreso'],
         'reingreso_rechazado' => ['Reingreso no viable', 'reingreso'],
         'reingreso_completado' => ['Reingreso completado', 'reingreso'],
+        'intervencion_solicitada' => ['Intervención solicitada', 'intervencion'],
+        'intervencion_aprobada' => ['Intervención aprobada: pasa a contratación', 'intervencion'],
+        'intervencion_rechazo_confirmado' => ['Rechazo confirmado tras intervención', 'intervencion'],
     ];
 
     /**
@@ -193,6 +197,7 @@ class TimelineService
             'activo_entregado' => sprintf('%s: %s', $titulo, $p['activo'] ?? ''),
             'evaluacion_autorizada' => ($p['renovar'] ?? null) ? 'RH autorizó la renovación' : 'RH autorizó la NO renovación',
             'aprobacion_preautorizada', 'aprobacion_autorizada_rh', 'aprobacion_rechazada', 'aprobacion_devuelta' => sprintf('%s · %s', $titulo, ProcesoAprobacion::tryFrom((string) ($p['proceso'] ?? ''))?->etiqueta() ?? ''),
+            'intervencion_solicitada' => sprintf('%s · %s', $titulo, RutaIntervencionCandidato::tryFrom((string) ($p['ruta'] ?? ''))?->etiqueta() ?? ''),
             default => $titulo,
         };
     }

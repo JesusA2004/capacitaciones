@@ -165,6 +165,60 @@ export function useMainNavItems() {
             });
         }
 
+        // --- Reclutamiento: Campañas → Vacantes → Candidatos → Incorporación ---
+        if (tienePermiso('reclutamiento.campanas.ver')) {
+            items.push({
+                title: 'Campañas',
+                href: indexCampanas(),
+                icon: Megaphone,
+            });
+        }
+
+        if (tienePermiso('vacantes.ver')) {
+            items.push({
+                title: 'Vacantes',
+                href: indexVacantes(),
+                icon: Briefcase,
+            });
+        }
+
+        if (tienePermiso('candidatos.ver')) {
+            items.push({
+                title: 'Candidatos',
+                href: indexCandidatos(),
+                icon: UserRound,
+            });
+        }
+
+        if (tienePermiso('rh.incorporacion.invitaciones.ver')) {
+            items.push({
+                title: 'Invitaciones QR',
+                href: indexIncorporacionInvitaciones(),
+                icon: QrCode,
+            });
+        }
+
+        // --- Desarrollo: Onboarding → Reingresos ---
+        if (tienePermiso('onboarding.gestionar')) {
+            items.push({
+                title: 'Onboarding',
+                href: configuracionOnboarding(),
+                icon: Sparkles,
+            });
+        }
+
+        if (
+            tienePermiso('reingresos.solicitar') ||
+            tienePermiso('reingresos.gestionar')
+        ) {
+            items.push({
+                title: 'Reingresos',
+                href: indexReingresos(),
+                icon: RotateCcw,
+            });
+        }
+
+        // --- Personal: Expedientes → Solicitudes → Recibos → Celebraciones ---
         if (
             tienePermiso('expedientes.ver_todos') ||
             tienePermiso('expedientes.ver_sucursal')
@@ -196,78 +250,11 @@ export function useMainNavItems() {
             });
         }
 
-        if (tienePermiso('organigrama.ver')) {
-            items.push({
-                title: 'Organigrama',
-                href: indexJerarquiaPuestos(),
-                icon: GitBranch,
-            });
-        }
-
-        if (tienePermiso('vacantes.ver')) {
-            items.push({
-                title: 'Vacantes',
-                href: indexVacantes(),
-                icon: Briefcase,
-            });
-        }
-
-        if (tienePermiso('candidatos.ver')) {
-            items.push({
-                title: 'Candidatos',
-                href: indexCandidatos(),
-                icon: UserRound,
-            });
-        }
-
-        if (tienePermiso('reclutamiento.campanas.ver')) {
-            items.push({
-                title: 'Campañas',
-                href: indexCampanas(),
-                icon: Megaphone,
-            });
-        }
-
-        if (tienePermiso('onboarding.gestionar')) {
-            items.push({
-                title: 'Onboarding',
-                href: configuracionOnboarding(),
-                icon: Sparkles,
-            });
-        }
-
-        if (
-            tienePermiso('reingresos.solicitar') ||
-            tienePermiso('reingresos.gestionar')
-        ) {
-            items.push({
-                title: 'Reingresos',
-                href: indexReingresos(),
-                icon: RotateCcw,
-            });
-        }
-
-        if (tienePermiso('rh.incorporacion.invitaciones.ver')) {
-            items.push({
-                title: 'Invitaciones QR',
-                href: indexIncorporacionInvitaciones(),
-                icon: QrCode,
-            });
-        }
-
         if (tienePermiso('nomina.recibos.ver')) {
             items.push({
                 title: 'Recibos de nómina',
                 href: indexNomina(),
                 icon: ReceiptText,
-            });
-        }
-
-        if (tienePermiso('reportes_rh.ver')) {
-            items.push({
-                title: 'Reportes',
-                href: indexReportes(),
-                icon: Activity,
             });
         }
 
@@ -281,6 +268,23 @@ export function useMainNavItems() {
                     ? indexCumpleanos()
                     : indexAniversarios(),
                 icon: Cake,
+            });
+        }
+
+        // --- Organización: Organigrama → Reportes ---
+        if (tienePermiso('organigrama.ver')) {
+            items.push({
+                title: 'Organigrama',
+                href: indexJerarquiaPuestos(),
+                icon: GitBranch,
+            });
+        }
+
+        if (tienePermiso('reportes_rh.ver')) {
+            items.push({
+                title: 'Reportes',
+                href: indexReportes(),
+                icon: Activity,
             });
         }
 

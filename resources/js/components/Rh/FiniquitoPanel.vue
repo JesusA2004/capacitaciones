@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import { useForm } from '@inertiajs/vue3';
+import { router, useForm } from '@inertiajs/vue3';
 import {
     Calculator,
     Download,
     Eye,
     FileCheck2,
+    Pencil,
     Plus,
     RefreshCw,
     Trash2,
     Upload,
+    X,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
@@ -26,11 +28,21 @@ import {
     recalcular,
     revisar,
 } from '@/routes/rh/solicitudes/finiquito';
-import type { FiniquitoCalculoItem, FiniquitoPermisos } from '@/types';
+import {
+    destroy as eliminarConceptoRoute,
+    store as agregarConceptoRoute,
+    update as actualizarConceptoRoute,
+} from '@/routes/rh/solicitudes/finiquito/conceptos';
+import type {
+    FiniquitoCalculoItem,
+    FiniquitoDesgloseItem,
+    FiniquitoPermisos,
+} from '@/types';
 
 const props = defineProps<{
     solicitudId: number;
     finiquito: FiniquitoCalculoItem | null;
+    desglose: FiniquitoDesgloseItem[];
     permisos: FiniquitoPermisos;
 }>();
 
@@ -67,54 +79,10 @@ function recalcularFiniquito() {
     });
 }
 
-type OtroConcepto = { nombre: string; monto: string; tipo: 'suma' | 'resta' };
-
-function otrosConceptosDesdeFiniquito(): OtroConcepto[] {
-    const registro = props.finiquito?.otros_conceptos ?? null;
-
-    if (!registro) {
-        return [];
-    }
-
-    return Object.entries(registro).map(([nombre, valor]) => ({
-        nombre,
-        monto: String(Math.abs(Number(valor))),
-        tipo: Number(valor) < 0 ? 'resta' : 'suma',
-    }));
-}
-
-const otrosConceptos = ref<OtroConcepto[]>(otrosConceptosDesdeFiniquito());
-
-function agregarConcepto() {
-    otrosConceptos.value.push({ nombre: '', monto: '0', tipo: 'suma' });
-}
-
-function quitarConcepto(index: number) {
-    otrosConceptos.value.splice(index, 1);
-}
-
-function otrosConceptosComoRegistro(): Record<string, number> {
-    const registro: Record<string, number> = {};
-
-    for (const concepto of otrosConceptos.value) {
-        const nombre = concepto.nombre.trim();
-        const monto = Number(concepto.monto) || 0;
-
-        if (nombre === '' || monto === 0) {
-            continue;
-        }
-
-        registro[nombre] = concepto.tipo === 'resta' ? -monto : monto;
-    }
-
-    return registro;
-}
-
 const formAjustes = useForm({
     bonos_extra: props.finiquito?.bonos_extra ?? '0',
     descuentos: props.finiquito?.descuentos ?? '0',
     adeudos: props.finiquito?.adeudos ?? '0',
-    otros_conceptos: {} as Record<string, number>,
     comentarios_ajuste: props.finiquito?.comentarios_ajuste ?? '',
 });
 
@@ -127,16 +95,11 @@ const totalAjustadoPreview = computed(() => {
     const bonos = Number(formAjustes.bonos_extra) || 0;
     const descuentos = Number(formAjustes.descuentos) || 0;
     const adeudos = Number(formAjustes.adeudos) || 0;
-    const otros = Object.values(otrosConceptosComoRegistro()).reduce(
-        (suma, valor) => suma + valor,
-        0,
-    );
 
-    return base + bonos - descuentos - adeudos + otros;
+    return base + bonos - descuentos - adeudos;
 });
 
 function guardarAjustes() {
-    formAjustes.otros_conceptos = otrosConceptosComoRegistro();
     formAjustes.put(ajustes.url(props.solicitudId), { preserveScroll: true });
 }
 
@@ -183,6 +146,81 @@ const cerrado = computed(
 const puedeEditarAjustes = computed(
     () => props.finiquito !== null && !cerrado.value,
 );
+
+const TIPOS_CONCEPTO = [
+    { value: 'percepcion', label: 'Percepción' },
+    { value: 'deduccion', label: 'Deducción' },
+];
+
+// Desglose editable antes del PDF (CLAUDE.md §20): los automáticos solo se
+// muestran, los capturados por RH (origen "manual") se pueden editar o
+// quitar — el total siempre lo recalcula el servidor (FiniquitoService::recalcularTotales()).
+const formNuevoConcepto = useForm({
+    tipo: 'percepcion',
+    concepto: '',
+    cantidad: '1',
+    importe: '0',
+    observaciones: '',
+});
+const agregandoConcepto = ref(false);
+
+function abrirNuevoConcepto() {
+    formNuevoConcepto.reset();
+    agregandoConcepto.value = true;
+}
+
+function guardarNuevoConcepto() {
+    formNuevoConcepto.post(agregarConceptoRoute.url(props.solicitudId), {
+        preserveScroll: true,
+        onSuccess: () => (agregandoConcepto.value = false),
+    });
+}
+
+const editandoConceptoId = ref<number | null>(null);
+const formEditarConcepto = useForm({
+    tipo: 'percepcion',
+    concepto: '',
+    cantidad: '1',
+    importe: '0',
+    observaciones: '',
+});
+
+function abrirEdicionConcepto(fila: FiniquitoDesgloseItem) {
+    if (fila.id === null) {
+        return;
+    }
+
+    editandoConceptoId.value = fila.id;
+    formEditarConcepto.tipo = fila.tipo;
+    formEditarConcepto.concepto = fila.concepto;
+    formEditarConcepto.cantidad = String(fila.cantidad);
+    formEditarConcepto.importe = String(fila.importe);
+    formEditarConcepto.observaciones = fila.observaciones ?? '';
+}
+
+function guardarEdicionConcepto() {
+    if (editandoConceptoId.value === null) {
+        return;
+    }
+
+    formEditarConcepto.patch(
+        actualizarConceptoRoute.url([
+            props.solicitudId,
+            editandoConceptoId.value,
+        ]),
+        {
+            preserveScroll: true,
+            onSuccess: () => (editandoConceptoId.value = null),
+        },
+    );
+}
+
+function eliminarConcepto(id: number) {
+    router.delete(
+        eliminarConceptoRoute.url([props.solicitudId, id]),
+        { preserveScroll: true },
+    );
+}
 </script>
 
 <template>
@@ -284,41 +322,96 @@ const puedeEditarAjustes = computed(
                 </div>
             </div>
 
+            <!-- Desglose: automáticos (solo lectura) + capturados por RH
+                 (editables/eliminables) — misma fuente que el PDF. -->
             <table class="w-full text-sm">
                 <tbody class="divide-y divide-border/60">
-                    <tr>
-                        <td class="py-1.5 text-muted-foreground">
-                            Sueldo pendiente
-                        </td>
-                        <td class="py-1.5 text-right tabular-nums">
-                            {{ moneda(finiquito.sueldo_pendiente) }}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td class="py-1.5 text-muted-foreground">
-                            Prima vacacional
-                        </td>
-                        <td class="py-1.5 text-right tabular-nums">
-                            {{ moneda(finiquito.prima_vacacional) }}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td class="py-1.5 text-muted-foreground">
-                            Aguinaldo proporcional ({{
-                                finiquito.dias_trabajados_periodo
-                            }}
-                            días)
-                        </td>
-                        <td class="py-1.5 text-right tabular-nums">
-                            {{ moneda(finiquito.aguinaldo_proporcional) }}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td class="py-1.5 text-muted-foreground">
-                            Indemnización
-                        </td>
-                        <td class="py-1.5 text-right tabular-nums">
-                            {{ moneda(finiquito.indemnizacion) }}
+                    <tr v-for="fila in desglose" :key="fila.id ?? fila.concepto">
+                        <template v-if="fila.id !== editandoConceptoId">
+                            <td class="py-1.5 text-muted-foreground">
+                                {{ fila.concepto }}
+                                <span
+                                    v-if="fila.cantidad !== 1"
+                                    class="text-xs"
+                                    >({{ fila.cantidad }})</span
+                                >
+                                <span
+                                    v-if="fila.origen === 'manual'"
+                                    class="ml-1 rounded bg-muted px-1 py-0.5 text-[10px] uppercase text-muted-foreground"
+                                    >manual</span
+                                >
+                            </td>
+                            <td class="py-1.5 text-right tabular-nums">
+                                {{ fila.tipo === 'deduccion' ? '−' : '' }}{{ moneda(fila.importe) }}
+                            </td>
+                            <td
+                                v-if="fila.origen === 'manual' && puedeEditarAjustes"
+                                class="w-16 py-1.5 text-right"
+                            >
+                                <button
+                                    type="button"
+                                    class="text-muted-foreground hover:text-foreground"
+                                    @click="abrirEdicionConcepto(fila)"
+                                >
+                                    <Pencil class="size-3.5" />
+                                </button>
+                                <button
+                                    type="button"
+                                    class="ml-2 text-muted-foreground hover:text-destructive"
+                                    @click="eliminarConcepto(fila.id!)"
+                                >
+                                    <Trash2 class="size-3.5" />
+                                </button>
+                            </td>
+                            <td v-else-if="fila.origen === 'manual'" />
+                        </template>
+
+                        <!-- Edición en línea del concepto manual seleccionado. -->
+                        <td v-else colspan="3" class="py-1.5">
+                            <form
+                                class="flex flex-wrap items-end gap-2"
+                                @submit.prevent="guardarEdicionConcepto"
+                            >
+                                <SelectSimple
+                                    v-model="formEditarConcepto.tipo"
+                                    class="w-32"
+                                    :opciones="TIPOS_CONCEPTO"
+                                />
+                                <Input
+                                    v-model="formEditarConcepto.concepto"
+                                    class="min-w-[9rem] flex-1"
+                                    placeholder="Concepto"
+                                />
+                                <Input
+                                    v-model="formEditarConcepto.cantidad"
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    class="w-20"
+                                    title="Cantidad"
+                                />
+                                <Input
+                                    v-model="formEditarConcepto.importe"
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    class="w-28"
+                                    title="Importe"
+                                />
+                                <Button
+                                    size="sm"
+                                    type="submit"
+                                    :disabled="formEditarConcepto.processing"
+                                    >Guardar</Button
+                                >
+                                <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="ghost"
+                                    @click="editandoConceptoId = null"
+                                    ><X class="size-4"
+                                /></Button>
+                            </form>
                         </td>
                     </tr>
                     <tr class="font-medium">
@@ -326,11 +419,95 @@ const puedeEditarAjustes = computed(
                         <td class="py-1.5 text-right tabular-nums">
                             {{ moneda(finiquito.total_calculado) }}
                         </td>
+                        <td />
                     </tr>
                 </tbody>
             </table>
 
-            <!-- Ajustes manuales: bonos/descuentos/adeudos/comentarios. -->
+            <!-- Agregar un concepto manual (percepción o deducción). -->
+            <div v-if="puedeEditarAjustes" class="flex flex-col gap-2">
+                <Button
+                    v-if="!agregandoConcepto"
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    class="self-start"
+                    @click="abrirNuevoConcepto"
+                >
+                    <Plus class="size-4" />
+                    Agregar concepto
+                </Button>
+                <form
+                    v-else
+                    class="flex flex-wrap items-end gap-2 rounded-xl bg-muted/30 p-3"
+                    @submit.prevent="guardarNuevoConcepto"
+                >
+                    <div class="grid gap-1.5">
+                        <Label>Tipo</Label>
+                        <SelectSimple
+                            v-model="formNuevoConcepto.tipo"
+                            class="w-32"
+                            :opciones="TIPOS_CONCEPTO"
+                        />
+                    </div>
+                    <div class="grid min-w-[10rem] flex-1 gap-1.5">
+                        <Label>Concepto</Label>
+                        <Input
+                            v-model="formNuevoConcepto.concepto"
+                            placeholder="Ej. Vales de despensa pendientes"
+                        />
+                        <p
+                            v-if="formNuevoConcepto.errors.concepto"
+                            class="text-xs text-destructive"
+                        >
+                            {{ formNuevoConcepto.errors.concepto }}
+                        </p>
+                    </div>
+                    <div class="grid w-24 gap-1.5">
+                        <Label>Cantidad</Label>
+                        <Input
+                            v-model="formNuevoConcepto.cantidad"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                        />
+                    </div>
+                    <div class="grid w-28 gap-1.5">
+                        <Label>Importe</Label>
+                        <Input
+                            v-model="formNuevoConcepto.importe"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                        />
+                        <p
+                            v-if="formNuevoConcepto.errors.importe"
+                            class="text-xs text-destructive"
+                        >
+                            {{ formNuevoConcepto.errors.importe }}
+                        </p>
+                    </div>
+                    <div class="grid min-w-[10rem] flex-1 gap-1.5">
+                        <Label>Observaciones (opcional)</Label>
+                        <Input v-model="formNuevoConcepto.observaciones" />
+                    </div>
+                    <Button
+                        type="submit"
+                        size="sm"
+                        :disabled="formNuevoConcepto.processing"
+                        >Guardar concepto</Button
+                    >
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        @click="agregandoConcepto = false"
+                        >Cancelar</Button
+                    >
+                </form>
+            </div>
+
+            <!-- Ajustes rápidos: bonos/descuentos/adeudos/comentarios. -->
             <dl
                 v-if="cerrado"
                 class="grid gap-3 rounded-xl bg-muted/30 p-3 text-sm sm:grid-cols-4"
@@ -397,78 +574,6 @@ const puedeEditarAjustes = computed(
                         :disabled="!puedeEditarAjustes"
                     />
                 </div>
-                <div class="grid gap-2 sm:col-span-3">
-                    <div class="flex items-center justify-between">
-                        <Label>Otros conceptos</Label>
-                        <Button
-                            v-if="puedeEditarAjustes"
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            @click="agregarConcepto"
-                        >
-                            <Plus class="size-4" />
-                            Agregar concepto
-                        </Button>
-                    </div>
-                    <p
-                        v-if="otrosConceptos.length === 0"
-                        class="text-xs text-muted-foreground"
-                    >
-                        Sin conceptos adicionales.
-                    </p>
-                    <div
-                        v-for="(concepto, index) in otrosConceptos"
-                        :key="index"
-                        class="flex flex-wrap items-end gap-2"
-                    >
-                        <div class="grid min-w-[10rem] flex-1 gap-1.5">
-                            <Label :for="`concepto_nombre_${index}`"
-                                >Concepto</Label
-                            >
-                            <Input
-                                :id="`concepto_nombre_${index}`"
-                                v-model="concepto.nombre"
-                                placeholder="Ej. Vales de despensa"
-                                :disabled="!puedeEditarAjustes"
-                            />
-                        </div>
-                        <div class="grid w-32 gap-1.5">
-                            <Label :for="`concepto_monto_${index}`"
-                                >Monto</Label
-                            >
-                            <Input
-                                :id="`concepto_monto_${index}`"
-                                v-model="concepto.monto"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                :disabled="!puedeEditarAjustes"
-                            />
-                        </div>
-                        <div class="grid w-28 gap-1.5">
-                            <Label :for="`concepto_tipo_${index}`">Tipo</Label>
-                            <SelectSimple
-                                :id="`concepto_tipo_${index}`"
-                                v-model="concepto.tipo"
-                                :disabled="!puedeEditarAjustes"
-                                :opciones="[
-                                    { value: 'suma', label: 'Suma' },
-                                    { value: 'resta', label: 'Resta' },
-                                ]"
-                            />
-                        </div>
-                        <Button
-                            v-if="puedeEditarAjustes"
-                            type="button"
-                            size="icon"
-                            variant="ghost"
-                            @click="quitarConcepto(index)"
-                        >
-                            <Trash2 class="size-4" />
-                        </Button>
-                    </div>
-                </div>
                 <div class="grid gap-1.5 sm:col-span-3">
                     <Label for="comentarios_ajuste"
                         >Comentarios del ajuste</Label
@@ -484,7 +589,7 @@ const puedeEditarAjustes = computed(
                     class="flex items-center justify-between gap-2 sm:col-span-3"
                 >
                     <p class="text-sm font-semibold">
-                        Total ajustado:
+                        Total ajustado (estimado):
                         <span class="text-[var(--brand-primary)]">{{
                             moneda(totalAjustadoPreview)
                         }}</span>

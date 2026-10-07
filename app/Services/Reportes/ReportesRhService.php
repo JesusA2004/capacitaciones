@@ -16,10 +16,10 @@ use App\Models\EmployeeDocument;
 use App\Models\MovimientoLaboral;
 use App\Models\SolicitudInterna;
 use App\Models\User;
-use App\Models\Vacante;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Vacaciones\VacacionesService;
+use App\Services\Vacantes\VacantesListadoService;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -43,6 +43,7 @@ class ReportesRhService
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly ExpedienteService $expediente,
         private readonly VacacionesService $vacaciones,
+        private readonly VacantesListadoService $vacantesListado,
     ) {}
 
     /**
@@ -107,8 +108,8 @@ class ReportesRhService
             'altas_por_mes' => $this->altasPorMes($usuario, $filtros),
             'bajas_por_mes' => $this->bajasPorMes($usuario, $filtros),
             'rotacion' => $this->rotacion($usuario, $filtros),
-            'vacantes_abiertas' => $this->vacantesPorEstado($usuario, $filtros, [EstadoVacante::Abierta, EstadoVacante::EnReclutamiento, EstadoVacante::ConCandidatos, EstadoVacante::EnRevision], 'Vacantes abiertas'),
-            'vacantes_cubiertas' => $this->vacantesPorEstado($usuario, $filtros, [EstadoVacante::Cubierta], 'Vacantes cubiertas'),
+            'vacantes_abiertas' => $this->vacantesPorEstado($usuario, $filtros, null, 'Vacantes abiertas'),
+            'vacantes_cubiertas' => $this->vacantesPorEstado($usuario, $filtros, EstadoVacante::Cubierta, 'Vacantes cubiertas'),
             'candidatos_viables' => $this->candidatosPorEstado($usuario, $filtros, array_values(array_filter(EstadoCandidato::abiertos(), fn (EstadoCandidato $e) => $e !== EstadoCandidato::Recibidos)), 'Candidatos viables'),
             'candidatos_por_sucursal' => $this->candidatosAgrupados($usuario, $filtros, fn (Candidato $c) => $c->sucursal->nombre ?? 'Sin sucursal', 'Candidatos por sucursal', 'Sucursal'),
             'candidatos_por_puesto' => $this->candidatosAgrupados($usuario, $filtros, fn (Candidato $c) => $c->puestoObjetivo->nombre ?? 'Sin puesto', 'Candidatos por puesto', 'Puesto'),
@@ -352,32 +353,29 @@ class ReportesRhService
     }
 
     /**
+     * Única fuente de "vacantes abiertas/cubiertas" (CLAUDE.md §13-14): la
+     * misma consulta y el mismo cálculo de plazas reales del módulo de
+     * Vacantes — nunca cuenta una automática cuya plaza ya no falta.
+     *
      * @param  array<string, mixed>  $filtros
-     * @return Builder<Vacante>
-     */
-    private function vacantesVisibles(User $usuario, array $filtros): Builder
-    {
-        return $this->alcance->limitarPorSucursal(Vacante::query(), $usuario)
-            ->when($filtros['empresa_id'] ?? null, fn (Builder $q, $v) => $q->where('empresa_id', $v))
-            ->when($filtros['sucursal_id'] ?? null, fn (Builder $q, $v) => $q->where('sucursal_id', $v))
-            ->when($filtros['puesto_id'] ?? null, fn (Builder $q, $v) => $q->where('puesto_id', $v))
-            ->with(['sucursal:id,nombre', 'puesto:id,nombre']);
-    }
-
-    /**
-     * @param  array<string, mixed>  $filtros
-     * @param  array<int, EstadoVacante>  $estados
+     * @param  EstadoVacante|null  $estado  null = abiertas (regla por defecto de VacantesListadoService::consulta())
      * @return Reporte
      */
-    private function vacantesPorEstado(User $usuario, array $filtros, array $estados, string $titulo): array
+    private function vacantesPorEstado(User $usuario, array $filtros, ?EstadoVacante $estado, string $titulo): array
     {
-        $filas = $this->vacantesVisibles($usuario, $filtros)
-            ->whereIn('estado', $estados)
-            ->get()
-            ->map(fn (Vacante $v) => [$v->puesto->nombre ?? '—', $v->sucursal->nombre ?? '—', $v->estado->etiqueta(), $v->fecha_apertura->toDateString()])
-            ->all();
+        $vacantes = $this->vacantesListado->consulta($usuario, [
+            'empresa_id' => $filtros['empresa_id'] ?? null,
+            'sucursal_id' => $filtros['sucursal_id'] ?? null,
+            'puesto_id' => $filtros['puesto_id'] ?? null,
+            'estado' => $estado?->value,
+        ])->get();
 
-        return ['titulo' => $titulo, 'columnas' => ['Puesto', 'Sucursal', 'Estado', 'Fecha de apertura'], 'filas' => $filas];
+        $filas = array_map(
+            fn (array $f) => [$f['puesto'] ?? '—', $f['sucursal'] ?? '—', $f['estado_etiqueta'], $f['fecha_apertura'], $f['plazas_disponibles']],
+            $this->vacantesListado->filas($vacantes),
+        );
+
+        return ['titulo' => $titulo, 'columnas' => ['Puesto', 'Sucursal', 'Estado', 'Fecha de apertura', 'Plazas'], 'filas' => $filas];
     }
 
     /**

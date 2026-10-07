@@ -19,13 +19,14 @@ test('el seeder deja la estructura confirmada por dirección (y conserva los pue
     $this->seed(PuestoJerarquiaSeeder::class);
 
     $estructura = [
-        // Estructura confirmada (2026-09-29).
+        // Estructura confirmada (2026-10-06): Sistemas, RH y Contraloría
+        // reportan directo a Dirección General, al mismo nivel que Comercial.
         'Dirección General' => null,
         'Dirección Comercial' => 'Dirección General',
         'Asistente de Dirección Comercial' => 'Dirección Comercial',
-        'Responsable de Sistemas' => 'Dirección Comercial',
+        'Responsable de Sistemas' => 'Dirección General',
         'Monitorista' => 'Responsable de Sistemas',
-        'Gerencia de Recursos Humanos' => 'Dirección Comercial',
+        'Gerencia de Recursos Humanos' => 'Dirección General',
         'Administración de Personal' => 'Gerencia de Recursos Humanos',
         'Reclutamiento' => 'Gerencia de Recursos Humanos',
         'Coordinadora Regional' => 'Dirección Comercial',
@@ -36,10 +37,10 @@ test('el seeder deja la estructura confirmada por dirección (y conserva los pue
         'Subgerente' => 'Gerente de Sucursal',
         'Gestor' => 'Subgerente',
         'Gestor Volante' => 'Subgerente',
-        // Mesa de Control y Contraloría: áreas distintas, cada una con su gerente.
+        // Mesa de Control sigue bajo Comercial; Contraloría es área directa.
         'Gerente de Mesa de Control' => 'Dirección Comercial',
         'Analista de Mesa de Control' => 'Gerente de Mesa de Control',
-        'Gerente de Contraloría' => 'Dirección Comercial',
+        'Gerente de Contraloría' => 'Dirección General',
         'Auditora' => 'Gerente de Contraloría',
         'Tesorero' => 'Gerente de Contraloría',
         'Contador' => 'Gerente de Contraloría',

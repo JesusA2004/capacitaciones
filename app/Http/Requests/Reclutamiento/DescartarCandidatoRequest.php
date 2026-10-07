@@ -26,6 +26,8 @@ class DescartarCandidatoRequest extends FormRequest
                 EstadoCandidato::Desistio->value,
             ])],
             'motivo' => ['required', 'string', 'max:2000'],
+            'motivo_rechazo_id' => ['nullable', 'integer', Rule::exists('motivos_rechazo_candidato', 'id')->where('activo', true)],
+            'recontratable' => ['nullable', 'boolean'],
         ];
     }
 }

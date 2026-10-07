@@ -160,6 +160,7 @@ class DocumentoAdministrativoService
     public function html(FamiliaAdministrativa $familia, array $datos, array $diseno, MotorPdf $motor = MotorPdf::DomPdf): string
     {
         $contenido = array_map(fn (string $texto) => $this->sustituir($texto, $datos), $diseno['content']);
+        $diseno['header']['brand_text'] = $this->sustituir((string) $diseno['header']['brand_text'], $datos);
         $diseno['footer']['text'] = $this->sustituir((string) $diseno['footer']['text'], $datos);
         [$ancho, $alto] = $diseno['page']['size'] === 'a4' ? [210, 297] : [215.9, 279.4];
 

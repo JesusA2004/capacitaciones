@@ -3,6 +3,7 @@
 namespace App\Services\Reclutamiento;
 
 use App\Enums\EstadoCandidato;
+use App\Enums\EstadoIntervencionCandidato;
 use App\Enums\PrioridadTarea;
 use App\Enums\ProcesoAprobacion;
 use App\Enums\ResultadoEtapaCandidato;
@@ -16,6 +17,7 @@ use App\Models\CandidatoEvidencia;
 use App\Models\CandidatoPsicometrica;
 use App\Models\CandidatoReferencia;
 use App\Models\CandidatoSocioeconomico;
+use App\Models\MotivoRechazoCandidato;
 use App\Models\User;
 use App\Models\Vacante;
 use App\Services\Auditoria\AuditoriaService;
@@ -392,11 +394,11 @@ class CandidatoWorkflowService
         });
     }
 
-    public function rechazarRh(Candidato $candidato, User $actor, string $motivo): Candidato
+    public function rechazarRh(Candidato $candidato, User $actor, string $motivo, ?int $motivoRechazoId = null, ?bool $recontratable = null): Candidato
     {
-        return $this->paso($candidato, $actor, EstadoCandidato::AutorizacionRhPendiente, function (Candidato $c) use ($actor, $motivo): void {
+        return $this->paso($candidato, $actor, EstadoCandidato::AutorizacionRhPendiente, function (Candidato $c) use ($actor, $motivo, $motivoRechazoId, $recontratable): void {
             $this->aprobaciones->rechazar($c, ProcesoAprobacion::SeleccionCandidato, $actor, $motivo);
-            $this->salir($c, EstadoCandidato::RechazadoRh, $actor, $motivo);
+            $this->salir($c, EstadoCandidato::RechazadoRh, $actor, $motivo, $motivoRechazoId, $recontratable);
         });
     }
 
@@ -409,10 +411,23 @@ class CandidatoWorkflowService
     }
 
     /**
+     * Transición de excepción: Regional o Dirección Comercial aprobaron una
+     * intervención sobre un rechazo de RH (CLAUDE.md §10-11). Solo
+     * App\Services\Reclutamiento\IntervencionCandidatoService debe llamar
+     * esto — nunca un controlador ni otro service.
+     */
+    public function autorizarPorIntervencion(Candidato $candidato, User $actor, string $nota): Candidato
+    {
+        return $this->paso($candidato, $actor, EstadoCandidato::RechazadoRh, function (Candidato $c) use ($actor, $nota): void {
+            $this->transicionar($c, EstadoCandidato::AutorizadoRh, $actor, $nota, retroceso: true);
+        });
+    }
+
+    /**
      * Salida del proceso (desistió, no respondió, no viable, no
      * seleccionado) desde cualquier fase abierta anterior a la contratación.
      */
-    public function descartar(Candidato $candidato, User $actor, EstadoCandidato $salida, string $motivo): Candidato
+    public function descartar(Candidato $candidato, User $actor, EstadoCandidato $salida, string $motivo, ?int $motivoRechazoId = null, ?bool $recontratable = null): Candidato
     {
         if (! $salida->esSalida() || $salida === EstadoCandidato::RechazadoRh) {
             throw ValidationException::withMessages(['estado' => 'Elige un motivo de salida válido.']);
@@ -420,7 +435,7 @@ class CandidatoWorkflowService
 
         $this->autorizarAlguno($actor, [self::PERMISO_DESCARTAR, self::PERMISO_RECLUTAMIENTO, self::PERMISO_GERENTE], $candidato);
 
-        $resultado = DB::transaction(function () use ($candidato, $actor, $salida, $motivo): Candidato {
+        $resultado = DB::transaction(function () use ($candidato, $actor, $salida, $motivo, $motivoRechazoId, $recontratable): Candidato {
             $c = $this->bloquear($candidato);
 
             if (! $c->estado->permiteDescartar()) {
@@ -428,7 +443,7 @@ class CandidatoWorkflowService
             }
 
             $this->aprobaciones->cancelarPendientes($c, ProcesoAprobacion::SeleccionCandidato, $actor, $motivo);
-            $this->salir($c, $salida, $actor, $this->exigirMotivo($motivo, $salida->etiqueta()));
+            $this->salir($c, $salida, $actor, $this->exigirMotivo($motivo, $salida->etiqueta()), $motivoRechazoId, $recontratable);
 
             return $c;
         });
@@ -506,6 +521,14 @@ class CandidatoWorkflowService
             case EstadoCandidato::AutorizadoRh:
                 if ($puede(ContratacionCandidatoService::PERMISO_CONTRATAR)) {
                     $acciones[] = ['clave' => 'iniciar_contratacion', 'etiqueta' => 'Generar QR de contratación', 'tipo' => 'primaria'];
+                }
+                break;
+            case EstadoCandidato::RechazadoRh:
+                // Solo el gerente que entrevistó, y solo si no hay ya una
+                // intervención pendiente de decisión (CLAUDE.md §10): nunca
+                // automático, nunca doble solicitud.
+                if ($puede(self::PERMISO_GERENTE) && ! $candidato->intervenciones()->where('estado', EstadoIntervencionCandidato::Pendiente->value)->exists()) {
+                    $acciones[] = ['clave' => 'solicitar_intervencion', 'etiqueta' => 'Solicitar intervención', 'tipo' => 'secundaria'];
                 }
                 break;
             default:
@@ -591,13 +614,29 @@ class CandidatoWorkflowService
         $this->auditar('candidato_estado', $candidato, $actor, ['estado_anterior' => $anterior->value, 'estado_nuevo' => $destino->value]);
     }
 
-    private function salir(Candidato $candidato, EstadoCandidato $salida, User $actor, string $motivo): void
+    /**
+     * @param  int|null  $motivoRechazoId  Catálogo administrable (CLAUDE.md
+     *                                     §10): opcional por ahora en los pasos del pipeline (que ya traen
+     *                                     su propio motivo de contexto), obligatorio desde `descartar()` y
+     *                                     `rechazarRh()` en la UI.
+     */
+    private function salir(Candidato $candidato, EstadoCandidato $salida, User $actor, string $motivo, ?int $motivoRechazoId = null, ?bool $recontratable = null): void
     {
         $anterior = $candidato->estado;
+        $catalogo = $motivoRechazoId !== null ? MotivoRechazoCandidato::query()->activos()->find($motivoRechazoId) : null;
+
+        if ($motivoRechazoId !== null && $catalogo === null) {
+            throw ValidationException::withMessages(['motivo_rechazo_id' => 'Elige un motivo de rechazo activo del catálogo.']);
+        }
 
         $candidato->update([
             'estado' => $salida,
             'motivo_salida' => $motivo,
+            'motivo_rechazo_id' => $catalogo?->id,
+            // Sin selección explícita, se respeta la sugerencia del
+            // catálogo; sin catálogo, se asume recontratable salvo que RH
+            // diga lo contrario.
+            'recontratable' => $recontratable ?? ($catalogo !== null ? ! $catalogo->no_recontratable_por_defecto : true),
             'salida_en' => now(),
             'salida_por' => $actor->id,
         ]);

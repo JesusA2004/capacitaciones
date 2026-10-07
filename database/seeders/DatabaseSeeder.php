@@ -42,6 +42,7 @@ class DatabaseSeeder extends Seeder
             PlantillaAutorizadaSeeder::class,
             CursoInduccionSeeder::class,
             BirthdayPhraseSeeder::class,
+            MotivosRechazoCandidatoSeeder::class,
         ]);
 
         // B) DEMO: nunca en producción.

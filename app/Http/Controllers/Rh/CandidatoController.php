@@ -27,6 +27,7 @@ use App\Models\Candidato;
 use App\Models\CandidatoEvidencia;
 use App\Models\Departamento;
 use App\Models\Empresa;
+use App\Models\MotivoRechazoCandidato;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
@@ -36,6 +37,7 @@ use App\Services\Reclutamiento\CandidatoPresenter;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
 use App\Services\Reclutamiento\ContratacionCandidatoService;
 use App\Services\Reclutamiento\CvStorageService;
+use App\Services\Reclutamiento\IntervencionCandidatoService;
 use App\Services\Vacantes\VacantesListadoService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\CarbonInterface;
@@ -43,6 +45,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
@@ -66,6 +69,7 @@ class CandidatoController extends Controller
         private readonly CicloLaboralService $ciclo,
         private readonly CandidatoPresenter $presenter,
         private readonly VacantesListadoService $vacantesListado,
+        private readonly IntervencionCandidatoService $intervenciones,
     ) {}
 
     public function index(Request $request): Response
@@ -200,10 +204,15 @@ class CandidatoController extends Controller
     {
         $this->authorize('view', $candidato);
 
+        $intervencionPendiente = $request->user() !== null
+            ? $this->intervenciones->pendienteDecidiblePor($candidato, $request->user())
+            : null;
+
         return Inertia::render('Rh/Candidatos/Show', [
             'candidato' => $this->presenter->detalle($candidato),
             'ciclo' => $this->ciclo->obtenerEstado($candidato, $request->user()),
             'opciones' => $this->opciones($request->user()),
+            'intervencionPendienteId' => $intervencionPendiente?->id,
         ]);
     }
 
@@ -268,14 +277,15 @@ class CandidatoController extends Controller
 
     /**
      * Evidencia privada (socioeconómico/psicométricas): Policy + alcance,
-     * nunca URL pública.
+     * nunca URL pública. Con soporte de HTTP Range (CLAUDE.md §8-9): un
+     * video pesado se puede adelantar/retroceder sin descargarlo completo.
      */
-    public function descargarEvidencia(Candidato $candidato, CandidatoEvidencia $evidencia): StreamedResponse
+    public function descargarEvidencia(Request $request, Candidato $candidato, CandidatoEvidencia $evidencia): StreamedResponse
     {
         $this->authorize('view', $candidato);
         abort_unless($evidencia->candidato_id === $candidato->id, 404);
 
-        return $this->cvStorage->respuesta($evidencia->path, [
+        return $this->cvStorage->respuestaConRango($request, $evidencia->path, [
             'Content-Type' => $evidencia->mime ?? 'application/octet-stream',
             'Content-Disposition' => 'inline; filename="'.$evidencia->original_name.'"',
         ]);
@@ -287,7 +297,17 @@ class CandidatoController extends Controller
     public function actualizarEstado(ActualizarEstadoCandidatoRequest $request, Candidato $candidato): RedirectResponse
     {
         $estado = EstadoCandidato::from($request->validated('estado'));
-        $this->workflow->descartar($candidato, $request->user(), $estado, (string) ($request->validated('nota') ?? ''));
+        $motivoRechazoId = $request->validated('motivo_rechazo_id');
+        $recontratable = $request->validated('recontratable');
+
+        $this->workflow->descartar(
+            $candidato,
+            $request->user(),
+            $estado,
+            (string) ($request->validated('nota') ?? ''),
+            $motivoRechazoId !== null ? (int) $motivoRechazoId : null,
+            $recontratable !== null ? (bool) $recontratable : null,
+        );
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Proceso del candidato cerrado.']);
     }
@@ -364,7 +384,18 @@ class CandidatoController extends Controller
 
     public function rechazarRh(DecisionAprobacionRequest $request, Candidato $candidato): RedirectResponse
     {
-        $this->workflow->rechazarRh($candidato, $request->user(), $request->motivo());
+        $extra = $request->validate([
+            'motivo_rechazo_id' => ['nullable', 'integer', Rule::exists('motivos_rechazo_candidato', 'id')->where('activo', true)],
+            'recontratable' => ['nullable', 'boolean'],
+        ]);
+
+        $this->workflow->rechazarRh(
+            $candidato,
+            $request->user(),
+            $request->motivo(),
+            isset($extra['motivo_rechazo_id']) ? (int) $extra['motivo_rechazo_id'] : null,
+            isset($extra['recontratable']) ? (bool) $extra['recontratable'] : null,
+        );
 
         return $this->ok('Contratación rechazada.');
     }
@@ -378,7 +409,17 @@ class CandidatoController extends Controller
 
     public function descartar(DescartarCandidatoRequest $request, Candidato $candidato): RedirectResponse
     {
-        $this->workflow->descartar($candidato, $request->user(), EstadoCandidato::from((string) $request->validated('estado')), (string) $request->validated('motivo'));
+        $motivoRechazoId = $request->validated('motivo_rechazo_id');
+        $recontratable = $request->validated('recontratable');
+
+        $this->workflow->descartar(
+            $candidato,
+            $request->user(),
+            EstadoCandidato::from((string) $request->validated('estado')),
+            (string) $request->validated('motivo'),
+            $motivoRechazoId !== null ? (int) $motivoRechazoId : null,
+            $recontratable !== null ? (bool) $recontratable : null,
+        );
 
         return $this->ok('Proceso del candidato cerrado.');
     }
@@ -450,13 +491,20 @@ class CandidatoController extends Controller
                 ->get(['id', 'puesto_id', 'sucursal_id', 'estado']),
             'responsables' => User::query()->role(['rh_admin', 'rh_auxiliar'])->orderBy('name')->get(['id', 'name', 'apellidos']),
             'gerentes' => User::query()->permission(CandidatoWorkflowService::PERMISO_GERENTE)->whereNull('acceso_bloqueado_en')->orderBy('name')->get(['id', 'name', 'apellidos']),
-            'estados' => array_map(fn (EstadoCandidato $e) => ['value' => $e->value, 'etiqueta' => $e->etiqueta(), 'salida' => $e->esSalida()], EstadoCandidato::cases()),
+            'estados' => array_map(fn (EstadoCandidato $e) => ['value' => $e->value, 'etiqueta' => $e->etiqueta(), 'salida' => $e->esSalida(), 'fase' => $e->faseCanonica()], EstadoCandidato::cases()),
+            // Columnas canónicas del tablero (CLAUDE.md §4): única fuente,
+            // nunca una agrupación inventada en el frontend.
+            'fases' => array_map(fn (string $valor, string $etiqueta) => ['value' => $valor, 'etiqueta' => $etiqueta], array_keys(EstadoCandidato::fases()), array_values(EstadoCandidato::fases())),
             'salidas' => array_map(fn (EstadoCandidato $e) => ['value' => $e->value, 'etiqueta' => $e->etiqueta()], array_values(array_filter(EstadoCandidato::salidas(), fn (EstadoCandidato $e) => $e !== EstadoCandidato::RechazadoRh))),
             'fuentes' => array_map(fn (FuenteCandidato $f) => ['value' => $f->value, 'etiqueta' => $f->etiqueta()], FuenteCandidato::cases()),
             'resultados' => array_map(fn (ResultadoEtapaCandidato $r) => ['value' => $r->value, 'etiqueta' => $r->etiqueta()], ResultadoEtapaCandidato::cases()),
             'resultadosReferencia' => array_map(fn (ResultadoReferencia $r) => ['value' => $r->value, 'etiqueta' => $r->etiqueta()], ResultadoReferencia::cases()),
             'tiposContratacion' => array_map(fn (TipoContratacion $t) => ['value' => $t->value, 'etiqueta' => $t->etiqueta()], TipoContratacion::seleccionables()),
             'transicionesPermitidas' => $this->transicionesPermitidas(),
+            // Catálogo administrable de motivos de rechazo (CLAUDE.md §10):
+            // única fuente para el selector al cerrar un proceso o rechazar.
+            'motivosRechazo' => MotivoRechazoCandidato::query()->activos()->orderBy('nombre')
+                ->get(['id', 'nombre', 'no_recontratable_por_defecto']),
         ];
     }
 

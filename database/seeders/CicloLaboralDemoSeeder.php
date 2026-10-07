@@ -3,6 +3,8 @@
 namespace Database\Seeders;
 
 use App\Enums\EstadoCandidato;
+use App\Enums\EstadoVacante;
+use App\Enums\MotivoVacante;
 use App\Enums\TipoModuloOnboarding;
 use App\Models\Candidato;
 use App\Models\Colaborador;
@@ -17,6 +19,7 @@ use App\Models\OnboardingModulo;
 use App\Models\Puesto;
 use App\Models\TipoActivo;
 use App\Models\User;
+use App\Models\Vacante;
 use App\Services\CicloLaboral\ReingresoService;
 use App\Services\CierreLaboral\CierreLaboralService;
 use App\Services\Contratos\ContratoLaboralService;
@@ -61,6 +64,8 @@ class CicloLaboralDemoSeeder extends Seeder
     private User $gerente;
 
     private Puesto $puesto;
+
+    private ?Vacante $vacanteDemo = null;
 
     public function run(): void
     {
@@ -215,6 +220,7 @@ class CicloLaboralDemoSeeder extends Seeder
         }
 
         $sucursal = $this->gerente->colaborador?->sucursalPrincipal;
+        $vacante = $this->vacanteDemo($sucursal?->empresa_id, $sucursal?->id);
 
         $this->como($this->reclutador);
         $c = $wf->registrar([
@@ -222,6 +228,7 @@ class CicloLaboralDemoSeeder extends Seeder
             'sucursal_id' => $sucursal?->id,
             'departamento_id' => Departamento::query()->where('nombre', 'Ventas')->value('id'),
             'puesto_objetivo_id' => $this->puesto->id,
+            'vacante_id' => $vacante?->id,
             'nombre' => 'Demo',
             'apellidos' => ucfirst(str_replace(['-', '_'], ' ', $clave)).' Ciclo',
             'telefono' => '5550000000',
@@ -231,6 +238,36 @@ class CicloLaboralDemoSeeder extends Seeder
         ], $this->reclutador);
 
         return $this->avanzarCandidato($wf, $c, $hasta);
+    }
+
+    /**
+     * Vacante real para que la demo pueda llegar hasta contratación
+     * (CLAUDE.md §3: un candidato espontáneo, sin vacante, nunca se
+     * contrata). Manual, con plazas de sobra para las 8 personas del
+     * escenario; se crea una sola vez por corrida.
+     */
+    private function vacanteDemo(?int $empresaId, ?int $sucursalId): ?Vacante
+    {
+        if ($this->vacanteDemo !== null) {
+            return $this->vacanteDemo;
+        }
+
+        if ($sucursalId === null) {
+            return null;
+        }
+
+        return $this->vacanteDemo = Vacante::query()->create([
+            'empresa_id' => $empresaId,
+            'sucursal_id' => $sucursalId,
+            'puesto_id' => $this->puesto->id,
+            'motivo' => MotivoVacante::Crecimiento->value,
+            'estado' => EstadoVacante::Abierta->value,
+            'generada_automaticamente' => false,
+            'plazas_requeridas' => 10,
+            'plazas_disponibles' => 10,
+            'fecha_apertura' => now()->subDays(10)->toDateString(),
+            'creado_por' => $this->rh->id,
+        ]);
     }
 
     private function avanzarCandidato(CandidatoWorkflowService $wf, Candidato $c, EstadoCandidato $hasta): Candidato

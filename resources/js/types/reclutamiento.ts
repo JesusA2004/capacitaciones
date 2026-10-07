@@ -109,8 +109,13 @@ export type CandidatoItem = {
     fuente_etiqueta: string | null;
     tiene_cv: boolean;
     cv_original_name: string | null;
+    /** Checks de la tarjeta (CLAUDE.md §12): hecho/pendiente, sin cargar el detalle completo. */
+    psicometricas_count: number;
+    socioeconomicos_count: number;
     observaciones: string | null;
     estado: string;
+    /** Columna canónica del tablero (CLAUDE.md §4) — nunca el sub-estado técnico. */
+    fase: string;
     fecha_entrevista: string | null;
     resultado_entrevista: string | null;
     created_at: string;
@@ -141,6 +146,27 @@ export type CandidatoDetalle = CandidatoItem & {
     incorporacion_invitacion: { id: number; estado: string } | null;
 };
 
+/**
+ * Excepción jerárquica sobre un rechazo de RH (CLAUDE.md §10-12): histórico
+ * auditable, nunca otra fase del kanban.
+ */
+export type IntervencionCandidatoItem = {
+    id: number;
+    ruta: string;
+    ruta_etiqueta: string;
+    estado: string;
+    estado_etiqueta: string;
+    rechazo_rh_por: string | null;
+    rechazo_rh_motivo: string | null;
+    rechazo_rh_en: string | null;
+    gerente_solicitante: string | null;
+    motivo_solicitud: string;
+    solicitada_en: string;
+    aprobador: string | null;
+    comentario_decision: string | null;
+    decidida_en: string | null;
+};
+
 export type CandidatoTimelineEtapa = {
     clave: string;
     titulo: string;
@@ -157,7 +183,9 @@ export type OpcionesReclutamiento = {
     puestos: (OpcionSimple & { departamento_id: number | null })[];
     responsables?: { id: number; name: string; apellidos: string | null }[];
     motivos?: OpcionEnum[];
-    estados: OpcionEnum[];
+    estados: (OpcionEnum & { salida: boolean; fase: string })[];
+    /** Columnas canónicas del tablero, en orden (CLAUDE.md §4). */
+    fases?: OpcionEnum[];
     fuentes?: OpcionEnum[];
     vacantes?: {
         id: number;
@@ -167,6 +195,12 @@ export type OpcionesReclutamiento = {
     }[];
     tiposSeguimiento?: OpcionEnum[];
     transicionesPermitidas?: Record<string, string[]>;
+    /** Catálogo administrable de motivos de rechazo (CLAUDE.md §10). */
+    motivosRechazo?: {
+        id: number;
+        nombre: string;
+        no_recontratable_por_defecto: boolean;
+    }[];
     colaboradores?: {
         id: number;
         name: string;
