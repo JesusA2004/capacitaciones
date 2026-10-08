@@ -15,6 +15,10 @@ return [
     'aniversario' => [
         'enabled' => (bool) env('ANIVERSARIOS_ENABLED', true),
 
+        // Felicitación automática al homenajeado (in-app + push) a las 08:00,
+        // como los cumpleaños (aniversarios:enviar-felicitaciones).
+        'notificar_colaborador' => (bool) env('ANIVERSARIOS_NOTIFICAR_COLABORADOR', true),
+
         // Texto base de la tarjeta; {anios} = "6 años", {nombre}, {sucursal}.
         // RH lo puede cambiar desde Configuración (celebracion_configuraciones).
         'mensaje' => 'MR. LANA quiere darte el más sincero agradecimiento por tu entrega y constancia durante estos {anios} de trabajo. Esperamos que sigas contribuyendo con entusiasmo a los objetivos comunes de esta, tu empresa, por muchos años más.',

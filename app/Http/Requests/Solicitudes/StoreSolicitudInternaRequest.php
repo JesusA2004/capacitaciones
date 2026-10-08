@@ -2,8 +2,11 @@
 
 namespace App\Http\Requests\Solicitudes;
 
+use App\Enums\CausalPermisoEspecial;
+use App\Enums\GocePermiso;
 use App\Enums\ModoFechasSolicitud;
 use App\Enums\TipoBaja;
+use App\Enums\TipoPermisoSolicitado;
 use App\Enums\TipoSolicitudInterna;
 use App\Models\SolicitudInterna;
 use Illuminate\Foundation\Http\FormRequest;
@@ -43,14 +46,31 @@ class StoreSolicitudInternaRequest extends FormRequest
     public function rules(): array
     {
         $tipo = TipoSolicitudInterna::tryFrom((string) $this->input('tipo'));
-        $modo = $tipo?->modoFechas();
+        $esPermiso = $tipo === TipoSolicitudInterna::Permiso;
+        $permisoTipo = TipoPermisoSolicitado::tryFrom((string) $this->input('permiso_tipo'));
+        // Permiso: «faltar» se pide por días; salir temprano / llegar tarde, un día con hora.
+        $modo = $esPermiso && $permisoTipo !== null && $permisoTipo !== TipoPermisoSolicitado::Faltar
+            ? ModoFechasSolicitud::Horario
+            : $tipo?->modoFechas();
         // App anterior: mandaba fecha_inicio + fecha_fin; se acepta y el
         // backend lo traduce a la misma regla (FechasSolicitudService).
         $legacyRango = $this->filled('fecha_fin');
 
         return [
-            'tipo' => ['required', 'string', Rule::in(array_column(TipoSolicitudInterna::cases(), 'value'))],
-            'motivo' => ['required', 'string', 'max:2000'],
+            // Solo la taxonomía vigente; los tipos históricos ya no se crean.
+            'tipo' => ['required', 'string', Rule::in(TipoSolicitudInterna::valoresCreables())],
+            // El permiso pide solo lo del formato: sus observaciones bastan.
+            'motivo' => [Rule::requiredIf(! $esPermiso), 'nullable', 'string', 'max:2000'],
+            'permiso_tipo' => [Rule::requiredIf($esPermiso), Rule::prohibitedIf(! $esPermiso), 'nullable', Rule::enum(TipoPermisoSolicitado::class)],
+            'permiso_goce' => [Rule::requiredIf($esPermiso), Rule::prohibitedIf(! $esPermiso), 'nullable', Rule::enum(GocePermiso::class)],
+            'permiso_causal' => [
+                Rule::requiredIf($esPermiso && $this->input('permiso_goce') === GocePermiso::Especial->value),
+                Rule::prohibitedIf(! $esPermiso || $this->input('permiso_goce') !== GocePermiso::Especial->value),
+                'nullable',
+                Rule::enum(CausalPermisoEspecial::class),
+            ],
+            'hora_salida' => [Rule::requiredIf($permisoTipo === TipoPermisoSolicitado::SalirTemprano), 'nullable', 'date_format:H:i'],
+            'hora_entrada' => [Rule::requiredIf($permisoTipo === TipoPermisoSolicitado::LlegarTarde), 'nullable', 'date_format:H:i'],
             'observaciones' => ['nullable', 'string', 'max:2000'],
             'fecha_inicio' => [
                 Rule::requiredIf(in_array($modo, [ModoFechasSolicitud::Duracion, ModoFechasSolicitud::Horario, ModoFechasSolicitud::FechaUnica], true)
@@ -108,6 +128,15 @@ class StoreSolicitudInternaRequest extends FormRequest
             'dias.min' => 'Selecciona al menos un día.',
             'dias.max' => 'Puedes pedir a lo más 60 días en una solicitud.',
             'dias.*.date_format' => 'Uno de los días seleccionados no es una fecha válida.',
+            'tipo.in' => 'Ese tipo de solicitud ya no está disponible: elige Permiso, Vacaciones o Préstamo.',
+            'permiso_tipo.required' => 'Elige qué permiso necesitas: faltar, salir temprano o llegar tarde.',
+            'permiso_goce.required' => 'Elige el tipo de permiso: con goce, sin goce o especial.',
+            'permiso_causal.required' => 'Elige la causal del permiso especial.',
+            'permiso_causal.prohibited' => 'La causal solo aplica a un permiso especial.',
+            'hora_salida.required' => 'Indica a qué hora sales.',
+            'hora_entrada.required' => 'Indica a qué hora llegas.',
+            'hora_salida.date_format' => 'Indica la hora como HH:MM.',
+            'hora_entrada.date_format' => 'Indica la hora como HH:MM.',
         ];
     }
 }

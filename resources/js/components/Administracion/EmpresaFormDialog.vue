@@ -34,6 +34,8 @@ const form = useForm({
     logo: null as File | null,
     activo: props.empresa?.activo ?? true,
     domicilio_fiscal: props.empresa?.domicilio_fiscal ?? '',
+    registro_patronal: props.empresa?.registro_patronal ?? '',
+    codigo_postal_fiscal: props.empresa?.codigo_postal_fiscal ?? '',
     ciudad_firma: props.empresa?.ciudad_firma ?? '',
     representante_legal_nombre: props.empresa?.representante_legal_nombre ?? '',
     representante_legal_cargo: props.empresa?.representante_legal_cargo ?? '',
@@ -178,6 +180,21 @@ function enviar() {
                         />
                         <InputError :message="form.errors.domicilio_fiscal" />
                     </div>
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <div class="grid gap-2">
+                            <Label for="registro_patronal">Registro patronal IMSS</Label>
+                            <Input id="registro_patronal" v-model="form.registro_patronal" placeholder="D0000000000" />
+                            <InputError :message="form.errors.registro_patronal" />
+                        </div>
+                        <div class="grid gap-2">
+                            <Label for="codigo_postal_fiscal">Lugar de expedición (C.P.)</Label>
+                            <Input id="codigo_postal_fiscal" v-model="form.codigo_postal_fiscal" inputmode="numeric" placeholder="62260" />
+                            <InputError :message="form.errors.codigo_postal_fiscal" />
+                        </div>
+                    </div>
+                    <p class="text-xs text-muted-foreground">
+                        Aparecen en el encabezado de los formatos oficiales (recibo de nómina, finiquito y permiso).
+                    </p>
                 </fieldset>
 
                 <label class="flex items-center gap-2 text-sm">

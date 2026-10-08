@@ -3,6 +3,7 @@
 use App\Enums\EstadoReciboNomina;
 use App\Enums\EstadoUsuario;
 use App\Models\Colaborador;
+use App\Models\NominaLote;
 use App\Models\ReciboNomina;
 use App\Models\User;
 use App\Services\Nomina\NominaQuincenalService;
@@ -118,14 +119,27 @@ test('rh edita un recibo uno por uno desde la web y descarga la quincena en zip 
         ->assertHeader('content-type', 'application/pdf');
 });
 
-test('el comando prepara antes del pago y emite solo en la fecha de pago', function () {
+test('el comando prepara el lote antes del pago y NUNCA publica por su cuenta', function () {
     $this->artisan('nomina:procesar-quincenas', ['--fecha' => '2026-10-05'])->assertSuccessful();
     expect(ReciboNomina::query()->count())->toBe(0);
 
     $this->artisan('nomina:procesar-quincenas', ['--fecha' => '2026-10-13'])->assertSuccessful();
-    expect(ReciboNomina::query()->where('estado', 'borrador')->count())->toBe(2);
+    expect(ReciboNomina::query()->where('estado', 'borrador')->count())->toBe(2)
+        ->and(NominaLote::query()->where('estado', 'preparado')->count())->toBe(1);
 
+    // Llega la fecha de pago: sigue sin publicarse (RH revisa y emite) y no se crea otro lote.
     $this->artisan('nomina:procesar-quincenas', ['--fecha' => '2026-10-15'])->assertSuccessful();
+    expect(ReciboNomina::query()->where('estado', 'emitido')->count())->toBe(0)
+        ->and(NominaLote::query()->count())->toBe(1);
+    Notification::assertNothingSent();
+});
+
+test('con NOMINA_EMISION_AUTOMATICA=true el comando emite en la fecha de pago', function () {
+    config(['nomina.quincenal.emision_automatica' => true]);
+
+    $this->artisan('nomina:procesar-quincenas', ['--fecha' => '2026-10-13'])->assertSuccessful();
+    $this->artisan('nomina:procesar-quincenas', ['--fecha' => '2026-10-15'])->assertSuccessful();
+
     expect(ReciboNomina::query()->where('estado', 'emitido')->count())->toBe(2);
 });
 

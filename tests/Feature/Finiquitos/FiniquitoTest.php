@@ -202,7 +202,8 @@ test('sueldo_pendiente se incluye en el total calculado', function () {
         ->and((float) $finiquito->total_calculado)->toBeGreaterThanOrEqual(1000.0);
 });
 
-test('generarPdf usa el formato oficial de finiquito cuando esta activo y configurado', function () {
+test('con FINIQUITO_MOTOR=legado, generarPdf usa el overlay anterior si está activo y configurado', function () {
+    config(['finiquitos.motor' => 'legado']);
     $solicitud = crearSolicitudBaja();
     $this->actingAs($this->rh)->post(route('rh.solicitudes.finiquito.calcular', $solicitud), ['sueldo_mensual' => 15000]);
 

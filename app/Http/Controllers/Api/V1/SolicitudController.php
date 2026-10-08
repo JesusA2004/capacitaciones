@@ -9,6 +9,8 @@ use App\Models\SolicitudInterna;
 use App\Services\Solicitudes\SolicitudesService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Solicitudes internas propias del colaborador autenticado. Un colaborador
@@ -38,6 +40,20 @@ class SolicitudController extends Controller
         $solicitud = $this->solicitudes->crear($request->user(), $request->validated());
 
         return response()->json(new SolicitudInternaResource($solicitud), 201);
+    }
+
+    /**
+     * Formato oficial de permiso (solo cuando RH ya lo autorizó).
+     */
+    public function permisoPdf(SolicitudInterna $solicitud): StreamedResponse
+    {
+        $this->authorize('view', $solicitud);
+
+        try {
+            return $this->solicitudes->respuestaPermiso($solicitud);
+        } catch (ValidationException $e) {
+            abort(403, collect($e->errors())->flatten()->first());
+        }
     }
 
     public function show(Request $request, SolicitudInterna $solicitud): JsonResponse

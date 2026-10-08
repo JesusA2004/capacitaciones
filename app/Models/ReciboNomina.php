@@ -40,6 +40,15 @@ use Illuminate\Support\Carbon;
  * @property string|null $observaciones
  * @property string|null $lote_importacion
  * @property string|null $checksum
+ * @property int|null $nomina_lote_id
+ * @property string|null $dias_pagados
+ * @property string|null $dias_falta
+ * @property string|null $dias_incapacidad
+ * @property list<string>|null $advertencias
+ * @property Carbon|null $cancelado_at
+ * @property int|null $cancelado_por
+ * @property int|null $emitido_por
+ * @property-read NominaLote|null $lote
  * @property-read Colaborador $colaborador
  */
 class ReciboNomina extends Model
@@ -75,6 +84,14 @@ class ReciboNomina extends Model
         'observaciones',
         'lote_importacion',
         'checksum',
+        'nomina_lote_id',
+        'dias_pagados',
+        'dias_falta',
+        'dias_incapacidad',
+        'advertencias',
+        'cancelado_at',
+        'cancelado_por',
+        'emitido_por',
     ];
 
     /**
@@ -84,6 +101,14 @@ class ReciboNomina extends Model
      * @var list<string>
      */
     protected $hidden = ['pdf_disk', 'pdf_path'];
+
+    /**
+     * @return BelongsTo<NominaLote, $this>
+     */
+    public function lote(): BelongsTo
+    {
+        return $this->belongsTo(NominaLote::class, 'nomina_lote_id');
+    }
 
     /**
      * Detalle de conceptos (percepciones y deducciones).
@@ -111,6 +136,11 @@ class ReciboNomina extends Model
             'emitido_at' => 'datetime',
             'ejercicio' => 'integer',
             'numero_periodo' => 'integer',
+            'dias_pagados' => 'decimal:2',
+            'dias_falta' => 'decimal:2',
+            'dias_incapacidad' => 'decimal:2',
+            'advertencias' => 'array',
+            'cancelado_at' => 'datetime',
         ];
     }
 

@@ -24,7 +24,9 @@ import {
     requerirCorreccion,
     revisar,
 } from '@/routes/rh/solicitudes';
+import { permisoPdf } from '@/routes/rh/solicitudes';
 import { ver as verDocumento } from '@/routes/rh/solicitudes/documentos';
+import PermisoAutorizacionCard from '@/components/Solicitudes/PermisoAutorizacionCard.vue';
 import { store as subirDocumentoSolicitud } from '@/routes/solicitudes/documentos';
 import type {
     DocumentoOficialEsperado,
@@ -33,6 +35,7 @@ import type {
     FormatoOficialItem,
     SolicitudInternaDocumentoItem,
     SolicitudInternaItem,
+    PermisoResumen,
 } from '@/types';
 
 const faltanVistosBuenosCalculo = (niveles: NivelVistoBueno[]) =>
@@ -42,6 +45,7 @@ const props = defineProps<{
     solicitud: SolicitudInternaItem;
     tipoEtiqueta: string;
     tipoBajaEtiqueta: string | null;
+    permiso: PermisoResumen | null;
     puedeGenerarFormato: boolean;
     vistosBuenos: NivelVistoBueno[];
     puedeDarVistoBueno: boolean;
@@ -190,6 +194,11 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
                     :estado="solicitud.estado"
                     :niveles="vistosBuenos"
                     :puede-dar-visto-bueno="puedeDarVistoBueno"
+                />
+                <PermisoAutorizacionCard
+                    v-if="permiso"
+                    :permiso="permiso"
+                    :pdf-url="permisoPdf.url(solicitud.id)"
                 />
                 <div
                     class="grid gap-4 rounded-2xl border border-border/60 bg-card p-5"

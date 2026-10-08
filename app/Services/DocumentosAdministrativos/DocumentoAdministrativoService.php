@@ -69,6 +69,19 @@ class DocumentoAdministrativoService
     }
 
     /**
+     * PDF con el diseño VIGENTE y datos reales, SIN registrar nada (vista
+     * previa de un recibo preparado, de un finiquito antes de generarlo…).
+     *
+     * @param  array<string, mixed>  $datos
+     */
+    public function renderizarVigente(FamiliaAdministrativa $familia, array $datos): string
+    {
+        $vigente = $this->plantillas->vigente($familia);
+
+        return $this->renderizar($familia, $datos, $vigente['diseno'], $vigente['motor'])['pdf'];
+    }
+
+    /**
      * Vista previa REAL (mismo motor y mismo HTML que la generación) con
      * datos ficticios, de una versión concreta o del diseño por defecto.
      */
@@ -106,7 +119,7 @@ class DocumentoAdministrativoService
         if ($datos === null) {
             return ['faltante' => match ($familia) {
                 FamiliaAdministrativa::ReciboNomina => sprintf('%s todavía no tiene un recibo de nómina emitido.', $colaborador->nombreCompleto()),
-                FamiliaAdministrativa::Finiquito, FamiliaAdministrativa::ComprobanteSolicitud => 'La vista previa con colaborador real todavía no está disponible para este tipo de documento (depende de un trámite concreto). Usa la vista previa con datos de ejemplo.',
+                FamiliaAdministrativa::Finiquito, FamiliaAdministrativa::ComprobanteSolicitud, FamiliaAdministrativa::Permiso => 'La vista previa con colaborador real todavía no está disponible para este tipo de documento (depende de un trámite concreto). Usa la vista previa con datos de ejemplo.',
                 default => 'No se encontraron datos reales para este colaborador.',
             }];
         }
@@ -178,7 +191,8 @@ class DocumentoAdministrativoService
             'fuente_css' => DisenoAdministrativoService::FUENTES[$diseno['typography']['font_family']] ?? DisenoAdministrativoService::FUENTES['Helvetica'],
             'pagina_mm' => ['ancho' => $ancho, 'alto' => $alto],
             'fondo_data_uri' => $this->dataUri($diseno['background']['asset_id'] ?? null),
-            'logo_data_uri' => $this->dataUri($diseno['header']['logo_asset_id'] ?? null),
+            // Sin logo elegido en el editor: el logo patronal del formato oficial.
+            'logo_data_uri' => $this->dataUri($diseno['header']['logo_asset_id'] ?? null) ?? $this->logoOficial(),
         ])->render();
     }
 
@@ -196,6 +210,18 @@ class DocumentoAdministrativoService
 
             return is_scalar($valor) ? (string) $valor : '';
         }, $texto);
+    }
+
+    /**
+     * Logo patronal tal como viene en los formatos oficiales de RH
+     * (docs/formatosRH/*.docx → resources/documentos/logo-mr-lana.png).
+     */
+    private function logoOficial(): ?string
+    {
+        $ruta = resource_path('documentos/logo-mr-lana.png');
+        $bytes = is_file($ruta) ? file_get_contents($ruta) : false;
+
+        return $bytes !== false ? 'data:image/png;base64,'.base64_encode($bytes) : null;
     }
 
     private function dataUri(mixed $assetId): ?string

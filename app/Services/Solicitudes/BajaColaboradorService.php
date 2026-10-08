@@ -7,6 +7,7 @@ use App\Enums\EstadoUsuario;
 use App\Models\Colaborador;
 use App\Models\User;
 use App\Services\Administracion\AccesoCuentaService;
+use App\Services\Colaboradores\AvisoAltaBajaService;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use App\Services\Vacantes\VacanteAutoGenerationService;
 use Illuminate\Support\Facades\DB;
@@ -30,6 +31,7 @@ class BajaColaboradorService
         private readonly MovimientoLaboralService $movimientos,
         private readonly VacanteAutoGenerationService $vacantes,
         private readonly AccesoCuentaService $acceso,
+        private readonly AvisoAltaBajaService $avisoAltaBaja,
     ) {}
 
     public function ejecutar(Colaborador $colaborador, User $actor, ?string $motivo = null): void
@@ -80,6 +82,9 @@ class BajaColaboradorService
                 $this->vacantes->sincronizar($sucursalId, $puestoId);
             }
         });
+
+        // Después del commit: RH + Sistemas (retiro de accesos y equipo).
+        $this->avisoAltaBaja->baja($colaborador, $motivo);
     }
 
     /**

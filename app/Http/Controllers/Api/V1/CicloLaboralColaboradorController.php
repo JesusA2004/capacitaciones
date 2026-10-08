@@ -17,6 +17,7 @@ use App\Services\Contratos\ContratoLaboralService;
 use App\Services\DocumentosLaborales\DocumentoLaboralConsultaService;
 use App\Services\DocumentosLaborales\FlujoDocumentalService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
+use App\Services\Expedientes\DatosFaltantesService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Nomina\PrestamoAutorizacionService;
 use App\Services\Nomina\ReciboNominaService;
@@ -124,6 +125,22 @@ class CicloLaboralColaboradorController extends Controller
         $colaborador = $this->colaborador($request);
 
         return response()->json(['data' => $colaborador->contratos()->with('documento')->get()->map(fn (ContratoLaboral $c) => $this->contratos->aArray($c))->values()]);
+    }
+
+    /**
+     * «Completa tu información»: datos personales contractuales que faltan.
+     * Se completan con la solicitud de actualización de datos (RH aprueba);
+     * nunca editando directo. Recalculado en vivo.
+     */
+    public function datosFaltantes(Request $request, DatosFaltantesService $datos): JsonResponse
+    {
+        $resumen = $datos->resumen($this->colaborador($request));
+
+        return response()->json(['data' => [
+            'completo' => $resumen['personales'] === [],
+            'faltan' => $resumen['personales'],
+            'solicitud_en_revision' => $resumen['solicitud_en_revision'],
+        ]]);
     }
 
     public function recibos(Request $request): JsonResponse

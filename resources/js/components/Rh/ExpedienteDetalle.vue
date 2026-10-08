@@ -14,7 +14,6 @@ import {
     CircleDashed,
     ClipboardList,
     Clock,
-    Eye,
     Fingerprint,
     FolderOpen,
     Hexagon,
@@ -50,8 +49,12 @@ import DatePicker from '@/components/Common/DatePicker.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import FotoPerfilCaptura from '@/components/Common/FotoPerfilCaptura.vue';
 import InputError from '@/components/InputError.vue';
+import AvisosComunicaciones from '@/components/Rh/AvisosComunicaciones.vue';
+import type { AvisoComunicacion } from '@/components/Rh/AvisosComunicaciones.vue';
 import CampoInfo from '@/components/Rh/CampoInfo.vue';
 import ConfirmarEntregaPrestamoDialog from '@/components/Rh/ConfirmarEntregaPrestamoDialog.vue';
+import DatosFaltantesBanner from '@/components/Rh/DatosFaltantesBanner.vue';
+import type { DatosFaltantesResumen } from '@/components/Rh/DatosFaltantesBanner.vue';
 import ExpedienteDocumentos from '@/components/Rh/ExpedienteDocumentos.vue';
 import GenerarCredencialesDialog from '@/components/Rh/GenerarCredencialesDialog.vue';
 import MovimientosLaboralesTimeline from '@/components/Rh/MovimientosLaboralesTimeline.vue';
@@ -101,7 +104,6 @@ import {
 } from '@/routes/administracion/usuarios';
 import { foto as subirFotoPropia } from '@/routes/portal';
 import { darDeBaja, reactivar } from '@/routes/rh/expedientes';
-import { update as actualizarAvisos } from '@/routes/rh/expedientes/avisos';
 import { update as actualizarDatosLaborales } from '@/routes/rh/expedientes/datos-laborales';
 import { update as actualizarDatosPersonales } from '@/routes/rh/expedientes/datos-personales';
 import { store as subirFotoColaborador } from '@/routes/rh/expedientes/foto';
@@ -193,6 +195,11 @@ const props = defineProps<{
         parentesco: string | null;
         direccion: string | null;
     };
+    /** ⚠ Datos contractuales faltantes (DatosFaltantesService). */
+    datosFaltantes?: DatosFaltantesResumen;
+    puedeAvisarDatosFaltantes?: boolean;
+    /** Avisos generales + personales con su estado de lectura. */
+    avisosComunicaciones?: AvisoComunicacion[];
 }>();
 
 const form = useForm({
@@ -212,19 +219,6 @@ const form = useForm({
 
 function guardarDatosPersonales() {
     form.put(actualizarDatosPersonales.url(props.colaborador.id), {
-        preserveScroll: true,
-    });
-}
-
-const formAvisos = useForm({
-    aviso_privacidad_aceptado:
-        props.avisosManual?.aviso_privacidad_aceptado ?? false,
-    consentimiento_datos_aceptado:
-        props.avisosManual?.consentimiento_datos_aceptado ?? false,
-});
-
-function guardarAvisosManual() {
-    formAvisos.put(actualizarAvisos.url(props.colaborador.id), {
         preserveScroll: true,
     });
 }
@@ -355,23 +349,6 @@ function guardarCuenta() {
             },
             onError: () => mostrarError('No se pudo actualizar la cuenta.'),
         });
-}
-
-// --- Avisos: mostrar el texto real detrás del checkbox ---
-const avisoDialogAbierto = ref(false);
-const avisoDialogTitulo = ref('');
-const avisoDialogTexto = ref('');
-
-function abrirAviso(tipo: 'privacidad' | 'datos') {
-    avisoDialogTitulo.value =
-        tipo === 'privacidad'
-            ? 'Aviso de privacidad'
-            : 'Consentimiento de datos';
-    avisoDialogTexto.value =
-        tipo === 'privacidad'
-            ? props.avisoPrivacidadTexto
-            : props.consentimientoDatosTexto;
-    avisoDialogAbierto.value = true;
 }
 
 // --- Datos laborales: empresa/sucursal/departamento/puesto/sueldo ---
@@ -894,6 +871,14 @@ function irACompletarExpediente() {
             </CardContent>
         </Card>
 
+        <DatosFaltantesBanner
+            v-if="datosFaltantes"
+            class="mb-4"
+            :datos="datosFaltantes"
+            :colaborador-id="colaborador.id"
+            :es-propio="esPropio"
+            :puede-avisar="puedeAvisarDatosFaltantes ?? false"
+        />
         <Tabs
             :default-value="pestanaInicial"
             orientation="vertical"
@@ -945,7 +930,7 @@ function irACompletarExpediente() {
                     value="avisos"
                     class="justify-start gap-2 lg:w-full"
                 >
-                    <ScrollText class="size-4" /> Avisos
+                    <ScrollText class="size-4" /> Avisos / Comunicaciones
                 </TabsTrigger>
                 <TabsTrigger
                     value="vacaciones"
@@ -2148,213 +2133,7 @@ function irACompletarExpediente() {
                 </TabsContent>
 
                 <TabsContent value="avisos">
-                    <Card
-                        v-if="altaDigital"
-                        class="rounded-2xl border-border/60"
-                    >
-                        <CardHeader>
-                            <CardTitle
-                                class="flex items-center gap-2 text-base"
-                            >
-                                <ScrollText class="size-4" />
-                                Avisos y consentimientos
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent class="grid gap-3 text-sm">
-                            <p class="flex flex-wrap items-center gap-1.5">
-                                <CheckCircle2
-                                    v-if="altaDigital.aviso_privacidad_aceptado"
-                                    class="size-4 text-[var(--success)]"
-                                />
-                                <CircleDashed
-                                    v-else
-                                    class="size-4 text-muted-foreground"
-                                />
-                                Aviso de privacidad
-                                <span
-                                    v-if="
-                                        altaDigital.aviso_privacidad_aceptado_en
-                                    "
-                                    class="text-xs text-muted-foreground"
-                                    >·
-                                    {{
-                                        new Date(
-                                            altaDigital.aviso_privacidad_aceptado_en,
-                                        ).toLocaleString()
-                                    }}</span
-                                >
-                                <Button
-                                    variant="link"
-                                    size="sm"
-                                    class="h-auto p-0 text-xs"
-                                    @click="abrirAviso('privacidad')"
-                                >
-                                    <Eye class="size-3" />
-                                    Leer completo
-                                </Button>
-                            </p>
-                            <p class="flex flex-wrap items-center gap-1.5">
-                                <CheckCircle2
-                                    v-if="
-                                        altaDigital.consentimiento_datos_aceptado
-                                    "
-                                    class="size-4 text-[var(--success)]"
-                                />
-                                <CircleDashed
-                                    v-else
-                                    class="size-4 text-muted-foreground"
-                                />
-                                Consentimiento de datos
-                                <span
-                                    v-if="
-                                        altaDigital.consentimiento_datos_aceptado_en
-                                    "
-                                    class="text-xs text-muted-foreground"
-                                    >·
-                                    {{
-                                        new Date(
-                                            altaDigital.consentimiento_datos_aceptado_en,
-                                        ).toLocaleString()
-                                    }}</span
-                                >
-                                <Button
-                                    variant="link"
-                                    size="sm"
-                                    class="h-auto p-0 text-xs"
-                                    @click="abrirAviso('datos')"
-                                >
-                                    <Eye class="size-3" />
-                                    Leer completo
-                                </Button>
-                            </p>
-                        </CardContent>
-                    </Card>
-
-                    <Card v-else class="rounded-2xl border-border/60">
-                        <CardHeader>
-                            <CardTitle
-                                class="flex items-center gap-2 text-base"
-                            >
-                                <ScrollText class="size-4" />
-                                Avisos y consentimientos
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent class="flex flex-col gap-4">
-                            <p
-                                class="rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground"
-                            >
-                                Este colaborador no tiene un Alta digital
-                                registrada (se dio de alta directamente), así
-                                que no hay firma electrónica de por medio.
-                                Puedes registrar aquí manualmente si ya aceptó
-                                el aviso de privacidad y el consentimiento de
-                                datos (por ejemplo, en papel o por correo).
-                            </p>
-
-                            <form
-                                class="flex flex-col gap-3"
-                                @submit.prevent="guardarAvisosManual"
-                            >
-                                <label
-                                    class="flex items-start gap-2.5 rounded-xl border border-border/50 px-3 py-2.5 text-sm"
-                                >
-                                    <Checkbox
-                                        v-model="
-                                            formAvisos.aviso_privacidad_aceptado
-                                        "
-                                        :disabled="!puedeGestionarAvisos"
-                                    />
-                                    <span>
-                                        <span class="font-medium"
-                                            >Aviso de privacidad aceptado</span
-                                        >
-                                        <span
-                                            v-if="
-                                                avisosManual?.aviso_privacidad_aceptado_en
-                                            "
-                                            class="block text-xs text-muted-foreground"
-                                            >Registrado el
-                                            {{
-                                                new Date(
-                                                    avisosManual.aviso_privacidad_aceptado_en,
-                                                ).toLocaleString()
-                                            }}</span
-                                        >
-                                        <Button
-                                            variant="link"
-                                            size="sm"
-                                            type="button"
-                                            class="h-auto p-0 text-xs"
-                                            @click.stop="
-                                                abrirAviso('privacidad')
-                                            "
-                                        >
-                                            <Eye class="size-3" />
-                                            Leer aviso completo
-                                        </Button>
-                                    </span>
-                                </label>
-
-                                <label
-                                    class="flex items-start gap-2.5 rounded-xl border border-border/50 px-3 py-2.5 text-sm"
-                                >
-                                    <Checkbox
-                                        v-model="
-                                            formAvisos.consentimiento_datos_aceptado
-                                        "
-                                        :disabled="!puedeGestionarAvisos"
-                                    />
-                                    <span>
-                                        <span class="font-medium"
-                                            >Consentimiento de datos
-                                            aceptado</span
-                                        >
-                                        <span
-                                            v-if="
-                                                avisosManual?.consentimiento_datos_aceptado_en
-                                            "
-                                            class="block text-xs text-muted-foreground"
-                                            >Registrado el
-                                            {{
-                                                new Date(
-                                                    avisosManual.consentimiento_datos_aceptado_en,
-                                                ).toLocaleString()
-                                            }}</span
-                                        >
-                                        <Button
-                                            variant="link"
-                                            size="sm"
-                                            type="button"
-                                            class="h-auto p-0 text-xs"
-                                            @click.stop="abrirAviso('datos')"
-                                        >
-                                            <Eye class="size-3" />
-                                            Leer texto completo
-                                        </Button>
-                                    </span>
-                                </label>
-
-                                <p
-                                    v-if="avisosManual?.registrado_por"
-                                    class="text-xs text-muted-foreground"
-                                >
-                                    Última vez registrado por
-                                    {{ avisosManual.registrado_por }}.
-                                </p>
-
-                                <Button
-                                    v-if="puedeGestionarAvisos"
-                                    type="submit"
-                                    size="sm"
-                                    class="w-fit"
-                                    :disabled="formAvisos.processing"
-                                >
-                                    <Spinner v-if="formAvisos.processing" />
-                                    Guardar avisos
-                                </Button>
-                            </form>
-                        </CardContent>
-                    </Card>
+                    <AvisosComunicaciones :avisos="avisosComunicaciones ?? []" />
                 </TabsContent>
                 <TabsContent value="vacaciones">
                     <Card class="rounded-2xl border-border/60">
@@ -2800,17 +2579,6 @@ function irACompletarExpediente() {
                 (prestamoConfirmarEntrega = v ? prestamoConfirmarEntrega : null)
         "
     />
-
-    <Dialog v-model:open="avisoDialogAbierto">
-        <DialogContent class="max-h-[80vh] overflow-y-auto sm:max-w-2xl">
-            <DialogHeader>
-                <DialogTitle>{{ avisoDialogTitulo }}</DialogTitle>
-            </DialogHeader>
-            <p class="text-sm whitespace-pre-line text-muted-foreground">
-                {{ avisoDialogTexto }}
-            </p>
-        </DialogContent>
-    </Dialog>
 
     <Dialog v-model:open="dialogoReciboAbierto">
         <DialogContent class="max-h-[85vh] overflow-y-auto sm:max-w-xl">

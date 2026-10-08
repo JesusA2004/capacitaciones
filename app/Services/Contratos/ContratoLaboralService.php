@@ -256,15 +256,25 @@ class ContratoLaboralService
     }
 
     /**
-     * Fin del periodo de prueba según el puesto (meses_periodo_prueba:
-     * gestor 2, gerente 3, regional 3) o el valor por defecto configurado.
+     * Fin del periodo de capacitación inicial según el PUESTO
+     * (puestos.meses_periodo_prueba: gestor 2, subgerente 3…). Sin
+     * respaldo global: si el puesto no tiene duración configurada, se
+     * bloquea la contratación con un mensaje claro (nunca se inventa).
+     *
+     * @throws ValidationException Puesto sin duración de capacitación.
      */
     public function fechaFinPeriodoPrueba(?int $puestoId, CarbonInterface $inicio): CarbonInterface
     {
-        $meses = $puestoId !== null ? Puesto::query()->whereKey($puestoId)->value('meses_periodo_prueba') : null;
-        $meses = (int) ($meses ?? config('ciclo_laboral.periodo_prueba.meses_por_defecto', 3));
+        $puesto = $puestoId !== null ? Puesto::query()->whereKey($puestoId)->first(['id', 'nombre', 'meses_periodo_prueba']) : null;
+        $meses = (int) ($puesto?->meses_periodo_prueba ?? 0);
 
-        return $inicio->copy()->addMonthsNoOverflow(max(1, $meses))->subDay();
+        if ($meses < 1) {
+            throw ValidationException::withMessages([
+                'puesto_id' => sprintf('Configura la duración de la capacitación inicial para el puesto «%s» antes de contratar (Configuración → Duración de capacitación por puesto).', $puesto->nombre ?? 'sin puesto'),
+            ]);
+        }
+
+        return $inicio->copy()->addMonthsNoOverflow($meses)->subDay();
     }
 
     /**

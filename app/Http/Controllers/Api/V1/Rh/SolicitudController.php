@@ -16,6 +16,8 @@ use App\Services\Solicitudes\AprobacionJerarquicaService;
 use App\Services\Solicitudes\SolicitudesService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Bandeja de solicitudes internas para RH/aprobadores desde la app movil.
@@ -90,6 +92,9 @@ class SolicitudController extends Controller
                 'monto_solicitado' => $solicitud->monto_solicitado !== null ? (float) $solicitud->monto_solicitado : null,
                 'plazo_solicitado' => $solicitud->plazo_meses,
                 'prestamo' => $solicitud->tipo === TipoSolicitudInterna::PrestamoInterno ? $this->prestamoDecision($usuario, $solicitud) : null,
+                // Permiso: «✓ Autorizado por RH» + formato oficial (solo tras RH).
+                'permiso' => $this->solicitudes->resumenPermiso($solicitud),
+                'permiso_pdf' => $solicitud->tipo === TipoSolicitudInterna::Permiso ? route('api.v1.rh.solicitudes.permiso-pdf', $solicitud->id, false) : null,
                 'acciones_permitidas' => $flujo['acciones_permitidas'],
                 'workflow' => $flujo['workflow'],
                 // Cadena de vistos buenos jerárquicos (Gerente → Regional →
@@ -234,6 +239,21 @@ class SolicitudController extends Controller
     private function validarPendiente(SolicitudInterna $solicitud): void
     {
         abort_if($solicitud->estado->esFinal(), 422, 'Esta solicitud ya no admite esta acción.');
+    }
+
+    /**
+     * Formato oficial de permiso para el gerente/RH en la app: solo cuando
+     * Recursos Humanos ya lo autorizó.
+     */
+    public function permisoPdf(Request $request, SolicitudInterna $solicitud): StreamedResponse
+    {
+        abort_unless($this->puedeVer($request->user(), $solicitud), 403);
+
+        try {
+            return $this->solicitudes->respuestaPermiso($solicitud);
+        } catch (ValidationException $e) {
+            abort(403, collect($e->errors())->flatten()->first());
+        }
     }
 
     private function puedeVer(User $usuario, SolicitudInterna $solicitud): bool

@@ -54,6 +54,10 @@ class ReciboNominaImportService
         $porEmpleado = [];
         /** Números de empleado con al menos una fila inválida. */
         $invalidos = [];
+        /** @var array<string, array<string, float>> $diasPorEmpleado */
+        $diasPorEmpleado = [];
+        $tipoPeriodo = (string) ($periodo['tipo_periodo'] ?? ReciboNominaService::TIPO_PERIODO_SEMANAL);
+        $loteId = isset($periodo['nomina_lote_id']) ? (int) $periodo['nomina_lote_id'] : null;
 
         foreach ($filas as $numeroFila => $fila) {
             $numero = trim((string) ($fila['numero_empleado'] ?? ''));
@@ -78,8 +82,16 @@ class ReciboNominaImportService
                 continue;
             }
 
+            // Días del periodo (opcionales, una vez por empleado: la primera fila que los traiga).
+            foreach (['dias_pagados', 'dias_falta', 'dias_incapacidad'] as $columnaDias) {
+                if (isset($fila[$columnaDias]) && is_numeric($fila[$columnaDias]) && ! isset($diasPorEmpleado[$numero][$columnaDias])) {
+                    $diasPorEmpleado[$numero][$columnaDias] = (float) $fila[$columnaDias];
+                }
+            }
+
             $porEmpleado[$numero][] = [
                 'tipo' => $tipo,
+                'clave' => isset($fila['clave']) && trim((string) $fila['clave']) !== '' ? (string) $fila['clave'] : null,
                 'concepto' => $concepto,
                 'importe' => (float) $importe,
                 'cantidad' => is_numeric($cantidad) ? (float) $cantidad : 1.0,
@@ -96,7 +108,7 @@ class ReciboNominaImportService
         }
 
         $colaboradores = Colaborador::query()->whereIn('numero_empleado', array_map('strval', array_keys($porEmpleado)))->get()->keyBy('numero_empleado');
-        $lote = $simular ? null : 'IMP-'.now()->format('YmdHis').'-'.Str::upper(Str::random(4));
+        $lote = $simular ? null : (string) ($periodo['lote_folio'] ?? 'IMP-'.now()->format('YmdHis').'-'.Str::upper(Str::random(4)));
         $resultados = [];
         $generados = 0;
 
@@ -145,13 +157,18 @@ class ReciboNominaImportService
 
             if (! $simular) {
                 try {
+                    // Importar NUNCA publica: el recibo nace como borrador
+                    // (no visible al trabajador, sin aviso) dentro del lote;
+                    // se publica solo con LoteNominaService::emitir().
                     $recibo = $this->recibos->generar($colaborador, [
                         'periodo_inicio' => $periodoInicio,
                         'periodo_fin' => $periodoFin,
                         'fecha_pago' => $fechaPago,
-                        'tipo_periodo' => ReciboNominaService::TIPO_PERIODO_SEMANAL,
+                        'tipo_periodo' => $tipoPeriodo,
+                        'nomina_lote_id' => $loteId,
+                        ...($diasPorEmpleado[$numero] ?? []),
                         'conceptos' => $conceptos,
-                    ], $actor, $lote);
+                    ], $actor, $lote, borrador: true);
                     $resumen['recibo_id'] = $recibo->id;
                     $generados++;
                 } catch (ValidationException $e) {

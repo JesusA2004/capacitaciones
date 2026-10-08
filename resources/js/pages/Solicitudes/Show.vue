@@ -15,12 +15,14 @@ import {
 } from '@/lib/fechas';
 import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
-import { cancelar, index } from '@/routes/solicitudes';
+import { cancelar, index, permisoPdf } from '@/routes/solicitudes';
+import PermisoAutorizacionCard from '@/components/Solicitudes/PermisoAutorizacionCard.vue';
 import {
     store as subirDocumentoSolicitud,
     ver as verDocumento,
 } from '@/routes/solicitudes/documentos';
 import type {
+    PermisoResumen,
     SolicitudInternaDocumentoItem,
     SolicitudInternaItem,
 } from '@/types';
@@ -28,6 +30,7 @@ import type {
 const props = defineProps<{
     solicitud: SolicitudInternaItem;
     tipoEtiqueta: string;
+    permiso: PermisoResumen | null;
 }>();
 
 // `layout` recibe una función en vez de un objeto estático porque
@@ -137,6 +140,11 @@ function previsualizar(doc: SolicitudInternaDocumentoItem) {
 
         <div class="grid gap-6 lg:grid-cols-12 lg:items-start">
             <div class="flex flex-col gap-6 lg:col-span-8 xl:col-span-9">
+                <PermisoAutorizacionCard
+                    v-if="permiso"
+                    :permiso="permiso"
+                    :pdf-url="permisoPdf.url(solicitud.id)"
+                />
                 <!-- Progreso -->
                 <div
                     v-if="!esTerminalAtipico"

@@ -12,6 +12,16 @@ namespace App\Enums;
  */
 enum TipoSolicitudInterna: string
 {
+    /**
+     * Taxonomía DEFINITIVA de lo que un colaborador solicita: Permisos,
+     * Vacaciones y Préstamos. `Permiso` lleva su modalidad, tipo de goce y
+     * causal (Formato de Permiso oficial). Baja (proceso administrativo de
+     * RH/gerencia) y Actualización de datos (canal «Solicitar corrección» /
+     * «Completar mis datos») siguen vivos pero no son «tipos» del catálogo.
+     * Los demás casos son HISTÓRICOS: se conservan para leer registros
+     * existentes, nunca se ofrecen para crear (esLegado()).
+     */
+    case Permiso = 'permiso';
     case Vacaciones = 'vacaciones';
     case PermisoConGoce = 'permiso_con_goce';
     case PermisoSinGoce = 'permiso_sin_goce';
@@ -33,6 +43,7 @@ enum TipoSolicitudInterna: string
     public function etiqueta(): string
     {
         return match ($this) {
+            self::Permiso => 'Permiso',
             self::Vacaciones => 'Vacaciones',
             self::PermisoConGoce => 'Permiso con goce de sueldo',
             self::PermisoSinGoce => 'Permiso sin goce de sueldo',
@@ -63,6 +74,10 @@ enum TipoSolicitudInterna: string
     {
         return match ($this) {
             self::Vacaciones => ModoFechasSolicitud::DiasEspecificos,
+            // Permiso para faltar: inicio + días. Salir temprano / llegar
+            // tarde: un día con hora (FechasSolicitudService lo decide por
+            // `permiso_tipo`).
+            self::Permiso,
             self::PermisoConGoce,
             self::PermisoSinGoce,
             self::Incapacidad,
@@ -123,7 +138,40 @@ enum TipoSolicitudInterna: string
      */
     public function creableEnAutoservicio(): bool
     {
-        return $this !== self::BajaColaborador;
+        return in_array($this, [self::Permiso, self::Vacaciones, self::PrestamoInterno, self::ActualizacionDatos], true);
+    }
+
+    /**
+     * Tipo histórico: existe en registros viejos, pero ya no se crea ni se
+     * ofrece en ningún catálogo (taxonomía definitiva: permisos, vacaciones
+     * y préstamos).
+     */
+    public function esLegado(): bool
+    {
+        return ! in_array($this, [self::Permiso, self::Vacaciones, self::PrestamoInterno, self::BajaColaborador, self::ActualizacionDatos], true);
+    }
+
+    /**
+     * Aparece como tarjeta en «Nueva solicitud» (web y app). Actualización de
+     * datos no: se abre desde «Solicitar corrección» / «Completar mis datos».
+     */
+    public function enCatalogo(): bool
+    {
+        return in_array($this, [self::Permiso, self::Vacaciones, self::PrestamoInterno], true);
+    }
+
+    /**
+     * Valores que se pueden CREAR hoy (web): autoservicio + baja (proceso
+     * administrativo con su propio permiso).
+     *
+     * @return list<string>
+     */
+    public static function valoresCreables(): array
+    {
+        return array_values(array_map(
+            fn (self $tipo) => $tipo->value,
+            array_filter(self::cases(), fn (self $tipo) => ! $tipo->esLegado()),
+        ));
     }
 
     /**

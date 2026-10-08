@@ -22,6 +22,10 @@ class VacanteFactory extends Factory
             'puesto_id' => Puesto::factory(),
             'motivo' => fake()->randomElement(MotivoVacante::cases())->value,
             'estado' => EstadoVacante::Abierta->value,
+            // Una vacante abierta real tiene al menos una plaza por cubrir.
+            'plazas_requeridas' => 1,
+            'plazas_disponibles' => 1,
+            'plazas_cubiertas' => 0,
             'fecha_apertura' => fake()->dateTimeBetween('-1 month', 'now'),
             'observaciones' => fake()->sentence(),
         ];

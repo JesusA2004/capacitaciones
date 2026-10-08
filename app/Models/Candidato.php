@@ -144,15 +144,18 @@ class Candidato extends Model
 
             $vacante = Vacante::query()
                 ->whereKey($candidato->vacante_id)
-                ->first(['puesto_id', 'sucursal_id', 'empresa_id']);
+                ->first(['puesto_id', 'sucursal_id', 'empresa_id', 'departamento_id']);
 
             if ($vacante === null) {
                 return;
             }
 
+            // Empresa, sucursal, departamento y puesto SIEMPRE de la vacante:
+            // lo que mande el formulario (o una petición manipulada) se ignora.
             $candidato->puesto_objetivo_id = $vacante->puesto_id;
             $candidato->sucursal_id = $vacante->sucursal_id;
             $candidato->empresa_id = $vacante->empresa_id;
+            $candidato->departamento_id = $vacante->departamento_id ?? $candidato->departamento_id;
         });
     }
 

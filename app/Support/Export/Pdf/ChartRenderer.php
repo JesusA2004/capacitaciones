@@ -17,7 +17,7 @@ use App\Support\Export\ChartData;
  */
 final class ChartRenderer
 {
-    private const PALETA = ['#64d64b', '#2dc7d3', '#274754', '#e9c468', '#f4a462'];
+    private const PALETA = ['#0d3e43', '#af8b51', '#225c54', '#2f5937', '#754711'];
 
     private const ALTO_BARRA_PX = 110;
 

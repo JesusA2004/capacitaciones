@@ -32,6 +32,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SolicitudController extends Controller
@@ -135,6 +136,21 @@ class SolicitudController extends Controller
         return [$columnas, $filas];
     }
 
+    /**
+     * Formato oficial de permiso para previsualizar/imprimir (gerente y RH).
+     * Solo cuando Recursos Humanos ya lo autorizó; antes responde 403.
+     */
+    public function permisoPdf(SolicitudInterna $solicitud): StreamedResponse
+    {
+        $this->authorize('view', $solicitud);
+
+        try {
+            return $this->solicitudes->respuestaPermiso($solicitud);
+        } catch (ValidationException $e) {
+            abort(403, collect($e->errors())->flatten()->first());
+        }
+    }
+
     public function show(Request $request, SolicitudInterna $solicitud): Response
     {
         $this->authorize('view', $solicitud);
@@ -167,6 +183,8 @@ class SolicitudController extends Controller
             'solicitud' => $solicitud,
             'tipoEtiqueta' => $solicitud->tipo->etiqueta(),
             'tipoBajaEtiqueta' => $solicitud->tipo_baja?->etiqueta(),
+            // Permiso: el formato oficial se libera SOLO con la autorización de RH.
+            'permiso' => $this->solicitudes->resumenPermiso($solicitud),
             // Documentos oficiales del proceso (motor documental): formato de
             // permiso de la solicitud y documentos del préstamo autorizado.
             'documentosProceso' => array_values(array_filter([

@@ -43,6 +43,7 @@ use App\Http\Controllers\Api\V1\Rh\JerarquiaPuestoController as RhJerarquiaPuest
 use App\Http\Controllers\Api\V1\Rh\PendienteController as RhPendienteController;
 use App\Http\Controllers\Api\V1\Rh\PlantillaDocumentalController;
 use App\Http\Controllers\Api\V1\Rh\PrestamoController as RhPrestamoController;
+use App\Http\Controllers\Api\V1\Rh\LoteNominaController as RhLoteNominaController;
 use App\Http\Controllers\Api\V1\Rh\ReciboNominaController as RhReciboNominaController;
 use App\Http\Controllers\Api\V1\Rh\ReingresoController as RhReingresoController;
 use App\Http\Controllers\Api\V1\Rh\SolicitudController as RhSolicitudController;
@@ -204,6 +205,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('/', [SolicitudController::class, 'store'])->name('store');
             Route::get('configuracion', [SolicitudController::class, 'configuracion'])->name('configuracion');
             Route::get('{solicitud}', [SolicitudController::class, 'show'])->name('show');
+            Route::get('{solicitud}/permiso-pdf', [SolicitudController::class, 'permisoPdf'])->name('permiso-pdf');
             Route::post('{solicitud}/adjuntos', [SolicitudController::class, 'adjuntos'])->name('adjuntos');
             Route::post('{solicitud}/cancelar', [SolicitudController::class, 'cancelar'])->name('cancelar');
         });
@@ -230,6 +232,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::get('documentos-laborales/{documento}/descargar', [CicloLaboralColaboradorController::class, 'descargarDocumento'])->name('documentos-laborales.descargar');
             Route::post('documentos-laborales/{documento}/firmar', [CicloLaboralColaboradorController::class, 'firmarDocumento'])->name('documentos-laborales.firmar');
             Route::get('contratos', [CicloLaboralColaboradorController::class, 'contratos'])->name('contratos');
+            Route::get('datos-faltantes', [CicloLaboralColaboradorController::class, 'datosFaltantes'])->name('datos-faltantes');
             Route::get('recibos', [CicloLaboralColaboradorController::class, 'recibos'])->name('recibos.index');
             Route::get('recibos/{recibo}', [CicloLaboralColaboradorController::class, 'recibo'])->name('recibos.show');
             Route::get('recibos/{recibo}/pdf', [CicloLaboralColaboradorController::class, 'reciboPdf'])->name('recibos.pdf');
@@ -323,6 +326,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::prefix('solicitudes')->name('solicitudes.')->group(function () {
                 Route::get('/', [RhSolicitudController::class, 'index'])->name('index');
                 Route::get('{solicitud}', [RhSolicitudController::class, 'show'])->name('show');
+                Route::get('{solicitud}/permiso-pdf', [RhSolicitudController::class, 'permisoPdf'])->name('permiso-pdf');
                 Route::post('{solicitud}/aprobar', [RhSolicitudController::class, 'aprobar'])->name('aprobar');
                 Route::post('{solicitud}/rechazar', [RhSolicitudController::class, 'rechazar'])->name('rechazar');
                 Route::post('{solicitud}/correccion', [RhSolicitudController::class, 'correccion'])->name('correccion');
@@ -489,6 +493,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('{cierre}/finiquito/conceptos', [CierreLaboralController::class, 'agregarConcepto'])->name('finiquito.conceptos.store');
                 Route::patch('{cierre}/finiquito/conceptos/{concepto}', [CierreLaboralController::class, 'actualizarConcepto'])->name('finiquito.conceptos.update');
                 Route::delete('{cierre}/finiquito/conceptos/{concepto}', [CierreLaboralController::class, 'eliminarConcepto'])->name('finiquito.conceptos.destroy');
+                Route::post('{cierre}/finiquito/conceptos-automaticos', [CierreLaboralController::class, 'ajustarConcepto'])->name('finiquito.conceptos.ajustar');
                 Route::post('{cierre}/finiquito/revisar', [CierreLaboralController::class, 'revisarFiniquito'])->name('finiquito.revisar');
                 Route::post('{cierre}/finiquito/documento', [CierreLaboralController::class, 'generarFiniquito'])->name('finiquito.documento');
                 Route::post('{cierre}/finiquito/firmado', [CierreLaboralController::class, 'finiquitoFirmado'])->name('finiquito.firmado')->middleware('throttle:api-cargas');
@@ -496,6 +501,15 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('{cierre}/ejecutar-baja', [CierreLaboralController::class, 'ejecutarBaja'])->name('ejecutar-baja');
                 Route::post('{cierre}/cerrar-expediente', [CierreLaboralController::class, 'cerrarExpediente'])->name('cerrar-expediente');
                 Route::post('{cierre}/cancelar', [CierreLaboralController::class, 'cancelar'])->name('cancelar');
+            });
+
+            // Lotes de nómina: preparar → revisar → emitir (LoteNominaService).
+            Route::prefix('nomina/lotes')->name('nomina.lotes.')->group(function () {
+                Route::get('/', [RhLoteNominaController::class, 'index'])->name('index');
+                Route::post('/', [RhLoteNominaController::class, 'store'])->name('store')->middleware('throttle:10,1');
+                Route::get('{lote}', [RhLoteNominaController::class, 'show'])->name('show');
+                Route::post('{lote}/emitir', [RhLoteNominaController::class, 'emitir'])->name('emitir');
+                Route::post('{lote}/cancelar', [RhLoteNominaController::class, 'cancelar'])->name('cancelar');
             });
 
             Route::prefix('recibos')->name('recibos.')->group(function () {

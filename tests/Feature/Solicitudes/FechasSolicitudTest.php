@@ -18,10 +18,11 @@ beforeEach(function () {
     $this->headers = ['Authorization' => 'Bearer '.$this->persona->createToken('t')->plainTextToken, 'Accept' => 'application/json'];
 });
 
-test('incapacidad: inicio 2026-10-14 y 5 días termina el 2026-10-18, incluyendo sábado y domingo', function () {
+test('permiso para faltar: inicio 2026-10-14 y 5 días termina el 2026-10-18, incluyendo sábado y domingo', function () {
     $respuesta = $this->withHeaders($this->headers)->postJson('/api/v1/colaborador/solicitudes', [
-        'tipo' => 'incapacidad',
-        'motivo' => 'Incapacidad IMSS',
+        'tipo' => 'permiso',
+        'permiso_tipo' => 'faltar',
+        'permiso_goce' => 'con_goce',
         'fecha_inicio' => '2026-10-14',
         'duracion_dias' => 5,
     ])->assertCreated();
@@ -31,20 +32,22 @@ test('incapacidad: inicio 2026-10-14 y 5 días termina el 2026-10-18, incluyendo
         ->and($respuesta->json('modo_fechas'))->toBe('duracion');
 });
 
-test('incapacidad: una fecha fin capturada a mano no manda; manda la duración', function () {
+test('permiso para faltar: una fecha fin capturada a mano no manda; manda la duración', function () {
     $this->withHeaders($this->headers)->postJson('/api/v1/colaborador/solicitudes', [
-        'tipo' => 'incapacidad',
-        'motivo' => 'Incapacidad IMSS',
+        'tipo' => 'permiso',
+        'permiso_tipo' => 'faltar',
+        'permiso_goce' => 'con_goce',
         'fecha_inicio' => '2026-10-14',
         'duracion_dias' => 3,
         'fecha_fin' => '2026-12-31',
     ])->assertCreated()->assertJsonPath('fecha_fin', '2026-10-16');
 });
 
-test('incapacidad sin número de días se rechaza en español', function () {
+test('permiso para faltar sin número de días se rechaza en español', function () {
     $this->withHeaders($this->headers)->postJson('/api/v1/colaborador/solicitudes', [
-        'tipo' => 'incapacidad',
-        'motivo' => 'Incapacidad IMSS',
+        'tipo' => 'permiso',
+        'permiso_tipo' => 'faltar',
+        'permiso_goce' => 'con_goce',
         'fecha_inicio' => '2026-10-14',
     ])->assertStatus(422)->assertJsonValidationErrors(['duracion_dias' => 'Indica el número de días.']);
 });
@@ -113,10 +116,10 @@ test('app anterior: un rango de vacaciones se traduce a sus días sin domingos',
 test('el catálogo de formularios muestra solo los campos de cada tipo', function () {
     $tipos = collect($this->withHeaders($this->headers)->getJson('/api/v1/solicitudes/configuracion')->assertOk()->json('tipos'))->keyBy('clave');
 
-    expect(array_column($tipos['incapacidad']['campos'], 'name'))->toBe(['fecha_inicio', 'duracion_dias', 'motivo', 'observaciones'])
+    expect(array_column($tipos['permiso']['campos'], 'name'))->toBe(['permiso_tipo', 'fecha_inicio', 'duracion_dias', 'hora_salida', 'hora_entrada', 'permiso_goce', 'permiso_causal', 'observaciones'])
+        ->and($tipos->keys()->all())->not->toContain('incapacidad', 'constancia_laboral', 'solicitud_general')
         ->and(array_column($tipos['vacaciones']['campos'], 'name'))->toBe(['dias', 'motivo', 'observaciones'])
         ->and($tipos['vacaciones']['dias_no_seleccionables'])->toBe([0])
-        ->and(array_column($tipos['constancia_laboral']['campos'], 'name'))->toBe(['motivo', 'observaciones'])
         ->and(array_column($tipos['prestamo']['campos'], 'name'))->toBe(['monto_solicitado', 'motivo'])
         ->and(collect($tipos)->flatMap(fn ($t) => array_column($t['campos'], 'name'))->contains('fecha_fin'))->toBeFalse();
 });

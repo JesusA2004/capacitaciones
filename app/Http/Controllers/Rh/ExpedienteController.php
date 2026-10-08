@@ -29,7 +29,9 @@ use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
+use App\Services\Avisos\AvisoService;
 use App\Services\Expedientes\AvisoPrivacidadService;
+use App\Services\Expedientes\DatosFaltantesService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Expedientes\MigracionInicial\ExpedientesInitialMigrationService;
@@ -56,7 +58,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ExpedienteController extends Controller
 {
-    private const FILTROS = ['busqueda', 'empresa_id', 'sucursal_id', 'departamento_id', 'puesto_id', 'estatus', 'fecha_inicio', 'fecha_fin'];
+    private const FILTROS = ['busqueda', 'empresa_id', 'sucursal_id', 'departamento_id', 'puesto_id', 'estatus', 'fecha_inicio', 'fecha_fin', 'datos'];
 
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
@@ -209,6 +211,8 @@ class ExpedienteController extends Controller
 
         return Colaborador::withTrashed()
             ->tap(fn ($query) => $this->alcance->limitarExpedientesPorAlcance($query, $usuario))
+            // «Datos incompletos» (atajo de Mis pendientes).
+            ->when($request->string('datos')->toString() === 'incompletos', fn ($query) => app(DatosFaltantesService::class)->filtrarIncompletos($query))
             ->with([
                 'sucursalPrincipal:id,nombre,empresa_id',
                 'sucursalPrincipal.empresa:id,nombre',
@@ -236,6 +240,19 @@ class ExpedienteController extends Controller
     public function show(Request $request, Colaborador $colaborador): Response
     {
         return $this->renderExpediente($request, $colaborador, esPropio: false);
+    }
+
+    /**
+     * «Avisar al colaborador»: notificación + push con los datos personales
+     * que faltan (a lo más uno cada 24 h). Snapshot en avisos_datos_faltantes.
+     */
+    public function avisarDatosFaltantes(Request $request, Colaborador $colaborador, DatosFaltantesService $datos): RedirectResponse
+    {
+        abort_unless($request->user()->can('expedientes.revisar') && $this->alcance->puedeVerExpediente($request->user(), $colaborador), 403);
+
+        $aviso = $datos->avisar($colaborador, $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => sprintf('Se avisó a %s: faltan %d dato(s).', $colaborador->name, count($aviso->campos))]);
     }
 
     public function miExpediente(Request $request): Response
@@ -273,6 +290,15 @@ class ExpedienteController extends Controller
 
         return Inertia::render($esPropio ? 'Rh/Expedientes/MiExpediente' : 'Rh/Expedientes/Show', [
             'esPropio' => $esPropio,
+            // ⚠ Faltan datos contractuales (+ «Avisar al colaborador» para RH).
+            'datosFaltantes' => app(DatosFaltantesService::class)->resumen($colaborador),
+            // «Avisos / Comunicaciones»: generales + personales, con lectura.
+            // (El aviso de privacidad/consentimiento sigue en la base, ya no se muestra aquí.)
+            'avisosComunicaciones' => collect(app(AvisoService::class)->paraColaborador($colaborador, 30)->items())
+                ->map(fn (array $aviso) => [...$aviso, 'imagen_url' => $aviso['imagen_path'] !== null ? route($esPropio ? 'avisos.imagen' : 'rh.avisos.imagen', $aviso['id']) : null, 'imagen_path' => null])
+                ->values()
+                ->all(),
+            'puedeAvisarDatosFaltantes' => ! $esPropio && $usuario->can('expedientes.revisar'),
             // Nadie edita su propio expediente (ni RH ni administración): en
             // "Mi expediente" se ofrece "Solicitar corrección".
             'puedeEditar' => $usuario->can('expedientes.editar') && ! $esCuentaPropia,

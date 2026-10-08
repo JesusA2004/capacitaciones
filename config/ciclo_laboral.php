@@ -27,14 +27,12 @@ return [
     ],
 
     'periodo_prueba' => [
-        // Duración por defecto cuando el puesto no tiene meses_periodo_prueba.
-        'meses_por_defecto' => (int) env('PERIODO_PRUEBA_MESES_DEFECTO', 3),
         // Documentos que se generan al autorizar RH una NO renovación.
         'documentos_no_renovacion' => ['aviso_no_renovacion', 'evaluacion_periodo_prueba'],
         // Duración del contrato de capacitación/inducción (periodo de prueba)
         // por puesto. Se carga en puestos.meses_periodo_prueba (editable en
-        // el catálogo); aquí solo el valor inicial del seeder. Los puestos
-        // que no aparecen usan meses_por_defecto.
+        // el catálogo); aquí solo el valor inicial del seeder. Un puesto sin
+        // duración bloquea la contratación (sin respaldo global).
         'meses_por_puesto' => [
             'Gestor' => 2,
             'Gestor Volante' => 2,

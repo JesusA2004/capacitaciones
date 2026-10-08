@@ -9,6 +9,8 @@ export type EmpresaItem = {
     logo_url: string | null;
     activo: boolean;
     domicilio_fiscal?: string | null;
+    registro_patronal?: string | null;
+    codigo_postal_fiscal?: string | null;
     ciudad_firma?: string | null;
     representante_legal_nombre?: string | null;
     representante_legal_cargo?: string | null;

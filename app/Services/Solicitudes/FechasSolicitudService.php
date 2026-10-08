@@ -5,6 +5,7 @@ namespace App\Services\Solicitudes;
 use App\Enums\EstadoSolicitudInterna;
 use App\Enums\EstadoSolicitudVacaciones;
 use App\Enums\ModoFechasSolicitud;
+use App\Enums\TipoPermisoSolicitado;
 use App\Enums\TipoSolicitudInterna;
 use App\Models\Colaborador;
 use App\Models\SolicitudVacacionDia;
@@ -50,6 +51,11 @@ class FechasSolicitudService
     public function normalizar(TipoSolicitudInterna $tipo, array $datos, ?Colaborador $colaborador): array
     {
         $modo = $tipo->modoFechas();
+
+        // Permiso para salir temprano / llegar tarde: un solo día (con hora).
+        if ($tipo === TipoSolicitudInterna::Permiso && ($datos['permiso_tipo'] ?? null) !== TipoPermisoSolicitado::Faltar->value) {
+            $modo = ModoFechasSolicitud::Horario;
+        }
 
         return match ($modo) {
             ModoFechasSolicitud::Duracion => $this->duracion($datos),

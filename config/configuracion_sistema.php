@@ -50,28 +50,28 @@ $grafica = fn (string $etiqueta, string $defecto, string $css, string $descripci
 return [
 
     'parametros' => [
-        'apariencia.primary' => $color('Primario', '#164E50', '--mrl-petroleo', 'primary', 'Verde petróleo institucional: encabezados, botones principales y enlaces.'),
-        'apariencia.primary_alt' => $color('Primario alterno', '#174F50', '--mrl-petroleo-2', 'primaryAlt', 'Variante del primario para estados hover y degradados.'),
-        'apariencia.brand_green' => $color('Verde de marca', '#2B604F', '--mrl-verde', 'success', 'Éxito, aprobado, completado.'),
-        'apariencia.deep_green' => $color('Verde profundo', '#0F362E', '--mrl-verde-profundo', 'deepGreen', 'Texto principal y fondos oscuros de marca.'),
-        'apariencia.secondary_green' => $color('Verde secundario', '#2F5A39', '--mrl-verde-secundario', 'secondary', 'Acentos secundarios y gráficas.'),
-        'apariencia.gold' => $color('Dorado', '#A28351', '--mrl-dorado', 'gold', 'Acento institucional y estados "en proceso".'),
-        'apariencia.gold_dark' => $color('Dorado oscuro', '#73430B', '--mrl-dorado-oscuro', 'goldDark', 'Advertencias y texto sobre dorado.'),
+        'apariencia.primary' => $color('Primario', '#0D3E43', '--mrl-petroleo', 'primary', 'Petróleo institucional: encabezados, botones principales y enlaces.'),
+        'apariencia.primary_alt' => $color('Primario alterno', '#225C54', '--mrl-petroleo-2', 'primaryAlt', 'Variante del primario para estados hover y degradados.'),
+        'apariencia.brand_green' => $color('Verde de marca', '#2F5937', '--mrl-verde', 'success', 'Éxito, aprobado, completado.'),
+        'apariencia.deep_green' => $color('Verde profundo', '#0D3E43', '--mrl-verde-profundo', 'deepGreen', 'Texto principal y fondos oscuros de marca.'),
+        'apariencia.secondary_green' => $color('Verde secundario', '#2A4518', '--mrl-verde-secundario', 'secondary', 'Acentos secundarios y gráficas.'),
+        'apariencia.gold' => $color('Dorado', '#AF8B51', '--mrl-dorado', 'gold', 'Acento institucional y estados "en proceso".'),
+        'apariencia.gold_dark' => $color('Dorado oscuro', '#754711', '--mrl-dorado-oscuro', 'goldDark', 'Advertencias y texto sobre dorado.'),
         'apariencia.muted' => $color('Gris verdoso', '#A7AC9C', '--mrl-gris-verdoso', 'muted', 'Elementos deshabilitados o secundarios.'),
-        'apariencia.navy' => $color('Azul marino', '#13244D', '--mrl-navy', 'navy', 'Datos y gráficas complementarias.'),
-        'apariencia.accent' => $color('Acento (cyan)', '#09AFE3', '--mrl-cyan', 'accent', 'Datos destacados e información.'),
-        'apariencia.danger' => $color('Peligro', '#DF4050', '--mrl-rojo', 'danger', 'Rechazos, errores y alertas.'),
-        'apariencia.background' => $color('Fondo', '#F7F8F7', '--mrl-fondo', 'background', 'Fondo general de las pantallas.'),
+        'apariencia.navy' => $color('Esmeralda', '#225C54', '--mrl-navy', 'navy', 'Datos y gráficas complementarias.'),
+        'apariencia.accent' => $color('Acento', '#225C54', '--mrl-cyan', 'accent', 'Datos destacados e información.'),
+        'apariencia.danger' => $color('Peligro', '#C8414D', '--mrl-rojo', 'danger', 'Rechazos, errores y alertas.'),
+        'apariencia.background' => $color('Fondo', '#FAF8F3', '--mrl-fondo', 'background', 'Fondo general de las pantallas.'),
         'apariencia.surface' => $color('Superficie', '#FFFFFF', '--mrl-superficie', 'surface', 'Tarjetas, paneles y diálogos.'),
 
         // Un color por gráfica del tablero de RH (sección "Gráficas" de
         // Apariencia). Aplica en modo claro y oscuro; la app no los usa.
-        'apariencia.grafica_plantilla' => $grafica('Plantilla activa', '#2B604F', '--grafica-plantilla', 'Barra de avance de la tarjeta «Plantilla activa».'),
-        'apariencia.grafica_rotacion' => $grafica('Rotación mensual', '#164E50', '--grafica-rotacion', 'Línea y área de la gráfica de rotación mes a mes.'),
-        'apariencia.grafica_cobertura' => $grafica('Cobertura de plantilla', '#2F5A39', '--grafica-cobertura', 'Anillo de plazas autorizadas ocupadas.'),
-        'apariencia.grafica_embudo' => $grafica('Embudo de reclutamiento', '#09AFE3', '--grafica-embudo', 'Barras de cada etapa del reclutamiento.'),
-        'apariencia.grafica_tiempo' => $grafica('Tiempo de contratación por nivel', '#A28351', '--grafica-tiempo', 'Barras de días promedio para contratar por nivel de puesto.'),
-        'apariencia.grafica_sucursales' => $grafica('Plantilla por sucursal', '#13244D', '--grafica-sucursales', 'Barras de ocupación de cada sucursal.'),
+        'apariencia.grafica_plantilla' => $grafica('Plantilla activa', '#225C54', '--grafica-plantilla', 'Barra de avance de la tarjeta «Plantilla activa».'),
+        'apariencia.grafica_rotacion' => $grafica('Rotación mensual', '#0D3E43', '--grafica-rotacion', 'Línea y área de la gráfica de rotación mes a mes.'),
+        'apariencia.grafica_cobertura' => $grafica('Cobertura de plantilla', '#2F5937', '--grafica-cobertura', 'Anillo de plazas autorizadas ocupadas.'),
+        'apariencia.grafica_embudo' => $grafica('Embudo de reclutamiento', '#AF8B51', '--grafica-embudo', 'Barras de cada etapa del reclutamiento.'),
+        'apariencia.grafica_tiempo' => $grafica('Tiempo de contratación por nivel', '#754711', '--grafica-tiempo', 'Barras de días promedio para contratar por nivel de puesto.'),
+        'apariencia.grafica_sucursales' => $grafica('Plantilla por sucursal', '#2A4518', '--grafica-sucursales', 'Barras de ocupación de cada sucursal.'),
 
         'rh.onboarding_calificacion_minima' => [
             'grupo' => 'rh',
@@ -91,15 +91,8 @@ return [
             'reglas' => ['required', 'integer', 'min:1', 'max:60'],
             'config' => 'contratos.dias_aviso_vencimiento',
         ],
-        'rh.meses_periodo_prueba_defecto' => [
-            'grupo' => 'rh',
-            'tipo' => 'entero',
-            'etiqueta' => 'Duración del contrato de capacitación por defecto (meses)',
-            'descripcion' => 'Se usa para los puestos que no tienen su propia duración capturada.',
-            'defecto' => 3,
-            'reglas' => ['required', 'integer', 'min:1', 'max:12'],
-            'config' => 'ciclo_laboral.periodo_prueba.meses_por_defecto',
-        ],
+        // Sin duración global por defecto: cada puesto debe tener la suya
+        // (puestos.meses_periodo_prueba); sin ella no se contrata.
         'rh.evaluacion_calificacion_minima' => [
             'grupo' => 'rh',
             'tipo' => 'decimal',
@@ -228,11 +221,33 @@ return [
             'destinatarios' => ['jefe_directo'],
             'fallback' => ['responsable_sucursal'],
         ],
+        'colaborador_alta' => [
+            'etiqueta' => 'Alta de colaborador',
+            'descripcion' => 'Un colaborador quedó activo: RH y Sistemas (cuenta, accesos y equipo).',
+            'destinatarios' => ['rh', 'sistemas'],
+            'fallback' => ['gerencia_rh'],
+        ],
+        'colaborador_baja' => [
+            'etiqueta' => 'Baja de colaborador',
+            'descripcion' => 'Se ejecutó la baja: RH y Sistemas (retirar accesos, cuentas y equipo).',
+            'destinatarios' => ['rh', 'sistemas'],
+            'fallback' => ['gerencia_rh'],
+        ],
         'reingreso_solicitado' => [
             'etiqueta' => 'Reingreso solicitado',
             'descripcion' => 'Alguien pidió reincorporar a un excolaborador; RH decide.',
             'destinatarios' => ['rh'],
             'fallback' => ['gerencia_rh'],
         ],
+    ],
+
+    /*
+    | Quién es «Sistemas» para las notificaciones de alta/baja: cuentas con
+    | alguno de estos roles o con puesto/departamento con estos nombres.
+    | Nunca un usuario fijo.
+    */
+    'sistemas' => [
+        'roles' => ['sistemas'],
+        'departamentos' => ['Sistemas'],
     ],
 ];

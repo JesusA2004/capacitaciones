@@ -7,6 +7,7 @@ use App\Enums\EstadoReciboNomina;
 use App\Enums\FamiliaAdministrativa;
 use App\Enums\TipoConceptoNomina;
 use App\Models\Colaborador;
+use App\Models\NominaLote;
 use App\Models\Prestamo;
 use App\Models\ReciboNomina;
 use App\Models\User;
@@ -92,8 +93,10 @@ class ReciboNominaService
             // no pueden emitir dos recibos del mismo periodo.
             Colaborador::query()->whereKey($colaborador->id)->lockForUpdate()->first();
 
+            // Un recibo CANCELADO no bloquea volver a preparar el periodo.
             $duplicado = ReciboNomina::query()
                 ->where('colaborador_id', $colaborador->id)
+                ->where('estado', '!=', EstadoReciboNomina::Cancelado->value)
                 ->whereDate('periodo_inicio', $periodoInicio->toDateString())
                 ->whereDate('periodo_fin', $periodoFin->toDateString())
                 ->exists();
@@ -119,6 +122,12 @@ class ReciboNominaService
                 },
                 'estado' => $borrador ? EstadoReciboNomina::Borrador : EstadoReciboNomina::Emitido,
                 'emitido_at' => $borrador ? null : now(),
+                'emitido_por' => $borrador ? null : $generadoPor?->id,
+                'nomina_lote_id' => isset($datos['nomina_lote_id']) ? (int) $datos['nomina_lote_id'] : null,
+                'dias_pagados' => isset($datos['dias_pagados']) ? round((float) $datos['dias_pagados'], 2) : null,
+                'dias_falta' => isset($datos['dias_falta']) ? round((float) $datos['dias_falta'], 2) : null,
+                'dias_incapacidad' => isset($datos['dias_incapacidad']) ? round((float) $datos['dias_incapacidad'], 2) : null,
+                'advertencias' => isset($datos['advertencias']) && is_array($datos['advertencias']) && $datos['advertencias'] !== [] ? array_values($datos['advertencias']) : null,
                 'sueldo_base' => round((float) ($datos['sueldo_base'] ?? $percepciones[0]['importe'] ?? 0), 2),
                 // Snapshot JSON compatible con el portal existente.
                 'percepciones' => array_map(fn (array $c) => ['concepto' => $c['concepto'], 'monto' => $c['importe']], $percepciones),
@@ -141,6 +150,7 @@ class ReciboNominaService
             foreach ($conceptos as $orden => $concepto) {
                 $recibo->conceptos()->create([
                     'tipo' => $concepto['tipo'],
+                    'clave' => $concepto['clave'] ?? null,
                     'concepto' => $concepto['concepto'],
                     'cantidad' => $concepto['cantidad'],
                     'importe' => $concepto['importe'],
@@ -211,6 +221,22 @@ class ReciboNominaService
             }
         });
 
+        // Totales del lote (si el recibo pertenece a uno): siempre del servidor.
+        if ($recibo->nomina_lote_id !== null) {
+            $totales = ReciboNomina::query()
+                ->where('nomina_lote_id', $recibo->nomina_lote_id)
+                ->where('estado', '!=', EstadoReciboNomina::Cancelado->value)
+                ->selectRaw('coalesce(sum(total_percepciones), 0) as percepciones, coalesce(sum(total_deducciones), 0) as deducciones, coalesce(sum(neto), 0) as neto')
+                ->toBase()
+                ->first();
+
+            NominaLote::query()->whereKey($recibo->nomina_lote_id)->update([
+                'total_percepciones' => round((float) ($totales->percepciones ?? 0), 2),
+                'total_deducciones' => round((float) ($totales->deducciones ?? 0), 2),
+                'total_neto' => round((float) ($totales->neto ?? 0), 2),
+            ]);
+        }
+
         $this->auditoria->registrar('recibo_nomina_editado', $recibo, $actor, [
             'neto_anterior' => $antes,
             'neto_nuevo' => (string) $recibo->neto,
@@ -230,14 +256,15 @@ class ReciboNominaService
      */
     public function emitir(ReciboNomina $recibo, User $actor, bool $notificar = true): ReciboNomina
     {
-        $emitido = DB::transaction(function () use ($recibo): bool {
+        $emitido = DB::transaction(function () use ($recibo, $actor): bool {
             $fila = ReciboNomina::query()->whereKey($recibo->id)->lockForUpdate()->first();
 
-            if ($fila === null || $fila->estado === EstadoReciboNomina::Emitido) {
+            // Solo un borrador se emite: emitido (doble emisión) o cancelado no se tocan.
+            if ($fila === null || $fila->estado !== EstadoReciboNomina::Borrador) {
                 return false;
             }
 
-            $fila->update(['estado' => EstadoReciboNomina::Emitido, 'emitido_at' => now()]);
+            $fila->update(['estado' => EstadoReciboNomina::Emitido, 'emitido_at' => now(), 'emitido_por' => $actor->id]);
 
             return true;
         });
@@ -263,6 +290,24 @@ class ReciboNominaService
     }
 
     /**
+     * Cancela un recibo (se deja de mostrar al trabajador, se conserva para
+     * auditoría y el periodo puede volver a prepararse). No avisa a nadie.
+     */
+    public function cancelar(ReciboNomina $recibo, User $actor): ReciboNomina
+    {
+        $cancelado = ReciboNomina::query()
+            ->whereKey($recibo->id)
+            ->where('estado', '!=', EstadoReciboNomina::Cancelado->value)
+            ->update(['estado' => EstadoReciboNomina::Cancelado->value, 'cancelado_at' => now(), 'cancelado_por' => $actor->id]);
+
+        if ($cancelado > 0) {
+            $this->auditoria->registrar('recibo_nomina_cancelado', $recibo, $actor, ['folio' => $recibo->folio]);
+        }
+
+        return $recibo->refresh();
+    }
+
+    /**
      * Un fallo al avisar nunca deshace la emisión (ver CLAUDE.md).
      */
     private function notificarColaborador(ReciboNomina $recibo): void
@@ -272,6 +317,9 @@ class ReciboNominaService
             $usuario = $recibo->colaborador->user;
 
             if ($usuario !== null) {
+                // NotificadorRhService envía la notificación in-app Y el push
+                // encolado (SendExpoPushJob) que abre el recibo en la app: un
+                // solo aviso por recibo.
                 $this->notificador->notificar([$usuario], 'recibo_nomina', 'Recibo de nómina disponible', sprintf('Ya puedes consultar tu recibo de nómina del %s al %s.', $recibo->periodo_inicio->format('d/m/Y'), $recibo->periodo_fin->format('d/m/Y')), $recibo, 'ver_recibo', 'baja');
             }
         } catch (Throwable $e) {
@@ -297,6 +345,7 @@ class ReciboNominaService
         foreach ($conceptos as $orden => $concepto) {
             $recibo->conceptos()->create([
                 'tipo' => $concepto['tipo'],
+                'clave' => $concepto['clave'] ?? null,
                 'concepto' => $concepto['concepto'],
                 'cantidad' => $concepto['cantidad'],
                 'importe' => $concepto['importe'],
@@ -323,6 +372,7 @@ class ReciboNominaService
     {
         return array_values(array_map(fn (array $c): array => [
             'tipo' => (string) $c['tipo'],
+            'clave' => isset($c['clave']) ? (string) $c['clave'] : null,
             'concepto' => (string) $c['concepto'],
             'cantidad' => (float) $c['cantidad'],
             'importe' => (float) $c['importe'],
@@ -427,6 +477,7 @@ class ReciboNominaService
         if ($detalle) {
             $datos['conceptos'] = $recibo->conceptos()->get()->map(fn ($c) => [
                 'tipo' => $c->tipo->value,
+                'clave' => $c->clave,
                 'concepto' => $c->concepto,
                 'cantidad' => $c->cantidad,
                 'importe' => $c->importe,
@@ -457,6 +508,7 @@ class ReciboNominaService
             foreach ($datos['conceptos'] as $c) {
                 $conceptos[] = [
                     'tipo' => TipoConceptoNomina::from((string) $c['tipo'])->value,
+                    'clave' => isset($c['clave']) && trim((string) $c['clave']) !== '' ? mb_substr(trim((string) $c['clave']), 0, 10) : null,
                     'concepto' => (string) $c['concepto'],
                     'cantidad' => round((float) ($c['cantidad'] ?? 1), 2),
                     'importe' => round((float) $c['importe'], 2),

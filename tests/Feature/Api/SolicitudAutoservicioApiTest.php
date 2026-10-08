@@ -132,7 +132,7 @@ test('el colaborador ve el avance de su prestamo sin datos internos de RH', func
 test('una solicitud que no es prestamo no trae bloque de seguimiento', function () {
     Sanctum::actingAs(colaboradorAutoservicio());
 
-    $id = $this->postJson('/api/v1/solicitudes', ['tipo' => 'solicitud_general', 'motivo' => 'Duda'])->assertCreated()->json('id');
+    $id = $this->postJson('/api/v1/solicitudes', ['tipo' => 'permiso', 'permiso_tipo' => 'faltar', 'fecha_inicio' => now()->addDay()->toDateString(), 'duracion_dias' => 1, 'permiso_goce' => 'sin_goce'])->assertCreated()->json('id');
     $json = $this->getJson("/api/v1/solicitudes/{$id}")->assertOk()->json();
 
     expect($json['prestamo'] ?? $json['data']['prestamo'] ?? null)->toBeNull();

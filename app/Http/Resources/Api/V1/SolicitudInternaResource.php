@@ -5,6 +5,7 @@ namespace App\Http\Resources\Api\V1;
 use App\Enums\TipoSolicitudInterna;
 use App\Models\SolicitudInterna;
 use App\Services\Nomina\PrestamoSeguimientoService;
+use App\Services\Solicitudes\SolicitudesService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -44,6 +45,10 @@ class SolicitudInternaResource extends JsonResource
             'prestamo' => $this->tipo === TipoSolicitudInterna::PrestamoInterno
                 ? app(PrestamoSeguimientoService::class)->paraColaborador($this->resource)
                 : null,
+            // Permiso: modalidad, goce, causal y si RH ya lo autorizó (solo
+            // entonces existe el formato oficial en `permiso_pdf`).
+            'permiso' => app(SolicitudesService::class)->resumenPermiso($this->resource),
+            'permiso_pdf' => $this->tipo === TipoSolicitudInterna::Permiso ? route('api.v1.solicitudes.permiso-pdf', $this->id, false) : null,
         ];
     }
 }

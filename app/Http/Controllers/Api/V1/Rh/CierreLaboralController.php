@@ -8,6 +8,7 @@ use App\Http\Requests\CicloLaboral\ArchivoLaboralRequest;
 use App\Http\Requests\CicloLaboral\DecisionAprobacionRequest;
 use App\Http\Requests\CicloLaboral\DecisionRequest;
 use App\Http\Requests\CicloLaboral\FiniquitoCierreRequest;
+use App\Http\Requests\Rh\AjustarConceptoFiniquitoRequest;
 use App\Http\Requests\CicloLaboral\ProgramarPagoRequest;
 use App\Http\Requests\CicloLaboral\SolicitarCierreRequest;
 use App\Models\CierreLaboral;
@@ -144,6 +145,15 @@ class CierreLaboralController extends Controller
         abort_unless($concepto->finiquito_calculo_id === $this->cierres->exigirFiniquito($cierre)->id, 404);
 
         $this->finiquitos->eliminarConcepto($concepto, $request->user());
+
+        return $this->respuesta($request, $cierre->refresh());
+    }
+
+    public function ajustarConcepto(AjustarConceptoFiniquitoRequest $request, CierreLaboral $cierre): JsonResponse
+    {
+        $this->authorize('calcularFiniquito', $cierre);
+
+        $this->finiquitos->ajustarConceptoAutomatico($this->cierres->exigirFiniquito($cierre), (string) $request->validated('concepto_clave'), (float) $request->validated('importe'), (string) $request->validated('motivo'), $request->user());
 
         return $this->respuesta($request, $cierre->refresh());
     }

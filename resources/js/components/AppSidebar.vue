@@ -27,8 +27,7 @@ import { dashboard } from '@/routes';
 // useMainNavItems() — compartida con MobileBottomNav.vue, ver
 // docs/ROLES_Y_NAVEGACION.md. Nunca dupliques esa lógica aquí.
 const {
-    mainNavItems,
-    adminNavItems,
+    navGroups,
     tieneAmbosModos,
     esColaborador,
     cambiarModo,
@@ -76,11 +75,13 @@ const {
         </SidebarHeader>
 
         <SidebarContent>
-            <NavMain :items="mainNavItems" />
+            <!-- Un grupo por proceso: Reclutamiento → Desarrollo → Personal →
+                 Organización → Administración (useMainNavItems). -->
             <NavMain
-                v-if="adminNavItems.length"
-                :items="adminNavItems"
-                titulo="Administración"
+                v-for="grupo in navGroups"
+                :key="grupo.titulo"
+                :items="grupo.items"
+                :titulo="grupo.titulo"
             />
         </SidebarContent>
 

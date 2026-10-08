@@ -2,6 +2,11 @@
 
 return [
 
+    // Motor del PDF de finiquito: 'oficial' (por defecto) = formato oficial de RH
+    // (docs/formatosRH/Formato_Finiquito.docx) como documento administrativo;
+    // 'legado' = plantilla de Jurídico / overlay anterior si están configurados.
+    'motor' => env('FINIQUITO_MOTOR', 'oficial'),
+
     /*
     |--------------------------------------------------------------------------
     | Porcentajes y reglas del cálculo de finiquito (México, LFT)

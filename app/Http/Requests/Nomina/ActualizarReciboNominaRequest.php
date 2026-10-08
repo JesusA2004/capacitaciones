@@ -26,6 +26,7 @@ class ActualizarReciboNominaRequest extends FormRequest
             'observaciones' => ['nullable', 'string', 'max:1000'],
             'conceptos' => ['required', 'array', 'min:1', 'max:60'],
             'conceptos.*.tipo' => ['required', Rule::enum(TipoConceptoNomina::class)],
+            'conceptos.*.clave' => ['nullable', 'string', 'max:10'],
             'conceptos.*.concepto' => ['required', 'string', 'max:150'],
             'conceptos.*.cantidad' => ['nullable', 'numeric', 'min:0', 'max:99999'],
             'conceptos.*.importe' => ['required', 'numeric', 'min:0', 'max:9999999'],

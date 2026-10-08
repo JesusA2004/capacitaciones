@@ -10,12 +10,14 @@ enum EstadoReciboNomina: string
 {
     case Borrador = 'borrador';
     case Emitido = 'emitido';
+    case Cancelado = 'cancelado';
 
     public function etiqueta(): string
     {
         return match ($this) {
-            self::Borrador => 'Borrador',
+            self::Borrador => 'Preparado (sin publicar)',
             self::Emitido => 'Emitido',
+            self::Cancelado => 'Cancelado',
         };
     }
 }

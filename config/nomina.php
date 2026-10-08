@@ -56,7 +56,8 @@ return [
     |
     */
     'quincenal' => [
-        'emision_automatica' => (bool) env('NOMINA_EMISION_AUTOMATICA', true),
+        // Por defecto NO se emite solo: RH revisa el lote y emite (preparar ≠ publicar).
+        'emision_automatica' => (bool) env('NOMINA_EMISION_AUTOMATICA', false),
         'dias_anticipacion' => (int) env('NOMINA_DIAS_ANTICIPACION', 3),
         'concepto_sueldo' => 'Sueldo quincenal',
     ],

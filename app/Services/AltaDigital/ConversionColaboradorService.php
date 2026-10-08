@@ -14,6 +14,7 @@ use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
 use App\Models\User;
 use App\Services\Asignaciones\AsignacionService;
+use App\Services\Colaboradores\AvisoAltaBajaService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use App\Services\Reclutamiento\CvStorageService;
@@ -40,6 +41,7 @@ class ConversionColaboradorService
         private readonly CvStorageService $cvStorage,
         private readonly MovimientoLaboralService $movimientos,
         private readonly AsignacionService $asignaciones,
+        private readonly AvisoAltaBajaService $avisoAltaBaja,
     ) {}
 
     public function convertir(AltaDigital $alta, User $aprobadoPor): User
@@ -52,7 +54,7 @@ class ConversionColaboradorService
             throw new RuntimeException('Esta alta ya fue convertida en colaborador.');
         }
 
-        return DB::transaction(function () use ($alta, $aprobadoPor) {
+        $usuario = DB::transaction(function () use ($alta, $aprobadoPor) {
             $colaborador = Colaborador::create([
                 'name' => $alta->nombre,
                 'apellidos' => $alta->apellidos,
@@ -184,6 +186,13 @@ class ConversionColaboradorService
 
             return $usuario;
         });
+
+        // ALTA → RH + Sistemas, ya fuera de la transacción.
+        if ($usuario->colaborador !== null) {
+            $this->avisoAltaBaja->alta($usuario->colaborador);
+        }
+
+        return $usuario;
     }
 
     private function copiarCvDelCandidato(AltaDigital $alta, Colaborador $colaborador, User $usuario, User $aprobadoPor): void

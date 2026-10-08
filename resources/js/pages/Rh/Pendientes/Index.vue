@@ -26,7 +26,24 @@ type Paginado<T> = {
 };
 type Serie = { clave: string; etiqueta: string; total: number };
 
+type Atajo = {
+    clave: string;
+    titulo: string;
+    descripcion: string;
+    conteo: number;
+    url: string;
+    tono: 'primario' | 'oro' | 'alerta' | 'neutro';
+};
+
+const TONO_ATAJO: Record<Atajo['tono'], string> = {
+    primario: 'bg-primary/10 text-primary',
+    oro: 'bg-[#e9d6b0]/50 text-[#754711] dark:bg-[#c9a876]/15 dark:text-[#e9d6b0]',
+    alerta: 'bg-destructive/10 text-destructive',
+    neutro: 'bg-muted text-foreground',
+};
+
 const props = defineProps<{
+    atajos: Atajo[];
     tareas: Paginado<TareaBandeja & { url: string | null }>;
     conteos: { abiertas: number; no_leidas: number; vencidas: number };
     distribucion: { por_etapa: Serie[]; por_prioridad: Serie[] };
@@ -207,6 +224,24 @@ const segmento = (activo: boolean) =>
                     </button>
                 </div>
             </div>
+        </section>
+
+        <!-- Todo lo que espera una acción tuya, en un solo lugar -->
+        <section v-if="atajos.length" aria-label="Resumen de pendientes" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <Link
+                v-for="atajo in atajos"
+                :key="atajo.clave"
+                :href="atajo.url"
+                class="group flex items-start gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            >
+                <span class="flex size-11 shrink-0 items-center justify-center rounded-xl text-lg font-bold tabular-nums" :class="TONO_ATAJO[atajo.tono]">
+                    {{ atajo.conteo }}
+                </span>
+                <span class="min-w-0">
+                    <span class="block text-sm font-semibold group-hover:text-primary">{{ atajo.titulo }}</span>
+                    <span class="block text-xs text-muted-foreground">{{ atajo.descripcion }}</span>
+                </span>
+            </Link>
         </section>
 
         <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">

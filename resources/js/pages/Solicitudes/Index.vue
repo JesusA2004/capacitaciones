@@ -23,6 +23,7 @@ import DatePicker from '@/components/Common/DatePicker.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import PermisoFormulario from '@/components/Solicitudes/PermisoFormulario.vue';
 import SelectorDiasVacaciones from '@/components/Solicitudes/SelectorDiasVacaciones.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -74,6 +75,7 @@ const dialogoAbierto = ref(false);
 const pasoFormulario = ref<'tipo' | 'detalle'>('tipo');
 
 const ICONO_TIPO: Record<string, typeof ClipboardList> = {
+    permiso: Clock,
     vacaciones: Calendar,
     permiso_con_goce: FileEdit,
     permiso_sin_goce: FileEdit,
@@ -115,6 +117,8 @@ const DESCRIPCION_TIPO: Record<string, string> = {
 };
 
 const AVISO_FORMATO_AUTOMATICO: Record<string, string> = {
+    permiso:
+        'Tu gerente la revisa y Recursos Humanos la autoriza; al autorizarse se genera el formato oficial de permiso para imprimir y firmar.',
     vacaciones:
         'Al aprobarse se generará tu formato de vacaciones automáticamente.',
     permiso_con_goce:
@@ -165,7 +169,28 @@ const form = useForm({
     colaborador_objetivo_id: '',
     fecha_efectiva: '',
     tipo_baja: '',
+    permiso_tipo: '',
+    permiso_goce: '',
+    permiso_causal: '',
+    hora_salida: '',
+    hora_entrada: '',
 });
+
+// Taxonomía definitiva: permisos, vacaciones y préstamos (más la baja, solo
+// para quien puede solicitarla). Actualización de datos se abre desde
+// «Solicitar corrección» / «Completar mis datos», no aparece como tarjeta.
+const tiposCatalogo = computed(() =>
+    props.tipos.filter(
+        (t) =>
+            t.en_catalogo ||
+            (t.clave === 'baja_colaborador' &&
+                props.colaboradoresParaBaja.length > 0),
+    ),
+);
+
+const esPermiso = computed(() => form.tipo === 'permiso');
+const opcionesPermiso = (campo: string) =>
+    tipoActual.value?.campos.find((c) => c.name === campo)?.opciones ?? [];
 
 function enviar() {
     form.post(store.url(), {
@@ -182,7 +207,10 @@ const tipoActual = computed(() =>
     props.tipos.find((t) => t.clave === form.tipo),
 );
 
-const modoFechas = computed(() => tipoActual.value?.modo_fechas ?? 'ninguna');
+// El permiso pinta sus propias fechas (PermisoFormulario).
+const modoFechas = computed(() =>
+    esPermiso.value ? 'ninguna' : (tipoActual.value?.modo_fechas ?? 'ninguna'),
+);
 
 /** Vista previa de la fecha de término: inicio + (días − 1), naturales. */
 const fechaTermino = computed(() => {
@@ -226,7 +254,7 @@ const TIPOS_BAJA = [
     <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
             titulo="Mis solicitudes"
-            descripcion="Vacaciones, permisos, préstamos, incapacidades y otros trámites internos, todo en un solo lugar."
+            descripcion="Permisos, vacaciones y préstamos en un solo lugar."
             :icono="ClipboardList"
         >
             <Button
@@ -308,7 +336,7 @@ const TIPOS_BAJA = [
                 class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
             >
                 <button
-                    v-for="tipo in tipos"
+                    v-for="tipo in tiposCatalogo"
                     :key="tipo.clave"
                     type="button"
                     class="flex flex-col items-start gap-2 rounded-2xl border border-border/60 bg-card p-4 text-left transition-colors hover:border-primary/40 hover:bg-accent/40"
@@ -324,7 +352,9 @@ const TIPOS_BAJA = [
                     </span>
                     <span class="text-sm font-semibold">{{ tipo.nombre }}</span>
                     <span class="text-xs text-muted-foreground">{{
-                        DESCRIPCION_TIPO[tipo.clave] ?? 'Solicítalo desde aquí.'
+                        tipo.descripcion ||
+                        DESCRIPCION_TIPO[tipo.clave] ||
+                        'Solicítalo desde aquí.'
                     }}</span>
                 </button>
             </div>
@@ -350,17 +380,39 @@ const TIPOS_BAJA = [
                     {{ form.errors.tipo }}
                 </p>
 
-                <!-- Vacaciones: saldo disponible + días a solicitar -->
+                <!-- Permiso: solo lo que pide el formato oficial -->
+                <PermisoFormulario
+                    v-if="esPermiso"
+                    v-model:permiso-tipo="form.permiso_tipo"
+                    v-model:permiso-goce="form.permiso_goce"
+                    v-model:permiso-causal="form.permiso_causal"
+                    v-model:fecha-inicio="form.fecha_inicio"
+                    v-model:duracion-dias="form.duracion_dias"
+                    v-model:hora-salida="form.hora_salida"
+                    v-model:hora-entrada="form.hora_entrada"
+                    :opciones-tipo="opcionesPermiso('permiso_tipo')"
+                    :opciones-goce="opcionesPermiso('permiso_goce')"
+                    :opciones-causal="opcionesPermiso('permiso_causal')"
+                    :errores="form.errors"
+                />
+
+                <!-- Vacaciones: saldo antes → días elegidos → saldo después -->
                 <div
                     v-if="tipoActual?.requiere_dias"
-                    class="rounded-lg border border-border/60 bg-muted/40 p-3 text-sm"
+                    class="grid grid-cols-3 gap-2 text-center"
                 >
-                    Días disponibles:
-                    <span class="font-semibold">{{
-                        saldoVacaciones.dias_disponibles
-                    }}</span>
-                    de {{ saldoVacaciones.dias_generados }} generados este
-                    periodo.
+                    <div class="rounded-xl border border-border/60 bg-muted/40 p-3">
+                        <p class="text-2xl font-bold tabular-nums">{{ saldoVacaciones.dias_disponibles }}</p>
+                        <p class="text-xs text-muted-foreground">Saldo antes</p>
+                    </div>
+                    <div class="rounded-xl border border-primary/30 bg-primary/5 p-3">
+                        <p class="text-2xl font-bold tabular-nums text-primary">{{ form.dias.length }}</p>
+                        <p class="text-xs text-muted-foreground">Días seleccionados</p>
+                    </div>
+                    <div class="rounded-xl border border-border/60 bg-muted/40 p-3">
+                        <p class="text-2xl font-bold tabular-nums" :class="saldoRestante < 0 ? 'text-destructive' : ''">{{ saldoRestante }}</p>
+                        <p class="text-xs text-muted-foreground">Saldo después</p>
+                    </div>
                 </div>
 
                 <!-- Fechas según el tipo: el backend calcula la fecha fin
@@ -558,7 +610,7 @@ const TIPOS_BAJA = [
                     </div>
                 </div>
 
-                <div class="grid gap-2">
+                <div v-if="!esPermiso" class="grid gap-2">
                     <Label for="motivo">Motivo</Label>
                     <Textarea id="motivo" v-model="form.motivo" rows="3" />
                     <p

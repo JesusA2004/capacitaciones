@@ -26,6 +26,9 @@ class UpdateEmpresaRequest extends FormRequest
             // Vacíos = el documento usa el valor predeterminado del registro
             // jurídico y la vista previa lo advierte.
             'domicilio_fiscal' => ['nullable', 'string', 'max:500'],
+            // Encabezado de los formatos oficiales (recibo, finiquito, permiso).
+            'registro_patronal' => ['nullable', 'string', 'max:20'],
+            'codigo_postal_fiscal' => ['nullable', 'string', 'max:10'],
             'ciudad_firma' => ['nullable', 'string', 'max:191'],
             'representante_legal_nombre' => ['nullable', 'string', 'max:191'],
             'representante_legal_cargo' => ['nullable', 'string', 'max:191'],

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue';
-import logoLetras from '@/assets/brand/logoLetras.png';
+import simboloColor from '@/assets/brand/people/MrLanaPeople_simbolo_color.svg';
 
 defineOptions({
     inheritAttrs: false,
@@ -12,10 +12,10 @@ type Props = {
 };
 
 withDefaults(defineProps<Props>(), {
-    alt: 'Logo',
+    alt: 'MR. LANA PEOPLE',
 });
 </script>
 
 <template>
-    <img :src="logoLetras" :alt="alt" :class="className" v-bind="$attrs" />
+    <img :src="simboloColor" :alt="alt" :class="className" v-bind="$attrs" />
 </template>

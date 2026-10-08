@@ -42,7 +42,7 @@ test('un colaborador puede crear una solicitud interna desde la api', function (
 
     $this->withHeaders(actuarConToken($colaborador))
         ->postJson('/api/v1/colaborador/solicitudes', [
-            'tipo' => 'constancia_laboral',
+            'tipo' => 'permiso', 'permiso_tipo' => 'llegar_tarde', 'fecha_inicio' => now()->addDay()->toDateString(), 'hora_entrada' => '10:00', 'permiso_goce' => 'con_goce',
             'motivo' => 'Trámite bancario.',
         ])
         ->assertCreated()

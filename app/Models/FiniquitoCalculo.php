@@ -37,6 +37,7 @@ use Illuminate\Support\Carbon;
  * @property string $bonos_extra
  * @property string $descuentos
  * @property string $adeudos
+ * @property string $isr_retenido
  * @property array<string, mixed>|null $otros_conceptos
  * @property string $total_calculado
  * @property string $total_ajustado
@@ -82,6 +83,7 @@ class FiniquitoCalculo extends Model
         'bonos_extra',
         'descuentos',
         'adeudos',
+        'isr_retenido',
         'otros_conceptos',
         'total_calculado',
         'total_ajustado',
@@ -108,6 +110,17 @@ class FiniquitoCalculo extends Model
     public function conceptos(): HasMany
     {
         return $this->hasMany(FiniquitoConcepto::class, 'finiquito_calculo_id')->orderBy('id');
+    }
+
+    /**
+     * Ajustes autorizados a conceptos automáticos (historial completo; el
+     * último de cada concepto es el vigente).
+     *
+     * @return HasMany<FiniquitoAjuste, $this>
+     */
+    public function ajustes(): HasMany
+    {
+        return $this->hasMany(FiniquitoAjuste::class, 'finiquito_calculo_id')->orderBy('id');
     }
 
     /**
@@ -138,6 +151,7 @@ class FiniquitoCalculo extends Model
             'bonos_extra' => 'decimal:2',
             'descuentos' => 'decimal:2',
             'adeudos' => 'decimal:2',
+            'isr_retenido' => 'decimal:2',
             'otros_conceptos' => 'array',
             'total_calculado' => 'decimal:2',
             'total_ajustado' => 'decimal:2',

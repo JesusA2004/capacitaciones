@@ -14,6 +14,7 @@ use App\Services\Solicitudes\SolicitudesService;
 use App\Services\Vacaciones\VacacionesService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -67,7 +68,23 @@ class SolicitudInternaController extends Controller
         return Inertia::render('Solicitudes/Show', [
             'solicitud' => $solicitud,
             'tipoEtiqueta' => $solicitud->tipo->etiqueta(),
+            'permiso' => $this->solicitudes->resumenPermiso($solicitud),
         ]);
+    }
+
+    /**
+     * Formato oficial de permiso (vista previa / impresión). Solo existe
+     * cuando RH ya autorizó; antes responde 403.
+     */
+    public function permisoPdf(SolicitudInterna $solicitud): StreamedResponse
+    {
+        $this->authorize('view', $solicitud);
+
+        try {
+            return $this->solicitudes->respuestaPermiso($solicitud);
+        } catch (ValidationException $e) {
+            abort(403, collect($e->errors())->flatten()->first());
+        }
     }
 
     public function cancelar(SolicitudInterna $solicitud): RedirectResponse

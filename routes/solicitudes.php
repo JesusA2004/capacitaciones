@@ -8,6 +8,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/', [SolicitudInternaController::class, 'index'])->name('index');
         Route::post('/', [SolicitudInternaController::class, 'store'])->name('store');
         Route::get('{solicitud}', [SolicitudInternaController::class, 'show'])->name('show');
+        Route::get('{solicitud}/permiso-pdf', [SolicitudInternaController::class, 'permisoPdf'])->name('permiso-pdf');
         Route::post('{solicitud}/cancelar', [SolicitudInternaController::class, 'cancelar'])->name('cancelar');
         Route::post('{solicitud}/documentos', [SolicitudInternaController::class, 'subirDocumento'])->name('documentos.store');
         Route::get('{solicitud}/documentos/{documento}/ver', [SolicitudInternaController::class, 'verDocumento'])->name('documentos.ver');

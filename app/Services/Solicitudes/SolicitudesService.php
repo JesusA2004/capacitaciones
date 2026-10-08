@@ -3,8 +3,11 @@
 namespace App\Services\Solicitudes;
 
 use App\Enums\EstadoFiniquito;
+use App\Enums\CausalPermisoEspecial;
 use App\Enums\EstadoSolicitudInterna;
+use App\Enums\GocePermiso;
 use App\Enums\ModoFechasSolicitud;
+use App\Enums\TipoPermisoSolicitado;
 use App\Enums\TipoSolicitudInterna;
 use App\Models\Colaborador;
 use App\Models\FiniquitoCalculo;
@@ -94,6 +97,17 @@ class SolicitudesService
         // capturada a mano (FechasSolicitudService).
         $datos = $this->fechas->normalizar($tipo, $datos, $solicitante->colaborador);
 
+        // Permiso: solo lo que pide el formato oficial. La hora que no
+        // corresponde a la modalidad se descarta (nunca se guarda basura) y
+        // el motivo, si no se escribió, es la propia modalidad.
+        if ($tipo === TipoSolicitudInterna::Permiso) {
+            $permisoTipo = TipoPermisoSolicitado::from((string) $datos['permiso_tipo']);
+            $datos['hora_salida'] = $permisoTipo === TipoPermisoSolicitado::SalirTemprano ? ($datos['hora_salida'] ?? null) : null;
+            $datos['hora_entrada'] = $permisoTipo === TipoPermisoSolicitado::LlegarTarde ? ($datos['hora_entrada'] ?? null) : null;
+            $datos['permiso_causal'] = ($datos['permiso_goce'] ?? null) === GocePermiso::Especial->value ? ($datos['permiso_causal'] ?? null) : null;
+            $datos['motivo'] = trim((string) ($datos['motivo'] ?? '')) !== '' ? $datos['motivo'] : $permisoTipo->etiqueta();
+        }
+
         if ($tipo === TipoSolicitudInterna::Vacaciones) {
             $saldo = $this->vacaciones->saldo($solicitante);
 
@@ -139,6 +153,11 @@ class SolicitudesService
                 'fecha_inicio' => $datos['fecha_inicio'] ?? null,
                 'fecha_fin' => $datos['fecha_fin'] ?? null,
                 'dias_solicitados' => $datos['dias_solicitados'] ?? null,
+                'hora_salida' => $datos['hora_salida'] ?? null,
+                'hora_entrada' => $datos['hora_entrada'] ?? null,
+                'permiso_tipo' => $datos['permiso_tipo'] ?? null,
+                'permiso_goce' => $datos['permiso_goce'] ?? null,
+                'permiso_causal' => $datos['permiso_causal'] ?? null,
                 'monto_solicitado' => $datos['monto_solicitado'] ?? null,
                 'plazo_meses' => $datos['plazo_meses'] ?? null,
                 'motivo' => $datos['motivo'],
@@ -617,6 +636,26 @@ class SolicitudesService
         return $this->ultimoResultadoDocumentoOficial;
     }
 
+    /**
+     * Resumen del permiso (modalidad, goce, causal, horas y si RH ya lo
+     * autorizó) para web y app. null si la solicitud no es un permiso.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function resumenPermiso(SolicitudInterna $solicitud): ?array
+    {
+        return $this->comprobantes->resumenPermiso($solicitud);
+    }
+
+    /**
+     * PDF del formato oficial de permiso, SOLO si RH ya lo autorizó (antes
+     * responde un error de validación: el gerente no puede imprimirlo).
+     */
+    public function respuestaPermiso(SolicitudInterna $solicitud): StreamedResponse
+    {
+        return $this->comprobantes->respuestaPermiso($solicitud);
+    }
+
     public function registrarHistorial(SolicitudInterna $solicitud, ?User $actor, string $accion, ?string $comentario = null): void
     {
         $solicitud->historial()->create([
@@ -693,6 +732,11 @@ class SolicitudesService
             $delTipo = $filas->where('tipo', $tipo->value);
             $cuenta = fn (EstadoSolicitudInterna $e): int => (int) ($delTipo->firstWhere('estado', $e->value)->total ?? 0);
 
+            // Un tipo histórico solo aparece mientras tenga registros que atender/consultar.
+            if ($tipo->esLegado() && (int) $delTipo->sum('total') === 0) {
+                continue;
+            }
+
             $resumen[] = [
                 'clave' => $tipo->value,
                 'etiqueta' => $tipo->etiqueta(),
@@ -720,6 +764,32 @@ class SolicitudesService
     }
 
     /**
+     * Campos del permiso, en el orden del Formato de Permiso oficial.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function camposPermiso(): array
+    {
+        $opciones = fn (array $casos) => array_map(fn ($c) => ['value' => $c->value, 'label' => $c->etiqueta()], $casos);
+
+        return [
+            ['name' => 'permiso_tipo', 'type' => 'opciones', 'required' => true, 'label' => 'Permiso solicitado', 'opciones' => $opciones(TipoPermisoSolicitado::cases())],
+            ['name' => 'fecha_inicio', 'type' => 'date', 'required' => true, 'label' => 'Fecha del permiso'],
+            ['name' => 'duracion_dias', 'type' => 'number', 'required' => true, 'label' => 'Días', 'min' => 1, 'max' => 30,
+                'ayuda' => 'Días naturales consecutivos a partir de la fecha.',
+                'mostrar_si' => ['campo' => 'permiso_tipo', 'valores' => [TipoPermisoSolicitado::Faltar->value]]],
+            ['name' => 'hora_salida', 'type' => 'time', 'required' => true, 'label' => 'Hora de salida',
+                'mostrar_si' => ['campo' => 'permiso_tipo', 'valores' => [TipoPermisoSolicitado::SalirTemprano->value]]],
+            ['name' => 'hora_entrada', 'type' => 'time', 'required' => true, 'label' => 'Hora de entrada',
+                'mostrar_si' => ['campo' => 'permiso_tipo', 'valores' => [TipoPermisoSolicitado::LlegarTarde->value]]],
+            ['name' => 'permiso_goce', 'type' => 'opciones', 'required' => true, 'label' => 'Tipo de permiso', 'opciones' => $opciones(GocePermiso::cases())],
+            ['name' => 'permiso_causal', 'type' => 'opciones', 'required' => true, 'label' => 'Causal del permiso especial', 'opciones' => $opciones(CausalPermisoEspecial::cases()),
+                'mostrar_si' => ['campo' => 'permiso_goce', 'valores' => [GocePermiso::Especial->value]]],
+            ['name' => 'observaciones', 'type' => 'text', 'required' => false, 'label' => 'Observaciones'],
+        ];
+    }
+
+    /**
      * Catalogo de tipos con las reglas de formulario que la app movil usa
      * para construir el formulario de "nueva solicitud" sin hardcodear
      * nada: que campos mostrar, si requiere rango de fechas, si admite
@@ -734,12 +804,36 @@ class SolicitudesService
      */
     public function tiposConFormulario(bool $autoservicio = false): array
     {
-        $tipos = $autoservicio
-            ? array_values(array_filter(TipoSolicitudInterna::cases(), fn (TipoSolicitudInterna $t) => $t->creableEnAutoservicio()))
-            : TipoSolicitudInterna::cases();
+        // Taxonomía definitiva: los tipos históricos nunca se ofrecen.
+        $tipos = array_values(array_filter(
+            TipoSolicitudInterna::cases(),
+            fn (TipoSolicitudInterna $t) => $autoservicio ? $t->creableEnAutoservicio() : ! $t->esLegado(),
+        ));
 
         return array_map(function (TipoSolicitudInterna $tipo) use ($autoservicio): array {
             $modo = $tipo->modoFechas();
+
+            if ($tipo === TipoSolicitudInterna::Permiso) {
+                return [
+                    'clave' => $tipo->value,
+                    'nombre' => $tipo->etiqueta(),
+                    'en_catalogo' => true,
+                    'descripcion' => 'Faltar, salir temprano o llegar tarde.',
+                    'modo_fechas' => $modo->value,
+                    'modo_fechas_etiqueta' => $modo->etiqueta(),
+                    'requiere_fechas' => true,
+                    'requiere_horario' => false,
+                    'requiere_dias' => false,
+                    'requiere_monto' => false,
+                    'requiere_colaborador_objetivo' => false,
+                    'requiere_motivo' => false,
+                    'permite_adjuntos' => true,
+                    'dias_no_seleccionables' => [],
+                    // Formulario dinámico (Formato de Permiso oficial): cada
+                    // campo con `mostrar_si` solo aparece cuando aplica.
+                    'campos' => $this->camposPermiso(),
+                ];
+            }
 
             // Solo los campos que el tipo necesita, en orden de captura.
             $campos = match ($modo) {
@@ -783,6 +877,13 @@ class SolicitudesService
             return [
                 'clave' => $tipo->value,
                 'nombre' => $tipo->etiqueta(),
+                'en_catalogo' => $tipo->enCatalogo(),
+                'descripcion' => match ($tipo) {
+                    TipoSolicitudInterna::Vacaciones => 'Elige los días; el domingo no cuenta.',
+                    TipoSolicitudInterna::PrestamoInterno => 'Monto y motivo; RH define plazo y condiciones.',
+                    TipoSolicitudInterna::ActualizacionDatos => 'Corrige o completa tus datos personales.',
+                    default => '',
+                },
                 'modo_fechas' => $modo->value,
                 'modo_fechas_etiqueta' => $modo->etiqueta(),
                 // Banderas que ya leían clientes anteriores (se conservan).

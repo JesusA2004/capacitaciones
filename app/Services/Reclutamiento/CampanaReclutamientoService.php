@@ -5,9 +5,11 @@ namespace App\Services\Reclutamiento;
 use App\Models\CampanaReclutamiento;
 use App\Models\Candidato;
 use App\Models\Vacante;
+use App\Services\Vacantes\VacantesListadoService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection as SupportCollection;
+use Illuminate\Validation\ValidationException;
 
 /**
  * KPIs de gasto de reclutamiento (docs de referencia: encargo de campañas
@@ -39,6 +41,14 @@ class CampanaReclutamientoService
 
         if ($vacanteId !== null) {
             $vacante = Vacante::query()->whereKey($vacanteId)->firstOrFail();
+
+            // Una campaña SIEMPRE parte de una vacante real con plaza disponible
+            // (faltantes = autorizadas − ocupadas > 0). Una campaña ya ligada a
+            // esa misma vacante se puede seguir editando (gasto real, cierre…).
+            if ($campana?->vacante_id !== $vacante->id && ! app(VacantesListadoService::class)->tieneCupo($vacante)) {
+                throw ValidationException::withMessages(['vacante_id' => 'Esa vacante ya no tiene plazas disponibles. Elige una vacante real abierta.']);
+            }
+
             $datos = [
                 ...$datos,
                 'empresa_id' => $vacante->empresa_id,

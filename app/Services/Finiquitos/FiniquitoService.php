@@ -166,54 +166,180 @@ class FiniquitoService
     }
 
     /**
-     * Desglose modular del finiquito: conceptos automáticos (derivados del
-     * cálculo y los ajustes existentes) + conceptos capturados por RH. Cada
-     * renglón: concepto, tipo (percepción/deducción), cantidad, importe,
-     * observaciones y origen.
+     * Conceptos AUTOMÁTICOS del finiquito con su clave del formato oficial
+     * (docs/formatosRH/Formato_Finiquito.docx). 001–004 y 101–102 siempre
+     * aparecen (aunque valgan $0.00), igual que en el formato impreso.
+     * `campo`: columna de finiquito_calculos con el valor calculado.
      *
-     * @return list<array{id: int|null, concepto: string, tipo: string, cantidad: float, importe: float, observaciones: string|null, origen: string}>
+     * @return array<string, array{clave: string, concepto: string, tipo: TipoConceptoNomina, campo: string, siempre: bool}>
+     */
+    public function conceptosAutomaticos(): array
+    {
+        return [
+            'sueldo_pendiente' => ['clave' => '001', 'concepto' => 'Sueldo pendiente de pago', 'tipo' => TipoConceptoNomina::Percepcion, 'campo' => 'sueldo_pendiente', 'siempre' => true],
+            'aguinaldo_proporcional' => ['clave' => '002', 'concepto' => 'Aguinaldo proporcional', 'tipo' => TipoConceptoNomina::Percepcion, 'campo' => 'aguinaldo_proporcional', 'siempre' => true],
+            'vacaciones_proporcionales' => ['clave' => '003', 'concepto' => 'Vacaciones proporcionales', 'tipo' => TipoConceptoNomina::Percepcion, 'campo' => 'vacaciones_pendientes_pago', 'siempre' => true],
+            'prima_vacacional' => ['clave' => '004', 'concepto' => sprintf('Prima vacacional (%d%%)', (int) config('finiquitos.prima_vacacional_porcentaje')), 'tipo' => TipoConceptoNomina::Percepcion, 'campo' => 'prima_vacacional', 'siempre' => true],
+            'indemnizacion' => ['clave' => '005', 'concepto' => 'Indemnización', 'tipo' => TipoConceptoNomina::Percepcion, 'campo' => 'indemnizacion', 'siempre' => false],
+            'bonos_extra' => ['clave' => '006', 'concepto' => 'Bonos extra', 'tipo' => TipoConceptoNomina::Percepcion, 'campo' => 'bonos_extra', 'siempre' => false],
+            'isr_retenido' => ['clave' => '101', 'concepto' => 'ISR retenido', 'tipo' => TipoConceptoNomina::Deduccion, 'campo' => 'isr_retenido', 'siempre' => true],
+            'otras_deducciones' => ['clave' => '102', 'concepto' => 'Otras deducciones', 'tipo' => TipoConceptoNomina::Deduccion, 'campo' => 'descuentos', 'siempre' => true],
+            'adeudos' => ['clave' => '103', 'concepto' => 'Adeudos', 'tipo' => TipoConceptoNomina::Deduccion, 'campo' => 'adeudos', 'siempre' => false],
+        ];
+    }
+
+    /**
+     * Desglose del finiquito en el orden del formato oficial: conceptos
+     * automáticos (con su valor calculado y, si RH lo ajustó, el valor
+     * final autorizado + motivo + quién + cuándo) y después los conceptos
+     * capturados a mano por RH. Vacaciones proporcionales (pago de los días)
+     * y prima vacacional (el % adicional) son SIEMPRE filas distintas.
+     *
+     * @return list<array{id: int|null, clave: string, concepto_clave: string|null, concepto: string, tipo: string, cantidad: float, dias: float|null, importe: float, valor_calculado: float|null, ajustado: bool, ajuste: array{motivo: string, usuario: string|null, fecha: string|null, valor_calculado: float, valor_final: float}|null, observaciones: string|null, origen: string, editable: bool}>
      */
     public function desglose(FiniquitoCalculo $finiquito): array
     {
+        $finiquito->loadMissing(['ajustes.usuario:id,name,apellidos']);
+        $vigentes = $finiquito->ajustes->keyBy('concepto_clave');
         $renglones = [];
-        $agregar = function (string $concepto, TipoConceptoNomina $tipo, float $importe, float $cantidad = 1, ?string $observaciones = null) use (&$renglones): void {
-            if (abs(round($importe, 2)) < 0.005) {
-                return;
+        $diasAguinaldo = (int) config('finiquitos.dias_aguinaldo');
+        $dias = [
+            'vacaciones_proporcionales' => (float) $finiquito->vacaciones_pendientes,
+            'aguinaldo_proporcional' => round($diasAguinaldo * (int) $finiquito->dias_trabajados_periodo / 365, 2),
+        ];
+
+        foreach ($this->conceptosAutomaticos() as $clave => $def) {
+            $calculado = round((float) $finiquito->getAttribute($def['campo']), 2);
+            $ajuste = $vigentes->get($clave);
+            $importe = $ajuste !== null ? round((float) $ajuste->valor_final, 2) : $calculado;
+
+            if (! $def['siempre'] && abs($importe) < 0.005 && $ajuste === null) {
+                continue;
             }
 
-            $renglones[] = ['id' => null, 'concepto' => $concepto, 'tipo' => $tipo->value, 'cantidad' => $cantidad, 'importe' => round($importe, 2), 'observaciones' => $observaciones, 'origen' => 'automatico'];
-        };
-
-        $agregar('Sueldo pendiente', TipoConceptoNomina::Percepcion, (float) $finiquito->sueldo_pendiente);
-        // Vacaciones pendientes y prima vacacional son conceptos distintos
-        // (CLAUDE.md §20/§36): nunca una sola fila.
-        $agregar('Vacaciones pendientes', TipoConceptoNomina::Percepcion, (float) $finiquito->vacaciones_pendientes_pago, (float) $finiquito->vacaciones_pendientes, 'Días pendientes pagados a sueldo diario');
-        $agregar('Prima vacacional', TipoConceptoNomina::Percepcion, (float) $finiquito->prima_vacacional, (float) $finiquito->vacaciones_pendientes, sprintf('%d%% sobre los días pendientes', (int) config('finiquitos.prima_vacacional_porcentaje')));
-        $agregar('Aguinaldo proporcional', TipoConceptoNomina::Percepcion, (float) $finiquito->aguinaldo_proporcional);
-        $agregar('Indemnización', TipoConceptoNomina::Percepcion, (float) $finiquito->indemnizacion);
-        $agregar('Bonos extra', TipoConceptoNomina::Percepcion, (float) $finiquito->bonos_extra);
-
-        foreach ($finiquito->otros_conceptos ?? [] as $clave => $valor) {
-            $valor = (float) $valor;
-            $agregar((string) $clave, $valor >= 0 ? TipoConceptoNomina::Percepcion : TipoConceptoNomina::Deduccion, abs($valor));
+            $renglones[] = [
+                'id' => null,
+                'clave' => $def['clave'],
+                'concepto_clave' => $clave,
+                'concepto' => $def['concepto'],
+                'tipo' => $def['tipo']->value,
+                'cantidad' => $dias[$clave] ?? 1.0,
+                'dias' => isset($dias[$clave]) && $dias[$clave] > 0 ? $dias[$clave] : null,
+                'importe' => $importe,
+                'valor_calculado' => $calculado,
+                'ajustado' => $ajuste !== null,
+                'ajuste' => $ajuste !== null ? [
+                    'motivo' => $ajuste->motivo,
+                    'usuario' => $ajuste->usuario !== null ? trim($ajuste->usuario->name.' '.$ajuste->usuario->apellidos) : null,
+                    'fecha' => $ajuste->created_at?->toIso8601String(),
+                    'valor_calculado' => (float) $ajuste->valor_calculado,
+                    'valor_final' => (float) $ajuste->valor_final,
+                ] : null,
+                'observaciones' => match ($clave) {
+                    'vacaciones_proporcionales' => 'Días pendientes pagados a salario diario',
+                    'prima_vacacional' => sprintf('%d%% adicional sobre los días de vacaciones', (int) config('finiquitos.prima_vacacional_porcentaje')),
+                    default => null,
+                },
+                'origen' => 'automatico',
+                'editable' => true,
+            ];
         }
 
-        $agregar('Descuentos', TipoConceptoNomina::Deduccion, (float) $finiquito->descuentos);
-        $agregar('Adeudos', TipoConceptoNomina::Deduccion, (float) $finiquito->adeudos);
+        $siguiente = ['percepcion' => 7, 'deduccion' => 104];
+
+        foreach ($finiquito->otros_conceptos ?? [] as $nombre => $valor) {
+            $valor = (float) $valor;
+
+            if (abs(round($valor, 2)) < 0.005) {
+                continue;
+            }
+
+            $tipo = $valor >= 0 ? TipoConceptoNomina::Percepcion : TipoConceptoNomina::Deduccion;
+            $renglones[] = ['id' => null, 'clave' => sprintf('%03d', $siguiente[$tipo->value]++), 'concepto_clave' => null, 'concepto' => (string) $nombre, 'tipo' => $tipo->value, 'cantidad' => 1.0, 'dias' => null, 'importe' => round(abs($valor), 2), 'valor_calculado' => null, 'ajustado' => false, 'ajuste' => null, 'observaciones' => null, 'origen' => 'automatico', 'editable' => false];
+        }
 
         foreach ($finiquito->conceptos()->get() as $concepto) {
             $renglones[] = [
                 'id' => $concepto->id,
+                'clave' => $concepto->clave ?: sprintf('%03d', $siguiente[$concepto->tipo->value]++),
+                'concepto_clave' => null,
                 'concepto' => $concepto->concepto,
                 'tipo' => $concepto->tipo->value,
                 'cantidad' => (float) $concepto->cantidad,
+                'dias' => (float) $concepto->cantidad !== 1.0 ? (float) $concepto->cantidad : null,
                 'importe' => round((float) $concepto->importe, 2),
+                'valor_calculado' => null,
+                'ajustado' => false,
+                'ajuste' => null,
                 'observaciones' => $concepto->observaciones,
                 'origen' => 'manual',
+                'editable' => true,
             ];
         }
 
+        // Percepciones primero, luego deducciones; cada grupo por clave.
+        usort($renglones, fn (array $a, array $b): int => [$a['tipo'] === 'deduccion', $a['clave']] <=> [$b['tipo'] === 'deduccion', $b['clave']]);
+
         return $renglones;
+    }
+
+    /**
+     * Ajuste autorizado a un concepto automático: el sistema conserva el
+     * valor calculado y registra el valor final, la diferencia, el motivo,
+     * quién y cuándo. El total lo recalcula SIEMPRE el servidor
+     * (recalcularTotales()), nunca se toma del frontend. Ajustar al mismo
+     * valor calculado equivale a quitar el ajuste (queda en el historial).
+     */
+    public function ajustarConceptoAutomatico(FiniquitoCalculo $finiquito, string $conceptoClave, float $valorFinal, string $motivo, User $actor): FiniquitoCalculo
+    {
+        $this->asegurarNoFirmado($finiquito);
+        $definicion = $this->conceptosAutomaticos()[$conceptoClave] ?? null;
+
+        if ($definicion === null) {
+            throw ValidationException::withMessages(['concepto_clave' => 'Ese concepto no se puede ajustar.']);
+        }
+
+        if ($valorFinal < 0) {
+            throw ValidationException::withMessages(['importe' => 'El importe no puede ser negativo.']);
+        }
+
+        if (trim($motivo) === '') {
+            throw ValidationException::withMessages(['motivo' => 'Indica el motivo del ajuste.']);
+        }
+
+        return DB::transaction(function () use ($finiquito, $conceptoClave, $definicion, $valorFinal, $motivo, $actor): FiniquitoCalculo {
+            $bloqueado = FiniquitoCalculo::query()->lockForUpdate()->findOrFail($finiquito->id);
+            $calculado = round((float) $bloqueado->getAttribute($definicion['campo']), 2);
+            $final = round($valorFinal, 2);
+
+            $bloqueado->ajustes()->create([
+                'concepto_clave' => $conceptoClave,
+                'concepto' => $definicion['concepto'],
+                'valor_calculado' => $calculado,
+                'valor_final' => $final,
+                'ajuste' => round($final - $calculado, 2),
+                'motivo' => mb_substr(trim($motivo), 0, 500),
+                'user_id' => $actor->id,
+            ]);
+
+            // Un cambio de montos obliga a revisar de nuevo.
+            $bloqueado->update(['estado' => EstadoFiniquito::Borrador->value, 'revisado_por_id' => null]);
+            $bloqueado->unsetRelation('ajustes');
+            $this->registrarHistorial($bloqueado->solicitudInterna, $actor, 'finiquito_ajuste', sprintf('%s %s: $%s → $%s. %s', $definicion['clave'], $definicion['concepto'], number_format($calculado, 2), number_format($final, 2), trim($motivo)));
+
+            return $this->recalcularTotales($bloqueado);
+        });
+    }
+
+    /**
+     * Vista previa REAL del PDF del finiquito (mismo HTML y diseño que el
+     * documento definitivo) sin guardar nada: RH revisa antes de generar.
+     */
+    public function vistaPreviaPdf(FiniquitoCalculo $finiquito): string
+    {
+        $finiquito->loadMissing(['colaborador', 'solicitudInterna']);
+
+        return $this->documentosAdministrativos->renderizarVigente(FamiliaAdministrativa::Finiquito, $this->datosDocumento->finiquito($finiquito, $this->desglose($finiquito)));
     }
 
     /**
@@ -436,7 +562,12 @@ class FiniquitoService
         // 3) Respaldo interno DomPDF (solo desglose de montos, sin cláusulas).
         // En los tres casos el PDF queda en el expediente (carpeta
         // BajaFiniquito) como documento laboral con snapshot y flujo de firma.
-        if ($this->motor->tienePlantillaActiva('finiquito')) {
+        // Por defecto: el FORMATO OFICIAL de RH (docs/formatosRH/Formato_Finiquito.docx)
+        // como documento administrativo. La plantilla de Jurídico o el
+        // overlay anterior solo si se pide explícitamente (FINIQUITO_MOTOR).
+        $motorLegado = config('finiquitos.motor') === 'legado';
+
+        if ($motorLegado && $this->motor->tienePlantillaActiva('finiquito')) {
             $documento = $this->motor->generar($finiquito->colaborador, 'finiquito', $actor, $variables, $finiquito, 'Finiquito');
         } else {
             $formatoOficial = OfficialFormat::query()
@@ -453,7 +584,7 @@ class FiniquitoService
                 'requiere_firma_fisica' => true,
             ];
 
-            if ($formatoOficial !== null && $formatoOficial->tieneConfiguracion()) {
+            if ($motorLegado && $formatoOficial !== null && $formatoOficial->tieneConfiguracion()) {
                 $contenido = $this->formatosOficiales->renderizarPara($formatoOficial, $this->formatosOficiales->contextoDesde($finiquito->colaborador, $finiquito, $actor), $variables);
                 $documento = $this->motor->registrarPdf($finiquito->colaborador, $contenido, 'Finiquito', $actor, $opciones);
             } else {
@@ -472,10 +603,12 @@ class FiniquitoService
                     'sueldo_mensual', 'sueldo_diario', 'antiguedad_anios', 'antiguedad_meses',
                     'dias_trabajados_periodo', 'vacaciones_pendientes', 'vacaciones_pendientes_pago', 'prima_vacacional',
                     'aguinaldo_proporcional', 'sueldo_pendiente', 'indemnizacion', 'bonos_extra',
-                    'descuentos', 'adeudos', 'otros_conceptos', 'total_calculado', 'total_ajustado',
+                    'descuentos', 'adeudos', 'isr_retenido', 'otros_conceptos', 'total_calculado', 'total_ajustado',
                     'comentarios_ajuste', 'total_percepciones', 'total_deducciones', 'neto',
                 ]),
                 'conceptos' => $desglose,
+                'ajustes' => $finiquito->ajustes()->get(['concepto_clave', 'concepto', 'valor_calculado', 'valor_final', 'ajuste', 'motivo', 'user_id', 'created_at'])->toArray(),
+                'congelado_en' => now()->toIso8601String(),
                 'generated_document_id' => $documento->id,
             ],
         ]);
@@ -489,6 +622,10 @@ class FiniquitoService
      */
     public function tieneFormatoOficialConfigurado(): bool
     {
+        if (config('finiquitos.motor') !== 'legado') {
+            return false;
+        }
+
         return OfficialFormat::query()
             ->where('tipo', TipoFormatoOficial::Finiquito->value)
             ->where('is_active', true)

@@ -30,7 +30,7 @@ const showAvatar = computed(
                 !showAvatar
                     ? {
                           backgroundColor:
-                              user.preferencias_ui?.avatar_color ?? '#64d64b',
+                              user.preferencias_ui?.avatar_color ?? '#225c54',
                       }
                     : undefined
             "

@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $id
  * @property int $finiquito_calculo_id
  * @property TipoConceptoNomina $tipo
+ * @property string|null $clave
  * @property string $concepto
  * @property string $cantidad
  * @property string $importe
@@ -24,7 +25,7 @@ class FiniquitoConcepto extends Model
 {
     protected $table = 'finiquito_conceptos';
 
-    protected $fillable = ['finiquito_calculo_id', 'tipo', 'concepto', 'cantidad', 'importe', 'observaciones', 'capturado_por'];
+    protected $fillable = ['finiquito_calculo_id', 'tipo', 'clave', 'concepto', 'cantidad', 'importe', 'observaciones', 'capturado_por'];
 
     protected function casts(): array
     {

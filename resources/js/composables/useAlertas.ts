@@ -2,7 +2,7 @@ import Swal from 'sweetalert2';
 import { avisarExito } from '@/lib/flashToast';
 
 const base = Swal.mixin({
-    confirmButtonColor: '#64d64b',
+    confirmButtonColor: '#0d3e43',
     cancelButtonColor: '#6b7280',
     reverseButtons: true,
     focusCancel: true,

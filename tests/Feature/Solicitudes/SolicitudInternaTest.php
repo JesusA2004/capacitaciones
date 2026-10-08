@@ -14,7 +14,7 @@ test('un colaborador puede crear una solicitud interna y queda enviada', functio
 
     $this->actingAs($colaborador)
         ->post(route('solicitudes.store'), [
-            'tipo' => 'constancia_laboral',
+            'tipo' => 'permiso', 'permiso_tipo' => 'llegar_tarde', 'fecha_inicio' => now()->addDay()->toDateString(), 'hora_entrada' => '10:00', 'permiso_goce' => 'con_goce',
             'motivo' => 'La necesito para trámite bancario.',
         ])
         ->assertSessionHasNoErrors();
@@ -39,7 +39,7 @@ test('el folio se deriva del id real de la fila y nunca se duplica, incluso crea
     foreach (range(1, 5) as $intento) {
         $this->actingAs($colaborador)
             ->post(route('solicitudes.store'), [
-                'tipo' => 'constancia_laboral',
+                'tipo' => 'permiso', 'permiso_tipo' => 'llegar_tarde', 'fecha_inicio' => now()->addDay()->toDateString(), 'hora_entrada' => '10:00', 'permiso_goce' => 'con_goce',
                 'motivo' => "Trámite número {$intento}.",
             ])
             ->assertSessionHasNoErrors();

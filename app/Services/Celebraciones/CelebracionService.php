@@ -96,6 +96,57 @@ class CelebracionService
     }
 
     /**
+     * Felicitación AUTOMÁTICA de los aniversarios laborales del día (mismo
+     * trato que los cumpleaños, que ya se enviaban solos): notificación
+     * in-app + push al homenajeado. Corrige el bug de aniversarios que nunca
+     * se enviaban porque solo se preparaban (auto_enviar_colaborador nace en
+     * false). Idempotente y a prueba de carreras: cada evento se RECLAMA con
+     * un UPDATE condicional sobre enviada_at antes de avisar, así que correr
+     * el comando dos veces (o dos servidores a la vez) nunca duplica el push.
+     *
+     * @return array{aniversarios: int, enviados: int, ya_enviados: int, sin_cuenta: int}
+     */
+    public function enviarAniversariosDelDia(?CarbonInterface $fecha = null): array
+    {
+        $fecha ??= FechasCelebracion::hoy();
+        $resultado = ['aniversarios' => 0, 'enviados' => 0, 'ya_enviados' => 0, 'sin_cuenta' => 0];
+
+        if (! (bool) config('celebraciones.aniversario.enabled', true) || ! (bool) config('celebraciones.aniversario.notificar_colaborador', true)) {
+            return $resultado;
+        }
+
+        foreach ($this->aniversarios->enRango($fecha, $fecha) as $aniversario) {
+            $resultado['aniversarios']++;
+
+            try {
+                $celebracion = $this->asegurarAniversario($aniversario['colaborador'], $fecha, $aniversario['anios']);
+
+                if ($celebracion->colaborador->user === null) {
+                    $resultado['sin_cuenta']++;
+
+                    continue;
+                }
+
+                $reclamado = BirthdayGreeting::query()->whereKey($celebracion->id)->whereNull('enviada_at')->update(['enviada_at' => now()]);
+
+                if ($reclamado === 0) {
+                    $resultado['ya_enviados']++;
+
+                    continue;
+                }
+
+                $this->tarjetaAniversario->generar($celebracion->refresh());
+                $this->notificarHomenajeado($celebracion);
+                $resultado['enviados']++;
+            } catch (Throwable $e) {
+                Log::error('celebraciones: no se pudo enviar el aniversario', ['colaborador_id' => $aniversario['colaborador']->id, 'error' => $e->getMessage()]);
+            }
+        }
+
+        return $resultado;
+    }
+
+    /**
      * Evento de aniversario del día (idempotente, a prueba de carreras).
      */
     public function asegurarAniversario(Colaborador $colaborador, CarbonInterface $fecha, int $anios): BirthdayGreeting
@@ -168,10 +219,27 @@ class CelebracionService
     public function enviarAlColaborador(BirthdayGreeting $celebracion, ?User $actor): BirthdayGreeting
     {
         $celebracion = $this->tarjeta($celebracion);
+
+        if ($celebracion->colaborador->user === null) {
+            throw ValidationException::withMessages(['celebracion' => sprintf('%s no tiene cuenta en la app: descarga la tarjeta y compártela por otro medio.', $celebracion->colaborador->nombreCompleto())]);
+        }
+
+        $this->notificarHomenajeado($celebracion);
+        $celebracion->update(['enviada_at' => now(), 'enviada_por_id' => $actor?->id]);
+
+        return $celebracion->refresh();
+    }
+
+    /**
+     * Notificación in-app + push al homenajeado que abre su evento. Un fallo
+     * al avisar nunca deshace nada (solo se registra).
+     */
+    private function notificarHomenajeado(BirthdayGreeting $celebracion): void
+    {
         $homenajeado = $celebracion->colaborador->user;
 
         if ($homenajeado === null) {
-            throw ValidationException::withMessages(['celebracion' => sprintf('%s no tiene cuenta en la app: descarga la tarjeta y compártela por otro medio.', $celebracion->colaborador->nombreCompleto())]);
+            return;
         }
 
         [$tipo, $titulo, $mensaje] = $celebracion->esAniversario()
@@ -189,10 +257,6 @@ class CelebracionService
         } catch (Throwable $e) {
             Log::warning('celebraciones: fallo al notificar al homenajeado', ['celebracion_id' => $celebracion->id, 'error' => $e->getMessage()]);
         }
-
-        $celebracion->update(['enviada_at' => now(), 'enviada_por_id' => $actor?->id]);
-
-        return $celebracion->refresh();
     }
 
     /**

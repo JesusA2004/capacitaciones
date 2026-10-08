@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Sucursal;
 use App\Models\TareaRh;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Tareas\ResumenPendientesService;
 use App\Services\Tareas\TareaService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -23,7 +24,7 @@ class PendienteController extends Controller
         private readonly AlcanceOrganizacionalService $alcance,
     ) {}
 
-    public function index(Request $request): Response
+    public function index(Request $request, ResumenPendientesService $resumen): Response
     {
         $usuario = $request->user();
         $filtros = [
@@ -39,6 +40,10 @@ class PendienteController extends Controller
         ]);
 
         return Inertia::render('Rh/Pendientes/Index', [
+            // Centro único: solicitudes, cambios de foto, evaluaciones,
+            // candidatos, documentos, bajas, finiquitos, datos faltantes,
+            // intervenciones y lotes de nómina (cada uno con su permiso).
+            'atajos' => $resumen->atajos($usuario),
             'tareas' => $tareas,
             'conteos' => $this->tareas->conteos($usuario),
             'distribucion' => $this->tareas->distribucion($usuario),

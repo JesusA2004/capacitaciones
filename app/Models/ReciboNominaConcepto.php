@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $id
  * @property int $recibo_nomina_id
  * @property TipoConceptoNomina $tipo
+ * @property string|null $clave
  * @property string $concepto
  * @property string $cantidad
  * @property string $importe
@@ -23,7 +24,7 @@ class ReciboNominaConcepto extends Model
 {
     protected $table = 'recibo_nomina_conceptos';
 
-    protected $fillable = ['recibo_nomina_id', 'tipo', 'concepto', 'cantidad', 'importe', 'observaciones', 'orden'];
+    protected $fillable = ['recibo_nomina_id', 'tipo', 'clave', 'concepto', 'cantidad', 'importe', 'observaciones', 'orden'];
 
     protected function casts(): array
     {

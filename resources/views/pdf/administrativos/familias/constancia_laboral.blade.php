@@ -2,28 +2,29 @@
 @php $v = $diseno['sections']['visibles']; @endphp
 
 <div class="seccion">
-    <p>{{ $d['lugar_fecha'] }}</p>
+    <p style="text-align: right;">{{ $d['lugar_fecha'] }}</p>
 </div>
 
 <div class="seccion">
-    <p class="seccion-titulo">A quien corresponda</p>
-    <p>{{ $d['cuerpo'] }}</p>
+    <p class="opcion">A quien corresponda</p>
+    <p style="text-align: justify;">{{ $d['cuerpo'] }}</p>
 </div>
 
 @if ($v['datos_colaborador'] ?? true)
     <div class="seccion">
-        <table class="datos">
+        <table class="grid">
+            <tr><td class="banda" colspan="2">Datos del colaborador</td></tr>
             <tr>
-                <td><span class="etiqueta">Colaborador:</span> {{ $d['colaborador']['nombre'] }}</td>
-                <td><span class="etiqueta">Número de empleado:</span> {{ $d['colaborador']['numero_empleado'] }}</td>
+                <td style="width: 50%;"><span class="lbl">Nombre</span><span class="val">{{ $d['colaborador']['nombre'] }}</span></td>
+                <td><span class="lbl">No. de empleado</span><span class="val">{{ $d['colaborador']['numero_empleado'] }}</span></td>
             </tr>
             <tr>
-                <td><span class="etiqueta">Puesto:</span> {{ $d['colaborador']['puesto'] }}</td>
-                <td><span class="etiqueta">Sucursal:</span> {{ $d['colaborador']['sucursal'] }}</td>
+                <td><span class="lbl">Puesto</span><span class="val">{{ $d['colaborador']['puesto'] }}</span></td>
+                <td><span class="lbl">Departamento / Sucursal</span><span class="val">{{ $d['colaborador']['departamento_sucursal'] }}</span></td>
             </tr>
             <tr>
-                <td><span class="etiqueta">Fecha de ingreso:</span> {{ $d['fecha_ingreso'] }}</td>
-                <td><span class="etiqueta">Empresa:</span> {{ $d['empresa'] }}</td>
+                <td><span class="lbl">Fecha de ingreso</span><span class="val">{{ $d['fecha_ingreso'] }}</span></td>
+                <td><span class="lbl">Empresa</span><span class="val">{{ $d['empresa_razon_social'] }}</span></td>
             </tr>
         </table>
     </div>

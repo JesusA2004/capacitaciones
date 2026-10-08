@@ -73,6 +73,13 @@ const props = defineProps<{
     contactoEmergenciaExtra?: InstanceType<
         typeof ExpedienteDetalle
     >['$props']['contactoEmergenciaExtra'];
+    datosFaltantes?: InstanceType<
+        typeof ExpedienteDetalle
+    >['$props']['datosFaltantes'];
+    puedeAvisarDatosFaltantes?: boolean;
+    avisosComunicaciones?: InstanceType<
+        typeof ExpedienteDetalle
+    >['$props']['avisosComunicaciones'];
     prestamos: PrestamoItem[];
     documentosOficiales:
         | InstanceType<
@@ -133,6 +140,9 @@ defineOptions({
         :expediente-historico="expedienteHistorico"
         :datos-medicos="datosMedicos"
         :contacto-emergencia-extra="contactoEmergenciaExtra"
+        :datos-faltantes="datosFaltantes"
+        :puede-avisar-datos-faltantes="puedeAvisarDatosFaltantes"
+        :avisos-comunicaciones="avisosComunicaciones"
         :prestamos="prestamos"
     >
         <template #documentos-oficiales>

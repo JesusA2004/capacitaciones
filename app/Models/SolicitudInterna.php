@@ -39,7 +39,10 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property Carbon|null $fecha_fin
  * @property string|null $hora_salida HH:MM:SS (formato de permiso).
  * @property string|null $hora_entrada HH:MM:SS (formato de permiso).
- * @property string|null $modalidad_permiso tiempo_por_tiempo | descuento_nomina | permiso_especial.
+ * @property string|null $modalidad_permiso Histórico: tiempo_por_tiempo | descuento_nomina | permiso_especial.
+ * @property string|null $permiso_tipo faltar | salir_temprano | llegar_tarde (TipoPermisoSolicitado).
+ * @property string|null $permiso_goce con_goce | sin_goce | especial (GocePermiso).
+ * @property string|null $permiso_causal paternidad | luto | lactancia | cumpleanos | productividad (CausalPermisoEspecial).
  * @property int|null $dias_solicitados
  * @property float|null $monto_solicitado
  * @property int|null $plazo_meses
@@ -73,6 +76,9 @@ class SolicitudInterna extends Model
         'hora_salida',
         'hora_entrada',
         'modalidad_permiso',
+        'permiso_tipo',
+        'permiso_goce',
+        'permiso_causal',
         'dias_solicitados',
         'monto_solicitado',
         'plazo_meses',

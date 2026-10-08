@@ -32,20 +32,25 @@ class DisenoAdministrativoService
     public function porDefecto(FamiliaAdministrativa $familia): array
     {
         return [
-            'page' => ['size' => 'letter', 'orientation' => 'portrait', 'margins_mm' => ['top' => 14, 'right' => 15, 'bottom' => 16, 'left' => 15]],
-            'typography' => ['font_family' => 'Helvetica', 'base_size_pt' => 9.5, 'line_height' => 1.4, 'color' => '#1f2937', 'weight' => 400],
+            // Medidas, colores y tipografía tomados del formato oficial
+            // (docs/formatosRH/*.docx): carta, Arial/Helvetica, azul
+            // institucional #0D1B4B en bandas, barra bronce junto al logo.
+            'page' => ['size' => 'letter', 'orientation' => 'portrait', 'margins_mm' => ['top' => 12, 'right' => 14, 'bottom' => 12, 'left' => 14]],
+            'typography' => ['font_family' => 'Helvetica', 'base_size_pt' => 8.5, 'line_height' => 1.3, 'color' => '#111111', 'weight' => 400],
             'paragraph' => ['indent_left_mm' => 0, 'indent_right_mm' => 0, 'first_line_mm' => 0, 'space_before_pt' => 0, 'space_after_pt' => 4, 'align' => 'left'],
-            'colors' => ['primary' => '#274754', 'accent' => '#2dc7d3', 'muted' => '#6b7280', 'table_header_bg' => '#274754', 'table_header_text' => '#ffffff', 'total_bg' => '#dcfce7', 'total_text' => '#166534'],
+            'colors' => ['primary' => '#0d1b4b', 'accent' => '#a8834a', 'muted' => '#5f6b7a', 'table_header_bg' => '#0d1b4b', 'table_header_text' => '#ffffff', 'total_bg' => '#fbf3e6', 'total_text' => '#0d1b4b', 'fondo_suave' => '#f3f6fa'],
             // Encabezado patronal: la razón social REAL del colaborador
             // (CLAUDE.md §21), nunca "MR. LANA PEOPLE" (eso es el sistema,
             // no el patrón). El placeholder lo resuelve DocumentoAdministrativoService::html()
             // igual que el resto del contenido, contra los datos reales del documento.
             'header' => ['show' => true, 'logo_asset_id' => null, 'logo_height_mm' => 12, 'logo_position' => 'left', 'height_mm' => 18, 'brand_text' => '{{empresa_razon_social}}'],
-            'footer' => ['show' => true, 'text' => 'MR. LANA PEOPLE · Documento generado por el sistema', 'page_numbers' => true, 'distance_mm' => 8],
+            // El formato oficial no lleva pie de sistema (MR. LANA PEOPLE es
+            // el sistema, no el patrón); RH puede activarlo si lo desea.
+            'footer' => ['show' => false, 'text' => '', 'page_numbers' => false, 'distance_mm' => 8],
             'background' => ['asset_id' => null, 'apply_to' => 'all_pages', 'fit' => 'stretch', 'opacity' => 100, 'position' => 'center', 'safe_area_mm' => 0],
-            'tables' => ['font_size_pt' => 9, 'padding_mm' => 1.6, 'border_color' => '#e5e7eb', 'border_width_px' => 1, 'header_style' => 'solid', 'repeat_header' => true, 'avoid_row_break' => true, 'zebra' => false],
-            'signatures' => ['show' => $familia->firmasPorDefecto() !== [], 'line_width_mm' => 65, 'gap_mm' => 22, 'position' => 'split', 'blocks' => $familia->firmasPorDefecto()],
-            'sections' => ['spacing_mm' => 4, 'title_size_pt' => 11, 'title_color' => '#274754', 'divider' => true, 'visibles' => array_map(fn () => true, $familia->secciones())],
+            'tables' => ['font_size_pt' => 9, 'padding_mm' => 1.8, 'border_color' => '#9aa5b8', 'border_width_px' => 0.8, 'header_style' => 'solid', 'repeat_header' => true, 'avoid_row_break' => true, 'zebra' => false],
+            'signatures' => ['show' => $familia->firmasPorDefecto() !== [], 'line_width_mm' => 62, 'gap_mm' => 18, 'position' => 'split', 'blocks' => $familia->firmasPorDefecto()],
+            'sections' => ['spacing_mm' => 5, 'title_size_pt' => 8, 'title_color' => '#0d1b4b', 'divider' => true, 'visibles' => array_map(fn () => true, $familia->secciones())],
             'content' => $familia->contenidoPorDefecto(),
         ];
     }
@@ -76,9 +81,9 @@ class DisenoAdministrativoService
             ],
             'typography' => [
                 'font_family' => $this->opcion($g('typography.font_family', 'Helvetica'), array_keys(self::FUENTES), 'Helvetica'),
-                'base_size_pt' => $this->numero($g('typography.base_size_pt', 9.5), 6, 16),
-                'line_height' => $this->numero($g('typography.line_height', 1.4), 1, 2.5),
-                'color' => $this->color($g('typography.color', '#1f2937'), '#1f2937'),
+                'base_size_pt' => $this->numero($g('typography.base_size_pt', $base['typography']['base_size_pt']), 6, 16),
+                'line_height' => $this->numero($g('typography.line_height', $base['typography']['line_height']), 1, 2.5),
+                'color' => $this->color($g('typography.color', $base['typography']['color']), $base['typography']['color']),
                 'weight' => (int) $this->opcion((string) $g('typography.weight', 400), ['300', '400', '500', '600', '700'], '400'),
             ],
             'paragraph' => [
@@ -102,9 +107,9 @@ class DisenoAdministrativoService
                 'brand_text' => $this->texto($g('header.brand_text', '{{empresa_razon_social}}'), 80),
             ],
             'footer' => [
-                'show' => (bool) $g('footer.show', true),
+                'show' => (bool) $g('footer.show', $base['footer']['show']),
                 'text' => $this->texto($g('footer.text', ''), 200),
-                'page_numbers' => (bool) $g('footer.page_numbers', true),
+                'page_numbers' => (bool) $g('footer.page_numbers', $base['footer']['page_numbers']),
                 'distance_mm' => $this->numero($g('footer.distance_mm', 8), 2, 30),
             ],
             'background' => [
@@ -116,10 +121,10 @@ class DisenoAdministrativoService
                 'safe_area_mm' => $this->numero($g('background.safe_area_mm', 0), 0, 40),
             ],
             'tables' => [
-                'font_size_pt' => $this->numero($g('tables.font_size_pt', 9), 6, 14),
-                'padding_mm' => $this->numero($g('tables.padding_mm', 1.6), 0, 6),
-                'border_color' => $this->color($g('tables.border_color', '#e5e7eb'), '#e5e7eb'),
-                'border_width_px' => $this->numero($g('tables.border_width_px', 1), 0, 4),
+                'font_size_pt' => $this->numero($g('tables.font_size_pt', $base['tables']['font_size_pt']), 6, 14),
+                'padding_mm' => $this->numero($g('tables.padding_mm', $base['tables']['padding_mm']), 0, 6),
+                'border_color' => $this->color($g('tables.border_color', $base['tables']['border_color']), $base['tables']['border_color']),
+                'border_width_px' => $this->numero($g('tables.border_width_px', $base['tables']['border_width_px']), 0, 4),
                 'header_style' => $this->opcion($g('tables.header_style', 'solid'), ['solid', 'light', 'none'], 'solid'),
                 'repeat_header' => (bool) $g('tables.repeat_header', true),
                 'avoid_row_break' => (bool) $g('tables.avoid_row_break', true),
@@ -127,15 +132,15 @@ class DisenoAdministrativoService
             ],
             'signatures' => [
                 'show' => (bool) $g('signatures.show', $base['signatures']['show']),
-                'line_width_mm' => $this->numero($g('signatures.line_width_mm', 65), 20, 120),
-                'gap_mm' => $this->numero($g('signatures.gap_mm', 22), 5, 80),
+                'line_width_mm' => $this->numero($g('signatures.line_width_mm', $base['signatures']['line_width_mm']), 20, 120),
+                'gap_mm' => $this->numero($g('signatures.gap_mm', $base['signatures']['gap_mm']), 5, 80),
                 'position' => $this->opcion($g('signatures.position', 'split'), ['left', 'center', 'right', 'split'], 'split'),
                 'blocks' => $this->firmas($g('signatures.blocks', $base['signatures']['blocks'])),
             ],
             'sections' => [
-                'spacing_mm' => $this->numero($g('sections.spacing_mm', 4), 0, 20),
-                'title_size_pt' => $this->numero($g('sections.title_size_pt', 11), 7, 24),
-                'title_color' => $this->color($g('sections.title_color', '#274754'), '#274754'),
+                'spacing_mm' => $this->numero($g('sections.spacing_mm', $base['sections']['spacing_mm']), 0, 20),
+                'title_size_pt' => $this->numero($g('sections.title_size_pt', $base['sections']['title_size_pt']), 7, 24),
+                'title_color' => $this->color($g('sections.title_color', $base['sections']['title_color']), $base['sections']['title_color']),
                 'divider' => (bool) $g('sections.divider', true),
                 'visibles' => array_map(
                     fn (int|string $clave) => (bool) $g("sections.visibles.{$clave}", true),
@@ -218,7 +223,7 @@ class DisenoAdministrativoService
     }
 
     /**
-     * @return list<array{label: string}>
+     * @return list<array{label: string, detalle?: string}>
      */
     private function firmas(mixed $valor): array
     {
@@ -226,9 +231,10 @@ class DisenoAdministrativoService
 
         foreach (is_array($valor) ? array_slice(array_values($valor), 0, 4) : [] as $bloque) {
             $etiqueta = $this->texto(is_array($bloque) ? ($bloque['label'] ?? '') : $bloque, 80);
+            $detalle = $this->texto(is_array($bloque) ? ($bloque['detalle'] ?? '') : '', 80);
 
             if ($etiqueta !== '') {
-                $bloques[] = ['label' => $etiqueta];
+                $bloques[] = $detalle !== '' ? ['label' => $etiqueta, 'detalle' => $detalle] : ['label' => $etiqueta];
             }
         }
 

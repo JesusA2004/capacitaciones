@@ -17,6 +17,7 @@ use App\Http\Controllers\Rh\FormatoOficialController;
 use App\Http\Controllers\Rh\IncorporacionInvitacionController;
 use App\Http\Controllers\Rh\IntervencionCandidatoController;
 use App\Http\Controllers\Rh\MigracionExpedientesController;
+use App\Http\Controllers\Rh\LoteNominaController;
 use App\Http\Controllers\Rh\NominaController;
 use App\Http\Controllers\Rh\PlantillaController;
 use App\Http\Controllers\Rh\PlantillaOficialController;
@@ -52,6 +53,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Recibos de nómina quincenales (docs/NOMINA_QUINCENAL.md).
         Route::prefix('nomina')->name('nomina.')->group(function () {
+            // Lotes: PREPARAR → REVISAR → EMITIR (LoteNominaService).
+            Route::prefix('lotes')->name('lotes.')->group(function () {
+                Route::get('/', [LoteNominaController::class, 'index'])->name('index');
+                Route::post('/', [LoteNominaController::class, 'store'])->name('store')->middleware('throttle:10,1');
+                Route::get('{lote}', [LoteNominaController::class, 'show'])->name('show');
+                Route::get('{lote}/recibos/{recibo}/pdf', [LoteNominaController::class, 'pdf'])->name('recibos.pdf');
+                Route::get('{lote}/recibos/{recibo}/conceptos', [LoteNominaController::class, 'conceptos'])->name('recibos.conceptos');
+                Route::post('{lote}/emitir', [LoteNominaController::class, 'emitir'])->name('emitir');
+                Route::post('{lote}/cancelar', [LoteNominaController::class, 'cancelar'])->name('cancelar');
+            });
+
             Route::get('/', [NominaController::class, 'index'])->name('index');
             Route::post('preparar', [NominaController::class, 'preparar'])->name('preparar');
             Route::post('emitir', [NominaController::class, 'emitir'])->name('emitir');
@@ -86,6 +98,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             // (Administracion\UsuarioController) solo administra la cuenta
             // de acceso (correo/roles/bloqueo), nunca la relación laboral.
             Route::get('{colaborador}', [ExpedienteController::class, 'show'])->name('show')->withTrashed();
+            Route::post('{colaborador}/avisar-datos-faltantes', [ExpedienteController::class, 'avisarDatosFaltantes'])->name('avisar-datos-faltantes')->middleware('throttle:20,1');
             Route::get('{colaborador}/foto', [ExpedienteController::class, 'descargarFoto'])->name('foto')->withTrashed();
             Route::post('{colaborador}/foto', [ExpedienteController::class, 'subirFoto'])->name('foto.store');
             Route::put('{colaborador}/datos-personales', [ExpedienteController::class, 'actualizarDatosPersonales'])->name('datos-personales.update');
@@ -280,6 +293,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('exportar-excel', [SolicitudController::class, 'exportarExcel'])->name('exportarExcel');
             Route::get('exportar-pdf', [SolicitudController::class, 'exportarPdf'])->name('exportarPdf');
             Route::get('{solicitud}', [SolicitudController::class, 'show'])->name('show');
+            Route::get('{solicitud}/permiso-pdf', [SolicitudController::class, 'permisoPdf'])->name('permiso-pdf');
             Route::get('{solicitud}/documentos/{documento}/ver', [SolicitudController::class, 'verDocumento'])->name('documentos.ver');
             Route::post('{solicitud}/revisar', [SolicitudController::class, 'revisar'])->name('revisar');
             Route::post('{solicitud}/requerir-correccion', [SolicitudController::class, 'requerirCorreccion'])->name('requerir-correccion');
@@ -295,6 +309,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::post('conceptos', [FiniquitoController::class, 'agregarConcepto'])->name('conceptos.store');
                 Route::patch('conceptos/{concepto}', [FiniquitoController::class, 'actualizarConcepto'])->name('conceptos.update');
                 Route::delete('conceptos/{concepto}', [FiniquitoController::class, 'eliminarConcepto'])->name('conceptos.destroy');
+                Route::post('conceptos-automaticos', [FiniquitoController::class, 'ajustarConcepto'])->name('conceptos.ajustar');
+                Route::get('vista-previa', [FiniquitoController::class, 'vistaPrevia'])->name('vista-previa');
                 Route::post('revisar', [FiniquitoController::class, 'revisar'])->name('revisar');
                 Route::post('generar-pdf', [FiniquitoController::class, 'generarPdf'])->name('generar-pdf');
                 Route::get('descargar-pdf', [FiniquitoController::class, 'descargarPdf'])->name('descargar-pdf');

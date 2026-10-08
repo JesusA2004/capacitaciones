@@ -123,3 +123,36 @@ test('un candidato solo preautorizado por el gerente todavía no puede contratar
     expect($candidato->refresh()->colaborador_id)->toBeNull()
         ->and(IncorporacionInvitacion::query()->count())->toBe(0);
 });
+
+test('carrera por la última plaza: con 1 plaza autorizada, el segundo candidato de la misma vacante no se contrata', function () {
+    Sanctum::actingAs($this->rh);
+    \App\Models\HeadcountTarget::factory()->create(['sucursal_id' => $this->estructura['sucursal']->id, 'puesto_id' => $this->estructura['puesto']->id, 'plantilla_autorizada' => 1]);
+    $primero = clCandidatoAutorizado($this);
+
+    // Segundo candidato ligado a la MISMA vacante mientras todavía tenía plaza.
+    $segundo = Candidato::factory()->create(['vacante_id' => $primero->vacante_id, 'estado' => EstadoCandidato::AutorizadoRh->value]);
+
+    $this->postJson("/api/v1/rh/candidatos/{$primero->id}/contratar", ['sueldo_mensual' => 12000, 'fecha_ingreso' => now()->toDateString()])->assertCreated();
+
+    $this->postJson("/api/v1/rh/candidatos/{$segundo->id}/contratar", ['sueldo_mensual' => 12000, 'fecha_ingreso' => now()->toDateString()])
+        ->assertUnprocessable();
+
+    expect(Colaborador::query()->where('puesto_id', $this->estructura['puesto']->id)->where('sucursal_principal_id', $this->estructura['sucursal']->id)->count())->toBe(1);
+});
+
+test('la sucursal y el puesto del contratado salen de la vacante aunque la petición mande otros', function () {
+    Sanctum::actingAs($this->rh);
+    $candidato = clCandidatoAutorizado($this);
+    $otra = \App\Models\Sucursal::factory()->create();
+
+    $respuesta = $this->postJson("/api/v1/rh/candidatos/{$candidato->id}/contratar", [
+        'sueldo_mensual' => 12000,
+        'fecha_ingreso' => now()->toDateString(),
+        'sucursal_principal_id' => $otra->id,
+        'puesto_id' => \App\Models\Puesto::factory()->create()->id,
+    ])->assertCreated();
+
+    $colaborador = Colaborador::query()->findOrFail($respuesta->json('colaborador_id'));
+    expect($colaborador->sucursal_principal_id)->toBe($this->estructura['sucursal']->id)
+        ->and($colaborador->puesto_id)->toBe($this->estructura['puesto']->id);
+});

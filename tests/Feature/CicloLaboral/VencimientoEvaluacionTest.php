@@ -195,3 +195,35 @@ test('el gerente de sucursal que no es el jefe directo también recibe el aviso 
     Notification::assertSentToTimes($gerente, PendienteRhNotification::class, 1);
     Notification::assertSentToTimes($this->jefeUsuario, PendienteRhNotification::class, 1);
 });
+
+test('aprobar dos veces no duplica el contrato indeterminado (idempotente)', function () {
+    clPlantilla('contrato_indeterminado');
+    $this->artisan('contratos:revisar-vencimientos');
+    $evaluacion = EvaluacionPeriodoPrueba::query()->firstOrFail();
+
+    Sanctum::actingAs($this->jefeUsuario);
+    $this->postJson("/api/v1/evaluaciones/{$evaluacion->id}/capturar", ['criterios' => [['criterio' => 'General', 'calificacion' => 9]], 'recomienda_renovar' => true]);
+
+    Sanctum::actingAs($this->rh);
+    $this->postJson("/api/v1/evaluaciones/{$evaluacion->id}/autorizar", ['renovar' => true])->assertOk();
+    $this->postJson("/api/v1/evaluaciones/{$evaluacion->id}/autorizar", ['renovar' => true])->assertUnprocessable();
+
+    expect(ContratoLaboral::query()->where('contrato_anterior_id', $this->contrato->id)->count())->toBe(1)
+        ->and($evaluacion->refresh()->contrato_renovacion_id)->not->toBeNull();
+});
+
+test('la duración de la capacitación sale del PUESTO (sin respaldo global)', function () {
+    $contratos = app(ContratoLaboralService::class);
+    $subgerente = Puesto::factory()->create(['nombre' => 'Subgerente', 'meses_periodo_prueba' => 3]);
+    $gestor = Puesto::factory()->create(['nombre' => 'Gestor', 'meses_periodo_prueba' => 2]);
+
+    expect($contratos->fechaFinPeriodoPrueba($gestor->id, \Carbon\CarbonImmutable::parse('2026-10-01'))->toDateString())->toBe('2026-11-30')
+        ->and($contratos->fechaFinPeriodoPrueba($subgerente->id, \Carbon\CarbonImmutable::parse('2026-01-31'))->toDateString())->toBe('2026-04-29');
+});
+
+test('un puesto sin duración configurada bloquea la contratación con un mensaje claro', function () {
+    $sinDuracion = Puesto::factory()->sinDuracionCapacitacion()->create(['nombre' => 'Analista']);
+
+    expect(fn () => app(ContratoLaboralService::class)->fechaFinPeriodoPrueba($sinDuracion->id, now()))
+        ->toThrow(\Illuminate\Validation\ValidationException::class, 'Configura la duración de la capacitación inicial para el puesto «Analista»');
+});

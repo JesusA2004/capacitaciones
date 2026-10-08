@@ -67,6 +67,7 @@ class AltaColaboradorService
         private readonly AsignacionService $asignaciones,
         private readonly IdentidadColaboradorService $identidad,
         private readonly JefeDirectoService $jefes,
+        private readonly AvisoAltaBajaService $avisoAltaBaja,
     ) {}
 
     /**
@@ -336,6 +337,9 @@ class AltaColaboradorService
         if ($usuario !== null) {
             $this->notificador->notificar([$usuario], 'alta_activada', '¡Bienvenido a MR. LANA!', '¡Listo! Ya tienes acceso completo a tu portal.', $colaborador, null, 'media');
         }
+
+        // ALTA → RH + Sistemas (cuenta, accesos y equipo).
+        $this->avisoAltaBaja->alta($colaborador);
 
         return $colaborador->refresh();
     }

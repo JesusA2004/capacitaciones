@@ -93,8 +93,8 @@ const SIDEBAR_A_GUIA = [
     'Sucursales' => ['sucursales'],
     'Departamentos' => ['departamentos'],
     'Puestos' => ['puestos'],
-    'Roles y permisos' => ['roles'],
-    'Versiones de app' => ['app-releases'],
+    'Roles' => ['roles'],
+    'Versiones app' => ['app-releases'],
     'Mi portal' => ['portal'],
     'Mi expediente' => ['mi-expediente'],
     'Mis solicitudes' => ['mis-solicitudes'],
@@ -110,8 +110,8 @@ const SIDEBAR_SIN_GUIA = [
     'Avisos',
     'Mis recibos de nómina',
     'Muro de felicitaciones',
-    'Cambios de foto',
     'Recibos de nómina',
+    'Evaluación de capacitación inicial',
 ];
 
 test('todo acceso del sidebar tiene módulo de guía o una justificación explícita', function () {

@@ -60,6 +60,7 @@ return [
     // (App\Services\Solicitudes\AprobacionJerarquicaService). Constancias,
     // actualizaciones de datos, incapacidades y bajas van directo a RH.
     'visto_bueno_jefe' => [
+        TipoSolicitudInterna::Permiso->value,
         TipoSolicitudInterna::Vacaciones->value,
         TipoSolicitudInterna::PermisoConGoce->value,
         TipoSolicitudInterna::PermisoSinGoce->value,

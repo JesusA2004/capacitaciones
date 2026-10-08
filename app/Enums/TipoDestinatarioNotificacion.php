@@ -25,6 +25,7 @@ enum TipoDestinatarioNotificacion: string
     case Creador = 'creador';
     case Evaluador = 'evaluador';
     case Aprobador = 'aprobador';
+    case Sistemas = 'sistemas';
 
     public function etiqueta(): string
     {
@@ -43,6 +44,7 @@ enum TipoDestinatarioNotificacion: string
             self::Creador => 'Quien registró el movimiento',
             self::Evaluador => 'El evaluador asignado',
             self::Aprobador => 'El aprobador asignado',
+            self::Sistemas => 'Sistemas',
         };
     }
 
@@ -66,6 +68,7 @@ enum TipoDestinatarioNotificacion: string
             self::Creador => 'Quien capturó el movimiento en el sistema.',
             self::Evaluador => 'La persona asignada para evaluar (por ejemplo, el periodo de prueba).',
             self::Aprobador => 'La persona a quien le toca autorizar en ese momento.',
+            self::Sistemas => 'Quienes tienen el rol «sistemas» o un puesto del departamento de Sistemas (cuentas, accesos y equipo). Se resuelve por rol/departamento, nunca por nombre.',
         };
     }
 
@@ -89,6 +92,7 @@ enum TipoDestinatarioNotificacion: string
             self::Creador => 'registraste el movimiento',
             self::Evaluador => 'eres el evaluador asignado',
             self::Aprobador => 'eres el aprobador asignado',
+            self::Sistemas => 'eres del área de Sistemas',
         };
     }
 }

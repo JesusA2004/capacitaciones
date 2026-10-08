@@ -4,6 +4,7 @@ use App\Http\Controllers\Portal\MiProcesoController;
 use App\Http\Controllers\Rh\CicloColaboradorController;
 use App\Http\Controllers\Rh\CierreLaboralController;
 use App\Http\Controllers\Rh\DocumentoLaboralController;
+use App\Http\Controllers\Rh\EvaluacionCapacitacionController;
 use App\Http\Controllers\Rh\EvaluacionPeriodoPruebaController;
 use App\Http\Controllers\Rh\OnboardingController;
 use App\Http\Controllers\Rh\PendienteController;
@@ -43,6 +44,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         });
 
         Route::prefix('evaluaciones')->name('evaluaciones.')->group(function () {
+            Route::get('/', [EvaluacionCapacitacionController::class, 'index'])->name('index');
             Route::post('{evaluacion}/capturar', [EvaluacionPeriodoPruebaController::class, 'capturar'])->name('capturar');
             Route::post('{evaluacion}/autorizar', [EvaluacionPeriodoPruebaController::class, 'autorizar'])->name('autorizar');
             Route::post('{evaluacion}/devolver', [EvaluacionPeriodoPruebaController::class, 'devolver'])->name('devolver');

@@ -23,6 +23,7 @@ use App\Services\Colaboradores\AltaColaboradorService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Incorporacion\IncorporacionInvitacionService;
 use App\Services\Tareas\TareaService;
+use App\Services\Vacantes\VacantesListadoService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -82,6 +83,11 @@ class ContratacionCandidatoService
             ]);
         }
 
+        // La VACANTE es la única fuente de sucursal, departamento y puesto:
+        // cualquier valor distinto que llegue en la petición se ignora (no se
+        // puede contratar a alguien en otra plaza manipulando el formulario).
+        $vacante = Vacante::query()->whereKey($candidato->vacante_id)->firstOrFail();
+
         $datosAlta = [
             ...$datos,
             'name' => $datos['name'] ?? $candidato->nombre,
@@ -89,10 +95,10 @@ class ContratacionCandidatoService
             'telefono' => $datos['telefono'] ?? $candidato->telefono,
             'email' => null,
             'crear_acceso' => false,
-            'sucursal_principal_id' => $datos['sucursal_principal_id'] ?? $candidato->sucursal_id,
-            'departamento_id' => $datos['departamento_id'] ?? $candidato->departamento_id,
-            'puesto_id' => $datos['puesto_id'] ?? $candidato->puesto_objetivo_id,
-            'vacante_id' => $datos['vacante_id'] ?? $candidato->vacante_id,
+            'sucursal_principal_id' => $vacante->sucursal_id,
+            'departamento_id' => $vacante->departamento_id ?? $candidato->departamento_id,
+            'puesto_id' => $vacante->puesto_id,
+            'vacante_id' => $vacante->id,
             'tipo_contratacion' => $datos['tipo_contratacion'] ?? TipoContratacion::CapacitacionInicial->value,
             'candidato_id' => $candidato->id,
         ];
@@ -109,35 +115,11 @@ class ContratacionCandidatoService
             throw ValidationException::withMessages(['email' => 'Ya existe una cuenta con ese correo: si es un reingreso, búscalo en Reingresos.']);
         }
 
-        $colaborador = $this->altas->registrar($datosAlta, $actor, function (Colaborador $colaborador) use ($candidato, $actor, $datosAlta): void {
-            /** Bloqueo del candidato: dos RH no pueden convertirlo a la vez. */
-            $bloqueado = Candidato::query()->lockForUpdate()->findOrFail($candidato->id);
-
-            if ($bloqueado->colaborador_id !== null || $bloqueado->estado !== EstadoCandidato::AutorizadoRh) {
-                throw ValidationException::withMessages(['candidato' => 'Este candidato ya entró a contratación.']);
-            }
-
-            $bloqueado->update([
-                'estado' => EstadoCandidato::EnContratacion,
-                'etapa_maxima' => max($bloqueado->etapa_maxima, EstadoCandidato::EnContratacion->orden()),
-                'colaborador_id' => $colaborador->id,
-            ]);
-
-            $bloqueado->seguimientos()->create([
-                'tipo' => TipoSeguimientoCandidato::CambioEstado,
-                'nota' => "Inició la contratación: colaborador {$colaborador->numero_empleado} creado y QR de registro generado.",
-                'estado_anterior' => EstadoCandidato::AutorizadoRh->value,
-                'estado_nuevo' => EstadoCandidato::EnContratacion->value,
-                'fecha' => now(),
-                'registrado_por' => $actor->id,
-            ]);
-
-            if (! empty($datosAlta['vacante_id'])) {
-                $this->ocuparPlaza((int) $datosAlta['vacante_id'], $bloqueado, $colaborador);
-            }
-
-            $this->copiarCv($bloqueado, $colaborador, $actor);
-        });
+        // Carrera por la ÚLTIMA plaza: se bloquea la vacante y se verifica el
+        // faltante real ANTES de crear al colaborador, todo en la misma
+        // transacción. Dos contrataciones simultáneas de la misma vacante se
+        // serializan aquí; la segunda ve la plaza ya ocupada y se rechaza.
+        $colaborador = DB::transaction(fn (): Colaborador => $this->registrarEnVacante($vacante->id, $candidato, $datosAlta, $actor));
 
         ['invitacion' => $invitacion, 'token' => $token] = $this->invitaciones->crear([
             'candidato_id' => $candidato->id,
@@ -224,6 +206,54 @@ class ContratacionCandidatoService
                 'candidato' => "El candidato está en «{$candidato->estado->etiqueta()}»: solo se contrata con la autorización final de RH registrada.",
             ]);
         }
+    }
+
+    /**
+     * Crea al colaborador en la plaza de la vacante, solo si la vacante sigue
+     * teniendo faltante real (bloqueada con lockForUpdate). Debe correr dentro
+     * de una transacción.
+     *
+     * @param  array<string, mixed>  $datosAlta
+     */
+    private function registrarEnVacante(int $vacanteId, Candidato $candidato, array $datosAlta, User $actor): Colaborador
+    {
+        $vacante = Vacante::query()->lockForUpdate()->find($vacanteId);
+
+        if ($vacante === null || ! app(VacantesListadoService::class)->tieneCupo($vacante)) {
+            throw ValidationException::withMessages([
+                'vacante_id' => 'Esta vacante ya no tiene plazas disponibles (se cubrió mientras tanto). Vincula al candidato a otra vacante real.',
+            ]);
+        }
+
+        return $this->altas->registrar($datosAlta, $actor, function (Colaborador $colaborador) use ($candidato, $actor, $datosAlta): void {
+            /** Bloqueo del candidato: dos RH no pueden convertirlo a la vez. */
+            $bloqueado = Candidato::query()->lockForUpdate()->findOrFail($candidato->id);
+
+            if ($bloqueado->colaborador_id !== null || $bloqueado->estado !== EstadoCandidato::AutorizadoRh) {
+                throw ValidationException::withMessages(['candidato' => 'Este candidato ya entró a contratación.']);
+            }
+
+            $bloqueado->update([
+                'estado' => EstadoCandidato::EnContratacion,
+                'etapa_maxima' => max($bloqueado->etapa_maxima, EstadoCandidato::EnContratacion->orden()),
+                'colaborador_id' => $colaborador->id,
+            ]);
+
+            $bloqueado->seguimientos()->create([
+                'tipo' => TipoSeguimientoCandidato::CambioEstado,
+                'nota' => "Inició la contratación: colaborador {$colaborador->numero_empleado} creado y QR de registro generado.",
+                'estado_anterior' => EstadoCandidato::AutorizadoRh->value,
+                'estado_nuevo' => EstadoCandidato::EnContratacion->value,
+                'fecha' => now(),
+                'registrado_por' => $actor->id,
+            ]);
+
+            if (! empty($datosAlta['vacante_id'])) {
+                $this->ocuparPlaza((int) $datosAlta['vacante_id'], $bloqueado, $colaborador);
+            }
+
+            $this->copiarCv($bloqueado, $colaborador, $actor);
+        });
     }
 
     /**

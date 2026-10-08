@@ -15,6 +15,10 @@ export default defineConfig({
                 bunny('Instrument Sans', {
                     weights: [400, 500, 600],
                 }),
+                // Tipografía de marca (PEOPLE): títulos y encabezados.
+                bunny('Montserrat', {
+                    weights: [500, 600, 700],
+                }),
             ],
         }),
         inertia(),

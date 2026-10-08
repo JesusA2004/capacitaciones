@@ -20,9 +20,9 @@ export const TEMAS_COLOR: {
 }[] = [
     {
         id: 'verde',
-        nombre: 'Verde MR. LANA',
-        primario: '#64d64b',
-        secundario: '#2dc7d3',
+        nombre: 'Petróleo MR. LANA PEOPLE',
+        primario: '#0d3e43',
+        secundario: '#af8b51',
     },
     { id: 'azul', nombre: 'Azul', primario: '#3b82f6', secundario: '#06b6d4' },
     {
@@ -47,7 +47,7 @@ export const TEMAS_COLOR: {
 ];
 
 export const AVATAR_COLORES: { id: string; hex: string }[] = [
-    { id: 'verde', hex: '#64d64b' },
+    { id: 'verde', hex: '#225c54' },
     { id: 'azul', hex: '#3b82f6' },
     { id: 'morado', hex: '#8b5cf6' },
     { id: 'naranja', hex: '#f97316' },
@@ -59,7 +59,7 @@ export const AVATAR_COLORES: { id: string; hex: string }[] = [
 
 export const PREFERENCIAS_UI_DEFAULT: PreferenciasUi = {
     tema_color: 'verde',
-    avatar_color: '#64d64b',
+    avatar_color: '#225c54',
     animaciones: true,
 };
 

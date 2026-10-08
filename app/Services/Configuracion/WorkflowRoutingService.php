@@ -13,6 +13,7 @@ use App\Services\Auditoria\AuditoriaService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
 use App\Services\Colaboradores\JerarquiaColaboradorService;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -233,12 +234,35 @@ class WorkflowRoutingService
                 Tipo::Rh => $this->conPermiso(OrganizacionJerarquiaService::PERMISO_AUTORIZAR_RH, $sujeto),
                 Tipo::UsuariosConPermiso => is_string($regla['permiso'] ?? null) ? $this->conPermiso($regla['permiso'], $sujeto) : collect(),
                 Tipo::UsuarioEspecifico => User::query()->whereIn('id', (array) ($regla['usuario_ids'] ?? []))->get()->filter(fn (User $u) => $this->alcanza($u, $sujeto))->values(),
+                Tipo::Sistemas => $this->sistemas(),
             };
         } catch (Throwable $e) {
             Log::warning('WorkflowRoutingService: no se pudo resolver un destinatario.', ['destinatario' => $tipo->value, 'error' => $e->getMessage()]);
 
             return collect();
         }
+    }
+
+    /**
+     * Área de Sistemas: cuentas con el rol configurado (sistemas) o cuyo
+     * colaborador ocupa un puesto de los departamentos configurados
+     * (Sistemas). Nunca un usuario fijo: se resuelve por rol/departamento
+     * (config/configuracion_sistema.php → sistemas).
+     *
+     * @return Collection<int, User>
+     */
+    private function sistemas(): Collection
+    {
+        $roles = (array) config('configuracion_sistema.sistemas.roles', ['sistemas']);
+        $departamentos = array_map('mb_strtolower', (array) config('configuracion_sistema.sistemas.departamentos', ['Sistemas']));
+
+        return User::query()
+            ->where(fn ($q) => $q
+                ->whereHas('roles', fn ($r) => $r->whereIn('name', $roles))
+                ->orWhereHas('colaborador', fn ($c) => $c
+                    ->whereHas('departamento', fn ($d) => $d->whereIn(DB::raw('LOWER(nombre)'), $departamentos))
+                    ->orWhereHas('puesto.departamento', fn ($d) => $d->whereIn(DB::raw('LOWER(nombre)'), $departamentos))))
+            ->get();
     }
 
     private function jefeDirecto(Colaborador|Candidato|null $sujeto): ?Colaborador

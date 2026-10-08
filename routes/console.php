@@ -31,6 +31,11 @@ Schedule::command('cumpleanos:recordar-rh')->dailyAt('07:30')->timezone('America
 // de cumpleaños y aniversarios del día antes del horario laboral. Idempotente.
 Schedule::command('celebraciones:preparar')->dailyAt('06:30')->timezone('America/Mexico_City')->withoutOverlapping();
 
+// Aniversarios laborales: felicitación automática (in-app + push) a la misma
+// hora que los cumpleaños. Antes solo se PREPARABAN y nunca se enviaban.
+// Idempotente y a prueba de carreras (enviada_at se reclama antes de avisar).
+Schedule::command('aniversarios:enviar-felicitaciones')->dailyAt('08:00')->timezone('America/Mexico_City')->withoutOverlapping();
+
 // Ciclo laboral (docs/backend-rh-completion.md): vencimientos de contratos
 // (evaluación de periodo de prueba, tareas y avisos N días antes, sin
 // duplicar) y barrido de pendientes de expediente. Idempotente;

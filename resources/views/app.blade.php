@@ -22,11 +22,11 @@
         {{-- Inline style to set the HTML background color based on our theme in app.css --}}
         <style>
             html {
-                background-color: oklch(1 0 0);
+                background-color: #faf8f3;
             }
 
             html.dark {
-                background-color: oklch(0.145 0 0);
+                background-color: #0b1718;
             }
         </style>
 
@@ -42,7 +42,7 @@
         @php($descripcionSitio = 'MR. LANA PEOPLE: portal de Recursos Humanos de Mr. Lana — expediente digital, solicitudes, vacaciones, recibos de nómina y la app móvil para colaboradores.')
         <meta name="description" content="{{ $descripcionSitio }}">
         <meta name="robots" content="{{ $conSesion ? 'noindex, nofollow' : 'index, follow' }}">
-        <meta name="theme-color" content="#274754">
+        <meta name="theme-color" content="#0D3E43">
         <link rel="canonical" href="{{ url()->current() }}">
         <meta property="og:type" content="website">
         <meta property="og:site_name" content="MR. LANA PEOPLE">

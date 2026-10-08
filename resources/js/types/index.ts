@@ -19,6 +19,7 @@ export * from './matrizComercial';
 export * from './micapacitacion';
 export * from './multimedia';
 export * from './navigation';
+export * from './nomina';
 export * from './plantillas';
 export * from './portal';
 export * from './reclutamiento';

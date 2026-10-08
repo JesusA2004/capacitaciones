@@ -11,9 +11,44 @@ export type TipoSolicitudInterna = {
  * solicitud" del colaborador (campos condicionales por tipo) y por la app
  * móvil.
  */
+/** Campo del formulario dinámico (p. ej. el permiso). */
+export type CampoSolicitudFormulario = {
+    name: string;
+    type: 'date' | 'dates' | 'number' | 'text' | 'time' | 'opciones' | 'select';
+    required: boolean;
+    label: string;
+    min?: number;
+    max?: number;
+    ayuda?: string;
+    opciones?: { value: string; label: string }[];
+    /** Solo se muestra si `campo` tiene alguno de `valores`. */
+    mostrar_si?: { campo: string; valores: string[] };
+};
+
+/** Resumen del permiso (formato oficial liberado solo tras RH). */
+export type PermisoResumen = {
+    tipo: string | null;
+    tipo_etiqueta: string | null;
+    goce: string | null;
+    goce_etiqueta: string | null;
+    causal: string | null;
+    causal_etiqueta: string | null;
+    hora_salida: string | null;
+    hora_entrada: string | null;
+    dias: number | null;
+    autorizado_por_rh: boolean;
+    autorizado_por: string | null;
+    autorizado_en: string | null;
+    pdf_disponible: boolean;
+};
+
 export type TipoSolicitudInternaFormulario = {
     clave: string;
     nombre: string;
+    /** Aparece como tarjeta en «Nueva solicitud» (permisos, vacaciones, préstamos). */
+    en_catalogo: boolean;
+    descripcion: string;
+    campos: CampoSolicitudFormulario[];
     /** Cómo se capturan las fechas (App\Enums\ModoFechasSolicitud). */
     modo_fechas:
         'duracion' | 'dias_especificos' | 'horario' | 'fecha_unica' | 'ninguna';
@@ -93,6 +128,15 @@ export type FiniquitoCalculoItem = {
  */
 export type FiniquitoDesgloseItem = {
     id: number | null;
+    /** Clave del formato oficial (001 Sueldo pendiente… 101 ISR…). */
+    clave?: string;
+    /** Concepto automático ajustable (sueldo_pendiente, isr_retenido…). */
+    concepto_clave?: string | null;
+    dias?: number | null;
+    valor_calculado?: number | null;
+    ajustado?: boolean;
+    ajuste?: { motivo: string; usuario: string | null; fecha: string | null; valor_calculado: number; valor_final: number } | null;
+    editable?: boolean;
     concepto: string;
     tipo: 'percepcion' | 'deduccion' | string;
     cantidad: number;

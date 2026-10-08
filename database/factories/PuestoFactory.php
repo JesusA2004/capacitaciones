@@ -21,6 +21,14 @@ class PuestoFactory extends Factory
             'departamento_id' => Departamento::factory(),
             'descripcion' => fake()->sentence(),
             'activo' => true,
+            // Cada puesto que contrata con capacitación inicial tiene su duración.
+            'meses_periodo_prueba' => 2,
         ];
+    }
+
+    /** Puesto sin duración de capacitación configurada (bloquea contratar). */
+    public function sinDuracionCapacitacion(): static
+    {
+        return $this->state(['meses_periodo_prueba' => null]);
     }
 }

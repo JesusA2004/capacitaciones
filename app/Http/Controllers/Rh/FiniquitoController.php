@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Rh;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CicloLaboral\FiniquitoCierreRequest;
 use App\Http\Requests\Rh\ActualizarAjustesFiniquitoRequest;
+use App\Http\Requests\Rh\AjustarConceptoFiniquitoRequest;
 use App\Http\Requests\Rh\CalcularFiniquitoRequest;
 use App\Http\Requests\Rh\SubirFiniquitoFirmadoRequest;
 use App\Models\FiniquitoCalculo;
@@ -12,6 +13,7 @@ use App\Models\FiniquitoConcepto;
 use App\Models\SolicitudInterna;
 use App\Services\Finiquitos\FiniquitoService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class FiniquitoController extends Controller
@@ -95,6 +97,36 @@ class FiniquitoController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => 'Concepto eliminado.']);
     }
 
+    /**
+     * Ajuste autorizado de un concepto automático (valor calculado → valor
+     * final + motivo); el servidor recalcula el total.
+     */
+    public function ajustarConcepto(AjustarConceptoFiniquitoRequest $request, SolicitudInterna $solicitud): RedirectResponse
+    {
+        $finiquito = $this->finiquitoDe($solicitud);
+        $this->authorize('editarAjustes', $finiquito);
+
+        $this->finiquitos->ajustarConceptoAutomatico($finiquito, (string) $request->validated('concepto_clave'), (float) $request->validated('importe'), (string) $request->validated('motivo'), $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Ajuste registrado; el total se recalculó.']);
+    }
+
+    /**
+     * Vista previa del formato oficial con los montos actuales (no guarda nada).
+     */
+    public function vistaPrevia(SolicitudInterna $solicitud): Response
+    {
+        $finiquito = $this->finiquitoDe($solicitud);
+        $this->authorize('ver', $finiquito);
+
+        return response($this->finiquitos->vistaPreviaPdf($finiquito), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="finiquito-vista-previa.pdf"',
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'no-store',
+        ]);
+    }
+
     public function revisar(SolicitudInterna $solicitud): RedirectResponse
     {
         $finiquito = $this->finiquitoDe($solicitud);
@@ -110,15 +142,9 @@ class FiniquitoController extends Controller
         $finiquito = $this->finiquitoDe($solicitud);
         $this->authorize('ver', $finiquito);
 
-        $usaFormatoOficial = $this->finiquitos->tieneFormatoOficialConfigurado();
         $this->finiquitos->generarPdf($finiquito, request()->user());
 
-        return back()->with('toast', [
-            'type' => 'success',
-            'message' => $usaFormatoOficial
-                ? 'PDF de finiquito generado con el formato oficial.'
-                : 'PDF de finiquito generado (formato interno provisional; no hay formato oficial de finiquito configurado).',
-        ]);
+        return back()->with('toast', ['type' => 'success', 'message' => 'PDF de finiquito generado con el formato oficial.']);
     }
 
     public function descargarPdf(SolicitudInterna $solicitud): StreamedResponse
