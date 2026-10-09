@@ -10,11 +10,13 @@ import simboloColor from '@/assets/brand/people/MrLanaPeople_simbolo_color.svg';
 </script>
 
 <template>
-    <span class="flex w-full items-center group-data-[collapsible=icon]:hidden">
+    <span
+        class="flex w-full items-center justify-center px-1 group-data-[collapsible=icon]:hidden"
+    >
         <img
             :src="horizontalColor"
             alt="MR. LANA PEOPLE"
-            class="h-11 w-auto max-w-full object-contain"
+            class="h-[4.5rem] w-full max-w-[13.5rem] object-contain drop-shadow-[0_1px_1px_rgb(49_91_89/0.08)]"
         />
     </span>
     <span
@@ -23,7 +25,7 @@ import simboloColor from '@/assets/brand/people/MrLanaPeople_simbolo_color.svg';
         <img
             :src="simboloColor"
             alt="MR. LANA PEOPLE"
-            class="size-7 object-contain"
+            class="size-8 object-contain"
         />
     </span>
 </template>
