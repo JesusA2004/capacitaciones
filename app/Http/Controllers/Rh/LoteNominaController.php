@@ -95,8 +95,13 @@ class LoteNominaController extends Controller
             ? $request->string('filtro')->toString()
             : 'todos';
 
+        $resumen = $this->lotes->resumen($lote);
+        // Emitido con recibos en borrador = una emisión que se cortó: se puede reintentar.
+        $emitible = $lote->estado === EstadoLoteNomina::Preparado
+            || ($lote->estado === EstadoLoteNomina::Emitido && $resumen['por_emitir'] > 0);
+
         return Inertia::render('Rh/Nomina/Lote', [
-            'lote' => $this->lotes->resumen($lote),
+            'lote' => $resumen,
             'recibos' => $this->lotes->recibos($lote, $usuario, $filtro),
             'conteos' => [
                 'todos' => count($this->lotes->recibos($lote, $usuario)),
@@ -105,7 +110,7 @@ class LoteNominaController extends Controller
                 'errores' => count($lote->errores ?? []),
             ],
             'filtro' => $filtro,
-            'puedeEmitir' => $usuario->can('nomina.recibos.crear') && $lote->estado === EstadoLoteNomina::Preparado,
+            'puedeEmitir' => $usuario->can('nomina.recibos.crear') && $emitible,
             'puedeCancelar' => $usuario->can('nomina.recibos.crear') && $lote->estado !== EstadoLoteNomina::Cancelado,
             'puedeEditar' => $usuario->can('nomina.recibos.crear') && $lote->estado === EstadoLoteNomina::Preparado,
         ]);

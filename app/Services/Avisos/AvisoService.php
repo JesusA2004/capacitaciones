@@ -12,6 +12,7 @@ use App\Services\MobilePush\PushNotifier;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -121,6 +122,8 @@ class AvisoService
             ->where(fn ($q) => $q->where('alcance', AlcanceAviso::Todos)->orWhere('colaborador_objetivo_id', $colaborador->id))
             ->with('creadoPor:id,name,apellidos')
             ->withExists(['lecturas as leido' => fn ($q) => $q->where('user_id', $usuarioId)])
+            // Cuándo lo leyó (histórico del expediente).
+            ->addSelect(['leido_en' => AvisoLectura::query()->select('leido_en')->whereColumn('aviso_id', 'avisos.id')->where('user_id', $usuarioId)->limit(1)])
             ->orderByDesc('enviado_en')
             ->paginate($porPagina);
 
@@ -188,7 +191,10 @@ class AvisoService
             'creado_por' => $aviso->creadoPor !== null ? ['id' => $aviso->creadoPor->id, 'name' => $aviso->creadoPor->name, 'apellidos' => $aviso->creadoPor->apellidos] : null,
             'enviado_en' => $aviso->enviado_en?->toIso8601String(),
             'created_at' => $aviso->created_at?->toIso8601String(),
-            ...($incluirLeido ? ['leido' => (bool) $aviso->getAttribute('leido')] : []),
+            ...($incluirLeido ? [
+                'leido' => (bool) $aviso->getAttribute('leido'),
+                'leido_en' => $aviso->getAttribute('leido_en') !== null ? Carbon::parse((string) $aviso->getAttribute('leido_en'))->toIso8601String() : null,
+            ] : []),
         ];
     }
 

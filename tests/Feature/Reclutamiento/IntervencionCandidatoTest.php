@@ -7,6 +7,7 @@ use App\Enums\GrupoPuestoIndicador;
 use App\Enums\RutaIntervencionCandidato;
 use App\Enums\TipoNodoComercial;
 use App\Models\Candidato;
+use App\Models\HeadcountTarget;
 use App\Models\Colaborador;
 use App\Models\IntervencionCandidato;
 use App\Models\NodoComercial;
@@ -35,6 +36,11 @@ beforeEach(function () {
 function icCandidatoRechazadoPorRh(object $t): Candidato
 {
     $estructura = $t->estructura;
+    // Vacante REAL: solo existe con plantilla autorizada y plaza libre.
+    HeadcountTarget::query()->firstOrCreate(
+        ['sucursal_id' => $estructura['sucursal']->id, 'puesto_id' => $estructura['puesto']->id],
+        HeadcountTarget::factory()->raw(['sucursal_id' => $estructura['sucursal']->id, 'puesto_id' => $estructura['puesto']->id, 'plantilla_autorizada' => 10]),
+    );
     $vacante = Vacante::factory()->create([
         'empresa_id' => $estructura['empresa']->id,
         'sucursal_id' => $estructura['sucursal']->id,

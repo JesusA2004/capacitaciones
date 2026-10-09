@@ -17,6 +17,7 @@ use App\Services\Contratos\ContratoLaboralService;
 use App\Services\DocumentosLaborales\DocumentoLaboralConsultaService;
 use App\Services\DocumentosLaborales\FlujoDocumentalService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
+use App\Services\Expedientes\ActualizacionDatosService;
 use App\Services\Expedientes\DatosFaltantesService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Nomina\PrestamoAutorizacionService;
@@ -132,13 +133,14 @@ class CicloLaboralColaboradorController extends Controller
      * Se completan con la solicitud de actualización de datos (RH aprueba);
      * nunca editando directo. Recalculado en vivo.
      */
-    public function datosFaltantes(Request $request, DatosFaltantesService $datos): JsonResponse
+    public function datosFaltantes(Request $request, DatosFaltantesService $datos, ActualizacionDatosService $actualizacion): JsonResponse
     {
         $resumen = $datos->resumen($this->colaborador($request));
 
         return response()->json(['data' => [
             'completo' => $resumen['personales'] === [],
-            'faltan' => $resumen['personales'],
+            // Cada faltante con su control de captura (texto, fecha, opciones…).
+            'faltan' => $actualizacion->conCaptura($resumen['personales']),
             'solicitud_en_revision' => $resumen['solicitud_en_revision'],
         ]]);
     }

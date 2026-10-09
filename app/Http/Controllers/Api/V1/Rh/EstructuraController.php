@@ -8,6 +8,8 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\Colaboradores\JerarquiaColaboradorService;
 use App\Services\Headcount\HeadcountService;
 use App\Services\Reportes\IndicadoresRhService;
+use App\Services\Vacantes\VacantesListadoService;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -22,6 +24,7 @@ class EstructuraController extends Controller
         private readonly IndicadoresRhService $indicadores,
         private readonly JerarquiaColaboradorService $jerarquia,
         private readonly AlcanceOrganizacionalService $alcance,
+        private readonly VacantesListadoService $vacantes,
     ) {}
 
     public function cobertura(Request $request): JsonResponse
@@ -90,7 +93,8 @@ class EstructuraController extends Controller
             'dias_abierta' => $vacante->diasAbierta(),
             'plazas_requeridas' => $vacante->plazas_requeridas,
             'plazas_cubiertas' => $vacante->plazas_cubiertas,
-            'plazas_disponibles' => $vacante->plazas_disponibles,
+            // Fuente canónica: autorizadas − ocupadas en vivo (nunca la columna guardada).
+            'plazas_disponibles' => $this->vacantes->plazasReales(new EloquentCollection([$vacante]))[$vacante->id] ?? 0,
             'candidato_contratado' => $vacante->candidatoContratado?->nombreCompleto(),
             'colaborador_contratado' => $vacante->colaboradorContratado !== null ? [
                 'id' => $vacante->colaboradorContratado->id,

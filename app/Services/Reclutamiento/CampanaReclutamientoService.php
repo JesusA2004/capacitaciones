@@ -3,13 +3,17 @@
 namespace App\Services\Reclutamiento;
 
 use App\Models\CampanaReclutamiento;
+use App\Models\CampanaReclutamientoAdjunto;
 use App\Models\Candidato;
 use App\Models\Vacante;
 use App\Services\Vacantes\VacantesListadoService;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection as SupportCollection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * KPIs de gasto de reclutamiento (docs de referencia: encargo de campañas
@@ -28,6 +32,8 @@ use Illuminate\Validation\ValidationException;
  */
 class CampanaReclutamientoService
 {
+    public function __construct(private readonly CvStorageService $almacen) {}
+
     /**
      * Alta/edición de un gasto de reclutamiento. Si se liga a una vacante,
      * la empresa/sucursal/departamento/puesto salen de la vacante (un gasto
@@ -58,13 +64,62 @@ class CampanaReclutamientoService
             ];
         }
 
-        if ($campana === null) {
-            return CampanaReclutamiento::query()->create([...$datos, 'created_by' => $actorId]);
+        // El periodo de reporte (mes/año) sale de la fecha de inicio.
+        if (! empty($datos['fecha_inicio'])) {
+            $inicio = Carbon::parse((string) $datos['fecha_inicio']);
+            $datos['mes'] = $inicio->month;
+            $datos['anio'] = $inicio->year;
         }
 
-        $campana->update($datos);
+        $adjuntos = array_values(array_filter((array) ($datos['adjuntos'] ?? []), fn ($a) => $a instanceof UploadedFile));
+        unset($datos['adjuntos']);
 
-        return $campana;
+        return DB::transaction(function () use ($datos, $campana, $actorId, $adjuntos): CampanaReclutamiento {
+            if ($campana === null) {
+                $campana = CampanaReclutamiento::query()->create([...$datos, 'created_by' => $actorId]);
+            } else {
+                $campana->update($datos);
+            }
+
+            foreach ($adjuntos as $archivo) {
+                $this->agregarAdjunto($campana, $archivo, $actorId);
+            }
+
+            return $campana;
+        });
+    }
+
+    /**
+     * Guarda el arte/PDF de la campaña en el NAS privado (mismo disco de
+     * reclutamiento que los CV).
+     */
+    public function agregarAdjunto(CampanaReclutamiento $campana, UploadedFile $archivo, ?int $actorId): CampanaReclutamientoAdjunto
+    {
+        $nombreOriginal = $archivo->getClientOriginalName();
+        $ruta = $this->almacen->guardar($archivo, sprintf('campanas/%d/%s', $campana->id, $this->almacen->nombreInterno($nombreOriginal)));
+
+        return $campana->adjuntos()->create([
+            'disk' => (string) config('reclutamiento.disk'),
+            'path' => $ruta,
+            'nombre_original' => mb_substr($nombreOriginal, 0, 255),
+            'mime' => (string) ($archivo->getMimeType() ?? 'application/octet-stream'),
+            'tamano' => (int) $archivo->getSize(),
+            'subido_por' => $actorId,
+        ]);
+    }
+
+    public function respuestaAdjunto(CampanaReclutamientoAdjunto $adjunto): StreamedResponse
+    {
+        return $this->almacen->respuesta($adjunto->path, [
+            'Content-Type' => $adjunto->mime,
+            'Content-Disposition' => sprintf('inline; filename="%s"', addslashes($adjunto->nombre_original)),
+        ]);
+    }
+
+    public function eliminarAdjunto(CampanaReclutamientoAdjunto $adjunto): void
+    {
+        $this->almacen->eliminar($adjunto->path);
+        $adjunto->delete();
     }
 
     /**

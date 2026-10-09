@@ -197,6 +197,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/', [CampanaReclutamientoController::class, 'store'])->name('store');
             Route::put('{campana}', [CampanaReclutamientoController::class, 'update'])->name('update');
             Route::delete('{campana}', [CampanaReclutamientoController::class, 'destroy'])->name('destroy');
+            Route::get('{campana}/adjuntos/{adjunto}', [CampanaReclutamientoController::class, 'adjunto'])->name('adjuntos.show');
+            Route::delete('{campana}/adjuntos/{adjunto}', [CampanaReclutamientoController::class, 'eliminarAdjunto'])->name('adjuntos.destroy');
         });
 
         Route::prefix('altas')->name('altas.')->group(function () {

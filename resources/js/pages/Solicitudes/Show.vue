@@ -6,6 +6,7 @@ import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
+import PermisoAutorizacionCard from '@/components/Solicitudes/PermisoAutorizacionCard.vue';
 import { Button } from '@/components/ui/button';
 import { useAlertas } from '@/composables/useAlertas';
 import {
@@ -16,7 +17,6 @@ import {
 import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import { cancelar, index, permisoPdf } from '@/routes/solicitudes';
-import PermisoAutorizacionCard from '@/components/Solicitudes/PermisoAutorizacionCard.vue';
 import {
     store as subirDocumentoSolicitud,
     ver as verDocumento,

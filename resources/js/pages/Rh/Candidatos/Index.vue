@@ -2,14 +2,24 @@
 import { Head, router } from '@inertiajs/vue3';
 import {
     Banknote,
+    BrainCircuit,
     CalendarClock,
+    ClipboardCheck,
+    Columns3,
+    FileSignature,
+    Filter,
+    House,
+    LayoutGrid,
+    MessagesSquare,
     Percent,
     Plus,
     Target,
     Trophy,
     UserCheck2,
-    Users,
+    UserMinus,
     UserRound,
+    UserX,
+    Users,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import Casilla from '@/components/Common/Casilla.vue';
@@ -21,7 +31,6 @@ import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
 import CrudStats from '@/components/DataTable/CrudStats.vue';
 import CandidatoFormDialog from '@/components/Rh/CandidatoFormDialog.vue';
 import CandidatoTarjeta from '@/components/Rh/CandidatoTarjeta.vue';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -227,28 +236,53 @@ const columnas = computed(() =>
     })),
 );
 
-// Móvil: tabs/chips en vez del tablero horizontal (CLAUDE.md §12). "Cerrados"
-// agrupa las 3 fases de salida en un solo chip.
-const FASES_CERRADAS = ['contratado', 'rechazado', 'desistido'];
-const chipsMobile = computed(() => [
-    { value: 'todos', etiqueta: 'Todos' },
-    ...COLUMNAS.filter((c) => !FASES_CERRADAS.includes(c.value)),
-    { value: 'cerrados', etiqueta: 'Cerrados' },
-]);
-const chipSeleccionado = ref('todos');
-const candidatosMobile = computed(() => {
-    if (chipSeleccionado.value === 'todos') {
-        return props.candidatos;
-    }
+// Identidad visual de cada fase (paleta People): ícono + color de acento.
+const ESTILO_FASE: Record<string, { icono: typeof Users; color: string }> = {
+    filtro_rh: { icono: Filter, color: '#2b7a6e' },
+    entrevista: { icono: MessagesSquare, color: '#3f7f4b' },
+    psicometricos: { icono: BrainCircuit, color: '#af8b51' },
+    socioeconomico: { icono: House, color: '#a3702c' },
+    contratacion: { icono: FileSignature, color: '#1f6f78' },
+    contratado: { icono: ClipboardCheck, color: '#4a8f57' },
+    rechazado: { icono: UserX, color: '#c8414d' },
+    desistido: { icono: UserMinus, color: '#7a8a86' },
+};
+const estiloFase = (fase: string) =>
+    ESTILO_FASE[fase] ?? { icono: UserRound, color: '#2b7a6e' };
 
-    if (chipSeleccionado.value === 'cerrados') {
-        return props.candidatos.filter((c) =>
-            FASES_CERRADAS.includes(c.fase),
-        );
-    }
+const FASES_SALIDA = ['rechazado', 'desistido'];
+const fasesRecorrido = computed(() =>
+    columnas.value.filter((c) => !FASES_SALIDA.includes(c.value)),
+);
+const fasesSalida = computed(() =>
+    columnas.value.filter((c) => FASES_SALIDA.includes(c.value)),
+);
+const maxEnFase = computed(() =>
+    Math.max(1, ...fasesRecorrido.value.map((c) => c.candidatos.length)),
+);
 
-    return props.candidatos.filter((c) => c.fase === chipSeleccionado.value);
-});
+// Vista: «Por fase» (tarjetas de una fase) o «Tablero» (todas las columnas).
+const vista = ref<'fase' | 'tablero'>('fase');
+const faseSeleccionada = ref<string>(
+    columnas.value.find(
+        (c) =>
+            ![...FASES_SALIDA, 'contratado'].includes(c.value) &&
+            c.candidatos.length > 0,
+    )?.value ??
+        COLUMNAS[0]?.value ??
+        'filtro_rh',
+);
+const columnaSeleccionada = computed(() =>
+    columnas.value.find((c) => c.value === faseSeleccionada.value),
+);
+const faseActiva = (fase: string) =>
+    vista.value === 'fase' && faseSeleccionada.value === fase;
+
+function elegirFase(fase: string) {
+    faseSeleccionada.value = fase;
+    vista.value = 'fase';
+}
+
 
 /** Destinos (sub-estados) válidos desde el estado actual que caen en esa fase. */
 function destinosDeFase(estadoOrigen: string, fase: string): string[] {
@@ -580,55 +614,234 @@ function confirmarSalida() {
             </Button>
         </div>
 
-        <!-- Móvil: chips de fase + lista vertical, nunca el tablero horizontal. -->
-        <div class="flex flex-col gap-3 md:hidden">
-            <div class="flex gap-2 overflow-x-auto pb-1">
-                <Button
-                    v-for="chip in chipsMobile"
-                    :key="chip.value"
-                    type="button"
-                    size="sm"
-                    :variant="
-                        chipSeleccionado === chip.value
-                            ? 'default'
-                            : 'outline'
-                    "
-                    class="shrink-0"
-                    @click="chipSeleccionado = chip.value"
-                    >{{ chip.etiqueta }}</Button
-                >
+        <!-- Recorrido por fases: el embudo de un vistazo y acceso a cada fase. -->
+        <section
+            data-tour="candidatos-tablero"
+            class="overflow-hidden rounded-3xl border border-border/60 bg-card shadow-sm"
+        >
+            <div
+                class="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-[#0d3e43] to-[#225c54] px-5 py-4 text-white"
+            >
+                <div>
+                    <p
+                        class="text-xs font-medium tracking-wider text-[#e9d6b0] uppercase"
+                    >
+                        Recorrido del candidato
+                    </p>
+                    <p class="text-lg font-semibold">
+                        {{ kpis.en_proceso }} en proceso ·
+                        {{ kpis.contratados_periodo }} contratados en el periodo
+                    </p>
+                </div>
+                <div class="hidden rounded-xl bg-white/10 p-1 md:flex">
+                    <button
+                        type="button"
+                        class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition"
+                        :class="
+                            vista === 'fase'
+                                ? 'bg-white text-[#0d3e43] shadow'
+                                : 'text-white/80 hover:text-white'
+                        "
+                        @click="vista = 'fase'"
+                    >
+                        <LayoutGrid class="size-4" /> Por fase
+                    </button>
+                    <button
+                        type="button"
+                        class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition"
+                        :class="
+                            vista === 'tablero'
+                                ? 'bg-white text-[#0d3e43] shadow'
+                                : 'text-white/80 hover:text-white'
+                        "
+                        @click="vista = 'tablero'"
+                    >
+                        <Columns3 class="size-4" /> Tablero
+                    </button>
+                </div>
             </div>
 
-            <div class="flex flex-col gap-2">
+            <div class="flex items-stretch gap-4 overflow-x-auto px-5 py-5">
+                <ol class="flex min-w-max flex-1 items-start">
+                    <li
+                        v-for="(fase, i) in fasesRecorrido"
+                        :key="fase.value"
+                        class="relative flex min-w-[7.5rem] flex-1 flex-col items-center"
+                    >
+                        <span
+                            v-if="i < fasesRecorrido.length - 1"
+                            class="absolute top-6 left-1/2 h-0.5 w-full bg-border"
+                            aria-hidden="true"
+                        />
+                        <button
+                            type="button"
+                            class="group relative z-10 flex flex-col items-center gap-1.5 rounded-2xl px-2 pb-1 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                            :aria-pressed="faseActiva(fase.value)"
+                            @click="elegirFase(fase.value)"
+                        >
+                            <span
+                                class="relative flex size-12 items-center justify-center rounded-full border-2 bg-card transition group-hover:scale-105"
+                                :style="{
+                                    borderColor: estiloFase(fase.value).color,
+                                    backgroundColor: faseActiva(fase.value)
+                                        ? estiloFase(fase.value).color
+                                        : undefined,
+                                    color: faseActiva(fase.value)
+                                        ? '#ffffff'
+                                        : estiloFase(fase.value).color,
+                                }"
+                            >
+                                <component
+                                    :is="estiloFase(fase.value).icono"
+                                    class="size-5"
+                                />
+                                <span
+                                    class="absolute -top-1.5 -right-1.5 flex min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] leading-5 font-bold text-white shadow"
+                                    :style="{
+                                        backgroundColor:
+                                            estiloFase(fase.value).color,
+                                    }"
+                                    >{{ fase.candidatos.length }}</span
+                                >
+                            </span>
+                            <span
+                                class="text-[11px] font-medium text-muted-foreground"
+                                >Fase {{ i + 1 }}</span
+                            >
+                            <span class="text-sm font-semibold">{{
+                                fase.etiqueta
+                            }}</span>
+                            <span
+                                class="h-1.5 w-16 overflow-hidden rounded-full bg-muted"
+                            >
+                                <span
+                                    class="block h-full rounded-full transition-all"
+                                    :style="{
+                                        width: `${(fase.candidatos.length / maxEnFase) * 100}%`,
+                                        backgroundColor:
+                                            estiloFase(fase.value).color,
+                                    }"
+                                />
+                            </span>
+                        </button>
+                    </li>
+                </ol>
+
                 <div
-                    v-for="candidato in candidatosMobile"
+                    class="flex shrink-0 flex-col justify-center gap-2 border-l border-border/60 pl-4"
+                >
+                    <span
+                        class="text-[11px] font-medium tracking-wider text-muted-foreground uppercase"
+                        >Cerrados</span
+                    >
+                    <button
+                        v-for="fase in fasesSalida"
+                        :key="fase.value"
+                        type="button"
+                        class="flex items-center gap-2 rounded-xl border px-3 py-1.5 text-sm transition hover:bg-muted"
+                        :class="
+                            faseActiva(fase.value)
+                                ? 'border-foreground/40 bg-muted'
+                                : 'border-border/60'
+                        "
+                        @click="elegirFase(fase.value)"
+                    >
+                        <component
+                            :is="estiloFase(fase.value).icono"
+                            class="size-4"
+                            :style="{ color: estiloFase(fase.value).color }"
+                        />
+                        <span class="font-medium">{{ fase.etiqueta }}</span>
+                        <span
+                            class="ml-auto rounded-full bg-muted px-2 text-xs font-semibold"
+                            >{{ fase.candidatos.length }}</span
+                        >
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- «Por fase»: tarjetas de la fase elegida (siempre así en móvil). -->
+        <section
+            v-if="columnaSeleccionada"
+            class="flex flex-col gap-4"
+            :class="vista === 'tablero' && 'md:hidden'"
+        >
+            <div class="flex items-center gap-3">
+                <span
+                    class="flex size-10 items-center justify-center rounded-xl text-white"
+                    :style="{
+                        backgroundColor: estiloFase(columnaSeleccionada.value)
+                            .color,
+                    }"
+                >
+                    <component
+                        :is="estiloFase(columnaSeleccionada.value).icono"
+                        class="size-5"
+                    />
+                </span>
+                <div>
+                    <h2 class="text-lg leading-tight font-semibold">
+                        {{ columnaSeleccionada.etiqueta }}
+                    </h2>
+                    <p class="text-sm text-muted-foreground">
+                        {{ columnaSeleccionada.candidatos.length }}
+                        {{
+                            columnaSeleccionada.candidatos.length === 1
+                                ? 'candidato'
+                                : 'candidatos'
+                        }}
+                        en esta fase
+                    </p>
+                </div>
+            </div>
+
+            <div
+                v-if="columnaSeleccionada.candidatos.length"
+                class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+            >
+                <div
+                    v-for="candidato in columnaSeleccionada.candidatos"
                     :key="candidato.id"
-                    class="cursor-pointer rounded-xl border border-border/60 bg-card p-3 text-left shadow-sm transition-colors hover:border-primary/40"
+                    class="relative cursor-pointer overflow-hidden rounded-2xl border border-border/60 bg-card p-4 pt-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                     @click="router.visit(show.url(candidato.id))"
                 >
+                    <span
+                        class="absolute inset-x-0 top-0 h-1"
+                        :style="{
+                            backgroundColor: estiloFase(candidato.fase).color,
+                        }"
+                        aria-hidden="true"
+                    />
                     <CandidatoTarjeta
                         :candidato="candidato"
                         :fuentes="opciones.fuentes"
                     />
                 </div>
-
-                <p
-                    v-if="!candidatosMobile.length"
-                    class="rounded-xl border border-dashed p-3 text-center text-xs text-muted-foreground"
-                >
-                    Sin candidatos
+            </div>
+            <div
+                v-else
+                class="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border p-10 text-center"
+            >
+                <component
+                    :is="estiloFase(columnaSeleccionada.value).icono"
+                    class="size-8 text-muted-foreground/60"
+                />
+                <p class="text-sm text-muted-foreground">
+                    Nadie en esta fase por ahora.
                 </p>
             </div>
-        </div>
+        </section>
 
+        <!-- «Tablero»: todas las fases; arrastra a Rechazado/Desistió para cerrar. -->
         <div
-            data-tour="candidatos-tablero"
-            class="hidden gap-4 overflow-x-auto pb-4 md:flex"
+            v-if="vista === 'tablero'"
+            class="hidden items-start gap-4 overflow-x-auto pb-4 md:flex"
         >
             <div
                 v-for="columna in columnas"
                 :key="columna.value"
-                class="flex w-64 shrink-0 flex-col gap-3 rounded-2xl border border-border/60 bg-muted/20 p-3 transition-opacity"
+                class="flex w-72 shrink-0 flex-col overflow-hidden rounded-2xl border border-border/60 bg-muted/30 transition-opacity"
                 :class="
                     !columnaPermitida(columna.value) &&
                     'pointer-events-none opacity-30'
@@ -636,21 +849,31 @@ function confirmarSalida() {
                 @dragover.prevent
                 @drop="alSoltar(columna.value)"
             >
-                <div class="flex items-center justify-between px-1">
-                    <h3 class="text-xs font-semibold">
+                <div
+                    class="flex items-center gap-2 px-3 py-2.5 text-white"
+                    :style="{
+                        backgroundColor: estiloFase(columna.value).color,
+                    }"
+                >
+                    <component
+                        :is="estiloFase(columna.value).icono"
+                        class="size-4"
+                    />
+                    <h3 class="flex-1 text-sm font-semibold">
                         {{ columna.etiqueta }}
                     </h3>
-                    <Badge variant="outline">{{
-                        columna.candidatos.length
-                    }}</Badge>
+                    <span
+                        class="rounded-full bg-white/20 px-2 text-xs font-bold"
+                        >{{ columna.candidatos.length }}</span
+                    >
                 </div>
 
-                <div class="flex flex-col gap-2">
+                <div class="flex flex-col gap-2 p-3">
                     <div
                         v-for="candidato in columna.candidatos"
                         :key="candidato.id"
                         draggable="true"
-                        class="cursor-pointer rounded-xl border border-border/60 bg-card p-3 text-left shadow-sm transition-colors hover:border-primary/40"
+                        class="cursor-pointer rounded-xl border border-border/60 bg-card p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                         @click="router.visit(show.url(candidato.id))"
                         @dragstart="arrastrando = candidato"
                         @dragend="arrastrando = null"
@@ -663,7 +886,7 @@ function confirmarSalida() {
 
                     <p
                         v-if="!columna.candidatos.length"
-                        class="rounded-xl border border-dashed p-3 text-center text-xs text-muted-foreground"
+                        class="rounded-xl border border-dashed p-4 text-center text-xs text-muted-foreground"
                     >
                         Sin candidatos
                     </p>

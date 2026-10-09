@@ -33,7 +33,7 @@ test('campañas: costo por colaborador de cada campaña y totales del periodo', 
     $filas = collect($props['campanas']['data'])->keyBy('id');
 
     expect($props)->not->toHaveKey('kpis')
-        ->and($filas[$meta->id]['resultado'])->toBe(['candidatos' => 3, 'contratados' => 2, 'costo_por_colaborador' => 1500.0])
+        ->and($filas[$meta->id]['resultado'])->toMatchArray(['candidatos' => 3, 'contratados' => 2, 'costo_por_colaborador' => 1500.0, 'costo_por_candidato' => 1000.0, 'conversion' => 66.7])
         // Sin contratados todavía: no se inventa un costo.
         ->and($filas[$indeed->id]['resultado']['costo_por_colaborador'])->toBeNull()
         ->and($props['totales'])->toBe(['gasto' => 4000.0, 'contratados' => 2, 'costo_por_colaborador' => 2000.0, 'campanas' => 2]);

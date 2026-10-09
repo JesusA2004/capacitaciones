@@ -138,6 +138,58 @@ test('un lote no se emite dos veces ni duplica avisos', function () {
     Bus::assertDispatchedTimes(SendExpoPushJob::class, 1);
 });
 
+test('semanal: un domingo pertenece a la semana que empezó el lunes anterior', function () {
+    $domingo = $this->lotes->periodo(PeriodicidadNomina::Semanal, CarbonImmutable::parse('2026-10-11'));
+    $lunes = $this->lotes->periodo(PeriodicidadNomina::Semanal, CarbonImmutable::parse('2026-10-12'));
+
+    expect($domingo['inicio']->toDateString())->toBe('2026-10-05')
+        ->and($domingo['fin']->toDateString())->toBe('2026-10-11')
+        ->and($lunes['inicio']->toDateString())->toBe('2026-10-12')
+        ->and($lunes['fin']->toDateString())->toBe('2026-10-18');
+});
+
+test('quincenal: la segunda quincena incluye el 31 cuando existe y el 15 cierra la primera', function () {
+    $q = fn (string $f) => $this->lotes->periodo(PeriodicidadNomina::Quincenal, CarbonImmutable::parse($f));
+
+    expect($q('2026-10-31')['inicio']->toDateString())->toBe('2026-10-16')
+        ->and($q('2026-10-31')['fin']->toDateString())->toBe('2026-10-31')
+        ->and($q('2026-10-15')['fin']->toDateString())->toBe('2026-10-15')
+        ->and($q('2026-10-16')['inicio']->toDateString())->toBe('2026-10-16')
+        ->and($q('2026-11-16')['fin']->toDateString())->toBe('2026-11-30')
+        ->and($q('2026-11-30')['numero'])->toBe(22);
+});
+
+test('un lote cancelado no se puede emitir ni avisa a nadie', function () {
+    $lote = $this->lotes->preparar(PeriodicidadNomina::Semanal, CarbonImmutable::parse('2026-10-08'), $this->rh);
+    $this->lotes->cancelar($lote, 'Periodo equivocado', $this->rh);
+
+    expect(fn () => $this->lotes->emitir($lote, $this->rh))->toThrow(ValidationException::class);
+    expect($lote->recibos()->firstOrFail()->estado)->toBe(EstadoReciboNomina::Cancelado);
+    Bus::assertNotDispatched(SendExpoPushJob::class);
+    Notification::assertNothingSent();
+});
+
+test('reintento seguro: si la emisión se cortó a mitad, volver a emitir solo publica los pendientes', function () {
+    $otro = Colaborador::factory()->create(['sucursal_principal_id' => $this->colaborador->sucursal_principal_id, 'estatus' => EstadoUsuario::Activo, 'sueldo_mensual' => 6000, 'fecha_ingreso' => '2025-01-01']);
+    $lote = $this->lotes->preparar(PeriodicidadNomina::Semanal, CarbonImmutable::parse('2026-10-08'), $this->rh);
+    expect($lote->preparados)->toBe(2);
+
+    // Simula el corte: el lote ya quedó emitido y solo el primer recibo se publicó.
+    $lote->update(['estado' => EstadoLoteNomina::Emitido, 'emitido_por' => $this->rh->id, 'emitido_at' => now()]);
+    app(\App\Services\Nomina\ReciboNominaService::class)->emitir($lote->recibos()->where('colaborador_id', $this->colaborador->id)->firstOrFail(), $this->rh);
+    Bus::assertDispatchedTimes(SendExpoPushJob::class, 1);
+
+    $resultado = $this->lotes->emitir($lote, $this->rh);
+
+    expect($resultado['emitidos'])->toBe(1)
+        ->and($lote->recibos()->where('estado', EstadoReciboNomina::Borrador->value)->count())->toBe(0)
+        ->and(ReciboNomina::query()->where('colaborador_id', $otro->id)->firstOrFail()->estado)->toBe(EstadoReciboNomina::Emitido);
+    // El primer trabajador no recibe un segundo push.
+    Bus::assertDispatchedTimes(SendExpoPushJob::class, 1);
+    // Ya sin pendientes, un tercer intento se rechaza.
+    expect(fn () => $this->lotes->emitir($lote, $this->rh))->toThrow(ValidationException::class);
+});
+
 test('no se crea un segundo lote (ni recibos duplicados) del mismo periodo', function () {
     $this->lotes->preparar(PeriodicidadNomina::Semanal, CarbonImmutable::parse('2026-10-08'), $this->rh);
 

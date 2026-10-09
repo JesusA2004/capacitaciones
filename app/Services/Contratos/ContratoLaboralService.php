@@ -266,7 +266,7 @@ class ContratoLaboralService
     public function fechaFinPeriodoPrueba(?int $puestoId, CarbonInterface $inicio): CarbonInterface
     {
         $puesto = $puestoId !== null ? Puesto::query()->whereKey($puestoId)->first(['id', 'nombre', 'meses_periodo_prueba']) : null;
-        $meses = (int) ($puesto?->meses_periodo_prueba ?? 0);
+        $meses = (int) ($puesto->meses_periodo_prueba ?? 0);
 
         if ($meses < 1) {
             throw ValidationException::withMessages([

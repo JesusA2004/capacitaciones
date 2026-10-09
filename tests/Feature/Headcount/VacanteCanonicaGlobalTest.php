@@ -87,3 +87,19 @@ test('un candidato no se liga a una vacante cubierta y hereda sucursal/puesto de
         'nombre' => 'Otro', 'apellidos' => 'Candidato', 'telefono' => '5550000001', 'vacante_id' => $this->vacante->id,
     ], $this->rh))->toThrow(ValidationException::class);
 });
+
+test('una vacante manual sin plantilla autorizada no tiene plazas disponibles (no se puede usar en campañas ni candidatos)', function () {
+    $sinPlantilla = Puesto::factory()->create(['nombre' => 'Puesto sin plantilla']);
+    $vacante = Vacante::factory()->create([
+        'sucursal_id' => $this->sucursal->id, 'puesto_id' => $sinPlantilla->id, 'generada_automaticamente' => false,
+        'estado' => EstadoVacante::Abierta->value, 'plazas_requeridas' => 3, 'plazas_disponibles' => 3, 'plazas_cubiertas' => 0,
+    ]);
+    $listado = app(VacantesListadoService::class);
+
+    expect($listado->tieneCupo($vacante))->toBeFalse()
+        ->and($listado->plazasReales(new \Illuminate\Database\Eloquent\Collection([$vacante]))[$vacante->id])->toBe(0);
+
+    // Detalle de la API RH: el cálculo en vivo, nunca la columna guardada (3).
+    Sanctum::actingAs($this->rh);
+    $this->getJson(route('api.v1.rh.vacantes.show', $vacante))->assertOk()->assertJsonPath('data.plazas_disponibles', 0);
+});

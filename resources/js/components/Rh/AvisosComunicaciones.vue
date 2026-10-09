@@ -15,6 +15,7 @@ export type AvisoComunicacion = {
     creado_por: { name: string; apellidos: string | null } | null;
     enviado_en: string | null;
     leido?: boolean;
+    leido_en?: string | null;
     imagen_url: string | null;
 };
 
@@ -59,14 +60,14 @@ const fecha = (valor: string | null) =>
                         :class="aviso.leido ? 'bg-[#2f5937]/10 text-[#2f5937] dark:text-[#a9d6b1]' : 'bg-muted text-muted-foreground'"
                     >
                         <component :is="aviso.leido ? CheckCheck : MailOpen" class="size-3" />
-                        {{ aviso.leido ? 'Leído' : 'Sin leer' }}
+                        {{ aviso.leido ? (aviso.leido_en ? `Leído el ${fecha(aviso.leido_en)}` : 'Leído') : 'Sin leer' }}
                     </span>
                 </div>
                 <p class="truncate font-semibold">{{ aviso.titulo }}</p>
                 <p class="line-clamp-3 text-sm text-muted-foreground">{{ aviso.mensaje }}</p>
                 <p class="mt-auto text-xs text-muted-foreground">
-                    {{ fecha(aviso.enviado_en) }}
-                    <template v-if="aviso.creado_por"> · {{ aviso.creado_por.name }} {{ aviso.creado_por.apellidos ?? '' }}</template>
+                    Enviado {{ fecha(aviso.enviado_en) }}
+                    <template v-if="aviso.creado_por"> por {{ aviso.creado_por.name }} {{ aviso.creado_por.apellidos ?? '' }}</template>
                 </p>
             </div>
         </li>

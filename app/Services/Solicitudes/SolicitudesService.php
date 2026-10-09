@@ -2,8 +2,8 @@
 
 namespace App\Services\Solicitudes;
 
-use App\Enums\EstadoFiniquito;
 use App\Enums\CausalPermisoEspecial;
+use App\Enums\EstadoFiniquito;
 use App\Enums\EstadoSolicitudInterna;
 use App\Enums\GocePermiso;
 use App\Enums\ModoFechasSolicitud;
@@ -19,6 +19,7 @@ use App\Notifications\Mobile\RhSolicitudCreadaNotification;
 use App\Notifications\Mobile\SolicitudActualizadaNotification;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Configuracion\WorkflowRoutingService;
+use App\Services\Expedientes\ActualizacionDatosService;
 use App\Services\Finiquitos\FiniquitoService;
 use App\Services\MobilePush\PushNotifier;
 use App\Services\Nomina\PrestamoService;
@@ -79,6 +80,7 @@ class SolicitudesService
         private readonly ComprobanteSolicitudService $comprobantes,
         private readonly WorkflowRoutingService $routing,
         private readonly FechasSolicitudService $fechas,
+        private readonly ActualizacionDatosService $actualizacionDatos,
     ) {}
 
     /**
@@ -106,6 +108,15 @@ class SolicitudesService
             $datos['hora_entrada'] = $permisoTipo === TipoPermisoSolicitado::LlegarTarde ? ($datos['hora_entrada'] ?? null) : null;
             $datos['permiso_causal'] = ($datos['permiso_goce'] ?? null) === GocePermiso::Especial->value ? ($datos['permiso_causal'] ?? null) : null;
             $datos['motivo'] = trim((string) ($datos['motivo'] ?? '')) !== '' ? $datos['motivo'] : $permisoTipo->etiqueta();
+        }
+
+        // «Completar mis datos»: valores estructurados que se aplican al
+        // expediente solo cuando RH autoriza (ActualizacionDatosService).
+        $datos['datos_propuestos'] = null;
+
+        if ($tipo === TipoSolicitudInterna::ActualizacionDatos && ! empty($datos['datos'])) {
+            $datos['datos_propuestos'] = $this->actualizacionDatos->normalizar((array) $datos['datos']);
+            $datos['motivo'] = trim((string) ($datos['motivo'] ?? '')) !== '' ? $datos['motivo'] : $this->actualizacionDatos->motivoPorDefecto($datos['datos_propuestos']);
         }
 
         if ($tipo === TipoSolicitudInterna::Vacaciones) {
@@ -162,6 +173,7 @@ class SolicitudesService
                 'plazo_meses' => $datos['plazo_meses'] ?? null,
                 'motivo' => $datos['motivo'],
                 'observaciones' => $datos['observaciones'] ?? null,
+                'datos_propuestos' => $datos['datos_propuestos'],
                 'empresa_id' => $solicitante->colaborador?->empresa()?->id,
                 'sucursal_id' => $solicitante->colaborador?->sucursal_principal_id,
             ]);
@@ -571,6 +583,13 @@ class SolicitudesService
                 $this->prestamo->crearDesdeSolicitud($solicitud, $datosAprobacion, $actor);
             }
 
+            // Actualización de datos autorizada: los valores propuestos pasan
+            // al expediente en la misma transacción (la completitud se
+            // recalcula sola porque se lee en vivo).
+            if ($nuevoEstado === EstadoSolicitudInterna::Aprobada && $solicitud->tipo === TipoSolicitudInterna::ActualizacionDatos) {
+                $this->actualizacionDatos->aplicar($solicitud, $actor);
+            }
+
             // Documento oficial automático (config/solicitudes.php): se
             // genera al aprobar, para todos los tipos con formato mapeado,
             // no solo baja. Nunca revierte la aprobación si falla (ver
@@ -645,6 +664,17 @@ class SolicitudesService
     public function resumenPermiso(SolicitudInterna $solicitud): ?array
     {
         return $this->comprobantes->resumenPermiso($solicitud);
+    }
+
+    /**
+     * Actualización de datos: dato, valor en el expediente y valor
+     * propuesto. null en cualquier otro tipo o sin datos estructurados.
+     *
+     * @return list<array{campo: string, etiqueta: string, actual: string|null, propuesto: string}>|null
+     */
+    public function comparativoDatos(SolicitudInterna $solicitud): ?array
+    {
+        return $this->actualizacionDatos->comparativo($solicitud);
     }
 
     /**

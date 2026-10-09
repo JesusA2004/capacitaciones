@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { useForm } from '@inertiajs/vue3';
+import { router, useForm } from '@inertiajs/vue3';
+import { FileText, ImageIcon, Paperclip, Trash2 } from '@lucide/vue';
 import { computed } from 'vue';
+import DatePicker from '@/components/Common/DatePicker.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogFooter,
     DialogHeader,
     DialogTitle,
@@ -22,8 +25,13 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { store, update } from '@/routes/rh/campanas';
+import { destroy as eliminarAdjuntoRuta } from '@/routes/rh/campanas/adjuntos';
 import type { CampanaReclutamientoItem, OpcionesCampanas } from '@/types';
 
+/**
+ * Una campaña parte de una VACANTE REAL: empresa, sucursal, departamento y
+ * puesto salen de la vacante (backend), aquí ya no se piden.
+ */
 const props = defineProps<{
     open: boolean;
     campana?: CampanaReclutamientoItem | null;
@@ -34,292 +42,277 @@ const emit = defineEmits<{
     'update:open': [valor: boolean];
 }>();
 
-const meses = [
-    { value: '1', etiqueta: 'Enero' },
-    { value: '2', etiqueta: 'Febrero' },
-    { value: '3', etiqueta: 'Marzo' },
-    { value: '4', etiqueta: 'Abril' },
-    { value: '5', etiqueta: 'Mayo' },
-    { value: '6', etiqueta: 'Junio' },
-    { value: '7', etiqueta: 'Julio' },
-    { value: '8', etiqueta: 'Agosto' },
-    { value: '9', etiqueta: 'Septiembre' },
-    { value: '10', etiqueta: 'Octubre' },
-    { value: '11', etiqueta: 'Noviembre' },
-    { value: '12', etiqueta: 'Diciembre' },
-];
+const hoy = new Date().toISOString().slice(0, 10);
+const texto = (v: number | string | null | undefined) =>
+    v === null || v === undefined ? '' : String(v);
 
-const ahora = new Date();
-
-function idComo(valor: { id: number } | null | undefined): string {
-    return valor?.id ? String(valor.id) : '';
-}
-
-const form = useForm({
-    mes: props.campana
-        ? String(props.campana.mes)
-        : String(ahora.getMonth() + 1),
-    anio: props.campana
-        ? String(props.campana.anio)
-        : String(ahora.getFullYear()),
+const form = useForm<{
+    vacante_id: string;
+    nombre: string;
+    canal: string;
+    fecha_inicio: string;
+    fecha_fin: string;
+    presupuesto: string;
+    monto: string;
+    sueldo_publicado: string;
+    copy: string;
+    url: string;
+    responsable_id: string;
+    candidatos_generados: string;
+    observaciones: string;
+    adjuntos: File[];
+}>({
+    vacante_id: texto(props.campana?.vacante_id),
+    nombre: props.campana?.nombre ?? '',
     canal: props.campana?.canal ?? '',
-    empresa_id: idComo(props.campana?.empresa),
-    sucursal_id: props.campana?.sucursal_id
-        ? String(props.campana.sucursal_id)
-        : '',
-    departamento_id: idComo(props.campana?.departamento),
-    puesto_id: props.campana?.puesto_id ? String(props.campana.puesto_id) : '',
-    monto: props.campana ? String(props.campana.monto) : '',
-    candidatos_generados:
-        props.campana?.candidatos_generados !== null &&
-        props.campana?.candidatos_generados !== undefined
-            ? String(props.campana.candidatos_generados)
-            : '',
+    fecha_inicio: props.campana?.fecha_inicio?.slice(0, 10) ?? hoy,
+    fecha_fin: props.campana?.fecha_fin?.slice(0, 10) ?? '',
+    presupuesto: texto(props.campana?.presupuesto),
+    monto: props.campana ? texto(props.campana.monto) : '0',
+    sueldo_publicado: texto(props.campana?.sueldo_publicado),
+    copy: props.campana?.copy ?? '',
+    url: props.campana?.url ?? '',
+    responsable_id: texto(props.campana?.responsable_id),
+    candidatos_generados: texto(props.campana?.candidatos_generados),
     observaciones: props.campana?.observaciones ?? '',
+    adjuntos: [],
 });
 
-const sucursalesFiltradas = computed(() =>
-    form.empresa_id
-        ? props.opciones.sucursales.filter(
-              (s) => String(s.empresa_id) === form.empresa_id,
-          )
-        : props.opciones.sucursales,
+const vacanteElegida = computed(() =>
+    props.opciones.vacantes.find((v) => String(v.id) === form.vacante_id),
 );
 
-const puestosFiltrados = computed(() =>
-    form.departamento_id
-        ? props.opciones.puestos.filter(
-              (p) => String(p.departamento_id) === form.departamento_id,
-          )
-        : props.opciones.puestos,
-);
+function alElegirArchivos(evento: Event) {
+    const entrada = evento.target as HTMLInputElement;
+    form.adjuntos = [...form.adjuntos, ...Array.from(entrada.files ?? [])];
+    entrada.value = '';
+}
+
+function quitarArchivo(indice: number) {
+    form.adjuntos = form.adjuntos.filter((_, i) => i !== indice);
+}
+
+function eliminarAdjunto(id: number) {
+    if (!props.campana) {
+        return;
+    }
+
+    router.delete(eliminarAdjuntoRuta.url([props.campana.id, id]), {
+        preserveScroll: true,
+    });
+}
 
 function enviar() {
     const transformado = form.transform((datos) => ({
         ...datos,
-        empresa_id: datos.empresa_id || null,
-        sucursal_id: datos.sucursal_id || null,
-        departamento_id: datos.departamento_id || null,
-        puesto_id: datos.puesto_id || null,
+        fecha_fin: datos.fecha_fin || null,
+        presupuesto: datos.presupuesto || null,
+        sueldo_publicado: datos.sueldo_publicado || null,
+        responsable_id: datos.responsable_id || null,
         candidatos_generados: datos.candidatos_generados || null,
+        ...(props.campana ? { _method: 'put' } : {}),
     }));
 
     const opciones = {
         preserveScroll: true,
+        forceFormData: true,
         onSuccess: () => emit('update:open', false),
     };
 
-    if (props.campana) {
-        transformado.put(update.url(props.campana.id), opciones);
-    } else {
-        transformado.post(store.url(), opciones);
-    }
+    // Con archivos: POST + _method=put (multipart).
+    transformado.post(
+        props.campana ? update.url(props.campana.id) : store.url(),
+        opciones,
+    );
 }
 </script>
 
 <template>
     <Dialog :open="open" @update:open="(valor) => emit('update:open', valor)">
-        <DialogContent class="max-h-[85vh] max-w-lg overflow-y-auto">
+        <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
             <DialogHeader>
                 <DialogTitle>{{
                     campana ? 'Editar campaña' : 'Nueva campaña'
                 }}</DialogTitle>
+                <DialogDescription>
+                    La empresa, sucursal, departamento y puesto salen de la
+                    vacante elegida.
+                </DialogDescription>
             </DialogHeader>
 
-            <form class="grid gap-4" @submit.prevent="enviar">
-                <div class="grid grid-cols-2 gap-4">
+            <form class="grid gap-5" @submit.prevent="enviar">
+                <section class="grid gap-3 rounded-2xl border border-border/60 p-4">
+                    <p class="text-sm font-semibold">Vacante y canal</p>
                     <div class="grid gap-2">
-                        <Label>Mes</Label>
-                        <Select v-model="form.mes">
+                        <Label>Vacante real</Label>
+                        <Select v-model="form.vacante_id">
                             <SelectTrigger class="w-full">
-                                <SelectValue placeholder="Mes" />
+                                <SelectValue placeholder="Elige la vacante" />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem
-                                    v-for="opcion in meses"
-                                    :key="opcion.value"
-                                    :value="opcion.value"
+                                    v-for="opcion in opciones.vacantes"
+                                    :key="opcion.id"
+                                    :value="String(opcion.id)"
                                     >{{ opcion.etiqueta }}</SelectItem
                                 >
                             </SelectContent>
                         </Select>
-                        <InputError :message="form.errors.mes" />
-                    </div>
-
-                    <div class="grid gap-2">
-                        <Label for="anio">Año</Label>
-                        <Input
-                            id="anio"
-                            v-model="form.anio"
-                            type="number"
-                            min="2000"
-                            max="2100"
-                        />
-                        <InputError :message="form.errors.anio" />
-                    </div>
-                </div>
-
-                <div class="grid gap-2">
-                    <Label>Canal</Label>
-                    <Select v-model="form.canal">
-                        <SelectTrigger class="w-full">
-                            <SelectValue placeholder="Selecciona un canal" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in opciones.canales"
-                                :key="opcion.value"
-                                :value="opcion.value"
-                                >{{ opcion.etiqueta }}</SelectItem
-                            >
-                        </SelectContent>
-                    </Select>
-                    <InputError :message="form.errors.canal" />
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="grid gap-2">
-                        <Label>Empresa (opcional)</Label>
-                        <Select
-                            v-model="form.empresa_id"
-                            @update:model-value="form.sucursal_id = ''"
+                        <p
+                            v-if="!opciones.vacantes.length"
+                            class="text-xs text-muted-foreground"
                         >
-                            <SelectTrigger class="w-full">
-                                <SelectValue placeholder="Sin empresa" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="opcion in opciones.empresas"
-                                    :key="opcion.id"
-                                    :value="String(opcion.id)"
-                                    >{{ opcion.nombre }}</SelectItem
-                                >
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div class="grid gap-2">
-                        <Label>Sucursal (opcional)</Label>
-                        <Select v-model="form.sucursal_id">
-                            <SelectTrigger class="w-full">
-                                <SelectValue placeholder="Sin sucursal" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="opcion in sucursalesFiltradas"
-                                    :key="opcion.id"
-                                    :value="String(opcion.id)"
-                                    >{{ opcion.nombre }}</SelectItem
-                                >
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="grid gap-2">
-                        <Label>Departamento (opcional)</Label>
-                        <Select
-                            v-model="form.departamento_id"
-                            @update:model-value="form.puesto_id = ''"
-                        >
-                            <SelectTrigger class="w-full">
-                                <SelectValue placeholder="Sin departamento" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="opcion in opciones.departamentos"
-                                    :key="opcion.id"
-                                    :value="String(opcion.id)"
-                                    >{{ opcion.nombre }}</SelectItem
-                                >
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div class="grid gap-2">
-                        <Label>Puesto (opcional)</Label>
-                        <Select v-model="form.puesto_id">
-                            <SelectTrigger class="w-full">
-                                <SelectValue
-                                    placeholder="General (sin puesto)"
-                                />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="opcion in puestosFiltrados"
-                                    :key="opcion.id"
-                                    :value="String(opcion.id)"
-                                    >{{ opcion.nombre }}</SelectItem
-                                >
-                            </SelectContent>
-                        </Select>
-                        <p class="text-xs text-muted-foreground">
-                            Déjalo vacío si es gasto general, no dirigido a una
-                            posición en particular.
+                            No hay vacantes con plaza disponible
+                            (plantilla autorizada − ocupados).
                         </p>
+                        <p
+                            v-else-if="vacanteElegida"
+                            class="text-xs text-muted-foreground"
+                        >
+                            {{ vacanteElegida.etiqueta }}
+                        </p>
+                        <InputError :message="form.errors.vacante_id" />
                     </div>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="grid gap-2">
-                        <Label for="monto">Monto</Label>
-                        <div class="relative">
-                            <span
-                                class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground"
-                                >$</span
-                            >
-                            <Input
-                                id="monto"
-                                v-model="form.monto"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                placeholder="0.00"
-                                class="pl-6"
-                            />
+                    <div class="grid gap-3 sm:grid-cols-2">
+                        <div class="grid gap-2">
+                            <Label>Canal</Label>
+                            <Select v-model="form.canal">
+                                <SelectTrigger class="w-full">
+                                    <SelectValue placeholder="Selecciona un canal" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem
+                                        v-for="opcion in opciones.canales"
+                                        :key="opcion.value"
+                                        :value="opcion.value"
+                                        >{{ opcion.etiqueta }}</SelectItem
+                                    >
+                                </SelectContent>
+                            </Select>
+                            <InputError :message="form.errors.canal" />
                         </div>
-                        <InputError :message="form.errors.monto" />
+                        <div class="grid gap-2">
+                            <Label>Responsable</Label>
+                            <Select v-model="form.responsable_id">
+                                <SelectTrigger class="w-full">
+                                    <SelectValue placeholder="¿Quién la lleva?" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem
+                                        v-for="opcion in opciones.responsables"
+                                        :key="opcion.id"
+                                        :value="String(opcion.id)"
+                                        >{{ opcion.name }}
+                                        {{ opcion.apellidos ?? '' }}</SelectItem
+                                    >
+                                </SelectContent>
+                            </Select>
+                            <InputError :message="form.errors.responsable_id" />
+                        </div>
+                        <div class="grid gap-2">
+                            <Label>Inicio</Label>
+                            <DatePicker v-model="form.fecha_inicio" />
+                            <InputError :message="form.errors.fecha_inicio" />
+                        </div>
+                        <div class="grid gap-2">
+                            <Label>Fin (opcional)</Label>
+                            <DatePicker v-model="form.fecha_fin" />
+                            <InputError :message="form.errors.fecha_fin" />
+                        </div>
                     </div>
+                </section>
 
+                <section class="grid gap-3 rounded-2xl border border-border/60 p-4">
+                    <p class="text-sm font-semibold">Dinero</p>
+                    <div class="grid gap-3 sm:grid-cols-3">
+                        <div class="grid gap-2">
+                            <Label for="presupuesto">Presupuesto</Label>
+                            <Input id="presupuesto" v-model="form.presupuesto" type="number" min="0" step="0.01" placeholder="0.00" />
+                            <InputError :message="form.errors.presupuesto" />
+                        </div>
+                        <div class="grid gap-2">
+                            <Label for="monto">Gasto real</Label>
+                            <Input id="monto" v-model="form.monto" type="number" min="0" step="0.01" placeholder="0.00" />
+                            <InputError :message="form.errors.monto" />
+                        </div>
+                        <div class="grid gap-2">
+                            <Label for="sueldo">Sueldo publicado</Label>
+                            <Input id="sueldo" v-model="form.sueldo_publicado" type="number" min="0" step="0.01" placeholder="0.00" />
+                            <InputError :message="form.errors.sueldo_publicado" />
+                        </div>
+                    </div>
+                </section>
+
+                <section class="grid gap-3 rounded-2xl border border-border/60 p-4">
+                    <p class="text-sm font-semibold">Publicación</p>
                     <div class="grid gap-2">
-                        <Label for="candidatos_generados"
-                            >Candidatos generados (opcional)</Label
-                        >
-                        <Input
-                            id="candidatos_generados"
-                            v-model="form.candidatos_generados"
-                            type="number"
-                            min="0"
-                            placeholder="Auto (por fuente)"
-                        />
-                        <p class="text-xs text-muted-foreground">
-                            Si lo dejas vacío, se estima contando candidatos
-                            cuya fuente coincide con el canal en este periodo.
-                        </p>
-                        <InputError
-                            :message="form.errors.candidatos_generados"
-                        />
+                        <Label for="nombre">Nombre de la campaña (opcional)</Label>
+                        <Input id="nombre" v-model="form.nombre" placeholder="Ej. Gestores Córdoba octubre" />
                     </div>
-                </div>
+                    <div class="grid gap-2">
+                        <Label for="copy">Texto del anuncio (copy)</Label>
+                        <Textarea id="copy" v-model="form.copy" rows="4" />
+                        <InputError :message="form.errors.copy" />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="url">Liga del anuncio</Label>
+                        <Input id="url" v-model="form.url" type="url" placeholder="https://" />
+                        <InputError :message="form.errors.url" />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label>Arte y documentos (PDF o imagen, privados)</Label>
+                        <div
+                            v-if="campana?.adjuntos_lista?.length"
+                            class="flex flex-wrap gap-2"
+                        >
+                            <span
+                                v-for="adjunto in campana.adjuntos_lista"
+                                :key="adjunto.id"
+                                class="inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-xs"
+                            >
+                                <component :is="adjunto.mime.startsWith('image/') ? ImageIcon : FileText" class="size-3.5" />
+                                <a :href="adjunto.url" target="_blank" class="max-w-40 truncate hover:underline">{{ adjunto.nombre }}</a>
+                                <button type="button" class="text-destructive" aria-label="Eliminar archivo" @click="eliminarAdjunto(adjunto.id)">
+                                    <Trash2 class="size-3.5" />
+                                </button>
+                            </span>
+                        </div>
+                        <label
+                            class="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground hover:bg-muted/40"
+                        >
+                            <Paperclip class="size-4" /> Agregar archivos
+                            <input type="file" class="sr-only" multiple accept=".pdf,image/jpeg,image/png,image/webp" @change="alElegirArchivos" />
+                        </label>
+                        <div v-if="form.adjuntos.length" class="flex flex-wrap gap-2">
+                            <span
+                                v-for="(archivo, i) in form.adjuntos"
+                                :key="`${archivo.name}-${i}`"
+                                class="inline-flex items-center gap-1.5 rounded-lg bg-muted px-2 py-1 text-xs"
+                            >
+                                {{ archivo.name }}
+                                <button type="button" aria-label="Quitar" @click="quitarArchivo(i)"><Trash2 class="size-3.5" /></button>
+                            </span>
+                        </div>
+                        <InputError :message="form.errors.adjuntos" />
+                    </div>
+                </section>
 
-                <div class="grid gap-2">
-                    <Label for="observaciones">Observaciones</Label>
-                    <Textarea
-                        id="observaciones"
-                        v-model="form.observaciones"
-                        rows="3"
-                    />
-                    <InputError :message="form.errors.observaciones" />
-                </div>
+                <section class="grid gap-3 sm:grid-cols-2">
+                    <div class="grid gap-2">
+                        <Label for="candidatos_generados">Candidatos generados (opcional)</Label>
+                        <Input id="candidatos_generados" v-model="form.candidatos_generados" type="number" min="0" placeholder="Auto" />
+                        <p class="text-xs text-muted-foreground">
+                            Vacío: se cuentan los candidatos registrados con esta campaña.
+                        </p>
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="observaciones">Observaciones</Label>
+                        <Textarea id="observaciones" v-model="form.observaciones" rows="3" />
+                    </div>
+                </section>
 
                 <DialogFooter>
-                    <Button
-                        type="button"
-                        variant="secondary"
-                        @click="emit('update:open', false)"
-                        >Cancelar</Button
-                    >
+                    <Button type="button" variant="secondary" @click="emit('update:open', false)">Cancelar</Button>
                     <Button type="submit" :disabled="form.processing">
                         <Spinner v-if="form.processing" />
                         Guardar

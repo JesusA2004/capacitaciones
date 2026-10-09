@@ -9,6 +9,7 @@ use App\Enums\TipoBaja;
 use App\Enums\TipoPermisoSolicitado;
 use App\Enums\TipoSolicitudInterna;
 use App\Models\SolicitudInterna;
+use App\Services\Expedientes\ActualizacionDatosService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -47,6 +48,8 @@ class StoreSolicitudInternaRequest extends FormRequest
     {
         $tipo = TipoSolicitudInterna::tryFrom((string) $this->input('tipo'));
         $esPermiso = $tipo === TipoSolicitudInterna::Permiso;
+        // «Completar mis datos»: los valores propuestos bastan como motivo.
+        $esActualizacionConDatos = $tipo === TipoSolicitudInterna::ActualizacionDatos && $this->filled('datos');
         $permisoTipo = TipoPermisoSolicitado::tryFrom((string) $this->input('permiso_tipo'));
         // Permiso: «faltar» se pide por días; salir temprano / llegar tarde, un día con hora.
         $modo = $esPermiso && $permisoTipo !== null && $permisoTipo !== TipoPermisoSolicitado::Faltar
@@ -60,7 +63,7 @@ class StoreSolicitudInternaRequest extends FormRequest
             // Solo la taxonomía vigente; los tipos históricos ya no se crean.
             'tipo' => ['required', 'string', Rule::in(TipoSolicitudInterna::valoresCreables())],
             // El permiso pide solo lo del formato: sus observaciones bastan.
-            'motivo' => [Rule::requiredIf(! $esPermiso), 'nullable', 'string', 'max:2000'],
+            'motivo' => [Rule::requiredIf(! $esPermiso && ! $esActualizacionConDatos), 'nullable', 'string', 'max:2000'],
             'permiso_tipo' => [Rule::requiredIf($esPermiso), Rule::prohibitedIf(! $esPermiso), 'nullable', Rule::enum(TipoPermisoSolicitado::class)],
             'permiso_goce' => [Rule::requiredIf($esPermiso), Rule::prohibitedIf(! $esPermiso), 'nullable', Rule::enum(GocePermiso::class)],
             'permiso_causal' => [
@@ -110,6 +113,8 @@ class StoreSolicitudInternaRequest extends FormRequest
                 'string',
                 Rule::in(array_column(TipoBaja::cases(), 'value')),
             ],
+            // Solo en actualización de datos (ActualizacionDatosService).
+            ...($tipo === TipoSolicitudInterna::ActualizacionDatos ? app(ActualizacionDatosService::class)->reglas() : ['datos' => ['prohibited']]),
         ];
     }
 
@@ -119,6 +124,8 @@ class StoreSolicitudInternaRequest extends FormRequest
     public function messages(): array
     {
         return [
+            ...app(ActualizacionDatosService::class)->mensajes(),
+            'datos.prohibited' => 'Solo una actualización de datos lleva datos propuestos.',
             'fecha_inicio.required' => 'Indica la fecha de inicio.',
             'fecha_inicio.date' => 'Indica una fecha de inicio válida.',
             'duracion_dias.required' => 'Indica el número de días.',

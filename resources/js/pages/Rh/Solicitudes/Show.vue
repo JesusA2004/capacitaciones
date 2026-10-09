@@ -10,6 +10,7 @@ import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import FiniquitoPanel from '@/components/Rh/FiniquitoPanel.vue';
 import type { NivelVistoBueno } from '@/components/Solicitudes/CadenaAutorizacion.vue';
 import CadenaAutorizacion from '@/components/Solicitudes/CadenaAutorizacion.vue';
+import PermisoAutorizacionCard from '@/components/Solicitudes/PermisoAutorizacionCard.vue';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -26,9 +27,9 @@ import {
 } from '@/routes/rh/solicitudes';
 import { permisoPdf } from '@/routes/rh/solicitudes';
 import { ver as verDocumento } from '@/routes/rh/solicitudes/documentos';
-import PermisoAutorizacionCard from '@/components/Solicitudes/PermisoAutorizacionCard.vue';
 import { store as subirDocumentoSolicitud } from '@/routes/solicitudes/documentos';
 import type {
+    DatoPropuesto,
     DocumentoOficialEsperado,
     FiniquitoDesgloseItem,
     FiniquitoPermisos,
@@ -46,6 +47,7 @@ const props = defineProps<{
     tipoEtiqueta: string;
     tipoBajaEtiqueta: string | null;
     permiso: PermisoResumen | null;
+    datosPropuestos: DatoPropuesto[] | null;
     puedeGenerarFormato: boolean;
     vistosBuenos: NivelVistoBueno[];
     puedeDarVistoBueno: boolean;
@@ -200,6 +202,62 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
                     :permiso="permiso"
                     :pdf-url="permisoPdf.url(solicitud.id)"
                 />
+                <!-- Actualización de datos: al autorizar, lo propuesto pasa al expediente. -->
+                <div
+                    v-if="datosPropuestos?.length"
+                    class="overflow-hidden rounded-2xl border border-border/60 bg-card"
+                >
+                    <div class="border-b border-border/60 px-5 py-3">
+                        <p class="font-semibold">
+                            Datos que se actualizarán en el expediente
+                        </p>
+                        <p class="text-xs text-muted-foreground">
+                            {{
+                                solicitud.estado === 'aprobada'
+                                    ? 'Ya se aplicaron al autorizar.'
+                                    : 'Se aplican solo cuando Recursos Humanos autoriza la solicitud.'
+                            }}
+                        </p>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead
+                                class="bg-muted/40 text-left text-xs text-muted-foreground"
+                            >
+                                <tr>
+                                    <th class="px-5 py-2 font-medium">Dato</th>
+                                    <th class="px-5 py-2 font-medium">
+                                        {{
+                                            solicitud.estado === 'aprobada'
+                                                ? 'Antes'
+                                                : 'En el expediente'
+                                        }}
+                                    </th>
+                                    <th class="px-5 py-2 font-medium">
+                                        Propuesto
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr
+                                    v-for="dato in datosPropuestos"
+                                    :key="dato.campo"
+                                    class="border-t border-border/40"
+                                >
+                                    <td class="px-5 py-2 font-medium">
+                                        {{ dato.etiqueta }}
+                                    </td>
+                                    <td class="px-5 py-2 text-muted-foreground">
+                                        {{ dato.actual ?? 'Sin capturar' }}
+                                    </td>
+                                    <td class="px-5 py-2 font-semibold text-primary">
+                                        {{ dato.propuesto }}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
                 <div
                     class="grid gap-4 rounded-2xl border border-border/60 bg-card p-5"
                 >

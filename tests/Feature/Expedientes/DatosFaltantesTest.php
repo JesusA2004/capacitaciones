@@ -88,3 +88,42 @@ test('la app muestra «Completa tu información» y se recalcula sola cuando los
     Sanctum::actingAs($this->cuenta->fresh());
     expect($this->getJson('/api/v1/colaborador/datos-faltantes')->json('data.completo'))->toBeTrue();
 });
+
+test('completar mis datos: la app propone, RH autoriza, el expediente se actualiza y la completitud se recalcula', function () {
+    Sanctum::actingAs($this->cuenta);
+
+    // La app recibe cómo capturar cada dato faltante.
+    $faltan = collect($this->getJson('/api/v1/colaborador/datos-faltantes')->json('data.faltan'))->keyBy('campo');
+    expect($faltan['curp']['tipo'])->toBe('text')
+        ->and($faltan['contacto_emergencia_telefono']['tipo'])->toBe('tel');
+
+    // Formato inválido: se rechaza con mensaje claro y no se crea nada.
+    $this->postJson('/api/v1/solicitudes', ['tipo' => 'actualizacion_datos', 'datos' => ['curp' => 'MAL']])
+        ->assertUnprocessable()->assertJsonValidationErrors('datos.curp');
+
+    // Un dato laboral (puesto, sueldo…) no se propone: lo captura RH.
+    $this->postJson('/api/v1/solicitudes', ['tipo' => 'actualizacion_datos', 'datos' => ['puesto_id' => '999']])
+        ->assertUnprocessable()->assertJsonValidationErrors('datos');
+
+    $this->postJson('/api/v1/solicitudes', ['tipo' => 'actualizacion_datos', 'datos' => [
+        'curp' => 'xexx900101mnexxxa4', 'contacto_emergencia_nombre' => 'Luis Pérez', 'contacto_emergencia_parentesco' => 'Hermano', 'contacto_emergencia_telefono' => '7771111111',
+    ]])->assertCreated()->assertJsonPath('datos_propuestos.0.campo', 'curp');
+
+    $solicitud = \App\Models\SolicitudInterna::query()->latest('id')->firstOrFail();
+    expect($solicitud->motivo)->toContain('CURP')
+        ->and($solicitud->datos_propuestos)->toHaveKey('curp', 'XEXX900101MNEXXXA4');
+    // Nada cambia en el expediente mientras RH no autorice.
+    expect($this->persona->refresh()->curp)->toBeNull();
+    $this->actingAs($this->rh)->get(route('rh.solicitudes.show', $solicitud))->assertInertia(fn ($page) => $page->where('datosPropuestos.0.actual', null)->where('datosPropuestos.0.propuesto', 'XEXX900101MNEXXXA4'));
+
+    $this->actingAs($this->rh)->post(route('rh.solicitudes.aprobar', $solicitud))->assertSessionHasNoErrors();
+
+    $this->persona->refresh();
+    expect($this->persona->curp)->toBe('XEXX900101MNEXXXA4')
+        ->and($this->persona->contacto_emergencia_nombre)->toBe('Luis Pérez')
+        ->and($this->persona->contacto_emergencia_telefono)->toBe('7771111111')
+        ->and($solicitud->refresh()->datos_anteriores)->toHaveKey('curp', null);
+
+    $faltanDespues = array_column(app(DatosFaltantesService::class)->faltantes($this->persona)['personales'], 'campo');
+    expect($faltanDespues)->not->toContain('curp', 'contacto_emergencia_nombre', 'contacto_emergencia_telefono');
+});

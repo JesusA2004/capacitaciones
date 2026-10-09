@@ -28,11 +28,11 @@ use App\Services\Solicitudes\VistoBuenoService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
-use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SolicitudController extends Controller
@@ -185,6 +185,8 @@ class SolicitudController extends Controller
             'tipoBajaEtiqueta' => $solicitud->tipo_baja?->etiqueta(),
             // Permiso: el formato oficial se libera SOLO con la autorización de RH.
             'permiso' => $this->solicitudes->resumenPermiso($solicitud),
+            // Actualización de datos: qué cambia en el expediente al autorizar.
+            'datosPropuestos' => $this->solicitudes->comparativoDatos($solicitud),
             // Documentos oficiales del proceso (motor documental): formato de
             // permiso de la solicitud y documentos del préstamo autorizado.
             'documentosProceso' => array_values(array_filter([

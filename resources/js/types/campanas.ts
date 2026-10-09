@@ -15,6 +15,17 @@ export type CampanaReclutamientoItem = {
     monto: number;
     candidatos_generados: number | null;
     observaciones: string | null;
+    nombre: string | null;
+    vacante_id: number | null;
+    presupuesto: number | string | null;
+    sueldo_publicado: number | string | null;
+    fecha_inicio: string | null;
+    fecha_fin: string | null;
+    copy: string | null;
+    url: string | null;
+    responsable_id: number | null;
+    responsable: { id: number; name: string; apellidos: string | null } | null;
+    adjuntos_lista: { id: number; nombre: string; mime: string; url: string }[];
     creado_por: {
         id: number;
         name: string;
@@ -24,8 +35,15 @@ export type CampanaReclutamientoItem = {
     /** Lo que produjo la campaña: contratados y cuánto costó cada uno. */
     resultado: {
         candidatos: number;
+        entrevistas: number;
+        psicometricos: number;
         contratados: number;
+        costo_por_candidato: number | null;
         costo_por_colaborador: number | null;
+        /** % de candidatos que terminaron contratados. */
+        conversion: number | null;
+        /** Días promedio desde el inicio de la campaña hasta cada contratación. */
+        dias_cobertura: number | null;
     } | null;
 };
 
@@ -43,4 +61,6 @@ export type OpcionesCampanas = {
     departamentos: OpcionSimple[];
     puestos: (OpcionSimple & { departamento_id: number | null })[];
     canales: OpcionEnum[];
+    vacantes: { id: number; etiqueta: string }[];
+    responsables: { id: number; name: string; apellidos: string | null }[];
 };

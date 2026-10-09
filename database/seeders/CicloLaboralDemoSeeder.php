@@ -15,6 +15,7 @@ use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
 use App\Models\EvaluacionPeriodoPrueba;
 use App\Models\GeneratedDocument;
+use App\Models\HeadcountTarget;
 use App\Models\OnboardingModulo;
 use App\Models\Puesto;
 use App\Models\TipoActivo;
@@ -255,6 +256,15 @@ class CicloLaboralDemoSeeder extends Seeder
         if ($sucursalId === null) {
             return null;
         }
+
+        // Una vacante solo existe si la plantilla autorizada tiene plaza libre
+        // (autorizadas − ocupadas > 0): se autorizan 10 lugares más de los
+        // que ya están ocupados en ese puesto/sucursal.
+        $ocupados = Colaborador::query()->where('sucursal_principal_id', $sucursalId)->where('puesto_id', $this->puesto->id)->where('estatus', 'activo')->count();
+        HeadcountTarget::query()->updateOrCreate(
+            ['sucursal_id' => $sucursalId, 'puesto_id' => $this->puesto->id],
+            ['empresa_id' => $empresaId, 'plantilla_autorizada' => $ocupados + 10, 'fuente' => 'manual', 'fecha_corte' => now()->toDateString(), 'editable' => true, 'created_by_id' => $this->rh->id],
+        );
 
         return $this->vacanteDemo = Vacante::query()->create([
             'empresa_id' => $empresaId,
@@ -501,7 +511,7 @@ class CicloLaboralDemoSeeder extends Seeder
     private function aviso(string $mensaje): void
     {
         if ($this->command !== null) {
-            $this->command->warn($mensaje);
+            $this->command?->warn($mensaje);
 
             return;
         }

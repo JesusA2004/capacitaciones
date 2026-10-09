@@ -803,7 +803,7 @@ const variante: Record<string, 'default' | 'secondary' | 'destructive'> = {
                     v-else-if="accion?.clave === 'retroalimentar_onboarding'"
                 >
                     <div class="grid gap-1.5">
-                        <Label>Módulo</Label>
+                        <Label>Sección de capacitación</Label>
                         <SelectSimple
                             :model-value="
                                 form.avance_id ? Number(form.avance_id) : null

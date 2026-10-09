@@ -25,6 +25,14 @@ export type CampoSolicitudFormulario = {
     mostrar_si?: { campo: string; valores: string[] };
 };
 
+/** Actualización de datos: dato, valor en el expediente y valor propuesto. */
+export type DatoPropuesto = {
+    campo: string;
+    etiqueta: string;
+    actual: string | null;
+    propuesto: string;
+};
+
 /** Resumen del permiso (formato oficial liberado solo tras RH). */
 export type PermisoResumen = {
     tipo: string | null;

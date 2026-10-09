@@ -200,7 +200,8 @@ class VacantesListadoService
             return $faltante ?? 0;
         }
 
-        return $faltante !== null ? min((int) $vacante->plazas_disponibles, $faltante) : (int) $vacante->plazas_disponibles;
+        // Sin plantilla autorizada para ese puesto/sucursal no hay plaza que cubrir.
+        return $faltante !== null ? min((int) $vacante->plazas_disponibles, $faltante) : 0;
     }
 
     /**
@@ -231,10 +232,13 @@ class VacantesListadoService
         $autorizadas = $this->headcount->plantillaAutorizadaPorSucursalPuesto($sucursalesIds);
         $actuales = $this->headcount->plantillaActualPorSucursalPuesto($sucursalesIds);
 
-        return $vacantes
-            ->groupBy('sucursal_id')
-            ->map(fn (EloquentCollection $grupo) => (int) $grupo->sum(fn (Vacante $v) => $this->plazasDe($v, $autorizadas, $actuales)))
-            ->filter(fn (int $plazas) => $plazas > 0);
+        $plazas = [];
+
+        foreach ($vacantes as $vacante) {
+            $plazas[$vacante->sucursal_id] = ($plazas[$vacante->sucursal_id] ?? 0) + $this->plazasDe($vacante, $autorizadas, $actuales);
+        }
+
+        return collect(array_filter($plazas, fn (int $total) => $total > 0));
     }
 
     /**

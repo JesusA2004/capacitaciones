@@ -95,6 +95,8 @@ class SolicitudController extends Controller
                 // Permiso: «✓ Autorizado por RH» + formato oficial (solo tras RH).
                 'permiso' => $this->solicitudes->resumenPermiso($solicitud),
                 'permiso_pdf' => $solicitud->tipo === TipoSolicitudInterna::Permiso ? route('api.v1.rh.solicitudes.permiso-pdf', $solicitud->id, false) : null,
+                // Actualización de datos: qué cambia en el expediente al autorizar.
+                'datos_propuestos' => $this->solicitudes->comparativoDatos($solicitud),
                 'acciones_permitidas' => $flujo['acciones_permitidas'],
                 'workflow' => $flujo['workflow'],
                 // Cadena de vistos buenos jerárquicos (Gerente → Regional →

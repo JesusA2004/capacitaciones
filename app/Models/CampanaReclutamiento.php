@@ -4,9 +4,11 @@ namespace App\Models;
 
 use App\Enums\CanalReclutamiento;
 use App\Enums\TipoCostoReclutamiento;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 /**
  * Gasto de una campaña de reclutamiento en un mes/año y canal determinados
@@ -29,6 +31,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $nombre
  * @property int|null $vacante_id
  * @property TipoCostoReclutamiento $tipo_costo
+ * @property numeric-string|null $presupuesto
+ * @property numeric-string|null $sueldo_publicado
+ * @property Carbon|null $fecha_inicio
+ * @property Carbon|null $fecha_fin
+ * @property string|null $copy
+ * @property string|null $url
+ * @property int|null $responsable_id
+ * @property-read User|null $responsable
+ * @property-read Collection<int, CampanaReclutamientoAdjunto> $adjuntos
  * @property-read Vacante|null $vacante
  */
 class CampanaReclutamiento extends Model
@@ -50,6 +61,13 @@ class CampanaReclutamiento extends Model
         'candidatos_generados',
         'observaciones',
         'created_by',
+        'presupuesto',
+        'sueldo_publicado',
+        'fecha_inicio',
+        'fecha_fin',
+        'copy',
+        'url',
+        'responsable_id',
     ];
 
     protected function casts(): array
@@ -61,6 +79,10 @@ class CampanaReclutamiento extends Model
             'tipo_costo' => TipoCostoReclutamiento::class,
             'monto' => 'decimal:2',
             'candidatos_generados' => 'integer',
+            'presupuesto' => 'decimal:2',
+            'sueldo_publicado' => 'decimal:2',
+            'fecha_inicio' => 'date',
+            'fecha_fin' => 'date',
         ];
     }
 
@@ -129,5 +151,25 @@ class CampanaReclutamiento extends Model
     public function creadoPor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Quién lleva la campaña (RH/reclutamiento).
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function responsable(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'responsable_id');
+    }
+
+    /**
+     * Arte y documentos de la campaña (NAS privado).
+     *
+     * @return HasMany<CampanaReclutamientoAdjunto, $this>
+     */
+    public function adjuntos(): HasMany
+    {
+        return $this->hasMany(CampanaReclutamientoAdjunto::class, 'campana_reclutamiento_id');
     }
 }

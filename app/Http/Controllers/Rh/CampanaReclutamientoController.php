@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Rh\StoreCampanaReclutamientoRequest;
 use App\Http\Requests\Rh\UpdateCampanaReclutamientoRequest;
 use App\Models\CampanaReclutamiento;
+use App\Models\CampanaReclutamientoAdjunto;
 use App\Models\Departamento;
 use App\Models\Empresa;
 use App\Models\Puesto;
@@ -25,6 +26,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Gasto de campañas de reclutamiento por canal/periodo (ver
@@ -61,6 +63,8 @@ class CampanaReclutamientoController extends Controller
                 'puesto:id,nombre',
                 'vacante:id,puesto_id,sucursal_id,estado',
                 'creadoPor:id,name,apellidos',
+                'responsable:id,name,apellidos',
+                'adjuntos',
             ])
             ->where('mes', $mes)
             ->where('anio', $anio)
@@ -77,6 +81,13 @@ class CampanaReclutamientoController extends Controller
         $campanas = $consulta->paginate(15)->withQueryString();
         $campanas->getCollection()->transform(function (CampanaReclutamiento $campana) use ($costos) {
             $campana->setAttribute('resultado', $costos['por_campana'][$campana->id] ?? null);
+            $campana->setAttribute('adjuntos_lista', $campana->adjuntos->map(fn (CampanaReclutamientoAdjunto $a) => [
+                'id' => $a->id,
+                'nombre' => $a->nombre_original,
+                'mime' => $a->mime,
+                'url' => route('rh.campanas.adjuntos.show', [$campana, $a]),
+            ])->values()->all());
+            $campana->unsetRelation('adjuntos');
 
             return $campana;
         });
@@ -95,6 +106,8 @@ class CampanaReclutamientoController extends Controller
                 'departamentos' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
                 'puestos' => Puesto::query()->orderBy('nombre')->get(['id', 'nombre', 'departamento_id']),
                 'tiposCosto' => TipoCostoReclutamiento::opciones(),
+                // Quién puede llevar una campaña: quien la administra.
+                'responsables' => User::permission('reclutamiento.campanas.administrar')->orderBy('name')->get(['id', 'name', 'apellidos']),
                 // Misma fuente de verdad que Candidatos/Vacantes
                 // (VacantesListadoService, CLAUDE.md §2): vacantes reales
                 // primero; se completan con las ya ligadas a una campaña
@@ -177,5 +190,26 @@ class CampanaReclutamientoController extends Controller
         $campana->delete();
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Campaña eliminada correctamente.']);
+    }
+
+    /**
+     * Arte/PDF de la campaña desde el NAS privado (solo autenticado y con permiso).
+     */
+    public function adjunto(Request $request, CampanaReclutamiento $campana, CampanaReclutamientoAdjunto $adjunto): StreamedResponse
+    {
+        abort_unless($request->user()?->can('reclutamiento.campanas.ver'), 403);
+        abort_unless($adjunto->campana_reclutamiento_id === $campana->id, 404);
+
+        return $this->servicio->respuestaAdjunto($adjunto);
+    }
+
+    public function eliminarAdjunto(Request $request, CampanaReclutamiento $campana, CampanaReclutamientoAdjunto $adjunto): RedirectResponse
+    {
+        abort_unless($request->user()?->can('reclutamiento.campanas.administrar'), 403);
+        abort_unless($adjunto->campana_reclutamiento_id === $campana->id, 404);
+
+        $this->servicio->eliminarAdjunto($adjunto);
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Archivo eliminado.']);
     }
 }

@@ -51,11 +51,11 @@ class DatosDocumentoAdministrativo
                 ])->all());
             }
 
-            return array_values(array_map(fn (array $c, int $i) => [
+            return array_map(fn (array $c, int $i) => [
                 'clave' => sprintf('%03d', $base + $i),
                 'concepto' => (string) ($c['concepto'] ?? ''),
                 'importe' => $this->dinero((float) ($c['monto'] ?? 0)),
-            ], $respaldo, array_keys($respaldo)));
+            ], $respaldo, array_keys($respaldo));
         };
 
         $numero = $recibo->numero_periodo !== null ? (string) $recibo->numero_periodo : '—';
@@ -97,25 +97,23 @@ class DatosDocumentoAdministrativo
             fn (array $r) => [
                 'clave' => (string) ($r['clave'] ?? ''),
                 'concepto' => (string) $r['concepto'].(($r['observaciones'] ?? null) && ($r['origen'] ?? '') === 'manual' ? ' — '.$r['observaciones'] : ''),
-                'dias' => isset($r['dias']) && $r['dias'] !== null ? $this->dias((float) $r['dias']) : '',
+                'dias' => isset($r['dias']) ? $this->dias((float) $r['dias']) : '',
                 'importe' => $this->dinero((float) $r['importe']),
             ],
             array_filter($desglose, fn (array $r) => ($r['tipo'] ?? null) === $tipo),
         ));
         $neto = (float) ($finiquito->neto ?? $finiquito->total_ajustado);
-        $diasTrabajados = $finiquito->fecha_ingreso !== null && $finiquito->fecha_baja !== null
-            ? (int) $finiquito->fecha_ingreso->diffInDays($finiquito->fecha_baja) + 1
-            : null;
+        $diasTrabajados = number_format((int) $finiquito->fecha_ingreso->diffInDays($finiquito->fecha_baja) + 1);
 
         return [
             ...$this->base($finiquito->colaborador),
             'folio' => (string) ($finiquito->solicitudInterna->folio ?? $finiquito->id),
             'fecha_ingreso' => $this->fecha($finiquito->fecha_ingreso),
             'fecha_baja' => $this->fecha($finiquito->fecha_baja),
-            'dias_trabajados' => $diasTrabajados !== null ? number_format($diasTrabajados) : '—',
+            'dias_trabajados' => $diasTrabajados,
             'caja' => [
                 [['Fecha de alta', $this->fecha($finiquito->fecha_ingreso)], ['Fecha de baja', $this->fecha($finiquito->fecha_baja)]],
-                [['Días trabajados', $diasTrabajados !== null ? number_format($diasTrabajados) : '—']],
+                [['Días trabajados', $diasTrabajados]],
             ],
             'antiguedad' => sprintf('%d año(s), %d mes(es)', (int) $finiquito->antiguedad_anios, (int) $finiquito->antiguedad_meses),
             'sueldo_mensual' => $this->dinero((float) $finiquito->sueldo_mensual),
@@ -158,9 +156,9 @@ class DatosDocumentoAdministrativo
             'goce' => $goce?->etiqueta() ?? '',
             'causal' => $causal?->etiqueta() ?? '',
             'permiso' => [
-                'tipo' => $tipo?->value ?? '',
-                'goce' => $goce?->value ?? '',
-                'causal' => $causal?->value ?? '',
+                'tipo' => $tipo->value ?? '',
+                'goce' => $goce->value ?? '',
+                'causal' => $causal->value ?? '',
                 'dias' => $solicitud->dias_solicitados !== null ? (string) $solicitud->dias_solicitados : '1',
                 'horas' => $tipo === TipoPermisoSolicitado::SalirTemprano ? ($horaSalida !== '' ? 'desde las '.$horaSalida : '') : ($horaEntrada !== '' ? 'hasta las '.$horaEntrada : ''),
                 'hora_salida' => $horaSalida,
@@ -302,10 +300,10 @@ class DatosDocumentoAdministrativo
             'empresa_razon_social' => $razon,
             'empresa' => [
                 'razon_social' => $razon,
-                'rfc' => (string) ($empresa?->rfc ?? ''),
-                'registro_patronal' => (string) ($empresa?->registro_patronal ?? ''),
-                'domicilio_fiscal' => (string) ($empresa?->domicilio_fiscal ?? ''),
-                'codigo_postal' => (string) ($empresa?->codigo_postal_fiscal ?? ''),
+                'rfc' => (string) ($empresa->rfc ?? ''),
+                'registro_patronal' => (string) ($empresa->registro_patronal ?? ''),
+                'domicilio_fiscal' => (string) ($empresa->domicilio_fiscal ?? ''),
+                'codigo_postal' => (string) ($empresa->codigo_postal_fiscal ?? ''),
             ],
             'fecha_documento' => $this->fecha(Carbon::now('America/Mexico_City')),
         ];

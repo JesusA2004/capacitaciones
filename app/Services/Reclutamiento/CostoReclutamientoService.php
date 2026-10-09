@@ -8,6 +8,7 @@ use App\Models\Candidato;
 use App\Models\Vacante;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 /**
@@ -192,10 +193,24 @@ class CostoReclutamientoService
                 $todos[$id] = true;
             }
 
+            $candidatos = (int) ($campana->candidatos_generados ?? Candidato::query()->where('campana_reclutamiento_id', $campana->id)->count());
+            // Embudo real de la campaña: candidatos registrados como venidos de ella.
+            $deCampana = fn () => Candidato::query()->where('campana_reclutamiento_id', $campana->id);
+            $fechasContratacion = Candidato::query()->whereIn('id', $contratados)->whereNotNull('contratado_en')->pluck('contratado_en');
+            $inicioCampana = $campana->fecha_inicio ?? $campana->created_at;
+            $diasCobertura = $inicioCampana !== null && $fechasContratacion->isNotEmpty()
+                ? (int) round($fechasContratacion->avg(fn ($fecha) => max(0, (int) $inicioCampana->copy()->startOfDay()->diffInDays(Carbon::parse($fecha)->startOfDay()))))
+                : null;
+
             $porCampana[$campana->id] = [
-                'candidatos' => $campana->candidatos_generados ?? Candidato::query()->where('campana_reclutamiento_id', $campana->id)->count(),
+                'candidatos' => $candidatos,
+                'entrevistas' => $deCampana()->whereHas('entrevistas')->count(),
+                'psicometricos' => $deCampana()->whereHas('psicometricas')->count(),
                 'contratados' => $contratados->count(),
+                'costo_por_candidato' => $candidatos > 0 ? round((float) $campana->monto / $candidatos, 2) : null,
                 'costo_por_colaborador' => $contratados->isNotEmpty() ? round((float) $campana->monto / $contratados->count(), 2) : null,
+                'conversion' => $candidatos > 0 ? round($contratados->count() / $candidatos * 100, 1) : null,
+                'dias_cobertura' => $diasCobertura,
             ];
         }
 

@@ -122,7 +122,7 @@ class ReciboNominaService
                 },
                 'estado' => $borrador ? EstadoReciboNomina::Borrador : EstadoReciboNomina::Emitido,
                 'emitido_at' => $borrador ? null : now(),
-                'emitido_por' => $borrador ? null : $generadoPor?->id,
+                'emitido_por' => $borrador ? null : $generadoPor->id,
                 'nomina_lote_id' => isset($datos['nomina_lote_id']) ? (int) $datos['nomina_lote_id'] : null,
                 'dias_pagados' => isset($datos['dias_pagados']) ? round((float) $datos['dias_pagados'], 2) : null,
                 'dias_falta' => isset($datos['dias_falta']) ? round((float) $datos['dias_falta'], 2) : null,
@@ -331,7 +331,7 @@ class ReciboNominaService
      * Reemplaza el detalle de conceptos y recalcula totales y snapshot JSON.
      * Debe llamarse dentro de una transacción.
      *
-     * @param  list<array{tipo: string, concepto: string, cantidad: float, importe: float, observaciones: string|null, clasificacion?: string|null, prestamo_id?: int|null}>  $conceptos
+     * @param  list<array{tipo: string, clave?: string|null, concepto: string, cantidad: float, importe: float, observaciones: string|null, clasificacion?: string|null, prestamo_id?: int|null}>  $conceptos
      */
     private function guardarConceptos(ReciboNomina $recibo, array $conceptos): void
     {
@@ -498,7 +498,7 @@ class ReciboNominaService
 
     /**
      * @param  array<string, mixed>  $datos
-     * @return list<array{tipo: string, concepto: string, cantidad: float, importe: float, observaciones: string|null, clasificacion?: string|null, prestamo_id?: int|null}>
+     * @return list<array{tipo: string, clave?: string|null, concepto: string, cantidad: float, importe: float, observaciones: string|null, clasificacion?: string|null, prestamo_id?: int|null}>
      */
     private function normalizarConceptos(array $datos): array
     {

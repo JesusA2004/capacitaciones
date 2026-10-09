@@ -75,7 +75,7 @@ class LoteNominaService
                 'inicio' => $inicio,
                 'fin' => $fin,
                 'pago' => $fin,
-                'numero' => $inicio->isoWeek(),
+                'numero' => $inicio->isoWeek,
                 'etiqueta' => sprintf('Semanal %s', $this->rango($inicio, $fin)),
             ];
         }
@@ -378,6 +378,12 @@ class LoteNominaService
      * expediente, visible en web/app, aviso in-app + push). Solo un lote
      * preparado; un segundo intento sobre un lote emitido es rechazado.
      *
+     * Reintento seguro: si una emisión anterior se cortó a mitad (el lote
+     * quedó emitido con recibos todavía en borrador), volver a emitir solo
+     * publica los pendientes. Cada recibo se emite una sola vez
+     * (ReciboNominaService::emitir es idempotente), así que nadie recibe
+     * dos avisos.
+     *
      * @return array{emitidos: int, lote: NominaLote}
      */
     public function emitir(NominaLote $lote, User $actor): array
@@ -385,7 +391,15 @@ class LoteNominaService
         $reclamado = DB::transaction(function () use ($lote, $actor): bool {
             $fila = NominaLote::query()->whereKey($lote->id)->lockForUpdate()->first();
 
-            if ($fila === null || $fila->estado !== EstadoLoteNomina::Preparado) {
+            if ($fila === null) {
+                return false;
+            }
+
+            if ($fila->estado === EstadoLoteNomina::Emitido) {
+                return $fila->recibos()->where('estado', EstadoReciboNomina::Borrador->value)->exists();
+            }
+
+            if ($fila->estado !== EstadoLoteNomina::Preparado) {
                 return false;
             }
 

@@ -3,6 +3,7 @@
 use App\Enums\EstadoCandidato;
 use App\Enums\EstadoVacante;
 use App\Models\Candidato;
+use App\Models\HeadcountTarget;
 use App\Models\Colaborador;
 use App\Models\IncorporacionInvitacion;
 use App\Models\Vacante;
@@ -28,6 +29,12 @@ beforeEach(function () {
 function clCandidatoAutorizado(object $t, bool $autorizar = true): Candidato
 {
     $estructura = $t->estructura;
+    // Vacante REAL: solo existe con plantilla autorizada y plaza libre (se
+    // respeta la plantilla que la prueba ya haya fijado).
+    HeadcountTarget::query()->firstOrCreate(
+        ['sucursal_id' => $estructura['sucursal']->id, 'puesto_id' => $estructura['puesto']->id],
+        HeadcountTarget::factory()->raw(['sucursal_id' => $estructura['sucursal']->id, 'puesto_id' => $estructura['puesto']->id, 'plantilla_autorizada' => 10]),
+    );
     $vacante = Vacante::factory()->create([
         'empresa_id' => $estructura['empresa']->id,
         'sucursal_id' => $estructura['sucursal']->id,

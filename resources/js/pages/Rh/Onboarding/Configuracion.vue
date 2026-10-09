@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
-import { GraduationCap, Plus, Trash2 } from '@lucide/vue';
+import { Building2, Briefcase, ClipboardCheck, GraduationCap, Package, PlayCircle, Plus, Trash2 } from '@lucide/vue';
 import { ref } from 'vue';
 import Casilla from '@/components/Common/Casilla.vue';
 import RadioMarca from '@/components/Common/RadioMarca.vue';
@@ -153,14 +153,14 @@ void props;
     <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
             titulo="Onboarding"
-            descripcion="Inducción institucional, inducción por puesto (mínimo 8) y activos con carta responsiva."
+            descripcion="Secciones de capacitación (institucional y por puesto, mínimo 8) y el contenido que se entrega con carta responsiva."
             :icono="GraduationCap"
         >
             <Button @click="editarModulo(null)"
-                ><Plus class="size-4" /> Módulo</Button
+                ><Plus class="size-4" /> Sección de capacitación</Button
             >
             <Button variant="secondary" @click="editarActivo(null)"
-                ><Plus class="size-4" /> Tipo de activo</Button
+                ><Plus class="size-4" /> Tipo de contenido</Button
             >
         </CrudPageHeader>
 
@@ -354,60 +354,117 @@ void props;
             </div>
         </form>
 
-        <section data-tour="onboarding-modulos" class="flex flex-col gap-2">
-            <h2 class="text-sm font-semibold">Módulos</h2>
+        <section data-tour="onboarding-modulos" class="flex flex-col gap-3">
+            <div>
+                <h2 class="text-base font-semibold">Secciones de capacitación</h2>
+                <p class="text-sm text-muted-foreground">
+                    Cada sección tiene su material y una evaluación con
+                    calificación mínima.
+                </p>
+            </div>
             <p
                 v-if="!modulos.length"
-                class="text-sm text-[var(--mrl-texto-suave)]"
+                class="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground"
             >
-                Sin módulos configurados.
+                Todavía no hay secciones de capacitación.
             </p>
-            <button
-                v-for="m in modulos"
-                :key="m.id"
-                type="button"
-                class="flex items-center gap-3 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4 text-left text-sm hover:border-[var(--mrl-petroleo)]/40"
-                @click="editarModulo(m)"
-            >
-                <span
-                    class="rounded-full bg-[var(--mrl-fondo)] px-2 py-0.5 text-xs"
-                    >{{
-                        m.tipo === 'institucional'
-                            ? 'Institucional'
-                            : (m.puesto ?? 'Puesto')
-                    }}</span
+            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <button
+                    v-for="m in modulos"
+                    :key="m.id"
+                    type="button"
+                    class="group flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 text-left transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                    :class="m.activo ? '' : 'opacity-60'"
+                    @click="editarModulo(m)"
                 >
-                <span class="flex-1 font-medium"
-                    >{{ m.orden }}. {{ m.titulo }}</span
-                >
-                <span class="text-xs text-[var(--mrl-texto-suave)]"
-                    >{{ m.preguntas.length }} preguntas · mínimo
-                    {{ m.calificacion_minima
-                    }}{{ m.activo ? '' : ' · inactivo' }}</span
-                >
-            </button>
+                    <div class="flex items-start gap-3">
+                        <span
+                            class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
+                        >
+                            <component
+                                :is="m.tipo === 'institucional' ? Building2 : Briefcase"
+                                class="size-5"
+                            />
+                        </span>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-xs font-semibold text-muted-foreground">
+                                Sección {{ m.orden }} ·
+                                {{
+                                    m.tipo === 'institucional'
+                                        ? 'Institucional'
+                                        : (m.puesto ?? 'Al puesto')
+                                }}
+                            </p>
+                            <p class="truncate font-semibold">{{ m.titulo }}</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-2 text-xs">
+                        <span
+                            class="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5"
+                            ><ClipboardCheck class="size-3.5" />
+                            {{ m.preguntas.length }} preguntas</span
+                        >
+                        <span
+                            class="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5"
+                            >Mínimo {{ m.calificacion_minima }}</span
+                        >
+                        <span
+                            v-if="m.contenido_url"
+                            class="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5"
+                            ><PlayCircle class="size-3.5" /> Material</span
+                        >
+                        <span
+                            v-if="!m.activo"
+                            class="rounded-full bg-destructive/10 px-2 py-0.5 text-destructive"
+                            >Inactiva</span
+                        >
+                    </div>
+                </button>
+            </div>
         </section>
 
-        <section data-tour="onboarding-activos" class="flex flex-col gap-2">
-            <h2 class="text-sm font-semibold">Activos</h2>
-            <button
-                v-for="t in tiposActivo"
-                :key="t.id"
-                type="button"
-                class="flex items-center gap-3 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4 text-left text-sm hover:border-[var(--mrl-petroleo)]/40"
-                @click="editarActivo(t)"
+        <section data-tour="onboarding-activos" class="flex flex-col gap-3">
+            <div>
+                <h2 class="text-base font-semibold">Tipos de contenido</h2>
+                <p class="text-sm text-muted-foreground">
+                    Uniforme, equipo o material que se entrega al colaborador
+                    con carta responsiva.
+                </p>
+            </div>
+            <p
+                v-if="!tiposActivo.length"
+                class="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground"
             >
-                <span class="flex-1 font-medium">{{ t.nombre }}</span>
-                <span class="text-xs text-[var(--mrl-texto-suave)]"
-                    >{{ t.obligatorio ? 'Obligatorio' : 'Opcional'
-                    }}{{ t.requiere_identificador ? ' · con serie' : ''
-                    }}{{
-                        t.puesto_ids?.length
-                            ? ` · ${t.puesto_ids.length} puesto(s)`
-                            : ' · todos los puestos'
-                    }}</span
+                Todavía no hay tipos de contenido.
+            </p>
+            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <button
+                    v-for="t in tiposActivo"
+                    :key="t.id"
+                    type="button"
+                    class="flex items-start gap-3 rounded-2xl border border-border bg-card p-4 text-left transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                    :class="t.activo ? '' : 'opacity-60'"
+                    @click="editarActivo(t)"
                 >
-            </button>
+                    <span
+                        class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-secondary text-secondary-foreground"
+                    >
+                        <Package class="size-5" />
+                    </span>
+                    <div class="min-w-0 flex-1">
+                        <p class="truncate font-semibold">{{ t.nombre }}</p>
+                        <p class="mt-1 text-xs text-muted-foreground">
+                            {{ t.obligatorio ? 'Obligatorio' : 'Opcional'
+                            }}{{ t.requiere_identificador ? ' · con serie' : ''
+                            }}{{
+                                t.puesto_ids?.length
+                                    ? ` · ${t.puesto_ids.length} puesto(s)`
+                                    : ' · todos los puestos'
+                            }}
+                        </p>
+                    </div>
+                </button>
+            </div>
         </section>
     </div>
 </template>

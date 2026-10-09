@@ -82,7 +82,7 @@ class PuestoJerarquiaSeeder extends Seeder
         $reporte = app(SincronizadorOrganigramaService::class)->sincronizar();
 
         foreach ($reporte['conflictos'] as $conflicto) {
-            $this->command->warn('Organigrama: '.$conflicto);
+            $this->command?->warn('Organigrama: '.$conflicto);
         }
 
         $departamento = fn (string $nombre): ?int => Departamento::where('nombre', $nombre)->value('id');
@@ -216,7 +216,7 @@ class PuestoJerarquiaSeeder extends Seeder
 
         $puesto->update(['activo' => false, 'puesto_superior_id' => null, 'puesto_crecimiento_id' => null]);
 
-        $this->command->warn(sprintf(
+        $this->command?->warn(sprintf(
             'Puesto «%s» retirado de la estructura pero EN USO (%s): quedó inactivo, reasigna esos registros a un puesto vigente.',
             $nombre,
             implode(', ', $usos),
