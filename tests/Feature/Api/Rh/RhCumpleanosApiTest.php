@@ -78,3 +78,22 @@ test('las respuestas de la bandeja rh no incluyen el anio de nacimiento', functi
     $json = json_encode($respuesta->json());
     expect($json)->not->toContain('fecha_nacimiento');
 });
+
+test('«hoy» es el día de México: a las 23:30 del 25 (05:30 UTC del 26) quien cumple el 26 NO sale como cumpleaños de hoy', function () {
+    Carbon::setTestNow(Carbon::parse('2026-09-26 05:30:00', 'UTC'));
+    $rh = User::factory()->create();
+    $rh->assignRole('rh_admin');
+
+    $manana = Colaborador::factory()->create(['fecha_nacimiento' => '1990-09-26']);
+    $hoy = Colaborador::factory()->create(['fecha_nacimiento' => '1991-09-25']);
+
+    $respuesta = $this->withHeaders(headersBearerRhCumpleanos($rh))
+        ->getJson('/api/v1/rh/cumpleanos?periodo=proximos7')
+        ->assertOk();
+
+    $porId = collect($respuesta->json('data'))->keyBy('colaborador.id');
+
+    expect($respuesta->json('meta.hoy'))->toBe(1)
+        ->and($porId[$hoy->id]['es_hoy'])->toBeTrue()
+        ->and($porId[$manana->id]['es_hoy'])->toBeFalse();
+});

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BirthdayGreeting;
 use App\Models\Colaborador;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Celebraciones\FechasCelebracion;
 use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Cumpleanos\BirthdayCardService;
 use App\Services\Cumpleanos\CumpleanosService;
@@ -13,7 +14,6 @@ use App\Services\Cumpleanos\MuroCumpleanosService;
 use App\Services\Expedientes\DocumentoStorageService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 /**
@@ -55,11 +55,13 @@ class CumpleanosController extends Controller
 
         $greetingsPorColaborador = BirthdayGreeting::query()
             ->whereIn('colaborador_id', $pagina->pluck('id'))
-            ->whereYear('fecha', Carbon::today()->year)
+            ->whereYear('fecha', FechasCelebracion::hoy()->year)
             ->get()
             ->keyBy('colaborador_id');
 
-        $hoy = Carbon::today();
+        // Día de MÉXICO (la app corre en UTC): con Carbon::today() después de
+        // las 18:00 se marcaba «Hoy» a quien cumple mañana.
+        $hoy = FechasCelebracion::hoy();
 
         $data = $pagina->map(function (Colaborador $colaborador) use ($greetingsPorColaborador, $hoy) {
             /** @var BirthdayGreeting|null $greeting */
@@ -79,8 +81,7 @@ class CumpleanosController extends Controller
                     'departamento' => $colaborador->departamento?->nombre,
                 ],
                 'dia' => (int) $colaborador->fecha_nacimiento->format('d'),
-                'es_hoy' => (int) $colaborador->fecha_nacimiento->format('n') === $hoy->month
-                    && (int) $colaborador->fecha_nacimiento->format('j') === $hoy->day,
+                'es_hoy' => FechasCelebracion::esHoy($colaborador->fecha_nacimiento, $hoy),
                 'felicitacion_generada' => $greeting !== null,
                 'enviada' => $greeting?->enviada_at !== null,
             ];

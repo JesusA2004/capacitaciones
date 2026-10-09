@@ -8,6 +8,7 @@ use App\Models\BirthdayWallMessage;
 use App\Models\MobileDevice;
 use App\Models\User;
 use App\Notifications\Mobile\CelebracionNotification;
+use App\Services\Celebraciones\FechasCelebracion;
 use App\Services\MobilePush\PushNotifier;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -242,7 +243,10 @@ class MuroCumpleanosService
             'id' => $greeting->id,
             'tipo' => $greeting->tipo->value,
             'fecha' => $greeting->fecha->toDateString(),
-            'es_hoy' => $greeting->fecha->isSameDay(now('America/Mexico_City')),
+            // Mismo «hoy» que el resto de celebraciones (día de México como
+            // fecha pura): comparar contra now() con zona convertía la fecha
+            // guardada y podía marcar «hoy» el día equivocado.
+            'es_hoy' => $greeting->fecha->isSameDay(FechasCelebracion::hoy()),
             'abierto' => $greeting->muroAbierto(),
             'abierto_at' => $greeting->muro_abierto_at?->toIso8601String(),
             'cerrado_at' => $greeting->muro_cerrado_at?->toIso8601String(),

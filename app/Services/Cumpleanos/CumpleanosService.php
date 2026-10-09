@@ -182,7 +182,7 @@ class CumpleanosService
             'hoy' => $this->cumpleanosDeHoy($usuario, $filtros),
             '7_dias' => $this->proximosCumpleanos($usuario, 7, $filtros),
             '30_dias' => $this->proximosCumpleanos($usuario, 30, $filtros),
-            default => $this->cumpleanosDelMes($mes ?? Carbon::today()->month, $usuario, $filtros),
+            default => $this->cumpleanosDelMes($mes ?? FechasCelebracion::hoy()->month, $usuario, $filtros),
         };
     }
 
@@ -381,7 +381,7 @@ class CumpleanosService
                 continue;
             }
 
-            $claveDedup = 'cumpleanos:recordatorio_rh:'.$destinatario->id.':'.Carbon::today()->toDateString();
+            $claveDedup = 'cumpleanos:recordatorio_rh:'.$destinatario->id.':'.FechasCelebracion::hoy()->toDateString();
 
             if (Cache::has($claveDedup)) {
                 continue;
@@ -396,7 +396,7 @@ class CumpleanosService
 
             if ($hoy->count() === 1) {
                 try {
-                    $greetingId = $this->tarjetas->generar($hoy->first(), Carbon::today())->id;
+                    $greetingId = $this->tarjetas->generar($hoy->first(), FechasCelebracion::hoy())->id;
                 } catch (\Throwable $e) {
                     Log::error('cumpleanos: fallo al generar la tarjeta para el recordatorio de rh', [
                         'colaborador_id' => $hoy->first()->id,
@@ -417,7 +417,7 @@ class CumpleanosService
                     ['type' => 'rh_cumpleanos', 'resource_id' => $greetingId, 'route' => 'rh/cumpleanos', 'periodo' => $periodo],
                 );
 
-                Cache::put($claveDedup, true, Carbon::today()->endOfDay());
+                Cache::put($claveDedup, true, FechasCelebracion::hoy()->endOfDay());
             } catch (\Throwable $e) {
                 Log::error('cumpleanos: fallo al notificar a RH', [
                     'user_id' => $destinatario->id,
