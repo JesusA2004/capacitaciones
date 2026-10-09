@@ -141,7 +141,7 @@ const sinCobertura = computed(
             </div>
             <div
                 v-else-if="sinCobertura"
-                class="flex items-center gap-2.5 rounded-xl border border-dashed border-orange-300 bg-orange-50/70 p-3 text-sm text-orange-700 dark:border-orange-500/40 dark:bg-orange-500/10 dark:text-orange-300"
+                class="flex items-center gap-2.5 rounded-xl border border-dashed border-warning/30 bg-warning-soft/70 p-3 text-sm text-warning"
             >
                 <UserRoundSearch class="size-5 shrink-0" />
                 <span class="font-medium">Puesto sin ocupar</span>
@@ -169,7 +169,7 @@ const sinCobertura = computed(
                 </span>
                 <span
                     v-if="puesto.vacantes_abiertas_count > 0"
-                    class="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-500/20 dark:text-amber-300"
+                    class="rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-medium text-warning"
                 >
                     {{ puesto.vacantes_abiertas_count }} vacante{{
                         puesto.vacantes_abiertas_count === 1 ? '' : 's'
@@ -177,7 +177,7 @@ const sinCobertura = computed(
                 </span>
                 <span
                     v-if="puesto.candidatos_count > 0"
-                    class="rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-medium text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300"
+                    class="rounded-full bg-info-soft px-2 py-0.5 text-[11px] font-medium text-info"
                 >
                     {{ puesto.candidatos_count }} candidato{{
                         puesto.candidatos_count === 1 ? '' : 's'

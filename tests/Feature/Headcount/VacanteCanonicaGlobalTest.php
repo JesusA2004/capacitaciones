@@ -7,8 +7,10 @@ use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\Vacante;
 use App\Services\Reclutamiento\CampanaReclutamientoService;
+use App\Services\Reclutamiento\CandidatoWorkflowService;
 use App\Services\Vacantes\VacantesListadoService;
 use Database\Seeders\RolesYPermisosSeeder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\Sanctum;
 
@@ -73,7 +75,7 @@ test('una campaña no puede crearse sobre una vacante sin plaza real', function 
 
 test('un candidato no se liga a una vacante cubierta y hereda sucursal/puesto de la vacante (ignora lo manipulado)', function () {
     $otraSucursal = Sucursal::factory()->create();
-    $candidato = app(\App\Services\Reclutamiento\CandidatoWorkflowService::class)->registrar([
+    $candidato = app(CandidatoWorkflowService::class)->registrar([
         'nombre' => 'Laura', 'apellidos' => 'Pérez', 'telefono' => '5550000000',
         'vacante_id' => $this->vacante->id, 'sucursal_id' => $otraSucursal->id, 'puesto_objetivo_id' => Puesto::factory()->create()->id,
     ], $this->rh);
@@ -83,7 +85,7 @@ test('un candidato no se liga a una vacante cubierta y hereda sucursal/puesto de
 
     vcOcuparPlaza($this->sucursal, $this->gestor);
 
-    expect(fn () => app(\App\Services\Reclutamiento\CandidatoWorkflowService::class)->registrar([
+    expect(fn () => app(CandidatoWorkflowService::class)->registrar([
         'nombre' => 'Otro', 'apellidos' => 'Candidato', 'telefono' => '5550000001', 'vacante_id' => $this->vacante->id,
     ], $this->rh))->toThrow(ValidationException::class);
 });
@@ -97,7 +99,7 @@ test('una vacante manual sin plantilla autorizada no tiene plazas disponibles (n
     $listado = app(VacantesListadoService::class);
 
     expect($listado->tieneCupo($vacante))->toBeFalse()
-        ->and($listado->plazasReales(new \Illuminate\Database\Eloquent\Collection([$vacante]))[$vacante->id])->toBe(0);
+        ->and($listado->plazasReales(new Collection([$vacante]))[$vacante->id])->toBe(0);
 
     // Detalle de la API RH: el cálculo en vivo, nunca la columna guardada (3).
     Sanctum::actingAs($this->rh);

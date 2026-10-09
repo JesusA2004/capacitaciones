@@ -183,7 +183,7 @@ test('apariencia: solo super_admin cambia colores; se validan, se inyectan en la
         ->assertUnprocessable();
 
     $this->actingAs($this->admin)
-        ->put(route('administracion.configuracion.apariencia.update'), ['valores' => ['apariencia.primary' => '#112233', 'apariencia.danger' => '#df4050']])
+        ->put(route('administracion.configuracion.apariencia.update'), ['valores' => ['apariencia.primary' => '#112233', 'apariencia.danger' => '#b0524a']])
         ->assertSessionHasNoErrors();
 
     $this->actingAs($this->admin)->get(route('administracion.configuracion.apariencia'))
@@ -192,16 +192,16 @@ test('apariencia: solo super_admin cambia colores; se validan, se inyectan en la
 
     $this->getJson('/api/v1/app/theme')->assertOk()
         ->assertJsonPath('data.colors.primary', '#112233')
-        ->assertJsonPath('data.colors.danger', '#DF4050');
+        ->assertJsonPath('data.colors.danger', '#B0524A');
 
     $registro = Activity::query()->where('event', 'configuracion_actualizada')->latest('id')->firstOrFail();
-    expect($registro->properties['cambios']['apariencia.primary']['antes'])->toBe('#164E50')
+    expect($registro->properties['cambios']['apariencia.primary']['antes'])->toBe('#315B59')
         ->and($registro->properties['cambios']['apariencia.primary']['despues'])->toBe('#112233')
         // Igual al de fábrica: no se registra como cambio.
         ->and($registro->properties['cambios'])->not->toHaveKey('apariencia.danger');
 
     $this->actingAs($this->admin)->post(route('administracion.configuracion.restaurar'), ['clave' => 'apariencia.primary'])->assertSessionHasNoErrors();
-    $this->getJson('/api/v1/app/theme')->assertJsonPath('data.colors.primary', '#164E50');
+    $this->getJson('/api/v1/app/theme')->assertJsonPath('data.colors.primary', '#315B59');
 });
 
 test('parámetros de RH: el cambio aplica de inmediato a la regla del ciclo', function () {

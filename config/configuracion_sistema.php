@@ -50,28 +50,28 @@ $grafica = fn (string $etiqueta, string $defecto, string $css, string $descripci
 return [
 
     'parametros' => [
-        'apariencia.primary' => $color('Primario', '#0D3E43', '--mrl-petroleo', 'primary', 'Petróleo institucional: encabezados, botones principales y enlaces.'),
-        'apariencia.primary_alt' => $color('Primario alterno', '#225C54', '--mrl-petroleo-2', 'primaryAlt', 'Variante del primario para estados hover y degradados.'),
-        'apariencia.brand_green' => $color('Verde de marca', '#2F5937', '--mrl-verde', 'success', 'Éxito, aprobado, completado.'),
-        'apariencia.deep_green' => $color('Verde profundo', '#0D3E43', '--mrl-verde-profundo', 'deepGreen', 'Texto principal y fondos oscuros de marca.'),
-        'apariencia.secondary_green' => $color('Verde secundario', '#2A4518', '--mrl-verde-secundario', 'secondary', 'Acentos secundarios y gráficas.'),
-        'apariencia.gold' => $color('Dorado', '#AF8B51', '--mrl-dorado', 'gold', 'Acento institucional y estados "en proceso".'),
-        'apariencia.gold_dark' => $color('Dorado oscuro', '#754711', '--mrl-dorado-oscuro', 'goldDark', 'Advertencias y texto sobre dorado.'),
-        'apariencia.muted' => $color('Gris verdoso', '#A7AC9C', '--mrl-gris-verdoso', 'muted', 'Elementos deshabilitados o secundarios.'),
-        'apariencia.navy' => $color('Esmeralda', '#225C54', '--mrl-navy', 'navy', 'Datos y gráficas complementarias.'),
-        'apariencia.accent' => $color('Acento', '#225C54', '--mrl-cyan', 'accent', 'Datos destacados e información.'),
-        'apariencia.danger' => $color('Peligro', '#C8414D', '--mrl-rojo', 'danger', 'Rechazos, errores y alertas.'),
-        'apariencia.background' => $color('Fondo', '#FAF8F3', '--mrl-fondo', 'background', 'Fondo general de las pantallas.'),
-        'apariencia.surface' => $color('Superficie', '#FFFFFF', '--mrl-superficie', 'surface', 'Tarjetas, paneles y diálogos.'),
+        'apariencia.primary' => $color('Primario', '#315B59', '--mrl-petroleo', 'primary', 'Petróleo suavizado: encabezados, botones principales y enlaces.'),
+        'apariencia.primary_alt' => $color('Primario alterno', '#284B49', '--mrl-petroleo-2', 'primaryAlt', 'Variante del primario para estados hover y degradados.'),
+        'apariencia.brand_green' => $color('Verde de marca', '#3F7558', '--mrl-verde', 'success', 'Éxito, aprobado, completado.'),
+        'apariencia.deep_green' => $color('Verde profundo', '#315B59', '--mrl-verde-profundo', 'deepGreen', 'Acentos de marca sobre fondos claros.'),
+        'apariencia.secondary_green' => $color('Verde secundario', '#6B7F4A', '--mrl-verde-secundario', 'secondary', 'Acentos secundarios y gráficas.'),
+        'apariencia.gold' => $color('Dorado', '#C7A66B', '--mrl-dorado', 'gold', 'Acento institucional y estados "en proceso".'),
+        'apariencia.gold_dark' => $color('Dorado oscuro', '#8A6A36', '--mrl-dorado-oscuro', 'goldDark', 'Advertencias y texto sobre dorado.'),
+        'apariencia.muted' => $color('Gris verdoso', '#A9B0A3', '--mrl-gris-verdoso', 'muted', 'Elementos deshabilitados o secundarios.'),
+        'apariencia.navy' => $color('Esmeralda', '#6E9B8F', '--mrl-navy', 'navy', 'Datos y gráficas complementarias.'),
+        'apariencia.accent' => $color('Acento', '#6E9B8F', '--mrl-cyan', 'accent', 'Datos destacados e información.'),
+        'apariencia.danger' => $color('Peligro', '#B0524A', '--mrl-rojo', 'danger', 'Rechazos, errores y alertas.'),
+        'apariencia.background' => $color('Fondo', '#FBF8F2', '--mrl-fondo', 'background', 'Fondo general de las pantallas.'),
+        'apariencia.surface' => $color('Superficie', '#FFFDF9', '--mrl-superficie', 'surface', 'Tarjetas, paneles y diálogos.'),
 
         // Un color por gráfica del tablero de RH (sección "Gráficas" de
-        // Apariencia). Aplica en modo claro y oscuro; la app no los usa.
-        'apariencia.grafica_plantilla' => $grafica('Plantilla activa', '#225C54', '--grafica-plantilla', 'Barra de avance de la tarjeta «Plantilla activa».'),
-        'apariencia.grafica_rotacion' => $grafica('Rotación mensual', '#0D3E43', '--grafica-rotacion', 'Línea y área de la gráfica de rotación mes a mes.'),
-        'apariencia.grafica_cobertura' => $grafica('Cobertura de plantilla', '#2F5937', '--grafica-cobertura', 'Anillo de plazas autorizadas ocupadas.'),
-        'apariencia.grafica_embudo' => $grafica('Embudo de reclutamiento', '#AF8B51', '--grafica-embudo', 'Barras de cada etapa del reclutamiento.'),
-        'apariencia.grafica_tiempo' => $grafica('Tiempo de contratación por nivel', '#754711', '--grafica-tiempo', 'Barras de días promedio para contratar por nivel de puesto.'),
-        'apariencia.grafica_sucursales' => $grafica('Plantilla por sucursal', '#2A4518', '--grafica-sucursales', 'Barras de ocupación de cada sucursal.'),
+        // Apariencia). La app no los usa.
+        'apariencia.grafica_plantilla' => $grafica('Plantilla activa', '#6E9B8F', '--grafica-plantilla', 'Barra de avance de la tarjeta «Plantilla activa».'),
+        'apariencia.grafica_rotacion' => $grafica('Rotación mensual', '#315B59', '--grafica-rotacion', 'Línea y área de la gráfica de rotación mes a mes.'),
+        'apariencia.grafica_cobertura' => $grafica('Cobertura de plantilla', '#7FA88F', '--grafica-cobertura', 'Anillo de plazas autorizadas ocupadas.'),
+        'apariencia.grafica_embudo' => $grafica('Embudo de reclutamiento', '#C7A66B', '--grafica-embudo', 'Barras de cada etapa del reclutamiento.'),
+        'apariencia.grafica_tiempo' => $grafica('Tiempo de contratación por nivel', '#A98252', '--grafica-tiempo', 'Barras de días promedio para contratar por nivel de puesto.'),
+        'apariencia.grafica_sucursales' => $grafica('Plantilla por sucursal', '#9FB38F', '--grafica-sucursales', 'Barras de ocupación de cada sucursal.'),
 
         'rh.onboarding_calificacion_minima' => [
             'grupo' => 'rh',

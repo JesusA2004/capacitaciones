@@ -9,6 +9,7 @@ use App\Models\Sucursal;
 use App\Models\User;
 use App\Notifications\Mobile\CelebracionNotification;
 use Database\Seeders\RolesYPermisosSeeder;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Notification;
@@ -87,7 +88,7 @@ test('no felicita el año cero, ni a quien no cumple hoy, ni falla sin cuenta en
 });
 
 test('el envío automático está programado a las 08:00 de México', function () {
-    $evento = collect(app(\Illuminate\Console\Scheduling\Schedule::class)->events())
+    $evento = collect(app(Schedule::class)->events())
         ->first(fn ($e) => str_contains((string) $e->command, 'aniversarios:enviar-felicitaciones'));
 
     expect($evento)->not->toBeNull()

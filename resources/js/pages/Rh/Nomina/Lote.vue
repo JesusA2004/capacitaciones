@@ -142,12 +142,12 @@ function mover(paso: number) {
 
 const ESTILO_REVISION: Record<string, { clase: string; icono: typeof CheckCircle2; texto: string }> = {
     correcto: {
-        clase: 'bg-[#2f5937]/10 text-[#2f5937] dark:text-[#a9d6b1]',
+        clase: 'bg-success-soft/60 text-success',
         icono: CheckCircle2,
         texto: 'Correcto',
     },
     advertencia: {
-        clase: 'bg-[#e9d6b0]/50 text-[#754711] dark:bg-[#c9a876]/15 dark:text-[#e9d6b0]',
+        clase: 'bg-warning-soft text-warning',
         icono: AlertTriangle,
         texto: 'Advertencia',
     },
@@ -264,7 +264,7 @@ function guardarEdicion() {
                     </Link>
                 </Button>
                 <div>
-                    <p class="text-xs font-semibold tracking-[0.2em] text-[#af8b51] uppercase">
+                    <p class="text-xs font-semibold tracking-[0.2em] text-oro uppercase">
                         Periodo
                     </p>
                     <h1 class="text-2xl font-semibold">{{ lote.etiqueta }}</h1>
@@ -304,9 +304,9 @@ function guardarEdicion() {
 
         <div
             v-if="lote.estado === 'preparado'"
-            class="flex items-start gap-3 rounded-2xl border border-[#af8b51]/40 bg-[#e9d6b0]/25 p-4 text-sm dark:bg-[#c9a876]/10"
+            class="flex items-start gap-3 rounded-2xl border border-oro/40 bg-warning-soft/40 p-4 text-sm"
         >
-            <AlertTriangle class="mt-0.5 size-4 shrink-0 text-[#754711] dark:text-[#e9d6b0]" />
+            <AlertTriangle class="mt-0.5 size-4 shrink-0 text-warning" />
             <p>
                 <strong>Todavía no se publica.</strong> Los recibos de este lote no
                 son visibles para los colaboradores y no se ha enviado ningún aviso.
@@ -315,9 +315,9 @@ function guardarEdicion() {
         </div>
         <div
             v-else-if="lote.estado === 'emitido'"
-            class="flex items-start gap-3 rounded-2xl border border-[#2f5937]/30 bg-[#2f5937]/5 p-4 text-sm"
+            class="flex items-start gap-3 rounded-2xl border border-success/30 bg-success-soft/60 p-4 text-sm"
         >
-            <CheckCircle2 class="mt-0.5 size-4 shrink-0 text-[#2f5937]" />
+            <CheckCircle2 class="mt-0.5 size-4 shrink-0 text-success" />
             <p>
                 Emitido por <strong>{{ lote.emitido_por }}</strong> el
                 {{ new Date(lote.emitido_at ?? '').toLocaleString('es-MX') }}. Cada
@@ -351,7 +351,7 @@ function guardarEdicion() {
             </div>
             <div class="rounded-2xl border border-border/60 bg-card p-4">
                 <p class="flex items-center gap-1.5 text-xs text-muted-foreground"><AlertTriangle class="size-3.5" /> Advertencias</p>
-                <p class="mt-1 text-2xl font-bold tabular-nums" :class="lote.total_advertencias ? 'text-[#754711] dark:text-[#e9d6b0]' : ''">{{ lote.total_advertencias }}</p>
+                <p class="mt-1 text-2xl font-bold tabular-nums" :class="lote.total_advertencias ? 'text-warning' : ''">{{ lote.total_advertencias }}</p>
             </div>
             <div class="rounded-2xl border border-border/60 bg-card p-4">
                 <p class="text-xs text-muted-foreground">Total percepciones</p>
@@ -439,7 +439,7 @@ function guardarEdicion() {
                             v-for="aviso in recibo.advertencias"
                             :key="aviso"
                             class="mt-1.5 text-[11px]"
-                            :class="recibo.revision === 'error' ? 'text-destructive' : 'text-[#754711] dark:text-[#e9d6b0]'"
+                            :class="recibo.revision === 'error' ? 'text-destructive' : 'text-warning'"
                         >
                             {{ aviso }}
                         </p>
@@ -566,7 +566,7 @@ function guardarEdicion() {
                 >
                     <span
                         class="rounded-full px-2 py-1 text-center text-[11px] font-medium"
-                        :class="c.tipo === 'percepcion' ? 'bg-[#2f5937]/10 text-[#2f5937]' : 'bg-destructive/10 text-destructive'"
+                        :class="c.tipo === 'percepcion' ? 'bg-success-soft/60 text-success' : 'bg-destructive/10 text-destructive'"
                     >
                         {{ c.tipo === 'percepcion' ? 'Percepción' : 'Deducción' }}
                     </span>

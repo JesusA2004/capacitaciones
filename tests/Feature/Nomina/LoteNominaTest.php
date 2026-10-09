@@ -17,6 +17,7 @@ use App\Services\DocumentosAdministrativos\DatosDocumentoAdministrativo;
 use App\Services\DocumentosAdministrativos\DisenoAdministrativoService;
 use App\Services\DocumentosAdministrativos\DocumentoAdministrativoService;
 use App\Services\Nomina\LoteNominaService;
+use App\Services\Nomina\ReciboNominaService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Http\UploadedFile;
@@ -176,7 +177,7 @@ test('reintento seguro: si la emisión se cortó a mitad, volver a emitir solo p
 
     // Simula el corte: el lote ya quedó emitido y solo el primer recibo se publicó.
     $lote->update(['estado' => EstadoLoteNomina::Emitido, 'emitido_por' => $this->rh->id, 'emitido_at' => now()]);
-    app(\App\Services\Nomina\ReciboNominaService::class)->emitir($lote->recibos()->where('colaborador_id', $this->colaborador->id)->firstOrFail(), $this->rh);
+    app(ReciboNominaService::class)->emitir($lote->recibos()->where('colaborador_id', $this->colaborador->id)->firstOrFail(), $this->rh);
     Bus::assertDispatchedTimes(SendExpoPushJob::class, 1);
 
     $resultado = $this->lotes->emitir($lote, $this->rh);

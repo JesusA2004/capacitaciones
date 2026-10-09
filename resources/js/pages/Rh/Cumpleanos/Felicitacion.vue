@@ -105,7 +105,7 @@ const estado = computed(() => {
     if (props.greeting.tieneImagen) {
         return {
             texto: 'Generada · pendiente de envío',
-            tono: 'border-amber-500/40 text-amber-600 dark:text-amber-400',
+            tono: 'border-warning/40 text-warning',
         };
     }
 
@@ -249,7 +249,7 @@ async function copiarMensaje() {
 
             <Badge
                 v-if="esHoy"
-                class="gap-1.5 border-amber-400/40 bg-gradient-to-r from-amber-400/15 to-pink-400/15 text-amber-700 dark:text-amber-300"
+                class="gap-1.5 border-warning/40 bg-gradient-to-r from-amber-400/15 to-pink-400/15 text-warning"
                 variant="outline"
             >
                 <PartyPopper class="size-3.5" /> Hoy es su cumpleaños
@@ -259,7 +259,7 @@ async function copiarMensaje() {
         <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <Card
                 class="overflow-hidden"
-                :class="esHoy && 'ring-1 ring-amber-400/30'"
+                :class="esHoy && 'ring-1 ring-warning/30'"
             >
                 <CardContent
                     class="flex items-center justify-center bg-gradient-to-br from-muted/30 to-muted/10 p-6 sm:p-10"

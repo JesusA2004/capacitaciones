@@ -24,7 +24,7 @@ const TONOS: Record<string, string> = {
     default: 'bg-primary/10 text-primary',
     success: 'bg-success/10 text-success',
     warning: 'bg-warning/10 text-warning',
-    danger: 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300',
+    danger: 'bg-warning-soft text-warning',
     info: 'bg-[var(--brand-secondary)]/10 text-[var(--brand-secondary)]',
 };
 </script>

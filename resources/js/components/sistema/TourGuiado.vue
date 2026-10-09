@@ -377,10 +377,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', alTeclado));
 
                     <div
                         v-if="paso?.consejo"
-                        class="flex gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs text-pretty text-foreground"
+                        class="flex gap-2 rounded-lg border border-warning/30 bg-warning/10 p-2.5 text-xs text-pretty text-foreground"
                     >
                         <Lightbulb
-                            class="mt-0.5 size-3.5 shrink-0 text-amber-600 dark:text-amber-400"
+                            class="mt-0.5 size-3.5 shrink-0 text-warning"
                         />
                         <span>{{ paso.consejo }}</span>
                     </div>

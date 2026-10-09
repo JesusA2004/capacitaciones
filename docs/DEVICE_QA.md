@@ -140,10 +140,12 @@ Repo: `C:\wamp64\www\mr-lana-people-app` (JesusA2004/mr-lana-people-app).
       en silencio.
 - [ ] Restaurar conexión: la app se recupera sin necesitar cerrar/abrir de nuevo.
 
-## 13. Modo oscuro
+## 13. Solo tema claro
 
-- [ ] Cambiar el tema del sistema a oscuro (o el selector interno si existe): ningún
-      texto queda ilegible, ningún fondo blanco "quemado" que no debería estarlo.
+- [ ] Con el teléfono en modo oscuro, la app sigue CLARA (crema/pastel): fondos,
+      diálogos nativos, teclado y barra de estado (íconos oscuros).
+- [ ] El login es la única pantalla oscura (petróleo/oro) y su barra de estado
+      lleva íconos claros.
 
 ## Resultado
 

@@ -236,7 +236,7 @@ async function eliminar(f: FondoDocumento) {
                     />
                     <div
                         v-if="f.safe_area"
-                        class="absolute border border-dashed border-amber-500"
+                        class="absolute border border-dashed border-warning/50"
                         :style="{
                             top: `${((f.safe_area.top ?? 0) / 279.4) * 100}%`,
                             bottom: `${((f.safe_area.bottom ?? 0) / 279.4) * 100}%`,

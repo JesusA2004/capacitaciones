@@ -4,6 +4,7 @@ use App\Jobs\SendExpoPushJob;
 use App\Models\AvisoDatosFaltantes;
 use App\Models\Colaborador;
 use App\Models\MobileDevice;
+use App\Models\SolicitudInterna;
 use App\Models\User;
 use App\Notifications\Mobile\PendienteRhNotification;
 use App\Services\DocumentosMaestros\ContextoDocumento;
@@ -109,7 +110,7 @@ test('completar mis datos: la app propone, RH autoriza, el expediente se actuali
         'curp' => 'xexx900101mnexxxa4', 'contacto_emergencia_nombre' => 'Luis Pérez', 'contacto_emergencia_parentesco' => 'Hermano', 'contacto_emergencia_telefono' => '7771111111',
     ]])->assertCreated()->assertJsonPath('datos_propuestos.0.campo', 'curp');
 
-    $solicitud = \App\Models\SolicitudInterna::query()->latest('id')->firstOrFail();
+    $solicitud = SolicitudInterna::query()->latest('id')->firstOrFail();
     expect($solicitud->motivo)->toContain('CURP')
         ->and($solicitud->datos_propuestos)->toHaveKey('curp', 'XEXX900101MNEXXXA4');
     // Nada cambia en el expediente mientras RH no autorice.
@@ -126,4 +127,24 @@ test('completar mis datos: la app propone, RH autoriza, el expediente se actuali
 
     $faltanDespues = array_column(app(DatosFaltantesService::class)->faltantes($this->persona)['personales'], 'campo');
     expect($faltanDespues)->not->toContain('curp', 'contacto_emergencia_nombre', 'contacto_emergencia_telefono');
+});
+
+test('la completitud se muestra por sección (Identidad, Fiscal, Domicilio, Contacto de emergencia…), no solo como porcentaje', function () {
+    $this->persona->update(['domicilio' => null, 'domicilio_cp' => null]);
+
+    $secciones = collect(app(DatosFaltantesService::class)->resumen($this->persona->refresh())['secciones'])->keyBy('clave');
+
+    expect($secciones->keys()->all())->toBe(['identidad', 'fiscal', 'laboral', 'domicilio', 'contacto', 'emergencia', 'beneficiario'])
+        // Falta la CURP: Identidad incompleta (⚠), no faltante entera.
+        ->and($secciones['identidad']['estado'])->toBe('incompleto')
+        ->and($secciones['identidad']['faltantes'])->toContain('CURP')
+        // Sin domicilio ni CP, ni contacto de emergencia: faltantes (✗).
+        ->and($secciones['domicilio']['estado'])->toBe('faltante')
+        ->and($secciones['emergencia']['estado'])->toBe('faltante');
+
+    $this->persona->update(['domicilio' => 'Calle 1', 'domicilio_cp' => '62000', 'contacto_emergencia_nombre' => 'Ana', 'contacto_emergencia_parentesco' => 'Hermana', 'contacto_emergencia_telefono' => '7770000000']);
+    $secciones = collect(app(DatosFaltantesService::class)->resumen($this->persona->refresh())['secciones'])->keyBy('clave');
+
+    expect($secciones['domicilio']['estado'])->toBe('completo')
+        ->and($secciones['emergencia']['estado'])->toBe('completo');
 });

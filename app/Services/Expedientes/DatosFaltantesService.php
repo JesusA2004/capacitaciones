@@ -59,6 +59,20 @@ class DatosFaltantesService
         'tipo_contratacion' => 'Tipo de contrato',
     ];
 
+    /**
+     * Secciones del expediente para mostrar «Identidad ✓ · Fiscal ⚠ ·
+     * Domicilio ✗» en vez de solo un porcentaje. clave => [etiqueta, columnas].
+     */
+    public const SECCIONES = [
+        'identidad' => ['Identidad', ['genero', 'fecha_nacimiento', 'estado_civil', 'curp']],
+        'fiscal' => ['Fiscal', ['rfc', 'nss']],
+        'laboral' => ['Laboral', ['puesto_id', 'sucursal_principal_id', 'fecha_ingreso', 'sueldo_mensual', 'tipo_contratacion']],
+        'domicilio' => ['Domicilio', ['domicilio', 'domicilio_cp']],
+        'contacto' => ['Contacto', ['telefono', 'correo_personal']],
+        'emergencia' => ['Contacto de emergencia', ['contacto_emergencia_nombre', 'contacto_emergencia_parentesco', 'contacto_emergencia_telefono']],
+        'beneficiario' => ['Beneficiario', ['beneficiario_nombre', 'beneficiario_parentesco']],
+    ];
+
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly NotificadorRhService $notificador,
@@ -90,8 +104,11 @@ class DatosFaltantesService
     {
         $ultimo = AvisoDatosFaltantes::query()->with('enviadoPor:id,name,apellidos')->where('colaborador_id', $colaborador->id)->latest('id')->first();
 
+        $faltantes = $this->faltantes($colaborador);
+
         return [
-            ...$this->faltantes($colaborador),
+            ...$faltantes,
+            'secciones' => $this->secciones($faltantes),
             'solicitud_en_revision' => $this->solicitudAbierta($colaborador),
             'ultimo_aviso' => $ultimo !== null ? [
                 'fecha' => $ultimo->created_at?->toIso8601String(),
@@ -100,6 +117,37 @@ class DatosFaltantesService
             ] : null,
             'puede_avisar_de_nuevo' => $ultimo === null || $ultimo->created_at === null || $ultimo->created_at->lt(now()->subHours(self::HORAS_ENTRE_AVISOS)),
         ];
+    }
+
+    /**
+     * Estado por sección: completo (✓), incompleto (⚠, falta parte) o
+     * faltante (✗, no hay nada).
+     *
+     * @param  array{personales: list<array{campo: string, etiqueta: string}>, laborales: list<array{campo: string, etiqueta: string}>}  $faltantes
+     * @return list<array{clave: string, etiqueta: string, estado: string, faltantes: list<string>}>
+     */
+    public function secciones(array $faltantes): array
+    {
+        $vacios = [];
+
+        foreach ([...$faltantes['personales'], ...$faltantes['laborales']] as $dato) {
+            $vacios[$dato['campo']] = $dato['etiqueta'];
+        }
+
+        $secciones = [];
+
+        foreach (self::SECCIONES as $clave => [$etiqueta, $columnas]) {
+            $sinDato = array_values(array_filter($columnas, fn (string $c): bool => isset($vacios[$c])));
+            $estado = $sinDato === [] ? 'completo' : (count($sinDato) === count($columnas) ? 'faltante' : 'incompleto');
+            $secciones[] = [
+                'clave' => $clave,
+                'etiqueta' => $etiqueta,
+                'estado' => $estado,
+                'faltantes' => array_map(fn (string $c): string => $vacios[$c], $sinDato),
+            ];
+        }
+
+        return $secciones;
     }
 
     /**

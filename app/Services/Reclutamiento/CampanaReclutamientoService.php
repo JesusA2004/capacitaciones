@@ -112,7 +112,7 @@ class CampanaReclutamientoService
     {
         return $this->almacen->respuesta($adjunto->path, [
             'Content-Type' => $adjunto->mime,
-            'Content-Disposition' => sprintf('inline; filename="%s"', addslashes($adjunto->nombre_original)),
+            'Content-Disposition' => sprintf('inline; filename="%s"', str_replace(['"', '\\', '/', "\r", "\n"], '', $adjunto->nombre_original)),
         ]);
     }
 

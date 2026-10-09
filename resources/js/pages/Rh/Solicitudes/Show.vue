@@ -402,7 +402,7 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
 
                     <div
                         v-if="sinEvidencia && !esFinal"
-                        class="mb-3 flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
+                        class="mb-3 flex items-center gap-2 rounded-lg border border-warning/30 bg-warning-soft/50 p-3 text-sm text-warning"
                     >
                         <AlertTriangle class="size-4 shrink-0" />
                         Esta baja no se puede aprobar sin evidencia (formato
@@ -535,7 +535,7 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
                             >Pasar a pendiente de autorizar</Button
                         >
                         <Button
-                            class="border border-amber-500/40 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 dark:text-amber-400"
+                            class="border border-warning/40 bg-warning/10 text-warning hover:bg-warning/20"
                             variant="ghost"
                             :disabled="formAccion.processing"
                             @click="pedirCorreccion"
@@ -597,7 +597,7 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
                     </p>
                     <p
                         v-if="solicitud.motivo_rechazo"
-                        class="mt-3 rounded-lg bg-slate-100 p-3 text-sm text-slate-700 dark:bg-slate-500/15 dark:text-slate-300"
+                        class="mt-3 rounded-lg bg-muted p-3 text-sm text-foreground"
                     >
                         {{ solicitud.motivo_rechazo }}
                     </p>

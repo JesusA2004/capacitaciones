@@ -38,6 +38,8 @@ class StoreCampanaReclutamientoRequest extends FormRequest
             'sueldo_publicado' => ['nullable', 'numeric', 'min:0', 'max:9999999.99'],
             'copy' => ['nullable', 'string', 'max:5000'],
             'url' => ['nullable', 'url', 'max:500'],
+            'impresiones' => ['nullable', 'integer', 'min:0', 'max:4000000000'],
+            'clics' => ['nullable', 'integer', 'min:0', 'max:4000000000'],
             'responsable_id' => ['nullable', 'integer', 'exists:users,id'],
             'candidatos_generados' => ['nullable', 'integer', 'min:0'],
             'observaciones' => ['nullable', 'string', 'max:4000'],

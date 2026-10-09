@@ -15,7 +15,7 @@ defineProps<{ diseno: EstadoDisenoMaster; compacto?: boolean }>();
         class="inline-flex items-center gap-1 text-xs font-medium"
         :class="{
             'text-[var(--mrl-verde)]': diseno === 'validado',
-            'text-amber-700 dark:text-amber-300':
+            'text-warning':
                 diseno === 'sin_validar' || diseno === 'excepcion',
             'text-destructive': diseno === 'fallido',
         }"

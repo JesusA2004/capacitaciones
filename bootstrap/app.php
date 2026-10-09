@@ -3,7 +3,6 @@
 use App\Http\Middleware\EnsureCuentaActiva;
 use App\Http\Middleware\EnsureFeatureEnabled;
 use App\Http\Middleware\ExigirCambioContrasena;
-use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Contracts\Filesystem\FileNotFoundException;
 use Illuminate\Foundation\Application;
@@ -32,9 +31,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // 'experiencia_modo' es una preferencia de navegador (qué modo de
         // navegación eligió el usuario, ver App\Services\Navigation\NavigationService),
-        // mismo criterio que 'appearance'/'sidebar_state': no es dato
+        // mismo criterio que 'sidebar_state': no es dato
         // sensible, no necesita ir cifrada.
-        $middleware->encryptCookies(except: ['appearance', 'sidebar_state', 'experiencia_modo']);
+        $middleware->encryptCookies(except: ['sidebar_state', 'experiencia_modo']);
 
         $middleware->alias([
             'feature' => EnsureFeatureEnabled::class,
@@ -45,7 +44,6 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->web(append: [
-            HandleAppearance::class,
             HandleInertiaRequests::class,
             EnsureCuentaActiva::class,
             ExigirCambioContrasena::class,

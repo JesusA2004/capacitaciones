@@ -221,7 +221,7 @@ class ContratacionCandidatoService
 
         if ($vacante === null || ! app(VacantesListadoService::class)->tieneCupo($vacante)) {
             throw ValidationException::withMessages([
-                'vacante_id' => 'Esta vacante ya no tiene plazas disponibles (se cubrió mientras tanto). Vincula al candidato a otra vacante real.',
+                'vacante_id' => 'La vacante ya fue cubierta. Vincula al candidato a otra vacante disponible.',
             ]);
         }
 

@@ -25,7 +25,23 @@ class EvaluarFiltroCandidatoRequest extends FormRequest
         return [
             'viable' => ['required', 'boolean'],
             'observaciones' => ['nullable', 'string', 'max:4000', 'required_if:viable,false,0'],
+            // Rechazo: motivo del catálogo administrable y si puede
+            // considerarse nuevamente (CandidatoWorkflowService::salir()).
+            'motivo_rechazo_id' => ['nullable', 'integer', 'exists:motivos_rechazo_candidato,id'],
+            'recontratable' => ['nullable', 'boolean'],
         ];
+    }
+
+    public function motivoRechazoId(): ?int
+    {
+        $valor = $this->validated('motivo_rechazo_id');
+
+        return is_numeric($valor) ? (int) $valor : null;
+    }
+
+    public function recontratable(): ?bool
+    {
+        return $this->filled('recontratable') ? $this->boolean('recontratable') : null;
     }
 
     /**

@@ -36,10 +36,18 @@ type Atajo = {
 };
 
 const TONO_ATAJO: Record<Atajo['tono'], string> = {
-    primario: 'bg-primary/10 text-primary',
-    oro: 'bg-[#e9d6b0]/50 text-[#754711] dark:bg-[#c9a876]/15 dark:text-[#e9d6b0]',
-    alerta: 'bg-destructive/10 text-destructive',
-    neutro: 'bg-muted text-foreground',
+    primario: 'bg-salvia text-primary',
+    oro: 'bg-warning-soft text-warning',
+    alerta: 'bg-danger-soft text-destructive',
+    neutro: 'bg-crema text-foreground',
+};
+
+/** Prioridad visible de cada tarjeta (el tono lo decide el backend). */
+const PRIORIDAD_ATAJO: Record<Atajo['tono'], { etiqueta: string; clase: string }> = {
+    alerta: { etiqueta: 'Prioridad alta', clase: 'bg-danger-soft text-destructive' },
+    oro: { etiqueta: 'Prioridad media', clase: 'bg-warning-soft text-warning' },
+    primario: { etiqueta: 'Prioridad media', clase: 'bg-salvia text-primary' },
+    neutro: { etiqueta: 'Prioridad normal', clase: 'bg-muted text-muted-foreground' },
 };
 
 const props = defineProps<{
@@ -232,14 +240,18 @@ const segmento = (activo: boolean) =>
                 v-for="atajo in atajos"
                 :key="atajo.clave"
                 :href="atajo.url"
-                class="group flex items-start gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                class="tarjeta-interactiva group flex items-start gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
             >
                 <span class="flex size-11 shrink-0 items-center justify-center rounded-xl text-lg font-bold tabular-nums" :class="TONO_ATAJO[atajo.tono]">
                     {{ atajo.conteo }}
                 </span>
-                <span class="min-w-0">
+                <span class="flex min-w-0 flex-col gap-1">
                     <span class="block text-sm font-semibold group-hover:text-primary">{{ atajo.titulo }}</span>
                     <span class="block text-xs text-muted-foreground">{{ atajo.descripcion }}</span>
+                    <span class="mt-1 flex flex-wrap items-center gap-2">
+                        <span class="rounded-full px-2 py-0.5 text-[11px] font-semibold" :class="PRIORIDAD_ATAJO[atajo.tono].clase">{{ PRIORIDAD_ATAJO[atajo.tono].etiqueta }}</span>
+                        <span class="text-xs font-semibold text-primary group-hover:underline">Resolver →</span>
+                    </span>
                 </span>
             </Link>
         </section>

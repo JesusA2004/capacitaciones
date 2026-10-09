@@ -89,7 +89,7 @@ const opcionesGrafica = computed(() => {
     return {
         options: {
             chart: { toolbar: { show: false }, fontFamily: 'inherit' },
-            colors: ['#ef4444', '#f59e0b', '#60a5fa', 'var(--brand-primary)'],
+            colors: ['var(--destructive)', 'var(--pastel-oro)', 'var(--pastel-esmeralda)', 'var(--brand-primary)'],
             dataLabels: { enabled: true },
             legend: { position: 'bottom' as const },
             labels: g.categorias,

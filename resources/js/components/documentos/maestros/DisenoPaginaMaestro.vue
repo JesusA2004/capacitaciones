@@ -237,7 +237,7 @@ async function quitarPersonalizacion() {
                 <!-- Área segura del fondo (solo editor) -->
                 <div
                     v-if="fondo?.safe_area && mostrarGuias && mostrarFondo"
-                    class="pointer-events-none absolute border border-dashed border-amber-500/80"
+                    class="pointer-events-none absolute border border-dashed border-warning/80"
                     :style="{
                         top: pct(fondo.safe_area.top ?? 0, altoMm),
                         bottom: pct(fondo.safe_area.bottom ?? 0, altoMm),
@@ -415,7 +415,7 @@ async function quitarPersonalizacion() {
 
             <ul
                 v-if="advertencias.length || diseno.advertencias.length"
-                class="flex flex-col gap-1 rounded-xl bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-200"
+                class="flex flex-col gap-1 rounded-xl bg-warning/10 p-3 text-xs text-warning"
             >
                 <li
                     v-for="(a, i) in [

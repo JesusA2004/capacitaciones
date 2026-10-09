@@ -5,6 +5,7 @@
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 
+/* Solo claro: `.dark` nunca se aplica (ver :root más abajo). */
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -68,6 +69,22 @@
     --color-warning-foreground: var(--warning-foreground);
     --color-danger: var(--danger);
     --color-danger-foreground: var(--danger-foreground);
+    --color-success-soft: var(--success-soft);
+    --color-warning-soft: var(--warning-soft);
+    --color-danger-soft: var(--danger-soft);
+    --color-info: var(--info);
+    --color-info-soft: var(--info-soft);
+
+    /* Paleta interior pastel (bg-crema, bg-salvia, text-oro…). */
+    --color-crema: var(--pastel-crema);
+    --color-crema-2: var(--pastel-crema-2);
+    --color-salvia: var(--pastel-salvia);
+    --color-menta: var(--pastel-menta);
+    --color-olivo: var(--pastel-olivo);
+    --color-verde-suave: var(--pastel-verde);
+    --color-esmeralda: var(--pastel-esmeralda);
+    --color-oro: var(--pastel-oro);
+    --color-bronce: var(--pastel-bronce);
 }
 
 /*
@@ -117,6 +134,35 @@
  * Mismo padding en las tres: 16 px en móvil, 24 px en tablet, 32 px a los
  * lados en escritorio.
  */
+/*
+ * Tarjeta clicable: subida mínima, borde oro/salvia y cursor de mano.
+ * Toda tarjeta que lleva a otra pantalla usa esta utilidad.
+ */
+@utility tarjeta-interactiva {
+    cursor: pointer;
+    transition:
+        transform 160ms ease,
+        box-shadow 160ms ease,
+        border-color 160ms ease;
+
+    &:hover {
+        transform: translateY(-2px);
+        border-color: color-mix(in oklab, var(--pastel-oro) 55%, transparent);
+        box-shadow: 0 10px 24px -14px rgb(49 91 89 / 0.35);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--pastel-oro);
+        outline-offset: 2px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        &:hover {
+            transform: none;
+        }
+    }
+}
+
 @utility pagina-ancha {
     width: 100%;
     min-width: 0;
@@ -171,100 +217,94 @@
     }
 }
 
+/*
+ * MR. LANA PEOPLE es SOLO CLARO. El interior usa la paleta oficial
+ * suavizada (crema, salvia, menta, olivo claro, oro suave); el login es la
+ * única pantalla oscura y lo es por diseño (AuthSimpleLayout), no por un
+ * tema. La clase `.dark` ya no se aplica nunca: la variante `dark:` queda
+ * ligada a ella (arriba) solo para que Tailwind no caiga a
+ * `prefers-color-scheme` si algún componente de terceros la trae.
+ *
+ * ÚNICA fuente de verdad del color: los componentes usan estos tokens
+ * (bg-background, bg-card, text-muted-foreground, --mrl-*), nunca un hex.
+ */
 :root {
-    /* Identidad oficial MR. LANA PEOPLE (docs/formatosRH/Mr_Lana_People_Logotipo_Oficial).
-       Paleta: Petróleo #0D3E43 · Esmeralda #225C54 · Bosque #2F5937 ·
-       Olivo #2A4518 · Bronce #754711 · Oro #AF8B51 · Crema #E9D6B0.
-       Jerarquía: petróleo = identidad y acción principal; oro = acento
-       (nunca relleno masivo); crema = superficies cálidas. Única fuente de
-       verdad: cambiar solo aquí se propaga a toda la aplicación. */
-    --brand-primary: #0d3e43;
-    --brand-secondary: #af8b51;
-    --brand-foreground: #ffffff;
+    color-scheme: light;
 
-    --background: #faf8f3;
-    --foreground: #10292b;
-    --card: hsl(0 0% 100%);
-    --card-foreground: #10292b;
-    --popover: hsl(0 0% 100%);
-    --popover-foreground: #10292b;
+    /* Paleta interior base */
+    --pastel-fondo: #fbf8f2;
+    --pastel-superficie: #fffdf9;
+    --pastel-crema: #f3e8d3;
+    --pastel-crema-2: #eadbc4;
+    --pastel-salvia: #dce8df;
+    --pastel-menta: #e8f0ea;
+    --pastel-olivo: #dde3cf;
+    --pastel-verde: #cfe0d5;
+    --pastel-petroleo: #315b59;
+    --pastel-esmeralda: #6e9b8f;
+    --pastel-oro: #c7a66b;
+    --pastel-bronce: #a98252;
+    --pastel-texto: #303a38;
+    --pastel-texto-2: #707874;
+    --pastel-borde: #e7ded1;
+    --pastel-success: #c7dfc9;
+    --pastel-warning: #f3e3b8;
+    --pastel-danger: #eecbc7;
+    --pastel-info: #cee2e3;
+
+    --brand-primary: var(--pastel-petroleo);
+    --brand-secondary: var(--pastel-oro);
+    --brand-foreground: #fffdf9;
+
+    --background: var(--pastel-fondo);
+    --foreground: var(--pastel-texto);
+    --card: var(--pastel-superficie);
+    --card-foreground: var(--pastel-texto);
+    --popover: var(--pastel-superficie);
+    --popover-foreground: var(--pastel-texto);
     --primary: var(--brand-primary);
     --primary-foreground: var(--brand-foreground);
-    --secondary: #f3eee3;
-    --secondary-foreground: #0d3e43;
-    --muted: #f4f1ea;
-    --muted-foreground: #5d6b68;
-    --accent: #eaf1ef;
-    --accent-foreground: #0d3e43;
-    --destructive: hsl(356 72% 52%);
-    --destructive-foreground: hsl(0 0% 98%);
-    --success: #2f5937;
-    --success-foreground: hsl(0 0% 100%);
-    --warning: #754711;
-    --warning-foreground: hsl(0 0% 100%);
+    --secondary: var(--pastel-crema);
+    --secondary-foreground: var(--pastel-petroleo);
+    --muted: #f5efe4;
+    --muted-foreground: var(--pastel-texto-2);
+    --accent: var(--pastel-menta);
+    --accent-foreground: var(--pastel-petroleo);
+    /* Estados: el tono fuerte es legible como texto/ícono sobre su pastel. */
+    --destructive: #b0524a;
+    --destructive-foreground: #fffdf9;
+    --success: #3f7558;
+    --success-foreground: #fffdf9;
+    --success-soft: var(--pastel-success);
+    --warning: #8a6a36;
+    --warning-foreground: #fffdf9;
+    --warning-soft: var(--pastel-warning);
     --danger: var(--destructive);
     --danger-foreground: var(--destructive-foreground);
-    --border: #e7e1d5;
-    --input: #ddd6c8;
+    --danger-soft: var(--pastel-danger);
+    --info: #3d6f71;
+    --info-soft: var(--pastel-info);
+    --border: var(--pastel-borde);
+    --input: #e1d6c5;
     --ring: var(--brand-secondary);
-    --chart-1: #0d3e43;
-    --chart-2: #af8b51;
-    --chart-3: #225c54;
-    --chart-4: #2f5937;
-    --chart-5: #754711;
-    --radius: 0.75rem;
-    --sidebar-background: #ffffff;
-    --sidebar-foreground: #2c3f40;
+    --chart-1: var(--pastel-petroleo);
+    --chart-2: var(--pastel-oro);
+    --chart-3: var(--pastel-esmeralda);
+    --chart-4: var(--pastel-bronce);
+    --chart-5: #9fb38f;
+    --radius: 0.875rem;
+
+    /* Sidebar marfil: texto gris petróleo, hover salvia, activo verde
+       pastel con acento oro (NavMain). Nunca bloques oscuros. */
+    --sidebar-background: #f8f2e7;
+    --sidebar-foreground: #46605d;
     --sidebar-primary: var(--brand-primary);
     --sidebar-primary-foreground: var(--brand-foreground);
-    --sidebar-accent: #eef3f1;
-    --sidebar-accent-foreground: #0d3e43;
-    --sidebar-border: #ece6da;
+    --sidebar-accent: var(--pastel-salvia);
+    --sidebar-accent-foreground: var(--pastel-petroleo);
+    --sidebar-border: #ebe1d1;
     --sidebar-ring: var(--brand-secondary);
-    --sidebar: #ffffff;
-}
-
-.dark {
-    --background: #0b1718;
-    --foreground: #eef2ef;
-    --card: #102122;
-    --card-foreground: #eef2ef;
-    --popover: #102122;
-    --popover-foreground: #eef2ef;
-    /* En oscuro el oro es la acción principal (el petróleo se pierde sobre fondo oscuro). */
-    --primary: #c9a876;
-    --primary-foreground: #0b1718;
-    --secondary: #1a2e2f;
-    --secondary-foreground: #eef2ef;
-    --muted: #172a2b;
-    --muted-foreground: #9fb1ac;
-    --accent: #1b3533;
-    --accent-foreground: #eef2ef;
-    --destructive: hsl(356 75% 62%);
-    --destructive-foreground: hsl(0 0% 98%);
-    --success: #6fae7c;
-    --success-foreground: #0b1718;
-    --warning: #d9a35a;
-    --warning-foreground: #0b1718;
-    --danger: var(--destructive);
-    --danger-foreground: var(--destructive-foreground);
-    --border: #23393a;
-    --input: #2a4243;
-    --ring: #c9a876;
-    --chart-1: #5fa394;
-    --chart-2: #c9a876;
-    --chart-3: #8cc0b2;
-    --chart-4: #6fae7c;
-    --chart-5: #d9a35a;
-    --sidebar-background: #0d1d1e;
-    --sidebar-foreground: #dfe7e4;
-    --sidebar-primary: #c9a876;
-    --sidebar-primary-foreground: #0b1718;
-    --sidebar-accent: #17302f;
-    --sidebar-accent-foreground: #f3ead6;
-    --sidebar-border: #1e3536;
-    --sidebar-ring: #c9a876;
-    --sidebar: #0d1d1e;
+    --sidebar: #f8f2e7;
 }
 
 /*
@@ -300,52 +340,39 @@
     --brand-secondary: #475569;
 }
 
-/* Paleta ejecutiva de MR. LANA PEOPLE (tablero de RH y fichas del ciclo
-   laboral). Verde petróleo como identidad, dorado solo como acento, cyan
-   para datos, rojo para rechazo/alerta. Independiente del tema de color
-   personalizable (--brand-*). */
+/* Paleta ejecutiva (--mrl-*) del tablero de RH y fichas del ciclo
+   laboral, sobre la paleta interior suavizada. Administración →
+   Configuración → Apariencia puede reemplazar estos valores (el servidor
+   inyecta :root{--mrl-petroleo:...} en app.blade.php). */
 :root {
-    --mrl-petroleo: #0d3e43;
-    --mrl-petroleo-2: #225c54;
-    --mrl-verde: #2f5937;
-    --mrl-verde-profundo: #0d3e43;
-    --mrl-verde-secundario: #2a4518;
-    --mrl-dorado: #af8b51;
-    --mrl-dorado-oscuro: #754711;
-    --mrl-gris-verdoso: #a7ac9c;
-    --mrl-navy: #225c54;
-    --mrl-cyan: #225c54;
-    --mrl-rojo: #c8414d;
-    --mrl-fondo: #faf8f3;
-    --mrl-superficie: #ffffff;
-    --mrl-texto: #10292b;
-    --mrl-texto-suave: #5d6b68;
-    --mrl-borde: #e7e1d5;
-    --mrl-crema: #e9d6b0;
-}
-
-.dark {
-    --mrl-petroleo: #3f9a9d;
-    --mrl-petroleo-2: #3f9a9d;
-    --mrl-verde: #5aa58b;
-    --mrl-verde-profundo: #cfe7dc;
-    --mrl-verde-secundario: #6fae7c;
-    --mrl-dorado: #c9a876;
-    --mrl-dorado-oscuro: #d9a35a;
-    --mrl-gris-verdoso: #7c8273;
-    --mrl-navy: #8ea6e0;
-    --mrl-cyan: #3cc4ee;
-    --mrl-rojo: #f06b78;
-    --mrl-fondo: #0d1513;
-    --mrl-superficie: #121c19;
-    --mrl-texto: #e6efe9;
-    --mrl-texto-suave: #9fb1a8;
-    --mrl-borde: #24332e;
+    --mrl-petroleo: var(--pastel-petroleo);
+    --mrl-petroleo-2: #284b49;
+    --mrl-verde: #3f7558;
+    --mrl-verde-profundo: var(--pastel-petroleo);
+    --mrl-verde-secundario: #6b7f4a;
+    --mrl-dorado: var(--pastel-oro);
+    --mrl-dorado-oscuro: #8a6a36;
+    --mrl-gris-verdoso: #a9b0a3;
+    --mrl-navy: var(--pastel-esmeralda);
+    --mrl-cyan: var(--pastel-esmeralda);
+    --mrl-rojo: #b0524a;
+    --mrl-fondo: var(--pastel-fondo);
+    --mrl-superficie: var(--pastel-superficie);
+    --mrl-texto: var(--pastel-texto);
+    --mrl-texto-suave: var(--pastel-texto-2);
+    --mrl-borde: var(--pastel-borde);
+    --mrl-crema: var(--pastel-crema);
+    --mrl-crema-2: var(--pastel-crema-2);
+    --mrl-salvia: var(--pastel-salvia);
+    --mrl-menta: var(--pastel-menta);
+    --mrl-olivo-claro: var(--pastel-olivo);
+    --mrl-verde-suave: var(--pastel-verde);
+    --mrl-bronce: var(--pastel-bronce);
 }
 
 /* Alias semánticos de la paleta (los colores reales los puede cambiar
    Administración → Configuración → Apariencia; el servidor inyecta
-   :root:not(.dark){--mrl-petroleo:...} en app.blade.php). Los componentes
+   :root{--mrl-petroleo:...} en app.blade.php). Los componentes
    nuevos usan estos nombres, nunca un hex. */
 :root {
     --mrl-primary: var(--mrl-petroleo);
@@ -382,12 +409,10 @@
         @apply bg-background text-foreground;
     }
 
-    /* Seleccion de texto con la marca en lugar del azul default del
-       navegador; --brand-foreground contrasta bien sobre el verde en
-       ambos temas. */
+    /* Selección de texto con la marca en lugar del azul del navegador. */
     ::selection {
-        background-color: #e9d6b0;
-        color: #0d3e43;
+        background-color: var(--pastel-crema-2);
+        color: var(--pastel-petroleo);
     }
 
     /* Títulos con la tipografía de marca (PEOPLE: Montserrat SemiBold). */

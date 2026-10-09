@@ -129,6 +129,7 @@ test('reingreso por la API: misma persona, gerente solicita y solo RH decide', f
         'sucursal_principal_id' => $this->sucursal->id,
         'estatus' => EstadoUsuario::Inactivo,
         'estado_alta' => EstadoAltaColaborador::Baja,
+        'puesto_id' => $this->estructura['puesto']->id,
         'curp' => 'APIR900101HDFPRN01',
     ]);
     $ex->delete();
@@ -150,7 +151,7 @@ test('el bootstrap móvil trae tema, ciclo propio, capacidades del ciclo y pendi
     Sanctum::actingAs($this->gerente);
 
     $this->getJson('/api/v1/mobile/bootstrap')->assertOk()
-        ->assertJsonPath('theme.primary', '#164E50')
+        ->assertJsonPath('theme.primary', '#315B59')
         ->assertJsonPath('ciclo_laboral.acciones.preautorizar', true)
         ->assertJsonPath('ciclo_laboral.acciones.autorizar_rh', false)
         ->assertJsonStructure(['ciclo_laboral' => ['propio' => ['por_hacer', 'en_espera', 'pendientes', 'todo_listo']], 'pendientes' => ['abiertas']])

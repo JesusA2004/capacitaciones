@@ -11,9 +11,9 @@ use App\Services\DocumentosAdministrativos\DatosDocumentoAdministrativo;
 use App\Services\DocumentosAdministrativos\DisenoAdministrativoService;
 use App\Services\DocumentosAdministrativos\DocumentoAdministrativoService;
 use App\Services\Finiquitos\FiniquitoService;
-use App\Services\Vacaciones\VacacionesService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 /*
  * Finiquito con el FORMATO OFICIAL (docs/formatosRH/Formato_Finiquito.docx):
@@ -113,7 +113,7 @@ test('al generar el PDF queda un snapshot inmutable con conceptos y ajustes; fir
 
     $finiquito->update(['estado' => 'firmado']);
     expect(fn () => $this->servicio->ajustarConceptoAutomatico($finiquito, 'isr_retenido', 1, 'x', $this->rh))
-        ->toThrow(\Illuminate\Validation\ValidationException::class);
+        ->toThrow(ValidationException::class);
 });
 
 test('el PDF sigue el formato oficial: encabezado, fechas de alta/baja, claves, total a pagar e importe con letra', function () {

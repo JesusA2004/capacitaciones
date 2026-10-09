@@ -133,7 +133,7 @@ function cfRegistrarCandidato(object $t, array $extra = []): Candidato
     // Ya no existe el "pipeline general" sin vacante (CLAUDE.md §2-3): el
     // candidato real del ciclo laboral siempre llega ligado a una vacante
     // con plaza disponible, igual que en producción.
-    $vacanteId = $extra['vacante_id'] ?? Vacante::factory()->create([
+    $vacanteId = $extra['vacante_id'] ?? Vacante::factory()->real()->create([
         'empresa_id' => $t->estructura['empresa']->id,
         'sucursal_id' => $sucursalId,
         'puesto_id' => $puestoId,

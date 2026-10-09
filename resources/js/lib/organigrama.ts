@@ -47,23 +47,23 @@ export const ESTILO_TIPO_PUESTO: Record<
 > = {
     comercial: {
         etiqueta: 'Comercial',
-        franja: 'from-sky-400 to-sky-500',
-        chip: 'bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300',
+        franja: 'from-esmeralda to-primary',
+        chip: 'bg-info-soft text-info',
     },
     administrativo: {
         etiqueta: 'Administrativo',
-        franja: 'from-violet-400 to-violet-500',
-        chip: 'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300',
+        franja: 'from-oro to-bronce',
+        chip: 'bg-crema text-bronce',
     },
     operativo: {
         etiqueta: 'Operativo',
-        franja: 'from-emerald-400 to-emerald-500',
-        chip: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300',
+        franja: 'from-verde-suave to-esmeralda',
+        chip: 'bg-success-soft text-success',
     },
     otro: {
         etiqueta: 'Otro',
-        franja: 'from-slate-300 to-slate-400',
-        chip: 'bg-slate-100 text-slate-700 dark:bg-slate-500/20 dark:text-slate-300',
+        franja: 'from-crema-2 to-olivo',
+        chip: 'bg-muted text-muted-foreground',
     },
 };
 

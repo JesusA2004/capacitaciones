@@ -25,9 +25,9 @@ test('vacantes: totales concretos por puesto y en qué sucursales, sin costos', 
     $cuernavaca = Sucursal::factory()->create(['nombre' => 'Cuernavaca']);
     $cordoba = Sucursal::factory()->create(['nombre' => 'Córdoba']);
 
-    Vacante::factory()->create(['puesto_id' => $gestor->id, 'sucursal_id' => $cuernavaca->id, 'estado' => 'abierta', 'plazas_disponibles' => 3]);
-    Vacante::factory()->create(['puesto_id' => $gestor->id, 'sucursal_id' => $cordoba->id, 'estado' => 'en_reclutamiento', 'plazas_disponibles' => 1]);
-    Vacante::factory()->create(['puesto_id' => $gerente->id, 'sucursal_id' => $cordoba->id, 'estado' => 'abierta', 'plazas_disponibles' => 1]);
+    Vacante::factory()->real()->create(['puesto_id' => $gestor->id, 'sucursal_id' => $cuernavaca->id, 'estado' => 'abierta', 'plazas_disponibles' => 3]);
+    Vacante::factory()->real()->create(['puesto_id' => $gestor->id, 'sucursal_id' => $cordoba->id, 'estado' => 'en_reclutamiento', 'plazas_disponibles' => 1]);
+    Vacante::factory()->real()->create(['puesto_id' => $gerente->id, 'sucursal_id' => $cordoba->id, 'estado' => 'abierta', 'plazas_disponibles' => 1]);
     // Cubiertas y canceladas no cuentan.
     Vacante::factory()->create(['puesto_id' => $gerente->id, 'sucursal_id' => $cuernavaca->id, 'estado' => 'cubierta', 'plazas_disponibles' => 1]);
     Vacante::factory()->create(['puesto_id' => $gestor->id, 'sucursal_id' => $cuernavaca->id, 'estado' => 'cancelada', 'plazas_disponibles' => 2]);
@@ -62,8 +62,8 @@ test('un gerente_sucursal solo ve vacantes de su sucursal', function () {
     $sucursalPropia = Sucursal::factory()->create();
     $sucursalAjena = Sucursal::factory()->create();
 
-    Vacante::factory()->create(['sucursal_id' => $sucursalPropia->id]);
-    Vacante::factory()->create(['sucursal_id' => $sucursalAjena->id]);
+    Vacante::factory()->real()->create(['sucursal_id' => $sucursalPropia->id]);
+    Vacante::factory()->real()->create(['sucursal_id' => $sucursalAjena->id]);
 
     $gerente = User::factory()->create(['colaborador_id' => Colaborador::factory()->create(['sucursal_principal_id' => $sucursalPropia->id])->id]);
     $gerente->assignRole('gerente_sucursal');

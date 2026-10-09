@@ -104,6 +104,7 @@ test('solo RH decide un reingreso; quien solo lo solicita recibe 403', function 
         'sucursal_principal_id' => $this->estructura['sucursal']->id,
         'estatus' => EstadoUsuario::Inactivo,
         'estado_alta' => EstadoAltaColaborador::Baja,
+        'puesto_id' => $this->estructura['puesto']->id,
         'curp' => 'REIW900101HDFPRN01',
     ]);
     $exColaborador->delete();

@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { RotateCcw, SlidersHorizontal } from '@lucide/vue';
-import { reactive } from 'vue';
+import {
+    AlertTriangle,
+    BellRing,
+    CheckCircle2,
+    RotateCcw,
+    SlidersHorizontal,
+} from '@lucide/vue';
+import { computed, reactive } from 'vue';
 import Casilla from '@/components/Common/Casilla.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import ConfiguracionTabs from '@/components/configuracion/ConfiguracionTabs.vue';
@@ -80,13 +86,34 @@ function restaurarParametro(p: ParametroConfiguracion) {
     router.post(restaurar.url(), { clave: p.clave }, { preserveScroll: true });
 }
 
-// Edición en línea: undefined = vacío (usa la duración por defecto / no vence).
+// Edición en línea: undefined = sin configurar (el puesto no se puede
+// contratar hasta tener su duración; no hay respaldo global).
 const puestos = reactive(
     props.puestos.map((p) => ({
         ...p,
         meses_periodo_prueba: p.meses_periodo_prueba ?? undefined,
     })),
 );
+// Sin configurar primero: es lo que bloquea contrataciones.
+const puestosOrdenados = computed(() =>
+    [...puestos].sort(
+        (a, b) =>
+            Number(Boolean(props.puestos.find((p) => p.id === a.id)?.meses_periodo_prueba)) -
+            Number(Boolean(props.puestos.find((p) => p.id === b.id)?.meses_periodo_prueba)),
+    ),
+);
+
+const resumenDuracion = computed(() => {
+    const configurados = props.puestos.filter((p) => (p.meses_periodo_prueba ?? 0) > 0).length;
+    const aviso = props.parametros.find((p) => p.clave === 'rh.dias_aviso_vencimiento');
+
+    return {
+        configurados,
+        sinConfigurar: props.puestos.length - configurados,
+        diasAviso: aviso ? Number(aviso.valor) : null,
+    };
+});
+
 const vigencias = reactive(
     props.tiposDocumento.map((t) => ({
         ...t,
@@ -180,6 +207,190 @@ const error = (clave: string) =>
             >.
         </p>
 
+        <section
+            class="flex flex-col gap-4"
+            aria-label="Duración de capacitación inicial por puesto"
+        >
+            <div class="flex flex-wrap items-end justify-between gap-3">
+                <div class="grid gap-1">
+                    <h2 class="text-base font-semibold">
+                        Duración de capacitación inicial por puesto
+                    </h2>
+                    <p class="text-sm text-muted-foreground">
+                        Cada puesto define cuántos meses dura su contrato de
+                        capacitación inicial. No hay duración general: un
+                        puesto sin configurar no se puede contratar.
+                    </p>
+                </div>
+                <Link
+                    :href="coberturaDocumental.url()"
+                    class="text-sm font-medium text-primary hover:underline"
+                >
+                    Ver cobertura documental por puesto →
+                </Link>
+            </div>
+
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div
+                    class="flex items-center gap-3 rounded-2xl border border-border/70 bg-card p-4"
+                >
+                    <span
+                        class="flex size-10 items-center justify-center rounded-xl bg-success-soft text-success"
+                        ><CheckCircle2 class="size-5"
+                    /></span>
+                    <div>
+                        <p class="text-2xl font-semibold tabular-nums">
+                            {{ resumenDuracion.configurados }}
+                        </p>
+                        <p class="text-xs text-muted-foreground">
+                            Puestos configurados
+                        </p>
+                    </div>
+                </div>
+                <div
+                    class="flex items-center gap-3 rounded-2xl border bg-card p-4"
+                    :class="
+                        resumenDuracion.sinConfigurar
+                            ? 'border-oro/50'
+                            : 'border-border/70'
+                    "
+                >
+                    <span
+                        class="flex size-10 items-center justify-center rounded-xl bg-warning-soft text-warning"
+                        ><AlertTriangle class="size-5"
+                    /></span>
+                    <div>
+                        <p class="text-2xl font-semibold tabular-nums">
+                            {{ resumenDuracion.sinConfigurar }}
+                        </p>
+                        <p class="text-xs text-muted-foreground">
+                            Sin configurar
+                        </p>
+                    </div>
+                </div>
+                <div
+                    class="flex items-center gap-3 rounded-2xl border border-border/70 bg-card p-4"
+                >
+                    <span
+                        class="flex size-10 items-center justify-center rounded-xl bg-info-soft text-info"
+                        ><BellRing class="size-5"
+                    /></span>
+                    <div>
+                        <p class="text-2xl font-semibold tabular-nums">
+                            {{ resumenDuracion.diasAviso ?? '—' }} días
+                        </p>
+                        <p class="text-xs text-muted-foreground">
+                            Aviso de evaluación antes del vencimiento
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <ul
+                class="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3"
+            >
+                <li
+                    v-for="p in puestosOrdenados"
+                    :key="p.id"
+                    class="flex flex-col gap-3 rounded-2xl border bg-card p-4 transition-colors"
+                    :class="
+                        p.meses_periodo_prueba
+                            ? 'border-border/70'
+                            : 'border-oro/50 bg-warning-soft/20'
+                    "
+                >
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="truncate font-semibold">{{ p.nombre }}</p>
+                            <p
+                                v-if="p.historial?.length"
+                                class="text-xs text-muted-foreground"
+                            >
+                                Último cambio:
+                                {{ p.historial[0].por ?? 'Sistema' }} ·
+                                {{
+                                    p.historial[0].en
+                                        ? formatearFecha(p.historial[0].en)
+                                        : ''
+                                }}
+                            </p>
+                        </div>
+                        <span
+                            v-if="p.meses_periodo_prueba"
+                            class="inline-flex shrink-0 items-center gap-1 rounded-full bg-success-soft px-2.5 py-1 text-xs font-semibold text-success"
+                        >
+                            <CheckCircle2 class="size-3.5" />
+                            {{ p.meses_periodo_prueba }}
+                            {{ p.meses_periodo_prueba === 1 ? 'mes' : 'meses' }}
+                        </span>
+                        <span
+                            v-else
+                            class="inline-flex shrink-0 items-center gap-1 rounded-full bg-warning-soft px-2.5 py-1 text-xs font-semibold text-warning"
+                        >
+                            <AlertTriangle class="size-3.5" /> Sin configurar
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-[auto_1fr] items-center gap-2 text-sm">
+                        <label
+                            :for="`meses-${p.id}`"
+                            class="text-xs text-muted-foreground"
+                            >Meses</label
+                        >
+                        <Input
+                            :id="`meses-${p.id}`"
+                            v-model.number="p.meses_periodo_prueba"
+                            type="number"
+                            min="1"
+                            max="12"
+                            placeholder="Ej. 2"
+                            class="h-11 w-28 sm:h-9"
+                        />
+                        <span class="text-xs text-muted-foreground"
+                            >Indicadores</span
+                        >
+                        <SelectSimple
+                            v-model="p.grupo_indicador"
+                            :opciones="
+                                grupos.map((g) => ({
+                                    value: g.value,
+                                    label: g.etiqueta,
+                                }))
+                            "
+                            opcion-vacia="Sin grupo"
+                            size="sm"
+                            class="w-full"
+                            :aria-label="`Grupo de ${p.nombre}`"
+                        />
+                        <span class="text-xs text-muted-foreground"
+                            >Contratos</span
+                        >
+                        <SelectSimple
+                            v-model="p.grupo_documental"
+                            :opciones="
+                                gruposDocumentales.map((g) => ({
+                                    value: g.value,
+                                    label: g.etiqueta,
+                                }))
+                            "
+                            opcion-vacia="Sin grupo"
+                            size="sm"
+                            class="w-full"
+                            :aria-label="`Grupo documental de ${p.nombre}`"
+                        />
+                    </div>
+
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        class="min-h-11 self-end sm:min-h-8"
+                        @click="guardarPuesto(p)"
+                        >Guardar</Button
+                    >
+                </li>
+            </ul>
+        </section>
+
         <form class="flex flex-col gap-3" @submit.prevent="guardar">
             <div
                 v-for="p in parametros"
@@ -259,116 +470,6 @@ const error = (clave: string) =>
                 >Guardar parámetros</Button
             >
         </form>
-
-        <section
-            class="flex flex-col gap-2"
-            aria-label="Duración del contrato por puesto"
-        >
-            <h2 class="text-sm font-semibold">
-                Duración del contrato de capacitación por puesto
-            </h2>
-            <p class="text-xs text-[var(--mrl-texto-suave)]">
-                Vacío = se usa la duración por defecto. El aviso de renovación
-                sale los días configurados antes del fin.
-            </p>
-            <Link
-                :href="coberturaDocumental.url()"
-                class="flex w-fit items-center gap-2 rounded-xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] px-3 py-2 text-xs font-medium hover:border-primary/40"
-            >
-                Ver cobertura documental por puesto (qué contrato le toca a cada
-                puesto y qué falta)
-            </Link>
-            <div
-                class="overflow-x-auto rounded-xl border border-[var(--mrl-borde)]"
-            >
-                <table class="w-full text-sm">
-                    <thead
-                        class="bg-[var(--mrl-fondo)] text-left text-xs text-[var(--mrl-texto-suave)]"
-                    >
-                        <tr>
-                            <th class="px-3 py-2">Puesto</th>
-                            <th class="px-3 py-2">Meses</th>
-                            <th class="px-3 py-2">Grupo para indicadores</th>
-                            <th class="px-3 py-2">
-                                Contratos (grupo documental)
-                            </th>
-                            <th class="px-3 py-2" />
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr
-                            v-for="p in puestos"
-                            :key="p.id"
-                            class="border-t border-[var(--mrl-borde)]"
-                        >
-                            <td class="px-3 py-2">
-                                {{ p.nombre }}
-                                <p
-                                    v-if="p.historial?.length"
-                                    class="text-xs text-[var(--mrl-texto-suave)]"
-                                >
-                                    Último cambio:
-                                    {{ p.historial[0].por ?? 'Sistema' }} ·
-                                    {{
-                                        p.historial[0].en
-                                            ? formatearFecha(p.historial[0].en)
-                                            : ''
-                                    }}
-                                </p>
-                            </td>
-                            <td class="px-3 py-2">
-                                <Input
-                                    v-model.number="p.meses_periodo_prueba"
-                                    type="number"
-                                    min="1"
-                                    max="12"
-                                    class="h-8 w-20"
-                                    :aria-label="`Meses de ${p.nombre}`"
-                                />
-                            </td>
-                            <td class="px-3 py-2">
-                                <SelectSimple
-                                    v-model="p.grupo_indicador"
-                                    :opciones="
-                                        grupos.map((g) => ({
-                                            value: g.value,
-                                            label: g.etiqueta,
-                                        }))
-                                    "
-                                    opcion-vacia="Sin grupo"
-                                    size="sm"
-                                    class="w-44"
-                                    :aria-label="`Grupo de ${p.nombre}`"
-                                />
-                            </td>
-                            <td class="px-3 py-2">
-                                <SelectSimple
-                                    v-model="p.grupo_documental"
-                                    :opciones="
-                                        gruposDocumentales.map((g) => ({
-                                            value: g.value,
-                                            label: g.etiqueta,
-                                        }))
-                                    "
-                                    opcion-vacia="Sin grupo"
-                                    size="sm"
-                                    class="w-48"
-                                    :aria-label="`Grupo documental de ${p.nombre}`"
-                                />
-                            </td>
-                            <td class="px-3 py-2 text-right">
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    @click="guardarPuesto(p)"
-                                    >Guardar</Button
-                                >
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
 
         <section class="flex flex-col gap-2" aria-label="Vigencia documental">
             <h2 class="text-sm font-semibold">

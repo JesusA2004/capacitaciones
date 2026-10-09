@@ -178,7 +178,7 @@ test('una vacante ya cubierta se rechaza al guardar el candidato, race-safe', fu
 test('el listado de vacantes del formulario de candidato nunca incluye una vacante cubierta', function () {
     $usuario = User::factory()->create();
     $usuario->assignRole('rh_admin');
-    $abierta = Vacante::factory()->create(['estado' => 'abierta', 'plazas_disponibles' => 1]);
+    $abierta = Vacante::factory()->real()->create(['estado' => 'abierta', 'plazas_disponibles' => 1]);
     $cubierta = Vacante::factory()->create(['estado' => 'cubierta', 'plazas_disponibles' => 0]);
 
     $this->actingAs($usuario)

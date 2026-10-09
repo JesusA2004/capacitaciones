@@ -172,7 +172,7 @@ function etiquetaDia(celda: Celda): string {
                     <PopoverTrigger as-child>
                         <button
                             type="button"
-                            class="flex min-h-12 min-w-0 flex-col items-start gap-1 border-r border-b border-border/60 bg-amber-400/[0.06] p-1 text-left transition-colors outline-none hover:bg-amber-400/15 focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-inset data-[state=open]:bg-amber-400/20 @lg:min-h-18 @3xl:min-h-24 @3xl:p-1.5 [&:nth-child(7n)]:border-r-0 [&:nth-last-child(-n+7)]:border-b-0"
+                            class="flex min-h-12 min-w-0 flex-col items-start gap-1 border-r border-b border-border/60 bg-warning/[0.06] p-1 text-left transition-colors outline-none hover:bg-warning/15 focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-inset data-[state=open]:bg-warning/20 @lg:min-h-18 @3xl:min-h-24 @3xl:p-1.5 [&:nth-child(7n)]:border-r-0 [&:nth-last-child(-n+7)]:border-b-0"
                             :aria-label="etiquetaDia(celda)"
                         >
                             <span
@@ -268,7 +268,7 @@ function etiquetaDia(celda: Celda): string {
                                     </p>
                                     <p
                                         v-if="evento.detalle"
-                                        class="text-xs font-medium text-amber-700 dark:text-amber-300"
+                                        class="text-xs font-medium text-warning"
                                     >
                                         {{ evento.detalle }}
                                     </p>

@@ -270,7 +270,7 @@ class ContratoLaboralService
 
         if ($meses < 1) {
             throw ValidationException::withMessages([
-                'puesto_id' => sprintf('Configura la duración de la capacitación inicial para el puesto «%s» antes de contratar (Configuración → Duración de capacitación por puesto).', $puesto->nombre ?? 'sin puesto'),
+                'puesto_id' => sprintf('Configura la duración de capacitación inicial para este puesto («%s») en Configuración → Parámetros de RH antes de contratar.', $puesto->nombre ?? 'sin puesto'),
             ]);
         }
 

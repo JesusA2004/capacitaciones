@@ -101,7 +101,7 @@ const celda: Record<
     },
     sin_validar: {
         etiqueta: 'Formato cargado sin diseño validado',
-        clase: 'text-amber-600',
+        clase: 'text-warning',
     },
     falta: {
         etiqueta: 'Falta el formato de Jurídico',
@@ -206,7 +206,7 @@ function guardar() {
         <button
             v-if="conProblema > 0"
             type="button"
-            class="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-left text-amber-950 transition hover:shadow-sm dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100"
+            class="flex items-center gap-3 rounded-2xl border border-warning/30 bg-warning-soft/50 p-4 text-left text-warning transition hover:shadow-sm"
             @click="soloProblemas = !soloProblemas"
         >
             <AlertTriangle class="size-5 shrink-0" />
@@ -243,7 +243,7 @@ function guardar() {
                 <p
                     class="text-xl font-semibold tabular-nums"
                     :class="
-                        cobertura.resumen.incompletos ? 'text-amber-600' : ''
+                        cobertura.resumen.incompletos ? 'text-warning' : ''
                     "
                 >
                     {{ cobertura.resumen.incompletos }}

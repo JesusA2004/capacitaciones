@@ -33,7 +33,9 @@ return [
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
-            'serve' => true,
+            // Privado: nunca se sirve por URL (ni firmada). Los archivos salen
+            // solo por endpoints autorizados que validan permiso y alcance.
+            'serve' => false,
             'throw' => false,
             'report' => false,
         ],

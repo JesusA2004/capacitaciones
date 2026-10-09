@@ -68,7 +68,7 @@ class CandidatoController extends Controller
 
     public function evaluarPerfil(EvaluarFiltroCandidatoRequest $request, Candidato $candidato): JsonResponse
     {
-        $this->workflow->evaluarPerfil($candidato, $request->user(), $request->boolean('viable'), $request->validated('observaciones'));
+        $this->workflow->evaluarPerfil($candidato, $request->user(), $request->boolean('viable'), $request->validated('observaciones'), $request->motivoRechazoId(), $request->recontratable());
 
         return $this->ficha($request, $candidato);
     }
@@ -96,7 +96,7 @@ class CandidatoController extends Controller
 
     public function revisarPsicometricas(EvaluarFiltroCandidatoRequest $request, Candidato $candidato): JsonResponse
     {
-        $this->workflow->revisarPsicometricas($candidato, $request->user(), $request->boolean('viable'), $request->validated('observaciones'));
+        $this->workflow->revisarPsicometricas($candidato, $request->user(), $request->boolean('viable'), $request->validated('observaciones'), $request->motivoRechazoId(), $request->recontratable());
 
         return $this->ficha($request, $candidato);
     }
@@ -117,7 +117,7 @@ class CandidatoController extends Controller
 
     public function concluirReferencias(EvaluarFiltroCandidatoRequest $request, Candidato $candidato): JsonResponse
     {
-        $this->workflow->concluirReferencias($candidato, $request->user(), $request->boolean('viable'), $request->validated('observaciones'));
+        $this->workflow->concluirReferencias($candidato, $request->user(), $request->boolean('viable'), $request->validated('observaciones'), $request->motivoRechazoId(), $request->recontratable());
 
         return $this->ficha($request, $candidato);
     }

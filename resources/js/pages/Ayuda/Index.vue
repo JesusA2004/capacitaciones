@@ -87,13 +87,13 @@ const modulosFiltrados = computed(() => {
 const recorrido = computed(() => tourCompleto(contexto.value));
 
 const TONO_GRUPO: Record<string, string> = {
-    Panel: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
-    Personal: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-    Estructura: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
-    Reclutamiento: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-    Análisis: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
-    Administración: 'bg-slate-500/10 text-slate-600 dark:text-slate-300',
-    'Mi espacio': 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
+    Panel: 'bg-info/10 text-info',
+    Personal: 'bg-success/10 text-success',
+    Estructura: 'bg-crema text-bronce',
+    Reclutamiento: 'bg-warning/10 text-warning',
+    Análisis: 'bg-info/10 text-info',
+    Administración: 'bg-muted text-muted-foreground',
+    'Mi espacio': 'bg-info/10 text-info',
 };
 
 const grupos = computed(() => {
@@ -225,7 +225,7 @@ const vistos = computed(
                                 {{ modulo.nombre }}
                                 <CheckCircle2
                                     v-if="haVisto(modulo.id)"
-                                    class="size-3.5 text-emerald-600 dark:text-emerald-400"
+                                    class="size-3.5 text-success"
                                     aria-label="Ya visto"
                                 />
                             </p>

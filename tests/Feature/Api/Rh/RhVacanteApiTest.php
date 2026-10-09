@@ -11,7 +11,7 @@ beforeEach(function () {
 test('rh puede listar vacantes paginadas', function () {
     $rh = User::factory()->create();
     $rh->assignRole('rh_admin');
-    Vacante::factory()->count(3)->create(['estado' => 'abierta']);
+    Vacante::factory()->real()->count(3)->create(['estado' => 'abierta']);
 
     $this->withHeaders(['Authorization' => 'Bearer '.$rh->createToken('test')->plainTextToken])
         ->getJson('/api/v1/rh/vacantes?per_page=2')

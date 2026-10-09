@@ -125,9 +125,9 @@ function abrirExpediente(): void {
         :class="[
             tamano.tarjeta,
             esVacante
-                ? 'border-2 border-dashed border-orange-300/80 bg-orange-50/60 dark:border-orange-500/40 dark:bg-orange-500/5'
+                ? 'border-2 border-dashed border-warning/80 bg-warning-soft/60'
                 : esCobertura
-                  ? 'border-2 border-amber-400 bg-amber-50/70 shadow-sm hover:-translate-y-0.5 hover:shadow-lg dark:border-amber-500/60 dark:bg-amber-500/10'
+                  ? 'border-2 border-warning/50 bg-warning-soft/70 shadow-sm hover:-translate-y-0.5 hover:shadow-lg'
                   : 'border border-border/60 bg-card shadow-sm hover:-translate-y-0.5 hover:shadow-lg',
             hayBusqueda && coincide ? 'shadow-lg ring-4 ring-primary/25' : '',
             hayBusqueda && !coincide ? 'opacity-30 saturate-50' : '',
@@ -135,7 +135,7 @@ function abrirExpediente(): void {
     >
         <div
             v-if="esCobertura && nodo.cobertura"
-            class="flex items-center justify-center gap-1 rounded-t-xl bg-amber-400 px-2 py-1 text-[11px] font-semibold text-amber-950"
+            class="flex items-center justify-center gap-1 rounded-t-xl bg-warning px-2 py-1 text-[11px] font-semibold text-warning"
             :title="nodo.cobertura.nota ?? undefined"
         >
             <ArrowLeftRight class="size-3" />
@@ -239,7 +239,7 @@ function abrirExpediente(): void {
                 </p>
                 <p
                     v-if="esCobertura && detalle !== 'minimo'"
-                    class="mt-0.5 text-[11px] text-amber-800 dark:text-amber-300"
+                    class="mt-0.5 text-[11px] text-warning"
                 >
                     Cubierto temporalmente por esta persona · Titular de
                     {{
@@ -253,7 +253,7 @@ function abrirExpediente(): void {
 
             <span
                 v-if="nodo.region && detalle !== 'minimo'"
-                class="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-800 dark:bg-sky-500/20 dark:text-sky-300"
+                class="inline-flex items-center gap-1 rounded-full bg-info-soft px-2 py-0.5 text-[11px] font-semibold text-info"
             >
                 <IconoRegion class="size-3" />
                 {{ nodo.region.nombre }}
@@ -285,10 +285,10 @@ function abrirExpediente(): void {
         <!-- Puesto sin ocupar -->
         <div
             v-else
-            class="flex flex-col items-center gap-1.5 p-3 text-orange-700 dark:text-orange-300"
+            class="flex flex-col items-center gap-1.5 p-3 text-warning"
         >
             <span
-                class="flex items-center justify-center rounded-2xl bg-orange-100 dark:bg-orange-500/15"
+                class="flex items-center justify-center rounded-2xl bg-warning-soft"
                 :class="tamano.vacanteIcono"
             >
                 <UserRoundSearch class="size-1/2" />
@@ -307,7 +307,7 @@ function abrirExpediente(): void {
             </p>
             <span
                 v-if="(nodo.sucursal || nodo.region) && detalle === 'completo'"
-                class="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-medium dark:bg-orange-500/15"
+                class="inline-flex items-center gap-1 rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-medium"
             >
                 <Building2 v-if="nodo.sucursal" class="size-3" />
                 <IconoRegion v-else class="size-3" />
@@ -316,7 +316,7 @@ function abrirExpediente(): void {
             <button
                 v-if="acciones?.puedeEditar && detalle === 'completo'"
                 type="button"
-                class="mt-1 inline-flex items-center gap-1 rounded-lg border border-orange-300 bg-card px-2 py-1 text-[11px] font-semibold text-orange-700 transition-colors hover:bg-orange-100 dark:border-orange-500/40 dark:text-orange-300 dark:hover:bg-orange-500/15"
+                class="mt-1 inline-flex items-center gap-1 rounded-lg border border-warning/30 bg-card px-2 py-1 text-[11px] font-semibold text-warning transition-colors hover:bg-warning-soft"
                 @click.stop="acciones.asignarCobertura(nodo)"
             >
                 <ArrowLeftRight class="size-3" />
@@ -328,11 +328,11 @@ function abrirExpediente(): void {
             v-if="
                 esCobertura && acciones?.puedeEditar && detalle === 'completo'
             "
-            class="border-t border-amber-300/60 px-3 py-1.5"
+            class="border-t border-warning/60 px-3 py-1.5"
         >
             <button
                 type="button"
-                class="text-[11px] font-medium text-amber-800 underline-offset-2 hover:underline dark:text-amber-300"
+                class="text-[11px] font-medium text-warning underline-offset-2 hover:underline"
                 @click.stop="acciones.terminarCobertura(nodo)"
             >
                 Terminar cobertura

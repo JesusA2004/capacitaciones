@@ -452,7 +452,7 @@ function tamano(bytes: number): string {
                     </div>
                     <p
                         v-if="f.versiones_sin_validar > 0 && f.operativo"
-                        class="text-xs text-amber-700 dark:text-amber-300"
+                        class="text-xs text-warning"
                     >
                         {{ f.versiones_sin_validar }} versión(es) sin validar
                     </p>

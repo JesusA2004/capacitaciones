@@ -61,7 +61,9 @@ class CvStorageService
         /** @var FilesystemAdapter $adaptador */
         $adaptador = $this->disco();
 
-        return $adaptador->response($ruta, null, $headers);
+        // Archivos privados del NAS: el navegador nunca debe adivinar el
+        // tipo (un .pdf con HTML dentro no se ejecuta como página).
+        return $adaptador->response($ruta, null, ['X-Content-Type-Options' => 'nosniff', ...$headers]);
     }
 
     /**

@@ -176,7 +176,7 @@ class MatrizComercialSeeder extends Seeder
             }
         });
 
-        $this->command?->warn(sprintf('Matriz comercial: se eliminó «%s» y su descendencia (%d nodos).', $nombre, count($ids)));
+        $this->command->warn(sprintf('Matriz comercial: se eliminó «%s» y su descendencia (%d nodos).', $nombre, count($ids)));
     }
 
     private function upsert(

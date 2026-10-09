@@ -12,7 +12,7 @@ test('DatabaseSeeder en producción nunca crea cuentas de demostración @mrlana.
     app()->detectEnvironment(fn () => 'production');
 
     try {
-        app(DatabaseSeeder::class)->run();
+        $this->artisan('db:seed', ['--class' => DatabaseSeeder::class, '--force' => true])->assertSuccessful();
 
         expect(User::query()->where('email', 'like', '%@mrlana.test')->exists())->toBeFalse();
     } finally {
@@ -21,7 +21,7 @@ test('DatabaseSeeder en producción nunca crea cuentas de demostración @mrlana.
 });
 
 test('DatabaseSeeder sí crea cuentas de demostración en local/testing', function () {
-    app(DatabaseSeeder::class)->run();
+    $this->artisan('db:seed', ['--class' => DatabaseSeeder::class, '--force' => true])->assertSuccessful();
 
     expect(User::query()->where('email', 'like', '%@mrlana.test')->exists())->toBeTrue();
 });
@@ -31,7 +31,7 @@ test('SEED_DEMO_DATA=true fuerza los datos de demostración aunque el entorno no
     app()->detectEnvironment(fn () => 'production');
 
     try {
-        app(DatabaseSeeder::class)->run();
+        $this->artisan('db:seed', ['--class' => DatabaseSeeder::class, '--force' => true])->assertSuccessful();
 
         expect(User::query()->where('email', 'like', '%@mrlana.test')->exists())->toBeTrue();
     } finally {

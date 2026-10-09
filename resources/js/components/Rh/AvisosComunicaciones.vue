@@ -50,14 +50,14 @@ const fecha = (valor: string | null) =>
                 <div class="flex flex-wrap items-center gap-2">
                     <span
                         class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
-                        :class="aviso.alcance === 'todos' ? 'bg-primary/10 text-primary' : 'bg-[#e9d6b0]/50 text-[#754711] dark:text-[#e9d6b0]'"
+                        :class="aviso.alcance === 'todos' ? 'bg-primary/10 text-primary' : 'bg-warning-soft text-warning'"
                     >
                         <component :is="aviso.alcance === 'todos' ? Globe2 : UserRound" class="size-3" />
                         {{ aviso.alcance === 'todos' ? 'General' : 'Personal' }}
                     </span>
                     <span
                         class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
-                        :class="aviso.leido ? 'bg-[#2f5937]/10 text-[#2f5937] dark:text-[#a9d6b1]' : 'bg-muted text-muted-foreground'"
+                        :class="aviso.leido ? 'bg-success-soft/60 text-success' : 'bg-muted text-muted-foreground'"
                     >
                         <component :is="aviso.leido ? CheckCheck : MailOpen" class="size-3" />
                         {{ aviso.leido ? (aviso.leido_en ? `Leído el ${fecha(aviso.leido_en)}` : 'Leído') : 'Sin leer' }}

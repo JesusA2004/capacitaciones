@@ -23,6 +23,8 @@ export type CampanaReclutamientoItem = {
     fecha_fin: string | null;
     copy: string | null;
     url: string | null;
+    impresiones: number | null;
+    clics: number | null;
     responsable_id: number | null;
     responsable: { id: number; name: string; apellidos: string | null } | null;
     adjuntos_lista: { id: number; nombre: string; mime: string; url: string }[];
@@ -35,9 +37,16 @@ export type CampanaReclutamientoItem = {
     /** Lo que produjo la campaña: contratados y cuánto costó cada uno. */
     resultado: {
         candidatos: number;
+        /** Pasaron el Filtro RH (llegaron al menos a entrevista). */
+        contactados: number;
         entrevistas: number;
         psicometricos: number;
+        socioeconomicos: number;
         contratados: number;
+        /** Solo si RH capturó el reporte del proveedor. */
+        impresiones: number | null;
+        clics: number | null;
+        costo_por_clic: number | null;
         costo_por_candidato: number | null;
         costo_por_colaborador: number | null;
         /** % de candidatos que terminaron contratados. */

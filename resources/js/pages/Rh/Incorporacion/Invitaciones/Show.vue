@@ -118,10 +118,10 @@ function nombreUsuario(
         <!-- QR ya usado: aviso claro y sin opción de generar otro. -->
         <div
             v-if="yaUsada"
-            class="flex items-start gap-4 rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-5"
+            class="flex items-start gap-4 rounded-2xl border border-success/40 bg-success/10 p-5"
         >
             <CircleCheck
-                class="mt-0.5 size-7 shrink-0 text-emerald-600 dark:text-emerald-400"
+                class="mt-0.5 size-7 shrink-0 text-success"
             />
             <div class="flex flex-col gap-1">
                 <p class="text-base font-semibold">

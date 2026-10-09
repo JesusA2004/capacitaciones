@@ -355,7 +355,7 @@ function eliminarConcepto(id: number) {
                 <tbody class="divide-y divide-border/60">
                     <tr
                         v-if="ajustandoClave"
-                        class="bg-[#e9d6b0]/20 dark:bg-[#c9a876]/10"
+                        class="bg-warning-soft/40"
                     >
                         <td colspan="4" class="p-2">
                             <form class="flex flex-wrap items-end gap-2" @submit.prevent="guardarAjuste">
@@ -387,7 +387,7 @@ function eliminarConcepto(id: number) {
                                 >
                                 <span
                                     v-if="fila.ajustado && fila.ajuste"
-                                    class="mt-0.5 block text-[11px] text-[#754711] dark:text-[#e9d6b0]"
+                                    class="mt-0.5 block text-[11px] text-warning"
                                     :title="fila.ajuste.motivo"
                                     >Ajustado: calculado {{ moneda(fila.ajuste.valor_calculado) }} → {{ moneda(fila.ajuste.valor_final) }} · {{ fila.ajuste.motivo }}<template v-if="fila.ajuste.usuario"> · {{ fila.ajuste.usuario }}</template></span
                                 >
@@ -676,7 +676,7 @@ function eliminarConcepto(id: number) {
 
             <p
                 v-if="cerrado"
-                class="rounded-lg bg-emerald-500/10 p-2.5 text-xs font-medium text-emerald-700 dark:text-emerald-400"
+                class="rounded-lg bg-success/10 p-2.5 text-xs font-medium text-success"
             >
                 Finiquito
                 {{ finiquito.estado === 'pagado' ? 'pagado' : 'firmado' }} — no
@@ -685,7 +685,7 @@ function eliminarConcepto(id: number) {
             </p>
             <p
                 v-else
-                class="rounded-lg bg-amber-500/10 p-2.5 text-xs text-amber-700 dark:text-amber-400"
+                class="rounded-lg bg-warning/10 p-2.5 text-xs text-warning"
             >
                 Cálculo editable y sujeto a validación de RH/contabilidad.
             </p>

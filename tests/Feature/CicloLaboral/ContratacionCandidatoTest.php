@@ -3,9 +3,11 @@
 use App\Enums\EstadoCandidato;
 use App\Enums\EstadoVacante;
 use App\Models\Candidato;
-use App\Models\HeadcountTarget;
 use App\Models\Colaborador;
+use App\Models\HeadcountTarget;
 use App\Models\IncorporacionInvitacion;
+use App\Models\Puesto;
+use App\Models\Sucursal;
 use App\Models\Vacante;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
 use Database\Seeders\RolesYPermisosSeeder;
@@ -133,30 +135,37 @@ test('un candidato solo preautorizado por el gerente todavía no puede contratar
 
 test('carrera por la última plaza: con 1 plaza autorizada, el segundo candidato de la misma vacante no se contrata', function () {
     Sanctum::actingAs($this->rh);
-    \App\Models\HeadcountTarget::factory()->create(['sucursal_id' => $this->estructura['sucursal']->id, 'puesto_id' => $this->estructura['puesto']->id, 'plantilla_autorizada' => 1]);
+    HeadcountTarget::factory()->create(['sucursal_id' => $this->estructura['sucursal']->id, 'puesto_id' => $this->estructura['puesto']->id, 'plantilla_autorizada' => 1]);
     $primero = clCandidatoAutorizado($this);
 
-    // Segundo candidato ligado a la MISMA vacante mientras todavía tenía plaza.
-    $segundo = Candidato::factory()->create(['vacante_id' => $primero->vacante_id, 'estado' => EstadoCandidato::AutorizadoRh->value]);
+    // Segundo candidato TAMBIÉN autorizado por RH, sobre la misma plaza
+    // (mismo par sucursal/puesto) mientras todavía estaba libre: solo el
+    // candado + recálculo del faltante decide quién entra.
+    $segundo = clCandidatoAutorizado($this);
+    expect($segundo->estado)->toBe(EstadoCandidato::AutorizadoRh);
 
     $this->postJson("/api/v1/rh/candidatos/{$primero->id}/contratar", ['sueldo_mensual' => 12000, 'fecha_ingreso' => now()->toDateString()])->assertCreated();
 
     $this->postJson("/api/v1/rh/candidatos/{$segundo->id}/contratar", ['sueldo_mensual' => 12000, 'fecha_ingreso' => now()->toDateString()])
-        ->assertUnprocessable();
+        ->assertUnprocessable()
+        ->assertJsonPath('errors.vacante_id.0', 'La vacante ya fue cubierta. Vincula al candidato a otra vacante disponible.');
 
-    expect(Colaborador::query()->where('puesto_id', $this->estructura['puesto']->id)->where('sucursal_principal_id', $this->estructura['sucursal']->id)->count())->toBe(1);
+    // Sin segundo colaborador, sin segundo QR, sin sobrecobertura.
+    expect(Colaborador::query()->where('puesto_id', $this->estructura['puesto']->id)->where('sucursal_principal_id', $this->estructura['sucursal']->id)->count())->toBe(1)
+        ->and(IncorporacionInvitacion::query()->where('candidato_id', $segundo->id)->exists())->toBeFalse()
+        ->and($segundo->refresh()->colaborador_id)->toBeNull();
 });
 
 test('la sucursal y el puesto del contratado salen de la vacante aunque la petición mande otros', function () {
     Sanctum::actingAs($this->rh);
     $candidato = clCandidatoAutorizado($this);
-    $otra = \App\Models\Sucursal::factory()->create();
+    $otra = Sucursal::factory()->create();
 
     $respuesta = $this->postJson("/api/v1/rh/candidatos/{$candidato->id}/contratar", [
         'sueldo_mensual' => 12000,
         'fecha_ingreso' => now()->toDateString(),
         'sucursal_principal_id' => $otra->id,
-        'puesto_id' => \App\Models\Puesto::factory()->create()->id,
+        'puesto_id' => Puesto::factory()->create()->id,
     ])->assertCreated();
 
     $colaborador = Colaborador::query()->findOrFail($respuesta->json('colaborador_id'));

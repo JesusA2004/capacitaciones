@@ -174,7 +174,7 @@ function clave(item: ItemDocumentoProceso, accion: AccionDocumento): string {
             v-if="seccion.bloqueo"
             class="mb-3 flex items-start gap-2 rounded-xl bg-[var(--mrl-fondo)] p-3 text-sm"
         >
-            <AlertTriangle class="mt-0.5 size-4 shrink-0 text-amber-600" />
+            <AlertTriangle class="mt-0.5 size-4 shrink-0 text-warning" />
             {{ seccion.bloqueo }}
         </p>
         <p
@@ -234,7 +234,7 @@ function clave(item: ItemDocumentoProceso, accion: AccionDocumento): string {
                             </p>
                             <p
                                 v-if="item.documento?.revision_de_id"
-                                class="mt-0.5 text-xs text-amber-700 dark:text-amber-300"
+                                class="mt-0.5 text-xs text-warning"
                             >
                                 Revisión de un documento firmado (#{{
                                     item.documento.revision_de_id
@@ -294,7 +294,7 @@ function clave(item: ItemDocumentoProceso, accion: AccionDocumento): string {
                         item.documento &&
                         item.documento.archivo_disponible === false
                     "
-                    class="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100"
+                    class="mt-3 rounded-xl border border-warning/30 bg-warning-soft/50 p-3 text-sm text-warning"
                 >
                     El archivo de este documento ya no está en el
                     almacenamiento.
@@ -306,7 +306,7 @@ function clave(item: ItemDocumentoProceso, accion: AccionDocumento): string {
                 </p>
                 <div
                     v-if="item.formato_faltante"
-                    class="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-900 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-100"
+                    class="mt-3 rounded-xl border border-destructive/30 bg-danger-soft/50 p-3 text-sm text-destructive"
                 >
                     <p class="font-medium">
                         {{ item.formato_faltante.mensaje }}
@@ -328,7 +328,7 @@ function clave(item: ItemDocumentoProceso, accion: AccionDocumento): string {
                     class="mt-3 flex items-start gap-2 text-xs text-[var(--mrl-texto-suave)]"
                 >
                     <AlertTriangle
-                        class="mt-0.5 size-3.5 shrink-0 text-amber-600"
+                        class="mt-0.5 size-3.5 shrink-0 text-warning"
                     />
                     {{ item.bloqueo }}
                 </p>
@@ -442,7 +442,7 @@ function clave(item: ItemDocumentoProceso, accion: AccionDocumento): string {
 
         <div
             v-if="seccion.negativa"
-            class="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100"
+            class="mt-4 rounded-xl border border-warning/30 bg-warning-soft/50 p-3 text-xs text-warning"
         >
             <p class="font-semibold">
                 Negativa de firma registrada el

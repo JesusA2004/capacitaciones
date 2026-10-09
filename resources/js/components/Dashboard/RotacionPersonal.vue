@@ -163,9 +163,9 @@ const rangoActivo = computed(() => {
 const paletaMarca = [
     'var(--brand-primary)',
     'var(--brand-secondary)',
-    '#f59e0b',
-    '#10b981',
-    '#6366f1',
+    'var(--pastel-bronce)',
+    'var(--pastel-esmeralda)',
+    'var(--chart-5)',
 ];
 
 const opcionesBase = computed(() => ({
@@ -224,7 +224,7 @@ const generoEtiquetas = computed(() =>
 const generoOpciones = computed(() => ({
     ...opcionesBase.value,
     labels: generoEtiquetas.value,
-    colors: ['#6366f1', '#ec4899', '#94a3b8'],
+    colors: ['var(--pastel-esmeralda)', 'var(--pastel-oro)', 'var(--pastel-crema-2)'],
 }));
 
 // KPIs de género como cifra directa (no solo dentro de la dona): cuenta y

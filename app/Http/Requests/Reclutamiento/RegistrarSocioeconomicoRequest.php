@@ -34,6 +34,8 @@ class RegistrarSocioeconomicoRequest extends FormRequest
             'riesgos' => ['nullable', 'string', 'max:4000'],
             'observaciones' => ['nullable', 'string', 'max:4000', 'required_if:resultado,no_viable'],
             'resultado' => ['required', Rule::enum(ResultadoEtapaCandidato::class)],
+            'motivo_rechazo_id' => ['nullable', 'integer', 'exists:motivos_rechazo_candidato,id'],
+            'recontratable' => ['nullable', 'boolean'],
             'visitador_user_id' => ['nullable', 'integer', 'exists:users,id'],
             'evidencias' => ['nullable', 'array', 'max:12'],
             // Fotografías, video corto o PDF: evidencia privada en el NAS.

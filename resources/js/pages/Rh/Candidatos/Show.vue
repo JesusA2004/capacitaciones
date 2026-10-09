@@ -133,19 +133,22 @@ const candidatoFormulario = computed(
 const form = useForm<FormularioAccion>({});
 
 const hoy = new Date().toISOString().slice(0, 10);
+/** Rechazo en cualquier fase: motivo del catálogo + «¿puede considerarse nuevamente?». */
+const rechazoInicial = () => ({ motivo_rechazo_id: null, recontratable: true });
 const camposPorAccion: Record<string, () => FormularioAccion> = {
-    evaluar_perfil: () => ({ viable: true, observaciones: '' }),
+    evaluar_perfil: () => ({ viable: true, observaciones: '', ...rechazoInicial() }),
     registrar_entrevista: () => ({
         realizada_en: `${hoy}T10:00`,
         resultado: 'viable',
         observaciones: '',
+        ...rechazoInicial(),
     }),
     enviar_psicometricas: () => ({ link: '' }),
     registrar_resultados_psicometricas: () => ({
         resumen: '',
         archivos: [] as File[],
     }),
-    revisar_psicometricas: () => ({ viable: true, observaciones: '' }),
+    revisar_psicometricas: () => ({ viable: true, observaciones: '', ...rechazoInicial() }),
     registrar_socioeconomico: () => ({
         fecha_visita: hoy,
         direccion: '',
@@ -159,6 +162,7 @@ const camposPorAccion: Record<string, () => FormularioAccion> = {
         observaciones: '',
         resultado: 'viable',
         evidencias: [] as File[],
+        ...rechazoInicial(),
     }),
     registrar_referencia: () => ({
         empresa: '',
@@ -168,7 +172,7 @@ const camposPorAccion: Record<string, () => FormularioAccion> = {
         resultado: 'positiva',
         observaciones: '',
     }),
-    concluir_referencias: () => ({ viable: true, observaciones: '' }),
+    concluir_referencias: () => ({ viable: true, observaciones: '', ...rechazoInicial() }),
     preautorizar: () => ({ comentario: '' }),
     autorizar_rh: () => ({ comentario: '' }),
     devolver_rh: () => ({ motivo: '' }),
@@ -239,15 +243,24 @@ function enviar() {
 
     // El comentario es opcional en pantalla; si RH no escribió nada, el
     // motivo del catálogo (obligatorio) sirve de texto para el histórico.
+    const catalogo = props.opciones.motivosRechazo?.find(
+        (m) => m.id === form.motivo_rechazo_id,
+    );
+
     if (['rechazar_rh', 'descartar'].includes(accion.clave)) {
         const motivoTexto = String(form.motivo ?? '').trim();
 
         if (motivoTexto === '') {
-            const catalogo = props.opciones.motivosRechazo?.find(
-                (m) => m.id === form.motivo_rechazo_id,
-            );
             form.motivo = catalogo?.nombre ?? '';
         }
+    }
+
+    // Rechazo en una fase (no viable): sin observaciones escritas, el
+    // motivo del catálogo queda como nota del histórico.
+    const rechazaFase = form.viable === false || form.resultado === 'no_viable';
+
+    if (rechazaFase && catalogo && String(form.observaciones ?? '').trim() === '') {
+        form.observaciones = catalogo.nombre;
     }
 
     form.post(url(accion.clave), {
@@ -574,11 +587,11 @@ const claseBoton: Record<string, 'default' | 'secondary' | 'destructive'> = {
 
                 <section
                     v-if="candidato.intervenciones.length"
-                    class="rounded-2xl border border-amber-500/40 bg-amber-500/5 p-5 text-sm"
+                    class="rounded-2xl border border-warning/40 bg-warning/5 p-5 text-sm"
                     aria-label="Intervención sobre el rechazo de RH"
                 >
                     <h2
-                        class="mb-3 flex items-center gap-2 text-sm font-semibold text-amber-700 dark:text-amber-400"
+                        class="mb-3 flex items-center gap-2 text-sm font-semibold text-warning"
                     >
                         <ShieldAlert class="size-4" /> Intervención sobre el
                         rechazo de RH
@@ -720,6 +733,31 @@ const claseBoton: Record<string, 'default' | 'secondary' | 'destructive'> = {
                         />
                         <InputError :message="form.errors.observaciones" />
                     </div>
+                    <template v-if="!form.viable">
+                        <div class="grid gap-1.5">
+                            <Label>Motivo del rechazo *</Label>
+                            <SelectSimple
+                                :model-value="
+                                    form.motivo_rechazo_id
+                                        ? String(form.motivo_rechazo_id)
+                                        : ''
+                                "
+                                @update:model-value="alElegirMotivoRechazoForm"
+                                :opciones="
+                                    (opciones.motivosRechazo ?? []).map((m) => ({
+                                        value: String(m.id),
+                                        label: m.nombre,
+                                    }))
+                                "
+                                placeholder="Elige un motivo"
+                            />
+                            <InputError :message="form.errors.motivo_rechazo_id" />
+                        </div>
+                        <label class="flex min-h-11 items-center gap-2 text-sm">
+                            <Casilla v-model="form.recontratable as boolean" />
+                            ¿Puede considerarse nuevamente?
+                        </label>
+                    </template>
                 </template>
 
                 <template
@@ -760,6 +798,31 @@ const claseBoton: Record<string, 'default' | 'secondary' | 'destructive'> = {
                             rows="3"
                         /><InputError :message="form.errors.observaciones" />
                     </div>
+                    <template v-if="form.resultado === 'no_viable'">
+                        <div class="grid gap-1.5">
+                            <Label>Motivo del rechazo *</Label>
+                            <SelectSimple
+                                :model-value="
+                                    form.motivo_rechazo_id
+                                        ? String(form.motivo_rechazo_id)
+                                        : ''
+                                "
+                                @update:model-value="alElegirMotivoRechazoForm"
+                                :opciones="
+                                    (opciones.motivosRechazo ?? []).map((m) => ({
+                                        value: String(m.id),
+                                        label: m.nombre,
+                                    }))
+                                "
+                                placeholder="Elige un motivo"
+                            />
+                            <InputError :message="form.errors.motivo_rechazo_id" />
+                        </div>
+                        <label class="flex min-h-11 items-center gap-2 text-sm">
+                            <Casilla v-model="form.recontratable as boolean" />
+                            ¿Puede considerarse nuevamente?
+                        </label>
+                    </template>
                 </template>
 
                 <template
@@ -895,6 +958,31 @@ const claseBoton: Record<string, 'default' | 'secondary' | 'destructive'> = {
                             rows="2"
                         /><InputError :message="form.errors.observaciones" />
                     </div>
+                    <template v-if="form.resultado === 'no_viable'">
+                        <div class="grid gap-1.5">
+                            <Label>Motivo del rechazo *</Label>
+                            <SelectSimple
+                                :model-value="
+                                    form.motivo_rechazo_id
+                                        ? String(form.motivo_rechazo_id)
+                                        : ''
+                                "
+                                @update:model-value="alElegirMotivoRechazoForm"
+                                :opciones="
+                                    (opciones.motivosRechazo ?? []).map((m) => ({
+                                        value: String(m.id),
+                                        label: m.nombre,
+                                    }))
+                                "
+                                placeholder="Elige un motivo"
+                            />
+                            <InputError :message="form.errors.motivo_rechazo_id" />
+                        </div>
+                        <label class="flex min-h-11 items-center gap-2 text-sm">
+                            <Casilla v-model="form.recontratable as boolean" />
+                            ¿Puede considerarse nuevamente?
+                        </label>
+                    </template>
                     <div class="grid gap-1.5">
                         <Label
                             >Fotografías / video / PDF (evidencia

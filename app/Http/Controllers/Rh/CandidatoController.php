@@ -314,7 +314,7 @@ class CandidatoController extends Controller
 
     public function evaluarPerfil(EvaluarFiltroCandidatoRequest $request, Candidato $candidato): RedirectResponse
     {
-        $this->workflow->evaluarPerfil($candidato, $request->user(), $request->boolean('viable'), $request->validated('observaciones'));
+        $this->workflow->evaluarPerfil($candidato, $request->user(), $request->boolean('viable'), $request->validated('observaciones'), $request->motivoRechazoId(), $request->recontratable());
 
         return $this->ok('Revisión de perfil registrada.');
     }
@@ -342,7 +342,7 @@ class CandidatoController extends Controller
 
     public function revisarPsicometricas(EvaluarFiltroCandidatoRequest $request, Candidato $candidato): RedirectResponse
     {
-        $this->workflow->revisarPsicometricas($candidato, $request->user(), $request->boolean('viable'), $request->validated('observaciones'));
+        $this->workflow->revisarPsicometricas($candidato, $request->user(), $request->boolean('viable'), $request->validated('observaciones'), $request->motivoRechazoId(), $request->recontratable());
 
         return $this->ok('Revisión de psicométricas registrada.');
     }
@@ -363,7 +363,7 @@ class CandidatoController extends Controller
 
     public function concluirReferencias(EvaluarFiltroCandidatoRequest $request, Candidato $candidato): RedirectResponse
     {
-        $this->workflow->concluirReferencias($candidato, $request->user(), $request->boolean('viable'), $request->validated('observaciones'));
+        $this->workflow->concluirReferencias($candidato, $request->user(), $request->boolean('viable'), $request->validated('observaciones'), $request->motivoRechazoId(), $request->recontratable());
 
         return $this->ok('Validación de referencias concluida.');
     }

@@ -620,11 +620,11 @@ function confirmarSalida() {
             class="overflow-hidden rounded-3xl border border-border/60 bg-card shadow-sm"
         >
             <div
-                class="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-[#0d3e43] to-[#225c54] px-5 py-4 text-white"
+                class="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-gradient-to-r from-crema/70 to-salvia/70 px-5 py-4 text-foreground"
             >
                 <div>
                     <p
-                        class="text-xs font-medium tracking-wider text-[#e9d6b0] uppercase"
+                        class="text-xs font-medium tracking-wider text-bronce uppercase"
                     >
                         Recorrido del candidato
                     </p>
@@ -633,14 +633,14 @@ function confirmarSalida() {
                         {{ kpis.contratados_periodo }} contratados en el periodo
                     </p>
                 </div>
-                <div class="hidden rounded-xl bg-white/10 p-1 md:flex">
+                <div class="hidden rounded-xl bg-card/70 p-1 md:flex">
                     <button
                         type="button"
                         class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition"
                         :class="
                             vista === 'fase'
-                                ? 'bg-white text-[#0d3e43] shadow'
-                                : 'text-white/80 hover:text-white'
+                                ? 'bg-card text-primary shadow'
+                                : 'text-muted-foreground hover:text-foreground'
                         "
                         @click="vista = 'fase'"
                     >
@@ -651,8 +651,8 @@ function confirmarSalida() {
                         class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition"
                         :class="
                             vista === 'tablero'
-                                ? 'bg-white text-[#0d3e43] shadow'
-                                : 'text-white/80 hover:text-white'
+                                ? 'bg-card text-primary shadow'
+                                : 'text-muted-foreground hover:text-foreground'
                         "
                         @click="vista = 'tablero'"
                     >

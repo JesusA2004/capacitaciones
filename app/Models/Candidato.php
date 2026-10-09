@@ -175,7 +175,13 @@ class Candidato extends Model
      */
     public function getFaseAttribute(): string
     {
-        return $this->estado->faseCanonica();
+        // Se agrega en cada serialización ($appends), incluso cuando el
+        // candidato se cargó con columnas parciales (p. ej. `candidato:id,nombre`
+        // en la invitación QR): sin `estado` cargado no hay fase, nunca un 500.
+        $valor = $this->getAttributes()['estado'] ?? null;
+        $estado = $valor instanceof EstadoCandidato ? $valor : (is_string($valor) ? EstadoCandidato::tryFrom($valor) : null);
+
+        return $estado?->faseCanonica() ?? '';
     }
 
     /**

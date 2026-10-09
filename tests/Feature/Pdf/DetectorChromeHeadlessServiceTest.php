@@ -41,8 +41,16 @@ test('detectar(): si no hay chrome-headless-shell, usa chrome como segunda opci�
 
 test('detectar(): sin ninguna instalación, devuelve null y lista las carpetas que revisó', function () {
     config(['pdf.browsershot.puppeteer_cache_dir' => sys_get_temp_dir().'/dch-vacio-'.uniqid()]);
+    // Aislada de la máquina: el detector también revisa ~/.cache/puppeteer,
+    // que en una PC de desarrollo con Puppeteer instalado sí existe.
+    $homeOriginal = getenv('HOME');
+    putenv('HOME='.sys_get_temp_dir().'/dch-home-vacio-'.uniqid());
 
-    $resultado = app(DetectorChromeHeadlessService::class)->detectar();
+    try {
+        $resultado = app(DetectorChromeHeadlessService::class)->detectar();
+    } finally {
+        putenv($homeOriginal === false ? 'HOME' : 'HOME='.$homeOriginal);
+    }
 
     expect($resultado['ruta'])->toBeNull()
         ->and($resultado['carpetas_revisadas'])->not->toBe([]);

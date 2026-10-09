@@ -121,9 +121,9 @@ const tieneTipo = computed(() => props.opcionesTipo.some((o) => o.value === perm
 
         <section
             v-if="esEspecial"
-            class="grid gap-2 rounded-2xl border border-[#af8b51]/40 bg-[#e9d6b0]/20 p-4 dark:bg-[#c9a876]/10"
+            class="grid gap-2 rounded-2xl border border-oro/40 bg-warning-soft/40 p-4"
         >
-            <Label class="flex items-center gap-1.5"><Sparkles class="size-3.5 text-[#af8b51]" /> Causal del permiso especial</Label>
+            <Label class="flex items-center gap-1.5"><Sparkles class="size-3.5 text-oro" /> Causal del permiso especial</Label>
             <div class="flex flex-wrap gap-2">
                 <button
                     v-for="opcion in opcionesCausal"

@@ -386,13 +386,13 @@ const opcionesTipo = [
                 etiqueta="Borradores por emitir"
                 :valor="resumen.borradores"
                 :icono="Pencil"
-                color-clase="text-amber-600"
+                color-clase="text-warning"
             />
             <MetricCard
                 etiqueta="Emitidos"
                 :valor="resumen.emitidos"
                 :icono="Send"
-                color-clase="text-emerald-600"
+                color-clase="text-success"
             />
             <MetricCard
                 etiqueta="Total neto a pagar"
@@ -636,8 +636,8 @@ const opcionesTipo = [
                                     class="rounded-full px-2.5 py-0.5 text-xs font-semibold"
                                     :class="
                                         recibo.estado === 'emitido'
-                                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-                                            : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                                            ? 'bg-success/15 text-success'
+                                            : 'bg-warning/15 text-warning'
                                     "
                                     >{{ recibo.estado_etiqueta }}</span
                                 >

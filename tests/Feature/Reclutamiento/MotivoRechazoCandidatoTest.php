@@ -82,3 +82,34 @@ test('el catálogo nunca se borra, solo se desactiva, y RH lo administra desde C
         ->put(route('administracion.configuracion.parametros-rh.motivos-rechazo.update', $motivo), ['clave' => $motivo->clave, 'nombre' => 'Hackeo'])
         ->assertForbidden();
 });
+
+test('Filtro RH: rechazar usa el motivo del catálogo y RH decide si puede considerarse nuevamente (queda en el histórico)', function () {
+    $candidato = Candidato::factory()->create(['sucursal_id' => null, 'estado' => EstadoCandidato::Recibidos->value]);
+    $motivo = MotivoRechazoCandidato::query()->create(['clave' => 'perfil_test', 'nombre' => 'No cumple perfil', 'activo' => true, 'no_recontratable_por_defecto' => false]);
+
+    $this->actingAs($this->rh)
+        ->post(route('rh.candidatos.perfil', $candidato), [
+            'viable' => false,
+            'observaciones' => 'Sin experiencia en cobranza (WhatsApp 09/10).',
+            'motivo_rechazo_id' => $motivo->id,
+            'recontratable' => false,
+        ])
+        ->assertSessionHasNoErrors();
+
+    $candidato->refresh();
+
+    expect($candidato->estado)->toBe(EstadoCandidato::NoViable)
+        ->and($candidato->motivo_rechazo_id)->toBe($motivo->id)
+        ->and($candidato->recontratable)->toBeFalse()
+        ->and($candidato->salida_por)->toBe($this->rh->id)
+        ->and($candidato->seguimientos()->where('estado_nuevo', EstadoCandidato::NoViable->value)->exists())->toBeTrue();
+});
+
+test('Filtro RH: continuar avanza a entrevista sin registrar rechazo', function () {
+    $candidato = Candidato::factory()->create(['sucursal_id' => null, 'estado' => EstadoCandidato::Recibidos->value]);
+
+    $this->workflow->evaluarPerfil($candidato, $this->rh, true, 'Contactado por WhatsApp: interesado.');
+
+    expect($candidato->refresh()->estado)->toBe(EstadoCandidato::EntrevistaPendiente)
+        ->and($candidato->motivo_rechazo_id)->toBeNull();
+});

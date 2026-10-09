@@ -16,9 +16,11 @@ use App\Models\TareaRh;
 use App\Models\User;
 use App\Notifications\Mobile\PendienteRhNotification;
 use App\Services\Contratos\ContratoLaboralService;
+use Carbon\CarbonImmutable;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\Sanctum;
 
 beforeEach(function () {
@@ -107,6 +109,14 @@ test('si RH autoriza la renovación se crea el contrato indeterminado y su docum
         ->and($this->colaborador->refresh()->tipo_contratacion?->value)->toBe('indeterminado');
 
     expect(TareaRh::query()->where('tipo', TipoTarea::ContratoPorVencer->value)->whereNull('resuelta_en')->count())->toBe(0);
+
+    // «✓ Evaluación aprobada · Contrato indeterminado listo [Previsualizar] [Imprimir]».
+    $this->actingAs($this->rh)->get(route('rh.evaluaciones.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('evaluaciones.data.0.contrato_renovacion_id', $nuevo->id)
+            ->where('evaluaciones.data.0.documento_renovacion.id', $nuevo->generated_document_id)
+            ->where('evaluaciones.data.0.documento_renovacion.url', route('rh.documentos-laborales.descargar', $nuevo->generated_document_id)));
 });
 
 test('si RH decide no renovar se inicia automáticamente el cierre laboral por no renovación', function () {
@@ -217,13 +227,13 @@ test('la duración de la capacitación sale del PUESTO (sin respaldo global)', f
     $subgerente = Puesto::factory()->create(['nombre' => 'Subgerente', 'meses_periodo_prueba' => 3]);
     $gestor = Puesto::factory()->create(['nombre' => 'Gestor', 'meses_periodo_prueba' => 2]);
 
-    expect($contratos->fechaFinPeriodoPrueba($gestor->id, \Carbon\CarbonImmutable::parse('2026-10-01'))->toDateString())->toBe('2026-11-30')
-        ->and($contratos->fechaFinPeriodoPrueba($subgerente->id, \Carbon\CarbonImmutable::parse('2026-01-31'))->toDateString())->toBe('2026-04-29');
+    expect($contratos->fechaFinPeriodoPrueba($gestor->id, CarbonImmutable::parse('2026-10-01'))->toDateString())->toBe('2026-11-30')
+        ->and($contratos->fechaFinPeriodoPrueba($subgerente->id, CarbonImmutable::parse('2026-01-31'))->toDateString())->toBe('2026-04-29');
 });
 
 test('un puesto sin duración configurada bloquea la contratación con un mensaje claro', function () {
     $sinDuracion = Puesto::factory()->sinDuracionCapacitacion()->create(['nombre' => 'Analista']);
 
     expect(fn () => app(ContratoLaboralService::class)->fechaFinPeriodoPrueba($sinDuracion->id, now()))
-        ->toThrow(\Illuminate\Validation\ValidationException::class, 'Configura la duración de la capacitación inicial para el puesto «Analista»');
+        ->toThrow(ValidationException::class, 'Configura la duración de capacitación inicial para este puesto («Analista»)');
 });

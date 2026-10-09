@@ -267,9 +267,8 @@ class ConfiguracionSistemaService
     }
 
     /**
-     * Bloque CSS con las variables institucionales personalizadas (modo
-     * claro; el modo oscuro conserva su paleta adaptada para no perder
-     * contraste) más los colores de cada gráfica (en ambos modos).
+     * Bloque CSS con las variables institucionales personalizadas más los
+     * colores de cada gráfica (el sistema es solo claro).
      */
     public function cssVariables(): string
     {
@@ -280,7 +279,7 @@ class ConfiguracionSistemaService
 
         foreach ($this->catalogo('apariencia') as $clave => $p) {
             // Colores de gráficas: siempre se declaran (con su valor de
-            // fábrica si no se cambió) y valen en claro y oscuro.
+            // fábrica si no se cambió).
             if (($p['seccion'] ?? null) === 'graficas' && isset($p['css'])) {
                 $valor = (string) $this->valor($clave);
 
@@ -298,7 +297,7 @@ class ConfiguracionSistemaService
 
         $css = $graficas === [] ? '' : sprintf(':root{%s}', implode(';', $graficas));
 
-        return $declaraciones === [] ? $css : $css.sprintf(':root:not(.dark){%s}', implode(';', $declaraciones));
+        return $declaraciones === [] ? $css : $css.sprintf(':root{%s}', implode(';', $declaraciones));
     }
 
     /**

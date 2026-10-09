@@ -165,23 +165,28 @@ class CandidatoWorkflowService
         return $actualizado;
     }
 
-    public function evaluarPerfil(Candidato $candidato, User $actor, bool $viable, ?string $observaciones): Candidato
+    /**
+     * FILTRO RH (contacto por WhatsApp, sin integración): fecha, responsable
+     * y notas quedan en el seguimiento; si no continúa, el motivo sale del
+     * catálogo (motivo_rechazo_id) y RH decide si puede considerarse de nuevo.
+     */
+    public function evaluarPerfil(Candidato $candidato, User $actor, bool $viable, ?string $observaciones, ?int $motivoRechazoId = null, ?bool $recontratable = null): Candidato
     {
         $this->autorizar($actor, self::PERMISO_RECLUTAMIENTO, $candidato);
 
-        return $this->paso($candidato, $actor, EstadoCandidato::Recibidos, function (Candidato $c) use ($actor, $viable, $observaciones): void {
+        return $this->paso($candidato, $actor, EstadoCandidato::Recibidos, function (Candidato $c) use ($actor, $viable, $observaciones, $motivoRechazoId, $recontratable): void {
             if ($viable) {
                 $this->transicionar($c, EstadoCandidato::EntrevistaPendiente, $actor, $this->nota('Perfil viable: pasa a entrevista con el gerente.', $observaciones));
 
                 return;
             }
 
-            $this->salir($c, EstadoCandidato::NoViable, $actor, $this->exigirMotivo($observaciones, 'No cubre el perfil'));
+            $this->salir($c, EstadoCandidato::NoViable, $actor, $this->exigirMotivo($observaciones, 'No cubre el perfil'), $motivoRechazoId, $recontratable);
         });
     }
 
     /**
-     * @param  array<string, mixed>  $datos  realizada_en?, observaciones?, resultado, entrevistador_user_id? (RegistrarEntrevistaRequest).
+     * @param  array<string, mixed>  $datos  realizada_en?, observaciones?, resultado, entrevistador_user_id?, motivo_rechazo_id?, recontratable? (RegistrarEntrevistaRequest).
      */
     public function registrarEntrevista(Candidato $candidato, User $actor, array $datos): Candidato
     {
@@ -191,7 +196,7 @@ class CandidatoWorkflowService
         $realizada = isset($datos['realizada_en']) ? (string) $datos['realizada_en'] : now()->toDateTimeString();
         $entrevistador = isset($datos['entrevistador_user_id']) ? (int) $datos['entrevistador_user_id'] : $actor->id;
 
-        return $this->paso($candidato, $actor, EstadoCandidato::EntrevistaPendiente, function (Candidato $c) use ($actor, $resultado, $observaciones, $realizada, $entrevistador): void {
+        return $this->paso($candidato, $actor, EstadoCandidato::EntrevistaPendiente, function (Candidato $c) use ($actor, $resultado, $observaciones, $realizada, $entrevistador, $datos): void {
             CandidatoEntrevista::query()->create([
                 'candidato_id' => $c->id,
                 'realizada_en' => $realizada,
@@ -209,7 +214,7 @@ class CandidatoWorkflowService
                 return;
             }
 
-            $this->salir($c, EstadoCandidato::NoViable, $actor, $this->exigirMotivo($observaciones, 'No viable tras la entrevista'));
+            $this->salir($c, EstadoCandidato::NoViable, $actor, $this->exigirMotivo($observaciones, 'No viable tras la entrevista'), ...$this->catalogoRechazo($datos));
         });
     }
 
@@ -242,11 +247,11 @@ class CandidatoWorkflowService
         });
     }
 
-    public function revisarPsicometricas(Candidato $candidato, User $actor, bool $viable, ?string $observaciones): Candidato
+    public function revisarPsicometricas(Candidato $candidato, User $actor, bool $viable, ?string $observaciones, ?int $motivoRechazoId = null, ?bool $recontratable = null): Candidato
     {
         $this->autorizar($actor, self::PERMISO_GERENTE, $candidato);
 
-        return $this->paso($candidato, $actor, EstadoCandidato::RevisionPsicometricas, function (Candidato $c) use ($actor, $viable, $observaciones): void {
+        return $this->paso($candidato, $actor, EstadoCandidato::RevisionPsicometricas, function (Candidato $c) use ($actor, $viable, $observaciones, $motivoRechazoId, $recontratable): void {
             $this->psicometricaAbierta($c)->update([
                 'revision_resultado' => $viable ? ResultadoEtapaCandidato::Viable : ResultadoEtapaCandidato::NoViable,
                 'revision_observaciones' => $observaciones,
@@ -260,7 +265,7 @@ class CandidatoWorkflowService
                 return;
             }
 
-            $this->salir($c, EstadoCandidato::NoViable, $actor, $this->exigirMotivo($observaciones, 'Resultados psicométricos fuera de perfil'));
+            $this->salir($c, EstadoCandidato::NoViable, $actor, $this->exigirMotivo($observaciones, 'Resultados psicométricos fuera de perfil'), $motivoRechazoId, $recontratable);
         });
     }
 
@@ -295,7 +300,7 @@ class CandidatoWorkflowService
                 return;
             }
 
-            $this->salir($c, EstadoCandidato::NoViable, $actor, $this->exigirMotivo($observaciones, 'Estudio socioeconómico no viable'));
+            $this->salir($c, EstadoCandidato::NoViable, $actor, $this->exigirMotivo($observaciones, 'Estudio socioeconómico no viable'), ...$this->catalogoRechazo($datos));
         });
     }
 
@@ -329,13 +334,13 @@ class CandidatoWorkflowService
         });
     }
 
-    public function concluirReferencias(Candidato $candidato, User $actor, bool $viables, ?string $observaciones): Candidato
+    public function concluirReferencias(Candidato $candidato, User $actor, bool $viables, ?string $observaciones, ?int $motivoRechazoId = null, ?bool $recontratable = null): Candidato
     {
         $this->autorizarAlguno($actor, [self::PERMISO_RECLUTAMIENTO, self::PERMISO_GERENTE], $candidato);
 
-        return $this->paso($candidato, $actor, EstadoCandidato::ReferenciasPendientes, function (Candidato $c) use ($actor, $viables, $observaciones): void {
+        return $this->paso($candidato, $actor, EstadoCandidato::ReferenciasPendientes, function (Candidato $c) use ($actor, $viables, $observaciones, $motivoRechazoId, $recontratable): void {
             if (! $viables) {
-                $this->salir($c, EstadoCandidato::NoViable, $actor, $this->exigirMotivo($observaciones, 'Referencias laborales no favorables'));
+                $this->salir($c, EstadoCandidato::NoViable, $actor, $this->exigirMotivo($observaciones, 'Referencias laborales no favorables'), $motivoRechazoId, $recontratable);
 
                 return;
             }
@@ -643,6 +648,24 @@ class CandidatoWorkflowService
 
         $this->seguimiento($candidato, $actor, TipoSeguimientoCandidato::CambioEstado, sprintf('%s: %s', $salida->etiqueta(), $motivo), $anterior, $salida);
         $this->auditar('candidato_salida', $candidato, $actor, ['estado_anterior' => $anterior->value, 'estado_nuevo' => $salida->value, 'motivo' => $motivo]);
+    }
+
+    /**
+     * Motivo de catálogo y «¿puede considerarse nuevamente?» de un paso que
+     * llega como arreglo validado (entrevista, socioeconómico).
+     *
+     * @param  array<string, mixed>  $datos
+     * @return array{0: int|null, 1: bool|null}
+     */
+    private function catalogoRechazo(array $datos): array
+    {
+        $motivo = $datos['motivo_rechazo_id'] ?? null;
+        $recontratable = $datos['recontratable'] ?? null;
+
+        return [
+            is_numeric($motivo) ? (int) $motivo : null,
+            $recontratable === null ? null : filter_var($recontratable, FILTER_VALIDATE_BOOLEAN),
+        ];
     }
 
     private function seguimiento(Candidato $candidato, User $actor, TipoSeguimientoCandidato $tipo, string $nota, ?EstadoCandidato $anterior = null, ?EstadoCandidato $nuevo = null): void

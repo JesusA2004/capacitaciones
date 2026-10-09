@@ -57,6 +57,8 @@ const form = useForm<{
     sueldo_publicado: string;
     copy: string;
     url: string;
+    impresiones: string;
+    clics: string;
     responsable_id: string;
     candidatos_generados: string;
     observaciones: string;
@@ -72,6 +74,8 @@ const form = useForm<{
     sueldo_publicado: texto(props.campana?.sueldo_publicado),
     copy: props.campana?.copy ?? '',
     url: props.campana?.url ?? '',
+    impresiones: texto(props.campana?.impresiones),
+    clics: texto(props.campana?.clics),
     responsable_id: texto(props.campana?.responsable_id),
     candidatos_generados: texto(props.campana?.candidatos_generados),
     observaciones: props.campana?.observaciones ?? '',
@@ -110,6 +114,8 @@ function enviar() {
         sueldo_publicado: datos.sueldo_publicado || null,
         responsable_id: datos.responsable_id || null,
         candidatos_generados: datos.candidatos_generados || null,
+        impresiones: datos.impresiones === '' ? null : datos.impresiones,
+        clics: datos.clics === '' ? null : datos.clics,
         ...(props.campana ? { _method: 'put' } : {}),
     }));
 
@@ -258,6 +264,18 @@ function enviar() {
                         <Label for="url">Liga del anuncio</Label>
                         <Input id="url" v-model="form.url" type="url" placeholder="https://" />
                         <InputError :message="form.errors.url" />
+                    </div>
+                    <div class="grid gap-3 sm:grid-cols-2">
+                        <div class="grid gap-2">
+                            <Label for="impresiones">Impresiones (opcional)</Label>
+                            <Input id="impresiones" v-model="form.impresiones" type="number" min="0" step="1" placeholder="Del reporte del proveedor" />
+                            <InputError :message="form.errors.impresiones" />
+                        </div>
+                        <div class="grid gap-2">
+                            <Label for="clics">Clics (opcional)</Label>
+                            <Input id="clics" v-model="form.clics" type="number" min="0" step="1" placeholder="Del reporte del proveedor" />
+                            <InputError :message="form.errors.clics" />
+                        </div>
                     </div>
                     <div class="grid gap-2">
                         <Label>Arte y documentos (PDF o imagen, privados)</Label>

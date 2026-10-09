@@ -95,3 +95,28 @@ test('las métricas del embudo salen de los candidatos de la campaña', function
             ->where('campanas.data.0.resultado.conversion', 25)
             ->where('campanas.data.0.resultado.dias_cobertura', 10));
 });
+
+test('impresiones y clics solo cuentan si RH los capturó; contactados y costo por clic salen de datos reales', function () {
+    $campana = CampanaReclutamiento::query()->create([
+        'vacante_id' => $this->vacante->id, 'canal' => 'meta', 'mes' => 10, 'anio' => 2026, 'fecha_inicio' => '2026-10-01', 'monto' => 3000,
+        'sucursal_id' => $this->estructura['sucursal']->id, 'puesto_id' => $this->estructura['puesto']->id,
+    ]);
+    $candidatos = Candidato::factory()->count(3)->create(['campana_reclutamiento_id' => $campana->id, 'vacante_id' => $this->vacante->id, 'etapa_maxima' => 1]);
+    $candidatos[0]->forceFill(['etapa_maxima' => EstadoCandidato::EntrevistaPendiente->orden()])->save();
+
+    // Sin capturar: null (nunca cero inventado).
+    $this->actingAs($this->rh)->get(route('rh.campanas.index', ['mes' => 10, 'anio' => 2026]))
+        ->assertInertia(fn ($page) => $page
+            ->where('campanas.data.0.resultado.contactados', 1)
+            ->where('campanas.data.0.resultado.impresiones', null)
+            ->where('campanas.data.0.resultado.clics', null)
+            ->where('campanas.data.0.resultado.costo_por_clic', null));
+
+    $campana->update(['impresiones' => 12000, 'clics' => 300]);
+
+    $this->actingAs($this->rh)->get(route('rh.campanas.index', ['mes' => 10, 'anio' => 2026]))
+        ->assertInertia(fn ($page) => $page
+            ->where('campanas.data.0.resultado.impresiones', 12000)
+            ->where('campanas.data.0.resultado.clics', 300)
+            ->where('campanas.data.0.resultado.costo_por_clic', 10));
+});

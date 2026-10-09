@@ -714,7 +714,7 @@ function irACompletarExpediente() {
                                 :class="
                                     colaborador.acceso_bloqueado_en
                                         ? 'font-medium text-destructive'
-                                        : 'font-medium text-emerald-600 dark:text-emerald-400'
+                                        : 'font-medium text-success'
                                 "
                             >
                                 {{
@@ -834,22 +834,22 @@ function irACompletarExpediente() {
 
         <Card
             v-if="completitudDatos.aplica && completitudDatos.porcentaje < 100"
-            class="border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950"
+            class="border-warning/30 bg-warning-soft/50"
         >
             <CardContent class="flex flex-col gap-2 py-4">
                 <p
-                    class="flex items-center gap-2 text-sm font-medium text-amber-800 dark:text-amber-200"
+                    class="flex items-center gap-2 text-sm font-medium text-warning"
                 >
                     <AlertTriangle class="size-4" />
                     Expediente incompleto
                 </p>
-                <p class="text-sm text-amber-800 dark:text-amber-200">
+                <p class="text-sm text-warning">
                     Faltan
                     {{ completitudDatos.faltantes.length }}
                     dato{{ completitudDatos.faltantes.length === 1 ? '' : 's' }}
-                    que impiden generar los documentos de contratación:
+                    que impiden generar contrato:
                 </p>
-                <ul class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-amber-900 dark:text-amber-100">
+                <ul class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-warning">
                     <li
                         v-for="f in completitudDatos.faltantes"
                         :key="f.columna"
@@ -862,7 +862,7 @@ function irACompletarExpediente() {
                     <Button
                         size="sm"
                         variant="outline"
-                        class="border-amber-400 text-amber-900 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-100"
+                        class="border-warning/50 text-warning hover:bg-warning-soft"
                         @click="irACompletarExpediente"
                     >
                         Completar expediente
@@ -878,6 +878,10 @@ function irACompletarExpediente() {
             :colaborador-id="colaborador.id"
             :es-propio="esPropio"
             :puede-avisar="puedeAvisarDatosFaltantes ?? false"
+            :documentos="{
+                aprobados: resumenExpediente.requeridos_aprobados,
+                total: resumenExpediente.requeridos_total,
+            }"
         />
         <Tabs
             :default-value="pestanaInicial"

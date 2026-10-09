@@ -438,19 +438,19 @@ const pasos = [
 
 function colorOperacion(op: Fila['operacion']): string {
     return {
-        crear: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
-        actualizar: 'bg-sky-500/15 text-sky-700 dark:text-sky-300',
+        crear: 'bg-success/15 text-success',
+        actualizar: 'bg-info/15 text-info',
         sin_cambios: 'bg-muted text-muted-foreground',
-        conflicto: 'bg-red-500/15 text-red-700 dark:text-red-300',
+        conflicto: 'bg-destructive/15 text-destructive',
         omitir: 'bg-muted text-muted-foreground',
     }[op];
 }
 
 function colorMatch(t: Fila['nas']['tipo']): string {
     return {
-        exacto: 'text-emerald-700 dark:text-emerald-300',
-        alto: 'text-sky-700 dark:text-sky-300',
-        revision: 'text-amber-700 dark:text-amber-300',
+        exacto: 'text-success',
+        alto: 'text-info',
+        revision: 'text-warning',
         sin_match: 'text-muted-foreground',
     }[t];
 }
@@ -476,7 +476,7 @@ function colorMatch(t: Fila['nas']['tipo']): string {
                     i + 1 === pasoActual
                         ? 'border-primary bg-primary/10 font-semibold text-primary'
                         : i + 1 < pasoActual
-                          ? 'border-emerald-500/40 text-emerald-700 dark:text-emerald-300'
+                          ? 'border-success/40 text-success'
                           : 'border-border text-muted-foreground'
                 "
             >
@@ -579,7 +579,7 @@ function colorMatch(t: Fila['nas']['tipo']): string {
                 </div>
                 <div
                     v-if="!plan.origen.existe"
-                    class="rounded-xl bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200"
+                    class="rounded-xl bg-warning/10 p-3 text-sm text-warning"
                 >
                     <p>
                         El servidor web no ve la carpeta de origen en el NAS ({{
@@ -617,7 +617,7 @@ function colorMatch(t: Fila['nas']['tipo']): string {
                         etiqueta="Nuevos"
                         :valor="totales.crear ?? 0"
                         :icono="UserPlus"
-                        color-clase="text-emerald-600"
+                        color-clase="text-success"
                     />
                     <MetricCard
                         etiqueta="Actualizaciones"
@@ -647,7 +647,7 @@ function colorMatch(t: Fila['nas']['tipo']): string {
                             (totales.revision_manual ?? 0)
                         "
                         :icono="AlertTriangle"
-                        color-clase="text-red-600"
+                        color-clase="text-destructive"
                     />
                 </div>
                 <ul
@@ -655,7 +655,7 @@ function colorMatch(t: Fila['nas']['tipo']): string {
                         plan.sucursales_no_autorizadas_nas.length ||
                         plan.excel.sin_reconocer.length
                     "
-                    class="flex flex-col gap-1 rounded-xl bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200"
+                    class="flex flex-col gap-1 rounded-xl bg-warning/10 p-3 text-sm text-warning"
                 >
                     <li
                         v-for="s in plan.sucursales_no_autorizadas_nas"
@@ -831,14 +831,14 @@ function colorMatch(t: Fila['nas']['tipo']): string {
                                     <p
                                         v-for="(m, i) in f.motivos"
                                         :key="`m${i}`"
-                                        class="text-red-700 dark:text-red-300"
+                                        class="text-destructive"
                                     >
                                         {{ m }}
                                     </p>
                                     <p
                                         v-for="(a, i) in f.advertencias"
                                         :key="`a${i}`"
-                                        class="text-amber-700 dark:text-amber-300"
+                                        class="text-warning"
                                     >
                                         {{ a }}
                                     </p>
@@ -1047,12 +1047,12 @@ function colorMatch(t: Fila['nas']['tipo']): string {
             <!-- Paso 6: Resultado -->
             <section
                 v-if="terminada && migracion.resultado"
-                class="rounded-2xl border border-emerald-500/40 bg-card p-5"
+                class="rounded-2xl border border-success/40 bg-card p-5"
             >
                 <h2
                     class="mb-3 flex items-center gap-2 text-base font-semibold"
                 >
-                    <CheckCircle2 class="size-5 text-emerald-600" />
+                    <CheckCircle2 class="size-5 text-success" />
                     6. Resultado ({{ migracion.estado }})
                 </h2>
                 <dl class="grid gap-2 text-sm sm:grid-cols-3 lg:grid-cols-4">
@@ -1067,7 +1067,7 @@ function colorMatch(t: Fila['nas']['tipo']): string {
                         <dd class="text-lg font-semibold">{{ v }}</dd>
                     </div>
                 </dl>
-                <p v-if="migracion.error" class="mt-3 text-sm text-red-600">
+                <p v-if="migracion.error" class="mt-3 text-sm text-destructive">
                     {{ migracion.error }}
                 </p>
                 <Button variant="outline" as-child class="mt-4">
@@ -1186,7 +1186,7 @@ function colorMatch(t: Fila['nas']['tipo']): string {
                 </p>
                 <p
                     v-if="segundosEnCola > 30"
-                    class="text-xs text-amber-700 dark:text-amber-300"
+                    class="text-xs text-warning"
                 >
                     Sigue en cola. Verifica que el servidor tenga corriendo
                     <code>php artisan queue:work</code>.

@@ -43,15 +43,15 @@ const ESTADOS: Record<
     },
     borrador: {
         texto: 'Borrador sin activar',
-        clase: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
+        clase: 'bg-warning/10 text-warning',
     },
     activa: {
         texto: 'Activa',
-        clase: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
+        clase: 'bg-success/10 text-success',
     },
     activa_con_borrador: {
         texto: 'Activa · borrador en edición',
-        clase: 'bg-sky-500/10 text-sky-700 dark:text-sky-400',
+        clase: 'bg-info/10 text-info',
     },
 };
 </script>

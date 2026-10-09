@@ -23,11 +23,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $titulo }} - MR. LANA PEOPLE</title>
     <style>
-        /* Verde de marca (--brand-primary #64d64b); en claro, un tono más oscuro para contraste de texto. */
-        :root { --fondo: #f8fafc; --tarjeta: #ffffff; --texto: #0f172a; --tenue: #64748b; --borde: #e2e8f0; --marca: #2f8a1f; }
-        @media (prefers-color-scheme: dark) {
-            :root { --fondo: #0b0f19; --tarjeta: #111827; --texto: #f1f5f9; --tenue: #94a3b8; --borde: #1f2937; --marca: #64d64b; }
-        }
+        /* Paleta interior de MR. LANA PEOPLE (solo claro, mismos tokens que resources/css/app.css). */
+        :root { color-scheme: light; --fondo: #fbf8f2; --tarjeta: #fffdf9; --texto: #303a38; --tenue: #707874; --borde: #e7ded1; --marca: #315b59; }
         * { box-sizing: border-box; }
         body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px;
             background: var(--fondo); color: var(--texto); font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }

@@ -232,13 +232,18 @@ class VacantesListadoService
         $autorizadas = $this->headcount->plantillaAutorizadaPorSucursalPuesto($sucursalesIds);
         $actuales = $this->headcount->plantillaActualPorSucursalPuesto($sucursalesIds);
 
-        $plazas = [];
+        /** Solo sucursales con plaza real: una suma en cero no es vacante. */
+        $plazas = collect();
 
         foreach ($vacantes as $vacante) {
-            $plazas[$vacante->sucursal_id] = ($plazas[$vacante->sucursal_id] ?? 0) + $this->plazasDe($vacante, $autorizadas, $actuales);
+            $reales = $this->plazasDe($vacante, $autorizadas, $actuales);
+
+            if ($reales > 0) {
+                $plazas->put((int) $vacante->sucursal_id, (int) $plazas->get((int) $vacante->sucursal_id, 0) + $reales);
+            }
         }
 
-        return collect(array_filter($plazas, fn (int $total) => $total > 0));
+        return $plazas;
     }
 
     /**

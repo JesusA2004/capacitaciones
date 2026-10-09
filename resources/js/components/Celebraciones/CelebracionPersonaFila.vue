@@ -55,7 +55,7 @@ const subtitulo = computed(() => subtituloPersona(props.evento));
             </p>
             <p
                 v-if="evento.detalle"
-                class="text-xs font-medium text-amber-700 dark:text-amber-300"
+                class="text-xs font-medium text-warning"
             >
                 {{ evento.detalle }}
             </p>

@@ -51,14 +51,14 @@ const CONFIG: Record<
     nombre: {
         etiqueta: 'Nombre',
         posicion: 'left-1/2 -translate-x-1/2',
-        claseFondo: 'bg-sky-600',
-        claseBorde: 'border-sky-600',
+        claseFondo: 'bg-info',
+        claseBorde: 'border-info/50',
     },
     frase: {
         etiqueta: 'Frase',
         posicion: 'right-2',
-        claseFondo: 'bg-emerald-600',
-        claseBorde: 'border-emerald-600',
+        claseFondo: 'bg-success',
+        claseBorde: 'border-success/50',
     },
 };
 

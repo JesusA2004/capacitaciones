@@ -21,6 +21,8 @@ class RegistrarEntrevistaRequest extends FormRequest
         return [
             'realizada_en' => ['required', 'date', 'before_or_equal:now'],
             'resultado' => ['required', Rule::enum(ResultadoEtapaCandidato::class)],
+            'motivo_rechazo_id' => ['nullable', 'integer', 'exists:motivos_rechazo_candidato,id'],
+            'recontratable' => ['nullable', 'boolean'],
             'observaciones' => ['nullable', 'string', 'max:4000', 'required_if:resultado,no_viable'],
             'entrevistador_user_id' => ['nullable', 'integer', 'exists:users,id'],
         ];

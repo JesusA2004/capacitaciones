@@ -6,11 +6,11 @@
  */
 export function colorClaseNotificacion(color: string): string {
     const clases: Record<string, string> = {
-        success: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
-        info: 'bg-sky-500/15 text-sky-600 dark:text-sky-400',
-        warning: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+        success: 'bg-success/15 text-success',
+        info: 'bg-info/15 text-info',
+        warning: 'bg-warning/15 text-warning',
         danger: 'bg-destructive/15 text-destructive',
-        celebracion: 'bg-pink-500/15 text-pink-600 dark:text-pink-400',
+        celebracion: 'bg-pink-500/15 text-pink-600',
         neutral: 'bg-muted text-muted-foreground',
     };
 

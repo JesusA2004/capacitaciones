@@ -115,21 +115,21 @@ const enlace =
         <!-- Encabezado: foto (precargada del expediente) + saludo -->
         <div
             data-tour="portal-encabezado"
-            class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[var(--mrl-primary)] to-[var(--mrl-deep-green,var(--mrl-verde-profundo))] p-6 text-white shadow-lg sm:p-8"
+            class="relative overflow-hidden rounded-3xl border border-border/60 bg-gradient-to-br from-crema via-card to-salvia p-6 text-foreground shadow-sm sm:p-8"
         >
             <div
                 aria-hidden="true"
-                class="pointer-events-none absolute -top-20 -right-16 size-72 rounded-full bg-white/10"
+                class="pointer-events-none absolute -top-20 -right-16 size-72 rounded-full bg-oro/10"
             />
             <div
                 aria-hidden="true"
-                class="pointer-events-none absolute -bottom-24 left-1/3 size-56 rounded-full bg-white/5"
+                class="pointer-events-none absolute -bottom-24 left-1/3 size-56 rounded-full bg-menta/60"
             />
             <div
                 class="relative flex flex-col items-center gap-5 text-center sm:flex-row sm:items-center sm:text-left"
             >
                 <Avatar
-                    class="size-20 shrink-0 border-4 border-white/30 shadow-md sm:size-24"
+                    class="size-20 shrink-0 border-4 border-card shadow-md sm:size-24"
                 >
                     <AvatarImage
                         v-if="perfil.foto_url"
@@ -137,21 +137,21 @@ const enlace =
                         :alt="perfil.nombre_completo"
                         class="object-cover"
                     />
-                    <AvatarFallback class="bg-white/20 text-2xl text-white">
+                    <AvatarFallback class="bg-salvia text-2xl text-primary">
                         {{ iniciales(perfil.nombre, perfil.apellidos) }}
                     </AvatarFallback>
                 </Avatar>
                 <div class="min-w-0 flex-1">
-                    <p class="text-sm text-white/80">¡Hola!</p>
+                    <p class="text-sm text-bronce">¡Hola!</p>
                     <p class="text-2xl font-semibold sm:text-3xl">
                         {{ perfil.nombre_completo }}
                     </p>
-                    <p class="mt-1 text-sm text-white/85 sm:text-base">
+                    <p class="mt-1 text-sm text-muted-foreground sm:text-base">
                         {{ perfil.puesto ?? 'Sin puesto asignado' }} ·
                         {{ perfil.sucursal ?? 'Sin sucursal' }}
                     </p>
                     <div
-                        class="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-medium"
+                        class="mt-3 inline-flex items-center gap-1.5 rounded-full bg-card/80 px-3 py-1 text-xs font-medium text-primary ring-1 ring-border/60"
                     >
                         <UserRound class="size-3.5" />
                         {{ perfil.numero_empleado ?? 'Sin número de empleado' }}
@@ -159,7 +159,7 @@ const enlace =
                 </div>
                 <Link
                     :href="indexNotificaciones()"
-                    class="relative flex size-12 shrink-0 items-center justify-center rounded-full bg-white/15 transition-all duration-200 hover:scale-105 hover:bg-white/25 focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+                    class="relative flex size-12 shrink-0 items-center justify-center rounded-full bg-card text-primary shadow-sm ring-1 ring-border/60 transition-all duration-200 hover:scale-105 hover:ring-oro/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                     :aria-label="`Notificaciones (${notificaciones.no_leidas} sin leer)`"
                 >
                     <Bell class="size-5" />
@@ -178,10 +178,10 @@ const enlace =
                 perfil.completitud_datos.aplica &&
                 perfil.completitud_datos.porcentaje < 100
             "
-            class="flex flex-col gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950"
+            class="flex flex-col gap-2 rounded-2xl border border-oro/40 bg-warning-soft/50 p-4"
         >
             <p
-                class="flex items-center gap-2 text-sm font-medium text-amber-800 dark:text-amber-200"
+                class="flex items-center gap-2 text-sm font-medium text-warning"
             >
                 <UserCog class="size-4 shrink-0" />
                 Te faltan
@@ -193,7 +193,7 @@ const enlace =
             </p>
             <Link
                 :href="urlCompletarDatos"
-                class="self-start text-sm font-semibold text-amber-900 underline underline-offset-2 dark:text-amber-100"
+                class="self-start text-sm font-semibold text-warning underline underline-offset-2"
             >
                 Solicitar actualización de mis datos
             </Link>

@@ -50,7 +50,7 @@ const fecha = (valor: string | null) =>
             </span>
             <span
                 v-if="permiso.causal_etiqueta"
-                class="rounded-full bg-[#e9d6b0]/50 px-3 py-1 text-xs font-medium text-[#754711] dark:bg-[#c9a876]/15 dark:text-[#e9d6b0]"
+                class="rounded-full bg-warning-soft px-3 py-1 text-xs font-medium text-warning"
             >
                 Causal: {{ permiso.causal_etiqueta }}
             </span>
@@ -67,10 +67,10 @@ const fecha = (valor: string | null) =>
 
         <div
             v-if="permiso.autorizado_por_rh"
-            class="flex flex-col gap-3 rounded-xl border border-[#2f5937]/30 bg-[#2f5937]/5 p-4 sm:flex-row sm:items-center sm:justify-between"
+            class="flex flex-col gap-3 rounded-xl border border-success/30 bg-success-soft/60 p-4 sm:flex-row sm:items-center sm:justify-between"
         >
             <div class="flex items-start gap-3">
-                <BadgeCheck class="mt-0.5 size-5 shrink-0 text-[#2f5937] dark:text-[#a9d6b1]" />
+                <BadgeCheck class="mt-0.5 size-5 shrink-0 text-success" />
                 <div>
                     <p class="text-sm font-semibold">Autorizado por Recursos Humanos</p>
                     <p class="text-xs text-muted-foreground">

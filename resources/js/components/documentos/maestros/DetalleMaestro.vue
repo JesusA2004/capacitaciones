@@ -250,7 +250,7 @@ const fuenteDomicilio: Record<string, string> = {
                 !detalle.activo &&
                 detalle.activacion.bloqueos.length
             "
-            class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100"
+            class="rounded-xl border border-warning/30 bg-warning-soft/50 p-3 text-warning"
         >
             <p class="flex items-center gap-2 font-medium">
                 <Lock class="size-4" /> Aún no se puede activar
@@ -422,7 +422,7 @@ const fuenteDomicilio: Record<string, string> = {
                             v-else-if="detalle.calidad.estado === 'failed'"
                             class="size-4 text-destructive"
                         />
-                        <AlertTriangle v-else class="size-4 text-amber-600" />
+                        <AlertTriangle v-else class="size-4 text-warning" />
                         {{ detalle.calidad.etiqueta }}
                     </p>
                     <p class="text-xs text-[var(--mrl-texto-suave)]">
@@ -528,7 +528,7 @@ const fuenteDomicilio: Record<string, string> = {
             </ul>
             <ul
                 v-if="detalle.calidad.advertencias.length"
-                class="mt-2 flex flex-col gap-1 text-xs text-amber-700 dark:text-amber-300"
+                class="mt-2 flex flex-col gap-1 text-xs text-warning"
             >
                 <li
                     v-for="(a, i) in detalle.calidad.advertencias"
@@ -540,7 +540,7 @@ const fuenteDomicilio: Record<string, string> = {
             </ul>
             <p
                 v-if="detalle.calidad.excepcion"
-                class="mt-2 text-xs text-amber-700"
+                class="mt-2 text-xs text-warning"
             >
                 Activada por excepción: «{{ detalle.calidad.excepcion }}»
             </p>
@@ -622,7 +622,7 @@ const fuenteDomicilio: Record<string, string> = {
                             class="font-semibold"
                             :class="
                                 prueba.fidelidad === 'aproximada'
-                                    ? 'text-amber-700'
+                                    ? 'text-warning'
                                     : ''
                             "
                         >
@@ -725,7 +725,7 @@ const fuenteDomicilio: Record<string, string> = {
                                     prueba.patron.representante.fuente ===
                                     'predeterminado'
                                 "
-                                class="flex items-center gap-1 text-amber-700 dark:text-amber-300"
+                                class="flex items-center gap-1 text-warning"
                             >
                                 <AlertTriangle class="size-3.5" /> Usando
                                 representante legal predeterminado (captúralo en
@@ -744,7 +744,7 @@ const fuenteDomicilio: Record<string, string> = {
                 >
                     <li
                         v-if="prueba.faltantes.length"
-                        class="text-amber-700 dark:text-amber-300"
+                        class="text-warning"
                     >
                         Faltan datos del colaborador (en el PDF quedan en
                         blanco): {{ prueba.faltantes.join(', ') }}

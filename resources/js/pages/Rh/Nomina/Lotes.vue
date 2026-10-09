@@ -95,11 +95,11 @@ const ESTADOS: Record<
     { clase: string; icono: typeof CheckCircle2 }
 > = {
     preparado: {
-        clase: 'bg-[#e9d6b0]/45 text-[#754711] dark:bg-[#c9a876]/15 dark:text-[#e9d6b0]',
+        clase: 'bg-warning-soft text-warning',
         icono: Layers,
     },
     emitido: {
-        clase: 'bg-[#2f5937]/10 text-[#2f5937] dark:bg-[#6fae7c]/15 dark:text-[#a9d6b1]',
+        clase: 'bg-success-soft/60 text-success',
         icono: CheckCircle2,
     },
     cancelado: {
@@ -227,13 +227,13 @@ function cambiarPagina(pagina: number) {
                 etiqueta="En revisión"
                 :valor="enRevision"
                 :icono="AlertTriangle"
-                color-clase="bg-[#e9d6b0]/50 text-[#754711]"
+                color-clase="bg-warning-soft text-warning"
             />
             <MetricCard
                 etiqueta="Emitidos"
                 :valor="emitidos"
                 :icono="CheckCircle2"
-                color-clase="bg-[#2f5937]/10 text-[#2f5937]"
+                color-clase="bg-success-soft/60 text-success"
             />
             <MetricCard
                 etiqueta="Neto emitido (esta página)"
@@ -307,7 +307,7 @@ function cambiarPagina(pagina: number) {
                         <p
                             class="text-lg font-bold tabular-nums"
                             :class="
-                                lote.total_advertencias ? 'text-[#754711]' : ''
+                                lote.total_advertencias ? 'text-warning' : ''
                             "
                         >
                             {{ lote.total_advertencias }}

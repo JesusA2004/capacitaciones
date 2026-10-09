@@ -67,6 +67,8 @@ class CampanaReclutamiento extends Model
         'fecha_fin',
         'copy',
         'url',
+        'impresiones',
+        'clics',
         'responsable_id',
     ];
 
@@ -80,6 +82,8 @@ class CampanaReclutamiento extends Model
             'monto' => 'decimal:2',
             'candidatos_generados' => 'integer',
             'presupuesto' => 'decimal:2',
+            'impresiones' => 'integer',
+            'clics' => 'integer',
             'sueldo_publicado' => 'decimal:2',
             'fecha_inicio' => 'date',
             'fecha_fin' => 'date',

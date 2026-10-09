@@ -511,7 +511,7 @@ class CicloLaboralDemoSeeder extends Seeder
     private function aviso(string $mensaje): void
     {
         if ($this->command !== null) {
-            $this->command?->warn($mensaje);
+            $this->command->warn($mensaje);
 
             return;
         }

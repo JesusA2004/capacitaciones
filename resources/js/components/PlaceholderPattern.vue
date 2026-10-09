@@ -6,7 +6,7 @@ const patternId = `pattern-${useId()}`;
 
 <template>
     <svg
-        class="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20"
+        class="absolute inset-0 size-full stroke-neutral-900/20"
         fill="none"
     >
         <defs>

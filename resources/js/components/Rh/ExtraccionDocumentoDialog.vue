@@ -221,10 +221,10 @@ function reprocesarDocumento() {
 
                 <div
                     v-else-if="extraccion.status === 'failed'"
-                    class="flex flex-col gap-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 text-sm"
+                    class="flex flex-col gap-2 rounded-lg border border-warning/40 bg-warning/5 p-4 text-sm"
                 >
                     <p
-                        class="flex items-center gap-2 font-medium text-amber-700 dark:text-amber-400"
+                        class="flex items-center gap-2 font-medium text-warning"
                     >
                         <AlertTriangle class="size-4" />
                         No se pudieron leer datos automáticamente

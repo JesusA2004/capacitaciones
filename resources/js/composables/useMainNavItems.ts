@@ -230,9 +230,9 @@ export function useMainNavItems() {
             tienePermiso('sucursales.administrar') && { title: 'Sucursales', href: indexSucursales(), icon: Building2 },
             tienePermiso('departamentos.administrar') && { title: 'Departamentos', href: indexDepartamentos(), icon: Briefcase },
             tienePermiso('puestos.administrar') && { title: 'Puestos', href: indexPuestos(), icon: Briefcase },
-            tienePermiso('roles.administrar') && { title: 'Roles', href: indexRoles(), icon: ShieldCheck },
+            tienePermiso('roles.administrar') && { title: 'Roles y permisos', href: indexRoles(), icon: ShieldCheck },
             tienePermiso('configuracion.ver') && { title: 'Configuración', href: indexConfiguracion(), icon: Settings2 },
-            tienePermiso('app_releases.ver') && { title: 'Versiones app', href: indexAppReleases(), icon: Smartphone },
+            tienePermiso('app_releases.ver') && { title: 'Versiones de app', href: indexAppReleases(), icon: Smartphone },
         ];
 
         return items.filter((i): i is NavItem => i !== false);

@@ -18,17 +18,19 @@ use Illuminate\Support\Facades\Schema;
  * sola definición, compartida con `php artisan people:sincronizar-organigrama`):
  *
  * Dirección General
- * └── Dirección Comercial
- *     ├── Asistente de Dirección Comercial   (1 plaza)
- *     ├── Responsable de Sistemas → Monitorista
- *     ├── Gerencia de Recursos Humanos → Administración de Personal, Reclutamiento
- *     ├── Coordinadora Regional → Coordinadora de Sucursal (1 por sucursal, no en Corporativo)
- *     └── Gerente Regional Q1 / Gerente Regional Q3 (cada uno ligado a su región)
- *         └── Gerente de Sucursal → Subgerente → Gestor, Gestor Volante
+ * ├── Dirección Comercial
+ * │   ├── Asistente de Dirección Comercial   (1 plaza)
+ * │   ├── Gerente de Mesa de Control → Analista de Mesa de Control
+ * │   ├── Coordinadora Regional → Coordinadora de Sucursal (1 por sucursal, no en Corporativo)
+ * │   └── Gerente Regional Q1 / Gerente Regional Q3 (cada uno ligado a su región)
+ * │       └── Gerente de Sucursal → Subgerente → Gestor, Gestor Volante
+ * ├── Responsable de Sistemas → Monitorista
+ * ├── Gerencia de Recursos Humanos → Administración de Personal, Reclutamiento
+ * └── Gerente de Contraloría → Auditora, Tesorero, Contador
  *
  * Aquí además se conservan, sin cambios, los puestos que no forman parte
- * de esa estructura (Asistente de Dirección General,
- * Gestor grupal; Mesa de Control y Contraloría ya son parte de ella) y se RETIRAN los de la estructura anterior
+ * de esa estructura (Asistente de Dirección General, Gestor grupal) y se
+ * RETIRAN los de la estructura anterior
  * (ver retirar()): se eliminan solo si nadie los usa; si tienen
  * colaboradores, headcount, vacantes o historial, quedan inactivos y se
  * reporta en consola. Idempotente. Ver docs/ORGANIGRAMA.md.
@@ -82,7 +84,7 @@ class PuestoJerarquiaSeeder extends Seeder
         $reporte = app(SincronizadorOrganigramaService::class)->sincronizar();
 
         foreach ($reporte['conflictos'] as $conflicto) {
-            $this->command?->warn('Organigrama: '.$conflicto);
+            $this->command->warn('Organigrama: '.$conflicto);
         }
 
         $departamento = fn (string $nombre): ?int => Departamento::where('nombre', $nombre)->value('id');
@@ -216,7 +218,7 @@ class PuestoJerarquiaSeeder extends Seeder
 
         $puesto->update(['activo' => false, 'puesto_superior_id' => null, 'puesto_crecimiento_id' => null]);
 
-        $this->command?->warn(sprintf(
+        $this->command->warn(sprintf(
             'Puesto «%s» retirado de la estructura pero EN USO (%s): quedó inactivo, reasigna esos registros a un puesto vigente.',
             $nombre,
             implode(', ', $usos),

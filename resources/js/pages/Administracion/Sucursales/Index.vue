@@ -9,7 +9,6 @@ import {
     Phone,
     Plus,
     User,
-    Users,
     XCircle,
 } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
@@ -160,7 +159,7 @@ async function eliminar(sucursal: SucursalItem) {
     <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
             titulo="Sucursales"
-            descripcion="Organiza la capacitación por ubicación y revisa el alcance de cada responsable."
+            descripcion="Ubicación, plantilla autorizada, colaboradores y vacantes reales de cada sucursal."
             :icono="Building"
         >
             <Button @click="abrirCrear">
@@ -270,13 +269,13 @@ async function eliminar(sucursal: SucursalItem) {
                         :key="sucursal.id"
                         role="link"
                         tabindex="0"
-                        class="group relative flex cursor-pointer flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+                        class="tarjeta-interactiva group relative flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
                         @click="abrirSucursal(sucursal)"
                         @keydown.enter="abrirSucursal(sucursal)"
                     >
                         <div class="flex items-start justify-between gap-2">
                             <div
-                                class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
+                                class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-salvia text-primary"
                             >
                                 <Building class="size-5" />
                             </div>
@@ -291,7 +290,7 @@ async function eliminar(sucursal: SucursalItem) {
                                         <Button
                                             variant="ghost"
                                             size="icon"
-                                            class="size-7 opacity-60 hover:opacity-100"
+                                            class="size-11 opacity-60 hover:opacity-100 sm:size-8"
                                             title="Más acciones"
                                             @click.stop
                                         >
@@ -362,15 +361,58 @@ async function eliminar(sucursal: SucursalItem) {
                         </div>
 
                         <div
-                            class="mt-auto flex items-center gap-1.5 border-t border-border/60 pt-2.5 text-sm"
+                            class="mt-auto grid grid-cols-3 gap-2 border-t border-border/60 pt-3 text-center"
                         >
-                            <Users class="size-3.5 text-muted-foreground" />
-                            <span class="font-medium">{{
-                                sucursal.colaboradores_count
-                            }}</span>
-                            <span class="text-muted-foreground"
-                                >colaborador(es)</span
+                            <div class="rounded-xl bg-menta/60 px-1 py-2">
+                                <p class="text-lg font-semibold tabular-nums">
+                                    {{ sucursal.colaboradores_count }}
+                                </p>
+                                <p class="text-[11px] text-muted-foreground">
+                                    Colaboradores
+                                </p>
+                            </div>
+                            <div class="rounded-xl bg-crema/60 px-1 py-2">
+                                <p class="text-lg font-semibold tabular-nums">
+                                    {{ sucursal.plantilla_permitida ?? 0 }}
+                                </p>
+                                <p class="text-[11px] text-muted-foreground">
+                                    Plantilla
+                                </p>
+                            </div>
+                            <div
+                                class="rounded-xl px-1 py-2"
+                                :class="
+                                    (sucursal.plantilla_vacantes ?? 0) > 0
+                                        ? 'bg-warning-soft/70'
+                                        : 'bg-success-soft/60'
+                                "
                             >
+                                <p
+                                    class="text-lg font-semibold tabular-nums"
+                                    :class="
+                                        (sucursal.plantilla_vacantes ?? 0) > 0
+                                            ? 'text-warning'
+                                            : 'text-success'
+                                    "
+                                >
+                                    {{ sucursal.plantilla_vacantes ?? 0 }}
+                                </p>
+                                <p class="text-[11px] text-muted-foreground">
+                                    Vacantes
+                                </p>
+                            </div>
+                        </div>
+                        <div
+                            v-if="(sucursal.plantilla_permitida ?? 0) > 0"
+                            class="h-1.5 overflow-hidden rounded-full bg-muted"
+                            :title="`Cobertura de plantilla`"
+                        >
+                            <div
+                                class="h-full rounded-full bg-esmeralda transition-all"
+                                :style="{
+                                    width: `${Math.min(100, Math.round((((sucursal.plantilla_permitida ?? 0) - (sucursal.plantilla_vacantes ?? 0)) / Math.max(1, sucursal.plantilla_permitida ?? 0)) * 100))}%`,
+                                }"
+                            />
                         </div>
                     </div>
                 </div>

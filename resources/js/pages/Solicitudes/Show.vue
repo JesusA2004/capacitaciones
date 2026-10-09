@@ -191,7 +191,7 @@ function previsualizar(doc: SolicitudInternaDocumentoItem) {
 
                     <div
                         v-if="solicitud.estado === 'requiere_correccion'"
-                        class="mt-4 flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400"
+                        class="mt-4 flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-warning"
                     >
                         <AlertTriangle class="mt-0.5 size-4 shrink-0" />
                         RH pidió una corrección. Revisa el historial abajo para

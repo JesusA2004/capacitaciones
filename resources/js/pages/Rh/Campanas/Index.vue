@@ -14,6 +14,7 @@ import { computed, ref } from 'vue';
 import CrudActionMenu from '@/components/DataTable/CrudActionMenu.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import CampanaReclutamientoFormDialog from '@/components/Rh/CampanaReclutamientoFormDialog.vue';
 import { Button } from '@/components/ui/button';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
@@ -126,17 +127,24 @@ function rangoFechas(campana: CampanaReclutamientoItem): string {
     return campana.fecha_fin ? `${inicio} – ${fecha(campana.fecha_fin)}` : `Desde ${inicio}`;
 }
 
-/** Embudo de la campaña con los colores de la marca. */
+/** Embudo de la campaña (paleta pastel; solo datos reales de candidatos). */
 function embudo(campana: CampanaReclutamientoItem) {
     const r = campana.resultado;
 
     return [
-        { etiqueta: 'Candidatos', valor: r?.candidatos ?? 0, color: '#2b7a6e' },
-        { etiqueta: 'Entrevistas', valor: r?.entrevistas ?? 0, color: '#3f7f4b' },
-        { etiqueta: 'Psicométricos', valor: r?.psicometricos ?? 0, color: '#af8b51' },
-        { etiqueta: 'Contratados', valor: r?.contratados ?? 0, color: '#1f6f78' },
+        { etiqueta: 'Candidatos', valor: r?.candidatos ?? 0, clase: 'bg-menta text-primary' },
+        { etiqueta: 'Contactados', valor: r?.contactados ?? 0, clase: 'bg-salvia text-primary' },
+        { etiqueta: 'Entrevistas', valor: r?.entrevistas ?? 0, clase: 'bg-verde-suave text-primary' },
+        { etiqueta: 'Psicométricos', valor: r?.psicometricos ?? 0, clase: 'bg-crema text-bronce' },
+        { etiqueta: 'Socioeconómico', valor: r?.socioeconomicos ?? 0, clase: 'bg-crema-2/70 text-bronce' },
+        { etiqueta: 'Contratados', valor: r?.contratados ?? 0, clase: 'bg-success-soft text-success' },
     ];
 }
+
+/** Adjunto (Meta Ads, factura, reporte) que se ve DENTRO de PEOPLE. */
+const adjuntoActivo = ref<{ nombre: string; mime: string; url: string } | null>(null);
+
+const numero = (valor: number) => valor.toLocaleString('es-MX');
 
 function irAPagina(pagina: number) {
     router.get(index.url(), { ...filtros, page: pagina }, { preserveScroll: true, preserveState: true });
@@ -388,32 +396,32 @@ async function eliminar(campana: CampanaReclutamientoItem) {
             </Button>
         </CrudEmptyState>
 
-        <div v-else class="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+        <div v-else data-tour="tabla" class="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
             <article
                 v-for="campana in campanas.data"
                 :key="campana.id"
                 class="flex flex-col overflow-hidden rounded-3xl border border-border/60 bg-card shadow-sm transition hover:shadow-md"
             >
                 <header
-                    class="flex items-start gap-3 bg-gradient-to-r from-[#0d3e43] to-[#225c54] px-5 py-4 text-white"
+                    class="flex items-start gap-3 border-b border-border/60 bg-gradient-to-r from-crema/70 to-salvia/70 px-5 py-4 text-foreground"
                 >
-                    <span class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white/15">
+                    <span class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-card/80 text-primary shadow-sm">
                         <Megaphone class="size-5" />
                     </span>
                     <div class="min-w-0 flex-1">
-                        <p class="text-xs font-semibold tracking-wider text-[#e9d6b0] uppercase">
+                        <p class="text-xs font-semibold tracking-wider text-bronce uppercase">
                             {{ nombreCanal(campana.canal) }}
                         </p>
                         <p class="truncate text-base font-semibold">
                             {{ campana.nombre || campana.puesto?.nombre || 'Campaña general' }}
                         </p>
-                        <p class="truncate text-xs text-white/75">
+                        <p class="truncate text-xs text-muted-foreground">
                             {{ campana.puesto?.nombre ?? 'Sin puesto' }} ·
                             {{ campana.sucursal?.nombre ?? 'Sin sucursal' }}
                             <template v-if="campana.vacante_id"> · Vacante #{{ campana.vacante_id }}</template>
                         </p>
                     </div>
-                    <CrudActionMenu class="text-white">
+                    <CrudActionMenu>
                         <DropdownMenuItem @select="abrirEditar(campana)">Editar</DropdownMenuItem>
                         <DropdownMenuItem variant="destructive" @select="eliminar(campana)">Eliminar</DropdownMenuItem>
                     </CrudActionMenu>
@@ -435,21 +443,21 @@ async function eliminar(campana: CampanaReclutamientoItem) {
                         <div v-if="campana.presupuesto" class="h-2 overflow-hidden rounded-full bg-muted">
                             <div
                                 class="h-full rounded-full transition-all"
-                                :class="Number(campana.monto) > Number(campana.presupuesto) ? 'bg-destructive' : 'bg-[#af8b51]'"
+                                :class="Number(campana.monto) > Number(campana.presupuesto) ? 'bg-destructive' : 'bg-oro'"
                                 :style="{ width: `${Math.min(100, (Number(campana.monto) / Math.max(1, Number(campana.presupuesto))) * 100)}%` }"
                             />
                         </div>
                     </div>
 
                     <!-- Embudo -->
-                    <div class="grid grid-cols-4 gap-1.5">
+                    <div class="grid grid-cols-3 gap-1.5 2xl:grid-cols-6">
                         <div
                             v-for="paso in embudo(campana)"
                             :key="paso.etiqueta"
                             class="flex flex-col items-center rounded-xl px-1 py-2 text-center"
-                            :style="{ backgroundColor: `${paso.color}1a` }"
+                            :class="paso.clase"
                         >
-                            <span class="text-lg font-bold tabular-nums" :style="{ color: paso.color }">{{ paso.valor }}</span>
+                            <span class="text-lg font-bold tabular-nums">{{ paso.valor }}</span>
                             <span class="text-[11px] leading-tight text-muted-foreground">{{ paso.etiqueta }}</span>
                         </div>
                     </div>
@@ -471,6 +479,19 @@ async function eliminar(campana: CampanaReclutamientoItem) {
                             <dt class="text-xs text-muted-foreground">Días de cobertura</dt>
                             <dd class="font-semibold">{{ campana.resultado?.dias_cobertura != null ? `${campana.resultado.dias_cobertura} días` : '—' }}</dd>
                         </div>
+                        <template v-if="campana.resultado?.impresiones != null || campana.resultado?.clics != null">
+                            <div>
+                                <dt class="text-xs text-muted-foreground">Impresiones · clics</dt>
+                                <dd class="font-semibold">
+                                    {{ campana.resultado?.impresiones != null ? numero(campana.resultado.impresiones) : '—' }} ·
+                                    {{ campana.resultado?.clics != null ? numero(campana.resultado.clics) : '—' }}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs text-muted-foreground">Costo por clic</dt>
+                                <dd class="font-semibold">{{ campana.resultado?.costo_por_clic != null ? formatoMoneda(campana.resultado.costo_por_clic) : '—' }}</dd>
+                            </div>
+                        </template>
                     </dl>
 
                     <p v-if="campana.copy" class="line-clamp-2 rounded-xl bg-muted/50 px-3 py-2 text-xs text-muted-foreground italic">
@@ -486,16 +507,16 @@ async function eliminar(campana: CampanaReclutamientoItem) {
                             class="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs hover:bg-muted"
                             ><ExternalLink class="size-3.5" /> Ver anuncio</a
                         >
-                        <a
+                        <button
                             v-for="adjunto in campana.adjuntos_lista"
                             :key="adjunto.id"
-                            :href="adjunto.url"
-                            target="_blank"
-                            class="inline-flex max-w-44 items-center gap-1 rounded-lg border px-2 py-1 text-xs hover:bg-muted"
+                            type="button"
+                            class="inline-flex min-h-9 max-w-44 items-center gap-1 rounded-lg border px-2 py-1 text-xs hover:bg-muted"
+                            @click="adjuntoActivo = adjunto"
                         >
                             <component :is="adjunto.mime.startsWith('image/') ? ImageIcon : FileText" class="size-3.5 shrink-0" />
                             <span class="truncate">{{ adjunto.nombre }}</span>
-                        </a>
+                        </button>
                         <Button variant="ghost" size="sm" class="ml-auto" @click="abrirEditar(campana)">Editar</Button>
                     </div>
                 </div>
@@ -508,6 +529,14 @@ async function eliminar(campana: CampanaReclutamientoItem) {
             <Button variant="outline" size="sm" :disabled="campanas.current_page >= campanas.last_page" @click="irAPagina(campanas.current_page + 1)">Siguiente</Button>
         </div>
     </div>
+
+    <DocumentPreviewDialog
+        :open="adjuntoActivo !== null"
+        :preview-url="adjuntoActivo?.url ?? null"
+        :nombre="adjuntoActivo?.nombre ?? ''"
+        :tipo="adjuntoActivo ? (adjuntoActivo.mime === 'application/pdf' ? 'pdf' : adjuntoActivo.mime.split('/').pop()) : null"
+        @update:open="(abierto: boolean) => !abierto && (adjuntoActivo = null)"
+    />
 
     <CampanaReclutamientoFormDialog
         v-if="dialogAbierto"

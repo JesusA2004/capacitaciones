@@ -39,7 +39,7 @@ const { getInitials } = useInitials();
             class="relative flex h-full min-w-0 flex-col gap-3 rounded-xl border p-3 sm:p-4 @[56rem]:flex-row @[56rem]:items-center @[56rem]:justify-between"
             :class="
                 destacado
-                    ? 'border-amber-400/40 bg-gradient-to-br from-amber-400/10 via-pink-400/5 to-transparent'
+                    ? 'border-warning/40 bg-gradient-to-br from-amber-400/10 via-pink-400/5 to-transparent'
                     : 'bg-card'
             "
         >
@@ -49,14 +49,14 @@ const { getInitials } = useInitials();
                 aria-hidden="true"
             >
                 <PartyPopper
-                    class="absolute -top-2 -right-2 size-16 rotate-12 text-amber-400/15"
+                    class="absolute -top-2 -right-2 size-16 rotate-12 text-warning/15"
                 />
             </div>
 
             <div class="relative flex min-w-0 items-center gap-3">
                 <Avatar
                     class="size-14 shrink-0 ring-2"
-                    :class="destacado ? 'ring-amber-400/50' : 'ring-border'"
+                    :class="destacado ? 'ring-warning/50' : 'ring-border'"
                 >
                     <AvatarImage
                         v-if="fotoUrl"
@@ -76,7 +76,7 @@ const { getInitials } = useInitials();
                     </p>
                     <p
                         v-if="detalle"
-                        class="text-sm font-medium text-amber-700 dark:text-amber-300"
+                        class="text-sm font-medium text-warning"
                     >
                         {{ detalle }}
                     </p>

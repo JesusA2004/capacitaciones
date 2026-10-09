@@ -280,7 +280,7 @@ onBeforeUnmount(reiniciar);
             />
             <span
                 v-if="fotoUrl"
-                class="absolute -right-1 -bottom-1 flex size-6 items-center justify-center rounded-full bg-emerald-500 text-white ring-2 ring-background"
+                class="absolute -right-1 -bottom-1 flex size-6 items-center justify-center rounded-full bg-success text-white ring-2 ring-background"
             >
                 <CheckCircle2 class="size-4" />
             </span>
@@ -296,9 +296,9 @@ onBeforeUnmount(reiniciar);
                         :class="{
                             'bg-muted text-muted-foreground':
                                 estado.estado === 'sin_foto',
-                            'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400':
+                            'bg-success/10 text-success':
                                 estado.estado === 'oficial',
-                            'bg-amber-500/10 text-amber-700 dark:text-amber-400':
+                            'bg-warning/10 text-warning':
                                 estado.estado === 'cambio_pendiente',
                         }"
                         >{{ estado.etiqueta }}</span
@@ -324,7 +324,7 @@ onBeforeUnmount(reiniciar);
             <!-- Cambio pendiente: se ve la propuesta, no se puede mandar otro. -->
             <div
                 v-if="pendiente"
-                class="flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3"
+                class="flex items-center gap-3 rounded-xl border border-warning/30 bg-warning/5 p-3"
             >
                 <img
                     :src="pendiente.foto_url"
@@ -332,13 +332,13 @@ onBeforeUnmount(reiniciar);
                     class="size-12 rounded-lg object-cover"
                 />
                 <p class="flex items-center gap-1.5 text-sm">
-                    <Clock class="size-4 text-amber-600" />
+                    <Clock class="size-4 text-warning" />
                     Tu nueva foto está esperando la aprobación de RH.
                 </p>
             </div>
             <p
                 v-else-if="ultimoCambio?.estado === 'rechazado'"
-                class="flex items-start gap-1.5 text-sm text-amber-700 dark:text-amber-400"
+                class="flex items-start gap-1.5 text-sm text-warning"
             >
                 <XCircle class="mt-0.5 size-4 shrink-0" />
                 <span
@@ -351,7 +351,7 @@ onBeforeUnmount(reiniciar);
             </p>
             <p
                 v-else-if="ultimoCambio?.estado === 'aprobado'"
-                class="flex items-center gap-1.5 text-sm text-emerald-700 dark:text-emerald-400"
+                class="flex items-center gap-1.5 text-sm text-success"
             >
                 <CheckCircle2 class="size-4" />
                 RH aprobó tu último cambio de foto.
@@ -392,7 +392,7 @@ onBeforeUnmount(reiniciar);
                     }}
                 </Button>
             </div>
-            <p v-if="error && !dialogoAbierto" class="text-sm text-amber-600">
+            <p v-if="error && !dialogoAbierto" class="text-sm text-warning">
                 {{ error }}
             </p>
         </div>
@@ -450,7 +450,7 @@ onBeforeUnmount(reiniciar);
                     />
                 </div>
 
-                <p v-if="error" class="text-sm text-amber-600">{{ error }}</p>
+                <p v-if="error" class="text-sm text-warning">{{ error }}</p>
 
                 <DialogFooter class="gap-2">
                     <template v-if="modoCamara">

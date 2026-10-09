@@ -269,7 +269,7 @@ const claseCampo =
         <SeccionesDocumentosMaestros actual="administrativos" />
 
         <p
-            class="rounded-xl border border-sky-500/30 bg-sky-500/5 p-3 text-sm text-muted-foreground"
+            class="rounded-xl border border-info/30 bg-info/5 p-3 text-sm text-muted-foreground"
         >
             El diseño solo controla cómo se ve el documento. Montos, conceptos,
             fechas y datos laborales salen siempre del proceso real y no se
@@ -297,7 +297,7 @@ const claseCampo =
                 </div>
                 <p
                     v-if="cambiosSinGuardar && borrador"
-                    class="text-xs text-amber-700 dark:text-amber-400"
+                    class="text-xs text-warning"
                 >
                     Hay cambios sin guardar: guarda para verlos en la vista
                     previa.
@@ -315,7 +315,7 @@ const claseCampo =
                     </p>
                     <p
                         v-if="avisoColaboradorLimitado"
-                        class="flex items-start gap-1.5 rounded-md bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-400"
+                        class="flex items-start gap-1.5 rounded-md bg-warning/10 p-2 text-xs text-warning"
                     >
                         <Info class="mt-0.5 size-3.5 shrink-0" />
                         Este tipo de documento depende de un trámite concreto

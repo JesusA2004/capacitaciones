@@ -121,7 +121,7 @@ function abrirPreview(evento: Event) {
                 }}</span>
                 <span
                     v-if="esEspontaneo"
-                    class="flex items-center gap-1 text-[10px] font-medium text-amber-600 dark:text-amber-400"
+                    class="flex items-center gap-1 text-[10px] font-medium text-warning"
                 >
                     <Sparkles class="size-3 shrink-0" />
                     Candidato espontáneo · sin vacante
@@ -214,7 +214,7 @@ function abrirPreview(evento: Event) {
                 class="flex items-center gap-1"
                 :class="
                     candidato.tiene_cv
-                        ? 'text-emerald-600 dark:text-emerald-400'
+                        ? 'text-success'
                         : 'text-muted-foreground'
                 "
             >
@@ -228,7 +228,7 @@ function abrirPreview(evento: Event) {
                 class="flex items-center gap-1"
                 :class="
                     candidato.psicometricas_count > 0
-                        ? 'text-emerald-600 dark:text-emerald-400'
+                        ? 'text-success'
                         : 'text-muted-foreground'
                 "
             >
@@ -246,7 +246,7 @@ function abrirPreview(evento: Event) {
                 class="flex items-center gap-1"
                 :class="
                     candidato.socioeconomicos_count > 0
-                        ? 'text-emerald-600 dark:text-emerald-400'
+                        ? 'text-success'
                         : 'text-muted-foreground'
                 "
             >

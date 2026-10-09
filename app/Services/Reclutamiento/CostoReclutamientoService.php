@@ -177,7 +177,7 @@ class CostoReclutamientoService
      * inventa).
      *
      * @param  iterable<CampanaReclutamiento>  $campanas
-     * @return array{gasto: float, contratados: int, costo_por_colaborador: float|null, por_campana: array<int, array{candidatos: int, contratados: int, costo_por_colaborador: float|null}>}
+     * @return array{gasto: float, contratados: int, costo_por_colaborador: float|null, por_campana: array<int, array{candidatos: int, contactados: int, entrevistas: int, psicometricos: int, socioeconomicos: int, impresiones: int|null, clics: int|null, costo_por_clic: float|null, contratados: int, costo_por_candidato: float|null, costo_por_colaborador: float|null, conversion: float|null, dias_cobertura: int|null}>}
      */
     public function porCampana(iterable $campanas): array
     {
@@ -204,8 +204,15 @@ class CostoReclutamientoService
 
             $porCampana[$campana->id] = [
                 'candidatos' => $candidatos,
+                // Contactados = pasaron el Filtro RH (llegaron al menos a entrevista).
+                'contactados' => $deCampana()->where('etapa_maxima', '>=', EstadoCandidato::EntrevistaPendiente->orden())->count(),
                 'entrevistas' => $deCampana()->whereHas('entrevistas')->count(),
                 'psicometricos' => $deCampana()->whereHas('psicometricas')->count(),
+                'socioeconomicos' => $deCampana()->whereHas('socioeconomicos')->count(),
+                // Solo si RH capturó el reporte del proveedor (null = sin dato).
+                'impresiones' => $campana->impresiones,
+                'clics' => $campana->clics,
+                'costo_por_clic' => $campana->clics !== null && $campana->clics > 0 ? round((float) $campana->monto / $campana->clics, 2) : null,
                 'contratados' => $contratados->count(),
                 'costo_por_candidato' => $candidatos > 0 ? round((float) $campana->monto / $candidatos, 2) : null,
                 'costo_por_colaborador' => $contratados->isNotEmpty() ? round((float) $campana->monto / $contratados->count(), 2) : null,

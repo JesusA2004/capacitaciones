@@ -113,7 +113,7 @@ function recargar(valor = Date.now()) {
                         class="rounded-full px-2 py-0.5 font-medium"
                         :class="
                             fondoPropio
-                                ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                                ? 'bg-success/15 text-success'
                                 : 'bg-muted text-muted-foreground'
                         "
                     >

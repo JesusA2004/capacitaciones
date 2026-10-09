@@ -58,7 +58,7 @@ Presentación compartida (fechas «25 SEP», «En 3 días», textos por tipo) en
 
 ### Responsive
 
-Se validó con capturas reales (Playwright) en 320, 360, 390, 430, 600, 768, 820, 1024, 1280, 1366, 1440 y 1920 px, con 0/1/5 personas hoy, nombres y puestos largos, 5 celebraciones en un mismo día, sin foto y modo oscuro. Sin scroll horizontal en ningún ancho.
+Se validó con capturas reales (Playwright) en 320, 360, 390, 430, 600, 768, 820, 1024, 1280, 1366, 1440 y 1920 px, con 0/1/5 personas hoy, nombres y puestos largos, 5 celebraciones en un mismo día, sin foto (el sistema es solo claro). Sin scroll horizontal en ningún ancho.
 
 - Hoy: máximo 2 columnas; con número impar la última ocupa la fila completa (nunca una tarjeta huérfana).
 - Calendario y Próximos van lado a lado solo si el **contenido** mide ≥ 56rem (container query: el sidebar puede estar abierto o no); si no, se apilan.

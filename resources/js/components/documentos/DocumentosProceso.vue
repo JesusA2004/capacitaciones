@@ -597,7 +597,7 @@ async function confirmarBaja() {
         </div>
         <div
             v-else-if="error"
-            class="flex items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-900 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-100"
+            class="flex items-center justify-between gap-3 rounded-2xl border border-destructive/30 bg-danger-soft/50 p-4 text-sm text-destructive"
         >
             <span>{{ error }}</span>
             <Button size="sm" variant="outline" @click="cargar"
@@ -631,7 +631,7 @@ async function confirmarBaja() {
                         v-else-if="aviso?.tono === 'error'"
                         class="size-5 text-destructive"
                     />
-                    <AlertTriangle v-else class="size-5 text-amber-600" />
+                    <AlertTriangle v-else class="size-5 text-warning" />
                     {{ aviso?.titulo }}
                 </DialogTitle>
                 <DialogDescription>{{ aviso?.mensaje }}</DialogDescription>
@@ -985,7 +985,7 @@ async function confirmarBaja() {
                     </div>
                     <p
                         v-if="!testigosCompletos"
-                        class="text-xs text-amber-700 dark:text-amber-300"
+                        class="text-xs text-warning"
                     >
                         El acta exige nombre y cargo de los dos testigos{{
                             dialogoBaja.tipo === 'negativa'

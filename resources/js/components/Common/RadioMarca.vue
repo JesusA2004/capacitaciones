@@ -30,7 +30,7 @@ const marcado = computed(() => props.modelValue === props.value);
         :disabled="disabled"
         :class="
             cn(
-                'grid aspect-square size-4 shrink-0 place-items-center rounded-full border border-input shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30',
+                'grid aspect-square size-4 shrink-0 place-items-center rounded-full border border-input shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50',
                 marcado && 'border-primary',
             )
         "

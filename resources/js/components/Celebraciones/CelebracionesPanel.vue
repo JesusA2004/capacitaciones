@@ -133,10 +133,10 @@ function navegar(cambios: Partial<NavegacionCelebraciones>) {
                 id="celebraciones-hoy"
                 class="flex items-center gap-2 text-sm font-semibold"
             >
-                <PartyPopper class="size-4 text-amber-500" />
+                <PartyPopper class="size-4 text-warning" />
                 {{ textos.hoy }}
                 <span
-                    class="rounded-full bg-amber-400/15 px-2 text-xs text-amber-700 tabular-nums dark:text-amber-300"
+                    class="rounded-full bg-warning/15 px-2 text-xs text-warning tabular-nums"
                     >{{ hoy.length }}</span
                 >
             </h2>
@@ -158,7 +158,7 @@ function navegar(cambios: Partial<NavegacionCelebraciones>) {
                         <template #icono
                             ><component
                                 :is="icono"
-                                class="mt-0.5 size-4 shrink-0 text-amber-500"
+                                class="mt-0.5 size-4 shrink-0 text-warning"
                                 aria-hidden="true"
                         /></template>
                         <template #acciones>

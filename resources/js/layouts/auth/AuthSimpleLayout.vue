@@ -6,7 +6,6 @@ import {
     Smartphone,
 } from '@lucide/vue';
 import horizontalColor from '@/assets/brand/people/MrLanaPeople_horizontal_color.svg';
-import horizontalNegativo from '@/assets/brand/people/MrLanaPeople_horizontal_negativo.svg';
 import verticalNegativo from '@/assets/brand/people/MrLanaPeople_vertical_negativo.svg';
 import { home } from '@/routes';
 
@@ -114,12 +113,7 @@ const CARACTERISTICAS = [
                     <img
                         :src="horizontalColor"
                         alt="MR. LANA PEOPLE"
-                        class="w-full object-contain dark:hidden"
-                    />
-                    <img
-                        :src="horizontalNegativo"
-                        alt="MR. LANA PEOPLE"
-                        class="hidden w-full object-contain dark:block"
+                        class="w-full object-contain"
                     />
                 </Link>
 

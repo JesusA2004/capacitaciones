@@ -41,7 +41,7 @@ function enlace(etapa: CandidatoTimelineEtapa): string | null {
                 <span
                     class="flex size-7 shrink-0 items-center justify-center rounded-full"
                     :class="{
-                        'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400':
+                        'bg-success/15 text-success':
                             etapa.estado === 'completado',
                         'bg-[var(--brand-primary)]/15 text-[var(--brand-primary)] ring-2 ring-[var(--brand-primary)]/40':
                             etapa.estado === 'actual',
@@ -70,7 +70,7 @@ function enlace(etapa: CandidatoTimelineEtapa): string | null {
                     class="w-px flex-1"
                     :class="
                         etapa.estado === 'completado'
-                            ? 'bg-emerald-500/40'
+                            ? 'bg-success/40'
                             : 'bg-border'
                     "
                 />
@@ -109,7 +109,7 @@ function enlace(etapa: CandidatoTimelineEtapa): string | null {
                 </p>
                 <p
                     v-if="etapa.accion"
-                    class="text-xs font-medium text-amber-600 dark:text-amber-400"
+                    class="text-xs font-medium text-warning"
                 >
                     Siguiente paso: {{ etapa.accion }}
                 </p>

@@ -49,7 +49,7 @@ class CatalogosBaseGeneralSeeder extends Seeder
         foreach (self::DEPARTAMENTOS as $nombre) {
             if ($this->departamento($nombre) === null) {
                 Departamento::query()->create(['nombre' => $nombre, 'activo' => true]);
-                $this->command?->info("Departamento creado: {$nombre}");
+                $this->command->info("Departamento creado: {$nombre}");
             }
         }
 
@@ -61,7 +61,7 @@ class CatalogosBaseGeneralSeeder extends Seeder
             $superiorPuesto = $this->puesto($superior);
 
             if ($superiorPuesto === null) {
-                $this->command?->warn(sprintf('No existe «%s» (corre PuestoJerarquiaSeeder primero): «%s» se crea sin superior.', $superior, $nombre));
+                $this->command->warn(sprintf('No existe «%s» (corre PuestoJerarquiaSeeder primero): «%s» se crea sin superior.', $superior, $nombre));
             }
 
             $atributos = [
@@ -81,7 +81,7 @@ class CatalogosBaseGeneralSeeder extends Seeder
                 $puesto->forceFill(['grupo_indicador' => GrupoPuestoIndicador::Otros->value])->save();
             }
 
-            $this->command?->info("Puesto creado: {$nombre}");
+            $this->command->info("Puesto creado: {$nombre}");
         }
     }
 

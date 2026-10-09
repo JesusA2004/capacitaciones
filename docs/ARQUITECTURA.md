@@ -66,7 +66,7 @@ resources/js/
     DataTable/         Tabla generica reutilizable: paginación/orden/filtrado server-side
     Common/            EmptyState y otros componentes de proposito general
     Administracion/    Formularios especificos de cada entidad (Dialog/Sheet + useForm)
-  composables/         usePermisos, useAlertas, useFiltros, usePaginacion, useAppearance, ...
+  composables/         usePermisos, useAlertas, useFiltros, usePaginacion, useAppearance (solo limpia preferencias viejas: el sistema es solo claro), ...
   layouts/             AppLayout (sidebar), AuthLayout, SettingsLayout
   pages/               Una carpeta por modulo (Administracion/, auth/, settings/); nombre de archivo
                        coincide con el componente Inertia::render() del controlador

@@ -54,7 +54,7 @@ const bloques = computed(() => [
     {
         clave: 'graficas',
         titulo: 'Colores de las gráficas',
-        ayuda: 'Cada gráfica del tablero de RH tiene su propio color. Cámbialo aquí y se verá así en la web, en modo claro y oscuro.',
+        ayuda: 'Cada gráfica del tablero de RH tiene su propio color. Cámbialo aquí y se verá así en la web.',
         colores: graficas.value,
     },
 ]);

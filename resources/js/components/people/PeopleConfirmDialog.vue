@@ -18,7 +18,7 @@ import { Textarea } from '@/components/ui/textarea';
 /**
  * Reemplazo de `window.confirm()`/`confirm()` nativo en todo el portal: un
  * `confirm()` del navegador bloquea el hilo, no se puede estilizar, no
- * respeta dark mode y no permite pedir un motivo (rechazo, corrección,
+ * usa la paleta del sistema y no permite pedir un motivo (rechazo, corrección,
  * eliminación con contexto). Este componente es la única forma aprobada de
  * pedir confirmación de una acción destructiva o irreversible.
  *

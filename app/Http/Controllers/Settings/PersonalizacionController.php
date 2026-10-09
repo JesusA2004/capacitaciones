@@ -11,10 +11,8 @@ use Inertia\Response;
 
 /**
  * Personalización visual de la cuenta (tema de color, color de avatar,
- * animaciones) — distinta de settings/Appearance (claro/oscuro, solo
- * localStorage/cookie): esto se guarda en `users.preferencias_ui` para que
- * se recuerde entre dispositivos, igual que cualquier otra preferencia real
- * del colaborador.
+ * animaciones): se guarda en `users.preferencias_ui` para que se recuerde
+ * entre dispositivos. No existe modo oscuro: el sistema es solo claro.
  */
 class PersonalizacionController extends Controller
 {

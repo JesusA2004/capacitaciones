@@ -55,15 +55,15 @@ function abrirExpediente(): void {
             class="flex items-start gap-3 rounded-xl border p-3"
             :class="
                 esVacante
-                    ? 'border-dashed border-orange-300 bg-orange-50/60 dark:border-orange-500/40 dark:bg-orange-500/10'
+                    ? 'border-dashed border-warning/30 bg-warning-soft/60'
                     : esCobertura
-                      ? 'border-amber-300 bg-amber-50/70 dark:border-amber-500/50 dark:bg-amber-500/10'
+                      ? 'border-warning/30 bg-warning-soft/70'
                       : 'bg-card'
             "
         >
             <span
                 v-if="esVacante"
-                class="flex size-10 shrink-0 items-center justify-center rounded-full bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300"
+                class="flex size-10 shrink-0 items-center justify-center rounded-full bg-warning-soft text-warning"
             >
                 <UserRoundSearch class="size-5" />
             </span>
@@ -87,7 +87,7 @@ function abrirExpediente(): void {
             >
                 <p
                     v-if="esVacante"
-                    class="text-sm font-semibold text-orange-700 dark:text-orange-300"
+                    class="text-sm font-semibold text-warning"
                 >
                     VACANTE
                 </p>
@@ -106,7 +106,7 @@ function abrirExpediente(): void {
                 </p>
                 <p
                     v-if="esCobertura && nodo.cobertura"
-                    class="mt-1 flex items-start gap-1 text-xs text-amber-800 dark:text-amber-300"
+                    class="mt-1 flex items-start gap-1 text-xs text-warning"
                 >
                     <ArrowLeftRight class="mt-0.5 size-3.5 shrink-0" />
                     <span
@@ -140,7 +140,7 @@ function abrirExpediente(): void {
                 <button
                     v-if="esVacante && acciones?.puedeEditar"
                     type="button"
-                    class="rounded-lg border border-orange-300 px-2 py-1 text-xs font-medium text-orange-700 dark:text-orange-300"
+                    class="rounded-lg border border-warning/30 px-2 py-1 text-xs font-medium text-warning"
                     @click="acciones.asignarCobertura(nodo)"
                 >
                     Cubrir

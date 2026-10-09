@@ -14,6 +14,7 @@ MR. LANA PEOPLE: portal de RH (reclutamiento, administración de personal, solic
 - **No inventes datos ni adivines estructura.** Si un Excel/PDF real está en `claude/` (headcount, formatos oficiales, rotación de personal), léelo con la librería correspondiente (PhpSpreadsheet, FPDI) en vez de asumir su forma. Una fila/columna que no cuadra se reporta explícitamente (auditable), nunca se ignora en silencio.
 - **Nunca borres usuarios ni expedientes.** Una baja de colaborador bloquea acceso (`estatus`, tokens Sanctum, dispositivos móviles) y conserva todo su historial — ver `docs/SOLICITUDES_UNIFICADAS.md`.
 - **Modo colaborador vs. modo operativo nunca se mezclan** en el mismo menú — ver `docs/ROLES_Y_NAVEGACION.md` antes de tocar `AppSidebar.vue` o agregar una pantalla nueva.
+- **Solo tema claro (web y app).** No existe modo oscuro, selector de apariencia ni `prefers-color-scheme`; no agregues utilidades `dark:*`. El interior usa la paleta pastel/crema centralizada en `resources/css/app.css` (`--pastel-*`, `bg-crema`, `bg-salvia`, `bg-success-soft`…) y en la app `src/constants/colors.ts` — nunca hex sueltos en componentes. El login es la única pantalla oscura, por diseño. Tarjeta clicable = utilidad `tarjeta-interactiva`.
 - **No confundas Organigrama, Matriz comercial, Headcount y Vacantes** — son 4 conceptos relacionados pero distintos, ver `docs/ORGANIGRAMA.md` y `docs/HEADCOUNT_Y_VACANTES.md` antes de tocar cualquiera de los cuatro.
 
 ## Convenciones de código que ya existen (no las reinventes)

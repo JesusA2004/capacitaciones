@@ -55,7 +55,7 @@ function contarDebajo(clave: string): number {
         </div>
         <div
             v-else-if="nodo.region"
-            class="mb-2 inline-flex items-center gap-1.5 rounded-full bg-sky-600 font-semibold text-white shadow-sm"
+            class="mb-2 inline-flex items-center gap-1.5 rounded-full bg-info font-semibold text-white shadow-sm"
             :class="
                 detalle === 'minimo'
                     ? 'px-5 py-2 text-2xl'

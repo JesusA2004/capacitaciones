@@ -257,7 +257,7 @@ class EvaluacionPeriodoPruebaService
      */
     public function listar(User $usuario, array $filtros = []): LengthAwarePaginator
     {
-        $query = EvaluacionPeriodoPrueba::query()->with(['colaborador:id,name,apellidos,numero_empleado,jefe_id,sucursal_principal_id', 'contrato.documento', 'contrato.evaluacion']);
+        $query = EvaluacionPeriodoPrueba::query()->with(['colaborador:id,name,apellidos,numero_empleado,jefe_id,sucursal_principal_id,puesto_id', 'contrato.documento', 'contrato.evaluacion']);
 
         if (! $usuario->can(self::PERMISO_AUTORIZAR)) {
             $query->where(fn (Builder $q) => $q
