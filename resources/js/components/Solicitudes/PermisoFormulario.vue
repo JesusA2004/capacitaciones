@@ -2,6 +2,7 @@
 import { CalendarX2, Clock3, LogOut, Sparkles } from '@lucide/vue';
 import { computed } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
+import TimePicker from '@/components/Common/TimePicker.vue';
 import InputError from '@/components/InputError.vue';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -91,12 +92,12 @@ const tieneTipo = computed(() => props.opcionesTipo.some((o) => o.value === perm
             </div>
             <div v-else-if="permisoTipo === 'salir_temprano'" class="grid gap-2">
                 <Label for="permiso-hora-salida">Hora de salida</Label>
-                <Input id="permiso-hora-salida" v-model="horaSalida" type="time" />
+                <TimePicker id="permiso-hora-salida" v-model="horaSalida" placeholder="Hora de salida" />
                 <InputError :message="errores.hora_salida" />
             </div>
             <div v-else class="grid gap-2">
                 <Label for="permiso-hora-entrada">Hora de entrada</Label>
-                <Input id="permiso-hora-entrada" v-model="horaEntrada" type="time" />
+                <TimePicker id="permiso-hora-entrada" v-model="horaEntrada" placeholder="Hora de entrada" />
                 <InputError :message="errores.hora_entrada" />
             </div>
         </section>

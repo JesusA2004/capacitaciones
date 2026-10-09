@@ -11,9 +11,14 @@ import { cn } from "@/lib/utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { CalendarCell, CalendarCellTrigger, CalendarGrid, CalendarGridBody, CalendarGridHead, CalendarGridRow, CalendarHeadCell, CalendarHeader, CalendarHeading, CalendarNextButton, CalendarPrevButton } from "."
 
+// Español de México por defecto en TODO calendario: meses y días en
+// español y abreviatura de 3 letras (dom, lun, mar, mié…), nunca la
+// inicial en inglés («W» de Wednesday).
 const props = withDefaults(defineProps<CalendarRootProps & { class?: HTMLAttributes["class"], layout?: LayoutTypes, yearRange?: DateValue[] }>(), {
   modelValue: undefined,
   layout: undefined,
+  locale: "es-MX",
+  weekdayFormat: "short",
 })
 const emits = defineEmits<CalendarRootEmits>()
 
@@ -24,7 +29,7 @@ const placeholder = useVModel(props, "placeholder", emits, {
   defaultValue: props.defaultPlaceholder ?? today(getLocalTimeZone()),
 }) as Ref<DateValue>
 
-const formatter = useDateFormatter(props.locale ?? "en")
+const formatter = useDateFormatter(props.locale ?? "es-MX")
 
 const yearRange = computed(() => {
   return props.yearRange ?? createYearRange({

@@ -132,13 +132,24 @@ function embudo(campana: CampanaReclutamientoItem) {
     const r = campana.resultado;
 
     return [
-        { etiqueta: 'Candidatos', valor: r?.candidatos ?? 0, clase: 'bg-menta text-primary' },
-        { etiqueta: 'Contactados', valor: r?.contactados ?? 0, clase: 'bg-salvia text-primary' },
-        { etiqueta: 'Entrevistas', valor: r?.entrevistas ?? 0, clase: 'bg-verde-suave text-primary' },
-        { etiqueta: 'Psicométricos', valor: r?.psicometricos ?? 0, clase: 'bg-crema text-bronce' },
-        { etiqueta: 'Socioeconómico', valor: r?.socioeconomicos ?? 0, clase: 'bg-crema-2/70 text-bronce' },
-        { etiqueta: 'Contratados', valor: r?.contratados ?? 0, clase: 'bg-success-soft text-success' },
+        { etiqueta: 'Candidatos', valor: r?.candidatos ?? 0, barra: 'bg-esmeralda/70' },
+        { etiqueta: 'Contactados', valor: r?.contactados ?? 0, barra: 'bg-esmeralda/60' },
+        { etiqueta: 'Entrevistas', valor: r?.entrevistas ?? 0, barra: 'bg-esmeralda/50' },
+        { etiqueta: 'Psicométricos', valor: r?.psicometricos ?? 0, barra: 'bg-oro/70' },
+        { etiqueta: 'Socioeconómico', valor: r?.socioeconomicos ?? 0, barra: 'bg-oro/55' },
+        { etiqueta: 'Contratados', valor: r?.contratados ?? 0, barra: 'bg-success/70' },
     ];
+}
+
+/** Ancho de la barra de cada paso respecto a los candidatos (mínimo visible si hay dato). */
+function anchoPaso(campana: CampanaReclutamientoItem, valor: number): number {
+    const total = campana.resultado?.candidatos ?? 0;
+
+    if (total <= 0 || valor <= 0) {
+        return 0;
+    }
+
+    return Math.max(4, Math.min(100, Math.round((valor / total) * 100)));
 }
 
 /** Adjunto (Meta Ads, factura, reporte) que se ve DENTRO de PEOPLE. */
@@ -450,17 +461,25 @@ async function eliminar(campana: CampanaReclutamientoItem) {
                     </div>
 
                     <!-- Embudo -->
-                    <div class="grid grid-cols-3 gap-1.5 2xl:grid-cols-6">
-                        <div
+                    <!-- Embudo en filas: etiqueta completa, cifra y barra
+                         proporcional a los candidatos (nada apretado). -->
+                    <ul class="grid gap-1.5" aria-label="Embudo de la campaña">
+                        <li
                             v-for="paso in embudo(campana)"
                             :key="paso.etiqueta"
-                            class="flex flex-col items-center rounded-xl px-1 py-2 text-center"
-                            :class="paso.clase"
+                            class="grid grid-cols-[7.5rem_minmax(0,1fr)_2.5rem] items-center gap-3 text-sm"
                         >
-                            <span class="text-lg font-bold tabular-nums">{{ paso.valor }}</span>
-                            <span class="text-[11px] leading-tight text-muted-foreground">{{ paso.etiqueta }}</span>
-                        </div>
-                    </div>
+                            <span class="truncate text-muted-foreground">{{ paso.etiqueta }}</span>
+                            <span class="h-2.5 overflow-hidden rounded-full bg-muted">
+                                <span
+                                    class="block h-full rounded-full transition-all"
+                                    :class="paso.barra"
+                                    :style="{ width: `${anchoPaso(campana, paso.valor)}%` }"
+                                />
+                            </span>
+                            <span class="text-right font-semibold tabular-nums">{{ paso.valor }}</span>
+                        </li>
+                    </ul>
 
                     <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                         <div>

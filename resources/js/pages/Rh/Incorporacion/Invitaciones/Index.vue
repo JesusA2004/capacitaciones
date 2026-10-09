@@ -234,7 +234,7 @@ const columnas: ColumnaDataTable[] = [
                 <EstadoBadge :estado="fila.estado" />
             </template>
             <template #celda-vence="{ fila }">
-                {{ new Date(fila.expires_at).toLocaleString() }}
+                {{ new Date(fila.expires_at).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' }) }}
             </template>
             <template #celda-creada_por="{ fila }">
                 {{ fila.creado_por?.name ?? '—' }}

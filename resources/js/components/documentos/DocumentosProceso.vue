@@ -10,6 +10,8 @@ import {
 import { computed, onMounted, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import Casilla from '@/components/Common/Casilla.vue';
+import DatePicker from '@/components/Common/DatePicker.vue';
+import TimePicker from '@/components/Common/TimePicker.vue';
 import SeccionDocumentosProceso from '@/components/documentos/SeccionDocumentosProceso.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
@@ -897,7 +899,7 @@ async function confirmarBaja() {
                     "
                 >
                     <Label>Fecha real (opcional)</Label>
-                    <Input v-model="formPaso.fecha" type="date" />
+                    <DatePicker v-model="formPaso.fecha as string" />
                 </template>
                 <Textarea
                     v-model="formPaso.observaciones"
@@ -1014,9 +1016,8 @@ async function confirmarBaja() {
                             v-model="formBaja.participantes.lugar_acta"
                             placeholder="Ciudad (p. ej. Cuernavaca, Morelos)"
                         />
-                        <Input
+                        <TimePicker
                             v-model="formBaja.participantes.hora_acta"
-                            type="time"
                             placeholder="Hora"
                         />
                     </div>
