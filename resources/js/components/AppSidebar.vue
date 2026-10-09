@@ -42,7 +42,7 @@ const {
                     <SidebarMenuButton
                         size="lg"
                         as-child
-                        class="h-auto rounded-2xl py-3 hover:bg-crema/60 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:py-0"
+                        class="h-auto rounded-2xl py-1.5 hover:bg-crema/60 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:py-0"
                     >
                         <Link :href="dashboard()" aria-label="Ir al inicio">
                             <AppLogo />
