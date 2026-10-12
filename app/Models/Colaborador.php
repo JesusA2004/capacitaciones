@@ -351,6 +351,14 @@ class Colaborador extends Model
     }
 
     /**
+     * @return HasMany<AjusteHistoricoVacaciones, $this>
+     */
+    public function ajustesVacaciones(): HasMany
+    {
+        return $this->hasMany(AjusteHistoricoVacaciones::class, 'colaborador_id')->orderByDesc('fecha_corte')->orderByDesc('id');
+    }
+
+    /**
      * @return HasMany<BirthdayGreeting, $this>
      */
     public function felicitacionesCumpleanos(): HasMany

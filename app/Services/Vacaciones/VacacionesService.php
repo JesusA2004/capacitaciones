@@ -5,6 +5,7 @@ namespace App\Services\Vacaciones;
 use App\Enums\EstadoSolicitudInterna;
 use App\Enums\EstadoSolicitudVacaciones;
 use App\Enums\TipoSolicitudInterna;
+use App\Models\AjusteHistoricoVacaciones;
 use App\Models\Colaborador;
 use App\Models\SolicitudInterna;
 use App\Models\SolicitudVacaciones;
@@ -51,6 +52,7 @@ class VacacionesService
      *     dias_generados: int,
      *     dias_usados: int,
      *     dias_en_solicitud: int,
+     *     dias_ajustes_historicos: float,
      *     dias_disponibles: int,
      * }
      */
@@ -82,6 +84,7 @@ class VacacionesService
      *     dias_generados: int,
      *     dias_usados: int,
      *     dias_en_solicitud: int,
+     *     dias_ajustes_historicos: float,
      *     dias_disponibles: int,
      * }
      */
@@ -159,6 +162,20 @@ class VacacionesService
         $diasUsados = $diasUsadosLegacy + $diasUsadosInternas;
         $diasEnSolicitud = $diasEnSolicitudLegacy + $diasEnSolicitudInternas;
 
+        // Ajustes históricos (importador de Excel, CLAUDE.md §24-35): solo
+        // los que caen dentro de ESTA vigencia — un ajuste de un año de
+        // servicio ya cerrado no debe seguir restando saldo para siempre.
+        // Nunca se acreditan ajustes positivos a quien aún no cumple 1 año
+        // (dias_generados ya es 0 en ese caso; sumar un ajuste adelantaría
+        // el bloque anual antes de tiempo).
+        $diasAjustesHistoricos = $antiguedadAnios >= 1
+            ? (float) AjusteHistoricoVacaciones::query()
+                ->where('colaborador_id', $colaborador->id)
+                ->whereDate('fecha_corte', '>=', $vigenciaInicio->toDateString())
+                ->whereDate('fecha_corte', '<=', $vigenciaFin->toDateString())
+                ->sum('dias')
+            : 0.0;
+
         return [
             'antiguedad_anios' => $antiguedadAnios,
             'vigencia_inicio' => $vigenciaInicio->toDateString(),
@@ -166,7 +183,8 @@ class VacacionesService
             'dias_generados' => $diasGenerados,
             'dias_usados' => $diasUsados,
             'dias_en_solicitud' => $diasEnSolicitud,
-            'dias_disponibles' => max(0, $diasGenerados - $diasUsados - $diasEnSolicitud),
+            'dias_ajustes_historicos' => $diasAjustesHistoricos,
+            'dias_disponibles' => max(0, (int) floor($diasGenerados + $diasAjustesHistoricos - $diasUsados - $diasEnSolicitud)),
         ];
     }
 
@@ -178,6 +196,7 @@ class VacacionesService
      *     dias_generados: int,
      *     dias_usados: int,
      *     dias_en_solicitud: int,
+     *     dias_ajustes_historicos: float,
      *     dias_disponibles: int,
      * }
      */
@@ -190,6 +209,7 @@ class VacacionesService
             'dias_generados' => 0,
             'dias_usados' => 0,
             'dias_en_solicitud' => 0,
+            'dias_ajustes_historicos' => 0.0,
             'dias_disponibles' => 0,
         ];
     }

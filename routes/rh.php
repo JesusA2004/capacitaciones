@@ -14,6 +14,7 @@ use App\Http\Controllers\Rh\ExpedienteController;
 use App\Http\Controllers\Rh\FiniquitoController;
 use App\Http\Controllers\Rh\FormatoController;
 use App\Http\Controllers\Rh\FormatoOficialController;
+use App\Http\Controllers\Rh\ImportacionTrabajadoresController;
 use App\Http\Controllers\Rh\IncorporacionInvitacionController;
 use App\Http\Controllers\Rh\IntervencionCandidatoController;
 use App\Http\Controllers\Rh\LoteNominaController;
@@ -42,6 +43,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // (docs/AUTENTICACION.md). Permiso y alcance en CredencialesService.
         Route::post('colaboradores/{colaborador}/credenciales', [CredencialesController::class, 'store'])
             ->name('colaboradores.credenciales')->middleware('throttle:20,1');
+
+        // Importador de salarios y vacaciones históricas (CLAUDE.md §21-36):
+        // subir → analizar (preview) → revisar → aplicar.
+        Route::prefix('importaciones')->name('importaciones.')->group(function () {
+            Route::get('/', [ImportacionTrabajadoresController::class, 'index'])->name('index');
+            Route::post('/', [ImportacionTrabajadoresController::class, 'analizar'])->name('analizar')->middleware('throttle:10,1');
+            Route::get('{importacion}', [ImportacionTrabajadoresController::class, 'show'])->name('show');
+            Route::post('{importacion}/aplicar', [ImportacionTrabajadoresController::class, 'aplicar'])->name('aplicar')->middleware('throttle:10,1');
+        });
 
         // Cambios de foto de perfil por revisar (FotoColaboradorService).
         Route::prefix('cambios-foto')->name('cambios-foto.')->group(function () {

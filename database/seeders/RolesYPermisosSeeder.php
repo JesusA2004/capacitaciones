@@ -331,6 +331,9 @@ class RolesYPermisosSeeder extends Seeder
         'nomina.recibos.ver',
         'nomina.recibos.crear',
         'nomina.recibos.importar',
+        // Importador de REPORTE_TRABAJADORES_VAC.xlsx: salarios y
+        // vacaciones históricas (CLAUDE.md §21-36).
+        'colaboradores.importar_salarios_vacaciones',
         'prestamos.ver',
         'prestamos.autorizar',
         // --- Cierre definitivo del ciclo laboral (docs/CICLO_LABORAL_FINAL_IMPLEMENTADO.md) ---
@@ -459,6 +462,7 @@ class RolesYPermisosSeeder extends Seeder
             'contratos.ver', 'evaluaciones.ver', 'evaluaciones.capturar', 'evaluaciones.autorizar',
             'cierres.ver', 'cierres.gestionar', 'cierres.ejecutar_baja', 'finiquitos.confirmar_pago',
             'nomina.recibos.ver', 'nomina.recibos.crear', 'nomina.recibos.importar',
+            'colaboradores.importar_salarios_vacaciones',
             'prestamos.ver', 'prestamos.autorizar', 'prestamos.resguardar',
             'actas.ver', 'actas.crear', 'actas.gestionar', 'indicadores.ver',
             'ciclo.autorizar_rh', 'candidatos.evaluar', 'onboarding.ver', 'onboarding.gestionar', 'onboarding.entregar_activos', 'cierres.solicitar', 'cierres.programar_pago', 'reingresos.solicitar', 'reingresos.gestionar',
