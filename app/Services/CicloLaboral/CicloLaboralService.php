@@ -32,6 +32,7 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\CierreLaboral\CierreLaboralService;
 use App\Services\Contratos\ContratoLaboralService;
 use App\Services\Contratos\EvaluacionPeriodoPruebaService;
+use App\Services\Contratos\SolicitudExcepcionPeriodoPruebaService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Onboarding\OnboardingService;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
@@ -670,6 +671,11 @@ class CicloLaboralService
             'documentos' => $documentos,
             'evaluacion' => $evaluacion !== null ? $this->evaluaciones->aArray($evaluacion) : null,
             'cierre' => $cierre !== null ? $this->cierres->aArray($cierre, true, $usuario) : null,
+            // Excepción de Dirección General (FO-RH-EPP-001): quién puede
+            // pedirla (mismo alcance que autorizar) y quién puede resolverla
+            // (EXCLUSIVO Dirección General) — nunca un botón "forzar aprobado".
+            'puede_solicitar_excepcion' => $usuario->can('evaluaciones.autorizar'),
+            'puede_resolver_excepcion' => $usuario->can(SolicitudExcepcionPeriodoPruebaService::PERMISO_AUTORIZAR),
             'opciones' => [
                 'causas' => array_values(array_map(
                     fn (TipoBaja $t) => ['value' => $t->value, 'etiqueta' => $t->etiqueta()],

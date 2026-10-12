@@ -9,12 +9,14 @@ use App\Enums\ResultadoEvaluacion;
 use App\Enums\TipoSolicitudInterna;
 use App\Models\Colaborador;
 use App\Models\Empresa;
+use App\Models\EvaluacionPeriodoPrueba;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\Formatos\Variables\NumeroALetras;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * Datos con los que se llena un documento maestro: SIEMPRE los que PEOPLE
@@ -374,9 +376,40 @@ class DatosDocumentoService
         }
 
         $evaluacion->loadMissing(['capturadaPor.colaborador.puesto', 'autorizadaPor.colaborador.puesto']);
+
+        // version null/1 = formato libre legacy ("Capacitación inicial", 7
+        // criterios Acredita/No acredita); version >= 2 = formato oficial
+        // FO-RH-EPP-001 (9 criterios + 5 filtros). Nunca se mezclan: cada
+        // fila de `criterios` tiene una forma distinta según la versión.
+        $datos = (int) ($evaluacion->version ?? 1) >= 2
+            ? $this->datosEvaluacionOficial($evaluacion)
+            : $this->datosEvaluacionLegacy($evaluacion);
+
+        $resultado = $evaluacion->resultado;
+        $acreditaGlobal = $resultado !== null ? $resultado === ResultadoEvaluacion::Aprobado : null;
+
+        $datos['resultado_acredita'] = $acreditaGlobal === null ? '' : ($acreditaGlobal ? '☒' : '☐');
+        $datos['resultado_no_acredita'] = $acreditaGlobal === null ? '' : ($acreditaGlobal ? '☐' : '☒');
+        $datos['elaboro_nombre_cargo'] = $this->nombreYCargo($evaluacion->capturadaPor);
+        $datos['valido_nombre_cargo'] = $this->nombreYCargo($evaluacion->autorizadaPor);
+        $datos['fecha_elaboro_larga'] = $this->fechaLarga($evaluacion->capturada_en);
+        $datos['fecha_valido_larga'] = $this->fechaLarga($evaluacion->autorizada_en);
+
+        return $datos;
+    }
+
+    /**
+     * Formato libre legacy ("Capacitación inicial"): 7 criterios sugeridos,
+     * casillas Acredita/No acredita según la calificación 0-10 capturada.
+     *
+     * @return array<string, string>
+     */
+    private function datosEvaluacionLegacy(EvaluacionPeriodoPrueba $evaluacion): array
+    {
         $datos = [];
         $oficiales = array_values((array) config('contratos.criterios_evaluacion', []));
         $minima = (float) config('contratos.calificacion_minima_aprobatoria', 7);
+        /** @var Collection<int, array{criterio: string, calificacion: float|int, comentario?: string|null, acredita?: bool}> $capturados */
         $capturados = collect((array) $evaluacion->criterios);
 
         foreach ($oficiales as $i => $nombre) {
@@ -395,15 +428,36 @@ class DatosDocumentoService
             $datos[sprintf('criterio_%d_no_acredita', $i + 1)] = $acredita ? '☐' : '☒';
         }
 
-        $resultado = $evaluacion->resultado;
-        $acreditaGlobal = $resultado !== null ? $resultado === ResultadoEvaluacion::Aprobado : null;
+        return $datos;
+    }
 
-        $datos['resultado_acredita'] = $acreditaGlobal === null ? '' : ($acreditaGlobal ? '☒' : '☐');
-        $datos['resultado_no_acredita'] = $acreditaGlobal === null ? '' : ($acreditaGlobal ? '☐' : '☒');
-        $datos['elaboro_nombre_cargo'] = $this->nombreYCargo($evaluacion->capturadaPor);
-        $datos['valido_nombre_cargo'] = $this->nombreYCargo($evaluacion->autorizadaPor);
-        $datos['fecha_elaboro_larga'] = $this->fechaLarga($evaluacion->capturada_en);
-        $datos['fecha_valido_larga'] = $this->fechaLarga($evaluacion->autorizada_en);
+    /**
+     * Formato oficial FO-RH-EPP-001: 9 criterios (escala 4-1) y 5 preguntas
+     * filtro Sí/No, tal como se capturaron — nunca se recalculan aquí (la
+     * regla canónica ya corrió en EvaluacionPeriodoPruebaService).
+     *
+     * @return array<string, string>
+     */
+    private function datosEvaluacionOficial(EvaluacionPeriodoPrueba $evaluacion): array
+    {
+        $datos = [];
+        /** @var list<array{clave: string, etiqueta: string, calificacion: int}> $criterios */
+        $criterios = (array) $evaluacion->criterios;
+        /** @var list<array{clave: string, etiqueta: string, respuesta: bool}> $filtros */
+        $filtros = (array) $evaluacion->filtros;
+
+        foreach ($criterios as $i => $criterio) {
+            $datos[sprintf('criterio_%d_etiqueta', $i + 1)] = $criterio['etiqueta'];
+            $datos[sprintf('criterio_%d_calificacion', $i + 1)] = (string) $criterio['calificacion'];
+        }
+
+        foreach ($filtros as $i => $filtro) {
+            $datos[sprintf('filtro_%d_etiqueta', $i + 1)] = $filtro['etiqueta'];
+            $datos[sprintf('filtro_%d_respuesta', $i + 1)] = $filtro['respuesta'] ? 'Sí' : 'No';
+        }
+
+        $datos['total_calificacion'] = (string) $evaluacion->calificacion;
+        $datos['renueva_etiqueta'] = $evaluacion->recomienda_renovar ? 'SE RENUEVA' : 'NO SE RENUEVA';
 
         return $datos;
     }

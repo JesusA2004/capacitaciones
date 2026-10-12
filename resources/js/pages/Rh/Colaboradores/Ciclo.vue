@@ -38,12 +38,14 @@ import cierres from '@/routes/rh/cierres';
 import colaboradores from '@/routes/rh/colaboradores';
 import documentosLaborales from '@/routes/rh/documentos-laborales';
 import evaluaciones from '@/routes/rh/evaluaciones';
+import evaluacionesExcepcion from '@/routes/rh/evaluaciones/excepcion';
 import { show as verExpediente } from '@/routes/rh/expedientes';
 import onboardingRutas from '@/routes/rh/onboarding';
 import { index as reingresos } from '@/routes/rh/reingresos';
 import type {
     AccionCiclo,
     EstadoCiclo,
+    EvaluacionPeriodoPruebaResumen,
     FormularioAccion,
     OnboardingDetalle,
 } from '@/types';
@@ -70,8 +72,10 @@ const props = defineProps<{
     ciclo: EstadoCiclo;
     onboarding: OnboardingDetalle | null;
     documentos: DocumentoLaboral[];
-    evaluacion: Record<string, unknown> | null;
+    evaluacion: EvaluacionPeriodoPruebaResumen | null;
     cierre: Record<string, unknown> | null;
+    puede_solicitar_excepcion: boolean;
+    puede_resolver_excepcion: boolean;
     opciones: {
         causas: { value: string; etiqueta: string }[];
         criterios: string[];
@@ -108,11 +112,14 @@ const plantillas: Record<string, () => FormularioAccion> = {
         retroalimentacion: '',
     }),
     capturar_evaluacion: () => ({
-        criterios: props.opciones.criterios.map((criterio) => ({
-            criterio,
-            calificacion: 8,
+        criterios: (props.evaluacion?.criterios_oficiales ?? []).map((c) => ({
+            clave: c.clave,
+            calificacion: 4,
         })),
-        recomienda_renovar: true,
+        filtros: (props.evaluacion?.filtros_oficiales ?? []).map((f) => ({
+            clave: f.clave,
+            respuesta: false,
+        })),
         observaciones: '',
     }),
     autorizar_evaluacion: () => ({
@@ -169,10 +176,93 @@ function abrir(a: AccionCiclo) {
 
 const cierreId = computed(() => Number(props.cierre?.id ?? 0));
 const evaluacionId = computed(() => Number(props.evaluacion?.id ?? 0));
+
+// Evaluación oficial FO-RH-EPP-001 (version >= 2): 9 criterios (escala 4-1)
+// + 5 preguntas filtro. Legacy (version null/1) sigue usando criterios
+// libres (opciones.criterios) — nunca se mezclan los dos formatos.
 const criteriosForm = computed(
-    () =>
-        (form.criterios ?? []) as { criterio: string; calificacion: number }[],
+    () => (form.criterios ?? []) as { clave: string; calificacion: number }[],
 );
+const filtrosForm = computed(
+    () => (form.filtros ?? []) as { clave: string; respuesta: boolean }[],
+);
+
+function etiquetaCriterio(clave: string): string {
+    return (
+        props.evaluacion?.criterios_oficiales.find((c) => c.clave === clave)
+            ?.etiqueta ?? clave
+    );
+}
+
+function etiquetaFiltro(clave: string): string {
+    return (
+        props.evaluacion?.filtros_oficiales.find((f) => f.clave === clave)
+            ?.etiqueta ?? clave
+    );
+}
+
+const totalCaptura = computed(() =>
+    criteriosForm.value.reduce((s, c) => s + (Number(c.calificacion) || 0), 0),
+);
+const requiereComentarioCaptura = computed(
+    () =>
+        criteriosForm.value.some((c) => c.calificacion <= 2) ||
+        filtrosForm.value.some((f) => f.respuesta === true),
+);
+
+// Elegibilidad real (regla canónica FO-RH-EPP-001) de la evaluación YA
+// capturada, para decidir si mostrar la excepción de Dirección General.
+const evaluacionEsElegible = computed(
+    () => props.evaluacion?.recomienda_renovar === true,
+);
+const excepcionVigente = computed(
+    () =>
+        props.evaluacion?.excepcion?.estado === 'aprobada'
+            ? props.evaluacion.excepcion
+            : null,
+);
+const excepcionPendiente = computed(
+    () =>
+        props.evaluacion?.excepcion?.estado === 'pendiente'
+            ? props.evaluacion.excepcion
+            : null,
+);
+
+const excepcionForm = useForm<{ motivo: string; documento_soporte: File | null }>({
+    motivo: '',
+    documento_soporte: null,
+});
+const dialogoExcepcionAbierto = ref(false);
+
+function solicitarExcepcion() {
+    excepcionForm.post(evaluacionesExcepcion.solicitar.url(evaluacionId.value), {
+        forceFormData: true,
+        preserveScroll: true,
+        onSuccess: () => {
+            dialogoExcepcionAbierto.value = false;
+            excepcionForm.reset();
+        },
+    });
+}
+
+const resolverExcepcionForm = useForm<{
+    aprobar: boolean;
+    comentario: string;
+}>({ aprobar: true, comentario: '' });
+
+function resolverExcepcion(aprobar: boolean) {
+    const excepcionId = props.evaluacion?.excepcion?.id;
+
+    if (!excepcionId) {
+        return;
+    }
+
+    resolverExcepcionForm.aprobar = aprobar;
+    resolverExcepcionForm.post(evaluacionesExcepcion.resolver.url(excepcionId), {
+        preserveScroll: true,
+        onSuccess: () => resolverExcepcionForm.reset(),
+    });
+}
 
 function destino(clave: string): string {
     const procesoId = props.onboarding?.id ?? 0;
@@ -396,6 +486,46 @@ const variante: Record<string, 'default' | 'secondary' | 'destructive'> = {
                         "
                         >Devolver evaluación</Button
                     >
+                    <Button
+                        v-if="
+                            evaluacion?.es_oficial &&
+                            !evaluacionEsElegible &&
+                            !excepcionVigente &&
+                            !excepcionPendiente &&
+                            puede_solicitar_excepcion
+                        "
+                        variant="destructive"
+                        @click="dialogoExcepcionAbierto = true"
+                        >Solicitar excepción a Dirección General</Button
+                    >
+                </section>
+
+                <section
+                    v-if="excepcionPendiente"
+                    class="flex flex-col gap-2 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4"
+                >
+                    <p class="text-sm font-semibold">
+                        Excepción de Dirección General pendiente
+                    </p>
+                    <p class="text-sm text-muted-foreground">
+                        {{ excepcionPendiente.motivo }}
+                    </p>
+                    <div v-if="puede_resolver_excepcion" class="flex gap-2">
+                        <Button
+                            type="button"
+                            @click="resolverExcepcion(true)"
+                            >Aprobar excepción</Button
+                        >
+                        <Button
+                            type="button"
+                            variant="destructive"
+                            @click="resolverExcepcion(false)"
+                            >Rechazar excepción</Button
+                        >
+                    </div>
+                    <p v-else class="text-xs text-muted-foreground">
+                        Solo Dirección General puede resolverla.
+                    </p>
                 </section>
 
                 <section
@@ -835,50 +965,93 @@ const variante: Record<string, 'default' | 'secondary' | 'destructive'> = {
                 </template>
 
                 <template v-else-if="accion?.clave === 'capturar_evaluacion'">
-                    <div
-                        v-for="(c, i) in criteriosForm"
-                        :key="i"
-                        class="grid grid-cols-[1fr_80px] items-center gap-2"
-                    >
-                        <Label>{{ c.criterio }}</Label>
-                        <Input
-                            v-model.number="c.calificacion"
-                            type="number"
-                            min="0"
-                            max="10"
-                            step="0.5"
-                        />
-                    </div>
-                    <div class="flex gap-2">
-                        <Button
-                            type="button"
-                            :variant="
-                                form.recomienda_renovar ? 'default' : 'outline'
-                            "
-                            @click="form.recomienda_renovar = true"
-                            >Recomiendo renovar</Button
-                        >
-                        <Button
-                            type="button"
-                            :variant="
-                                !form.recomienda_renovar
-                                    ? 'destructive'
-                                    : 'outline'
-                            "
-                            @click="form.recomienda_renovar = false"
-                            >No renovar</Button
-                        >
-                    </div>
                     <p class="text-xs text-muted-foreground">
-                        Tu recomendación es una preautorización: RH da la
-                        autorización final.
+                        Evaluación oficial FO-RH-EPP-001 — escala 4 Muy bueno
+                        · 3 Bueno · 2 Regular · 1 Deficiente. Un solo 1, o un
+                        "Sí" en las preguntas filtro, significa NO SE RENUEVA
+                        sin importar el total (mínimo {{
+                            evaluacion?.total_minimo_renovar
+                        }}/{{ evaluacion?.total_maximo }}).
                     </p>
+
+                    <div
+                        v-for="c in criteriosForm"
+                        :key="c.clave"
+                        class="grid grid-cols-[1fr_auto] items-center gap-2"
+                    >
+                        <Label class="text-sm">{{
+                            etiquetaCriterio(c.clave)
+                        }}</Label>
+                        <div class="flex gap-1">
+                            <Button
+                                v-for="n in [4, 3, 2, 1]"
+                                :key="n"
+                                type="button"
+                                size="sm"
+                                :variant="
+                                    c.calificacion === n
+                                        ? n === 1
+                                            ? 'destructive'
+                                            : 'default'
+                                        : 'outline'
+                                "
+                                @click="c.calificacion = n"
+                                >{{ n }}</Button
+                            >
+                        </div>
+                    </div>
+
+                    <p class="border-t pt-3 text-xs text-muted-foreground">
+                        Preguntas filtro — un solo "Sí" bloquea la renovación.
+                    </p>
+                    <div
+                        v-for="f in filtrosForm"
+                        :key="f.clave"
+                        class="grid grid-cols-[1fr_auto] items-center gap-2"
+                    >
+                        <Label class="text-sm">{{
+                            etiquetaFiltro(f.clave)
+                        }}</Label>
+                        <div class="flex gap-1">
+                            <Button
+                                type="button"
+                                size="sm"
+                                :variant="
+                                    !f.respuesta ? 'default' : 'outline'
+                                "
+                                @click="f.respuesta = false"
+                                >No</Button
+                            >
+                            <Button
+                                type="button"
+                                size="sm"
+                                :variant="
+                                    f.respuesta ? 'destructive' : 'outline'
+                                "
+                                @click="f.respuesta = true"
+                                >Sí</Button
+                            >
+                        </div>
+                    </div>
+
+                    <p class="text-sm font-medium">
+                        Total: {{ totalCaptura }}/{{
+                            evaluacion?.total_maximo
+                        }}
+                    </p>
+
                     <div class="grid gap-1.5">
-                        <Label>Observaciones</Label
+                        <Label
+                            >Comentario del jefe
+                            {{
+                                requiereComentarioCaptura
+                                    ? '(obligatorio: hay un criterio en 1/2 o un filtro en Sí)'
+                                    : '(opcional)'
+                            }}</Label
                         ><Textarea
                             v-model="form.observaciones as string"
                             rows="3"
-                        />
+                        /><InputError :message="form.errors.observaciones" />
                     </div>
                 </template>
 
@@ -890,11 +1063,38 @@ const variante: Record<string, 'default' | 'secondary' | 'destructive'> = {
                                 ? 'renovar'
                                 : 'NO renovar'
                         }}</strong>
-                        (promedio {{ evaluacion?.calificacion }}).
+                        (total {{ evaluacion?.calificacion }}<template
+                            v-if="evaluacion?.es_oficial"
+                        >
+                            /{{ evaluacion?.total_maximo }}</template
+                        >).
+                    </p>
+                    <p
+                        v-if="evaluacion?.es_oficial && !evaluacionEsElegible && !excepcionVigente"
+                        class="rounded-lg bg-destructive/10 p-2.5 text-xs text-destructive"
+                    >
+                        No alcanza la regla de renovación del FO-RH-EPP-001.
+                        No se puede "forzar aprobado": solicita la excepción
+                        de Dirección General para poder autorizar la
+                        renovación.
+                    </p>
+                    <p
+                        v-if="excepcionVigente"
+                        class="rounded-lg bg-success/10 p-2.5 text-xs text-success"
+                    >
+                        Dirección General aprobó la excepción el {{
+                            formatearFecha(excepcionVigente.resuelto_en)
+                        }}: ya puedes autorizar la renovación.
                     </p>
                     <div class="flex gap-2">
                         <Button
                             type="button"
+                            :disabled="
+                                evaluacion?.es_oficial &&
+                                !evaluacionEsElegible &&
+                                !excepcionVigente &&
+                                !form.renovar
+                            "
                             :variant="form.renovar ? 'default' : 'outline'"
                             @click="form.renovar = true"
                             >Autorizar renovación</Button
@@ -928,6 +1128,7 @@ const variante: Record<string, 'default' | 'secondary' | 'destructive'> = {
                         />
                     </div>
                     <InputError :message="form.errors.aprobacion" />
+                    <InputError :message="form.errors.renovar" />
                 </template>
 
                 <template v-else-if="accion?.clave === 'solicitar_baja'">
@@ -1137,6 +1338,62 @@ const variante: Record<string, 'default' | 'secondary' | 'destructive'> = {
                                 : 'default'
                         "
                         >Confirmar</Button
+                    >
+                </DialogFooter>
+            </form>
+        </DialogContent>
+    </Dialog>
+
+    <Dialog
+        :open="dialogoExcepcionAbierto"
+        @update:open="
+            (abierto: boolean) => !abierto && (dialogoExcepcionAbierto = false)
+        "
+    >
+        <DialogContent class="sm:max-w-lg">
+            <DialogHeader>
+                <DialogTitle
+                    >Solicitar excepción a Dirección General</DialogTitle
+                >
+                <DialogDescription>
+                    {{ colaborador.nombre }} — la evaluación no alcanza la
+                    regla de renovación del FO-RH-EPP-001. Toda excepción
+                    requiere autorización escrita de Dirección General.
+                </DialogDescription>
+            </DialogHeader>
+
+            <form class="flex flex-col gap-4" @submit.prevent="solicitarExcepcion">
+                <div class="grid gap-1.5">
+                    <Label>Motivo</Label>
+                    <Textarea v-model="excepcionForm.motivo" rows="4" />
+                    <InputError :message="excepcionForm.errors.motivo" />
+                </div>
+                <div class="grid gap-1.5">
+                    <Label>Documento soporte (opcional)</Label>
+                    <input
+                        type="file"
+                        class="text-sm"
+                        @change="
+                            (e: Event) =>
+                                (excepcionForm.documento_soporte =
+                                    (e.target as HTMLInputElement).files?.[0] ??
+                                    null)
+                        "
+                    />
+                    <InputError
+                        :message="excepcionForm.errors.documento_soporte"
+                    />
+                </div>
+
+                <DialogFooter>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        @click="dialogoExcepcionAbierto = false"
+                        >Cancelar</Button
+                    >
+                    <Button type="submit" :disabled="excepcionForm.processing"
+                        >Enviar a Dirección General</Button
                     >
                 </DialogFooter>
             </form>

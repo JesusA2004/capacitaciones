@@ -320,6 +320,10 @@ class RolesYPermisosSeeder extends Seeder
         'evaluaciones.ver',
         'evaluaciones.capturar',
         'evaluaciones.autorizar',
+        // Excepción de Dirección General a la regla canónica de renovación
+        // del periodo de prueba (FO-RH-EPP-001) — nunca Regional ni
+        // Dirección Comercial, solo quien ocupa Dirección General.
+        'excepciones.autorizar',
         'cierres.ver',
         'cierres.gestionar',
         'cierres.ejecutar_baja',
@@ -781,7 +785,7 @@ class RolesYPermisosSeeder extends Seeder
             'vacantes.ver', 'vacantes.ver_todos', 'candidatos.ver', 'candidatos.ver_todos',
             'solicitudes.ver', 'solicitudes.aprobar', 'solicitudes.bajas.aprobar',
             'rh.solicitudes.ver', 'rh.solicitudes.detalle', 'rh.solicitudes.aprobar', 'rh.solicitudes.rechazar',
-            'contratos.ver', 'evaluaciones.ver', 'evaluaciones.autorizar',
+            'contratos.ver', 'evaluaciones.ver', 'evaluaciones.autorizar', 'excepciones.autorizar',
             'prestamos.ver', 'prestamos.autorizar',
             'cierres.ver', 'finiquitos.ver', 'finiquitos.revisar',
             'documentos_laborales.ver', 'actas.ver', 'nomina.recibos.ver',

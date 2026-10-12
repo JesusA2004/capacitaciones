@@ -59,6 +59,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('{evaluacion}/capturar', [EvaluacionPeriodoPruebaController::class, 'capturar'])->name('capturar');
             Route::post('{evaluacion}/autorizar', [EvaluacionPeriodoPruebaController::class, 'autorizar'])->name('autorizar');
             Route::post('{evaluacion}/devolver', [EvaluacionPeriodoPruebaController::class, 'devolver'])->name('devolver');
+            // Excepción de Dirección General (FO-RH-EPP-001): nunca "forzar
+            // aprobado" — RH/jefe la solicita, solo DG la resuelve.
+            Route::post('{evaluacion}/excepcion', [EvaluacionPeriodoPruebaController::class, 'solicitarExcepcion'])->name('excepcion.solicitar');
+            Route::post('excepciones/{solicitud}/resolver', [EvaluacionPeriodoPruebaController::class, 'resolverExcepcion'])->name('excepcion.resolver');
         });
 
         Route::prefix('cierres/{cierre}')->name('cierres.')->group(function () {

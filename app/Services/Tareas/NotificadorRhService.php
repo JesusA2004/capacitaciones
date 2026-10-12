@@ -5,6 +5,7 @@ namespace App\Services\Tareas;
 use App\Models\Candidato;
 use App\Models\Colaborador;
 use App\Models\OnboardingAvance;
+use App\Models\SolicitudExcepcionPeriodoPrueba;
 use App\Models\User;
 use App\Notifications\Mobile\PendienteRhNotification;
 use App\Services\AlcanceOrganizacionalService;
@@ -153,6 +154,10 @@ class NotificadorRhService
 
         if ($relacionado instanceof OnboardingAvance) {
             return $relacionado->proceso()->value('colaborador_id');
+        }
+
+        if ($relacionado instanceof SolicitudExcepcionPeriodoPrueba) {
+            return $relacionado->evaluacion()->value('colaborador_id');
         }
 
         return null;

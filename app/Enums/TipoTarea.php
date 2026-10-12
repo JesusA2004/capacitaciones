@@ -53,6 +53,9 @@ enum TipoTarea: string
     case ContratoPorVencer = 'contrato_por_vencer';
     case EvaluacionPendiente = 'evaluacion_pendiente';
     case EvaluacionPorAutorizar = 'evaluacion_por_autorizar';
+    // Solo Dirección General: excepción a la regla canónica de renovación
+    // (FO-RH-EPP-001) — nunca Regional ni Dirección Comercial.
+    case ExcepcionPeriodoPruebaPendiente = 'excepcion_periodo_prueba_pendiente';
 
     // Etapa 6 — cierre laboral y reingreso
     case CierrePreautorizacion = 'cierre_preautorizacion';
@@ -104,6 +107,7 @@ enum TipoTarea: string
             self::ContratoPorVencer => 'Contrato próximo a vencer',
             self::EvaluacionPendiente => 'Evaluación de periodo de prueba pendiente',
             self::EvaluacionPorAutorizar => 'Periodo de prueba pendiente de autorización',
+            self::ExcepcionPeriodoPruebaPendiente => 'Excepción de renovación por autorizar',
             self::CierrePreautorizacion => 'Baja por preautorizar',
             self::CierreAutorizacionRh => 'Baja pendiente de autorización final',
             self::FiniquitoPendiente => 'Finiquito pendiente',
@@ -137,7 +141,8 @@ enum TipoTarea: string
             self::OnboardingModuloPendiente, self::OnboardingRefuerzo, self::OnboardingEntregaActivos,
             self::PlantillaFaltante, self::InduccionEvaluacionPendiente, self::InduccionCasosPorCalificar,
             self::InduccionReforzamiento => EtapaCicloLaboral::Onboarding,
-            self::ContratoPorVencer, self::EvaluacionPendiente, self::EvaluacionPorAutorizar => EtapaCicloLaboral::PeriodoPrueba,
+            self::ContratoPorVencer, self::EvaluacionPendiente, self::EvaluacionPorAutorizar,
+            self::ExcepcionPeriodoPruebaPendiente => EtapaCicloLaboral::PeriodoPrueba,
             self::CierrePreautorizacion, self::CierreAutorizacionRh, self::FiniquitoPendiente, self::FiniquitoPorAutorizar,
             self::PagoPorProgramar, self::CitaFiniquito, self::CierrePorConcluir => EtapaCicloLaboral::Cierre,
             self::ReingresoPreautorizacion, self::ReingresoRevision => EtapaCicloLaboral::Reingreso,

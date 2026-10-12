@@ -42,6 +42,16 @@ class EvaluacionPeriodoPruebaPolicy
             && $this->alcance->alcanzaColaborador($usuario, $evaluacion->colaborador);
     }
 
+    /**
+     * Pedir la excepción de Dirección General (FO-RH-EPP-001): mismo
+     * alcance que autorizar — RH con alcance sobre el colaborador. Resolverla
+     * es de Dirección General, ver SolicitudExcepcionPeriodoPruebaPolicy.
+     */
+    public function solicitarExcepcion(User $usuario, EvaluacionPeriodoPrueba $evaluacion): bool
+    {
+        return $this->autorizar($usuario, $evaluacion);
+    }
+
     private function esEvaluador(User $usuario, EvaluacionPeriodoPrueba $evaluacion): bool
     {
         if ($usuario->colaborador_id === null) {

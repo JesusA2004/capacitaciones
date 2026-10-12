@@ -263,6 +263,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('{evaluacion}/capturar', [EvaluacionController::class, 'capturar'])->name('capturar');
             Route::post('{evaluacion}/autorizar', [EvaluacionController::class, 'autorizar'])->name('autorizar');
             Route::post('{evaluacion}/devolver', [EvaluacionController::class, 'devolver'])->name('devolver');
+            // Excepción de Dirección General (FO-RH-EPP-001): nunca "forzar
+            // aprobado" — RH/jefe la solicita, solo DG la resuelve.
+            Route::post('{evaluacion}/excepcion', [EvaluacionController::class, 'solicitarExcepcion'])->name('excepcion.solicitar');
+            Route::post('excepciones/{solicitud}/resolver', [EvaluacionController::class, 'resolverExcepcion'])->name('excepcion.resolver');
         });
 
         // Bandeja de trabajo (pendientes/tareas).

@@ -3,11 +3,14 @@
 namespace App\Models;
 
 use App\Enums\EstadoEvaluacionPrueba;
+use App\Enums\EstadoExcepcionDireccionGeneral;
 use App\Enums\ResultadoEvaluacion;
 use Database\Factories\EvaluacionPeriodoPruebaFactory;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
@@ -25,7 +28,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property EstadoEvaluacionPrueba $estado
  * @property Carbon|null $fecha_limite
  * @property Carbon|null $fecha_evaluacion
- * @property array<int, array{criterio: string, calificacion: float|int, comentario?: string|null, acredita?: bool}>|null $criterios
+ * @property array<int, array{criterio: string, calificacion: float|int, comentario?: string|null, acredita?: bool}>|array<int, array{clave: string, etiqueta: string, calificacion: int}>|null $criterios
  * @property string|null $calificacion
  * @property ResultadoEvaluacion|null $resultado
  * @property bool|null $recomienda_renovar
@@ -37,9 +40,12 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property bool|null $decision_renovar
  * @property string|null $comentario_autorizacion
  * @property int|null $contrato_renovacion_id
+ * @property int|null $version null/1 = formato libre legacy; 2 = formato oficial FO-RH-EPP-001.
+ * @property array<int, array{clave: string, etiqueta: string, respuesta: bool}>|null $filtros Solo version >= 2.
  * @property-read Colaborador $colaborador
  * @property-read ContratoLaboral $contrato
  * @property-read Colaborador|null $evaluador
+ * @property-read Collection<int, SolicitudExcepcionPeriodoPrueba> $solicitudesExcepcion
  */
 class EvaluacionPeriodoPrueba extends Model
 {
@@ -53,7 +59,7 @@ class EvaluacionPeriodoPrueba extends Model
         'fecha_limite', 'fecha_evaluacion', 'criterios', 'calificacion', 'resultado',
         'recomienda_renovar', 'observaciones', 'capturada_por', 'capturada_en',
         'autorizada_por', 'autorizada_en', 'decision_renovar', 'comentario_autorizacion',
-        'contrato_renovacion_id',
+        'contrato_renovacion_id', 'version', 'filtros',
     ];
 
     protected function casts(): array
@@ -64,6 +70,7 @@ class EvaluacionPeriodoPrueba extends Model
             'fecha_limite' => 'date',
             'fecha_evaluacion' => 'date',
             'criterios' => 'array',
+            'filtros' => 'array',
             'calificacion' => 'decimal:2',
             'recomienda_renovar' => 'boolean',
             'decision_renovar' => 'boolean',
@@ -118,6 +125,23 @@ class EvaluacionPeriodoPrueba extends Model
     public function contratoRenovacion(): BelongsTo
     {
         return $this->belongsTo(ContratoLaboral::class, 'contrato_renovacion_id');
+    }
+
+    /**
+     * @return HasMany<SolicitudExcepcionPeriodoPrueba, $this>
+     */
+    public function solicitudesExcepcion(): HasMany
+    {
+        return $this->hasMany(SolicitudExcepcionPeriodoPrueba::class, 'evaluacion_periodo_prueba_id');
+    }
+
+    /**
+     * Excepción vigente de Dirección General para esta evaluación (si la
+     * hay): habilita a RH a renovar aunque la regla canónica no se cumpla.
+     */
+    public function excepcionAprobada(): ?SolicitudExcepcionPeriodoPrueba
+    {
+        return $this->solicitudesExcepcion->firstWhere('estado', EstadoExcepcionDireccionGeneral::Aprobada);
     }
 
     public function getActivitylogOptions(): LogOptions

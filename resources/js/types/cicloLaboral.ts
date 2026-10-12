@@ -63,6 +63,58 @@ export type ResumenAprobaciones = {
     historial: AprobacionItem[];
 };
 
+/**
+ * Evaluación de Término de Periodo de Prueba — DTO de
+ * EvaluacionPeriodoPruebaService::aArray(). `version` null/1 = formato
+ * libre legacy (criterios: {criterio, calificacion 0-10}); `version` >= 2
+ * ("es_oficial") = formato oficial FO-RH-EPP-001 (criterios: {clave,
+ * etiqueta, calificacion 1-4}, filtros: {clave, etiqueta, respuesta}).
+ */
+export type EvaluacionPeriodoPruebaResumen = {
+    id: number;
+    colaborador: {
+        id: number;
+        nombre: string;
+        numero_empleado: string | null;
+        puesto: string | null;
+        sucursal: string | null;
+        jefe: string | null;
+        fecha_ingreso: string | null;
+    };
+    contrato: Record<string, unknown>;
+    estado: string;
+    estado_etiqueta: string;
+    fecha_limite: string | null;
+    fecha_evaluacion: string | null;
+    version: number | null;
+    es_oficial: boolean;
+    criterios:
+        | { criterio: string; calificacion: number; comentario?: string | null; acredita?: boolean }[]
+        | { clave: string; etiqueta: string; calificacion: number }[];
+    filtros: { clave: string; etiqueta: string; respuesta: boolean }[];
+    criterios_oficiales: { clave: string; etiqueta: string }[];
+    filtros_oficiales: { clave: string; etiqueta: string }[];
+    total_minimo_renovar: number;
+    total_maximo: number;
+    criterios_sugeridos: string[];
+    calificacion: string | number | null;
+    resultado: string | null;
+    recomienda_renovar: boolean | null;
+    observaciones: string | null;
+    decision_renovar: boolean | null;
+    comentario_autorizacion: string | null;
+    autorizada_en: string | null;
+    contrato_renovacion_id: number | null;
+    excepcion: {
+        id: number;
+        estado: 'pendiente' | 'aprobada' | 'rechazada' | string;
+        estado_etiqueta: string;
+        motivo: string;
+        comentario_resolucion: string | null;
+        resuelto_en: string | null;
+    } | null;
+};
+
 export type EstadoCiclo = {
     persona: {
         tipo: 'candidato' | 'colaborador';

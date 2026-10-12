@@ -125,6 +125,22 @@ beforeEach(function () {
 
 afterEach(fn () => Carbon::setTestNow());
 
+/**
+ * Captura oficial FO-RH-EPP-001 válida: 9 criterios con la misma
+ * calificación (1-4) y las 5 preguntas filtro en "No".
+ *
+ * @return array{criterios: list<array{clave: string, calificacion: int}>, filtros: list<array{clave: string, respuesta: bool}>}
+ */
+function cfCapturaOficial(int $calificacion = 4): array
+{
+    return [
+        'criterios' => collect(config('contratos.evaluacion_periodo_prueba_v2.criterios'))
+            ->map(fn (array $c) => ['clave' => $c['clave'], 'calificacion' => $calificacion])->all(),
+        'filtros' => collect(config('contratos.evaluacion_periodo_prueba_v2.filtros'))
+            ->map(fn (array $f) => ['clave' => $f['clave'], 'respuesta' => false])->all(),
+    ];
+}
+
 function cfRegistrarCandidato(object $t, array $extra = []): Candidato
 {
     $sucursalId = $extra['sucursal_id'] ?? $t->sucursalA->id;
@@ -338,10 +354,7 @@ test('E2E: candidato → contratación → onboarding → periodo de prueba → 
 
     $evaluacion = EvaluacionPeriodoPrueba::query()->where('contrato_laboral_id', $contrato->id)->firstOrFail();
     $evaluaciones = app(EvaluacionPeriodoPruebaService::class);
-    $evaluaciones->capturar($evaluacion, $this->gerenteA, [
-        'criterios' => [['criterio' => 'Cobranza', 'calificacion' => 9]],
-        'recomienda_renovar' => true,
-    ]);
+    $evaluaciones->capturar($evaluacion, $this->gerenteA, cfCapturaOficial(4));
 
     // La recomendación es solo preautorización.
     expect(ContratoLaboral::query()->where('colaborador_id', $colaborador->id)->count())->toBe(1)
@@ -432,7 +445,7 @@ test('F: el jefe recomienda NO renovar — no hay baja hasta que RH autoriza, y 
     app(VencimientoContratosService::class)->revisar();
     $evaluacion = EvaluacionPeriodoPrueba::query()->firstOrFail();
 
-    app(EvaluacionPeriodoPruebaService::class)->capturar($evaluacion, $this->gerenteA, ['criterios' => [['criterio' => 'Cobranza', 'calificacion' => 5]], 'recomienda_renovar' => false]);
+    app(EvaluacionPeriodoPruebaService::class)->capturar($evaluacion, $this->gerenteA, [...cfCapturaOficial(2), 'observaciones' => 'Calificación regular en varios criterios; no cumple el mínimo para renovar.']);
 
     expect(CierreLaboral::query()->count())->toBe(0)
         ->and($colaborador->refresh()->estatus)->toBe(EstadoUsuario::Activo);

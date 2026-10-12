@@ -5,9 +5,13 @@ namespace App\Http\Controllers\Rh;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CicloLaboral\AutorizarEvaluacionRequest;
 use App\Http\Requests\CicloLaboral\CapturarEvaluacionRequest;
+use App\Http\Requests\CicloLaboral\CrearSolicitudExcepcionRequest;
 use App\Http\Requests\CicloLaboral\DecisionAprobacionRequest;
+use App\Http\Requests\CicloLaboral\ResolverSolicitudExcepcionRequest;
 use App\Models\EvaluacionPeriodoPrueba;
+use App\Models\SolicitudExcepcionPeriodoPrueba;
 use App\Services\Contratos\EvaluacionPeriodoPruebaService;
+use App\Services\Contratos\SolicitudExcepcionPeriodoPruebaService;
 use Illuminate\Http\RedirectResponse;
 
 /**
@@ -16,7 +20,10 @@ use Illuminate\Http\RedirectResponse;
  */
 class EvaluacionPeriodoPruebaController extends Controller
 {
-    public function __construct(private readonly EvaluacionPeriodoPruebaService $evaluaciones) {}
+    public function __construct(
+        private readonly EvaluacionPeriodoPruebaService $evaluaciones,
+        private readonly SolicitudExcepcionPeriodoPruebaService $excepciones,
+    ) {}
 
     public function capturar(CapturarEvaluacionRequest $request, EvaluacionPeriodoPrueba $evaluacion): RedirectResponse
     {
@@ -42,5 +49,29 @@ class EvaluacionPeriodoPruebaController extends Controller
         $this->evaluaciones->devolver($evaluacion, $request->user(), $request->motivo());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Evaluación devuelta al jefe para corrección.']);
+    }
+
+    /**
+     * Pedir la excepción de Dirección General (FO-RH-EPP-001): nunca un
+     * botón "forzar aprobado" — esta es la única puerta.
+     */
+    public function solicitarExcepcion(CrearSolicitudExcepcionRequest $request, EvaluacionPeriodoPrueba $evaluacion): RedirectResponse
+    {
+        $this->authorize('solicitarExcepcion', $evaluacion);
+        $this->excepciones->crear($evaluacion, $request->user(), $request->validated(), $request->file('documento_soporte'));
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Excepción enviada a Dirección General.']);
+    }
+
+    /**
+     * Resolver la excepción: EXCLUSIVO de Dirección General.
+     */
+    public function resolverExcepcion(ResolverSolicitudExcepcionRequest $request, SolicitudExcepcionPeriodoPrueba $solicitud): RedirectResponse
+    {
+        $this->authorize('resolver', $solicitud);
+        $datos = $request->validated();
+        $this->excepciones->resolver($solicitud, $request->user(), (bool) $datos['aprobar'], $datos['comentario'] ?? null);
+
+        return back()->with('toast', ['type' => 'success', 'message' => $datos['aprobar'] ? 'Excepción aprobada.' : 'Excepción rechazada.']);
     }
 }

@@ -39,6 +39,22 @@ beforeEach(function () {
     ]);
 });
 
+/**
+ * Captura oficial FO-RH-EPP-001 válida: 9 criterios con la misma
+ * calificación (1-4) y las 5 preguntas filtro en "No".
+ *
+ * @return array{criterios: list<array{clave: string, calificacion: int}>, filtros: list<array{clave: string, respuesta: bool}>}
+ */
+function vepCapturaOficial(int $calificacion = 4): array
+{
+    return [
+        'criterios' => collect(config('contratos.evaluacion_periodo_prueba_v2.criterios'))
+            ->map(fn (array $c) => ['clave' => $c['clave'], 'calificacion' => $calificacion])->all(),
+        'filtros' => collect(config('contratos.evaluacion_periodo_prueba_v2.filtros'))
+            ->map(fn (array $f) => ['clave' => $f['clave'], 'respuesta' => false])->all(),
+    ];
+}
+
 test('el scheduler crea la evaluación, tareas y avisos 15 días antes, sin duplicar en ejecuciones repetidas', function () {
     // Un contrato que vence dentro de 40 días todavía no se avisa.
     ContratoLaboral::factory()->create(['fecha_fin' => now()->addDays(40)->toDateString()]);
@@ -66,25 +82,16 @@ test('el jefe inmediato captura la evaluación; un jefe ajeno no puede (403)', f
     $evaluacion = EvaluacionPeriodoPrueba::query()->firstOrFail();
 
     Sanctum::actingAs(clUsuario('jefe_directo'));
-    $this->postJson("/api/v1/evaluaciones/{$evaluacion->id}/capturar", [
-        'criterios' => [['criterio' => 'Desempeño', 'calificacion' => 9]],
-        'recomienda_renovar' => true,
-    ])->assertForbidden();
+    $this->postJson("/api/v1/evaluaciones/{$evaluacion->id}/capturar", vepCapturaOficial(4))->assertForbidden();
 
     Sanctum::actingAs($this->jefeUsuario);
     $this->getJson('/api/v1/equipo/pendientes')->assertOk()->assertJsonCount(1, 'data.evaluaciones');
 
-    $this->postJson("/api/v1/evaluaciones/{$evaluacion->id}/capturar", [
-        'criterios' => [
-            ['criterio' => 'Desempeño', 'calificacion' => 9],
-            ['criterio' => 'Puntualidad', 'calificacion' => 8],
-        ],
-        'recomienda_renovar' => true,
-        'observaciones' => 'Buen desempeño.',
-    ])->assertOk()
+    $this->postJson("/api/v1/evaluaciones/{$evaluacion->id}/capturar", vepCapturaOficial(4))
+        ->assertOk()
         ->assertJsonPath('data.estado', 'capturada')
         ->assertJsonPath('data.resultado', 'aprobado')
-        ->assertJsonPath('data.calificacion', '8.50');
+        ->assertJsonPath('data.calificacion', '36.00');
 
     // El jefe no autoriza su propia captura: eso es de RH/Dirección.
     $this->postJson("/api/v1/evaluaciones/{$evaluacion->id}/autorizar", ['renovar' => true])->assertForbidden();
@@ -96,7 +103,7 @@ test('si RH autoriza la renovación se crea el contrato indeterminado y su docum
     $evaluacion = EvaluacionPeriodoPrueba::query()->firstOrFail();
 
     Sanctum::actingAs($this->jefeUsuario);
-    $this->postJson("/api/v1/evaluaciones/{$evaluacion->id}/capturar", ['criterios' => [['criterio' => 'General', 'calificacion' => 9]], 'recomienda_renovar' => true]);
+    $this->postJson("/api/v1/evaluaciones/{$evaluacion->id}/capturar", vepCapturaOficial(4));
 
     Sanctum::actingAs($this->rh);
     $this->postJson("/api/v1/evaluaciones/{$evaluacion->id}/autorizar", ['renovar' => true])->assertOk()->assertJsonPath('data.decision_renovar', true);
@@ -125,7 +132,10 @@ test('si RH decide no renovar se inicia automáticamente el cierre laboral por n
     $evaluacion = EvaluacionPeriodoPrueba::query()->firstOrFail();
 
     Sanctum::actingAs($this->jefeUsuario);
-    $this->postJson("/api/v1/evaluaciones/{$evaluacion->id}/capturar", ['criterios' => [['criterio' => 'General', 'calificacion' => 4]], 'recomienda_renovar' => false]);
+    $this->postJson("/api/v1/evaluaciones/{$evaluacion->id}/capturar", [
+        ...vepCapturaOficial(2),
+        'observaciones' => 'Calificación regular en todos los criterios: no alcanza el mínimo para renovar.',
+    ]);
 
     Sanctum::actingAs($this->rh);
     $this->postJson("/api/v1/evaluaciones/{$evaluacion->id}/autorizar", ['renovar' => false, 'motivo_no_renovacion' => 'No aprobó el periodo de prueba.'])->assertOk();
@@ -179,9 +189,10 @@ test('al cumplirse 15 DÍAS HÁBILES (no calendario) del vencimiento se avisa a 
 
     // Un DÍA HÁBIL antes de cumplir los 15 días hábiles todavía no se avisa
     // (si se contara en calendario, un viernes→lunes se adelantaría mal).
-    $diaHabilAntes = $ahora->copy();
+    // now() es CarbonImmutable: subDay() NUNCA muta in-place, hay que reasignar.
+    $diaHabilAntes = $ahora;
     do {
-        $diaHabilAntes->subDay();
+        $diaHabilAntes = $diaHabilAntes->subDay();
     } while ($diaHabilAntes->isWeekend());
 
     Carbon\Carbon::setTestNow($diaHabilAntes);
@@ -224,7 +235,7 @@ test('aprobar dos veces no duplica el contrato indeterminado (idempotente)', fun
     $evaluacion = EvaluacionPeriodoPrueba::query()->firstOrFail();
 
     Sanctum::actingAs($this->jefeUsuario);
-    $this->postJson("/api/v1/evaluaciones/{$evaluacion->id}/capturar", ['criterios' => [['criterio' => 'General', 'calificacion' => 9]], 'recomienda_renovar' => true]);
+    $this->postJson("/api/v1/evaluaciones/{$evaluacion->id}/capturar", vepCapturaOficial(4));
 
     Sanctum::actingAs($this->rh);
     $this->postJson("/api/v1/evaluaciones/{$evaluacion->id}/autorizar", ['renovar' => true])->assertOk();

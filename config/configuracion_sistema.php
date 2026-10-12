@@ -205,6 +205,19 @@ return [
             'permiso' => 'evaluaciones.autorizar',
             'fallback' => ['rh'],
         ],
+        'excepcion_periodo_prueba_solicitada' => [
+            'etiqueta' => 'Excepción de renovación por autorizar',
+            'descripcion' => 'RH solicitó una excepción a la regla canónica de renovación del periodo de prueba (FO-RH-EPP-001). Solo Dirección General decide.',
+            'destinatarios' => ['usuarios_con_permiso'],
+            'permiso' => 'excepciones.autorizar',
+            'fallback' => [],
+        ],
+        'excepcion_periodo_prueba_resuelta' => [
+            'etiqueta' => 'Excepción de renovación resuelta',
+            'descripcion' => 'Dirección General aprobó o rechazó la excepción solicitada.',
+            'destinatarios' => ['creador'],
+            'fallback' => ['rh'],
+        ],
         'evaluacion_devuelta' => [
             'etiqueta' => 'Evaluación devuelta para corrección',
             'descripcion' => 'RH pidió corregir la evaluación del periodo de prueba.',

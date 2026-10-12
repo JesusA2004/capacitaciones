@@ -4,6 +4,7 @@ use App\Models\Colaborador;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use Database\Seeders\RolesYPermisosSeeder;
+use Laravel\Sanctum\Sanctum;
 
 /*
 | Capítulo 4 de Inducción Mr. Lana: el organigrama debe salir del catálogo
@@ -46,7 +47,7 @@ test('la API móvil expone la misma vista de organigrama que la web (mismo servi
 
     $usuario = clUsuario('colaborador');
 
-    Laravel\Sanctum\Sanctum::actingAs($usuario);
+    Sanctum::actingAs($usuario);
     $this->getJson('/api/v1/colaborador/induccion/organigrama/corporativo')
         ->assertOk()
         ->assertJsonPath('data.id', $direccionGeneral->id)

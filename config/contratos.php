@@ -87,7 +87,57 @@ return [
 
     // Calificación mínima (0–10) sugerida para marcar la evaluación como aprobada
     // cuando el evaluador no indica el resultado explícitamente.
+    // Usado SOLO por evaluaciones legacy (version null/1, formato libre);
+    // nunca se aplica a la evaluación oficial (ver 'evaluacion_periodo_prueba_v2').
     'calificacion_minima_aprobatoria' => (float) env('CONTRATOS_CALIFICACION_MINIMA', 7),
+
+    /*
+    | Evaluación de Término de Periodo de Prueba — formato OFICIAL
+    | (docs/onboarding/Evaluacion_Periodo_de_Prueba_Operativo.pdf, folio
+    | FO-RH-EPP-001 v02 oct-2026). Toda captura NUEVA usa este formato
+    | (version = 'version_vigente'); las evaluaciones ya capturadas con el
+    | formato libre anterior (version null/1) NUNCA se recalculan con estas
+    | reglas — ver 'criterios_evaluacion'/'calificacion_minima_aprobatoria'
+    | arriba, que siguen vigentes solo para leer ese histórico.
+    |
+    | INCONSISTENCIA DEL PDF (documentada, no es un bug de este código): el
+    | Paso 3 (pág. 2) muestra una franja visual "24 a 36 puntos ALCANZA EL
+    | MÍNIMO" (deja 23 sin banda), pero el texto de la regla, inmediatamente
+    | debajo, exige "Total de 25 puntos o más". Se usa el TEXTO como regla
+    | canónica: 'total_minimo_renovar' = 25. Un total de 24 NO renueva.
+    */
+    'evaluacion_periodo_prueba_v2' => [
+        'version_vigente' => 2,
+        'escala_min' => 1,
+        'escala_max' => 4,
+        'total_maximo' => 36,
+        'total_minimo_renovar' => 25,
+
+        // 9 criterios reales (Paso 1), escala 4 Muy bueno / 3 Bueno / 2
+        // Regular / 1 Deficiente. "Si escribe un 1 en cualquier renglón, el
+        // resultado será NO SE RENUEVA" — sin importar el total.
+        'criterios' => [
+            ['clave' => 'conoce_trabajo', 'etiqueta' => 'Conoce y hace bien su trabajo'],
+            ['clave' => 'cumple_metas', 'etiqueta' => 'Cumple sus metas'],
+            ['clave' => 'sin_errores', 'etiqueta' => 'Trabaja sin errores'],
+            ['clave' => 'asistencia_puntualidad', 'etiqueta' => 'Asistencia y puntualidad'],
+            ['clave' => 'cumplimiento_politicas', 'etiqueta' => 'Cumplimiento a políticas y procesos operativos'],
+            ['clave' => 'imagen_uniforme', 'etiqueta' => 'Uniforme, imagen y reglas internas'],
+            ['clave' => 'trato_cliente', 'etiqueta' => 'Trato al cliente'],
+            ['clave' => 'trabajo_equipo', 'etiqueta' => 'Trabajo en equipo y actitud'],
+            ['clave' => 'aprendizaje_iniciativa', 'etiqueta' => 'Aprende e iniciativa'],
+        ],
+
+        // Preguntas filtro (Paso 2), Sí/No. "Un solo SÍ significa NO SE
+        // RENUEVA" — independiente del total y de los criterios.
+        'filtros' => [
+            ['clave' => 'faltante_valores', 'etiqueta' => 'Faltantes de dinero, valores o mercancía no aclarados'],
+            ['clave' => 'documentos_falsificados', 'etiqueta' => 'Alteró o falsificó documentos, firmas o expedientes'],
+            ['clave' => 'conducta_grave', 'etiqueta' => 'Robo, agresión, acoso, o bajo efectos de alcohol/drogas'],
+            ['clave' => 'informacion_no_autorizada', 'etiqueta' => 'Compartió información de clientes/empresa sin autorización'],
+            ['clave' => 'riesgo_seguridad', 'etiqueta' => 'Puso en riesgo personas o bienes por no seguir reglas de seguridad'],
+        ],
+    ],
 
     /*
     | Cierre laboral: tipos de baja habilitados (App\Enums\TipoBaja) y si la

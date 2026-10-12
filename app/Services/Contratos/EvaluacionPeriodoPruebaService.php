@@ -53,7 +53,14 @@ class EvaluacionPeriodoPruebaService
     ) {}
 
     /**
-     * @param  array<string, mixed>  $datos  criterios[{criterio, calificacion, comentario?}], resultado?, recomienda_renovar, observaciones?, fecha_evaluacion? (validado por CapturarEvaluacionRequest).
+     * Captura oficial FO-RH-EPP-001 (version 2): criterios[{clave, calificacion
+     * 1-4}] (9, fijos), filtros[{clave, respuesta bool}] (5, fijos),
+     * observaciones (comentario del jefe; obligatorio si hay un 1/2 en
+     * criterios o un Sí en filtros), fecha_evaluacion? (validado por
+     * CapturarEvaluacionRequest). `recomienda_renovar`/`resultado` NUNCA se
+     * aceptan del cliente: se calculan aquí con la regla canónica.
+     *
+     * @param  array<string, mixed>  $datos
      */
     public function capturar(EvaluacionPeriodoPrueba $evaluacion, User $evaluador, array $datos): EvaluacionPeriodoPrueba
     {
@@ -64,31 +71,34 @@ class EvaluacionPeriodoPruebaService
                 throw ValidationException::withMessages(['estado' => "La evaluación ya está «{$evaluacion->estado->etiqueta()}»."]);
             }
 
-            $criterios = [];
+            [$criterios, $filtros] = $this->normalizarCapturaOficial((array) $datos['criterios'], (array) $datos['filtros']);
 
-            foreach ((array) $datos['criterios'] as $criterio) {
-                if (! is_array($criterio)) {
-                    continue;
-                }
+            $total = array_sum(array_column($criterios, 'calificacion'));
+            $tieneUno = in_array(1, array_column($criterios, 'calificacion'), true);
+            $requiereComentario = $tieneUno
+                || array_filter($criterios, fn (array $c): bool => $c['calificacion'] <= 2) !== []
+                || in_array(true, array_column($filtros, 'respuesta'), true);
 
-                $criterios[] = [
-                    'criterio' => (string) $criterio['criterio'],
-                    'calificacion' => round((float) $criterio['calificacion'], 2),
-                    'comentario' => isset($criterio['comentario']) ? (string) $criterio['comentario'] : null,
-                ];
+            $comentario = isset($datos['observaciones']) ? trim((string) $datos['observaciones']) : '';
+
+            if ($requiereComentario && $comentario === '') {
+                throw ValidationException::withMessages(['observaciones' => 'El comentario del jefe es obligatorio: hay un criterio calificado con 1 o 2, o una pregunta filtro marcada "Sí".']);
             }
 
-            $promedio = count($criterios) > 0 ? round(array_sum(array_column($criterios, 'calificacion')) / count($criterios), 2) : 0.0;
-            $resultado = isset($datos['resultado'])
-                ? ResultadoEvaluacion::from((string) $datos['resultado'])
-                : ($promedio >= (float) config('contratos.calificacion_minima_aprobatoria', 7) ? ResultadoEvaluacion::Aprobado : ResultadoEvaluacion::NoAprobado);
+            // Regla canónica (FO-RH-EPP-001, Paso 3 — ver config
+            // contratos.evaluacion_periodo_prueba_v2 para la inconsistencia
+            // documentada del PDF): ningún 1, ningún filtro en Sí, total >= mínimo.
+            $minimoRenovar = (float) config('contratos.evaluacion_periodo_prueba_v2.total_minimo_renovar', 25);
+            $renueva = ! $tieneUno && ! in_array(true, array_column($filtros, 'respuesta'), true) && $total >= $minimoRenovar;
 
             $evaluacion->update([
+                'version' => (int) config('contratos.evaluacion_periodo_prueba_v2.version_vigente', 2),
                 'criterios' => $criterios,
-                'calificacion' => $promedio,
-                'resultado' => $resultado,
-                'recomienda_renovar' => (bool) $datos['recomienda_renovar'],
-                'observaciones' => $datos['observaciones'] ?? null,
+                'filtros' => $filtros,
+                'calificacion' => $total,
+                'resultado' => $renueva ? ResultadoEvaluacion::Aprobado : ResultadoEvaluacion::NoAprobado,
+                'recomienda_renovar' => $renueva,
+                'observaciones' => $comentario !== '' ? $comentario : null,
                 'fecha_evaluacion' => $datos['fecha_evaluacion'] ?? now()->toDateString(),
                 'capturada_por' => $evaluador->id,
                 'capturada_en' => now(),
@@ -145,6 +155,57 @@ class EvaluacionPeriodoPruebaService
         ]);
 
         return $evaluacion->refresh();
+    }
+
+    /**
+     * Valida y normaliza la captura oficial contra el catálogo real
+     * (config contratos.evaluacion_periodo_prueba_v2): exige exactamente los
+     * 9 criterios y las 5 preguntas filtro configuradas, sin faltantes ni
+     * repetidos — nunca acepta una clave inventada por el cliente.
+     *
+     * @param  array<int, mixed>  $criteriosEntrada
+     * @param  array<int, mixed>  $filtrosEntrada
+     * @return array{0: list<array{clave: string, etiqueta: string, calificacion: int}>, 1: list<array{clave: string, etiqueta: string, respuesta: bool}>}
+     */
+    private function normalizarCapturaOficial(array $criteriosEntrada, array $filtrosEntrada): array
+    {
+        /** @var list<array{clave: string, etiqueta: string}> $catalogoCriterios */
+        $catalogoCriterios = config('contratos.evaluacion_periodo_prueba_v2.criterios', []);
+        /** @var list<array{clave: string, etiqueta: string}> $catalogoFiltros */
+        $catalogoFiltros = config('contratos.evaluacion_periodo_prueba_v2.filtros', []);
+
+        $calificacionPorClave = collect($criteriosEntrada)
+            ->filter(fn ($c) => is_array($c))
+            ->mapWithKeys(fn (array $c) => [(string) ($c['clave'] ?? '') => $c['calificacion'] ?? null]);
+        $respuestaPorClave = collect($filtrosEntrada)
+            ->filter(fn ($f) => is_array($f))
+            ->mapWithKeys(fn (array $f) => [(string) ($f['clave'] ?? '') => $f['respuesta'] ?? null]);
+
+        $criterios = [];
+
+        foreach ($catalogoCriterios as $oficial) {
+            $calificacion = $calificacionPorClave->get($oficial['clave']);
+
+            if (! is_numeric($calificacion) || (int) $calificacion < 1 || (int) $calificacion > 4) {
+                throw ValidationException::withMessages(["criterios.{$oficial['clave']}" => "Falta calificar «{$oficial['etiqueta']}» (escala 1 a 4)."]);
+            }
+
+            $criterios[] = ['clave' => $oficial['clave'], 'etiqueta' => $oficial['etiqueta'], 'calificacion' => (int) $calificacion];
+        }
+
+        $filtros = [];
+
+        foreach ($catalogoFiltros as $oficial) {
+            $respuesta = $respuestaPorClave->get($oficial['clave']);
+
+            if (! is_bool($respuesta)) {
+                throw ValidationException::withMessages(["filtros.{$oficial['clave']}" => "Falta responder «{$oficial['etiqueta']}»."]);
+            }
+
+            $filtros[] = ['clave' => $oficial['clave'], 'etiqueta' => $oficial['etiqueta'], 'respuesta' => $respuesta];
+        }
+
+        return [$criterios, $filtros];
     }
 
     public function devolver(EvaluacionPeriodoPrueba $evaluacion, User $actor, string $motivo): EvaluacionPeriodoPrueba
@@ -204,6 +265,13 @@ class EvaluacionPeriodoPruebaService
                 throw ValidationException::withMessages(['comentario' => 'Explica por qué RH decide distinto a la recomendación del jefe.']);
             }
 
+            // Regla canónica (FO-RH-EPP-001): si la evaluación oficial no
+            // alcanza la renovación, RH no puede "forzar aprobado" — solo
+            // una excepción YA APROBADA por Dirección General lo permite.
+            if ($renovar && (int) ($evaluacion->version ?? 1) >= 2 && $evaluacion->recomienda_renovar === false && $evaluacion->excepcionAprobada() === null) {
+                throw ValidationException::withMessages(['renovar' => 'Esta evaluación no alcanza la regla de renovación del FO-RH-EPP-001. Solo Dirección General puede autorizar una excepción.']);
+            }
+
             $this->aprobaciones->autorizarRh(
                 $evaluacion,
                 ProcesoAprobacion::PeriodoPrueba,
@@ -257,7 +325,11 @@ class EvaluacionPeriodoPruebaService
      */
     public function listar(User $usuario, array $filtros = []): LengthAwarePaginator
     {
-        $query = EvaluacionPeriodoPrueba::query()->with(['colaborador:id,name,apellidos,numero_empleado,jefe_id,sucursal_principal_id,puesto_id', 'contrato.documento', 'contrato.evaluacion']);
+        $query = EvaluacionPeriodoPrueba::query()->with([
+            'colaborador:id,name,apellidos,numero_empleado,jefe_id,sucursal_principal_id,puesto_id,fecha_ingreso',
+            'colaborador.puesto:id,nombre', 'colaborador.sucursalPrincipal:id,nombre', 'colaborador.jefe:id,name,apellidos',
+            'contrato.documento', 'contrato.evaluacion', 'solicitudesExcepcion',
+        ]);
 
         if (! $usuario->can(self::PERMISO_AUTORIZAR)) {
             $query->where(fn (Builder $q) => $q
@@ -280,19 +352,35 @@ class EvaluacionPeriodoPruebaService
      */
     public function aArray(EvaluacionPeriodoPrueba $evaluacion): array
     {
+        $esOficial = (int) ($evaluacion->version ?? 1) >= 2;
+        $excepcion = $evaluacion->excepcionAprobada() ?? $evaluacion->solicitudesExcepcion->last();
+
         return [
             'id' => $evaluacion->id,
             'colaborador' => [
                 'id' => $evaluacion->colaborador->id,
                 'nombre' => $evaluacion->colaborador->nombreCompleto(),
                 'numero_empleado' => $evaluacion->colaborador->numero_empleado,
+                'puesto' => $evaluacion->colaborador->puesto?->nombre,
+                'sucursal' => $evaluacion->colaborador->sucursalPrincipal?->nombre,
+                'jefe' => $evaluacion->colaborador->jefe?->nombreCompleto(),
+                'fecha_ingreso' => $evaluacion->colaborador->fecha_ingreso?->toDateString(),
             ],
             'contrato' => $this->contratos->aArray($evaluacion->contrato),
             'estado' => $evaluacion->estado->value,
             'estado_etiqueta' => $evaluacion->estado->etiqueta(),
             'fecha_limite' => $evaluacion->fecha_limite?->toDateString(),
             'fecha_evaluacion' => $evaluacion->fecha_evaluacion?->toDateString(),
+            'version' => $evaluacion->version,
+            'es_oficial' => $esOficial,
+            // Legacy (version null/1): lista libre ya capturada. Oficial
+            // (version >= 2): los 9 ítems {clave, etiqueta, calificacion}.
             'criterios' => $evaluacion->criterios ?? [],
+            'filtros' => $evaluacion->filtros ?? [],
+            'criterios_oficiales' => config('contratos.evaluacion_periodo_prueba_v2.criterios', []),
+            'filtros_oficiales' => config('contratos.evaluacion_periodo_prueba_v2.filtros', []),
+            'total_minimo_renovar' => (float) config('contratos.evaluacion_periodo_prueba_v2.total_minimo_renovar'),
+            'total_maximo' => (int) config('contratos.evaluacion_periodo_prueba_v2.total_maximo'),
             'criterios_sugeridos' => config('contratos.criterios_evaluacion', []),
             'calificacion' => $evaluacion->calificacion,
             'resultado' => $evaluacion->resultado?->value,
@@ -302,6 +390,14 @@ class EvaluacionPeriodoPruebaService
             'comentario_autorizacion' => $evaluacion->comentario_autorizacion,
             'autorizada_en' => $evaluacion->autorizada_en?->toIso8601String(),
             'contrato_renovacion_id' => $evaluacion->contrato_renovacion_id,
+            'excepcion' => $excepcion !== null ? [
+                'id' => $excepcion->id,
+                'estado' => $excepcion->estado->value,
+                'estado_etiqueta' => $excepcion->estado->etiqueta(),
+                'motivo' => $excepcion->motivo,
+                'comentario_resolucion' => $excepcion->comentario_resolucion,
+                'resuelto_en' => $excepcion->resuelto_en?->toIso8601String(),
+            ] : null,
         ];
     }
 }
