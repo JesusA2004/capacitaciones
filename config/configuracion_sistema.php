@@ -164,6 +164,27 @@ return [
             'permiso' => 'onboarding.gestionar',
             'fallback' => ['gerencia_rh'],
         ],
+        'induccion_evaluacion_presentada' => [
+            'etiqueta' => 'Evaluación de inducción por calificar',
+            'descripcion' => 'El colaborador presentó su evaluación de inducción: faltan los casos prácticos (RH).',
+            'destinatarios' => ['usuarios_con_permiso'],
+            'permiso' => 'onboarding.gestionar',
+            'fallback' => ['gerencia_rh'],
+        ],
+        'induccion_evaluacion_aprobada' => [
+            'etiqueta' => 'Evaluación de inducción aprobada',
+            'descripcion' => 'El colaborador aprobó su evaluación de inducción.',
+            'destinatarios' => ['usuarios_con_permiso', 'jefe_directo'],
+            'permiso' => 'onboarding.gestionar',
+            'fallback' => ['gerencia_rh'],
+        ],
+        'induccion_requiere_reforzamiento' => [
+            'etiqueta' => 'Reforzamiento de inducción requerido',
+            'descripcion' => 'El colaborador obtuvo menos de 24/30: RH debe retroalimentar y reaplicar en máximo 5 días hábiles.',
+            'destinatarios' => ['usuarios_con_permiso'],
+            'permiso' => 'onboarding.gestionar',
+            'fallback' => ['gerencia_rh'],
+        ],
         'evaluacion_pendiente' => [
             'etiqueta' => 'Evaluación de periodo de prueba por capturar',
             'descripcion' => 'Se habilitó la evaluación del periodo de prueba.',

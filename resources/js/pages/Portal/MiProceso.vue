@@ -2,8 +2,10 @@
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import {
     ArrowRight,
+    BookOpen,
     CheckCircle2,
     Clock,
+    GraduationCap,
     Hourglass,
     Lock,
     PlayCircle,
@@ -14,15 +16,36 @@ import RadioMarca from '@/components/Common/RadioMarca.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { dashboard } from '@/routes';
+import {
+    capitulos as induccionCapitulos,
+    contenido as induccionEvaluacionUrl,
+} from '@/routes/portal/induccion';
 import { evaluacion as evaluacionUrl } from '@/routes/portal/onboarding';
-import type { LeccionBienvenida, MisPendientes } from '@/types';
+import type {
+    EvaluacionInduccionResumen,
+    InduccionContenidoResumen,
+    LeccionBienvenida,
+    MisPendientes,
+} from '@/types';
 
 const props = defineProps<{
     pendientes: MisPendientes['pendientes'];
     lecciones: MisPendientes['lecciones'];
     documentos: MisPendientes['documentos'];
     todo_listo: boolean;
+    evaluacionInduccion?: EvaluacionInduccionResumen | null;
+    induccionContenido?: InduccionContenidoResumen | null;
 }>();
+
+const estiloInduccion: Record<EvaluacionInduccionResumen['estado'], string> = {
+    disponible:
+        'border-[var(--mrl-primary)]/40 hover:border-[var(--mrl-primary)] hover:shadow-md',
+    pendiente_calificacion_rh: 'border-[var(--mrl-gold)]/40 bg-[var(--mrl-gold)]/5',
+    requiere_reforzamiento: 'border-destructive/40 bg-destructive/5',
+    reevaluacion_habilitada:
+        'border-[var(--mrl-primary)]/40 hover:border-[var(--mrl-primary)] hover:shadow-md',
+    aprobada: 'border-[var(--mrl-success)]/30 bg-[var(--mrl-success)]/5',
+};
 
 defineOptions({
     layout: {
@@ -332,6 +355,114 @@ const claseBoton =
                         </div>
                     </article>
                 </section>
+
+                <article
+                    v-if="induccionContenido && !induccionContenido.completado"
+                    class="flex flex-col gap-3 rounded-3xl border border-[var(--mrl-primary)]/40 bg-[var(--mrl-surface)] p-5 transition-all duration-200 hover:shadow-md"
+                >
+                    <div class="flex items-center gap-3">
+                        <BookOpen
+                            class="size-8 shrink-0 text-[var(--mrl-primary)]"
+                        />
+                        <div class="min-w-0 flex-1">
+                            <p
+                                class="text-base font-semibold text-[var(--mrl-texto)]"
+                            >
+                                {{ induccionContenido.titulo }}
+                            </p>
+                            <p class="text-sm text-[var(--mrl-texto-suave)]">
+                                {{ induccionContenido.capitulos_vistos }} de
+                                {{ induccionContenido.total_capitulos }}
+                                capítulos
+                            </p>
+                        </div>
+                        <span
+                            class="shrink-0 text-lg font-semibold tabular-nums text-[var(--mrl-primary)]"
+                        >
+                            {{ induccionContenido.porcentaje }}%
+                        </span>
+                    </div>
+                    <div
+                        class="h-2 overflow-hidden rounded-full bg-[var(--mrl-fondo)]"
+                    >
+                        <div
+                            class="h-full rounded-full bg-[var(--mrl-primary)] transition-all"
+                            :style="{ width: `${induccionContenido.porcentaje}%` }"
+                        />
+                    </div>
+                    <Link
+                        :href="induccionCapitulos.url(induccionContenido.avance_id)"
+                        class="inline-flex w-fit items-center gap-2 rounded-xl bg-[var(--mrl-primary)] px-4 py-2.5 text-sm font-medium text-white transition-all hover:gap-3 hover:bg-[var(--mrl-primary-alt)]"
+                    >
+                        {{ induccionContenido.porcentaje > 0 ? 'Continuar' : 'Comenzar' }}
+                        <ArrowRight class="size-4" />
+                    </Link>
+                </article>
+
+                <article
+                    v-if="evaluacionInduccion"
+                    class="flex flex-col gap-3 rounded-3xl border p-5 transition-all duration-200"
+                    :class="estiloInduccion[evaluacionInduccion.estado]"
+                >
+                    <div class="flex items-center gap-3">
+                        <GraduationCap
+                            class="size-8 shrink-0 text-[var(--mrl-primary)]"
+                        />
+                        <div class="min-w-0 flex-1">
+                            <p
+                                class="text-base font-semibold text-[var(--mrl-texto)]"
+                            >
+                                Evaluación de inducción
+                            </p>
+                            <p class="text-sm text-[var(--mrl-texto-suave)]">
+                                {{ evaluacionInduccion.estado_etiqueta }}
+                                <span
+                                    v-if="
+                                        evaluacionInduccion.estado ===
+                                            'requiere_reforzamiento' &&
+                                        evaluacionInduccion.fecha_limite_reevaluacion
+                                    "
+                                >
+                                    · reaplica antes del
+                                    {{
+                                        evaluacionInduccion.fecha_limite_reevaluacion
+                                    }}
+                                </span>
+                            </p>
+                        </div>
+                        <span
+                            v-if="evaluacionInduccion.mejor_calificacion !== null"
+                            class="shrink-0 text-lg font-semibold tabular-nums text-[var(--mrl-texto)]"
+                        >
+                            {{ evaluacionInduccion.mejor_calificacion }}/30
+                        </span>
+                    </div>
+
+                    <p
+                        v-if="
+                            evaluacionInduccion.estado ===
+                                'requiere_reforzamiento' &&
+                            evaluacionInduccion.retroalimentacion
+                        "
+                        class="rounded-xl bg-[var(--mrl-gold)]/10 p-3 text-sm"
+                    >
+                        Comentario de Recursos Humanos:
+                        {{ evaluacionInduccion.retroalimentacion }}
+                    </p>
+
+                    <Link
+                        v-if="evaluacionInduccion.puede_presentar"
+                        :href="induccionEvaluacionUrl.url()"
+                        class="inline-flex w-fit items-center gap-2 rounded-xl bg-[var(--mrl-primary)] px-4 py-2.5 text-sm font-medium text-white transition-all hover:gap-3 hover:bg-[var(--mrl-primary-alt)]"
+                    >
+                        {{
+                            evaluacionInduccion.intentos_count > 0
+                                ? 'Volver a presentar'
+                                : 'Realizar evaluación'
+                        }}
+                        <ArrowRight class="size-4" />
+                    </Link>
+                </article>
             </div>
 
             <aside class="flex flex-col gap-4">

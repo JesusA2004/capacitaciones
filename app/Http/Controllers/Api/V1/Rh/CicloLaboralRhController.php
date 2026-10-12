@@ -4,11 +4,14 @@ namespace App\Http\Controllers\Api\V1\Rh;
 
 use App\Http\Controllers\Controller;
 use App\Models\Colaborador;
+use App\Models\EvaluacionInduccion;
+use App\Models\EvaluacionInduccionIntento;
 use App\Models\OnboardingAvance;
 use App\Models\OnboardingProceso;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
+use App\Services\Onboarding\EvaluacionInduccionService;
 use App\Services\Onboarding\OnboardingService;
 use App\Services\Reportes\TableroRhService;
 use App\Services\Tareas\TareaService;
@@ -31,6 +34,7 @@ class CicloLaboralRhController extends Controller
         private readonly TareaService $tareas,
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly OrganizacionJerarquiaService $jerarquia,
+        private readonly EvaluacionInduccionService $evaluacionInduccion,
     ) {}
 
     public function tablero(Request $request): JsonResponse
@@ -114,5 +118,28 @@ class CicloLaboralRhController extends Controller
         $avance = $this->onboarding->retroalimentar($avance, $request->user(), (string) $datos['retroalimentacion']);
 
         return response()->json(['data' => $this->onboarding->aArray($avance->proceso()->firstOrFail(), $request->user())]);
+    }
+
+    public function calificarInduccion(Request $request, EvaluacionInduccionIntento $intento): JsonResponse
+    {
+        $this->authorize('calificar', $intento->evaluacion);
+        $datos = $request->validate([
+            'puntos' => ['required', 'array'],
+            'puntos.*' => ['required', 'array'],
+            'puntos.*.*' => ['required', 'boolean'],
+        ]);
+
+        $intento = $this->evaluacionInduccion->calificarCasosPracticos($intento, $request->user(), $datos['puntos']);
+
+        return response()->json(['data' => $this->evaluacionInduccion->aArray($intento->evaluacion()->firstOrFail(), $request->user())]);
+    }
+
+    public function retroalimentarInduccion(Request $request, EvaluacionInduccion $evaluacion): JsonResponse
+    {
+        $this->authorize('calificar', $evaluacion);
+        $datos = $request->validate(['retroalimentacion' => ['required', 'string', 'max:4000']]);
+        $evaluacion = $this->evaluacionInduccion->retroalimentar($evaluacion, $request->user(), (string) $datos['retroalimentacion']);
+
+        return response()->json(['data' => $this->evaluacionInduccion->aArray($evaluacion, $request->user())]);
     }
 }

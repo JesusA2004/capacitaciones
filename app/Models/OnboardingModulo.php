@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\TipoModuloOnboarding;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
@@ -26,8 +27,10 @@ use Illuminate\Support\Carbon;
  * @property string $calificacion_minima
  * @property bool $obligatorio
  * @property bool $activo
+ * @property string|null $evaluacion_formal_clave Si no es null, el avance de este módulo lo aprueba una evaluación formal (ver App\Services\Onboarding\EvaluacionInduccionService), no el quiz de 'preguntas'.
  * @property Carbon|null $created_at
  * @property-read Puesto|null $puesto
+ * @property-read list<array<mixed, mixed>> $contenido_estructurado
  */
 class OnboardingModulo extends Model
 {
@@ -35,7 +38,7 @@ class OnboardingModulo extends Model
 
     protected $fillable = [
         'clave', 'titulo', 'descripcion', 'tipo', 'puesto_id', 'orden', 'contenido_url', 'contenido',
-        'preguntas', 'calificacion_minima', 'obligatorio', 'activo',
+        'preguntas', 'calificacion_minima', 'obligatorio', 'activo', 'evaluacion_formal_clave',
     ];
 
     protected function casts(): array
@@ -56,6 +59,42 @@ class OnboardingModulo extends Model
     public function puesto(): BelongsTo
     {
         return $this->belongsTo(Puesto::class);
+    }
+
+    /**
+     * `contenido` como lista de capítulos navegables ({clave, numero,
+     * titulo, resumen, bloques[]}) cuando el módulo lo guarda como JSON (hoy
+     * solo "Inducción Mr. Lana" — ver InduccionMrLanaModuloSeeder). Los
+     * módulos que guardan texto plano en `contenido` devuelven una lista
+     * vacía: nunca truena, solo no tienen visor de capítulos.
+     *
+     * @return Attribute<list<array<mixed, mixed>>, never>
+     */
+    protected function contenidoEstructurado(): Attribute
+    {
+        return Attribute::get(function (): array {
+            if ($this->contenido === null || ! str_starts_with(trim($this->contenido), '[')) {
+                return [];
+            }
+
+            $decodificado = json_decode($this->contenido, true);
+
+            if (! is_array($decodificado)) {
+                return [];
+            }
+
+            return array_values(array_filter($decodificado, 'is_array'));
+        });
+    }
+
+    /**
+     * true si el avance de este módulo NO se aprueba con el quiz genérico
+     * (preguntasPublicas()/preguntas), sino con una evaluación formal
+     * (EvaluacionInduccionService::habilitarPara()).
+     */
+    public function tieneEvaluacionFormal(): bool
+    {
+        return $this->evaluacion_formal_clave !== null;
     }
 
     /**

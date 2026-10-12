@@ -41,6 +41,7 @@ class DatabaseSeeder extends Seeder
             // Necesita sucursales y puestos ya sembrados (empata por nombre).
             PlantillaAutorizadaSeeder::class,
             CursoInduccionSeeder::class,
+            InduccionMrLanaModuloSeeder::class,
             BirthdayPhraseSeeder::class,
             MotivosRechazoCandidatoSeeder::class,
         ]);

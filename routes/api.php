@@ -224,6 +224,13 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('onboarding/avances/{avance}/evaluacion', [MiProcesoController::class, 'evaluacion'])
                 ->name('onboarding.evaluacion')
                 ->middleware('throttle:30,1');
+            Route::post('onboarding/avances/{avance}/visto', [MiProcesoController::class, 'marcarContenidoVisto'])->name('onboarding.visto');
+            Route::get('induccion/capitulos/{avance}', [MiProcesoController::class, 'capitulosInduccion'])->name('induccion.capitulos');
+            Route::post('induccion/capitulos/{avance}/progreso', [MiProcesoController::class, 'registrarProgresoInduccion'])->name('induccion.progreso');
+            Route::get('induccion', [MiProcesoController::class, 'contenidoInduccion'])->name('induccion.contenido');
+            Route::post('induccion/{evaluacion}/presentar', [MiProcesoController::class, 'presentarInduccion'])
+                ->name('induccion.presentar')
+                ->middleware('throttle:10,1');
             Route::get('alta', [CicloLaboralColaboradorController::class, 'alta'])->name('alta');
             Route::get('expediente', [CicloLaboralColaboradorController::class, 'expediente'])->name('expediente');
             Route::get('documentos-pendientes', [CicloLaboralColaboradorController::class, 'documentosPendientes'])->name('documentos-pendientes');
@@ -296,6 +303,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('onboarding/{proceso}/activos', [CicloLaboralRhController::class, 'entregarActivo'])->name('onboarding.activos');
             Route::post('onboarding/{proceso}/completar', [CicloLaboralRhController::class, 'completar'])->name('onboarding.completar');
             Route::post('onboarding/avances/{avance}/retroalimentacion', [CicloLaboralRhController::class, 'retroalimentar'])->name('onboarding.retroalimentar');
+            Route::post('induccion/intentos/{intento}/calificar', [CicloLaboralRhController::class, 'calificarInduccion'])->name('induccion.calificar');
+            Route::post('induccion/{evaluacion}/retroalimentacion', [CicloLaboralRhController::class, 'retroalimentarInduccion'])->name('induccion.retroalimentar');
 
             Route::prefix('candidatos')->name('candidatos.')->group(function () {
                 Route::get('/', [RhCandidatoController::class, 'index'])->name('index');

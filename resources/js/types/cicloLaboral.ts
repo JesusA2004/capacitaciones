@@ -413,6 +413,64 @@ export type LeccionBienvenida = {
     calificacion_minima: number;
 };
 
+/**
+ * Evaluación oficial de inducción (FO-RH-EI, 30 puntos). DTO de
+ * EvaluacionInduccionService::aArray() — ver resources/js/types/induccion.ts
+ * para el resto (contenido público, intentos, casos prácticos).
+ */
+export type EvaluacionInduccionResumen = {
+    id: number;
+    colaborador: {
+        id: number;
+        nombre: string;
+        numero_empleado: string | null;
+        puesto: string | null;
+        sucursal: string | null;
+        fecha_ingreso: string | null;
+        jefe_inmediato: string | null;
+    };
+    estado:
+        | 'disponible'
+        | 'pendiente_calificacion_rh'
+        | 'requiere_reforzamiento'
+        | 'reevaluacion_habilitada'
+        | 'aprobada';
+    estado_etiqueta: string;
+    version: string;
+    intentos_count: number;
+    mejor_calificacion: number | null;
+    fecha_limite_reevaluacion: string | null;
+    retroalimentacion: string | null;
+    puede_presentar: boolean;
+    puede_calificar: boolean;
+    intentos: {
+        id: number;
+        numero: number;
+        presentado_en: string;
+        pendiente_calificacion_rh: boolean;
+        calificacion_total: number | null;
+        nivel: string | null;
+        nivel_etiqueta: string | null;
+        aprobado: boolean | null;
+        calificado_en: string | null;
+    }[];
+    ultimo_intento_id: number | null;
+};
+
+/**
+ * Resumen del avance de contenido (capítulos) de la Inducción Mr. Lana — ver
+ * EvaluacionInduccionService::resumenContenido().
+ */
+export type InduccionContenidoResumen = {
+    avance_id: number;
+    titulo: string;
+    total_capitulos: number;
+    capitulos_vistos: number;
+    porcentaje: number;
+    ultima_capitulo: string | null;
+    completado: boolean;
+};
+
 export type MisPendientes = {
     pendientes: PendientePersonal[];
     lecciones: LeccionBienvenida[];
@@ -422,4 +480,6 @@ export type MisPendientes = {
         faltantes: number;
     } | null;
     todo_listo: boolean;
+    evaluacionInduccion?: EvaluacionInduccionResumen | null;
+    induccionContenido?: InduccionContenidoResumen | null;
 };

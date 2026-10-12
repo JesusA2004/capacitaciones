@@ -5,11 +5,14 @@ namespace App\Http\Controllers\Rh;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Onboarding\GuardarModuloOnboardingRequest;
 use App\Http\Requests\Onboarding\GuardarTipoActivoRequest;
+use App\Models\EvaluacionInduccion;
+use App\Models\EvaluacionInduccionIntento;
 use App\Models\OnboardingAvance;
 use App\Models\OnboardingModulo;
 use App\Models\OnboardingProceso;
 use App\Models\Puesto;
 use App\Models\TipoActivo;
+use App\Services\Onboarding\EvaluacionInduccionService;
 use App\Services\Onboarding\OnboardingCatalogoService;
 use App\Services\Onboarding\OnboardingService;
 use Illuminate\Http\RedirectResponse;
@@ -27,6 +30,7 @@ class OnboardingController extends Controller
     public function __construct(
         private readonly OnboardingService $onboarding,
         private readonly OnboardingCatalogoService $catalogo,
+        private readonly EvaluacionInduccionService $evaluacionInduccion,
     ) {}
 
     public function entregarActivo(Request $request, OnboardingProceso $proceso): RedirectResponse
@@ -55,6 +59,44 @@ class OnboardingController extends Controller
     {
         $datos = $request->validate(['retroalimentacion' => ['required', 'string', 'max:4000']]);
         $this->onboarding->retroalimentar($avance, $request->user(), (string) $datos['retroalimentacion']);
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Retroalimentación enviada: la reevaluación quedó habilitada.']);
+    }
+
+    public function mostrarInduccion(Request $request, EvaluacionInduccionIntento $intento): Response
+    {
+        $intento->loadMissing('evaluacion');
+        $this->authorize('calificar', $intento->evaluacion);
+
+        return Inertia::render('Rh/Onboarding/CalificarInduccion', [
+            'evaluacion' => $this->evaluacionInduccion->aArray($intento->evaluacion, $request->user()),
+            'casosPracticos' => $this->evaluacionInduccion->detalleCasosPracticos($intento),
+            'intentoId' => $intento->id,
+            'yaCalificado' => ! $intento->pendienteCalificacionRh(),
+        ]);
+    }
+
+    public function calificarInduccion(Request $request, EvaluacionInduccionIntento $intento): RedirectResponse
+    {
+        $this->authorize('calificar', $intento->evaluacion);
+        $datos = $request->validate([
+            'puntos' => ['required', 'array'],
+            'puntos.*' => ['required', 'array'],
+            'puntos.*.*' => ['required', 'boolean'],
+        ]);
+
+        $intento = $this->evaluacionInduccion->calificarCasosPracticos($intento, $request->user(), $datos['puntos']);
+
+        return back()->with('toast', $intento->aprobado
+            ? ['type' => 'success', 'message' => sprintf('Aprobada con %s/30.', number_format((float) $intento->calificacion_total, 1))]
+            : ['type' => 'warning', 'message' => sprintf('Obtuvo %s/30: da retroalimentación y habilita la reevaluación (máximo 5 días hábiles).', number_format((float) $intento->calificacion_total, 1))]);
+    }
+
+    public function retroalimentarInduccion(Request $request, EvaluacionInduccion $evaluacion): RedirectResponse
+    {
+        $this->authorize('calificar', $evaluacion);
+        $datos = $request->validate(['retroalimentacion' => ['required', 'string', 'max:4000']]);
+        $this->evaluacionInduccion->retroalimentar($evaluacion, $request->user(), (string) $datos['retroalimentacion']);
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Retroalimentación enviada: la reevaluación quedó habilitada.']);
     }

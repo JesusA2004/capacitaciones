@@ -153,6 +153,10 @@ class OnboardingService
                 throw ValidationException::withMessages(['onboarding' => 'Este onboarding ya está cerrado.']);
             }
 
+            if ($avance->modulo->tieneEvaluacionFormal()) {
+                throw ValidationException::withMessages(['onboarding' => 'Este módulo usa la evaluación oficial de inducción: preséntala desde "Evaluación de inducción".']);
+            }
+
             if (! $avance->estado->permiteIntento()) {
                 $mensaje = match ($avance->estado) {
                     EstadoAvanceOnboarding::Bloqueado => 'Primero aprueba el módulo anterior.',
@@ -477,6 +481,100 @@ class OnboardingService
     }
 
     /**
+     * El colaborador marca como visto el contenido de un avance (hoy solo lo
+     * usa el gate de la evaluación formal de inducción — ver
+     * EvaluacionInduccionService::habilitarPara()). No aprueba el avance por
+     * sí solo: ver contenido no es lo mismo que calificar.
+     */
+    public function marcarContenidoVisto(OnboardingAvance $avance, User $usuario): OnboardingAvance
+    {
+        $avance->loadMissing('proceso');
+
+        if ($usuario->colaborador_id === null || $usuario->colaborador_id !== $avance->proceso->colaborador_id) {
+            throw new AuthorizationException('Solo el colaborador titular marca su contenido como visto.');
+        }
+
+        if ($avance->contenido_visto_en === null) {
+            $avance->update(['contenido_visto_en' => now()]);
+        }
+
+        return $avance->refresh();
+    }
+
+    /**
+     * Progreso granular por capítulo (hoy solo lo usa "Inducción Mr. Lana",
+     * ver config('contenido_induccion')): registra el capítulo como visto,
+     * recalcula el porcentaje contra el total de capítulos del módulo y, si
+     * llega a 100%, marca el contenido completo (mismo gate que
+     * marcarContenidoVisto, sin duplicar la regla).
+     */
+    public function registrarProgresoCapitulo(OnboardingAvance $avance, User $usuario, string $capituloClave): OnboardingAvance
+    {
+        $avance->loadMissing('proceso', 'modulo');
+
+        if ($usuario->colaborador_id === null || $usuario->colaborador_id !== $avance->proceso->colaborador_id) {
+            throw new AuthorizationException('Solo el colaborador titular registra su propio progreso.');
+        }
+
+        $capitulos = collect((array) ($avance->modulo->contenido_estructurado ?? []))->pluck('clave')->filter()->values();
+
+        if ($capitulos->isEmpty() || ! $capitulos->contains($capituloClave)) {
+            throw ValidationException::withMessages(['capitulo' => 'Este capítulo no existe en el contenido del módulo.']);
+        }
+
+        $progreso = (array) ($avance->progreso_contenido ?? []);
+        $vistos = collect((array) ($progreso['capitulos_vistos'] ?? []))->push($capituloClave)->unique()->values();
+        $porcentaje = (int) round($vistos->intersect($capitulos)->count() / $capitulos->count() * 100);
+
+        $avance->update(['progreso_contenido' => [
+            'capitulos_vistos' => $vistos->all(),
+            'ultima_capitulo' => $capituloClave,
+            'porcentaje' => $porcentaje,
+        ]]);
+
+        if ($porcentaje >= 100 && $avance->contenido_visto_en === null) {
+            $avance->update(['contenido_visto_en' => now()]);
+        }
+
+        return $avance->refresh();
+    }
+
+    /**
+     * Aprueba (dentro de la transacción del llamador) todos los avances de
+     * los módulos con esta evaluacion_formal_clave y recalcula el estado del
+     * proceso — SIN notificar (eso es sincronizarBandeja(), después del
+     * commit). Único punto de entrada para evaluaciones formales externas
+     * (hoy EvaluacionInduccionService) que aprueban avances por su cuenta.
+     */
+    public function aprobarAvancesFormal(OnboardingProceso $proceso, string $claveFormal): OnboardingProceso
+    {
+        $proceso = OnboardingProceso::query()->lockForUpdate()->findOrFail($proceso->id);
+
+        $avances = $proceso->avances()
+            ->whereHas('modulo', fn ($q) => $q->where('evaluacion_formal_clave', $claveFormal))
+            ->get();
+
+        foreach ($avances as $avance) {
+            $avance->update(['estado' => EstadoAvanceOnboarding::Aprobado, 'aprobado_en' => now()]);
+        }
+
+        $proceso->update(['estado' => $this->estadoSegunAvances($proceso)]);
+
+        return $proceso->refresh();
+    }
+
+    /**
+     * Vuelve a sincronizar la bandeja de pendientes del proceso (tareas +
+     * notificaciones) — llamar siempre DESPUÉS de hacer commit, nunca dentro
+     * de una transacción abierta (un push no debe salir para un estado que
+     * todavía puede revertirse).
+     */
+    public function sincronizarBandeja(OnboardingProceso $proceso): void
+    {
+        $this->sincronizarPendientes($proceso->refresh());
+    }
+
+    /**
      * DTO estable del onboarding para web, app del colaborador y app de RH.
      *
      * @return array<string, mixed>
@@ -500,6 +598,7 @@ class OnboardingService
                 'tipo_etiqueta' => $a->tipo->etiqueta(),
                 'orden' => $a->orden,
                 'obligatorio' => $a->modulo->obligatorio,
+                'evaluacion_formal_clave' => $a->modulo->evaluacion_formal_clave,
                 'estado' => $a->estado->value,
                 'estado_etiqueta' => $a->estado->etiqueta(),
                 'calificacion_minima' => (float) $a->modulo->calificacion_minima,

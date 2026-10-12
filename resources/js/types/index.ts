@@ -8,6 +8,7 @@ export * from './calendario';
 export * from './campanas';
 export * from './celebraciones';
 export * from './cicloLaboral';
+export * from './induccion';
 export * from './configuracion';
 export * from './cuestionarios';
 export * from './cursos';

@@ -43,6 +43,11 @@ enum TipoTarea: string
     case OnboardingRefuerzo = 'onboarding_refuerzo';
     case OnboardingEntregaActivos = 'onboarding_entrega_activos';
     case PlantillaFaltante = 'plantilla_faltante';
+    // Evaluación oficial de inducción (FO-RH, 30 puntos): presentarla (colaborador),
+    // calificar casos prácticos (RH) y reforzamiento (RH) tras reprobar.
+    case InduccionEvaluacionPendiente = 'induccion_evaluacion_pendiente';
+    case InduccionCasosPorCalificar = 'induccion_casos_por_calificar';
+    case InduccionReforzamiento = 'induccion_reforzamiento';
 
     // Etapa 4 — periodo de prueba
     case ContratoPorVencer = 'contrato_por_vencer';
@@ -93,6 +98,9 @@ enum TipoTarea: string
             self::OnboardingRefuerzo => 'Onboarding con resultado menor al mínimo',
             self::OnboardingEntregaActivos => 'Activos y responsivas por entregar',
             self::PlantillaFaltante => 'Plantilla documental faltante',
+            self::InduccionEvaluacionPendiente => 'Presenta tu evaluación de inducción',
+            self::InduccionCasosPorCalificar => 'Calificar casos prácticos de inducción',
+            self::InduccionReforzamiento => 'Reforzamiento de evaluación de inducción',
             self::ContratoPorVencer => 'Contrato próximo a vencer',
             self::EvaluacionPendiente => 'Evaluación de periodo de prueba pendiente',
             self::EvaluacionPorAutorizar => 'Periodo de prueba pendiente de autorización',
@@ -127,7 +135,8 @@ enum TipoTarea: string
             self::EnvioOriginalPendiente, self::RecepcionOriginalPendiente, self::EscaneoPendiente,
             self::ActivacionPendiente => EtapaCicloLaboral::Contratacion,
             self::OnboardingModuloPendiente, self::OnboardingRefuerzo, self::OnboardingEntregaActivos,
-            self::PlantillaFaltante => EtapaCicloLaboral::Onboarding,
+            self::PlantillaFaltante, self::InduccionEvaluacionPendiente, self::InduccionCasosPorCalificar,
+            self::InduccionReforzamiento => EtapaCicloLaboral::Onboarding,
             self::ContratoPorVencer, self::EvaluacionPendiente, self::EvaluacionPorAutorizar => EtapaCicloLaboral::PeriodoPrueba,
             self::CierrePreautorizacion, self::CierreAutorizacionRh, self::FiniquitoPendiente, self::FiniquitoPorAutorizar,
             self::PagoPorProgramar, self::CitaFiniquito, self::CierrePorConcluir => EtapaCicloLaboral::Cierre,

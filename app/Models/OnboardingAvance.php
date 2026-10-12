@@ -27,6 +27,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $retroalimentacion
  * @property int|null $retroalimentado_por
  * @property Carbon|null $retroalimentado_en
+ * @property Carbon|null $contenido_visto_en
+ * @property array<string, mixed>|null $progreso_contenido
  * @property Carbon|null $updated_at
  * @property-read OnboardingProceso $proceso
  * @property-read OnboardingModulo $modulo
@@ -39,7 +41,7 @@ class OnboardingAvance extends Model
     protected $fillable = [
         'onboarding_proceso_id', 'onboarding_modulo_id', 'tipo', 'orden', 'estado', 'intentos_count',
         'ultima_calificacion', 'mejor_calificacion', 'aprobado_en', 'retroalimentacion',
-        'retroalimentado_por', 'retroalimentado_en',
+        'retroalimentado_por', 'retroalimentado_en', 'contenido_visto_en', 'progreso_contenido',
     ];
 
     protected function casts(): array
@@ -53,6 +55,8 @@ class OnboardingAvance extends Model
             'mejor_calificacion' => 'decimal:2',
             'aprobado_en' => 'datetime',
             'retroalimentado_en' => 'datetime',
+            'contenido_visto_en' => 'datetime',
+            'progreso_contenido' => 'array',
         ];
     }
 

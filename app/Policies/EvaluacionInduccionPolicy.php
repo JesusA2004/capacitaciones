@@ -1,0 +1,36 @@
+<?php
+
+namespace App\Policies;
+
+use App\Models\EvaluacionInduccion;
+use App\Models\User;
+use App\Services\AlcanceOrganizacionalService;
+use App\Services\Onboarding\OnboardingService;
+
+/**
+ * El colaborador titular presenta su propia evaluación de inducción; RH con
+ * permiso onboarding.gestionar (y alcance sobre el colaborador) la califica
+ * y retroalimenta. Nadie califica ni retroalimenta la suya propia.
+ */
+class EvaluacionInduccionPolicy
+{
+    public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}
+
+    public function ver(User $usuario, EvaluacionInduccion $evaluacion): bool
+    {
+        return $usuario->colaborador_id === $evaluacion->colaborador_id
+            || ($usuario->can(OnboardingService::PERMISO_GESTIONAR) && $this->alcance->alcanzaColaborador($usuario, $evaluacion->colaborador));
+    }
+
+    public function presentar(User $usuario, EvaluacionInduccion $evaluacion): bool
+    {
+        return $usuario->colaborador_id !== null && $usuario->colaborador_id === $evaluacion->colaborador_id;
+    }
+
+    public function calificar(User $usuario, EvaluacionInduccion $evaluacion): bool
+    {
+        return $usuario->can(OnboardingService::PERMISO_GESTIONAR)
+            && $usuario->colaborador_id !== $evaluacion->colaborador_id
+            && $this->alcance->alcanzaColaborador($usuario, $evaluacion->colaborador);
+    }
+}

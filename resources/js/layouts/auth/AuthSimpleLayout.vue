@@ -57,13 +57,6 @@ const CARACTERISTICAS = [
                 class="absolute -bottom-24 -left-24 size-96 rounded-full bg-[#2f5937]/40 blur-3xl"
             />
 
-            <Link
-                :href="home()"
-                class="relative z-10 text-xs font-semibold tracking-[0.3em] text-[#e9d6b0]/80 uppercase transition-opacity hover:opacity-80"
-            >
-                Portal de Recursos Humanos
-            </Link>
-
             <div
                 class="relative z-10 flex flex-1 flex-col items-center justify-center gap-10"
             >
@@ -72,12 +65,6 @@ const CARACTERISTICAS = [
                     alt="MR. LANA PEOPLE"
                     class="w-full max-w-sm animate-in object-contain duration-700 fade-in zoom-in-95"
                 />
-                <p
-                    class="max-w-md animate-in text-center text-xl leading-snug font-medium text-white/90 delay-150 duration-700 fade-in slide-in-from-bottom-2 xl:text-2xl"
-                    style="font-family: var(--font-display)"
-                >
-                    Reclutamiento, personal y RH en un solo lugar
-                </p>
             </div>
 
             <ul class="relative z-10 grid gap-3 xl:grid-cols-3">

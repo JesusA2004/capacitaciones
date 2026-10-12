@@ -760,6 +760,14 @@ class CicloLaboralService
             $detalle = $this->onboarding->aArray($proceso, $usuario, true);
 
             foreach ($detalle['modulos'] as $m) {
+                // Los módulos con evaluación formal (ver evaluacion_formal_clave)
+                // no usan este quiz genérico: su presentación/calificación la
+                // maneja EvaluacionInduccionService — nunca mostrar aquí una
+                // "lección" sin preguntas con la que nada se puede hacer.
+                if ($m['evaluacion_formal_clave'] !== null) {
+                    continue;
+                }
+
                 $lecciones[] = [
                     'avance_id' => $m['avance_id'],
                     'titulo' => $m['titulo'],

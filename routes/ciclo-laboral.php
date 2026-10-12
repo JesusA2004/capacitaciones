@@ -24,6 +24,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('mi-proceso/onboarding/{avance}/evaluacion', [MiProcesoController::class, 'evaluacion'])
             ->name('portal.onboarding.evaluacion')
             ->middleware('throttle:30,1');
+        Route::post('mi-proceso/onboarding/{avance}/visto', [MiProcesoController::class, 'marcarContenidoVisto'])->name('portal.onboarding.visto');
+        Route::get('mi-proceso/induccion/capitulos/{avance}', [MiProcesoController::class, 'capitulosInduccion'])->name('portal.induccion.capitulos');
+        Route::post('mi-proceso/induccion/capitulos/{avance}/progreso', [MiProcesoController::class, 'registrarProgresoInduccion'])->name('portal.induccion.progreso');
+        Route::get('mi-proceso/induccion', [MiProcesoController::class, 'contenidoInduccion'])->name('portal.induccion.contenido');
+        Route::post('mi-proceso/induccion/{evaluacion}/presentar', [MiProcesoController::class, 'presentarInduccion'])
+            ->name('portal.induccion.presentar')
+            ->middleware('throttle:10,1');
     });
 
     Route::prefix('rh')->name('rh.')->group(function () {
@@ -41,6 +48,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('{proceso}/activos', [OnboardingController::class, 'entregarActivo'])->name('activos');
             Route::post('{proceso}/completar', [OnboardingController::class, 'completar'])->name('completar');
             Route::post('avances/{avance}/retroalimentacion', [OnboardingController::class, 'retroalimentar'])->name('retroalimentar');
+            Route::get('induccion/intentos/{intento}', [OnboardingController::class, 'mostrarInduccion'])->name('induccion.mostrar');
+            Route::post('induccion/intentos/{intento}/calificar', [OnboardingController::class, 'calificarInduccion'])->name('induccion.calificar');
+            Route::post('induccion/{evaluacion}/retroalimentacion', [OnboardingController::class, 'retroalimentarInduccion'])->name('induccion.retroalimentar');
         });
 
         Route::prefix('evaluaciones')->name('evaluaciones.')->group(function () {
