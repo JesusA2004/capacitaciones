@@ -157,7 +157,10 @@ class PlaceholderResolver
             'telefono_corporativo' => (string) $sujeto->telefono_corporativo,
             'correo' => $texto('colaborador.correo'),
             'correo_personal' => $texto('colaborador.correo_personal'),
-            'correo_corporativo' => (string) ($sujeto->user->email ?? ''),
+            // El "email" de acceso al sistema ya no siempre es un correo
+            // real (puede ser un usuario); correo_corporativo es el correo
+            // real de la empresa, capturado aparte y que no todos tienen.
+            'correo_corporativo' => (string) ($sujeto->correo_corporativo ?? ''),
             'empresa' => $texto('empresa.nombre'),
             'sucursal' => $texto('laboral.sucursal'),
             'departamento' => $texto('laboral.departamento'),

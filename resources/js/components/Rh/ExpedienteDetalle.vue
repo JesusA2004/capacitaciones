@@ -209,6 +209,7 @@ const form = useForm({
     fecha_nacimiento: props.colaborador.fecha_nacimiento ?? '',
     telefono: props.colaborador.telefono ?? '',
     telefono_corporativo: props.colaborador.telefono_corporativo ?? '',
+    correo_corporativo: props.colaborador.correo_corporativo ?? '',
     curp: props.colaborador.curp ?? '',
     rfc: props.colaborador.rfc ?? '',
     nss: props.colaborador.nss ?? '',
@@ -1170,6 +1171,27 @@ function irACompletarExpediente() {
                                                 :message="
                                                     form.errors
                                                         .telefono_corporativo
+                                                "
+                                            />
+                                        </div>
+                                        <div class="grid gap-2">
+                                            <Label for="correo_corporativo"
+                                                >Correo corporativo
+                                                (opcional — solo
+                                                administrativos/gerencia)</Label
+                                            >
+                                            <Input
+                                                id="correo_corporativo"
+                                                type="email"
+                                                v-model="
+                                                    form.correo_corporativo
+                                                "
+                                                :disabled="!puedeEditar"
+                                            />
+                                            <InputError
+                                                :message="
+                                                    form.errors
+                                                        .correo_corporativo
                                                 "
                                             />
                                         </div>

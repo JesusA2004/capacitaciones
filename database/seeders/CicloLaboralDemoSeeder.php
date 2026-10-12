@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\EstadoAvanceOnboarding;
 use App\Enums\EstadoCandidato;
 use App\Enums\EstadoVacante;
 use App\Enums\MotivoVacante;
@@ -17,6 +18,7 @@ use App\Models\EvaluacionPeriodoPrueba;
 use App\Models\GeneratedDocument;
 use App\Models\HeadcountTarget;
 use App\Models\OnboardingModulo;
+use App\Models\OnboardingProceso;
 use App\Models\Puesto;
 use App\Models\TipoActivo;
 use App\Models\User;
@@ -30,6 +32,7 @@ use App\Services\DocumentosLaborales\FlujoDocumentalService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Incorporacion\IncorporacionInvitacionService;
 use App\Services\Incorporacion\IncorporacionService;
+use App\Services\Onboarding\EvaluacionInduccionService;
 use App\Services\Onboarding\OnboardingService;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
 use App\Services\Reclutamiento\ContratacionCandidatoService;
@@ -417,14 +420,27 @@ class CicloLaboralDemoSeeder extends Seeder
 
         $this->como($usuario);
 
+        // El avance institucional "Inducción Mr. Lana" ya no se aprueba con
+        // el quiz genérico, sino con la evaluación oficial de 30 puntos (ver
+        // Fase 1/InduccionMrLanaModuloSeeder) — se resuelve aparte, con
+        // respuestas 100% correctas, para dejar el resto del onboarding
+        // (módulos demo) alcanzable igual que antes de esa fase.
+        $this->completarInduccionFormal($proceso, $usuario);
+
+        $avancesQuiz = $proceso->refresh()->avances()
+            ->whereHas('modulo', fn ($q) => $q->whereNull('evaluacion_formal_clave'))
+            ->orderBy('orden')
+            ->orderBy('id')
+            ->get();
+
         if ($hasta === 'onboarding_reprobado') {
             // 1 de 2 correctas = 5 < 8 → refuerzo de RH.
-            $onboarding->presentarEvaluacion($proceso->avances()->firstOrFail(), $usuario, [0 => 0, 1 => 0]);
+            $onboarding->presentarEvaluacion($avancesQuiz->firstOrFail(), $usuario, [0 => 0, 1 => 0]);
 
             return;
         }
 
-        foreach ($proceso->avances()->get() as $avance) {
+        foreach ($avancesQuiz as $avance) {
             $onboarding->presentarEvaluacion($avance->refresh(), $usuario, [0 => 1, 1 => 0]);
         }
 
@@ -443,10 +459,18 @@ class CicloLaboralDemoSeeder extends Seeder
 
             if ($hasta === 'periodo_esperando_rh') {
                 $evaluacion = EvaluacionPeriodoPrueba::query()->where('contrato_laboral_id', $contrato->id)->firstOrFail();
+                // Formato oficial FO-RH-EPP-001 (9 criterios + 5 filtros,
+                // ver config contratos.evaluacion_periodo_prueba_v2): todo
+                // en 4 (Muy bueno) y ningún filtro en Sí, sin comentario
+                // obligatorio.
+                /** @var list<array{clave: string}> $criteriosOficiales */
+                $criteriosOficiales = (array) config('contratos.evaluacion_periodo_prueba_v2.criterios', []);
+                /** @var list<array{clave: string}> $filtrosOficiales */
+                $filtrosOficiales = (array) config('contratos.evaluacion_periodo_prueba_v2.filtros', []);
+
                 app(EvaluacionPeriodoPruebaService::class)->capturar($evaluacion, $this->como($this->gerente), [
-                    'criterios' => [['criterio' => 'Cobranza', 'calificacion' => 9], ['criterio' => 'Puntualidad', 'calificacion' => 8]],
-                    'recomienda_renovar' => true,
-                    'observaciones' => 'Buen desempeño (demo).',
+                    'criterios' => array_map(fn (array $c) => ['clave' => $c['clave'], 'calificacion' => 4], $criteriosOficiales),
+                    'filtros' => array_map(fn (array $f) => ['clave' => $f['clave'], 'respuesta' => false], $filtrosOficiales),
                 ]);
             }
 
@@ -486,6 +510,73 @@ class CicloLaboralDemoSeeder extends Seeder
             ['motivo' => 'Buen desempeño previo (demo).', 'documentos_adicionales' => array_values(array_map('intval', DocumentType::query()->where('clave', 'comprobante_domicilio')->pluck('id')->all()))],
             $this->como($this->gerente),
         );
+    }
+
+    /**
+     * Resuelve (idempotente) la evaluación formal de inducción
+     * (induccion_mr_lana_2026) con respuestas 100% correctas contra
+     * config/induccion_evaluacion.php: sin esto, el avance institucional que
+     * la usa (ver InduccionMrLanaModuloSeeder) se queda bloqueando el resto
+     * del onboarding, porque ya no se aprueba con el quiz genérico.
+     */
+    private function completarInduccionFormal(OnboardingProceso $proceso, User $usuario): void
+    {
+        $avanceFormal = $proceso->avances()->whereHas('modulo', fn ($q) => $q->whereNotNull('evaluacion_formal_clave'))->first();
+
+        if ($avanceFormal === null || $avanceFormal->estado === EstadoAvanceOnboarding::Aprobado) {
+            return;
+        }
+
+        $evaluaciones = app(EvaluacionInduccionService::class);
+
+        app(OnboardingService::class)->marcarContenidoVisto($avanceFormal, $usuario);
+        $evaluacion = $evaluaciones->habilitarPara($proceso->refresh());
+
+        if ($evaluacion === null) {
+            return;
+        }
+
+        $a = [];
+
+        /** @var array<int, array{correcta: int}> $seccionA */
+        $seccionA = (array) config('induccion_evaluacion.seccion_a', []);
+
+        foreach ($seccionA as $indice => $pregunta) {
+            $a[$indice] = $pregunta['correcta'];
+        }
+
+        $b = [];
+
+        /** @var array<int, array{correcto: bool}> $seccionB */
+        $seccionB = (array) config('induccion_evaluacion.seccion_b', []);
+
+        foreach ($seccionB as $indice => $afirmacion) {
+            $b[$indice] = $afirmacion['correcto'];
+        }
+
+        $c = [];
+
+        /** @var array<int, array{letra_correcta: string}> $seccionCConceptos */
+        $seccionCConceptos = (array) config('induccion_evaluacion.seccion_c.conceptos', []);
+
+        foreach ($seccionCConceptos as $indice => $concepto) {
+            $c[$indice] = $concepto['letra_correcta'];
+        }
+
+        $d = [];
+        $puntos = [];
+
+        /** @var list<array{clave: string, rubrica: list<array{clave: string}>}> $seccionD */
+        $seccionD = (array) config('induccion_evaluacion.seccion_d', []);
+
+        foreach ($seccionD as $caso) {
+            $d[$caso['clave']] = "Respuesta de demostración para {$caso['clave']}.";
+            $puntos[$caso['clave']] = array_fill_keys(array_column($caso['rubrica'], 'clave'), true);
+        }
+
+        $intento = $evaluaciones->presentar($evaluacion, $usuario, ['a' => $a, 'b' => $b, 'c' => $c, 'd' => $d], null);
+        $evaluaciones->calificarCasosPracticos($intento, $this->como($this->rh), $puntos);
+        $this->como($usuario);
     }
 
     private function como(User $usuario): User

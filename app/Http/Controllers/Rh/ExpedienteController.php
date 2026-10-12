@@ -346,6 +346,7 @@ class ExpedienteController extends Controller
                 'email' => $cuenta?->email,
                 'telefono' => $colaborador->telefono,
                 'telefono_corporativo' => $colaborador->telefono_corporativo,
+                'correo_corporativo' => $colaborador->correo_corporativo,
                 'sueldo_mensual' => $colaborador->sueldo_mensual,
                 'tiene_cuenta' => $cuenta !== null,
                 'usuario_id' => $idUsuarioColaborador,

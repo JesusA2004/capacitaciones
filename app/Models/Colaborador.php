@@ -37,6 +37,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property string|null $numero_empleado
  * @property string|null $telefono
  * @property string|null $telefono_corporativo
+ * @property string|null $correo_corporativo Correo de la empresa; solo puestos administrativos/gerenciales lo tienen, no todos.
  * @property string|null $sueldo_mensual
  * @property string|null $salario_diario Fuente real de compensación (CompensacionService); sueldo_mensual = salario_diario × 30 siempre.
  * @property string|null $salario_diario_integrado
@@ -112,7 +113,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
     'fecha_ingreso', 'estatus', 'estatus_imss', 'fecha_alta_imss',
     'periodo_prueba_inicio', 'periodo_prueba_fin',
     'fecha_nacimiento', 'curp', 'rfc', 'nss', 'domicilio',
-    'correo_personal', 'contacto_emergencia_nombre', 'contacto_emergencia_telefono',
+    'correo_personal', 'correo_corporativo', 'contacto_emergencia_nombre', 'contacto_emergencia_telefono',
     'contacto_emergencia_parentesco', 'contacto_emergencia_direccion', 'clave_legacy', 'importado_de', 'estatus_origen',
     'aviso_privacidad_aceptado', 'aviso_privacidad_aceptado_en',
     'consentimiento_datos_aceptado', 'consentimiento_datos_aceptado_en', 'avisos_registrado_por_id',

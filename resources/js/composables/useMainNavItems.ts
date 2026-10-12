@@ -7,6 +7,7 @@ import {
     Cake,
     ClipboardList,
     Compass,
+    Contact,
     FileStack,
     FolderOpen,
     FolderKanban,
@@ -44,6 +45,7 @@ import { index as indexUsuarios } from '@/routes/administracion/usuarios';
 import { index as indexAvisosColaborador } from '@/routes/avisos';
 import { proximamente as capacitacionProximamente } from '@/routes/capacitacion';
 import { index as indexMuroFelicitaciones } from '@/routes/celebraciones';
+import { index as indexDirectorio } from '@/routes/directorio';
 import {
     index as indexPortal,
     recibos as misRecibosNomina,
@@ -101,6 +103,11 @@ export function useMainNavItems() {
                 href: indexAvisosColaborador(),
                 icon: BellRing,
             },
+            {
+                title: 'Directorio',
+                href: indexDirectorio(),
+                icon: Contact,
+            },
         ];
 
         if (
@@ -152,6 +159,7 @@ export function useMainNavItems() {
 
         const inicio: (NavItem | false)[] = [
             { title: 'Inicio', href: dashboard(), icon: LayoutGrid },
+            { title: 'Directorio', href: indexDirectorio(), icon: Contact },
             [
                 'ciclo.preautorizar',
                 'ciclo.autorizar_rh',

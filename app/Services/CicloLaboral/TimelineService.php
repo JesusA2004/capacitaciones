@@ -5,9 +5,12 @@ namespace App\Services\CicloLaboral;
 use App\Enums\EstadoCandidato;
 use App\Enums\ProcesoAprobacion;
 use App\Enums\RutaIntervencionCandidato;
+use App\Models\AjusteHistoricoVacaciones;
 use App\Models\Candidato;
 use App\Models\Colaborador;
+use App\Models\HistorialSalario;
 use App\Models\SeguimientoCandidato;
+use App\Models\SolicitudInterna;
 use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
 use Illuminate\Database\Eloquent\Builder;
@@ -87,6 +90,9 @@ class TimelineService
         'intervencion_solicitada' => ['Intervención solicitada', 'intervencion'],
         'intervencion_aprobada' => ['Intervención aprobada: pasa a contratación', 'intervencion'],
         'intervencion_rechazo_confirmado' => ['Rechazo confirmado tras intervención', 'intervencion'],
+        'induccion_evaluacion_presentada' => ['Evaluación de inducción presentada', 'onboarding'],
+        'induccion_casos_calificados' => ['Evaluación de inducción calificada', 'onboarding'],
+        'induccion_retroalimentacion' => ['Retroalimentación de inducción · reevaluación habilitada', 'onboarding'],
     ];
 
     /**
@@ -102,6 +108,10 @@ class TimelineService
 
         if ($candidatoId !== null) {
             $items = [...$items, ...$this->seguimientos($candidatoId)];
+        }
+
+        if ($colaboradorId !== null) {
+            $items = [...$items, ...$this->cambiosSalario($colaboradorId), ...$this->ajustesVacaciones($colaboradorId), ...$this->solicitudesInternas($colaboradorId)];
         }
 
         usort($items, fn (array $a, array $b) => strcmp($a['fecha'] ?? '', $b['fecha'] ?? ''));
@@ -196,10 +206,88 @@ class TimelineService
             'onboarding_modulo_aprobado', 'onboarding_intento_reprobado' => sprintf('%s: %s (%s)', $titulo, $p['modulo'] ?? '', isset($p['calificacion']) ? number_format((float) $p['calificacion'], 1) : '—'),
             'activo_entregado' => sprintf('%s: %s', $titulo, $p['activo'] ?? ''),
             'evaluacion_autorizada' => ($p['renovar'] ?? null) ? 'RH autorizó la renovación' : 'RH autorizó la NO renovación',
+            'induccion_casos_calificados' => sprintf('%s: %s/30 (%s)', $titulo, number_format((float) ($p['calificacion_total'] ?? 0), 1), $p['nivel'] ?? '—'),
             'aprobacion_preautorizada', 'aprobacion_autorizada_rh', 'aprobacion_rechazada', 'aprobacion_devuelta' => sprintf('%s · %s', $titulo, ProcesoAprobacion::tryFrom((string) ($p['proceso'] ?? ''))?->etiqueta() ?? ''),
             'intervencion_solicitada' => sprintf('%s · %s', $titulo, RutaIntervencionCandidato::tryFrom((string) ($p['ruta'] ?? ''))?->etiqueta() ?? ''),
             default => $titulo,
         };
+    }
+
+    /**
+     * Cambios de salario diario (CompensacionService::actualizarSalario(),
+     * historial_salarios) — nunca se "pierden" en el timeline aunque el
+     * cambio no venga de un evento de activity_log.
+     *
+     * @return list<ItemTimeline>
+     */
+    private function cambiosSalario(int $colaboradorId): array
+    {
+        $items = [];
+
+        foreach (HistorialSalario::query()->where('colaborador_id', $colaboradorId)->with('actor:id,name,apellidos')->get() as $h) {
+            $items[] = [
+                'fecha' => $h->created_at?->toIso8601String(),
+                'titulo' => sprintf(
+                    'Cambio de salario diario: $%s → $%s',
+                    $h->salario_diario_anterior !== null ? number_format((float) $h->salario_diario_anterior, 2) : '—',
+                    number_format((float) $h->salario_diario_nuevo, 2),
+                ),
+                'descripcion' => $h->motivo,
+                'actor' => $h->actor?->nombreCompleto(),
+                'etapa' => 'activo',
+                'evento' => 'cambio_salario',
+            ];
+        }
+
+        return $items;
+    }
+
+    /**
+     * Ajustes históricos de vacaciones (importador de Excel u otra fuente
+     * manual) — ajustes_historicos_vacaciones, ledger append-only.
+     *
+     * @return list<ItemTimeline>
+     */
+    private function ajustesVacaciones(int $colaboradorId): array
+    {
+        $items = [];
+
+        foreach (AjusteHistoricoVacaciones::query()->where('colaborador_id', $colaboradorId)->with('actor:id,name,apellidos')->get() as $a) {
+            $items[] = [
+                'fecha' => $a->created_at?->toIso8601String(),
+                'titulo' => sprintf('Ajuste histórico de vacaciones: %s días', $a->dias),
+                'descripcion' => $a->motivo,
+                'actor' => $a->actor?->nombreCompleto(),
+                'etapa' => 'activo',
+                'evento' => 'ajuste_vacaciones',
+            ];
+        }
+
+        return $items;
+    }
+
+    /**
+     * Solicitudes internas (vacaciones, permisos, préstamos…) del
+     * colaborador — autoservicio unificado (SolicitudesService).
+     *
+     * @return list<ItemTimeline>
+     */
+    private function solicitudesInternas(int $colaboradorId): array
+    {
+        $items = [];
+
+        foreach (SolicitudInterna::query()->where('colaborador_id', $colaboradorId)->whereNotNull('tipo')->with('revisadoPor:id,name,apellidos')->get() as $s) {
+            $items[] = [
+                'fecha' => ($s->updated_at ?? $s->created_at)?->toIso8601String(),
+                'titulo' => sprintf('%s: %s', $s->tipo->etiqueta(), $s->estado->etiqueta()),
+                'descripcion' => "Folio {$s->folio}",
+                'actor' => $s->revisadoPor?->nombreCompleto(),
+                'etapa' => 'activo',
+                'evento' => 'solicitud_interna',
+            ];
+        }
+
+        return $items;
     }
 
     /**

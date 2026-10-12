@@ -558,6 +558,14 @@ class OnboardingService
             $avance->update(['estado' => EstadoAvanceOnboarding::Aprobado, 'aprobado_en' => now()]);
         }
 
+        $siguiente = OnboardingAvance::query()
+            ->where('onboarding_proceso_id', $proceso->id)
+            ->where('estado', EstadoAvanceOnboarding::Bloqueado->value)
+            ->orderBy('orden')
+            ->first();
+
+        $siguiente?->update(['estado' => EstadoAvanceOnboarding::Disponible]);
+
         $proceso->update(['estado' => $this->estadoSegunAvances($proceso)]);
 
         return $proceso->refresh();

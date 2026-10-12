@@ -7,6 +7,7 @@ use App\Http\Controllers\CalendarioController;
 use App\Http\Controllers\CelebracionController;
 use App\Http\Controllers\CertificadoVerificacionController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DirectorioController;
 use App\Http\Controllers\IncorporacionQrController;
 use App\Http\Controllers\NavigationModeController;
 use App\Http\Controllers\SeoController;
@@ -56,6 +57,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard/rotacion/pdf', [DashboardController::class, 'rotacionPdf'])->name('dashboard.rotacion.pdf');
 
     Route::post('modo-navegacion', [NavigationModeController::class, 'update'])->name('modo-navegacion.update');
+
+    // Directorio de la empresa (correo/teléfono corporativo): cualquier
+    // colaborador autenticado, acotado a su alcance organizacional.
+    Route::get('directorio', [DirectorioController::class, 'index'])->name('directorio.index');
 
     Route::inertia('capacitacion', 'Capacitacion/Proximamente')->name('capacitacion.proximamente');
 
