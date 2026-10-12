@@ -38,6 +38,8 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property string|null $telefono
  * @property string|null $telefono_corporativo
  * @property string|null $sueldo_mensual
+ * @property string|null $salario_diario Fuente real de compensación (CompensacionService); sueldo_mensual = salario_diario × 30 siempre.
+ * @property string|null $salario_diario_integrado
  * @property string|null $foto_path
  * @property string|null $expediente_storage_path
  * @property int|null $sucursal_principal_id
@@ -102,7 +104,8 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property-read User|null $user
  */
 #[Fillable([
-    'name', 'apellidos', 'genero', 'numero_empleado', 'telefono', 'telefono_corporativo', 'sueldo_mensual', 'foto_path',
+    'name', 'apellidos', 'genero', 'numero_empleado', 'telefono', 'telefono_corporativo', 'sueldo_mensual',
+    'salario_diario', 'salario_diario_integrado', 'foto_path',
     'sucursal_principal_id', 'departamento_id', 'puesto_id', 'jefe_id', 'gerente_id',
     'tipo_contratacion', 'estado_alta', 'candidato_id', 'alta_registrada_por', 'activado_en',
     'fecha_baja', 'expediente_cerrado_en', 'expediente_cerrado_por',
@@ -152,6 +155,8 @@ class Colaborador extends Model
             'consentimiento_datos_aceptado_en' => 'datetime',
             'incorporacion_decidida_en' => 'datetime',
             'sueldo_mensual' => 'decimal:2',
+            'salario_diario' => 'decimal:2',
+            'salario_diario_integrado' => 'decimal:2',
             'tipo_contratacion' => TipoContratacion::class,
             'estado_alta' => EstadoAltaColaborador::class,
             'activado_en' => 'datetime',
@@ -335,6 +340,14 @@ class Colaborador extends Model
     public function movimientosLaborales(): HasMany
     {
         return $this->hasMany(MovimientoLaboral::class, 'colaborador_id')->orderByDesc('fecha_movimiento')->orderByDesc('id');
+    }
+
+    /**
+     * @return HasMany<HistorialSalario, $this>
+     */
+    public function historialSalarios(): HasMany
+    {
+        return $this->hasMany(HistorialSalario::class, 'colaborador_id')->orderByDesc('fecha_efectiva')->orderByDesc('id');
     }
 
     /**

@@ -316,7 +316,11 @@ class DatosDocumentoAdministrativo
     {
         $sucursal = (string) ($colaborador->sucursalPrincipal->nombre ?? '');
         $departamento = (string) ($colaborador->departamento->nombre ?? '');
-        $mensual = (float) ($colaborador->sueldo_mensual ?? 0);
+        // Fuente real (CompensacionService); mensual/30 solo como respaldo
+        // para colaboradores aún no sincronizados con salario_diario.
+        $diario = $colaborador->salario_diario !== null
+            ? (float) $colaborador->salario_diario
+            : round((float) ($colaborador->sueldo_mensual ?? 0) / 30, 2);
 
         return [
             'nombre' => mb_strtoupper($colaborador->nombreCompleto()),
@@ -329,7 +333,7 @@ class DatosDocumentoAdministrativo
             'rfc' => (string) ($colaborador->rfc ?? '—'),
             'curp' => (string) ($colaborador->curp ?? '—'),
             'fecha_ingreso' => $this->fecha($colaborador->fecha_ingreso),
-            'salario_diario' => $mensual > 0 ? $this->dinero(round($mensual / 30, 2)) : '—',
+            'salario_diario' => $diario > 0 ? $this->dinero($diario) : '—',
         ];
     }
 
