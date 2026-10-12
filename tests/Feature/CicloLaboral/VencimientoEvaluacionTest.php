@@ -15,6 +15,7 @@ use App\Models\Sucursal;
 use App\Models\TareaRh;
 use App\Models\User;
 use App\Notifications\Mobile\PendienteRhNotification;
+use App\Services\Calendario\CalendarioLaboralService;
 use App\Services\Contratos\ContratoLaboralService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesYPermisosSeeder;
@@ -142,7 +143,7 @@ test('si RH decide no renovar se inicia automáticamente el cierre laboral por n
         ->and(User::query()->where('colaborador_id', $this->colaborador->id)->exists())->toBeFalse();
 });
 
-test('al mes y 15 días del contrato de 2 meses de un gestor se avisa SIEMPRE a su gerente de sucursal, su regional y la Gerencia de RH, una sola vez', function () {
+test('al cumplirse 15 DÍAS HÁBILES (no calendario) del vencimiento se avisa a la gerencia de sucursal y a RH, NUNCA a Regional, una sola vez', function () {
     Carbon\Carbon::setTestNow(Carbon\Carbon::parse('2026-07-01 12:00:00', 'America/Mexico_City'));
 
     $sucursal = Sucursal::factory()->create();
@@ -157,24 +158,37 @@ test('al mes y 15 días del contrato de 2 meses de un gestor se avisa SIEMPRE a 
 
     $gerente = clUsuario('colaborador', ['puesto_id' => $gerentePuesto->id, 'sucursal_principal_id' => $sucursal->id]);
     $gerenteAjeno = clUsuario('colaborador', ['puesto_id' => $gerentePuesto->id, 'sucursal_principal_id' => $otraSucursal->id]);
+    // Regional de LA MISMA región de esta sucursal: aunque esté perfectamente
+    // ligado, nunca debe recibir el aviso automático de simple vencimiento
+    // (solo interviene si el gerente "Solicita intervención" explícitamente).
     $regional = clUsuario('colaborador', ['puesto_id' => $regionalPuesto->id, 'sucursal_principal_id' => $otraSucursal->id]);
     $gerenteRh = clUsuario('colaborador', ['puesto_id' => $rhPuesto->id]);
-    $regionalBloqueado = clUsuario('colaborador', ['puesto_id' => $regionalPuesto->id]);
-    $regionalBloqueado->forceFill(['acceso_bloqueado_en' => now()])->save();
 
     $gestor = Colaborador::factory()->create(['puesto_id' => $gestorPuesto->id, 'sucursal_principal_id' => $sucursal->id, 'jefe_id' => $gerente->colaborador_id]);
-    $inicio = now()->subMonth()->subDays(15)->startOfDay();
-    $fin = app(ContratoLaboralService::class)->fechaFinPeriodoPrueba($gestorPuesto->id, $inicio);
-    expect($fin->toDateString())->toBe($inicio->copy()->addMonths(2)->subDay()->toDateString());
 
-    $contrato = ContratoLaboral::factory()->create(['colaborador_id' => $gestor->id, 'fecha_inicio' => $inicio->toDateString(), 'fecha_fin' => $fin->toDateString()]);
+    $ahora = now();
+    $calendario = app(CalendarioLaboralService::class);
+    // Fecha de fin fijada exactamente a 15 días HÁBILES de "ahora": es el
+    // límite exacto que debe disparar el aviso (inclusive).
+    $fin = $calendario->sumarDiasHabiles($ahora, 15);
+    $contrato = ContratoLaboral::factory()->create([
+        'colaborador_id' => $gestor->id,
+        'fecha_inicio' => $ahora->copy()->subMonths(2)->toDateString(),
+        'fecha_fin' => $fin->toDateString(),
+    ]);
 
-    // Un día antes del mes y 15 días todavía no se avisa.
-    Carbon\Carbon::setTestNow(now()->subDay());
+    // Un DÍA HÁBIL antes de cumplir los 15 días hábiles todavía no se avisa
+    // (si se contara en calendario, un viernes→lunes se adelantaría mal).
+    $diaHabilAntes = $ahora->copy();
+    do {
+        $diaHabilAntes->subDay();
+    } while ($diaHabilAntes->isWeekend());
+
+    Carbon\Carbon::setTestNow($diaHabilAntes);
     $this->artisan('contratos:revisar-vencimientos')->assertSuccessful();
     expect($contrato->refresh()->aviso_vencimiento_en)->toBeNull();
 
-    Carbon\Carbon::setTestNow(now()->addDay());
+    Carbon\Carbon::setTestNow($ahora);
     $this->artisan('contratos:revisar-vencimientos')->assertSuccessful();
     $this->artisan('contratos:revisar-vencimientos')->assertSuccessful();
 
@@ -184,12 +198,10 @@ test('al mes y 15 días del contrato de 2 meses de un gestor se avisa SIEMPRE a 
 
     // El gerente es el evaluador: recibe UN aviso (el de evaluar), no dos.
     Notification::assertSentToTimes($gerente, PendienteRhNotification::class, 1);
-    Notification::assertSentToTimes($regional, PendienteRhNotification::class, 1);
-    Notification::assertSentTo($regional, PendienteRhNotification::class, $avisoContrato);
     Notification::assertSentToTimes($gerenteRh, PendienteRhNotification::class, 1);
     Notification::assertSentTo($gerenteRh, PendienteRhNotification::class, $avisoContrato);
     Notification::assertNotSentTo($gerenteAjeno, PendienteRhNotification::class);
-    Notification::assertNotSentTo($regionalBloqueado, PendienteRhNotification::class);
+    Notification::assertNotSentTo($regional, PendienteRhNotification::class);
 
     Carbon\Carbon::setTestNow();
 });

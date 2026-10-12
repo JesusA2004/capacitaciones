@@ -193,8 +193,8 @@ return [
         ],
         'contrato_por_vencer' => [
             'etiqueta' => 'Ya se debe renovar el contrato',
-            'descripcion' => 'El contrato de capacitación/inducción está por vencer (N días antes, ver Parámetros de RH).',
-            'destinatarios' => ['usuarios_con_permiso', 'responsable_sucursal', 'regional', 'gerencia_rh'],
+            'descripcion' => 'El contrato de capacitación/inducción está por vencer (N días hábiles antes, ver Parámetros de RH). Solo gerencia de sucursal y RH: Regional/Dirección Comercial no se notifican por un simple vencimiento, solo si el gerente solicita intervención.',
+            'destinatarios' => ['usuarios_con_permiso', 'responsable_sucursal', 'gerencia_rh'],
             'permiso' => 'evaluaciones.autorizar',
             'fallback' => ['rh'],
         ],
@@ -244,8 +244,8 @@ return [
         ],
         'colaborador_alta' => [
             'etiqueta' => 'Alta de colaborador',
-            'descripcion' => 'Un colaborador quedó activo: RH y Sistemas (cuenta, accesos y equipo).',
-            'destinatarios' => ['rh', 'sistemas'],
+            'descripcion' => 'Un colaborador quedó activo: RH y Sistemas (cuenta, accesos y equipo) y confirmación a su gerente. Nunca Regional por este evento.',
+            'destinatarios' => ['rh', 'sistemas', 'gerente'],
             'fallback' => ['gerencia_rh'],
         ],
         'colaborador_baja' => [

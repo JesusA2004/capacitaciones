@@ -9,6 +9,7 @@ use App\Enums\TipoTarea;
 use App\Models\ContratoLaboral;
 use App\Models\EvaluacionPeriodoPrueba;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\Calendario\CalendarioLaboralService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Services\Tareas\TareaService;
 use Illuminate\Support\Facades\DB;
@@ -39,6 +40,7 @@ class VencimientoContratosService
         private readonly TareaService $tareas,
         private readonly NotificadorRhService $notificador,
         private readonly AuditoriaService $auditoria,
+        private readonly CalendarioLaboralService $calendario,
     ) {}
 
     /**
@@ -47,7 +49,10 @@ class VencimientoContratosService
     public function revisar(): array
     {
         $dias = (int) config('contratos.dias_aviso_vencimiento', 15);
-        $limite = now()->addDays($dias)->toDateString();
+        // Días HÁBILES (FO-RH-EPP-001: "RH, 15 días hábiles antes"), nunca
+        // calendario: un contrato que vence en lunes debe avisarse el lunes
+        // de tres semanas atrás, no el domingo.
+        $limite = $this->calendario->sumarDiasHabiles(now(), $dias)->toDateString();
 
         $ids = ContratoLaboral::query()
             ->where('estado', EstadoContratoLaboral::Vigente->value)
