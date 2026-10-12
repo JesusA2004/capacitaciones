@@ -6,9 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\Colaborador;
 use App\Models\EvaluacionInduccion;
 use App\Models\OnboardingAvance;
+use App\Services\Administracion\JerarquiaPuestoService;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\Onboarding\EvaluacionInduccionService;
 use App\Services\Onboarding\OnboardingService;
+use App\Services\Organigrama\MiniOrganigramaService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -26,6 +29,8 @@ class MiProcesoController extends Controller
         private readonly CicloLaboralService $ciclo,
         private readonly OnboardingService $onboarding,
         private readonly EvaluacionInduccionService $evaluacionInduccion,
+        private readonly JerarquiaPuestoService $jerarquia,
+        private readonly MiniOrganigramaService $miniOrganigrama,
     ) {}
 
     public function show(Request $request): Response
@@ -82,6 +87,9 @@ class MiProcesoController extends Controller
             'avanceId' => $avance->id,
             'capitulos' => $this->evaluacionInduccion->capitulos($avance, $request->user()),
             'resumen' => $this->evaluacionInduccion->resumenContenido($avance->loadMissing('proceso')->proceso),
+            // CTA "Ver organigrama completo" del capítulo 4: solo si su cuenta
+            // ya puede abrir la pantalla de Administración → Organigrama.
+            'puedeVerOrganigramaCompleto' => $request->user()->can('organigrama.ver') || $request->user()->can('puestos.administrar'),
         ]);
     }
 
@@ -110,6 +118,23 @@ class MiProcesoController extends Controller
             'contenido' => $this->evaluacionInduccion->contenidoPublico(),
             'evaluacionId' => $evaluacion->id,
         ]);
+    }
+
+    /**
+     * Organigrama dinámico del capítulo 4 (corporativo/comercial/sucursal):
+     * puesto + ocupante activo real + hijos, nunca una imagen fija ni
+     * personas hardcodeadas (ver MiniOrganigramaService, Fase 3).
+     */
+    public function organigramaInduccion(Request $request, string $vista): JsonResponse
+    {
+        $raizId = $this->miniOrganigrama->raizDeVista($vista);
+        abort_unless($raizId !== null, 404, 'Vista de organigrama no reconocida.');
+
+        $request->merge(['raiz_puesto_id' => $raizId]);
+        $puestos = $this->jerarquia->arbol($request);
+        $this->jerarquia->agregarOcupantes($puestos, $request->user(), $request);
+
+        return response()->json(['data' => $this->miniOrganigrama->anidar($puestos, $raizId)]);
     }
 
     public function presentarInduccion(Request $request, EvaluacionInduccion $evaluacion): RedirectResponse

@@ -227,6 +227,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('onboarding/avances/{avance}/visto', [MiProcesoController::class, 'marcarContenidoVisto'])->name('onboarding.visto');
             Route::get('induccion/capitulos/{avance}', [MiProcesoController::class, 'capitulosInduccion'])->name('induccion.capitulos');
             Route::post('induccion/capitulos/{avance}/progreso', [MiProcesoController::class, 'registrarProgresoInduccion'])->name('induccion.progreso');
+            Route::get('induccion/organigrama/{vista}', [MiProcesoController::class, 'organigramaInduccion'])->name('induccion.organigrama');
             Route::get('induccion', [MiProcesoController::class, 'contenidoInduccion'])->name('induccion.contenido');
             Route::post('induccion/{evaluacion}/presentar', [MiProcesoController::class, 'presentarInduccion'])
                 ->name('induccion.presentar')
@@ -303,6 +304,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('onboarding/{proceso}/activos', [CicloLaboralRhController::class, 'entregarActivo'])->name('onboarding.activos');
             Route::post('onboarding/{proceso}/completar', [CicloLaboralRhController::class, 'completar'])->name('onboarding.completar');
             Route::post('onboarding/avances/{avance}/retroalimentacion', [CicloLaboralRhController::class, 'retroalimentar'])->name('onboarding.retroalimentar');
+            Route::get('induccion/intentos/{intento}', [CicloLaboralRhController::class, 'mostrarInduccion'])->name('induccion.mostrar');
             Route::post('induccion/intentos/{intento}/calificar', [CicloLaboralRhController::class, 'calificarInduccion'])->name('induccion.calificar');
             Route::post('induccion/{evaluacion}/retroalimentacion', [CicloLaboralRhController::class, 'retroalimentarInduccion'])->name('induccion.retroalimentar');
 

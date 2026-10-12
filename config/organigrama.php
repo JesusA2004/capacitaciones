@@ -27,4 +27,32 @@ return [
     // quien lo cubre (CoberturaPuesto) o VACANTE. "Gerente regional" es el
     // puesto genérico anterior (solo mientras alguien lo siga ocupando).
     'puestos_de_region' => ['Gerente regional'],
+
+    /*
+    | Mini-organigramas (inducción capítulo 4 y pantalla de Organigrama):
+    | slug => nombre EXACTO del puesto raíz en el catálogo real (seeders
+    | PuestoJerarquiaSeeder). MiniOrganigramaService::areas() ignora en
+    | silencio cualquier entrada cuyo nombre ya no exista — nunca inventa un
+    | puesto. Un área real sin puesto dedicado (p. ej. Jurídico Empresarial,
+    | que en el catálogo actual es el puesto "Abogado") usa el nombre real
+    | del puesto, no el nombre del área del PDF de inducción.
+    */
+    'areas' => [
+        'direccion_comercial' => 'Dirección Comercial',
+        'recursos_humanos' => 'Gerencia de Recursos Humanos',
+        'contraloria' => 'Gerente de Contraloría',
+        'sistemas' => 'Responsable de Sistemas',
+        'juridico_empresarial' => 'Abogado',
+        'mesa_de_control' => 'Gerente de Mesa de Control',
+        'sucursal' => 'Gerente de Sucursal',
+    ],
+
+    // Capítulo 4 de Inducción Mr. Lana (InduccionMrLanaModuloSeeder, bloque
+    // 'organigrama_dinamico'): las 3 vistas del PDF rediseño, resueltas al
+    // puesto raíz real — nunca una imagen fija.
+    'vistas_induccion' => [
+        'corporativo' => 'Dirección General',
+        'comercial' => 'Dirección Comercial',
+        'sucursal' => 'Gerente de Sucursal',
+    ],
 ];

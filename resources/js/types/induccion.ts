@@ -71,6 +71,18 @@ export type CapituloInduccion = {
     bloques: BloqueCapituloInduccion[];
 };
 
+/**
+ * Mini-organigrama dinámico (capítulo 4, bloque 'organigrama_dinamico') —
+ * puesto real + ocupante(s) activo(s) + hijos, nunca una imagen fija ni
+ * personas hardcodeadas. Ver App\Services\Organigrama\MiniOrganigramaService.
+ */
+export type MiniOrganigramaNodo = {
+    id: number;
+    nombre: string;
+    ocupantes: { id: number; nombre: string; foto_url: string | null; sucursal: string | null; numero_empleado: string | null }[];
+    hijos: MiniOrganigramaNodo[];
+};
+
 /** Solo para RH: trae enunciado, respuesta del colaborador y rúbrica oficial. */
 export type InduccionCasoPractico = {
     clave: string;

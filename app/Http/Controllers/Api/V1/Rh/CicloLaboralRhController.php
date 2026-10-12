@@ -120,6 +120,19 @@ class CicloLaboralRhController extends Controller
         return response()->json(['data' => $this->onboarding->aArray($avance->proceso()->firstOrFail(), $request->user())]);
     }
 
+    public function mostrarInduccion(Request $request, EvaluacionInduccionIntento $intento): JsonResponse
+    {
+        $intento->loadMissing('evaluacion');
+        $this->authorize('calificar', $intento->evaluacion);
+
+        return response()->json(['data' => [
+            'evaluacion' => $this->evaluacionInduccion->aArray($intento->evaluacion, $request->user()),
+            'casos_practicos' => $this->evaluacionInduccion->detalleCasosPracticos($intento),
+            'intento_id' => $intento->id,
+            'ya_calificado' => ! $intento->pendienteCalificacionRh(),
+        ]]);
+    }
+
     public function calificarInduccion(Request $request, EvaluacionInduccionIntento $intento): JsonResponse
     {
         $this->authorize('calificar', $intento->evaluacion);

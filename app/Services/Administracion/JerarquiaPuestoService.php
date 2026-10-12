@@ -9,6 +9,7 @@ use App\Models\Puesto;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Colaboradores\FotoColaboradorService;
+use App\Services\Organigrama\MiniOrganigramaService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 
@@ -20,7 +21,7 @@ use Illuminate\Http\Request;
  */
 class JerarquiaPuestoService
 {
-    private const FILTROS = ['empresa_id', 'sucursal_id', 'departamento_id', 'tipo_puesto'];
+    private const FILTROS = ['empresa_id', 'sucursal_id', 'departamento_id', 'tipo_puesto', 'raiz_puesto_id'];
 
     /** Caras que se muestran por tarjeta del organigrama. */
     private const OCUPANTES_POR_PUESTO = 8;
@@ -28,6 +29,7 @@ class JerarquiaPuestoService
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly FotoColaboradorService $fotos,
+        private readonly MiniOrganigramaService $miniOrganigrama,
     ) {}
 
     /**
@@ -73,6 +75,8 @@ class JerarquiaPuestoService
      */
     public function arbol(Request $request): Collection
     {
+        $raizPuestoId = $request->integer('raiz_puesto_id');
+
         $puestos = Puesto::query()
             ->with([
                 'departamento:id,nombre',
@@ -87,17 +91,23 @@ class JerarquiaPuestoService
                 'candidatos',
                 'vacantes as vacantes_abiertas_count' => fn ($query) => $query->whereNotIn('estado', ['cubierta', 'cancelada']),
             ])
+            // Mini-organigrama (raiz_puesto_id): la rama ESTRUCTURAL completa
+            // del área, sin importar si hoy tiene colaboradores en una
+            // empresa/sucursal concreta — para eso están los demás filtros,
+            // que solo aplican cuando NO se pide una raíz.
+            ->when($raizPuestoId, fn ($query, int $id) => $query->whereIn('id', $this->miniOrganigrama->descendientes($id)))
             // Un puesto no tiene empresa/sucursal propia: se filtra por
             // "tiene al menos un colaborador activo en esa empresa/sucursal"
             // (ver docs/JERARQUIA_PUESTOS.md).
-            ->when($request->integer('empresa_id'), fn ($query, int $id) => $query->whereHas(
-                'colaboradores',
-                fn ($sub) => $sub->whereHas('sucursalPrincipal', fn ($s) => $s->where('empresa_id', $id)),
-            ))
-            ->when($request->integer('sucursal_id'), fn ($query, int $id) => $query->whereHas(
-                'colaboradores',
-                fn ($sub) => $sub->where('sucursal_principal_id', $id),
-            ))
+            ->when($raizPuestoId === 0, fn ($query) => $query
+                ->when($request->integer('empresa_id'), fn ($q, int $id) => $q->whereHas(
+                    'colaboradores',
+                    fn ($sub) => $sub->whereHas('sucursalPrincipal', fn ($s) => $s->where('empresa_id', $id)),
+                ))
+                ->when($request->integer('sucursal_id'), fn ($q, int $id) => $q->whereHas(
+                    'colaboradores',
+                    fn ($sub) => $sub->where('sucursal_principal_id', $id),
+                )))
             // Puestos retirados (inactivos, ver PuestoJerarquiaSeeder::retirar)
             // no ensucian el árbol — salvo que alguien activo siga en uno, para
             // que nadie desaparezca del organigrama sin haberse reasignado.

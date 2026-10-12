@@ -112,6 +112,7 @@ class OrganigramaPersonasService
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly FotoColaboradorService $fotos,
         private readonly CoberturaPuestoService $coberturasService,
+        private readonly MiniOrganigramaService $miniOrganigrama,
     ) {}
 
     /**
@@ -122,6 +123,7 @@ class OrganigramaPersonasService
         $this->prepararCatalogos();
 
         $sucursalesVisibles = $this->sucursalesVisibles($usuario, $request);
+        $raizPuestoId = $request->integer('raiz_puesto_id');
 
         $consulta = Colaborador::query()
             ->where('estatus', 'activo')
@@ -140,12 +142,44 @@ class OrganigramaPersonasService
         $this->construirNodos($colaboradores, $sucursalesVisibles);
 
         // Sin filtro de sucursal/empresa, la estructura corporativa y
-        // regional se ve completa: un puesto sin nadie aparece VACANTE.
+        // regional se ve completa: un puesto sin nadie aparece VACANTE (un
+        // mini-organigrama por raíz también quiere ver sus vacantes; se
+        // recortan después junto con el resto del árbol).
         if (! $request->integer('sucursal_id') && ! $request->integer('empresa_id') && ! $request->integer('departamento_id') && $request->string('tipo_puesto')->toString() === '') {
             $this->agregarPuestosVacantes();
         }
 
+        if ($raizPuestoId !== 0) {
+            return $this->recortarPorRaiz($raizPuestoId);
+        }
+
         return array_values($this->nodos);
+    }
+
+    /**
+     * Mini-organigrama: solo el puesto raíz y los que cuelgan de él
+     * (MiniOrganigramaService, sobre el catálogo real de Puesto). El/los
+     * nodo(s) de la raíz quedan sin padre para que el frontend los pinte
+     * como la cabeza de ese árbol recortado.
+     *
+     * @return list<NodoOrganigrama>
+     */
+    private function recortarPorRaiz(int $raizPuestoId): array
+    {
+        $idsPermitidos = $this->miniOrganigrama->descendientes($raizPuestoId);
+
+        $recortados = array_values(array_filter(
+            $this->nodos,
+            fn (array $nodo) => in_array($nodo['puesto']['id'], $idsPermitidos, true),
+        ));
+
+        foreach ($recortados as &$nodo) {
+            if ($nodo['puesto']['id'] === $raizPuestoId) {
+                $nodo['padre'] = null;
+            }
+        }
+
+        return $recortados;
     }
 
     /**

@@ -1,17 +1,27 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
 import { ArrowLeft, ArrowRight, CheckCircle2, Network } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
+import MiniOrganigramaNodo from '@/components/organigrama/MiniOrganigramaNodo.vue';
 import { Button } from '@/components/ui/button';
+import { getJson } from '@/lib/http';
 import { dashboard } from '@/routes';
+import {
+    index as organigramaCompletoIndex,
+} from '@/routes/administracion/jerarquia-puestos';
 import { miProceso } from '@/routes/portal';
-import { progreso } from '@/routes/portal/induccion';
-import type { CapituloInduccion, InduccionContenidoResumen } from '@/types';
+import { organigrama, progreso } from '@/routes/portal/induccion';
+import type {
+    CapituloInduccion,
+    InduccionContenidoResumen,
+    MiniOrganigramaNodo as MiniOrganigramaNodoType,
+} from '@/types';
 
 const props = defineProps<{
     avanceId: number;
     capitulos: CapituloInduccion[];
     resumen: InduccionContenidoResumen | null;
+    puedeVerOrganigramaCompleto: boolean;
 }>();
 
 defineOptions({
@@ -43,6 +53,44 @@ const enviando = ref(false);
 
 const capituloActual = computed(() => props.capitulos[indice.value]);
 const totalCapitulos = computed(() => props.capitulos.length);
+
+// Organigrama dinámico (capítulo 4): se pide por vista la primera vez que
+// se muestra y se guarda en caché — nunca una imagen fija ni datos a mano.
+const organigramas = ref<Record<string, MiniOrganigramaNodoType | null>>({});
+const organigramasCargando = ref<Record<string, boolean>>({});
+const organigramasError = ref<Record<string, boolean>>({});
+
+async function cargarOrganigrama(vista: string) {
+    if (vista in organigramas.value || organigramasCargando.value[vista]) {
+        return;
+    }
+
+    organigramasCargando.value[vista] = true;
+    organigramasError.value[vista] = false;
+
+    try {
+        const respuesta = await getJson<{ data: MiniOrganigramaNodoType }>(
+            organigrama.url({ vista }),
+        );
+        organigramas.value[vista] = respuesta.data;
+    } catch {
+        organigramasError.value[vista] = true;
+    } finally {
+        organigramasCargando.value[vista] = false;
+    }
+}
+
+watch(
+    capituloActual,
+    (c) => {
+        c?.bloques.forEach((bloque) => {
+            if (bloque.tipo === 'organigrama_dinamico') {
+                cargarOrganigrama(bloque.vista);
+            }
+        });
+    },
+    { immediate: true },
+);
 const porcentaje = computed(() =>
     totalCapitulos.value
         ? Math.round((vistos.value.size / totalCapitulos.value) * 100)
@@ -288,18 +336,53 @@ function irA(i: number) {
 
                 <div
                     v-else-if="bloque.tipo === 'organigrama_dinamico'"
-                    class="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-[var(--mrl-primary)]/40 bg-[var(--mrl-primary)]/5 p-6 text-center"
+                    class="flex flex-col gap-3 rounded-2xl border border-[var(--mrl-primary)]/30 bg-[var(--mrl-primary)]/5 p-5"
                 >
-                    <Network class="size-8 text-[var(--mrl-primary)]" />
-                    <p class="text-sm font-semibold text-[var(--mrl-texto)]">
-                        {{ bloque.titulo }}
-                    </p>
+                    <div class="flex items-center gap-2">
+                        <Network class="size-5 text-[var(--mrl-primary)]" />
+                        <p class="text-sm font-semibold text-[var(--mrl-texto)]">
+                            {{ bloque.titulo }}
+                        </p>
+                    </div>
                     <p
                         v-if="bloque.nota"
                         class="max-w-prose text-xs text-[var(--mrl-texto-suave)]"
                     >
                         {{ bloque.nota }}
                     </p>
+
+                    <div
+                        v-if="organigramasCargando[bloque.vista] && !organigramas[bloque.vista]"
+                        class="animate-pulse rounded-xl bg-[var(--mrl-fondo)] p-4 text-center text-xs text-[var(--mrl-texto-suave)]"
+                    >
+                        Cargando organigrama…
+                    </div>
+                    <p
+                        v-else-if="organigramasError[bloque.vista]"
+                        class="rounded-xl bg-[var(--mrl-fondo)] p-4 text-center text-xs text-[var(--mrl-texto-suave)]"
+                    >
+                        No se pudo cargar el organigrama. Intenta de nuevo más tarde.
+                    </p>
+                    <ul
+                        v-else-if="organigramas[bloque.vista]"
+                        class="flex flex-col gap-2 overflow-x-auto rounded-xl bg-[var(--mrl-surface)] p-3"
+                    >
+                        <MiniOrganigramaNodo
+                            :nodo="organigramas[bloque.vista]!"
+                            raiz
+                        />
+                    </ul>
+
+                    <div v-if="puedeVerOrganigramaCompleto" class="flex justify-end">
+                        <Button
+                            as="a"
+                            :href="organigramaCompletoIndex.url()"
+                            variant="outline"
+                            size="sm"
+                        >
+                            Ver organigrama completo
+                        </Button>
+                    </div>
                 </div>
 
                 <div
