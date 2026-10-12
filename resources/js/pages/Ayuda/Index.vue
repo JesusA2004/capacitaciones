@@ -1,20 +1,41 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { BookOpen, CheckCircle2, Compass, Route, Search } from '@lucide/vue';
+import {
+    ArrowRight,
+    BookOpen,
+    CheckCircle2,
+    CirclePlay,
+    Clock,
+    Compass,
+    GraduationCap,
+    ListChecks,
+    Route,
+    Search,
+} from '@lucide/vue';
 import { computed, ref } from 'vue';
+import GuiaBuscador from '@/components/guia/GuiaBuscador.vue';
+import GuiaFlujo from '@/components/guia/GuiaFlujo.vue';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { useGuia } from '@/composables/useGuia';
 import { useNavegacion } from '@/composables/useNavegacion';
-import { usePermisos } from '@/composables/usePermisos';
 import { useTourGuiado } from '@/composables/useTourGuiado';
-import { AYUDA_ESCRITA } from '@/lib/tours/ayudaEscrita';
+import {
+    articulo,
+    NOMBRE_ROL,
+    PREGUNTAS_FRECUENTES,
+    PROCESOS,
+    rol,
+    ROLES_GUIA,
+} from '@/lib/guia';
+import { iconoGuia } from '@/lib/guia/iconos';
+import { ARTICULOS_DE_MODULO, AYUDA_ESCRITA } from '@/lib/tours/ayudaEscrita';
+import { recorridosDisponibles, tourDeRecorrido } from '@/lib/tours/recorridos';
 import {
     modulosDisponibles,
     tourCompleto,
     tourDeModulo,
 } from '@/lib/tours/registro';
-import type { ContextoGuia, ModuloGuia } from '@/lib/tours/tipos';
-import { cn } from '@/lib/utils';
 
 defineOptions({
     layout: {
@@ -22,352 +43,481 @@ defineOptions({
     },
 });
 
-const { tienePermiso } = usePermisos();
-const { esColaborador, tieneAmbosModos } = useNavegacion();
+defineProps<{
+    video: {
+        url: string;
+        subtitulos: string | null;
+        miniatura: string | null;
+    } | null;
+}>();
+
+const { contextoTour, rolGuia, esColaborador } = useGuia();
+const { tieneAmbosModos } = useNavegacion();
 const { iniciar, haVisto } = useTourGuiado();
 
-const contexto = computed<ContextoGuia>(() => ({
-    tienePermiso,
-    modo: esColaborador.value ? 'colaborador' : 'operativo',
-}));
+const buscador = ref<InstanceType<typeof GuiaBuscador> | null>(null);
 
-const modulos = computed(() => modulosDisponibles(contexto.value));
-const busqueda = ref('');
+/** En modo colaborador solo los procesos donde participa el colaborador. */
+const procesos = computed(() =>
+    esColaborador.value
+        ? PROCESOS.filter((p) => p.roles.includes('colaborador'))
+        : PROCESOS,
+);
 
-function normalizar(texto: string): string {
-    return texto
-        .normalize('NFD')
-        .replace(/\p{Diacritic}/gu, '')
-        .toLowerCase();
+const miRol = computed(() => rol(rolGuia.value));
+const recorridos = computed(() => recorridosDisponibles(contextoTour.value));
+const recorridoSistema = computed(() => tourCompleto(contextoTour.value));
+const modulos = computed(() => modulosDisponibles(contextoTour.value));
+
+function irAlRecorrido(): void {
+    document
+        .getElementById('recorrido')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-/**
- * Tour de cada módulo ya filtrado por los permisos del usuario: la guía
- * escrita y el recorrido interactivo muestran exactamente los mismos pasos.
- */
-const tours = computed(
-    () =>
-        new Map(
-            modulos.value.map((modulo) => [
-                modulo.id,
-                tourDeModulo(modulo, contexto.value),
-            ]),
-        ),
-);
-
-/** Búsqueda por nombre, descripción o el texto de cualquiera de sus pasos. */
-const modulosFiltrados = computed(() => {
-    const termino = normalizar(busqueda.value.trim());
-
-    if (termino === '') {
-        return modulos.value;
-    }
-
-    return modulos.value.filter((modulo) => {
-        const pasos = tours.value.get(modulo.id)?.pasos ?? [];
-        const ayuda = AYUDA_ESCRITA[modulo.id];
-        const texto = [
-            modulo.nombre,
-            modulo.descripcion,
-            ...pasos.flatMap((p) => [p.titulo, p.texto, p.consejo ?? '']),
-            ...(ayuda
-                ? [
-                      ayuda.queEs,
-                      ...ayuda.puedes,
-                      ...ayuda.flujo,
-                      ayuda.permisos,
-                      ...ayuda.errores,
-                  ]
-                : []),
-        ].join(' ');
-
-        return normalizar(texto).includes(termino);
-    });
-});
-const recorrido = computed(() => tourCompleto(contexto.value));
-
-const TONO_GRUPO: Record<string, string> = {
-    Panel: 'bg-info/10 text-info',
-    Personal: 'bg-success/10 text-success',
-    Estructura: 'bg-crema text-bronce',
-    Reclutamiento: 'bg-warning/10 text-warning',
-    Análisis: 'bg-info/10 text-info',
-    Administración: 'bg-muted text-muted-foreground',
-    'Mi espacio': 'bg-info/10 text-info',
-};
-
-const grupos = computed(() => {
-    const porGrupo = new Map<string, ModuloGuia[]>();
-
-    for (const modulo of modulosFiltrados.value) {
-        porGrupo.set(modulo.grupo, [
-            ...(porGrupo.get(modulo.grupo) ?? []),
-            modulo,
-        ]);
-    }
-
-    return [...porGrupo.entries()].map(([titulo, lista]) => ({
-        titulo,
-        modulos: lista,
-    }));
-});
-
-const vistos = computed(
-    () => modulos.value.filter((modulo) => haVisto(modulo.id)).length,
-);
+function buscar(): void {
+    document
+        .getElementById('guia-inicio')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    buscador.value?.enfocar();
+}
 </script>
 
 <template>
-    <Head title="Ayuda" />
+    <Head title="Guía del sistema" />
 
-    <div class="pagina-media flex flex-col gap-8">
-        <div
-            class="flex flex-col items-center gap-6 rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-6 text-center sm:p-10"
+    <div class="pagina-media flex flex-col gap-12">
+        <!-- Encabezado -->
+        <section
+            id="guia-inicio"
+            class="relative overflow-hidden rounded-[2rem] border border-[var(--mrl-borde)] bg-gradient-to-br from-crema via-[var(--mrl-superficie)] to-salvia/70 px-5 py-10 text-center sm:px-10"
         >
-            <span
-                class="flex size-16 items-center justify-center rounded-full bg-primary/10 text-primary"
-            >
-                <Compass class="size-8" />
-            </span>
-
-            <div class="max-w-2xl space-y-2">
-                <h1 class="text-2xl font-semibold tracking-tight">
+            <div class="mx-auto flex max-w-3xl flex-col items-center gap-5">
+                <span
+                    class="inline-flex items-center gap-2 rounded-full border border-oro/40 bg-[var(--mrl-superficie)]/80 px-3 py-1 text-[11px] font-semibold tracking-[0.22em] text-bronce uppercase"
+                >
+                    <Compass class="size-3.5" /> MR. LANA PEOPLE
+                </span>
+                <h1
+                    class="text-3xl font-semibold tracking-tight text-[var(--mrl-texto)] sm:text-4xl"
+                >
                     Guía del sistema
                 </h1>
                 <p
-                    class="text-sm text-pretty text-muted-foreground sm:text-base"
+                    class="max-w-2xl text-base text-pretty text-[var(--mrl-texto-suave)] sm:text-lg"
                 >
-                    El recorrido completo te lleva, pantalla por pantalla, por
-                    los {{ modulos.length }} módulos que tienes disponibles y te
-                    explica para qué sirve cada parte. También puedes aprender
-                    un solo módulo con "Iniciar recorrido", o leer su guía
-                    escrita con "Leer la guía".
+                    Conoce el proceso completo desde la necesidad de personal
+                    hasta la vida laboral del colaborador.
                 </p>
-            </div>
 
-            <div class="flex flex-col items-center gap-2">
-                <Button size="lg" class="gap-2" @click="iniciar(recorrido)">
-                    <Route class="size-4" />
-                    Iniciar recorrido completo
-                </Button>
-                <p class="text-xs text-muted-foreground">
-                    {{ recorrido.pasos.length }} pasos · puedes saltar módulos o
-                    salir cuando quieras
-                    <template v-if="modulos.length">
-                        · {{ vistos }}/{{ modulos.length }} módulos vistos
+                <div class="flex flex-wrap justify-center gap-2">
+                    <Button size="lg" class="gap-2" @click="irAlRecorrido">
+                        <Route class="size-4" /> Ver recorrido completo
+                    </Button>
+                    <Button
+                        size="lg"
+                        variant="secondary"
+                        class="gap-2"
+                        as-child
+                    >
+                        <Link href="/ayuda/video">
+                            <CirclePlay class="size-4" /> Ver tutorial en video
+                        </Link>
+                    </Button>
+                    <Button
+                        size="lg"
+                        variant="outline"
+                        class="gap-2 bg-[var(--mrl-superficie)]"
+                        @click="buscar"
+                    >
+                        <Search class="size-4" /> Buscar en la guía
+                    </Button>
+                </div>
+
+                <div class="mt-2 w-full max-w-2xl">
+                    <GuiaBuscador ref="buscador" grande />
+                </div>
+
+                <p class="text-xs text-[var(--mrl-texto-suave)]">
+                    Estás viendo la guía como
+                    <Link
+                        :href="`/ayuda/rol/${rolGuia}`"
+                        class="font-semibold text-[var(--mrl-petroleo)] underline-offset-2 hover:underline"
+                    >
+                        {{ miRol?.nombre ?? NOMBRE_ROL[rolGuia] }}
+                    </Link>
+                    <template v-if="tieneAmbosModos">
+                        · cambia entre «Mi espacio» y «Operación RH» en el menú
+                        para ver la otra guía
                     </template>
                 </p>
-                <p
-                    v-if="tieneAmbosModos"
-                    class="max-w-md text-xs text-pretty text-muted-foreground"
-                >
-                    Estás en
-                    <strong>{{
-                        esColaborador ? 'Mi espacio' : 'Operación RH'
-                    }}</strong
-                    >. Cambia de modo en el menú lateral para ver la guía del
-                    otro.
-                </p>
             </div>
-        </div>
+        </section>
 
-        <div class="relative mx-auto w-full max-w-xl">
-            <Search
-                class="pointer-events-none absolute top-2.5 left-3 size-4 text-muted-foreground"
-            />
-            <Input
-                v-model="busqueda"
-                type="search"
-                placeholder="Buscar en la guía (p. ej. «vacaciones», «PDF», «aniversario»)…"
-                aria-label="Buscar en la guía"
-                class="pl-9"
-            />
-        </div>
+        <!-- Flujo general -->
+        <section id="recorrido" class="scroll-mt-24 space-y-5">
+            <header class="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                    <p
+                        class="text-xs font-semibold tracking-[0.18em] text-bronce uppercase"
+                    >
+                        El recorrido completo
+                    </p>
+                    <h2 class="text-2xl font-semibold tracking-tight">
+                        De una vacante a un colaborador activo
+                    </h2>
+                    <p class="text-sm text-[var(--mrl-texto-suave)]">
+                        Toca cualquier paso para ver quién lo hace, dónde y qué
+                        pasa después.
+                    </p>
+                </div>
+                <Button
+                    variant="outline"
+                    class="gap-2"
+                    @click="iniciar(recorridoSistema)"
+                >
+                    <Compass class="size-4" /> Recorrido guiado en pantalla
+                    <span class="text-xs text-[var(--mrl-texto-suave)]">
+                        ({{ recorridoSistema.pasos.length }} pasos)
+                    </span>
+                </Button>
+            </header>
+            <GuiaFlujo />
+        </section>
 
-        <p
-            v-if="modulosFiltrados.length === 0"
-            class="text-center text-sm text-muted-foreground"
-        >
-            Ningún módulo de tu guía coincide con «{{ busqueda }}».
-        </p>
+        <!-- Guía por proceso -->
+        <section class="space-y-5">
+            <header>
+                <p
+                    class="text-xs font-semibold tracking-[0.18em] text-bronce uppercase"
+                >
+                    Guía por proceso
+                </p>
+                <h2 class="text-2xl font-semibold tracking-tight">
+                    {{
+                        esColaborador
+                            ? 'Lo que puedes hacer en PEOPLE'
+                            : 'Elige un proceso'
+                    }}
+                </h2>
+            </header>
+            <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <Link
+                    v-for="p in procesos"
+                    :key="p.id"
+                    :href="`/ayuda/proceso/${p.id}`"
+                    class="group flex tarjeta-interactiva flex-col gap-4 rounded-3xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5"
+                >
+                    <div class="flex items-start gap-4">
+                        <span
+                            class="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-crema to-salvia text-[var(--mrl-petroleo)]"
+                        >
+                            <component
+                                :is="iconoGuia(p.icono)"
+                                class="size-6"
+                            />
+                        </span>
+                        <div class="min-w-0">
+                            <p
+                                class="text-[11px] font-semibold tracking-wide text-[var(--mrl-texto-suave)] uppercase"
+                            >
+                                Proceso {{ p.numero }}
+                            </p>
+                            <h3 class="text-lg font-semibold">
+                                {{ p.titulo }}
+                            </h3>
+                        </div>
+                    </div>
+                    <p
+                        class="text-sm text-pretty text-[var(--mrl-texto-suave)]"
+                    >
+                        {{ p.resumen }}
+                    </p>
+                    <div class="mt-auto flex flex-wrap items-center gap-1.5">
+                        <Badge
+                            v-for="r in p.roles"
+                            :key="r"
+                            variant="secondary"
+                            class="bg-salvia/70 text-[11px] text-[var(--mrl-texto)]"
+                        >
+                            {{ NOMBRE_ROL[r] }}
+                        </Badge>
+                    </div>
+                    <div
+                        class="flex items-center justify-between border-t border-[var(--mrl-borde)] pt-3 text-xs"
+                    >
+                        <span
+                            class="flex items-center gap-1.5 text-[var(--mrl-texto-suave)]"
+                        >
+                            <Clock class="size-3.5" /> {{ p.tiempo }}
+                        </span>
+                        <span
+                            class="flex items-center gap-1 font-semibold text-[var(--mrl-petroleo)] transition-all group-hover:gap-2"
+                        >
+                            Ver guía <ArrowRight class="size-3.5" />
+                        </span>
+                    </div>
+                </Link>
+            </div>
+        </section>
 
-        <div
-            v-for="(grupo, indiceGrupo) in grupos"
-            :key="grupo.titulo"
-            class="animate-in space-y-3 fill-mode-both fade-in slide-in-from-bottom-2"
-            :style="{ animationDelay: `${indiceGrupo * 60}ms` }"
-        >
-            <h2
-                class="text-xs font-semibold tracking-wide text-muted-foreground uppercase"
-            >
-                {{ grupo.titulo }}
-            </h2>
+        <!-- Por rol -->
+        <section class="space-y-5">
+            <header>
+                <p
+                    class="text-xs font-semibold tracking-[0.18em] text-bronce uppercase"
+                >
+                    ¿Qué hago según mi rol?
+                </p>
+                <h2 class="text-2xl font-semibold tracking-tight">
+                    Lo que le toca a cada quien
+                </h2>
+            </header>
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <Link
+                    v-for="r in ROLES_GUIA"
+                    :key="r.id"
+                    :href="`/ayuda/rol/${r.id}`"
+                    :class="[
+                        'flex tarjeta-interactiva items-start gap-3 rounded-2xl border p-4',
+                        r.id === rolGuia
+                            ? 'border-oro/60 bg-crema/60'
+                            : 'border-[var(--mrl-borde)] bg-[var(--mrl-superficie)]',
+                    ]"
+                >
+                    <span
+                        class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-salvia text-[var(--mrl-petroleo)]"
+                    >
+                        <component :is="iconoGuia(r.icono)" class="size-5" />
+                    </span>
+                    <span class="min-w-0">
+                        <span class="flex items-center gap-2 font-semibold">
+                            {{ r.nombre }}
+                            <Badge
+                                v-if="r.id === rolGuia"
+                                class="bg-oro text-[10px] text-white"
+                                >Tu rol</Badge
+                            >
+                        </span>
+                        <span
+                            class="line-clamp-2 text-sm text-[var(--mrl-texto-suave)]"
+                            >{{ r.resumen }}</span
+                        >
+                        <span
+                            class="mt-1 flex items-center gap-1 text-xs text-[var(--mrl-texto-suave)]"
+                        >
+                            <ListChecks class="size-3.5" />
+                            {{ r.checklist.length }} tareas
+                        </span>
+                    </span>
+                </Link>
+            </div>
+        </section>
+
+        <!-- Recorridos guiados -->
+        <section class="space-y-5">
+            <header>
+                <p
+                    class="text-xs font-semibold tracking-[0.18em] text-bronce uppercase"
+                >
+                    Recorridos guiados
+                </p>
+                <h2 class="text-2xl font-semibold tracking-tight">
+                    Aprende haciendo, sobre la pantalla real
+                </h2>
+                <p class="text-sm text-[var(--mrl-texto-suave)]">
+                    El recorrido navega por ti y resalta cada parte. Puedes
+                    saltar, regresar o salir cuando quieras; no modifica nada.
+                </p>
+            </header>
             <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <div
-                    v-for="modulo in grupo.modulos"
-                    :key="modulo.id"
-                    class="flex flex-col gap-3 rounded-xl border p-4 transition-[border-color,box-shadow] duration-200 hover:border-primary/20 hover:shadow-sm"
+                    v-for="r in recorridos"
+                    :key="r.id"
+                    class="flex flex-col gap-3 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4"
                 >
                     <div class="flex items-start gap-3">
                         <span
-                            :class="
-                                cn(
-                                    'flex size-9 shrink-0 items-center justify-center rounded-full',
-                                    TONO_GRUPO[modulo.grupo] ??
-                                        TONO_GRUPO.Panel,
-                                )
-                            "
+                            class="flex size-9 shrink-0 items-center justify-center rounded-full bg-crema text-bronce"
                         >
-                            <component :is="modulo.icono" class="size-4" />
+                            <Route class="size-4" />
                         </span>
-                        <div class="min-w-0 flex-1">
-                            <p class="flex items-center gap-1.5 font-medium">
-                                {{ modulo.nombre }}
+                        <div class="min-w-0">
+                            <p class="flex items-center gap-1.5 font-semibold">
+                                {{ r.titulo }}
                                 <CheckCircle2
-                                    v-if="haVisto(modulo.id)"
+                                    v-if="haVisto(`proceso-${r.id}`)"
                                     class="size-3.5 text-success"
                                     aria-label="Ya visto"
                                 />
                             </p>
-                            <p
-                                class="text-sm text-pretty text-muted-foreground"
-                            >
-                                {{ modulo.descripcion }}
+                            <p class="text-sm text-[var(--mrl-texto-suave)]">
+                                {{ r.descripcion }}
                             </p>
                         </div>
                     </div>
-                    <!-- Guía escrita: el módulo se puede aprender aunque el
-                         recorrido interactivo no encuentre un elemento. -->
-                    <details class="group/guia text-sm">
-                        <summary
-                            class="inline-flex cursor-pointer list-none items-center gap-1.5 text-muted-foreground hover:text-foreground"
+                    <div class="mt-auto flex items-center gap-2">
+                        <Button
+                            size="sm"
+                            class="gap-1.5"
+                            @click="iniciar(tourDeRecorrido(r, contextoTour))"
                         >
-                            <BookOpen class="size-3.5" />
-                            Leer la guía
-                        </summary>
-                        <div
-                            v-if="AYUDA_ESCRITA[modulo.id]"
-                            class="mt-3 space-y-3 text-pretty"
-                        >
-                            <section>
-                                <h3
-                                    class="text-xs font-semibold tracking-wide text-muted-foreground uppercase"
-                                >
-                                    Qué es
-                                </h3>
-                                <p>{{ AYUDA_ESCRITA[modulo.id].queEs }}</p>
-                            </section>
-                            <section>
-                                <h3
-                                    class="text-xs font-semibold tracking-wide text-muted-foreground uppercase"
-                                >
-                                    Qué puedes hacer
-                                </h3>
-                                <ul class="list-disc space-y-0.5 pl-5">
-                                    <li
-                                        v-for="punto in AYUDA_ESCRITA[modulo.id]
-                                            .puedes"
-                                        :key="punto"
-                                    >
-                                        {{ punto }}
-                                    </li>
-                                </ul>
-                            </section>
-                            <section>
-                                <h3
-                                    class="text-xs font-semibold tracking-wide text-muted-foreground uppercase"
-                                >
-                                    Flujo principal
-                                </h3>
-                                <ol class="list-decimal space-y-0.5 pl-5">
-                                    <li
-                                        v-for="punto in AYUDA_ESCRITA[modulo.id]
-                                            .flujo"
-                                        :key="punto"
-                                    >
-                                        {{ punto }}
-                                    </li>
-                                </ol>
-                            </section>
-                            <section>
-                                <h3
-                                    class="text-xs font-semibold tracking-wide text-muted-foreground uppercase"
-                                >
-                                    Quién tiene permiso
-                                </h3>
-                                <p>{{ AYUDA_ESCRITA[modulo.id].permisos }}</p>
-                            </section>
-                            <section>
-                                <h3
-                                    class="text-xs font-semibold tracking-wide text-muted-foreground uppercase"
-                                >
-                                    Errores frecuentes
-                                </h3>
-                                <ul class="list-disc space-y-0.5 pl-5">
-                                    <li
-                                        v-for="punto in AYUDA_ESCRITA[modulo.id]
-                                            .errores"
-                                        :key="punto"
-                                    >
-                                        {{ punto }}
-                                    </li>
-                                </ul>
-                            </section>
-                        </div>
-                        <h3
-                            class="mt-4 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
-                        >
-                            Paso a paso en pantalla
-                        </h3>
-                        <ol
-                            class="mt-2 list-decimal space-y-2 pl-5 text-pretty"
-                        >
-                            <li
-                                v-for="(paso, indice) in tours.get(modulo.id)
-                                    ?.pasos ?? []"
-                                :key="indice"
-                            >
-                                <p class="font-medium">{{ paso.titulo }}</p>
-                                <p class="text-muted-foreground">
-                                    {{ paso.texto }}
-                                </p>
-                                <p
-                                    v-if="paso.consejo"
-                                    class="mt-0.5 text-xs text-muted-foreground italic"
-                                >
-                                    Consejo: {{ paso.consejo }}
-                                </p>
-                            </li>
-                        </ol>
-                    </details>
-                    <div class="mt-auto flex items-center gap-2 pt-1">
-                        <button
-                            type="button"
-                            class="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-                            @click="
-                                iniciar(
-                                    tours.get(modulo.id) ??
-                                        tourDeModulo(modulo, contexto),
-                                )
-                            "
-                        >
-                            <Compass class="size-3.5" /> Iniciar recorrido
-                            <span
-                                class="text-xs font-normal text-muted-foreground"
-                            >
-                                ({{ tours.get(modulo.id)?.pasos.length ?? 0 }}
-                                pasos)
-                            </span>
-                        </button>
+                            <Compass class="size-3.5" /> Iniciar
+                        </Button>
                         <Link
-                            :href="modulo.ruta"
-                            class="ml-auto text-xs text-muted-foreground hover:underline"
+                            :href="`/ayuda/articulo/${r.articulo}`"
+                            class="ml-auto text-xs text-[var(--mrl-texto-suave)] hover:underline"
                         >
-                            Ir directo
+                            Leer la guía
                         </Link>
                     </div>
                 </div>
             </div>
-        </div>
+        </section>
+
+        <!-- Ayuda por pantalla -->
+        <section class="space-y-5">
+            <header>
+                <p
+                    class="text-xs font-semibold tracking-[0.18em] text-bronce uppercase"
+                >
+                    Ayuda por pantalla
+                </p>
+                <h2 class="text-2xl font-semibold tracking-tight">
+                    Cada módulo de tu menú
+                </h2>
+            </header>
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <details
+                    v-for="m in modulos"
+                    :key="m.id"
+                    class="group rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4 open:shadow-sm"
+                >
+                    <summary
+                        class="flex cursor-pointer list-none items-start gap-3"
+                    >
+                        <span
+                            class="flex size-9 shrink-0 items-center justify-center rounded-full bg-salvia text-[var(--mrl-petroleo)]"
+                        >
+                            <component :is="m.icono" class="size-4" />
+                        </span>
+                        <span class="min-w-0 flex-1">
+                            <span class="flex items-center gap-1.5 font-medium">
+                                {{ m.nombre }}
+                                <CheckCircle2
+                                    v-if="haVisto(m.id)"
+                                    class="size-3.5 text-success"
+                                    aria-label="Ya visto"
+                                />
+                            </span>
+                            <span
+                                class="block text-sm text-pretty text-[var(--mrl-texto-suave)]"
+                                >{{ m.descripcion }}</span
+                            >
+                        </span>
+                    </summary>
+                    <div
+                        v-if="AYUDA_ESCRITA[m.id]"
+                        class="mt-3 space-y-2 border-t border-[var(--mrl-borde)] pt-3 text-sm"
+                    >
+                        <p>{{ AYUDA_ESCRITA[m.id].queEs }}</p>
+                        <ul
+                            class="list-disc space-y-0.5 pl-5 text-[var(--mrl-texto-suave)]"
+                        >
+                            <li
+                                v-for="punto in AYUDA_ESCRITA[m.id].puedes"
+                                :key="punto"
+                            >
+                                {{ punto }}
+                            </li>
+                        </ul>
+                        <p class="text-xs text-[var(--mrl-texto-suave)]">
+                            <strong>Quién:</strong>
+                            {{ AYUDA_ESCRITA[m.id].permisos }}
+                        </p>
+                    </div>
+                    <div
+                        class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1"
+                    >
+                        <button
+                            type="button"
+                            class="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--mrl-petroleo)] hover:underline"
+                            @click="iniciar(tourDeModulo(m, contextoTour))"
+                        >
+                            <Compass class="size-3.5" /> Recorrido
+                        </button>
+                        <Link
+                            v-for="id in ARTICULOS_DE_MODULO[m.id] ?? []"
+                            :key="id"
+                            :href="`/ayuda/articulo/${id}`"
+                            class="inline-flex items-center gap-1 text-xs text-[var(--mrl-texto-suave)] hover:underline"
+                        >
+                            <BookOpen class="size-3" />
+                            {{ articulo(id)?.titulo }}
+                        </Link>
+                    </div>
+                </details>
+            </div>
+        </section>
+
+        <!-- Video, glosario y preguntas -->
+        <section class="grid gap-4 lg:grid-cols-3">
+            <Link
+                href="/ayuda/video"
+                class="flex tarjeta-interactiva flex-col gap-3 rounded-3xl border border-[var(--mrl-borde)] bg-gradient-to-br from-[var(--mrl-petroleo)] to-esmeralda p-5 text-white"
+            >
+                <CirclePlay class="size-8" />
+                <p class="text-lg font-semibold">Tutorial en video</p>
+                <p class="text-sm text-white/85">
+                    El flujo completo de Recursos Humanos, por capítulos, más
+                    videos cortos por tema.
+                </p>
+                <span
+                    class="mt-auto flex items-center gap-1 text-sm font-semibold"
+                >
+                    {{ video ? 'Ver el video' : 'Ver capítulos y guion' }}
+                    <ArrowRight class="size-4" />
+                </span>
+            </Link>
+            <Link
+                href="/ayuda/glosario"
+                class="flex tarjeta-interactiva flex-col gap-3 rounded-3xl border border-[var(--mrl-borde)] bg-crema/60 p-5"
+            >
+                <GraduationCap class="size-8 text-bronce" />
+                <p class="text-lg font-semibold">Glosario</p>
+                <p class="text-sm text-[var(--mrl-texto-suave)]">
+                    Vacante real, plantilla autorizada, intervención,
+                    onboarding, lote de nómina… en palabras sencillas.
+                </p>
+                <span
+                    class="mt-auto flex items-center gap-1 text-sm font-semibold text-[var(--mrl-petroleo)]"
+                >
+                    Abrir el glosario <ArrowRight class="size-4" />
+                </span>
+            </Link>
+            <div
+                class="flex flex-col gap-2 rounded-3xl border border-[var(--mrl-borde)] bg-salvia/50 p-5"
+            >
+                <p class="text-lg font-semibold">Preguntas frecuentes</p>
+                <Link
+                    v-for="p in PREGUNTAS_FRECUENTES.slice(0, 4)"
+                    :key="p.pregunta"
+                    :href="
+                        p.articulo
+                            ? `/ayuda/articulo/${p.articulo}`
+                            : '/ayuda/preguntas'
+                    "
+                    class="text-sm hover:underline"
+                >
+                    {{ p.pregunta }}
+                </Link>
+                <Link
+                    href="/ayuda/preguntas"
+                    class="mt-auto flex items-center gap-1 pt-2 text-sm font-semibold text-[var(--mrl-petroleo)]"
+                >
+                    Ver todas <ArrowRight class="size-4" />
+                </Link>
+            </div>
+        </section>
     </div>
 </template>

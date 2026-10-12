@@ -46,6 +46,9 @@ const form = useForm({
         : '',
     puesto_objetivo_id: idComo(props.candidato?.puesto_objetivo),
     vacante_id: idComo(props.candidato?.vacante),
+    campana_reclutamiento_id: props.candidato?.campana_reclutamiento_id
+        ? String(props.candidato.campana_reclutamiento_id)
+        : '',
     espontaneo: props.candidato?.espontaneo ?? false,
     nombre: props.candidato?.nombre ?? '',
     apellidos: props.candidato?.apellidos ?? '',
@@ -64,6 +67,14 @@ const vacanteSeleccionada = computed(() =>
     props.opciones.vacantes?.find((v) => String(v.id) === form.vacante_id),
 );
 
+// Campañas de la vacante elegida: un candidato solo se atribuye a una
+// campaña de SU vacante (el backend lo valida igual).
+const campanasDeVacante = computed(() =>
+    (props.opciones.campanas ?? []).filter(
+        (c) => String(c.vacante_id) === form.vacante_id,
+    ),
+);
+
 watch(
     () => form.vacante_id,
     () => {
@@ -71,6 +82,14 @@ watch(
             form.puesto_objetivo_id = String(
                 vacanteSeleccionada.value.puesto_id,
             );
+        }
+
+        if (
+            !campanasDeVacante.value.some(
+                (c) => String(c.id) === form.campana_reclutamiento_id,
+            )
+        ) {
+            form.campana_reclutamiento_id = '';
         }
     },
 );
@@ -104,6 +123,9 @@ function enviar() {
         sucursal_id: datos.sucursal_id || null,
         puesto_objetivo_id: datos.puesto_objetivo_id || null,
         vacante_id: datos.vacante_id || null,
+        campana_reclutamiento_id: datos.espontaneo
+            ? null
+            : datos.campana_reclutamiento_id || null,
         fuente: datos.fuente || null,
     }));
 
@@ -202,6 +224,39 @@ function enviar() {
                             vacanteSeleccionada?.sucursal?.nombre ?? '—'
                         }}</span>
                     </div>
+                </div>
+
+                <div
+                    v-if="!form.espontaneo && form.vacante_id"
+                    class="grid gap-2"
+                >
+                    <Label>Campaña</Label>
+                    <Select v-model="form.campana_reclutamiento_id">
+                        <SelectTrigger class="w-full">
+                            <SelectValue
+                                :placeholder="
+                                    campanasDeVacante.length
+                                        ? 'Sin campaña (llegó por otro medio)'
+                                        : 'Esta vacante no tiene campañas'
+                                "
+                            />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem
+                                v-for="campana in campanasDeVacante"
+                                :key="campana.id"
+                                :value="String(campana.id)"
+                                >{{ campana.etiqueta }}</SelectItem
+                            >
+                        </SelectContent>
+                    </Select>
+                    <InputError
+                        :message="form.errors.campana_reclutamiento_id"
+                    />
+                    <p class="text-xs text-muted-foreground">
+                        Elige la campaña por la que llegó: así cuenta en su
+                        embudo y en su costo por contratación.
+                    </p>
                 </div>
 
                 <div class="flex items-start gap-2 rounded-lg border border-border/60 px-3 py-2">

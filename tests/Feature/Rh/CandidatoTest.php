@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\EstadoCandidato;
+use App\Models\CampanaReclutamiento;
 use App\Models\Candidato;
 use App\Models\Empresa;
 use App\Models\Puesto;
@@ -202,4 +203,47 @@ test('un candidato espontáneo no puede iniciar contratación sin vincularse ant
         ['sucursal_principal_id' => Sucursal::factory()->create()->id, 'puesto_id' => Puesto::factory()->create()->id],
         $usuario,
     ))->toThrow(ValidationException::class);
+});
+
+/*
+ * Regresión: el formulario web de candidato no ofrecía la campaña, así que
+ * ningún candidato quedaba atribuido y el embudo de cada campaña
+ * (contactados, entrevistas, psicométricos, contratados) salía en ceros.
+ */
+test('el formulario de candidato ofrece las campañas de cada vacante real', function () {
+    $usuario = User::factory()->create();
+    $usuario->assignRole('rh_admin');
+    $vacante = Vacante::factory()->real()->create(['estado' => 'abierta', 'plazas_disponibles' => 1]);
+    $campana = CampanaReclutamiento::query()->create([
+        'vacante_id' => $vacante->id, 'canal' => 'meta', 'mes' => 10, 'anio' => 2026,
+        'fecha_inicio' => '2026-10-01', 'monto' => 4500, 'nombre' => 'Gestores octubre',
+    ]);
+
+    $this->actingAs($usuario)
+        ->get(route('rh.candidatos.index'))
+        ->assertInertia(fn ($page) => $page
+            ->where('opciones.campanas', fn ($campanas) => collect($campanas)->contains(
+                fn ($c) => $c['id'] === $campana->id && $c['vacante_id'] === $vacante->id && str_contains($c['etiqueta'], 'Gestores octubre'),
+            )));
+});
+
+test('un candidato se liga a la campaña de su vacante y no a la de otra', function () {
+    $usuario = User::factory()->create();
+    $usuario->assignRole('rh_admin');
+    $vacante = Vacante::factory()->real()->create(['estado' => 'abierta', 'plazas_disponibles' => 1]);
+    $otraVacante = Vacante::factory()->real()->create(['estado' => 'abierta', 'plazas_disponibles' => 1]);
+    $campanaPropia = CampanaReclutamiento::query()->create(['vacante_id' => $vacante->id, 'canal' => 'meta', 'mes' => 10, 'anio' => 2026, 'fecha_inicio' => '2026-10-01', 'monto' => 100]);
+    $campanaAjena = CampanaReclutamiento::query()->create(['vacante_id' => $otraVacante->id, 'canal' => 'indeed', 'mes' => 10, 'anio' => 2026, 'fecha_inicio' => '2026-10-01', 'monto' => 100]);
+
+    $this->actingAs($usuario)
+        ->post(route('rh.candidatos.store'), ['nombre' => 'Ajena', 'vacante_id' => $vacante->id, 'campana_reclutamiento_id' => $campanaAjena->id])
+        ->assertSessionHasErrors('campana_reclutamiento_id');
+
+    expect(Candidato::where('nombre', 'Ajena')->exists())->toBeFalse();
+
+    $this->actingAs($usuario)
+        ->post(route('rh.candidatos.store'), ['nombre' => 'Propia', 'vacante_id' => $vacante->id, 'campana_reclutamiento_id' => $campanaPropia->id])
+        ->assertSessionHasNoErrors();
+
+    expect(Candidato::where('nombre', 'Propia')->value('campana_reclutamiento_id'))->toBe($campanaPropia->id);
 });

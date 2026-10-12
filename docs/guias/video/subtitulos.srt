@@ -1,0 +1,614 @@
+1
+00:00:01,000 --> 00:00:08,727
+Bienvenido a MR. LANA PEOPLE. En este
+video vas a ver, de principio a fin, cómo se
+
+2
+00:00:08,727 --> 00:00:14,636
+lleva a una persona desde una vacante
+hasta convertirla en colaborador activo, y
+
+3
+00:00:14,636 --> 00:00:18,727
+todo lo que pasa después en su vida
+laboral.
+
+4
+00:00:25,000 --> 00:00:32,273
+Para entrar usas tu usuario, que es tu
+primer nombre y tu primer apellido, y tu
+
+5
+00:00:32,273 --> 00:00:38,182
+contraseña. Si Recursos Humanos te dio una
+contraseña temporal, el sistema te pedirá
+
+6
+00:00:38,182 --> 00:00:40,000
+cambiarla la primera vez.
+
+7
+00:00:46,000 --> 00:00:51,455
+MR. LANA PEOPLE es el sistema de Recursos
+Humanos de la empresa.
+
+8
+00:00:51,455 --> 00:00:56,000
+El menú está ordenado por proceso:
+reclutamiento, desarrollo, personal y
+
+9
+00:00:56,000 --> 00:01:03,727
+organización. Cada persona solo ve lo que
+su rol le permite, y todo lo que se decide
+
+10
+00:01:03,727 --> 00:01:07,364
+aquí también se puede atender desde la
+app.
+
+11
+00:01:13,500 --> 00:01:16,227
+Todo comienza con la plantilla autorizada.
+
+12
+00:01:16,227 --> 00:01:21,227
+MR. LANA PEOPLE compara las posiciones
+autorizadas con los colaboradores que
+
+13
+00:01:21,227 --> 00:01:23,045
+actualmente ocupan cada puesto.
+
+14
+00:01:23,045 --> 00:01:30,318
+Si una sucursal tiene cinco plazas de
+gestor y cuatro personas, falta una: esa es la
+
+15
+00:01:30,318 --> 00:01:31,227
+vacante real.
+
+16
+00:01:37,500 --> 00:01:43,409
+Nadie captura vacantes a mano. Cuando
+alguien sale, la vacante aparece sola; cuando
+
+17
+00:01:43,409 --> 00:01:48,409
+alguien entra, se cierra sola. Campañas,
+candidatos y contratación usan exactamente
+
+18
+00:01:48,409 --> 00:01:49,773
+esta misma cifra.
+
+19
+00:01:56,000 --> 00:02:00,545
+Para atraer candidatos registras una
+campaña sobre la vacante real.
+
+20
+00:02:00,545 --> 00:02:07,818
+Al elegir la vacante, el sistema toma la
+empresa, la sucursal y el puesto; tú solo
+
+21
+00:02:07,818 --> 00:02:13,727
+capturas el canal, las fechas, el
+presupuesto, el gasto, el sueldo publicado, el
+
+22
+00:02:13,727 --> 00:02:20,545
+texto del anuncio y la liga. El sueldo
+publicado no cambia el catálogo de puestos.
+
+23
+00:02:27,000 --> 00:02:31,545
+Cada campaña mide su embudo: candidatos,
+contactados, entrevistas, psicométricos y
+
+24
+00:02:31,545 --> 00:02:37,000
+contratados. Con el gasto, calcula el
+costo por candidato y por contratación.
+
+25
+00:02:37,000 --> 00:02:42,909
+También puedes adjuntar la factura o el
+reporte del proveedor, que quedan privados.
+
+26
+00:02:49,000 --> 00:02:52,182
+El candidato se registra sobre la vacante.
+
+27
+00:02:52,182 --> 00:02:59,455
+Capturas su nombre y contacto, eliges la
+vacante, la campaña por la que llegó y la
+
+28
+00:02:59,455 --> 00:03:05,364
+fuente. Si todavía no hay vacante para esa
+persona, la marcas como candidato
+
+29
+00:03:05,364 --> 00:03:10,364
+espontáneo, pero no podrá contratarse
+hasta vincularla a una vacante real.
+
+30
+00:03:16,500 --> 00:03:22,409
+El tablero muestra seis fases y dos
+columnas de cierre: rechazado y desistió.
+
+31
+00:03:22,409 --> 00:03:27,864
+Arrastrar una tarjeta solo sirve para
+cerrar el proceso con un motivo.
+
+32
+00:03:27,864 --> 00:03:31,500
+Para avanzar, se abre la ficha del
+candidato.
+
+33
+00:03:37,500 --> 00:03:43,409
+En el filtro de Recursos Humanos se hace
+el primer contacto, normalmente por
+
+34
+00:03:43,409 --> 00:03:49,318
+WhatsApp, fuera del sistema. PEOPLE
+registra la fecha, el responsable, las notas y
+
+35
+00:03:49,318 --> 00:03:53,409
+el resultado. Si no continúa, el motivo es
+obligatorio.
+
+36
+00:03:59,500 --> 00:04:05,864
+Después, el gerente de la sucursal
+entrevista al candidato y registra la fecha, sus
+
+37
+00:04:05,864 --> 00:04:11,773
+observaciones y el resultado. El gerente
+regional no tiene que aprobar a cada
+
+38
+00:04:11,773 --> 00:04:12,227
+candidato.
+
+39
+00:04:18,500 --> 00:04:24,409
+Recursos Humanos registra los resultados
+psicométricos con su PDF o imagen, y el
+
+40
+00:04:24,409 --> 00:04:31,227
+gerente los revisa. La evidencia se abre
+dentro de PEOPLE, sin descargar nada y sin
+
+41
+00:04:31,227 --> 00:04:33,045
+mostrar dónde se guarda.
+
+42
+00:04:39,500 --> 00:04:44,955
+El gerente realiza el estudio
+socioeconómico: registra la visita, un checklist, los
+
+43
+00:04:44,955 --> 00:04:49,045
+riesgos y sus evidencias en foto, PDF o
+video.
+
+44
+00:04:49,045 --> 00:04:51,773
+Todo se consulta desde la ficha.
+
+45
+00:04:58,000 --> 00:05:02,545
+Antes de decidir se valida al menos una
+referencia laboral.
+
+46
+00:05:02,545 --> 00:05:08,000
+Luego el gerente preautoriza la
+contratación y Recursos Humanos da la autorización
+
+47
+00:05:08,000 --> 00:05:13,455
+final. En el caso normal no interviene el
+regional ni Dirección Comercial.
+
+48
+00:05:19,500 --> 00:05:25,409
+Si Recursos Humanos rechaza, el gerente
+puede aceptar el rechazo o solicitar una
+
+49
+00:05:25,409 --> 00:05:30,409
+intervención. Para gestor o gestor volante
+decide el regional; para puestos
+
+50
+00:05:30,409 --> 00:05:31,773
+superiores, Dirección Comercial.
+
+51
+00:05:31,773 --> 00:05:34,045
+Todo queda en el historial.
+
+52
+00:05:40,500 --> 00:05:45,500
+Con la autorización de Recursos Humanos
+aparece Generar QR de contratación.
+
+53
+00:05:45,500 --> 00:05:49,136
+Capturas el sueldo y la fecha de ingreso.
+
+54
+00:05:49,136 --> 00:05:56,409
+El sistema bloquea la vacante, revisa que
+la plaza siga libre, crea a la persona sin
+
+55
+00:05:56,409 --> 00:06:02,318
+duplicarla y ocupa la plaza. Así, dos
+personas nunca ocupan la última plaza.
+
+56
+00:06:08,500 --> 00:06:14,409
+El QR no es solo un formulario: es el
+inicio de la incorporación.
+
+57
+00:06:14,409 --> 00:06:19,864
+Es temporal, de un solo uso y se puede
+regenerar o revocar.
+
+58
+00:06:19,864 --> 00:06:24,409
+Se imprime o se envía la liga a la
+persona.
+
+59
+00:06:30,500 --> 00:06:36,864
+La persona escanea el QR con su celular,
+confirma su nombre, apellidos, correo y
+
+60
+00:06:36,864 --> 00:06:39,136
+teléfono, y crea su contraseña.
+
+61
+00:06:39,136 --> 00:06:45,500
+No captura empresa, sucursal, puesto ni
+tipo de contrato: eso ya viene del proceso
+
+62
+00:06:45,500 --> 00:06:46,864
+de Recursos Humanos.
+
+63
+00:06:53,000 --> 00:06:59,818
+Después sube sus documentos desde la app y
+completa los datos que pide su contrato,
+
+64
+00:06:59,818 --> 00:07:03,000
+como domicilio, contacto de emergencia y
+beneficiario.
+
+65
+00:07:03,000 --> 00:07:07,545
+Esos datos se envían a Recursos Humanos
+para su autorización.
+
+66
+00:07:14,000 --> 00:07:19,455
+Recursos Humanos ve todo en el expediente:
+datos personales y laborales, cuenta,
+
+67
+00:07:19,455 --> 00:07:23,091
+documentos, onboarding, avisos,
+vacaciones, recibos, préstamos, solicitudes e
+
+68
+00:07:23,091 --> 00:07:28,545
+historial. Candidato y colaborador son la
+misma persona, con todo su antecedente.
+
+69
+00:07:35,000 --> 00:07:41,364
+El expediente no muestra solo un
+porcentaje: dice qué sección está completa y cuál
+
+70
+00:07:41,364 --> 00:07:47,727
+no. Con Avisar al colaborador, la persona
+recibe una notificación y un push para
+
+71
+00:07:47,727 --> 00:07:49,545
+completarlo desde la app.
+
+72
+00:07:56,000 --> 00:08:01,000
+Con el expediente completo, Recursos
+Humanos genera el paquete de contratación.
+
+73
+00:08:01,000 --> 00:08:07,364
+El sistema llena el contrato de
+capacitación inicial con los datos del expediente, y
+
+74
+00:08:07,364 --> 00:08:14,182
+la duración la define cada puesto: por
+ejemplo, dos meses para gestor y tres para
+
+75
+00:08:14,182 --> 00:08:19,636
+gerente. Si falta un dato obligatorio, no
+se genera un documento incompleto.
+
+76
+00:08:26,000 --> 00:08:31,909
+El gerente imprime, recaba firma y huella,
+y envía el original a corporativo.
+
+77
+00:08:31,909 --> 00:08:37,364
+Recursos Humanos registra la recepción,
+sube el documento firmado y lo archiva.
+
+78
+00:08:37,364 --> 00:08:40,545
+Siempre se sabe dónde está cada original.
+
+79
+00:08:47,000 --> 00:08:52,000
+Con los contratos firmados empieza el
+onboarding: la bienvenida del colaborador
+
+80
+00:08:52,000 --> 00:08:57,000
+nuevo. Recursos Humanos define lecciones
+institucionales y del puesto, con su
+
+81
+00:08:57,000 --> 00:09:02,455
+material, sus instrucciones y una
+evaluación, y el equipo que se entrega.
+
+82
+00:09:08,500 --> 00:09:12,136
+El colaborador responde sus lecciones
+desde la app.
+
+83
+00:09:12,136 --> 00:09:18,045
+Si no alcanza la calificación, Recursos
+Humanos le deja retroalimentación y vuelve a
+
+84
+00:09:18,045 --> 00:09:23,045
+intentarlo. Con las lecciones aprobadas y
+el equipo entregado, Recursos Humanos
+
+85
+00:09:23,045 --> 00:09:26,682
+cierra el onboarding y la persona queda
+activa.
+
+86
+00:09:26,682 --> 00:09:33,500
+En ese momento se avisa a Recursos Humanos
+y a Sistemas, para preparar su cuenta,
+
+87
+00:09:33,500 --> 00:09:34,864
+accesos y equipo.
+
+88
+00:09:41,000 --> 00:09:47,364
+Quince días antes de que termine la
+capacitación, el sistema abre la evaluación y
+
+89
+00:09:47,364 --> 00:09:53,273
+avisa al gerente. El gerente califica cada
+criterio, comenta y recomienda si la
+
+90
+00:09:53,273 --> 00:09:56,909
+persona continúa. Recursos Humanos
+autoriza la decisión final.
+
+91
+00:10:03,000 --> 00:10:08,455
+Si la evaluación se aprueba, el sistema
+prepara el contrato por tiempo
+
+92
+00:10:08,455 --> 00:10:11,182
+indeterminado, listo para previsualizar e
+imprimir.
+
+93
+00:10:11,182 --> 00:10:13,909
+Pulsar dos veces no lo duplica.
+
+94
+00:10:13,909 --> 00:10:19,364
+Si no se renueva, se abre el cierre
+laboral por no renovación.
+
+95
+00:10:25,500 --> 00:10:30,045
+Desde la app, el colaborador pide
+permisos, vacaciones y préstamos.
+
+96
+00:10:30,045 --> 00:10:35,955
+El gerente y el regional dan su visto
+bueno y Recursos Humanos autoriza.
+
+97
+00:10:35,955 --> 00:10:44,136
+En vacaciones el domingo no cuenta y el
+sábado sí, y la persona ve su saldo antes y
+
+98
+00:10:44,136 --> 00:10:50,045
+después. El formato de permiso solo se
+imprime cuando Recursos Humanos ya lo
+
+99
+00:10:50,045 --> 00:10:50,500
+autorizó.
+
+100
+00:10:56,500 --> 00:11:00,591
+Los recibos de nómina son recibos simples,
+no timbrados.
+
+101
+00:11:00,591 --> 00:11:06,500
+Recursos Humanos prepara el lote semanal o
+quincenal y todos quedan como borrador:
+
+102
+00:11:06,500 --> 00:11:10,591
+nadie los ve y no se avisa a nadie.
+
+103
+00:11:10,591 --> 00:11:15,591
+Después revisa el resumen y cada recibo
+con su PDF real.
+
+104
+00:11:22,000 --> 00:11:29,273
+Solo al pulsar Emitir los recibos se
+publican, se guarda su PDF en el expediente y
+
+105
+00:11:29,273 --> 00:11:34,727
+cada colaborador recibe el aviso: tu
+recibo de nómina ya está disponible.
+
+106
+00:11:34,727 --> 00:11:39,273
+Esta separación evita que alguien reciba
+un recibo con errores.
+
+107
+00:11:45,500 --> 00:11:52,773
+Recursos Humanos envía avisos con título,
+mensaje e imagen a toda la empresa o a una
+
+108
+00:11:52,773 --> 00:11:56,864
+persona; llegan por push y quedan en su
+bandeja.
+
+109
+00:11:56,864 --> 00:12:02,773
+Los cumpleaños y aniversarios se felicitan
+solos a las ocho de la mañana.
+
+110
+00:12:09,000 --> 00:12:16,273
+Para una baja, el jefe la solicita desde
+el ciclo laboral de la persona, el superior
+
+111
+00:12:16,273 --> 00:12:19,455
+la preautoriza y Recursos Humanos la
+autoriza.
+
+112
+00:12:19,455 --> 00:12:25,818
+Al solicitarla, el acceso de la persona se
+suspende de inmediato, pero nunca se
+
+113
+00:12:25,818 --> 00:12:26,727
+borra nada.
+
+114
+00:12:33,000 --> 00:12:37,545
+El finiquito se calcula con sueldo
+pendiente, aguinaldo proporcional, vacaciones,
+
+115
+00:12:37,545 --> 00:12:42,545
+prima vacacional e ISR. Recursos Humanos
+revisa, ajusta los conceptos autorizados
+
+116
+00:12:42,545 --> 00:12:50,727
+con su motivo, genera el PDF y, ya firmado
+y pagado, se ejecuta la baja en su fecha
+
+117
+00:12:50,727 --> 00:12:56,182
+efectiva. Recursos Humanos y Sistemas
+reciben el aviso para retirar accesos y
+
+118
+00:12:56,182 --> 00:12:56,636
+equipo.
+
+119
+00:13:03,000 --> 00:13:09,364
+Si alguien regresa, no se crea una persona
+nueva: se busca en Reingresos, Recursos
+
+120
+00:13:09,364 --> 00:13:15,727
+Humanos decide, y la misma persona inicia
+un nuevo ciclo laboral conservando todo su
+
+121
+00:13:15,727 --> 00:13:16,182
+historial.
+
+122
+00:13:22,500 --> 00:13:25,682
+Siempre que tengas una duda, abre Ayuda.
+
+123
+00:13:25,682 --> 00:13:31,591
+Puedes buscar con tus propias palabras,
+por ejemplo cómo contrato un candidato, ver
+
+124
+00:13:31,591 --> 00:13:38,409
+el recorrido completo, la guía por proceso
+o lo que te toca según tu rol.
+
+125
+00:13:38,409 --> 00:13:44,318
+En cada pantalla importante, el botón Cómo
+funciona te lleva directo a su
+
+126
+00:13:44,318 --> 00:13:44,773
+explicación.
+
+127
+00:13:51,000 --> 00:13:58,273
+Con MR. LANA PEOPLE cada persona sabe qué
+hacer, dónde hacerlo, quién lo hace y qué
+
+128
+00:13:58,273 --> 00:14:01,455
+pasa después. Gracias por ver este
+recorrido.

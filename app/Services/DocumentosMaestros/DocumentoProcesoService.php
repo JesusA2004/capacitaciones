@@ -210,6 +210,15 @@ class DocumentoProcesoService
         }
 
         $total = count($totalBases);
+
+        // Ningún master del paquete pide datos del colaborador (o ninguno
+        // está listo): no hay nada que evaluar. Antes salía «aplica» con 0 %
+        // y el expediente mostraba «Faltan 0 datos que impiden generar
+        // contrato».
+        if ($total === 0) {
+            return ['aplica' => false, 'porcentaje' => 100, 'total' => 0, 'completos' => 0, 'grupos' => [], 'faltantes' => []];
+        }
+
         $completos = $total - count($faltantesPorBase);
         $grupos = [];
 

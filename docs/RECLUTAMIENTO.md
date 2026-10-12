@@ -33,10 +33,20 @@ documentos de expediente — nunca se expone la ruta física del NAS al frontend
 
 ## Estados
 
-`nuevo, contactado, respondio, no_respondio, viable, no_viable,
+> **Vigente (2026-10):** el pipeline real está en `App\Enums\EstadoCandidato` y en
+> `App\Services\Reclutamiento\CandidatoWorkflowService`: Filtro RH → Entrevista →
+> Psicométricas → Socioeconómico → Referencias → Preautorización del gerente →
+> Autorización final de RH → En contratación (QR) → Contratado, con salidas
+> No viable / No seleccionado / Rechazado por RH / No respondió / Desistió. El tablero
+> agrupa esos estados en las fases `filtro_rh, entrevista, psicometricos,
+> socioeconomico, contratacion, contratado, rechazado, desistido`. Los avances se
+> hacen con acciones del workflow (nunca arrastrando). Guía de uso:
+> `docs/guias/FLUJO_COMPLETO.md`. La lista y las secciones siguientes describen la
+> primera versión del módulo y se conservan como historial.
+
+Primera versión (histórica): `nuevo, contactado, respondio, no_respondio, viable, no_viable,
 entrevista_programada, entrevistado, documentacion_solicitada, en_revision,
-aprobado_gerencia, aprobado_rh, rechazado, descartado, contratado`
-(enum `App\Enums\EstadoCandidato`).
+aprobado_gerencia, aprobado_rh, rechazado, descartado, contratado`.
 
 Cada cambio de estado (`PUT rh/candidatos/{candidato}/estado`) crea automáticamente un
 `SeguimientoCandidato` de tipo `cambio_estado` con el estado anterior/nuevo, para que el

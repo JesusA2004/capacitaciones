@@ -33,6 +33,7 @@ use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\CicloLaboral\CicloLaboralService;
+use App\Services\Reclutamiento\CampanaReclutamientoService;
 use App\Services\Reclutamiento\CandidatoPresenter;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
 use App\Services\Reclutamiento\ContratacionCandidatoService;
@@ -476,19 +477,24 @@ class CandidatoController extends Controller
      */
     private function opciones(User $usuario): array
     {
+        // Única fuente de verdad de "vacante real" (plazas_autorizadas −
+        // ocupadas > 0): App\Services\Vacantes\VacantesListadoService,
+        // la misma que usa el listado de Vacantes (CLAUDE.md §2). Nunca
+        // una query propia aquí.
+        $vacantes = $this->vacantesListado->consulta($usuario)
+            ->with(['puesto:id,nombre', 'sucursal:id,nombre'])
+            ->orderByDesc('fecha_apertura')
+            ->get(['id', 'puesto_id', 'sucursal_id', 'estado']);
+
         return [
             'empresas' => Empresa::query()->orderBy('nombre')->get(['id', 'nombre']),
             'sucursales' => Sucursal::query()->orderBy('nombre')->get(['id', 'nombre', 'empresa_id']),
             'departamentos' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
             'puestos' => Puesto::query()->orderBy('nombre')->get(['id', 'nombre', 'departamento_id']),
-            // Única fuente de verdad de "vacante real" (plazas_autorizadas −
-            // ocupadas > 0): App\Services\Vacantes\VacantesListadoService,
-            // la misma que usa el listado de Vacantes (CLAUDE.md §2). Nunca
-            // una query propia aquí.
-            'vacantes' => $this->vacantesListado->consulta($usuario)
-                ->with(['puesto:id,nombre', 'sucursal:id,nombre'])
-                ->orderByDesc('fecha_apertura')
-                ->get(['id', 'puesto_id', 'sucursal_id', 'estado']),
+            'vacantes' => $vacantes,
+            // Campañas de esas vacantes: el formulario de candidato solo
+            // ofrece las de la vacante elegida (embudo de cada campaña).
+            'campanas' => app(CampanaReclutamientoService::class)->opcionesParaVacantes($vacantes->pluck('id')),
             'responsables' => User::query()->role(['rh_admin', 'rh_auxiliar'])->orderBy('name')->get(['id', 'name', 'apellidos']),
             'gerentes' => User::query()->permission(CandidatoWorkflowService::PERMISO_GERENTE)->whereNull('acceso_bloqueado_en')->orderBy('name')->get(['id', 'name', 'apellidos']),
             'estados' => array_map(fn (EstadoCandidato $e) => ['value' => $e->value, 'etiqueta' => $e->etiqueta(), 'salida' => $e->esSalida(), 'fase' => $e->faseCanonica()], EstadoCandidato::cases()),

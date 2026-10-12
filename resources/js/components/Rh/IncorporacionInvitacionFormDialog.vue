@@ -7,6 +7,7 @@ import { Combobox } from '@/components/ui/combobox';
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogFooter,
     DialogHeader,
     DialogTitle,
@@ -85,17 +86,23 @@ function enviar() {
     <Dialog :open="open" @update:open="(valor) => emit('update:open', valor)">
         <DialogContent class="max-h-[85vh] max-w-lg overflow-y-auto">
             <DialogHeader>
-                <DialogTitle>Alta Digital QR</DialogTitle>
+                <DialogTitle>Nuevo QR de incorporación</DialogTitle>
+                <DialogDescription>
+                    Para volver a emitir el QR de alguien que ya está en
+                    contratación y no alcanzó a usar el suyo. El primer QR se
+                    genera desde la ficha del candidato («Generar QR de
+                    contratación»).
+                </DialogDescription>
             </DialogHeader>
 
             <form class="grid gap-4" @submit.prevent="enviar">
                 <div class="grid gap-2">
-                    <Label>Candidato listo para contratación</Label>
+                    <Label>Persona en contratación sin QR vigente</Label>
                     <Combobox
                         v-model="form.candidato_id"
                         :items="opcionesCandidato"
                         placeholder="Busca por nombre..."
-                        empty-text="No hay candidatos listos para contratación disponibles."
+                        empty-text="Nadie en contratación necesita un QR nuevo."
                     />
                     <InputError :message="form.errors.candidato_id" />
                 </div>

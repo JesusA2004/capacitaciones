@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Colaborador;
+use App\Models\ContratoLaboral;
 use App\Models\DocumentTemplate;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
@@ -59,4 +60,15 @@ test('listarDatosFaltantesRh(): sin masters activos con columnas de colaborador,
     $detalle = app(DocumentoProcesoService::class)->listarDatosFaltantesRh(Colaborador::query());
 
     expect($detalle)->toBe([]);
+});
+
+test('completitudAlta(): sin datos que evaluar no dice «Faltan 0 datos» (no aplica)', function () {
+    $colaborador = Colaborador::factory()->create();
+    ContratoLaboral::factory()->create(['colaborador_id' => $colaborador->id]);
+
+    $completitud = app(DocumentoProcesoService::class)->completitudAlta($colaborador);
+
+    expect($completitud['total'])->toBe(0)
+        ->and($completitud['aplica'])->toBeFalse()
+        ->and($completitud['faltantes'])->toBe([]);
 });

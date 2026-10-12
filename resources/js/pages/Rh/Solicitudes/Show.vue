@@ -192,6 +192,7 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
             <div class="flex flex-col gap-6 lg:col-span-8 xl:col-span-9">
                 <CadenaAutorizacion
                     v-if="vistosBuenos.length"
+                    data-tour="solicitud-cadena"
                     :solicitud-id="solicitud.id"
                     :estado="solicitud.estado"
                     :niveles="vistosBuenos"
@@ -507,6 +508,7 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
             >
                 <div
                     v-if="!esFinal"
+                    data-tour="solicitud-acciones"
                     class="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-5"
                 >
                     <h3 class="text-sm font-semibold">Acciones de revisión</h3>

@@ -127,6 +127,8 @@ const candidatoFormulario = computed(
                       puesto_id: props.candidato.puesto_objetivo_id,
                   }
                 : null,
+            campana_reclutamiento_id:
+                props.candidato.campana_reclutamiento_id ?? null,
         }) as unknown as CandidatoItem,
 );
 
@@ -351,16 +353,17 @@ const claseBoton: Record<string, 'default' | 'secondary' | 'destructive'> = {
             </Button>
         </CrudPageHeader>
 
-        <CicloStepper :pasos="ciclo.pasos" />
+        <CicloStepper data-tour="candidato-pasos" :pasos="ciclo.pasos" />
 
         <div class="grid gap-5 lg:grid-cols-3">
             <div class="flex flex-col gap-5 lg:col-span-2">
-                <CicloEstadoPanel :ciclo="ciclo" />
+                <CicloEstadoPanel data-tour="candidato-estado" :ciclo="ciclo" />
 
                 <section
                     v-if="ciclo.acciones_permitidas.length"
                     class="flex flex-wrap gap-2 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4"
                     aria-label="Acciones disponibles"
+                    data-tour="candidato-acciones"
                 >
                     <Button
                         v-for="accion in ciclo.acciones_permitidas"

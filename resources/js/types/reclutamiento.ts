@@ -89,6 +89,8 @@ export type CandidatoItem = {
     departamento: OpcionSimple | null;
     puesto_objetivo: OpcionSimple | null;
     vacante: { id: number; puesto_id: number | null } | null;
+    /** Campaña por la que llegó (alimenta el embudo de esa campaña). */
+    campana_reclutamiento_id?: number | null;
     /** Sin vacante ligada todavía: pipeline general, no puede avanzar a contratación (CLAUDE.md §3). */
     espontaneo: boolean;
     responsable_rh: {
@@ -193,6 +195,8 @@ export type OpcionesReclutamiento = {
         puesto?: { id: number; nombre: string } | null;
         sucursal?: { id: number; nombre: string } | null;
     }[];
+    /** Campañas de las vacantes listadas (selector «Campaña» del candidato). */
+    campanas?: { id: number; vacante_id: number; etiqueta: string }[];
     tiposSeguimiento?: OpcionEnum[];
     transicionesPermitidas?: Record<string, string[]>;
     /** Catálogo administrable de motivos de rechazo (CLAUDE.md §10). */

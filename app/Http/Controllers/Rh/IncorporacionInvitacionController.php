@@ -73,7 +73,7 @@ class IncorporacionInvitacionController extends Controller
 
     /**
      * Candidatos que se pueden ofrecer en el selector del Alta Digital QR
-     * (sección 5 del encargo): "Listo para contratación" y sin una
+     * (sección 5 del encargo): candidatos «En contratación» y sin una
      * incorporación ya en curso/completada — misma regla de idempotencia
      * que App\Http\Requests\Rh\StoreIncorporacionInvitacionRequest.
      *

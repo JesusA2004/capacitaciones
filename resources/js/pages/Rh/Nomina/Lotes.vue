@@ -193,7 +193,7 @@ function cambiarPagina(pagina: number) {
         </CrudPageHeader>
 
         <!-- Flujo en tres pasos -->
-        <ol class="grid gap-3 sm:grid-cols-3">
+        <ol data-tour="nomina-pasos" class="grid gap-3 sm:grid-cols-3">
             <li
                 v-for="(paso, i) in [
                     { t: 'Preparar', d: 'Desde el sueldo de cada persona o importando el archivo de RH.', i: Layers },
@@ -249,7 +249,11 @@ function cambiarPagina(pagina: number) {
             descripcion="Crea el primero con «Nuevo lote»: los recibos quedarán en borrador para que los revises."
         />
 
-        <div v-else class="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+        <div
+            v-else
+            data-tour="nomina-lotes"
+            class="grid gap-3 md:grid-cols-2 2xl:grid-cols-3"
+        >
             <Link
                 v-for="lote in lotes.data"
                 :key="lote.id"

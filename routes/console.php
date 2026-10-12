@@ -62,9 +62,10 @@ Schedule::command('organigrama:sincronizar-jefes')
     ->withoutOverlapping()
     ->onOneServer();
 
-// Nómina quincenal (docs/NOMINA_QUINCENAL.md): prepara los recibos como
-// borrador unos días antes del pago y los emite (PDF + aviso) en la fecha
-// de pago. Idempotente.
+// Nómina quincenal (docs/NOMINA_QUINCENAL.md): prepara el lote de recibos
+// como borrador unos días antes del pago. NO los emite: RH revisa y emite
+// desde «Recibos de nómina» (la emisión automática existe solo si se activa
+// NOMINA_EMISION_AUTOMATICA=true, apagada por defecto). Idempotente.
 Schedule::command('nomina:procesar-quincenas')
     ->dailyAt('06:15')
     ->timezone('America/Mexico_City')

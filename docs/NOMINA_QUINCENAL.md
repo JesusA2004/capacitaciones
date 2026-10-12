@@ -1,6 +1,8 @@
 # Recibos de nómina quincenales
 
-Recibo **interno** (no fiscal: no timbra, no calcula ISR/IMSS) que se entrega a cada colaborador cada quincena.
+Recibo **interno** (no fiscal: no timbra, no calcula ISR/IMSS) que se entrega a cada colaborador por periodo (semanal: lunes → domingo; quincenal: ver abajo).
+
+> **Regla vigente: preparar ≠ publicar.** Todo recibo nace como borrador dentro de un **lote** (`App\Services\Nomina\LoteNominaService`): no es visible para el colaborador, no hay notificación ni push. Solo cuando RH pulsa **«Emitir N recibos»** en el lote se publica, se congela el PDF en el expediente y se avisa. Guía de uso: `docs/guias/RH.md` (capítulo Nómina).
 
 ## Quincenas
 
@@ -18,11 +20,15 @@ Recibo **interno** (no fiscal: no timbra, no calcula ISR/IMSS) que se entrega a 
    - si ingresó a media quincena, proporcional: sueldo mensual / 30 × días trabajados;
    - quien no tiene sueldo capturado **no** recibe recibo y se reporta (nunca se inventa un monto);
    - a quien ya tiene recibo del periodo no se le duplica.
-2. **Emitir** — si `NOMINA_EMISION_AUTOMATICA=true` (por defecto), emite todos los borradores cuya fecha de pago ya llegó: genera el PDF, lo archiva en el expediente (`NominaInterna`) y avisa al colaborador. Se emite a nombre del primer usuario activo con `nomina.recibos.crear`.
+2. **Emitir** — **apagado por defecto** (`NOMINA_EMISION_AUTOMATICA=false`, `config/nomina.php`): RH revisa el lote y lo emite a mano desde «Recibos de nómina». Solo si alguien activa `NOMINA_EMISION_AUTOMATICA=true`, el comando emite los borradores cuya fecha de pago ya llegó (PDF archivado en el expediente + aviso), a nombre del primer usuario activo con `nomina.recibos.crear`.
 
 El colaborador **solo ve recibos emitidos** (`ReciboNominaPolicy::ver`, `ReciboNominaService::delColaborador`).
 
-## Centro de RH — `/rh/nomina` (permiso `nomina.recibos.ver`)
+## Lotes — `/rh/nomina/lotes` (menú «Recibos de nómina», permiso `nomina.recibos.ver`)
+
+Pantalla principal: **Preparar** (desde sueldos o importando el archivo de RH) → **Revisar** (esperados, preparados, errores, advertencias, percepciones, deducciones, neto; PDF real recibo por recibo con Anterior/Siguiente) → **Emitir** (publica + aviso). «Cancelar lote» con motivo cancela sus recibos y permite volver a preparar el periodo.
+
+## Centro por quincena — `/rh/nomina` (permiso `nomina.recibos.ver`)
 
 - Selector de quincena, resumen (total, borradores, emitidos, neto).
 - **Preparar recibos** ahora (sin esperar al comando).
@@ -54,7 +60,7 @@ La app RH muestra el estado (borrador/emitido) y permite «Emitir ahora»; los a
 ## Configuración (`config/nomina.php`)
 
 ```env
-NOMINA_EMISION_AUTOMATICA=true
+NOMINA_EMISION_AUTOMATICA=false   # por defecto: RH emite a mano
 NOMINA_DIAS_ANTICIPACION=3
 ```
 

@@ -29,7 +29,7 @@ Superior operativo **preautoriza**; RH da la **autorización final** (`Aprobacio
 
 ### Aviso "ya se debe renovar el contrato"
 
-`contratos:revisar-vencimientos` (diario 06:30) abre, **una sola vez por contrato**, la evaluación del periodo de prueba `dias_aviso_vencimiento` días antes del fin (15 por defecto: un gestor con contrato de 2 meses se avisa al mes y 15 días). Avisa al evaluador (`evaluacion_pendiente`) y, por `contrato_por_vencer`, **siempre** a la gerencia de su sucursal, al gerente regional de su región (matriz comercial) y a la Gerencia de RH, además de RH con alcance. Duración del contrato por puesto: `puestos.meses_periodo_prueba` (gestores 2, gerencia/coordinación/regionales 3; el resto usa el defecto de 3, editable en Parámetros de RH).
+`contratos:revisar-vencimientos` (diario 06:30) abre, **una sola vez por contrato**, la evaluación del periodo de prueba `dias_aviso_vencimiento` días antes del fin (15 por defecto: un gestor con contrato de 2 meses se avisa al mes y 15 días). Avisa al evaluador (`evaluacion_pendiente`) y, por `contrato_por_vencer`, **siempre** a la gerencia de su sucursal, al gerente regional de su región (matriz comercial) y a la Gerencia de RH, además de RH con alcance. Duración del contrato por puesto: `puestos.meses_periodo_prueba` (gestores 2, gerencia/coordinación/regionales 3), editable en Parámetros de RH. **No hay duración genérica**: un puesto sin meses configurados bloquea la contratación con un mensaje claro (`ContratoLaboralService::fechaFinPeriodoPrueba()`).
 
 ## 5. Configuración del sistema
 

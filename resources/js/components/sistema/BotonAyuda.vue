@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
-import { BookOpen, Compass, Route } from '@lucide/vue';
+import { BookOpen, CircleHelp, Compass, Route } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,6 +12,8 @@ import { useCurrentUrl } from '@/composables/useCurrentUrl';
 import { useNavegacion } from '@/composables/useNavegacion';
 import { usePermisos } from '@/composables/usePermisos';
 import { useTourGuiado } from '@/composables/useTourGuiado';
+import { articulo } from '@/lib/guia';
+import { articuloDePantalla } from '@/lib/guia/contextual';
 import { tourCompleto, toursDisponibles } from '@/lib/tours/registro';
 import type { ContextoGuia, Tour } from '@/lib/tours/tipos';
 
@@ -40,6 +42,13 @@ const hayTourNuevo = computed(
     () =>
         !haVisto(recorrido.value.id) || tours.value.some((t) => !haVisto(t.id)),
 );
+
+/** Artículo de la Guía que explica la pantalla actual (si hay). */
+const articuloPantalla = computed(() => {
+    const id = articuloDePantalla(currentUrl.value);
+
+    return id ? articulo(id) : undefined;
+});
 
 const abierto = ref(false);
 
@@ -122,6 +131,27 @@ function lanzar(tour: Tour): void {
                         cada módulo
                     </span>
                 </span>
+            </Button>
+
+            <Button
+                v-if="articuloPantalla"
+                variant="outline"
+                size="sm"
+                class="h-auto w-full justify-start gap-2 py-2 text-left whitespace-normal"
+                as-child
+            >
+                <Link
+                    :href="`/ayuda/articulo/${articuloPantalla.id}`"
+                    @click="abierto = false"
+                >
+                    <CircleHelp class="size-3.5 shrink-0" />
+                    <span class="min-w-0 flex-1">
+                        ¿Cómo funciona esta pantalla?
+                        <span class="block text-[11px] text-muted-foreground">
+                            {{ articuloPantalla.titulo }}
+                        </span>
+                    </span>
+                </Link>
             </Button>
 
             <Button

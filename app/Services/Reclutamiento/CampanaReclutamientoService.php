@@ -93,6 +93,42 @@ class CampanaReclutamientoService
      * Guarda el arte/PDF de la campaña en el NAS privado (mismo disco de
      * reclutamiento que los CV).
      */
+    /**
+     * Campañas a las que se puede atribuir un candidato de estas vacantes
+     * (selector «Campaña» del formulario de candidato). Sin esto RH no tenía
+     * cómo ligar al candidato con su campaña y el embudo de cada campaña
+     * (contactados, entrevistas, psicométricos, contratados) se quedaba en
+     * ceros aunque los candidatos sí hubieran llegado por ella.
+     *
+     * @param  iterable<int>  $vacanteIds
+     * @return list<array{id: int, vacante_id: int, etiqueta: string}>
+     */
+    public function opcionesParaVacantes(iterable $vacanteIds): array
+    {
+        $ids = collect($vacanteIds)->map(fn (mixed $id): int => (int) $id)->unique()->values();
+
+        if ($ids->isEmpty()) {
+            return [];
+        }
+
+        return array_values(CampanaReclutamiento::query()
+            ->whereIn('vacante_id', $ids->all())
+            ->orderByDesc('fecha_inicio')
+            ->orderByDesc('id')
+            ->get(['id', 'vacante_id', 'nombre', 'canal', 'fecha_inicio'])
+            ->map(fn (CampanaReclutamiento $c): array => [
+                'id' => $c->id,
+                'vacante_id' => (int) $c->vacante_id,
+                'etiqueta' => sprintf(
+                    '%s%s%s',
+                    $c->canal->etiqueta(),
+                    $c->nombre !== null && $c->nombre !== '' ? ' · '.$c->nombre : '',
+                    $c->fecha_inicio !== null ? ' · desde '.$c->fecha_inicio->format('d/m/Y') : '',
+                ),
+            ])
+            ->all());
+    }
+
     public function agregarAdjunto(CampanaReclutamiento $campana, UploadedFile $archivo, ?int $actorId): CampanaReclutamientoAdjunto
     {
         $nombreOriginal = $archivo->getClientOriginalName();

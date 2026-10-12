@@ -218,7 +218,12 @@ function resolverRuta(tour: Tour, indice: number): string | null {
 
     if (paso.rutaDesde) {
         const enlace = buscarElementoVisible(paso.rutaDesde);
-        const href = enlace?.getAttribute('href');
+        // Enlace real (`<a href>`) o tarjeta clicable que declara su destino
+        // con `data-tour-href` (p. ej. las tarjetas del tablero de candidatos,
+        // que navegan con router.visit para poder arrastrarse).
+        const href =
+            enlace?.getAttribute('href') ??
+            enlace?.getAttribute('data-tour-href');
 
         return href
             ? normalizarRuta(new URL(href, window.location.origin).pathname)

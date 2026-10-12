@@ -14,7 +14,7 @@ use Illuminate\Foundation\Http\FormRequest;
  * no captura nombre/correo/teléfono/empresa/sucursal/departamento/puesto a
  * mano — todo eso se autocompleta desde el Candidato elegido
  * (IncorporacionInvitacionController::store()). Aquí solo se valida que el
- * candidato exista, esté "Listo para contratación" y no tenga ya una
+ * candidato exista, esté «En contratación» y no tenga ya una
  * incorporación en curso (idempotencia).
  */
 class StoreIncorporacionInvitacionRequest extends FormRequest

@@ -56,24 +56,24 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
         ],
     },
     solicitudes: {
-        queEs: 'La bandeja unificada donde RH y los jefes revisan vacaciones, permisos, préstamos, incapacidades, bajas y demás trámites.',
+        queEs: 'Las solicitudes de los colaboradores (permisos, vacaciones, préstamos y actualizaciones de datos), por tipo y por estado.',
         puedes: [
-            'Ver todas las solicitudes en un tablero por estado.',
-            'Mover una solicitud entre columnas (revisar, pedir corrección, aprobar, rechazar).',
-            'Abrir el detalle, ver evidencias e historial.',
+            'Ver por tipo cuántas están recibidas, por autorizar y en corrección.',
+            'Abrir una solicitud, su evidencia y su cadena de autorización.',
+            'Dar visto bueno (gerente y regional) o autorizar, rechazar o pedir corrección (RH).',
             'Exportar lo filtrado a Excel o PDF.',
         ],
         flujo: [
-            'Filtra por tipo o sucursal.',
-            'Abre la tarjeta y revisa motivo y evidencias.',
-            'Muévela a «En revisión» y luego a Aprobada, Rechazada o Requiere corrección (estas dos piden comentario).',
+            'El gerente da su visto bueno; después el regional.',
+            'Con ambos, la solicitud pasa sola a «Pendiente de autorizar».',
+            'RH aprueba, rechaza o pide corrección (con comentario).',
         ],
         permisos:
-            'RH, gerentes, subgerentes, coordinadoras y jefes directos revisan; aprueban RH, gerencias, jefes directos y dirección. Cada quien ve lo de su alcance.',
+            'Visto bueno: gerencia de la sucursal (o jefe directo) y regional. Autorización final: RH. Quien da un visto bueno no puede autorizar.',
         errores: [
-            'No puedes rechazar o pedir corrección sin escribir un comentario.',
-            'Un préstamo no se aprueba con el botón genérico: se autoriza en su propio flujo.',
-            'Si el tablero muestra el aviso de límite, usa filtros: ninguna solicitud se pierde.',
+            'Sin los dos vistos buenos, nadie (ni RH) puede autorizar.',
+            'Rechazar o pedir corrección exige comentario.',
+            'Un permiso solo se imprime después de la autorización de RH.',
         ],
     },
     organigrama: {
@@ -120,57 +120,64 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
         ],
     },
     candidatos: {
-        queEs: 'El tablero de reclutamiento: cada candidato avanza por fases desde que se recibe hasta que se contrata o se descarta.',
+        queEs: 'El tablero de reclutamiento: cada candidato avanza por fases, del Filtro RH hasta la contratación, con su acción en la ficha.',
         puedes: [
-            'Registrar candidatos con su puesto objetivo, sucursal, fuente y vacante.',
-            'Moverlos entre fases y registrar seguimientos.',
-            'Ver su CV e iniciar su alta digital.',
+            'Registrar candidatos sobre una vacante real (o como espontáneos), con su campaña y su fuente.',
+            'Ver en qué fase va cada uno y quién tiene la siguiente acción.',
+            'Registrar entrevista, psicométricas, socioeconómico y referencias desde la ficha.',
+            'Preautorizar (gerente), autorizar (RH) y generar el QR de contratación.',
+            'Cerrar el proceso de un candidato (Rechazado o Desistió) con motivo.',
         ],
         flujo: [
-            'Registra al candidato.',
-            'Arrástralo a la siguiente fase conforme avanza (las fases son sucesivas).',
-            'Al llegar a «Listo para contratación», inicia su alta o genera su invitación QR.',
+            'Registra al candidato eligiendo la vacante real.',
+            'Abre su ficha y usa la acción del paso (Revisar perfil, Registrar entrevista…).',
+            'Con la autorización final de RH, «Generar QR de contratación».',
         ],
         permisos:
-            'RH, dirección comercial, gerencias, subgerentes, auditoría y dirección.',
+            'Registrar y avanzar: RH. Entrevistar, revisar psicométricas, socioeconómico y preautorizar: gerencia de la sucursal. Autorizar: RH. Consulta: dirección comercial, regional y auditoría.',
         errores: [
-            'No se puede saltar fases: las columnas no permitidas se atenúan al arrastrar.',
+            'Arrastrar una tarjeta solo cierra el proceso (Rechazado o Desistió); para avanzar se usa la acción de la ficha.',
+            'Un candidato espontáneo no se puede contratar hasta vincularlo a una vacante real.',
+            '«Esta vacante ya fue cubierta»: alguien ocupó la última plaza; elige otra vacante.',
         ],
     },
     campanas: {
-        queEs: 'El gasto de reclutamiento por canal, para saber cuánto costó cada colaborador contratado.',
+        queEs: 'Cada campaña parte de una vacante real y registra qué se publicó, cuánto costó y qué produjo.',
         puedes: [
-            'Registrar lo invertido por mes y canal.',
-            'Ver por campaña cuántos colaboradores contrató y cuánto costó cada uno.',
-            'Ver los totales del periodo: gasto, contratados y costo promedio por colaborador.',
-            'Editar o eliminar una campaña.',
+            'Crear una campaña sobre una vacante real (empresa, sucursal y puesto salen de ella).',
+            'Registrar canal, fechas, presupuesto, gasto, sueldo publicado, copy, liga y evidencias (PDF o imagen).',
+            'Ver su embudo: candidatos, contactados, entrevistas, psicométricos y contratados.',
+            'Ver costo por candidato, por colaborador contratado, conversión y días para cubrir.',
         ],
         flujo: [
-            'Registra la campaña (mes, año, canal, monto).',
-            'Registra a los candidatos con esa fuente.',
-            'Revisa los costos del periodo.',
+            'Elige la vacante real y captura la campaña.',
+            'Al registrar cada candidato, elige esa campaña.',
+            'Revisa su embudo y sus costos.',
         ],
-        permisos: 'RH (administración y auxiliar) y super administración.',
+        permisos:
+            'Ver: RH (administración y auxiliar). Crear y editar: quien administra campañas (Gerencia de RH).',
         errores: [
-            'Liga al candidato con su campaña al registrarlo; si no, solo se atribuye si su «fuente» se capturó igual al canal.',
+            'Si la lista de vacantes está vacía, no hay plazas faltantes.',
+            'El sueldo publicado no cambia el sueldo del puesto ni el de la contratación.',
+            'Si el embudo sale en ceros, liga a los candidatos con su campaña en «Campaña».',
         ],
     },
     invitaciones: {
-        queEs: 'Códigos QR temporales para que una persona nueva se registre en la app y complete su expediente.',
+        queEs: 'El estado de todos los QR de incorporación y el lugar para volver a emitir uno que venció.',
         puedes: [
-            'Generar un QR para un candidato listo para contratación.',
-            'Ver su estado: activo, usado, vencido o revocado.',
-            'Regenerar o revocar una invitación y descargar el QR.',
+            'Ver cada QR: activo, usado, vencido o revocado.',
+            'Copiar la liga, descargar el PNG, regenerar o revocar un QR.',
+            'Emitir un QR nuevo para una persona en contratación que no usó el suyo.',
         ],
         flujo: [
-            'Genera la invitación y elige su vigencia.',
-            'Comparte el QR con la persona.',
-            'Cuando lo usa, su expediente aparece en Expedientes para revisión.',
+            'El primer QR se genera en la ficha del candidato autorizado («Generar QR de contratación»).',
+            'Si vence (máximo 24 h), aquí lo vuelves a emitir.',
+            'La persona lo escanea, crea su cuenta y sigue en la app.',
         ],
         permisos: 'RH (administración y auxiliar) y super administración.',
         errores: [
-            'Nadie puede registrarse en la app sin invitación activa.',
-            'Una invitación vencida no se reactiva: genera una nueva.',
+            'Nadie puede registrarse en la app sin un QR activo.',
+            'Un QR usado o vencido no se reactiva: se emite uno nuevo.',
         ],
     },
     reportes: {
@@ -286,20 +293,22 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
         ],
     },
     sucursales: {
-        queEs: 'Las ubicaciones de la empresa. Lo que cada responsable ve depende de las sucursales que tiene asignadas.',
+        queEs: 'Las ubicaciones de la empresa, con su plantilla autorizada por puesto.',
         puedes: [
             'Dar de alta y editar sucursales.',
-            'Ver su plantilla autorizada y vacantes.',
-            'Abrir el detalle con headcount por puesto.',
+            'Ver en el detalle su headcount: autorizado contra ocupado por puesto.',
+            'Cambiar la plantilla autorizada de un puesto (Gerencia de RH), con motivo.',
         ],
         flujo: [
-            '«Nueva sucursal».',
-            'Captura clave, empresa y datos de contacto.',
-            'Revisa su headcount en el detalle.',
+            '«Nueva sucursal»: clave, empresa y datos de contacto.',
+            'Abre el detalle para revisar su headcount.',
+            'Con el lápiz del puesto ajusta la plantilla autorizada y escribe el motivo.',
         ],
-        permisos: 'Super administración y administración de RH.',
+        permisos:
+            'Administrar: super administración y administración de RH. Cambiar plantilla: Gerencia de RH.',
         errores: [
-            'La plantilla autorizada viene del Excel de headcount; aquí solo se consulta.',
+            'Cada cambio de plantilla queda en el historial con antes → después y motivo.',
+            'Al cambiar la plantilla, la vacante del puesto se recalcula sola.',
         ],
     },
     departamentos: {
@@ -378,7 +387,7 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
         permisos:
             'Quien participa en el ciclo laboral (preautoriza, autoriza, evalúa, entrega equipo u opera bajas).',
         errores: [
-            'Si un pendiente no es tuyo, revisa en Configuración → Jefes directos quién es el jefe de esa persona.',
+            'Si un pendiente no te corresponde, revisa el organigrama: el jefe directo de cada persona sale de ahí.',
         ],
     },
     onboarding: {
@@ -420,12 +429,11 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
         ],
     },
     configuracion: {
-        queEs: 'Ajustes del sistema que administra el negocio: jefes directos, avisos, parámetros de RH y apariencia.',
+        queEs: 'Ajustes del sistema que administra el negocio: avisos, parámetros de RH y apariencia.',
         puedes: [
-            'Cambiar el jefe directo de una persona.',
-            'Elegir a quién llega cada aviso.',
-            'Ajustar días de aviso, calificaciones mínimas y duración del contrato por puesto.',
-            'Cambiar los colores institucionales.',
+            'Elegir a quién llega cada aviso (Notificaciones).',
+            'Ajustar días de aviso, calificaciones mínimas y la duración de capacitación inicial de cada puesto (Parámetros de RH).',
+            'Cambiar los colores institucionales (Apariencia).',
         ],
         flujo: [
             'Elige la sección.',
@@ -433,9 +441,10 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
             'Guarda: queda registrado quién cambió qué y cuándo.',
         ],
         permisos:
-            'configuracion.ver más el permiso de cada sección (organización, notificaciones, rh, apariencia).',
+            'configuracion.ver más el permiso de cada sección (notificaciones, rh, apariencia).',
         errores: [
-            'Nadie puede ser su propio jefe ni formar un ciclo de jefes.',
+            'El jefe directo no se captura aquí: sale del organigrama.',
+            'Cambiar quién se entera de un aviso no cambia quién autoriza.',
             'Los colores deben ir en formato #RRGGBB.',
         ],
     },
@@ -444,7 +453,7 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
         puedes: [
             'Subir los documentos que te pidan.',
             'Ver si fueron aprobados.',
-            'Actualizar tu contacto.',
+            'Pedir que se corrija o complete un dato tuyo («Solicitar corrección»).',
         ],
         flujo: [
             'Abre "Documentos".',
@@ -454,42 +463,84 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
         permisos: 'Toda cuenta ligada a un colaborador.',
         errores: [
             'Si un documento fue rechazado, verás el motivo: corrígelo y súbelo de nuevo.',
+            'Nadie edita su propio expediente: los cambios los autoriza RH.',
         ],
     },
     portal: {
-        queEs: 'Tu espacio personal: tu perfil, vacaciones, solicitudes y avisos.',
+        queEs: 'Tu espacio personal: tu perfil, lo que necesitas hacer, vacaciones, solicitudes y avisos.',
         puedes: [
             'Ver tus datos y tu número de empleado.',
+            'Ver lo que te toca hacer (documentos, firmas, lecciones de bienvenida).',
             'Consultar tus días de vacaciones.',
             'Ver tus solicitudes recientes y notificaciones.',
         ],
         flujo: [
-            'Revisa tus avisos.',
+            'Revisa «Lo que necesitas hacer».',
             'Consulta tu saldo de vacaciones.',
             'Entra a Mis solicitudes para pedir algo.',
         ],
         permisos:
             'Toda cuenta ligada a un colaborador activo (también si además tienes funciones de RH: cambia con «Mi espacio» en el menú).',
         errores: [
-            'Si un dato tuyo está mal, pide a RH que lo corrija en tu expediente.',
+            'Si un dato tuyo está mal, usa «Solicitar corrección» en Mi expediente: RH lo autoriza.',
         ],
     },
     'mis-solicitudes': {
-        queEs: 'Donde pides vacaciones, permisos, préstamos y otros trámites, y sigues su estado.',
+        queEs: 'Donde pides permisos, vacaciones y préstamos, y sigues su estado.',
         puedes: [
-            'Crear una solicitud.',
-            'Ver el estado e historial de cada una.',
+            'Crear una solicitud de permiso, vacaciones o préstamo.',
+            'Ver el estado, la cadena de autorización y el historial de cada una.',
             'Corregirla si RH lo pide.',
         ],
         flujo: [
             'Elige qué necesitas.',
             'Llena el formulario (fechas, motivo, evidencia si aplica).',
-            'Envíala y sigue su estado.',
+            'Tu gerente y tu regional dan visto bueno; RH autoriza.',
         ],
         permisos: 'Colaboradores y cuentas con permiso de crear solicitudes.',
         errores: [
-            'Para vacaciones, no puedes pedir más días de los que tienes disponibles.',
+            'En vacaciones el domingo no cuenta y no puedes pedir más días de los que tienes.',
             '«Requiere corrección»: ábrela, ajusta lo indicado y reenvíala.',
         ],
     },
+};
+
+/**
+ * Artículos de la Guía maestra (resources/js/lib/guia) que explican cada
+ * pantalla a fondo. La ayuda de arriba es el resumen de la PANTALLA; el
+ * artículo es el PROCESO completo. Así no hay dos explicaciones distintas:
+ * la página de Ayuda y el botón «¿Cómo funciona?» enlazan aquí.
+ */
+export const ARTICULOS_DE_MODULO: Record<string, string[]> = {
+    dashboard: ['mis-pendientes'],
+    pendientes: ['mis-pendientes'],
+    expedientes: ['expediente', 'completitud-expediente', 'documentos-de-alta'],
+    solicitudes: ['revisar-solicitudes', 'permisos', 'vacaciones', 'prestamos'],
+    organigrama: ['estructura-y-plantilla'],
+    vacantes: ['plantilla-y-vacantes'],
+    candidatos: [
+        'registrar-candidato',
+        'etapas-del-candidato',
+        'autorizacion-rh',
+        'iniciar-contratacion',
+    ],
+    campanas: ['campanas'],
+    invitaciones: ['qr-incorporacion'],
+    reportes: [],
+    cumpleanos: ['celebraciones'],
+    aniversarios: ['celebraciones'],
+    'documentos-maestros': ['documentos-maestros', 'contrato-inicial'],
+    empresas: ['estructura-y-plantilla'],
+    usuarios: ['usuarios-y-roles'],
+    sucursales: ['estructura-y-plantilla', 'plantilla-y-vacantes'],
+    departamentos: ['estructura-y-plantilla'],
+    puestos: ['estructura-y-plantilla'],
+    roles: ['usuarios-y-roles'],
+    'app-releases': ['app-movil'],
+    onboarding: ['onboarding', 'configurar-onboarding'],
+    reingresos: ['reingreso'],
+    configuracion: ['configuracion-notificaciones', 'estructura-y-plantilla'],
+    portal: ['app-colaborador'],
+    'mi-expediente': ['completar-datos', 'documentos-de-alta'],
+    'mis-solicitudes': ['permisos', 'vacaciones', 'prestamos'],
 };

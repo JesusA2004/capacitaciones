@@ -275,7 +275,7 @@ function guardarEdicion() {
                 </div>
             </div>
 
-            <div class="flex flex-wrap items-center gap-2">
+            <div data-tour="nomina-acciones" class="flex flex-wrap items-center gap-2">
                 <Badge
                     :variant="lote.estado === 'cancelado' ? 'destructive' : 'secondary'"
                     class="px-3 py-1 text-xs"
@@ -336,7 +336,10 @@ function guardarEdicion() {
         </div>
 
         <!-- Resumen -->
-        <div class="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
+        <div
+            data-tour="nomina-resumen"
+            class="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7"
+        >
             <div class="rounded-2xl border border-border/60 bg-card p-4">
                 <p class="flex items-center gap-1.5 text-xs text-muted-foreground"><Users class="size-3.5" /> Esperados</p>
                 <p class="mt-1 text-2xl font-bold tabular-nums">{{ lote.esperados }}</p>
@@ -398,7 +401,11 @@ function guardarEdicion() {
         />
 
         <!-- Revisión: lista + PDF real -->
-        <div v-else class="grid gap-4 lg:grid-cols-[minmax(18rem,26rem)_1fr]">
+        <div
+            v-else
+            data-tour="nomina-revision"
+            class="grid gap-4 lg:grid-cols-[minmax(18rem,26rem)_1fr]"
+        >
             <ul
                 class="flex max-h-[75vh] flex-col gap-2 overflow-y-auto pr-1"
                 aria-label="Recibos del lote"

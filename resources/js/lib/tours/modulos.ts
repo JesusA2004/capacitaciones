@@ -212,7 +212,7 @@ export const MODULOS_GUIA: ModuloGuia[] = [
                 titulo: 'Todo el expediente, por pestañas',
                 texto: 'Resumen · Datos personales · Datos laborales · Cuenta (correo, roles, acceso) · Documentos (subir y revisar) · Onboarding · Avisos · Vacaciones · Recibos de nómina · Préstamos · Solicitudes · Historial RH.',
                 consejo:
-                    'Para dar de baja a alguien no se borra el expediente: se registra una solicitud de baja y, al aprobarse, se bloquea su acceso conservando todo.',
+                    'Para dar de baja a alguien no se borra el expediente: desde «Ciclo laboral» se solicita la baja (con aprobaciones y finiquito) y se conserva todo el historial.',
                 opcional: true,
             },
         ],
@@ -361,16 +361,16 @@ export const MODULOS_GUIA: ModuloGuia[] = [
         grupo: 'Reclutamiento',
         icono: UserRound,
         descripcion:
-            'Tablero de reclutamiento por fases, del primer contacto hasta la contratación.',
+            'Tablero de reclutamiento por fases, del Filtro RH hasta la contratación.',
         pasos: [
             {
                 titulo: 'Tablero de reclutamiento',
-                texto: 'Cada candidato avanza por fases, desde que se recibe hasta que se contrata (o se descarta). Aquí das seguimiento a todos los prospectos en un solo lugar.',
+                texto: 'Cada candidato avanza por fases, desde el Filtro RH hasta que se contrata (o se cierra su proceso). Cada avance se hace con su acción en la ficha del candidato.',
             },
             {
                 selector: sel('candidatos-nuevo'),
                 titulo: 'Registrar un candidato',
-                texto: 'Captura a un prospecto nuevo: nombre, datos de contacto, puesto objetivo, sucursal, fuente o canal por el que llegó y la vacante relacionada.',
+                texto: 'Nombre y contacto, la vacante real (de ella salen puesto y sucursal), la campaña de esa vacante por la que llegó y la fuente. Si aún no hay vacante, márcalo como espontáneo.',
             },
             {
                 selector: sel('candidatos-kpis'),
@@ -385,16 +385,16 @@ export const MODULOS_GUIA: ModuloGuia[] = [
             {
                 selector: sel('candidatos-tablero'),
                 titulo: 'Fases del proceso',
-                texto: 'Recibidos → Preselección → Entrevista → Psicométricos → Estudio socioeconómico → Pruebas → Validación documental → Oferta → Listo para contratación → Contratado, más las columnas de descarte (No seleccionado, No viable, No respondió, Desistió).',
+                texto: 'Filtro RH → Entrevista → Psicométricos → Socioeconómico → Contratación (referencias, preautorización del gerente, autorización de RH y QR) → Contratado, más las columnas de cierre Rechazado y Desistió. «No viable», «No respondió» y «No seleccionado» son motivos dentro de Rechazado.',
                 consejo:
-                    'Arrastra una tarjeta a otra columna para avanzarla. Mientras arrastras, las columnas a las que no se permite pasar se atenúan: las fases son sucesivas.',
+                    'Arrastrar solo sirve para cerrar el proceso (a Rechazado o Desistió, con motivo). Para avanzar, abre la ficha y usa la acción del paso.',
             },
             {
                 selector: `${sel('candidatos-tablero')} [draggable="true"]`,
                 titulo: 'Tarjeta de candidato',
                 texto: 'Puesto objetivo, nombre, sucursal, fuente, responsable, días que lleva en la fase actual y su última nota. "Ver CV" abre su currículum.',
                 consejo:
-                    'Da clic en la tarjeta para abrir su ficha: ahí registras seguimientos y, cuando está listo, inicias su alta digital.',
+                    'Da clic en la tarjeta para abrir su ficha: ahí ves qué paso sigue, quién lo tiene y, ya autorizado por RH, «Generar QR de contratación».',
                 opcional: true,
             },
         ],
@@ -409,16 +409,16 @@ export const MODULOS_GUIA: ModuloGuia[] = [
         grupo: 'Reclutamiento',
         icono: Megaphone,
         descripcion:
-            'Gasto de reclutamiento por canal y cuánto costó cada colaborador contratado.',
+            'Campañas sobre vacantes reales: qué se publicó, cuánto costó y qué produjo.',
         pasos: [
             {
                 titulo: 'Campañas de reclutamiento',
-                texto: 'Registra cuánto se invierte en cada canal (Meta, Indeed, Computrabajo, LinkedIn, referidos…) para saber cuánto cuesta realmente conseguir un candidato y una contratación.',
+                texto: 'Cada campaña parte de una vacante real y registra lo que se publicó en un canal (Meta Ads, Indeed, Computrabajo, LinkedIn, referidos…) para saber cuánto cuesta conseguir un candidato y una contratación.',
             },
             {
                 selector: sel('campanas-nueva'),
                 titulo: 'Registrar una campaña',
-                texto: 'Captura mes, año, canal y monto invertido. Opcionalmente, a qué empresa, sucursal, departamento o puesto corresponde.',
+                texto: 'Elige la vacante real (empresa, sucursal, departamento y puesto salen de ella) y captura canal, responsable, fechas, presupuesto, gasto, sueldo publicado, copy, liga y la evidencia en PDF o imagen.',
             },
             {
                 selector: sel('campanas-resumen'),
@@ -433,7 +433,7 @@ export const MODULOS_GUIA: ModuloGuia[] = [
             {
                 selector: sel('tabla'),
                 titulo: 'Campañas registradas',
-                texto: 'Cada fila es una campaña con su gasto, cuántos colaboradores contrató y cuánto costó cada uno. Desde el menú de acciones de cada fila puedes editarla o eliminarla.',
+                texto: 'Cada tarjeta es una campaña con su embudo (candidatos → contactados → entrevistas → psicométricos → contratados), costo por candidato, por colaborador, conversión y días para cubrir. Desde sus acciones la editas o eliminas.',
             },
         ],
     },
@@ -451,12 +451,12 @@ export const MODULOS_GUIA: ModuloGuia[] = [
         pasos: [
             {
                 titulo: 'Incorporación con QR',
-                texto: 'Nadie puede registrarse en la app sin una invitación activa. Generas un QR temporal, el colaborador nuevo lo escanea y completa su alta y expediente desde su celular.',
+                texto: 'Nadie puede registrarse en la app sin una invitación activa. El primer QR se genera desde la ficha del candidato autorizado («Generar QR de contratación»); aquí ves el estado de todos y vuelves a emitir los que vencieron.',
             },
             {
                 selector: sel('invitaciones-nueva'),
-                titulo: 'Generar una invitación',
-                texto: 'Crea el QR a partir de un candidato listo para contratación y elige cuánto tiempo estará vigente.',
+                titulo: 'Volver a emitir un QR',
+                texto: 'Para una persona en contratación que no alcanzó a usar su QR: elígela y define su vigencia (de 1 a 24 horas).',
                 opcional: true,
             },
             {
@@ -1000,7 +1000,7 @@ export const MODULOS_GUIA: ModuloGuia[] = [
             {
                 selector: sel('expediente-pestanas'),
                 titulo: 'Secciones',
-                texto: 'En "Documentos" subes lo que te pidan y ves si ya fue aprobado; en "Datos personales" mantienes al día tu contacto.',
+                texto: 'En "Documentos" subes lo que te pidan y ves si ya fue aprobado. Si un dato tuyo está mal o falta, usa «Solicitar corrección»: Recursos Humanos lo autoriza y se actualiza solo.',
             },
         ],
     },
@@ -1018,7 +1018,7 @@ export const MODULOS_GUIA: ModuloGuia[] = [
         pasos: [
             {
                 titulo: 'Tus solicitudes',
-                texto: 'Vacaciones, permisos, préstamos, incapacidades y otros trámites internos, todo en un solo lugar.',
+                texto: 'Permisos, vacaciones y préstamos, todo en un solo lugar. Tu gerente y tu regional dan su visto bueno y Recursos Humanos autoriza.',
             },
             {
                 selector: sel('mis-solicitudes-nueva'),

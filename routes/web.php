@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AppDownloadController;
 use App\Http\Controllers\Auth\ContrasenaTemporalController;
+use App\Http\Controllers\AyudaController;
 use App\Http\Controllers\CalendarioController;
 use App\Http\Controllers\CelebracionController;
 use App\Http\Controllers\CertificadoVerificacionController;
@@ -58,9 +59,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::inertia('capacitacion', 'Capacitacion/Proximamente')->name('capacitacion.proximamente');
 
-    // Guía ilustrada del sistema: recorridos guiados por módulo + botón de
-    // ayuda flotante (ver resources/js/components/sistema/*, resources/js/lib/tours/*).
-    Route::inertia('ayuda', 'Ayuda/Index')->name('ayuda');
+    // Guía / Ayuda: centro de guía por proceso, artículos, roles, video,
+    // glosario y preguntas (contenido en resources/js/lib/guia, misma fuente
+    // que docs/guias/*.md) + recorridos guiados y botón de ayuda flotante
+    // (resources/js/components/sistema/*, resources/js/lib/tours/*).
+    Route::get('ayuda', [AyudaController::class, 'index'])->name('ayuda');
+    Route::prefix('ayuda')->name('ayuda.')->group(function () {
+        Route::get('proceso/{proceso}', [AyudaController::class, 'proceso'])->name('proceso')->where('proceso', '[a-z0-9-]+');
+        Route::get('articulo/{articulo}', [AyudaController::class, 'articulo'])->name('articulo')->where('articulo', '[a-z0-9-]+');
+        Route::get('rol/{rol}', [AyudaController::class, 'rol'])->name('rol')->where('rol', '[a-z_]+');
+        Route::get('video', [AyudaController::class, 'video'])->name('video');
+        Route::get('video/archivo/{archivo}', [AyudaController::class, 'archivoVideo'])->name('video.archivo')->where('archivo', '[a-z0-9-]+\.(mp4|vtt|png)');
+        Route::get('glosario', [AyudaController::class, 'glosario'])->name('glosario');
+        Route::get('preguntas', [AyudaController::class, 'preguntas'])->name('preguntas');
+    });
 
     // Celebraciones (cumpleaños y aniversarios): pantalla del evento, destino
     // de sus notificaciones; felicitaciones privadas (docs/CELEBRACIONES.md).

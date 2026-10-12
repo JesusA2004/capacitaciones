@@ -873,6 +873,7 @@ function confirmarSalida() {
                         v-for="candidato in columna.candidatos"
                         :key="candidato.id"
                         draggable="true"
+                        :data-tour-href="show.url(candidato.id)"
                         class="cursor-pointer rounded-xl border border-border/60 bg-card p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                         @click="router.visit(show.url(candidato.id))"
                         @dragstart="arrastrando = candidato"

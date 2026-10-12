@@ -29,7 +29,7 @@ export type IncorporacionInvitacionItem = {
 };
 
 /**
- * Candidato "Listo para contratación" ofrecido por el selector del Alta
+ * Persona en contratación (sin QR vigente) ofrecida por el selector del Alta
  * Digital QR simplificado (ver CandidatoController::candidatosElegibles()):
  * ya no se captura nada a mano, todo se autocompleta desde aquí.
  */

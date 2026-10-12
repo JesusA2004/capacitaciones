@@ -33,6 +33,7 @@ import {
     PhoneCall,
     Plus,
     Receipt,
+    Route,
     ScrollText,
     ShieldCheck,
     Sparkles,
@@ -136,6 +137,8 @@ const props = defineProps<{
     esPropio: boolean;
     puedeEditar: boolean;
     puedeReactivar: boolean;
+    /** Ficha del Ciclo laboral (contratos, onboarding, evaluación, baja). */
+    cicloUrl?: string | null;
     puedeGestionarAcceso: boolean;
     puedeGestionarPassword: boolean;
     puedeEditarCuenta: boolean;
@@ -747,6 +750,18 @@ function irACompletarExpediente() {
                     </div>
 
                     <Button
+                        v-if="cicloUrl"
+                        size="sm"
+                        variant="secondary"
+                        data-tour="expediente-ciclo"
+                        as-child
+                    >
+                        <Link :href="cicloUrl">
+                            <Route class="size-3.5" />
+                            Ciclo laboral
+                        </Link>
+                    </Button>
+                    <Button
                         v-if="
                             colaborador.estatus === 'inactivo' && puedeReactivar
                         "
@@ -820,10 +835,11 @@ function irACompletarExpediente() {
                                 <span
                                     class="text-xs whitespace-normal opacity-80"
                                 >
-                                    Termina la relación laboral y libera la
-                                    plaza en headcount/vacantes. Se conserva
-                                    todo el historial — nunca se borra nada
-                                    (baja lógica).
+                                    Baja administrativa inmediata: termina la
+                                    relación laboral y libera la plaza, sin
+                                    aprobaciones ni finiquito. Para el proceso
+                                    normal usa «Ciclo laboral» → «Solicitar
+                                    baja». Nunca se borra nada (baja lógica).
                                 </span>
                             </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -873,6 +889,7 @@ function irACompletarExpediente() {
 
         <DatosFaltantesBanner
             v-if="datosFaltantes"
+            data-tour="expediente-faltantes"
             class="mb-4"
             :datos="datosFaltantes"
             :colaborador-id="colaborador.id"

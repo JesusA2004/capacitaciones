@@ -11,6 +11,7 @@ use App\Enums\ResultadoReferencia;
 use App\Enums\TipoEvidenciaCandidato;
 use App\Enums\TipoSeguimientoCandidato;
 use App\Enums\TipoTarea;
+use App\Models\CampanaReclutamiento;
 use App\Models\Candidato;
 use App\Models\CandidatoEntrevista;
 use App\Models\CandidatoEvidencia;
@@ -94,12 +95,37 @@ class CandidatoWorkflowService
     }
 
     /**
+     * La campaña a la que se atribuye un candidato debe ser de SU vacante:
+     * si no, el embudo y el costo por contratación de otra campaña se
+     * inflarían con candidatos que no produjo.
+     *
+     * @param  array<string, mixed>  $datos
+     */
+    private function validarCampana(array $datos, ?int $vacanteId): void
+    {
+        $campanaId = isset($datos['campana_reclutamiento_id']) ? (int) $datos['campana_reclutamiento_id'] : null;
+
+        if ($campanaId === null || $campanaId === 0) {
+            return;
+        }
+
+        $campana = CampanaReclutamiento::query()->find($campanaId, ['id', 'vacante_id']);
+
+        if ($campana !== null && $campana->vacante_id !== null && $campana->vacante_id !== $vacanteId) {
+            throw ValidationException::withMessages([
+                'campana_reclutamiento_id' => 'Esa campaña es de otra vacante. Elige una campaña de la vacante del candidato.',
+            ]);
+        }
+    }
+
+    /**
      * @param  array<string, mixed>  $datos  Validado por StoreCandidatoRequest.
      */
     public function registrar(array $datos, User $actor): Candidato
     {
         $candidato = DB::transaction(function () use ($datos, $actor): Candidato {
             $this->validarVacanteDisponible(isset($datos['vacante_id']) ? (int) $datos['vacante_id'] : null);
+            $this->validarCampana($datos, isset($datos['vacante_id']) ? (int) $datos['vacante_id'] : null);
 
             $candidato = Candidato::query()->create([
                 ...$datos,
@@ -149,6 +175,10 @@ class CandidatoWorkflowService
 
             if ($nuevaVacanteId !== $actual->vacante_id) {
                 $this->validarVacanteDisponible($nuevaVacanteId);
+            }
+
+            if (array_key_exists('campana_reclutamiento_id', $datos)) {
+                $this->validarCampana($datos, array_key_exists('vacante_id', $datos) ? $nuevaVacanteId : $actual->vacante_id);
             }
 
             $actual->update($datos);

@@ -122,7 +122,9 @@ class CandidatoPresenter
             'fuente_etiqueta' => $candidato->fuente !== null
                 ? (FuenteCandidato::tryFrom($candidato->fuente)?->etiqueta() ?? $candidato->fuente)
                 : null,
-            'campana' => $candidato->campana?->nombre,
+            // El nombre de la campaña es opcional: sin él se muestra su canal.
+            'campana' => $candidato->campana !== null ? ($candidato->campana->nombre ?: $candidato->campana->canal->etiqueta()) : null,
+            'campana_reclutamiento_id' => $candidato->campana_reclutamiento_id,
             'empresa' => $candidato->empresa?->nombre,
             'sucursal' => $candidato->sucursal?->nombre,
             'sucursal_id' => $candidato->sucursal_id,

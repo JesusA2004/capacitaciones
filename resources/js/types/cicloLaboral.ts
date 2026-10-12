@@ -116,6 +116,7 @@ export type CandidatoFicha = {
     fuente: string | null;
     fuente_etiqueta: string | null;
     campana: string | null;
+    campana_reclutamiento_id: number | null;
     empresa: string | null;
     sucursal: string | null;
     sucursal_id: number | null;

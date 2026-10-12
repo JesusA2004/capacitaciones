@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import NotificationBell from '@/components/NotificationBell.vue';
+import AyudaContextual from '@/components/sistema/AyudaContextual.vue';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import type { BreadcrumbItem } from '@/types';
 
@@ -32,6 +33,7 @@ withDefaults(
                 id="acciones-pagina"
                 class="ml-auto hidden min-w-0 items-center justify-end gap-2 md:flex"
             />
+            <AyudaContextual />
             <NotificationBell />
         </div>
     </header>
