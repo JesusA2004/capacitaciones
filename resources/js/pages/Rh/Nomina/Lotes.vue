@@ -198,7 +198,7 @@ function cambiarPagina(pagina: number) {
                 v-for="(paso, i) in [
                     { t: 'Preparar', d: 'Desde el sueldo de cada persona o importando el archivo de RH.', i: Layers },
                     { t: 'Revisar', d: 'PDF real de cada recibo, errores y advertencias antes de publicar.', i: CalendarRange },
-                    { t: 'Emitir', d: 'Solo entonces se publica en web/app y se avisa a cada colaborador.', i: Send },
+                    { t: 'Emitir', d: 'Se congela el PDF oficial de cada recibo; RH los descarga, imprime y entrega.', i: Send },
                 ]"
                 :key="paso.t"
                 class="flex items-start gap-3 rounded-2xl border border-border/60 bg-card p-4"

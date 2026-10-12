@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import {
     AlertTriangle,
     ArrowLeft,
@@ -158,14 +158,21 @@ const ESTILO_REVISION: Record<string, { clase: string; icono: typeof CheckCircle
     },
 };
 
+// Autoservicio de recibos (config features.recibos_colaborador): por defecto
+// apagado — el recibo se entrega impreso.
+const page = usePage();
+const recibosVisiblesColaborador = computed(() => page.props.features.recibos_colaborador);
+
 // --- Emitir / cancelar -------------------------------------------------------
 const emitiendo = ref(false);
 
 async function emitirLote() {
     const ok = await confirmarAccion(
         `Emitir ${props.lote.por_emitir} recibos`,
-        `Se publicarán ${props.lote.por_emitir} recibos y se notificará a cada colaborador (web, app y push). Esta acción no se puede deshacer.`,
-        'Emitir y notificar',
+        recibosVisiblesColaborador.value
+            ? `Se publicarán ${props.lote.por_emitir} recibos y se notificará a cada colaborador (web, app y push). Esta acción no se puede deshacer.`
+            : `Se generará el PDF oficial de ${props.lote.por_emitir} recibos para descargar e imprimir. Los colaboradores no los ven ni reciben aviso. Esta acción no se puede deshacer.`,
+        recibosVisiblesColaborador.value ? 'Emitir y notificar' : 'Emitir',
     );
 
     if (!ok) {
@@ -308,9 +315,14 @@ function guardarEdicion() {
         >
             <AlertTriangle class="mt-0.5 size-4 shrink-0 text-warning" />
             <p>
-                <strong>Todavía no se publica.</strong> Los recibos de este lote no
-                son visibles para los colaboradores y no se ha enviado ningún aviso.
-                Revisa y pulsa «Emitir» cuando todo esté correcto.
+                <strong>Borrador.</strong> Revisa cada recibo y pulsa «Emitir»
+                cuando todo esté correcto. Emitir congela el PDF oficial de cada
+                recibo en el expediente para que RH lo descargue, lo imprima y lo
+                entregue (p. ej. a los gestores).
+                <template v-if="!recibosVisiblesColaborador">
+                    Los colaboradores no ven su recibo en web ni app y no reciben
+                    aviso.
+                </template>
             </p>
         </div>
         <div
@@ -321,7 +333,11 @@ function guardarEdicion() {
             <p>
                 Emitido por <strong>{{ lote.emitido_por }}</strong> el
                 {{ new Date(lote.emitido_at ?? '').toLocaleString('es-MX') }}. Cada
-                colaborador ya ve su recibo en web y app.
+                {{
+                    recibosVisiblesColaborador
+                        ? 'colaborador ya ve su recibo en web y app.'
+                        : 'recibo ya tiene su PDF oficial: descárgalos, imprímelos y entrégalos.'
+                }}
             </p>
         </div>
         <div

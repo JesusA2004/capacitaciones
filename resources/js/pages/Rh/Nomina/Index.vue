@@ -732,7 +732,7 @@ const opcionesTipo = [
                     {{
                         editando?.estado === 'emitido'
                             ? 'Este recibo ya se emitió: al guardar se vuelve a generar su PDF (el anterior queda en el historial).'
-                            : 'Borrador: el colaborador lo verá cuando se emita.'
+                            : 'Borrador: al emitirlo se genera su PDF oficial para descargar e imprimir.'
                     }}
                 </DialogDescription>
             </DialogHeader>
