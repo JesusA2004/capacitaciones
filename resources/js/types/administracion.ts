@@ -138,6 +138,7 @@ export type PuestoJerarquiaFiltros = {
     sucursal_id?: string;
     departamento_id?: string;
     tipo_puesto?: string;
+    raiz_puesto_id?: string;
 };
 
 export type PuestoJerarquiaOpciones = {
@@ -233,4 +234,16 @@ export type CoberturasOrganigrama = {
     puedeEditar: boolean;
     motivos: { value: string; etiqueta: string }[];
     colaboradores: { value: string; label: string }[];
+};
+
+/**
+ * Sección del organigrama como el PDF de Inducción (cap. 4): General,
+ * Corporativo, Dirección Comercial y Sucursal. `profundidad` limita los
+ * niveles bajo la raíz (Corporativo = Dirección General + sus áreas).
+ */
+export type SeccionOrganigrama = {
+    valor: string;
+    etiqueta: string;
+    raiz_puesto_id: number | null;
+    profundidad: number | null;
 };

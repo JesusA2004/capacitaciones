@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\CelebracionController;
 use App\Http\Controllers\Api\V1\CicloLaboralColaboradorController;
 use App\Http\Controllers\Api\V1\ColaboradorController;
 use App\Http\Controllers\Api\V1\ColaboradorCumpleanosController;
+use App\Http\Controllers\Api\V1\DirectorioController;
 use App\Http\Controllers\Api\V1\DispositivoController;
 use App\Http\Controllers\Api\V1\EquipoController;
 use App\Http\Controllers\Api\V1\EvaluacionController;
@@ -281,6 +282,18 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('leer-todas', [NotificacionController::class, 'marcarTodasLeidas'])->name('leer-todas');
             Route::post('{notificacion}/leer', [NotificacionController::class, 'marcarLeida'])->name('leer');
             Route::post('{notificacion}/abrir', [NotificacionController::class, 'abrir'])->name('abrir');
+        });
+
+        // Inducción Mr. Lana en modo presentación (colaborador y RH): sin
+        // avance ni progreso. El organigrama del capítulo 4 usa la misma
+        // ruta colaborador/induccion/organigrama/{vista}.
+        Route::get('induccion/presentacion', [MiProcesoController::class, 'presentacionInduccion'])->name('induccion.presentacion');
+
+        // Directorio de la empresa: global para cualquier colaborador
+        // autenticado, solo contacto corporativo (DirectorioColaboradoresService).
+        Route::prefix('directorio')->name('directorio.')->group(function () {
+            Route::get('/', [DirectorioController::class, 'index'])->name('index');
+            Route::get('opciones', [DirectorioController::class, 'opciones'])->name('opciones');
         });
 
         // Avisos de RH (mensaje + imagen, a toda la empresa o a este

@@ -93,3 +93,42 @@ test('un salario diario en cero o negativo se rechaza', function () {
     expect(fn () => $this->compensacion->actualizarSalario($colaborador, 0, null, $actor, ['fuente' => 'manual']))
         ->toThrow(ValidationException::class);
 });
+
+test('derivados desde el mensual: diario = mensual ÷ 30, quincena = 15 días salariales, proporcional sin perder centavos', function () {
+    expect($this->compensacion->diarioDesdeMensual(15000))->toBe(500.0)
+        ->and($this->compensacion->diarioDesdeMensual(10000))->toBe(333.33)
+        // 15 días de 10,000/30 sin redondear el diario intermedio = 5,000 exactos.
+        ->and($this->compensacion->quincenaDesdeMensual(10000))->toBe(5000.0)
+        ->and($this->compensacion->quincenaDesdeMensual(15000))->toBe($this->compensacion->quincena(500))
+        ->and($this->compensacion->proporcionalDesdeMensual(15000, 7))->toBe(3500.0);
+});
+
+test('diarioDe usa salario_diario cuando existe y el mensual ÷ 30 solo como respaldo', function () {
+    $conDiario = Colaborador::factory()->make(['salario_diario' => 420.5, 'sueldo_mensual' => 9000]);
+    $soloMensual = Colaborador::factory()->make(['salario_diario' => null, 'sueldo_mensual' => 9000]);
+
+    expect($this->compensacion->diarioDe($conDiario))->toBe(420.5)
+        ->and($this->compensacion->diarioDe($soloMensual))->toBe(300.0);
+});
+
+test('ningún servicio fuera de CompensacionService divide el sueldo entre 30 ni entre 2 por su cuenta', function () {
+    $paralelos = [];
+
+    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(app_path('Services'))) as $archivo) {
+        if (! $archivo->isFile() || $archivo->getExtension() !== 'php' || str_ends_with($archivo->getPathname(), 'CompensacionService.php')) {
+            continue;
+        }
+
+        foreach (file($archivo->getPathname()) as $n => $linea) {
+            $codigo = trim($linea);
+            if (str_starts_with($codigo, '*') || str_starts_with($codigo, '//')) {
+                continue;
+            }
+            if (preg_match('/(sueldo|salario|mensual|diario)[^;]*\/\s*(30|2)\b|daysInMonth/i', $codigo)) {
+                $paralelos[] = $archivo->getFilename().':'.($n + 1);
+            }
+        }
+    }
+
+    expect($paralelos)->toBe([]);
+});

@@ -8,6 +8,7 @@ import {
     ClipboardList,
     Compass,
     Contact,
+    FileSpreadsheet,
     FileStack,
     FolderOpen,
     FolderKanban,
@@ -46,6 +47,7 @@ import { index as indexAvisosColaborador } from '@/routes/avisos';
 import { proximamente as capacitacionProximamente } from '@/routes/capacitacion';
 import { index as indexMuroFelicitaciones } from '@/routes/celebraciones';
 import { index as indexDirectorio } from '@/routes/directorio';
+import { presentacion as presentacionInduccion } from '@/routes/induccion';
 import {
     index as indexPortal,
     recibos as misRecibosNomina,
@@ -59,6 +61,7 @@ import { index as indexCumpleanos } from '@/routes/rh/cumpleanos';
 import { index as indexDocumentosMaestros } from '@/routes/rh/documentos-maestros';
 import { index as indexEvaluaciones } from '@/routes/rh/evaluaciones';
 import { index as indexExpedientes } from '@/routes/rh/expedientes';
+import { index as indexImportaciones } from '@/routes/rh/importaciones';
 import { index as indexIncorporacionInvitaciones } from '@/routes/rh/incorporacion/invitaciones';
 import { index as indexLotesNomina } from '@/routes/rh/nomina/lotes';
 import { configuracion as configuracionOnboarding } from '@/routes/rh/onboarding';
@@ -104,6 +107,11 @@ export function useMainNavItems() {
                 icon: BellRing,
             },
             {
+                title: 'Inducción Mr. Lana',
+                href: presentacionInduccion(),
+                icon: GraduationCap,
+            },
+            {
                 title: 'Directorio',
                 href: indexDirectorio(),
                 icon: Contact,
@@ -121,11 +129,15 @@ export function useMainNavItems() {
             });
         }
 
-        items.push({
-            title: 'Mis recibos de nómina',
-            href: misRecibosNomina(),
-            icon: ReceiptText,
-        });
+        // El recibo se entrega impreso: sin autoservicio salvo que el
+        // backend lo encienda (config('features.recibos_colaborador')).
+        if (page.props.features.recibos_colaborador) {
+            items.push({
+                title: 'Mis recibos de nómina',
+                href: misRecibosNomina(),
+                icon: ReceiptText,
+            });
+        }
 
         items.push({
             title: 'Muro de felicitaciones',
@@ -152,7 +164,10 @@ export function useMainNavItems() {
      * «Cambios de foto» ya no tiene acceso propio: vive en Mis pendientes.
      */
     const gruposOperativo = computed<NavGroup[]>(() => {
-        const grupo = (titulo: string, items: (NavItem | false)[]): NavGroup => ({
+        const grupo = (
+            titulo: string,
+            items: (NavItem | false)[],
+        ): NavGroup => ({
             titulo,
             items: items.filter((i): i is NavItem => i !== false),
         });
@@ -182,35 +197,104 @@ export function useMainNavItems() {
         return [
             grupo('Inicio', inicio),
             grupo('Reclutamiento', [
-                tienePermiso('reclutamiento.campanas.ver') && { title: 'Campañas', href: indexCampanas(), icon: Megaphone },
-                tienePermiso('vacantes.ver') && { title: 'Vacantes', href: indexVacantes(), icon: Briefcase },
-                tienePermiso('candidatos.ver') && { title: 'Candidatos', href: indexCandidatos(), icon: UserRound },
-                tienePermiso('rh.incorporacion.invitaciones.ver') && { title: 'Invitaciones QR', href: indexIncorporacionInvitaciones(), icon: QrCode },
+                tienePermiso('reclutamiento.campanas.ver') && {
+                    title: 'Campañas',
+                    href: indexCampanas(),
+                    icon: Megaphone,
+                },
+                tienePermiso('vacantes.ver') && {
+                    title: 'Vacantes',
+                    href: indexVacantes(),
+                    icon: Briefcase,
+                },
+                tienePermiso('candidatos.ver') && {
+                    title: 'Candidatos',
+                    href: indexCandidatos(),
+                    icon: UserRound,
+                },
+                tienePermiso('rh.incorporacion.invitaciones.ver') && {
+                    title: 'Invitaciones QR',
+                    href: indexIncorporacionInvitaciones(),
+                    icon: QrCode,
+                },
             ]),
             grupo('Desarrollo', [
-                tienePermiso('onboarding.gestionar') && { title: 'Onboarding', href: configuracionOnboarding(), icon: Sparkles },
-                (tienePermiso('evaluaciones.capturar') || tienePermiso('evaluaciones.autorizar')) && {
+                tienePermiso('onboarding.gestionar') && {
+                    title: 'Onboarding',
+                    href: configuracionOnboarding(),
+                    icon: Sparkles,
+                },
+                tienePermiso('onboarding.gestionar') && {
+                    title: 'Presentar inducción',
+                    href: presentacionInduccion(),
+                    icon: GraduationCap,
+                },
+                (tienePermiso('evaluaciones.capturar') ||
+                    tienePermiso('evaluaciones.autorizar')) && {
                     title: 'Evaluación de capacitación inicial',
                     href: indexEvaluaciones(),
                     icon: ClipboardCheck,
                 },
-                (tienePermiso('reingresos.solicitar') || tienePermiso('reingresos.gestionar')) && { title: 'Reingresos', href: indexReingresos(), icon: RotateCcw },
-                capacitacionActiva.value && { title: 'Capacitación', href: capacitacionProximamente(), icon: GraduationCap },
+                (tienePermiso('reingresos.solicitar') ||
+                    tienePermiso('reingresos.gestionar')) && {
+                    title: 'Reingresos',
+                    href: indexReingresos(),
+                    icon: RotateCcw,
+                },
+                capacitacionActiva.value && {
+                    title: 'Capacitación',
+                    href: capacitacionProximamente(),
+                    icon: GraduationCap,
+                },
             ]),
             grupo('Personal', [
-                (tienePermiso('expedientes.ver_todos') || tienePermiso('expedientes.ver_sucursal')) && { title: 'Expedientes', href: indexExpedientes(), icon: FolderKanban },
-                (tienePermiso('solicitudes.revisar') || tienePermiso('solicitudes.aprobar')) && { title: 'Solicitudes', href: indexRhSolicitudes(), icon: ClipboardList },
-                tienePermiso('nomina.recibos.ver') && { title: 'Recibos de nómina', href: indexLotesNomina(), icon: ReceiptText },
-                tienePermiso('avisos.enviar') && { title: 'Avisos', href: indexAvisos(), icon: BellRing },
-                (tienePermiso('rh.cumpleanos.ver') || tienePermiso('celebraciones.ver')) && {
+                (tienePermiso('expedientes.ver_todos') ||
+                    tienePermiso('expedientes.ver_sucursal')) && {
+                    title: 'Expedientes',
+                    href: indexExpedientes(),
+                    icon: FolderKanban,
+                },
+                (tienePermiso('solicitudes.revisar') ||
+                    tienePermiso('solicitudes.aprobar')) && {
+                    title: 'Solicitudes',
+                    href: indexRhSolicitudes(),
+                    icon: ClipboardList,
+                },
+                tienePermiso('nomina.recibos.ver') && {
+                    title: 'Recibos de nómina',
+                    href: indexLotesNomina(),
+                    icon: ReceiptText,
+                },
+                tienePermiso('colaboradores.importar_salarios_vacaciones') && {
+                    title: 'Importar salarios y vacaciones',
+                    href: indexImportaciones(),
+                    icon: FileSpreadsheet,
+                },
+                tienePermiso('avisos.enviar') && {
+                    title: 'Avisos',
+                    href: indexAvisos(),
+                    icon: BellRing,
+                },
+                (tienePermiso('rh.cumpleanos.ver') ||
+                    tienePermiso('celebraciones.ver')) && {
                     title: 'Celebraciones',
-                    href: tienePermiso('rh.cumpleanos.ver') ? indexCumpleanos() : indexAniversarios(),
+                    href: tienePermiso('rh.cumpleanos.ver')
+                        ? indexCumpleanos()
+                        : indexAniversarios(),
                     icon: Cake,
                 },
             ]),
             grupo('Organización', [
-                tienePermiso('organigrama.ver') && { title: 'Organigrama', href: indexJerarquiaPuestos(), icon: GitBranch },
-                tienePermiso('reportes_rh.ver') && { title: 'Reportes', href: indexReportes(), icon: Activity },
+                tienePermiso('organigrama.ver') && {
+                    title: 'Organigrama',
+                    href: indexJerarquiaPuestos(),
+                    icon: GitBranch,
+                },
+                tienePermiso('reportes_rh.ver') && {
+                    title: 'Reportes',
+                    href: indexReportes(),
+                    icon: Activity,
+                },
             ]),
         ].filter((g) => g.items.length > 0);
     });
@@ -232,15 +316,51 @@ export function useMainNavItems() {
 
         const items: (NavItem | false)[] = [
             // Documentos maestros: cargar/versionar/probar los formatos.
-            tienePermiso('plantillas_documentales.administrar') && { title: 'Documentos maestros', href: indexDocumentosMaestros(), icon: FileStack },
-            tienePermiso('empresas.ver') && { title: 'Empresas', href: indexEmpresas(), icon: Landmark },
-            tienePermiso('usuarios.ver') && { title: 'Usuarios', href: indexUsuarios(), icon: Users },
-            tienePermiso('sucursales.administrar') && { title: 'Sucursales', href: indexSucursales(), icon: Building2 },
-            tienePermiso('departamentos.administrar') && { title: 'Departamentos', href: indexDepartamentos(), icon: Briefcase },
-            tienePermiso('puestos.administrar') && { title: 'Puestos', href: indexPuestos(), icon: Briefcase },
-            tienePermiso('roles.administrar') && { title: 'Roles y permisos', href: indexRoles(), icon: ShieldCheck },
-            tienePermiso('configuracion.ver') && { title: 'Configuración', href: indexConfiguracion(), icon: Settings2 },
-            tienePermiso('app_releases.ver') && { title: 'Versiones de app', href: indexAppReleases(), icon: Smartphone },
+            tienePermiso('plantillas_documentales.administrar') && {
+                title: 'Documentos maestros',
+                href: indexDocumentosMaestros(),
+                icon: FileStack,
+            },
+            tienePermiso('empresas.ver') && {
+                title: 'Empresas',
+                href: indexEmpresas(),
+                icon: Landmark,
+            },
+            tienePermiso('usuarios.ver') && {
+                title: 'Usuarios',
+                href: indexUsuarios(),
+                icon: Users,
+            },
+            tienePermiso('sucursales.administrar') && {
+                title: 'Sucursales',
+                href: indexSucursales(),
+                icon: Building2,
+            },
+            tienePermiso('departamentos.administrar') && {
+                title: 'Departamentos',
+                href: indexDepartamentos(),
+                icon: Briefcase,
+            },
+            tienePermiso('puestos.administrar') && {
+                title: 'Puestos',
+                href: indexPuestos(),
+                icon: Briefcase,
+            },
+            tienePermiso('roles.administrar') && {
+                title: 'Roles y permisos',
+                href: indexRoles(),
+                icon: ShieldCheck,
+            },
+            tienePermiso('configuracion.ver') && {
+                title: 'Configuración',
+                href: indexConfiguracion(),
+                icon: Settings2,
+            },
+            tienePermiso('app_releases.ver') && {
+                title: 'Versiones de app',
+                href: indexAppReleases(),
+                icon: Smartphone,
+            },
         ];
 
         return items.filter((i): i is NavItem => i !== false);
@@ -257,8 +377,13 @@ export function useMainNavItems() {
 
         return [
             ...gruposOperativo.value,
-            ...(adminNavItems.value.length ? [{ titulo: 'Administración', items: adminNavItems.value }] : []),
-            { titulo: 'Ayuda', items: [{ title: 'Ayuda', href: '/ayuda', icon: Compass }] },
+            ...(adminNavItems.value.length
+                ? [{ titulo: 'Administración', items: adminNavItems.value }]
+                : []),
+            {
+                titulo: 'Ayuda',
+                items: [{ title: 'Ayuda', href: '/ayuda', icon: Compass }],
+            },
         ];
     });
 

@@ -42,6 +42,47 @@ class CompensacionService
     }
 
     /**
+     * Salario diario a partir del mensual (mensual = diario × 30 ⇒ diario =
+     * mensual ÷ 30) — el ÚNICO lugar del sistema donde se divide entre 30.
+     */
+    public function diarioDesdeMensual(float $mensual): float
+    {
+        return round($mensual / 30, 2);
+    }
+
+    /**
+     * Quincena ordinaria (15 días salariales) cuando el dato capturado es el
+     * mensual: (mensual ÷ 30) × 15 sin redondear el diario intermedio, que
+     * es exactamente la mitad del mensual — así no se pierde un centavo.
+     */
+    public function quincenaDesdeMensual(float $mensual): float
+    {
+        return round($mensual / 2, 2);
+    }
+
+    /**
+     * Pago proporcional de $dias días salariales (ingreso a media
+     * quincena/semana) a partir del mensual, sin redondear el diario
+     * intermedio.
+     */
+    public function proporcionalDesdeMensual(float $mensual, int $dias): float
+    {
+        return round($mensual / 30 * $dias, 2);
+    }
+
+    /**
+     * Salario diario vigente de una persona: salario_diario (fuente real que
+     * escribe actualizarSalario()); si aún no está sincronizado, el mensual
+     * ÷ 30 como respaldo.
+     */
+    public function diarioDe(Colaborador $colaborador): float
+    {
+        return $colaborador->salario_diario !== null
+            ? (float) $colaborador->salario_diario
+            : $this->diarioDesdeMensual((float) ($colaborador->sueldo_mensual ?? 0));
+    }
+
+    /**
      * Periodo CALENDARIO de la quincena que contiene $fecha: 1-15, o 16 al
      * último día real del mes (28/29/30/31). `dias_salariales` es SIEMPRE
      * 15 — es el dato que importa para el pago, no los días calendario.

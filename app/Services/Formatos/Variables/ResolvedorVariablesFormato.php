@@ -5,6 +5,7 @@ namespace App\Services\Formatos\Variables;
 use App\Models\Candidato;
 use App\Models\Colaborador;
 use App\Models\Empresa;
+use App\Services\Compensacion\CompensacionService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Finiquitos\FiniquitoService;
 use Carbon\CarbonInterface;
@@ -26,6 +27,7 @@ class ResolvedorVariablesFormato
 {
     public function __construct(
         private readonly DocumentoStorageService $expediente,
+        private readonly CompensacionService $compensacion,
     ) {}
 
     /**
@@ -155,7 +157,7 @@ class ResolvedorVariablesFormato
             'laboral.periodo_prueba_fin' => $sujeto->periodo_prueba_fin,
             'laboral.fecha_alta_imss' => $sujeto->fecha_alta_imss,
             'laboral.sueldo_mensual' => $sueldo,
-            'laboral.sueldo_diario' => $sueldo !== null ? round($sueldo / 30, 2) : null,
+            'laboral.sueldo_diario' => $sueldo !== null ? $this->compensacion->diarioDesdeMensual((float) $sueldo) : null,
         ];
     }
 

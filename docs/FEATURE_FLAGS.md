@@ -19,6 +19,16 @@ CAPACITACION_ENABLED=false
 
 Activa la identidad y navegación de Portal RH (fase actual, ver `docs/PORTAL_RH.md`). En esta primera ejecución no condiciona código todavía — existe para que las fases siguientes (expedientes, vacaciones, solicitudes) puedan apagarse individualmente si hace falta, sin tocar `capacitacion`.
 
+## `recibos_colaborador`
+
+`RECIBOS_COLABORADOR_ENABLED` (por defecto `false`). Decisión de negocio (2026-10-12): el recibo de nómina se entrega **impreso** — RH lo emite, genera el PDF (queda en el expediente) y lo imprime. Con `false`:
+
+- El colaborador no ve «Mis recibos de nómina» (web) ni «Mis recibos» (app: `mobile/bootstrap` manda `features.recibos = false`, también en APKs ya instaladas).
+- `GET /mis-recibos` y `GET /api/v1/colaborador/recibos` responden 404; el detalle/PDF propio responde 403 (`ReciboNominaPolicy`).
+- El PDF del recibo (documento laboral de categoría `nomina_interna`) no aparece en los documentos laborales del colaborador ni se puede descargar desde su cuenta (`GeneratedDocumentPolicy`).
+- No se le envía aviso/push al emitir.
+- RH (`nomina.recibos.ver`, `documentos_laborales.ver`) los sigue viendo y descargando igual.
+
 ## `capacitacion`
 
 Controla la visibilidad y el acceso de **todo** el módulo de capacitación: cursos, mi capacitación, biblioteca multimedia, cuestionarios/banco de preguntas, actividades/calificaciones, sesiones en vivo/asistencias, asignaciones, reporte de cumplimiento y el calendario de sesiones.

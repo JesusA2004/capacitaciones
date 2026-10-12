@@ -312,6 +312,12 @@ class ReciboNominaService
      */
     private function notificarColaborador(ReciboNomina $recibo): void
     {
+        // Sin autoservicio de recibos (se entregan impresos) no hay nada que
+        // el colaborador pueda abrir: no se le avisa.
+        if (! config('features.recibos_colaborador')) {
+            return;
+        }
+
         try {
             $recibo->loadMissing('colaborador.user');
             $usuario = $recibo->colaborador->user;

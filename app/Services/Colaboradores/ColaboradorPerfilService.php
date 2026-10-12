@@ -37,6 +37,10 @@ class ColaboradorPerfilService
             'apellidos' => $colaborador->apellidos ?? $usuario->apellidos,
             'nombre_completo' => $colaborador?->nombreCompleto() ?? $usuario->nombreCompleto(),
             'correo' => $usuario->email,
+            // Contacto CORPORATIVO capturado por RH — nunca el correo de
+            // login ni uno inventado: null si la persona no lo tiene.
+            'correo_corporativo' => $colaborador?->correo_corporativo,
+            'telefono_corporativo' => $colaborador?->telefono_corporativo,
             'numero_empleado' => $colaborador?->numero_empleado,
             // Nunca se expone `foto_path` (ruta física en el disco NAS): se
             // resuelve a la misma ruta protegida por policy que usa el

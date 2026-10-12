@@ -2,9 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Departamento;
-use App\Models\Puesto;
-use App\Models\Sucursal;
 use App\Services\Directorio\DirectorioColaboradoresService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -12,8 +9,10 @@ use Inertia\Response;
 
 /**
  * Directorio de la empresa (correo/teléfono corporativo por colaborador):
- * visible a cualquier colaborador autenticado, acotado a su alcance
- * organizacional — no es una pantalla de administración de RH.
+ * visible a cualquier colaborador autenticado, GLOBAL (no acotado por
+ * alcance organizacional) y solo con contacto corporativo — ver la regla en
+ * DirectorioColaboradoresService. Mismo service que
+ * Api\V1\DirectorioController (app móvil).
  */
 class DirectorioController extends Controller
 {
@@ -27,11 +26,7 @@ class DirectorioController extends Controller
             'colaboradores' => $this->directorio->buscar($filtros)
                 ->through(fn ($colaborador) => $this->directorio->aArray($colaborador)),
             'filtros' => $filtros,
-            'opciones' => [
-                'puestos' => Puesto::query()->where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
-                'sucursales' => Sucursal::query()->where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
-                'departamentos' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
-            ],
+            'opciones' => $this->directorio->opciones(),
         ]);
     }
 }

@@ -317,4 +317,88 @@ export const ARTICULOS_DESARROLLO: ArticuloGuia[] = [
             '¿Se duplica el contrato si pulso dos veces?',
         ],
     },
+    {
+        id: 'induccion-mr-lana',
+        titulo: 'Inducción Mr. Lana y su evaluación',
+        proceso: 'onboarding',
+        resumen:
+            '7 capítulos interactivos con el organigrama vigente; al terminarlos se habilita la evaluación oficial de 30 puntos (mínimo 24).',
+        queEs: 'Es la inducción institucional: Quiénes somos, Misión/visión/principios, Cultura, Organigrama, Reglamento interior, Modelo de negocio y Empresa con factor humano. El avance se guarda en el servidor y se retoma donde se quedó.',
+        quien: ['colaborador', 'rh'],
+        quienDetalle:
+            'El colaborador recorre los capítulos y presenta su evaluación; RH califica los casos prácticos y, si hace falta, da reforzamiento. RH también puede PRESENTAR la inducción por Meet.',
+        antes: ['El onboarding de la persona ya inició (contratos firmados).'],
+        pasos: [
+            {
+                titulo: 'Recorrer los 7 capítulos',
+                detalle:
+                    'Mis pendientes → «Inducción Mr. Lana» (web o app). Cada capítulo visto cuenta: «6 de 7 · 86 %». El capítulo 4 muestra los organigramas corporativo, comercial y de sucursal vigentes.',
+                quien: 'colaborador',
+                canal: 'web_app',
+            },
+            {
+                titulo: 'Presentar la evaluación',
+                detalle:
+                    'Secciones A (opción múltiple), B (verdadero/falso), C (relaciona columnas), D (casos prácticos) y E (opinión, no califica). La clave de respuestas nunca llega al teléfono ni al navegador.',
+                quien: 'colaborador',
+                canal: 'web_app',
+            },
+            {
+                titulo: 'RH califica los casos prácticos',
+                detalle:
+                    'Con la rúbrica oficial (solo RH la ve). Resultado: 27–30 Sobresaliente · 24–26 Aprobado · 0–23 Requiere reforzamiento.',
+                quien: 'rh',
+                canal: 'web',
+            },
+            {
+                titulo: 'Si requiere reforzamiento',
+                detalle:
+                    'RH deja retroalimentación y habilita la reevaluación (plazo de 5 días hábiles). El colaborador no puede reintentar antes.',
+                quien: 'rh',
+            },
+            {
+                titulo: 'Modo presentación (Meet)',
+                detalle:
+                    'Desarrollo → «Presentar inducción»: los mismos capítulos para impartirla en sesión, sin registrar avance de nadie.',
+                quien: 'rh',
+                canal: 'web',
+            },
+        ],
+        despues: [
+            'Aprobada: se aprueba el módulo de inducción y se desbloquea SOLO el siguiente módulo del onboarding.',
+        ],
+        notificaciones: [
+            'Al colaborador: evaluación disponible, aprobada, reforzamiento y reevaluación habilitada.',
+            'A RH: evaluación por calificar y reforzamiento requerido.',
+        ],
+        errores: [
+            {
+                problema: '«No me aparece la evaluación.»',
+                solucion:
+                    'Primero hay que ver los 7 capítulos desde Mis pendientes (el modo presentación no cuenta).',
+            },
+        ],
+        registro: [
+            'Cada intento con su calificación, nivel y quién calificó; queda en el historial de la persona.',
+        ],
+        relacionados: ['onboarding', 'configurar-onboarding'],
+        accesos: [
+            {
+                etiqueta: 'Presentar inducción',
+                ruta: '/induccion/presentacion',
+                permisos: ['onboarding.gestionar'],
+                modo: 'operativo',
+            },
+            {
+                etiqueta: 'Ir a Mis pendientes',
+                ruta: '/mi-proceso',
+                modo: 'colaborador',
+            },
+        ],
+        preguntas: [
+            '¿Cómo hago mi inducción?',
+            '¿Con cuántos puntos apruebo la evaluación de inducción?',
+            '¿Cómo presento la inducción por Meet?',
+        ],
+    },
 ];

@@ -12,6 +12,7 @@ use App\Models\Colaborador;
 use App\Models\EvaluacionInduccion;
 use App\Models\EvaluacionInduccionIntento;
 use App\Models\OnboardingAvance;
+use App\Models\OnboardingModulo;
 use App\Models\OnboardingProceso;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
@@ -122,7 +123,7 @@ class EvaluacionInduccionService
      * "Mi proceso" — null si este proceso no tiene el módulo institucional
      * con evaluación formal (hoy solo 'induccion_mr_lana_2026').
      *
-     * @return array{avance_id: int, titulo: string, total_capitulos: int, capitulos_vistos: int, porcentaje: int, ultima_capitulo: string|null, completado: bool}|null
+     * @return array{avance_id: int, titulo: string, total_capitulos: int, capitulos_vistos: int, claves_vistas: list<string>, porcentaje: int, ultima_capitulo: string|null, completado: bool}|null
      */
     public function resumenContenido(OnboardingProceso $proceso): ?array
     {
@@ -143,6 +144,9 @@ class EvaluacionInduccionService
             'titulo' => $avance->modulo->titulo,
             'total_capitulos' => $totalCapitulos,
             'capitulos_vistos' => count((array) ($progreso['capitulos_vistos'] ?? [])),
+            // Claves exactas (se puede saltar entre capítulos: el conteo solo
+            // no dice cuáles faltan).
+            'claves_vistas' => array_values(array_map('strval', (array) ($progreso['capitulos_vistos'] ?? []))),
             'porcentaje' => (int) ($progreso['porcentaje'] ?? 0),
             'ultima_capitulo' => $progreso['ultima_capitulo'] ?? null,
             'completado' => $avance->contenido_visto_en !== null,
@@ -164,6 +168,30 @@ class EvaluacionInduccionService
         }
 
         return $avance->modulo->contenido_estructurado;
+    }
+
+    /**
+     * Capítulos de la inducción institucional para PRESENTARLA (RH en una
+     * sesión por Meet, o el colaborador repasándola): mismo contenido real
+     * del módulo con evaluación formal, sin ligarlo a un avance — no
+     * registra progreso ni toca la evaluación. Contenido institucional, sin
+     * datos personales ni clave de respuestas.
+     *
+     * @return array{titulo: string, capitulos: list<array<mixed, mixed>>}|null
+     */
+    public function presentacion(): ?array
+    {
+        $modulo = OnboardingModulo::query()
+            ->whereNotNull('evaluacion_formal_clave')
+            ->where('activo', true)
+            ->orderBy('orden')
+            ->first();
+
+        if ($modulo === null || $modulo->contenido_estructurado === []) {
+            return null;
+        }
+
+        return ['titulo' => $modulo->titulo, 'capitulos' => $modulo->contenido_estructurado];
     }
 
     /**
@@ -355,7 +383,7 @@ class EvaluacionInduccionService
             if ($colaboradorUsuario !== null) {
                 $this->notificador->notificar([$colaboradorUsuario], 'induccion_evaluacion_aprobada', '¡Aprobaste tu evaluación de inducción!', sprintf('Obtuviste %s/30 (%s).', number_format((float) $intento->calificacion_total, 1), $intento->nivel?->etiqueta()), $intento, 'ver_evaluacion_induccion', 'alta');
             }
-            $this->notificador->notificarEvento('induccion_evaluacion_aprobada', $evaluacion->colaborador, ['creador' => $actor, 'excluir' => [$actor->id]], 'Inducción completada', "{$evaluacion->colaborador->nombreCompleto()} aprobó su evaluación de inducción.", $intento, 'ver_evaluacion_induccion');
+            $this->notificador->notificarEvento('induccion_evaluacion_aprobada', $evaluacion->colaborador, ['creador' => $actor, 'excluir' => [$actor->id]], 'Inducción completada', "{$evaluacion->colaborador->nombreCompleto()} aprobó su evaluación de inducción.", $intento, 'ver_onboarding_colaborador');
         } else {
             $this->tareas->abrir(TipoTarea::InduccionReforzamiento, $evaluacion, [
                 'titulo' => "Reforzamiento de inducción: {$evaluacion->colaborador->nombreCompleto()}",

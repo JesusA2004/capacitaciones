@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Colaborador;
 use App\Models\User;
 use Database\Seeders\RolesYPermisosSeeder;
 
@@ -93,4 +94,20 @@ test('un colaborador que tambien tiene permisos de rh recibe ambas experiencias'
 
     expect($respuesta->json('capabilities.employee'))->toBeTrue()
         ->and($respuesta->json('capabilities.rh'))->toBeTrue();
+});
+
+test('bootstrap: recibos de nómina sin autoservicio por defecto y directorio disponible', function () {
+    $usuario = User::factory()->for(Colaborador::factory())->create();
+    $usuario->assignRole('colaborador');
+
+    $this->withHeaders(['Authorization' => 'Bearer '.$usuario->createToken('test')->plainTextToken])
+        ->getJson('/api/v1/mobile/bootstrap')
+        ->assertOk()
+        ->assertJsonPath('features.recibos', false)
+        ->assertJsonPath('features.directorio', true);
+
+    $this->app['auth']->forgetGuards();
+    $this->withHeaders(['Authorization' => 'Bearer '.$usuario->createToken('test2')->plainTextToken])
+        ->getJson('/api/v1/induccion/presentacion')
+        ->assertNotFound();
 });

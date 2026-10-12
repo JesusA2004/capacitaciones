@@ -98,6 +98,9 @@ const SIDEBAR_A_GUIA = [
     'Mi portal' => ['portal'],
     'Mi expediente' => ['mi-expediente'],
     'Mis solicitudes' => ['mis-solicitudes'],
+    'Directorio' => ['directorio', 'directorio-operativo'],
+    'Inducción Mr. Lana' => ['induccion'],
+    'Presentar inducción' => ['presentar-induccion'],
 ];
 
 const SIDEBAR_SIN_GUIA = [
@@ -112,6 +115,9 @@ const SIDEBAR_SIN_GUIA = [
     'Muro de felicitaciones',
     'Recibos de nómina',
     'Evaluación de capacitación inicial',
+    // Carga puntual de un archivo con vista previa (sin recorrido propio);
+    // el proceso completo está en la Guía maestra (artículo importador-salarios).
+    'Importar salarios y vacaciones',
 ];
 
 test('todo acceso del sidebar tiene módulo de guía o una justificación explícita', function () {
@@ -217,6 +223,10 @@ const PANTALLAS_GUIA = [
     'reingresos' => ['pages/Rh/Reingresos/Index.vue'],
     'configuracion' => ['pages/Administracion/Configuracion/Notificaciones.vue'],
     'mis-solicitudes' => ['pages/Solicitudes/Index.vue'],
+    'directorio' => ['pages/Directorio/Index.vue'],
+    'directorio-operativo' => ['pages/Directorio/Index.vue'],
+    'induccion' => ['pages/Portal/Induccion.vue'],
+    'presentar-induccion' => ['pages/Portal/Induccion.vue'],
 ];
 
 test('cada selector de cada módulo existe en SU pantalla (no solo en alguna)', function () {

@@ -78,7 +78,7 @@ class CandidatoController extends Controller
         $this->authorize('viewAny', Candidato::class);
 
         $candidatos = $this->queryFiltrada($request)
-            ->with(['ultimoSeguimiento.registradoPor:id,name,apellidos', 'ultimoCambioEstado'])
+            ->with(['ultimoSeguimiento.registradoPor:id,name,apellidos', 'ultimoCambioEstado', 'colaborador:id,activado_en'])
             ->orderByDesc('created_at')
             ->get();
 

@@ -6,6 +6,9 @@ export type PerfilColaborador = {
     apellidos: string | null;
     nombre_completo: string;
     correo: string;
+    /** Contacto corporativo capturado por RH (null si no tiene; nunca el de login). */
+    correo_corporativo: string | null;
+    telefono_corporativo: string | null;
     numero_empleado: string | null;
     foto_url: string | null;
     puesto: string | null;

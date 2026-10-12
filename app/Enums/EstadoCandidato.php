@@ -34,6 +34,22 @@ enum EstadoCandidato: string
     case NoRespondio = 'no_respondio';
     case Desistio = 'desistio';
 
+    /** Contratado y todavía en onboarding/capacitación (sin inicio de operación). */
+    public const FASE_CAPACITACION_INICIAL = 'capacitacion_inicial';
+
+    /** Contratado y ya en operación (Colaborador::activado_en registrado). */
+    public const FASE_LABORANDO = 'laborando';
+
+    /**
+     * Columna de un candidato contratado según su colaborador real:
+     * "Laborando" solo cuando ya inició operación en campo (activado_en,
+     * que exige onboarding completado — AltaColaboradorService::activar).
+     */
+    public static function faseContratado(bool $yaLabora): string
+    {
+        return $yaLabora ? self::FASE_LABORANDO : self::FASE_CAPACITACION_INICIAL;
+    }
+
     public function etiqueta(): string
     {
         return match ($this) {
@@ -47,7 +63,7 @@ enum EstadoCandidato: string
             self::AutorizacionRhPendiente => 'Autorización final de RH',
             self::AutorizadoRh => 'Autorizado por RH',
             self::EnContratacion => 'En contratación',
-            self::Contratado => 'Contratado',
+            self::Contratado => 'Capacitación inicial',
             self::NoViable => 'No viable',
             self::NoSeleccionado => 'No seleccionado',
             self::RechazadoRh => 'Rechazado por RH',
@@ -109,8 +125,11 @@ enum EstadoCandidato: string
             self::EntrevistaPendiente => 'entrevista',
             self::PsicometricasPendientes, self::RevisionPsicometricas => 'psicometricos',
             self::SocioeconomicoPendiente => 'socioeconomico',
-            self::ReferenciasPendientes, self::PreseleccionGerente, self::AutorizacionRhPendiente, self::AutorizadoRh, self::EnContratacion => 'contratacion',
-            self::Contratado => 'contratado',
+            self::ReferenciasPendientes => 'referencias',
+            self::PreseleccionGerente, self::AutorizacionRhPendiente, self::AutorizadoRh, self::EnContratacion => 'contratacion',
+            // Contratado se divide por el estado REAL de la persona (ver
+            // faseContratado()): sin el colaborador a la mano, capacitación inicial.
+            self::Contratado => self::FASE_CAPACITACION_INICIAL,
             self::NoViable, self::NoSeleccionado, self::RechazadoRh, self::NoRespondio => 'rechazado',
             self::Desistio => 'desistido',
         };
@@ -129,8 +148,10 @@ enum EstadoCandidato: string
             'entrevista' => 'Entrevista',
             'psicometricos' => 'Psicométricos',
             'socioeconomico' => 'Socioeconómico',
+            'referencias' => 'Referencias',
             'contratacion' => 'Contratación',
-            'contratado' => 'Contratado',
+            'capacitacion_inicial' => 'Capacitación inicial',
+            'laborando' => 'Laborando',
             'rechazado' => 'Rechazado',
             'desistido' => 'Desistió',
         ];

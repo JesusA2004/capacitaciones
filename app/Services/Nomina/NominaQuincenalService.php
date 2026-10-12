@@ -9,6 +9,7 @@ use App\Models\Colaborador;
 use App\Models\ReciboNomina;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Compensacion\CompensacionService;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -46,6 +47,7 @@ class NominaQuincenalService
     public function __construct(
         private readonly ReciboNominaService $recibos,
         private readonly AlcanceOrganizacionalService $alcance,
+        private readonly CompensacionService $compensacion,
     ) {}
 
     /**
@@ -206,15 +208,15 @@ class NominaQuincenalService
     }
 
     /**
-     * Sueldo de la quincena: la mitad del mensual; si ingresó a media
-     * quincena, proporcional a los días trabajados (base 15 días).
+     * Sueldo de la quincena: 15 días salariales (CompensacionService); si
+     * ingresó a media quincena, proporcional a los días trabajados.
      *
      * @param  array{inicio: CarbonImmutable, fin: CarbonImmutable}  $periodo
      * @return array{0: float, 1: string}
      */
     private function sueldoDelPeriodo(float $mensual, ?CarbonInterface $ingreso, array $periodo, string $concepto): array
     {
-        $quincena = round($mensual / 2, 2);
+        $quincena = $this->compensacion->quincenaDesdeMensual($mensual);
 
         if ($ingreso === null || $ingreso->lte($periodo['inicio'])) {
             return [$quincena, $concepto];
@@ -222,7 +224,7 @@ class NominaQuincenalService
 
         $dias = min(15, (int) $ingreso->startOfDay()->diffInDays($periodo['fin']) + 1);
 
-        return [round($mensual / 30 * $dias, 2), sprintf('%s (%d días desde su ingreso)', $concepto, $dias)];
+        return [$this->compensacion->proporcionalDesdeMensual($mensual, $dias), sprintf('%s (%d días desde su ingreso)', $concepto, $dias)];
     }
 
     /**

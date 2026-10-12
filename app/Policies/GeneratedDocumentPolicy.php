@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\CategoriaDocumento;
 use App\Enums\EstadoFlujoDocumento;
 use App\Models\GeneratedDocument;
 use App\Models\User;
@@ -20,7 +21,12 @@ class GeneratedDocumentPolicy
 
     public function ver(User $usuario, GeneratedDocument $documento): bool
     {
-        if ($this->esPropio($usuario, $documento)) {
+        // Su propio recibo de nómina NO es autoservicio (se entrega impreso,
+        // config('features.recibos_colaborador')): solo lo ve quien tenga
+        // permiso de RH sobre él, como cualquier documento ajeno.
+        $reciboNoAutoservicio = $documento->categoria === CategoriaDocumento::NominaInterna && ! config('features.recibos_colaborador');
+
+        if ($this->esPropio($usuario, $documento) && ! $reciboNoAutoservicio) {
             return $documento->estado_flujo !== null && $documento->estado_flujo !== EstadoFlujoDocumento::Borrador;
         }
 

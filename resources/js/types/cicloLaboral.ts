@@ -518,6 +518,8 @@ export type InduccionContenidoResumen = {
     titulo: string;
     total_capitulos: number;
     capitulos_vistos: number;
+    /** Claves exactas de los capítulos vistos (se puede saltar entre capítulos). */
+    claves_vistas?: string[];
     porcentaje: number;
     ultima_capitulo: string | null;
     completado: boolean;

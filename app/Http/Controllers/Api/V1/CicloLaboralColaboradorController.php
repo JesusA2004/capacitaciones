@@ -147,6 +147,9 @@ class CicloLaboralColaboradorController extends Controller
 
     public function recibos(Request $request): JsonResponse
     {
+        // El recibo se entrega impreso (config('features.recibos_colaborador')).
+        abort_unless((bool) config('features.recibos_colaborador'), 404, 'Tu recibo de nómina te lo entrega Recursos Humanos impreso.');
+
         return $this->paginado(
             $this->recibos->delColaborador($this->colaborador($request), $request->integer('per_page', 20)),
             fn (ReciboNomina $r) => $this->recibos->aArray($r),

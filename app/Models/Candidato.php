@@ -181,7 +181,40 @@ class Candidato extends Model
         $valor = $this->getAttributes()['estado'] ?? null;
         $estado = $valor instanceof EstadoCandidato ? $valor : (is_string($valor) ? EstadoCandidato::tryFrom($valor) : null);
 
+        if ($estado === EstadoCandidato::Contratado) {
+            return EstadoCandidato::faseContratado($this->yaLabora());
+        }
+
         return $estado?->faseCanonica() ?? '';
+    }
+
+    /**
+     * Etiqueta del estado para mostrar: un contratado que ya inició operación
+     * se muestra "Laborando", no "Capacitación inicial".
+     */
+    public function etiquetaEstado(): string
+    {
+        return $this->estado === EstadoCandidato::Contratado && $this->yaLabora()
+            ? 'Laborando'
+            : $this->estado->etiqueta();
+    }
+
+    /**
+     * true si el colaborador creado al contratarlo ya inició operación en
+     * campo (activado_en). Usa la relación si ya viene cargada (el tablero
+     * la precarga con `colaborador:id,activado_en`).
+     */
+    public function yaLabora(): bool
+    {
+        if ($this->colaborador_id === null) {
+            return false;
+        }
+
+        $colaborador = $this->relationLoaded('colaborador')
+            ? $this->colaborador
+            : $this->colaborador()->first(['id', 'activado_en']);
+
+        return $colaborador?->activado_en !== null;
     }
 
     /**

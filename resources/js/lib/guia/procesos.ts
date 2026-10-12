@@ -86,7 +86,7 @@ export const PROCESOS: ProcesoGuia[] = [
             'Bienvenida del colaborador nuevo: lecciones institucionales y del puesto, con evaluación, y entrega del equipo de trabajo con su carta responsiva.',
         tiempo: '1 a 2 semanas',
         roles: ['colaborador', 'rh', 'gerente'],
-        articulos: ['onboarding', 'configurar-onboarding'],
+        articulos: ['onboarding', 'induccion-mr-lana', 'configurar-onboarding'],
     },
     {
         id: 'evaluacion',
@@ -186,6 +186,9 @@ export const PROCESOS: ProcesoGuia[] = [
             'configuracion-notificaciones',
             'documentos-maestros',
             'app-movil',
+            'directorio',
+            'importador-salarios',
+            'historial-persona',
         ],
     },
 ];

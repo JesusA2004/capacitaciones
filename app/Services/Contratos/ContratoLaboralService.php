@@ -13,6 +13,7 @@ use App\Models\Puesto;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\Compensacion\CompensacionService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Tareas\TareaService;
@@ -43,6 +44,7 @@ class ContratoLaboralService
         private readonly TareaService $tareas,
         private readonly AuditoriaService $auditoria,
         private readonly AlcanceOrganizacionalService $alcance,
+        private readonly CompensacionService $compensacion,
     ) {}
 
     /**
@@ -442,7 +444,7 @@ class ContratoLaboralService
             'fecha_inicio_contrato' => $contrato->fecha_inicio->format('d/m/Y'),
             'fecha_fin_contrato' => $contrato->fecha_fin?->format('d/m/Y') ?? '',
             'sueldo_mensual' => $contrato->sueldo_mensual !== null ? sprintf('$%s', number_format((float) $contrato->sueldo_mensual, 2)) : '',
-            'sueldo_diario' => $contrato->sueldo_mensual !== null ? sprintf('$%s', number_format((float) $contrato->sueldo_mensual / 30, 2)) : '',
+            'sueldo_diario' => $contrato->sueldo_mensual !== null ? sprintf('$%s', number_format($this->compensacion->diarioDesdeMensual((float) $contrato->sueldo_mensual), 2)) : '',
         ];
     }
 

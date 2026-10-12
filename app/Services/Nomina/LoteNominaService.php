@@ -14,6 +14,7 @@ use App\Models\ReciboNomina;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\Compensacion\CompensacionService;
 use App\Services\DocumentosAdministrativos\DatosDocumentoAdministrativo;
 use App\Services\DocumentosAdministrativos\DocumentoAdministrativoService;
 use Carbon\CarbonImmutable;
@@ -56,6 +57,7 @@ class LoteNominaService
         private readonly AuditoriaService $auditoria,
         private readonly DocumentoAdministrativoService $documentos,
         private readonly DatosDocumentoAdministrativo $datosDocumento,
+        private readonly CompensacionService $compensacion,
     ) {}
 
     /**
@@ -137,7 +139,7 @@ class LoteNominaService
                 continue;
             }
 
-            $diario = round($mensual / 30, 2);
+            $diario = $this->compensacion->diarioDesdeMensual($mensual);
             $dias = $periodicidad->diasBase();
             $avisos = [];
 

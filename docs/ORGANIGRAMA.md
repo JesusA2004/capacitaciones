@@ -80,6 +80,8 @@ El jefe directo **no se captura en ningún lado** (se retiró la pantalla Config
 - **Por personas** (principal): una tarjeta por colaborador; vista corporativa (Dirección General → Dirección Comercial → ramas) y luego la estructura comercial por región y sucursal. Árbol con zoom en escritorio, lista jerárquica en móvil.
 - **Por puestos**: el catálogo de puestos para editar «reporta a», respaldos y ruta de crecimiento.
 
+Encima del árbol, **secciones como el PDF de Inducción** (capítulo 4): **General** (todo), **Corporativo** (Dirección General y sus áreas directas, un nivel), **Dirección Comercial** y **Sucursal** — cada sección es la rama real de su puesto raíz (`config/organigrama.php` → `vistas_induccion`, `raiz_puesto_id`). La **Matriz comercial** sigue como acceso aparte.
+
 Acceso: `puestos.administrar` u `organigrama.ver`; editar pide `puestos.administrar` u `organigrama.editar`.
 
 ## Sincronizar una base existente (producción)

@@ -102,6 +102,8 @@ class ExpedienteController extends Controller
                 'numero_empleado' => $colaborador->numero_empleado,
                 'correo' => $colaborador->correo_personal,
                 'telefono' => $colaborador->telefono,
+                'correo_corporativo' => $colaborador->correo_corporativo,
+                'telefono_corporativo' => $colaborador->telefono_corporativo,
                 'estatus' => $colaborador->estatus->value,
                 'fecha_ingreso' => $colaborador->fecha_ingreso?->toDateString(),
                 'empresa' => $colaborador->sucursalPrincipal?->empresa?->nombre,

@@ -79,6 +79,7 @@ import type {
     PuestoJerarquiaFiltros,
     PuestoJerarquiaItem,
     PuestoJerarquiaOpciones,
+    SeccionOrganigrama,
 } from '@/types';
 
 const props = defineProps<{
@@ -87,6 +88,7 @@ const props = defineProps<{
     coberturas: CoberturasOrganigrama;
     filtros: PuestoJerarquiaFiltros;
     opciones: PuestoJerarquiaOpciones;
+    secciones: SeccionOrganigrama[];
 }>();
 
 // "Por personas" (una tarjeta por colaborador, rama por sucursal) es la
@@ -141,11 +143,62 @@ const { filtros, aplicar, limpiar } = useFiltros(index.url(), {
     sucursal_id: props.filtros.sucursal_id ?? '',
     departamento_id: props.filtros.departamento_id ?? '',
     tipo_puesto: props.filtros.tipo_puesto ?? '',
+    raiz_puesto_id: props.filtros.raiz_puesto_id ?? '',
 });
 const filtroSheetAbierto = ref(false);
+// La sección (raiz_puesto_id) no cuenta como «filtro» en el contador.
 const filtrosActivos = computed(
-    () => Object.values(filtros).filter(Boolean).length,
+    () =>
+        [
+            filtros.empresa_id,
+            filtros.sucursal_id,
+            filtros.departamento_id,
+            filtros.tipo_puesto,
+        ].filter(Boolean).length,
 );
+
+// Sección como el PDF de Inducción: General · Corporativo · Dirección
+// Comercial · Sucursal (cada una es la rama real de su puesto raíz).
+const seccionActiva = computed<SeccionOrganigrama | undefined>(
+    () =>
+        props.secciones.find(
+            (s) =>
+                String(s.raiz_puesto_id ?? '') ===
+                String(filtros.raiz_puesto_id),
+        ) ?? props.secciones[0],
+);
+
+function elegirSeccion(seccion: SeccionOrganigrama) {
+    filtros.raiz_puesto_id = seccion.raiz_puesto_id
+        ? String(seccion.raiz_puesto_id)
+        : '';
+    aplicar();
+}
+
+// Profundidad máxima bajo la raíz (Corporativo: Dirección General y sus
+// áreas directas, sin bajar a sucursales).
+const profundidad = computed(() => seccionActiva.value?.profundidad ?? null);
+
+const personasVisibles = computed(() => {
+    if (profundidad.value === null) {
+        return props.personas;
+    }
+
+    const porClave = new Map(props.personas.map((n) => [n.clave, n]));
+    const nivel = (nodo: NodoOrganigramaPersona): number => {
+        let n = 0;
+        let padre = nodo.padre ? porClave.get(nodo.padre) : undefined;
+
+        while (padre) {
+            n++;
+            padre = padre.padre ? porClave.get(padre.padre) : undefined;
+        }
+
+        return n;
+    };
+
+    return props.personas.filter((n) => nivel(n) <= (profundidad.value ?? 0));
+});
 
 // Un solo árbol real (o varios, si hay puestos sin conexión entre sí) — no
 // se agrupa por tipo_puesto: un puesto comercial puede colgar de un puesto
@@ -164,7 +217,29 @@ const raices = computed(() =>
 // Un puesto regional (Gerente Regional Q1, Q3…) muestra debajo la rama de
 // sucursal que depende "del regional de su región", aunque en el catálogo
 // solo cuelgue del superior de referencia.
+function nivelPuesto(id: number): number {
+    let nivel = 0;
+    let actual = props.puestos.find((p) => p.id === id);
+
+    while (actual?.puesto_superior_id) {
+        const superior = actual.puesto_superior_id;
+        actual = props.puestos.find((p) => p.id === superior);
+
+        if (!actual) {
+            break;
+        }
+
+        nivel++;
+    }
+
+    return nivel;
+}
+
 function obtenerHijos(id: number): PuestoJerarquiaItem[] {
+    if (profundidad.value !== null && nivelPuesto(id) >= profundidad.value) {
+        return [];
+    }
+
     const esRegional = props.puestos.some((p) => p.id === id && p.region);
 
     return props.puestos.filter(
@@ -509,6 +584,31 @@ watch(
             </Link>
         </div>
 
+        <!-- Secciones como el PDF de Inducción (cap. 4) + una general. -->
+        <div
+            v-if="secciones.length > 1"
+            class="flex flex-wrap gap-1.5"
+            role="tablist"
+            aria-label="Sección del organigrama"
+        >
+            <button
+                v-for="seccion in secciones"
+                :key="seccion.valor"
+                type="button"
+                role="tab"
+                :aria-selected="seccionActiva?.valor === seccion.valor"
+                class="min-h-9 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors"
+                :class="
+                    seccionActiva?.valor === seccion.valor
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border/60 bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                "
+                @click="elegirSeccion(seccion)"
+            >
+                {{ seccion.etiqueta }}
+            </button>
+        </div>
+
         <CrudEmptyState
             v-if="!puestos.length"
             :icono="GitBranch"
@@ -519,16 +619,16 @@ watch(
         <template v-else>
             <!-- Por personas: una tarjeta por colaborador, rama por sucursal. -->
             <div v-if="vista === 'personas'" data-tour="organigrama-arbol">
-                <template v-if="personas.length">
+                <template v-if="personasVisibles.length">
                     <!-- Tablet/escritorio: árbol con zoom. Celular: lista
                          jerárquica desplegable (el árbol no se lee en 390 px). -->
                     <OrganigramaPersonasArbol
                         class="hidden md:block"
-                        :nodos="personas"
+                        :nodos="personasVisibles"
                     />
                     <OrganigramaPersonasLista
                         class="md:hidden"
-                        :nodos="personas"
+                        :nodos="personasVisibles"
                     />
                 </template>
                 <CrudEmptyState

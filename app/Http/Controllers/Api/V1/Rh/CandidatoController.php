@@ -51,6 +51,7 @@ class CandidatoController extends Controller
         ]);
 
         $pagina = $this->presenter->consulta($request->user(), $filtros)
+            ->with('colaborador:id,activado_en')
             ->orderByDesc('created_at')
             ->paginate((int) ($filtros['per_page'] ?? 20));
 

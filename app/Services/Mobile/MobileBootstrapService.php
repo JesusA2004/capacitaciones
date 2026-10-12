@@ -205,6 +205,13 @@ class MobileBootstrapService
             'rh_mobile' => $capabilities['rh'] && (bool) config('mobile.features.rh_mobile'),
             'formatos' => (bool) config('mobile.features.formatos'),
             'maintenance' => (bool) config('mobile.maintenance'),
+            // Autoservicio de recibos de nómina (Mi espacio): por defecto
+            // apagado — el recibo se entrega impreso. La app oculta "Mis
+            // recibos" cuando llega false (utils/modules.ts), incluso en
+            // versiones ya instaladas.
+            'recibos' => (bool) config('features.recibos_colaborador'),
+            // Directorio de contacto corporativo (global, solo autenticado).
+            'directorio' => true,
         ];
     }
 

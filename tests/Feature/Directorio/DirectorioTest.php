@@ -7,7 +7,7 @@ use Database\Seeders\RolesYPermisosSeeder;
 
 /*
 | Directorio de la empresa: cualquier colaborador autenticado puede
-| buscar/filtrar por puesto y sucursal, acotado a su alcance. El correo
+| buscar/filtrar por puesto y sucursal (directorio GLOBAL). El correo
 | corporativo no todos lo tienen (solo administrativos/gerenciales) — una
 | fila sin correo se muestra igual, nunca se inventa uno.
 */

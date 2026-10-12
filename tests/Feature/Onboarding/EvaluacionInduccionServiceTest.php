@@ -329,3 +329,117 @@ test('RH sin permiso no puede calificar los casos prácticos', function () {
     expect(fn () => $this->evaluaciones->calificarCasosPracticos($intento, $sinPermiso, eiPuntosDCompletos()))
         ->toThrow(AuthorizationException::class);
 });
+
+test('secuencia: aprobar la inducción formal desbloquea SOLO el siguiente módulo, sin saltarse ninguno y sin desbloquear dos aunque se repita', function () {
+    $puestoA = OnboardingModulo::query()->create(['clave' => 'puesto_a', 'titulo' => 'Puesto A', 'tipo' => TipoModuloOnboarding::Puesto, 'puesto_id' => $this->estructura['puesto']->id, 'orden' => 2, 'obligatorio' => true, 'activo' => true, 'preguntas' => [['pregunta' => '¿1+1?', 'opciones' => ['1', '2'], 'correcta' => 1]], 'calificacion_minima' => 8]);
+    $puestoB = OnboardingModulo::query()->create(['clave' => 'puesto_b', 'titulo' => 'Puesto B', 'tipo' => TipoModuloOnboarding::Puesto, 'puesto_id' => $this->estructura['puesto']->id, 'orden' => 3, 'obligatorio' => true, 'activo' => true, 'preguntas' => [['pregunta' => '¿2+2?', 'opciones' => ['4', '5'], 'correcta' => 0]], 'calificacion_minima' => 8]);
+
+    $colaborador = Colaborador::factory()->create([
+        'sucursal_principal_id' => $this->estructura['sucursal']->id,
+        'puesto_id' => $this->estructura['puesto']->id,
+        'estatus' => EstadoUsuario::EnIncorporacion,
+        'fecha_ingreso' => now()->toDateString(),
+    ]);
+    $usuario = User::factory()->create(['colaborador_id' => $colaborador->id]);
+    $usuario->assignRole('colaborador');
+    $proceso = $this->onboarding->iniciar($colaborador, ContratoLaboral::factory()->create(['colaborador_id' => $colaborador->id]), $this->rh);
+
+    $estados = fn () => $proceso->avances()->orderBy('orden')->with('modulo')->get()->mapWithKeys(fn ($a) => [$a->modulo->clave => $a->estado])->all();
+
+    expect($estados())->toBe([
+        'induccion_mr_lana_2026' => EstadoAvanceOnboarding::Disponible,
+        'puesto_a' => EstadoAvanceOnboarding::Bloqueado,
+        'puesto_b' => EstadoAvanceOnboarding::Bloqueado,
+    ]);
+
+    $avanceInduccion = $proceso->avances()->whereHas('modulo', fn ($q) => $q->where('clave', 'induccion_mr_lana_2026'))->firstOrFail();
+    $this->onboarding->marcarContenidoVisto($avanceInduccion, $usuario);
+    $evaluacion = $this->evaluaciones->habilitarPara($proceso->refresh());
+    $intento = $this->evaluaciones->presentar($evaluacion, $usuario, eiRespuestasCorrectas(), null);
+    $this->actingAs($this->rh);
+    $this->evaluaciones->calificarCasosPracticos($intento, $this->rh, eiPuntosDCompletos());
+
+    expect($estados())->toBe([
+        'induccion_mr_lana_2026' => EstadoAvanceOnboarding::Aprobado,
+        'puesto_a' => EstadoAvanceOnboarding::Disponible,
+        'puesto_b' => EstadoAvanceOnboarding::Bloqueado,
+    ]);
+
+    // Una segunda aprobación formal (reintento/recalificación) no abre otro módulo.
+    $this->onboarding->aprobarAvancesFormal($proceso->refresh(), 'induccion_mr_lana_2026');
+    expect($estados()['puesto_b'])->toBe(EstadoAvanceOnboarding::Bloqueado);
+
+    // Aprobar el módulo A abre el B: nunca queda bloqueado indefinidamente.
+    $avanceA = $proceso->avances()->where('onboarding_modulo_id', $puestoA->id)->firstOrFail();
+    $this->onboarding->presentarEvaluacion($avanceA, $usuario, [0 => 1]);
+    expect($estados())->toBe([
+        'induccion_mr_lana_2026' => EstadoAvanceOnboarding::Aprobado,
+        'puesto_a' => EstadoAvanceOnboarding::Aprobado,
+        'puesto_b' => EstadoAvanceOnboarding::Disponible,
+    ]);
+
+    $avanceB = $proceso->avances()->where('onboarding_modulo_id', $puestoB->id)->firstOrFail();
+    $this->onboarding->presentarEvaluacion($avanceB, $usuario, [0 => 0]);
+    expect(collect($estados())->every(fn ($e) => $e === EstadoAvanceOnboarding::Aprobado))->toBeTrue();
+});
+
+test('API móvil del colaborador: ningún JSON de inducción trae clave de respuestas, rúbrica ni criterio; RH solo la ve con permiso', function () {
+    $token = $this->usuario->createToken('test')->plainTextToken;
+    $cabeceras = ['Authorization' => "Bearer {$token}"];
+    $evaluacion = eiHabilitar($this);
+    $avance = $this->proceso->avances()->firstOrFail();
+
+    $respuestas = [
+        $this->withHeaders($cabeceras)->getJson('/api/v1/colaborador/induccion')->assertOk(),
+        $this->withHeaders($cabeceras)->getJson('/api/v1/colaborador/mi-proceso')->assertOk(),
+        $this->withHeaders($cabeceras)->getJson("/api/v1/colaborador/induccion/capitulos/{$avance->id}")->assertOk(),
+        $this->withHeaders($cabeceras)->postJson("/api/v1/colaborador/induccion/{$evaluacion->id}/presentar", ['respuestas' => eiRespuestasCorrectas()])->assertOk(),
+        $this->withHeaders($cabeceras)->getJson('/api/v1/colaborador/mi-proceso')->assertOk(),
+    ];
+
+    foreach ($respuestas as $respuesta) {
+        $json = $respuesta->getContent();
+        foreach (['"correcta"', '"correcto"', '"letra_correcta"', '"rubrica"', '"criterio"', 'identifica_malversacion', 'Identifica la conducta como malversación'] as $prohibido) {
+            expect($json)->not->toContain($prohibido);
+        }
+        expect($respuesta->json('data.evaluacionInduccion.casos_practicos'))->toBeNull();
+    }
+
+    $intento = $evaluacion->intentos()->firstOrFail();
+
+    // El propio colaborador (sin permiso de RH) no puede abrir la vista de calificación.
+    $this->withHeaders($cabeceras)->getJson("/api/v1/rh/induccion/intentos/{$intento->id}")->assertForbidden();
+
+    // RH con permiso sí ve la rúbrica oficial (forgetGuards: el guard de
+    // Sanctum conserva al usuario anterior entre peticiones de una prueba).
+    $this->app['auth']->forgetGuards();
+    $tokenRh = $this->rh->createToken('test')->plainTextToken;
+    $this->withHeaders(['Authorization' => "Bearer {$tokenRh}"])
+        ->getJson("/api/v1/rh/induccion/intentos/{$intento->id}")
+        ->assertOk()
+        ->assertJsonPath('data.casos_practicos.0.rubrica.0.clave', 'identifica_malversacion');
+});
+
+test('modo presentación: RH y el colaborador ven los 7 capítulos reales sin registrar progreso ni ver la clave', function () {
+    $this->modulo->update(['contenido' => json_encode([
+        ['clave' => 'quienes_somos', 'numero' => 1, 'titulo' => '¿Quiénes somos?', 'bloques' => [['tipo' => 'parrafo', 'texto' => 'Texto real.']]],
+        ['clave' => 'organigrama', 'numero' => 4, 'titulo' => 'Organigrama', 'bloques' => [['tipo' => 'organigrama_dinamico', 'vista' => 'corporativo', 'titulo' => 'Corporativo']]],
+    ])]);
+    $avance = $this->proceso->avances()->firstOrFail();
+
+    foreach ([$this->rh, $this->usuario] as $quien) {
+        $this->actingAs($quien)->get(route('induccion.presentacion'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->component('Portal/Induccion')
+                ->where('modoPresentacion', true)
+                ->where('avanceId', null)
+                ->where('capitulos', fn ($capitulos) => count($capitulos) === 2));
+    }
+
+    expect($avance->refresh()->progreso_contenido)->toBeNull()
+        ->and($avance->contenido_visto_en)->toBeNull();
+
+    $this->actingAs($this->rh)->get(route('induccion.presentacion'))
+        ->assertDontSee('"correcta"', false)
+        ->assertDontSee('"rubrica"', false);
+});

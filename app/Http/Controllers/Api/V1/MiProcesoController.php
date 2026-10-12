@@ -79,6 +79,19 @@ class MiProcesoController extends Controller
         return response()->json(['data' => ['evaluacionInduccion' => $evaluacion !== null ? $this->evaluacionInduccion->aArray($evaluacion, $request->user()) : null]]);
     }
 
+    /**
+     * Inducción en modo presentación (colaborador o RH, p. ej. por Meet):
+     * los 7 capítulos reales sin avance ni progreso — mismo
+     * EvaluacionInduccionService::presentacion() que la web.
+     */
+    public function presentacionInduccion(): JsonResponse
+    {
+        $presentacion = $this->evaluacionInduccion->presentacion();
+        abort_if($presentacion === null, 404, 'La inducción institucional todavía no tiene contenido cargado.');
+
+        return response()->json(['data' => $presentacion]);
+    }
+
     public function contenidoInduccion(Request $request): JsonResponse
     {
         return response()->json(['data' => $this->evaluacionInduccion->contenidoPublico()]);

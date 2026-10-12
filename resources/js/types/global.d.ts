@@ -21,6 +21,7 @@ declare module '@inertiajs/core' {
             sidebarOpen: boolean;
             features: {
                 capacitacion: boolean;
+                recibos_colaborador: boolean;
             };
             // Modo de navegación (App\Services\Navigation\NavigationService):
             // separa la experiencia personal ("colaborador") de la operativa

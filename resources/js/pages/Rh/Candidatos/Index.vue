@@ -4,9 +4,11 @@ import {
     Banknote,
     BrainCircuit,
     CalendarClock,
-    ClipboardCheck,
     Columns3,
     FileSignature,
+    GraduationCap,
+    Briefcase,
+    PhoneCall,
     Filter,
     House,
     LayoutGrid,
@@ -242,8 +244,10 @@ const ESTILO_FASE: Record<string, { icono: typeof Users; color: string }> = {
     entrevista: { icono: MessagesSquare, color: '#3f7f4b' },
     psicometricos: { icono: BrainCircuit, color: '#af8b51' },
     socioeconomico: { icono: House, color: '#a3702c' },
+    referencias: { icono: PhoneCall, color: '#8a6d3b' },
     contratacion: { icono: FileSignature, color: '#1f6f78' },
-    contratado: { icono: ClipboardCheck, color: '#4a8f57' },
+    capacitacion_inicial: { icono: GraduationCap, color: '#5b8a3a' },
+    laborando: { icono: Briefcase, color: '#4a8f57' },
     rechazado: { icono: UserX, color: '#c8414d' },
     desistido: { icono: UserMinus, color: '#7a8a86' },
 };
@@ -266,8 +270,9 @@ const vista = ref<'fase' | 'tablero'>('fase');
 const faseSeleccionada = ref<string>(
     columnas.value.find(
         (c) =>
-            ![...FASES_SALIDA, 'contratado'].includes(c.value) &&
-            c.candidatos.length > 0,
+            ![...FASES_SALIDA, 'capacitacion_inicial', 'laborando'].includes(
+                c.value,
+            ) && c.candidatos.length > 0,
     )?.value ??
         COLUMNAS[0]?.value ??
         'filtro_rh',
@@ -282,7 +287,6 @@ function elegirFase(fase: string) {
     faseSeleccionada.value = fase;
     vista.value = 'fase';
 }
-
 
 /** Destinos (sub-estados) válidos desde el estado actual que caen en esa fase. */
 function destinosDeFase(estadoOrigen: string, fase: string): string[] {
@@ -334,7 +338,11 @@ function alSoltar(nuevaFase: string) {
     // Cerrar el proceso exige motivo (queda en la línea de tiempo). Si la
     // fase agrupa más de un sub-estado de salida (p. ej. «Rechazado» cubre
     // varios motivos técnicos), RH elige cuál antes de confirmar.
-    salidaPendiente.value = { candidato, estado: destinos[0], opciones: destinos };
+    salidaPendiente.value = {
+        candidato,
+        estado: destinos[0],
+        opciones: destinos,
+    };
     motivoSalida.value = '';
     motivoRechazoId.value = null;
     recontratable.value = true;
@@ -698,8 +706,8 @@ function confirmarSalida() {
                                 <span
                                     class="absolute -top-1.5 -right-1.5 flex min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] leading-5 font-bold text-white shadow"
                                     :style="{
-                                        backgroundColor:
-                                            estiloFase(fase.value).color,
+                                        backgroundColor: estiloFase(fase.value)
+                                            .color,
                                     }"
                                     >{{ fase.candidatos.length }}</span
                                 >
@@ -718,8 +726,8 @@ function confirmarSalida() {
                                     class="block h-full rounded-full transition-all"
                                     :style="{
                                         width: `${(fase.candidatos.length / maxEnFase) * 100}%`,
-                                        backgroundColor:
-                                            estiloFase(fase.value).color,
+                                        backgroundColor: estiloFase(fase.value)
+                                            .color,
                                     }"
                                 />
                             </span>
@@ -922,13 +930,17 @@ function confirmarSalida() {
                     }}
                 </DialogDescription>
             </DialogHeader>
-            <div v-if="(salidaPendiente?.opciones.length ?? 0) > 1" class="grid gap-1.5">
+            <div
+                v-if="(salidaPendiente?.opciones.length ?? 0) > 1"
+                class="grid gap-1.5"
+            >
                 <Label>Motivo específico</Label>
                 <Select
                     :model-value="salidaPendiente?.estado"
                     @update:model-value="
                         (v) => {
-                            if (salidaPendiente) salidaPendiente.estado = String(v ?? '');
+                            if (salidaPendiente)
+                                salidaPendiente.estado = String(v ?? '');
                         }
                     "
                 >
@@ -949,7 +961,9 @@ function confirmarSalida() {
             <div class="grid gap-1.5">
                 <Label>Motivo *</Label>
                 <Select
-                    :model-value="motivoRechazoId ? String(motivoRechazoId) : undefined"
+                    :model-value="
+                        motivoRechazoId ? String(motivoRechazoId) : undefined
+                    "
                     @update:model-value="
                         (v) => alElegirMotivoRechazo(v ? Number(v) : null)
                     "

@@ -5,6 +5,7 @@ import {
     Building2,
     CalendarClock,
     Mail,
+    Phone,
     UserRound,
     Users2,
 } from '@lucide/vue';
@@ -59,8 +60,20 @@ const DATOS = [
     },
     {
         icono: Mail,
-        etiqueta: 'Correo',
+        etiqueta: 'Correo de acceso',
         valor: (p: PerfilColaborador) => p.correo,
+    },
+    {
+        icono: Mail,
+        etiqueta: 'Correo corporativo',
+        valor: (p: PerfilColaborador) =>
+            p.correo_corporativo ?? 'Sin correo corporativo',
+    },
+    {
+        icono: Phone,
+        etiqueta: 'Teléfono corporativo',
+        valor: (p: PerfilColaborador) =>
+            p.telefono_corporativo ?? 'Sin teléfono corporativo',
     },
     {
         icono: CalendarClock,

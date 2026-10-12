@@ -6,9 +6,8 @@ import MiniOrganigramaNodo from '@/components/organigrama/MiniOrganigramaNodo.vu
 import { Button } from '@/components/ui/button';
 import { getJson } from '@/lib/http';
 import { dashboard } from '@/routes';
-import {
-    index as organigramaCompletoIndex,
-} from '@/routes/administracion/jerarquia-puestos';
+import { index as organigramaCompletoIndex } from '@/routes/administracion/jerarquia-puestos';
+import { organigrama as organigramaPresentacion } from '@/routes/induccion/presentacion';
 import { miProceso } from '@/routes/portal';
 import { organigrama, progreso } from '@/routes/portal/induccion';
 import type {
@@ -18,26 +17,38 @@ import type {
 } from '@/types';
 
 const props = defineProps<{
-    avanceId: number;
+    /** null en modo presentación (RH/colaborador por Meet): sin progreso. */
+    avanceId: number | null;
     capitulos: CapituloInduccion[];
     resumen: InduccionContenidoResumen | null;
     puedeVerOrganigramaCompleto: boolean;
+    modoPresentacion?: boolean;
 }>();
 
+// `layout` como función: defineOptions() se compila fuera de setup() y no
+// puede leer `props` (ver Rh/Importaciones/Show.vue).
 defineOptions({
-    layout: {
-        breadcrumbs: [
-            { title: 'Inicio', href: dashboard() },
-            { title: 'Mis pendientes', href: miProceso() },
-            { title: 'Inducción Mr. Lana', href: '' },
-        ],
-    },
+    layout: (pageProps: { modoPresentacion?: boolean }) => ({
+        breadcrumbs: pageProps.modoPresentacion
+            ? [
+                  { title: 'Inicio', href: dashboard() },
+                  { title: 'Inducción Mr. Lana · presentación', href: '' },
+              ]
+            : [
+                  { title: 'Inicio', href: dashboard() },
+                  { title: 'Mis pendientes', href: miProceso() },
+                  { title: 'Inducción Mr. Lana', href: '' },
+              ],
+    }),
 });
 
+// Claves exactas que guardó el servidor (se puede saltar entre capítulos);
+// el conteo solo queda como respaldo para respuestas anteriores.
 const vistosIniciales = new Set(
-    props.capitulos
-        .map((c) => c.clave)
-        .filter((_, i) => i < (props.resumen?.capitulos_vistos ?? 0)),
+    props.resumen?.claves_vistas ??
+        props.capitulos
+            .map((c) => c.clave)
+            .filter((_, i) => i < (props.resumen?.capitulos_vistos ?? 0)),
 );
 
 const indice = ref(
@@ -70,7 +81,9 @@ async function cargarOrganigrama(vista: string) {
 
     try {
         const respuesta = await getJson<{ data: MiniOrganigramaNodoType }>(
-            organigrama.url({ vista }),
+            props.modoPresentacion
+                ? organigramaPresentacion.url({ vista })
+                : organigrama.url({ vista }),
         );
         organigramas.value[vista] = respuesta.data;
     } catch {
@@ -101,6 +114,14 @@ const esUltimo = computed(() => indice.value === totalCapitulos.value - 1);
 
 function registrarVisto(clave: string) {
     if (vistos.value.has(clave)) {
+        return;
+    }
+
+    // Modo presentación: solo se marca en pantalla, nunca se registra
+    // progreso (no hay avance de un colaborador detrás).
+    if (props.modoPresentacion || props.avanceId === null) {
+        vistos.value = new Set(vistos.value).add(clave);
+
         return;
     }
 
@@ -156,7 +177,10 @@ function irA(i: number) {
                         Inducción Mr. Lana
                     </h1>
                     <p class="text-sm text-[var(--mrl-texto-suave)]">
-                        {{ capituloActual?.subtitulo ?? 'Programa de inducción para nuevos colaboradores' }}
+                        {{
+                            capituloActual?.subtitulo ??
+                            'Programa de inducción para nuevos colaboradores'
+                        }}
                     </p>
                 </div>
                 <span
@@ -166,9 +190,7 @@ function irA(i: number) {
                 </span>
             </div>
 
-            <div
-                class="h-2 overflow-hidden rounded-full bg-[var(--mrl-fondo)]"
-            >
+            <div class="h-2 overflow-hidden rounded-full bg-[var(--mrl-fondo)]">
                 <div
                     class="h-full rounded-full bg-[var(--mrl-primary)] transition-all"
                     :style="{ width: `${porcentaje}%` }"
@@ -226,7 +248,9 @@ function irA(i: number) {
                     >
                         {{ bloque.titulo }}
                     </h3>
-                    <p class="max-w-prose text-sm text-[var(--mrl-texto-suave)]">
+                    <p
+                        class="max-w-prose text-sm text-[var(--mrl-texto-suave)]"
+                    >
                         {{ bloque.texto }}
                     </p>
                 </div>
@@ -252,7 +276,9 @@ function irA(i: number) {
                         >
                             {{ d.etiqueta }}
                         </p>
-                        <p class="text-sm font-semibold text-[var(--mrl-texto)]">
+                        <p
+                            class="text-sm font-semibold text-[var(--mrl-texto)]"
+                        >
                             {{ d.valor }}
                         </p>
                     </div>
@@ -340,7 +366,9 @@ function irA(i: number) {
                 >
                     <div class="flex items-center gap-2">
                         <Network class="size-5 text-[var(--mrl-primary)]" />
-                        <p class="text-sm font-semibold text-[var(--mrl-texto)]">
+                        <p
+                            class="text-sm font-semibold text-[var(--mrl-texto)]"
+                        >
                             {{ bloque.titulo }}
                         </p>
                     </div>
@@ -352,7 +380,10 @@ function irA(i: number) {
                     </p>
 
                     <div
-                        v-if="organigramasCargando[bloque.vista] && !organigramas[bloque.vista]"
+                        v-if="
+                            organigramasCargando[bloque.vista] &&
+                            !organigramas[bloque.vista]
+                        "
                         class="animate-pulse rounded-xl bg-[var(--mrl-fondo)] p-4 text-center text-xs text-[var(--mrl-texto-suave)]"
                     >
                         Cargando organigrama…
@@ -361,7 +392,8 @@ function irA(i: number) {
                         v-else-if="organigramasError[bloque.vista]"
                         class="rounded-xl bg-[var(--mrl-fondo)] p-4 text-center text-xs text-[var(--mrl-texto-suave)]"
                     >
-                        No se pudo cargar el organigrama. Intenta de nuevo más tarde.
+                        No se pudo cargar el organigrama. Intenta de nuevo más
+                        tarde.
                     </p>
                     <ul
                         v-else-if="organigramas[bloque.vista]"
@@ -373,7 +405,10 @@ function irA(i: number) {
                         />
                     </ul>
 
-                    <div v-if="puedeVerOrganigramaCompleto" class="flex justify-end">
+                    <div
+                        v-if="puedeVerOrganigramaCompleto"
+                        class="flex justify-end"
+                    >
                         <Button
                             as="a"
                             :href="organigramaCompletoIndex.url()"
@@ -421,16 +456,21 @@ function irA(i: number) {
                     :disabled="enviando"
                     @click="siguiente"
                 >
-                    Terminar inducción <CheckCircle2 class="size-4" />
+                    {{
+                        modoPresentacion
+                            ? 'Terminar presentación'
+                            : 'Terminar inducción'
+                    }}
+                    <CheckCircle2 class="size-4" />
                 </Button>
             </div>
 
             <p
-                v-if="completado"
+                v-if="completado && !modoPresentacion"
                 class="rounded-2xl bg-[var(--mrl-success)]/10 p-4 text-sm font-medium text-[var(--mrl-success)]"
             >
-                Completaste los {{ totalCapitulos }} capítulos. Regresa a
-                «Mis pendientes» para realizar tu evaluación de inducción.
+                Completaste los {{ totalCapitulos }} capítulos. Regresa a «Mis
+                pendientes» para realizar tu evaluación de inducción.
             </p>
         </article>
     </div>

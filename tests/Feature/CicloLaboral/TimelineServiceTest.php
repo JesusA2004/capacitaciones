@@ -7,6 +7,7 @@ use App\Models\SolicitudInterna;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\CicloLaboral\TimelineService;
 use Database\Seeders\RolesYPermisosSeeder;
+use Illuminate\Support\Facades\DB;
 
 beforeEach(function () {
     $this->seed(RolesYPermisosSeeder::class);
@@ -68,4 +69,37 @@ test('la evaluación de inducción calificada muestra la calificación y el nive
     $timeline = app(TimelineService::class)->de($colaborador);
 
     expect(array_column($timeline, 'titulo'))->toContain('Evaluación de inducción calificada: 28.0/30 (sobresaliente)');
+});
+
+test('rendimiento: el número de consultas no crece con la cantidad de eventos (sin N+1) y se respeta el límite', function () {
+    $colaborador = Colaborador::factory()->create();
+    $actores = collect(range(1, 3))->map(fn () => clUsuario('rh_admin'));
+
+    $sembrar = function (int $n) use ($colaborador, $actores): void {
+        foreach (range(1, $n) as $i) {
+            $actor = $actores[$i % 3];
+            HistorialSalario::factory()->create(['colaborador_id' => $colaborador->id, 'salario_diario_anterior' => 300 + $i, 'salario_diario_nuevo' => 301 + $i, 'actor_id' => $actor->id]);
+            AjusteHistoricoVacaciones::factory()->create(['colaborador_id' => $colaborador->id, 'dias' => -1, 'actor_id' => $actor->id]);
+            SolicitudInterna::factory()->create(['colaborador_id' => $colaborador->id, 'tipo' => 'vacaciones', 'estado' => 'aprobada', 'revisado_por' => $actor->id]);
+        }
+    };
+
+    $contarConsultas = function () use ($colaborador): int {
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        app(TimelineService::class)->de($colaborador->fresh());
+        $total = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        return $total;
+    };
+
+    $sembrar(2);
+    $consultasPocos = $contarConsultas();
+
+    $sembrar(20);
+    $consultasMuchos = $contarConsultas();
+
+    expect($consultasMuchos)->toBe($consultasPocos)
+        ->and(app(TimelineService::class)->de($colaborador->fresh(), 10))->toHaveCount(10);
 });

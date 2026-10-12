@@ -74,6 +74,7 @@ class HandleInertiaRequests extends Middleware
             // en vez de mostrar un acceso "falso" a todo el mundo.
             'features' => [
                 'capacitacion' => (bool) config('features.capacitacion'),
+                'recibos_colaborador' => (bool) config('features.recibos_colaborador'),
             ],
             'environment' => app()->environment(),
         ];

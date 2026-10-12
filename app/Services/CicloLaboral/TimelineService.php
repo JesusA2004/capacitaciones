@@ -107,11 +107,11 @@ class TimelineService
         $items = $this->bitacora($candidatoId, $colaboradorId, $limite);
 
         if ($candidatoId !== null) {
-            $items = [...$items, ...$this->seguimientos($candidatoId)];
+            $items = [...$items, ...$this->seguimientos($candidatoId, $limite)];
         }
 
         if ($colaboradorId !== null) {
-            $items = [...$items, ...$this->cambiosSalario($colaboradorId), ...$this->ajustesVacaciones($colaboradorId), ...$this->solicitudesInternas($colaboradorId)];
+            $items = [...$items, ...$this->cambiosSalario($colaboradorId, $limite), ...$this->ajustesVacaciones($colaboradorId, $limite), ...$this->solicitudesInternas($colaboradorId, $limite)];
         }
 
         usort($items, fn (array $a, array $b) => strcmp($a['fecha'] ?? '', $b['fecha'] ?? ''));
@@ -122,13 +122,14 @@ class TimelineService
     /**
      * @return list<ItemTimeline>
      */
-    private function seguimientos(int $candidatoId): array
+    private function seguimientos(int $candidatoId, int $limite): array
     {
         $items = [];
         $seguimientos = SeguimientoCandidato::query()
             ->where('candidato_id', $candidatoId)
             ->with('registradoPor:id,name,apellidos,colaborador_id')
-            ->orderBy('fecha')
+            ->latest('fecha')
+            ->limit($limite)
             ->get();
 
         foreach ($seguimientos as $s) {
@@ -220,11 +221,19 @@ class TimelineService
      *
      * @return list<ItemTimeline>
      */
-    private function cambiosSalario(int $colaboradorId): array
+    private function cambiosSalario(int $colaboradorId, int $limite): array
     {
         $items = [];
 
-        foreach (HistorialSalario::query()->where('colaborador_id', $colaboradorId)->with('actor:id,name,apellidos')->get() as $h) {
+        $historial = HistorialSalario::query()
+            ->select(['id', 'colaborador_id', 'salario_diario_anterior', 'salario_diario_nuevo', 'motivo', 'actor_id', 'created_at'])
+            ->where('colaborador_id', $colaboradorId)
+            ->with('actor:id,name,apellidos')
+            ->latest('id')
+            ->limit($limite)
+            ->get();
+
+        foreach ($historial as $h) {
             $items[] = [
                 'fecha' => $h->created_at?->toIso8601String(),
                 'titulo' => sprintf(
@@ -248,11 +257,19 @@ class TimelineService
      *
      * @return list<ItemTimeline>
      */
-    private function ajustesVacaciones(int $colaboradorId): array
+    private function ajustesVacaciones(int $colaboradorId, int $limite): array
     {
         $items = [];
 
-        foreach (AjusteHistoricoVacaciones::query()->where('colaborador_id', $colaboradorId)->with('actor:id,name,apellidos')->get() as $a) {
+        $ajustes = AjusteHistoricoVacaciones::query()
+            ->select(['id', 'colaborador_id', 'dias', 'motivo', 'actor_id', 'created_at'])
+            ->where('colaborador_id', $colaboradorId)
+            ->with('actor:id,name,apellidos')
+            ->latest('id')
+            ->limit($limite)
+            ->get();
+
+        foreach ($ajustes as $a) {
             $items[] = [
                 'fecha' => $a->created_at?->toIso8601String(),
                 'titulo' => sprintf('Ajuste histórico de vacaciones: %s días', $a->dias),
@@ -272,11 +289,20 @@ class TimelineService
      *
      * @return list<ItemTimeline>
      */
-    private function solicitudesInternas(int $colaboradorId): array
+    private function solicitudesInternas(int $colaboradorId, int $limite): array
     {
         $items = [];
 
-        foreach (SolicitudInterna::query()->where('colaborador_id', $colaboradorId)->whereNotNull('tipo')->with('revisadoPor:id,name,apellidos')->get() as $s) {
+        $solicitudes = SolicitudInterna::query()
+            ->select(['id', 'colaborador_id', 'tipo', 'estado', 'folio', 'revisado_por', 'created_at', 'updated_at'])
+            ->where('colaborador_id', $colaboradorId)
+            ->whereNotNull('tipo')
+            ->with('revisadoPor:id,name,apellidos')
+            ->latest('id')
+            ->limit($limite)
+            ->get();
+
+        foreach ($solicitudes as $s) {
             $items[] = [
                 'fecha' => ($s->updated_at ?? $s->created_at)?->toIso8601String(),
                 'titulo' => sprintf('%s: %s', $s->tipo->etiqueta(), $s->estado->etiqueta()),

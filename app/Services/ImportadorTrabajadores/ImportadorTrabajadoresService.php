@@ -74,8 +74,10 @@ class ImportadorTrabajadoresService
             $contadores[$resultado['estado']]++;
         }
 
-        return ImportacionExcel::query()->create([
-            'archivo_hash' => $hash,
+        // archivo_hash es único: volver a previsualizar el mismo archivo
+        // (aún sin aplicar) recalcula ESE registro en vez de crear otro — así
+        // un archivo solo puede tener una importación y aplicarse una vez.
+        return ImportacionExcel::query()->updateOrCreate(['archivo_hash' => $hash], [
             'nombre_archivo' => $archivo->getClientOriginalName() ?: 'REPORTE_TRABAJADORES_VAC.xlsx',
             'subido_por' => $actor->id,
             'estado' => 'previsualizado',
@@ -266,9 +268,7 @@ class ImportadorTrabajadoresService
         $base['antiguedad_anios'] = $antiguedadAnios;
         $base['cumple_un_anio'] = $cumpleUnAnio;
 
-        $diarioActual = $colaborador->salario_diario !== null
-            ? (float) $colaborador->salario_diario
-            : round((float) ($colaborador->sueldo_mensual ?? 0) / 30, 2);
+        $diarioActual = $this->compensacion->diarioDe($colaborador);
         $diarioExcel = round((float) $salarioDiarioExcel, 2);
         $base['salario_diario_actual'] = $diarioActual;
         $base['salario_diario_excel'] = $diarioExcel;
@@ -349,18 +349,31 @@ class ImportadorTrabajadoresService
     }
 
     /**
-     * El catálogo de sucursales es fijo y pequeño (una decena); el reporte
-     * puede traer el nombre truncado (p. ej. "ATLACOMULC" por
-     * "Atlacomulco"). Se acepta la coincidencia por prefijo EN AMBOS
-     * SENTIDOS solo para este catálogo cerrado — no es fuzzy matching de
-     * personas, es tolerar un truncamiento conocido de un dato cerrado.
+     * Coincidencia EXACTA (normalizada) contra el catálogo de sucursales; el
+     * reporte puede traer el nombre truncado (p. ej. "ATLACOMULC" por
+     * "Atlacomulco"), pero solo se toleran los truncamientos de la lista
+     * cerrada config('importador_trabajadores.alias_sucursales') — nunca un
+     * prefijo/LIKE abierto que pudiera mandar una fila a otra sucursal.
      */
     private function mismaSucursal(string $nombreCatalogo, string $nombreExcel): bool
     {
         $catalogo = $this->normalizar($nombreCatalogo);
         $excel = $this->normalizar($nombreExcel);
 
-        return $catalogo === $excel || str_starts_with($catalogo, $excel) || str_starts_with($excel, $catalogo);
+        if ($catalogo === $excel) {
+            return true;
+        }
+
+        /** @var array<string, string> $alias */
+        $alias = config('importador_trabajadores.alias_sucursales', []);
+
+        foreach ($alias as $truncado => $nombreReal) {
+            if ($this->normalizar($truncado) === $excel && $this->normalizar($nombreReal) === $catalogo) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

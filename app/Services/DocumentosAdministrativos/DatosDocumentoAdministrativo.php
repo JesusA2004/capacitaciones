@@ -13,6 +13,7 @@ use App\Models\Colaborador;
 use App\Models\FiniquitoCalculo;
 use App\Models\ReciboNomina;
 use App\Models\SolicitudInterna;
+use App\Services\Compensacion\CompensacionService;
 use App\Services\Formatos\Variables\NumeroALetras;
 use Illuminate\Support\Carbon;
 
@@ -29,7 +30,10 @@ use Illuminate\Support\Carbon;
  */
 class DatosDocumentoAdministrativo
 {
-    public function __construct(private readonly NumeroALetras $letras) {}
+    public function __construct(
+        private readonly NumeroALetras $letras,
+        private readonly CompensacionService $compensacion,
+    ) {}
 
     /**
      * @return array<string, mixed>
@@ -318,9 +322,7 @@ class DatosDocumentoAdministrativo
         $departamento = (string) ($colaborador->departamento->nombre ?? '');
         // Fuente real (CompensacionService); mensual/30 solo como respaldo
         // para colaboradores aún no sincronizados con salario_diario.
-        $diario = $colaborador->salario_diario !== null
-            ? (float) $colaborador->salario_diario
-            : round((float) ($colaborador->sueldo_mensual ?? 0) / 30, 2);
+        $diario = $this->compensacion->diarioDe($colaborador);
 
         return [
             'nombre' => mb_strtoupper($colaborador->nombreCompleto()),

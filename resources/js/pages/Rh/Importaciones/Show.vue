@@ -6,7 +6,10 @@ import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import { Button } from '@/components/ui/button';
 import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
-import { index as indexImportaciones, aplicar } from '@/routes/rh/importaciones';
+import {
+    index as indexImportaciones,
+    aplicar,
+} from '@/routes/rh/importaciones';
 
 type FilaDetalle = {
     fila: number;
@@ -15,7 +18,13 @@ type FilaDetalle = {
     colaborador_id: number | null;
     nombre_sistema: string | null;
     sucursal_sistema: string | null;
-    estado: 'aplicable' | 'revision' | 'sin_cambios' | 'no_encontrado' | 'error' | 'aplicado';
+    estado:
+        | 'aplicable'
+        | 'revision'
+        | 'sin_cambios'
+        | 'no_encontrado'
+        | 'error'
+        | 'aplicado';
     cambia_salario: boolean;
     salario_diario_actual: number | null;
     salario_diario_excel: number | null;
@@ -44,14 +53,18 @@ const props = defineProps<{
     };
 }>();
 
+// `layout` recibe una función en vez de un objeto estático porque
+// `defineOptions()` se compila fuera del scope de setup() y no puede
+// referenciar variables locales como `props`; Inertia la invoca con las
+// props actuales de la página en cada render (ver @inertiajs/vue3).
 defineOptions({
-    layout: {
+    layout: (pageProps: { importacion: { nombre_archivo: string } }) => ({
         breadcrumbs: [
             { title: 'Inicio', href: dashboard() },
             { title: 'Importaciones RH', href: indexImportaciones() },
-            { title: props.importacion.nombre_archivo, href: '' },
+            { title: pageProps.importacion.nombre_archivo, href: '' },
         ],
-    },
+    }),
 });
 
 const filtro = ref<'todas' | FilaDetalle['estado']>('todas');
@@ -71,13 +84,19 @@ const etiquetaEstado: Record<string, string> = {
 };
 
 const aplicables = computed(
-    () => props.importacion.detalle.filter((f) => f.estado === 'aplicable').length,
+    () =>
+        props.importacion.detalle.filter((f) => f.estado === 'aplicable')
+            .length,
 );
 
 const form = useForm({});
 
 function confirmarAplicar() {
-    if (! window.confirm(`¿Aplicar ${aplicables.value} fila(s)? Esta acción actualiza salarios y registra ajustes de vacaciones.`)) {
+    if (
+        !window.confirm(
+            `¿Aplicar ${aplicables.value} fila(s)? Esta acción actualiza salarios y registra ajustes de vacaciones.`,
+        )
+    ) {
         return;
     }
 
@@ -91,7 +110,11 @@ function confirmarAplicar() {
     <div class="pagina-ancha flex flex-col gap-5">
         <CrudPageHeader
             :titulo="importacion.nombre_archivo"
-            :descripcion="importacion.estado === 'aplicado' ? `Aplicada el ${formatearFecha(importacion.aplicado_en)}` : 'Previsualización — revisa antes de aplicar'"
+            :descripcion="
+                importacion.estado === 'aplicado'
+                    ? `Aplicada el ${formatearFecha(importacion.aplicado_en)}`
+                    : 'Previsualización — revisa antes de aplicar'
+            "
             :icono="FileSpreadsheet"
         >
             <Button
@@ -107,7 +130,9 @@ function confirmarAplicar() {
             <button
                 v-for="(valor, clave) in {
                     todas: importacion.total_filas,
-                    aplicable: importacion.detalle.filter((f) => f.estado === 'aplicable').length,
+                    aplicable: importacion.detalle.filter(
+                        (f) => f.estado === 'aplicable',
+                    ).length,
                     revision: importacion.filas_revision,
                     sin_cambios: importacion.filas_sin_cambios,
                     no_encontrado: importacion.filas_no_encontradas,
@@ -124,12 +149,18 @@ function confirmarAplicar() {
             >
                 <p class="text-2xl font-semibold tabular-nums">{{ valor }}</p>
                 <p class="text-xs text-muted-foreground">
-                    {{ clave === 'todas' ? 'Total de filas' : etiquetaEstado[clave] }}
+                    {{
+                        clave === 'todas'
+                            ? 'Total de filas'
+                            : etiquetaEstado[clave]
+                    }}
                 </p>
             </button>
         </section>
 
-        <section class="overflow-x-auto rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)]">
+        <section
+            class="overflow-x-auto rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)]"
+        >
             <table class="w-full text-left text-sm">
                 <thead class="text-xs text-muted-foreground">
                     <tr>
@@ -153,13 +184,19 @@ function confirmarAplicar() {
                         <td class="p-3 tabular-nums">{{ f.fila }}</td>
                         <td class="p-3">{{ f.nombre_excel }}</td>
                         <td class="p-3">{{ f.nombre_sistema ?? '—' }}</td>
-                        <td class="p-3">{{ f.sucursal_sistema ?? f.sucursal_excel }}</td>
+                        <td class="p-3">
+                            {{ f.sucursal_sistema ?? f.sucursal_excel }}
+                        </td>
                         <td class="p-3">
                             <template v-if="f.salario_diario_actual !== null">
                                 <span v-if="f.cambia_salario">
-                                    ${{ f.salario_diario_actual }} → ${{ f.salario_diario_excel }}
+                                    ${{ f.salario_diario_actual }} → ${{
+                                        f.salario_diario_excel
+                                    }}
                                 </span>
-                                <span v-else>${{ f.salario_diario_actual }}</span>
+                                <span v-else
+                                    >${{ f.salario_diario_actual }}</span
+                                >
                             </template>
                             <span v-else>—</span>
                         </td>
@@ -169,11 +206,17 @@ function confirmarAplicar() {
                             </template>
                         </td>
                         <td class="p-3">
-                            <span v-if="f.motivo_vacaciones_no_aplican" class="text-xs text-[var(--mrl-texto-suave)]">
+                            <span
+                                v-if="f.motivo_vacaciones_no_aplican"
+                                class="text-xs text-[var(--mrl-texto-suave)]"
+                            >
                                 No aplican aún
                             </span>
-                            <span v-else-if="f.ajuste_vacaciones_propuesto !== 0">
-                                {{ f.ajuste_vacaciones_propuesto }} días (histórico)
+                            <span
+                                v-else-if="f.ajuste_vacaciones_propuesto !== 0"
+                            >
+                                {{ f.ajuste_vacaciones_propuesto }} días
+                                (histórico)
                             </span>
                             <span v-else>—</span>
                         </td>
@@ -181,14 +224,26 @@ function confirmarAplicar() {
                             <span
                                 class="rounded-full px-2 py-0.5 text-xs"
                                 :class="{
-                                    'bg-success/10 text-success': f.estado === 'aplicable',
-                                    'bg-destructive/10 text-destructive': f.estado === 'no_encontrado' || f.estado === 'error',
-                                    'bg-[var(--mrl-gold)]/10 text-[var(--mrl-gold-oscuro)]': f.estado === 'revision',
-                                    'bg-[var(--mrl-fondo)] text-[var(--mrl-texto-suave)]': f.estado === 'sin_cambios',
+                                    'bg-success/10 text-success':
+                                        f.estado === 'aplicable',
+                                    'bg-destructive/10 text-destructive':
+                                        f.estado === 'no_encontrado' ||
+                                        f.estado === 'error',
+                                    'bg-[var(--mrl-gold)]/10 text-[var(--mrl-gold-oscuro)]':
+                                        f.estado === 'revision',
+                                    'bg-[var(--mrl-fondo)] text-[var(--mrl-texto-suave)]':
+                                        f.estado === 'sin_cambios',
                                 }"
-                            >{{ f.aplicado ? 'Aplicado' : etiquetaEstado[f.estado] }}</span>
+                                >{{
+                                    f.aplicado
+                                        ? 'Aplicado'
+                                        : etiquetaEstado[f.estado]
+                                }}</span
+                            >
                         </td>
-                        <td class="p-3 text-xs text-muted-foreground">{{ f.motivo ?? '—' }}</td>
+                        <td class="p-3 text-xs text-muted-foreground">
+                            {{ f.motivo ?? '—' }}
+                        </td>
                     </tr>
                 </tbody>
             </table>

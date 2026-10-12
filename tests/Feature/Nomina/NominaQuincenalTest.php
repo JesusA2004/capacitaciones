@@ -14,6 +14,9 @@ use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 
 beforeEach(function () {
+    // Estas pruebas cubren el autoservicio de recibos ENCENDIDO; el
+    // comportamiento por defecto (impreso) está en RecibosSinAutoservicioTest.
+    config(['features.recibos_colaborador' => true]);
     $this->seed(RolesYPermisosSeeder::class);
     Storage::fake('nas');
     Notification::fake();

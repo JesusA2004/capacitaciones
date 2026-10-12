@@ -438,11 +438,11 @@ const totalesCobertura = computed(() => {
                 </Card>
             </div>
 
-            <div class="grid gap-4 xl:grid-cols-3">
-                <!-- Rotación mensual -->
+            <!-- Rotación mensual: misma anchura que Cobertura (antes 2/3 de la fila). -->
+            <div class="grid gap-4 lg:grid-cols-2">
                 <Card
                     data-tour="dashboard-rotacion"
-                    class="gap-3 rounded-xl shadow-xs xl:col-span-2"
+                    class="gap-3 rounded-xl shadow-xs"
                 >
                     <CardHeader>
                         <CardTitle class="text-base"

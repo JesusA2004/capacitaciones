@@ -2,6 +2,7 @@
 
 namespace App\Services\DocumentosLaborales;
 
+use App\Enums\CategoriaDocumento;
 use App\Enums\EstadoFlujoDocumento;
 use App\Models\Colaborador;
 use App\Models\GeneratedDocument;
@@ -86,6 +87,11 @@ class DocumentoLaboralConsultaService
             ->whereNotNull('estado_flujo')
             ->whereNotIn('estado_flujo', [EstadoFlujoDocumento::Borrador->value, EstadoFlujoDocumento::Cancelado->value])
             ->when($estado === 'pendientes_firma', fn (Builder $q) => $q->where('estado_flujo', EstadoFlujoDocumento::PendienteFirmaColaborador->value))
+            // Recibos de nómina: se entregan impresos, no en autoservicio
+            // (config('features.recibos_colaborador')).
+            ->when(! config('features.recibos_colaborador'), fn (Builder $q) => $q->where(fn (Builder $s) => $s
+                ->whereNull('categoria')
+                ->orWhere('categoria', '!=', CategoriaDocumento::NominaInterna->value)))
             ->orderByDesc('id')
             ->paginate(20);
     }

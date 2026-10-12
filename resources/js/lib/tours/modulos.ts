@@ -4,10 +4,12 @@ import {
     Briefcase,
     Building2,
     Cake,
+    Contact,
     ClipboardList,
     FileStack,
     FolderKanban,
     GitBranch,
+    GraduationCap,
     Inbox,
     Landmark,
     LayoutGrid,
@@ -1032,6 +1034,80 @@ export const MODULOS_GUIA: ModuloGuia[] = [
                 consejo:
                     'Si RH te pide una corrección, la solicitud cambia a "Requiere corrección": ábrela, ajusta lo indicado y reenvíala.',
                 opcional: true,
+            },
+        ],
+    },
+    {
+        id: 'directorio',
+        nombre: 'Directorio',
+        ruta: '/directorio',
+        patron: /^\/directorio$/,
+        modo: 'colaborador',
+        permisos: [],
+        grupo: 'Mi espacio',
+        icono: Contact,
+        descripcion:
+            'Encuentra a un compañero de cualquier sucursal y su contacto corporativo.',
+        pasos: [
+            {
+                titulo: 'Directorio de la empresa',
+                texto: 'Busca por nombre o filtra por puesto, sucursal o departamento. Solo verás datos de contacto CORPORATIVO (correo y teléfono de trabajo), nunca datos personales.',
+                consejo:
+                    'No todos tienen correo corporativo: si alguien no lo tiene, el directorio no inventa uno.',
+            },
+        ],
+    },
+    {
+        id: 'directorio-operativo',
+        nombre: 'Directorio',
+        ruta: '/directorio',
+        patron: /^\/directorio$/,
+        modo: 'operativo',
+        permisos: [],
+        grupo: 'Operación diaria',
+        icono: Contact,
+        descripcion:
+            'Contacto corporativo de cualquier colaborador activo de la empresa.',
+        pasos: [
+            {
+                titulo: 'Directorio de la empresa',
+                texto: 'Mismo directorio que ven los colaboradores: nombre, puesto, sucursal, departamento y correo/teléfono corporativo. Para datos personales usa Expedientes (con permiso).',
+            },
+        ],
+    },
+    {
+        id: 'induccion',
+        nombre: 'Inducción Mr. Lana',
+        ruta: '/induccion/presentacion',
+        patron: /^\/induccion\/presentacion$/,
+        modo: 'colaborador',
+        permisos: [],
+        grupo: 'Mi espacio',
+        icono: GraduationCap,
+        descripcion:
+            'Los 7 capítulos de la inducción institucional, con el organigrama vigente.',
+        pasos: [
+            {
+                titulo: 'Tu inducción',
+                texto: 'Recorre los 7 capítulos: quiénes somos, misión y principios, cultura, organigrama, reglamento, modelo de negocio y factor humano. Si estás en tu proceso de ingreso, entra desde «Mis pendientes» para que tu avance quede registrado y se habilite tu evaluación.',
+            },
+        ],
+    },
+    {
+        id: 'presentar-induccion',
+        nombre: 'Presentar inducción',
+        ruta: '/induccion/presentacion',
+        patron: /^\/induccion\/presentacion$/,
+        modo: 'operativo',
+        permisos: ['onboarding.gestionar'],
+        grupo: 'Desarrollo',
+        icono: GraduationCap,
+        descripcion:
+            'Presenta la inducción Mr. Lana en una sesión (por Meet o en sala).',
+        pasos: [
+            {
+                titulo: 'Modo presentación',
+                texto: 'Muestra los mismos 7 capítulos que ve el colaborador, con los organigramas vigentes. No registra avance de nadie ni habilita evaluaciones: el colaborador las presenta desde su cuenta.',
             },
         ],
     },

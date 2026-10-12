@@ -16,6 +16,7 @@ use App\Models\FiniquitoConcepto;
 use App\Models\OfficialFormat;
 use App\Models\SolicitudInterna;
 use App\Models\User;
+use App\Services\Compensacion\CompensacionService;
 use App\Services\DocumentosAdministrativos\DatosDocumentoAdministrativo;
 use App\Services\DocumentosAdministrativos\DocumentoAdministrativoService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
@@ -51,6 +52,7 @@ class FiniquitoService
         private readonly DocumentoStorageService $expediente,
         private readonly DocumentoAdministrativoService $documentosAdministrativos,
         private readonly DatosDocumentoAdministrativo $datosDocumento,
+        private readonly CompensacionService $compensacion,
     ) {}
 
     /**
@@ -702,7 +704,7 @@ class FiniquitoService
         $antiguedadMeses = (int) $ultimoAniversario->diffInMonths($fechaBaja);
         $diasTrabajadosPeriodo = (int) $ultimoAniversario->diffInDays($fechaBaja);
 
-        $sueldoDiario = round($sueldoMensual / 30, 2);
+        $sueldoDiario = $this->compensacion->diarioDesdeMensual($sueldoMensual);
         $vacacionesPendientes = $this->vacaciones->saldoColaborador($colaborador)['dias_disponibles'];
 
         // Vacaciones pendientes (el pago de los días a sueldo diario) y

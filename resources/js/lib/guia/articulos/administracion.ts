@@ -372,4 +372,132 @@ export const ARTICULOS_ADMINISTRACION: ArticuloGuia[] = [
             '¿Cómo publico una versión de la app?',
         ],
     },
+    {
+        id: 'directorio',
+        titulo: 'Directorio y correo corporativo',
+        proceso: 'administracion',
+        resumen:
+            'Contacto corporativo de cualquier colaborador activo, visible para todos; nunca datos personales.',
+        queEs: 'El directorio muestra nombre, puesto, sucursal, departamento, correo corporativo y teléfono corporativo. El correo corporativo es distinto del correo con el que la persona inicia sesión.',
+        quien: ['colaborador', 'rh'],
+        antes: [
+            'RH capturó el correo/teléfono corporativo en el expediente (Datos personales) de quien lo tiene.',
+        ],
+        pasos: [
+            {
+                titulo: 'Buscar',
+                detalle:
+                    'Directorio (web o app): por nombre o número de empleado, o filtra por puesto, sucursal o departamento.',
+                canal: 'web_app',
+            },
+            {
+                titulo: 'Contactar',
+                detalle:
+                    'En la app, toca el correo o el teléfono para escribir o llamar.',
+                canal: 'app',
+            },
+        ],
+        despues: [],
+        errores: [
+            {
+                problema: '«Alguien no tiene correo en el directorio.»',
+                solucion:
+                    'No lo tiene capturado: PEOPLE nunca inventa uno ni usa su correo de acceso o personal. RH lo captura en su expediente.',
+            },
+        ],
+        relacionados: ['expediente'],
+        accesos: [
+            {
+                etiqueta: 'Ir al Directorio',
+                ruta: '/directorio',
+                modo: 'colaborador',
+            },
+        ],
+        preguntas: [
+            '¿Dónde encuentro el correo de un compañero?',
+            '¿Por qué alguien no tiene correo corporativo?',
+        ],
+    },
+    {
+        id: 'importador-salarios',
+        titulo: 'Importar salarios y vacaciones (REPORTE_TRABAJADORES_VAC)',
+        proceso: 'administracion',
+        resumen:
+            'Carga el reporte de RH con vista previa: actualiza salario diario y registra días de vacaciones tomados antes de PEOPLE. Nunca crea personas.',
+        queEs: 'El importador lee el Excel oficial, busca a cada persona por nombre EXACTO dentro de su sucursal y propone cambios. Nada se aplica hasta que RH confirma.',
+        quien: ['rh'],
+        antes: ['Tener el archivo REPORTE_TRABAJADORES_VAC.xlsx del periodo.'],
+        pasos: [
+            {
+                titulo: 'Subir y previsualizar',
+                detalle:
+                    'Personal → «Importar salarios y vacaciones». Cada fila queda como Aplicable, Requiere revisión, Sin cambios, No encontrado o Error, con su motivo.',
+                quien: 'rh',
+                canal: 'web',
+            },
+            {
+                titulo: 'Aplicar',
+                detalle:
+                    'Solo las filas «Aplicable». El salario mensual se recalcula como diario × 30 y queda en el historial de salarios.',
+                quien: 'rh',
+                canal: 'web',
+            },
+        ],
+        llamados: [
+            {
+                tono: 'importante',
+                texto: 'Quien no cumple 1 año de antigüedad NO recibe ajuste de vacaciones anuales aunque el Excel traiga días otorgados/tomados (el salario sí se actualiza). Un nombre que coincide con 2+ personas va a revisión, nunca se adivina.',
+            },
+        ],
+        despues: [
+            'El mismo archivo no se puede aplicar dos veces (se reconoce por su huella).',
+            'Los cambios aparecen en el historial (timeline) de cada persona.',
+        ],
+        errores: [
+            {
+                problema: '«La sucursal no se encontró.»',
+                solucion:
+                    'El nombre de sucursal debe coincidir con el catálogo. Solo se aceptan los recortes conocidos del reporte (p. ej. ATLACOMULC, SAN LUIS P).',
+            },
+        ],
+        registro: [
+            'Historial de salarios y ajustes de vacaciones con quién los aplicó y desde qué importación.',
+        ],
+        relacionados: ['vacaciones', 'historial-persona'],
+        accesos: [
+            {
+                etiqueta: 'Ir a Importar salarios y vacaciones',
+                ruta: '/rh/importaciones',
+                permisos: ['colaboradores.importar_salarios_vacaciones'],
+                modo: 'operativo',
+            },
+        ],
+        preguntas: [
+            '¿Cómo actualizo salarios desde el Excel?',
+            '¿Por qué no se aplicaron vacaciones a alguien?',
+        ],
+    },
+    {
+        id: 'historial-persona',
+        titulo: 'Historial (timeline) de una persona',
+        proceso: 'administracion',
+        resumen:
+            'Una sola línea de tiempo de candidato a excolaborador: contratación, inducción, salarios, vacaciones, solicitudes, periodo de prueba, baja y reingreso.',
+        queEs: 'El historial no es un registro aparte: lee lo que ya existe (bitácora, seguimientos, salarios, ajustes de vacaciones y solicitudes) y lo ordena por fecha.',
+        quien: ['rh', 'gerente'],
+        antes: [],
+        pasos: [
+            {
+                titulo: 'Abrir el ciclo laboral de la persona',
+                detalle:
+                    'Desde su expediente o Mis pendientes → «Ciclo laboral»; en la app, la ficha de onboarding de la persona.',
+                canal: 'web_app',
+            },
+        ],
+        despues: [],
+        errores: [],
+        relacionados: ['importador-salarios'],
+        accesos: [],
+        preguntas: ['¿Dónde veo todo lo que le ha pasado a un colaborador?'],
+    },
 ];

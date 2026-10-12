@@ -54,6 +54,22 @@ class NotificacionesService
         'calificaciones_pendientes' => ['emoji' => '📝', 'color' => 'warning'],
         'actividad_calificada' => ['emoji' => '✅', 'color' => 'success'],
         'aviso_rh' => ['emoji' => '📢', 'color' => 'info'],
+        // Inducción Mr. Lana y su evaluación formal (EvaluacionInduccionService).
+        'onboarding_habilitado' => ['emoji' => '🎓', 'color' => 'info'],
+        'onboarding_reevaluacion' => ['emoji' => '🎓', 'color' => 'info'],
+        'onboarding_refuerzo' => ['emoji' => '📚', 'color' => 'warning'],
+        'induccion_evaluacion_disponible' => ['emoji' => '📝', 'color' => 'info'],
+        'induccion_evaluacion_presentada' => ['emoji' => '📝', 'color' => 'warning'],
+        'induccion_evaluacion_aprobada' => ['emoji' => '✅', 'color' => 'success'],
+        'induccion_requiere_reforzamiento' => ['emoji' => '📚', 'color' => 'warning'],
+        'induccion_reevaluacion_habilitada' => ['emoji' => '🔁', 'color' => 'info'],
+        // Periodo de prueba (FO-RH-EPP-001) y excepción de Dirección General.
+        'evaluacion_pendiente' => ['emoji' => '📋', 'color' => 'warning'],
+        'evaluacion_capturada' => ['emoji' => '📋', 'color' => 'info'],
+        'evaluacion_devuelta' => ['emoji' => '↩️', 'color' => 'warning'],
+        'contrato_por_vencer' => ['emoji' => '⏰', 'color' => 'warning'],
+        'excepcion_periodo_prueba_solicitada' => ['emoji' => '⚖️', 'color' => 'warning'],
+        'excepcion_periodo_prueba_resuelta' => ['emoji' => '⚖️', 'color' => 'info'],
     ];
 
     public const ESTILO_DEFAULT = ['emoji' => '🔔', 'color' => 'neutral'];

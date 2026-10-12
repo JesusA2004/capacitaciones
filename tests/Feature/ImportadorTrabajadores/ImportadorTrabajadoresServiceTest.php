@@ -3,6 +3,7 @@
 use App\Models\AjusteHistoricoVacaciones;
 use App\Models\Colaborador;
 use App\Models\HistorialSalario;
+use App\Models\ImportacionExcel;
 use App\Models\Sucursal;
 use App\Services\ImportadorTrabajadores\ImportadorTrabajadoresService;
 use Database\Seeders\RolesYPermisosSeeder;
@@ -89,7 +90,7 @@ test('un nombre truncado/ambiguo en la misma sucursal queda para revisión, nunc
         ->and($importacion->detalle[0]['colaborador_id'])->toBeNull();
 });
 
-test('sucursal truncada en el reporte ("ATLACOMULC") igual encuentra la sucursal real por prefijo, nombre sigue exacto', function () {
+test('sucursal truncada conocida ("ATLACOMULC", catálogo cerrado) encuentra la sucursal real; el nombre sigue exacto', function () {
     $colaborador = Colaborador::factory()->create([
         'name' => 'Elena', 'apellidos' => 'Torres Díaz',
         'sucursal_principal_id' => $this->sucursal->id,
@@ -224,4 +225,52 @@ test('una fila sin coincidencia de nombre queda como no_encontrado, nunca crea u
 
     expect($importacion->detalle[0]['estado'])->toBe('no_encontrado')
         ->and(Colaborador::query()->count())->toBe($totalAntes);
+});
+
+test('un texto de sucursal fuera del catálogo cerrado de truncamientos no hace match por prefijo', function () {
+    Colaborador::factory()->create(['name' => 'Elena', 'apellidos' => 'Torres', 'sucursal_principal_id' => $this->sucursal->id, 'estatus' => 'activo', 'salario_diario' => 300]);
+
+    $importacion = $this->importador->analizar(itvArchivo([
+        ['Elena Torres', 'ATLA', '1/1/2023', 14, 0, 14, 300],
+        ['Elena Torres', 'Atlacomulco Norte', '1/1/2023', 14, 0, 14, 300],
+    ]), $this->actor);
+
+    expect($importacion->detalle[0]['estado'])->toBe('no_encontrado')
+        ->and($importacion->detalle[0]['colaborador_id'])->toBeNull()
+        ->and($importacion->detalle[1]['estado'])->toBe('no_encontrado')
+        ->and($importacion->detalle[1]['colaborador_id'])->toBeNull();
+});
+
+test('el mismo nombre exacto en OTRA sucursal no hace match (0 coincidencias → no_encontrado)', function () {
+    $otra = Sucursal::factory()->create(['nombre' => 'Tula', 'activo' => true]);
+    Colaborador::factory()->create(['name' => 'Luis', 'apellidos' => 'Mora', 'sucursal_principal_id' => $otra->id, 'estatus' => 'activo']);
+
+    $importacion = $this->importador->analizar(itvArchivo([['Luis Mora', 'Atlacomulco', '1/1/2023', 14, 0, 14, 300]]), $this->actor);
+
+    expect($importacion->detalle[0]['estado'])->toBe('no_encontrado')
+        ->and($importacion->detalle[0]['colaborador_id'])->toBeNull();
+});
+
+test('volver a previsualizar el mismo archivo reutiliza la misma importación; se aplica una sola vez', function () {
+    $colaborador = Colaborador::factory()->create([
+        'name' => 'Rosa', 'apellidos' => 'Campos',
+        'sucursal_principal_id' => $this->sucursal->id,
+        'estatus' => 'activo',
+        'fecha_ingreso' => now()->subYears(3)->toDateString(),
+        'salario_diario' => 300,
+    ]);
+    $fila = ['Rosa Campos', 'Atlacomulco', now()->subYears(3)->format('n/j/Y'), 20, 5, 15, 320];
+
+    $primera = $this->importador->analizar(itvArchivo([$fila]), $this->actor);
+    $segunda = $this->importador->analizar(itvArchivo([$fila]), $this->actor);
+
+    expect($segunda->id)->toBe($primera->id)
+        ->and(ImportacionExcel::query()->count())->toBe(1);
+
+    $this->importador->aplicar($primera->fresh(), $this->actor);
+
+    expect(fn () => $this->importador->aplicar($segunda->fresh(), $this->actor))->toThrow(ValidationException::class)
+        ->and(fn () => $this->importador->analizar(itvArchivo([$fila]), $this->actor))->toThrow(ValidationException::class);
+    expect(HistorialSalario::query()->where('colaborador_id', $colaborador->id)->count())->toBe(1)
+        ->and(AjusteHistoricoVacaciones::query()->where('colaborador_id', $colaborador->id)->count())->toBe(1);
 });

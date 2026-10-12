@@ -8,6 +8,7 @@ use App\Enums\EstadoSolicitudInterna;
 use App\Enums\EstadoUsuario;
 use App\Enums\EstadoVacante;
 use App\Enums\EstatusImss;
+use App\Enums\Genero;
 use App\Enums\TipoMovimientoLaboral;
 use App\Enums\TipoSolicitudInterna;
 use App\Models\Candidato;
@@ -59,6 +60,10 @@ class ReportesRhService
                 ['value' => 'empleados_por_empresa', 'label' => 'Empleados por empresa'],
                 ['value' => 'empleados_por_sucursal', 'label' => 'Empleados por sucursal'],
                 ['value' => 'empleados_por_puesto', 'label' => 'Empleados por puesto'],
+                ['value' => 'empleados_por_genero', 'label' => 'Hombres y mujeres (general)'],
+                ['value' => 'genero_por_sucursal', 'label' => 'Hombres y mujeres por sucursal'],
+                ['value' => 'empleados_por_genero', 'label' => 'Hombres y mujeres (general)'],
+                ['value' => 'genero_por_sucursal', 'label' => 'Hombres y mujeres por sucursal'],
                 ['value' => 'empleados_imss', 'label' => 'Empleados con/sin IMSS'],
                 ['value' => 'empleados_periodo_prueba', 'label' => 'Empleados en periodo de prueba'],
             ]],
@@ -103,6 +108,8 @@ class ReportesRhService
             'empleados_por_empresa' => $this->empleadosAgrupados($usuario, $filtros, fn (Colaborador $u) => $u->empresa()->nombre ?? 'Sin empresa', 'Empleados por empresa', 'Empresa'),
             'empleados_por_sucursal' => $this->empleadosAgrupados($usuario, $filtros, fn (Colaborador $u) => $u->sucursalPrincipal->nombre ?? 'Sin sucursal', 'Empleados por sucursal', 'Sucursal'),
             'empleados_por_puesto' => $this->empleadosAgrupados($usuario, $filtros, fn (Colaborador $u) => $u->puesto->nombre ?? 'Sin puesto', 'Empleados por puesto', 'Puesto'),
+            'empleados_por_genero' => $this->empleadosPorGenero($usuario, $filtros, false),
+            'genero_por_sucursal' => $this->empleadosPorGenero($usuario, $filtros, true),
             'empleados_imss' => $this->empleadosImss($usuario, $filtros),
             'empleados_periodo_prueba' => $this->empleadosPeriodoPrueba($usuario, $filtros),
             'altas_por_mes' => $this->altasPorMes($usuario, $filtros),
@@ -189,6 +196,48 @@ class ReportesRhService
                 ['Suspendidos', $colaboradores->where('estatus', EstadoUsuario::Suspendido)->count()],
                 ['Total', $colaboradores->count()],
             ],
+        ];
+    }
+
+    /**
+     * Hombres / mujeres de la plantilla ACTIVA (respeta alcance y filtros:
+     * con sucursal_id elegida, el "general" es el de esa sucursal). Un
+     * colaborador sin género capturado se reporta aparte, nunca se asume.
+     *
+     * @param  array<string, mixed>  $filtros
+     * @return Reporte
+     */
+    private function empleadosPorGenero(User $usuario, array $filtros, bool $porSucursal): array
+    {
+        $activos = $this->colaboradoresVisibles($usuario, $filtros)->where('estatus', EstadoUsuario::Activo);
+        $conteo = fn (Collection $grupo): array => [
+            $grupo->where('genero', Genero::Masculino)->count(),
+            $grupo->where('genero', Genero::Femenino)->count(),
+            $grupo->filter(fn (Colaborador $c) => $c->genero === null || $c->genero === Genero::SinEspecificar)->count(),
+            $grupo->count(),
+        ];
+
+        if (! $porSucursal) {
+            [$hombres, $mujeres, $sinDato, $total] = $conteo($activos);
+
+            return [
+                'titulo' => 'Hombres y mujeres (plantilla activa)',
+                'columnas' => ['Género', 'Total'],
+                'filas' => [['Hombres', $hombres], ['Mujeres', $mujeres], ['Sin género capturado', $sinDato], ['Total', $total]],
+            ];
+        }
+
+        $filas = $activos
+            ->groupBy(fn (Colaborador $c) => $c->sucursalPrincipal->nombre ?? 'Sin sucursal')
+            ->map(fn (Collection $grupo, string $sucursal) => [$sucursal, ...$conteo($grupo)])
+            ->sortBy(fn (array $fila) => $fila[0])
+            ->values()
+            ->all();
+
+        return [
+            'titulo' => 'Hombres y mujeres por sucursal (plantilla activa)',
+            'columnas' => ['Sucursal', 'Hombres', 'Mujeres', 'Sin género capturado', 'Total'],
+            'filas' => $filas,
         ];
     }
 

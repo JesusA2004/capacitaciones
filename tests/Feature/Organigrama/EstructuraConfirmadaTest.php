@@ -274,3 +274,28 @@ test('Contraloría, Recursos Humanos y Sistemas reportan directo a Dirección Ge
         // es solo para Contraloría, RH y Sistemas.
         ->and(($this->puesto)('Gerente de Mesa de Control')->puesto_superior_id)->toBe($comercial->id);
 });
+
+test('el organigrama ofrece las secciones del PDF de inducción (general, corporativo, comercial, sucursal) y cada una recorta su rama real', function () {
+    $usuario = rhAdminEstructura();
+
+    $secciones = [];
+    $this->actingAs($usuario)
+        ->get(route('administracion.jerarquia-puestos.index'))
+        ->assertOk()
+        ->assertInertia(function ($page) use (&$secciones) {
+            $secciones = collect($page->toArray()['props']['secciones'])->keyBy('valor')->all();
+        });
+
+    expect(array_keys($secciones))->toBe(['general', 'corporativo', 'comercial', 'sucursal'])
+        ->and($secciones['general']['raiz_puesto_id'])->toBeNull()
+        ->and($secciones['corporativo']['raiz_puesto_id'])->toBe(($this->puesto)('Dirección General')->id)
+        ->and($secciones['corporativo']['profundidad'])->toBe(1)
+        ->and($secciones['comercial']['raiz_puesto_id'])->toBe(($this->puesto)('Dirección Comercial')->id);
+
+    // La sección comercial no trae áreas ajenas (p. ej. Recursos Humanos).
+    $this->actingAs($usuario)
+        ->get(route('administracion.jerarquia-puestos.index', ['raiz_puesto_id' => $secciones['comercial']['raiz_puesto_id']]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('puestos', fn ($puestos) => collect($puestos)->pluck('nombre')->contains('Dirección Comercial')
+            && ! collect($puestos)->pluck('nombre')->contains('Gerencia de Recursos Humanos')));
+});

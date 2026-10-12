@@ -26,6 +26,15 @@ return [
     'nine_box' => env('NINE_BOX_ENABLED', false),
 
     /*
+    | Recibos de nómina en autoservicio (Mi espacio web y app). Apagado por
+    | decisión de negocio: el colaborador recibe su recibo IMPRESO (RH genera
+    | el PDF). Con false el colaborador no ve, no descarga ni recibe aviso de
+    | sus recibos — ni en "Mis recibos" ni como documento de su expediente.
+    | RH (nomina.recibos.ver / documentos_laborales.ver) los sigue viendo.
+    */
+    'recibos_colaborador' => env('RECIBOS_COLABORADOR_ENABLED', false),
+
+    /*
     |--------------------------------------------------------------------------
     | Datos de demostración
     |--------------------------------------------------------------------------

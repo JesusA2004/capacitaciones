@@ -381,7 +381,7 @@ export const ARTICULOS_VIDA_LABORAL: ArticuloGuia[] = [
             {
                 titulo: '«Emitir N recibos»',
                 detalle:
-                    'Solo entonces cada recibo se marca emitido, se congela su PDF en el expediente, se publica en web y app y se avisa al colaborador (notificación + push).',
+                    'Solo entonces cada recibo se marca emitido y se congela su PDF en el expediente. RH lo imprime y lo entrega al colaborador: el recibo NO se publica en Mi espacio (web ni app).',
             },
         ],
         llamados: [
@@ -395,7 +395,7 @@ export const ARTICULOS_VIDA_LABORAL: ArticuloGuia[] = [
             '«Cancelar lote» (con motivo) cancela sus recibos y permite volver a preparar el periodo. Nunca se borra nada.',
         ],
         notificaciones: [
-            'Al emitir: «Tu recibo de nómina ya está disponible» (notificación + push) a cada colaborador.',
+            'Sin aviso al colaborador: su recibo se entrega impreso (el autoservicio de recibos está apagado).',
         ],
         documentos: [
             'Recibo de nómina en PDF (dice «RECIBO DE NÓMINA») archivado en el expediente.',
@@ -407,9 +407,9 @@ export const ARTICULOS_VIDA_LABORAL: ArticuloGuia[] = [
                     'Normalmente no tiene sueldo capturado: captúralo en Datos laborales y vuelve a preparar.',
             },
             {
-                problema: '¿Por qué el colaborador no ve su recibo?',
+                problema: '¿Por qué el colaborador no ve su recibo en la app?',
                 solucion:
-                    'El lote no se ha emitido. Los borradores nunca son visibles.',
+                    'Por diseño: el recibo se entrega IMPRESO. RH genera el PDF desde el lote emitido y lo imprime; el colaborador no tiene «Mis recibos».',
             },
         ],
         registro: [
@@ -434,50 +434,47 @@ export const ARTICULOS_VIDA_LABORAL: ArticuloGuia[] = [
     },
     {
         id: 'mis-recibos',
-        titulo: 'Mis recibos de nómina',
+        titulo: 'Tu recibo de nómina (impreso)',
         proceso: 'nomina',
         resumen:
-            'El colaborador recibe el aviso, toca la notificación y abre su recibo (también sin conexión).',
-        queEs: 'Es donde el colaborador consulta sus recibos emitidos.',
-        quien: ['colaborador'],
+            'El recibo de nómina se entrega IMPRESO: RH lo genera en PDF y te lo da; no se consulta en Mi espacio ni en la app.',
+        queEs: 'Cada periodo RH emite el recibo interno de nómina (PDF con el formato oficial), lo archiva en tu expediente y lo imprime para entregártelo.',
+        quien: ['colaborador', 'rh'],
         antes: ['RH emitió el lote del periodo.'],
         pasos: [
             {
-                titulo: 'Recibe el aviso',
-                detalle: '«Tu recibo de nómina ya está disponible.»',
-                canal: 'app',
-            },
-            {
-                titulo: 'Toca la notificación',
-                detalle: 'Abre directo el recibo.',
-                canal: 'app',
-            },
-            {
-                titulo: 'O entra a Recibos',
+                titulo: 'RH emite e imprime',
                 detalle:
-                    'App → Recibos, o web → Mis recibos de nómina. Descarga el PDF.',
-                canal: 'web_app',
+                    'Personal → Recibos de nómina: RH emite el lote y descarga/imprime el PDF de cada recibo.',
+                quien: 'rh',
+                canal: 'web',
+            },
+            {
+                titulo: 'Recibes tu recibo impreso',
+                detalle: 'Tu gerente o RH te lo entrega en sucursal.',
+                quien: 'colaborador',
             },
         ],
-        despues: ['El recibo queda guardado en tu expediente.'],
+        despues: ['El PDF queda archivado en tu expediente (lo consulta RH).'],
         errores: [
             {
-                problema: '«No veo mi recibo.»',
+                problema: '«No veo mis recibos en la app.»',
                 solucion:
-                    'RH todavía no lo emite; los recibos preparados no son visibles.',
+                    'Es correcto: el recibo se entrega impreso. Si no lo recibiste, pídelo a Recursos Humanos.',
             },
         ],
         relacionados: ['nomina-lotes', 'app-colaborador'],
         accesos: [
             {
-                etiqueta: 'Ir a Mis recibos',
-                ruta: '/mis-recibos',
-                modo: 'colaborador',
+                etiqueta: 'Ir a Recibos de nómina',
+                ruta: '/rh/nomina/lotes',
+                permisos: ['nomina.recibos.ver'],
+                modo: 'operativo',
             },
         ],
         preguntas: [
             '¿Dónde veo mi recibo de nómina?',
-            '¿Por qué no veo mi recibo?',
+            '¿Por qué no veo mi recibo en la app?',
         ],
     },
     {
@@ -547,7 +544,7 @@ export const ARTICULOS_VIDA_LABORAL: ArticuloGuia[] = [
         titulo: 'Cómo usar la app MR. LANA PEOPLE',
         proceso: 'vida-laboral',
         resumen:
-            'Iniciar sesión, cambiar tu contraseña, tu foto, tus datos, lecciones, solicitudes, vacaciones, préstamos, avisos y recibos.',
+            'Iniciar sesión, cambiar tu contraseña, tu foto, tus datos, lecciones, solicitudes, vacaciones, préstamos, avisos, directorio e inducción.',
         queEs: 'Es la guía rápida para el colaborador. Lo mismo está en el portal web («Mi espacio»).',
         quien: ['colaborador'],
         antes: ['Tener la app instalada (Descargar app) y tu usuario.'],
@@ -598,8 +595,9 @@ export const ARTICULOS_VIDA_LABORAL: ArticuloGuia[] = [
                 canal: 'app',
             },
             {
-                titulo: 'Recibos',
-                detalle: 'Tus recibos emitidos (se abren sin conexión).',
+                titulo: 'Directorio e Inducción',
+                detalle:
+                    'Directorio de contacto corporativo y la Inducción Mr. Lana. Tu recibo de nómina se entrega impreso (no está en la app).',
                 canal: 'app',
             },
             {

@@ -558,13 +558,23 @@ class OnboardingService
             $avance->update(['estado' => EstadoAvanceOnboarding::Aprobado, 'aprobado_en' => now()]);
         }
 
-        $siguiente = OnboardingAvance::query()
+        // Desbloquea UN solo módulo siguiente, y solo si no hay otro ya en
+        // curso (disponible / en refuerzo): una segunda llamada (reintento,
+        // recalificación) nunca debe abrir dos módulos a la vez.
+        $hayEnCurso = OnboardingAvance::query()
             ->where('onboarding_proceso_id', $proceso->id)
-            ->where('estado', EstadoAvanceOnboarding::Bloqueado->value)
-            ->orderBy('orden')
-            ->first();
+            ->whereNotIn('estado', [EstadoAvanceOnboarding::Aprobado->value, EstadoAvanceOnboarding::Bloqueado->value])
+            ->exists();
 
-        $siguiente?->update(['estado' => EstadoAvanceOnboarding::Disponible]);
+        if (! $hayEnCurso) {
+            $siguiente = OnboardingAvance::query()
+                ->where('onboarding_proceso_id', $proceso->id)
+                ->where('estado', EstadoAvanceOnboarding::Bloqueado->value)
+                ->orderBy('orden')
+                ->first();
+
+            $siguiente?->update(['estado' => EstadoAvanceOnboarding::Disponible]);
+        }
 
         $proceso->update(['estado' => $this->estadoSegunAvances($proceso)]);
 

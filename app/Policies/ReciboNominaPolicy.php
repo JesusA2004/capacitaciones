@@ -17,8 +17,10 @@ class ReciboNominaPolicy
 
     public function ver(User $usuario, ReciboNomina $recibo): bool
     {
-        // Su propio recibo, solo ya emitido (el borrador es trabajo de RH).
-        if ($usuario->colaborador_id !== null && $usuario->colaborador_id === $recibo->colaborador_id && $recibo->estado === EstadoReciboNomina::Emitido) {
+        // Su propio recibo, solo ya emitido (el borrador es trabajo de RH) y
+        // solo si el autoservicio de recibos está encendido (por defecto se
+        // entrega impreso: config('features.recibos_colaborador')).
+        if (config('features.recibos_colaborador') && $usuario->colaborador_id !== null && $usuario->colaborador_id === $recibo->colaborador_id && $recibo->estado === EstadoReciboNomina::Emitido) {
             return true;
         }
 

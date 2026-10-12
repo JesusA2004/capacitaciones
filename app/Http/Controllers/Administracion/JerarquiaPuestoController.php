@@ -11,6 +11,7 @@ use App\Models\MovimientoLaboral;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Services\Administracion\JerarquiaPuestoService;
+use App\Services\Organigrama\MiniOrganigramaService;
 use App\Services\Organigrama\OrganigramaPersonasService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -24,6 +25,7 @@ class JerarquiaPuestoController extends Controller
     public function __construct(
         private readonly JerarquiaPuestoService $jerarquia,
         private readonly OrganigramaPersonasService $organigramaPersonas,
+        private readonly MiniOrganigramaService $miniOrganigrama,
     ) {}
 
     public function index(Request $request): Response
@@ -45,6 +47,11 @@ class JerarquiaPuestoController extends Controller
                 'motivos' => MotivoCobertura::opciones(),
                 'colaboradores' => $puedeEditar ? $this->organigramaPersonas->candidatosCobertura($usuario) : [],
             ],
+            // Secciones como el PDF de Inducción (cap. 4): General (todo),
+            // Corporativo, Dirección Comercial y Sucursal — cada una es la
+            // rama real de su puesto raíz (config organigrama.vistas_induccion);
+            // una sección cuyo puesto ya no existe no se ofrece.
+            'secciones' => $this->secciones(),
             'filtros' => $request->only($this->jerarquia->filtrosAceptados()),
             'opciones' => [
                 'empresas' => Empresa::query()->orderBy('nombre')->get(['id', 'nombre']),
@@ -52,6 +59,26 @@ class JerarquiaPuestoController extends Controller
                 'departamentos' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
             ],
         ]);
+    }
+
+    /**
+     * @return list<array{valor: string, etiqueta: string, raiz_puesto_id: int|null, profundidad: int|null}>
+     */
+    private function secciones(): array
+    {
+        $secciones = [['valor' => 'general', 'etiqueta' => 'General', 'raiz_puesto_id' => null, 'profundidad' => null]];
+
+        // Corporativo: Dirección General y las áreas que le reportan directo
+        // (un nivel, como la lámina del PDF); las demás, su rama completa.
+        foreach (['corporativo' => ['Corporativo', 1], 'comercial' => ['Dirección Comercial', null], 'sucursal' => ['Sucursal', null]] as $vista => [$etiqueta, $profundidad]) {
+            $raiz = $this->miniOrganigrama->raizDeVista($vista);
+
+            if ($raiz !== null) {
+                $secciones[] = ['valor' => $vista, 'etiqueta' => $etiqueta, 'raiz_puesto_id' => $raiz, 'profundidad' => $profundidad];
+            }
+        }
+
+        return $secciones;
     }
 
     public function actualizar(ActualizarJerarquiaPuestoRequest $request, Puesto $puesto): RedirectResponse

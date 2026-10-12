@@ -205,6 +205,8 @@ class NominaController extends Controller
      */
     public function misRecibos(Request $request): Response
     {
+        // El recibo se entrega impreso (config('features.recibos_colaborador')).
+        abort_unless((bool) config('features.recibos_colaborador'), 404);
         $colaborador = $request->user()->colaborador;
         abort_if($colaborador === null, 403);
 

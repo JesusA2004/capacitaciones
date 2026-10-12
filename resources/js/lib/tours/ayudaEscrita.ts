@@ -503,6 +503,64 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
             '«Requiere corrección»: ábrela, ajusta lo indicado y reenvíala.',
         ],
     },
+    directorio: {
+        queEs: 'El directorio de la empresa: nombre, puesto, sucursal, departamento y contacto corporativo de cada colaborador activo.',
+        puedes: [
+            'Buscar a un compañero por nombre o número de empleado.',
+            'Filtrar por puesto, sucursal o departamento.',
+            'Tocar su correo o teléfono corporativo para escribirle o llamarle.',
+        ],
+        flujo: [
+            'Escribe el nombre o elige un filtro.',
+            'Abre el correo o teléfono corporativo de la persona.',
+        ],
+        permisos:
+            'Cualquier colaborador con sesión (es global a propósito: solo muestra contacto corporativo).',
+        errores: [
+            'Si alguien no tiene correo corporativo, aparece sin correo: nunca se inventa uno ni se usa su correo personal o de acceso.',
+        ],
+    },
+    'directorio-operativo': {
+        queEs: 'El mismo directorio de contacto corporativo, desde el modo operativo.',
+        puedes: [
+            'Localizar a cualquier colaborador activo y su contacto corporativo.',
+        ],
+        flujo: [
+            'Busca o filtra.',
+            'Para datos personales o laborales usa Expedientes (requiere permiso).',
+        ],
+        permisos: 'Cualquier cuenta con sesión.',
+        errores: [
+            'El directorio nunca muestra salario, RFC, CURP, NSS, domicilio ni datos personales.',
+        ],
+    },
+    induccion: {
+        queEs: 'La inducción institucional Mr. Lana: 7 capítulos con el organigrama vigente.',
+        puedes: [
+            'Recorrer los 7 capítulos cuando quieras.',
+            'Ver los organigramas corporativo, comercial y de sucursal actualizados.',
+        ],
+        flujo: [
+            'Si estás en tu ingreso, entra desde «Mis pendientes»: ahí tu avance se guarda.',
+            'Al terminar los 7 capítulos se habilita tu evaluación de inducción.',
+        ],
+        permisos: 'Todos los colaboradores.',
+        errores: [
+            'Desde este acceso (repaso) no se registra avance: para tu evaluación entra desde «Mis pendientes».',
+        ],
+    },
+    'presentar-induccion': {
+        queEs: 'La inducción Mr. Lana en modo presentación, para impartirla en una sesión (Meet o sala).',
+        puedes: ['Mostrar los 7 capítulos con el organigrama vigente.'],
+        flujo: [
+            'Abre «Presentar inducción» y comparte pantalla.',
+            'Cada colaborador presenta su evaluación desde su propia cuenta.',
+        ],
+        permisos: 'Cuentas con permiso de gestionar onboarding (RH).',
+        errores: [
+            'Presentarla NO registra avance de ningún colaborador ni habilita su evaluación.',
+        ],
+    },
 };
 
 /**
