@@ -222,7 +222,7 @@ test('parámetros de RH: el cambio aplica de inmediato a la regla del ciclo', fu
 });
 
 test('las pantallas de configuración responden según permisos', function () {
-    $this->actingAs($this->rh)->get(route('administracion.configuracion.index'))->assertRedirect(route('administracion.configuracion.notificaciones'));
+    $this->actingAs($this->rh)->get(route('administracion.configuracion.index'))->assertOk()->assertInertia(fn ($page) => $page->component('Administracion/Configuracion/Index')->where('puede.notificaciones', true));
     $this->actingAs($this->rh)->get(route('administracion.configuracion.notificaciones'))->assertOk();
     $this->actingAs($this->rh)->get(route('administracion.configuracion.parametros-rh'))->assertOk();
     $this->actingAs($this->rh)->get(route('administracion.configuracion.apariencia'))->assertForbidden();

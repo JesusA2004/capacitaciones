@@ -32,7 +32,7 @@ class Empresa extends Model
 
     protected $table = 'empresas';
 
-    protected $fillable = ['nombre', 'razon_social', 'rfc', 'registro_patronal', 'logo_path', 'activo', 'domicilio_fiscal', 'codigo_postal_fiscal', 'ciudad_firma', 'representante_legal_nombre', 'representante_legal_cargo'];
+    protected $fillable = ['nombre', 'razon_social', 'rfc', 'registro_patronal', 'logo_path', 'activo', 'domicilio_fiscal', 'codigo_postal_fiscal', 'ciudad_firma', 'representante_legal_nombre', 'representante_legal_cargo', 'telefono'];
 
     protected $appends = ['logo_url'];
 

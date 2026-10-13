@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { etiquetaPermiso } from '@/lib/permisos';
 import { dashboard } from '@/routes';
+import { index as configuracionIndex } from '@/routes/administracion/configuracion';
 import {
     restaurar,
     update,
@@ -39,7 +40,7 @@ defineOptions({
     layout: {
         breadcrumbs: [
             { title: 'Inicio', href: dashboard() },
-            { title: 'Configuración', href: '' },
+            { title: 'Configuración', href: configuracionIndex() },
             { title: 'Notificaciones', href: '' },
         ],
     },
@@ -122,19 +123,11 @@ const necesitaPermiso = () =>
         />
         <ConfiguracionTabs :secciones="secciones" actual="notificaciones" />
 
-        <div
-            class="flex gap-3 rounded-xl border border-[var(--mrl-gold)]/40 bg-[var(--mrl-gold)]/10 p-3 text-sm"
-        >
-            <ShieldAlert class="size-5 shrink-0 text-[var(--mrl-gold-dark)]" />
-            <p>
-                Aquí solo se decide <strong>quién recibe el aviso</strong>.
-                Quién puede autorizar no cambia: lo controlan los permisos, el
-                alcance y el motor de aprobaciones, y
-                <strong>RH siempre es la autorización final</strong>. Los
-                destinatarios se resuelven con el organigrama real de personas
-                (ver Jefes directos), nunca por el nombre de un rol.
-            </p>
-        </div>
+        <p class="flex items-center gap-2 text-sm text-[var(--mrl-texto-suave)]">
+            <ShieldAlert class="size-4 shrink-0" />
+            Aquí solo decides quién recibe cada aviso; quién autoriza no
+            cambia.
+        </p>
 
         <ul class="flex flex-col gap-2">
             <li
@@ -145,11 +138,6 @@ const necesitaPermiso = () =>
                 <div class="min-w-0 flex-1">
                     <p class="flex items-center gap-1.5 font-medium">
                         {{ r.etiqueta }}
-                        <AyudaBoton
-                            v-if="r.descripcion"
-                            :titulo="r.etiqueta"
-                            :texto="r.descripcion"
-                        />
                         <span
                             v-if="!r.activa"
                             class="ml-1 rounded-full bg-[var(--mrl-danger)]/10 px-2 py-0.5 text-xs text-[var(--mrl-danger)]"
@@ -181,13 +169,6 @@ const necesitaPermiso = () =>
                             class="text-xs text-[var(--mrl-texto-suave)]"
                             >Nadie</span
                         >
-                    </p>
-                    <p
-                        v-if="r.fallback.length"
-                        class="mt-1 text-xs text-[var(--mrl-texto-suave)]"
-                    >
-                        Si nadie aplica:
-                        {{ r.fallback.map(etiquetaTipo).join(', ') }}
                     </p>
                 </div>
                 <div class="flex gap-1">

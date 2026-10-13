@@ -7,6 +7,7 @@ use App\Enums\TipoDestinatarioNotificacion;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Reclutamiento\GuardarMotivoRechazoCandidatoRequest;
 use App\Models\DocumentType;
+use App\Models\Empresa;
 use App\Models\MotivoRechazoCandidato;
 use App\Models\Puesto;
 use App\Models\User;
@@ -37,18 +38,41 @@ class ConfiguracionController extends Controller
         private readonly MotivoRechazoCandidatoService $motivosRechazo,
     ) {}
 
-    public function index(Request $request): RedirectResponse
+    /**
+     * Configuración = cinco tarjetas (Empresa, Documentos, Notificaciones,
+     * Funciones, Sistema), cada una con lo que este usuario puede tocar.
+     * Configurar, no leer un manual: las explicaciones largas viven en la
+     * Guía.
+     */
+    public function index(Request $request): Response
     {
         $usuario = $request->user();
         abort_unless($usuario->can('configuracion.ver'), 403);
 
-        foreach (['configuracion.notificaciones' => 'notificaciones', 'configuracion.rh' => 'parametros-rh', 'configuracion.apariencia' => 'apariencia'] as $permiso => $seccion) {
-            if ($usuario->can($permiso)) {
-                return to_route("administracion.configuracion.{$seccion}");
-            }
-        }
+        $empresa = Empresa::query()->where('activo', true)->orderBy('id')->first();
+        $hayVarias = Empresa::query()->where('activo', true)->count() > 1;
 
-        abort(403);
+        return Inertia::render('Administracion/Configuracion/Index', [
+            'empresa' => $empresa !== null && ! $hayVarias && $usuario->can('update', $empresa) ? $empresa : null,
+            'variasEmpresas' => $hayVarias,
+            'puede' => [
+                'empresas' => $usuario->can('viewAny', Empresa::class),
+                'documentos' => $usuario->can('plantillas_documentales.administrar'),
+                'notificaciones' => $usuario->can('configuracion.notificaciones'),
+                'rh' => $usuario->can('configuracion.rh'),
+                'apariencia' => $usuario->can('configuracion.apariencia'),
+                'usuarios' => $usuario->can('usuarios.ver'),
+                'roles' => $usuario->can('roles.administrar'),
+            ],
+            'notificaciones' => $usuario->can('configuracion.notificaciones') ? count($this->routing->reglas()) : 0,
+            // Banderas de funciones: se cambian en el servidor (.env), aquí
+            // solo se ve qué está encendido.
+            'funciones' => [
+                ['clave' => 'capacitacion', 'etiqueta' => 'Capacitación (cursos y sesiones)', 'activa' => (bool) config('features.capacitacion')],
+                ['clave' => 'recibos_colaborador', 'etiqueta' => 'Recibos de nómina en autoservicio', 'activa' => (bool) config('features.recibos_colaborador')],
+                ['clave' => 'realtime', 'etiqueta' => 'Notificaciones en tiempo real (web)', 'activa' => (bool) config('features.realtime_web')],
+            ],
+        ]);
     }
 
     public function apariencia(Request $request): Response

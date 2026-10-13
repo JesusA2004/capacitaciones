@@ -35,6 +35,13 @@ return [
     'recibos_colaborador' => env('RECIBOS_COLABORADOR_ENABLED', false),
 
     /*
+    | Notificaciones en tiempo real del portal web (Laravel Reverb). Debe
+    | coincidir con VITE_REVERB_ENABLED (lo lee el navegador al compilar).
+    | Sin Reverb corriendo: false (la campana usa polling).
+    */
+    'realtime_web' => (bool) env('VITE_REVERB_ENABLED', false),
+
+    /*
     |--------------------------------------------------------------------------
     | Datos de demostración
     |--------------------------------------------------------------------------

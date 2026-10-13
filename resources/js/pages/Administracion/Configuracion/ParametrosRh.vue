@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
+import { index as configuracionIndex } from '@/routes/administracion/configuracion';
 import { parametrosRh, restaurar } from '@/routes/administracion/configuracion';
 import {
     store as crearMotivoRechazoUrl,
@@ -61,7 +62,7 @@ defineOptions({
     layout: {
         breadcrumbs: [
             { title: 'Inicio', href: dashboard() },
-            { title: 'Configuración', href: '' },
+            { title: 'Configuración', href: configuracionIndex() },
             { title: 'Parámetros de RH', href: '' },
         ],
     },

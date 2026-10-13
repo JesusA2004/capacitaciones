@@ -39,6 +39,7 @@ const form = useForm({
     ciudad_firma: props.empresa?.ciudad_firma ?? '',
     representante_legal_nombre: props.empresa?.representante_legal_nombre ?? '',
     representante_legal_cargo: props.empresa?.representante_legal_cargo ?? '',
+    telefono: props.empresa?.telefono ?? '',
 });
 
 function enviar() {
@@ -136,6 +137,17 @@ function enviar() {
                         PEOPLE usa el valor predeterminado del registro jurídico
                         y lo advierte en la vista previa.
                     </p>
+                    <div class="grid gap-2">
+                        <Label for="empresa_telefono">Teléfono</Label>
+                        <Input
+                            id="empresa_telefono"
+                            v-model="form.telefono"
+                            type="tel"
+                            inputmode="tel"
+                            placeholder="777 123 4567"
+                        />
+                        <InputError :message="form.errors.telefono" />
+                    </div>
                     <div class="grid gap-2">
                         <Label for="representante_legal_nombre"
                             >Representante legal</Label

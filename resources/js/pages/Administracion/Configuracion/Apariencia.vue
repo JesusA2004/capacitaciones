@@ -9,6 +9,7 @@ import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { dashboard } from '@/routes';
+import { index as configuracionIndex } from '@/routes/administracion/configuracion';
 import { apariencia, restaurar } from '@/routes/administracion/configuracion';
 import type { ParametroConfiguracion, SeccionConfiguracion } from '@/types';
 
@@ -21,7 +22,7 @@ defineOptions({
     layout: {
         breadcrumbs: [
             { title: 'Inicio', href: dashboard() },
-            { title: 'Configuración', href: '' },
+            { title: 'Configuración', href: configuracionIndex() },
             { title: 'Apariencia', href: '' },
         ],
     },

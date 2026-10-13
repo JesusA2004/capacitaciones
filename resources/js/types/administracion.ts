@@ -14,6 +14,7 @@ export type EmpresaItem = {
     ciudad_firma?: string | null;
     representante_legal_nombre?: string | null;
     representante_legal_cargo?: string | null;
+    telefono?: string | null;
     sucursales_count: number;
     colaboradores_count: number;
 };

@@ -32,6 +32,7 @@ class UpdateEmpresaRequest extends FormRequest
             'ciudad_firma' => ['nullable', 'string', 'max:191'],
             'representante_legal_nombre' => ['nullable', 'string', 'max:191'],
             'representante_legal_cargo' => ['nullable', 'string', 'max:191'],
+            'telefono' => ['nullable', 'string', 'max:30', 'regex:/^[0-9+() .-]{7,30}$/'],
         ];
     }
 }
