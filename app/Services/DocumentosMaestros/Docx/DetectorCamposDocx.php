@@ -26,6 +26,16 @@ class DetectorCamposDocx
         $ignorar = array_values(array_map('strval', (array) ($definicion['ignorar'] ?? [])));
         $ejemplos = array_values(array_map('strval', (array) ($definicion['ejemplos'] ?? [])));
         $fechasFijas = array_map('strval', (array) ($definicion['fechas_fijas'] ?? []));
+        // Blancos que RH marcó en el editor como firma, huella, testigo o
+        // «no lleva dato»: se quedan en blanco a propósito.
+        $sinDato = [];
+
+        foreach ((array) ($definicion['zonas_sin_dato'] ?? []) as $zona) {
+            if (is_array($zona) && isset($zona['referencia'], $zona['contexto'])) {
+                $sinDato[(string) $zona['referencia'].'|'.(string) $zona['contexto']] = true;
+            }
+        }
+
         $pendientes = [];
         $firmas = 0;
 
@@ -37,7 +47,9 @@ class DetectorCamposDocx
                 foreach ($coincidencias[0] as [$blanco, $offset]) {
                     $izquierda = substr($sinMarcadores, max(0, $offset - 60), min(60, $offset));
 
-                    if ($this->esFirma($sinMarcadores, $izquierda) || $this->ignorado($texto, $ignorar)) {
+                    $contexto = trim(mb_convert_encoding($izquierda, 'UTF-8', 'UTF-8')).' [____]';
+
+                    if ($this->esFirma($sinMarcadores, $izquierda) || $this->ignorado($texto, $ignorar) || isset($sinDato[$parrafo->referencia().'|'.$contexto])) {
                         $firmas++;
 
                         continue;
@@ -46,7 +58,7 @@ class DetectorCamposDocx
                     $pendientes[] = [
                         'referencia' => $parrafo->referencia(),
                         'tipo' => 'blanco_sin_mapear',
-                        'contexto' => trim(mb_convert_encoding($izquierda, 'UTF-8', 'UTF-8')).' [____]',
+                        'contexto' => $contexto,
                     ];
                 }
             }
@@ -79,6 +91,16 @@ class DetectorCamposDocx
     }
 
     private function esFirma(string $parrafo, string $izquierda): bool
+    {
+        return self::esLineaDeFirma($parrafo, $izquierda);
+    }
+
+    /**
+     * Mismo criterio para el detector de pendientes y el de espacios del
+     * editor: una línea sola (solo guiones bajos) o un blanco precedido de
+     * «Firma:»/«Huella:» es para la firma física, no un dato.
+     */
+    public static function esLineaDeFirma(string $parrafo, string $izquierda): bool
     {
         // Línea sola (solo guiones bajos, opcionalmente "C." o espacios).
         if (preg_match('/^\s*(C\.\s*)?_+\s*$/u', $parrafo) === 1 && ! str_starts_with(trim($parrafo), 'C.')) {

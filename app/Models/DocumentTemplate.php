@@ -7,6 +7,7 @@ use App\Enums\EstadoValidacionVisual;
 use App\Enums\MotorPlantilla;
 use App\Enums\TipoPlantillaDocumento;
 use Database\Factories\DocumentTemplateFactory;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -59,6 +60,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $original_nombre
  * @property string|null $master_hash
  * @property array<string, mixed>|null $mapping
+ * @property array<string, mixed>|null $configuracion Opciones de la versión (no-code): representante, páginas, copias, ejemplos, zonas sin dato…
+ * @property array<string, mixed>|null $qa_entorno Huella del servidor donde se validó el diseño.
  * @property array<string, mixed>|null $layout_overrides
  * @property array{hash?: string, paginas?: int, calculado_en?: string}|null $layout_qa
  * @property array<string, mixed>|null $analisis
@@ -89,6 +92,7 @@ use Illuminate\Support\Carbon;
  * @property-read OfficialFormat|null $formatoOficial
  * @property-read DocumentType|null $tipoDocumento
  * @property-read int $documentos_generados_count Solo presente cuando se pide con withCount('documentosGenerados').
+ * @property-read Collection<int, DocumentTemplateField> $campos
  */
 class DocumentTemplate extends Model
 {
@@ -138,6 +142,8 @@ class DocumentTemplate extends Model
         'original_nombre',
         'master_hash',
         'mapping',
+        'configuracion',
+        'qa_entorno',
         'analisis',
         'estado_master',
         'operativo',
@@ -198,6 +204,8 @@ class DocumentTemplate extends Model
             'variables_manuales' => 'array',
             'grupos_puesto' => 'array',
             'mapping' => 'array',
+            'configuracion' => 'array',
+            'qa_entorno' => 'array',
             'layout_overrides' => 'array',
             'layout_qa' => 'array',
             'analisis' => 'array',
@@ -303,5 +311,15 @@ class DocumentTemplate extends Model
     public function documentosGenerados(): HasMany
     {
         return $this->hasMany(GeneratedDocument::class, 'document_template_id');
+    }
+
+    /**
+     * Espacios del documento (mapa de campos no-code de ESTA versión).
+     *
+     * @return HasMany<DocumentTemplateField, $this>
+     */
+    public function campos(): HasMany
+    {
+        return $this->hasMany(DocumentTemplateField::class, 'document_template_id')->orderBy('sort_order')->orderBy('id');
     }
 }

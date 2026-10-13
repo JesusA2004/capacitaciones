@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\DocumentosMaestros\Calidad\ValidacionVisualMaestroService;
 use App\Services\Formatos\Motor\ConversorDocxPdf;
+use App\Support\JsonCanonico;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -37,6 +38,7 @@ class ImportadorFormatosJuridicosService
         private readonly AuditoriaService $auditoria,
         private readonly ValidacionVisualMaestroService $validacion,
         private readonly ConversorDocxPdf $conversor,
+        private readonly DefinicionMaestroService $definiciones,
     ) {}
 
     /**
@@ -148,9 +150,15 @@ class ImportadorFormatosJuridicosService
      * @param  list<string>  $nombresFuente
      * @param  array{familia: string, version: int, activa: bool, bloqueada: bool, nota: string|null}|null  $fuente
      */
-    public function registrarVersion(string $familia, int $version, string $contenido, array $nombresFuente, ?array $fuente, ?User $actor): DocumentTemplate
+    public function registrarVersion(string $familia, int $version, string $contenido, array $nombresFuente, ?array $fuente, ?User $actor, ?DocumentTemplate $heredarDe = null): DocumentTemplate
     {
-        $definicion = $this->catalogo->definicion($familia);
+        $existente = DocumentTemplate::withTrashed()->where('familia', $familia)->where('version', $version)->first();
+        // Fuente vigente del mapa: los espacios de ESTA versión en BD; una
+        // versión nueva hereda los de la anterior; sin nada en BD, el
+        // registro heredado (config).
+        $definicion = $existente === null && $heredarDe !== null
+            ? $this->definiciones->paraVersion($familia, $heredarDe, $heredarDe->version)
+            : $this->definiciones->paraVersion($familia, $existente, $version);
 
         if ($definicion === null) {
             throw ValidationException::withMessages(['familia' => "La familia «{$familia}» no existe en el registro de documentos maestros."]);
@@ -161,7 +169,6 @@ class ImportadorFormatosJuridicosService
         $hash = hash('sha256', $contenido);
         $preparado = $this->preparacion->preparar($contenido, $definicion, $version);
         $rutaOriginal = $this->almacen->guardarOriginal($contenido, $extension);
-        $existente = DocumentTemplate::withTrashed()->where('familia', $familia)->where('version', $version)->first();
         $mismoMaster = $existente !== null && $existente->master_hash === hash('sha256', $preparado['master']) && $existente->path !== null;
         $rutaMaster = $mismoMaster ? (string) $existente->path : $this->almacen->guardarMaster($familia, $version, $preparado['master'], $preparado['extension']);
         $bloqueada = (bool) ($fuente['bloqueada'] ?? false);
@@ -215,7 +222,7 @@ class ImportadorFormatosJuridicosService
             'version' => $version,
         ];
 
-        $master = DB::transaction(function () use ($existente, $datos, $familia, $actor): DocumentTemplate {
+        $master = DB::transaction(function () use ($existente, $datos, $familia, $actor, $definicion, $version, $heredarDe): DocumentTemplate {
             if ($existente !== null) {
                 if ($existente->trashed()) {
                     $existente->restore();
@@ -223,7 +230,7 @@ class ImportadorFormatosJuridicosService
 
                 // Si el master técnico o su mapa de campos cambiaron (reglas
                 // nuevas), su QA visual anterior ya no vale: se vuelve a validar.
-                if ($existente->master_hash !== $datos['master_hash'] || json_encode($existente->mapping) !== json_encode($datos['mapping'])) {
+                if ($existente->master_hash !== $datos['master_hash'] || ! JsonCanonico::igual($existente->mapping, $datos['mapping'])) {
                     $datos = [...$datos, 'visual_validation_status' => EstadoValidacionVisual::Pendiente, 'visual_similarity' => null, 'visual_checked_at' => null, 'visual_report' => null, 'page_count_output' => null, 'activacion_excepcional_motivo' => null];
                 }
 
@@ -237,8 +244,18 @@ class ImportadorFormatosJuridicosService
                 $this->auditoria->registrar('documento_maestro_importado', $master, $actor, ['familia' => $familia, 'version' => $master->version, 'hash' => $datos['original_hash']]);
             }
 
+            $this->sembrarCampos($master, $definicion, $version, $heredarDe, $actor);
+
             return $master;
         });
+
+        // Versión nueva que heredó el mapa de la anterior: lo que ya no
+        // calza en el archivo nuevo vuelve a «por confirmar» (amarillo) y se
+        // prepara otra vez — nunca se activa un mapa que el layout ya no
+        // respeta.
+        if ($heredarDe !== null && $this->revisarHerencia($master, $heredarDe)) {
+            return $this->registrarVersion($familia, $version, $contenido, $nombresFuente, $fuente, $actor);
+        }
 
         // QA visual al importar/cargar (fuera de la transacción: convierte
         // con Word y rasteriza, puede tardar).
@@ -393,7 +410,91 @@ class ImportadorFormatosJuridicosService
             $version = $igual->version ?? ((int) DocumentTemplate::withTrashed()->where('familia', $familia)->max('version') + 1);
         }
 
-        return $this->registrarVersion($familia, $version, $contenido, [$nombreArchivo], ['familia' => $familia, 'version' => $version, 'activa' => false, 'bloqueada' => false, 'nota' => null], $actor);
+        // El mapa pertenece a la versión: una versión NUEVA parte del mapa de
+        // la más reciente (se copia y se revisa contra el archivo nuevo).
+        $anterior = DocumentTemplate::query()->where('familia', $familia)->where('version', '!=', $version)->orderByDesc('version')->first();
+        $existente = DocumentTemplate::withTrashed()->where('familia', $familia)->where('version', $version)->exists();
+
+        return $this->registrarVersion($familia, $version, $contenido, [$nombreArchivo], ['familia' => $familia, 'version' => $version, 'activa' => false, 'bloqueada' => false, 'nota' => null], $actor, $existente ? null : $anterior);
+    }
+
+    /**
+     * La versión queda con su propio mapa en BD (fuente vigente no-code):
+     * copiado de la versión de la que hereda, o tomado del registro
+     * heredado (config) la primera vez. Nunca pisa espacios ya existentes.
+     *
+     * @param  array<string, mixed>  $definicion
+     */
+    private function sembrarCampos(DocumentTemplate $master, array $definicion, int $version, ?DocumentTemplate $heredarDe, ?User $actor): void
+    {
+        if ($master->configuracion === null) {
+            $opciones = $heredarDe !== null && $heredarDe->configuracion !== null
+                ? $heredarDe->configuracion
+                : $this->definiciones->opcionesDesde($definicion);
+            $master->update(['configuracion' => $opciones === [] ? null : $opciones]);
+        }
+
+        if ($master->campos()->exists()) {
+            return;
+        }
+
+        if ($heredarDe !== null && $heredarDe->id !== $master->id && $heredarDe->campos()->exists()) {
+            foreach ($heredarDe->campos()->get() as $campo) {
+                $copia = $campo->replicate(['document_template_id', 'created_by', 'updated_by']);
+                $copia->document_template_id = $master->id;
+                $copia->created_by = $actor?->id;
+                $copia->metadata = [...(array) $campo->metadata, 'heredado_de' => $heredarDe->version];
+                $copia->save();
+            }
+
+            return;
+        }
+
+        foreach ($this->definiciones->camposDesdeLegado($definicion, $version) as $fila) {
+            $master->campos()->create([...$fila, 'created_by' => $actor?->id]);
+        }
+    }
+
+    /**
+     * Revisa una versión que heredó el mapa de la anterior. DOCX: el ancla
+     * que ya no se encontró en el archivo nuevo vuelve a «por confirmar».
+     * PDF: si cambió el número o el tamaño de las páginas, TODAS las cajas
+     * vuelven a «por confirmar» (su posición ya no es confiable).
+     *
+     * @return bool true si cambió algo (hay que volver a preparar).
+     */
+    private function revisarHerencia(DocumentTemplate $master, DocumentTemplate $anterior): bool
+    {
+        $confirmados = $master->campos()->get()->filter(fn ($c): bool => $c->zona->llevaDato() && $c->estado->value === 'confirmado' && $c->asignado())->values();
+        $marcar = [];
+
+        if ($master->motor === MotorPlantilla::PdfOverlay) {
+            $geometria = fn (DocumentTemplate $t): string => (string) json_encode(array_map(
+                fn (array $p): array => [$p['numero'] ?? 0, round((float) ($p['ancho'] ?? 0), 1), round((float) ($p['alto'] ?? 0), 1)],
+                array_values(array_filter((array) (($t->analisis ?? [])['paginas'] ?? []), 'is_array')),
+            ));
+
+            if ($geometria($master) !== $geometria($anterior)) {
+                $marcar = $confirmados->all();
+                $motivo = 'Las páginas de la nueva versión cambiaron de tamaño o número: confirma la posición.';
+            }
+        } else {
+            $indices = array_map(fn (array $p): int => (int) ($p['regla'] ?? 0), array_filter((array) (($master->analisis ?? [])['reglas_pendientes'] ?? []), 'is_array'));
+
+            foreach ($indices as $indice) {
+                if (isset($confirmados[$indice - 1])) {
+                    $marcar[] = $confirmados[$indice - 1];
+                }
+            }
+
+            $motivo = 'Este texto ya no aparece igual en la nueva versión: confirma dónde va el dato.';
+        }
+
+        foreach ($marcar as $campo) {
+            $campo->update(['estado' => 'sugerido', 'metadata' => [...(array) $campo->metadata, 'motivo' => $motivo ?? null]]);
+        }
+
+        return $marcar !== [];
     }
 
     /**

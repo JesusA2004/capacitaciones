@@ -73,6 +73,8 @@ class DatosDocumentoService
         'contacto_emergencia_direccion' => ['colaborador', 'contacto_emergencia_direccion', 'Contacto de emergencia: domicilio', 'texto'],
         'fecha_ingreso' => ['colaborador', 'fecha_ingreso', 'Fecha de ingreso', 'fecha'],
         'sueldo_mensual' => ['colaborador', 'sueldo_mensual', 'Sueldo mensual', 'moneda'],
+        'salario_diario' => ['colaborador', 'salario_diario', 'Salario diario', 'moneda'],
+        'salario_diario_integrado' => ['colaborador', 'salario_diario_integrado', 'Salario diario integrado', 'moneda'],
         'puesto' => ['colaborador', 'puesto_id', 'Puesto', 'relacion'],
         'departamento' => ['colaborador', 'departamento_id', 'Departamento', 'relacion'],
         'sucursal' => ['colaborador', 'sucursal_principal_id', 'Sucursal', 'relacion'],
@@ -82,6 +84,15 @@ class DatosDocumentoService
         'sucursal_estado' => ['sucursal', 'estado', 'Estado de la sucursal', 'texto'],
         'sucursal_municipio' => ['sucursal', 'municipio', 'Municipio de la sucursal', 'texto'],
         'sucursal_cp' => ['sucursal', 'codigo_postal', 'C.P. de la sucursal', 'texto'],
+        // Datos del patrón: se capturan en Configuración → Empresa (no desde
+        // el documento).
+        'empresa_razon_social' => ['empresa', 'razon_social', 'Razón social de la empresa', 'empresa'],
+        'empresa_rfc' => ['empresa', 'rfc', 'RFC de la empresa', 'empresa'],
+        'empresa_registro_patronal' => ['empresa', 'registro_patronal', 'Registro patronal de la empresa', 'empresa'],
+        'empresa_cp' => ['empresa', 'codigo_postal_fiscal', 'C.P. fiscal de la empresa', 'empresa'],
+        'empresa_domicilio' => ['empresa', 'domicilio_fiscal', 'Domicilio fiscal de la empresa', 'empresa'],
+        'representante_legal' => ['empresa', 'representante_legal_nombre', 'Representante legal de la empresa', 'empresa'],
+        'representante_legal_cargo' => ['empresa', 'representante_legal_cargo', 'Cargo del representante legal', 'empresa'],
         'contrato' => ['proceso', 'contrato', 'Contrato laboral (inicio, fin y sueldo)', 'proceso'],
         'evaluacion' => ['proceso', 'evaluacion', 'Evaluación capturada', 'proceso'],
         'solicitud' => ['proceso', 'solicitud', 'Solicitud', 'proceso'],
@@ -107,15 +118,18 @@ class DatosDocumentoService
      */
     private const DEPENDE = [
         'nombre_completo' => 'nombre', 'nombre_completo_mayusculas' => 'nombre',
+        'fecha_nacimiento_larga' => 'fecha_nacimiento',
+        'domicilio_completo' => 'domicilio',
+        'contacto_emergencia_completo' => 'contacto_emergencia_nombre',
+        'empresa_razon_social_mayusculas' => 'empresa_razon_social', 'representante_legal_mayusculas' => 'representante_legal',
+        'departamento_mayusculas' => 'departamento', 'jefe_inmediato' => 'jefe',
         'nacionalidad_mayusculas' => 'nacionalidad',
         'sexo' => 'genero', 'sexo_mayusculas' => 'genero',
         'edad' => 'fecha_nacimiento', 'edad_numero' => 'fecha_nacimiento', 'edad_mayusculas' => 'fecha_nacimiento',
         'estado_civil_mayusculas' => 'estado_civil',
         'domicilio_mayusculas' => 'domicilio',
         'contacto_emergencia_nombre_mayusculas' => 'contacto_emergencia_nombre',
-        'contacto_emergencia_mayusculas' => 'contacto_emergencia_nombre',
-        'contacto_emergencia' => 'contacto_emergencia_nombre',
-        'puesto_mayusculas' => 'puesto', 'departamento_mayusculas' => 'departamento',
+        'puesto_mayusculas' => 'puesto',
         'sucursal_nombre' => 'sucursal', 'sucursal_nombre_mayusculas' => 'sucursal',
         'sucursal_domicilio' => 'sucursal_direccion', 'sucursal_domicilio_con_nombre' => 'sucursal_direccion',
         'sucursal_direccion_mayusculas' => 'sucursal_direccion', 'sucursal_municipio_mayusculas' => 'sucursal_municipio',
@@ -149,7 +163,6 @@ class DatosDocumentoService
         $empresa = $sucursal?->empresa;
         $hoy = $contexto->fechaDocumento();
         $contrato = $contexto->contrato;
-        $defecto = (array) config('documentos_maestros.empresa_defecto', []);
 
         $nombre = $c->nombreCompleto();
         $edad = $c->fecha_nacimiento !== null ? (int) $c->fecha_nacimiento->diffInYears($hoy) : null;
@@ -165,14 +178,18 @@ class DatosDocumentoService
         $fin = $contrato?->fecha_fin;
         $meses = $this->mesesContrato($contexto);
         $duracion = $meses !== null ? $this->duracion($meses) : '';
-        $representante = trim((string) ($empresa?->representante_legal_nombre ?: ($defecto['representante_legal_nombre'] ?? '')));
-
-        // Toda la plantilla es mexicana: sin dato capturado, «Mexicana»
-        // (nunca un hueco ni un «falta» en el contrato).
-        $nacionalidad = trim((string) $c->nacionalidad) !== '' ? (string) $c->nacionalidad : 'Mexicana';
+        // Datos LEGALES: solo lo capturado. Nunca se completa con un supuesto
+        // (nacionalidad «Mexicana», el correo de la cuenta, el representante
+        // o el domicilio del registro jurídico): si el documento lo pide y
+        // falta, el motor bloquea y pide capturarlo (faltantesDe()).
+        $representante = trim((string) $empresa?->representante_legal_nombre);
+        $nacionalidad = trim((string) $c->nacionalidad);
         $datos = [
             'nombre_completo' => $nombre,
             'nombre_completo_mayusculas' => $this->mayus($nombre),
+            'nombre' => trim((string) $c->name),
+            'apellidos' => trim((string) $c->apellidos),
+            'fecha_nacimiento_larga' => $this->fechaLarga($c->fecha_nacimiento),
             'nacionalidad' => $nacionalidad,
             'nacionalidad_mayusculas' => $this->mayus($nacionalidad),
             'sexo' => $sexo,
@@ -189,24 +206,36 @@ class DatosDocumentoService
             'rfc' => $this->mayus((string) $c->rfc),
             'nss' => (string) $c->nss,
             'telefono' => (string) $c->telefono,
-            'correo' => (string) ($c->correo_personal ?: $c->user?->email),
+            // Solo el correo PERSONAL capturado (el de la cuenta de acceso
+            // puede ser corporativo o un usuario técnico).
+            'correo' => trim((string) $c->correo_personal),
             'domicilio' => (string) $c->domicilio,
             'domicilio_mayusculas' => $this->mayus((string) $c->domicilio),
+            'domicilio_colonia' => trim((string) $c->domicilio_colonia),
+            'domicilio_municipio' => trim((string) $c->domicilio_municipio),
+            'domicilio_estado' => trim((string) $c->domicilio_estado),
+            'domicilio_cp' => trim((string) $c->domicilio_cp),
+            'domicilio_completo' => $this->domicilioCompleto($c),
             'beneficiario_nombre' => $this->mayus((string) $c->beneficiario_nombre),
             'beneficiario_parentesco' => (string) $c->beneficiario_parentesco,
-            // Contacto de emergencia (ya existe en el expediente): alimenta los
-            // contratos que lo piden; si el master lo exige y falta, bloquea.
+            // Contacto de emergencia: cada dato por separado y el «completo»
+            // explícito. Ya NO existe un alias «contacto_emergencia» (antes
+            // entregaba solo el nombre aunque el formato pidiera más).
             'contacto_emergencia_nombre' => (string) $c->contacto_emergencia_nombre,
             'contacto_emergencia_nombre_mayusculas' => $this->mayus((string) $c->contacto_emergencia_nombre),
-            'contacto_emergencia' => (string) $c->contacto_emergencia_nombre,
-            'contacto_emergencia_mayusculas' => $this->mayus((string) $c->contacto_emergencia_nombre),
             'contacto_emergencia_parentesco' => (string) $c->contacto_emergencia_parentesco,
             'contacto_emergencia_telefono' => (string) $c->contacto_emergencia_telefono,
             'contacto_emergencia_direccion' => (string) $c->contacto_emergencia_direccion,
+            'contacto_emergencia_completo' => $this->contactoEmergenciaCompleto($c),
             'numero_empleado' => (string) $c->numero_empleado,
+            'empresa_nombre' => (string) $empresa?->nombre,
             'puesto' => (string) $c->puesto?->nombre,
             'puesto_mayusculas' => $this->mayus((string) $c->puesto?->nombre),
+            'departamento' => (string) $c->departamento?->nombre,
             'departamento_mayusculas' => $this->mayus((string) $c->departamento?->nombre),
+            'jefe_inmediato' => (string) ($c->jefe?->nombreCompleto() ?? ''),
+            'salario_diario' => $c->salario_diario !== null ? number_format((float) $c->salario_diario, 2) : '',
+            'salario_diario_integrado' => $c->salario_diario_integrado !== null ? number_format((float) $c->salario_diario_integrado, 2) : '',
             'sucursal_nombre' => (string) $sucursal?->nombre,
             'sucursal_nombre_mayusculas' => $this->mayus((string) $sucursal?->nombre),
             'sucursal_domicilio' => $this->domicilioSucursal($sucursal),
@@ -215,9 +244,17 @@ class DatosDocumentoService
             'sucursal_municipio_mayusculas' => $this->mayus((string) ($sucursal?->municipio ?: $sucursal?->ciudad)),
             'sucursal_estado' => (string) $sucursal?->estado,
             'sucursal_cp' => (string) $sucursal?->codigo_postal,
-            'empresa_razon_social_mayusculas' => $this->mayus((string) ($empresa?->razon_social ?: $empresa?->nombre)),
-            'empresa_domicilio' => $this->domicilioPatron($empresa, $sucursal, (string) ($defecto['domicilio'] ?? '')),
+            // Razón social: la capturada (el nombre comercial no es la razón
+            // social legal).
+            'empresa_razon_social' => trim((string) $empresa?->razon_social),
+            'empresa_razon_social_mayusculas' => $this->mayus(trim((string) $empresa?->razon_social)),
+            'empresa_rfc' => $this->mayus(trim((string) $empresa?->rfc)),
+            'empresa_registro_patronal' => $this->mayus(trim((string) $empresa?->registro_patronal)),
+            'empresa_cp' => trim((string) $empresa?->codigo_postal_fiscal),
+            'empresa_domicilio' => $this->domicilioPatron($empresa, $sucursal),
+            'representante_legal' => $representante,
             'representante_legal_mayusculas' => $this->mayus($representante),
+            'representante_legal_cargo' => trim((string) $empresa?->representante_legal_cargo),
             'lugar_firma' => $lugar,
             'lugar_documento' => $lugar,
             'ciudad_firma' => $lugar,
@@ -260,6 +297,12 @@ class DatosDocumentoService
     public function fuente(string $campo): array
     {
         $base = self::DEPENDE[$campo] ?? $campo;
+
+        // Domicilio del patrón configurado como «de la sucursal»: lo que
+        // falta es la dirección de la sucursal, no la fiscal.
+        if ($base === 'empresa_domicilio' && $this->domicilioPatronDeSucursal()) {
+            $base = 'sucursal_direccion';
+        }
 
         if (preg_match('/^criterio_\d+_/', $campo) === 1 || str_starts_with($campo, 'resultado_')) {
             $base = 'evaluacion';
@@ -617,7 +660,7 @@ class DatosDocumentoService
             'domicilio_cp' => (string) $c->domicilio_cp,
             'sucursal_numero' => (string) $c->sucursalPrincipal?->clave,
             'tipo_identificacion' => trim((string) $c->clave_elector) !== '' ? 'INE' : '',
-            'representante_legal_mayusculas' => $this->mayus(trim((string) ($c->sucursalPrincipal?->empresa?->representante_legal_nombre ?: (config('documentos_maestros.empresa_defecto.representante_legal_nombre') ?? '')))),
+            'representante_legal_mayusculas' => $this->mayus(trim((string) $c->sucursalPrincipal?->empresa?->representante_legal_nombre)),
         ];
     }
 
@@ -700,8 +743,8 @@ class DatosDocumentoService
     /**
      * De dónde salen los datos del PATRÓN para esta persona — para que RH
      * vea en la vista previa qué domicilio y qué representante legal se
-     * imprimirán (y si se está usando el valor predeterminado del registro
-     * jurídico en vez del capturado en la empresa).
+     * imprimirán. Sin dato capturado la fuente es «falta» (el documento que
+     * lo pida no se genera): ya no hay valores predeterminados ocultos.
      *
      * @return array{domicilio: array{valor: string, fuente: string, configurado: string}, representante: array{valor: string, fuente: string}}
      */
@@ -710,43 +753,85 @@ class DatosDocumentoService
         $contexto->colaborador->loadMissing('sucursalPrincipal.empresa');
         $sucursal = $contexto->colaborador->sucursalPrincipal;
         $empresa = $sucursal?->empresa;
-        $defecto = (array) config('documentos_maestros.empresa_defecto', []);
-        $configurado = FuenteDomicilioPatron::tryFrom((string) config('documentos_maestros.domicilio_patron')) === FuenteDomicilioPatron::Sucursal ? 'sucursal' : 'fiscal';
-        $fiscalEmpresa = trim((string) $empresa?->domicilio_fiscal);
-        $deSucursal = $this->domicilioSucursal($sucursal);
-
-        [$domicilio, $fuenteDomicilio] = match (true) {
-            $configurado === 'sucursal' && $deSucursal !== '' => [$deSucursal, 'sucursal'],
-            $fiscalEmpresa !== '' => [$fiscalEmpresa, 'fiscal'],
-            default => [(string) ($defecto['domicilio'] ?? ''), 'predeterminado'],
-        };
-
+        $configurado = $this->domicilioPatronDeSucursal() ? 'sucursal' : 'fiscal';
+        $domicilio = $this->domicilioPatron($empresa, $sucursal);
         $representanteEmpresa = trim((string) $empresa?->representante_legal_nombre);
 
         return [
-            'domicilio' => ['valor' => $domicilio, 'fuente' => $fuenteDomicilio, 'configurado' => $configurado],
-            'representante' => $representanteEmpresa !== ''
-                ? ['valor' => $representanteEmpresa, 'fuente' => 'empresa']
-                : ['valor' => trim((string) ($defecto['representante_legal_nombre'] ?? '')), 'fuente' => 'predeterminado'],
+            'domicilio' => ['valor' => $domicilio, 'fuente' => $domicilio === '' ? 'falta' : $configurado, 'configurado' => $configurado],
+            'representante' => ['valor' => $representanteEmpresa, 'fuente' => $representanteEmpresa !== '' ? 'empresa' : 'falta'],
         ];
     }
 
     /**
-     * Domicilio del patrón según Configuración → Parámetros de RH: el fiscal
-     * de la empresa o el de la sucursal del colaborador (si la sucursal no lo
-     * tiene capturado, el fiscal).
+     * Domicilio del patrón según Configuración → Documentos: el fiscal de
+     * la empresa o el de la sucursal del colaborador. Sin el elegido
+     * capturado queda vacío (falta): nunca se cambia en silencio al otro.
      */
-    private function domicilioPatron(?Empresa $empresa, ?Sucursal $sucursal, string $respaldo): string
+    private function domicilioPatron(?Empresa $empresa, ?Sucursal $sucursal): string
     {
-        $fiscal = trim((string) $empresa?->domicilio_fiscal) !== '' ? trim((string) $empresa?->domicilio_fiscal) : $respaldo;
-
-        if (FuenteDomicilioPatron::tryFrom((string) config('documentos_maestros.domicilio_patron')) !== FuenteDomicilioPatron::Sucursal) {
-            return $fiscal;
+        if ($this->domicilioPatronDeSucursal()) {
+            return $this->domicilioSucursal($sucursal);
         }
 
-        $deSucursal = $this->domicilioSucursal($sucursal);
+        return trim((string) $empresa?->domicilio_fiscal);
+    }
 
-        return $deSucursal !== '' ? $deSucursal : $fiscal;
+    private function domicilioPatronDeSucursal(): bool
+    {
+        return FuenteDomicilioPatron::tryFrom((string) config('documentos_maestros.domicilio_patron')) === FuenteDomicilioPatron::Sucursal;
+    }
+
+    /**
+     * «Calle y número, col. Colonia, Municipio, Estado, C.P. 00000» con lo
+     * capturado (sin repetir lo que ya trae la calle).
+     */
+    private function domicilioCompleto(Colaborador $c): string
+    {
+        $calle = trim((string) $c->domicilio);
+
+        if ($calle === '') {
+            return '';
+        }
+
+        $segmentos = array_map(fn (string $p): string => mb_strtolower(trim($p)), explode(',', $calle));
+        $partes = [$calle];
+
+        foreach ([
+            $c->domicilio_colonia ? sprintf('col. %s', trim((string) $c->domicilio_colonia)) : null,
+            trim((string) $c->domicilio_municipio),
+            trim((string) $c->domicilio_estado),
+            $c->domicilio_cp ? sprintf('C.P. %s', trim((string) $c->domicilio_cp)) : null,
+        ] as $parte) {
+            if ($parte !== null && $parte !== '' && ! in_array(mb_strtolower($parte), $segmentos, true)) {
+                $partes[] = $parte;
+            }
+        }
+
+        return implode(', ', $partes);
+    }
+
+    /**
+     * «María López (Madre) · Tel. 7771234567 · Calle Ejemplo 123»: solo con
+     * el nombre capturado; las demás partes se omiten si están vacías.
+     */
+    private function contactoEmergenciaCompleto(Colaborador $c): string
+    {
+        $nombre = trim((string) $c->contacto_emergencia_nombre);
+
+        if ($nombre === '') {
+            return '';
+        }
+
+        $parentesco = trim((string) $c->contacto_emergencia_parentesco);
+        $telefono = trim((string) $c->contacto_emergencia_telefono);
+        $direccion = trim((string) $c->contacto_emergencia_direccion);
+
+        return implode(' · ', array_filter([
+            $parentesco !== '' ? sprintf('%s (%s)', $nombre, $parentesco) : $nombre,
+            $telefono !== '' ? sprintf('Tel. %s', $telefono) : '',
+            $direccion,
+        ], fn (string $p): bool => $p !== ''));
     }
 
     private function domicilioSucursal(?Sucursal $sucursal): string

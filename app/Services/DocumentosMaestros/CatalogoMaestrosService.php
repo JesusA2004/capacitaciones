@@ -2,18 +2,41 @@
 
 namespace App\Services\DocumentosMaestros;
 
+use App\Models\DocumentTemplate;
+
 /**
- * Lectura del registro versionado config/documentos_maestros.php. Las
- * familias llevan punto en su clave (contrato_capacitacion.gestor), así que
- * NUNCA se leen con la notación de puntos de config(): siempre desde el
- * arreglo completo.
+ * Catálogo de familias de documentos maestros:
+ *
+ *  - HEREDADAS: el registro versionado config/documentos_maestros.php (los
+ *    formatos de Jurídico que ya existían). Las familias llevan punto en su
+ *    clave (contrato_capacitacion.gestor), así que NUNCA se leen con la
+ *    notación de puntos de config(): siempre desde el arreglo completo.
+ *  - NO-CODE: familias creadas desde Documentos maestros → «Nuevo formato»,
+ *    que solo existen en base de datos. Su definición sale de las columnas
+ *    de su versión más reciente (metaDe()) y de sus espacios
+ *    (DefinicionMaestroService). No requieren editar PHP ni config.
  */
 class CatalogoMaestrosService
 {
+    /** @var array<string, array<string, mixed>>|null */
+    private ?array $familiasBd = null;
+
     /**
      * @return array<string, array<string, mixed>>
      */
     public function definiciones(): array
+    {
+        $legado = $this->definicionesLegado();
+
+        return [...$legado, ...$this->familiasBd(array_keys($legado))];
+    }
+
+    /**
+     * Solo el registro heredado (config).
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public function definicionesLegado(): array
     {
         $documentos = config('documentos_maestros.documentos', []);
 
@@ -23,11 +46,97 @@ class CatalogoMaestrosService
     /**
      * @return array<string, mixed>|null
      */
-    public function definicion(string $familia): ?array
+    public function definicionLegado(string $familia): ?array
     {
-        $definicion = $this->definiciones()[$familia] ?? null;
+        $definicion = $this->definicionesLegado()[$familia] ?? null;
 
         return is_array($definicion) ? $definicion : null;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function definicion(string $familia): ?array
+    {
+        $definicion = $this->definicionLegado($familia) ?? $this->definiciones()[$familia] ?? null;
+
+        if ($definicion === null) {
+            // Familia recién creada en esta misma petición.
+            $this->familiasBd = null;
+            $definicion = $this->definiciones()[$familia] ?? null;
+        }
+
+        return is_array($definicion) ? $definicion : null;
+    }
+
+    /**
+     * Definición de una familia NO-CODE a partir de las columnas de una de
+     * sus versiones (mismo formato que una entrada de config).
+     *
+     * @return array<string, mixed>
+     */
+    public function metaDe(DocumentTemplate $version): array
+    {
+        $configuracion = (array) ($version->configuracion ?? []);
+
+        return [
+            'clave' => (string) $version->clave,
+            'nombre' => (string) $version->nombre,
+            'proceso' => $version->proceso,
+            'evento' => $version->evento,
+            'causa' => $version->causa,
+            'grupos' => $version->grupos_puesto,
+            'motor' => $version->motor->value,
+            'categoria' => $version->categoria?->value,
+            'operativo' => $version->operativo,
+            'no_code' => true,
+            'banderas' => [
+                'requiere_impresion' => $version->requiere_impresion,
+                'requiere_firma_fisica' => $version->requiere_firma_fisica,
+                'requiere_huella' => $version->requiere_huella,
+                'requiere_testigos' => $version->requiere_testigos,
+                'requiere_envio_corporativo' => $version->requiere_envio_corporativo,
+                'cantidad_testigos' => $version->cantidad_testigos,
+            ],
+            'representante' => (string) ($configuracion['representante'] ?? 'empresa'),
+            'fuentes' => [],
+        ];
+    }
+
+    /**
+     * @param  list<string>  $excluir
+     * @return array<string, array<string, mixed>>
+     */
+    private function familiasBd(array $excluir): array
+    {
+        if ($this->familiasBd !== null) {
+            return $this->familiasBd;
+        }
+
+        $familias = [];
+
+        $versiones = DocumentTemplate::query()
+            ->whereNotNull('familia')
+            ->whereNotNull('estado_master')
+            ->when($excluir !== [], fn ($q) => $q->whereNotIn('familia', $excluir))
+            ->orderBy('version')
+            ->get();
+
+        foreach ($versiones->groupBy('familia') as $familia => $deFamilia) {
+            /** @var DocumentTemplate $ultima */
+            $ultima = $deFamilia->last();
+            $definicion = $this->metaDe($ultima);
+
+            foreach ($deFamilia as $version) {
+                if ($version->original_hash !== null) {
+                    $definicion['fuentes'][$version->original_hash] = ['version' => $version->version, 'activa' => $version->activo];
+                }
+            }
+
+            $familias[(string) $familia] = $definicion;
+        }
+
+        return $this->familiasBd = $familias;
     }
 
     /**

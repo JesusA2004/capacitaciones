@@ -38,9 +38,32 @@ class PreparacionMaestroService
         $motor = (string) ($definicion['motor'] ?? 'docx');
         $operativo = (bool) ($definicion['operativo'] ?? true);
 
-        return $motor === 'pdf_overlay'
+        $preparado = $motor === 'pdf_overlay'
             ? $this->prepararPdf($original, $definicion, $operativo)
             : $this->prepararDocx($original, $definicion, $version, $operativo);
+
+        // Campos calculados (transformación o expresión compuesta del editor):
+        // viajan en el mapa compilado. Solo se agregan si existen, para que el
+        // mapa de un formato heredado no cambie ni un byte.
+        $expresiones = array_filter((array) ($definicion['expresiones'] ?? []), 'is_array');
+
+        if ($expresiones !== []) {
+            $preparado['mapping']['expresiones'] = $expresiones;
+        }
+
+        // Espacios que RH aún no confirma en el editor: la versión no se activa.
+        $extra = array_values(array_filter((array) ($definicion['pendientes_extra'] ?? []), 'is_array'));
+
+        if ($extra !== []) {
+            $preparado['analisis']['pendientes'] = [...(array) ($preparado['analisis']['pendientes'] ?? []), ...$extra];
+            $preparado['analisis']['detectados'] = (int) ($preparado['analisis']['detectados'] ?? 0) + count($extra);
+
+            if ($preparado['estado'] === 'listo') {
+                $preparado['estado'] = 'con_pendientes';
+            }
+        }
+
+        return $preparado;
     }
 
     /**

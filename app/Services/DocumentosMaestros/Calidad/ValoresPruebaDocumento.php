@@ -2,6 +2,8 @@
 
 namespace App\Services\DocumentosMaestros\Calidad;
 
+use App\Services\DocumentosMaestros\Variables\ExpresionesDocumentoService;
+
 /**
  * Datos de prueba LARGOS pero realistas para el QA visual de un master
  * ("prueba de estrés"): si con estos valores el documento cambia de número
@@ -21,6 +23,8 @@ class ValoresPruebaDocumento
     public const SUCURSAL = 'Pachuca de Soto Centro Histórico';
 
     public const PUESTO = 'Gerente de Sucursal de Crédito Grupal';
+
+    public function __construct(private readonly ExpresionesDocumentoService $expresiones) {}
 
     /**
      * Valor de prueba para un campo del master (por nombre de campo).
@@ -49,6 +53,29 @@ class ValoresPruebaDocumento
         return $valores;
     }
 
+    /**
+     * Valores de prueba para los campos de un mapa compilado, incluidos los
+     * CALCULADOS (transformación/expresión del editor): se arman con los
+     * datos largos de cada pieza, igual que en una generación real.
+     *
+     * @param  array<string, mixed>  $mapping
+     * @param  list<string>  $campos
+     * @return array<string, string>
+     */
+    public function valoresDe(array $mapping, array $campos): array
+    {
+        $expresiones = array_filter((array) ($mapping['expresiones'] ?? []), 'is_array');
+        $base = [];
+
+        foreach ($expresiones as $especificacion) {
+            $base = [...$base, ...$this->valores($this->expresiones->variablesDe($especificacion)['todas'])];
+        }
+
+        $valores = [...$base, ...$this->valores(array_values(array_diff($campos, array_keys($expresiones))))];
+
+        return array_intersect_key($this->expresiones->completar($mapping, $valores), array_flip($campos));
+    }
+
     private function porNombre(string $campo): string
     {
         return match (true) {
@@ -59,6 +86,10 @@ class ValoresPruebaDocumento
             str_contains($campo, 'nombre_completo'), $campo === 'colaborador_nombre' => self::NOMBRE,
             str_contains($campo, 'representante') => 'Lesli Maribel Rodríguez Herrera',
             str_contains($campo, 'gerente_nombre'), str_contains($campo, 'jefe'), str_contains($campo, 'testigo'), str_contains($campo, 'beneficiario_nombre') => 'María Guadalupe Fernández de la Torre',
+            $campo === 'contacto_emergencia_completo' => 'María Guadalupe Fernández de la Torre (Cónyuge) · Tel. 7712345678 · Avenida Revolución número 1520, colonia Centro Histórico',
+            $campo === 'contacto_emergencia_direccion' => 'Avenida Revolución número 1520, local 3, colonia Centro Histórico, C.P. 42000',
+            str_contains($campo, 'contacto_emergencia_nombre') => 'María Guadalupe Fernández de la Torre',
+            $campo === 'domicilio_completo' => self::DOMICILIO,
             str_contains($campo, 'parentesco') => 'Cónyuge',
             str_contains($campo, 'sucursal_domicilio'), str_contains($campo, 'sucursal_direccion') => 'Avenida Revolución número 1520, local 3, colonia Centro Histórico, C.P. 42000',
             str_contains($campo, 'domicilio_colonia') => 'Lomas de la Selva Norte',

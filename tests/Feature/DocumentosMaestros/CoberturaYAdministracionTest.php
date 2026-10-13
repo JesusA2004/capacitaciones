@@ -168,8 +168,10 @@ test('probar con colaborador: resumen comparativo (páginas, fidelidad, campos, 
     $resumen = $this->actingAs($this->rh)->postJson("/rh/documentos-maestros/{$master->id}/probar", ['colaborador_id' => $colaborador->id])->assertOk()->json('data');
 
     expect($resumen)->toHaveKeys(['paginas', 'fidelidad', 'campos', 'desbordes', 'fuentes', 'patron', 'url_resultado', 'url_original'])
-        ->and($resumen['patron']['representante']['fuente'])->toBe('predeterminado')
-        ->and($resumen['patron']['domicilio']['fuente'])->toBeIn(['fiscal', 'predeterminado', 'sucursal'])
+        // Sin valores predeterminados ocultos: el representante sale de la
+        // empresa (o «falta», nunca un supuesto).
+        ->and($resumen['patron']['representante']['fuente'])->toBeIn(['empresa', 'falta'])
+        ->and($resumen['patron']['domicilio']['fuente'])->toBeIn(['fiscal', 'sucursal', 'falta'])
         ->and($resumen['campos']['total'])->toBeGreaterThan(5);
 
     $this->actingAs($this->rh)->get($resumen['url_resultado'])->assertOk()->assertHeader('Content-Type', 'application/pdf');

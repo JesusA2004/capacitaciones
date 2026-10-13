@@ -129,7 +129,7 @@ class ValidacionVisualMaestroService
         $motor = $pdfOriginal['conversor'];
         $docxIdentidad = $this->rellenador->restaurarOriginal($docxMaster, $instancias);
         $campos = array_values(array_unique(array_map(fn (array $i): string => $i['campo'], $instancias)));
-        $valores = $this->valoresPrueba->valores($campos);
+        $valores = $this->valoresPrueba->valoresDe((array) ($master->mapping ?? []), $campos);
         $docxPrueba = $this->rellenador->rellenar($docxMaster, $instancias, $valores)['docx'];
         $pdfIdentidad = $this->conversor->convertirFiel($docxIdentidad, [$motor]);
         $pdfPrueba = $this->conversor->convertirFiel($docxPrueba, [$motor]);
@@ -212,7 +212,7 @@ class ValidacionVisualMaestroService
 
         $base = $this->overlay->renderizarConReporte($pdfMaster, [], [], $paginas, $copias);
         $nombres = array_values(array_unique(array_map(fn (array $c): string => (string) $c['campo'], $campos)));
-        $valores = $this->valoresPrueba->valores($nombres);
+        $valores = $this->valoresPrueba->valoresDe($mapping, $nombres);
         $prueba = $this->overlay->renderizarConReporte($pdfMaster, $campos, $valores, $paginas, $copias);
         $dpi = (int) config('documentos_maestros.validacion_visual.dpi', 40);
         $rasterOriginal = $this->rasterizador->rasterizar($pdfOriginal, $dpi);

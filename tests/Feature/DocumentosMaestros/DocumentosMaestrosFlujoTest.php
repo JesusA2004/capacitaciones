@@ -169,14 +169,16 @@ test('datos faltantes: 422 DATOS_FALTANTES y se completan en la ficha sin volver
 
     $respuesta = $this->postJson("/api/v1/rh/documentos-proceso/contrato/{$contrato->id}/generar", ['clave' => 'contrato_capacitacion', 'proceso' => 'alta'])
         ->assertUnprocessable()->assertJsonPath('code', 'DATOS_FALTANTES');
-    // Sin nacionalidad capturada el documento dice «Mexicana»: nunca falta.
-    expect(array_column($respuesta->json('faltantes'), 'columna'))->toContain('estado_civil')->not->toContain('nacionalidad');
+    // Dato legal: sin nacionalidad capturada el contrato NO se genera (antes
+    // se asumía «Mexicana»); se pide junto con los demás faltantes.
+    expect(array_column($respuesta->json('faltantes'), 'columna'))->toContain('estado_civil')->toContain('nacionalidad');
 
     $this->postJson("/api/v1/rh/documentos-proceso/contrato/{$contrato->id}/generar", [
-        'clave' => 'contrato_capacitacion', 'proceso' => 'alta', 'completar' => ['estado_civil' => 'casado'],
+        'clave' => 'contrato_capacitacion', 'proceso' => 'alta', 'completar' => ['estado_civil' => 'casado', 'nacionalidad' => 'Mexicana'],
     ])->assertCreated();
 
-    expect($colaborador->refresh()->estado_civil)->not->toBeNull();
+    expect($colaborador->refresh()->estado_civil)->not->toBeNull()
+        ->and($colaborador->nacionalidad)->toBe('Mexicana');
 });
 
 test('formato faltante: 422 DOCUMENT_TEMPLATE_MISSING, nunca otro formato en silencio', function () {

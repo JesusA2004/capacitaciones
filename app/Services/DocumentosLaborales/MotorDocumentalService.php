@@ -30,6 +30,7 @@ use App\Services\DocumentosMaestros\Docx\RellenadorDocx;
 use App\Services\DocumentosMaestros\LayoutDocumentoService;
 use App\Services\DocumentosMaestros\Pdf\RenderizadorOverlayMaestro;
 use App\Services\DocumentosMaestros\ResolvedorMaestroService;
+use App\Services\DocumentosMaestros\Variables\ExpresionesDocumentoService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Formatos\GeneradorFormatoService;
 use App\Services\Formatos\Motor\ConversorDocxPdf;
@@ -87,6 +88,7 @@ class MotorDocumentalService
         private readonly AlmacenMaestrosService $almacen,
         private readonly ConversorDocxPdf $conversor,
         private readonly LayoutDocumentoService $layout,
+        private readonly ExpresionesDocumentoService $expresiones,
     ) {}
 
     /**
@@ -336,7 +338,7 @@ class MotorDocumentalService
     public function generarDesdeMaestro(DocumentTemplate $master, ContextoDocumento $contexto, User $actor, ?Model $documentable = null, ?string $titulo = null, ?string $proceso = null, ?GeneratedDocument $revisionDe = null, ?string $motivoRevision = null): GeneratedDocument
     {
         $colaborador = $contexto->colaborador;
-        $valores = $this->datos->resolver($contexto);
+        $valores = $this->expresiones->completar((array) ($master->mapping ?? []), $this->datos->resolver($contexto));
         $this->exigirCompletos($master, $valores);
         $render = $this->renderizarMaestro($master, $valores);
         $titulo ??= $master->nombre;
@@ -384,7 +386,7 @@ class MotorDocumentalService
      */
     public function previsualizarMaestro(DocumentTemplate $master, ContextoDocumento $contexto): array
     {
-        $valores = $this->datos->resolver($contexto);
+        $valores = $this->expresiones->completar((array) ($master->mapping ?? []), $this->datos->resolver($contexto));
         $faltantes = $this->faltantesDe($master, $valores);
         $reales = $valores;
 
@@ -486,20 +488,29 @@ class MotorDocumentalService
     private function camposRequeridosDe(DocumentTemplate $master): array
     {
         $mapping = (array) ($master->mapping ?? []);
-
-        if (($mapping['motor'] ?? 'docx') === 'pdf_overlay') {
-            return array_values(array_unique(array_map('strval', (array) ($mapping['requeridos'] ?? []))));
-        }
-
         $requeridos = [];
 
-        foreach ((array) ($mapping['instancias'] ?? []) as $instancia) {
-            if (is_array($instancia) && ! ($instancia['opcional'] ?? false)) {
-                $requeridos[] = (string) $instancia['campo'];
+        if (($mapping['motor'] ?? 'docx') === 'pdf_overlay') {
+            $requeridos = array_map('strval', (array) ($mapping['requeridos'] ?? []));
+        } else {
+            foreach ((array) ($mapping['instancias'] ?? []) as $instancia) {
+                if (is_array($instancia) && ! ($instancia['opcional'] ?? false)) {
+                    $requeridos[] = (string) $instancia['campo'];
+                }
             }
         }
 
-        return array_values(array_unique($requeridos));
+        // Un campo calculado (transformación/expresión del editor) requiere
+        // los datos del catálogo que usa: esos son los que se piden si faltan.
+        $expresiones = (array) ($mapping['expresiones'] ?? []);
+        $expandidos = [];
+
+        foreach ($requeridos as $campo) {
+            $especificacion = $expresiones[$campo] ?? null;
+            $expandidos = [...$expandidos, ...(is_array($especificacion) ? $this->expresiones->variablesDe($especificacion)['requeridas'] : [$campo])];
+        }
+
+        return array_values(array_unique($expandidos));
     }
 
     /**
@@ -581,7 +592,7 @@ class MotorDocumentalService
                     array_values(array_map('floatval', (array) ($mapping['copias_offset_y'] ?? [0.0]))),
                     $leyenda,
                 );
-                $desbordes = $this->etiquetarDesbordes($render['desbordes']);
+                $desbordes = $this->etiquetarDesbordes($render['desbordes'], $mapping);
 
                 if ($definitivo && $desbordes !== []) {
                     throw CampoDocumentoDesbordadoException::para($master->nombre, $desbordes);
@@ -633,7 +644,7 @@ class MotorDocumentalService
         // Un Word que crece una página respecto al original = algún dato no
         // cupo donde el formato lo esperaba (renglón corrido, hoja extra).
         if ($esperadas !== null && $paginas !== $esperadas) {
-            $desbordes = $this->sospechososDeDesborde($instancias, $valores, $paginas, $esperadas);
+            $desbordes = $this->sospechososDeDesborde($instancias, $valores, $paginas, $esperadas, $mapping);
 
             if ($definitivo) {
                 throw CampoDocumentoDesbordadoException::para($master->nombre, $desbordes, sprintf('el original tiene %d página(s) y con estos datos saldría de %d', $esperadas, $paginas));
@@ -687,11 +698,29 @@ class MotorDocumentalService
 
     /**
      * @param  list<array{campo: string, valor: string, razon: string}>  $desbordes
+     * @param  array<string, mixed>  $mapping
      * @return list<array{campo: string, etiqueta: string, valor: string, razon: string}>
      */
-    private function etiquetarDesbordes(array $desbordes): array
+    private function etiquetarDesbordes(array $desbordes, array $mapping): array
     {
-        return array_map(fn (array $d): array => [...$d, 'etiqueta' => (string) $this->datos->fuente($d['campo'])['etiqueta']], $desbordes);
+        return array_map(fn (array $d): array => [...$d, 'etiqueta' => $this->etiquetaCampo($mapping, (string) $d['campo'])], $desbordes);
+    }
+
+    /**
+     * Nombre humano de un campo del mapa: el del espacio del editor para
+     * los calculados, si no el del dato.
+     *
+     * @param  array<string, mixed>  $mapping
+     */
+    private function etiquetaCampo(array $mapping, string $campo): string
+    {
+        $especificacion = ((array) ($mapping['expresiones'] ?? []))[$campo] ?? null;
+
+        if (is_array($especificacion) && is_string($especificacion['etiqueta'] ?? null) && $especificacion['etiqueta'] !== '') {
+            return $especificacion['etiqueta'];
+        }
+
+        return (string) $this->datos->fuente($campo)['etiqueta'];
     }
 
     /**
@@ -700,9 +729,10 @@ class MotorDocumentalService
      *
      * @param  array<int, array{campo: string, original: string}>  $instancias
      * @param  array<string, string>  $valores
+     * @param  array<string, mixed>  $mapping
      * @return list<array{campo: string, etiqueta: string, valor: string, razon: string}>
      */
-    private function sospechososDeDesborde(array $instancias, array $valores, int $paginas, int $esperadas): array
+    private function sospechososDeDesborde(array $instancias, array $valores, int $paginas, int $esperadas, array $mapping): array
     {
         $candidatos = [];
 
@@ -721,7 +751,7 @@ class MotorDocumentalService
         foreach (array_slice($candidatos, 0, 3, true) as $campo => $c) {
             $resultado[] = [
                 'campo' => (string) $campo,
-                'etiqueta' => (string) $this->datos->fuente((string) $campo)['etiqueta'],
+                'etiqueta' => $this->etiquetaCampo($mapping, (string) $campo),
                 'valor' => $c['valor'],
                 'razon' => sprintf('%d caracteres más que el espacio del formato; el documento pasa de %d a %d páginas.', $c['exceso'], $esperadas, $paginas),
             ];
