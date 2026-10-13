@@ -21,7 +21,7 @@ class PendienteRhNotification extends Notification implements ShouldQueue
     use BroadcastsNotificacion, Queueable;
 
     /**
-     * @param  array<string, string>  $ruteo
+     * @param  array<string, scalar|null>  $ruteo  Por qué le llegó + extras del aviso (categoria, evento...).
      */
     public function __construct(
         private readonly string $tipo,

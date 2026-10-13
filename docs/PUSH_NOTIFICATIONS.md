@@ -7,6 +7,16 @@ Dos canales de entrega para el mismo evento de negocio, resueltos siempre en el 
 
 Ambos parten de la misma notificación (`App\Notifications\Mobile\*`, canal `database` + `broadcast`): nunca hay dos piezas de lógica separadas para "avisar por push" y "avisar en tiempo real".
 
+> **Desde 2026-10:** todo aviso de negocio pasa por
+> `App\Services\Notificaciones\NotificacionEventosService` (confirmación al actor,
+> tarea al responsable, resultado al interesado; idempotencia en
+> `notificacion_entregas`; cola dedicada `notifications`; salida después del commit) y
+> existe la red de seguridad `notificaciones:reconciliar` (cada minuto). La matriz de
+> eventos y el diagnóstico están en [`NOTIFICACIONES_EVENTOS.md`](NOTIFICACIONES_EVENTOS.md);
+> los procesos supervisados, en `deploy/supervisor/` y `docs/DEPLOY.md`. La app usa
+> Expo Push como tiempo real práctico (no necesita Echo/Pusher); la web, Reverb con
+> respaldo de consulta cada 30 s.
+
 ## 1. Push vía Expo
 
 ### Config

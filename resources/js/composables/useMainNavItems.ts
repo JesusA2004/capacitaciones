@@ -41,6 +41,7 @@ import { index as indexConfiguracion } from '@/routes/administracion/configuraci
 import { index as indexDepartamentos } from '@/routes/administracion/departamentos';
 import { index as indexEmpresas } from '@/routes/administracion/empresas';
 import { index as indexJerarquiaPuestos } from '@/routes/administracion/jerarquia-puestos';
+import { index as indexNotificacionesSistema } from '@/routes/administracion/notificaciones-sistema';
 import { index as indexPuestos } from '@/routes/administracion/puestos';
 import { index as indexRoles } from '@/routes/administracion/roles';
 import { index as indexSucursales } from '@/routes/administracion/sucursales';
@@ -380,6 +381,13 @@ export function useMainNavItems() {
                 title: 'Configuración',
                 href: indexConfiguracion(),
                 icon: Settings2,
+            },
+            // Consulta de solo lectura de los avisos de todos + estado de
+            // colas/Reverb/Expo. La campana sigue siendo solo de uno mismo.
+            tienePermiso('notificaciones.ver_todas') && {
+                title: 'Notificaciones del sistema',
+                href: indexNotificacionesSistema(),
+                icon: BellRing,
             },
             sinConfiguracion &&
                 tienePermiso('app_releases.ver') && {

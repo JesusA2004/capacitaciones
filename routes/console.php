@@ -72,6 +72,14 @@ Schedule::command('nomina:procesar-quincenas')
     ->withoutOverlapping()
     ->onOneServer();
 
+// Red de seguridad de avisos (docs/NOTIFICACIONES_EVENTOS.md): pendientes
+// abiertos de las últimas 48 h sin aviso para su responsable → se crea el
+// faltante UNA vez. Idempotente; el flujo normal ya avisa al instante.
+Schedule::command('notificaciones:reconciliar')
+    ->everyMinute()
+    ->withoutOverlapping(10)
+    ->onOneServer();
+
 // Limpia tokens de Sanctum ya vencidos (config/sanctum.php: expiration ya
 // no es null). Comando propio del paquete, solo borra filas cuyo
 // expires_at ya pasó — nunca toca un token todavía vigente.

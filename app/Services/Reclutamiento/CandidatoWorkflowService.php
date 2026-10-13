@@ -754,8 +754,13 @@ class CandidatoWorkflowService
 
             $usuario = $opciones['usuario'] ?? null;
 
-            if ($tarea !== null && $usuario instanceof User && $tarea->wasRecentlyCreated) {
-                $this->notificador->notificar([$usuario], $tipo->value, $tipo->etiqueta(), sprintf('%s · %s', $candidato->nombreCompleto(), $candidato->puestoObjetivo->nombre ?? 'candidato'), $candidato, $opciones['accion'] ?? null);
+            // Pendiente nuevo = aviso a quien lo atiende: la cuenta asignada
+            // o, si se asignó por permiso (filtro de RH, contratación…),
+            // todos los que lo ven en «Mis pendientes». Antes solo se avisaba
+            // al asignado directo y el resto se enteraba hasta abrir la bandeja.
+            if ($tarea !== null && $tarea->wasRecentlyCreated) {
+                $destinatarios = $usuario instanceof User ? [$usuario] : $this->tareas->destinatarios($tarea);
+                $this->notificador->notificar($destinatarios, $tipo->value, $tipo->etiqueta(), sprintf('%s · %s', $candidato->nombreCompleto(), $candidato->puestoObjetivo->nombre ?? 'candidato'), $candidato, $opciones['accion'] ?? null);
             }
         } catch (Throwable $e) {
             Log::warning('CandidatoWorkflowService: no se pudo actualizar la bandeja.', ['candidato_id' => $candidato->id, 'error' => $e->getMessage()]);

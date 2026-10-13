@@ -2,6 +2,7 @@
 
 namespace App\Services\Solicitudes;
 
+use App\Enums\AlcanceDatos;
 use App\Enums\CausalPermisoEspecial;
 use App\Enums\EstadoFiniquito;
 use App\Enums\EstadoSolicitudInterna;
@@ -17,12 +18,13 @@ use App\Models\SolicitudInternaDocumento;
 use App\Models\User;
 use App\Notifications\Mobile\RhSolicitudCreadaNotification;
 use App\Notifications\Mobile\SolicitudActualizadaNotification;
-use App\Services\AlcanceOrganizacionalService;
 use App\Services\Configuracion\WorkflowRoutingService;
 use App\Services\Expedientes\ActualizacionDatosService;
 use App\Services\Finiquitos\FiniquitoService;
-use App\Services\MobilePush\PushNotifier;
 use App\Services\Nomina\PrestamoService;
+use App\Services\Notificaciones\Aviso;
+use App\Services\Notificaciones\NotificacionEventosService;
+use App\Services\Permisos\AlcanceModuloService;
 use App\Services\RhMobile\ResponsableResolverService;
 use App\Services\Vacaciones\VacacionesService;
 use App\Support\Paginacion;
@@ -33,7 +35,6 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Notification as NotificationFacade;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
@@ -67,10 +68,9 @@ class SolicitudesService
     private ?array $ultimoResultadoDocumentoOficial = null;
 
     public function __construct(
-        private readonly AlcanceOrganizacionalService $alcance,
         private readonly SolicitudDocumentoStorageService $storage,
         private readonly ResponsableResolverService $responsables,
-        private readonly PushNotifier $push,
+        private readonly NotificacionEventosService $eventos,
         private readonly VacacionesService $vacaciones,
         private readonly BajaColaboradorService $bajaColaborador,
         private readonly FiniquitoService $finiquito,
@@ -82,6 +82,7 @@ class SolicitudesService
         private readonly WorkflowRoutingService $routing,
         private readonly FechasSolicitudService $fechas,
         private readonly ActualizacionDatosService $actualizacionDatos,
+        private readonly AlcanceModuloService $alcanceModulo,
     ) {}
 
     /**
@@ -197,8 +198,15 @@ class SolicitudesService
                     ? $this->routing->resolver('solicitud_creada', $solicitante->colaborador, ['solicitante' => $solicitante, 'excluir' => [$solicitante->id]])->pluck('usuario')
                     : $this->responsables->paraColaborador($solicitante, 'rh.solicitudes.aprobar');
 
-                NotificationFacade::send($responsables, new RhSolicitudCreadaNotification($solicitud));
-                $this->push->aUsuarios($responsables, 'rh_solicitud', $solicitud->id, 'Nueva solicitud por revisar', 'Un colaborador envió una solicitud.');
+                // Un solo flujo: confirmación a quien la envió (aunque sea
+                // RH o un admin) + tarea a quien la resuelve; si es la misma
+                // persona recibe UN aviso combinado. Todo sale tras el commit.
+                $this->eventos->registrarConPendiente(
+                    $solicitante,
+                    new Aviso('solicitud_creada', 'solicitud', $this->tituloConfirmacion($solicitud), sprintf('Tu solicitud %s (%s) quedó registrada y en revisión.', $solicitud->folio, mb_strtolower($solicitud->tipo->etiqueta())), $solicitud, 'registrada'),
+                    $responsables,
+                    new Aviso('solicitud_creada', 'rh_solicitud', 'Nueva solicitud por revisar', 'Un colaborador envió una solicitud.', $solicitud, 'revisar_solicitud', 'media', [], null, new RhSolicitudCreadaNotification($solicitud)),
+                );
             });
 
             return $solicitud;
@@ -224,6 +232,21 @@ class SolicitudesService
         } catch (Throwable $e) {
             Log::warning('SolicitudesService: fallo al notificar', ['message' => $e->getMessage()]);
         }
+    }
+
+    /**
+     * "Solicitud enviada", "Vacaciones solicitadas"… para la confirmación de
+     * quien hizo la solicitud.
+     */
+    private function tituloConfirmacion(SolicitudInterna $solicitud): string
+    {
+        return match ($solicitud->tipo) {
+            TipoSolicitudInterna::Vacaciones => 'Vacaciones solicitadas',
+            TipoSolicitudInterna::PrestamoInterno => 'Préstamo solicitado',
+            TipoSolicitudInterna::BajaColaborador => 'Baja solicitada',
+            TipoSolicitudInterna::ActualizacionDatos => 'Cambio de datos enviado',
+            default => 'Solicitud enviada',
+        };
     }
 
     /**
@@ -377,17 +400,25 @@ class SolicitudesService
      */
     private function limitarPorAlcance(Builder $query, User $revisor): Builder
     {
-        if ($this->alcance->tieneAlcanceGlobal($revisor)) {
+        // Alcance del módulo «Solicitudes» (Roles y permisos): Propios,
+        // Equipo, Sucursal, Región o Todos. Ver ≠ aprobar: las acciones
+        // las sigue decidiendo SolicitudInternaPolicy.
+        $nivel = $this->alcanceModulo->nivel($revisor, 'solicitudes');
+
+        if ($nivel === AlcanceDatos::Todos) {
             return $query;
         }
 
-        if ($this->alcance->tieneAlcanceDeSucursal($revisor)) {
-            return $query->whereIn('sucursal_id', $this->alcance->sucursalesVisiblesIds($revisor));
+        if ($nivel === AlcanceDatos::Sucursal || $nivel === AlcanceDatos::Region) {
+            $sucursales = $this->alcanceModulo->sucursalesPara($revisor, $nivel)->all();
+
+            return $query->where(fn (Builder $q) => $q->whereIn('sucursal_id', $sucursales)->orWhere('user_id', $revisor->id));
         }
 
-        if ($revisor->hasRole('jefe_directo')) {
+        if ($nivel === AlcanceDatos::Equipo) {
             return $query->where(fn (Builder $q) => $q
-                ->whereHas('colaborador', fn (Builder $u) => $u->where('jefe_id', $revisor->colaborador_id))
+                ->where('user_id', $revisor->id)
+                ->orWhereHas('colaborador', fn (Builder $u) => $u->where('jefe_id', $revisor->colaborador_id))
                 ->orWhereHas('usuario.colaborador', fn (Builder $u) => $u->where('jefe_id', $revisor->colaborador_id)));
         }
 
@@ -616,13 +647,18 @@ class SolicitudesService
             ], true)) {
                 $this->notificarSinFallar(function () use ($solicitud): void {
                     $solicitud->loadMissing('usuario');
-                    NotificationFacade::send($solicitud->usuario, new SolicitudActualizadaNotification($solicitud));
-                    $this->push->aUsuarioConDatos(
-                        $solicitud->usuario,
+                    $this->eventos->avisarResultado($solicitud->usuario, new Aviso(
+                        'solicitud_actualizada',
+                        'solicitud',
                         'Actualización de tu solicitud',
                         "Tu solicitud ahora está: {$solicitud->estado->etiqueta()}.",
-                        ['type' => 'solicitud', 'resource_id' => $solicitud->id, 'estado' => $solicitud->estado->value],
-                    );
+                        $solicitud,
+                        $solicitud->estado->value,
+                        'media',
+                        ['estado' => $solicitud->estado->value],
+                        null,
+                        new SolicitudActualizadaNotification($solicitud),
+                    ));
                 });
             }
 

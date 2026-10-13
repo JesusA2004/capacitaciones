@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -150,6 +151,13 @@ class TareaService
             return false;
         }
 
+        // Nadie resuelve un pendiente sobre sí mismo (p. ej. autorizar sus
+        // propias vacaciones): a quien lo originó le llega la confirmación,
+        // no una tarea que no puede atender.
+        if ($tarea->colaborador_id !== null && $tarea->colaborador_id === $usuario->colaborador_id) {
+            return false;
+        }
+
         if ($this->alcance->tieneAlcanceGlobal($usuario)) {
             return true;
         }
@@ -165,6 +173,39 @@ class TareaService
         }
 
         return true;
+    }
+
+    /**
+     * Quiénes deben ATENDER esta tarea (y por tanto recibir su aviso): la
+     * cuenta asignada, o las cuentas activas con el permiso asignado y
+     * alcance sobre la persona — exactamente quienes la ven en «Mis
+     * pendientes». Visibilidad amplia (p. ej. Sistemas) no cuenta: sin el
+     * permiso de acción no se es destinatario.
+     *
+     * @return Collection<int, User>
+     */
+    public function destinatarios(TareaRh $tarea): Collection
+    {
+        if ($tarea->asignado_user_id !== null) {
+            return User::query()->where('id', $tarea->asignado_user_id)->whereNull('acceso_bloqueado_en')->get()->values();
+        }
+
+        if ($tarea->asignado_permiso === null) {
+            return collect();
+        }
+
+        try {
+            return User::query()
+                ->permission($tarea->asignado_permiso)
+                ->whereNull('acceso_bloqueado_en')
+                ->get()
+                ->filter(fn (User $usuario): bool => $this->esDestinatario($usuario, $tarea))
+                ->values();
+        } catch (Throwable $e) {
+            Log::warning('TareaService: no se pudieron resolver destinatarios.', ['tarea_id' => $tarea->id, 'error' => $e->getMessage()]);
+
+            return collect();
+        }
     }
 
     /**
@@ -243,8 +284,13 @@ class TareaService
             $q->where('asignado_user_id', $usuario->id);
 
             if ($permisos !== []) {
-                $q->orWhere(function (Builder $sub) use ($permisos, $colaboradoresVisibles, $sucursalesVisibles): void {
+                $q->orWhere(function (Builder $sub) use ($usuario, $permisos, $colaboradoresVisibles, $sucursalesVisibles): void {
                     $sub->whereNull('asignado_user_id')->whereIn('asignado_permiso', $permisos);
+
+                    // Un pendiente sobre uno mismo no es tarea propia (ver esDestinatario()).
+                    if ($usuario->colaborador_id !== null) {
+                        $sub->where(fn (Builder $p) => $p->whereNull('colaborador_id')->orWhere('colaborador_id', '!=', $usuario->colaborador_id));
+                    }
 
                     if ($colaboradoresVisibles !== null) {
                         // Pendientes de una persona: dentro del alcance. Pendientes de

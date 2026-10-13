@@ -13,7 +13,8 @@ use App\Models\User;
 use App\Notifications\Mobile\RhVacacionCreadaNotification;
 use App\Notifications\Mobile\VacacionActualizadaNotification;
 use App\Services\AlcanceOrganizacionalService;
-use App\Services\MobilePush\PushNotifier;
+use App\Services\Notificaciones\Aviso;
+use App\Services\Notificaciones\NotificacionEventosService;
 use App\Services\RhMobile\ResponsableResolverService;
 use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
@@ -22,7 +23,6 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Notification as NotificationFacade;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -41,7 +41,7 @@ class VacacionesService
 {
     public function __construct(
         private readonly ResponsableResolverService $responsables,
-        private readonly PushNotifier $push,
+        private readonly NotificacionEventosService $eventos,
         private readonly AlcanceOrganizacionalService $alcance,
     ) {}
 
@@ -261,8 +261,12 @@ class VacacionesService
         $this->notificarSinFallar(function () use ($solicitud, $colaborador): void {
             $responsables = $this->responsables->paraColaborador($colaborador, 'rh.vacaciones.aprobar');
 
-            NotificationFacade::send($responsables, new RhVacacionCreadaNotification($solicitud));
-            $this->push->aUsuarios($responsables, 'rh_vacaciones', $solicitud->id, 'Nueva solicitud de vacaciones', 'Un colaborador solicitó vacaciones.');
+            $this->eventos->registrarConPendiente(
+                $colaborador,
+                new Aviso('vacaciones_solicitadas', 'vacaciones', 'Vacaciones solicitadas', sprintf('Pediste %d día(s) de vacaciones; quedó en revisión.', (int) $solicitud->dias_solicitados), $solicitud, 'registrada'),
+                $responsables,
+                new Aviso('vacaciones_solicitadas', 'rh_vacaciones', 'Nueva solicitud de vacaciones', 'Un colaborador solicitó vacaciones.', $solicitud, 'revisar_vacaciones', 'media', [], null, new RhVacacionCreadaNotification($solicitud)),
+            );
         });
 
         return $solicitud;
@@ -302,8 +306,7 @@ class VacacionesService
 
             $this->notificarSinFallar(function () use ($solicitud): void {
                 $solicitud->loadMissing('usuario');
-                NotificationFacade::send($solicitud->usuario, new VacacionActualizadaNotification($solicitud));
-                $this->push->aUsuario($solicitud->usuario, 'vacaciones', $solicitud->id, 'Actualización de tus vacaciones', "Tu solicitud de vacaciones ahora está: {$solicitud->estado->etiqueta()}.");
+                $this->eventos->avisarResultado($solicitud->usuario, new Aviso('vacaciones_actualizadas', 'vacaciones', 'Actualización de tus vacaciones', "Tu solicitud de vacaciones ahora está: {$solicitud->estado->etiqueta()}.", $solicitud, $solicitud->estado->value, 'media', [], null, new VacacionActualizadaNotification($solicitud)));
             });
 
             return $solicitud;
@@ -355,8 +358,9 @@ class VacacionesService
      */
     private function queryRevision(User $revisor, array $filtros = []): Builder
     {
-        $idsUsuariosPermitidos = $this->alcance->limitarUsuariosPorAlcance(User::query(), $revisor)->pluck('id');
-        $idsColaboradoresPermitidos = $this->alcance->limitarColaboradoresPorAlcance(Colaborador::query(), $revisor)->pluck('id');
+        $colaboradoresPermitidos = $this->alcance->limitarPorModulo(Colaborador::query(), $revisor, 'vacaciones', 'id');
+        $idsColaboradoresPermitidos = (clone $colaboradoresPermitidos)->select('id');
+        $idsUsuariosPermitidos = User::query()->whereIn('colaborador_id', (clone $colaboradoresPermitidos)->select('id'))->orWhere('id', $revisor->id)->select('id');
 
         return SolicitudVacaciones::query()
             ->with([
@@ -367,12 +371,10 @@ class VacacionesService
                 'usuario.colaborador.sucursalPrincipal:id,nombre',
                 'revisadoPor:id,name,apellidos',
             ])
-            ->when(
-                ! $this->alcance->tieneAlcanceGlobal($revisor),
-                fn (Builder $query) => $query->where(fn (Builder $q) => $q
-                    ->whereIn('user_id', $idsUsuariosPermitidos)
-                    ->orWhereIn('colaborador_id', $idsColaboradoresPermitidos)),
-            )
+            // Alcance del módulo «Vacaciones» (Roles y permisos).
+            ->where(fn (Builder $q) => $q
+                ->whereIn('user_id', $idsUsuariosPermitidos)
+                ->orWhereIn('colaborador_id', $idsColaboradoresPermitidos))
             ->when($filtros['empresa_id'] ?? null, fn (Builder $q, $v) => $q->where(fn (Builder $sub) => $sub
                 ->whereHas('colaborador.sucursalPrincipal', fn ($s) => $s->where('empresa_id', $v))
                 ->orWhereHas('usuario.colaborador.sucursalPrincipal', fn ($s) => $s->where('empresa_id', $v))))

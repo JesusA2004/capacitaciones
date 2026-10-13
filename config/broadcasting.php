@@ -17,6 +17,10 @@ return [
 
     'default' => env('BROADCAST_CONNECTION', 'null'),
 
+    // Solo informativo (diagnóstico): el bundle web lee VITE_REVERB_ENABLED
+    // al hacer `npm run build`, no en tiempo de ejecución.
+    'vite_reverb_habilitado' => (bool) filter_var(env('VITE_REVERB_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
+
     /*
     |--------------------------------------------------------------------------
     | Broadcast Connections

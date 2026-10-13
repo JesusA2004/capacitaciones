@@ -7,6 +7,7 @@ use App\Http\Controllers\Administracion\DepartamentoController;
 use App\Http\Controllers\Administracion\EmpresaController;
 use App\Http\Controllers\Administracion\JerarquiaPuestoController;
 use App\Http\Controllers\Administracion\MatrizComercialController;
+use App\Http\Controllers\Administracion\NotificacionSistemaController;
 use App\Http\Controllers\Administracion\PuestoController;
 use App\Http\Controllers\Administracion\RolController;
 use App\Http\Controllers\Administracion\SucursalController;
@@ -121,6 +122,12 @@ Route::middleware(['auth', 'verified'])
         // URL en español (app-versiones) tal como la pidió el encargo; nombre
         // de ruta en inglés (app-releases) para que coincida con el modelo
         // MobileAppRelease y los servicios App\Services\AppReleases\*.
+        // «Notificaciones del sistema»: solo lectura de los avisos de todos +
+        // estado de colas/Reverb/Expo (docs/NOTIFICACIONES_EVENTOS.md).
+        Route::get('notificaciones', [NotificacionSistemaController::class, 'index'])
+            ->name('notificaciones-sistema.index')
+            ->middleware('can:notificaciones.ver_todas');
+
         Route::prefix('app-versiones')->name('app-releases.')->group(function () {
             Route::get('/', [AppReleaseController::class, 'index'])->name('index');
             Route::post('/', [AppReleaseController::class, 'store'])->name('store');

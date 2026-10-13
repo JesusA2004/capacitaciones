@@ -16,6 +16,14 @@ return [
     'default' => env('QUEUE_CONNECTION', 'database'),
 
     /*
+    | Cola dedicada de avisos (notificación en base de datos, broadcast de
+    | Reverb y push de Expo), separada de los trabajos pesados (PDF,
+    | extracción, video) para que un push nunca espere detrás de ellos.
+    | Ver docs/PUSH_NOTIFICATIONS.md y deploy/supervisor/.
+    */
+    'cola_notificaciones' => env('NOTIFICATIONS_QUEUE', 'notifications'),
+
+    /*
     |--------------------------------------------------------------------------
     | Queue Connections
     |--------------------------------------------------------------------------
@@ -40,8 +48,29 @@ return [
             'connection' => env('DB_QUEUE_CONNECTION'),
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => env('DB_QUEUE', 'default'),
-            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 90),
-            'after_commit' => false,
+            // Debe ser MAYOR que el timeout del job más largo de la cola
+            // general (AplicarMigracionExpedientesJob = 7200 s): si no, un job
+            // pesado todavía en curso se volvería a ejecutar en paralelo.
+            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 7260),
+            // Un job encolado dentro de DB::transaction() sale hasta el
+            // COMMIT: el worker nunca procesa una notificación sobre un
+            // registro que todavía no existe (o que se revirtió).
+            'after_commit' => (bool) env('DB_QUEUE_AFTER_COMMIT', true),
+        ],
+
+        // Misma tabla `jobs`, solo para el worker dedicado de avisos
+        // (deploy/supervisor/people-notifications.conf: `queue:work
+        // notificaciones --queue=notifications`). Su retry_after corto hace
+        // que un aviso atorado por un worker caído se reintente en minutos,
+        // no en dos horas como la cola general. Se encola con la conexión
+        // por defecto; esta conexión solo define cómo lo consume su worker.
+        'notificaciones' => [
+            'driver' => 'database',
+            'connection' => env('DB_QUEUE_CONNECTION'),
+            'table' => env('DB_QUEUE_TABLE', 'jobs'),
+            'queue' => env('NOTIFICATIONS_QUEUE', 'notifications'),
+            'retry_after' => (int) env('NOTIFICATIONS_QUEUE_RETRY_AFTER', 180),
+            'after_commit' => (bool) env('DB_QUEUE_AFTER_COMMIT', true),
         ],
 
         'beanstalkd' => [

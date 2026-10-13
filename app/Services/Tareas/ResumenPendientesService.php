@@ -34,6 +34,9 @@ use Throwable;
  * lotes de nómina por emitir). Cada tarjeta respeta el permiso y el alcance
  * organizacional del usuario (AlcanceOrganizacionalService) y lleva a la
  * pantalla donde se resuelve. Una tarjeta en cero no se muestra.
+ *
+ * Cada tarjeta exige un permiso de ACCIÓN, no de lectura: quien solo
+ * consulta (p. ej. Sistemas con lectura global) no tiene pendientes ajenos.
  */
 class ResumenPendientesService
 {
@@ -59,7 +62,7 @@ class ResumenPendientesService
                 fn () => $enAlcance(CambioFotoPerfil::query()->where('estado', EstadoCambioFoto::Pendiente->value))->count(), fn () => route('rh.cambios-foto.index')],
             ['evaluaciones', 'Evaluaciones de capacitación', 'Por capturar, corregir o autorizar.', 'oro', $usuario->can('evaluaciones.capturar') || $usuario->can('evaluaciones.autorizar'),
                 fn () => $this->evaluaciones($usuario), fn () => route('rh.evaluaciones.index')],
-            ['candidatos', 'Candidatos en proceso', 'Filtro RH, entrevista, psicométricos, socioeconómico o contratación.', 'neutro', $usuario->can('candidatos.ver'),
+            ['candidatos', 'Candidatos en proceso', 'Filtro RH, entrevista, psicométricos, socioeconómico o contratación.', 'neutro', $usuario->can('candidatos.editar') || $usuario->can('candidatos.evaluar') || $usuario->can('candidatos.aprobar'),
                 fn () => $this->alcance->limitarPorSucursal(Candidato::query()->whereIn('estado', array_map(fn (EstadoCandidato $e) => $e->value, array_filter(EstadoCandidato::cases(), fn (EstadoCandidato $e) => ! $e->esTerminal()))), $usuario)->count(), fn () => route('rh.candidatos.index')],
             ['intervenciones', 'Intervenciones', 'Rechazos de RH con intervención solicitada.', 'alerta', $usuario->can('candidatos.aprobar'),
                 fn () => IntervencionCandidato::query()->where('estado', EstadoIntervencionCandidato::Pendiente->value)->whereIn('candidato_id', $this->alcance->limitarPorSucursal(Candidato::query(), $usuario)->select('id'))->count(), fn () => route('rh.candidatos.index')],
@@ -71,7 +74,7 @@ class ResumenPendientesService
                 fn () => $enAlcance(FiniquitoCalculo::query()->where('estado', EstadoFiniquito::Borrador->value))->count(), fn () => route('rh.solicitudes.index', ['tipo' => 'baja_colaborador'])],
             ['datos_faltantes', 'Datos faltantes', 'Colaboradores activos con datos contractuales incompletos.', 'alerta', $usuario->can('expedientes.revisar'),
                 fn () => $this->datosFaltantes->conteoIncompletos($usuario), fn () => route('rh.expedientes.index', ['datos' => 'incompletos'])],
-            ['nomina', 'Lotes de nómina', 'Preparados y sin emitir (revisa errores antes de publicar).', 'oro', $usuario->can('nomina.recibos.ver'),
+            ['nomina', 'Lotes de nómina', 'Preparados y sin emitir (revisa errores antes de publicar).', 'oro', $usuario->can('nomina.recibos.crear'),
                 fn () => NominaLote::query()->where('estado', EstadoLoteNomina::Preparado->value)->when(! $global, fn (Builder $q) => $q->where('creado_por', $usuario->id))->count(), fn () => route('rh.nomina.lotes.index')],
         ];
 

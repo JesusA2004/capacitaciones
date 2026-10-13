@@ -15,12 +15,16 @@ use App\Policies\RolPolicy;
 use App\Services\Autenticacion\AutenticacionService;
 use App\Services\Configuracion\ConfiguracionSistemaService;
 use App\Services\Navigation\NavigationService;
+use App\Services\Notificaciones\MonitorNotificacionesService;
 use App\Services\Organigrama\JefeDirectoService;
 use Carbon\CarbonImmutable;
+use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Notifications\Events\NotificationSent;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
@@ -57,6 +61,43 @@ class AppServiceProvider extends ServiceProvider
         // las rutas personales (`can:modo-colaborador`), el dashboard y el
         // selector del sidebar — una sola definición, no `portal.ver` suelto.
         Gate::define(NavigationService::GATE_MODO_COLABORADOR, fn (User $usuario): bool => app(NavigationService::class)->puedeUsarModoColaborador($usuario));
+
+        // super_admin = todas las herramientas operativas, aunque su rol en
+        // producción haya quedado sin algún permiso nuevo del catálogo (deploy
+        // sin `people:sincronizar-permisos`). NO es un "todo vale" ciego:
+        // solo cubre permisos del catálogo OPERATIVO. Las capacidades
+        // personales (`modo-colaborador`, portal.*) y las reglas de las
+        // Policies (no autorizar lo propio, ser el evaluador…) siguen
+        // aplicando: un super_admin sin Colaborador no finge ser uno.
+        Gate::before(function (User $usuario, string $habilidad): ?bool {
+            return RolesYPermisosSeeder::esPermisoOperativo($habilidad) && $usuario->hasRole('super_admin') ? true : null;
+        });
+
+        // Diagnóstico de acceso (página 403 para super_admin/sistemas): la
+        // última habilidad negada en esta petición.
+        Gate::after(function (User $usuario, string $habilidad, ?bool $resultado, array $argumentos): void {
+            if ($resultado === false && ! app()->runningInConsole()) {
+                $modelo = collect($argumentos)->first(fn ($a): bool => is_object($a) || (is_string($a) && class_exists($a)));
+                request()->attributes->set('acceso_negado', [
+                    'habilidad' => $habilidad,
+                    'recurso' => is_object($modelo) ? class_basename($modelo) : (is_string($modelo) ? class_basename($modelo) : null),
+                ]);
+            }
+        });
+
+        // Monitoreo de avisos (people:diagnostico-notificaciones): cuándo
+        // salió la última notificación de base de datos y el último broadcast.
+        Event::listen(NotificationSent::class, function (NotificationSent $evento): void {
+            $clave = match ($evento->channel) {
+                'database' => MonitorNotificacionesService::ULTIMA_NOTIFICACION,
+                'broadcast' => MonitorNotificacionesService::ULTIMO_BROADCAST,
+                default => null,
+            };
+
+            if ($clave !== null) {
+                app(MonitorNotificacionesService::class)->registrar($clave);
+            }
+        });
 
         // Ciclo laboral: el estado del alta y los pendientes de "documento
         // rechazado" se sincronizan sin importar por qué camino cambió un

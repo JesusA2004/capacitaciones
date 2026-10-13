@@ -2,23 +2,24 @@
 
 namespace App\Services\Tareas;
 
+use App\Enums\CategoriaNotificacion;
 use App\Models\Candidato;
 use App\Models\Colaborador;
-use App\Models\OnboardingAvance;
-use App\Models\SolicitudExcepcionPeriodoPrueba;
 use App\Models\User;
-use App\Notifications\Mobile\PendienteRhNotification;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Configuracion\WorkflowRoutingService;
-use App\Services\MobilePush\PushNotifier;
+use App\Services\Notificaciones\Aviso;
+use App\Services\Notificaciones\NotificacionEventosService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Notification;
 use Throwable;
 
 /**
  * Notificaciones del ciclo laboral (base de datos + broadcast + push).
+ * Ya no envía nada por su cuenta: delega en la capa única
+ * App\Services\Notificaciones\NotificacionEventosService (idempotencia,
+ * cola dedicada, push), conservando su API para los servicios que la usan.
  * Regla del proyecto: un fallo al notificar nunca revierte la acción
  * principal — se captura y se registra con Log::warning.
  */
@@ -26,8 +27,8 @@ class NotificadorRhService
 {
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
-        private readonly PushNotifier $push,
         private readonly WorkflowRoutingService $routing,
+        private readonly NotificacionEventosService $eventos,
     ) {}
 
     /**
@@ -83,83 +84,23 @@ class NotificadorRhService
     }
 
     /**
-     * @param  iterable<User>  $usuarios
+     * Una acción que pide algo ("firmar", "revisar_expediente") es una TAREA
+     * para quien la recibe; "ver_*" o sin acción es un RESULTADO informativo.
+     *
+     * @param  iterable<User|null>  $usuarios
      * @param  array<string, string>  $ruteo
      */
     public function notificar(iterable $usuarios, string $tipo, string $titulo, string $mensaje, ?Model $relacionado = null, ?string $accion = null, string $prioridad = 'media', array $ruteo = []): void
     {
-        $destinatarios = collect($usuarios)->filter()->unique('id')->values();
+        $aviso = new Aviso($tipo, $tipo, $titulo, $mensaje, $relacionado, $accion, $prioridad, $ruteo);
+        $categoria = $accion !== null && ! str_starts_with($accion, 'ver')
+            ? CategoriaNotificacion::Pendiente
+            : CategoriaNotificacion::Resultado;
 
-        if ($destinatarios->isEmpty()) {
-            return;
-        }
-
-        $relatedId = $relacionado?->getKey();
-        $relatedId = is_int($relatedId) ? $relatedId : null;
-
-        try {
-            Notification::send($destinatarios, new PendienteRhNotification(
-                $tipo,
-                $titulo,
-                $mensaje,
-                $relacionado !== null ? class_basename($relacionado) : null,
-                $relatedId,
-                $accion,
-                $prioridad,
-                $ruteo,
-                $this->colaboradorIdDe($relacionado),
-            ));
-        } catch (Throwable $e) {
-            Log::warning('NotificadorRhService: fallo al notificar.', ['tipo' => $tipo, 'error' => $e->getMessage()]);
-
-            return;
-        }
-
-        // Push por usuario: si falla uno, los demás igual reciben el suyo.
-        // El payload lleva lo necesario para abrir el recurso exacto en la app.
-        foreach ($destinatarios as $usuario) {
-            try {
-                $this->push->aUsuarioConDatos($usuario, $titulo, $mensaje, [
-                    'type' => $tipo,
-                    'resource_id' => $relatedId,
-                    'related_type' => $relacionado !== null ? class_basename($relacionado) : null,
-                    'accion' => $accion,
-                    'colaborador_id' => $this->colaboradorIdDe($relacionado),
-                ]);
-            } catch (Throwable $e) {
-                Log::warning('NotificadorRhService: fallo el push.', ['tipo' => $tipo, 'user_id' => $usuario->id, 'error' => $e->getMessage()]);
+        foreach ($usuarios as $usuario) {
+            if ($usuario instanceof User) {
+                $this->eventos->entregar($usuario, $categoria, $aviso);
             }
         }
-    }
-
-    /**
-     * Persona a la que pertenece el recurso del aviso (directo, o vía su
-     * proceso de onboarding), para que web/app abran su ficha.
-     */
-    private function colaboradorIdDe(?Model $relacionado): ?int
-    {
-        if ($relacionado === null) {
-            return null;
-        }
-
-        if ($relacionado instanceof Colaborador) {
-            return $relacionado->id;
-        }
-
-        $directo = $relacionado->getAttribute('colaborador_id');
-
-        if (is_int($directo)) {
-            return $directo;
-        }
-
-        if ($relacionado instanceof OnboardingAvance) {
-            return $relacionado->proceso()->value('colaborador_id');
-        }
-
-        if ($relacionado instanceof SolicitudExcepcionPeriodoPrueba) {
-            return $relacionado->evaluacion()->value('colaborador_id');
-        }
-
-        return null;
     }
 }

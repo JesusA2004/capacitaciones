@@ -16,12 +16,12 @@ use App\Services\Colaboradores\AltaColaboradorService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Expedientes\ProgresoExpediente;
-use App\Services\MobilePush\PushNotifier;
+use App\Services\Notificaciones\Aviso;
+use App\Services\Notificaciones\NotificacionEventosService;
 use App\Services\RhMobile\ResponsableResolverService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Notification as NotificationFacade;
 use RuntimeException;
 use Throwable;
 
@@ -65,7 +65,7 @@ class IncorporacionService
         private readonly ExpedienteService $expediente,
         private readonly DocumentoStorageService $storage,
         private readonly ResponsableResolverService $responsables,
-        private readonly PushNotifier $push,
+        private readonly NotificacionEventosService $eventos,
     ) {}
 
     /**
@@ -271,15 +271,27 @@ class IncorporacionService
 
         $documento = $this->storage->subirVersion($colaborador, $tipo, $archivo, $subidoPorId);
 
-        $this->notificarSinFallar(function () use ($documento, $colaborador): void {
-            if ($colaborador->user === null) {
+        $this->notificarSinFallar(function () use ($documento, $colaborador, $tipo, $subidoPorId): void {
+            $actor = User::query()->where('id', $subidoPorId)->first();
+            $responsables = $colaborador->user !== null
+                ? $this->responsables->paraColaborador($colaborador->user, 'rh.documentos.ver')
+                : collect();
+            $tarea = new Aviso('documento_subido', 'rh_documento', 'Documento por revisar', 'Un colaborador subió un documento.', $documento, 'revisar_documento', 'media', [], null, new RhDocumentoPendienteNotification($documento));
+
+            if ($actor === null) {
+                $this->eventos->crearPendiente($responsables, $tarea);
+
                 return;
             }
 
-            $responsables = $this->responsables->paraColaborador($colaborador->user, 'rh.documentos.ver');
-
-            NotificationFacade::send($responsables, new RhDocumentoPendienteNotification($documento));
-            $this->push->aUsuarios($responsables, 'rh_documento', $documento->id, 'Documento por revisar', 'Un colaborador subió un documento.');
+            $this->eventos->registrarConPendiente(
+                $actor,
+                // Si RH lo subió por otra persona, su confirmación abre la
+                // revisión de RH, no "mis documentos".
+                new Aviso('documento_subido', $actor->colaborador_id === $colaborador->id ? 'documento' : 'rh_documento', 'Documento enviado', sprintf('«%s» quedó en revisión de Recursos Humanos.', $tipo->nombre), $documento, 'registrado'),
+                $responsables,
+                $tarea,
+            );
         });
 
         return $documento;
@@ -328,8 +340,7 @@ class IncorporacionService
                 return;
             }
 
-            NotificationFacade::send($destinatario, new DocumentoActualizadoNotification($documento));
-            $this->push->aUsuario($destinatario, 'documento', $documento->id, 'Documento aprobado', 'Uno de tus documentos fue aprobado.');
+            $this->eventos->avisarResultado($destinatario, new Aviso('documento_revisado', 'documento', 'Documento aprobado', 'Uno de tus documentos fue aprobado.', $documento, 'aprobado', 'media', [], null, new DocumentoActualizadoNotification($documento)));
 
             $this->avisarSiIncorporacionQuedoCompleta($documento->colaborador);
         });
@@ -352,8 +363,7 @@ class IncorporacionService
                 return;
             }
 
-            NotificationFacade::send($destinatario, new DocumentoActualizadoNotification($documento));
-            $this->push->aUsuario($destinatario, 'documento', $documento->id, 'Documento rechazado', 'Uno de tus documentos fue rechazado.');
+            $this->eventos->avisarResultado($destinatario, new Aviso('documento_revisado', 'documento', 'Documento rechazado', 'Uno de tus documentos fue rechazado.', $documento, 'rechazado', 'media', [], null, new DocumentoActualizadoNotification($documento)));
         });
     }
 
@@ -384,8 +394,7 @@ class IncorporacionService
 
         $responsables = $this->responsables->paraColaborador($colaborador->user, 'rh.incorporaciones.ver');
 
-        NotificationFacade::send($responsables, new RhIncorporacionCompletaNotification($colaborador->user));
-        $this->push->aUsuarios($responsables, 'rh_incorporacion', $colaborador->id, 'Incorporación lista para revisión final', 'Un colaborador terminó de subir sus documentos.');
+        $this->eventos->crearPendiente($responsables, new Aviso('incorporacion_completa', 'rh_incorporacion', 'Incorporación lista para revisión final', 'Un colaborador terminó de subir sus documentos.', $colaborador, 'decidir_incorporacion', 'media', [], null, new RhIncorporacionCompletaNotification($colaborador->user)));
     }
 
     /**
@@ -448,14 +457,7 @@ class IncorporacionService
                 return;
             }
 
-            NotificationFacade::send($colaborador->user, new IncorporacionDecididaNotification(true));
-            $this->push->aUsuario(
-                $colaborador->user,
-                'incorporacion',
-                $colaborador->id,
-                'Tus documentos fueron aprobados',
-                'Recursos Humanos aprobó tus documentos. En tu portal verás lo que sigue.',
-            );
+            $this->eventos->avisarResultado($colaborador->user, new Aviso('incorporacion_decidida', 'incorporacion', 'Tus documentos fueron aprobados', 'Recursos Humanos aprobó tus documentos. En tu portal verás lo que sigue.', $colaborador, 'aprobada', 'media', [], null, new IncorporacionDecididaNotification(true)));
         });
     }
 
@@ -473,8 +475,7 @@ class IncorporacionService
                 return;
             }
 
-            NotificationFacade::send($colaborador->user, new IncorporacionDecididaNotification(false));
-            $this->push->aUsuario($colaborador->user, 'incorporacion', $colaborador->id, 'Revisa tus documentos', 'Recursos Humanos te pidió revisar tus documentos.');
+            $this->eventos->avisarResultado($colaborador->user, new Aviso('incorporacion_decidida', 'incorporacion', 'Revisa tus documentos', 'Recursos Humanos te pidió revisar tus documentos.', $colaborador, 'rechazada', 'media', [], null, new IncorporacionDecididaNotification(false)));
         });
     }
 

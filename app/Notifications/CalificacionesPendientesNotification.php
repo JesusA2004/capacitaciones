@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\User;
+use App\Notifications\Concerns\EnColaDeAvisos;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -17,7 +18,7 @@ use Illuminate\Notifications\Notification;
  */
 class CalificacionesPendientesNotification extends Notification implements ShouldQueue
 {
-    use Queueable;
+    use EnColaDeAvisos, Queueable;
 
     public function __construct(
         private readonly int $cuestionariosPendientes,

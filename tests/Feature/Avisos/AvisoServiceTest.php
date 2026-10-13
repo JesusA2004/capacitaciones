@@ -102,3 +102,24 @@ test('paraColaborador(): incluye los de "todos" y los propios, y marcarLeido() s
     app(AvisoService::class)->marcarLeido($general, $usuario);
     expect($general->lecturas()->count())->toBe(1);
 });
+
+test('"Todos" también le llega en push a quien lo envía (aunque no tenga colaborador); a UN colaborador, solo a él', function () {
+    $emisor = User::factory()->create(['colaborador_id' => null]);
+    MobileDevice::factory()->create(['user_id' => $emisor->id, 'push_token' => 'ExponentPushToken[emisor]']);
+
+    $destino = Colaborador::factory()->create(['estatus' => EstadoUsuario::Activo->value]);
+    $usuarioDestino = User::factory()->create(['colaborador_id' => $destino->id]);
+    MobileDevice::factory()->create(['user_id' => $usuarioDestino->id, 'push_token' => 'ExponentPushToken[destino]']);
+
+    app(AvisoService::class)->crear(['titulo' => 'Junta general', 'mensaje' => 'Mañana 9:00.', 'alcance' => AlcanceAviso::Todos->value], null, $emisor);
+
+    Queue::assertPushed(SendExpoPushJob::class, fn (SendExpoPushJob $job): bool => $job->token === 'ExponentPushToken[emisor]');
+    Queue::assertPushed(SendExpoPushJob::class, fn (SendExpoPushJob $job): bool => $job->token === 'ExponentPushToken[destino]');
+
+    Queue::fake();
+
+    app(AvisoService::class)->crear(['titulo' => 'Solo para ti', 'mensaje' => 'Pasa a RH.', 'alcance' => AlcanceAviso::Colaborador->value, 'colaborador_objetivo_id' => $destino->id], null, $emisor);
+
+    Queue::assertPushed(SendExpoPushJob::class, fn (SendExpoPushJob $job): bool => $job->token === 'ExponentPushToken[destino]');
+    Queue::assertNotPushed(SendExpoPushJob::class, fn (SendExpoPushJob $job): bool => $job->token === 'ExponentPushToken[emisor]');
+});

@@ -172,12 +172,46 @@ php artisan route:list --path=api/v1 | grep cumple
 php artisan route:list --path=api/v1 | grep app
 ```
 
-## Procesos supervisados (systemd/Supervisor)
+## Procesos supervisados (Supervisor)
+
+Tres procesos, versionados en `deploy/supervisor/` (ajusta ruta/PHP/usuario si tu
+VPS no es `/var/www/people` + `/usr/bin/php` + `www-data`):
+
+| Archivo | Proceso | Para qué |
+|---|---|---|
+| `people-worker.conf` | `queue:work database --queue=default` | Trabajos pesados: PDF, extracción, migración, video |
+| `people-notifications.conf` | `queue:work notificaciones --queue=notifications` | **Prioritario**: notificación en BD, broadcast Reverb, push Expo |
+| `people-reverb.conf` | `reverb:start --host=127.0.0.1 --port=8080` | WebSocket (detrás de Nginx, `deploy/nginx/reverb.conf`) |
+
+Cola ≠ Reverb: sin worker no salen los avisos encolados (quedan en `jobs` y salen al
+levantarlo); sin Reverb la BD y el push siguen y la campana web consulta cada 30 s.
 
 ```bash
-php artisan queue:work --tries=3                        # notificaciones + push (ShouldQueue)
-php artisan reverb:start --host=0.0.0.0 --port=8080      # WebSocket, detras de Nginx
+sudo cp deploy/supervisor/people-worker.conf /etc/supervisor/conf.d/
+sudo cp deploy/supervisor/people-notifications.conf /etc/supervisor/conf.d/
+sudo cp deploy/supervisor/people-reverb.conf /etc/supervisor/conf.d/
+sudo supervisorctl reread
+sudo supervisorctl update
+sudo supervisorctl restart people-worker:* people-notifications:* people-reverb
+sudo supervisorctl status
 ```
+
+Variables relacionadas (`.env`):
+
+```dotenv
+QUEUE_CONNECTION=database
+DB_QUEUE_AFTER_COMMIT=true          # los avisos salen DESPUÉS del commit
+DB_QUEUE_RETRY_AFTER=7260           # > job más largo (7200 s); evita doble ejecución
+NOTIFICATIONS_QUEUE=notifications
+NOTIFICATIONS_QUEUE_RETRY_AFTER=180
+BROADCAST_CONNECTION=reverb
+EXPO_PUSH_ENABLED=true
+VITE_REVERB_ENABLED=true            # se lee al hacer `npm run build`
+```
+
+Diagnóstico sin secretos: `php artisan people:diagnostico-notificaciones`.
+En cada deploy, después de `migrate --force`: `php artisan people:sincronizar-permisos`
+y `php artisan queue:restart` (los workers recargan el código nuevo).
 
 ## Scheduler (cron)
 

@@ -107,12 +107,17 @@ class AvisoService
         $titulo = $aviso->titulo;
 
         if ($aviso->alcance === AlcanceAviso::Todos) {
-            $usuarios = User::query()->whereHas(
-                'colaborador',
-                fn ($q) => $q->where('estatus', EstadoUsuario::Activo->value),
-            )->get();
+            // "Todos" incluye a quien lo envía (también le llega el push),
+            // aunque su cuenta no tenga colaborador activo (p. ej. un admin).
+            $usuarios = User::query()
+                ->whereNull('acceso_bloqueado_en')
+                ->where(fn ($q) => $q
+                    ->whereHas('colaborador', fn ($c) => $c->where('estatus', EstadoUsuario::Activo->value))
+                    ->orWhere('id', $aviso->creado_por))
+                ->get();
         } else {
-            $usuarios = User::query()->where('colaborador_id', $aviso->colaborador_objetivo_id)->get();
+            // A un colaborador: solo a esa persona.
+            $usuarios = User::query()->where('colaborador_id', $aviso->colaborador_objetivo_id)->whereNull('acceso_bloqueado_en')->get();
         }
 
         foreach ($usuarios as $usuario) {

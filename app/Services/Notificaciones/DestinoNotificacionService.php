@@ -67,8 +67,27 @@ class DestinoNotificacionService
                 $relacionado === 'EvaluacionPeriodoPrueba' => $this->evaluacion($id, $tipo),
                 $relacionado === 'ContratoLaboral' => $this->contrato($id),
                 $relacionado === 'GeneratedDocument' => $this->documentoLaboral($id, $usuario),
-                $relacionado === 'Prestamo' => self::destino(route('mi-expediente', ['tab' => 'prestamos'], false)),
-                $relacionado === 'ReciboNomina' => self::destino(route('mi-expediente', ['tab' => 'recibos'], false)),
+                // Préstamos y recibos: el dueño ve los suyos; RH/gerencia va a
+                // la pestaña de la PERSONA para darle seguimiento.
+                $relacionado === 'Prestamo' || $relacionado === 'ReciboNomina' => $this->pestanaDePersona(
+                    $relacionado === 'Prestamo' ? 'prestamos' : 'recibos',
+                    is_numeric($datos['colaborador_id'] ?? null) ? (int) $datos['colaborador_id'] : null,
+                    $usuario,
+                ),
+                // Avisos de la capa NotificacionEventosService (visto bueno,
+                // cierres, candidatos, actas…): el recurso exacto por
+                // related_type aunque el `type` sea nuevo.
+                $relacionado === 'SolicitudInterna' => $this->solicitud($id, $usuario),
+                $relacionado === 'SolicitudVacaciones' => $this->vacacionRh($id),
+                $relacionado === 'EmployeeDocument' => $this->documentoRh($id),
+                $relacionado === 'Candidato' && $id !== null => self::destino(route('rh.candidatos.show', $id, false)),
+                $relacionado === 'ActaAdministrativa' && $id !== null => self::destino(route('rh.actas.show', $id, false)),
+                $relacionado === 'CambioFotoPerfil' => self::destino(route('rh.cambios-foto.index', [], false)),
+                // Sobre uno mismo (onboarding, inducción…): su portal, nunca la
+                // ficha administrativa de RH.
+                $relacionado !== null && is_numeric($datos['colaborador_id'] ?? null) && (int) $datos['colaborador_id'] === $usuario->colaborador_id => self::destino(route('portal.index', [], false)),
+                $relacionado !== null && is_numeric($datos['colaborador_id'] ?? null) => self::destino(route('rh.expedientes.show', ['colaborador' => (int) $datos['colaborador_id']], false)),
+                $relacionado !== null => self::destino(route('rh.pendientes.index', [], false)),
                 default => self::destino(null),
             };
         } catch (Throwable $e) {
@@ -87,6 +106,18 @@ class DestinoNotificacionService
         }
 
         return $destino;
+    }
+
+    /**
+     * @return Destino
+     */
+    private function pestanaDePersona(string $pestana, ?int $colaboradorId, User $usuario): array
+    {
+        if ($colaboradorId === null || $colaboradorId === $usuario->colaborador_id) {
+            return self::destino(route('mi-expediente', ['tab' => $pestana], false));
+        }
+
+        return self::destino(route('rh.expedientes.show', ['colaborador' => $colaboradorId, 'tab' => $pestana], false));
     }
 
     /**

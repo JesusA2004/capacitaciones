@@ -36,8 +36,9 @@ class PushNotifier
      * navegable en su lugar. Ver App\Notifications\Mobile\BirthdayRhReminderNotification.
      *
      * @param  array<string, mixed>  $data  Siempre debe incluir 'type'; nunca PII.
+     * @return int Dispositivos activos a los que se encoló el push.
      */
-    public function aUsuarioConDatos(User $usuario, string $titulo, string $cuerpo, array $data): void
+    public function aUsuarioConDatos(User $usuario, string $titulo, string $cuerpo, array $data): int
     {
         $type = $data['type'] ?? null;
         $type = is_string($type) ? $type : null;
@@ -48,9 +49,13 @@ class PushNotifier
         // llega/se toca un push de la sesión anterior, la app no lo abre.
         $data['user_id'] ??= $usuario->id;
 
-        foreach ($this->tokensActivos($usuario) as $token) {
+        $tokens = $this->tokensActivos($usuario);
+
+        foreach ($tokens as $token) {
             SendExpoPushJob::dispatch($token, $tituloConEmoji, $cuerpo, $data);
         }
+
+        return $tokens->count();
     }
 
     /**
