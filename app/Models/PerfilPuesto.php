@@ -12,6 +12,8 @@ use Illuminate\Support\Carbon;
  *
  * @property int $id
  * @property int $puesto_id
+ * @property string $origen documento = borrador del descriptivo oficial; rh = ajustado por RH
+ * @property int|null $descriptivo_puesto_id
  * @property string|null $objetivo
  * @property list<string>|null $funciones
  * @property list<string>|null $responsabilidades
@@ -36,7 +38,7 @@ class PerfilPuesto extends Model
     public const LISTAS = ['funciones', 'responsabilidades', 'indicadores', 'conocimientos', 'habilidades', 'competencias', 'valores', 'requisitos'];
 
     protected $fillable = [
-        'puesto_id', 'objetivo', 'funciones', 'responsabilidades', 'indicadores', 'escolaridad', 'experiencia',
+        'puesto_id', 'origen', 'descriptivo_puesto_id', 'objetivo', 'funciones', 'responsabilidades', 'indicadores', 'escolaridad', 'experiencia',
         'conocimientos', 'habilidades', 'competencias', 'valores', 'requisitos', 'actualizado_por',
     ];
 

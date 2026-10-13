@@ -254,6 +254,20 @@ export type PersonaLamina = {
     id: number | null;
     nombre: string;
     sucursal: string | null;
+    /** URL segura (o null: sin foto o sin acceso a ese expediente). */
+    foto_url: string | null;
+};
+
+/** Nodo del organigrama General (composición de las láminas). */
+export type NodoGeneral = {
+    clave: string;
+    titulo: string;
+    personas: PersonaLamina[];
+    /** Rama de apoyo (línea punteada), p. ej. Coordinación en sucursal. */
+    apoyo?: boolean;
+    /** Agrupador sin personas propias (p. ej. «Sucursales»). */
+    grupo?: boolean;
+    hijos: NodoGeneral[];
 };
 
 export type CajaLamina = {
@@ -335,6 +349,9 @@ export type PerfilPuestoDetalle = {
     };
     perfil: DatosPerfilPuesto;
     es_borrador: boolean;
+    /** documento = borrador del PDF oficial; rh = ajustado por RH. */
+    origen: 'documento' | 'rh' | null;
+    descriptivo: DescriptivoOficial | null;
     avance: number;
     actualizado_por: string | null;
     actualizado_en: string | null;
@@ -346,3 +363,51 @@ export type PerfilPuestoCandidato = {
     puesto: string;
     perfil: DatosPerfilPuesto | null;
 } | null;
+
+/** Contenido estructurado de un descriptivo oficial (PDF). */
+export type DatosDescriptivo = {
+    nombre_puesto: string | null;
+    area: string | null;
+    jefe_inmediato: string | null;
+    edad: string | null;
+    sexo: string | null;
+    tipo_empleado: string | null;
+    personal_a_cargo: string | null;
+    formacion: { minima: string | null; deseable: string | null };
+    experiencia: {
+        minima: string | null;
+        deseable: string | null;
+        puestos_referencia: string[];
+    };
+    conocimientos: {
+        conocimiento: string;
+        funcion: string | null;
+        anios: string | null;
+    }[];
+    competencias: { competencia: string; funcion: string | null }[];
+    objetivo: string | null;
+    funciones: string[];
+    actividades_criticas: string[];
+    responsables_ausencia: string[];
+    facultades: string[];
+    plan_formacion: string[];
+    compromisos_culturales: string[];
+    metadatos: Partial<
+        Record<
+            'elaboro' | 'reviso' | 'autorizo' | 'fecha_elaboracion' | 'fecha_revision',
+            string | null
+        >
+    >;
+};
+
+export type DescriptivoOficial = {
+    id: number;
+    version: number;
+    versiones: number;
+    archivo: string;
+    paginas: number;
+    fecha: string | null;
+    importado_en: string | null;
+    datos: DatosDescriptivo;
+    advertencias: string[];
+};

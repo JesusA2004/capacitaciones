@@ -25,7 +25,8 @@ test('el seeder deja la estructura confirmada por dirección (y conserva los pue
         'Dirección Comercial' => 'Dirección General',
         'Asistente de Dirección Comercial' => 'Dirección Comercial',
         'Responsable de Sistemas' => 'Dirección General',
-        'Monitorista' => 'Responsable de Sistemas',
+        // Monitorista de cámaras: apoyo directo a Dirección Comercial.
+        'Monitorista' => 'Dirección Comercial',
         'Gerencia de Recursos Humanos' => 'Dirección General',
         'Administración de Personal' => 'Gerencia de Recursos Humanos',
         'Reclutamiento' => 'Gerencia de Recursos Humanos',
@@ -67,14 +68,15 @@ test('Dirección General es la única raíz y Dirección Comercial cuelga de ell
         ->and(superiorDe('Dirección Comercial'))->toBe('Dirección General');
 });
 
-test('Gerencia de RH tiene exactamente sus 2 áreas y Sistemas solo al Monitorista', function () {
+test('Gerencia de RH tiene exactamente sus 2 áreas y el Monitorista reporta a Dirección Comercial', function () {
     $this->seed(DepartamentoSeeder::class);
     $this->seed(PuestoJerarquiaSeeder::class);
 
     $hijosDe = fn (string $nombre) => Puesto::where('puesto_superior_id', Puesto::where('nombre', $nombre)->value('id'))->orderBy('nombre')->pluck('nombre')->all();
 
     expect($hijosDe('Gerencia de Recursos Humanos'))->toBe(['Administración de Personal', 'Reclutamiento'])
-        ->and($hijosDe('Responsable de Sistemas'))->toBe(['Monitorista'])
+        ->and($hijosDe('Responsable de Sistemas'))->toBe([])
+        ->and($hijosDe('Dirección Comercial'))->toContain('Monitorista')
         ->and($hijosDe('Coordinadora Regional'))->toBe(['Coordinadora de Sucursal'])
         ->and(Puesto::where('nombre', 'like', 'Asistente de Dirección Comercial%')->count())->toBe(1);
 });

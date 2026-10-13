@@ -39,8 +39,8 @@ use Illuminate\Support\Facades\Schema;
  *   │           └── Subgerente                       (1 por sucursal)
  *   │               ├── Gestor                       (1 ruta de cobro vigente, 1 plaza)
  *   │               └── Gestor Volante               (plaza de plantilla, sin ruta fija)
+ *   │   └── Monitorista (de cámaras)              (hoy 1; apoyo directo a Dirección Comercial)
  *   ├── Responsable de Sistemas
- *   │   └── Monitorista                               (hoy 1)
  *   ├── Gerencia de Recursos Humanos
  *   │   ├── Administración de Personal
  *   │   └── Reclutamiento
@@ -100,7 +100,9 @@ class SincronizadorOrganigramaService
         // Contador, etc. no son gerencia y nunca deben cruzar ese umbral
         // solo porque su jefe cambió de nivel.
         'Responsable de Sistemas' => ['superior' => 'Dirección General', 'departamento' => 'Sistemas', 'nivel' => 2, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Responsable de la plataforma, infraestructura y monitoreo.'],
-        'Monitorista' => ['superior' => 'Responsable de Sistemas', 'departamento' => 'Sistemas', 'nivel' => 4, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Monitoreo de sistemas y operación.', 'extra' => ['crecimiento' => 'Responsable de Sistemas']],
+        // Monitorista de cámaras: apoyo con reporte directo a Dirección
+        // Comercial (lámina 18 de Inducción, decisión de RH 2026-10-14).
+        'Monitorista' => ['superior' => 'Dirección Comercial', 'departamento' => 'Sistemas', 'nivel' => 3, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Monitoreo de cámaras; apoyo directo a Dirección Comercial.', 'extra' => ['crecimiento' => 'Responsable de Sistemas']],
         'Gerencia de Recursos Humanos' => ['superior' => 'Dirección General', 'departamento' => 'Recursos Humanos', 'nivel' => 2, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Responsable de Recursos Humanos.'],
         'Administración de Personal' => ['superior' => 'Gerencia de Recursos Humanos', 'departamento' => 'Recursos Humanos', 'nivel' => 4, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Expedientes, altas, bajas y trámites de personal.', 'extra' => ['crecimiento' => 'Gerencia de Recursos Humanos']],
         'Reclutamiento' => ['superior' => 'Gerencia de Recursos Humanos', 'departamento' => 'Recursos Humanos', 'nivel' => 4, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Atracción y selección de candidatos.', 'extra' => ['crecimiento' => 'Gerencia de Recursos Humanos']],

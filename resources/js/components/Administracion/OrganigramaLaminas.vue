@@ -21,7 +21,9 @@ import {
 } from '@lucide/vue';
 import type { Component } from 'vue';
 import { computed, ref } from 'vue';
-import type { CajaLamina, LaminasOrganigrama, PersonaLamina } from '@/types';
+import OrganigramaPersonasLamina from '@/components/Administracion/OrganigramaPersonasLamina.vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
+import type { CajaLamina, LaminasOrganigrama } from '@/types';
 
 /**
  * Organigrama como las láminas del PDF oficial de Inducción (cap. 4):
@@ -54,14 +56,6 @@ const ICONOS: Record<string, Component> = {
 
 function icono(nombre: string | null): Component {
     return (nombre && ICONOS[nombre]) || UserRound;
-}
-
-function personas(lista: PersonaLamina[], conSede = false): string {
-    return lista
-        .map((p) =>
-            conSede && p.sucursal ? `${p.nombre} · ${p.sucursal}` : p.nombre,
-        )
-        .join('\n');
 }
 
 function cuantas(caja: CajaLamina): string {
@@ -105,7 +99,19 @@ const puestosSucursal = computed(() => props.laminas.sucursal.puestos);
             <div
                 class="flex min-w-[320px] items-center gap-4 rounded-xl bg-[var(--mrl-petroleo)] px-6 py-4 text-white shadow-md"
             >
+                <ColaboradorAvatar
+                    v-if="laminas.corporativo.direccion_general.personas[0]?.id"
+                    :nombre="
+                        laminas.corporativo.direccion_general.personas[0].nombre
+                    "
+                    :foto-url="
+                        laminas.corporativo.direccion_general.personas[0]
+                            .foto_url
+                    "
+                    tamano="lg"
+                />
                 <span
+                    v-else
                     class="flex size-12 shrink-0 items-center justify-center rounded-full border border-[var(--mrl-dorado)]/70 bg-white/10"
                 >
                     <UserRound class="size-6 text-[var(--mrl-dorado)]" />
@@ -170,9 +176,12 @@ const puestosSucursal = computed(() => props.laminas.sucursal.puestos);
                     </p>
                     <p
                         v-if="area.personas.length"
-                        class="mt-1 text-sm leading-snug font-semibold whitespace-pre-line text-[var(--mrl-petroleo)]"
+                        class="mt-1 text-sm leading-snug font-semibold text-[var(--mrl-petroleo)]"
                     >
-                        {{ personas(area.personas) }}
+                        <OrganigramaPersonasLamina
+                            :personas="area.personas"
+                            centrado
+                        />
                     </p>
                     <p v-else class="mt-1 text-xs text-muted-foreground italic">
                         Sin asignar
@@ -213,13 +222,10 @@ const puestosSucursal = computed(() => props.laminas.sucursal.puestos);
                         <p class="font-serif leading-tight">
                             {{ laminas.comercial.apoyo[0].titulo }}
                         </p>
-                        <p
-                            class="text-xs whitespace-pre-line text-[var(--mrl-petroleo)]"
-                        >
-                            {{
-                                personas(laminas.comercial.apoyo[0].personas) ||
-                                'Vacante'
-                            }}
+                        <p class="text-xs text-[var(--mrl-petroleo)]">
+                            <OrganigramaPersonasLamina
+                                :personas="laminas.comercial.apoyo[0].personas"
+                            />
                         </p>
                     </div>
                     <span
@@ -235,13 +241,10 @@ const puestosSucursal = computed(() => props.laminas.sucursal.puestos);
                         <Briefcase class="size-4 text-[var(--mrl-dorado)]" />
                         {{ laminas.comercial.director.titulo }}
                     </p>
-                    <p
-                        class="text-sm whitespace-pre-line text-[var(--mrl-dorado)]"
-                    >
-                        {{
-                            personas(laminas.comercial.director.personas) ||
-                            'Vacante'
-                        }}
+                    <p class="text-sm text-[var(--mrl-dorado)]">
+                        <OrganigramaPersonasLamina
+                            :personas="laminas.comercial.director.personas"
+                        />
                     </p>
                 </div>
                 <div class="flex items-center gap-3">
@@ -255,13 +258,10 @@ const puestosSucursal = computed(() => props.laminas.sucursal.puestos);
                         <p class="font-serif leading-tight">
                             {{ laminas.comercial.apoyo[1].titulo }}
                         </p>
-                        <p
-                            class="text-xs whitespace-pre-line text-[var(--mrl-petroleo)]"
-                        >
-                            {{
-                                personas(laminas.comercial.apoyo[1].personas) ||
-                                'Vacante'
-                            }}
+                        <p class="text-xs text-[var(--mrl-petroleo)]">
+                            <OrganigramaPersonasLamina
+                                :personas="laminas.comercial.apoyo[1].personas"
+                            />
                         </p>
                     </div>
                 </div>
@@ -298,9 +298,13 @@ const puestosSucursal = computed(() => props.laminas.sucursal.puestos);
                         </p>
                         <p
                             v-if="col.personas.length"
-                            class="mt-1 text-xs leading-snug whitespace-pre-line text-white/90"
+                            class="mt-1 text-xs leading-snug text-white/90"
                         >
-                            {{ personas(col.personas, true) }}
+                            <OrganigramaPersonasLamina
+                                :personas="col.personas"
+                                con-sede
+                                centrado
+                            />
                         </p>
                         <p v-else class="mt-1 text-xs text-white/70 italic">
                             Vacante
@@ -443,8 +447,10 @@ const puestosSucursal = computed(() => props.laminas.sucursal.puestos);
                         <Store class="size-5" />
                         {{ puestosSucursal.gerente.titulo }}
                     </p>
-                    <p class="mt-0.5 text-sm font-semibold whitespace-pre-line">
-                        {{ personas(sucursal.gerente) || 'Vacante' }}
+                    <p class="mt-0.5 text-sm font-semibold">
+                        <OrganigramaPersonasLamina
+                            :personas="sucursal.gerente"
+                        />
                     </p>
                     <ul
                         class="mt-2 grid gap-x-6 gap-y-0.5 text-xs text-white/85 sm:grid-cols-2"
@@ -484,9 +490,11 @@ const puestosSucursal = computed(() => props.laminas.sucursal.puestos);
                                 {{ puestosSucursal.subgerente.titulo }}
                             </p>
                             <p
-                                class="mt-0.5 text-sm font-semibold whitespace-pre-line text-[var(--mrl-petroleo)]"
+                                class="mt-0.5 text-sm font-semibold text-[var(--mrl-petroleo)]"
                             >
-                                {{ personas(sucursal.subgerente) || 'Vacante' }}
+                                <OrganigramaPersonasLamina
+                                    :personas="sucursal.subgerente"
+                                />
                             </p>
                             <ul
                                 class="mt-2 grid gap-x-6 gap-y-0.5 text-xs text-muted-foreground sm:grid-cols-2"
@@ -543,7 +551,9 @@ const puestosSucursal = computed(() => props.laminas.sucursal.puestos);
                                     :key="p.id ?? p.nombre"
                                     class="rounded-full bg-[var(--mrl-fondo)] px-2.5 py-0.5 text-xs text-[var(--mrl-texto)]"
                                 >
-                                    {{ p.nombre }}
+                                    <OrganigramaPersonasLamina
+                                        :personas="[p]"
+                                    />
                                 </span>
                             </div>
                         </article>
@@ -562,11 +572,11 @@ const puestosSucursal = computed(() => props.laminas.sucursal.puestos);
                                 {{ puestosSucursal.coordinacion.titulo }}
                             </p>
                             <p
-                                class="mt-0.5 text-sm font-semibold whitespace-pre-line text-[var(--mrl-petroleo)]"
+                                class="mt-0.5 text-sm font-semibold text-[var(--mrl-petroleo)]"
                             >
-                                {{
-                                    personas(sucursal.coordinacion) || 'Vacante'
-                                }}
+                                <OrganigramaPersonasLamina
+                                    :personas="sucursal.coordinacion"
+                                />
                             </p>
                             <ul
                                 class="mt-2 grid gap-x-6 gap-y-0.5 text-xs text-muted-foreground sm:grid-cols-2"

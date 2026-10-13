@@ -70,7 +70,7 @@ return [
                 'titular_documento' => 'LIC. ZURIEL ÁVILA MARTÍNEZ',
             ],
             'areas' => [
-                ['sigla' => 'DC', 'titulo' => 'Dirección Comercial', 'icono' => 'briefcase', 'puestos' => ['Dirección Comercial', 'Director% Comercial%', '%Dirección Comercial'], 'departamentos' => []],
+                ['sigla' => 'DC', 'titulo' => 'Dirección Comercial', 'icono' => 'briefcase', 'puestos' => ['Dirección Comercial', 'Director Comercial', 'Directora Comercial'], 'departamentos' => []],
                 ['sigla' => 'RH', 'titulo' => 'Recursos Humanos', 'icono' => 'users', 'puestos' => ['Gerencia de Recursos Humanos', 'Gerente de Recursos Humanos%', 'Gerente de RH%', 'Jef% de Recursos Humanos%', 'Encargad% de Recursos Humanos%', 'Director% de Recursos Humanos%'], 'departamentos' => ['Recursos Humanos', 'RH']],
                 ['sigla' => 'CT', 'titulo' => 'Contraloría', 'icono' => 'calculator', 'puestos' => ['Gerente de Contraloría', 'Contralor%', 'Encargad% de Contraloría%', 'Jef% de Contraloría%'], 'departamentos' => ['Contraloría']],
                 ['sigla' => 'JE', 'titulo' => 'Jurídico Empresarial', 'icono' => 'gavel', 'puestos' => ['Abogad%', 'Jurídic%', 'Gerente Jurídic%', 'Encargad% Jurídic%'], 'departamentos' => ['Jurídico', 'Jurídico Empresarial']],
@@ -79,7 +79,7 @@ return [
             'nota' => 'Las cinco áreas reportan directamente a la Dirección General',
         ],
         'comercial' => [
-            'director' => ['titulo' => 'Director Comercial', 'puestos' => ['Dirección Comercial']],
+            'director' => ['titulo' => 'Director Comercial', 'puestos' => ['Dirección Comercial', 'Director Comercial', 'Directora Comercial']],
             'apoyo' => [
                 ['titulo' => 'Asistente de Dirección Comercial', 'puestos' => ['Asistente de Dirección Comercial']],
                 ['titulo' => 'Monitorista de Cámaras', 'puestos' => ['Monitorista%']],

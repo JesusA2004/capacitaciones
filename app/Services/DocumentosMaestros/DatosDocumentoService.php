@@ -12,6 +12,8 @@ use App\Models\Empresa;
 use App\Models\EvaluacionPeriodoPrueba;
 use App\Models\Sucursal;
 use App\Models\User;
+use App\Services\Compensacion\CompensacionService;
+use App\Services\Contratos\ContratoLaboralService;
 use App\Services\Formatos\Variables\NumeroALetras;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -96,6 +98,11 @@ class DatosDocumentoService
         'representante_legal' => ['empresa', 'representante_legal_nombre', 'Representante legal de la empresa', 'empresa'],
         'representante_legal_cargo' => ['empresa', 'representante_legal_cargo', 'Cargo del representante legal', 'empresa'],
         'contrato' => ['proceso', 'contrato', 'Contrato laboral (inicio, fin y sueldo)', 'proceso'],
+        'contrato_fecha_inicio' => ['proceso', 'contrato', 'Fecha de inicio del contrato', 'proceso'],
+        'contrato_fecha_fin' => ['proceso', 'contrato', 'Fecha de fin del contrato', 'proceso'],
+        // Sin contrato todavía (vista previa) el fin sale de la duración
+        // de capacitación del PUESTO (Configuración › Parámetros de RH).
+        'duracion_puesto' => ['puesto', 'meses_periodo_prueba', 'Fecha de fin del contrato (duración de capacitación del puesto)', 'relacion'],
         'evaluacion' => ['proceso', 'evaluacion', 'Evaluación capturada', 'proceso'],
         'solicitud' => ['proceso', 'solicitud', 'Solicitud', 'proceso'],
         'prestamo' => ['proceso', 'prestamo', 'Préstamo autorizado', 'proceso'],
@@ -137,12 +144,14 @@ class DatosDocumentoService
         'sucursal_direccion_mayusculas' => 'sucursal_direccion', 'sucursal_municipio_mayusculas' => 'sucursal_municipio',
         'lugar_firma' => 'sucursal_ciudad', 'lugar_documento' => 'sucursal_ciudad', 'ciudad_firma' => 'sucursal_ciudad',
         'fecha_ingreso_larga' => 'fecha_ingreso', 'fecha_ingreso_dia_mes_anio' => 'fecha_ingreso',
-        'sueldo_mensual_numero' => 'sueldo_mensual', 'sueldo_mensual_numero_letra' => 'sueldo_mensual',
-        'fecha_inicio_contrato_larga' => 'contrato', 'fecha_inicio_contrato_larga_mayusculas' => 'contrato', 'fecha_inicio_contrato_dia' => 'contrato',
-        'fecha_fin_contrato_larga' => 'contrato', 'duracion_letra' => 'contrato', 'duracion_letra_capital' => 'contrato',
-        'duracion_capacitacion_letra' => 'contrato', 'duracion_capacitacion_letra_mayusculas' => 'contrato', 'duracion_capacitacion_letra_titulo' => 'contrato',
-        'lugar_y_fecha_inicio_contrato' => 'contrato', 'fecha_firma_a_los_inicio_contrato' => 'contrato',
-        'ciudad_y_fecha_firma_a_los_inicio_contrato' => 'contrato', 'fecha_firma_dias_del_mes_inicio_contrato' => 'contrato',
+        // Sueldo mensual = salario diario × 30 (CompensacionService): lo que
+        // se pide es el salario diario, nunca el mensual a mano.
+        'sueldo_mensual_numero' => 'salario_diario', 'sueldo_mensual_numero_letra' => 'salario_diario',
+        'fecha_inicio_contrato_larga' => 'contrato_fecha_inicio', 'fecha_inicio_contrato_larga_mayusculas' => 'contrato_fecha_inicio', 'fecha_inicio_contrato_dia' => 'contrato_fecha_inicio',
+        'fecha_fin_contrato_larga' => 'duracion_puesto', 'duracion_letra' => 'duracion_puesto', 'duracion_letra_capital' => 'duracion_puesto',
+        'duracion_capacitacion_letra' => 'duracion_puesto', 'duracion_capacitacion_letra_mayusculas' => 'duracion_puesto', 'duracion_capacitacion_letra_titulo' => 'duracion_puesto',
+        'lugar_y_fecha_inicio_contrato' => 'sucursal_ciudad', 'fecha_firma_a_los_inicio_contrato' => 'contrato_fecha_inicio',
+        'ciudad_y_fecha_firma_a_los_inicio_contrato' => 'sucursal_ciudad', 'fecha_firma_dias_del_mes_inicio_contrato' => 'contrato_fecha_inicio',
         'elaboro_nombre_cargo' => 'evaluacion', 'valido_nombre_cargo' => 'evaluacion', 'fecha_elaboro_larga' => 'evaluacion', 'fecha_valido_larga' => 'evaluacion',
         'fecha_entrega_larga' => 'cierre', 'fecha_notificacion_larga' => 'cierre', 'fecha_acta_larga' => 'cierre',
         'fecha_permiso_texto' => 'solicitud', 'motivo_permiso' => 'solicitud', 'fecha_inicio_permiso_larga' => 'solicitud',
@@ -164,7 +173,10 @@ class DatosDocumentoService
         'suscripcion_dia' => 'prestamo', 'suscripcion_mes' => 'prestamo', 'suscripcion_anio' => 'prestamo',
     ];
 
-    public function __construct(private readonly NumeroALetras $letras) {}
+    public function __construct(
+        private readonly NumeroALetras $letras,
+        private readonly CompensacionService $compensacion,
+    ) {}
 
     /**
      * Todos los campos que los masters conocen, ya formateados.
@@ -188,10 +200,13 @@ class DatosDocumentoService
             default => '',
         };
         $estadoCivil = $c->estado_civil instanceof EstadoCivil ? $c->estado_civil->etiqueta($c->genero) : '';
-        $sueldo = $contrato->sueldo_mensual ?? $c->sueldo_mensual;
+        $sueldo = $this->sueldoMensual($contexto);
         $lugar = $this->lugar($sucursal, $empresa);
-        $inicio = $contrato?->fecha_inicio;
-        $fin = $contrato?->fecha_fin;
+        // Con contrato real, sus fechas. Sin él (vista previa / nueva
+        // generación): inicio = fecha del documento (hoy, Ciudad de México) y
+        // fin = inicio + duración de capacitación del PUESTO.
+        $inicio = $contrato !== null ? $contrato->fecha_inicio : $hoy;
+        $fin = $contrato !== null ? $contrato->fecha_fin : $this->finSegunPuesto($c, $hoy);
         $meses = $this->mesesContrato($contexto);
         $duracion = $meses !== null ? $this->duracion($meses) : '';
         // Datos LEGALES: solo lo capturado. Nunca se completa con un supuesto
@@ -282,17 +297,19 @@ class DatosDocumentoService
             'sueldo_mensual_numero_letra' => $sueldo !== null ? sprintf('%s, %s', number_format((float) $sueldo, 2), $this->pesosSinCentavos((float) $sueldo)) : '',
             'fecha_inicio_contrato_larga' => $this->fechaLarga($inicio),
             'fecha_inicio_contrato_larga_mayusculas' => $this->mayus($this->fechaLarga($inicio)),
-            'fecha_inicio_contrato_dia' => $inicio !== null ? (string) $inicio->day : '',
+            'fecha_inicio_contrato_dia' => (string) $hoy->day,
             'fecha_fin_contrato_larga' => $this->fechaLarga($fin),
             'duracion_letra' => $duracion,
             'duracion_letra_capital' => $this->capital($duracion),
             'duracion_capacitacion_letra' => $duracion,
             'duracion_capacitacion_letra_mayusculas' => $this->mayus($duracion),
             'duracion_capacitacion_letra_titulo' => mb_convert_case($duracion, MB_CASE_TITLE, 'UTF-8'),
-            'lugar_y_fecha_inicio_contrato' => $lugar !== '' && $inicio !== null ? sprintf('%s, el %s', $lugar, $this->fechaLarga($inicio)) : '',
-            'fecha_firma_a_los_inicio_contrato' => $inicio !== null ? sprintf('%d días del mes de %s de %s', $inicio->day, self::MESES[$inicio->month - 1], $inicio->year) : '',
-            'ciudad_y_fecha_firma_a_los_inicio_contrato' => $lugar !== '' && $inicio !== null ? sprintf('%s, a los %d días del mes de %s de %s', $lugar, $inicio->day, self::MESES[$inicio->month - 1], $inicio->year) : '',
-            'fecha_firma_dias_del_mes_inicio_contrato' => $inicio !== null ? sprintf('%d días del mes de %s del año %s', $inicio->day, self::MESES[$inicio->month - 1], $inicio->year) : '',
+            // Frases de FIRMA («lo firman en…», «a los … días»): fecha del
+            // documento (hoy al generar; el snapshot del documento la conserva).
+            'lugar_y_fecha_inicio_contrato' => $lugar !== '' ? sprintf('%s, el %s', $lugar, $this->fechaLarga($hoy)) : '',
+            'fecha_firma_a_los_inicio_contrato' => sprintf('%d días del mes de %s de %s', $hoy->day, self::MESES[$hoy->month - 1], $hoy->year),
+            'ciudad_y_fecha_firma_a_los_inicio_contrato' => $lugar !== '' ? sprintf('%s, a los %d días del mes de %s de %s', $lugar, $hoy->day, self::MESES[$hoy->month - 1], $hoy->year) : '',
+            'fecha_firma_dias_del_mes_inicio_contrato' => sprintf('%d días del mes de %s del año %s', $hoy->day, self::MESES[$hoy->month - 1], $hoy->year),
             'gerente_nombre_mayusculas' => $this->mayus((string) ($c->jefe?->nombreCompleto() ?? '')),
         ];
 
@@ -678,6 +695,42 @@ class DatosDocumentoService
             'tipo_identificacion' => trim((string) $c->clave_elector) !== '' ? 'INE' : '',
             'representante_legal_mayusculas' => $this->mayus(trim((string) $c->sucursalPrincipal?->empresa?->representante_legal_nombre)),
         ];
+    }
+
+    /**
+     * Sueldo mensual canónico: el del contrato real; si no, salario diario
+     * × 30 (CompensacionService, sin excepción de mes); si no hay diario, el
+     * mensual capturado. Sin ninguno: vacío → se pide «Salario diario».
+     */
+    private function sueldoMensual(ContextoDocumento $contexto): ?float
+    {
+        $contrato = $contexto->contrato;
+
+        if ($contrato !== null && $contrato->sueldo_mensual !== null) {
+            return (float) $contrato->sueldo_mensual;
+        }
+
+        $c = $contexto->colaborador;
+
+        if ($c->salario_diario !== null && (float) $c->salario_diario > 0) {
+            return $this->compensacion->mensual((float) $c->salario_diario);
+        }
+
+        return $c->sueldo_mensual !== null && (float) $c->sueldo_mensual > 0 ? (float) $c->sueldo_mensual : null;
+    }
+
+    /**
+     * Fin de la capacitación inicial sin contrato todavía: la MISMA regla que
+     * ContratoLaboralService (inicio + meses del puesto − 1 día). Si el
+     * puesto no tiene duración configurada, queda vacío (dato faltante).
+     */
+    private function finSegunPuesto(Colaborador $c, CarbonImmutable $inicio): ?CarbonInterface
+    {
+        if ($c->puesto_id === null || (int) ($c->puesto->meses_periodo_prueba ?? 0) < 1) {
+            return null;
+        }
+
+        return app(ContratoLaboralService::class)->fechaFinPeriodoPrueba($c->puesto_id, $inicio);
     }
 
     /**

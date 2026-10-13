@@ -168,6 +168,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Descriptivos y perfiles de puesto: el deber ser del puesto + candidato ideal (RH edita).
         Route::prefix('perfiles-puesto')->name('perfiles-puesto.')->group(function () {
             Route::get('/', [PerfilPuestoController::class, 'index'])->name('index');
+            Route::get('importar', [PerfilPuestoController::class, 'importacion'])->name('importacion');
+            Route::post('importar', [PerfilPuestoController::class, 'importar'])->name('importar');
+            Route::get('{puesto}/descriptivo/{descriptivo}/pdf', [PerfilPuestoController::class, 'pdf'])->name('pdf');
             Route::get('{puesto}', [PerfilPuestoController::class, 'show'])->name('show');
             Route::get('{puesto}/editar', [PerfilPuestoController::class, 'edit'])->name('edit');
             Route::put('{puesto}', [PerfilPuestoController::class, 'update'])->name('update');

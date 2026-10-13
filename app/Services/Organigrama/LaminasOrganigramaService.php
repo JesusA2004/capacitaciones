@@ -6,28 +6,49 @@ use App\Models\Colaborador;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 /**
  * Organigrama en LÁMINAS, como el PDF oficial de Inducción (cap. 4, hojas
- * 17 · Corporativo, 18 · Dirección Comercial y 19 · Sucursal): la estructura
- * y los textos vienen de config('organigrama.laminas'); las personas son los
- * colaboradores ACTIVOS de cada puesto. Un puesto sin nadie se muestra como
- * vacante, nunca con un nombre inventado.
+ * 17 · Corporativo, 18 · Dirección Comercial y 19 · Sucursal). La vista
+ * GENERAL del frontend es la composición de estas tres (una sola verdad).
+ *
+ * - Estructura y textos: config('organigrama.laminas').
+ * - Personas: colaboradores ACTIVOS cuyo puesto coincide con el nombre
+ *   exacto o un alias EXPLÍCITO del config (nunca comodines que atrapen
+ *   subordinados, p. ej. «Asistente de Dirección Comercial» no es titular
+ *   de Dirección Comercial).
+ * - Una persona aparece en un solo lugar: el respaldo por departamento (solo
+ *   si el puesto no aparece) nunca toma a quien ya tiene su lugar ni a quien
+ *   tiene un puesto de otra caja.
+ * - Puesto sin nadie: vacante; nunca un nombre inventado.
+ * - Foto: la URL segura de siempre (FotoColaboradorService), solo si quien
+ *   mira puede ver ese expediente; si no, iniciales.
  */
 class LaminasOrganigramaService
 {
     /** @var Collection<int, Colaborador>|null */
     private ?Collection $activos = null;
 
-    public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}
+    private ?User $usuario = null;
+
+    /** @var array<int, bool> */
+    private array $fotoPermitida = [];
+
+    public function __construct(
+        private readonly AlcanceOrganizacionalService $alcance,
+        private readonly FotoColaboradorService $fotos,
+    ) {}
 
     /**
      * @return array{corporativo: array<string, mixed>, comercial: array<string, mixed>, sucursal: array<string, mixed>}
      */
     public function laminas(User $usuario): array
     {
+        $this->usuario = $usuario;
+
         return [
             'corporativo' => $this->corporativo(),
             'comercial' => $this->comercial(),
@@ -45,17 +66,35 @@ class LaminasOrganigramaService
         $titulares = $this->personas((array) ($dg['puestos'] ?? []));
 
         if ($titulares === [] && filled($dg['titular_documento'] ?? null)) {
-            $titulares = [['id' => null, 'nombre' => (string) $dg['titular_documento'], 'sucursal' => null]];
+            $titulares = [['id' => null, 'nombre' => (string) $dg['titular_documento'], 'sucursal' => null, 'foto_url' => null]];
+        }
+
+        $areas = (array) ($config['areas'] ?? []);
+        $porArea = [];
+        $usados = array_values(array_filter(array_column($titulares, 'id')));
+
+        // 1) Por puesto exacto/alias.
+        foreach ($areas as $i => $area) {
+            $porArea[$i] = $this->personas((array) $area['puestos']);
+            $usados = [...$usados, ...array_column($porArea[$i], 'id')];
+        }
+
+        // 2) Respaldo por departamento, sin repetir personas.
+        foreach ($areas as $i => $area) {
+            if ($porArea[$i] === []) {
+                $porArea[$i] = $this->responsablesDe((array) ($area['departamentos'] ?? []), $usados);
+                $usados = [...$usados, ...array_column($porArea[$i], 'id')];
+            }
         }
 
         return [
             'direccion_general' => ['titulo' => 'Dirección General', 'personas' => $titulares],
-            'areas' => array_map(fn (array $area): array => [
+            'areas' => array_map(fn (array $area, int $i): array => [
                 'sigla' => $area['sigla'],
                 'titulo' => $area['titulo'],
                 'icono' => $area['icono'],
-                'personas' => $this->personas((array) $area['puestos']) ?: $this->responsablesDe((array) ($area['departamentos'] ?? [])),
-            ], (array) ($config['areas'] ?? [])),
+                'personas' => $porArea[$i],
+            ], $areas, array_keys($areas)),
             'nota' => $config['nota'] ?? null,
         ];
     }
@@ -125,31 +164,31 @@ class LaminasOrganigramaService
      * %), opcionalmente de una sucursal.
      *
      * @param  array<mixed>  $patrones  Nombres de puesto o patrones con %.
-     * @return list<array{id: int|null, nombre: string, sucursal: string|null}>
+     * @return list<array{id: int|null, nombre: string, sucursal: string|null, foto_url: string|null}>
      */
     private function personas(array $patrones, ?int $sucursalId = null): array
     {
-        // Sin distinguir acentos ni mayúsculas: «Contraloria» = «Contraloría».
-        $regex = array_map(fn (string $p): string => '/^'.str_replace('%', '.*', preg_quote(Str::ascii(trim($p)), '/')).'$/i', array_filter($patrones, 'is_string'));
+        $regex = $this->regex($patrones);
 
         return array_values($this->activos()
             ->filter(fn (Colaborador $c): bool => ($sucursalId === null || $c->sucursal_principal_id === $sucursalId)
                 && $c->puesto !== null
-                && collect($regex)->contains(fn (string $r): bool => preg_match($r, Str::ascii(trim($c->puesto->nombre))) === 1))
-            ->map(fn (Colaborador $c): array => ['id' => $c->id, 'nombre' => $c->nombreCompleto(), 'sucursal' => $c->sucursalPrincipal?->nombre])
+                && $this->coincide($regex, $c->puesto->nombre))
+            ->map(fn (Colaborador $c): array => $this->persona($c))
             ->sortBy('nombre')
             ->all());
     }
 
     /**
-     * Respaldo cuando el puesto del área se llama distinto en cada empresa
-     * (p. ej. «Encargado de Sistemas»): el o los colaboradores de MAYOR
-     * jerarquía de ese departamento.
+     * Respaldo cuando el puesto del área no está en el catálogo: la persona
+     * de MAYOR jerarquía del departamento, que no esté ya en otra caja ni
+     * tenga un puesto que pertenezca a otra caja de las láminas.
      *
      * @param  array<mixed>  $departamentos
-     * @return list<array{id: int|null, nombre: string, sucursal: string|null}>
+     * @param  list<int|null>  $usados
+     * @return list<array{id: int|null, nombre: string, sucursal: string|null, foto_url: string|null}>
      */
-    private function responsablesDe(array $departamentos): array
+    private function responsablesDe(array $departamentos, array $usados): array
     {
         $buscados = array_map(fn (string $d): string => Str::lower(Str::ascii($d)), array_filter($departamentos, 'is_string'));
 
@@ -157,10 +196,14 @@ class LaminasOrganigramaService
             return [];
         }
 
-        $delArea = $this->activos()->filter(function (Colaborador $c) use ($buscados): bool {
+        $deOtraCaja = $this->regex($this->patronesDeLaminas());
+        $delArea = $this->activos()->filter(function (Colaborador $c) use ($buscados, $usados, $deOtraCaja): bool {
             $departamento = $c->puesto->departamento->nombre ?? $c->departamento->nombre ?? null;
 
-            return $departamento !== null && in_array(Str::lower(Str::ascii($departamento)), $buscados, true);
+            return $departamento !== null
+                && in_array(Str::lower(Str::ascii($departamento)), $buscados, true)
+                && ! in_array($c->id, $usados, true)
+                && ! $this->coincide($deOtraCaja, (string) $c->puesto?->nombre);
         });
 
         if ($delArea->isEmpty()) {
@@ -171,9 +214,82 @@ class LaminasOrganigramaService
 
         return array_values($delArea
             ->filter(fn (Colaborador $c): bool => ($c->puesto->nivel_jerarquico ?? 99) === $nivel)
-            ->map(fn (Colaborador $c): array => ['id' => $c->id, 'nombre' => $c->nombreCompleto(), 'sucursal' => $c->sucursalPrincipal?->nombre])
+            ->map(fn (Colaborador $c): array => $this->persona($c))
             ->sortBy('nombre')
             ->all());
+    }
+
+    /**
+     * @return array{id: int, nombre: string, sucursal: string|null, foto_url: string|null}
+     */
+    private function persona(Colaborador $c): array
+    {
+        return [
+            'id' => $c->id,
+            'nombre' => $c->nombreCompleto(),
+            'sucursal' => $c->sucursalPrincipal?->nombre,
+            'foto_url' => $c->foto_path !== null && $this->puedeVerFoto($c) ? $this->fotos->url($c) : null,
+        ];
+    }
+
+    private function puedeVerFoto(Colaborador $c): bool
+    {
+        if ($this->usuario === null) {
+            return false;
+        }
+
+        return $this->fotoPermitida[$c->id] ??= $this->alcance->puedeVerExpediente($this->usuario, $c);
+    }
+
+    /**
+     * Todos los puestos que las láminas ya ubican en alguna caja.
+     *
+     * @return list<string>
+     */
+    private function patronesDeLaminas(): array
+    {
+        $patrones = [];
+        $recorrer = function (mixed $nodo) use (&$recorrer, &$patrones): void {
+            if (! is_array($nodo)) {
+                return;
+            }
+            if (isset($nodo['puestos']) && is_array($nodo['puestos'])) {
+                $patrones = [...$patrones, ...array_filter($nodo['puestos'], 'is_string')];
+            }
+            foreach ($nodo as $hijo) {
+                $recorrer($hijo);
+            }
+        };
+        $recorrer((array) config('organigrama.laminas.comercial'));
+        $recorrer((array) config('organigrama.laminas.sucursal'));
+
+        return array_values($patrones);
+    }
+
+    /**
+     * @param  array<mixed>  $patrones
+     * @return list<string>
+     */
+    private function regex(array $patrones): array
+    {
+        // Sin distinguir acentos ni mayúsculas: «Contraloria» = «Contraloría».
+        return array_values(array_map(fn (string $p): string => '/^'.str_replace('%', '.*', preg_quote(Str::ascii(trim($p)), '/')).'$/i', array_filter($patrones, 'is_string')));
+    }
+
+    /**
+     * @param  list<string>  $regex
+     */
+    private function coincide(array $regex, string $puesto): bool
+    {
+        $nombre = Str::ascii(trim($puesto));
+
+        foreach ($regex as $r) {
+            if (preg_match($r, $nombre) === 1) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -185,7 +301,7 @@ class LaminasOrganigramaService
             ->where('estatus', 'activo')
             ->whereNotNull('puesto_id')
             ->with(['puesto:id,nombre,nivel_jerarquico,departamento_id', 'puesto.departamento:id,nombre', 'departamento:id,nombre', 'sucursalPrincipal:id,nombre'])
-            ->get(['id', 'name', 'apellidos', 'puesto_id', 'sucursal_principal_id', 'departamento_id'])
+            ->get(['id', 'name', 'apellidos', 'puesto_id', 'sucursal_principal_id', 'departamento_id', 'foto_path', 'updated_at'])
             ->filter(fn (Colaborador $c): bool => $c->puesto !== null);
     }
 }

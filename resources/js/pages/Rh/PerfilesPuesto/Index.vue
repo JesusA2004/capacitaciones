@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { ChevronRight, Search, Users } from '@lucide/vue';
+import { ChevronRight, FileUp, Search, Users } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import { dashboard } from '@/routes';
-import { show } from '@/routes/rh/perfiles-puesto';
+import { importacion, show } from '@/routes/rh/perfiles-puesto';
 import type { PuestoConPerfil } from '@/types';
 
 const props = defineProps<{
@@ -93,7 +93,14 @@ const CIRC = 2 * Math.PI * 16;
                     El deber ser de cada puesto y a quién buscamos para él.
                 </p>
             </div>
-            <div class="grid grid-cols-2 gap-3 sm:flex">
+            <div class="grid grid-cols-2 gap-3 sm:flex sm:items-stretch">
+                <Link
+                    v-if="puedeEditar"
+                    :href="importacion.url()"
+                    class="col-span-2 inline-flex min-h-11 items-center justify-center gap-2 self-center rounded-xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] px-4 text-sm font-medium text-[var(--mrl-petroleo)] hover:bg-[var(--mrl-fondo)] sm:col-span-1"
+                >
+                    <FileUp class="size-4" /> PDF oficiales
+                </Link>
                 <div
                     class="rounded-2xl bg-[var(--mrl-petroleo)] px-4 py-3 text-white"
                 >

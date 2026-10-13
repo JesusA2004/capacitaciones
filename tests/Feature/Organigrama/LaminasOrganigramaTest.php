@@ -66,3 +66,45 @@ test('el área se llena aunque el puesto se llame distinto (sin acentos, otro no
         // Por departamento: solo la de mayor jerarquía, no todo RH.
         ->and(collect($areas['RH']['personas'])->pluck('nombre')->all())->toBe(['Laura Mena Cruz']);
 });
+
+test('Dirección Comercial: la Asistente y el Monitorista son apoyo de DC, nunca su titular ni parte de Sistemas', function () {
+    $corporativo = Sucursal::factory()->create(['nombre' => 'Corporativo', 'es_corporativo' => true, 'activo' => true]);
+    $director = Puesto::factory()->create(['nombre' => 'Dirección Comercial']);
+    $asistente = Puesto::factory()->create(['nombre' => 'Asistente de Dirección Comercial']);
+    $monitorista = Puesto::factory()->create(['nombre' => 'Monitorista de Cámaras']);
+    $sistemas = Puesto::factory()->create(['nombre' => 'Responsable de Sistemas']);
+    Colaborador::factory()->create(['name' => 'Jorge', 'apellidos' => 'Salas Mora', 'puesto_id' => $director->id, 'sucursal_principal_id' => $corporativo->id, 'estatus' => 'activo']);
+    Colaborador::factory()->create(['name' => 'Dana', 'apellidos' => 'Juarez Hernandez', 'puesto_id' => $asistente->id, 'sucursal_principal_id' => $corporativo->id, 'estatus' => 'activo']);
+    Colaborador::factory()->create(['name' => 'Iván', 'apellidos' => 'Cruz León', 'puesto_id' => $monitorista->id, 'sucursal_principal_id' => $corporativo->id, 'estatus' => 'activo']);
+    Colaborador::factory()->create(['name' => 'Ana', 'apellidos' => 'Martínez Ruiz', 'puesto_id' => $sistemas->id, 'sucursal_principal_id' => $corporativo->id, 'estatus' => 'activo']);
+
+    $laminas = app(LaminasOrganigramaService::class)->laminas(clUsuario('rh_admin'));
+    $areas = collect($laminas['corporativo']['areas'])->keyBy('sigla');
+    $apoyo = collect($laminas['comercial']['apoyo'])->keyBy('titulo');
+    $todos = collect($laminas['corporativo']['areas'])->flatMap(fn ($a) => $a['personas'])
+        ->merge(collect($laminas['comercial']['apoyo'])->flatMap(fn ($a) => $a['personas']))
+        ->pluck('nombre');
+
+    expect(collect($areas['DC']['personas'])->pluck('nombre')->all())->toBe(['Jorge Salas Mora'])
+        ->and(collect($laminas['comercial']['director']['personas'])->pluck('nombre')->all())->toBe(['Jorge Salas Mora'])
+        ->and(collect($apoyo['Asistente de Dirección Comercial']['personas'])->pluck('nombre')->all())->toBe(['Dana Juarez Hernandez'])
+        ->and(collect($apoyo['Monitorista de Cámaras']['personas'])->pluck('nombre')->all())->toBe(['Iván Cruz León'])
+        ->and(collect($areas['SI']['personas'])->pluck('nombre')->all())->toBe(['Ana Martínez Ruiz'])
+        // Nadie aparece dos veces.
+        ->and($todos->duplicates()->all())->toBe([]);
+});
+
+test('fotos: sin foto llega null (iniciales, nunca imagen rota) y la URL nunca es una ruta del NAS', function () {
+    $corporativo = Sucursal::factory()->create(['nombre' => 'Corporativo', 'es_corporativo' => true, 'activo' => true]);
+    $sistemas = Puesto::factory()->create(['nombre' => 'Responsable de Sistemas']);
+    $contralor = Puesto::factory()->create(['nombre' => 'Contraloría']);
+    Colaborador::factory()->create(['name' => 'Ana', 'apellidos' => 'Martínez Ruiz', 'puesto_id' => $sistemas->id, 'sucursal_principal_id' => $corporativo->id, 'estatus' => 'activo', 'foto_path' => null]);
+    Colaborador::factory()->create(['name' => 'Elena', 'apellidos' => 'Ríos Paz', 'puesto_id' => $contralor->id, 'sucursal_principal_id' => $corporativo->id, 'estatus' => 'activo', 'foto_path' => 'colaboradores/fotos/elena.jpg']);
+
+    $areas = collect(app(LaminasOrganigramaService::class)->laminas(clUsuario('rh_admin'))['corporativo']['areas'])->keyBy('sigla');
+
+    expect($areas['SI']['personas'][0]['foto_url'])->toBeNull()
+        ->and($areas['CT']['personas'][0]['foto_url'])->toBeString()
+        ->and($areas['CT']['personas'][0]['foto_url'])->not->toContain('colaboradores/fotos/elena.jpg')
+        ->and($areas['CT']['personas'][0]['foto_url'])->toStartWith('http');
+});

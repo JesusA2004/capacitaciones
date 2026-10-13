@@ -15,6 +15,7 @@ import AgregarSubordinadoDialog from '@/components/Administracion/AgregarSubordi
 import JerarquiaPuestoDialog from '@/components/Administracion/JerarquiaPuestoDialog.vue';
 import OrganigramaAccordion from '@/components/Administracion/OrganigramaAccordion.vue';
 import OrganigramaArbol from '@/components/Administracion/OrganigramaArbol.vue';
+import OrganigramaGeneral from '@/components/Administracion/OrganigramaGeneral.vue';
 import OrganigramaLaminas from '@/components/Administracion/OrganigramaLaminas.vue';
 import OrganigramaPersona from '@/components/Administracion/OrganigramaPersona.vue';
 import OrganigramaPersonasArbol from '@/components/Administracion/OrganigramaPersonasArbol.vue';
@@ -632,6 +633,13 @@ watch(
         <OrganigramaLaminas
             v-else-if="seccionLamina"
             :seccion="seccionLamina"
+            :laminas="laminas"
+        />
+
+        <!-- General «Por personas»: la composición de las tres láminas
+             (una sola verdad). «Por puestos» conserva el árbol editable. -->
+        <OrganigramaGeneral
+            v-else-if="vista === 'personas' && seccionActiva?.valor === 'general'"
             :laminas="laminas"
         />
 

@@ -8,6 +8,7 @@ use App\Models\PerfilPuesto;
 use App\Models\Puesto;
 use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\Puestos\Descriptivos\DescriptivoPuestoService;
 use Illuminate\Support\Str;
 
 /**
@@ -28,7 +29,10 @@ class PerfilPuestoService
     /** Secciones que cuentan para el avance del perfil. */
     private const SECCIONES = ['objetivo', 'funciones', 'responsabilidades', 'indicadores', 'escolaridad', 'experiencia', 'conocimientos', 'habilidades', 'competencias', 'valores', 'requisitos'];
 
-    public function __construct(private readonly AuditoriaService $auditoria) {}
+    public function __construct(
+        private readonly AuditoriaService $auditoria,
+        private readonly DescriptivoPuestoService $descriptivos,
+    ) {}
 
     /**
      * @return list<array<string, mixed>>
@@ -73,6 +77,9 @@ class PerfilPuestoService
             ],
             'perfil' => $perfil !== null ? $this->datos($perfil) : $this->borrador($puesto),
             'es_borrador' => $perfil === null,
+            // documento = precargado del PDF oficial; rh = ajustado por RH.
+            'origen' => $perfil?->origen,
+            'descriptivo' => $this->descriptivos->paraPuesto($puesto),
             'avance' => $this->avance($perfil),
             'actualizado_por' => $perfil?->editor?->nombreCompleto(),
             'actualizado_en' => $perfil?->updated_at?->toIso8601String(),
@@ -89,6 +96,8 @@ class PerfilPuestoService
             'escolaridad' => $this->texto($datos['escolaridad'] ?? null),
             'experiencia' => $this->texto($datos['experiencia'] ?? null),
             'actualizado_por' => $actor->id,
+            // Lo que RH guarda ya no se sobrescribe al importar un descriptivo.
+            'origen' => 'rh',
         ];
 
         foreach (PerfilPuesto::LISTAS as $lista) {
