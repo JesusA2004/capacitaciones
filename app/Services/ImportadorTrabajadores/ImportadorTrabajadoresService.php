@@ -156,6 +156,11 @@ class ImportadorTrabajadoresService
                 }
 
                 try {
+                    // Fecha de ingreso: la del reporte corrige la de PEOPLE.
+                    if (($fila['corrige_fecha_ingreso'] ?? false) && is_string($fila['fecha_ingreso_excel'] ?? null)) {
+                        $colaborador->forceFill(['fecha_ingreso' => $fila['fecha_ingreso_excel']])->save();
+                    }
+
                     if ($fila['cambia_salario']) {
                         $this->compensacion->actualizarSalario(
                             $colaborador,
@@ -267,22 +272,25 @@ class ImportadorTrabajadoresService
         $base['colaborador_id'] = $colaborador->id;
         $base['nombre_sistema'] = trim($colaborador->name.' '.($colaborador->apellidos ?? ''));
 
-        if ($colaborador->fecha_ingreso === null) {
-            return [...$base, 'estado' => 'revision', 'motivo' => 'El colaborador no tiene fecha de ingreso capturada en PEOPLE: no se puede calcular antigüedad.'];
-        }
-
-        // La antigüedad SIEMPRE se calcula con fecha_ingreso de PEOPLE (ver
-        // abajo), nunca con la del Excel — pero una diferencia grande entre
-        // ambas se reporta para revisión en vez de ignorarse en silencio.
+        // La fecha de ingreso del REPORTE es la fuente (decisión de RH,
+        // 2026-10-13): si PEOPLE tiene otra (o ninguna), al aplicar se
+        // corrige con la del Excel y queda registrado en el detalle
+        // (fecha_ingreso_anterior → fecha_ingreso_excel). Sin fecha válida en
+        // el reporte se conserva la de PEOPLE.
         $fechaIngresoExcelParsed = $this->parsearFecha($fechaIngresoExcel);
+        $fechaIngreso = $fechaIngresoExcelParsed ?? $colaborador->fecha_ingreso;
 
-        if ($fechaIngresoExcelParsed !== null && abs($fechaIngresoExcelParsed->diffInDays($colaborador->fecha_ingreso)) > 5) {
-            return [...$base, 'estado' => 'revision', 'motivo' => "La fecha de ingreso del reporte ({$fechaIngresoExcelParsed->toDateString()}) no coincide con la de PEOPLE ({$colaborador->fecha_ingreso->toDateString()}): revisar si es la misma persona."];
+        if ($fechaIngreso === null) {
+            return [...$base, 'estado' => 'revision', 'motivo' => 'Ni el reporte ni PEOPLE tienen fecha de ingreso: no se puede calcular antigüedad.'];
         }
 
-        // Antigüedad SIEMPRE desde fecha_ingreso REAL (PEOPLE), nunca desde
-        // lo que diga el Excel.
-        $antiguedadAnios = (int) $colaborador->fecha_ingreso->diffInYears($fechaCorte);
+        $base['fecha_ingreso_anterior'] = $colaborador->fecha_ingreso?->toDateString();
+        $base['fecha_ingreso_excel'] = $fechaIngresoExcelParsed?->toDateString();
+        $base['corrige_fecha_ingreso'] = $fechaIngresoExcelParsed !== null
+            && ($colaborador->fecha_ingreso === null || ! $fechaIngresoExcelParsed->isSameDay($colaborador->fecha_ingreso));
+
+        // Antigüedad desde la fecha de ingreso del reporte.
+        $antiguedadAnios = (int) $fechaIngreso->diffInYears($fechaCorte);
         $cumpleUnAnio = $antiguedadAnios >= 1;
         $base['antiguedad_anios'] = $antiguedadAnios;
         $base['cumple_un_anio'] = $cumpleUnAnio;

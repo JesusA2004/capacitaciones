@@ -133,6 +133,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('{colaborador}/avisar-datos-faltantes', [ExpedienteController::class, 'avisarDatosFaltantes'])->name('avisar-datos-faltantes')->middleware('throttle:20,1');
             Route::get('{colaborador}/foto', [ExpedienteController::class, 'descargarFoto'])->name('foto')->withTrashed();
             Route::post('{colaborador}/foto', [ExpedienteController::class, 'subirFoto'])->name('foto.store');
+            // Acuse de alta IMSS (indicador verde/naranja, no pendiente).
+            Route::get('{colaborador}/alta-imss', [ExpedienteController::class, 'descargarAltaImss'])->name('alta-imss.show')->withTrashed();
+            Route::post('{colaborador}/alta-imss', [ExpedienteController::class, 'subirAltaImss'])->name('alta-imss.store');
             Route::put('{colaborador}/datos-personales', [ExpedienteController::class, 'actualizarDatosPersonales'])->name('datos-personales.update');
             Route::put('{colaborador}/datos-laborales', [ExpedienteController::class, 'actualizarDatosLaborales'])->name('datos-laborales.update');
             Route::post('{colaborador}/recibos-nomina', [ExpedienteController::class, 'generarReciboNomina'])->name('recibos-nomina.store');

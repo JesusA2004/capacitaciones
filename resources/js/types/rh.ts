@@ -14,6 +14,12 @@ export type ColaboradorExpedienteItem = {
     documentos_pendientes: number;
     /** Le falta algún dato base (estado civil, domicilio, salario…) que un documento maestro activo requiere. */
     datos_incompletos: boolean;
+    /**
+     * Acuse de alta en el IMSS (lo sube RH al concluir el alta): `registrada`
+     * (verde) o `pendiente` (naranja). null si no aplica (aún no está activo).
+     * Es un indicador, nunca un pendiente de la bandeja.
+     */
+    imss_alta?: 'registrada' | 'pendiente' | null;
     actualizado_en: string | null;
 };
 
@@ -38,6 +44,14 @@ export type ExpedienteColaborador = {
     acceso_bloqueado_en: string | null;
     estatus_imss: string;
     fecha_alta_imss: string | null;
+    /** Acuse de alta IMSS subido por RH (verde) o faltante (naranja). */
+    imss_alta?: 'registrada' | 'pendiente' | null;
+    imss_alta_archivo?: {
+        nombre: string;
+        url: string;
+        subido_en: string | null;
+    } | null;
+    puede_subir_imss?: boolean;
     periodo_prueba_inicio: string | null;
     periodo_prueba_fin: string | null;
     en_periodo_prueba: boolean;
@@ -71,7 +85,10 @@ export type CompletitudDatos = {
     porcentaje: number;
     total: number;
     completos: number;
-    grupos: Record<string, { etiqueta: string; ok: boolean; faltantes: string[] }>;
+    grupos: Record<
+        string,
+        { etiqueta: string; ok: boolean; faltantes: string[] }
+    >;
     faltantes: { etiqueta: string; columna: string; documentos: string[] }[];
 };
 

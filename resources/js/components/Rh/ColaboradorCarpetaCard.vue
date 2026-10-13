@@ -122,6 +122,27 @@ defineProps<{
                     pendiente(s)
                 </span>
                 <span
+                    v-if="colaborador.imss_alta"
+                    class="inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium"
+                    :class="
+                        colaborador.imss_alta === 'registrada'
+                            ? 'bg-success-soft text-success'
+                            : 'bg-warning-soft text-warning'
+                    "
+                    :title="
+                        colaborador.imss_alta === 'registrada'
+                            ? 'Acuse de alta IMSS registrado'
+                            : 'Falta subir el acuse de alta IMSS'
+                    "
+                >
+                    IMSS
+                    {{
+                        colaborador.imss_alta === 'registrada'
+                            ? 'registrado'
+                            : 'pendiente'
+                    }}
+                </span>
+                <span
                     v-if="colaborador.datos_incompletos"
                     class="flex items-center gap-1.5 text-xs text-destructive"
                 >

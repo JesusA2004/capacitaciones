@@ -44,7 +44,6 @@ use App\Services\Contratos\ContratoLaboralService;
 use App\Services\Contratos\EvaluacionPeriodoPruebaService;
 use App\Services\Contratos\VencimientoContratosService;
 use App\Services\DocumentosLaborales\FlujoDocumentalService;
-use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Incorporacion\IncorporacionInvitacionService;
 use App\Services\Incorporacion\IncorporacionService;
 use App\Services\Onboarding\OnboardingService;
@@ -489,12 +488,10 @@ test('G: cierre — gerente solicita, RH autoriza, finiquito, regional programa,
     $cierre = $cierres->autorizarRh($cierre, $this->rh, 'Procede.');
     expect($cierre->estado)->toBe(EstadoCierreLaboral::Iniciado);
 
-    // La carta de renuncia no se genera sola: el gerente la imprime con el
-    // colaborador presente (la firma de puño y letra).
-    $this->actingAs($this->gerenteA);
-    app(DocumentoProcesoService::class)->generar('baja', $cierre, 'carta_renuncia', $this->gerenteA);
+    // La carta de renuncia quedó generada desde que el gerente solicitó la
+    // baja (datos y fecha ya llenos): solo falta imprimirla y que el
+    // colaborador la firme. Una sola instancia, aunque RH ya autorizó.
     expect(GeneratedDocument::query()->where('documentable_type', $cierre->getMorphClass())->where('documentable_id', $cierre->id)->where('clave_plantilla', 'carta_renuncia')->count())->toBe(1);
-    $this->actingAs($this->rh);
 
     $cierres->calcularFiniquito($cierre, $this->rh, 12000);
     $cierre = $cierres->autorizarFiniquito($cierre->refresh(), $this->rh);

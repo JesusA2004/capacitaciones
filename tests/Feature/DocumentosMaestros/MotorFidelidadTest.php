@@ -18,6 +18,7 @@ use App\Models\Puesto;
 use App\Models\SolicitudInterna;
 use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\CierreLaboral\CierreLaboralService;
 use App\Services\DocumentosMaestros\CatalogoMaestrosService;
 use App\Services\DocumentosMaestros\ImportadorFormatosJuridicosService;
 use App\Services\Formatos\FormatoPreviewService;
@@ -526,4 +527,73 @@ test('colaborador dado de baja (soft delete): su historial documental sigue abri
     $this->getJson("/api/v1/rh/documentos-proceso/cierre/{$cierre->id}")->assertOk()->assertJsonPath('data.colaborador.dado_de_baja', true);
     $this->getJson("/api/v1/rh/documentos-proceso/colaborador/{$colaborador->id}")->assertOk();
     $this->get('/api/v1/rh/documentos-laborales/'.GeneratedDocument::query()->value('id').'/descargar')->assertOk();
+});
+
+/**
+ * Campos que el master oficial llena (sus reglas en config/documentos_maestros.php).
+ *
+ * @return list<string>
+ */
+function mfCamposDe(string $familia): array
+{
+    return array_values(array_unique(array_filter(array_map(
+        fn ($regla) => is_array($regla) && is_string($regla['campo'] ?? null) ? $regla['campo'] : null,
+        // Las familias llevan punto («carta_renuncia.general»): se indexa el
+        // arreglo, no la notación de puntos de config().
+        [...(array) (config('documentos_maestros.documentos')[$familia]['reglas'] ?? []), ...(array) (config('documentos_maestros.documentos')[$familia]['campos'] ?? [])],
+    ))));
+}
+
+test('préstamo: contrato, pagaré y retención salen con TODOS sus campos llenos desde la base (nombre, montos, fechas)', function () {
+    mfImportar(['prestamo_contrato.general', 'prestamo_pagare.general', 'prestamo_consentimiento_retencion.general']);
+    $colaborador = mfColaborador('gestor', ['jefe_id' => Colaborador::factory()->create(['name' => 'Laura', 'apellidos' => 'Méndez Ruiz'])->id]);
+    $prestamo = Prestamo::factory()->create([
+        'colaborador_id' => $colaborador->id, 'monto_solicitado' => 6000, 'monto_original' => 6000, 'saldo' => 6000,
+        'plazo' => 12, 'periodicidad' => 'semanal', 'pago_programado' => 500, 'fecha_primer_descuento' => '2026-10-15',
+        'autorizado_en' => now(), 'autorizado_por' => $this->rh->id, 'fecha_solicitud' => '2026-10-01',
+    ]);
+
+    $this->postJson("/api/v1/rh/documentos-proceso/prestamo/{$prestamo->id}/paquete", ['proceso' => 'prestamo'])->assertCreated();
+
+    foreach (['prestamo_contrato', 'prestamo_pagare', 'prestamo_consentimiento_retencion'] as $clave) {
+        $documento = GeneratedDocument::query()->where('clave_plantilla', $clave)->firstOrFail();
+        $campos = mfCamposDe("{$clave}.general");
+
+        expect($campos)->not->toBe([]);
+
+        // Las casillas (marca_*) del original quedan vacías salvo la que aplica.
+        foreach (array_filter($campos, fn (string $c): bool => ! str_starts_with($c, 'marca_')) as $campo) {
+            expect(trim((string) ($documento->payload[$campo] ?? '')))->not->toBe('', "«{$clave}» salió sin «{$campo}»");
+        }
+    }
+
+    $pagare = GeneratedDocument::query()->where('clave_plantilla', 'prestamo_pagare')->firstOrFail();
+    expect(json_encode($pagare->payload, JSON_UNESCAPED_UNICODE))->toContain('6,000.00')->toContain('JUAN')
+        ->and($pagare->payload['marca_pagos_semanales'])->toBe('X')
+        ->and($pagare->payload['marca_pagos_diarios'])->toBe('')
+        ->and($pagare->payload['primer_pago_dia'])->toBe('15');
+});
+
+test('renuncia: al solicitar la baja por renuncia queda generada, con nombre, puesto, sucursal y fecha llenos, lista para imprimir', function () {
+    mfImportar(['carta_renuncia.general']);
+    $colaborador = mfColaborador('gestor');
+    $gerente = clUsuario('gerente_sucursal', ['sucursal_principal_id' => $colaborador->sucursal_principal_id]);
+    $colaborador->update(['jefe_id' => $gerente->colaborador_id]);
+
+    app(CierreLaboralService::class)->solicitar($colaborador, [
+        'tipo_baja' => 'renuncia', 'motivo' => 'Cambio de ciudad.', 'fecha_efectiva' => now()->addDays(5)->toDateString(),
+    ], $gerente);
+
+    $renuncia = GeneratedDocument::query()->where('clave_plantilla', 'carta_renuncia')->firstOrFail();
+
+    foreach (mfCamposDe('carta_renuncia.general') as $campo) {
+        expect(trim((string) ($renuncia->payload[$campo] ?? '')))->not->toBe('', "La renuncia salió sin «{$campo}»");
+    }
+
+    expect($renuncia->payload['nombre_completo_mayusculas'])->toContain('JUAN')
+        ->and($renuncia->requiere_impresion)->toBeTrue();
+
+    // El gerente de la sucursal la puede descargar para imprimir.
+    Sanctum::actingAs($gerente);
+    $this->get(route('rh.documentos-laborales.descargar', $renuncia))->assertOk();
 });

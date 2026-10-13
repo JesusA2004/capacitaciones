@@ -105,6 +105,7 @@ import {
 } from '@/routes/administracion/usuarios';
 import { foto as subirFotoPropia } from '@/routes/portal';
 import { darDeBaja, reactivar } from '@/routes/rh/expedientes';
+import { store as subirAltaImss } from '@/routes/rh/expedientes/alta-imss';
 import { update as actualizarDatosLaborales } from '@/routes/rh/expedientes/datos-laborales';
 import { update as actualizarDatosPersonales } from '@/routes/rh/expedientes/datos-personales';
 import { store as subirFotoColaborador } from '@/routes/rh/expedientes/foto';
@@ -204,6 +205,32 @@ const props = defineProps<{
     /** Avisos generales + personales con su estado de lectura. */
     avisosComunicaciones?: AvisoComunicacion[];
 }>();
+
+// Acuse de alta IMSS: lo sube RH al concluir el alta. Verde = registrado,
+// naranja = falta. Es un indicador, no un pendiente de la bandeja.
+const subiendoImss = ref(false);
+
+function subirAcuseImss(evento: Event) {
+    const archivo = (evento.target as HTMLInputElement).files?.[0];
+
+    if (!archivo) {
+        return;
+    }
+
+    subiendoImss.value = true;
+    router.post(
+        subirAltaImss.url(props.colaborador.id),
+        { archivo },
+        {
+            forceFormData: true,
+            preserveScroll: true,
+            onFinish: () => {
+                subiendoImss.value = false;
+                (evento.target as HTMLInputElement).value = '';
+            },
+        },
+    );
+}
 
 const form = useForm({
     fecha_nacimiento: props.colaborador.fecha_nacimiento ?? '',
@@ -1176,8 +1203,8 @@ function irACompletarExpediente() {
                                         </div>
                                         <div class="grid gap-2">
                                             <Label for="correo_corporativo"
-                                                >Correo corporativo
-                                                (opcional — solo
+                                                >Correo corporativo (opcional —
+                                                solo
                                                 administrativos/gerencia)</Label
                                             >
                                             <Input
@@ -1709,6 +1736,75 @@ function irACompletarExpediente() {
                                             }}
                                         </CampoInfo>
                                         <CampoInfo
+                                            v-if="colaborador.imss_alta"
+                                            etiqueta="Acuse de alta IMSS"
+                                            class="sm:col-span-2"
+                                        >
+                                            <div
+                                                class="flex flex-wrap items-center gap-2"
+                                            >
+                                                <span
+                                                    class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                                                    :class="
+                                                        colaborador.imss_alta ===
+                                                        'registrada'
+                                                            ? 'bg-success-soft text-success'
+                                                            : 'bg-warning-soft text-warning'
+                                                    "
+                                                    data-imss-alta
+                                                >
+                                                    {{
+                                                        colaborador.imss_alta ===
+                                                        'registrada'
+                                                            ? 'Registrado'
+                                                            : 'Falta el acuse'
+                                                    }}
+                                                </span>
+                                                <a
+                                                    v-if="
+                                                        colaborador.imss_alta_archivo
+                                                    "
+                                                    :href="
+                                                        colaborador
+                                                            .imss_alta_archivo
+                                                            .url
+                                                    "
+                                                    target="_blank"
+                                                    rel="noopener"
+                                                    class="text-xs underline"
+                                                    >{{
+                                                        colaborador
+                                                            .imss_alta_archivo
+                                                            .nombre
+                                                    }}</a
+                                                >
+                                                <label
+                                                    v-if="
+                                                        colaborador.puede_subir_imss
+                                                    "
+                                                    class="inline-flex cursor-pointer items-center gap-1 text-xs font-medium text-primary underline"
+                                                >
+                                                    <Spinner
+                                                        v-if="subiendoImss"
+                                                        class="size-3"
+                                                    />
+                                                    {{
+                                                        colaborador.imss_alta ===
+                                                        'registrada'
+                                                            ? 'Reemplazar archivo'
+                                                            : 'Subir acuse'
+                                                    }}
+                                                    <input
+                                                        type="file"
+                                                        class="sr-only"
+                                                        accept="application/pdf,image/*"
+                                                        :disabled="subiendoImss"
+                                                        @change="subirAcuseImss"
+                                                    />
+                                                </label>
+                                            </div>
+                                        </CampoInfo>
+                                        <CampoInfo
                                             v-if="!esPropio"
                                             :icono="Hourglass"
                                             etiqueta="Periodo de prueba"
@@ -2176,7 +2272,9 @@ function irACompletarExpediente() {
                 </TabsContent>
 
                 <TabsContent value="avisos">
-                    <AvisosComunicaciones :avisos="avisosComunicaciones ?? []" />
+                    <AvisosComunicaciones
+                        :avisos="avisosComunicaciones ?? []"
+                    />
                 </TabsContent>
                 <TabsContent value="vacaciones">
                     <Card class="rounded-2xl border-border/60">

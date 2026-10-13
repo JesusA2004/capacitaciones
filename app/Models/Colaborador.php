@@ -60,6 +60,10 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property EstadoUsuario $estatus
  * @property EstatusImss $estatus_imss
  * @property Carbon|null $fecha_alta_imss
+ * @property string|null $alta_imss_path
+ * @property string|null $alta_imss_nombre
+ * @property Carbon|null $alta_imss_subido_en
+ * @property int|null $alta_imss_subido_por
  * @property Carbon|null $periodo_prueba_inicio
  * @property Carbon|null $periodo_prueba_fin
  * @property Carbon|null $fecha_nacimiento
@@ -147,6 +151,7 @@ class Colaborador extends Model
             'genero' => Genero::class,
             'estatus_imss' => EstatusImss::class,
             'fecha_alta_imss' => 'date',
+            'alta_imss_subido_en' => 'datetime',
             'periodo_prueba_inicio' => 'date',
             'periodo_prueba_fin' => 'date',
             'fecha_nacimiento' => 'date',

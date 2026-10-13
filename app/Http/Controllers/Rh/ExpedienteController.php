@@ -28,6 +28,7 @@ use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Avisos\AvisoService;
+use App\Services\Colaboradores\AltaImssService;
 use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Expedientes\AvisoPrivacidadService;
@@ -48,6 +49,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -76,6 +78,7 @@ class ExpedienteController extends Controller
         private readonly FotoColaboradorService $fotos,
         private readonly JefeDirectoService $jefes,
         private readonly DocumentoProcesoService $documentoProceso,
+        private readonly AltaImssService $altaImss,
     ) {}
 
     /**
@@ -126,6 +129,8 @@ class ExpedienteController extends Controller
                 'expediente_porcentaje' => $resumen['porcentaje'],
                 'documentos_pendientes' => $resumen['pendientes'] + $resumen['rechazados'],
                 'datos_incompletos' => $datosFaltantes,
+                // Acuse de alta IMSS: verde (registrado) / naranja (falta).
+                'imss_alta' => $this->altaImss->indicador($colaborador),
                 'actualizado_en' => $colaborador->updated_at?->toDateString(),
             ];
         });
@@ -367,6 +372,13 @@ class ExpedienteController extends Controller
                 'acceso_bloqueado_en' => $cuenta?->acceso_bloqueado_en?->toISOString(),
                 'estatus_imss' => $colaborador->estatus_imss->value,
                 'fecha_alta_imss' => $colaborador->fecha_alta_imss?->toDateString(),
+                'imss_alta' => $esPropio ? null : $this->altaImss->indicador($colaborador),
+                'imss_alta_archivo' => ! $esPropio && $colaborador->alta_imss_path !== null ? [
+                    'nombre' => $colaborador->alta_imss_nombre ?? 'Acuse de alta IMSS',
+                    'url' => route('rh.expedientes.alta-imss.show', $colaborador->id),
+                    'subido_en' => $colaborador->alta_imss_subido_en?->toIso8601String(),
+                ] : null,
+                'puede_subir_imss' => ! $esPropio && $request->user()->can('expedientes.editar'),
                 // La persona no ve los nombres ni fechas de sus etapas
                 // internas (periodo de prueba, onboarding): solo RH.
                 'periodo_prueba_inicio' => $esPropio ? null : $colaborador->periodo_prueba_inicio?->toDateString(),
@@ -804,6 +816,32 @@ class ExpedienteController extends Controller
         $this->fotos->actualizar($colaborador, $request->file('foto'), $usuario);
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Foto de perfil actualizada.']);
+    }
+
+    /**
+     * Acuse de alta IMSS: lo sube RH al concluir el alta (indicador verde;
+     * mientras falte, naranja). No es un pendiente de la bandeja.
+     */
+    public function subirAltaImss(Request $request, Colaborador $colaborador): RedirectResponse
+    {
+        $usuario = $request->user();
+
+        abort_unless($usuario->can('expedientes.editar') && $this->alcance->puedeVerExpediente($usuario, $colaborador), 403);
+        $request->validate(['archivo' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:10240']], [], ['archivo' => 'acuse de alta IMSS']);
+
+        $archivo = $request->file('archivo');
+        abort_unless($archivo instanceof UploadedFile, 422);
+
+        $this->altaImss->registrar($colaborador, $archivo, $usuario);
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Acuse de alta IMSS registrado.']);
+    }
+
+    public function descargarAltaImss(Request $request, Colaborador $colaborador): StreamedResponse
+    {
+        abort_unless($this->alcance->puedeVerExpediente($request->user(), $colaborador), 403);
+
+        return $this->altaImss->respuesta($colaborador);
     }
 
     /**
