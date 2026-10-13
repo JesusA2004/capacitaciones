@@ -16,6 +16,9 @@ return [
 
     'excluir_grupos' => ['gestor'],
 
+    // Además, por nombre de puesto (p. ej. «Gestor grupal» sin grupo).
+    'excluir_puestos' => ['Gestor%'],
+
     /*
     | Vista «Por área»: en Corporativo el área es el departamento del puesto
     | (con estos alias); en sucursal, el puesto en plural.

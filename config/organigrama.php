@@ -90,7 +90,7 @@ return [
                     'cadena' => [
                         ['titulo' => 'Gerente de Sucursal', 'icono' => 'store', 'puestos' => ['Gerente de Sucursal']],
                         ['titulo' => 'Subgerente de Sucursal', 'icono' => 'user-check', 'puestos' => ['Subgerente%']],
-                        ['titulo' => 'Gestores de Crédito', 'icono' => 'users', 'puestos' => ['Gestor', 'Gestor Volante'], 'destacado' => true],
+                        ['titulo' => 'Gestores de Crédito', 'icono' => 'users', 'puestos' => ['Gestor%'], 'destacado' => true],
                     ],
                 ],
                 [
@@ -132,7 +132,7 @@ return [
                 'funciones' => ['Revisión de expedientes', 'Reportes diarios y nómina de RH', 'Dispersión y recepción de efectivo', 'Gestión de cobranza y auditoría', 'Archivos y cuadre de caja', 'Depósito de seguros acumulados'],
             ],
             'gestores' => [
-                'titulo' => 'Gestores de Crédito', 'puestos' => ['Gestor', 'Gestor Volante'],
+                'titulo' => 'Gestores de Crédito', 'puestos' => ['Gestor%'],
                 'funciones' => ['Prospectar clientes', 'Verificar mora de la cartera', 'Mantener cartera activa', 'Integrar expediente del cliente', 'Realizar cobranza', 'Realizar cuadre diario de la cartera'],
             ],
             'leyenda' => [

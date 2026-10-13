@@ -117,7 +117,13 @@ class DirectorioColaboradoresService
             ->where('estatus', 'activo')
             ->when($excluir !== [], fn (Builder $q) => $q->where(fn (Builder $sub) => $sub
                 ->whereNull('puesto_id')
-                ->orWhereHas('puesto', fn (Builder $p) => $p->whereNull('grupo_documental')->orWhereNotIn('grupo_documental', $excluir))))
+                ->orWhereHas('puesto', fn (Builder $p) => $p
+                    ->where(fn (Builder $g) => $g->whereNull('grupo_documental')->orWhereNotIn('grupo_documental', $excluir))
+                    ->where(function (Builder $n): void {
+                        foreach (array_filter((array) config('directorio.excluir_puestos', []), 'is_string') as $patron) {
+                            $n->where('nombre', 'not like', $patron);
+                        }
+                    }))))
             ->with(['puesto:id,nombre,nivel_jerarquico,departamento_id', 'puesto.departamento:id,nombre', 'sucursalPrincipal:id,nombre,es_corporativo', 'departamento:id,nombre']);
     }
 
@@ -131,6 +137,11 @@ class DirectorioColaboradoresService
         return [
             'puestos' => $this->aLista(Puesto::query()->where('activo', true)
                 ->where(fn (Builder $q) => $q->whereNull('grupo_documental')->orWhereNotIn('grupo_documental', (array) config('directorio.excluir_grupos', [])))
+                ->where(function (Builder $n): void {
+                    foreach (array_filter((array) config('directorio.excluir_puestos', []), 'is_string') as $patron) {
+                        $n->where('nombre', 'not like', $patron);
+                    }
+                })
                 ->orderBy('nombre')->get(['id', 'nombre'])),
             'sucursales' => $this->aLista(Sucursal::query()->where('activo', true)->orderBy('nombre')->get(['id', 'nombre'])),
             'departamentos' => $this->aLista(Departamento::query()->orderBy('nombre')->get(['id', 'nombre'])),

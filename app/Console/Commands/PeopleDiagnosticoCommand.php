@@ -351,12 +351,21 @@ class PeopleDiagnosticoCommand extends Command
         }
 
         $deRoot = 0;
-        $iterador = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($raiz, \FilesystemIterator::SKIP_DOTS));
 
-        foreach ($iterador as $archivo) {
-            if ($archivo instanceof \SplFileInfo && $archivo->getOwner() === 0) {
-                $deRoot++;
+        try {
+            $iterador = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($raiz, \FilesystemIterator::SKIP_DOTS));
+
+            foreach ($iterador as $archivo) {
+                if ($archivo instanceof \SplFileInfo && $archivo->getOwner() === 0) {
+                    $deRoot++;
+                }
             }
+        } catch (\UnexpectedValueException $e) {
+            // Una carpeta que este usuario ni siquiera puede abrir: es el
+            // mismo problema (el servidor web tampoco puede leerla).
+            $this->fallo(sprintf('No se puede abrir una carpeta del disco «nas» (%s). Corre: chown -R www-data:www-data %s', $e->getMessage(), $raiz));
+
+            return;
         }
 
         if ($deRoot === 0) {
