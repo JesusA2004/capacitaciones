@@ -230,42 +230,51 @@ class NominaQuincenalService
      *
      * @param  array{inicio: CarbonImmutable, fin: CarbonImmutable}  $periodo
      * @param  array<int, int>|null  $ids
-     * @return int Recibos emitidos.
+     * @return array{emitidos: int, fallidos: list<array{folio: string, motivo: string}>}
      */
-    public function emitirPeriodo(array $periodo, User $actor, ?array $ids = null): int
+    public function emitirPeriodo(array $periodo, User $actor, ?array $ids = null): array
+    {
+        return $this->emitirTodos($this->recibosDelPeriodo($periodo, $actor)
+            ->where('estado', EstadoReciboNomina::Borrador->value)
+            ->when($ids !== null, fn (Builder $q) => $q->whereIn('id', $ids)), $actor);
+    }
+
+    /**
+     * Emite cada borrador por separado: si el PDF de uno no se puede
+     * generar, ese recibo queda en borrador con su motivo y los demás sí se
+     * emiten (nunca un recibo emitido sin archivo).
+     *
+     * @param  Builder<ReciboNomina>  $consulta
+     * @return array{emitidos: int, fallidos: list<array{folio: string, motivo: string}>}
+     */
+    public function emitirTodos(Builder $consulta, User $actor): array
     {
         $emitidos = 0;
+        $fallidos = [];
 
-        $this->recibosDelPeriodo($periodo, $actor)
-            ->where('estado', EstadoReciboNomina::Borrador->value)
-            ->when($ids !== null, fn (Builder $q) => $q->whereIn('id', $ids))
-            ->orderBy('id')
-            ->each(function (ReciboNomina $recibo) use ($actor, &$emitidos): void {
+        $consulta->orderBy('id')->each(function (ReciboNomina $recibo) use ($actor, &$emitidos, &$fallidos): void {
+            try {
                 $this->recibos->emitir($recibo, $actor);
                 $emitidos++;
-            });
+            } catch (ValidationException $e) {
+                $fallidos[] = ['folio' => (string) ($recibo->folio ?? $recibo->id), 'motivo' => (string) (collect($e->errors())->flatten()->first() ?? 'No se pudo generar el PDF.')];
+            }
+        });
 
-        return $emitidos;
+        return ['emitidos' => $emitidos, 'fallidos' => $fallidos];
     }
 
     /**
      * Emite todos los borradores cuya fecha de pago ya llegó (proceso
      * automático, alcance global).
+     *
+     * @return array{emitidos: int, fallidos: list<array{folio: string, motivo: string}>}
      */
-    public function emitirVencidos(CarbonInterface $hoy, User $actor): int
+    public function emitirVencidos(CarbonInterface $hoy, User $actor): array
     {
-        $emitidos = 0;
-
-        ReciboNomina::query()
+        return $this->emitirTodos(ReciboNomina::query()
             ->where('estado', EstadoReciboNomina::Borrador->value)
-            ->whereDate('fecha_pago', '<=', $hoy->toDateString())
-            ->orderBy('id')
-            ->each(function (ReciboNomina $recibo) use ($actor, &$emitidos): void {
-                $this->recibos->emitir($recibo, $actor);
-                $emitidos++;
-            });
-
-        return $emitidos;
+            ->whereDate('fecha_pago', '<=', $hoy->toDateString()), $actor);
     }
 
     /**

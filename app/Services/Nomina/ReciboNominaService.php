@@ -5,8 +5,11 @@ namespace App\Services\Nomina;
 use App\Enums\CategoriaDocumento;
 use App\Enums\EstadoReciboNomina;
 use App\Enums\FamiliaAdministrativa;
+use App\Enums\MotorPdf;
 use App\Enums\TipoConceptoNomina;
+use App\Exceptions\ArchivoGeneradoNoDisponibleException;
 use App\Models\Colaborador;
+use App\Models\GeneratedDocument;
 use App\Models\NominaLote;
 use App\Models\Prestamo;
 use App\Models\ReciboNomina;
@@ -14,12 +17,14 @@ use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\DocumentosAdministrativos\DatosDocumentoAdministrativo;
+use App\Services\DocumentosAdministrativos\DisenoAdministrativoService;
 use App\Services\DocumentosAdministrativos\DocumentoAdministrativoService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\Tareas\NotificadorRhService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -52,6 +57,7 @@ class ReciboNominaService
         private readonly NotificadorRhService $notificador,
         private readonly DocumentoAdministrativoService $documentosAdministrativos,
         private readonly DatosDocumentoAdministrativo $datosDocumento,
+        private readonly DisenoAdministrativoService $disenos,
     ) {}
 
     /**
@@ -88,7 +94,7 @@ class ReciboNominaService
         $totalPercepciones = round(array_sum(array_column($percepciones, 'importe')), 2);
         $totalDeducciones = round(array_sum(array_column($deducciones, 'importe')), 2);
 
-        $recibo = DB::transaction(function () use ($colaborador, $datos, $generadoPor, $conceptos, $percepciones, $deducciones, $totalPercepciones, $totalDeducciones, $periodoInicio, $periodoFin, $tipoPeriodo, $lote, $borrador): ReciboNomina {
+        $recibo = DB::transaction(function () use ($colaborador, $datos, $generadoPor, $conceptos, $percepciones, $deducciones, $totalPercepciones, $totalDeducciones, $periodoInicio, $periodoFin, $tipoPeriodo, $lote): ReciboNomina {
             // Bloqueo por colaborador: dos capturas/importaciones simultáneas
             // no pueden emitir dos recibos del mismo periodo.
             Colaborador::query()->whereKey($colaborador->id)->lockForUpdate()->first();
@@ -120,9 +126,9 @@ class ReciboNominaService
                     self::TIPO_PERIODO_QUINCENAL => ($periodoInicio->month - 1) * 2 + ($periodoInicio->day <= 15 ? 1 : 2),
                     default => null,
                 },
-                'estado' => $borrador ? EstadoReciboNomina::Borrador : EstadoReciboNomina::Emitido,
-                'emitido_at' => $borrador ? null : now(),
-                'emitido_por' => $borrador ? null : $generadoPor->id,
+                // Siempre nace como borrador: solo emitir() lo marca emitido, y
+                // únicamente DESPUÉS de que su PDF quedó guardado.
+                'estado' => EstadoReciboNomina::Borrador,
                 'nomina_lote_id' => isset($datos['nomina_lote_id']) ? (int) $datos['nomina_lote_id'] : null,
                 'dias_pagados' => isset($datos['dias_pagados']) ? round((float) $datos['dias_pagados'], 2) : null,
                 'dias_falta' => isset($datos['dias_falta']) ? round((float) $datos['dias_falta'], 2) : null,
@@ -185,11 +191,9 @@ class ReciboNominaService
         ]);
 
         if (! $borrador) {
-            $this->generarPdf($recibo, $generadoPor);
-
-            if ($lote === null) {
-                $this->notificarColaborador($recibo);
-            }
+            // Si el PDF falla, el recibo queda preparado (borrador) y el
+            // error llega a RH con un motivo humano para reintentar.
+            return $this->emitir($recibo, $generadoPor, $lote === null);
         }
 
         return $recibo->refresh();
@@ -219,6 +223,14 @@ class ReciboNominaService
             if (array_key_exists('observaciones', $datos)) {
                 $recibo->update(['observaciones' => $datos['observaciones'] !== null ? (string) $datos['observaciones'] : null]);
             }
+
+            // El PDF anterior (montos viejos) deja de ser "el" recibo; queda
+            // en el historial del expediente. Si el nuevo no se pudiera
+            // generar, la pantalla ofrece repararlo en vez de mostrar montos
+            // que ya no corresponden.
+            if ($recibo->estado === EstadoReciboNomina::Emitido) {
+                $recibo->update(['pdf_disk' => null, 'pdf_path' => null, 'checksum' => null]);
+            }
         });
 
         // Totales del lote (si el recibo pertenece a uno): siempre del servidor.
@@ -244,7 +256,11 @@ class ReciboNominaService
         ]);
 
         if ($recibo->estado === EstadoReciboNomina::Emitido) {
-            $this->generarPdf($recibo, $actor);
+            try {
+                $this->generarPdf($recibo, $actor);
+            } catch (ValidationException $e) {
+                throw ValidationException::withMessages(['pdf' => sprintf('Los cambios se guardaron, pero %s Usa «Reparar PDF» para reintentar.', lcfirst($this->primerMensaje($e)))]);
+            }
         }
 
         return $recibo->refresh();
@@ -254,12 +270,32 @@ class ReciboNominaService
      * Emite un borrador: genera su PDF, lo archiva en el expediente y le
      * avisa al colaborador. Idempotente (un recibo ya emitido no se toca).
      */
+    /**
+     * Orden garantizado: PREPARADO → PDF guardado → EMITIDO. Si el PDF no se
+     * puede generar/guardar, el recibo sigue en borrador y se lanza un
+     * ValidationException con el motivo (RH reintenta): nunca existe un
+     * recibo "emitido" sin archivo.
+     *
+     * @throws ValidationException
+     */
     public function emitir(ReciboNomina $recibo, User $actor, bool $notificar = true): ReciboNomina
     {
+        $recibo->refresh();
+
+        // Solo un borrador se emite: emitido (doble emisión) o cancelado no se tocan.
+        if ($recibo->estado !== EstadoReciboNomina::Borrador) {
+            return $recibo;
+        }
+
+        if ($recibo->generado_por === null) {
+            $recibo->update(['generado_por' => $actor->id]);
+        }
+
+        $this->generarPdf($recibo, $actor);
+
         $emitido = DB::transaction(function () use ($recibo, $actor): bool {
             $fila = ReciboNomina::query()->whereKey($recibo->id)->lockForUpdate()->first();
 
-            // Solo un borrador se emite: emitido (doble emisión) o cancelado no se tocan.
             if ($fila === null || $fila->estado !== EstadoReciboNomina::Borrador) {
                 return false;
             }
@@ -274,12 +310,6 @@ class ReciboNominaService
         }
 
         $recibo->refresh();
-
-        if ($recibo->generado_por === null) {
-            $recibo->update(['generado_por' => $actor->id]);
-        }
-
-        $this->generarPdf($recibo, $actor);
         $this->auditoria->registrar('recibo_nomina_emitido', $recibo, $actor, ['neto' => (string) $recibo->neto]);
 
         if ($notificar) {
@@ -387,14 +417,102 @@ class ReciboNominaService
     }
 
     /**
-     * Reintenta el PDF de un recibo cuyo pdf_path quedó vacío. Nunca
-     * recalcula montos: usa el snapshot guardado.
+     * Repara el PDF de un recibo existente (pdf_path vacío o archivo que ya
+     * no está en el almacenamiento). Recupera en este orden:
+     *  1. el archivo actual, si sigue ahí (no hace nada);
+     *  2. el último GeneratedDocument del recibo cuyo archivo sigue presente
+     *     → solo corrige las referencias del recibo;
+     *  3. lo regenera con el SNAPSHOT del recibo (periodo, conceptos, neto;
+     *     nunca el sueldo actual) y con el diseño HISTÓRICO guardado en el
+     *     layout_snapshot del documento original; si nunca tuvo snapshot,
+     *     con el diseño vigente y queda auditado
+     *     `regenerado_con_version_actual = true`.
+     * Un borrador no se repara: se emite.
+     *
+     * @throws ValidationException Si no se pudo regenerar (motivo humano).
      */
     public function regenerarPdf(ReciboNomina $recibo, ?User $actor = null): ReciboNomina
     {
-        $this->generarPdf($recibo, $actor);
+        $recibo->refresh();
 
-        return $recibo->fresh() ?? $recibo;
+        if ($recibo->estado !== EstadoReciboNomina::Emitido) {
+            throw ValidationException::withMessages(['pdf' => 'Solo un recibo emitido tiene PDF guardado; emítelo para generarlo.']);
+        }
+
+        if ($this->pdfDisponible($recibo, false)) {
+            return $recibo;
+        }
+
+        $anterior = $recibo->pdf_path;
+        $documentos = GeneratedDocument::query()
+            ->where('documentable_type', $recibo->getMorphClass())
+            ->where('documentable_id', $recibo->id)
+            ->orderByDesc('id')
+            ->get();
+
+        $existente = $documentos->first(fn (GeneratedDocument $d) => $this->existe($d->disk, $d->path));
+
+        if ($existente !== null) {
+            $recibo->update(['pdf_disk' => $existente->disk, 'pdf_path' => $existente->path, 'checksum' => $existente->checksum]);
+            $this->auditoria->registrar('recibo_nomina_pdf_reparado', $recibo, $actor, [
+                'metodo' => 'referencia_documento_generado',
+                'generated_document_id' => $existente->id,
+                'ruta_anterior' => $anterior,
+            ]);
+
+            return $recibo->refresh();
+        }
+
+        $historico = $documentos->first(fn (GeneratedDocument $d) => is_array($d->layout_snapshot['diseno'] ?? null));
+        $documento = $this->generarPdf($recibo, $actor, $historico, $documentos->first());
+
+        $this->auditoria->registrar('recibo_nomina_pdf_reparado', $recibo, $actor, [
+            'metodo' => 'regenerado_desde_snapshot',
+            'generated_document_id' => $documento->id,
+            'ruta_anterior' => $anterior,
+            'regenerado_con_version_actual' => $historico === null,
+            'version_diseno' => $historico?->layout_snapshot['version'] ?? null,
+        ]);
+
+        return $recibo->refresh();
+    }
+
+    /**
+     * ¿El PDF del recibo existe físicamente? El resultado POSITIVO se
+     * guarda en caché por ruta+checksum (1 h): un listado de 50 recibos no
+     * consulta el NAS 50 veces en cada carga, y un archivo reparado se ve
+     * al instante porque el negativo nunca se guarda.
+     */
+    public function pdfDisponible(ReciboNomina $recibo, bool $usarCache = true): bool
+    {
+        if ($recibo->pdf_path === null || $recibo->pdf_disk === null) {
+            return false;
+        }
+
+        $clave = sprintf('recibo_pdf_existe:%d:%s', $recibo->id, sha1($recibo->pdf_path.'|'.$recibo->checksum));
+
+        if ($usarCache && Cache::get($clave) === true) {
+            return true;
+        }
+
+        $existe = $this->existe($recibo->pdf_disk, $recibo->pdf_path);
+
+        if ($existe) {
+            Cache::put($clave, true, now()->addHour());
+        }
+
+        return $existe;
+    }
+
+    private function existe(string $disco, string $ruta): bool
+    {
+        try {
+            return Storage::disk($disco)->exists($ruta);
+        } catch (Throwable $e) {
+            Log::warning('ReciboNominaService: no se pudo verificar el archivo del recibo.', ['disco' => $disco, 'ruta' => $ruta, 'error' => $e->getMessage()]);
+
+            return false;
+        }
     }
 
     /**
@@ -440,15 +558,32 @@ class ReciboNominaService
             ->paginate(max(1, min(100, (int) ($filtros['per_page'] ?? 20))));
     }
 
-    public function respuestaPdf(ReciboNomina $recibo): StreamedResponse
+    /**
+     * El recibo YA existe (la ruta lo resolvió): si su archivo falta es un
+     * error operativo recuperable, nunca un 404 — quien puede regenerarlo ve
+     * el botón para hacerlo.
+     *
+     * @throws ArchivoGeneradoNoDisponibleException
+     */
+    public function respuestaPdf(ReciboNomina $recibo, ?User $usuario = null): StreamedResponse
     {
-        abort_if($recibo->pdf_path === null || $recibo->pdf_disk === null, 404, 'El PDF de este recibo no está disponible.');
-        $disco = Storage::disk($recibo->pdf_disk);
-        abort_unless($disco->exists($recibo->pdf_path), 404, 'El PDF de este recibo no está disponible.');
+        if (! $this->pdfDisponible($recibo, false)) {
+            $puedeReparar = $usuario !== null && $recibo->estado === EstadoReciboNomina::Emitido && $usuario->can('regenerar', $recibo);
 
+            throw new ArchivoGeneradoNoDisponibleException(
+                titulo: sprintf('Recibo %s', $recibo->folio ?? $recibo->id),
+                mensaje: $puedeReparar
+                    ? 'El recibo existe, pero su PDF no está disponible. Puedes generarlo de nuevo con los mismos montos.'
+                    : 'El recibo existe, pero su PDF no está disponible por ahora. Recursos Humanos puede generarlo de nuevo.',
+                urlReparar: $puedeReparar ? route('rh.nomina.recibos.reparar-pdf', $recibo) : null,
+            );
+        }
+
+        $ruta = (string) $recibo->pdf_path;
+        $disco = Storage::disk((string) $recibo->pdf_disk);
         $nombre = sprintf('%s.pdf', $recibo->folio ?? 'recibo-'.$recibo->id);
 
-        return $disco->response($recibo->pdf_path, $nombre, [
+        return $disco->response($ruta, $nombre, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="'.$nombre.'"',
             'X-Content-Type-Options' => 'nosniff',
@@ -460,6 +595,7 @@ class ReciboNominaService
      */
     public function aArray(ReciboNomina $recibo, bool $detalle = false): array
     {
+        $tienePdf = $this->pdfDisponible($recibo);
         $datos = [
             'id' => $recibo->id,
             'folio' => $recibo->folio,
@@ -476,7 +612,9 @@ class ReciboNominaService
             'estado' => $recibo->estado->value,
             'estado_etiqueta' => $recibo->estado->etiqueta(),
             'emitido_at' => $recibo->emitido_at?->toIso8601String(),
-            'tiene_pdf' => $recibo->pdf_path !== null,
+            // Que el ARCHIVO exista, no solo la referencia (ver pdfDisponible()).
+            'tiene_pdf' => $tienePdf,
+            'requiere_reparacion' => $recibo->estado === EstadoReciboNomina::Emitido && ! $tienePdf,
             'leyenda' => 'RECIBO DE NÓMINA',
         ];
 
@@ -552,45 +690,91 @@ class ReciboNominaService
 
     /**
      * Genera el PDF del recibo y lo archiva en el expediente
-     * (NominaInterna). Un fallo aquí nunca revierte el recibo ya persistido:
-     * se registra y RH puede reintentar con regenerarPdf().
+     * (NominaInterna). Si falla, lanza un ValidationException con un motivo
+     * humano (el detalle técnico va al log): quien llama decide — emitir()
+     * deja el recibo en borrador, regenerarPdf() lo reporta para reintentar.
+     *
+     * Con `$historico` (documento original con layout_snapshot) se respeta
+     * el DISEÑO con el que se emitió; sin él, el diseño vigente. Los DATOS
+     * siempre son el snapshot del recibo.
+     *
+     * @throws ValidationException
      */
-    private function generarPdf(ReciboNomina $recibo, ?User $actor): void
+    private function generarPdf(ReciboNomina $recibo, ?User $actor, ?GeneratedDocument $historico = null, ?GeneratedDocument $revisionDe = null): GeneratedDocument
     {
         $recibo->loadMissing(['colaborador.puesto', 'colaborador.sucursalPrincipal.empresa', 'generadoPor']);
         $actor ??= $recibo->generadoPor;
 
+        if ($actor === null) {
+            throw ValidationException::withMessages(['pdf' => 'No se pudo generar el PDF del recibo: no tiene registrado quién lo emitió.']);
+        }
+
         try {
-            if ($actor === null) {
-                throw ValidationException::withMessages(['recibo' => 'El recibo no tiene usuario generador.']);
+            $datos = $this->datosDocumento->recibo($recibo);
+
+            if ($historico !== null && is_array($historico->layout_snapshot)) {
+                $snapshot = $historico->layout_snapshot;
+                $diseno = $this->disenos->normalizar(FamiliaAdministrativa::ReciboNomina, (array) $snapshot['diseno']);
+                $motor = MotorPdf::tryFrom((string) ($snapshot['motor_configurado'] ?? '')) ?? MotorPdf::porDefecto();
+                $render = $this->documentosAdministrativos->renderizar(FamiliaAdministrativa::ReciboNomina, $datos, $diseno, $motor);
+                $documento = [
+                    'pdf' => $render['pdf'],
+                    'opciones_registro' => [
+                        'master_familia' => $historico->master_familia,
+                        'master_version' => $historico->master_version,
+                        'master_hash' => $historico->master_hash,
+                        'version' => $historico->version_plantilla,
+                        'conversion_engine' => $render['motor']->value,
+                        'layout_snapshot' => [...$snapshot, 'regenerado_en' => now()->toIso8601String(), 'regenerado_con_version_actual' => false],
+                    ],
+                ];
+            } else {
+                // DATOS del recibo (snapshot) + DISEÑO vigente de Documentos
+                // maestros → Documentos administrativos. El diseño no toca montos.
+                $documento = $this->documentosAdministrativos->generar(FamiliaAdministrativa::ReciboNomina, $datos, $actor);
+
+                if ($revisionDe !== null) {
+                    $documento['opciones_registro']['layout_snapshot']['regenerado_con_version_actual'] = true;
+                }
             }
 
-            // DATOS del recibo (snapshot) + DISEÑO vigente de Documentos
-            // maestros → Documentos administrativos. El diseño no toca montos.
-            $documento = $this->documentosAdministrativos->generar(FamiliaAdministrativa::ReciboNomina, $this->datosDocumento->recibo($recibo), $actor);
             $contenido = $documento['pdf'];
-
-            $documento = $this->motor->registrarPdf($recibo->colaborador, $contenido, sprintf('Recibo de nómina %s', $recibo->folio ?? $recibo->id), $actor, [
-                ...$documento['opciones_registro'],
-                'clave' => 'recibo_nomina_interno',
-                'categoria' => CategoriaDocumento::NominaInterna,
-                'payload' => [
-                    'folio' => (string) $recibo->folio,
-                    'periodo_inicio' => $recibo->periodo_inicio->toDateString(),
-                    'periodo_fin' => $recibo->periodo_fin->toDateString(),
-                    'total_percepciones' => (string) $recibo->total_percepciones,
-                    'total_deducciones' => (string) $recibo->total_deducciones,
-                    'neto' => (string) $recibo->neto,
-                ],
-                'documentable' => $recibo,
-            ]);
-
-            $recibo->update(['pdf_disk' => $documento->disk, 'pdf_path' => $documento->path, 'checksum' => $documento->checksum]);
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (Throwable $e) {
-            Log::warning('ReciboNominaService: no se pudo generar/guardar el PDF del recibo.', [
-                'recibo_id' => $recibo->id,
-                'error' => $e->getMessage(),
-            ]);
+            Log::error('ReciboNominaService: no se pudo generar el PDF del recibo.', ['recibo_id' => $recibo->id, 'error' => $e->getMessage()]);
+
+            throw ValidationException::withMessages(['pdf' => 'No se pudo generar el PDF del recibo: el generador de documentos no respondió. Intenta de nuevo en un momento; si continúa, avisa a Sistemas.']);
         }
+
+        // registrarPdf ya traduce una falla del almacenamiento (NAS) a un
+        // ValidationException con mensaje humano.
+        $documento = $this->motor->registrarPdf($recibo->colaborador, $contenido, sprintf('Recibo de nómina %s', $recibo->folio ?? $recibo->id), $actor, [
+            ...$documento['opciones_registro'],
+            'revision_de_id' => $revisionDe?->id,
+            'motivo_revision' => $revisionDe !== null ? 'Recuperación del PDF faltante del recibo' : null,
+            'clave' => 'recibo_nomina_interno',
+            'categoria' => CategoriaDocumento::NominaInterna,
+            'payload' => [
+                'folio' => (string) $recibo->folio,
+                'periodo_inicio' => $recibo->periodo_inicio->toDateString(),
+                'periodo_fin' => $recibo->periodo_fin->toDateString(),
+                'total_percepciones' => (string) $recibo->total_percepciones,
+                'total_deducciones' => (string) $recibo->total_deducciones,
+                'neto' => (string) $recibo->neto,
+            ],
+            'documentable' => $recibo,
+        ]);
+
+        $recibo->update(['pdf_disk' => $documento->disk, 'pdf_path' => $documento->path, 'checksum' => $documento->checksum]);
+
+        return $documento;
+    }
+
+    private function primerMensaje(ValidationException $e): string
+    {
+        $mensaje = (string) (collect($e->errors())->flatten()->first() ?? 'no se pudo generar el PDF.');
+
+        return str_ends_with($mensaje, '.') ? $mensaje : $mensaje.'.';
     }
 }

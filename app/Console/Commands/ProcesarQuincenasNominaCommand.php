@@ -60,8 +60,12 @@ class ProcesarQuincenasNominaCommand extends Command
             return self::SUCCESS;
         }
 
-        $emitidos = $quincenas->emitirVencidos($hoy, $responsable);
-        $this->info(sprintf('%d recibo(s) emitido(s) con fecha de pago al %s.', $emitidos, $hoy->format('d/m/Y')));
+        $resultado = $quincenas->emitirVencidos($hoy, $responsable);
+        $this->info(sprintf('%d recibo(s) emitido(s) con fecha de pago al %s.', $resultado['emitidos'], $hoy->format('d/m/Y')));
+
+        foreach ($resultado['fallidos'] as $fallido) {
+            $this->warn(sprintf('%s quedó en borrador: %s', $fallido['folio'], $fallido['motivo']));
+        }
 
         return self::SUCCESS;
     }

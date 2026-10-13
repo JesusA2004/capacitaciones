@@ -163,11 +163,11 @@ class CicloLaboralColaboradorController extends Controller
         return response()->json(['data' => $this->recibos->aArray($recibo, true)]);
     }
 
-    public function reciboPdf(ReciboNomina $recibo): StreamedResponse
+    public function reciboPdf(Request $request, ReciboNomina $recibo): StreamedResponse
     {
         $this->authorize('ver', $recibo);
 
-        return $this->recibos->respuestaPdf($recibo);
+        return $this->recibos->respuestaPdf($recibo, $request->user());
     }
 
     public function prestamos(Request $request): JsonResponse

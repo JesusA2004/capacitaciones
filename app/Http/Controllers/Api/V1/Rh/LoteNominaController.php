@@ -62,7 +62,7 @@ class LoteNominaController extends Controller
         abort_unless($request->user()->can('nomina.recibos.crear'), 403);
         $resultado = $this->lotes->emitir($lote, $request->user());
 
-        return response()->json(['data' => [...$this->lotes->resumen($resultado['lote']), 'emitidos_ahora' => $resultado['emitidos']]]);
+        return response()->json(['data' => [...$this->lotes->resumen($resultado['lote']), 'emitidos_ahora' => $resultado['emitidos'], 'fallidos' => $resultado['fallidos']]]);
     }
 
     /**

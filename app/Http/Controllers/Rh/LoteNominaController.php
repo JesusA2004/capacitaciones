@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Rh;
 
 use App\Enums\EstadoLoteNomina;
+use App\Enums\EstadoReciboNomina;
 use App\Enums\PeriodicidadNomina;
 use App\Http\Controllers\Controller;
 use App\Models\NominaLote;
@@ -152,8 +153,10 @@ class LoteNominaController extends Controller
         abort_unless($recibo->nomina_lote_id === $lote->id, 404);
         $this->authorize('ver', $recibo);
 
-        if ($recibo->pdf_path !== null) {
-            return $this->recibos->respuestaPdf($recibo);
+        // Emitido = su PDF congelado (si faltara, pantalla de reparación,
+        // nunca una vista previa con otro diseño ni un 404).
+        if ($recibo->estado === EstadoReciboNomina::Emitido) {
+            return $this->recibos->respuestaPdf($recibo, $request->user());
         }
 
         return response($this->lotes->vistaPreviaPdf($recibo), 200, [
@@ -183,6 +186,10 @@ class LoteNominaController extends Controller
         $mensaje = config('features.recibos_colaborador')
             ? sprintf('Se publicaron %d recibos y se avisó a cada colaborador.', $resultado['emitidos'])
             : sprintf('Se emitieron %d recibos. Descárgalos para imprimirlos y entregarlos físicamente.', $resultado['emitidos']);
+
+        if ($resultado['fallidos'] !== []) {
+            return back()->with('toast', ['type' => 'warning', 'message' => sprintf('%s %d recibo(s) siguen en borrador porque no se pudo generar su PDF (%s). Vuelve a emitir el lote para reintentar.', $mensaje, count($resultado['fallidos']), $resultado['fallidos'][0]['motivo'])]);
+        }
 
         return back()->with('toast', ['type' => 'success', 'message' => $mensaje]);
     }

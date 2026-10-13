@@ -83,6 +83,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('recibos/{recibo}', [NominaController::class, 'actualizar'])->name('recibos.update');
             Route::post('recibos/{recibo}/emitir', [NominaController::class, 'emitirUno'])->name('recibos.emitir');
             Route::get('recibos/{recibo}/pdf', [NominaController::class, 'pdf'])->name('recibos.pdf');
+            Route::post('recibos/{recibo}/reparar-pdf', [NominaController::class, 'repararPdf'])->name('recibos.reparar-pdf');
         });
 
         Route::prefix('expedientes')->name('expedientes.')->group(function () {

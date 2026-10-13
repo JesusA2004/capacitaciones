@@ -456,7 +456,7 @@ class LoteNominaService
      * (ReciboNominaService::emitir es idempotente), así que nadie recibe
      * dos avisos.
      *
-     * @return array{emitidos: int, lote: NominaLote}
+     * @return array{emitidos: int, fallidos: list<array{folio: string, motivo: string}>, lote: NominaLote}
      */
     public function emitir(NominaLote $lote, User $actor): array
     {
@@ -491,15 +491,22 @@ class LoteNominaService
         }
 
         $emitidos = 0;
+        $fallidos = [];
 
-        $lote->recibos()->where('estado', EstadoReciboNomina::Borrador->value)->orderBy('id')->each(function (ReciboNomina $recibo) use ($actor, &$emitidos): void {
-            $this->recibos->emitir($recibo, $actor);
-            $emitidos++;
+        // Uno por uno: si el PDF de un recibo falla, ese queda en borrador
+        // (reintentable volviendo a emitir el lote) y los demás sí se emiten.
+        $lote->recibos()->where('estado', EstadoReciboNomina::Borrador->value)->orderBy('id')->each(function (ReciboNomina $recibo) use ($actor, &$emitidos, &$fallidos): void {
+            try {
+                $this->recibos->emitir($recibo, $actor);
+                $emitidos++;
+            } catch (ValidationException $e) {
+                $fallidos[] = ['folio' => (string) ($recibo->folio ?? $recibo->id), 'motivo' => (string) (collect($e->errors())->flatten()->first() ?? 'No se pudo generar el PDF.')];
+            }
         });
 
-        $this->auditoria->registrar('lote_nomina_emitido', $lote, $actor, ['folio' => $lote->folio, 'emitidos' => $emitidos]);
+        $this->auditoria->registrar('lote_nomina_emitido', $lote, $actor, ['folio' => $lote->folio, 'emitidos' => $emitidos, 'fallidos' => count($fallidos)]);
 
-        return ['emitidos' => $emitidos, 'lote' => $lote->refresh()];
+        return ['emitidos' => $emitidos, 'fallidos' => $fallidos, 'lote' => $lote->refresh()];
     }
 
     /**

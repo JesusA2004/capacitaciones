@@ -48,7 +48,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
@@ -664,12 +664,7 @@ class ExpedienteController extends Controller
             'deducciones' => $request->validated('deducciones') ?? [],
         ], $request->user());
 
-        return back()->with('toast', [
-            'type' => 'success',
-            'message' => $recibo->pdf_path !== null
-                ? 'Recibo de nómina generado correctamente.'
-                : 'El recibo se generó y guardó, pero el PDF no pudo escribirse en el almacenamiento; intenta descargarlo de nuevo más tarde.',
-        ]);
+        return back()->with('toast', ['type' => 'success', 'message' => sprintf('Recibo de nómina %s generado correctamente.', $recibo->folio)]);
     }
 
     /**
@@ -683,11 +678,9 @@ class ExpedienteController extends Controller
         $recibo->loadMissing('colaborador');
 
         abort_unless($this->alcance->puedeVerExpediente($request->user(), $recibo->colaborador), 403);
-        abort_if($recibo->pdf_path === null || $recibo->pdf_disk === null, 404, 'El PDF de este recibo no está disponible; genera un recibo nuevo.');
 
-        $nombre = 'recibo-nomina-'.($recibo->colaborador->numero_empleado ?? $recibo->colaborador_id).'-'.$recibo->periodo_inicio->format('Y-m').'.pdf';
-
-        return Storage::disk($recibo->pdf_disk)->download($recibo->pdf_path, $nombre);
+        // Archivo faltante = pantalla de reparación (ArchivoGeneradoNoDisponibleException), no 404.
+        return $this->reciboNomina->respuestaPdf($recibo, $request->user());
     }
 
     /**
@@ -702,11 +695,13 @@ class ExpedienteController extends Controller
         abort_unless($this->alcance->puedeVerExpediente($request->user(), $recibo->colaborador), 403);
         abort_unless($request->user()->can('expedientes.editar'), 403);
 
-        $recibo = $this->reciboNomina->regenerarPdf($recibo);
+        try {
+            $this->reciboNomina->regenerarPdf($recibo, $request->user());
+        } catch (ValidationException $e) {
+            return back()->with('toast', ['type' => 'error', 'message' => (string) collect($e->errors())->flatten()->first()]);
+        }
 
-        return back()->with('toast', $recibo->pdf_path !== null
-            ? ['type' => 'success', 'message' => 'PDF regenerado correctamente.']
-            : ['type' => 'warning', 'message' => 'El PDF sigue sin poder guardarse; intenta de nuevo más tarde.']);
+        return back()->with('toast', ['type' => 'success', 'message' => 'PDF del recibo listo.']);
     }
 
     /**

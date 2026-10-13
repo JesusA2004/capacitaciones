@@ -69,6 +69,7 @@ class NominaController extends Controller
                     'puesto' => $r->colaborador->puesto?->nombre,
                 ],
                 'pdf_url' => $r->pdf_path !== null ? route('rh.nomina.recibos.pdf', $r) : null,
+                'reparar_url' => $r->estado === EstadoReciboNomina::Emitido && $usuario->can('regenerar', $r) ? route('rh.nomina.recibos.reparar-pdf', $r) : null,
             ]);
 
         return Inertia::render('Rh/Nomina/Index', [
@@ -118,9 +119,16 @@ class NominaController extends Controller
         $datos = $request->validate(['periodo' => ['required', 'string'], 'ids' => ['nullable', 'array'], 'ids.*' => ['integer']]);
         $periodo = $this->quincenas->periodoPorClave($datos['periodo']);
 
-        $emitidos = $this->quincenas->emitirPeriodo($periodo, $request->user(), isset($datos['ids']) ? array_map('intval', $datos['ids']) : null);
+        $resultado = $this->quincenas->emitirPeriodo($periodo, $request->user(), isset($datos['ids']) ? array_map('intval', $datos['ids']) : null);
+        $mensaje = config('features.recibos_colaborador')
+            ? sprintf('%d recibo(s) emitidos. Cada colaborador ya puede verlo en la app y en su portal.', $resultado['emitidos'])
+            : sprintf('%d recibo(s) emitidos, listos para imprimir.', $resultado['emitidos']);
 
-        return back()->with('toast', ['type' => 'success', 'message' => sprintf('%d recibo(s) emitidos. Cada colaborador ya puede verlo en la app y en su portal.', $emitidos)]);
+        if ($resultado['fallidos'] !== []) {
+            return back()->with('toast', ['type' => 'warning', 'message' => sprintf('%s %d siguen en borrador porque no se pudo generar su PDF (%s). Vuelve a emitirlos para reintentar.', $mensaje, count($resultado['fallidos']), $resultado['fallidos'][0]['motivo'])]);
+        }
+
+        return back()->with('toast', ['type' => 'success', 'message' => $mensaje]);
     }
 
     public function masivo(CambioMasivoRecibosRequest $request): RedirectResponse
@@ -159,11 +167,31 @@ class NominaController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => 'Recibo emitido.']);
     }
 
-    public function pdf(ReciboNomina $recibo): StreamedResponse
+    public function pdf(Request $request, ReciboNomina $recibo): StreamedResponse
     {
         $this->authorize('ver', $recibo);
 
-        return $this->recibos->respuestaPdf($recibo);
+        return $this->recibos->respuestaPdf($recibo, $request->user());
+    }
+
+    /**
+     * «Reparar PDF»: recupera o regenera el archivo de un recibo emitido
+     * (ReciboNominaService::regenerarPdf, mismos montos del snapshot) y
+     * abre el PDF. Si no se puede, regresa con el motivo humano.
+     */
+    public function repararPdf(Request $request, ReciboNomina $recibo): HttpResponse
+    {
+        $this->authorize('regenerar', $recibo);
+
+        $this->recibos->regenerarPdf($recibo, $request->user());
+
+        // Desde la pantalla «PDF no disponible»: responde la URL y el
+        // navegador abre el PDF directamente.
+        if ($request->expectsJson()) {
+            return response()->json(['url' => route('rh.nomina.recibos.pdf', $recibo)]);
+        }
+
+        return back()->with('toast', ['type' => 'success', 'message' => sprintf('El PDF del recibo %s está listo.', $recibo->folio)]);
     }
 
     /**

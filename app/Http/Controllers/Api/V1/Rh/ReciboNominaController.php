@@ -70,11 +70,11 @@ class ReciboNominaController extends Controller
         return response()->json(['data' => $this->recibos->aArray($recibo, true)]);
     }
 
-    public function pdf(ReciboNomina $recibo): StreamedResponse
+    public function pdf(Request $request, ReciboNomina $recibo): StreamedResponse
     {
         $this->authorize('ver', $recibo);
 
-        return $this->recibos->respuestaPdf($recibo);
+        return $this->recibos->respuestaPdf($recibo, $request->user());
     }
 
     /**
@@ -115,7 +115,7 @@ class ReciboNominaController extends Controller
         abort_unless($request->user()->can('nomina.recibos.crear'), 403);
         $ids = $request->validate(['ids' => ['nullable', 'array'], 'ids.*' => ['integer']])['ids'] ?? null;
 
-        return response()->json(['data' => ['emitidos' => $this->quincenas->emitirPeriodo($this->periodo($request), $request->user(), $ids !== null ? array_map('intval', $ids) : null)]]);
+        return response()->json(['data' => $this->quincenas->emitirPeriodo($this->periodo($request), $request->user(), $ids !== null ? array_map('intval', $ids) : null)]);
     }
 
     public function masivo(CambioMasivoRecibosRequest $request): JsonResponse

@@ -13,8 +13,11 @@ import {
     Send,
     Trash2,
     Wallet,
+    Loader2,
+    Wrench,
 } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
+import { toast } from 'vue-sonner';
 import Casilla from '@/components/Common/Casilla.vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import MetricCard from '@/components/Common/MetricCard.vue';
@@ -66,7 +69,9 @@ type Recibo = {
     neto: string;
     observaciones: string | null;
     tiene_pdf: boolean;
+    requiere_reparacion: boolean;
     pdf_url: string | null;
+    reparar_url: string | null;
     conceptos: Concepto[];
     colaborador: {
         id: number;
@@ -244,7 +249,38 @@ async function emitirUno(recibo: Recibo) {
         return;
     }
 
-    router.post(emitirRecibo.url(recibo.id), {}, { preserveScroll: true });
+    router.post(
+        emitirRecibo.url(recibo.id),
+        {},
+        {
+            preserveScroll: true,
+            onError: (errores) =>
+                toast.error(Object.values(errores)[0] ?? 'No se pudo emitir.'),
+        },
+    );
+}
+
+// Recibo emitido cuyo PDF falta: se recupera/regenera con los mismos montos.
+const reparando = ref<number | null>(null);
+
+function repararPdf(recibo: Recibo) {
+    if (!recibo.reparar_url || reparando.value !== null) {
+        return;
+    }
+
+    reparando.value = recibo.id;
+    router.post(
+        recibo.reparar_url,
+        {},
+        {
+            preserveScroll: true,
+            onError: (errores) =>
+                toast.error(
+                    Object.values(errores)[0] ?? 'No se pudo generar el PDF.',
+                ),
+            onFinish: () => (reparando.value = null),
+        },
+    );
 }
 
 // --- Cambio en bloque -------------------------------------------------------
@@ -666,7 +702,9 @@ const opcionesTipo = [
                                         Emitir
                                     </Button>
                                     <Button
-                                        v-if="recibo.pdf_url"
+                                        v-if="
+                                            recibo.tiene_pdf && recibo.pdf_url
+                                        "
                                         as-child
                                         size="sm"
                                         variant="ghost"
@@ -677,8 +715,25 @@ const opcionesTipo = [
                                             rel="noopener"
                                         >
                                             <FileText class="size-4" />
-                                            PDF
+                                            Ver recibo
                                         </a>
+                                    </Button>
+                                    <Button
+                                        v-else-if="
+                                            recibo.requiere_reparacion &&
+                                            recibo.reparar_url
+                                        "
+                                        size="sm"
+                                        variant="outline"
+                                        :disabled="reparando !== null"
+                                        @click="repararPdf(recibo)"
+                                    >
+                                        <Loader2
+                                            v-if="reparando === recibo.id"
+                                            class="size-4 animate-spin"
+                                        />
+                                        <Wrench v-else class="size-4" />
+                                        Reparar PDF
                                     </Button>
                                 </div>
                             </td>
