@@ -239,6 +239,7 @@ class DocumentoAdministrativoService
         try {
             $bytes = Storage::disk($asset->disk)->get($asset->path);
         } catch (Throwable) {
+            // NAS no disponible: el documento sale sin esa imagen en vez de fallar.
             return null;
         }
 

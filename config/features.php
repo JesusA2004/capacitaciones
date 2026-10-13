@@ -21,10 +21,6 @@ return [
 
     'capacitacion' => env('CAPACITACION_ENABLED', false),
 
-    'desempeno' => env('DESEMPENO_ENABLED', false),
-
-    'nine_box' => env('NINE_BOX_ENABLED', false),
-
     /*
     | Recibos de nómina en autoservicio (Mi espacio web y app). Apagado por
     | decisión de negocio: el colaborador recibe su recibo IMPRESO (RH genera

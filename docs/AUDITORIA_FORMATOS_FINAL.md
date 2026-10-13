@@ -94,12 +94,13 @@ todos los generados).
   (préstamo autorizado, solicitud, evaluación, cierre): la auditoría probó
   el formato sin ese proceso; en operación vienen del registro.
 
-## Bloqueados conocidos
+## Bloqueados conocidos (dependencia externa, no bloquea la Fase 1)
 
-- `permiso_extraordinario.maternidad` (inactivo): usa la fuente **Aptos**,
+- `permiso_extraordinario.maternidad` (**inactivo**): usa la fuente **Aptos**,
   no instalada en este servidor; sin ella el PDF cambiaría de tipografía.
-  Instalar Aptos (o que Jurídico lo guarde con Century Gothic) y correr
-  `php artisan people:validar-documentos-maestros`.
+  Formato inactivo hasta disponer de Aptos o recibir versión del documento
+  con una fuente disponible. Después: `php artisan people:validar-documentos-maestros`.
+  No se instala ni descarga ninguna fuente propietaria automáticamente.
 
 ## Cómo repetir
 

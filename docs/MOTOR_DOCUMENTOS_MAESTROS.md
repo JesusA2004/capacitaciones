@@ -18,7 +18,8 @@ con un 422 explicable; nunca emite un documento "parecido".
 | MASTER técnico | `document_templates.path` + `master_hash` + `mapping` + `analisis` |
 | QA visual de la versión | `document_templates.visual_validation_status` (`pending`/`passed`/`failed`), `visual_similarity`, `page_count_original`, `page_count_output`, `visual_checked_at`, `visual_engine`, `visual_report`, `diagnostico_fuentes` |
 | Activación | `activo`, `activado_por`, `activado_en`, `activacion_excepcional_motivo` |
-| Mapa de campos | `config/documentos_maestros.php` (versionado en git; sin binarios) |
+| Mapa de campos (FUENTE ACTUAL) | `document_template_fields`: mapping **por versión** en BD (campo, `source_key`, obligatorio, etiqueta humana, zona y posición). Lo edita el editor visual; cada versión conserva el suyo |
+| `config/documentos_maestros.php` | Solo compatibilidad y valores por defecto: catálogo inicial de las familias de Jurídico, reglas legacy que `MigracionMapeosService` convirtió a `document_template_fields`, y defaults del motor. **Un formato nuevo NO requiere editar este archivo ni ningún PHP** |
 | INSTANCIA / OUTPUT | `generated_documents`: PDF (`disk`/`path`/`checksum`), Word llenado (`docx_disk`/`docx_path`/`docx_hash`), `conversion_engine`, `conversion_fidelity`, `master_familia`, `master_version`, `master_hash`, `paginas`, snapshot `payload`, `revision_de_id`/`motivo_revision` |
 | Decisión documental del puesto | `puestos.grupo_documental` **o** `puestos.no_requiere_documentos_laborales` + `motivo_sin_documentos` |
 | Evento del flujo | `App\Services\DocumentosMaestros\DocumentoProcesoService` (fuente única para web y app) |
@@ -326,8 +327,9 @@ versión** (arrastrar el DOCX/PDF; aplica el mismo mapa; prueba el diseño;
 queda inactiva) → **Probar con colaborador** (buscador por nombre/número;
 pestañas Original / Generado; páginas, fidelidad, campos, desbordes,
 fuentes, domicilio y representante usados) → **Activar**. Si el formato
-cambió de estructura, el diagnóstico técnico muestra los pendientes y hay
-que ajustar sus reglas en `config/documentos_maestros.php`.
+cambió de estructura, el diagnóstico muestra los espacios sin asignar y se
+asignan en el **editor visual** (sin tocar código); hasta que «Sin clasificar»
+sea 0 la versión no se puede activar.
 
 ## Endpoints (web JSON = API v1, mismo controlador)
 

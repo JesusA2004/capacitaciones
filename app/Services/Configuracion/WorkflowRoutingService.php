@@ -334,6 +334,8 @@ class WorkflowRoutingService
         try {
             return ReglaNotificacion::query()->where('evento', $evento)->first();
         } catch (Throwable) {
+            // Sin tabla de reglas (instalación a medio migrar): se usa la
+            // regla por defecto de config, nunca se bloquea la notificación.
             return null;
         }
     }

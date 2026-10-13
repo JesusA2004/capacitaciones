@@ -15,24 +15,6 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class EnsureFeatureEnabled
 {
-    /**
-     * Metadatos de la pantalla "Proximamente" para features sin pantalla
-     * dedicada propia (capacitacion conserva su pagina original con el
-     * detalle de los modulos ya construidos).
-     */
-    private const METADATA = [
-        'desempeno' => [
-            'titulo' => 'Desempeño',
-            'descripcion' => 'Evaluación de desempeño de colaboradores. Disponible en la Fase 2 del roadmap.',
-            'fase' => 'Fase 2',
-        ],
-        'nine_box' => [
-            'titulo' => 'Nine Box',
-            'descripcion' => 'Matriz de talento (desempeño vs. potencial). Disponible en la Fase 2 del roadmap.',
-            'fase' => 'Fase 2',
-        ],
-    ];
-
     public function handle(Request $request, Closure $next, string $feature): Response
     {
         if (config("features.{$feature}")) {
@@ -44,13 +26,12 @@ class EnsureFeatureEnabled
                 return Inertia::render('Capacitacion/Proximamente')->toResponse($request);
             }
 
-            $meta = self::METADATA[$feature] ?? [
+            // Pantalla genérica "Próximamente" (capacitacion tiene la suya).
+            return Inertia::render('Proximamente', [
                 'titulo' => ucfirst(str_replace('_', ' ', $feature)),
                 'descripcion' => 'Este módulo estará disponible en una fase futura.',
                 'fase' => null,
-            ];
-
-            return Inertia::render('Proximamente', $meta)->toResponse($request);
+            ])->toResponse($request);
         }
 
         abort(403, 'Este modulo esta desactivado temporalmente.');

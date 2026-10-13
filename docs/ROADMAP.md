@@ -5,7 +5,7 @@
 Orden de implementación seguido en esta fase:
 
 1. Identidad MR. LANA PEOPLE (branding, textos).
-2. Feature flags (`rh_portal`, `capacitacion`, `desempeno`, `nine_box`).
+2. Feature flags (`rh_portal`, `capacitacion`; los de Fase 2 se retiraron al cerrar la Fase 1 porque ninguna ruta los usaba).
 3. Carpeta `claude/` para formatos oficiales.
 4. Documentación base.
 5. Multiempresa (ya existente, confirmada).
@@ -59,9 +59,8 @@ arriba:
 
 ## Fase 2 — Desempeño / Nine Box (futura, oculta)
 
-No se desarrolla en este proyecto. Bandera `desempeno` / `nine_box` en
-`config/features.php`, ambas en `false`. Pantalla "Próximamente" genérica
-(`resources/js/pages/Proximamente.vue`) si se intenta acceder.
+No se desarrolla todavía. Sin código, migraciones ni banderas: el alcance está
+documentado en `docs/FASE_2_DESEMPENO_NINEBOX.md`.
 
 ## Fase 3 — Capacitación completa (futura, conservada oculta)
 

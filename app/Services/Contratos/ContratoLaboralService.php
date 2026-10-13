@@ -21,6 +21,7 @@ use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -455,7 +456,10 @@ class ContratoLaboralService
     {
         try {
             $firmado = $this->contratoFirmado($contrato);
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            // Degradación deliberada: el listado no truena por un documento
+            // ilegible; se muestra «sin firmar» y queda en el log.
+            Log::warning('No se pudo revisar la firma del contrato', ['contrato_id' => $contrato->id, 'error' => $e->getMessage()]);
             $firmado = false;
         }
 

@@ -163,7 +163,7 @@ terminar la corrida (ver §9, "Resultado del baseline de Pest").
 | Pieza | Consumidores | Acción en este cierre |
 |---|---|---|
 | Capacitación (cursos, cuestionarios, sesiones) | Rutas bajo `feature:capacitacion` | Se conserva oculta (CLAUDE.md). Onboarding **no** depende de ella. |
-| Desempeño / Nine Box | Flags `desempeno`, `nine_box` en `false` | Sin cambios. |
+| Desempeño / Nine Box | Sin código ni banderas (retiradas al cerrar Fase 1); ver `docs/FASE_2_DESEMPENO_NINEBOX.md` | Sin cambios. |
 | Vacaciones/permisos/préstamos/recibos (Etapa 5) | Web de solicitudes unificadas, API móvil | Sin cambios funcionales; se retiran de la bandeja del ciclo y del recorrido del colaborador en la app. |
 | `AltaDigital` (liga pública) | `Rh\AltaDigitalController`, `routes/alta-publica.php` | Conservado; fuera del recorrido (menú secundario). |
 | `CandidatoController::actualizarEstado` (arrastrar en kanban) | `Rh/Candidatos/Index.vue` | Restringido a salidas (descartar con motivo); los avances solo por acciones del workflow. |

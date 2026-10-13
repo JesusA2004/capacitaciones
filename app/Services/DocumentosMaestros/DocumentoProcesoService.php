@@ -1200,6 +1200,7 @@ class DocumentoProcesoService
         try {
             return Storage::disk($documento->disk)->exists($documento->path);
         } catch (Throwable) {
+            // NAS no disponible: se reporta como «archivo no disponible».
             return false;
         }
     }
