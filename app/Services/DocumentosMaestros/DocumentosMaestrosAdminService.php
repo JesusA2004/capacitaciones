@@ -84,10 +84,34 @@ class DocumentosMaestrosAdminService
                 'ultima_prueba_en' => ($actual->visual_checked_at ?? $actual?->ultima_prueba_en)?->toIso8601String(),
                 'versiones_sin_validar' => $versiones->filter(fn (DocumentTemplate $m): bool => $operativo && $m->estado_master === 'listo' && ! $m->disenoValidado())->count(),
                 'versiones' => $versiones->map(fn (DocumentTemplate $m): array => $this->resumenVersion($m))->values()->all(),
+                'fuentes_ok' => array_filter((array) ($actual->diagnostico_fuentes ?? []), fn (mixed $f): bool => is_array($f) && ! ($f['disponible'] ?? true)) === [],
             ];
         }
 
         return $filas;
+    }
+
+    /**
+     * Tipos de documento que ya existen (para que un formato nuevo se sume
+     * a un tipo existente —p. ej. otra variante de contrato— o cree uno).
+     *
+     * @return list<array{value: string, label: string}>
+     */
+    public function clavesDisponibles(): array
+    {
+        $claves = [];
+
+        foreach ($this->catalogo->definiciones() as $definicion) {
+            $clave = $definicion['clave'] ?? null;
+
+            if (is_string($clave) && ($definicion['operativo'] ?? true)) {
+                $claves[$clave] = $this->catalogo->nombreClave($clave);
+            }
+        }
+
+        asort($claves);
+
+        return array_map(fn (string $clave, string $nombre): array => ['value' => $clave, 'label' => $nombre], array_keys($claves), $claves);
     }
 
     /**

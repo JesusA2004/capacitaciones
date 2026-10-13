@@ -101,6 +101,12 @@ class DocumentoProcesoService
             $secciones[] = $this->seccionRenovacion($renovacion, $viewer);
         }
 
+        $aDemanda = $this->seccionADemanda($colaborador, $viewer);
+
+        if ($aDemanda !== null) {
+            $secciones[] = $aDemanda;
+        }
+
         return $secciones;
     }
 
@@ -503,6 +509,53 @@ class DocumentoProcesoService
     }
 
     /**
+     * Documentos A DEMANDA del expediente: formatos que RH creó en
+     * Documentos maestros → «Nuevo formato» con «Se genera en: Expediente»
+     * (cartas, constancias…). No dependen de un proceso: se generan desde
+     * la ficha del colaborador sin tocar ningún paquete en config.
+     *
+     * @return array<string, mixed>|null null si no hay ninguno activo.
+     */
+    public function seccionADemanda(Colaborador $colaborador, User $viewer): ?array
+    {
+        $this->exigirVer($viewer, $colaborador);
+        $claves = $this->clavesADemanda();
+
+        if ($claves === []) {
+            return null;
+        }
+
+        $items = array_map(fn (string $clave): array => $this->item($clave, $colaborador, $colaborador, $viewer, 'expediente', ['motivo' => 'Documento a demanda del expediente.']), $claves);
+
+        return [
+            'proceso' => 'expediente',
+            'titulo' => 'Otros documentos',
+            'descripcion' => 'Formatos que se generan cuando se necesitan.',
+            'registro' => ['tipo' => 'colaborador', 'id' => $colaborador->id],
+            'colaborador' => $this->resumenColaborador($colaborador),
+            'bloqueo' => null,
+            'acciones' => [],
+            'documentos' => $items,
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function clavesADemanda(): array
+    {
+        $claves = [];
+
+        foreach ($this->catalogo->definiciones() as $definicion) {
+            if (($definicion['proceso'] ?? null) === 'expediente' && ($definicion['operativo'] ?? true) && is_string($definicion['clave'] ?? null)) {
+                $claves[$definicion['clave']] = true;
+            }
+        }
+
+        return array_keys($claves);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function seccionPrestamo(Prestamo $prestamo, User $viewer): array
@@ -832,6 +885,7 @@ class DocumentoProcesoService
             'prestamo' => Prestamo::query()->findOrFail($id),
             'evaluacion' => EvaluacionPeriodoPrueba::query()->findOrFail($id),
             'entrega_activo' => EntregaActivo::query()->findOrFail($id),
+            'colaborador' => Colaborador::query()->withTrashed()->where('id', $id)->firstOrFail(),
             default => abort(404),
         };
     }
@@ -853,6 +907,7 @@ class DocumentoProcesoService
             $registro instanceof Prestamo => $this->seccionPrestamo($registro, $viewer),
             $registro instanceof EvaluacionPeriodoPrueba => $this->seccionEvaluacion($registro, $viewer),
             $registro instanceof EntregaActivo => $this->seccionEntregaActivo($registro, $viewer),
+            $registro instanceof Colaborador => $this->seccionADemanda($registro, $viewer),
             $registro instanceof ContratoLaboral && ($proceso === 'renovacion' || $registro->contrato_anterior_id !== null) => $this->seccionRenovacion($registro, $viewer),
             $registro instanceof ContratoLaboral => $this->seccionAlta($registro, $viewer),
             default => abort(404),
@@ -1409,6 +1464,7 @@ class DocumentoProcesoService
             $registro instanceof SolicitudInterna => ['formato_permiso'],
             $registro instanceof EvaluacionPeriodoPrueba => ['evaluacion_capacitacion'],
             $registro instanceof EntregaActivo => ['carta_responsiva'],
+            $registro instanceof Colaborador => $this->clavesADemanda(),
             default => [],
         };
     }
@@ -1503,6 +1559,7 @@ class DocumentoProcesoService
             $registro instanceof ContratoLaboral, $registro instanceof CierreLaboral, $registro instanceof EvaluacionPeriodoPrueba, $registro instanceof Prestamo => Colaborador::query()->withTrashed()->where('id', $registro->colaborador_id)->first(),
             $registro instanceof SolicitudInterna => $registro->personaSolicitante(),
             $registro instanceof EntregaActivo => Colaborador::query()->withTrashed()->where('id', $registro->colaborador_id)->first(),
+            $registro instanceof Colaborador => $registro,
             default => null,
         };
 

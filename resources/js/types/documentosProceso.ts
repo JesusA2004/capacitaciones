@@ -210,6 +210,8 @@ export type MasterAdminFila = {
     ultima_prueba_en: string | null;
     versiones_sin_validar: number;
     versiones: VersionMaster[];
+    /** Todas las fuentes del documento disponibles en este servidor. */
+    fuentes_ok: boolean;
 };
 
 export type KpisMaestros = {

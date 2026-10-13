@@ -236,7 +236,21 @@ return [
         'permiso' => 'Permiso',
         'prestamo' => 'Préstamo',
         'activos' => 'Entrega de activos',
+        'expediente' => 'Expediente (a demanda)',
         'referencia' => 'Referencia (no se genera)',
+    ],
+
+    /*
+    | Detección de espacios al subir un formato nuevo (editor no-code).
+    | Todo LOCAL: Poppler para PDF digitales (sin OCR) y Tesseract SOLO para
+    | PDF escaneados (opcional; sin él, RH coloca los espacios a mano).
+    | Ningún documento sale del servidor ni tiene costo por uso.
+    */
+    'deteccion' => [
+        'pdftotext' => env('DOCUMENTOS_PDFTOTEXT_PATH'),
+        'tesseract' => env('DOCUMENTOS_TESSERACT_PATH', env('FORMATOS_TESSERACT_PATH')),
+        'ocr_idioma' => env('DOCUMENTOS_OCR_IDIOMA', 'spa'),
+        'ocr_timeout' => (int) env('DOCUMENTOS_OCR_TIMEOUT', 60),
     ],
 
     /*

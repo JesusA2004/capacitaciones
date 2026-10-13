@@ -227,6 +227,7 @@ class DocumentoProcesoController extends Controller
             'prestamo' => 'prestamo',
             'evaluacion' => 'evaluacion',
             'entrega_activo' => 'activos',
+            'colaborador' => 'expediente',
             default => 'alta',
         };
     }

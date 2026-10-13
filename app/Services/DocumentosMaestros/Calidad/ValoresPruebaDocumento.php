@@ -2,6 +2,7 @@
 
 namespace App\Services\DocumentosMaestros\Calidad;
 
+use App\Services\DocumentosMaestros\DefinicionMaestroService;
 use App\Services\DocumentosMaestros\Variables\ExpresionesDocumentoService;
 
 /**
@@ -72,8 +73,17 @@ class ValoresPruebaDocumento
         }
 
         $valores = [...$base, ...$this->valores(array_values(array_diff($campos, array_keys($expresiones))))];
+        $valores = array_intersect_key($this->expresiones->completar($mapping, $valores), array_flip($campos));
 
-        return array_intersect_key($this->expresiones->completar($mapping, $valores), array_flip($campos));
+        // Zonas sin dato (firma, huella, testigo): nunca llevan texto, ni en
+        // la prueba de estrés.
+        foreach (array_keys($valores) as $campo) {
+            if (str_starts_with((string) $campo, DefinicionMaestroService::prefijoSinDato())) {
+                $valores[$campo] = '';
+            }
+        }
+
+        return $valores;
     }
 
     private function porNombre(string $campo): string

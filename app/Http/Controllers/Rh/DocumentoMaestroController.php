@@ -10,7 +10,9 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\DocumentosMaestros\AlmacenMaestrosService;
 use App\Services\DocumentosMaestros\CoberturaDocumentalService;
 use App\Services\DocumentosMaestros\DocumentosMaestrosAdminService;
+use App\Services\DocumentosMaestros\EditorMaestroService;
 use App\Services\DocumentosMaestros\ImportadorFormatosJuridicosService;
+use App\Services\DocumentosMaestros\SaludDocumentalService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -36,6 +38,8 @@ class DocumentoMaestroController extends Controller
         private readonly AlmacenMaestrosService $almacen,
         private readonly CoberturaDocumentalService $cobertura,
         private readonly AlcanceOrganizacionalService $alcance,
+        private readonly EditorMaestroService $editor,
+        private readonly SaludDocumentalService $salud,
     ) {}
 
     public function index(Request $request): InertiaResponse
@@ -46,8 +50,102 @@ class DocumentoMaestroController extends Controller
         return Inertia::render('Rh/DocumentosMaestros/Index', [
             'masters' => $masters,
             'kpis' => $this->admin->kpis($masters),
+            'salud' => $this->salud->resumen($masters),
             'grupos' => config('documentos_maestros.grupos'),
             'procesos' => config('documentos_maestros.procesos'),
+            'claves' => $this->admin->clavesDisponibles(),
+        ]);
+    }
+
+    // ───────── Editor visual no-code ─────────
+
+    public function editor(Request $request, DocumentTemplate $master): InertiaResponse
+    {
+        $this->exigir($request);
+        abort_if($master->estado_master === null, 404);
+
+        return Inertia::render('Rh/DocumentosMaestros/Editor', [
+            'editor' => $this->editor->editor($master),
+            'abrirPrueba' => $request->boolean('probar'),
+        ]);
+    }
+
+    public function nuevo(Request $request): JsonResponse
+    {
+        $this->exigir($request);
+        $procesos = [...array_keys((array) config('documentos_maestros.procesos', [])), 'expediente'];
+        $datos = $request->validate([
+            'nombre' => ['required', 'string', 'min:3', 'max:150'],
+            'clave' => ['nullable', 'string', 'max:60', 'regex:/^[a-z0-9_]*$/'],
+            'grupo' => ['nullable', 'string', Rule::in(array_keys((array) config('documentos_maestros.grupos', [])))],
+            'proceso' => ['required', 'string', Rule::in(array_diff($procesos, ['referencia']))],
+            'requiere_impresion' => ['boolean'],
+            'requiere_firma_fisica' => ['boolean'],
+            'requiere_huella' => ['boolean'],
+            'archivo' => ['required', 'file', 'max:20480', 'mimes:docx,pdf'],
+        ], [
+            'archivo.mimes' => 'El documento debe ser Word (.docx) o PDF.',
+            'archivo.max' => 'El archivo pesa más de 20 MB.',
+        ]);
+        $archivo = $request->file('archivo');
+        abort_unless($archivo instanceof UploadedFile, 422);
+
+        $master = $this->editor->crearFormato($datos, $archivo, $request->user());
+        $espacios = $master->campos()->count();
+
+        return response()->json([
+            'message' => $espacios > 0 ? sprintf('Se detectaron %d espacio(s). Confirma qué dato va en cada uno.', $espacios) : 'Formato cargado. Coloca los espacios para datos sobre el documento.',
+            'data' => ['id' => $master->id],
+        ], 201);
+    }
+
+    public function guardarCampos(Request $request, DocumentTemplate $master): JsonResponse
+    {
+        $this->exigir($request);
+        abort_if($master->estado_master === null, 404);
+        $datos = $request->validate(['campos' => ['present', 'array', 'max:200'], 'campos.*' => ['array']]);
+        $master = $this->editor->guardarCampos($master, array_values($datos['campos']), $request->user());
+
+        return response()->json(['message' => 'Cambios guardados.', 'data' => $this->editor->editor($master)]);
+    }
+
+    public function detectar(Request $request, DocumentTemplate $master): JsonResponse
+    {
+        $this->exigir($request);
+        abort_if($master->estado_master === null, 404);
+        $nuevos = $this->editor->detectarEspacios($master, $request->user());
+
+        return response()->json(['message' => $nuevos > 0 ? sprintf('%d espacio(s) nuevo(s) detectado(s).', $nuevos) : 'No hay espacios nuevos por detectar.', 'data' => $this->editor->editor($master->refresh())]);
+    }
+
+    public function datosLargos(Request $request, DocumentTemplate $master): JsonResponse
+    {
+        $this->exigir($request);
+        abort_if($master->estado_master === null, 404);
+
+        return response()->json(['data' => $this->editor->datosLargos($master, $request->user())]);
+    }
+
+    public function copiarVersion(Request $request, DocumentTemplate $master): JsonResponse
+    {
+        $this->exigir($request);
+        abort_if($master->estado_master === null, 404);
+        $nueva = $this->editor->nuevaVersionDesde($master, $request->user());
+
+        return response()->json(['message' => sprintf('Versión %d creada (inactiva) para editarla.', $nueva->version), 'data' => ['id' => $nueva->id]], 201);
+    }
+
+    public function revisarFuentes(Request $request): JsonResponse
+    {
+        $this->exigir($request);
+        $resultado = $this->salud->revisarFuentes();
+        $sustituidas = array_filter((array) $resultado['fuentes'], fn (mixed $f): bool => is_array($f) && ($f['sustituida'] ?? false));
+
+        return response()->json([
+            'message' => ! ($resultado['chrome']['disponible'] ?? false)
+                ? 'No se pudo abrir el Chrome que imprime los documentos.'
+                : ($sustituidas === [] ? 'Fuentes revisadas: Chrome usa todas las fuentes de los documentos.' : sprintf('%d fuente(s) se sustituyen en este servidor.', count($sustituidas))),
+            'data' => $resultado,
         ]);
     }
 

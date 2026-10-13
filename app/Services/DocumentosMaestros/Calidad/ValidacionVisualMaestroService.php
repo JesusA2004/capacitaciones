@@ -55,6 +55,7 @@ class ValidacionVisualMaestroService
         private readonly RenderizadorOverlayMaestro $overlay,
         private readonly AlmacenMaestrosService $almacen,
         private readonly AuditoriaService $auditoria,
+        private readonly HuellaEntornoService $huella,
     ) {}
 
     /**
@@ -461,6 +462,8 @@ class ValidacionVisualMaestroService
             'visual_engine' => isset($reporte['motor']) ? (string) $reporte['motor'] : null,
             'visual_report' => [...$reporte, 'ejecutado_por' => $actor?->name, 'rasterizador' => $this->rasterizador->motor()],
             'diagnostico_fuentes' => isset($reporte['fuentes']) && $reporte['fuentes'] !== [] ? $reporte['fuentes'] : $master->diagnostico_fuentes,
+            // En QUÉ servidor se validó: si cambia, se pide revalidar.
+            'qa_entorno' => $this->huella->actual(),
         ])->save();
 
         $this->auditoria->registrar('documento_maestro_qa_visual', $master, $actor, [

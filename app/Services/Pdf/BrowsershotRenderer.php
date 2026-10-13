@@ -27,43 +27,13 @@ class BrowsershotRenderer implements PdfRendererInterface
         }
 
         try {
-            $navegador = Browsershot::html($html)
+            $navegador = $this->navegador($html)
                 ->showBackground()
                 ->emulateMedia('print')
                 ->format($opciones->tamano === 'a4' ? 'A4' : 'Letter')
                 ->landscape($opciones->orientacion === 'landscape')
                 // Tamaño y márgenes salen del @page del propio HTML.
-                ->setOption('preferCSSPageSize', true)
-                ->timeout((int) config('pdf.browsershot.timeout', 60));
-
-            $node = config('pdf.browsershot.node_binary');
-            $npm = config('pdf.browsershot.npm_binary');
-            $chrome = config('pdf.browsershot.chrome_path');
-            $modulos = config('pdf.browsershot.node_modules_path');
-
-            if (is_string($node) && $node !== '') {
-                $navegador->setNodeBinary($node);
-            }
-
-            if (is_string($npm) && $npm !== '') {
-                $navegador->setNpmBinary($npm);
-            }
-
-            // Sin ruta configurada: Chrome/Chromium del sistema (PATH). Si no
-            // hay, puppeteer usa el navegador que haya descargado él.
-            $rutaChrome = is_string($chrome) && $chrome !== '' ? $chrome : $this->chromeDelSistema();
-
-            if ($rutaChrome !== null) {
-                $navegador->setChromePath($rutaChrome);
-            }
-
-            if (is_string($modulos) && $modulos !== '') {
-                $navegador->setNodeModulePath($modulos);
-            }
-
-            if ((bool) config('pdf.browsershot.no_sandbox', true)) {
-                $navegador->noSandbox();
-            }
+                ->setOption('preferCSSPageSize', true);
 
             if ($opciones->numerarPaginas || $opciones->textoPie !== '') {
                 $navegador->showBrowserHeaderAndFooter()
@@ -87,6 +57,46 @@ class BrowsershotRenderer implements PdfRendererInterface
             // legible para RH.
             throw new PdfRendererException('El servicio de impresión (Chrome) no está disponible en este momento.', 0, $e);
         }
+    }
+
+    /**
+     * Browsershot con EXACTAMENTE la misma configuración (node, npm, Chrome,
+     * módulos, sandbox, timeout) con que se imprimen los documentos: el
+     * diagnóstico de fuentes usa este mismo navegador, no otro.
+     */
+    public function navegador(string $html): Browsershot
+    {
+        $navegador = Browsershot::html($html)->timeout((int) config('pdf.browsershot.timeout', 60));
+        $node = config('pdf.browsershot.node_binary');
+        $npm = config('pdf.browsershot.npm_binary');
+        $chrome = config('pdf.browsershot.chrome_path');
+        $modulos = config('pdf.browsershot.node_modules_path');
+
+        if (is_string($node) && $node !== '') {
+            $navegador->setNodeBinary($node);
+        }
+
+        if (is_string($npm) && $npm !== '') {
+            $navegador->setNpmBinary($npm);
+        }
+
+        // Sin ruta configurada: Chrome/Chromium del sistema (PATH). Si no
+        // hay, puppeteer usa el navegador que haya descargado él.
+        $rutaChrome = is_string($chrome) && $chrome !== '' ? $chrome : $this->chromeDelSistema();
+
+        if ($rutaChrome !== null) {
+            $navegador->setChromePath($rutaChrome);
+        }
+
+        if (is_string($modulos) && $modulos !== '') {
+            $navegador->setNodeModulePath($modulos);
+        }
+
+        if ((bool) config('pdf.browsershot.no_sandbox', true)) {
+            $navegador->noSandbox();
+        }
+
+        return $navegador;
     }
 
     /**

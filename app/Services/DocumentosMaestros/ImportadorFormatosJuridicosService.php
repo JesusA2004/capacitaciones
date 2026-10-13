@@ -149,16 +149,19 @@ class ImportadorFormatosJuridicosService
      *
      * @param  list<string>  $nombresFuente
      * @param  array{familia: string, version: int, activa: bool, bloqueada: bool, nota: string|null}|null  $fuente
+     * @param  array<string, mixed>|null  $definicionBase  Familia nueva (no-code) que aún no existe en ningún lado.
+     * @param  bool  $validarDiseno  false = no correr el QA visual ahora (el editor lo corre en «Datos largos»/«Probar diseño»).
      */
-    public function registrarVersion(string $familia, int $version, string $contenido, array $nombresFuente, ?array $fuente, ?User $actor, ?DocumentTemplate $heredarDe = null): DocumentTemplate
+    public function registrarVersion(string $familia, int $version, string $contenido, array $nombresFuente, ?array $fuente, ?User $actor, ?DocumentTemplate $heredarDe = null, ?array $definicionBase = null, bool $validarDiseno = true): DocumentTemplate
     {
         $existente = DocumentTemplate::withTrashed()->where('familia', $familia)->where('version', $version)->first();
         // Fuente vigente del mapa: los espacios de ESTA versión en BD; una
         // versión nueva hereda los de la anterior; sin nada en BD, el
-        // registro heredado (config).
+        // registro heredado (config) o —familia nueva creada en la UI— la
+        // definición base que llega de «Nuevo formato».
         $definicion = $existente === null && $heredarDe !== null
             ? $this->definiciones->paraVersion($familia, $heredarDe, $heredarDe->version)
-            : $this->definiciones->paraVersion($familia, $existente, $version);
+            : ($this->definiciones->paraVersion($familia, $existente, $version) ?? $definicionBase);
 
         if ($definicion === null) {
             throw ValidationException::withMessages(['familia' => "La familia «{$familia}» no existe en el registro de documentos maestros."]);
@@ -254,12 +257,12 @@ class ImportadorFormatosJuridicosService
         // prepara otra vez — nunca se activa un mapa que el layout ya no
         // respeta.
         if ($heredarDe !== null && $this->revisarHerencia($master, $heredarDe)) {
-            return $this->registrarVersion($familia, $version, $contenido, $nombresFuente, $fuente, $actor);
+            return $this->registrarVersion($familia, $version, $contenido, $nombresFuente, $fuente, $actor, null, null, $validarDiseno);
         }
 
         // QA visual al importar/cargar (fuera de la transacción: convierte
         // con Word y rasteriza, puede tardar).
-        if ($estado === 'listo' && $master->operativo && ! $master->disenoValidado() && config('documentos_maestros.validacion_visual.al_importar', true)) {
+        if ($validarDiseno && $estado === 'listo' && $master->operativo && ! $master->disenoValidado() && config('documentos_maestros.validacion_visual.al_importar', true)) {
             $master = $this->validacion->validar($master, $actor);
         }
 
@@ -320,6 +323,20 @@ class ImportadorFormatosJuridicosService
             if ($this->conversor->conversoresFieles() === []) {
                 $bloqueos[] = ['clave' => 'conversor', 'mensaje' => 'No hay un conversor fiel (Microsoft Word o LibreOffice) en este servidor.', 'excepcionable' => false];
             }
+        }
+
+        // Mapa armado o cambiado en el editor: antes de activarlo se prueba
+        // con un colaborador real (los heredados ya se usaron en operación).
+        $editadoEnUi = $master->campos()->where(fn ($q) => $q->whereNull('detection_method')->orWhere('detection_method', '!=', 'legado_config'))->exists();
+
+        if ($editadoEnUi && $master->ultima_prueba_en === null) {
+            $bloqueos[] = ['clave' => 'prueba', 'mensaje' => 'Falta probarlo con un colaborador («Probar colaborador»).', 'excepcionable' => false];
+        }
+
+        $sinConfirmar = $master->campos()->where('zona', 'dato')->where('estado', '!=', 'confirmado')->count();
+
+        if ($sinConfirmar > 0) {
+            $bloqueos[] = ['clave' => 'por_confirmar', 'mensaje' => sprintf('%d espacio(s) por confirmar en el editor.', $sinConfirmar), 'excepcionable' => false];
         }
 
         if ($master->visual_checked_at === null) {

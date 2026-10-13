@@ -18,8 +18,8 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['auth', 'verified'])->prefix('rh')->name('rh.')->group(function () {
     Route::prefix('documentos-proceso')->name('documentos-proceso.')->group(function () {
         Route::get('colaborador/{colaborador}', [DocumentoProcesoController::class, 'colaborador'])->name('colaborador')->withTrashed();
-        Route::get('{tipo}/{id}', [DocumentoProcesoController::class, 'show'])->name('show')->whereIn('tipo', ['contrato', 'cierre', 'solicitud', 'prestamo', 'evaluacion', 'entrega_activo'])->whereNumber('id');
-        Route::post('{tipo}/{id}/generar', [DocumentoProcesoController::class, 'generar'])->name('generar')->whereIn('tipo', ['contrato', 'cierre', 'solicitud', 'prestamo', 'evaluacion', 'entrega_activo'])->whereNumber('id')->middleware('throttle:30,1');
+        Route::get('{tipo}/{id}', [DocumentoProcesoController::class, 'show'])->name('show')->whereIn('tipo', ['contrato', 'cierre', 'solicitud', 'prestamo', 'evaluacion', 'entrega_activo', 'colaborador'])->whereNumber('id');
+        Route::post('{tipo}/{id}/generar', [DocumentoProcesoController::class, 'generar'])->name('generar')->whereIn('tipo', ['contrato', 'cierre', 'solicitud', 'prestamo', 'evaluacion', 'entrega_activo', 'colaborador'])->whereNumber('id')->middleware('throttle:30,1');
         Route::post('{tipo}/{id}/paquete', [DocumentoProcesoController::class, 'paquete'])->name('paquete')->whereIn('tipo', ['contrato', 'cierre', 'prestamo'])->whereNumber('id')->middleware('throttle:10,1');
         Route::get('documento/{documento}/word', [DocumentoProcesoController::class, 'word'])->name('word');
         Route::post('documento/{documento}/{accion}', [DocumentoProcesoController::class, 'operar'])->name('operar')->whereIn('accion', ['imprimir', 'firma-fisica', 'envio', 'recepcion', 'escaneo', 'archivar']);
@@ -59,6 +59,14 @@ Route::middleware(['auth', 'verified'])->prefix('rh')->name('rh.')->group(functi
         Route::put('cobertura/puestos/{puesto}', [DocumentoMaestroController::class, 'decidirPuesto'])->name('cobertura.puesto');
         Route::get('colaboradores', [DocumentoMaestroController::class, 'buscarColaboradores'])->name('colaboradores')->middleware('throttle:60,1');
         Route::post('revalidar-pendientes', [DocumentoMaestroController::class, 'revalidarPendientes'])->name('revalidar-pendientes')->middleware('throttle:5,1');
+        // Editor visual no-code: nuevo formato, espacios, datos largos, copia.
+        Route::post('nuevo', [DocumentoMaestroController::class, 'nuevo'])->name('nuevo')->middleware('throttle:10,1');
+        Route::post('revisar-fuentes', [DocumentoMaestroController::class, 'revisarFuentes'])->name('revisar-fuentes')->middleware('throttle:5,1');
+        Route::get('{master}/editor', [DocumentoMaestroController::class, 'editor'])->name('editor')->whereNumber('master');
+        Route::put('{master}/campos', [DocumentoMaestroController::class, 'guardarCampos'])->name('campos')->whereNumber('master')->middleware('throttle:60,1');
+        Route::post('{master}/detectar', [DocumentoMaestroController::class, 'detectar'])->name('detectar')->whereNumber('master')->middleware('throttle:10,1');
+        Route::post('{master}/datos-largos', [DocumentoMaestroController::class, 'datosLargos'])->name('datos-largos')->whereNumber('master')->middleware('throttle:10,1');
+        Route::post('{master}/copiar-version', [DocumentoMaestroController::class, 'copiarVersion'])->name('copiar-version')->whereNumber('master')->middleware('throttle:10,1');
         Route::get('{master}', [DocumentoMaestroController::class, 'show'])->name('show')->whereNumber('master');
         Route::post('familia/{familia}/versiones', [DocumentoMaestroController::class, 'cargarVersion'])->name('versiones.store')->where('familia', '[a-z0-9_.]+')->middleware('throttle:10,1');
         Route::post('{master}/validar-diseno', [DocumentoMaestroController::class, 'validarDiseno'])->name('validar-diseno')->whereNumber('master')->middleware('throttle:10,1');

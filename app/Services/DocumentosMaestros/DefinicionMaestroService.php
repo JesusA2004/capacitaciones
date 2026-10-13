@@ -80,10 +80,12 @@ class DefinicionMaestroService
 
         foreach ($campos as $campo) {
             if ($campo->zona !== ZonaCampoDocumento::Dato) {
-                $ubicacion = (array) ($campo->metadata['ubicacion'] ?? []);
-
-                if ($ubicacion !== []) {
-                    $zonasSinDato[] = $ubicacion;
+                // DOCX: la zona sin dato (firma, huella, testigo) se marca con
+                // un espacio OPCIONAL que nunca recibe valor — el preparador
+                // la reconoce como ya resuelta y el rellenador restaura el
+                // blanco original exacto. PDF: no se dibuja nada.
+                if ($motor !== 'pdf_overlay' && $campo->selector !== null) {
+                    $reglas[] = [...array_intersect_key($campo->selector, array_flip(self::LLAVES_SELECTOR)), 'campo' => self::prefijoSinDato().$campo->field_key, 'opcional' => true];
                 }
 
                 continue;
@@ -148,6 +150,15 @@ class DefinicionMaestroService
         }
 
         return $definicion;
+    }
+
+    /**
+     * Prefijo de los espacios sin dato en el mapa compilado DOCX (nunca
+     * reciben valor: se imprimen como el blanco original).
+     */
+    public static function prefijoSinDato(): string
+    {
+        return 'zs_';
     }
 
     /**
