@@ -382,10 +382,10 @@ export function useMainNavItems() {
                 href: indexConfiguracion(),
                 icon: Settings2,
             },
-            // Consulta de solo lectura de los avisos de todos + estado de
-            // colas/Reverb/Expo. La campana sigue siendo solo de uno mismo.
+            // Mis avisos (marcar leída / todas / ir al registro) y, solo
+            // lectura, los del equipo.
             tienePermiso('notificaciones.ver_todas') && {
-                title: 'Notificaciones del sistema',
+                title: 'Notificaciones',
                 href: indexNotificacionesSistema(),
                 icon: BellRing,
             },

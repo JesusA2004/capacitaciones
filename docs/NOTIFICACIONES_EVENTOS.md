@@ -86,8 +86,8 @@ php artisan people:probar-notificacion --user=ID # aviso de PRUEBA por los 3 can
 php artisan notificaciones:reconciliar           # red de seguridad (también corre cada minuto)
 ```
 
-En web: Administración → **Notificaciones del sistema** (permiso
-`notificaciones.ver_todas`), con tarjetas de estado (cola general, notificaciones,
-Reverb, Expo, trabajos fallidos) y consulta de solo lectura de los avisos de
-todos. La campana **siempre** muestra solo las notificaciones propias, incluso
+En web: Administración → **Notificaciones** (permiso `notificaciones.ver_todas`):
+tus avisos con «Marcar como leída», «Marcar todas como leídas» e «Ir» (abre el
+registro), y la consulta de solo lectura «De todo el equipo». El estado de colas,
+Reverb y Expo se revisa con `people:diagnostico-notificaciones`. La campana **siempre** muestra solo las notificaciones propias, incluso
 para super_admin.

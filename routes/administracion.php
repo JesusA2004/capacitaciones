@@ -124,9 +124,12 @@ Route::middleware(['auth', 'verified'])
         // MobileAppRelease y los servicios App\Services\AppReleases\*.
         // «Notificaciones del sistema»: solo lectura de los avisos de todos +
         // estado de colas/Reverb/Expo (docs/NOTIFICACIONES_EVENTOS.md).
-        Route::get('notificaciones', [NotificacionSistemaController::class, 'index'])
-            ->name('notificaciones-sistema.index')
-            ->middleware('can:notificaciones.ver_todas');
+        Route::prefix('notificaciones')->name('notificaciones-sistema.')->middleware('can:notificaciones.ver_todas')->group(function () {
+            Route::get('/', [NotificacionSistemaController::class, 'index'])->name('index');
+            Route::post('leer-todas', [NotificacionSistemaController::class, 'marcarTodasLeidas'])->name('leer-todas');
+            Route::post('{notificacion}/leida', [NotificacionSistemaController::class, 'marcarLeida'])->name('leida');
+            Route::post('{notificacion}/abrir', [NotificacionSistemaController::class, 'abrir'])->name('abrir');
+        });
 
         Route::prefix('app-versiones')->name('app-releases.')->group(function () {
             Route::get('/', [AppReleaseController::class, 'index'])->name('index');

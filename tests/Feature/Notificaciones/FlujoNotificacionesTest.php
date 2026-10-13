@@ -238,7 +238,7 @@ test('«Notificaciones del sistema»: Sistemas/RH/super_admin la consultan (solo
 
     foreach (['sistemas', 'rh_admin', 'super_admin'] as $rol) {
         $this->actingAs(fnUsuario($rol))->get('/administracion/notificaciones')->assertOk()
-            ->assertInertia(fn ($page) => $page->component('Administracion/Notificaciones/Index')->has('tarjetas', 5));
+            ->assertInertia(fn ($page) => $page->component('Administracion/Notificaciones/Index'));
     }
 
     $this->actingAs($otro)->get('/administracion/notificaciones')->assertForbidden();
