@@ -11,6 +11,7 @@ import {
 } from '@lucide/vue';
 import { computed, reactive, watch } from 'vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
+import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
 import { index } from '@/routes/rh/pendientes';
@@ -20,6 +21,9 @@ type Paginado<T> = {
     data: T[];
     current_page: number;
     last_page: number;
+    per_page: number;
+    from: number | null;
+    to: number | null;
     total: number;
     prev_page_url: string | null;
     next_page_url: string | null;
@@ -427,30 +431,7 @@ const segmento = (activo: boolean) =>
                     </li>
                 </ul>
 
-                <nav
-                    v-if="tareas.last_page > 1"
-                    class="flex items-center justify-center gap-3 text-sm"
-                    aria-label="Paginación"
-                >
-                    <Link
-                        v-if="tareas.prev_page_url"
-                        :href="tareas.prev_page_url"
-                        preserve-scroll
-                        class="rounded-lg px-3 py-1.5 hover:bg-[var(--mrl-fondo)]"
-                        >Anterior</Link
-                    >
-                    <span class="text-[var(--mrl-texto-suave)]"
-                        >Página {{ tareas.current_page }} de
-                        {{ tareas.last_page }}</span
-                    >
-                    <Link
-                        v-if="tareas.next_page_url"
-                        :href="tareas.next_page_url"
-                        preserve-scroll
-                        class="rounded-lg px-3 py-1.5 hover:bg-[var(--mrl-fondo)]"
-                        >Siguiente</Link
-                    >
-                </nav>
+                <PaginacionTabla :datos="tareas" />
             </div>
 
             <!-- Gráficas -->

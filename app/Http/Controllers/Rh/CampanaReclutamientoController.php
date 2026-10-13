@@ -19,6 +19,7 @@ use App\Models\Vacante;
 use App\Services\Reclutamiento\CampanaReclutamientoService;
 use App\Services\Reclutamiento\CostoReclutamientoService;
 use App\Services\Vacantes\VacantesListadoService;
+use App\Support\Paginacion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -78,7 +79,7 @@ class CampanaReclutamientoController extends Controller
         // Totales del periodo (todas las campañas filtradas, no solo la
         // página) y, por campaña, cuánto costó cada colaborador contratado.
         $costos = $this->costos->porCampana((clone $consulta)->get());
-        $campanas = $consulta->paginate(15)->withQueryString();
+        $campanas = $consulta->paginate(Paginacion::porPagina())->withQueryString();
         $campanas->getCollection()->transform(function (CampanaReclutamiento $campana) use ($costos) {
             $campana->setAttribute('resultado', $costos['por_campana'][$campana->id] ?? null);
             $campana->setAttribute('adjuntos_lista', $campana->adjuntos->map(fn (CampanaReclutamientoAdjunto $a) => [

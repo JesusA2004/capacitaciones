@@ -17,6 +17,7 @@ use App\Services\Auditoria\AuditoriaService;
 use App\Services\Compensacion\CompensacionService;
 use App\Services\DocumentosAdministrativos\DatosDocumentoAdministrativo;
 use App\Services\DocumentosAdministrativos\DocumentoAdministrativoService;
+use App\Support\Paginacion;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -309,7 +310,7 @@ class LoteNominaService
             ->when(! $this->alcance->tieneAlcanceGlobal($usuario), fn (Builder $q) => $q->where('creado_por', $usuario->id))
             ->orderByDesc('periodo_inicio')
             ->orderByDesc('id')
-            ->paginate(max(1, min(50, $porPagina)));
+            ->paginate(Paginacion::porPagina($porPagina));
     }
 
     /**

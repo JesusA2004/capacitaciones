@@ -7,6 +7,7 @@ use App\Http\Requests\Rh\AnalizarImportacionTrabajadoresRequest;
 use App\Http\Requests\Rh\AplicarImportacionTrabajadoresRequest;
 use App\Models\ImportacionExcel;
 use App\Services\ImportadorTrabajadores\ImportadorTrabajadoresService;
+use App\Support\Paginacion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -31,7 +32,7 @@ class ImportacionTrabajadoresController extends Controller
             'importaciones' => ImportacionExcel::query()
                 ->with(['subidoPor:id,name,apellidos', 'aplicadoPor:id,name,apellidos'])
                 ->orderByDesc('id')
-                ->paginate(15)
+                ->paginate(Paginacion::porPagina())
                 ->through(fn (ImportacionExcel $i) => [
                     'id' => $i->id,
                     'nombre_archivo' => $i->nombre_archivo,

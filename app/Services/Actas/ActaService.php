@@ -14,6 +14,7 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\Expedientes\DocumentoStorageService;
+use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -194,7 +195,7 @@ class ActaService
             ->when($filtros['colaborador_id'] ?? null, fn (Builder $q, int|string $v) => $q->where('colaborador_id', (int) $v))
             ->orderByDesc('fecha')
             ->orderByDesc('id')
-            ->paginate(max(1, min(100, (int) ($filtros['per_page'] ?? 20))));
+            ->paginate(Paginacion::porPagina(20, $filtros['per_page'] ?? null));
     }
 
     /**

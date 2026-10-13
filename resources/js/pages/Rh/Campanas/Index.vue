@@ -14,6 +14,7 @@ import { computed, ref } from 'vue';
 import CrudActionMenu from '@/components/DataTable/CrudActionMenu.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import CampanaReclutamientoFormDialog from '@/components/Rh/CampanaReclutamientoFormDialog.vue';
 import { Button } from '@/components/ui/button';
@@ -157,9 +158,6 @@ const adjuntoActivo = ref<{ nombre: string; mime: string; url: string } | null>(
 
 const numero = (valor: number) => valor.toLocaleString('es-MX');
 
-function irAPagina(pagina: number) {
-    router.get(index.url(), { ...filtros, page: pagina }, { preserveScroll: true, preserveState: true });
-}
 const dialogAbierto = ref(false);
 const campanaSeleccionada = ref<CampanaReclutamientoItem | null>(null);
 
@@ -542,11 +540,7 @@ async function eliminar(campana: CampanaReclutamientoItem) {
             </article>
         </div>
 
-        <div v-if="campanas.last_page > 1" class="flex items-center justify-center gap-3">
-            <Button variant="outline" size="sm" :disabled="campanas.current_page <= 1" @click="irAPagina(campanas.current_page - 1)">Anterior</Button>
-            <span class="text-sm text-muted-foreground">Página {{ campanas.current_page }} de {{ campanas.last_page }}</span>
-            <Button variant="outline" size="sm" :disabled="campanas.current_page >= campanas.last_page" @click="irAPagina(campanas.current_page + 1)">Siguiente</Button>
-        </div>
+        <PaginacionTabla :datos="campanas" />
     </div>
 
     <DocumentPreviewDialog

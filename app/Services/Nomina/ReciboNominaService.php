@@ -21,6 +21,7 @@ use App\Services\DocumentosAdministrativos\DisenoAdministrativoService;
 use App\Services\DocumentosAdministrativos\DocumentoAdministrativoService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\Tareas\NotificadorRhService;
+use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
@@ -526,7 +527,7 @@ class ReciboNominaService
             ->where('estado', EstadoReciboNomina::Emitido->value)
             ->orderByDesc('periodo_inicio')
             ->orderByDesc('id')
-            ->paginate(max(1, min(100, $porPagina)));
+            ->paginate(Paginacion::porPagina($porPagina));
     }
 
     /**
@@ -555,7 +556,7 @@ class ReciboNominaService
                 ->orWhere('numero_empleado', 'like', "%{$v}%"))))
             ->orderByDesc('periodo_inicio')
             ->orderByDesc('id')
-            ->paginate(max(1, min(100, (int) ($filtros['per_page'] ?? 20))));
+            ->paginate(Paginacion::porPagina(20, $filtros['per_page'] ?? null));
     }
 
     /**

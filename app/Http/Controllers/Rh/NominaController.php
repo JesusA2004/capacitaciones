@@ -9,6 +9,7 @@ use App\Http\Requests\Nomina\CambioMasivoRecibosRequest;
 use App\Models\ReciboNomina;
 use App\Services\Nomina\NominaQuincenalService;
 use App\Services\Nomina\ReciboNominaService;
+use App\Support\Paginacion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -57,7 +58,7 @@ class NominaController extends Controller
                 ->orWhere('apellidos', 'like', "%{$q}%")
                 ->orWhere('numero_empleado', 'like', "%{$q}%"))))
             ->orderBy('id')
-            ->paginate(50)
+            ->paginate(Paginacion::porPagina(50))
             ->withQueryString()
             ->through(fn (ReciboNomina $r) => [
                 ...$this->recibos->aArray($r, true),

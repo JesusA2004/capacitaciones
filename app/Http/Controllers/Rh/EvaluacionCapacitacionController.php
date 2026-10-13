@@ -8,6 +8,7 @@ use App\Models\ContratoLaboral;
 use App\Models\EvaluacionPeriodoPrueba;
 use App\Models\GeneratedDocument;
 use App\Services\Contratos\EvaluacionPeriodoPruebaService;
+use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -31,7 +32,7 @@ class EvaluacionCapacitacionController extends Controller
         abort_unless($usuario->can('evaluaciones.capturar') || $usuario->can('evaluaciones.autorizar'), 403);
 
         $estado = EstadoEvaluacionPrueba::tryFrom($request->string('estado')->toString());
-        $pagina = $this->evaluaciones->listar($usuario, ['estado' => $estado?->value, 'per_page' => 30])->withQueryString();
+        $pagina = $this->evaluaciones->listar($usuario, ['estado' => $estado?->value, 'per_page' => Paginacion::porPagina(30)])->withQueryString();
         $hoy = Carbon::today('America/Mexico_City');
 
         // Una sola consulta por relación (antes: loadMissing por fila).

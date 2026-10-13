@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Cuestionarios\StoreBancoPreguntaRequest;
 use App\Http\Requests\Cuestionarios\UpdateBancoPreguntaRequest;
 use App\Models\BancoPregunta;
+use App\Support\Paginacion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -22,7 +23,7 @@ class BancoPreguntaController extends Controller
             ->withCount('preguntas')
             ->when($request->string('busqueda')->toString(), fn ($query, string $busqueda) => $query->where('nombre', 'like', "%{$busqueda}%"))
             ->orderBy('nombre')
-            ->paginate(15)
+            ->paginate(Paginacion::porPagina())
             ->withQueryString();
 
         return Inertia::render('Cuestionarios/BancosPreguntas/Index', [

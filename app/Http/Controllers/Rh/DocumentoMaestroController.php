@@ -311,7 +311,7 @@ class DocumentoMaestroController extends Controller
         $this->exigir($request);
         abort_if($master->estado_master === null, 404);
         $limpio = $this->admin->limpioPdf($master);
-        abort_if($limpio === null, 422, 'No se pudo convertir el documento limpio a PDF en este servidor.');
+        abort_if($limpio === null, 422, 'No se pudo mostrar el documento limpio: el servidor no puede leer el original o convertirlo a PDF.');
 
         return response($limpio['pdf'], 200, [
             'Content-Type' => 'application/pdf',
@@ -327,7 +327,7 @@ class DocumentoMaestroController extends Controller
         $this->exigir($request);
         abort_if($master->estado_master === null, 404);
         $original = $this->admin->originalPdf($master);
-        abort_if($original === null, 422, 'No se pudo convertir el original a PDF en este servidor. Descarga el original.');
+        abort_if($original === null, 422, 'No se pudo mostrar el original: el servidor no puede leerlo o convertirlo a PDF.');
 
         return response($original['pdf'], 200, [
             'Content-Type' => 'application/pdf',

@@ -18,6 +18,7 @@ import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudStats from '@/components/DataTable/CrudStats.vue';
 import CrudToolbar from '@/components/DataTable/CrudToolbar.vue';
+import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
@@ -34,7 +35,6 @@ import {
 } from '@/components/ui/select';
 import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
-import { usePaginacion } from '@/composables/usePaginacion';
 import { dashboard } from '@/routes';
 import { destroy, index, show } from '@/routes/administracion/sucursales';
 import type {
@@ -73,7 +73,6 @@ const { filtros, aplicar, aplicarConDebounce, limpiar } = useFiltros(
         empresa_id: props.filtros.empresa_id ?? '',
     },
 );
-const { irA } = usePaginacion();
 const { confirmarEliminacion, mostrarExito, mostrarError } = useAlertas();
 
 const filtrosActivos = computed(() => (filtros.empresa_id ? 1 : 0));
@@ -418,36 +417,7 @@ async function eliminar(sucursal: SucursalItem) {
                 </div>
             </div>
 
-            <div
-                v-if="sucursales.last_page > 1"
-                class="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground"
-            >
-                <span
-                    >Mostrando {{ sucursales.from ?? 0 }}–{{
-                        sucursales.to ?? 0
-                    }}
-                    de {{ sucursales.total }}</span
-                >
-                <div class="flex flex-wrap gap-1">
-                    <button
-                        v-for="(enlace, indice) in sucursales.links"
-                        :key="indice"
-                        type="button"
-                        :disabled="!enlace.url"
-                        @click="irA(enlace.url)"
-                        :class="[
-                            'min-w-9 rounded-md border px-3 py-1.5 text-sm transition-colors',
-                            enlace.active
-                                ? 'border-transparent bg-primary text-primary-foreground'
-                                : 'border-border hover:bg-accent',
-                            !enlace.url
-                                ? 'cursor-not-allowed opacity-50'
-                                : 'cursor-pointer',
-                        ]"
-                        v-html="enlace.label"
-                    />
-                </div>
-            </div>
+            <PaginacionTabla :datos="sucursales" />
         </template>
     </div>
 

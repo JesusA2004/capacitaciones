@@ -30,6 +30,7 @@ use App\Services\Expedientes\ExpedienteService;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Services\Tareas\TareaService;
+use App\Support\Paginacion;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\QueryException;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -337,7 +338,7 @@ class ReingresoService
         return $query
             ->when($filtros['estado'] ?? null, fn ($q, string $estado) => $q->where('estado', $estado))
             ->orderByDesc('id')
-            ->paginate(max(1, min(100, (int) ($filtros['per_page'] ?? 20))));
+            ->paginate(Paginacion::porPagina(20, $filtros['per_page'] ?? null));
     }
 
     /**

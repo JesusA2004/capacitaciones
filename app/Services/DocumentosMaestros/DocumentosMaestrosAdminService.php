@@ -16,8 +16,10 @@ use App\Services\DocumentosMaestros\Calidad\ValidacionVisualMaestroService;
 use App\Services\DocumentosMaestros\Docx\LimpiadorMarcasEditoriales;
 use App\Services\Formatos\Motor\ConversorDocxPdf;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -364,7 +366,15 @@ class DocumentosMaestrosAdminService
      */
     public function originalPdf(DocumentTemplate $master): ?array
     {
-        $original = $this->almacen->original($master);
+        try {
+            $original = $this->almacen->original($master);
+        } catch (RuntimeException $e) {
+            // Original ilegible (p. ej. permisos del NAS): el controlador
+            // responde con un aviso claro en vez de un error 500.
+            Log::warning('Documento maestro: no se pudo leer el original.', ['master_id' => $master->id, 'error' => $e->getMessage()]);
+
+            return null;
+        }
 
         if ($master->motor->value === 'pdf_overlay') {
             return ['pdf' => $original, 'fidelidad' => 'nativa'];
@@ -404,7 +414,15 @@ class DocumentosMaestrosAdminService
             return null;
         }
 
-        $original = $this->almacen->original($master);
+        try {
+            $original = $this->almacen->original($master);
+        } catch (RuntimeException $e) {
+            // Original ilegible (p. ej. permisos del NAS): el controlador
+            // responde con un aviso claro en vez de un error 500.
+            Log::warning('Documento maestro: no se pudo leer el original.', ['master_id' => $master->id, 'error' => $e->getMessage()]);
+
+            return null;
+        }
         $limpio = $this->limpiador->limpiar($original);
         // Clave por el ORIGINAL (inmutable): el Word limpio se vuelve a
         // empaquetar en cada llamada y su hash cambia, así que no sirve como

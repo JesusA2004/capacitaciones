@@ -18,6 +18,7 @@ use App\Models\Sucursal;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\AltaDigital\AltaDigitalStorageService;
 use App\Services\AltaDigital\ConversionColaboradorService;
+use App\Support\Paginacion;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -44,7 +45,7 @@ class AltaDigitalController extends Controller
     {
         $this->authorize('viewAny', AltaDigital::class);
 
-        $altas = $this->queryFiltrada($request)->orderByDesc('created_at')->paginate(15)->withQueryString();
+        $altas = $this->queryFiltrada($request)->orderByDesc('created_at')->paginate(Paginacion::porPagina())->withQueryString();
 
         return Inertia::render('Rh/Altas/Index', [
             'altas' => $altas,

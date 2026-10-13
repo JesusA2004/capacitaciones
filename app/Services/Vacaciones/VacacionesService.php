@@ -15,6 +15,7 @@ use App\Notifications\Mobile\VacacionActualizadaNotification;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\MobilePush\PushNotifier;
 use App\Services\RhMobile\ResponsableResolverService;
+use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -333,7 +334,7 @@ class VacacionesService
      */
     public function paraRevision(User $revisor, array $filtros = []): LengthAwarePaginator
     {
-        return $this->queryRevision($revisor, $filtros)->orderByDesc('created_at')->paginate(15)->withQueryString();
+        return $this->queryRevision($revisor, $filtros)->orderByDesc('created_at')->paginate(Paginacion::porPagina())->withQueryString();
     }
 
     /**

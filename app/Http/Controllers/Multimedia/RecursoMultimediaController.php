@@ -11,6 +11,7 @@ use App\Http\Requests\Multimedia\StoreRecursoMultimediaRequest;
 use App\Jobs\ProcesarVideoJob;
 use App\Models\RecursoMultimedia;
 use App\Services\Multimedia\MediaStorageService;
+use App\Support\Paginacion;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -35,7 +36,7 @@ class RecursoMultimediaController extends Controller
             ->when($request->string('tipo')->toString(), fn ($query, string $tipo) => $query->where('tipo', $tipo))
             ->when($request->string('busqueda')->toString(), fn ($query, string $busqueda) => $query->where('nombre_original', 'like', "%{$busqueda}%"))
             ->orderByDesc('created_at')
-            ->paginate(15)
+            ->paginate(Paginacion::porPagina())
             ->withQueryString();
 
         return Inertia::render('Multimedia/Index', [

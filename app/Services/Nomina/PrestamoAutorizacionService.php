@@ -18,6 +18,7 @@ use App\Services\Solicitudes\AprobacionJerarquicaService;
 use App\Services\Solicitudes\SolicitudesService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Services\Tareas\TareaService;
+use App\Support\Paginacion;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -230,7 +231,7 @@ class PrestamoAutorizacionService
             ->when($estado, fn (Builder $q, string $v) => $q->where('estado', $v))
             ->when($colaboradorId, fn (Builder $q, int $v) => $q->where('colaborador_id', $v))
             ->orderByDesc('id')
-            ->paginate(max(1, min(100, (int) ($filtros['per_page'] ?? 20))));
+            ->paginate(Paginacion::porPagina(20, $filtros['per_page'] ?? null));
     }
 
     /**

@@ -627,15 +627,18 @@ watch(
             descripcion="Crea puestos desde Administración › Puestos y vuelve aquí para armar el organigrama."
         />
 
+        <!-- Corporativo, Dirección Comercial y Sucursal: SIEMPRE como las
+             láminas del PDF de Inducción, en cualquier vista. -->
+        <OrganigramaLaminas
+            v-else-if="seccionLamina"
+            :seccion="seccionLamina"
+            :laminas="laminas"
+        />
+
         <template v-else>
             <!-- Por personas: una tarjeta por colaborador, rama por sucursal. -->
             <div v-if="vista === 'personas'" data-tour="organigrama-arbol">
-                <OrganigramaLaminas
-                    v-if="seccionLamina"
-                    :seccion="seccionLamina"
-                    :laminas="laminas"
-                />
-                <template v-else-if="personasVisibles.length">
+                <template v-if="personasVisibles.length">
                     <!-- Tablet/escritorio: árbol con zoom. Celular: lista
                          jerárquica desplegable (el árbol no se lee en 390 px). -->
                     <OrganigramaPersonasArbol

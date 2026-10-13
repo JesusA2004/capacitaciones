@@ -42,6 +42,7 @@ use App\Services\Onboarding\ChecklistAdministrativoService;
 use App\Services\Organigrama\JefeDirectoService;
 use App\Services\Solicitudes\BajaColaboradorService;
 use App\Services\Vacaciones\VacacionesService;
+use App\Support\Paginacion;
 use BackedEnum;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
@@ -91,7 +92,7 @@ class ExpedienteController extends Controller
 
         $colaboradores = $this->queryFiltrada($request)
             ->orderBy('name')
-            ->paginate(24)
+            ->paginate(Paginacion::porPagina(24))
             ->withQueryString();
 
         $resumenes = $this->expediente->resumenesCompletitud($colaboradores->getCollection()->pluck('id'));

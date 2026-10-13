@@ -13,6 +13,7 @@ use App\Models\IncorporacionInvitacion;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Services\Incorporacion\IncorporacionInvitacionService;
+use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\RedirectResponse;
@@ -52,7 +53,7 @@ class IncorporacionInvitacionController extends Controller
                 'regeneradaDesde:id,uuid,estado',
             ])
             ->orderByDesc('created_at')
-            ->paginate(20)
+            ->paginate(Paginacion::porPagina(20))
             ->withQueryString();
 
         return Inertia::render('Rh/Incorporacion/Invitaciones/Index', [

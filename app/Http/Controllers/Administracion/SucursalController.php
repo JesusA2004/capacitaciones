@@ -14,6 +14,7 @@ use App\Services\Headcount\HeadcountService;
 use App\Services\Headcount\PlantillaAutorizadaService;
 use App\Services\Sucursales\SucursalDetalleService;
 use App\Support\Consultas\EstadisticasActivoInactivo;
+use App\Support\Paginacion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -42,7 +43,7 @@ class SucursalController extends Controller
             })
             ->when($request->integer('empresa_id'), fn ($query, int $empresaId) => $query->where('empresa_id', $empresaId))
             ->orderBy('nombre')
-            ->paginate(15)
+            ->paginate(Paginacion::porPagina())
             ->withQueryString();
 
         // Solo las sucursales de esta página, no la plantilla global.

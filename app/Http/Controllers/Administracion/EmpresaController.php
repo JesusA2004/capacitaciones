@@ -8,6 +8,7 @@ use App\Http\Requests\Administracion\UpdateEmpresaRequest;
 use App\Models\Colaborador;
 use App\Models\Empresa;
 use App\Support\Consultas\EstadisticasActivoInactivo;
+use App\Support\Paginacion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -35,7 +36,7 @@ class EmpresaController extends Controller
                 });
             })
             ->orderBy('nombre')
-            ->paginate(15)
+            ->paginate(Paginacion::porPagina())
             ->withQueryString();
 
         $colaboradoresPorEmpresa = Colaborador::query()

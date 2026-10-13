@@ -1,6 +1,7 @@
 <script setup lang="ts" generic="T extends Record<string, unknown>">
 import { Loader2 } from '@lucide/vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
+import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import {
     Table,
     TableBody,
@@ -9,7 +10,6 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { usePaginacion } from '@/composables/usePaginacion';
 import type { RespuestaPaginada } from '@/types';
 
 export type ColumnaDataTable = {
@@ -33,7 +33,6 @@ withDefaults(
 
 const emit = defineEmits<{ 'click-fila': [fila: T] }>();
 
-const { irA } = usePaginacion();
 
 function valorCelda(fila: T, clave: string): unknown {
     return clave.split('.').reduce<unknown>((acumulado, parte) => {
@@ -172,33 +171,6 @@ function valorCelda(fila: T, clave: string): unknown {
             </div>
         </template>
 
-        <div
-            v-if="datos.last_page > 1"
-            class="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground"
-        >
-            <span
-                >Mostrando {{ datos.from ?? 0 }}–{{ datos.to ?? 0 }} de
-                {{ datos.total }}</span
-            >
-            <div class="flex flex-wrap gap-1">
-                <button
-                    v-for="(enlace, indice) in datos.links"
-                    :key="indice"
-                    type="button"
-                    :disabled="!enlace.url"
-                    @click="irA(enlace.url)"
-                    :class="[
-                        'min-w-9 rounded-md border px-3 py-1.5 text-sm transition-colors',
-                        enlace.active
-                            ? 'border-transparent bg-primary text-primary-foreground'
-                            : 'border-border hover:bg-accent',
-                        !enlace.url
-                            ? 'cursor-not-allowed opacity-50'
-                            : 'cursor-pointer',
-                    ]"
-                    v-html="enlace.label"
-                />
-            </div>
-        </div>
+        <PaginacionTabla :datos="datos" />
     </div>
 </template>

@@ -25,6 +25,7 @@ use App\Services\MobilePush\PushNotifier;
 use App\Services\Nomina\PrestamoService;
 use App\Services\RhMobile\ResponsableResolverService;
 use App\Services\Vacaciones\VacacionesService;
+use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -254,7 +255,7 @@ class SolicitudesService
             })
             ->with(['revisadoPor:id,name,apellidos', 'diasVacaciones'])
             ->orderByDesc('created_at')
-            ->paginate(15);
+            ->paginate(Paginacion::porPagina());
     }
 
     /**
@@ -268,7 +269,7 @@ class SolicitudesService
     {
         return $this->queryRevision($revisor, $filtros)
             ->orderByDesc('created_at')
-            ->paginate(15)
+            ->paginate(Paginacion::porPagina())
             ->withQueryString();
     }
 

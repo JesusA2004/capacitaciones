@@ -9,6 +9,7 @@ use App\Models\TareaRh;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Tareas\ResumenPendientesService;
 use App\Services\Tareas\TareaService;
+use App\Support\Paginacion;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -30,7 +31,7 @@ class PendienteController extends Controller
         $filtros = [
             ...$request->only(['etapa', 'sucursal_id', 'urgencia', 'tipo']),
             'solo_ciclo' => true,
-            'per_page' => 25,
+            'per_page' => Paginacion::porPagina(25),
         ];
 
         $tareas = $this->tareas->bandeja($usuario, $filtros)->withQueryString();

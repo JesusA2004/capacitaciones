@@ -7,6 +7,7 @@ import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudToolbar from '@/components/DataTable/CrudToolbar.vue';
+import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import ColaboradorCarpetaCard from '@/components/Rh/ColaboradorCarpetaCard.vue';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -18,7 +19,6 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useFiltros } from '@/composables/useFiltros';
-import { usePaginacion } from '@/composables/usePaginacion';
 import { usePermisos } from '@/composables/usePermisos';
 import { dashboard } from '@/routes';
 import { exportarExcel, exportarPdf, index } from '@/routes/rh/expedientes';
@@ -89,7 +89,6 @@ const filtrosActivos = computed(
         ).filter((campo) => Boolean(filtros[campo])).length +
         (filtros.estatus && filtros.estatus !== 'activo' ? 1 : 0),
 );
-const { irA } = usePaginacion();
 function urlExportar(
     destino: typeof exportarExcel | typeof exportarPdf,
 ): string {
@@ -371,35 +370,6 @@ const sucursalActiva = computed(() =>
             />
         </div>
 
-        <div
-            v-if="colaboradores.last_page > 1"
-            class="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground"
-        >
-            <span
-                >Mostrando {{ colaboradores.from ?? 0 }}–{{
-                    colaboradores.to ?? 0
-                }}
-                de {{ colaboradores.total }}</span
-            >
-            <div class="flex flex-wrap gap-1">
-                <button
-                    v-for="(enlace, indice) in colaboradores.links"
-                    :key="indice"
-                    type="button"
-                    :disabled="!enlace.url"
-                    @click="irA(enlace.url)"
-                    :class="[
-                        'min-w-9 rounded-md border px-3 py-1.5 text-sm transition-colors',
-                        enlace.active
-                            ? 'border-transparent bg-primary text-primary-foreground'
-                            : 'border-border hover:bg-accent',
-                        !enlace.url
-                            ? 'cursor-not-allowed opacity-50'
-                            : 'cursor-pointer',
-                    ]"
-                    v-html="enlace.label"
-                />
-            </div>
-        </div>
+        <PaginacionTabla :datos="colaboradores" />
     </div>
 </template>

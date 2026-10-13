@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm } from '@inertiajs/vue3';
 import {
     AlertTriangle,
     CalendarRange,
@@ -17,6 +17,7 @@ import DatePicker from '@/components/Common/DatePicker.vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import MetricCard from '@/components/Common/MetricCard.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import InputError from '@/components/InputError.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -164,9 +165,6 @@ function crear() {
     });
 }
 
-function cambiarPagina(pagina: number) {
-    router.get(index.url(), { page: pagina }, { preserveScroll: true });
-}
 </script>
 
 <template>
@@ -347,28 +345,7 @@ function cambiarPagina(pagina: number) {
             </Link>
         </div>
 
-        <div
-            v-if="lotes.last_page > 1"
-            class="flex items-center justify-between text-sm"
-        >
-            <Button
-                variant="outline"
-                size="sm"
-                :disabled="lotes.current_page <= 1"
-                @click="cambiarPagina(lotes.current_page - 1)"
-                >Anterior</Button
-            >
-            <span class="text-muted-foreground"
-                >Página {{ lotes.current_page }} de {{ lotes.last_page }}</span
-            >
-            <Button
-                variant="outline"
-                size="sm"
-                :disabled="lotes.current_page >= lotes.last_page"
-                @click="cambiarPagina(lotes.current_page + 1)"
-                >Siguiente</Button
-            >
-        </div>
+        <PaginacionTabla :datos="lotes" />
     </div>
 
     <Sheet v-model:open="abierto">

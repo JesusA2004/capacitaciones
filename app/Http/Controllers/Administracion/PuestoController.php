@@ -8,6 +8,7 @@ use App\Http\Requests\Administracion\UpdatePuestoRequest;
 use App\Models\Departamento;
 use App\Models\Puesto;
 use App\Support\Consultas\EstadisticasActivoInactivo;
+use App\Support\Paginacion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -24,7 +25,7 @@ class PuestoController extends Controller
             ->with('departamento:id,nombre')
             ->when($request->string('busqueda')->toString(), fn ($query, string $busqueda) => $query->where('nombre', 'like', "%{$busqueda}%"))
             ->orderBy('nombre')
-            ->paginate(15)
+            ->paginate(Paginacion::porPagina())
             ->withQueryString();
 
         return Inertia::render('Administracion/Puestos/Index', [

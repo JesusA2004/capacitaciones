@@ -7,6 +7,7 @@ use App\Models\AsignacionUsuario;
 use App\Models\Curso;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -29,7 +30,7 @@ class ReporteCumplimientoService
      */
     public function porColaborador(User $usuarioActual, array $filtros): LengthAwarePaginator
     {
-        return $this->consultaColaboradores($usuarioActual, $filtros)->paginate(20)->withQueryString();
+        return $this->consultaColaboradores($usuarioActual, $filtros)->paginate(Paginacion::porPagina(20))->withQueryString();
     }
 
     /**

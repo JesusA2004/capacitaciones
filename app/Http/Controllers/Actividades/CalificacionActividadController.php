@@ -9,6 +9,7 @@ use App\Models\EntregaActividad;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Evaluacion\EntregaActividadService;
 use App\Services\Multimedia\MediaStorageService;
+use App\Support\Paginacion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -34,7 +35,7 @@ class CalificacionActividadController extends Controller
             ->when($idsColaboradores !== null, fn ($query) => $query->whereIn('user_id', $idsColaboradores))
             ->with(['usuario:id,name,apellidos', 'actividad:id,titulo,leccion_id'])
             ->orderBy('entregado_en')
-            ->paginate(15);
+            ->paginate(Paginacion::porPagina());
 
         return Inertia::render('Actividades/Calificaciones/Index', [
             'entregas' => $entregas,

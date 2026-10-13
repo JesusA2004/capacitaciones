@@ -13,6 +13,7 @@ use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\Asignaciones\AsignacionService;
+use App\Support\Paginacion;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -32,7 +33,7 @@ class AsignacionController extends Controller
             ->with(['asignable', 'responsable:id,name,apellidos'])
             ->withCount('asignacionesUsuario')
             ->orderByDesc('created_at')
-            ->paginate(15)
+            ->paginate(Paginacion::porPagina())
             ->withQueryString();
 
         return Inertia::render('Asignaciones/Index', [

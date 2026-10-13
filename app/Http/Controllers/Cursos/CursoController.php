@@ -10,6 +10,7 @@ use App\Http\Requests\Cursos\UpdateCursoRequest;
 use App\Models\Curso;
 use App\Models\RecursoMultimedia;
 use App\Models\User;
+use App\Support\Paginacion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -27,7 +28,7 @@ class CursoController extends Controller
             ->when($request->string('busqueda')->toString(), fn ($query, string $busqueda) => $query->where('titulo', 'like', "%{$busqueda}%"))
             ->when($request->string('estado')->toString(), fn ($query, string $estado) => $query->where('estado', $estado))
             ->orderByDesc('created_at')
-            ->paginate(15)
+            ->paginate(Paginacion::porPagina())
             ->withQueryString();
 
         return Inertia::render('Cursos/Index', [

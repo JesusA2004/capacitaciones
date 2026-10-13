@@ -8,6 +8,7 @@ use App\Models\Colaborador;
 use App\Models\GeneratedDocument;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 
@@ -29,7 +30,7 @@ class DocumentoLaboralConsultaService
         return $this->query($usuario, $filtros)
             ->with(['colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id', 'seguimientoFisico'])
             ->orderByDesc('id')
-            ->paginate(max(1, min(100, (int) ($filtros['per_page'] ?? 20))));
+            ->paginate(Paginacion::porPagina(20, $filtros['per_page'] ?? null));
     }
 
     /**
@@ -93,7 +94,7 @@ class DocumentoLaboralConsultaService
                 ->whereNull('categoria')
                 ->orWhere('categoria', '!=', CategoriaDocumento::NominaInterna->value)))
             ->orderByDesc('id')
-            ->paginate(20);
+            ->paginate(Paginacion::porPagina(20));
     }
 
     /**

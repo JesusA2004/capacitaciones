@@ -10,6 +10,7 @@ use App\Models\RespuestaCuestionario;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Evaluacion\IntentoCuestionarioService;
 use App\Services\Multimedia\MediaStorageService;
+use App\Support\Paginacion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -41,7 +42,7 @@ class CalificacionCuestionarioController extends Controller
             ->when($idsColaboradores !== null, fn ($query) => $query->whereIn('user_id', $idsColaboradores))
             ->with(['usuario:id,name,apellidos', 'cuestionario:id,titulo,leccion_id'])
             ->orderBy('enviado_en')
-            ->paginate(15);
+            ->paginate(Paginacion::porPagina());
 
         return Inertia::render('Cuestionarios/Calificaciones/Index', [
             'intentos' => $intentos,

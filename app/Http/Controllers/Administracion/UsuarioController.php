@@ -14,6 +14,7 @@ use App\Services\Administracion\AccesoCuentaService;
 use App\Services\Administracion\GeneradorPasswordService;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\RolPermisoService;
+use App\Support\Paginacion;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -84,7 +85,7 @@ class UsuarioController extends Controller
                 });
             })
             ->orderBy('name')
-            ->paginate(15)
+            ->paginate(Paginacion::porPagina())
             ->withQueryString();
 
         $enBaja = CierreLaboral::query()

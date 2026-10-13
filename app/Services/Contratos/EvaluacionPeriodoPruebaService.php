@@ -17,6 +17,7 @@ use App\Services\CicloLaboral\AprobacionService;
 use App\Services\CierreLaboral\CierreLaboralService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Services\Tareas\TareaService;
+use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -344,7 +345,7 @@ class EvaluacionPeriodoPruebaService
         return $query
             ->when($estado, fn (Builder $q, string $v) => $q->where('estado', $v))
             ->orderBy('fecha_limite')
-            ->paginate(max(1, min(100, (int) ($filtros['per_page'] ?? 20))));
+            ->paginate(Paginacion::porPagina(20, $filtros['per_page'] ?? null));
     }
 
     /**

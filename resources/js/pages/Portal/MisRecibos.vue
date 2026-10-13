@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
+import { Head } from '@inertiajs/vue3';
 import { Download, ReceiptText } from '@lucide/vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import { Button } from '@/components/ui/button';
 import { index as indexPortal, recibos as misRecibos } from '@/routes/portal';
 import type { RespuestaPaginada } from '@/types';
@@ -52,9 +53,6 @@ const fecha = (valor: string) =>
         year: 'numeric',
     });
 
-function irAPagina(pagina: number) {
-    router.get(misRecibos.url(), { page: pagina }, { preserveScroll: true });
-}
 </script>
 
 <template>
@@ -131,26 +129,6 @@ function irAPagina(pagina: number) {
             </article>
         </div>
 
-        <div
-            v-if="recibos.last_page > 1"
-            class="flex items-center justify-end gap-2"
-        >
-            <Button
-                size="sm"
-                variant="outline"
-                :disabled="recibos.current_page <= 1"
-                @click="irAPagina(recibos.current_page - 1)"
-            >
-                Anterior
-            </Button>
-            <Button
-                size="sm"
-                variant="outline"
-                :disabled="recibos.current_page >= recibos.last_page"
-                @click="irAPagina(recibos.current_page + 1)"
-            >
-                Siguiente
-            </Button>
-        </div>
+        <PaginacionTabla :datos="recibos" />
     </div>
 </template>

@@ -23,6 +23,7 @@ import EmptyState from '@/components/Common/EmptyState.vue';
 import MetricCard from '@/components/Common/MetricCard.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -742,33 +743,7 @@ const opcionesTipo = [
                 </table>
             </div>
 
-            <div
-                v-if="recibos.last_page > 1"
-                class="flex items-center justify-between border-t border-border/60 p-4 text-sm"
-            >
-                <span class="text-muted-foreground"
-                    >{{ recibos.from }}–{{ recibos.to }} de
-                    {{ recibos.total }}</span
-                >
-                <div class="flex gap-2">
-                    <Button
-                        size="sm"
-                        variant="outline"
-                        :disabled="recibos.current_page <= 1"
-                        @click="recargar({ page: recibos.current_page - 1 })"
-                    >
-                        Anterior
-                    </Button>
-                    <Button
-                        size="sm"
-                        variant="outline"
-                        :disabled="recibos.current_page >= recibos.last_page"
-                        @click="recargar({ page: recibos.current_page + 1 })"
-                    >
-                        Siguiente
-                    </Button>
-                </div>
-            </div>
+            <PaginacionTabla :datos="recibos" />
         </section>
     </div>
 

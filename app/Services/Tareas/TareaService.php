@@ -10,6 +10,7 @@ use App\Models\Colaborador;
 use App\Models\TareaRh;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
@@ -180,7 +181,7 @@ class TareaService
             ->orderByRaw("case prioridad when 'urgente' then 4 when 'alta' then 3 when 'media' then 2 else 1 end desc")
             ->orderBy('vence_en')
             ->orderByDesc('id')
-            ->paginate(max(1, min(100, (int) ($filtros['per_page'] ?? 20))));
+            ->paginate(Paginacion::porPagina(20, $filtros['per_page'] ?? null));
     }
 
     /**
