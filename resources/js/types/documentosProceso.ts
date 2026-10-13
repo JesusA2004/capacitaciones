@@ -330,6 +330,10 @@ export type ResultadoPruebaMaster = {
     diseno: EstadoDisenoMaster;
     campos: { llenos: number; total: number };
     faltantes: string[];
+    /** Detalle de cada dato que falta (mismo que el 422 DATOS_FALTANTES). */
+    datos_faltantes: DatoFaltante[];
+    /** Cuántos datos distintos usa este documento. */
+    datos_usados: number;
     desbordes: {
         campo: string;
         etiqueta?: string;

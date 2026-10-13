@@ -9,6 +9,7 @@ use App\Models\Puesto;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\DocumentosMaestros\AlmacenMaestrosService;
 use App\Services\DocumentosMaestros\CoberturaDocumentalService;
+use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\DocumentosMaestros\DocumentosMaestrosAdminService;
 use App\Services\DocumentosMaestros\EditorMaestroService;
 use App\Services\DocumentosMaestros\ImportadorFormatosJuridicosService;
@@ -40,6 +41,7 @@ class DocumentoMaestroController extends Controller
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly EditorMaestroService $editor,
         private readonly SaludDocumentalService $salud,
+        private readonly DocumentoProcesoService $procesos,
     ) {}
 
     public function index(Request $request): InertiaResponse
@@ -107,6 +109,19 @@ class DocumentoMaestroController extends Controller
         $master = $this->editor->guardarCampos($master, array_values($datos['campos']), $request->user());
 
         return response()->json(['message' => 'Cambios guardados.', 'data' => $this->editor->editor($master)]);
+    }
+
+    public function marcas(Request $request, DocumentTemplate $master): JsonResponse
+    {
+        $this->exigir($request);
+        abort_if($master->estado_master === null, 404);
+        $datos = $request->validate(['decision' => ['required', Rule::in(['limpiar', 'conservar'])]]);
+        $master = $this->editor->decidirMarcas($master, $datos['decision'] === 'limpiar', $request->user());
+
+        return response()->json([
+            'message' => $datos['decision'] === 'limpiar' ? 'Listo: los resaltados ya no saldrán en el documento final.' : 'Se conservan los resaltados como parte del diseño.',
+            'data' => $this->editor->editor($master),
+        ]);
     }
 
     public function detectar(Request $request, DocumentTemplate $master): JsonResponse
@@ -262,10 +277,17 @@ class DocumentoMaestroController extends Controller
     {
         $this->exigir($request);
         abort_if($master->estado_master === null, 404);
-        $datos = $request->validate(['colaborador_id' => ['required', 'integer']]);
+        $datos = $request->validate(['colaborador_id' => ['required', 'integer'], 'completar' => ['sometimes', 'array', 'max:40']]);
         $colaborador = Colaborador::query()->where('id', (int) $datos['colaborador_id'])->firstOrFail();
         // Solo colaboradores dentro del alcance de quien prueba.
         abort_unless($this->alcance->alcanzaColaborador($request->user(), $colaborador), 403, 'Ese colaborador está fuera de tu alcance.');
+
+        // «Completar datos del contrato» desde la misma vista previa: se
+        // guardan en la ficha con las mismas reglas y permisos que al generar.
+        if (($datos['completar'] ?? []) !== []) {
+            $this->procesos->completarDatos($colaborador, $datos['completar'], $request->user());
+            $colaborador->refresh();
+        }
 
         return response()->json(['data' => $this->admin->probar($master, $colaborador, $request->user())]);
     }
@@ -280,6 +302,22 @@ class DocumentoMaestroController extends Controller
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="vista-previa.pdf"',
             'Cache-Control' => 'no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    public function limpioPdf(Request $request, DocumentTemplate $master): Response
+    {
+        $this->exigir($request);
+        abort_if($master->estado_master === null, 404);
+        $limpio = $this->admin->limpioPdf($master);
+        abort_if($limpio === null, 422, 'No se pudo convertir el documento limpio a PDF en este servidor.');
+
+        return response($limpio['pdf'], 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="limpio.pdf"',
+            'Cache-Control' => 'no-store',
+            'X-Fidelidad' => $limpio['fidelidad'],
             'X-Content-Type-Options' => 'nosniff',
         ]);
     }

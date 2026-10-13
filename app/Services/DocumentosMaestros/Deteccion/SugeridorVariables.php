@@ -63,6 +63,14 @@ class SugeridorVariables
             return $this->lista(self::EMERGENCIA);
         }
 
+        // «Beneficiario: ____ Parentesco: ____»: el parentesco junto al
+        // beneficiario es el del BENEFICIARIO, no el del contacto de emergencia.
+        if (preg_match('/\bbeneficiari/u', $cercano) === 1) {
+            return $this->lista(preg_match('/\bparentesco(\s+de)?\s*$/u', $cercano) === 1
+                ? ['beneficiario_parentesco' => 0.85, 'contacto_emergencia_parentesco' => 0.3]
+                : ['beneficiario_nombre' => 0.85, 'beneficiario_parentesco' => 0.4]);
+        }
+
         $puntajes = [];
 
         foreach ($this->catalogo->variables() as $variable) {

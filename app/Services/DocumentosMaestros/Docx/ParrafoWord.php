@@ -231,6 +231,69 @@ class ParrafoWord
     }
 
     /**
+     * Blancos hechos con ESPACIOS o TABULADORES SUBRAYADOS (la otra forma de
+     * dibujar «la línea donde va un dato» en Word, sin guiones bajos):
+     * rangos [inicio, fin) del texto del párrafo donde todos los caracteres
+     * son espacio/tabulador/«_» con subrayado y suman al menos $minimo
+     * caracteres (o llevan un tabulador). Runs contiguos subrayados forman
+     * un solo blanco.
+     *
+     * @return list<array{0: int, 1: int}>
+     */
+    public function blancosSubrayados(int $minimo = 5): array
+    {
+        $rangos = [];
+        $inicio = null;
+        $fin = 0;
+        $conTab = false;
+
+        foreach ($this->segmentos() as $segmento) {
+            $run = $segmento['nodo']->parentNode;
+            $subrayado = $run instanceof DOMElement && $run->localName === 'r' && $this->subrayado($run);
+            $blanco = preg_match('/^[ \t\x{00A0}_]+$/u', $segmento['texto']) === 1;
+
+            if ($subrayado && $blanco) {
+                $inicio ??= $segmento['inicio'];
+                $fin = $segmento['fin'];
+                $conTab = $conTab || str_contains($segmento['texto'], "\t");
+
+                continue;
+            }
+
+            // Un «_» o espacio SIN subrayar entre dos tramos subrayados (así
+            // quedan muchas líneas editadas a mano) no corta el blanco; solo
+            // cuenta si después vuelve el subrayado.
+            if ($inicio !== null && $blanco) {
+                continue;
+            }
+
+            if ($inicio !== null && ($fin - $inicio >= $minimo || $conTab)) {
+                $rangos[] = [$inicio, $fin];
+            }
+
+            $inicio = null;
+            $conTab = false;
+        }
+
+        if ($inicio !== null && ($fin - $inicio >= $minimo || $conTab)) {
+            $rangos[] = [$inicio, $fin];
+        }
+
+        return $rangos;
+    }
+
+    private function subrayado(DOMElement $run): bool
+    {
+        foreach ($this->xpath->query('./w:rPr/w:u', $run) ?: [] as $u) {
+            if ($u instanceof DOMElement && ! in_array($u->getAttributeNS(DocumentoWord::NS, 'val'), ['none', ''], true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * @return list<array{nodo: DOMElement, texto: string, inicio: int, fin: int}>
      */
     private function segmentos(): array

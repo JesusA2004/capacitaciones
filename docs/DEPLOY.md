@@ -11,6 +11,13 @@ Runbook consolidado para desplegar/actualizar MR. LANA PEOPLE en el VPS
   dependencias externas nuevas).
 - MariaDB/MySQL y una cola configurada (`QUEUE_CONNECTION` en `.env` — `database` sirve
   para desarrollo, Redis se recomienda en producción).
+- **Tablas InnoDB** (transaccionales). Todo el sistema confía en `DB::transaction()`
+  (alta + historial, baja + tokens, generación de documentos): con MyISAM un error a
+  medias deja datos parciales. WAMP trae `default_storage_engine=MYISAM` en `my.ini`
+  — en el equipo de desarrollo 139 tablas quedaron MyISAM (2026-10-13). Verifícalo:
+  `SELECT engine, COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() GROUP BY engine;`
+  Debe salir solo InnoDB. Para convertir: `ALTER TABLE <tabla> ENGINE=InnoDB;` por
+  tabla (con respaldo previo y en una ventana de mantenimiento).
 - Nginx + PHP-FPM.
 - Synology montado (NFS o SFTP) para el disco `nas` — ver `docs/CONFIGURACION_NAS.md` y
   `docs/SYNOLOGY_STORAGE.md`. En producción: `NAS_ROOT=/mnt/people-storage` (nunca se
@@ -129,6 +136,13 @@ php artisan people:sincronizar-permisos
 # nunca borra datos en uso ni asigna personas. Ver docs/ORGANIGRAMA.md.
 php artisan people:sincronizar-organigrama --simular
 php artisan people:sincronizar-organigrama
+
+# Documentos maestros: re-prepara las versiones ACTIVAS desde su original guardado
+# (quita los marcatextos verdes de Jurídico del documento final y repite el QA visual
+# con el conversor del servidor). Requiere LibreOffice/Word, pdftoppm y las fuentes
+# de los formatos; las que no pasen el QA quedan «Diseño no validado» (no generan)
+# y el comando termina con código de error para revisarlas. Idempotente.
+php artisan documentos:normalizar-masters
 
 php artisan people:diagnostico  # confirma que todo quedó completo antes de seguir (ver PRE-DEPLOY arriba)
 

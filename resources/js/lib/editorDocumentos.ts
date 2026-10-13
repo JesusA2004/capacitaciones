@@ -40,6 +40,7 @@ export function campoNuevo(fieldKey: string, pagina: number, x: number, y: numbe
         sugerencias: [],
         detection_method: 'manual',
         motivo: null,
+        motivo_blanco: null,
         bloqueado: false,
     };
 }

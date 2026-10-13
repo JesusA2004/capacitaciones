@@ -3,6 +3,7 @@
 namespace App\Services\DocumentosMaestros;
 
 use App\Services\DocumentosMaestros\Docx\DetectorCamposDocx;
+use App\Services\DocumentosMaestros\Docx\LimpiadorMarcasEditoriales;
 use App\Services\DocumentosMaestros\Docx\PreparadorMasterDocx;
 use App\Services\DocumentosMaestros\Pdf\NormalizadorPdf;
 use App\Services\DocumentosMaestros\Pdf\RenderizadorOverlayMaestro;
@@ -24,6 +25,7 @@ class PreparacionMaestroService
     public function __construct(
         private readonly PreparadorMasterDocx $preparador,
         private readonly DetectorCamposDocx $detector,
+        private readonly LimpiadorMarcasEditoriales $limpiador,
         private readonly NormalizadorPdf $normalizador,
         private readonly RenderizadorOverlayMaestro $overlay,
         private readonly CatalogoMaestrosService $catalogo,
@@ -73,8 +75,31 @@ class PreparacionMaestroService
     private function prepararDocx(string $original, array $definicion, int $version, bool $operativo): array
     {
         $reglas = $this->catalogo->reglas($definicion, $version);
+        // Marcatextos de Jurídico: se detectan siempre; se retiran de la COPIA
+        // normalizada solo cuando RH lo decidió (`limpiar_marcas`). El
+        // original nunca se modifica.
+        $marcas = $this->limpiador->analizar($original);
+        // Formatos del registro jurídico (traen `fuentes`): Dirección pidió
+        // retirar el marcatextos de todos; un formato nuevo subido desde la
+        // UI espera la decisión de RH (con vista previa antes/después).
+        $decision = $definicion['limpiar_marcas'] ?? (((array) ($definicion['fuentes'] ?? [])) !== [] ? true : null);
+
+        if ($decision === true && $marcas !== []) {
+            $original = $this->limpiador->limpiar($original)['docx'];
+        }
+
         $resultado = $this->preparador->preparar($original, $reglas);
         $analisis = $this->detector->analizar($resultado['documento'], $resultado['instancias'], $definicion);
+        $analisis['marcas_editoriales'] = [
+            'detectadas' => count($marcas),
+            'retiradas' => $decision === true ? count($marcas) : 0,
+            'decision' => match ($decision) {
+                true => 'limpiar',
+                false => 'conservar',
+                default => null,
+            },
+            'marcas' => array_slice($marcas, 0, 60),
+        ];
         $analisis['reglas'] = count($reglas);
         $analisis['reglas_aplicadas'] = $resultado['aplicadas'];
         $analisis['reglas_pendientes'] = $resultado['pendientes'];
@@ -147,7 +172,7 @@ class PreparacionMaestroService
                 'campos' => $campos,
                 'paginas' => $seleccion,
                 'copias_offset_y' => array_map('floatval', (array) ($definicion['copias_offset_y'] ?? [0.0])),
-                'requeridos' => array_values(array_map('strval', (array) ($definicion['requeridos'] ?? []))),
+                'requeridos' => DefinicionMaestroService::requeridosOverlay($definicion, $campos),
                 'normalizado' => $master !== $original,
             ],
             'analisis' => [

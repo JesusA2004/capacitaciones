@@ -75,6 +75,26 @@ class CandidatosDocxService
                 );
             }
 
+            // Líneas de espacios/tabuladores SUBRAYADOS (sin «_»).
+            foreach ($parrafo->blancosSubrayados() as [$inicio, $fin]) {
+                $blanco = mb_substr($texto, $inicio, $fin - $inicio);
+                $izquierda = mb_substr($texto, 0, $inicio);
+
+                if (str_contains($blanco, '____') || DetectorCamposDocx::esLineaDeFirma($this->sinMarcadores($texto), $this->sinMarcadores(mb_substr($izquierda, -60)))) {
+                    continue;
+                }
+
+                $candidatos[] = $this->candidato(
+                    $this->selectorEntre($parrafos, $parrafo, $texto, $inicio, $fin),
+                    $this->contextoLegible($izquierda, mb_substr($texto, $fin)),
+                    $blanco,
+                    'texto',
+                    'docx_subrayado',
+                    $parrafo,
+                    $izquierda,
+                );
+            }
+
             foreach ($this->fechas($texto, $fechasFijas) as [$inicio, $fecha]) {
                 $candidatos[] = $this->candidato(
                     $this->selectorTexto($parrafos, $parrafo, $texto, $fecha, $inicio),
@@ -181,6 +201,27 @@ class CandidatosDocxService
         }
 
         return null;
+    }
+
+    /**
+     * Ancla de un blanco subrayado: todo lo que hay ENTRE el texto fijo de
+     * antes y el de después (el preparador sustituye el tramo completo).
+     *
+     * @param  list<ParrafoWord>  $parrafos
+     * @return array<string, mixed>|null
+     */
+    private function selectorEntre(array $parrafos, ParrafoWord $parrafo, string $texto, int $inicio, int $fin): ?array
+    {
+        $desde = $this->anclaAntes(mb_substr($texto, 0, $inicio));
+        $hasta = $this->anclaDespues(mb_substr($texto, $fin));
+        $desde = $desde !== null ? ltrim($desde, " \u{00A0}\t") : null;
+        $hasta = $hasta !== null ? rtrim($hasta, " \u{00A0}\t") : null;
+
+        if ($desde === null || $hasta === null || mb_strlen($desde) < 3 || mb_strlen($hasta) < 1) {
+            return null;
+        }
+
+        return $this->desambiguar($parrafos, $parrafo, ['tipo' => 'entre', 'desde' => $desde, 'hasta' => $hasta], fn (string $t): bool => str_contains($t, $desde) && str_contains($t, $hasta));
     }
 
     /**

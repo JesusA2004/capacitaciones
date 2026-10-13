@@ -63,6 +63,9 @@ function dmColaborador(string $grupo, array $estructura, array $extra = []): Col
         'profesion' => 'Licenciado',
         'fecha_ingreso' => '2026-10-05',
         'sueldo_mensual' => 15000,
+        // Cláusula de beneficiarios (art. 501 LFT): obligatoria en los contratos.
+        'beneficiario_nombre' => 'María López Ruiz',
+        'beneficiario_parentesco' => 'Madre',
         ...$extra,
     ]));
 }
@@ -268,7 +271,8 @@ test('no renovación: evaluación + aviso; negativa de firma habilita el acta co
 });
 
 test('préstamo autorizado: contrato, pagaré y carta de retención del formato para trabajadores', function () {
-    $colaborador = dmColaborador('gestor', $this->estructura);
+    // La carta de retención lleva el nombre del gerente bajo su firma.
+    $colaborador = dmColaborador('gestor', $this->estructura, ['jefe_id' => Colaborador::factory()->create(['name' => 'Laura', 'apellidos' => 'Méndez Ruiz'])->id]);
     $prestamo = Prestamo::factory()->create([
         'colaborador_id' => $colaborador->id, 'monto_original' => 5000, 'saldo' => 5000, 'plazo' => 20, 'periodicidad' => 'semanal',
         'pago_programado' => 250, 'fecha_primer_descuento' => '2026-10-11', 'autorizado_en' => now(), 'autorizado_por' => $this->rh->id, 'fecha_solicitud' => '2026-10-01',

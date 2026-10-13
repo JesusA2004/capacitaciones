@@ -3,6 +3,7 @@
 namespace App\Services\DocumentosMaestros;
 
 use App\Enums\EstadoValidacionVisual;
+use App\Enums\FidelidadConversion;
 use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
 use App\Models\DocumentTemplate;
@@ -12,6 +13,7 @@ use App\Services\Auditoria\AuditoriaService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\DocumentosMaestros\Calidad\DiagnosticoFuentesService;
 use App\Services\DocumentosMaestros\Calidad\ValidacionVisualMaestroService;
+use App\Services\DocumentosMaestros\Docx\LimpiadorMarcasEditoriales;
 use App\Services\Formatos\Motor\ConversorDocxPdf;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -39,6 +41,7 @@ class DocumentosMaestrosAdminService
         private readonly AlmacenMaestrosService $almacen,
         private readonly ConversorDocxPdf $conversor,
         private readonly AlcanceOrganizacionalService $alcance,
+        private readonly LimpiadorMarcasEditoriales $limpiador,
     ) {}
 
     /**
@@ -313,6 +316,10 @@ class DocumentosMaestrosAdminService
             'diseno' => $this->diseno($master),
             'campos' => ['llenos' => $llenos, 'total' => count($campos)],
             'faltantes' => array_map(fn (array $f): string => (string) $f['etiqueta'], $resultado['faltantes']),
+            // Mismo detalle que el 422 DATOS_FALTANTES: la pantalla los pide
+            // ahí mismo («Completar datos del contrato»).
+            'datos_faltantes' => $resultado['faltantes'],
+            'datos_usados' => count($this->motor->basesRequeridasDe($master)),
             'desbordes' => $resultado['desbordes'],
             'fuentes' => ['ok' => array_filter($fuentes, fn (array $f): bool => ! $f['disponible']) === [], 'detalle' => $fuentes],
             'patron' => $origenes,
@@ -382,6 +389,38 @@ class DocumentosMaestrosAdminService
         }
 
         return ['pdf' => $convertido['pdf'], 'fidelidad' => $convertido['fidelidad']];
+    }
+
+    /**
+     * El ORIGINAL ya sin marcatextos (la copia normalizada de la que se
+     * prepara el master), para la comparación «Original / Limpio». Solo
+     * Word con conversor fiel; se guarda por hash.
+     *
+     * @return array{pdf: string, fidelidad: string, marcas: int}|null
+     */
+    public function limpioPdf(DocumentTemplate $master): ?array
+    {
+        if ($master->motor->value === 'pdf_overlay') {
+            return null;
+        }
+
+        $limpio = $this->limpiador->limpiar($this->almacen->original($master));
+        $ruta = sprintf('%s/previews/limpio-%s.pdf', config('documentos_maestros.carpeta', 'documentos-maestros'), hash('sha256', $limpio['docx']));
+        $disco = $this->almacen->disco();
+
+        if ($disco->exists($ruta)) {
+            return ['pdf' => (string) $disco->get($ruta), 'fidelidad' => 'nativa', 'marcas' => count($limpio['marcas'])];
+        }
+
+        $convertido = $this->conversor->convertirFiel($limpio['docx']);
+
+        if ($convertido === null) {
+            return null;
+        }
+
+        $disco->put($ruta, $convertido['pdf']);
+
+        return ['pdf' => $convertido['pdf'], 'fidelidad' => FidelidadConversion::deConversor($convertido['conversor'])->value, 'marcas' => count($limpio['marcas'])];
     }
 
     /**

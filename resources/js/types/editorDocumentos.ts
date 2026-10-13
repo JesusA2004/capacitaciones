@@ -65,7 +65,38 @@ export type CampoEditor = {
     detection_method: string | null;
     /** Por qué volvió a «por confirmar» (p. ej. cambió el layout). */
     motivo: string | null;
+    /** Razón por la que el dato puede quedar en blanco (vacío intencional). */
+    motivo_blanco: string | null;
     bloqueado: boolean;
+};
+
+/** Marcatexto del original de Jurídico (resaltado o sombreado de texto). */
+export type MarcaEditorial = {
+    tipo: 'resaltado' | 'sombreado';
+    color: string;
+    texto: string;
+    parte: string;
+};
+
+export type ProblemaCobertura = {
+    field_key: string | null;
+    etiqueta: string;
+    contexto: string | null;
+    mensaje: string;
+};
+
+/** Zonas del documento contra lo configurado (nada queda sin destino). */
+export type CoberturaZonas = {
+    zonas: number;
+    listas: number;
+    dinamicas: number;
+    manuales: number;
+    firmas: number;
+    intencionales: number;
+    sin_clasificar: number;
+    problemas: ProblemaCobertura[];
+    marcas: { detectadas: number; retiradas: number; decision: 'limpiar' | 'conservar' | null };
+    mensaje: string;
 };
 
 export type VariableEditor = {
@@ -108,6 +139,7 @@ export type PreparacionVersion = {
     faltan: string[];
     puede_activar: boolean;
     activo: boolean;
+    cobertura: CoberturaZonas;
 };
 
 export type PaginaEditor = { numero: number; ancho: number; alto: number };
@@ -126,6 +158,12 @@ export type EditorMaestro = {
         proceso_etiqueta: string | null;
         tipo_archivo: 'docx' | 'pdf_texto' | 'pdf_escaneado' | null;
         aviso_deteccion: string | null;
+        marcas: {
+            detectadas: number;
+            retiradas: number;
+            decision: 'limpiar' | 'conservar' | null;
+            lista: MarcaEditorial[];
+        };
     };
     paginas: PaginaEditor[];
     url_fondo: string | null;

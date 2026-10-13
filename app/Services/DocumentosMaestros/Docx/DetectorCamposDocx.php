@@ -19,7 +19,7 @@ class DetectorCamposDocx
     /**
      * @param  array<int, array{campo: string, original: string, opcional: bool}>  $instancias
      * @param  array<string, mixed>  $definicion  Entrada de config('documentos_maestros.documentos').
-     * @return array{detectados: int, mapeados: int, firmas: int, pendientes: list<array{referencia: string, tipo: string, contexto: string}>, campos: list<string>, medios: list<string>}
+     * @return array{detectados: int, mapeados: int, firmas: int, intencionales: int, pendientes: list<array{referencia: string, tipo: string, contexto: string}>, campos: list<string>, medios: list<string>}
      */
     public function analizar(DocumentoWord $master, array $instancias, array $definicion): array
     {
@@ -38,6 +38,7 @@ class DetectorCamposDocx
 
         $pendientes = [];
         $firmas = 0;
+        $intencionales = 0;
 
         foreach ($master->parrafos() as $parrafo) {
             $texto = $parrafo->texto();
@@ -49,8 +50,16 @@ class DetectorCamposDocx
 
                     $contexto = trim(mb_convert_encoding($izquierda, 'UTF-8', 'UTF-8')).' [____]';
 
-                    if ($this->esFirma($sinMarcadores, $izquierda) || $this->ignorado($texto, $ignorar) || isset($sinDato[$parrafo->referencia().'|'.$contexto])) {
+                    if ($this->esFirma($sinMarcadores, $izquierda) || isset($sinDato[$parrafo->referencia().'|'.$contexto])) {
                         $firmas++;
+
+                        continue;
+                    }
+
+                    // Blanco que el registro jurídico deja vacío A PROPÓSITO
+                    // (`ignorar`, con su razón en las observaciones).
+                    if ($this->ignorado($texto, $ignorar)) {
+                        $intencionales++;
 
                         continue;
                     }
@@ -61,6 +70,33 @@ class DetectorCamposDocx
                         'contexto' => $contexto,
                     ];
                 }
+            }
+
+            // Líneas hechas con espacios/tabuladores SUBRAYADOS (sin «_»):
+            // también son espacios para un dato.
+            foreach ($parrafo->blancosSubrayados() as [$inicio, $fin]) {
+                $blanco = mb_substr($texto, $inicio, $fin - $inicio);
+
+                if (str_contains($blanco, '____')) {
+                    continue; // ya contado como blanco de guiones bajos
+                }
+
+                $izquierda = (string) preg_replace('/\{\{[a-z0-9_]+@\d+\}\}/', '', mb_substr($texto, max(0, $inicio - 60), min(60, $inicio)));
+                $contexto = trim($izquierda).' [____]';
+
+                if ($this->esFirma($sinMarcadores, $izquierda) || isset($sinDato[$parrafo->referencia().'|'.$contexto])) {
+                    $firmas++;
+
+                    continue;
+                }
+
+                if ($this->ignorado($texto, $ignorar)) {
+                    $intencionales++;
+
+                    continue;
+                }
+
+                $pendientes[] = ['referencia' => $parrafo->referencia(), 'tipo' => 'blanco_sin_mapear', 'contexto' => $contexto];
             }
 
             foreach ($ejemplos as $ejemplo) {
@@ -81,9 +117,10 @@ class DetectorCamposDocx
         $campos = array_values(array_unique(array_map(fn (array $i): string => $i['campo'], $instancias)));
 
         return [
-            'detectados' => count($instancias) + $firmas + count($pendientes),
+            'detectados' => count($instancias) + $firmas + $intencionales + count($pendientes),
             'mapeados' => count($instancias),
             'firmas' => $firmas,
+            'intencionales' => $intencionales,
             'pendientes' => $pendientes,
             'campos' => $campos,
             'medios' => $master->medios(),

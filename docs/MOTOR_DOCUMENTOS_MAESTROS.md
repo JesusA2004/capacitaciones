@@ -99,6 +99,69 @@ fuentes del documento deben estar instaladas (ver *Fuentes*).
   para cubrir datos de ejemplo impresos. Si un dato no cabe ni al tamaño
   mínimo es un **desborde** (nunca se encima).
 
+## Cobertura de zonas (`Calidad\CoberturaZonasService`)
+
+Un documento NO está preparado mientras tenga una línea que debería llevar
+un dato. La validación compara las **zonas que el documento realmente
+tiene** (cada `____`, celda vacía, casilla, fecha o dato de ejemplo que
+encuentra el detector, más los espacios dibujados en el editor) contra lo
+configurado. Cada zona queda en una de estas clases — ninguna sin destino:
+
+| Clase | Qué es | ¿Bloquea si falta el dato? |
+|---|---|---|
+| **Dinámica** | la llena un dato de PEOPLE (colaborador, empresa, contrato…) | Sí: `DATOS_FALTANTES` |
+| **Manual** | se captura al generar (testigos, hora del acta) | Sí: se pide en el modal |
+| **Firma** | firma, huella o testigo físico (`____` sola, «Firma:») | Nunca (se firma a mano) |
+| **Vacío intencional** | `zona = ignorar`, o dato con «Dejar la línea en blanco a propósito» **y su razón** (`metadata.motivo_blanco`) | No |
+| **Sin clasificar** | nadie decidió qué va ahí | La versión no se activa |
+
+- Un dato **no obligatorio sin razón** cuenta como *sin clasificar* (el
+  editor no lo guarda y `bloqueosActivacion()` lo reporta). Las casillas
+  (☐/☒, `marca_*`) pueden quedar sin marcar sin razón.
+- Un espacio aún sin confirmar no se compila; el detector lo vuelve a ver
+  como blanco sin mapear: se cuenta UNA vez.
+- Editor → pestaña **Estado**: «Detectamos 20 espacios · ✓ 18 listos · ⚠ 2
+  por revisar · [Continuar]»; **Revisar** / **Siguiente por revisar** lleva
+  espacio por espacio («Espacio 7 de 20», texto cercano, sugerencia).
+- **Faltantes calculados desde el documento real**: `faltantesDe()` usa las
+  instancias del master (DOCX) o los campos del overlay (PDF), nunca una
+  lista general del expediente. La vista previa dice «Usa N datos; faltan
+  M» y los pide ahí mismo (**Completar datos** → se guardan en la ficha con
+  las mismas reglas/permisos que al generar → la vista previa se regenera).
+  En la vista previa la línea del dato faltante se deja visible (`____`);
+  el documento definitivo nunca se emite con ella: se bloquea antes.
+
+Beneficiarios (art. 501 LFT): «se deberán cubrir a ____, quien guarda
+parentesco de ____» son **Beneficiario** (`beneficiario_nombre`) y
+**Parentesco del beneficiario** (`beneficiario_parentesco`), obligatorios
+(antes eran opcionales y la línea salía vacía sin aviso). Contacto de
+emergencia: nombre, parentesco, teléfono y dirección son datos distintos.
+
+Overlays PDF: todo campo es obligatorio salvo casillas y los
+`blancos_intencionales` de la familia (p. ej. `hora_salida`/`hora_entrada`
+del permiso: «Solo aplica cuando el permiso es para salir antes»).
+
+## Marcas editoriales (marcatextos de Jurídico)
+
+`Docx\LimpiadorMarcasEditoriales` detecta el resaltado (`w:highlight`) y el
+sombreado de TEXTO (`w:shd` con color dentro de `w:rPr`) con que Jurídico
+marcó cláusulas; nunca toca sombreado de celdas/párrafos, tablas, imágenes
+ni colores de fuente (diseño). Runs contiguos = una marca.
+
+- El **ORIGINAL nunca cambia**. Con `configuracion.limpiar_marcas = true`
+  el master se prepara desde una **copia normalizada** (solo se reescriben
+  las partes con marcas; el resto del paquete se copia byte por byte).
+- Formatos del registro jurídico: se limpian por defecto. Formato subido en
+  la UI: la versión no se activa hasta que RH decide en **Limpiar marcas
+  editoriales** (vista Original / Limpio, lista de elementos detectados,
+  **Aplicar limpieza** o **Conservar**).
+- QA visual: la referencia es la copia normalizada; además se convierte el
+  original sin limpiar y se exige el mismo número y tamaño de páginas
+  (`visual_report.limpieza`): la limpieza no mueve texto.
+- PDF: los resaltados como **anotación** nunca se imprimen (FPDI importa el
+  contenido de la página, no las anotaciones); los formatos PDF activos no
+  traen rectángulos de marcatextos (el amarillo del crédito es el logo).
+
 ## QA visual por versión (`Calidad\ValidacionVisualMaestroService`)
 
 Corre al **importar/cargar** una versión (`DOCUMENTOS_QA_AL_IMPORTAR=true`),
@@ -242,6 +305,7 @@ determinado se muestran pero Jurídico no los ha entregado).
 ```bash
 php artisan people:importar-formatos-juridicos            # idempotente; prepara y corre el QA visual
 php artisan people:importar-formatos-juridicos --simular  # solo inventario
+php artisan documentos:normalizar-masters                 # re-prepara las versiones ACTIVAS desde su original guardado (limpia marcatextos, repite QA)
 ```
 
 `.env`: `FORMATOS_CONVERSOR=auto|word|libreoffice|phpword`,

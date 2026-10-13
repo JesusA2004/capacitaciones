@@ -63,17 +63,22 @@ class RellenadorDocx
     }
 
     /**
+     * $vaciosComoOriginal (solo VISTA PREVIA): un dato que falta conserva
+     * la línea original «______» del formato, para que se vea en el PDF qué
+     * espacio queda pendiente (el documento definitivo nunca llega aquí con
+     * faltantes: se bloquea antes con DATOS_FALTANTES).
+     *
      * @param  array<int|string, Instancia>  $instancias
      * @param  array<string, string>  $valores
      * @return array{docx: string, sin_valor: list<string>}
      */
-    public function rellenar(string $master, array $instancias, array $valores): array
+    public function rellenar(string $master, array $instancias, array $valores, bool $vaciosComoOriginal = false): array
     {
-        return $this->sustituir($master, $instancias, function (string $campo, ?array $instancia) use ($valores): ?array {
+        return $this->sustituir($master, $instancias, function (string $campo, ?array $instancia) use ($valores, $vaciosComoOriginal): ?array {
             $valor = $valores[$campo] ?? '';
 
             if (trim($valor) === '') {
-                return $instancia !== null && ($instancia['opcional'] ?? false) ? ['original' => true] : null;
+                return $instancia !== null && ($vaciosComoOriginal || ($instancia['opcional'] ?? false)) ? ['original' => true] : null;
             }
 
             return ['valor' => $valor];

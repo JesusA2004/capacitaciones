@@ -287,6 +287,15 @@ class DocumentTemplate extends Model
     }
 
     /**
+     * true si el master se preparó desde la copia NORMALIZADA del original
+     * (sin marcatextos de Jurídico): el QA compara contra esa copia.
+     */
+    public function marcasRetiradas(): bool
+    {
+        return (int) (($this->analisis ?? [])['marcas_editoriales']['retiradas'] ?? 0) > 0;
+    }
+
+    /**
      * @return BelongsTo<OfficialFormat, $this>
      */
     public function formatoOficial(): BelongsTo

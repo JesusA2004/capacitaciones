@@ -12,6 +12,7 @@ use App\Models\DocumentTemplate;
 use App\Models\DocumentTemplateField;
 use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\DocumentosMaestros\Calidad\CoberturaZonasService;
 use App\Services\DocumentosMaestros\Calidad\ValidacionVisualMaestroService;
 use App\Services\DocumentosMaestros\Calidad\ValoresPruebaDocumento;
 use App\Services\DocumentosMaestros\Deteccion\CandidatosDocxService;
@@ -60,6 +61,7 @@ class EditorMaestroService
         private readonly ValoresPruebaDocumento $valoresPrueba,
         private readonly RenderizadorOverlayMaestro $overlay,
         private readonly AuditoriaService $auditoria,
+        private readonly CoberturaZonasService $cobertura,
     ) {}
 
     // ───────────────────────── Crear ─────────────────────────
@@ -293,6 +295,17 @@ class EditorMaestroService
                 $estado = EstadoCampoDocumento::SinAsignar;
             }
 
+            // Un dato que NO bloquea si falta deja la línea en blanco en el
+            // documento final: solo con una razón explícita (vacío
+            // intencional). Las casillas sin marcar no lo necesitan.
+            $requerido = (bool) ($campo['required'] ?? true);
+            $casilla = ($campo['type'] ?? 'texto') === 'casilla';
+            $motivoBlanco = mb_substr(trim((string) ($campo['motivo_blanco'] ?? '')), 0, 191);
+
+            if ($zona === ZonaCampoDocumento::Dato && ! $requerido && ! $casilla && $motivoBlanco === '') {
+                $errores[] = "Espacio {$n}: si puede quedar en blanco, escribe por qué (p. ej. «solo aplica a permisos para salir»).";
+            }
+
             $fila = [
                 'field_key' => $fieldKey,
                 'zona' => $zona,
@@ -301,11 +314,11 @@ class EditorMaestroService
                 'expression' => $zona === ZonaCampoDocumento::Dato && is_array($expresion) ? $expresion : null,
                 'transform' => $zona === ZonaCampoDocumento::Dato ? $transformacion : null,
                 'label' => mb_substr(trim((string) ($campo['label'] ?? '')), 0, 191) ?: null,
-                'required' => (bool) ($campo['required'] ?? true),
-                'type' => ($campo['type'] ?? 'texto') === 'casilla' ? 'casilla' : 'texto',
+                'required' => $requerido,
+                'type' => $casilla ? 'casilla' : 'texto',
                 'sort_order' => $n,
                 'updated_by' => $actor->id,
-                'metadata' => [...(array) ($existente->metadata ?? []), 'bloqueado' => (bool) ($campo['bloqueado'] ?? false), 'motivo' => null],
+                'metadata' => [...(array) ($existente->metadata ?? []), 'bloqueado' => (bool) ($campo['bloqueado'] ?? false), 'motivo' => null, 'motivo_blanco' => ! $requerido && $motivoBlanco !== '' ? $motivoBlanco : null],
             ];
 
             if ($esPdf) {
@@ -381,6 +394,27 @@ class EditorMaestroService
         ];
     }
 
+    /**
+     * «Limpiar marcas editoriales»: RH vio el antes/después y decide si el
+     * marcatextos del original se retira del documento final (true) o se
+     * conserva porque es parte del diseño (false). El original no cambia;
+     * se vuelve a preparar el master desde la copia normalizada y su QA
+     * visual se repite.
+     */
+    public function decidirMarcas(DocumentTemplate $master, bool $limpiar, User $actor): DocumentTemplate
+    {
+        $this->exigirEditable($master);
+
+        if ($master->motor !== MotorPlantilla::Docx) {
+            throw ValidationException::withMessages(['marcas' => 'Los PDF no traen marcatextos editables: los resaltados como anotación nunca se imprimen.']);
+        }
+
+        $master->update(['configuracion' => [...(array) ($master->configuracion ?? []), 'limpiar_marcas' => $limpiar]]);
+        $this->auditoria->registrar('documento_maestro_marcas_decididas', $master, $actor, ['familia' => $master->familia, 'version' => $master->version, 'limpiar' => $limpiar]);
+
+        return $this->recompilar($master, $actor);
+    }
+
     // ───────────────────────── Leer ─────────────────────────
 
     /**
@@ -393,6 +427,7 @@ class EditorMaestroService
         $configuracion = (array) ($master->configuracion ?? []);
         $esPdf = $master->motor === MotorPlantilla::PdfOverlay;
         $grupos = (array) ($master->grupos_puesto ?? []);
+        $marcas = (array) (($master->analisis ?? [])['marcas_editoriales'] ?? []);
 
         return [
             'master' => [
@@ -408,6 +443,13 @@ class EditorMaestroService
                 'proceso_etiqueta' => $this->catalogo->etiquetaProceso($master->proceso),
                 'tipo_archivo' => $configuracion['tipo_archivo'] ?? ($esPdf ? 'pdf_texto' : 'docx'),
                 'aviso_deteccion' => $configuracion['aviso_deteccion'] ?? null,
+                // Marcatextos del original: cuántos, qué texto y qué decidió RH.
+                'marcas' => [
+                    'detectadas' => (int) ($marcas['detectadas'] ?? 0),
+                    'retiradas' => (int) ($marcas['retiradas'] ?? 0),
+                    'decision' => isset($marcas['decision']) ? (string) $marcas['decision'] : null,
+                    'lista' => array_values(array_filter((array) ($marcas['marcas'] ?? []), 'is_array')),
+                ],
             ],
             'paginas' => $esPdf ? $this->paginas($master) : [],
             'url_fondo' => $esPdf ? route('rh.documentos-maestros.original', $master) : null,
@@ -432,7 +474,7 @@ class EditorMaestroService
      * Checklist de activación (Campos · Datos · Fuentes · Diseño · Prueba).
      *
      * @param  Collection<int, DocumentTemplateField>|null  $campos
-     * @return array{porcentaje: int, chequeos: list<array{clave: string, etiqueta: string, ok: bool, detalle: string|null}>, faltan: list<string>, puede_activar: bool, activo: bool}
+     * @return array{porcentaje: int, chequeos: list<array{clave: string, etiqueta: string, ok: bool, detalle: string|null}>, faltan: list<string>, puede_activar: bool, activo: bool, cobertura: array<string, mixed>}
      */
     public function preparacion(DocumentTemplate $master, ?Collection $campos = null): array
     {
@@ -444,9 +486,10 @@ class EditorMaestroService
         $fuentes = array_values(array_filter((array) ($master->diagnostico_fuentes ?? []), fn (mixed $f): bool => is_array($f) && ! ($f['disponible'] ?? true)));
         $reporte = (array) ($master->visual_report ?? []);
         $bloqueos = $this->importador->bloqueosActivacion($master);
+        $cobertura = $this->cobertura->de($master, $campos);
 
         $chequeos = [
-            ['clave' => 'campos', 'etiqueta' => 'Campos', 'ok' => $porConfirmar === 0 && $pendientes === 0, 'detalle' => $porConfirmar + $pendientes > 0 ? sprintf('%d espacio(s) por confirmar', max($porConfirmar, $pendientes)) : null],
+            ['clave' => 'campos', 'etiqueta' => 'Campos', 'ok' => $porConfirmar === 0 && $pendientes === 0 && $cobertura['sin_clasificar'] === 0, 'detalle' => $cobertura['sin_clasificar'] > 0 ? sprintf('%d espacio(s) por revisar', $cobertura['sin_clasificar']) : null],
             ['clave' => 'datos', 'etiqueta' => 'Datos', 'ok' => $desconocidos === 0, 'detalle' => $desconocidos > 0 ? sprintf('%d dato(s) desconocido(s)', $desconocidos) : null],
             ['clave' => 'fuentes', 'etiqueta' => 'Fuentes', 'ok' => $fuentes === [], 'detalle' => $fuentes !== [] ? 'Falta: '.implode(', ', array_map(fn (array $f): string => (string) ($f['fuente'] ?? ''), $fuentes)) : null],
             ['clave' => 'diseno', 'etiqueta' => 'Diseño', 'ok' => $master->disenoValidado() && ($reporte['desbordes'] ?? []) === [], 'detalle' => $master->visual_validation_status === EstadoValidacionVisual::Fallida ? 'La prueba de diseño no pasó' : ($master->visual_checked_at === null ? 'Falta la prueba de diseño' : null)],
@@ -467,6 +510,7 @@ class EditorMaestroService
             'faltan' => array_slice($faltan, 0, 6),
             'puede_activar' => ! $master->activo && $bloqueos === [],
             'activo' => $master->activo,
+            'cobertura' => $cobertura,
         ];
     }
 
@@ -551,6 +595,7 @@ class EditorMaestroService
             'sugerencias' => array_values(array_filter((array) ($metadata['sugerencias'] ?? []), 'is_array')),
             'detection_method' => $campo->detection_method,
             'motivo' => isset($metadata['motivo']) ? (string) $metadata['motivo'] : null,
+            'motivo_blanco' => isset($metadata['motivo_blanco']) ? (string) $metadata['motivo_blanco'] : null,
             'bloqueado' => (bool) ($metadata['bloqueado'] ?? false),
         ];
     }

@@ -3,8 +3,10 @@ import {
     AlignCenter,
     AlignLeft,
     AlignRight,
+    ArrowRight,
     Bold,
     Check,
+    ChevronDown,
     Copy,
     Lock,
     LockOpen,
@@ -18,6 +20,11 @@ import PanelVariables from '@/components/documentos/editor/PanelVariables.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -46,6 +53,10 @@ const props = defineProps<{
     motor: 'docx' | 'pdf_overlay';
     grupos: GrupoVariablesEditor[];
     editable: boolean;
+    /** Total de espacios del documento («Espacio 7 de 20»). */
+    total: number;
+    /** Espacios que aún requieren atención (para «Siguiente»). */
+    pendientes: number;
 }>();
 
 const emit = defineEmits<{
@@ -53,9 +64,11 @@ const emit = defineEmits<{
     confirmar: [];
     duplicar: [];
     eliminar: [];
+    siguiente: [];
 }>();
 
 const selectorAbierto = ref(false);
+const avanzadas = ref(false);
 const esPdf = computed(() => props.motor === 'pdf_overlay');
 
 const etiquetaDe = computed(() => {
@@ -130,7 +143,7 @@ function modoCompuesto(activo: boolean) {
     <div class="flex flex-col gap-4">
         <header class="flex items-start justify-between gap-2">
             <div class="min-w-0">
-                <p class="text-xs text-muted-foreground">Espacio {{ numero }}</p>
+                <p class="text-xs text-muted-foreground">Espacio {{ numero }} de {{ total }}</p>
                 <p class="truncate font-semibold">{{ campo.label ?? 'Sin dato asignado' }}</p>
                 <p v-if="campo.contexto" class="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
                     Cerca de: «{{ campo.contexto }}»
@@ -259,18 +272,53 @@ function modoCompuesto(activo: boolean) {
                 </div>
             </div>
 
-            <label class="flex items-center gap-2 text-sm">
-                <Checkbox
-                    :model-value="campo.required"
+            <!-- Qué pasa si la persona no tiene este dato -->
+            <div v-if="campo.type !== 'casilla'" class="flex flex-col gap-1.5">
+                <Label class="text-xs">Si falta este dato</Label>
+                <div class="flex flex-col gap-1">
+                    <button
+                        type="button"
+                        :disabled="!editable"
+                        :class="cn('rounded-lg border px-2.5 py-1.5 text-left text-sm', campo.required ? 'border-primary bg-primary/10' : 'hover:bg-muted')"
+                        @click="emit('cambiar', { required: true, motivo_blanco: null })"
+                    >
+                        No generar el documento <span class="text-xs text-muted-foreground">(recomendado)</span>
+                    </button>
+                    <button
+                        type="button"
+                        :disabled="!editable"
+                        :class="cn('rounded-lg border px-2.5 py-1.5 text-left text-sm', !campo.required ? 'border-primary bg-primary/10' : 'hover:bg-muted')"
+                        @click="emit('cambiar', { required: false })"
+                    >
+                        Dejar la línea en blanco a propósito
+                    </button>
+                </div>
+                <Input
+                    v-if="!campo.required"
+                    :model-value="campo.motivo_blanco ?? ''"
                     :disabled="!editable"
-                    @update:model-value="(v) => emit('cambiar', { required: v === true })"
+                    placeholder="¿Por qué puede ir en blanco? (obligatorio)"
+                    class="h-8 text-sm"
+                    @update:model-value="(v) => emit('cambiar', { motivo_blanco: String(v) })"
                 />
-                Obligatorio (si falta, no se genera)
-            </label>
+            </div>
+
+            <details v-if="campo.source_key" class="text-xs text-muted-foreground">
+                <summary class="cursor-pointer select-none">Detalles</summary>
+                <p class="mt-1 font-mono">{{ campo.source_key }}</p>
+            </details>
         </template>
 
-        <!-- Posición y tipografía (solo PDF: en Word el dato hereda el formato del texto) -->
-        <template v-if="esPdf">
+        <!-- Posición y tipografía (solo PDF: en Word el dato hereda el formato
+             del texto). En el lienzo se mueve y redimensiona arrastrando; los
+             números exactos quedan en «Opciones avanzadas». -->
+        <Collapsible v-if="esPdf" v-model:open="avanzadas">
+            <CollapsibleTrigger as-child>
+                <Button variant="ghost" size="sm" class="w-full justify-between px-2 text-xs text-muted-foreground">
+                    Opciones avanzadas <ChevronDown :class="cn('size-4 transition-transform', avanzadas && 'rotate-180')" />
+                </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent class="flex flex-col gap-3 pt-2">
             <div class="grid grid-cols-2 gap-2">
                 <div v-for="d in (['x', 'y', 'width', 'height'] as const)" :key="d" class="flex flex-col gap-1">
                     <Label class="text-xs">{{ { x: 'X (mm)', y: 'Y (mm)', width: 'Ancho', height: 'Alto' }[d] }}</Label>
@@ -356,11 +404,15 @@ function modoCompuesto(activo: boolean) {
                     Tapar texto impreso
                 </label>
             </div>
-        </template>
+            </CollapsibleContent>
+        </Collapsible>
 
         <div class="flex flex-wrap gap-2 border-t pt-3">
             <Button v-if="confirmable" size="sm" :disabled="!editable" @click="emit('confirmar')">
                 <Check class="size-4" /> Confirmar
+            </Button>
+            <Button v-if="pendientes > 0" size="sm" variant="outline" @click="emit('siguiente')">
+                Siguiente por revisar <ArrowRight class="size-4" />
             </Button>
             <Button
                 v-if="esPdf"

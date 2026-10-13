@@ -97,6 +97,8 @@ test('documento real con datos largos (Word nativo): mismas páginas que el orig
         'domicilio' => 'Calle Prolongación Emiliano Zapata número 1250 interior 4-B, colonia Lomas de la Selva Norte, C.P. 62270, Cuernavaca, Morelos',
         'lugar_nacimiento' => 'Pachuca de Soto, Hidalgo', 'clave_elector' => 'HRGNJS85031513H400', 'profesion' => 'Licenciado en Administración de Empresas',
         'fecha_ingreso' => '2026-10-05', 'sueldo_mensual' => 123456.78,
+        // Beneficiario largo (art. 501 LFT): también debe caber en su línea.
+        'beneficiario_nombre' => 'María Guadalupe Fernández de la Torre', 'beneficiario_parentesco' => 'Madre',
     ]);
     $contrato = ContratoLaboral::query()->create([
         'colaborador_id' => $colaborador->id, 'tipo' => TipoContratacion::CapacitacionInicial, 'fecha_inicio' => '2026-10-05', 'fecha_fin' => '2026-12-04',

@@ -99,9 +99,11 @@ export function useDocumentosMaestros() {
         desactivar: (id: number) =>
             solicitar<ConDetalle>('POST', desactivar.url(id)),
 
-        probar: (id: number, colaboradorId: number) =>
+        /** `completar`: datos faltantes capturados ahí mismo (se guardan en la ficha). */
+        probar: (id: number, colaboradorId: number, completar: Record<string, string> = {}) =>
             solicitar<{ data: ResultadoPruebaMaster }>('POST', probar.url(id), {
                 colaborador_id: colaboradorId,
+                ...(Object.keys(completar).length ? { completar } : {}),
             }).then((r) => r.data),
 
         revalidarPendientes: () =>

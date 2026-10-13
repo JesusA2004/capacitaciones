@@ -65,8 +65,8 @@ class DatosDocumentoService
         'domicilio_municipio' => ['colaborador', 'domicilio_municipio', 'Municipio del domicilio', 'texto'],
         'domicilio_estado' => ['colaborador', 'domicilio_estado', 'Estado del domicilio', 'texto'],
         'domicilio_cp' => ['colaborador', 'domicilio_cp', 'C.P. del domicilio', 'texto'],
-        'beneficiario_nombre' => ['colaborador', 'beneficiario_nombre', 'Beneficiario: nombre', 'texto'],
-        'beneficiario_parentesco' => ['colaborador', 'beneficiario_parentesco', 'Beneficiario: parentesco', 'texto'],
+        'beneficiario_nombre' => ['colaborador', 'beneficiario_nombre', 'Beneficiario', 'texto'],
+        'beneficiario_parentesco' => ['colaborador', 'beneficiario_parentesco', 'Parentesco del beneficiario', 'texto'],
         'contacto_emergencia_nombre' => ['colaborador', 'contacto_emergencia_nombre', 'Contacto de emergencia: nombre', 'texto'],
         'contacto_emergencia_parentesco' => ['colaborador', 'contacto_emergencia_parentesco', 'Contacto de emergencia: parentesco', 'texto'],
         'contacto_emergencia_telefono' => ['colaborador', 'contacto_emergencia_telefono', 'Contacto de emergencia: teléfono', 'texto'],
@@ -84,6 +84,8 @@ class DatosDocumentoService
         'sucursal_estado' => ['sucursal', 'estado', 'Estado de la sucursal', 'texto'],
         'sucursal_municipio' => ['sucursal', 'municipio', 'Municipio de la sucursal', 'texto'],
         'sucursal_cp' => ['sucursal', 'codigo_postal', 'C.P. de la sucursal', 'texto'],
+        // Se configura en Administración → Sucursales (no desde un documento).
+        'sucursal_clave' => ['sucursal', 'clave', 'Número (clave) de la sucursal', 'relacion'],
         // Datos del patrón: se capturan en Configuración → Empresa (no desde
         // el documento).
         'empresa_razon_social' => ['empresa', 'razon_social', 'Razón social de la empresa', 'empresa'],
@@ -146,6 +148,20 @@ class DatosDocumentoService
         'fecha_permiso_texto' => 'solicitud', 'motivo_permiso' => 'solicitud', 'fecha_inicio_permiso_larga' => 'solicitud',
         'monto_prestamo' => 'prestamo', 'fecha_solicitud_prestamo_corta' => 'prestamo',
         'gerente_nombre_mayusculas' => 'jefe',
+        // Overlays (préstamo, permiso): cada casilla del formato depende de
+        // un dato base — la advertencia pide «Préstamo autorizado» o
+        // «Apellidos», nunca la clave técnica de cada casilla.
+        'nombre_mayusculas' => 'nombre', 'apellido_paterno_mayusculas' => 'apellidos', 'apellido_materno_mayusculas' => 'apellidos',
+        'domicilio_colonia_mayusculas' => 'domicilio_colonia', 'domicilio_municipio_mayusculas' => 'domicilio_municipio',
+        'domicilio_estado_mayusculas' => 'domicilio_estado', 'tipo_identificacion' => 'clave_elector',
+        'sucursal_numero' => 'sucursal_clave', 'lugar_y_fecha_documento_corta' => 'sucursal_ciudad',
+        'hora_salida' => 'solicitud', 'hora_entrada' => 'solicitud',
+        'prestamo_folio' => 'prestamo', 'fecha_otorgamiento_corta' => 'prestamo', 'plazo_prestamo' => 'prestamo', 'plazo_prestamo_texto' => 'prestamo',
+        'fecha_primer_pago_corta' => 'prestamo', 'fecha_ultimo_pago_corta' => 'prestamo', 'monto_prestamo_numero' => 'prestamo', 'monto_prestamo_letra' => 'prestamo',
+        'pago_prestamo_numero' => 'prestamo', 'pago_prestamo_letra' => 'prestamo',
+        'primer_pago_dia' => 'prestamo', 'primer_pago_mes' => 'prestamo', 'primer_pago_anio_corto' => 'prestamo',
+        'ultimo_pago_dia' => 'prestamo', 'ultimo_pago_mes' => 'prestamo', 'ultimo_pago_anio_corto' => 'prestamo',
+        'suscripcion_dia' => 'prestamo', 'suscripcion_mes' => 'prestamo', 'suscripcion_anio' => 'prestamo',
     ];
 
     public function __construct(private readonly NumeroALetras $letras) {}

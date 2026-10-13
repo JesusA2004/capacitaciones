@@ -79,8 +79,8 @@ class CatalogoVariablesDocumento
         'contacto_emergencia_direccion' => ['Contacto de emergencia: dirección', 'emergencia', 'Calle Ejemplo 123, Cuernavaca', ['direccion del contacto', 'domicilio del contacto'], false, 'texto'],
         'contacto_emergencia_completo' => ['Contacto de emergencia completo', 'emergencia', 'María López (Madre) · Tel. 7771234567 · Calle Ejemplo 123', ['contacto de emergencia', 'en caso de emergencia'], false, 'texto'],
         // ── Beneficiario ──
-        'beneficiario_nombre' => ['Beneficiario: nombre', 'beneficiario', 'Ana Hernández López', ['beneficiario', 'se deberan cubrir a'], false, 'texto'],
-        'beneficiario_parentesco' => ['Beneficiario: parentesco', 'beneficiario', 'Esposa', ['quien guarda parentesco de'], false, 'texto'],
+        'beneficiario_nombre' => ['Beneficiario', 'beneficiario', 'Ana Hernández López', ['beneficiario', 'nombre del beneficiario', 'se deberan cubrir a'], true, 'texto'],
+        'beneficiario_parentesco' => ['Parentesco del beneficiario', 'beneficiario', 'Esposa', ['parentesco del beneficiario', 'quien guarda parentesco de'], true, 'texto'],
         // ── Laboral ──
         'numero_empleado' => ['Número de empleado', 'laboral', 'EMP-0123', ['numero de empleado', 'no de empleado', 'numero de nomina'], false, 'texto'],
         'empresa_nombre' => ['Empresa (nombre comercial)', 'laboral', 'MR. LANA', [], false, 'texto'],

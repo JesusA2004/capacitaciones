@@ -603,7 +603,7 @@ class MotorDocumentalService
             }
 
             $instancias = RellenadorDocx::instanciasDe($master->mapping);
-            $docx = $this->rellenador->rellenar($this->almacen->master($master), $instancias, $valores)['docx'];
+            $docx = $this->rellenador->rellenar($this->almacen->master($master), $instancias, $valores, ! $definitivo)['docx'];
             // Diseño de página (fondo, márgenes, sangría): nunca toca el texto.
             $disenado = $this->layout->aplicar($master, $docx);
             $docx = $disenado['docx'];

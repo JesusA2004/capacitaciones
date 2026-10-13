@@ -9,6 +9,7 @@ use App\Services\DocumentosMaestros\Calidad\ValidacionVisualMaestroService;
 use App\Services\DocumentosMaestros\Deteccion\LectorTextoPdf;
 use App\Services\DocumentosMaestros\Deteccion\OcrLocalService;
 use App\Services\DocumentosMaestros\Deteccion\TipoArchivoDocumento;
+use App\Services\DocumentosMaestros\ImportadorFormatosJuridicosService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Notification;
@@ -340,7 +341,7 @@ test('nueva versión con layout distinto: el mapa copiado vuelve a «por confirm
     expect($v2->activo)->toBeFalse()
         ->and($v2->campos()->where('zona', 'dato')->where('estado', 'confirmado')->count())->toBe(0)
         ->and($v2->campos()->where('zona', 'dato')->where('estado', 'sugerido')->count())->toBeGreaterThan(0)
-        ->and(collect(app(App\Services\DocumentosMaestros\ImportadorFormatosJuridicosService::class)->bloqueosActivacion($v2))->pluck('clave')->all())->toContain('por_confirmar');
+        ->and(collect(app(ImportadorFormatosJuridicosService::class)->bloqueosActivacion($v2))->pluck('clave')->all())->toContain('por_confirmar');
 });
 
 test('dato largo que no cabe en su caja BLOQUEA la generación (nunca se encima ni se corta)', function () {

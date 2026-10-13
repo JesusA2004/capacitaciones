@@ -65,6 +65,7 @@ Route::middleware(['auth', 'verified'])->prefix('rh')->name('rh.')->group(functi
         Route::get('{master}/editor', [DocumentoMaestroController::class, 'editor'])->name('editor')->whereNumber('master');
         Route::put('{master}/campos', [DocumentoMaestroController::class, 'guardarCampos'])->name('campos')->whereNumber('master')->middleware('throttle:60,1');
         Route::post('{master}/detectar', [DocumentoMaestroController::class, 'detectar'])->name('detectar')->whereNumber('master')->middleware('throttle:10,1');
+        Route::post('{master}/marcas', [DocumentoMaestroController::class, 'marcas'])->name('marcas')->whereNumber('master')->middleware('throttle:10,1');
         Route::post('{master}/datos-largos', [DocumentoMaestroController::class, 'datosLargos'])->name('datos-largos')->whereNumber('master')->middleware('throttle:10,1');
         Route::post('{master}/copiar-version', [DocumentoMaestroController::class, 'copiarVersion'])->name('copiar-version')->whereNumber('master')->middleware('throttle:10,1');
         Route::get('{master}', [DocumentoMaestroController::class, 'show'])->name('show')->whereNumber('master');
@@ -76,5 +77,6 @@ Route::middleware(['auth', 'verified'])->prefix('rh')->name('rh.')->group(functi
         Route::get('{master}/prueba/{token}', [DocumentoMaestroController::class, 'pdfPrueba'])->name('prueba')->whereNumber('master')->whereUuid('token');
         Route::get('{master}/original', [DocumentoMaestroController::class, 'original'])->name('original')->whereNumber('master');
         Route::get('{master}/original-pdf', [DocumentoMaestroController::class, 'originalPdf'])->name('original-pdf')->whereNumber('master');
+        Route::get('{master}/limpio-pdf', [DocumentoMaestroController::class, 'limpioPdf'])->name('limpio-pdf')->whereNumber('master');
     });
 });

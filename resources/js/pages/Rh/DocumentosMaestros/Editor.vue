@@ -9,8 +9,9 @@ import {
     BringToFront,
     Check,
     CopyPlus,
-    ExternalLink,
+    Eraser,
     Grid3x3,
+    Highlighter,
     Loader2,
     MoreHorizontal,
     Redo2,
@@ -30,6 +31,7 @@ import { onKeyStroke, useDebounceFn, useEventListener } from '@vueuse/core';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import BuscadorColaborador from '@/components/documentos/BuscadorColaborador.vue';
+import CamposDatosFaltantes from '@/components/documentos/CamposDatosFaltantes.vue';
 import ChecklistPreparacion from '@/components/documentos/editor/ChecklistPreparacion.vue';
 import LienzoPdfEditor from '@/components/documentos/editor/LienzoPdfEditor.vue';
 import MiniaturasPdf from '@/components/documentos/editor/MiniaturasPdf.vue';
@@ -68,6 +70,7 @@ import { solicitar, useDocumentosMaestros } from '@/composables/useDocumentosMae
 import { useHistorialEdicion } from '@/composables/useHistorialEdicion';
 import { usePdfDocumento } from '@/composables/usePdfDocumento';
 import { clonarSerializable } from '@/lib/clonar';
+import { columnaDatoFaltante, datosFaltantesCompletos } from '@/lib/datosFaltantes';
 import { campoNuevo, siguienteClave } from '@/lib/editorDocumentos';
 import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
@@ -78,8 +81,10 @@ import {
     detectar as detectarRuta,
     editor as editorRuta,
     index as indexMaestros,
+    limpioPdf as limpioPdfRuta,
+    marcas as marcasRuta,
+    originalPdf as originalPdfRuta,
 } from '@/routes/rh/documentos-maestros';
-import { show as expedienteRuta } from '@/routes/rh/expedientes';
 import type {
     CampoEditor,
     ColaboradorBusqueda,
@@ -484,8 +489,16 @@ const pruebaAbierta = ref(props.abrirPrueba === true);
 const colaborador = ref<ColaboradorBusqueda | null>(null);
 const probando = ref(false);
 const prueba = ref<ResultadoPruebaMaster | null>(null);
+// «Completar datos del contrato»: se capturan ahí mismo, se guardan en la
+// ficha y la vista previa se regenera sola.
+const completando = ref(false);
+const valoresFaltantes = ref<Record<string, string>>({});
+const faltantesEditables = computed(() => prueba.value?.datos_faltantes.filter((f) => f.editable) ?? []);
+const puedeGuardarFaltantes = computed(
+    () => faltantesEditables.value.length > 0 && datosFaltantesCompletos(prueba.value?.datos_faltantes ?? [], valoresFaltantes.value),
+);
 
-async function probarColaborador() {
+async function probarColaborador(completar: Record<string, string> = {}) {
     if (!colaborador.value) {
         return;
     }
@@ -497,11 +510,47 @@ async function probarColaborador() {
     probando.value = true;
 
     try {
-        prueba.value = await api.probar(datos.value.master.id, colaborador.value.id);
+        prueba.value = await api.probar(datos.value.master.id, colaborador.value.id, completar);
+        completando.value = false;
+        valoresFaltantes.value = Object.fromEntries(prueba.value.datos_faltantes.map((f) => [columnaDatoFaltante(f), '']));
+
+        if (Object.keys(completar).length) {
+            toast.success(prueba.value.faltantes.length ? 'Datos guardados. Aún faltan algunos.' : 'Datos guardados: el documento ya está completo.');
+        }
     } catch (e) {
         toast.error(e instanceof Error ? e.message : 'No se pudo generar la prueba.');
     } finally {
         probando.value = false;
+    }
+}
+
+function guardarFaltantes() {
+    if (!puedeGuardarFaltantes.value) {
+        return;
+    }
+
+    void probarColaborador(Object.fromEntries(Object.entries(valoresFaltantes.value).filter(([, v]) => v.trim() !== '')));
+}
+
+// ───────── Marcatextos del original (limpieza con vista previa) ─────────
+const marcasAbierto = ref(false);
+const vistaMarcas = ref<'original' | 'limpio'>('limpio');
+const decidiendoMarcas = ref(false);
+const marcas = computed(() => datos.value.master.marcas);
+
+async function decidirMarcas(decision: 'limpiar' | 'conservar') {
+    decidiendoMarcas.value = true;
+
+    try {
+        const r = await solicitar<{ message: string; data: EditorMaestro }>('POST', marcasRuta.url(datos.value.master.id), { decision });
+        datos.value = r.data;
+        guardados.value = JSON.stringify(r.data.campos);
+        marcasAbierto.value = false;
+        toast.success(r.message);
+    } catch (e) {
+        toast.error(e instanceof Error ? e.message : 'No se pudo aplicar la decisión.');
+    } finally {
+        decidiendoMarcas.value = false;
     }
 }
 
@@ -597,16 +646,50 @@ async function subirVersion() {
 
 const numeroDe = (fieldKey: string) => campos.value.findIndex((c) => c.field_key === fieldKey) + 1;
 
-const resumen = computed(() => {
-    const datosZona = campos.value.filter((c) => c.zona === 'dato');
+/**
+ * ¿Este espacio requiere atención? (rojo/amarillo, o «en blanco a
+ * propósito» sin su razón). Firmas y vacíos explicados están resueltos.
+ */
+function requiereAtencion(c: CampoEditor): boolean {
+    if (c.zona !== 'dato') {
+        return false;
+    }
 
-    return {
-        confirmados: datosZona.filter((c) => c.estado === 'confirmado' && (c.source_key || c.expression)).length,
-        porConfirmar: datosZona.filter((c) => c.estado === 'sugerido').length,
-        sinDato: datosZona.filter((c) => c.estado === 'sin_asignar' || (!c.source_key && !c.expression)).length,
-        firmas: campos.value.length - datosZona.length,
-    };
+    if (c.estado !== 'confirmado' || (!c.source_key && !c.expression)) {
+        return true;
+    }
+
+    return !c.required && c.type !== 'casilla' && !(c.motivo_blanco ?? '').trim();
+}
+
+// Espacios por revisar en orden del documento + los que el detector halló
+// fuera del mapa (líneas sin espacio, datos de ejemplo).
+const porRevisar = computed(() => campos.value.filter(requiereAtencion));
+const problemasDocumento = computed(() => datos.value.preparacion.cobertura.problemas.filter((p) => p.field_key === null));
+const resumen = computed(() => {
+    // Firmas que el detector reconoció en el Word sin espacio propio en el mapa.
+    const firmasEnMapa = campos.value.filter((c) => ['firma', 'huella', 'testigo'].includes(c.zona)).length;
+    const firmasDetector = Math.max(0, datos.value.preparacion.cobertura.firmas - firmasEnMapa);
+    const atencion = porRevisar.value.length + problemasDocumento.value.length;
+    const zonas = campos.value.length + problemasDocumento.value.length + firmasDetector;
+
+    return { zonas, listos: zonas - atencion, atencion };
 });
+
+/** Lleva al siguiente espacio por revisar (después del seleccionado). */
+function siguientePorRevisar() {
+    const lista = porRevisar.value;
+
+    if (!lista.length) {
+        pestana.value = 'preparacion';
+
+        return;
+    }
+
+    const actual = seleccion.value[0] ? campos.value.findIndex((c) => c.field_key === seleccion.value[0]) : -1;
+    const siguiente = lista.find((c) => campos.value.indexOf(c) > actual) ?? lista[0];
+    irA(siguiente.field_key);
+}
 </script>
 
 <template>
@@ -633,10 +716,16 @@ const resumen = computed(() => {
                     </p>
                 </div>
 
-                <div class="hidden items-center gap-1 text-xs xl:flex">
-                    <span class="rounded-full bg-success-soft px-2 py-0.5 text-success">{{ resumen.confirmados }} listos</span>
-                    <span v-if="resumen.porConfirmar" class="rounded-full bg-warning-soft px-2 py-0.5 text-warning">{{ resumen.porConfirmar }} por confirmar</span>
-                    <span v-if="resumen.sinDato" class="rounded-full bg-danger-soft px-2 py-0.5 text-danger">{{ resumen.sinDato }} sin dato</span>
+                <div class="hidden items-center gap-1.5 text-xs md:flex">
+                    <span class="rounded-full bg-success-soft px-2 py-0.5 text-success tabular-nums">{{ resumen.listos }} / {{ resumen.zonas }} espacios listos</span>
+                    <button
+                        v-if="resumen.atencion"
+                        type="button"
+                        class="rounded-full bg-warning-soft px-2 py-0.5 text-warning hover:ring-1 hover:ring-warning"
+                        @click="siguientePorRevisar"
+                    >
+                        ⚠ {{ resumen.atencion }} por revisar · Revisar
+                    </button>
                 </div>
 
                 <div v-if="editable" class="flex items-center gap-0.5 border-l pl-2">
@@ -782,6 +871,9 @@ const resumen = computed(() => {
                                 :motor="datos.master.motor"
                                 :grupos="datos.variables"
                                 :editable="editable"
+                                :total="campos.length"
+                                :pendientes="porRevisar.filter((c) => c.field_key !== seleccionado!.field_key).length"
+                                @siguiente="siguientePorRevisar"
                                 @cambiar="(c) => cambiar(seleccionado!.field_key, c)"
                                 @confirmar="confirmar(seleccionado.field_key)"
                                 @duplicar="duplicar"
@@ -794,6 +886,34 @@ const resumen = computed(() => {
                             <PanelVariables :grupos="datos.variables" :habilitado="editable" :seleccionado="seleccionado !== null" @elegir="asignarVariable" />
                         </TabsContent>
                         <TabsContent value="preparacion" class="min-h-0 flex-1 overflow-y-auto pt-3">
+                            <!-- Preparar formato: cuántos espacios tiene el documento y cuántos faltan -->
+                            <div class="mb-4 rounded-xl border bg-crema/40 p-3 text-sm">
+                                <p class="font-medium">Detectamos {{ resumen.zonas }} espacio{{ resumen.zonas === 1 ? '' : 's' }}</p>
+                                <p class="mt-1 text-success">✓ {{ resumen.listos }} listo{{ resumen.listos === 1 ? '' : 's' }}</p>
+                                <p v-if="resumen.atencion" class="text-warning">⚠ {{ resumen.atencion }} por revisar</p>
+                                <p class="mt-1 text-xs text-muted-foreground">
+                                    {{ datos.preparacion.cobertura.dinamicas }} con dato · {{ datos.preparacion.cobertura.firmas }} de firma
+                                    <template v-if="datos.preparacion.cobertura.manuales"> · {{ datos.preparacion.cobertura.manuales }} se capturan al generar</template>
+                                    <template v-if="datos.preparacion.cobertura.intencionales"> · {{ datos.preparacion.cobertura.intencionales }} en blanco a propósito</template>
+                                </p>
+                                <Button v-if="porRevisar.length" size="sm" class="mt-2 w-full" @click="siguientePorRevisar">Continuar</Button>
+                                <ul v-if="problemasDocumento.length" class="mt-2 flex flex-col gap-1">
+                                    <li v-for="(p, i) in problemasDocumento" :key="i" class="rounded-md bg-warning-soft px-2 py-1 text-xs text-warning">
+                                        <span class="font-medium">{{ p.etiqueta }}</span> — {{ p.mensaje }}
+                                        <span v-if="p.contexto" class="block opacity-80">«{{ p.contexto }}»</span>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <!-- Marcatextos del original -->
+                            <div v-if="marcas.detectadas" class="mb-4 rounded-xl border p-3 text-sm">
+                                <p class="flex items-center gap-1.5 font-medium"><Highlighter class="size-4" /> Resaltados del original</p>
+                                <p v-if="marcas.decision === 'limpiar'" class="mt-1 text-success">✓ {{ marcas.detectadas }} resaltado{{ marcas.detectadas === 1 ? '' : 's' }} retirado{{ marcas.detectadas === 1 ? '' : 's' }} del documento final</p>
+                                <p v-else-if="marcas.decision === 'conservar'" class="mt-1 text-muted-foreground">Se conservan como parte del diseño.</p>
+                                <p v-else class="mt-1 text-warning">El documento trae {{ marcas.detectadas }} marca{{ marcas.detectadas === 1 ? '' : 's' }} de marcatextos. Revísalas antes de activar.</p>
+                                <Button size="sm" variant="outline" class="mt-2 w-full" @click="marcasAbierto = true"><Eraser class="size-4" /> Limpiar marcas editoriales</Button>
+                            </div>
+
                             <ChecklistPreparacion :preparacion="datos.preparacion" />
                             <Button
                                 v-if="!datos.master.activo && datos.preparacion.puede_activar"
@@ -851,32 +971,109 @@ const resumen = computed(() => {
 
     <!-- Probar con un colaborador real -->
     <Dialog v-model:open="pruebaAbierta">
-        <DialogContent :class="prueba ? 'sm:max-w-4xl' : 'sm:max-w-lg'">
+        <DialogContent :class="prueba ? 'max-h-[96dvh] overflow-y-auto sm:max-w-[min(96vw,90rem)]' : 'sm:max-w-lg'">
             <DialogHeader>
                 <DialogTitle>Probar con colaborador</DialogTitle>
                 <DialogDescription>Vista previa con sus datos reales. No se guarda en su expediente.</DialogDescription>
             </DialogHeader>
-            <BuscadorColaborador v-model="colaborador" />
-            <div v-if="prueba" class="flex flex-col gap-3 text-sm">
-                <div v-if="prueba.faltantes.length" class="flex flex-wrap items-center gap-2 rounded-lg bg-warning-soft px-3 py-2">
-                    <span class="mr-auto">
-                        Faltan {{ prueba.faltantes.length }} dato(s) de {{ prueba.colaborador.nombre }}:
-                        <span class="font-medium">{{ prueba.faltantes.join(', ') }}</span>
-                    </span>
-                    <Button size="sm" variant="outline" as="a" :href="expedienteRuta.url(prueba.colaborador.id)" target="_blank" rel="noopener">
-                        Completar <ExternalLink class="size-3.5" />
-                    </Button>
-                </div>
-                <p class="text-xs text-muted-foreground">
-                    {{ prueba.paginas.generado }} página(s) · {{ prueba.campos.llenos }} de {{ prueba.campos.total }} datos ·
-                    <span :class="prueba.desbordes.length ? 'text-warning' : 'text-success'">{{ prueba.desbordes.length ? `${prueba.desbordes.length} dato(s) no caben` : 'todo cabe' }}</span>
-                </p>
-                <iframe :src="prueba.url_resultado" title="Vista previa del documento" class="h-[60vh] w-full rounded-lg border bg-white" />
+            <div class="flex flex-wrap items-end gap-2">
+                <div class="min-w-64 flex-1"><BuscadorColaborador v-model="colaborador" /></div>
+                <Button :disabled="!colaborador || probando" @click="probarColaborador()">
+                    <Loader2 v-if="probando" class="size-4 animate-spin" /> {{ prueba ? 'Actualizar vista previa' : 'Generar vista previa' }}
+                </Button>
+            </div>
+            <div v-if="prueba" class="grid gap-3 text-sm lg:grid-cols-[minmax(0,1fr)_20rem]">
+                <!-- Centro: el PDF (el visor del navegador trae las páginas a la izquierda) -->
+                <iframe :key="prueba.url_resultado" :src="prueba.url_resultado" title="Vista previa del documento" class="h-[75dvh] w-full rounded-lg border bg-white" />
+
+                <!-- Derecha: el problema actual -->
+                <aside class="flex flex-col gap-3">
+                    <div v-if="prueba.faltantes.length" class="rounded-lg bg-warning-soft px-3 py-2 text-warning">
+                        <p class="font-semibold">Faltan datos para generar este documento</p>
+                        <p class="mt-0.5 text-xs">
+                            Usa {{ prueba.datos_usados }} dato{{ prueba.datos_usados === 1 ? '' : 's' }}; a {{ prueba.colaborador.nombre }} le
+                            falta{{ prueba.faltantes.length === 1 ? '' : 'n' }} {{ prueba.faltantes.length }}:
+                        </p>
+                        <ul class="mt-1 list-disc pl-5 text-sm">
+                            <li v-for="f in prueba.faltantes" :key="f">{{ f }}</li>
+                        </ul>
+                        <Button v-if="!completando && faltantesEditables.length" size="sm" class="mt-2 w-full" @click="completando = true">Completar datos</Button>
+                    </div>
+                    <p v-else class="rounded-lg bg-success-soft px-3 py-2 text-success">✓ Tiene todos los datos que pide el documento.</p>
+
+                    <div v-if="completando" class="rounded-lg border p-3">
+                        <p class="mb-3 font-medium">Completar datos del documento</p>
+                        <CamposDatosFaltantes v-model="valoresFaltantes" :faltantes="prueba.datos_faltantes" />
+                        <div class="mt-3 flex gap-2">
+                            <Button variant="outline" size="sm" :disabled="probando" @click="completando = false">Cancelar</Button>
+                            <Button size="sm" class="flex-1" :disabled="probando || !puedeGuardarFaltantes" @click="guardarFaltantes">
+                                <Loader2 v-if="probando" class="size-4 animate-spin" /> Guardar y actualizar vista previa
+                            </Button>
+                        </div>
+                    </div>
+
+                    <p class="text-xs text-muted-foreground">
+                        {{ prueba.paginas.generado }} página(s) · {{ prueba.campos.llenos }} de {{ prueba.campos.total }} datos ·
+                        <span :class="prueba.desbordes.length ? 'text-warning' : 'text-success'">{{ prueba.desbordes.length ? `${prueba.desbordes.length} dato(s) no caben` : 'todo cabe' }}</span>
+                    </p>
+                    <ul v-if="prueba.desbordes.length" class="flex flex-col gap-1 text-xs">
+                        <li v-for="d in prueba.desbordes" :key="d.campo" class="rounded-md bg-warning-soft px-2 py-1 text-warning">
+                            <span class="font-medium">{{ d.etiqueta ?? d.campo }}</span> — {{ d.razon }}
+                        </li>
+                    </ul>
+                </aside>
             </div>
             <DialogFooter>
                 <Button variant="outline" @click="pruebaAbierta = false">Cerrar</Button>
-                <Button :disabled="!colaborador || probando" @click="probarColaborador">
-                    <Loader2 v-if="probando" class="size-4 animate-spin" /> Generar vista previa
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+
+    <!-- Limpiar marcas editoriales: antes / después, luego aplicar -->
+    <Dialog v-model:open="marcasAbierto">
+        <DialogContent class="max-h-[96dvh] overflow-y-auto sm:max-w-[min(96vw,80rem)]">
+            <DialogHeader>
+                <DialogTitle>Limpiar marcas editoriales</DialogTitle>
+                <DialogDescription>
+                    Detectamos {{ marcas.detectadas }} resaltado{{ marcas.detectadas === 1 ? '' : 's' }} de marcatextos en el original. El archivo
+                    original no se modifica: solo se quitan del documento que genera PEOPLE.
+                </DialogDescription>
+            </DialogHeader>
+            <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_18rem]">
+                <div class="flex flex-col gap-2">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <Tabs v-model="vistaMarcas">
+                            <TabsList>
+                                <TabsTrigger value="original">Original</TabsTrigger>
+                                <TabsTrigger value="limpio">Limpio</TabsTrigger>
+                            </TabsList>
+                        </Tabs>
+                        <p class="text-xs text-muted-foreground">La vista «Limpio» se genera con el conversor del servidor: la primera vez tarda unos segundos.</p>
+                    </div>
+                    <iframe
+                        :key="vistaMarcas"
+                        :src="vistaMarcas === 'original' ? originalPdfRuta.url(datos.master.id) : limpioPdfRuta.url(datos.master.id)"
+                        :title="vistaMarcas === 'original' ? 'Original con resaltados' : 'Documento limpio'"
+                        class="h-[70dvh] w-full rounded-lg border bg-white"
+                    />
+                </div>
+                <aside class="flex flex-col gap-2 text-sm">
+                    <p class="font-medium">Elementos detectados</p>
+                    <ul class="flex max-h-[55dvh] flex-col gap-1 overflow-y-auto">
+                        <li v-for="(m, i) in marcas.lista" :key="i" class="rounded-md border px-2 py-1 text-xs">
+                            <span class="flex items-center gap-1.5">
+                                <span class="inline-block size-3 rounded-sm border" :style="{ background: m.color.startsWith('#') ? m.color : undefined }" :class="!m.color.startsWith('#') && 'bg-success-soft'" />
+                                {{ m.tipo === 'resaltado' ? 'Resaltado editorial' : 'Sombreado de texto' }}
+                            </span>
+                            <span class="mt-0.5 line-clamp-2 block text-muted-foreground">«{{ m.texto || '(sin texto)' }}»</span>
+                        </li>
+                    </ul>
+                </aside>
+            </div>
+            <DialogFooter class="gap-2">
+                <Button variant="outline" :disabled="decidiendoMarcas || !editable" @click="decidirMarcas('conservar')">Conservar (son parte del diseño)</Button>
+                <Button :disabled="decidiendoMarcas || !editable" @click="decidirMarcas('limpiar')">
+                    <Loader2 v-if="decidiendoMarcas" class="size-4 animate-spin" /><Eraser v-else class="size-4" /> Aplicar limpieza
                 </Button>
             </DialogFooter>
         </DialogContent>

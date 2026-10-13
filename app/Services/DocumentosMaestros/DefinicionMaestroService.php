@@ -33,7 +33,7 @@ class DefinicionMaestroService
     private const LLAVES_SELECTOR = ['tipo', 'antes', 'despues', 'desde', 'hasta', 'buscar', 'etiqueta', 'parrafo', 'fila', 'ocurrencia', 'en_parrafo'];
 
     /** Opciones de la familia que pueden vivir en la versión (configuracion). */
-    public const OPCIONES = ['representante', 'paginas', 'copias_offset_y', 'requeridos', 'ignorar', 'ejemplos', 'fechas_fijas', 'solo_resultado', 'zonas_sin_dato'];
+    public const OPCIONES = ['representante', 'paginas', 'copias_offset_y', 'requeridos', 'ignorar', 'ejemplos', 'fechas_fijas', 'solo_resultado', 'zonas_sin_dato', 'limpiar_marcas'];
 
     public function __construct(
         private readonly CatalogoMaestrosService $catalogo,
@@ -173,17 +173,23 @@ class DefinicionMaestroService
         $motor = (string) ($definicion['motor'] ?? 'docx');
         $filas = [];
 
-        if ($motor === 'pdf_overlay') {
-            $requeridos = array_map('strval', (array) ($definicion['requeridos'] ?? []));
+        $blancos = self::blancosIntencionales($definicion);
 
-            foreach (array_values(array_filter((array) ($definicion['campos'] ?? []), 'is_array')) as $i => $caja) {
+        if ($motor === 'pdf_overlay') {
+            $cajas = array_values(array_filter((array) ($definicion['campos'] ?? []), 'is_array'));
+            $requeridos = self::requeridosOverlay($definicion, $cajas);
+
+            foreach ($cajas as $i => $caja) {
                 $filas[] = [
                     ...$this->columnasDeCaja($caja),
                     'field_key' => sprintf('c%d', $i + 1),
                     'label' => $this->variables->etiqueta((string) $caja['campo']),
                     'required' => in_array((string) $caja['campo'], $requeridos, true),
                     'sort_order' => $i + 1,
-                    'metadata' => ['legado' => json_encode($caja, JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION)],
+                    'metadata' => array_filter([
+                        'legado' => json_encode($caja, JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION),
+                        'motivo_blanco' => $blancos[(string) $caja['campo']] ?? null,
+                    ], fn (mixed $v): bool => $v !== null),
                 ];
             }
 
@@ -196,11 +202,61 @@ class DefinicionMaestroService
                 'field_key' => sprintf('c%d', $i + 1),
                 'label' => $this->variables->etiqueta((string) ($regla['campo'] ?? '')),
                 'sort_order' => $i + 1,
-                'metadata' => ['legado' => json_encode($regla, JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION)],
+                'metadata' => array_filter([
+                    'legado' => json_encode($regla, JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION),
+                    'motivo_blanco' => $blancos[(string) ($regla['campo'] ?? '')] ?? null,
+                ], fn (mixed $v): bool => $v !== null),
             ];
         }
 
         return $filas;
+    }
+
+    /**
+     * Datos de un overlay que SÍ bloquean si faltan: todos los que no son
+     * casilla ni blanco intencional (`blancos_intencionales`). Un registro
+     * que aún declara `requeridos` explícitos los conserva tal cual.
+     *
+     * @param  array<string, mixed>  $definicion
+     * @param  list<array<string, mixed>>  $cajas
+     * @return list<string>
+     */
+    public static function requeridosOverlay(array $definicion, array $cajas): array
+    {
+        if (isset($definicion['requeridos'])) {
+            return array_values(array_map('strval', (array) $definicion['requeridos']));
+        }
+
+        $blancos = self::blancosIntencionales($definicion);
+        $requeridos = [];
+
+        foreach ($cajas as $caja) {
+            $campo = (string) ($caja['campo'] ?? '');
+            $casilla = ($caja['tipo'] ?? null) === 'check' || str_starts_with($campo, 'marca_');
+
+            if ($campo !== '' && ! $casilla && ! isset($blancos[$campo])) {
+                $requeridos[] = $campo;
+            }
+        }
+
+        return array_values(array_unique($requeridos));
+    }
+
+    /**
+     * campo => razón por la que puede quedar en blanco.
+     *
+     * @param  array<string, mixed>  $definicion
+     * @return array<string, string>
+     */
+    public static function blancosIntencionales(array $definicion): array
+    {
+        $blancos = [];
+
+        foreach ((array) ($definicion['blancos_intencionales'] ?? []) as $campo => $motivo) {
+            $blancos[(string) $campo] = (string) $motivo;
+        }
+
+        return $blancos;
     }
 
     /**

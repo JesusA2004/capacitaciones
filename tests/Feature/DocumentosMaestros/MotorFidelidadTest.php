@@ -79,6 +79,8 @@ function mfColaborador(string $grupo, array $extra = []): Colaborador
         'domicilio_colonia' => 'Centro', 'domicilio_municipio' => 'Cuernavaca', 'domicilio_estado' => 'Morelos', 'domicilio_cp' => '62000',
         'nacionalidad' => 'Mexicana', 'estado_civil' => 'soltero', 'lugar_nacimiento' => 'Cuernavaca, Morelos', 'clave_elector' => 'PELJ900510HMS',
         'profesion' => 'Licenciado', 'fecha_ingreso' => '2026-10-05', 'sueldo_mensual' => 15000,
+        // Cláusula de beneficiarios (art. 501 LFT): obligatoria en los contratos.
+        'beneficiario_nombre' => 'María López Ruiz', 'beneficiario_parentesco' => 'Madre',
         ...$extra,
     ]));
 }
@@ -442,7 +444,8 @@ test('puesto que no requiere documentos laborales: la contratación no pide ning
 
 test('préstamo: se usa el monto y plazo AUTORIZADOS, nunca los solicitados', function () {
     mfImportar(['prestamo_contrato.general', 'prestamo_pagare.general', 'prestamo_consentimiento_retencion.general']);
-    $colaborador = mfColaborador('gestor');
+    // La carta de retención lleva el nombre del gerente bajo su firma.
+    $colaborador = mfColaborador('gestor', ['jefe_id' => Colaborador::factory()->create(['name' => 'Laura', 'apellidos' => 'Méndez Ruiz'])->id]);
     $prestamo = Prestamo::factory()->create([
         'colaborador_id' => $colaborador->id, 'monto_solicitado' => 9000, 'plazo_solicitado' => 30, 'monto_original' => 5000, 'saldo' => 5000,
         'plazo' => 20, 'periodicidad' => 'semanal', 'pago_programado' => 250, 'fecha_primer_descuento' => '2026-10-11', 'autorizado_en' => now(), 'autorizado_por' => $this->rh->id, 'fecha_solicitud' => '2026-10-01',

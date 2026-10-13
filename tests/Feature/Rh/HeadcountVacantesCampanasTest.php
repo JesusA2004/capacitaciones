@@ -99,9 +99,11 @@ test('domicilio del patrón: Configuración decide si es el fiscal o el de la su
 
     expect($domicilio())->toBe('Av. Morelos 120, colonia Centro, C.P. 62000, Cuernavaca, Morelos');
 
-    // Sucursal sin domicilio capturado: se usa el fiscal.
+    // Sucursal sin domicilio capturado: queda FALTANTE (se pide el de la
+    // sucursal); nunca se cambia en silencio al fiscal.
     $estructura['sucursal']->update(['direccion' => null]);
-    expect($domicilio())->toBe('Subida al Club 114, Cuernavaca, Morelos');
+    expect($domicilio())->toBe('')
+        ->and(app(DatosDocumentoService::class)->fuente('empresa_domicilio')['base'])->toBe('sucursal_direccion');
 });
 
 test('sucursal: se captura su domicilio completo', function () {

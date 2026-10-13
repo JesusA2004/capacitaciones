@@ -7,6 +7,7 @@ use App\Enums\EstadoValidacionVisual;
 use App\Enums\MotorPlantilla;
 use App\Enums\TipoPlantillaDocumento;
 use App\Models\DocumentTemplate;
+use App\Models\DocumentTemplateField;
 use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\DocumentosMaestros\Calidad\ValidacionVisualMaestroService;
@@ -295,7 +296,7 @@ class ImportadorFormatosJuridicosService
         $detectados = (int) ($analisis['detectados'] ?? 0);
         $mapeados = (int) ($analisis['mapeados'] ?? 0);
         // Las líneas de firma/huella nunca se mapean (quedan en blanco para firmar).
-        $firmas = (int) ($analisis['firmas'] ?? 0);
+        $firmas = (int) ($analisis['firmas'] ?? 0) + (int) ($analisis['intencionales'] ?? 0);
         $pendientes = count((array) ($analisis['pendientes'] ?? [])) + count((array) ($analisis['reglas_pendientes'] ?? []));
         $reporte = (array) ($master->visual_report ?? []);
 
@@ -331,6 +332,24 @@ class ImportadorFormatosJuridicosService
 
         if ($editadoEnUi && $master->ultima_prueba_en === null) {
             $bloqueos[] = ['clave' => 'prueba', 'mensaje' => 'Falta probarlo con un colaborador («Probar colaborador»).', 'excepcionable' => false];
+        }
+
+        // Marcatextos del original: nunca salen en el documento final sin
+        // que RH decida (quitarlos o conservarlos como parte del diseño).
+        $marcas = (array) ($analisis['marcas_editoriales'] ?? []);
+
+        if ((int) ($marcas['detectadas'] ?? 0) > 0 && ($marcas['decision'] ?? null) === null) {
+            $bloqueos[] = ['clave' => 'marcas', 'mensaje' => sprintf('El original trae %d resaltado(s) de marcatextos: revisa la limpieza antes de activar.', (int) $marcas['detectadas']), 'excepcionable' => false];
+        }
+
+        // Un dato que puede quedar en blanco necesita su razón (si no, es
+        // una línea vacía sin explicación en el documento final).
+        $blancosSinMotivo = $master->campos()->where('zona', 'dato')->where('required', false)->where('type', '!=', 'casilla')->get()
+            ->filter(fn (DocumentTemplateField $c): bool => trim((string) ($c->metadata['motivo_blanco'] ?? '')) === '')
+            ->count();
+
+        if ($blancosSinMotivo > 0) {
+            $bloqueos[] = ['clave' => 'blanco_sin_motivo', 'mensaje' => sprintf('%d espacio(s) pueden quedar en blanco sin una razón: márcalos como obligatorios o explica por qué.', $blancosSinMotivo), 'excepcionable' => false];
         }
 
         $sinConfirmar = $master->campos()->where('zona', 'dato')->where('estado', '!=', 'confirmado')->count();

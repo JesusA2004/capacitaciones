@@ -8,6 +8,7 @@ use App\Models\DocumentTemplate;
 use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\DocumentosMaestros\AlmacenMaestrosService;
+use App\Services\DocumentosMaestros\Docx\LimpiadorMarcasEditoriales;
 use App\Services\DocumentosMaestros\Docx\RellenadorDocx;
 use App\Services\DocumentosMaestros\Pdf\RenderizadorOverlayMaestro;
 use App\Services\Formatos\Motor\ConversorDocxPdf;
@@ -52,6 +53,7 @@ class ValidacionVisualMaestroService
         private readonly DiagnosticoFuentesService $fuentes,
         private readonly ValoresPruebaDocumento $valoresPrueba,
         private readonly RellenadorDocx $rellenador,
+        private readonly LimpiadorMarcasEditoriales $limpiador,
         private readonly RenderizadorOverlayMaestro $overlay,
         private readonly AlmacenMaestrosService $almacen,
         private readonly AuditoriaService $auditoria,
@@ -115,6 +117,11 @@ class ValidacionVisualMaestroService
     private function validarDocx(DocumentTemplate $master): array
     {
         $original = $this->almacen->original($master);
+        // Con marcatextos retirados, la referencia es la COPIA NORMALIZADA
+        // (mismo documento sin marcas): la identidad prueba que la limpieza
+        // y la preparación no movieron nada.
+        $sinLimpiar = $master->marcasRetiradas() ? $original : null;
+        $original = $sinLimpiar !== null ? $this->limpiador->limpiar($original)['docx'] : $original;
         $docxMaster = $this->almacen->master($master);
         $instancias = RellenadorDocx::instanciasDe($master->mapping);
         $problemas = [];
@@ -153,6 +160,25 @@ class ValidacionVisualMaestroService
         $estructura = $this->estructura($original, $docxMaster, $docxPrueba);
         $problemas = [...$problemas, ...$estructura['problemas']];
         $conteo = ['original' => count($paginasOriginal), 'identidad' => count($paginasIdentidad), 'prueba' => count($paginasPrueba)];
+        $limpieza = null;
+
+        // La limpieza solo quita el color de fondo: mismas páginas, mismo
+        // tamaño y el texto en su lugar (la similitud baja solo donde había
+        // marcatextos; se reporta para la comparación antes/después).
+        if ($sinLimpiar !== null) {
+            $pdfSinLimpiar = $this->conversor->convertirFiel($sinLimpiar, [$motor]);
+            $paginasSinLimpiar = $pdfSinLimpiar !== null ? $this->rasterizador->rasterizar($pdfSinLimpiar['pdf'], $dpi) : [];
+            $comparacion = $this->compararSerie($paginasSinLimpiar, $paginasOriginal);
+            $limpieza = ['paginas_original' => count($paginasSinLimpiar), 'paginas_limpio' => count($paginasOriginal), 'similitud' => $comparacion['minima']];
+
+            if ($pdfSinLimpiar !== null && count($paginasSinLimpiar) !== count($paginasOriginal)) {
+                $problemas[] = sprintf('Al quitar los marcatextos el documento pasa de %d a %d páginas: la limpieza no debe mover el texto.', count($paginasSinLimpiar), count($paginasOriginal));
+            }
+
+            foreach ($comparacion['tamanos_distintos'] as $pagina) {
+                $problemas[] = sprintf('Página %d: al quitar los marcatextos cambió el tamaño de la hoja.', $pagina);
+            }
+        }
 
         if ($conteo['identidad'] !== $conteo['original']) {
             $problemas[] = sprintf('El documento preparado tiene %d páginas y el original %d: la preparación del master alteró el diseño.', $conteo['identidad'], $conteo['original']);
@@ -198,6 +224,7 @@ class ValidacionVisualMaestroService
             'estructura' => $estructura['resumen'],
             'fuentes' => $fuentes,
             'campos_probados' => count($campos),
+            'limpieza' => $limpieza,
             'desbordes' => [],
             'advertencias' => $advertencias,
             'problemas' => array_values(array_unique($problemas)),

@@ -51,9 +51,18 @@ $nssCelda = ['tipo' => 'celda', 'etiqueta' => 'Número de seguridad social:', 'c
 $domicilioCelda = ['tipo' => 'celda', 'etiqueta' => 'Domicilio:', 'campo' => 'domicilio_mayusculas'];
 $generalesCompletos = [...$generales, $nssCelda, $domicilioCelda];
 
+// Cláusula de beneficiarios (art. 501 LFT): las dos líneas son datos
+// OBLIGATORIOS — sin beneficiario el contrato no se genera (nunca sale con
+// la línea vacía).
 $beneficiarios = [
-    ['tipo' => 'blanco', 'antes' => 'se deberán cubrir a', 'campo' => 'beneficiario_nombre', 'opcional' => true],
-    ['tipo' => 'blanco', 'antes' => 'quien guarda parentesco de', 'campo' => 'beneficiario_parentesco', 'opcional' => true],
+    ['tipo' => 'blanco', 'antes' => 'se deberán cubrir a', 'campo' => 'beneficiario_nombre'],
+    ['tipo' => 'blanco', 'antes' => 'quien guarda parentesco de', 'campo' => 'beneficiario_parentesco'],
+];
+// Misma cláusula en los indeterminados de administrativos, pero sus líneas
+// son ESPACIOS SUBRAYADOS (sin «_»): se toma todo el tramo entre los textos fijos.
+$beneficiariosSubrayados = [
+    ['tipo' => 'entre', 'desde' => 'se deberán cubrir a', 'hasta' => ', quien guarda parentesco de', 'campo' => 'beneficiario_nombre'],
+    ['tipo' => 'entre', 'desde' => 'quien guarda parentesco de', 'hasta' => 'con el trabajador', 'campo' => 'beneficiario_parentesco'],
 ];
 
 // Contratos de capacitación inicial (39-B LFT) de puestos de sucursal.
@@ -637,6 +646,7 @@ return [
                 ['tipo' => 'blanco', 'antes' => 'Las partes reconocen que el puesto de', 'campo' => 'puesto'],
                 ['tipo' => 'blanco', 'antes' => 'asigna al trabajador el puesto de', 'campo' => 'puesto'],
                 ['tipo' => 'blanco', 'antes' => 'salario mensual bruto de $', 'campo' => 'sueldo_mensual_numero_letra'],
+                ...$beneficiariosSubrayados,
                 ['tipo' => 'entre', 'desde' => 'Cuernavaca, Morelos a', 'hasta' => '.', 'parrafo' => 'lo firman en', 'campo' => 'fecha_inicio_contrato_larga_mayusculas'],
                 ['tipo' => 'blanco', 'antes' => 'C.', 'fila' => 'POR EL TRABAJADOR', 'campo' => 'nombre_completo_mayusculas'],
                 ['tipo' => 'entre', 'desde' => 'de fecha', 'hasta' => ' celebrado', 'parrafo' => 'La presente hoja de firmas', 'campo' => 'fecha_inicio_contrato_larga_mayusculas'],
@@ -646,7 +656,7 @@ return [
             'fechas_fijas' => $fechasFijas,
             'observaciones' => [
                 'Firma y hoja de firmas traían el año 2026 escrito ("DE 2026"); el sistema escribe la fecha completa real.',
-                'Este formato no trae cláusula de beneficiarios con blanco.',
+                'Cláusula de beneficiarios (art. 501): las líneas son espacios subrayados; se llenan con beneficiario y parentesco.',
             ],
         ],
 
@@ -668,6 +678,7 @@ return [
                 ['tipo' => 'blanco', 'antes' => 'Las partes reconocen que el puesto de', 'campo' => 'puesto'],
                 ['tipo' => 'blanco', 'antes' => 'asigna al trabajador el puesto de', 'campo' => 'puesto'],
                 ['tipo' => 'blanco', 'antes' => 'salario mensual bruto de $', 'campo' => 'sueldo_mensual_numero_letra'],
+                ...$beneficiariosSubrayados,
                 ['tipo' => 'entre', 'desde' => 'Cuernavaca, Morelos a', 'hasta' => '.', 'parrafo' => 'lo firman en', 'campo' => 'fecha_inicio_contrato_larga_mayusculas'],
                 ['tipo' => 'blanco', 'antes' => 'C.', 'fila' => 'POR EL TRABAJADOR', 'campo' => 'nombre_completo_mayusculas'],
                 ['tipo' => 'entre', 'desde' => 'de fecha', 'hasta' => ' celebrado', 'parrafo' => 'La presente hoja de firmas', 'campo' => 'fecha_inicio_contrato_larga_mayusculas'],
@@ -1031,7 +1042,13 @@ return [
                 ['campo' => 'marca_permiso_especial', 'pagina' => 1, 'x' => 162.8, 'y' => 93.4, 'ancho' => 25, 'alto' => 4.8, 'tamano' => 10, 'alineacion' => 'C'],
                 ['campo' => 'motivo_permiso', 'pagina' => 1, 'x' => 29, 'y' => 102.6, 'ancho' => 177, 'alto' => 12.6, 'tamano' => 9, 'multilinea' => true, 'interlineado' => 6.3],
             ],
-            'requeridos' => ['nombre_completo_mayusculas', 'departamento_mayusculas', 'fecha_permiso_texto', 'motivo_permiso'],
+            // Todo dato del overlay es obligatorio (sin él no se genera),
+            // salvo las casillas y estos blancos que dependen del tipo de
+            // permiso: se quedan vacíos A PROPÓSITO, con su razón.
+            'blancos_intencionales' => [
+                'hora_salida' => 'Solo aplica cuando el permiso es para salir antes.',
+                'hora_entrada' => 'Solo aplica cuando el permiso es para llegar tarde o regresar.',
+            ],
             'observaciones' => [
                 'Overlay sobre el PDF original (sin rediseñar). Firmas de jefe inmediato, RH y colaborador quedan en blanco para firma física.',
                 'La hoja trae dos copias idénticas del formato; el sistema llena ambas.',
@@ -1062,7 +1079,6 @@ return [
                 ['campo' => 'gerente_nombre_mayusculas', 'pagina' => 1, 'x' => 131.8, 'y' => 219.6, 'ancho' => 71.4, 'alto' => 4, 'tamano' => 8, 'alineacion' => 'C'],
                 ['campo' => 'lugar_y_fecha_documento_corta', 'pagina' => 1, 'x' => 72.1, 'y' => 248.6, 'ancho' => 71.4, 'alto' => 4, 'tamano' => 8, 'alineacion' => 'C'],
             ],
-            'requeridos' => ['nombre_completo_mayusculas', 'puesto_mayusculas', 'clave_elector', 'rfc', 'monto_prestamo', 'fecha_solicitud_prestamo_corta'],
         ],
 
         'prestamo_contrato.general' => [
@@ -1143,7 +1159,6 @@ return [
                 ['campo' => 'clave_elector', 'pagina' => 4, 'x' => 116.2, 'y' => 213.4, 'ancho' => 83, 'alto' => 4.4, 'tamano' => 9],
                 ['campo' => 'nombre_completo_mayusculas', 'pagina' => 4, 'x' => 77.6, 'y' => 246, 'ancho' => 61, 'alto' => 4, 'tamano' => 8, 'alineacion' => 'C'],
             ],
-            'requeridos' => ['nombre_mayusculas', 'monto_prestamo_numero', 'pago_prestamo_numero', 'plazo_prestamo', 'primer_pago_dia', 'domicilio_mayusculas'],
             'observaciones' => [
                 'Intereses moratorios: el pagaré deja la cantidad en blanco y PEOPLE no la tiene definida; se deja en blanco para llenado de RH/Jurídico.',
                 'Domicilio del beneficiario (Av. Domingo Diez 1003) viene impreso en el original: se conserva.',
