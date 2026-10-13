@@ -6,7 +6,7 @@ Fecha: 2026-10-13.
 
 | Check | Resultado |
 |---|---|
-| Backend (`php artisan test`) | __SUITE__ |
+| Backend (`php artisan test`) | Suite completa detenida a petición (ocupaba Word y saturaba el equipo); pruebas de los módulos tocados en verde |
 | Pint | OK |
 | PHPStan (Larastan nivel 7) | 0 errores |
 | Web: vue-tsc · ESLint · `test:js` · build | OK · OK · 31/31 · OK |

@@ -404,8 +404,12 @@ class DocumentosMaestrosAdminService
             return null;
         }
 
-        $limpio = $this->limpiador->limpiar($this->almacen->original($master));
-        $ruta = sprintf('%s/previews/limpio-%s.pdf', config('documentos_maestros.carpeta', 'documentos-maestros'), hash('sha256', $limpio['docx']));
+        $original = $this->almacen->original($master);
+        $limpio = $this->limpiador->limpiar($original);
+        // Clave por el ORIGINAL (inmutable): el Word limpio se vuelve a
+        // empaquetar en cada llamada y su hash cambia, así que no sirve como
+        // llave de caché (reconvertía con Word en cada apertura, ~18 s).
+        $ruta = sprintf('%s/previews/limpio-%s.pdf', config('documentos_maestros.carpeta', 'documentos-maestros'), $master->original_hash ?? hash('sha256', $original));
         $disco = $this->almacen->disco();
 
         if ($disco->exists($ruta)) {
