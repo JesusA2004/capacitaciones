@@ -38,6 +38,18 @@ class AvisoController extends Controller
         ]);
     }
 
+    /**
+     * Un aviso concreto (el push de `aviso_rh` abre este, no la bandeja).
+     */
+    public function show(Request $request, Aviso $aviso): JsonResponse
+    {
+        $this->exigirPuedeVer($request, $aviso);
+        $colaborador = $request->user()->colaborador;
+        abort_if($colaborador === null, 403, 'Tu cuenta no tiene un colaborador enlazado.');
+
+        return response()->json(['data' => $this->avisos->detalleParaColaborador($aviso, $colaborador)]);
+    }
+
     public function marcarLeido(Request $request, Aviso $aviso): JsonResponse
     {
         $this->exigirPuedeVer($request, $aviso);

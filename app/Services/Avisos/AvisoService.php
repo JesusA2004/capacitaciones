@@ -148,6 +148,23 @@ class AvisoService
         return $this->reemplazarItems($paginador, fn (Aviso $aviso): array => $this->aArray($aviso, incluirLeido: true));
     }
 
+    /**
+     * Un aviso concreto para este colaborador (el push abre el aviso, no la
+     * bandeja). Quien llama ya verificó que le corresponde.
+     *
+     * @return array<string, mixed>
+     */
+    public function detalleParaColaborador(Aviso $aviso, Colaborador $colaborador): array
+    {
+        $usuarioId = $colaborador->user?->id;
+        $aviso->loadMissing('creadoPor:id,name,apellidos');
+        $lectura = AvisoLectura::query()->where('aviso_id', $aviso->id)->where('user_id', $usuarioId)->first(['leido_en']);
+        $aviso->setAttribute('leido', $lectura !== null);
+        $aviso->setAttribute('leido_en', $lectura?->leido_en);
+
+        return $this->aArray($aviso, incluirLeido: true);
+    }
+
     public function marcarLeido(Aviso $aviso, User $usuario): void
     {
         AvisoLectura::query()->firstOrCreate(

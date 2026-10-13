@@ -158,3 +158,21 @@ test('si el archivo desapareció del almacenamiento, no es un 404 genérico', fu
     Sanctum::actingAs($this->rh);
     $this->getJson("/api/v1/avisos/{$aviso->id}/archivo")->assertStatus(409)->assertJsonPath('codigo', 'archivo_no_disponible');
 });
+
+test('API: el push abre un aviso concreto (GET /avisos/{id}) solo si le corresponde', function () {
+    $this->actingAs($this->rh)->post('/rh/avisos', ['titulo' => 'Para todos', 'mensaje' => 'Hola.', 'alcance' => 'todos'])->assertRedirect();
+    $aviso = Aviso::query()->where('titulo', 'Para todos')->firstOrFail();
+    $destino = Colaborador::factory()->create();
+    $this->actingAs($this->rh)->post('/rh/avisos', ['titulo' => 'Privado', 'mensaje' => 'Solo uno.', 'alcance' => 'colaborador', 'colaborador_objetivo_id' => $destino->id])->assertRedirect();
+    $privado = Aviso::query()->where('titulo', 'Privado')->firstOrFail();
+
+    $colaborador = clUsuario('colaborador');
+    Sanctum::actingAs($colaborador);
+    $this->getJson("/api/v1/avisos/{$aviso->id}")
+        ->assertOk()
+        ->assertJsonPath('data.titulo', 'Para todos')
+        ->assertJsonPath('data.leido', false)
+        ->assertJsonPath('data.archivo', null);
+    $this->getJson("/api/v1/avisos/{$privado->id}")->assertForbidden();
+    $this->getJson('/api/v1/avisos/999999')->assertNotFound();
+});

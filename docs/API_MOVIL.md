@@ -301,3 +301,4 @@ autenticado usa `throttle:api` y el login `throttle:api-login`.
 - `POST /api/v1/avisos/{id}/leido` — marca como leído.
 - Compatibilidad: `imagen_path` (no nulo solo si el adjunto es imagen) y `GET /api/v1/avisos/{id}/imagen` se conservan para versiones anteriores de la app.
 - El push de un aviso nunca lleva el archivo: `type = aviso_rh`, `resource_id = id` abre el aviso.
+- `GET /api/v1/avisos/{id}` — un aviso concreto (lo abre el push `aviso_rh` con `resource_id`), con `leido`/`archivo`; 403 si no le corresponde.
