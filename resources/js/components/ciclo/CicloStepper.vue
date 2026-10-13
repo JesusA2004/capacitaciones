@@ -13,7 +13,7 @@ defineProps<{ pasos: PasoCiclo[] }>();
         <li
             v-for="(paso, indice) in pasos"
             :key="paso.clave"
-            class="flex min-w-0 flex-1 items-center gap-2"
+            class="flex flex-1 items-center gap-2"
         >
             <span
                 class="flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold"
@@ -41,7 +41,7 @@ defineProps<{ pasos: PasoCiclo[] }>();
                 <template v-else>{{ indice + 1 }}</template>
             </span>
             <span
-                class="truncate text-xs font-medium sm:text-sm"
+                class="text-xs font-medium whitespace-nowrap xl:text-sm"
                 :class="
                     paso.estado === 'pendiente'
                         ? 'text-[var(--mrl-texto-suave)]'

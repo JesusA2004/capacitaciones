@@ -8,6 +8,7 @@ import {
     UserRound,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import AccionesCiclo from '@/components/ciclo/AccionesCiclo.vue';
 import AprobacionesResumen from '@/components/ciclo/AprobacionesResumen.vue';
 import CicloEstadoPanel from '@/components/ciclo/CicloEstadoPanel.vue';
 import CicloStepper from '@/components/ciclo/CicloStepper.vue';
@@ -156,6 +157,31 @@ const plantillas: Record<string, () => FormularioAccion> = {
 };
 
 const conArchivos = ['solicitar_baja', 'registrar_aviso', 'finiquito_firmado'];
+
+// Acciones propias de esta pantalla que se suman a las del proceso.
+const accionesExtra = computed<AccionCiclo[]>(() => [
+    ...(props.evaluacion &&
+    props.ciclo.acciones_permitidas.some((a) => a.clave === 'autorizar_evaluacion')
+        ? [{ clave: 'devolver_evaluacion', etiqueta: 'Devolver evaluación', tipo: 'secundaria' }]
+        : []),
+    ...(props.evaluacion?.es_oficial &&
+    !evaluacionEsElegible.value &&
+    !excepcionVigente.value &&
+    !excepcionPendiente.value &&
+    props.puede_solicitar_excepcion
+        ? [{ clave: 'solicitar_excepcion', etiqueta: 'Solicitar excepción a Dirección General', tipo: 'peligro' }]
+        : []),
+]);
+
+function alElegirAccion(a: AccionCiclo) {
+    if (a.clave === 'solicitar_excepcion') {
+        dialogoExcepcionAbierto.value = true;
+
+        return;
+    }
+
+    abrir(a);
+}
 
 function abrir(a: AccionCiclo) {
     if (a.clave === 'solicitar_reingreso' || a.clave === 'decidir_reingreso') {
@@ -426,12 +452,6 @@ const etiquetaFecha: Record<string, string> = {
     envio: 'Fecha de envío',
     recepcion: 'Fecha de recepción',
 };
-
-const variante: Record<string, 'default' | 'secondary' | 'destructive'> = {
-    primaria: 'default',
-    secundaria: 'secondary',
-    peligro: 'destructive',
-};
 </script>
 
 <template>
@@ -455,50 +475,14 @@ const variante: Record<string, 'default' | 'secondary' | 'destructive'> = {
 
         <div class="grid gap-5 lg:grid-cols-3">
             <div class="flex flex-col gap-5 lg:col-span-2">
-                <CicloEstadoPanel :ciclo="ciclo" />
-
-                <section
-                    v-if="ciclo.acciones_permitidas.length"
-                    class="flex flex-wrap gap-2 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4"
-                    aria-label="Acciones disponibles"
-                >
-                    <Button
-                        v-for="a in ciclo.acciones_permitidas"
-                        :key="a.clave"
-                        :variant="variante[a.tipo] ?? 'secondary'"
-                        @click="abrir(a)"
-                        >{{ a.etiqueta }}</Button
-                    >
-                    <Button
-                        v-if="
-                            evaluacion &&
-                            ciclo.acciones_permitidas.some(
-                                (a) => a.clave === 'autorizar_evaluacion',
-                            )
-                        "
-                        variant="secondary"
-                        @click="
-                            abrir({
-                                clave: 'devolver_evaluacion',
-                                etiqueta: 'Devolver evaluación',
-                                tipo: 'secundaria',
-                            })
-                        "
-                        >Devolver evaluación</Button
-                    >
-                    <Button
-                        v-if="
-                            evaluacion?.es_oficial &&
-                            !evaluacionEsElegible &&
-                            !excepcionVigente &&
-                            !excepcionPendiente &&
-                            puede_solicitar_excepcion
-                        "
-                        variant="destructive"
-                        @click="dialogoExcepcionAbierto = true"
-                        >Solicitar excepción a Dirección General</Button
-                    >
-                </section>
+                <CicloEstadoPanel :ciclo="ciclo">
+                    <AccionesCiclo
+                        :acciones="ciclo.acciones_permitidas"
+                        :siguiente="ciclo.siguiente_accion?.clave"
+                        :extras="accionesExtra"
+                        @accion="alElegirAccion"
+                    />
+                </CicloEstadoPanel>
 
                 <section
                     v-if="excepcionPendiente"

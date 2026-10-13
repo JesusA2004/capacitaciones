@@ -89,15 +89,19 @@ class CicloLaboralService
         $acciones = $viewer !== null ? $this->reclutamiento->accionesPermitidas($c, $viewer) : [];
         $principal = $this->primaria($acciones);
 
+        // Mismas palabras que las columnas del tablero de candidatos
+        // (EstadoCandidato::fases()): nunca el nombre técnico del estado.
         $definicion = [
-            'perfil' => ['Perfil', 1, 1],
+            'perfil' => ['Filtro RH', 1, 1],
             'entrevista' => ['Entrevista', 2, 2],
-            'psicometricas' => ['Psicométricas', 3, 4],
+            'psicometricas' => ['Psicométricos', 3, 4],
             'socioeconomico' => ['Socioeconómico', 5, 5],
             'referencias' => ['Referencias', 6, 6],
-            'autorizacion' => ['Autorización', 7, 9],
-            'contratacion' => ['Contratación', 10, 11],
+            'autorizacion' => ['Contratación', 7, 9],
+            'contratacion' => ['Incorporación', 10, 11],
+            'laborando' => ['Laborando', 12, 12],
         ];
+        $yaLabora = $estado === EstadoCandidato::Contratado && $c->yaLabora();
         $pasoActual = $estado->esSalida() ? null : $estado->paso();
         $pasos = [];
 
@@ -106,7 +110,10 @@ class CicloLaboralService
                 'clave' => $clave,
                 'etiqueta' => $etiqueta,
                 'estado' => match (true) {
-                    $estado === EstadoCandidato::Contratado => 'completado',
+                    $yaLabora => 'completado',
+                    // Contratado sin terminar su incorporación: está en
+                    // Incorporación (capacitación inicial), no "laborando".
+                    $estado === EstadoCandidato::Contratado => $clave === 'laborando' ? 'pendiente' : ($clave === 'contratacion' ? 'actual' : 'completado'),
                     $pasoActual === $clave => 'actual',
                     $orden > $fin => 'completado',
                     $estado->esSalida() && $orden >= $inicio && $orden <= $fin => 'detenido',

@@ -11,6 +11,7 @@ import {
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import { decidir, solicitar as solicitarIntervencion } from '@/actions/App/Http/Controllers/Rh/IntervencionCandidatoController';
+import AccionesCiclo from '@/components/ciclo/AccionesCiclo.vue';
 import AprobacionesResumen from '@/components/ciclo/AprobacionesResumen.vue';
 import CicloEstadoPanel from '@/components/ciclo/CicloEstadoPanel.vue';
 import CicloStepper from '@/components/ciclo/CicloStepper.vue';
@@ -330,11 +331,6 @@ function fecha(valor: string | null): string {
         : '—';
 }
 
-const claseBoton: Record<string, 'default' | 'secondary' | 'destructive'> = {
-    primaria: 'default',
-    secundaria: 'secondary',
-    peligro: 'destructive',
-};
 </script>
 
 <template>
@@ -357,23 +353,14 @@ const claseBoton: Record<string, 'default' | 'secondary' | 'destructive'> = {
 
         <div class="grid gap-5 lg:grid-cols-3">
             <div class="flex flex-col gap-5 lg:col-span-2">
-                <CicloEstadoPanel data-tour="candidato-estado" :ciclo="ciclo" />
-
-                <section
-                    v-if="ciclo.acciones_permitidas.length"
-                    class="flex flex-wrap gap-2 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4"
-                    aria-label="Acciones disponibles"
-                    data-tour="candidato-acciones"
-                >
-                    <Button
-                        v-for="accion in ciclo.acciones_permitidas"
-                        :key="accion.clave"
-                        :variant="claseBoton[accion.tipo] ?? 'secondary'"
-                        @click="abrir(accion)"
-                    >
-                        {{ accion.etiqueta }}
-                    </Button>
-                </section>
+                <CicloEstadoPanel data-tour="candidato-estado" :ciclo="ciclo">
+                    <AccionesCiclo
+                        data-tour="candidato-acciones"
+                        :acciones="ciclo.acciones_permitidas"
+                        :siguiente="ciclo.siguiente_accion?.clave"
+                        @accion="abrir"
+                    />
+                </CicloEstadoPanel>
 
                 <section
                     class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5"

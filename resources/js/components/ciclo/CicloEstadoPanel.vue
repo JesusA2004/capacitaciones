@@ -1,7 +1,12 @@
 <script setup lang="ts">
-import { AlertTriangle, ArrowRight, UserRound } from '@lucide/vue';
+import { AlertTriangle, ArrowRight, CheckCircle2 } from '@lucide/vue';
 import type { EstadoCiclo } from '@/types';
 
+/**
+ * «Dónde está y qué sigue»: estado actual → siguiente acción → botón (el
+ * slot recibe las acciones, con UNA primaria). El responsable y el avance
+ * quedan como contexto discreto; los bloqueos, a la vista.
+ */
 defineProps<{ ciclo: EstadoCiclo }>();
 
 function fecha(valor: string | null): string {
@@ -18,71 +23,72 @@ function fecha(valor: string | null): string {
 <template>
     <section
         class="flex flex-col gap-4 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5"
-        aria-label="Estado actual"
+        aria-label="Estado actual y siguiente acción"
     >
-        <div class="flex flex-wrap items-center gap-2">
-            <span
-                class="rounded-full bg-[var(--mrl-petroleo)] px-3 py-1 text-xs font-semibold text-white"
-            >
-                <template v-if="ciclo.etapa.numero"
-                    >Etapa {{ ciclo.etapa.numero }} · </template
-                >{{ ciclo.etapa.etiqueta }}
-            </span>
-            <span class="text-sm font-semibold text-[var(--mrl-texto)]">{{
+        <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
+            <span class="text-[var(--mrl-texto-suave)]">Estado actual</span>
+            <span class="font-semibold text-[var(--mrl-texto)]">{{
                 ciclo.estado.etiqueta
             }}</span>
             <span class="ml-auto text-xs text-[var(--mrl-texto-suave)]"
-                >Desde {{ fecha(ciclo.fecha_desde_estado) }}</span
+                >{{ ciclo.etapa.etiqueta }} · desde
+                {{ fecha(ciclo.fecha_desde_estado) }}</span
             >
         </div>
 
-        <div>
+        <div
+            class="flex flex-col gap-3 rounded-xl bg-[var(--mrl-fondo)] p-4"
+            aria-live="polite"
+        >
+            <p class="flex items-start gap-2">
+                <component
+                    :is="ciclo.siguiente_accion ? ArrowRight : CheckCircle2"
+                    class="mt-0.5 size-5 shrink-0"
+                    :class="
+                        ciclo.siguiente_accion
+                            ? 'text-[var(--mrl-dorado)]'
+                            : 'text-success'
+                    "
+                />
+                <span>
+                    <span
+                        class="block text-xs text-[var(--mrl-texto-suave)]"
+                        >Siguiente</span
+                    >
+                    <span
+                        class="text-base font-semibold text-[var(--mrl-texto)]"
+                        >{{
+                            ciclo.siguiente_accion?.etiqueta ??
+                            'No hay nada pendiente aquí'
+                        }}</span
+                    >
+                </span>
+            </p>
+            <slot />
+        </div>
+
+        <div class="flex flex-col gap-1.5">
             <div
-                class="mb-1 flex justify-between text-xs text-[var(--mrl-texto-suave)]"
+                class="h-1.5 overflow-hidden rounded-full bg-[var(--mrl-fondo)]"
+                role="progressbar"
+                :aria-valuenow="ciclo.progreso"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-label="Avance del proceso"
             >
-                <span>Progreso</span><span>{{ ciclo.progreso }}%</span>
-            </div>
-            <div class="h-2 overflow-hidden rounded-full bg-[var(--mrl-fondo)]">
                 <div
-                    class="h-full rounded-full bg-[var(--mrl-petroleo)] transition-all"
+                    class="h-full rounded-full bg-[var(--mrl-petroleo)] transition-[width] duration-300 motion-reduce:transition-none"
                     :style="{ width: `${ciclo.progreso}%` }"
                 />
             </div>
+            <p class="text-xs text-[var(--mrl-texto-suave)]">
+                Responsable: {{ ciclo.responsable_actual.rol
+                }}<template v-if="ciclo.responsable_actual.nombre">
+                    · {{ ciclo.responsable_actual.nombre }}</template
+                >
+                · {{ ciclo.progreso }}% del proceso
+            </p>
         </div>
-
-        <dl class="grid gap-3 text-sm sm:grid-cols-2">
-            <div class="flex items-start gap-2">
-                <UserRound class="mt-0.5 size-4 text-[var(--mrl-petroleo)]" />
-                <div>
-                    <dt class="text-xs text-[var(--mrl-texto-suave)]">
-                        Responsable actual
-                    </dt>
-                    <dd class="font-medium text-[var(--mrl-texto)]">
-                        {{ ciclo.responsable_actual.rol }}
-                        <span
-                            v-if="ciclo.responsable_actual.nombre"
-                            class="font-normal"
-                        >
-                            · {{ ciclo.responsable_actual.nombre }}</span
-                        >
-                    </dd>
-                </div>
-            </div>
-            <div class="flex items-start gap-2">
-                <ArrowRight class="mt-0.5 size-4 text-[var(--mrl-dorado)]" />
-                <div>
-                    <dt class="text-xs text-[var(--mrl-texto-suave)]">
-                        Siguiente acción
-                    </dt>
-                    <dd class="font-medium text-[var(--mrl-texto)]">
-                        {{
-                            ciclo.siguiente_accion?.etiqueta ??
-                            'Sin acciones pendientes'
-                        }}
-                    </dd>
-                </div>
-            </div>
-        </dl>
 
         <ul
             v-if="ciclo.bloqueos.length"
