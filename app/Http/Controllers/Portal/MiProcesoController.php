@@ -10,7 +10,6 @@ use App\Services\Administracion\JerarquiaPuestoService;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\Onboarding\EvaluacionInduccionService;
 use App\Services\Onboarding\OnboardingService;
-use App\Services\Organigrama\MiniOrganigramaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -30,7 +29,6 @@ class MiProcesoController extends Controller
         private readonly OnboardingService $onboarding,
         private readonly EvaluacionInduccionService $evaluacionInduccion,
         private readonly JerarquiaPuestoService $jerarquia,
-        private readonly MiniOrganigramaService $miniOrganigrama,
     ) {}
 
     public function show(Request $request): Response
@@ -125,16 +123,14 @@ class MiProcesoController extends Controller
      * puesto + ocupante activo real + hijos, nunca una imagen fija ni
      * personas hardcodeadas (ver MiniOrganigramaService, Fase 3).
      */
-    public function organigramaInduccion(Request $request, string $vista): JsonResponse
+    public function organigramaInduccion(string $vista): JsonResponse
     {
-        $raizId = $this->miniOrganigrama->raizDeVista($vista);
-        abort_unless($raizId !== null, 404, 'Vista de organigrama no reconocida.');
+        // Institucional: ocupantes reales sin acotar por alcance, solo datos
+        // organizacionales mínimos (mismo método que presentación y app).
+        $organigrama = $this->jerarquia->organigramaInstitucional($vista);
+        abort_unless($organigrama !== null, 404, 'Vista de organigrama no reconocida.');
 
-        $request->merge(['raiz_puesto_id' => $raizId]);
-        $puestos = $this->jerarquia->arbol($request);
-        $this->jerarquia->agregarOcupantes($puestos, $request->user(), $request);
-
-        return response()->json(['data' => $this->miniOrganigrama->anidar($puestos, $raizId)]);
+        return response()->json(['data' => $organigrama]);
     }
 
     public function presentarInduccion(Request $request, EvaluacionInduccion $evaluacion): RedirectResponse

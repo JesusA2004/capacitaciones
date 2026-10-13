@@ -45,6 +45,12 @@ export type LoteNomina = {
     motivo_cancelacion: string | null;
 };
 
+/** «Descargar todos para imprimir» de un lote emitido (LoteNominaService::estadoImpresion). */
+export type ImpresionLote = {
+    total: number;
+    sin_pdf: number;
+};
+
 export type ReciboLote = {
     id: number | null;
     folio: string | null;

@@ -71,6 +71,56 @@ class JerarquiaPuestoService
     }
 
     /**
+     * Organigrama INSTITUCIONAL de una vista de inducción (capítulo 4 de
+     * Inducción Mr. Lana — web, presentación por Meet y app): la estructura
+     * corporativa vigente que cualquier colaborador autenticado debe conocer.
+     *
+     * A diferencia de agregarOcupantes() (organigrama operativo), los
+     * ocupantes NO se acotan por AlcanceOrganizacionalService — misma
+     * filosofía que el Directorio: información organizacional pública
+     * interna. Por lo mismo solo expone datos organizacionales mínimos
+     * (nombre, sucursal; puesto y área en el nodo), nunca salario, contacto
+     * personal, RFC/CURP/NSS, domicilio ni expediente.
+     *
+     * Null si la vista no existe o su puesto raíz ya no está activo.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function organigramaInstitucional(string $vista): ?array
+    {
+        $raizId = $this->miniOrganigrama->raizDeVista($vista);
+
+        if ($raizId === null) {
+            return null;
+        }
+
+        $puestos = $this->arbol(new Request(['raiz_puesto_id' => $raizId]));
+
+        $porPuesto = Colaborador::query()
+            ->whereIn('puesto_id', $puestos->pluck('id'))
+            ->where('estatus', 'activo')
+            ->with('sucursalPrincipal:id,nombre')
+            ->orderBy('name')
+            ->orderBy('apellidos')
+            ->get(['id', 'name', 'apellidos', 'puesto_id', 'sucursal_principal_id'])
+            ->groupBy('puesto_id');
+
+        foreach ($puestos as $puesto) {
+            $puesto->setAttribute('ocupantes', ($porPuesto->get($puesto->id) ?? collect())
+                ->take(self::OCUPANTES_POR_PUESTO)
+                ->map(fn (Colaborador $colaborador) => [
+                    'id' => $colaborador->id,
+                    'nombre' => trim(sprintf('%s %s', $colaborador->name, $colaborador->apellidos ?? '')),
+                    'sucursal' => $colaborador->sucursalPrincipal?->nombre,
+                ])
+                ->values()
+                ->all());
+        }
+
+        return $this->miniOrganigrama->anidar($puestos, $raizId);
+    }
+
+    /**
      * @return Collection<int, Puesto>
      */
     public function arbol(Request $request): Collection

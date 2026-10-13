@@ -68,6 +68,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::get('/', [LoteNominaController::class, 'index'])->name('index');
                 Route::post('/', [LoteNominaController::class, 'store'])->name('store')->middleware('throttle:10,1');
                 Route::get('{lote}', [LoteNominaController::class, 'show'])->name('show');
+                Route::get('{lote}/imprimir', [LoteNominaController::class, 'descargarImpresion'])->name('imprimir')->middleware('throttle:10,1');
                 Route::get('{lote}/recibos/{recibo}/pdf', [LoteNominaController::class, 'pdf'])->name('recibos.pdf');
                 Route::get('{lote}/recibos/{recibo}/conceptos', [LoteNominaController::class, 'conceptos'])->name('recibos.conceptos');
                 Route::post('{lote}/emitir', [LoteNominaController::class, 'emitir'])->name('emitir');

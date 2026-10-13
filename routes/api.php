@@ -536,6 +536,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('/', [RhLoteNominaController::class, 'index'])->name('index');
                 Route::post('/', [RhLoteNominaController::class, 'store'])->name('store')->middleware('throttle:10,1');
                 Route::get('{lote}', [RhLoteNominaController::class, 'show'])->name('show');
+                Route::get('{lote}/imprimir', [RhLoteNominaController::class, 'imprimir'])->name('imprimir')->middleware('throttle:10,1');
                 Route::post('{lote}/emitir', [RhLoteNominaController::class, 'emitir'])->name('emitir');
                 Route::post('{lote}/cancelar', [RhLoteNominaController::class, 'cancelar'])->name('cancelar');
             });

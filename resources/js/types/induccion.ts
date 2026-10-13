@@ -79,7 +79,9 @@ export type CapituloInduccion = {
 export type MiniOrganigramaNodo = {
     id: number;
     nombre: string;
-    ocupantes: { id: number; nombre: string; foto_url: string | null; sucursal: string | null; numero_empleado: string | null }[];
+    /** Puesto + área + ocupantes (nombre y sucursal): solo datos organizacionales mínimos. */
+    area: string | null;
+    ocupantes: { id: number; nombre: string; sucursal: string | null }[];
     hijos: MiniOrganigramaNodo[];
 };
 

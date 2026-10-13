@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers\Api\V1\Rh;
 
+use App\Enums\EstadoLoteNomina;
 use App\Enums\PeriodicidadNomina;
 use App\Http\Controllers\Controller;
 use App\Models\NominaLote;
 use App\Services\Nomina\LoteNominaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 
@@ -51,6 +53,7 @@ class LoteNominaController extends Controller
         return response()->json(['data' => [
             ...$this->lotes->resumen($lote),
             'recibos' => $this->lotes->recibos($lote, $request->user(), $filtro),
+            'impresion' => $lote->estado === EstadoLoteNomina::Emitido ? $this->lotes->estadoImpresion($lote, $request->user()) : null,
         ]]);
     }
 
@@ -60,6 +63,24 @@ class LoteNominaController extends Controller
         $resultado = $this->lotes->emitir($lote, $request->user());
 
         return response()->json(['data' => [...$this->lotes->resumen($resultado['lote']), 'emitidos_ahora' => $resultado['emitidos']]]);
+    }
+
+    /**
+     * Mismo «Descargar todos para imprimir» que la web
+     * (LoteNominaService::pdfImpresion). Si falta algún PDF responde 422
+     * con el mensaje («Hay N recibos sin PDF generado.»).
+     */
+    public function imprimir(Request $request, NominaLote $lote): HttpResponse
+    {
+        abort_unless($request->user()->can('nomina.recibos.ver'), 403);
+        $pdf = $this->lotes->pdfImpresion($lote, $request->user());
+
+        return response($pdf['contenido'], 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => sprintf('attachment; filename="%s"', $pdf['nombre']),
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'no-store',
+        ]);
     }
 
     public function cancelar(Request $request, NominaLote $lote): JsonResponse

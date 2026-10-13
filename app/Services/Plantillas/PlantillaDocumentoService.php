@@ -6,6 +6,7 @@ use App\Models\Candidato;
 use App\Models\Colaborador;
 use App\Models\DocumentTemplate;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use PhpOffice\PhpWord\TemplateProcessor;
 use RuntimeException;
@@ -99,31 +100,54 @@ class PlantillaDocumentoService
      */
     public function variablesEnPlantilla(DocumentTemplate $plantilla): array
     {
-        return Cache::remember(
-            "plantillas:{$plantilla->id}:v{$plantilla->version}:variables",
-            now()->addDay(),
-            fn () => $this->escanearVariables($plantilla),
-        );
+        $clave = "plantillas:{$plantilla->id}:v{$plantilla->version}:variables";
+        $enCache = Cache::get($clave);
+
+        if (is_array($enCache)) {
+            return array_values(array_filter($enCache, 'is_string'));
+        }
+
+        // Un fallo de lectura (archivo bloqueado un instante, NAS lento) se
+        // reintenta una vez y NUNCA se cachea: una lista vacía por error
+        // haría que una variable requerida dejara de bloquear el formato
+        // durante todo un día sin que nadie se entere.
+        $variables = $this->escanearVariables($plantilla) ?? $this->escanearVariables($plantilla);
+
+        if ($variables === null) {
+            return [];
+        }
+
+        Cache::put($clave, $variables, now()->addDay());
+
+        return $variables;
     }
 
     /**
-     * @return list<string>
+     * @return list<string>|null Null si el archivo no se pudo leer (queda en el log).
      */
-    private function escanearVariables(DocumentTemplate $plantilla): array
+    private function escanearVariables(DocumentTemplate $plantilla): ?array
     {
+        if ($plantilla->path === null) {
+            return [];
+        }
+
         $archivoTemporal = sys_get_temp_dir().'/'.Str::uuid().'.docx';
 
         try {
-            if ($plantilla->path === null) {
-                return [];
-            }
+            $contenido = $this->storage->disco()->get($plantilla->path);
 
-            file_put_contents($archivoTemporal, $this->storage->disco()->get($plantilla->path));
+            if ($contenido === null || file_put_contents($archivoTemporal, $contenido) === false) {
+                Log::warning('PlantillaDocumentoService: no se pudo leer el DOCX de la plantilla para detectar sus variables.', ['plantilla_id' => $plantilla->id]);
+
+                return null;
+            }
 
             $zip = new ZipArchive;
 
             if ($zip->open($archivoTemporal) !== true) {
-                return [];
+                Log::warning('PlantillaDocumentoService: el DOCX de la plantilla no se pudo abrir como ZIP.', ['plantilla_id' => $plantilla->id]);
+
+                return null;
             }
 
             $xml = $zip->getFromName('word/document.xml');
@@ -140,8 +164,10 @@ class PlantillaDocumentoService
             preg_match_all('/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/', $textoPlano, $coincidencias);
 
             return array_values(array_unique($coincidencias[1]));
-        } catch (\Throwable) {
-            return [];
+        } catch (\Throwable $e) {
+            Log::warning('PlantillaDocumentoService: falló la detección de variables de la plantilla.', ['plantilla_id' => $plantilla->id, 'error' => $e->getMessage()]);
+
+            return null;
         } finally {
             if (file_exists($archivoTemporal)) {
                 unlink($archivoTemporal);

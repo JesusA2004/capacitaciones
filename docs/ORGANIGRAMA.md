@@ -84,6 +84,8 @@ Encima del árbol, **secciones como el PDF de Inducción** (capítulo 4): **Gene
 
 Acceso: `puestos.administrar` u `organigrama.ver`; editar pide `puestos.administrar` u `organigrama.editar`.
 
+**Organigrama institucional de la Inducción** (capítulo 4 — web, «Presentar inducción» y app): `JerarquiaPuestoService::organigramaInstitucional($vista)`, un solo método para las tres rutas. A diferencia del organigrama operativo, los ocupantes **no** se acotan por `AlcanceOrganizacionalService` (misma filosofía que el Directorio: cualquier colaborador autenticado ve quién ocupa cada puesto) y solo expone datos organizacionales mínimos: puesto, área, nombre y sucursal del ocupante — nunca salario, contacto personal, RFC/CURP/NSS, domicilio ni expediente. El organigrama operativo (`agregarOcupantes`) sigue respetando el alcance.
+
 ## Sincronizar una base existente (producción)
 
 ```bash

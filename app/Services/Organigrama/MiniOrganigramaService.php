@@ -119,6 +119,7 @@ class MiniOrganigramaService
         return [
             'id' => $puesto->id,
             'nombre' => $puesto->nombre,
+            'area' => $puesto->departamento?->nombre,
             'ocupantes' => $puesto->getAttribute('ocupantes') ?? [],
             'hijos' => $puestos->where('puesto_superior_id', $puesto->id)
                 ->map(fn (Puesto $hijo) => $this->nodo($hijo, $puestos))

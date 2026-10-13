@@ -54,3 +54,58 @@ test('la API móvil expone la misma vista de organigrama que la web (mismo servi
         ->assertJsonPath('data.nombre', 'Dirección General')
         ->assertJsonPath('data.hijos.0.nombre', 'Dirección Comercial');
 });
+
+/*
+| Organigrama INSTITUCIONAL: la inducción muestra a cualquier colaborador
+| autenticado los ocupantes reales de cada puesto — NO se acota por
+| AlcanceOrganizacionalService (antes un colaborador normal veía todo como
+| "Vacante") — y solo con datos organizacionales mínimos.
+*/
+test('un colaborador normal ve los ocupantes reales del organigrama corporativo en web, presentación y app, sin datos sensibles', function () {
+    $direccionGeneral = Puesto::factory()->create(['nombre' => 'Dirección General']);
+    $gerenciaRh = Puesto::factory()->create(['nombre' => 'Gerencia RH', 'puesto_superior_id' => $direccionGeneral->id]);
+    $sucursal = Sucursal::factory()->create(['nombre' => 'Matriz']);
+
+    $sensibles = [
+        'rfc' => 'PEPJ800101AB1',
+        'curp' => 'PEPJ800101HDFRRN09',
+        'nss' => '12345678901',
+        'salario_diario' => '987.65',
+        'correo_personal' => 'juan.personal@example.com',
+        'telefono' => '5512345678',
+        'domicilio' => 'Calle Secreta 123',
+    ];
+
+    Colaborador::factory()->create(['name' => 'Juan', 'apellidos' => 'Pérez', 'puesto_id' => $direccionGeneral->id, 'sucursal_principal_id' => $sucursal->id, 'estatus' => 'activo'] + $sensibles);
+    Colaborador::factory()->create(['name' => 'Ana', 'apellidos' => 'López', 'puesto_id' => $gerenciaRh->id, 'sucursal_principal_id' => $sucursal->id, 'estatus' => 'activo']);
+
+    // Colaborador normal de OTRA sucursal: su alcance organizacional no
+    // incluye a Juan ni a Ana.
+    $usuario = clUsuario('colaborador', ['sucursal_principal_id' => Sucursal::factory()->create()->id]);
+
+    $respuestas = [
+        $this->actingAs($usuario)->getJson(route('portal.induccion.organigrama', ['vista' => 'corporativo'])),
+        $this->actingAs($usuario)->getJson(route('induccion.presentacion.organigrama', ['vista' => 'corporativo'])),
+    ];
+    Sanctum::actingAs($usuario);
+    $respuestas[] = $this->getJson('/api/v1/colaborador/induccion/organigrama/corporativo');
+
+    foreach ($respuestas as $respuesta) {
+        $respuesta->assertOk()
+            ->assertJsonPath('data.nombre', 'Dirección General')
+            ->assertJsonPath('data.ocupantes.0.nombre', 'Juan Pérez')
+            ->assertJsonPath('data.ocupantes.0.sucursal', 'Matriz')
+            ->assertJsonPath('data.hijos.0.nombre', 'Gerencia RH')
+            ->assertJsonPath('data.hijos.0.ocupantes.0.nombre', 'Ana López');
+
+        expect(array_keys($respuesta->json('data.ocupantes.0')))->toEqualCanonicalizing(['id', 'nombre', 'sucursal']);
+
+        $json = $respuesta->getContent();
+        foreach ($sensibles as $valor) {
+            expect($json)->not->toContain($valor);
+        }
+        foreach (['rfc', 'curp', 'nss', 'salario', 'sueldo', 'correo', 'telefono', 'domicilio', 'numero_empleado', 'expediente'] as $campo) {
+            expect($json)->not->toContain('"'.$campo);
+        }
+    }
+});

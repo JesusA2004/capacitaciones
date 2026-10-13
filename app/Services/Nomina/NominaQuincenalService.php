@@ -15,11 +15,8 @@ use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
-use setasign\Fpdi\Fpdi;
-use setasign\Fpdi\PdfParser\StreamReader;
 use Throwable;
 use ZipArchive;
 
@@ -48,6 +45,7 @@ class NominaQuincenalService
         private readonly ReciboNominaService $recibos,
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly CompensacionService $compensacion,
+        private readonly CombinadorPdfRecibos $combinador,
     ) {}
 
     /**
@@ -378,7 +376,7 @@ class NominaQuincenalService
         }
 
         foreach ($recibos as $recibo) {
-            $contenido = $this->contenidoPdf($recibo);
+            $contenido = $this->combinador->contenido($recibo);
 
             if ($contenido === null) {
                 continue;
@@ -402,50 +400,7 @@ class NominaQuincenalService
      */
     public function pdfCombinado(Collection $recibos): string
     {
-        $pdf = new Fpdi;
-
-        foreach ($recibos as $recibo) {
-            $contenido = $this->contenidoPdf($recibo);
-
-            if ($contenido === null) {
-                continue;
-            }
-
-            try {
-                $paginas = $pdf->setSourceFile(StreamReader::createByString($contenido));
-
-                for ($i = 1; $i <= $paginas; $i++) {
-                    $plantilla = $pdf->importPage($i);
-                    $tamano = $pdf->getTemplateSize($plantilla);
-
-                    if (! is_array($tamano)) {
-                        continue;
-                    }
-
-                    $pdf->AddPage($tamano['orientation'], [$tamano['width'], $tamano['height']]);
-                    $pdf->useTemplate($plantilla);
-                }
-            } catch (Throwable $e) {
-                Log::warning('NominaQuincenalService: no se pudo unir el PDF de un recibo.', ['recibo_id' => $recibo->id, 'error' => $e->getMessage()]);
-            }
-        }
-
-        return $pdf->Output('S');
-    }
-
-    private function contenidoPdf(ReciboNomina $recibo): ?string
-    {
-        if ($recibo->pdf_disk === null || $recibo->pdf_path === null) {
-            return null;
-        }
-
-        $contenido = Storage::disk($recibo->pdf_disk)->get($recibo->pdf_path);
-
-        if ($contenido === null) {
-            Log::warning('NominaQuincenalService: el PDF del recibo no está en el almacenamiento.', ['recibo_id' => $recibo->id]);
-        }
-
-        return $contenido;
+        return $this->combinador->combinar($recibos);
     }
 
     private function nombreSeguro(string $valor): string

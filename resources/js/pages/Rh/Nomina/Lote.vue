@@ -8,6 +8,7 @@ import {
     ChevronRight,
     CircleX,
     FileText,
+    Printer,
     Pencil,
     Plus,
     ReceiptText,
@@ -41,13 +42,19 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAlertas } from '@/composables/useAlertas';
 import { getJson } from '@/lib/http';
 import { dashboard } from '@/routes';
-import { cancelar, emitir, index, show } from '@/routes/rh/nomina/lotes';
+import {
+    cancelar,
+    emitir,
+    imprimir,
+    index,
+    show,
+} from '@/routes/rh/nomina/lotes';
 import {
     conceptos as conceptosRecibo,
     pdf as pdfRecibo,
 } from '@/routes/rh/nomina/lotes/recibos';
 import { update as actualizarRecibo } from '@/routes/rh/nomina/recibos';
-import type { LoteNomina, ReciboLote } from '@/types';
+import type { ImpresionLote, LoteNomina, ReciboLote } from '@/types';
 
 /**
  * Revisión masiva de un lote: lista de colaboradores a la izquierda y el PDF
@@ -64,6 +71,7 @@ const props = defineProps<{
     puedeEmitir: boolean;
     puedeCancelar: boolean;
     puedeEditar: boolean;
+    impresion: ImpresionLote | null;
 }>();
 
 defineOptions({
@@ -289,6 +297,32 @@ function guardarEdicion() {
                 >
                     {{ lote.estado_etiqueta }}
                 </Badge>
+                <!-- Solo en lote emitido: un PDF con todos los recibos, para imprimir. -->
+                <template v-if="impresion">
+                    <span class="text-sm text-muted-foreground">
+                        {{ impresion.total }} {{ impresion.total === 1 ? 'recibo' : 'recibos' }}
+                        <template v-if="impresion.total > 0 && impresion.sin_pdf === 0">
+                            · <span class="text-success">PDF listo para impresión</span>
+                        </template>
+                        <template v-else-if="impresion.sin_pdf > 0">
+                            · <span class="text-warning">Hay {{ impresion.sin_pdf }} {{ impresion.sin_pdf === 1 ? 'recibo' : 'recibos' }} sin PDF generado.</span>
+                        </template>
+                    </span>
+                    <Button
+                        v-if="impresion.total > 0 && impresion.sin_pdf === 0"
+                        variant="outline"
+                        as-child
+                    >
+                        <a :href="imprimir(lote.id).url">
+                            <Printer class="size-4" />
+                            Descargar todos para imprimir
+                        </a>
+                    </Button>
+                    <Button v-else variant="outline" disabled>
+                        <Printer class="size-4" />
+                        Descargar todos para imprimir
+                    </Button>
+                </template>
                 <Button
                     v-if="puedeCancelar"
                     variant="outline"

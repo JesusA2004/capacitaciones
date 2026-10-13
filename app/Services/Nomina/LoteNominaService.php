@@ -22,10 +22,12 @@ use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -58,6 +60,7 @@ class LoteNominaService
         private readonly DocumentoAdministrativoService $documentos,
         private readonly DatosDocumentoAdministrativo $datosDocumento,
         private readonly CompensacionService $compensacion,
+        private readonly CombinadorPdfRecibos $combinador,
     ) {}
 
     /**
@@ -317,9 +320,8 @@ class LoteNominaService
      */
     public function recibos(NominaLote $lote, User $usuario, string $filtro = 'todos'): array
     {
-        $filas = $lote->recibos()
+        $filas = $this->recibosVisibles($lote, $usuario)
             ->with(['colaborador' => fn ($q) => $q->withTrashed()->select('id', 'name', 'apellidos', 'numero_empleado', 'sucursal_principal_id', 'puesto_id'), 'colaborador.sucursalPrincipal:id,nombre', 'colaborador.puesto:id,nombre'])
-            ->when(! $this->alcance->tieneAlcanceGlobal($usuario), fn (Builder $q) => $q->whereIn('colaborador_id', $this->alcance->limitarColaboradoresPorAlcance(Colaborador::query()->withTrashed(), $usuario)->select('id')))
             ->orderBy('id')
             ->get()
             ->map(fn (ReciboNomina $r) => [
@@ -364,6 +366,74 @@ class LoteNominaService
             'errores' => $errores->all(),
             default => [...$filas->all(), ...$errores->all()],
         });
+    }
+
+    /**
+     * Cuántos recibos entran al paquete de impresión del lote y cuántos de
+     * ellos todavía no tienen su PDF congelado (para la UI de RH).
+     *
+     * @return array{total: int, sin_pdf: int}
+     */
+    public function estadoImpresion(NominaLote $lote, User $usuario): array
+    {
+        $recibos = $this->recibosParaImpresion($lote, $usuario);
+
+        return ['total' => $recibos->count(), 'sin_pdf' => $recibos->reject(fn (ReciboNomina $r) => $this->listoParaImprimir($r))->count()];
+    }
+
+    /**
+     * «Descargar todos para imprimir»: UN solo PDF con los recibos del lote
+     * EMITIDO, uno tras otro, ordenados por sucursal y luego por nombre del
+     * colaborador. Une los PDFs CONGELADOS al emitir (formato oficial de cada
+     * recibo, CombinadorPdfRecibos) — nunca regenera ni inventa un recibo:
+     * si a alguno le falta su PDF, se bloquea la descarga completa.
+     * El PDF compuesto no se guarda; solo se audita la descarga.
+     *
+     * @return array{contenido: string, nombre: string, total: int}
+     *
+     * @throws ValidationException
+     */
+    public function pdfImpresion(NominaLote $lote, User $actor): array
+    {
+        if ($lote->estado !== EstadoLoteNomina::Emitido) {
+            throw ValidationException::withMessages(['lote' => 'Solo un lote emitido se puede descargar para imprimir.']);
+        }
+
+        $recibos = $this->recibosParaImpresion($lote, $actor);
+
+        if ($recibos->isEmpty()) {
+            throw ValidationException::withMessages(['lote' => 'Este lote no tiene recibos emitidos para imprimir.']);
+        }
+
+        $sinPdf = $recibos->reject(fn (ReciboNomina $r) => $this->listoParaImprimir($r))->count();
+
+        if ($sinPdf > 0) {
+            throw ValidationException::withMessages(['lote' => $sinPdf === 1 ? 'Hay 1 recibo sin PDF generado.' : sprintf('Hay %d recibos sin PDF generado.', $sinPdf)]);
+        }
+
+        try {
+            $contenido = $this->combinador->combinar($recibos, estricto: true);
+        } catch (RuntimeException $e) {
+            throw ValidationException::withMessages(['lote' => $e->getMessage()]);
+        }
+
+        $this->auditoria->registrar('descarga_masiva_recibos', $lote, $actor, [
+            'folio' => $lote->folio,
+            'recibos' => $recibos->count(),
+            'periodo_inicio' => $lote->periodo_inicio->toDateString(),
+            'periodo_fin' => $lote->periodo_fin->toDateString(),
+        ]);
+
+        return [
+            'contenido' => $contenido,
+            'nombre' => sprintf(
+                'recibos_nomina_%s_%s_%s.pdf',
+                Str::slug($lote->periodicidad->value, '_'),
+                $lote->periodo_inicio->toDateString(),
+                $lote->periodo_fin->toDateString(),
+            ),
+            'total' => $recibos->count(),
+        ];
     }
 
     /**
@@ -461,6 +531,42 @@ class LoteNominaService
         $this->auditoria->registrar('lote_nomina_cancelado', $lote, $actor, ['folio' => $lote->folio, 'motivo' => $motivo]);
 
         return $lote->refresh();
+    }
+
+    /**
+     * Recibos del lote acotados al alcance de quien mira (RH con alcance
+     * global ve todos).
+     *
+     * @return Builder<ReciboNomina>
+     */
+    private function recibosVisibles(NominaLote $lote, User $usuario): Builder
+    {
+        return $lote->recibos()->getQuery()
+            ->when(! $this->alcance->tieneAlcanceGlobal($usuario), fn (Builder $q) => $q->whereIn('colaborador_id', $this->alcance->limitarColaboradoresPorAlcance(Colaborador::query()->withTrashed(), $usuario)->select('id')));
+    }
+
+    /**
+     * Recibos no cancelados del lote en orden de impresión: sucursal →
+     * nombre del colaborador (el mismo orden del centro de descarga
+     * quincenal). Un borrador que quedó de una emisión cortada entra al
+     * conteo como «sin PDF», para que nadie imprima un lote incompleto.
+     *
+     * @return Collection<int, ReciboNomina>
+     */
+    private function recibosParaImpresion(NominaLote $lote, User $usuario): Collection
+    {
+        return $this->recibosVisibles($lote, $usuario)
+            ->where('estado', '!=', EstadoReciboNomina::Cancelado->value)
+            ->with(['colaborador' => fn ($q) => $q->withTrashed()->select('id', 'name', 'apellidos', 'sucursal_principal_id'), 'colaborador.sucursalPrincipal:id,nombre'])
+            ->get()
+            ->sortBy(fn (ReciboNomina $r) => sprintf('%s|%s|%d', $r->colaborador->sucursalPrincipal->nombre ?? '', $r->colaborador->nombreCompleto(), $r->id), SORT_NATURAL | SORT_FLAG_CASE)
+            ->values()
+            ->toBase();
+    }
+
+    private function listoParaImprimir(ReciboNomina $recibo): bool
+    {
+        return $recibo->estado === EstadoReciboNomina::Emitido && $this->combinador->tienePdf($recibo);
     }
 
     /**

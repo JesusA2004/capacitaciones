@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -113,6 +114,32 @@ class LoteNominaController extends Controller
             'puedeEmitir' => $usuario->can('nomina.recibos.crear') && $emitible,
             'puedeCancelar' => $usuario->can('nomina.recibos.crear') && $lote->estado !== EstadoLoteNomina::Cancelado,
             'puedeEditar' => $usuario->can('nomina.recibos.crear') && $lote->estado === EstadoLoteNomina::Preparado,
+            // «Descargar todos para imprimir»: solo en un lote ya emitido.
+            'impresion' => $lote->estado === EstadoLoteNomina::Emitido ? $this->lotes->estadoImpresion($lote, $usuario) : null,
+        ]);
+    }
+
+    /**
+     * Un solo PDF con todos los recibos del lote emitido para imprimirlos y
+     * entregarlos físicamente (LoteNominaService::pdfImpresion). Si falta
+     * algún PDF se bloquea con un mensaje claro, nunca se descarga incompleto.
+     */
+    public function descargarImpresion(Request $request, NominaLote $lote): HttpResponse|RedirectResponse
+    {
+        $usuario = $request->user();
+        abort_unless($usuario->can('nomina.recibos.ver'), 403);
+
+        try {
+            $pdf = $this->lotes->pdfImpresion($lote, $usuario);
+        } catch (ValidationException $e) {
+            return back()->with('toast', ['type' => 'warning', 'message' => collect($e->errors())->flatten()->first()]);
+        }
+
+        return response($pdf['contenido'], 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => sprintf('attachment; filename="%s"', $pdf['nombre']),
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'no-store',
         ]);
     }
 
@@ -151,7 +178,13 @@ class LoteNominaController extends Controller
 
         $resultado = $this->lotes->emitir($lote, $request->user());
 
-        return back()->with('toast', ['type' => 'success', 'message' => sprintf('Se publicaron %d recibos y se avisó a cada colaborador.', $resultado['emitidos'])]);
+        // Con recibos impresos (features.recibos_colaborador = false) nadie
+        // recibe aviso: RH los descarga, imprime y entrega físicamente.
+        $mensaje = config('features.recibos_colaborador')
+            ? sprintf('Se publicaron %d recibos y se avisó a cada colaborador.', $resultado['emitidos'])
+            : sprintf('Se emitieron %d recibos. Descárgalos para imprimirlos y entregarlos físicamente.', $resultado['emitidos']);
+
+        return back()->with('toast', ['type' => 'success', 'message' => $mensaje]);
     }
 
     public function cancelar(Request $request, NominaLote $lote): RedirectResponse

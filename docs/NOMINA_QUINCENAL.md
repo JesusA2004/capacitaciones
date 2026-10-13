@@ -28,6 +28,8 @@ El colaborador **solo ve recibos emitidos** (`ReciboNominaPolicy::ver`, `ReciboN
 
 Pantalla principal: **Preparar** (desde sueldos o importando el archivo de RH) → **Revisar** (esperados, preparados, errores, advertencias, percepciones, deducciones, neto; PDF real recibo por recibo con Anterior/Siguiente) → **Emitir** (publica + aviso). «Cancelar lote» con motivo cancela sus recibos y permite volver a preparar el periodo.
 
+**Descargar todos para imprimir** (solo lote **emitido**): `GET /rh/nomina/lotes/{lote}/imprimir` (API: `GET /api/v1/rh/nomina/lotes/{lote}/imprimir`), permiso `nomina.recibos.ver`. Un solo PDF con los PDFs **congelados** al emitir (no se regenera nada; `CombinadorPdfRecibos`, FPDI), orden **sucursal → nombre del colaborador**, nombre `recibos_nomina_<periodicidad>_<inicio>_<fin>.pdf`. Si algún recibo no cancelado no tiene PDF (o quedó en borrador por una emisión cortada) se bloquea: «Hay N recibos sin PDF generado.». El PDF compuesto no se guarda; la descarga se audita (`descarga_masiva_recibos`: usuario, lote, cantidad).
+
 ## Centro por quincena — `/rh/nomina` (permiso `nomina.recibos.ver`)
 
 - Selector de quincena, resumen (total, borradores, emitidos, neto).
