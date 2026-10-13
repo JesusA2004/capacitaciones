@@ -24,8 +24,8 @@ test('la vista "comercial" del organigrama de inducción trae la rama real de Di
 
     $usuario = clUsuario('colaborador');
 
-    $this->actingAs($usuario)
-        ->getJson(route('portal.induccion.organigrama', ['vista' => 'comercial']))
+    Sanctum::actingAs($usuario);
+    $this->getJson('/api/v1/colaborador/induccion/organigrama/comercial')
         ->assertOk()
         ->assertJsonPath('data.id', $direccionComercial->id)
         ->assertJsonPath('data.nombre', 'Dirección Comercial')
@@ -36,8 +36,8 @@ test('la vista "comercial" del organigrama de inducción trae la rama real de Di
 test('una vista de organigrama que no existe responde 404, nunca una imagen fija de respaldo', function () {
     $usuario = clUsuario('colaborador');
 
-    $this->actingAs($usuario)
-        ->getJson(route('portal.induccion.organigrama', ['vista' => 'no_existe']))
+    Sanctum::actingAs($usuario);
+    $this->getJson('/api/v1/colaborador/induccion/organigrama/no_existe')
         ->assertNotFound();
 });
 
@@ -61,7 +61,7 @@ test('la API móvil expone la misma vista de organigrama que la web (mismo servi
 | AlcanceOrganizacionalService (antes un colaborador normal veía todo como
 | "Vacante") — y solo con datos organizacionales mínimos.
 */
-test('un colaborador normal ve los ocupantes reales del organigrama corporativo en web, presentación y app, sin datos sensibles', function () {
+test('un colaborador normal ve los ocupantes reales del organigrama corporativo en la app, sin datos sensibles', function () {
     $direccionGeneral = Puesto::factory()->create(['nombre' => 'Dirección General']);
     $gerenciaRh = Puesto::factory()->create(['nombre' => 'Gerencia RH', 'puesto_superior_id' => $direccionGeneral->id]);
     $sucursal = Sucursal::factory()->create(['nombre' => 'Matriz']);
@@ -83,12 +83,10 @@ test('un colaborador normal ve los ocupantes reales del organigrama corporativo 
     // incluye a Juan ni a Ana.
     $usuario = clUsuario('colaborador', ['sucursal_principal_id' => Sucursal::factory()->create()->id]);
 
-    $respuestas = [
-        $this->actingAs($usuario)->getJson(route('portal.induccion.organigrama', ['vista' => 'corporativo'])),
-        $this->actingAs($usuario)->getJson(route('induccion.presentacion.organigrama', ['vista' => 'corporativo'])),
-    ];
+    // La web ya muestra el PDF oficial (el organigrama viene dibujado en
+    // él); este endpoint lo conservan versiones anteriores de la app.
     Sanctum::actingAs($usuario);
-    $respuestas[] = $this->getJson('/api/v1/colaborador/induccion/organigrama/corporativo');
+    $respuestas = [$this->getJson('/api/v1/colaborador/induccion/organigrama/corporativo')];
 
     foreach ($respuestas as $respuesta) {
         $respuesta->assertOk()

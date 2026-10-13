@@ -371,9 +371,9 @@ const claseBoton =
                                 {{ induccionContenido.titulo }}
                             </p>
                             <p class="text-sm text-[var(--mrl-texto-suave)]">
-                                {{ induccionContenido.capitulos_vistos }} de
-                                {{ induccionContenido.total_capitulos }}
-                                capítulos
+                                {{ induccionContenido.paginas_vistas.length }}
+                                de {{ induccionContenido.total_paginas }}
+                                páginas
                             </p>
                         </div>
                         <span

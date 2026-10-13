@@ -109,5 +109,7 @@ test('bootstrap: recibos de nómina sin autoservicio por defecto y directorio di
     $this->app['auth']->forgetGuards();
     $this->withHeaders(['Authorization' => 'Bearer '.$usuario->createToken('test2')->plainTextToken])
         ->getJson('/api/v1/induccion/presentacion')
-        ->assertNotFound();
+        // Sin capítulos cargados, la presentación igual existe: es el PDF oficial.
+        ->assertOk()
+        ->assertJsonPath('data.pdf.url', route('api.v1.induccion.pdf'));
 });

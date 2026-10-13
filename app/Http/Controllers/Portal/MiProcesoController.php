@@ -6,9 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Colaborador;
 use App\Models\EvaluacionInduccion;
 use App\Models\OnboardingAvance;
-use App\Services\Administracion\JerarquiaPuestoService;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\Onboarding\EvaluacionInduccionService;
+use App\Services\Onboarding\InduccionPdfService;
 use App\Services\Onboarding\OnboardingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -28,7 +28,7 @@ class MiProcesoController extends Controller
         private readonly CicloLaboralService $ciclo,
         private readonly OnboardingService $onboarding,
         private readonly EvaluacionInduccionService $evaluacionInduccion,
-        private readonly JerarquiaPuestoService $jerarquia,
+        private readonly InduccionPdfService $induccionPdf,
     ) {}
 
     public function show(Request $request): Response
@@ -79,28 +79,45 @@ class MiProcesoController extends Controller
         return back();
     }
 
+    /**
+     * Inducción del colaborador: el PDF OFICIAL en el visor, con su avance
+     * por página (solo el titular; capitulos() valida la propiedad).
+     */
     public function capitulosInduccion(Request $request, OnboardingAvance $avance): Response
     {
+        $this->evaluacionInduccion->capitulos($avance, $request->user());
+
         return Inertia::render('Portal/Induccion', [
             'avanceId' => $avance->id,
-            'capitulos' => $this->evaluacionInduccion->capitulos($avance, $request->user()),
+            'pdf' => $this->induccionPdf->datosVisor(),
             'resumen' => $this->evaluacionInduccion->resumenContenido($avance->loadMissing('proceso')->proceso),
-            // CTA "Ver organigrama completo" del capítulo 4: solo si su cuenta
-            // ya puede abrir la pantalla de Administración → Organigrama.
-            'puedeVerOrganigramaCompleto' => $request->user()->can('organigrama.ver') || $request->user()->can('puestos.administrar'),
         ]);
     }
 
-    public function registrarProgresoInduccion(Request $request, OnboardingAvance $avance): RedirectResponse
+    /**
+     * El visor reporta cada página que MOSTRÓ (JSON: no recarga la página).
+     */
+    public function registrarPaginaInduccion(Request $request, OnboardingAvance $avance): JsonResponse
     {
-        $datos = $request->validate(['capitulo' => ['required', 'string', 'max:80']]);
+        $datos = $request->validate(['pagina' => ['required', 'integer', 'min:1']]);
+        $this->induccionPdf->registrarPagina($avance, $request->user(), (int) $datos['pagina']);
 
-        $this->onboarding->registrarProgresoCapitulo($avance, $request->user(), $datos['capitulo']);
+        return response()->json(['data' => $this->evaluacionInduccion->resumenContenido($avance->loadMissing('proceso')->proceso)]);
+    }
 
-        $proceso = $avance->loadMissing('proceso')->proceso;
-        $this->evaluacionInduccion->habilitarPara($proceso);
+    /**
+     * «Terminé la inducción» → evaluación de inducción (si ya está habilitada).
+     */
+    public function terminarInduccion(Request $request, OnboardingAvance $avance): RedirectResponse
+    {
+        $this->induccionPdf->terminar($avance, $request->user());
+        $evaluacion = $this->evaluacionInduccion->habilitarPara($avance->loadMissing('proceso')->proceso);
 
-        return back();
+        if ($evaluacion !== null && $evaluacion->estado->permitePresentar()) {
+            return to_route('portal.induccion.contenido')->with('toast', ['type' => 'success', 'message' => '¡Terminaste la inducción! Ahora presenta tu evaluación.']);
+        }
+
+        return to_route('portal.mi-proceso')->with('toast', ['type' => 'success', 'message' => '¡Terminaste la inducción!']);
     }
 
     public function contenidoInduccion(Request $request): Response
@@ -116,21 +133,6 @@ class MiProcesoController extends Controller
             'contenido' => $this->evaluacionInduccion->contenidoPublico(),
             'evaluacionId' => $evaluacion->id,
         ]);
-    }
-
-    /**
-     * Organigrama dinámico del capítulo 4 (corporativo/comercial/sucursal):
-     * puesto + ocupante activo real + hijos, nunca una imagen fija ni
-     * personas hardcodeadas (ver MiniOrganigramaService, Fase 3).
-     */
-    public function organigramaInduccion(string $vista): JsonResponse
-    {
-        // Institucional: ocupantes reales sin acotar por alcance, solo datos
-        // organizacionales mínimos (mismo método que presentación y app).
-        $organigrama = $this->jerarquia->organigramaInstitucional($vista);
-        abort_unless($organigrama !== null, 404, 'Vista de organigrama no reconocida.');
-
-        return response()->json(['data' => $organigrama]);
     }
 
     public function presentarInduccion(Request $request, EvaluacionInduccion $evaluacion): RedirectResponse

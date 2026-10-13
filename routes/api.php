@@ -228,6 +228,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('onboarding/avances/{avance}/visto', [MiProcesoController::class, 'marcarContenidoVisto'])->name('onboarding.visto');
             Route::get('induccion/capitulos/{avance}', [MiProcesoController::class, 'capitulosInduccion'])->name('induccion.capitulos');
             Route::post('induccion/capitulos/{avance}/progreso', [MiProcesoController::class, 'registrarProgresoInduccion'])->name('induccion.progreso');
+            Route::post('induccion/capitulos/{avance}/pagina', [MiProcesoController::class, 'registrarPaginaInduccion'])->name('induccion.pagina');
+            Route::post('induccion/capitulos/{avance}/terminar', [MiProcesoController::class, 'terminarInduccion'])->name('induccion.terminar');
             Route::get('induccion/organigrama/{vista}', [MiProcesoController::class, 'organigramaInduccion'])->name('induccion.organigrama');
             Route::get('induccion', [MiProcesoController::class, 'contenidoInduccion'])->name('induccion.contenido');
             Route::post('induccion/{evaluacion}/presentar', [MiProcesoController::class, 'presentarInduccion'])
@@ -288,6 +290,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         // avance ni progreso. El organigrama del capítulo 4 usa la misma
         // ruta colaborador/induccion/organigrama/{vista}.
         Route::get('induccion/presentacion', [MiProcesoController::class, 'presentacionInduccion'])->name('induccion.presentacion');
+        Route::get('induccion/pdf', [MiProcesoController::class, 'pdfInduccion'])->name('induccion.pdf');
 
         // Directorio de la empresa: global para cualquier colaborador
         // autenticado, solo contacto corporativo (DirectorioColaboradoresService).

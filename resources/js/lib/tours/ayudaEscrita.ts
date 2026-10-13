@@ -535,14 +535,13 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
         ],
     },
     induccion: {
-        queEs: 'La inducción institucional Mr. Lana: 7 capítulos con el organigrama vigente.',
+        queEs: 'La inducción institucional Mr. Lana en su documento oficial.',
         puedes: [
-            'Recorrer los 7 capítulos cuando quieras.',
-            'Ver los organigramas corporativo, comercial y de sucursal actualizados.',
+            'Recorrer el documento cuando quieras, con zoom y pantalla completa.',
         ],
         flujo: [
             'Si estás en tu ingreso, entra desde «Mis pendientes»: ahí tu avance se guarda.',
-            'Al terminar los 7 capítulos se habilita tu evaluación de inducción.',
+            'Al recorrer todas las páginas, «Terminé la inducción» habilita tu evaluación.',
         ],
         permisos: 'Todos los colaboradores.',
         errores: [
@@ -551,7 +550,7 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
     },
     'presentar-induccion': {
         queEs: 'La inducción Mr. Lana en modo presentación, para impartirla en una sesión (Meet o sala).',
-        puedes: ['Mostrar los 7 capítulos con el organigrama vigente.'],
+        puedes: ['Mostrar el PDF oficial de la inducción en pantalla completa.'],
         flujo: [
             'Abre «Presentar inducción» y comparte pantalla.',
             'Cada colaborador presenta su evaluación desde su propia cuenta.',

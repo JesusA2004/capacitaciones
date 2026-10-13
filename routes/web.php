@@ -65,9 +65,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('directorio', [DirectorioController::class, 'index'])->name('directorio.index');
 
     // Inducción Mr. Lana en modo presentación (colaborador y RH, p. ej. para
-    // presentarla por Meet): mismo contenido real, sin registrar progreso.
+    // presentarla por Meet): el PDF oficial en el visor, sin registrar progreso.
     Route::get('induccion/presentacion', [InduccionPresentacionController::class, 'show'])->name('induccion.presentacion');
-    Route::get('induccion/presentacion/organigrama/{vista}', [InduccionPresentacionController::class, 'organigrama'])->name('induccion.presentacion.organigrama');
+    Route::get('induccion/pdf', [InduccionPresentacionController::class, 'pdf'])->name('induccion.pdf');
 
     Route::inertia('capacitacion', 'Capacitacion/Proximamente')->name('capacitacion.proximamente');
 

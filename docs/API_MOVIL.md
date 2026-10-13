@@ -114,7 +114,9 @@ Contexto de arranque de la app (bootstrap/config/push/tiempo real) y todo lo de 
 
 - `GET /api/v1/directorio?busqueda=&sucursal_id=&puesto_id=&departamento_id=&page=` — directorio GLOBAL para cualquier colaborador autenticado (`DirectorioColaboradoresService`, mismo que la web). Lista CERRADA de campos: `id, nombre, numero_empleado, puesto, sucursal, departamento, correo_corporativo, telefono_corporativo`. Nunca salario, RFC, CURP, NSS, domicilio ni correo/teléfono personal.
 - `GET /api/v1/directorio/opciones` — puestos, sucursales y departamentos para los filtros.
-- `GET /api/v1/induccion/presentacion` — los 7 capítulos de Inducción Mr. Lana en modo presentación (colaborador o RH por Meet), sin avance ni progreso. Los mini-organigramas del capítulo 4 usan `GET /api/v1/colaborador/induccion/organigrama/{corporativo|comercial|sucursal}`.
+- `GET /api/v1/induccion/presentacion` — Inducción Mr. Lana en modo presentación (colaborador o RH por Meet), sin avance ni progreso. `data.pdf` = `{url, titulo, total_paginas}`: el PDF OFICIAL que la app muestra en su visor. `capitulos` y `GET /api/v1/colaborador/induccion/organigrama/{vista}` se conservan solo para versiones anteriores de la app.
+- `GET /api/v1/induccion/pdf` — el PDF oficial (Bearer obligatorio, `application/pdf` inline).
+- `POST /api/v1/colaborador/induccion/capitulos/{avance}/pagina` `{pagina}` — registra una página MOSTRADA al titular. `POST .../terminar` — «Terminé la inducción» (exige todas las páginas) y devuelve `resumen` + `evaluacionInduccion`.
 - `mi-proceso.induccionContenido` incluye `claves_vistas` (claves exactas de capítulos vistos) además del conteo.
 - `GET /api/v1/colaborador/perfil` y `GET /api/v1/rh/expedientes/{colaborador}` incluyen `correo_corporativo` y `telefono_corporativo` — distintos del correo de acceso (`correo`); `null` si no los tiene.
 - `mobile/bootstrap.features` agrega `recibos` (false por defecto: el recibo se entrega impreso, ver `docs/FEATURE_FLAGS.md`) y `directorio`.

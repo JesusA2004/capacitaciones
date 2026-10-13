@@ -26,8 +26,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware('throttle:30,1');
         Route::post('mi-proceso/onboarding/{avance}/visto', [MiProcesoController::class, 'marcarContenidoVisto'])->name('portal.onboarding.visto');
         Route::get('mi-proceso/induccion/capitulos/{avance}', [MiProcesoController::class, 'capitulosInduccion'])->name('portal.induccion.capitulos');
-        Route::post('mi-proceso/induccion/capitulos/{avance}/progreso', [MiProcesoController::class, 'registrarProgresoInduccion'])->name('portal.induccion.progreso');
-        Route::get('mi-proceso/induccion/organigrama/{vista}', [MiProcesoController::class, 'organigramaInduccion'])->name('portal.induccion.organigrama');
+        Route::post('mi-proceso/induccion/capitulos/{avance}/pagina', [MiProcesoController::class, 'registrarPaginaInduccion'])->name('portal.induccion.pagina');
+        Route::post('mi-proceso/induccion/capitulos/{avance}/terminar', [MiProcesoController::class, 'terminarInduccion'])->name('portal.induccion.terminar');
         Route::get('mi-proceso/induccion', [MiProcesoController::class, 'contenidoInduccion'])->name('portal.induccion.contenido');
         Route::post('mi-proceso/induccion/{evaluacion}/presentar', [MiProcesoController::class, 'presentarInduccion'])
             ->name('portal.induccion.presentar')

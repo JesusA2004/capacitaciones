@@ -34,57 +34,6 @@ export type InduccionOpinion = {
     tema_reforzar: string | null;
 };
 
-/**
- * Un capítulo navegable de la presentación de Inducción Mr. Lana — ver
- * OnboardingModulo::contenidoEstructurado() y
- * database/seeders/InduccionMrLanaModuloSeeder.php (contenido real del PDF).
- */
-export type BloqueCapituloInduccion =
-    | { tipo: 'parrafo'; titulo?: string; texto: string }
-    | { tipo: 'destacado'; texto: string }
-    | { tipo: 'datos'; items: { etiqueta: string; valor: string }[] }
-    | {
-          tipo: 'lista';
-          titulo?: string;
-          texto?: string;
-          destacado?: boolean;
-          items: string[];
-      }
-    | {
-          tipo: 'tarjetas';
-          titulo?: string;
-          items: { titulo: string; texto: string; nota?: string }[];
-      }
-    | {
-          tipo: 'organigrama_dinamico';
-          vista: 'corporativo' | 'comercial' | 'sucursal';
-          titulo: string;
-          nota?: string;
-      }
-    | { tipo: 'cierre'; titulo: string; texto: string };
-
-export type CapituloInduccion = {
-    clave: string;
-    numero: number;
-    titulo: string;
-    subtitulo?: string;
-    bloques: BloqueCapituloInduccion[];
-};
-
-/**
- * Mini-organigrama dinámico (capítulo 4, bloque 'organigrama_dinamico') —
- * puesto real + ocupante(s) activo(s) + hijos, nunca una imagen fija ni
- * personas hardcodeadas. Ver App\Services\Organigrama\MiniOrganigramaService.
- */
-export type MiniOrganigramaNodo = {
-    id: number;
-    nombre: string;
-    /** Puesto + área + ocupantes (nombre y sucursal): solo datos organizacionales mínimos. */
-    area: string | null;
-    ocupantes: { id: number; nombre: string; sucursal: string | null }[];
-    hijos: MiniOrganigramaNodo[];
-};
-
 /** Solo para RH: trae enunciado, respuesta del colaborador y rúbrica oficial. */
 export type InduccionCasoPractico = {
     clave: string;

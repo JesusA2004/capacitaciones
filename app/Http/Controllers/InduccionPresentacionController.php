@@ -2,50 +2,35 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\Administracion\JerarquiaPuestoService;
-use App\Services\Onboarding\EvaluacionInduccionService;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
+use App\Services\Onboarding\InduccionPdfService;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
- * Inducción Mr. Lana en MODO PRESENTACIÓN: el mismo contenido real de los 7
- * capítulos (y los mini-organigramas vigentes) para que RH la presente en
- * una sesión por Meet o el colaborador la repase — visible para ambos, sin
- * registrar progreso ni tocar la evaluación (eso sigue siendo
- * Portal\MiProcesoController con el avance propio del colaborador).
+ * «Presentar inducción»: el PDF OFICIAL de la inducción en el visor (modo
+ * presentación, p. ej. RH por Meet). No registra progreso de nadie; el
+ * avance del colaborador vive en Portal\MiProcesoController.
  */
 class InduccionPresentacionController extends Controller
 {
-    public function __construct(
-        private readonly EvaluacionInduccionService $evaluacionInduccion,
-        private readonly JerarquiaPuestoService $jerarquia,
-    ) {}
+    public function __construct(private readonly InduccionPdfService $pdf) {}
 
-    public function show(Request $request): Response
+    public function show(): Response
     {
-        $presentacion = $this->evaluacionInduccion->presentacion();
-        abort_if($presentacion === null, 404, 'La inducción institucional todavía no tiene contenido cargado.');
-
         return Inertia::render('Portal/Induccion', [
             'modoPresentacion' => true,
             'avanceId' => null,
-            'capitulos' => $presentacion['capitulos'],
+            'pdf' => $this->pdf->datosVisor(),
             'resumen' => null,
-            'puedeVerOrganigramaCompleto' => $request->user()->can('organigrama.ver') || $request->user()->can('puestos.administrar'),
         ]);
     }
 
     /**
-     * Mismo organigrama dinámico del capítulo 4 que ve el colaborador
-     * (JerarquiaPuestoService::organigramaInstitucional), para el modo presentación.
+     * El PDF oficial, solo con sesión (nunca una URL pública).
      */
-    public function organigrama(string $vista): JsonResponse
+    public function pdf(): BinaryFileResponse
     {
-        $organigrama = $this->jerarquia->organigramaInstitucional($vista);
-        abort_unless($organigrama !== null, 404, 'Vista de organigrama no reconocida.');
-
-        return response()->json(['data' => $organigrama]);
+        return $this->pdf->respuesta();
     }
 }

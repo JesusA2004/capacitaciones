@@ -52,6 +52,7 @@ class EvaluacionInduccionService
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly OnboardingService $onboarding,
         private readonly CalendarioLaboralService $calendario,
+        private readonly InduccionPdfService $pdf,
     ) {}
 
     /**
@@ -123,7 +124,10 @@ class EvaluacionInduccionService
      * "Mi proceso" — null si este proceso no tiene el módulo institucional
      * con evaluación formal (hoy solo 'induccion_mr_lana_2026').
      *
-     * @return array{avance_id: int, titulo: string, total_capitulos: int, capitulos_vistos: int, claves_vistas: list<string>, porcentaje: int, ultima_capitulo: string|null, completado: bool}|null
+     * El avance se mide por PÁGINAS del PDF oficial (visor); los campos de
+     * capítulos se conservan para versiones anteriores de la app.
+     *
+     * @return array{avance_id: int, titulo: string, total_paginas: int, paginas_vistas: list<int>, ultima_pagina: int|null, total_capitulos: int, capitulos_vistos: int, claves_vistas: list<string>, porcentaje: int, ultima_capitulo: string|null, completado: bool}|null
      */
     public function resumenContenido(OnboardingProceso $proceso): ?array
     {
@@ -139,17 +143,22 @@ class EvaluacionInduccionService
         $totalCapitulos = count($avance->modulo->contenido_estructurado);
         $progreso = (array) ($avance->progreso_contenido ?? []);
 
+        $completado = $avance->contenido_visto_en !== null;
+
         return [
             'avance_id' => $avance->id,
             'titulo' => $avance->modulo->titulo,
+            'total_paginas' => $this->pdf->totalPaginas(),
+            'paginas_vistas' => array_values(array_map('intval', (array) ($progreso['paginas_vistas'] ?? []))),
+            'ultima_pagina' => isset($progreso['ultima_pagina']) ? (int) $progreso['ultima_pagina'] : null,
             'total_capitulos' => $totalCapitulos,
             'capitulos_vistos' => count((array) ($progreso['capitulos_vistos'] ?? [])),
             // Claves exactas (se puede saltar entre capítulos: el conteo solo
             // no dice cuáles faltan).
             'claves_vistas' => array_values(array_map('strval', (array) ($progreso['capitulos_vistos'] ?? []))),
-            'porcentaje' => (int) ($progreso['porcentaje'] ?? 0),
+            'porcentaje' => $completado ? 100 : (int) ($progreso['porcentaje'] ?? 0),
             'ultima_capitulo' => $progreso['ultima_capitulo'] ?? null,
-            'completado' => $avance->contenido_visto_en !== null,
+            'completado' => $completado,
         ];
     }
 

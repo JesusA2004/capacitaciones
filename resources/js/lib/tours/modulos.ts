@@ -1085,11 +1085,11 @@ export const MODULOS_GUIA: ModuloGuia[] = [
         grupo: 'Mi espacio',
         icono: GraduationCap,
         descripcion:
-            'Los 7 capítulos de la inducción institucional, con el organigrama vigente.',
+            'El documento oficial de la inducción institucional, página por página.',
         pasos: [
             {
                 titulo: 'Tu inducción',
-                texto: 'Recorre los 7 capítulos: quiénes somos, misión y principios, cultura, organigrama, reglamento, modelo de negocio y factor humano. Si estás en tu proceso de ingreso, entra desde «Mis pendientes» para que tu avance quede registrado y se habilite tu evaluación.',
+                texto: 'Es el documento oficial de la inducción tal cual. Avanza con «Siguiente» o con las flechas del teclado. Si estás en tu proceso de ingreso, entra desde «Mis pendientes»: ahí cada página cuenta para tu avance y al final se habilita tu evaluación.',
             },
         ],
     },
@@ -1107,7 +1107,7 @@ export const MODULOS_GUIA: ModuloGuia[] = [
         pasos: [
             {
                 titulo: 'Modo presentación',
-                texto: 'Muestra los mismos 7 capítulos que ve el colaborador, con los organigramas vigentes. No registra avance de nadie ni habilita evaluaciones: el colaborador las presenta desde su cuenta.',
+                texto: 'Muestra el PDF oficial de la inducción, el mismo que ve el colaborador. Usa «Presentación» para pantalla completa. No registra avance de nadie ni habilita evaluaciones: el colaborador las presenta desde su cuenta.',
             },
         ],
     },

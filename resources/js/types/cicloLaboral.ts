@@ -516,6 +516,11 @@ export type EvaluacionInduccionResumen = {
 export type InduccionContenidoResumen = {
     avance_id: number;
     titulo: string;
+    /** Avance por páginas del PDF oficial (visor). */
+    total_paginas: number;
+    paginas_vistas: number[];
+    ultima_pagina: number | null;
+    /** Capítulos: solo compatibilidad con versiones anteriores de la app. */
     total_capitulos: number;
     capitulos_vistos: number;
     /** Claves exactas de los capítulos vistos (se puede saltar entre capítulos). */

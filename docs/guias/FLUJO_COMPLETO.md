@@ -1376,15 +1376,15 @@ El colaborador responde las lecciones; RH da retroalimentación si no aprueba; e
 
 ### Inducción Mr. Lana y su evaluación
 
-> 7 capítulos interactivos con el organigrama vigente; al terminarlos se habilita la evaluación oficial de 30 puntos (mínimo 24).
+> El PDF oficial de la inducción, página por página; al terminarlo se habilita la evaluación oficial de 30 puntos (mínimo 24).
 
 #### Qué es
 
-Es la inducción institucional: Quiénes somos, Misión/visión/principios, Cultura, Organigrama, Reglamento interior, Modelo de negocio y Empresa con factor humano. El avance se guarda en el servidor y se retoma donde se quedó.
+Es la inducción institucional en su documento oficial (Quiénes somos, Misión/visión/principios, Cultura, Organigrama, Reglamento interior, Modelo de negocio y Empresa con factor humano), tal cual lo entregó la empresa. El avance se guarda en el servidor y se retoma donde se quedó.
 
 #### Quién lo hace
 
-El colaborador recorre los capítulos y presenta su evaluación; RH califica los casos prácticos y, si hace falta, da reforzamiento. RH también puede PRESENTAR la inducción por Meet.
+El colaborador recorre el documento y presenta su evaluación; RH califica los casos prácticos y, si hace falta, da reforzamiento. RH también puede PRESENTAR la inducción por Meet.
 
 #### Antes de empezar
 
@@ -1392,7 +1392,7 @@ El colaborador recorre los capítulos y presenta su evaluación; RH califica los
 
 #### Pasos
 
-1. **Recorrer los 7 capítulos** _(Colaborador · Web y app)_ — Mis pendientes → «Inducción Mr. Lana» (web o app). Cada capítulo visto cuenta: «6 de 7 · 86 %». El capítulo 4 muestra los organigramas corporativo, comercial y de sucursal vigentes.
+1. **Recorrer la inducción** _(Colaborador · Web y app)_ — Mis pendientes → «Inducción Mr. Lana» (web o app). Cada página mostrada cuenta («12 / 30»); en la última, «Terminé la inducción» lleva a la evaluación.
 2. **Presentar la evaluación** _(Colaborador · Web y app)_ — Secciones A (opción múltiple), B (verdadero/falso), C (relaciona columnas), D (casos prácticos) y E (opinión, no califica). La clave de respuestas nunca llega al teléfono ni al navegador.
 3. **RH califica los casos prácticos** _(RH · Web)_ — Con la rúbrica oficial (solo RH la ve). Resultado: 27–30 Sobresaliente · 24–26 Aprobado · 0–23 Requiere reforzamiento.
 4. **Si requiere reforzamiento** _(RH)_ — RH deja retroalimentación y habilita la reevaluación (plazo de 5 días hábiles). El colaborador no puede reintentar antes.
@@ -1413,7 +1413,7 @@ El colaborador recorre los capítulos y presenta su evaluación; RH califica los
 
 #### Errores comunes
 
-- **«No me aparece la evaluación.»** Primero hay que ver los 7 capítulos desde Mis pendientes (el modo presentación no cuenta).
+- **«No me aparece la evaluación.»** Primero hay que recorrer todas las páginas de la inducción desde Mis pendientes y pulsar «Terminé la inducción» (el modo presentación no cuenta).
 
 #### Relacionado con
 

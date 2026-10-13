@@ -9,9 +9,11 @@ use App\Models\OnboardingAvance;
 use App\Services\Administracion\JerarquiaPuestoService;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\Onboarding\EvaluacionInduccionService;
+use App\Services\Onboarding\InduccionPdfService;
 use App\Services\Onboarding\OnboardingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * "Mi proceso" del colaborador en la app (etapa, qué falta, siguiente
@@ -25,6 +27,7 @@ class MiProcesoController extends Controller
         private readonly OnboardingService $onboarding,
         private readonly EvaluacionInduccionService $evaluacionInduccion,
         private readonly JerarquiaPuestoService $jerarquia,
+        private readonly InduccionPdfService $induccionPdf,
     ) {}
 
     public function show(Request $request): JsonResponse
@@ -84,10 +87,45 @@ class MiProcesoController extends Controller
      */
     public function presentacionInduccion(): JsonResponse
     {
-        $presentacion = $this->evaluacionInduccion->presentacion();
-        abort_if($presentacion === null, 404, 'La inducción institucional todavía no tiene contenido cargado.');
+        // "pdf": el documento OFICIAL que la app muestra en su visor. Los
+        // capítulos quedan solo para versiones anteriores de la app.
+        $presentacion = $this->evaluacionInduccion->presentacion() ?? ['titulo' => (string) config('induccion.titulo'), 'capitulos' => []];
 
-        return response()->json(['data' => $presentacion]);
+        return response()->json(['data' => [...$presentacion, 'pdf' => $this->induccionPdf->datosVisor(true)]]);
+    }
+
+    /**
+     * PDF oficial de la inducción, solo con sesión (nunca una URL pública).
+     */
+    public function pdfInduccion(): BinaryFileResponse
+    {
+        return $this->induccionPdf->respuesta();
+    }
+
+    /**
+     * El visor reporta cada página que MOSTRÓ al colaborador titular.
+     */
+    public function registrarPaginaInduccion(Request $request, OnboardingAvance $avance): JsonResponse
+    {
+        $datos = $request->validate(['pagina' => ['required', 'integer', 'min:1']]);
+        $this->induccionPdf->registrarPagina($avance, $request->user(), (int) $datos['pagina']);
+
+        return response()->json(['data' => $this->evaluacionInduccion->resumenContenido($avance->loadMissing('proceso')->proceso)]);
+    }
+
+    /**
+     * «Terminé la inducción»: habilita la evaluación formal.
+     */
+    public function terminarInduccion(Request $request, OnboardingAvance $avance): JsonResponse
+    {
+        $this->induccionPdf->terminar($avance, $request->user());
+        $proceso = $avance->loadMissing('proceso')->proceso;
+        $evaluacion = $this->evaluacionInduccion->habilitarPara($proceso);
+
+        return response()->json(['data' => [
+            'resumen' => $this->evaluacionInduccion->resumenContenido($proceso),
+            'evaluacionInduccion' => $evaluacion !== null ? $this->evaluacionInduccion->aArray($evaluacion, $request->user()) : null,
+        ]]);
     }
 
     public function contenidoInduccion(Request $request): JsonResponse
@@ -103,6 +141,7 @@ class MiProcesoController extends Controller
             'avance_id' => $avance->id,
             'capitulos' => $this->evaluacionInduccion->capitulos($avance, $request->user()),
             'resumen' => $this->evaluacionInduccion->resumenContenido($avance->proceso),
+            'pdf' => $this->induccionPdf->datosVisor(true),
             'puede_ver_organigrama_completo' => $request->user()->can('organigrama.ver') || $request->user()->can('puestos.administrar'),
         ]]);
     }

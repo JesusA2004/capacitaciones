@@ -322,17 +322,17 @@ export const ARTICULOS_DESARROLLO: ArticuloGuia[] = [
         titulo: 'Inducción Mr. Lana y su evaluación',
         proceso: 'onboarding',
         resumen:
-            '7 capítulos interactivos con el organigrama vigente; al terminarlos se habilita la evaluación oficial de 30 puntos (mínimo 24).',
-        queEs: 'Es la inducción institucional: Quiénes somos, Misión/visión/principios, Cultura, Organigrama, Reglamento interior, Modelo de negocio y Empresa con factor humano. El avance se guarda en el servidor y se retoma donde se quedó.',
+            'El PDF oficial de la inducción, página por página; al terminarlo se habilita la evaluación oficial de 30 puntos (mínimo 24).',
+        queEs: 'Es la inducción institucional en su documento oficial (Quiénes somos, Misión/visión/principios, Cultura, Organigrama, Reglamento interior, Modelo de negocio y Empresa con factor humano), tal cual lo entregó la empresa. El avance se guarda en el servidor y se retoma donde se quedó.',
         quien: ['colaborador', 'rh'],
         quienDetalle:
-            'El colaborador recorre los capítulos y presenta su evaluación; RH califica los casos prácticos y, si hace falta, da reforzamiento. RH también puede PRESENTAR la inducción por Meet.',
+            'El colaborador recorre el documento y presenta su evaluación; RH califica los casos prácticos y, si hace falta, da reforzamiento. RH también puede PRESENTAR la inducción por Meet.',
         antes: ['El onboarding de la persona ya inició (contratos firmados).'],
         pasos: [
             {
-                titulo: 'Recorrer los 7 capítulos',
+                titulo: 'Recorrer la inducción',
                 detalle:
-                    'Mis pendientes → «Inducción Mr. Lana» (web o app). Cada capítulo visto cuenta: «6 de 7 · 86 %». El capítulo 4 muestra los organigramas corporativo, comercial y de sucursal vigentes.',
+                    'Mis pendientes → «Inducción Mr. Lana» (web o app). Cada página mostrada cuenta («12 / 30»); en la última, «Terminé la inducción» lleva a la evaluación.',
                 quien: 'colaborador',
                 canal: 'web_app',
             },
@@ -375,7 +375,7 @@ export const ARTICULOS_DESARROLLO: ArticuloGuia[] = [
             {
                 problema: '«No me aparece la evaluación.»',
                 solucion:
-                    'Primero hay que ver los 7 capítulos desde Mis pendientes (el modo presentación no cuenta).',
+                    'Primero hay que recorrer todas las páginas de la inducción desde Mis pendientes y pulsar «Terminé la inducción» (el modo presentación no cuenta).',
             },
         ],
         registro: [
