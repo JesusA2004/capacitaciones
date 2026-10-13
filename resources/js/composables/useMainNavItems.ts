@@ -314,6 +314,9 @@ export function useMainNavItems() {
             return [];
         }
 
+        // Empresa, roles y versiones de la app ya están dentro de
+        // Configuración: solo tienen entrada propia para quien no la ve.
+        const sinConfiguracion = !tienePermiso('configuracion.ver');
         const items: (NavItem | false)[] = [
             // Documentos maestros: cargar/versionar/probar los formatos.
             tienePermiso('plantillas_documentales.administrar') && {
@@ -321,7 +324,7 @@ export function useMainNavItems() {
                 href: indexDocumentosMaestros(),
                 icon: FileStack,
             },
-            tienePermiso('empresas.ver') && {
+            sinConfiguracion && tienePermiso('empresas.ver') && {
                 title: 'Empresas',
                 href: indexEmpresas(),
                 icon: Landmark,
@@ -346,7 +349,7 @@ export function useMainNavItems() {
                 href: indexPuestos(),
                 icon: Briefcase,
             },
-            tienePermiso('roles.administrar') && {
+            sinConfiguracion && tienePermiso('roles.administrar') && {
                 title: 'Roles y permisos',
                 href: indexRoles(),
                 icon: ShieldCheck,
@@ -356,7 +359,7 @@ export function useMainNavItems() {
                 href: indexConfiguracion(),
                 icon: Settings2,
             },
-            tienePermiso('app_releases.ver') && {
+            sinConfiguracion && tienePermiso('app_releases.ver') && {
                 title: 'Versiones de app',
                 href: indexAppReleases(),
                 icon: Smartphone,

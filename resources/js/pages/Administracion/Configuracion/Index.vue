@@ -42,6 +42,7 @@ const props = defineProps<{
         apariencia: boolean;
         usuarios: boolean;
         roles: boolean;
+        versiones: boolean;
     };
     notificaciones: number;
     funciones: { clave: string; etiqueta: string; activa: boolean }[];
@@ -81,7 +82,7 @@ const sistema = computed(() =>
         props.puede.usuarios ? { titulo: 'Usuarios', detalle: 'Cuentas y accesos', href: usuariosIndex.url() } : null,
         props.puede.roles ? { titulo: 'Roles y permisos', detalle: 'Qué puede hacer cada rol', href: rolesIndex.url() } : null,
         props.puede.apariencia ? { titulo: 'Apariencia', detalle: 'Colores institucionales', href: apariencia.url() } : null,
-        props.puede.usuarios ? { titulo: 'Versiones de la app', detalle: 'APK publicada y versión mínima', href: releasesIndex.url() } : null,
+        props.puede.versiones ? { titulo: 'Versiones de la app', detalle: 'APK publicada y versión mínima', href: releasesIndex.url() } : null,
     ].filter((x) => x !== null),
 );
 </script>

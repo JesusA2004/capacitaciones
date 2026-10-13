@@ -63,6 +63,7 @@ class ConfiguracionController extends Controller
                 'apariencia' => $usuario->can('configuracion.apariencia'),
                 'usuarios' => $usuario->can('usuarios.ver'),
                 'roles' => $usuario->can('roles.administrar'),
+                'versiones' => $usuario->can('app_releases.ver'),
             ],
             'notificaciones' => $usuario->can('configuracion.notificaciones') ? count($this->routing->reglas()) : 0,
             // Banderas de funciones: se cambian en el servidor (.env), aquí
