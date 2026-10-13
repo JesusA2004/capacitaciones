@@ -34,6 +34,7 @@ use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\CicloLaboral\CicloLaboralService;
+use App\Services\Puestos\PerfilPuestoService;
 use App\Services\Reclutamiento\CampanaReclutamientoService;
 use App\Services\Reclutamiento\CandidatoPresenter;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
@@ -75,6 +76,7 @@ class CandidatoController extends Controller
         private readonly VacantesListadoService $vacantesListado,
         private readonly IntervencionCandidatoService $intervenciones,
         private readonly ExpedienteCandidatoService $expediente,
+        private readonly PerfilPuestoService $perfilesPuesto,
     ) {}
 
     public function index(Request $request): Response
@@ -219,6 +221,8 @@ class CandidatoController extends Controller
             'opciones' => $this->opciones($request->user()),
             'intervencionPendienteId' => $intervencionPendiente?->id,
             'puedeAdjuntar' => $request->user()?->can('adjuntar', $candidato) ?? false,
+            // Qué debe tener quien se postula (perfil de puesto de RH).
+            'perfilPuesto' => $request->user()?->can('perfiles_puesto.ver') ? $this->perfilesPuesto->paraCandidato($candidato) : null,
             'limitesArchivos' => [
                 'max_documento_mb' => (int) config('reclutamiento.evidencias.max_documento_mb'),
                 'max_video_mb' => (int) config('reclutamiento.evidencias.max_video_mb'),

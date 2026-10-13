@@ -285,6 +285,10 @@ class RolesYPermisosSeeder extends Seeder
         'organigrama.ver',
         'organigrama.editar',
 
+        // --- Perfiles de puesto: perfil del candidato + descripción del puesto ---
+        'perfiles_puesto.ver',
+        'perfiles_puesto.editar',
+
         // --- Modulo de cumpleanos (docs/CUMPLEANOS.md) ---
         'rh.cumpleanos.ver',
         'rh.cumpleanos.calendario',
@@ -410,6 +414,7 @@ class RolesYPermisosSeeder extends Seeder
         // no configura empresas.eliminar/roles.administrar/configuracion
         // (reservado a super_admin).
         'rh_admin' => [
+            'perfiles_puesto.ver', 'perfiles_puesto.editar',
             'dashboard.global.ver',
             'usuarios.ver', 'usuarios.crear', 'usuarios.editar', 'usuarios.desactivar', 'usuarios.restablecer_acceso',
             'sucursales.administrar', 'departamentos.administrar', 'puestos.administrar',
@@ -475,6 +480,7 @@ class RolesYPermisosSeeder extends Seeder
         // Apoyo operativo de RH: puede capturar/revisar pero no aprobar
         // decisiones finales (documentos, altas, vacaciones, solicitudes).
         'rh_auxiliar' => [
+            'perfiles_puesto.ver', 'perfiles_puesto.editar',
             'dashboard.global.ver',
             'usuarios.ver',
             'expedientes.ver', 'expedientes.ver_todos',
@@ -517,6 +523,7 @@ class RolesYPermisosSeeder extends Seeder
         ],
 
         'gerente_sucursal' => [
+            'perfiles_puesto.ver',
             'dashboard.sucursal.ver',
             'usuarios.ver', 'usuarios.editar',
             'asignaciones.ver',
@@ -547,6 +554,7 @@ class RolesYPermisosSeeder extends Seeder
             'ciclo.preautorizar', 'candidatos.evaluar', 'onboarding.ver', 'onboarding.entregar_activos', 'cierres.ver', 'cierres.solicitar', 'contratos.ver', 'evaluaciones.ver', 'evaluaciones.capturar', 'documentos_laborales.ver', 'documentos_laborales.operar_fisico', 'reingresos.solicitar',
         ],
         'supervisor' => [
+            'perfiles_puesto.ver',
             'dashboard.sucursal.ver',
             'usuarios.ver',
             'asistencias.ver',
@@ -562,6 +570,7 @@ class RolesYPermisosSeeder extends Seeder
         // documentos ni aprueba solicitudes/vacaciones (eso es de RH/gerencia
         // de sucursal). Ver AlcanceOrganizacionalService::ROLES_ALCANCE_GLOBAL.
         'director_comercial' => [
+            'perfiles_puesto.ver',
             'dashboard.global.ver',
             'usuarios.ver',
             'empresas.ver',
@@ -588,6 +597,7 @@ class RolesYPermisosSeeder extends Seeder
         // gerente_sucursal — ver AlcanceOrganizacionalService::ROLES_ALCANCE_SUCURSAL
         // y sucursal_user). Alcance más amplio que "gerente" (una sola sucursal).
         'gerente_regional' => [
+            'perfiles_puesto.ver',
             'dashboard.sucursal.ver',
             'usuarios.ver', 'usuarios.editar', 'usuarios.restablecer_acceso',
             'reportes.sucursal', 'reportes.exportar',
@@ -616,6 +626,7 @@ class RolesYPermisosSeeder extends Seeder
         // catálogo de permisos equivalente). "gerente_sucursal" se conserva
         // intacto por compatibilidad con datos/roles ya asignados.
         'gerente' => [
+            'perfiles_puesto.ver',
             'dashboard.sucursal.ver',
             'usuarios.ver', 'usuarios.editar',
             'reportes.sucursal', 'reportes.exportar',
@@ -640,6 +651,7 @@ class RolesYPermisosSeeder extends Seeder
         // Puede apoyar/cubrir al gerente de su sucursal según la jerarquía de
         // puestos: mismo alcance y catálogo funcional que "gerente".
         'subgerente' => [
+            'perfiles_puesto.ver',
             'dashboard.sucursal.ver',
             'usuarios.ver',
             'reportes.sucursal',
@@ -665,6 +677,7 @@ class RolesYPermisosSeeder extends Seeder
         // solicitudes) de varias sucursales de su región, sin autoridad de
         // reclutamiento ni de aprobar vacaciones/solicitudes (solo revisar).
         'coordinadora_regional' => [
+            'perfiles_puesto.ver',
             'dashboard.sucursal.ver',
             'usuarios.ver', 'usuarios.restablecer_acceso',
             'expedientes.ver', 'expedientes.ver_sucursal',
@@ -689,6 +702,7 @@ class RolesYPermisosSeeder extends Seeder
         // sucursal (el alcance real depende de qué sucursales tenga
         // asignadas el usuario, no del nombre del rol).
         'coordinadora' => [
+            'perfiles_puesto.ver',
             'dashboard.sucursal.ver',
             'usuarios.ver',
             'expedientes.ver', 'expedientes.ver_sucursal',
@@ -711,6 +725,7 @@ class RolesYPermisosSeeder extends Seeder
         // (jefe_id), un alcance mas estrecho que gerente_sucursal (que ve
         // toda la sucursal). Ver AlcanceOrganizacionalService.
         'jefe_directo' => [
+            'perfiles_puesto.ver',
             'dashboard.sucursal.ver',
             // ver_sucursal es el permiso "puedo ver expedientes mas alla del
             // mio" que exige AlcanceOrganizacionalService::puedeVerExpediente();
@@ -748,6 +763,7 @@ class RolesYPermisosSeeder extends Seeder
             'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
         ],
         'auditor' => [
+            'perfiles_puesto.ver',
             'dashboard.global.ver',
             'usuarios.ver',
             'respuestas.ver',
@@ -782,6 +798,7 @@ class RolesYPermisosSeeder extends Seeder
         // Dirección: autorizaciones finales (evaluaciones, préstamos, bajas)
         // e indicadores globales; no opera la captura diaria de RH.
         'direccion' => [
+            'perfiles_puesto.ver',
             'dashboard.global.ver',
             'reportes_rh.ver', 'reportes_rh.exportar', 'reportes_rh.globales', 'reportes_rh.sucursal',
             'indicadores.ver', 'headcount.ver', 'organigrama.ver', 'auditoria.ver',

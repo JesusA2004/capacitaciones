@@ -296,3 +296,53 @@ export type LaminasOrganigrama = {
         leyenda: { directa?: string; apoyo?: string };
     };
 };
+
+/** Perfil de puesto (PerfilPuestoService). */
+export type ListaPerfilPuesto =
+    | 'funciones'
+    | 'responsabilidades'
+    | 'indicadores'
+    | 'conocimientos'
+    | 'habilidades'
+    | 'competencias'
+    | 'valores'
+    | 'requisitos';
+
+export type DatosPerfilPuesto = {
+    objetivo: string | null;
+    escolaridad: string | null;
+    experiencia: string | null;
+} & Record<ListaPerfilPuesto, string[]>;
+
+export type PuestoConPerfil = {
+    id: number;
+    nombre: string;
+    departamento: string | null;
+    reporta_a: string | null;
+    ocupantes: number;
+    avance: number;
+    actualizado_en: string | null;
+};
+
+export type PerfilPuestoDetalle = {
+    puesto: {
+        id: number;
+        nombre: string;
+        departamento: string | null;
+        reporta_a: string | null;
+        supervisa: string[];
+        ocupantes: number;
+    };
+    perfil: DatosPerfilPuesto;
+    es_borrador: boolean;
+    avance: number;
+    actualizado_por: string | null;
+    actualizado_en: string | null;
+};
+
+/** Resumen del perfil en la ficha del candidato. */
+export type PerfilPuestoCandidato = {
+    puesto_id: number;
+    puesto: string;
+    perfil: DatosPerfilPuesto | null;
+} | null;

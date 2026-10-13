@@ -15,6 +15,7 @@ import {
     GitBranch,
     GraduationCap,
     ClipboardCheck,
+    UserSearch,
     Inbox,
     Landmark,
     LayoutGrid,
@@ -66,6 +67,7 @@ import { index as indexIncorporacionInvitaciones } from '@/routes/rh/incorporaci
 import { index as indexLotesNomina } from '@/routes/rh/nomina/lotes';
 import { configuracion as configuracionOnboarding } from '@/routes/rh/onboarding';
 import { index as indexPendientes } from '@/routes/rh/pendientes';
+import { index as indexPerfilesPuesto } from '@/routes/rh/perfiles-puesto';
 import { index as indexReingresos } from '@/routes/rh/reingresos';
 import { index as indexRhSolicitudes } from '@/routes/rh/solicitudes';
 import { index as indexVacantes } from '@/routes/rh/vacantes';
@@ -212,6 +214,11 @@ export function useMainNavItems() {
                     title: 'Vacantes',
                     href: indexVacantes(),
                     icon: Briefcase,
+                },
+                tienePermiso('perfiles_puesto.ver') && {
+                    title: 'Perfiles de puesto',
+                    href: indexPerfilesPuesto(),
+                    icon: UserSearch,
                 },
                 tienePermiso('candidatos.ver') && {
                     title: 'Candidatos',

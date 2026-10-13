@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
@@ -33,6 +34,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property string|null $grupo_documental Variante de documentos jurídicos que le toca (config documentos_maestros.grupos).
  * @property bool $no_requiere_documentos_laborales Decisión explícita de RH: el puesto no firma documentos laborales del motor.
  * @property string|null $motivo_sin_documentos
+ * @property-read PerfilPuesto|null $perfil
  * @property-read int $usuarios_count Solo presente cuando se pide con withCount('usuarios').
  * @property-read int $candidatos_count Solo presente cuando se pide con withCount('candidatos').
  * @property-read int $vacantes_abiertas_count Solo presente cuando se pide con withCount(['vacantes as vacantes_abiertas_count' => ...]).
@@ -114,6 +116,16 @@ class Puesto extends Model
     public function puestoSuperior(): BelongsTo
     {
         return $this->belongsTo(self::class, 'puesto_superior_id');
+    }
+
+    /**
+     * Perfil del puesto (candidato ideal + descripción del puesto).
+     *
+     * @return HasOne<PerfilPuesto, $this>
+     */
+    public function perfil(): HasOne
+    {
+        return $this->hasOne(PerfilPuesto::class);
     }
 
     /**

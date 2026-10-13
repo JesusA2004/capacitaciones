@@ -23,6 +23,7 @@ import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import CandidatoEvidenciaPreviewDialog from '@/components/Rh/CandidatoEvidenciaPreviewDialog.vue';
 import CandidatoExpedientePanel from '@/components/Rh/CandidatoExpedientePanel.vue';
 import CandidatoFormDialog from '@/components/Rh/CandidatoFormDialog.vue';
+import CandidatoPerfilPuesto from '@/components/Rh/CandidatoPerfilPuesto.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -60,6 +61,7 @@ import type {
     EvidenciaCandidato,
     FormularioAccion,
     LimitesArchivosCandidato,
+    PerfilPuestoCandidato,
     OpcionesReclutamiento,
 } from '@/types';
 
@@ -77,6 +79,7 @@ const props = defineProps<{
     /** Puede agregar archivos al mini expediente (CandidatoPolicy::adjuntar). */
     puedeAdjuntar: boolean;
     limitesArchivos: LimitesArchivosCandidato;
+    perfilPuesto: PerfilPuestoCandidato;
 }>();
 
 const ACEPTA_DOCUMENTOS = '.pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx';
@@ -386,6 +389,11 @@ function fecha(valor: string | null): string {
                         </div>
                     </dl>
                 </section>
+
+                <CandidatoPerfilPuesto
+                    v-if="perfilPuesto"
+                    :perfil="perfilPuesto"
+                />
 
                 <CandidatoExpedientePanel
                     :candidato-id="candidato.id"

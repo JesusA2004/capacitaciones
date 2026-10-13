@@ -119,6 +119,27 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
             'Una cobertura temporal no cierra la vacante: la plaza sigue sin titular.',
         ],
     },
+    'perfiles-puesto': {
+        queEs: 'El perfil de cada puesto: qué debe tener quien se postula y cuál es el deber ser del puesto dentro de la empresa.',
+        puedes: [
+            'Definir el perfil del candidato: escolaridad, experiencia, conocimientos, habilidades, competencias, valores y requisitos.',
+            'Describir el puesto: objetivo, funciones y actividades, responsabilidades e indicadores de desempeño.',
+            'Ver a quién reporta y a quién supervisa (sale del organigrama).',
+            'Ver qué puestos todavía no tienen perfil.',
+        ],
+        flujo: [
+            'Abre el puesto.',
+            'Revisa el borrador (si no tiene perfil) o pulsa «Editar perfil».',
+            'Escribe un dato por renglón en cada lista y guarda.',
+            'Quien entrevista lo ve en la ficha de cada candidato a ese puesto.',
+        ],
+        permisos:
+            'Editar: RH. Consultar: RH, gerencias, regionales, Dirección Comercial, Dirección y auditoría.',
+        errores: [
+            'El borrador no se guarda solo: hasta que RH pulsa «Guardar perfil» el puesto sigue sin perfil.',
+            '«Reporta a» y «Supervisa a» no se escriben aquí: se corrigen en el organigrama.',
+        ],
+    },
     candidatos: {
         queEs: 'El tablero de reclutamiento: cada candidato avanza por fases, del Filtro RH hasta la contratación, con su acción en la ficha.',
         puedes: [

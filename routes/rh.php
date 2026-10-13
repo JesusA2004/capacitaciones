@@ -20,6 +20,7 @@ use App\Http\Controllers\Rh\IntervencionCandidatoController;
 use App\Http\Controllers\Rh\LoteNominaController;
 use App\Http\Controllers\Rh\MigracionExpedientesController;
 use App\Http\Controllers\Rh\NominaController;
+use App\Http\Controllers\Rh\PerfilPuestoController;
 use App\Http\Controllers\Rh\PlantillaController;
 use App\Http\Controllers\Rh\PlantillaOficialController;
 use App\Http\Controllers\Rh\ReporteRhController;
@@ -162,6 +163,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/', [VacanteController::class, 'index'])->name('index');
             Route::get('exportar-excel', [VacanteController::class, 'exportarExcel'])->name('exportarExcel');
             Route::get('exportar-pdf', [VacanteController::class, 'exportarPdf'])->name('exportarPdf');
+        });
+
+        // Perfiles de puesto: candidato ideal + descripción del puesto (RH edita).
+        Route::prefix('perfiles-puesto')->name('perfiles-puesto.')->group(function () {
+            Route::get('/', [PerfilPuestoController::class, 'index'])->name('index');
+            Route::get('{puesto}', [PerfilPuestoController::class, 'show'])->name('show');
+            Route::put('{puesto}', [PerfilPuestoController::class, 'update'])->name('update');
         });
 
         Route::prefix('candidatos')->name('candidatos.')->group(function () {
