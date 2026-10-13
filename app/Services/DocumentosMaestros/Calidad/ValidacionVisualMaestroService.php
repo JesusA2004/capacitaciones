@@ -93,9 +93,15 @@ class ValidacionVisualMaestroService
 
         try {
             $reporte = $this->esDocx($master) ? $this->validarDocx($master) : $this->validarOverlay($master);
+        } catch (RasterizacionFallidaException $e) {
+            // El servidor no pudo convertir páginas: infraestructura, no un
+            // defecto del formato. Detalle técnico solo en el log.
+            Log::warning('ValidacionVisualMaestroService: el rasterizador falló.', ['master_id' => $master->id, 'familia' => $master->familia, 'error' => $e->getMessage()]);
+
+            return $this->guardar($master, EstadoValidacionVisual::Pendiente, ['problemas' => ['La prueba de diseño no se pudo ejecutar en este servidor. Intenta de nuevo; si continúa, revisa «Diagnóstico del entorno» o avisa a Sistemas.'], 'infraestructura' => true], $actor);
         } catch (Throwable $e) {
             Log::warning('ValidacionVisualMaestroService: no se pudo completar el QA visual.', ['master_id' => $master->id, 'familia' => $master->familia, 'error' => $e->getMessage()]);
-            $reporte = ['problemas' => ['No se pudo completar la prueba de diseño: '.mb_substr($e->getMessage(), 0, 300)]];
+            $reporte = ['problemas' => ['No se pudo completar la prueba de diseño de este formato. Revisa que el documento original abra correctamente e intenta de nuevo.']];
         }
 
         $estado = ($reporte['problemas'] ?? []) === [] ? EstadoValidacionVisual::Aprobada : EstadoValidacionVisual::Fallida;

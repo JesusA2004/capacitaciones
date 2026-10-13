@@ -37,7 +37,7 @@ function color(campo: CampoEditor | undefined): string {
     }
 
     return campo.estado === 'sugerido'
-        ? 'border-warning bg-warning-soft text-warning-foreground'
+        ? 'border-warning bg-warning-soft text-warning'
         : 'border-danger bg-danger-soft text-danger';
 }
 

@@ -55,6 +55,14 @@ return Application::configure(basePath: dirname(__DIR__))
         // (X-Zm-Signature) es la protección real. Ver
         // App\Http\Controllers\Reuniones\ZoomWebhookController.
         $middleware->validateCsrfTokens(except: ['webhooks/zoom']);
+
+        // El mapa de campos del editor documental lleva textos donde los
+        // espacios SON contenido (prefijo « — Tel. » de una variable
+        // compuesta): no se recortan. ExpresionesDocumentoService valida
+        // cada pieza por su cuenta.
+        $middleware->trimStrings(except: [
+            fn (Request $request) => $request->is('rh/documentos-maestros/*/campos'),
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

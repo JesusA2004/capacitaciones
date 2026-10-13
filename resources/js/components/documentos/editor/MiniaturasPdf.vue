@@ -52,7 +52,7 @@ function pendientes(numero: number): number {
                 <canvas :ref="(el) => (lienzos[p.numero] = el as HTMLCanvasElement | null)" class="bg-white shadow-sm ring-1 ring-black/10" />
                 <span class="flex items-center gap-1 text-xs">
                     {{ p.numero }}
-                    <span v-if="pendientes(p.numero)" class="rounded-full bg-warning-soft px-1.5 text-[10px] text-warning-foreground">{{ pendientes(p.numero) }}</span>
+                    <span v-if="pendientes(p.numero)" class="rounded-full bg-warning-soft px-1.5 text-[10px] text-warning">{{ pendientes(p.numero) }}</span>
                 </span>
             </button>
         </li>

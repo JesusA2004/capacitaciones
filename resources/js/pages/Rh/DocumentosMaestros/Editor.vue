@@ -7,10 +7,12 @@ import {
     AlignStartVertical,
     ArrowLeft,
     BringToFront,
+    Check,
     CopyPlus,
+    ExternalLink,
     Grid3x3,
-    History,
     Loader2,
+    MoreHorizontal,
     Redo2,
     Ruler,
     Save,
@@ -24,8 +26,8 @@ import {
     ZoomIn,
     ZoomOut,
 } from '@lucide/vue';
-import { onKeyStroke } from '@vueuse/core';
-import { computed, ref, watch } from 'vue';
+import { onKeyStroke, useDebounceFn, useEventListener } from '@vueuse/core';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import BuscadorColaborador from '@/components/documentos/BuscadorColaborador.vue';
 import ChecklistPreparacion from '@/components/documentos/editor/ChecklistPreparacion.vue';
@@ -49,6 +51,7 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuCheckboxItem,
     DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
@@ -60,6 +63,7 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { useAlertas } from '@/composables/useAlertas';
 import { solicitar, useDocumentosMaestros } from '@/composables/useDocumentosMaestros';
 import { useHistorialEdicion } from '@/composables/useHistorialEdicion';
 import { usePdfDocumento } from '@/composables/usePdfDocumento';
@@ -75,6 +79,7 @@ import {
     editor as editorRuta,
     index as indexMaestros,
 } from '@/routes/rh/documentos-maestros';
+import { show as expedienteRuta } from '@/routes/rh/expedientes';
 import type {
     CampoEditor,
     ColaboradorBusqueda,
@@ -346,29 +351,104 @@ onKeyStroke((e) => {
     }
 });
 
-// ───────── Guardar / probar / activar ─────────
+// ───────── Guardar (autoguardado) / probar / activar ─────────
 const guardando = ref(false);
+const errorGuardado = ref(false);
+const arrastrando = ref(false);
+let pendienteTrasGuardar = false;
 
-async function guardar(): Promise<boolean> {
+/**
+ * Guarda el mapa de campos. El autoguardado lo llama en silencio (el
+ * indicador «Guardando… / Guardado» es el feedback); el botón Guardar y
+ * Ctrl+S, con aviso. Si llegan cambios mientras guarda, vuelve a guardar al
+ * terminar (nunca dos peticiones a la vez).
+ */
+async function guardar(silencioso = false): Promise<boolean> {
+    if (guardando.value) {
+        pendienteTrasGuardar = true;
+
+        return false;
+    }
+
+    const enviado = JSON.stringify(campos.value);
     guardando.value = true;
 
     try {
         const r = await solicitar<{ message: string; data: EditorMaestro }>('PUT', camposRuta.url(datos.value.master.id), {
-            campos: campos.value as unknown as Record<string, unknown>[],
+            campos: JSON.parse(enviado) as Record<string, unknown>[],
         });
-        datos.value = r.data;
         guardados.value = JSON.stringify(r.data.campos);
-        toast.success(r.message);
+
+        // Si el usuario siguió editando durante la petición, se conserva lo
+        // suyo (lo del servidor solo reemplaza si nada cambió).
+        if (JSON.stringify(campos.value) === enviado) {
+            datos.value = r.data;
+        } else {
+            datos.value = { ...r.data, campos: campos.value };
+            pendienteTrasGuardar = true;
+        }
+
+        errorGuardado.value = false;
+
+        if (!silencioso) {
+            toast.success(r.message);
+        }
 
         return true;
     } catch (e) {
+        errorGuardado.value = true;
         toast.error(e instanceof Error ? e.message : 'No se pudo guardar.');
 
         return false;
     } finally {
         guardando.value = false;
+
+        if (pendienteTrasGuardar) {
+            pendienteTrasGuardar = false;
+            void autoguardar();
+        }
     }
 }
+
+const autoguardar = useDebounceFn(() => {
+    if (editable.value && sucio.value && !arrastrando.value) {
+        void guardar(true);
+    }
+}, 700);
+
+watch(campos, () => void autoguardar(), { deep: true });
+
+function alTerminarArrastre() {
+    arrastrando.value = false;
+    void autoguardar();
+}
+
+const estadoGuardado = computed(() => {
+    if (guardando.value) {
+        return 'Guardando…';
+    }
+
+    if (errorGuardado.value) {
+        return 'Sin guardar';
+    }
+
+    return sucio.value ? 'Cambios sin guardar' : 'Guardado';
+});
+
+// No perder cambios al salir: navegación Inertia y cierre/recarga del navegador.
+const quitarAvisoInertia = router.on('before', (evento) => {
+    const metodo = evento.detail.visit.method;
+
+    if (sucio.value && metodo === 'get' && !window.confirm('Hay cambios sin guardar en este formato. ¿Salir de todos modos?')) {
+        return false;
+    }
+});
+useEventListener(window, 'beforeunload', (e: BeforeUnloadEvent) => {
+    if (sucio.value) {
+        e.preventDefault();
+    }
+});
+onBeforeUnmount(quitarAvisoInertia);
 
 const largos = ref<ResultadoDatosLargos | null>(null);
 const probandoLargos = ref(false);
@@ -426,8 +506,19 @@ async function probarColaborador() {
 }
 
 const activando = ref(false);
+const { confirmarAccion } = useAlertas();
 
 async function activar() {
+    if (
+        !(await confirmarAccion(
+            'Activar versión oficial',
+            `Desde este momento, los documentos de «${datos.value.master.nombre}» se generarán con la v${datos.value.master.version}.`,
+            'Activar',
+        ))
+    ) {
+        return;
+    }
+
     if (sucio.value && !(await guardar())) {
         return;
     }
@@ -463,6 +554,7 @@ async function detectarEspacios() {
     }
 }
 
+const siguienteVersion = computed(() => Math.max(datos.value.master.version, ...datos.value.versiones.map((v) => v.version)) + 1);
 const copiando = ref(false);
 
 async function editarEnVersionNueva() {
@@ -522,26 +614,32 @@ const resumen = computed(() => {
 
     <TooltipProvider :delay-duration="300">
         <div class="pagina-ancha flex h-[calc(100dvh-5rem)] min-h-[36rem] flex-col gap-3">
-            <!-- Barra superior -->
+            <!-- Barra superior: lo esencial a la vista, lo demás en «…» -->
             <header class="flex flex-wrap items-center gap-2 rounded-2xl border bg-card px-3 py-2 shadow-xs">
                 <Button variant="ghost" size="icon" as-child>
                     <Link :href="indexMaestros()" aria-label="Volver a documentos maestros"><ArrowLeft class="size-4" /></Link>
                 </Button>
                 <div class="mr-auto min-w-0">
                     <p class="truncate font-semibold">{{ datos.master.nombre }}</p>
-                    <p class="truncate text-xs text-muted-foreground">
-                        {{ datos.master.aplica_a }} · v{{ datos.master.version }}
-                        <Badge v-if="datos.master.activo" variant="secondary" class="ml-1 bg-success-soft text-success">Activo</Badge>
+                    <p class="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
+                        <span>{{ datos.master.aplica_a }} · v{{ datos.master.version }}</span>
+                        <Badge v-if="datos.master.activo" variant="secondary" class="bg-success-soft text-success">Activa</Badge>
+                        <span v-if="editable" class="inline-flex items-center gap-1" aria-live="polite" :class="errorGuardado ? 'text-danger' : ''">
+                            ·
+                            <Loader2 v-if="guardando" class="size-3 animate-spin" />
+                            <Check v-else-if="!sucio && !errorGuardado" class="size-3 text-success" />
+                            {{ estadoGuardado }}
+                        </span>
                     </p>
                 </div>
 
-                <div class="flex items-center gap-1 text-xs">
+                <div class="hidden items-center gap-1 text-xs xl:flex">
                     <span class="rounded-full bg-success-soft px-2 py-0.5 text-success">{{ resumen.confirmados }} listos</span>
-                    <span v-if="resumen.porConfirmar" class="rounded-full bg-warning-soft px-2 py-0.5 text-warning-foreground">{{ resumen.porConfirmar }} por confirmar</span>
+                    <span v-if="resumen.porConfirmar" class="rounded-full bg-warning-soft px-2 py-0.5 text-warning">{{ resumen.porConfirmar }} por confirmar</span>
                     <span v-if="resumen.sinDato" class="rounded-full bg-danger-soft px-2 py-0.5 text-danger">{{ resumen.sinDato }} sin dato</span>
                 </div>
 
-                <div class="flex items-center gap-0.5 border-l pl-2">
+                <div v-if="editable" class="flex items-center gap-0.5 border-l pl-2">
                     <Tooltip>
                         <TooltipTrigger as-child><Button size="icon" variant="ghost" :disabled="!historial.puedeDeshacer.value" aria-label="Deshacer" @click="historial.deshacer()"><Undo2 class="size-4" /></Button></TooltipTrigger>
                         <TooltipContent>Deshacer (Ctrl+Z)</TooltipContent>
@@ -556,8 +654,6 @@ const resumen = computed(() => {
                     <Button size="icon" variant="ghost" aria-label="Alejar" @click="zoom = Math.max(0.5, zoom - 0.25)"><ZoomOut class="size-4" /></Button>
                     <span class="w-10 text-center text-xs tabular-nums">{{ Math.round(zoom * 100) }}%</span>
                     <Button size="icon" variant="ghost" aria-label="Acercar" @click="zoom = Math.min(3, zoom + 0.25)"><ZoomIn class="size-4" /></Button>
-                    <Button size="icon" variant="ghost" :class="cuadricula && 'bg-primary/10 text-primary'" aria-label="Cuadrícula" @click="cuadricula = !cuadricula"><Grid3x3 class="size-4" /></Button>
-                    <Button size="icon" variant="ghost" :class="regla && 'bg-primary/10 text-primary'" aria-label="Regla" @click="regla = !regla"><Ruler class="size-4" /></Button>
                 </div>
 
                 <div v-if="esPdf && seleccion.length > 1" class="flex items-center gap-0.5 border-l pl-2">
@@ -565,48 +661,46 @@ const resumen = computed(() => {
                     <Button size="icon" variant="ghost" aria-label="Centrar" @click="alinear('centro')"><AlignCenterHorizontal class="size-4" /></Button>
                     <Button size="icon" variant="ghost" aria-label="Alinear a la derecha" @click="alinear('derecha')"><AlignEndVertical class="size-4" /></Button>
                     <Button size="icon" variant="ghost" aria-label="Distribuir" @click="distribuir"><AlignHorizontalSpaceAround class="size-4" /></Button>
-                </div>
-                <div v-if="esPdf && seleccion.length" class="flex items-center gap-0.5 border-l pl-2">
                     <Button size="icon" variant="ghost" aria-label="Traer al frente" @click="orden(true)"><BringToFront class="size-4" /></Button>
                     <Button size="icon" variant="ghost" aria-label="Enviar atrás" @click="orden(false)"><SendToBack class="size-4" /></Button>
                 </div>
 
-                <div class="flex flex-wrap items-center gap-1.5 border-l pl-2">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger as-child>
-                            <Button size="sm" variant="ghost"><History class="size-4" /> v{{ datos.master.version }}</Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" class="w-56">
-                            <DropdownMenuLabel>Versiones</DropdownMenuLabel>
-                            <DropdownMenuItem v-for="v in datos.versiones" :key="v.id" as="a" :href="editorRuta.url(v.id)">
-                                v{{ v.version }} · {{ v.estado_etiqueta }}
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem @click="subirAbierto = true"><Upload class="size-4" /> Subir nueva versión</DropdownMenuItem>
-                            <DropdownMenuItem :disabled="!editable || detectando" @click="detectarEspacios"><ScanSearch class="size-4" /> Detectar espacios</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                    <Button size="sm" :disabled="!editable || !sucio || guardando" @click="guardar">
+                <div class="flex items-center gap-1.5 border-l pl-2">
+                    <Button size="sm" variant="outline" @click="pruebaAbierta = true"><UserRoundSearch class="size-4" /> Probar</Button>
+                    <Button v-if="editable" size="sm" :disabled="!sucio || guardando" @click="guardar()">
                         <Loader2 v-if="guardando" class="size-4 animate-spin" /><Save v-else class="size-4" /> Guardar
                     </Button>
-                    <Button size="sm" variant="outline" :disabled="probandoLargos" @click="probarDatosLargos">
-                        <Loader2 v-if="probandoLargos" class="size-4 animate-spin" /><TextCursorInput v-else class="size-4" /> Datos largos
-                    </Button>
-                    <Button size="sm" variant="outline" @click="pruebaAbierta = true"><UserRoundSearch class="size-4" /> Probar colaborador</Button>
-                    <Button size="sm" variant="default" class="bg-success text-success-foreground hover:bg-success/90" :disabled="!datos.preparacion.puede_activar || datos.master.activo || activando" @click="activar">
-                        <Loader2 v-if="activando" class="size-4 animate-spin" /><ShieldCheck v-else class="size-4" />
-                        {{ datos.master.activo ? 'Versión activa' : 'Activar versión' }}
-                    </Button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger as-child>
+                            <Button size="icon" variant="ghost" aria-label="Más opciones del editor"><MoreHorizontal class="size-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" class="w-60">
+                            <template v-if="esPdf">
+                                <DropdownMenuCheckboxItem v-model="cuadricula"><Grid3x3 class="size-4" /> Cuadrícula</DropdownMenuCheckboxItem>
+                                <DropdownMenuCheckboxItem v-model="regla"><Ruler class="size-4" /> Regla</DropdownMenuCheckboxItem>
+                                <DropdownMenuSeparator />
+                            </template>
+                            <DropdownMenuItem :disabled="probandoLargos" @click="probarDatosLargos"><TextCursorInput class="size-4" /> Probar datos largos</DropdownMenuItem>
+                            <DropdownMenuItem :disabled="!editable || detectando" @click="detectarEspacios"><ScanSearch class="size-4" /> Volver a detectar espacios</DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuLabel class="text-xs text-muted-foreground">Versiones</DropdownMenuLabel>
+                            <DropdownMenuItem v-for="v in datos.versiones" :key="v.id" as="a" :href="editorRuta.url(v.id)">
+                                <Check v-if="v.id === datos.master.id" class="size-4" /><span v-else class="size-4" />
+                                v{{ v.version }} · {{ v.estado_etiqueta }}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem @click="subirAbierto = true"><Upload class="size-4" /> Subir nueva versión</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             </header>
 
             <div v-if="!editable && datos.master.motivo_no_editable" class="flex flex-wrap items-center gap-3 rounded-xl bg-info-soft px-4 py-2 text-sm">
-                <span class="mr-auto">{{ datos.master.motivo_no_editable }}</span>
-                <Button size="sm" variant="outline" :disabled="copiando" @click="editarEnVersionNueva">
-                    <Loader2 v-if="copiando" class="size-4 animate-spin" /><CopyPlus v-else class="size-4" /> Editar en versión nueva
+                <span class="mr-auto">{{ datos.master.activo ? 'Esta versión está en uso.' : datos.master.motivo_no_editable }}</span>
+                <Button size="sm" :disabled="copiando" @click="editarEnVersionNueva">
+                    <Loader2 v-if="copiando" class="size-4 animate-spin" /><CopyPlus v-else class="size-4" /> Crear v{{ siguienteVersion }} para editar
                 </Button>
             </div>
-            <p v-if="datos.master.aviso_deteccion && editable" class="rounded-xl bg-warning-soft px-4 py-2 text-sm text-warning-foreground">
+            <p v-if="datos.master.aviso_deteccion && editable" class="rounded-xl bg-warning-soft px-4 py-2 text-sm text-warning">
                 {{ datos.master.aviso_deteccion }}
             </p>
 
@@ -625,7 +719,7 @@ const resumen = computed(() => {
                                     :class="
                                         cn(
                                             'flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold',
-                                            c.zona !== 'dato' ? 'bg-muted text-muted-foreground' : c.estado === 'confirmado' ? 'bg-success-soft text-success' : c.estado === 'sugerido' ? 'bg-warning-soft text-warning-foreground' : 'bg-danger-soft text-danger',
+                                            c.zona !== 'dato' ? 'bg-muted text-muted-foreground' : c.estado === 'confirmado' ? 'bg-success-soft text-success' : c.estado === 'sugerido' ? 'bg-warning-soft text-warning' : 'bg-danger-soft text-danger',
                                         )
                                     "
                                     >{{ i + 1 }}</span
@@ -654,7 +748,8 @@ const resumen = computed(() => {
                         :dibujar="pdf.dibujar"
                         :resaltado="resaltado"
                         @seleccionar="seleccionar"
-                        @antes-de-cambiar="historial.registrar()"
+                        @antes-de-cambiar="historial.registrar(); arrastrando = true"
+                        @fin-de-cambio="alTerminarArrastre"
                         @mover="mover"
                         @redimensionar="redimensionar"
                         @soltar-variable="soltarEnPdf"
@@ -700,14 +795,22 @@ const resumen = computed(() => {
                         </TabsContent>
                         <TabsContent value="preparacion" class="min-h-0 flex-1 overflow-y-auto pt-3">
                             <ChecklistPreparacion :preparacion="datos.preparacion" />
+                            <Button
+                                v-if="!datos.master.activo && datos.preparacion.puede_activar"
+                                class="mt-3 w-full bg-success text-success-foreground hover:bg-success/90"
+                                :disabled="activando"
+                                @click="activar"
+                            >
+                                <Loader2 v-if="activando" class="size-4 animate-spin" /><ShieldCheck v-else class="size-4" /> Activar esta versión
+                            </Button>
                             <div v-if="largos" class="mt-4 rounded-lg border p-3 text-sm">
-                                <p :class="largos.ok ? 'font-medium text-success' : 'font-medium text-warning-foreground'">
+                                <p :class="largos.ok ? 'font-medium text-success' : 'font-medium text-warning'">
                                     {{ largos.ok ? '✓ Todo cabe' : `⚠ ${largos.campos.length} campo(s) necesitan atención` }}
                                 </p>
                                 <p class="mt-1 text-xs text-muted-foreground">{{ largos.mensaje }}</p>
                                 <ul v-if="largos.campos.length" class="mt-2 flex flex-col gap-1">
                                     <li v-for="c in largos.campos" :key="`${c.field_key}-${c.etiqueta}`">
-                                        <button type="button" class="w-full rounded-md bg-warning-soft px-2 py-1 text-left text-xs text-warning-foreground hover:ring-1 hover:ring-warning" @click="irA(c.field_key)">
+                                        <button type="button" class="w-full rounded-md bg-warning-soft px-2 py-1 text-left text-xs text-warning hover:ring-1 hover:ring-warning" @click="irA(c.field_key)">
                                             <span class="font-medium">{{ c.etiqueta }}</span> — {{ c.razon }}
                                         </button>
                                     </li>
@@ -748,21 +851,27 @@ const resumen = computed(() => {
 
     <!-- Probar con un colaborador real -->
     <Dialog v-model:open="pruebaAbierta">
-        <DialogContent class="sm:max-w-lg">
+        <DialogContent :class="prueba ? 'sm:max-w-4xl' : 'sm:max-w-lg'">
             <DialogHeader>
                 <DialogTitle>Probar con colaborador</DialogTitle>
                 <DialogDescription>Vista previa con sus datos reales. No se guarda en su expediente.</DialogDescription>
             </DialogHeader>
             <BuscadorColaborador v-model="colaborador" />
-            <div v-if="prueba" class="flex flex-col gap-2 rounded-lg border p-3 text-sm">
-                <p>
+            <div v-if="prueba" class="flex flex-col gap-3 text-sm">
+                <div v-if="prueba.faltantes.length" class="flex flex-wrap items-center gap-2 rounded-lg bg-warning-soft px-3 py-2">
+                    <span class="mr-auto">
+                        Faltan {{ prueba.faltantes.length }} dato(s) de {{ prueba.colaborador.nombre }}:
+                        <span class="font-medium">{{ prueba.faltantes.join(', ') }}</span>
+                    </span>
+                    <Button size="sm" variant="outline" as="a" :href="expedienteRuta.url(prueba.colaborador.id)" target="_blank" rel="noopener">
+                        Completar <ExternalLink class="size-3.5" />
+                    </Button>
+                </div>
+                <p class="text-xs text-muted-foreground">
                     {{ prueba.paginas.generado }} página(s) · {{ prueba.campos.llenos }} de {{ prueba.campos.total }} datos ·
-                    <span :class="prueba.desbordes.length ? 'text-warning-foreground' : 'text-success'">{{ prueba.desbordes.length ? `${prueba.desbordes.length} desborde(s)` : 'sin desbordes' }}</span>
+                    <span :class="prueba.desbordes.length ? 'text-warning' : 'text-success'">{{ prueba.desbordes.length ? `${prueba.desbordes.length} dato(s) no caben` : 'todo cabe' }}</span>
                 </p>
-                <p v-if="prueba.faltantes.length" class="text-xs text-warning-foreground">
-                    Faltan {{ prueba.faltantes.length }} dato(s): {{ prueba.faltantes.join(', ') }}
-                </p>
-                <a :href="prueba.url_resultado" target="_blank" rel="noopener" class="text-primary underline">Abrir PDF de prueba</a>
+                <iframe :src="prueba.url_resultado" title="Vista previa del documento" class="h-[60vh] w-full rounded-lg border bg-white" />
             </div>
             <DialogFooter>
                 <Button variant="outline" @click="pruebaAbierta = false">Cerrar</Button>

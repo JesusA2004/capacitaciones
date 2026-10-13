@@ -142,7 +142,7 @@ function modoCompuesto(activo: boolean) {
                         'shrink-0',
                         campo.zona !== 'dato' && 'bg-muted text-muted-foreground',
                         campo.zona === 'dato' && campo.estado === 'confirmado' && 'bg-success-soft text-success',
-                        campo.zona === 'dato' && campo.estado === 'sugerido' && 'bg-warning-soft text-warning-foreground',
+                        campo.zona === 'dato' && campo.estado === 'sugerido' && 'bg-warning-soft text-warning',
                         campo.zona === 'dato' && campo.estado === 'sin_asignar' && 'bg-danger-soft text-danger',
                     )
                 "
@@ -159,7 +159,7 @@ function modoCompuesto(activo: boolean) {
             >
         </header>
 
-        <p v-if="campo.motivo" class="rounded-lg bg-warning-soft px-3 py-2 text-xs text-warning-foreground">
+        <p v-if="campo.motivo" class="rounded-lg bg-warning-soft px-3 py-2 text-xs text-warning">
             {{ campo.motivo }}
         </p>
 

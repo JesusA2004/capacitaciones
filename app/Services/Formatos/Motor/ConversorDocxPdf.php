@@ -4,6 +4,7 @@ namespace App\Services\Formatos\Motor;
 
 use App\Enums\FidelidadConversion;
 use App\Services\Formatos\FormatoPreviewService;
+use App\Support\EntornoProcesoWindows;
 use Illuminate\Process\Exceptions\ProcessTimedOutException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
@@ -146,54 +147,13 @@ class ConversorDocxPdf
     }
 
     /**
-     * Variables de entorno mínimas de Windows para los procesos hijos.
-     * PHP dentro de Apache (servicio de WAMP como LocalSystem) no hereda
-     * `SystemRoot` ni el resto del entorno de usuario: PowerShell no arranca
-     * («No se pudo cargar Windows PowerShell administrado. Error:
-     * 8009001d»), Word nunca convierte y la vista previa caía a la
-     * aproximación de PhpWord (sin fondo, sangrías, tablas ni tipografía).
-     * Solo se completan las que falten; las existentes no se tocan.
+     * @see EntornoProcesoWindows (compartido con el rasterizador del QA visual).
      *
      * @return array<string, string>
      */
     public function entornoWindows(): array
     {
-        if (PHP_OS_FAMILY !== 'Windows') {
-            return [];
-        }
-
-        $raiz = (string) (getenv('SystemRoot') ?: getenv('windir') ?: 'C:\\Windows');
-        $temporal = rtrim(sys_get_temp_dir(), '\\/');
-        $perfil = (string) (getenv('USERPROFILE') ?: $raiz.'\\System32\\config\\systemprofile');
-        $base = [
-            'SystemRoot' => $raiz,
-            'windir' => $raiz,
-            'SystemDrive' => substr($raiz, 0, 2),
-            'ComSpec' => $raiz.'\\System32\\cmd.exe',
-            'PATHEXT' => '.COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC',
-            'TEMP' => $temporal,
-            'TMP' => $temporal,
-            'USERPROFILE' => $perfil,
-            'APPDATA' => $perfil.'\\AppData\\Roaming',
-            'LOCALAPPDATA' => $perfil.'\\AppData\\Local',
-            'ProgramData' => substr($raiz, 0, 2).'\\ProgramData',
-            'ProgramFiles' => substr($raiz, 0, 2).'\\Program Files',
-            'ProgramFiles(x86)' => substr($raiz, 0, 2).'\\Program Files (x86)',
-            'PSModulePath' => $raiz.'\\System32\\WindowsPowerShell\\v1.0\\Modules',
-        ];
-        $entorno = [];
-
-        foreach ($base as $clave => $valor) {
-            $actual = getenv($clave);
-            $entorno[$clave] = is_string($actual) && $actual !== '' ? $actual : $valor;
-        }
-
-        // PowerShell y reg.exe deben encontrarse aunque el PATH de Apache venga recortado.
-        $ruta = (string) (getenv('PATH') ?: getenv('Path') ?: '');
-        $sistema = implode(';', [$raiz.'\\System32', $raiz, $raiz.'\\System32\\Wbem', $raiz.'\\System32\\WindowsPowerShell\\v1.0']);
-        $entorno['PATH'] = $ruta === '' ? $sistema : $ruta.';'.$sistema;
-
-        return $entorno;
+        return EntornoProcesoWindows::variables();
     }
 
     private function libreOfficeConfigurado(): bool

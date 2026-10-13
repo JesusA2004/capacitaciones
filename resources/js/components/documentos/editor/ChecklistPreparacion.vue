@@ -33,7 +33,7 @@ defineProps<{ preparacion: PreparacionVersion }>();
                 </span>
             </li>
         </ul>
-        <div v-if="preparacion.faltan.length && !preparacion.activo" class="rounded-lg bg-warning-soft px-3 py-2 text-xs text-warning-foreground">
+        <div v-if="preparacion.faltan.length && !preparacion.activo" class="rounded-lg bg-warning-soft px-3 py-2 text-xs text-warning">
             <p class="font-semibold">No puedes activar este formato todavía</p>
             <ul class="mt-1 list-disc pl-4">
                 <li v-for="f in preparacion.faltan" :key="f">{{ f }}</li>

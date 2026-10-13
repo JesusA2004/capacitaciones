@@ -2,10 +2,10 @@
 
 namespace App\Services\DocumentosMaestros\Calidad;
 
+use App\Support\EntornoProcesoWindows;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Str;
-use RuntimeException;
 use Throwable;
 
 /**
@@ -46,14 +46,14 @@ class RasterizadorPdf
     /**
      * @return list<array{pagina: int, ancho_pt: float, alto_pt: float, dpi: float, png: string}>
      *
-     * @throws RuntimeException Si no hay motor o el PDF no se puede rasterizar.
+     * @throws RasterizacionFallidaException Si no hay motor o el PDF no se puede rasterizar.
      */
     public function rasterizar(string $pdf, int $dpi): array
     {
         $motor = $this->motor();
 
         if ($motor === null) {
-            throw new RuntimeException('No hay un rasterizador de PDF disponible en este servidor.');
+            throw new RasterizacionFallidaException('No hay un rasterizador de PDF disponible en este servidor.');
         }
 
         $carpeta = sys_get_temp_dir().DIRECTORY_SEPARATOR.'qa-visual-'.Str::uuid();
@@ -79,14 +79,18 @@ class RasterizadorPdf
      */
     private function conWindows(string $origen, string $carpeta, int $dpi): array
     {
-        $resultado = Process::timeout(180)->run([
+        $resultado = Process::timeout(180)->env(EntornoProcesoWindows::variables())->run([
             'powershell', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
             '-File', (string) config('documentos_maestros.validacion_visual.script_windows'),
             '-Origen', $origen, '-Carpeta', $carpeta, '-Dpi', (string) $dpi,
         ]);
 
         if (! $resultado->successful()) {
-            throw new RuntimeException('El rasterizador de Windows falló: '.mb_substr($resultado->errorOutput(), 0, 300));
+            // PowerShell escribe sus errores en UTF-16: se normalizan para el log.
+            $error = $resultado->errorOutput();
+            $error = str_contains($error, "\0") ? (string) mb_convert_encoding($error, 'UTF-8', 'UTF-16LE') : $error;
+
+            throw new RasterizacionFallidaException('El rasterizador de Windows falló: '.mb_substr(trim($error), 0, 300));
         }
 
         $paginas = [];
@@ -101,14 +105,14 @@ class RasterizadorPdf
             $png = @file_get_contents((string) $datos['archivo']);
 
             if ($png === false || $png === '') {
-                throw new RuntimeException("No se pudo leer la página {$datos['pagina']} rasterizada.");
+                throw new RasterizacionFallidaException("No se pudo leer la página {$datos['pagina']} rasterizada.");
             }
 
             $paginas[] = ['pagina' => (int) $datos['pagina'], 'ancho_pt' => (float) $datos['ancho_pt'], 'alto_pt' => (float) $datos['alto_pt'], 'dpi' => $this->dpiReal($png, (float) $datos['ancho_pt'], $dpi), 'png' => $png];
         }
 
         if ($paginas === []) {
-            throw new RuntimeException('El rasterizador no devolvió páginas.');
+            throw new RasterizacionFallidaException('El rasterizador no devolvió páginas.');
         }
 
         return $paginas;
@@ -140,7 +144,7 @@ class RasterizadorPdf
         ]);
 
         if (! $resultado->successful()) {
-            throw new RuntimeException('pdftoppm falló: '.mb_substr($resultado->errorOutput(), 0, 300));
+            throw new RasterizacionFallidaException('pdftoppm falló: '.mb_substr($resultado->errorOutput(), 0, 300));
         }
 
         $archivos = glob($prefijo.'-*.png') ?: [];
@@ -167,7 +171,7 @@ class RasterizadorPdf
         }
 
         if ($paginas === []) {
-            throw new RuntimeException('pdftoppm no devolvió páginas.');
+            throw new RasterizacionFallidaException('pdftoppm no devolvió páginas.');
         }
 
         return $paginas;

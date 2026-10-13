@@ -70,7 +70,7 @@ function volver() {
             role="alert"
         >
             <span
-                class="flex size-11 items-center justify-center rounded-full bg-warning-soft text-warning-foreground"
+                class="flex size-11 items-center justify-center rounded-full bg-warning-soft text-warning"
             >
                 <FileWarning class="size-5" />
             </span>

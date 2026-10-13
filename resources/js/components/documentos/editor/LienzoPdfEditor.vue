@@ -34,6 +34,8 @@ const props = defineProps<{
 const emit = defineEmits<{
     seleccionar: [fieldKey: string | null, aditivo: boolean];
     'antes-de-cambiar': [];
+    /** Terminó un arrastre/redimensión: momento seguro para autoguardar. */
+    'fin-de-cambio': [];
     mover: [cambios: { field_key: string; x: number; y: number }[]];
     redimensionar: [fieldKey: string, width: number, height: number];
     'soltar-variable': [clave: string, x: number, y: number];
@@ -87,7 +89,7 @@ function color(campo: CampoEditor): string {
     }
 
     if (campo.estado === 'sugerido') {
-        return 'border-warning bg-warning-soft/60 text-warning-foreground';
+        return 'border-warning bg-warning-soft/60 text-warning';
     }
 
     return 'border-danger bg-danger-soft/60 text-danger';
@@ -215,6 +217,7 @@ function alMover(evento: PointerEvent) {
 function terminar() {
     window.removeEventListener('pointermove', alMover);
     arrastre = null;
+    emit('fin-de-cambio');
     guias.value = { x: [], y: [] };
 }
 

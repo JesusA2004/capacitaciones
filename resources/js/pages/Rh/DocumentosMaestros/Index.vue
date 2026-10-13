@@ -14,6 +14,7 @@ import {
     PencilRuler,
     RefreshCw,
     Search,
+    Stethoscope,
     Type,
     UserRoundSearch,
     Users,
@@ -24,7 +25,6 @@ import SelectSimple from '@/components/Common/SelectSimple.vue';
 import DetalleMaestro from '@/components/documentos/maestros/DetalleMaestro.vue';
 import SeccionesDocumentosMaestros from '@/components/documentos/maestros/SeccionesDocumentosMaestros.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -39,6 +39,7 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
@@ -70,9 +71,10 @@ import type {
 
 /**
  * Documentos maestros: los formatos oficiales que PEOPLE llena solo en
- * cada proceso. Arriba el estado de salud (formatos e infraestructura);
- * abajo una tarjeta por formato con su versión y tres chequeos. El detalle
- * técnico vive en «Más información».
+ * cada proceso. Una línea de estado («28 listos · 1 requiere atención»),
+ * una acción primaria (Nuevo formato) y una tarjeta por formato con
+ * [Editar] + «…». El diagnóstico del entorno y el detalle técnico viven en
+ * menús/paneles, no a la vista.
  */
 const props = defineProps<{
     masters: MasterAdminFila[];
@@ -125,6 +127,28 @@ const filtradas = computed(() =>
         return termino === '' || normalizar(`${f.nombre} ${f.aplica_a} ${f.proceso_etiqueta ?? ''}`).includes(termino);
     }),
 );
+
+const requierenAtencion = computed(() => props.salud.formatos.revision + props.salud.formatos.bloqueados);
+const diagnosticoAbierto = ref(false);
+
+/** Qué le falta a un formato operativo, en palabras (sin códigos). */
+function pendientesDe(f: MasterAdminFila): string[] {
+    const faltan: string[] = [];
+
+    if (!(f.diseno === 'validado' || f.diseno === 'excepcion')) {
+        faltan.push('revisar el diseño');
+    }
+
+    if (f.pendientes > 0) {
+        faltan.push(`${f.pendientes} dato(s) por asignar`);
+    }
+
+    if (!f.fuentes_ok) {
+        faltan.push('revisar fuentes');
+    }
+
+    return faltan;
+}
 
 const iconoInfra = { ok: CheckCircle2, advertencia: CircleAlert, error: CircleX, no_instalado: CircleDashed } as const;
 const colorInfra = {
@@ -248,85 +272,106 @@ async function crearFormato() {
     <div class="pagina-ancha flex flex-col gap-5">
         <header class="flex flex-wrap items-center gap-3">
             <span class="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary"><FileStack class="size-5" /></span>
-            <h1 class="mr-auto text-xl font-semibold">Documentos maestros</h1>
+            <div class="mr-auto min-w-0">
+                <h1 class="text-xl font-semibold">Documentos maestros</h1>
+                <p class="text-sm text-muted-foreground">
+                    <button type="button" class="hover:text-foreground hover:underline" @click="filtro = 'listo'">
+                        <span class="font-medium text-success tabular-nums">{{ salud.formatos.listos }}</span> listos
+                    </button>
+                    <template v-if="requierenAtencion > 0">
+                        ·
+                        <button type="button" class="hover:text-foreground hover:underline" @click="filtro = salud.formatos.bloqueados ? 'bloqueado' : 'revision'">
+                            <span class="font-medium text-warning tabular-nums">{{ requierenAtencion }}</span>
+                            {{ requierenAtencion === 1 ? 'requiere atención' : 'requieren atención' }}
+                        </button>
+                    </template>
+                    <template v-if="filtro !== 'todos'">
+                        · <button type="button" class="text-primary hover:underline" @click="filtro = 'todos'">ver todos</button>
+                    </template>
+                </p>
+            </div>
             <Button @click="abrirNuevo"><FilePlus2 class="size-4" /> Nuevo formato</Button>
-            <Button variant="outline" as="a" :href="cobertura.url()"><Users class="size-4" /> Cobertura</Button>
             <DropdownMenu>
                 <DropdownMenuTrigger as-child>
                     <Button variant="outline" size="icon" aria-label="Más acciones"><MoreHorizontal class="size-4" /></Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent align="end" class="w-56">
+                    <DropdownMenuItem as="a" :href="cobertura.url()"><Users class="size-4" /> Cobertura por puesto</DropdownMenuItem>
                     <DropdownMenuItem as="a" :href="indexFondos.url()"><Images class="size-4" /> Fondos</DropdownMenuItem>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem :disabled="revalidando" @click="revalidarPendientes"><RefreshCw class="size-4" /> Revalidar pendientes</DropdownMenuItem>
                     <DropdownMenuItem :disabled="revisandoFuentes" @click="revisarFuentes"><Type class="size-4" /> Revisar fuentes</DropdownMenuItem>
+                    <DropdownMenuItem @click="diagnosticoAbierto = true"><Stethoscope class="size-4" /> Diagnóstico del entorno</DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>
         </header>
 
         <SeccionesDocumentosMaestros actual="juridicos" />
 
-        <!-- Centro de salud documental -->
-        <section class="grid gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-            <div class="grid grid-cols-4 gap-2 rounded-2xl border bg-card p-4">
-                <button type="button" :class="cn('flex flex-col rounded-xl p-2 text-left', filtro === 'todos' && 'bg-muted')" @click="filtro = 'todos'">
-                    <span class="text-2xl font-semibold tabular-nums">{{ salud.formatos.total }}</span>
-                    <span class="text-xs text-muted-foreground">formatos</span>
-                </button>
-                <button type="button" :class="cn('flex flex-col rounded-xl p-2 text-left', filtro === 'listo' && 'bg-success-soft')" @click="filtro = 'listo'">
-                    <span class="text-2xl font-semibold text-success tabular-nums">{{ salud.formatos.listos }}</span>
-                    <span class="text-xs text-muted-foreground">listos</span>
-                </button>
-                <button type="button" :class="cn('flex flex-col rounded-xl p-2 text-left', filtro === 'revision' && 'bg-warning-soft')" @click="filtro = 'revision'">
-                    <span class="text-2xl font-semibold text-warning tabular-nums">{{ salud.formatos.revision }}</span>
-                    <span class="text-xs text-muted-foreground">en revisión</span>
-                </button>
-                <button type="button" :class="cn('flex flex-col rounded-xl p-2 text-left', filtro === 'bloqueado' && 'bg-danger-soft')" @click="filtro = 'bloqueado'">
-                    <span class="text-2xl font-semibold text-danger tabular-nums">{{ salud.formatos.bloqueados }}</span>
-                    <span class="text-xs text-muted-foreground">bloqueados</span>
-                </button>
-            </div>
-            <ul class="grid grid-cols-2 gap-2 rounded-2xl border bg-card p-4 sm:grid-cols-3">
-                <li v-for="c in salud.infraestructura" :key="c.clave" class="flex items-center gap-2 text-sm" :title="c.detalle ?? undefined">
-                    <component :is="iconoInfra[c.estado]" :class="cn('size-4 shrink-0', colorInfra[c.estado])" />
-                    <span class="truncate">{{ c.etiqueta }}</span>
-                    <span v-if="c.estado === 'no_instalado'" class="truncate text-xs text-muted-foreground">No instalado</span>
-                </li>
-            </ul>
-        </section>
-
         <div class="relative sm:w-80">
             <Search class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input v-model="busqueda" type="search" placeholder="Buscar formato…" class="pl-9" />
+            <Input v-model="busqueda" type="search" placeholder="Buscar formato…" aria-label="Buscar formato" class="pl-9" />
         </div>
 
         <p v-if="filtradas.length === 0" class="rounded-2xl border border-dashed p-8 text-center text-sm text-muted-foreground">
-            Ningún formato coincide.
+            {{ busqueda ? 'Ningún formato coincide con tu búsqueda.' : 'No hay formatos en este grupo.' }}
         </p>
 
-        <ul data-tour="documentos-maestros-lista" class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            <li v-for="f in filtradas" :key="f.familia" class="flex flex-col gap-3 rounded-2xl border bg-card p-4 shadow-xs">
+        <TransitionGroup
+            tag="ul"
+            data-tour="documentos-maestros-lista"
+            class="grid gap-3 md:grid-cols-2 xl:grid-cols-3"
+            enter-active-class="transition duration-200 ease-out motion-reduce:transition-none"
+            enter-from-class="opacity-0 translate-y-1"
+        >
+            <li v-for="f in filtradas" :key="f.familia" class="flex flex-col gap-3 rounded-2xl border bg-card p-4 shadow-xs transition-shadow duration-150 hover:shadow-sm">
                 <div class="min-w-0">
                     <p class="leading-snug font-medium">{{ f.nombre }}</p>
-                    <p class="text-xs text-muted-foreground">{{ f.aplica_a }}</p>
+                    <p class="text-xs text-muted-foreground">
+                        {{ f.aplica_a }}<template v-if="f.version_activa"> · v{{ f.version_activa }}</template>
+                    </p>
                 </div>
-                <div class="flex flex-wrap items-center gap-1.5 text-xs">
-                    <Badge v-if="f.version_activa" variant="secondary" class="bg-success-soft text-success">v{{ f.version_activa }} · ACTIVO</Badge>
-                    <Badge v-else-if="!f.operativo" variant="secondary">Referencia</Badge>
-                    <Badge v-else variant="secondary" class="bg-warning-soft text-warning-foreground">{{ f.master_id ? 'Sin versión activa' : 'Falta el original' }}</Badge>
-                </div>
-                <ul v-if="f.operativo && f.master_id" class="flex flex-wrap gap-x-3 gap-y-1 text-xs">
-                    <li v-for="c in [{ ok: f.diseno === 'validado' || f.diseno === 'excepcion', t: 'Diseño' }, { ok: f.pendientes === 0, t: 'Datos' }, { ok: f.fuentes_ok, t: 'Fuentes' }]" :key="c.t" :class="cn('flex items-center gap-1', c.ok ? 'text-success' : 'text-warning')">
-                        <component :is="c.ok ? CheckCircle2 : CircleAlert" class="size-3.5" /> {{ c.t }}
-                    </li>
-                </ul>
-                <div class="mt-auto flex flex-wrap gap-2">
-                    <Button v-if="f.master_id" size="sm" as="a" :href="editorRuta.url(f.master_id)"><PencilRuler class="size-4" /> Editar</Button>
-                    <Button v-if="f.master_id && f.operativo" size="sm" variant="outline" as="a" :href="editorRuta.url(f.master_id, { query: { probar: 1 } })"><UserRoundSearch class="size-4" /> Probar</Button>
-                    <Button v-if="f.master_id" size="sm" variant="ghost" class="ml-auto" @click="abrir(f.master_id)"><Info class="size-4" /> Más información</Button>
+                <p v-if="!f.operativo" class="text-xs text-muted-foreground">Referencia (no se genera)</p>
+                <p v-else-if="!f.master_id" class="flex items-center gap-1.5 text-xs text-warning"><CircleAlert class="size-3.5" /> Falta el documento original</p>
+                <p v-else-if="grupoEstado(f) === 'listo'" class="flex items-center gap-1.5 text-xs text-success"><CheckCircle2 class="size-3.5" /> Listo</p>
+                <p v-else class="flex items-start gap-1.5 text-xs text-warning">
+                    <CircleAlert class="mt-px size-3.5 shrink-0" />
+                    <span>{{ f.version_activa ? 'Requiere atención' : 'Sin versión activa' }}<template v-if="pendientesDe(f).length">: {{ pendientesDe(f).join(', ') }}</template></span>
+                </p>
+                <div v-if="f.master_id" class="mt-auto flex items-center gap-2">
+                    <Button size="sm" as="a" :href="editorRuta.url(f.master_id)"><PencilRuler class="size-4" /> Editar</Button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger as-child>
+                            <Button size="icon" variant="ghost" class="size-8" :aria-label="`Más acciones de ${f.nombre}`"><MoreHorizontal class="size-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                            <DropdownMenuItem v-if="f.operativo" as="a" :href="editorRuta.url(f.master_id, { query: { probar: 1 } })"><UserRoundSearch class="size-4" /> Probar con colaborador</DropdownMenuItem>
+                            <DropdownMenuItem @click="abrir(f.master_id)"><Info class="size-4" /> Más información</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             </li>
-        </ul>
+        </TransitionGroup>
     </div>
+
+    <!-- Diagnóstico del entorno (motores de conversión, OCR, fuentes) -->
+    <Sheet v-model:open="diagnosticoAbierto">
+        <SheetContent side="right" class="w-full overflow-y-auto sm:max-w-md">
+            <SheetHeader>
+                <SheetTitle>Diagnóstico del entorno</SheetTitle>
+                <SheetDescription>Herramientas del servidor que usan los formatos.</SheetDescription>
+            </SheetHeader>
+            <ul class="flex flex-col gap-2 px-4 pb-6">
+                <li v-for="c in salud.infraestructura" :key="c.clave" class="flex items-start gap-2 rounded-lg border p-3 text-sm">
+                    <component :is="iconoInfra[c.estado]" :class="cn('mt-0.5 size-4 shrink-0', colorInfra[c.estado])" />
+                    <span class="min-w-0">
+                        <span class="block font-medium">{{ c.etiqueta }}<span v-if="c.estado === 'no_instalado'" class="font-normal text-muted-foreground"> · no instalado</span></span>
+                        <span v-if="c.detalle" class="block text-xs text-muted-foreground">{{ c.detalle }}</span>
+                    </span>
+                </li>
+            </ul>
+        </SheetContent>
+    </Sheet>
 
     <!-- Más información (detalle técnico) -->
     <Sheet v-model:open="panelAbierto">
