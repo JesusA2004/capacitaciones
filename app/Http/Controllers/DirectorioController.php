@@ -20,13 +20,11 @@ class DirectorioController extends Controller
 
     public function index(Request $request): Response
     {
-        $filtros = $request->only(['busqueda', 'puesto_id', 'sucursal_id', 'departamento_id', 'solo_con_correo']);
-
+        // Lista completa: la búsqueda y las vistas Por puesto / Por área /
+        // Por sucursal se resuelven al instante en pantalla.
         return Inertia::render('Directorio/Index', [
-            'colaboradores' => $this->directorio->buscar($filtros)
-                ->through(fn ($colaborador) => $this->directorio->aArray($colaborador)),
-            'filtros' => $filtros,
-            'opciones' => $this->directorio->opciones(),
+            'colaboradores' => $this->directorio->todos(),
+            'filtros' => $request->only(['busqueda', 'vista']),
         ]);
     }
 }

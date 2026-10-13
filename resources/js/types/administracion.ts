@@ -248,3 +248,51 @@ export type SeccionOrganigrama = {
     raiz_puesto_id: number | null;
     profundidad: number | null;
 };
+
+/** Persona en una lámina del organigrama (LaminasOrganigramaService). */
+export type PersonaLamina = {
+    id: number | null;
+    nombre: string;
+    sucursal: string | null;
+};
+
+export type CajaLamina = {
+    titulo: string;
+    icono: string | null;
+    destacado: boolean;
+    personas: PersonaLamina[];
+};
+
+/** Láminas como el PDF de Inducción (hojas 17 · 18 · 19). */
+export type LaminasOrganigrama = {
+    corporativo: {
+        direccion_general: { titulo: string; personas: PersonaLamina[] };
+        areas: {
+            sigla: string;
+            titulo: string;
+            icono: string;
+            personas: PersonaLamina[];
+        }[];
+        nota: string | null;
+    };
+    comercial: {
+        director: CajaLamina;
+        apoyo: CajaLamina[];
+        columnas: (CajaLamina & { cadena: CajaLamina[]; hijos: CajaLamina[] })[];
+        leyenda: { directa?: string; apoyo?: string };
+    };
+    sucursal: {
+        puestos: Record<
+            'gerente' | 'subgerente' | 'coordinacion' | 'gestores',
+            { titulo: string; funciones: string[] }
+        >;
+        sucursales: ({
+            id: number;
+            nombre: string;
+        } & Record<
+            'gerente' | 'subgerente' | 'coordinacion' | 'gestores',
+            PersonaLamina[]
+        >)[];
+        leyenda: { directa?: string; apoyo?: string };
+    };
+};

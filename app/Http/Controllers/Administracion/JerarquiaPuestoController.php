@@ -11,6 +11,7 @@ use App\Models\MovimientoLaboral;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Services\Administracion\JerarquiaPuestoService;
+use App\Services\Organigrama\LaminasOrganigramaService;
 use App\Services\Organigrama\MiniOrganigramaService;
 use App\Services\Organigrama\OrganigramaPersonasService;
 use Illuminate\Http\JsonResponse;
@@ -26,6 +27,7 @@ class JerarquiaPuestoController extends Controller
         private readonly JerarquiaPuestoService $jerarquia,
         private readonly OrganigramaPersonasService $organigramaPersonas,
         private readonly MiniOrganigramaService $miniOrganigrama,
+        private readonly LaminasOrganigramaService $laminas,
     ) {}
 
     public function index(Request $request): Response
@@ -52,6 +54,8 @@ class JerarquiaPuestoController extends Controller
             // rama real de su puesto raíz (config organigrama.vistas_induccion);
             // una sección cuyo puesto ya no existe no se ofrece.
             'secciones' => $this->secciones(),
+            // Láminas como el PDF de Inducción (hojas 17-19) con las personas reales.
+            'laminas' => $this->laminas->laminas($usuario),
             'filtros' => $request->only($this->jerarquia->filtrosAceptados()),
             'opciones' => [
                 'empresas' => Empresa::query()->orderBy('nombre')->get(['id', 'nombre']),

@@ -15,6 +15,7 @@ import AgregarSubordinadoDialog from '@/components/Administracion/AgregarSubordi
 import JerarquiaPuestoDialog from '@/components/Administracion/JerarquiaPuestoDialog.vue';
 import OrganigramaAccordion from '@/components/Administracion/OrganigramaAccordion.vue';
 import OrganigramaArbol from '@/components/Administracion/OrganigramaArbol.vue';
+import OrganigramaLaminas from '@/components/Administracion/OrganigramaLaminas.vue';
 import OrganigramaPersona from '@/components/Administracion/OrganigramaPersona.vue';
 import OrganigramaPersonasArbol from '@/components/Administracion/OrganigramaPersonasArbol.vue';
 import OrganigramaPersonasLista from '@/components/Administracion/OrganigramaPersonasLista.vue';
@@ -74,6 +75,7 @@ import { index as indexCandidatos } from '@/routes/rh/candidatos';
 import { index as indexVacantes } from '@/routes/rh/vacantes';
 import type {
     CoberturasOrganigrama,
+    LaminasOrganigrama,
     NodoOrganigramaPersona,
     PuestoHistorialResponse,
     PuestoJerarquiaFiltros,
@@ -89,7 +91,16 @@ const props = defineProps<{
     filtros: PuestoJerarquiaFiltros;
     opciones: PuestoJerarquiaOpciones;
     secciones: SeccionOrganigrama[];
+    laminas: LaminasOrganigrama;
 }>();
+
+// Corporativo, Dirección Comercial y Sucursal se ven como las láminas del
+// PDF de Inducción (hojas 17-19); General conserva el árbol completo.
+const seccionLamina = computed(() => {
+    const valor = seccionActiva.value?.valor;
+
+    return valor === 'corporativo' || valor === 'comercial' || valor === 'sucursal' ? valor : null;
+});
 
 // "Por personas" (una tarjeta por colaborador, rama por sucursal) es la
 // vista principal; "Por puestos" se conserva para editar la jerarquía.
@@ -619,7 +630,12 @@ watch(
         <template v-else>
             <!-- Por personas: una tarjeta por colaborador, rama por sucursal. -->
             <div v-if="vista === 'personas'" data-tour="organigrama-arbol">
-                <template v-if="personasVisibles.length">
+                <OrganigramaLaminas
+                    v-if="seccionLamina"
+                    :seccion="seccionLamina"
+                    :laminas="laminas"
+                />
+                <template v-else-if="personasVisibles.length">
                     <!-- Tablet/escritorio: árbol con zoom. Celular: lista
                          jerárquica desplegable (el árbol no se lee en 390 px). -->
                     <OrganigramaPersonasArbol

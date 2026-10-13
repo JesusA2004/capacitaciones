@@ -54,11 +54,14 @@ test('API móvil: el directorio solo serializa contacto corporativo, nunca datos
 });
 
 test('web: el directorio solo serializa contacto corporativo, nunca datos sensibles', function () {
-    $respuesta = $this->actingAs(clUsuario('colaborador'))->get(route('directorio.index', ['busqueda' => 'Herrera']))->assertOk();
+    $respuesta = $this->actingAs(clUsuario('colaborador'))->get(route('directorio.index'))->assertOk();
+    // La web agrega solo datos de agrupación (puesto, nivel, sucursal, área).
+    $permitidos = [...DIRECTORIO_CAMPOS, 'puesto_id', 'nivel', 'sucursal_id', 'es_corporativo', 'area'];
 
     $respuesta->assertInertia(fn ($page) => $page->where(
-        'colaboradores.data',
-        fn ($data) => count($data) === 1 && array_diff(array_keys(collect($data)->first()), DIRECTORIO_CAMPOS) === [],
+        'colaboradores',
+        fn ($data) => collect($data)->contains('nombre', 'Sofía Herrera Paz')
+            && collect($data)->every(fn ($fila) => array_diff(array_keys($fila), $permitidos) === []),
     ));
 
     foreach (DIRECTORIO_PROHIBIDOS as $dato) {

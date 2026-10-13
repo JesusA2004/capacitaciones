@@ -34,10 +34,7 @@ class DirectorioColaboradoresService
     {
         $filtros = $this->normalizarFiltros($filtros);
 
-        return Colaborador::query()
-            ->select(['id', 'name', 'apellidos', 'numero_empleado', 'puesto_id', 'sucursal_principal_id', 'departamento_id', 'correo_corporativo', 'telefono_corporativo'])
-            ->where('estatus', 'activo')
-            ->with(['puesto:id,nombre', 'sucursalPrincipal:id,nombre', 'departamento:id,nombre'])
+        return $this->consulta()
             ->when($filtros['busqueda'], function (Builder $q, string $busqueda): void {
                 // Cada palabra debe aparecer en el nombre o en los apellidos:
                 // así "María López" encuentra a María (name) López (apellidos).
@@ -59,6 +56,72 @@ class DirectorioColaboradoresService
     }
 
     /**
+     * Directorio COMPLETO para la web (sin paginar: sin gestores son pocas
+     * decenas de personas), con lo necesario para agruparlo por puesto, por
+     * área y por sucursal en pantalla.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function todos(): array
+    {
+        return array_values($this->consulta()
+            ->orderBy('name')
+            ->orderBy('apellidos')
+            ->get()
+            ->map(fn (Colaborador $c): array => [
+                ...$this->aArray($c),
+                'puesto_id' => $c->puesto_id,
+                'nivel' => $c->puesto->nivel_jerarquico ?? 99,
+                'sucursal_id' => $c->sucursal_principal_id,
+                'es_corporativo' => (bool) ($c->sucursalPrincipal->es_corporativo ?? false),
+                // Área: en Corporativo, el departamento del puesto (Sistemas,
+                // Contraloría, RH…); en sucursal, el puesto (Gerentes,
+                // Subgerentes, Coordinadoras…).
+                'area' => $this->area($c),
+            ])
+            ->all());
+    }
+
+    private function area(Colaborador $c): string
+    {
+        if ($c->sucursalPrincipal->es_corporativo ?? false) {
+            $departamento = $c->puesto->departamento->nombre ?? $c->departamento->nombre ?? 'Sin área';
+
+            return (string) (config('directorio.alias_areas_corporativo')[$departamento] ?? $departamento);
+        }
+
+        $puesto = $c->puesto->nombre ?? 'Sin puesto';
+
+        foreach ((array) config('directorio.areas_sucursal', []) as $patron => $etiqueta) {
+            if (preg_match('/^'.str_replace('%', '.*', preg_quote((string) $patron, '/')).'$/iu', $puesto) === 1) {
+                return (string) $etiqueta;
+            }
+        }
+
+        return $puesto;
+    }
+
+    /**
+     * Colaboradores activos que aparecen en el directorio: sin los grupos
+     * excluidos (gestores, config/directorio.php). Un puesto sin grupo sí
+     * aparece.
+     *
+     * @return Builder<Colaborador>
+     */
+    private function consulta(): Builder
+    {
+        $excluir = array_values(array_filter((array) config('directorio.excluir_grupos', []), 'is_string'));
+
+        return Colaborador::query()
+            ->select(['id', 'name', 'apellidos', 'numero_empleado', 'puesto_id', 'sucursal_principal_id', 'departamento_id', 'correo_corporativo', 'telefono_corporativo'])
+            ->where('estatus', 'activo')
+            ->when($excluir !== [], fn (Builder $q) => $q->where(fn (Builder $sub) => $sub
+                ->whereNull('puesto_id')
+                ->orWhereHas('puesto', fn (Builder $p) => $p->whereNull('grupo_documental')->orWhereNotIn('grupo_documental', $excluir))))
+            ->with(['puesto:id,nombre,nivel_jerarquico,departamento_id', 'puesto.departamento:id,nombre', 'sucursalPrincipal:id,nombre,es_corporativo', 'departamento:id,nombre']);
+    }
+
+    /**
      * Catálogos para los filtros del directorio (mismo dato en web y app).
      *
      * @return array{puestos: list<array{id: int, nombre: string}>, sucursales: list<array{id: int, nombre: string}>, departamentos: list<array{id: int, nombre: string}>}
@@ -66,7 +129,9 @@ class DirectorioColaboradoresService
     public function opciones(): array
     {
         return [
-            'puestos' => $this->aLista(Puesto::query()->where('activo', true)->orderBy('nombre')->get(['id', 'nombre'])),
+            'puestos' => $this->aLista(Puesto::query()->where('activo', true)
+                ->where(fn (Builder $q) => $q->whereNull('grupo_documental')->orWhereNotIn('grupo_documental', (array) config('directorio.excluir_grupos', [])))
+                ->orderBy('nombre')->get(['id', 'nombre'])),
             'sucursales' => $this->aLista(Sucursal::query()->where('activo', true)->orderBy('nombre')->get(['id', 'nombre'])),
             'departamentos' => $this->aLista(Departamento::query()->orderBy('nombre')->get(['id', 'nombre'])),
         ];

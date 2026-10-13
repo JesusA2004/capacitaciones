@@ -81,10 +81,6 @@ const desde = computed(() =>
         : '',
 );
 
-/** En modo mínimo basta nombre + primer apellido. */
-const nombreCorto = computed(() =>
-    (props.nodo.persona?.nombre ?? '').split(/\s+/).slice(0, 2).join(' '),
-);
 
 const TAMANO = {
     completo: {
@@ -226,13 +222,11 @@ function abrirExpediente(): void {
                     class="leading-tight font-semibold text-balance"
                     :class="tamano.nombre"
                 >
-                    {{
-                        detalle === 'minimo' ? nombreCorto : nodo.persona.nombre
-                    }}
+                    {{ nodo.persona.nombre }}
                 </p>
                 <p
                     v-if="detalle !== 'minimo'"
-                    class="mt-0.5 truncate text-muted-foreground"
+                    class="mt-0.5 text-balance text-muted-foreground"
                     :class="tamano.puesto"
                 >
                     {{ nodo.puesto.nombre }}

@@ -34,7 +34,7 @@ class SucursalSeeder extends Seeder
         // Corporativo: Sistemas, RH, Mesa de Control, Tesorería… (servicio a
         // todas las sucursales). Domicilios y teléfonos oficiales de
         // database/data/sucursales_oficiales.php (mr-lana.com/sucursales).
-        $sucursales[] = ['nombre' => 'Corporativo', 'clave' => 'CORP01', 'ciudad' => 'Cuernavaca', 'estado' => 'Morelos', 'codigo_postal' => '62260'];
+        $sucursales[] = ['nombre' => 'Corporativo', 'clave' => 'CORP01', 'ciudad' => 'Cuernavaca', 'estado' => 'Morelos', 'codigo_postal' => '62260', 'es_corporativo' => true];
         $oficiales = require database_path('data/sucursales_oficiales.php');
 
         foreach ($sucursales as $sucursal) {
@@ -57,6 +57,10 @@ class SucursalSeeder extends Seeder
             // para todo el personal de Corporativo. Solo se llena lo vacío.
             if ($registro->empresa_id === null && $empresaId !== null) {
                 $registro->update(['empresa_id' => $empresaId]);
+            }
+
+            if (($sucursal['es_corporativo'] ?? false) && ! $registro->es_corporativo) {
+                $registro->update(['es_corporativo' => true]);
             }
         }
     }

@@ -46,7 +46,7 @@ withDefaults(
                 />
                 <div v-if="conNombre" class="min-w-0 text-left">
                     <p
-                        class="truncate leading-tight font-semibold"
+                        class="leading-tight font-semibold text-balance"
                         :class="destacado ? 'text-[15px]' : 'text-sm'"
                     >
                         {{ persona.nombre }}
