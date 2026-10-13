@@ -74,7 +74,7 @@ class SolicitudInternaController extends Controller
 
     /**
      * Formato oficial de permiso (vista previa / impresión). Solo existe
-     * cuando RH ya autorizó; antes responde 403.
+     * cuando RH ya autorizó; antes responde 409 con el motivo.
      */
     public function permisoPdf(SolicitudInterna $solicitud): StreamedResponse
     {
@@ -83,7 +83,9 @@ class SolicitudInternaController extends Controller
         try {
             return $this->solicitudes->respuestaPermiso($solicitud);
         } catch (ValidationException $e) {
-            abort(403, collect($e->errors())->flatten()->first());
+            // No es falta de permiso: el formato todavía no se libera (RH no
+            // ha autorizado). 409 con el motivo real, no un 403 engañoso.
+            abort(409, (string) collect($e->errors())->flatten()->first());
         }
     }
 

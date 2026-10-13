@@ -52,7 +52,9 @@ class SolicitudController extends Controller
         try {
             return $this->solicitudes->respuestaPermiso($solicitud);
         } catch (ValidationException $e) {
-            abort(403, collect($e->errors())->flatten()->first());
+            // No es falta de permiso: el formato todavía no se libera (RH no
+            // ha autorizado). 409 con el motivo real, no un 403 engañoso.
+            abort(409, (string) collect($e->errors())->flatten()->first());
         }
     }
 

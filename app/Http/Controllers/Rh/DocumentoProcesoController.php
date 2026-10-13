@@ -93,6 +93,11 @@ class DocumentoProcesoController extends Controller
      */
     public function word(GeneratedDocument $documento): StreamedResponse
     {
+        // Un documento sin Word (PDF sobre el original, comprobante) no es
+        // falta de permiso: se dice tal cual en vez de un 403 engañoso.
+        $this->authorize('ver', $documento);
+        abort_if($documento->docx_path === null, 404, 'Este documento no tiene versión Word; descarga el PDF.');
+
         $this->authorize('descargarWord', $documento);
 
         return $this->motor->respuestaDocx($documento);

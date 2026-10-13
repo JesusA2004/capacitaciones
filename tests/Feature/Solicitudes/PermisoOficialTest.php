@@ -102,11 +102,11 @@ test('el formato de permiso NO se libera sin RH; tras la autorización de RH sí
     $permiso = SolicitudInterna::query()->latest('id')->firstOrFail();
 
     // Recién creado: nadie lo puede imprimir.
-    $this->getJson("/api/v1/solicitudes/{$permiso->id}/permiso-pdf")->assertForbidden();
+    $this->getJson("/api/v1/solicitudes/{$permiso->id}/permiso-pdf")->assertStatus(409);
 
     // Gerente/jefe da el visto bueno: todavía no está liberado.
     $this->actingAs($this->jefe)->post(route('rh.solicitudes.visto-bueno', $permiso), ['aprobado' => true])->assertSessionHasNoErrors();
-    $this->actingAs($this->jefe)->get(route('rh.solicitudes.permiso-pdf', $permiso))->assertForbidden();
+    $this->actingAs($this->jefe)->get(route('rh.solicitudes.permiso-pdf', $permiso))->assertStatus(409);
     expect(GeneratedDocument::query()->where('clave_plantilla', ComprobanteSolicitudService::CLAVE_PERMISO)->count())->toBe(0);
 
     // RH autoriza: se genera el formato oficial y ya se puede ver/imprimir.

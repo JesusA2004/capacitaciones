@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Services\Navigation\NavigationService;
+use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Middleware;
@@ -58,7 +59,12 @@ class HandleInertiaRequests extends Middleware
                 'user' => $user ? [
                     ...$user->toArray(),
                     'roles' => $user->getRoleNames(),
-                    'permissions' => $user->getAllPermissions()->pluck('name'),
+                    // super_admin ve en el menú todas las herramientas
+                    // operativas aunque su rol en producción no tenga aún algún
+                    // permiso nuevo (mismo criterio que su Gate::before).
+                    'permissions' => $user->hasRole('super_admin')
+                        ? $user->getAllPermissions()->pluck('name')->merge(RolesYPermisosSeeder::permisosOperativos())->unique()->values()
+                        : $user->getAllPermissions()->pluck('name'),
                 ] : null,
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',

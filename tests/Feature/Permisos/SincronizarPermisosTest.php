@@ -81,7 +81,13 @@ test('tras sincronizar, un super_admin existente ve Aniversarios (200) y recibe 
     $admin = User::factory()->create();
     $admin->assignRole('super_admin');
 
-    $this->actingAs($admin)->get(route('rh.aniversarios.index'))->assertForbidden();
+    // Este era el 403 de producción: el rol super_admin sin un permiso nuevo
+    // del catálogo. Ya no bloquea (Gate::before acotado al catálogo
+    // operativo) y el menú tampoco lo oculta; sincronizar sigue siendo
+    // obligatorio para el resto de los roles.
+    $this->actingAs($admin)->get(route('rh.aniversarios.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('auth.user.permissions', fn ($permisos) => collect($permisos)->contains('celebraciones.ver')));
 
     $this->artisan('people:sincronizar-permisos')->assertSuccessful();
 

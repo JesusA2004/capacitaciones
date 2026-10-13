@@ -4,6 +4,7 @@ use App\Http\Middleware\EnsureCuentaActiva;
 use App\Http\Middleware\EnsureFeatureEnabled;
 use App\Http\Middleware\ExigirCambioContrasena;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Support\DiagnosticoAcceso;
 use Illuminate\Contracts\Filesystem\FileNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -103,12 +104,25 @@ return Application::configure(basePath: dirname(__DIR__))
                 return back()->with('toast', ['type' => 'error', 'message' => 'Tu sesión expiró. Intenta de nuevo.']);
             }
 
-            if (! in_array($estado, [403, 404, 429, 500, 503], true)) {
+            if (! in_array($estado, [403, 404, 409, 429, 500, 503], true)) {
                 return $respuesta;
             }
 
+            $props = ['status' => $estado];
+
+            // 409 = "todavía no disponible" (p. ej. formato de permiso antes de
+            // que RH lo autorice): el motivo es texto propio, se muestra tal cual.
+            if ($estado === 409 && trim($e->getMessage()) !== '') {
+                $props['mensaje'] = trim($e->getMessage());
+            }
+
+            // Diagnóstico de acceso: solo super_admin/sistemas lo reciben.
+            if ($estado === 403) {
+                $props['diagnostico'] = DiagnosticoAcceso::para($request, $e);
+            }
+
             try {
-                return Inertia::render('Error', ['status' => $estado])->toResponse($request)->setStatusCode($estado);
+                return Inertia::render('Error', $props)->toResponse($request)->setStatusCode($estado);
             } catch (Throwable) {
                 return $respuesta;
             }
