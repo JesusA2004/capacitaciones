@@ -1,12 +1,9 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import {
-    Download,
-    Paperclip,
     Pencil,
     QrCode,
     ShieldAlert,
-    Upload,
     UserRound,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
@@ -24,6 +21,7 @@ import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import InputError from '@/components/InputError.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import CandidatoEvidenciaPreviewDialog from '@/components/Rh/CandidatoEvidenciaPreviewDialog.vue';
+import CandidatoExpedientePanel from '@/components/Rh/CandidatoExpedientePanel.vue';
 import CandidatoFormDialog from '@/components/Rh/CandidatoFormDialog.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -42,7 +40,6 @@ import { dashboard } from '@/routes';
 import {
     autorizar,
     contratacion,
-    cv,
     descartar,
     devolver,
     entrevista,
@@ -52,7 +49,6 @@ import {
     rechazar,
     socioeconomico,
 } from '@/routes/rh/candidatos';
-import { descargar as descargarCv } from '@/routes/rh/candidatos/cv';
 import psicometricas from '@/routes/rh/candidatos/psicometricas';
 import referencias from '@/routes/rh/candidatos/referencias';
 import { show as verInvitacion } from '@/routes/rh/incorporacion/invitaciones';
@@ -63,6 +59,7 @@ import type {
     EstadoCiclo,
     EvidenciaCandidato,
     FormularioAccion,
+    LimitesArchivosCandidato,
     OpcionesReclutamiento,
 } from '@/types';
 
@@ -77,7 +74,13 @@ const props = defineProps<{
     };
     /** Intervención pendiente que el usuario actual tiene autoridad para decidir (null si no aplica). */
     intervencionPendienteId: number | null;
+    /** Puede agregar archivos al mini expediente (CandidatoPolicy::adjuntar). */
+    puedeAdjuntar: boolean;
+    limitesArchivos: LimitesArchivosCandidato;
 }>();
+
+const ACEPTA_DOCUMENTOS = '.pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx';
+const ACEPTA_SOCIOECONOMICO = '.mp4,.mov,.m4v,.3gp,.webm,.jpg,.jpeg,.png,.webp,.pdf';
 
 defineOptions({
     layout: (pageProps: { candidato: CandidatoFicha }) => ({
@@ -174,6 +177,7 @@ const camposPorAccion: Record<string, () => FormularioAccion> = {
         relacion_puesto: '',
         resultado: 'positiva',
         observaciones: '',
+        archivos: [] as File[],
     }),
     concluir_referencias: () => ({ viable: true, observaciones: '', ...rechazoInicial() }),
     preautorizar: () => ({ comentario: '' }),
@@ -271,6 +275,7 @@ function enviar() {
         forceFormData: [
             'registrar_resultados_psicometricas',
             'registrar_socioeconomico',
+            'registrar_referencia',
         ].includes(accion.clave),
         onSuccess: () => (accionActiva.value = null),
     });
@@ -298,20 +303,6 @@ function enviarDecision() {
             preserveScroll: true,
             onSuccess: () => (decisionIntervencion.value = null),
         });
-}
-
-const formCv = useForm({ cv: null as File | null });
-
-function subirCv(event: Event) {
-    const input = event.target as HTMLInputElement;
-    formCv.cv = input.files?.[0] ?? null;
-
-    if (formCv.cv) {
-        formCv.post(cv.url(props.candidato.id), {
-            preserveScroll: true,
-            forceFormData: true,
-        });
-    }
 }
 
 const esDecisionViable = computed(() =>
@@ -393,39 +384,18 @@ function fecha(valor: string | null): string {
                             <dt class="text-muted-foreground">Gerente</dt>
                             <dd>{{ candidato.gerente ?? '—' }}</dd>
                         </div>
-                        <div class="sm:col-span-2">
-                            <dt class="text-muted-foreground">Currículum</dt>
-                            <dd class="flex items-center gap-3">
-                                <a
-                                    v-if="candidato.tiene_cv"
-                                    :href="descargarCv.url(candidato.id)"
-                                    class="inline-flex items-center gap-1 text-[var(--mrl-petroleo)] hover:underline"
-                                >
-                                    <Download class="size-4" /> Descargar CV
-                                </a>
-                                <span v-else class="text-muted-foreground"
-                                    >Sin CV.</span
-                                >
-                                <label
-                                    class="ml-auto inline-flex cursor-pointer items-center gap-1 text-muted-foreground hover:text-foreground"
-                                >
-                                    <Upload class="size-4" />
-                                    {{
-                                        candidato.tiene_cv
-                                            ? 'Reemplazar'
-                                            : 'Subir CV'
-                                    }}
-                                    <input
-                                        type="file"
-                                        accept=".pdf,.doc,.docx"
-                                        class="hidden"
-                                        @change="subirCv"
-                                    />
-                                </label>
-                            </dd>
-                        </div>
                     </dl>
                 </section>
+
+                <CandidatoExpedientePanel
+                    :candidato-id="candidato.id"
+                    :expediente="candidato.expediente"
+                    :puede-adjuntar="puedeAdjuntar"
+                    :limites="limitesArchivos"
+                    :socioeconomico-registrado="candidato.socioeconomicos.length > 0"
+                    :hay-referencias="candidato.referencias.length > 0"
+                    @ver="(ev) => (evidenciaActiva = ev)"
+                />
 
                 <section
                     v-if="
@@ -484,20 +454,6 @@ function fecha(valor: string | null): string {
                         <p v-if="item.resumen_resultados" class="mt-1">
                             {{ item.resumen_resultados }}
                         </p>
-                        <ul
-                            v-if="item.evidencias.length"
-                            class="mt-2 flex flex-wrap gap-2"
-                        >
-                            <li v-for="ev in item.evidencias" :key="ev.id">
-                                <button
-                                    type="button"
-                                    class="inline-flex items-center gap-1 text-xs text-[var(--mrl-petroleo)] hover:underline"
-                                    @click="evidenciaActiva = ev"
-                                >
-                                    <Paperclip class="size-3" /> {{ ev.nombre }}
-                                </button>
-                            </li>
-                        </ul>
                     </article>
 
                     <article
@@ -534,21 +490,6 @@ function fecha(valor: string | null): string {
                         <p v-if="item.observaciones" class="mt-1">
                             {{ item.observaciones }}
                         </p>
-                        <ul
-                            v-if="item.evidencias.length"
-                            class="mt-2 flex flex-wrap gap-2"
-                        >
-                            <li v-for="ev in item.evidencias" :key="ev.id">
-                                <button
-                                    type="button"
-                                    class="inline-flex items-center gap-1 text-xs text-[var(--mrl-petroleo)] hover:underline"
-                                    @click="evidenciaActiva = ev"
-                                >
-                                    <Paperclip class="size-3" />
-                                    {{ ev.tipo_etiqueta }}: {{ ev.nombre }}
-                                </button>
-                            </li>
-                        </ul>
                     </article>
 
                     <article
@@ -846,8 +787,8 @@ function fecha(valor: string | null): string {
                         ><PeopleFileDropzone
                             :model-value="(form.archivos as File[]) ?? []"
                             multiple
-                            accept=".pdf,.jpg,.jpeg,.png"
-                            label="Arrastra los archivos o haz clic"
+                            accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx"
+                            label="Arrastra los archivos"
                             @update:model-value="(f) => (form.archivos = f)"
                         />
                     </div>
@@ -975,14 +916,14 @@ function fecha(valor: string | null): string {
                     </template>
                     <div class="grid gap-1.5">
                         <Label
-                            >Fotografías / video / PDF (evidencia
-                            privada)</Label
+                            >Videos, fotografías o PDF (puedes subir
+                            varios; se guardan en el NAS)</Label
                         ><PeopleFileDropzone
                             :model-value="(form.evidencias as File[]) ?? []"
                             multiple
-                            accept=".jpg,.jpeg,.png,.pdf,.mp4,.mov"
-                            :max-size-mb="100"
-                            label="Arrastra fotos, PDF o video, o haz clic"
+                            :accept="ACEPTA_SOCIOECONOMICO"
+                            :max-size-mb="limitesArchivos.max_video_mb"
+                            label="Arrastra videos, fotos o PDF"
                             @update:model-value="(f) => (form.evidencias = f)"
                         />
                     </div>
@@ -1033,6 +974,20 @@ function fecha(valor: string | null): string {
                             v-model="form.observaciones as string"
                             rows="2"
                         />
+                    </div>
+                    <div class="grid gap-1.5">
+                        <Label
+                            >Soporte de la referencia (opcional: constancia,
+                            carta o captura)</Label
+                        ><PeopleFileDropzone
+                            :model-value="(form.archivos as File[]) ?? []"
+                            multiple
+                            :accept="ACEPTA_DOCUMENTOS"
+                            :max-size-mb="limitesArchivos.max_documento_mb"
+                            label="Arrastra los archivos"
+                            @update:model-value="(f) => (form.archivos = f)"
+                        />
+                        <InputError :message="form.errors.archivos" />
                     </div>
                 </template>
 

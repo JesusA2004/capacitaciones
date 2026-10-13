@@ -8,13 +8,11 @@ use App\Enums\PrioridadTarea;
 use App\Enums\ProcesoAprobacion;
 use App\Enums\ResultadoEtapaCandidato;
 use App\Enums\ResultadoReferencia;
-use App\Enums\TipoEvidenciaCandidato;
 use App\Enums\TipoSeguimientoCandidato;
 use App\Enums\TipoTarea;
 use App\Models\CampanaReclutamiento;
 use App\Models\Candidato;
 use App\Models\CandidatoEntrevista;
-use App\Models\CandidatoEvidencia;
 use App\Models\CandidatoPsicometrica;
 use App\Models\CandidatoReferencia;
 use App\Models\CandidatoSocioeconomico;
@@ -32,7 +30,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -69,7 +66,7 @@ class CandidatoWorkflowService
         private readonly TareaService $tareas,
         private readonly NotificadorRhService $notificador,
         private readonly AuditoriaService $auditoria,
-        private readonly CvStorageService $almacenamiento,
+        private readonly ExpedienteCandidatoService $expediente,
         private readonly VacantesListadoService $vacantesListado,
     ) {}
 
@@ -336,12 +333,13 @@ class CandidatoWorkflowService
 
     /**
      * @param  array<string, mixed>  $datos  empresa, contacto, telefono?, relacion_puesto?, resultado, observaciones?, fecha_validacion? (RegistrarReferenciaRequest).
+     * @param  list<UploadedFile>  $archivos  Soporte opcional (constancia, carta, captura).
      */
-    public function registrarReferencia(Candidato $candidato, User $actor, array $datos): CandidatoReferencia
+    public function registrarReferencia(Candidato $candidato, User $actor, array $datos, array $archivos = []): CandidatoReferencia
     {
         $this->autorizarAlguno($actor, [self::PERMISO_RECLUTAMIENTO, self::PERMISO_GERENTE], $candidato);
 
-        return DB::transaction(function () use ($candidato, $actor, $datos): CandidatoReferencia {
+        return DB::transaction(function () use ($candidato, $actor, $datos, $archivos): CandidatoReferencia {
             $c = $this->bloquear($candidato);
             $this->exigirEstado($c, EstadoCandidato::ReferenciasPendientes);
 
@@ -356,6 +354,8 @@ class CandidatoWorkflowService
                 'fecha_validacion' => isset($datos['fecha_validacion']) ? (string) $datos['fecha_validacion'] : now()->toDateString(),
                 'validada_por' => $actor->id,
             ]);
+
+            $this->guardarEvidencias($c, $referencia, $archivos, $actor);
 
             $this->seguimiento($c, $actor, TipoSeguimientoCandidato::Nota, sprintf('Referencia laboral validada: %s (%s) — %s.', $referencia->empresa, $referencia->contacto, $referencia->resultado->etiqueta()));
             $this->auditar('candidato_referencia_validada', $c, $actor, ['referencia_id' => $referencia->id, 'resultado' => $referencia->resultado->value]);
@@ -727,26 +727,7 @@ class CandidatoWorkflowService
      */
     private function guardarEvidencias(Candidato $candidato, Model $evidenciable, array $archivos, User $actor): void
     {
-        foreach ($archivos as $archivo) {
-            $extension = strtolower($archivo->guessExtension() ?? $archivo->getClientOriginalExtension());
-            $ruta = sprintf('candidatos/%d/evidencias/%s.%s', $candidato->id, Str::uuid(), $extension);
-            $this->almacenamiento->guardar($archivo, $ruta);
-            $mime = $archivo->getMimeType();
-
-            CandidatoEvidencia::query()->create([
-                'candidato_id' => $candidato->id,
-                'evidenciable_type' => $evidenciable->getMorphClass(),
-                'evidenciable_id' => $evidenciable->getKey(),
-                'tipo' => TipoEvidenciaCandidato::desdeMime($mime),
-                'disk' => (string) config('reclutamiento.disk'),
-                'path' => $ruta,
-                'original_name' => $archivo->getClientOriginalName(),
-                'mime' => $mime,
-                'size' => $archivo->getSize(),
-                'checksum' => hash_file('sha256', (string) $archivo->getRealPath()) ?: null,
-                'subida_por' => $actor->id,
-            ]);
-        }
+        $this->expediente->guardarEvidencias($candidato, $evidenciable, $archivos, $actor);
     }
 
     /**

@@ -22,7 +22,10 @@ use Illuminate\Database\Eloquent\Builder;
  */
 class CandidatoPresenter
 {
-    public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}
+    public function __construct(
+        private readonly AlcanceOrganizacionalService $alcance,
+        private readonly ExpedienteCandidatoService $expediente,
+    ) {}
 
     /**
      * Candidatos visibles para el usuario (alcance por sucursal) con los
@@ -103,7 +106,7 @@ class CandidatoPresenter
             'gerenteInvolucrado:id,name,apellidos,colaborador_id',
             'entrevistas.entrevistador:id,name,apellidos,colaborador_id',
             'psicometricas.evidencias', 'socioeconomicos.evidencias', 'socioeconomicos.visitador:id,name,apellidos,colaborador_id',
-            'referencias.validadaPor:id,name,apellidos,colaborador_id',
+            'referencias.validadaPor:id,name,apellidos,colaborador_id', 'referencias.evidencias', 'evidencias',
             'intervenciones.gerenteSolicitante:id,name,apellidos',
             'intervenciones.rechazoRhPor:id,name,apellidos',
             'intervenciones.aprobador:id,name,apellidos',
@@ -146,6 +149,9 @@ class CandidatoPresenter
             'motivo_salida' => $candidato->motivo_salida,
             'salida_en' => $candidato->salida_en?->toIso8601String(),
             'tiene_cv' => $candidato->tiene_cv,
+            // Mini expediente previo a la contratación (CV, psicométricos,
+            // videos del socioeconómico, referencias), agrupado como en el NAS.
+            'expediente' => $this->expediente->resumen($candidato),
             'colaborador_id' => $candidato->colaborador_id,
             'creado_en' => $candidato->created_at?->toIso8601String(),
             'contratado_en' => $candidato->contratado_en?->toIso8601String(),
@@ -191,6 +197,7 @@ class CandidatoPresenter
                 'observaciones' => $r->observaciones,
                 'fecha_validacion' => $r->fecha_validacion->toDateString(),
                 'validada_por' => $r->validadaPor?->nombreCompleto(),
+                'evidencias' => $r->evidencias->map(fn (CandidatoEvidencia $e) => $this->evidencia($e))->values()->all(),
             ])->values()->all(),
             'invitacion' => $invitacion !== null ? [
                 'id' => $invitacion->id,
@@ -225,14 +232,6 @@ class CandidatoPresenter
      */
     private function evidencia(CandidatoEvidencia $evidencia): array
     {
-        return [
-            'id' => $evidencia->id,
-            'tipo' => $evidencia->tipo->value,
-            'tipo_etiqueta' => $evidencia->tipo->etiqueta(),
-            'nombre' => $evidencia->original_name,
-            'mime' => $evidencia->mime,
-            'tamano' => $evidencia->size,
-            'subida_en' => $evidencia->created_at?->toIso8601String(),
-        ];
+        return $this->expediente->evidencia($evidencia);
     }
 }

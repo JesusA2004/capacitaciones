@@ -19,4 +19,26 @@ return [
 
     'extensiones_permitidas' => ['pdf', 'doc', 'docx'],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Mini expediente del candidato (antes de la contratación)
+    |--------------------------------------------------------------------------
+    |
+    | Videos/fotografías del estudio socioeconómico, resultados psicométricos
+    | y soporte de referencias (ver ExpedienteCandidatoService). Un video
+    | grabado con el celular pesa fácilmente 100+ MB: el servidor debe
+    | aceptar ese tamaño (php.ini upload_max_filesize/post_max_size y Nginx
+    | client_max_body_size, ver docs/DEPLOY.md).
+    |
+    */
+
+    'evidencias' => [
+        'max_archivos' => 20,
+        'max_documento_mb' => (int) env('RECLUTAMIENTO_EVIDENCIA_MAX_MB', 20),
+        'max_video_mb' => (int) env('RECLUTAMIENTO_VIDEO_MAX_MB', 250),
+        'extensiones_video' => ['mp4', 'mov', 'qt', 'm4v', '3gp', 'webm'],
+        'extensiones_foto' => ['jpg', 'jpeg', 'png', 'webp'],
+        'extensiones_documento' => ['pdf', 'doc', 'docx', 'xls', 'xlsx'],
+    ],
+
 ];

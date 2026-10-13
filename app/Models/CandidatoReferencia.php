@@ -3,8 +3,10 @@
 namespace App\Models;
 
 use App\Enums\ResultadoReferencia;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -21,6 +23,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon $fecha_validacion
  * @property int|null $validada_por
  * @property-read User|null $validadaPor
+ * @property-read Collection<int, CandidatoEvidencia> $evidencias
  */
 class CandidatoReferencia extends Model
 {
@@ -53,5 +56,16 @@ class CandidatoReferencia extends Model
     public function validadaPor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'validada_por');
+    }
+
+    /**
+     * Soporte de la referencia (constancia, carta, captura): mismo esquema
+     * privado que psicométricas y socioeconómico.
+     *
+     * @return MorphMany<CandidatoEvidencia, $this>
+     */
+    public function evidencias(): MorphMany
+    {
+        return $this->morphMany(CandidatoEvidencia::class, 'evidenciable');
     }
 }

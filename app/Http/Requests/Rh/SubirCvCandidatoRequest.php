@@ -8,7 +8,7 @@ class SubirCvCandidatoRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('update', $this->route('candidato')) ?? false;
+        return $this->user()?->can('adjuntar', $this->route('candidato')) ?? false;
     }
 
     /**

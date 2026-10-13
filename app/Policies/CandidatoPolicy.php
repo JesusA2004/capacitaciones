@@ -38,6 +38,17 @@ class CandidatoPolicy
     }
 
     /**
+     * Agregar archivos al mini expediente (CV, psicométricos, videos del
+     * socioeconómico, soporte de referencias): Reclutamiento o el gerente
+     * que evalúa, siempre dentro de su alcance.
+     */
+    public function adjuntar(User $usuario, Candidato $candidato): bool
+    {
+        return ($usuario->can('candidatos.editar') || $usuario->can('candidatos.evaluar'))
+            && $this->visiblePara($usuario, $candidato);
+    }
+
+    /**
      * Desde el tablero solo se puede CERRAR el proceso (estados de salida con
      * motivo); avanzar es una acción del workflow.
      */

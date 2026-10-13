@@ -2,6 +2,7 @@
 import { useForm } from '@inertiajs/vue3';
 import { computed, watch } from 'vue';
 import InputError from '@/components/InputError.vue';
+import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -56,6 +57,9 @@ const form = useForm({
     correo: props.candidato?.correo ?? '',
     fuente: props.candidato?.fuente ?? '',
     observaciones: props.candidato?.observaciones ?? '',
+    // CV desde la fase inicial (solo al registrar; después se reemplaza
+    // desde el expediente del candidato).
+    cv: [] as File[],
 });
 
 // El puesto/sucursal/empresa se derivan SIEMPRE de la vacante elegida (la
@@ -127,6 +131,7 @@ function enviar() {
             ? null
             : datos.campana_reclutamiento_id || null,
         fuente: datos.fuente || null,
+        cv: props.candidato ? undefined : (datos.cv[0] ?? null),
     }));
 
     const opciones = {
@@ -137,7 +142,7 @@ function enviar() {
     if (props.candidato) {
         transformado.put(update.url(props.candidato.id), opciones);
     } else {
-        transformado.post(store.url(), opciones);
+        transformado.post(store.url(), { ...opciones, forceFormData: true });
     }
 }
 </script>
@@ -342,6 +347,17 @@ function enviar() {
                         rows="3"
                     />
                     <InputError :message="form.errors.observaciones" />
+                </div>
+
+                <div v-if="!candidato" class="grid gap-2">
+                    <Label>Currículum (opcional)</Label>
+                    <PeopleFileDropzone
+                        v-model="form.cv"
+                        accept=".pdf,.doc,.docx"
+                        :max-size-mb="10"
+                        label="Arrastra el CV"
+                    />
+                    <InputError :message="form.errors.cv" />
                 </div>
 
                 <DialogFooter>

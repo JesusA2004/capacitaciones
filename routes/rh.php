@@ -177,6 +177,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('{candidato}/estado', [CandidatoController::class, 'actualizarEstado'])->name('estado');
             Route::post('{candidato}/seguimientos', [CandidatoController::class, 'agregarSeguimiento'])->name('seguimientos.store');
             Route::get('{candidato}/evidencias/{evidencia}', [CandidatoController::class, 'descargarEvidencia'])->name('evidencias.descargar');
+            Route::post('{candidato}/evidencias', [CandidatoController::class, 'agregarEvidencias'])->name('evidencias.store');
             // Workflow de reclutamiento (CandidatoWorkflowService, mismo que la API).
             Route::post('{candidato}/perfil', [CandidatoController::class, 'evaluarPerfil'])->name('perfil');
             Route::post('{candidato}/entrevista', [CandidatoController::class, 'registrarEntrevista'])->name('entrevista');

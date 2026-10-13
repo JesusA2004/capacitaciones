@@ -340,7 +340,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('{candidato}/psicometricas/resultados', [RhCandidatoController::class, 'resultadosPsicometricas'])->name('psicometricas.resultados')->middleware('throttle:api-cargas');
                 Route::post('{candidato}/psicometricas/revision', [RhCandidatoController::class, 'revisarPsicometricas'])->name('psicometricas.revision');
                 Route::post('{candidato}/socioeconomico', [RhCandidatoController::class, 'registrarSocioeconomico'])->name('socioeconomico')->middleware('throttle:api-cargas');
-                Route::post('{candidato}/referencias', [RhCandidatoController::class, 'registrarReferencia'])->name('referencias');
+                Route::post('{candidato}/referencias', [RhCandidatoController::class, 'registrarReferencia'])->name('referencias')->middleware('throttle:api-cargas');
+                Route::post('{candidato}/evidencias', [RhCandidatoController::class, 'agregarEvidencias'])->name('evidencias')->middleware('throttle:api-cargas');
                 Route::post('{candidato}/referencias/concluir', [RhCandidatoController::class, 'concluirReferencias'])->name('referencias.concluir');
                 Route::post('{candidato}/preautorizar', [RhCandidatoController::class, 'preautorizar'])->name('preautorizar');
                 Route::post('{candidato}/autorizar', [RhCandidatoController::class, 'autorizarRh'])->name('autorizar');

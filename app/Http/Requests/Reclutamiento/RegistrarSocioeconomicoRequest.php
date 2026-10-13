@@ -37,9 +37,8 @@ class RegistrarSocioeconomicoRequest extends FormRequest
             'motivo_rechazo_id' => ['nullable', 'integer', 'exists:motivos_rechazo_candidato,id'],
             'recontratable' => ['nullable', 'boolean'],
             'visitador_user_id' => ['nullable', 'integer', 'exists:users,id'],
-            'evidencias' => ['nullable', 'array', 'max:12'],
-            // Fotografías, video corto o PDF: evidencia privada en el NAS.
-            'evidencias.*' => ['file', 'mimes:jpg,jpeg,png,webp,pdf,mp4,mov', 'max:'.((int) config('contratos.max_upload_mb', 20) * 1024 * 3)],
+            // Varios videos, fotografías o PDF: carpeta socioeconomico/ del NAS.
+            ...ReglasArchivosCandidato::para('evidencias', ['video', 'foto', 'documento']),
         ];
     }
 

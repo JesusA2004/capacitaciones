@@ -37,6 +37,8 @@ class StoreCandidatoRequest extends FormRequest
             'observaciones' => ['nullable', 'string', 'max:4000'],
             'responsable_rh_id' => ['nullable', 'integer', 'exists:users,id'],
             'gerente_involucrado_id' => ['nullable', 'integer', 'exists:users,id'],
+            // CV desde la fase inicial (opcional): carpeta candidatos/{id}/cv/ del NAS.
+            'cv' => ['nullable', 'file', 'max:'.((int) config('reclutamiento.max_upload_mb') * 1024), 'mimes:'.implode(',', (array) config('reclutamiento.extensiones_permitidas'))],
         ];
     }
 }

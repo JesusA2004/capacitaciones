@@ -11,6 +11,7 @@ use App\Exports\ReporteRhExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CicloLaboral\ContratarCandidatoRequest;
 use App\Http\Requests\CicloLaboral\DecisionAprobacionRequest;
+use App\Http\Requests\Reclutamiento\AgregarEvidenciasCandidatoRequest;
 use App\Http\Requests\Reclutamiento\DescartarCandidatoRequest;
 use App\Http\Requests\Reclutamiento\EnviarPsicometricasRequest;
 use App\Http\Requests\Reclutamiento\EvaluarFiltroCandidatoRequest;
@@ -38,6 +39,7 @@ use App\Services\Reclutamiento\CandidatoPresenter;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
 use App\Services\Reclutamiento\ContratacionCandidatoService;
 use App\Services\Reclutamiento\CvStorageService;
+use App\Services\Reclutamiento\ExpedienteCandidatoService;
 use App\Services\Reclutamiento\IntervencionCandidatoService;
 use App\Services\Vacantes\VacantesListadoService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -45,6 +47,7 @@ use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -71,6 +74,7 @@ class CandidatoController extends Controller
         private readonly CandidatoPresenter $presenter,
         private readonly VacantesListadoService $vacantesListado,
         private readonly IntervencionCandidatoService $intervenciones,
+        private readonly ExpedienteCandidatoService $expediente,
     ) {}
 
     public function index(Request $request): Response
@@ -214,12 +218,23 @@ class CandidatoController extends Controller
             'ciclo' => $this->ciclo->obtenerEstado($candidato, $request->user()),
             'opciones' => $this->opciones($request->user()),
             'intervencionPendienteId' => $intervencionPendiente?->id,
+            'puedeAdjuntar' => $request->user()?->can('adjuntar', $candidato) ?? false,
+            'limitesArchivos' => [
+                'max_documento_mb' => (int) config('reclutamiento.evidencias.max_documento_mb'),
+                'max_video_mb' => (int) config('reclutamiento.evidencias.max_video_mb'),
+                'max_cv_mb' => (int) config('reclutamiento.max_upload_mb'),
+            ],
         ]);
     }
 
     public function store(StoreCandidatoRequest $request): RedirectResponse
     {
-        $this->workflow->registrar($request->validated(), $request->user());
+        $candidato = $this->workflow->registrar($request->safe()->except('cv'), $request->user());
+        $cv = $request->file('cv');
+
+        if ($cv instanceof UploadedFile) {
+            $this->expediente->guardarCv($candidato, $cv, $request->user());
+        }
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Candidato registrado correctamente.']);
     }
@@ -233,22 +248,7 @@ class CandidatoController extends Controller
 
     public function subirCv(SubirCvCandidatoRequest $request, Candidato $candidato): RedirectResponse
     {
-        if ($candidato->cv_path) {
-            $this->cvStorage->eliminar($candidato->cv_path);
-        }
-
-        $archivo = $request->file('cv');
-        $nombreInterno = $this->cvStorage->nombreInterno($archivo->getClientOriginalName());
-        $ruta = $this->cvStorage->rutaCv($candidato->id, $nombreInterno);
-        $this->cvStorage->guardar($archivo, $ruta);
-
-        $candidato->update([
-            'cv_disk' => config('reclutamiento.disk'),
-            'cv_path' => $ruta,
-            'cv_original_name' => $archivo->getClientOriginalName(),
-            'cv_mime' => $archivo->getMimeType() ?? $archivo->getClientMimeType(),
-            'cv_size' => $archivo->getSize(),
-        ]);
+        $this->expediente->guardarCv($candidato, $request->file('cv'), $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'CV cargado correctamente.']);
     }
@@ -357,9 +357,18 @@ class CandidatoController extends Controller
 
     public function registrarReferencia(RegistrarReferenciaRequest $request, Candidato $candidato): RedirectResponse
     {
-        $this->workflow->registrarReferencia($candidato, $request->user(), $request->validated());
+        $this->workflow->registrarReferencia($candidato, $request->user(), $request->safe()->except('archivos'), array_values($request->file('archivos', [])));
 
         return $this->ok('Referencia registrada.');
+    }
+
+    /** Agrega archivos al mini expediente sin cambiar el estado del candidato. */
+    public function agregarEvidencias(AgregarEvidenciasCandidatoRequest $request, Candidato $candidato): RedirectResponse
+    {
+        $registroId = $request->validated('registro_id');
+        $guardadas = $this->expediente->agregarEvidencias($candidato, $request->user(), (string) $request->validated('etapa'), array_values($request->file('archivos', [])), $registroId !== null ? (int) $registroId : null);
+
+        return $this->ok(count($guardadas) === 1 ? 'Archivo agregado al expediente del candidato.' : sprintf('%d archivos agregados al expediente del candidato.', count($guardadas)));
     }
 
     public function concluirReferencias(EvaluarFiltroCandidatoRequest $request, Candidato $candidato): RedirectResponse

@@ -158,6 +158,18 @@ export type EvidenciaCandidato = {
     subida_en: string | null;
 };
 
+/** Mini expediente previo a la contratación, agrupado como en el NAS. */
+export type ExpedienteCandidato = {
+    cv: { nombre: string; tamano: number | null; subido_en: string | null } | null;
+    grupos: {
+        clave: string;
+        titulo: string;
+        etapa: 'socioeconomico' | 'psicometricas' | 'referencias' | 'otros';
+        archivos: EvidenciaCandidato[];
+    }[];
+    total: number;
+};
+
 export type CandidatoFicha = {
     id: number;
     nombre: string;
@@ -192,6 +204,7 @@ export type CandidatoFicha = {
     motivo_salida: string | null;
     salida_en: string | null;
     tiene_cv: boolean;
+    expediente: ExpedienteCandidato;
     colaborador_id: number | null;
     creado_en: string | null;
     contratado_en: string | null;
@@ -237,6 +250,7 @@ export type CandidatoFicha = {
         observaciones: string | null;
         fecha_validacion: string;
         validada_por: string | null;
+        evidencias: EvidenciaCandidato[];
     }[];
     invitacion: {
         id: number;
@@ -554,4 +568,11 @@ export type MisPendientes = {
     todo_listo: boolean;
     evaluacionInduccion?: EvaluacionInduccionResumen | null;
     induccionContenido?: InduccionContenidoResumen | null;
+};
+
+/** Límites del mini expediente del candidato (config/reclutamiento.php). */
+export type LimitesArchivosCandidato = {
+    max_documento_mb: number;
+    max_video_mb: number;
+    max_cv_mb: number;
 };

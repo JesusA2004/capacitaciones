@@ -6,6 +6,7 @@ use App\Enums\EstadoCandidato;
 use App\Http\Controllers\Api\V1\Concerns\RespondePaginado;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CicloLaboral\DecisionAprobacionRequest;
+use App\Http\Requests\Reclutamiento\AgregarEvidenciasCandidatoRequest;
 use App\Http\Requests\Reclutamiento\DescartarCandidatoRequest;
 use App\Http\Requests\Reclutamiento\EnviarPsicometricasRequest;
 use App\Http\Requests\Reclutamiento\EvaluarFiltroCandidatoRequest;
@@ -17,6 +18,7 @@ use App\Models\Candidato;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\Reclutamiento\CandidatoPresenter;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
+use App\Services\Reclutamiento\ExpedienteCandidatoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -35,6 +37,7 @@ class CandidatoController extends Controller
         private readonly CandidatoWorkflowService $workflow,
         private readonly CandidatoPresenter $presenter,
         private readonly CicloLaboralService $ciclo,
+        private readonly ExpedienteCandidatoService $expediente,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -111,7 +114,15 @@ class CandidatoController extends Controller
 
     public function registrarReferencia(RegistrarReferenciaRequest $request, Candidato $candidato): JsonResponse
     {
-        $this->workflow->registrarReferencia($candidato, $request->user(), $request->validated());
+        $this->workflow->registrarReferencia($candidato, $request->user(), $request->safe()->except('archivos'), array_values($request->file('archivos', [])));
+
+        return $this->ficha($request, $candidato);
+    }
+
+    public function agregarEvidencias(AgregarEvidenciasCandidatoRequest $request, Candidato $candidato): JsonResponse
+    {
+        $registroId = $request->validated('registro_id');
+        $this->expediente->agregarEvidencias($candidato, $request->user(), (string) $request->validated('etapa'), array_values($request->file('archivos', [])), $registroId !== null ? (int) $registroId : null);
 
         return $this->ficha($request, $candidato);
     }

@@ -31,6 +31,34 @@ expone en su lugar `tiene_cv` (boolean) y `cv_original_name`; la descarga real p
 `GET rh/candidatos/{candidato}/cv/descargar`, protegida por policy, igual que los
 documentos de expediente — nunca se expone la ruta física del NAS al frontend.
 
+## Mini expediente del candidato (antes de la contratación)
+
+`App\Services\Reclutamiento\ExpedienteCandidatoService` reúne lo que el candidato
+presentó en el proceso para que RH, Dirección Comercial y administrativos le den
+seguimiento (sección «Expediente del candidato» en la ficha). Todo vive en el NAS
+(Synology), una carpeta por candidato:
+
+| Carpeta | Contenido | Cuándo se sube |
+|---|---|---|
+| `candidatos/{id}/cv/` | CV (PDF/Word, 10 MB) | Al registrar al candidato o después |
+| `candidatos/{id}/psicometricos/` | Resultados psicométricos (PDF, imagen, Word, Excel) | Con «Registrar resultados» o después |
+| `candidatos/{id}/socioeconomico/videos/` | Uno o varios videos (MP4, MOV, M4V, 3GP, WEBM; 250 MB c/u) | Con el estudio socioeconómico o después |
+| `candidatos/{id}/socioeconomico/fotos/` y `…/documentos/` | Fotografías y PDF del estudio | Igual |
+| `candidatos/{id}/referencias/` | Soporte de la referencia (constancia, carta, captura) | Al registrar la referencia o después |
+
+- Agregar archivos después: `POST rh/candidatos/{candidato}/evidencias` (web) y
+  `POST api/v1/rh/candidatos/{candidato}/evidencias` (app), con `etapa`
+  (`socioeconomico`, `psicometricas`, `referencias`) y `archivos[]`. No cambia la
+  fase del candidato; deja nota en su seguimiento y en la auditoría.
+- Quién sube: `CandidatoPolicy::adjuntar` (Reclutamiento o el gerente que evalúa,
+  dentro de su alcance). Quién consulta: `CandidatoPolicy::view` (`candidatos.ver_todos`
+  para RH, Dirección Comercial y administrativos; gerentes solo su alcance).
+- Límites en `config/reclutamiento.php` (`evidencias.*`, variables
+  `RECLUTAMIENTO_VIDEO_MAX_MB` y `RECLUTAMIENTO_EVIDENCIA_MAX_MB`). El servidor debe
+  aceptar el tamaño del video (php.ini y Nginx, ver `docs/DEPLOY.md`).
+- Archivos subidos antes de este cambio siguen en `candidatos/{id}/evidencias/` y se
+  muestran igual (la ruta se guarda en BD); no se mueven automáticamente.
+
 ## Estados
 
 > **Vigente (2026-10):** el pipeline real está en `App\Enums\EstadoCandidato` y en

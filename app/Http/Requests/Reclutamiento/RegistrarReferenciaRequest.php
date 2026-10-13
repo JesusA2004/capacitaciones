@@ -26,6 +26,7 @@ class RegistrarReferenciaRequest extends FormRequest
             'resultado' => ['required', Rule::enum(ResultadoReferencia::class)],
             'observaciones' => ['nullable', 'string', 'max:2000'],
             'fecha_validacion' => ['nullable', 'date', 'before_or_equal:today'],
+            ...ReglasArchivosCandidato::para('archivos', ['documento', 'foto']),
         ];
     }
 }
