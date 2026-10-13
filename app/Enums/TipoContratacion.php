@@ -48,6 +48,19 @@ enum TipoContratacion: string
     }
 
     /**
+     * Nombre del contrato como lo escriben los formatos de Jurídico
+     * (encabezados de los contratos oficiales).
+     */
+    public function nombreLegal(): string
+    {
+        return match ($this) {
+            self::PeriodoPrueba, self::CapacitacionInicial => 'Contrato Individual de Trabajo de Capacitación Inicial',
+            self::TiempoDeterminado => 'Contrato Individual de Trabajo por Tiempo Determinado',
+            self::Indeterminado => 'Contrato Individual de Trabajo por Tiempo Indeterminado',
+        };
+    }
+
+    /**
      * true si la modalidad tiene fecha de vencimiento (y por lo tanto entra
      * al control automático de vencimientos/evaluación).
      */

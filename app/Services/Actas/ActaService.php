@@ -12,7 +12,7 @@ use App\Models\GeneratedDocument;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
-use App\Services\DocumentosLaborales\MotorDocumentalService;
+use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
@@ -33,7 +33,6 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class ActaService
 {
     public function __construct(
-        private readonly MotorDocumentalService $motor,
         private readonly DocumentoStorageService $expediente,
         private readonly AuditoriaService $auditoria,
         private readonly AlcanceOrganizacionalService $alcance,
@@ -129,16 +128,9 @@ class ActaService
      */
     public function generarDocumento(ActaAdministrativa $acta, User $actor): GeneratedDocument
     {
-        if (in_array($acta->estado, [EstadoActa::Cerrada, EstadoActa::Cancelada], true)) {
-            throw ValidationException::withMessages(['acta' => 'El acta ya está cerrada.']);
-        }
-
-        $documento = $this->motor->generar($acta->colaborador, $acta->tipo->clavePlantilla(), $actor, $this->variables($acta), $acta, sprintf('%s %s', $acta->tipo->etiqueta(), $acta->folio));
-
-        $acta->update(['generated_document_id' => $documento->id, 'estado' => EstadoActa::Generada]);
-        $this->auditoria->registrar('acta_documento_generado', $acta, $actor, ['documento_id' => $documento->id]);
-
-        return $documento;
+        // Mismo camino que la web: formato oficial, faltantes, flujo físico
+        // y archivo en el expediente (DocumentoProcesoService).
+        return app(DocumentoProcesoService::class)->generar('acta', $acta, $acta->tipo->clavePlantilla(), $actor, regenerar: $acta->generated_document_id !== null);
     }
 
     public function registrarNegativaFirma(ActaAdministrativa $acta, string $motivo, User $actor): ActaAdministrativa
@@ -208,6 +200,8 @@ class ActaService
             'folio' => $acta->folio,
             'tipo' => $acta->tipo->value,
             'tipo_etiqueta' => $acta->tipo->etiqueta(),
+            'motivo' => $acta->motivo,
+            'estado_etiqueta' => $acta->estado->etiqueta(),
             'estado' => $acta->estado->value,
             'colaborador' => ['id' => $acta->colaborador->id, 'nombre' => $acta->colaborador->nombreCompleto(), 'numero_empleado' => $acta->colaborador->numero_empleado],
             'fecha' => $acta->fecha->toDateString(),
@@ -245,7 +239,7 @@ class ActaService
      */
     private function campos(array $datos): array
     {
-        return array_intersect_key($datos, array_flip(['fecha', 'hora', 'lugar', 'hechos', 'testigos', 'declaraciones', 'responsable_id', 'sucursal_id']));
+        return array_intersect_key($datos, array_flip(['motivo', 'fecha', 'hora', 'lugar', 'hechos', 'testigos', 'declaraciones', 'responsable_id', 'sucursal_id']));
     }
 
     private function agregarSeguimientoInterno(ActaAdministrativa $acta, string $nota, User $actor): void
@@ -256,22 +250,63 @@ class ActaService
     }
 
     /**
+     * Lo que el formato toma del acta: motivo, hechos, manifestaciones,
+     * fecha/hora/lugar y testigos. Lo demás (nombre, puesto, contrato,
+     * empresa, representantes propuestos) sale de los datos del
+     * colaborador en DatosDocumentoService. Vacío = dato faltante (el
+     * formato no se emite con la línea en blanco).
+     *
      * @return array<string, string>
      */
-    private function variables(ActaAdministrativa $acta): array
+    public function variablesDocumento(ActaAdministrativa $acta): array
     {
-        $acta->loadMissing(['responsable', 'sucursal']);
+        $testigos = array_values($acta->testigos ?? []);
+        $variables = [
+            'fecha_documento' => $acta->fecha->toDateString(),
+            'fecha_acta_larga' => $acta->fecha->copy()->settings(['locale' => 'es'])->isoFormat('D [de] MMMM [de] YYYY'),
+            'hora_acta' => (string) $acta->hora,
+            'motivo_acta_mayusculas' => mb_strtoupper(trim((string) $acta->motivo), 'UTF-8'),
+            'hechos_acta' => trim($acta->hechos),
+            'manifestaciones_acta' => collect($acta->declaraciones ?? [])
+                ->map(fn (array $d): string => trim(sprintf('%s: %s', trim($d['persona']), trim($d['declaracion']))))
+                ->implode("\n"),
+        ];
 
-        return [
+        if (filled($acta->lugar)) {
+            $variables['lugar_acta'] = (string) $acta->lugar;
+        }
+
+        // Variables de las plantillas anteriores (HTML) de actas: se conservan
+        // para que un formato ya cargado con ellas siga llenándose igual.
+        $acta->loadMissing('responsable');
+        $variables += [
             'folio_acta' => (string) $acta->folio,
             'tipo_acta' => $acta->tipo->etiqueta(),
             'fecha_acta' => $acta->fecha->format('d/m/Y'),
-            'hora_acta' => (string) $acta->hora,
-            'lugar_acta' => (string) ($acta->lugar ?? $acta->sucursal?->nombre),
-            'hechos_acta' => $acta->hechos,
             'responsable_acta' => $acta->responsable !== null ? trim($acta->responsable->name.' '.$acta->responsable->apellidos) : '',
-            'testigos_acta' => collect($acta->testigos ?? [])->map(fn (array $t) => trim($t['nombre'].(isset($t['puesto']) && $t['puesto'] ? " ({$t['puesto']})" : '')))->implode(', '),
-            'declaraciones_acta' => collect($acta->declaraciones ?? [])->map(fn (array $d) => "{$d['persona']}: {$d['declaracion']}")->implode("\n"),
+            'testigos_acta' => collect($testigos)->map(fn (array $t): string => trim($t['nombre'].(isset($t['puesto']) && $t['puesto'] ? " ({$t['puesto']})" : '')))->implode(', '),
+            'declaraciones_acta' => $variables['manifestaciones_acta'],
         ];
+
+        foreach ([0, 1] as $i) {
+            $variables[sprintf('testigo_%d_nombre', $i + 1)] = trim((string) ($testigos[$i]['nombre'] ?? ''));
+            $variables[sprintf('testigo_%d_cargo', $i + 1)] = trim((string) ($testigos[$i]['puesto'] ?? ''));
+        }
+
+        return $variables;
+    }
+
+    /**
+     * El formato quedó generado (web o app): se liga al acta y se anota en
+     * su seguimiento.
+     */
+    public function formatoGenerado(ActaAdministrativa $acta, GeneratedDocument $documento, User $actor): void
+    {
+        $acta->update([
+            'generated_document_id' => $documento->id,
+            'estado' => $acta->estado === EstadoActa::Borrador ? EstadoActa::Generada : $acta->estado,
+        ]);
+        $this->agregarSeguimientoInterno($acta, 'Formato del acta generado.', $actor);
+        $this->auditoria->registrar('acta_documento_generado', $acta, $actor, ['documento_id' => $documento->id]);
     }
 }

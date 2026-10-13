@@ -274,3 +274,29 @@ test('volver a previsualizar el mismo archivo reutiliza la misma importación; s
     expect(HistorialSalario::query()->where('colaborador_id', $colaborador->id)->count())->toBe(1)
         ->and(AjusteHistoricoVacaciones::query()->where('colaborador_id', $colaborador->id)->count())->toBe(1);
 });
+
+test('RH quita un archivo analizado que ya no aplicará; uno ya aplicado se conserva como historial', function () {
+    $colaborador = Colaborador::factory()->create([
+        'name' => 'Juan', 'apellidos' => 'Pérez López',
+        'sucursal_principal_id' => $this->sucursal->id,
+        'estatus' => 'activo',
+        'fecha_ingreso' => now()->subYears(2)->toDateString(),
+        'salario_diario' => 450,
+    ]);
+    $sinAplicar = $this->importador->analizar(itvArchivo([['Juan Pérez López', 'Atlacomulco', now()->subYears(2)->format('n/j/Y'), 14, 0, 14, 500]]), $this->actor);
+
+    $this->actingAs($this->actor)->delete(route('rh.importaciones.destroy', $sinAplicar))->assertRedirect(route('rh.importaciones.index'));
+
+    expect(ImportacionExcel::query()->whereKey($sinAplicar->id)->exists())->toBeFalse()
+        ->and((float) $colaborador->refresh()->salario_diario)->toBe(450.0);
+
+    $aplicada = $this->importador->analizar(itvArchivo([['Juan Pérez López', 'Atlacomulco', now()->subYears(2)->format('n/j/Y'), 14, 0, 14, 520]]), $this->actor);
+    $this->importador->aplicar($aplicada, $this->actor);
+
+    $this->actingAs($this->actor)->delete(route('rh.importaciones.destroy', $aplicada))->assertSessionHasErrors('importacion');
+
+    expect(ImportacionExcel::query()->whereKey($aplicada->id)->exists())->toBeTrue();
+
+    // Sin el permiso del importador, nadie quita nada.
+    $this->actingAs(clUsuario('colaborador'))->delete(route('rh.importaciones.destroy', $aplicada))->assertForbidden();
+});

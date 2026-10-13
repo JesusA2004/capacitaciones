@@ -2,6 +2,7 @@
 
 namespace App\Services\DocumentosMaestros;
 
+use App\Enums\EstadoActa;
 use App\Enums\EstadoContratoLaboral;
 use App\Enums\EstadoEvaluacionPrueba;
 use App\Enums\EstadoFiniquito;
@@ -11,6 +12,7 @@ use App\Enums\ResultadoEvaluacion;
 use App\Enums\TipoSolicitudInterna;
 use App\Exceptions\DatosDocumentoFaltantesException;
 use App\Exceptions\DocumentoMaestroFaltanteException;
+use App\Models\ActaAdministrativa;
 use App\Models\CierreLaboral;
 use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
@@ -23,6 +25,7 @@ use App\Models\Prestamo;
 use App\Models\SolicitudInterna;
 use App\Models\Sucursal;
 use App\Models\User;
+use App\Services\Actas\ActaService;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
@@ -651,6 +654,35 @@ class DocumentoProcesoService
         ];
     }
 
+    /**
+     * Formato del acta (PRO-ADP-08): se llena con los datos del colaborador
+     * y lo capturado en el acta (motivo, hechos, manifestaciones, testigos);
+     * después sigue el flujo físico (impresión, firma o negativa, escaneo y
+     * archivo en el expediente).
+     *
+     * @return array<string, mixed>
+     */
+    public function seccionActa(ActaAdministrativa $acta, User $viewer): array
+    {
+        $colaborador = $this->colaboradorDe($acta);
+        $this->exigirVer($viewer, $colaborador);
+        $bloqueo = $this->bloqueoGeneracion('acta', $acta, $acta->tipo->clavePlantilla());
+
+        return [
+            'proceso' => 'acta',
+            'titulo' => 'Formato del acta',
+            'descripcion' => 'Formato oficial con los datos del colaborador y lo capturado en el acta.',
+            'registro' => ['tipo' => 'acta', 'id' => $acta->id],
+            'colaborador' => $this->resumenColaborador($colaborador),
+            'bloqueo' => $bloqueo,
+            'acciones' => [],
+            'documentos' => [$this->item($acta->tipo->clavePlantilla(), $colaborador, $acta, $viewer, 'acta', [
+                'motivo' => $acta->motivo !== null && $acta->motivo !== '' ? sprintf('%s por %s.', $acta->tipo->etiqueta(), mb_strtolower($acta->motivo)) : $acta->tipo->etiqueta().'.',
+                'bloqueo' => $bloqueo,
+            ])],
+        ];
+    }
+
     // ───────────────────────── Acciones ─────────────────────────
 
     /**
@@ -745,7 +777,7 @@ class DocumentoProcesoService
             ]);
         }
 
-        $this->ligarAlRegistro($documento, $registro, $clave);
+        $this->ligarAlRegistro($documento, $registro, $clave, $actor);
 
         return $documento;
     }
@@ -885,6 +917,7 @@ class DocumentoProcesoService
             'prestamo' => Prestamo::query()->findOrFail($id),
             'evaluacion' => EvaluacionPeriodoPrueba::query()->findOrFail($id),
             'entrega_activo' => EntregaActivo::query()->findOrFail($id),
+            'acta' => ActaAdministrativa::query()->findOrFail($id),
             'colaborador' => Colaborador::query()->withTrashed()->where('id', $id)->firstOrFail(),
             default => abort(404),
         };
@@ -907,6 +940,7 @@ class DocumentoProcesoService
             $registro instanceof Prestamo => $this->seccionPrestamo($registro, $viewer),
             $registro instanceof EvaluacionPeriodoPrueba => $this->seccionEvaluacion($registro, $viewer),
             $registro instanceof EntregaActivo => $this->seccionEntregaActivo($registro, $viewer),
+            $registro instanceof ActaAdministrativa => $this->seccionActa($registro, $viewer),
             $registro instanceof Colaborador => $this->seccionADemanda($registro, $viewer),
             $registro instanceof ContratoLaboral && ($proceso === 'renovacion' || $registro->contrato_anterior_id !== null) => $this->seccionRenovacion($registro, $viewer),
             $registro instanceof ContratoLaboral => $this->seccionAlta($registro, $viewer),
@@ -1434,6 +1468,7 @@ class DocumentoProcesoService
     private function bloqueoGeneracion(string $proceso, Model $registro, string $clave): ?string
     {
         return match (true) {
+            $registro instanceof ActaAdministrativa => in_array($registro->estado, [EstadoActa::Cerrada, EstadoActa::Cancelada], true) ? 'El acta ya está cerrada.' : null,
             $registro instanceof CierreLaboral && $clave === 'acta_negativa_firma' => $registro->negativa_firma_en === null
                 ? 'El acta solo se genera cuando se registró la negativa del colaborador a firmar/recibir.'
                 : ($this->testigosCompletos($registro) < 2 ? 'Captura los dos testigos antes de generar el acta.' : null),
@@ -1465,6 +1500,7 @@ class DocumentoProcesoService
             $registro instanceof SolicitudInterna => ['formato_permiso'],
             $registro instanceof EvaluacionPeriodoPrueba => ['evaluacion_capacitacion'],
             $registro instanceof EntregaActivo => ['carta_responsiva'],
+            $registro instanceof ActaAdministrativa => [$registro->tipo->clavePlantilla()],
             $registro instanceof Colaborador => $this->clavesADemanda(),
             default => [],
         };
@@ -1511,6 +1547,11 @@ class DocumentoProcesoService
             };
         }
 
+        // Acta: lo capturado en ella (motivo, hechos, testigos…) y su fecha.
+        if ($registro instanceof ActaAdministrativa) {
+            return app(ActaService::class)->variablesDocumento($registro);
+        }
+
         // Plantillas heredadas de préstamo: los datos AUTORIZADOS del préstamo
         // (monto, plazo, pago…). Los masters los toman de DatosDocumentoService.
         if ($registro instanceof Prestamo) {
@@ -1520,8 +1561,12 @@ class DocumentoProcesoService
         return [];
     }
 
-    private function ligarAlRegistro(GeneratedDocument $documento, Model $registro, string $clave): void
+    private function ligarAlRegistro(GeneratedDocument $documento, Model $registro, string $clave, User $actor): void
     {
+        if ($registro instanceof ActaAdministrativa) {
+            app(ActaService::class)->formatoGenerado($registro, $documento, $actor);
+        }
+
         if ($registro instanceof SolicitudInterna) {
             $documento->update(['solicitud_id' => $registro->id]);
         }
@@ -1559,7 +1604,7 @@ class DocumentoProcesoService
         $colaborador = match (true) {
             $registro instanceof ContratoLaboral, $registro instanceof CierreLaboral, $registro instanceof EvaluacionPeriodoPrueba, $registro instanceof Prestamo => Colaborador::query()->withTrashed()->where('id', $registro->colaborador_id)->first(),
             $registro instanceof SolicitudInterna => $registro->personaSolicitante(),
-            $registro instanceof EntregaActivo => Colaborador::query()->withTrashed()->where('id', $registro->colaborador_id)->first(),
+            $registro instanceof EntregaActivo, $registro instanceof ActaAdministrativa => Colaborador::query()->withTrashed()->where('id', $registro->colaborador_id)->first(),
             $registro instanceof Colaborador => $registro,
             default => null,
         };

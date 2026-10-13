@@ -1,3 +1,4 @@
+export * from './actas';
 export * from './actividades';
 export * from './administracion';
 export * from './altaDigital';

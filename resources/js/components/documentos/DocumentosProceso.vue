@@ -61,6 +61,9 @@ const props = defineProps<{
     proceso?: string;
 }>();
 
+/** Cambió algún documento (generado, firmado, archivado…): la página puede refrescar su propio estado. */
+const emit = defineEmits<{ actualizado: [] }>();
+
 const api = useDocumentosProceso();
 const secciones = ref<Seccion[]>([]);
 const cargando = ref(true);
@@ -104,6 +107,8 @@ function reemplazar(nueva: Seccion) {
     } else {
         void cargar();
     }
+
+    emit('actualizado');
 }
 
 // ───────── Avisos de errores esperables del motor ─────────

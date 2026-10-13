@@ -24,6 +24,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property string|null $folio
  * @property int $colaborador_id
  * @property TipoActa $tipo
+ * @property string|null $motivo Motivo escrito por quien levanta el acta (encabezado del formato).
  * @property EstadoActa $estado
  * @property Carbon $fecha
  * @property string|null $hora
@@ -50,7 +51,7 @@ class ActaAdministrativa extends Model
     protected $table = 'actas_administrativas';
 
     protected $fillable = [
-        'folio', 'colaborador_id', 'tipo', 'estado', 'fecha', 'hora', 'lugar', 'sucursal_id',
+        'folio', 'colaborador_id', 'tipo', 'motivo', 'estado', 'fecha', 'hora', 'lugar', 'sucursal_id',
         'hechos', 'responsable_id', 'testigos', 'declaraciones', 'negativa_firma',
         'motivo_negativa', 'seguimiento', 'generated_document_id', 'creado_por', 'cerrada_en',
     ];

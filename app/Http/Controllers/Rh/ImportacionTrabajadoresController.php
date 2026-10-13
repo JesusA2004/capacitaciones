@@ -80,6 +80,15 @@ class ImportacionTrabajadoresController extends Controller
         ]);
     }
 
+    /** Quita un archivo analizado que ya no se aplicará (las aplicadas no se quitan). */
+    public function destroy(Request $request, ImportacionExcel $importacion): RedirectResponse
+    {
+        abort_unless($request->user()->can('colaboradores.importar_salarios_vacaciones'), 403);
+        $this->importador->eliminar($importacion, $request->user());
+
+        return to_route('rh.importaciones.index')->with('toast', ['type' => 'success', 'message' => sprintf('Se quitó «%s».', $importacion->nombre_archivo)]);
+    }
+
     public function aplicar(AplicarImportacionTrabajadoresRequest $request, ImportacionExcel $importacion): RedirectResponse
     {
         $resultado = $this->importador->aplicar($importacion, $request->user(), $request->validated('filas'));

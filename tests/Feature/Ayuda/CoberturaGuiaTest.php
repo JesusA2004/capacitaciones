@@ -228,6 +228,7 @@ const PANTALLAS_GUIA = [
     'directorio-operativo' => ['pages/Directorio/Index.vue'],
     'induccion' => ['pages/Portal/Induccion.vue'],
     'presentar-induccion' => ['pages/Portal/Induccion.vue'],
+    'actas' => ['pages/Rh/Actas/Index.vue'],
     'perfiles-puesto' => ['pages/Rh/PerfilesPuesto/Index.vue', 'pages/Rh/PerfilesPuesto/Show.vue', 'pages/Rh/PerfilesPuesto/Editar.vue'],
 ];
 

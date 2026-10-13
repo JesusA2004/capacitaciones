@@ -6,6 +6,7 @@ import {
     Cake,
     Contact,
     ClipboardList,
+    FilePen,
     FileStack,
     FolderKanban,
     GitBranch,
@@ -220,6 +221,42 @@ export const MODULOS_GUIA: ModuloGuia[] = [
         ],
     },
     {
+        id: 'actas',
+        nombre: 'Actas administrativas',
+        ruta: '/rh/actas',
+        patron: /^\/rh\/actas/,
+        modo: 'operativo',
+        permisos: ['actas.ver'],
+        grupo: 'Personal',
+        icono: FilePen,
+        descripcion:
+            'Incidencias laborales: se levanta el acta, se genera el formato oficial, se firma (o se asienta la negativa) y queda en el expediente.',
+        pasos: [
+            {
+                titulo: 'Actas administrativas',
+                texto: 'Cuando el jefe inmediato o RH detecta una incidencia, levanta el acta aquí. Cada acta queda en el expediente del colaborador con su seguimiento.',
+            },
+            {
+                selector: sel('actas-levantar'),
+                titulo: 'Levantar un acta',
+                texto: 'Elige al colaborador, el motivo (va en el encabezado: «ACTA ADMINISTRATIVA POR …»), fecha, hora, los hechos, dos testigos y lo que manifiesta cada persona. Nombre, puesto y contrato los pone el sistema.',
+                opcional: true,
+            },
+            {
+                selector: sel('actas-filtros'),
+                titulo: 'Filtros',
+                texto: 'Filtra por tipo de acta y por estado: borrador, formato generado, firmada o cerrada.',
+            },
+            {
+                selector: sel('actas-lista'),
+                titulo: 'Abrir un acta',
+                texto: 'En el acta generas el formato oficial con los datos del colaborador, lo imprimes, registras la firma o la negativa, subes evidencias y anotas el seguimiento de RH y Jurídico.',
+                consejo:
+                    'Si falta algún dato para el formato, el sistema te dice cuál antes de generarlo: nunca sale con una línea en blanco.',
+            },
+        ],
+    },
+    {
         id: 'solicitudes',
         nombre: 'Solicitudes',
         ruta: '/rh/solicitudes',
@@ -362,8 +399,7 @@ export const MODULOS_GUIA: ModuloGuia[] = [
         permisos: ['perfiles_puesto.ver'],
         grupo: 'Reclutamiento',
         icono: ClipboardList,
-        descripcion:
-            'El deber ser de cada puesto y a quién buscamos para él.',
+        descripcion: 'El deber ser de cada puesto y a quién buscamos para él.',
         pasos: [
             {
                 titulo: 'Descriptivos y perfiles',

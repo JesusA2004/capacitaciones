@@ -1,0 +1,129 @@
+<?php
+
+namespace App\Http\Controllers\Rh;
+
+use App\Enums\EstadoActa;
+use App\Enums\TipoActa;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\CicloLaboral\ArchivoLaboralRequest;
+use App\Http\Requests\CicloLaboral\GuardarActaRequest;
+use App\Models\ActaAdministrativa;
+use App\Models\ActaAnexo;
+use App\Models\Colaborador;
+use App\Services\Actas\ActaService;
+use App\Services\DocumentosMaestros\DocumentosMaestrosAdminService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
+use Inertia\Inertia;
+use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+
+/**
+ * Actas administrativas (PRO-ADP-08) en la web: levantar el acta (motivo,
+ * hechos, testigos, manifestaciones), generar el formato oficial, firma o
+ * negativa, anexos, seguimiento y cierre. Mismo ActaService que la API
+ * móvil (Api\V1\Rh\ActaController); el formato sigue el flujo de
+ * «Documentos del proceso» (tipo `acta`).
+ */
+class ActaController extends Controller
+{
+    public function __construct(
+        private readonly ActaService $actas,
+        private readonly DocumentosMaestrosAdminService $admin,
+    ) {}
+
+    public function index(Request $request): Response
+    {
+        abort_unless($request->user()->can('actas.ver'), 403);
+        $filtros = $request->only(['tipo', 'estado', 'colaborador_id', 'per_page']);
+
+        return Inertia::render('Rh/Actas/Index', [
+            'actas' => $this->actas->listar($request->user(), $filtros)
+                ->through(fn (ActaAdministrativa $a): array => $this->actas->aArray($a)),
+            'filtros' => $filtros,
+            'tipos' => array_map(fn (TipoActa $t): array => ['value' => $t->value, 'label' => $t->etiqueta()], TipoActa::cases()),
+            'estados' => array_map(fn (EstadoActa $e): array => ['value' => $e->value, 'label' => $e->etiqueta()], EstadoActa::cases()),
+            'puedeCrear' => $request->user()->can('actas.crear'),
+        ]);
+    }
+
+    /** Buscador del diálogo «Levantar acta» (mismo criterio y alcance que el resto). */
+    public function buscarColaboradores(Request $request): JsonResponse
+    {
+        abort_unless($request->user()->can('actas.crear'), 403);
+        $datos = $request->validate(['q' => ['nullable', 'string', 'max:80']]);
+
+        return response()->json(['data' => $this->admin->buscarColaboradores($request->user(), (string) ($datos['q'] ?? ''))]);
+    }
+
+    public function store(GuardarActaRequest $request, Colaborador $colaborador): RedirectResponse
+    {
+        $this->authorize('crearActa', $colaborador);
+        $acta = $this->actas->crear($colaborador, $request->validated(), $request->user());
+
+        return to_route('rh.actas.show', $acta)->with('toast', ['type' => 'success', 'message' => sprintf('Acta %s levantada. Revisa los datos y genera el formato.', $acta->folio)]);
+    }
+
+    public function show(Request $request, ActaAdministrativa $acta): Response
+    {
+        $this->authorize('ver', $acta);
+
+        return Inertia::render('Rh/Actas/Show', [
+            'acta' => $this->actas->aArray($acta, true),
+            'puedeGestionar' => $request->user()->can('gestionar', $acta),
+        ]);
+    }
+
+    public function update(GuardarActaRequest $request, ActaAdministrativa $acta): RedirectResponse
+    {
+        $this->authorize('gestionar', $acta);
+        $this->actas->actualizar($acta, $request->validated(), $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Acta actualizada.']);
+    }
+
+    public function anexo(ArchivoLaboralRequest $request, ActaAdministrativa $acta): RedirectResponse
+    {
+        $this->authorize('gestionar', $acta);
+        $archivo = $request->file('archivo');
+        abort_unless($archivo instanceof UploadedFile, 422);
+        $this->actas->agregarAnexo($acta, $archivo, $request->validated('descripcion'), $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Anexo guardado en el expediente.']);
+    }
+
+    public function descargarAnexo(ActaAdministrativa $acta, ActaAnexo $anexo): StreamedResponse
+    {
+        $this->authorize('ver', $acta);
+
+        return $this->actas->descargarAnexo($acta, $anexo);
+    }
+
+    public function negativaFirma(Request $request, ActaAdministrativa $acta): RedirectResponse
+    {
+        $this->authorize('gestionar', $acta);
+        $datos = $request->validate(['motivo' => ['required', 'string', 'max:1000']], ['motivo.required' => 'Describe cómo se negó el colaborador a firmar.']);
+        $this->actas->registrarNegativaFirma($acta, $datos['motivo'], $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Negativa a firmar registrada.']);
+    }
+
+    public function seguimiento(Request $request, ActaAdministrativa $acta): RedirectResponse
+    {
+        $this->authorize('gestionar', $acta);
+        $datos = $request->validate(['nota' => ['required', 'string', 'max:2000']], ['nota.required' => 'Escribe la nota de seguimiento.']);
+        $this->actas->agregarSeguimiento($acta, $datos['nota'], $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Seguimiento registrado.']);
+    }
+
+    public function cerrar(Request $request, ActaAdministrativa $acta): RedirectResponse
+    {
+        $this->authorize('gestionar', $acta);
+        $this->actas->cerrar($acta, $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Acta cerrada.']);
+    }
+}

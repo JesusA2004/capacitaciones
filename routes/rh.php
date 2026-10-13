@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Rh\ActaController;
 use App\Http\Controllers\Rh\AltaDigitalController;
 use App\Http\Controllers\Rh\CambioFotoController;
 use App\Http\Controllers\Rh\CampanaReclutamientoController;
@@ -52,6 +53,24 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/', [ImportacionTrabajadoresController::class, 'analizar'])->name('analizar')->middleware('throttle:10,1');
             Route::get('{importacion}', [ImportacionTrabajadoresController::class, 'show'])->name('show');
             Route::post('{importacion}/aplicar', [ImportacionTrabajadoresController::class, 'aplicar'])->name('aplicar')->middleware('throttle:10,1');
+            // Quitar un archivo analizado que ya no se aplicará (las aplicadas son historial).
+            Route::delete('{importacion}', [ImportacionTrabajadoresController::class, 'destroy'])->name('destroy');
+        });
+
+        // Actas administrativas (PRO-ADP-08): levantar, formato oficial,
+        // firma o negativa, anexos, seguimiento y cierre. Mismo ActaService
+        // que la API móvil.
+        Route::prefix('actas')->name('actas.')->group(function () {
+            Route::get('/', [ActaController::class, 'index'])->name('index');
+            Route::get('colaboradores', [ActaController::class, 'buscarColaboradores'])->name('colaboradores');
+            Route::post('colaborador/{colaborador}', [ActaController::class, 'store'])->name('store');
+            Route::get('{acta}', [ActaController::class, 'show'])->name('show');
+            Route::put('{acta}', [ActaController::class, 'update'])->name('update');
+            Route::post('{acta}/anexos', [ActaController::class, 'anexo'])->name('anexos.store')->middleware('throttle:20,1');
+            Route::get('{acta}/anexos/{anexo}', [ActaController::class, 'descargarAnexo'])->name('anexos.show');
+            Route::post('{acta}/negativa-firma', [ActaController::class, 'negativaFirma'])->name('negativa-firma');
+            Route::post('{acta}/seguimiento', [ActaController::class, 'seguimiento'])->name('seguimiento');
+            Route::post('{acta}/cerrar', [ActaController::class, 'cerrar'])->name('cerrar');
         });
 
         // Cambios de foto de perfil por revisar (FotoColaboradorService).

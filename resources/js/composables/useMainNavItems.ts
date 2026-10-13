@@ -8,6 +8,7 @@ import {
     ClipboardList,
     Compass,
     Contact,
+    FilePen,
     FileSpreadsheet,
     FileStack,
     FolderOpen,
@@ -54,6 +55,7 @@ import {
     recibos as misRecibosNomina,
 } from '@/routes/portal';
 import { index as indexReportes } from '@/routes/reportes';
+import { index as indexActas } from '@/routes/rh/actas';
 import { index as indexAniversarios } from '@/routes/rh/aniversarios';
 import { index as indexAvisos } from '@/routes/rh/avisos';
 import { index as indexCampanas } from '@/routes/rh/campanas';
@@ -273,6 +275,11 @@ export function useMainNavItems() {
                     href: indexRhSolicitudes(),
                     icon: ClipboardList,
                 },
+                tienePermiso('actas.ver') && {
+                    title: 'Actas administrativas',
+                    href: indexActas(),
+                    icon: FilePen,
+                },
                 tienePermiso('nomina.recibos.ver') && {
                     title: 'Recibos de nómina',
                     href: indexLotesNomina(),
@@ -337,11 +344,12 @@ export function useMainNavItems() {
                 href: indexDocumentosMaestros(),
                 icon: FileStack,
             },
-            sinConfiguracion && tienePermiso('empresas.ver') && {
-                title: 'Empresas',
-                href: indexEmpresas(),
-                icon: Landmark,
-            },
+            sinConfiguracion &&
+                tienePermiso('empresas.ver') && {
+                    title: 'Empresas',
+                    href: indexEmpresas(),
+                    icon: Landmark,
+                },
             tienePermiso('usuarios.ver') && {
                 title: 'Usuarios',
                 href: indexUsuarios(),
@@ -362,21 +370,23 @@ export function useMainNavItems() {
                 href: indexPuestos(),
                 icon: Briefcase,
             },
-            sinConfiguracion && tienePermiso('roles.administrar') && {
-                title: 'Roles y permisos',
-                href: indexRoles(),
-                icon: ShieldCheck,
-            },
+            sinConfiguracion &&
+                tienePermiso('roles.administrar') && {
+                    title: 'Roles y permisos',
+                    href: indexRoles(),
+                    icon: ShieldCheck,
+                },
             tienePermiso('configuracion.ver') && {
                 title: 'Configuración',
                 href: indexConfiguracion(),
                 icon: Settings2,
             },
-            sinConfiguracion && tienePermiso('app_releases.ver') && {
-                title: 'Versiones de app',
-                href: indexAppReleases(),
-                icon: Smartphone,
-            },
+            sinConfiguracion &&
+                tienePermiso('app_releases.ver') && {
+                    title: 'Versiones de app',
+                    href: indexAppReleases(),
+                    icon: Smartphone,
+                },
         ];
 
         return items.filter((i): i is NavItem => i !== false);

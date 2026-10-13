@@ -6,6 +6,7 @@ use App\Models\Colaborador;
 use App\Models\ImportacionExcel;
 use App\Models\Sucursal;
 use App\Models\User;
+use App\Services\Auditoria\AuditoriaService;
 use App\Services\Compensacion\CompensacionService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
@@ -40,7 +41,25 @@ class ImportadorTrabajadoresService
 
     public function __construct(
         private readonly CompensacionService $compensacion,
+        private readonly AuditoriaService $auditoria,
     ) {}
+
+    /**
+     * Quita una importación que se analizó pero ya no se aplicará. Solo
+     * guardaba el análisis (el Excel no se conserva) y no tocó a ningún
+     * colaborador. Una importación APLICADA no se quita: es el historial de
+     * los salarios y ajustes de vacaciones que cambió.
+     */
+    public function eliminar(ImportacionExcel $importacion, User $actor): void
+    {
+        if ($importacion->estado === 'aplicado') {
+            throw ValidationException::withMessages(['importacion' => 'Esta importación ya se aplicó: se conserva como historial de los cambios que hizo.']);
+        }
+
+        $datos = ['importacion_id' => $importacion->id, 'archivo' => $importacion->nombre_archivo, 'total_filas' => $importacion->total_filas];
+        $importacion->delete();
+        $this->auditoria->registrar('importacion_trabajadores_eliminada', null, $actor, $datos);
+    }
 
     /**
      * Lee y resuelve el archivo (match, antigüedad, propuesta de salario y

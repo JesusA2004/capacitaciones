@@ -22,6 +22,9 @@ class GuardarActaRequest extends FormRequest
 
         return [
             'tipo' => [$this->isMethod('post') ? 'required' : 'prohibited', Rule::enum(TipoActa::class)],
+            // Encabezado del formato oficial («ACTA ADMINISTRATIVA POR …»):
+            // obligatorio al levantar un acta administrativa.
+            'motivo' => [Rule::requiredIf($this->isMethod('post') && $this->input('tipo') === TipoActa::Administrativa->value), 'nullable', 'string', 'max:191'],
             'fecha' => [$requerido, 'date', 'before_or_equal:today'],
             'hora' => ['nullable', 'date_format:H:i'],
             'lugar' => ['nullable', 'string', 'max:255'],

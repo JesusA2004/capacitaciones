@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Head, Link, useForm } from '@inertiajs/vue3';
-import { FileSpreadsheet, FileUp } from '@lucide/vue';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { FileSpreadsheet, FileUp, Trash2 } from '@lucide/vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import InputError from '@/components/InputError.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
 import rutasImportaciones, {
+    destroy as quitarImportacion,
     show as mostrarImportacion,
 } from '@/routes/rh/importaciones';
 
@@ -45,16 +46,31 @@ defineOptions({
 
 const form = useForm<{ archivo: File[] }>({ archivo: [] });
 
+/** Solo las no aplicadas: las aplicadas son el historial de lo que cambió. */
+function quitar(i: ImportacionResumen) {
+    if (
+        !window.confirm(
+            `¿Quitar «${i.nombre_archivo}»? No se aplicó, así que no cambió nada de ningún colaborador.`,
+        )
+    ) {
+        return;
+    }
+
+    router.delete(quitarImportacion.url(i.id), { preserveScroll: true });
+}
+
 function analizar() {
     if (form.archivo.length === 0) {
         return;
     }
 
-    form.transform((datos) => ({ archivo: datos.archivo[0] }))
-        .post(rutasImportaciones.analizar.url(), {
+    form.transform((datos) => ({ archivo: datos.archivo[0] })).post(
+        rutasImportaciones.analizar.url(),
+        {
             forceFormData: true,
             onSuccess: () => form.reset(),
-        });
+        },
+    );
 }
 </script>
 
@@ -71,11 +87,13 @@ function analizar() {
         <section
             class="flex flex-col gap-4 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5"
         >
-            <h2 class="text-sm font-semibold">Importar salarios y vacaciones</h2>
+            <h2 class="text-sm font-semibold">
+                Importar salarios y vacaciones
+            </h2>
             <p class="text-xs text-muted-foreground">
                 Sube el REPORTE_TRABAJADORES_VAC.xlsx oficial. Primero se
-                analiza (preview): nada se aplica hasta que lo confirmes en
-                la pantalla de revisión.
+                analiza (preview): nada se aplica hasta que lo confirmes en la
+                pantalla de revisión.
             </p>
 
             <form class="flex flex-col gap-3" @submit.prevent="analizar">
@@ -132,23 +150,48 @@ function analizar() {
                                             ? 'bg-success/10 text-success'
                                             : 'bg-[var(--mrl-fondo)] text-[var(--mrl-texto-suave)]'
                                     "
-                                    >{{ i.estado === 'aplicado' ? 'Aplicada' : 'Previsualizada' }}</span
+                                    >{{
+                                        i.estado === 'aplicado'
+                                            ? 'Aplicada'
+                                            : 'Previsualizada'
+                                    }}</span
                                 >
                             </td>
                             <td class="py-2 pr-3">{{ i.total_filas }}</td>
                             <td class="py-2 pr-3">{{ i.filas_aplicadas }}</td>
                             <td class="py-2 pr-3">{{ i.filas_revision }}</td>
-                            <td class="py-2 pr-3">{{ i.filas_no_encontradas }}</td>
+                            <td class="py-2 pr-3">
+                                {{ i.filas_no_encontradas }}
+                            </td>
                             <td class="py-2 pr-3">{{ i.subido_por ?? '—' }}</td>
-                            <td class="py-2 pr-3">{{ formatearFecha(i.creado_en) }}</td>
+                            <td class="py-2 pr-3">
+                                {{ formatearFecha(i.creado_en) }}
+                            </td>
                             <td class="py-2 text-right">
-                                <Link :href="mostrarImportacion.url(i.id)">
-                                    <Button variant="outline" size="sm">Ver detalle</Button>
-                                </Link>
+                                <div class="flex justify-end gap-2">
+                                    <Link :href="mostrarImportacion.url(i.id)">
+                                        <Button variant="outline" size="sm"
+                                            >Ver detalle</Button
+                                        >
+                                    </Link>
+                                    <Button
+                                        v-if="i.estado !== 'aplicado'"
+                                        variant="ghost"
+                                        size="sm"
+                                        class="text-destructive"
+                                        :aria-label="`Quitar ${i.nombre_archivo}`"
+                                        @click="quitar(i)"
+                                    >
+                                        <Trash2 class="size-4" /> Quitar
+                                    </Button>
+                                </div>
                             </td>
                         </tr>
                         <tr v-if="importaciones.data.length === 0">
-                            <td colspan="9" class="py-6 text-center text-sm text-muted-foreground">
+                            <td
+                                colspan="9"
+                                class="py-6 text-center text-sm text-muted-foreground"
+                            >
                                 Todavía no se ha subido ningún archivo.
                             </td>
                         </tr>

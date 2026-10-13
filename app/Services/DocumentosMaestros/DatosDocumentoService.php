@@ -6,6 +6,7 @@ use App\Enums\EstadoCivil;
 use App\Enums\FuenteDomicilioPatron;
 use App\Enums\Genero;
 use App\Enums\ResultadoEvaluacion;
+use App\Enums\TipoContratacion;
 use App\Enums\TipoSolicitudInterna;
 use App\Models\Colaborador;
 use App\Models\Empresa;
@@ -103,6 +104,13 @@ class DatosDocumentoService
         // Sin contrato todavía (vista previa) el fin sale de la duración
         // de capacitación del PUESTO (Configuración › Parámetros de RH).
         'duracion_puesto' => ['puesto', 'meses_periodo_prueba', 'Fecha de fin del contrato (duración de capacitación del puesto)', 'relacion'],
+        // Acta administrativa (PRO-ADP-08): lo escribe quien levanta el acta.
+        'motivo_acta' => ['manual', 'motivo_acta', 'Motivo del acta', 'texto'],
+        'hechos_acta' => ['manual', 'hechos_acta', 'Hechos del acta', 'texto'],
+        'manifestaciones_acta' => ['manual', 'manifestaciones_acta', 'Manifestaciones del acta', 'texto'],
+        // Sin contrato capturado: la modalidad del colaborador (se puede
+        // capturar en el modal y queda en su ficha).
+        'tipo_contrato_acta' => ['colaborador', 'tipo_contratacion', 'Tipo de contratación del colaborador', 'tipo_contratacion'],
         'evaluacion' => ['proceso', 'evaluacion', 'Evaluación capturada', 'proceso'],
         'solicitud' => ['proceso', 'solicitud', 'Solicitud', 'proceso'],
         'prestamo' => ['proceso', 'prestamo', 'Préstamo autorizado', 'proceso'],
@@ -132,6 +140,9 @@ class DatosDocumentoService
         'contacto_emergencia_completo' => 'contacto_emergencia_nombre',
         'empresa_razon_social_mayusculas' => 'empresa_razon_social', 'representante_legal_mayusculas' => 'representante_legal',
         'departamento_mayusculas' => 'departamento', 'jefe_inmediato' => 'jefe',
+        'motivo_acta_mayusculas' => 'motivo_acta', 'fecha_inicio_contrato_acta' => 'fecha_ingreso',
+        // La conclusión sale del tipo de contratación (indeterminado / capacitación + puesto).
+        'fecha_conclusion_contrato_acta' => 'tipo_contrato_acta',
         'nacionalidad_mayusculas' => 'nacionalidad',
         'sexo' => 'genero', 'sexo_mayusculas' => 'genero',
         'edad' => 'fecha_nacimiento', 'edad_numero' => 'fecha_nacimiento', 'edad_mayusculas' => 'fecha_nacimiento',
@@ -311,6 +322,12 @@ class DatosDocumentoService
             'ciudad_y_fecha_firma_a_los_inicio_contrato' => $lugar !== '' ? sprintf('%s, a los %d días del mes de %s de %s', $lugar, $hoy->day, self::MESES[$hoy->month - 1], $hoy->year) : '',
             'fecha_firma_dias_del_mes_inicio_contrato' => sprintf('%d días del mes de %s del año %s', $hoy->day, self::MESES[$hoy->month - 1], $hoy->year),
             'gerente_nombre_mayusculas' => $this->mayus((string) ($c->jefe?->nombreCompleto() ?? '')),
+            // Datos del colaborador en un acta (contrato más reciente; sin
+            // contrato capturado, la fecha de ingreso). Indeterminado: no
+            // tiene fecha de conclusión.
+            'tipo_contrato_acta' => ($contrato !== null ? $contrato->tipo : $c->tipo_contratacion)?->nombreLegal() ?? '',
+            'fecha_inicio_contrato_acta' => $this->fechaLarga($contrato !== null ? $contrato->fecha_inicio : $c->fecha_ingreso),
+            'fecha_conclusion_contrato_acta' => $this->conclusionContratoActa($contexto),
         ];
 
         return [
@@ -372,7 +389,7 @@ class DatosDocumentoService
                 default => 'colaborador',
             },
             'control' => match ($fuente['tipo']) {
-                'estado_civil', 'genero' => 'select',
+                'estado_civil', 'genero', 'tipo_contratacion' => 'select',
                 'fecha' => 'fecha',
                 'hora' => 'hora',
                 'correo' => 'correo',
@@ -382,6 +399,7 @@ class DatosDocumentoService
             'opciones' => match ($fuente['tipo']) {
                 'estado_civil' => EstadoCivil::opciones(),
                 'genero' => [['value' => 'masculino', 'label' => 'Masculino'], ['value' => 'femenino', 'label' => 'Femenino']],
+                'tipo_contratacion' => array_map(fn (TipoContratacion $t): array => ['value' => $t->value, 'label' => $t->etiqueta()], TipoContratacion::seleccionables()),
                 default => [],
             },
             'sugerencias' => $fuente['base'] === 'nacionalidad' ? ['Mexicana'] : [],
@@ -421,6 +439,7 @@ class DatosDocumentoService
             'contacto_emergencia_telefono' => 'nullable|string|max:20',
             'contacto_emergencia_direccion' => 'nullable|string|max:255',
             'fecha_ingreso' => 'nullable|date',
+            'tipo_contratacion' => 'nullable|in:'.implode(',', array_map(fn (TipoContratacion $t) => $t->value, TipoContratacion::seleccionables())),
         ];
     }
 
@@ -578,6 +597,11 @@ class DatosDocumentoService
         $datos['rh_cargo'] = ($datos['rh_cargo'] ?? '') !== '' ? $datos['rh_cargo'] : (string) ($actorColaborador->puesto->nombre ?? '');
         $datos['jefe_nombre'] = ($datos['jefe_nombre'] ?? '') !== '' ? $datos['jefe_nombre'] : $this->mayus((string) ($jefe?->nombreCompleto() ?? ''));
         $datos['jefe_cargo'] = ($datos['jefe_cargo'] ?? '') !== '' ? $datos['jefe_cargo'] : (string) ($jefe->puesto->nombre ?? '');
+        // Acta fuera de un cierre (PRO-ADP-08): la ciudad y el domicilio de
+        // la sucursal y la fecha del documento, salvo que el acta traiga los suyos.
+        $datos['lugar_acta'] ??= $lugar;
+        $datos['domicilio_acta'] ??= $this->domicilioSucursal($sucursal);
+        $datos['fecha_acta_larga'] ??= $this->fechaLarga($contexto->fechaDocumento());
 
         foreach ($manual as $clave => $valor) {
             if (trim($valor) !== '') {
@@ -731,6 +755,33 @@ class DatosDocumentoService
         }
 
         return app(ContratoLaboralService::class)->fechaFinPeriodoPrueba($c->puesto_id, $inicio);
+    }
+
+    /**
+     * «Fecha de conclusión» del acta: la del contrato capturado; sin
+     * contrato, según la modalidad del colaborador (indeterminado no
+     * concluye; capacitación inicial = ingreso + duración del puesto, la
+     * misma regla que ContratoLaboralService). Vacío si no se puede saber.
+     */
+    private function conclusionContratoActa(ContextoDocumento $contexto): string
+    {
+        $contrato = $contexto->contrato;
+        $c = $contexto->colaborador;
+        $tipo = $contrato !== null ? $contrato->tipo : $c->tipo_contratacion;
+
+        if ($tipo === TipoContratacion::Indeterminado) {
+            return 'Tiempo indeterminado';
+        }
+
+        if ($contrato !== null && $contrato->fecha_fin !== null) {
+            return $this->fechaLarga($contrato->fecha_fin);
+        }
+
+        if ($contrato === null && $c->fecha_ingreso !== null && in_array($tipo, [TipoContratacion::CapacitacionInicial, TipoContratacion::PeriodoPrueba], true)) {
+            return $this->fechaLarga($this->finSegunPuesto($c, CarbonImmutable::parse($c->fecha_ingreso)));
+        }
+
+        return '';
     }
 
     /**

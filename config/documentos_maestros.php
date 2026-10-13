@@ -345,6 +345,8 @@ return [
         'prestamo_contrato' => ['documentos_laborales.generar', 'prestamos.autorizar'],
         'prestamo_pagare' => ['documentos_laborales.generar', 'prestamos.autorizar'],
         'prestamo_consentimiento_retencion' => ['documentos_laborales.generar', 'prestamos.autorizar'],
+        // Quien levanta actas (jefe inmediato o RH, PRO-ADP-08) genera su formato.
+        'acta_administrativa' => ['documentos_laborales.generar', 'actas.crear', 'actas.gestionar'],
     ],
 
     /*
@@ -983,6 +985,51 @@ return [
                 'Solo se genera dentro del cierre laboral, cuando se registró que el colaborador se negó a firmar/recibir (Fase 3, escenario B del procedimiento integral de baja). Nunca como acta genérica.',
                 'Lugar y domicilio: el ejemplo traía Cuernavaca y el domicilio corporativo; PEOPLE propone la ciudad y domicilio de la sucursal donde ocurre la entrega y RH puede corregirlos al registrar la negativa.',
                 '"Tipo de contrato: Contrato Individual de Trabajo de Capacitación Inicial" es texto fijo: el acta está redactada solo para vencimiento de capacitación inicial.',
+            ],
+        ],
+
+        // PRO-ADP-08 · Acta administrativa (general). Mismo formato oficial
+        // que el acta por negativa (encabezado, personas, datos del
+        // colaborador, testigos y firmas de Jurídico); el motivo, los hechos
+        // y las manifestaciones los escribe quien levanta el acta.
+        'acta_administrativa.general' => [
+            'clave' => 'acta_administrativa',
+            'nombre' => 'Acta administrativa',
+            'proceso' => 'acta', 'evento' => 'acta_administrativa', 'causa' => null, 'grupos' => null, 'motor' => 'docx', 'categoria' => 'actas',
+            'fuentes' => ['652f568aee8867987c2dfbb26d45cafb4bb870b7cd104d6634d41bbdf7bc4055' => ['version' => 1, 'activa' => true]],
+            'banderas' => ['requiere_impresion' => true, 'requiere_firma_fisica' => true, 'requiere_testigos' => true, 'cantidad_testigos' => 2, 'requiere_envio_corporativo' => true],
+            'representante' => 'empresa',
+            'reglas' => [
+                // Primero el blanco más largo: el de hechos (45) es parte del de manifestaciones (60).
+                ['tipo' => 'texto', 'buscar' => str_repeat('_', 60), 'campo' => 'manifestaciones_acta'],
+                ['tipo' => 'texto', 'buscar' => str_repeat('_', 45), 'campo' => 'hechos_acta'],
+                ['tipo' => 'blanco', 'antes' => 'POR', 'parrafo' => 'POR _', 'campo' => 'motivo_acta_mayusculas'],
+                ['tipo' => 'texto', 'buscar' => 'Cuernavaca, Morelos', 'parrafo' => 'En la ciudad de', 'campo' => 'lugar_acta'],
+                ['tipo' => 'blanco', 'antes' => 'siendo las', 'campo' => 'hora_acta'],
+                ['tipo' => 'entre', 'desde' => 'horas del día', 'hasta' => ', reunidos', 'campo' => 'fecha_acta_larga'],
+                ['tipo' => 'texto', 'buscar' => 'Subida al Club número 114, Colonia Reforma, C.P. 62260', 'campo' => 'domicilio_acta'],
+                ['tipo' => 'blanco', 'antes' => 'Nombre:', 'parrafo' => '(Representante del área de Recursos Humanos)', 'campo' => 'rh_nombre'],
+                ['tipo' => 'blanco', 'antes' => 'Cargo:', 'parrafo' => '(Representante del área de Recursos Humanos)', 'campo' => 'rh_cargo'],
+                ['tipo' => 'blanco', 'antes' => 'Nombre:', 'parrafo' => '(Jefe inmediato / Administrativo)', 'campo' => 'jefe_nombre'],
+                ['tipo' => 'blanco', 'antes' => 'Cargo:', 'parrafo' => '(Jefe inmediato / Administrativo)', 'campo' => 'jefe_cargo'],
+                ['tipo' => 'blanco', 'antes' => 'Nombre del trabajador:', 'campo' => 'nombre_completo_mayusculas'],
+                ['tipo' => 'texto', 'buscar' => 'Gerente de Sucursal', 'ocurrencia' => 'todas', 'campo' => 'puesto'],
+                ['tipo' => 'blanco', 'antes' => 'Nombre:', 'parrafo' => 'Nombre:', 'ocurrencia' => 1, 'campo' => 'nombre_completo_mayusculas'],
+                ['tipo' => 'blanco', 'antes' => 'Tipo de contrato:', 'campo' => 'tipo_contrato_acta'],
+                ['tipo' => 'entre', 'desde' => 'Fecha de inicio:', 'hasta' => '', 'campo' => 'fecha_inicio_contrato_acta'],
+                ['tipo' => 'entre', 'desde' => 'Fecha de conclusión:', 'hasta' => '', 'campo' => 'fecha_conclusion_contrato_acta'],
+                ['tipo' => 'blanco', 'antes' => 'Nombre:', 'parrafo' => 'TESTIGO 1:', 'campo' => 'testigo_1_nombre'],
+                ['tipo' => 'blanco', 'antes' => 'Cargo:', 'parrafo' => 'TESTIGO 1:', 'campo' => 'testigo_1_cargo'],
+                ['tipo' => 'blanco', 'antes' => 'Nombre:', 'parrafo' => 'TESTIGO 2:', 'campo' => 'testigo_2_nombre'],
+                ['tipo' => 'blanco', 'antes' => 'Cargo:', 'parrafo' => 'TESTIGO 2:', 'campo' => 'testigo_2_cargo'],
+                ['tipo' => 'texto', 'buscar' => 'LESLI MARIBEL RODRÍGUEZ HERRERA', 'campo' => 'representante_legal_mayusculas'],
+                ['tipo' => 'blanco', 'antes' => 'C.', 'parrafo' => 'C. ', 'campo' => 'nombre_completo_mayusculas'],
+            ],
+            'ejemplos' => ['Gerente de Sucursal', 'de enero de 2026', 'de 2025'],
+            'observaciones' => [
+                'Derivado del acta oficial «ACTA ADMINISTRATIVA-POR NEGATIVA DE FIRMA Y RECEPCIÓN DE DOCUMENTOS.docx» (mismo diseño, encabezado, personas, datos del colaborador, testigos y firmas). Se retiraron solo los hechos y la manifestación propios de la negativa; el motivo, los hechos y las manifestaciones los escribe quien levanta el acta. Pendiente: validación del texto por Jurídico.',
+                '"Tipo de contrato" y sus fechas salen del contrato más reciente del colaborador; un contrato por tiempo indeterminado dice "Tiempo indeterminado" en la conclusión.',
+                'Lugar, domicilio y hora: los del acta capturada (por defecto la ciudad y el domicilio de la sucursal del colaborador).',
             ],
         ],
 

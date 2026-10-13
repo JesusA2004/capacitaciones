@@ -10,7 +10,8 @@ export type TipoRegistroDocumental =
     | 'solicitud'
     | 'prestamo'
     | 'evaluacion'
-    | 'entrega_activo';
+    | 'entrega_activo'
+    | 'acta';
 
 export type AccionDocumento = {
     clave:
