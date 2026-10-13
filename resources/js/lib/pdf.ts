@@ -77,3 +77,54 @@ export async function textoConPosicion(
 function round(valor: number): number {
     return Math.round(valor * 100) / 100;
 }
+
+type PaginaPdfJs = Awaited<ReturnType<PDFDocumentProxy['getPage']>>;
+type VistaPdfJs = ReturnType<PaginaPdfJs['getViewport']>;
+type TareaRender = ReturnType<PaginaPdfJs['render']>;
+
+const tareasPorLienzo = new WeakMap<HTMLCanvasElement, TareaRender>();
+
+/**
+ * Dibuja una página en un canvas cancelando antes el render anterior del
+ * MISMO canvas: pdf.js no permite dos render() simultáneos sobre un canvas
+ * ("Cannot use the same canvas during multiple render() operations"), cosa
+ * que pasa al cambiar zoom/página rápido. La cancelación es el resultado
+ * esperado del render viejo y se descarta; cualquier otro error se propaga.
+ */
+export async function renderizarEnLienzo(
+    pagina: PaginaPdfJs,
+    lienzo: HTMLCanvasElement,
+    viewport: VistaPdfJs,
+    tamanoCss: { width: string; height: string },
+): Promise<void> {
+    tareasPorLienzo.get(lienzo)?.cancel();
+
+    const contexto = lienzo.getContext('2d');
+
+    if (!contexto) {
+        return;
+    }
+
+    lienzo.width = Math.floor(viewport.width);
+    lienzo.height = Math.floor(viewport.height);
+    lienzo.style.width = tamanoCss.width;
+    lienzo.style.height = tamanoCss.height;
+
+    const tarea = pagina.render({ canvasContext: contexto, viewport });
+    tareasPorLienzo.set(lienzo, tarea);
+
+    try {
+        await tarea.promise;
+    } catch (error) {
+        if (!(
+            error instanceof Error &&
+            error.name === 'RenderingCancelledException'
+        )) {
+            throw error;
+        }
+    } finally {
+        if (tareasPorLienzo.get(lienzo) === tarea) {
+            tareasPorLienzo.delete(lienzo);
+        }
+    }
+}

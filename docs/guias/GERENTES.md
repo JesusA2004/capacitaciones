@@ -784,3 +784,21 @@ RH, Gerente, Regional.
 
 - **Ir a Mis pendientes** → `/rh/pendientes`
 - Guía en pantalla → `/ayuda/articulo/mis-pendientes`
+
+<a id="articulo-historial-persona"></a>
+
+### Historial (timeline) de una persona
+
+> Una sola línea de tiempo de candidato a excolaborador: contratación, inducción, salarios, vacaciones, solicitudes, periodo de prueba, baja y reingreso.
+
+#### Qué es
+
+El historial no es un registro aparte: lee lo que ya existe (bitácora, seguimientos, salarios, ajustes de vacaciones y solicitudes) y lo ordena por fecha.
+
+#### Quién lo hace
+
+RH, Gerente.
+
+#### Pasos
+
+1. **Abrir el ciclo laboral de la persona** _(Web y app)_ — Desde su expediente o Mis pendientes → «Ciclo laboral»; en la app, la ficha de onboarding de la persona.

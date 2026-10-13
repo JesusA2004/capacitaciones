@@ -148,6 +148,13 @@ async function abrirNotificacion(
     return destino;
 }
 
+// Al volver a la pestaña se refresca de inmediato (sin esperar el polling).
+function alVolverALaPestana(): void {
+    if (document.visibilityState === 'visible') {
+        void cargar();
+    }
+}
+
 export function useNotificaciones() {
     const page = usePage<{ auth: Auth }>();
 
@@ -163,6 +170,7 @@ export function useNotificaciones() {
         // disponible); lo real-time viene de useNotificacionesTiempoReal,
         // que refresca al instante en cuanto llega un evento por Reverb.
         intervalo = setInterval(() => void cargar(), 30000);
+        document.addEventListener('visibilitychange', alVolverALaPestana);
 
         const userId = page.props.auth.user?.id;
 
@@ -180,6 +188,10 @@ export function useNotificaciones() {
 
         if (consumidores === 0) {
             clearInterval(intervalo);
+            document.removeEventListener(
+                'visibilitychange',
+                alVolverALaPestana,
+            );
         }
     });
 

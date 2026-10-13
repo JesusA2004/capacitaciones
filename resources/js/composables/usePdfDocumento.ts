@@ -1,7 +1,7 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { onBeforeUnmount, ref, shallowRef, watch } from 'vue';
 import type { Ref } from 'vue';
-import { PT_A_MM, abrirPdf } from '@/lib/pdf';
+import { PT_A_MM, abrirPdf, renderizarEnLienzo } from '@/lib/pdf';
 
 export type PaginaPdf = { numero: number; anchoMm: number; altoMm: number };
 
@@ -75,17 +75,10 @@ export function usePdfDocumento(url: Ref<string | null>) {
             scale: (pxPorMm / PT_A_MM) * densidad,
         });
 
-        lienzo.width = Math.floor(viewport.width);
-        lienzo.height = Math.floor(viewport.height);
-        lienzo.style.width = `${pagina.anchoMm * pxPorMm}px`;
-        lienzo.style.height = `${pagina.altoMm * pxPorMm}px`;
-
-        const contexto = lienzo.getContext('2d');
-
-        if (contexto) {
-            await pdfPagina.render({ canvasContext: contexto, viewport })
-                .promise;
-        }
+        await renderizarEnLienzo(pdfPagina, lienzo, viewport, {
+            width: `${pagina.anchoMm * pxPorMm}px`,
+            height: `${pagina.altoMm * pxPorMm}px`,
+        });
     }
 
     watch(url, (nueva) => void cargar(nueva), { immediate: true });

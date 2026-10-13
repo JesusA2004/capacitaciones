@@ -22,7 +22,7 @@ Usa la app (o «Mi espacio» en la web) para completar su expediente, responder 
 - [ ] Pedir un permiso → [Pedir y autorizar un permiso](#articulo-permisos)
 - [ ] Pedir vacaciones → [Vacaciones](#articulo-vacaciones)
 - [ ] Pedir un préstamo → [Préstamos personales](#articulo-prestamos)
-- [ ] Ver mis recibos → [Mis recibos de nómina](#articulo-mis-recibos)
+- [ ] Ver mis recibos → [Tu recibo de nómina (impreso)](#articulo-mis-recibos)
 - [ ] Avisos → [Avisos de Recursos Humanos](#articulo-avisos)
 - [ ] Cumpleaños y aniversarios → [Cumpleaños y aniversarios](#articulo-celebraciones)
 
@@ -291,6 +291,42 @@ El colaborador responde las lecciones; RH da retroalimentación si no aprueba; e
 - **Ir a Mi portal** → `/mi-portal`
 - Guía en pantalla → `/ayuda/articulo/onboarding`
 
+<a id="articulo-induccion-mr-lana"></a>
+
+### Inducción Mr. Lana y su evaluación
+
+> 7 capítulos interactivos con el organigrama vigente; al terminarlos se habilita la evaluación oficial de 30 puntos (mínimo 24).
+
+#### Qué es
+
+Es la inducción institucional: Quiénes somos, Misión/visión/principios, Cultura, Organigrama, Reglamento interior, Modelo de negocio y Empresa con factor humano. El avance se guarda en el servidor y se retoma donde se quedó.
+
+#### Quién lo hace
+
+El colaborador recorre los capítulos y presenta su evaluación; RH califica los casos prácticos y, si hace falta, da reforzamiento. RH también puede PRESENTAR la inducción por Meet.
+
+#### Pasos
+
+1. **Recorrer los 7 capítulos** _(Colaborador · Web y app)_ — Mis pendientes → «Inducción Mr. Lana» (web o app). Cada capítulo visto cuenta: «6 de 7 · 86 %». El capítulo 4 muestra los organigramas corporativo, comercial y de sucursal vigentes.
+2. **Presentar la evaluación** _(Colaborador · Web y app)_ — Secciones A (opción múltiple), B (verdadero/falso), C (relaciona columnas), D (casos prácticos) y E (opinión, no califica). La clave de respuestas nunca llega al teléfono ni al navegador.
+3. **RH califica los casos prácticos** _(RH · Web)_ — Con la rúbrica oficial (solo RH la ve). Resultado: 27–30 Sobresaliente · 24–26 Aprobado · 0–23 Requiere reforzamiento.
+4. **Si requiere reforzamiento** _(RH)_ — RH deja retroalimentación y habilita la reevaluación (plazo de 5 días hábiles). El colaborador no puede reintentar antes.
+5. **Modo presentación (Meet)** _(RH · Web)_ — Desarrollo → «Presentar inducción»: los mismos capítulos para impartirla en sesión, sin registrar avance de nadie.
+
+#### Qué pasa después
+
+- Aprobada: se aprueba el módulo de inducción y se desbloquea SOLO el siguiente módulo del onboarding.
+
+#### Errores comunes
+
+- **«No me aparece la evaluación.»** Primero hay que ver los 7 capítulos desde Mis pendientes (el modo presentación no cuenta).
+
+#### En el sistema
+
+- **Presentar inducción** → `/induccion/presentacion` _(permiso: onboarding.gestionar)_
+- **Ir a Mis pendientes** → `/mi-proceso`
+- Guía en pantalla → `/ayuda/articulo/induccion-mr-lana`
+
 ## 8. Solicitudes
 
 <a id="articulo-permisos"></a>
@@ -409,35 +445,34 @@ Colaborador, Gerente, Regional, RH.
 
 <a id="articulo-mis-recibos"></a>
 
-### Mis recibos de nómina
+### Tu recibo de nómina (impreso)
 
-> El colaborador recibe el aviso, toca la notificación y abre su recibo (también sin conexión).
+> El recibo de nómina se entrega IMPRESO: RH lo genera en PDF y te lo da; no se consulta en Mi espacio ni en la app.
 
 #### Qué es
 
-Es donde el colaborador consulta sus recibos emitidos.
+Cada periodo RH emite el recibo interno de nómina (PDF con el formato oficial), lo archiva en tu expediente y lo imprime para entregártelo.
 
 #### Quién lo hace
 
-Colaborador.
+Colaborador, RH.
 
 #### Pasos
 
-1. **Recibe el aviso** _(App)_ — «Tu recibo de nómina ya está disponible.»
-2. **Toca la notificación** _(App)_ — Abre directo el recibo.
-3. **O entra a Recibos** _(Web y app)_ — App → Recibos, o web → Mis recibos de nómina. Descarga el PDF.
+1. **RH emite e imprime** _(RH · Web)_ — Personal → Recibos de nómina: RH emite el lote y descarga/imprime el PDF de cada recibo.
+2. **Recibes tu recibo impreso** _(Colaborador)_ — Tu gerente o RH te lo entrega en sucursal.
 
 #### Qué pasa después
 
-- El recibo queda guardado en tu expediente.
+- El PDF queda archivado en tu expediente (lo consulta RH).
 
 #### Errores comunes
 
-- **«No veo mi recibo.»** RH todavía no lo emite; los recibos preparados no son visibles.
+- **«No veo mis recibos en la app.»** Es correcto: el recibo se entrega impreso. Si no lo recibiste, pídelo a Recursos Humanos.
 
 #### En el sistema
 
-- **Ir a Mis recibos** → `/mis-recibos`
+- **Ir a Recibos de nómina** → `/rh/nomina/lotes` _(permiso: nomina.recibos.ver)_
 - Guía en pantalla → `/ayuda/articulo/mis-recibos`
 
 ## 10. Avisos
@@ -483,7 +518,7 @@ RH, Colaborador.
 
 ### Cómo usar la app MR. LANA PEOPLE
 
-> Iniciar sesión, cambiar tu contraseña, tu foto, tus datos, lecciones, solicitudes, vacaciones, préstamos, avisos y recibos.
+> Iniciar sesión, cambiar tu contraseña, tu foto, tus datos, lecciones, solicitudes, vacaciones, préstamos, avisos, directorio e inducción.
 
 #### Qué es
 
@@ -503,7 +538,7 @@ Colaborador.
 6. **Solicitudes y Vacaciones** _(App)_ — Permisos, vacaciones y préstamos, con su estado.
 7. **Lecciones de bienvenida** _(App)_ — Si eres nuevo, respóndelas desde Inicio.
 8. **Avisos y notificaciones** _(App)_ — La campana muestra tus notificaciones; Avisos, los comunicados de RH.
-9. **Recibos** _(App)_ — Tus recibos emitidos (se abren sin conexión).
+9. **Directorio e Inducción** _(App)_ — Directorio de contacto corporativo y la Inducción Mr. Lana. Tu recibo de nómina se entrega impreso (no está en la app).
 10. **Celebraciones** _(App)_ — Felicitaciones de cumpleaños y aniversario, y el muro de felicitaciones.
 
 #### Qué pasa después
@@ -590,3 +625,31 @@ Sistemas, Colaborador.
 - **Descargar la app** → `/app`
 - **Ir a Versiones de app** → `/administracion/app-versiones` _(permiso: app_releases.ver)_
 - Guía en pantalla → `/ayuda/articulo/app-movil`
+
+<a id="articulo-directorio"></a>
+
+### Directorio y correo corporativo
+
+> Contacto corporativo de cualquier colaborador activo, visible para todos; nunca datos personales.
+
+#### Qué es
+
+El directorio muestra nombre, puesto, sucursal, departamento, correo corporativo y teléfono corporativo. El correo corporativo es distinto del correo con el que la persona inicia sesión.
+
+#### Quién lo hace
+
+Colaborador, RH.
+
+#### Pasos
+
+1. **Buscar** _(Web y app)_ — Directorio (web o app): por nombre o número de empleado, o filtra por puesto, sucursal o departamento.
+2. **Contactar** _(App)_ — En la app, toca el correo o el teléfono para escribir o llamar.
+
+#### Errores comunes
+
+- **«Alguien no tiene correo en el directorio.»** No lo tiene capturado: PEOPLE nunca inventa uno ni usa su correo de acceso o personal. RH lo captura en su expediente.
+
+#### En el sistema
+
+- **Ir al Directorio** → `/directorio`
+- Guía en pantalla → `/ayuda/articulo/directorio`

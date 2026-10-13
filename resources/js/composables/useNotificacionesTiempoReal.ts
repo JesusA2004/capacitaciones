@@ -13,6 +13,19 @@ type PayloadNotificacionBroadcast = {
 let suscrito = false;
 
 /**
+ * El tiempo real es opcional: solo se abre el WebSocket si el entorno lo
+ * declara (`VITE_REVERB_ENABLED=true`, con `php artisan reverb:start`
+ * corriendo). Sin él, ni siquiera se descarga Echo — la campana funciona
+ * por polling y no hay errores de conexión en consola.
+ */
+export function realtimeHabilitado(): boolean {
+    return (
+        String(import.meta.env.VITE_REVERB_ENABLED ?? 'false') === 'true' &&
+        Boolean(import.meta.env.VITE_REVERB_APP_KEY)
+    );
+}
+
+/**
  * Conecta el canal privado del usuario autenticado en Reverb
  * (App.Models.User.{id}, ver routes/channels.php) para que cualquier
  * notificacion nueva (solicitud/vacaciones/documento/incorporacion, ver
@@ -31,7 +44,12 @@ export function useNotificacionesTiempoReal(
     onNuevaNotificacion: (notificacion: PayloadNotificacionBroadcast) => void,
     alAbrir?: (id: string) => void,
 ): void {
-    if (suscrito || typeof window === 'undefined' || !userId) {
+    if (
+        !realtimeHabilitado() ||
+        suscrito ||
+        typeof window === 'undefined' ||
+        !userId
+    ) {
         return;
     }
 

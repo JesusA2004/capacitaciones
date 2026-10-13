@@ -1083,6 +1083,60 @@ El colaborador responde las lecciones; RH da retroalimentación si no aprueba; e
 - **Ir a Mi portal** → `/mi-portal`
 - Guía en pantalla → `/ayuda/articulo/onboarding`
 
+<a id="articulo-induccion-mr-lana"></a>
+
+### Inducción Mr. Lana y su evaluación
+
+> 7 capítulos interactivos con el organigrama vigente; al terminarlos se habilita la evaluación oficial de 30 puntos (mínimo 24).
+
+#### Qué es
+
+Es la inducción institucional: Quiénes somos, Misión/visión/principios, Cultura, Organigrama, Reglamento interior, Modelo de negocio y Empresa con factor humano. El avance se guarda en el servidor y se retoma donde se quedó.
+
+#### Quién lo hace
+
+El colaborador recorre los capítulos y presenta su evaluación; RH califica los casos prácticos y, si hace falta, da reforzamiento. RH también puede PRESENTAR la inducción por Meet.
+
+#### Antes de empezar
+
+- El onboarding de la persona ya inició (contratos firmados).
+
+#### Pasos
+
+1. **Recorrer los 7 capítulos** _(Colaborador · Web y app)_ — Mis pendientes → «Inducción Mr. Lana» (web o app). Cada capítulo visto cuenta: «6 de 7 · 86 %». El capítulo 4 muestra los organigramas corporativo, comercial y de sucursal vigentes.
+2. **Presentar la evaluación** _(Colaborador · Web y app)_ — Secciones A (opción múltiple), B (verdadero/falso), C (relaciona columnas), D (casos prácticos) y E (opinión, no califica). La clave de respuestas nunca llega al teléfono ni al navegador.
+3. **RH califica los casos prácticos** _(RH · Web)_ — Con la rúbrica oficial (solo RH la ve). Resultado: 27–30 Sobresaliente · 24–26 Aprobado · 0–23 Requiere reforzamiento.
+4. **Si requiere reforzamiento** _(RH)_ — RH deja retroalimentación y habilita la reevaluación (plazo de 5 días hábiles). El colaborador no puede reintentar antes.
+5. **Modo presentación (Meet)** _(RH · Web)_ — Desarrollo → «Presentar inducción»: los mismos capítulos para impartirla en sesión, sin registrar avance de nadie.
+
+#### Qué pasa después
+
+- Aprobada: se aprueba el módulo de inducción y se desbloquea SOLO el siguiente módulo del onboarding.
+
+#### Notificaciones
+
+- Al colaborador: evaluación disponible, aprobada, reforzamiento y reevaluación habilitada.
+- A RH: evaluación por calificar y reforzamiento requerido.
+
+#### Qué queda registrado
+
+- Cada intento con su calificación, nivel y quién calificó; queda en el historial de la persona.
+
+#### Errores comunes
+
+- **«No me aparece la evaluación.»** Primero hay que ver los 7 capítulos desde Mis pendientes (el modo presentación no cuenta).
+
+#### Relacionado con
+
+- [Onboarding: la bienvenida del colaborador](#articulo-onboarding)
+- [Configurar las lecciones y el equipo](#articulo-configurar-onboarding)
+
+#### En el sistema
+
+- **Presentar inducción** → `/induccion/presentacion` _(permiso: onboarding.gestionar)_
+- **Ir a Mis pendientes** → `/mi-proceso`
+- Guía en pantalla → `/ayuda/articulo/induccion-mr-lana`
+
 <a id="articulo-configurar-onboarding"></a>
 
 ### Configurar las lecciones y el equipo
@@ -1501,7 +1555,7 @@ RH.
 2. **«Preparar lote»** — Desde el sueldo de cada persona o importando el archivo de RH. TODOS quedan como borrador: no se publican, no se notifican y el trabajador no los ve.
 3. **«Revisar lote»** — Resumen: esperados, preparados, errores, advertencias, percepciones, deducciones y neto. Filtra correctos, advertencias o errores.
 4. **Revisa persona por persona** — Vista previa del PDF real con el formato oficial, con «Anterior» y «Siguiente». Corrige conceptos si hace falta.
-5. **«Emitir N recibos»** — Solo entonces cada recibo se marca emitido, se congela su PDF en el expediente, se publica en web y app y se avisa al colaborador (notificación + push).
+5. **«Emitir N recibos»** — Solo entonces cada recibo se marca emitido y se congela su PDF en el expediente. RH lo imprime y lo entrega al colaborador: el recibo NO se publica en Mi espacio (web ni app).
 
 #### Qué pasa después
 
@@ -1510,7 +1564,7 @@ RH.
 
 #### Notificaciones
 
-- Al emitir: «Tu recibo de nómina ya está disponible» (notificación + push) a cada colaborador.
+- Sin aviso al colaborador: su recibo se entrega impreso (el autoservicio de recibos está apagado).
 
 #### Documentos que se generan
 
@@ -1523,16 +1577,57 @@ RH.
 #### Errores comunes
 
 - **«Un colaborador sale en Errores.»** Normalmente no tiene sueldo capturado: captúralo en Datos laborales y vuelve a preparar.
-- **¿Por qué el colaborador no ve su recibo?** El lote no se ha emitido. Los borradores nunca son visibles.
+- **¿Por qué el colaborador no ve su recibo en la app?** Por diseño: el recibo se entrega IMPRESO. RH genera el PDF desde el lote emitido y lo imprime; el colaborador no tiene «Mis recibos».
 
 #### Relacionado con
 
-- [Mis recibos de nómina](FLUJO_COMPLETO.md#articulo-mis-recibos)
+- [Tu recibo de nómina (impreso)](#articulo-mis-recibos)
 
 #### En el sistema
 
 - **Ir a Recibos de nómina** → `/rh/nomina/lotes` _(permiso: nomina.recibos.ver)_
 - Guía en pantalla → `/ayuda/articulo/nomina-lotes`
+
+<a id="articulo-mis-recibos"></a>
+
+### Tu recibo de nómina (impreso)
+
+> El recibo de nómina se entrega IMPRESO: RH lo genera en PDF y te lo da; no se consulta en Mi espacio ni en la app.
+
+#### Qué es
+
+Cada periodo RH emite el recibo interno de nómina (PDF con el formato oficial), lo archiva en tu expediente y lo imprime para entregártelo.
+
+#### Quién lo hace
+
+Colaborador, RH.
+
+#### Antes de empezar
+
+- RH emitió el lote del periodo.
+
+#### Pasos
+
+1. **RH emite e imprime** _(RH · Web)_ — Personal → Recibos de nómina: RH emite el lote y descarga/imprime el PDF de cada recibo.
+2. **Recibes tu recibo impreso** _(Colaborador)_ — Tu gerente o RH te lo entrega en sucursal.
+
+#### Qué pasa después
+
+- El PDF queda archivado en tu expediente (lo consulta RH).
+
+#### Errores comunes
+
+- **«No veo mis recibos en la app.»** Es correcto: el recibo se entrega impreso. Si no lo recibiste, pídelo a Recursos Humanos.
+
+#### Relacionado con
+
+- [Recibos de nómina: preparar, revisar y emitir](#articulo-nomina-lotes)
+- [Cómo usar la app MR. LANA PEOPLE](FLUJO_COMPLETO.md#articulo-app-colaborador)
+
+#### En el sistema
+
+- **Ir a Recibos de nómina** → `/rh/nomina/lotes` _(permiso: nomina.recibos.ver)_
+- Guía en pantalla → `/ayuda/articulo/mis-recibos`
 
 ## 10. Avisos
 
@@ -2097,3 +2192,109 @@ Gerencia de RH (y Jurídico consulta).
 
 - **Ir a Documentos maestros** → `/rh/documentos-maestros` _(permiso: plantillas_documentales.administrar)_
 - Guía en pantalla → `/ayuda/articulo/documentos-maestros`
+
+<a id="articulo-directorio"></a>
+
+### Directorio y correo corporativo
+
+> Contacto corporativo de cualquier colaborador activo, visible para todos; nunca datos personales.
+
+#### Qué es
+
+El directorio muestra nombre, puesto, sucursal, departamento, correo corporativo y teléfono corporativo. El correo corporativo es distinto del correo con el que la persona inicia sesión.
+
+#### Quién lo hace
+
+Colaborador, RH.
+
+#### Antes de empezar
+
+- RH capturó el correo/teléfono corporativo en el expediente (Datos personales) de quien lo tiene.
+
+#### Pasos
+
+1. **Buscar** _(Web y app)_ — Directorio (web o app): por nombre o número de empleado, o filtra por puesto, sucursal o departamento.
+2. **Contactar** _(App)_ — En la app, toca el correo o el teléfono para escribir o llamar.
+
+#### Errores comunes
+
+- **«Alguien no tiene correo en el directorio.»** No lo tiene capturado: PEOPLE nunca inventa uno ni usa su correo de acceso o personal. RH lo captura en su expediente.
+
+#### Relacionado con
+
+- [El expediente del colaborador](#articulo-expediente)
+
+#### En el sistema
+
+- **Ir al Directorio** → `/directorio`
+- Guía en pantalla → `/ayuda/articulo/directorio`
+
+<a id="articulo-importador-salarios"></a>
+
+### Importar salarios y vacaciones (REPORTE_TRABAJADORES_VAC)
+
+> Carga el reporte de RH con vista previa: actualiza salario diario y registra días de vacaciones tomados antes de PEOPLE. Nunca crea personas.
+
+#### Qué es
+
+El importador lee el Excel oficial, busca a cada persona por nombre EXACTO dentro de su sucursal y propone cambios. Nada se aplica hasta que RH confirma.
+
+#### Quién lo hace
+
+RH.
+
+> **Importante:** Quien no cumple 1 año de antigüedad NO recibe ajuste de vacaciones anuales aunque el Excel traiga días otorgados/tomados (el salario sí se actualiza). Un nombre que coincide con 2+ personas va a revisión, nunca se adivina.
+
+#### Antes de empezar
+
+- Tener el archivo REPORTE_TRABAJADORES_VAC.xlsx del periodo.
+
+#### Pasos
+
+1. **Subir y previsualizar** _(RH · Web)_ — Personal → «Importar salarios y vacaciones». Cada fila queda como Aplicable, Requiere revisión, Sin cambios, No encontrado o Error, con su motivo.
+2. **Aplicar** _(RH · Web)_ — Solo las filas «Aplicable». El salario mensual se recalcula como diario × 30 y queda en el historial de salarios.
+
+#### Qué pasa después
+
+- El mismo archivo no se puede aplicar dos veces (se reconoce por su huella).
+- Los cambios aparecen en el historial (timeline) de cada persona.
+
+#### Qué queda registrado
+
+- Historial de salarios y ajustes de vacaciones con quién los aplicó y desde qué importación.
+
+#### Errores comunes
+
+- **«La sucursal no se encontró.»** El nombre de sucursal debe coincidir con el catálogo. Solo se aceptan los recortes conocidos del reporte (p. ej. ATLACOMULC, SAN LUIS P).
+
+#### Relacionado con
+
+- [Vacaciones](#articulo-vacaciones)
+- [Historial (timeline) de una persona](#articulo-historial-persona)
+
+#### En el sistema
+
+- **Ir a Importar salarios y vacaciones** → `/rh/importaciones` _(permiso: colaboradores.importar_salarios_vacaciones)_
+- Guía en pantalla → `/ayuda/articulo/importador-salarios`
+
+<a id="articulo-historial-persona"></a>
+
+### Historial (timeline) de una persona
+
+> Una sola línea de tiempo de candidato a excolaborador: contratación, inducción, salarios, vacaciones, solicitudes, periodo de prueba, baja y reingreso.
+
+#### Qué es
+
+El historial no es un registro aparte: lee lo que ya existe (bitácora, seguimientos, salarios, ajustes de vacaciones y solicitudes) y lo ordena por fecha.
+
+#### Quién lo hace
+
+RH, Gerente.
+
+#### Pasos
+
+1. **Abrir el ciclo laboral de la persona** _(Web y app)_ — Desde su expediente o Mis pendientes → «Ciclo laboral»; en la app, la ficha de onboarding de la persona.
+
+#### Relacionado con
+
+- [Importar salarios y vacaciones (REPORTE_TRABAJADORES_VAC)](#articulo-importador-salarios)

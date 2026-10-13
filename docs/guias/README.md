@@ -25,7 +25,7 @@ Documentación oficial de uso del sistema, escrita contra el **flujo real del c�
 | 3 | [Alta del colaborador](FLUJO_COMPLETO.md#proceso-alta) | 1 a 5 días | Colaborador, RH, Sistemas | 4 |
 | 4 | [Expediente](FLUJO_COMPLETO.md#proceso-expediente) | Consulta inmediata | RH, Gerente, Colaborador | 3 |
 | 5 | [Contratos](FLUJO_COMPLETO.md#proceso-contratos) | 1 a 3 días (firma y envío del original) | RH, Gerente | 2 |
-| 6 | [Onboarding](FLUJO_COMPLETO.md#proceso-onboarding) | 1 a 2 semanas | Colaborador, RH, Gerente | 2 |
+| 6 | [Onboarding](FLUJO_COMPLETO.md#proceso-onboarding) | 1 a 2 semanas | Colaborador, RH, Gerente | 3 |
 | 7 | [Evaluación inicial](FLUJO_COMPLETO.md#proceso-evaluacion) | 15 días antes del vencimiento | Gerente, RH | 2 |
 | 8 | [Solicitudes](FLUJO_COMPLETO.md#proceso-solicitudes) | 1 a 3 días hábiles | Colaborador, Gerente, Regional, RH | 4 |
 | 9 | [Nómina](FLUJO_COMPLETO.md#proceso-nomina) | 30 a 60 minutos por lote | RH, Colaborador | 2 |
@@ -33,7 +33,7 @@ Documentación oficial de uso del sistema, escrita contra el **flujo real del c�
 | 11 | [Vida laboral](FLUJO_COMPLETO.md#proceso-vida-laboral) | Continuo | Colaborador, RH, Gerente | 3 |
 | 12 | [Baja y finiquito](FLUJO_COMPLETO.md#proceso-baja) | 1 a 3 semanas | Gerente, Regional, RH, Sistemas | 2 |
 | 13 | [Reingresos](FLUJO_COMPLETO.md#proceso-reingresos) | 1 a 5 días | Gerente, RH | 1 |
-| 14 | [Administración](FLUJO_COMPLETO.md#proceso-administracion) | Según el ajuste | RH, Sistemas | 6 |
+| 14 | [Administración](FLUJO_COMPLETO.md#proceso-administracion) | Según el ajuste | RH, Sistemas | 9 |
 
 ## Dónde vive cada cosa en el código
 

@@ -63,6 +63,7 @@ import {
 import { solicitar, useDocumentosMaestros } from '@/composables/useDocumentosMaestros';
 import { useHistorialEdicion } from '@/composables/useHistorialEdicion';
 import { usePdfDocumento } from '@/composables/usePdfDocumento';
+import { clonarSerializable } from '@/lib/clonar';
 import { campoNuevo, siguienteClave } from '@/lib/editorDocumentos';
 import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
@@ -102,7 +103,7 @@ defineOptions({
 });
 
 const api = useDocumentosMaestros();
-const datos = ref<EditorMaestro>(structuredClone(props.editor));
+const datos = ref<EditorMaestro>(clonarSerializable(props.editor));
 const campos = computed({
     get: () => datos.value.campos,
     set: (v: CampoEditor[]) => (datos.value.campos = v),
@@ -116,7 +117,7 @@ const historial = useHistorialEdicion(campos);
 watch(
     () => props.editor,
     (nuevo) => {
-        datos.value = structuredClone(nuevo);
+        datos.value = clonarSerializable(nuevo);
         guardados.value = JSON.stringify(nuevo.campos);
         historial.reiniciar();
     },
@@ -237,7 +238,7 @@ function duplicar() {
     }
 
     historial.registrar();
-    const copia: CampoEditor = { ...structuredClone(origen), id: null, field_key: siguienteClave(campos.value), y: (origen.y ?? 0) + (origen.height ?? 5) + 1, bloqueado: false };
+    const copia: CampoEditor = { ...clonarSerializable(origen), id: null, field_key: siguienteClave(campos.value), y: (origen.y ?? 0) + (origen.height ?? 5) + 1, bloqueado: false };
     campos.value = [...campos.value, copia];
     seleccion.value = [copia.field_key];
 }

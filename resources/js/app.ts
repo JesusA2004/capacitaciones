@@ -43,3 +43,16 @@ initializePersonalizacion();
 
 // This will listen for flash toast data from the server...
 initializeFlashToast();
+
+// PEOPLE no usa Service Worker. Uno registrado en este origen solo puede ser
+// residuo de otro proyecto servido antes en el mismo host:puerto (típico en
+// localhost:8000) y es el origen del aviso "Fetch event handler is
+// recognized as no-op": se desregistra una vez, sin tocar nada más.
+if ('serviceWorker' in navigator) {
+    void navigator.serviceWorker
+        .getRegistrations()
+        .then((registros) =>
+            Promise.all(registros.map((registro) => registro.unregister())),
+        )
+        .catch(() => undefined);
+}
