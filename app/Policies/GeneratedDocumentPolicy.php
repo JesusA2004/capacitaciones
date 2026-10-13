@@ -80,6 +80,6 @@ class GeneratedDocumentPolicy
     {
         $colaborador = $documento->colaborador()->withTrashed()->first();
 
-        return $colaborador !== null && $this->alcance->alcanzaColaborador($usuario, $colaborador);
+        return $colaborador !== null && $this->alcance->alcanzaColaboradorEnModulo($usuario, $colaborador, 'documentos');
     }
 }

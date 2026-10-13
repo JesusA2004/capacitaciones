@@ -7,6 +7,7 @@ use App\Http\Requests\Administracion\ClonarRolRequest;
 use App\Http\Requests\Administracion\StoreRolRequest;
 use App\Http\Requests\Administracion\UpdateRolRequest;
 use App\Http\Resources\RolResource;
+use App\Services\Permisos\AlcanceModuloService;
 use App\Services\RolPermisoService;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -15,7 +16,10 @@ use Spatie\Permission\Models\Role;
 
 class RolController extends Controller
 {
-    public function __construct(private readonly RolPermisoService $rolPermisoService) {}
+    public function __construct(
+        private readonly RolPermisoService $rolPermisoService,
+        private readonly AlcanceModuloService $alcanceModulo,
+    ) {}
 
     public function index(): Response
     {
@@ -26,6 +30,9 @@ class RolController extends Controller
         return Inertia::render('Administracion/Roles/Index', [
             'roles' => RolResource::collection($roles)->resolve(),
             'permisosAgrupados' => $this->rolPermisoService->permisosAgrupados(),
+            // Acceso + alcance (Propios…Todos) + acciones por módulo:
+            // config/permisos_modulos.php.
+            'modulos' => $this->alcanceModulo->modulos(),
         ]);
     }
 

@@ -8,7 +8,6 @@ use App\Enums\ProcesoAprobacion;
 use App\Enums\ResultadoEvaluacion;
 use App\Enums\TipoBaja;
 use App\Enums\TipoTarea;
-use App\Models\Colaborador;
 use App\Models\EvaluacionPeriodoPrueba;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
@@ -332,12 +331,16 @@ class EvaluacionPeriodoPruebaService
             'contrato.documento', 'contrato.evaluacion', 'solicitudesExcepcion',
         ]);
 
-        if (! $usuario->can(self::PERMISO_AUTORIZAR)) {
+        // Quien no autoriza ve las que evalúa o de su equipo; con lectura
+        // global (p. ej. Sistemas: evaluaciones.ver_todos) las consulta todas
+        // sin poder capturar ni autorizar (lo decide la Policy).
+        if (! $usuario->can(self::PERMISO_AUTORIZAR) && ! $usuario->can('evaluaciones.ver_todos')) {
             $query->where(fn (Builder $q) => $q
                 ->where('evaluador_colaborador_id', $usuario->colaborador_id ?? 0)
                 ->orWhereHas('colaborador', fn (Builder $c) => $c->where('jefe_id', $usuario->colaborador_id ?? 0)));
-        } elseif (! $this->alcance->tieneAlcanceGlobal($usuario)) {
-            $query->whereIn('colaborador_id', $this->alcance->limitarColaboradoresPorAlcance(Colaborador::query(), $usuario)->select('id'));
+        } else {
+            // Alcance del módulo «evaluaciones» (Roles y permisos), no por nombre de rol.
+            $this->alcance->limitarPorModulo($query, $usuario, 'evaluaciones', 'colaborador_id', false);
         }
 
         $estado = isset($filtros['estado']) ? (string) $filtros['estado'] : null;

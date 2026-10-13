@@ -22,7 +22,7 @@ class EvaluacionPeriodoPruebaPolicy
     public function ver(User $usuario, EvaluacionPeriodoPrueba $evaluacion): bool
     {
         return $this->esEvaluador($usuario, $evaluacion)
-            || ($usuario->can('evaluaciones.ver') && $this->alcance->alcanzaColaborador($usuario, $evaluacion->colaborador));
+            || ($usuario->can('evaluaciones.ver') && $this->alcance->alcanzaColaboradorEnModulo($usuario, $evaluacion->colaborador, 'evaluaciones'));
     }
 
     public function capturar(User $usuario, EvaluacionPeriodoPrueba $evaluacion): bool

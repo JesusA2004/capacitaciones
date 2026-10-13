@@ -26,7 +26,7 @@ class ReciboNominaPolicy
 
         $colaborador = $recibo->colaborador()->withTrashed()->first();
 
-        return $usuario->can('nomina.recibos.ver') && $colaborador !== null && $this->alcance->alcanzaColaborador($usuario, $colaborador);
+        return $usuario->can('nomina.recibos.ver') && $colaborador !== null && $this->alcance->alcanzaColaboradorEnModulo($usuario, $colaborador, 'recibos');
     }
 
     public function importar(User $usuario): bool

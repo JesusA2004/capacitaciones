@@ -29,7 +29,9 @@ class EvaluacionCapacitacionController extends Controller
     public function index(Request $request): Response
     {
         $usuario = $request->user();
-        abort_unless($usuario->can('evaluaciones.capturar') || $usuario->can('evaluaciones.autorizar'), 403);
+        // Lectura global (p. ej. Sistemas con evaluaciones.ver_todos) consulta
+        // sin capturar ni autorizar: eso lo deciden las Policies.
+        abort_unless($usuario->can('evaluaciones.capturar') || $usuario->can('evaluaciones.autorizar') || $usuario->can('evaluaciones.ver_todos'), 403);
 
         $estado = EstadoEvaluacionPrueba::tryFrom($request->string('estado')->toString());
         $pagina = $this->evaluaciones->listar($usuario, ['estado' => $estado?->value, 'per_page' => Paginacion::porPagina(30)])->withQueryString();

@@ -220,9 +220,8 @@ class PrestamoAutorizacionService
             'pagareDocumento:id,estado_flujo',
         ]);
 
-        if (! $this->alcance->tieneAlcanceGlobal($usuario)) {
-            $query->whereIn('colaborador_id', $this->alcance->limitarColaboradoresPorAlcance(Colaborador::query()->withTrashed(), $usuario)->select('id'));
-        }
+        // Alcance del módulo «Préstamos» (Roles y permisos).
+        $this->alcance->limitarPorModulo($query, $usuario, 'prestamos', 'colaborador_id', true);
 
         $estado = isset($filtros['estado']) ? (string) $filtros['estado'] : null;
         $colaboradorId = isset($filtros['colaborador_id']) ? (int) $filtros['colaborador_id'] : null;

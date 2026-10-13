@@ -5,6 +5,7 @@ import { computed, ref } from 'vue';
 import ClonarRolDialog from '@/components/Administracion/ClonarRolDialog.vue';
 import RolFormDialog from '@/components/Administracion/RolFormDialog.vue';
 import type {
+    ModuloPermisos,
     PermisoItem,
     RolItem,
 } from '@/components/Administracion/RolFormDialog.vue';
@@ -32,6 +33,7 @@ import { destroy } from '@/routes/administracion/roles';
 const props = defineProps<{
     roles: RolItem[];
     permisosAgrupados: Record<string, PermisoItem[]>;
+    modulos?: Record<string, ModuloPermisos>;
 }>();
 
 defineOptions({
@@ -252,6 +254,7 @@ async function eliminar(rol: RolItem) {
         v-model:open="dialogFormAbierto"
         :rol="rolSeleccionado"
         :permisos-agrupados="permisosAgrupados"
+        :modulos="modulos"
         :key="rolSeleccionado?.id ?? 'nuevo'"
     />
 

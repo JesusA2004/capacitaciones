@@ -256,8 +256,14 @@ class RolesYPermisosSeeder extends Seeder
         // RH: directorio de colaboradores (datos basicos, no el expediente).
         'rh.colaboradores.ver',
         'rh.colaboradores.detalle',
-        // Notificaciones.
+        // Notificaciones. La campana SIEMPRE muestra las propias (incluso a
+        // super_admin): ver_propias es esa bandeja; ver_todas es la consulta
+        // administrativa de solo lectura «Notificaciones del sistema».
+        // leer_todas conserva su significado histórico: "marcar todas MIS
+        // notificaciones como leídas" (nunca fue ver las de otros).
         'notificaciones.leer_todas',
+        'notificaciones.ver_propias',
+        'notificaciones.ver_todas',
         // Solicitudes: configuracion de formulario y adjuntos (propios).
         'solicitudes.configuracion.ver',
         'solicitudes.adjuntos.subir',
@@ -727,12 +733,11 @@ class RolesYPermisosSeeder extends Seeder
         'jefe_directo' => [
             'perfiles_puesto.ver',
             'dashboard.sucursal.ver',
-            // ver_sucursal es el permiso "puedo ver expedientes mas alla del
-            // mio" que exige AlcanceOrganizacionalService::puedeVerExpediente();
-            // el alcance real para este rol se acota a sus subordinados
-            // directos (jefe_id), no a toda la sucursal, en
-            // limitarUsuariosPorAlcance()/puedeVerUsuario().
-            'expedientes.ver', 'expedientes.ver_sucursal',
+            // Alcance «equipo» (sus subordinados directos): expedientes.ver_equipo
+            // lo agrega config/permisos_modulos.php → alcance_por_rol. Antes
+            // se usaba ver_sucursal como truco; la migración
+            // 2026_10_15_091000 lo corrige en bases existentes.
+            'expedientes.ver',
             'documentos.ver',
             'vacaciones.ver', 'vacaciones.solicitar', 'vacaciones.aprobar', 'vacaciones.rechazar',
             'solicitudes.ver', 'solicitudes.revisar', 'solicitudes.aprobar',
@@ -828,16 +833,142 @@ class RolesYPermisosSeeder extends Seeder
         ],
 
         // Sistemas: administra la plataforma (cuentas, roles, releases de la
-        // app, auditoría). Sin acceso a expedientes ni a datos de nómina.
+        // app, auditoría) y tiene LECTURA GLOBAL para soporte y diagnóstico
+        // (alcance «todos» en cada módulo que puede ver). Ver todo ≠ aprobar
+        // todo: no recibe ninguna acción de decisión de RH (aprobar
+        // vacaciones/candidatos/préstamos, autorizar RH, ejecutar bajas) ni
+        // datos médicos. Sin dashboard.global.ver no tenía modo operativo.
         'sistemas' => [
+            'dashboard.global.ver',
             'usuarios.ver', 'usuarios.crear', 'usuarios.editar', 'usuarios.desactivar', 'usuarios.reactivar',
             'roles.administrar', 'auditoria.ver',
             'app_releases.ver', 'app_releases.crear', 'app_releases.publicar', 'app_releases.eliminar', 'app_releases.descargar',
             'mobile.bootstrap.ver', 'app.config.ver',
             'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
             'notificaciones.leer_todas',
+            'configuracion.ver',
+            // Lectura de los módulos PEOPLE/RH (el alcance «todos» se agrega
+            // desde config/permisos_modulos.php → alcance_por_rol).
+            'expedientes.ver', 'documentos.ver', 'solicitudes.ver', 'vacaciones.ver', 'prestamos.ver', 'actas.ver',
+            'documentos_laborales.ver', 'contratos.ver', 'evaluaciones.ver', 'candidatos.ver', 'vacantes.ver',
+            'nomina.recibos.ver', 'finiquitos.ver', 'cierres.ver', 'onboarding.ver', 'altas.ver',
+            'empresas.ver', 'headcount.ver', 'organigrama.ver', 'perfiles_puesto.ver', 'indicadores.ver',
+            'reportes_rh.ver', 'reportes_rh.globales', 'reclutamiento.campanas.ver', 'celebraciones.ver',
+            'formatos.ver', 'formatos.preview', 'formatos_oficiales.ver', 'plantillas.ver', 'plantillas_documentales.ver',
+            // Consulta (sin acciones) también desde la app.
+            'rh.mobile.dashboard.ver', 'rh.pendientes.ver',
+            'rh.expedientes.ver', 'rh.expedientes.detalle', 'rh.expedientes.documentos.ver',
+            'rh.solicitudes.ver', 'rh.solicitudes.detalle', 'rh.vacaciones.ver', 'rh.vacaciones.detalle',
+            'rh.documentos.ver', 'rh.documentos.detalle', 'rh.incorporaciones.ver', 'rh.incorporaciones.detalle',
+            'rh.colaboradores.ver', 'rh.colaboradores.detalle', 'rh.cumpleanos.ver', 'rh.cumpleanos.calendario',
+            'avisos.ver',
         ],
     ];
+
+    /**
+     * Quién consulta TODAS las notificaciones (solo lectura) por defecto.
+     * El resto solo las propias. Editable desde Roles y permisos.
+     *
+     * @var list<string>
+     */
+    private const ROLES_VEN_TODAS_LAS_NOTIFICACIONES = ['super_admin', 'rh_admin', 'sistemas'];
+
+    /** @var array<string, true>|null */
+    private static ?array $operativos = null;
+
+    /**
+     * Permisos de alcance y de acceso que define config/permisos_modulos.php
+     * (los nuevos se crean con people:sincronizar-permisos).
+     *
+     * @return list<string>
+     */
+    public static function permisosDeModulos(): array
+    {
+        $permisos = [];
+
+        foreach ((array) config('permisos_modulos.modulos', []) as $modulo) {
+            if (! is_array($modulo)) {
+                continue;
+            }
+
+            $permisos[] = (string) ($modulo['acceso'] ?? '');
+
+            foreach ((array) ($modulo['alcances'] ?? []) as $permiso) {
+                $permisos[] = (string) $permiso;
+            }
+
+            foreach (array_keys((array) ($modulo['acciones'] ?? [])) as $permiso) {
+                $permisos[] = (string) $permiso;
+            }
+        }
+
+        return array_values(array_unique(array_filter($permisos, fn (string $p): bool => $p !== '')));
+    }
+
+    /**
+     * true si la habilidad es un permiso del catálogo OPERATIVO (no los
+     * personales de "Mi espacio"). Lo usa el Gate::before de super_admin
+     * (AppServiceProvider) para no depender de que su rol en producción
+     * tenga sincronizado cada permiso nuevo.
+     */
+    /**
+     * Catálogo operativo completo (sin los personales de "Mi espacio").
+     *
+     * @return list<string>
+     */
+    public static function permisosOperativos(): array
+    {
+        return array_values(array_unique([...self::PERMISOS, ...self::permisosDeModulos()]));
+    }
+
+    public static function esPermisoOperativo(string $habilidad): bool
+    {
+        self::$operativos ??= array_fill_keys([...self::PERMISOS, ...self::permisosDeModulos()], true);
+
+        return isset(self::$operativos[$habilidad]) && ! in_array($habilidad, self::PERMISOS_PERSONALES, true);
+    }
+
+    /**
+     * Permisos de alcance que corresponden a un rol según
+     * config/permisos_modulos.php → alcance_por_rol, solo en los módulos
+     * a los que el rol tiene acceso. Notificaciones queda fuera: ver todas
+     * es explícito (ROLES_VEN_TODAS_LAS_NOTIFICACIONES).
+     *
+     * @param  list<string>  $permisosDelRol
+     * @return list<string>
+     */
+    private static function alcancesPara(string $rol, array $permisosDelRol): array
+    {
+        $nivel = config("permisos_modulos.alcance_por_rol.{$rol}");
+
+        if (! is_string($nivel)) {
+            return [];
+        }
+
+        $orden = ['todos', 'region', 'sucursal', 'equipo'];
+        $desde = array_search($nivel, $orden, true);
+        $resultado = [];
+
+        foreach ((array) config('permisos_modulos.modulos', []) as $clave => $modulo) {
+            if ($clave === 'notificaciones' || ! is_array($modulo) || ! in_array($modulo['acceso'] ?? null, $permisosDelRol, true)) {
+                continue;
+            }
+
+            // El nivel del rol, o el más cercano por debajo que el módulo
+            // tenga (vacantes/candidatos no tienen "equipo").
+            foreach (array_slice($orden, $desde === false ? count($orden) : $desde) as $candidato) {
+                $permiso = $modulo['alcances'][$candidato] ?? null;
+
+                if (is_string($permiso)) {
+                    $resultado[] = $permiso;
+
+                    break;
+                }
+            }
+        }
+
+        return $resultado;
+    }
 
     /**
      * Catálogo completo de permisos (operativos + personales).
@@ -846,7 +977,7 @@ class RolesYPermisosSeeder extends Seeder
      */
     public static function catalogoPermisos(): array
     {
-        return array_values(array_unique([...self::PERMISOS, ...self::PERMISOS_PERSONALES]));
+        return array_values(array_unique([...self::PERMISOS, ...self::permisosDeModulos(), ...self::PERMISOS_PERSONALES]));
     }
 
     /**
@@ -857,7 +988,28 @@ class RolesYPermisosSeeder extends Seeder
      */
     public static function permisosBasePorRol(): array
     {
-        return array_map(fn (array $permisos): array => array_values(array_unique($permisos)), self::ROLES);
+        $roles = self::ROLES;
+        // super_admin: todo el catálogo operativo, incluidos los permisos
+        // de alcance/acción que define config/permisos_modulos.php.
+        $roles['super_admin'] = [...self::PERMISOS, ...self::permisosDeModulos()];
+
+        $resultado = [];
+
+        foreach ($roles as $rol => $permisos) {
+            // Todo rol que usa la campana conserva "ver mis notificaciones".
+            if (in_array('notificaciones.leer_todas', $permisos, true)) {
+                $permisos[] = 'notificaciones.ver_propias';
+            }
+
+            if (in_array($rol, self::ROLES_VEN_TODAS_LAS_NOTIFICACIONES, true)) {
+                $permisos[] = 'notificaciones.ver_propias';
+                $permisos[] = 'notificaciones.ver_todas';
+            }
+
+            $resultado[$rol] = array_values(array_unique([...$permisos, ...self::alcancesPara($rol, $permisos)]));
+        }
+
+        return $resultado;
     }
 
     /**

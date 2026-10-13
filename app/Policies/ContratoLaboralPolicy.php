@@ -16,7 +16,7 @@ class ContratoLaboralPolicy
             return true;
         }
 
-        return $usuario->can('contratos.ver') && $this->alcance->alcanzaColaborador($usuario, $contrato->colaborador);
+        return $usuario->can('contratos.ver') && $this->alcance->alcanzaColaboradorEnModulo($usuario, $contrato->colaborador, 'contratos');
     }
 
     public function generarDocumento(User $usuario, ContratoLaboral $contrato): bool

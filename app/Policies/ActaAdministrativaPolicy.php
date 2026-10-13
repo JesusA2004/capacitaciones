@@ -20,7 +20,7 @@ class ActaAdministrativaPolicy
     {
         return $usuario->can('actas.ver')
             && $usuario->colaborador_id !== $acta->colaborador_id
-            && $this->alcance->alcanzaColaborador($usuario, $acta->colaborador);
+            && $this->alcance->alcanzaColaboradorEnModulo($usuario, $acta->colaborador, 'actas');
     }
 
     public function gestionar(User $usuario, ActaAdministrativa $acta): bool

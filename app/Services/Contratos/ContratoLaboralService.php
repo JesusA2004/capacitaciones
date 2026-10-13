@@ -417,9 +417,8 @@ class ContratoLaboralService
     {
         $query = ContratoLaboral::query();
 
-        if (! $this->alcance->tieneAlcanceGlobal($usuario)) {
-            $query->whereIn('colaborador_id', $this->alcance->limitarColaboradoresPorAlcance(Colaborador::query(), $usuario)->select('id'));
-        }
+        // Alcance del módulo «contratos» (Roles y permisos), no por nombre de rol.
+        $this->alcance->limitarPorModulo($query, $usuario, 'contratos', 'colaborador_id', false);
 
         return $query;
     }

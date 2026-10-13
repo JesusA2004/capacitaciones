@@ -540,9 +540,8 @@ class ReciboNominaService
     {
         $query = ReciboNomina::query()->with('colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id');
 
-        if (! $this->alcance->tieneAlcanceGlobal($usuario)) {
-            $query->whereIn('colaborador_id', $this->alcance->limitarColaboradoresPorAlcance(Colaborador::query()->withTrashed(), $usuario)->select('id'));
-        }
+        // Alcance del módulo «recibos» (Roles y permisos), no por nombre de rol.
+        $this->alcance->limitarPorModulo($query, $usuario, 'recibos', 'colaborador_id', true);
 
         return $query
             ->when($filtros['periodo_inicio'] ?? null, fn (Builder $q, string $v) => $q->whereDate('periodo_inicio', '>=', $v))

@@ -34,7 +34,7 @@ class FiniquitoCalculoPolicy
 
     public function ver(User $usuario, FiniquitoCalculo $finiquito): bool
     {
-        return $usuario->can('finiquitos.ver') && $this->alcance->puedeVerExpediente($usuario, $finiquito->colaborador);
+        return $usuario->can('finiquitos.ver') && $this->alcance->alcanzaColaboradorEnModulo($usuario, $finiquito->colaborador, 'finiquitos');
     }
 
     /**

@@ -68,7 +68,7 @@ class CierreLaboralPolicy
 
     private function enAlcance(User $usuario, CierreLaboral $cierre): bool
     {
-        if ($this->alcance->alcanzaColaborador($usuario, $cierre->colaborador)) {
+        if ($this->alcance->alcanzaColaboradorEnModulo($usuario, $cierre->colaborador, 'cierres')) {
             return true;
         }
 

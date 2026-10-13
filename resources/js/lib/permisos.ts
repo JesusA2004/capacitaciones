@@ -112,7 +112,10 @@ const ETIQUETAS_PERMISO: Record<string, string> = {
     'integraciones.administrar': 'Administrar integraciones',
     'mobile.bootstrap.ver': 'Ver datos iniciales de la app móvil',
     'multimedia.administrar': 'Administrar multimedia',
-    'notificaciones.leer_todas': 'Marcar todas las notificaciones como leídas',
+    'notificaciones.leer_todas': 'Marcar todas MIS notificaciones como leídas',
+    'notificaciones.ver_propias': 'Ver mis notificaciones (campana)',
+    'notificaciones.ver_todas':
+        'Consultar las notificaciones de todos (solo lectura)',
     'plantillas.crear': 'Crear plantillas',
     'plantillas.editar': 'Editar plantillas',
     'plantillas.eliminar': 'Eliminar plantillas',

@@ -37,7 +37,9 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 /**
  * Cierre laboral (Etapa 6):
@@ -190,6 +192,19 @@ class CierreLaboralService
             'tipo_baja' => $tipoBaja->value,
             'fecha_efectiva' => $cierre->fecha_efectiva->toDateString(),
         ]);
+
+        // Renuncia: el formato oficial queda generado en el mismo momento en
+        // que el gerente (o RH) da de baja, con nombre, puesto, sucursal y
+        // fecha ya llenos — solo falta imprimirlo y que el colaborador lo
+        // firme. Si falta el master o algún dato, queda un pendiente claro
+        // (generarDocumentosDeCausa) y la baja sigue su curso.
+        if ($tipoBaja === TipoBaja::Renuncia) {
+            try {
+                $this->generarDocumentosDeCausa($cierre->refresh(), $actor, ['carta_renuncia']);
+            } catch (Throwable $e) {
+                Log::warning('CierreLaboralService: no se pudo preparar la carta de renuncia.', ['cierre_id' => $cierre->id, 'error' => $e->getMessage()]);
+            }
+        }
 
         $this->sincronizarPendientes($cierre->refresh(), $actor);
 
@@ -724,9 +739,8 @@ class CierreLaboralService
 
         // El alcance se aplica SIEMPRE antes del filtro por colaborador: pedir
         // el id de alguien fuera del alcance devuelve una lista vacía.
-        if (! $this->alcance->tieneAlcanceGlobal($usuario)) {
-            $query->whereIn('colaborador_id', $this->alcance->limitarColaboradoresPorAlcance(Colaborador::query()->withTrashed(), $usuario)->select('id'));
-        }
+        // Alcance del módulo «cierres» (Roles y permisos), no por nombre de rol.
+        $this->alcance->limitarPorModulo($query, $usuario, 'cierres', 'colaborador_id', true);
 
         $estado = isset($filtros['estado']) ? (string) $filtros['estado'] : null;
 

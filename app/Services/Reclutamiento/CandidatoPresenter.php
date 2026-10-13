@@ -55,6 +55,8 @@ class CandidatoPresenter
                     // cada etapa sin cargar los registros completos.
                     ->withCount(['psicometricas', 'socioeconomicos']),
                 $usuario,
+                'sucursal_id',
+                'candidatos',
             )
             ->when($entero('empresa_id'), fn ($query, $valor) => $query->where('empresa_id', $valor))
             ->when($entero('sucursal_id'), fn ($query, $valor) => $query->where('sucursal_id', $valor))

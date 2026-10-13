@@ -68,7 +68,7 @@ class VacantesListadoService
             ->orderBy('fecha_apertura')
             ->orderBy('id');
 
-        return $this->alcance->limitarPorSucursal($consulta, $usuario);
+        return $this->alcance->limitarPorSucursal($consulta, $usuario, 'sucursal_id', 'vacantes');
     }
 
     /**

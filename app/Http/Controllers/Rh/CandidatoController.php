@@ -109,7 +109,7 @@ class CandidatoController extends Controller
         [$inicioPeriodo, $finPeriodo] = $this->rangoMes($request->string('mes')->toString());
 
         $base = fn () => $this->alcance
-            ->limitarPorSucursal(Candidato::query(), $usuario)
+            ->limitarPorSucursal(Candidato::query(), $usuario, 'sucursal_id', 'candidatos')
             ->when($request->integer('empresa_id'), fn ($q, $v) => $q->where('empresa_id', $v))
             ->when($request->integer('sucursal_id'), fn ($q, $v) => $q->where('sucursal_id', $v))
             ->when($request->integer('departamento_id'), fn ($q, $v) => $q->where('departamento_id', $v))

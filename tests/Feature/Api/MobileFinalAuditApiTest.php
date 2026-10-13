@@ -44,11 +44,16 @@ test('direccion y juridico entran a Gestion RH aunque no tengan rh.pendientes.ve
         ->and($respuesta->json('counts.rh_pendientes'))->toBe(0);
 })->with(['direccion', 'juridico']);
 
-test('un colaborador o sistemas siguen sin Gestion RH', function (string $rol) {
-    Sanctum::actingAs(clUsuario($rol));
-
+test('un colaborador sigue sin Gestion RH; Sistemas la consulta (lectura global, sin acciones)', function () {
+    Sanctum::actingAs(clUsuario('colaborador'));
     expect($this->getJson('/api/v1/mobile/bootstrap')->assertOk()->json('capabilities.rh'))->toBeFalse();
-})->with(['colaborador', 'sistemas']);
+
+    $sistemas = clUsuario('sistemas');
+    Sanctum::actingAs($sistemas);
+    expect($this->getJson('/api/v1/mobile/bootstrap')->assertOk()->json('capabilities.rh'))->toBeTrue()
+        ->and($sistemas->can('rh.solicitudes.aprobar'))->toBeFalse()
+        ->and($sistemas->can('rh.vacaciones.aprobar'))->toBeFalse();
+});
 
 // ---------------------------------------------------------------- counts.tasks
 

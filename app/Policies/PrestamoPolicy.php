@@ -17,7 +17,7 @@ class PrestamoPolicy
             return true;
         }
 
-        return $usuario->can('prestamos.ver') && $this->alcance->alcanzaColaborador($usuario, $prestamo->colaborador);
+        return $usuario->can('prestamos.ver') && $this->alcance->alcanzaColaboradorEnModulo($usuario, $prestamo->colaborador, 'prestamos');
     }
 
     public function gestionar(User $usuario, Prestamo $prestamo): bool

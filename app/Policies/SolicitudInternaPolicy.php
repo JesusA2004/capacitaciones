@@ -2,10 +2,12 @@
 
 namespace App\Policies;
 
+use App\Enums\AlcanceDatos;
 use App\Models\Colaborador;
 use App\Models\SolicitudInterna;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Permisos\AlcanceModuloService;
 use App\Services\Solicitudes\AprobacionJerarquicaService;
 
 /**
@@ -15,7 +17,10 @@ use App\Services\Solicitudes\AprobacionJerarquicaService;
  */
 class SolicitudInternaPolicy
 {
-    public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}
+    public function __construct(
+        private readonly AlcanceOrganizacionalService $alcance,
+        private readonly AlcanceModuloService $alcanceModulo,
+    ) {}
 
     /**
      * Gate del listado de revisión de RH/gerencia (Rh\SolicitudController),
@@ -23,7 +28,11 @@ class SolicitudInternaPolicy
      */
     public function viewAny(User $usuario): bool
     {
-        return $usuario->can('solicitudes.revisar') || $usuario->can('solicitudes.aprobar');
+        // Quien revisa/aprueba, o quien solo CONSULTA solicitudes de otros
+        // (p. ej. Sistemas con lectura global): ver ≠ aprobar.
+        return $usuario->can('solicitudes.revisar')
+            || $usuario->can('solicitudes.aprobar')
+            || ($usuario->can('solicitudes.ver') && $this->alcanceModulo->nivel($usuario, 'solicitudes') !== AlcanceDatos::Propios);
     }
 
     public function view(User $usuario, SolicitudInterna $solicitud): bool
@@ -32,7 +41,7 @@ class SolicitudInternaPolicy
             return true;
         }
 
-        return $usuario->can('solicitudes.ver') && $this->alcance->puedeVerUsuario($usuario, $solicitud->usuario);
+        return $usuario->can('solicitudes.ver') && $this->alcanceModulo->alcanzaColaborador($usuario, $solicitud->personaSolicitante(), 'solicitudes');
     }
 
     public function create(User $usuario): bool

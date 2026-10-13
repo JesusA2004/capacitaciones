@@ -6,6 +6,7 @@ use App\Models\Colaborador;
 use App\Models\Departamento;
 use App\Models\Sucursal;
 use App\Models\User;
+use App\Services\Permisos\AlcanceModuloService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
@@ -235,24 +236,38 @@ class AlcanceOrganizacionalService
     }
 
     /**
+     * Acota registros con columna de colaborador al alcance que el usuario
+     * tiene en ESE módulo (Roles y permisos → alcance), ver AlcanceModuloService.
+     *
+     * @template TModel of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
+     */
+    public function limitarPorModulo(Builder $query, User $usuario, string $modulo, string $columna = 'colaborador_id', bool $conEliminados = false): Builder
+    {
+        return app(AlcanceModuloService::class)->limitarPorColaborador($query, $usuario, $modulo, $columna, $conEliminados);
+    }
+
+    public function alcanzaColaboradorEnModulo(User $usuario, ?Colaborador $colaborador, string $modulo): bool
+    {
+        return app(AlcanceModuloService::class)->alcanzaColaborador($usuario, $colaborador, $modulo);
+    }
+
+    /**
      * Acota la consulta de colaboradores para el explorador de expedientes
-     * (Portal RH). Reutiliza el mismo criterio de alcance de
-     * limitarColaboradoresPorAlcance() (incluye jefe_directo via jefe_id), pero
-     * exige ademas el permiso especifico de expedientes: alguien con
-     * alcance global que no tenga `expedientes.ver_todos` no debe ver el
-     * expediente de nadie mas que el suyo (p. ej. auditor con auditoria.ver
-     * pero sin expedientes.* explicito, si se reconfigura desde Administracion > Roles).
+     * (Portal RH) con el alcance del módulo «Expedientes»: alguien con
+     * alcance global por rol pero sin `expedientes.ver_todos` no ve el
+     * expediente de nadie más que el suyo.
      *
      * @param  Builder<Colaborador>  $query
      * @return Builder<Colaborador>
      */
     public function limitarExpedientesPorAlcance(Builder $query, User $usuario): Builder
     {
-        if ($usuario->can('expedientes.ver_todos') || $usuario->can('expedientes.ver_sucursal')) {
-            return $this->limitarColaboradoresPorAlcance($query, $usuario);
-        }
-
-        return $query->where('id', $usuario->colaborador_id);
+        // Alcance del módulo «Expedientes» configurado en Roles y permisos
+        // (Propios/Equipo/Sucursal/Región/Todos), ver AlcanceModuloService.
+        return app(AlcanceModuloService::class)->limitarColaboradores($query, $usuario, 'expedientes');
     }
 
     /**
@@ -268,8 +283,14 @@ class AlcanceOrganizacionalService
      * @param  Builder<TModel>  $query
      * @return Builder<TModel>
      */
-    public function limitarPorSucursal(Builder $query, User $usuario, string $columnaSucursal = 'sucursal_id'): Builder
+    public function limitarPorSucursal(Builder $query, User $usuario, string $columnaSucursal = 'sucursal_id', ?string $modulo = null): Builder
     {
+        // Con módulo: el alcance configurado para ese módulo en Roles y
+        // permisos (vacantes, candidatos). Sin módulo: criterio por rol.
+        if ($modulo !== null) {
+            return app(AlcanceModuloService::class)->limitarPorSucursal($query, $usuario, $modulo, $columnaSucursal);
+        }
+
         if ($this->tieneAlcanceGlobal($usuario)) {
             return $query;
         }
@@ -317,23 +338,6 @@ class AlcanceOrganizacionalService
             return $usuario->can('expedientes.ver');
         }
 
-        if (! $usuario->can('expedientes.ver_todos') && ! $usuario->can('expedientes.ver_sucursal')) {
-            return false;
-        }
-
-        if ($this->tieneAlcanceGlobal($usuario)) {
-            return true;
-        }
-
-        if ($this->tieneAlcanceDeSucursal($usuario)) {
-            return $colaborador->sucursal_principal_id !== null
-                && $this->sucursalesVisiblesIds($usuario)->contains($colaborador->sucursal_principal_id);
-        }
-
-        if ($usuario->hasRole('jefe_directo')) {
-            return $colaborador->jefe_id === $usuario->colaborador_id;
-        }
-
-        return false;
+        return app(AlcanceModuloService::class)->alcanzaColaborador($usuario, $colaborador, 'expedientes');
     }
 }

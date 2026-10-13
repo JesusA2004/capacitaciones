@@ -60,9 +60,8 @@ class DocumentoLaboralConsultaService
     {
         $query = GeneratedDocument::query()->whereNotNull('estado_flujo');
 
-        if (! $this->alcance->tieneAlcanceGlobal($usuario)) {
-            $query->whereIn('colaborador_id', $this->alcance->limitarColaboradoresPorAlcance(Colaborador::query()->withTrashed(), $usuario)->select('id'));
-        }
+        // Alcance del módulo «documentos» (Roles y permisos), no por nombre de rol.
+        $this->alcance->limitarPorModulo($query, $usuario, 'documentos', 'colaborador_id', true);
 
         $etapa = $filtros['etapa'] ?? null;
         $etapas = FlujoDocumentalService::etapasPendientes();
