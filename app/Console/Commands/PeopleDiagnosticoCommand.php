@@ -332,6 +332,44 @@ class PeopleDiagnosticoCommand extends Command
         } catch (Throwable $e) {
             $this->fallo('El disco «nas» no es escribible: '.$e->getMessage());
         }
+
+        $this->revisarDuenoArchivosNas();
+    }
+
+    /**
+     * Un comando corrido como root (importar formatos, normalizar masters)
+     * deja archivos privados (0600) de root: el servidor web (www-data) ya no
+     * puede leerlos y el editor/vista previa de documentos maestros falla.
+     * Solo aplica a disco local en Linux.
+     */
+    private function revisarDuenoArchivosNas(): void
+    {
+        $raiz = (string) config('filesystems.disks.nas.root');
+
+        if (config('filesystems.disks.nas.driver') !== 'local' || ! function_exists('posix_getpwuid') || ! is_dir($raiz)) {
+            return;
+        }
+
+        $deRoot = 0;
+        $iterador = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($raiz, \FilesystemIterator::SKIP_DOTS));
+
+        foreach ($iterador as $archivo) {
+            if ($archivo instanceof \SplFileInfo && $archivo->getOwner() === 0) {
+                $deRoot++;
+            }
+        }
+
+        if ($deRoot === 0) {
+            $this->ok('Los archivos del disco «nas» no pertenecen a root.');
+
+            return;
+        }
+
+        $this->fallo(sprintf(
+            '%d archivo(s) del disco «nas» pertenecen a root: el servidor web no puede leerlos (documentos maestros sin vista previa). Corre: chown -R www-data:www-data %s',
+            $deRoot,
+            $raiz,
+        ));
     }
 
     /**

@@ -7,6 +7,7 @@ use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 /**
  * Organigrama en LÁMINAS, como el PDF oficial de Inducción (cap. 4, hojas
@@ -53,7 +54,7 @@ class LaminasOrganigramaService
                 'sigla' => $area['sigla'],
                 'titulo' => $area['titulo'],
                 'icono' => $area['icono'],
-                'personas' => $this->personas((array) $area['puestos']),
+                'personas' => $this->personas((array) $area['puestos']) ?: $this->responsablesDe((array) ($area['departamentos'] ?? [])),
             ], (array) ($config['areas'] ?? [])),
             'nota' => $config['nota'] ?? null,
         ];
@@ -128,12 +129,48 @@ class LaminasOrganigramaService
      */
     private function personas(array $patrones, ?int $sucursalId = null): array
     {
-        $regex = array_map(fn (string $p): string => '/^'.str_replace('%', '.*', preg_quote($p, '/')).'$/iu', array_filter($patrones, 'is_string'));
+        // Sin distinguir acentos ni mayúsculas: «Contraloria» = «Contraloría».
+        $regex = array_map(fn (string $p): string => '/^'.str_replace('%', '.*', preg_quote(Str::ascii(trim($p)), '/')).'$/i', array_filter($patrones, 'is_string'));
 
         return array_values($this->activos()
             ->filter(fn (Colaborador $c): bool => ($sucursalId === null || $c->sucursal_principal_id === $sucursalId)
                 && $c->puesto !== null
-                && collect($regex)->contains(fn (string $r): bool => preg_match($r, $c->puesto->nombre) === 1))
+                && collect($regex)->contains(fn (string $r): bool => preg_match($r, Str::ascii(trim($c->puesto->nombre))) === 1))
+            ->map(fn (Colaborador $c): array => ['id' => $c->id, 'nombre' => $c->nombreCompleto(), 'sucursal' => $c->sucursalPrincipal?->nombre])
+            ->sortBy('nombre')
+            ->all());
+    }
+
+    /**
+     * Respaldo cuando el puesto del área se llama distinto en cada empresa
+     * (p. ej. «Encargado de Sistemas»): el o los colaboradores de MAYOR
+     * jerarquía de ese departamento.
+     *
+     * @param  array<mixed>  $departamentos
+     * @return list<array{id: int|null, nombre: string, sucursal: string|null}>
+     */
+    private function responsablesDe(array $departamentos): array
+    {
+        $buscados = array_map(fn (string $d): string => Str::lower(Str::ascii($d)), array_filter($departamentos, 'is_string'));
+
+        if ($buscados === []) {
+            return [];
+        }
+
+        $delArea = $this->activos()->filter(function (Colaborador $c) use ($buscados): bool {
+            $departamento = $c->puesto->departamento->nombre ?? $c->departamento->nombre ?? null;
+
+            return $departamento !== null && in_array(Str::lower(Str::ascii($departamento)), $buscados, true);
+        });
+
+        if ($delArea->isEmpty()) {
+            return [];
+        }
+
+        $nivel = $delArea->min(fn (Colaborador $c): int => $c->puesto->nivel_jerarquico ?? 99);
+
+        return array_values($delArea
+            ->filter(fn (Colaborador $c): bool => ($c->puesto->nivel_jerarquico ?? 99) === $nivel)
             ->map(fn (Colaborador $c): array => ['id' => $c->id, 'nombre' => $c->nombreCompleto(), 'sucursal' => $c->sucursalPrincipal?->nombre])
             ->sortBy('nombre')
             ->all());
@@ -147,8 +184,8 @@ class LaminasOrganigramaService
         return $this->activos ??= Colaborador::query()
             ->where('estatus', 'activo')
             ->whereNotNull('puesto_id')
-            ->with(['puesto:id,nombre', 'sucursalPrincipal:id,nombre'])
-            ->get(['id', 'name', 'apellidos', 'puesto_id', 'sucursal_principal_id'])
+            ->with(['puesto:id,nombre,nivel_jerarquico,departamento_id', 'puesto.departamento:id,nombre', 'departamento:id,nombre', 'sucursalPrincipal:id,nombre'])
+            ->get(['id', 'name', 'apellidos', 'puesto_id', 'sucursal_principal_id', 'departamento_id'])
             ->filter(fn (Colaborador $c): bool => $c->puesto !== null);
     }
 }

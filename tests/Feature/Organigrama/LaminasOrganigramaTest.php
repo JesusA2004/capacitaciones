@@ -1,8 +1,10 @@
 <?php
 
 use App\Models\Colaborador;
+use App\Models\Departamento;
 use App\Models\Puesto;
 use App\Models\Sucursal;
+use App\Services\Organigrama\LaminasOrganigramaService;
 use Database\Seeders\RolesYPermisosSeeder;
 
 /*
@@ -43,4 +45,24 @@ test('las láminas muestran a las personas reales de cada área y sucursal', fun
         ->and($sucursales)->not->toHaveKey('Corporativo')
         ->and($sucursales['Tula']['gerente'][0]['nombre'])->toBe('Luis Pérez Gómez')
         ->and($sucursales['Tula']['subgerente'])->toBe([]);
+});
+
+test('el área se llena aunque el puesto se llame distinto (sin acentos, otro nombre o solo por departamento)', function () {
+    $corporativo = Sucursal::factory()->create(['nombre' => 'Corporativo', 'es_corporativo' => true, 'activo' => true]);
+    $rh = Departamento::factory()->create(['nombre' => 'Recursos Humanos']);
+    $encargadoSistemas = Puesto::factory()->create(['nombre' => 'ENCARGADO DE SISTEMAS']);
+    $contralor = Puesto::factory()->create(['nombre' => 'Contraloria']);
+    $jefaRh = Puesto::factory()->create(['nombre' => 'Jefa de Personal', 'departamento_id' => $rh->id, 'nivel_jerarquico' => 2]);
+    $auxiliarRh = Puesto::factory()->create(['nombre' => 'Auxiliar de Personal', 'departamento_id' => $rh->id, 'nivel_jerarquico' => 4]);
+    Colaborador::factory()->create(['name' => 'Raúl', 'apellidos' => 'Soto Vega', 'puesto_id' => $encargadoSistemas->id, 'sucursal_principal_id' => $corporativo->id, 'estatus' => 'activo']);
+    Colaborador::factory()->create(['name' => 'Elena', 'apellidos' => 'Ríos Paz', 'puesto_id' => $contralor->id, 'sucursal_principal_id' => $corporativo->id, 'estatus' => 'activo']);
+    Colaborador::factory()->create(['name' => 'Laura', 'apellidos' => 'Mena Cruz', 'puesto_id' => $jefaRh->id, 'sucursal_principal_id' => $corporativo->id, 'estatus' => 'activo']);
+    Colaborador::factory()->create(['name' => 'Pablo', 'apellidos' => 'Luna Gil', 'puesto_id' => $auxiliarRh->id, 'sucursal_principal_id' => $corporativo->id, 'estatus' => 'activo']);
+
+    $areas = collect(app(LaminasOrganigramaService::class)->laminas(clUsuario('rh_admin'))['corporativo']['areas'])->keyBy('sigla');
+
+    expect(collect($areas['SI']['personas'])->pluck('nombre')->all())->toBe(['Raúl Soto Vega'])
+        ->and(collect($areas['CT']['personas'])->pluck('nombre')->all())->toBe(['Elena Ríos Paz'])
+        // Por departamento: solo la de mayor jerarquía, no todo RH.
+        ->and(collect($areas['RH']['personas'])->pluck('nombre')->all())->toBe(['Laura Mena Cruz']);
 });

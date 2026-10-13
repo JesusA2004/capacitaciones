@@ -25,6 +25,7 @@ use App\Services\DocumentosMaestros\Variables\ExpresionesDocumentoService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -612,7 +613,12 @@ class EditorMaestroService
         try {
             $reglas = $this->reglasVista($campos);
             $resultado = $this->preparador->preparar($this->almacen->original($master), $reglas);
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            // El editor se abre igual (sin vista de espacios); el motivo queda
+            // en el log — típicamente el original del NAS no se puede leer
+            // (permisos del usuario del servidor web).
+            Log::warning('Editor de documentos maestros: no se pudo leer o preparar el original.', ['master_id' => $master->id, 'error' => $e->getMessage()]);
+
             return [];
         }
 
