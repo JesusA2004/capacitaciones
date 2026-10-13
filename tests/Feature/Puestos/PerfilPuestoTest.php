@@ -68,3 +68,14 @@ test('la ficha del candidato muestra lo que se busca para su puesto', function (
             ->where('perfilPuesto.puesto', 'Subgerente')
             ->where('perfilPuesto.perfil.habilidades', ['Negociación']));
 });
+
+test('la edición vive en su propia página: RH entra, una gerencia no; guardar regresa a la lectura', function () {
+    $this->actingAs(clUsuario('gerente_sucursal'))->get(route('rh.perfiles-puesto.edit', $this->puesto))->assertForbidden();
+
+    $rh = clUsuario('rh_admin');
+    $this->actingAs($rh)->get(route('rh.perfiles-puesto.edit', $this->puesto))->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Rh/PerfilesPuesto/Editar')->where('es_borrador', true));
+
+    $this->actingAs($rh)->put(route('rh.perfiles-puesto.update', $this->puesto), ['valores' => ['Honestidad']])
+        ->assertRedirect(route('rh.perfiles-puesto.show', $this->puesto));
+});

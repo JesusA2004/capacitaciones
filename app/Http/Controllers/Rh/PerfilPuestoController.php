@@ -12,8 +12,8 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Perfiles de puesto: lo que se busca en el candidato y el «deber ser» del
- * puesto. Ver lo puede RH y las gerencias; editar, solo RH.
+ * Descriptivos y perfiles de puesto: el «deber ser» del puesto y lo que se
+ * busca en el candidato. Ver lo puede RH y las gerencias; editar, solo RH.
  */
 class PerfilPuestoController extends Controller
 {
@@ -39,10 +39,18 @@ class PerfilPuestoController extends Controller
         ]);
     }
 
+    /** Edición en su propia página (la lectura nunca mezcla formularios). */
+    public function edit(Request $request, Puesto $puesto): Response
+    {
+        abort_unless($request->user()?->can('perfiles_puesto.editar'), 403);
+
+        return Inertia::render('Rh/PerfilesPuesto/Editar', $this->perfiles->detalle($puesto));
+    }
+
     public function update(GuardarPerfilPuestoRequest $request, Puesto $puesto): RedirectResponse
     {
         $this->perfiles->guardar($puesto, $request->validated(), $request->user());
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Perfil del puesto guardado.']);
+        return to_route('rh.perfiles-puesto.show', $puesto)->with('toast', ['type' => 'success', 'message' => 'Descriptivo guardado.']);
     }
 }

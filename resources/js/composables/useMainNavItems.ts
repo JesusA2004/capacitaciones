@@ -216,7 +216,7 @@ export function useMainNavItems() {
                     icon: Briefcase,
                 },
                 tienePermiso('perfiles_puesto.ver') && {
-                    title: 'Perfiles de puesto',
+                    title: 'Descriptivos y perfiles',
                     href: indexPerfilesPuesto(),
                     icon: UserSearch,
                 },

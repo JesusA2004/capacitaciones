@@ -1,91 +1,73 @@
 import type { ListaPerfilPuesto } from '@/types';
 
-/** Secciones del perfil de puesto, en el orden en que se muestran. */
-export type SeccionPerfil =
-    | { clave: 'escolaridad'; titulo: string; tipo: 'linea'; ayuda: string }
-    | {
-          clave: 'experiencia' | 'objetivo';
-          titulo: string;
-          tipo: 'parrafo';
-          ayuda: string;
-      }
-    | {
-          clave: ListaPerfilPuesto;
-          titulo: string;
-          tipo: 'lista';
-          ayuda: string;
-      };
+/**
+ * Secciones de los descriptivos y perfiles de puesto. `estilo` decide cómo
+ * se ven en lectura y cómo se capturan en edición:
+ * - numerada: pasos/funciones (frases largas, en orden).
+ * - checklist: responsabilidades y requisitos.
+ * - etiquetas: conceptos cortos (habilidades, valores…).
+ * - indicadores: tarjetas tipo meta.
+ */
+export type EstiloLista =
+    'numerada' | 'checklist' | 'etiquetas' | 'indicadores';
 
-/** Propósito 1: lo que debe tener quien se postula. */
-export const SECCIONES_CANDIDATO: SeccionPerfil[] = [
-    {
-        clave: 'escolaridad',
-        titulo: 'Escolaridad',
-        tipo: 'linea',
-        ayuda: 'Ej. Bachillerato terminado',
-    },
-    {
-        clave: 'experiencia',
-        titulo: 'Experiencia',
-        tipo: 'parrafo',
-        ayuda: 'Ej. 1 año en cobranza o ventas en campo',
-    },
-    {
-        clave: 'conocimientos',
-        titulo: 'Conocimientos',
-        tipo: 'lista',
-        ayuda: 'Uno por renglón. Ej. Manejo de Excel',
-    },
-    {
-        clave: 'habilidades',
-        titulo: 'Habilidades',
-        tipo: 'lista',
-        ayuda: 'Uno por renglón. Ej. Negociación',
-    },
-    {
-        clave: 'competencias',
-        titulo: 'Competencias y actitudes',
-        tipo: 'lista',
-        ayuda: 'Uno por renglón. Ej. Orientación a resultados',
-    },
-    {
-        clave: 'valores',
-        titulo: 'Valores',
-        tipo: 'lista',
-        ayuda: 'Uno por renglón. Ej. Honestidad',
-    },
-    {
-        clave: 'requisitos',
-        titulo: 'Requisitos',
-        tipo: 'lista',
-        ayuda: 'Uno por renglón. Ej. Licencia de motocicleta vigente',
-    },
-];
+export type SeccionLista = {
+    clave: ListaPerfilPuesto;
+    titulo: string;
+    estilo: EstiloLista;
+    ejemplo: string;
+};
 
-/** Propósito 2: el «deber ser» del puesto. */
-export const SECCIONES_PUESTO: SeccionPerfil[] = [
-    {
-        clave: 'objetivo',
-        titulo: 'Objetivo del puesto',
-        tipo: 'parrafo',
-        ayuda: 'Para qué existe el puesto, en una o dos líneas',
-    },
+export const DESCRIPTIVO: SeccionLista[] = [
     {
         clave: 'funciones',
-        titulo: 'Funciones y actividades',
-        tipo: 'lista',
-        ayuda: 'Una por renglón: lo que hace en su día a día',
+        titulo: 'Funciones',
+        estilo: 'numerada',
+        ejemplo: 'Prospectar clientes',
     },
     {
         clave: 'responsabilidades',
         titulo: 'Responsabilidades',
-        tipo: 'lista',
-        ayuda: 'Una por renglón: de qué responde',
+        estilo: 'checklist',
+        ejemplo: 'Cuidar el efectivo de la ruta',
     },
     {
         clave: 'indicadores',
-        titulo: 'Indicadores de desempeño',
-        tipo: 'lista',
-        ayuda: 'Uno por renglón. Ej. Cartera vencida menor a 5 %',
+        titulo: 'Indicadores',
+        estilo: 'indicadores',
+        ejemplo: 'Cartera vencida < 5 %',
+    },
+];
+
+export const PERFIL_CANDIDATO: SeccionLista[] = [
+    {
+        clave: 'conocimientos',
+        titulo: 'Conocimientos',
+        estilo: 'etiquetas',
+        ejemplo: 'Excel básico',
+    },
+    {
+        clave: 'habilidades',
+        titulo: 'Habilidades',
+        estilo: 'etiquetas',
+        ejemplo: 'Negociación',
+    },
+    {
+        clave: 'competencias',
+        titulo: 'Competencias',
+        estilo: 'etiquetas',
+        ejemplo: 'Orientación a resultados',
+    },
+    {
+        clave: 'valores',
+        titulo: 'Valores',
+        estilo: 'etiquetas',
+        ejemplo: 'Honestidad',
+    },
+    {
+        clave: 'requisitos',
+        titulo: 'Requisitos',
+        estilo: 'checklist',
+        ejemplo: 'Licencia de moto vigente',
     },
 ];

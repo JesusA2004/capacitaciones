@@ -355,7 +355,7 @@ export const MODULOS_GUIA: ModuloGuia[] = [
     },
     {
         id: 'perfiles-puesto',
-        nombre: 'Perfiles de puesto',
+        nombre: 'Descriptivos y perfiles de puesto',
         ruta: '/rh/perfiles-puesto',
         patron: /^\/rh\/perfiles-puesto/,
         modo: 'operativo',
@@ -363,15 +363,15 @@ export const MODULOS_GUIA: ModuloGuia[] = [
         grupo: 'Reclutamiento',
         icono: ClipboardList,
         descripcion:
-            'Qué debe tener quien se postula a cada puesto y cuál es el deber ser del puesto.',
+            'El deber ser de cada puesto y a quién buscamos para él.',
         pasos: [
             {
-                titulo: 'Perfiles de puesto',
-                texto: 'Cada puesto tiene un perfil con dos partes: el perfil del candidato (escolaridad, experiencia, conocimientos, habilidades, competencias, valores y requisitos) y la descripción del puesto (objetivo, funciones, responsabilidades e indicadores).',
+                titulo: 'Descriptivos y perfiles',
+                texto: 'Cada puesto tiene dos partes: el descriptivo (objetivo, funciones, responsabilidades e indicadores) y el perfil del candidato (escolaridad, experiencia, conocimientos, habilidades, competencias, valores y requisitos).',
             },
             {
                 titulo: 'Quién lo edita',
-                texto: 'Solo RH edita los perfiles; gerencias y Dirección los consultan. «Reporta a» y «Supervisa a» salen solos del organigrama.',
+                texto: 'Solo RH edita (botón Editar, en su propia página); gerencias y Dirección los consultan. «Reporta a» y «Supervisa» salen solos del organigrama.',
                 consejo:
                     'Si un puesto no tiene perfil, se abre un borrador con lo que ya conocemos del puesto: revísalo y guárdalo.',
             },

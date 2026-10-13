@@ -1,14 +1,20 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
-import { ChevronDown, UserSearch } from '@lucide/vue';
+import {
+    BriefcaseBusiness,
+    ChevronDown,
+    GraduationCap,
+    UserSearch,
+} from '@lucide/vue';
 import { ref } from 'vue';
-import { SECCIONES_CANDIDATO } from '@/lib/perfilPuesto';
+import ListaPerfilLectura from '@/components/puestos/ListaPerfilLectura.vue';
+import { PERFIL_CANDIDATO } from '@/lib/perfilPuesto';
 import { show } from '@/routes/rh/perfiles-puesto';
 import type { PerfilPuestoCandidato } from '@/types';
 
 /**
- * Lo que debe tener quien se postula al puesto (perfil de puesto de RH),
- * a la mano de quien entrevista y evalúa al candidato.
+ * Lo que buscamos para el puesto (perfil del candidato que define RH), a la
+ * mano de quien entrevista y evalúa.
  */
 defineProps<{ perfil: NonNullable<PerfilPuestoCandidato> }>();
 
@@ -22,64 +28,72 @@ const abierto = ref(true);
     >
         <button
             type="button"
-            class="flex w-full items-center gap-2 text-left"
+            class="flex w-full items-center gap-3 text-left"
             :aria-expanded="abierto"
             @click="abierto = !abierto"
         >
-            <UserSearch class="size-4 text-[var(--mrl-petroleo)]" />
-            <h2 class="text-sm font-semibold">
-                Qué buscamos para {{ perfil.puesto }}
-            </h2>
+            <span
+                class="flex size-8 items-center justify-center rounded-xl bg-[var(--mrl-petroleo)] text-[var(--mrl-dorado)]"
+            >
+                <UserSearch class="size-4" />
+            </span>
+            <span class="min-w-0">
+                <span
+                    class="block text-[11px] tracking-[0.14em] text-muted-foreground uppercase"
+                    >Perfil buscado</span
+                >
+                <span class="block font-semibold">{{ perfil.puesto }}</span>
+            </span>
             <ChevronDown
                 class="ml-auto size-4 text-muted-foreground transition-transform"
                 :class="abierto ? 'rotate-180' : ''"
             />
         </button>
 
-        <template v-if="abierto">
-            <p v-if="!perfil.perfil" class="mt-3 text-sm text-muted-foreground">
-                Este puesto todavía no tiene perfil definido por RH.
+        <div v-if="abierto" class="mt-4 flex flex-col gap-4">
+            <p v-if="!perfil.perfil" class="text-sm text-muted-foreground">
+                Este puesto aún no tiene perfil.
             </p>
-            <dl v-else class="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+            <template v-else>
                 <div
-                    v-for="seccion in SECCIONES_CANDIDATO"
-                    :key="seccion.clave"
+                    v-if="
+                        perfil.perfil.escolaridad || perfil.perfil.experiencia
+                    "
+                    class="flex flex-wrap gap-2 text-sm"
                 >
-                    <dt
-                        class="text-xs font-semibold tracking-wide text-[var(--mrl-dorado-oscuro)] uppercase"
+                    <span
+                        v-if="perfil.perfil.escolaridad"
+                        class="inline-flex items-center gap-1.5 rounded-xl bg-[var(--mrl-crema)] px-3 py-1.5"
                     >
-                        {{ seccion.titulo }}
-                    </dt>
-                    <dd v-if="seccion.tipo === 'lista'">
-                        <ul
-                            v-if="perfil.perfil[seccion.clave].length"
-                            class="mt-0.5 flex flex-col gap-0.5"
-                        >
-                            <li
-                                v-for="item in perfil.perfil[seccion.clave]"
-                                :key="item"
-                                class="flex gap-1.5"
-                            >
-                                <span class="text-[var(--mrl-dorado-oscuro)]"
-                                    >•</span
-                                >{{ item }}
-                            </li>
-                        </ul>
-                        <span v-else class="text-muted-foreground italic"
-                            >—</span
-                        >
-                    </dd>
-                    <dd v-else class="mt-0.5 whitespace-pre-line">
-                        {{ perfil.perfil[seccion.clave] || '—' }}
-                    </dd>
+                        <GraduationCap
+                            class="size-4 text-[var(--mrl-dorado-oscuro)]"
+                        />
+                        {{ perfil.perfil.escolaridad }}
+                    </span>
+                    <span
+                        v-if="perfil.perfil.experiencia"
+                        class="inline-flex items-center gap-1.5 rounded-xl bg-[var(--mrl-crema)] px-3 py-1.5"
+                    >
+                        <BriefcaseBusiness
+                            class="size-4 text-[var(--mrl-dorado-oscuro)]"
+                        />
+                        {{ perfil.perfil.experiencia }}
+                    </span>
                 </div>
-            </dl>
+                <ListaPerfilLectura
+                    v-for="s in PERFIL_CANDIDATO"
+                    :key="s.clave"
+                    :titulo="s.titulo"
+                    :estilo="s.estilo"
+                    :items="perfil.perfil[s.clave]"
+                />
+            </template>
             <Link
                 :href="show.url(perfil.puesto_id)"
-                class="mt-3 inline-block text-xs text-[var(--mrl-petroleo)] hover:underline"
+                class="self-start text-xs font-medium text-[var(--mrl-petroleo)] hover:underline"
             >
-                Ver perfil completo del puesto
+                Ver descriptivo completo
             </Link>
-        </template>
+        </div>
     </section>
 </template>

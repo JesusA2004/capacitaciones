@@ -165,10 +165,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('exportar-pdf', [VacanteController::class, 'exportarPdf'])->name('exportarPdf');
         });
 
-        // Perfiles de puesto: candidato ideal + descripción del puesto (RH edita).
+        // Descriptivos y perfiles de puesto: el deber ser del puesto + candidato ideal (RH edita).
         Route::prefix('perfiles-puesto')->name('perfiles-puesto.')->group(function () {
             Route::get('/', [PerfilPuestoController::class, 'index'])->name('index');
             Route::get('{puesto}', [PerfilPuestoController::class, 'show'])->name('show');
+            Route::get('{puesto}/editar', [PerfilPuestoController::class, 'edit'])->name('edit');
             Route::put('{puesto}', [PerfilPuestoController::class, 'update'])->name('update');
         });
 
