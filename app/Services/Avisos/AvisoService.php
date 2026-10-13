@@ -4,6 +4,7 @@ namespace App\Services\Avisos;
 
 use App\Enums\AlcanceAviso;
 use App\Enums\EstadoUsuario;
+use App\Exceptions\ArchivoGeneradoNoDisponibleException;
 use App\Models\Aviso;
 use App\Models\AvisoLectura;
 use App\Models\Colaborador;
@@ -19,8 +20,10 @@ use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Avisos de RH a la empresa: mensaje + imagen opcional, a toda la plantilla
- * activa o a un colaborador específico. Push real a cada destinatario
+ * Avisos de RH a la empresa: mensaje + adjunto opcional (imagen JPG/PNG/
+ * WEBP o PDF), a toda la plantilla activa o a un colaborador específico.
+ * El adjunto nunca viaja en el push: el push abre el aviso y el archivo se
+ * consulta por endpoint autorizado. Push real a cada destinatario
  * (App\Services\MobilePush\PushNotifier, que ya encola por dispositivo:
  * nunca se llama a Expo directo desde aquí). El disco es privado, igual
  * que fondos/documentos (nunca un disco público).
@@ -34,7 +37,7 @@ class AvisoService
     /**
      * @param  array<string, mixed>  $datos  titulo, mensaje, alcance, colaborador_objetivo_id? (validado por CrearAvisoRequest).
      */
-    public function crear(array $datos, ?UploadedFile $imagen, User $actor): Aviso
+    public function crear(array $datos, ?UploadedFile $archivo, User $actor): Aviso
     {
         $alcance = AlcanceAviso::from((string) $datos['alcance']);
         $colaboradorObjetivoIdCrudo = $datos['colaborador_objetivo_id'] ?? null;
@@ -45,7 +48,7 @@ class AvisoService
 
         $colaboradorObjetivoId = $alcance === AlcanceAviso::Colaborador ? (int) $colaboradorObjetivoIdCrudo : null;
 
-        $aviso = DB::transaction(function () use ($datos, $imagen, $actor, $alcance, $colaboradorObjetivoId): Aviso {
+        $aviso = DB::transaction(function () use ($datos, $archivo, $actor, $alcance, $colaboradorObjetivoId): Aviso {
             $aviso = Aviso::query()->create([
                 'titulo' => $datos['titulo'],
                 'mensaje' => $datos['mensaje'],
@@ -55,15 +58,30 @@ class AvisoService
                 'enviado_en' => now(),
             ]);
 
-            if ($imagen !== null) {
-                $extension = strtolower($imagen->getClientOriginalExtension() ?: $imagen->extension() ?: 'jpg');
-                $ruta = sprintf('avisos/%d/imagen.%s', $aviso->id, $extension);
-                $this->disco()->put($ruta, (string) file_get_contents($imagen->getRealPath()));
+            if ($archivo !== null) {
+                $mime = (string) $archivo->getMimeType();
+                // La extensión sale del contenido real (no del nombre que
+                // mandó el navegador).
+                $extension = match ($mime) {
+                    'application/pdf' => 'pdf',
+                    'image/png' => 'png',
+                    'image/webp' => 'webp',
+                    default => 'jpg',
+                };
+                $ruta = sprintf('avisos/%d/adjunto.%s', $aviso->id, $extension);
+
+                if (! $this->disco()->put($ruta, (string) file_get_contents($archivo->getRealPath()))) {
+                    throw ValidationException::withMessages(['archivo' => 'No se pudo guardar el archivo del aviso. Intenta de nuevo; si continúa, avisa a Sistemas.']);
+                }
+
+                $nombre = trim((string) preg_replace('~[\x00-\x1F/\\\\]+~u', ' ', $archivo->getClientOriginalName()));
 
                 $aviso->forceFill([
-                    'imagen_disk' => self::DISK,
-                    'imagen_path' => $ruta,
-                    'imagen_mime' => (string) $imagen->getMimeType(),
+                    'archivo_disk' => self::DISK,
+                    'archivo_path' => $ruta,
+                    'archivo_mime' => $mime,
+                    'archivo_nombre' => mb_substr($nombre !== '' ? $nombre : 'adjunto.'.$extension, 0, 180),
+                    'archivo_size' => (int) $archivo->getSize(),
                 ])->save();
             }
 
@@ -187,7 +205,17 @@ class AvisoService
             'mensaje' => $aviso->mensaje,
             'alcance' => $aviso->alcance->value,
             'colaborador_objetivo_id' => $aviso->colaborador_objetivo_id,
-            'imagen_path' => $aviso->imagen_path,
+            // Adjunto (imagen o PDF): tipo para que cada cliente lo muestre
+            // como imagen o como tarjeta PDF; se abre por /{id}/archivo.
+            'archivo' => $aviso->tieneArchivo() ? [
+                'tipo' => $aviso->archivoEsPdf() ? 'pdf' : 'imagen',
+                'nombre' => $aviso->archivo_nombre,
+                'tamano' => $aviso->archivo_size,
+                'mime' => $aviso->archivo_mime,
+            ] : null,
+            // Compatibilidad con la app anterior (solo pinta imágenes vía
+            // /{id}/imagen): no nulo únicamente si el adjunto es imagen.
+            'imagen_path' => $aviso->archivoEsImagen() ? $aviso->archivo_path : null,
             'creado_por' => $aviso->creadoPor !== null ? ['id' => $aviso->creadoPor->id, 'name' => $aviso->creadoPor->name, 'apellidos' => $aviso->creadoPor->apellidos] : null,
             'enviado_en' => $aviso->enviado_en?->toIso8601String(),
             'created_at' => $aviso->created_at?->toIso8601String(),
@@ -198,17 +226,44 @@ class AvisoService
         ];
     }
 
-    public function imagen(Aviso $aviso): StreamedResponse
+    /**
+     * El adjunto del aviso, inline (imagen o PDF). Sin adjunto → 404 (no
+     * hay nada que mostrar); con registro pero sin archivo físico → aviso
+     * recuperable, nunca un 404 genérico.
+     *
+     * @throws ArchivoGeneradoNoDisponibleException
+     */
+    public function archivo(Aviso $aviso): StreamedResponse
     {
-        abort_if($aviso->imagen_path === null || $aviso->imagen_disk === null, 404);
-        $disco = Storage::disk($aviso->imagen_disk);
-        abort_unless($disco->exists($aviso->imagen_path), 404);
+        abort_unless($aviso->tieneArchivo(), 404);
+        $ruta = (string) $aviso->archivo_path;
+        $disco = Storage::disk((string) $aviso->archivo_disk);
 
-        return $disco->response($aviso->imagen_path, null, [
-            'Content-Type' => $aviso->imagen_mime ?? 'application/octet-stream',
+        if (! $disco->exists($ruta)) {
+            throw new ArchivoGeneradoNoDisponibleException(
+                titulo: $aviso->titulo,
+                mensaje: 'El archivo de este aviso ya no está disponible. Pide a Recursos Humanos que lo vuelva a enviar.',
+            );
+        }
+
+        $nombre = str_replace('"', '', (string) ($aviso->archivo_nombre ?? basename($ruta)));
+
+        return $disco->response($ruta, $nombre, [
+            'Content-Type' => $aviso->archivo_mime ?? 'application/octet-stream',
+            'Content-Disposition' => sprintf('inline; filename="%s"', $nombre),
             'Cache-Control' => 'private, max-age=86400',
             'X-Content-Type-Options' => 'nosniff',
         ]);
+    }
+
+    /**
+     * Compatibilidad con la app anterior: solo imágenes.
+     */
+    public function imagen(Aviso $aviso): StreamedResponse
+    {
+        abort_unless($aviso->archivoEsImagen(), 404);
+
+        return $this->archivo($aviso);
     }
 
     private function disco(): Filesystem

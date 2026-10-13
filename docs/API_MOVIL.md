@@ -293,3 +293,11 @@ de nómina semanales, préstamos con visto bueno del jefe, evaluaciones de
 periodo de prueba, cierre laboral, actas, indicadores, organigrama y bandeja de tareas:
 ver `docs/backend-rh-completion.md` (sección 6, tabla de endpoints). Todo el grupo
 autenticado usa `throttle:api` y el login `throttle:api-login`.
+
+## Avisos de RH
+
+- `GET /api/v1/avisos` — avisos para el colaborador autenticado (toda la empresa + personales), con `leido`. Cada aviso trae `archivo`: `null` (solo título y mensaje) o `{tipo: 'imagen'|'pdf', nombre, tamano, mime}`.
+- `GET /api/v1/avisos/{id}/archivo` — el adjunto inline (imagen o PDF), solo si el aviso le corresponde (403 si no). Si el registro existe pero el archivo ya no, responde **409** `{codigo: 'archivo_no_disponible'}` (nunca 404).
+- `POST /api/v1/avisos/{id}/leido` — marca como leído.
+- Compatibilidad: `imagen_path` (no nulo solo si el adjunto es imagen) y `GET /api/v1/avisos/{id}/imagen` se conservan para versiones anteriores de la app.
+- El push de un aviso nunca lleva el archivo: `type = aviso_rh`, `resource_id = id` abre el aviso.

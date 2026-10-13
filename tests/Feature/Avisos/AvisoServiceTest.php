@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 /*
-| Avisos de RH: mensaje + imagen, a toda la empresa o a un colaborador.
+| Avisos de RH: mensaje + imagen o PDF, a toda la empresa o a un colaborador.
 | El push se encola por dispositivo (App\Jobs\SendExpoPushJob), nunca se
 | llama a Expo directo; aquí solo se prueba que se encola para quien
 | corresponde, no el envío real a Expo.
@@ -45,8 +45,8 @@ test('un aviso "a toda la empresa" guarda su imagen y encola push SOLO para cola
     );
 
     expect($aviso->alcance)->toBe(AlcanceAviso::Todos)
-        ->and($aviso->tieneImagen())->toBeTrue()
-        ->and(Storage::disk('nas')->exists((string) $aviso->imagen_path))->toBeTrue();
+        ->and($aviso->archivoEsImagen())->toBeTrue()
+        ->and(Storage::disk('nas')->exists((string) $aviso->archivo_path))->toBeTrue();
 
     Queue::assertPushed(SendExpoPushJob::class, fn (SendExpoPushJob $job): bool => $job->token === 'ExponentPushToken[activo]');
     Queue::assertNotPushed(SendExpoPushJob::class, fn (SendExpoPushJob $job): bool => $job->token === 'ExponentPushToken[inactivo]');

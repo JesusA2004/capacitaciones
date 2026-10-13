@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
- * Aviso de RH a la empresa (mensaje + imagen opcional), a toda la plantilla
+ * Aviso de RH a la empresa (mensaje + adjunto opcional: imagen o PDF), a toda la plantilla
  * activa o a un colaborador específico. Ver App\Services\Avisos\AvisoService.
  *
  * @property int $id
@@ -19,9 +19,11 @@ use Illuminate\Support\Carbon;
  * @property string $mensaje
  * @property AlcanceAviso $alcance
  * @property int|null $colaborador_objetivo_id
- * @property string|null $imagen_disk
- * @property string|null $imagen_path
- * @property string|null $imagen_mime
+ * @property string|null $archivo_disk
+ * @property string|null $archivo_path
+ * @property string|null $archivo_mime
+ * @property string|null $archivo_nombre
+ * @property int|null $archivo_size
  * @property int|null $creado_por
  * @property Carbon|null $enviado_en
  */
@@ -35,9 +37,11 @@ class Aviso extends Model
         'mensaje',
         'alcance',
         'colaborador_objetivo_id',
-        'imagen_disk',
-        'imagen_path',
-        'imagen_mime',
+        'archivo_disk',
+        'archivo_path',
+        'archivo_mime',
+        'archivo_nombre',
+        'archivo_size',
         'creado_por',
         'enviado_en',
     ];
@@ -47,6 +51,7 @@ class Aviso extends Model
         return [
             'alcance' => AlcanceAviso::class,
             'enviado_en' => 'datetime',
+            'archivo_size' => 'integer',
         ];
     }
 
@@ -74,8 +79,18 @@ class Aviso extends Model
         return $this->hasMany(AvisoLectura::class);
     }
 
-    public function tieneImagen(): bool
+    public function tieneArchivo(): bool
     {
-        return $this->imagen_path !== null;
+        return $this->archivo_path !== null && $this->archivo_disk !== null;
+    }
+
+    public function archivoEsImagen(): bool
+    {
+        return $this->tieneArchivo() && str_starts_with((string) $this->archivo_mime, 'image/');
+    }
+
+    public function archivoEsPdf(): bool
+    {
+        return $this->tieneArchivo() && $this->archivo_mime === 'application/pdf';
     }
 }

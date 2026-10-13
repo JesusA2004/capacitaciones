@@ -305,6 +305,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::prefix('avisos')->name('avisos.')->group(function () {
             Route::get('/', [AvisoController::class, 'index'])->name('index');
             Route::post('{aviso}/leido', [AvisoController::class, 'marcarLeido'])->name('leido');
+            Route::get('{aviso}/archivo', [AvisoController::class, 'archivo'])->name('archivo');
+            // Solo para versiones anteriores de la app (imágenes).
             Route::get('{aviso}/imagen', [AvisoController::class, 'imagen'])->name('imagen');
         });
 

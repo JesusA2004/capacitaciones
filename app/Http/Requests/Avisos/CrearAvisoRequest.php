@@ -27,7 +27,8 @@ class CrearAvisoRequest extends FormRequest
             'mensaje' => ['required', 'string', 'max:2000'],
             'alcance' => ['required', Rule::in(array_map(fn (AlcanceAviso $a): string => $a->value, AlcanceAviso::cases()))],
             'colaborador_objetivo_id' => ['required_if:alcance,colaborador', 'nullable', 'integer', 'exists:colaboradores,id'],
-            'imagen' => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'mimetypes:image/jpeg,image/png,image/webp', 'max:8192'],
+            // Imagen o PDF; el tipo se valida por extensión Y por contenido.
+            'archivo' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'mimetypes:image/jpeg,image/png,image/webp,application/pdf', 'max:10240'],
         ];
     }
 
@@ -41,9 +42,9 @@ class CrearAvisoRequest extends FormRequest
             'mensaje.required' => 'Escribe el mensaje del aviso.',
             'alcance.required' => 'Indica a quién le llega: toda la empresa o un colaborador.',
             'colaborador_objetivo_id.required_if' => 'Elige a qué colaborador le llega este aviso.',
-            'imagen.image' => 'El archivo debe ser una imagen.',
-            'imagen.mimes' => 'La imagen debe ser JPG, PNG o WEBP.',
-            'imagen.max' => 'La imagen no debe pesar más de 8 MB.',
+            'archivo.mimes' => 'El archivo debe ser una imagen (JPG, PNG, WEBP) o un PDF.',
+            'archivo.mimetypes' => 'El archivo debe ser una imagen (JPG, PNG, WEBP) o un PDF.',
+            'archivo.max' => 'El archivo no debe pesar más de 10 MB.',
         ];
     }
 }

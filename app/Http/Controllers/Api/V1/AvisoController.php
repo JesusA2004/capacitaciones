@@ -46,6 +46,19 @@ class AvisoController extends Controller
         return response()->json(['ok' => true]);
     }
 
+    /**
+     * Adjunto del aviso (imagen o PDF), inline y solo para quien lo recibe.
+     */
+    public function archivo(Request $request, Aviso $aviso): StreamedResponse
+    {
+        $this->exigirPuedeVer($request, $aviso);
+
+        return $this->avisos->archivo($aviso);
+    }
+
+    /**
+     * Compatibilidad con versiones anteriores de la app (solo imágenes).
+     */
     public function imagen(Request $request, Aviso $aviso): StreamedResponse
     {
         $this->exigirPuedeVer($request, $aviso);

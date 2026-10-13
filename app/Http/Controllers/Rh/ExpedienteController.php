@@ -295,7 +295,7 @@ class ExpedienteController extends Controller
             // «Avisos / Comunicaciones»: generales + personales, con lectura.
             // (El aviso de privacidad/consentimiento sigue en la base, ya no se muestra aquí.)
             'avisosComunicaciones' => collect(app(AvisoService::class)->paraColaborador($colaborador, 30)->items())
-                ->map(fn (array $aviso) => [...$aviso, 'imagen_url' => $aviso['imagen_path'] !== null ? route($esPropio ? 'avisos.imagen' : 'rh.avisos.imagen', $aviso['id']) : null, 'imagen_path' => null])
+                ->map(fn (array $aviso) => [...$aviso, 'archivo_url' => $aviso['archivo'] !== null ? route($esPropio ? 'avisos.archivo' : 'rh.avisos.archivo', $aviso['id']) : null, 'imagen_path' => null])
                 ->values()
                 ->all(),
             'puedeAvisarDatosFaltantes' => ! $esPropio && $usuario->can('expedientes.revisar'),

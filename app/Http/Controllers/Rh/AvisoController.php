@@ -43,7 +43,7 @@ class AvisoController extends Controller
     {
         $this->exigir($request);
 
-        $this->avisos->crear($request->validated(), $request->file('imagen'), $request->user());
+        $this->avisos->crear($request->validated(), $request->file('archivo'), $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Aviso enviado.']);
     }
@@ -56,11 +56,11 @@ class AvisoController extends Controller
         return response()->json(['data' => $this->admin->buscarColaboradores($request->user(), (string) ($datos['q'] ?? ''))]);
     }
 
-    public function imagen(Request $request, Aviso $aviso): StreamedResponse
+    public function archivo(Request $request, Aviso $aviso): StreamedResponse
     {
         $this->exigir($request);
 
-        return $this->avisos->imagen($aviso);
+        return $this->avisos->archivo($aviso);
     }
 
     private function exigir(Request $request): void

@@ -58,19 +58,103 @@ test('un colaborador solo ve los avisos que le corresponden (API móvil)', funct
     expect($titulos)->toContain('A todos')->not->toContain('Solo para otro');
 });
 
-test('una imagen se puede subir y solo se descarga autenticado', function () {
+test('aviso sin archivo: solo título y mensaje', function () {
+    $this->actingAs($this->rh)->post('/rh/avisos', ['titulo' => 'Solo texto', 'mensaje' => 'Sin adjunto.', 'alcance' => 'todos'])->assertRedirect();
+
+    $aviso = Aviso::query()->where('titulo', 'Solo texto')->firstOrFail();
+    expect($aviso->tieneArchivo())->toBeFalse();
+    $this->actingAs($this->rh)->get("/rh/avisos/{$aviso->id}/archivo")->assertNotFound();
+});
+
+test('una imagen se sube, se ve inline y solo con permiso; la app anterior la sigue viendo por /imagen', function () {
     $this->actingAs($this->rh)->post('/rh/avisos', [
         'titulo' => 'Con imagen',
         'mensaje' => 'Mira esto.',
         'alcance' => 'todos',
-        'imagen' => UploadedFile::fake()->image('foto.jpg'),
+        'archivo' => UploadedFile::fake()->image('foto.jpg'),
     ])->assertRedirect();
 
     $aviso = Aviso::query()->where('titulo', 'Con imagen')->firstOrFail();
-    expect($aviso->imagen_path)->not->toBeNull();
+    expect($aviso->archivoEsImagen())->toBeTrue()
+        ->and($aviso->archivo_nombre)->toBe('foto.jpg');
 
-    $this->actingAs($this->rh)->get("/rh/avisos/{$aviso->id}/imagen")->assertOk();
+    $this->actingAs($this->rh)->get("/rh/avisos/{$aviso->id}/archivo")->assertOk()->assertHeader('Content-Type', 'image/jpeg');
 
     $sinPermiso = clUsuario('colaborador');
-    $this->actingAs($sinPermiso)->get("/rh/avisos/{$aviso->id}/imagen")->assertForbidden();
+    $this->actingAs($sinPermiso)->get("/rh/avisos/{$aviso->id}/archivo")->assertForbidden();
+
+    Sanctum::actingAs($sinPermiso);
+    $item = collect($this->getJson('/api/v1/avisos')->assertOk()->json('data'))->firstWhere('id', $aviso->id);
+    expect($item['archivo']['tipo'])->toBe('imagen')
+        ->and($item['imagen_path'])->not->toBeNull();
+    $this->get("/api/v1/avisos/{$aviso->id}/imagen")->assertOk();
+});
+
+test('un PDF se sube como PDF (no como imagen) y se abre inline en web y API', function () {
+    $pdf = UploadedFile::fake()->createWithContent('Manual de políticas.pdf', '%PDF-1.4
+1 0 obj<<>>endobj
+trailer<<>>
+%%EOF');
+
+    $this->actingAs($this->rh)->post('/rh/avisos', [
+        'titulo' => 'Políticas',
+        'mensaje' => 'Lee el manual.',
+        'alcance' => 'todos',
+        'archivo' => $pdf,
+    ])->assertRedirect()->assertSessionHasNoErrors();
+
+    $aviso = Aviso::query()->where('titulo', 'Políticas')->firstOrFail();
+    expect($aviso->archivoEsPdf())->toBeTrue()
+        ->and($aviso->archivo_nombre)->toBe('Manual de políticas.pdf')
+        ->and($aviso->archivo_size)->toBeGreaterThan(0);
+
+    $colaborador = clUsuario('colaborador');
+    $this->actingAs($colaborador)->get("/avisos/{$aviso->id}/archivo")
+        ->assertOk()
+        ->assertHeader('Content-Type', 'application/pdf');
+
+    Sanctum::actingAs($colaborador);
+    $item = collect($this->getJson('/api/v1/avisos')->json('data'))->firstWhere('id', $aviso->id);
+    expect($item['archivo'])->toMatchArray(['tipo' => 'pdf', 'nombre' => 'Manual de políticas.pdf'])
+        // La app anterior no intenta pintar un PDF como imagen.
+        ->and($item['imagen_path'])->toBeNull();
+    $this->get("/api/v1/avisos/{$aviso->id}/archivo")->assertOk()->assertHeader('Content-Type', 'application/pdf');
+    $this->get("/api/v1/avisos/{$aviso->id}/imagen")->assertNotFound();
+});
+
+test('un tipo de archivo no permitido se rechaza con mensaje claro', function () {
+    $this->actingAs($this->rh)->post('/rh/avisos', [
+        'titulo' => 'Malo',
+        'mensaje' => 'Ejecutable.',
+        'alcance' => 'todos',
+        'archivo' => UploadedFile::fake()->create('virus.exe', 10, 'application/x-msdownload'),
+    ])->assertSessionHasErrors(['archivo' => 'El archivo debe ser una imagen (JPG, PNG, WEBP) o un PDF.']);
+
+    expect(Aviso::query()->where('titulo', 'Malo')->exists())->toBeFalse();
+});
+
+test('un aviso personal no lo puede abrir otro colaborador', function () {
+    $destino = Colaborador::factory()->create();
+    $this->actingAs($this->rh)->post('/rh/avisos', [
+        'titulo' => 'Personal',
+        'mensaje' => 'Solo para ti.',
+        'alcance' => 'colaborador',
+        'colaborador_objetivo_id' => $destino->id,
+        'archivo' => UploadedFile::fake()->image('carta.png'),
+    ])->assertRedirect();
+    $aviso = Aviso::query()->where('titulo', 'Personal')->firstOrFail();
+
+    $this->actingAs(clUsuario('colaborador'))->get("/avisos/{$aviso->id}/archivo")->assertForbidden();
+});
+
+test('si el archivo desapareció del almacenamiento, no es un 404 genérico', function () {
+    $this->actingAs($this->rh)->post('/rh/avisos', ['titulo' => 'Perdido', 'mensaje' => 'X', 'alcance' => 'todos', 'archivo' => UploadedFile::fake()->image('a.png')]);
+    $aviso = Aviso::query()->where('titulo', 'Perdido')->firstOrFail();
+    Storage::disk('nas')->delete((string) $aviso->archivo_path);
+
+    $this->actingAs($this->rh)->get("/rh/avisos/{$aviso->id}/archivo")
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('ArchivoNoDisponible'));
+    Sanctum::actingAs($this->rh);
+    $this->getJson("/api/v1/avisos/{$aviso->id}/archivo")->assertStatus(409)->assertJsonPath('codigo', 'archivo_no_disponible');
 });

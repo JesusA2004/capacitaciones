@@ -1,10 +1,19 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
-import { BellRing, ImageIcon, Loader2, Send, Users2, X } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import {
+    BellRing,
+    FileText,
+    Loader2,
+    Paperclip,
+    Send,
+    Users2,
+    X,
+} from '@lucide/vue';
+import { computed, onBeforeUnmount, ref } from 'vue';
+import AdjuntoAviso from '@/components/avisos/AdjuntoAviso.vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import BuscadorColaborador from '@/components/documentos/BuscadorColaborador.vue';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,9 +29,23 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
-import { colaboradores, imagen, index, store } from '@/routes/rh/avisos';
-import type { AvisoItem, ColaboradorBusqueda, RespuestaPaginada } from '@/types';
+import {
+    archivo as archivoUrl,
+    colaboradores,
+    index,
+    store,
+} from '@/routes/rh/avisos';
+import type {
+    AvisoItem,
+    ColaboradorBusqueda,
+    RespuestaPaginada,
+} from '@/types';
 
+/**
+ * Avisos de RH: escribir y enviar (una sola acción primaria) y, al lado,
+ * lo ya enviado. Adjunto opcional: imagen (se ve) o PDF (tarjeta). El
+ * push nunca lleva el archivo: abre el aviso.
+ */
 const props = defineProps<{
     avisos: RespuestaPaginada<AvisoItem>;
 }>();
@@ -36,55 +59,98 @@ defineOptions({
     },
 });
 
+const TIPOS = 'image/jpeg,image/png,image/webp,application/pdf';
+const MAX_MB = 10;
+
 const colaboradorElegido = ref<ColaboradorBusqueda | null>(null);
 const previsualizacion = ref<string | null>(null);
+const errorLocal = ref<string | null>(null);
 
 const form = useForm<{
     titulo: string;
     mensaje: string;
     alcance: 'todos' | 'colaborador';
     colaborador_objetivo_id: number | null;
-    imagen: File | null;
+    archivo: File | null;
 }>({
     titulo: '',
     mensaje: '',
     alcance: 'todos',
     colaborador_objetivo_id: null,
-    imagen: null,
+    archivo: null,
 });
 
 const faltaColaborador = computed(
     () => form.alcance === 'colaborador' && colaboradorElegido.value === null,
 );
+const esPdf = computed(() => form.archivo?.type === 'application/pdf');
+const tamanoElegido = computed(() =>
+    form.archivo ? `${(form.archivo.size / 1024 / 1024).toFixed(1)} MB` : '',
+);
 
-function elegirImagen(evento: Event) {
-    const archivo = (evento.target as HTMLInputElement).files?.[0] ?? null;
-    form.imagen = archivo;
-    previsualizacion.value = archivo ? URL.createObjectURL(archivo) : null;
+function liberarPrevisualizacion() {
+    if (previsualizacion.value) {
+        URL.revokeObjectURL(previsualizacion.value);
+    }
+
+    previsualizacion.value = null;
 }
 
-function quitarImagen() {
-    form.imagen = null;
-    previsualizacion.value = null;
+function elegirArchivo(evento: Event) {
+    const entrada = evento.target as HTMLInputElement;
+    const elegido = entrada.files?.[0] ?? null;
+    entrada.value = '';
+    errorLocal.value = null;
+
+    if (!elegido) {
+        return;
+    }
+
+    if (!TIPOS.split(',').includes(elegido.type)) {
+        errorLocal.value = 'Elige una imagen (JPG, PNG, WEBP) o un PDF.';
+
+        return;
+    }
+
+    if (elegido.size > MAX_MB * 1024 * 1024) {
+        errorLocal.value = `El archivo pesa más de ${MAX_MB} MB.`;
+
+        return;
+    }
+
+    liberarPrevisualizacion();
+    form.archivo = elegido;
+    previsualizacion.value =
+        elegido.type === 'application/pdf'
+            ? null
+            : URL.createObjectURL(elegido);
+}
+
+function quitarArchivo() {
+    form.archivo = null;
+    liberarPrevisualizacion();
 }
 
 function enviar() {
     form.colaborador_objetivo_id = colaboradorElegido.value?.id ?? null;
-    form
-        .transform((datos) => ({
-            ...datos,
-            colaborador_objetivo_id:
-                form.alcance === 'colaborador' ? datos.colaborador_objetivo_id : null,
-        }))
-        .post(store.url(), {
-            forceFormData: true,
-            onSuccess: () => {
-                form.reset();
-                colaboradorElegido.value = null;
-                previsualizacion.value = null;
-            },
-        });
+    form.transform((datos) => ({
+        ...datos,
+        colaborador_objetivo_id:
+            form.alcance === 'colaborador'
+                ? datos.colaborador_objetivo_id
+                : null,
+    })).post(store.url(), {
+        forceFormData: true,
+        preserveScroll: true,
+        onSuccess: () => {
+            form.reset();
+            colaboradorElegido.value = null;
+            liberarPrevisualizacion();
+        },
+    });
 }
+
+onBeforeUnmount(liberarPrevisualizacion);
 </script>
 
 <template>
@@ -93,27 +159,27 @@ function enviar() {
     <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
             titulo="Avisos"
-            descripcion="Manda un mensaje con imagen a toda la empresa o a un colaborador específico."
+            descripcion="Un mensaje para toda la empresa o para una persona."
             :icono="BellRing"
         />
 
         <div class="grid gap-6 lg:grid-cols-5">
-            <!-- Componer -->
-            <Card class="lg:col-span-2">
+            <!-- Escribir -->
+            <Card class="h-fit lg:sticky lg:top-4 lg:col-span-2">
                 <CardContent class="flex flex-col gap-4 pt-6">
                     <div class="flex flex-col gap-1.5">
-                        <Label for="aviso-alcance">A quién le llega</Label>
+                        <Label for="aviso-alcance">Para</Label>
                         <Select v-model="form.alcance">
                             <SelectTrigger id="aviso-alcance" class="w-full">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="todos">
-                                    Toda la empresa
-                                </SelectItem>
-                                <SelectItem value="colaborador">
-                                    Un colaborador
-                                </SelectItem>
+                                <SelectItem value="todos"
+                                    >Toda la empresa</SelectItem
+                                >
+                                <SelectItem value="colaborador"
+                                    >Una persona</SelectItem
+                                >
                             </SelectContent>
                         </Select>
                     </div>
@@ -126,7 +192,8 @@ function enviar() {
                         <BuscadorColaborador
                             v-model="colaboradorElegido"
                             :buscar-url="
-                                (texto) => colaboradores.url({ query: { q: texto } })
+                                (texto) =>
+                                    colaboradores.url({ query: { q: texto } })
                             "
                         />
                         <p
@@ -145,7 +212,10 @@ function enviar() {
                             maxlength="150"
                             placeholder="Ej. Cambio de horario de caja"
                         />
-                        <p v-if="form.errors.titulo" class="text-xs text-destructive">
+                        <p
+                            v-if="form.errors.titulo"
+                            class="text-xs text-destructive"
+                        >
                             {{ form.errors.titulo }}
                         </p>
                     </div>
@@ -168,46 +238,86 @@ function enviar() {
                     </div>
 
                     <div class="flex flex-col gap-1.5">
-                        <Label>Imagen (opcional)</Label>
-                        <div
-                            v-if="previsualizacion"
-                            class="relative overflow-hidden rounded-xl border border-border"
+                        <Label>Archivo (opcional)</Label>
+                        <Transition
+                            mode="out-in"
+                            enter-active-class="transition duration-150 ease-out motion-reduce:transition-none"
+                            enter-from-class="opacity-0 translate-y-1"
+                            leave-active-class="transition duration-100 ease-in motion-reduce:transition-none"
+                            leave-to-class="opacity-0"
                         >
-                            <img
-                                :src="previsualizacion"
-                                alt=""
-                                class="h-40 w-full object-cover"
-                            />
-                            <Button
-                                size="icon"
-                                variant="secondary"
-                                class="absolute top-2 right-2 size-7"
-                                type="button"
-                                @click="quitarImagen"
+                            <div
+                                v-if="form.archivo"
+                                key="elegido"
+                                class="relative overflow-hidden rounded-xl border"
                             >
-                                <X class="size-4" />
-                            </Button>
-                        </div>
-                        <label
-                            v-else
-                            class="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border p-6 text-sm text-muted-foreground transition-colors hover:border-primary hover:bg-muted/40"
+                                <img
+                                    v-if="previsualizacion"
+                                    :src="previsualizacion"
+                                    alt="Vista previa de la imagen"
+                                    class="h-40 w-full object-cover"
+                                />
+                                <div
+                                    v-else-if="esPdf"
+                                    class="flex items-center gap-3 bg-crema/60 p-3 pr-12"
+                                >
+                                    <span
+                                        class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-danger-soft text-danger"
+                                    >
+                                        <FileText class="size-5" />
+                                    </span>
+                                    <span class="min-w-0">
+                                        <span
+                                            class="block truncate text-sm font-medium"
+                                            >{{ form.archivo.name }}</span
+                                        >
+                                        <span
+                                            class="text-xs text-muted-foreground"
+                                            >PDF · {{ tamanoElegido }}</span
+                                        >
+                                    </span>
+                                </div>
+                                <Button
+                                    size="icon"
+                                    variant="secondary"
+                                    class="absolute top-2 right-2 size-7"
+                                    type="button"
+                                    aria-label="Quitar archivo"
+                                    @click="quitarArchivo"
+                                >
+                                    <X class="size-4" />
+                                </Button>
+                            </div>
+                            <label
+                                v-else
+                                key="vacio"
+                                class="flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground transition-colors duration-150 focus-within:ring-2 focus-within:ring-ring hover:border-primary hover:bg-muted/40"
+                            >
+                                <Paperclip class="size-5" />
+                                <span>Adjuntar imagen o PDF</span>
+                                <span class="text-xs"
+                                    >JPG, PNG, WEBP o PDF · máx.
+                                    {{ MAX_MB }} MB</span
+                                >
+                                <input
+                                    type="file"
+                                    :accept="TIPOS"
+                                    class="sr-only"
+                                    @change="elegirArchivo"
+                                />
+                            </label>
+                        </Transition>
+                        <p
+                            v-if="errorLocal || form.errors.archivo"
+                            class="text-xs text-destructive"
+                            role="alert"
                         >
-                            <ImageIcon class="size-6" />
-                            Subir imagen (JPG, PNG o WEBP, máx. 8 MB)
-                            <input
-                                type="file"
-                                accept="image/jpeg,image/png,image/webp"
-                                class="hidden"
-                                @change="elegirImagen"
-                            />
-                        </label>
-                        <p v-if="form.errors.imagen" class="text-xs text-destructive">
-                            {{ form.errors.imagen }}
+                            {{ errorLocal ?? form.errors.archivo }}
                         </p>
                     </div>
 
                     <Button
-                        class="mt-2 w-full"
+                        class="mt-1 w-full"
                         :disabled="
                             form.processing ||
                             !form.titulo ||
@@ -221,68 +331,85 @@ function enviar() {
                             class="size-4 animate-spin"
                         />
                         <Send v-else class="size-4" />
-                        Enviar aviso
+                        {{ form.processing ? 'Enviando…' : 'Enviar aviso' }}
                     </Button>
                 </CardContent>
             </Card>
 
-            <!-- Historial -->
-            <div class="flex flex-col gap-3 lg:col-span-3">
+            <!-- Enviados -->
+            <section
+                class="flex flex-col gap-3 lg:col-span-3"
+                aria-label="Avisos enviados"
+            >
                 <h2 class="text-sm font-semibold text-muted-foreground">
-                    Avisos enviados
+                    Enviados
                 </h2>
 
-                <p
+                <EmptyState
                     v-if="!props.avisos.data.length"
-                    class="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground"
+                    :icono="BellRing"
+                    titulo="Aún no has enviado avisos"
+                    descripcion="Lo que envíes aparecerá aquí, con cuántas personas lo vieron."
+                />
+
+                <TransitionGroup
+                    tag="div"
+                    class="flex flex-col gap-3"
+                    enter-active-class="transition duration-200 ease-out motion-reduce:transition-none"
+                    enter-from-class="opacity-0 translate-y-1.5"
                 >
-                    Todavía no se ha enviado ningún aviso.
-                </p>
-
-                <Card v-for="aviso in props.avisos.data" :key="aviso.id">
-                    <CardContent class="flex gap-4 pt-6">
-                        <img
-                            v-if="aviso.imagen_path"
-                            :src="imagen.url(aviso.id)"
-                            alt=""
-                            class="size-20 shrink-0 rounded-lg object-cover"
-                        />
-                        <Avatar v-else class="size-20 shrink-0 rounded-lg">
-                            <AvatarFallback class="rounded-lg bg-primary/10 text-primary">
-                                <BellRing class="size-6" />
-                            </AvatarFallback>
-                        </Avatar>
-
-                        <div class="flex min-w-0 flex-1 flex-col gap-1">
-                            <div class="flex flex-wrap items-center justify-between gap-2">
-                                <p class="font-semibold">{{ aviso.titulo }}</p>
-                                <Badge variant="outline" class="gap-1.5">
-                                    <Users2 class="size-3" />
-                                    {{
-                                        aviso.alcance === 'todos'
-                                            ? 'Toda la empresa'
-                                            : (aviso.colaborador_objetivo
+                    <Card v-for="aviso in props.avisos.data" :key="aviso.id">
+                        <CardContent
+                            class="flex flex-col gap-3 pt-5 sm:flex-row sm:gap-4"
+                        >
+                            <AdjuntoAviso
+                                v-if="aviso.archivo?.tipo === 'imagen'"
+                                :archivo="aviso.archivo"
+                                :url="archivoUrl.url(aviso.id)"
+                                variante="miniatura"
+                            />
+                            <div class="flex min-w-0 flex-1 flex-col gap-1.5">
+                                <div
+                                    class="flex flex-wrap items-center justify-between gap-2"
+                                >
+                                    <p class="font-semibold">
+                                        {{ aviso.titulo }}
+                                    </p>
+                                    <Badge variant="outline" class="gap-1.5">
+                                        <Users2 class="size-3" />
+                                        {{
+                                            aviso.alcance === 'todos'
+                                                ? 'Toda la empresa'
+                                                : aviso.colaborador_objetivo
                                                   ? `${aviso.colaborador_objetivo.name} ${aviso.colaborador_objetivo.apellidos ?? ''}`
-                                                  : 'Un colaborador')
+                                                  : 'Una persona'
+                                        }}
+                                    </Badge>
+                                </div>
+                                <p
+                                    class="line-clamp-2 text-sm text-muted-foreground"
+                                >
+                                    {{ aviso.mensaje }}
+                                </p>
+                                <AdjuntoAviso
+                                    v-if="aviso.archivo?.tipo === 'pdf'"
+                                    :archivo="aviso.archivo"
+                                    :url="archivoUrl.url(aviso.id)"
+                                />
+                                <p class="text-xs text-muted-foreground">
+                                    {{
+                                        aviso.enviado_en
+                                            ? formatearFecha(aviso.enviado_en)
+                                            : '—'
                                     }}
-                                </Badge>
+                                    · {{ aviso.creado_por?.name ?? 'RH' }} ·
+                                    {{ aviso.lecturas_count ?? 0 }} vista(s)
+                                </p>
                             </div>
-                            <p class="line-clamp-2 text-sm text-muted-foreground">
-                                {{ aviso.mensaje }}
-                            </p>
-                            <p class="text-xs text-muted-foreground">
-                                {{
-                                    aviso.enviado_en
-                                        ? formatearFecha(aviso.enviado_en)
-                                        : '—'
-                                }}
-                                · {{ aviso.creado_por?.name ?? 'RH' }}
-                                · {{ aviso.lecturas_count ?? 0 }} vista(s)
-                            </p>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
+                        </CardContent>
+                    </Card>
+                </TransitionGroup>
+            </section>
         </div>
     </div>
 </template>
