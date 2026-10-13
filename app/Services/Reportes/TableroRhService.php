@@ -105,6 +105,34 @@ class TableroRhService
     }
 
     /**
+     * Lo que el INICIO operativo muestra arriba: las cuatro cifras que
+     * ayudan a decidir hoy (vacantes reales, contrataciones en proceso,
+     * contratos por vencer en 30 días; los expedientes incompletos los
+     * agrega el controlador desde DatosFaltantesService). Ligero: sin
+     * embudo, tendencias ni costos — eso vive en el tablero completo.
+     *
+     * @return array{vacantes: int, en_proceso: int, por_vencer: int}
+     */
+    public function inicio(User $usuario): array
+    {
+        $global = $this->alcance->tieneAlcanceGlobal($usuario);
+        $sucursales = $this->alcance->sucursalesVisiblesIds($usuario);
+
+        return [
+            'vacantes' => (int) $this->vacantesListado->plazasPorSucursal($sucursales)->sum(),
+            'en_proceso' => $this->candidatos($sucursales, $global)
+                ->whereNotIn('estado', array_map(fn (EstadoCandidato $e) => $e->value, array_filter(EstadoCandidato::cases(), fn (EstadoCandidato $e) => $e->esTerminal())))
+                ->count(),
+            'por_vencer' => ContratoLaboral::query()
+                ->where('estado', EstadoContratoLaboral::Vigente->value)
+                ->whereIn('tipo', [TipoContratacion::PeriodoPrueba->value, TipoContratacion::CapacitacionInicial->value])
+                ->whereBetween('fecha_fin', [now()->toDateString(), now()->addDays(30)->toDateString()])
+                ->whereIn('colaborador_id', $this->colaboradores($sucursales)->select('id'))
+                ->count(),
+        ];
+    }
+
+    /**
      * @param  Collection<int, int>  $sucursales
      * @return array<string, mixed>
      */

@@ -4,9 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Exports\RotacionPersonalExport;
 use App\Models\Sucursal;
+use App\Models\User;
+use App\Services\Expedientes\DatosFaltantesService;
 use App\Services\Navigation\NavigationService;
 use App\Services\Reportes\MetricasRhDashboardService;
 use App\Services\Reportes\TableroRhService;
+use App\Services\Tareas\TareaService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,6 +25,8 @@ class DashboardController extends Controller
         private readonly MetricasRhDashboardService $metricas,
         private readonly NavigationService $navegacion,
         private readonly TableroRhService $tablero,
+        private readonly TareaService $tareas,
+        private readonly DatosFaltantesService $datosFaltantes,
     ) {}
 
     public function index(Request $request): Response
@@ -42,6 +47,10 @@ class DashboardController extends Controller
             // por nivel y rotación mensual), con filtros de mes y sucursal
             // acotados al alcance. Nada más en la pantalla.
             return Inertia::render($vista, [
+                // Arriba: qué necesita atención hoy y 4 cifras para decidir.
+                'inicio' => $this->inicioOperativo($usuario),
+                // El tablero completo (8 indicadores, embudo, tiempos,
+                // rotación) queda en «Ver indicadores».
                 'tablero' => $this->tablero->construir($usuario, [
                     'mes' => $request->string('tablero_mes')->toString() ?: null,
                     'sucursal_id' => $request->integer('tablero_sucursal_id') ?: null,
@@ -52,6 +61,24 @@ class DashboardController extends Controller
         }
 
         return Inertia::render('Dashboard/Colaborador', $this->metricas->colaborador($usuario));
+    }
+
+    /**
+     * @return array{nombre: string, pendientes: int, vencidos: int, indicadores: array{vacantes: int, en_proceso: int, por_vencer: int, expedientes_incompletos: int|null}}
+     */
+    private function inicioOperativo(User $usuario): array
+    {
+        $conteos = $this->tareas->conteos($usuario);
+
+        return [
+            'nombre' => trim((string) strtok((string) $usuario->name, ' ')),
+            'pendientes' => (int) $conteos['abiertas'],
+            'vencidos' => (int) $conteos['vencidas'],
+            'indicadores' => [
+                ...$this->tablero->inicio($usuario),
+                'expedientes_incompletos' => $usuario->can('expedientes.revisar') ? $this->datosFaltantes->conteoIncompletos($usuario) : null,
+            ],
+        ];
     }
 
     /**

@@ -357,6 +357,19 @@ export type TareaBandeja = {
     datos: Record<string, unknown> | null;
 };
 
+/** Inicio operativo: qué necesita atención + 4 cifras para decidir. */
+export type InicioOperativoDatos = {
+    nombre: string;
+    pendientes: number;
+    vencidos: number;
+    indicadores: {
+        vacantes: number;
+        en_proceso: number;
+        por_vencer: number;
+        expedientes_incompletos: number | null;
+    };
+};
+
 export type TableroRhDatos = {
     summary: {
         plantilla_activa: {

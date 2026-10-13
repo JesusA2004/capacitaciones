@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
-import TableroRh from '@/components/Dashboard/TableroRh.vue';
-import type { TableroRhDatos } from '@/types';
+import InicioOperativo from '@/components/Dashboard/InicioOperativo.vue';
+import type { InicioOperativoDatos, TableroRhDatos } from '@/types';
 
-defineProps<{ tablero: TableroRhDatos }>();
+defineProps<{ inicio: InicioOperativoDatos; tablero: TableroRhDatos }>();
 
-// Sin migas: el título del tablero va hasta arriba (la miga "Inicio"
-// solo repetía la pantalla actual).
+// Sin migas: el saludo va hasta arriba (la miga "Inicio" solo repetía la
+// pantalla actual).
 defineOptions({
     layout: {
         breadcrumbs: [],
@@ -18,6 +18,6 @@ defineOptions({
     <Head title="Inicio" />
 
     <div class="pagina-ancha flex flex-col gap-6 !pt-3 sm:!pt-4">
-        <TableroRh :tablero="tablero" />
+        <InicioOperativo :inicio="inicio" :tablero="tablero" />
     </div>
 </template>
