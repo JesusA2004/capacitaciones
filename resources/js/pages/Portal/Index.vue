@@ -18,6 +18,7 @@ import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { useNotificaciones } from '@/composables/useNotificaciones';
+import { usePermisos } from '@/composables/usePermisos';
 import { dashboard, miExpediente } from '@/routes';
 import {
     miProceso,
@@ -71,6 +72,8 @@ const urlCompletarDatos = indexSolicitudes.url({
     query: { nueva: 'actualizacion_datos' },
 });
 
+const { tienePermiso } = usePermisos();
+
 const accesos = computed(() => [
     {
         href: rutaMiPerfil().url,
@@ -79,13 +82,18 @@ const accesos = computed(() => [
         titulo: 'Mi perfil',
         descripcion: 'Datos básicos y antigüedad',
     },
-    {
-        href: miExpediente().url,
-        icono: FolderOpen,
-        color: 'bg-[var(--mrl-navy)]/10 text-[var(--mrl-navy)] group-hover:bg-[var(--mrl-navy)] group-hover:text-white',
-        titulo: 'Mi expediente',
-        descripcion: 'Tus documentos y datos',
-    },
+    // Mi expediente solo con `expedientes.ver` (la ruta lo exige).
+    ...(tienePermiso('expedientes.ver')
+        ? [
+              {
+                  href: miExpediente().url,
+                  icono: FolderOpen,
+                  color: 'bg-[var(--mrl-navy)]/10 text-[var(--mrl-navy)] group-hover:bg-[var(--mrl-navy)] group-hover:text-white',
+                  titulo: 'Mi expediente',
+                  descripcion: 'Tus documentos y datos',
+              },
+          ]
+        : []),
     {
         href: indexSolicitudes().url,
         icono: CalendarDays,

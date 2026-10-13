@@ -96,11 +96,17 @@ export function useMainNavItems() {
                 href: indexPortal(),
                 icon: UserRound,
             },
-            {
-                title: 'Mi expediente',
-                href: miExpediente(),
-                icon: FolderOpen,
-            },
+            // Mi expediente solo con `expedientes.ver` (la ruta lo exige: sin
+            // él, el acceso del menú terminaba en 403).
+            ...(tienePermiso('expedientes.ver')
+                ? [
+                      {
+                          title: 'Mi expediente',
+                          href: miExpediente(),
+                          icon: FolderOpen,
+                      },
+                  ]
+                : []),
             {
                 title: 'Avisos',
                 href: indexAvisosColaborador(),

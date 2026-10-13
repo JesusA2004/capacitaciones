@@ -42,6 +42,7 @@ use App\Services\Onboarding\ChecklistAdministrativoService;
 use App\Services\Organigrama\JefeDirectoService;
 use App\Services\Solicitudes\BajaColaboradorService;
 use App\Services\Vacaciones\VacacionesService;
+use BackedEnum;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -101,7 +102,13 @@ class ExpedienteController extends Controller
 
         $colaboradores->getCollection()->transform(function (Colaborador $colaborador) use ($resumenes, $columnasRequeridas) {
             $resumen = $resumenes[$colaborador->id];
-            $datosFaltantes = collect($columnasRequeridas)->contains(fn (string $columna): bool => trim((string) ($colaborador->{$columna} ?? '')) === '');
+            // Columnas con cast a enum (estado civil, género) no se pueden
+            // convertir a texto: un enum presente nunca está vacío.
+            $datosFaltantes = collect($columnasRequeridas)->contains(function (string $columna) use ($colaborador): bool {
+                $valor = $colaborador->{$columna};
+
+                return ! $valor instanceof BackedEnum && trim((string) ($valor ?? '')) === '';
+            });
 
             return [
                 'id' => $colaborador->id,

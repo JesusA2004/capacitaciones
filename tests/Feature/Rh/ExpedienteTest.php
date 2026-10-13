@@ -7,6 +7,7 @@ use App\Models\SolicitudInterna;
 use App\Models\SolicitudVacaciones;
 use App\Models\Sucursal;
 use App\Models\User;
+use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Support\Facades\Storage;
 
@@ -103,6 +104,21 @@ test('un rh_admin ve el listado de expedientes de toda la organizacion', functio
 
     $respuesta->assertInertia(function ($page) {
         expect($page->toArray()['props']['colaboradores']['total'])->toBeGreaterThanOrEqual(3);
+    });
+});
+
+test('el listado de expedientes no truena con datos de tipo enum (estado civil, género) al revisar datos faltantes', function () {
+    $admin = User::factory()->create();
+    $admin->assignRole('rh_admin');
+    $completo = Colaborador::factory()->create(['estado_civil' => 'casado', 'genero' => 'femenino']);
+    Colaborador::factory()->create(['estado_civil' => null]);
+    // Los contratos activos exigen estado civil y sexo (columnas con cast a enum).
+    $this->partialMock(DocumentoProcesoService::class, fn ($mock) => $mock->shouldReceive('columnasColaboradorRequeridasGlobal')->andReturn(['estado_civil' => 'estado_civil', 'genero' => 'genero']));
+
+    $this->actingAs($admin)->get(route('rh.expedientes.index'))->assertOk()->assertInertia(function ($page) use ($completo) {
+        $fila = collect($page->toArray()['props']['colaboradores']['data'])->firstWhere('id', $completo->id);
+
+        expect($fila)->not->toBeNull();
     });
 });
 
