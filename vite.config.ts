@@ -7,6 +7,20 @@ import { bunny } from 'laravel-vite-plugin/fonts';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+    build: {
+        rolldownOptions: {
+            output: {
+                // El worker de pdf.js viene como .mjs y muchos Nginx lo
+                // sirven como application/octet-stream: el navegador lo
+                // bloquea y ningún visor PDF carga. Con extensión .js se
+                // sirve como JavaScript en cualquier servidor.
+                assetFileNames: (asset) =>
+                    (asset.names?.[0] ?? '').endsWith('.mjs')
+                        ? 'assets/[name]-[hash].js'
+                        : 'assets/[name]-[hash][extname]',
+            },
+        },
+    },
     plugins: [
         laravel({
             input: ['resources/css/app.css', 'resources/js/app.ts'],
