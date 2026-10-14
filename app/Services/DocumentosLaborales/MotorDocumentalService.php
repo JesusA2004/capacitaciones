@@ -836,7 +836,14 @@ class MotorDocumentalService
     {
         $disco = $this->disco($documento);
 
-        abort_unless($disco->exists($documento->path), 404, 'El archivo del documento no está disponible.');
+        try {
+            $existe = $disco->exists($documento->path);
+        } catch (Throwable $e) {
+            Log::warning('MotorDocumentalService: el disco no respondió al verificar el documento.', ['documento_id' => $documento->id, 'error' => $e->getMessage()]);
+            abort(503, 'El almacenamiento no está disponible. Intenta nuevamente.');
+        }
+
+        abort_unless($existe, 404, 'Este archivo ya no está disponible.');
 
         // Auditoría de descargas (quién y cuándo); un fallo aquí no impide descargar.
         try {

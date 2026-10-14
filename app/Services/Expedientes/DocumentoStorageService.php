@@ -503,6 +503,11 @@ class DocumentoStorageService
      * invoca ya valido el permiso antes de llegar aqui; esta capa solo sirve
      * bytes desde la ruta logica, nunca expone la ruta fisica al cliente.
      *
+     * Nunca un 500 generico: 404 si el archivo realmente no existe en el
+     * disco, 503 si el disco (NAS) no responde — la app/web necesitan poder
+     * distinguir "este archivo ya no está" de "intenta de nuevo en un
+     * momento" (ver docs app móvil, sección documentos).
+     *
      * @param  array<string, string>  $headers
      */
     public function respuesta(string $ruta, array $headers = []): StreamedResponse
@@ -510,6 +515,20 @@ class DocumentoStorageService
         /** @var FilesystemAdapter $adaptador */
         $adaptador = $this->disco();
 
-        return $adaptador->response($ruta, null, $headers);
+        try {
+            $existe = $adaptador->exists($ruta);
+        } catch (Throwable $e) {
+            Log::warning('DocumentoStorageService: el disco no respondió al verificar el archivo.', ['ruta' => $ruta, 'error' => $e->getMessage()]);
+            abort(503, 'El almacenamiento no está disponible. Intenta nuevamente.');
+        }
+
+        abort_unless($existe, 404, 'Este archivo ya no está disponible.');
+
+        try {
+            return $adaptador->response($ruta, null, $headers);
+        } catch (Throwable $e) {
+            Log::warning('DocumentoStorageService: fallo al servir el archivo.', ['ruta' => $ruta, 'error' => $e->getMessage()]);
+            abort(503, 'El almacenamiento no está disponible. Intenta nuevamente.');
+        }
     }
 }
