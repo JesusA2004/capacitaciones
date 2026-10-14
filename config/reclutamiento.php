@@ -17,7 +17,30 @@ return [
 
     'max_upload_mb' => env('RECLUTAMIENTO_CV_MAX_MB', 10),
 
-    'extensiones_permitidas' => ['pdf', 'doc', 'docx'],
+    // Por WhatsApp el CV llega igual en PDF/Word que como foto.
+    'extensiones_permitidas' => ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'webp'],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Bandeja de CVs (descargas de WhatsApp Web → NAS)
+    |--------------------------------------------------------------------------
+    |
+    | Carpeta del NAS sincronizada (Synology Drive Client) con la carpeta de
+    | descargas de Chrome de la computadora de reclutamiento. El sistema lista
+    | lo que llega ahí y, al asignarlo a un candidato, lo MUEVE a
+    | candidatos/{id}/cv/ — así nadie tiene que elegir el archivo con la
+    | ventana «Seleccionar archivo» (ver App\Services\Reclutamiento\BandejaCvService
+    | y docs/RECLUTAMIENTO.md → «Bandeja de CVs»). La carpeta es relativa a la
+    | raíz del disco.
+    |
+    */
+
+    'bandeja_cv' => [
+        'disk' => env('RECLUTAMIENTO_BANDEJA_DISK', 'nas'),
+        'carpeta' => env('RECLUTAMIENTO_BANDEJA_CARPETA', 'reclutamiento/bandeja-cv'),
+        // Cuántos archivos (los más recientes) se ofrecen en el selector.
+        'limite' => (int) env('RECLUTAMIENTO_BANDEJA_LIMITE', 60),
+    ],
 
     /*
     |--------------------------------------------------------------------------

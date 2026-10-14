@@ -4,11 +4,14 @@ use App\Enums\EstadoCandidato;
 use App\Models\CampanaReclutamiento;
 use App\Models\Candidato;
 use App\Models\Empresa;
+use App\Models\PreguntaFiltroCandidato;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Models\Vacante;
+use App\Services\Reclutamiento\CandidatoWorkflowService;
 use App\Services\Reclutamiento\ContratacionCandidatoService;
+use Database\Seeders\MotivosRechazoCandidatoSeeder;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Validation\ValidationException;
 
@@ -27,6 +30,7 @@ test('rh_admin puede registrar un candidato y queda un seguimiento inicial', fun
             'correo' => 'ana.garcia@example.com',
             // Sin vacante solo es válido si es explícitamente espontáneo.
             'espontaneo' => true,
+            'fuente' => 'referido',
         ])
         ->assertSessionHasNoErrors();
 
@@ -151,7 +155,7 @@ test('registrar un candidato sin vacante exige marcarlo explícitamente como esp
         ->assertSessionHasErrors('vacante_id');
 
     $this->actingAs($usuario)
-        ->post(route('rh.candidatos.store'), ['nombre' => 'Espontáneo', 'espontaneo' => true])
+        ->post(route('rh.candidatos.store'), ['nombre' => 'Espontáneo', 'espontaneo' => true, 'fuente' => 'referido'])
         ->assertSessionHasNoErrors();
 
     $candidato = Candidato::where('nombre', 'Espontáneo')->firstOrFail();
@@ -170,7 +174,7 @@ test('una vacante ya cubierta se rechaza al guardar el candidato, race-safe', fu
     ]);
 
     $this->actingAs($usuario)
-        ->post(route('rh.candidatos.store'), ['nombre' => 'Tarde', 'vacante_id' => $vacante->id])
+        ->post(route('rh.candidatos.store'), ['nombre' => 'Tarde', 'vacante_id' => $vacante->id, 'fuente' => 'referido'])
         ->assertSessionHasErrors('vacante_id');
 
     expect(Candidato::where('nombre', 'Tarde')->exists())->toBeFalse();
@@ -246,4 +250,87 @@ test('un candidato se liga a la campaña de su vacante y no a la de otra', funct
         ->assertSessionHasNoErrors();
 
     expect(Candidato::where('nombre', 'Propia')->value('campana_reclutamiento_id'))->toBe($campanaPropia->id);
+});
+
+/*
+ * Origen obligatorio al registrar: de qué campaña viene o, si no fue por
+ * campaña, el medio por el que llegó. Con campaña, la fuente sale del canal.
+ */
+test('registrar un candidato exige la campaña de la que viene o el medio por el que llegó', function () {
+    $usuario = User::factory()->create();
+    $usuario->assignRole('rh_admin');
+    $vacante = Vacante::factory()->real()->create(['estado' => 'abierta', 'plazas_disponibles' => 2]);
+    $campana = CampanaReclutamiento::query()->create(['vacante_id' => $vacante->id, 'canal' => 'indeed', 'mes' => 10, 'anio' => 2026, 'fecha_inicio' => '2026-10-01', 'monto' => 900]);
+
+    $this->actingAs($usuario)
+        ->post(route('rh.candidatos.store'), ['nombre' => 'Sin Origen', 'vacante_id' => $vacante->id])
+        ->assertSessionHasErrors('fuente');
+
+    $this->actingAs($usuario)
+        ->post(route('rh.candidatos.store'), ['nombre' => 'De Campana', 'vacante_id' => $vacante->id, 'campana_reclutamiento_id' => $campana->id, 'fuente' => 'meta'])
+        ->assertSessionHasNoErrors();
+
+    // La fuente nunca contradice a la campaña: sale de su canal.
+    expect(Candidato::where('nombre', 'De Campana')->value('fuente'))->toBe('indeed');
+});
+
+test('una campaña general (sin vacante) se ofrece y se puede atribuir a cualquier candidato', function () {
+    $usuario = User::factory()->create();
+    $usuario->assignRole('rh_admin');
+    Vacante::factory()->real()->create(['estado' => 'abierta', 'plazas_disponibles' => 1]);
+    $general = CampanaReclutamiento::query()->create(['canal' => 'meta', 'mes' => 10, 'anio' => 2026, 'fecha_inicio' => now()->toDateString(), 'monto' => 500]);
+
+    $this->actingAs($usuario)
+        ->get(route('rh.candidatos.index'))
+        ->assertInertia(fn ($page) => $page->where('opciones.campanas', fn ($campanas) => collect($campanas)->contains(fn ($c) => $c['id'] === $general->id && $c['vacante_id'] === null)));
+
+    $this->actingAs($usuario)
+        ->post(route('rh.candidatos.store'), ['nombre' => 'Espontaneo General', 'espontaneo' => true, 'campana_reclutamiento_id' => $general->id])
+        ->assertSessionHasNoErrors();
+
+    expect(Candidato::where('nombre', 'Espontaneo General')->value('campana_reclutamiento_id'))->toBe($general->id);
+});
+
+test('si no cumple un requisito indispensable se registra igual pero queda no viable con motivo de catálogo', function () {
+    $this->seed(MotivosRechazoCandidatoSeeder::class);
+    $usuario = User::factory()->create();
+    $usuario->assignRole('rh_admin');
+    $vacante = Vacante::factory()->real()->create(['estado' => 'abierta', 'plazas_disponibles' => 2]);
+    $pregunta = PreguntaFiltroCandidato::query()->create([
+        'clave' => 'maneja_moto', 'pregunta' => '¿Sabe manejar moto?', 'puestos' => [$vacante->puesto_id],
+        'respuesta_requerida' => true, 'eliminatoria' => true, 'activo' => true,
+    ]);
+
+    // Sin contestar la pregunta del puesto no se registra.
+    $this->actingAs($usuario)
+        ->post(route('rh.candidatos.store'), ['nombre' => 'Sin Respuesta', 'vacante_id' => $vacante->id, 'fuente' => 'referido'])
+        ->assertSessionHasErrors("respuestas_filtro.{$pregunta->id}");
+
+    $this->actingAs($usuario)
+        ->post(route('rh.candidatos.store'), ['nombre' => 'Sin Moto', 'vacante_id' => $vacante->id, 'fuente' => 'referido', 'respuestas_filtro' => [$pregunta->id => false]])
+        ->assertSessionHasNoErrors();
+
+    $sinMoto = Candidato::where('nombre', 'Sin Moto')->with('motivoRechazo', 'respuestasFiltro')->firstOrFail();
+    expect($sinMoto->estado)->toBe(EstadoCandidato::NoViable)
+        ->and($sinMoto->motivoRechazo?->clave)->toBe('no_cumple_requisito')
+        ->and($sinMoto->motivo_salida)->toContain('¿Sabe manejar moto?')
+        ->and($sinMoto->respuestasFiltro)->toHaveCount(1)
+        ->and($sinMoto->respuestasFiltro->first()?->cumple)->toBeFalse();
+
+    $this->actingAs($usuario)
+        ->post(route('rh.candidatos.store'), ['nombre' => 'Con Moto', 'vacante_id' => $vacante->id, 'fuente' => 'referido', 'respuestas_filtro' => [$pregunta->id => true]])
+        ->assertSessionHasNoErrors();
+
+    expect(Candidato::where('nombre', 'Con Moto')->value('estado'))->toBe(EstadoCandidato::Recibidos);
+});
+
+test('una salida sin motivo elegido se clasifica sola según el paso en que se quedó', function () {
+    $this->seed(MotivosRechazoCandidatoSeeder::class);
+    $usuario = User::factory()->create();
+    $usuario->assignRole('rh_admin');
+    $candidato = Candidato::factory()->create(['estado' => EstadoCandidato::Recibidos->value, 'espontaneo' => true]);
+
+    app(CandidatoWorkflowService::class)->descartar($candidato, $usuario, EstadoCandidato::Desistio, 'Ya no contestó el WhatsApp.');
+
+    expect($candidato->refresh()->motivoRechazo?->clave)->toBe('desistio');
 });

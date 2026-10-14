@@ -41,7 +41,6 @@ class UpdateCampanaReclutamientoRequest extends FormRequest
             'impresiones' => ['nullable', 'integer', 'min:0', 'max:4000000000'],
             'clics' => ['nullable', 'integer', 'min:0', 'max:4000000000'],
             'responsable_id' => ['nullable', 'integer', 'exists:users,id'],
-            'candidatos_generados' => ['nullable', 'integer', 'min:0'],
             'observaciones' => ['nullable', 'string', 'max:4000'],
             // Arte / PDF de la campaña → NAS privado.
             'adjuntos' => ['nullable', 'array', 'max:10'],

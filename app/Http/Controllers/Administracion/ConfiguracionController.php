@@ -2,19 +2,23 @@
 
 namespace App\Http\Controllers\Administracion;
 
+use App\Enums\CategoriaMotivoRechazo;
 use App\Enums\GrupoPuestoIndicador;
 use App\Enums\TipoDestinatarioNotificacion;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Reclutamiento\GuardarMotivoRechazoCandidatoRequest;
+use App\Http\Requests\Reclutamiento\GuardarPreguntaFiltroCandidatoRequest;
 use App\Models\DocumentType;
 use App\Models\Empresa;
 use App\Models\MotivoRechazoCandidato;
+use App\Models\PreguntaFiltroCandidato;
 use App\Models\Puesto;
 use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Configuracion\ConfiguracionSistemaService;
 use App\Services\Configuracion\WorkflowRoutingService;
 use App\Services\Reclutamiento\MotivoRechazoCandidatoService;
+use App\Services\Reclutamiento\PreguntasFiltroCandidatoService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -36,6 +40,7 @@ class ConfiguracionController extends Controller
         private readonly WorkflowRoutingService $routing,
         private readonly AuditoriaService $auditoria,
         private readonly MotivoRechazoCandidatoService $motivosRechazo,
+        private readonly PreguntasFiltroCandidatoService $preguntasFiltro,
     ) {}
 
     /**
@@ -167,7 +172,21 @@ class ConfiguracionController extends Controller
             'tiposDocumento' => DocumentType::query()->where('activo', true)->orderBy('nombre')->get(['id', 'nombre', 'vigencia_meses']),
             // Catálogo de motivos de rechazo de candidatos (CLAUDE.md §10): se
             // administra aquí, nunca se borra (solo se desactiva).
-            'motivosRechazo' => MotivoRechazoCandidato::query()->orderByDesc('activo')->orderBy('nombre')->get(['id', 'clave', 'nombre', 'activo', 'no_recontratable_por_defecto']),
+            'motivosRechazo' => MotivoRechazoCandidato::query()->orderByDesc('activo')->orderBy('categoria')->orderBy('nombre')->get(['id', 'clave', 'nombre', 'categoria', 'activo', 'no_recontratable_por_defecto']),
+            'categoriasMotivo' => CategoriaMotivoRechazo::opciones(),
+            // Requisitos indispensables que se preguntan al registrar un
+            // candidato (p. ej. «¿Sabe manejar moto?» para Gestor).
+            'preguntasFiltro' => PreguntaFiltroCandidato::query()->orderByDesc('activo')->orderBy('orden')->orderBy('id')->get()
+                ->map(fn (PreguntaFiltroCandidato $p): array => [
+                    'id' => $p->id,
+                    'pregunta' => $p->pregunta,
+                    'puestos' => $p->idsPuestos(),
+                    'respuesta_requerida' => $p->respuesta_requerida,
+                    'eliminatoria' => $p->eliminatoria,
+                    'motivo_rechazo_id' => $p->motivo_rechazo_id,
+                    'activo' => $p->activo,
+                    'orden' => $p->orden,
+                ])->values(),
             'grupos' => array_map(fn (GrupoPuestoIndicador $g) => ['value' => $g->value, 'etiqueta' => $g->etiqueta()], GrupoPuestoIndicador::cases()),
             // Variante de documentos jurídicos (contratos) que le toca al puesto.
             'gruposDocumentales' => array_map(fn (string $valor, string $etiqueta): array => ['value' => $valor, 'etiqueta' => $etiqueta], array_keys((array) config('documentos_maestros.grupos', [])), array_values((array) config('documentos_maestros.grupos', []))),
@@ -224,6 +243,20 @@ class ConfiguracionController extends Controller
         $motivo = $this->motivosRechazo->guardar($request->validated(), $request->user(), $motivoRechazo);
 
         return back()->with('toast', ['type' => 'success', 'message' => sprintf('Motivo «%s» actualizado.', $motivo->nombre)]);
+    }
+
+    public function crearPreguntaFiltro(GuardarPreguntaFiltroCandidatoRequest $request): RedirectResponse
+    {
+        $this->preguntasFiltro->guardar($request->validated(), $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Pregunta de filtro agregada.']);
+    }
+
+    public function guardarPreguntaFiltro(GuardarPreguntaFiltroCandidatoRequest $request, PreguntaFiltroCandidato $preguntaFiltro): RedirectResponse
+    {
+        $this->preguntasFiltro->guardar($request->validated(), $request->user(), $preguntaFiltro);
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Pregunta de filtro actualizada.']);
     }
 
     private function exigir(Request $request, string $permiso): void

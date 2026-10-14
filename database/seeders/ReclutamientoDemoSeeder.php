@@ -12,6 +12,7 @@ use App\Models\Sucursal;
 use App\Models\User;
 use App\Models\Vacante;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
+use App\Services\Reclutamiento\PreguntasFiltroCandidatoService;
 use App\Services\Vacantes\VacanteAutoGenerationService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
@@ -102,6 +103,7 @@ class ReclutamientoDemoSeeder extends Seeder
                 'correo' => Str::slug($nombre, '.').'.demo@example.test',
                 'fuente' => $fuentes[$indice % count($fuentes)]->value,
                 'observaciones' => 'Candidato de demostración '.self::MARCA,
+                'respuestas_filtro' => app(PreguntasFiltroCandidatoService::class)->respuestasQueCumplen(),
                 'responsable_rh_id' => $reclutamiento->id,
                 'gerente_involucrado_id' => $gerente->id,
             ], $reclutamiento);

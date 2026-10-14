@@ -46,6 +46,19 @@ class CvStorageService
         return $rutaDestino;
     }
 
+    /**
+     * Guarda desde un flujo (p. ej. un archivo de la bandeja de CVs del NAS),
+     * sin cargarlo completo en memoria.
+     *
+     * @param  resource  $flujo
+     */
+    public function guardarFlujo($flujo, string $rutaDestino): string
+    {
+        $this->disco()->writeStream($rutaDestino, $flujo);
+
+        return $rutaDestino;
+    }
+
     public function eliminar(string $ruta): void
     {
         if ($this->disco()->exists($ruta)) {

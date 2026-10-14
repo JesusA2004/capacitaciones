@@ -44,6 +44,8 @@ class DatabaseSeeder extends Seeder
             InduccionMrLanaModuloSeeder::class,
             BirthdayPhraseSeeder::class,
             MotivosRechazoCandidatoSeeder::class,
+            // Necesita puestos y el motivo «no_cumple_requisito».
+            PreguntasFiltroCandidatoSeeder::class,
         ]);
 
         // B) DEMO: nunca en producción.

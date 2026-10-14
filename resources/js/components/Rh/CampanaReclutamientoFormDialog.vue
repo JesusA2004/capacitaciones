@@ -60,7 +60,6 @@ const form = useForm<{
     impresiones: string;
     clics: string;
     responsable_id: string;
-    candidatos_generados: string;
     observaciones: string;
     adjuntos: File[];
 }>({
@@ -77,7 +76,6 @@ const form = useForm<{
     impresiones: texto(props.campana?.impresiones),
     clics: texto(props.campana?.clics),
     responsable_id: texto(props.campana?.responsable_id),
-    candidatos_generados: texto(props.campana?.candidatos_generados),
     observaciones: props.campana?.observaciones ?? '',
     adjuntos: [],
 });
@@ -113,7 +111,6 @@ function enviar() {
         presupuesto: datos.presupuesto || null,
         sueldo_publicado: datos.sueldo_publicado || null,
         responsable_id: datos.responsable_id || null,
-        candidatos_generados: datos.candidatos_generados || null,
         impresiones: datos.impresiones === '' ? null : datos.impresiones,
         clics: datos.clics === '' ? null : datos.clics,
         ...(props.campana ? { _method: 'put' } : {}),
@@ -150,7 +147,7 @@ function enviar() {
                 <section class="grid gap-3 rounded-2xl border border-border/60 p-4">
                     <p class="text-sm font-semibold">Vacante y canal</p>
                     <div class="grid gap-2">
-                        <Label>Vacante real</Label>
+                        <Label>Vacante real <span class="text-destructive">*</span></Label>
                         <Select v-model="form.vacante_id">
                             <SelectTrigger class="w-full">
                                 <SelectValue placeholder="Elige la vacante" />
@@ -181,7 +178,7 @@ function enviar() {
                     </div>
                     <div class="grid gap-3 sm:grid-cols-2">
                         <div class="grid gap-2">
-                            <Label>Canal</Label>
+                            <Label>Canal <span class="text-destructive">*</span></Label>
                             <Select v-model="form.canal">
                                 <SelectTrigger class="w-full">
                                     <SelectValue placeholder="Selecciona un canal" />
@@ -198,7 +195,7 @@ function enviar() {
                             <InputError :message="form.errors.canal" />
                         </div>
                         <div class="grid gap-2">
-                            <Label>Responsable</Label>
+                            <Label>Responsable (opcional)</Label>
                             <Select v-model="form.responsable_id">
                                 <SelectTrigger class="w-full">
                                     <SelectValue placeholder="¿Quién la lleva?" />
@@ -216,7 +213,7 @@ function enviar() {
                             <InputError :message="form.errors.responsable_id" />
                         </div>
                         <div class="grid gap-2">
-                            <Label>Inicio</Label>
+                            <Label>Inicio <span class="text-destructive">*</span></Label>
                             <DatePicker v-model="form.fecha_inicio" />
                             <InputError :message="form.errors.fecha_inicio" />
                         </div>
@@ -232,17 +229,17 @@ function enviar() {
                     <p class="text-sm font-semibold">Dinero</p>
                     <div class="grid gap-3 sm:grid-cols-3">
                         <div class="grid gap-2">
-                            <Label for="presupuesto">Presupuesto</Label>
+                            <Label for="presupuesto">Presupuesto (opcional)</Label>
                             <Input id="presupuesto" v-model="form.presupuesto" type="number" min="0" step="0.01" placeholder="0.00" />
                             <InputError :message="form.errors.presupuesto" />
                         </div>
                         <div class="grid gap-2">
-                            <Label for="monto">Gasto real</Label>
+                            <Label for="monto">Gasto real <span class="text-destructive">*</span></Label>
                             <Input id="monto" v-model="form.monto" type="number" min="0" step="0.01" placeholder="0.00" />
                             <InputError :message="form.errors.monto" />
                         </div>
                         <div class="grid gap-2">
-                            <Label for="sueldo">Sueldo publicado</Label>
+                            <Label for="sueldo">Sueldo publicado (opcional)</Label>
                             <Input id="sueldo" v-model="form.sueldo_publicado" type="number" min="0" step="0.01" placeholder="0.00" />
                             <InputError :message="form.errors.sueldo_publicado" />
                         </div>
@@ -256,12 +253,12 @@ function enviar() {
                         <Input id="nombre" v-model="form.nombre" placeholder="Ej. Gestores Córdoba octubre" />
                     </div>
                     <div class="grid gap-2">
-                        <Label for="copy">Texto del anuncio (copy)</Label>
+                        <Label for="copy">Texto del anuncio (opcional)</Label>
                         <Textarea id="copy" v-model="form.copy" rows="4" />
                         <InputError :message="form.errors.copy" />
                     </div>
                     <div class="grid gap-2">
-                        <Label for="url">Liga del anuncio</Label>
+                        <Label for="url">Liga del anuncio (opcional)</Label>
                         <Input id="url" v-model="form.url" type="url" placeholder="https://" />
                         <InputError :message="form.errors.url" />
                     </div>
@@ -278,7 +275,7 @@ function enviar() {
                         </div>
                     </div>
                     <div class="grid gap-2">
-                        <Label>Arte y documentos (PDF o imagen, privados)</Label>
+                        <Label>Arte y documentos (opcional · PDF o imagen, privados)</Label>
                         <div
                             v-if="campana?.adjuntos_lista?.length"
                             class="flex flex-wrap gap-2"
@@ -315,18 +312,14 @@ function enviar() {
                     </div>
                 </section>
 
-                <section class="grid gap-3 sm:grid-cols-2">
-                    <div class="grid gap-2">
-                        <Label for="candidatos_generados">Candidatos generados (opcional)</Label>
-                        <Input id="candidatos_generados" v-model="form.candidatos_generados" type="number" min="0" placeholder="Auto" />
-                        <p class="text-xs text-muted-foreground">
-                            Vacío: se cuentan los candidatos registrados con esta campaña.
-                        </p>
-                    </div>
-                    <div class="grid gap-2">
-                        <Label for="observaciones">Observaciones</Label>
-                        <Textarea id="observaciones" v-model="form.observaciones" rows="3" />
-                    </div>
+                <section class="grid gap-2">
+                    <Label for="observaciones">Observaciones (opcional)</Label>
+                    <Textarea id="observaciones" v-model="form.observaciones" rows="3" />
+                    <p class="text-xs text-muted-foreground">
+                        Los candidatos de la campaña se cuentan solos: cada
+                        candidato que registres eligiendo esta campaña suma a
+                        su embudo y a su costo.
+                    </p>
                 </section>
 
                 <DialogFooter>

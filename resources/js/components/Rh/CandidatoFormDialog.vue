@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
+import { AlertTriangle } from '@lucide/vue';
 import { computed, watch } from 'vue';
 import InputError from '@/components/InputError.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
+import BandejaCvSelector from '@/components/Rh/BandejaCvSelector.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -36,8 +38,19 @@ const emit = defineEmits<{
     'update:open': [valor: boolean];
 }>();
 
+/** Valor del selector de origen cuando no llegó por una campaña. */
+const SIN_CAMPANA = 'ninguna';
+
 function idComo(valor: { id: number } | null | undefined): string {
     return valor?.id ? String(valor.id) : '';
+}
+
+function origenInicial(): string {
+    if (props.candidato?.campana_reclutamiento_id) {
+        return String(props.candidato.campana_reclutamiento_id);
+    }
+
+    return props.candidato?.fuente ? SIN_CAMPANA : '';
 }
 
 const form = useForm({
@@ -47,9 +60,8 @@ const form = useForm({
         : '',
     puesto_objetivo_id: idComo(props.candidato?.puesto_objetivo),
     vacante_id: idComo(props.candidato?.vacante),
-    campana_reclutamiento_id: props.candidato?.campana_reclutamiento_id
-        ? String(props.candidato.campana_reclutamiento_id)
-        : '',
+    // «¿De qué campaña viene?»: id de la campaña o SIN_CAMPANA.
+    origen: origenInicial(),
     espontaneo: props.candidato?.espontaneo ?? false,
     nombre: props.candidato?.nombre ?? '',
     apellidos: props.candidato?.apellidos ?? '',
@@ -57,10 +69,16 @@ const form = useForm({
     correo: props.candidato?.correo ?? '',
     fuente: props.candidato?.fuente ?? '',
     observaciones: props.candidato?.observaciones ?? '',
+    // Requisitos indispensables (solo al registrar): pregunta_id → sí/no.
+    respuestas_filtro: {} as Record<string, boolean>,
     // CV desde la fase inicial (solo al registrar; después se reemplaza
     // desde el expediente del candidato).
     cv: [] as File[],
+    // …o el nombre de un CV de la bandeja (descargas de WhatsApp en el NAS).
+    cv_bandeja: '',
 });
+
+const errores = computed(() => form.errors as Record<string, string | undefined>);
 
 // El puesto/sucursal/empresa se derivan SIEMPRE de la vacante elegida (la
 // vacante ya nació de un puesto y sucursal concretos: baja, headcount
@@ -71,13 +89,59 @@ const vacanteSeleccionada = computed(() =>
     props.opciones.vacantes?.find((v) => String(v.id) === form.vacante_id),
 );
 
-// Campañas de la vacante elegida: un candidato solo se atribuye a una
-// campaña de SU vacante (el backend lo valida igual).
-const campanasDeVacante = computed(() =>
+// Campañas posibles: las de la vacante elegida + las generales (sin
+// vacante). El backend valida igual que una campaña de otra vacante no
+// se pueda atribuir.
+const campanasDisponibles = computed(() =>
     (props.opciones.campanas ?? []).filter(
-        (c) => String(c.vacante_id) === form.vacante_id,
+        (c) =>
+            c.vacante_id === null ||
+            (!form.espontaneo && String(c.vacante_id) === form.vacante_id),
     ),
 );
+
+const llegoPorCampana = computed(
+    () => form.origen !== '' && form.origen !== SIN_CAMPANA,
+);
+
+// Puesto al que aplican las preguntas de filtro.
+const puestoActual = computed<number | null>(() => {
+    if (form.espontaneo) {
+        return form.puesto_objetivo_id ? Number(form.puesto_objetivo_id) : null;
+    }
+
+    return vacanteSeleccionada.value?.puesto_id ?? null;
+});
+
+const preguntasAplicables = computed(() =>
+    (props.opciones.preguntasFiltro ?? []).filter(
+        (p) =>
+            p.puestos.length === 0 ||
+            (puestoActual.value !== null &&
+                p.puestos.includes(puestoActual.value)),
+    ),
+);
+
+// Respuestas que no cumplen un requisito eliminatorio: el candidato SÍ se
+// registra (cuenta para su campaña) pero queda «No viable».
+const requisitosNoCumplidos = computed(() =>
+    preguntasAplicables.value.filter((p) => {
+        const respuesta = form.respuestas_filtro[String(p.id)];
+
+        return (
+            p.eliminatoria &&
+            respuesta !== undefined &&
+            respuesta !== p.respuesta_requerida
+        );
+    }),
+);
+
+function responder(preguntaId: number, valor: boolean) {
+    form.respuestas_filtro = {
+        ...form.respuestas_filtro,
+        [String(preguntaId)]: valor,
+    };
+}
 
 watch(
     () => form.vacante_id,
@@ -89,11 +153,10 @@ watch(
         }
 
         if (
-            !campanasDeVacante.value.some(
-                (c) => String(c.id) === form.campana_reclutamiento_id,
-            )
+            llegoPorCampana.value &&
+            !campanasDisponibles.value.some((c) => String(c.id) === form.origen)
         ) {
-            form.campana_reclutamiento_id = '';
+            form.origen = '';
         }
     },
 );
@@ -121,17 +184,28 @@ function etiquetaVacante(vacante: {
 }
 
 function enviar() {
-    const transformado = form.transform((datos) => ({
+    const aplicables = new Set(preguntasAplicables.value.map((p) => String(p.id)));
+
+    const transformado = form.transform(({ origen, ...datos }) => ({
         ...datos,
         empresa_id: datos.empresa_id || null,
         sucursal_id: datos.sucursal_id || null,
         puesto_objetivo_id: datos.puesto_objetivo_id || null,
         vacante_id: datos.vacante_id || null,
-        campana_reclutamiento_id: datos.espontaneo
-            ? null
-            : datos.campana_reclutamiento_id || null,
-        fuente: datos.fuente || null,
+        campana_reclutamiento_id:
+            origen !== '' && origen !== SIN_CAMPANA ? origen : null,
+        // Con campaña, la fuente sale del canal de la campaña (backend).
+        fuente: origen === SIN_CAMPANA ? datos.fuente || null : null,
+        respuestas_filtro: props.candidato
+            ? undefined
+            : Object.fromEntries(
+                  Object.entries(datos.respuestas_filtro).filter(([id]) =>
+                      aplicables.has(id),
+                  ),
+              ),
         cv: props.candidato ? undefined : (datos.cv[0] ?? null),
+        cv_bandeja:
+            props.candidato || datos.cv.length ? undefined : datos.cv_bandeja || null,
     }));
 
     const opciones = {
@@ -159,12 +233,14 @@ function enviar() {
             <form class="grid gap-4" @submit.prevent="enviar">
                 <div class="grid grid-cols-2 gap-4">
                     <div class="grid gap-2">
-                        <Label for="nombre">Nombre</Label>
+                        <Label for="nombre"
+                            >Nombre <span class="text-destructive">*</span></Label
+                        >
                         <Input id="nombre" v-model="form.nombre" autofocus />
                         <InputError :message="form.errors.nombre" />
                     </div>
                     <div class="grid gap-2">
-                        <Label for="apellidos">Apellidos</Label>
+                        <Label for="apellidos">Apellidos (opcional)</Label>
                         <Input id="apellidos" v-model="form.apellidos" />
                         <InputError :message="form.errors.apellidos" />
                     </div>
@@ -172,12 +248,12 @@ function enviar() {
 
                 <div class="grid grid-cols-2 gap-4">
                     <div class="grid gap-2">
-                        <Label for="telefono">Teléfono</Label>
+                        <Label for="telefono">Teléfono (opcional)</Label>
                         <Input id="telefono" v-model="form.telefono" />
                         <InputError :message="form.errors.telefono" />
                     </div>
                     <div class="grid gap-2">
-                        <Label for="correo">Correo</Label>
+                        <Label for="correo">Correo (opcional)</Label>
                         <Input id="correo" v-model="form.correo" type="email" />
                         <InputError :message="form.errors.correo" />
                     </div>
@@ -231,39 +307,6 @@ function enviar() {
                     </div>
                 </div>
 
-                <div
-                    v-if="!form.espontaneo && form.vacante_id"
-                    class="grid gap-2"
-                >
-                    <Label>Campaña</Label>
-                    <Select v-model="form.campana_reclutamiento_id">
-                        <SelectTrigger class="w-full">
-                            <SelectValue
-                                :placeholder="
-                                    campanasDeVacante.length
-                                        ? 'Sin campaña (llegó por otro medio)'
-                                        : 'Esta vacante no tiene campañas'
-                                "
-                            />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="campana in campanasDeVacante"
-                                :key="campana.id"
-                                :value="String(campana.id)"
-                                >{{ campana.etiqueta }}</SelectItem
-                            >
-                        </SelectContent>
-                    </Select>
-                    <InputError
-                        :message="form.errors.campana_reclutamiento_id"
-                    />
-                    <p class="text-xs text-muted-foreground">
-                        Elige la campaña por la que llegó: así cuenta en su
-                        embudo y en su costo por contratación.
-                    </p>
-                </div>
-
                 <div class="flex items-start gap-2 rounded-lg border border-border/60 px-3 py-2">
                     <Checkbox
                         id="espontaneo"
@@ -288,7 +331,7 @@ function enviar() {
                      todavía no existe una apertura concreta. -->
                 <div v-if="form.espontaneo" class="grid grid-cols-2 gap-4">
                     <div class="grid gap-2">
-                        <Label>Puesto de interés</Label>
+                        <Label>Puesto de interés (opcional)</Label>
                         <Select v-model="form.puesto_objetivo_id">
                             <SelectTrigger class="w-full">
                                 <SelectValue placeholder="Sin puesto" />
@@ -304,7 +347,7 @@ function enviar() {
                         </Select>
                     </div>
                     <div class="grid gap-2">
-                        <Label>Sucursal preferida</Label>
+                        <Label>Sucursal preferida (opcional)</Label>
                         <Select v-model="form.sucursal_id">
                             <SelectTrigger class="w-full">
                                 <SelectValue placeholder="Sin sucursal" />
@@ -321,11 +364,61 @@ function enviar() {
                     </div>
                 </div>
 
+                <!-- Origen: de qué campaña viene. Cuenta solo en el embudo y
+                     el costo de esa campaña; si no vino por una campaña, se
+                     pide el medio por el que llegó (nadie queda sin origen). -->
                 <div class="grid gap-2">
-                    <Label>Fuente / canal</Label>
+                    <Label
+                        >¿De qué campaña viene?
+                        <span class="text-destructive">*</span></Label
+                    >
+                    <Select v-model="form.origen">
+                        <SelectTrigger class="w-full">
+                            <SelectValue placeholder="Elige la campaña" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem
+                                v-for="campana in campanasDisponibles"
+                                :key="campana.id"
+                                :value="String(campana.id)"
+                                >{{ campana.etiqueta }}</SelectItem
+                            >
+                            <SelectItem :value="SIN_CAMPANA"
+                                >No llegó por una campaña (referido, orgánico,
+                                otro…)</SelectItem
+                            >
+                        </SelectContent>
+                    </Select>
+                    <InputError
+                        :message="
+                            errores.campana_reclutamiento_id ??
+                            (form.origen === SIN_CAMPANA
+                                ? undefined
+                                : form.errors.fuente)
+                        "
+                    />
+                    <p class="text-xs text-muted-foreground">
+                        <template v-if="!campanasDisponibles.length"
+                            >No hay campañas activas para esta vacante: si
+                            vino por una, regístrala primero en
+                            Campañas.</template
+                        >
+                        <template v-else
+                            >Al elegirla, el candidato se cuenta solo en esa
+                            campaña (embudo y costo) y la fuente se toma de su
+                            canal.</template
+                        >
+                    </p>
+                </div>
+
+                <div v-if="form.origen === SIN_CAMPANA" class="grid gap-2">
+                    <Label
+                        >¿Por qué medio llegó?
+                        <span class="text-destructive">*</span></Label
+                    >
                     <Select v-model="form.fuente">
                         <SelectTrigger class="w-full">
-                            <SelectValue placeholder="Sin especificar" />
+                            <SelectValue placeholder="Elige el medio" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem
@@ -339,8 +432,79 @@ function enviar() {
                     <InputError :message="form.errors.fuente" />
                 </div>
 
+                <!-- Requisitos indispensables del puesto (p. ej. «¿Sabe
+                     manejar moto?» para Gestor). Solo al registrar. -->
+                <section
+                    v-if="!candidato && preguntasAplicables.length"
+                    class="grid gap-3 rounded-lg border border-border/60 p-3"
+                >
+                    <div>
+                        <p class="text-sm font-semibold">
+                            Requisitos del puesto
+                            <span class="text-destructive">*</span>
+                        </p>
+                        <p class="text-xs text-muted-foreground">
+                            Pregúntaselo antes de seguir: si no cumple un
+                            requisito indispensable, se registra igual (cuenta
+                            para su campaña) pero queda como «No viable».
+                        </p>
+                    </div>
+                    <div
+                        v-for="pregunta in preguntasAplicables"
+                        :key="pregunta.id"
+                        class="grid gap-1.5"
+                    >
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <span class="text-sm">{{ pregunta.pregunta }}</span>
+                            <div class="flex gap-1.5">
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    :variant="
+                                        form.respuestas_filtro[String(pregunta.id)] === true
+                                            ? 'default'
+                                            : 'outline'
+                                    "
+                                    @click="responder(pregunta.id, true)"
+                                    >Sí</Button
+                                >
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    :variant="
+                                        form.respuestas_filtro[String(pregunta.id)] === false
+                                            ? 'default'
+                                            : 'outline'
+                                    "
+                                    @click="responder(pregunta.id, false)"
+                                    >No</Button
+                                >
+                            </div>
+                        </div>
+                        <InputError
+                            :message="errores[`respuestas_filtro.${pregunta.id}`]"
+                        />
+                    </div>
+                    <div
+                        v-if="requisitosNoCumplidos.length"
+                        class="flex items-start gap-2 rounded-md bg-warning-soft px-3 py-2 text-xs"
+                    >
+                        <AlertTriangle class="mt-0.5 size-4 shrink-0" />
+                        <span
+                            >No cumple:
+                            {{
+                                requisitosNoCumplidos
+                                    .map((p) => p.pregunta)
+                                    .join(' · ')
+                            }}. Al guardar quedará registrado como «No viable»
+                            con el motivo «No cumple un requisito
+                            indispensable».</span
+                        >
+                    </div>
+                </section>
+
                 <div class="grid gap-2">
-                    <Label for="observaciones">Observaciones</Label>
+                    <Label for="observaciones">Observaciones (opcional)</Label>
                     <Textarea
                         id="observaciones"
                         v-model="form.observaciones"
@@ -351,11 +515,19 @@ function enviar() {
 
                 <div v-if="!candidato" class="grid gap-2">
                     <Label>Currículum (opcional)</Label>
+                    <!-- Primero la bandeja: el CV que se descargó de
+                         WhatsApp ya está en el NAS, se elige por nombre. -->
+                    <BandejaCvSelector
+                        v-if="!form.cv.length"
+                        v-model="form.cv_bandeja"
+                    />
+                    <InputError :message="errores.cv_bandeja" />
                     <PeopleFileDropzone
+                        v-if="!form.cv_bandeja"
                         v-model="form.cv"
-                        accept=".pdf,.doc,.docx"
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
                         :max-size-mb="10"
-                        label="Arrastra el CV"
+                        label="O arrastra el CV desde tu computadora"
                     />
                     <InputError :message="form.errors.cv" />
                 </div>

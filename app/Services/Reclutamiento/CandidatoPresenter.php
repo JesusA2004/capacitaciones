@@ -8,6 +8,7 @@ use App\Models\CandidatoEntrevista;
 use App\Models\CandidatoEvidencia;
 use App\Models\CandidatoPsicometrica;
 use App\Models\CandidatoReferencia;
+use App\Models\CandidatoRespuestaFiltro;
 use App\Models\CandidatoSocioeconomico;
 use App\Models\IncorporacionInvitacion;
 use App\Models\IntervencionCandidato;
@@ -112,6 +113,7 @@ class CandidatoPresenter
             'intervenciones.gerenteSolicitante:id,name,apellidos',
             'intervenciones.rechazoRhPor:id,name,apellidos',
             'intervenciones.aprobador:id,name,apellidos',
+            'motivoRechazo:id,nombre,categoria', 'respuestasFiltro',
         ]);
 
         $invitacion = IncorporacionInvitacion::query()->where('candidato_id', $candidato->id)->latest('id')->first();
@@ -149,7 +151,18 @@ class CandidatoPresenter
             'estado_etiqueta' => $candidato->etiquetaEstado(),
             'fase' => $candidato->fase,
             'motivo_salida' => $candidato->motivo_salida,
+            // Clasificación del motivo (catálogo) para que RH vea de un
+            // vistazo por qué ya no continuó.
+            'motivo_rechazo' => $candidato->motivoRechazo !== null
+                ? sprintf('%s · %s', $candidato->motivoRechazo->categoria->etiqueta(), $candidato->motivoRechazo->nombre)
+                : null,
             'salida_en' => $candidato->salida_en?->toIso8601String(),
+            // Requisitos indispensables preguntados al registrarlo.
+            'respuestas_filtro' => $candidato->respuestasFiltro->map(fn (CandidatoRespuestaFiltro $r): array => [
+                'pregunta' => $r->pregunta,
+                'respuesta' => $r->respuesta,
+                'cumple' => $r->cumple,
+            ])->values()->all(),
             'tiene_cv' => $candidato->tiene_cv,
             // Mini expediente previo a la contratación (CV, psicométricos,
             // videos del socioeconómico, referencias), agrupado como en el NAS.

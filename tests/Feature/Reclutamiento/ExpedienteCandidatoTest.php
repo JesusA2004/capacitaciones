@@ -46,6 +46,7 @@ test('el CV se sube desde el registro del candidato y queda en su carpeta cv/', 
         'espontaneo' => true,
         'nombre' => 'Laura',
         'apellidos' => 'Méndez',
+        'fuente' => 'referido',
         'cv' => UploadedFile::fake()->create('cv-laura.pdf', 200, 'application/pdf'),
     ])->assertSessionHasNoErrors();
 

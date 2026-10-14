@@ -976,7 +976,7 @@ function confirmarSalida() {
                             v-for="motivo in opciones.motivosRechazo ?? []"
                             :key="motivo.id"
                             :value="String(motivo.id)"
-                            >{{ motivo.nombre }}</SelectItem
+                            >{{ motivo.etiqueta }}</SelectItem
                         >
                     </SelectContent>
                 </Select>

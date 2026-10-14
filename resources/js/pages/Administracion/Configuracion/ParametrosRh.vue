@@ -23,6 +23,10 @@ import {
     store as crearMotivoRechazoUrl,
     update as actualizarMotivoRechazo,
 } from '@/routes/administracion/configuracion/parametros-rh/motivos-rechazo';
+import {
+    store as crearPreguntaFiltroUrl,
+    update as actualizarPreguntaFiltro,
+} from '@/routes/administracion/configuracion/parametros-rh/preguntas-filtro';
 import { update as actualizarPuesto } from '@/routes/administracion/configuracion/parametros-rh/puestos';
 import { update as actualizarTipoDocumento } from '@/routes/administracion/configuracion/parametros-rh/tipos-documento';
 import { cobertura as coberturaDocumental } from '@/routes/rh/documentos-maestros';
@@ -38,6 +42,29 @@ type PuestoParametros = {
     historial?: { accion: string; por: string | null; en: string | null }[];
 };
 
+type MotivoRechazo = {
+    id: number;
+    clave: string;
+    nombre: string;
+    /** requisito | empresa | candidato | sin_contacto */
+    categoria: string;
+    activo: boolean;
+    no_recontratable_por_defecto: boolean;
+};
+
+/** Requisito indispensable que se pregunta al registrar un candidato. */
+type PreguntaFiltro = {
+    id: number;
+    pregunta: string;
+    /** Vacío = aplica a todos los puestos. */
+    puestos: number[];
+    respuesta_requerida: boolean;
+    eliminatoria: boolean;
+    motivo_rechazo_id: number | null;
+    activo: boolean;
+    orden: number;
+};
+
 const props = defineProps<{
     parametros: ParametroConfiguracion[];
     puestos: PuestoParametros[];
@@ -46,13 +73,9 @@ const props = defineProps<{
         nombre: string;
         vigencia_meses: number | null;
     }[];
-    motivosRechazo: {
-        id: number;
-        clave: string;
-        nombre: string;
-        activo: boolean;
-        no_recontratable_por_defecto: boolean;
-    }[];
+    motivosRechazo: MotivoRechazo[];
+    categoriasMotivo: { value: string; etiqueta: string }[];
+    preguntasFiltro: PreguntaFiltro[];
     grupos: { value: string; etiqueta: string }[];
     gruposDocumentales: { value: string; etiqueta: string }[];
     secciones: SeccionConfiguracion[];
@@ -142,26 +165,74 @@ const motivosRechazo = reactive(props.motivosRechazo.map((m) => ({ ...m })));
 const formNuevoMotivo = useForm({
     clave: '',
     nombre: '',
+    categoria: 'empresa',
     no_recontratable_por_defecto: false,
 });
 
-function guardarMotivoRechazo(m: {
-    id: number;
-    clave: string;
-    nombre: string;
-    activo: boolean;
-    no_recontratable_por_defecto: boolean;
-}) {
+const opcionesCategoria = computed(() =>
+    props.categoriasMotivo.map((c) => ({ value: c.value, label: c.etiqueta })),
+);
+
+function guardarMotivoRechazo(m: MotivoRechazo) {
     router.put(
         actualizarMotivoRechazo.url(m.id),
         {
             clave: m.clave,
             nombre: m.nombre,
+            categoria: m.categoria,
             activo: m.activo,
             no_recontratable_por_defecto: m.no_recontratable_por_defecto,
         },
         { preserveScroll: true },
     );
+}
+
+// Preguntas de filtro (requisitos indispensables al registrar candidatos).
+const preguntasFiltro = reactive(
+    props.preguntasFiltro.map((p) => ({ ...p, puestos: [...p.puestos] })),
+);
+const formNuevaPregunta = useForm({
+    pregunta: '',
+    puestos: [] as number[],
+    respuesta_requerida: true,
+    eliminatoria: true,
+    motivo_rechazo_id: null as number | null,
+});
+const opcionesMotivo = computed(() =>
+    props.motivosRechazo
+        .filter((m) => m.activo)
+        .map((m) => ({ value: m.id, label: m.nombre })),
+);
+const opcionesRespuesta = [
+    { value: 'si', label: 'Debe responder «Sí»' },
+    { value: 'no', label: 'Debe responder «No»' },
+];
+
+function alternarPuesto(lista: number[], id: number): number[] {
+    return lista.includes(id) ? lista.filter((p) => p !== id) : [...lista, id];
+}
+
+function guardarPreguntaFiltro(p: PreguntaFiltro) {
+    router.put(
+        actualizarPreguntaFiltro.url(p.id),
+        {
+            pregunta: p.pregunta,
+            puestos: p.puestos,
+            respuesta_requerida: p.respuesta_requerida,
+            eliminatoria: p.eliminatoria,
+            motivo_rechazo_id: p.motivo_rechazo_id,
+            activo: p.activo,
+            orden: p.orden,
+        },
+        { preserveScroll: true },
+    );
+}
+
+function crearPreguntaFiltro() {
+    formNuevaPregunta.post(crearPreguntaFiltroUrl.url(), {
+        preserveScroll: true,
+        onSuccess: () => formNuevaPregunta.reset(),
+    });
 }
 
 function crearMotivoRechazo() {
@@ -521,6 +592,12 @@ const error = (clave: string) =>
                     class="flex flex-col gap-2 rounded-xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-3 text-sm"
                 >
                     <Input v-model="m.nombre" class="h-8" />
+                    <SelectSimple
+                        v-model="m.categoria"
+                        :opciones="opcionesCategoria"
+                        size="sm"
+                        :aria-label="`Categoría de ${m.nombre}`"
+                    />
                     <div class="flex items-center justify-between gap-3 text-xs">
                         <label class="flex items-center gap-1.5">
                             <Casilla v-model="m.activo" /> Activo
@@ -564,6 +641,17 @@ const error = (clave: string) =>
                     />
                     <InputError :message="formNuevoMotivo.errors.nombre" />
                 </div>
+                <div class="grid gap-1">
+                    <label class="text-xs text-[var(--mrl-texto-suave)]"
+                        >Categoría</label
+                    >
+                    <SelectSimple
+                        v-model="formNuevoMotivo.categoria"
+                        :opciones="opcionesCategoria"
+                        size="sm"
+                        class="w-64"
+                    />
+                </div>
                 <label class="mb-1.5 flex items-center gap-1.5 text-xs">
                     <Casilla v-model="formNuevoMotivo.no_recontratable_por_defecto" />
                     No recontratable por defecto
@@ -571,6 +659,157 @@ const error = (clave: string) =>
                 <Button size="sm" @click="crearMotivoRechazo"
                     >Agregar motivo</Button
                 >
+            </div>
+        </section>
+
+        <section
+            class="flex flex-col gap-2"
+            aria-label="Preguntas de filtro al registrar candidatos"
+        >
+            <h2 class="text-sm font-semibold">
+                Requisitos indispensables al registrar un candidato
+            </h2>
+            <p class="text-xs text-[var(--mrl-texto-suave)]">
+                Preguntas rápidas de Sí/No que se hacen al dar de alta a un
+                candidato (p. ej. «¿Sabe manejar moto?» para Gestor). Si es
+                eliminatoria y no cumple, el candidato se registra igual (cuenta
+                para su campaña) pero queda «No viable» con el motivo elegido.
+                Una pregunta ya usada no se borra: se desactiva.
+            </p>
+            <ul class="grid gap-2 lg:grid-cols-2">
+                <li
+                    v-for="p in preguntasFiltro"
+                    :key="p.id"
+                    class="flex flex-col gap-2 rounded-xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-3 text-sm"
+                >
+                    <Input v-model="p.pregunta" class="h-8" :aria-label="`Pregunta ${p.id}`" />
+                    <div class="grid gap-2 sm:grid-cols-2">
+                        <SelectSimple
+                            :model-value="p.respuesta_requerida ? 'si' : 'no'"
+                            :opciones="opcionesRespuesta"
+                            size="sm"
+                            aria-label="Respuesta que exige el puesto"
+                            @update:model-value="(v) => (p.respuesta_requerida = v === 'si')"
+                        />
+                        <SelectSimple
+                            v-model="p.motivo_rechazo_id"
+                            :opciones="opcionesMotivo"
+                            numerico
+                            size="sm"
+                            opcion-vacia="Motivo: no cumple un requisito"
+                            aria-label="Motivo con que se descarta"
+                        />
+                    </div>
+                    <div class="flex flex-wrap gap-1.5" aria-label="Puestos a los que aplica">
+                        <button
+                            v-for="puesto in puestos"
+                            :key="puesto.id"
+                            type="button"
+                            class="rounded-full border px-2 py-0.5 text-xs"
+                            :class="
+                                p.puestos.includes(puesto.id)
+                                    ? 'border-transparent bg-salvia font-medium'
+                                    : 'border-[var(--mrl-borde)] text-[var(--mrl-texto-suave)]'
+                            "
+                            @click="p.puestos = alternarPuesto(p.puestos, puesto.id)"
+                        >
+                            {{ puesto.nombre }}
+                        </button>
+                    </div>
+                    <p class="text-xs text-[var(--mrl-texto-suave)]">
+                        {{
+                            p.puestos.length
+                                ? `Aplica a ${p.puestos.length} puesto(s).`
+                                : 'Sin puestos marcados: aplica a todos los puestos.'
+                        }}
+                    </p>
+                    <div class="flex items-center justify-between gap-3 text-xs">
+                        <label class="flex items-center gap-1.5">
+                            <Casilla v-model="p.activo" /> Activa
+                        </label>
+                        <label class="flex items-center gap-1.5">
+                            <Casilla v-model="p.eliminatoria" />
+                            Eliminatoria
+                        </label>
+                        <Button
+                            size="sm"
+                            variant="ghost"
+                            @click="guardarPreguntaFiltro(p)"
+                            >Guardar</Button
+                        >
+                    </div>
+                </li>
+            </ul>
+
+            <div
+                class="flex flex-col gap-2 rounded-xl border border-dashed border-[var(--mrl-borde)] p-3"
+            >
+                <div class="flex flex-wrap items-end gap-2">
+                    <div class="grid min-w-64 flex-1 gap-1">
+                        <label class="text-xs text-[var(--mrl-texto-suave)]"
+                            >Pregunta</label
+                        >
+                        <Input
+                            v-model="formNuevaPregunta.pregunta"
+                            placeholder="¿Sabe manejar moto?"
+                            class="h-8"
+                        />
+                        <InputError :message="formNuevaPregunta.errors.pregunta" />
+                    </div>
+                    <div class="grid gap-1">
+                        <label class="text-xs text-[var(--mrl-texto-suave)]"
+                            >Respuesta que exige el puesto</label
+                        >
+                        <SelectSimple
+                            :model-value="formNuevaPregunta.respuesta_requerida ? 'si' : 'no'"
+                            :opciones="opcionesRespuesta"
+                            size="sm"
+                            class="w-52"
+                            @update:model-value="(v) => (formNuevaPregunta.respuesta_requerida = v === 'si')"
+                        />
+                    </div>
+                    <div class="grid gap-1">
+                        <label class="text-xs text-[var(--mrl-texto-suave)]"
+                            >Motivo al descartar (opcional)</label
+                        >
+                        <SelectSimple
+                            v-model="formNuevaPregunta.motivo_rechazo_id"
+                            :opciones="opcionesMotivo"
+                            numerico
+                            size="sm"
+                            class="w-64"
+                            opcion-vacia="No cumple un requisito"
+                        />
+                    </div>
+                    <label class="mb-1.5 flex items-center gap-1.5 text-xs">
+                        <Casilla v-model="formNuevaPregunta.eliminatoria" />
+                        Eliminatoria
+                    </label>
+                </div>
+                <div class="flex flex-wrap gap-1.5" aria-label="Puestos a los que aplica la nueva pregunta">
+                    <button
+                        v-for="puesto in puestos"
+                        :key="puesto.id"
+                        type="button"
+                        class="rounded-full border px-2 py-0.5 text-xs"
+                        :class="
+                            formNuevaPregunta.puestos.includes(puesto.id)
+                                ? 'border-transparent bg-salvia font-medium'
+                                : 'border-[var(--mrl-borde)] text-[var(--mrl-texto-suave)]'
+                        "
+                        @click="formNuevaPregunta.puestos = alternarPuesto(formNuevaPregunta.puestos, puesto.id)"
+                    >
+                        {{ puesto.nombre }}
+                    </button>
+                </div>
+                <div class="flex items-center justify-between gap-2">
+                    <p class="text-xs text-[var(--mrl-texto-suave)]">
+                        Puestos (opcional): sin marcar, aplica a todos.
+                    </p>
+                    <Button size="sm" @click="crearPreguntaFiltro"
+                        >Agregar pregunta</Button
+                    >
+                </div>
             </div>
         </section>
     </div>

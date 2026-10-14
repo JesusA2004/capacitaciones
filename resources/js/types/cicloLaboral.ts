@@ -202,7 +202,11 @@ export type CandidatoFicha = {
     /** Columna canónica del tablero (CLAUDE.md §4) — nunca el sub-estado técnico. */
     fase: string;
     motivo_salida: string | null;
+    /** «Categoría · Motivo» del catálogo, si ya salió del proceso. */
+    motivo_rechazo: string | null;
     salida_en: string | null;
+    /** Requisitos indispensables preguntados al registrarlo. */
+    respuestas_filtro: { pregunta: string; respuesta: boolean; cumple: boolean }[];
     tiene_cv: boolean;
     expediente: ExpedienteCandidato;
     colaborador_id: number | null;

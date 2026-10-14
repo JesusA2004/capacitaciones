@@ -36,6 +36,7 @@ use App\Services\Onboarding\EvaluacionInduccionService;
 use App\Services\Onboarding\OnboardingService;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
 use App\Services\Reclutamiento\ContratacionCandidatoService;
+use App\Services\Reclutamiento\PreguntasFiltroCandidatoService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Seeder;
 use Illuminate\Http\UploadedFile;
@@ -238,6 +239,7 @@ class CicloLaboralDemoSeeder extends Seeder
             'telefono' => '5550000000',
             'correo' => $correo,
             'fuente' => 'facebook_grupos',
+            'respuestas_filtro' => app(PreguntasFiltroCandidatoService::class)->respuestasQueCumplen(),
             'gerente_involucrado_id' => $this->gerente->id,
         ], $this->reclutador);
 

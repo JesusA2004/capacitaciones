@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\CategoriaMotivoRechazo;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
@@ -14,6 +15,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $id
  * @property string $clave
  * @property string $nombre
+ * @property CategoriaMotivoRechazo $categoria
  * @property bool $activo
  * @property bool $no_recontratable_por_defecto
  */
@@ -21,11 +23,19 @@ class MotivoRechazoCandidato extends Model
 {
     protected $table = 'motivos_rechazo_candidato';
 
-    protected $fillable = ['clave', 'nombre', 'activo', 'no_recontratable_por_defecto'];
+    protected $fillable = ['clave', 'nombre', 'categoria', 'activo', 'no_recontratable_por_defecto'];
+
+    /**
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'categoria' => 'empresa',
+    ];
 
     protected function casts(): array
     {
         return [
+            'categoria' => CategoriaMotivoRechazo::class,
             'activo' => 'boolean',
             'no_recontratable_por_defecto' => 'boolean',
         ];

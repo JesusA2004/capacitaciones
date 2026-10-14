@@ -10,23 +10,29 @@ use App\Http\Requests\Rh\StoreCampanaReclutamientoRequest;
 use App\Http\Requests\Rh\UpdateCampanaReclutamientoRequest;
 use App\Models\CampanaReclutamiento;
 use App\Models\CampanaReclutamientoAdjunto;
+use App\Models\Candidato;
 use App\Models\Departamento;
 use App\Models\Empresa;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Models\Vacante;
+use App\Services\Pdf\PdfRendererException;
 use App\Services\Reclutamiento\CampanaReclutamientoService;
 use App\Services\Reclutamiento\CostoReclutamientoService;
+use App\Services\Reclutamiento\ReporteCampanasService;
 use App\Services\Vacantes\VacantesListadoService;
 use App\Support\Paginacion;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -45,6 +51,7 @@ class CampanaReclutamientoController extends Controller
         private readonly CampanaReclutamientoService $servicio,
         private readonly CostoReclutamientoService $costos,
         private readonly VacantesListadoService $vacantesListado,
+        private readonly ReporteCampanasService $reporte,
     ) {}
 
     public function index(Request $request): Response
@@ -54,9 +61,8 @@ class CampanaReclutamientoController extends Controller
 
         $mes = $request->integer('mes') ?: (int) now()->month;
         $anio = $request->integer('anio') ?: (int) now()->year;
-        $filtros = $request->only(self::FILTROS);
 
-        $consulta = CampanaReclutamiento::query()
+        $consulta = $this->consultaFiltrada($request, $mes, $anio)
             ->with([
                 'empresa:id,nombre',
                 'sucursal:id,nombre',
@@ -67,13 +73,6 @@ class CampanaReclutamientoController extends Controller
                 'responsable:id,name,apellidos',
                 'adjuntos',
             ])
-            ->where('mes', $mes)
-            ->where('anio', $anio)
-            ->when($filtros['empresa_id'] ?? null, fn ($q, $v) => $q->where('empresa_id', $v))
-            ->when($filtros['sucursal_id'] ?? null, fn ($q, $v) => $q->where('sucursal_id', $v))
-            ->when($filtros['departamento_id'] ?? null, fn ($q, $v) => $q->where('departamento_id', $v))
-            ->when($filtros['puesto_id'] ?? null, fn ($q, $v) => $q->where('puesto_id', $v))
-            ->when($filtros['canal'] ?? null, fn ($q, $v) => $q->where('canal', $v))
             ->orderByDesc('created_at');
 
         // Totales del periodo (todas las campañas filtradas, no solo la
@@ -120,6 +119,79 @@ class CampanaReclutamientoController extends Controller
                     CanalReclutamiento::cases(),
                 ),
             ],
+        ]);
+    }
+
+    /**
+     * Campañas del periodo con los filtros de la pantalla (misma consulta
+     * para el listado y para el reporte PDF del periodo).
+     *
+     * @return Builder<CampanaReclutamiento>
+     */
+    private function consultaFiltrada(Request $request, int $mes, int $anio): Builder
+    {
+        $filtros = $request->only(self::FILTROS);
+
+        return CampanaReclutamiento::query()
+            ->where('mes', $mes)
+            ->where('anio', $anio)
+            ->when($filtros['empresa_id'] ?? null, fn ($q, $v) => $q->where('empresa_id', $v))
+            ->when($filtros['sucursal_id'] ?? null, fn ($q, $v) => $q->where('sucursal_id', $v))
+            ->when($filtros['departamento_id'] ?? null, fn ($q, $v) => $q->where('departamento_id', $v))
+            ->when($filtros['puesto_id'] ?? null, fn ($q, $v) => $q->where('puesto_id', $v))
+            ->when($filtros['canal'] ?? null, fn ($q, $v) => $q->where('canal', $v));
+    }
+
+    /**
+     * Reporte PDF (Chrome) de todas las campañas del periodo filtrado:
+     * comparativo + detalle de cada una.
+     */
+    public function reportePdf(Request $request): HttpResponse
+    {
+        abort_unless($request->user()?->can('reclutamiento.campanas.ver'), 403);
+
+        $mes = $request->integer('mes') ?: (int) now()->month;
+        $anio = $request->integer('anio') ?: (int) now()->year;
+        $campanas = $this->consultaFiltrada($request, $mes, $anio)->orderBy('fecha_inicio')->orderBy('id')->get();
+        $inicio = Carbon::now()->setDate($anio, $mes, 1);
+        $inicio->locale('es');
+        $periodo = sprintf('Periodo: %s', ucfirst($inicio->translatedFormat('F Y')));
+
+        return $this->responderPdf($request, $campanas, 'Reporte de campañas de reclutamiento', $periodo, sprintf('campanas-%04d-%02d.pdf', $anio, $mes));
+    }
+
+    /**
+     * Reporte PDF (Chrome) de una sola campaña.
+     */
+    public function reporteCampanaPdf(Request $request, CampanaReclutamiento $campana): HttpResponse
+    {
+        abort_unless($request->user()?->can('reclutamiento.campanas.ver'), 403);
+
+        $nombre = $campana->nombre !== null && $campana->nombre !== '' ? $campana->nombre : $campana->canal->etiqueta();
+        $periodo = sprintf('Del %s al %s', $campana->fecha_inicio?->format('d/m/Y') ?? '—', $campana->fecha_fin?->format('d/m/Y') ?? 'hoy');
+
+        return $this->responderPdf($request, [$campana], sprintf('Campaña: %s', $nombre), $periodo, sprintf('campana-%d.pdf', $campana->id));
+    }
+
+    /**
+     * @param  iterable<CampanaReclutamiento>  $campanas
+     */
+    private function responderPdf(Request $request, iterable $campanas, string $titulo, string $periodo, string $archivo): HttpResponse
+    {
+        // La lista nominal de candidatos solo para quien ya puede verlos.
+        $conCandidatos = $request->user()?->can('viewAny', Candidato::class) ?? false;
+
+        try {
+            $pdf = $this->reporte->pdf($campanas, $titulo, $periodo, $conCandidatos);
+        } catch (PdfRendererException $e) {
+            Log::warning('Reporte de campañas: no se pudo generar el PDF.', ['error' => $e->getMessage(), 'causa' => $e->getPrevious()?->getMessage()]);
+
+            return back()->with('toast', ['type' => 'error', 'message' => sprintf('No se pudo generar el PDF: %s', $e->getMessage())]);
+        }
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => sprintf('inline; filename="%s"', $archivo),
         ]);
     }
 

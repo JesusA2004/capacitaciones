@@ -29,12 +29,14 @@ use App\Models\CandidatoEvidencia;
 use App\Models\Departamento;
 use App\Models\Empresa;
 use App\Models\MotivoRechazoCandidato;
+use App\Models\PreguntaFiltroCandidato;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\Puestos\PerfilPuestoService;
+use App\Services\Reclutamiento\BandejaCvService;
 use App\Services\Reclutamiento\CampanaReclutamientoService;
 use App\Services\Reclutamiento\CandidatoPresenter;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
@@ -42,15 +44,18 @@ use App\Services\Reclutamiento\ContratacionCandidatoService;
 use App\Services\Reclutamiento\CvStorageService;
 use App\Services\Reclutamiento\ExpedienteCandidatoService;
 use App\Services\Reclutamiento\IntervencionCandidatoService;
+use App\Services\Reclutamiento\PreguntasFiltroCandidatoService;
 use App\Services\Vacantes\VacantesListadoService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
@@ -77,6 +82,7 @@ class CandidatoController extends Controller
         private readonly IntervencionCandidatoService $intervenciones,
         private readonly ExpedienteCandidatoService $expediente,
         private readonly PerfilPuestoService $perfilesPuesto,
+        private readonly BandejaCvService $bandejaCv,
     ) {}
 
     public function index(Request $request): Response
@@ -233,14 +239,57 @@ class CandidatoController extends Controller
 
     public function store(StoreCandidatoRequest $request): RedirectResponse
     {
-        $candidato = $this->workflow->registrar($request->safe()->except('cv'), $request->user());
+        $cvBandeja = $request->validated('cv_bandeja');
+
+        // Se revisa ANTES de registrar: así un archivo que ya no está nunca
+        // deja un candidato creado a medias (y un reintento no lo duplica).
+        if (is_string($cvBandeja) && $cvBandeja !== '' && ! $this->bandejaCv->existe($cvBandeja)) {
+            throw ValidationException::withMessages(['cv_bandeja' => sprintf('«%s» ya no está en la bandeja de CVs. Actualiza la lista.', $cvBandeja)]);
+        }
+
+        $candidato = $this->workflow->registrar($request->safe()->except(['cv', 'cv_bandeja']), $request->user());
         $cv = $request->file('cv');
 
         if ($cv instanceof UploadedFile) {
             $this->expediente->guardarCv($candidato, $cv, $request->user());
+        } elseif (is_string($cvBandeja) && $cvBandeja !== '') {
+            try {
+                $this->bandejaCv->asignar($candidato, $cvBandeja, $request->user());
+            } catch (ValidationException $e) {
+                // El candidato ya quedó registrado: no se pierde, solo se avisa.
+                return back()->with('toast', ['type' => 'warning', 'message' => sprintf('Candidato registrado, pero sin CV: %s', $e->validator->errors()->first())]);
+            }
         }
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Candidato registrado correctamente.']);
+    }
+
+    /**
+     * Archivos de la bandeja de CVs (descargas de WhatsApp Web sincronizadas
+     * al NAS) listos para asignar a un candidato.
+     */
+    public function bandejaCv(): JsonResponse
+    {
+        $this->authorize('viewAny', Candidato::class);
+
+        return response()->json(['data' => $this->bandejaCv->listar()]);
+    }
+
+    public function verBandejaCv(Request $request): StreamedResponse
+    {
+        $this->authorize('viewAny', Candidato::class);
+
+        return $this->bandejaCv->respuesta((string) $request->query('archivo', ''));
+    }
+
+    public function cvDesdeBandeja(Request $request, Candidato $candidato): RedirectResponse
+    {
+        $this->authorize('adjuntar', $candidato);
+        $datos = $request->validate(['archivo' => ['required', 'string', 'max:255']]);
+
+        $this->bandejaCv->asignar($candidato, (string) $datos['archivo'], $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'CV tomado de la bandeja y guardado en el expediente.']);
     }
 
     public function update(UpdateCandidatoRequest $request, Candidato $candidato): RedirectResponse
@@ -522,8 +571,29 @@ class CandidatoController extends Controller
             'transicionesPermitidas' => $this->transicionesPermitidas(),
             // Catálogo administrable de motivos de rechazo (CLAUDE.md §10):
             // única fuente para el selector al cerrar un proceso o rechazar.
-            'motivosRechazo' => MotivoRechazoCandidato::query()->activos()->orderBy('nombre')
-                ->get(['id', 'nombre', 'no_recontratable_por_defecto']),
+            // Agrupado por categoría (requisito, empresa, candidato, sin
+            // contacto) para que el reporte de campañas sepa por qué se cayó.
+            'motivosRechazo' => MotivoRechazoCandidato::query()->activos()->orderBy('categoria')->orderBy('nombre')
+                ->get(['id', 'nombre', 'categoria', 'no_recontratable_por_defecto'])
+                ->map(fn (MotivoRechazoCandidato $m): array => [
+                    'id' => $m->id,
+                    'nombre' => $m->nombre,
+                    'categoria' => $m->categoria->value,
+                    'etiqueta' => sprintf('%s · %s', $m->categoria->etiqueta(), $m->nombre),
+                    'no_recontratable_por_defecto' => $m->no_recontratable_por_defecto,
+                ])
+                ->values(),
+            // Requisitos indispensables que se preguntan al registrar (el
+            // formulario muestra solo los que aplican al puesto elegido).
+            'preguntasFiltro' => app(PreguntasFiltroCandidatoService::class)->activas()
+                ->map(fn (PreguntaFiltroCandidato $p): array => [
+                    'id' => $p->id,
+                    'pregunta' => $p->pregunta,
+                    'puestos' => $p->idsPuestos(),
+                    'respuesta_requerida' => $p->respuesta_requerida,
+                    'eliminatoria' => $p->eliminatoria,
+                ])
+                ->values(),
         ];
     }
 

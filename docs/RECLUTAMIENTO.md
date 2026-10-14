@@ -31,6 +31,65 @@ expone en su lugar `tiene_cv` (boolean) y `cv_original_name`; la descarga real p
 `GET rh/candidatos/{candidato}/cv/descargar`, protegida por policy, igual que los
 documentos de expediente — nunca se expone la ruta física del NAS al frontend.
 
+## Alta del candidato: origen, requisitos y motivo de salida
+
+- **Origen obligatorio** (`StoreCandidatoRequest`): «¿De qué campaña viene?»
+  (`campana_reclutamiento_id`, campañas de su vacante + campañas generales sin vacante
+  vigentes o terminadas hace ≤ 60 días) **o**, si no llegó por una campaña, el medio
+  (`fuente`). Con campaña, la fuente se fuerza al canal de la campaña
+  (`CanalReclutamiento::fuenteCandidato()`), así nunca se contradicen.
+- **Conteo automático por campaña**: `CostoReclutamientoService::porCampana()` cuenta los
+  candidatos ligados; el campo manual `candidatos_generados` ya no se captura ni se usa
+  en el embudo.
+- **Requisitos indispensables** (`preguntas_filtro_candidato`, administrables en
+  Configuración → Parámetros de RH): preguntas Sí/No por puesto (p. ej. «¿Sabe manejar
+  moto?» para los puestos del grupo Gestores). Se contestan al registrar
+  (`candidato_respuestas_filtro`, con copia del texto). Si una eliminatoria no se
+  cumple, el candidato **se registra igual** (cuenta para su campaña) y se cierra al
+  momento como «No viable» con el motivo de la pregunta (por defecto
+  `no_cumple_requisito`). Ver `PreguntasFiltroCandidatoService`.
+- **Motivos clasificados**: `motivos_rechazo_candidato.categoria`
+  (`CategoriaMotivoRechazo`: requisito / empresa / candidato / sin contacto). Una
+  salida sin motivo elegido se clasifica sola según el paso en que se quedó
+  (`CandidatoWorkflowService::claveMotivoAutomatico()`); las salidas anteriores a esta
+  regla aparecen como «Sin clasificar» en el reporte (no se reescribe el histórico).
+
+## Bandeja de CVs (descargas de WhatsApp Web → NAS)
+
+Quien registra desde WhatsApp Web (una persona o Claude en Chrome) puede **descargar**
+el CV, pero el navegador no deja que una página o un agente elijan un archivo del disco
+en «Seleccionar archivo». Por eso el CV no se sube: se toma de una carpeta del NAS.
+
+1. **NAS**: carpeta `RECLUTAMIENTO_BANDEJA_CARPETA` (por defecto
+   `reclutamiento/bandeja-cv`, relativa a la raíz del disco `nas` que usa la app).
+2. **Computadora de reclutamiento**: Synology Drive Client sincroniza esa carpeta del
+   NAS con una carpeta local, p. ej. `C:\Users\<usuario>\SynologyDrive\bandeja-cv`.
+3. **Chrome sin preguntar dónde guardar** (una sola vez, sin administrador):
+   `scripts/reclutamiento/configurar-chrome-bandeja-cv.ps1 -Carpeta "<carpeta local>"`.
+   Pone las políticas `PromptForDownloadLocation=0`, `DownloadDirectory=<carpeta>` y
+   permite descargas múltiples en `https://web.whatsapp.com`. Reiniciar Chrome y revisar
+   `chrome://policy`. Se deshace con `-Quitar`.
+4. **En el sistema**: en «Nuevo candidato» y en el expediente del candidato aparece el
+   selector de la bandeja (más recientes primero, con vista previa). Al guardar, el
+   archivo se **mueve** a `candidatos/{id}/cv/` (sale de la bandeja; un candado evita
+   asignarlo dos veces). Descargas a medias (`.crdownload`) y tipos no permitidos no
+   se listan; nunca se aceptan rutas, solo nombres de la propia carpeta
+   (`BandejaCvService`). El CV puede ser PDF, Word o foto (JPG/PNG/WEBP).
+
+Instrucción sugerida para Claude en Chrome: «Descarga el CV del chat, luego en Nuevo
+candidato (o en su expediente) pulsa actualizar en la bandeja de CVs y elige el archivo
+con ese nombre; uno por uno, descarga y asigna antes de pasar al siguiente candidato».
+
+## Reporte PDF de campañas (Chrome / Browsershot)
+
+`GET rh/campanas/reporte-pdf?mes&anio&…filtros` (todas las campañas del periodo, con
+comparativo) y `GET rh/campanas/{campana}/reporte-pdf` (una). Lo arma
+`ReporteCampanasService` con la vista `pdf/reporte-campanas`: cuántos llegaron, embudo
+por hito (`etapa_maxima`), en qué fase se detuvieron, por qué (motivo agrupado por
+categoría), cuántos siguen en proceso, costo por candidato, costo por contratado (misma
+cifra que la pantalla) y cuánto se gastó en los que no continuaron. La lista nominal de
+candidatos solo se incluye si el usuario puede ver candidatos.
+
 ## Mini expediente del candidato (antes de la contratación)
 
 `App\Services\Reclutamiento\ExpedienteCandidatoService` reúne lo que el candidato

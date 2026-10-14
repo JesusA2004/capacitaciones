@@ -89,16 +89,36 @@ class ExpedienteCandidatoService
      */
     public function guardarCv(Candidato $candidato, UploadedFile $archivo, ?User $actor): Candidato
     {
-        $anterior = $candidato->cv_path;
         $ruta = sprintf('%s/cv/%s', $this->carpetaCandidato($candidato->id), $this->almacenamiento->nombreInterno($archivo->getClientOriginalName()));
         $this->almacenamiento->guardar($archivo, $ruta);
+
+        return $this->registrarCv($candidato, $ruta, $archivo->getClientOriginalName(), $archivo->getMimeType() ?? $archivo->getClientMimeType(), (int) $archivo->getSize(), $actor);
+    }
+
+    /**
+     * Mismo resultado que guardarCv(), pero el archivo llega como flujo (la
+     * bandeja de CVs del NAS, ver BandejaCvService) en vez de un upload.
+     *
+     * @param  resource  $flujo
+     */
+    public function guardarCvDesdeFlujo(Candidato $candidato, $flujo, string $nombreOriginal, string $mime, int $tamano, ?User $actor): Candidato
+    {
+        $ruta = sprintf('%s/cv/%s', $this->carpetaCandidato($candidato->id), $this->almacenamiento->nombreInterno($nombreOriginal));
+        $this->almacenamiento->guardarFlujo($flujo, $ruta);
+
+        return $this->registrarCv($candidato, $ruta, $nombreOriginal, $mime, $tamano, $actor);
+    }
+
+    private function registrarCv(Candidato $candidato, string $ruta, string $nombreOriginal, string $mime, int $tamano, ?User $actor): Candidato
+    {
+        $anterior = $candidato->cv_path;
 
         $candidato->update([
             'cv_disk' => config('reclutamiento.disk'),
             'cv_path' => $ruta,
-            'cv_original_name' => $archivo->getClientOriginalName(),
-            'cv_mime' => $archivo->getMimeType() ?? $archivo->getClientMimeType(),
-            'cv_size' => $archivo->getSize(),
+            'cv_original_name' => $nombreOriginal,
+            'cv_mime' => $mime,
+            'cv_size' => $tamano,
         ]);
 
         if ($anterior !== null && $anterior !== $ruta) {

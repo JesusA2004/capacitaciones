@@ -32,6 +32,9 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class CampanaReclutamientoService
 {
+    /** Días que una campaña general terminada se sigue ofreciendo al registrar candidatos. */
+    public const DIAS_GRACIA_CAMPANA_GENERAL = 60;
+
     public function __construct(private readonly CvStorageService $almacen) {}
 
     /**
@@ -100,30 +103,36 @@ class CampanaReclutamientoService
      * (contactados, entrevistas, psicométricos, contratados) se quedaba en
      * ceros aunque los candidatos sí hubieran llegado por ella.
      *
+     * También se ofrecen las campañas generales (sin vacante) vigentes o
+     * que terminaron hace menos de DIAS_GRACIA_CAMPANA_GENERAL días: un
+     * candidato de cualquier vacante (o espontáneo) puede venir de ellas.
+     *
      * @param  iterable<int>  $vacanteIds
-     * @return list<array{id: int, vacante_id: int, etiqueta: string}>
+     * @return list<array{id: int, vacante_id: int|null, etiqueta: string}>
      */
     public function opcionesParaVacantes(iterable $vacanteIds): array
     {
         $ids = collect($vacanteIds)->map(fn (mixed $id): int => (int) $id)->unique()->values();
-
-        if ($ids->isEmpty()) {
-            return [];
-        }
+        $limiteGeneral = now()->subDays(self::DIAS_GRACIA_CAMPANA_GENERAL)->startOfDay();
 
         return array_values(CampanaReclutamiento::query()
-            ->whereIn('vacante_id', $ids->all())
+            ->where(function ($q) use ($ids, $limiteGeneral): void {
+                $q->whereIn('vacante_id', $ids->all())
+                    ->orWhere(fn ($general) => $general->whereNull('vacante_id')
+                        ->where(fn ($vigente) => $vigente->whereNull('fecha_fin')->orWhere('fecha_fin', '>=', $limiteGeneral)));
+            })
             ->orderByDesc('fecha_inicio')
             ->orderByDesc('id')
             ->get(['id', 'vacante_id', 'nombre', 'canal', 'fecha_inicio'])
             ->map(fn (CampanaReclutamiento $c): array => [
                 'id' => $c->id,
-                'vacante_id' => (int) $c->vacante_id,
+                'vacante_id' => $c->vacante_id,
                 'etiqueta' => sprintf(
-                    '%s%s%s',
+                    '%s%s%s%s',
                     $c->canal->etiqueta(),
                     $c->nombre !== null && $c->nombre !== '' ? ' · '.$c->nombre : '',
                     $c->fecha_inicio !== null ? ' · desde '.$c->fecha_inicio->format('d/m/Y') : '',
+                    $c->vacante_id === null ? ' · general' : '',
                 ),
             ])
             ->all());

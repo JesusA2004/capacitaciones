@@ -387,6 +387,40 @@ function fecha(valor: string | null): string {
                             <dt class="text-muted-foreground">Gerente</dt>
                             <dd>{{ candidato.gerente ?? '—' }}</dd>
                         </div>
+                        <div v-if="candidato.motivo_rechazo" class="sm:col-span-2">
+                            <dt class="text-muted-foreground">
+                                ¿Por qué ya no continuó?
+                            </dt>
+                            <dd>
+                                {{ candidato.motivo_rechazo }}
+                                <span
+                                    v-if="candidato.motivo_salida"
+                                    class="block text-xs text-muted-foreground"
+                                    >{{ candidato.motivo_salida }}</span
+                                >
+                            </dd>
+                        </div>
+                        <div
+                            v-if="candidato.respuestas_filtro.length"
+                            class="sm:col-span-2"
+                        >
+                            <dt class="text-muted-foreground">
+                                Requisitos del puesto
+                            </dt>
+                            <dd class="mt-1 flex flex-col gap-1">
+                                <span
+                                    v-for="(r, i) in candidato.respuestas_filtro"
+                                    :key="i"
+                                    class="flex items-center justify-between gap-3 rounded-md px-2 py-1"
+                                    :class="r.cumple ? 'bg-success-soft' : 'bg-danger-soft'"
+                                >
+                                    <span>{{ r.pregunta }}</span>
+                                    <span class="font-medium">{{
+                                        r.respuesta ? 'Sí' : 'No'
+                                    }}</span>
+                                </span>
+                            </dd>
+                        </div>
                     </dl>
                 </section>
 
@@ -685,7 +719,7 @@ function fecha(valor: string | null): string {
                                 :opciones="
                                     (opciones.motivosRechazo ?? []).map((m) => ({
                                         value: String(m.id),
-                                        label: m.nombre,
+                                        label: m.etiqueta,
                                     }))
                                 "
                                 placeholder="Elige un motivo"
@@ -750,7 +784,7 @@ function fecha(valor: string | null): string {
                                 :opciones="
                                     (opciones.motivosRechazo ?? []).map((m) => ({
                                         value: String(m.id),
-                                        label: m.nombre,
+                                        label: m.etiqueta,
                                     }))
                                 "
                                 placeholder="Elige un motivo"
@@ -910,7 +944,7 @@ function fecha(valor: string | null): string {
                                 :opciones="
                                     (opciones.motivosRechazo ?? []).map((m) => ({
                                         value: String(m.id),
-                                        label: m.nombre,
+                                        label: m.etiqueta,
                                     }))
                                 "
                                 placeholder="Elige un motivo"
@@ -1046,7 +1080,7 @@ function fecha(valor: string | null): string {
                             :opciones="
                                 (opciones.motivosRechazo ?? []).map((m) => ({
                                     value: String(m.id),
-                                    label: m.nombre,
+                                    label: m.etiqueta,
                                 }))
                             "
                             placeholder="Elige un motivo"
@@ -1112,7 +1146,7 @@ function fecha(valor: string | null): string {
                             :opciones="
                                 (opciones.motivosRechazo ?? []).map((m) => ({
                                     value: String(m.id),
-                                    label: m.nombre,
+                                    label: m.etiqueta,
                                 }))
                             "
                             placeholder="Elige un motivo"

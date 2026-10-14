@@ -29,4 +29,20 @@ enum CanalReclutamiento: string
             self::Otros => 'Otros',
         };
     }
+
+    /**
+     * Fuente con la que queda el candidato que llegó por una campaña de
+     * este canal: así la fuente nunca contradice a la campaña.
+     */
+    public function fuenteCandidato(): FuenteCandidato
+    {
+        return match ($this) {
+            self::Meta => FuenteCandidato::Meta,
+            self::Indeed => FuenteCandidato::Indeed,
+            self::Computrabajo => FuenteCandidato::Computrabajo,
+            self::LinkedIn => FuenteCandidato::LinkedIn,
+            self::Referidos => FuenteCandidato::Referido,
+            self::Otros => FuenteCandidato::Otro,
+        };
+    }
 }

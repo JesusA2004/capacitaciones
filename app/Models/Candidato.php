@@ -396,6 +396,17 @@ class Candidato extends Model
     }
 
     /**
+     * Respuestas a las preguntas de filtro (requisitos indispensables) que
+     * se hicieron al registrarlo.
+     *
+     * @return HasMany<CandidatoRespuestaFiltro, $this>
+     */
+    public function respuestasFiltro(): HasMany
+    {
+        return $this->hasMany(CandidatoRespuestaFiltro::class)->orderBy('id');
+    }
+
+    /**
      * @return HasMany<CandidatoEvidencia, $this>
      */
     public function evidencias(): HasMany

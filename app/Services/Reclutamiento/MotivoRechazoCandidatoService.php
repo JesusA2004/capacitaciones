@@ -2,6 +2,7 @@
 
 namespace App\Services\Reclutamiento;
 
+use App\Enums\CategoriaMotivoRechazo;
 use App\Models\MotivoRechazoCandidato;
 use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
@@ -22,6 +23,7 @@ class MotivoRechazoCandidatoService
         $atributos = [
             'clave' => (string) $datos['clave'],
             'nombre' => (string) $datos['nombre'],
+            'categoria' => CategoriaMotivoRechazo::tryFrom((string) ($datos['categoria'] ?? '')) ?? $motivo->categoria ?? CategoriaMotivoRechazo::Empresa,
             'activo' => (bool) ($datos['activo'] ?? true),
             'no_recontratable_por_defecto' => (bool) ($datos['no_recontratable_por_defecto'] ?? false),
         ];

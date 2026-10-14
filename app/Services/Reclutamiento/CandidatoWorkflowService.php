@@ -68,6 +68,7 @@ class CandidatoWorkflowService
         private readonly AuditoriaService $auditoria,
         private readonly ExpedienteCandidatoService $expediente,
         private readonly VacantesListadoService $vacantesListado,
+        private readonly PreguntasFiltroCandidatoService $filtros,
     ) {}
 
     /**
@@ -120,9 +121,30 @@ class CandidatoWorkflowService
      */
     public function registrar(array $datos, User $actor): Candidato
     {
-        $candidato = DB::transaction(function () use ($datos, $actor): Candidato {
-            $this->validarVacanteDisponible(isset($datos['vacante_id']) ? (int) $datos['vacante_id'] : null);
-            $this->validarCampana($datos, isset($datos['vacante_id']) ? (int) $datos['vacante_id'] : null);
+        $vacanteId = isset($datos['vacante_id']) ? (int) $datos['vacante_id'] : null;
+        $respuestasFiltro = (array) ($datos['respuestas_filtro'] ?? []);
+        unset($datos['respuestas_filtro']);
+
+        // Preguntas de requisito indispensable del puesto (la vacante manda
+        // sobre el puesto capturado). Se validan ANTES de escribir nada.
+        $puestoId = $vacanteId !== null
+            ? Vacante::query()->whereKey($vacanteId)->value('puesto_id')
+            : ($datos['puesto_objetivo_id'] ?? null);
+        $filtro = $this->filtros->evaluar(is_numeric($puestoId) ? (int) $puestoId : null, $respuestasFiltro);
+
+        $candidato = DB::transaction(function () use ($datos, $actor, $vacanteId, $filtro): Candidato {
+            $this->validarVacanteDisponible($vacanteId);
+            $this->validarCampana($datos, $vacanteId);
+
+            // Llegó por una campaña: la fuente es SIEMPRE el canal de esa
+            // campaña (nunca se contradicen en los reportes).
+            $campana = isset($datos['campana_reclutamiento_id']) && is_numeric($datos['campana_reclutamiento_id'])
+                ? CampanaReclutamiento::query()->find((int) $datos['campana_reclutamiento_id'], ['id', 'canal'])
+                : null;
+
+            if ($campana !== null) {
+                $datos['fuente'] = $campana->canal->fuenteCandidato()->value;
+            }
 
             $candidato = Candidato::query()->create([
                 ...$datos,
@@ -138,6 +160,21 @@ class CandidatoWorkflowService
                 'fecha' => now(),
                 'registrado_por' => $actor->id,
             ]);
+
+            $this->filtros->guardarRespuestas($candidato, $filtro['respuestas']);
+
+            // No cumple un requisito indispensable: queda registrado (cuenta
+            // en su campaña) pero se cierra de inmediato como «No viable»,
+            // con el motivo de catálogo de la pregunta.
+            if ($filtro['incumplidas'] !== []) {
+                $primera = $filtro['incumplidas'][0];
+                $detalle = implode('; ', array_map(
+                    fn (array $f): string => sprintf('%s (respondió «%s»)', $f['pregunta']->pregunta, $f['respuesta'] ? 'Sí' : 'No'),
+                    $filtro['incumplidas'],
+                ));
+
+                $this->salir($candidato, EstadoCandidato::NoViable, $actor, sprintf('No cumple requisito indispensable: %s.', $detalle), $this->filtros->motivoDe($primera['pregunta']));
+            }
 
             return $candidato;
         });
@@ -176,6 +213,14 @@ class CandidatoWorkflowService
 
             if (array_key_exists('campana_reclutamiento_id', $datos)) {
                 $this->validarCampana($datos, array_key_exists('vacante_id', $datos) ? $nuevaVacanteId : $actual->vacante_id);
+
+                $canal = is_numeric($datos['campana_reclutamiento_id'])
+                    ? CampanaReclutamiento::query()->whereKey((int) $datos['campana_reclutamiento_id'])->first(['id', 'canal'])?->canal
+                    : null;
+
+                if ($canal !== null) {
+                    $datos['fuente'] = $canal->fuenteCandidato()->value;
+                }
             }
 
             $actual->update($datos);
@@ -664,6 +709,14 @@ class CandidatoWorkflowService
             throw ValidationException::withMessages(['motivo_rechazo_id' => 'Elige un motivo de rechazo activo del catálogo.']);
         }
 
+        // Ninguna salida queda sin clasificar (reporte de campañas «¿por
+        // qué ya no continuó?»): sin motivo elegido, se toma el del paso en
+        // que se quedó (p. ej. salió en referencias → «Referencias»).
+        if ($catalogo === null) {
+            $clave = $this->claveMotivoAutomatico($salida, $anterior);
+            $catalogo = MotivoRechazoCandidato::query()->activos()->where('clave', $clave)->first();
+        }
+
         $candidato->update([
             'estado' => $salida,
             'motivo_salida' => $motivo,
@@ -678,6 +731,26 @@ class CandidatoWorkflowService
 
         $this->seguimiento($candidato, $actor, TipoSeguimientoCandidato::CambioEstado, sprintf('%s: %s', $salida->etiqueta(), $motivo), $anterior, $salida);
         $this->auditar('candidato_salida', $candidato, $actor, ['estado_anterior' => $anterior->value, 'estado_nuevo' => $salida->value, 'motivo' => $motivo]);
+    }
+
+    /**
+     * Clave del catálogo (MotivosRechazoCandidatoSeeder) con que se
+     * clasifica una salida a la que nadie le eligió motivo.
+     */
+    private function claveMotivoAutomatico(EstadoCandidato $salida, EstadoCandidato $anterior): string
+    {
+        return match ($salida) {
+            EstadoCandidato::NoRespondio => 'no_respondio',
+            EstadoCandidato::Desistio => 'desistio',
+            default => match ($anterior) {
+                EstadoCandidato::Recibidos => 'no_cumple_perfil',
+                EstadoCandidato::EntrevistaPendiente => 'entrevista_no_favorable',
+                EstadoCandidato::PsicometricasPendientes, EstadoCandidato::RevisionPsicometricas => 'psicometricos',
+                EstadoCandidato::SocioeconomicoPendiente => 'socioeconomico',
+                EstadoCandidato::ReferenciasPendientes => 'referencias',
+                default => 'otro',
+            },
+        };
     }
 
     /**

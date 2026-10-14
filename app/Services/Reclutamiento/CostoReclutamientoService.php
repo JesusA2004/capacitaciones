@@ -193,7 +193,9 @@ class CostoReclutamientoService
                 $todos[$id] = true;
             }
 
-            $candidatos = (int) ($campana->candidatos_generados ?? Candidato::query()->where('campana_reclutamiento_id', $campana->id)->count());
+            // Siempre automático: los candidatos que RH registró como
+            // venidos de esta campaña (ya no se captura a mano).
+            $candidatos = Candidato::query()->where('campana_reclutamiento_id', $campana->id)->count();
             // Embudo real de la campaña: candidatos registrados como venidos de ella.
             $deCampana = fn () => Candidato::query()->where('campana_reclutamiento_id', $campana->id);
             $fechasContratacion = Candidato::query()->whereIn('id', $contratados)->whereNotNull('contratado_en')->pluck('contratado_en');

@@ -4,6 +4,7 @@ import {
     BadgeDollarSign,
     CalendarDays,
     ExternalLink,
+    FileDown,
     FileText,
     ImageIcon,
     Megaphone,
@@ -30,7 +31,12 @@ import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
 import { formatoMoneda } from '@/lib/utils';
 import { dashboard } from '@/routes';
-import { destroy, index } from '@/routes/rh/campanas';
+import {
+    destroy,
+    index,
+    reporteCampanaPdf,
+    reportePdf,
+} from '@/routes/rh/campanas';
 import type {
     CampanaReclutamientoItem,
     CampanasTotales,
@@ -105,6 +111,17 @@ const puestosFiltrados = computed(() =>
               (p) => String(p.departamento_id) === filtros.departamento_id,
           )
         : props.opciones.puestos,
+);
+
+// Mismos filtros con que se cargó la pantalla (no los que aún no se aplican).
+const urlReportePeriodo = computed(() =>
+    reportePdf.url({
+        query: Object.fromEntries(
+            Object.entries(props.filtros).filter(
+                ([, valor]) => valor !== undefined && valor !== null && valor !== '',
+            ),
+        ),
+    }),
 );
 
 function nombreCanal(valor: string): string {
@@ -197,6 +214,13 @@ async function eliminar(campana: CampanaReclutamientoItem) {
             descripcion="Cada campaña parte de una vacante real: qué se publicó, cuánto se gastó y qué produjo (candidatos, entrevistas, contratados)."
             :icono="Megaphone"
         >
+            <!-- Reporte PDF (Chrome) del periodo y filtros aplicados. -->
+            <Button v-if="totales.campanas > 0" variant="secondary" as-child>
+                <a :href="urlReportePeriodo" target="_blank" rel="noopener">
+                    <FileDown class="size-4" />
+                    Reporte PDF
+                </a>
+            </Button>
             <Button data-tour="campanas-nueva" @click="abrirCrear">
                 <Plus class="size-4" />
                 Nueva campaña
@@ -432,6 +456,9 @@ async function eliminar(campana: CampanaReclutamientoItem) {
                     </div>
                     <CrudActionMenu>
                         <DropdownMenuItem @select="abrirEditar(campana)">Editar</DropdownMenuItem>
+                        <DropdownMenuItem as-child>
+                            <a :href="reporteCampanaPdf.url(campana.id)" target="_blank" rel="noopener">Reporte PDF</a>
+                        </DropdownMenuItem>
                         <DropdownMenuItem variant="destructive" @select="eliminar(campana)">Eliminar</DropdownMenuItem>
                     </CrudActionMenu>
                 </header>

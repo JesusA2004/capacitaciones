@@ -37,6 +37,8 @@ Route::middleware(['auth', 'verified'])
             Route::put('parametros-rh/tipos-documento/{tipoDocumento}', [ConfiguracionController::class, 'guardarTipoDocumento'])->name('parametros-rh.tipos-documento.update');
             Route::post('parametros-rh/motivos-rechazo', [ConfiguracionController::class, 'crearMotivoRechazo'])->name('parametros-rh.motivos-rechazo.store');
             Route::put('parametros-rh/motivos-rechazo/{motivoRechazo}', [ConfiguracionController::class, 'guardarMotivoRechazo'])->name('parametros-rh.motivos-rechazo.update');
+            Route::post('parametros-rh/preguntas-filtro', [ConfiguracionController::class, 'crearPreguntaFiltro'])->name('parametros-rh.preguntas-filtro.store');
+            Route::put('parametros-rh/preguntas-filtro/{preguntaFiltro}', [ConfiguracionController::class, 'guardarPreguntaFiltro'])->name('parametros-rh.preguntas-filtro.update');
         });
 
         Route::prefix('empresas')->name('empresas.')->group(function () {

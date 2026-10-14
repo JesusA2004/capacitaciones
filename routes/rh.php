@@ -222,6 +222,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('exportar-excel', [CandidatoController::class, 'exportarExcel'])->name('exportarExcel');
             Route::get('exportar-pdf', [CandidatoController::class, 'exportarPdf'])->name('exportarPdf');
             Route::post('/', [CandidatoController::class, 'store'])->name('store');
+            // Bandeja de CVs (descargas de WhatsApp Web sincronizadas al NAS):
+            // antes de '{candidato}' para que no la capture como id.
+            Route::get('bandeja-cv', [CandidatoController::class, 'bandejaCv'])->name('bandeja-cv.index');
+            Route::get('bandeja-cv/ver', [CandidatoController::class, 'verBandejaCv'])->name('bandeja-cv.ver');
+            Route::post('{candidato}/cv/desde-bandeja', [CandidatoController::class, 'cvDesdeBandeja'])->name('cv.desde-bandeja');
             Route::get('{candidato}', [CandidatoController::class, 'show'])->name('show');
             Route::put('{candidato}', [CandidatoController::class, 'update'])->name('update');
             Route::post('{candidato}/cv', [CandidatoController::class, 'subirCv'])->name('cv');
@@ -260,6 +265,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::prefix('campanas')->name('campanas.')->group(function () {
             Route::get('/', [CampanaReclutamientoController::class, 'index'])->name('index');
             Route::get('costos/exportar', [CampanaReclutamientoController::class, 'exportarCostos'])->name('costos.exportar');
+            Route::get('reporte-pdf', [CampanaReclutamientoController::class, 'reportePdf'])->name('reporte-pdf');
+            Route::get('{campana}/reporte-pdf', [CampanaReclutamientoController::class, 'reporteCampanaPdf'])->name('reporte-campana-pdf');
             Route::post('/', [CampanaReclutamientoController::class, 'store'])->name('store');
             Route::put('{campana}', [CampanaReclutamientoController::class, 'update'])->name('update');
             Route::delete('{campana}', [CampanaReclutamientoController::class, 'destroy'])->name('destroy');

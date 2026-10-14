@@ -178,6 +178,18 @@ export type CandidatoTimelineEtapa = {
     accion: string | null;
 };
 
+/**
+ * Pregunta rápida de requisito indispensable (p. ej. «¿Sabe manejar moto?»
+ * para Gestor). puestos vacío = aplica a todos.
+ */
+export type PreguntaFiltroCandidato = {
+    id: number;
+    pregunta: string;
+    puestos: number[];
+    respuesta_requerida: boolean;
+    eliminatoria: boolean;
+};
+
 export type OpcionesReclutamiento = {
     empresas: OpcionSimple[];
     sucursales: (OpcionSimple & { empresa_id: number | null })[];
@@ -195,16 +207,25 @@ export type OpcionesReclutamiento = {
         puesto?: { id: number; nombre: string } | null;
         sucursal?: { id: number; nombre: string } | null;
     }[];
-    /** Campañas de las vacantes listadas (selector «Campaña» del candidato). */
-    campanas?: { id: number; vacante_id: number; etiqueta: string }[];
+    /**
+     * Campañas de las vacantes listadas + campañas generales vigentes
+     * (vacante_id null), para el selector «¿De qué campaña viene?».
+     */
+    campanas?: { id: number; vacante_id: number | null; etiqueta: string }[];
     tiposSeguimiento?: OpcionEnum[];
     transicionesPermitidas?: Record<string, string[]>;
     /** Catálogo administrable de motivos de rechazo (CLAUDE.md §10). */
     motivosRechazo?: {
         id: number;
         nombre: string;
+        /** requisito | empresa | candidato | sin_contacto */
+        categoria: string;
+        /** «Categoría · Nombre» para los selectores. */
+        etiqueta: string;
         no_recontratable_por_defecto: boolean;
     }[];
+    /** Requisitos indispensables que se preguntan al registrar. */
+    preguntasFiltro?: PreguntaFiltroCandidato[];
     colaboradores?: {
         id: number;
         name: string;
