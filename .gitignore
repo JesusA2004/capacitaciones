@@ -34,3 +34,10 @@ yarn-error.log
 /claude/formatos/originales/*
 !/claude/formatos/originales/.gitkeep
 .test-output.txt
+
+# Bases de datos SQLite locales (p. ej. DB_CONNECTION=sqlite de pruebas
+# manuales) — nunca deben llegar al repo por un `git add` sin filtrar.
+*.sqlite
+*.sqlite3
+/database/database.sqlite
+/capacitaciones

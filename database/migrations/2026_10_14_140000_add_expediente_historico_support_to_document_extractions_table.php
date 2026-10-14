@@ -22,10 +22,18 @@ return new class extends Migration
      * común en colaboradores migrados), igual que ya documentaba
      * EmployeeDocument::user_id ("un colaborador sin cuenta de acceso no
      * tiene user_id") sin que esta tabla lo respetara.
+     *
+     * MySQL/MariaDB no deja soltar un índice mientras una FK todavía lo
+     * necesita para existir ("Cannot drop index ... needed in a foreign key
+     * constraint") — a diferencia de SQLite (por eso la suite de pruebas no
+     * lo detectó). Por eso aquí se suelta primero la FK de
+     * employee_document_id, luego su índice único, y se vuelven a crear
+     * ambos al final, ya con la columna nullable.
      */
     public function up(): void
     {
         Schema::table('document_extractions', function (Blueprint $table) {
+            $table->dropForeign(['employee_document_id']);
             $table->dropUnique(['employee_document_id']);
             $table->foreignId('employee_document_id')->nullable()->change();
             $table->foreignId('user_id')->nullable()->change();
@@ -34,6 +42,7 @@ return new class extends Migration
         });
 
         Schema::table('document_extractions', function (Blueprint $table) {
+            $table->foreign('employee_document_id')->references('id')->on('employee_documents')->cascadeOnDelete();
             $table->unique('employee_document_id');
             $table->unique('expediente_historico_id');
         });
@@ -44,12 +53,14 @@ return new class extends Migration
         Schema::table('document_extractions', function (Blueprint $table) {
             $table->dropUnique(['expediente_historico_id']);
             $table->dropUnique(['employee_document_id']);
+            $table->dropForeign(['employee_document_id']);
             $table->dropConstrainedForeignId('expediente_historico_id');
         });
 
         Schema::table('document_extractions', function (Blueprint $table) {
             $table->foreignId('employee_document_id')->nullable(false)->change();
             $table->foreignId('user_id')->nullable(false)->change();
+            $table->foreign('employee_document_id')->references('id')->on('employee_documents')->cascadeOnDelete();
             $table->unique('employee_document_id');
         });
     }
