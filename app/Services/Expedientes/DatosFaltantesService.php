@@ -4,6 +4,7 @@ namespace App\Services\Expedientes;
 
 use App\Enums\EstadoSolicitudInterna;
 use App\Enums\EstadoUsuario;
+use App\Enums\TipoPuesto;
 use App\Enums\TipoSolicitudInterna;
 use App\Models\AvisoDatosFaltantes;
 use App\Models\Colaborador;
@@ -90,9 +91,21 @@ class DatosFaltantesService
         ));
 
         $personales = $lista(self::PERSONALES);
-        $laborales = $lista(self::LABORALES);
+        // Sucursal solo es obligatoria para puestos operativos (de
+        // sucursal): corporativo/remoto/comercial/administrativo puede no
+        // tenerla sin que el expediente quede "incompleto" por eso (CLAUDE.md
+        // §70-73) — la excepción se decide por el PUESTO, nunca por persona.
+        $laborales = array_values(array_filter(
+            $lista(self::LABORALES),
+            fn (array $dato): bool => $dato['campo'] !== 'sucursal_principal_id' || $this->requiereSucursal($colaborador),
+        ));
 
         return ['completo' => $personales === [] && $laborales === [], 'personales' => $personales, 'laborales' => $laborales];
+    }
+
+    private function requiereSucursal(Colaborador $colaborador): bool
+    {
+        return $colaborador->puesto?->tipo_puesto === TipoPuesto::Operativo;
     }
 
     /**
@@ -109,6 +122,11 @@ class DatosFaltantesService
         return [
             ...$faltantes,
             'secciones' => $this->secciones($faltantes),
+            // Faltante accionable independiente del formulario de datos
+            // personales (CLAUDE.md §46-48): nunca se mezcla con `personales`
+            // (ActualizacionDatosService::conCaptura() no sabe capturar una
+            // foto) — la app lo muestra aparte con botón "Subir foto".
+            'foto_perfil_pendiente' => blank($colaborador->foto_path),
             'solicitud_en_revision' => $this->solicitudAbierta($colaborador),
             'ultimo_aviso' => $ultimo !== null ? [
                 'fecha' => $ultimo->created_at?->toIso8601String(),
@@ -212,6 +230,15 @@ class DatosFaltantesService
     {
         return $consulta->where(function (Builder $q): void {
             foreach (array_keys([...self::PERSONALES, ...self::LABORALES]) as $columna) {
+                if ($columna === 'sucursal_principal_id') {
+                    // Solo cuenta como faltante en puestos operativos (ver
+                    // requiereSucursal()) — nunca para corporativo/remoto.
+                    $q->orWhere(fn (Builder $sub) => $sub->whereNull('sucursal_principal_id')
+                        ->whereHas('puesto', fn (Builder $p) => $p->where('tipo_puesto', TipoPuesto::Operativo->value)));
+
+                    continue;
+                }
+
                 $q->orWhereNull($columna);
 
                 if (! in_array($columna, ['puesto_id', 'sucursal_principal_id', 'fecha_ingreso', 'fecha_nacimiento', 'sueldo_mensual'], true)) {

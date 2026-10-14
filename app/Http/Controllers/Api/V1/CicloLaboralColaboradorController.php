@@ -142,6 +142,9 @@ class CicloLaboralColaboradorController extends Controller
             // Cada faltante con su control de captura (texto, fecha, opciones…).
             'faltan' => $actualizacion->conCaptura($resumen['personales']),
             'solicitud_en_revision' => $resumen['solicitud_en_revision'],
+            // Faltante accionable aparte (nunca mezclado con `faltan`): la
+            // app muestra "Foto de perfil" + botón "Subir foto".
+            'foto_pendiente' => $resumen['foto_perfil_pendiente'],
         ]]);
     }
 
