@@ -3,20 +3,25 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Services\Colaboradores\NotificacionesService;
+use App\Services\Notificaciones\NotificationFeedService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
+/**
+ * Centro de notificaciones único de la app: notifications + avisos +
+ * celebraciones en una sola lista (NotificationFeedService) — nunca un
+ * módulo "Avisos" separado para el usuario final.
+ */
 class NotificacionController extends Controller
 {
-    public function __construct(private readonly NotificacionesService $notificaciones) {}
+    public function __construct(private readonly NotificationFeedService $feed) {}
 
     public function index(Request $request): JsonResponse
     {
         $porPagina = min(50, max(1, $request->integer('per_page', 30)));
         $pagina = max(1, $request->integer('page', 1));
 
-        $paginador = $this->notificaciones->listarPaginado($request->user(), $porPagina, $pagina);
+        $paginador = $this->feed->feedPaginado($request->user(), $porPagina, $pagina);
 
         return response()->json([
             'data' => $paginador->items(),
@@ -31,7 +36,7 @@ class NotificacionController extends Controller
 
     public function marcarLeida(Request $request, string $notificacion): JsonResponse
     {
-        $this->notificaciones->marcarLeida($request->user(), $notificacion);
+        $this->feed->marcarLeida($request->user(), $notificacion);
 
         return response()->json(['estado' => 'ok']);
     }
@@ -45,15 +50,15 @@ class NotificacionController extends Controller
      */
     public function abrir(Request $request, string $notificacion): JsonResponse
     {
-        return response()->json(['data' => $this->notificaciones->abrir($request->user(), $notificacion)]);
+        return response()->json(['data' => $this->feed->abrir($request->user(), $notificacion)]);
     }
 
     public function marcarTodasLeidas(Request $request): JsonResponse
     {
         $usuario = $request->user();
-        $actualizadas = $usuario->unreadNotifications()->count();
+        $actualizadas = $this->feed->contarNoLeidas($usuario);
 
-        $this->notificaciones->marcarTodasLeidas($usuario);
+        $this->feed->marcarTodas($usuario);
 
         return response()->json([
             'message' => 'Notificaciones marcadas como leídas',

@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\Colaboradores\NotificacionesService;
+use App\Services\Notificaciones\NotificationFeedService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -11,20 +11,22 @@ use Illuminate\Http\Request;
  * layout: no debe navegar ni reemplazar las props de la pagina actual, asi
  * que sigue el mismo patron ya usado en resources/js/lib/http.ts para la
  * previsualizacion de asignaciones (Fase 2). Toda la logica vive en
- * NotificacionesService, compartida con Api\V1\NotificacionController.
+ * NotificationFeedService (proyeccion unica de notifications + avisos +
+ * celebraciones), compartida con Api\V1\NotificacionController — misma
+ * fuente para campana, Centro de Notificaciones web y app.
  */
 class NotificacionController extends Controller
 {
-    public function __construct(private readonly NotificacionesService $notificaciones) {}
+    public function __construct(private readonly NotificationFeedService $feed) {}
 
     public function index(Request $request): JsonResponse
     {
-        return response()->json($this->notificaciones->resumen($request->user()));
+        return response()->json($this->feed->resumen($request->user()));
     }
 
     public function marcarLeida(Request $request, string $notificacion): JsonResponse
     {
-        $this->notificaciones->marcarLeida($request->user(), $notificacion);
+        $this->feed->marcarLeida($request->user(), $notificacion);
 
         return response()->json(['estado' => 'ok']);
     }
@@ -35,12 +37,12 @@ class NotificacionController extends Controller
      */
     public function abrir(Request $request, string $notificacion): JsonResponse
     {
-        return response()->json($this->notificaciones->abrir($request->user(), $notificacion));
+        return response()->json($this->feed->abrir($request->user(), $notificacion));
     }
 
     public function marcarTodasLeidas(Request $request): JsonResponse
     {
-        $this->notificaciones->marcarTodasLeidas($request->user());
+        $this->feed->marcarTodas($request->user());
 
         return response()->json(['estado' => 'ok']);
     }

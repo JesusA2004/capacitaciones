@@ -8,8 +8,8 @@ use App\Http\Requests\Solicitudes\StoreSolicitudAutoservicioRequest;
 use App\Http\Resources\Api\V1\SolicitudInternaResource;
 use App\Services\Colaboradores\ColaboradorPerfilService;
 use App\Services\Colaboradores\FotoColaboradorService;
-use App\Services\Colaboradores\NotificacionesService;
 use App\Services\Expedientes\DocumentoStorageService;
+use App\Services\Notificaciones\NotificationFeedService;
 use App\Services\Solicitudes\SolicitudesService;
 use App\Services\Vacaciones\VacacionesService;
 use Illuminate\Http\JsonResponse;
@@ -28,7 +28,7 @@ class ColaboradorController extends Controller
     public function __construct(
         private readonly ColaboradorPerfilService $perfil,
         private readonly SolicitudesService $solicitudes,
-        private readonly NotificacionesService $notificaciones,
+        private readonly NotificationFeedService $notificaciones,
         private readonly VacacionesService $vacaciones,
         private readonly DocumentoStorageService $storage,
         private readonly FotoColaboradorService $fotos,
@@ -151,7 +151,7 @@ class ColaboradorController extends Controller
     public function notificaciones(Request $request): JsonResponse
     {
         return response()->json([
-            'data' => $this->notificaciones->listar($request->user()),
+            'data' => $this->notificaciones->feed($request->user()),
         ]);
     }
 }

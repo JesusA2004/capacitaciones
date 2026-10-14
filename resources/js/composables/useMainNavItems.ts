@@ -46,13 +46,13 @@ import { index as indexPuestos } from '@/routes/administracion/puestos';
 import { index as indexRoles } from '@/routes/administracion/roles';
 import { index as indexSucursales } from '@/routes/administracion/sucursales';
 import { index as indexUsuarios } from '@/routes/administracion/usuarios';
-import { index as indexAvisosColaborador } from '@/routes/avisos';
 import { proximamente as capacitacionProximamente } from '@/routes/capacitacion';
 import { index as indexMuroFelicitaciones } from '@/routes/celebraciones';
 import { index as indexDirectorio } from '@/routes/directorio';
 import { presentacion as presentacionInduccion } from '@/routes/induccion';
 import {
     index as indexPortal,
+    notificaciones as indexNotificacionesPortal,
     recibos as misRecibosNomina,
 } from '@/routes/portal';
 import { index as indexReportes } from '@/routes/reportes';
@@ -113,8 +113,8 @@ export function useMainNavItems() {
                   ]
                 : []),
             {
-                title: 'Avisos',
-                href: indexAvisosColaborador(),
+                title: 'Notificaciones',
+                href: indexNotificacionesPortal(),
                 icon: BellRing,
             },
             {
@@ -292,7 +292,7 @@ export function useMainNavItems() {
                     icon: FileSpreadsheet,
                 },
                 tienePermiso('avisos.enviar') && {
-                    title: 'Avisos',
+                    title: 'Enviar notificación',
                     href: indexAvisos(),
                     icon: BellRing,
                 },

@@ -54,7 +54,7 @@ defineOptions({
     layout: {
         breadcrumbs: [
             { title: 'Inicio', href: dashboard() },
-            { title: 'Avisos', href: index.url() },
+            { title: 'Enviar notificación', href: index.url() },
         ],
     },
 });
@@ -154,11 +154,11 @@ onBeforeUnmount(liberarPrevisualizacion);
 </script>
 
 <template>
-    <Head title="Avisos" />
+    <Head title="Enviar notificación" />
 
     <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
-            titulo="Avisos"
+            titulo="Nueva notificación"
             descripcion="Un mensaje para toda la empresa o para una persona."
             :icono="BellRing"
         />
@@ -331,24 +331,24 @@ onBeforeUnmount(liberarPrevisualizacion);
                             class="size-4 animate-spin"
                         />
                         <Send v-else class="size-4" />
-                        {{ form.processing ? 'Enviando…' : 'Enviar aviso' }}
+                        {{ form.processing ? 'Enviando…' : 'Enviar notificación' }}
                     </Button>
                 </CardContent>
             </Card>
 
-            <!-- Enviados -->
+            <!-- Enviadas -->
             <section
                 class="flex flex-col gap-3 lg:col-span-3"
-                aria-label="Avisos enviados"
+                aria-label="Notificaciones enviadas"
             >
                 <h2 class="text-sm font-semibold text-muted-foreground">
-                    Enviados
+                    Enviadas
                 </h2>
 
                 <EmptyState
                     v-if="!props.avisos.data.length"
                     :icono="BellRing"
-                    titulo="Aún no has enviado avisos"
+                    titulo="Aún no has enviado notificaciones"
                     descripcion="Lo que envíes aparecerá aquí, con cuántas personas lo vieron."
                 />
 

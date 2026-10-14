@@ -4,6 +4,7 @@ namespace App\Services\Colaboradores;
 
 use App\Models\User;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
+use App\Services\Notificaciones\NotificationFeedService;
 use App\Services\Solicitudes\SolicitudesService;
 use App\Services\Vacaciones\VacacionesService;
 
@@ -19,7 +20,7 @@ class ColaboradorPerfilService
     public function __construct(
         private readonly VacacionesService $vacaciones,
         private readonly SolicitudesService $solicitudes,
-        private readonly NotificacionesService $notificaciones,
+        private readonly NotificationFeedService $notificaciones,
         private readonly FotoColaboradorService $fotos,
         private readonly DocumentoProcesoService $documentoProceso,
     ) {}

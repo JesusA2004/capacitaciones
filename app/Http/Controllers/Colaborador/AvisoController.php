@@ -7,27 +7,25 @@ use App\Http\Controllers\Controller;
 use App\Models\Aviso;
 use App\Services\Avisos\AvisoService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
-use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Avisos que le llegaron a ESTE colaborador (web). Nunca ve los de otros
- * ni el panel de envío de RH (App\Http\Controllers\Rh\AvisoController).
+ * Para el colaborador, un aviso de RH es una notificación más: ya no existe
+ * un módulo "Avisos" separado para el usuario final (ver
+ * NotificationFeedService). `index()` solo conserva el enlace antiguo (app
+ * vieja, favoritos guardados) y redirige al Centro de Notificaciones
+ * unificado; marcar leído/archivo siguen existiendo porque el feed
+ * unificado los sigue usando.
  */
 class AvisoController extends Controller
 {
     public function __construct(private readonly AvisoService $avisos) {}
 
-    public function index(Request $request): Response
+    public function index(): RedirectResponse
     {
-        $colaborador = $request->user()->colaborador;
-        abort_if($colaborador === null, 403, 'Tu cuenta no tiene un colaborador enlazado.');
-
-        return Inertia::render('Portal/Avisos', [
-            'avisos' => $this->avisos->paraColaborador($colaborador),
-        ]);
+        return redirect()->route('portal.notificaciones');
     }
 
     public function marcarLeido(Request $request, Aviso $aviso): JsonResponse

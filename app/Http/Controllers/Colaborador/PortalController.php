@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Colaborador;
 use App\Http\Controllers\Controller;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\Colaboradores\ColaboradorPerfilService;
-use App\Services\Colaboradores\NotificacionesService;
+use App\Services\Notificaciones\NotificationFeedService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -20,7 +20,7 @@ class PortalController extends Controller
 {
     public function __construct(
         private readonly ColaboradorPerfilService $perfil,
-        private readonly NotificacionesService $notificaciones,
+        private readonly NotificationFeedService $notificaciones,
         private readonly CicloLaboralService $ciclo,
     ) {}
 
@@ -52,7 +52,7 @@ class PortalController extends Controller
     public function notificaciones(Request $request): Response
     {
         return Inertia::render('Portal/Notificaciones', [
-            'notificaciones' => $this->notificaciones->listar($request->user(), 50),
+            'notificaciones' => $this->notificaciones->feed($request->user(), 50),
         ]);
     }
 }

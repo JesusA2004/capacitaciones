@@ -8,6 +8,7 @@ use App\Enums\EstadoEvaluacionPrueba;
 use App\Enums\EstadoSolicitudInterna;
 use App\Enums\EstadoSolicitudVacaciones;
 use App\Models\BirthdayGreeting;
+use App\Models\CierreLaboral;
 use App\Models\ContratoLaboral;
 use App\Models\EmployeeDocument;
 use App\Models\EvaluacionPeriodoPrueba;
@@ -66,6 +67,10 @@ class DestinoNotificacionService
                 $tipo === 'rh_cumpleanos' => self::destino(route('rh.cumpleanos.index', [], false)),
                 $relacionado === 'EvaluacionPeriodoPrueba' => $this->evaluacion($id, $tipo),
                 $relacionado === 'ContratoLaboral' => $this->contrato($id),
+                // Cierre laboral (finiquito/renuncia/baja/aviso de terminación):
+                // va al cierre exacto, nunca al expediente genérico (sección
+                // 23 del encargo de unificación de notificaciones).
+                $relacionado === 'CierreLaboral' => $this->cierreLaboral($id),
                 $relacionado === 'GeneratedDocument' => $this->documentoLaboral($id, $usuario),
                 // Préstamos y recibos: el dueño ve los suyos; RH/gerencia va a
                 // la pestaña de la PERSONA para darle seguimiento.
@@ -370,9 +375,71 @@ class DestinoNotificacionService
             return route('rh.solicitudes.show', $documento->documentable_id, false);
         }
 
+        if ($documento->documentable_type === (new CierreLaboral)->getMorphClass() && $documento->documentable_id !== null) {
+            return $this->cierreUrl((int) $documento->documentable_id, $documento->clave_plantilla, $documento->id);
+        }
+
         return $documento->colaborador_id !== null
             ? route('rh.colaboradores.ciclo', $documento->colaborador_id, false)
             : route('rh.expedientes.index', [], false);
+    }
+
+    /**
+     * Ruta exacta del cierre laboral (web): "Mi proceso"/ciclo del
+     * colaborador con query params para que la pantalla resalte la
+     * sección y, si se conoce, el documento (finiquito/renuncia/aviso).
+     */
+    private function cierreUrl(int $cierreId, ?string $claveDocumento, ?int $documentoId): string
+    {
+        $colaboradorId = CierreLaboral::query()->where('id', $cierreId)->value('colaborador_id');
+        $base = $colaboradorId !== null ? route('rh.colaboradores.ciclo', $colaboradorId, false) : route('rh.pendientes.index', [], false);
+
+        $query = array_filter([
+            'seccion' => $this->seccionParaClaveDocumento($claveDocumento),
+            'cierre' => $cierreId,
+            'documento' => $documentoId,
+        ], fn ($valor) => $valor !== null);
+
+        return sprintf('%s?%s', $base, http_build_query($query));
+    }
+
+    private function seccionParaClaveDocumento(?string $clave): string
+    {
+        return match (true) {
+            $clave === null => 'cierre',
+            str_contains($clave, 'renuncia') => 'renuncia',
+            str_contains($clave, 'aviso') => 'aviso',
+            str_contains($clave, 'finiquito') => 'finiquito',
+            default => 'cierre',
+        };
+    }
+
+    /**
+     * Evento que señala al CIERRE directamente (no a un GeneratedDocument
+     * suyo) — p. ej. "RH preautorizó el cierre" (`data.related_type` =
+     * `CierreLaboral`).
+     *
+     * @return Destino
+     */
+    private function cierreLaboral(?int $id): array
+    {
+        $cierre = $id !== null ? CierreLaboral::query()->where('id', $id)->first() : null;
+
+        if ($cierre === null) {
+            return self::inexistente(route('rh.pendientes.index', [], false), 'Este cierre laboral ya no existe.');
+        }
+
+        $url = $this->cierreUrl($cierre->id, null, null);
+        $pendiente = ! $cierre->estado->esFinal();
+
+        return self::destino(
+            $url,
+            ! $pendiente,
+            $cierre->estado->etiqueta(),
+            $pendiente
+                ? sprintf('El cierre laboral sigue en proceso: está «%s».', $cierre->estado->etiqueta())
+                : sprintf('Este cierre laboral ya fue atendido: está «%s».', $cierre->estado->etiqueta()),
+        );
     }
 
     /**

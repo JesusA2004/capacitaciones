@@ -288,13 +288,17 @@ class CelebracionService
 
         $destinatarios = 0;
 
+        // Push a cada dispositivo activo SÍ se distribuye (es entrega, no
+        // almacenamiento) — pero NUNCA se materializa una DatabaseNotification
+        // por colaborador para un evento global: el feed unificado
+        // (NotificationFeedService) proyecta esta misma celebración para
+        // cada usuario autorizado por consulta, igual que AvisoService.
         User::query()
             ->whereHas('colaborador', fn (Builder $q) => $q->where('estatus', EstadoUsuario::Activo->value))
             ->where(fn (Builder $q) => $q->whereNull('colaborador_id')->orWhere('colaborador_id', '!=', $celebracion->colaborador_id))
             ->chunkById(200, function ($usuarios) use ($celebracion, $tipo, $titulo, $mensaje, &$destinatarios): void {
                 foreach ($usuarios as $usuario) {
                     try {
-                        $usuario->notify(new CelebracionNotification($celebracion, $tipo, $titulo, $mensaje));
                         $this->push->aUsuarioConDatos($usuario, $titulo, $mensaje, [
                             'type' => $tipo,
                             'resource_id' => $celebracion->id,
