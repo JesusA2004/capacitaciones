@@ -2,6 +2,7 @@
 
 use App\Models\MobileAppRelease;
 use App\Models\User;
+use App\Support\LimitesSubida;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -141,4 +142,75 @@ test('un admin puede eliminar una version y su archivo', function () {
 
     expect(MobileAppRelease::find($release->id))->toBeNull();
     Storage::disk('nas')->assertMissing($release->file_path);
+});
+
+/*
+ * Error 413 al subir el APK: un APK > MOBILE_APK_MAX_MB (250 MB) debe recibir
+ * la validación amigable de Laravel (Nginx 320M y PHP 300M/320M lo dejan
+ * pasar), nunca la página cruda «413 Content Too Large». El tamaño se falsea
+ * (UploadedFile::fake reporta KB sin escribir 251 MB a disco).
+ */
+test('un apk de mas de 250 MB recibe un mensaje de validacion amigable', function () {
+    config(['mobile_releases.max_upload_mb' => 250]);
+    $admin = User::factory()->create();
+    $admin->assignRole('rh_admin');
+
+    $this->actingAs($admin)
+        ->post(route('administracion.app-releases.store'), [
+            'apk' => UploadedFile::fake()->create('mr-lana-people.apk', 251 * 1024),
+            'version' => '9.9.9',
+        ])
+        ->assertSessionHasErrors(['apk' => 'El APK supera el máximo permitido de 250 MB.']);
+
+    expect(MobileAppRelease::query()->where('version', '9.9.9')->exists())->toBeFalse();
+});
+
+test('un apk de 132 MiB cabe dentro del limite de la aplicacion', function () {
+    config(['mobile_releases.max_upload_mb' => 250]);
+    $admin = User::factory()->create();
+    $admin->assignRole('rh_admin');
+
+    $this->actingAs($admin)
+        ->post(route('administracion.app-releases.store'), [
+            'apk' => UploadedFile::fake()->create('mr-lana-people.apk', intdiv(138_379_654, 1024)),
+            'version' => '1.3.0',
+        ])
+        ->assertSessionHasNoErrors();
+
+    expect(MobileAppRelease::query()->where('version', '1.3.0')->exists())->toBeTrue();
+});
+
+test('si PHP rechaza el cuerpo por post_max_size se muestra la pagina amigable, no la cruda', function () {
+    config(['app.debug' => false]);
+    $admin = User::factory()->create();
+    $admin->assignRole('rh_admin');
+
+    // Simula lo que hace ValidatePostSize cuando CONTENT_LENGTH supera el
+    // post_max_size real de PHP-FPM.
+    $this->actingAs($admin)
+        ->call('POST', route('administracion.app-releases.store'), [], [], [], ['CONTENT_LENGTH' => (string) (2 * 1024 * 1024 * 1024 * 1024)])
+        ->assertStatus(413)
+        ->assertInertia(fn ($page) => $page
+            ->component('Error')
+            ->where('status', 413)
+            ->where('mensaje', fn (string $mensaje) => str_contains($mensaje, 'post_max_size')));
+});
+
+test('el panel de versiones muestra los limites reales de PHP y el limite efectivo', function () {
+    $admin = User::factory()->create();
+    $admin->assignRole('rh_admin');
+
+    $this->actingAs($admin)
+        ->get(route('administracion.app-releases.index'))
+        ->assertInertia(fn ($page) => $page
+            ->has('limitesServidor.post_max_size')
+            ->has('limitesServidor.upload_max_filesize')
+            ->where('limiteEfectivoMb', LimitesSubida::efectivoMb((int) config('mobile_releases.max_upload_mb'))));
+});
+
+test('LimitesSubida interpreta los valores de php.ini', function () {
+    expect(LimitesSubida::bytes('320M'))->toBe(320 * 1024 * 1024)
+        ->and(LimitesSubida::bytes('1G'))->toBe(1024 * 1024 * 1024)
+        ->and(LimitesSubida::bytes('512K'))->toBe(512 * 1024)
+        ->and(LimitesSubida::bytes('0'))->toBeNull();
 });

@@ -7,6 +7,7 @@ use App\Http\Requests\Administracion\StoreMobileAppReleaseRequest;
 use App\Models\MobileAppRelease;
 use App\Services\AppReleases\AppReleaseService;
 use App\Services\AppReleases\AppReleaseStorageService;
+use App\Support\LimitesSubida;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -38,6 +39,11 @@ class AppReleaseController extends Controller
         return Inertia::render('Administracion/AppReleases/Index', [
             'releases' => $releases,
             'maxUploadMb' => (int) config('mobile_releases.max_upload_mb'),
+            // Lo que REALMENTE cabe hoy: mínimo entre MOBILE_APK_MAX_MB y los
+            // límites del PHP-FPM que atiende esta página (no del CLI). Si
+            // PHP acepta menos que la app, el panel lo advierte antes de subir.
+            'limiteEfectivoMb' => LimitesSubida::efectivoMb((int) config('mobile_releases.max_upload_mb')),
+            'limitesServidor' => $request->user()->can('app_releases.crear') ? LimitesSubida::resumen() : null,
             'permisos' => [
                 'crear' => $request->user()->can('app_releases.crear'),
                 'publicar' => $request->user()->can('app_releases.publicar'),

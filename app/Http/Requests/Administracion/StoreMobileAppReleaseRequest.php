@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Administracion;
 
+use App\Support\LimitesSubida;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\UploadedFile;
 
@@ -55,7 +56,13 @@ class StoreMobileAppReleaseRequest extends FormRequest
         return [
             'apk.required' => 'Selecciona el archivo APK que quieres subir.',
             'apk.file' => 'El archivo APK no es válido.',
-            'apk.max' => "El archivo pesa más de lo permitido. El tamaño máximo es {$maxMb} MB — comprímelo o pide a soporte técnico que amplíe el límite (MOBILE_APK_MAX_MB).",
+            'apk.max' => "El APK supera el máximo permitido de {$maxMb} MB.",
+            // PHP descartó el archivo (UPLOAD_ERR_INI_SIZE/PARTIAL): se dice
+            // el límite REAL de este PHP-FPM, no se adivina.
+            'apk.uploaded' => sprintf(
+                'El servidor no recibió el APK completo: PHP solo acepta archivos de hasta %s (upload_max_filesize). Pide a Sistemas que revise PHP-FPM.',
+                LimitesSubida::resumen()['upload_max_filesize'],
+            ),
             'version.required' => 'Indica el número de versión (por ejemplo, 1.2.0).',
         ];
     }

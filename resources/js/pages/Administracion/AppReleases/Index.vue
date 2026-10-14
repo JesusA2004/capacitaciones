@@ -50,6 +50,17 @@ type Release = {
 defineProps<{
     releases: Release[];
     maxUploadMb: number;
+    /** Mínimo entre MOBILE_APK_MAX_MB y lo que acepta el PHP-FPM real. */
+    limiteEfectivoMb: number;
+    /** Valores reales del PHP-FPM que atiende la página (solo quien sube). */
+    limitesServidor: {
+        sapi: string;
+        upload_max_filesize: string;
+        post_max_size: string;
+        memory_limit: string;
+        max_input_time: string;
+        max_execution_time: string;
+    } | null;
     permisos: {
         crear: boolean;
         publicar: boolean;
@@ -119,6 +130,30 @@ async function eliminarRelease(release: Release) {
                 <Upload class="size-4" /> Subir versión
             </Button>
         </CrudPageHeader>
+
+        <!-- Límites reales de subida (PHP-FPM, no CLI): diagnóstico del 413. -->
+        <p
+            v-if="limitesServidor"
+            class="mt-4 rounded-lg px-3 py-2 text-xs"
+            :class="
+                limiteEfectivoMb < maxUploadMb
+                    ? 'bg-warning-soft'
+                    : 'bg-muted/40 text-muted-foreground'
+            "
+            data-testid="limites-subida"
+        >
+            Límite de la app: {{ maxUploadMb }} MB · PHP ({{ limitesServidor.sapi }}):
+            upload_max_filesize {{ limitesServidor.upload_max_filesize }},
+            post_max_size {{ limitesServidor.post_max_size }},
+            max_input_time {{ limitesServidor.max_input_time }} s.
+            <template v-if="limiteEfectivoMb < maxUploadMb">
+                <strong
+                    >Hoy solo caben {{ limiteEfectivoMb }} MB: PHP acepta
+                    menos que la app. Pide a Sistemas subir esos valores en
+                    PHP-FPM.</strong
+                >
+            </template>
+        </p>
 
         <div
             v-if="releases.length === 0"
@@ -258,6 +293,6 @@ async function eliminarRelease(release: Release) {
 
     <AppReleaseFormDialog
         v-model:open="dialogoAbierto"
-        :max-upload-mb="maxUploadMb"
+        :max-upload-mb="limiteEfectivoMb"
     />
 </template>

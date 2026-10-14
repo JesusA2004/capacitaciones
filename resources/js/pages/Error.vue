@@ -48,6 +48,11 @@ const TEXTOS: Record<number, { titulo: string; descripcion: string }> = {
         descripcion:
             'Este documento o paso aún no se libera. Revisa el estado del trámite e inténtalo más tarde.',
     },
+    413: {
+        titulo: 'El archivo es demasiado grande',
+        descripcion:
+            'El servidor no aceptó la subida porque supera su límite. Revisa el tamaño del archivo o pide a Sistemas que revise la configuración.',
+    },
     419: {
         titulo: 'Tu sesión expiró',
         descripcion:

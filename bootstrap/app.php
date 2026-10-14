@@ -5,10 +5,12 @@ use App\Http\Middleware\EnsureFeatureEnabled;
 use App\Http\Middleware\ExigirCambioContrasena;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Support\DiagnosticoAcceso;
+use App\Support\LimitesSubida;
 use Illuminate\Contracts\Filesystem\FileNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\PostTooLargeException;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -96,6 +98,19 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->respond(function (SymfonyResponse $respuesta, Throwable $e, Request $request) {
             $estado = $respuesta->getStatusCode();
 
+            // 413 desde Laravel = ValidatePostSize: la petición superó el
+            // post_max_size REAL del PHP que la atendió (Nginx contesta su
+            // propio 413 «Request Entity Too Large» sin llegar aquí). Se
+            // registra con los valores de ESTE proceso (FPM, no CLI) para
+            // ubicar la capa exacta en storage/logs/laravel.log.
+            if ($e instanceof PostTooLargeException) {
+                Log::warning('Subida rechazada por PHP: el cuerpo supera post_max_size (413 desde Laravel, no desde Nginx).', [
+                    'ruta' => $request->path(),
+                    'content_length' => $request->server('CONTENT_LENGTH'),
+                    ...LimitesSubida::resumen(),
+                ]);
+            }
+
             if (config('app.debug') || $request->is('api/*') || $request->expectsJson()) {
                 return $respuesta;
             }
@@ -104,11 +119,21 @@ return Application::configure(basePath: dirname(__DIR__))
                 return back()->with('toast', ['type' => 'error', 'message' => 'Tu sesión expiró. Intenta de nuevo.']);
             }
 
-            if (! in_array($estado, [403, 404, 409, 429, 500, 503], true)) {
+            if (! in_array($estado, [403, 404, 409, 413, 429, 500, 503], true)) {
                 return $respuesta;
             }
 
             $props = ['status' => $estado];
+
+            // Nunca la página cruda «413 Content Too Large»: se dice cuánto
+            // acepta realmente el servidor por subida.
+            if ($estado === 413) {
+                $props['mensaje'] = sprintf(
+                    'El archivo es más grande de lo que el servidor acepta en una sola subida (PHP: post_max_size %s, upload_max_filesize %s). Pide a Sistemas que revise la configuración de PHP-FPM.',
+                    LimitesSubida::resumen()['post_max_size'],
+                    LimitesSubida::resumen()['upload_max_filesize'],
+                );
+            }
 
             // 409 = "todavía no disponible" (p. ej. formato de permiso antes de
             // que RH lo autorice): el motivo es texto propio, se muestra tal cual.
