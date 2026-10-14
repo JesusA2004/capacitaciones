@@ -124,6 +124,12 @@ class SolicitudesService
         if ($tipo === TipoSolicitudInterna::Vacaciones) {
             $saldo = $this->vacaciones->saldo($solicitante);
 
+            if (! $saldo['puede_solicitar']) {
+                throw ValidationException::withMessages([
+                    $campoDias => $saldo['motivo_no_disponible'] ?? 'Todavía no puedes solicitar vacaciones.',
+                ]);
+            }
+
             if ((int) $datos['dias_solicitados'] > $saldo['dias_disponibles']) {
                 throw ValidationException::withMessages([
                     $campoDias => sprintf('Pediste %d días y tienes %d disponibles.', (int) $datos['dias_solicitados'], $saldo['dias_disponibles']),

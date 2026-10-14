@@ -55,6 +55,9 @@ class VacacionesService
      *     dias_en_solicitud: int,
      *     dias_ajustes_historicos: float,
      *     dias_disponibles: int,
+     *     puede_solicitar: bool,
+     *     motivo_no_disponible: string|null,
+     *     fecha_disponible_desde: string|null,
      * }
      */
     public function saldo(User $colaborador): array
@@ -87,6 +90,9 @@ class VacacionesService
      *     dias_en_solicitud: int,
      *     dias_ajustes_historicos: float,
      *     dias_disponibles: int,
+     *     puede_solicitar: bool,
+     *     motivo_no_disponible: string|null,
+     *     fecha_disponible_desde: string|null,
      * }
      */
     public function saldoColaborador(Colaborador $colaborador): array
@@ -177,6 +183,12 @@ class VacacionesService
                 ->sum('dias')
             : 0.0;
 
+        // Primer año (CLAUDE.md §49-53): antes de cumplirlo, NUNCA se puede
+        // iniciar el wizard de solicitud, aunque el saldo calculado diera 0
+        // por otra razón — el mensaje debe distinguir "todavía no tienes
+        // derecho" de "ya usaste tu saldo" (sección 52).
+        $cumpleUnAnio = $antiguedadAnios >= 1;
+
         return [
             'antiguedad_anios' => $antiguedadAnios,
             'vigencia_inicio' => $vigenciaInicio->toDateString(),
@@ -186,6 +198,11 @@ class VacacionesService
             'dias_en_solicitud' => $diasEnSolicitud,
             'dias_ajustes_historicos' => $diasAjustesHistoricos,
             'dias_disponibles' => max(0, (int) floor($diasGenerados + $diasAjustesHistoricos - $diasUsados - $diasEnSolicitud)),
+            'puede_solicitar' => $cumpleUnAnio,
+            'motivo_no_disponible' => $cumpleUnAnio
+                ? null
+                : sprintf('Todavía no tienes vacaciones disponibles. Podrás solicitarlas al cumplir tu primer año el %s.', $ingreso->copy()->addYear()->translatedFormat('d/m/Y')),
+            'fecha_disponible_desde' => $cumpleUnAnio ? null : $ingreso->copy()->addYear()->toDateString(),
         ];
     }
 
@@ -199,6 +216,9 @@ class VacacionesService
      *     dias_en_solicitud: int,
      *     dias_ajustes_historicos: float,
      *     dias_disponibles: int,
+     *     puede_solicitar: bool,
+     *     motivo_no_disponible: string|null,
+     *     fecha_disponible_desde: string|null,
      * }
      */
     private function saldoVacio(): array
@@ -212,6 +232,9 @@ class VacacionesService
             'dias_en_solicitud' => 0,
             'dias_ajustes_historicos' => 0.0,
             'dias_disponibles' => 0,
+            'puede_solicitar' => false,
+            'motivo_no_disponible' => 'Tu cuenta no tiene un expediente de colaborador vinculado.',
+            'fecha_disponible_desde' => null,
         ];
     }
 
@@ -244,6 +267,12 @@ class VacacionesService
     public function solicitar(User $colaborador, array $datos): SolicitudVacaciones
     {
         $saldo = $this->saldo($colaborador);
+
+        if (! $saldo['puede_solicitar']) {
+            throw ValidationException::withMessages([
+                'dias_solicitados' => $saldo['motivo_no_disponible'] ?? 'Todavía no puedes solicitar vacaciones.',
+            ]);
+        }
 
         if ($datos['dias_solicitados'] > $saldo['dias_disponibles']) {
             throw ValidationException::withMessages([

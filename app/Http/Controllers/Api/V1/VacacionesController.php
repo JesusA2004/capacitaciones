@@ -52,7 +52,9 @@ class VacacionesController extends Controller
                 'motivo' => isset($datos['comentario']) && trim((string) $datos['comentario']) !== '' ? (string) $datos['comentario'] : 'Solicitud de vacaciones',
             ]);
         } catch (ValidationException $e) {
-            return response()->json(['message' => 'No tienes suficientes días disponibles.', 'errors' => $e->errors()], 422);
+            // El mensaje real distingue "aún no cumples tu primer año" de
+            // "ya no tienes saldo" (CLAUDE.md §49-53) — nunca un genérico.
+            return response()->json(['message' => $e->validator->errors()->first() ?: 'No tienes suficientes días disponibles.', 'errors' => $e->errors()], 422);
         }
 
         // Misma forma que respondía el endpoint legacy (apps viejas), más el
