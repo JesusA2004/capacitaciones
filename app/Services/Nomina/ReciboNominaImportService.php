@@ -107,7 +107,11 @@ class ReciboNominaImportService
             $porEmpleado[$numeroInvalido] ??= [];
         }
 
-        $colaboradores = Colaborador::query()->whereIn('numero_empleado', array_map('strval', array_keys($porEmpleado)))->get()->keyBy('numero_empleado');
+        $colaboradores = Colaborador::query()
+            ->whereIn('numero_empleado', array_map('strval', array_keys($porEmpleado)))
+            ->with('sucursalPrincipal:id,es_corporativo')
+            ->get()
+            ->keyBy('numero_empleado');
         $lote = $simular ? null : (string) ($periodo['lote_folio'] ?? 'IMP-'.now()->format('YmdHis').'-'.Str::upper(Str::random(4)));
         $resultados = [];
         $generados = 0;
@@ -124,6 +128,29 @@ class ReciboNominaImportService
 
             if (! $this->alcance->alcanzaColaborador($actor, $colaborador)) {
                 $errores[] = ['fila' => null, 'numero_empleado' => $numero, 'motivo' => 'El colaborador está fuera de tu alcance organizacional.'];
+
+                continue;
+            }
+
+            // Mismo grupo de pago que LoteNominaService::preparar() — nunca
+            // se adivina ni se mezcla sucursal/corporativo en el periodo que
+            // no les corresponde (CLAUDE.md §44-50).
+            $sucursal = $colaborador->sucursalPrincipal;
+
+            if ($sucursal === null) {
+                $errores[] = ['fila' => null, 'numero_empleado' => $numero, 'motivo' => 'Sin clasificación de nómina. Asigna ubicación organizacional antes de incluirlo.'];
+
+                continue;
+            }
+
+            if ($sucursal->es_corporativo && $tipoPeriodo !== ReciboNominaService::TIPO_PERIODO_QUINCENAL) {
+                $errores[] = ['fila' => null, 'numero_empleado' => $numero, 'motivo' => 'Este colaborador pertenece a Corporativo y debe pagarse en nómina quincenal.'];
+
+                continue;
+            }
+
+            if (! $sucursal->es_corporativo && $tipoPeriodo !== ReciboNominaService::TIPO_PERIODO_SEMANAL) {
+                $errores[] = ['fila' => null, 'numero_empleado' => $numero, 'motivo' => 'Este colaborador pertenece a sucursal y debe pagarse en nómina semanal.'];
 
                 continue;
             }

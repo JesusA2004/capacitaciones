@@ -11,6 +11,7 @@ use App\Models\Colaborador;
 use App\Models\MobileDevice;
 use App\Models\NominaLote;
 use App\Models\ReciboNomina;
+use App\Models\Sucursal;
 use App\Models\User;
 use App\Notifications\Mobile\PendienteRhNotification;
 use App\Services\DocumentosAdministrativos\DatosDocumentoAdministrativo;
@@ -237,6 +238,57 @@ test('importar crea un lote de borradores y reporta las filas con error', functi
         ->and($recibo->conceptos()->pluck('clave')->all())->toBe(['001', '101']);
     Bus::assertNotDispatched(SendExpoPushJob::class);
     Notification::assertNothingSent();
+});
+
+test('importar un colaborador corporativo en periodicidad semanal no genera su recibo', function () {
+    $corporativo = Sucursal::factory()->create(['empresa_id' => $this->colaborador->sucursalPrincipal->empresa_id, 'nombre' => 'Corporativo', 'es_corporativo' => true]);
+    $colaboradorCorp = Colaborador::factory()->create(['sucursal_principal_id' => $corporativo->id, 'estatus' => EstadoUsuario::Activo, 'numero_empleado' => 'CORP-1']);
+
+    $csv = "numero_empleado,tipo,concepto,importe,clave\nCORP-1,percepcion,Sueldo,2100,001\n";
+    $archivo = UploadedFile::fake()->createWithContent('lote.csv', $csv);
+
+    $this->actingAs($this->rh)->post(route('rh.nomina.lotes.store'), [
+        'periodicidad' => 'semanal', 'fecha' => '2026-10-08', 'origen' => 'importacion', 'archivo' => $archivo,
+    ])->assertRedirect();
+
+    $lote = NominaLote::query()->firstOrFail();
+
+    expect($lote->preparados)->toBe(0)
+        ->and(collect($lote->errores)->pluck('motivo')->implode(' '))->toContain('Corporativo')
+        ->and(ReciboNomina::query()->where('colaborador_id', $colaboradorCorp->id)->exists())->toBeFalse();
+});
+
+test('importar un colaborador de sucursal en periodicidad quincenal no genera su recibo', function () {
+    $csv = "numero_empleado,tipo,concepto,importe,clave\n{$this->colaborador->numero_empleado},percepcion,Sueldo,2100,001\n";
+    $archivo = UploadedFile::fake()->createWithContent('lote.csv', $csv);
+
+    $this->actingAs($this->rh)->post(route('rh.nomina.lotes.store'), [
+        'periodicidad' => 'quincenal', 'fecha' => '2026-10-08', 'origen' => 'importacion', 'archivo' => $archivo,
+    ])->assertRedirect();
+
+    $lote = NominaLote::query()->firstOrFail();
+
+    expect($lote->preparados)->toBe(0)
+        ->and(collect($lote->errores)->pluck('motivo')->implode(' '))->toContain('sucursal')
+        ->and(ReciboNomina::query()->where('colaborador_id', $this->colaborador->id)->exists())->toBeFalse();
+});
+
+test('importar un colaborador corporativo en periodicidad quincenal si genera su recibo', function () {
+    $corporativo = Sucursal::factory()->create(['empresa_id' => $this->colaborador->sucursalPrincipal->empresa_id, 'nombre' => 'Corporativo', 'es_corporativo' => true]);
+    $colaboradorCorp = Colaborador::factory()->create(['sucursal_principal_id' => $corporativo->id, 'estatus' => EstadoUsuario::Activo, 'numero_empleado' => 'CORP-2']);
+
+    $csv = "numero_empleado,tipo,concepto,importe,clave\nCORP-2,percepcion,Sueldo,2100,001\n";
+    $archivo = UploadedFile::fake()->createWithContent('lote.csv', $csv);
+
+    $this->actingAs($this->rh)->post(route('rh.nomina.lotes.store'), [
+        'periodicidad' => 'quincenal', 'fecha' => '2026-10-08', 'origen' => 'importacion', 'archivo' => $archivo,
+    ])->assertRedirect();
+
+    $lote = NominaLote::query()->firstOrFail();
+
+    expect($lote->preparados)->toBe(1)
+        ->and($lote->errores)->toBe([])
+        ->and(ReciboNomina::query()->where('colaborador_id', $colaboradorCorp->id)->exists())->toBeTrue();
 });
 
 test('el recibo usa el formato oficial: encabezado patronal, caja de nómina, datos del trabajador y claves', function () {

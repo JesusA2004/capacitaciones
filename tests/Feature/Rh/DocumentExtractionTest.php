@@ -134,6 +134,34 @@ test('rh_admin puede ver, aplicar y las sugerencias actualizan al colaborador', 
         ->and($extraccion->fresh()->status)->toBe(EstadoExtraccion::Revisado);
 });
 
+test('aplicar es atomico: un valor enum sin equivalencia segura no aplica nada y no marca revisado', function () {
+    $usuario = User::factory()->create();
+    $usuario->assignRole('rh_admin');
+
+    $colaborador = User::factory()->for(Colaborador::factory()->state(['curp' => null, 'estado_civil' => null]), 'colaborador')->create();
+    $documento = EmployeeDocument::factory()->create(['user_id' => $colaborador->id]);
+    $extraccion = DocumentExtraction::factory()->create([
+        'employee_document_id' => $documento->id,
+        'user_id' => $colaborador->id,
+        'status' => EstadoExtraccion::Procesado->value,
+        'extracted_data' => ['curp' => 'NUEV123456HDFRRN01', 'estado_civil' => 'TEXTO RARO NO RECONOCIDO'],
+        'differences' => [
+            'curp' => ['detectado' => 'NUEV123456HDFRRN01', 'actual' => null, 'coincide' => false],
+            'estado_civil' => ['detectado' => 'TEXTO RARO NO RECONOCIDO', 'actual' => null, 'coincide' => false],
+        ],
+    ]);
+
+    $this->actingAs($usuario)
+        ->post(route('rh.documentos.extraccion.aplicar', $documento), [
+            'valores' => ['curp' => 'NUEV123456HDFRRN01', 'estado_civil' => 'TEXTO RARO NO RECONOCIDO'],
+        ])
+        ->assertSessionHasErrors('valores.estado_civil');
+
+    expect($colaborador->colaborador->fresh()->curp)->toBeNull()
+        ->and($colaborador->colaborador->fresh()->estado_civil)->toBeNull()
+        ->and($extraccion->fresh()->status)->toBe(EstadoExtraccion::Procesado);
+});
+
 test('rh_admin puede ignorar una extraccion sin cambiar los datos del colaborador', function () {
     $usuario = User::factory()->create();
     $usuario->assignRole('rh_admin');

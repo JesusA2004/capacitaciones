@@ -171,6 +171,29 @@ test('sin testigos el formato no se emite: pide los datos que faltan por su nomb
         ->and($acta->refresh()->estado)->toBe(EstadoActa::Borrador);
 });
 
+test('con un solo testigo tampoco se emite el formato oficial', function () {
+    dmMotorFielDePrueba();
+
+    if (! aaImportarFormato()) {
+        $this->markTestSkipped('Sin el formato del acta en docs/formatos_fuente.');
+    }
+
+    $colaborador = Colaborador::factory()->create(['sucursal_principal_id' => $this->estructura['sucursal']->id]);
+    $testigo = Colaborador::factory()->create(['name' => 'María', 'apellidos' => 'López Ruiz', 'puesto_id' => Puesto::factory()->create(['nombre' => 'Subgerente'])->id]);
+
+    $this->actingAs($this->rh)->post(route('rh.actas.store', $colaborador), aaDatos([
+        'testigos' => [['colaborador_id' => $testigo->id, 'nombre' => $testigo->nombreCompleto(), 'puesto' => 'Subgerente']],
+    ]));
+    $acta = ActaAdministrativa::query()->sole();
+
+    $this->actingAs($this->rh)->postJson(route('rh.documentos-proceso.generar', ['tipo' => 'acta', 'id' => $acta->id]), ['clave' => 'acta_administrativa', 'proceso' => 'acta'])
+        ->assertUnprocessable();
+
+    expect(GeneratedDocument::query()->count())->toBe(0)
+        ->and($acta->refresh()->estado)->toBe(EstadoActa::Borrador)
+        ->and($acta->testigos)->toHaveCount(1);
+});
+
 test('los dos testigos deben ser colaboradores distintos entre si', function () {
     $colaborador = Colaborador::factory()->create(['sucursal_principal_id' => $this->estructura['sucursal']->id]);
     $testigo = Colaborador::factory()->create();

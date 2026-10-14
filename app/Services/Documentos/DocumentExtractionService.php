@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Smalot\PdfParser\Document as PdfDocument;
 use Smalot\PdfParser\Parser as PdfParser;
 use Throwable;
@@ -85,6 +86,9 @@ class DocumentExtractionService
 
     /** Campos cuyo valor real es un enum de PHP (conversión especial, nunca comparación de texto plano). */
     private const CAMPOS_ENUM = ['sexo', 'estado_civil'];
+
+    /** Etiqueta humana de los campos enum, para el mensaje de aplicar() cuando no hay equivalencia segura. */
+    private const ETIQUETA_ENUM = ['sexo' => 'Sexo', 'estado_civil' => 'Estado civil'];
 
     private const OCR_PDF_MAX_PAGINAS = 15;
 
@@ -355,7 +359,16 @@ class DocumentExtractionService
      * contacto de emergencia nunca se cruzan entre sí (son campos distintos,
      * cada uno con su propia clave en CAMPO_COLUMNA).
      *
+     * Atómico: si CUALQUIER valor seleccionado no se puede aplicar (p. ej.
+     * un sexo/estado civil sin equivalencia segura al enum real), no se
+     * aplica NINGUNO y la extracción NO queda marcada como revisada — RH
+     * corrige ese valor y vuelve a intentar. Nunca se adivina (CLAUDE.md/
+     * encargo §14) ni se aplica "lo demás" dejando el campo problemático
+     * como si ya se hubiera decidido.
+     *
      * @param  array<string, string>  $valores
+     *
+     * @throws ValidationException Si algún valor no tiene equivalencia segura.
      */
     public function aplicar(DocumentExtraction $extraccion, array $valores, User $revisor): DocumentExtraction
     {
@@ -368,11 +381,14 @@ class DocumentExtractionService
             if (in_array($campo, self::CAMPOS_ENUM, true)) {
                 $valorEnum = $this->normalizarEnum($campo, (string) $valor);
 
-                // Sin equivalencia segura: se queda como sugerencia, nunca se
-                // adivina (CLAUDE.md/encargo §14) — el resto de campos del
-                // mismo request sí se aplican.
                 if ($valorEnum === null) {
-                    continue;
+                    throw ValidationException::withMessages([
+                        "valores.{$campo}" => sprintf(
+                            '%s «%s» no corresponde a un valor permitido. Corrígelo antes de aplicar.',
+                            self::ETIQUETA_ENUM[$campo],
+                            $valor,
+                        ),
+                    ]);
                 }
 
                 $aAplicar[$columna] = $valorEnum;

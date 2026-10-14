@@ -14,6 +14,7 @@ use App\Services\Documentos\RegexPersonalDataExtractor;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 beforeEach(function () {
     $this->seed(RolesYPermisosSeeder::class);
@@ -181,7 +182,7 @@ test('sexo se aplica a genero solo con mapeo inequivoco H/M', function () {
     expect($colaborador->fresh()->genero)->toBe(Genero::Masculino);
 });
 
-test('estado civil no reconocido no se autoaplica, queda solo como sugerencia', function () {
+test('estado civil no reconocido no se autoaplica: aplicar() rechaza con mensaje humano y no marca revisado', function () {
     $usuario = User::factory()->create();
     $usuario->assignRole('rh_admin');
 
@@ -193,9 +194,11 @@ test('estado civil no reconocido no se autoaplica, queda solo como sugerencia', 
         'status' => EstadoExtraccion::Procesado->value,
     ]);
 
-    app(DocumentExtractionService::class)->aplicar($extraccion, ['estado_civil' => 'TEXTO RARO NO RECONOCIDO'], $usuario);
+    expect(fn () => app(DocumentExtractionService::class)->aplicar($extraccion, ['estado_civil' => 'TEXTO RARO NO RECONOCIDO'], $usuario))
+        ->toThrow(ValidationException::class);
 
-    expect($colaborador->fresh()->estado_civil)->toBeNull();
+    expect($colaborador->fresh()->estado_civil)->toBeNull()
+        ->and($extraccion->fresh()->status)->toBe(EstadoExtraccion::Procesado);
 });
 
 test('estado civil reconocido se aplica al enum real', function () {
