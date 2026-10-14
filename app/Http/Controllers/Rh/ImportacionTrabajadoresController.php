@@ -5,7 +5,12 @@ namespace App\Http\Controllers\Rh;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Rh\AnalizarImportacionTrabajadoresRequest;
 use App\Http\Requests\Rh\AplicarImportacionTrabajadoresRequest;
+use App\Http\Requests\Rh\AsignarColaboradorImportacionRequest;
+use App\Http\Requests\Rh\CrearColaboradorImportacionRequest;
+use App\Models\Departamento;
 use App\Models\ImportacionExcel;
+use App\Models\Puesto;
+use App\Models\Sucursal;
 use App\Services\ImportadorTrabajadores\ImportadorTrabajadoresService;
 use App\Support\Paginacion;
 use Illuminate\Http\RedirectResponse;
@@ -77,6 +82,13 @@ class ImportacionTrabajadoresController extends Controller
                 'detalle' => $importacion->detalle ?? [],
                 'aplicado_en' => $importacion->aplicado_en?->toDateTimeString(),
             ],
+            // Solo para "Crear colaborador" en filas sin match (CLAUDE.md
+            // §74-81): estructura mínima que el Excel no trae.
+            'opciones' => [
+                'sucursales' => Sucursal::query()->orderBy('nombre')->get(['id', 'nombre']),
+                'departamentos' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
+                'puestos' => Puesto::query()->where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
+            ],
         ]);
     }
 
@@ -97,5 +109,27 @@ class ImportacionTrabajadoresController extends Controller
             'type' => $resultado['errores'] === [] ? 'success' : 'warning',
             'message' => "Importación aplicada: {$resultado['filas_aplicadas']} filas actualizadas.".($resultado['errores'] !== [] ? ' Hubo errores, revisa el detalle.' : ''),
         ]);
+    }
+
+    /**
+     * RH elige a mano el colaborador de una fila sin match exacto (nombre no
+     * exacto o ambiguo) — nunca un auto-merge por similitud (CLAUDE.md §63-65).
+     */
+    public function asignarColaborador(AsignarColaboradorImportacionRequest $request, ImportacionExcel $importacion, int $fila): RedirectResponse
+    {
+        $this->importador->asignarManual($importacion, $fila, (int) $request->validated('colaborador_id'), $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Colaborador asignado a la fila.']);
+    }
+
+    /**
+     * La persona del Excel no existe en PEOPLE: RH la crea desde esta misma
+     * fila (CLAUDE.md §74-81) en vez de quedar bloqueado en "no encontrado".
+     */
+    public function crearColaborador(CrearColaboradorImportacionRequest $request, ImportacionExcel $importacion, int $fila): RedirectResponse
+    {
+        $colaborador = $this->importador->registrarColaboradorDesdeFila($importacion, $fila, $request->validated(), $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => "Se creó a {$colaborador->nombreCompleto()} y se actualizó la fila."]);
     }
 }

@@ -3,6 +3,9 @@ import { Head, useForm } from '@inertiajs/vue3';
 import { FileSpreadsheet } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import BuscadorColaborador from '@/components/documentos/BuscadorColaborador.vue';
+import CrearColaboradorImportacionDialog from '@/components/Rh/CrearColaboradorImportacionDialog.vue';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
@@ -10,6 +13,11 @@ import {
     index as indexImportaciones,
     aplicar,
 } from '@/routes/rh/importaciones';
+import { asignar } from '@/routes/rh/importaciones/filas';
+import type { ColaboradorBusqueda } from '@/types';
+
+type Sugerencia = { id: number; nombre: string; sucursal_id: number | null };
+type Opcion = { id: number; nombre: string };
 
 type FilaDetalle = {
     fila: number;
@@ -35,6 +43,8 @@ type FilaDetalle = {
     motivo_vacaciones_no_aplican: string | null;
     motivo: string | null;
     aplicado: boolean;
+    match_tipo: 'exacto' | 'manual' | 'creado' | null;
+    sugerencias: Sugerencia[];
 };
 
 const props = defineProps<{
@@ -51,6 +61,7 @@ const props = defineProps<{
         detalle: FilaDetalle[];
         aplicado_en: string | null;
     };
+    opciones: { sucursales: Opcion[]; departamentos: Opcion[]; puestos: Opcion[] };
 }>();
 
 // `layout` recibe una función en vez de un objeto estático porque
@@ -68,6 +79,7 @@ defineOptions({
 });
 
 const filtro = ref<'todas' | FilaDetalle['estado']>('todas');
+const puedeResolver = computed(() => props.importacion.estado !== 'aplicado');
 
 const filasFiltradas = computed(() =>
     filtro.value === 'todas'
@@ -101,6 +113,46 @@ function confirmarAplicar() {
     }
 
     form.post(aplicar.url(props.importacion.id));
+}
+
+// ───────── Resolver filas sin match (CLAUDE.md §63-81) ─────────
+// Nunca se autoasigna por similitud: las sugerencias solo se muestran para
+// que RH elija; "Asignar" y "Crear colaborador" son las únicas acciones que
+// escriben algo.
+const filaAbierta = ref<number | null>(null);
+const colaboradorElegido = ref<Record<number, ColaboradorBusqueda | null>>({});
+const dialogCrearFila = ref<number | null>(null);
+const asignarForm = useForm({ colaborador_id: null as number | null });
+
+function alternarResolver(fila: number) {
+    filaAbierta.value = filaAbierta.value === fila ? null : fila;
+}
+
+function asignarSugerido(fila: number, sugerencia: Sugerencia) {
+    if (!window.confirm(`¿Asignar esta fila a «${sugerencia.nombre}»?`)) {
+return;
+}
+
+    asignarForm
+        .transform(() => ({ colaborador_id: sugerencia.id }))
+        .post(asignar.url({ importacion: props.importacion.id, fila }), { preserveScroll: true });
+}
+
+function asignarElegido(fila: number) {
+    const elegido = colaboradorElegido.value[fila];
+
+    if (!elegido) {
+return;
+}
+
+    asignarForm
+        .transform(() => ({ colaborador_id: elegido.id }))
+        .post(asignar.url({ importacion: props.importacion.id, fila }), {
+            preserveScroll: true,
+            onSuccess: () => {
+                colaboradorElegido.value[fila] = null;
+            },
+        });
 }
 </script>
 
@@ -173,19 +225,23 @@ function confirmarAplicar() {
                         <th class="p-3">Vacaciones</th>
                         <th class="p-3">Estado</th>
                         <th class="p-3">Motivo</th>
+                        <th class="p-3" />
                     </tr>
                 </thead>
                 <tbody>
+                    <template v-for="f in filasFiltradas" :key="f.fila">
                     <tr
-                        v-for="f in filasFiltradas"
-                        :key="f.fila"
                         class="border-t border-[var(--mrl-borde)] align-top"
                     >
                         <td class="p-3 tabular-nums">{{ f.fila }}</td>
                         <td class="p-3">{{ f.nombre_excel }}</td>
-                        <td class="p-3">{{ f.nombre_sistema ?? '—' }}</td>
                         <td class="p-3">
-                            {{ f.sucursal_sistema ?? f.sucursal_excel }}
+                            {{ f.nombre_sistema ?? '—' }}
+                            <Badge v-if="f.match_tipo === 'manual'" variant="outline" class="ml-1">Manual</Badge>
+                            <Badge v-if="f.match_tipo === 'creado'" variant="outline" class="ml-1">Creado</Badge>
+                        </td>
+                        <td class="p-3">
+                            {{ f.sucursal_sistema ?? (f.sucursal_excel || '—') }}
                         </td>
                         <td class="p-3">
                             <template v-if="f.salario_diario_actual !== null">
@@ -244,9 +300,74 @@ function confirmarAplicar() {
                         <td class="p-3 text-xs text-muted-foreground">
                             {{ f.motivo ?? '—' }}
                         </td>
+                        <td class="p-3">
+                            <Button
+                                v-if="puedeResolver && (f.estado === 'no_encontrado' || f.estado === 'revision')"
+                                size="sm"
+                                variant="outline"
+                                @click="alternarResolver(f.fila)"
+                            >
+                                {{ filaAbierta === f.fila ? 'Cerrar' : 'Resolver' }}
+                            </Button>
+                        </td>
                     </tr>
+                    <tr v-if="filaAbierta === f.fila" class="border-t border-[var(--mrl-borde)] bg-[var(--mrl-fondo)]">
+                        <td colspan="10" class="p-4">
+                            <div class="flex flex-col gap-4">
+                                <div v-if="f.sugerencias.length > 0" class="flex flex-col gap-1.5">
+                                    <p class="text-xs font-semibold text-muted-foreground">
+                                        Posibles coincidencias (nunca se asignan solas — confírmalas):
+                                    </p>
+                                    <div class="flex flex-wrap gap-2">
+                                        <Button
+                                            v-for="sugerencia in f.sugerencias"
+                                            :key="sugerencia.id"
+                                            size="sm"
+                                            variant="secondary"
+                                            :disabled="asignarForm.processing"
+                                            @click="asignarSugerido(f.fila, sugerencia)"
+                                        >
+                                            {{ sugerencia.nombre }}
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                <div class="grid max-w-md gap-1.5">
+                                    <p class="text-xs font-semibold text-muted-foreground">Seleccionar colaborador manualmente</p>
+                                    <div class="flex gap-2">
+                                        <div class="flex-1">
+                                            <BuscadorColaborador v-model="colaboradorElegido[f.fila]" />
+                                        </div>
+                                        <Button
+                                            :disabled="!colaboradorElegido[f.fila] || asignarForm.processing"
+                                            @click="asignarElegido(f.fila)"
+                                        >
+                                            Asignar
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <Button variant="outline" @click="dialogCrearFila = f.fila">
+                                        Crear colaborador en PEOPLE
+                                    </Button>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    </template>
                 </tbody>
             </table>
         </section>
+
+        <CrearColaboradorImportacionDialog
+            v-if="dialogCrearFila !== null"
+            :open="dialogCrearFila !== null"
+            :importacion-id="importacion.id"
+            :fila="dialogCrearFila"
+            :nombre-excel="importacion.detalle.find((f) => f.fila === dialogCrearFila)?.nombre_excel ?? ''"
+            :opciones="opciones"
+            @update:open="(valor) => { if (!valor) dialogCrearFila = null; }"
+        />
     </div>
 </template>

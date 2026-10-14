@@ -28,8 +28,15 @@ use Throwable;
  *
  * Flujo obligatorio: analizar() (preview, nunca escribe en colaboradores)
  * → RH revisa → aplicar() (confirma). El mismo archivo (por hash) nunca se
- * aplica dos veces. NUNCA crea colaboradores: toda fila sin match
- * confiable queda para revisión manual.
+ * aplica dos veces.
+ *
+ * La sucursal del reporte es solo CONTEXTO para desambiguar homónimos,
+ * nunca identidad obligatoria (CLAUDE.md §66-73): personal corporativo,
+ * remoto o de una sucursal ya cerrada se encuentra igual por nombre. El
+ * match es siempre por nombre EXACTO normalizado (nunca fuzzy/automático,
+ * §60); cuando no hay match exacto, RH puede asignar manualmente
+ * (asignarManual()) o, si la persona de verdad no existe en PEOPLE, crear
+ * su colaborador desde la fila (registrarColaboradorDesdeFila()).
  */
 class ImportadorTrabajadoresService
 {
@@ -42,6 +49,7 @@ class ImportadorTrabajadoresService
     public function __construct(
         private readonly CompensacionService $compensacion,
         private readonly AuditoriaService $auditoria,
+        private readonly ImportacionColaboradorService $altaDesdeImportacion,
     ) {}
 
     /**
@@ -82,13 +90,13 @@ class ImportadorTrabajadoresService
         $filas = $this->leer($archivo);
 
         $sucursales = Sucursal::query()->where('activo', true)->get(['id', 'nombre']);
-        $porSucursalYNombre = $this->agruparColaboradores();
+        $porNombre = $this->agruparColaboradores();
 
         $detalle = [];
         $contadores = ['aplicable' => 0, 'revision' => 0, 'sin_cambios' => 0, 'no_encontrado' => 0, 'error' => 0];
 
         foreach ($filas as $numeroFila => $fila) {
-            $resultado = $this->resolverFila($numeroFila, $fila, $sucursales, $porSucursalYNombre, $fechaCorte);
+            $resultado = $this->resolverFila($numeroFila, $fila, $sucursales, $porNombre, $fechaCorte);
             $detalle[] = $resultado;
             $contadores[$resultado['estado']]++;
         }
@@ -190,6 +198,22 @@ class ImportadorTrabajadoresService
 
                     $fila['aplicado'] = true;
                     $aplicadas++;
+
+                    try {
+                        $this->auditoria->registrar('importacion_trabajadores_fila_aplicada', $colaborador, $actor, [
+                            'importacion_id' => $importacion->id,
+                            'fila' => $fila['fila'],
+                            'match_tipo' => $fila['match_tipo'] ?? 'exacto',
+                            'fecha_ingreso_anterior' => $fila['fecha_ingreso_anterior'] ?? null,
+                            'fecha_ingreso_nueva' => ($fila['corrige_fecha_ingreso'] ?? false) ? ($fila['fecha_ingreso_excel'] ?? null) : null,
+                            'salario_diario_anterior' => $fila['salario_diario_actual'] ?? null,
+                            'salario_diario_nuevo' => $fila['cambia_salario'] ? ($fila['salario_diario_excel'] ?? null) : null,
+                            'ajuste_vacaciones' => $fila['ajuste_vacaciones_propuesto'] ?? 0.0,
+                        ]);
+                    } catch (Throwable $e) {
+                        // La auditoría nunca deshace la aplicación de la fila.
+                        report($e);
+                    }
                 } catch (Throwable $e) {
                     $errores[] = "Fila {$fila['fila']} ({$fila['nombre_excel']}): {$e->getMessage()}";
                 }
@@ -209,12 +233,105 @@ class ImportadorTrabajadoresService
     }
 
     /**
+     * Asignación manual: RH elige el colaborador correcto para una fila que
+     * no tuvo match automático (nombre no exacto o ambiguo). Recalcula esa
+     * fila con los valores del Excel YA EXTRAÍDOS la primera vez (nunca se
+     * vuelve a leer el archivo).
+     */
+    public function asignarManual(ImportacionExcel $importacion, int $indiceFila, int $colaboradorId, User $actor): void
+    {
+        if ($importacion->estado === 'aplicado') {
+            throw ValidationException::withMessages(['importacion' => 'Esta importación ya fue aplicada.']);
+        }
+
+        $colaborador = Colaborador::query()->where('estatus', 'activo')->findOrFail($colaboradorId);
+
+        DB::transaction(function () use ($importacion, $indiceFila, $colaborador, $actor): void {
+            $importacion = ImportacionExcel::query()->lockForUpdate()->findOrFail($importacion->id);
+
+            if ($importacion->estado === 'aplicado') {
+                throw ValidationException::withMessages(['importacion' => 'Esta importación ya fue aplicada.']);
+            }
+
+            /** @var list<array<string, mixed>> $detalle */
+            $detalle = $importacion->detalle ?? [];
+
+            if (! array_key_exists($indiceFila, $detalle)) {
+                throw ValidationException::withMessages(['fila' => 'Esa fila no existe en esta importación.']);
+            }
+
+            $fechaCorte = Carbon::parse((string) $detalle[$indiceFila]['fecha_corte']);
+            $detalle[$indiceFila] = $this->calcularCambios($detalle[$indiceFila], $colaborador, $fechaCorte, 'manual', $actor->id);
+
+            $importacion->update(['detalle' => $detalle]);
+        });
+    }
+
+    /**
+     * Crea el colaborador que el Excel menciona pero PEOPLE no tiene
+     * (CLAUDE.md §74-81) y, en la misma operación, recalcula esa fila sobre
+     * la persona recién creada. `$datosExtra` cubre la estructura que el
+     * Excel no trae (puesto_id obligatorio; departamento_id/numero_empleado
+     * opcionales) — nunca se inventa, RH la captura en un formulario corto.
+     *
+     * @param  array<string, mixed>  $datosExtra
+     */
+    public function registrarColaboradorDesdeFila(ImportacionExcel $importacion, int $indiceFila, array $datosExtra, User $actor): Colaborador
+    {
+        if ($importacion->estado === 'aplicado') {
+            throw ValidationException::withMessages(['importacion' => 'Esta importación ya fue aplicada.']);
+        }
+
+        /** @var list<array<string, mixed>> $detalleActual */
+        $detalleActual = $importacion->detalle ?? [];
+
+        if (! array_key_exists($indiceFila, $detalleActual)) {
+            throw ValidationException::withMessages(['fila' => 'Esa fila no existe en esta importación.']);
+        }
+
+        $filaDetalle = $detalleActual[$indiceFila];
+        [$nombre, $apellidos] = $this->partirNombre((string) $filaDetalle['nombre_excel']);
+
+        $colaborador = $this->altaDesdeImportacion->crear([
+            'name' => $nombre,
+            'apellidos' => $apellidos,
+            'fecha_ingreso' => $filaDetalle['fecha_ingreso_excel'] ?? Carbon::parse((string) $filaDetalle['fecha_corte'])->toDateString(),
+            'salario_diario' => $filaDetalle['salario_diario_excel'],
+            'sucursal_principal_id' => $datosExtra['sucursal_principal_id'] ?? null,
+            'departamento_id' => $datosExtra['departamento_id'] ?? null,
+            'puesto_id' => $datosExtra['puesto_id'],
+            'numero_empleado' => $datosExtra['numero_empleado'] ?? null,
+        ], $actor);
+
+        DB::transaction(function () use ($importacion, $indiceFila, $colaborador, $actor): void {
+            $importacion = ImportacionExcel::query()->lockForUpdate()->findOrFail($importacion->id);
+
+            if ($importacion->estado === 'aplicado') {
+                throw ValidationException::withMessages(['importacion' => 'Esta importación ya fue aplicada.']);
+            }
+
+            /** @var list<array<string, mixed>> $detalle */
+            $detalle = $importacion->detalle ?? [];
+            $fechaCorte = Carbon::parse((string) $detalle[$indiceFila]['fecha_corte']);
+            // El salario y la fecha de ingreso ya quedaron correctos al crear
+            // al colaborador (ImportacionColaboradorService): no "cambian",
+            // así que esta fila recalculada normalmente sale 'sin_cambios'
+            // salvo que también traiga días tomados antes de PEOPLE.
+            $detalle[$indiceFila] = $this->calcularCambios($detalle[$indiceFila], $colaborador, $fechaCorte, 'creado', $actor->id);
+
+            $importacion->update(['detalle' => $detalle]);
+        });
+
+        return $colaborador;
+    }
+
+    /**
      * @param  array<string, mixed>  $fila
      * @param  Collection<int, Sucursal>  $sucursales
-     * @param  array<int, array<string, list<Colaborador>>>  $porSucursalYNombre
+     * @param  array<string, list<Colaborador>>  $porNombre
      * @return array<string, mixed>
      */
-    private function resolverFila(int $numeroFila, array $fila, Collection $sucursales, array $porSucursalYNombre, Carbon $fechaCorte): array
+    private function resolverFila(int $numeroFila, array $fila, Collection $sucursales, array $porNombre, Carbon $fechaCorte): array
     {
         $base = [
             'fila' => $numeroFila,
@@ -227,6 +344,9 @@ class ImportadorTrabajadoresService
             'cambia_salario' => false,
             'salario_diario_actual' => null,
             'salario_diario_excel' => null,
+            'fecha_ingreso_excel' => null,
+            'fecha_ingreso_anterior' => null,
+            'corrige_fecha_ingreso' => false,
             'antiguedad_anios' => null,
             'cumple_un_anio' => null,
             'dias_tomados_excel' => null,
@@ -235,74 +355,100 @@ class ImportadorTrabajadoresService
             'motivo_vacaciones_no_aplican' => null,
             'motivo' => null,
             'aplicado' => false,
+            'match_tipo' => null,
+            'match_actor_id' => null,
+            'match_en' => null,
+            'sugerencias' => [],
         ];
 
         $nombreExcel = trim((string) ($fila['nombre_completo'] ?? ''));
         $sucursalExcel = trim((string) ($fila['sucursal'] ?? ''));
-        $fechaIngresoExcel = $fila['fecha_ingreso'] ?? null;
         $salarioDiarioExcel = $fila['salario_diario'] ?? null;
 
-        if ($nombreExcel === '' || $sucursalExcel === '' || ! is_numeric($salarioDiarioExcel) || (float) $salarioDiarioExcel <= 0) {
-            return [...$base, 'estado' => 'error', 'motivo' => 'Faltan datos obligatorios (nombre, sucursal o salario diario inválido).'];
+        if ($nombreExcel === '' || ! is_numeric($salarioDiarioExcel) || (float) $salarioDiarioExcel <= 0) {
+            return [...$base, 'estado' => 'error', 'motivo' => 'Faltan datos obligatorios (nombre o salario diario inválido).'];
         }
 
-        $sucursalesCandidatas = $sucursales->filter(fn (Sucursal $s) => $this->mismaSucursal($s->nombre, $sucursalExcel));
+        $base['salario_diario_excel'] = round((float) $salarioDiarioExcel, 2);
+        $base['fecha_ingreso_excel'] = $this->parsearFecha($fila['fecha_ingreso'] ?? null)?->toDateString();
+        $base['dias_tomados_excel'] = is_numeric($fila['dias_tomados'] ?? null) ? (float) $fila['dias_tomados'] : null;
 
-        if ($sucursalesCandidatas->count() !== 1) {
-            return [...$base, 'estado' => 'no_encontrado', 'motivo' => $sucursalesCandidatas->isEmpty()
-                ? "No existe la sucursal «{$sucursalExcel}» en el catálogo."
-                : "«{$sucursalExcel}» coincide con más de una sucursal del catálogo: revisar manualmente."];
-        }
-
-        $sucursal = $sucursalesCandidatas->first();
-        $base['sucursal_sistema'] = $sucursal->nombre;
+        // La sucursal del reporte, si es válida en el catálogo, SOLO sirve
+        // para desambiguar homónimos — nunca como filtro obligatorio: puede
+        // venir vacía, "REMOTO", "CORPORATIVO" o una sucursal ya cerrada, y
+        // la fila sigue siendo válida (CLAUDE.md §66-69).
+        $sucursal = $sucursalExcel !== '' ? $sucursales->first(fn (Sucursal $s) => $this->mismaSucursal($s->nombre, $sucursalExcel)) : null;
+        $base['sucursal_sistema'] = $sucursal?->nombre;
 
         $nombreNormalizado = $this->normalizar($nombreExcel);
-        $candidatos = $porSucursalYNombre[$sucursal->id][$nombreNormalizado] ?? [];
+        $candidatos = $porNombre[$nombreNormalizado] ?? [];
+
+        if (count($candidatos) > 1 && $sucursal !== null) {
+            $delaSucursal = array_values(array_filter($candidatos, fn (Colaborador $c) => (int) $c->sucursal_principal_id === $sucursal->id));
+
+            if (count($delaSucursal) === 1) {
+                $candidatos = $delaSucursal;
+            }
+        }
 
         if (count($candidatos) === 0) {
-            return [...$base, 'estado' => 'no_encontrado', 'motivo' => "Ningún colaborador activo de «{$sucursal->nombre}» coincide con «{$nombreExcel}»."];
+            return [...$base, 'estado' => 'no_encontrado', 'motivo' => "Ningún colaborador activo coincide con «{$nombreExcel}».", 'sugerencias' => $this->sugerencias($nombreNormalizado, $porNombre)];
         }
 
         if (count($candidatos) > 1) {
-            return [...$base, 'estado' => 'revision', 'motivo' => "Nombre ambiguo: {$nombreExcel} coincide con ".count($candidatos)." colaboradores activos de «{$sucursal->nombre}»."];
+            return [...$base, 'estado' => 'revision', 'motivo' => "Nombre ambiguo: «{$nombreExcel}» coincide con ".count($candidatos).' colaboradores activos.', 'sugerencias' => array_map($this->colaboradorResumen(...), $candidatos)];
         }
 
-        $colaborador = $candidatos[0];
+        return $this->calcularCambios($base, $candidatos[0], $fechaCorte, 'exacto', null);
+    }
+
+    /**
+     * Fecha/salario/vacaciones para UN colaborador ya identificado (match
+     * exacto, manual o recién creado) sobre los valores del Excel que
+     * resolverFila() ya extrajo en $base — nunca vuelve a leer el archivo.
+     *
+     * @param  array<string, mixed>  $base
+     * @return array<string, mixed>
+     */
+    private function calcularCambios(array $base, Colaborador $colaborador, Carbon $fechaCorte, string $matchTipo, ?int $matchActorId): array
+    {
         $base['colaborador_id'] = $colaborador->id;
         $base['nombre_sistema'] = trim($colaborador->name.' '.($colaborador->apellidos ?? ''));
+        $base['match_tipo'] = $matchTipo;
+        $base['match_actor_id'] = $matchActorId;
+        $base['match_en'] = $matchActorId !== null ? now()->toIso8601String() : null;
+        $base['sugerencias'] = [];
 
-        // La fecha de ingreso del REPORTE es la fuente (decisión de RH,
-        // 2026-10-13): si PEOPLE tiene otra (o ninguna), al aplicar se
-        // corrige con la del Excel y queda registrado en el detalle
-        // (fecha_ingreso_anterior → fecha_ingreso_excel). Sin fecha válida en
-        // el reporte se conserva la de PEOPLE.
-        $fechaIngresoExcelParsed = $this->parsearFecha($fechaIngresoExcel);
+        $fechaIngresoExcelParsed = is_string($base['fecha_ingreso_excel'] ?? null) ? Carbon::parse($base['fecha_ingreso_excel'])->startOfDay() : null;
         $fechaIngreso = $fechaIngresoExcelParsed ?? $colaborador->fecha_ingreso;
 
         if ($fechaIngreso === null) {
             return [...$base, 'estado' => 'revision', 'motivo' => 'Ni el reporte ni PEOPLE tienen fecha de ingreso: no se puede calcular antigüedad.'];
         }
 
+        // La fecha de ingreso del REPORTE es la fuente (decisión de RH,
+        // 2026-10-13): si PEOPLE tiene otra (o ninguna), al aplicar se
+        // corrige con la del Excel y queda registrado en el detalle
+        // (fecha_ingreso_anterior → fecha_ingreso_excel). Sin fecha válida en
+        // el reporte se conserva la de PEOPLE.
         $base['fecha_ingreso_anterior'] = $colaborador->fecha_ingreso?->toDateString();
-        $base['fecha_ingreso_excel'] = $fechaIngresoExcelParsed?->toDateString();
         $base['corrige_fecha_ingreso'] = $fechaIngresoExcelParsed !== null
             && ($colaborador->fecha_ingreso === null || ! $fechaIngresoExcelParsed->isSameDay($colaborador->fecha_ingreso));
 
-        // Antigüedad desde la fecha de ingreso del reporte.
         $antiguedadAnios = (int) $fechaIngreso->diffInYears($fechaCorte);
         $cumpleUnAnio = $antiguedadAnios >= 1;
         $base['antiguedad_anios'] = $antiguedadAnios;
         $base['cumple_un_anio'] = $cumpleUnAnio;
 
         $diarioActual = $this->compensacion->diarioDe($colaborador);
-        $diarioExcel = round((float) $salarioDiarioExcel, 2);
+        $diarioExcel = (float) $base['salario_diario_excel'];
         $base['salario_diario_actual'] = $diarioActual;
-        $base['salario_diario_excel'] = $diarioExcel;
         $base['cambia_salario'] = abs($diarioActual - $diarioExcel) > 0.01;
 
-        $diasTomadosExcel = is_numeric($fila['dias_tomados'] ?? null) ? (float) $fila['dias_tomados'] : null;
-        $base['dias_tomados_excel'] = $diasTomadosExcel;
+        $diasTomadosExcel = $base['dias_tomados_excel'];
+        $base['ajuste_vacaciones_propuesto'] = 0.0;
+        $base['motivo_vacaciones_no_aplican'] = null;
+        $base['motivo_ajuste_vacaciones'] = null;
 
         if (! $cumpleUnAnio) {
             // Regla crítica (CLAUDE.md §24-29): sin 1 año cumplido, NUNCA se
@@ -311,32 +457,99 @@ class ImportadorTrabajadoresService
             $base['motivo_vacaciones_no_aplican'] = 'No ha cumplido 1 año de antigüedad: las vacaciones anuales no aplican aún.';
         } elseif ($diasTomadosExcel !== null && $diasTomadosExcel > 0) {
             $base['ajuste_vacaciones_propuesto'] = -$diasTomadosExcel;
-            $base['motivo_ajuste_vacaciones'] = "Días tomados antes de PEOPLE según reporte (fila {$numeroFila}).";
+            $base['motivo_ajuste_vacaciones'] = "Días tomados antes de PEOPLE según reporte (fila {$base['fila']}).";
         }
 
-        $hayCambios = $base['cambia_salario'] || $base['ajuste_vacaciones_propuesto'] !== 0.0;
+        $hayCambios = $base['corrige_fecha_ingreso'] || $base['cambia_salario'] || $base['ajuste_vacaciones_propuesto'] !== 0.0;
 
-        return [...$base, 'estado' => $hayCambios ? 'aplicable' : 'sin_cambios'];
+        return [...$base, 'estado' => $hayCambios ? 'aplicable' : 'sin_cambios', 'motivo' => null];
     }
 
     /**
-     * @return array<int, array<string, list<Colaborador>>>
+     * Sugerencias NO autoaplicables (CLAUDE.md §63-65): nombres con al menos
+     * el 60% de sus palabras en común con el del Excel (acentos/mayúsculas
+     * ya normalizados) — para que RH elija con asignarManual(), nunca para
+     * asignar solo.
+     *
+     * @param  array<string, list<Colaborador>>  $porNombre
+     * @return list<array<string, mixed>>
+     */
+    private function sugerencias(string $nombreNormalizado, array $porNombre): array
+    {
+        $tokensExcel = array_values(array_filter(explode(' ', $nombreNormalizado)));
+
+        if ($tokensExcel === []) {
+            return [];
+        }
+
+        $sugeridos = [];
+
+        foreach ($porNombre as $nombreSistema => $colaboradores) {
+            if ($nombreSistema === $nombreNormalizado) {
+                continue;
+            }
+
+            $tokensSistema = array_values(array_filter(explode(' ', $nombreSistema)));
+            $comunes = count(array_intersect($tokensExcel, $tokensSistema));
+            $minTokens = min(count($tokensExcel), count($tokensSistema));
+
+            if ($minTokens > 0 && $comunes / $minTokens >= 0.6) {
+                foreach ($colaboradores as $colaborador) {
+                    $sugeridos[] = $this->colaboradorResumen($colaborador);
+                }
+            }
+        }
+
+        return array_slice($sugeridos, 0, 5);
+    }
+
+    /**
+     * @return array{id: int, nombre: string, sucursal_id: int|null}
+     */
+    private function colaboradorResumen(Colaborador $colaborador): array
+    {
+        return [
+            'id' => $colaborador->id,
+            'nombre' => trim($colaborador->name.' '.($colaborador->apellidos ?? '')),
+            'sucursal_id' => $colaborador->sucursal_principal_id !== null ? (int) $colaborador->sucursal_principal_id : null,
+        ];
+    }
+
+    /**
+     * Separa "NOMBRE(S) APELLIDOS" del Excel en name/apellidos: la primera
+     * palabra es el nombre, el resto los apellidos — mismo criterio simple
+     * usado al capturar manualmente cuando no se tiene el desglose real.
+     *
+     * @return array{0: string, 1: string|null}
+     */
+    private function partirNombre(string $nombreCompleto): array
+    {
+        $partes = array_values(array_filter(explode(' ', trim($nombreCompleto))));
+
+        if (count($partes) <= 1) {
+            return [$nombreCompleto, null];
+        }
+
+        return [array_shift($partes), implode(' ', $partes)];
+    }
+
+    /**
+     * @return array<string, list<Colaborador>>
      */
     private function agruparColaboradores(): array
     {
         $colaboradores = Colaborador::query()
             ->where('estatus', 'activo')
-            ->whereNotNull('sucursal_principal_id')
             ->get(['id', 'name', 'apellidos', 'sucursal_principal_id', 'fecha_ingreso', 'salario_diario', 'sueldo_mensual']);
 
-        $porSucursalYNombre = [];
+        $porNombre = [];
 
         foreach ($colaboradores as $colaborador) {
             $nombreNormalizado = $this->normalizar(trim($colaborador->name.' '.($colaborador->apellidos ?? '')));
-            $porSucursalYNombre[(int) $colaborador->sucursal_principal_id][$nombreNormalizado][] = $colaborador;
+            $porNombre[$nombreNormalizado][] = $colaborador;
         }
 
-        return $porSucursalYNombre;
+        return $porNombre;
     }
 
     /**

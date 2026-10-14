@@ -53,6 +53,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/', [ImportacionTrabajadoresController::class, 'analizar'])->name('analizar')->middleware('throttle:10,1');
             Route::get('{importacion}', [ImportacionTrabajadoresController::class, 'show'])->name('show');
             Route::post('{importacion}/aplicar', [ImportacionTrabajadoresController::class, 'aplicar'])->name('aplicar')->middleware('throttle:10,1');
+            // Fila sin match exacto: RH asigna a mano o crea al colaborador.
+            Route::post('{importacion}/filas/{fila}/asignar', [ImportacionTrabajadoresController::class, 'asignarColaborador'])->name('filas.asignar');
+            Route::post('{importacion}/filas/{fila}/crear-colaborador', [ImportacionTrabajadoresController::class, 'crearColaborador'])->name('filas.crear-colaborador');
             // Quitar un archivo analizado que ya no se aplicará (las aplicadas son historial).
             Route::delete('{importacion}', [ImportacionTrabajadoresController::class, 'destroy'])->name('destroy');
         });
