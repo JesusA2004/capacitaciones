@@ -5,15 +5,19 @@ namespace App\Policies;
 use App\Enums\EstadoActa;
 use App\Models\ActaAdministrativa;
 use App\Models\User;
+use App\Policies\Concerns\ConSuperAdminOperativo;
 use App\Services\AlcanceOrganizacionalService;
 
 /**
  * Actas: las consulta RH/Jurídico/gerencia dentro de su alcance (actas.ver);
  * las gestiona RH (actas.gestionar) o quien la creó mientras siga en
- * borrador. El propio colaborador no opera sobre sus actas.
+ * borrador. El propio colaborador no opera sobre sus actas — salvo
+ * super_admin, ver ConSuperAdminOperativo.
  */
 class ActaAdministrativaPolicy
 {
+    use ConSuperAdminOperativo;
+
     public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}
 
     public function ver(User $usuario, ActaAdministrativa $acta): bool

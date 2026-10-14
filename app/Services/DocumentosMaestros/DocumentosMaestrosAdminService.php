@@ -470,7 +470,7 @@ class DocumentosMaestrosAdminService
             ->pluck('id')
             ->all();
 
-        $consulta = Colaborador::query()->with(['puesto:id,nombre', 'sucursalPrincipal:id,nombre'])->whereIn('id', $ids);
+        $consulta = Colaborador::query()->with(['puesto:id,nombre', 'sucursalPrincipal:id,nombre,ciudad'])->whereIn('id', $ids);
 
         return array_values($consulta->orderBy('name')->orderBy('apellidos')->get()->map(fn (Colaborador $c): array => [
             'id' => $c->id,
@@ -478,6 +478,8 @@ class DocumentosMaestrosAdminService
             'numero_empleado' => $c->numero_empleado,
             'puesto' => $c->puesto?->nombre,
             'sucursal' => $c->sucursalPrincipal?->nombre,
+            // Precarga la ciudad del acta (CLAUDE.md §75): editable, no adivinada.
+            'ciudad' => $c->sucursalPrincipal?->ciudad,
         ])->all());
     }
 

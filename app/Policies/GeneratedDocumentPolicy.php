@@ -6,6 +6,7 @@ use App\Enums\CategoriaDocumento;
 use App\Enums\EstadoFlujoDocumento;
 use App\Models\GeneratedDocument;
 use App\Models\User;
+use App\Policies\Concerns\ConSuperAdminOperativo;
 use App\Services\AlcanceOrganizacionalService;
 
 /**
@@ -13,24 +14,39 @@ use App\Services\AlcanceOrganizacionalService;
  * descarga y firma SOLO los suyos; RH/Jurídico/Dirección los consultan
  * dentro de su alcance; la operación del original físico requiere
  * documentos_laborales.operar_fisico. Nunca se entrega una URL pública al
- * NAS: la descarga siempre pasa por aquí.
+ * NAS: la descarga siempre pasa por aquí. super_admin opera/cancela incluso
+ * su propio documento, ver ConSuperAdminOperativo.
  */
 class GeneratedDocumentPolicy
 {
+    use ConSuperAdminOperativo;
+
     public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}
 
     public function ver(User $usuario, GeneratedDocument $documento): bool
     {
-        // Su propio recibo de nómina NO es autoservicio (se entrega impreso,
-        // config('features.recibos_colaborador')): solo lo ve quien tenga
-        // permiso de RH sobre él, como cualquier documento ajeno.
-        $reciboNoAutoservicio = $documento->categoria === CategoriaDocumento::NominaInterna && ! config('features.recibos_colaborador');
-
-        if ($this->esPropio($usuario, $documento) && ! $reciboNoAutoservicio) {
+        if ($this->esPropio($usuario, $documento) && ! $this->esAutoservicioBloqueado($documento)) {
             return $documento->estado_flujo !== null && $documento->estado_flujo !== EstadoFlujoDocumento::Borrador;
         }
 
         return $usuario->can('documentos_laborales.ver') && $this->enAlcance($usuario, $documento);
+    }
+
+    /**
+     * Documentos que NUNCA llegan a la app del colaborador, aunque sean
+     * suyos: se entregan impresos/en persona, directo de RH.
+     *  - Recibo de nómina: config('features.recibos_colaborador') decide.
+     *  - Renuncia/finiquito (baja): siempre — el colaborador se informa de
+     *    su situación laboral en la app, pero el documento legal de la baja
+     *    es de RH, nunca autoservicio (pedido explícito del negocio).
+     */
+    private function esAutoservicioBloqueado(GeneratedDocument $documento): bool
+    {
+        if ($documento->categoria === CategoriaDocumento::NominaInterna) {
+            return ! config('features.recibos_colaborador');
+        }
+
+        return $documento->categoria === CategoriaDocumento::BajaFiniquito;
     }
 
     public function descargar(User $usuario, GeneratedDocument $documento): bool
@@ -54,7 +70,9 @@ class GeneratedDocumentPolicy
 
     public function firmar(User $usuario, GeneratedDocument $documento): bool
     {
-        return $this->esPropio($usuario, $documento) && $documento->estado_flujo === EstadoFlujoDocumento::PendienteFirmaColaborador;
+        return $this->esPropio($usuario, $documento)
+            && ! $this->esAutoservicioBloqueado($documento)
+            && $documento->estado_flujo === EstadoFlujoDocumento::PendienteFirmaColaborador;
     }
 
     public function operar(User $usuario, GeneratedDocument $documento): bool

@@ -47,6 +47,7 @@ import {
     emitir,
     imprimir,
     index,
+    recalcular,
     show,
 } from '@/routes/rh/nomina/lotes';
 import {
@@ -71,6 +72,7 @@ const props = defineProps<{
     puedeEmitir: boolean;
     puedeCancelar: boolean;
     puedeEditar: boolean;
+    puedeRecalcular: boolean;
     impresion: ImpresionLote | null;
 }>();
 
@@ -173,6 +175,25 @@ const recibosVisiblesColaborador = computed(() => page.props.features.recibos_co
 
 // --- Emitir / cancelar -------------------------------------------------------
 const emitiendo = ref(false);
+const recalculando = ref(false);
+
+async function recalcularLote() {
+    const ok = await confirmarAccion(
+        'Recalcular lote',
+        'Se volverán a calcular únicamente los borradores de este lote con la información laboral vigente.',
+        'Recalcular',
+    );
+
+    if (!ok) {
+        return;
+    }
+
+    recalculando.value = true;
+    router.post(recalcular.url(props.lote.id), {}, {
+        preserveScroll: true,
+        onFinish: () => (recalculando.value = false),
+    });
+}
 
 async function emitirLote() {
     const ok = await confirmarAccion(
@@ -323,6 +344,15 @@ function guardarEdicion() {
                         Descargar todos para imprimir
                     </Button>
                 </template>
+                <Button
+                    v-if="puedeRecalcular"
+                    variant="outline"
+                    :disabled="recalculando"
+                    @click="recalcularLote"
+                >
+                    <ReceiptText class="size-4" />
+                    Recalcular con datos actuales
+                </Button>
                 <Button
                     v-if="puedeCancelar"
                     variant="outline"

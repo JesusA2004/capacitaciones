@@ -4,15 +4,19 @@ namespace App\Policies;
 
 use App\Models\CambioFotoPerfil;
 use App\Models\User;
+use App\Policies\Concerns\ConSuperAdminOperativo;
 use App\Services\AlcanceOrganizacionalService;
 
 /**
  * Quién revisa un cambio de foto de perfil: permiso expedientes.revisar
  * y alcance organizacional sobre esa persona. Nadie aprueba su propia
- * foto. La propuesta la ven los revisores y la propia persona.
+ * foto — salvo super_admin, ver ConSuperAdminOperativo. La propuesta la ven
+ * los revisores y la propia persona.
  */
 class CambioFotoPerfilPolicy
 {
+    use ConSuperAdminOperativo;
+
     public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}
 
     public function viewAny(User $usuario): bool

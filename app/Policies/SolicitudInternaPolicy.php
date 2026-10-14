@@ -6,6 +6,7 @@ use App\Enums\AlcanceDatos;
 use App\Models\Colaborador;
 use App\Models\SolicitudInterna;
 use App\Models\User;
+use App\Policies\Concerns\ConSuperAdminOperativo;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Permisos\AlcanceModuloService;
 use App\Services\Solicitudes\AprobacionJerarquicaService;
@@ -13,10 +14,13 @@ use App\Services\Solicitudes\AprobacionJerarquicaService;
 /**
  * No usa los verbos CRUD por defecto de Laravel: cada método representa una
  * acción real del flujo de revisión (igual criterio que
- * EmployeeDocumentPolicy/SolicitudVacacionesPolicy).
+ * EmployeeDocumentPolicy/SolicitudVacacionesPolicy). super_admin aprueba o
+ * rechaza incluso su propia solicitud, ver ConSuperAdminOperativo.
  */
 class SolicitudInternaPolicy
 {
+    use ConSuperAdminOperativo;
+
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly AlcanceModuloService $alcanceModulo,

@@ -3,8 +3,14 @@ export type SaldoVacaciones = {
     vigencia_inicio: string | null;
     vigencia_fin: string | null;
     dias_generados: number;
+    /** Solo lo usado dentro de PEOPLE (solicitudes aprobadas) — para el total visible usa `dias_usados_total`. */
     dias_usados: number;
+    dias_usados_people: number;
+    dias_usados_historicos: number;
+    dias_usados_total: number;
     dias_en_solicitud: number;
+    dias_ajustes_historicos: number;
+    ajustes_a_favor: number;
     dias_disponibles: number;
 };
 

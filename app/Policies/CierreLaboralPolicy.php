@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\CierreLaboral;
 use App\Models\User;
+use App\Policies\Concerns\ConSuperAdminOperativo;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
 
@@ -14,6 +15,8 @@ use App\Services\CicloLaboral\OrganizacionJerarquiaService;
  */
 class CierreLaboralPolicy
 {
+    use ConSuperAdminOperativo;
+
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly OrganizacionJerarquiaService $jerarquia,

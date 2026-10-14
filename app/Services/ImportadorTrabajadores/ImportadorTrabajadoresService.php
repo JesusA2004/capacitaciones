@@ -237,8 +237,13 @@ class ImportadorTrabajadoresService
      * no tuvo match automático (nombre no exacto o ambiguo). Recalcula esa
      * fila con los valores del Excel YA EXTRAÍDOS la primera vez (nunca se
      * vuelve a leer el archivo).
+     *
+     * $numeroFila es el número de fila del Excel (`detalle[].fila`, lo que
+     * ve y manda la pantalla), NUNCA el índice 0-based del array `detalle`
+     * — ambos pueden no coincidir (la primera fila de datos ya es la fila 5
+     * del Excel, y una fila vacía intermedia desalinea el resto).
      */
-    public function asignarManual(ImportacionExcel $importacion, int $indiceFila, int $colaboradorId, User $actor): void
+    public function asignarManual(ImportacionExcel $importacion, int $numeroFila, int $colaboradorId, User $actor): void
     {
         if ($importacion->estado === 'aplicado') {
             throw ValidationException::withMessages(['importacion' => 'Esta importación ya fue aplicada.']);
@@ -246,7 +251,7 @@ class ImportadorTrabajadoresService
 
         $colaborador = Colaborador::query()->where('estatus', 'activo')->findOrFail($colaboradorId);
 
-        DB::transaction(function () use ($importacion, $indiceFila, $colaborador, $actor): void {
+        DB::transaction(function () use ($importacion, $numeroFila, $colaborador, $actor): void {
             $importacion = ImportacionExcel::query()->lockForUpdate()->findOrFail($importacion->id);
 
             if ($importacion->estado === 'aplicado') {
@@ -255,16 +260,76 @@ class ImportadorTrabajadoresService
 
             /** @var list<array<string, mixed>> $detalle */
             $detalle = $importacion->detalle ?? [];
+            $indice = $this->indiceDeFila($detalle, $numeroFila);
 
-            if (! array_key_exists($indiceFila, $detalle)) {
-                throw ValidationException::withMessages(['fila' => 'Esa fila no existe en esta importación.']);
-            }
-
-            $fechaCorte = Carbon::parse((string) $detalle[$indiceFila]['fecha_corte']);
-            $detalle[$indiceFila] = $this->calcularCambios($detalle[$indiceFila], $colaborador, $fechaCorte, 'manual', $actor->id);
+            $fechaCorte = Carbon::parse((string) $detalle[$indice]['fecha_corte']);
+            $detalle[$indice] = $this->calcularCambios($detalle[$indice], $colaborador, $fechaCorte, 'manual', $actor->id);
 
             $importacion->update(['detalle' => $detalle]);
         });
+    }
+
+    /**
+     * RH revisó un match manual/creado (aunque la fila ya se haya aplicado)
+     * y confirma que la asociación es correcta — nunca cambia datos, solo
+     * deja constancia de quién y cuándo la revisó (CLAUDE.md §67-69). Es la
+     * única acción de auditoría que SÍ aplica sobre una importación ya
+     * aplicada.
+     */
+    public function confirmarMatch(ImportacionExcel $importacion, int $numeroFila, User $actor): void
+    {
+        DB::transaction(function () use ($importacion, $numeroFila, $actor): void {
+            $fila = ImportacionExcel::query()->lockForUpdate()->findOrFail($importacion->id);
+
+            /** @var list<array<string, mixed>> $detalle */
+            $detalle = $fila->detalle ?? [];
+            $indice = $this->indiceDeFila($detalle, $numeroFila);
+
+            $detalle[$indice]['confirmado_por'] = $actor->id;
+            $detalle[$indice]['confirmado_en'] = now()->toIso8601String();
+
+            $fila->update(['detalle' => $detalle]);
+        });
+
+        $this->auditoria->registrar('importacion_trabajadores_match_confirmado', $importacion, $actor, ['fila' => $numeroFila]);
+    }
+
+    /**
+     * Análisis de si una fila con cambio de salario se puede corregir de
+     * forma segura (CLAUDE.md §70-71): NUNCA revierte nada por sí solo —
+     * solo le dice a RH si el último cambio de salario de este colaborador
+     * sigue siendo el que puso esta importación (seguro corregir a mano) o
+     * si alguien lo volvió a cambiar después (bloqueado: requiere corrección
+     * manual, para no borrar un cambio posterior sin querer).
+     *
+     * @return array{aplica: bool, bloqueado: bool, motivo: string|null, salario_diario_actual: float|null}
+     */
+    public function analizarCorreccion(ImportacionExcel $importacion, int $numeroFila): array
+    {
+        $detalle = $importacion->detalle ?? [];
+        $fila = $detalle[$this->indiceDeFila($detalle, $numeroFila)];
+
+        if (! ($fila['aplicado'] ?? false) || ! ($fila['cambia_salario'] ?? false)) {
+            return ['aplica' => false, 'bloqueado' => false, 'motivo' => null, 'salario_diario_actual' => null];
+        }
+
+        $colaborador = Colaborador::query()->where('id', $fila['colaborador_id'])->first();
+
+        if ($colaborador === null) {
+            return ['aplica' => true, 'bloqueado' => true, 'motivo' => 'El colaborador ya no existe en el expediente.', 'salario_diario_actual' => null];
+        }
+
+        $ultimoCambio = $colaborador->historialSalarios()->first();
+        $esElMismoCambio = $ultimoCambio !== null
+            && $ultimoCambio->fuente === 'importacion_excel'
+            && (int) ($ultimoCambio->importacion_id ?? 0) === $importacion->id;
+
+        return [
+            'aplica' => true,
+            'bloqueado' => ! $esElMismoCambio,
+            'motivo' => $esElMismoCambio ? null : 'Hay cambios posteriores en el salario de este colaborador; requiere corrección manual.',
+            'salario_diario_actual' => $this->compensacion->diarioDe($colaborador),
+        ];
     }
 
     /**
@@ -276,7 +341,7 @@ class ImportadorTrabajadoresService
      *
      * @param  array<string, mixed>  $datosExtra
      */
-    public function registrarColaboradorDesdeFila(ImportacionExcel $importacion, int $indiceFila, array $datosExtra, User $actor): Colaborador
+    public function registrarColaboradorDesdeFila(ImportacionExcel $importacion, int $numeroFila, array $datosExtra, User $actor): Colaborador
     {
         if ($importacion->estado === 'aplicado') {
             throw ValidationException::withMessages(['importacion' => 'Esta importación ya fue aplicada.']);
@@ -284,12 +349,7 @@ class ImportadorTrabajadoresService
 
         /** @var list<array<string, mixed>> $detalleActual */
         $detalleActual = $importacion->detalle ?? [];
-
-        if (! array_key_exists($indiceFila, $detalleActual)) {
-            throw ValidationException::withMessages(['fila' => 'Esa fila no existe en esta importación.']);
-        }
-
-        $filaDetalle = $detalleActual[$indiceFila];
+        $filaDetalle = $detalleActual[$this->indiceDeFila($detalleActual, $numeroFila)];
         [$nombre, $apellidos] = $this->partirNombre((string) $filaDetalle['nombre_excel']);
 
         $colaborador = $this->altaDesdeImportacion->crear([
@@ -303,7 +363,7 @@ class ImportadorTrabajadoresService
             'numero_empleado' => $datosExtra['numero_empleado'] ?? null,
         ], $actor);
 
-        DB::transaction(function () use ($importacion, $indiceFila, $colaborador, $actor): void {
+        DB::transaction(function () use ($importacion, $numeroFila, $colaborador, $actor): void {
             $importacion = ImportacionExcel::query()->lockForUpdate()->findOrFail($importacion->id);
 
             if ($importacion->estado === 'aplicado') {
@@ -312,17 +372,38 @@ class ImportadorTrabajadoresService
 
             /** @var list<array<string, mixed>> $detalle */
             $detalle = $importacion->detalle ?? [];
-            $fechaCorte = Carbon::parse((string) $detalle[$indiceFila]['fecha_corte']);
+            $indice = $this->indiceDeFila($detalle, $numeroFila);
+            $fechaCorte = Carbon::parse((string) $detalle[$indice]['fecha_corte']);
             // El salario y la fecha de ingreso ya quedaron correctos al crear
             // al colaborador (ImportacionColaboradorService): no "cambian",
             // así que esta fila recalculada normalmente sale 'sin_cambios'
             // salvo que también traiga días tomados antes de PEOPLE.
-            $detalle[$indiceFila] = $this->calcularCambios($detalle[$indiceFila], $colaborador, $fechaCorte, 'creado', $actor->id);
+            $detalle[$indice] = $this->calcularCambios($detalle[$indice], $colaborador, $fechaCorte, 'creado', $actor->id);
 
             $importacion->update(['detalle' => $detalle]);
         });
 
         return $colaborador;
+    }
+
+    /**
+     * Localiza el índice real (0-based) dentro de `detalle` cuya fila
+     * (`detalle[].fila`, el número de fila del Excel) coincide con
+     * $numeroFila — NUNCA se asume que el índice del array y el número de
+     * fila son el mismo valor (una fila vacía saltada en leer() los
+     * desalinea; la primera fila de datos ya es la fila 5, no la 0).
+     *
+     * @param  list<array<string, mixed>>  $detalle
+     */
+    private function indiceDeFila(array $detalle, int $numeroFila): int
+    {
+        foreach ($detalle as $indice => $fila) {
+            if ((int) ($fila['fila'] ?? -1) === $numeroFila) {
+                return $indice;
+            }
+        }
+
+        throw ValidationException::withMessages(['fila' => 'Esa fila no existe en esta importación.']);
     }
 
     /**

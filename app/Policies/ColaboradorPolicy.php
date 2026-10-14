@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\Colaborador;
 use App\Models\User;
+use App\Policies\Concerns\ConSuperAdminOperativo;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
 
@@ -12,10 +13,13 @@ use App\Services\CicloLaboral\OrganizacionJerarquiaService;
  * consulta de jerarquía/alta, cierre, documentos, recibos, actas). Siempre
  * permiso Spatie + alcance organizacional (evita IDOR: cambiar el id en la
  * URL no da acceso a colaboradores fuera del alcance). Las acciones
- * administrativas nunca se ejecutan sobre uno mismo.
+ * administrativas nunca se ejecutan sobre uno mismo — salvo super_admin,
+ * ver ConSuperAdminOperativo.
  */
 class ColaboradorPolicy
 {
+    use ConSuperAdminOperativo;
+
     public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}
 
     public function darDeAlta(User $usuario): bool

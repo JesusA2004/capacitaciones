@@ -28,6 +28,7 @@ test('actas: captura, anexos, formato por motor documental, negativa a firmar y 
     Sanctum::actingAs($this->rh);
     clPlantilla('acta_hechos', ['contenido_html' => '<h1>{{tipo_acta}} {{folio_acta}}</h1><p>{{hechos_acta}}</p><p>Testigos: {{testigos_acta}}</p>', 'requiere_testigos' => true]);
     $colaborador = Colaborador::factory()->create(['sucursal_principal_id' => $this->estructura['sucursal']->id]);
+    $testigo = Colaborador::factory()->create(['name' => 'Pedro', 'apellidos' => 'López']);
 
     $acta = $this->postJson("/api/v1/rh/colaboradores/{$colaborador->id}/actas", [
         'tipo' => 'hechos',
@@ -35,7 +36,7 @@ test('actas: captura, anexos, formato por motor documental, negativa a firmar y 
         'hora' => '09:30',
         'lugar' => 'Sucursal Cuernavaca',
         'hechos' => 'Faltante de mercancía en inventario.',
-        'testigos' => [['nombre' => 'Pedro López', 'puesto' => 'Supervisor']],
+        'testigos' => [['colaborador_id' => $testigo->id, 'nombre' => $testigo->nombreCompleto(), 'puesto' => 'Supervisor']],
         'declaraciones' => [['persona' => 'Colaborador', 'declaracion' => 'Desconoce el faltante.']],
     ])->assertCreated()->assertJsonPath('data.estado', 'borrador')->json('data');
 

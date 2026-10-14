@@ -5,6 +5,7 @@ use App\Models\Colaborador;
 use App\Models\HistorialSalario;
 use App\Models\ImportacionExcel;
 use App\Models\Sucursal;
+use App\Services\Compensacion\CompensacionService;
 use App\Services\ImportadorTrabajadores\ImportadorTrabajadoresService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Http\UploadedFile;
@@ -227,27 +228,43 @@ test('una fila sin coincidencia de nombre queda como no_encontrado, nunca crea u
         ->and(Colaborador::query()->count())->toBe($totalAntes);
 });
 
-test('un texto de sucursal fuera del catálogo cerrado de truncamientos no hace match por prefijo', function () {
-    Colaborador::factory()->create(['name' => 'Elena', 'apellidos' => 'Torres', 'sucursal_principal_id' => $this->sucursal->id, 'estatus' => 'activo', 'salario_diario' => 300]);
+test('un texto de sucursal fuera del catálogo cerrado de truncamientos no resuelve sucursal_sistema (sin match por prefijo), pero el nombre único sigue encontrando a la persona', function () {
+    // La sucursal del reporte es solo CONTEXTO para desambiguar homónimos,
+    // nunca filtro obligatorio (CLAUDE.md §66-69): un texto de sucursal que
+    // no está en el catálogo cerrado de truncamientos simplemente no
+    // resuelve `sucursal_sistema` — nunca debe "adivinar" por prefijo/LIKE
+    // — pero el nombre único de la persona sigue haciendo match igual.
+    $colaborador = Colaborador::factory()->create(['name' => 'Elena', 'apellidos' => 'Torres', 'sucursal_principal_id' => $this->sucursal->id, 'estatus' => 'activo', 'salario_diario' => 300, 'fecha_ingreso' => now()->subYears(2)->toDateString()]);
 
     $importacion = $this->importador->analizar(itvArchivo([
-        ['Elena Torres', 'ATLA', '1/1/2023', 14, 0, 14, 300],
-        ['Elena Torres', 'Atlacomulco Norte', '1/1/2023', 14, 0, 14, 300],
+        ['Elena Torres', 'ATLA', now()->subYears(2)->format('n/j/Y'), 14, 0, 14, 300],
+        ['Elena Torres', 'Atlacomulco Norte', now()->subYears(2)->format('n/j/Y'), 14, 0, 14, 300],
     ]), $this->actor);
 
-    expect($importacion->detalle[0]['estado'])->toBe('no_encontrado')
-        ->and($importacion->detalle[0]['colaborador_id'])->toBeNull()
-        ->and($importacion->detalle[1]['estado'])->toBe('no_encontrado')
-        ->and($importacion->detalle[1]['colaborador_id'])->toBeNull();
+    expect($importacion->detalle[0]['sucursal_sistema'])->toBeNull()
+        ->and($importacion->detalle[0]['colaborador_id'])->toBe($colaborador->id)
+        ->and($importacion->detalle[1]['sucursal_sistema'])->toBeNull()
+        ->and($importacion->detalle[1]['colaborador_id'])->toBe($colaborador->id);
 });
 
-test('el mismo nombre exacto en OTRA sucursal no hace match (0 coincidencias → no_encontrado)', function () {
+test('el mismo nombre en DOS sucursales: la del reporte desambigua y elige a la persona correcta', function () {
     $otra = Sucursal::factory()->create(['nombre' => 'Tula', 'activo' => true]);
-    Colaborador::factory()->create(['name' => 'Luis', 'apellidos' => 'Mora', 'sucursal_principal_id' => $otra->id, 'estatus' => 'activo']);
+    Colaborador::factory()->create(['name' => 'Luis', 'apellidos' => 'Mora', 'sucursal_principal_id' => $this->sucursal->id, 'estatus' => 'activo']);
+    $deTula = Colaborador::factory()->create(['name' => 'Luis', 'apellidos' => 'Mora', 'sucursal_principal_id' => $otra->id, 'estatus' => 'activo']);
 
-    $importacion = $this->importador->analizar(itvArchivo([['Luis Mora', 'Atlacomulco', '1/1/2023', 14, 0, 14, 300]]), $this->actor);
+    $importacion = $this->importador->analizar(itvArchivo([['Luis Mora', 'Tula', '1/1/2023', 14, 0, 14, 300]]), $this->actor);
 
-    expect($importacion->detalle[0]['estado'])->toBe('no_encontrado')
+    expect($importacion->detalle[0]['estado'])->not->toBe('revision')
+        ->and($importacion->detalle[0]['colaborador_id'])->toBe($deTula->id);
+});
+
+test('el mismo nombre en dos sucursales SIN que el reporte traiga una sucursal valida queda para revision, nunca se adivina', function () {
+    Colaborador::factory()->create(['name' => 'Luis', 'apellidos' => 'Mora', 'sucursal_principal_id' => $this->sucursal->id, 'estatus' => 'activo']);
+    Colaborador::factory()->create(['name' => 'Luis', 'apellidos' => 'Mora', 'sucursal_principal_id' => Sucursal::factory()->create(['nombre' => 'Tula'])->id, 'estatus' => 'activo']);
+
+    $importacion = $this->importador->analizar(itvArchivo([['Luis Mora', '', '1/1/2023', 14, 0, 14, 300]]), $this->actor);
+
+    expect($importacion->detalle[0]['estado'])->toBe('revision')
         ->and($importacion->detalle[0]['colaborador_id'])->toBeNull();
 });
 
@@ -299,4 +316,67 @@ test('RH quita un archivo analizado que ya no aplicará; uno ya aplicado se cons
 
     // Sin el permiso del importador, nadie quita nada.
     $this->actingAs(clUsuario('colaborador'))->delete(route('rh.importaciones.destroy', $aplicada))->assertForbidden();
+});
+
+test('asignarManual actualiza la fila correcta por numero de fila del Excel, no por indice del array', function () {
+    // Fila 1 (Excel A5) hace match exacto; fila 2 (Excel A6) necesita
+    // asignación manual — detalle[1].fila === 6, nunca detalle[6].
+    Colaborador::factory()->create(['name' => 'Juan', 'apellidos' => 'Pérez López', 'sucursal_principal_id' => $this->sucursal->id, 'estatus' => 'activo', 'salario_diario' => 450, 'fecha_ingreso' => now()->subYears(2)->toDateString()]);
+    $destino = Colaborador::factory()->create(['name' => 'Rosa', 'apellidos' => 'Vega', 'sucursal_principal_id' => $this->sucursal->id, 'estatus' => 'activo', 'fecha_ingreso' => now()->subYears(2)->toDateString()]);
+
+    $importacion = $this->importador->analizar(itvArchivo([
+        ['Juan Pérez López', 'Atlacomulco', now()->subYears(2)->format('n/j/Y'), 14, 0, 14, 500],
+        ['Nombre Que No Existe', 'Atlacomulco', now()->subYears(2)->format('n/j/Y'), 14, 0, 14, 300],
+    ]), $this->actor);
+
+    expect($importacion->detalle[1]['fila'])->toBe(6)
+        ->and($importacion->detalle[1]['estado'])->toBe('no_encontrado');
+
+    $this->importador->asignarManual($importacion, 6, $destino->id, $this->actor);
+    $importacion->refresh();
+
+    expect($importacion->detalle[1]['colaborador_id'])->toBe($destino->id)
+        ->and($importacion->detalle[1]['match_tipo'])->toBe('manual')
+        // La primera fila (Excel 5) nunca se tocó: sigue con su match exacto original.
+        ->and($importacion->detalle[0]['nombre_excel'])->toBe('Juan Pérez López')
+        ->and($importacion->detalle[0]['match_tipo'])->toBe('exacto');
+});
+
+test('confirmarMatch deja constancia de quien y cuando, incluso en una importacion ya aplicada', function () {
+    $colaborador = Colaborador::factory()->create(['sucursal_principal_id' => $this->sucursal->id, 'estatus' => 'activo', 'fecha_ingreso' => now()->subYears(2)->toDateString()]);
+    $importacion = $this->importador->analizar(itvArchivo([['Nombre Inexistente', 'Atlacomulco', now()->subYears(2)->format('n/j/Y'), 14, 0, 14, 300]]), $this->actor);
+
+    $this->importador->asignarManual($importacion, 5, $colaborador->id, $this->actor);
+    $importacion->refresh();
+    $this->importador->aplicar($importacion, $this->actor);
+    $importacion->refresh();
+
+    expect($importacion->estado)->toBe('aplicado');
+
+    $otroRevisor = clUsuario('rh_admin');
+    $this->importador->confirmarMatch($importacion, 5, $otroRevisor);
+    $importacion->refresh();
+
+    expect($importacion->detalle[0]['confirmado_por'])->toBe($otroRevisor->id)
+        ->and($importacion->detalle[0]['confirmado_en'])->not->toBeNull();
+});
+
+test('analizarCorreccion bloquea si el salario del colaborador cambio despues de la importacion', function () {
+    $colaborador = Colaborador::factory()->create(['sucursal_principal_id' => $this->sucursal->id, 'estatus' => 'activo', 'fecha_ingreso' => now()->subYears(2)->toDateString(), 'salario_diario' => 300]);
+    $importacion = $this->importador->analizar(itvArchivo([['Nombre Inexistente', 'Atlacomulco', now()->subYears(2)->format('n/j/Y'), 14, 0, 14, 315.04]]), $this->actor);
+
+    $this->importador->asignarManual($importacion, 5, $colaborador->id, $this->actor);
+    $importacion->refresh();
+    $this->importador->aplicar($importacion, $this->actor);
+    $importacion->refresh();
+
+    $seguro = $this->importador->analizarCorreccion($importacion, 5);
+    expect($seguro['aplica'])->toBeTrue()->and($seguro['bloqueado'])->toBeFalse();
+
+    // RH cambia el salario DESPUÉS de la importación.
+    app(CompensacionService::class)->actualizarSalario($colaborador, 333.33, null, $this->actor, ['fuente' => 'manual']);
+
+    $bloqueado = $this->importador->analizarCorreccion($importacion, 5);
+    expect($bloqueado['bloqueado'])->toBeTrue()
+        ->and($bloqueado['motivo'])->toContain('cambios posteriores');
 });

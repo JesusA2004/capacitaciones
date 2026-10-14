@@ -25,6 +25,9 @@ use Illuminate\Support\Carbon;
  * @property array<string, string>|null $confidence
  * @property array<string, array<string, mixed>>|null $differences
  * @property string|null $error_message
+ * @property string|null $source_hash
+ * @property int|null $extractor_version
+ * @property bool $ocr_used
  * @property int|null $reviewed_by_id
  * @property Carbon|null $reviewed_at
  */
@@ -36,12 +39,16 @@ class DocumentExtraction extends Model
     protected $fillable = [
         'employee_document_id',
         'user_id',
+        'colaborador_id',
         'status',
         'extracted_text',
         'extracted_data',
         'confidence',
         'differences',
         'error_message',
+        'source_hash',
+        'extractor_version',
+        'ocr_used',
         'reviewed_by_id',
         'reviewed_at',
     ];
@@ -53,6 +60,7 @@ class DocumentExtraction extends Model
             'extracted_data' => 'array',
             'confidence' => 'array',
             'differences' => 'array',
+            'ocr_used' => 'boolean',
             'reviewed_at' => 'datetime',
         ];
     }

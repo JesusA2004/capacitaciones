@@ -4,10 +4,13 @@ namespace App\Policies;
 
 use App\Models\ContratoLaboral;
 use App\Models\User;
+use App\Policies\Concerns\ConSuperAdminOperativo;
 use App\Services\AlcanceOrganizacionalService;
 
 class ContratoLaboralPolicy
 {
+    use ConSuperAdminOperativo;
+
     public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}
 
     public function ver(User $usuario, ContratoLaboral $contrato): bool

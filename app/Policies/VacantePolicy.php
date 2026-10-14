@@ -4,10 +4,13 @@ namespace App\Policies;
 
 use App\Models\User;
 use App\Models\Vacante;
+use App\Policies\Concerns\ConSuperAdminOperativo;
 use App\Services\AlcanceOrganizacionalService;
 
 class VacantePolicy
 {
+    use ConSuperAdminOperativo;
+
     public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}
 
     public function viewAny(User $usuario): bool

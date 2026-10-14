@@ -52,8 +52,12 @@ class VacacionesService
      *     vigencia_fin: string|null,
      *     dias_generados: int,
      *     dias_usados: int,
+     *     dias_usados_people: int,
+     *     dias_usados_historicos: float,
+     *     dias_usados_total: float,
      *     dias_en_solicitud: int,
      *     dias_ajustes_historicos: float,
+     *     ajustes_a_favor: float,
      *     dias_disponibles: int,
      *     puede_solicitar: bool,
      *     motivo_no_disponible: string|null,
@@ -87,8 +91,12 @@ class VacacionesService
      *     vigencia_fin: string|null,
      *     dias_generados: int,
      *     dias_usados: int,
+     *     dias_usados_people: int,
+     *     dias_usados_historicos: float,
+     *     dias_usados_total: float,
      *     dias_en_solicitud: int,
      *     dias_ajustes_historicos: float,
+     *     ajustes_a_favor: float,
      *     dias_disponibles: int,
      *     puede_solicitar: bool,
      *     motivo_no_disponible: string|null,
@@ -174,14 +182,21 @@ class VacacionesService
         // servicio ya cerrado no debe seguir restando saldo para siempre.
         // Nunca se acreditan ajustes positivos a quien aún no cumple 1 año
         // (dias_generados ya es 0 en ese caso; sumar un ajuste adelantaría
-        // el bloque anual antes de tiempo).
-        $diasAjustesHistoricos = $antiguedadAnios >= 1
-            ? (float) AjusteHistoricoVacaciones::query()
-                ->where('colaborador_id', $colaborador->id)
-                ->whereDate('fecha_corte', '>=', $vigenciaInicio->toDateString())
-                ->whereDate('fecha_corte', '<=', $vigenciaFin->toDateString())
-                ->sum('dias')
-            : 0.0;
+        // el bloque anual antes de tiempo). Un ajuste NEGATIVO es consumo
+        // histórico (vacaciones ya tomadas antes de existir PEOPLE, p. ej.
+        // importadas de un Excel de rotación); uno POSITIVO es a favor del
+        // colaborador — nunca se mezclan en un solo número "usado" (cierre
+        // de producto, caso real: Luz Elena con -9 días históricos se veía
+        // como "Usados: 0" en vez de "Usados: 9 (9 históricos)").
+        $ajustesHistoricosQuery = AjusteHistoricoVacaciones::query()
+            ->where('colaborador_id', $colaborador->id)
+            ->whereDate('fecha_corte', '>=', $vigenciaInicio->toDateString())
+            ->whereDate('fecha_corte', '<=', $vigenciaFin->toDateString());
+
+        $ajustesAFavor = $antiguedadAnios >= 1 ? (float) (clone $ajustesHistoricosQuery)->where('dias', '>', 0)->sum('dias') : 0.0;
+        $diasUsadosHistoricos = $antiguedadAnios >= 1 ? abs((float) (clone $ajustesHistoricosQuery)->where('dias', '<', 0)->sum('dias')) : 0.0;
+        $diasAjustesHistoricos = $ajustesAFavor - $diasUsadosHistoricos;
+        $diasUsadosTotal = $diasUsados + $diasUsadosHistoricos;
 
         // Primer año (CLAUDE.md §49-53): antes de cumplirlo, NUNCA se puede
         // iniciar el wizard de solicitud, aunque el saldo calculado diera 0
@@ -194,9 +209,17 @@ class VacacionesService
             'vigencia_inicio' => $vigenciaInicio->toDateString(),
             'vigencia_fin' => $vigenciaFin->toDateString(),
             'dias_generados' => $diasGenerados,
+            // 'dias_usados' se conserva (solo PEOPLE) por compatibilidad de
+            // consumidores existentes — el desglose completo vive en los
+            // campos nuevos; la UI debe mostrar dias_usados_total como el
+            // "Usados" visible, con el desglose debajo.
             'dias_usados' => $diasUsados,
+            'dias_usados_people' => $diasUsados,
+            'dias_usados_historicos' => $diasUsadosHistoricos,
+            'dias_usados_total' => $diasUsadosTotal,
             'dias_en_solicitud' => $diasEnSolicitud,
             'dias_ajustes_historicos' => $diasAjustesHistoricos,
+            'ajustes_a_favor' => $ajustesAFavor,
             'dias_disponibles' => max(0, (int) floor($diasGenerados + $diasAjustesHistoricos - $diasUsados - $diasEnSolicitud)),
             'puede_solicitar' => $cumpleUnAnio,
             'motivo_no_disponible' => $cumpleUnAnio
@@ -213,8 +236,12 @@ class VacacionesService
      *     vigencia_fin: string|null,
      *     dias_generados: int,
      *     dias_usados: int,
+     *     dias_usados_people: int,
+     *     dias_usados_historicos: float,
+     *     dias_usados_total: float,
      *     dias_en_solicitud: int,
      *     dias_ajustes_historicos: float,
+     *     ajustes_a_favor: float,
      *     dias_disponibles: int,
      *     puede_solicitar: bool,
      *     motivo_no_disponible: string|null,
@@ -229,8 +256,12 @@ class VacacionesService
             'vigencia_fin' => null,
             'dias_generados' => 0,
             'dias_usados' => 0,
+            'dias_usados_people' => 0,
+            'dias_usados_historicos' => 0.0,
+            'dias_usados_total' => 0.0,
             'dias_en_solicitud' => 0,
             'dias_ajustes_historicos' => 0.0,
+            'ajustes_a_favor' => 0.0,
             'dias_disponibles' => 0,
             'puede_solicitar' => false,
             'motivo_no_disponible' => 'Tu cuenta no tiene un expediente de colaborador vinculado.',

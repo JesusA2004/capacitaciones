@@ -4,9 +4,12 @@ namespace App\Policies;
 
 use App\Models\AltaDigital;
 use App\Models\User;
+use App\Policies\Concerns\ConSuperAdminOperativo;
 
 class AltaDigitalPolicy
 {
+    use ConSuperAdminOperativo;
+
     public function viewAny(User $usuario): bool
     {
         return $usuario->can('altas.ver');

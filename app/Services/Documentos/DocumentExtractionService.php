@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\Expedientes\DocumentoStorageService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Str;
 use Smalot\PdfParser\Parser as PdfParser;
 use Throwable;
@@ -43,7 +44,7 @@ class DocumentExtractionService
      * detectan pero no tienen columna propia (ver domicilio como texto
      * libre), así que se muestran como "detectado" sin comparación posible.
      */
-    private const CAMPOS_APLICABLES = ['curp', 'rfc', 'nss', 'fecha_nacimiento'];
+    public const CAMPOS_APLICABLES = ['curp', 'rfc', 'nss', 'fecha_nacimiento'];
 
     public function __construct(
         private readonly DocumentoStorageService $storage,
@@ -71,7 +72,7 @@ class DocumentExtractionService
     {
         $extraccion = DocumentExtraction::query()->updateOrCreate(
             ['employee_document_id' => $documento->id],
-            ['user_id' => $documento->user_id, 'status' => EstadoExtraccion::Procesando->value],
+            ['user_id' => $documento->user_id, 'colaborador_id' => $documento->colaborador_id, 'status' => EstadoExtraccion::Procesando->value],
         );
 
         try {
@@ -80,19 +81,43 @@ class DocumentExtractionService
             return $this->marcarFallida($extraccion, 'No se pudo leer el archivo del documento.', $e);
         }
 
-        if (! $this->esPdf($documento, $bytes)) {
+        $hash = $documento->hash ?? hash('sha256', $bytes);
+        $ocrUsado = false;
+
+        if ($this->esPdf($documento, $bytes)) {
+            $texto = $this->textoDesdePdf($bytes);
+
+            if ($texto === null) {
+                return $this->marcarFallida(
+                    $extraccion,
+                    'No se pudieron leer datos automáticamente: el PDF no tiene texto (es un escaneo). '
+                        .'La extracción por OCR de PDF escaneado no está disponible en este entorno — revisa manualmente.',
+                    null,
+                    $hash,
+                );
+            }
+        } elseif ($this->esImagen($documento, $bytes)) {
+            if (! $this->tesseractDisponible()) {
+                return $this->marcarFallida(
+                    $extraccion,
+                    'No se pudieron leer datos automáticamente: es una imagen (foto/escaneo) y requiere OCR local (Tesseract no está instalado en este servidor).',
+                    null,
+                    $hash,
+                );
+            }
+
+            $texto = $this->textoViaOcrImagen($bytes, $documento->extension ?? 'jpg');
+            $ocrUsado = true;
+
+            if ($texto === null) {
+                return $this->marcarFallida($extraccion, 'No se pudieron leer datos automáticamente: el OCR local no encontró texto legible en la imagen.', null, $hash, true);
+            }
+        } else {
             return $this->marcarFallida(
                 $extraccion,
-                'No se pudieron leer datos automáticamente: el archivo no es un PDF (es una foto/escaneo). Revisa manualmente.',
-            );
-        }
-
-        $texto = $this->textoDesdePdf($bytes);
-
-        if ($texto === null) {
-            return $this->marcarFallida(
-                $extraccion,
-                'No se pudieron leer datos automáticamente: el PDF no se pudo procesar (puede ser un escaneo sin texto). Revisa manualmente.',
+                'No se pudieron leer datos automáticamente: el formato del archivo no es PDF, JPG ni PNG. Revisa manualmente.',
+                null,
+                $hash,
             );
         }
 
@@ -106,6 +131,9 @@ class DocumentExtractionService
             'confidence' => $resultado['confidence'],
             'differences' => $diferencias,
             'error_message' => null,
+            'source_hash' => $hash,
+            'extractor_version' => RegexPersonalDataExtractor::VERSION,
+            'ocr_used' => $ocrUsado,
         ]);
 
         return $extraccion->fresh();
@@ -114,6 +142,28 @@ class DocumentExtractionService
     public function reprocesar(EmployeeDocument $documento): DocumentExtraction
     {
         return $this->procesar($documento);
+    }
+
+    /**
+     * true si ya existe una extracción vigente (procesada o revisada por RH)
+     * sobre los MISMOS bytes del documento (`source_hash` == hash actual) y
+     * con la versión actual del extractor — usado por
+     * `expedientes:extraer-existentes` para no releer del NAS en cada
+     * corrida lo que ya se procesó sin cambios.
+     */
+    public function tieneExtraccionVigente(EmployeeDocument $documento): bool
+    {
+        $extraccion = $documento->extraccion;
+
+        if ($extraccion === null || ! in_array($extraccion->status, [EstadoExtraccion::Procesado, EstadoExtraccion::Revisado], true)) {
+            return false;
+        }
+
+        $hashActual = $documento->hash;
+
+        return $extraccion->extractor_version === RegexPersonalDataExtractor::VERSION
+            && $hashActual !== null
+            && $extraccion->source_hash === $hashActual;
     }
 
     /**
@@ -173,6 +223,70 @@ class DocumentExtractionService
         }
 
         return str_starts_with($bytes, '%PDF-');
+    }
+
+    /**
+     * JPG/PNG por firma binaria (nunca por extensión/Content-Type, igual
+     * criterio que el visor móvil — CLAUDE.md "nunca confiar en extensión").
+     */
+    private function esImagen(EmployeeDocument $documento, string $bytes): bool
+    {
+        if (str_starts_with($bytes, "\xFF\xD8\xFF") || str_starts_with($bytes, "\x89PNG\r\n\x1a\n")) {
+            return true;
+        }
+
+        return in_array(strtolower((string) $documento->extension), ['jpg', 'jpeg', 'png'], true);
+    }
+
+    /**
+     * Detecta Tesseract instalado en el servidor (nunca un servicio cloud,
+     * CLAUDE.md/encargo §36). Si el binario no existe o `Process` está
+     * restringido en este entorno, se trata como "no disponible" — nunca
+     * truena la extracción.
+     */
+    private function tesseractDisponible(): bool
+    {
+        try {
+            $comando = PHP_OS_FAMILY === 'Windows' ? ['where', 'tesseract'] : ['which', 'tesseract'];
+
+            return Process::run($comando)->successful();
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * OCR local vía Tesseract (español). Nunca un servicio externo/pagado.
+     * Regresa null si el binario falla o no encuentra texto — nunca lanza.
+     */
+    private function textoViaOcrImagen(string $bytes, string $extension): ?string
+    {
+        $extension = $extension !== '' ? $extension : 'jpg';
+        $archivoTemporal = sys_get_temp_dir().'/'.Str::uuid().'.'.$extension;
+
+        try {
+            file_put_contents($archivoTemporal, $bytes);
+
+            $resultado = Process::timeout(60)->run(['tesseract', $archivoTemporal, 'stdout', '-l', 'spa']);
+
+            if (! $resultado->successful()) {
+                Log::warning('document_extraction: tesseract no pudo procesar la imagen.', ['error' => $resultado->errorOutput()]);
+
+                return null;
+            }
+
+            $texto = trim($resultado->output());
+
+            return $texto !== '' ? $texto : null;
+        } catch (Throwable $e) {
+            Log::warning('document_extraction: fallo al ejecutar OCR local.', ['error' => $e->getMessage()]);
+
+            return null;
+        } finally {
+            if (file_exists($archivoTemporal)) {
+                unlink($archivoTemporal);
+            }
+        }
     }
 
     private function textoDesdePdf(string $bytes): ?string
@@ -237,7 +351,7 @@ class DocumentExtractionService
         return strtoupper(trim($valor));
     }
 
-    private function marcarFallida(DocumentExtraction $extraccion, string $mensaje, ?Throwable $e = null): DocumentExtraction
+    private function marcarFallida(DocumentExtraction $extraccion, string $mensaje, ?Throwable $e = null, ?string $hash = null, bool $ocrUsado = false): DocumentExtraction
     {
         if ($e !== null) {
             Log::warning('document_extraction: fallo al procesar documento.', [
@@ -250,6 +364,9 @@ class DocumentExtractionService
         $extraccion->update([
             'status' => EstadoExtraccion::Fallido->value,
             'error_message' => $mensaje,
+            'source_hash' => $hash,
+            'extractor_version' => RegexPersonalDataExtractor::VERSION,
+            'ocr_used' => $ocrUsado,
         ]);
 
         return $extraccion->fresh();

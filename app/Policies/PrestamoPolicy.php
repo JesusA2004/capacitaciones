@@ -5,10 +5,13 @@ namespace App\Policies;
 use App\Models\Prestamo;
 use App\Models\SolicitudInterna;
 use App\Models\User;
+use App\Policies\Concerns\ConSuperAdminOperativo;
 use App\Services\AlcanceOrganizacionalService;
 
 class PrestamoPolicy
 {
+    use ConSuperAdminOperativo;
+
     public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}
 
     public function ver(User $usuario, Prestamo $prestamo): bool

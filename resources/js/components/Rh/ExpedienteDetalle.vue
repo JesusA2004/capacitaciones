@@ -2320,10 +2320,16 @@ function irACompletarExpediente() {
                                         class="mx-auto mb-1 size-4 text-[var(--success)] transition-transform group-hover:scale-110"
                                     />
                                     <p class="text-lg font-semibold">
-                                        {{ saldoVacaciones.dias_usados }}
+                                        {{ saldoVacaciones.dias_usados_total }}
                                     </p>
                                     <p class="text-xs text-muted-foreground">
                                         Usados
+                                    </p>
+                                    <p
+                                        v-if="saldoVacaciones.dias_usados_historicos > 0"
+                                        class="text-[11px] text-muted-foreground"
+                                    >
+                                        {{ saldoVacaciones.dias_usados_people }} en PEOPLE + {{ saldoVacaciones.dias_usados_historicos }} históricos
                                     </p>
                                 </div>
                                 <div

@@ -4,16 +4,20 @@ namespace App\Policies;
 
 use App\Models\EvaluacionPeriodoPrueba;
 use App\Models\User;
+use App\Policies\Concerns\ConSuperAdminOperativo;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Colaboradores\JerarquiaColaboradorService;
 
 /**
  * La evaluación la captura el jefe inmediato/gerente del colaborador (según
  * la estructura jerárquica real) o RH con permiso de autorizar; la autoriza
- * RH/Dirección. Nadie evalúa ni autoriza su propia evaluación.
+ * RH/Dirección. Nadie evalúa ni autoriza su propia evaluación — salvo
+ * super_admin, ver ConSuperAdminOperativo.
  */
 class EvaluacionPeriodoPruebaPolicy
 {
+    use ConSuperAdminOperativo;
+
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly JerarquiaColaboradorService $jerarquia,

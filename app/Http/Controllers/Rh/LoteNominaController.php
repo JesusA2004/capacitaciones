@@ -8,6 +8,7 @@ use App\Enums\PeriodicidadNomina;
 use App\Http\Controllers\Controller;
 use App\Models\NominaLote;
 use App\Models\ReciboNomina;
+use App\Models\Sucursal;
 use App\Services\Nomina\LoteNominaService;
 use App\Services\Nomina\ReciboNominaService;
 use Carbon\CarbonImmutable;
@@ -48,6 +49,9 @@ class LoteNominaController extends Controller
             ],
             'puedeCrear' => $usuario->can('nomina.recibos.crear'),
             'puedeImportar' => $usuario->can('nomina.recibos.importar'),
+            // Grupo «Sucursales · Semanal» (CLAUDE.md §51-59): nunca incluye
+            // corporativo, nunca se deja al usuario escribir el id a mano.
+            'sucursalesSemanal' => Sucursal::query()->where('activo', true)->where('es_corporativo', false)->orderBy('nombre')->get(['id', 'nombre']),
         ]);
     }
 
@@ -65,6 +69,10 @@ class LoteNominaController extends Controller
             'fecha' => ['required', 'date'],
             'origen' => ['required', Rule::in([NominaLote::ORIGEN_SUELDOS, NominaLote::ORIGEN_IMPORTACION])],
             'archivo' => ['required_if:origen,'.NominaLote::ORIGEN_IMPORTACION, 'nullable', 'file', 'mimes:csv,txt,xlsx,xls', 'max:5120'],
+            // Solo aplica al grupo semanal (sucursales) — el corporativo
+            // quincenal siempre es "todas las sucursales corporativas".
+            'sucursal_ids' => ['nullable', 'array'],
+            'sucursal_ids.*' => ['integer', 'exists:sucursales,id'],
         ], [
             'archivo.required_if' => 'Elige el archivo CSV o Excel del lote.',
             'archivo.mimes' => 'El archivo debe ser CSV o Excel (.xlsx).',
@@ -77,7 +85,11 @@ class LoteNominaController extends Controller
             abort_unless($usuario->can('nomina.recibos.importar'), 403);
             $lote = $this->lotes->importar($request->file('archivo'), $periodicidad, $fecha, $usuario)['lote'];
         } else {
-            $lote = $this->lotes->preparar($periodicidad, $fecha, $usuario);
+            // Vacío o ausente = «todas las sucursales» (nunca «ninguna»).
+            $sucursalIds = $periodicidad === PeriodicidadNomina::Semanal && ($datos['sucursal_ids'] ?? []) !== []
+                ? $datos['sucursal_ids']
+                : null;
+            $lote = $this->lotes->preparar($periodicidad, $fecha, $usuario, $sucursalIds);
         }
 
         abort_if($lote === null, 422);
@@ -115,6 +127,11 @@ class LoteNominaController extends Controller
             'puedeEmitir' => $usuario->can('nomina.recibos.crear') && $emitible,
             'puedeCancelar' => $usuario->can('nomina.recibos.crear') && $lote->estado !== EstadoLoteNomina::Cancelado,
             'puedeEditar' => $usuario->can('nomina.recibos.crear') && $lote->estado === EstadoLoteNomina::Preparado,
+            // Recalcular: solo mientras el lote esté preparado y NINGÚN
+            // recibo haya sido emitido/cancelado (un PDF emitido es inmutable).
+            'puedeRecalcular' => $usuario->can('nomina.recibos.crear')
+                && $lote->estado === EstadoLoteNomina::Preparado
+                && ! $lote->recibos()->where('estado', '!=', EstadoReciboNomina::Borrador->value)->exists(),
             // «Descargar todos para imprimir»: solo en un lote ya emitido.
             'impresion' => $lote->estado === EstadoLoteNomina::Emitido ? $this->lotes->estadoImpresion($lote, $usuario) : null,
         ]);
@@ -202,6 +219,28 @@ class LoteNominaController extends Controller
         $this->lotes->cancelar($lote, $datos['motivo'], $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Lote cancelado. El periodo se puede volver a preparar.']);
+    }
+
+    /**
+     * Vuelve a calcular los recibos BORRADOR de un lote preparado con la
+     * información laboral vigente (CLAUDE.md §44-50) — ej. un lote creado
+     * antes de importar salarios. Bloqueado por el servicio si ya hay algún
+     * recibo emitido/cancelado.
+     */
+    public function recalcular(Request $request, NominaLote $lote): RedirectResponse
+    {
+        abort_unless($request->user()->can('nomina.recibos.crear'), 403);
+
+        try {
+            $lote = $this->lotes->recalcular($lote, $request->user());
+        } catch (ValidationException $e) {
+            return back()->with('toast', ['type' => 'warning', 'message' => collect($e->errors())->flatten()->first()]);
+        }
+
+        return redirect()->route('rh.nomina.lotes.show', $lote)->with('toast', [
+            'type' => ($lote->errores ?? []) === [] ? 'success' : 'warning',
+            'message' => sprintf('Lote recalculado con los datos laborales vigentes: %d de %d recibos listos.', $lote->preparados, $lote->esperados),
+        ]);
     }
 
     /**

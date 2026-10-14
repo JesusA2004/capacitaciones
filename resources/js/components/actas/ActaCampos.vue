@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { Plus, Trash2 } from '@lucide/vue';
+import { computed } from 'vue';
+import DatePicker from '@/components/Common/DatePicker.vue';
+import TimePicker from '@/components/Common/TimePicker.vue';
+import BuscadorColaborador from '@/components/documentos/BuscadorColaborador.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import type { FormularioActa } from '@/types';
+import type { ColaboradorBusqueda, FormularioActa } from '@/types';
 
 /**
  * Lo que se captura al levantar un acta (PRO-ADP-08) y va al formato
@@ -21,19 +25,87 @@ const props = defineProps<{
     errores: Partial<Record<string, string>>;
     /** El motivo solo es obligatorio en el acta administrativa. */
     pideMotivo: boolean;
+    /** Colaborador sujeto del acta: ningún testigo puede ser esta persona. */
+    sujetoId?: number | null;
 }>();
 
 function error(campo: string): string | undefined {
     return props.errores[campo];
 }
 
-function agregarTestigo() {
-    form.value.testigos.push({ nombre: '', puesto: '' });
+/** Snapshot guardado → forma que entiende BuscadorColaborador (solo para mostrar el chip elegido). */
+function testigoModelo(i: number): ColaboradorBusqueda | null {
+    const t = form.value.testigos[i];
+
+    return t?.colaborador_id
+        ? { id: t.colaborador_id, nombre: t.nombre, numero_empleado: null, puesto: t.puesto || null, sucursal: null }
+        : null;
+}
+
+function elegirTestigo(i: number, c: ColaboradorBusqueda | null) {
+    form.value.testigos[i] = c
+        ? { colaborador_id: c.id, nombre: c.nombre, puesto: c.puesto ?? '' }
+        : { colaborador_id: null, nombre: '', puesto: '' };
+}
+
+function errorTestigo(i: number): string | null {
+    const t = form.value.testigos[i];
+
+    if (!t?.colaborador_id) {
+        return null;
+    }
+
+    if (props.sujetoId && t.colaborador_id === props.sujetoId) {
+        return 'No puede ser el colaborador del acta.';
+    }
+
+    const otro = form.value.testigos[i === 0 ? 1 : 0];
+
+    if (otro?.colaborador_id === t.colaborador_id) {
+        return 'Ya es el otro testigo.';
+    }
+
+    return null;
 }
 
 function agregarManifestacion() {
     form.value.declaraciones.push({ persona: '', declaracion: '' });
 }
+
+/** «No quiso manifestar nada»: redacción jurídica fija, nunca texto libre del operador. */
+const FRASE_NO_MANIFESTO = 'No quiso manifestar nada.';
+
+type ModoManifestacion = 'sin_elegir' | 'capturar' | 'no_manifesto';
+
+function modoDeclaracion(i: number): ModoManifestacion {
+    const texto = form.value.declaraciones[i]?.declaracion ?? '';
+
+    if (texto === FRASE_NO_MANIFESTO) {
+return 'no_manifesto';
+}
+
+    if (texto.trim() !== '') {
+return 'capturar';
+}
+
+    return 'sin_elegir';
+}
+
+function elegirModo(i: number, modo: 'capturar' | 'no_manifesto') {
+    const actual = form.value.declaraciones[i];
+
+    if (!actual) {
+return;
+}
+
+    if (modo === 'no_manifesto') {
+        actual.declaracion = FRASE_NO_MANIFESTO;
+    } else if (actual.declaracion === FRASE_NO_MANIFESTO) {
+        actual.declaracion = '';
+    }
+}
+
+const hoy = computed(() => new Date());
 </script>
 
 <template>
@@ -55,12 +127,12 @@ function agregarManifestacion() {
         <div class="grid gap-3 sm:grid-cols-3">
             <div class="flex flex-col gap-1.5">
                 <Label for="acta-fecha">Fecha</Label>
-                <Input id="acta-fecha" v-model="form.fecha" type="date" />
+                <DatePicker id="acta-fecha" v-model="form.fecha" :max-value="hoy.toISOString().slice(0, 10)" />
                 <InputError :message="error('fecha')" />
             </div>
             <div class="flex flex-col gap-1.5">
                 <Label for="acta-hora">Hora</Label>
-                <Input id="acta-hora" v-model="form.hora" type="time" />
+                <TimePicker id="acta-hora" v-model="form.hora" />
                 <InputError :message="error('hora')" />
             </div>
             <div class="flex flex-col gap-1.5">
@@ -68,7 +140,7 @@ function agregarManifestacion() {
                 <Input
                     id="acta-lugar"
                     v-model="form.lugar"
-                    placeholder="La de su sucursal"
+                    placeholder="Ciudad donde se levanta el acta"
                 />
                 <InputError :message="error('lugar')" />
             </div>
@@ -85,57 +157,40 @@ function agregarManifestacion() {
             <InputError :message="error('hechos')" />
         </div>
 
-        <fieldset class="flex flex-col gap-2">
+        <fieldset class="flex flex-col gap-3">
             <legend class="mb-1 text-sm font-medium">Testigos</legend>
             <p class="text-xs text-muted-foreground">
-                El formato lleva dos testigos que firman.
+                El formato oficial lleva exactamente dos testigos que firman:
+                colaboradores activos, distintos entre sí y distintos del
+                colaborador del acta.
             </p>
             <div
                 v-for="(t, i) in form.testigos"
                 :key="i"
-                class="grid items-start gap-2 sm:grid-cols-[1fr_1fr_auto]"
+                class="flex flex-col gap-1.5"
             >
-                <div class="flex flex-col gap-1">
-                    <Input
-                        v-model="t.nombre"
-                        :aria-label="`Testigo ${i + 1}: nombre`"
-                        :placeholder="`Testigo ${i + 1}: nombre completo`"
-                    />
-                    <InputError :message="error(`testigos.${i}.nombre`)" />
-                </div>
-                <Input
-                    v-model="t.puesto"
-                    :aria-label="`Testigo ${i + 1}: cargo`"
-                    placeholder="Cargo"
+                <Label>Testigo {{ i + 1 }}</Label>
+                <BuscadorColaborador
+                    :model-value="testigoModelo(i)"
+                    @update:model-value="(c) => elegirTestigo(i, c)"
                 />
-                <Button
-                    v-if="form.testigos.length > 2"
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    :aria-label="`Quitar testigo ${i + 1}`"
-                    @click="form.testigos.splice(i, 1)"
+                <p
+                    v-if="t.colaborador_id && !errorTestigo(i)"
+                    class="text-xs text-muted-foreground"
                 >
-                    <Trash2 class="size-4" />
-                </Button>
+                    Cargo: {{ t.puesto || 'Sin puesto asignado' }}
+                </p>
+                <p v-if="errorTestigo(i)" class="text-xs text-destructive">
+                    {{ errorTestigo(i) }}
+                </p>
+                <InputError :message="error(`testigos.${i}.colaborador_id`)" />
             </div>
-            <Button
-                v-if="form.testigos.length < 5"
-                type="button"
-                variant="ghost"
-                size="sm"
-                class="self-start"
-                @click="agregarTestigo"
-            >
-                <Plus class="size-4" /> Agregar testigo
-            </Button>
         </fieldset>
 
         <fieldset class="flex flex-col gap-2">
             <legend class="mb-1 text-sm font-medium">Manifestaciones</legend>
             <p class="text-xs text-muted-foreground">
-                Lo que dice cada persona (empezando por el colaborador). Si no
-                quiso manifestar nada, escríbelo así.
+                Lo que dice cada persona (empezando por el colaborador).
             </p>
             <div
                 v-for="(d, i) in form.declaraciones"
@@ -159,12 +214,40 @@ function agregarManifestacion() {
                         <Trash2 class="size-4" />
                     </Button>
                 </div>
+
+                <div class="flex flex-wrap gap-2">
+                    <Button
+                        type="button"
+                        size="sm"
+                        :variant="modoDeclaracion(i) === 'capturar' ? 'default' : 'outline'"
+                        @click="elegirModo(i, 'capturar')"
+                    >
+                        Capturar manifestación
+                    </Button>
+                    <Button
+                        type="button"
+                        size="sm"
+                        :variant="modoDeclaracion(i) === 'no_manifesto' ? 'default' : 'outline'"
+                        @click="elegirModo(i, 'no_manifesto')"
+                    >
+                        No quiso manifestar nada
+                    </Button>
+                </div>
+
                 <Textarea
+                    v-if="modoDeclaracion(i) === 'capturar'"
                     v-model="d.declaracion"
                     :aria-label="`Manifestación ${i + 1}: qué dijo`"
                     rows="3"
                     placeholder="Qué manifestó"
                 />
+                <p
+                    v-else-if="modoDeclaracion(i) === 'no_manifesto'"
+                    class="text-xs text-muted-foreground"
+                >
+                    Se registrará: «{{ FRASE_NO_MANIFESTO }}»
+                </p>
+
                 <InputError
                     :message="
                         error(`declaraciones.${i}.persona`) ??

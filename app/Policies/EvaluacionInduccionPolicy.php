@@ -4,16 +4,20 @@ namespace App\Policies;
 
 use App\Models\EvaluacionInduccion;
 use App\Models\User;
+use App\Policies\Concerns\ConSuperAdminOperativo;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Onboarding\OnboardingService;
 
 /**
  * El colaborador titular presenta su propia evaluación de inducción; RH con
  * permiso onboarding.gestionar (y alcance sobre el colaborador) la califica
- * y retroalimenta. Nadie califica ni retroalimenta la suya propia.
+ * y retroalimenta. Nadie califica ni retroalimenta la suya propia — salvo
+ * super_admin, ver ConSuperAdminOperativo.
  */
 class EvaluacionInduccionPolicy
 {
+    use ConSuperAdminOperativo;
+
     public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}
 
     public function ver(User $usuario, EvaluacionInduccion $evaluacion): bool

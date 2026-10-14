@@ -5,6 +5,7 @@ namespace App\Policies;
 use App\Enums\EstadoReciboNomina;
 use App\Models\ReciboNomina;
 use App\Models\User;
+use App\Policies\Concerns\ConSuperAdminOperativo;
 use App\Services\AlcanceOrganizacionalService;
 
 /**
@@ -13,6 +14,8 @@ use App\Services\AlcanceOrganizacionalService;
  */
 class ReciboNominaPolicy
 {
+    use ConSuperAdminOperativo;
+
     public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}
 
     public function ver(User $usuario, ReciboNomina $recibo): bool

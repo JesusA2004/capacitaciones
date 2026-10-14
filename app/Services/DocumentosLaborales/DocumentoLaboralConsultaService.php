@@ -92,6 +92,13 @@ class DocumentoLaboralConsultaService
             ->when(! config('features.recibos_colaborador'), fn (Builder $q) => $q->where(fn (Builder $s) => $s
                 ->whereNull('categoria')
                 ->orWhere('categoria', '!=', CategoriaDocumento::NominaInterna->value)))
+            // Renuncia/finiquito (baja): nunca autoservicio, siempre — se
+            // entrega impreso/en persona por RH. El colaborador se informa
+            // de su situación laboral en la app, pero nunca ve este
+            // documento legal ahí (pedido explícito del negocio).
+            ->where(fn (Builder $s) => $s
+                ->whereNull('categoria')
+                ->orWhere('categoria', '!=', CategoriaDocumento::BajaFiniquito->value))
             ->orderByDesc('id')
             ->paginate(Paginacion::porPagina(20));
     }

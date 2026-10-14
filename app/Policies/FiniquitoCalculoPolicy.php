@@ -6,6 +6,7 @@ use App\Enums\EstadoFiniquito;
 use App\Models\FiniquitoCalculo;
 use App\Models\SolicitudInterna;
 use App\Models\User;
+use App\Policies\Concerns\ConSuperAdminOperativo;
 use App\Services\AlcanceOrganizacionalService;
 
 /**
@@ -16,6 +17,8 @@ use App\Services\AlcanceOrganizacionalService;
  */
 class FiniquitoCalculoPolicy
 {
+    use ConSuperAdminOperativo;
+
     public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}
 
     /**

@@ -5,6 +5,7 @@ namespace App\Policies;
 use App\Enums\EstadoCandidato;
 use App\Models\Candidato;
 use App\Models\User;
+use App\Policies\Concerns\ConSuperAdminOperativo;
 use App\Services\AlcanceOrganizacionalService;
 
 /**
@@ -15,6 +16,8 @@ use App\Services\AlcanceOrganizacionalService;
  */
 class CandidatoPolicy
 {
+    use ConSuperAdminOperativo;
+
     public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}
 
     public function viewAny(User $usuario): bool

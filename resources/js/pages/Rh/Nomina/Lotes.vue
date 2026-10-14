@@ -53,6 +53,7 @@ const props = defineProps<{
     periodos: { semanal: PeriodoSugerido; quincenal: PeriodoSugerido };
     puedeCrear: boolean;
     puedeImportar: boolean;
+    sucursalesSemanal: { id: number; nombre: string }[];
 }>();
 
 defineOptions({
@@ -117,16 +118,25 @@ const form = useForm<{
     fecha: string;
     origen: 'sueldos' | 'importacion';
     archivo: File | null;
+    sucursal_ids: number[];
 }>({
     periodicidad: 'semanal',
     fecha: props.periodos.semanal.inicio,
     origen: 'sueldos',
     archivo: null,
+    sucursal_ids: [],
 });
 
 function elegirPeriodicidad(valor: 'semanal' | 'quincenal') {
     form.periodicidad = valor;
     form.fecha = props.periodos[valor].inicio;
+    form.sucursal_ids = [];
+}
+
+function alternarSucursal(id: number) {
+    form.sucursal_ids = form.sucursal_ids.includes(id)
+        ? form.sucursal_ids.filter((s) => s !== id)
+        : [...form.sucursal_ids, id];
 }
 
 const periodoElegido = computed(() => {
@@ -363,12 +373,12 @@ function crear() {
                 @submit.prevent="crear"
             >
                 <div class="grid gap-2">
-                    <Label>Periodicidad</Label>
+                    <Label>Grupo de pago</Label>
                     <div class="grid grid-cols-2 gap-2">
                         <button
                             v-for="opcion in [
-                                { v: 'semanal', t: 'Semanal', d: 'Lunes a domingo' },
-                                { v: 'quincenal', t: 'Quincenal', d: '1–15 y 16–fin de mes' },
+                                { v: 'semanal', t: 'Sucursales · Semanal', d: 'Lunes a domingo' },
+                                { v: 'quincenal', t: 'Corporativo · Quincenal', d: '1–15 y 16–fin de mes' },
                             ] as const"
                             :key="opcion.v"
                             type="button"
@@ -386,6 +396,33 @@ function crear() {
                             </p>
                         </button>
                     </div>
+                    <p class="text-xs text-muted-foreground">
+                        El grupo lo decide la ubicación organizacional de cada
+                        colaborador (sucursal vs. corporativo): nunca se
+                        mezclan en el mismo lote.
+                    </p>
+                </div>
+
+                <div v-if="form.periodicidad === 'semanal'" class="grid gap-2">
+                    <Label>Sucursales (opcional)</Label>
+                    <div class="grid max-h-40 gap-1 overflow-y-auto rounded-xl border border-border/60 p-2">
+                        <label
+                            v-for="sucursal in sucursalesSemanal"
+                            :key="sucursal.id"
+                            class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted/60"
+                        >
+                            <input
+                                type="checkbox"
+                                :checked="form.sucursal_ids.includes(sucursal.id)"
+                                @change="alternarSucursal(sucursal.id)"
+                            />
+                            {{ sucursal.nombre }}
+                        </label>
+                    </div>
+                    <p class="text-xs text-muted-foreground">
+                        Deja todas sin marcar para incluir todas las
+                        sucursales (nunca corporativo).
+                    </p>
                 </div>
 
                 <div class="grid gap-2">

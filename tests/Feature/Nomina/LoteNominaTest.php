@@ -75,11 +75,11 @@ test('preparar NO publica: borradores invisibles, sin push ni notificación, con
     $lote = $this->lotes->preparar(PeriodicidadNomina::Semanal, CarbonImmutable::parse('2026-10-08'), $this->rh);
 
     expect($lote->estado)->toBe(EstadoLoteNomina::Preparado)
-        // El colaborador de RH (sin sueldo en esta prueba) también es activo.
+        // El colaborador de RH (sin sucursal en esta prueba) también es activo.
         ->and($lote->esperados)->toBe(3)
         ->and($lote->preparados)->toBe(1)
         ->and($lote->errores)->toHaveCount(2)
-        ->and($lote->errores[0]['motivo'])->toContain('sueldo')
+        ->and(collect($lote->errores)->pluck('motivo')->implode(' '))->toContain('clasificación')->toContain('sueldo')
         // 9000 / 30 × 7 días.
         ->and($lote->total_neto)->toBe('2100.00');
 

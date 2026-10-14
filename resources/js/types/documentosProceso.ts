@@ -364,6 +364,8 @@ export type ColaboradorBusqueda = {
     numero_empleado: string | null;
     puesto: string | null;
     sucursal: string | null;
+    /** Ciudad de su sucursal — usada para precargar el lugar de un acta. */
+    ciudad?: string | null;
 };
 
 // ───────── Cobertura documental por puesto ─────────

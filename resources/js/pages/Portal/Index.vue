@@ -319,7 +319,7 @@ const enlace =
                 <Progress
                     :model-value="
                         vacaciones.dias_generados > 0
-                            ? (vacaciones.dias_usados /
+                            ? (vacaciones.dias_usados_total /
                                   vacaciones.dias_generados) *
                               100
                             : 0
@@ -327,7 +327,7 @@ const enlace =
                     class="h-2"
                 />
 
-                <div class="grid grid-cols-3 gap-3 text-center">
+                <div class="grid grid-cols-4 gap-3 text-center">
                     <div
                         class="rounded-xl p-2 transition-colors hover:bg-[var(--mrl-fondo)]"
                     >
@@ -335,17 +335,33 @@ const enlace =
                             {{ vacaciones.dias_generados }}
                         </p>
                         <p class="text-xs text-[var(--mrl-texto-suave)]">
-                            Generados
+                            Corresponden
                         </p>
                     </div>
                     <div
                         class="rounded-xl p-2 transition-colors hover:bg-[var(--mrl-fondo)]"
                     >
                         <p class="text-2xl font-bold tabular-nums">
-                            {{ vacaciones.dias_usados }}
+                            {{ vacaciones.dias_usados_total }}
                         </p>
                         <p class="text-xs text-[var(--mrl-texto-suave)]">
                             Usados
+                        </p>
+                        <p
+                            v-if="vacaciones.dias_usados_historicos > 0"
+                            class="text-[10px] text-[var(--mrl-texto-suave)]"
+                        >
+                            {{ vacaciones.dias_usados_people }} en PEOPLE + {{ vacaciones.dias_usados_historicos }} históricos
+                        </p>
+                    </div>
+                    <div
+                        class="rounded-xl p-2 transition-colors hover:bg-[var(--mrl-fondo)]"
+                    >
+                        <p class="text-2xl font-bold tabular-nums">
+                            {{ vacaciones.dias_en_solicitud }}
+                        </p>
+                        <p class="text-xs text-[var(--mrl-texto-suave)]">
+                            En solicitud
                         </p>
                     </div>
                     <div

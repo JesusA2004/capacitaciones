@@ -34,7 +34,7 @@ function enviar() {
         return;
     }
 
-    form.post(RolController.clonar.url(props.rol.id), {
+    form.post(RolController.clonar.url(String(props.rol.id)), {
         preserveScroll: true,
         onSuccess: () => {
             emit('update:open', false);

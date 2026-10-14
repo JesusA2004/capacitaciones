@@ -21,10 +21,19 @@ beforeEach(function () {
     Storage::fake('nas');
     Notification::fake();
     $this->rh = clUsuario('rh_admin');
-    // El usuario RH también es colaborador: sin sueldo para que la
-    // quincena solo cuente a las personas de esta prueba.
-    $this->rh->colaborador?->update(['sueldo_mensual' => null]);
     $estructura = clEstructura();
+    // El comando automático nomina:procesar-quincenas ahora prepara el lote
+    // QUINCENAL vía LoteNominaService, que solo incluye sucursales
+    // corporativas (CLAUDE.md §51-59) — estas personas pagan quincenal, así
+    // que su sucursal de prueba es la corporativa.
+    $estructura['sucursal']->update(['es_corporativo' => true]);
+    // El usuario RH también es colaborador: sin sueldo (para que la
+    // quincena solo cuente a las personas de esta prueba) pero CON sucursal
+    // — sin ella generaría su propio error de "sin clasificación" en TODOS
+    // los grupos de pago, incluido el semanal, impidiendo que ese lote
+    // quede vacío y se descarte. Nunca inactivo: eso bloquea el acceso de
+    // $this->rh en las pruebas que actúan como él por HTTP.
+    $this->rh->colaborador?->update(['sueldo_mensual' => null, 'sucursal_principal_id' => $estructura['sucursal']->id]);
     $this->conSueldo = Colaborador::factory()->create(['sucursal_principal_id' => $estructura['sucursal']->id, 'estatus' => EstadoUsuario::Activo, 'sueldo_mensual' => 12000, 'fecha_ingreso' => '2025-01-01']);
     $this->nuevo = Colaborador::factory()->create(['sucursal_principal_id' => $estructura['sucursal']->id, 'estatus' => EstadoUsuario::Activo, 'sueldo_mensual' => 9000, 'fecha_ingreso' => '2026-10-11']);
     $this->sinSueldo = Colaborador::factory()->create(['sucursal_principal_id' => $estructura['sucursal']->id, 'estatus' => EstadoUsuario::Activo, 'sueldo_mensual' => null]);

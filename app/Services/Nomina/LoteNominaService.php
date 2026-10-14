@@ -103,24 +103,113 @@ class LoteNominaService
     /**
      * Prepara el lote a partir del sueldo capturado de cada colaborador
      * activo dentro del alcance de quien lo crea.
+     *
+     * Grupo de pago (CLAUDE.md §51-59): sucursal.es_corporativo decide la
+     * periodicidad, nunca el usuario a mano — sucursales = semanal,
+     * corporativo = quincenal, nunca mezclados. Un colaborador cuyo grupo no
+     * coincide con $periodicidad simplemente no entra a ESTE lote (le toca
+     * el suyo); uno sin sucursal asignada no se adivina: queda como error
+     * explícito. $sucursalIds (solo aplica a semanal) permite acotar a
+     * sucursales específicas en vez de "todas".
+     *
+     * @param  list<int>|null  $sucursalIds
      */
-    public function preparar(PeriodicidadNomina $periodicidad, CarbonInterface $fecha, User $actor): NominaLote
+    public function preparar(PeriodicidadNomina $periodicidad, CarbonInterface $fecha, User $actor, ?array $sucursalIds = null): NominaLote
     {
         $periodo = $this->periodo($periodicidad, $fecha);
         $lote = $this->crearLote($periodicidad, $periodo, NominaLote::ORIGEN_SUELDOS, null, $actor);
-        $errores = [];
-        $advertencias = [];
 
         $colaboradores = Colaborador::query()
-            ->with(['puesto:id,nombre', 'sucursalPrincipal:id,nombre'])
+            ->with(['puesto:id,nombre', 'sucursalPrincipal:id,nombre,es_corporativo'])
             ->where('estatus', EstadoUsuario::Activo->value)
             ->where(fn (Builder $q) => $q->whereNull('fecha_ingreso')->orWhereDate('fecha_ingreso', '<=', $periodo['fin']->toDateString()))
             ->when(! $this->alcance->tieneAlcanceGlobal($actor), fn (Builder $q) => $this->alcance->limitarColaboradoresPorAlcance($q, $actor))
             ->orderBy('id')
             ->get();
 
+        [$errores, $advertencias, $esperados] = $this->generarRecibosDelLote($lote, $colaboradores, $periodo, $periodicidad, $actor, $sucursalIds);
+
+        return $this->cerrarPreparacion($lote, $esperados, $errores, $advertencias, $actor);
+    }
+
+    /**
+     * Recalcula ÚNICAMENTE los recibos en BORRADOR de un lote (CLAUDE.md
+     * §44-50): el lote dejó de reflejar la realidad (p. ej. se preparó antes
+     * de importar salarios) y RH necesita volver a calcular con los datos
+     * laborales vigentes, sin borrar manualmente ni recrear el lote desde
+     * cero. Bloqueado en cuanto exista CUALQUIER recibo emitido/cancelado —
+     * un PDF emitido es inmutable, nunca se recalcula "alrededor" de él.
+     *
+     * Reconstruye el conjunto original de colaboradores (los que ya tienen
+     * un recibo borrador MÁS los que figuran en los errores por
+     * numero_empleado, p. ej. "sin sueldo" antes de importar salarios) para
+     * que una corrección de datos laborales pueda sacarlos del error sin
+     * perder de vista a nadie del lote original.
+     */
+    public function recalcular(NominaLote $lote, User $actor): NominaLote
+    {
+        return DB::transaction(function () use ($lote, $actor): NominaLote {
+            $fila = NominaLote::query()->whereKey($lote->id)->lockForUpdate()->first();
+
+            if ($fila === null || $fila->estado !== EstadoLoteNomina::Preparado) {
+                throw ValidationException::withMessages(['lote' => 'Solo un lote preparado (todavía no emitido) se puede recalcular.']);
+            }
+
+            $recibosActuales = $fila->recibos()->get();
+
+            if ($recibosActuales->contains(fn (ReciboNomina $r) => $r->estado !== EstadoReciboNomina::Borrador)) {
+                throw ValidationException::withMessages(['lote' => 'Este lote ya tiene recibos emitidos o cancelados: no se puede recalcular.']);
+            }
+
+            $idsConRecibo = $recibosActuales->pluck('colaborador_id')->all();
+            $numerosConError = collect($fila->errores ?? [])->pluck('numero_empleado')->filter()->unique()->all();
+
+            $colaboradores = Colaborador::query()
+                ->with(['puesto:id,nombre', 'sucursalPrincipal:id,nombre,es_corporativo'])
+                ->where(fn (Builder $q) => $q->whereIn('id', $idsConRecibo)->orWhereIn('numero_empleado', $numerosConError))
+                ->orderBy('id')
+                ->get();
+
+            // Limpio: se vuelve a generar todo desde cero con los datos vigentes.
+            $recibosActuales->each(fn (ReciboNomina $r) => $r->delete());
+
+            $periodo = ['inicio' => CarbonImmutable::parse($fila->periodo_inicio), 'fin' => CarbonImmutable::parse($fila->periodo_fin), 'pago' => CarbonImmutable::parse($fila->fecha_pago)];
+            [$errores, $advertencias, $esperados] = $this->generarRecibosDelLote($fila, $colaboradores, $periodo, $fila->periodicidad, $actor, null);
+
+            $loteActualizado = $this->cerrarPreparacion($fila, $esperados, $errores, $advertencias, $actor);
+
+            $this->auditoria->registrar('nomina_lote_recalculado', $loteActualizado, $actor, [
+                'folio' => $loteActualizado->folio,
+                'esperados' => $esperados,
+                'preparados' => $loteActualizado->preparados,
+                'errores' => count($errores),
+                'advertencias' => count($advertencias),
+            ]);
+
+            return $loteActualizado;
+        });
+    }
+
+    /**
+     * Genera (o reporta el motivo por el que NO se genera) un recibo
+     * borrador por cada colaborador del grupo de pago correspondiente a
+     * $periodicidad — núcleo compartido por preparar() y recalcular().
+     *
+     * @param  Collection<int, Colaborador>  $colaboradores
+     * @param  array{inicio: CarbonImmutable, fin: CarbonImmutable, pago: CarbonImmutable}  $periodo
+     * @param  list<int>|null  $sucursalIds
+     * @return array{0: list<array<string, mixed>>, 1: list<array<string, mixed>>, 2: int} [errores, advertencias, esperados]
+     */
+    private function generarRecibosDelLote(NominaLote $lote, Collection $colaboradores, array $periodo, PeriodicidadNomina $periodicidad, User $actor, ?array $sucursalIds): array
+    {
+        $errores = [];
+        $advertencias = [];
+        $esperados = 0;
+
         $conRecibo = ReciboNomina::query()
             ->where('estado', '!=', EstadoReciboNomina::Cancelado->value)
+            ->where('nomina_lote_id', '!=', $lote->id)
+            ->where('tipo_periodo', $periodicidad->value)
             ->whereDate('periodo_inicio', $periodo['inicio']->toDateString())
             ->whereDate('periodo_fin', $periodo['fin']->toDateString())
             ->pluck('colaborador_id')
@@ -128,6 +217,28 @@ class LoteNominaService
 
         foreach ($colaboradores as $colaborador) {
             $identidad = ['numero_empleado' => $colaborador->numero_empleado, 'colaborador' => $colaborador->nombreCompleto()];
+            $sucursal = $colaborador->sucursalPrincipal;
+
+            if ($sucursal === null) {
+                $errores[] = [...$identidad, 'motivo' => 'Sin clasificación de nómina. Asigna ubicación organizacional antes de incluirlo.'];
+                $esperados++;
+
+                continue;
+            }
+
+            // No pertenece a este grupo de pago (p. ej. preparando semanal y
+            // es colaborador corporativo): no es error, le toca su propio
+            // lote quincenal — nunca se mezclan los dos grupos.
+            $grupoEsperado = $sucursal->es_corporativo ? PeriodicidadNomina::Quincenal : PeriodicidadNomina::Semanal;
+            if ($grupoEsperado !== $periodicidad) {
+                continue;
+            }
+
+            if ($periodicidad === PeriodicidadNomina::Semanal && $sucursalIds !== null && ! in_array($sucursal->id, $sucursalIds, true)) {
+                continue;
+            }
+
+            $esperados++;
 
             if ($conRecibo->has($colaborador->id)) {
                 $errores[] = [...$identidad, 'motivo' => 'Ya tiene un recibo de este periodo (duplicado): no se volvió a preparar.'];
@@ -135,15 +246,18 @@ class LoteNominaService
                 continue;
             }
 
-            $mensual = (float) ($colaborador->sueldo_mensual ?? 0);
+            // Fuente canónica del salario: salario_diario (CompensacionService
+            // ::diarioDe), nunca sueldo_mensual directo — un colaborador con
+            // diario capturado pero sin mensual sincronizado NO debe marcarse
+            // como "sin sueldo".
+            $diario = $this->compensacion->diarioDe($colaborador);
 
-            if ($mensual <= 0) {
-                $errores[] = [...$identidad, 'motivo' => 'No tiene sueldo mensual capturado en Datos laborales.'];
+            if ($diario <= 0) {
+                $errores[] = [...$identidad, 'motivo' => 'No tiene salario diario ni sueldo mensual capturado en Datos laborales.'];
 
                 continue;
             }
 
-            $diario = $this->compensacion->diarioDesdeMensual($mensual);
             $dias = $periodicidad->diasBase();
             $avisos = [];
 
@@ -188,7 +302,7 @@ class LoteNominaService
             }
         }
 
-        return $this->cerrarPreparacion($lote, $colaboradores->count(), $errores, $advertencias, $actor);
+        return [$errores, $advertencias, $esperados];
     }
 
     /**

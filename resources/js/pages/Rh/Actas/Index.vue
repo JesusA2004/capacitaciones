@@ -83,22 +83,42 @@ const abierto = ref(false);
 const colaborador = ref<ColaboradorBusqueda | null>(null);
 const hoy = new Date();
 const hoyIso = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+const horaAhora = `${String(hoy.getHours()).padStart(2, '0')}:${String(hoy.getMinutes()).padStart(2, '0')}`;
 
 const form = useForm<FormularioActa & { tipo: string }>({
     tipo: 'administrativa',
     motivo: '',
     fecha: hoyIso,
-    hora: '',
+    hora: horaAhora,
     lugar: '',
     hechos: '',
     testigos: [
-        { nombre: '', puesto: '' },
-        { nombre: '', puesto: '' },
+        { colaborador_id: null, nombre: '', puesto: '' },
+        { colaborador_id: null, nombre: '', puesto: '' },
     ],
     declaraciones: [{ persona: '', declaracion: '' }],
 });
 
 const pideMotivo = computed(() => form.tipo === 'administrativa');
+
+// Dos testigos distintos entre sí y distintos del colaborador del acta.
+const testigosValidos = computed(() => {
+    const [a, b] = form.testigos;
+
+    if (!a?.colaborador_id || !b?.colaborador_id) {
+return false;
+}
+
+    if (a.colaborador_id === b.colaborador_id) {
+return false;
+}
+
+    if (colaborador.value && [a.colaborador_id, b.colaborador_id].includes(colaborador.value.id)) {
+return false;
+}
+
+    return true;
+});
 
 function abrir() {
     form.reset();
@@ -108,6 +128,7 @@ function abrir() {
 }
 
 // La primera manifestación es la del colaborador: se propone su nombre.
+// El lugar se precarga con la ciudad de su sucursal, editable.
 function elegirColaborador(c: ColaboradorBusqueda | null) {
     colaborador.value = c;
     const primera = form.declaraciones[0];
@@ -115,10 +136,14 @@ function elegirColaborador(c: ColaboradorBusqueda | null) {
     if (c && primera && primera.persona.trim() === '') {
         primera.persona = c.nombre;
     }
+
+    if (c?.ciudad && form.lugar.trim() === '') {
+        form.lugar = c.ciudad;
+    }
 }
 
 function levantar() {
-    if (!colaborador.value) {
+    if (!colaborador.value || !testigosValidos.value) {
         return;
     }
 
@@ -126,7 +151,6 @@ function levantar() {
         ...datos,
         lugar: datos.lugar || null,
         hora: datos.hora || null,
-        testigos: datos.testigos.filter((t) => t.nombre.trim() !== ''),
         declaraciones: datos.declaraciones.filter(
             (d) => d.persona.trim() !== '' || d.declaracion.trim() !== '',
         ),
@@ -267,6 +291,7 @@ function levantar() {
                     :model-value="form"
                     :errores="form.errors"
                     :pide-motivo="pideMotivo"
+                    :sujeto-id="colaborador?.id ?? null"
                 />
 
                 <DialogFooter>
@@ -278,7 +303,7 @@ function levantar() {
                     >
                     <Button
                         type="submit"
-                        :disabled="!colaborador || form.processing"
+                        :disabled="!colaborador || !testigosValidos || form.processing"
                     >
                         Levantar acta
                     </Button>

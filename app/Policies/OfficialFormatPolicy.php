@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\OfficialFormat;
 use App\Models\User;
+use App\Policies\Concerns\ConSuperAdminOperativo;
 
 /**
  * Plantillas oficiales (docs/FORMATOS_OFICIALES.md → "Permisos"). Cada
@@ -12,6 +13,8 @@ use App\Models\User;
  */
 class OfficialFormatPolicy
 {
+    use ConSuperAdminOperativo;
+
     public function viewAny(User $usuario): bool
     {
         return $usuario->can('formatos_oficiales.ver');

@@ -56,6 +56,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             // Fila sin match exacto: RH asigna a mano o crea al colaborador.
             Route::post('{importacion}/filas/{fila}/asignar', [ImportacionTrabajadoresController::class, 'asignarColaborador'])->name('filas.asignar');
             Route::post('{importacion}/filas/{fila}/crear-colaborador', [ImportacionTrabajadoresController::class, 'crearColaborador'])->name('filas.crear-colaborador');
+            // Auditoría de matches manuales (CLAUDE.md §67-71): confirmar la
+            // asociación queda disponible aunque la importación ya esté
+            // aplicada — nunca cambia datos, solo deja constancia de que RH
+            // la revisó.
+            Route::post('{importacion}/filas/{fila}/confirmar', [ImportacionTrabajadoresController::class, 'confirmarMatch'])->name('filas.confirmar');
             // Quitar un archivo analizado que ya no se aplicará (las aplicadas son historial).
             Route::delete('{importacion}', [ImportacionTrabajadoresController::class, 'destroy'])->name('destroy');
         });
@@ -96,6 +101,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::get('{lote}/recibos/{recibo}/conceptos', [LoteNominaController::class, 'conceptos'])->name('recibos.conceptos');
                 Route::post('{lote}/emitir', [LoteNominaController::class, 'emitir'])->name('emitir');
                 Route::post('{lote}/cancelar', [LoteNominaController::class, 'cancelar'])->name('cancelar');
+                Route::post('{lote}/recalcular', [LoteNominaController::class, 'recalcular'])->name('recalcular');
             });
 
             Route::get('/', [NominaController::class, 'index'])->name('index');

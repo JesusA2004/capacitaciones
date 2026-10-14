@@ -11,6 +11,7 @@ use App\Models\Departamento;
 use App\Models\ImportacionExcel;
 use App\Models\Puesto;
 use App\Models\Sucursal;
+use App\Models\User;
 use App\Services\ImportadorTrabajadores\ImportadorTrabajadoresService;
 use App\Support\Paginacion;
 use Illuminate\Http\RedirectResponse;
@@ -68,6 +69,27 @@ class ImportacionTrabajadoresController extends Controller
     {
         abort_unless($request->user()->can('colaboradores.importar_salarios_vacaciones'), 403);
 
+        $detalle = $importacion->detalle ?? [];
+        $idsActores = collect($detalle)->pluck('match_actor_id')->merge(collect($detalle)->pluck('confirmado_por'))->filter()->unique()->all();
+        $nombresActores = User::query()->whereIn('id', $idsActores)->get(['id', 'name', 'apellidos'])
+            ->mapWithKeys(fn (User $u) => [$u->id => trim("{$u->name} {$u->apellidos}")]);
+
+        $detalle = array_map(function (array $fila) use ($nombresActores, $importacion): array {
+            $fila['match_actor_nombre'] = isset($fila['match_actor_id']) ? ($nombresActores[$fila['match_actor_id']] ?? null) : null;
+            $fila['confirmado_por_nombre'] = isset($fila['confirmado_por']) ? ($nombresActores[$fila['confirmado_por']] ?? null) : null;
+
+            // Análisis de corrección segura (CLAUDE.md §70-71): solo donde
+            // aplica (match no exacto + ya aplicado + cambió el salario) —
+            // nunca revierte nada, solo informa si es seguro corregir.
+            if (($fila['aplicado'] ?? false) && ($fila['cambia_salario'] ?? false) && ($fila['match_tipo'] ?? 'exacto') !== 'exacto') {
+                $fila['analisis_correccion'] = $this->importador->analizarCorreccion($importacion, (int) $fila['fila']);
+            } else {
+                $fila['analisis_correccion'] = null;
+            }
+
+            return $fila;
+        }, $detalle);
+
         return Inertia::render('Rh/Importaciones/Show', [
             'importacion' => [
                 'id' => $importacion->id,
@@ -79,7 +101,7 @@ class ImportacionTrabajadoresController extends Controller
                 'filas_sin_cambios' => $importacion->filas_sin_cambios,
                 'filas_no_encontradas' => $importacion->filas_no_encontradas,
                 'filas_error' => $importacion->filas_error,
-                'detalle' => $importacion->detalle ?? [],
+                'detalle' => $detalle,
                 'aplicado_en' => $importacion->aplicado_en?->toDateTimeString(),
             ],
             // Solo para "Crear colaborador" en filas sin match (CLAUDE.md
@@ -131,5 +153,18 @@ class ImportacionTrabajadoresController extends Controller
         $colaborador = $this->importador->registrarColaboradorDesdeFila($importacion, $fila, $request->validated(), $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => "Se creó a {$colaborador->nombreCompleto()} y se actualizó la fila."]);
+    }
+
+    /**
+     * Auditoría de matches manuales (CLAUDE.md §67-69): RH confirma que la
+     * asociación (manual o creada) es correcta, incluso si la importación
+     * ya se aplicó — nunca cambia datos de la fila, solo deja constancia.
+     */
+    public function confirmarMatch(Request $request, ImportacionExcel $importacion, int $fila): RedirectResponse
+    {
+        abort_unless($request->user()->can('colaboradores.importar_salarios_vacaciones'), 403);
+        $this->importador->confirmarMatch($importacion, $fila, $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Asociación confirmada.']);
     }
 }

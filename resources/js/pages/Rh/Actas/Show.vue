@@ -77,12 +77,13 @@ const form = useForm<FormularioActa>({
 function abrirEdicion() {
     const a = props.acta;
     const testigos = a.testigos.map((t) => ({
+        colaborador_id: t.colaborador_id ?? null,
         nombre: t.nombre,
         puesto: t.puesto ?? '',
     }));
 
     while (testigos.length < 2) {
-        testigos.push({ nombre: '', puesto: '' });
+        testigos.push({ colaborador_id: null, nombre: '', puesto: '' });
     }
 
     form.defaults({
@@ -101,12 +102,30 @@ function abrirEdicion() {
     editando.value = true;
 }
 
+// Dos testigos distintos entre sí y distintos del colaborador del acta.
+const testigosValidos = computed(() => {
+    const [a, b] = form.testigos;
+
+    if (!a?.colaborador_id || !b?.colaborador_id) {
+return false;
+}
+
+    if (a.colaborador_id === b.colaborador_id) {
+return false;
+}
+
+    return ![a.colaborador_id, b.colaborador_id].includes(props.acta.colaborador.id);
+});
+
 function guardar() {
+    if (!testigosValidos.value) {
+        return;
+    }
+
     form.transform((datos) => ({
         ...datos,
         lugar: datos.lugar || null,
         hora: datos.hora || null,
-        testigos: datos.testigos.filter((t) => t.nombre.trim() !== ''),
         declaraciones: datos.declaraciones.filter(
             (d) => d.persona.trim() !== '' || d.declaracion.trim() !== '',
         ),
@@ -441,6 +460,7 @@ function cerrarActa() {
                     :model-value="form"
                     :errores="form.errors"
                     :pide-motivo="acta.tipo === 'administrativa'"
+                    :sujeto-id="acta.colaborador.id"
                 />
                 <DialogFooter>
                     <Button
@@ -449,7 +469,7 @@ function cerrarActa() {
                         @click="editando = false"
                         >Cancelar</Button
                     >
-                    <Button type="submit" :disabled="form.processing"
+                    <Button type="submit" :disabled="!testigosValidos || form.processing"
                         >Guardar</Button
                     >
                 </DialogFooter>

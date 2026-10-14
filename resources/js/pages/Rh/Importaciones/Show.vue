@@ -13,7 +13,7 @@ import {
     index as indexImportaciones,
     aplicar,
 } from '@/routes/rh/importaciones';
-import { asignar } from '@/routes/rh/importaciones/filas';
+import { asignar, confirmar } from '@/routes/rh/importaciones/filas';
 import type { ColaboradorBusqueda } from '@/types';
 
 type Sugerencia = { id: number; nombre: string; sucursal_id: number | null };
@@ -44,7 +44,17 @@ type FilaDetalle = {
     motivo: string | null;
     aplicado: boolean;
     match_tipo: 'exacto' | 'manual' | 'creado' | null;
+    match_actor_nombre: string | null;
+    match_en: string | null;
+    confirmado_por_nombre: string | null;
+    confirmado_en: string | null;
     sugerencias: Sugerencia[];
+    analisis_correccion: {
+        aplica: boolean;
+        bloqueado: boolean;
+        motivo: string | null;
+        salario_diario_actual: number | null;
+    } | null;
 };
 
 const props = defineProps<{
@@ -78,14 +88,33 @@ defineOptions({
     }),
 });
 
-const filtro = ref<'todas' | FilaDetalle['estado']>('todas');
+const filtro = ref<'todas' | 'manuales' | FilaDetalle['estado']>('todas');
 const puedeResolver = computed(() => props.importacion.estado !== 'aplicado');
 
-const filasFiltradas = computed(() =>
-    filtro.value === 'todas'
-        ? props.importacion.detalle
-        : props.importacion.detalle.filter((f) => f.estado === filtro.value),
+const filasFiltradas = computed(() => {
+    if (filtro.value === 'todas') {
+return props.importacion.detalle;
+}
+
+    if (filtro.value === 'manuales') {
+        return props.importacion.detalle.filter((f) => f.match_tipo === 'manual' || f.match_tipo === 'creado');
+    }
+
+    return props.importacion.detalle.filter((f) => f.estado === filtro.value);
+});
+
+const matchesManuales = computed(
+    () => props.importacion.detalle.filter((f) => f.match_tipo === 'manual' || f.match_tipo === 'creado').length,
 );
+
+// Confirmar asociación: auditoría de matches manuales/creados (CLAUDE.md
+// §67-69) — disponible aunque la importación ya esté aplicada, nunca
+// cambia datos de la fila.
+const confirmarForm = useForm({});
+
+function confirmarAsociacion(fila: number) {
+    confirmarForm.post(confirmar.url({ importacion: props.importacion.id, fila }), { preserveScroll: true });
+}
 
 const etiquetaEstado: Record<string, string> = {
     aplicable: 'Aplicable',
@@ -178,7 +207,7 @@ return;
             </Button>
         </CrudPageHeader>
 
-        <section class="grid gap-3 sm:grid-cols-5">
+        <section class="grid gap-3 sm:grid-cols-6">
             <button
                 v-for="(valor, clave) in {
                     todas: importacion.total_filas,
@@ -188,6 +217,7 @@ return;
                     revision: importacion.filas_revision,
                     sin_cambios: importacion.filas_sin_cambios,
                     no_encontrado: importacion.filas_no_encontradas,
+                    manuales: matchesManuales,
                 }"
                 :key="clave"
                 type="button"
@@ -204,7 +234,9 @@ return;
                     {{
                         clave === 'todas'
                             ? 'Total de filas'
-                            : etiquetaEstado[clave]
+                            : clave === 'manuales'
+                              ? 'Matches manuales'
+                              : etiquetaEstado[clave]
                     }}
                 </p>
             </button>
@@ -239,6 +271,30 @@ return;
                             {{ f.nombre_sistema ?? '—' }}
                             <Badge v-if="f.match_tipo === 'manual'" variant="outline" class="ml-1">Manual</Badge>
                             <Badge v-if="f.match_tipo === 'creado'" variant="outline" class="ml-1">Creado</Badge>
+                            <p
+                                v-if="f.match_tipo === 'manual' || f.match_tipo === 'creado'"
+                                class="mt-1 text-xs text-muted-foreground"
+                            >
+                                <template v-if="f.match_actor_nombre">
+                                    {{ f.match_tipo === 'creado' ? 'Creado' : 'Asignado' }} por
+                                    {{ f.match_actor_nombre }}{{ f.match_en ? ` · ${formatearFecha(f.match_en)}` : '' }}
+                                </template>
+                                <template v-if="f.confirmado_por_nombre">
+                                    <br />
+                                    <span class="text-success">Confirmado por {{ f.confirmado_por_nombre }}</span>
+                                </template>
+                            </p>
+                            <p
+                                v-if="f.analisis_correccion?.aplica"
+                                class="mt-1 text-xs"
+                                :class="f.analisis_correccion.bloqueado ? 'text-destructive' : 'text-muted-foreground'"
+                            >
+                                {{
+                                    f.analisis_correccion.bloqueado
+                                        ? f.analisis_correccion.motivo
+                                        : 'Sin cambios posteriores: una corrección aquí sería segura.'
+                                }}
+                            </p>
                         </td>
                         <td class="p-3">
                             {{ f.sucursal_sistema ?? (f.sucursal_excel || '—') }}
@@ -301,14 +357,25 @@ return;
                             {{ f.motivo ?? '—' }}
                         </td>
                         <td class="p-3">
-                            <Button
-                                v-if="puedeResolver && (f.estado === 'no_encontrado' || f.estado === 'revision')"
-                                size="sm"
-                                variant="outline"
-                                @click="alternarResolver(f.fila)"
-                            >
-                                {{ filaAbierta === f.fila ? 'Cerrar' : 'Resolver' }}
-                            </Button>
+                            <div class="flex flex-col items-start gap-1.5">
+                                <Button
+                                    v-if="puedeResolver && (f.estado === 'no_encontrado' || f.estado === 'revision')"
+                                    size="sm"
+                                    variant="outline"
+                                    @click="alternarResolver(f.fila)"
+                                >
+                                    {{ filaAbierta === f.fila ? 'Cerrar' : 'Resolver' }}
+                                </Button>
+                                <Button
+                                    v-if="(f.match_tipo === 'manual' || f.match_tipo === 'creado') && !f.confirmado_por_nombre"
+                                    size="sm"
+                                    variant="secondary"
+                                    :disabled="confirmarForm.processing"
+                                    @click="confirmarAsociacion(f.fila)"
+                                >
+                                    Confirmar asociación
+                                </Button>
+                            </div>
                         </td>
                     </tr>
                     <tr v-if="filaAbierta === f.fila" class="border-t border-[var(--mrl-borde)] bg-[var(--mrl-fondo)]">

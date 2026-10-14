@@ -28,15 +28,27 @@ beforeEach(function () {
     $this->estructura = clEstructura();
 });
 
+/**
+ * Los testigos ahora se eligen de un buscador (CLAUDE.md §76-79: nunca
+ * texto libre), así que el payload de prueba exige un colaborador_id real
+ * — se crean aquí mismo con el nombre que el resto de la prueba espera ver
+ * en el formato oficial.
+ */
 function aaDatos(array $extra = []): array
 {
+    $testigo1 = Colaborador::factory()->create(['name' => 'María', 'apellidos' => 'López Ruiz']);
+    $testigo2 = Colaborador::factory()->create(['name' => 'Juan', 'apellidos' => 'Pérez Gómez']);
+
     return [
         'tipo' => 'administrativa',
         'motivo' => 'Faltas injustificadas',
         'fecha' => now()->toDateString(),
         'hora' => '10:30',
         'hechos' => "PRIMERO. No se presentó a laborar el 6 de octubre.\nSEGUNDO. No avisó.",
-        'testigos' => [['nombre' => 'María López Ruiz', 'puesto' => 'Subgerente'], ['nombre' => 'Juan Pérez Gómez', 'puesto' => 'Gestor']],
+        'testigos' => [
+            ['colaborador_id' => $testigo1->id, 'nombre' => $testigo1->nombreCompleto(), 'puesto' => 'Subgerente'],
+            ['colaborador_id' => $testigo2->id, 'nombre' => $testigo2->nombreCompleto(), 'puesto' => 'Gestor'],
+        ],
         'declaraciones' => [['persona' => 'Adriana Cortés', 'declaracion' => 'Tuvo un problema familiar.']],
         ...$extra,
     ];
@@ -151,6 +163,41 @@ test('sin testigos el formato no se emite: pide los datos que faltan por su nomb
     expect(json_encode($respuesta->json(), JSON_UNESCAPED_UNICODE))->toContain('Testigo 1: nombre')
         ->and(GeneratedDocument::query()->count())->toBe(0)
         ->and($acta->refresh()->estado)->toBe(EstadoActa::Borrador);
+});
+
+test('los dos testigos deben ser colaboradores distintos entre si', function () {
+    $colaborador = Colaborador::factory()->create(['sucursal_principal_id' => $this->estructura['sucursal']->id]);
+    $testigo = Colaborador::factory()->create();
+
+    $this->actingAs($this->rh)->post(route('rh.actas.store', $colaborador), aaDatos([
+        'testigos' => [
+            ['colaborador_id' => $testigo->id, 'nombre' => $testigo->nombreCompleto(), 'puesto' => 'Gestor'],
+            ['colaborador_id' => $testigo->id, 'nombre' => $testigo->nombreCompleto(), 'puesto' => 'Gestor'],
+        ],
+    ]))->assertSessionHasErrors('testigos.0.colaborador_id');
+});
+
+test('un testigo no puede ser el colaborador del acta', function () {
+    $colaborador = Colaborador::factory()->create(['sucursal_principal_id' => $this->estructura['sucursal']->id]);
+    $otro = Colaborador::factory()->create();
+
+    $this->actingAs($this->rh)->post(route('rh.actas.store', $colaborador), aaDatos([
+        'testigos' => [
+            ['colaborador_id' => $colaborador->id, 'nombre' => $colaborador->nombreCompleto(), 'puesto' => 'Gestor'],
+            ['colaborador_id' => $otro->id, 'nombre' => $otro->nombreCompleto(), 'puesto' => 'Gestor'],
+        ],
+    ]))->assertSessionHasErrors('testigos.0.colaborador_id');
+});
+
+test('un testigo sin colaborador_id (texto libre) se rechaza', function () {
+    $colaborador = Colaborador::factory()->create(['sucursal_principal_id' => $this->estructura['sucursal']->id]);
+
+    $this->actingAs($this->rh)->post(route('rh.actas.store', $colaborador), aaDatos([
+        'testigos' => [
+            ['nombre' => 'Alguien sin elegir del buscador', 'puesto' => 'Gestor'],
+            ['colaborador_id' => Colaborador::factory()->create()->id, 'nombre' => 'Otro Testigo', 'puesto' => 'Gestor'],
+        ],
+    ]))->assertSessionHasErrors('testigos.0.colaborador_id');
 });
 
 test('acta cerrada: ya no se genera el formato; el colaborador implicado no la ve', function () {
