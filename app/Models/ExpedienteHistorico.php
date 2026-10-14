@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
 /**
@@ -69,5 +70,18 @@ class ExpedienteHistorico extends Model
     public function colaborador(): BelongsTo
     {
         return $this->belongsTo(Colaborador::class)->withTrashed();
+    }
+
+    /**
+     * Sugerencia de datos personales detectados en este PDF histórico (ver
+     * App\Services\Documentos\DocumentExtractionService) — igual idea que
+     * EmployeeDocument::extraccion(), pero esta FK es la usada cuando la
+     * extracción viene de un histórico en vez de un documento normal.
+     *
+     * @return HasOne<DocumentExtraction, $this>
+     */
+    public function extraccion(): HasOne
+    {
+        return $this->hasOne(DocumentExtraction::class, 'expediente_historico_id');
     }
 }

@@ -118,3 +118,41 @@ test('el grupo semanal se puede acotar a sucursales especificas sin tocar las de
     expect(ReciboNomina::query()->where('nomina_lote_id', $lote->id)->pluck('colaborador_id')->all())
         ->toBe([$enSucursal->id]);
 });
+
+test('recalcular conserva EXACTAMENTE el filtro de sucursales del lote original: no aparece una sucursal C agregada despues', function () {
+    $sucursalB = Sucursal::factory()->create(['empresa_id' => clEstructura()['empresa']->id, 'nombre' => 'Sucursal B']);
+    $sucursalC = Sucursal::factory()->create(['empresa_id' => clEstructura()['empresa']->id, 'nombre' => 'Sucursal C']);
+
+    $enA = Colaborador::factory()->create(['sucursal_principal_id' => $this->sucursal->id, 'estatus' => EstadoUsuario::Activo, 'sueldo_mensual' => 9000, 'fecha_ingreso' => '2025-01-01']);
+    $enB = Colaborador::factory()->create(['sucursal_principal_id' => $sucursalB->id, 'estatus' => EstadoUsuario::Activo, 'sueldo_mensual' => 9000, 'fecha_ingreso' => '2025-01-01']);
+    Colaborador::factory()->create(['sucursal_principal_id' => $sucursalC->id, 'estatus' => EstadoUsuario::Activo, 'sueldo_mensual' => 9000, 'fecha_ingreso' => '2025-01-01']);
+
+    $lote = $this->lotes->preparar(PeriodicidadNomina::Semanal, CarbonImmutable::parse('2026-10-08'), $this->rh, [$this->sucursal->id, $sucursalB->id]);
+    expect($lote->sucursal_ids)->toEqualCanonicalizing([$this->sucursal->id, $sucursalB->id]);
+
+    $lote = $this->lotes->recalcular($lote, $this->rh);
+
+    expect(ReciboNomina::query()->where('nomina_lote_id', $lote->id)->pluck('colaborador_id')->all())
+        ->toEqualCanonicalizing([$enA->id, $enB->id]);
+});
+
+test('recalcular resuelve los errores por colaborador_id, no por coincidencia de nombre', function () {
+    $colaborador = Colaborador::factory()->create(['sucursal_principal_id' => $this->sucursal->id, 'estatus' => EstadoUsuario::Activo, 'sueldo_mensual' => null, 'fecha_ingreso' => '2025-01-01']);
+
+    $lote = $this->lotes->preparar(PeriodicidadNomina::Semanal, CarbonImmutable::parse('2026-10-08'), $this->rh);
+    expect($lote->errores)
+        ->toHaveCount(1)
+        ->and($lote->errores[0]['colaborador_id'])->toBe($colaborador->id);
+
+    // Lote "antiguo" simulado: error sin colaborador_id, solo numero_empleado
+    // (como quedaban antes de este cambio) — debe seguir resolviendo por
+    // numero_empleado exacto y unico.
+    $lote->update(['errores' => [['colaborador_id' => null, 'numero_empleado' => $colaborador->numero_empleado, 'colaborador' => $colaborador->nombreCompleto(), 'motivo' => 'x']]]);
+
+    $colaborador->update(['salario_diario' => 300]);
+    $lote = $this->lotes->recalcular($lote->fresh(), $this->rh);
+
+    expect($lote->preparados)->toBe(1)
+        ->and(ReciboNomina::query()->where('nomina_lote_id', $lote->id)->pluck('colaborador_id')->all())
+        ->toBe([$colaborador->id]);
+});

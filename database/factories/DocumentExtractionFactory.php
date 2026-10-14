@@ -14,6 +14,32 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 class DocumentExtractionFactory extends Factory
 {
     /**
+     * colaborador_id es la fuente real de "de quién es esta sugerencia"
+     * (DocumentExtraction::colaboradorExpediente(), que usa aplicar()/
+     * ignorar()/pendientes()/conflictos()) — los tests existentes solo
+     * pasan employee_document_id/user_id, así que se retro-completa aquí
+     * igual que EmployeeDocumentFactory.
+     */
+    public function configure(): static
+    {
+        return $this->afterMaking(function (DocumentExtraction $extraccion): void {
+            if ($extraccion->colaborador_id !== null) {
+                return;
+            }
+
+            if ($extraccion->employee_document_id !== null) {
+                $extraccion->colaborador_id = EmployeeDocument::find($extraccion->employee_document_id)?->colaborador_id;
+
+                return;
+            }
+
+            if ($extraccion->user_id !== null) {
+                $extraccion->colaborador_id = User::find($extraccion->user_id)?->colaborador_id;
+            }
+        });
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function definition(): array

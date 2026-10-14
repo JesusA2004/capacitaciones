@@ -21,7 +21,21 @@ namespace App\Services\Documentos;
  */
 class RegexPersonalDataExtractor
 {
-    public const VERSION = 2;
+    public const VERSION = 3;
+
+    /**
+     * Etiquetas que pueden aparecer DESPUÉS de un campo de texto libre
+     * (beneficiario, domicilio, colonia...) en el mismo documento. Un campo
+     * de longitud variable (sin formato fijo) se captura de forma perezosa
+     * y se detiene en cuanto encuentra un salto de línea o cualquiera de
+     * estas etiquetas — nunca sigue de largo hasta "tragarse" la siguiente
+     * sección (bug real: BENEFICIARIO capturaba PARENTESCO y DOMICILIO
+     * completos cuando el texto no traía saltos de línea limpios).
+     */
+    private const ETIQUETA_SIGUIENTE =
+        'PARENTESCO|BENEFICIARIO|CONTACTO\s*DE\s*EMERGENCIA|DOMICILIO|COLONIA|MUNICIPIO|'
+        .'C\.?\s?P\.?|CORREO|TEL(?:[EÉ]FONO)?|NACIONALIDAD|ESTADO\s*CIVIL|CURP|RFC|NSS|'
+        .'CLAVE\s*DE\s*ELECTOR|LUGAR\s*DE\s*NACIMIENTO|PROFESI[OÓ]N|ESTADO(?!\s*CIVIL)';
 
     /**
      * @return array{data: array<string, string>, confidence: array<string, string>}
@@ -93,49 +107,52 @@ class RegexPersonalDataExtractor
             $confidence['estado_civil'] = 'media';
         }
 
-        if (($lugarNacimiento = $this->buscar('/\bLUGAR\s*DE\s*NACIMIENTO\s*:?\s*([A-ZÁÉÍÓÚÑ\s,.]{3,60})/', $texto, 1)) !== null) {
-            $data['lugar_nacimiento'] = trim($lugarNacimiento);
+        if (($lugarNacimiento = $this->buscarEtiqueta('LUGAR\s*DE\s*NACIMIENTO', $texto, 60)) !== null) {
+            $data['lugar_nacimiento'] = $lugarNacimiento;
             $confidence['lugar_nacimiento'] = 'media';
         }
 
-        if (($profesion = $this->buscar('/\bPROFESI[OÓ]N\s*:?\s*([A-ZÁÉÍÓÚÑ\s]{3,60})/', $texto, 1)) !== null) {
-            $data['profesion'] = trim($profesion);
+        if (($profesion = $this->buscarEtiqueta('PROFESI[OÓ]N', $texto, 60)) !== null) {
+            $data['profesion'] = $profesion;
             $confidence['profesion'] = 'baja';
         }
 
-        if (($domicilio = $this->buscar('/\bDOMICILIO\s*:?\s*([A-ZÁÉÍÓÚÑ0-9#\s,.\-]{5,120})/', $texto, 1)) !== null) {
-            $data['domicilio'] = trim($domicilio);
+        if (($domicilio = $this->buscarEtiqueta('DOMICILIO', $texto, 120)) !== null) {
+            $data['domicilio'] = $domicilio;
             $confidence['domicilio'] = 'baja';
         }
 
-        if (($colonia = $this->buscar('/\bCOLONIA\s*:?\s*([A-ZÁÉÍÓÚÑ0-9\s,.\-]{3,60})/', $texto, 1)) !== null) {
-            $data['colonia'] = trim($colonia);
+        if (($colonia = $this->buscarEtiqueta('COLONIA', $texto, 60)) !== null) {
+            $data['colonia'] = $colonia;
             $confidence['colonia'] = 'media';
         }
 
-        if (($municipio = $this->buscar('/\bMUNICIPIO\s*:?\s*([A-ZÁÉÍÓÚÑ\s]{3,60})/', $texto, 1)) !== null) {
-            $data['municipio'] = trim($municipio);
+        if (($municipio = $this->buscarEtiqueta('MUNICIPIO', $texto, 60)) !== null) {
+            $data['municipio'] = $municipio;
             $confidence['municipio'] = 'media';
         }
 
-        if (($estadoDomicilio = $this->buscar('/\bESTADO\s*:?\s*([A-ZÁÉÍÓÚÑ\s]{3,40})\s*(?:C\.?P\.?|MUNICIPIO|$)/', $texto, 1)) !== null) {
-            $data['estado_domicilio'] = trim($estadoDomicilio);
+        if (($estadoDomicilio = $this->buscarEtiqueta('ESTADO(?!\s*CIVIL)', $texto, 40)) !== null) {
+            $data['estado_domicilio'] = $estadoDomicilio;
             $confidence['estado_domicilio'] = 'baja';
         }
 
         // Beneficiario / contacto de emergencia: solo bajo su sección
-        // explícita del documento, nunca por cercanía de texto libre.
-        if (preg_match('/BENEFICIARIO\S*\s*:?\s*([A-ZÁÉÍÓÚÑ\s]{5,60})(?:PARENTESCO\s*:?\s*([A-ZÁÉÍÓÚÑ]{3,30}))?/s', $texto, $m) === 1) {
-            $data['beneficiario_nombre'] = trim($m[1]);
+        // explícita del documento, nunca por cercanía de texto libre. Se
+        // detienen en el siguiente salto de línea o etiqueta conocida —
+        // nunca se "tragan" PARENTESCO/DOMICILIO/etc. (ver ETIQUETA_SIGUIENTE).
+        if (($beneficiarioNombre = $this->buscarEtiqueta('BENEFICIARIO\S*', $texto, 60)) !== null) {
+            $data['beneficiario_nombre'] = $beneficiarioNombre;
             $confidence['beneficiario_nombre'] = 'baja';
-            if (! empty($m[2])) {
-                $data['beneficiario_parentesco'] = trim($m[2]);
+
+            if (preg_match('/BENEFICIARIO.{0,80}?PARENTESCO\S*\s*:?\s*([A-ZÁÉÍÓÚÑ]{3,30})(?=\s*(?:\r?\n|'.self::ETIQUETA_SIGUIENTE.'|$))/s', $texto, $mp) === 1) {
+                $data['beneficiario_parentesco'] = trim($mp[1]);
                 $confidence['beneficiario_parentesco'] = 'baja';
             }
         }
 
-        if (preg_match('/CONTACTO\s*DE\s*EMERGENCIA\s*:?\s*([A-ZÁÉÍÓÚÑ\s]{5,60})/s', $texto, $m) === 1) {
-            $data['contacto_emergencia_nombre'] = trim($m[1]);
+        if (($contactoNombre = $this->buscarEtiqueta('CONTACTO\s*DE\s*EMERGENCIA', $texto, 60)) !== null) {
+            $data['contacto_emergencia_nombre'] = $contactoNombre;
             $confidence['contacto_emergencia_nombre'] = 'baja';
 
             if (preg_match('/CONTACTO\s*DE\s*EMERGENCIA.{0,80}?TEL(?:[EÉ]FONO)?\s*:?\s*(\d{10})/s', $texto, $mt) === 1) {
@@ -143,8 +160,8 @@ class RegexPersonalDataExtractor
                 $confidence['contacto_emergencia_telefono'] = 'media';
             }
 
-            if (preg_match('/CONTACTO\s*DE\s*EMERGENCIA.{0,80}?PARENTESCO\s*:?\s*([A-ZÁÉÍÓÚÑ]{3,30})/s', $texto, $mp) === 1) {
-                $data['contacto_emergencia_parentesco'] = $mp[1];
+            if (preg_match('/CONTACTO\s*DE\s*EMERGENCIA.{0,80}?PARENTESCO\S*\s*:?\s*([A-ZÁÉÍÓÚÑ]{3,30})(?=\s*(?:\r?\n|'.self::ETIQUETA_SIGUIENTE.'|$))/s', $texto, $mp) === 1) {
+                $data['contacto_emergencia_parentesco'] = trim($mp[1]);
                 $confidence['contacto_emergencia_parentesco'] = 'baja';
             }
         }
@@ -155,5 +172,18 @@ class RegexPersonalDataExtractor
     private function buscar(string $patron, string $texto, int $grupo = 0): ?string
     {
         return preg_match($patron, $texto, $m) === 1 ? $m[$grupo] : null;
+    }
+
+    /**
+     * "ETIQUETA: valor de longitud variable" que se detiene en el primer
+     * salto de línea o etiqueta conocida siguiente — nunca sigue de largo
+     * hasta la siguiente sección del documento (encargo §15).
+     */
+    private function buscarEtiqueta(string $patronEtiqueta, string $texto, int $longitudMaxima): ?string
+    {
+        $patron = '/'.$patronEtiqueta.'\s*:?\s*([A-ZÁÉÍÓÚÑ0-9#.,\-\' ]{3,'.$longitudMaxima.'}?)'
+            .'(?=\s*(?:\r?\n|'.self::ETIQUETA_SIGUIENTE.'|$))/s';
+
+        return preg_match($patron, $texto, $m) === 1 ? trim($m[1]) : null;
     }
 }

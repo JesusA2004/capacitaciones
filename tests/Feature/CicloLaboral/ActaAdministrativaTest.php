@@ -6,6 +6,7 @@ use App\Models\ActaAdministrativa;
 use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
 use App\Models\GeneratedDocument;
+use App\Models\Puesto;
 use App\Models\User;
 use App\Services\DocumentosMaestros\CatalogoMaestrosService;
 use App\Services\DocumentosMaestros\ImportadorFormatosJuridicosService;
@@ -32,12 +33,14 @@ beforeEach(function () {
  * Los testigos ahora se eligen de un buscador (CLAUDE.md §76-79: nunca
  * texto libre), así que el payload de prueba exige un colaborador_id real
  * — se crean aquí mismo con el nombre que el resto de la prueba espera ver
- * en el formato oficial.
+ * en el formato oficial. El backend resuelve nombre/puesto del propio
+ * Colaborador (nunca del texto que mande el request, encargo §24-26): el
+ * puesto real se asigna aquí para que el formato lo encuentre lleno.
  */
 function aaDatos(array $extra = []): array
 {
-    $testigo1 = Colaborador::factory()->create(['name' => 'María', 'apellidos' => 'López Ruiz']);
-    $testigo2 = Colaborador::factory()->create(['name' => 'Juan', 'apellidos' => 'Pérez Gómez']);
+    $testigo1 = Colaborador::factory()->create(['name' => 'María', 'apellidos' => 'López Ruiz', 'puesto_id' => Puesto::factory()->create(['nombre' => 'Subgerente'])->id]);
+    $testigo2 = Colaborador::factory()->create(['name' => 'Juan', 'apellidos' => 'Pérez Gómez', 'puesto_id' => Puesto::factory()->create(['nombre' => 'Gestor'])->id]);
 
     return [
         'tipo' => 'administrativa',
@@ -136,7 +139,10 @@ test('el formato oficial se llena con los datos del colaborador y lo escrito en 
         ->and($documento->colaborador_id)->toBe($colaborador->id)
         ->and($documento->payload['motivo_acta_mayusculas'])->toBe('FALTAS INJUSTIFICADAS')
         ->and($documento->payload['hechos_acta'])->toContain('SEGUNDO. No avisó.')
-        ->and($documento->payload['manifestaciones_acta'])->toBe('Adriana Cortés: Tuvo un problema familiar.')
+        // El backend siempre pone el nombre real del sujeto del acta en la
+        // primera manifestación (encargo §28), nunca lo que mande el
+        // request — "Adriana Cortés" en aaDatos() se ignora.
+        ->and($documento->payload['manifestaciones_acta'])->toBe('Adriana Cortés Beltrán: Tuvo un problema familiar.')
         ->and($documento->payload['testigo_2_nombre'])->toBe('JUAN PÉREZ GÓMEZ')
         ->and($documento->payload['nombre_completo_mayusculas'])->toBe('ADRIANA CORTÉS BELTRÁN')
         ->and($documento->payload['tipo_contrato_acta'])->toBe('Contrato Individual de Trabajo por Tiempo Indeterminado')

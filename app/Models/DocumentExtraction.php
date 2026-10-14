@@ -11,14 +11,18 @@ use Illuminate\Support\Carbon;
 
 /**
  * Sugerencias de datos detectados automaticamente en un EmployeeDocument
- * (INE, CURP, RFC, NSS, comprobante de domicilio, acta de nacimiento). Nunca
+ * (INE, CURP, RFC, NSS, comprobante de domicilio, acta de nacimiento) o en un
+ * ExpedienteHistorico (PDF único de la migración inicial) — exactamente una
+ * de las dos FKs tiene valor, nunca ambas. Nunca
  * aprueba ni corrige datos del colaborador por si sola: es una propuesta que
  * RH revisa (aceptar/corregir/ignorar) — ver
  * App\Services\Documentos\DocumentExtractionService y docs/DOCUMENT_EXTRACTION.md.
  *
  * @property int $id
- * @property int $employee_document_id
- * @property int $user_id
+ * @property int|null $employee_document_id
+ * @property int|null $expediente_historico_id
+ * @property int|null $user_id
+ * @property int|null $colaborador_id
  * @property EstadoExtraccion $status
  * @property string|null $extracted_text
  * @property array<string, string>|null $extracted_data
@@ -38,6 +42,7 @@ class DocumentExtraction extends Model
 
     protected $fillable = [
         'employee_document_id',
+        'expediente_historico_id',
         'user_id',
         'colaborador_id',
         'status',
@@ -74,6 +79,14 @@ class DocumentExtraction extends Model
     }
 
     /**
+     * @return BelongsTo<ExpedienteHistorico, $this>
+     */
+    public function expedienteHistorico(): BelongsTo
+    {
+        return $this->belongsTo(ExpedienteHistorico::class, 'expediente_historico_id');
+    }
+
+    /**
      * @return BelongsTo<User, $this>
      */
     public function colaborador(): BelongsTo
@@ -82,10 +95,40 @@ class DocumentExtraction extends Model
     }
 
     /**
+     * El Colaborador real dueño del expediente (no el User de colaborador()
+     * de arriba) — misma fuente que EmployeeDocument::colaborador()/
+     * ExpedienteHistorico::colaborador(). Se resuelve por columna propia (no
+     * vía documento()->colaborador()) porque una extracción de un histórico
+     * no tiene EmployeeDocument.
+     *
+     * @return BelongsTo<Colaborador, $this>
+     */
+    public function colaboradorExpediente(): BelongsTo
+    {
+        return $this->belongsTo(Colaborador::class, 'colaborador_id')->withTrashed();
+    }
+
+    /**
      * @return BelongsTo<User, $this>
      */
     public function revisadoPor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by_id');
+    }
+
+    /** 'documento' | 'historico' — para mostrar la fuente de la sugerencia en el panel RH (encargo §20). */
+    public function fuenteTipo(): string
+    {
+        return $this->expediente_historico_id !== null ? 'historico' : 'documento';
+    }
+
+    /** Nombre humano de la fuente: tipo de documento normal, o "Expediente histórico". */
+    public function fuenteNombre(): string
+    {
+        if ($this->expediente_historico_id !== null) {
+            return 'Expediente histórico';
+        }
+
+        return $this->documento?->tipo->nombre ?? 'Documento';
     }
 }

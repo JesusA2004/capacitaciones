@@ -757,7 +757,17 @@ class DocumentoProcesoService
                 $this->flujo->cancelar($existente, $actor, 'Regenerado con datos actualizados (nueva instancia del mismo formato).');
             }
 
-            $extra = [...$this->extraPorClave($clave, $registro), ...$manuales];
+            // Los testigos de un acta SIEMPRE vienen de ActaService::variablesDocumento()
+            // (resueltos de un Colaborador real, nunca texto libre) — jamás
+            // del modal genérico de "completar datos faltantes", o cualquiera
+            // podría generar el formato oficial con un testigo inventado
+            // (encargo §24-27). El resto de llaves de $manuales sí puede
+            // pisar lo calculado (jefe_nombre, rh_cargo…).
+            $manualesSeguros = $registro instanceof ActaAdministrativa
+                ? array_diff_key($manuales, array_flip(['testigo_1_nombre', 'testigo_1_cargo', 'testigo_2_nombre', 'testigo_2_cargo']))
+                : $manuales;
+
+            $extra = [...$this->extraPorClave($clave, $registro), ...$manualesSeguros];
             $contexto = $this->motor->contextoDesde($colaborador, $registro, $actor, $extra);
 
             // Plantilla heredada (clave sin documento maestro): motor anterior.

@@ -45,7 +45,7 @@ class ActaService
     {
         $acta = DB::transaction(function () use ($colaborador, $datos, $actor): ActaAdministrativa {
             $acta = ActaAdministrativa::query()->create([
-                ...$this->campos($datos),
+                ...$this->campos($datos, $colaborador),
                 'colaborador_id' => $colaborador->id,
                 'tipo' => TipoActa::from($datos['tipo']),
                 'estado' => EstadoActa::Borrador,
@@ -73,7 +73,7 @@ class ActaService
             throw ValidationException::withMessages(['acta' => 'Solo un acta en borrador puede editarse; registra cambios como seguimiento.']);
         }
 
-        $acta->update($this->campos($datos));
+        $acta->update($this->campos($datos, $acta->colaborador));
         $this->auditoria->registrar('acta_actualizada', $acta, $actor, ['campos' => array_keys($datos)]);
 
         return $acta->refresh();
@@ -236,9 +236,69 @@ class ActaService
      * @param  array<string, mixed>  $datos
      * @return array<string, mixed>
      */
-    private function campos(array $datos): array
+    private function campos(array $datos, Colaborador $colaboradorDelActa): array
     {
-        return array_intersect_key($datos, array_flip(['motivo', 'fecha', 'hora', 'lugar', 'hechos', 'testigos', 'declaraciones', 'responsable_id', 'sucursal_id']));
+        $campos = array_intersect_key($datos, array_flip(['motivo', 'fecha', 'hora', 'lugar', 'hechos', 'testigos', 'declaraciones', 'responsable_id', 'sucursal_id']));
+
+        if (array_key_exists('testigos', $campos)) {
+            $campos['testigos'] = $this->resolverTestigos($campos['testigos'] ?? []);
+        }
+
+        if (array_key_exists('declaraciones', $campos)) {
+            $campos['declaraciones'] = $this->resolverDeclaraciones($colaboradorDelActa, $campos['declaraciones'] ?? []);
+        }
+
+        return $campos;
+    }
+
+    /**
+     * Nunca confía en nombre/puesto que mande el cliente (encargo §24-26): el
+     * backend resuelve cada testigo por su colaborador_id (ya validado
+     * activo y distinto del sujeto del acta por GuardarActaRequest) y
+     * guarda un snapshot real — nombre completo y puesto actual —, no lo que
+     * venga en el request.
+     *
+     * @param  array<int, array<string, mixed>>  $testigos
+     * @return array<int, array{colaborador_id: int, nombre: string, puesto: string}>
+     */
+    private function resolverTestigos(array $testigos): array
+    {
+        return array_values(array_map(function (array $testigo): array {
+            $colaborador = Colaborador::query()->findOrFail((int) $testigo['colaborador_id']);
+
+            return [
+                'colaborador_id' => $colaborador->id,
+                'nombre' => $colaborador->nombreCompleto(),
+                'puesto' => $colaborador->puesto->nombre ?? '',
+            ];
+        }, $testigos));
+    }
+
+    /**
+     * La primera manifestación es siempre la del sujeto del acta: nunca se
+     * borra, nunca cambia de persona, y el nombre lo pone el backend (nunca
+     * el cliente) — encargo §28. Si no hay texto, "No quiso manifestar
+     * nada." en vez de mandar una declaración vacía (encargo §30).
+     *
+     * @param  array<int, array<string, mixed>>  $declaraciones
+     * @return array<int, array{persona: string, declaracion: string}>
+     */
+    private function resolverDeclaraciones(Colaborador $colaboradorDelActa, array $declaraciones): array
+    {
+        $declaraciones = array_values($declaraciones);
+
+        // Whitelist: cualquier otra llave que venga en el request se descarta.
+        $resueltas = array_map(fn (array $d): array => [
+            'persona' => trim((string) ($d['persona'] ?? '')),
+            'declaracion' => trim((string) ($d['declaracion'] ?? '')),
+        ], $declaraciones);
+
+        $resueltas[0] = [
+            'persona' => $colaboradorDelActa->nombreCompleto(),
+            'declaracion' => ($resueltas[0]['declaracion'] ?? '') !== '' ? $resueltas[0]['declaracion'] : 'No quiso manifestar nada.',
+        ];
+
+        return $resueltas;
     }
 
     private function agregarSeguimientoInterno(ActaAdministrativa $acta, string $nota, User $actor): void

@@ -11,16 +11,19 @@ import {
     FileX2,
     Sparkles,
 } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import DocumentoDropzone from '@/components/Rh/DocumentoDropzone.vue';
 import DocumentoPreviewDialog from '@/components/Rh/DocumentoPreviewDialog.vue';
 import ExtraccionDocumentoDialog from '@/components/Rh/ExtraccionDocumentoDialog.vue';
+import ResumenExtraccionesDialog from '@/components/Rh/ResumenExtraccionesDialog.vue';
 import RevisarDocumentoDialog from '@/components/Rh/RevisarDocumentoDialog.vue';
 import { Button } from '@/components/ui/button';
 import { useAlertas } from '@/composables/useAlertas';
 import { useCelebracion } from '@/composables/useCelebracion';
+import { getJson } from '@/lib/http';
 import { aprobar } from '@/routes/rh/documentos';
+import { extraccionesPendientes } from '@/routes/rh/expedientes';
 import type { DocumentoExpedienteItem } from '@/types';
 
 const props = defineProps<{
@@ -151,6 +154,24 @@ function abrirExtraccion(documentoId: number, tipoNombre: string) {
     dialogoExtraccionAbierto.value = true;
 }
 
+const resumenExtraccionAbierto = ref(false);
+const resumenConteo = ref(0);
+
+onMounted(async () => {
+    if (!props.puedeVerExtraccion) {
+        return;
+    }
+
+    try {
+        const respuesta = await getJson<{ pendientes: unknown[] }>(
+            extraccionesPendientes.url(props.colaboradorId),
+        );
+        resumenConteo.value = respuesta.pendientes.length;
+    } catch {
+        resumenConteo.value = 0;
+    }
+});
+
 const dialogoPreviewAbierto = ref(false);
 const documentoPreview = ref<{
     id: number;
@@ -173,6 +194,21 @@ function abrirPreview(item: DocumentoExpedienteItem) {
 </script>
 
 <template>
+    <div
+        v-if="puedeVerExtraccion && resumenConteo > 0"
+        class="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm"
+    >
+        <span class="flex items-center gap-2">
+            <Sparkles class="size-4 text-primary" />
+            Podemos completar {{ resumenConteo }}
+            {{ resumenConteo === 1 ? 'dato' : 'datos' }} con documentos
+            existentes.
+        </span>
+        <Button size="sm" variant="outline" @click="resumenExtraccionAbierto = true">
+            Revisar datos encontrados
+        </Button>
+    </div>
+
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div
             v-for="columna in tablero"
@@ -390,5 +426,14 @@ function abrirPreview(item: DocumentoExpedienteItem) {
         :nombre-archivo="documentoPreview.nombre"
         :mime="documentoPreview.mime"
         :key="`preview-${documentoPreview.id}`"
+    />
+
+    <ResumenExtraccionesDialog
+        v-if="resumenExtraccionAbierto"
+        v-model:open="resumenExtraccionAbierto"
+        :colaborador-id="colaboradorId"
+        :puede-aplicar="puedeAplicarExtraccion"
+        :puede-reprocesar="puedeReprocesarExtraccion"
+        :puede-ignorar="puedeIgnorarExtraccion"
     />
 </template>

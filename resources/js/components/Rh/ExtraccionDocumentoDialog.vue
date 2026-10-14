@@ -23,22 +23,27 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { useAlertas } from '@/composables/useAlertas';
 import { getJson } from '@/lib/http';
-import {
-    aplicar,
-    ignorar,
-    reprocesar,
-    show,
-} from '@/routes/rh/documentos/extraccion';
+import * as extraccionDocumento from '@/routes/rh/documentos/extraccion';
+import * as extraccionHistorico from '@/routes/rh/expedientes/historico/extraccion';
 import type { DocumentExtractionItem } from '@/types';
 
-const props = defineProps<{
-    open: boolean;
-    documentoId: number;
-    tipoNombre: string;
-    puedeAplicar: boolean;
-    puedeReprocesar: boolean;
-    puedeIgnorar: boolean;
-}>();
+const props = withDefaults(
+    defineProps<{
+        open: boolean;
+        documentoId: number;
+        tipoNombre: string;
+        puedeAplicar: boolean;
+        puedeReprocesar: boolean;
+        puedeIgnorar: boolean;
+        /** 'historico' = el PDF único de la migración inicial (ExpedienteHistorico); el id sigue viniendo en `documentoId`. */
+        fuente?: 'documento' | 'historico';
+    }>(),
+    { fuente: 'documento' },
+);
+
+const rutas = computed(() =>
+    props.fuente === 'historico' ? extraccionHistorico : extraccionDocumento,
+);
 
 const emit = defineEmits<{
     'update:open': [valor: boolean];
@@ -51,6 +56,28 @@ const ETIQUETAS_CAMPO: Record<string, string> = {
     fecha_nacimiento: 'Fecha de nacimiento',
     codigo_postal: 'Código postal',
     sexo: 'Sexo',
+    clave_elector: 'Clave de elector',
+    correo: 'Correo personal',
+    telefono: 'Teléfono',
+    nacionalidad: 'Nacionalidad',
+    estado_civil: 'Estado civil',
+    lugar_nacimiento: 'Lugar de nacimiento',
+    profesion: 'Profesión',
+    domicilio: 'Domicilio',
+    colonia: 'Colonia',
+    municipio: 'Municipio',
+    estado_domicilio: 'Estado (domicilio)',
+    beneficiario_nombre: 'Nombre del beneficiario',
+    beneficiario_parentesco: 'Parentesco del beneficiario',
+    contacto_emergencia_nombre: 'Nombre del contacto de emergencia',
+    contacto_emergencia_telefono: 'Teléfono del contacto de emergencia',
+    contacto_emergencia_parentesco: 'Parentesco del contacto de emergencia',
+};
+
+const ETIQUETAS_CONFIANZA: Record<string, string> = {
+    alta: 'Alta',
+    media: 'Media',
+    baja: 'Baja',
 };
 
 const { mostrarExito, mostrarError } = useAlertas();
@@ -69,7 +96,7 @@ async function cargar() {
         const respuesta = await getJson<{
             elegible: boolean;
             extraccion: DocumentExtractionItem | null;
-        }>(show.url(props.documentoId));
+        }>(rutas.value.show.url(props.documentoId));
 
         elegible.value = respuesta.elegible;
         extraccion.value = respuesta.extraccion;
@@ -111,7 +138,7 @@ function aplicarSeleccionados() {
 
     enviando.value = true;
     router.post(
-        aplicar.url(props.documentoId),
+        rutas.value.aplicar.url(props.documentoId),
         { valores: seleccion },
         {
             preserveScroll: true,
@@ -128,7 +155,7 @@ function aplicarSeleccionados() {
 function ignorarTodo() {
     enviando.value = true;
     router.post(
-        ignorar.url(props.documentoId),
+        rutas.value.ignorar.url(props.documentoId),
         {},
         {
             preserveScroll: true,
@@ -144,7 +171,7 @@ function ignorarTodo() {
 function reprocesarDocumento() {
     reprocesando.value = true;
     router.post(
-        reprocesar.url(props.documentoId),
+        rutas.value.reprocesar.url(props.documentoId),
         {},
         {
             preserveScroll: true,
@@ -180,12 +207,14 @@ function reprocesarDocumento() {
             <p
                 class="rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground"
             >
-                ¿Cómo funciona? El sistema busca CURP, RFC, NSS, código postal,
-                sexo y fecha de nacimiento dentro del texto del PDF cargado.
-                Solo funciona si el archivo es un PDF con texto seleccionable
-                (no una foto/escaneo) y si esos datos aparecen con el formato
-                oficial. No usa inteligencia artificial ni adivina el nombre o
-                domicilio.
+                ¿Cómo funciona? El sistema busca CURP, RFC, NSS, domicilio,
+                beneficiario, contacto de emergencia y otros datos personales
+                dentro del documento, siempre bajo su etiqueta explícita.
+                PDF con texto: extracción directa. JPG/PNG o PDF escaneado:
+                OCR local (Tesseract) si el servidor lo tiene instalado —
+                nunca se manda a un servicio externo ni usa inteligencia
+                artificial. No adivina nombre, apellidos ni domicilio
+                completo fuera de su etiqueta.
             </p>
 
             <div v-if="cargando" class="flex justify-center py-8">
@@ -244,10 +273,10 @@ function reprocesarDocumento() {
                             documento.
                         </p>
                         <p class="text-xs">
-                            El PDF se leyó correctamente, pero no se encontró
-                            CURP, RFC, NSS, código postal, sexo ni una fecha de
-                            nacimiento con el formato esperado. Captura estos
-                            datos manualmente en «Datos personales».
+                            El documento se leyó correctamente, pero no se
+                            encontró ningún dato reconocible con el formato o
+                            la etiqueta esperada. Captura estos datos
+                            manualmente en «Datos personales».
                         </p>
                     </div>
 
@@ -290,6 +319,14 @@ function reprocesarDocumento() {
                                     >Sin capturar</Badge
                                 >
                             </div>
+
+                            <p
+                                v-if="extraccion?.confidence?.[campo]"
+                                class="text-xs text-muted-foreground"
+                            >
+                                Confianza:
+                                {{ ETIQUETAS_CONFIANZA[extraccion.confidence[campo]] ?? extraccion.confidence[campo] }}
+                            </p>
 
                             <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
                                 <div class="grid gap-1">

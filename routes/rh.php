@@ -132,6 +132,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
             });
             Route::get('historico/{historico}', [MigracionExpedientesController::class, 'verHistorico'])->name('historico.ver');
             Route::post('historico/{historico}/vincular', [MigracionExpedientesController::class, 'vincularHistorico'])->name('historico.vincular');
+            // Extraccion automatica de datos personales del PDF histórico
+            // (docs/DOCUMENT_EXTRACTION.md) — mismo flujo que
+            // documentos/{documento}/extraccion, pero sobre ExpedienteHistorico.
+            Route::prefix('historico/{historico}/extraccion')->name('historico.extraccion.')->group(function () {
+                Route::get('/', [DocumentExtraccionController::class, 'showHistorico'])->name('show');
+                Route::post('aplicar', [DocumentExtraccionController::class, 'aplicarHistorico'])->name('aplicar');
+                Route::post('ignorar', [DocumentExtraccionController::class, 'ignorarHistorico'])->name('ignorar');
+                Route::post('reprocesar', [DocumentExtraccionController::class, 'reprocesarHistorico'])->name('reprocesar');
+            });
+            Route::get('{colaborador}/extracciones-pendientes', [DocumentExtraccionController::class, 'resumen'])->name('extracciones-pendientes');
             // withTrashed(): un colaborador dado de baja (soft-deleted, ver
             // ExpedienteController::darDeBaja()) debe poder seguir
             // abriéndose desde Expedientes -- es donde vive tanto la baja

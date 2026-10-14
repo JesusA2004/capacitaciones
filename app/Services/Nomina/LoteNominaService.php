@@ -41,10 +41,13 @@ use Throwable;
  *     `errores`; lo que se preparó con dudas, en `advertencias`.
  *  2. RH revisa: resumen(), recibos() y vistaPreviaPdf() (PDF REAL con el
  *     formato oficial, sin guardar ni avisar nada).
- *  3. emitir(): SOLO entonces cada recibo se marca emitido (fecha + quién),
- *     se congela su PDF en el expediente, queda visible en web/app y se le
- *     avisa al trabajador (in-app + push encolado). Idempotente: un lote
- *     emitido no se emite dos veces.
+ *  3. emitir(): SOLO entonces cada recibo se marca emitido (fecha + quién) y
+ *     se congela su PDF en el expediente. Si features.recibos_colaborador
+ *     está activo, además queda visible en el autoservicio y se le avisa al
+ *     trabajador (in-app + push encolado); si está apagado (canon actual:
+ *     recibo se entrega impreso), nunca aparece en la app del colaborador ni
+ *     se le notifica — RH lo ve/descarga/imprime desde la experiencia RH.
+ *     Idempotente: un lote emitido no se emite dos veces.
  *
  * Periodos: semanal = lunes → domingo; quincenal = 1 → 15 y 16 → último día
  * REAL del mes (28/29/30/31, nunca un 30 fijo).
@@ -117,7 +120,7 @@ class LoteNominaService
     public function preparar(PeriodicidadNomina $periodicidad, CarbonInterface $fecha, User $actor, ?array $sucursalIds = null): NominaLote
     {
         $periodo = $this->periodo($periodicidad, $fecha);
-        $lote = $this->crearLote($periodicidad, $periodo, NominaLote::ORIGEN_SUELDOS, null, $actor);
+        $lote = $this->crearLote($periodicidad, $periodo, NominaLote::ORIGEN_SUELDOS, null, $actor, $sucursalIds);
 
         $colaboradores = Colaborador::query()
             ->with(['puesto:id,nombre', 'sucursalPrincipal:id,nombre,es_corporativo'])
@@ -162,11 +165,11 @@ class LoteNominaService
             }
 
             $idsConRecibo = $recibosActuales->pluck('colaborador_id')->all();
-            $numerosConError = collect($fila->errores ?? [])->pluck('numero_empleado')->filter()->unique()->all();
+            $idsDeErrores = $this->colaboradorIdsDeErrores($fila->errores ?? []);
 
             $colaboradores = Colaborador::query()
                 ->with(['puesto:id,nombre', 'sucursalPrincipal:id,nombre,es_corporativo'])
-                ->where(fn (Builder $q) => $q->whereIn('id', $idsConRecibo)->orWhereIn('numero_empleado', $numerosConError))
+                ->whereIn('id', array_values(array_unique([...$idsConRecibo, ...$idsDeErrores])))
                 ->orderBy('id')
                 ->get();
 
@@ -174,7 +177,11 @@ class LoteNominaService
             $recibosActuales->each(fn (ReciboNomina $r) => $r->delete());
 
             $periodo = ['inicio' => CarbonImmutable::parse($fila->periodo_inicio), 'fin' => CarbonImmutable::parse($fila->periodo_fin), 'pago' => CarbonImmutable::parse($fila->fecha_pago)];
-            [$errores, $advertencias, $esperados] = $this->generarRecibosDelLote($fila, $colaboradores, $periodo, $fila->periodicidad, $actor, null);
+            // Conserva EXACTAMENTE el filtro de sucursales con el que se
+            // preparó el lote originalmente (CLAUDE.md §43): null = sin
+            // filtro (todas las del grupo de pago correspondiente), nunca
+            // se amplía solo porque se recalcula.
+            [$errores, $advertencias, $esperados] = $this->generarRecibosDelLote($fila, $colaboradores, $periodo, $fila->periodicidad, $actor, $fila->sucursal_ids);
 
             $loteActualizado = $this->cerrarPreparacion($fila, $esperados, $errores, $advertencias, $actor);
 
@@ -188,6 +195,83 @@ class LoteNominaService
 
             return $loteActualizado;
         });
+    }
+
+    /**
+     * Resuelve a qué colaborador corresponde cada error guardado en el lote
+     * (CLAUDE.md §41): primero su colaborador_id (ya persistido desde esta
+     * versión); si el error es de un lote anterior a este cambio y no lo
+     * tiene, cae a numero_empleado exacto y único, y si tampoco, a nombre
+     * exacto normalizado y único — NUNCA fuzzy. Si sigue siendo ambiguo
+     * (0 o 2+ coincidencias), el colaborador simplemente no entra al
+     * recálculo: el error se mantiene explícito en vez de adivinar.
+     *
+     * @param  list<array<string, mixed>>  $errores
+     * @return list<int>
+     */
+    private function colaboradorIdsDeErrores(array $errores): array
+    {
+        $ids = [];
+        $pendientes = [];
+
+        foreach ($errores as $error) {
+            if (! empty($error['colaborador_id'])) {
+                $ids[] = (int) $error['colaborador_id'];
+
+                continue;
+            }
+
+            $pendientes[] = $error;
+        }
+
+        if ($pendientes === []) {
+            return $ids;
+        }
+
+        $numeros = collect($pendientes)->pluck('numero_empleado')->filter()->unique()->values();
+        $porNumero = $numeros->isEmpty() ? collect() : Colaborador::query()
+            ->whereIn('numero_empleado', $numeros->all())
+            ->get(['id', 'numero_empleado'])
+            ->groupBy('numero_empleado');
+
+        $nombresPendientes = [];
+
+        foreach ($pendientes as $error) {
+            $numero = $error['numero_empleado'] ?? null;
+            $coincidenciasNumero = $numero !== null ? $porNumero->get($numero) : null;
+
+            if ($coincidenciasNumero !== null && $coincidenciasNumero->count() === 1) {
+                $ids[] = $coincidenciasNumero->first()->id;
+
+                continue;
+            }
+
+            $nombre = $error['colaborador'] ?? null;
+            if ($nombre !== null && trim((string) $nombre) !== '') {
+                $nombresPendientes[] = $nombre;
+            }
+        }
+
+        if ($nombresPendientes !== []) {
+            $normalizadosBuscados = array_unique(array_map(fn (string $n) => $this->normalizarNombre($n), $nombresPendientes));
+            $candidatos = Colaborador::query()->get(['id', 'name', 'apellidos'])
+                ->groupBy(fn (Colaborador $c) => $this->normalizarNombre($c->nombreCompleto()));
+
+            foreach ($normalizadosBuscados as $normalizado) {
+                $coincidencias = $candidatos->get($normalizado);
+
+                if ($coincidencias !== null && $coincidencias->count() === 1) {
+                    $ids[] = $coincidencias->first()->id;
+                }
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    private function normalizarNombre(string $nombre): string
+    {
+        return Str::of($nombre)->ascii()->upper()->squish()->toString();
     }
 
     /**
@@ -216,7 +300,7 @@ class LoteNominaService
             ->flip();
 
         foreach ($colaboradores as $colaborador) {
-            $identidad = ['numero_empleado' => $colaborador->numero_empleado, 'colaborador' => $colaborador->nombreCompleto()];
+            $identidad = ['colaborador_id' => $colaborador->id, 'numero_empleado' => $colaborador->numero_empleado, 'colaborador' => $colaborador->nombreCompleto()];
             $sucursal = $colaborador->sucursalPrincipal;
 
             if ($sucursal === null) {
@@ -328,13 +412,14 @@ class LoteNominaService
             return ['lote' => null, 'resultado' => $this->importador->importar($archivo, $datosPeriodo, $actor)];
         }
 
-        $lote = $this->crearLote($periodicidad, $periodo, NominaLote::ORIGEN_IMPORTACION, $archivo->getClientOriginalName(), $actor);
+        $lote = $this->crearLote($periodicidad, $periodo, NominaLote::ORIGEN_IMPORTACION, $archivo->getClientOriginalName(), $actor, null);
         $resultado = $this->importador->importar($archivo, [...$datosPeriodo, 'nomina_lote_id' => $lote->id, 'lote_folio' => $lote->folio], $actor);
         $numerosConError = collect($resultado['errores'])->pluck('numero_empleado')->filter()->unique();
-        $nombres = Colaborador::query()->whereIn('numero_empleado', $numerosConError->all())->pluck('name', 'numero_empleado');
+        $colaboradoresConError = Colaborador::query()->whereIn('numero_empleado', $numerosConError->all())->get(['id', 'name', 'numero_empleado'])->keyBy('numero_empleado');
         $errores = array_map(fn (array $e) => [
+            'colaborador_id' => $e['numero_empleado'] !== null ? $colaboradoresConError->get($e['numero_empleado'])?->id : null,
             'numero_empleado' => $e['numero_empleado'],
-            'colaborador' => $e['numero_empleado'] !== null ? ($nombres[$e['numero_empleado']] ?? null) : null,
+            'colaborador' => $e['numero_empleado'] !== null ? $colaboradoresConError->get($e['numero_empleado'])?->name : null,
             'motivo' => $e['fila'] !== null ? sprintf('Fila %d: %s', $e['fila'], $e['motivo']) : $e['motivo'],
             'fila' => $e['fila'],
         ], $resultado['errores']);
@@ -562,8 +647,10 @@ class LoteNominaService
 
     /**
      * EMITE el lote: cada borrador se publica (PDF congelado en el
-     * expediente, visible en web/app, aviso in-app + push). Solo un lote
-     * preparado; un segundo intento sobre un lote emitido es rechazado.
+     * expediente; visible en autoservicio y avisado al trabajador solo si
+     * features.recibos_colaborador está activo — ver
+     * ReciboNominaService::notificarColaborador()). Solo un lote preparado;
+     * un segundo intento sobre un lote emitido es rechazado.
      *
      * Reintento seguro: si una emisión anterior se cortó a mitad (el lote
      * quedó emitido con recibos todavía en borrador), volver a emitir solo
@@ -693,10 +780,11 @@ class LoteNominaService
 
     /**
      * @param  array{inicio: CarbonImmutable, fin: CarbonImmutable, pago: CarbonImmutable, numero: int}  $periodo
+     * @param  list<int>|null  $sucursalIds
      */
-    private function crearLote(PeriodicidadNomina $periodicidad, array $periodo, string $origen, ?string $archivo, User $actor): NominaLote
+    private function crearLote(PeriodicidadNomina $periodicidad, array $periodo, string $origen, ?string $archivo, User $actor, ?array $sucursalIds): NominaLote
     {
-        return DB::transaction(function () use ($periodicidad, $periodo, $origen, $archivo, $actor): NominaLote {
+        return DB::transaction(function () use ($periodicidad, $periodo, $origen, $archivo, $actor, $sucursalIds): NominaLote {
             // Un solo lote vivo (en revisión) por periodo: evita lotes y recibos duplicados.
             $vivo = NominaLote::query()
                 ->where('periodicidad', $periodicidad->value)
@@ -720,6 +808,7 @@ class LoteNominaService
                 'fecha_pago' => $periodo['pago']->toDateString(),
                 'numero_nomina' => $periodo['numero'],
                 'origen' => $origen,
+                'sucursal_ids' => $sucursalIds,
                 'archivo_nombre' => $archivo,
                 'estado' => EstadoLoteNomina::Borrador,
                 'creado_por' => $actor->id,

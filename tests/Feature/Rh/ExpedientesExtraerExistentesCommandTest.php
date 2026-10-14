@@ -68,7 +68,18 @@ test('--forzar reprocesa aunque ya exista una extraccion vigente', function () {
 });
 
 test('--solo-faltantes excluye colaboradores que ya tienen el dato capturado', function () {
-    crearDocumentoElegibleParaComando('CURP: ABCD123456HDFRRN09', ['curp' => 'YA1234567HDFRRN08', 'rfc' => 'YA123456AB1', 'nss' => '12345678901', 'fecha_nacimiento' => '1990-01-01']);
+    // Todas las columnas de DocumentExtractionService::columnasColaborador()
+    // capturadas: con --solo-faltantes no debe quedar nada por completar.
+    crearDocumentoElegibleParaComando('CURP: ABCD123456HDFRRN09', [
+        'curp' => 'YA1234567HDFRRN08', 'rfc' => 'YA123456AB1', 'nss' => '12345678901', 'fecha_nacimiento' => '1990-01-01',
+        'domicilio_cp' => '12345', 'genero' => 'masculino', 'clave_elector' => 'ABCD123456789012AB',
+        'correo_personal' => 'persona@example.com', 'telefono' => '5512345678', 'nacionalidad' => 'Mexicana',
+        'estado_civil' => 'soltero', 'lugar_nacimiento' => 'CDMX', 'profesion' => 'Contador',
+        'domicilio' => 'Calle 1 #23', 'domicilio_colonia' => 'Centro', 'domicilio_municipio' => 'Cuauhtémoc',
+        'domicilio_estado' => 'CDMX', 'beneficiario_nombre' => 'Juan Pérez', 'beneficiario_parentesco' => 'Hermano',
+        'contacto_emergencia_nombre' => 'Ana Pérez', 'contacto_emergencia_telefono' => '5587654321',
+        'contacto_emergencia_parentesco' => 'Madre',
+    ]);
 
     $this->artisan('expedientes:extraer-existentes', ['--ejecutar' => true, '--solo-faltantes' => true])->assertSuccessful();
 

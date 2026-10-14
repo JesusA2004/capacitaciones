@@ -23,11 +23,12 @@ use Illuminate\Support\Carbon;
  * @property Carbon $fecha_pago
  * @property int|null $numero_nomina
  * @property string $origen
+ * @property list<int>|null $sucursal_ids
  * @property string|null $archivo_nombre
  * @property EstadoLoteNomina $estado
  * @property int $esperados
  * @property int $preparados
- * @property list<array{numero_empleado: string|null, colaborador: string|null, motivo: string, fila?: int|null}>|null $errores
+ * @property list<array{numero_empleado: string|null, colaborador: string|null, colaborador_id?: int|null, motivo: string, fila?: int|null}>|null $errores
  * @property list<array{numero_empleado: string|null, colaborador: string|null, motivo: string}>|null $advertencias
  * @property string $total_percepciones
  * @property string $total_deducciones
@@ -53,7 +54,7 @@ class NominaLote extends Model
     protected $table = 'nomina_lotes';
 
     protected $fillable = [
-        'folio', 'periodicidad', 'periodo_inicio', 'periodo_fin', 'fecha_pago', 'numero_nomina', 'origen', 'archivo_nombre',
+        'folio', 'periodicidad', 'periodo_inicio', 'periodo_fin', 'fecha_pago', 'numero_nomina', 'origen', 'sucursal_ids', 'archivo_nombre',
         'estado', 'esperados', 'preparados', 'errores', 'advertencias', 'total_percepciones', 'total_deducciones', 'total_neto',
         'creado_por', 'emitido_por', 'emitido_at', 'cancelado_por', 'cancelado_at', 'motivo_cancelacion',
     ];
@@ -69,6 +70,7 @@ class NominaLote extends Model
             'numero_nomina' => 'integer',
             'esperados' => 'integer',
             'preparados' => 'integer',
+            'sucursal_ids' => 'array',
             'errores' => 'array',
             'advertencias' => 'array',
             'total_percepciones' => 'decimal:2',
