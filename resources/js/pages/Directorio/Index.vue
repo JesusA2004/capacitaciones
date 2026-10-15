@@ -20,6 +20,9 @@ type ColaboradorDirectorio = {
     departamento: string | null;
     correo_corporativo: string | null;
     telefono_corporativo: string | null;
+    /** El backend solo manda el contacto a quien puede verlo. */
+    contacto_visible?: boolean;
+    es_mi_jefe?: boolean;
 };
 
 type Vista = 'puesto' | 'area' | 'sucursal';
@@ -27,6 +30,7 @@ type Vista = 'puesto' | 'area' | 'sucursal';
 const props = defineProps<{
     colaboradores: ColaboradorDirectorio[];
     filtros: { busqueda?: string; vista?: string };
+    veTodosLosContactos?: boolean;
 }>();
 
 defineOptions({
@@ -194,7 +198,11 @@ function detalle(c: ColaboradorDirectorio): string {
     <div class="pagina-ancha flex flex-col gap-5">
         <CrudPageHeader
             titulo="Directorio"
-            descripcion="Correo y teléfono corporativo del personal de corporativo y de las sucursales."
+            :descripcion="
+                veTodosLosContactos === false
+                    ? 'Nombre, puesto, área y sucursal de la empresa. Ves el correo y teléfono corporativos de tu jefe directo.'
+                    : 'Correo y teléfono corporativo del personal de corporativo y de las sucursales.'
+            "
             :icono="Contact"
         />
 
@@ -268,6 +276,11 @@ function detalle(c: ColaboradorDirectorio): string {
                 >
                     <p class="text-sm font-semibold text-[var(--mrl-texto)]">
                         {{ c.nombre }}
+                        <span
+                            v-if="c.es_mi_jefe"
+                            class="ml-1 rounded-full bg-salvia px-2 py-0.5 text-[10px] font-medium text-[var(--mrl-petroleo)]"
+                            >Tu jefe directo</span
+                        >
                     </p>
                     <p class="text-xs text-muted-foreground">
                         {{ detalle(c) }}
@@ -283,7 +296,7 @@ function detalle(c: ColaboradorDirectorio): string {
                             {{ c.correo_corporativo }}
                         </a>
                         <p
-                            v-else
+                            v-else-if="c.contacto_visible !== false"
                             class="flex items-center gap-1.5 text-xs text-muted-foreground"
                         >
                             <Mail class="size-3.5" /> Sin correo corporativo

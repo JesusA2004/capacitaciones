@@ -23,7 +23,8 @@ class DirectorioController extends Controller
         // Lista completa: la búsqueda y las vistas Por puesto / Por área /
         // Por sucursal se resuelven al instante en pantalla.
         return Inertia::render('Directorio/Index', [
-            'colaboradores' => $this->directorio->todos(),
+            'colaboradores' => $this->directorio->todos($request->user()),
+            'veTodosLosContactos' => $this->directorio->veTodosLosContactos($request->user()),
             'filtros' => $request->only(['busqueda', 'vista']),
         ]);
     }

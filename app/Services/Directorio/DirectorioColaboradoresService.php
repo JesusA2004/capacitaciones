@@ -6,6 +6,7 @@ use App\Models\Colaborador;
 use App\Models\Departamento;
 use App\Models\Puesto;
 use App\Models\Sucursal;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 
@@ -15,8 +16,15 @@ use Illuminate\Pagination\LengthAwarePaginator;
  * administrativos/gerenciales, y nunca se inventa uno para quien no lo tiene
  * capturado).
  *
- * Regla única (web y API móvil): GLOBAL para cualquier colaborador
- * autenticado, SIN acotar por alcance organizacional — a propósito:
+ * Contacto (cierre 2026-10-15, misma regla web y API, decidida aquí y
+ * nunca en Vue): nombre, puesto, área y sucursal los ve todo colaborador;
+ * el correo y el teléfono corporativos solo quien tiene
+ * `directorio.contactos.ver_todos` o es personal corporativo. Un
+ * colaborador operativo ve únicamente el contacto de su JEFE DIRECTO
+ * (jefe_id, derivado del organigrama).
+ *
+ * Regla de la lista: GLOBAL para cualquier colaborador autenticado, SIN
+ * acotar por alcance organizacional — a propósito:
  * AlcanceOrganizacionalService reduce a un colaborador sin rol de gerencia a
  * verse solo a sí mismo, lo cual rompería el propósito de un directorio
  * ("encontrar el correo de un compañero de otra sucursal"). Por eso aArray()
@@ -48,6 +56,7 @@ class DirectorioColaboradoresService
             ->when($filtros['puesto_id'], fn (Builder $q, int $v) => $q->where('puesto_id', $v))
             ->when($filtros['sucursal_id'], fn (Builder $q, int $v) => $q->where('sucursal_principal_id', $v))
             ->when($filtros['departamento_id'], fn (Builder $q, int $v) => $q->where('departamento_id', $v))
+            // «Solo con correo» filtra sobre lo que la persona puede ver.
             ->when($filtros['solo_con_correo'], fn (Builder $q) => $q->whereNotNull('correo_corporativo')->where('correo_corporativo', '!=', ''))
             ->orderBy('name')
             ->orderBy('apellidos')
@@ -62,14 +71,14 @@ class DirectorioColaboradoresService
      *
      * @return list<array<string, mixed>>
      */
-    public function todos(): array
+    public function todos(?User $viewer = null): array
     {
         return array_values($this->consulta()
             ->orderBy('name')
             ->orderBy('apellidos')
             ->get()
             ->map(fn (Colaborador $c): array => [
-                ...$this->aArray($c),
+                ...$this->aArray($c, $viewer),
                 'puesto_id' => $c->puesto_id,
                 'nivel' => $c->puesto->nivel_jerarquico ?? 99,
                 'sucursal_id' => $c->sucursal_principal_id,
@@ -165,12 +174,15 @@ class DirectorioColaboradoresService
 
     /**
      * Lista CERRADA de campos que salen del directorio — agregar un campo
-     * aquí lo publica a toda la empresa.
+     * aquí lo publica a toda la empresa. El contacto solo sale si quien
+     * mira tiene derecho a verlo (puedeVerContacto); si no, va nulo.
      *
-     * @return array{id: int, nombre: string, numero_empleado: string|null, puesto: string|null, sucursal: string|null, departamento: string|null, correo_corporativo: string|null, telefono_corporativo: string|null}
+     * @return array{id: int, nombre: string, numero_empleado: string|null, puesto: string|null, sucursal: string|null, departamento: string|null, correo_corporativo: string|null, telefono_corporativo: string|null, contacto_visible: bool, es_mi_jefe: bool}
      */
-    public function aArray(Colaborador $colaborador): array
+    public function aArray(Colaborador $colaborador, ?User $viewer = null): array
     {
+        $visible = $viewer !== null && $this->puedeVerContacto($viewer, $colaborador);
+
         return [
             'id' => $colaborador->id,
             'nombre' => $colaborador->nombreCompleto(),
@@ -178,9 +190,33 @@ class DirectorioColaboradoresService
             'puesto' => $colaborador->puesto?->nombre,
             'sucursal' => $colaborador->sucursalPrincipal?->nombre,
             'departamento' => $colaborador->departamento?->nombre,
-            'correo_corporativo' => $colaborador->correo_corporativo,
-            'telefono_corporativo' => $colaborador->telefono_corporativo,
+            'correo_corporativo' => $visible ? $colaborador->correo_corporativo : null,
+            'telefono_corporativo' => $visible ? $colaborador->telefono_corporativo : null,
+            'contacto_visible' => $visible,
+            'es_mi_jefe' => $viewer?->colaborador !== null && $viewer->colaborador->jefe_id === $colaborador->id,
         ];
+    }
+
+    /** Contactos de TODO el directorio: permiso explícito o personal corporativo. */
+    public function veTodosLosContactos(User $viewer): bool
+    {
+        if ($viewer->can('directorio.contactos.ver_todos')) {
+            return true;
+        }
+
+        return (bool) ($viewer->colaborador?->sucursalPrincipal?->es_corporativo ?? false);
+    }
+
+    public function puedeVerContacto(User $viewer, Colaborador $colaborador): bool
+    {
+        if ($this->veTodosLosContactos($viewer)) {
+            return true;
+        }
+
+        $propio = $viewer->colaborador;
+
+        // Operativo: su propio contacto y el de su jefe directo, nada más.
+        return $propio !== null && ($propio->id === $colaborador->id || $propio->jefe_id === $colaborador->id);
     }
 
     /**

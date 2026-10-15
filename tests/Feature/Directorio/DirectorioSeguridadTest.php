@@ -9,6 +9,7 @@ use Database\Seeders\RolesYPermisosSeeder;
 | Directorio (web y API móvil): GLOBAL para cualquier colaborador
 | autenticado, pero SOLO contacto corporativo — nunca salario, RFC, CURP,
 | NSS, domicilio ni correo/teléfono personal (DirectorioColaboradoresService).
+| El contacto corporativo solo a quien puede verlo (DirectorioPrivacidadTest).
 */
 
 beforeEach(function () {
@@ -32,12 +33,13 @@ beforeEach(function () {
     ]);
 });
 
-const DIRECTORIO_CAMPOS = ['id', 'nombre', 'numero_empleado', 'puesto', 'sucursal', 'departamento', 'correo_corporativo', 'telefono_corporativo'];
+const DIRECTORIO_CAMPOS = ['id', 'nombre', 'numero_empleado', 'puesto', 'sucursal', 'departamento', 'correo_corporativo', 'telefono_corporativo', 'contacto_visible', 'es_mi_jefe'];
 const DIRECTORIO_PROHIBIDOS = ['sofi.personal@gmail.test', '5559998877', 'HEPS900101AB1', 'HEPS900101MMSRZF09', '12345678901', 'Calle Secreta', '62000', '456.78', '13703'];
 
 test('API móvil: el directorio solo serializa contacto corporativo, nunca datos sensibles', function () {
+    // Con permiso de ver todos los contactos (el operativo solo ve el de su jefe).
     $usuario = User::factory()->for(Colaborador::factory()->state(['estatus' => 'activo']))->create();
-    $usuario->assignRole('colaborador');
+    $usuario->assignRole('rh_admin');
     $token = $usuario->createToken('test')->plainTextToken;
 
     $respuesta = $this->withHeaders(['Authorization' => "Bearer {$token}"])

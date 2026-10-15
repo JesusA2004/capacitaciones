@@ -29,7 +29,9 @@ test('el directorio no muestra gestores y sí al personal de sucursal y corporat
     Colaborador::factory()->create(['name' => 'Pedro', 'apellidos' => 'Ramírez', 'puesto_id' => $this->gestor->id, 'sucursal_principal_id' => $this->tula->id, 'estatus' => 'activo']);
     Colaborador::factory()->create(['name' => 'Ana', 'apellidos' => 'Martínez', 'puesto_id' => $this->responsableSistemas->id, 'sucursal_principal_id' => $this->corporativo->id, 'estatus' => 'activo']);
 
-    $this->actingAs(clUsuario('colaborador'))->get(route('directorio.index'))->assertOk()
+    // Quien tiene permiso de ver todos los contactos (RH); el operativo solo
+    // ve el de su jefe directo (DirectorioPrivacidadTest).
+    $this->actingAs(clUsuario('rh_admin'))->get(route('directorio.index'))->assertOk()
         ->assertInertia(fn ($page) => $page->where('colaboradores', function ($data) {
             $filas = collect($data)->keyBy('nombre');
 

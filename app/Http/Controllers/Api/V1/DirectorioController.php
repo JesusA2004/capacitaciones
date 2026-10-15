@@ -23,7 +23,7 @@ class DirectorioController extends Controller
         $paginador = $this->directorio->buscar($filtros, $request->integer('per_page', 30));
 
         return response()->json([
-            'data' => array_map(fn (Colaborador $c) => $this->directorio->aArray($c), $paginador->items()),
+            'data' => array_map(fn (Colaborador $c) => $this->directorio->aArray($c, $request->user()), $paginador->items()),
             'meta' => [
                 'current_page' => $paginador->currentPage(),
                 'last_page' => $paginador->lastPage(),
