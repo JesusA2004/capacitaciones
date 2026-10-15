@@ -2,6 +2,7 @@
 
 namespace App\Services\Nomina;
 
+use App\Enums\AlcanceDatos;
 use App\Enums\EstadoLoteNomina;
 use App\Enums\EstadoReciboNomina;
 use App\Enums\EstadoUsuario;
@@ -12,11 +13,11 @@ use App\Models\Colaborador;
 use App\Models\NominaLote;
 use App\Models\ReciboNomina;
 use App\Models\User;
-use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Compensacion\CompensacionService;
 use App\Services\DocumentosAdministrativos\DatosDocumentoAdministrativo;
 use App\Services\DocumentosAdministrativos\DocumentoAdministrativoService;
+use App\Services\Permisos\AlcanceModuloService;
 use App\Support\Paginacion;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -59,12 +60,12 @@ class LoteNominaService
     public function __construct(
         private readonly ReciboNominaService $recibos,
         private readonly ReciboNominaImportService $importador,
-        private readonly AlcanceOrganizacionalService $alcance,
         private readonly AuditoriaService $auditoria,
         private readonly DocumentoAdministrativoService $documentos,
         private readonly DatosDocumentoAdministrativo $datosDocumento,
         private readonly CompensacionService $compensacion,
         private readonly CombinadorPdfRecibos $combinador,
+        private readonly AlcanceModuloService $alcanceModulo,
     ) {}
 
     /**
@@ -120,13 +121,15 @@ class LoteNominaService
     public function preparar(PeriodicidadNomina $periodicidad, CarbonInterface $fecha, User $actor, ?array $sucursalIds = null): NominaLote
     {
         $periodo = $this->periodo($periodicidad, $fecha);
+        // Antes de crear el lote: sin alcance de nómina no queda un lote vacío bloqueando el periodo.
+        $global = $this->exigirAlcanceNomina($actor);
         $lote = $this->crearLote($periodicidad, $periodo, NominaLote::ORIGEN_SUELDOS, null, $actor, $sucursalIds);
 
         $colaboradores = Colaborador::query()
             ->with(['puesto:id,nombre', 'sucursalPrincipal:id,nombre,es_corporativo'])
             ->where('estatus', EstadoUsuario::Activo->value)
             ->where(fn (Builder $q) => $q->whereNull('fecha_ingreso')->orWhereDate('fecha_ingreso', '<=', $periodo['fin']->toDateString()))
-            ->when(! $this->alcance->tieneAlcanceGlobal($actor), fn (Builder $q) => $this->alcance->limitarColaboradoresPorAlcance($q, $actor))
+            ->when(! $global, fn (Builder $q) => $this->alcanceModulo->limitarColaboradores($q, $actor, 'recibos'))
             ->orderBy('id')
             ->get();
 
@@ -165,7 +168,8 @@ class LoteNominaService
             }
 
             $idsConRecibo = $recibosActuales->pluck('colaborador_id')->all();
-            $idsDeErrores = $this->colaboradorIdsDeErrores($fila->errores ?? []);
+            $sinClasificar = array_values(array_filter($fila->advertencias ?? [], fn ($a) => is_array($a) && ($a['sin_clasificacion'] ?? false)));
+            $idsDeErrores = $this->colaboradorIdsDeErrores([...($fila->errores ?? []), ...$sinClasificar]);
 
             $colaboradores = Colaborador::query()
                 ->with(['puesto:id,nombre', 'sucursalPrincipal:id,nombre,es_corporativo'])
@@ -303,9 +307,11 @@ class LoteNominaService
             $identidad = ['colaborador_id' => $colaborador->id, 'numero_empleado' => $colaborador->numero_empleado, 'colaborador' => $colaborador->nombreCompleto()];
             $sucursal = $colaborador->sucursalPrincipal;
 
+            // Sin sucursal no se sabe a qué grupo de pago pertenece: se
+            // reporta como advertencia (para que RH lo clasifique) pero NO
+            // cuenta en los esperados del grupo ni reduce el lote a ella.
             if ($sucursal === null) {
-                $errores[] = [...$identidad, 'motivo' => 'Sin clasificación de nómina. Asigna ubicación organizacional antes de incluirlo.'];
-                $esperados++;
+                $advertencias[] = [...$identidad, 'sin_clasificacion' => true, 'motivo' => 'Sin clasificación de nómina. Asigna ubicación organizacional antes de incluirlo.'];
 
                 continue;
             }
@@ -506,7 +512,7 @@ class LoteNominaService
     public function listar(User $usuario, int $porPagina = 15): LengthAwarePaginator
     {
         return NominaLote::query()
-            ->when(! $this->alcance->tieneAlcanceGlobal($usuario), fn (Builder $q) => $q->where('creado_por', $usuario->id))
+            ->when(! $this->esNominaGlobal($usuario), fn (Builder $q) => $q->where('creado_por', $usuario->id))
             ->orderByDesc('periodo_inicio')
             ->orderByDesc('id')
             ->paginate(Paginacion::porPagina($porPagina));
@@ -751,7 +757,7 @@ class LoteNominaService
     private function recibosVisibles(NominaLote $lote, User $usuario): Builder
     {
         return $lote->recibos()->getQuery()
-            ->when(! $this->alcance->tieneAlcanceGlobal($usuario), fn (Builder $q) => $q->whereIn('colaborador_id', $this->alcance->limitarColaboradoresPorAlcance(Colaborador::query()->withTrashed(), $usuario)->select('id')));
+            ->when(! $this->esNominaGlobal($usuario), fn (Builder $q) => $q->whereIn('colaborador_id', $this->alcanceModulo->limitarColaboradores(Colaborador::query()->withTrashed(), $usuario, 'recibos')->select('id')));
     }
 
     /**
@@ -820,6 +826,33 @@ class LoteNominaService
      * @param  list<array<string, mixed>>  $errores
      * @param  list<array<string, mixed>>  $advertencias
      */
+    /**
+     * Población de nómina = permiso de nómina + ALCANCE DEL MÓDULO «recibos»
+     * (config/permisos_modulos.php), nunca la navegación de Mi espacio:
+     * super_admin y alcance «todos» → toda la organización (true); «región»
+     * o «sucursal» → sus sucursales (false). Con alcance propio/equipo no
+     * hay población de nómina: se dice explícitamente en vez de armar en
+     * silencio un lote de una sola persona.
+     */
+    private function exigirAlcanceNomina(User $actor): bool
+    {
+        if ($this->esNominaGlobal($actor)) {
+            return true;
+        }
+
+        if (! in_array($this->alcanceModulo->nivel($actor, 'recibos'), [AlcanceDatos::Region, AlcanceDatos::Sucursal], true)) {
+            throw ValidationException::withMessages(['lote' => 'Tu cuenta no tiene alcance de nómina sobre sucursales (Roles y permisos → Recibos de nómina: Todos, Región o Sucursal): no se puede preparar el lote.']);
+        }
+
+        return false;
+    }
+
+    private function esNominaGlobal(User $usuario): bool
+    {
+        return $usuario->hasRole('super_admin')
+            || $this->alcanceModulo->nivel($usuario, 'recibos') === AlcanceDatos::Todos;
+    }
+
     private function cerrarPreparacion(NominaLote $lote, int $esperados, array $errores, array $advertencias, User $actor): NominaLote
     {
         $totales = $lote->recibos()->selectRaw('count(*) as total, coalesce(sum(total_percepciones), 0) as percepciones, coalesce(sum(total_deducciones), 0) as deducciones, coalesce(sum(neto), 0) as neto')->toBase()->first();

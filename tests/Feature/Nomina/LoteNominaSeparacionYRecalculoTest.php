@@ -46,13 +46,14 @@ test('un lote quincenal nunca incluye a un colaborador de sucursal (no corporati
         ->toBe([$corporativo->id]);
 });
 
-test('un colaborador activo sin sucursal queda como error de clasificacion, nunca adivinado', function () {
+test('un colaborador activo sin sucursal queda como advertencia de clasificacion, nunca adivinado ni contado en el grupo', function () {
     Colaborador::factory()->create(['sucursal_principal_id' => null, 'estatus' => EstadoUsuario::Activo, 'sueldo_mensual' => 9000, 'fecha_ingreso' => '2025-01-01']);
 
     $lote = $this->lotes->preparar(PeriodicidadNomina::Semanal, CarbonImmutable::parse('2026-10-08'), $this->rh);
 
     expect($lote->preparados)->toBe(0)
-        ->and(collect($lote->errores)->pluck('motivo')->implode(' '))->toContain('clasificación');
+        ->and($lote->esperados)->toBe(0)
+        ->and(collect($lote->advertencias)->where('sin_clasificacion', true)->pluck('motivo')->implode(' '))->toContain('clasificación');
 });
 
 test('usa salario_diario como fuente canonica: no exige sueldo_mensual si el diario ya esta capturado', function () {
