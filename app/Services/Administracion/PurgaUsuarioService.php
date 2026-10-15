@@ -42,6 +42,20 @@ class PurgaUsuarioService
         'progreso_lecciones' => 'avance de lecciones',
         'official_format_generations' => 'formatos oficiales generados',
         'importaciones_excel' => 'importaciones de Excel',
+        'document_extractions' => 'lecturas automáticas de documentos',
+        'sesiones_en_vivo' => 'sesiones en vivo',
+        'asignaciones' => 'asignaciones de capacitación',
+        'asignaciones_usuario' => 'asignaciones de capacitación',
+        'bancos_preguntas' => 'bancos de preguntas',
+        'cargas_multimedia' => 'cargas multimedia',
+        'recursos_multimedia' => 'recursos multimedia',
+        'entregas_actividad' => 'entregas de actividades',
+        'intervalos_video_vistos' => 'avance de videos',
+        'sesiones_reproduccion' => 'reproducciones de video',
+        'solicitudes_excepcion_periodo_prueba' => 'solicitudes de excepción de periodo de prueba',
+        'finiquito_calculos' => 'cálculos de finiquito',
+        'incorporacion_invitaciones' => 'invitaciones de incorporación',
+        'intervenciones_candidato' => 'intervenciones en candidatos',
         'mobile_devices' => 'dispositivos móviles',
         'notificacion_entregas' => 'entregas de notificaciones',
         'notification_reads' => 'lecturas de notificaciones',
@@ -75,7 +89,7 @@ class PurgaUsuarioService
             } elseif ($accion === 'cascade' && in_array($tabla, self::TECNICAS, true)) {
                 $eliminar[] = ['que' => $this->etiqueta($tabla), 'filas' => $filas];
             } else {
-                $bloqueos[] = sprintf('Tiene %d %s registrad%s a su nombre (%s).', $filas, $this->etiqueta($tabla), $filas === 1 ? 'o' : 'os', $tabla);
+                $bloqueos[] = sprintf('%s: %d %s a su nombre.', Str::ucfirst($this->etiqueta($tabla)), $filas, $filas === 1 ? 'registro' : 'registros');
             }
         }
 
