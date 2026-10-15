@@ -301,7 +301,7 @@ Notificaciones nuevas (`PendienteRhNotification`) incluyen `related_type`, `rela
 - **IDOR**: autoservicio siempre desde la sesión; recursos por id siempre con Policy
   (probado: otro colaborador recibe 403 en recibos, documentos, préstamos).
 - **Roles nuevos**: `direccion` (autorizaciones e indicadores), `juridico` (documentación
-  jurídica y plantillas), `sistemas` (plataforma, sin expedientes ni nómina).
+  jurídica y plantillas), `sistemas` (plataforma; lectura global para soporte, sin decidir nada de RH — ver `docs/FLUJO_OPERATIVO_Y_PERMISOS.md` §4).
 - **Rate limiting**: `throttle:api` (120/min por cuenta), `throttle:api-login` (10/min por
   correo+IP), `throttle:api-cargas` (30/min) en cargas/importaciones.
 - **Archivos**: MIME y tamaño restringidos (`config/contratos.php`), nombres saneados

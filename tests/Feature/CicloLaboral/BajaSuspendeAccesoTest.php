@@ -98,7 +98,7 @@ test('al solicitar la baja se suspende el acceso al instante, se avisa a RH y si
 });
 
 test('un regional puede rehabilitar el acceso pero no revocar cuentas', function () {
-    $regional = clUsuario('coordinadora_regional', ['sucursal_principal_id' => $this->colaborador->sucursal_principal_id]);
+    $regional = clUsuario('gerente_regional', ['sucursal_principal_id' => $this->colaborador->sucursal_principal_id]);
     $this->cuenta->forceFill(['acceso_bloqueado_en' => now(), 'acceso_bloqueado_motivo' => 'Baja en trámite: Renuncia'])->save();
 
     $this->actingAs($regional)

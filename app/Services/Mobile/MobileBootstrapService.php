@@ -28,13 +28,14 @@ class MobileBootstrapService
     /**
      * Roles con alcance de aprobacion sobre subordinados/sucursal (mismo
      * catalogo funcional que App\Services\AlcanceOrganizacionalService,
-     * mas jefe_directo/supervisor que ahi cuentan aparte).
+     * mas jefe_directo/supervisor que ahi cuentan aparte). Las coordinadoras
+     * no: usan PEOPLE como colaboradoras (decision del negocio 2026-10-15).
      *
      * @var array<int, string>
      */
     private const ROLES_MANAGER = [
         'jefe_directo', 'supervisor', 'gerente_sucursal', 'gerente', 'subgerente',
-        'gerente_regional', 'coordinadora_regional', 'coordinadora',
+        'gerente_regional',
     ];
 
     /**

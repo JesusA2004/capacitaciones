@@ -58,10 +58,11 @@ test('un subgerente puede aprobar solicitudes de su sucursal igual que el gerent
     expect($solicitud->fresh()->estado->value)->toBe('aprobada');
 });
 
-test('una coordinadora puede revisar pero no aprobar solicitudes', function () {
+test('una coordinadora usa PEOPLE como colaboradora: ni revisa ni aprueba solicitudes de RH', function () {
     $coordinadora = User::factory()->create();
     $coordinadora->assignRole('coordinadora');
 
-    expect($coordinadora->can('solicitudes.revisar'))->toBeTrue()
-        ->and($coordinadora->can('solicitudes.aprobar'))->toBeFalse();
+    expect($coordinadora->can('solicitudes.revisar'))->toBeFalse()
+        ->and($coordinadora->can('solicitudes.aprobar'))->toBeFalse()
+        ->and($coordinadora->can('portal.solicitudes.crear'))->toBeTrue();
 });

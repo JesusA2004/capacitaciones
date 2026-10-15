@@ -86,7 +86,9 @@ beforeEach(function () {
     $this->regional = clUsuario('gerente_regional', ['sucursal_principal_id' => $this->sucursalA->id]);
     $this->gerenteA = clUsuario('gerente_sucursal', ['sucursal_principal_id' => $this->sucursalA->id, 'jefe_id' => $this->regional->colaborador_id]);
     $this->gerenteB = clUsuario('gerente_sucursal', ['sucursal_principal_id' => $this->sucursalB->id]);
-    $this->coordinadora = clUsuario('coordinadora_regional', ['sucursal_principal_id' => $this->sucursalA->id]);
+    // Programa el pago del finiquito: RH (cierres.programar_pago). Las coordinadoras
+    // ya no operan RH: usan PEOPLE como colaboradoras (2026-10-15).
+    $this->pagador = clUsuario('rh_admin');
 
     // Catálogo documental (configurable): dos obligatorios.
     $this->tipos = collect([
@@ -496,7 +498,7 @@ test('G: cierre — gerente solicita, RH autoriza, finiquito, regional programa,
     expect($cierre->estado)->toBe(EstadoCierreLaboral::FiniquitoAutorizado);
 
     expect(fn () => $cierres->programarPago($cierre, $this->gerenteA, ['fecha' => now()->addDays(3)->toDateString(), 'metodo' => 'transferencia']))->toThrow(AuthorizationException::class);
-    $cierre = $cierres->programarPago($cierre, $this->coordinadora, ['fecha' => now()->addDays(3)->toDateString(), 'metodo' => 'transferencia', 'observaciones' => 'Flujo semana 41']);
+    $cierre = $cierres->programarPago($cierre, $this->pagador, ['fecha' => now()->addDays(3)->toDateString(), 'metodo' => 'transferencia', 'observaciones' => 'Flujo semana 41']);
     expect($cierre->estado)->toBe(EstadoCierreLaboral::PagoProgramado)
         ->and(TareaRh::query()->where('tipo', TipoTarea::CitaFiniquito->value)->whereNull('resuelta_en')->value('asignado_user_id'))->toBe($this->gerenteA->id);
 
@@ -794,7 +796,7 @@ test('PDF etapas 6-7: el gerente solicita la baja → acceso fuera al instante; 
     $cierre = $cierres->autorizarRh($cierre, $this->rh, 'Procede.');
     $cierres->calcularFiniquito($cierre, $this->rh, 12000);
     $cierre = $cierres->autorizarFiniquito($cierre->refresh(), $this->rh);
-    $cierre = $cierres->programarPago($cierre, $this->coordinadora, ['fecha' => now()->addDays(3)->toDateString(), 'metodo' => 'transferencia']);
+    $cierre = $cierres->programarPago($cierre, $this->pagador, ['fecha' => now()->addDays(3)->toDateString(), 'metodo' => 'transferencia']);
     $this->actingAs($this->gerenteA);
     $cierres->registrarCita($cierre, $this->gerenteA, now()->addDays(3)->setTime(10, 0)->toDateTimeString());
     $cierres->registrarFiniquitoFirmado($cierre->refresh(), clArchivoPdf('finiquito-firmado.pdf'), $this->gerenteA);

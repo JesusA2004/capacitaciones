@@ -30,16 +30,15 @@ Añadidos en el checkpoint de Solicitudes internas / API móvil. Todos reutiliza
 - **`gerente_regional`**: alcance de sucursal (`ROLES_ALCANCE_SUCURSAL`), pero pensado para **varias sucursales**: se le asignan varias sucursales adicionales (`sucursal_user`, igual que a `gerente_sucursal`) y ve/aprueba en todas ellas. Mismo catálogo funcional que `gerente`.
 - **`gerente`**: alcance de una sola sucursal, catálogo equivalente a `gerente_sucursal` (que se conserva intacto, no se elimina ni se renombra).
 - **`subgerente`**: mismo alcance y catálogo que `gerente`, para poder **cubrirlo** según la jerarquía de puestos (`docs/JERARQUIA_PUESTOS.md`) — no tiene permisos exclusivos propios.
-- **`coordinadora_regional`**: alcance de varias sucursales (igual mecanismo que `gerente_regional`), pero solo apoyo administrativo — ve expedientes/documentos/solicitudes y puede revisar, **no aprueba** vacaciones ni tiene autoridad de reclutamiento.
-- **`coordinadora`**: mismo catálogo que `coordinadora_regional`, acotada a su propia sucursal (el alcance real lo determina qué sucursales tiene asignadas el usuario, no el nombre del rol).
+- **`coordinadora_regional`** y **`coordinadora`**: desde el 2026-10-15 usan PEOPLE como **colaboradoras** (mismo catálogo que `colaborador`, sin alcance ni bandeja RH) — decisión del negocio; ver `docs/ROLES_Y_NAVEGACION.md` § «Coordinadoras». Antes eran apoyo administrativo con alcance de sucursal/región.
 
-El "alcance de varias sucursales" de los roles regionales **no es un tercer mecanismo**: es el mismo `ROLES_ALCANCE_SUCURSAL` + `sucursalesAdicionales()` que ya usaba `gerente_sucursal`, solo que a un gerente/coordinadora regional se le asignan varias filas en `sucursal_user` en vez de una.
+El "alcance de varias sucursales" de los roles regionales **no es un tercer mecanismo**: es el mismo `ROLES_ALCANCE_SUCURSAL` + `sucursalesAdicionales()` que ya usaba `gerente_sucursal`, solo que a un gerente regional se le asignan varias filas en `sucursal_user` en vez de una.
 
 ## Roles existentes, permisos ampliados
 
 - **`gerente_sucursal`**: gana `expedientes.ver_sucursal`, `documentos.ver`, `vacaciones.*` (ver/solicitar/aprobar), `solicitudes.*` (ver/revisar/aprobar), `reportes_rh.ver`/`reportes_rh.sucursal`.
 - **`colaborador`**: gana `expedientes.ver` (su propio expediente), `documentos.ver`/`subir`/`descargar`, `vacaciones.ver`/`solicitar`, `solicitudes.ver`/`crear`.
-- **`auditor`**: gana acceso de solo lectura a empresas, expedientes (todos), documentos, vacaciones, solicitudes y reportes RH.
+- **`auditor`**: gana acceso de solo lectura a empresas, expedientes (todos), documentos, vacaciones, solicitudes y reportes RH. Nunca escritura; sin recibos de nómina, préstamos ni actas (mínimo privilegio, migración `2026_10_15_180100_auditor_minimo_privilegio`).
 
 ## AlcanceOrganizacionalService: tercer nivel de alcance
 
@@ -70,7 +69,7 @@ Cubierto por tests: `tests/Feature/Administracion/EmpresaTest.php`, `tests/Featu
 
 Roles nuevos: `direccion` (autoriza evaluaciones, préstamos y bajas; indicadores
 globales), `juridico` (consulta documentación jurídica y administra plantillas del motor
-documental) y `sistemas` (cuentas, roles, releases y auditoría; sin expedientes ni nómina).
+documental) y `sistemas` (cuentas, roles, releases y auditoría; desde 2026-10-13 con lectura global para soporte y sin ninguna acción de decisión de RH — ver `docs/FLUJO_OPERATIVO_Y_PERMISOS.md` §4).
 Los tres tienen alcance global en `AlcanceOrganizacionalService`, pero cada acción sigue
 exigiendo su permiso específico.
 

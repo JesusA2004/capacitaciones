@@ -10,7 +10,7 @@ Entrevista y revisa a los candidatos de su sucursal (psicométricos y socioecon�
 
 **Dónde trabaja:** Web o app (Gestión RH: Pendientes, Equipo).
 
-**Roles del sistema:** `gerente_sucursal`, `gerente`, `subgerente`, `coordinadora`, `jefe_directo`
+**Roles del sistema:** `gerente_sucursal`, `gerente`, `subgerente`, `jefe_directo`
 
 ### Tu checklist
 
@@ -39,7 +39,7 @@ Monitorea las sucursales de su región, da el segundo visto bueno de solicitudes
 
 **Dónde trabaja:** App y web, con alcance de región.
 
-**Roles del sistema:** `gerente_regional`, `coordinadora_regional`
+**Roles del sistema:** `gerente_regional`
 
 ### Tu checklist
 
@@ -347,7 +347,7 @@ Es todo lo que RH guarda de una persona: datos, documentos, cuenta, onboarding, 
 
 #### Quién lo hace
 
-RH ve todos los expedientes; gerencias y coordinadoras, los de su sucursal; el colaborador, solo el suyo (Mi expediente).
+RH ve todos los expedientes; gerencias, los de su sucursal; el colaborador (incluidas las coordinadoras), solo el suyo (Mi expediente).
 
 #### Pasos
 

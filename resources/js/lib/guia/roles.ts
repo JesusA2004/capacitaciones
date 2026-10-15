@@ -65,7 +65,6 @@ export const ROLES_GUIA: RolGuia[] = [
             'gerente_sucursal',
             'gerente',
             'subgerente',
-            'coordinadora',
             'jefe_directo',
         ],
         icono: 'Building2',
@@ -116,7 +115,7 @@ export const ROLES_GUIA: RolGuia[] = [
     {
         id: 'regional',
         nombre: 'Gerente Regional',
-        rolesSistema: ['gerente_regional', 'coordinadora_regional'],
+        rolesSistema: ['gerente_regional'],
         icono: 'MapPinned',
         resumen:
             'Monitorea las sucursales de su región, da el segundo visto bueno de solicitudes, entrevista y revisa candidatos a Gerente de sucursal y decide intervenciones de Gestor o Gestor Volante cuando el gerente las pide.',
@@ -204,7 +203,8 @@ export const ROLES_GUIA: RolGuia[] = [
     {
         id: 'colaborador',
         nombre: 'Colaborador',
-        rolesSistema: ['colaborador'],
+        // Las coordinadoras usan PEOPLE como colaboradoras (2026-10-15).
+        rolesSistema: ['colaborador', 'coordinadora', 'coordinadora_regional'],
         icono: 'UserRound',
         resumen:
             'Usa «Mi espacio» (app o web) para su perfil, completar sus datos y documentos, la inducción, el directorio, pedir permisos, vacaciones y préstamos, y ver avisos, notificaciones y celebraciones.',

@@ -385,6 +385,31 @@ class RolesYPermisosSeeder extends Seeder
     ];
 
     /**
+     * Permisos del rol `colaborador` (todo sobre lo PROPIO: su expediente,
+     * sus documentos, sus solicitudes). También es el catálogo de
+     * `coordinadora` y `coordinadora_regional` — decisión del negocio
+     * (2026-10-15): la Coordinadora usa PEOPLE como colaboradora, no como
+     * operadora de RH. En bases existentes los permisos operativos viejos
+     * de esos dos roles los revoca la migración
+     * 2026_10_15_180000_coordinadoras_usan_people_como_colaboradoras.
+     *
+     * @var list<string>
+     */
+    public const PERMISOS_ROL_COLABORADOR = [
+        'expedientes.ver',
+        'documentos.ver', 'documentos.subir', 'documentos.descargar',
+        'vacaciones.ver', 'vacaciones.solicitar',
+        'solicitudes.ver', 'solicitudes.crear',
+        'portal.ver', 'portal.perfil.ver', 'portal.solicitudes.ver', 'portal.solicitudes.crear', 'portal.notificaciones.ver',
+        'colaborador.incorporacion.ver', 'colaborador.incorporacion.documentos.subir', 'colaborador.incorporacion.documentos.solicitar-cambio',
+        // Backend movil v5: cualquier colaborador usa el bootstrap/config/dispositivos/notificaciones/solicitudes de la app.
+        'mobile.bootstrap.ver', 'app.config.ver',
+        'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
+        'notificaciones.leer_todas',
+        'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
+    ];
+
+    /**
      * Mapa inicial rol => permisos. Editable despues desde la pantalla de
      * administracion de roles; esto es solo el punto de partida razonable.
      *
@@ -690,54 +715,13 @@ class RolesYPermisosSeeder extends Seeder
             'ciclo.preautorizar', 'candidatos.evaluar', 'onboarding.ver', 'onboarding.entregar_activos', 'cierres.ver', 'cierres.solicitar', 'evaluaciones.ver', 'evaluaciones.capturar', 'documentos_laborales.ver', 'documentos_laborales.operar_fisico',
         ],
 
-        // Apoyo administrativo regional: ve procesos (expedientes, documentos,
-        // solicitudes) de varias sucursales de su región, sin autoridad de
-        // reclutamiento ni de aprobar vacaciones/solicitudes (solo revisar).
-        'coordinadora_regional' => [
-            'directorio.contactos.ver_todos',
-            'perfiles_puesto.ver',
-            'dashboard.sucursal.ver',
-            'usuarios.ver', 'usuarios.restablecer_acceso',
-            'expedientes.ver', 'expedientes.ver_sucursal',
-            'documentos.ver', 'documentos.subir', 'documentos.revisar',
-            'vacaciones.ver',
-            'solicitudes.ver', 'solicitudes.revisar',
-            'reportes_rh.ver', 'reportes_rh.sucursal',
-            // Backend movil v5: ve/revisa desde la app, no aprueba decisiones finales.
-            'mobile.bootstrap.ver', 'app.config.ver',
-            'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
-            'rh.mobile.dashboard.ver', 'rh.pendientes.ver',
-            'rh.solicitudes.ver', 'rh.solicitudes.detalle',
-            'rh.vacaciones.ver', 'rh.vacaciones.detalle',
-            'rh.documentos.ver', 'rh.documentos.detalle', 'rh.documentos.ver_archivo',
-            'notificaciones.leer_todas',
-            'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
-            'organigrama.ver',
-            'cierres.ver', 'cierres.programar_pago', 'finiquitos.ver', 'onboarding.ver',
-        ],
-
-        // Mismo catálogo que coordinadora_regional, acotado a su propia
-        // sucursal (el alcance real depende de qué sucursales tenga
-        // asignadas el usuario, no del nombre del rol).
-        'coordinadora' => [
-            'perfiles_puesto.ver',
-            'dashboard.sucursal.ver',
-            'usuarios.ver',
-            'expedientes.ver', 'expedientes.ver_sucursal',
-            'documentos.ver', 'documentos.subir', 'documentos.revisar',
-            'vacaciones.ver',
-            'solicitudes.ver', 'solicitudes.revisar',
-            'reportes_rh.ver', 'reportes_rh.sucursal',
-            'mobile.bootstrap.ver', 'app.config.ver',
-            'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
-            'rh.mobile.dashboard.ver', 'rh.pendientes.ver',
-            'rh.solicitudes.ver', 'rh.solicitudes.detalle',
-            'rh.vacaciones.ver', 'rh.vacaciones.detalle',
-            'rh.documentos.ver', 'rh.documentos.detalle', 'rh.documentos.ver_archivo',
-            'notificaciones.leer_todas',
-            'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
-            'organigrama.ver',
-        ],
+        // Coordinadoras (de sucursal y regional): usan PEOPLE como
+        // COLABORADORAS, no como operadoras de RH (decisión del negocio,
+        // 2026-10-15) — mismo catálogo que `colaborador`, todo sobre lo
+        // propio. Sin alcance en config/permisos_modulos.php ni en
+        // AlcanceOrganizacionalService/MobileBootstrapService.
+        'coordinadora_regional' => self::PERMISOS_ROL_COLABORADOR,
+        'coordinadora' => self::PERMISOS_ROL_COLABORADOR,
 
         // Ve y aprueba vacaciones/solicitudes de sus subordinados directos
         // (jefe_id), un alcance mas estrecho que gerente_sucursal (que ve
@@ -766,19 +750,7 @@ class RolesYPermisosSeeder extends Seeder
             'ciclo.preautorizar', 'onboarding.ver', 'cierres.ver', 'cierres.solicitar', 'solicitudes.bajas.crear',
         ],
 
-        'colaborador' => [
-            'expedientes.ver',
-            'documentos.ver', 'documentos.subir', 'documentos.descargar',
-            'vacaciones.ver', 'vacaciones.solicitar',
-            'solicitudes.ver', 'solicitudes.crear',
-            'portal.ver', 'portal.perfil.ver', 'portal.solicitudes.ver', 'portal.solicitudes.crear', 'portal.notificaciones.ver',
-            'colaborador.incorporacion.ver', 'colaborador.incorporacion.documentos.subir', 'colaborador.incorporacion.documentos.solicitar-cambio',
-            // Backend movil v5: cualquier colaborador usa el bootstrap/config/dispositivos/notificaciones/solicitudes de la app.
-            'mobile.bootstrap.ver', 'app.config.ver',
-            'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
-            'notificaciones.leer_todas',
-            'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
-        ],
+        'colaborador' => self::PERMISOS_ROL_COLABORADOR,
         'auditor' => [
             'directorio.contactos.ver_todos',
             'perfiles_puesto.ver',
@@ -807,10 +779,17 @@ class RolesYPermisosSeeder extends Seeder
             'rh.colaboradores.ver', 'rh.colaboradores.detalle',
             'notificaciones.leer_todas',
             'headcount.ver', 'organigrama.ver',
-            // Ciclo laboral completo (docs/backend-rh-completion.md).
-            'contratos.ver', 'evaluaciones.ver', 'cierres.ver', 'nomina.recibos.ver', 'prestamos.ver',
-            'actas.ver', 'documentos_laborales.ver', 'plantillas_documentales.ver', 'indicadores.ver',
-            'onboarding.ver', 'cierres.ver',
+            // Ciclo laboral completo (docs/backend-rh-completion.md), solo
+            // lectura. Mínimo privilegio (2026-10-15): SIN recibos de nómina,
+            // préstamos ni actas — datos salariales/financieros y
+            // disciplinarios que su función documentada (empresas,
+            // expedientes, documentos, vacaciones, solicitudes, reportes RH,
+            // reclutamiento) no requiere. La migración
+            // 2026_10_15_180100_auditor_minimo_privilegio los revoca en bases
+            // existentes.
+            'contratos.ver', 'evaluaciones.ver', 'cierres.ver',
+            'documentos_laborales.ver', 'plantillas_documentales.ver', 'indicadores.ver',
+            'onboarding.ver',
         ],
 
         // Dirección: autorizaciones finales (evaluaciones, préstamos, bajas)

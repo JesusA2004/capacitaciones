@@ -85,8 +85,8 @@ Solución: `App\Policies\Concerns\ConSuperAdminOperativo` — un trait con `befo
 | **gerente_sucursal** / **gerente** | sucursal | Aprueba vacaciones/solicitudes/candidatos de su sucursal, actas, cierres, ciclo laboral completo de su gente. |
 | **subgerente** | sucursal | Mismo catálogo que gerente (apoyo/cobertura), sin `vacantes.crear` ni decidir candidatos/rechazos. |
 | **jefe_directo** | equipo (subordinados directos) | Aprueba vacaciones/solicitudes de su equipo, preautoriza cierres, captura evaluaciones — nunca ve a quien no es su subordinado directo. |
-| **coordinadora_regional** | región | Consulta/revisión/apoyo (documentos, solicitudes, cierres de pago) en varias sucursales de su región. No aprueba vacaciones ni solicitudes — solo `solicitudes.revisar`. |
-| **coordinadora** | sucursal | Mismo catálogo que coordinadora_regional, acotado a su sucursal. |
+| **coordinadora_regional** | propio | Desde 2026-10-15 usa PEOPLE como **colaboradora** (catálogo de `colaborador`): sin bandeja RH, sin alcance de región. Ver `docs/ROLES_Y_NAVEGACION.md`. |
+| **coordinadora** | propio | Igual que coordinadora_regional: colaboradora. |
 | **colaborador** | propio | Su expediente, sus solicitudes, sus vacaciones, sus documentos autorizados, sus notificaciones. Nunca ve recibos de nómina ni documentos de renuncia/finiquito (§2). |
 
 Si una cuenta tiene varios roles (p. ej. `sistemas` + `super_admin`), **manda `super_admin`**: el bypass de `ConSuperAdminOperativo` no depende de qué otro rol tenga la cuenta, solo de `hasRole('super_admin')`.

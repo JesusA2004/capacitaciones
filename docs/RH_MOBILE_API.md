@@ -203,7 +203,7 @@ Igual criterio de alcance que el resto: `AlcanceOrganizacionalService` acota tan
 
 ## Permisos nuevos
 
-Ver `database/seeders/RolesYPermisosSeeder.php`, bloque "Backend movil v5". Asignados a `super_admin` (todo), `rh_admin` (todo lo de RH móvil), `rh_auxiliar`/`coordinadora(_regional)`/`auditor`/`director_comercial` (solo `ver`/`detalle`, sin aprobar), `gerente_sucursal`/`gerente`/`subgerente`/`gerente_regional`/`jefe_directo` (aprueban solicitudes/vacaciones de su alcance, no documentos/incorporaciones — eso queda exclusivo de RH), `colaborador` (solo lo transversal: bootstrap, dispositivos, notificaciones, configuración de solicitudes).
+Ver `database/seeders/RolesYPermisosSeeder.php`, bloque "Backend movil v5". Asignados a `super_admin` (todo), `rh_admin` (todo lo de RH móvil), `rh_auxiliar`/`auditor`/`director_comercial` (solo `ver`/`detalle`, sin aprobar), `gerente_sucursal`/`gerente`/`subgerente`/`gerente_regional`/`jefe_directo` (aprueban solicitudes/vacaciones de su alcance, no documentos/incorporaciones — eso queda exclusivo de RH), `colaborador`, `coordinadora` y `coordinadora_regional` (solo lo transversal: bootstrap, dispositivos, notificaciones, configuración de solicitudes).
 
 ## Tests
 

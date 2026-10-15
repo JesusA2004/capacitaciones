@@ -45,3 +45,24 @@ Los permisos `portal.*` (`portal.ver`, `portal.perfil.ver`, `portal.solicitudes.
 ## Bloqueo de cuenta
 
 Un colaborador dado de baja (`estatus` distinto de `activo`/`en_incorporacion`) no puede iniciar sesión: `App\Providers\FortifyServiceProvider::configureActions()` lo bloquea en el login web, `Api\V1\AuthController::login()` en la app móvil, y `App\Http\Middleware\EnsureCuentaActiva` cierra cualquier sesión web que ya estuviera abierta en la siguiente petición. Ver `docs/SOLICITUDES_UNIFICADAS.md` para el flujo completo de baja.
+
+## Coordinadoras: usan PEOPLE como colaboradoras (2026-10-15)
+
+Decisión del negocio: la **Coordinadora** (roles `coordinadora` y `coordinadora_regional`) usa PEOPLE como **colaboradora**, no como operadora de RH. Ambos roles tienen exactamente el catálogo de `colaborador` (`RolesYPermisosSeeder::PERMISOS_ROL_COLABORADOR`: su expediente, sus documentos, sus solicitudes/vacaciones, Mi espacio, app y notificaciones propias) y:
+
+- no aparecen en `config/permisos_modulos.php → alcance_por_rol` (alcance «Propios»), ni en `AlcanceOrganizacionalService::ROLES_ALCANCE_SUCURSAL`, ni en `MobileBootstrapService::ROLES_MANAGER` — el bootstrap móvil devuelve `capabilities.rh = false` y `capabilities.manager = false`;
+- sin modo operativo (no tienen `dashboard.*.ver`): solo «Mi espacio»; la Guía las trata como colaboradoras (`resources/js/lib/guia/roles.ts`);
+- reciben 403 en expedientes ajenos, solicitudes/vacaciones/documentos de RH (web y API), usuarios, reportes, cierres y finiquitos. Programar el pago de un finiquito (`cierres.programar_pago`) queda en RH; rehabilitar acceso (`usuarios.restablecer_acceso`), en RH y `gerente_regional`.
+
+## Revocar permisos en producción (mecanismo explícito)
+
+`people:sincronizar-permisos` (y `db:seed --force`) es **no destructivo** a propósito: solo agrega lo que falta y nunca quita lo que un administrador agregó desde «Roles y permisos». Por eso **quitar un permiso del seeder no lo quita en producción**. Cuando el negocio decide QUITAR permisos a un rol, se hace con una migración de datos que nombra SOLO a los roles afectados y llama a `App\Services\Permisos\AlineacionPermisosRolService::alinearAlBase([...])`: deja cada rol con exactamente su base del seeder (`syncPermissions`), crea los permisos base que falten, limpia la caché de Spatie y, si el rol no existe, no hace nada. Idempotente. Ninguna otra migración ni comando lo aplica a todos los roles.
+
+| Migración | Roles | Qué revoca |
+|---|---|---|
+| `2026_10_15_180000_coordinadoras_usan_people_como_colaboradoras` | `coordinadora`, `coordinadora_regional` | Todo lo operativo (expedientes/documentos de sucursal o región, revisar solicitudes, bandeja móvil RH, usuarios, reportes RH, organigrama, cierres/pago de finiquito, finiquitos, onboarding, contactos de todo el directorio). Quedan con el catálogo de `colaborador`. |
+| `2026_10_15_180100_auditor_minimo_privilegio` | `auditor` | Recibos de nómina, préstamos y actas (con sus permisos de alcance) y cualquier permiso fuera de su base: el auditor es solo lectura de empresas, expedientes, documentos, vacaciones, solicitudes, reportes RH, reclutamiento y ciclo laboral (contratos, evaluaciones, cierres, documentos laborales). |
+
+En producción basta `php artisan migrate --force` (seguido, como siempre, de `php artisan people:sincronizar-permisos`). Si después se personaliza uno de esos roles desde «Roles y permisos», la migración ya corrió y no lo vuelve a tocar.
+
+`sistemas` conserva su **lectura global para soporte** sin acciones de decisión (decisión documentada en `docs/FLUJO_OPERATIVO_Y_PERMISOS.md` §4); no se le aplicó revocación.

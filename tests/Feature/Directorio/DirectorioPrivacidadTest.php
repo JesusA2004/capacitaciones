@@ -69,3 +69,21 @@ test('RH, Sistemas y super_admin ven todos los contactos por permiso', function 
 
     expect(dpBuscar($api, $this->otro->id)['correo_corporativo'])->toBe('otro@mrlana.test');
 })->with(['rh_admin', 'sistemas', 'super_admin']);
+
+test('«solo con correo» se ignora para quien no ve todos los contactos (no permite inferir quién tiene correo)', function () {
+    $sinCorreo = Colaborador::factory()->create(['sucursal_principal_id' => $this->sucursal->id, 'correo_corporativo' => null, 'telefono_corporativo' => null]);
+
+    Sanctum::actingAs($this->operativo);
+    $ids = collect($this->getJson('/api/v1/directorio?per_page=50&solo_con_correo=1')->assertOk()->json('data'))->pluck('id');
+
+    // El filtro no se aplica: la persona sin correo sigue en la lista.
+    expect($ids)->toContain($sinCorreo->id)
+        ->and($ids)->toContain($this->otro->id);
+
+    Sanctum::actingAs(clUsuario('rh_admin', ['sucursal_principal_id' => $this->sucursal->id]));
+    $ids = collect($this->getJson('/api/v1/directorio?per_page=50&solo_con_correo=1')->assertOk()->json('data'))->pluck('id');
+
+    // Con permiso de ver todos los contactos, el filtro sí aplica.
+    expect($ids)->not->toContain($sinCorreo->id)
+        ->and($ids)->toContain($this->otro->id);
+});

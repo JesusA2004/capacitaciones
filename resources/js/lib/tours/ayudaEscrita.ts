@@ -29,7 +29,7 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
             'Usa la rotación para revisar altas y bajas del periodo.',
         ],
         permisos:
-            'Cualquier cuenta con modo operativo (dashboard global o de sucursal). Lo que ves depende de tu alcance: RH y dirección ven todo; gerentes y coordinadoras, sus sucursales.',
+            'Cualquier cuenta con modo operativo (dashboard global o de sucursal). Lo que ves depende de tu alcance: RH y dirección ven todo; gerentes, sus sucursales.',
         errores: [
             '«No veo una sucursal»: tu alcance no la incluye; pide a RH que revise tus sucursales asignadas.',
             'Las gráficas tardan un momento en aparecer: se cargan después de los indicadores.',
@@ -49,7 +49,7 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
             'En «Documentos», revisa lo cargado y aprueba o rechaza con comentario.',
         ],
         permisos:
-            'RH (administración y auxiliar), dirección, jurídico y auditoría ven todos los expedientes; gerentes, subgerentes y coordinadoras solo los de su sucursal.',
+            'RH (administración y auxiliar), dirección, jurídico y auditoría ven todos los expedientes; gerentes y subgerentes solo los de su sucursal; las coordinadoras, como cualquier colaborador, solo el suyo.',
         errores: [
             'Un expediente «no desaparece» al dar de baja: la baja bloquea el acceso y conserva todo el historial.',
             'El avance solo sube con documentos APROBADOS; cargado o en revisión todavía no cuenta.',
@@ -90,7 +90,7 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
             'En un puesto VACANTE, usa «Cubrir» para registrar quién lo cubre temporalmente (sin cambiar su puesto titular).',
         ],
         permisos:
-            'Consultar: RH, dirección, dirección comercial, gerencias, coordinadoras, jefes directos y auditoría. Editar: quien administra puestos u organigrama.',
+            'Consultar: RH, dirección, dirección comercial, gerencias, jefes directos y auditoría. Editar: quien administra puestos u organigrama.',
         errores: [
             'Cubrir un puesto NO cambia el puesto titular de la persona ni suma plantilla.',
             'La estructura territorial (regiones, rutas) no está aquí sino en Matriz comercial.',
@@ -235,7 +235,7 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
             'Exporta si lo necesitas.',
         ],
         permisos:
-            'RH, dirección comercial, gerencias, coordinadoras, auditoría y dirección (exportar requiere permiso adicional).',
+            'RH, dirección comercial, gerencias, auditoría y dirección (exportar requiere permiso adicional).',
         errores: [
             'Con muchas categorías la gráfica muestra las principales; el detalle completo está en la exportación.',
         ],

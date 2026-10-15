@@ -475,7 +475,7 @@ export const ARTICULOS_CONTRATACION: ArticuloGuia[] = [
         queEs: 'Es todo lo que RH guarda de una persona: datos, documentos, cuenta, onboarding, avisos, vacaciones, recibos, préstamos, solicitudes e historial.',
         quien: ['rh', 'gerente', 'colaborador'],
         quienDetalle:
-            'RH ve todos los expedientes; gerencias y coordinadoras, los de su sucursal; el colaborador, solo el suyo (Mi expediente).',
+            'RH ve todos los expedientes; gerencias, los de su sucursal; el colaborador (incluidas las coordinadoras), solo el suyo (Mi expediente).',
         antes: [
             'Tener permiso de expedientes (RH o gerencia) o ser el propio colaborador.',
         ],

@@ -35,12 +35,17 @@ use Illuminate\Pagination\LengthAwarePaginator;
 class DirectorioColaboradoresService
 {
     /**
+     * «Solo con correo» se IGNORA si quien busca no ve los contactos de
+     * todos (veTodosLosContactos): filtrar en BD por un correo que no puede
+     * ver le permitiría inferir quién tiene correo corporativo.
+     *
      * @param  array<string, mixed>  $filtros  busqueda?, puesto_id?, sucursal_id?, departamento_id?, solo_con_correo?
      * @return LengthAwarePaginator<int, Colaborador>
      */
-    public function buscar(array $filtros = [], int $porPagina = 30): LengthAwarePaginator
+    public function buscar(array $filtros = [], int $porPagina = 30, ?User $viewer = null): LengthAwarePaginator
     {
         $filtros = $this->normalizarFiltros($filtros);
+        $filtros['solo_con_correo'] = $filtros['solo_con_correo'] && $viewer !== null && $this->veTodosLosContactos($viewer);
 
         return $this->consulta()
             ->when($filtros['busqueda'], function (Builder $q, string $busqueda): void {
@@ -56,7 +61,7 @@ class DirectorioColaboradoresService
             ->when($filtros['puesto_id'], fn (Builder $q, int $v) => $q->where('puesto_id', $v))
             ->when($filtros['sucursal_id'], fn (Builder $q, int $v) => $q->where('sucursal_principal_id', $v))
             ->when($filtros['departamento_id'], fn (Builder $q, int $v) => $q->where('departamento_id', $v))
-            // «Solo con correo» filtra sobre lo que la persona puede ver.
+            // «Solo con correo»: solo para quien ve todos los contactos (arriba).
             ->when($filtros['solo_con_correo'], fn (Builder $q) => $q->whereNotNull('correo_corporativo')->where('correo_corporativo', '!=', ''))
             ->orderBy('name')
             ->orderBy('apellidos')

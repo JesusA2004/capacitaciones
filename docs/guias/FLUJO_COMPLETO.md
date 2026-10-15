@@ -1035,7 +1035,7 @@ Es todo lo que RH guarda de una persona: datos, documentos, cuenta, onboarding, 
 
 #### Quién lo hace
 
-RH ve todos los expedientes; gerencias y coordinadoras, los de su sucursal; el colaborador, solo el suyo (Mi expediente).
+RH ve todos los expedientes; gerencias, los de su sucursal; el colaborador (incluidas las coordinadoras), solo el suyo (Mi expediente).
 
 #### Antes de empezar
 
