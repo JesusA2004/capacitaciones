@@ -4,6 +4,7 @@ namespace App\Services\CierreLaboral;
 
 use App\Models\CierreLaboral;
 use App\Models\User;
+use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Solicitudes\SolicitudesService;
@@ -47,6 +48,7 @@ class ProcedimientoBajaService
         private readonly AuditoriaService $auditoria,
         private readonly NotificadorRhService $notificador,
         private readonly DocumentoProcesoService $documentos,
+        private readonly AlcanceOrganizacionalService $alcance,
     ) {}
 
     /**
@@ -57,7 +59,7 @@ class ProcedimientoBajaService
      */
     public function registrarNegativa(CierreLaboral $cierre, array $datos, User $actor): CierreLaboral
     {
-        $this->exigirRh($actor);
+        $this->exigirRh($actor, $cierre);
 
         if ($cierre->estado->esFinal()) {
             throw ValidationException::withMessages(['cierre' => 'El cierre ya concluyó.']);
@@ -117,7 +119,7 @@ class ProcedimientoBajaService
      */
     public function capturarTestigos(CierreLaboral $cierre, array $testigos, array $participantes, User $actor): CierreLaboral
     {
-        $this->exigirRh($actor);
+        $this->exigirRh($actor, $cierre);
 
         if ($cierre->negativa_firma_en === null) {
             throw ValidationException::withMessages(['cierre' => 'Primero registra la negativa del colaborador.']);
@@ -139,7 +141,7 @@ class ProcedimientoBajaService
      */
     public function registrarEtapa(CierreLaboral $cierre, string $etapa, User $actor, array $evidencias = [], array $medios = [], ?string $observaciones = null): CierreLaboral
     {
-        $this->exigirRh($actor);
+        $this->exigirRh($actor, $cierre);
         $columna = self::ETAPAS[$etapa] ?? null;
 
         if ($columna === null) {
@@ -198,7 +200,7 @@ class ProcedimientoBajaService
      */
     public function adjuntarEvidenciaDesempeno(CierreLaboral $cierre, array $archivos, User $actor): CierreLaboral
     {
-        $this->exigirRh($actor);
+        $this->exigirRh($actor, $cierre);
         $solicitud = $cierre->solicitud;
 
         if ($solicitud === null || $archivos === []) {
@@ -257,10 +259,18 @@ class ProcedimientoBajaService
         $cierre->update(['testigos' => $limpios, 'negativa_participantes' => $actuales]);
     }
 
-    private function exigirRh(User $actor): void
+    /**
+     * Permiso de RH Y alcance sobre la persona del cierre: un RH de otra
+     * sucursal/región no registra etapas de una baja que no le corresponde.
+     */
+    private function exigirRh(User $actor, CierreLaboral $cierre): void
     {
         if (! $actor->can(CierreLaboralService::PERMISO_GESTIONAR) && ! $actor->can('documentos_laborales.generar')) {
             throw new AuthorizationException('Solo RH registra las etapas del procedimiento de baja.');
+        }
+
+        if (! $this->alcance->alcanzaColaborador($actor, $cierre->colaborador)) {
+            throw new AuthorizationException('Esta baja es de un colaborador fuera de tu alcance.');
         }
     }
 }

@@ -4,6 +4,7 @@ namespace App\Services\Reclutamiento;
 
 use App\Enums\EstadoCandidato;
 use App\Enums\EstadoDocumento;
+use App\Enums\EstadoInvitacionIncorporacion;
 use App\Enums\EstadoVacante;
 use App\Enums\ProcesoAprobacion;
 use App\Enums\TipoContratacion;
@@ -145,14 +146,110 @@ class ContratacionCandidatoService
     }
 
     /**
-     * Compatibilidad con POST /api/v1/rh/candidatos/{candidato}/contratar:
-     * misma regla (solo candidatos autorizados por RH), misma implementación.
+     * Punto de entrada ÚNICO de web (POST rh/candidatos/{id}/contratacion) y
+     * API móvil (POST /api/v1/rh/candidatos/{id}/contratar). Idempotente:
      *
-     * @param  array<string, mixed>  $datos
+     *  - candidato autorizado por RH → iniciarContratacion() (colaborador + QR);
+     *  - candidato YA en contratación con una invitación vigente (activa, no
+     *    vencida, sin usar) → devuelve ESA misma invitación (mismo id, misma
+     *    vigencia), nunca crea otra. Como el token solo se guarda hasheado, se
+     *    re-emite su token en el mismo registro: el QR anterior deja de servir
+     *    y el nuevo es el único válido (siempre hay un solo QR utilizable);
+     *  - en contratación con el QR vencido/revocado → se regenera (cadena
+     *    regenerated_from_id, como en Incorporación);
+     *  - en contratación con el QR ya usado → error: la persona ya creó su cuenta.
+     *
+     * @param  array<string, mixed>  $datos  Datos laborales validados (solo se usan al iniciar).
+     * @return array{colaborador: Colaborador, invitacion: IncorporacionInvitacion, token: string, reutilizada: bool}
      */
-    public function contratar(Candidato $candidato, array $datos, User $actor): Colaborador
+    public function iniciarOReanudar(Candidato $candidato, array $datos, User $actor): array
     {
-        return $this->iniciarContratacion($candidato, $datos, $actor)['colaborador'];
+        if ($candidato->estado !== EstadoCandidato::EnContratacion || $candidato->colaborador_id === null) {
+            return [...$this->iniciarContratacion($candidato, $datos, $actor), 'reutilizada' => false];
+        }
+
+        if (! $actor->can(self::PERMISO_CONTRATAR) || ! $this->jerarquia->alcanzaCandidato($actor, $candidato)) {
+            throw new AuthorizationException('No tienes permiso para ver la contratación de este candidato.');
+        }
+
+        $colaborador = Colaborador::query()->where('id', $candidato->colaborador_id)->firstOrFail();
+
+        $resultado = DB::transaction(function () use ($candidato, $colaborador, $actor): array {
+            $invitacion = IncorporacionInvitacion::query()
+                ->where('candidato_id', $candidato->id)
+                ->where('colaborador_id', $colaborador->id)
+                ->latest('id')
+                ->lockForUpdate()
+                ->first();
+
+            if ($invitacion === null) {
+                return [...$this->invitaciones->crear([
+                    'candidato_id' => $candidato->id,
+                    'colaborador_id' => $colaborador->id,
+                    'email' => $candidato->correo,
+                    'telefono' => $colaborador->telefono,
+                    'nombre_prellenado' => $colaborador->nombreCompleto(),
+                    'empresa_id' => $colaborador->sucursalPrincipal?->empresa_id,
+                    'sucursal_id' => $colaborador->sucursal_principal_id,
+                    'departamento_id' => $colaborador->departamento_id,
+                    'puesto_id' => $colaborador->puesto_id,
+                ], $actor), 'reutilizada' => false];
+            }
+
+            if (! $this->invitaciones->esRegenerable($invitacion)) {
+                throw ValidationException::withMessages([
+                    'candidato' => 'La persona ya creó su cuenta con el QR de registro: continúa su alta en Incorporación.',
+                ]);
+            }
+
+            $vigente = $invitacion->estado === EstadoInvitacionIncorporacion::Activo
+                && ! $invitacion->expires_at->isPast()
+                && $invitacion->tieneUsosDisponibles();
+
+            if (! $vigente) {
+                return [...$this->invitaciones->regenerar($invitacion, $actor), 'reutilizada' => false];
+            }
+
+            $token = $this->invitaciones->generarToken();
+            $invitacion->update(['token_hash' => $this->invitaciones->hashToken($token)]);
+
+            return ['invitacion' => $invitacion, 'token' => $token, 'reutilizada' => true];
+        });
+
+        $this->auditoria->registrar('candidato_qr_contratacion_reemitido', $candidato, $actor, [
+            'candidato_id' => $candidato->id,
+            'colaborador_id' => $colaborador->id,
+            'invitacion_id' => $resultado['invitacion']->id,
+            'misma_invitacion' => $resultado['reutilizada'],
+        ]);
+
+        return ['colaborador' => $colaborador, ...$resultado];
+    }
+
+    /**
+     * Lo que la app necesita para mostrar/compartir el QR de registro: la
+     * liga (la misma que codifica el QR) y el PNG en data URI. Si GD no está
+     * disponible, el PNG va null y la app muestra solo la liga.
+     *
+     * @return array{invitacion_id: int, codigo: string, estado: string, expira_en: string, registro_url: string, qr_png: string|null}
+     */
+    public function datosQr(IncorporacionInvitacion $invitacion, string $token): array
+    {
+        try {
+            $png = 'data:image/png;base64,'.base64_encode($this->invitaciones->qrPng($token));
+        } catch (Throwable $e) {
+            Log::warning('ContratacionCandidatoService: no se pudo generar el PNG del QR; se devuelve solo la liga.', ['invitacion_id' => $invitacion->id, 'error' => $e->getMessage()]);
+            $png = null;
+        }
+
+        return [
+            'invitacion_id' => $invitacion->id,
+            'codigo' => $invitacion->codigo_legible,
+            'estado' => $invitacion->estado->value,
+            'expira_en' => $invitacion->expires_at->toIso8601String(),
+            'registro_url' => $this->invitaciones->urlQr($token),
+            'qr_png' => $png,
+        ];
     }
 
     /**

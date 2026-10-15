@@ -99,7 +99,9 @@ class EvaluacionPeriodoPruebaService
                 'resultado' => $renueva ? ResultadoEvaluacion::Aprobado : ResultadoEvaluacion::NoAprobado,
                 'recomienda_renovar' => $renueva,
                 'observaciones' => $comentario !== '' ? $comentario : null,
-                'fecha_evaluacion' => $datos['fecha_evaluacion'] ?? now()->toDateString(),
+                // Fecha del día en México (la app corre en UTC: después de las
+                // 18:00 now() ya es "mañana").
+                'fecha_evaluacion' => $datos['fecha_evaluacion'] ?? now(VencimientoContratosService::ZONA)->toDateString(),
                 'capturada_por' => $evaluador->id,
                 'capturada_en' => now(),
                 'estado' => EstadoEvaluacionPrueba::Capturada,
@@ -196,9 +198,16 @@ class EvaluacionPeriodoPruebaService
         $filtros = [];
 
         foreach ($catalogoFiltros as $oficial) {
-            $respuesta = $respuestaPorClave->get($oficial['clave']);
+            // Mismos valores que acepta la regla `boolean` del FormRequest
+            // (true/false, 1/0, "1"/"0"): antes 1/0 pasaban la validación y
+            // aquí se rechazaban como "Falta responder".
+            $respuesta = match ($respuestaPorClave->get($oficial['clave'])) {
+                true, 1, '1' => true,
+                false, 0, '0' => false,
+                default => null,
+            };
 
-            if (! is_bool($respuesta)) {
+            if ($respuesta === null) {
                 throw ValidationException::withMessages(["filtros.{$oficial['clave']}" => "Falta responder «{$oficial['etiqueta']}»."]);
             }
 

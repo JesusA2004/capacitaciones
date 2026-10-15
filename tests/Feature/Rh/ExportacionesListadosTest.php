@@ -2,9 +2,7 @@
 
 use App\Models\AltaDigital;
 use App\Models\Candidato;
-use App\Models\DocumentTemplate;
 use App\Models\Empresa;
-use App\Models\GeneratedDocument;
 use App\Models\SolicitudInterna;
 use App\Models\Sucursal;
 use App\Models\User;
@@ -52,20 +50,6 @@ test('rh_admin puede exportar altas digitales a excel y pdf', function () {
 
     $this->actingAs($this->rh)->get(route('rh.altas.exportarExcel'))->assertOk();
     $this->actingAs($this->rh)->get(route('rh.altas.exportarPdf'))->assertOk();
-});
-
-test('rh_admin puede exportar plantillas a excel y pdf', function () {
-    DocumentTemplate::factory()->count(2)->create();
-
-    $this->actingAs($this->rh)->get(route('rh.plantillas.exportarExcel'))->assertOk();
-    $this->actingAs($this->rh)->get(route('rh.plantillas.exportarPdf'))->assertOk();
-});
-
-test('rh_admin puede exportar formatos generados a excel y pdf', function () {
-    GeneratedDocument::factory()->count(2)->create();
-
-    $this->actingAs($this->rh)->get(route('rh.formatos.catalogo.exportarExcel'))->assertOk();
-    $this->actingAs($this->rh)->get(route('rh.formatos.catalogo.exportarPdf'))->assertOk();
 });
 
 test('rh_admin puede exportar solicitudes internas a excel y pdf', function () {

@@ -8,6 +8,7 @@ use App\Models\Colaborador;
 use App\Models\GeneratedDocument;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Onboarding\EvaluacionInduccionPdfService;
 use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -99,6 +100,11 @@ class DocumentoLaboralConsultaService
             ->where(fn (Builder $s) => $s
                 ->whereNull('categoria')
                 ->orWhere('categoria', '!=', CategoriaDocumento::BajaFiniquito->value))
+            // Evaluación de inducción calificada: trae la clave de
+            // respuestas, nunca autoservicio (EvaluacionInduccionPdfService).
+            ->where(fn (Builder $s) => $s
+                ->whereNull('clave_plantilla')
+                ->orWhere('clave_plantilla', '!=', EvaluacionInduccionPdfService::CLAVE))
             ->orderByDesc('id')
             ->paginate(Paginacion::porPagina(20));
     }

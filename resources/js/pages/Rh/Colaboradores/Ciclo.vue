@@ -136,6 +136,7 @@ const plantillas: Record<string, () => FormularioAccion> = {
         evidencias: [] as File[],
     }),
     preautorizar: () => ({ comentario: '' }),
+    reenviar: () => ({ comentario: '' }),
     autorizar_rh: () => ({ comentario: '' }),
     rechazar: () => ({ motivo: '' }),
     devolver: () => ({ motivo: '' }),
@@ -1174,7 +1175,7 @@ const etiquetaFecha: Record<string, string> = {
 
                 <template
                     v-else-if="
-                        ['preautorizar', 'autorizar_rh'].includes(
+                        ['preautorizar', 'reenviar', 'autorizar_rh'].includes(
                             accion?.clave ?? '',
                         )
                     "

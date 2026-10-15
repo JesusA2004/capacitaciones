@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Head, useForm } from '@inertiajs/vue3';
-import { AlertTriangle, ClipboardList, Eye } from '@lucide/vue';
+import { Head, Link, useForm } from '@inertiajs/vue3';
+import { ClipboardList, Eye, Lock } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
@@ -19,6 +19,7 @@ import {
     formatearFechaHora,
     formatearPeriodo,
 } from '@/lib/fechas';
+import { ciclo as cicloColaborador } from '@/routes/rh/colaboradores';
 import {
     aprobar,
     index,
@@ -60,6 +61,10 @@ const props = defineProps<{
     formatosOficiales: FormatoOficialItem[];
     personaSolicitud: { id: number; nombre: string } | null;
     documentosProceso: { tipo: 'solicitud' | 'prestamo'; id: number }[];
+    puedeRevisar: boolean;
+    puedeAprobar: boolean;
+    puedeRechazar: boolean;
+    bajaEnCierre: { mensaje: string; colaboradorId: number | null } | null;
 }>();
 
 // Sin los vistos buenos (gerente y regional) RH no puede autorizar todavía.
@@ -86,8 +91,9 @@ const mostrandoRechazo = ref(false);
 
 const formAccion = useForm({});
 
-// Evidencia/firma del gerente: obligatoria antes de poder aprobar una baja
-// de colaborador (ver App\Services\Solicitudes\SolicitudesService::cambiarEstado()).
+// Una baja (histórica) se consulta aquí en solo lectura: se gestiona en el
+// Cierre laboral del colaborador (SolicitudesService::cambiarEstado() la
+// rechaza desde la bandeja).
 const esBaja = computed(() => props.solicitud.tipo === 'baja_colaborador');
 
 // Aprobada/rechazada/cancelada: ya no acepta cambios (mismo criterio que
@@ -95,17 +101,13 @@ const esBaja = computed(() => props.solicitud.tipo === 'baja_colaborador');
 const esFinal = computed(() =>
     ['aprobada', 'rechazada', 'cancelada'].includes(props.solicitud.estado),
 );
-const sinEvidencia = computed(
-    () => esBaja.value && (props.solicitud.documentos?.length ?? 0) === 0,
-);
 
-const finiquitoNoRevisado = computed(
+// Los botones salen de la misma policy que valida cada acción en el backend.
+const tieneAcciones = computed(
     () =>
-        esBaja.value &&
-        !props.finiquitoPermisos.puedeOmitirRevision &&
-        !['revisado', 'aprobado', 'firmado', 'pagado'].includes(
-            props.solicitud.finiquito_calculo?.estado ?? '',
-        ),
+        !esFinal.value &&
+        !props.bajaEnCierre &&
+        (props.puedeRevisar || props.puedeAprobar || props.puedeRechazar),
 );
 
 const archivosEvidencia = ref<File[]>([]);
@@ -344,23 +346,6 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
                                 : 'Documentos adjuntos'
                         }}
                     </h3>
-                    <p
-                        v-if="esBaja && !esFinal"
-                        class="mb-3 text-xs text-muted-foreground"
-                    >
-                        Adjunta la autorización, carta o formato firmado
-                        requerido antes de aprobar.
-                    </p>
-
-                    <div
-                        v-if="sinEvidencia && !esFinal"
-                        class="mb-3 flex items-center gap-2 rounded-lg border border-warning/30 bg-warning-soft/50 p-3 text-sm text-warning"
-                    >
-                        <AlertTriangle class="size-4 shrink-0" />
-                        Esta baja no se puede aprobar sin evidencia (formato
-                        firmado, carta o autorización del gerente).
-                    </div>
-
                     <ul
                         v-if="solicitud.documentos?.length"
                         class="mb-3 flex flex-col gap-2"
@@ -395,7 +380,7 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
                     </p>
 
                     <PeopleFileDropzone
-                        v-if="!esFinal"
+                        v-if="!esFinal && !bajaEnCierre"
                         :model-value="archivosEvidencia"
                         accept=".pdf,.jpg,.jpeg,.png,.webp"
                         :loading="formEvidencia.processing"
@@ -458,7 +443,33 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
                 class="flex flex-col gap-4 lg:sticky lg:top-6 lg:col-span-4 xl:col-span-3"
             >
                 <div
-                    v-if="!esFinal"
+                    v-if="bajaEnCierre"
+                    class="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-5"
+                >
+                    <h3 class="flex items-center gap-2 text-sm font-semibold">
+                        <Lock class="size-4" />
+                        Solo consulta
+                    </h3>
+                    <p class="text-sm text-muted-foreground">
+                        {{ bajaEnCierre.mensaje }}
+                    </p>
+                    <Button
+                        v-if="bajaEnCierre.colaboradorId"
+                        variant="outline"
+                        as-child
+                    >
+                        <Link
+                            :href="
+                                cicloColaborador.url(bajaEnCierre.colaboradorId)
+                            "
+                        >
+                            Ir al Cierre laboral
+                        </Link>
+                    </Button>
+                </div>
+
+                <div
+                    v-else-if="tieneAcciones"
                     data-tour="solicitud-acciones"
                     class="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-5"
                 >
@@ -479,6 +490,7 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
                         </p>
                         <Button
                             v-if="
+                                puedeRevisar &&
                                 solicitud.estado === 'enviada' &&
                                 !faltanVistosBuenos
                             "
@@ -488,6 +500,7 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
                             >Pasar a pendiente de autorizar</Button
                         >
                         <Button
+                            v-if="puedeRevisar"
                             class="border border-warning/40 bg-warning/10 text-warning hover:bg-warning/20"
                             variant="ghost"
                             :disabled="formAccion.processing"
@@ -495,25 +508,14 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
                             >Pedir corrección</Button
                         >
                         <Button
-                            v-if="!faltanVistosBuenos"
+                            v-if="puedeAprobar && !faltanVistosBuenos"
                             variant="success"
-                            :disabled="
-                                formAccion.processing ||
-                                sinEvidencia ||
-                                finiquitoNoRevisado
-                            "
-                            :title="
-                                sinEvidencia
-                                    ? 'Adjunta la evidencia/firma del gerente antes de aprobar.'
-                                    : finiquitoNoRevisado
-                                      ? 'Calcula y marca como revisado el finiquito antes de aprobar esta baja.'
-                                      : undefined
-                            "
+                            :disabled="formAccion.processing"
                             @click="aprobarSolicitud"
                             >Aprobar</Button
                         >
                         <Button
-                            v-if="!mostrandoRechazo"
+                            v-if="puedeRechazar && !mostrandoRechazo"
                             variant="outline"
                             @click="mostrandoRechazo = true"
                             >Rechazar</Button
@@ -521,7 +523,7 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
                     </div>
 
                     <div
-                        v-if="mostrandoRechazo"
+                        v-if="puedeRechazar && mostrandoRechazo"
                         class="flex flex-col gap-2 border-t border-border/60 pt-3"
                     >
                         <Textarea
@@ -538,6 +540,20 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
                             >Confirmar rechazo</Button
                         >
                     </div>
+                </div>
+
+                <div
+                    v-else-if="!esFinal"
+                    class="rounded-2xl border border-border/60 bg-card p-5"
+                >
+                    <h3 class="flex items-center gap-2 text-sm font-semibold">
+                        <Lock class="size-4" />
+                        Solo consulta
+                    </h3>
+                    <p class="mt-1 text-sm text-muted-foreground">
+                        No tienes permiso para revisar, aprobar ni rechazar esta
+                        solicitud.
+                    </p>
                 </div>
 
                 <div

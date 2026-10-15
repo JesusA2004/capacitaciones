@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Rh;
 
 use App\Enums\EstadoSolicitudInterna;
+use App\Enums\TipoSolicitudInterna;
 use App\Exports\ReporteRhExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Rh\ActualizarEstadoSolicitudInternaRequest;
@@ -65,7 +66,13 @@ class SolicitudController extends Controller
 
         // Miniatura del solicitante en cada tarjeta. `foto_path` (ruta del
         // NAS) se oculta: al frontend solo llega la URL protegida.
-        $tablero['items']->each(function (SolicitudInterna $solicitud): void {
+        $usuario = $request->user();
+
+        $tablero['items']->each(function (SolicitudInterna $solicitud) use ($usuario): void {
+            // Qué puede hacer ESTA cuenta con cada tarjeta (misma policy que
+            // valida el PATCH): sin permiso no se arrastra ni se ofrece la acción.
+            $solicitud->setAttribute('acciones', $this->solicitudes->accionesBandeja($usuario, $solicitud));
+
             $colaborador = $solicitud->colaborador ?? $solicitud->usuario?->colaborador;
             $solicitud->setAttribute('foto_url', $colaborador !== null ? $this->fotos->url($colaborador) : null);
             $solicitud->colaborador?->makeHidden('foto_path');
@@ -180,9 +187,22 @@ class SolicitudController extends Controller
         $puedeGenerarFormato = $request->user()->can('plantillas.generar');
         $finiquito = $solicitud->finiquitoCalculo;
         $formatoEsperado = $this->formatoOficial->formatoEsperado($solicitud);
+        $acciones = $this->solicitudes->accionesBandeja($request->user(), $solicitud);
+        $esBaja = $solicitud->tipo === TipoSolicitudInterna::BajaColaborador;
 
         return Inertia::render('Rh/Solicitudes/Show', [
             'solicitud' => $solicitud,
+            // Botones de revisión: la misma policy que valida cada acción
+            // (nunca solo «no es estado final»).
+            'puedeRevisar' => $acciones['revisar'],
+            'puedeAprobar' => $acciones['aprobar'],
+            'puedeRechazar' => $acciones['rechazar'],
+            // Una baja (histórica) se consulta aquí en solo lectura; se
+            // gestiona en el Cierre laboral del colaborador.
+            'bajaEnCierre' => $esBaja ? [
+                'mensaje' => SolicitudesService::MENSAJE_BAJA_EN_CIERRE,
+                'colaboradorId' => $solicitud->colaboradorDeBaja()?->id,
+            ] : null,
             'tipoEtiqueta' => $this->solicitudes->etiquetaTipo($solicitud),
             'tipoBajaEtiqueta' => $solicitud->tipo_baja?->etiqueta(),
             // Permiso: el formato oficial se libera SOLO con la autorización de RH.
@@ -221,12 +241,14 @@ class SolicitudController extends Controller
             'tiposDocumentoExpediente' => $puedeGenerarFormato
                 ? DocumentType::query()->where('activo', true)->orderBy('nombre')->get(['id', 'nombre'])
                 : [],
+            // El finiquito de una baja se trabaja en el Cierre laboral; aquí
+            // solo se consulta.
             'finiquitoPermisos' => [
-                'puedeCalcular' => $finiquito === null
+                'puedeCalcular' => ! $esBaja && ($finiquito === null
                     ? $request->user()->can('calcular', [FiniquitoCalculo::class, $solicitud])
-                    : $request->user()->can('editarAjustes', $finiquito),
-                'puedeRevisar' => $finiquito !== null && $request->user()->can('revisar', $finiquito),
-                'puedeSubirFirmado' => $finiquito !== null && $request->user()->can('subirFirmado', $finiquito),
+                    : $request->user()->can('editarAjustes', $finiquito)),
+                'puedeRevisar' => ! $esBaja && $finiquito !== null && $request->user()->can('revisar', $finiquito),
+                'puedeSubirFirmado' => ! $esBaja && $finiquito !== null && $request->user()->can('subirFirmado', $finiquito),
                 'puedeOmitirRevision' => $request->user()->can('solicitudes.bajas.omitir_finiquito'),
                 'usaFormatoOficial' => $this->finiquitos->tieneFormatoOficialConfigurado(),
             ],

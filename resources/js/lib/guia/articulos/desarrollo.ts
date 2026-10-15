@@ -322,64 +322,87 @@ export const ARTICULOS_DESARROLLO: ArticuloGuia[] = [
         titulo: 'Inducción Mr. Lana y su evaluación',
         proceso: 'onboarding',
         resumen:
-            'El PDF oficial de la inducción, página por página; al terminarlo se habilita la evaluación oficial de 30 puntos (mínimo 24).',
-        queEs: 'Es la inducción institucional en su documento oficial (Quiénes somos, Misión/visión/principios, Cultura, Organigrama, Reglamento interior, Modelo de negocio y Empresa con factor humano), tal cual lo entregó la empresa. El avance se guarda en el servidor y se retoma donde se quedó.',
-        quien: ['colaborador', 'rh'],
+            'RH presenta la inducción a las personas que eligió, al terminar «Envía la evaluación», el colaborador la contesta en la app y RH califica: con 24/30 o más queda listo para empezar a laborar.',
+        queEs: 'Es la primera de las dos evaluaciones de ingreso (la segunda es la evaluación de periodo de prueba). La inducción institucional es el documento oficial (Quiénes somos, Misión/visión/principios, Cultura, Organigrama, Reglamento interior, Modelo de negocio y Empresa con factor humano) y su evaluación es el formato oficial FO-RH-EI de 30 puntos.',
+        quien: ['rh', 'colaborador'],
         quienDetalle:
-            'El colaborador recorre el documento y presenta su evaluación; RH califica los casos prácticos y, si hace falta, da reforzamiento. RH también puede PRESENTAR la inducción por Meet.',
-        antes: ['El onboarding de la persona ya inició (contratos firmados).'],
+            'RH elige a quién le presenta la inducción, la presenta (en sala o por Meet), envía la evaluación y califica los casos prácticos. El colaborador contesta su evaluación en la app (o en el portal web).',
+        antes: [
+            'La persona está en su proceso de ingreso (contratos firmados). Si RH se la presenta antes, la asistencia queda registrada y su evaluación se habilita sola en cuanto inicie su onboarding.',
+        ],
         pasos: [
             {
-                titulo: 'Recorrer la inducción',
+                titulo: 'Elegir a quién se le presenta',
                 detalle:
-                    'Mis pendientes → «Inducción Mr. Lana» (web o app). Cada página mostrada cuenta («12 / 30»); en la última, «Terminé la inducción» lleva a la evaluación.',
+                    'Desarrollo → «Presentar inducción». ANTES de iniciar, busca y agrega a uno o varios colaboradores (solo los de tu alcance; «Agregar a los pendientes de presentar» los suma de una vez) y pulsa «Iniciar presentación».',
+                quien: 'rh',
+                canal: 'web',
+            },
+            {
+                titulo: 'Presentar y «Enviar evaluación»',
+                detalle:
+                    'Presenta el PDF oficial. Al terminar, pulsa «Enviar evaluación»: en ese momento se habilita la evaluación de cada asistente y le llega el aviso en la app «Contesta la evaluación de la Inducción Mr. Lana». Antes de ese botón no se envía nada; repetirlo no duplica nada.',
+                quien: 'rh',
+                canal: 'web',
+            },
+            {
+                titulo: 'Contestar la evaluación',
+                detalle:
+                    'El aviso abre directo la evaluación en la app. Secciones A (opción múltiple), B (verdadero/falso), C (relaciona columnas), D (casos prácticos) y E (opinión, no califica). Se envía una sola vez; la clave de respuestas nunca llega al teléfono ni al navegador.',
                 quien: 'colaborador',
                 canal: 'web_app',
             },
             {
-                titulo: 'Presentar la evaluación',
+                titulo: 'RH revisa y califica',
                 detalle:
-                    'Secciones A (opción múltiple), B (verdadero/falso), C (relaciona columnas), D (casos prácticos) y E (opinión, no califica). La clave de respuestas nunca llega al teléfono ni al navegador.',
-                quien: 'colaborador',
-                canal: 'web_app',
-            },
-            {
-                titulo: 'RH califica los casos prácticos',
-                detalle:
-                    'Con la rúbrica oficial (solo RH la ve). Resultado: 27–30 Sobresaliente · 24–26 Aprobado · 0–23 Requiere reforzamiento.',
+                    'Le llega el aviso «Evaluación de inducción por calificar». En la revisión ve cada pregunta con la respuesta del colaborador y si acertó (A/B/C se califican solas), marca la rúbrica oficial de los casos prácticos (D), puede dejar un comentario y ve el total /30. Desde ahí también ve la vista previa del formato FO-RH-EI, lo descarga o lo guarda en el expediente.',
                 quien: 'rh',
                 canal: 'web',
             },
             {
                 titulo: 'Si requiere reforzamiento',
                 detalle:
-                    'RH deja retroalimentación y habilita la reevaluación (plazo de 5 días hábiles). El colaborador no puede reintentar antes.',
+                    'Menos de 24/30: RH deja retroalimentación y habilita la reevaluación (plazo de 5 días hábiles). El colaborador no puede reintentar antes.',
                 quien: 'rh',
             },
             {
-                titulo: 'Modo presentación (Meet)',
+                titulo: 'Seguimiento',
                 detalle:
-                    'Desarrollo → «Presentar inducción»: los mismos capítulos para impartirla en sesión, sin registrar avance de nadie.',
+                    'En «Presentar inducción» RH ve a cada persona en ingreso: Pendiente de presentar → Presentada · por contestar → Por calificar (D) → Aprobada / Reforzamiento, y si ya está Laborando.',
                 quien: 'rh',
                 canal: 'web',
             },
+            {
+                titulo: 'Autoestudio (opcional)',
+                detalle:
+                    'El colaborador también puede recorrer el PDF desde Mis pendientes; al terminar todas las páginas, «Terminé la inducción» habilita su evaluación.',
+                quien: 'colaborador',
+                canal: 'web_app',
+            },
         ],
         despues: [
-            'Aprobada: se aprueba el módulo de inducción y se desbloquea SOLO el siguiente módulo del onboarding.',
+            'Aprobada (24/30 o más): se aprueba el módulo de inducción y el formato FO-RH-EI se guarda solo en el expediente (carpeta Otros). Si ya no quedan módulos de puesto ni activos por entregar, el onboarding se cierra y la persona queda activa: en el tablero de candidatos pasa de «Capacitación inicial» a «Laborando». Si quedan pendientes, sigue el onboarding normal.',
+            'La segunda evaluación es la de periodo de prueba, que se abre 15 días hábiles antes de que venza su contrato.',
         ],
         notificaciones: [
-            'Al colaborador: evaluación disponible, aprobada, reforzamiento y reevaluación habilitada.',
+            'Al colaborador: «Contesta la evaluación de la Inducción Mr. Lana» (al Enviar evaluación), aprobada, reforzamiento y reevaluación habilitada.',
             'A RH: evaluación por calificar y reforzamiento requerido.',
         ],
         errores: [
             {
                 problema: '«No me aparece la evaluación.»',
                 solucion:
-                    'Primero hay que recorrer todas las páginas de la inducción desde Mis pendientes y pulsar «Terminé la inducción» (el modo presentación no cuenta).',
+                    'RH todavía no pulsa «Enviar evaluación» de la sesión donde te presentó la inducción, o aún no inicia tu proceso de ingreso. También puedes recorrer todas las páginas desde Mis pendientes y pulsar «Terminé la inducción».',
+            },
+            {
+                problema: '«No encuentro a la persona en el buscador.»',
+                solucion:
+                    'Solo aparecen colaboradores no dados de baja dentro de tu alcance.',
             },
         ],
         registro: [
-            'Cada intento con su calificación, nivel y quién calificó; queda en el historial de la persona.',
+            'Cada sesión: quién presentó, cuándo y a quién, y qué pasó con cada asistente.',
+            'Cada intento con sus respuestas, calificación, nivel, comentario y quién calificó; queda en el historial de la persona.',
         ],
         relacionados: ['onboarding', 'configurar-onboarding'],
         accesos: [
@@ -399,6 +422,7 @@ export const ARTICULOS_DESARROLLO: ArticuloGuia[] = [
             '¿Cómo hago mi inducción?',
             '¿Con cuántos puntos apruebo la evaluación de inducción?',
             '¿Cómo presento la inducción por Meet?',
+            '¿Cómo envío la evaluación de inducción a los colaboradores?',
         ],
     },
 ];

@@ -5,10 +5,12 @@ use App\Http\Controllers\Rh\CicloColaboradorController;
 use App\Http\Controllers\Rh\CierreLaboralController;
 use App\Http\Controllers\Rh\DocumentoLaboralController;
 use App\Http\Controllers\Rh\EvaluacionCapacitacionController;
+use App\Http\Controllers\Rh\EvaluacionInduccionPdfController;
 use App\Http\Controllers\Rh\EvaluacionPeriodoPruebaController;
 use App\Http\Controllers\Rh\OnboardingController;
 use App\Http\Controllers\Rh\PendienteController;
 use App\Http\Controllers\Rh\ReingresoController;
+use App\Http\Controllers\Rh\SesionInduccionController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -51,7 +53,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('avances/{avance}/retroalimentacion', [OnboardingController::class, 'retroalimentar'])->name('retroalimentar');
             Route::get('induccion/intentos/{intento}', [OnboardingController::class, 'mostrarInduccion'])->name('induccion.mostrar');
             Route::post('induccion/intentos/{intento}/calificar', [OnboardingController::class, 'calificarInduccion'])->name('induccion.calificar');
+            // PDF del formato FO-RH-EI (solo RH: lleva la clave de respuestas).
+            Route::get('induccion/intentos/{intento}/pdf', [EvaluacionInduccionPdfController::class, 'vistaPrevia'])->name('induccion.pdf.vista');
+            Route::get('induccion/intentos/{intento}/pdf/descargar', [EvaluacionInduccionPdfController::class, 'descargar'])->name('induccion.pdf.descargar');
+            Route::post('induccion/intentos/{intento}/pdf/expediente', [EvaluacionInduccionPdfController::class, 'guardarEnExpediente'])->name('induccion.pdf.expediente');
             Route::post('induccion/{evaluacion}/retroalimentacion', [OnboardingController::class, 'retroalimentarInduccion'])->name('induccion.retroalimentar');
+        });
+
+        // Sesiones de presentación de la Inducción Mr. Lana: RH elige a quién
+        // se la presenta, presenta y al terminar «Envía la evaluación».
+        Route::prefix('induccion/sesiones')->name('induccion.sesiones.')->group(function () {
+            Route::get('colaboradores', [SesionInduccionController::class, 'colaboradores'])->name('colaboradores');
+            Route::post('/', [SesionInduccionController::class, 'store'])->name('store');
+            Route::post('{sesion}/enviar', [SesionInduccionController::class, 'enviar'])->name('enviar');
+            Route::post('{sesion}/cancelar', [SesionInduccionController::class, 'cancelar'])->name('cancelar');
         });
 
         Route::prefix('evaluaciones')->name('evaluaciones.')->group(function () {
@@ -70,6 +85,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('autorizar', [CierreLaboralController::class, 'autorizar'])->name('autorizar');
             Route::post('rechazar', [CierreLaboralController::class, 'rechazar'])->name('rechazar');
             Route::post('devolver', [CierreLaboralController::class, 'devolver'])->name('devolver');
+            Route::post('reenviar', [CierreLaboralController::class, 'reenviar'])->name('reenviar');
             Route::post('aviso', [CierreLaboralController::class, 'aviso'])->name('aviso');
             Route::post('finiquito/calcular', [CierreLaboralController::class, 'calcularFiniquito'])->name('calcularFiniquito');
             Route::post('finiquito/autorizar', [CierreLaboralController::class, 'autorizarFiniquito'])->name('autorizarFiniquito');

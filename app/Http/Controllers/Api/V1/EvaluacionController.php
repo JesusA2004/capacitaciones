@@ -7,7 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\CicloLaboral\AutorizarEvaluacionRequest;
 use App\Http\Requests\CicloLaboral\CapturarEvaluacionRequest;
 use App\Http\Requests\CicloLaboral\CrearSolicitudExcepcionRequest;
-use App\Http\Requests\CicloLaboral\DecisionRequest;
+use App\Http\Requests\CicloLaboral\DecisionAprobacionRequest;
 use App\Http\Requests\CicloLaboral\ResolverSolicitudExcepcionRequest;
 use App\Models\EvaluacionPeriodoPrueba;
 use App\Models\SolicitudExcepcionPeriodoPrueba;
@@ -59,12 +59,12 @@ class EvaluacionController extends Controller
         return response()->json(['data' => $this->evaluaciones->aArray($this->evaluaciones->autorizar($evaluacion, $request->user(), $request->validated()))]);
     }
 
-    public function devolver(DecisionRequest $request, EvaluacionPeriodoPrueba $evaluacion): JsonResponse
+    public function devolver(DecisionAprobacionRequest $request, EvaluacionPeriodoPrueba $evaluacion): JsonResponse
     {
+        // Mismo FormRequest que la web (motivo obligatorio, hasta 2000).
         $this->authorize('autorizar', $evaluacion);
-        $request->validate(['motivo' => ['required']]);
 
-        return response()->json(['data' => $this->evaluaciones->aArray($this->evaluaciones->devolver($evaluacion, $request->user(), (string) $request->validated('motivo')))]);
+        return response()->json(['data' => $this->evaluaciones->aArray($this->evaluaciones->devolver($evaluacion, $request->user(), $request->motivo()))]);
     }
 
     /**

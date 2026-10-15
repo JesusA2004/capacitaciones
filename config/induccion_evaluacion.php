@@ -129,6 +129,11 @@ return [
         ],
         'escala_min' => 1,
         'escala_max' => 5,
+        // Leyenda de la escala tal cual el formato: «Marca con una "X" del 1
+        // (muy en desacuerdo) al 5 (totalmente de acuerdo)».
+        'escala_etiquetas' => [1 => 'Muy en desacuerdo', 5 => 'Totalmente de acuerdo'],
+        // Pregunta abierta al pie de la sección E (se guarda en opinion.tema_reforzar).
+        'pregunta_abierta' => ['clave' => 'tema_reforzar', 'texto' => '¿Qué tema te gustaría reforzar?'],
     ],
 
 ];

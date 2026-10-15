@@ -88,6 +88,10 @@ class DestinoNotificacionService
                 $relacionado === 'Candidato' && $id !== null => self::destino(route('rh.candidatos.show', $id, false)),
                 $relacionado === 'ActaAdministrativa' && $id !== null => self::destino(route('rh.actas.show', $id, false)),
                 $relacionado === 'CambioFotoPerfil' => self::destino(route('rh.cambios-foto.index', [], false)),
+                // Evaluación de inducción: RH va directo a revisarla/calificarla;
+                // el colaborador, a contestar la suya.
+                $relacionado === 'EvaluacionInduccionIntento' && $id !== null && $usuario->can('onboarding.gestionar') => self::destino(route('rh.onboarding.induccion.mostrar', $id, false)),
+                $relacionado === 'EvaluacionInduccion' && $tipo !== '' && str_starts_with($tipo, 'induccion_') && is_numeric($datos['colaborador_id'] ?? null) && (int) $datos['colaborador_id'] === $usuario->colaborador_id => self::destino(route('portal.induccion.contenido', [], false)),
                 // Sobre uno mismo (onboarding, inducción…): su portal, nunca la
                 // ficha administrativa de RH.
                 $relacionado !== null && is_numeric($datos['colaborador_id'] ?? null) && (int) $datos['colaborador_id'] === $usuario->colaborador_id => self::destino(route('portal.index', [], false)),

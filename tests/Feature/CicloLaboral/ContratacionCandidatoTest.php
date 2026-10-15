@@ -109,13 +109,62 @@ test('contratar un candidato autorizado por RH crea el colaborador sin duplicar 
         ->and($vacante->diasAbierta())->toBe(12)
         ->and(IncorporacionInvitacion::query()->where('candidato_id', $candidato->id)->where('colaborador_id', $colaborador->id)->count())->toBe(1);
 
-    // No se puede convertir dos veces.
+    // La app recibe lo necesario para mostrar y compartir el QR.
+    $invitacion = IncorporacionInvitacion::query()->where('candidato_id', $candidato->id)->firstOrFail();
+    expect($respuesta->json('reutilizada'))->toBeFalse()
+        ->and($respuesta->json('invitacion.invitacion_id'))->toBe($invitacion->id)
+        ->and($respuesta->json('invitacion.registro_url'))->toStartWith(rtrim((string) config('incorporacion.qr_url_base'), '/').'/')
+        ->and($respuesta->json('invitacion.codigo'))->toBe($invitacion->codigo_legible);
+
+    // La liga devuelta ES el token válido de esa invitación (se puede registrar con él).
+    $token = basename((string) $respuesta->json('invitacion.registro_url'));
+    $this->getJson("/api/v1/incorporacion/invitaciones/{$token}/validar")->assertOk();
+
+    // Nunca se convierte dos veces: un segundo llamado devuelve la MISMA
+    // invitación vigente (sin otro colaborador ni otro QR).
+    $segunda = $this->postJson("/api/v1/rh/candidatos/{$candidato->id}/contratar", [
+        'sueldo_mensual' => 12000,
+        'fecha_ingreso' => now()->toDateString(),
+    ])->assertOk();
+
+    expect($segunda->json('reutilizada'))->toBeTrue()
+        ->and($segunda->json('invitacion.invitacion_id'))->toBe($invitacion->id)
+        ->and($segunda->json('colaborador_id'))->toBe($colaborador->id)
+        ->and(Colaborador::query()->where('name', 'Luis')->count())->toBe(1)
+        ->and(IncorporacionInvitacion::query()->where('candidato_id', $candidato->id)->count())->toBe(1);
+
+    // Solo hay un QR utilizable: el último devuelto.
+    $tokenNuevo = basename((string) $segunda->json('invitacion.registro_url'));
+    $this->getJson("/api/v1/incorporacion/invitaciones/{$tokenNuevo}/validar")->assertOk();
+    $this->getJson("/api/v1/incorporacion/invitaciones/{$token}/validar")->assertStatus(404);
+});
+
+test('sin el permiso de contratar, el endpoint no inicia la contratación ni genera QR', function () {
+    $candidato = clCandidatoAutorizado($this);
+    Sanctum::actingAs($this->gerente);
+
     $this->postJson("/api/v1/rh/candidatos/{$candidato->id}/contratar", [
         'sueldo_mensual' => 12000,
         'fecha_ingreso' => now()->toDateString(),
-    ])->assertUnprocessable();
+    ])->assertForbidden();
 
-    expect(Colaborador::query()->where('name', 'Luis')->count())->toBe(1);
+    expect($candidato->refresh()->colaborador_id)->toBeNull()
+        ->and(IncorporacionInvitacion::query()->count())->toBe(0);
+});
+
+test('si la persona ya usó el QR de contratación, el endpoint ya no emite otro', function () {
+    Sanctum::actingAs($this->rh);
+    $candidato = clCandidatoAutorizado($this);
+    $datos = ['sueldo_mensual' => 12000, 'fecha_ingreso' => now()->toDateString()];
+
+    $this->postJson("/api/v1/rh/candidatos/{$candidato->id}/contratar", $datos)->assertCreated();
+    IncorporacionInvitacion::query()->where('candidato_id', $candidato->id)->update(['estado' => 'usado', 'usos_count' => 1]);
+
+    $this->postJson("/api/v1/rh/candidatos/{$candidato->id}/contratar", $datos)
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('candidato');
+
+    expect(IncorporacionInvitacion::query()->where('candidato_id', $candidato->id)->count())->toBe(1);
 });
 
 test('un candidato pendiente de la autorización de RH todavía no puede contratarse', function () {

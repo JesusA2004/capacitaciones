@@ -33,7 +33,7 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
             {
                 titulo: '«Autorizar baja»',
                 detalle:
-                    'RH autoriza, devuelve o rechaza. Al autorizar se preparan los documentos de la causa.',
+                    'RH autoriza, devuelve o rechaza. Si la devuelve, regresa a quien la inició (jefe directo o RH), que la corrige y la reenvía con «Corregir y reenviar a RH»; no pasa por preautorización. Al autorizar se preparan los documentos de la causa.',
                 quien: 'rh',
             },
             {

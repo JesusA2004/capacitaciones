@@ -11,6 +11,7 @@ use App\Models\SolicitudInterna;
 use App\Models\SolicitudVacaciones;
 use App\Models\User;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
+use App\Services\Solicitudes\SolicitudesService;
 
 /**
  * Primera version del motor de workflow para la app movil: hoy cada tipo de
@@ -26,6 +27,10 @@ use App\Services\CicloLaboral\OrganizacionJerarquiaService;
  */
 class WorkflowService
 {
+    public function __construct(
+        private readonly SolicitudesService $solicitudes,
+    ) {}
+
     /**
      * @return array<string, mixed>
      */
@@ -35,13 +40,18 @@ class WorkflowService
 
         $acciones = ['ver'];
         if ($pendiente) {
-            if ($usuario->can('rh.solicitudes.aprobar')) {
+            // Misma policy + reglas de bandeja que la web (baja en Cierre
+            // laboral, no lo propio, alcance): la app no ofrece lo que el
+            // backend va a negar.
+            $permitidas = $this->solicitudes->accionesBandeja($usuario, $solicitud);
+
+            if ($permitidas['aprobar']) {
                 $acciones[] = 'aprobar';
             }
-            if ($usuario->can('rh.solicitudes.rechazar')) {
+            if ($permitidas['rechazar']) {
                 $acciones[] = 'rechazar';
             }
-            if ($usuario->can('rh.solicitudes.correccion')) {
+            if ($permitidas['revisar']) {
                 $acciones[] = 'solicitar_correccion';
             }
         }

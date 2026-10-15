@@ -230,15 +230,18 @@ return [
             'destinatarios' => ['regional', 'rh'],
             'fallback' => ['gerencia_rh'],
         ],
+        // La clave se conserva (avisos ya enviados y registros anteriores):
+        // la baja ya NO se preautoriza; este aviso llega a quien la inició
+        // cuando RH se la devuelve para corregirla y reenviarla.
         'cierre_preautorizacion' => [
-            'etiqueta' => 'Baja por preautorizar',
-            'descripcion' => 'Se solicitó una baja; su superior debe preautorizarla.',
+            'etiqueta' => 'Baja devuelta por RH para corregir',
+            'descripcion' => 'RH devolvió una baja: quien la inició (jefe directo o RH) la corrige y la reenvía. Sin preautorización de un superior (solo bajas anteriores a ese cambio pueden traerla pendiente).',
             'destinatarios' => ['aprobador'],
             'fallback' => [],
         ],
         'cierre_autorizacion_rh' => [
             'etiqueta' => 'Baja pendiente de autorización de RH',
-            'descripcion' => 'La baja está preautorizada; RH autoriza.',
+            'descripcion' => 'El jefe directo o RH inició la baja (sin preautorización); RH la autoriza.',
             'destinatarios' => ['rh'],
             'fallback' => ['gerencia_rh'],
         ],

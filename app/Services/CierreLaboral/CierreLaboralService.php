@@ -44,9 +44,12 @@ use Throwable;
 /**
  * Cierre laboral (Etapa 6):
  *
- *   1. jefe/gerente SOLICITA (causa, motivo, fecha efectiva, evidencia)
- *   2. PREAUTORIZACIÓN operativa (superior según organigrama; implícita si
- *      quien solicita ya es superior de la persona)
+ *   1. el jefe directo (o RH) INICIA la baja (causa, motivo, fecha efectiva,
+ *      evidencia) — SIN preautorización de un superior: quien la inicia ya
+ *      es la decisión operativa. Si RH la devuelve, regresa a «Solicitado»
+ *      con quien la inició, que la corrige y la reenvía (reenviar()).
+ *      Solo registros anteriores a ese cambio pueden traer todavía una
+ *      preautorización pendiente (preautorizar(), compatibilidad).
  *   3. AUTORIZACIÓN FINAL de RH → documentos de la causa (plantillas de
  *      Jurídico/RH; sin plantilla = pendiente explícito)
  *   4. finiquito: RH genera / revisa / ajusta (auditado) / AUTORIZA
@@ -251,7 +254,7 @@ class CierreLaboralService
                 'motivo' => $motivo,
             ]);
 
-            $this->solicitudes->marcarEnRevision($solicitud, $actor, 'No renovación autorizada por RH en la evaluación del periodo de prueba.');
+            $this->solicitudes->marcarEnRevision($solicitud, $actor, 'No renovación autorizada por RH en la evaluación del periodo de prueba.', desdeCierreLaboral: true);
 
             return CierreLaboral::query()->create([
                 'colaborador_id' => $colaborador->id,
@@ -279,6 +282,11 @@ class CierreLaboralService
         return $cierre;
     }
 
+    /**
+     * COMPATIBILIDAD: solo para cierres anteriores al retiro de la
+     * preautorización que aún tienen una preautorización pendiente (las
+     * bajas nuevas y las devueltas por RH ya no la abren).
+     */
     public function preautorizar(CierreLaboral $cierre, User $actor, ?string $comentario = null): CierreLaboral
     {
         $cierre = DB::transaction(function () use ($cierre, $actor, $comentario): CierreLaboral {
@@ -310,7 +318,7 @@ class CierreLaboralService
                 'autorizado_rh_por' => $actor->id,
             ]);
 
-            $this->solicitudes->marcarEnRevision($this->solicitud($cierre), $actor, 'Baja autorizada por RH.');
+            $this->solicitudes->marcarEnRevision($this->solicitud($cierre), $actor, 'Baja autorizada por RH.', desdeCierreLaboral: true);
 
             return $cierre;
         });
@@ -334,7 +342,7 @@ class CierreLaboralService
             $solicitud = $this->solicitud($cierre);
 
             if ($solicitud->estado->puedeCancelarse()) {
-                $this->solicitudes->cancelar($solicitud, $actor);
+                $this->solicitudes->cancelar($solicitud, $actor, desdeCierreLaboral: true);
             }
 
             $cierre->update(['estado' => EstadoCierreLaboral::Rechazado, 'rechazado_en' => now(), 'motivo_rechazo' => $motivo]);
@@ -349,11 +357,17 @@ class CierreLaboralService
         return $cierre->refresh();
     }
 
+    /**
+     * RH devuelve la baja: regresa a «Solicitado» con quien la inició (jefe
+     * directo o RH) para corregirla y reenviarla. NO abre preautorización de
+     * un superior (se retiró): no queda ninguna aprobación pendiente hasta
+     * que se reenvía.
+     */
     public function devolver(CierreLaboral $cierre, User $actor, string $motivo): CierreLaboral
     {
         $cierre = DB::transaction(function () use ($cierre, $actor, $motivo): CierreLaboral {
             $cierre = $this->bloquear($cierre, [EstadoCierreLaboral::PendienteRh]);
-            $this->aprobaciones->devolver($cierre, ProcesoAprobacion::CierreLaboral, $actor, $motivo);
+            $this->aprobaciones->devolver($cierre, ProcesoAprobacion::CierreLaboral, $actor, $motivo, reabrirPreautorizacion: false);
             $cierre->update(['estado' => EstadoCierreLaboral::Solicitado]);
 
             return $cierre;
@@ -363,6 +377,69 @@ class CierreLaboralService
         $this->sincronizarPendientes($cierre, $actor);
 
         return $cierre->refresh();
+    }
+
+    /**
+     * Quien puede iniciar la baja (jefe directo en la cadena de mando o RH
+     * con alcance) la reenvía corregida tras una devolución: vuelve directo a
+     * la autorización de RH, sin preautorización.
+     */
+    public function reenviar(CierreLaboral $cierre, User $actor, ?string $comentario = null): CierreLaboral
+    {
+        $cierre->loadMissing('colaborador');
+
+        if (! $this->puedeReenviar($actor, $cierre)) {
+            throw new AuthorizationException('Solo el jefe directo de la persona o RH pueden reenviar su baja.');
+        }
+
+        $enCadena = $actor->colaborador !== null && $this->jerarquia->estaEnCadenaDeMando($actor->colaborador, $cierre->colaborador);
+
+        $cierre = DB::transaction(function () use ($cierre, $actor, $comentario, $enCadena): CierreLaboral {
+            $cierre = $this->bloquear($cierre, [EstadoCierreLaboral::Solicitado]);
+
+            if ($this->aprobaciones->pendiente($cierre, ProcesoAprobacion::CierreLaboral) !== null) {
+                throw ValidationException::withMessages(['aprobacion' => 'Esta baja (registro anterior) tiene una preautorización pendiente de su superior: debe preautorizarse, no reenviarse.']);
+            }
+
+            $this->aprobaciones->abrir($cierre, ProcesoAprobacion::CierreLaboral, [
+                'colaborador' => $cierre->colaborador,
+                'solicitante' => $actor,
+                'aprobador_colaborador' => $enCadena ? $actor->colaborador : null,
+                'implicita' => $enCadena,
+                'motivo_omision' => $enCadena ? null : 'Baja reenviada por RH: no requiere preautorización.',
+                'comentario' => $comentario ?? 'Baja corregida y reenviada a RH por quien la inició.',
+            ]);
+
+            $cierre->update(['estado' => EstadoCierreLaboral::PendienteRh]);
+
+            return $cierre;
+        });
+
+        $this->auditoria->registrar('cierre_laboral_reenviado', $cierre, $actor, ['colaborador_id' => $cierre->colaborador_id, 'comentario' => $comentario]);
+        $this->sincronizarPendientes($cierre, $actor);
+
+        return $cierre->refresh();
+    }
+
+    /**
+     * Misma regla que solicitar(): el jefe directo real (cadena de mando) o
+     * RH con alcance sobre la persona; nunca la propia persona.
+     */
+    private function puedeReenviar(User $usuario, CierreLaboral $cierre): bool
+    {
+        $colaborador = $cierre->colaborador;
+
+        if ($usuario->colaborador_id === $colaborador->id) {
+            return false;
+        }
+
+        $enCadena = $usuario->colaborador !== null && $this->jerarquia->estaEnCadenaDeMando($usuario->colaborador, $colaborador);
+
+        if ($usuario->can(self::PERMISO_GESTIONAR)) {
+            return $enCadena || $this->alcance->alcanzaColaborador($usuario, $colaborador);
+        }
+
+        return $enCadena && $usuario->can(self::PERMISO_SOLICITAR);
     }
 
     /**
@@ -620,7 +697,7 @@ class CierreLaboralService
             }
 
             if ($solicitud->estado !== EstadoSolicitudInterna::Aprobada) {
-                $this->solicitudes->aprobar($solicitud, $actor, 'Baja ejecutada desde cierre laboral.');
+                $this->solicitudes->aprobar($solicitud, $actor, 'Baja ejecutada desde cierre laboral.', desdeCierreLaboral: true);
             }
 
             ContratoLaboral::query()
@@ -693,7 +770,7 @@ class CierreLaboralService
             $solicitud = $this->solicitud($cierre);
 
             if ($solicitud->estado->puedeCancelarse()) {
-                $this->solicitudes->cancelar($solicitud, $actor);
+                $this->solicitudes->cancelar($solicitud, $actor, desdeCierreLaboral: true);
             }
 
             $this->aprobaciones->cancelarPendientes($cierre, ProcesoAprobacion::CierreLaboral, $actor, $motivo);
@@ -779,9 +856,14 @@ class CierreLaboralService
 
         switch ($cierre->estado) {
             case EstadoCierreLaboral::Solicitado:
+                // Registro anterior al retiro de la preautorización.
                 if ($pendiente !== null && $this->jerarquia->puedePreautorizar($usuario, $pendiente)) {
                     $acciones[] = ['clave' => 'preautorizar', 'etiqueta' => 'Preautorizar baja', 'tipo' => 'primaria'];
                     $acciones[] = ['clave' => 'rechazar', 'etiqueta' => 'Rechazar', 'tipo' => 'peligro'];
+                }
+                // Devuelta por RH: quien la inició la corrige y la reenvía.
+                if ($pendiente === null && $this->puedeReenviar($usuario, $cierre)) {
+                    $acciones[] = ['clave' => 'reenviar', 'etiqueta' => 'Corregir y reenviar a RH', 'tipo' => 'primaria'];
                 }
                 break;
             case EstadoCierreLaboral::PendienteRh:
@@ -968,14 +1050,31 @@ class CierreLaboralService
         switch ($cierre->estado) {
             case EstadoCierreLaboral::Solicitado:
                 $pendiente = $this->aprobaciones->pendiente($cierre, ProcesoAprobacion::CierreLaboral);
-                $aprobador = $pendiente?->aprobadorColaborador?->user;
+
+                if ($pendiente !== null) {
+                    // Registro anterior al retiro de la preautorización.
+                    $aprobador = $pendiente->aprobadorColaborador?->user;
+                    $this->tareas->abrir(TipoTarea::CierrePreautorizacion, $cierre, [...$base,
+                        'titulo' => "Preautorizar baja: {$nombre}",
+                        'usuario' => $aprobador,
+                        'permiso' => $aprobador === null ? OrganizacionJerarquiaService::PERMISO_PREAUTORIZAR : null,
+                        'accion' => 'preautorizar_cierre',
+                    ]);
+                    $this->notificador->notificarEvento('cierre_preautorizacion', $colaborador, ['aprobador' => $aprobador], 'Baja por preautorizar', "Se solicitó la baja de {$nombre} ({$cierre->tipo_baja->etiqueta()}).", $cierre, 'preautorizar_cierre', 'alta');
+                    break;
+                }
+
+                // Devuelta por RH: regresa a quien la inició (jefe directo o RH).
+                $cierre->loadMissing('iniciadoPor');
+                $iniciador = $cierre->iniciadoPor;
                 $this->tareas->abrir(TipoTarea::CierrePreautorizacion, $cierre, [...$base,
-                    'titulo' => "Preautorizar baja: {$nombre}",
-                    'usuario' => $aprobador,
-                    'permiso' => $aprobador === null ? OrganizacionJerarquiaService::PERMISO_PREAUTORIZAR : null,
-                    'accion' => 'preautorizar_cierre',
+                    'titulo' => "Corregir y reenviar baja: {$nombre}",
+                    'descripcion' => 'RH devolvió la baja: revisa el motivo, corrígela y reenvíala.',
+                    'usuario' => $iniciador,
+                    'permiso' => $iniciador === null ? self::PERMISO_GESTIONAR : null,
+                    'accion' => 'reenviar_cierre',
                 ]);
-                $this->notificador->notificarEvento('cierre_preautorizacion', $colaborador, ['aprobador' => $aprobador], 'Baja por preautorizar', "Se solicitó la baja de {$nombre} ({$cierre->tipo_baja->etiqueta()}).", $cierre, 'preautorizar_cierre', 'alta');
+                $this->notificador->notificarEvento('cierre_preautorizacion', $colaborador, ['aprobador' => $iniciador], 'Baja devuelta por RH', "RH devolvió la baja de {$nombre} para corregirla: revisa el motivo y reenvíala.", $cierre, 'reenviar_cierre', 'alta');
                 break;
             case EstadoCierreLaboral::PendienteRh:
                 $this->tareas->abrir(TipoTarea::CierreAutorizacionRh, $cierre, [...$base,
@@ -984,7 +1083,7 @@ class CierreLaboralService
                     'permiso' => OrganizacionJerarquiaService::PERMISO_AUTORIZAR_RH,
                     'accion' => 'autorizar_cierre',
                 ]);
-                $this->notificador->notificarEvento('cierre_autorizacion_rh', $colaborador, [], 'Baja pendiente de tu autorización', "La baja de {$nombre} está preautorizada.", $cierre, 'autorizar_cierre', 'alta');
+                $this->notificador->notificarEvento('cierre_autorizacion_rh', $colaborador, [], 'Baja pendiente de tu autorización', "La baja de {$nombre} ({$cierre->tipo_baja->etiqueta()}) espera tu autorización.", $cierre, 'autorizar_cierre', 'alta');
                 break;
             case EstadoCierreLaboral::Iniciado:
             case EstadoCierreLaboral::AvisoRegistrado:

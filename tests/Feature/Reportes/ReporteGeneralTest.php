@@ -15,8 +15,11 @@ it('carga el hub de reportes y ambos exportes para un usuario con permiso', func
     $usuario->assignRole('rh_admin');
 
     $this->actingAs($usuario)->get('/reportes')->assertOk();
-    $this->actingAs($usuario)->get('/reportes/exportar/excel')->assertOk();
-    $this->actingAs($usuario)->get('/reportes/exportar/pdf')->assertOk();
+    // Las exportaciones viven solo en /rh/reportes (las rutas duplicadas
+    // /reportes/exportar/* se retiraron: nada las usaba).
+    $this->actingAs($usuario)->get(route('rh.reportes.excel'))->assertOk();
+    $this->actingAs($usuario)->get(route('rh.reportes.pdf'))->assertOk();
+    $this->actingAs($usuario)->get('/reportes/exportar/excel')->assertNotFound();
 });
 
 it('bloquea el hub de reportes sin permiso', function () {

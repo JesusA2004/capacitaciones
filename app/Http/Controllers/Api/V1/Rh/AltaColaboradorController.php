@@ -44,9 +44,17 @@ class AltaColaboradorController extends Controller
             $this->exigirSucursalEnAlcance($request, (int) $sucursal);
         }
 
-        $colaborador = $this->contratacion->contratar($candidato, $request->validated(), $request->user());
+        // Mismo Service que la web (CandidatoController::iniciarContratacion).
+        // Idempotente: si el candidato ya está en contratación con un QR
+        // vigente, devuelve esa misma invitación (200) en vez de otra.
+        $resultado = $this->contratacion->iniciarOReanudar($candidato, $request->validated(), $request->user());
 
-        return response()->json(['data' => $this->altas->checklist($colaborador), 'colaborador_id' => $colaborador->id], 201);
+        return response()->json([
+            'data' => $this->altas->checklist($resultado['colaborador']),
+            'colaborador_id' => $resultado['colaborador']->id,
+            'invitacion' => $this->contratacion->datosQr($resultado['invitacion'], $resultado['token']),
+            'reutilizada' => $resultado['reutilizada'],
+        ], $resultado['reutilizada'] ? 200 : 201);
     }
 
     public function show(Colaborador $colaborador): JsonResponse

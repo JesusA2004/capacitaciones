@@ -2,13 +2,17 @@
 import { Head, router } from '@inertiajs/vue3';
 import { CheckCircle2, Loader2 } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import PresentacionInduccionRh from '@/components/ciclo/PresentacionInduccionRh.vue';
 import VisorPdf from '@/components/documentos/VisorPdf.vue';
 import { Button } from '@/components/ui/button';
 import { enviarJson } from '@/lib/http';
 import { dashboard } from '@/routes';
 import { miProceso } from '@/routes/portal';
 import { pagina as paginaRuta, terminar } from '@/routes/portal/induccion';
-import type { InduccionContenidoResumen } from '@/types';
+import type {
+    InduccionContenidoResumen,
+    SesionInduccionPantalla,
+} from '@/types';
 
 /**
  * Inducción Mr. Lana = el PDF OFICIAL (docs/onboarding), dibujado página
@@ -24,6 +28,8 @@ const props = defineProps<{
     pdf: { url: string; titulo: string; total_paginas: number };
     resumen: InduccionContenidoResumen | null;
     modoPresentacion?: boolean;
+    /** RH: sesión de presentación (a quién, Enviar evaluación, seguimiento). */
+    sesionRh?: SesionInduccionPantalla | null;
 }>();
 
 // `layout` como función: defineOptions() se compila fuera de setup() y no
@@ -42,6 +48,16 @@ defineOptions({
               ],
     }),
 });
+
+// RH: el visor aparece al iniciar la sesión (ya eligió a quién) o al
+// repasar sin sesión; el colaborador lo ve siempre.
+const repasando = ref(false);
+const muestraVisor = computed(
+    () =>
+        !props.sesionRh ||
+        props.sesionRh.sesion_en_curso !== null ||
+        repasando.value,
+);
 
 const registraAvance = computed(
     () => !props.modoPresentacion && props.avanceId !== null,
@@ -89,8 +105,24 @@ function terminarInduccion() {
     <Head :title="modoPresentacion ? 'Presentar inducción' : pdf.titulo" />
 
     <div
+        v-if="sesionRh && !muestraVisor"
+        class="pagina-ancha flex flex-col gap-4 pb-10"
+    >
+        <PresentacionInduccionRh
+            v-model:repasando="repasando"
+            :datos="sesionRh"
+        />
+    </div>
+
+    <div
+        v-else
         class="pagina-ancha flex h-[calc(100dvh-6rem)] min-h-[32rem] flex-col gap-3"
     >
+        <PresentacionInduccionRh
+            v-if="sesionRh"
+            v-model:repasando="repasando"
+            :datos="sesionRh"
+        />
         <div
             v-if="registraAvance"
             class="flex items-center gap-3 rounded-2xl border bg-card px-4 py-2.5 text-sm"

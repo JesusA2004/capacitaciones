@@ -20,6 +20,7 @@ use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 /*
@@ -34,6 +35,8 @@ beforeEach(function () {
     Carbon::setTestNow(Carbon::parse('2026-10-01 09:00:00', 'America/Mexico_City'));
     $this->seed(RolesYPermisosSeeder::class);
     Notification::fake();
+    // Al aprobar se adjunta el PDF FO-RH-EI al expediente (disco nas).
+    Storage::fake('nas');
 
     $this->estructura = clEstructura();
     $this->rh = clUsuario('rh_admin');

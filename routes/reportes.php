@@ -14,11 +14,10 @@ use Illuminate\Support\Facades\Route;
 // con un "hub" propio: antes existía un ReporteGeneralController que
 // reusaba los componentes del Dashboard con polling cada 45s — eliminado
 // porque era una segunda implementación del mismo reporte, no una vista
-// distinta.
+// distinta. Las exportaciones son las de /rh/reportes (rh.reportes.excel/pdf),
+// que es lo que usa la página: no se duplican aquí.
 Route::middleware(['auth', 'verified'])->prefix('reportes')->name('reportes.')->group(function () {
     Route::get('/', [ReporteRhController::class, 'index'])->name('index');
-    Route::get('exportar/excel', [ReporteRhController::class, 'exportarExcel'])->name('exportar.excel');
-    Route::get('exportar/pdf', [ReporteRhController::class, 'exportarPdf'])->name('exportar.pdf');
 });
 
 Route::middleware(['auth', 'verified', 'feature:capacitacion'])->prefix('reportes')->name('reportes.')->group(function () {

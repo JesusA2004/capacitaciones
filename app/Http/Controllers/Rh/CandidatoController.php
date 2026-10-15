@@ -503,7 +503,8 @@ class CandidatoController extends Controller
      */
     public function iniciarContratacion(ContratarCandidatoRequest $request, Candidato $candidato): RedirectResponse
     {
-        ['invitacion' => $invitacion, 'token' => $token] = $this->contratacion->iniciarContratacion($candidato, $request->validated(), $request->user());
+        // Mismo Service que la API móvil (AltaColaboradorController::contratarCandidato).
+        ['invitacion' => $invitacion, 'token' => $token] = $this->contratacion->iniciarOReanudar($candidato, $request->validated(), $request->user());
 
         // Misma clave/vigencia que IncorporacionInvitacionController::show() lee.
         $request->session()->put("incorporacion_invitacion_token_{$invitacion->id}", [
@@ -524,19 +525,6 @@ class CandidatoController extends Controller
         ]);
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Seguimiento agregado.']);
-    }
-
-    public function destroy(Candidato $candidato): RedirectResponse
-    {
-        $this->authorize('delete', $candidato);
-
-        if ($candidato->cv_path) {
-            $this->cvStorage->eliminar($candidato->cv_path);
-        }
-
-        $candidato->delete();
-
-        return back()->with('toast', ['type' => 'success', 'message' => 'Candidato eliminado correctamente.']);
     }
 
     private function ok(string $mensaje): RedirectResponse

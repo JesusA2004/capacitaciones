@@ -131,6 +131,11 @@ class OnboardingService
             $this->notificador->notificar([$usuario], 'onboarding_habilitado', 'Tienes lecciones de bienvenida', 'Entra a "Mis pendientes" en tu portal para revisarlas y responderlas.', $proceso, 'ver_onboarding', 'alta');
         }
 
+        // Si RH ya le presentó la Inducción Mr. Lana antes de que existiera
+        // este onboarding, su evaluación se habilita desde ahora (resuelto
+        // en el contenedor: EvaluacionInduccionService depende de este).
+        app(EvaluacionInduccionService::class)->habilitarPara($proceso);
+
         return $proceso;
     }
 
@@ -429,6 +434,37 @@ class OnboardingService
     }
 
     /**
+     * Cierra el onboarding por su cuenta cuando ya no tiene ningún bloqueo
+     * (p. ej. al aprobar la evaluación de inducción y no haber módulos de
+     * puesto ni activos obligatorios pendientes): completar() activa al
+     * colaborador (activado_en) y en el tablero pasa a «Laborando». Si algo
+     * falta (activos, expediente, contratos) no lanza: el cierre queda en
+     * manos de quien entrega los activos, como siempre. true si lo cerró.
+     */
+    public function cerrarSiListo(OnboardingProceso $proceso, User $actor): bool
+    {
+        $proceso = $proceso->refresh();
+
+        if ($proceso->estado === EstadoOnboarding::Completado || $proceso->estado === EstadoOnboarding::Cancelado) {
+            return false;
+        }
+
+        if ($this->bloqueos($proceso) !== []) {
+            return false;
+        }
+
+        try {
+            $this->completar($proceso, $actor);
+
+            return true;
+        } catch (ValidationException|AuthorizationException $e) {
+            Log::info('OnboardingService: el onboarding no se cerró automáticamente.', ['proceso_id' => $proceso->id, 'motivo' => $e->getMessage()]);
+
+            return false;
+        }
+    }
+
+    /**
      * Motivos concretos por los que el onboarding no puede cerrarse aún.
      *
      * @return list<string>
@@ -527,6 +563,8 @@ class OnboardingService
         $porcentaje = (int) round($vistos->intersect($capitulos)->count() / $capitulos->count() * 100);
 
         $avance->update(['progreso_contenido' => [
+            // Conserva el resto del rastro (páginas, presentación de RH).
+            ...$progreso,
             'capitulos_vistos' => $vistos->all(),
             'ultima_capitulo' => $capituloClave,
             'porcentaje' => $porcentaje,

@@ -5,9 +5,11 @@ use App\Models\FiniquitoCalculo;
 use App\Models\OfficialFormat;
 use App\Models\SolicitudInterna;
 use App\Models\User;
+use App\Services\Solicitudes\SolicitudesService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use setasign\Fpdi\Fpdi;
 
 function crearPdfPruebaFiniquito(): string
@@ -122,9 +124,9 @@ test('no se ejecuta la baja sin un cálculo de finiquito revisado', function () 
         'archivo' => UploadedFile::fake()->create('evidencia.pdf', 100, 'application/pdf'),
     ]);
 
-    $this->actingAs($this->rh)
-        ->post(route('rh.solicitudes.aprobar', $solicitud))
-        ->assertSessionHasErrors('finiquito');
+    // La baja la ejecuta el Cierre laboral (única puerta, ver SolicitudesService).
+    expect(fn () => app(SolicitudesService::class)->aprobar($solicitud->fresh(), $this->rh, null, [], desdeCierreLaboral: true))
+        ->toThrow(ValidationException::class, 'Calcula y revisa el finiquito antes de aprobar esta baja.');
 
     expect($solicitud->fresh()->estado->value)->toBe('en_revision');
 });
@@ -139,9 +141,7 @@ test('super_admin con permiso especial puede aprobar la baja sin finiquito revis
         'archivo' => UploadedFile::fake()->create('evidencia.pdf', 100, 'application/pdf'),
     ]);
 
-    $this->actingAs($superAdmin)
-        ->post(route('rh.solicitudes.aprobar', $solicitud))
-        ->assertSessionHasNoErrors();
+    app(SolicitudesService::class)->aprobar($solicitud->fresh(), $superAdmin, null, [], desdeCierreLaboral: true);
 
     expect($solicitud->fresh()->estado->value)->toBe('aprobada');
 });

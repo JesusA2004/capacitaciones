@@ -4,6 +4,7 @@ namespace App\Services\Onboarding;
 
 use App\Enums\EstadoEvaluacionInduccion;
 use App\Enums\EstadoOnboarding;
+use App\Enums\EstadoSesionInduccion;
 use App\Enums\NivelEvaluacionInduccion;
 use App\Enums\PrioridadTarea;
 use App\Enums\TipoModuloOnboarding;
@@ -14,6 +15,8 @@ use App\Models\EvaluacionInduccionIntento;
 use App\Models\OnboardingAvance;
 use App\Models\OnboardingModulo;
 use App\Models\OnboardingProceso;
+use App\Models\SesionInduccion;
+use App\Models\SesionInduccionColaborador;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
@@ -55,14 +58,20 @@ class EvaluacionInduccionService
         private readonly InduccionPdfService $pdf,
     ) {}
 
+    public const TITULO_AVISO_PRESENTADA = 'Contesta la evaluación de la Inducción Mr. Lana';
+
     /**
      * Idempotente: crea (o devuelve) la evaluación formal del proceso cuando
      * todos los avances institucionales obligatorios de esa clave ya tienen
-     * su contenido visto. null si el proceso no tiene ningún módulo
-     * institucional con evaluación formal configurada, o si falta contenido
-     * por ver.
+     * su contenido visto — por autoestudio (visor del PDF) o porque RH se la
+     * PRESENTÓ en una sesión (SesionInduccionService, camino principal).
+     * null si el proceso no tiene ningún módulo institucional con
+     * evaluación formal configurada, o si falta contenido por ver.
+     *
+     * $sesion: la sesión de RH que acaba de presentarla (solo cambia el
+     * texto del aviso al colaborador).
      */
-    public function habilitarPara(OnboardingProceso $proceso): ?EvaluacionInduccion
+    public function habilitarPara(OnboardingProceso $proceso, ?SesionInduccion $sesion = null): ?EvaluacionInduccion
     {
         $avances = $proceso->avances()
             ->whereHas('modulo', fn (Builder $q) => $q
@@ -91,6 +100,19 @@ class EvaluacionInduccionService
         $obligatorios = $avances->filter(fn (OnboardingAvance $a) => $a->modulo->obligatorio);
         $contenidoCompleto = $obligatorios->isNotEmpty() && $obligatorios->every(fn (OnboardingAvance $a) => $a->contenido_visto_en !== null);
 
+        // RH ya le presentó la inducción (p. ej. ANTES de que su onboarding
+        // existiera: asistencia «sin proceso de ingreso»): se aplica ahora
+        // esa presentación, una sola vez y de forma auditable.
+        if (! $contenidoCompleto && $obligatorios->isNotEmpty()) {
+            $previa = $sesion ?? $this->sesionPresentadaPara($proceso->colaborador_id);
+
+            if ($previa !== null) {
+                $this->registrarPresentacionRh($proceso, $previa);
+                $sesion = $previa;
+                $contenidoCompleto = true;
+            }
+        }
+
         if (! $contenidoCompleto) {
             return null;
         }
@@ -108,15 +130,88 @@ class EvaluacionInduccionService
 
         if ($usuario !== null) {
             $this->tareas->abrir(TipoTarea::InduccionEvaluacionPendiente, $evaluacion, [
-                'titulo' => 'Presenta tu evaluación de inducción',
+                'titulo' => $sesion !== null ? self::TITULO_AVISO_PRESENTADA : 'Presenta tu evaluación de inducción',
                 'colaborador' => $proceso->colaborador,
                 'usuario' => $usuario,
                 'accion' => 'presentar_evaluacion_induccion',
             ]);
-            $this->notificador->notificar([$usuario], 'induccion_evaluacion_disponible', 'Ya puedes presentar tu evaluación de inducción', 'Entra a "Mis pendientes" para responderla.', $evaluacion, 'presentar_evaluacion_induccion', 'alta');
+            $this->notificarDisponible($usuario, $evaluacion, $sesion !== null);
         }
 
         return $evaluacion;
+    }
+
+    /**
+     * Aviso (notificación + push) de que ya puede contestar su evaluación.
+     * La capa de notificaciones nunca lanza ni deshace la acción principal.
+     */
+    public function notificarDisponible(User $usuario, EvaluacionInduccion $evaluacion, bool $presentadaPorRh): void
+    {
+        $this->notificador->notificar(
+            [$usuario],
+            'induccion_evaluacion_disponible',
+            $presentadaPorRh ? self::TITULO_AVISO_PRESENTADA : 'Ya puedes presentar tu evaluación de inducción',
+            $presentadaPorRh
+                ? 'Recursos Humanos te presentó la Inducción Mr. Lana. Entra a tu app y contesta tu evaluación: al aprobarla quedas listo para empezar a laborar.'
+                : 'Entra a "Mis pendientes" para responderla.',
+            $evaluacion,
+            'presentar_evaluacion_induccion',
+            'alta',
+        );
+    }
+
+    /**
+     * Da por cumplido (contenido visto) el contenido institucional con
+     * evaluación formal de este proceso porque RH se lo PRESENTÓ. Idempotente
+     * y auditable: deja en progreso_contenido.presentada_por_rh la sesión,
+     * quién la presentó y cuándo. Nunca aprueba el avance (eso lo hace la
+     * evaluación). Devuelve cuántos avances cambiaron.
+     */
+    public function registrarPresentacionRh(OnboardingProceso $proceso, SesionInduccion $sesion): int
+    {
+        $avances = $proceso->avances()
+            ->whereHas('modulo', fn (Builder $q) => $q
+                ->where('tipo', TipoModuloOnboarding::Institucional->value)
+                ->whereNotNull('evaluacion_formal_clave'))
+            ->get();
+        $marcados = 0;
+
+        foreach ($avances as $avance) {
+            $progreso = (array) ($avance->progreso_contenido ?? []);
+
+            if (isset($progreso['presentada_por_rh']) && $avance->contenido_visto_en !== null) {
+                continue;
+            }
+
+            $progreso['presentada_por_rh'] = [
+                'sesion_id' => $sesion->id,
+                'presentada_por' => $sesion->presentada_por,
+                'presentada_en' => ($sesion->presentada_en ?? now('America/Mexico_City'))->toIso8601String(),
+            ];
+
+            $avance->update([
+                'contenido_visto_en' => $avance->contenido_visto_en ?? now(),
+                'progreso_contenido' => $progreso,
+            ]);
+            $marcados++;
+        }
+
+        return $marcados;
+    }
+
+    /**
+     * Última sesión PRESENTADA en la que estuvo este colaborador.
+     */
+    private function sesionPresentadaPara(int $colaboradorId): ?SesionInduccion
+    {
+        $asistencia = SesionInduccionColaborador::query()
+            ->where('colaborador_id', $colaboradorId)
+            ->whereHas('sesion', fn (Builder $q) => $q->where('estado', EstadoSesionInduccion::Presentada->value))
+            ->with('sesion')
+            ->latest('id')
+            ->first();
+
+        return $asistencia?->sesion;
     }
 
     /**
@@ -127,7 +222,7 @@ class EvaluacionInduccionService
      * El avance se mide por PÁGINAS del PDF oficial (visor); los campos de
      * capítulos se conservan para versiones anteriores de la app.
      *
-     * @return array{avance_id: int, titulo: string, total_paginas: int, paginas_vistas: list<int>, ultima_pagina: int|null, total_capitulos: int, capitulos_vistos: int, claves_vistas: list<string>, porcentaje: int, ultima_capitulo: string|null, completado: bool}|null
+     * @return array{avance_id: int, titulo: string, total_paginas: int, paginas_vistas: list<int>, ultima_pagina: int|null, total_capitulos: int, capitulos_vistos: int, claves_vistas: list<string>, porcentaje: int, ultima_capitulo: string|null, completado: bool, presentada_por_rh_en: string|null}|null
      */
     public function resumenContenido(OnboardingProceso $proceso): ?array
     {
@@ -144,6 +239,7 @@ class EvaluacionInduccionService
         $progreso = (array) ($avance->progreso_contenido ?? []);
 
         $completado = $avance->contenido_visto_en !== null;
+        $presentada = is_array($progreso['presentada_por_rh'] ?? null) ? $progreso['presentada_por_rh'] : null;
 
         return [
             'avance_id' => $avance->id,
@@ -159,6 +255,8 @@ class EvaluacionInduccionService
             'porcentaje' => $completado ? 100 : (int) ($progreso['porcentaje'] ?? 0),
             'ultima_capitulo' => $progreso['ultima_capitulo'] ?? null,
             'completado' => $completado,
+            // RH se la presentó en una sesión: fecha ISO, o null.
+            'presentada_por_rh_en' => $presentada !== null ? (string) ($presentada['presentada_en'] ?? '') : null,
         ];
     }
 
@@ -325,12 +423,12 @@ class EvaluacionInduccionService
      *
      * @param  array<string, array<string, bool>>  $puntosPorCriterio  {caso_26: {identifica_malversacion: true, ...}, caso_27: {...}}
      */
-    public function calificarCasosPracticos(EvaluacionInduccionIntento $intento, User $actor, array $puntosPorCriterio): EvaluacionInduccionIntento
+    public function calificarCasosPracticos(EvaluacionInduccionIntento $intento, User $actor, array $puntosPorCriterio, ?string $comentario = null): EvaluacionInduccionIntento
     {
         $intento->loadMissing('evaluacion.colaborador');
         $this->exigirPermiso($actor, $intento->evaluacion->colaborador);
 
-        [$intento, $evaluacion] = DB::transaction(function () use ($intento, $actor, $puntosPorCriterio): array {
+        [$intento, $evaluacion] = DB::transaction(function () use ($intento, $actor, $puntosPorCriterio, $comentario): array {
             $intento = EvaluacionInduccionIntento::query()->lockForUpdate()->findOrFail($intento->id);
 
             if (! $intento->pendienteCalificacionRh()) {
@@ -346,6 +444,7 @@ class EvaluacionInduccionService
             $intento->update([
                 'calificacion_d' => $calificacionD,
                 'desglose_d' => $desglose,
+                'comentario_rh' => $comentario !== null && trim($comentario) !== '' ? trim($comentario) : null,
                 'calificacion_total' => $total,
                 'nivel' => $nivel,
                 'aprobado' => $nivel->aprobado(),
@@ -385,6 +484,10 @@ class EvaluacionInduccionService
 
             if ($proceso !== null) {
                 $this->onboarding->sincronizarBandeja($proceso);
+                // Aprobada la inducción: si ya no queda nada pendiente del
+                // onboarding (módulos de puesto, activos), se cierra y el
+                // colaborador queda activo — empieza a laborar.
+                $this->onboarding->cerrarSiListo($proceso, $actor);
             }
         }
 
@@ -393,6 +496,8 @@ class EvaluacionInduccionService
                 $this->notificador->notificar([$colaboradorUsuario], 'induccion_evaluacion_aprobada', '¡Aprobaste tu evaluación de inducción!', sprintf('Obtuviste %s/30 (%s).', number_format((float) $intento->calificacion_total, 1), $intento->nivel?->etiqueta()), $intento, 'ver_evaluacion_induccion', 'alta');
             }
             $this->notificador->notificarEvento('induccion_evaluacion_aprobada', $evaluacion->colaborador, ['creador' => $actor, 'excluir' => [$actor->id]], 'Inducción completada', "{$evaluacion->colaborador->nombreCompleto()} aprobó su evaluación de inducción.", $intento, 'ver_onboarding_colaborador');
+            // PDF del formato al expediente (try/catch + Log::warning adentro: nunca deshace la calificación).
+            app(EvaluacionInduccionPdfService::class)->adjuntarSiAprobada($intento->refresh(), $actor);
         } else {
             $this->tareas->abrir(TipoTarea::InduccionReforzamiento, $evaluacion, [
                 'titulo' => "Reforzamiento de inducción: {$evaluacion->colaborador->nombreCompleto()}",
@@ -532,6 +637,107 @@ class EvaluacionInduccionService
             'rubrica' => $caso['rubrica'],
             'desglose_previo' => $intento->desglose_d,
         ])->values()->all();
+    }
+
+    /**
+     * Revisión completa de un intento — SOLO para RH (pantalla de revisión
+     * y PDF del formato): cada pregunta con lo que contestó el colaborador,
+     * la respuesta correcta y si acertó (A/B/C ya calificadas en el
+     * servidor), los casos prácticos con su rúbrica, la opinión y el total.
+     * Nunca se manda al colaborador.
+     *
+     * @return array{seccion_a: list<array<string, mixed>>, seccion_b: list<array<string, mixed>>, seccion_c: array<string, mixed>, seccion_d: list<array<string, mixed>>, opinion: array<string, mixed>|null, comentario_rh: string|null, puntos: array<string, float|null>, nivel: string|null, nivel_etiqueta: string|null, aprobado: bool|null, calificado: bool}
+     */
+    public function detalleRevision(EvaluacionInduccionIntento $intento): array
+    {
+        $respuestas = (array) $intento->respuestas;
+        $a = (array) ($respuestas['a'] ?? []);
+        $b = (array) ($respuestas['b'] ?? []);
+        $c = (array) ($respuestas['c'] ?? []);
+        $desglose = collect($intento->desglose_d ?? [])->mapWithKeys(fn (array $fila) => [$fila['clave'] => $fila['puntos']]);
+
+        $seccionA = collect((array) config('induccion_evaluacion.seccion_a', []))->map(function (array $p, int $i) use ($a): array {
+            $elegida = $a[$i] ?? $a[(string) $i] ?? null;
+
+            return [
+                'numero' => $i + 1,
+                'pregunta' => $p['pregunta'],
+                'opciones' => $p['opciones'],
+                'elegida' => $elegida !== null ? (int) $elegida : null,
+                'correcta' => (int) $p['correcta'],
+                'acierto' => $elegida !== null && (int) $elegida === (int) $p['correcta'],
+            ];
+        })->values()->all();
+
+        $baseB = count($seccionA);
+        $seccionB = collect((array) config('induccion_evaluacion.seccion_b', []))->map(function (array $p, int $i) use ($b, $baseB): array {
+            $elegida = $b[$i] ?? $b[(string) $i] ?? null;
+            $valor = $elegida !== null ? filter_var($elegida, FILTER_VALIDATE_BOOLEAN) : null;
+
+            return [
+                'numero' => $baseB + $i + 1,
+                'afirmacion' => $p['afirmacion'],
+                'elegida' => $valor,
+                'correcto' => (bool) $p['correcto'],
+                'acierto' => $valor !== null && $valor === (bool) $p['correcto'],
+            ];
+        })->values()->all();
+
+        $baseC = $baseB + count($seccionB);
+        $seccionC = [
+            'descripciones' => (array) config('induccion_evaluacion.seccion_c.descripciones', []),
+            'conceptos' => collect((array) config('induccion_evaluacion.seccion_c.conceptos', []))->map(function (array $p, int $i) use ($c, $baseC): array {
+                $elegida = $c[$i] ?? $c[(string) $i] ?? null;
+                $letra = $elegida !== null ? strtoupper((string) $elegida) : null;
+
+                return [
+                    'numero' => $baseC + $i + 1,
+                    'concepto' => $p['concepto'],
+                    'elegida' => $letra,
+                    'correcta' => strtoupper((string) $p['letra_correcta']),
+                    'acierto' => $letra !== null && $letra === strtoupper((string) $p['letra_correcta']),
+                ];
+            })->values()->all(),
+        ];
+
+        $baseD = $baseC + count($seccionC['conceptos']);
+        $respuestasD = (array) ($respuestas['d'] ?? []);
+        $seccionD = collect((array) config('induccion_evaluacion.seccion_d', []))->map(fn (array $caso, int $i): array => [
+            'numero' => $baseD + $i + 1,
+            'clave' => $caso['clave'],
+            'enunciado' => $caso['enunciado'],
+            'puntos_max' => $caso['puntos_max'],
+            'respuesta' => (string) ($respuestasD[$caso['clave']] ?? ''),
+            'rubrica' => collect((array) $caso['rubrica'])->map(fn (array $r): array => [
+                'clave' => $r['clave'],
+                'puntos' => $r['puntos'],
+                'criterio' => $r['criterio'],
+                'otorgado' => $intento->desglose_d !== null ? ($desglose->get("{$caso['clave']}.{$r['clave']}", 0) > 0) : null,
+            ])->values()->all(),
+            'puntos_obtenidos' => $intento->desglose_d !== null
+                ? collect((array) $caso['rubrica'])->sum(fn (array $r): int => $desglose->get("{$caso['clave']}.{$r['clave']}", 0))
+                : null,
+        ])->values()->all();
+
+        return [
+            'seccion_a' => array_values($seccionA),
+            'seccion_b' => array_values($seccionB),
+            'seccion_c' => $seccionC,
+            'seccion_d' => array_values($seccionD),
+            'opinion' => $intento->opinion,
+            'comentario_rh' => $intento->comentario_rh,
+            'puntos' => [
+                'a' => (float) $intento->calificacion_a,
+                'b' => (float) $intento->calificacion_b,
+                'c' => (float) $intento->calificacion_c,
+                'd' => $intento->calificacion_d !== null ? (float) $intento->calificacion_d : null,
+                'total' => $intento->calificacion_total !== null ? (float) $intento->calificacion_total : null,
+            ],
+            'nivel' => $intento->nivel?->value,
+            'nivel_etiqueta' => $intento->nivel?->etiqueta(),
+            'aprobado' => $intento->aprobado,
+            'calificado' => ! $intento->pendienteCalificacionRh(),
+        ];
     }
 
     /**

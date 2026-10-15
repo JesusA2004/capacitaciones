@@ -176,6 +176,18 @@ class SolicitudInterna extends Model
     }
 
     /**
+     * La solicitud es de $usuario: la levantó él o es de su propia persona
+     * (colaborador_id). Única definición de «propia» para la regla de no
+     * revisar/aprobar/rechazar lo propio (SolicitudesService::cambiarEstado
+     * y SolicitudInternaPolicy).
+     */
+    public function esDe(User $usuario): bool
+    {
+        return $this->user_id === $usuario->id
+            || ($usuario->colaborador_id !== null && $this->colaborador_id === $usuario->colaborador_id);
+    }
+
+    /**
      * El colaborador (persona) sujeto de una baja (App\Enums\TipoSolicitudInterna::BajaColaborador):
      * prefiere `objetivo_colaborador_id` (fuente de verdad nueva) y cae a
      * `colaboradorObjetivo->colaborador` mientras el flujo de creación de

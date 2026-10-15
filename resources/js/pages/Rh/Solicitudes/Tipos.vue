@@ -15,7 +15,6 @@ import {
     LogOut,
     MessageSquare,
     Timer,
-    UserX,
 } from '@lucide/vue';
 import type { Component } from 'vue';
 import { computed } from 'vue';
@@ -57,7 +56,6 @@ const ICONO: Record<string, Component> = {
     actualizacion_bancaria: Banknote,
     reposicion_documental: FileWarning,
     prestamo: Banknote,
-    baja_colaborador: UserX,
     permiso_especial_cumpleanos: Cake,
     permiso_especial_paternidad: Baby,
     permiso_especial_fallecimiento: Heart,
@@ -97,11 +95,7 @@ const GRUPOS: { titulo: string; tipos: string[]; color: string }[] = [
         ],
         color: 'var(--mrl-navy)',
     },
-    {
-        titulo: 'Personal',
-        tipos: ['baja_colaborador'],
-        color: 'var(--mrl-danger)',
-    },
+    // La baja no se gestiona aquí: vive en el Cierre laboral del colaborador.
 ];
 
 const porClave = computed(() =>

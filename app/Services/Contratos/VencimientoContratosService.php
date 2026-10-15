@@ -2,16 +2,20 @@
 
 namespace App\Services\Contratos;
 
+use App\Enums\EstadoAltaColaborador;
 use App\Enums\EstadoContratoLaboral;
 use App\Enums\EstadoEvaluacionPrueba;
+use App\Enums\EstadoUsuario;
 use App\Enums\PrioridadTarea;
 use App\Enums\TipoTarea;
+use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
 use App\Models\EvaluacionPeriodoPrueba;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Calendario\CalendarioLaboralService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Services\Tareas\TareaService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -36,6 +40,8 @@ class VencimientoContratosService
 {
     public const PERMISO_RH = 'evaluaciones.autorizar';
 
+    public const ZONA = 'America/Mexico_City';
+
     public function __construct(
         private readonly TareaService $tareas,
         private readonly NotificadorRhService $notificador,
@@ -52,13 +58,22 @@ class VencimientoContratosService
         // Días HÁBILES (FO-RH-EPP-001: "RH, 15 días hábiles antes"), nunca
         // calendario: un contrato que vence en lunes debe avisarse el lunes
         // de tres semanas atrás, no el domingo.
-        $limite = $this->calendario->sumarDiasHabiles(now(), $dias)->toDateString();
+        // "Hoy" es el día en America/Mexico_City (la app corre en UTC): una
+        // corrida manual después de las 18:00 no debe adelantar el aviso.
+        $limite = $this->calendario->sumarDiasHabiles(now(self::ZONA), $dias)->toDateString();
 
+        // Una baja que no pasó por el cierre laboral (BajaColaboradorService)
+        // deja el contrato «vigente»: nunca se le abre evaluación a quien ya
+        // no labora. Sin marcar el aviso: si se reactiva, se procesa normal.
         $ids = ContratoLaboral::query()
             ->where('estado', EstadoContratoLaboral::Vigente->value)
             ->whereNotNull('fecha_fin')
             ->whereNull('aviso_vencimiento_en')
             ->whereDate('fecha_fin', '<=', $limite)
+            ->whereHas('colaborador', fn (Builder $q) => $q
+                ->whereNull('deleted_at')
+                ->where('estatus', '!=', EstadoUsuario::Inactivo->value)
+                ->where(fn (Builder $alta) => $alta->whereNull('estado_alta')->orWhere('estado_alta', '!=', EstadoAltaColaborador::Baja->value)))
             ->pluck('id');
 
         $avisados = 0;
@@ -94,6 +109,10 @@ class VencimientoContratosService
             $contrato->loadMissing('colaborador');
             $colaborador = $contrato->colaborador;
 
+            if (! $this->sigueLaborando($colaborador)) {
+                return null;
+            }
+
             $evaluacion = EvaluacionPeriodoPrueba::query()->firstOrCreate(
                 ['contrato_laboral_id' => $contrato->id],
                 [
@@ -116,6 +135,18 @@ class VencimientoContratosService
         $this->avisar($resultado);
 
         return true;
+    }
+
+    /**
+     * Misma regla que la consulta de revisar(), repetida tras el bloqueo por
+     * si la baja ocurrió entre la consulta y el procesamiento. Un colaborador
+     * en incorporación (activado_en null) SÍ sigue: su contrato corre igual.
+     */
+    private function sigueLaborando(Colaborador $colaborador): bool
+    {
+        return ! $colaborador->trashed()
+            && $colaborador->estatus !== EstadoUsuario::Inactivo
+            && $colaborador->estado_alta !== EstadoAltaColaborador::Baja;
     }
 
     private function avisar(EvaluacionPeriodoPrueba $evaluacion): void

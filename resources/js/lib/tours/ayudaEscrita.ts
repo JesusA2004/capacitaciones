@@ -582,8 +582,8 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
             'Recorrer el documento cuando quieras, con zoom y pantalla completa.',
         ],
         flujo: [
-            'Si estás en tu ingreso, entra desde «Mis pendientes»: ahí tu avance se guarda.',
-            'Al recorrer todas las páginas, «Terminé la inducción» habilita tu evaluación.',
+            'Recursos Humanos te presenta la inducción y al terminar te envía tu evaluación: te llega el aviso en la app para contestarla.',
+            'Si estás en tu ingreso también puedes recorrerla desde «Mis pendientes»: al terminar todas las páginas, «Terminé la inducción» habilita tu evaluación.',
         ],
         permisos: 'Todos los colaboradores.',
         errores: [
@@ -591,15 +591,20 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
         ],
     },
     'presentar-induccion': {
-        queEs: 'La inducción Mr. Lana en modo presentación, para impartirla en una sesión (Meet o sala).',
-        puedes: ['Mostrar el PDF oficial de la inducción en pantalla completa.'],
+        queEs: 'La inducción Mr. Lana en modo presentación, para impartirla en una sesión (Meet o sala) y enviar la evaluación a quienes asistieron.',
+        puedes: [
+            'Elegir ANTES de presentar a qué colaboradores se la presentas (uno o varios).',
+            'Mostrar el PDF oficial de la inducción en pantalla completa.',
+            '«Enviar evaluación» al terminar y dar seguimiento: por contestar, por calificar, aprobada o reforzamiento.',
+        ],
         flujo: [
-            'Abre «Presentar inducción» y comparte pantalla.',
-            'Cada colaborador presenta su evaluación desde su propia cuenta.',
+            'Busca y agrega a los asistentes, pulsa «Iniciar presentación» y comparte pantalla.',
+            'Al terminar, pulsa «Enviar evaluación»: a cada asistente le llega el aviso en la app para contestarla.',
+            'Cuando la contesten, revisa y califica los casos prácticos desde el seguimiento.',
         ],
         permisos: 'Cuentas con permiso de gestionar onboarding (RH).',
         errores: [
-            'Presentarla NO registra avance de ningún colaborador ni habilita su evaluación.',
+            'Nada se envía antes de «Enviar evaluación»; «Solo repasar, sin sesión» no registra ni envía nada.',
         ],
     },
 };

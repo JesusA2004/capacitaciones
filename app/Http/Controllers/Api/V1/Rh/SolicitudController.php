@@ -10,7 +10,6 @@ use App\Models\Prestamo;
 use App\Models\SolicitudInterna;
 use App\Models\SolicitudInternaHistorial;
 use App\Models\User;
-use App\Services\AlcanceOrganizacionalService;
 use App\Services\RhMobile\WorkflowService;
 use App\Services\Solicitudes\AprobacionJerarquicaService;
 use App\Services\Solicitudes\SolicitudesService;
@@ -23,13 +22,16 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  * Bandeja de solicitudes internas para RH/aprobadores desde la app movil.
  * Reutiliza App\Services\Solicitudes\SolicitudesService (misma logica que el
  * Portal RH web): este controlador solo autoriza, filtra y da forma al JSON.
+ * Autoriza con la MISMA SolicitudInternaPolicy que la web (acepta las
+ * familias de permisos solicitudes.* y rh.solicitudes.*); las reglas de
+ * negocio (baja en Cierre laboral, no aprobar lo propio) las aplica
+ * SolicitudesService::cambiarEstado() para ambos canales.
  * Ver seccion 8 del encargo movil y docs/RH_MOBILE_API.md.
  */
 class SolicitudController extends Controller
 {
     public function __construct(
         private readonly SolicitudesService $solicitudes,
-        private readonly AlcanceOrganizacionalService $alcance,
         private readonly WorkflowService $workflow,
         private readonly AprobacionJerarquicaService $aprobaciones,
     ) {}
@@ -37,7 +39,7 @@ class SolicitudController extends Controller
     public function index(Request $request): JsonResponse
     {
         $usuario = $request->user();
-        abort_unless($usuario->can('rh.solicitudes.ver'), 403);
+        $this->authorize('viewAny', SolicitudInterna::class);
 
         $filtros = $request->only(['estado', 'tipo', 'sucursal_id', 'empresa_id', 'departamento_id']);
         if ($q = $request->string('q')->toString()) {
@@ -59,8 +61,7 @@ class SolicitudController extends Controller
     public function show(Request $request, SolicitudInterna $solicitud): JsonResponse
     {
         $usuario = $request->user();
-        abort_unless($usuario->can('rh.solicitudes.detalle'), 403);
-        abort_unless($this->puedeVer($usuario, $solicitud), 403);
+        $this->authorize('view', $solicitud);
 
         $solicitud->load([
             'usuario:id,name,apellidos,colaborador_id',
@@ -117,8 +118,7 @@ class SolicitudController extends Controller
     public function aprobar(Request $request, SolicitudInterna $solicitud): JsonResponse
     {
         $usuario = $request->user();
-        abort_unless($usuario->can('rh.solicitudes.aprobar'), 403);
-        abort_unless($this->puedeVer($usuario, $solicitud), 404);
+        $this->authorize('aprobar', $solicitud);
         $this->validarPendiente($solicitud);
 
         $datos = $request->validate(['comentario' => ['nullable', 'string', 'max:1000']]);
@@ -140,8 +140,7 @@ class SolicitudController extends Controller
     public function rechazar(Request $request, SolicitudInterna $solicitud): JsonResponse
     {
         $usuario = $request->user();
-        abort_unless($usuario->can('rh.solicitudes.rechazar'), 403);
-        abort_unless($this->puedeVer($usuario, $solicitud), 404);
+        $this->authorize('rechazar', $solicitud);
         $this->validarPendiente($solicitud);
 
         $datos = $request->validate(['motivo' => ['required', 'string', 'max:1000']]);
@@ -154,8 +153,7 @@ class SolicitudController extends Controller
     public function correccion(Request $request, SolicitudInterna $solicitud): JsonResponse
     {
         $usuario = $request->user();
-        abort_unless($usuario->can('rh.solicitudes.correccion'), 403);
-        abort_unless($this->puedeVer($usuario, $solicitud), 404);
+        $this->authorize('revisar', $solicitud);
         $this->validarPendiente($solicitud);
 
         $datos = $request->validate(['motivo' => ['required', 'string', 'max:1000']]);
@@ -185,7 +183,7 @@ class SolicitudController extends Controller
             default => abort(422, 'Ese estado no se puede asignar desde el tablero.'),
         };
 
-        abort_unless($usuario->can($habilidad, $solicitud), 403);
+        $this->authorize($habilidad, $solicitud);
 
         $comentario = $request->validated('motivo_rechazo') ?? $request->validated('comentario');
 
@@ -249,7 +247,7 @@ class SolicitudController extends Controller
      */
     public function permisoPdf(Request $request, SolicitudInterna $solicitud): StreamedResponse
     {
-        abort_unless($this->puedeVer($request->user(), $solicitud), 403);
+        $this->authorize('view', $solicitud);
 
         try {
             return $this->solicitudes->respuestaPermiso($solicitud);
@@ -258,13 +256,6 @@ class SolicitudController extends Controller
             // ha autorizado). 409 con el motivo real, no un 403 engañoso.
             abort(409, (string) collect($e->errors())->flatten()->first());
         }
-    }
-
-    private function puedeVer(User $usuario, SolicitudInterna $solicitud): bool
-    {
-        $solicitud->loadMissing('usuario');
-
-        return $this->alcance->tieneAlcanceGlobal($usuario) || $this->alcance->puedeVerUsuario($usuario, $solicitud->usuario);
     }
 
     /**

@@ -1375,44 +1375,49 @@ El colaborador responde las lecciones; RH da retroalimentación si no aprueba; e
 
 ### Inducción Mr. Lana y su evaluación
 
-> El PDF oficial de la inducción, página por página; al terminarlo se habilita la evaluación oficial de 30 puntos (mínimo 24).
+> RH presenta la inducción a las personas que eligió, al terminar «Envía la evaluación», el colaborador la contesta en la app y RH califica: con 24/30 o más queda listo para empezar a laborar.
 
 #### Qué es
 
-Es la inducción institucional en su documento oficial (Quiénes somos, Misión/visión/principios, Cultura, Organigrama, Reglamento interior, Modelo de negocio y Empresa con factor humano), tal cual lo entregó la empresa. El avance se guarda en el servidor y se retoma donde se quedó.
+Es la primera de las dos evaluaciones de ingreso (la segunda es la evaluación de periodo de prueba). La inducción institucional es el documento oficial (Quiénes somos, Misión/visión/principios, Cultura, Organigrama, Reglamento interior, Modelo de negocio y Empresa con factor humano) y su evaluación es el formato oficial FO-RH-EI de 30 puntos.
 
 #### Quién lo hace
 
-El colaborador recorre el documento y presenta su evaluación; RH califica los casos prácticos y, si hace falta, da reforzamiento. RH también puede PRESENTAR la inducción por Meet.
+RH elige a quién le presenta la inducción, la presenta (en sala o por Meet), envía la evaluación y califica los casos prácticos. El colaborador contesta su evaluación en la app (o en el portal web).
 
 #### Antes de empezar
 
-- El onboarding de la persona ya inició (contratos firmados).
+- La persona está en su proceso de ingreso (contratos firmados). Si RH se la presenta antes, la asistencia queda registrada y su evaluación se habilita sola en cuanto inicie su onboarding.
 
 #### Pasos
 
-1. **Recorrer la inducción** _(Colaborador · Web y app)_ — Mis pendientes → «Inducción Mr. Lana» (web o app). Cada página mostrada cuenta («12 / 30»); en la última, «Terminé la inducción» lleva a la evaluación.
-2. **Presentar la evaluación** _(Colaborador · Web y app)_ — Secciones A (opción múltiple), B (verdadero/falso), C (relaciona columnas), D (casos prácticos) y E (opinión, no califica). La clave de respuestas nunca llega al teléfono ni al navegador.
-3. **RH califica los casos prácticos** _(RH · Web)_ — Con la rúbrica oficial (solo RH la ve). Resultado: 27–30 Sobresaliente · 24–26 Aprobado · 0–23 Requiere reforzamiento.
-4. **Si requiere reforzamiento** _(RH)_ — RH deja retroalimentación y habilita la reevaluación (plazo de 5 días hábiles). El colaborador no puede reintentar antes.
-5. **Modo presentación (Meet)** _(RH · Web)_ — Desarrollo → «Presentar inducción»: los mismos capítulos para impartirla en sesión, sin registrar avance de nadie.
+1. **Elegir a quién se le presenta** _(RH · Web)_ — Desarrollo → «Presentar inducción». ANTES de iniciar, busca y agrega a uno o varios colaboradores (solo los de tu alcance; «Agregar a los pendientes de presentar» los suma de una vez) y pulsa «Iniciar presentación».
+2. **Presentar y «Enviar evaluación»** _(RH · Web)_ — Presenta el PDF oficial. Al terminar, pulsa «Enviar evaluación»: en ese momento se habilita la evaluación de cada asistente y le llega el aviso en la app «Contesta la evaluación de la Inducción Mr. Lana». Antes de ese botón no se envía nada; repetirlo no duplica nada.
+3. **Contestar la evaluación** _(Colaborador · Web y app)_ — El aviso abre directo la evaluación en la app. Secciones A (opción múltiple), B (verdadero/falso), C (relaciona columnas), D (casos prácticos) y E (opinión, no califica). Se envía una sola vez; la clave de respuestas nunca llega al teléfono ni al navegador.
+4. **RH revisa y califica** _(RH · Web)_ — Le llega el aviso «Evaluación de inducción por calificar». En la revisión ve cada pregunta con la respuesta del colaborador y si acertó (A/B/C se califican solas), marca la rúbrica oficial de los casos prácticos (D), puede dejar un comentario y ve el total /30. Desde ahí también ve la vista previa del formato FO-RH-EI, lo descarga o lo guarda en el expediente.
+5. **Si requiere reforzamiento** _(RH)_ — Menos de 24/30: RH deja retroalimentación y habilita la reevaluación (plazo de 5 días hábiles). El colaborador no puede reintentar antes.
+6. **Seguimiento** _(RH · Web)_ — En «Presentar inducción» RH ve a cada persona en ingreso: Pendiente de presentar → Presentada · por contestar → Por calificar (D) → Aprobada / Reforzamiento, y si ya está Laborando.
+7. **Autoestudio (opcional)** _(Colaborador · Web y app)_ — El colaborador también puede recorrer el PDF desde Mis pendientes; al terminar todas las páginas, «Terminé la inducción» habilita su evaluación.
 
 #### Qué pasa después
 
-- Aprobada: se aprueba el módulo de inducción y se desbloquea SOLO el siguiente módulo del onboarding.
+- Aprobada (24/30 o más): se aprueba el módulo de inducción y el formato FO-RH-EI se guarda solo en el expediente (carpeta Otros). Si ya no quedan módulos de puesto ni activos por entregar, el onboarding se cierra y la persona queda activa: en el tablero de candidatos pasa de «Capacitación inicial» a «Laborando». Si quedan pendientes, sigue el onboarding normal.
+- La segunda evaluación es la de periodo de prueba, que se abre 15 días hábiles antes de que venza su contrato.
 
 #### Notificaciones
 
-- Al colaborador: evaluación disponible, aprobada, reforzamiento y reevaluación habilitada.
+- Al colaborador: «Contesta la evaluación de la Inducción Mr. Lana» (al Enviar evaluación), aprobada, reforzamiento y reevaluación habilitada.
 - A RH: evaluación por calificar y reforzamiento requerido.
 
 #### Qué queda registrado
 
-- Cada intento con su calificación, nivel y quién calificó; queda en el historial de la persona.
+- Cada sesión: quién presentó, cuándo y a quién, y qué pasó con cada asistente.
+- Cada intento con sus respuestas, calificación, nivel, comentario y quién calificó; queda en el historial de la persona.
 
 #### Errores comunes
 
-- **«No me aparece la evaluación.»** Primero hay que recorrer todas las páginas de la inducción desde Mis pendientes y pulsar «Terminé la inducción» (el modo presentación no cuenta).
+- **«No me aparece la evaluación.»** RH todavía no pulsa «Enviar evaluación» de la sesión donde te presentó la inducción, o aún no inicia tu proceso de ingreso. También puedes recorrer todas las páginas desde Mis pendientes y pulsar «Terminé la inducción».
+- **«No encuentro a la persona en el buscador.»** Solo aparecen colaboradores no dados de baja dentro de tu alcance.
 
 #### Relacionado con
 
@@ -2220,7 +2225,7 @@ Inicia el jefe directo de la persona (su cadena de mando real) o RH; nadie más 
 #### Pasos
 
 1. **«Iniciar baja»** _(Gerente)_ — Expedientes → la persona de tu equipo → Ciclo laboral → «Iniciar baja»: causa (renuncia, no renovación, bajo desempeño, baja inmediata…), motivo, fecha efectiva y evidencias (PDF o imagen). Pasa directo a RH.
-2. **«Autorizar baja»** _(RH)_ — RH autoriza, devuelve o rechaza. Al autorizar se preparan los documentos de la causa.
+2. **«Autorizar baja»** _(RH)_ — RH autoriza, devuelve o rechaza. Si la devuelve, regresa a quien la inició (jefe directo o RH), que la corrige y la reenvía con «Corregir y reenviar a RH»; no pasa por preautorización. Al autorizar se preparan los documentos de la causa.
 3. **«Registrar renuncia / aviso firmado»** _(RH)_ — Se sube la renuncia o el aviso firmado.
 4. **Finiquito** _(RH)_ — «Calcular finiquito» y «Autorizar finiquito» (ver el artículo de finiquito).
 5. **«Programar pago»** _(Regional)_ — Fecha, monto y método.

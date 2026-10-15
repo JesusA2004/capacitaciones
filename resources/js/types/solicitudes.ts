@@ -149,7 +149,13 @@ export type FiniquitoDesgloseItem = {
     dias?: number | null;
     valor_calculado?: number | null;
     ajustado?: boolean;
-    ajuste?: { motivo: string; usuario: string | null; fecha: string | null; valor_calculado: number; valor_final: number } | null;
+    ajuste?: {
+        motivo: string;
+        usuario: string | null;
+        fecha: string | null;
+        valor_calculado: number;
+        valor_final: number;
+    } | null;
     editable?: boolean;
     concepto: string;
     tipo: 'percepcion' | 'deduccion' | string;
@@ -239,6 +245,16 @@ export type SolicitudInternaItem = {
     official_format_generations?: OfficialFormatGenerationItem[];
     historial?: SolicitudInternaHistorialItem[];
     finiquito_calculo?: FiniquitoCalculoItem | null;
+    /** Tablero Kanban: qué puede hacer esta cuenta con la tarjeta (SolicitudesService::accionesBandeja). */
+    acciones?: AccionesBandejaSolicitud;
+};
+
+/** Acciones de revisión permitidas sobre una solicitud (misma policy que el backend). */
+export type AccionesBandejaSolicitud = {
+    revisar: boolean;
+    aprobar: boolean;
+    rechazar: boolean;
+    motivo_bloqueo: string | null;
 };
 
 /** Fila resumida para la tab "Solicitudes" del expediente (Rh\ExpedienteController). */

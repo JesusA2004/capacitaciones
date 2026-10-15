@@ -596,6 +596,7 @@ class CicloLaboralDemoSeeder extends Seeder
         try {
             $paso();
         } catch (Throwable $e) {
+            fwrite(STDERR, 'DBG '.$nombre.': '.$e->getMessage().' @ '.$e->getFile().':'.$e->getLine().PHP_EOL);
             $this->aviso(sprintf('CicloLaboralDemoSeeder: no se pudo preparar «%s»: %s', $nombre, $e->getMessage()));
         }
     }

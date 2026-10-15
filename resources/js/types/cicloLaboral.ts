@@ -89,7 +89,12 @@ export type EvaluacionPeriodoPruebaResumen = {
     version: number | null;
     es_oficial: boolean;
     criterios:
-        | { criterio: string; calificacion: number; comentario?: string | null; acredita?: boolean }[]
+        | {
+              criterio: string;
+              calificacion: number;
+              comentario?: string | null;
+              acredita?: boolean;
+          }[]
         | { clave: string; etiqueta: string; calificacion: number }[];
     filtros: { clave: string; etiqueta: string; respuesta: boolean }[];
     criterios_oficiales: { clave: string; etiqueta: string }[];
@@ -160,7 +165,11 @@ export type EvidenciaCandidato = {
 
 /** Mini expediente previo a la contratación, agrupado como en el NAS. */
 export type ExpedienteCandidato = {
-    cv: { nombre: string; tamano: number | null; subido_en: string | null } | null;
+    cv: {
+        nombre: string;
+        tamano: number | null;
+        subido_en: string | null;
+    } | null;
     grupos: {
         clave: string;
         titulo: string;
@@ -213,7 +222,11 @@ export type CandidatoFicha = {
     motivo_rechazo: string | null;
     salida_en: string | null;
     /** Requisitos indispensables preguntados al registrarlo. */
-    respuestas_filtro: { pregunta: string; respuesta: boolean; cumple: boolean }[];
+    respuestas_filtro: {
+        pregunta: string;
+        respuesta: boolean;
+        cumple: boolean;
+    }[];
     tiene_cv: boolean;
     expediente: ExpedienteCandidato;
     colaborador_id: number | null;
@@ -571,6 +584,129 @@ export type InduccionContenidoResumen = {
     porcentaje: number;
     ultima_capitulo: string | null;
     completado: boolean;
+    /** Fecha ISO en que RH se la presentó en una sesión (o null). */
+    presentada_por_rh_en?: string | null;
+};
+
+/** Asistente de una sesión de presentación de inducción. */
+export type AsistenteSesionInduccion = {
+    id: number;
+    nombre: string;
+    numero_empleado: string | null;
+    puesto: string | null;
+    sucursal: string | null;
+    resultado: string | null;
+    resultado_etiqueta: string | null;
+    evaluacion_induccion_id: number | null;
+};
+
+/** SesionInduccionService::aArray(). */
+export type SesionInduccion = {
+    id: number;
+    estado: 'en_curso' | 'presentada' | 'cancelada';
+    estado_etiqueta: string;
+    presentada_por: string;
+    notas: string | null;
+    iniciada_en: string;
+    presentada_en: string | null;
+    asistentes: AsistenteSesionInduccion[];
+};
+
+export type EtapaSeguimientoInduccion =
+    | 'pendiente_presentar'
+    | 'por_contestar'
+    | 'por_calificar'
+    | 'reforzamiento'
+    | 'reevaluacion_por_contestar'
+    | 'aprobada';
+
+/** SesionInduccionService::seguimiento(): una fila por persona en ingreso. */
+export type SeguimientoInduccion = {
+    colaborador: {
+        id: number;
+        nombre: string;
+        numero_empleado: string | null;
+        puesto: string | null;
+        sucursal: string | null;
+    };
+    etapa: EtapaSeguimientoInduccion;
+    etapa_etiqueta: string;
+    presentada_por_rh_en: string | null;
+    evaluacion_id: number | null;
+    intento_por_calificar_id: number | null;
+    ultimo_intento_id: number | null;
+    calificacion: number | null;
+    fecha_limite_reevaluacion: string | null;
+    onboarding_estado: string;
+    laborando: boolean;
+};
+
+/** Lado de RH de «Presentar inducción» (SesionInduccionService::datosPantalla()). */
+export type SesionInduccionPantalla = {
+    sesion_en_curso: SesionInduccion | null;
+    recientes: SesionInduccion[];
+    seguimiento: SeguimientoInduccion[];
+};
+
+/** EvaluacionInduccionService::detalleRevision() — solo RH. */
+export type RevisionInduccion = {
+    seccion_a: {
+        numero: number;
+        pregunta: string;
+        opciones: string[];
+        elegida: number | null;
+        correcta: number;
+        acierto: boolean;
+    }[];
+    seccion_b: {
+        numero: number;
+        afirmacion: string;
+        elegida: boolean | null;
+        correcto: boolean;
+        acierto: boolean;
+    }[];
+    seccion_c: {
+        descripciones: Record<string, string>;
+        conceptos: {
+            numero: number;
+            concepto: string;
+            elegida: string | null;
+            correcta: string;
+            acierto: boolean;
+        }[];
+    };
+    seccion_d: {
+        numero: number;
+        clave: string;
+        enunciado: string;
+        puntos_max: number;
+        respuesta: string;
+        rubrica: {
+            clave: string;
+            puntos: number;
+            criterio: string;
+            otorgado: boolean | null;
+        }[];
+        puntos_obtenidos: number | null;
+    }[];
+    opinion: {
+        claridad?: number | null;
+        conocimiento_puesto?: number | null;
+        bienvenida?: number | null;
+        tema_reforzar?: string | null;
+    } | null;
+    comentario_rh: string | null;
+    puntos: {
+        a: number;
+        b: number;
+        c: number;
+        d: number | null;
+        total: number | null;
+    };
+    nivel: string | null;
+    nivel_etiqueta: string | null;
+    aprobado: boolean | null;
+    calificado: boolean;
 };
 
 export type MisPendientes = {

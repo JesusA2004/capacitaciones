@@ -93,6 +93,13 @@ class CierreLaboralController extends Controller
         return $this->respuesta($request, $this->cierres->devolver($cierre, $request->user(), $request->motivo()));
     }
 
+    public function reenviar(DecisionAprobacionRequest $request, CierreLaboral $cierre): JsonResponse
+    {
+        $this->authorize('ver', $cierre);
+
+        return $this->respuesta($request, $this->cierres->reenviar($cierre, $request->user(), $request->comentario()));
+    }
+
     public function aviso(ArchivoLaboralRequest $request, CierreLaboral $cierre): JsonResponse
     {
         $this->authorize('operar', $cierre);

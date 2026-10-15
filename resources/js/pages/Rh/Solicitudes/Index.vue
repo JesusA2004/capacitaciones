@@ -19,6 +19,7 @@ import {
     HeartPulse,
     Inbox,
     Landmark,
+    Lock,
     LogOut,
     MapPin,
     Palmtree,
@@ -281,9 +282,8 @@ function faltaFirma(solicitud: SolicitudInternaItem): boolean {
     );
 }
 
-// Una baja de colaborador no puede aprobarse sin evidencia adjunta ni
-// finiquito revisado (docs/SOLICITUDES_UNIFICADAS.md): el tablero lo marca
-// desde antes de intentar mover la tarjeta a "Aprobadas".
+// Bajas históricas (solo consulta: se gestionan en el Cierre laboral): el
+// tablero sigue marcando si tenían evidencia y finiquito revisado.
 function sinEvidencia(solicitud: SolicitudInternaItem): boolean {
     return (
         solicitud.tipo === 'baja_colaborador' &&
@@ -355,6 +355,46 @@ const requiereComentarioObligatorio = computed(
         movimientoPendiente.value?.estadoDestino === 'requiere_correccion',
 );
 
+// Banderas por tarjeta que manda el backend (misma policy que valida el
+// PATCH): sin permiso no se ofrece el arrastre ni el destino.
+function puedeArrastrar(solicitud: SolicitudInternaItem): boolean {
+    const acciones = solicitud.acciones;
+
+    return Boolean(
+        acciones && (acciones.revisar || acciones.aprobar || acciones.rechazar),
+    );
+}
+
+function puedeMoverA(
+    solicitud: SolicitudInternaItem,
+    estadoDestino: string,
+): boolean {
+    const acciones = solicitud.acciones;
+
+    if (!acciones) {
+        return false;
+    }
+
+    switch (estadoDestino) {
+        case 'en_revision':
+        case 'requiere_correccion':
+            return acciones.revisar;
+        case 'aprobada':
+            return acciones.aprobar;
+        case 'rechazada':
+            return acciones.rechazar;
+        default:
+            return false;
+    }
+}
+
+function motivoSinPermiso(solicitud: SolicitudInternaItem): string {
+    return (
+        solicitud.acciones?.motivo_bloqueo ??
+        'No tienes permiso para mover esta solicitud a esa columna.'
+    );
+}
+
 function onStartDrag(evento: DraggableEvent<SolicitudInternaItem>) {
     onStartDragBase();
 
@@ -381,6 +421,15 @@ function onEndDrag(evento: DraggableEvent<SolicitudInternaItem>) {
         !estadoDestino ||
         estadoOrigen === estadoDestino
     ) {
+        return;
+    }
+
+    if (!puedeMoverA(solicitud, estadoDestino)) {
+        mostrarError(motivoSinPermiso(solicitud));
+        alSiguienteFrameLibre(() =>
+            restaurarCanonico(() => construirColumnas(props.solicitudes)),
+        );
+
         return;
     }
 
@@ -427,30 +476,6 @@ function confirmarMovimiento() {
         );
 
         return;
-    }
-
-    if (
-        mov.estadoDestino === 'aprobada' &&
-        mov.solicitud.tipo === 'baja_colaborador'
-    ) {
-        if (sinEvidencia(mov.solicitud)) {
-            mostrarError(
-                'Falta evidencia de baja: adjúntala desde el detalle antes de aprobar.',
-            );
-
-            return;
-        }
-
-        if (
-            mov.solicitud.finiquito_calculo &&
-            !finiquitoRevisado(mov.solicitud)
-        ) {
-            mostrarError(
-                'Falta revisar el finiquito antes de aprobar esta baja.',
-            );
-
-            return;
-        }
     }
 
     enviandoMovimiento.value = true;
@@ -841,10 +866,21 @@ function confirmarMovimiento() {
                                     <ArrowUpRight class="size-4" />
                                 </Link>
                                 <span
+                                    v-if="puedeArrastrar(solicitud)"
                                     class="kanban-drag-handle flex size-7 cursor-grab items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground active:cursor-grabbing"
                                     title="Arrastrar para mover"
                                 >
                                     <GripVertical class="size-4" />
+                                </span>
+                                <span
+                                    v-else
+                                    class="flex size-7 items-center justify-center rounded-lg text-muted-foreground/60"
+                                    :title="
+                                        solicitud.acciones?.motivo_bloqueo ??
+                                        'Solo consulta: sin permiso para moverla.'
+                                    "
+                                >
+                                    <Lock class="size-4" />
                                 </span>
                             </div>
                         </div>

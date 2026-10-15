@@ -4,6 +4,7 @@ use App\Enums\EstadoUsuario;
 use App\Models\Colaborador;
 use App\Models\SolicitudInterna;
 use App\Models\User;
+use App\Services\Solicitudes\SolicitudesService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -134,9 +135,15 @@ test('una solicitud de baja HISTÓRICA en revisión, al aprobarla, bloquea el ac
     $this->actingAs($rh)->post(route('rh.solicitudes.finiquito.calcular', $solicitud), ['sueldo_mensual' => 12000]);
     $this->actingAs($rh)->post(route('rh.solicitudes.finiquito.revisar', $solicitud));
 
+    // Desde la bandeja ya no: la baja se gestiona en el Cierre laboral.
     $this->actingAs($aprobador)
         ->post(route('rh.solicitudes.aprobar', $solicitud))
-        ->assertRedirect();
+        ->assertSessionHasErrors(['estado' => 'La baja se gestiona en el Cierre laboral del colaborador.']);
+
+    expect($persona->fresh()->estatus)->toBe(EstadoUsuario::Activo);
+
+    // La aprobación que hace el Cierre laboral sí ejecuta el bloqueo.
+    app(SolicitudesService::class)->aprobar($solicitud->fresh(), $aprobador, null, [], desdeCierreLaboral: true);
 
     expect($persona->fresh()->estatus)->toBe(EstadoUsuario::Inactivo)
         ->and($colaborador->fresh()->tokens()->count())->toBe(0);

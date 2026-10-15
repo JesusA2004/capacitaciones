@@ -36,9 +36,8 @@ use App\Http\Controllers\Api\V1\Rh\DocumentoController as RhDocumentoController;
 use App\Http\Controllers\Api\V1\Rh\DocumentoLaboralController;
 use App\Http\Controllers\Api\V1\Rh\DocumentoProcesoController;
 use App\Http\Controllers\Api\V1\Rh\EstructuraController;
+use App\Http\Controllers\Api\V1\Rh\EvaluacionInduccionPdfController as RhEvaluacionInduccionPdfController;
 use App\Http\Controllers\Api\V1\Rh\ExpedienteController as RhExpedienteController;
-use App\Http\Controllers\Api\V1\Rh\FormatoController as RhFormatoController;
-use App\Http\Controllers\Api\V1\Rh\FormatoOficialController as RhFormatoOficialController;
 use App\Http\Controllers\Api\V1\Rh\IncorporacionController as RhIncorporacionController;
 use App\Http\Controllers\Api\V1\Rh\JerarquiaPuestoController as RhJerarquiaPuestoController;
 use App\Http\Controllers\Api\V1\Rh\LoteNominaController as RhLoteNominaController;
@@ -47,6 +46,7 @@ use App\Http\Controllers\Api\V1\Rh\PlantillaDocumentalController;
 use App\Http\Controllers\Api\V1\Rh\PrestamoController as RhPrestamoController;
 use App\Http\Controllers\Api\V1\Rh\ReciboNominaController as RhReciboNominaController;
 use App\Http\Controllers\Api\V1\Rh\ReingresoController as RhReingresoController;
+use App\Http\Controllers\Api\V1\Rh\SesionInduccionController as RhSesionInduccionController;
 use App\Http\Controllers\Api\V1\Rh\SolicitudController as RhSolicitudController;
 use App\Http\Controllers\Api\V1\Rh\VacacionController as RhVacacionController;
 use App\Http\Controllers\Api\V1\Rh\VacanteController as RhVacanteController;
@@ -329,7 +329,19 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('onboarding/avances/{avance}/retroalimentacion', [CicloLaboralRhController::class, 'retroalimentar'])->name('onboarding.retroalimentar');
             Route::get('induccion/intentos/{intento}', [CicloLaboralRhController::class, 'mostrarInduccion'])->name('induccion.mostrar');
             Route::post('induccion/intentos/{intento}/calificar', [CicloLaboralRhController::class, 'calificarInduccion'])->name('induccion.calificar');
+            Route::get('induccion/intentos/{intento}/pdf', [RhEvaluacionInduccionPdfController::class, 'vistaPrevia'])->name('induccion.pdf.vista');
+            Route::get('induccion/intentos/{intento}/pdf/descargar', [RhEvaluacionInduccionPdfController::class, 'descargar'])->name('induccion.pdf.descargar');
+            Route::post('induccion/intentos/{intento}/pdf/expediente', [RhEvaluacionInduccionPdfController::class, 'guardarEnExpediente'])->name('induccion.pdf.expediente');
             Route::post('induccion/{evaluacion}/retroalimentacion', [CicloLaboralRhController::class, 'retroalimentarInduccion'])->name('induccion.retroalimentar');
+            // Sesiones de presentación de la inducción (mismo
+            // SesionInduccionService que la web).
+            Route::prefix('induccion/sesiones')->name('induccion.sesiones.')->group(function () {
+                Route::get('/', [RhSesionInduccionController::class, 'index'])->name('index');
+                Route::get('colaboradores', [RhSesionInduccionController::class, 'colaboradores'])->name('colaboradores');
+                Route::post('/', [RhSesionInduccionController::class, 'store'])->name('store');
+                Route::post('{sesion}/enviar', [RhSesionInduccionController::class, 'enviar'])->name('enviar');
+                Route::post('{sesion}/cancelar', [RhSesionInduccionController::class, 'cancelar'])->name('cancelar');
+            });
 
             Route::prefix('candidatos')->name('candidatos.')->group(function () {
                 Route::get('/', [RhCandidatoController::class, 'index'])->name('index');
@@ -518,6 +530,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('{cierre}/autorizar', [CierreLaboralController::class, 'autorizar'])->name('autorizar');
                 Route::post('{cierre}/rechazar', [CierreLaboralController::class, 'rechazar'])->name('rechazar');
                 Route::post('{cierre}/devolver', [CierreLaboralController::class, 'devolver'])->name('devolver');
+                Route::post('{cierre}/reenviar', [CierreLaboralController::class, 'reenviar'])->name('reenviar');
                 Route::post('{cierre}/finiquito/autorizar', [CierreLaboralController::class, 'autorizarFiniquito'])->name('finiquito.autorizar');
                 Route::post('{cierre}/pago/programar', [CierreLaboralController::class, 'programarPago'])->name('pago.programar');
                 Route::post('{cierre}/cita', [CierreLaboralController::class, 'cita'])->name('cita');
@@ -592,40 +605,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::get('organigrama', [EstructuraController::class, 'organigrama'])->name('organigrama');
             Route::get('vacantes/{vacante}', [EstructuraController::class, 'vacante'])->name('vacantes.show');
 
-            // Plantillas oficiales versionadas (docs/FORMATOS_OFICIALES.md):
-            // mismo motor que el panel web — catálogo, variables, generar y
-            // administración de versiones.
-            Route::prefix('formatos-oficiales')->name('formatos-oficiales.')->group(function () {
-                Route::get('/', [RhFormatoOficialController::class, 'index'])->name('index');
-                Route::post('/', [RhFormatoOficialController::class, 'store'])->name('store');
-                Route::get('variables', [RhFormatoOficialController::class, 'variables'])->name('variables');
-                Route::get('generados', [RhFormatoOficialController::class, 'generados'])->name('generados');
-                Route::get('generados/{generacion}/descargar', [RhFormatoOficialController::class, 'descargar'])->name('generaciones.descargar');
-                Route::get('generados/{generacion}/ver', [RhFormatoOficialController::class, 'ver'])->name('generaciones.ver');
-                Route::get('versiones/{version}/base', [RhFormatoOficialController::class, 'base'])->name('versiones.base');
-                Route::put('versiones/{version}/campos', [RhFormatoOficialController::class, 'guardarCampos'])->name('versiones.campos');
-                Route::post('versiones/{version}/analisis', [RhFormatoOficialController::class, 'refinarAnalisis'])->name('versiones.analisis');
-                Route::post('versiones/{version}/publicar', [RhFormatoOficialController::class, 'publicar'])->name('versiones.publicar');
-                Route::delete('versiones/{version}', [RhFormatoOficialController::class, 'descartar'])->name('versiones.descartar');
-                Route::get('{formato}', [RhFormatoOficialController::class, 'show'])->name('show');
-                Route::post('{formato}/versiones', [RhFormatoOficialController::class, 'nuevaVersion'])->name('versiones.store');
-                Route::post('{formato}/archivar', [RhFormatoOficialController::class, 'archivar'])->name('archivar');
-                Route::post('{formato}/reactivar', [RhFormatoOficialController::class, 'reactivar'])->name('reactivar');
-                Route::post('{formato}/preparar', [RhFormatoOficialController::class, 'preparar'])->name('preparar');
-                Route::post('{formato}/vista-previa', [RhFormatoOficialController::class, 'vistaPrevia'])->name('vista-previa');
-                Route::post('{formato}/generar', [RhFormatoOficialController::class, 'generar'])->name('generar');
-            });
-
-            // Catalogo de formatos y descarga de documentos ya generados
-            // (generar/vista previa se quedan en el panel web por ahora,
-            // ver docs/FORMATOS.md).
-            Route::prefix('formatos')->name('formatos.')->group(function () {
-                Route::get('/', [RhFormatoController::class, 'index'])->name('index');
-                Route::post('{plantilla}/preparar', [RhFormatoController::class, 'preparar'])->name('preparar');
-                Route::post('{plantilla}/generar', [RhFormatoController::class, 'generar'])->name('generar')->middleware('throttle:api-cargas');
-                Route::get('{documento}/descargar', [RhFormatoController::class, 'descargar'])->name('descargar');
-                Route::get('{documento}/descargar-pdf', [RhFormatoController::class, 'descargarPdf'])->name('descargar-pdf');
-            });
+            // Motor anterior de formatos (formatos oficiales versionados y
+            // plantillas DOCX editables) — RETIRADO: la app no lo usa y ya no
+            // crea, publica ni genera nada. Los formatos viven en Documentos
+            // maestros y se generan en Documentos del proceso. Responde 410.
+            Route::any('formatos-oficiales/{retirado?}', fn () => abort(410, 'Este formato se retiró; usa Documentos del proceso.'))->where('retirado', '.*')->name('formatos-oficiales.retirado');
+            Route::any('formatos/{retirado?}', fn () => abort(410, 'Este formato se retiró; usa Documentos del proceso.'))->where('retirado', '.*')->name('formatos.retirado');
         });
     });
 });

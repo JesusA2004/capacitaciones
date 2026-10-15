@@ -25,6 +25,7 @@ use Illuminate\Support\Carbon;
  * @property string $calificacion_c
  * @property string|null $calificacion_d
  * @property array<int, array{clave: string, puntos: int}>|null $desglose_d
+ * @property string|null $comentario_rh
  * @property string|null $calificacion_total
  * @property NivelEvaluacionInduccion|null $nivel
  * @property bool|null $aprobado
@@ -41,7 +42,7 @@ class EvaluacionInduccionIntento extends Model
 
     protected $fillable = [
         'evaluacion_induccion_id', 'numero', 'respuestas', 'opinion',
-        'calificacion_a', 'calificacion_b', 'calificacion_c', 'calificacion_d', 'desglose_d',
+        'calificacion_a', 'calificacion_b', 'calificacion_c', 'calificacion_d', 'desglose_d', 'comentario_rh',
         'calificacion_total', 'nivel', 'aprobado', 'retroalimentacion_previa',
         'presentado_por', 'presentado_en', 'calificado_por', 'calificado_en',
     ];

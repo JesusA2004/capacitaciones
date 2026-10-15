@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\CicloLaboral;
 
+use App\Services\Contratos\VencimientoContratosService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -36,7 +37,8 @@ class CapturarEvaluacionRequest extends FormRequest
             'filtros.*.clave' => ['required', 'string', Rule::in($clavesFiltros)],
             'filtros.*.respuesta' => ['required', 'boolean'],
             'observaciones' => ['nullable', 'string', 'max:2000'],
-            'fecha_evaluacion' => ['nullable', 'date', 'before_or_equal:today'],
+            // "Hoy" en México, no en UTC (zona de la app).
+            'fecha_evaluacion' => ['nullable', 'date', 'before_or_equal:'.now(VencimientoContratosService::ZONA)->toDateString()],
         ];
     }
 }

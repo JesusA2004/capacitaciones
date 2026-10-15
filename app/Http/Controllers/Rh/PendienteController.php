@@ -20,6 +20,25 @@ use Inertia\Response;
  */
 class PendienteController extends Controller
 {
+    /**
+     * Quién entra a «Mis pendientes» (web): exactamente los permisos con los
+     * que el sidebar muestra el acceso (resources/js/composables/useMainNavItems.ts,
+     * grupo Inicio). La API móvil usa su propio permiso `rh.pendientes.ver`.
+     */
+    public const PERMISOS_ACCESO = [
+        'ciclo.preautorizar',
+        'ciclo.autorizar_rh',
+        'evaluaciones.capturar',
+        'evaluaciones.autorizar',
+        'onboarding.entregar_activos',
+        'cierres.solicitar',
+        'cierres.gestionar',
+        'expedientes.revisar',
+        'solicitudes.revisar',
+        'solicitudes.aprobar',
+        'nomina.recibos.crear',
+    ];
+
     public function __construct(
         private readonly TareaService $tareas,
         private readonly AlcanceOrganizacionalService $alcance,
@@ -28,6 +47,8 @@ class PendienteController extends Controller
     public function index(Request $request, ResumenPendientesService $resumen): Response
     {
         $usuario = $request->user();
+        abort_unless($usuario->canAny(self::PERMISOS_ACCESO), 403);
+
         $filtros = [
             ...$request->only(['etapa', 'sucursal_id', 'urgencia', 'tipo']),
             'solo_ciclo' => true,

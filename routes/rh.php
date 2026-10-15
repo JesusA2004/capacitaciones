@@ -13,7 +13,6 @@ use App\Http\Controllers\Rh\DocumentExtraccionController;
 use App\Http\Controllers\Rh\EmployeeDocumentController;
 use App\Http\Controllers\Rh\ExpedienteController;
 use App\Http\Controllers\Rh\FiniquitoController;
-use App\Http\Controllers\Rh\FormatoController;
 use App\Http\Controllers\Rh\FormatoOficialController;
 use App\Http\Controllers\Rh\ImportacionTrabajadoresController;
 use App\Http\Controllers\Rh\IncorporacionInvitacionController;
@@ -22,8 +21,6 @@ use App\Http\Controllers\Rh\LoteNominaController;
 use App\Http\Controllers\Rh\MigracionExpedientesController;
 use App\Http\Controllers\Rh\NominaController;
 use App\Http\Controllers\Rh\PerfilPuestoController;
-use App\Http\Controllers\Rh\PlantillaController;
-use App\Http\Controllers\Rh\PlantillaOficialController;
 use App\Http\Controllers\Rh\ReporteRhController;
 use App\Http\Controllers\Rh\SolicitudController;
 use App\Http\Controllers\Rh\VacanteController;
@@ -261,7 +258,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             // §10-11): el gerente solicita, Regional o Dirección Comercial
             // decide — nunca otra fase del kanban.
             Route::post('{candidato}/intervencion', [IntervencionCandidatoController::class, 'solicitar'])->name('intervencion.solicitar');
-            Route::delete('{candidato}', [CandidatoController::class, 'destroy'])->name('destroy');
+            // Sin ruta para eliminar candidatos: borraba el CV del NAS (evidencia
+            // del proceso). Un candidato que no sigue se cierra con «descartar».
         });
 
         Route::prefix('intervenciones')->name('intervenciones.')->group(function () {
@@ -296,72 +294,39 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('{alta}/cancelar', [AltaDigitalController::class, 'cancelar'])->name('cancelar');
         });
 
+        // MOTOR ANTERIOR DE FORMATOS (plantillas DOCX editables y formatos
+        // oficiales versionados) — RETIRADO. Ya no crea, edita, publica ni
+        // genera nada: la única fuente de formatos es Documentos maestros y
+        // la generación vive en Documentos del proceso. Solo se conservan:
+        //  - las pantallas viejas como redirección (marcadores/enlaces guardados);
+        //  - descargar/previsualizar los formatos oficiales YA generados (los
+        //    enlaza el expediente: ExpedienteController::documentosOficiales) y
+        //    subir su firmado (evidencia de lo que generó la aprobación de una
+        //    solicitud, SolicitudFormatoOficialService).
+        // Cualquier otra ruta de estos prefijos responde 410 (Gone).
         Route::prefix('plantillas')->name('plantillas.')->group(function () {
             Route::get('/', fn () => redirect()->route('rh.documentos-maestros.index'))->name('index');
-            Route::get('exportar-excel', [PlantillaController::class, 'exportarExcel'])->name('exportarExcel');
-            Route::get('exportar-pdf', [PlantillaController::class, 'exportarPdf'])->name('exportarPdf');
-            Route::post('/', [PlantillaController::class, 'store'])->name('store');
-            Route::post('{plantilla}', [PlantillaController::class, 'update'])->name('update');
-            Route::get('{plantilla}/variables', [PlantillaController::class, 'variables'])->name('variables');
-            Route::put('{plantilla}/variables', [PlantillaController::class, 'actualizarVariables'])->name('variables.update');
-            Route::delete('{plantilla}', [PlantillaController::class, 'destroy'])->name('destroy');
+            Route::any('{retirado?}', fn () => abort(410, 'Este formato se retiró; usa Documentos del proceso.'))->where('retirado', '.*')->name('retirado');
         });
 
-        // MÓDULO ANTERIOR retirado de la interfaz: sus pantallas redirigen a
-        // Documentos maestros (único lugar de formatos oficiales). Se conservan
-        // las descargas/subidas de documentos ya emitidos con él (historial) y
-        // la API móvil. Antes: "Formatos" era la experiencia principal de RH operativo: formatos
-        // oficiales fijos de MR. LANA, solo generar/descargar (docs/FORMATOS_OFICIALES.md).
-        // El motor de plantillas DOCX editables (Rh\FormatoController) se
-        // conserva intacto para uso avanzado (Solicitudes → "Generar
-        // formato" via GenerarFormatoDialog.vue, y el catálogo bajo
-        // "catalogo/*" para super_admin/rh_admin) — no se muestra como
-        // catálogo principal a RH normal (ver docs/PLANTILLAS_FORMATOS.md).
         Route::prefix('formatos')->name('formatos.')->group(function () {
             Route::get('/', fn () => redirect()->route('rh.documentos-maestros.index'))->name('index');
-            Route::prefix('catalogo')->name('catalogo.')->group(function () {
-                Route::get('/', fn () => redirect()->route('rh.documentos-maestros.index'))->name('index');
-                Route::get('exportar-excel', [FormatoController::class, 'exportarExcel'])->name('exportarExcel');
-                Route::get('exportar-pdf', [FormatoController::class, 'exportarPdf'])->name('exportarPdf');
-            });
-            Route::post('preview', [FormatoController::class, 'preview'])->name('preview');
-            Route::get('resolver-plantilla', [FormatoController::class, 'resolverPlantilla'])->name('resolver-plantilla');
-            Route::post('/', [FormatoController::class, 'store'])->name('store');
-            Route::get('{documento}/descargar', [FormatoController::class, 'descargar'])->name('descargar');
-            Route::get('{documento}/descargar-pdf', [FormatoController::class, 'descargarPdf'])->name('descargar-pdf');
-            Route::post('{documento}/subir-firmado', [FormatoController::class, 'subirFirmado'])->name('subir-firmado');
-            Route::delete('{documento}', [FormatoController::class, 'destroy'])->name('destroy');
+            Route::get('catalogo', fn () => redirect()->route('rh.documentos-maestros.index'))->name('catalogo.index');
+            Route::any('{retirado?}', fn () => abort(410, 'Este formato se retiró; usa Documentos del proceso.'))->where('retirado', '.*')->name('retirado');
         });
 
-        // Plantillas oficiales versionadas (docs/FORMATOS_OFICIALES.md):
-        // catálogo, generación, documentos generados, variables y la
-        // administración de plantillas (subir, editor visual, versiones).
         Route::prefix('formatos-oficiales')->name('formatos-oficiales.')->group(function () {
             Route::get('/', fn () => redirect()->route('rh.documentos-maestros.index'))->name('index');
             Route::get('generados', fn () => redirect()->route('rh.documentos-maestros.index'))->name('generados');
             Route::get('variables', fn () => redirect()->route('rh.documentos-maestros.index'))->name('variables');
             Route::get('nuevo', fn () => redirect()->route('rh.documentos-maestros.index'))->name('create');
-            Route::post('/', [PlantillaOficialController::class, 'store'])->name('store');
-
-            Route::get('versiones/{version}/base', [PlantillaOficialController::class, 'base'])->name('versiones.base');
-            Route::put('versiones/{version}/campos', [PlantillaOficialController::class, 'guardarCampos'])->name('versiones.campos');
-            Route::post('versiones/{version}/analisis', [PlantillaOficialController::class, 'refinarAnalisis'])->name('versiones.analisis');
-            Route::post('versiones/{version}/vista-previa', [PlantillaOficialController::class, 'vistaPrevia'])->name('versiones.vista-previa');
-            Route::post('versiones/{version}/publicar', [PlantillaOficialController::class, 'publicar'])->name('versiones.publicar');
-            Route::delete('versiones/{version}', [PlantillaOficialController::class, 'descartar'])->name('versiones.descartar');
 
             Route::get('generaciones/{generacion}/descargar', [FormatoOficialController::class, 'descargar'])->name('descargar');
             Route::get('generaciones/{generacion}/previsualizar', [FormatoOficialController::class, 'previsualizar'])->name('previsualizar');
             Route::post('generaciones/{generacion}/subir-firmado', [FormatoOficialController::class, 'subirFirmado'])->name('subir-firmado');
 
-            Route::get('{formato}', fn () => redirect()->route('rh.documentos-maestros.index'))->name('show');
-            Route::get('{formato}/original', [PlantillaOficialController::class, 'original'])->name('original');
-            Route::post('{formato}/versiones', [PlantillaOficialController::class, 'nuevaVersion'])->name('versiones.store');
-            Route::post('{formato}/archivar', [PlantillaOficialController::class, 'archivar'])->name('archivar');
-            Route::post('{formato}/reactivar', [PlantillaOficialController::class, 'reactivar'])->name('reactivar');
-            Route::post('{formato}/preparar', [FormatoOficialController::class, 'preparar'])->name('preparar');
-            Route::post('{formato}/vista-previa', [FormatoOficialController::class, 'previsualizarGeneracion'])->name('vista-previa');
-            Route::post('{formato}/generar', [FormatoOficialController::class, 'generar'])->name('generar');
+            Route::get('{formato}', fn () => redirect()->route('rh.documentos-maestros.index'))->whereNumber('formato')->name('show');
+            Route::any('{retirado?}', fn () => abort(410, 'Este formato se retiró; usa Documentos del proceso.'))->where('retirado', '.*')->name('retirado');
         });
 
         // La revisión de vacaciones vive en la bandeja unificada de abajo

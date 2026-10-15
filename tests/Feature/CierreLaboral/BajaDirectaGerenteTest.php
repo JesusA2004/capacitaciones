@@ -2,13 +2,21 @@
 
 use App\Enums\EstadoCierreLaboral;
 use App\Enums\EstadoUsuario;
+use App\Enums\ProcesoAprobacion;
+use App\Enums\TipoTarea;
 use App\Models\CierreLaboral;
 use App\Models\Colaborador;
+use App\Models\TareaRh;
 use App\Models\User;
+use App\Services\CicloLaboral\AprobacionService;
+use App\Services\CierreLaboral\CierreLaboralService;
+use App\Services\CierreLaboral\ProcedimientoBajaService;
 use App\Services\Solicitudes\SolicitudesService;
 use Database\Seeders\RolesYPermisosSeeder;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
+use Spatie\Permission\Models\Role;
 
 /*
 | La baja NO es una solicitud: el jefe directo (o RH) la inicia desde el
@@ -87,4 +95,48 @@ test('la baja ya no aparece en el catálogo de «Nueva solicitud»', function ()
     $claves = collect(app(SolicitudesService::class)->tiposConFormulario())->pluck('clave');
 
     expect($claves)->not->toContain('baja_colaborador');
+});
+
+test('RH devuelve la baja: regresa a quien la inició, sin preautorización, y al reenviarla vuelve directo a RH', function () {
+    $rh = clUsuario('rh_admin');
+    $this->actingAs($this->gerente)->post(route('rh.colaboradores.cierres.store', $this->persona), bajaDirectaDatos());
+    $cierre = CierreLaboral::query()->firstOrFail();
+
+    $this->actingAs($rh)
+        ->post(route('rh.cierres.devolver', $cierre), ['motivo' => 'Falta la fecha correcta.'])
+        ->assertSessionHasNoErrors();
+
+    $cierre->refresh();
+    $servicio = app(CierreLaboralService::class);
+
+    // Regresa a «Solicitado» SIN ninguna preautorización pendiente.
+    expect($cierre->estado)->toBe(EstadoCierreLaboral::Solicitado)
+        ->and(app(AprobacionService::class)->pendiente($cierre, ProcesoAprobacion::CierreLaboral))->toBeNull()
+        ->and(collect($servicio->accionesPermitidas($cierre, $this->gerente))->pluck('clave')->all())->toContain('reenviar')->not->toContain('preautorizar')
+        ->and(collect($servicio->accionesPermitidas($cierre, $this->otroGerente))->pluck('clave')->all())->not->toContain('reenviar')
+        ->and(TareaRh::query()->where('tipo', TipoTarea::CierrePreautorizacion->value)->whereNull('resuelta_en')->value('asignado_user_id'))->toBe($this->gerente->id);
+
+    // Fuera de la cadena de mando no se reenvía.
+    $this->actingAs($this->otroGerente)->post(route('rh.cierres.reenviar', $cierre))->assertForbidden();
+
+    $this->actingAs($this->gerente)
+        ->post(route('rh.cierres.reenviar', $cierre), ['comentario' => 'Fecha corregida.'])
+        ->assertSessionHasNoErrors();
+
+    expect($cierre->refresh()->estado)->toBe(EstadoCierreLaboral::PendienteRh);
+});
+
+test('el procedimiento de baja exige alcance de RH sobre la persona del cierre', function () {
+    Role::query()->create(['name' => 'rh_sin_alcance_prueba', 'guard_name' => 'web'])->givePermissionTo(['cierres.gestionar']);
+    $fuera = clUsuario('rh_sin_alcance_prueba');
+    $this->actingAs($this->gerente)->post(route('rh.colaboradores.cierres.store', $this->persona), bajaDirectaDatos());
+    $cierre = CierreLaboral::query()->firstOrFail();
+
+    expect(fn () => app(ProcedimientoBajaService::class)->registrarEtapa($cierre, 'baja_asistencia', $fuera))
+        ->toThrow(AuthorizationException::class, 'Esta baja es de un colaborador fuera de tu alcance.');
+
+    // RH con alcance sí la registra.
+    app(ProcedimientoBajaService::class)->registrarEtapa($cierre, 'baja_asistencia', clUsuario('rh_admin'));
+
+    expect($cierre->refresh()->baja_asistencia_en)->not->toBeNull();
 });

@@ -59,7 +59,15 @@ class CierreLaboralController extends Controller
         $this->authorize('ver', $cierre);
         $this->cierres->devolver($cierre, $request->user(), $request->motivo());
 
-        return $this->ok('Baja devuelta para corrección.');
+        return $this->ok('Baja devuelta a quien la inició para corregirla y reenviarla.');
+    }
+
+    public function reenviar(DecisionAprobacionRequest $request, CierreLaboral $cierre): RedirectResponse
+    {
+        $this->authorize('ver', $cierre);
+        $this->cierres->reenviar($cierre, $request->user(), $request->comentario());
+
+        return $this->ok('Baja reenviada: pendiente la autorización de RH.');
     }
 
     public function aviso(ArchivoLaboralRequest $request, CierreLaboral $cierre): RedirectResponse

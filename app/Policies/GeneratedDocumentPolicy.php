@@ -8,6 +8,7 @@ use App\Models\GeneratedDocument;
 use App\Models\User;
 use App\Policies\Concerns\ConSuperAdminOperativo;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Onboarding\EvaluacionInduccionPdfService;
 
 /**
  * Documentos laborales emitidos por el motor documental. El colaborador ve,
@@ -42,6 +43,12 @@ class GeneratedDocumentPolicy
      */
     private function esAutoservicioBloqueado(GeneratedDocument $documento): bool
     {
+        // Evaluación de inducción calificada: trae la clave de respuestas,
+        // es solo de RH (EvaluacionInduccionPdfService).
+        if ($documento->clave_plantilla === EvaluacionInduccionPdfService::CLAVE) {
+            return true;
+        }
+
         if ($documento->categoria === CategoriaDocumento::NominaInterna) {
             return ! config('features.recibos_colaborador');
         }

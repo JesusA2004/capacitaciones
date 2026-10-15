@@ -128,6 +128,7 @@ class CicloLaboralRhController extends Controller
         return response()->json(['data' => [
             'evaluacion' => $this->evaluacionInduccion->aArray($intento->evaluacion, $request->user()),
             'casos_practicos' => $this->evaluacionInduccion->detalleCasosPracticos($intento),
+            'revision' => $this->evaluacionInduccion->detalleRevision($intento),
             'intento_id' => $intento->id,
             'ya_calificado' => ! $intento->pendienteCalificacionRh(),
         ]]);
@@ -140,9 +141,10 @@ class CicloLaboralRhController extends Controller
             'puntos' => ['required', 'array'],
             'puntos.*' => ['required', 'array'],
             'puntos.*.*' => ['required', 'boolean'],
+            'comentario' => ['nullable', 'string', 'max:4000'],
         ]);
 
-        $intento = $this->evaluacionInduccion->calificarCasosPracticos($intento, $request->user(), $datos['puntos']);
+        $intento = $this->evaluacionInduccion->calificarCasosPracticos($intento, $request->user(), $datos['puntos'], $datos['comentario'] ?? null);
 
         return response()->json(['data' => $this->evaluacionInduccion->aArray($intento->evaluacion()->firstOrFail(), $request->user())]);
     }

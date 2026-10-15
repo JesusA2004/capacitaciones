@@ -11,8 +11,10 @@ use App\Models\User;
 use App\Models\Vacante;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
 use App\Services\Reclutamiento\ContratacionCandidatoService;
+use App\Services\Reclutamiento\CvStorageService;
 use Database\Seeders\MotivosRechazoCandidatoSeeder;
 use Database\Seeders\RolesYPermisosSeeder;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
 
 beforeEach(function () {
@@ -346,4 +348,18 @@ test('sin campaña no se acepta un canal de pauta: Meta, Indeed… solo existen 
     $this->actingAs($usuario)
         ->get(route('rh.candidatos.index'))
         ->assertInertia(fn ($page) => $page->where('opciones.fuentesSinCampana', fn ($fuentes) => collect($fuentes)->pluck('value')->sort()->values()->all() === ['facebook_grupos', 'organico', 'otro', 'referido', 'whatsapp']));
+});
+
+test('no existe ruta para eliminar un candidato: su CV (evidencia) se conserva en el NAS', function () {
+    $cvStorage = $this->spy(CvStorageService::class);
+    $candidato = Candidato::factory()->create(['cv_path' => 'candidatos/cv/prueba.pdf']);
+    $usuario = User::factory()->create();
+    $usuario->assignRole('super_admin');
+
+    expect(Route::has('rh.candidatos.destroy'))->toBeFalse();
+
+    $this->actingAs($usuario)->delete("/rh/candidatos/{$candidato->id}")->assertMethodNotAllowed();
+
+    expect(Candidato::query()->whereKey($candidato->id)->value('cv_path'))->toBe('candidatos/cv/prueba.pdf');
+    $cvStorage->shouldNotHaveReceived('eliminar');
 });

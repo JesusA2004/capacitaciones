@@ -108,7 +108,9 @@ enum TipoTarea: string
             self::EvaluacionPendiente => 'Evaluación de periodo de prueba pendiente',
             self::EvaluacionPorAutorizar => 'Periodo de prueba pendiente de autorización',
             self::ExcepcionPeriodoPruebaPendiente => 'Excepción de renovación por autorizar',
-            self::CierrePreautorizacion => 'Baja por preautorizar',
+            // Valor histórico: hoy es la baja devuelta por RH (corregir y
+            // reenviar); solo registros anteriores traen preautorización.
+            self::CierrePreautorizacion => 'Baja devuelta por corregir',
             self::CierreAutorizacionRh => 'Baja pendiente de autorización final',
             self::FiniquitoPendiente => 'Finiquito pendiente',
             self::FiniquitoPorAutorizar => 'Finiquito por autorizar',

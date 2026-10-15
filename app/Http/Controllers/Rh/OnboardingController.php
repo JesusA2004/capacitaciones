@@ -71,6 +71,7 @@ class OnboardingController extends Controller
         return Inertia::render('Rh/Onboarding/CalificarInduccion', [
             'evaluacion' => $this->evaluacionInduccion->aArray($intento->evaluacion, $request->user()),
             'casosPracticos' => $this->evaluacionInduccion->detalleCasosPracticos($intento),
+            'revision' => $this->evaluacionInduccion->detalleRevision($intento),
             'intentoId' => $intento->id,
             'yaCalificado' => ! $intento->pendienteCalificacionRh(),
         ]);
@@ -83,9 +84,10 @@ class OnboardingController extends Controller
             'puntos' => ['required', 'array'],
             'puntos.*' => ['required', 'array'],
             'puntos.*.*' => ['required', 'boolean'],
+            'comentario' => ['nullable', 'string', 'max:4000'],
         ]);
 
-        $intento = $this->evaluacionInduccion->calificarCasosPracticos($intento, $request->user(), $datos['puntos']);
+        $intento = $this->evaluacionInduccion->calificarCasosPracticos($intento, $request->user(), $datos['puntos'], $datos['comentario'] ?? null);
 
         return back()->with('toast', $intento->aprobado
             ? ['type' => 'success', 'message' => sprintf('Aprobada con %s/30.', number_format((float) $intento->calificacion_total, 1))]

@@ -759,7 +759,7 @@ Inicia el jefe directo de la persona (su cadena de mando real) o RH; nadie más 
 #### Pasos
 
 1. **«Iniciar baja»** _(Gerente)_ — Expedientes → la persona de tu equipo → Ciclo laboral → «Iniciar baja»: causa (renuncia, no renovación, bajo desempeño, baja inmediata…), motivo, fecha efectiva y evidencias (PDF o imagen). Pasa directo a RH.
-2. **«Autorizar baja»** _(RH)_ — RH autoriza, devuelve o rechaza. Al autorizar se preparan los documentos de la causa.
+2. **«Autorizar baja»** _(RH)_ — RH autoriza, devuelve o rechaza. Si la devuelve, regresa a quien la inició (jefe directo o RH), que la corrige y la reenvía con «Corregir y reenviar a RH»; no pasa por preautorización. Al autorizar se preparan los documentos de la causa.
 3. **«Registrar renuncia / aviso firmado»** _(RH)_ — Se sube la renuncia o el aviso firmado.
 4. **Finiquito** _(RH)_ — «Calcular finiquito» y «Autorizar finiquito» (ver el artículo de finiquito).
 5. **«Programar pago»** _(Regional)_ — Fecha, monto y método.

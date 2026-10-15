@@ -168,17 +168,25 @@ class AprobacionService
      * RH devuelve para corrección: la ronda se cierra como "devuelta" y se
      * abre una ronda nueva con la preautorización pendiente (el superior
      * corrige y vuelve a preautorizar). Motivo obligatorio.
+     *
+     * Con `$reabrirPreautorizacion = false` (procesos SIN preautorización,
+     * p. ej. el cierre laboral) solo se cierra la ronda: quien inició el
+     * trámite lo corrige y lo reenvía abriendo una ronda nueva con abrir().
      */
-    public function devolver(Model $aprobable, ProcesoAprobacion $proceso, User $actor, string $motivo): Aprobacion
+    public function devolver(Model $aprobable, ProcesoAprobacion $proceso, User $actor, string $motivo, bool $reabrirPreautorizacion = true): Aprobacion
     {
         $this->exigirMotivo($motivo);
 
-        return DB::transaction(function () use ($aprobable, $proceso, $actor, $motivo): Aprobacion {
+        return DB::transaction(function () use ($aprobable, $proceso, $actor, $motivo, $reabrirPreautorizacion): Aprobacion {
             $pendiente = $this->pendienteBloqueada($aprobable, $proceso, EtapaAprobacion::AutorizacionRh);
             $this->exigirRh($actor, $pendiente);
 
             $this->decidir($pendiente, $actor, EstadoAprobacion::Devuelto, $motivo);
             $this->auditar('aprobacion_devuelta', $pendiente, $actor, ['motivo' => $motivo]);
+
+            if (! $reabrirPreautorizacion) {
+                return $pendiente;
+            }
 
             $preAnterior = Aprobacion::query()
                 ->where('aprobable_type', $aprobable->getMorphClass())

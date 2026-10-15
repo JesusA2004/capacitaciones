@@ -58,6 +58,13 @@ class SolicitudesService
     private const LIMITE_TABLERO = 500;
 
     /**
+     * Una baja de colaborador no se aprueba/rechaza/corrige desde la bandeja
+     * de Solicitudes: hacerlo saltaría el Cierre laboral (finiquito,
+     * documentos, fecha efectiva). Ver CierreLaboralService.
+     */
+    public const MENSAJE_BAJA_EN_CIERRE = 'La baja se gestiona en el Cierre laboral del colaborador.';
+
+    /**
      * Resultado del último intento de generación automática de documento
      * oficial (ver cambiarEstado()) — los controladores lo leen justo
      * después de aprobar()/moverEnTablero() para enriquecer el toast, sin
@@ -444,17 +451,23 @@ class SolicitudesService
         });
     }
 
-    public function marcarEnRevision(SolicitudInterna $solicitud, User $actor, ?string $comentario = null): SolicitudInterna
+    /**
+     * $desdeCierreLaboral: SOLO lo pasa App\Services\CierreLaboral\CierreLaboralService.
+     * Una baja de colaborador nunca cambia de estado desde la bandeja de
+     * Solicitudes (web, API ni tablero): se gestiona en el Cierre laboral.
+     */
+    public function marcarEnRevision(SolicitudInterna $solicitud, User $actor, ?string $comentario = null, bool $desdeCierreLaboral = false): SolicitudInterna
     {
-        return $this->cambiarEstado($solicitud, $actor, EstadoSolicitudInterna::EnRevision, $comentario);
+        return $this->cambiarEstado($solicitud, $actor, EstadoSolicitudInterna::EnRevision, $comentario, desdeCierreLaboral: $desdeCierreLaboral);
     }
 
     /**
      * @param  array<string, mixed>  $datosAprobacion  Datos que la aprobación fija (p. ej. monto/plazo autorizado de un préstamo, ver PrestamoAutorizacionService).
+     * @param  bool  $desdeCierreLaboral  Solo CierreLaboralService (ver marcarEnRevision()).
      */
-    public function aprobar(SolicitudInterna $solicitud, User $actor, ?string $comentario = null, array $datosAprobacion = []): SolicitudInterna
+    public function aprobar(SolicitudInterna $solicitud, User $actor, ?string $comentario = null, array $datosAprobacion = [], bool $desdeCierreLaboral = false): SolicitudInterna
     {
-        return $this->cambiarEstado($solicitud, $actor, EstadoSolicitudInterna::Aprobada, $comentario, null, $datosAprobacion);
+        return $this->cambiarEstado($solicitud, $actor, EstadoSolicitudInterna::Aprobada, $comentario, null, $datosAprobacion, $desdeCierreLaboral);
     }
 
     public function rechazar(SolicitudInterna $solicitud, User $actor, string $motivoRechazo): SolicitudInterna
@@ -467,9 +480,41 @@ class SolicitudesService
         return $this->cambiarEstado($solicitud, $actor, EstadoSolicitudInterna::RequiereCorreccion, $comentario);
     }
 
-    public function cancelar(SolicitudInterna $solicitud, User $actor): SolicitudInterna
+    /**
+     * @param  bool  $desdeCierreLaboral  Solo CierreLaboralService (ver marcarEnRevision()).
+     */
+    public function cancelar(SolicitudInterna $solicitud, User $actor, bool $desdeCierreLaboral = false): SolicitudInterna
     {
-        return $this->cambiarEstado($solicitud, $actor, EstadoSolicitudInterna::Cancelada);
+        return $this->cambiarEstado($solicitud, $actor, EstadoSolicitudInterna::Cancelada, desdeCierreLaboral: $desdeCierreLaboral);
+    }
+
+    /**
+     * Qué puede hacer $usuario con esta solicitud en la bandeja de revisión
+     * (detalle y tablero Kanban, web): misma SolicitudInternaPolicy que
+     * autoriza la acción, más las reglas del servicio que la policy no ve
+     * (estado final, baja gestionada en el Cierre laboral). La UI solo
+     * muestra/oculta; el backend vuelve a validar al ejecutar.
+     *
+     * @return array{revisar: bool, aprobar: bool, rechazar: bool, motivo_bloqueo: ?string}
+     */
+    public function accionesBandeja(User $usuario, SolicitudInterna $solicitud): array
+    {
+        if ($solicitud->tipo === TipoSolicitudInterna::BajaColaborador) {
+            return ['revisar' => false, 'aprobar' => false, 'rechazar' => false, 'motivo_bloqueo' => self::MENSAJE_BAJA_EN_CIERRE];
+        }
+
+        if ($solicitud->estado->esFinal()) {
+            return ['revisar' => false, 'aprobar' => false, 'rechazar' => false, 'motivo_bloqueo' => null];
+        }
+
+        $gate = Gate::forUser($usuario);
+
+        return [
+            'revisar' => $gate->allows('revisar', $solicitud),
+            'aprobar' => $gate->allows('aprobar', $solicitud),
+            'rechazar' => $gate->allows('rechazar', $solicitud),
+            'motivo_bloqueo' => null,
+        ];
     }
 
     /**
@@ -504,8 +549,28 @@ class SolicitudesService
     /**
      * @param  array<string, mixed>  $datosAprobacion
      */
-    private function cambiarEstado(SolicitudInterna $solicitud, User $actor, EstadoSolicitudInterna $nuevoEstado, ?string $comentario = null, ?string $motivoRechazo = null, array $datosAprobacion = []): SolicitudInterna
+    private function cambiarEstado(SolicitudInterna $solicitud, User $actor, EstadoSolicitudInterna $nuevoEstado, ?string $comentario = null, ?string $motivoRechazo = null, array $datosAprobacion = [], bool $desdeCierreLaboral = false): SolicitudInterna
     {
+        // La baja vive en el Cierre laboral: desde la bandeja (web, API o
+        // tablero) no se aprueba, rechaza, corrige, revisa ni cancela.
+        if ($solicitud->tipo === TipoSolicitudInterna::BajaColaborador && ! $desdeCierreLaboral) {
+            throw ValidationException::withMessages(['estado' => self::MENSAJE_BAJA_EN_CIERRE]);
+        }
+
+        // Nadie revisa, aprueba ni rechaza su propia solicitud (web y API por
+        // igual). super_admin sí, auditado (ver ConSuperAdminOperativo); y el
+        // Cierre laboral actúa sobre la baja de un tercero aunque la haya
+        // registrado el mismo usuario de RH.
+        if (in_array($nuevoEstado, [EstadoSolicitudInterna::EnRevision, EstadoSolicitudInterna::RequiereCorreccion, EstadoSolicitudInterna::Aprobada, EstadoSolicitudInterna::Rechazada], true)
+            && ! $desdeCierreLaboral
+            && $solicitud->esDe($actor)
+            && ! $actor->hasRole('super_admin')
+        ) {
+            throw ValidationException::withMessages([
+                'estado' => 'No puedes revisar, aprobar ni rechazar tu propia solicitud.',
+            ]);
+        }
+
         // Vistos buenos jerárquicos (gerente → regional, config
         // solicitudes.visto_bueno_jefe): sin ellos la solicitud se queda como
         // "Recibida"; ni RH la puede pasar a "Pendiente de autorizar" ni autorizarla.
@@ -818,6 +883,11 @@ class SolicitudesService
         $resumen = [];
 
         foreach (TipoSolicitudInterna::cases() as $tipo) {
+            // La baja se gestiona en el Cierre laboral, no en esta bandeja.
+            if ($tipo === TipoSolicitudInterna::BajaColaborador) {
+                continue;
+            }
+
             $delTipo = $filas->where('tipo', $tipo->value);
             $cuenta = fn (EstadoSolicitudInterna $e): int => (int) ($delTipo->firstWhere('estado', $e->value)->total ?? 0);
 
