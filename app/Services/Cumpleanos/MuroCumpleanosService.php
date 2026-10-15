@@ -112,8 +112,8 @@ class MuroCumpleanosService
 
     public function publicar(BirthdayGreeting $greeting, User $autor, ?string $mensaje, ?UploadedFile $foto): BirthdayWallMessage
     {
-        if (! $greeting->muroAbierto()) {
-            throw ValidationException::withMessages(['mensaje' => 'La recepción de felicitaciones está cerrada.']);
+        if (! $greeting->aceptaMensajes()) {
+            throw ValidationException::withMessages(['mensaje' => $this->motivoSinRecepcion($greeting)]);
         }
 
         if ($autor->colaborador_id !== null && $autor->colaborador_id === $greeting->colaborador_id) {
@@ -172,8 +172,8 @@ class MuroCumpleanosService
             throw ValidationException::withMessages(['mensaje' => 'Solo puedes editar tu propia felicitación.']);
         }
 
-        if (! $mensaje->greeting->muroAbierto()) {
-            throw ValidationException::withMessages(['mensaje' => 'La recepción de felicitaciones está cerrada.']);
+        if (! $mensaje->greeting->aceptaMensajes()) {
+            throw ValidationException::withMessages(['mensaje' => $this->motivoSinRecepcion($mensaje->greeting)]);
         }
 
         $texto = trim($texto);
@@ -215,9 +215,23 @@ class MuroCumpleanosService
         ]);
     }
 
+    /**
+     * El autor borra lo suyo solo mientras la recepción sigue abierta (ya
+     * cerrada, todo lo publicado permanece); RH modera siempre.
+     */
     public function puedeEliminar(User $usuario, BirthdayWallMessage $mensaje): bool
     {
-        return $mensaje->user_id === $usuario->id || Gate::forUser($usuario)->allows('moderar', $mensaje->greeting);
+        return ($mensaje->user_id === $usuario->id && $mensaje->greeting->aceptaMensajes())
+            || Gate::forUser($usuario)->allows('moderar', $mensaje->greeting);
+    }
+
+    private function motivoSinRecepcion(BirthdayGreeting $greeting): string
+    {
+        return match (true) {
+            ! $greeting->muroPublicado() => 'La recepción de felicitaciones todavía no está abierta.',
+            $greeting->muroCerrado() => 'RH cerró la recepción de felicitaciones: ya no se puede escribir ni editar.',
+            default => 'La recepción de felicitaciones ya terminó.',
+        };
     }
 
     /** Usuario de acceso del homenajeado (puede no existir). */
@@ -247,7 +261,14 @@ class MuroCumpleanosService
             // fecha pura): comparar contra now() con zona convertía la fecha
             // guardada y podía marcar «hoy» el día equivocado.
             'es_hoy' => $greeting->fecha->isSameDay(FechasCelebracion::hoy()),
-            'abierto' => $greeting->muroAbierto(),
+            // Las apps instaladas muestran la caja de mensaje con «abierto»:
+            // solo si de verdad puede escribir (abierto, en fecha, no es el
+            // homenajeado y todavía no dejó la suya).
+            'abierto' => $greeting->aceptaMensajes()
+                && ! ($cumpleanero !== null && $cumpleanero->id === $viewer->id)
+                && $this->miMensaje($greeting, $viewer) === null,
+            'muro_abierto' => $greeting->muroAbierto(),
+            'cerrado' => $greeting->muroCerrado(),
             'abierto_at' => $greeting->muro_abierto_at?->toIso8601String(),
             'cerrado_at' => $greeting->muro_cerrado_at?->toIso8601String(),
             'mensajes_count' => $verTodos ? $greeting->mensajesMuro()->count() : null,
@@ -290,7 +311,7 @@ class MuroCumpleanosService
                     : null,
             ],
             'es_mio' => $mensaje->user_id === $viewer->id,
-            'puede_editar' => $mensaje->user_id === $viewer->id && $mensaje->greeting->muroAbierto(),
+            'puede_editar' => $mensaje->user_id === $viewer->id && $mensaje->greeting->aceptaMensajes(),
             'puede_eliminar' => $this->puedeEliminar($viewer, $mensaje),
             'creado_en' => $mensaje->created_at->toIso8601String(),
             'editado_en' => $mensaje->updated_at !== null && $mensaje->updated_at->gt($mensaje->created_at) ? $mensaje->updated_at->toIso8601String() : null,

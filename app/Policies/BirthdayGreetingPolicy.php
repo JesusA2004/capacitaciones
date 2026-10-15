@@ -6,7 +6,6 @@ use App\Enums\EstadoUsuario;
 use App\Models\BirthdayGreeting;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
-use App\Services\Celebraciones\FechasCelebracion;
 
 /**
  * Celebraciones (App\Models\BirthdayGreeting = cumpleaños o aniversario).
@@ -46,12 +45,9 @@ class BirthdayGreetingPolicy
      */
     public function escribir(User $usuario, BirthdayGreeting $celebracion): bool
     {
-        $limite = FechasCelebracion::hoy()->subDays(max(0, (int) config('celebraciones.dias_visible', 3)));
-
         return $this->colaboradorActivo($usuario)
             && ! $this->esHomenajeado($usuario, $celebracion)
-            && $celebracion->muroAbierto()
-            && $celebracion->fecha->gte($limite);
+            && $celebracion->aceptaMensajes();
     }
 
     /**

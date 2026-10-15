@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\TipoCelebracion;
+use App\Jobs\SendExpoPushJob;
 use App\Models\BirthdayGreeting;
 use App\Models\BirthdayWallMessage;
 use App\Models\Colaborador;
@@ -14,6 +15,7 @@ use App\Services\Celebraciones\FechasCelebracion;
 use App\Services\Celebraciones\TarjetaAniversarioService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 
@@ -142,15 +144,18 @@ test('RH envía la felicitación al homenajeado: notificación y push a su panta
 
 test('avisar a todos es idempotente: el segundo intento no vuelve a notificar', function () {
     Notification::fake();
+    Bus::fake([SendExpoPushJob::class]);
     $homenajeado = colaboradorConCuenta(['fecha_ingreso' => '2020-09-25']);
     $companero = colaboradorConCuenta();
-    MobileDevice::factory()->create(['user_id' => $companero->id]);
+    MobileDevice::factory()->create(['user_id' => $companero->id, 'push_token' => 'ExponentPushToken[companero]']);
 
     $this->actingAs($this->rh)->post(route('rh.celebraciones.avisar-todos', [$homenajeado->colaborador_id, 'aniversario_laboral']))->assertSessionHasNoErrors();
     $this->actingAs($this->rh)->post(route('rh.celebraciones.avisar-todos', [$homenajeado->colaborador_id, 'aniversario_laboral']))
         ->assertSessionHas('toast', fn (array $t) => str_contains($t['message'], 'Aviso general enviado el'));
 
-    Notification::assertSentToTimes($companero, CelebracionNotification::class, 1);
+    // Evento global: push a cada dispositivo una sola vez (sin una
+    // notificación guardada por persona: el feed lo proyecta por consulta).
+    Bus::assertDispatchedTimes(SendExpoPushJob::class, 1);
     Notification::assertNotSentTo($homenajeado, CelebracionNotification::class);
 
     $evento = BirthdayGreeting::query()->sole();
@@ -287,7 +292,8 @@ test('abrir la notificación lleva a la pantalla de la celebración', function (
     $homenajeado->notify(new CelebracionNotification($evento, 'aniversario_laboral', 'Título', 'Mensaje'));
     $notificacion = $homenajeado->notifications()->sole();
 
-    $respuesta = $this->actingAs($homenajeado, 'sanctum')->postJson(route('api.v1.notificaciones.abrir', $notificacion->id))->assertOk()->json('data');
+    // El feed unificado identifica cada elemento como «notification:{id}».
+    $respuesta = $this->actingAs($homenajeado, 'sanctum')->postJson(route('api.v1.notificaciones.abrir', 'notification:'.$notificacion->id))->assertOk()->json('data');
 
     expect($respuesta['url'])->toBe(route('celebraciones.show', $evento->id, false))
         ->and($respuesta['no_leidas'])->toBe(0);

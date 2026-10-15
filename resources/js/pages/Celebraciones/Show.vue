@@ -60,6 +60,8 @@ const props = defineProps<{
         };
         tarjeta_url: string;
         recibe_mensajes: boolean;
+        /** RH abrió y después cerró la recepción: lo publicado sigue visible. */
+        recepcion_cerrada?: boolean;
         es_mia: boolean;
         puede_escribir: boolean;
         puede_ver_todos: boolean;
@@ -280,6 +282,7 @@ function fecha(valor: string): string {
                             ><Pencil class="size-4" />Editar</Button
                         >
                         <Button
+                            v-if="celebracion.mi_mensaje.puede_eliminar"
                             size="sm"
                             variant="ghost"
                             @click="eliminar(celebracion.mi_mensaje)"
@@ -319,7 +322,11 @@ function fecha(valor: string): string {
                 "
                 class="rounded-xl border border-dashed p-3 text-sm text-muted-foreground"
             >
-                La recepción de felicitaciones no está abierta.
+                {{
+                    celebracion.recepcion_cerrada
+                        ? 'RH cerró la recepción de felicitaciones: lo publicado sigue visible, pero ya no se puede escribir ni editar.'
+                        : 'La recepción de felicitaciones todavía no está abierta.'
+                }}
             </p>
 
             <!-- Homenajeado / RH: todos los mensajes -->

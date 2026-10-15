@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\TipoCelebracion;
+use App\Services\Celebraciones\FechasCelebracion;
 use Database\Factories\BirthdayGreetingFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -92,6 +93,24 @@ class BirthdayGreeting extends Model
     public function muroAbierto(): bool
     {
         return $this->muro_abierto_at !== null && $this->muro_cerrado_at === null;
+    }
+
+    /** RH lo abrió y después lo cerró: lo publicado sigue visible, ya no se escribe. */
+    public function muroCerrado(): bool
+    {
+        return $this->muro_abierto_at !== null && $this->muro_cerrado_at !== null;
+    }
+
+    /**
+     * Regla ÚNICA para escribir/editar/borrar la propia felicitación (web,
+     * API nueva y API legacy): muro abierto y dentro de los días visibles
+     * del evento. Antes de abrirse o ya cerrado: nadie escribe.
+     */
+    public function aceptaMensajes(): bool
+    {
+        $limite = FechasCelebracion::hoy()->subDays(max(0, (int) config('celebraciones.dias_visible', 3)));
+
+        return $this->muroAbierto() && $this->fecha->gte($limite);
     }
 
     /**

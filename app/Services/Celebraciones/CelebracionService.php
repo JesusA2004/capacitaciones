@@ -379,6 +379,7 @@ class CelebracionService
             ],
             'tarjeta_url' => $ruta('celebraciones.tarjeta', 'api.v1.celebraciones.tarjeta'),
             'recibe_mensajes' => $celebracion->muroAbierto(),
+            'recepcion_cerrada' => $celebracion->muroCerrado(),
             'es_mia' => $gate->allows('esHomenajeado', $celebracion),
             'puede_escribir' => $gate->allows('escribir', $celebracion) && $mio === null,
             'puede_ver_todos' => $verTodos,
