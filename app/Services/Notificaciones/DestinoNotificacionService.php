@@ -119,6 +119,12 @@ class DestinoNotificacionService
     private function pestanaDePersona(string $pestana, ?int $colaboradorId, User $usuario): array
     {
         if ($colaboradorId === null || $colaboradorId === $usuario->colaborador_id) {
+            // Recibos propios: se entregan impresos; sin autoservicio no hay
+            // pestaña a la cual llevarlo.
+            if ($pestana === 'recibos' && ! config('features.recibos_colaborador')) {
+                return self::destino(route('mi-expediente', [], false));
+            }
+
             return self::destino(route('mi-expediente', ['tab' => $pestana], false));
         }
 

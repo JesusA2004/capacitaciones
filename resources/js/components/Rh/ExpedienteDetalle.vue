@@ -179,7 +179,8 @@ const props = defineProps<{
     solicitudesVacaciones: SolicitudVacacionesItem[];
     solicitudes: SolicitudExpedienteItem[];
     movimientosLaborales: MovimientoLaboralItem[];
-    recibosNomina: ReciboNominaItem[];
+    /** null = quien mira no puede ver recibos (el colaborador nunca ve los suyos: se entregan impresos). */
+    recibosNomina: ReciboNominaItem[] | null;
     prestamos: PrestamoItem[];
     /** PDF(s) históricos únicos (migración inicial): fuera del checklist. */
     expedienteHistorico?: {
@@ -666,7 +667,8 @@ const pestanaInicial = (() => {
         !(
             (solicitada === 'cuenta' || solicitada === 'onboarding') &&
             props.esPropio
-        )
+        ) &&
+        !(solicitada === 'recibos' && props.recibosNomina === null)
         ? solicitada
         : 'resumen';
 })();
@@ -989,6 +991,7 @@ function irACompletarExpediente() {
                     <Calendar class="size-4" /> Vacaciones
                 </TabsTrigger>
                 <TabsTrigger
+                    v-if="recibosNomina !== null"
                     value="recibos"
                     class="justify-start gap-2 lg:w-full"
                 >
@@ -2395,7 +2398,7 @@ function irACompletarExpediente() {
                         </CardContent>
                     </Card>
                 </TabsContent>
-                <TabsContent value="recibos">
+                <TabsContent v-if="recibosNomina !== null" value="recibos">
                     <Card class="rounded-2xl border-border/60">
                         <CardHeader
                             class="flex flex-row flex-wrap items-center justify-between gap-2"
@@ -2425,7 +2428,7 @@ function irACompletarExpediente() {
                                 antes de generar un recibo.
                             </p>
                             <div
-                                v-for="recibo in recibosNomina"
+                                v-for="recibo in recibosNomina ?? []"
                                 :key="recibo.id"
                                 class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 p-3 text-sm"
                             >
@@ -2474,7 +2477,7 @@ function irACompletarExpediente() {
                                 </div>
                             </div>
                             <p
-                                v-if="!recibosNomina.length"
+                                v-if="!recibosNomina?.length"
                                 class="text-sm text-muted-foreground"
                             >
                                 Sin recibos generados.

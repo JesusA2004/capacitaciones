@@ -5,9 +5,12 @@ use App\Models\GeneratedDocument;
 use App\Models\ReciboNomina;
 use App\Models\User;
 use App\Notifications\Mobile\PendienteRhNotification;
+use App\Services\Notificaciones\DestinoNotificacionService;
 use Database\Seeders\RolesYPermisosSeeder;
+use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 
 /*
@@ -61,4 +64,39 @@ test('RH sigue consultando y descargando el recibo del colaborador', function ()
     Sanctum::actingAs($this->rh);
 
     $this->getJson("/api/v1/rh/recibos/{$this->reciboId}")->assertOk();
+});
+
+test('Mi expediente del colaborador no trae recibos de nómina ni puede descargarlos por la ruta del expediente', function () {
+    $recibo = ReciboNomina::query()->findOrFail($this->reciboId);
+
+    $this->actingAs($this->cuenta)
+        ->get(route('mi-expediente'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('recibosNomina', null));
+
+    $this->actingAs($this->cuenta)
+        ->get(route('rh.expedientes.recibos-nomina.descargar', $recibo))
+        ->assertForbidden();
+
+    $this->actingAs($this->cuenta)->get(route('portal.recibos.pdf', $recibo))->assertForbidden();
+});
+
+test('RH sí ve la pestaña de recibos en el expediente del colaborador', function () {
+    $this->actingAs($this->rh)
+        ->get(route('rh.expedientes.show', $this->colaborador))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->has('recibosNomina', 1));
+});
+
+test('el enlace de una notificación de recibo nunca lleva al colaborador a la pestaña de recibos', function () {
+    $destino = app(DestinoNotificacionService::class);
+    $notificacion = new DatabaseNotification([
+        'id' => (string) Str::uuid(),
+        'type' => 'x',
+        'data' => ['type' => 'recibo_nomina', 'related_type' => 'ReciboNomina', 'resource_id' => $this->reciboId, 'colaborador_id' => $this->colaborador->id],
+    ]);
+
+    $resultado = json_encode($destino->resolver($notificacion, $this->cuenta));
+
+    expect($resultado)->not->toContain('tab=recibos');
 });

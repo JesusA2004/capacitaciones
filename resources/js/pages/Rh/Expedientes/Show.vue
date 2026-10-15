@@ -64,7 +64,7 @@ const props = defineProps<{
     solicitudesVacaciones: SolicitudVacacionesItem[];
     solicitudes: SolicitudExpedienteItem[];
     movimientosLaborales: MovimientoLaboralItem[];
-    recibosNomina: ReciboNominaItem[];
+    recibosNomina: ReciboNominaItem[] | null;
     expedienteHistorico?: InstanceType<
         typeof ExpedienteDetalle
     >['$props']['expedienteHistorico'];

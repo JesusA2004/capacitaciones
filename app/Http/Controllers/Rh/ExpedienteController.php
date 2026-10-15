@@ -480,7 +480,10 @@ class ExpedienteController extends Controller
             // generados (ver App\Services\Nomina\ReciboNominaService) — el
             // PDF se descarga aparte (recibos-nomina.descargar), aquí solo
             // se manda si el archivo quedó guardado o no.
-            'recibosNomina' => $colaborador->recibosNomina()
+            // El colaborador NUNCA ve sus propios recibos (se entregan
+            // impresos; features.recibos_colaborador=false): null oculta la
+            // pestaña. RH y quien tenga nómina dentro de su alcance sí.
+            'recibosNomina' => ! $this->puedeVerRecibosEnExpediente($usuario, $colaborador, $esPropio) ? null : $colaborador->recibosNomina()
                 ->limit(20)
                 ->get()
                 ->map(fn (ReciboNomina $recibo) => [
@@ -695,9 +698,9 @@ class ExpedienteController extends Controller
      */
     public function descargarReciboNomina(Request $request, ReciboNomina $recibo): StreamedResponse
     {
-        $recibo->loadMissing('colaborador');
-
-        abort_unless($this->alcance->puedeVerExpediente($request->user(), $recibo->colaborador), 403);
+        // ReciboNominaPolicy: RH con nómina dentro de su alcance; el dueño
+        // solo si el autoservicio de recibos está encendido (no lo está).
+        $this->authorize('ver', $recibo);
 
         // Archivo faltante = pantalla de reparación (ArchivoGeneradoNoDisponibleException), no 404.
         return $this->reciboNomina->respuestaPdf($recibo, $request->user());
@@ -1004,5 +1007,19 @@ class ExpedienteController extends Controller
     private function item(array $item): array
     {
         return $item;
+    }
+
+    /**
+     * Pestaña «Recibos de nómina»: en su propio expediente solo con el
+     * autoservicio encendido; en el de otra persona, quien tiene nómina
+     * dentro de su alcance (misma regla que ReciboNominaPolicy::ver).
+     */
+    private function puedeVerRecibosEnExpediente(User $usuario, Colaborador $colaborador, bool $esPropio): bool
+    {
+        if ($esPropio || $usuario->colaborador_id === $colaborador->id) {
+            return (bool) config('features.recibos_colaborador');
+        }
+
+        return $usuario->can('nomina.recibos.ver') && $this->alcance->alcanzaColaboradorEnModulo($usuario, $colaborador, 'recibos');
     }
 }
