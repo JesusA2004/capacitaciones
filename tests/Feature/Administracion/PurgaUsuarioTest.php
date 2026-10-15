@@ -78,7 +78,7 @@ test('con historial de negocio no se purga: explica qué lo impide', function ()
 
     $revision = $this->actingAs($this->super)->getJson(route('administracion.usuarios.purga.revisar', $this->cuenta))->assertOk()->json('data');
     expect($revision['puede'])->toBeFalse()
-        ->and(implode(' ', $revision['bloqueos']))->toContain('solicitudes');
+        ->and(implode(' ', $revision['bloqueos']))->toContain('Solicitudes: 1 registro');
 
     $this->actingAs($this->super)->delete(route('administracion.usuarios.purga.eliminar', $this->cuenta), ['confirmacion' => 'ELIMINAR'])
         ->assertSessionHasErrors('confirmacion');
