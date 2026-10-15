@@ -204,7 +204,7 @@ const enlace =
                 :href="urlCompletarDatos"
                 class="self-start text-sm font-semibold text-warning underline underline-offset-2"
             >
-                Solicitar actualización de mis datos
+                Completar información
             </Link>
         </section>
 

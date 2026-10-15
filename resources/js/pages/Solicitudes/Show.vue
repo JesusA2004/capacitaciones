@@ -6,6 +6,7 @@ import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
+import ComparativoDatos from '@/components/Solicitudes/ComparativoDatos.vue';
 import PermisoAutorizacionCard from '@/components/Solicitudes/PermisoAutorizacionCard.vue';
 import { Button } from '@/components/ui/button';
 import { useAlertas } from '@/composables/useAlertas';
@@ -22,6 +23,7 @@ import {
     ver as verDocumento,
 } from '@/routes/solicitudes/documentos';
 import type {
+    DatoPropuesto,
     PermisoResumen,
     SolicitudInternaDocumentoItem,
     SolicitudInternaItem,
@@ -31,6 +33,7 @@ const props = defineProps<{
     solicitud: SolicitudInternaItem;
     tipoEtiqueta: string;
     permiso: PermisoResumen | null;
+    datosPropuestos: DatoPropuesto[] | null;
 }>();
 
 // `layout` recibe una función en vez de un objeto estático porque
@@ -222,6 +225,12 @@ function previsualizar(doc: SolicitudInternaDocumentoItem) {
                         </p>
                     </div>
                 </div>
+
+                <ComparativoDatos
+                    v-if="datosPropuestos?.length"
+                    :datos="datosPropuestos"
+                    :aplicada="solicitud.estado === 'aprobada'"
+                />
 
                 <div
                     class="grid gap-4 rounded-2xl border border-border/60 bg-card p-5"

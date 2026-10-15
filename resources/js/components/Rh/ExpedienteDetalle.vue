@@ -1358,14 +1358,14 @@ function irACompletarExpediente() {
                                     class="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--mrl-primary)]/25 bg-[var(--mrl-primary)]/5 p-4"
                                 >
                                     <p class="min-w-0 flex-1 text-sm">
-                                        ¿Algún dato está mal o cambió? Pídele a
-                                        Recursos Humanos que lo corrija.
+                                        ¿Te falta un dato o alguno cambió? Complétalo o
+                                        solicita el cambio; Recursos Humanos lo revisa.
                                     </p>
                                     <Link
                                         :href="urlSolicitarCorreccion"
                                         class="inline-flex items-center gap-2 rounded-xl bg-[var(--mrl-primary)] px-4 py-2 text-sm font-medium text-white transition-all hover:gap-3 hover:bg-[var(--mrl-primary-alt)]"
                                     >
-                                        Solicitar corrección
+                                        Completar o cambiar mis datos
                                     </Link>
                                 </div>
                             </form>

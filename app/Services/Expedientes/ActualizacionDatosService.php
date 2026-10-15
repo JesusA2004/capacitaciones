@@ -15,7 +15,8 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 /**
- * «Completar mis datos»: el colaborador NUNCA edita su expediente directo
+ * «Completar dato faltante» (el campo está vacío) y «Solicitar cambio de
+ * información» (ya tiene valor): el colaborador NUNCA edita su expediente directo
  * (ver docs/ROLES_Y_NAVEGACION.md); propone valores con una solicitud de
  * actualización de datos y, SOLO cuando Recursos Humanos la autoriza, se
  * aplican a su expediente. Lo que había antes queda en la solicitud
@@ -121,15 +122,31 @@ class ActualizacionDatosService
     }
 
     /**
+     * Cada dato personal con su valor vigente, para el formulario mixto:
+     * vacío → «Completar información»; con valor → «Solicitar cambio».
+     *
+     * @return list<array{campo: string, etiqueta: string, tipo: string, opciones?: list<array{value: string, label: string}>, actual: string|null, actual_legible: string|null}>
+     */
+    public function camposConValor(Colaborador $colaborador): array
+    {
+        return array_map(function (array $c) use ($colaborador): array {
+            $actual = $this->comoTexto($colaborador->getAttribute($c['campo']));
+
+            return [...$c, 'actual' => $actual, 'actual_legible' => $this->legible($c['campo'], $actual)];
+        }, $this->camposCaptura());
+    }
+
+    /**
      * Normaliza lo propuesto: solo campos personales conocidos y con valor
-     * (CURP/RFC en mayúsculas). Sin ningún dato, error claro.
+     * (CURP/RFC en mayúsculas). Un valor igual al del expediente no es un
+     * cambio y se descarta. Sin ningún dato, error claro.
      *
      * @param  array<string, mixed>  $datos
      * @return array<string, string>
      *
      * @throws ValidationException
      */
-    public function normalizar(array $datos): array
+    public function normalizar(array $datos, ?Colaborador $colaborador = null): array
     {
         $limpios = [];
 
@@ -140,26 +157,91 @@ class ActualizacionDatosService
                 continue;
             }
 
-            $limpios[$campo] = in_array($campo, ['curp', 'rfc'], true) ? mb_strtoupper($valor) : $valor;
+            $valor = in_array($campo, ['curp', 'rfc'], true) ? mb_strtoupper($valor) : $valor;
+
+            if ($colaborador !== null && $valor === $this->comoTexto($colaborador->getAttribute($campo))) {
+                continue;
+            }
+
+            $limpios[$campo] = $valor;
         }
 
         if ($limpios === []) {
-            throw ValidationException::withMessages(['datos' => 'Captura al menos un dato para actualizar.']);
+            throw ValidationException::withMessages(['datos' => $datos === [] ? 'Captura al menos un dato para actualizar.' : 'Lo que escribiste ya está en tu expediente: no hay ningún dato que completar o cambiar.']);
         }
 
         return $limpios;
     }
 
     /**
+     * Lo que había en el expediente AL SOLICITAR cada campo propuesto
+     * (null = estaba vacío: es completar, no cambiar).
+     *
+     * @param  array<string, string>  $propuestos
+     * @return array<string, string|null>
+     */
+    public function base(Colaborador $colaborador, array $propuestos): array
+    {
+        $base = [];
+
+        foreach (array_keys($propuestos) as $campo) {
+            $base[$campo] = $this->comoTexto($colaborador->getAttribute($campo));
+        }
+
+        return $base;
+    }
+
+    /**
+     * «completar», «cambio» o «mixta» (unos campos estaban vacíos y otros
+     * no). null si no es una actualización de datos estructurada.
+     */
+    public function clase(SolicitudInterna $solicitud): ?string
+    {
+        $filas = $this->comparativo($solicitud);
+
+        if ($filas === null) {
+            return null;
+        }
+
+        $clases = array_values(array_unique(array_column($filas, 'clase')));
+
+        return count($clases) === 1 ? $clases[0] : 'mixta';
+    }
+
+    /** Nombre de la solicitud según lo que realmente pide. */
+    public function etiqueta(SolicitudInterna $solicitud): ?string
+    {
+        return match ($this->clase($solicitud)) {
+            'completar' => 'Completar dato faltante',
+            'cambio' => 'Solicitar cambio de información',
+            'mixta' => 'Completar y cambiar información',
+            default => null,
+        };
+    }
+
+    /**
      * Texto de la solicitud cuando el colaborador no escribió motivo.
      *
      * @param  array<string, string>  $datos
+     * @param  array<string, string|null>  $base
      */
-    public function motivoPorDefecto(array $datos): string
+    public function motivoPorDefecto(array $datos, array $base = []): string
     {
-        $etiquetas = array_map(fn (string $campo) => DatosFaltantesService::PERSONALES[$campo], array_keys($datos));
+        $completar = [];
+        $cambiar = [];
 
-        return sprintf('Actualizar: %s.', implode(', ', $etiquetas));
+        foreach (array_keys($datos) as $campo) {
+            if (($base[$campo] ?? null) === null) {
+                $completar[] = DatosFaltantesService::PERSONALES[$campo];
+            } else {
+                $cambiar[] = DatosFaltantesService::PERSONALES[$campo];
+            }
+        }
+
+        return trim(implode(' ', array_filter([
+            $completar !== [] ? sprintf('Completar: %s.', implode(', ', $completar)) : null,
+            $cambiar !== [] ? sprintf('Cambiar: %s.', implode(', ', $cambiar)) : null,
+        ])));
     }
 
     /**
@@ -167,7 +249,7 @@ class ActualizacionDatosService
      * dato, valor en el expediente y valor propuesto. Ya aplicada, «actual»
      * es lo que había antes de aplicarla.
      *
-     * @return list<array{campo: string, etiqueta: string, actual: string|null, propuesto: string}>|null
+     * @return list<array{campo: string, etiqueta: string, actual: string|null, propuesto: string, clase: string}>|null
      */
     public function comparativo(SolicitudInterna $solicitud): ?array
     {
@@ -185,11 +267,16 @@ class ActualizacionDatosService
                 ? ($solicitud->datos_anteriores[$campo] ?? null)
                 : $this->comoTexto($colaborador?->getAttribute($campo));
 
+            // Lo que había al solicitar decide si era completar o cambiar
+            // (solicitudes previas a datos_base: lo que había al aplicarla).
+            $alSolicitar = $solicitud->datos_base !== null ? ($solicitud->datos_base[$campo] ?? null) : $actual;
+
             $filas[] = [
                 'campo' => $campo,
                 'etiqueta' => DatosFaltantesService::PERSONALES[$campo] ?? $campo,
                 'actual' => $this->legible($campo, $actual),
                 'propuesto' => (string) $this->legible($campo, $valor),
+                'clase' => $alSolicitar === null ? 'completar' : 'cambio',
             ];
         }
 
@@ -217,10 +304,25 @@ class ActualizacionDatosService
 
         $anteriores = [];
         $cambios = [];
+        $base = $solicitud->datos_base;
 
         foreach ($propuestos as $campo => $valor) {
             if (! array_key_exists($campo, DatosFaltantesService::PERSONALES)) {
                 continue;
+            }
+
+            // Nunca se sobrescribe en silencio: si el dato cambió en el
+            // expediente desde que se pidió, RH debe rechazar y pedir una
+            // solicitud nueva sobre el valor vigente.
+            $vigente = $this->comoTexto($colaborador->getAttribute($campo));
+
+            if ($base !== null && array_key_exists($campo, $base) && $base[$campo] !== $vigente) {
+                throw ValidationException::withMessages(['datos' => sprintf(
+                    '«%s» cambió en el expediente después de la solicitud (antes: %s; ahora: %s). Rechaza esta solicitud para que se pida de nuevo sobre el valor vigente.',
+                    DatosFaltantesService::PERSONALES[$campo],
+                    $this->legible($campo, $base[$campo]) ?? 'vacío',
+                    $this->legible($campo, $vigente) ?? 'vacío',
+                )]);
             }
 
             $anteriores[$campo] = $this->comoTexto($colaborador->getAttribute($campo));

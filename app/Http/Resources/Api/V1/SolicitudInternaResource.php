@@ -23,7 +23,7 @@ class SolicitudInternaResource extends JsonResource
             'id' => $this->id,
             'folio' => $this->folio,
             'tipo' => $this->tipo->value,
-            'tipo_etiqueta' => $this->tipo->etiqueta(),
+            'tipo_etiqueta' => app(SolicitudesService::class)->etiquetaTipo($this->resource),
             'estado' => $this->estado->value,
             'estado_etiqueta' => $this->estado->etiqueta(),
             'fecha_inicio' => $this->fecha_inicio?->toDateString(),

@@ -22,6 +22,7 @@ import DatePicker from '@/components/Common/DatePicker.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import DatosPersonalesFormulario from '@/components/Solicitudes/DatosPersonalesFormulario.vue';
 import PermisoFormulario from '@/components/Solicitudes/PermisoFormulario.vue';
 import SelectorDiasVacaciones from '@/components/Solicitudes/SelectorDiasVacaciones.vue';
 import { Button } from '@/components/ui/button';
@@ -41,6 +42,7 @@ import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
 import { index, show, store } from '@/routes/solicitudes';
 import type {
+    DatoPersonalCaptura,
     RespuestaPaginada,
     SaldoVacaciones,
     SolicitudInternaItem,
@@ -51,6 +53,7 @@ const props = defineProps<{
     solicitudes: RespuestaPaginada<SolicitudInternaItem>;
     tipos: TipoSolicitudInternaFormulario[];
     saldoVacaciones: SaldoVacaciones;
+    datosPersonales: DatoPersonalCaptura[];
 }>();
 
 defineOptions({
@@ -159,6 +162,7 @@ const form = useForm({
     permiso_causal: '',
     hora_salida: '',
     hora_entrada: '',
+    datos: {} as Record<string, string>,
 });
 
 // Taxonomía definitiva: permisos, vacaciones y préstamos. La baja NO es
@@ -176,6 +180,13 @@ const opcionesPermiso = (campo: string) =>
 // invisible y el botón «no hacía nada»).
 function camposDelTipo(datos: ReturnType<typeof form.data>) {
     const base = { tipo: datos.tipo, motivo: datos.motivo, observaciones: datos.observaciones };
+
+    // Completar / cambiar datos: solo los campos que la persona capturó.
+    if (datos.tipo === 'actualizacion_datos') {
+        const capturados = Object.fromEntries(Object.entries(datos.datos).filter(([, v]) => v.trim() !== ''));
+
+        return { ...base, ...(Object.keys(capturados).length ? { datos: capturados } : {}) };
+    }
 
     if (datos.tipo === 'permiso') {
         return {
@@ -335,7 +346,9 @@ function nombreTipo(clave: string): string {
                     {{
                         pasoFormulario === 'tipo'
                             ? '¿Qué necesitas solicitar?'
-                            : `Nueva solicitud — ${tipoActual?.nombre ?? ''}`
+                            : form.tipo === 'actualizacion_datos'
+                              ? 'Completar o cambiar mis datos'
+                              : `Nueva solicitud — ${tipoActual?.nombre ?? ''}`
                     }}
                 </DialogTitle>
             </DialogHeader>
@@ -388,6 +401,13 @@ function nombreTipo(clave: string): string {
                 <p v-if="form.errors.tipo" class="text-sm text-destructive" data-input-error>
                     {{ form.errors.tipo }}
                 </p>
+
+                <DatosPersonalesFormulario
+                    v-if="form.tipo === 'actualizacion_datos' && datosPersonales.length"
+                    v-model="form.datos"
+                    :campos="datosPersonales"
+                    :errores="form.errors"
+                />
 
                 <!-- Permiso: solo lo que pide el formato oficial -->
                 <PermisoFormulario
@@ -540,7 +560,7 @@ function nombreTipo(clave: string): string {
                 </div>
 
                 <div v-if="!esPermiso" class="grid gap-2">
-                    <Label for="motivo">Motivo</Label>
+                    <Label for="motivo">{{ form.tipo === 'actualizacion_datos' ? 'Comentario para RH (opcional)' : 'Motivo' }}</Label>
                     <Textarea id="motivo" v-model="form.motivo" rows="3" />
                     <p
                         v-if="form.errors.motivo"

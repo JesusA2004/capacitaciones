@@ -31,6 +31,18 @@ export type DatoPropuesto = {
     etiqueta: string;
     actual: string | null;
     propuesto: string;
+    /** «completar»: el expediente estaba vacío; «cambio»: ya tenía valor. */
+    clase: 'completar' | 'cambio';
+};
+
+/** Dato personal con su valor vigente (formulario mixto completar/cambiar). */
+export type DatoPersonalCaptura = {
+    campo: string;
+    etiqueta: string;
+    tipo: string;
+    opciones?: { value: string; label: string }[];
+    actual: string | null;
+    actual_legible: string | null;
 };
 
 /** Resumen del permiso (formato oficial liberado solo tras RH). */

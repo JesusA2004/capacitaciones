@@ -115,10 +115,13 @@ class SolicitudesService
         // «Completar mis datos»: valores estructurados que se aplican al
         // expediente solo cuando RH autoriza (ActualizacionDatosService).
         $datos['datos_propuestos'] = null;
+        $datos['datos_base'] = null;
 
         if ($tipo === TipoSolicitudInterna::ActualizacionDatos && ! empty($datos['datos'])) {
-            $datos['datos_propuestos'] = $this->actualizacionDatos->normalizar((array) $datos['datos']);
-            $datos['motivo'] = trim((string) ($datos['motivo'] ?? '')) !== '' ? $datos['motivo'] : $this->actualizacionDatos->motivoPorDefecto($datos['datos_propuestos']);
+            $colaborador = $solicitante->colaborador;
+            $datos['datos_propuestos'] = $this->actualizacionDatos->normalizar((array) $datos['datos'], $colaborador);
+            $datos['datos_base'] = $colaborador !== null ? $this->actualizacionDatos->base($colaborador, $datos['datos_propuestos']) : null;
+            $datos['motivo'] = trim((string) ($datos['motivo'] ?? '')) !== '' ? $datos['motivo'] : $this->actualizacionDatos->motivoPorDefecto($datos['datos_propuestos'], $datos['datos_base'] ?? []);
         }
 
         if ($tipo === TipoSolicitudInterna::Vacaciones) {
@@ -182,6 +185,7 @@ class SolicitudesService
                 'motivo' => $datos['motivo'],
                 'observaciones' => $datos['observaciones'] ?? null,
                 'datos_propuestos' => $datos['datos_propuestos'],
+                'datos_base' => $datos['datos_base'],
                 'empresa_id' => $solicitante->colaborador?->empresa()?->id,
                 'sucursal_id' => $solicitante->colaborador?->sucursal_principal_id,
             ]);
@@ -716,11 +720,20 @@ class SolicitudesService
      * Actualización de datos: dato, valor en el expediente y valor
      * propuesto. null en cualquier otro tipo o sin datos estructurados.
      *
-     * @return list<array{campo: string, etiqueta: string, actual: string|null, propuesto: string}>|null
+     * @return list<array{campo: string, etiqueta: string, actual: string|null, propuesto: string, clase: string}>|null
      */
     public function comparativoDatos(SolicitudInterna $solicitud): ?array
     {
         return $this->actualizacionDatos->comparativo($solicitud);
+    }
+
+    /**
+     * Nombre visible de la solicitud: en una actualización de datos dice si
+     * completa un dato faltante o cambia uno existente.
+     */
+    public function etiquetaTipo(SolicitudInterna $solicitud): string
+    {
+        return $this->actualizacionDatos->etiqueta($solicitud) ?? $solicitud->tipo->etiqueta();
     }
 
     /**

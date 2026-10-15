@@ -148,3 +148,46 @@ test('la completitud se muestra por sección (Identidad, Fiscal, Domicilio, Cont
     expect($secciones['domicilio']['estado'])->toBe('completo')
         ->and($secciones['emergencia']['estado'])->toBe('completo');
 });
+
+test('completar dato faltante vs. solicitar cambio: el formulario mixto distingue cada campo y RH ve actual y propuesto', function () {
+    $this->persona->update(['telefono' => '7770000000']);
+    $this->cuenta->refresh();
+
+    // La web recibe cada dato con su valor vigente: vacío = completar; con valor = cambio.
+    $this->actingAs($this->cuenta)->get(route('solicitudes.index'))
+        ->assertInertia(fn ($page) => $page->where('datosPersonales', fn ($campos) => collect($campos)->firstWhere('campo', 'curp')['actual'] === null
+            && collect($campos)->firstWhere('campo', 'telefono')['actual'] === '7770000000'));
+
+    // Un valor igual al del expediente no es un cambio.
+    $this->actingAs($this->cuenta)->post(route('solicitudes.store'), ['tipo' => 'actualizacion_datos', 'datos' => ['telefono' => '7770000000']])
+        ->assertSessionHasErrors('datos');
+
+    $this->actingAs($this->cuenta)->post(route('solicitudes.store'), ['tipo' => 'actualizacion_datos', 'datos' => ['curp' => 'XEXX900101MNEXXXA4', 'telefono' => '7779999999']])
+        ->assertSessionHasNoErrors();
+    $solicitud = SolicitudInterna::query()->latest('id')->firstOrFail();
+
+    expect($solicitud->datos_base)->toBe(['curp' => null, 'telefono' => '7770000000'])
+        ->and($solicitud->motivo)->toBe('Completar: CURP. Cambiar: Teléfono celular.');
+
+    $this->actingAs($this->rh)->get(route('rh.solicitudes.show', $solicitud))
+        ->assertInertia(fn ($page) => $page->where('tipoEtiqueta', 'Completar y cambiar información')
+            ->where('datosPropuestos.0.clase', 'completar')
+            ->where('datosPropuestos.1.clase', 'cambio')
+            ->where('datosPropuestos.1.actual', '7770000000')
+            ->where('datosPropuestos.1.propuesto', '7779999999'));
+
+    // Si el dato cambió en el expediente mientras RH revisaba, no se sobrescribe en silencio.
+    $this->persona->update(['telefono' => '7771234567']);
+    $this->actingAs($this->rh)->post(route('rh.solicitudes.aprobar', $solicitud))->assertSessionHasErrors('datos');
+    expect($this->persona->refresh()->telefono)->toBe('7771234567')
+        ->and($this->persona->curp)->toBeNull();
+});
+
+test('una solicitud que solo completa datos vacíos se llama «Completar dato faltante»', function () {
+    $this->actingAs($this->cuenta)->post(route('solicitudes.store'), ['tipo' => 'actualizacion_datos', 'datos' => ['curp' => 'XEXX900101MNEXXXA4']])
+        ->assertSessionHasNoErrors();
+    $solicitud = SolicitudInterna::query()->latest('id')->firstOrFail();
+
+    $this->actingAs($this->cuenta)->get(route('solicitudes.show', $solicitud))
+        ->assertInertia(fn ($page) => $page->where('tipoEtiqueta', 'Completar dato faltante')->where('datosPropuestos.0.clase', 'completar'));
+});

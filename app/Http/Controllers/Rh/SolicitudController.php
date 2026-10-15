@@ -183,7 +183,7 @@ class SolicitudController extends Controller
 
         return Inertia::render('Rh/Solicitudes/Show', [
             'solicitud' => $solicitud,
-            'tipoEtiqueta' => $solicitud->tipo->etiqueta(),
+            'tipoEtiqueta' => $this->solicitudes->etiquetaTipo($solicitud),
             'tipoBajaEtiqueta' => $solicitud->tipo_baja?->etiqueta(),
             // Permiso: el formato oficial se libera SOLO con la autorización de RH.
             'permiso' => $this->solicitudes->resumenPermiso($solicitud),

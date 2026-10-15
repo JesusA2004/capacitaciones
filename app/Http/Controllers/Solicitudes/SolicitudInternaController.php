@@ -7,6 +7,7 @@ use App\Http\Requests\Solicitudes\StoreSolicitudInternaRequest;
 use App\Http\Requests\Solicitudes\SubirDocumentoSolicitudRequest;
 use App\Models\SolicitudInterna;
 use App\Models\SolicitudInternaDocumento;
+use App\Services\Expedientes\ActualizacionDatosService;
 use App\Services\Solicitudes\SolicitudesService;
 use App\Services\Vacaciones\VacacionesService;
 use Illuminate\Http\RedirectResponse;
@@ -26,6 +27,7 @@ class SolicitudInternaController extends Controller
     public function __construct(
         private readonly SolicitudesService $solicitudes,
         private readonly VacacionesService $vacaciones,
+        private readonly ActualizacionDatosService $actualizacionDatos,
     ) {}
 
     public function index(Request $request): Response
@@ -36,6 +38,8 @@ class SolicitudInternaController extends Controller
             'solicitudes' => $this->solicitudes->paraColaborador($usuario),
             'tipos' => $this->solicitudes->tiposConFormulario(),
             'saldoVacaciones' => $this->vacaciones->saldo($usuario),
+            // Formulario mixto de datos personales: vacío → completar; con valor → cambio.
+            'datosPersonales' => $usuario->colaborador !== null ? $this->actualizacionDatos->camposConValor($usuario->colaborador) : [],
         ]);
     }
 
@@ -54,8 +58,9 @@ class SolicitudInternaController extends Controller
 
         return Inertia::render('Solicitudes/Show', [
             'solicitud' => $solicitud,
-            'tipoEtiqueta' => $solicitud->tipo->etiqueta(),
+            'tipoEtiqueta' => $this->solicitudes->etiquetaTipo($solicitud),
             'permiso' => $this->solicitudes->resumenPermiso($solicitud),
+            'datosPropuestos' => $this->solicitudes->comparativoDatos($solicitud),
         ]);
     }
 

@@ -50,6 +50,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property string|null $observaciones
  * @property array<string, string>|null $datos_propuestos Actualización de datos: valores propuestos por el colaborador.
  * @property array<string, string|null>|null $datos_anteriores Actualización de datos: lo que había antes de aplicarlos.
+ * @property array<string, string|null>|null $datos_base Actualización de datos: lo que había en el expediente al solicitar.
  * @property int|null $revisado_por
  * @property Carbon|null $revisado_en
  * @property string|null $motivo_rechazo
@@ -88,6 +89,7 @@ class SolicitudInterna extends Model
         'observaciones',
         'datos_propuestos',
         'datos_anteriores',
+        'datos_base',
         'revisado_por',
         'revisado_en',
         'motivo_rechazo',
@@ -110,6 +112,7 @@ class SolicitudInterna extends Model
             'revisado_en' => 'datetime',
             'datos_propuestos' => 'array',
             'datos_anteriores' => 'array',
+            'datos_base' => 'array',
         ];
     }
 
