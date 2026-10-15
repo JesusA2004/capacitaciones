@@ -139,8 +139,14 @@ test('CASO 4: con el worker detenido el aviso espera en la cola notifications y 
         ->and(DB::table('jobs')->where('queue', 'notifications')->count())->toBeGreaterThan(0)
         ->and($rh->notifications()->count())->toBe(0);
 
-    // "Supervisor levanta el worker".
-    $this->artisan('queue:work', ['connection' => 'database', '--queue' => 'notifications', '--stop-when-empty' => true])->assertExitCode(0);
+    // "Supervisor levanta el worker". Corre DENTRO del proceso de Pest, así
+    // que `memory_get_usage()` es el de toda la suite (fácilmente > 128 MB,
+    // el --memory por omisión): el worker se detendría con
+    // Worker::EXIT_MEMORY_LIMIT (12) tras el primer job, según cuánta
+    // memoria haya acumulado la corrida. `--memory=0` desactiva ese corte
+    // (Worker::memoryExceeded) y deja la prueba determinista; el límite de
+    // memoria del worker real lo pone Supervisor, no esta prueba.
+    $this->artisan('queue:work', ['connection' => 'database', '--queue' => 'notifications', '--stop-when-empty' => true, '--memory' => 0])->assertExitCode(0);
 
     expect($rh->notifications()->count())->toBe(1)
         ->and($colaborador->notifications()->count())->toBe(1)

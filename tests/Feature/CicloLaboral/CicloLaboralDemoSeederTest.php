@@ -15,6 +15,7 @@ use App\Models\Reingreso;
 use App\Models\User;
 use Database\Seeders\CicloLaboralDemoSeeder;
 use Database\Seeders\DatabaseSeeder;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 
@@ -24,7 +25,17 @@ use Illuminate\Support\Facades\Storage;
 */
 
 test('el demo del ciclo laboral deja cada etapa alcanzada por services, sin duplicar al repetirse', function () {
-    Storage::fake('nas');
+    // Disco 'nas' falso con raíz PROPIA de este proceso, no Storage::fake('nas'):
+    // fake() usa una sola carpeta compartida (storage/framework/testing/disks/nas)
+    // y la vacía al arrancar. Esta prueba siembra todo el DatabaseSeeder
+    // (minutos), así que cualquier otra corrida de Pest en la misma máquina
+    // que haga Storage::fake('nas') — o ExpedienteDemoSeeder, que purga
+    // expedientes/ — borraba sus archivos a la mitad y
+    // DocumentoStorageService::guardar() fallaba con «No se pudo guardar el
+    // archivo en el NAS». Nunca toca el NAS real ni storage/app.
+    $raizNas = storage_path(sprintf('framework/testing/disks/nas_ciclo_demo_%d', getmypid()));
+    File::deleteDirectory($raizNas);
+    Storage::set('nas', Storage::createLocalDriver(['root' => $raizNas, 'throw' => false]));
     Notification::fake();
 
     $this->seed(DatabaseSeeder::class);
@@ -54,4 +65,6 @@ test('el demo del ciclo laboral deja cada etapa alcanzada por services, sin dupl
     $candidatos = Candidato::query()->count();
     $this->seed(CicloLaboralDemoSeeder::class);
     expect(Candidato::query()->count())->toBe($candidatos);
+
+    File::deleteDirectory($raizNas);
 });

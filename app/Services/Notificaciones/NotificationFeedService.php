@@ -14,6 +14,7 @@ use App\Services\Colaboradores\NotificacionesService;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -32,7 +33,8 @@ use Illuminate\Validation\ValidationException;
  *
  * Cada item usa un id con prefijo de fuente (`notification:{uuid}`,
  * `aviso:{id}`, `celebracion:{id}`) para que marcar-leída/abrir sepan a qué
- * fuente despachar sin ambigüedad.
+ * fuente despachar sin ambigüedad. Un UUID sin prefijo se sigue aceptando
+ * como notificación nativa (lo envía el broadcast en tiempo real).
  */
 class NotificationFeedService
 {
@@ -331,6 +333,15 @@ class NotificationFeedService
      */
     private function descomponer(string $id): array
     {
+        // Un UUID sin prefijo es el id nativo de una notificación de Laravel:
+        // así lo entrega el broadcast en tiempo real (botón "Ver" del toast,
+        // useNotificacionesTiempoReal) y así lo mandaban la campana y la app
+        // antes de la unificación del feed. Rechazarlo dejaría esos avisos
+        // sin poder abrirse (422), así que se acepta como `notification:{uuid}`.
+        if (Str::isUuid($id)) {
+            return ['notification', $id];
+        }
+
         $partes = explode(':', $id, 2);
 
         if (count($partes) !== 2 || $partes[0] === '' || $partes[1] === '') {

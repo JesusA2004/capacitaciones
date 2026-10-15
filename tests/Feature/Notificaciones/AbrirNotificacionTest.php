@@ -103,3 +103,19 @@ test('no se puede abrir la notificacion de otro usuario', function () {
 
     expect($notificacion->fresh()->read_at)->toBeNull();
 });
+
+test('el id con prefijo del feed unificado y el uuid nativo del broadcast abren la misma notificacion', function () {
+    $rh = User::factory()->create();
+    $solicitud = SolicitudInterna::factory()->create();
+    $rh->notify(new RhSolicitudCreadaNotification($solicitud));
+    $notificacion = $rh->notifications()->firstOrFail();
+
+    $this->actingAs($rh)
+        ->postJson("/notificaciones/notification:{$notificacion->id}/abrir")
+        ->assertOk()
+        ->assertJsonPath('url', "/rh/solicitudes/{$solicitud->id}");
+
+    $this->actingAs($rh)
+        ->postJson('/notificaciones/no-es-un-id/abrir')
+        ->assertUnprocessable();
+});
