@@ -1776,13 +1776,13 @@ RH, Colaborador.
 
 <a id="articulo-actas"></a>
 
-### Actas: administrativa y de hechos
+### Acta administrativa circunstanciada
 
-> El gerente o RH levanta un acta administrativa o un acta de hechos sobre alguien de su alcance, con exactamente dos testigos, y revisa la vista previa del PDF antes de cerrarla.
+> El gerente o RH levanta el acta administrativa circunstanciada sobre alguien de su alcance, con exactamente dos testigos, y revisa la vista previa del PDF antes de generarla.
 
 #### Qué es
 
-Un documento administrativo factual (no legal) con lo que pasó: motivo, hechos, manifestación del colaborador, testigos y firmas. Solo hay dos tipos: acta administrativa y acta de hechos.
+Un documento administrativo factual (no legal) con lo que pasó: motivo, hechos y circunstancias, personas presentes, evidencias, manifestación del colaborador, testigos y firmas. Es el único tipo de acta que se levanta.
 
 #### Quién lo hace
 
@@ -1794,7 +1794,7 @@ Gerente o subgerente: personas de su sucursal. RH y corporativo con alcance glob
 
 #### Pasos
 
-1. **«Levantar acta»** _(Web)_ — Actas → «Levantar acta»: elige a la persona, el tipo (administrativa o de hechos), la fecha, hora y lugar, y describe los hechos.
+1. **«Levantar acta»** _(Web)_ — Actas → «Levantar acta»: elige a la persona, el motivo, la fecha, hora y lugar, y describe los hechos y circunstancias.
 2. **Testigos** _(Web)_ — Elige exactamente dos testigos activos, distintos entre sí y de la persona del acta. Al abrir el selector aparecen primero los de tu sucursal; puedes escribir nombre, apellido, número de empleado, puesto o sucursal (por ejemplo «Orizaba»). El cargo sale solo del puesto.
 3. **«Vista previa PDF»** _(Web)_ — Revisa el PDF exacto antes de generarlo. Abrir la vista previa no guarda nada.
 4. **Imprimir, firmar y cerrar** — Se imprime, firman el colaborador, los dos testigos y quien la levanta, y se sube el acta firmada para cerrarla.

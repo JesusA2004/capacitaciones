@@ -10,11 +10,13 @@ use App\Http\Requests\CicloLaboral\GuardarActaRequest;
 use App\Models\ActaAdministrativa;
 use App\Models\ActaAnexo;
 use App\Models\Colaborador;
+use App\Services\Actas\ActaPdfService;
 use App\Services\Actas\ActaService;
 use App\Services\DocumentosLaborales\DocumentoLaboralConsultaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ActaController extends Controller
@@ -24,7 +26,34 @@ class ActaController extends Controller
     public function __construct(
         private readonly ActaService $actas,
         private readonly DocumentoLaboralConsultaService $documentos,
+        private readonly ActaPdfService $pdf,
     ) {}
+
+    /** Mismo buscador de testigos que la web (ActaService::buscarTestigos). */
+    public function buscarTestigos(Request $request): JsonResponse
+    {
+        abort_unless($request->user()->can('actas.crear'), 403);
+        $datos = $request->validate(['q' => ['nullable', 'string', 'max:80'], 'excluir' => ['nullable', 'integer']]);
+
+        return response()->json(['data' => $this->actas->buscarTestigos($request->user(), (string) ($datos['q'] ?? ''), isset($datos['excluir']) ? (int) $datos['excluir'] : null)]);
+    }
+
+    /** Vista previa del PDF real (mismo servicio que el final); no guarda nada. */
+    public function vistaPrevia(ActaAdministrativa $acta): HttpResponse
+    {
+        $this->authorize('ver', $acta);
+        abort_unless(ActaPdfService::aplica($acta), 404);
+
+        if (($motivo = $this->pdf->faltante($acta)) !== null) {
+            return response()->json(['message' => $motivo], 409);
+        }
+
+        return response($this->pdf->vistaPrevia($acta), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => sprintf('inline; filename="Vista previa %s.pdf"', $acta->folio),
+            'Cache-Control' => 'no-store',
+        ]);
+    }
 
     public function index(Request $request): JsonResponse
     {

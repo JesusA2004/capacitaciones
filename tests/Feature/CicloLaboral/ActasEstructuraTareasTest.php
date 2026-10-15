@@ -2,6 +2,7 @@
 
 use App\Enums\EstadoCandidato;
 use App\Enums\TipoTarea;
+use App\Models\ActaAdministrativa;
 use App\Models\CampanaReclutamiento;
 use App\Models\Candidato;
 use App\Models\Colaborador;
@@ -26,17 +27,20 @@ beforeEach(function () {
 
 test('actas: captura, anexos, formato por motor documental, negativa a firmar y cierre; el implicado no puede verla', function () {
     Sanctum::actingAs($this->rh);
-    clPlantilla('acta_hechos', ['contenido_html' => '<h1>{{tipo_acta}} {{folio_acta}}</h1><p>{{hechos_acta}}</p><p>Testigos: {{testigos_acta}}</p>', 'requiere_testigos' => true]);
+    // Acta administrativa circunstanciada: formato propio y único de PEOPLE (ActaPdfService).
     $colaborador = Colaborador::factory()->create(['sucursal_principal_id' => $this->estructura['sucursal']->id]);
-    $testigo = Colaborador::factory()->create(['name' => 'Pedro', 'apellidos' => 'López']);
+    $supervisor = Puesto::factory()->create(['nombre' => 'Supervisor']);
+    $testigo = Colaborador::factory()->create(['name' => 'Pedro', 'apellidos' => 'López', 'puesto_id' => $supervisor->id]);
+    $testigo2 = Colaborador::factory()->create(['name' => 'Laura', 'apellidos' => 'Gil', 'puesto_id' => $supervisor->id]);
 
     $acta = $this->postJson("/api/v1/rh/colaboradores/{$colaborador->id}/actas", [
-        'tipo' => 'hechos',
+        'tipo' => 'administrativa',
+        'motivo' => 'Faltante de mercancía',
         'fecha' => now()->toDateString(),
         'hora' => '09:30',
         'lugar' => 'Sucursal Cuernavaca',
         'hechos' => 'Faltante de mercancía en inventario.',
-        'testigos' => [['colaborador_id' => $testigo->id, 'nombre' => $testigo->nombreCompleto(), 'puesto' => 'Supervisor']],
+        'testigos' => [['colaborador_id' => $testigo->id, 'nombre' => $testigo->nombreCompleto(), 'puesto' => 'Texto libre ignorado'], ['colaborador_id' => $testigo2->id]],
         'declaraciones' => [['persona' => 'Colaborador', 'declaracion' => 'Desconoce el faltante.']],
     ])->assertCreated()->assertJsonPath('data.estado', 'borrador')->json('data');
 
@@ -46,7 +50,7 @@ test('actas: captura, anexos, formato por motor documental, negativa a firmar y 
         ->assertCreated()->assertJsonCount(1, 'data.anexos');
 
     $documento = $this->postJson("/api/v1/rh/actas/{$acta['id']}/documento")->assertCreated()->json('data');
-    expect($documento['payload']['testigos_acta'])->toBe('Pedro López (Supervisor)')
+    expect(ActaAdministrativa::query()->findOrFail($acta['id'])->testigos[0]['puesto'])->toBe('Supervisor')
         ->and($documento['categoria'])->toBe('actas');
 
     // Generada ya no admite edición de hechos; los cambios van como seguimiento.

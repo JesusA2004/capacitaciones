@@ -3,6 +3,7 @@ import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import {
     CircleCheck,
     FilePen,
+    FileSearch,
     Paperclip,
     Pencil,
     TriangleAlert,
@@ -12,6 +13,7 @@ import ActaCampos from '@/components/actas/ActaCampos.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import DocumentosProceso from '@/components/documentos/DocumentosProceso.vue';
 import InputError from '@/components/InputError.vue';
+import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -32,6 +34,7 @@ import {
     negativaFirma,
     seguimiento,
     update,
+    vistaPrevia,
 } from '@/routes/rh/actas';
 import anexos from '@/routes/rh/actas/anexos';
 import type { ActaDetalle, FormularioActa } from '@/types';
@@ -57,6 +60,15 @@ const editable = computed(
 const abierta = computed(
     () => !['cerrada', 'cancelada'].includes(props.acta.estado),
 );
+
+/**
+ * Acta administrativa / de hechos: formato propio (BrowserShot). La vista
+ * previa es el PDF REAL que se generará, sin guardarlo.
+ */
+const tieneVistaPrevia = computed(() =>
+    ['administrativa', 'hechos'].includes(props.acta.tipo),
+);
+const previaAbierta = ref(false);
 
 function refrescar() {
     router.reload({ only: ['acta'] });
@@ -305,6 +317,15 @@ function cerrarActa() {
             </section>
 
             <div class="flex flex-col gap-5">
+                <Button
+                    v-if="tieneVistaPrevia && abierta"
+                    variant="outline"
+                    class="self-start"
+                    @click="previaAbierta = true"
+                >
+                    <FileSearch class="size-4" /> Vista previa PDF
+                </Button>
+
                 <DocumentosProceso
                     tipo="acta"
                     :id="acta.id"
@@ -512,4 +533,12 @@ function cerrarActa() {
             </form>
         </DialogContent>
     </Dialog>
+
+    <DocumentPreviewDialog
+        v-if="tieneVistaPrevia"
+        v-model:open="previaAbierta"
+        :preview-url="vistaPrevia.url(acta.id)"
+        :download-url="vistaPrevia.url(acta.id)"
+        :nombre="`Vista previa ${acta.folio ?? ''}`"
+    />
 </template>

@@ -2,8 +2,10 @@
 
 namespace App\Services\Actas;
 
+use App\Enums\AlcanceDatos;
 use App\Enums\CategoriaDocumento;
 use App\Enums\EstadoActa;
+use App\Enums\EstadoUsuario;
 use App\Enums\TipoActa;
 use App\Models\ActaAdministrativa;
 use App\Models\ActaAnexo;
@@ -14,12 +16,14 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Expedientes\DocumentoStorageService;
+use App\Services\Permisos\AlcanceModuloService;
 use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -36,7 +40,62 @@ class ActaService
         private readonly DocumentoStorageService $expediente,
         private readonly AuditoriaService $auditoria,
         private readonly AlcanceOrganizacionalService $alcance,
+        private readonly AlcanceModuloService $alcanceModulo,
     ) {}
+
+    /**
+     * Testigos elegibles: colaboradores ACTIVOS dentro del alcance del
+     * módulo de actas de quien levanta (gerente/subgerente: su sucursal;
+     * RH/corporativo con alcance global: toda la organización). Al abrir el
+     * selector (sin texto) salen primero los de SU sucursal; al escribir se
+     * busca por nombre, apellido, número de empleado, puesto o sucursal
+     * («Orizaba» → activos de Orizaba). El cargo sale del puesto, nunca
+     * texto libre.
+     *
+     * @return list<array{id: int, nombre: string, numero_empleado: string|null, puesto: string|null, sucursal: string|null}>
+     */
+    public function buscarTestigos(User $usuario, string $termino, ?int $excluirId = null): array
+    {
+        $palabras = array_slice(preg_split('/\s+/u', Str::lower(Str::ascii(trim($termino))), -1, PREG_SPLIT_NO_EMPTY) ?: [], 0, 4);
+        $sucursalPropia = $usuario->colaborador?->sucursal_principal_id;
+
+        $consulta = Colaborador::query()
+            ->with(['puesto:id,nombre', 'sucursalPrincipal:id,nombre'])
+            ->where('estatus', EstadoUsuario::Activo->value)
+            ->when($excluirId !== null, fn (Builder $q) => $q->where('id', '!=', $excluirId));
+
+        $global = $usuario->hasRole('super_admin') || $this->alcanceModulo->nivel($usuario, 'actas') === AlcanceDatos::Todos;
+
+        if (! $global) {
+            $this->alcanceModulo->limitarColaboradores($consulta, $usuario, 'actas');
+        }
+
+        // Sin texto: solo los de su sucursal (no cargar a toda la empresa).
+        if ($palabras === [] && $sucursalPropia !== null) {
+            $consulta->where('sucursal_principal_id', $sucursalPropia);
+        }
+
+        $candidatos = $consulta->orderBy('name')->orderBy('apellidos')->limit(3000)->get();
+
+        return array_values($candidatos
+            ->filter(function (Colaborador $c) use ($palabras): bool {
+                $texto = Str::lower(Str::ascii(sprintf('%s %s %s %s %s', $c->name, $c->apellidos, $c->numero_empleado, $c->puesto?->nombre, $c->sucursalPrincipal?->nombre)));
+
+                return collect($palabras)->every(fn (string $p): bool => str_contains($texto, $p));
+            })
+            // Los de su sucursal primero.
+            ->sortBy(fn (Colaborador $c): int => $c->sucursal_principal_id === $sucursalPropia ? 0 : 1)
+            ->take(30)
+            ->map(fn (Colaborador $c): array => [
+                'id' => $c->id,
+                'nombre' => $c->nombreCompleto(),
+                'numero_empleado' => $c->numero_empleado,
+                'puesto' => $c->puesto?->nombre,
+                'sucursal' => $c->sucursalPrincipal?->nombre,
+            ])
+            ->values()
+            ->all());
+    }
 
     /**
      * @param  array<string, mixed>  $datos  Validado por GuardarActaRequest.

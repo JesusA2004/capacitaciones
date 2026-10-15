@@ -574,7 +574,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::prefix('actas')->name('actas.')->group(function () {
                 Route::get('/', [ActaController::class, 'index'])->name('index');
+                Route::get('testigos', [ActaController::class, 'buscarTestigos'])->name('testigos');
                 Route::get('{acta}', [ActaController::class, 'show'])->name('show');
+                Route::get('{acta}/vista-previa', [ActaController::class, 'vistaPrevia'])->name('vista-previa');
                 Route::patch('{acta}', [ActaController::class, 'update'])->name('update');
                 Route::post('{acta}/anexos', [ActaController::class, 'anexo'])->name('anexos.store')->middleware('throttle:api-cargas');
                 Route::get('{acta}/anexos/{anexo}', [ActaController::class, 'descargarAnexo'])->name('anexos.show');

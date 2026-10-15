@@ -73,6 +73,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::prefix('actas')->name('actas.')->group(function () {
             Route::get('/', [ActaController::class, 'index'])->name('index');
             Route::get('colaboradores', [ActaController::class, 'buscarColaboradores'])->name('colaboradores');
+            Route::get('testigos', [ActaController::class, 'buscarTestigos'])->name('testigos')->middleware('throttle:60,1');
+            Route::get('{acta}/vista-previa', [ActaController::class, 'vistaPrevia'])->name('vista-previa');
             Route::post('colaborador/{colaborador}', [ActaController::class, 'store'])->name('store');
             Route::get('{acta}', [ActaController::class, 'show'])->name('show');
             Route::put('{acta}', [ActaController::class, 'update'])->name('update');

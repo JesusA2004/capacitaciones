@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { testigos as buscarTestigos } from '@/routes/rh/actas';
 import type { ColaboradorBusqueda, FormularioActa } from '@/types';
 
 /**
@@ -170,8 +171,20 @@ const hoy = computed(() => new Date());
                 class="flex flex-col gap-1.5"
             >
                 <Label>Testigo {{ i + 1 }}</Label>
+                <!-- Al abrir: activos de tu sucursal. Escribe nombre, número,
+                     puesto o sucursal («Orizaba»); RH/corporativo buscan en
+                     toda la organización (alcance del módulo de actas). -->
                 <BuscadorColaborador
                     :model-value="testigoModelo(i)"
+                    :buscar-url="
+                        (texto: string) =>
+                            buscarTestigos.url({
+                                query: {
+                                    q: texto,
+                                    ...(sujetoId ? { excluir: sujetoId } : {}),
+                                },
+                            })
+                    "
                     @update:model-value="(c) => elegirTestigo(i, c)"
                 />
                 <p

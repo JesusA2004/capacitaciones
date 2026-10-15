@@ -10,6 +10,7 @@ use App\Http\Requests\CicloLaboral\GuardarActaRequest;
 use App\Models\ActaAdministrativa;
 use App\Models\ActaAnexo;
 use App\Models\Colaborador;
+use App\Services\Actas\ActaPdfService;
 use App\Services\Actas\ActaService;
 use App\Services\DocumentosMaestros\DocumentosMaestrosAdminService;
 use Illuminate\Http\JsonResponse;
@@ -18,6 +19,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -32,6 +34,7 @@ class ActaController extends Controller
     public function __construct(
         private readonly ActaService $actas,
         private readonly DocumentosMaestrosAdminService $admin,
+        private readonly ActaPdfService $pdf,
     ) {}
 
     public function index(Request $request): Response
@@ -56,6 +59,35 @@ class ActaController extends Controller
         $datos = $request->validate(['q' => ['nullable', 'string', 'max:80']]);
 
         return response()->json(['data' => $this->admin->buscarColaboradores($request->user(), (string) ($datos['q'] ?? ''))]);
+    }
+
+    /** Testigos: activos de su alcance, los de su sucursal primero (ActaService::buscarTestigos). */
+    public function buscarTestigos(Request $request): JsonResponse
+    {
+        abort_unless($request->user()->can('actas.crear'), 403);
+        $datos = $request->validate(['q' => ['nullable', 'string', 'max:80'], 'excluir' => ['nullable', 'integer']]);
+
+        return response()->json(['data' => $this->actas->buscarTestigos($request->user(), (string) ($datos['q'] ?? ''), isset($datos['excluir']) ? (int) $datos['excluir'] : null)]);
+    }
+
+    /**
+     * Vista previa del PDF REAL del acta (mismo servicio y datos que el
+     * final). No guarda nada.
+     */
+    public function vistaPrevia(Request $request, ActaAdministrativa $acta): HttpResponse
+    {
+        $this->authorize('ver', $acta);
+        abort_unless(ActaPdfService::aplica($acta), 404);
+
+        if (($motivo = $this->pdf->faltante($acta)) !== null) {
+            abort(409, $motivo);
+        }
+
+        return response($this->pdf->vistaPrevia($acta), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => sprintf('inline; filename="Vista previa %s.pdf"', $acta->folio),
+            'Cache-Control' => 'no-store',
+        ]);
     }
 
     public function store(GuardarActaRequest $request, Colaborador $colaborador): RedirectResponse

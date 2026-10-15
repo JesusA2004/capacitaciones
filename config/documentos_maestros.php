@@ -347,6 +347,7 @@ return [
         'prestamo_consentimiento_retencion' => ['documentos_laborales.generar', 'prestamos.autorizar'],
         // Quien levanta actas (jefe inmediato o RH, PRO-ADP-08) genera su formato.
         'acta_administrativa' => ['documentos_laborales.generar', 'actas.crear', 'actas.gestionar'],
+        'acta_hechos' => ['documentos_laborales.generar', 'actas.crear', 'actas.gestionar'],
     ],
 
     /*

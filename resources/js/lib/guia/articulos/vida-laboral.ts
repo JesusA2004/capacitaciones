@@ -723,11 +723,11 @@ export const ARTICULOS_VIDA_LABORAL: ArticuloGuia[] = [
     },
     {
         id: 'actas',
-        titulo: 'Actas: administrativa y de hechos',
+        titulo: 'Acta administrativa circunstanciada',
         proceso: 'vida-laboral',
         resumen:
-            'El gerente o RH levanta un acta administrativa o un acta de hechos sobre alguien de su alcance, con exactamente dos testigos, y revisa la vista previa del PDF antes de cerrarla.',
-        queEs: 'Un documento administrativo factual (no legal) con lo que pasó: motivo, hechos, manifestación del colaborador, testigos y firmas. Solo hay dos tipos: acta administrativa y acta de hechos.',
+            'El gerente o RH levanta el acta administrativa circunstanciada sobre alguien de su alcance, con exactamente dos testigos, y revisa la vista previa del PDF antes de generarla.',
+        queEs: 'Un documento administrativo factual (no legal) con lo que pasó: motivo, hechos y circunstancias, personas presentes, evidencias, manifestación del colaborador, testigos y firmas. Es el único tipo de acta que se levanta.',
         quien: ['gerente', 'rh'],
         quienDetalle:
             'Gerente o subgerente: personas de su sucursal. RH y corporativo con alcance global: toda la organización.',
@@ -736,7 +736,7 @@ export const ARTICULOS_VIDA_LABORAL: ArticuloGuia[] = [
             {
                 titulo: '«Levantar acta»',
                 detalle:
-                    'Actas → «Levantar acta»: elige a la persona, el tipo (administrativa o de hechos), la fecha, hora y lugar, y describe los hechos.',
+                    'Actas → «Levantar acta»: elige a la persona, el motivo, la fecha, hora y lugar, y describe los hechos y circunstancias.',
                 canal: 'web',
             },
             {

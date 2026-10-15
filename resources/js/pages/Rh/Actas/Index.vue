@@ -277,15 +277,9 @@ function levantar() {
                     />
                 </div>
 
-                <div class="flex flex-col gap-1.5">
-                    <Label for="acta-tipo">Tipo</Label>
-                    <SelectSimple
-                        id="acta-tipo"
-                        v-model="form.tipo"
-                        :opciones="tipos"
-                    />
-                    <InputError :message="form.errors.tipo" />
-                </div>
+                <!-- Un solo tipo de acta: la administrativa circunstanciada. -->
+                <p class="text-sm font-medium">Acta administrativa circunstanciada</p>
+                <InputError :message="form.errors.tipo" />
 
                 <ActaCampos
                     :model-value="form"

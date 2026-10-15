@@ -25,6 +25,7 @@ use App\Models\Prestamo;
 use App\Models\SolicitudInterna;
 use App\Models\Sucursal;
 use App\Models\User;
+use App\Services\Actas\ActaPdfService;
 use App\Services\Actas\ActaService;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
@@ -751,6 +752,23 @@ class DocumentoProcesoService
             }
         }
 
+        // Acta administrativa / de hechos: formato PROPIO (BrowserShot), sin
+        // master de Jurídico. Mismas reglas de arriba (permiso, bloqueo,
+        // regenerar solo antes de imprimir); mismo flujo físico después.
+        if ($this->esFormatoPropio($clave, $registro)) {
+            /** @var ActaAdministrativa $registro */
+            $documento = DB::transaction(function () use ($existente, $actor, $registro): GeneratedDocument {
+                if ($existente !== null) {
+                    $this->flujo->cancelar($existente, $actor, 'Regenerado con datos actualizados (nueva instancia del mismo formato).');
+                }
+
+                return app(ActaPdfService::class)->registrar($registro, $actor);
+            });
+            $this->ligarAlRegistro($documento, $registro, $clave, $actor);
+
+            return $documento;
+        }
+
         $master = $this->masterPara($clave, $colaborador, $proceso);
         $documento = DB::transaction(function () use ($existente, $revisionDe, $motivoRevision, $actor, $master, $colaborador, $registro, $manuales, $clave, $proceso): GeneratedDocument {
             if ($existente !== null && $revisionDe === null) {
@@ -1002,9 +1020,10 @@ class DocumentoProcesoService
     private function item(string $clave, Colaborador $colaborador, Model $registro, User $viewer, string $proceso, array $opciones): array
     {
         $faltaFormato = null;
+        $formatoPropio = $this->esFormatoPropio($clave, $registro);
 
         try {
-            $master = $this->masterPara($clave, $colaborador, $proceso);
+            $master = $formatoPropio ? null : $this->masterPara($clave, $colaborador, $proceso);
         } catch (DocumentoMaestroFaltanteException $e) {
             $master = null;
             $faltaFormato = [
@@ -1045,12 +1064,14 @@ class DocumentoProcesoService
         };
         $acciones = $propio && ! $viewer->can('documentos_laborales.generar')
             ? ($documento !== null && $viewer->can('descargar', $documento) ? [['clave' => 'descargar', 'etiqueta' => 'Ver PDF', 'tipo' => 'secundaria']] : [])
-            : $this->acciones($documento, $master, $clave, $bloqueo, $viewer);
+            : $this->acciones($documento, $master, $clave, $bloqueo, $viewer, $formatoPropio);
         $principal = collect($acciones)->first(fn (array $a): bool => $a['tipo'] === 'primaria');
 
         return [
             'clave' => $clave,
-            'nombre' => $master->nombre ?? $this->catalogo->nombreClave($clave),
+            'nombre' => $formatoPropio && $registro instanceof ActaAdministrativa ? $registro->tipo->etiqueta() : ($master->nombre ?? $this->catalogo->nombreClave($clave)),
+            // Formato propio de PEOPLE (BrowserShot): tiene vista previa del PDF real.
+            'formato_propio' => $formatoPropio,
             'motivo' => $opciones['motivo'],
             'estado' => $estado,
             'estado_etiqueta' => match ($estado) {
@@ -1104,14 +1125,14 @@ class DocumentoProcesoService
      *
      * @return list<array{clave: string, etiqueta: string, tipo: string}>
      */
-    private function acciones(?GeneratedDocument $documento, ?DocumentTemplate $master, string $clave, ?string $bloqueo, User $viewer): array
+    private function acciones(?GeneratedDocument $documento, ?DocumentTemplate $master, string $clave, ?string $bloqueo, User $viewer, bool $formatoPropio = false): array
     {
         $primarias = [];
         $secundarias = [];
         $genera = $this->puedeGenerar($viewer, $clave);
 
         if ($documento === null) {
-            if ($master !== null && $bloqueo === null && $genera) {
+            if (($master !== null || $formatoPropio) && $bloqueo === null && $genera) {
                 $primarias[] = ['clave' => 'generar', 'etiqueta' => 'Generar', 'tipo' => 'primaria'];
             }
 
@@ -1165,7 +1186,7 @@ class DocumentoProcesoService
             $secundarias[] = ['clave' => 'descargar_word', 'etiqueta' => 'Descargar Word', 'tipo' => 'secundaria'];
         }
 
-        if ($genera && in_array($estado, [E::Generado, E::PendienteImpresion], true) && $master !== null) {
+        if ($genera && in_array($estado, [E::Generado, E::PendienteImpresion], true) && ($master !== null || $formatoPropio)) {
             $secundarias[] = ['clave' => 'regenerar', 'etiqueta' => 'Regenerar con datos actuales', 'tipo' => 'secundaria'];
         }
 
@@ -1478,7 +1499,9 @@ class DocumentoProcesoService
     private function bloqueoGeneracion(string $proceso, Model $registro, string $clave): ?string
     {
         return match (true) {
-            $registro instanceof ActaAdministrativa => in_array($registro->estado, [EstadoActa::Cerrada, EstadoActa::Cancelada], true) ? 'El acta ya está cerrada.' : null,
+            $registro instanceof ActaAdministrativa => in_array($registro->estado, [EstadoActa::Cerrada, EstadoActa::Cancelada], true)
+                ? 'El acta ya está cerrada.'
+                : (ActaPdfService::aplica($registro) ? app(ActaPdfService::class)->faltante($registro) : null),
             $registro instanceof CierreLaboral && $clave === 'acta_negativa_firma' => $registro->negativa_firma_en === null
                 ? 'El acta solo se genera cuando se registró la negativa del colaborador a firmar/recibir.'
                 : ($this->testigosCompletos($registro) < 2 ? 'Captura los dos testigos antes de generar el acta.' : null),
@@ -1705,5 +1728,16 @@ class DocumentoProcesoService
     public static function hoy(): CarbonImmutable
     {
         return CarbonImmutable::now('America/Mexico_City');
+    }
+
+    /**
+     * Acta administrativa / de hechos con el formato propio de PEOPLE
+     * (ActaPdfService, BrowserShot): no hay master oficial para ellas.
+     */
+    private function esFormatoPropio(string $clave, Model $registro): bool
+    {
+        return $registro instanceof ActaAdministrativa
+            && ActaPdfService::aplica($registro)
+            && $clave === $registro->tipo->clavePlantilla();
     }
 }

@@ -25,7 +25,8 @@ class GuardarActaRequest extends FormRequest
         $colaboradorDelActa = $this->colaboradorDelActa();
 
         return [
-            'tipo' => [$this->isMethod('post') ? 'required' : 'prohibited', Rule::enum(TipoActa::class)],
+            // Solo el acta administrativa circunstanciada (las históricas se siguen leyendo).
+            'tipo' => [$this->isMethod('post') ? 'required' : 'prohibited', Rule::enum(TipoActa::class)->only(TipoActa::creables())],
             // Encabezado del formato oficial («ACTA ADMINISTRATIVA POR …»):
             // obligatorio al levantar un acta administrativa.
             'motivo' => [Rule::requiredIf($this->isMethod('post') && $this->input('tipo') === TipoActa::Administrativa->value), 'nullable', 'string', 'max:191'],
@@ -40,7 +41,11 @@ class GuardarActaRequest extends FormRequest
             // documental es quien exige los dos al generar). Pero si llega
             // algún testigo, el formato oficial exige exactamente dos,
             // elegidos de un buscador (nunca texto libre) — CLAUDE.md §76-79.
-            'testigos' => ['nullable', 'array', 'max:2'],
+            'testigos' => ['nullable', 'array', 'max:2', function (string $attribute, mixed $value, \Closure $fail): void {
+                if (is_array($value) && count($value) === 1) {
+                    $fail('El acta lleva exactamente dos testigos distintos.');
+                }
+            }],
             // nombre/puesto del testigo NUNCA se guardan tal cual: el
             // backend los resuelve del Colaborador real (ActaService) — lo
             // que el cliente mande aquí es ignorado, solo se exige para no
