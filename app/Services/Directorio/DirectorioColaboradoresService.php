@@ -204,7 +204,7 @@ class DirectorioColaboradoresService
             return true;
         }
 
-        return (bool) ($viewer->colaborador?->sucursalPrincipal?->es_corporativo ?? false);
+        return (bool) ($viewer->colaborador?->sucursalPrincipal->es_corporativo ?? false);
     }
 
     public function puedeVerContacto(User $viewer, Colaborador $colaborador): bool
