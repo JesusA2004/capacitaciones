@@ -7,14 +7,14 @@
 03:58 Entrevista con el gerente
 04:17 Psicométricos
 04:38 Socioeconómico
-04:57 Autorización e intervención
-05:39 Contratación y QR
-06:29 Registro del colaborador
-07:13 Expediente
-07:55 Contrato inicial
-08:46 Onboarding
-09:40 Evaluación
-10:02 Contrato indeterminado
-10:24 Solicitudes, nómina y avisos
-12:08 Baja, finiquito y reingreso
-13:21 Cierre
+04:59 Autorización e intervención
+05:41 Contratación y QR
+06:31 Registro del colaborador
+07:15 Expediente
+07:57 Contrato inicial
+08:48 Onboarding
+09:42 Evaluación
+10:04 Contrato indeterminado
+10:26 Solicitudes, nómina y avisos
+12:13 Baja, finiquito y reingreso
+13:26 Cierre

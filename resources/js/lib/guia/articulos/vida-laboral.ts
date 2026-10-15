@@ -415,7 +415,7 @@ export const ARTICULOS_VIDA_LABORAL: ArticuloGuia[] = [
         registro: [
             'Lote con quién lo preparó, revisó y emitió; snapshot del PDF de cada recibo.',
         ],
-        relacionados: ['mis-recibos'],
+        relacionados: ['revisar-solicitudes'],
         accesos: [
             {
                 etiqueta: 'Ir a Recibos de nómina',
@@ -431,51 +431,6 @@ export const ARTICULOS_VIDA_LABORAL: ArticuloGuia[] = [
             '¿PEOPLE timbra la nómina?',
         ],
         recorrido: 'emitir-nomina',
-    },
-    {
-        id: 'mis-recibos',
-        titulo: 'Tu recibo de nómina (impreso)',
-        proceso: 'nomina',
-        resumen:
-            'El recibo de nómina se entrega IMPRESO: RH lo genera en PDF y te lo da; no se consulta en Mi espacio ni en la app.',
-        queEs: 'Cada periodo RH emite el recibo interno de nómina (PDF con el formato oficial), lo archiva en tu expediente y lo imprime para entregártelo.',
-        quien: ['colaborador', 'rh'],
-        antes: ['RH emitió el lote del periodo.'],
-        pasos: [
-            {
-                titulo: 'RH emite e imprime',
-                detalle:
-                    'Personal → Recibos de nómina: RH emite el lote y descarga/imprime el PDF de cada recibo.',
-                quien: 'rh',
-                canal: 'web',
-            },
-            {
-                titulo: 'Recibes tu recibo impreso',
-                detalle: 'Tu gerente o RH te lo entrega en sucursal.',
-                quien: 'colaborador',
-            },
-        ],
-        despues: ['El PDF queda archivado en tu expediente (lo consulta RH).'],
-        errores: [
-            {
-                problema: '«No veo mis recibos en la app.»',
-                solucion:
-                    'Es correcto: el recibo se entrega impreso. Si no lo recibiste, pídelo a Recursos Humanos.',
-            },
-        ],
-        relacionados: ['nomina-lotes', 'app-colaborador'],
-        accesos: [
-            {
-                etiqueta: 'Ir a Recibos de nómina',
-                ruta: '/rh/nomina/lotes',
-                permisos: ['nomina.recibos.ver'],
-                modo: 'operativo',
-            },
-        ],
-        preguntas: [
-            '¿Dónde veo mi recibo de nómina?',
-            '¿Por qué no veo mi recibo en la app?',
-        ],
     },
     {
         id: 'avisos',
@@ -597,7 +552,7 @@ export const ARTICULOS_VIDA_LABORAL: ArticuloGuia[] = [
             {
                 titulo: 'Directorio e Inducción',
                 detalle:
-                    'Directorio de contacto corporativo y la Inducción Mr. Lana. Tu recibo de nómina se entrega impreso (no está en la app).',
+                    'Directorio de la empresa y la Inducción Mr. Lana.',
                 canal: 'app',
             },
             {
@@ -625,7 +580,6 @@ export const ARTICULOS_VIDA_LABORAL: ArticuloGuia[] = [
         relacionados: [
             'completar-datos',
             'permisos',
-            'mis-recibos',
             'onboarding',
         ],
         accesos: [
@@ -766,5 +720,62 @@ export const ARTICULOS_VIDA_LABORAL: ArticuloGuia[] = [
             '¿Dónde veo el historial laboral?',
             '¿Cómo registro un ascenso?',
         ],
+    },
+    {
+        id: 'actas',
+        titulo: 'Actas: administrativa y de hechos',
+        proceso: 'vida-laboral',
+        resumen:
+            'El gerente o RH levanta un acta administrativa o un acta de hechos sobre alguien de su alcance, con exactamente dos testigos, y revisa la vista previa del PDF antes de cerrarla.',
+        queEs: 'Un documento administrativo factual (no legal) con lo que pasó: motivo, hechos, manifestación del colaborador, testigos y firmas. Solo hay dos tipos: acta administrativa y acta de hechos.',
+        quien: ['gerente', 'rh'],
+        quienDetalle:
+            'Gerente o subgerente: personas de su sucursal. RH y corporativo con alcance global: toda la organización.',
+        antes: ['La persona está activa y dentro de tu alcance.'],
+        pasos: [
+            {
+                titulo: '«Levantar acta»',
+                detalle:
+                    'Actas → «Levantar acta»: elige a la persona, el tipo (administrativa o de hechos), la fecha, hora y lugar, y describe los hechos.',
+                canal: 'web',
+            },
+            {
+                titulo: 'Testigos',
+                detalle:
+                    'Elige exactamente dos testigos activos, distintos entre sí y de la persona del acta. Al abrir el selector aparecen primero los de tu sucursal; puedes escribir nombre, apellido, número de empleado, puesto o sucursal (por ejemplo «Orizaba»). El cargo sale solo del puesto.',
+                canal: 'web',
+            },
+            {
+                titulo: '«Vista previa PDF»',
+                detalle:
+                    'Revisa el PDF exacto antes de generarlo. Abrir la vista previa no guarda nada.',
+                canal: 'web',
+            },
+            {
+                titulo: 'Imprimir, firmar y cerrar',
+                detalle:
+                    'Se imprime, firman el colaborador, los dos testigos y quien la levanta, y se sube el acta firmada para cerrarla.',
+            },
+        ],
+        despues: [
+            'El acta queda en el expediente de la persona con su historial.',
+        ],
+        errores: [
+            {
+                problema: '«No me deja guardar los testigos.»',
+                solucion:
+                    'Deben ser exactamente dos, activos, distintos entre sí y distintos de la persona del acta.',
+            },
+        ],
+        relacionados: ['expediente', 'baja'],
+        accesos: [
+            {
+                etiqueta: 'Ir a Actas',
+                ruta: '/rh/actas',
+                permisos: ['actas.ver'],
+                modo: 'operativo',
+            },
+        ],
+        preguntas: ['¿Cómo levanto un acta?', '¿Quiénes pueden ser testigos?'],
     },
 ];

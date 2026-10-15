@@ -33,15 +33,9 @@ export const GLOSARIO: TerminoGlosario[] = [
         articulo: 'filtro-rh',
     },
     {
-        termino: 'Preautorización',
+        termino: 'Autorización de RH',
         definicion:
-            'Primer «sí» de quien está arriba en el organigrama (gerente o superior). Nunca es la decisión final.',
-        articulo: 'autorizacion-rh',
-    },
-    {
-        termino: 'Autorización final de RH',
-        definicion:
-            'La decisión definitiva de Recursos Humanos. Quien preautorizó no puede darla.',
+            'La decisión de contratar a un candidato. Solo la da Recursos Humanos, después de que el responsable revisó entrevista, psicométricos y socioeconómico. El gerente no autoriza contrataciones.',
         articulo: 'autorizacion-rh',
     },
     {
@@ -65,7 +59,7 @@ export const GLOSARIO: TerminoGlosario[] = [
     {
         termino: 'Expediente',
         definicion:
-            'La carpeta digital de la persona: datos, documentos, contratos, solicitudes, recibos, avisos e historial. Nunca se borra.',
+            'La carpeta digital de la persona: datos, documentos, contratos, solicitudes, avisos e historial. Nunca se borra.',
         articulo: 'expediente',
     },
     {
@@ -95,13 +89,13 @@ export const GLOSARIO: TerminoGlosario[] = [
     {
         termino: 'Lote de nómina',
         definicion:
-            'Conjunto de recibos de un periodo (semanal o quincenal). Se prepara, se revisa y solo al emitirse se publica.',
+            'Conjunto de recibos de un periodo (semanal para sucursales, quincenal para corporativo). Se prepara, se revisa, se emite y RH lo imprime.',
         articulo: 'nomina-lotes',
     },
     {
         termino: 'Cierre laboral',
         definicion:
-            'El proceso completo de baja: solicitud, autorizaciones, finiquito, pago, firma y baja en la fecha efectiva.',
+            'El proceso completo de baja: el jefe directo (o RH) la inicia, RH autoriza, finiquito, pago, firma y baja en la fecha efectiva.',
         articulo: 'baja',
     },
     {
@@ -125,66 +119,77 @@ export const PREGUNTAS_FRECUENTES: PreguntaFrecuente[] = [
         respuesta:
             'Porque ya no falta: la plantilla autorizada de ese puesto y sucursal está completa, o la sucursal no es de tu alcance. Gerencia de RH revisa la plantilla en Administración → Sucursales.',
         articulo: 'plantilla-y-vacantes',
+        roles: ['rh', 'gerente', 'regional', 'direccion_comercial'],
     },
     {
         pregunta: '¿Por qué no puedo contratar al candidato?',
         respuesta:
             'Debe estar «Autorizado por RH», vinculado a una vacante real con plaza libre y su puesto debe tener configurada la duración de capacitación inicial. El mensaje en pantalla dice cuál falta.',
         articulo: 'iniciar-contratacion',
+        roles: ['rh'],
     },
     {
         pregunta: '¿Por qué no puedo imprimir un permiso?',
         respuesta:
             'El formato de permiso solo se genera cuando RH ya lo autorizó (después del visto bueno del gerente y del regional). También debe estar cargado el formato oficial en Documentos maestros.',
         articulo: 'permisos',
+        roles: ['rh', 'gerente'],
     },
     {
         pregunta: '¿Por qué el contrato no se genera?',
         respuesta:
             'Falta un dato que el formato pide (PEOPLE dice cuál: estado civil, beneficiario…) o falta el formato oficial. Nunca genera un contrato incompleto.',
         articulo: 'contrato-inicial',
+        roles: ['rh'],
     },
     {
-        pregunta: '¿Por qué no veo el recibo?',
+        pregunta: '¿Por qué un recibo no aparece para imprimir?',
         respuesta:
-            'El lote todavía no se emite. Los recibos preparados son borradores: nadie los ve hasta que RH pulsa «Emitir».',
+            'El lote todavía no se emite: los recibos preparados son borradores. Al «Emitir» se congela el PDF y RH lo imprime para entregarlo.',
         articulo: 'nomina-lotes',
+        roles: ['rh'],
     },
     {
         pregunta: '¿Qué hago si falta un dato?',
         respuesta:
             'RH ve qué sección está incompleta en el expediente y pulsa «Avisar al colaborador». El colaborador lo completa en la app («Completa tu información») y RH lo autoriza.',
         articulo: 'completitud-expediente',
+        roles: ['rh', 'colaborador'],
     },
     {
         pregunta: '¿Cómo corrijo un expediente?',
         respuesta:
-            'RH corrige los datos de otras personas en su expediente. Nadie edita el suyo propio: se usa «Solicitar corrección» y otra persona de RH lo autoriza.',
+            'RH corrige los datos de otras personas en su expediente. Nadie edita el suyo propio: si el dato está vacío se usa «Completar información»; si ya tiene valor, «Solicitar cambio». RH lo revisa antes de que sea oficial.',
         articulo: 'completar-datos',
+        roles: ['rh', 'colaborador'],
     },
     {
         pregunta: '¿Qué pasa si RH rechaza al candidato?',
         respuesta:
             'Queda «Rechazado por RH». El gerente que lo entrevistó puede aceptarlo o pedir una intervención: decide el Regional (gestor o volante) o Dirección Comercial (puestos superiores).',
         articulo: 'intervencion',
+        roles: ['rh', 'gerente', 'regional', 'direccion_comercial'],
     },
     {
         pregunta: '¿Qué pasa con alguien que regresa?',
         respuesta:
             'No se registra como candidato nuevo: se busca en Reingresos y, si RH lo aprueba, se reactiva la misma persona con todo su historial.',
         articulo: 'reingreso',
+        roles: ['rh', 'gerente'],
     },
     {
         pregunta: '¿Dónde inicio una baja?',
         respuesta:
-            'En el Ciclo laboral de la persona (Expedientes → la persona → «Ciclo laboral») con «Solicitar baja». Ahí siguen la preautorización, la autorización de RH y el finiquito.',
+            'En el Ciclo laboral de la persona (Expedientes → la persona → «Ciclo laboral») con «Iniciar baja»: solo su jefe directo o RH. No es una solicitud; después siguen la autorización de RH y el finiquito.',
         articulo: 'baja',
+        roles: ['rh', 'gerente', 'sistemas'],
     },
     {
         pregunta: '¿Por qué una solicitud sigue en «Recibida»?',
         respuesta:
             'Le falta el visto bueno del gerente o del regional. La «Cadena de autorización» del detalle dice cuál.',
         articulo: 'revisar-solicitudes',
+        roles: ['rh', 'gerente', 'regional', 'colaborador'],
     },
     {
         pregunta: '¿Cuál es mi usuario para entrar?',

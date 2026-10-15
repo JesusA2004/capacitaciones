@@ -65,14 +65,15 @@ export const ROLES_GUIA: RolGuia[] = [
             'gerente_sucursal',
             'gerente',
             'subgerente',
+            'coordinadora',
             'jefe_directo',
         ],
         icono: 'Building2',
         resumen:
-            'Decide sobre los candidatos de su sucursal, da visto bueno a las solicitudes de su equipo, imprime y recaba firmas, entrega equipo y evalúa la capacitación inicial.',
-        dondeTrabaja: 'App (Gestión RH: Pendientes, Equipo) y web.',
+            'Entrevista y revisa a los candidatos de su sucursal (psicométricos y socioeconómico: viable o no viable), da visto bueno a las solicitudes de su equipo, levanta actas, inicia la baja de alguien de su equipo, imprime y recaba firmas, entrega equipo y evalúa la capacitación inicial.',
+        dondeTrabaja: 'Web o app (Gestión RH: Pendientes, Equipo).',
         noLeToca: [
-            'Autorizar en definitiva (siempre es RH).',
+            'Autorizar una contratación (siempre es RH).',
             'Imprimir un permiso antes de que RH lo autorice.',
             'Capturar campañas o la plantilla autorizada.',
         ],
@@ -81,9 +82,14 @@ export const ROLES_GUIA: RolGuia[] = [
                 texto: 'Entrevistas de candidatos',
                 articulo: 'entrevista-gerente',
             },
-            { texto: 'Revisar psicométricos', articulo: 'psicometricos' },
-            { texto: 'Estudio socioeconómico', articulo: 'socioeconomico' },
-            { texto: 'Preautorizar contratación', articulo: 'autorizacion-rh' },
+            {
+                texto: 'Revisar psicométricos (viable / no viable)',
+                articulo: 'psicometricos',
+            },
+            {
+                texto: 'Revisar el estudio socioeconómico',
+                articulo: 'socioeconomico',
+            },
             {
                 texto: 'Solicitar intervención (si RH rechaza)',
                 articulo: 'intervencion',
@@ -101,7 +107,9 @@ export const ROLES_GUIA: RolGuia[] = [
                 texto: 'Visto bueno de permisos y vacaciones',
                 articulo: 'revisar-solicitudes',
             },
-            { texto: 'Solicitar bajas de su equipo', articulo: 'baja' },
+            { texto: 'Levantar un acta', articulo: 'actas' },
+            { texto: 'Iniciar la baja de alguien de tu equipo', articulo: 'baja' },
+            { texto: 'Directorio', articulo: 'directorio' },
             { texto: 'Mis pendientes', articulo: 'mis-pendientes' },
         ],
     },
@@ -111,10 +119,10 @@ export const ROLES_GUIA: RolGuia[] = [
         rolesSistema: ['gerente_regional', 'coordinadora_regional'],
         icono: 'MapPinned',
         resumen:
-            'Monitorea las sucursales de su región, da el segundo visto bueno de solicitudes, preautoriza bajas y decide intervenciones de Gestor o Gestor Volante cuando el gerente las pide.',
+            'Monitorea las sucursales de su región, da el segundo visto bueno de solicitudes, entrevista y revisa candidatos a Gerente de sucursal y decide intervenciones de Gestor o Gestor Volante cuando el gerente las pide.',
         dondeTrabaja: 'App y web, con alcance de región.',
         noLeToca: [
-            'Aprobar cada candidato: en el caso normal NO interviene en reclutamiento.',
+            'Autorizar contrataciones (siempre es RH).',
             'Decidir intervenciones de puestos superiores (eso es de Dirección Comercial).',
         ],
         checklist: [
@@ -126,7 +134,10 @@ export const ROLES_GUIA: RolGuia[] = [
                 texto: 'Intervenciones de Gestor / Volante (solo si se piden)',
                 articulo: 'intervencion',
             },
-            { texto: 'Preautorizar bajas', articulo: 'baja' },
+            {
+                texto: 'Entrevistar y revisar candidatos a Gerente de sucursal',
+                articulo: 'entrevista-gerente',
+            },
             {
                 texto: 'Programar el pago del finiquito (coordinación regional)',
                 articulo: 'finiquito',
@@ -167,9 +178,12 @@ export const ROLES_GUIA: RolGuia[] = [
         rolesSistema: ['sistemas'],
         icono: 'Monitor',
         resumen:
-            'Recibe cada alta y baja: prepara cuenta, accesos y equipo, y los retira al salir. Administra roles, cuentas y versiones de la app. No ve expedientes ni nómina.',
+            'Cuentas, contraseñas, roles y accesos; la app móvil y sus versiones; notificaciones; soporte y diagnóstico técnico. Recibe cada alta y baja para preparar o retirar accesos y equipo.',
         dondeTrabaja: 'Web (Administración).',
-        noLeToca: ['Expedientes, documentos personales y datos de nómina.'],
+        noLeToca: [
+            'Decisiones de RH: autorizar contrataciones, solicitudes, nómina o bajas (aunque pueda consultarlas).',
+            'Expedientes, documentos personales y datos de nómina.',
+        ],
         checklist: [
             {
                 texto: 'Alta: preparar cuenta, accesos y equipo',
@@ -177,7 +191,7 @@ export const ROLES_GUIA: RolGuia[] = [
             },
             { texto: 'Baja: retirar accesos y equipo', articulo: 'baja' },
             {
-                texto: 'Cuentas, credenciales y roles',
+                texto: 'Cuentas, contraseñas, roles y acceso',
                 articulo: 'usuarios-y-roles',
             },
             {
@@ -193,24 +207,34 @@ export const ROLES_GUIA: RolGuia[] = [
         rolesSistema: ['colaborador'],
         icono: 'UserRound',
         resumen:
-            'Usa la app (o «Mi espacio» en la web) para completar su expediente, responder sus lecciones, pedir permisos, vacaciones y préstamos, y ver avisos y recibos.',
-        dondeTrabaja: 'App MR. LANA PEOPLE (y portal web).',
-        noLeToca: ['Editar su expediente directo (propone y RH autoriza).'],
+            'Usa «Mi espacio» (app o web) para su perfil, completar sus datos y documentos, la inducción, el directorio, pedir permisos, vacaciones y préstamos, y ver avisos, notificaciones y celebraciones.',
+        dondeTrabaja: 'App MR. LANA PEOPLE o «Mi espacio» en la web.',
+        noLeToca: [
+            'Editar su expediente directo: completa lo que falta o pide un cambio y RH lo revisa.',
+        ],
         checklist: [
             { texto: 'Registrarme con el QR', articulo: 'registro-en-app' },
             {
-                texto: 'Iniciar sesión y usar la app',
+                texto: 'Mi espacio, mi perfil y mi foto',
                 articulo: 'app-colaborador',
             },
+            {
+                texto: 'Completar mis datos o pedir un cambio',
+                articulo: 'completar-datos',
+            },
             { texto: 'Subir mis documentos', articulo: 'documentos-de-alta' },
-            { texto: 'Completar mis datos', articulo: 'completar-datos' },
+            { texto: 'Inducción Mr. Lana', articulo: 'induccion-mr-lana' },
             { texto: 'Lecciones de bienvenida', articulo: 'onboarding' },
+            { texto: 'Directorio', articulo: 'directorio' },
             { texto: 'Pedir un permiso', articulo: 'permisos' },
             { texto: 'Pedir vacaciones', articulo: 'vacaciones' },
             { texto: 'Pedir un préstamo', articulo: 'prestamos' },
-            { texto: 'Ver mis recibos', articulo: 'mis-recibos' },
-            { texto: 'Avisos', articulo: 'avisos' },
+            { texto: 'Avisos y notificaciones', articulo: 'avisos' },
             { texto: 'Cumpleaños y aniversarios', articulo: 'celebraciones' },
+            {
+                texto: 'Seguridad: cambiar mi contraseña',
+                articulo: 'app-colaborador',
+            },
         ],
     },
 ];

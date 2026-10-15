@@ -149,6 +149,8 @@ export type PreguntaFrecuente = {
     pregunta: string;
     respuesta: string;
     articulo?: string;
+    /** A quién le sirve; sin roles = a cualquiera. */
+    roles?: RolGuiaId[];
 };
 
 /** Escena del video tutorial (storyboard + guion + subtítulos). */

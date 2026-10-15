@@ -2,7 +2,7 @@
 
 # Storyboard — MR. LANA PEOPLE — Flujo completo de Recursos Humanos
 
-36 escenas · 14:06. Cada escena se graba con datos ficticios del escenario de [DATOS_DEMO.md](../DATOS_DEMO.md).
+36 escenas · 14:11. Cada escena se graba con datos ficticios del escenario de [DATOS_DEMO.md](../DATOS_DEMO.md).
 
 ## Escena 01 · 00:00–00:24
 
@@ -172,7 +172,7 @@
 
 **Narración:** Recursos Humanos registra los resultados psicométricos con su PDF o imagen, y el gerente los revisa. La evidencia se abre dentro de PEOPLE, sin descargar nada y sin mostrar dónde se guarda.
 
-## Escena 13 · 04:38–04:57
+## Escena 13 · 04:38–04:59
 
 | | |
 |---|---|
@@ -184,23 +184,23 @@
 | **Captura / clip** | `12-socioeconomico.png` |
 | **Transición** | Corte |
 
-**Narración:** El gerente realiza el estudio socioeconómico: registra la visita, un checklist, los riesgos y sus evidencias en foto, PDF o video. Todo se consulta desde la ficha.
+**Narración:** Se carga el estudio socioeconómico: la visita, un checklist, los riesgos y sus evidencias en foto, PDF o video. Cargarlo no lo aprueba: el responsable lo abre y decide si es viable.
 
-## Escena 14 · 04:57–05:18
+## Escena 14 · 04:59–05:20
 
 | | |
 |---|---|
 | **Capítulo** | Autorización e intervención |
-| **Pantalla** | Ficha → Referencias y preautorización (`/rh/candidatos/:candidato`) |
-| **Acción** | Registrar una referencia, concluir, y mostrar «Preautorizar contratación» del gerente. |
+| **Pantalla** | Ficha → Referencias y autorización de RH (`/rh/candidatos/:candidato`) |
+| **Acción** | Registrar una referencia, concluir, y mostrar «Autorizar contratación» de RH. |
 | **Zoom** | Zoom a la cadena de aprobaciones |
-| **Texto en pantalla** | Referencias → preautoriza el gerente → autoriza RH |
+| **Texto en pantalla** | Referencias → autoriza RH |
 | **Captura / clip** | `13-referencias-preautorizacion.png` |
 | **Transición** | Corte |
 
-**Narración:** Antes de decidir se valida al menos una referencia laboral. Luego el gerente preautoriza la contratación y Recursos Humanos da la autorización final. En el caso normal no interviene el regional ni Dirección Comercial.
+**Narración:** Antes de decidir se valida al menos una referencia laboral. Después, solo Recursos Humanos autoriza la contratación: el gerente no la autoriza. En el caso normal no interviene el regional ni Dirección Comercial.
 
-## Escena 15 · 05:18–05:39
+## Escena 15 · 05:20–05:41
 
 | | |
 |---|---|
@@ -214,7 +214,7 @@
 
 **Narración:** Si Recursos Humanos rechaza, el gerente puede aceptar el rechazo o solicitar una intervención. Para gestor o gestor volante decide el regional; para puestos superiores, Dirección Comercial. Todo queda en el historial.
 
-## Escena 16 · 05:39–06:07
+## Escena 16 · 05:41–06:09
 
 | | |
 |---|---|
@@ -228,7 +228,7 @@
 
 **Narración:** Con la autorización de Recursos Humanos aparece Generar QR de contratación. Capturas el sueldo y la fecha de ingreso. El sistema bloquea la vacante, revisa que la plaza siga libre, crea a la persona sin duplicarla y ocupa la plaza. Así, dos personas nunca ocupan la última plaza.
 
-## Escena 17 · 06:07–06:29
+## Escena 17 · 06:09–06:31
 
 | | |
 |---|---|
@@ -242,7 +242,7 @@
 
 **Narración:** El QR no es solo un formulario: es el inicio de la incorporación. Es temporal, de un solo uso y se puede regenerar o revocar. Se imprime o se envía la liga a la persona.
 
-## Escena 18 · 06:29–06:52
+## Escena 18 · 06:31–06:54
 
 | | |
 |---|---|
@@ -256,7 +256,7 @@
 
 **Narración:** La persona escanea el QR con su celular, confirma su nombre, apellidos, correo y teléfono, y crea su contraseña. No captura empresa, sucursal, puesto ni tipo de contrato: eso ya viene del proceso de Recursos Humanos.
 
-## Escena 19 · 06:52–07:13
+## Escena 19 · 06:54–07:15
 
 | | |
 |---|---|
@@ -270,7 +270,7 @@
 
 **Narración:** Después sube sus documentos desde la app y completa los datos que pide su contrato, como domicilio, contacto de emergencia y beneficiario. Esos datos se envían a Recursos Humanos para su autorización.
 
-## Escena 20 · 07:13–07:34
+## Escena 20 · 07:15–07:36
 
 | | |
 |---|---|
@@ -284,7 +284,7 @@
 
 **Narración:** Recursos Humanos ve todo en el expediente: datos personales y laborales, cuenta, documentos, onboarding, avisos, vacaciones, recibos, préstamos, solicitudes e historial. Candidato y colaborador son la misma persona, con todo su antecedente.
 
-## Escena 21 · 07:34–07:55
+## Escena 21 · 07:36–07:57
 
 | | |
 |---|---|
@@ -298,7 +298,7 @@
 
 **Narración:** El expediente no muestra solo un porcentaje: dice qué sección está completa y cuál no. Con Avisar al colaborador, la persona recibe una notificación y un push para completarlo desde la app.
 
-## Escena 22 · 07:55–08:25
+## Escena 22 · 07:57–08:27
 
 | | |
 |---|---|
@@ -312,7 +312,7 @@
 
 **Narración:** Con el expediente completo, Recursos Humanos genera el paquete de contratación. El sistema llena el contrato de capacitación inicial con los datos del expediente, y la duración la define cada puesto: por ejemplo, dos meses para gestor y tres para gerente. Si falta un dato obligatorio, no se genera un documento incompleto.
 
-## Escena 23 · 08:25–08:46
+## Escena 23 · 08:27–08:48
 
 | | |
 |---|---|
@@ -326,7 +326,7 @@
 
 **Narración:** El gerente imprime, recaba firma y huella, y envía el original a corporativo. Recursos Humanos registra la recepción, sube el documento firmado y lo archiva. Siempre se sabe dónde está cada original.
 
-## Escena 24 · 08:46–09:07
+## Escena 24 · 08:48–09:09
 
 | | |
 |---|---|
@@ -340,7 +340,7 @@
 
 **Narración:** Con los contratos firmados empieza el onboarding: la bienvenida del colaborador nuevo. Recursos Humanos define lecciones institucionales y del puesto, con su material, sus instrucciones y una evaluación, y el equipo que se entrega.
 
-## Escena 25 · 09:07–09:40
+## Escena 25 · 09:09–09:42
 
 | | |
 |---|---|
@@ -354,7 +354,7 @@
 
 **Narración:** El colaborador responde sus lecciones desde la app. Si no alcanza la calificación, Recursos Humanos le deja retroalimentación y vuelve a intentarlo. Con las lecciones aprobadas y el equipo entregado, Recursos Humanos cierra el onboarding y la persona queda activa. En ese momento se avisa a Recursos Humanos y a Sistemas, para preparar su cuenta, accesos y equipo.
 
-## Escena 26 · 09:40–10:02
+## Escena 26 · 09:42–10:04
 
 | | |
 |---|---|
@@ -368,7 +368,7 @@
 
 **Narración:** Quince días antes de que termine la capacitación, el sistema abre la evaluación y avisa al gerente. El gerente califica cada criterio, comenta y recomienda si la persona continúa. Recursos Humanos autoriza la decisión final.
 
-## Escena 27 · 10:02–10:24
+## Escena 27 · 10:04–10:26
 
 | | |
 |---|---|
@@ -382,7 +382,7 @@
 
 **Narración:** Si la evaluación se aprueba, el sistema prepara el contrato por tiempo indeterminado, listo para previsualizar e imprimir. Pulsar dos veces no lo duplica. Si no se renueva, se abre el cierre laboral por no renovación.
 
-## Escena 28 · 10:24–10:55
+## Escena 28 · 10:26–10:57
 
 | | |
 |---|---|
@@ -396,7 +396,7 @@
 
 **Narración:** Desde la app, el colaborador pide permisos, vacaciones y préstamos. El gerente y el regional dan su visto bueno y Recursos Humanos autoriza. En vacaciones el domingo no cuenta y el sábado sí, y la persona ve su saldo antes y después. El formato de permiso solo se imprime cuando Recursos Humanos ya lo autorizó.
 
-## Escena 29 · 10:55–11:21
+## Escena 29 · 10:57–11:23
 
 | | |
 |---|---|
@@ -410,21 +410,21 @@
 
 **Narración:** Los recibos de nómina son recibos simples, no timbrados. Recursos Humanos prepara el lote semanal o quincenal y todos quedan como borrador: nadie los ve y no se avisa a nadie. Después revisa el resumen y cada recibo con su PDF real.
 
-## Escena 30 · 11:21–11:44
+## Escena 30 · 11:23–11:49
 
 | | |
 |---|---|
 | **Capítulo** | Solicitudes, nómina y avisos |
 | **Pantalla** | Lote de nómina → Emitir (`/rh/nomina/lotes/:lote`) |
-| **Acción** | Pulsar «Emitir N recibos» y mostrar la notificación en la app. |
+| **Acción** | Pulsar «Emitir N recibos» e imprimir el PDF. |
 | **Zoom** | Zoom al botón Emitir |
-| **Texto en pantalla** | Solo al emitir: se publica y se avisa |
+| **Texto en pantalla** | Solo al emitir se congela el PDF |
 | **Captura / clip** | `29-nomina-emitir.png` |
 | **Transición** | Corte |
 
-**Narración:** Solo al pulsar Emitir los recibos se publican, se guarda su PDF en el expediente y cada colaborador recibe el aviso: tu recibo de nómina ya está disponible. Esta separación evita que alguien reciba un recibo con errores.
+**Narración:** Solo al pulsar Emitir se congela el PDF de cada recibo y se guarda en el expediente; Recursos Humanos lo imprime y lo entrega. El colaborador no lo ve en la app ni recibe aviso. Esta separación evita que alguien reciba un recibo con errores.
 
-## Escena 31 · 11:44–12:08
+## Escena 31 · 11:49–12:13
 
 | | |
 |---|---|
@@ -438,21 +438,21 @@
 
 **Narración:** Recursos Humanos envía avisos con título, mensaje e imagen a toda la empresa o a una persona; llegan por push y quedan en su bandeja. Los cumpleaños y aniversarios se felicitan solos a las ocho de la mañana.
 
-## Escena 32 · 12:08–12:32
+## Escena 32 · 12:13–12:37
 
 | | |
 |---|---|
 | **Capítulo** | Baja, finiquito y reingreso |
-| **Pantalla** | Ciclo laboral → Solicitar baja (`/rh/colaboradores/:colaborador/ciclo`) |
-| **Acción** | Abrir «Solicitar baja», elegir la causa, el motivo y la fecha efectiva. |
+| **Pantalla** | Ciclo laboral → Iniciar baja (`/rh/colaboradores/:colaborador/ciclo`) |
+| **Acción** | Abrir «Iniciar baja», elegir la causa, el motivo y la fecha efectiva. |
 | **Zoom** | Zoom al diálogo |
-| **Texto en pantalla** | Solicita → preautoriza → RH autoriza |
+| **Texto en pantalla** | El jefe inicia → RH autoriza |
 | **Captura / clip** | `31-baja.png` |
 | **Transición** | Corte |
 
-**Narración:** Para una baja, el jefe la solicita desde el ciclo laboral de la persona, el superior la preautoriza y Recursos Humanos la autoriza. Al solicitarla, el acceso de la persona se suspende de inmediato, pero nunca se borra nada.
+**Narración:** La baja no es una solicitud: el jefe directo la inicia desde el ciclo laboral de la persona y Recursos Humanos la autoriza. Al iniciarla, el acceso de la persona se suspende de inmediato, pero nunca se borra nada.
 
-## Escena 33 · 12:32–13:02
+## Escena 33 · 12:37–13:07
 
 | | |
 |---|---|
@@ -466,7 +466,7 @@
 
 **Narración:** El finiquito se calcula con sueldo pendiente, aguinaldo proporcional, vacaciones, prima vacacional e ISR. Recursos Humanos revisa, ajusta los conceptos autorizados con su motivo, genera el PDF y, ya firmado y pagado, se ejecuta la baja en su fecha efectiva. Recursos Humanos y Sistemas reciben el aviso para retirar accesos y equipo.
 
-## Escena 34 · 13:02–13:21
+## Escena 34 · 13:07–13:26
 
 | | |
 |---|---|
@@ -480,7 +480,7 @@
 
 **Narración:** Si alguien regresa, no se crea una persona nueva: se busca en Reingresos, Recursos Humanos decide, y la misma persona inicia un nuevo ciclo laboral conservando todo su historial.
 
-## Escena 35 · 13:21–13:50
+## Escena 35 · 13:26–13:55
 
 | | |
 |---|---|
@@ -494,7 +494,7 @@
 
 **Narración:** Siempre que tengas una duda, abre Ayuda. Puedes buscar con tus propias palabras, por ejemplo cómo contrato un candidato, ver el recorrido completo, la guía por proceso o lo que te toca según tu rol. En cada pantalla importante, el botón Cómo funciona te lleva directo a su explicación.
 
-## Escena 36 · 13:50–14:06
+## Escena 36 · 13:55–14:11
 
 | | |
 |---|---|

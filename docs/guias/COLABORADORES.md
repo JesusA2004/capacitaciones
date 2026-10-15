@@ -6,29 +6,31 @@ Guía sencilla para el colaborador: registrarte con tu QR, entrar, completar tus
 
 ## Colaborador
 
-Usa la app (o «Mi espacio» en la web) para completar su expediente, responder sus lecciones, pedir permisos, vacaciones y préstamos, y ver avisos y recibos.
+Usa «Mi espacio» (app o web) para su perfil, completar sus datos y documentos, la inducción, el directorio, pedir permisos, vacaciones y préstamos, y ver avisos, notificaciones y celebraciones.
 
-**Dónde trabaja:** App MR. LANA PEOPLE (y portal web).
+**Dónde trabaja:** App MR. LANA PEOPLE o «Mi espacio» en la web.
 
 **Roles del sistema:** `colaborador`
 
 ### Tu checklist
 
 - [ ] Registrarme con el QR → [Registro del colaborador en la app](#articulo-registro-en-app)
-- [ ] Iniciar sesión y usar la app → [Cómo usar la app MR. LANA PEOPLE](#articulo-app-colaborador)
+- [ ] Mi espacio, mi perfil y mi foto → [Cómo usar la app MR. LANA PEOPLE](#articulo-app-colaborador)
+- [ ] Completar mis datos o pedir un cambio → [Completar o corregir datos (colaborador)](#articulo-completar-datos)
 - [ ] Subir mis documentos → [Documentos del alta y revisión de RH](#articulo-documentos-de-alta)
-- [ ] Completar mis datos → [Completar o corregir datos (colaborador)](#articulo-completar-datos)
+- [ ] Inducción Mr. Lana → [Inducción Mr. Lana y su evaluación](#articulo-induccion-mr-lana)
 - [ ] Lecciones de bienvenida → [Onboarding: la bienvenida del colaborador](#articulo-onboarding)
+- [ ] Directorio → [Directorio y correo corporativo](#articulo-directorio)
 - [ ] Pedir un permiso → [Pedir y autorizar un permiso](#articulo-permisos)
 - [ ] Pedir vacaciones → [Vacaciones](#articulo-vacaciones)
 - [ ] Pedir un préstamo → [Préstamos personales](#articulo-prestamos)
-- [ ] Ver mis recibos → [Tu recibo de nómina (impreso)](#articulo-mis-recibos)
-- [ ] Avisos → [Avisos de Recursos Humanos](#articulo-avisos)
+- [ ] Avisos y notificaciones → [Avisos de Recursos Humanos](#articulo-avisos)
 - [ ] Cumpleaños y aniversarios → [Cumpleaños y aniversarios](#articulo-celebraciones)
+- [ ] Seguridad: cambiar mi contraseña → [Cómo usar la app MR. LANA PEOPLE](#articulo-app-colaborador)
 
 ### Lo que NO le toca
 
-- Editar su expediente directo (propone y RH autoriza).
+- Editar su expediente directo: completa lo que falta o pide un cambio y RH lo revisa.
 
 ---
 
@@ -441,40 +443,6 @@ Colaborador, Gerente, Regional, RH.
 - **Ir a Mis solicitudes** → `/solicitudes` _(permiso: portal.solicitudes.ver o solicitudes.crear)_
 - Guía en pantalla → `/ayuda/articulo/prestamos`
 
-## 9. Nómina
-
-<a id="articulo-mis-recibos"></a>
-
-### Tu recibo de nómina (impreso)
-
-> El recibo de nómina se entrega IMPRESO: RH lo genera en PDF y te lo da; no se consulta en Mi espacio ni en la app.
-
-#### Qué es
-
-Cada periodo RH emite el recibo interno de nómina (PDF con el formato oficial), lo archiva en tu expediente y lo imprime para entregártelo.
-
-#### Quién lo hace
-
-Colaborador, RH.
-
-#### Pasos
-
-1. **RH emite e imprime** _(RH · Web)_ — Personal → Recibos de nómina: RH emite el lote y descarga/imprime el PDF de cada recibo.
-2. **Recibes tu recibo impreso** _(Colaborador)_ — Tu gerente o RH te lo entrega en sucursal.
-
-#### Qué pasa después
-
-- El PDF queda archivado en tu expediente (lo consulta RH).
-
-#### Errores comunes
-
-- **«No veo mis recibos en la app.»** Es correcto: el recibo se entrega impreso. Si no lo recibiste, pídelo a Recursos Humanos.
-
-#### En el sistema
-
-- **Ir a Recibos de nómina** → `/rh/nomina/lotes` _(permiso: nomina.recibos.ver)_
-- Guía en pantalla → `/ayuda/articulo/mis-recibos`
-
 ## 10. Avisos
 
 <a id="articulo-avisos"></a>
@@ -538,7 +506,7 @@ Colaborador.
 6. **Solicitudes y Vacaciones** _(App)_ — Permisos, vacaciones y préstamos, con su estado.
 7. **Lecciones de bienvenida** _(App)_ — Si eres nuevo, respóndelas desde Inicio.
 8. **Avisos y notificaciones** _(App)_ — La campana muestra tus notificaciones; Avisos, los comunicados de RH.
-9. **Directorio e Inducción** _(App)_ — Directorio de contacto corporativo y la Inducción Mr. Lana. Tu recibo de nómina se entrega impreso (no está en la app).
+9. **Directorio e Inducción** _(App)_ — Directorio de la empresa y la Inducción Mr. Lana.
 10. **Celebraciones** _(App)_ — Felicitaciones de cumpleaños y aniversario, y el muro de felicitaciones.
 
 #### Qué pasa después
@@ -555,6 +523,34 @@ Colaborador.
 - **Descargar la app** → `/app`
 - **Ir a Mi portal** → `/mi-portal`
 - Guía en pantalla → `/ayuda/articulo/app-colaborador`
+
+<a id="articulo-directorio"></a>
+
+### Directorio y correo corporativo
+
+> Todos ven nombre, puesto, área y sucursal de las personas activas. El correo y teléfono corporativos dependen de tu rol: un colaborador operativo ve los de su jefe directo; el personal corporativo autorizado, RH y Sistemas ven todos. Nunca datos personales.
+
+#### Qué es
+
+El directorio muestra nombre, puesto, área y sucursal. El contacto corporativo (correo y teléfono) se muestra según el permiso «Ver contactos de todo el directorio»; sin él, solo el de tu jefe directo. El correo corporativo es distinto del correo con el que la persona inicia sesión.
+
+#### Quién lo hace
+
+Colaborador, Gerente, Regional, Dirección Comercial, Sistemas, RH.
+
+#### Pasos
+
+1. **Buscar** _(Web y app)_ — Directorio (web o app): por nombre o número de empleado, o filtra por puesto, sucursal o departamento.
+2. **Contactar** _(App)_ — En la app, toca el correo o el teléfono para escribir o llamar.
+
+#### Errores comunes
+
+- **«Alguien no tiene correo en el directorio.»** No lo tiene capturado: PEOPLE nunca inventa uno ni usa su correo de acceso o personal. RH lo captura en su expediente.
+
+#### En el sistema
+
+- **Ir al Directorio** → `/directorio`
+- Guía en pantalla → `/ayuda/articulo/directorio`
 
 <a id="articulo-celebraciones"></a>
 
@@ -630,15 +626,15 @@ Sistemas, Colaborador.
 
 ### Directorio y correo corporativo
 
-> Contacto corporativo de cualquier colaborador activo, visible para todos; nunca datos personales.
+> Todos ven nombre, puesto, área y sucursal de las personas activas. El correo y teléfono corporativos dependen de tu rol: un colaborador operativo ve los de su jefe directo; el personal corporativo autorizado, RH y Sistemas ven todos. Nunca datos personales.
 
 #### Qué es
 
-El directorio muestra nombre, puesto, sucursal, departamento, correo corporativo y teléfono corporativo. El correo corporativo es distinto del correo con el que la persona inicia sesión.
+El directorio muestra nombre, puesto, área y sucursal. El contacto corporativo (correo y teléfono) se muestra según el permiso «Ver contactos de todo el directorio»; sin él, solo el de tu jefe directo. El correo corporativo es distinto del correo con el que la persona inicia sesión.
 
 #### Quién lo hace
 
-Colaborador, RH.
+Colaborador, Gerente, Regional, Dirección Comercial, Sistemas, RH.
 
 #### Pasos
 

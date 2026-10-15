@@ -377,9 +377,16 @@ export const ARTICULOS_ADMINISTRACION: ArticuloGuia[] = [
         titulo: 'Directorio y correo corporativo',
         proceso: 'administracion',
         resumen:
-            'Contacto corporativo de cualquier colaborador activo, visible para todos; nunca datos personales.',
-        queEs: 'El directorio muestra nombre, puesto, sucursal, departamento, correo corporativo y teléfono corporativo. El correo corporativo es distinto del correo con el que la persona inicia sesión.',
-        quien: ['colaborador', 'rh'],
+            'Todos ven nombre, puesto, área y sucursal de las personas activas. El correo y teléfono corporativos dependen de tu rol: un colaborador operativo ve los de su jefe directo; el personal corporativo autorizado, RH y Sistemas ven todos. Nunca datos personales.',
+        queEs: 'El directorio muestra nombre, puesto, área y sucursal. El contacto corporativo (correo y teléfono) se muestra según el permiso «Ver contactos de todo el directorio»; sin él, solo el de tu jefe directo. El correo corporativo es distinto del correo con el que la persona inicia sesión.',
+        quien: [
+            'colaborador',
+            'gerente',
+            'regional',
+            'direccion_comercial',
+            'sistemas',
+            'rh',
+        ],
         antes: [
             'RH capturó el correo/teléfono corporativo en el expediente (Datos personales) de quien lo tiene.',
         ],

@@ -29,7 +29,7 @@ Artículo de referencia: [Revisar solicitudes (gerente, regional y RH)](FLUJO_CO
 | 4 | Web → Solicitudes → Permisos | Abrir la solicitud y revisar la cadena. | Con ambos vistos buenos, la solicitud pasa sola a Pendiente de autorizar. Recursos Humanos la abre y revisa la cadena completa: quién la pidió, quién la avaló y cuándo. |
 | 5 | Acciones de revisión | Aprobar, pedir corrección o rechazar. | Recursos Humanos aprueba, pide corrección o rechaza. Solo después de aprobar, el formato de permiso queda listo para imprimir y firmar; antes no se puede descargar. |
 
-## Cómo generar nómina · 01:31 min
+## Cómo generar nómina · 01:28 min
 
 Artículo de referencia: [Recibos de nómina: preparar, revisar y emitir](FLUJO_COMPLETO.md#articulo-nomina-lotes)
 
@@ -39,7 +39,7 @@ Artículo de referencia: [Recibos de nómina: preparar, revisar y emitir](FLUJO_
 | 2 | Recibos de nómina | Elegir periodicidad y preparar. | Elige la periodicidad: semanal de lunes a domingo, o quincenal del uno al quince y del dieciséis al último día del mes. Después pulsa Preparar lote. |
 | 3 | Lote | Mostrar el resumen del lote. | Todos los recibos quedan como borrador. Revisa el resumen: cuántos se esperaban, cuántos están correctos y cuántos tienen error, por ejemplo por falta de sueldo en datos laborales. |
 | 4 | Revisión | Recorrer recibos con Anterior y Siguiente. | Revisa recibo por recibo con su PDF real, usando Anterior y Siguiente. Si algo no cuadra, edita los conceptos de ese recibo antes de emitir. |
-| 5 | Emitir | Pulsar «Emitir N recibos». | Solo al emitir se publican en la web y en la app, se guardan en el expediente y se avisa a cada colaborador. La emisión automática viene apagada: siempre la confirma una persona. |
+| 5 | Emitir | Pulsar «Emitir N recibos». | Solo al emitir se congelan los PDF y se guardan en el expediente para imprimirlos y entregarlos. La emisión automática viene apagada: siempre la confirma una persona. |
 
 ## Cómo completar un expediente · 01:21 min
 
@@ -72,8 +72,8 @@ Artículo de referencia: [Baja de un colaborador (cierre laboral)](FLUJO_COMPLET
 | # | Pantalla | Acción | Narración |
 |---|---|---|---|
 | 1 | Expediente → Ciclo laboral | Botón «Ciclo laboral» del expediente. | Abre el expediente de la persona y entra a su ciclo laboral. Ahí vive la baja completa, con aprobaciones y finiquito. |
-| 2 | Solicitar baja | Capturar causa, motivo y fecha efectiva. | Solicita la baja con su causa, motivo y fecha efectiva, y adjunta la evidencia. El acceso de la persona al sistema y a la app se suspende de inmediato. |
-| 3 | Preautorizar y autorizar | Preautorización y autorización de RH. | El superior la preautoriza y Recursos Humanos la autoriza. En cada paso queda registrado quién decidió y cuándo. |
+| 2 | Iniciar baja | Capturar causa, motivo y fecha efectiva. | Inicia la baja con su causa, motivo y fecha efectiva, y adjunta la evidencia. El acceso de la persona al sistema y a la app se suspende de inmediato. |
+| 3 | Autorización de RH | Autorización de RH. | Recursos Humanos la autoriza; no hace falta otra preautorización. En cada paso queda registrado quién decidió y cuándo. |
 | 4 | Finiquito | Calcular y ajustar conceptos. | Recursos Humanos calcula el finiquito, ajusta conceptos si hace falta y lo autoriza; la coordinación regional programa el pago. |
 | 5 | Cita, firma y pago | Registrar cita, firma y pago. | El gerente cita a la persona y recaba la firma y la huella. Recursos Humanos confirma el pago. |
 | 6 | Concluir | Concluir el cierre. | En la fecha efectiva se concluye el cierre. Recursos Humanos y Sistemas reciben el aviso para retirar accesos y equipo. Nada se borra: el historial queda para un posible reingreso. |

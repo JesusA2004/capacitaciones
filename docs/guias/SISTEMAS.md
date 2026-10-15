@@ -6,7 +6,7 @@ Sistemas recibe cada alta y cada baja de colaborador para preparar o retirar cue
 
 ## Sistemas
 
-Recibe cada alta y baja: prepara cuenta, accesos y equipo, y los retira al salir. Administra roles, cuentas y versiones de la app. No ve expedientes ni nómina.
+Cuentas, contraseñas, roles y accesos; la app móvil y sus versiones; notificaciones; soporte y diagnóstico técnico. Recibe cada alta y baja para preparar o retirar accesos y equipo.
 
 **Dónde trabaja:** Web (Administración).
 
@@ -16,12 +16,13 @@ Recibe cada alta y baja: prepara cuenta, accesos y equipo, y los retira al salir
 
 - [ ] Alta: preparar cuenta, accesos y equipo → [Alta real: colaborador activo](#articulo-alta-activa)
 - [ ] Baja: retirar accesos y equipo → [Baja de un colaborador (cierre laboral)](#articulo-baja)
-- [ ] Cuentas, credenciales y roles → [Cuentas, credenciales y roles (Sistemas)](#articulo-usuarios-y-roles)
+- [ ] Cuentas, contraseñas, roles y acceso → [Cuentas, credenciales y roles (Sistemas)](#articulo-usuarios-y-roles)
 - [ ] A quién llega cada notificación → [A quién le llega cada notificación](#articulo-configuracion-notificaciones)
 - [ ] Publicar versiones de la app → [La app móvil: descarga y versiones](#articulo-app-movil)
 
 ### Lo que NO le toca
 
+- Decisiones de RH: autorizar contrataciones, solicitudes, nómina o bajas (aunque pueda consultarlas).
 - Expedientes, documentos personales y datos de nómina.
 
 ---
@@ -82,13 +83,51 @@ RH, Sistemas.
 - **Ir a Mis pendientes** → `/rh/pendientes`
 - Guía en pantalla → `/ayuda/articulo/alta-activa`
 
+## 11. Vida laboral
+
+<a id="articulo-directorio"></a>
+
+### Directorio y correo corporativo
+
+> Todos ven nombre, puesto, área y sucursal de las personas activas. El correo y teléfono corporativos dependen de tu rol: un colaborador operativo ve los de su jefe directo; el personal corporativo autorizado, RH y Sistemas ven todos. Nunca datos personales.
+
+#### Qué es
+
+El directorio muestra nombre, puesto, área y sucursal. El contacto corporativo (correo y teléfono) se muestra según el permiso «Ver contactos de todo el directorio»; sin él, solo el de tu jefe directo. El correo corporativo es distinto del correo con el que la persona inicia sesión.
+
+#### Quién lo hace
+
+Colaborador, Gerente, Regional, Dirección Comercial, Sistemas, RH.
+
+#### Antes de empezar
+
+- RH capturó el correo/teléfono corporativo en el expediente (Datos personales) de quien lo tiene.
+
+#### Pasos
+
+1. **Buscar** _(Web y app)_ — Directorio (web o app): por nombre o número de empleado, o filtra por puesto, sucursal o departamento.
+2. **Contactar** _(App)_ — En la app, toca el correo o el teléfono para escribir o llamar.
+
+#### Errores comunes
+
+- **«Alguien no tiene correo en el directorio.»** No lo tiene capturado: PEOPLE nunca inventa uno ni usa su correo de acceso o personal. RH lo captura en su expediente.
+
+#### Relacionado con
+
+- [El expediente del colaborador](FLUJO_COMPLETO.md#articulo-expediente)
+
+#### En el sistema
+
+- **Ir al Directorio** → `/directorio`
+- Guía en pantalla → `/ayuda/articulo/directorio`
+
 ## 12. Baja y finiquito
 
 <a id="articulo-baja"></a>
 
 ### Baja de un colaborador (cierre laboral)
 
-> El jefe solicita, el superior preautoriza y RH autoriza. Al solicitarla se suspende el acceso; la baja se ejecuta en la fecha efectiva, ya pagado y firmado el finiquito.
+> El jefe directo (o RH) inicia la baja desde el colaborador, sin solicitud previa ni preautorización; RH autoriza. Al iniciarla se suspende el acceso; la baja se ejecuta en la fecha efectiva, ya pagado y firmado el finiquito.
 
 #### Qué es
 
@@ -96,25 +135,25 @@ Es el cierre de la relación laboral. Nunca borra a la persona: bloquea su acces
 
 #### Quién lo hace
 
-Solicita el jefe o gerente (o RH). Preautoriza el superior según el organigrama (implícita si quien solicita ya es su superior). Autoriza RH. Programa el pago la coordinación regional. El gerente cita, recaba firma y huella. RH confirma el pago y concluye.
+Inicia el jefe directo de la persona (su cadena de mando real) o RH; nadie más puede iniciarla. Autoriza RH. Programa el pago la coordinación regional. El gerente cita, recaba firma y huella. RH confirma el pago y concluye.
 
-> **Importante:** Al SOLICITAR la baja se suspende de inmediato el acceso de la persona a la app y al portal. Si la baja se rechaza o cancela, el acceso vuelve solo. Su estatus laboral no cambia hasta la autorización de RH y la fecha efectiva.
+> **Importante:** Al INICIAR la baja se suspende de inmediato el acceso de la persona a la app y al portal. Si la baja se rechaza o cancela, el acceso vuelve solo. Su estatus laboral no cambia hasta la autorización de RH y la fecha efectiva.
 
 #### Antes de empezar
 
-- La persona está activa y dentro de tu alcance.
+- La persona está activa y eres su jefe directo (o RH).
+- La baja NO es una solicitud: no está en «Nueva solicitud».
 
 #### Pasos
 
-1. **«Solicitar baja»** _(Gerente)_ — Expedientes → la persona → Ciclo laboral → «Solicitar baja»: causa (renuncia, no renovación, bajo desempeño, baja inmediata…), motivo, fecha efectiva y evidencias (PDF o imagen).
-2. **«Preautorizar baja»** _(Regional)_ — El superior operativo la preautoriza o la rechaza.
-3. **«Autorizar baja»** _(RH)_ — RH autoriza, devuelve o rechaza. Al autorizar se preparan los documentos de la causa.
-4. **«Registrar renuncia / aviso firmado»** _(RH)_ — Se sube la renuncia o el aviso firmado.
-5. **Finiquito** _(RH)_ — «Calcular finiquito» y «Autorizar finiquito» (ver el artículo de finiquito).
-6. **«Programar pago»** _(Regional)_ — Fecha, monto y método.
-7. **«Registrar cita» y «Registrar firma y huella»** _(Gerente)_ — El gerente cita a la persona, recaba la firma y la huella del finiquito y sube el documento firmado.
-8. **«Confirmar pago»** _(RH)_ — RH confirma que se pagó.
-9. **«Concluir cierre laboral»** _(RH)_ — Desde la fecha efectiva: la baja se ejecuta y el expediente queda cerrado. PEOPLE recuerda a RH los cierres pagados cuya fecha ya llegó.
+1. **«Iniciar baja»** _(Gerente)_ — Expedientes → la persona de tu equipo → Ciclo laboral → «Iniciar baja»: causa (renuncia, no renovación, bajo desempeño, baja inmediata…), motivo, fecha efectiva y evidencias (PDF o imagen). Pasa directo a RH.
+2. **«Autorizar baja»** _(RH)_ — RH autoriza, devuelve o rechaza. Al autorizar se preparan los documentos de la causa.
+3. **«Registrar renuncia / aviso firmado»** _(RH)_ — Se sube la renuncia o el aviso firmado.
+4. **Finiquito** _(RH)_ — «Calcular finiquito» y «Autorizar finiquito» (ver el artículo de finiquito).
+5. **«Programar pago»** _(Regional)_ — Fecha, monto y método.
+6. **«Registrar cita» y «Registrar firma y huella»** _(Gerente)_ — El gerente cita a la persona, recaba la firma y la huella del finiquito y sube el documento firmado.
+7. **«Confirmar pago»** _(RH)_ — RH confirma que se pagó.
+8. **«Concluir cierre laboral»** _(RH)_ — Desde la fecha efectiva: la baja se ejecuta y el expediente queda cerrado. PEOPLE recuerda a RH los cierres pagados cuya fecha ya llegó.
 
 #### Qué pasa después
 
@@ -124,8 +163,8 @@ Solicita el jefe o gerente (o RH). Preautoriza el superior según el organigrama
 
 #### Notificaciones
 
-- «Baja solicitada» a regionales y RH.
-- «Preautorización» al superior; «Autorización» a RH; «Pago por programar» a la coordinación; «Cita de finiquito» al jefe.
+- «Baja iniciada» a regionales y RH.
+- «Autorización» a RH; «Pago por programar» a la coordinación; «Cita de finiquito» al jefe.
 - Baja ejecutada → RH y Sistemas.
 
 #### Documentos que se generan
@@ -140,7 +179,7 @@ Solicita el jefe o gerente (o RH). Preautoriza el superior según el organigrama
 #### Errores comunes
 
 - **«No me deja concluir.»** La baja exige finiquito firmado y pago confirmado, y no se ejecuta antes de la fecha efectiva.
-- **«¿Cómo hago una baja?»** Desde el Ciclo laboral de la persona. Expedientes → la persona → Ciclo laboral → «Solicitar baja».
+- **«¿Cómo hago una baja?»** Desde el Ciclo laboral de la persona. Expedientes → la persona → Ciclo laboral → «Iniciar baja». No se pide desde Solicitudes.
 
 #### Relacionado con
 
@@ -293,3 +332,39 @@ Sistemas, Colaborador.
 - **Descargar la app** → `/app`
 - **Ir a Versiones de app** → `/administracion/app-versiones` _(permiso: app_releases.ver)_
 - Guía en pantalla → `/ayuda/articulo/app-movil`
+
+<a id="articulo-directorio"></a>
+
+### Directorio y correo corporativo
+
+> Todos ven nombre, puesto, área y sucursal de las personas activas. El correo y teléfono corporativos dependen de tu rol: un colaborador operativo ve los de su jefe directo; el personal corporativo autorizado, RH y Sistemas ven todos. Nunca datos personales.
+
+#### Qué es
+
+El directorio muestra nombre, puesto, área y sucursal. El contacto corporativo (correo y teléfono) se muestra según el permiso «Ver contactos de todo el directorio»; sin él, solo el de tu jefe directo. El correo corporativo es distinto del correo con el que la persona inicia sesión.
+
+#### Quién lo hace
+
+Colaborador, Gerente, Regional, Dirección Comercial, Sistemas, RH.
+
+#### Antes de empezar
+
+- RH capturó el correo/teléfono corporativo en el expediente (Datos personales) de quien lo tiene.
+
+#### Pasos
+
+1. **Buscar** _(Web y app)_ — Directorio (web o app): por nombre o número de empleado, o filtra por puesto, sucursal o departamento.
+2. **Contactar** _(App)_ — En la app, toca el correo o el teléfono para escribir o llamar.
+
+#### Errores comunes
+
+- **«Alguien no tiene correo en el directorio.»** No lo tiene capturado: PEOPLE nunca inventa uno ni usa su correo de acceso o personal. RH lo captura en su expediente.
+
+#### Relacionado con
+
+- [El expediente del colaborador](FLUJO_COMPLETO.md#articulo-expediente)
+
+#### En el sistema
+
+- **Ir al Directorio** → `/directorio`
+- Guía en pantalla → `/ayuda/articulo/directorio`

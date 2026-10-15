@@ -3,7 +3,7 @@ import type { BloqueFlujo } from './tipos';
 /**
  * Diagrama general «de la necesidad de personal a colaborador activo».
  * Sigue el flujo REAL del código, que agrega dos pasos al esquema original:
- * Referencias y Preautorización del gerente (EstadoCandidato), y deja el
+ * Referencias y la autorización de RH (EstadoCandidato), y deja el
  * alta activa al cerrar el onboarding (AltaColaboradorService::activar()).
  */
 export const FLUJO: BloqueFlujo[] = [
@@ -103,7 +103,7 @@ export const FLUJO: BloqueFlujo[] = [
         quien: ['gerente', 'rh'],
         canal: 'web_app',
         resumen:
-            'El gerente preautoriza y RH da la autorización final. Si RH rechaza, el gerente puede pedir intervención.',
+            'Solo RH autoriza la contratación (no hay preautorización del gerente). Si RH rechaza, el gerente puede pedir intervención.',
         articulo: 'autorizacion-rh',
     },
     {

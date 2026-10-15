@@ -146,7 +146,7 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
             'Registrar candidatos sobre una vacante real (o como espontáneos), con su campaña y su fuente.',
             'Ver en qué fase va cada uno y quién tiene la siguiente acción.',
             'Registrar entrevista, psicométricas, socioeconómico y referencias desde la ficha.',
-            'Preautorizar (gerente), autorizar (RH) y generar el QR de contratación.',
+            'Autorizar la contratación (solo RH) y generar el QR de contratación.',
             'Cerrar el proceso de un candidato (Rechazado o Desistió) con motivo.',
         ],
         flujo: [
@@ -155,11 +155,32 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
             'Con la autorización final de RH, «Generar QR de contratación».',
         ],
         permisos:
-            'Registrar y avanzar: RH. Entrevistar, revisar psicométricas, socioeconómico y preautorizar: gerencia de la sucursal. Autorizar: RH. Consulta: dirección comercial, regional y auditoría.',
+            'Registrar, cargar psicométricos y avanzar: RH. Entrevistar y revisar psicométricos y socioeconómico: el responsable de la vacante (gerencia de la sucursal; para una vacante de gerente, el Regional). Autorizar: solo RH. Consulta: dirección comercial, regional y auditoría.',
         errores: [
             'Arrastrar una tarjeta solo cierra el proceso (Rechazado o Desistió); para avanzar se usa la acción de la ficha.',
             'Un candidato espontáneo no se puede contratar hasta vincularlo a una vacante real.',
             '«Esta vacante ya fue cubierta»: alguien ocupó la última plaza; elige otra vacante.',
+        ],
+    },
+    actas: {
+        queEs: 'Actas administrativas y actas de hechos: un documento administrativo factual sobre una persona de tu alcance, con dos testigos y firmas.',
+        puedes: [
+            'Levantar un acta administrativa o un acta de hechos (solo esos dos tipos; las históricas de otros tipos se siguen consultando).',
+            'Elegir exactamente dos testigos activos: primero los de tu sucursal; busca por nombre, número de empleado, puesto o sucursal.',
+            'Ver la vista previa del PDF antes de generarlo.',
+            'Subir el acta firmada, registrar la negativa a firmar y cerrarla.',
+        ],
+        flujo: [
+            '«Levantar acta»: persona, tipo, fecha, hora, lugar y hechos.',
+            'Elige los dos testigos (el cargo sale solo de su puesto).',
+            '«Vista previa PDF», genera, imprime y recaba firmas.',
+            'Sube el acta firmada y ciérrala.',
+        ],
+        permisos:
+            'Gerente o subgerente: personas de su sucursal. RH y corporativo con alcance global: toda la organización.',
+        errores: [
+            'Los testigos deben ser dos, activos, distintos entre sí y distintos de la persona del acta.',
+            'Un acta ya generada no cambia sus hechos: lo nuevo va como seguimiento.',
         ],
     },
     campanas: {
@@ -406,7 +427,7 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
             'Haz la acción; el pendiente se cierra solo.',
         ],
         permisos:
-            'Quien participa en el ciclo laboral (preautoriza, autoriza, evalúa, entrega equipo u opera bajas).',
+            'Quien participa en el ciclo laboral (revisa, autoriza, evalúa, entrega equipo u opera bajas).',
         errores: [
             'Si un pendiente no te corresponde, revisa el organigrama: el jefe directo de cada persona sale de ahí.',
         ],
@@ -470,7 +491,7 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
         ],
     },
     'mi-expediente': {
-        queEs: 'Tu expediente: tus datos, documentos, vacaciones, recibos, préstamos y solicitudes.',
+        queEs: 'Tu expediente: tus datos, documentos, vacaciones, préstamos y solicitudes.',
         puedes: [
             'Subir los documentos que te pidan.',
             'Ver si fueron aprobados.',

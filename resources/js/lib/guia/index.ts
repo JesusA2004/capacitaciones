@@ -1,3 +1,5 @@
+import { calcularAlcance } from './alcance';
+import type { AlcanceGuia } from './alcance';
 import { ARTICULOS_ADMINISTRACION } from './articulos/administracion';
 import { ARTICULOS_CONTRATACION } from './articulos/contratacion';
 import { ARTICULOS_DESARROLLO } from './articulos/desarrollo';
@@ -108,4 +110,21 @@ export function accesosVisibles(
                 a.permisos.length === 0 ||
                 a.permisos.some((p) => tienePermiso(p))),
     );
+}
+
+export type { AlcanceGuia } from './alcance';
+export {
+    articuloVisible,
+    preguntaVisible,
+    procesoVisible,
+    rolVisible,
+    veFlujoCompleto,
+} from './alcance';
+
+/** Alcance de la guía para los roles técnicos y el modo de quien lee. */
+export function alcanceGuia(
+    roles: string[],
+    modoColaborador: boolean,
+): AlcanceGuia {
+    return calcularAlcance(roles, modoColaborador, ROLES_GUIA);
 }

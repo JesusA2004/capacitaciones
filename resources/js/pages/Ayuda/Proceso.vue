@@ -10,6 +10,8 @@ import {
     NOMBRE_ROL,
     proceso as buscarProceso,
     PROCESOS,
+    articuloVisible,
+    procesoVisible,
 } from '@/lib/guia';
 import { iconoGuia } from '@/lib/guia/iconos';
 import type { ArticuloGuia } from '@/lib/guia/tipos';
@@ -22,20 +24,37 @@ defineOptions({
 
 const props = defineProps<{ proceso: string }>();
 
-const { accesos } = useGuia();
+const { accesos, alcance } = useGuia();
 
-const proc = computed(() => buscarProceso(props.proceso));
+// Solo procesos y artículos que le corresponden a quien lee (rol + modo).
+const proc = computed(() => {
+    const encontrado = buscarProceso(props.proceso);
+
+    return encontrado && procesoVisible(encontrado, alcance.value)
+        ? encontrado
+        : undefined;
+});
 const articulos = computed(() =>
     (proc.value?.articulos ?? [])
         .map((id) => articulo(id))
-        .filter((a): a is ArticuloGuia => a !== undefined),
+        .filter(
+            (a): a is ArticuloGuia =>
+                a !== undefined && articuloVisible(a, alcance.value),
+        ),
 );
-const anterior = computed(() =>
-    PROCESOS.find((p) => p.numero === (proc.value?.numero ?? 0) - 1),
+const visibles = computed(() =>
+    PROCESOS.filter((p) => procesoVisible(p, alcance.value)),
 );
-const siguiente = computed(() =>
-    PROCESOS.find((p) => p.numero === (proc.value?.numero ?? 0) + 1),
-);
+const anterior = computed(() => {
+    const i = visibles.value.findIndex((p) => p.id === proc.value?.id);
+
+    return i > 0 ? visibles.value[i - 1] : undefined;
+});
+const siguiente = computed(() => {
+    const i = visibles.value.findIndex((p) => p.id === proc.value?.id);
+
+    return i >= 0 ? visibles.value[i + 1] : undefined;
+});
 </script>
 
 <template>
@@ -172,7 +191,7 @@ const siguiente = computed(() =>
         </template>
 
         <div v-else class="py-20 text-center">
-            <p class="mb-4">No encontré ese proceso.</p>
+            <p class="mb-4">Este proceso no corresponde a tu rol.</p>
             <Button as-child variant="outline"
                 ><Link href="/ayuda">Volver a la guía</Link></Button
             >

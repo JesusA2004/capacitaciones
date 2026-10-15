@@ -61,7 +61,7 @@ export const PROCESOS: ProcesoGuia[] = [
         titulo: 'Expediente',
         icono: 'FolderKanban',
         resumen:
-            'La carpeta digital de cada persona: datos, documentos, contratos, solicitudes, recibos, avisos e historial. Muestra qué falta por sección y permite avisarle al colaborador.',
+            'La carpeta digital de cada persona: datos, documentos, contratos, solicitudes, avisos e historial. Muestra qué falta por sección y permite avisarle al colaborador.',
         tiempo: 'Consulta inmediata',
         roles: ['rh', 'gerente', 'colaborador'],
         articulos: ['expediente', 'completitud-expediente', 'completar-datos'],
@@ -121,10 +121,10 @@ export const PROCESOS: ProcesoGuia[] = [
         titulo: 'Nómina',
         icono: 'ReceiptText',
         resumen:
-            'Recibos simples (no CFDI) por lote semanal o quincenal: PEOPLE prepara, RH revisa uno por uno y solo al emitir se publican y se avisa al colaborador.',
+            'Recibos simples (no CFDI) por lote: semanal para sucursales y quincenal para corporativo. PEOPLE prepara, RH revisa uno por uno, emite, imprime y entrega el recibo impreso.',
         tiempo: '30 a 60 minutos por lote',
-        roles: ['rh', 'colaborador'],
-        articulos: ['nomina-lotes', 'mis-recibos'],
+        roles: ['rh'],
+        articulos: ['nomina-lotes'],
     },
     {
         id: 'avisos',
@@ -146,7 +146,13 @@ export const PROCESOS: ProcesoGuia[] = [
             'Lo que pasa mientras la persona trabaja: cumpleaños y aniversarios, cambios de puesto o sucursal registrados en su historial y el uso diario de la app.',
         tiempo: 'Continuo',
         roles: ['colaborador', 'rh', 'gerente'],
-        articulos: ['app-colaborador', 'celebraciones', 'actividad-laboral'],
+        articulos: [
+            'app-colaborador',
+            'directorio',
+            'celebraciones',
+            'actas',
+            'actividad-laboral',
+        ],
     },
     {
         id: 'baja',
@@ -154,7 +160,7 @@ export const PROCESOS: ProcesoGuia[] = [
         titulo: 'Baja y finiquito',
         icono: 'UserMinus',
         resumen:
-            'Cierre laboral: el jefe solicita, el superior preautoriza, RH autoriza; se calcula y autoriza el finiquito, se programa el pago, se firma y se ejecuta la baja.',
+            'Cierre laboral: el jefe directo (o RH) inicia la baja desde el colaborador, sin solicitud previa; RH autoriza, calcula y autoriza el finiquito, se programa el pago, se firma y se ejecuta la baja.',
         tiempo: '1 a 3 semanas',
         roles: ['gerente', 'regional', 'rh', 'sistemas'],
         articulos: ['baja', 'finiquito'],

@@ -14,23 +14,21 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
         titulo: 'Baja de un colaborador (cierre laboral)',
         proceso: 'baja',
         resumen:
-            'El jefe solicita, el superior preautoriza y RH autoriza. Al solicitarla se suspende el acceso; la baja se ejecuta en la fecha efectiva, ya pagado y firmado el finiquito.',
+            'El jefe directo (o RH) inicia la baja desde el colaborador, sin solicitud previa ni preautorización; RH autoriza. Al iniciarla se suspende el acceso; la baja se ejecuta en la fecha efectiva, ya pagado y firmado el finiquito.',
         queEs: 'Es el cierre de la relación laboral. Nunca borra a la persona: bloquea su acceso y conserva expediente, contratos, evaluaciones y documentos para un posible reingreso.',
         quien: ['gerente', 'regional', 'rh', 'sistemas'],
         quienDetalle:
-            'Solicita el jefe o gerente (o RH). Preautoriza el superior según el organigrama (implícita si quien solicita ya es su superior). Autoriza RH. Programa el pago la coordinación regional. El gerente cita, recaba firma y huella. RH confirma el pago y concluye.',
-        antes: ['La persona está activa y dentro de tu alcance.'],
+            'Inicia el jefe directo de la persona (su cadena de mando real) o RH; nadie más puede iniciarla. Autoriza RH. Programa el pago la coordinación regional. El gerente cita, recaba firma y huella. RH confirma el pago y concluye.',
+        antes: [
+            'La persona está activa y eres su jefe directo (o RH).',
+            'La baja NO es una solicitud: no está en «Nueva solicitud».',
+        ],
         pasos: [
             {
-                titulo: '«Solicitar baja»',
+                titulo: '«Iniciar baja»',
                 detalle:
-                    'Expedientes → la persona → Ciclo laboral → «Solicitar baja»: causa (renuncia, no renovación, bajo desempeño, baja inmediata…), motivo, fecha efectiva y evidencias (PDF o imagen).',
+                    'Expedientes → la persona de tu equipo → Ciclo laboral → «Iniciar baja»: causa (renuncia, no renovación, bajo desempeño, baja inmediata…), motivo, fecha efectiva y evidencias (PDF o imagen). Pasa directo a RH.',
                 quien: 'gerente',
-            },
-            {
-                titulo: '«Preautorizar baja»',
-                detalle: 'El superior operativo la preautoriza o la rechaza.',
-                quien: 'regional',
             },
             {
                 titulo: '«Autorizar baja»',
@@ -75,7 +73,7 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
         llamados: [
             {
                 tono: 'importante',
-                texto: 'Al SOLICITAR la baja se suspende de inmediato el acceso de la persona a la app y al portal. Si la baja se rechaza o cancela, el acceso vuelve solo. Su estatus laboral no cambia hasta la autorización de RH y la fecha efectiva.',
+                texto: 'Al INICIAR la baja se suspende de inmediato el acceso de la persona a la app y al portal. Si la baja se rechaza o cancela, el acceso vuelve solo. Su estatus laboral no cambia hasta la autorización de RH y la fecha efectiva.',
             },
         ],
         despues: [
@@ -84,8 +82,8 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
             'La persona queda disponible para un posible reingreso.',
         ],
         notificaciones: [
-            '«Baja solicitada» a regionales y RH.',
-            '«Preautorización» al superior; «Autorización» a RH; «Pago por programar» a la coordinación; «Cita de finiquito» al jefe.',
+            '«Baja iniciada» a regionales y RH.',
+            '«Autorización» a RH; «Pago por programar» a la coordinación; «Cita de finiquito» al jefe.',
             'Baja ejecutada → RH y Sistemas.',
         ],
         documentos: [
@@ -101,7 +99,7 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
             {
                 problema: '«¿Cómo hago una baja?»',
                 solucion:
-                    'Desde el Ciclo laboral de la persona. Expedientes → la persona → Ciclo laboral → «Solicitar baja».',
+                    'Desde el Ciclo laboral de la persona. Expedientes → la persona → Ciclo laboral → «Iniciar baja». No se pide desde Solicitudes.',
             },
         ],
         registro: [
@@ -129,7 +127,7 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
         resumen:
             'PEOPLE calcula sueldo pendiente, aguinaldo, vacaciones, prima vacacional e ISR; RH revisa, ajusta lo autorizado y genera el PDF para firma.',
         queEs: 'Es el cálculo del pago final de la persona que se va.',
-        quien: ['rh'],
+        quien: ['rh', 'regional'],
         antes: ['La baja está autorizada por RH.'],
         pasos: [
             {

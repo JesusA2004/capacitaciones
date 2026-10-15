@@ -79,6 +79,7 @@ const SIDEBAR_A_GUIA = [
     'Reingresos' => ['reingresos'],
     'Configuración' => ['configuracion'],
     'Expedientes' => ['expedientes'],
+    'Actas administrativas' => ['actas'],
     'Solicitudes' => ['solicitudes'],
     'Organigrama' => ['organigrama'],
     'Vacantes' => ['vacantes'],
@@ -112,6 +113,10 @@ const SIDEBAR_SIN_GUIA = [
     // Pantallas sencillas de un solo propósito (bandeja o lista plana): aún
     // no tienen módulo de guía propio.
     'Avisos',
+    // Bandeja propia de notificaciones (marcar leída / ir al registro).
+    'Notificaciones',
+    // Formulario de un solo paso para enviar un aviso (artículo «avisos» de la Guía).
+    'Enviar notificación',
     'Mis recibos de nómina',
     'Muro de felicitaciones',
     'Recibos de nómina',

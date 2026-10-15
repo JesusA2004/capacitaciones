@@ -5,7 +5,7 @@ import { computed } from 'vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useGuia } from '@/composables/useGuia';
-import { articulo, rol as buscarRol, ROLES_GUIA } from '@/lib/guia';
+import { articulo, rol as buscarRol, ROLES_GUIA, rolVisible } from '@/lib/guia';
 import { iconoGuia } from '@/lib/guia/iconos';
 
 defineOptions({
@@ -16,8 +16,20 @@ defineOptions({
 
 const props = defineProps<{ rol: string }>();
 
-const { rolGuia } = useGuia();
-const datos = computed(() => buscarRol(props.rol));
+const { rolGuia, alcance } = useGuia();
+// Solo la guía de los roles que le corresponden (super_admin: todas).
+const datos = computed(() => {
+    const encontrado = buscarRol(props.rol);
+
+    return encontrado && rolVisible(encontrado.id, alcance.value)
+        ? encontrado
+        : undefined;
+});
+const otrosRoles = computed(() =>
+    ROLES_GUIA.filter(
+        (x) => x.id !== datos.value?.id && rolVisible(x.id, alcance.value),
+    ),
+);
 </script>
 
 <template>
@@ -115,7 +127,7 @@ const datos = computed(() => buscarRol(props.rol));
                 </ul>
             </section>
 
-            <section>
+            <section v-if="otrosRoles.length > 0">
                 <h2
                     class="mb-3 text-xs font-semibold tracking-[0.16em] text-bronce uppercase"
                 >
@@ -123,9 +135,7 @@ const datos = computed(() => buscarRol(props.rol));
                 </h2>
                 <div class="flex flex-wrap gap-2">
                     <Button
-                        v-for="r in ROLES_GUIA.filter(
-                            (x) => x.id !== datos?.id,
-                        )"
+                        v-for="r in otrosRoles"
                         :key="r.id"
                         as-child
                         variant="outline"
@@ -138,7 +148,7 @@ const datos = computed(() => buscarRol(props.rol));
         </template>
 
         <div v-else class="py-20 text-center">
-            <p class="mb-4">No encontré ese rol.</p>
+            <p class="mb-4">Esta guía no corresponde a tu rol.</p>
             <Button as-child variant="outline"
                 ><Link href="/ayuda">Volver a la guía</Link></Button
             >

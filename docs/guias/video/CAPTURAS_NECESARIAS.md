@@ -21,7 +21,7 @@ Lista exacta de pantallas, en orden. Los PNG reales están en [capturas/](captur
 | 11 | `10-entrevista.png` → `10-entrevista.mp4` | Ficha del candidato (vista del gerente) | `/rh/candidatos/:candidato` | Como gerente de sucursal, «Registrar entrevista»: fecha, observaciones y resultado viable. |
 | 12 | `11-psicometricos.png` → `11-psicometricos.mp4` | Ficha → Registrar resultados | `/rh/candidatos/:candidato` | Registrar el resumen y subir un PDF ficticio; abrirlo en el visor; el gerente lo revisa en perfil. |
 | 13 | `12-socioeconomico.png` → `12-socioeconomico.mp4` | Ficha → Registrar estudio socioeconómico | `/rh/candidatos/:candidato` | Capturar la visita: fecha, dirección ficticia, checklist, riesgos y una foto; reproducir un video de evidencia. |
-| 14 | `13-referencias-preautorizacion.png` → `13-referencias-preautorizacion.mp4` | Ficha → Referencias y preautorización | `/rh/candidatos/:candidato` | Registrar una referencia, concluir, y mostrar «Preautorizar contratación» del gerente. |
+| 14 | `13-referencias-preautorizacion.png` → `13-referencias-preautorizacion.mp4` | Ficha → Referencias y autorización de RH | `/rh/candidatos/:candidato` | Registrar una referencia, concluir, y mostrar «Autorizar contratación» de RH. |
 | 15 | `14-intervencion.png` → `14-intervencion.mp4` | Ficha → Intervención | `/rh/candidatos/:candidato` | Mostrar un candidato rechazado por RH con la sección «Intervención sobre el rechazo de RH». |
 | 16 | `15-generar-qr.png` → `15-generar-qr.mp4` | Ficha → Generar QR de contratación | `/rh/candidatos/:candidato` | Con el candidato autorizado, capturar sueldo, fecha de ingreso y modalidad; confirmar. |
 | 17 | `16-invitacion-qr.png` → `16-invitacion-qr.mp4` | Invitación QR (detalle) | `/rh/incorporacion/invitaciones/:invitacion` | Mostrar el QR, su vencimiento, copiar liga y descargar PNG. |
@@ -37,9 +37,9 @@ Lista exacta de pantallas, en orden. Los PNG reales están en [capturas/](captur
 | 27 | `26-contrato-indeterminado.png` → `26-contrato-indeterminado.mp4` | Ciclo laboral → contrato indeterminado | `/rh/colaboradores/:colaborador/ciclo` | Mostrar «Renovación autorizada» y el contrato por tiempo indeterminado listo para previsualizar e imprimir. |
 | 28 | `27-solicitudes.png` → `27-solicitudes.mp4` | Personal → Solicitudes | `/rh/solicitudes` | Mostrar los tipos, abrir el tablero de permisos y una solicitud con su cadena de autorización. |
 | 29 | `28-nomina-lotes.png` → `28-nomina-lotes.mp4` | Personal → Recibos de nómina | `/rh/nomina/lotes` | Preparar un lote quincenal; abrirlo y recorrer recibos con Anterior y Siguiente. |
-| 30 | `29-nomina-emitir.png` → `29-nomina-emitir.mp4` | Lote de nómina → Emitir | `/rh/nomina/lotes/:lote` | Pulsar «Emitir N recibos» y mostrar la notificación en la app. |
+| 30 | `29-nomina-emitir.png` → `29-nomina-emitir.mp4` | Lote de nómina → Emitir | `/rh/nomina/lotes/:lote` | Pulsar «Emitir N recibos» e imprimir el PDF. |
 | 31 | `30-avisos.png` → `30-avisos.mp4` | Personal → Avisos | `/rh/avisos` | Redactar un aviso para toda la empresa con imagen; mostrar Celebraciones. |
-| 32 | `31-baja.png` → `31-baja.mp4` | Ciclo laboral → Solicitar baja | `/rh/colaboradores/:colaborador/ciclo` | Abrir «Solicitar baja», elegir la causa, el motivo y la fecha efectiva. |
+| 32 | `31-baja.png` → `31-baja.mp4` | Ciclo laboral → Iniciar baja | `/rh/colaboradores/:colaborador/ciclo` | Abrir «Iniciar baja», elegir la causa, el motivo y la fecha efectiva. |
 | 33 | `32-finiquito.png` → `32-finiquito.mp4` | Solicitud de baja → Finiquito | `/rh/solicitudes/:solicitud` | Mostrar los conceptos del finiquito, ajustar uno con motivo y ver la vista previa. |
 | 34 | `33-reingresos.png` → `33-reingresos.mp4` | Desarrollo → Reingresos | `/rh/reingresos` | Buscar a una persona dada de baja y mostrar su causa de salida. |
 | 35 | `34-guia.png` → `34-guia.mp4` | Ayuda → Guía del sistema | `/ayuda` | Mostrar el centro de Guía: buscador, recorrido completo, procesos y roles. |

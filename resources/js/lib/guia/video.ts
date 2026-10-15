@@ -179,19 +179,19 @@ const ESCENAS: EscenaBase[] = [
         zoom: 'Zoom al checklist',
         textoPantalla: 'Fotos, PDF o video',
         narracion:
-            'El gerente realiza el estudio socioeconómico: registra la visita, un checklist, los riesgos y sus evidencias en foto, PDF o video. Todo se consulta desde la ficha.',
+            'Se carga el estudio socioeconómico: la visita, un checklist, los riesgos y sus evidencias en foto, PDF o video. Cargarlo no lo aprueba: el responsable lo abre y decide si es viable.',
         transicion: 'Corte',
     },
     {
         capitulo: 'Autorización e intervención',
-        pantalla: 'Ficha → Referencias y preautorización',
+        pantalla: 'Ficha → Referencias y autorización de RH',
         ruta: '/rh/candidatos/:candidato',
         captura: '13-referencias-preautorizacion.png',
-        accion: 'Registrar una referencia, concluir, y mostrar «Preautorizar contratación» del gerente.',
+        accion: 'Registrar una referencia, concluir, y mostrar «Autorizar contratación» de RH.',
         zoom: 'Zoom a la cadena de aprobaciones',
-        textoPantalla: 'Referencias → preautoriza el gerente → autoriza RH',
+        textoPantalla: 'Referencias → autoriza RH',
         narracion:
-            'Antes de decidir se valida al menos una referencia laboral. Luego el gerente preautoriza la contratación y Recursos Humanos da la autorización final. En el caso normal no interviene el regional ni Dirección Comercial.',
+            'Antes de decidir se valida al menos una referencia laboral. Después, solo Recursos Humanos autoriza la contratación: el gerente no la autoriza. En el caso normal no interviene el regional ni Dirección Comercial.',
         transicion: 'Corte',
     },
     {
@@ -383,11 +383,11 @@ const ESCENAS: EscenaBase[] = [
         pantalla: 'Lote de nómina → Emitir',
         ruta: '/rh/nomina/lotes/:lote',
         captura: '29-nomina-emitir.png',
-        accion: 'Pulsar «Emitir N recibos» y mostrar la notificación en la app.',
+        accion: 'Pulsar «Emitir N recibos» e imprimir el PDF.',
         zoom: 'Zoom al botón Emitir',
-        textoPantalla: 'Solo al emitir: se publica y se avisa',
+        textoPantalla: 'Solo al emitir se congela el PDF',
         narracion:
-            'Solo al pulsar Emitir los recibos se publican, se guarda su PDF en el expediente y cada colaborador recibe el aviso: tu recibo de nómina ya está disponible. Esta separación evita que alguien reciba un recibo con errores.',
+            'Solo al pulsar Emitir se congela el PDF de cada recibo y se guarda en el expediente; Recursos Humanos lo imprime y lo entrega. El colaborador no lo ve en la app ni recibe aviso. Esta separación evita que alguien reciba un recibo con errores.',
         transicion: 'Corte',
     },
     {
@@ -404,14 +404,14 @@ const ESCENAS: EscenaBase[] = [
     },
     {
         capitulo: 'Baja, finiquito y reingreso',
-        pantalla: 'Ciclo laboral → Solicitar baja',
+        pantalla: 'Ciclo laboral → Iniciar baja',
         ruta: '/rh/colaboradores/:colaborador/ciclo',
         captura: '31-baja.png',
-        accion: 'Abrir «Solicitar baja», elegir la causa, el motivo y la fecha efectiva.',
+        accion: 'Abrir «Iniciar baja», elegir la causa, el motivo y la fecha efectiva.',
         zoom: 'Zoom al diálogo',
-        textoPantalla: 'Solicita → preautoriza → RH autoriza',
+        textoPantalla: 'El jefe inicia → RH autoriza',
         narracion:
-            'Para una baja, el jefe la solicita desde el ciclo laboral de la persona, el superior la preautoriza y Recursos Humanos la autoriza. Al solicitarla, el acceso de la persona se suspende de inmediato, pero nunca se borra nada.',
+            'La baja no es una solicitud: el jefe directo la inicia desde el ciclo laboral de la persona y Recursos Humanos la autoriza. Al iniciarla, el acceso de la persona se suspende de inmediato, pero nunca se borra nada.',
         transicion: 'Corte',
     },
     {
@@ -654,7 +654,7 @@ const MINIS: MiniBase[] = [
                 pantalla: 'Emitir',
                 accion: 'Pulsar «Emitir N recibos».',
                 narracion:
-                    'Solo al emitir se publican en la web y en la app, se guardan en el expediente y se avisa a cada colaborador. La emisión automática viene apagada: siempre la confirma una persona.',
+                    'Solo al emitir se congelan los PDF y se guardan en el expediente para imprimirlos y entregarlos. La emisión automática viene apagada: siempre la confirma una persona.',
             },
         ],
     },
@@ -756,17 +756,17 @@ const MINIS: MiniBase[] = [
             },
             {
                 captura: '31-baja.png',
-                pantalla: 'Solicitar baja',
+                pantalla: 'Iniciar baja',
                 accion: 'Capturar causa, motivo y fecha efectiva.',
                 narracion:
-                    'Solicita la baja con su causa, motivo y fecha efectiva, y adjunta la evidencia. El acceso de la persona al sistema y a la app se suspende de inmediato.',
+                    'Inicia la baja con su causa, motivo y fecha efectiva, y adjunta la evidencia. El acceso de la persona al sistema y a la app se suspende de inmediato.',
             },
             {
                 captura: '31-baja.png',
-                pantalla: 'Preautorizar y autorizar',
-                accion: 'Preautorización y autorización de RH.',
+                pantalla: 'Autorización de RH',
+                accion: 'Autorización de RH.',
                 narracion:
-                    'El superior la preautoriza y Recursos Humanos la autoriza. En cada paso queda registrado quién decidió y cuándo.',
+                    'Recursos Humanos la autoriza; no hace falta otra preautorización. En cada paso queda registrado quién decidió y cuándo.',
             },
             {
                 captura: '32-finiquito.png',

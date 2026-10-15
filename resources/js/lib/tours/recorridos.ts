@@ -253,7 +253,7 @@ export const RECORRIDOS_PROCESO: RecorridoProceso[] = [
                 ruta: '/rh/nomina/lotes',
                 selector: sel('nomina-pasos'),
                 titulo: 'Tres pasos',
-                texto: 'Preparar no publica. Revisar te deja ver el PDF real de cada recibo. Solo «Emitir» publica y avisa.',
+                texto: 'Preparar no publica. Revisar te deja ver el PDF real de cada recibo. «Emitir» congela el PDF para imprimirlo y entregarlo (el colaborador no lo ve ni recibe aviso).',
             },
             {
                 selector: sel('encabezado'),

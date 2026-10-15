@@ -25,10 +25,15 @@ import {
     NOMBRE_ROL,
     PREGUNTAS_FRECUENTES,
     PROCESOS,
+    preguntaVisible,
+    procesoVisible,
     rol,
     ROLES_GUIA,
+    rolVisible,
+    veFlujoCompleto,
 } from '@/lib/guia';
 import { iconoGuia } from '@/lib/guia/iconos';
+import type { RolGuiaId } from '@/lib/guia/tipos';
 import { ARTICULOS_DE_MODULO, AYUDA_ESCRITA } from '@/lib/tours/ayudaEscrita';
 import { recorridosDisponibles, tourDeRecorrido } from '@/lib/tours/recorridos';
 import {
@@ -51,17 +56,43 @@ defineProps<{
     } | null;
 }>();
 
-const { contextoTour, rolGuia, esColaborador } = useGuia();
+const { contextoTour, rolGuia, alcance } = useGuia();
 const { tieneAmbosModos } = useNavegacion();
 const { iniciar, haVisto } = useTourGuiado();
 
 const buscador = ref<InstanceType<typeof GuiaBuscador> | null>(null);
 
-/** En modo colaborador solo los procesos donde participa el colaborador. */
+/**
+ * Solo lo que le toca a quien lee (rol + modo de navegación): un colaborador
+ * nunca ve el flujo interno de reclutamiento, autorizaciones ni nómina RH.
+ * super_admin ve la guía global.
+ */
 const procesos = computed(() =>
-    esColaborador.value
-        ? PROCESOS.filter((p) => p.roles.includes('colaborador'))
-        : PROCESOS,
+    PROCESOS.filter((p) => procesoVisible(p, alcance.value)),
+);
+const rolesVisibles = computed(() =>
+    ROLES_GUIA.filter((r) => rolVisible(r.id, alcance.value)),
+);
+const flujoCompleto = computed(() => veFlujoCompleto(alcance.value));
+const preguntas = computed(() =>
+    PREGUNTAS_FRECUENTES.filter((p) => preguntaVisible(p, alcance.value)),
+);
+
+const SUBTITULO: Record<RolGuiaId, string> = {
+    rh: 'Conoce el proceso completo desde la necesidad de personal hasta la vida laboral del colaborador.',
+    gerente:
+        'Lo que te toca con tu equipo y con los candidatos de tu sucursal: entrevistas, revisiones, visto bueno, actas, bajas y pendientes.',
+    regional:
+        'Lo que te toca en tu región: visto bueno de solicitudes, intervenciones que te piden y seguimiento de sucursales.',
+    direccion_comercial:
+        'Consulta de indicadores, vacantes y candidatos, e intervenciones de puestos superiores.',
+    sistemas:
+        'Cuentas, roles, accesos, la app, notificaciones y soporte técnico.',
+    colaborador:
+        'Todo lo que puedes hacer en Mi espacio: tus datos, documentos, inducción, solicitudes, avisos y celebraciones.',
+};
+const subtitulo = computed(() =>
+    alcance.value.global ? SUBTITULO.rh : SUBTITULO[rolGuia.value],
 );
 
 const miRol = computed(() => rol(rolGuia.value));
@@ -106,15 +137,20 @@ function buscar(): void {
                 <p
                     class="max-w-2xl text-base text-pretty text-[var(--mrl-texto-suave)] sm:text-lg"
                 >
-                    Conoce el proceso completo desde la necesidad de personal
-                    hasta la vida laboral del colaborador.
+                    {{ subtitulo }}
                 </p>
 
                 <div class="flex flex-wrap justify-center gap-2">
-                    <Button size="lg" class="gap-2" @click="irAlRecorrido">
+                    <Button
+                        v-if="flujoCompleto"
+                        size="lg"
+                        class="gap-2"
+                        @click="irAlRecorrido"
+                    >
                         <Route class="size-4" /> Ver recorrido completo
                     </Button>
                     <Button
+                        v-if="flujoCompleto"
                         size="lg"
                         variant="secondary"
                         class="gap-2"
@@ -154,8 +190,12 @@ function buscar(): void {
             </div>
         </section>
 
-        <!-- Flujo general -->
-        <section id="recorrido" class="scroll-mt-24 space-y-5">
+        <!-- Flujo general: solo RH (y la ayuda global de super_admin) -->
+        <section
+            v-if="flujoCompleto"
+            id="recorrido"
+            class="scroll-mt-24 space-y-5"
+        >
             <header class="flex flex-wrap items-end justify-between gap-3">
                 <div>
                     <p
@@ -195,7 +235,8 @@ function buscar(): void {
                 </p>
                 <h2 class="text-2xl font-semibold tracking-tight">
                     {{
-                        esColaborador
+                        alcance.roles.length === 1 &&
+                        alcance.roles[0] === 'colaborador'
                             ? 'Lo que puedes hacer en PEOPLE'
                             : 'Elige un proceso'
                     }}
@@ -270,12 +311,16 @@ function buscar(): void {
                     ¿Qué hago según mi rol?
                 </p>
                 <h2 class="text-2xl font-semibold tracking-tight">
-                    Lo que le toca a cada quien
+                    {{
+                        rolesVisibles.length > 1
+                            ? 'Lo que le toca a cada quien'
+                            : 'Lo que te toca'
+                    }}
                 </h2>
             </header>
             <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <Link
-                    v-for="r in ROLES_GUIA"
+                    v-for="r in rolesVisibles"
                     :key="r.id"
                     :href="`/ayuda/rol/${r.id}`"
                     :class="[
@@ -463,6 +508,7 @@ function buscar(): void {
         <!-- Video, glosario y preguntas -->
         <section class="grid gap-4 lg:grid-cols-3">
             <Link
+                v-if="flujoCompleto"
                 href="/ayuda/video"
                 class="flex tarjeta-interactiva flex-col gap-3 rounded-3xl border border-[var(--mrl-borde)] bg-gradient-to-br from-[var(--mrl-petroleo)] to-esmeralda p-5 text-white"
             >
@@ -500,7 +546,7 @@ function buscar(): void {
             >
                 <p class="text-lg font-semibold">Preguntas frecuentes</p>
                 <Link
-                    v-for="p in PREGUNTAS_FRECUENTES.slice(0, 4)"
+                    v-for="p in preguntas.slice(0, 4)"
                     :key="p.pregunta"
                     :href="
                         p.articulo

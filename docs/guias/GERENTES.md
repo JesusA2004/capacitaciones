@@ -6,35 +6,36 @@ Lo que le toca al **gerente de sucursal** (entrevistas, socioeconómico, preauto
 
 ## Gerente de sucursal
 
-Decide sobre los candidatos de su sucursal, da visto bueno a las solicitudes de su equipo, imprime y recaba firmas, entrega equipo y evalúa la capacitación inicial.
+Entrevista y revisa a los candidatos de su sucursal (psicométricos y socioeconómico: viable o no viable), da visto bueno a las solicitudes de su equipo, levanta actas, inicia la baja de alguien de su equipo, imprime y recaba firmas, entrega equipo y evalúa la capacitación inicial.
 
-**Dónde trabaja:** App (Gestión RH: Pendientes, Equipo) y web.
+**Dónde trabaja:** Web o app (Gestión RH: Pendientes, Equipo).
 
-**Roles del sistema:** `gerente_sucursal`, `gerente`, `subgerente`, `jefe_directo`
+**Roles del sistema:** `gerente_sucursal`, `gerente`, `subgerente`, `coordinadora`, `jefe_directo`
 
 ### Tu checklist
 
 - [ ] Entrevistas de candidatos → [Entrevista con el gerente](#articulo-entrevista-gerente)
-- [ ] Revisar psicométricos → [Psicométricos](#articulo-psicometricos)
-- [ ] Estudio socioeconómico → [Estudio socioeconómico](#articulo-socioeconomico)
-- [ ] Preautorizar contratación → [Preautorización del gerente y decisión de RH](#articulo-autorizacion-rh)
+- [ ] Revisar psicométricos (viable / no viable) → [Psicométricos](#articulo-psicometricos)
+- [ ] Revisar el estudio socioeconómico → [Estudio socioeconómico](#articulo-socioeconomico)
 - [ ] Solicitar intervención (si RH rechaza) → [Intervención sobre un rechazo de RH](#articulo-intervencion)
 - [ ] Imprimir, firmar y enviar contratos → [Firma de contratos y control del original](#articulo-firma-y-original)
 - [ ] Entregar equipo (onboarding) → [Onboarding: la bienvenida del colaborador](#articulo-onboarding)
 - [ ] Evaluación de capacitación inicial → [Evaluación de capacitación inicial](#articulo-evaluacion-capacitacion)
 - [ ] Visto bueno de permisos y vacaciones → [Revisar solicitudes (gerente, regional y RH)](#articulo-revisar-solicitudes)
-- [ ] Solicitar bajas de su equipo → [Baja de un colaborador (cierre laboral)](#articulo-baja)
+- [ ] Levantar un acta → [Actas: administrativa y de hechos](#articulo-actas)
+- [ ] Iniciar la baja de alguien de tu equipo → [Baja de un colaborador (cierre laboral)](#articulo-baja)
+- [ ] Directorio → [Directorio y correo corporativo](#articulo-directorio)
 - [ ] Mis pendientes → [Mis pendientes: tu bandeja de trabajo](#articulo-mis-pendientes)
 
 ### Lo que NO le toca
 
-- Autorizar en definitiva (siempre es RH).
+- Autorizar una contratación (siempre es RH).
 - Imprimir un permiso antes de que RH lo autorice.
 - Capturar campañas o la plantilla autorizada.
 
 ## Gerente Regional
 
-Monitorea las sucursales de su región, da el segundo visto bueno de solicitudes, preautoriza bajas y decide intervenciones de Gestor o Gestor Volante cuando el gerente las pide.
+Monitorea las sucursales de su región, da el segundo visto bueno de solicitudes, entrevista y revisa candidatos a Gerente de sucursal y decide intervenciones de Gestor o Gestor Volante cuando el gerente las pide.
 
 **Dónde trabaja:** App y web, con alcance de región.
 
@@ -44,13 +45,13 @@ Monitorea las sucursales de su región, da el segundo visto bueno de solicitudes
 
 - [ ] Visto bueno de solicitudes de su región → [Revisar solicitudes (gerente, regional y RH)](#articulo-revisar-solicitudes)
 - [ ] Intervenciones de Gestor / Volante (solo si se piden) → [Intervención sobre un rechazo de RH](#articulo-intervencion)
-- [ ] Preautorizar bajas → [Baja de un colaborador (cierre laboral)](#articulo-baja)
-- [ ] Programar el pago del finiquito (coordinación regional) → [Finiquito](FLUJO_COMPLETO.md#articulo-finiquito)
-- [ ] Monitorear vacantes de la región → [De dónde nace una vacante](FLUJO_COMPLETO.md#articulo-plantilla-y-vacantes)
+- [ ] Entrevistar y revisar candidatos a Gerente de sucursal → [Entrevista con el gerente](#articulo-entrevista-gerente)
+- [ ] Programar el pago del finiquito (coordinación regional) → [Finiquito](#articulo-finiquito)
+- [ ] Monitorear vacantes de la región → [De dónde nace una vacante](#articulo-plantilla-y-vacantes)
 
 ### Lo que NO le toca
 
-- Aprobar cada candidato: en el caso normal NO interviene en reclutamiento.
+- Autorizar contrataciones (siempre es RH).
 - Decidir intervenciones de puestos superiores (eso es de Dirección Comercial).
 
 ## Dirección Comercial
@@ -64,7 +65,7 @@ Consulta global de indicadores, vacantes y candidatos. Decide únicamente las in
 ### Tu checklist
 
 - [ ] Intervenciones de puestos superiores → [Intervención sobre un rechazo de RH](#articulo-intervencion)
-- [ ] Consultar vacantes → [De dónde nace una vacante](FLUJO_COMPLETO.md#articulo-plantilla-y-vacantes)
+- [ ] Consultar vacantes → [De dónde nace una vacante](#articulo-plantilla-y-vacantes)
 - [ ] Consultar el embudo de candidatos → [Las fases del candidato](#articulo-etapas-del-candidato)
 
 ### Lo que NO le toca
@@ -75,6 +76,47 @@ Consulta global de indicadores, vacantes y candidatos. Decide únicamente las in
 ---
 
 ## 1. Reclutamiento
+
+<a id="articulo-plantilla-y-vacantes"></a>
+
+### De dónde nace una vacante
+
+> Una vacante no se captura: PEOPLE la calcula restando a la plantilla autorizada las personas que hoy ocupan el puesto.
+
+#### Qué es
+
+Una vacante es una plaza autorizada que hoy no tiene titular. Nadie escribe «vacante abierta»: PEOPLE compara, para cada sucursal y puesto, la plantilla autorizada contra los colaboradores vigentes que ocupan ese puesto, y lo que falta es la vacante real.
+
+#### Quién lo hace
+
+Gerencia de RH captura la plantilla autorizada (Administración → Sucursales). Todos los demás solo consultan Vacantes: la pantalla es informativa.
+
+> **Importante:** Una sola fuente para todos: Vacantes, Campañas, Candidatos y la contratación consultan el mismo cálculo (plantilla autorizada − ocupados). No existen listas de vacantes paralelas.
+
+#### Pasos
+
+1. **Plantilla autorizada** — Es cuántas plazas de un puesto autorizó Dirección en una sucursal. Ejemplo: Sucursal Tlaxcala, Gestor, plantilla autorizada 5.
+2. **Ocupados** — PEOPLE cuenta en vivo a los colaboradores vigentes (activos o en incorporación) titulares de ese puesto en esa sucursal. El Gestor Volante cuenta como Gestor. Ejemplo: 4 gestores.
+3. **Faltantes = vacantes reales** — Plantilla autorizada − ocupados, nunca menos de cero. Ejemplo: 5 − 4 = 1 vacante real de Gestor en Tlaxcala.
+4. **Qué ve RH en Vacantes** _(Web)_ — Arriba, cuántas plazas faltan de cada puesto y en qué sucursales (un clic filtra). Debajo, una fila por vacante: puesto, sucursal, plazas que faltan, días abierta, candidatos que lleva y el contexto «4 de 5 ocupadas».
+
+#### Qué pasa después
+
+- Si alguien se da de baja, cambia de puesto o de sucursal, la vacante del lugar que deja se abre sola.
+- Cuando alguien entra a esa plaza (contratación), la vacante baja o se cierra sola.
+- Campañas, Candidatos y Contratación usan esta misma cifra: nadie puede publicar, registrar o contratar sobre una plaza que ya no falta.
+
+#### Errores comunes
+
+- **«No veo una vacante que debería existir.»** Revisa la plantilla autorizada de ese puesto en Administración → Sucursales → detalle. Si la plantilla ya está completa, no hay vacante. Si la sucursal no es de tu alcance, tampoco la verás.
+- **«Quiero crear una vacante a mano.»** No se puede y no hace falta: Vacantes es 100 % derivada. Si Dirección autorizó una plaza nueva, Gerencia de RH la agrega a la plantilla y la vacante aparece.
+- **«Alguien cubre temporalmente la plaza y la vacante sigue abierta.»** Es correcto: una cobertura temporal no cuenta como ocupado. La plaza sigue sin titular.
+
+#### En el sistema
+
+- **Ir a Vacantes** → `/rh/vacantes` _(permiso: vacantes.ver)_
+- **Ir a Sucursales** → `/administracion/sucursales` _(permiso: sucursales.administrar)_
+- Guía en pantalla → `/ayuda/articulo/plantilla-y-vacantes`
 
 <a id="articulo-etapas-del-candidato"></a>
 
@@ -88,7 +130,7 @@ Es el recorrido de cada candidato, visible como columnas en Reclutamiento → Ca
 
 #### Quién lo hace
 
-RH, Gerente.
+RH, Gerente, Dirección Comercial.
 
 > **Importante:** Arrastrar una tarjeta solo sirve para cerrar el proceso (a Rechazado o Desistió, con motivo). Para avanzar se usa la acción de la ficha («Revisar perfil», «Registrar entrevista»…): así cada paso deja su registro completo.
 
@@ -100,7 +142,7 @@ RH, Gerente.
 2. **2 · Entrevista** _(Gerente)_ — El gerente de la sucursal entrevista y registra el resultado.
 3. **3 · Psicométricos** — Reclutamiento envía el link y registra resultados; el gerente los revisa.
 4. **4 · Socioeconómico** _(Gerente)_ — El gerente visita el domicilio y registra el estudio con evidencias.
-5. **5 · Contratación** — Agrupa: validación de referencias → preautorización del gerente → autorización final de RH → QR de contratación → registro y contratos.
+5. **5 · Contratación** — Agrupa: validación de referencias → autorización de RH → QR de contratación → registro y contratos.
 6. **6 · Contratado** — Contratos firmados: la persona ya es colaborador e inicia onboarding.
 7. **Cerrados: Rechazado · Desistió** — «No viable», «No seleccionado», «No respondió» y «Rechazado por RH» son MOTIVOS dentro de «Rechazado», no fases propias. El motivo sale del catálogo y queda en la ficha.
 
@@ -123,15 +165,15 @@ RH, Gerente.
 
 ### Entrevista con el gerente
 
-> El gerente de la sucursal entrevista y registra fecha, observaciones y resultado.
+> El responsable de la vacante entrevista y registra fecha, observaciones y resultado: el gerente de la sucursal; si la vacante es de Gerente de sucursal, el Gerente Regional.
 
 #### Qué es
 
-Es la entrevista del gerente de la sucursal donde está la vacante. El Gerente Regional NO aprueba cada candidato: esta decisión es del gerente.
+Es la entrevista del responsable de la vacante (sale del organigrama: vacante → sucursal → puesto). Una vacante de gerente nunca se entrevista a sí misma: la entrevista el Regional. Entrevistar no es autorizar: la contratación la autoriza RH.
 
 #### Quién lo hace
 
-Gerente.
+Gerente, Regional.
 
 #### Pasos
 
@@ -157,7 +199,7 @@ Gerente.
 
 ### Psicométricos
 
-> Reclutamiento envía el link, carga los resultados (PDF o imagen) y el gerente los revisa.
+> Reclutamiento envía el link y carga el resultado (PDF o imagen). Cargar NO decide: queda pendiente de revisión hasta que el responsable lo abre y dice viable o no viable.
 
 #### Qué es
 
@@ -165,19 +207,19 @@ Son las pruebas psicométricas del candidato. Se aplican en la plataforma del pr
 
 #### Quién lo hace
 
-Reclutamiento envía y registra; el gerente revisa (en perfil / fuera de perfil).
+Reclutamiento envía y carga; el responsable de la vacante (gerente de la sucursal; para una vacante de gerente, el Regional) revisa.
 
 #### Pasos
 
 1. **«Registrar link de psicométricas»** _(RH)_ — Pega la liga que se le envió al candidato (opcional, para dejar constancia).
-2. **«Registrar resultados»** _(RH)_ — Resumen de resultados y hasta 5 reportes en PDF o imagen (JPG, PNG, WEBP).
-3. **«Revisar psicométricas»** _(Gerente)_ — El gerente decide si están en perfil o fuera de perfil, con observaciones.
+2. **«Cargar resultados psicométricos»** _(RH)_ — Resumen y hasta 5 reportes en PDF o imagen (JPG, PNG, WEBP). El candidato queda «Revisión de psicométricas»: todavía no avanza.
+3. **«Ver psicométrico» y «Revisar psicométrico»** _(Gerente)_ — El responsable abre el PDF (botón arriba de la ficha) y decide Viable o No viable, con observaciones. Solo entonces avanza.
 4. **Ver la evidencia sin salir de PEOPLE** — En la ficha, «Evaluaciones registradas» → clic en el archivo: el PDF y las imágenes se abren en un visor dentro de PEOPLE.
 
 #### Qué pasa después
 
-- En perfil → «Socioeconómico».
-- Fuera de perfil → «Rechazado» con motivo.
+- Viable → «Socioeconómico».
+- No viable → «Rechazado» con motivo.
 
 #### Errores comunes
 
@@ -192,28 +234,28 @@ Reclutamiento envía y registra; el gerente revisa (en perfil / fuera de perfil)
 
 ### Estudio socioeconómico
 
-> El gerente visita el domicilio y registra el estudio con fotos, PDF o video.
+> Se carga el estudio (video, PDF o fotos de la visita). Cargar NO es aprobar: el responsable lo abre y decide viable o no viable.
 
 #### Qué es
 
-Es la visita domiciliaria al candidato. PEOPLE guarda los datos de la visita, un checklist, los riesgos y las evidencias.
+Es la visita domiciliaria al candidato. PEOPLE guarda los datos de la visita, un checklist, los riesgos y las evidencias, separadas de las del psicométrico.
 
 #### Quién lo hace
 
-Gerente.
+Gerente, RH.
 
 #### Pasos
 
-1. **«Registrar estudio socioeconómico»** — Fecha de visita, dirección visitada y checklist: vivienda en orden, vive con su familia, años de arraigo y resguardo de motocicleta.
+1. **«Cargar estudio socioeconómico»** — Fecha de visita, dirección visitada y checklist: vivienda en orden, vive con su familia, años de arraigo y resguardo de motocicleta. Queda «pendiente de revisión».
 2. **Riesgos y observaciones** — Riesgos o inconsistencias detectados y observaciones.
 3. **Evidencias** — Hasta 12 archivos: fotos (JPG, PNG, WEBP), PDF o video (MP4, MOV).
-4. **Resultado** — Viable o no viable (si no es viable, motivo obligatorio).
+4. **«Revisar socioeconómico»** _(Gerente)_ — El responsable abre el video o el PDF («Ver socioeconómico» / «Ver video») y decide Viable o No viable (si no es viable, motivo obligatorio).
 5. **Abrir las evidencias** — En la ficha, clic en cada archivo: imagen y PDF se ven en línea; el video se reproduce dentro de PEOPLE.
 
 #### Qué pasa después
 
-- Viable → «Validación de referencias».
-- No viable → «Rechazado».
+- Revisado viable → «Validación de referencias».
+- Revisado no viable → «Rechazado».
 
 #### Errores comunes
 
@@ -228,7 +270,7 @@ Gerente.
 
 ### Validación de referencias
 
-> Se registra al menos una referencia laboral validada antes de pedir la preautorización del gerente.
+> Se registra al menos una referencia laboral validada; al concluir, el candidato pasa directo a la autorización de RH.
 
 #### Qué es
 
@@ -245,54 +287,17 @@ RH, Gerente.
 
 #### Qué pasa después
 
-- Favorables → «Preautorización del gerente» y se abre la aprobación al gerente de la sucursal.
+- Favorables → «Autorización de RH».
 - No favorables → «Rechazado» con motivo.
 
 #### Errores comunes
 
-- **«Registra al menos una referencia laboral validada antes de continuar.»** Captura una referencia con «Registrar referencia» y vuelve a concluir.
+- **«Registra al menos una referencia laboral validada antes de continuar.»** La ficha lo avisa antes de concluir. Captura una referencia con «Registrar referencia» (botón en el mismo aviso) y vuelve a concluir.
 
 #### En el sistema
 
 - **Ir a Candidatos** → `/rh/candidatos` _(permiso: candidatos.ver)_
 - Guía en pantalla → `/ayuda/articulo/referencias`
-
-<a id="articulo-autorizacion-rh"></a>
-
-### Preautorización del gerente y decisión de RH
-
-> El gerente preautoriza y RH da la autorización final. En el caso normal NO interviene el Regional ni Dirección Comercial.
-
-#### Qué es
-
-Es la decisión de contratar. Quien preautoriza (gerente) no puede dar la autorización final: esa siempre es de RH.
-
-#### Quién lo hace
-
-Gerente, RH.
-
-> **Importante:** Caso normal: RH aprueba → el candidato continúa. NO se manda al Regional ni a Dirección Comercial. Ellos solo intervienen si, después de un rechazo de RH, el gerente pide una intervención.
-
-#### Pasos
-
-1. **«Preautorizar contratación»** _(Gerente)_ — El gerente confirma que quiere a la persona (comentario opcional). RH recibe la notificación «Candidato preautorizado».
-2. **«Autorizar contratación»** _(RH)_ — RH da la autorización final. El candidato queda «Autorizado por RH» y aparece el botón para generar el QR.
-3. **O bien «Devolver al gerente»** _(RH)_ — Con motivo, si falta algo: regresa a la preautorización.
-4. **O bien «Rechazar»** _(RH)_ — Con motivo del catálogo: el candidato queda «Rechazado por RH».
-
-#### Qué pasa después
-
-- Autorizado → RH ve «Generar QR de contratación».
-- Rechazado por RH → el gerente que entrevistó puede aceptar el rechazo o «Solicitar intervención».
-
-#### Errores comunes
-
-- **«No veo el botón Autorizar contratación.»** La autorización final requiere el permiso de RH y alcance sobre ese candidato. El gerente que preautorizó no puede autorizar.
-
-#### En el sistema
-
-- **Ir a Mis pendientes** → `/rh/pendientes`
-- Guía en pantalla → `/ayuda/articulo/autorizacion-rh`
 
 <a id="articulo-intervencion"></a>
 
@@ -667,13 +672,77 @@ Gerente, Regional, RH.
 - **Ir a Solicitudes** → `/rh/solicitudes` _(permiso: solicitudes.revisar o solicitudes.aprobar)_
 - Guía en pantalla → `/ayuda/articulo/revisar-solicitudes`
 
+## 11. Vida laboral
+
+<a id="articulo-directorio"></a>
+
+### Directorio y correo corporativo
+
+> Todos ven nombre, puesto, área y sucursal de las personas activas. El correo y teléfono corporativos dependen de tu rol: un colaborador operativo ve los de su jefe directo; el personal corporativo autorizado, RH y Sistemas ven todos. Nunca datos personales.
+
+#### Qué es
+
+El directorio muestra nombre, puesto, área y sucursal. El contacto corporativo (correo y teléfono) se muestra según el permiso «Ver contactos de todo el directorio»; sin él, solo el de tu jefe directo. El correo corporativo es distinto del correo con el que la persona inicia sesión.
+
+#### Quién lo hace
+
+Colaborador, Gerente, Regional, Dirección Comercial, Sistemas, RH.
+
+#### Pasos
+
+1. **Buscar** _(Web y app)_ — Directorio (web o app): por nombre o número de empleado, o filtra por puesto, sucursal o departamento.
+2. **Contactar** _(App)_ — En la app, toca el correo o el teléfono para escribir o llamar.
+
+#### Errores comunes
+
+- **«Alguien no tiene correo en el directorio.»** No lo tiene capturado: PEOPLE nunca inventa uno ni usa su correo de acceso o personal. RH lo captura en su expediente.
+
+#### En el sistema
+
+- **Ir al Directorio** → `/directorio`
+- Guía en pantalla → `/ayuda/articulo/directorio`
+
+<a id="articulo-actas"></a>
+
+### Actas: administrativa y de hechos
+
+> El gerente o RH levanta un acta administrativa o un acta de hechos sobre alguien de su alcance, con exactamente dos testigos, y revisa la vista previa del PDF antes de cerrarla.
+
+#### Qué es
+
+Un documento administrativo factual (no legal) con lo que pasó: motivo, hechos, manifestación del colaborador, testigos y firmas. Solo hay dos tipos: acta administrativa y acta de hechos.
+
+#### Quién lo hace
+
+Gerente o subgerente: personas de su sucursal. RH y corporativo con alcance global: toda la organización.
+
+#### Pasos
+
+1. **«Levantar acta»** _(Web)_ — Actas → «Levantar acta»: elige a la persona, el tipo (administrativa o de hechos), la fecha, hora y lugar, y describe los hechos.
+2. **Testigos** _(Web)_ — Elige exactamente dos testigos activos, distintos entre sí y de la persona del acta. Al abrir el selector aparecen primero los de tu sucursal; puedes escribir nombre, apellido, número de empleado, puesto o sucursal (por ejemplo «Orizaba»). El cargo sale solo del puesto.
+3. **«Vista previa PDF»** _(Web)_ — Revisa el PDF exacto antes de generarlo. Abrir la vista previa no guarda nada.
+4. **Imprimir, firmar y cerrar** — Se imprime, firman el colaborador, los dos testigos y quien la levanta, y se sube el acta firmada para cerrarla.
+
+#### Qué pasa después
+
+- El acta queda en el expediente de la persona con su historial.
+
+#### Errores comunes
+
+- **«No me deja guardar los testigos.»** Deben ser exactamente dos, activos, distintos entre sí y distintos de la persona del acta.
+
+#### En el sistema
+
+- **Ir a Actas** → `/rh/actas` _(permiso: actas.ver)_
+- Guía en pantalla → `/ayuda/articulo/actas`
+
 ## 12. Baja y finiquito
 
 <a id="articulo-baja"></a>
 
 ### Baja de un colaborador (cierre laboral)
 
-> El jefe solicita, el superior preautoriza y RH autoriza. Al solicitarla se suspende el acceso; la baja se ejecuta en la fecha efectiva, ya pagado y firmado el finiquito.
+> El jefe directo (o RH) inicia la baja desde el colaborador, sin solicitud previa ni preautorización; RH autoriza. Al iniciarla se suspende el acceso; la baja se ejecuta en la fecha efectiva, ya pagado y firmado el finiquito.
 
 #### Qué es
 
@@ -681,21 +750,20 @@ Es el cierre de la relación laboral. Nunca borra a la persona: bloquea su acces
 
 #### Quién lo hace
 
-Solicita el jefe o gerente (o RH). Preautoriza el superior según el organigrama (implícita si quien solicita ya es su superior). Autoriza RH. Programa el pago la coordinación regional. El gerente cita, recaba firma y huella. RH confirma el pago y concluye.
+Inicia el jefe directo de la persona (su cadena de mando real) o RH; nadie más puede iniciarla. Autoriza RH. Programa el pago la coordinación regional. El gerente cita, recaba firma y huella. RH confirma el pago y concluye.
 
-> **Importante:** Al SOLICITAR la baja se suspende de inmediato el acceso de la persona a la app y al portal. Si la baja se rechaza o cancela, el acceso vuelve solo. Su estatus laboral no cambia hasta la autorización de RH y la fecha efectiva.
+> **Importante:** Al INICIAR la baja se suspende de inmediato el acceso de la persona a la app y al portal. Si la baja se rechaza o cancela, el acceso vuelve solo. Su estatus laboral no cambia hasta la autorización de RH y la fecha efectiva.
 
 #### Pasos
 
-1. **«Solicitar baja»** _(Gerente)_ — Expedientes → la persona → Ciclo laboral → «Solicitar baja»: causa (renuncia, no renovación, bajo desempeño, baja inmediata…), motivo, fecha efectiva y evidencias (PDF o imagen).
-2. **«Preautorizar baja»** _(Regional)_ — El superior operativo la preautoriza o la rechaza.
-3. **«Autorizar baja»** _(RH)_ — RH autoriza, devuelve o rechaza. Al autorizar se preparan los documentos de la causa.
-4. **«Registrar renuncia / aviso firmado»** _(RH)_ — Se sube la renuncia o el aviso firmado.
-5. **Finiquito** _(RH)_ — «Calcular finiquito» y «Autorizar finiquito» (ver el artículo de finiquito).
-6. **«Programar pago»** _(Regional)_ — Fecha, monto y método.
-7. **«Registrar cita» y «Registrar firma y huella»** _(Gerente)_ — El gerente cita a la persona, recaba la firma y la huella del finiquito y sube el documento firmado.
-8. **«Confirmar pago»** _(RH)_ — RH confirma que se pagó.
-9. **«Concluir cierre laboral»** _(RH)_ — Desde la fecha efectiva: la baja se ejecuta y el expediente queda cerrado. PEOPLE recuerda a RH los cierres pagados cuya fecha ya llegó.
+1. **«Iniciar baja»** _(Gerente)_ — Expedientes → la persona de tu equipo → Ciclo laboral → «Iniciar baja»: causa (renuncia, no renovación, bajo desempeño, baja inmediata…), motivo, fecha efectiva y evidencias (PDF o imagen). Pasa directo a RH.
+2. **«Autorizar baja»** _(RH)_ — RH autoriza, devuelve o rechaza. Al autorizar se preparan los documentos de la causa.
+3. **«Registrar renuncia / aviso firmado»** _(RH)_ — Se sube la renuncia o el aviso firmado.
+4. **Finiquito** _(RH)_ — «Calcular finiquito» y «Autorizar finiquito» (ver el artículo de finiquito).
+5. **«Programar pago»** _(Regional)_ — Fecha, monto y método.
+6. **«Registrar cita» y «Registrar firma y huella»** _(Gerente)_ — El gerente cita a la persona, recaba la firma y la huella del finiquito y sube el documento firmado.
+7. **«Confirmar pago»** _(RH)_ — RH confirma que se pagó.
+8. **«Concluir cierre laboral»** _(RH)_ — Desde la fecha efectiva: la baja se ejecuta y el expediente queda cerrado. PEOPLE recuerda a RH los cierres pagados cuya fecha ya llegó.
 
 #### Qué pasa después
 
@@ -706,12 +774,49 @@ Solicita el jefe o gerente (o RH). Preautoriza el superior según el organigrama
 #### Errores comunes
 
 - **«No me deja concluir.»** La baja exige finiquito firmado y pago confirmado, y no se ejecuta antes de la fecha efectiva.
-- **«¿Cómo hago una baja?»** Desde el Ciclo laboral de la persona. Expedientes → la persona → Ciclo laboral → «Solicitar baja».
+- **«¿Cómo hago una baja?»** Desde el Ciclo laboral de la persona. Expedientes → la persona → Ciclo laboral → «Iniciar baja». No se pide desde Solicitudes.
 
 #### En el sistema
 
 - **Ir a Expedientes** → `/rh/expedientes` _(permiso: expedientes.ver_todos o expedientes.ver_sucursal)_
 - Guía en pantalla → `/ayuda/articulo/baja`
+
+<a id="articulo-finiquito"></a>
+
+### Finiquito
+
+> PEOPLE calcula sueldo pendiente, aguinaldo, vacaciones, prima vacacional e ISR; RH revisa, ajusta lo autorizado y genera el PDF para firma.
+
+#### Qué es
+
+Es el cálculo del pago final de la persona que se va.
+
+#### Quién lo hace
+
+RH, Regional.
+
+#### Pasos
+
+1. **«Calcular finiquito»** — Desde el ciclo laboral, con el sueldo mensual y el sueldo pendiente.
+2. **Revisa los conceptos** — Percepciones: sueldo pendiente, aguinaldo proporcional, vacaciones proporcionales, prima vacacional, indemnización y bonos extra (si aplican). Deducciones: ISR retenido, otras deducciones y adeudos.
+3. **Ajusta lo autorizado** — En Solicitudes → la solicitud de baja → panel «Finiquito»: ajusta el importe de un concepto automático (con motivo), bonos, descuentos, adeudos o agrega conceptos.
+4. **Vista previa y PDF** — Revisa la vista previa, márcalo como revisado y genera el PDF.
+5. **«Autorizar finiquito»** — Queda listo para programar el pago.
+6. **Firmado** — Al subir el finiquito firmado (con huella) queda bloqueado: ya no admite ajustes.
+
+#### Qué pasa después
+
+- La descarga entrega el escaneo firmado cuando existe.
+
+#### Errores comunes
+
+- **«No puedo ajustar el finiquito.»** Ya está firmado o pagado: queda bloqueado para proteger el documento firmado.
+- **«Un ajuste no se guarda.»** Escribe el motivo: todo ajuste queda auditado.
+
+#### En el sistema
+
+- **Ir a Solicitudes** → `/rh/solicitudes` _(permiso: solicitudes.revisar o solicitudes.aprobar)_
+- Guía en pantalla → `/ayuda/articulo/finiquito`
 
 ## 13. Reingresos
 
@@ -784,6 +889,34 @@ RH, Gerente, Regional.
 
 - **Ir a Mis pendientes** → `/rh/pendientes`
 - Guía en pantalla → `/ayuda/articulo/mis-pendientes`
+
+<a id="articulo-directorio"></a>
+
+### Directorio y correo corporativo
+
+> Todos ven nombre, puesto, área y sucursal de las personas activas. El correo y teléfono corporativos dependen de tu rol: un colaborador operativo ve los de su jefe directo; el personal corporativo autorizado, RH y Sistemas ven todos. Nunca datos personales.
+
+#### Qué es
+
+El directorio muestra nombre, puesto, área y sucursal. El contacto corporativo (correo y teléfono) se muestra según el permiso «Ver contactos de todo el directorio»; sin él, solo el de tu jefe directo. El correo corporativo es distinto del correo con el que la persona inicia sesión.
+
+#### Quién lo hace
+
+Colaborador, Gerente, Regional, Dirección Comercial, Sistemas, RH.
+
+#### Pasos
+
+1. **Buscar** _(Web y app)_ — Directorio (web o app): por nombre o número de empleado, o filtra por puesto, sucursal o departamento.
+2. **Contactar** _(App)_ — En la app, toca el correo o el teléfono para escribir o llamar.
+
+#### Errores comunes
+
+- **«Alguien no tiene correo en el directorio.»** No lo tiene capturado: PEOPLE nunca inventa uno ni usa su correo de acceso o personal. RH lo captura en su expediente.
+
+#### En el sistema
+
+- **Ir al Directorio** → `/directorio`
+- Guía en pantalla → `/ayuda/articulo/directorio`
 
 <a id="articulo-historial-persona"></a>
 

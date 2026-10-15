@@ -3,10 +3,13 @@ import { Link } from '@inertiajs/vue3';
 import { BookOpen, CircleHelp, Search, X } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import { Input } from '@/components/ui/input';
+import { useGuia } from '@/composables/useGuia';
 import {
     ARTICULOS,
+    articuloVisible,
     GLOSARIO,
     PREGUNTAS_FRECUENTES,
+    preguntaVisible,
     procesoDeArticulo,
 } from '@/lib/guia';
 import {
@@ -27,14 +30,24 @@ const props = withDefaults(defineProps<{ grande?: boolean }>(), {
 const consulta = ref('');
 const entrada = ref<InstanceType<typeof Input> | null>(null);
 
+const { alcance } = useGuia();
+
+// El buscador nunca ofrece artículos de otro rol.
 const resultados = computed(() =>
-    buscarArticulos(consulta.value, ARTICULOS, 6),
+    buscarArticulos(
+        consulta.value,
+        ARTICULOS.filter((a) => articuloVisible(a, alcance.value)),
+        6,
+    ),
 );
 const terminos = computed(() =>
     buscarGlosario(consulta.value, GLOSARIO).slice(0, 3),
 );
 const preguntas = computed(() =>
-    buscarPreguntas(consulta.value, PREGUNTAS_FRECUENTES).slice(0, 3),
+    buscarPreguntas(
+        consulta.value,
+        PREGUNTAS_FRECUENTES.filter((p) => preguntaVisible(p, alcance.value)),
+    ).slice(0, 3),
 );
 const hayConsulta = computed(() => consulta.value.trim().length > 1);
 const sinResultados = computed(
@@ -45,13 +58,26 @@ const sinResultados = computed(
         preguntas.value.length === 0,
 );
 
-const ejemplos = [
-    '¿Cómo contrato un candidato?',
-    '¿Cómo genero un permiso?',
-    '¿Cómo emito nómina?',
-    '¿Cómo hago una baja?',
-    '¿Cómo completo datos?',
-];
+const ejemplos = computed(() =>
+    alcance.value.global || alcance.value.roles.includes('rh')
+        ? [
+              '¿Cómo contrato un candidato?',
+              '¿Cómo genero un permiso?',
+              '¿Cómo emito nómina?',
+              '¿Cómo hago una baja?',
+              '¿Cómo completo datos?',
+          ]
+        : alcance.value.roles.includes('colaborador')
+          ? [
+                '¿Cómo pido vacaciones?',
+                '¿Cómo pido un préstamo?',
+                '¿Cómo completo mis datos?',
+                '¿Cómo cambio mi contraseña?',
+            ]
+          : alcance.value.roles.includes('sistemas')
+            ? ['¿Cómo creo una cuenta?', '¿Cómo cambio un rol?', '¿Cómo publico la app?']
+            : ['¿Cómo registro una entrevista?', '¿Cómo inicio una baja?', '¿Cómo levanto un acta?'],
+);
 
 function enfocar(): void {
     const el = (entrada.value as unknown as { $el?: HTMLElement } | null)?.$el;

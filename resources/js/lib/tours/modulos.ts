@@ -141,7 +141,7 @@ export const MODULOS_GUIA: ModuloGuia[] = [
         pasos: [
             {
                 titulo: '¿Qué me toca hacer?',
-                texto: 'Cada pendiente es una acción concreta que alguien espera de ti (preautorizar, autorizar, evaluar, entregar equipo…). Al resolverla en su pantalla, desaparece de aquí sola.',
+                texto: 'Cada pendiente es una acción concreta que alguien espera de ti (revisar, autorizar, evaluar, entregar equipo…). Al resolverla en su pantalla, desaparece de aquí sola.',
             },
             {
                 selector: sel('pendientes-conteos'),
@@ -451,7 +451,7 @@ export const MODULOS_GUIA: ModuloGuia[] = [
             {
                 selector: sel('candidatos-tablero'),
                 titulo: 'Fases del proceso',
-                texto: 'Filtro RH → Entrevista → Psicométricos → Socioeconómico → Contratación (referencias, preautorización del gerente, autorización de RH y QR) → Contratado, más las columnas de cierre Rechazado y Desistió. «No viable», «No respondió» y «No seleccionado» son motivos dentro de Rechazado.',
+                texto: 'Filtro RH → Entrevista → Psicométricos → Socioeconómico → Contratación (referencias, autorización de RH y QR) → Contratado, más las columnas de cierre Rechazado y Desistió. «No viable», «No respondió» y «No seleccionado» son motivos dentro de Rechazado.',
                 consejo:
                     'Arrastrar solo sirve para cerrar el proceso (a Rechazado o Desistió, con motivo). Para avanzar, abre la ficha y usa la acción del paso.',
             },
@@ -1056,7 +1056,7 @@ export const MODULOS_GUIA: ModuloGuia[] = [
         pasos: [
             {
                 titulo: 'Tu expediente',
-                texto: 'Aquí está todo lo tuyo que guarda Recursos Humanos: datos personales y laborales, documentos, vacaciones, recibos, préstamos y solicitudes.',
+                texto: 'Aquí está todo lo tuyo que guarda Recursos Humanos: datos personales y laborales, documentos, vacaciones, préstamos y solicitudes.',
             },
             {
                 selector: sel('expediente-cabecera'),

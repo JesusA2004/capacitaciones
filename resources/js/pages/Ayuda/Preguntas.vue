@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import { ArrowRight, CircleHelp } from '@lucide/vue';
+import { computed } from 'vue';
 import GuiaBuscador from '@/components/guia/GuiaBuscador.vue';
-import { PREGUNTAS_FRECUENTES } from '@/lib/guia';
+import { useGuia } from '@/composables/useGuia';
+import { PREGUNTAS_FRECUENTES, preguntaVisible } from '@/lib/guia';
 
 defineOptions({
     layout: {
@@ -12,6 +14,11 @@ defineOptions({
         ],
     },
 });
+
+const { alcance } = useGuia();
+const preguntas = computed(() =>
+    PREGUNTAS_FRECUENTES.filter((p) => preguntaVisible(p, alcance.value)),
+);
 </script>
 
 <template>
@@ -33,7 +40,7 @@ defineOptions({
 
         <div class="grid gap-3">
             <details
-                v-for="p in PREGUNTAS_FRECUENTES"
+                v-for="p in preguntas"
                 :key="p.pregunta"
                 class="group rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4 open:bg-crema/30"
             >

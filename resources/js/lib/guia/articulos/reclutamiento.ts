@@ -17,7 +17,7 @@ export const ARTICULOS_RECLUTAMIENTO: ArticuloGuia[] = [
         resumen:
             'Una vacante no se captura: PEOPLE la calcula restando a la plantilla autorizada las personas que hoy ocupan el puesto.',
         queEs: 'Una vacante es una plaza autorizada que hoy no tiene titular. Nadie escribe «vacante abierta»: PEOPLE compara, para cada sucursal y puesto, la plantilla autorizada contra los colaboradores vigentes que ocupan ese puesto, y lo que falta es la vacante real.',
-        quien: ['rh'],
+        quien: ['rh', 'regional', 'direccion_comercial'],
         quienDetalle:
             'Gerencia de RH captura la plantilla autorizada (Administración → Sucursales). Todos los demás solo consultan Vacantes: la pantalla es informativa.',
         antes: [
@@ -338,7 +338,7 @@ export const ARTICULOS_RECLUTAMIENTO: ArticuloGuia[] = [
         resumen:
             'El tablero tiene 6 fases y 2 columnas de cierre. Cada avance se hace con su acción en la ficha, nunca arrastrando.',
         queEs: 'Es el recorrido de cada candidato, visible como columnas en Reclutamiento → Candidatos. Las fases agrupan los pasos internos para que RH vea solo lo importante.',
-        quien: ['rh', 'gerente'],
+        quien: ['rh', 'gerente', 'direccion_comercial'],
         antes: ['El candidato ya está registrado.'],
         pasos: [
             {
@@ -367,7 +367,7 @@ export const ARTICULOS_RECLUTAMIENTO: ArticuloGuia[] = [
             {
                 titulo: '5 · Contratación',
                 detalle:
-                    'Agrupa: validación de referencias → preautorización del gerente → autorización final de RH → QR de contratación → registro y contratos.',
+                    'Agrupa: validación de referencias → autorización de RH → QR de contratación → registro y contratos.',
             },
             {
                 titulo: '6 · Contratado',
@@ -490,9 +490,9 @@ export const ARTICULOS_RECLUTAMIENTO: ArticuloGuia[] = [
         titulo: 'Entrevista con el gerente',
         proceso: 'reclutamiento',
         resumen:
-            'El gerente de la sucursal entrevista y registra fecha, observaciones y resultado.',
-        queEs: 'Es la entrevista del gerente de la sucursal donde está la vacante. El Gerente Regional NO aprueba cada candidato: esta decisión es del gerente.',
-        quien: ['gerente'],
+            'El responsable de la vacante entrevista y registra fecha, observaciones y resultado: el gerente de la sucursal; si la vacante es de Gerente de sucursal, el Gerente Regional.',
+        queEs: 'Es la entrevista del responsable de la vacante (sale del organigrama: vacante → sucursal → puesto). Una vacante de gerente nunca se entrevista a sí misma: la entrevista el Regional. Entrevistar no es autorizar: la contratación la autoriza RH.',
+        quien: ['gerente', 'regional'],
         antes: ['El candidato pasó el Filtro RH y aparece en tus pendientes.'],
         pasos: [
             {
@@ -542,11 +542,11 @@ export const ARTICULOS_RECLUTAMIENTO: ArticuloGuia[] = [
         titulo: 'Psicométricos',
         proceso: 'reclutamiento',
         resumen:
-            'Reclutamiento envía el link, carga los resultados (PDF o imagen) y el gerente los revisa.',
+            'Reclutamiento envía el link y carga el resultado (PDF o imagen). Cargar NO decide: queda pendiente de revisión hasta que el responsable lo abre y dice viable o no viable.',
         queEs: 'Son las pruebas psicométricas del candidato. Se aplican en la plataforma del proveedor; PEOPLE guarda el link, el resumen y los reportes, y registra la revisión del gerente.',
         quien: ['rh', 'gerente'],
         quienDetalle:
-            'Reclutamiento envía y registra; el gerente revisa (en perfil / fuera de perfil).',
+            'Reclutamiento envía y carga; el responsable de la vacante (gerente de la sucursal; para una vacante de gerente, el Regional) revisa.',
         antes: ['El candidato pasó la entrevista.'],
         pasos: [
             {
@@ -556,15 +556,15 @@ export const ARTICULOS_RECLUTAMIENTO: ArticuloGuia[] = [
                 quien: 'rh',
             },
             {
-                titulo: '«Registrar resultados»',
+                titulo: '«Cargar resultados psicométricos»',
                 detalle:
-                    'Resumen de resultados y hasta 5 reportes en PDF o imagen (JPG, PNG, WEBP).',
+                    'Resumen y hasta 5 reportes en PDF o imagen (JPG, PNG, WEBP). El candidato queda «Revisión de psicométricas»: todavía no avanza.',
                 quien: 'rh',
             },
             {
-                titulo: '«Revisar psicométricas»',
+                titulo: '«Ver psicométrico» y «Revisar psicométrico»',
                 detalle:
-                    'El gerente decide si están en perfil o fuera de perfil, con observaciones.',
+                    'El responsable abre el PDF (botón arriba de la ficha) y decide Viable o No viable, con observaciones. Solo entonces avanza.',
                 quien: 'gerente',
             },
             {
@@ -574,8 +574,8 @@ export const ARTICULOS_RECLUTAMIENTO: ArticuloGuia[] = [
             },
         ],
         despues: [
-            'En perfil → «Socioeconómico».',
-            'Fuera de perfil → «Rechazado» con motivo.',
+            'Viable → «Socioeconómico».',
+            'No viable → «Rechazado» con motivo.',
         ],
         errores: [
             {
@@ -606,15 +606,15 @@ export const ARTICULOS_RECLUTAMIENTO: ArticuloGuia[] = [
         titulo: 'Estudio socioeconómico',
         proceso: 'reclutamiento',
         resumen:
-            'El gerente visita el domicilio y registra el estudio con fotos, PDF o video.',
-        queEs: 'Es la visita domiciliaria al candidato. PEOPLE guarda los datos de la visita, un checklist, los riesgos y las evidencias.',
-        quien: ['gerente'],
+            'Se carga el estudio (video, PDF o fotos de la visita). Cargar NO es aprobar: el responsable lo abre y decide viable o no viable.',
+        queEs: 'Es la visita domiciliaria al candidato. PEOPLE guarda los datos de la visita, un checklist, los riesgos y las evidencias, separadas de las del psicométrico.',
+        quien: ['gerente', 'rh'],
         antes: ['Las psicométricas quedaron en perfil.'],
         pasos: [
             {
-                titulo: '«Registrar estudio socioeconómico»',
+                titulo: '«Cargar estudio socioeconómico»',
                 detalle:
-                    'Fecha de visita, dirección visitada y checklist: vivienda en orden, vive con su familia, años de arraigo y resguardo de motocicleta.',
+                    'Fecha de visita, dirección visitada y checklist: vivienda en orden, vive con su familia, años de arraigo y resguardo de motocicleta. Queda «pendiente de revisión».',
             },
             {
                 titulo: 'Riesgos y observaciones',
@@ -627,9 +627,10 @@ export const ARTICULOS_RECLUTAMIENTO: ArticuloGuia[] = [
                     'Hasta 12 archivos: fotos (JPG, PNG, WEBP), PDF o video (MP4, MOV).',
             },
             {
-                titulo: 'Resultado',
+                titulo: '«Revisar socioeconómico»',
                 detalle:
-                    'Viable o no viable (si no es viable, motivo obligatorio).',
+                    'El responsable abre el video o el PDF («Ver socioeconómico» / «Ver video») y decide Viable o No viable (si no es viable, motivo obligatorio).',
+                quien: 'gerente',
             },
             {
                 titulo: 'Abrir las evidencias',
@@ -638,8 +639,8 @@ export const ARTICULOS_RECLUTAMIENTO: ArticuloGuia[] = [
             },
         ],
         despues: [
-            'Viable → «Validación de referencias».',
-            'No viable → «Rechazado».',
+            'Revisado viable → «Validación de referencias».',
+            'Revisado no viable → «Rechazado».',
         ],
         errores: [
             {
@@ -669,7 +670,7 @@ export const ARTICULOS_RECLUTAMIENTO: ArticuloGuia[] = [
         titulo: 'Validación de referencias',
         proceso: 'reclutamiento',
         resumen:
-            'Se registra al menos una referencia laboral validada antes de pedir la preautorización del gerente.',
+            'Se registra al menos una referencia laboral validada; al concluir, el candidato pasa directo a la autorización de RH.',
         queEs: 'Es la verificación de referencias laborales del candidato (empresa, contacto, resultado).',
         quien: ['rh', 'gerente'],
         antes: ['El socioeconómico quedó viable.'],
@@ -686,7 +687,7 @@ export const ARTICULOS_RECLUTAMIENTO: ArticuloGuia[] = [
             },
         ],
         despues: [
-            'Favorables → «Preautorización del gerente» y se abre la aprobación al gerente de la sucursal.',
+            'Favorables → «Autorización de RH».',
             'No favorables → «Rechazado» con motivo.',
         ],
         errores: [
@@ -694,7 +695,7 @@ export const ARTICULOS_RECLUTAMIENTO: ArticuloGuia[] = [
                 problema:
                     '«Registra al menos una referencia laboral validada antes de continuar.»',
                 solucion:
-                    'Captura una referencia con «Registrar referencia» y vuelve a concluir.',
+                    'La ficha lo avisa antes de concluir. Captura una referencia con «Registrar referencia» (botón en el mismo aviso) y vuelve a concluir.',
             },
         ],
         registro: ['Cada referencia con quién la validó y cuándo.'],
@@ -711,20 +712,14 @@ export const ARTICULOS_RECLUTAMIENTO: ArticuloGuia[] = [
     },
     {
         id: 'autorizacion-rh',
-        titulo: 'Preautorización del gerente y decisión de RH',
+        titulo: 'Autorización de RH',
         proceso: 'reclutamiento',
         resumen:
-            'El gerente preautoriza y RH da la autorización final. En el caso normal NO interviene el Regional ni Dirección Comercial.',
-        queEs: 'Es la decisión de contratar. Quien preautoriza (gerente) no puede dar la autorización final: esa siempre es de RH.',
-        quien: ['gerente', 'rh'],
+            'Solo RH autoriza la contratación, después de que el responsable revisó entrevista, psicométricos y socioeconómico y se validaron referencias. El gerente no autoriza contrataciones.',
+        queEs: 'Es la decisión de contratar. Siempre es de Recursos Humanos; no hay preautorización del gerente.',
+        quien: ['rh'],
         antes: ['Las referencias se concluyeron favorables.'],
         pasos: [
-            {
-                titulo: '«Preautorizar contratación»',
-                detalle:
-                    'El gerente confirma que quiere a la persona (comentario opcional). RH recibe la notificación «Candidato preautorizado».',
-                quien: 'gerente',
-            },
             {
                 titulo: '«Autorizar contratación»',
                 detalle:
@@ -732,9 +727,9 @@ export const ARTICULOS_RECLUTAMIENTO: ArticuloGuia[] = [
                 quien: 'rh',
             },
             {
-                titulo: 'O bien «Devolver al gerente»',
+                titulo: 'O bien «Devolver a referencias»',
                 detalle:
-                    'Con motivo, si falta algo: regresa a la preautorización.',
+                    'Con motivo, si falta algo: regresa a la validación de referencias.',
                 quien: 'rh',
             },
             {
@@ -755,17 +750,17 @@ export const ARTICULOS_RECLUTAMIENTO: ArticuloGuia[] = [
             'Rechazado por RH → el gerente que entrevistó puede aceptar el rechazo o «Solicitar intervención».',
         ],
         notificaciones: [
-            '«Candidato preautorizado» a RH (con prioridad alta).',
+            '«Autorización de RH» como pendiente a quien autoriza (prioridad alta).',
         ],
         errores: [
             {
                 problema: '«No veo el botón Autorizar contratación.»',
                 solucion:
-                    'La autorización final requiere el permiso de RH y alcance sobre ese candidato. El gerente que preautorizó no puede autorizar.',
+                    'La autorización requiere el permiso de RH y alcance sobre ese candidato. El gerente nunca autoriza contrataciones.',
             },
         ],
         registro: [
-            'Aprobación con el nombre de quien preautorizó y de quien autorizó (queda fijo aunque después cambie el jefe).',
+            'Aprobación con el nombre de quien autorizó (queda fijo aunque después cambie el jefe).',
         ],
         relacionados: ['intervencion', 'iniciar-contratacion'],
         accesos: [

@@ -25,7 +25,6 @@ export const AYUDA_POR_PANTALLA: { patron: RegExp; articulo: string }[] = [
     { patron: /^\/rh\/solicitudes(\/\d+)?$/, articulo: 'revisar-solicitudes' },
     { patron: /^\/solicitudes(\/\d+)?$/, articulo: 'permisos' },
     { patron: /^\/rh\/nomina(\/lotes(\/\d+)?)?$/, articulo: 'nomina-lotes' },
-    { patron: /^\/mis-recibos$/, articulo: 'mis-recibos' },
     {
         patron: /^\/rh\/onboarding\/configuracion$/,
         articulo: 'configurar-onboarding',

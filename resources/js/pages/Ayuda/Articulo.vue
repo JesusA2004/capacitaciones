@@ -25,6 +25,7 @@ import { ETIQUETA_CANAL, useGuia } from '@/composables/useGuia';
 import { useTourGuiado } from '@/composables/useTourGuiado';
 import {
     articulo as buscarArticulo,
+    articuloVisible,
     NOMBRE_ROL,
     procesoDeArticulo,
     vecinos,
@@ -37,10 +38,17 @@ const props = defineProps<{
     capturas: string[];
 }>();
 
-const { accesos, contextoTour, modo } = useGuia();
+const { accesos, contextoTour, modo, alcance } = useGuia();
 const { iniciar } = useTourGuiado();
 
-const art = computed(() => buscarArticulo(props.articulo));
+// Solo artículos de los roles que le corresponden (super_admin: todos).
+const art = computed(() => {
+    const encontrado = buscarArticulo(props.articulo);
+
+    return encontrado && articuloVisible(encontrado, alcance.value)
+        ? encontrado
+        : undefined;
+});
 const proc = computed(() =>
     art.value ? procesoDeArticulo(art.value) : undefined,
 );
@@ -505,7 +513,9 @@ defineOptions({
             class="mx-auto flex max-w-md flex-col items-center gap-4 py-20 text-center"
         >
             <BookOpen class="size-10 text-oro" />
-            <h1 class="text-xl font-semibold">No encontré ese artículo</h1>
+            <h1 class="text-xl font-semibold">
+                Este artículo no corresponde a tu rol
+            </h1>
             <p class="text-sm text-[var(--mrl-texto-suave)]">
                 Puede que el enlace sea antiguo. Búscalo con tus palabras:
             </p>

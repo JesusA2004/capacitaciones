@@ -28,9 +28,9 @@ Falta un dato que el formato pide (PEOPLE dice cuál: estado civil, beneficiario
 
 → [Contrato de capacitación inicial](FLUJO_COMPLETO.md#articulo-contrato-inicial)
 
-## ¿Por qué no veo el recibo?
+## ¿Por qué un recibo no aparece para imprimir?
 
-El lote todavía no se emite. Los recibos preparados son borradores: nadie los ve hasta que RH pulsa «Emitir».
+El lote todavía no se emite: los recibos preparados son borradores. Al «Emitir» se congela el PDF y RH lo imprime para entregarlo.
 
 → [Recibos de nómina: preparar, revisar y emitir](FLUJO_COMPLETO.md#articulo-nomina-lotes)
 
@@ -42,7 +42,7 @@ RH ve qué sección está incompleta en el expediente y pulsa «Avisar al colabo
 
 ## ¿Cómo corrijo un expediente?
 
-RH corrige los datos de otras personas en su expediente. Nadie edita el suyo propio: se usa «Solicitar corrección» y otra persona de RH lo autoriza.
+RH corrige los datos de otras personas en su expediente. Nadie edita el suyo propio: si el dato está vacío se usa «Completar información»; si ya tiene valor, «Solicitar cambio». RH lo revisa antes de que sea oficial.
 
 → [Completar o corregir datos (colaborador)](FLUJO_COMPLETO.md#articulo-completar-datos)
 
@@ -60,7 +60,7 @@ No se registra como candidato nuevo: se busca en Reingresos y, si RH lo aprueba,
 
 ## ¿Dónde inicio una baja?
 
-En el Ciclo laboral de la persona (Expedientes → la persona → «Ciclo laboral») con «Solicitar baja». Ahí siguen la preautorización, la autorización de RH y el finiquito.
+En el Ciclo laboral de la persona (Expedientes → la persona → «Ciclo laboral») con «Iniciar baja»: solo su jefe directo o RH. No es una solicitud; después siguen la autorización de RH y el finiquito.
 
 → [Baja de un colaborador (cierre laboral)](FLUJO_COMPLETO.md#articulo-baja)
 

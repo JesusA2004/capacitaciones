@@ -1,7 +1,7 @@
 import { computed } from 'vue';
 import { useNavegacion } from '@/composables/useNavegacion';
 import { usePermisos } from '@/composables/usePermisos';
-import { accesosVisibles, rolDelUsuario } from '@/lib/guia';
+import { accesosVisibles, alcanceGuia, rolDelUsuario } from '@/lib/guia';
 import type { AccesoGuia, CanalGuia } from '@/lib/guia/tipos';
 import type { ContextoGuia } from '@/lib/tours/tipos';
 
@@ -27,11 +27,16 @@ export function useGuia() {
         rolDelUsuario(roles.value, esColaborador.value),
     );
 
+    /** Qué parte de la guía le corresponde (rol + modo); ver alcanceGuia. */
+    const alcance = computed(() =>
+        alcanceGuia(roles.value, esColaborador.value),
+    );
+
     function accesos(lista: AccesoGuia[]): AccesoGuia[] {
         return accesosVisibles(lista, tienePermiso, modo.value);
     }
 
-    return { modo, contextoTour, rolGuia, accesos, esColaborador };
+    return { modo, contextoTour, rolGuia, alcance, accesos, esColaborador };
 }
 
 export const ETIQUETA_CANAL: Record<CanalGuia, string> = {
