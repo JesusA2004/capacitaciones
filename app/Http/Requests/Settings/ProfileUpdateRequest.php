@@ -17,6 +17,10 @@ class ProfileUpdateRequest extends FormRequest
      */
     public function rules(): array
     {
-        return $this->profileRules($this->user()->id);
+        // El nombre no se edita aquí: es dato de RH y se corrige con una
+        // solicitud de cambio de información.
+        return [
+            'email' => $this->emailRules($this->user()->id),
+        ];
     }
 }

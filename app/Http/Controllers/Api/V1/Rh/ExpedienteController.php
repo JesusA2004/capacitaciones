@@ -37,7 +37,8 @@ class ExpedienteController extends Controller
     public function index(Request $request): JsonResponse
     {
         $usuario = $request->user();
-        abort_unless($usuario->can('rh.expedientes.ver'), 403);
+        // Mismo criterio que la web (+ el permiso móvil histórico).
+        abort_unless($usuario->can('rh.expedientes.ver') || $this->alcance->puedeExplorarExpedientes($usuario), 403);
 
         $colaboradores = $this->queryFiltrada($request)->orderBy('name')->get();
 
@@ -140,9 +141,10 @@ class ExpedienteController extends Controller
     public function aprobarDocumento(Request $request, Colaborador $colaborador, EmployeeDocument $documento): JsonResponse
     {
         $usuario = $request->user();
-        abort_unless($usuario->can('rh.expedientes.documentos.aprobar'), 403);
         abort_unless($this->puedeVerDetalle($usuario, $colaborador), 403);
         abort_unless($documento->colaborador_id === $colaborador->id, 404);
+        // Mismo criterio que la web (EmployeeDocumentPolicy::aprobar).
+        abort_unless($usuario->can('aprobar', $documento), 403);
 
         $datos = $request->validate(['comentario' => ['nullable', 'string', 'max:500']]);
 
@@ -154,9 +156,10 @@ class ExpedienteController extends Controller
     public function rechazarDocumento(Request $request, Colaborador $colaborador, EmployeeDocument $documento): JsonResponse
     {
         $usuario = $request->user();
-        abort_unless($usuario->can('rh.expedientes.documentos.rechazar'), 403);
         abort_unless($this->puedeVerDetalle($usuario, $colaborador), 403);
         abort_unless($documento->colaborador_id === $colaborador->id, 404);
+        // Mismo criterio que la web (EmployeeDocumentPolicy::rechazar).
+        abort_unless($usuario->can('rechazar', $documento), 403);
 
         $datos = $request->validate(['motivo' => ['required', 'string', 'max:500']]);
 
@@ -211,7 +214,10 @@ class ExpedienteController extends Controller
 
     private function puedeVerDetalle(User $usuario, Colaborador $colaborador): bool
     {
-        return $usuario->can('rh.expedientes.detalle') && $this->alcance->puedeVerExpediente($usuario, $colaborador);
+        // Permiso móvil histórico o el de la web; el alcance siempre es el
+        // del módulo «Expedientes» (mismo que la vista web del expediente).
+        return ($usuario->can('rh.expedientes.detalle') || $this->alcance->puedeExplorarExpedientes($usuario))
+            && $this->alcance->puedeVerExpediente($usuario, $colaborador);
     }
 
     /**
@@ -222,7 +228,8 @@ class ExpedienteController extends Controller
         $usuario = $request->user();
 
         return Colaborador::query()
-            ->tap(fn ($query) => $this->alcance->limitarColaboradoresPorAlcance($query, $usuario))
+            // Alcance del módulo «Expedientes», igual que el explorador web.
+            ->tap(fn ($query) => $this->alcance->limitarExpedientesPorAlcance($query, $usuario))
             ->with(['sucursalPrincipal:id,nombre,empresa_id', 'sucursalPrincipal.empresa:id,nombre', 'departamento:id,nombre'])
             ->when($request->string('busqueda')->toString(), function ($query, string $busqueda) {
                 $query->where(function ($sub) use ($busqueda) {

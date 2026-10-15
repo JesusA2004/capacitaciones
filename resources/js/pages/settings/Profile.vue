@@ -2,7 +2,6 @@
 import { Form, Head, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
-import DeleteUser from '@/components/DeleteUser.vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
@@ -34,7 +33,7 @@ const user = computed(() => page.props.auth.user);
         <Heading
             variant="small"
             title="Perfil"
-            description="Actualiza tu nombre y correo electrónico"
+            description="Actualiza tu correo electrónico"
         />
 
         <Form
@@ -47,13 +46,15 @@ const user = computed(() => page.props.auth.user);
                 <Input
                     id="name"
                     class="mt-1 block w-full"
-                    name="name"
-                    :default-value="user.name"
-                    required
+                    :model-value="user.name"
+                    readonly
+                    disabled
                     autocomplete="name"
-                    placeholder="Nombre completo"
                 />
-                <InputError class="mt-2" :message="errors.name" />
+                <p class="text-xs text-muted-foreground">
+                    Para corregir tu nombre, solicita un cambio de información a
+                    RH.
+                </p>
             </div>
 
             <div class="grid gap-2">
@@ -81,6 +82,4 @@ const user = computed(() => page.props.auth.user);
             </div>
         </Form>
     </div>
-
-    <DeleteUser />
 </template>

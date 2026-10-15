@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Rh;
 
 use App\Models\Colaborador;
+use App\Models\User;
+use App\Services\AlcanceOrganizacionalService;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ActualizarDatosPersonalesRequest extends FormRequest
@@ -10,16 +12,18 @@ class ActualizarDatosPersonalesRequest extends FormRequest
     public function authorize(): bool
     {
         $colaborador = $this->route('colaborador');
-        $colaboradorId = $colaborador instanceof Colaborador ? $colaborador->id : null;
+        $usuario = $this->user();
 
         // Nadie edita su propio expediente, aunque sea RH o administrador:
         // la persona pide una "Actualización de datos" (solicitud) y otra
         // persona de RH la revisa y aplica.
-        if ($this->user()?->colaborador_id === $colaboradorId) {
+        if (! $usuario instanceof User || ! $colaborador instanceof Colaborador || $usuario->colaborador_id === $colaborador->id) {
             return false;
         }
 
-        return $this->user()?->can('expedientes.editar') ?? false;
+        // Permiso de acción + alcance del módulo «Expedientes» sobre ESTE colaborador.
+        return $usuario->can('expedientes.editar')
+            && app(AlcanceOrganizacionalService::class)->puedeVerExpediente($usuario, $colaborador);
     }
 
     /**

@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Rh;
 
 use App\Models\Colaborador;
+use App\Models\User;
+use App\Services\AlcanceOrganizacionalService;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -22,11 +24,16 @@ class ActualizarDatosLaboralesRequest extends FormRequest
         $colaborador = $this->route('colaborador');
 
         // Nunca sobre el propio expediente (ver ActualizarDatosPersonalesRequest).
-        if ($colaborador instanceof Colaborador && $this->user()?->colaborador_id === $colaborador->id) {
+        $usuario = $this->user();
+
+        if (! $usuario instanceof User || ! $colaborador instanceof Colaborador || $usuario->colaborador_id === $colaborador->id) {
             return false;
         }
 
-        return $this->user()?->can('expedientes.editar') ?? false;
+        // Permiso de acción + alcance del módulo «Expedientes» sobre ESTE
+        // colaborador (mismo criterio que la vista del expediente).
+        return $usuario->can('expedientes.editar')
+            && app(AlcanceOrganizacionalService::class)->puedeVerExpediente($usuario, $colaborador);
     }
 
     /**

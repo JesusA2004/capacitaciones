@@ -91,7 +91,7 @@ class ExpedienteController extends Controller
     {
         $usuario = $request->user();
 
-        abort_unless($usuario->can('expedientes.ver_todos') || $usuario->can('expedientes.ver_sucursal'), 403);
+        abort_unless($this->alcance->puedeExplorarExpedientes($usuario), 403);
 
         $colaboradores = $this->queryFiltrada($request)
             ->orderBy('name')
@@ -153,7 +153,7 @@ class ExpedienteController extends Controller
     public function exportarExcel(Request $request): HttpResponse
     {
         $usuario = $request->user();
-        abort_unless($usuario->can('expedientes.ver_todos') || $usuario->can('expedientes.ver_sucursal'), 403);
+        abort_unless($this->alcance->puedeExplorarExpedientes($usuario), 403);
 
         [$columnas, $filas] = $this->tabla($request);
 
@@ -166,7 +166,7 @@ class ExpedienteController extends Controller
     public function exportarPdf(Request $request): HttpResponse
     {
         $usuario = $request->user();
-        abort_unless($usuario->can('expedientes.ver_todos') || $usuario->can('expedientes.ver_sucursal'), 403);
+        abort_unless($this->alcance->puedeExplorarExpedientes($usuario), 403);
 
         [$columnas, $filas] = $this->tabla($request);
 
@@ -330,6 +330,10 @@ class ExpedienteController extends Controller
             'puedeReprocesarExtraccion' => $usuario->can('rh.documentos.extraccion.reprocesar') && ! $esCuentaPropia,
             'puedeIgnorarExtraccion' => $usuario->can('rh.documentos.extraccion.ignorar') && ! $esCuentaPropia,
             'puedeGestionarAcceso' => $usuario->can('usuarios.desactivar') && ! $esCuentaPropia && $cuenta !== null,
+            // Baja administrativa inmediata = decisión laboral, no de cuenta:
+            // permiso de baja del cierre laboral (nunca usuarios.desactivar).
+            // El alcance ya lo exige puedeVerExpediente() arriba.
+            'puedeDarDeBaja' => ! $esPropio && $this->puedeDarDeBaja($usuario, $colaborador),
             'puedeGestionarPassword' => $usuario->can('usuarios.editar') && ! $esCuentaPropia && $cuenta !== null,
             'puedeEditarCuenta' => $usuario->can('usuarios.editar') && ! $esCuentaPropia && $cuenta !== null,
             // Cambiar empresa/sucursal/departamento/puesto/jefe/sueldo es una
@@ -564,7 +568,7 @@ class ExpedienteController extends Controller
      */
     public function darDeBaja(Request $request, Colaborador $colaborador): RedirectResponse
     {
-        $this->abortSiNoPuedeGestionarAcceso($request, $colaborador);
+        abort_unless($this->puedeDarDeBaja($request->user(), $colaborador), 403, 'No tienes permiso para dar de baja a este colaborador.');
 
         $datos = $request->validate(['motivo' => ['nullable', 'string', 'max:500']]);
 
@@ -586,14 +590,18 @@ class ExpedienteController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => 'El colaborador se reactivó correctamente.']);
     }
 
-    private function abortSiNoPuedeGestionarAcceso(Request $request, Colaborador $colaborador): void
+    /**
+     * La baja administrativa inmediata termina la relación laboral: exige el
+     * permiso de baja del cierre laboral (`cierres.ejecutar_baja`, el mismo
+     * de CierreLaboralPolicy::ejecutarBaja) y alcance sobre el expediente.
+     * `usuarios.desactivar` solo administra la cuenta de acceso. Nadie se da
+     * de baja a sí mismo.
+     */
+    private function puedeDarDeBaja(User $usuario, Colaborador $colaborador): bool
     {
-        $usuario = $request->user();
-
-        abort_unless(
-            $usuario->can('usuarios.desactivar') && $usuario->colaborador_id !== $colaborador->id,
-            403,
-        );
+        return $usuario->can('cierres.ejecutar_baja')
+            && $usuario->colaborador_id !== $colaborador->id
+            && $this->alcance->puedeVerExpediente($usuario, $colaborador);
     }
 
     public function actualizarDatosPersonales(ActualizarDatosPersonalesRequest $request, Colaborador $colaborador): RedirectResponse
@@ -808,15 +816,16 @@ class ExpedienteController extends Controller
     }
 
     /**
-     * RH (o el propio colaborador desde su expediente) sube o cambia la
-     * foto de perfil — normalizada a miniatura cuadrada por el servicio.
+     * RH sube o cambia la foto de perfil de un colaborador — normalizada a
+     * miniatura cuadrada por el servicio. El propio colaborador nunca usa
+     * esta ruta: usa subirFotoPropia(), que pasa por la aprobación de RH.
      */
     public function subirFoto(SubirFotoRequest $request, Colaborador $colaborador): RedirectResponse
     {
         $usuario = $request->user();
 
         abort_unless($this->alcance->puedeVerExpediente($usuario, $colaborador), 403);
-        abort_unless($usuario->can('expedientes.editar') || $usuario->colaborador_id === $colaborador->id, 403);
+        abort_unless($usuario->can('expedientes.editar') && $usuario->colaborador_id !== $colaborador->id, 403);
 
         $this->fotos->actualizar($colaborador, $request->file('foto'), $usuario);
 

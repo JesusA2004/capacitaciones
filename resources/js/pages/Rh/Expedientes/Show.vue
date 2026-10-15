@@ -28,6 +28,7 @@ const props = defineProps<{
     cicloUrl: string | null;
     puedeIniciarBaja?: boolean;
     puedeGestionarAcceso: boolean;
+    puedeDarDeBaja: boolean;
     puedeGestionarPassword: boolean;
     puedeEditarCuenta: boolean;
     puedeCrearCuenta: boolean;
@@ -111,6 +112,7 @@ defineOptions({
         :ciclo-url="cicloUrl"
         :puede-iniciar-baja="puedeIniciarBaja"
         :puede-gestionar-acceso="puedeGestionarAcceso"
+        :puede-dar-de-baja="puedeDarDeBaja"
         :puede-gestionar-password="puedeGestionarPassword"
         :puede-editar-cuenta="puedeEditarCuenta"
         :puede-crear-cuenta="puedeCrearCuenta"

@@ -110,8 +110,8 @@ class DocumentoController extends Controller
     public function aprobar(Request $request, EmployeeDocument $documento): JsonResponse
     {
         $usuario = $request->user();
-        abort_unless($usuario->can('rh.documentos.aprobar'), 403);
-        abort_unless($this->puedeVer($usuario, $documento), 404);
+        // Mismo criterio que la web (EmployeeDocumentPolicy::aprobar).
+        abort_unless($usuario->can('aprobar', $documento), $this->puedeVer($usuario, $documento) ? 403 : 404);
 
         $datos = $request->validate(['comentario' => ['nullable', 'string', 'max:500']]);
 
@@ -123,8 +123,8 @@ class DocumentoController extends Controller
     public function rechazar(Request $request, EmployeeDocument $documento): JsonResponse
     {
         $usuario = $request->user();
-        abort_unless($usuario->can('rh.documentos.rechazar'), 403);
-        abort_unless($this->puedeVer($usuario, $documento), 404);
+        // Mismo criterio que la web (EmployeeDocumentPolicy::rechazar).
+        abort_unless($usuario->can('rechazar', $documento), $this->puedeVer($usuario, $documento) ? 403 : 404);
 
         $datos = $request->validate(['motivo' => ['required', 'string', 'max:500']]);
 

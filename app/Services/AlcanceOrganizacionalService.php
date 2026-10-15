@@ -272,6 +272,18 @@ class AlcanceOrganizacionalService
     }
 
     /**
+     * Criterio único para entrar al explorador de expedientes ajenos (web y
+     * API móvil de RH): alcance «Todos» o «Sucursal» del módulo
+     * Expedientes. La API acepta además sus permisos rh.expedientes.* por
+     * compatibilidad con la app; el ALCANCE de los datos siempre es el del
+     * módulo (limitarExpedientesPorAlcance / puedeVerExpediente).
+     */
+    public function puedeExplorarExpedientes(User $usuario): bool
+    {
+        return $usuario->can('expedientes.ver_todos') || $usuario->can('expedientes.ver_sucursal');
+    }
+
+    /**
      * Acota por sucursal cualquier consulta de un modelo que tenga una
      * columna de sucursal (vacantes, candidatos, etc.). Quien tiene alcance
      * global no se restringe; el resto solo ve registros de sus sucursales

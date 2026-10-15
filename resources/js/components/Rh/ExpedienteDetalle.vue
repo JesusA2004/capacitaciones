@@ -153,6 +153,8 @@ const props = defineProps<{
     /** Jefe directo (cadena de mando) o RH: ColaboradorPolicy::iniciarCierre. */
     puedeIniciarBaja?: boolean;
     puedeGestionarAcceso: boolean;
+    /** Baja administrativa inmediata (cierres.ejecutar_baja + alcance), separada del acceso. */
+    puedeDarDeBaja?: boolean;
     puedeGestionarPassword: boolean;
     puedeEditarCuenta: boolean;
     puedeCrearCuenta: boolean;
@@ -834,7 +836,9 @@ function irACompletarExpediente() {
                     >
                         Baja — solo un administrador puede reactivar.
                     </p>
-                    <DropdownMenu v-else-if="puedeGestionarAcceso">
+                    <DropdownMenu
+                        v-else-if="puedeGestionarAcceso || puedeDarDeBaja"
+                    >
                         <DropdownMenuTrigger as-child>
                             <Button size="sm" variant="outline">
                                 Más acciones
@@ -842,7 +846,12 @@ function irACompletarExpediente() {
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" class="w-80">
-                            <template v-if="colaborador.tiene_cuenta">
+                            <template
+                                v-if="
+                                    puedeGestionarAcceso &&
+                                    colaborador.tiene_cuenta
+                                "
+                            >
                                 <DropdownMenuItem
                                     v-if="colaborador.acceso_bloqueado_en"
                                     class="flex-col items-start gap-0.5 py-2"
@@ -884,6 +893,7 @@ function irACompletarExpediente() {
                                 </DropdownMenuItem>
                             </template>
                             <DropdownMenuItem
+                                v-if="puedeDarDeBaja"
                                 variant="destructive"
                                 class="flex-col items-start gap-0.5 py-2"
                                 @select="darDeBajaColaborador"

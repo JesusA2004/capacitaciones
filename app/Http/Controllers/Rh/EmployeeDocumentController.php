@@ -9,13 +9,17 @@ use App\Models\Colaborador;
 use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
 use App\Services\Expedientes\DocumentoStorageService;
+use App\Services\Incorporacion\IncorporacionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class EmployeeDocumentController extends Controller
 {
-    public function __construct(private readonly DocumentoStorageService $storage) {}
+    public function __construct(
+        private readonly DocumentoStorageService $storage,
+        private readonly IncorporacionService $incorporacion,
+    ) {}
 
     /**
      * Sube un documento al expediente de un colaborador. Si ya existe una
@@ -52,17 +56,18 @@ class EmployeeDocumentController extends Controller
         ]);
     }
 
+    /**
+     * Aprobar/rechazar/pedir corrección: la regla (estado + aviso al
+     * colaborador + aviso a RH si la incorporación quedó completa) vive en
+     * IncorporacionService, la misma que usa la API móvil.
+     */
     public function aprobar(Request $request, EmployeeDocument $documento): RedirectResponse
     {
         $this->authorize('aprobar', $documento);
 
-        $documento->update([
-            'status' => EstadoDocumento::Aprobado->value,
-            'reviewed_by' => $request->user()->id,
-            'reviewed_at' => now(),
-            'comments' => $request->string('comments')->toString() ?: null,
-            'rejection_reason' => null,
-        ]);
+        $datos = $request->validate(['comments' => ['nullable', 'string', 'max:500']]);
+
+        $this->incorporacion->aprobarDocumento($documento, $request->user(), ($datos['comments'] ?? '') !== '' ? $datos['comments'] : null);
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Documento aprobado.']);
     }
@@ -71,14 +76,9 @@ class EmployeeDocumentController extends Controller
     {
         $this->authorize('rechazar', $documento);
 
-        $request->validate(['rejection_reason' => ['required', 'string', 'max:500']]);
+        $datos = $request->validate(['rejection_reason' => ['required', 'string', 'max:500']]);
 
-        $documento->update([
-            'status' => EstadoDocumento::Rechazado->value,
-            'reviewed_by' => $request->user()->id,
-            'reviewed_at' => now(),
-            'rejection_reason' => $request->string('rejection_reason')->toString(),
-        ]);
+        $this->incorporacion->rechazarDocumento($documento, $request->user(), $datos['rejection_reason']);
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Documento rechazado.']);
     }
@@ -87,14 +87,9 @@ class EmployeeDocumentController extends Controller
     {
         $this->authorize('pedirCorreccion', $documento);
 
-        $request->validate(['comments' => ['required', 'string', 'max:500']]);
+        $datos = $request->validate(['comments' => ['required', 'string', 'max:500']]);
 
-        $documento->update([
-            'status' => EstadoDocumento::RequiereCorreccion->value,
-            'reviewed_by' => $request->user()->id,
-            'reviewed_at' => now(),
-            'comments' => $request->string('comments')->toString(),
-        ]);
+        $this->incorporacion->solicitarCorreccionDocumento($documento, $request->user(), $datos['comments']);
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Se pidió corrección al colaborador.']);
     }

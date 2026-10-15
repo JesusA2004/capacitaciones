@@ -48,14 +48,35 @@ class EmployeeDocumentPolicy
             && $this->alcance->puedeVerExpediente($usuario, $documento->colaborador);
     }
 
+    /**
+     * Criterio único web + app móvil: vale el permiso web
+     * (documentos.revisar + documentos.aprobar) o cualquiera de los permisos
+     * móviles históricos (rh.expedientes.documentos.aprobar de la ficha del
+     * expediente, rh.documentos.aprobar de la bandeja de documentos). En
+     * todos los casos: nunca el propio documento y siempre con alcance.
+     */
     public function aprobar(User $usuario, EmployeeDocument $documento): bool
     {
-        return $usuario->can('documentos.aprobar') && $this->revisar($usuario, $documento);
+        return $this->decide($usuario, $documento, 'documentos.aprobar', ['rh.expedientes.documentos.aprobar', 'rh.documentos.aprobar']);
     }
 
     public function rechazar(User $usuario, EmployeeDocument $documento): bool
     {
-        return $usuario->can('documentos.rechazar') && $this->revisar($usuario, $documento);
+        return $this->decide($usuario, $documento, 'documentos.rechazar', ['rh.expedientes.documentos.rechazar', 'rh.documentos.rechazar']);
+    }
+
+    /**
+     * @param  list<string>  $permisosApp
+     */
+    private function decide(User $usuario, EmployeeDocument $documento, string $permisoWeb, array $permisosApp): bool
+    {
+        $conPermiso = ($usuario->can('documentos.revisar') && $usuario->can($permisoWeb))
+            || collect($permisosApp)->contains(fn (string $permiso): bool => $usuario->can($permiso));
+
+        return $conPermiso
+            && $documento->colaborador !== null
+            && $usuario->colaborador_id !== $documento->colaborador_id
+            && $this->alcance->puedeVerExpediente($usuario, $documento->colaborador);
     }
 
     /**

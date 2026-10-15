@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use Illuminate\Support\Facades\Route;
 
 test('profile page is displayed', function () {
     $user = User::factory()->create();
@@ -12,13 +13,12 @@ test('profile page is displayed', function () {
     $response->assertOk();
 });
 
-test('profile information can be updated', function () {
+test('el correo del perfil se puede actualizar', function () {
     $user = User::factory()->create();
 
     $response = $this
         ->actingAs($user)
         ->patch(route('profile.update'), [
-            'name' => 'Test User',
             'email' => 'test@example.com',
         ]);
 
@@ -28,9 +28,22 @@ test('profile information can be updated', function () {
 
     $user->refresh();
 
-    expect($user->name)->toBe('Test User');
     expect($user->email)->toBe('test@example.com');
     expect($user->email_verified_at)->toBeNull();
+});
+
+test('el nombre propio no se puede editar desde el perfil', function () {
+    $user = User::factory()->create(['name' => 'Nombre Original']);
+
+    $this->actingAs($user)
+        ->patch(route('profile.update'), [
+            'name' => 'Nombre Cambiado',
+            'email' => $user->email,
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('profile.edit'));
+
+    expect($user->refresh()->name)->toBe('Nombre Original');
 });
 
 test('email verification status is unchanged when the email address is unchanged', function () {
@@ -39,7 +52,6 @@ test('email verification status is unchanged when the email address is unchanged
     $response = $this
         ->actingAs($user)
         ->patch(route('profile.update'), [
-            'name' => 'Test User',
             'email' => $user->email,
         ]);
 
@@ -50,37 +62,18 @@ test('email verification status is unchanged when the email address is unchanged
     expect($user->refresh()->email_verified_at)->not->toBeNull();
 });
 
-test('user can delete their account', function () {
+test('nadie puede eliminar su propia cuenta desde el perfil', function () {
     $user = User::factory()->create();
 
-    $response = $this
-        ->actingAs($user)
-        ->delete(route('profile.destroy'), [
+    expect(Route::has('profile.destroy'))->toBeFalse();
+
+    $this->actingAs($user)
+        ->delete('/settings/profile', [
             'password' => 'password',
-        ]);
+        ])
+        ->assertStatus(405);
 
-    $response
-        ->assertSessionHasNoErrors()
-        ->assertRedirect(route('home'));
-
-    $this->assertGuest();
-    expect(User::find($user->id))->toBeNull();
-    expect($user->fresh()->deleted_at)->not->toBeNull();
-});
-
-test('correct password must be provided to delete account', function () {
-    $user = User::factory()->create();
-
-    $response = $this
-        ->actingAs($user)
-        ->from(route('profile.edit'))
-        ->delete(route('profile.destroy'), [
-            'password' => 'wrong-password',
-        ]);
-
-    $response
-        ->assertSessionHasErrors('password')
-        ->assertRedirect(route('profile.edit'));
-
-    expect($user->fresh())->not->toBeNull();
+    $this->assertAuthenticatedAs($user);
+    expect(User::query()->where('id', $user->id)->exists())->toBeTrue();
+    expect($user->fresh()->deleted_at)->toBeNull();
 });

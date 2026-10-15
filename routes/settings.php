@@ -13,7 +13,8 @@ Route::middleware(['auth'])->group(function () {
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::delete('settings/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    // Sin DELETE settings/profile: nadie elimina su propia cuenta. La eliminación
+    // definitiva es exclusiva de super_admin en Administración → Usuarios.
 
     Route::get('settings/security', [SecurityController::class, 'edit'])
         ->name('security.edit');

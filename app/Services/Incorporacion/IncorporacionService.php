@@ -368,6 +368,32 @@ class IncorporacionService
     }
 
     /**
+     * RH pide al colaborador corregir un documento (queda en
+     * requiere_correccion y el colaborador puede volver a subirlo directo,
+     * ver ESTADOS_SUBIDA_DIRECTA). Misma fuente para web y app.
+     */
+    public function solicitarCorreccionDocumento(EmployeeDocument $documento, User $revisor, string $comentario): void
+    {
+        $documento->update([
+            'status' => EstadoDocumento::RequiereCorreccion->value,
+            'reviewed_by' => $revisor->id,
+            'reviewed_at' => now(),
+            'comments' => $comentario,
+        ]);
+
+        $this->notificarSinFallar(function () use ($documento): void {
+            $documento->loadMissing('colaborador.user');
+            $destinatario = $documento->colaborador?->user;
+
+            if ($destinatario === null) {
+                return;
+            }
+
+            $this->eventos->avisarResultado($destinatario, new Aviso('documento_revisado', 'documento', 'Documento por corregir', 'RH te pidió corregir uno de tus documentos.', $documento, 'requiere_correccion', 'media', [], null, new DocumentoActualizadoNotification($documento)));
+        });
+    }
+
+    /**
      * Tras aprobar un documento, si el colaborador esta en_incorporacion y
      * ese era el ultimo documento obligatorio pendiente, la incorporacion
      * queda "completo": avisa a RH que ya puede tomar la decision final
