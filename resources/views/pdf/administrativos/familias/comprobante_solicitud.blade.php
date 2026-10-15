@@ -32,10 +32,6 @@
                 </tr>
             @endif
             <tr><td colspan="2"><span class="lbl">Motivo</span><span class="val">{{ $d['motivo'] }}</span></td></tr>
-            <tr>
-                <td><span class="lbl">Autorizó</span><span class="val">{{ $d['autorizo'] }}</span></td>
-                <td><span class="lbl">Fecha de autorización</span><span class="val">{{ $d['fecha_autorizacion'] }}</span></td>
-            </tr>
         </table>
     </div>
 @endif

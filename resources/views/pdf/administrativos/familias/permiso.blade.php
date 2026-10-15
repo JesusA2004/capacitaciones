@@ -79,6 +79,3 @@
     </div>
 @endif
 
-@if (($v['autorizacion'] ?? true) && $d['autorizo'] !== '')
-    <p class="autorizado">Autorizado en MR. LANA PEOPLE por {{ $d['autorizo'] }} · {{ $d['fecha_autorizacion'] }} · Folio {{ $d['folio'] }}</p>
-@endif

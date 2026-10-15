@@ -131,7 +131,6 @@
 
         .leyenda { margin-top: {{ $mm($sec['spacing_mm']) }}; padding: 2mm 2.5mm; border: {{ $borde }}; background: {{ $suave }}; font-size: {{ $pt((float) $t['base_size_pt'] * 0.95) }}; page-break-inside: avoid; break-inside: avoid; }
         .leyenda p { margin: 0; text-indent: 0; text-align: justify; }
-        .autorizado { margin-top: 2mm; font-size: {{ $pt((float) $t['base_size_pt'] * 0.82) }}; color: {{ $c['muted'] }}; }
         .firmas { margin-top: {{ $mm($sg['gap_mm']) }}; width: 100%; page-break-inside: avoid; break-inside: avoid; }
         .firmas td { text-align: center; vertical-align: bottom; padding: 0 3mm; font-size: {{ $pt((float) $t['base_size_pt'] * 1.05) }}; font-weight: 700; color: {{ $c['primary'] }}; }
         .firmas .linea { border-top: 1.4px solid {{ $c['primary'] }}; width: {{ $mm($sg['line_width_mm']) }}; margin: 0 auto 1.2mm; }

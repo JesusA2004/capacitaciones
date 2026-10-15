@@ -52,7 +52,7 @@ enum FamiliaAdministrativa: string
         return match ($this) {
             self::ReciboNomina => ['datos_colaborador' => 'Datos del trabajador', 'dias_periodo' => 'Días del periodo', 'percepciones' => 'Percepciones', 'deducciones' => 'Deducciones', 'neto' => 'Neto a pagar', 'observaciones' => 'Observaciones', 'leyenda' => 'Leyenda'],
             self::Finiquito => ['datos_colaborador' => 'Datos del trabajador', 'percepciones' => 'Percepciones', 'deducciones' => 'Deducciones', 'neto' => 'Total a pagar e importe con letra', 'observaciones' => 'Comentarios del ajuste', 'notas' => 'Notas', 'leyenda' => 'Leyenda'],
-            self::Permiso => ['datos_colaborador' => 'Datos del colaborador', 'permiso_solicitado' => 'Permiso solicitado', 'tipo_permiso' => 'Tipo de permiso y causal', 'observaciones' => 'Observaciones', 'autorizacion' => 'Autorizado en PEOPLE por', 'leyenda' => 'Leyenda'],
+            self::Permiso => ['datos_colaborador' => 'Datos del colaborador', 'permiso_solicitado' => 'Permiso solicitado', 'tipo_permiso' => 'Tipo de permiso y causal', 'observaciones' => 'Observaciones', 'leyenda' => 'Leyenda'],
             self::ComprobanteSolicitud => ['datos_colaborador' => 'Datos del colaborador', 'detalle' => 'Detalle de la solicitud', 'observaciones' => 'Observaciones', 'leyenda' => 'Leyenda'],
             self::ConstanciaLaboral => ['datos_colaborador' => 'Datos del colaborador', 'notas' => 'Nota', 'leyenda' => 'Leyenda'],
         };

@@ -140,7 +140,8 @@ test('el formato de permiso NO se libera sin RH; tras la autorización de RH sí
         ->toContain('Firma jefe inmediato')
         ->toContain('Firma Recursos Humanos')
         ->toContain('Firma colaborador')
-        ->toContain('Autorizado en MR. LANA PEOPLE por')
+        // Sin metadata técnica: el formato impreso no dice quién autorizó en el sistema.
+        ->not->toContain('Autorizado en MR. LANA PEOPLE')
         ->and($marcada('Permiso para salir temprano'))->toBeTrue()
         ->and($marcada('Permiso para faltar'))->toBeFalse()
         ->and($marcada('Permiso especial'))->toBeTrue()
