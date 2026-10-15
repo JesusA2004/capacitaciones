@@ -6,6 +6,7 @@ use App\Enums\AlcanceDatos;
 use App\Enums\CaracterLevantamientoActa;
 use App\Enums\CategoriaDocumento;
 use App\Enums\EstadoActa;
+use App\Enums\EstadoFlujoDocumento;
 use App\Enums\EstadoUsuario;
 use App\Enums\RelacionTestigoActa;
 use App\Enums\TipoActa;
@@ -96,16 +97,9 @@ class ActaService
         $palabras = array_slice(preg_split('/\s+/u', Str::lower(Str::ascii(trim($termino))), -1, PREG_SPLIT_NO_EMPTY) ?: [], 0, 4);
         $sucursalPropia = $usuario->colaborador?->sucursal_principal_id;
 
-        $consulta = Colaborador::query()
+        $consulta = $this->participantesElegibles($usuario)
             ->with(['puesto:id,nombre', 'sucursalPrincipal:id,nombre'])
-            ->where('estatus', EstadoUsuario::Activo->value)
             ->when($excluirId !== null, fn (Builder $q) => $q->where('id', '!=', $excluirId));
-
-        $global = $usuario->hasRole('super_admin') || $this->alcanceModulo->nivel($usuario, 'actas') === AlcanceDatos::Todos;
-
-        if (! $global) {
-            $this->alcanceModulo->limitarColaboradores($consulta, $usuario, 'actas');
-        }
 
         // Sin texto: solo los de su sucursal (no cargar a toda la empresa).
         if ($palabras === [] && $sucursalPropia !== null) {
@@ -135,20 +129,183 @@ class ActaService
     }
 
     /**
+     * Colaboradores ACTIVOS que quien levanta puede elegir como participantes
+     * del acta (jefe, testigos): el mismo criterio del buscador de testigos —
+     * super_admin o alcance «todos» del módulo de actas ven a toda la
+     * organización; el resto, solo su alcance (AlcanceModuloService).
+     *
+     * @return Builder<Colaborador>
+     */
+    private function participantesElegibles(User $usuario): Builder
+    {
+        $consulta = Colaborador::query()->where('estatus', EstadoUsuario::Activo->value);
+
+        $global = $usuario->hasRole('super_admin') || $this->alcanceModulo->nivel($usuario, 'actas') === AlcanceDatos::Todos;
+
+        if (! $global) {
+            $this->alcanceModulo->limitarColaboradores($consulta, $usuario, 'actas');
+        }
+
+        return $consulta;
+    }
+
+    /**
+     * Nadie elige como participante a alguien fuera de su alcance, aunque
+     * mande el id a mano (el buscador ya no lo mostraría). Excepciones
+     * seguras: el jefe inmediato REAL del trabajador según el organigrama
+     * (jefe_id) y las personas que ya estaban guardadas en el acta (las
+     * aceptó antes alguien con alcance; re-guardar no debe bloquear).
+     *
+     * @param  array<string, mixed>  $datos
+     */
+    private function validarAlcanceParticipantes(array $datos, Colaborador $trabajador, User $actor, ?ActaAdministrativa $previa = null): void
+    {
+        $idDe = fn (mixed $p): ?int => is_array($p) && is_numeric($p['colaborador_id'] ?? null) ? (int) $p['colaborador_id'] : null;
+        $campos = [];
+
+        foreach (is_array($datos['testigos'] ?? null) ? $datos['testigos'] : [] as $i => $t) {
+            if (($id = $idDe($t)) !== null) {
+                $campos[sprintf('testigos.%s.colaborador_id', $i)] = $id;
+            }
+        }
+
+        $c = is_array($datos['circunstanciada'] ?? null) ? $datos['circunstanciada'] : [];
+        $jefe = is_array($c['jefe'] ?? null) ? $c['jefe'] : [];
+
+        if ((bool) ($jefe['participa'] ?? false) && ($id = $idDe($jefe)) !== null && $id !== $trabajador->jefe_id) {
+            $campos['circunstanciada.jefe.colaborador_id'] = $id;
+        }
+
+        foreach (['testigos_hechos', 'testigos_asistencia'] as $lista) {
+            foreach (is_array($c[$lista] ?? null) ? $c[$lista] : [] as $i => $t) {
+                if (($id = $idDe($t)) !== null) {
+                    $campos[sprintf('circunstanciada.%s.%s.colaborador_id', $lista, $i)] = $id;
+                }
+            }
+        }
+
+        $yaGuardados = $previa !== null ? $this->participantesGuardados($previa) : [];
+        $campos = array_filter($campos, fn (int $id): bool => ! in_array($id, $yaGuardados, true));
+
+        if ($campos === []) {
+            return;
+        }
+
+        $enAlcance = $this->participantesElegibles($actor)
+            ->whereIn('id', array_values(array_unique($campos)))
+            ->pluck('id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->all();
+
+        $errores = [];
+
+        foreach ($campos as $campo => $id) {
+            if (! in_array($id, $enAlcance, true)) {
+                $errores[$campo] = 'Esta persona está fuera de tu alcance en actas: elige a alguien del buscador.';
+            }
+        }
+
+        if ($errores !== []) {
+            throw ValidationException::withMessages($errores);
+        }
+    }
+
+    /**
+     * colaborador_id de quienes ya intervienen en el acta guardada.
+     *
+     * @return list<int>
+     */
+    private function participantesGuardados(ActaAdministrativa $acta): array
+    {
+        $c = $acta->circunstanciada ?? [];
+        $personas = [
+            ...array_values($acta->testigos ?? []),
+            ...(($c['jefe']['participa'] ?? false) ? [(array) $c['jefe']] : []),
+            ...array_values((array) ($c['testigos_hechos'] ?? [])),
+            ...array_values((array) ($c['testigos_asistencia'] ?? [])),
+        ];
+
+        return array_values(array_filter(array_map(
+            fn (mixed $p): ?int => is_array($p) && is_numeric($p['colaborador_id'] ?? null) ? (int) $p['colaborador_id'] : null,
+            $personas,
+        ), fn (?int $id): bool => $id !== null));
+    }
+
+    /**
+     * El cierre del acta (sección XIII) no puede ser anterior al
+     * levantamiento ni futuro (hora de México). Sin fecha de cierre se toma
+     * la de hoy, igual que al generar el definitivo.
+     *
+     * @return array{campo: string, mensaje: string}|null
+     */
+    public static function errorCierre(?string $fechaCierre, ?string $horaCierre, string $fechaLevantamiento, ?string $horaLevantamiento): ?array
+    {
+        if ($fechaCierre === null && $horaCierre === null) {
+            return null;
+        }
+
+        $zona = 'America/Mexico_City';
+        $ahora = Carbon::now($zona);
+        $fecha = $fechaCierre !== null ? Carbon::parse($fechaCierre, $zona)->toDateString() : $ahora->toDateString();
+        $levantadaEl = Carbon::parse($fechaLevantamiento, $zona)->toDateString();
+        $horaLev = $horaLevantamiento !== null && $horaLevantamiento !== '' ? substr($horaLevantamiento, 0, 5) : null;
+        $hora = $horaCierre !== null ? substr($horaCierre, 0, 5) : null;
+
+        if ($fecha < $levantadaEl) {
+            return ['campo' => 'circunstanciada.cierre.fecha', 'mensaje' => 'La fecha de cierre no puede ser anterior a la fecha en que se levantó el acta.'];
+        }
+
+        if ($fecha === $levantadaEl && $hora !== null && $horaLev !== null && $hora < $horaLev) {
+            return ['campo' => 'circunstanciada.cierre.hora', 'mensaje' => 'La hora de cierre no puede ser anterior a la hora en que se levantó el acta.'];
+        }
+
+        if ($fecha > $ahora->toDateString()) {
+            return ['campo' => 'circunstanciada.cierre.fecha', 'mensaje' => 'La fecha de cierre no puede ser futura.'];
+        }
+
+        if ($fecha === $ahora->toDateString() && $hora !== null && $hora > $ahora->format('H:i')) {
+            return ['campo' => 'circunstanciada.cierre.hora', 'mensaje' => 'La hora de cierre no puede ser futura.'];
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $circunstanciada
+     */
+    private function validarCierre(array $circunstanciada, string $fechaLevantamiento, ?string $horaLevantamiento): void
+    {
+        $cierre = is_array($circunstanciada['cierre'] ?? null) ? $circunstanciada['cierre'] : [];
+        $texto = fn (mixed $v): ?string => is_string($v) && trim($v) !== '' ? trim($v) : null;
+        $error = self::errorCierre($texto($cierre['fecha'] ?? null), $texto($cierre['hora'] ?? null), $fechaLevantamiento, $horaLevantamiento);
+
+        if ($error !== null) {
+            throw ValidationException::withMessages([$error['campo'] => $error['mensaje']]);
+        }
+    }
+
+    /**
      * @param  array<string, mixed>  $datos  Validado por GuardarActaRequest.
      */
     public function crear(Colaborador $colaborador, array $datos, User $actor): ActaAdministrativa
     {
+        $this->validarAlcanceParticipantes($datos, $colaborador, $actor);
+
+        if (is_array($datos['circunstanciada'] ?? null)) {
+            $this->validarCierre($datos['circunstanciada'], (string) $datos['fecha'], isset($datos['hora']) ? (string) $datos['hora'] : null);
+        }
+
         $acta = DB::transaction(function () use ($colaborador, $datos, $actor): ActaAdministrativa {
             $tipo = TipoActa::from($datos['tipo']);
+            // Quien levanta el acta es SIEMPRE quien la registra (nunca un id del request).
             $acta = ActaAdministrativa::query()->create([
-                ...$this->campos($datos, $colaborador, null, $datos['responsable_id'] ?? $actor->id),
+                ...$this->campos($datos, $colaborador, null, $actor->id),
                 'colaborador_id' => $colaborador->id,
                 'tipo' => $tipo,
                 'formato' => $tipo === TipoActa::Administrativa ? self::FORMATO_CIRCUNSTANCIADA : null,
                 'estado' => EstadoActa::Borrador,
                 'sucursal_id' => $datos['sucursal_id'] ?? $colaborador->sucursal_principal_id,
-                'responsable_id' => $datos['responsable_id'] ?? $actor->id,
+                'responsable_id' => $actor->id,
                 'creado_por' => $actor->id,
             ]);
 
@@ -171,7 +328,17 @@ class ActaService
             throw ValidationException::withMessages(['acta' => 'Solo un acta en borrador puede editarse; registra cambios como seguimiento.']);
         }
 
-        $acta->update($this->campos($datos, $acta->colaborador, $acta->circunstanciada, $datos['responsable_id'] ?? $acta->responsable_id));
+        $this->validarAlcanceParticipantes($datos, $acta->colaborador, $actor, $acta);
+
+        $circunstanciada = is_array($datos['circunstanciada'] ?? null) ? $datos['circunstanciada'] : ($acta->circunstanciada ?? []);
+        $this->validarCierre(
+            $circunstanciada,
+            isset($datos['fecha']) ? (string) $datos['fecha'] : $acta->fecha->toDateString(),
+            array_key_exists('hora', $datos) ? (isset($datos['hora']) ? (string) $datos['hora'] : null) : $acta->hora,
+        );
+
+        // responsable_id no cambia por request (GuardarActaRequest lo prohíbe).
+        $acta->update($this->campos($datos, $acta->colaborador, $acta->circunstanciada, $acta->responsable_id));
         $this->auditoria->registrar('acta_actualizada', $acta, $actor, ['campos' => array_keys($datos)]);
 
         return $acta->refresh();
@@ -241,6 +408,7 @@ class ActaService
 
     public function registrarNegativaFirma(ActaAdministrativa $acta, string $motivo, User $actor): ActaAdministrativa
     {
+        $this->exigirDefinitivoAbierto($acta, 'asentar la negativa a firmar');
         $acta->update(['negativa_firma' => true, 'motivo_negativa' => $motivo]);
         $this->agregarSeguimientoInterno($acta, "Negativa a firmar: {$motivo}", $actor);
         $this->auditoria->registrar('acta_negativa_firma', $acta, $actor, ['motivo' => $motivo]);
@@ -256,10 +424,74 @@ class ActaService
         return $acta->refresh();
     }
 
+    /**
+     * Negativa a firmar y entrega de copia solo existen sobre el acta
+     * DEFINITIVA (ya generada) y mientras siga abierta.
+     */
+    private function exigirDefinitivoAbierto(ActaAdministrativa $acta, string $accion): void
+    {
+        if (in_array($acta->estado, [EstadoActa::Cerrada, EstadoActa::Cancelada], true)) {
+            throw ValidationException::withMessages(['acta' => sprintf('El acta ya está %s: no se puede %s.', mb_strtolower($acta->estado->etiqueta()), $accion)]);
+        }
+
+        if ($acta->estado === EstadoActa::Borrador || $acta->generated_document_id === null) {
+            throw ValidationException::withMessages(['acta' => sprintf('Genera el acta definitiva antes de %s.', $accion)]);
+        }
+    }
+
+    /**
+     * Lo que impide cerrar el acta (null = se puede). Acta circunstanciada:
+     * borrador → definitiva generada → firmada físicamente o con negativa a
+     * firmar asentada → original escaneado/archivado en el expediente →
+     * entrega de copia registrada (entregada o «no fue posible») → cerrada.
+     * Actas históricas (formato null): definitiva y firmada, en estado
+     * «Firmada» o con negativa asentada (no tenían constancia de entrega).
+     */
+    public function faltanteParaCerrar(ActaAdministrativa $acta): ?string
+    {
+        if ($acta->estado === EstadoActa::Cerrada) {
+            return 'El acta ya está cerrada.';
+        }
+
+        if ($acta->estado === EstadoActa::Cancelada) {
+            return 'El acta está cancelada: no se puede cerrar.';
+        }
+
+        if ($acta->estado === EstadoActa::Borrador) {
+            return 'Genera el acta definitiva antes de cerrarla.';
+        }
+
+        $estadoDocumento = $acta->documento?->estado_flujo;
+
+        if ($acta->formato !== self::FORMATO_CIRCUNSTANCIADA) {
+            $firmada = $acta->estado === EstadoActa::Firmada || ($estadoDocumento?->estaFirmado() ?? false);
+
+            return $firmada || $acta->negativa_firma ? null : 'Registra la firma del acta o asienta la negativa a firmar antes de cerrarla.';
+        }
+
+        if ($acta->generated_document_id === null || $estadoDocumento === null || $estadoDocumento === EstadoFlujoDocumento::Cancelado) {
+            return 'El acta no tiene un documento definitivo vigente: genéralo antes de cerrarla.';
+        }
+
+        if (! $estadoDocumento->firmaFisicaRegistrada() && ! $acta->negativa_firma) {
+            return 'Registra la firma física del acta impresa o asienta la negativa a firmar antes de cerrarla.';
+        }
+
+        if (! in_array($estadoDocumento, [EstadoFlujoDocumento::Escaneado, EstadoFlujoDocumento::Archivado], true)) {
+            return 'Sube el escaneo del acta firmada al expediente antes de cerrarla.';
+        }
+
+        if (! in_array($acta->circunstanciada['entrega']['estado'] ?? null, ['entregada', 'no_posible'], true)) {
+            return 'Registra si se entregó copia del acta al trabajador (o por qué no fue posible) antes de cerrarla.';
+        }
+
+        return null;
+    }
+
     public function cerrar(ActaAdministrativa $acta, User $actor): ActaAdministrativa
     {
-        if ($acta->estado === EstadoActa::Borrador) {
-            throw ValidationException::withMessages(['acta' => 'Genera el formato del acta antes de cerrarla.']);
+        if (($motivo = $this->faltanteParaCerrar($acta)) !== null) {
+            throw ValidationException::withMessages(['acta' => $motivo]);
         }
 
         $firmada = $acta->documento?->estado_flujo?->estaFirmado() ?? false;
@@ -351,7 +583,7 @@ class ActaService
      */
     private function campos(array $datos, Colaborador $colaboradorDelActa, ?array $circunstanciadaPrevia = null, ?int $responsableId = null): array
     {
-        $campos = array_intersect_key($datos, array_flip(['motivo', 'fecha', 'hora', 'lugar', 'hechos', 'testigos', 'declaraciones', 'responsable_id', 'sucursal_id']));
+        $campos = array_intersect_key($datos, array_flip(['motivo', 'fecha', 'hora', 'lugar', 'hechos', 'testigos', 'declaraciones', 'sucursal_id']));
 
         if (array_key_exists('circunstanciada', $datos) && is_array($datos['circunstanciada'])) {
             $campos['circunstanciada'] = $this->resolverCircunstanciada($datos['circunstanciada'], $colaboradorDelActa, $circunstanciadaPrevia ?? [], $responsableId);
@@ -461,6 +693,8 @@ class ActaService
                 'lugar_hechos' => $texto($d['incidencia']['lugar_hechos'] ?? null),
             ],
             'responsable' => [
+                // Identidad real de quien levanta: el PDF compara jefe = responsable por id, nunca por nombre.
+                'colaborador_id' => $responsable?->colaborador?->id,
                 'caracter' => $texto($d['responsable']['caracter'] ?? null) ?? ($responsable !== null ? $this->caracterSugerido($responsable, $trabajador)->value : null),
                 ...($responsable?->colaborador !== null ? self::fichaPersona($responsable->colaborador) : ['nombre' => $responsable !== null ? self::nombreDe($responsable) : null, 'puesto' => null, 'area' => null]),
                 'manifestacion' => $texto($d['responsable']['manifestacion'] ?? null),
@@ -564,6 +798,8 @@ class ActaService
      */
     public function registrarEntrega(ActaAdministrativa $acta, string $estado, ?string $motivo, User $actor): ActaAdministrativa
     {
+        $this->exigirDefinitivoAbierto($acta, 'registrar la entrega de la copia');
+
         if (! in_array($estado, ['entregada', 'no_posible'], true)) {
             throw ValidationException::withMessages(['estado' => 'Indica si se entregó la copia o por qué no fue posible.']);
         }

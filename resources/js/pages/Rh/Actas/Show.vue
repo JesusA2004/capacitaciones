@@ -48,6 +48,7 @@ const props = defineProps<{
     acta: ActaDetalle;
     puedeGestionar: boolean;
     puedeRegistrarEntrega: boolean;
+    faltaParaCerrar: string | null;
     catalogos: CatalogosActa;
 }>();
 
@@ -256,11 +257,20 @@ function cerrarActa() {
             </Button>
             <Button
                 v-if="puedeGestionar && acta.estado !== 'borrador' && abierta"
+                :disabled="!!faltaParaCerrar"
+                :title="faltaParaCerrar ?? undefined"
                 @click="cerrarActa"
             >
                 <CircleCheck class="size-4" /> Cerrar acta
             </Button>
         </CrudPageHeader>
+
+        <p
+            v-if="puedeGestionar && acta.estado !== 'borrador' && abierta && faltaParaCerrar"
+            class="entrada-suave rounded-xl bg-crema/50 px-4 py-2 text-sm text-muted-foreground"
+        >
+            Para cerrar el acta: {{ faltaParaCerrar }}
+        </p>
 
         <ActaCircunstanciadaEditor
             v-if="esCircunstanciada && editable"

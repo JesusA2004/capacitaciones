@@ -39,7 +39,9 @@ class GuardarActaRequest extends FormRequest
             'lugar' => ['nullable', 'string', 'max:255'],
             'sucursal_id' => ['nullable', 'integer', 'exists:sucursales,id'],
             'hechos' => [$requerido, 'string', 'max:20000'],
-            'responsable_id' => ['nullable', 'integer', 'exists:users,id'],
+            // Quien levanta el acta es siempre quien la registra (ActaService):
+            // no existe permiso para asignarla a otra cuenta.
+            'responsable_id' => ['prohibited'],
             // Captura DIFERIDA permitida (el acta puede nacer sin testigos y
             // completarse al editar, antes de generar el formato — el motor
             // documental es quien exige los dos al generar). Pero si llega
@@ -200,6 +202,7 @@ class GuardarActaRequest extends FormRequest
             'circunstanciada.incidencia.fecha_hasta.before_or_equal' => 'Los hechos no pueden tener fecha futura.',
             'circunstanciada.trabajador.manifestacion.required_if' => 'Captura lo que manifestó el trabajador o marca que no quiso manifestar.',
             'circunstanciada.jefe.colaborador_id.required_if' => 'Elige al jefe inmediato que interviene.',
+            'responsable_id.prohibited' => 'Quien levanta el acta es quien la registra; no se puede asignar a otra persona.',
             'declaraciones.*.declaracion.required_with' => 'Escribe la manifestación del colaborador o indica que no quiso manifestar nada.',
         ];
     }

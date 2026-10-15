@@ -120,11 +120,28 @@ class ActaPdfService
             'proceso' => 'acta',
             'requiere_impresion' => true,
             'requiere_firma_fisica' => true,
-            'requiere_testigos' => true,
+            // Solo si alguien firma como testigo: con 0 testigos (de hechos o
+            // de asistencia) el registro de la firma física no los exige.
+            'requiere_testigos' => self::tieneTestigos($acta),
             'conversion_engine' => $render['motor']->value,
             'paginas' => $render['paginas'],
             'nombre_archivo' => sprintf('%s - %s.pdf', $titulo, Carbon::now('America/Mexico_City')->format('Y-m-d His')),
         ]);
+    }
+
+    /**
+     * ¿Firma algún testigo el acta? Circunstanciada: testigos de hechos o de
+     * asistencia; histórica: su lista de testigos.
+     */
+    public static function tieneTestigos(ActaAdministrativa $acta): bool
+    {
+        if (! self::esCircunstanciada($acta)) {
+            return count($acta->testigos ?? []) > 0;
+        }
+
+        $c = $acta->circunstanciada ?? [];
+
+        return count((array) ($c['testigos_hechos'] ?? [])) + count((array) ($c['testigos_asistencia'] ?? [])) > 0;
     }
 
     /**
@@ -197,8 +214,13 @@ class ActaPdfService
         $tipo = TipoIncidenciaActa::tryFrom((string) ($c['incidencia']['tipo'] ?? ''));
         $responsable = (array) ($c['responsable'] ?? []);
         $jefe = ($c['jefe']['participa'] ?? false) ? (array) $c['jefe'] : null;
-        // Responsable y jefe son la misma persona: una sola manifestación y una sola firma.
-        $jefeEsResponsable = $jefe !== null && ($jefe['nombre'] ?? null) !== null && $jefe['nombre'] === ($responsable['nombre'] ?? null);
+        // Responsable y jefe son la misma persona (mismo colaborador_id, nunca
+        // por nombre: dos homónimos son personas distintas): una sola
+        // manifestación y una sola firma.
+        $jefeEsResponsable = $jefe !== null
+            && is_numeric($jefe['colaborador_id'] ?? null)
+            && is_numeric($responsable['colaborador_id'] ?? null)
+            && (int) $jefe['colaborador_id'] === (int) $responsable['colaborador_id'];
         $anexos = $acta->anexos->values()->map(fn (ActaAnexo $a, int $i): array => [
             'numero' => $i + 1,
             'descripcion' => (string) ($a->descripcion ?: $a->original_name),

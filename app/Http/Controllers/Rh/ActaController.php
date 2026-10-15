@@ -107,6 +107,8 @@ class ActaController extends Controller
         return Inertia::render('Rh/Actas/Show', [
             'acta' => $this->actas->aArray($acta, true),
             'puedeGestionar' => $request->user()->can('gestionar', $acta),
+            // Qué falta para poder cerrarla (null = se puede cerrar).
+            'faltaParaCerrar' => $acta->estado->esEditable() ? null : $this->actas->faltanteParaCerrar($acta),
             'puedeRegistrarEntrega' => $request->user()->can('gestionar', $acta) || $acta->creado_por === $request->user()->id,
             'catalogos' => ActaService::catalogos(),
         ]);

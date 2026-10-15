@@ -90,12 +90,15 @@ function agregarTestigoAsistencia() {
     c.value.testigos_asistencia.push({ colaborador_id: null, nombre: '', puesto: '', manifestacion: '' });
 }
 
-/** Responsable y jefe son la misma persona: una sola manifestación (y firma). */
+/**
+ * Responsable y jefe son la misma persona (mismo colaborador, nunca por
+ * nombre: dos homónimos son personas distintas): una sola manifestación (y firma).
+ */
 const jefeEsResponsable = computed(
     () =>
         c.value.jefe.participa &&
-        !!props.responsable?.nombre &&
-        props.responsable.nombre === c.value.jefe.nombre,
+        props.responsable?.colaborador_id != null &&
+        props.responsable.colaborador_id === c.value.jefe.colaborador_id,
 );
 
 function cerrarAhora() {

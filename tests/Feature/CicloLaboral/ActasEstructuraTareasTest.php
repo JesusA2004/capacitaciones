@@ -62,6 +62,13 @@ test('actas: captura, anexos, formato por motor documental, negativa a firmar y 
     $this->postJson("/api/v1/rh/actas/{$acta['id']}/entrega", ['estado' => 'entregada'])->assertOk()->assertJsonPath('data.circunstanciada.entrega.estado', 'entregada');
     $this->getJson("/api/v1/rh/actas/{$acta['id']}")->assertOk()->assertJsonCount(6, 'catalogos.incidencias');
     $this->postJson("/api/v1/rh/actas/{$acta['id']}/negativa-firma", ['motivo' => 'Se negó a firmar ante testigos.'])->assertOk()->assertJsonPath('data.negativa_firma', true);
+    // Sin el original escaneado en el expediente todavía no se cierra.
+    $this->postJson("/api/v1/rh/actas/{$acta['id']}/cerrar")->assertUnprocessable()->assertJsonValidationErrors('acta');
+
+    // Flujo físico del documento: impresión, firmas de quienes intervienen, escaneo.
+    $this->postJson("/api/v1/rh/documentos-proceso/documento/{$documento['id']}/imprimir")->assertOk();
+    $this->postJson("/api/v1/rh/documentos-proceso/documento/{$documento['id']}/firma-fisica", ['testigos' => [['nombre' => 'Pedro López']]])->assertOk();
+    $this->post("/api/v1/rh/documentos-proceso/documento/{$documento['id']}/escaneo", ['archivo' => clArchivoPdf('acta-firmada.pdf')], ['Accept' => 'application/json'])->assertOk();
     $this->postJson("/api/v1/rh/actas/{$acta['id']}/cerrar")->assertOk()->assertJsonPath('data.estado', 'cerrada');
 
     $implicado = User::factory()->create(['colaborador_id' => $colaborador->id]);
