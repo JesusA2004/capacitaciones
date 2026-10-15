@@ -26,7 +26,7 @@ class ActaAnexo extends Model
 
     protected $hidden = ['disk', 'path'];
 
-    protected $fillable = ['acta_administrativa_id', 'disk', 'path', 'original_name', 'mime', 'size', 'checksum', 'descripcion', 'subido_por'];
+    protected $fillable = ['acta_administrativa_id', 'disk', 'path', 'original_name', 'mime', 'size', 'checksum', 'descripcion', 'fecha_identificacion', 'relacion_hechos', 'subido_por'];
 
     protected function casts(): array
     {

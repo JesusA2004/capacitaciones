@@ -726,35 +726,41 @@ export const ARTICULOS_VIDA_LABORAL: ArticuloGuia[] = [
         titulo: 'Acta administrativa circunstanciada',
         proceso: 'vida-laboral',
         resumen:
-            'El gerente o RH levanta el acta administrativa circunstanciada sobre alguien de su alcance, con exactamente dos testigos, y revisa la vista previa del PDF antes de generarla.',
-        queEs: 'Un documento administrativo factual (no legal) con lo que pasó: motivo, hechos y circunstancias, personas presentes, evidencias, manifestación del colaborador, testigos y firmas. Es el único tipo de acta que se levanta.',
+            'El gerente o RH levanta el acta administrativa circunstanciada sobre alguien de su alcance en seis pasos, revisa la vista previa del PDF real y genera el acta definitiva, que queda congelada en el expediente.',
+        queEs: 'Un documento administrativo factual con lo que pasó: tipo de incidencia, hechos, personas que intervienen, manifestaciones, anexos y firmas. Registra hechos, no califica ni sanciona. Es el único tipo de acta que se levanta.',
         quien: ['gerente', 'rh'],
         quienDetalle:
             'Gerente o subgerente: personas de su sucursal. RH y corporativo con alcance global: toda la organización.',
         antes: ['La persona está activa y dentro de tu alcance.'],
         pasos: [
             {
-                titulo: '«Levantar acta»',
+                titulo: '1. Incidencia y 2. Hechos',
                 detalle:
-                    'Actas → «Levantar acta»: elige a la persona, el motivo, la fecha, hora y lugar, y describe los hechos y circunstancias.',
+                    'Actas → «Levantar acta»: elige a la persona, el tipo de incidencia, cuándo y dónde ocurrió, y narra los hechos en orden. Empresa, centro de trabajo, domicilio y datos del trabajador los pone PEOPLE. Al continuar se guarda el borrador.',
                 canal: 'web',
             },
             {
-                titulo: 'Testigos',
+                titulo: '3. Participantes',
                 detalle:
-                    'Elige exactamente dos testigos activos, distintos entre sí y de la persona del acta. Al abrir el selector aparecen primero los de tu sucursal; puedes escribir nombre, apellido, número de empleado, puesto o sucursal (por ejemplo «Orizaba»). El cargo sale solo del puesto.',
+                    'Tu carácter (RH, gerente, jefe directo…), si participa el jefe inmediato, y de 0 a 2 testigos de hechos y de 0 a 2 testigos de asistencia, todos activos y elegidos del buscador. Una persona interviene una sola vez y el trabajador nunca es testigo.',
                 canal: 'web',
             },
             {
-                titulo: '«Vista previa PDF»',
+                titulo: '4. Manifestaciones y 5. Anexos',
                 detalle:
-                    'Revisa el PDF exacto antes de generarlo. Abrir la vista previa no guarda nada.',
+                    'Captura lo que dijo el trabajador o marca «No quiso manifestar»; cada testigo da la suya. Sube cada anexo con su descripción, fecha o identificación y su relación con los hechos.',
                 canal: 'web',
             },
             {
-                titulo: 'Imprimir, firmar y cerrar',
+                titulo: '6. Revisión: vista previa y acta definitiva',
                 detalle:
-                    'Se imprime, firman el colaborador, los dos testigos y quien la levanta, y se sube el acta firmada para cerrarla.',
+                    '«Vista previa PDF» abre el PDF real sin guardar nada. «Generar acta definitiva» lo congela en el expediente; desde ahí ya no se edita.',
+                canal: 'web',
+            },
+            {
+                titulo: 'Imprimir, firmar y entregar copia',
+                detalle:
+                    'Se imprime a escala 100 %, firman a mano quienes intervinieron y se registra la entrega de la copia (o por qué no fue posible). Si el trabajador no firma, se registra la negativa: no implica aceptación.',
             },
         ],
         despues: [
@@ -764,7 +770,12 @@ export const ARTICULOS_VIDA_LABORAL: ArticuloGuia[] = [
             {
                 problema: '«No me deja guardar los testigos.»',
                 solucion:
-                    'Deben ser exactamente dos, activos, distintos entre sí y distintos de la persona del acta.',
+                    'Cada testigo debe estar activo, no puede ser el trabajador del acta y una persona solo interviene una vez (jefe, testigo de hechos o de asistencia).',
+            },
+            {
+                problema: '«La vista previa no se abre.»',
+                solucion:
+                    'Falta algo indispensable: el paso 6 lista qué (tipo de incidencia, fecha de los hechos, hechos, tu carácter o la manifestación del trabajador).',
             },
         ],
         relacionados: ['expediente', 'baja'],

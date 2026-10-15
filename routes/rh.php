@@ -75,6 +75,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('colaboradores', [ActaController::class, 'buscarColaboradores'])->name('colaboradores');
             Route::get('testigos', [ActaController::class, 'buscarTestigos'])->name('testigos')->middleware('throttle:60,1');
             Route::get('{acta}/vista-previa', [ActaController::class, 'vistaPrevia'])->name('vista-previa');
+            Route::post('{acta}/entrega', [ActaController::class, 'entrega'])->name('entrega');
             Route::post('colaborador/{colaborador}', [ActaController::class, 'store'])->name('store');
             Route::get('{acta}', [ActaController::class, 'show'])->name('show');
             Route::put('{acta}', [ActaController::class, 'update'])->name('update');

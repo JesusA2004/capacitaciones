@@ -2,7 +2,8 @@
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { ChevronRight, FilePen, Plus } from '@lucide/vue';
 import { computed, ref } from 'vue';
-import ActaCampos from '@/components/actas/ActaCampos.vue';
+import ActaCircunstanciadaCampos from '@/components/actas/ActaCircunstanciadaCampos.vue';
+import ActaPasos from '@/components/actas/ActaPasos.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
@@ -18,14 +19,16 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { cargaActa, formularioVacio } from '@/lib/actas';
 import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
 import { colaboradores, index, show, store } from '@/routes/rh/actas';
 import type {
     ActaResumen,
+    CatalogosActa,
     ColaboradorBusqueda,
     EstadoActa,
-    FormularioActa,
+    FormularioCircunstanciada,
 } from '@/types';
 
 type Opcion = { value: string; label: string };
@@ -45,6 +48,7 @@ const props = defineProps<{
     tipos: Opcion[];
     estados: Opcion[];
     puedeCrear: boolean;
+    catalogos: CatalogosActa;
 }>();
 
 defineOptions({
@@ -78,85 +82,59 @@ const COLOR_ESTADO: Record<EstadoActa, string> = {
     cancelada: 'bg-destructive/10 text-destructive',
 };
 
-// ───── Levantar acta ─────
+// ───── Levantar acta (pasos 1 y 2; el borrador sigue en su detalle) ─────
 const abierto = ref(false);
+const paso = ref<1 | 2>(1);
 const colaborador = ref<ColaboradorBusqueda | null>(null);
-const hoy = new Date();
-const hoyIso = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
-const horaAhora = `${String(hoy.getHours()).padStart(2, '0')}:${String(hoy.getMinutes()).padStart(2, '0')}`;
-
-const form = useForm<FormularioActa & { tipo: string }>({
-    tipo: 'administrativa',
-    motivo: '',
-    fecha: hoyIso,
-    hora: horaAhora,
-    lugar: '',
-    hechos: '',
-    testigos: [
-        { colaborador_id: null, nombre: '', puesto: '' },
-        { colaborador_id: null, nombre: '', puesto: '' },
-    ],
-    declaraciones: [{ persona: '', declaracion: '' }],
-});
-
-const pideMotivo = computed(() => form.tipo === 'administrativa');
-
-// Dos testigos distintos entre sí y distintos del colaborador del acta.
-const testigosValidos = computed(() => {
-    const [a, b] = form.testigos;
-
-    if (!a?.colaborador_id || !b?.colaborador_id) {
-return false;
-}
-
-    if (a.colaborador_id === b.colaborador_id) {
-return false;
-}
-
-    if (colaborador.value && [a.colaborador_id, b.colaborador_id].includes(colaborador.value.id)) {
-return false;
-}
-
-    return true;
-});
+const form = useForm<FormularioCircunstanciada>(formularioVacio());
 
 function abrir() {
+    form.defaults(formularioVacio());
     form.reset();
     form.clearErrors();
     colaborador.value = null;
+    paso.value = 1;
     abierto.value = true;
 }
 
-// La primera manifestación es la del colaborador: se propone su nombre.
 // El lugar se precarga con la ciudad de su sucursal, editable.
 function elegirColaborador(c: ColaboradorBusqueda | null) {
     colaborador.value = c;
-    const primera = form.declaraciones[0];
-
-    if (c && primera && primera.persona.trim() === '') {
-        primera.persona = c.nombre;
-    }
 
     if (c?.ciudad && form.lugar.trim() === '') {
         form.lugar = c.ciudad;
     }
 }
 
+const incidencia = computed(() => form.circunstanciada.incidencia);
+const paso1Listo = computed(
+    () =>
+        !!colaborador.value &&
+        !!incidencia.value.tipo &&
+        (incidencia.value.tipo !== 'otra' || incidencia.value.otro.trim() !== '') &&
+        !!incidencia.value.fecha_desde &&
+        !!form.fecha,
+);
+
+// Un error del paso 1 lleva de regreso al paso 1.
+const CAMPOS_PASO_1 = ['fecha', 'hora', 'lugar', 'circunstanciada.incidencia'];
+
 function levantar() {
-    if (!colaborador.value || !testigosValidos.value) {
+    if (!colaborador.value || !paso1Listo.value || !form.hechos.trim()) {
         return;
     }
 
     form.transform((datos) => ({
-        ...datos,
-        lugar: datos.lugar || null,
-        hora: datos.hora || null,
-        declaraciones: datos.declaraciones.filter(
-            (d) => d.persona.trim() !== '' || d.declaracion.trim() !== '',
-        ),
+        tipo: 'administrativa',
+        ...cargaActa(datos),
     })).post(store.url(colaborador.value.id), {
         onSuccess: () => {
             abierto.value = false;
+        },
+        onError: (errores) => {
+            if (Object.keys(errores).some((k) => CAMPOS_PASO_1.some((p) => k.startsWith(p)))) {
+                paso.value = 1;
+            }
         },
     });
 }
@@ -255,18 +233,22 @@ function levantar() {
     </div>
 
     <Dialog v-model:open="abierto">
-        <DialogContent class="max-h-[92vh] overflow-y-auto sm:max-w-2xl">
+        <DialogContent class="max-h-[92vh] overflow-y-auto sm:max-w-3xl">
             <DialogHeader>
-                <DialogTitle>Levantar acta</DialogTitle>
+                <DialogTitle>Acta administrativa circunstanciada</DialogTitle>
                 <DialogDescription>
-                    Nombre, puesto y contrato del colaborador los pone el
-                    sistema. Después generas el formato oficial para firmar.
+                    Los datos del trabajador, la empresa y el centro de
+                    trabajo los pone PEOPLE. Captura la incidencia y los
+                    hechos; los participantes y las manifestaciones siguen en
+                    el borrador.
                 </DialogDescription>
             </DialogHeader>
 
-            <form class="flex flex-col gap-4" @submit.prevent="levantar">
-                <div class="flex flex-col gap-1.5">
-                    <Label>Colaborador</Label>
+            <form class="flex flex-col gap-5" @submit.prevent="paso === 1 ? (paso = 2) : levantar()">
+                <ActaPasos :actual="paso" :pasos="[1, 2]" @ir="(p) => (p === 1 || paso1Listo) && (paso = p as 1 | 2)" />
+
+                <div v-if="paso === 1" class="flex flex-col gap-1.5">
+                    <Label>Trabajador involucrado</Label>
                     <BuscadorColaborador
                         :model-value="colaborador"
                         :buscar-url="
@@ -275,34 +257,32 @@ function levantar() {
                         "
                         @update:model-value="elegirColaborador"
                     />
+                    <InputError :message="(form.errors as Partial<Record<string, string>>).tipo" />
                 </div>
 
-                <!-- Un solo tipo de acta: la administrativa circunstanciada. -->
-                <p class="text-sm font-medium">Acta administrativa circunstanciada</p>
-                <InputError :message="form.errors.tipo" />
+                <div :key="paso" class="entrada-suave">
+                    <ActaCircunstanciadaCampos
+                        v-model="form"
+                        :paso="paso"
+                        :errores="form.errors"
+                        :catalogos="catalogos"
+                        :trabajador="{ id: colaborador?.id ?? 0, nombre: colaborador?.nombre ?? '' }"
+                    />
+                </div>
 
-                <ActaCampos
-                    :model-value="form"
-                    :errores="form.errors"
-                    :pide-motivo="pideMotivo"
-                    :sujeto-id="colaborador?.id ?? null"
-                />
-
-                <DialogFooter>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        @click="abierto = false"
-                        >Cancelar</Button
-                    >
-                    <Button
-                        type="submit"
-                        :disabled="!colaborador || !testigosValidos || form.processing"
-                    >
-                        Levantar acta
+                <DialogFooter class="gap-2">
+                    <Button type="button" variant="ghost" @click="paso === 1 ? (abierto = false) : (paso = 1)">
+                        {{ paso === 1 ? 'Cancelar' : 'Atrás' }}
+                    </Button>
+                    <Button v-if="paso === 1" type="submit" :disabled="!paso1Listo">
+                        Continuar con los hechos <ChevronRight class="size-4" />
+                    </Button>
+                    <Button v-else type="submit" :disabled="!form.hechos.trim() || form.processing">
+                        Guardar borrador y continuar <ChevronRight class="size-4" />
                     </Button>
                 </DialogFooter>
             </form>
         </DialogContent>
     </Dialog>
 </template>
+

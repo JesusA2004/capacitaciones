@@ -3,10 +3,13 @@
 namespace App\Services\Actas;
 
 use App\Enums\AlcanceDatos;
+use App\Enums\CaracterLevantamientoActa;
 use App\Enums\CategoriaDocumento;
 use App\Enums\EstadoActa;
 use App\Enums\EstadoUsuario;
+use App\Enums\RelacionTestigoActa;
 use App\Enums\TipoActa;
+use App\Enums\TipoIncidenciaActa;
 use App\Models\ActaAdministrativa;
 use App\Models\ActaAnexo;
 use App\Models\Colaborador;
@@ -21,6 +24,7 @@ use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -36,12 +40,45 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class ActaService
 {
+    /** Acta administrativa circunstanciada (docs/acta/…docx): formato nuevo. */
+    public const FORMATO_CIRCUNSTANCIADA = 'circunstanciada';
+
     public function __construct(
         private readonly DocumentoStorageService $expediente,
         private readonly AuditoriaService $auditoria,
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly AlcanceModuloService $alcanceModulo,
     ) {}
+
+    /**
+     * Catálogos cerrados del acta circunstanciada para la captura (web y API).
+     *
+     * @return array{incidencias: list<array{value: string, label: string}>, caracteres: list<array{value: string, label: string}>, relaciones: list<array{value: string, label: string}>}
+     */
+    public static function catalogos(): array
+    {
+        $opciones = fn (array $casos): array => array_values(array_map(fn (TipoIncidenciaActa|CaracterLevantamientoActa|RelacionTestigoActa $c): array => ['value' => $c->value, 'label' => $c->etiqueta()], $casos));
+
+        return [
+            'incidencias' => $opciones(TipoIncidenciaActa::cases()),
+            'caracteres' => $opciones(CaracterLevantamientoActa::cases()),
+            'relaciones' => $opciones(RelacionTestigoActa::cases()),
+        ];
+    }
+
+    /**
+     * Carácter con el que interviene quien levanta el acta, propuesto desde
+     * PEOPLE (rol y organigrama). La captura puede cambiarlo.
+     */
+    public function caracterSugerido(User $usuario, Colaborador $trabajador): CaracterLevantamientoActa
+    {
+        return match (true) {
+            $usuario->hasAnyRole(['super_admin', 'rh_admin', 'rh_auxiliar']) => CaracterLevantamientoActa::RecursosHumanos,
+            $usuario->colaborador !== null && $trabajador->jefe_id === $usuario->colaborador->id => CaracterLevantamientoActa::JefeDirecto,
+            $usuario->hasAnyRole(['gerente', 'gerente_sucursal', 'subgerente', 'gerente_regional']) => CaracterLevantamientoActa::Gerente,
+            default => CaracterLevantamientoActa::ResponsableAutorizado,
+        };
+    }
 
     /**
      * Testigos elegibles: colaboradores ACTIVOS dentro del alcance del
@@ -103,10 +140,12 @@ class ActaService
     public function crear(Colaborador $colaborador, array $datos, User $actor): ActaAdministrativa
     {
         $acta = DB::transaction(function () use ($colaborador, $datos, $actor): ActaAdministrativa {
+            $tipo = TipoActa::from($datos['tipo']);
             $acta = ActaAdministrativa::query()->create([
-                ...$this->campos($datos, $colaborador),
+                ...$this->campos($datos, $colaborador, null, $datos['responsable_id'] ?? $actor->id),
                 'colaborador_id' => $colaborador->id,
-                'tipo' => TipoActa::from($datos['tipo']),
+                'tipo' => $tipo,
+                'formato' => $tipo === TipoActa::Administrativa ? self::FORMATO_CIRCUNSTANCIADA : null,
                 'estado' => EstadoActa::Borrador,
                 'sucursal_id' => $datos['sucursal_id'] ?? $colaborador->sucursal_principal_id,
                 'responsable_id' => $datos['responsable_id'] ?? $actor->id,
@@ -132,16 +171,22 @@ class ActaService
             throw ValidationException::withMessages(['acta' => 'Solo un acta en borrador puede editarse; registra cambios como seguimiento.']);
         }
 
-        $acta->update($this->campos($datos, $acta->colaborador));
+        $acta->update($this->campos($datos, $acta->colaborador, $acta->circunstanciada, $datos['responsable_id'] ?? $acta->responsable_id));
         $this->auditoria->registrar('acta_actualizada', $acta, $actor, ['campos' => array_keys($datos)]);
 
         return $acta->refresh();
     }
 
-    public function agregarAnexo(ActaAdministrativa $acta, UploadedFile $archivo, ?string $descripcion, User $actor): ActaAnexo
+    public function agregarAnexo(ActaAdministrativa $acta, UploadedFile $archivo, ?string $descripcion, User $actor, ?string $fechaIdentificacion = null, ?string $relacionHechos = null): ActaAnexo
     {
         if (in_array($acta->estado, [EstadoActa::Cerrada, EstadoActa::Cancelada], true)) {
             throw ValidationException::withMessages(['acta' => 'El acta ya está cerrada.']);
+        }
+
+        // El acta circunstanciada relaciona sus anexos en el PDF congelado:
+        // uno agregado después no aparecería en el documento firmado.
+        if ($acta->formato === self::FORMATO_CIRCUNSTANCIADA && ! $acta->estado->esEditable()) {
+            throw ValidationException::withMessages(['archivo' => 'El acta definitiva ya relaciona sus anexos. Registra la nueva evidencia como seguimiento.']);
         }
 
         $contenido = (string) file_get_contents($archivo->getRealPath());
@@ -160,6 +205,8 @@ class ActaService
             'size' => $archivo->getSize() ?: null,
             'checksum' => hash('sha256', $contenido),
             'descripcion' => $descripcion,
+            'fecha_identificacion' => $fechaIdentificacion,
+            'relacion_hechos' => $relacionHechos,
             'subido_por' => $actor->id,
         ]);
 
@@ -267,6 +314,7 @@ class ActaService
             'lugar' => $acta->lugar,
             'negativa_firma' => $acta->negativa_firma,
             'documento_id' => $acta->generated_document_id,
+            'formato' => $acta->formato,
             'cerrada_en' => $acta->cerrada_en?->toIso8601String(),
         ];
 
@@ -277,11 +325,16 @@ class ActaService
                 'testigos' => $acta->testigos ?? [],
                 'declaraciones' => $acta->declaraciones ?? [],
                 'motivo_negativa' => $acta->motivo_negativa,
+                'circunstanciada' => $acta->circunstanciada,
+                // Jefe inmediato que PEOPLE propone (organigrama), para precargar.
+                'jefe_sugerido' => $acta->colaborador->jefe !== null ? ['id' => $acta->colaborador->jefe->id, 'nombre' => $acta->colaborador->jefe->nombreCompleto(), 'puesto' => $acta->colaborador->jefe->puesto?->nombre] : null,
                 'seguimiento' => $acta->seguimiento ?? [],
                 'anexos' => $acta->anexos()->get()->map(fn (ActaAnexo $a) => [
                     'id' => $a->id,
                     'nombre' => $a->original_name,
                     'descripcion' => $a->descripcion,
+                    'fecha_identificacion' => $a->fecha_identificacion,
+                    'relacion_hechos' => $a->relacion_hechos,
                     'mime' => $a->mime,
                     'size' => $a->size,
                 ])->all(),
@@ -293,11 +346,21 @@ class ActaService
 
     /**
      * @param  array<string, mixed>  $datos
+     * @param  array<string, mixed>|null  $circunstanciadaPrevia
      * @return array<string, mixed>
      */
-    private function campos(array $datos, Colaborador $colaboradorDelActa): array
+    private function campos(array $datos, Colaborador $colaboradorDelActa, ?array $circunstanciadaPrevia = null, ?int $responsableId = null): array
     {
         $campos = array_intersect_key($datos, array_flip(['motivo', 'fecha', 'hora', 'lugar', 'hechos', 'testigos', 'declaraciones', 'responsable_id', 'sucursal_id']));
+
+        if (array_key_exists('circunstanciada', $datos) && is_array($datos['circunstanciada'])) {
+            $campos['circunstanciada'] = $this->resolverCircunstanciada($datos['circunstanciada'], $colaboradorDelActa, $circunstanciadaPrevia ?? [], $responsableId);
+            $incidencia = $campos['circunstanciada']['incidencia'];
+            // Resumen para listados: el tipo de incidencia (nunca una calificación).
+            $campos['motivo'] = $incidencia['tipo'] === TipoIncidenciaActa::Otra->value
+                ? ($incidencia['otro'] ?? null)
+                : (TipoIncidenciaActa::tryFrom((string) $incidencia['tipo'])?->etiqueta());
+        }
 
         if (array_key_exists('testigos', $campos)) {
             $campos['testigos'] = $this->resolverTestigos($campos['testigos'] ?? []);
@@ -358,6 +421,169 @@ class ActaService
         ];
 
         return $resueltas;
+    }
+
+    /**
+     * Normaliza la captura del acta circunstanciada. Las personas se
+     * resuelven SIEMPRE de PEOPLE por colaborador_id (nombre, puesto y
+     * área reales); lo que el cliente mande como texto se ignora. Entrega de
+     * copia y control documental no se capturan aquí: se conservan.
+     *
+     * @param  array<string, mixed>  $d
+     * @param  array<string, mixed>  $previa
+     * @return array<string, mixed>
+     */
+    private function resolverCircunstanciada(array $d, Colaborador $trabajador, array $previa, ?int $responsableId): array
+    {
+        $texto = fn (mixed $v): ?string => is_string($v) && trim($v) !== '' ? trim($v) : null;
+        $persona = function (mixed $id): ?array {
+            $c = is_numeric($id) ? Colaborador::query()->with(['puesto.departamento', 'departamento'])->where('id', (int) $id)->first() : null;
+
+            return $c === null ? null : ['colaborador_id' => $c->id, ...self::fichaPersona($c)];
+        };
+
+        $responsable = $responsableId !== null ? User::query()->with('colaborador.puesto.departamento', 'colaborador.departamento')->where('id', $responsableId)->first() : null;
+        $jefeParticipa = (bool) ($d['jefe']['participa'] ?? false);
+        $jefe = $jefeParticipa ? $persona($d['jefe']['colaborador_id'] ?? null) : null;
+        $manifesto = $d['trabajador']['manifesto'] ?? null;
+
+        return [
+            'disposiciones' => $texto($d['disposiciones'] ?? null),
+            'incidencia' => [
+                'tipo' => $texto($d['incidencia']['tipo'] ?? null),
+                'otro' => $texto($d['incidencia']['otro'] ?? null),
+                'fecha_desde' => $texto($d['incidencia']['fecha_desde'] ?? null),
+                'fecha_hasta' => $texto($d['incidencia']['fecha_hasta'] ?? null),
+                'hora_desde' => $texto($d['incidencia']['hora_desde'] ?? null),
+                'hora_hasta' => $texto($d['incidencia']['hora_hasta'] ?? null),
+                'fecha_hechos' => self::periodoEnTexto($texto($d['incidencia']['fecha_desde'] ?? null), $texto($d['incidencia']['fecha_hasta'] ?? null)) ?? $texto($d['incidencia']['fecha_hechos'] ?? null),
+                'hora_hechos' => self::horarioEnTexto($texto($d['incidencia']['hora_desde'] ?? null), $texto($d['incidencia']['hora_hasta'] ?? null)) ?? $texto($d['incidencia']['hora_hechos'] ?? null),
+                'lugar_hechos' => $texto($d['incidencia']['lugar_hechos'] ?? null),
+            ],
+            'responsable' => [
+                'caracter' => $texto($d['responsable']['caracter'] ?? null) ?? ($responsable !== null ? $this->caracterSugerido($responsable, $trabajador)->value : null),
+                ...($responsable?->colaborador !== null ? self::fichaPersona($responsable->colaborador) : ['nombre' => $responsable !== null ? self::nombreDe($responsable) : null, 'puesto' => null, 'area' => null]),
+                'manifestacion' => $texto($d['responsable']['manifestacion'] ?? null),
+            ],
+            'jefe' => [
+                'participa' => $jefe !== null,
+                ...($jefe ?? ['colaborador_id' => null, 'nombre' => null, 'puesto' => null, 'area' => null]),
+                'manifestacion' => $jefe !== null ? $texto($d['jefe']['manifestacion'] ?? null) : null,
+            ],
+            'testigos_hechos' => array_values(array_filter(array_map(function (mixed $t) use ($persona, $texto): ?array {
+                $p = is_array($t) ? $persona($t['colaborador_id'] ?? null) : null;
+
+                return $p === null ? null : [
+                    ...$p,
+                    'relacion' => $texto($t['relacion'] ?? null),
+                    'relacion_otro' => $texto($t['relacion_otro'] ?? null),
+                    'declaro' => (bool) ($t['declaro'] ?? $texto($t['manifestacion'] ?? null) !== null),
+                    'manifestacion' => $texto($t['manifestacion'] ?? null),
+                ];
+            }, (array) ($d['testigos_hechos'] ?? [])))),
+            'testigos_asistencia' => array_values(array_filter(array_map(function (mixed $t) use ($persona, $texto): ?array {
+                $p = is_array($t) ? $persona($t['colaborador_id'] ?? null) : null;
+
+                return $p === null ? null : [...$p, 'manifestacion' => $texto($t['manifestacion'] ?? null)];
+            }, (array) ($d['testigos_asistencia'] ?? [])))),
+            'trabajador' => [
+                'manifesto' => $manifesto === null ? null : (bool) $manifesto,
+                'manifestacion' => (bool) $manifesto ? $texto($d['trabajador']['manifestacion'] ?? null) : null,
+                'elementos' => $texto($d['trabajador']['elementos'] ?? null),
+            ],
+            'incidencias_levantamiento' => $texto($d['incidencias_levantamiento'] ?? null),
+            'cierre' => [
+                'fecha' => $texto($d['cierre']['fecha'] ?? null),
+                'hora' => $texto($d['cierre']['hora'] ?? null),
+            ],
+            'entrega' => $previa['entrega'] ?? ['estado' => 'pendiente', 'motivo' => null, 'por' => null, 'en' => null],
+            'control' => $previa['control'] ?? null,
+        ];
+    }
+
+    /**
+     * «13 de octubre de 2026», «del 6 al 8 de octubre de 2026» o «del 30 de
+     * septiembre al 2 de octubre de 2026».
+     */
+    public static function periodoEnTexto(?string $desde, ?string $hasta): ?string
+    {
+        if ($desde === null) {
+            return null;
+        }
+
+        $a = Carbon::parse($desde)->settings(['locale' => 'es']);
+        $b = $hasta !== null ? Carbon::parse($hasta)->settings(['locale' => 'es']) : null;
+
+        if ($b === null || $a->isSameDay($b)) {
+            return $a->isoFormat('D [de] MMMM [de] YYYY');
+        }
+
+        return match (true) {
+            $a->isSameMonth($b) => sprintf('del %s al %s', $a->isoFormat('D'), $b->isoFormat('D [de] MMMM [de] YYYY')),
+            $a->isSameYear($b) => sprintf('del %s al %s', $a->isoFormat('D [de] MMMM'), $b->isoFormat('D [de] MMMM [de] YYYY')),
+            default => sprintf('del %s al %s', $a->isoFormat('D [de] MMMM [de] YYYY'), $b->isoFormat('D [de] MMMM [de] YYYY')),
+        };
+    }
+
+    /** «09:10 horas» o «de las 09:00 a las 09:30 horas». */
+    public static function horarioEnTexto(?string $desde, ?string $hasta): ?string
+    {
+        if ($desde === null) {
+            return null;
+        }
+
+        return $hasta !== null && $hasta !== $desde
+            ? sprintf('de las %s a las %s horas', substr($desde, 0, 5), substr($hasta, 0, 5))
+            : sprintf('%s horas', substr($desde, 0, 5));
+    }
+
+    /**
+     * Nombre, puesto y área de una persona tal como están en PEOPLE.
+     *
+     * @return array{nombre: string, puesto: string|null, area: string|null}
+     */
+    public static function fichaPersona(Colaborador $c): array
+    {
+        return [
+            'nombre' => $c->nombreCompleto(),
+            'puesto' => $c->puesto?->nombre,
+            'area' => $c->departamento->nombre ?? $c->puesto?->departamento?->nombre,
+        ];
+    }
+
+    /** Nombre de una cuenta como está en PEOPLE (su colaborador; si no tiene, el de la cuenta). */
+    public static function nombreDe(User $usuario): string
+    {
+        return $usuario->colaborador?->nombreCompleto() ?? trim($usuario->name.' '.($usuario->apellidos ?? ''));
+    }
+
+    /**
+     * Constancia de entrega de copia (sección XII): pendiente, entregada o
+     * no fue posible (con la circunstancia real). Nunca se afirma antes de
+     * que ocurra.
+     */
+    public function registrarEntrega(ActaAdministrativa $acta, string $estado, ?string $motivo, User $actor): ActaAdministrativa
+    {
+        if (! in_array($estado, ['entregada', 'no_posible'], true)) {
+            throw ValidationException::withMessages(['estado' => 'Indica si se entregó la copia o por qué no fue posible.']);
+        }
+
+        if ($estado === 'no_posible' && trim((string) $motivo) === '') {
+            throw ValidationException::withMessages(['motivo' => 'Describe la circunstancia real por la que no fue posible entregar la copia.']);
+        }
+
+        $datos = $acta->circunstanciada ?? [];
+        $datos['entrega'] = [
+            'estado' => $estado,
+            'motivo' => $estado === 'no_posible' ? trim((string) $motivo) : null,
+            'por' => self::nombreDe($actor),
+            'en' => now()->toIso8601String(),
+        ];
+        $acta->update(['circunstanciada' => $datos]);
+        $this->agregarSeguimientoInterno($acta, $estado === 'entregada' ? 'Se entregó copia del acta y sus anexos al trabajador.' : sprintf('No fue posible entregar copia: %s', trim((string) $motivo)), $actor);
+        $this->auditoria->registrar('acta_entrega_copia', $acta, $actor, ['estado' => $estado]);
+
+        return $acta->refresh();
     }
 
     private function agregarSeguimientoInterno(ActaAdministrativa $acta, string $nota, User $actor): void

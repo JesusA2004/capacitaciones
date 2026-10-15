@@ -2100,11 +2100,11 @@ RH, Colaborador.
 
 ### Acta administrativa circunstanciada
 
-> El gerente o RH levanta el acta administrativa circunstanciada sobre alguien de su alcance, con exactamente dos testigos, y revisa la vista previa del PDF antes de generarla.
+> El gerente o RH levanta el acta administrativa circunstanciada sobre alguien de su alcance en seis pasos, revisa la vista previa del PDF real y genera el acta definitiva, que queda congelada en el expediente.
 
 #### Qué es
 
-Un documento administrativo factual (no legal) con lo que pasó: motivo, hechos y circunstancias, personas presentes, evidencias, manifestación del colaborador, testigos y firmas. Es el único tipo de acta que se levanta.
+Un documento administrativo factual con lo que pasó: tipo de incidencia, hechos, personas que intervienen, manifestaciones, anexos y firmas. Registra hechos, no califica ni sanciona. Es el único tipo de acta que se levanta.
 
 #### Quién lo hace
 
@@ -2116,10 +2116,11 @@ Gerente o subgerente: personas de su sucursal. RH y corporativo con alcance glob
 
 #### Pasos
 
-1. **«Levantar acta»** _(Web)_ — Actas → «Levantar acta»: elige a la persona, el motivo, la fecha, hora y lugar, y describe los hechos y circunstancias.
-2. **Testigos** _(Web)_ — Elige exactamente dos testigos activos, distintos entre sí y de la persona del acta. Al abrir el selector aparecen primero los de tu sucursal; puedes escribir nombre, apellido, número de empleado, puesto o sucursal (por ejemplo «Orizaba»). El cargo sale solo del puesto.
-3. **«Vista previa PDF»** _(Web)_ — Revisa el PDF exacto antes de generarlo. Abrir la vista previa no guarda nada.
-4. **Imprimir, firmar y cerrar** — Se imprime, firman el colaborador, los dos testigos y quien la levanta, y se sube el acta firmada para cerrarla.
+1. **1. Incidencia y 2. Hechos** _(Web)_ — Actas → «Levantar acta»: elige a la persona, el tipo de incidencia, cuándo y dónde ocurrió, y narra los hechos en orden. Empresa, centro de trabajo, domicilio y datos del trabajador los pone PEOPLE. Al continuar se guarda el borrador.
+2. **3. Participantes** _(Web)_ — Tu carácter (RH, gerente, jefe directo…), si participa el jefe inmediato, y de 0 a 2 testigos de hechos y de 0 a 2 testigos de asistencia, todos activos y elegidos del buscador. Una persona interviene una sola vez y el trabajador nunca es testigo.
+3. **4. Manifestaciones y 5. Anexos** _(Web)_ — Captura lo que dijo el trabajador o marca «No quiso manifestar»; cada testigo da la suya. Sube cada anexo con su descripción, fecha o identificación y su relación con los hechos.
+4. **6. Revisión: vista previa y acta definitiva** _(Web)_ — «Vista previa PDF» abre el PDF real sin guardar nada. «Generar acta definitiva» lo congela en el expediente; desde ahí ya no se edita.
+5. **Imprimir, firmar y entregar copia** — Se imprime a escala 100 %, firman a mano quienes intervinieron y se registra la entrega de la copia (o por qué no fue posible). Si el trabajador no firma, se registra la negativa: no implica aceptación.
 
 #### Qué pasa después
 
@@ -2127,7 +2128,8 @@ Gerente o subgerente: personas de su sucursal. RH y corporativo con alcance glob
 
 #### Errores comunes
 
-- **«No me deja guardar los testigos.»** Deben ser exactamente dos, activos, distintos entre sí y distintos de la persona del acta.
+- **«No me deja guardar los testigos.»** Cada testigo debe estar activo, no puede ser el trabajador del acta y una persona solo interviene una vez (jefe, testigo de hechos o de asistencia).
+- **«La vista previa no se abre.»** Falta algo indispensable: el paso 6 lista qué (tipo de incidencia, fecha de los hechos, hechos, tu carácter o la manifestación del trabajador).
 
 #### Relacionado con
 

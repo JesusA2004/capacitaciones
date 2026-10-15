@@ -582,6 +582,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('{acta}/anexos/{anexo}', [ActaController::class, 'descargarAnexo'])->name('anexos.show');
                 Route::post('{acta}/documento', [ActaController::class, 'generarDocumento'])->name('documento');
                 Route::post('{acta}/negativa-firma', [ActaController::class, 'negativaFirma'])->name('negativa-firma');
+                Route::post('{acta}/entrega', [ActaController::class, 'entrega'])->name('entrega');
                 Route::post('{acta}/seguimiento', [ActaController::class, 'seguimiento'])->name('seguimiento');
                 Route::post('{acta}/cerrar', [ActaController::class, 'cerrar'])->name('cerrar');
             });

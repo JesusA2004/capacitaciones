@@ -49,6 +49,7 @@ class ActaController extends Controller
             'tipos' => array_map(fn (TipoActa $t): array => ['value' => $t->value, 'label' => $t->etiqueta()], TipoActa::cases()),
             'estados' => array_map(fn (EstadoActa $e): array => ['value' => $e->value, 'label' => $e->etiqueta()], EstadoActa::cases()),
             'puedeCrear' => $request->user()->can('actas.crear'),
+            'catalogos' => ActaService::catalogos(),
         ]);
     }
 
@@ -95,7 +96,8 @@ class ActaController extends Controller
         $this->authorize('crearActa', $colaborador);
         $acta = $this->actas->crear($colaborador, $request->validated(), $request->user());
 
-        return to_route('rh.actas.show', $acta)->with('toast', ['type' => 'success', 'message' => sprintf('Acta %s levantada. Revisa los datos y genera el formato.', $acta->folio)]);
+        // El borrador sigue en «Participantes» (paso 3 de la captura).
+        return to_route('rh.actas.show', ['acta' => $acta, 'paso' => 3])->with('toast', ['type' => 'success', 'message' => sprintf('Borrador %s guardado. Continúa con los participantes.', $acta->folio)]);
     }
 
     public function show(Request $request, ActaAdministrativa $acta): Response
@@ -105,6 +107,8 @@ class ActaController extends Controller
         return Inertia::render('Rh/Actas/Show', [
             'acta' => $this->actas->aArray($acta, true),
             'puedeGestionar' => $request->user()->can('gestionar', $acta),
+            'puedeRegistrarEntrega' => $request->user()->can('gestionar', $acta) || $acta->creado_por === $request->user()->id,
+            'catalogos' => ActaService::catalogos(),
         ]);
     }
 
@@ -121,9 +125,27 @@ class ActaController extends Controller
         $this->authorize('gestionar', $acta);
         $archivo = $request->file('archivo');
         abort_unless($archivo instanceof UploadedFile, 422);
-        $this->actas->agregarAnexo($acta, $archivo, $request->validated('descripcion'), $request->user());
+        $extra = $request->validate([
+            'fecha_identificacion' => ['nullable', 'string', 'max:160'],
+            'relacion_hechos' => ['nullable', 'string', 'max:500'],
+        ]);
+        $this->actas->agregarAnexo($acta, $archivo, $request->validated('descripcion'), $request->user(), $extra['fecha_identificacion'] ?? null, $extra['relacion_hechos'] ?? null);
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Anexo guardado en el expediente.']);
+    }
+
+    /** Constancia de entrega de copia (sección XII del acta circunstanciada). */
+    public function entrega(Request $request, ActaAdministrativa $acta): RedirectResponse
+    {
+        // RH o quien levantó el acta (la entrega ocurre después de imprimirla).
+        abort_unless($request->user()->can('gestionar', $acta) || $acta->creado_por === $request->user()->id, 403, 'Solo RH o quien levantó el acta registran la entrega de la copia.');
+        $datos = $request->validate([
+            'estado' => ['required', 'in:entregada,no_posible'],
+            'motivo' => ['nullable', 'string', 'max:2000'],
+        ]);
+        $this->actas->registrarEntrega($acta, $datos['estado'], $datos['motivo'] ?? null, $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Constancia de entrega registrada.']);
     }
 
     public function descargarAnexo(ActaAdministrativa $acta, ActaAnexo $anexo): StreamedResponse

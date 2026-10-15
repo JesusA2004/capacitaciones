@@ -40,8 +40,12 @@ test('actas: captura, anexos, formato por motor documental, negativa a firmar y 
         'hora' => '09:30',
         'lugar' => 'Sucursal Cuernavaca',
         'hechos' => 'Faltante de mercancía en inventario.',
-        'testigos' => [['colaborador_id' => $testigo->id, 'nombre' => $testigo->nombreCompleto(), 'puesto' => 'Texto libre ignorado'], ['colaborador_id' => $testigo2->id]],
-        'declaraciones' => [['persona' => 'Colaborador', 'declaracion' => 'Desconoce el faltante.']],
+        'circunstanciada' => [
+            'incidencia' => ['tipo' => 'irregularidad_bienes', 'fecha_desde' => now()->toDateString()],
+            'testigos_hechos' => [['colaborador_id' => $testigo->id, 'nombre' => 'Texto libre ignorado', 'relacion' => 'presencio_directamente']],
+            'testigos_asistencia' => [['colaborador_id' => $testigo2->id]],
+            'trabajador' => ['manifesto' => true, 'manifestacion' => 'Desconoce el faltante.'],
+        ],
     ])->assertCreated()->assertJsonPath('data.estado', 'borrador')->json('data');
 
     expect($acta['folio'])->toStartWith('ACT-');
@@ -50,11 +54,13 @@ test('actas: captura, anexos, formato por motor documental, negativa a firmar y 
         ->assertCreated()->assertJsonCount(1, 'data.anexos');
 
     $documento = $this->postJson("/api/v1/rh/actas/{$acta['id']}/documento")->assertCreated()->json('data');
-    expect(ActaAdministrativa::query()->findOrFail($acta['id'])->testigos[0]['puesto'])->toBe('Supervisor')
+    expect(ActaAdministrativa::query()->findOrFail($acta['id'])->circunstanciada['testigos_hechos'][0]['puesto'])->toBe('Supervisor')
         ->and($documento['categoria'])->toBe('actas');
 
     // Generada ya no admite edición de hechos; los cambios van como seguimiento.
     $this->patchJson("/api/v1/rh/actas/{$acta['id']}", ['hechos' => 'otro'])->assertUnprocessable();
+    $this->postJson("/api/v1/rh/actas/{$acta['id']}/entrega", ['estado' => 'entregada'])->assertOk()->assertJsonPath('data.circunstanciada.entrega.estado', 'entregada');
+    $this->getJson("/api/v1/rh/actas/{$acta['id']}")->assertOk()->assertJsonCount(6, 'catalogos.incidencias');
     $this->postJson("/api/v1/rh/actas/{$acta['id']}/negativa-firma", ['motivo' => 'Se negó a firmar ante testigos.'])->assertOk()->assertJsonPath('data.negativa_firma', true);
     $this->postJson("/api/v1/rh/actas/{$acta['id']}/cerrar")->assertOk()->assertJsonPath('data.estado', 'cerrada');
 

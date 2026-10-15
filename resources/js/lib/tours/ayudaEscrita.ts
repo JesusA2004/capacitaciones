@@ -163,23 +163,23 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
         ],
     },
     actas: {
-        queEs: 'Acta administrativa circunstanciada: un documento administrativo factual sobre una persona de tu alcance, con dos testigos y firmas.',
+        queEs: 'Acta administrativa circunstanciada: un documento factual sobre una persona de tu alcance, capturado en seis pasos y firmado a mano sobre el impreso.',
         puedes: [
             'Levantar el acta administrativa circunstanciada (único tipo; las históricas de otros tipos se siguen consultando).',
-            'Elegir exactamente dos testigos activos: primero los de tu sucursal; busca por nombre, número de empleado, puesto o sucursal.',
-            'Ver la vista previa del PDF antes de generarlo.',
-            'Subir el acta firmada, registrar la negativa a firmar y cerrarla.',
+            'Registrar de 0 a 2 testigos de hechos y de 0 a 2 testigos de asistencia, activos: primero los de tu sucursal; busca por nombre, número de empleado, puesto o sucursal.',
+            'Ver la vista previa del PDF real antes de generar el acta definitiva.',
+            'Registrar la entrega de copia, la negativa a firmar y cerrarla.',
         ],
         flujo: [
-            '«Levantar acta»: persona, motivo, fecha, hora, lugar y hechos.',
-            'Elige los dos testigos (el cargo sale solo de su puesto).',
-            '«Vista previa PDF», genera, imprime y recaba firmas.',
-            'Sube el acta firmada y ciérrala.',
+            '«Levantar acta»: persona, tipo de incidencia, cuándo y dónde, y los hechos.',
+            'Participantes, manifestaciones y anexos en el borrador.',
+            'Revisión: «Vista previa PDF» y «Generar acta definitiva».',
+            'Imprime, recaba firmas, registra la entrega de copia y ciérrala.',
         ],
         permisos:
             'Gerente o subgerente: personas de su sucursal. RH y corporativo con alcance global: toda la organización.',
         errores: [
-            'Los testigos deben ser dos, activos, distintos entre sí y distintos de la persona del acta.',
+            'Un testigo debe estar activo, no puede ser el trabajador del acta y una persona interviene una sola vez.',
             'Un acta ya generada no cambia sus hechos: lo nuevo va como seguimiento.',
         ],
     },

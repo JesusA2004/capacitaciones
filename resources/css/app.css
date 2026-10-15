@@ -163,6 +163,25 @@
     }
 }
 
+/*
+ * Entrada suave de un bloque que cambia (pasos de un formulario): solo
+ * anima la llegada, nunca bloquea el render del contenido nuevo.
+ */
+@keyframes entrada-suave {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+}
+
+@utility entrada-suave {
+    animation: entrada-suave 180ms ease both;
+
+    @media (prefers-reduced-motion: reduce) {
+        animation: none;
+    }
+}
+
 @utility pagina-ancha {
     width: 100%;
     min-width: 0;

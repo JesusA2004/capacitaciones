@@ -76,7 +76,7 @@ class ActaController extends Controller
     {
         $this->authorize('ver', $acta);
 
-        return response()->json(['data' => $this->actas->aArray($acta, true)]);
+        return response()->json(['data' => $this->actas->aArray($acta, true), 'catalogos' => ActaService::catalogos()]);
     }
 
     public function update(GuardarActaRequest $request, ActaAdministrativa $acta): JsonResponse
@@ -92,7 +92,11 @@ class ActaController extends Controller
         $archivo = $request->file('archivo');
         abort_unless($archivo instanceof UploadedFile, 422);
 
-        $this->actas->agregarAnexo($acta, $archivo, $request->validated('descripcion'), $request->user());
+        $extra = $request->validate([
+            'fecha_identificacion' => ['nullable', 'string', 'max:160'],
+            'relacion_hechos' => ['nullable', 'string', 'max:500'],
+        ]);
+        $this->actas->agregarAnexo($acta, $archivo, $request->validated('descripcion'), $request->user(), $extra['fecha_identificacion'] ?? null, $extra['relacion_hechos'] ?? null);
 
         return response()->json(['data' => $this->actas->aArray($acta->refresh(), true)], 201);
     }
@@ -109,6 +113,18 @@ class ActaController extends Controller
         $this->authorize('gestionar', $acta);
 
         return response()->json(['data' => $this->documentos->aArray($this->actas->generarDocumento($acta, $request->user()), true)], 201);
+    }
+
+    /** Constancia de entrega de copia (mismo ActaService que la web). */
+    public function entrega(Request $request, ActaAdministrativa $acta): JsonResponse
+    {
+        abort_unless($request->user()->can('gestionar', $acta) || $acta->creado_por === $request->user()->id, 403, 'Solo RH o quien levantó el acta registran la entrega de la copia.');
+        $datos = $request->validate([
+            'estado' => ['required', 'in:entregada,no_posible'],
+            'motivo' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        return response()->json(['data' => $this->actas->aArray($this->actas->registrarEntrega($acta, $datos['estado'], $datos['motivo'] ?? null, $request->user()), true)]);
     }
 
     public function negativaFirma(DecisionRequest $request, ActaAdministrativa $acta): JsonResponse

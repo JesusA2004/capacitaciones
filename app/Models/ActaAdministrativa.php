@@ -34,6 +34,8 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property int|null $responsable_id
  * @property array<int, array{nombre: string, puesto?: string|null, colaborador_id?: int|null}>|null $testigos
  * @property array<int, array{persona: string, declaracion: string}>|null $declaraciones
+ * @property string|null $formato «circunstanciada» = acta nueva; null = histórica.
+ * @property array<string, mixed>|null $circunstanciada Captura del acta circunstanciada (ActaService::FORMATO_CIRCUNSTANCIADA).
  * @property bool $negativa_firma
  * @property string|null $motivo_negativa
  * @property array<int, array{fecha: string, nota: string, user_id: int|null}>|null $seguimiento
@@ -52,7 +54,7 @@ class ActaAdministrativa extends Model
 
     protected $fillable = [
         'folio', 'colaborador_id', 'tipo', 'motivo', 'estado', 'fecha', 'hora', 'lugar', 'sucursal_id',
-        'hechos', 'responsable_id', 'testigos', 'declaraciones', 'negativa_firma',
+        'hechos', 'responsable_id', 'testigos', 'declaraciones', 'formato', 'circunstanciada', 'negativa_firma',
         'motivo_negativa', 'seguimiento', 'generated_document_id', 'creado_por', 'cerrada_en',
     ];
 
@@ -64,6 +66,7 @@ class ActaAdministrativa extends Model
             'fecha' => 'date',
             'testigos' => 'array',
             'declaraciones' => 'array',
+            'circunstanciada' => 'array',
             'seguimiento' => 'array',
             'negativa_firma' => 'boolean',
             'cerrada_en' => 'datetime',
