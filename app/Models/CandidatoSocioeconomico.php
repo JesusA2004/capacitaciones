@@ -9,9 +9,10 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Carbon;
 
 /**
- * Estudio socioeconómico (visita del gerente de sucursal). El checklist es
- * informativo: el sistema registra la evaluación del responsable, nunca la
- * automatiza.
+ * Estudio socioeconómico (visita, video, PDF). Cargar NO es decidir: el
+ * resultado queda nulo («pendiente de revisión») hasta que el responsable
+ * del candidato lo abre y decide viable / no viable (revisado_por/en). El
+ * checklist es informativo: el sistema nunca automatiza la decisión.
  *
  * @property int $id
  * @property int $candidato_id
@@ -21,8 +22,11 @@ use Illuminate\Support\Carbon;
  * @property array<string, mixed>|null $checklist
  * @property string|null $riesgos
  * @property string|null $observaciones
- * @property ResultadoEtapaCandidato $resultado
+ * @property ResultadoEtapaCandidato|null $resultado
  * @property int|null $registrado_por
+ * @property int|null $revisado_por
+ * @property Carbon|null $revisado_en
+ * @property string|null $revision_observaciones
  * @property Carbon|null $created_at
  * @property-read User|null $visitador
  */
@@ -32,7 +36,7 @@ class CandidatoSocioeconomico extends Model
 
     protected $fillable = [
         'candidato_id', 'fecha_visita', 'visitador_user_id', 'direccion', 'checklist', 'riesgos',
-        'observaciones', 'resultado', 'registrado_por',
+        'observaciones', 'resultado', 'registrado_por', 'revisado_por', 'revisado_en', 'revision_observaciones',
     ];
 
     protected function casts(): array
@@ -41,6 +45,7 @@ class CandidatoSocioeconomico extends Model
             'fecha_visita' => 'date',
             'checklist' => 'array',
             'resultado' => ResultadoEtapaCandidato::class,
+            'revisado_en' => 'datetime',
         ];
     }
 

@@ -245,9 +245,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('{candidato}/psicometricas/resultados', [CandidatoController::class, 'resultadosPsicometricas'])->name('psicometricas.resultados');
             Route::post('{candidato}/psicometricas/revision', [CandidatoController::class, 'revisarPsicometricas'])->name('psicometricas.revision');
             Route::post('{candidato}/socioeconomico', [CandidatoController::class, 'registrarSocioeconomico'])->name('socioeconomico');
+            // Cargar ≠ decidir: el responsable revisa el estudio cargado.
+            Route::post('{candidato}/socioeconomico/revision', [CandidatoController::class, 'revisarSocioeconomico'])->name('socioeconomico.revision');
             Route::post('{candidato}/referencias', [CandidatoController::class, 'registrarReferencia'])->name('referencias.store');
             Route::post('{candidato}/referencias/concluir', [CandidatoController::class, 'concluirReferencias'])->name('referencias.concluir');
-            Route::post('{candidato}/preautorizar', [CandidatoController::class, 'preautorizar'])->name('preautorizar');
             Route::post('{candidato}/autorizar', [CandidatoController::class, 'autorizarRh'])->name('autorizar');
             Route::post('{candidato}/rechazar', [CandidatoController::class, 'rechazarRh'])->name('rechazar');
             Route::post('{candidato}/devolver', [CandidatoController::class, 'devolverRh'])->name('devolver');

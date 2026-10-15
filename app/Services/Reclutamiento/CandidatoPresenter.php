@@ -3,6 +3,7 @@
 namespace App\Services\Reclutamiento;
 
 use App\Enums\FuenteCandidato;
+use App\Enums\TipoEvidenciaCandidato;
 use App\Models\Candidato;
 use App\Models\CandidatoEntrevista;
 use App\Models\CandidatoEvidencia;
@@ -164,6 +165,8 @@ class CandidatoPresenter
                 'cumple' => $r->cumple,
             ])->values()->all(),
             'tiene_cv' => $candidato->tiene_cv,
+            // Ver psicométrico / socioeconómico / video / CV sin bajar toda la ficha.
+            'accesos_rapidos' => $this->accesosRapidos($candidato),
             // Mini expediente previo a la contratación (CV, psicométricos,
             // videos del socioeconómico, referencias), agrupado como en el NAS.
             'expediente' => $this->expediente->resumen($candidato),
@@ -197,8 +200,11 @@ class CandidatoPresenter
                 'checklist' => $s->checklist ?? [],
                 'riesgos' => $s->riesgos,
                 'observaciones' => $s->observaciones,
-                'resultado' => $s->resultado->value,
-                'resultado_etiqueta' => $s->resultado->etiqueta(),
+                // Cargado sin revisar = «Pendiente de revisión» (cargar ≠ decidir).
+                'resultado' => $s->resultado?->value,
+                'resultado_etiqueta' => $s->resultado?->etiqueta() ?? 'Pendiente de revisión',
+                'revisado_en' => $s->revisado_en?->toIso8601String(),
+                'revision_observaciones' => $s->revision_observaciones,
                 'evidencias' => $s->evidencias->map(fn (CandidatoEvidencia $e) => $this->evidencia($e))->values()->all(),
             ])->values()->all(),
             'referencias' => $candidato->referencias->map(fn (CandidatoReferencia $r) => [
@@ -248,5 +254,28 @@ class CandidatoPresenter
     private function evidencia(CandidatoEvidencia $evidencia): array
     {
         return $this->expediente->evidencia($evidencia);
+    }
+
+    /**
+     * Botones «Ver psicométrico / Ver socioeconómico / Ver video / Ver CV»
+     * (índice y encabezado de la ficha): el archivo más reciente de cada
+     * etapa, siempre con su etiqueta — nunca evidencias mezcladas.
+     * Requiere psicometricas.evidencias y socioeconomicos.evidencias.
+     *
+     * @return array{psicometrico: array<string, mixed>|null, socioeconomico: array<string, mixed>|null, video: array<string, mixed>|null, tiene_cv: bool}
+     */
+    public function accesosRapidos(Candidato $candidato): array
+    {
+        $psico = $candidato->psicometricas->sortByDesc('id')->flatMap(fn (CandidatoPsicometrica $p) => $p->evidencias)->first();
+        $socioEvidencias = $candidato->socioeconomicos->sortByDesc('id')->flatMap(fn (CandidatoSocioeconomico $s) => $s->evidencias);
+        $video = $socioEvidencias->first(fn (CandidatoEvidencia $e) => $e->tipo === TipoEvidenciaCandidato::Video);
+        $socio = $socioEvidencias->first(fn (CandidatoEvidencia $e) => $e->tipo !== TipoEvidenciaCandidato::Video);
+
+        return [
+            'psicometrico' => $psico instanceof CandidatoEvidencia ? $this->evidencia($psico) : null,
+            'socioeconomico' => $socio instanceof CandidatoEvidencia ? $this->evidencia($socio) : null,
+            'video' => $video instanceof CandidatoEvidencia ? $this->evidencia($video) : null,
+            'tiene_cv' => $candidato->tiene_cv,
+        ];
     }
 }

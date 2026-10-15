@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import {
+    Brain,
+    FileText,
+    Home,
     Pencil,
     QrCode,
     ShieldAlert,
     UserRound,
+    Video,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import { decidir, solicitar as solicitarIntervencion } from '@/actions/App/Http/Controllers/Rh/IntervencionCandidatoController';
@@ -19,6 +23,7 @@ import DateTimePicker from '@/components/Common/DateTimePicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import InputError from '@/components/InputError.vue';
+import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import CandidatoEvidenciaPreviewDialog from '@/components/Rh/CandidatoEvidenciaPreviewDialog.vue';
 import CandidatoExpedientePanel from '@/components/Rh/CandidatoExpedientePanel.vue';
@@ -46,12 +51,13 @@ import {
     entrevista,
     index,
     perfil,
-    preautorizar,
     rechazar,
     socioeconomico,
 } from '@/routes/rh/candidatos';
+import cv from '@/routes/rh/candidatos/cv';
 import psicometricas from '@/routes/rh/candidatos/psicometricas';
 import referencias from '@/routes/rh/candidatos/referencias';
+import socioeconomicoRutas from '@/routes/rh/candidatos/socioeconomico';
 import { show as verInvitacion } from '@/routes/rh/incorporacion/invitaciones';
 import type {
     AccionCiclo,
@@ -169,10 +175,9 @@ const camposPorAccion: Record<string, () => FormularioAccion> = {
         },
         riesgos: '',
         observaciones: '',
-        resultado: 'viable',
         evidencias: [] as File[],
-        ...rechazoInicial(),
     }),
+    revisar_socioeconomico: () => ({ viable: true, observaciones: '', ...rechazoInicial() }),
     registrar_referencia: () => ({
         empresa: '',
         contacto: '',
@@ -183,7 +188,6 @@ const camposPorAccion: Record<string, () => FormularioAccion> = {
         archivos: [] as File[],
     }),
     concluir_referencias: () => ({ viable: true, observaciones: '', ...rechazoInicial() }),
-    preautorizar: () => ({ comentario: '' }),
     autorizar_rh: () => ({ comentario: '' }),
     devolver_rh: () => ({ motivo: '' }),
     rechazar_rh: () => ({ motivo: '', motivo_rechazo_id: null, recontratable: true }),
@@ -224,9 +228,9 @@ function url(clave: string): string {
                 psicometricas.resultados.url(id),
             revisar_psicometricas: psicometricas.revision.url(id),
             registrar_socioeconomico: socioeconomico.url(id),
+            revisar_socioeconomico: socioeconomicoRutas.revision.url(id),
             registrar_referencia: referencias.store.url(id),
             concluir_referencias: referencias.concluir.url(id),
-            preautorizar: preautorizar.url(id),
             autorizar_rh: autorizar.url(id),
             devolver_rh: devolver.url(id),
             rechazar_rh: rechazar.url(id),
@@ -284,6 +288,24 @@ function enviar() {
     });
 }
 
+const cvAbierto = ref(false);
+const accesos = computed(() => props.candidato.accesos_rapidos);
+
+/** Evidencia de la etapa que corresponde revisar en este momento. */
+const evidenciaDeLaRevision = computed(() => {
+    const clave = accionActiva.value?.clave;
+
+    if (clave === 'revisar_psicometricas') {
+        return accesos.value?.psicometrico ?? null;
+    }
+
+    if (clave === 'revisar_socioeconomico') {
+        return accesos.value?.socioeconomico ?? accesos.value?.video ?? null;
+    }
+
+    return null;
+});
+
 const decisionIntervencion = ref<{ aprueba: boolean } | null>(null);
 const formDecision = useForm({ comentario: '' });
 
@@ -308,10 +330,17 @@ function enviarDecision() {
         });
 }
 
+const accionRegistrarReferencia = computed(() =>
+    props.ciclo.acciones_permitidas.find(
+        (a) => a.clave === 'registrar_referencia',
+    ),
+);
+
 const esDecisionViable = computed(() =>
     [
         'evaluar_perfil',
         'revisar_psicometricas',
+        'revisar_socioeconomico',
         'concluir_referencias',
     ].includes(accionActiva.value?.clave ?? ''),
 );
@@ -342,6 +371,87 @@ function fecha(valor: string | null): string {
                 Editar datos
             </Button>
         </CrudPageHeader>
+
+        <!-- Resumen ejecutivo: quién, a qué puesto, en qué etapa, quién sigue -->
+        <section
+            class="grid gap-4 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5 lg:grid-cols-[1fr_auto]"
+            aria-label="Resumen del candidato"
+        >
+            <dl class="grid gap-x-6 gap-y-3 text-base sm:grid-cols-2 xl:grid-cols-3">
+                <div>
+                    <dt class="text-xs text-muted-foreground">Puesto</dt>
+                    <dd class="font-semibold">{{ candidato.puesto ?? '—' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-muted-foreground">Sucursal</dt>
+                    <dd class="font-semibold">{{ candidato.sucursal ?? '—' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-muted-foreground">Etapa</dt>
+                    <dd>
+                        <span
+                            class="inline-flex rounded-full bg-salvia px-2.5 py-0.5 text-sm font-medium text-[var(--mrl-petroleo)]"
+                            >{{ candidato.estado_etiqueta }}</span
+                        >
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-muted-foreground">Responsable</dt>
+                    <dd class="font-semibold">
+                        {{ ciclo.responsable_actual.nombre ?? ciclo.responsable_actual.rol }}
+                        <span
+                            v-if="ciclo.responsable_actual.nombre"
+                            class="block text-xs font-normal text-muted-foreground"
+                            >{{ ciclo.responsable_actual.rol }}</span
+                        >
+                    </dd>
+                </div>
+                <div class="sm:col-span-2">
+                    <dt class="text-xs text-muted-foreground">Siguiente acción</dt>
+                    <dd class="font-semibold">
+                        {{ ciclo.siguiente_accion?.etiqueta ?? 'Sin acciones pendientes' }}
+                    </dd>
+                </div>
+            </dl>
+
+            <div
+                class="flex flex-wrap content-start gap-2 lg:max-w-xs lg:justify-end"
+                aria-label="Documentos clave"
+            >
+                <Button
+                    v-if="accesos?.psicometrico"
+                    size="sm"
+                    variant="outline"
+                    @click="evidenciaActiva = accesos.psicometrico"
+                >
+                    <Brain class="size-4" /> Ver psicométrico
+                </Button>
+                <Button
+                    v-if="accesos?.socioeconomico"
+                    size="sm"
+                    variant="outline"
+                    @click="evidenciaActiva = accesos.socioeconomico"
+                >
+                    <Home class="size-4" /> Ver socioeconómico
+                </Button>
+                <Button
+                    v-if="accesos?.video"
+                    size="sm"
+                    variant="outline"
+                    @click="evidenciaActiva = accesos.video"
+                >
+                    <Video class="size-4" /> Ver video
+                </Button>
+                <Button
+                    v-if="candidato.tiene_cv"
+                    size="sm"
+                    variant="outline"
+                    @click="cvAbierto = true"
+                >
+                    <FileText class="size-4" /> Ver CV
+                </Button>
+            </div>
+        </section>
 
         <CicloStepper data-tour="candidato-pasos" :pasos="ciclo.pasos" />
 
@@ -496,6 +606,17 @@ function fecha(valor: string | null): string {
                         <p v-if="item.resumen_resultados" class="mt-1">
                             {{ item.resumen_resultados }}
                         </p>
+                        <div v-if="item.evidencias.length" class="mt-2 flex flex-wrap gap-2">
+                            <Button
+                                v-for="ev in item.evidencias"
+                                :key="ev.id"
+                                size="sm"
+                                variant="outline"
+                                @click="evidenciaActiva = ev"
+                            >
+                                <Brain class="size-4" /> Psicométrico · {{ ev.nombre }}
+                            </Button>
+                        </div>
                     </article>
 
                     <article
@@ -532,6 +653,18 @@ function fecha(valor: string | null): string {
                         <p v-if="item.observaciones" class="mt-1">
                             {{ item.observaciones }}
                         </p>
+                        <div v-if="item.evidencias.length" class="mt-2 flex flex-wrap gap-2">
+                            <Button
+                                v-for="ev in item.evidencias"
+                                :key="ev.id"
+                                size="sm"
+                                variant="outline"
+                                @click="evidenciaActiva = ev"
+                            >
+                                <component :is="ev.tipo === 'video' ? Video : Home" class="size-4" />
+                                Socioeconómico · {{ ev.nombre }}
+                            </Button>
+                        </div>
                     </article>
 
                     <article
@@ -675,6 +808,45 @@ function fecha(valor: string | null): string {
             </DialogHeader>
 
             <form class="flex flex-col gap-4" @submit.prevent="enviar">
+                <!-- Concluir referencias sin ninguna registrada: se dice ANTES
+                     de enviar (antes el 422 «referencias» no se pintaba y el
+                     botón parecía no servir). -->
+                <div
+                    v-if="
+                        accionActiva?.clave === 'concluir_referencias' &&
+                        candidato.referencias.length === 0
+                    "
+                    class="flex flex-col gap-2 rounded-xl border border-warning/40 bg-warning-soft/60 p-3 text-sm"
+                    role="alert"
+                >
+                    <p class="font-medium">
+                        Primero registra al menos una referencia laboral.
+                    </p>
+                    <Button
+                        v-if="accionRegistrarReferencia"
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        class="self-start"
+                        @click="abrir(accionRegistrarReferencia)"
+                    >
+                        Registrar referencia
+                    </Button>
+                </div>
+                <Button
+                    v-if="evidenciaDeLaRevision"
+                    type="button"
+                    variant="outline"
+                    class="self-start"
+                    @click="evidenciaActiva = evidenciaDeLaRevision"
+                >
+                    <FileText class="size-4" />
+                    {{
+                        accionActiva?.clave === 'revisar_psicometricas'
+                            ? 'Ver psicométrico'
+                            : 'Ver socioeconómico'
+                    }}
+                </Button>
                 <template v-if="esDecisionViable">
                     <div class="flex gap-2">
                         <Button
@@ -742,28 +914,6 @@ function fecha(valor: string | null): string {
                             v-model="form.realizada_en as string"
                         /><InputError :message="form.errors.realizada_en" />
                     </div>
-                    <div class="flex gap-2">
-                        <Button
-                            type="button"
-                            :variant="
-                                form.resultado === 'viable'
-                                    ? 'default'
-                                    : 'outline'
-                            "
-                            @click="form.resultado = 'viable'"
-                            >Sigue viable</Button
-                        >
-                        <Button
-                            type="button"
-                            :variant="
-                                form.resultado === 'no_viable'
-                                    ? 'destructive'
-                                    : 'outline'
-                            "
-                            @click="form.resultado = 'no_viable'"
-                            >No viable</Button
-                        >
-                    </div>
                     <div class="grid gap-1.5">
                         <Label>Observaciones</Label
                         ><Textarea
@@ -771,191 +921,10 @@ function fecha(valor: string | null): string {
                             rows="3"
                         /><InputError :message="form.errors.observaciones" />
                     </div>
-                    <template v-if="form.resultado === 'no_viable'">
-                        <div class="grid gap-1.5">
-                            <Label>Motivo del rechazo *</Label>
-                            <SelectSimple
-                                :model-value="
-                                    form.motivo_rechazo_id
-                                        ? String(form.motivo_rechazo_id)
-                                        : ''
-                                "
-                                @update:model-value="alElegirMotivoRechazoForm"
-                                :opciones="
-                                    (opciones.motivosRechazo ?? []).map((m) => ({
-                                        value: String(m.id),
-                                        label: m.etiqueta,
-                                    }))
-                                "
-                                placeholder="Elige un motivo"
-                            />
-                            <InputError :message="form.errors.motivo_rechazo_id" />
-                        </div>
-                        <label class="flex min-h-11 items-center gap-2 text-sm">
-                            <Casilla v-model="form.recontratable as boolean" />
-                            ¿Puede considerarse nuevamente?
-                        </label>
-                    </template>
-                </template>
-
-                <template
-                    v-else-if="accionActiva?.clave === 'enviar_psicometricas'"
-                >
-                    <div class="grid gap-1.5">
-                        <Label>Link de las pruebas</Label
-                        ><Input
-                            v-model="form.link as string"
-                            type="url"
-                            placeholder="https://"
-                        /><InputError :message="form.errors.link" />
-                    </div>
-                </template>
-
-                <template
-                    v-else-if="
-                        accionActiva?.clave ===
-                        'registrar_resultados_psicometricas'
-                    "
-                >
-                    <div class="grid gap-1.5">
-                        <Label>Resumen de resultados</Label
-                        ><Textarea
-                            v-model="form.resumen as string"
-                            rows="4"
-                        /><InputError :message="form.errors.resumen" />
-                    </div>
-                    <div class="grid gap-1.5">
-                        <Label>Reportes (PDF/imagen)</Label
-                        ><PeopleFileDropzone
-                            :model-value="(form.archivos as File[]) ?? []"
-                            multiple
-                            accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx"
-                            label="Arrastra los archivos"
-                            @update:model-value="(f) => (form.archivos = f)"
-                        />
-                    </div>
-                </template>
-
-                <template
-                    v-else-if="
-                        accionActiva?.clave === 'registrar_socioeconomico'
-                    "
-                >
-                    <div class="grid gap-3 sm:grid-cols-2">
-                        <div class="grid gap-1.5">
-                            <Label>Fecha de visita</Label
-                            ><DatePicker
-                                v-model="form.fecha_visita as string"
-                            /><InputError :message="form.errors.fecha_visita" />
-                        </div>
-                        <div class="grid gap-1.5">
-                            <Label>Arraigo (años)</Label
-                            ><Input
-                                v-model.number="
-                                    (form.checklist as Record<string, number>)
-                                        .arraigo_anios
-                                "
-                                type="number"
-                                min="0"
-                            />
-                        </div>
-                    </div>
-                    <div class="grid gap-1.5">
-                        <Label>Dirección visitada</Label
-                        ><Input v-model="form.direccion as string" /><InputError
-                            :message="form.errors.direccion"
-                        />
-                    </div>
-                    <fieldset class="grid gap-2 text-sm">
-                        <legend class="mb-1 text-sm font-medium">
-                            Criterios (informativos)
-                        </legend>
-                        <label class="flex items-center gap-2"
-                            ><Casilla
-                                v-model="
-                                    (form.checklist as Record<string, boolean>)
-                                        .vivienda_en_orden
-                                "
-                            />
-                            Vivienda en orden</label
-                        >
-                        <label class="flex items-center gap-2"
-                            ><Casilla
-                                v-model="
-                                    (form.checklist as Record<string, boolean>)
-                                        .vive_con_familia
-                                "
-                            />
-                            Vive con familia</label
-                        >
-                        <label class="flex items-center gap-2"
-                            ><Casilla
-                                v-model="
-                                    (form.checklist as Record<string, boolean>)
-                                        .resguardo_motocicleta
-                                "
-                            />
-                            Espacio para resguardar la motocicleta</label
-                        >
-                    </fieldset>
-                    <div class="grid gap-1.5">
-                        <Label>Riesgos o inconsistencias</Label
-                        ><Textarea v-model="form.riesgos as string" rows="2" />
-                    </div>
-                    <div class="flex gap-2">
-                        <Button
-                            type="button"
-                            :variant="
-                                form.resultado === 'viable'
-                                    ? 'default'
-                                    : 'outline'
-                            "
-                            @click="form.resultado = 'viable'"
-                            >Viable</Button
-                        >
-                        <Button
-                            type="button"
-                            :variant="
-                                form.resultado === 'no_viable'
-                                    ? 'destructive'
-                                    : 'outline'
-                            "
-                            @click="form.resultado = 'no_viable'"
-                            >No viable</Button
-                        >
-                    </div>
-                    <div class="grid gap-1.5">
-                        <Label>Observaciones</Label
-                        ><Textarea
-                            v-model="form.observaciones as string"
-                            rows="2"
-                        /><InputError :message="form.errors.observaciones" />
-                    </div>
-                    <template v-if="form.resultado === 'no_viable'">
-                        <div class="grid gap-1.5">
-                            <Label>Motivo del rechazo *</Label>
-                            <SelectSimple
-                                :model-value="
-                                    form.motivo_rechazo_id
-                                        ? String(form.motivo_rechazo_id)
-                                        : ''
-                                "
-                                @update:model-value="alElegirMotivoRechazoForm"
-                                :opciones="
-                                    (opciones.motivosRechazo ?? []).map((m) => ({
-                                        value: String(m.id),
-                                        label: m.etiqueta,
-                                    }))
-                                "
-                                placeholder="Elige un motivo"
-                            />
-                            <InputError :message="form.errors.motivo_rechazo_id" />
-                        </div>
-                        <label class="flex min-h-11 items-center gap-2 text-sm">
-                            <Casilla v-model="form.recontratable as boolean" />
-                            ¿Puede considerarse nuevamente?
-                        </label>
-                    </template>
+                    <p class="rounded-lg bg-salvia/50 p-2 text-xs text-muted-foreground">
+                        Cargar el estudio no lo aprueba: queda pendiente de
+                        revisión y el responsable decide si es viable.
+                    </p>
                     <div class="grid gap-1.5">
                         <Label
                             >Videos, fotografías o PDF (puedes subir
@@ -1033,19 +1002,10 @@ function fecha(valor: string | null): string {
                     </div>
                 </template>
 
-                <template
-                    v-else-if="
-                        ['preautorizar', 'autorizar_rh'].includes(
-                            accionActiva?.clave ?? '',
-                        )
-                    "
-                >
+                <template v-else-if="accionActiva?.clave === 'autorizar_rh'">
                     <p class="text-sm text-muted-foreground">
-                        {{
-                            accionActiva?.clave === 'preautorizar'
-                                ? 'Tu preautorización NO contrata: RH dará la autorización final.'
-                                : 'Autorización final: después podrás generar el QR de contratación.'
-                        }}
+                        Autorización de RH: después podrás generar el QR de
+                        contratación.
                     </p>
                     <div class="grid gap-1.5">
                         <Label>Comentario (opcional)</Label
@@ -1224,6 +1184,7 @@ function fecha(valor: string | null): string {
                     <InputError :message="form.errors.candidato" />
                 </template>
 
+                <InputError :message="form.errors.referencias" />
                 <InputError :message="form.errors.estado" />
 
                 <DialogFooter>
@@ -1304,6 +1265,14 @@ function fecha(valor: string | null): string {
             </DialogFooter>
         </DialogContent>
     </Dialog>
+
+    <DocumentPreviewDialog
+        v-if="candidato.tiene_cv"
+        v-model:open="cvAbierto"
+        :preview-url="cv.previsualizar.url(candidato.id)"
+        :download-url="cv.descargar.url(candidato.id)"
+        nombre="CV del candidato"
+    />
 
     <CandidatoEvidenciaPreviewDialog
         v-if="evidenciaActiva"

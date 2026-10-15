@@ -48,7 +48,7 @@ beforeEach(function () {
 
 afterEach(fn () => Carbon::setTestNow());
 
-test('el reclutamiento avanza por la API con acciones del workflow; el gerente preautoriza y solo RH autoriza', function () {
+test('el reclutamiento avanza por la API con acciones del workflow; sin preautorización, solo RH autoriza', function () {
     Sanctum::actingAs($this->reclutador);
     $this->getJson('/api/v1/rh/candidatos')->assertOk()->assertJsonPath('data.0.id', $this->candidato->id)->assertJsonStructure(['meta' => ['total', 'estados']]);
     $this->postJson("/api/v1/rh/candidatos/{$this->candidato->id}/perfil", ['viable' => true, 'observaciones' => 'Cubre perfil.'])
@@ -66,27 +66,29 @@ test('el reclutamiento avanza por la API con acciones del workflow; el gerente p
 
     Sanctum::actingAs($this->gerente);
     $this->postJson("/api/v1/rh/candidatos/{$this->candidato->id}/psicometricas/revision", ['viable' => true])->assertOk();
-    $this->postJson("/api/v1/rh/candidatos/{$this->candidato->id}/socioeconomico", ['fecha_visita' => now()->toDateString(), 'direccion' => 'Calle 1', 'resultado' => 'viable', 'checklist' => ['vivienda_en_orden' => true]])->assertOk();
+    // Cargar NO decide (un «resultado» de un cliente viejo se descarta).
+    $this->postJson("/api/v1/rh/candidatos/{$this->candidato->id}/socioeconomico", ['fecha_visita' => now()->toDateString(), 'direccion' => 'Calle 1', 'resultado' => 'viable', 'checklist' => ['vivienda_en_orden' => true]])
+        ->assertOk()
+        ->assertJsonPath('data.candidato.estado', EstadoCandidato::SocioeconomicoPendiente->value);
+    $this->postJson("/api/v1/rh/candidatos/{$this->candidato->id}/socioeconomico/revision", ['viable' => true])
+        ->assertOk()
+        ->assertJsonPath('data.candidato.estado', EstadoCandidato::ReferenciasPendientes->value);
 
     Sanctum::actingAs($this->reclutador);
     $this->postJson("/api/v1/rh/candidatos/{$this->candidato->id}/referencias", ['empresa' => 'Empresa X', 'contacto' => 'Jefe X', 'resultado' => 'positiva'])->assertOk();
     $this->postJson("/api/v1/rh/candidatos/{$this->candidato->id}/referencias/concluir", ['viable' => true])
         ->assertOk()
-        ->assertJsonPath('data.candidato.estado', EstadoCandidato::PreseleccionGerente->value);
+        ->assertJsonPath('data.candidato.estado', EstadoCandidato::AutorizacionRhPendiente->value);
 
     // Un gerente de otra sucursal no ve ni decide.
     Sanctum::actingAs($this->gerenteOtra);
     $this->getJson("/api/v1/rh/candidatos/{$this->candidato->id}")->assertForbidden();
-    expect($this->postJson("/api/v1/rh/candidatos/{$this->candidato->id}/preautorizar", ['comentario' => 'x'])->status())->toBeIn([403, 422]);
-    expect($this->candidato->refresh()->estado)->toBe(EstadoCandidato::PreseleccionGerente);
 
+    // La preautorización ya no existe (ni ruta ni acción).
     Sanctum::actingAs($this->gerente);
     $acciones = collect($this->getJson("/api/v1/rh/candidatos/{$this->candidato->id}")->assertOk()->json('data.ciclo.acciones_permitidas'))->pluck('clave');
-    expect($acciones)->toContain('preautorizar');
-
-    $this->postJson("/api/v1/rh/candidatos/{$this->candidato->id}/preautorizar", ['comentario' => 'Lo recomiendo.'])
-        ->assertOk()
-        ->assertJsonPath('data.candidato.estado', EstadoCandidato::AutorizacionRhPendiente->value);
+    expect($acciones)->not->toContain('preautorizar')->not->toContain('autorizar_rh');
+    $this->postJson("/api/v1/rh/candidatos/{$this->candidato->id}/preautorizar", ['comentario' => 'x'])->assertNotFound();
 
     // El gerente no puede dar la autorización final.
     $this->postJson("/api/v1/rh/candidatos/{$this->candidato->id}/autorizar", ['comentario' => 'yo mismo'])->assertUnprocessable()->assertJsonValidationErrors('aprobacion');

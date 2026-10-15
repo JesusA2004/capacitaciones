@@ -1,4 +1,5 @@
 import type { OpcionSimple } from './administracion';
+import type { AccesosRapidosCandidato } from './cicloLaboral';
 
 export type OpcionEnum = {
     value: string;
@@ -125,6 +126,8 @@ export type CandidatoItem = {
     ultimo_seguimiento: SeguimientoResumen | null;
     /** Último cambio de fase registrado — created_at si el candidato todavía no tiene ninguno. */
     ultimo_cambio_estado: SeguimientoResumen | null;
+    /** Ver psicométrico / socioeconómico / video desde la tarjeta. */
+    accesos_rapidos?: AccesosRapidosCandidato;
 };
 
 export type SeguimientoCandidatoItem = {

@@ -128,9 +128,9 @@ class CicloLaboralService
             $bloqueos[] = sprintf('Proceso cerrado: %s%s', $estado->etiqueta(), $c->motivo_salida !== null ? " — {$c->motivo_salida}" : '');
         }
 
-        if (in_array($estado, [EstadoCandidato::EntrevistaPendiente, EstadoCandidato::RevisionPsicometricas, EstadoCandidato::SocioeconomicoPendiente, EstadoCandidato::PreseleccionGerente], true)
-            && $this->jerarquia->preautorizadorDeCandidato($c)['usuario'] === null) {
-            $bloqueos[] = 'El candidato no tiene gerente asignado ni la sucursal tiene responsable capturado.';
+        if (in_array($estado, [EstadoCandidato::EntrevistaPendiente, EstadoCandidato::RevisionPsicometricas, EstadoCandidato::SocioeconomicoPendiente], true)
+            && $this->jerarquia->responsableDeCandidato($c)['usuario'] === null) {
+            $bloqueos[] = 'No hay responsable para este candidato: la sucursal de la vacante no tiene Gerente de sucursal en el organigrama, ni Gerente Regional ni Dirección Comercial con cuenta activa.';
         }
 
         $etapa = match (true) {
@@ -620,10 +620,10 @@ class CicloLaboralService
             EstadoCandidato::EntrevistaPendiente => ['clave' => 'registrar_entrevista', 'etiqueta' => 'El gerente realiza la entrevista'],
             EstadoCandidato::PsicometricasPendientes => ['clave' => 'registrar_resultados_psicometricas', 'etiqueta' => 'Reclutamiento envía link y registra resultados'],
             EstadoCandidato::RevisionPsicometricas => ['clave' => 'revisar_psicometricas', 'etiqueta' => 'El gerente revisa las psicométricas'],
-            EstadoCandidato::SocioeconomicoPendiente => ['clave' => 'registrar_socioeconomico', 'etiqueta' => 'El gerente realiza el estudio socioeconómico'],
+            EstadoCandidato::SocioeconomicoPendiente => ['clave' => 'registrar_socioeconomico', 'etiqueta' => 'Se carga el estudio socioeconómico y el responsable lo revisa'],
             EstadoCandidato::ReferenciasPendientes => ['clave' => 'concluir_referencias', 'etiqueta' => 'Validar referencias laborales'],
-            EstadoCandidato::PreseleccionGerente => ['clave' => 'preautorizar', 'etiqueta' => 'El gerente preautoriza la contratación'],
-            EstadoCandidato::AutorizacionRhPendiente => ['clave' => 'autorizar_rh', 'etiqueta' => 'RH da la autorización final'],
+            // Histórico: la preautorización ya no existe; RH decide.
+            EstadoCandidato::PreseleccionGerente, EstadoCandidato::AutorizacionRhPendiente => ['clave' => 'autorizar_rh', 'etiqueta' => 'RH autoriza la contratación'],
             EstadoCandidato::AutorizadoRh => ['clave' => 'iniciar_contratacion', 'etiqueta' => 'RH genera el QR de contratación'],
             EstadoCandidato::EnContratacion => ['clave' => 'contratacion', 'etiqueta' => 'Registro, expediente y contratos (Etapa 2)'],
             default => null,

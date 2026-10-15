@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import {
+    Brain,
     Briefcase,
     CircleDashed,
     Clock,
     Eye,
+    Home,
     Mail,
     MapPin,
     MessageSquareText,
@@ -12,13 +14,15 @@ import {
     ShieldCheck,
     Sparkles,
     UserRound,
+    Video,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
+import CandidatoEvidenciaPreviewDialog from '@/components/Rh/CandidatoEvidenciaPreviewDialog.vue';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import cv from '@/routes/rh/candidatos/cv';
-import type { CandidatoItem, OpcionEnum } from '@/types';
+import type { CandidatoItem, EvidenciaCandidato, OpcionEnum } from '@/types';
 
 const props = defineProps<{
     candidato: CandidatoItem;
@@ -98,6 +102,12 @@ function detenerArrastre(evento: Event) {
 }
 
 const previewAbierto = ref(false);
+const evidenciaAbierta = ref<EvidenciaCandidato | null>(null);
+
+function abrirEvidencia(evento: Event, evidencia: EvidenciaCandidato) {
+    evento.stopPropagation();
+    evidenciaAbierta.value = evidencia;
+}
 
 function abrirPreview(evento: Event) {
     detenerArrastre(evento);
@@ -263,6 +273,46 @@ function abrirPreview(evento: Event) {
         </div>
 
         <div
+            v-if="
+                candidato.accesos_rapidos?.psicometrico ||
+                candidato.accesos_rapidos?.socioeconomico ||
+                candidato.accesos_rapidos?.video
+            "
+            class="flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-medium text-[var(--brand-primary)]"
+        >
+            <button
+                v-if="candidato.accesos_rapidos?.psicometrico"
+                type="button"
+                class="flex items-center gap-1 hover:underline"
+                draggable="false"
+                @click="abrirEvidencia($event, candidato.accesos_rapidos.psicometrico)"
+                @dragstart="detenerArrastre"
+            >
+                <Brain class="size-3.5" /> Ver psicométrico
+            </button>
+            <button
+                v-if="candidato.accesos_rapidos?.socioeconomico"
+                type="button"
+                class="flex items-center gap-1 hover:underline"
+                draggable="false"
+                @click="abrirEvidencia($event, candidato.accesos_rapidos.socioeconomico)"
+                @dragstart="detenerArrastre"
+            >
+                <Home class="size-3.5" /> Ver socioeconómico
+            </button>
+            <button
+                v-if="candidato.accesos_rapidos?.video"
+                type="button"
+                class="flex items-center gap-1 hover:underline"
+                draggable="false"
+                @click="abrirEvidencia($event, candidato.accesos_rapidos.video)"
+                @dragstart="detenerArrastre"
+            >
+                <Video class="size-3.5" /> Ver video
+            </button>
+        </div>
+
+        <div
             class="flex items-center justify-between gap-2 border-t border-border/60 pt-2 text-[11px] text-muted-foreground"
         >
             <span class="flex items-center gap-1" :title="etiquetaUltimoMovimiento">
@@ -285,6 +335,17 @@ function abrirPreview(evento: Event) {
             <span v-else class="italic">Sin CV</span>
         </div>
     </div>
+
+    <CandidatoEvidenciaPreviewDialog
+        v-if="evidenciaAbierta"
+        :open="evidenciaAbierta !== null"
+        :candidato-id="candidato.id"
+        :evidencia-id="evidenciaAbierta.id"
+        :nombre-archivo="evidenciaAbierta.nombre"
+        :tipo="evidenciaAbierta.tipo"
+        :mime="evidenciaAbierta.mime"
+        @update:open="(abierto: boolean) => !abierto && (evidenciaAbierta = null)"
+    />
 
     <DocumentPreviewDialog
         v-if="candidato.tiene_cv"

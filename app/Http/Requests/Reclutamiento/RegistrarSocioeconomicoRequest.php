@@ -2,9 +2,7 @@
 
 namespace App\Http\Requests\Reclutamiento;
 
-use App\Enums\ResultadoEtapaCandidato;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 /**
  * Estudio socioeconómico. El checklist es informativo (vivienda en orden,
@@ -32,21 +30,16 @@ class RegistrarSocioeconomicoRequest extends FormRequest
             'checklist.arraigo_anios' => ['nullable', 'numeric', 'min:0', 'max:80'],
             'checklist.resguardo_motocicleta' => ['nullable', 'boolean'],
             'riesgos' => ['nullable', 'string', 'max:4000'],
-            'observaciones' => ['nullable', 'string', 'max:4000', 'required_if:resultado,no_viable'],
-            'resultado' => ['required', Rule::enum(ResultadoEtapaCandidato::class)],
-            'motivo_rechazo_id' => ['nullable', 'integer', 'exists:motivos_rechazo_candidato,id'],
-            'recontratable' => ['nullable', 'boolean'],
+            'observaciones' => ['nullable', 'string', 'max:4000'],
+            // Cargar NO es decidir: el resultado lo da la revisión del
+            // responsable (socioeconomico/revision). Un cliente viejo que lo
+            // mande no decide nada: se descarta.
+            'resultado' => ['exclude'],
+            'motivo_rechazo_id' => ['exclude'],
+            'recontratable' => ['exclude'],
             'visitador_user_id' => ['nullable', 'integer', 'exists:users,id'],
             // Varios videos, fotografías o PDF: carpeta socioeconomico/ del NAS.
             ...ReglasArchivosCandidato::para('evidencias', ['video', 'foto', 'documento']),
         ];
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    public function messages(): array
-    {
-        return ['observaciones.required_if' => 'Indica el motivo cuando el estudio no es viable.'];
     }
 }

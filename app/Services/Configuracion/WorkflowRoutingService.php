@@ -225,7 +225,7 @@ class WorkflowRoutingService
                 Tipo::Aprobador => $this->deContexto($contexto['aprobador'] ?? null),
                 Tipo::Evaluador => $this->deContexto($contexto['evaluador'] ?? null),
                 Tipo::ColaboradorAfectado => $this->deContexto($colaborador),
-                Tipo::JefeDirecto => $this->deContexto($sujeto instanceof Candidato ? $this->organizacion->preautorizadorDeCandidato($sujeto)['usuario'] : $this->jefeDirecto($sujeto)),
+                Tipo::JefeDirecto => $this->deContexto($sujeto instanceof Candidato ? $this->organizacion->responsableDeCandidato($sujeto)['usuario'] : $this->jefeDirecto($sujeto)),
                 Tipo::Gerente => $this->deContexto($colaborador !== null ? $this->personas->gerenteDe($colaborador) : null),
                 Tipo::SuperiorDelJefe => $this->deContexto(($jefe = $this->jefeDirecto($sujeto)) !== null ? $this->organizacion->supervisorDirectoDe($jefe) : null),
                 Tipo::GerenciaSucursal => $this->organizacion->gerenciaSucursalDe($sucursalId, $colaborador),
@@ -272,7 +272,7 @@ class WorkflowRoutingService
         }
 
         // Candidato: el gerente que lo preautoriza hace las veces de jefe.
-        return $sujeto instanceof Candidato ? $this->organizacion->preautorizadorDeCandidato($sujeto)['colaborador'] : null;
+        return $sujeto instanceof Candidato ? $this->organizacion->responsableDeCandidato($sujeto)['colaborador'] : null;
     }
 
     /**

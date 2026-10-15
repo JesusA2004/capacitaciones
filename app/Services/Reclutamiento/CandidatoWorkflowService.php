@@ -342,16 +342,25 @@ class CandidatoWorkflowService
     }
 
     /**
-     * @param  array<string, mixed>  $datos  fecha_visita, direccion, checklist?, riesgos?, observaciones?, resultado, visitador_user_id? (RegistrarSocioeconomicoRequest).
+     * CARGA del estudio socioeconómico (visita, video, PDF, fotos). Subir NO
+     * es decidir: queda «Estudio socioeconómico cargado → pendiente de
+     * revisión» y el candidato no avanza hasta que el responsable lo revisa
+     * (revisarSocioeconomico). Lo carga RH o el gerente que hizo la visita.
+     * Un `resultado` que mande un cliente viejo se ignora.
+     *
+     * @param  array<string, mixed>  $datos  fecha_visita, direccion, checklist?, riesgos?, observaciones?, visitador_user_id? (RegistrarSocioeconomicoRequest).
      * @param  list<UploadedFile>  $evidencias
      */
     public function registrarSocioeconomico(Candidato $candidato, User $actor, array $datos, array $evidencias = []): Candidato
     {
-        $this->autorizar($actor, self::PERMISO_GERENTE, $candidato);
-        $resultado = ResultadoEtapaCandidato::from((string) $datos['resultado']);
+        $this->autorizarAlguno($actor, [self::PERMISO_RECLUTAMIENTO, self::PERMISO_GERENTE], $candidato);
         $observaciones = isset($datos['observaciones']) ? (string) $datos['observaciones'] : null;
 
-        return $this->paso($candidato, $actor, EstadoCandidato::SocioeconomicoPendiente, function (Candidato $c) use ($actor, $datos, $resultado, $evidencias, $observaciones): void {
+        return $this->paso($candidato, $actor, EstadoCandidato::SocioeconomicoPendiente, function (Candidato $c) use ($actor, $datos, $evidencias, $observaciones): void {
+            if ($this->socioeconomicoPendiente($c) !== null) {
+                throw ValidationException::withMessages(['estado' => 'Ya hay un estudio socioeconómico cargado pendiente de revisión.']);
+            }
+
             $estudio = CandidatoSocioeconomico::query()->create([
                 'candidato_id' => $c->id,
                 'fecha_visita' => (string) $datos['fecha_visita'],
@@ -360,20 +369,57 @@ class CandidatoWorkflowService
                 'checklist' => is_array($datos['checklist'] ?? null) ? $datos['checklist'] : null,
                 'riesgos' => isset($datos['riesgos']) ? (string) $datos['riesgos'] : null,
                 'observaciones' => $observaciones,
-                'resultado' => $resultado,
+                'resultado' => null,
                 'registrado_por' => $actor->id,
             ]);
 
             $this->guardarEvidencias($c, $estudio, $evidencias, $actor);
 
-            if ($resultado === ResultadoEtapaCandidato::Viable) {
-                $this->transicionar($c, EstadoCandidato::ReferenciasPendientes, $actor, $this->nota('Estudio socioeconómico viable: pasa a validación de referencias.', $observaciones));
+            $this->seguimiento($c, $actor, TipoSeguimientoCandidato::Nota, 'Estudio socioeconómico cargado: pendiente de revisión del responsable.');
+            $this->auditar('candidato_socioeconomico_cargado', $c, $actor, ['estudio_id' => $estudio->id]);
+        });
+    }
+
+    /**
+     * REVISIÓN del estudio socioeconómico cargado: el responsable lo abre y
+     * decide. Solo entonces, si es viable, pasa a referencias.
+     */
+    public function revisarSocioeconomico(Candidato $candidato, User $actor, bool $viable, ?string $observaciones, ?int $motivoRechazoId = null, ?bool $recontratable = null): Candidato
+    {
+        $this->autorizar($actor, self::PERMISO_GERENTE, $candidato);
+
+        return $this->paso($candidato, $actor, EstadoCandidato::SocioeconomicoPendiente, function (Candidato $c) use ($actor, $viable, $observaciones, $motivoRechazoId, $recontratable): void {
+            $estudio = $this->socioeconomicoPendiente($c);
+
+            if ($estudio === null) {
+                throw ValidationException::withMessages(['estado' => 'Primero se carga el estudio socioeconómico; después se revisa.']);
+            }
+
+            $estudio->update([
+                'resultado' => $viable ? ResultadoEtapaCandidato::Viable : ResultadoEtapaCandidato::NoViable,
+                'revisado_por' => $actor->id,
+                'revisado_en' => now(),
+                'revision_observaciones' => $observaciones,
+            ]);
+
+            if ($viable) {
+                $this->transicionar($c, EstadoCandidato::ReferenciasPendientes, $actor, $this->nota('Estudio socioeconómico revisado: viable. Pasa a validación de referencias.', $observaciones));
 
                 return;
             }
 
-            $this->salir($c, EstadoCandidato::NoViable, $actor, $this->exigirMotivo($observaciones, 'Estudio socioeconómico no viable'), ...$this->catalogoRechazo($datos));
+            $this->salir($c, EstadoCandidato::NoViable, $actor, $this->exigirMotivo($observaciones, 'Estudio socioeconómico no viable'), $motivoRechazoId, $recontratable);
         });
+    }
+
+    /** Estudio cargado que todavía nadie revisó (resultado nulo). */
+    public function socioeconomicoPendiente(Candidato $candidato): ?CandidatoSocioeconomico
+    {
+        return CandidatoSocioeconomico::query()
+            ->where('candidato_id', $candidato->id)
+            ->whereNull('resultado')
+            ->latest('id')
+            ->first();
     }
 
     /**
@@ -424,41 +470,17 @@ class CandidatoWorkflowService
                 throw ValidationException::withMessages(['referencias' => 'Registra al menos una referencia laboral validada antes de continuar.']);
             }
 
-            $this->transicionar($c, EstadoCandidato::PreseleccionGerente, $actor, $this->nota('Referencias validadas: pendiente la preselección/preautorización del gerente.', $observaciones));
+            // Sin preautorización del gerente (retirada 2026-10-15): el
+            // responsable ya revisó entrevista, psicométricos y
+            // socioeconómico; la contratación la autoriza SOLO RH.
+            $this->transicionar($c, EstadoCandidato::AutorizacionRhPendiente, $actor, $this->nota('Referencias validadas: pasa a la autorización de RH.', $observaciones));
 
-            $gerente = $this->jerarquia->preautorizadorDeCandidato($c);
             $this->aprobaciones->abrir($c, ProcesoAprobacion::SeleccionCandidato, [
                 'candidato' => $c,
                 'solicitante' => $actor,
-                'aprobador_colaborador' => $gerente['colaborador'],
-                'aprobador_user' => $gerente['usuario'],
+                'motivo_omision' => 'Sin preautorización: la contratación la autoriza Recursos Humanos.',
             ]);
         });
-    }
-
-    /**
-     * PREAUTORIZACIÓN del gerente. No contrata ni genera QR: deja el
-     * candidato esperando la autorización final de RH.
-     */
-    public function preautorizar(Candidato $candidato, User $actor, ?string $comentario): Candidato
-    {
-        $resultado = $this->paso($candidato, $actor, EstadoCandidato::PreseleccionGerente, function (Candidato $c) use ($actor, $comentario): void {
-            $this->aprobaciones->preautorizar($c, ProcesoAprobacion::SeleccionCandidato, $actor, $comentario);
-            $this->transicionar($c, EstadoCandidato::AutorizacionRhPendiente, $actor, $this->nota(sprintf('Preautorizado por %s. Pendiente la autorización final de RH.', $actor->nombreCompleto()), $comentario));
-        });
-
-        $this->notificador->notificarEvento(
-            'candidato_preautorizado',
-            $resultado,
-            ['creador' => $actor, 'excluir' => [$actor->id]],
-            'Candidato preautorizado',
-            sprintf('%s preautorizó a %s. Pendiente tu autorización final.', $actor->nombreCompleto(), $resultado->nombreCompleto()),
-            $resultado,
-            'autorizar_candidato',
-            'alta',
-        );
-
-        return $resultado;
     }
 
     /**
@@ -486,7 +508,7 @@ class CandidatoWorkflowService
     {
         return $this->paso($candidato, $actor, EstadoCandidato::AutorizacionRhPendiente, function (Candidato $c) use ($actor, $motivo): void {
             $this->aprobaciones->devolver($c, ProcesoAprobacion::SeleccionCandidato, $actor, $motivo);
-            $this->transicionar($c, EstadoCandidato::PreseleccionGerente, $actor, sprintf('RH devolvió la selección al gerente: %s', $motivo), retroceso: true);
+            $this->transicionar($c, EstadoCandidato::ReferenciasPendientes, $actor, sprintf('RH devolvió el candidato a validación de referencias: %s', $motivo), retroceso: true);
         });
     }
 
@@ -563,17 +585,23 @@ class CandidatoWorkflowService
             case EstadoCandidato::PsicometricasPendientes:
                 if ($puede(self::PERMISO_RECLUTAMIENTO)) {
                     $acciones[] = ['clave' => 'enviar_psicometricas', 'etiqueta' => 'Registrar link de psicométricas', 'tipo' => 'secundaria'];
-                    $acciones[] = ['clave' => 'registrar_resultados_psicometricas', 'etiqueta' => 'Registrar resultados', 'tipo' => 'primaria'];
+                    $acciones[] = ['clave' => 'registrar_resultados_psicometricas', 'etiqueta' => 'Cargar resultados psicométricos', 'tipo' => 'primaria'];
                 }
                 break;
             case EstadoCandidato::RevisionPsicometricas:
                 if ($puede(self::PERMISO_GERENTE)) {
-                    $acciones[] = ['clave' => 'revisar_psicometricas', 'etiqueta' => 'Revisar psicométricas', 'tipo' => 'primaria'];
+                    $acciones[] = ['clave' => 'revisar_psicometricas', 'etiqueta' => 'Revisar psicométrico', 'tipo' => 'primaria'];
                 }
                 break;
             case EstadoCandidato::SocioeconomicoPendiente:
-                if ($puede(self::PERMISO_GERENTE)) {
-                    $acciones[] = ['clave' => 'registrar_socioeconomico', 'etiqueta' => 'Registrar estudio socioeconómico', 'tipo' => 'primaria'];
+                // Cargar ≠ decidir: con un estudio cargado sin revisar, lo
+                // único que sigue es que el responsable lo revise.
+                if ($this->socioeconomicoPendiente($candidato) !== null) {
+                    if ($puede(self::PERMISO_GERENTE)) {
+                        $acciones[] = ['clave' => 'revisar_socioeconomico', 'etiqueta' => 'Revisar socioeconómico', 'tipo' => 'primaria'];
+                    }
+                } elseif ($puede(self::PERMISO_RECLUTAMIENTO) || $puede(self::PERMISO_GERENTE)) {
+                    $acciones[] = ['clave' => 'registrar_socioeconomico', 'etiqueta' => 'Cargar estudio socioeconómico', 'tipo' => 'primaria'];
                 }
                 break;
             case EstadoCandidato::ReferenciasPendientes:
@@ -582,19 +610,12 @@ class CandidatoWorkflowService
                     $acciones[] = ['clave' => 'concluir_referencias', 'etiqueta' => 'Concluir validación de referencias', 'tipo' => 'primaria'];
                 }
                 break;
-            case EstadoCandidato::PreseleccionGerente:
-                $pendiente = $this->aprobaciones->pendiente($candidato, ProcesoAprobacion::SeleccionCandidato);
-
-                if ($pendiente !== null && $this->jerarquia->puedePreautorizar($usuario, $pendiente)) {
-                    $acciones[] = ['clave' => 'preautorizar', 'etiqueta' => 'Preautorizar contratación', 'tipo' => 'primaria'];
-                }
-                break;
             case EstadoCandidato::AutorizacionRhPendiente:
                 $pendiente = $this->aprobaciones->pendiente($candidato, ProcesoAprobacion::SeleccionCandidato);
 
                 if ($pendiente !== null && $this->jerarquia->puedeAutorizarRh($usuario, $pendiente)) {
                     $acciones[] = ['clave' => 'autorizar_rh', 'etiqueta' => 'Autorizar contratación', 'tipo' => 'primaria'];
-                    $acciones[] = ['clave' => 'devolver_rh', 'etiqueta' => 'Devolver al gerente', 'tipo' => 'secundaria'];
+                    $acciones[] = ['clave' => 'devolver_rh', 'etiqueta' => 'Devolver a referencias', 'tipo' => 'secundaria'];
                     $acciones[] = ['clave' => 'rechazar_rh', 'etiqueta' => 'Rechazar', 'tipo' => 'peligro'];
                 }
                 break;
@@ -629,12 +650,13 @@ class CandidatoWorkflowService
      */
     public function responsableActual(Candidato $candidato): array
     {
-        $gerente = fn (): ?string => $this->jerarquia->preautorizadorDeCandidato($candidato)['usuario']?->nombreCompleto();
+        $gerente = fn (): ?string => $this->jerarquia->responsableDeCandidato($candidato)['usuario']?->nombreCompleto();
+        $rolResponsable = $this->jerarquia->esVacanteDeGerencia($candidato) ? 'Gerente Regional' : 'Gerente de sucursal';
 
         return match ($candidato->estado) {
             EstadoCandidato::Recibidos, EstadoCandidato::PsicometricasPendientes, EstadoCandidato::ReferenciasPendientes => ['rol' => 'Reclutamiento', 'nombre' => $candidato->responsableRh?->nombreCompleto()],
-            EstadoCandidato::EntrevistaPendiente, EstadoCandidato::RevisionPsicometricas, EstadoCandidato::SocioeconomicoPendiente, EstadoCandidato::PreseleccionGerente => ['rol' => 'Gerente de sucursal', 'nombre' => $gerente()],
-            EstadoCandidato::AutorizacionRhPendiente, EstadoCandidato::AutorizadoRh => ['rol' => 'Recursos Humanos', 'nombre' => null],
+            EstadoCandidato::EntrevistaPendiente, EstadoCandidato::RevisionPsicometricas, EstadoCandidato::SocioeconomicoPendiente => ['rol' => $rolResponsable, 'nombre' => $gerente()],
+            EstadoCandidato::PreseleccionGerente, EstadoCandidato::AutorizacionRhPendiente, EstadoCandidato::AutorizadoRh => ['rol' => 'Recursos Humanos', 'nombre' => null],
             EstadoCandidato::EnContratacion => ['rol' => 'Candidato / RH', 'nombre' => $candidato->nombreCompleto()],
             default => ['rol' => '—', 'nombre' => null],
         };
@@ -845,7 +867,7 @@ class CandidatoWorkflowService
      */
     private function tareaPara(Candidato $candidato): ?array
     {
-        $gerente = fn (): ?User => $this->jerarquia->preautorizadorDeCandidato($candidato)['usuario'];
+        $gerente = fn (): ?User => $this->jerarquia->responsableDeCandidato($candidato)['usuario'];
         $paraGerente = function (string $accion) use ($gerente): array {
             $usuario = $gerente();
 
@@ -857,10 +879,9 @@ class CandidatoWorkflowService
             EstadoCandidato::EntrevistaPendiente => [TipoTarea::CandidatoEntrevista, $paraGerente('registrar_entrevista')],
             EstadoCandidato::PsicometricasPendientes => [TipoTarea::CandidatoPsicometricas, ['permiso' => self::PERMISO_RECLUTAMIENTO, 'accion' => 'registrar_resultados_psicometricas']],
             EstadoCandidato::RevisionPsicometricas => [TipoTarea::CandidatoRevisionPsicometricas, $paraGerente('revisar_psicometricas')],
-            EstadoCandidato::SocioeconomicoPendiente => [TipoTarea::CandidatoSocioeconomico, $paraGerente('registrar_socioeconomico')],
+            EstadoCandidato::SocioeconomicoPendiente => [TipoTarea::CandidatoSocioeconomico, $paraGerente($this->socioeconomicoPendiente($candidato) !== null ? 'revisar_socioeconomico' : 'registrar_socioeconomico')],
             EstadoCandidato::ReferenciasPendientes => [TipoTarea::CandidatoReferencias, ['permiso' => self::PERMISO_RECLUTAMIENTO, 'accion' => 'concluir_referencias']],
-            EstadoCandidato::PreseleccionGerente => [TipoTarea::CandidatoPreautorizacion, $paraGerente('preautorizar')],
-            EstadoCandidato::AutorizacionRhPendiente => [TipoTarea::CandidatoAutorizacionRh, ['permiso' => OrganizacionJerarquiaService::PERMISO_AUTORIZAR_RH, 'accion' => 'autorizar_rh', 'prioridad' => PrioridadTarea::Alta]],
+            EstadoCandidato::PreseleccionGerente, EstadoCandidato::AutorizacionRhPendiente => [TipoTarea::CandidatoAutorizacionRh, ['permiso' => OrganizacionJerarquiaService::PERMISO_AUTORIZAR_RH, 'accion' => 'autorizar_rh', 'prioridad' => PrioridadTarea::Alta]],
             EstadoCandidato::AutorizadoRh => [TipoTarea::CandidatoInvitacion, ['permiso' => ContratacionCandidatoService::PERMISO_CONTRATAR, 'accion' => 'iniciar_contratacion', 'prioridad' => PrioridadTarea::Alta]],
             default => null,
         };

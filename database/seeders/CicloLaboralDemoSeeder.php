@@ -117,7 +117,7 @@ class CicloLaboralDemoSeeder extends Seeder
         $this->escenario('candidato en psicométricas', fn () => $this->candidato('psicometricas', EstadoCandidato::PsicometricasPendientes));
         $this->escenario('candidato en socioeconómico', fn () => $this->candidato('socioeconomico', EstadoCandidato::SocioeconomicoPendiente));
         $this->escenario('candidato en referencias', fn () => $this->candidato('referencias', EstadoCandidato::ReferenciasPendientes));
-        $this->escenario('candidato esperando preautorización', fn () => $this->candidato('preseleccion', EstadoCandidato::PreseleccionGerente));
+        $this->escenario('candidato esperando la autorización de RH', fn () => $this->candidato('preseleccion', EstadoCandidato::AutorizacionRhPendiente));
         $this->escenario('candidato preautorizado esperando RH', fn () => $this->candidato('esperando-rh', EstadoCandidato::AutorizacionRhPendiente));
 
         // --- Etapas 2 a 6: personas ---
@@ -295,12 +295,15 @@ class CicloLaboralDemoSeeder extends Seeder
                 $wf->registrarResultadosPsicometricas($c, $this->reclutador, 'Resultados demo dentro del perfil.');
             },
             EstadoCandidato::SocioeconomicoPendiente->orden() => fn () => $wf->revisarPsicometricas($c, $this->como($this->gerente), true, null),
-            EstadoCandidato::ReferenciasPendientes->orden() => fn () => $wf->registrarSocioeconomico($c, $this->como($this->gerente), ['fecha_visita' => now()->toDateString(), 'direccion' => 'Domicilio demo', 'resultado' => 'viable', 'checklist' => ['vivienda_en_orden' => true]]),
-            EstadoCandidato::PreseleccionGerente->orden() => function () use ($wf, $c): void {
+            EstadoCandidato::ReferenciasPendientes->orden() => function () use ($wf, $c): void {
+                $wf->registrarSocioeconomico($c, $this->como($this->gerente), ['fecha_visita' => now()->toDateString(), 'direccion' => 'Domicilio demo', 'checklist' => ['vivienda_en_orden' => true]]);
+                $wf->revisarSocioeconomico($c, $this->gerente, true, null);
+            },
+            // Sin preautorización: referencias concluidas = autorización de RH pendiente.
+            EstadoCandidato::AutorizacionRhPendiente->orden() => function () use ($wf, $c): void {
                 $wf->registrarReferencia($c, $this->como($this->reclutador), ['empresa' => 'Empresa demo', 'contacto' => 'Jefe anterior', 'resultado' => 'positiva']);
                 $wf->concluirReferencias($c, $this->reclutador, true, null);
             },
-            EstadoCandidato::AutorizacionRhPendiente->orden() => fn () => $wf->preautorizar($c, $this->como($this->gerente), 'Lo recomiendo (demo).'),
             EstadoCandidato::AutorizadoRh->orden() => fn () => $wf->autorizarRh($c, $this->como($this->rh), 'Autorizado (demo).'),
         ];
 

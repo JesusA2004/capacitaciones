@@ -21,6 +21,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $departamento_id
  * @property int|null $puesto_objetivo_id
  * @property int|null $vacante_id
+ * @property-read Vacante|null $vacante Nula en candidatos espontáneos (vacante_id nulo).
  * @property bool $espontaneo
  * @property int|null $campana_reclutamiento_id
  * @property string $nombre

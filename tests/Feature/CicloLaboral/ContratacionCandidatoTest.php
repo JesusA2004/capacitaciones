@@ -65,10 +65,10 @@ function clCandidatoAutorizado(object $t, bool $autorizar = true): Candidato
     $wf->registrarEntrevista($c, $t->gerente, ['realizada_en' => now()->subDay()->toDateTimeString(), 'resultado' => 'viable']);
     $wf->registrarResultadosPsicometricas($c, $t->rh, 'En perfil.');
     $wf->revisarPsicometricas($c, $t->gerente, true, null);
-    $wf->registrarSocioeconomico($c, $t->gerente, ['fecha_visita' => now()->toDateString(), 'direccion' => 'Calle 1', 'resultado' => 'viable']);
+    $wf->registrarSocioeconomico($c, $t->gerente, ['fecha_visita' => now()->toDateString(), 'direccion' => 'Calle 1']);
+    $wf->revisarSocioeconomico($c, $t->gerente, true, null);
     $wf->registrarReferencia($c, $t->rh, ['empresa' => 'X', 'contacto' => 'Y', 'resultado' => 'positiva']);
     $wf->concluirReferencias($c, $t->rh, true, null);
-    $wf->preautorizar($c, $t->gerente, null);
 
     if ($autorizar) {
         $wf->autorizarRh($c, $t->rh, null);
@@ -118,7 +118,7 @@ test('contratar un candidato autorizado por RH crea el colaborador sin duplicar 
     expect(Colaborador::query()->where('name', 'Luis')->count())->toBe(1);
 });
 
-test('un candidato solo preautorizado por el gerente todavía no puede contratarse', function () {
+test('un candidato pendiente de la autorización de RH todavía no puede contratarse', function () {
     Sanctum::actingAs($this->rh);
     $candidato = clCandidatoAutorizado($this, autorizar: false);
 

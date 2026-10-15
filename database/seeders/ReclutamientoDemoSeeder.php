@@ -117,7 +117,7 @@ class ReclutamientoDemoSeeder extends Seeder
             ['Diego Salcedo', $parB, $vacanteB, EstadoCandidato::RevisionPsicometricas],
             ['Estefania Rangel', $parA, $vacanteA, EstadoCandidato::SocioeconomicoPendiente],
             ['Fernando Cabrera', $parB, $vacanteB, EstadoCandidato::ReferenciasPendientes],
-            ['Gabriela Solis', $parA, $vacanteA, EstadoCandidato::PreseleccionGerente],
+            ['Gabriela Solis', $parA, $vacanteA, EstadoCandidato::AutorizacionRhPendiente],
             ['Hugo Betancourt', $parB, $vacanteB, EstadoCandidato::AutorizacionRhPendiente],
             ['Melissa Cordova', $parA, $vacanteA, EstadoCandidato::AutorizadoRh],
         ];
@@ -153,18 +153,20 @@ class ReclutamientoDemoSeeder extends Seeder
                 $this->workflow->registrarResultadosPsicometricas($c, $reclutamiento, 'Perfil estable, orientado a resultados.');
             },
             EstadoCandidato::SocioeconomicoPendiente->value => fn (Candidato $c) => $this->workflow->revisarPsicometricas($c, $gerente, true, 'En perfil.'),
-            EstadoCandidato::ReferenciasPendientes->value => fn (Candidato $c) => $this->workflow->registrarSocioeconomico($c, $gerente, [
-                'fecha_visita' => now()->subDays(3)->toDateString(),
-                'direccion' => 'Calle Demostración 45, Ixtapaluca, Edo. Méx.',
-                'checklist' => ['vivienda_en_orden' => true, 'vive_con_familia' => true, 'arraigo_anios' => 3, 'resguardo_motocicleta' => true],
-                'resultado' => 'viable',
-                'observaciones' => 'Vivienda en orden, arraigo de 3 años.',
-            ]),
-            EstadoCandidato::PreseleccionGerente->value => function (Candidato $c) use ($reclutamiento): void {
+            EstadoCandidato::ReferenciasPendientes->value => function (Candidato $c) use ($gerente): void {
+                $this->workflow->registrarSocioeconomico($c, $gerente, [
+                    'fecha_visita' => now()->subDays(3)->toDateString(),
+                    'direccion' => 'Calle Demostración 45, Ixtapaluca, Edo. Méx.',
+                    'checklist' => ['vivienda_en_orden' => true, 'vive_con_familia' => true, 'arraigo_anios' => 3, 'resguardo_motocicleta' => true],
+                    'observaciones' => 'Vivienda en orden, arraigo de 3 años.',
+                ]);
+                $this->workflow->revisarSocioeconomico($c, $gerente, true, 'Visita revisada.');
+            },
+            // Sin preautorización: referencias concluidas = autorización de RH pendiente.
+            EstadoCandidato::AutorizacionRhPendiente->value => function (Candidato $c) use ($reclutamiento): void {
                 $this->workflow->registrarReferencia($c, $reclutamiento, ['empresa' => 'Financiera Demo', 'contacto' => 'Lic. Ramírez', 'telefono' => '5550001111', 'relacion_puesto' => 'Jefe inmediato', 'resultado' => 'positiva']);
                 $this->workflow->concluirReferencias($c, $reclutamiento, true, 'Referencias positivas.');
             },
-            EstadoCandidato::AutorizacionRhPendiente->value => fn (Candidato $c) => $this->workflow->preautorizar($c, $gerente, 'Lo preautorizo para la vacante.'),
             EstadoCandidato::AutorizadoRh->value => fn (Candidato $c) => $this->workflow->autorizarRh($c, $rh, 'Autorizado.'),
         ];
 

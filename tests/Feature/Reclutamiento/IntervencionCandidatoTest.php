@@ -69,10 +69,10 @@ function icCandidatoRechazadoPorRh(object $t): Candidato
     $wf->registrarEntrevista($c, $t->gerente, ['realizada_en' => now()->subDay()->toDateTimeString(), 'resultado' => 'viable']);
     $wf->registrarResultadosPsicometricas($c, $t->rh, 'En perfil.');
     $wf->revisarPsicometricas($c, $t->gerente, true, null);
-    $wf->registrarSocioeconomico($c, $t->gerente, ['fecha_visita' => now()->toDateString(), 'direccion' => 'Calle 1', 'resultado' => 'viable']);
+    $wf->registrarSocioeconomico($c, $t->gerente, ['fecha_visita' => now()->toDateString(), 'direccion' => 'Calle 1']);
+    $wf->revisarSocioeconomico($c, $t->gerente, true, null);
     $wf->registrarReferencia($c, $t->rh, ['empresa' => 'X', 'contacto' => 'Y', 'resultado' => 'positiva']);
     $wf->concluirReferencias($c, $t->rh, true, null);
-    $wf->preautorizar($c, $t->gerente, null);
     $wf->rechazarRh($c, $t->rh, 'No cumple el perfil solicitado.');
 
     return $c->refresh();
@@ -121,7 +121,7 @@ test('el gerente que entrevistó puede solicitar intervención y solo entonces s
     $regional->assignRole('gerente_regional');
 
     // El pipeline hasta el rechazo ya disparó su propia notificación normal
-    // (preautorización); lo que importa aquí es que SOLICITAR la intervención
+    // (autorización de RH); lo que importa aquí es que SOLICITAR la intervención
     // es lo único que puede notificar a Regional/Dirección Comercial.
     Notification::fake();
 

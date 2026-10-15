@@ -12,7 +12,6 @@ use App\Enums\EstadoReingreso;
 use App\Enums\EstadoUsuario;
 use App\Enums\EstadoVacante;
 use App\Enums\EtapaAprobacion;
-use App\Enums\ProcesoAprobacion;
 use App\Enums\TipoContratacion;
 use App\Enums\TipoModuloOnboarding;
 use App\Enums\TipoTarea;
@@ -35,7 +34,6 @@ use App\Models\TareaRh;
 use App\Models\TipoActivo;
 use App\Models\User;
 use App\Models\Vacante;
-use App\Services\CicloLaboral\AprobacionService;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\CicloLaboral\ReingresoService;
 use App\Services\CierreLaboral\CierreLaboralService;
@@ -175,8 +173,8 @@ function cfRegistrarCandidato(object $t, array $extra = []): Candidato
 }
 
 /**
- * Lleva al candidato por TODO el reclutamiento hasta la preautorización del
- * gerente (queda pendiente la autorización final de RH).
+ * Lleva al candidato por TODO el reclutamiento hasta la autorización de RH
+ * pendiente (sin preautorización del gerente: se retiró el 2026-10-15).
  */
 function cfHastaPreautorizado(object $t, Candidato $c): Candidato
 {
@@ -186,11 +184,11 @@ function cfHastaPreautorizado(object $t, Candidato $c): Candidato
     $wf->enviarPsicometricas($c, $t->reclutador, 'https://pruebas.example.test/1');
     $wf->registrarResultadosPsicometricas($c, $t->reclutador, 'Resultados en perfil.');
     $wf->revisarPsicometricas($c, $t->gerenteA, true, null);
-    $wf->registrarSocioeconomico($c, $t->gerenteA, ['fecha_visita' => now()->toDateString(), 'direccion' => 'Calle 1', 'resultado' => 'viable', 'checklist' => ['vivienda_en_orden' => true]]);
+    $wf->registrarSocioeconomico($c, $t->gerenteA, ['fecha_visita' => now()->toDateString(), 'direccion' => 'Calle 1', 'checklist' => ['vivienda_en_orden' => true]]);
+    $wf->revisarSocioeconomico($c, $t->gerenteA, true, null);
     $wf->registrarReferencia($c, $t->reclutador, ['empresa' => 'Empresa X', 'contacto' => 'Jefe X', 'resultado' => 'positiva']);
-    $wf->concluirReferencias($c, $t->reclutador, true, null);
 
-    return $wf->preautorizar($c, $t->gerenteA, 'Lo recomiendo.');
+    return $wf->concluirReferencias($c, $t->reclutador, true, null);
 }
 
 /**
@@ -357,7 +355,7 @@ test('E2E: candidato → contratación → onboarding → periodo de prueba → 
 
     // La recomendación es solo preautorización.
     expect(ContratoLaboral::query()->where('colaborador_id', $colaborador->id)->count())->toBe(1)
-        ->and(Aprobacion::query()->where('aprobable_id', $evaluacion->id)->where('etapa', EtapaAprobacion::Preautorizacion->value)->value('estado'))->toBe(EstadoAprobacion::Aprobado);
+        ->and(Aprobacion::query()->where('aprobable_type', $evaluacion->getMorphClass())->where('aprobable_id', $evaluacion->id)->where('etapa', EtapaAprobacion::Preautorizacion->value)->value('estado'))->toBe(EstadoAprobacion::Aprobado);
 
     // Quien preautorizó no da la autorización final.
     $this->gerenteA->givePermissionTo(['evaluaciones.autorizar', 'ciclo.autorizar_rh']);
@@ -599,16 +597,18 @@ test('J: doble autorización y doble contratación simultáneas producen una sol
         ->and(IncorporacionInvitacion::query()->where('candidato_id', $candidato->id)->count())->toBe(1);
 });
 
-test('el motor de aprobaciones no permite saltar RH ni que el mismo usuario preautorice y autorice', function () {
+test('sin preautorización: la contratación la autoriza SOLO RH; el gerente responsable no puede', function () {
     $candidato = cfHastaPreautorizado($this, cfRegistrarCandidato($this));
-    $this->gerenteA->givePermissionTo('ciclo.autorizar_rh');
+
+    expect($candidato->estado)->toBe(EstadoCandidato::AutorizacionRhPendiente)
+        ->and(app(CandidatoWorkflowService::class)->accionesPermitidas($candidato, $this->gerenteA))->not->toContain(fn ($a) => in_array($a['clave'], ['preautorizar', 'autorizar_rh'], true));
 
     expect(fn () => app(CandidatoWorkflowService::class)->autorizarRh($candidato, $this->gerenteA, null))->toThrow(ValidationException::class)
-        ->and(Aprobacion::query()->where('candidato_id', $candidato->id)->where('estado', EstadoAprobacion::Pendiente->value)->value('etapa'))->toBe(EtapaAprobacion::AutorizacionRh);
+        ->and(Aprobacion::query()->where('candidato_id', $candidato->id)->where('estado', EstadoAprobacion::Pendiente->value)->value('etapa'))->toBe(EtapaAprobacion::AutorizacionRh)
+        ->and(Aprobacion::query()->where('candidato_id', $candidato->id)->where('etapa', EtapaAprobacion::Preautorizacion->value)->value('estado'))->toBe(EstadoAprobacion::Omitido);
 
-    $resumen = app(AprobacionService::class)->resumen($candidato, ProcesoAprobacion::SeleccionCandidato);
-    expect($resumen['preautorizacion']['decidido_por'])->toBe($this->gerenteA->nombreCompleto())
-        ->and($resumen['autorizado_rh'])->toBeFalse();
+    $this->actingAs($this->rh);
+    expect(app(CandidatoWorkflowService::class)->autorizarRh($candidato, $this->rh, null)->estado)->toBe(EstadoCandidato::AutorizadoRh);
 });
 
 test('el tablero solo permite cerrar procesos; los avances son acciones del workflow', function () {

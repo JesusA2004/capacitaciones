@@ -25,7 +25,7 @@ use Illuminate\Http\Request;
 /**
  * Reclutamiento para la app (gerente / RH). Mismos FormRequests y el MISMO
  * CandidatoWorkflowService que Rh\CandidatoController (web): cada acción
- * autoriza ahí (permiso + alcance + regla preautoriza/autoriza RH). La
+ * autoriza ahí (permiso + alcance; la contratación solo la autoriza RH). La
  * respuesta siempre es la ficha + el estado del ciclo (con las acciones
  * permitidas para quien pregunta), así la app nunca decide por rol.
  */
@@ -112,6 +112,13 @@ class CandidatoController extends Controller
         return $this->ficha($request, $candidato);
     }
 
+    public function revisarSocioeconomico(EvaluarFiltroCandidatoRequest $request, Candidato $candidato): JsonResponse
+    {
+        $this->workflow->revisarSocioeconomico($candidato, $request->user(), $request->boolean('viable'), $request->validated('observaciones'), $request->motivoRechazoId(), $request->recontratable());
+
+        return $this->ficha($request, $candidato);
+    }
+
     public function registrarReferencia(RegistrarReferenciaRequest $request, Candidato $candidato): JsonResponse
     {
         $this->workflow->registrarReferencia($candidato, $request->user(), $request->safe()->except('archivos'), array_values($request->file('archivos', [])));
@@ -130,13 +137,6 @@ class CandidatoController extends Controller
     public function concluirReferencias(EvaluarFiltroCandidatoRequest $request, Candidato $candidato): JsonResponse
     {
         $this->workflow->concluirReferencias($candidato, $request->user(), $request->boolean('viable'), $request->validated('observaciones'), $request->motivoRechazoId(), $request->recontratable());
-
-        return $this->ficha($request, $candidato);
-    }
-
-    public function preautorizar(DecisionAprobacionRequest $request, Candidato $candidato): JsonResponse
-    {
-        $this->workflow->preautorizar($candidato, $request->user(), $request->comentario());
 
         return $this->ficha($request, $candidato);
     }

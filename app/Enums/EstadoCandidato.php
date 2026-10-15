@@ -10,8 +10,9 @@ namespace App\Enums;
  * Los avances SOLO ocurren por acciones del workflow
  * (App\Services\Reclutamiento\CandidatoWorkflowService): cada paso exige
  * el registro estructurado correspondiente (entrevista, psicométricas,
- * socioeconómico, referencias) y la selección exige preautorización del
- * gerente y autorización final de RH. Arrastrar en el tablero solo permite
+ * socioeconómico, referencias) y la contratación la autoriza SOLO RH (la
+ * preautorización del gerente se retiró el 2026-10-15; PreseleccionGerente
+ * queda solo para leer historial). Arrastrar en el tablero solo permite
  * cerrar el proceso (estados de salida, con motivo).
  */
 enum EstadoCandidato: string
@@ -22,6 +23,7 @@ enum EstadoCandidato: string
     case RevisionPsicometricas = 'revision_psicometricas';
     case SocioeconomicoPendiente = 'socioeconomico_pendiente';
     case ReferenciasPendientes = 'referencias_pendientes';
+    /** Histórico (compatibilidad): ya no se entra a este estado. */
     case PreseleccionGerente = 'preseleccion_gerente';
     case AutorizacionRhPendiente = 'autorizacion_rh_pendiente';
     case AutorizadoRh = 'autorizado_rh';
@@ -59,8 +61,8 @@ enum EstadoCandidato: string
             self::RevisionPsicometricas => 'Revisión de psicométricas',
             self::SocioeconomicoPendiente => 'Estudio socioeconómico',
             self::ReferenciasPendientes => 'Validación de referencias',
-            self::PreseleccionGerente => 'Preautorización del gerente',
-            self::AutorizacionRhPendiente => 'Autorización final de RH',
+            self::PreseleccionGerente => 'Autorización de RH (histórico)',
+            self::AutorizacionRhPendiente => 'Autorización de RH',
             self::AutorizadoRh => 'Autorizado por RH',
             self::EnContratacion => 'En contratación',
             self::Contratado => 'Capacitación inicial',
@@ -188,6 +190,17 @@ enum EstadoCandidato: string
 
         if ($destino->esSalida()) {
             return $this->permiteDescartar() || ($this === self::AutorizacionRhPendiente && $destino === self::RechazadoRh);
+        }
+
+        // Sin preautorización: de referencias se pasa directo a RH (el
+        // orden numérico se conserva para no reinterpretar etapa_maxima de
+        // candidatos históricos).
+        if ($destino === self::PreseleccionGerente) {
+            return false;
+        }
+
+        if ($this === self::ReferenciasPendientes) {
+            return $destino === self::AutorizacionRhPendiente;
         }
 
         return $destino->orden() === $this->orden() + 1;

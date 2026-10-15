@@ -37,7 +37,7 @@ test('el demo del ciclo laboral deja cada etapa alcanzada por services, sin dupl
         ->and($candidato('psicometricas'))->toBe(EstadoCandidato::PsicometricasPendientes)
         ->and($candidato('socioeconomico'))->toBe(EstadoCandidato::SocioeconomicoPendiente)
         ->and($candidato('referencias'))->toBe(EstadoCandidato::ReferenciasPendientes)
-        ->and($candidato('preseleccion'))->toBe(EstadoCandidato::PreseleccionGerente)
+        ->and($candidato('preseleccion'))->toBe(EstadoCandidato::AutorizacionRhPendiente)
         ->and($candidato('esperando-rh'))->toBe(EstadoCandidato::AutorizacionRhPendiente);
 
     expect(Colaborador::query()->find($persona(1))?->estado_alta)->toBe(EstadoAltaColaborador::PendienteDocumentos)

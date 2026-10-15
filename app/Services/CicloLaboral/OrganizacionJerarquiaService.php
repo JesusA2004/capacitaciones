@@ -161,21 +161,50 @@ class OrganizacionJerarquiaService
     }
 
     /**
-     * Gerente que preautoriza la selección de un candidato: el gerente
-     * asignado al candidato, o el que solicitó la vacante, o el responsable
-     * capturado de la sucursal (en ese orden).
+     * Responsable OPERATIVO de un candidato (entrevista y revisión de
+     * psicométricos y socioeconómico). Sale de la vacante → sucursal →
+     * puesto → organigrama real, nunca solo de candidato.gerente_id o
+     * sucursal.responsable_id (caso real: Subgerente · Ixtlahuaca sin
+     * responsable capturado, aunque el organigrama tenía a su Gerente):
+     *
+     *  1. el gerente asignado explícitamente al candidato;
+     *  2. si la vacante ES de gerencia de sucursal, nunca ese mismo puesto:
+     *     el Gerente Regional de la sucursal;
+     *  3. la gerencia de la sucursal de la vacante en el organigrama
+     *     (ocupante real del puesto, cobertura vigente, responsable
+     *     capturado);
+     *  4. quien solicitó la vacante;
+     *  5. el Gerente Regional de la sucursal;
+     *  6. Dirección Comercial.
+     *
+     * No autoriza la contratación: eso es solo de RH.
      *
      * @return array{usuario: User|null, colaborador: Colaborador|null}
      */
-    public function preautorizadorDeCandidato(Candidato $candidato): array
+    public function responsableDeCandidato(Candidato $candidato): array
     {
-        $candidato->loadMissing(['gerenteInvolucrado.colaborador', 'vacante.gerenteSolicitante.colaborador', 'sucursal.responsable.colaborador']);
+        $candidato->loadMissing(['gerenteInvolucrado.colaborador', 'vacante.gerenteSolicitante.colaborador']);
+
+        $vacante = $candidato->vacante;
+        $sucursalId = $vacante->sucursal_id ?? $candidato->sucursal_id;
+        $esVacanteDeGerencia = $this->esVacanteDeGerencia($candidato);
 
         $usuario = $candidato->gerenteInvolucrado
-            ?? $candidato->vacante->gerenteSolicitante
-            ?? $candidato->sucursal?->responsable;
+            ?? ($esVacanteDeGerencia ? $this->regionalesDe($sucursalId)->first() : null)
+            ?? ($esVacanteDeGerencia ? null : $this->gerenciaSucursalDe($sucursalId)->first())
+            ?? ($esVacanteDeGerencia ? null : $vacante?->gerenteSolicitante)
+            ?? $this->regionalesDe($sucursalId)->first()
+            ?? $this->direccionComercialDe()->first();
 
         return ['usuario' => $usuario, 'colaborador' => $usuario?->colaborador];
+    }
+
+    /** La vacante (o el puesto objetivo) del candidato es de gerencia de sucursal. */
+    public function esVacanteDeGerencia(Candidato $candidato): bool
+    {
+        $puestoId = $candidato->vacante->puesto_id ?? $candidato->puesto_objetivo_id;
+
+        return $puestoId !== null && in_array((int) $puestoId, $this->puestosConfigurados('puestos_gerencia_sucursal'), true);
     }
 
     /**

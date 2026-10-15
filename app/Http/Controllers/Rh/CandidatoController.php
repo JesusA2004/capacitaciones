@@ -90,9 +90,19 @@ class CandidatoController extends Controller
         $this->authorize('viewAny', Candidato::class);
 
         $candidatos = $this->queryFiltrada($request)
-            ->with(['ultimoSeguimiento.registradoPor:id,name,apellidos', 'ultimoCambioEstado', 'colaborador:id,activado_en'])
+            ->with([
+                'ultimoSeguimiento.registradoPor:id,name,apellidos', 'ultimoCambioEstado', 'colaborador:id,activado_en',
+                'psicometricas:id,candidato_id', 'psicometricas.evidencias', 'socioeconomicos:id,candidato_id', 'socioeconomicos.evidencias',
+            ])
             ->orderByDesc('created_at')
             ->get();
+
+        // Botones rápidos de la tarjeta (Ver psicométrico / socioeconómico /
+        // video): solo el archivo de cada etapa, sin mandar los registros.
+        $candidatos->each(function (Candidato $candidato): void {
+            $candidato->setAttribute('accesos_rapidos', $this->presenter->accesosRapidos($candidato));
+            $candidato->unsetRelation('psicometricas')->unsetRelation('socioeconomicos');
+        });
 
         return Inertia::render('Rh/Candidatos/Index', [
             'candidatos' => $candidatos,
@@ -405,7 +415,14 @@ class CandidatoController extends Controller
     {
         $this->workflow->registrarSocioeconomico($candidato, $request->user(), $request->safe()->except('evidencias'), array_values($request->file('evidencias', [])));
 
-        return $this->ok('Estudio socioeconómico registrado.');
+        return $this->ok('Estudio socioeconómico cargado: queda pendiente de revisión del responsable.');
+    }
+
+    public function revisarSocioeconomico(EvaluarFiltroCandidatoRequest $request, Candidato $candidato): RedirectResponse
+    {
+        $this->workflow->revisarSocioeconomico($candidato, $request->user(), $request->boolean('viable'), $request->validated('observaciones'), $request->motivoRechazoId(), $request->recontratable());
+
+        return $this->ok('Revisión del estudio socioeconómico registrada.');
     }
 
     public function registrarReferencia(RegistrarReferenciaRequest $request, Candidato $candidato): RedirectResponse
@@ -429,13 +446,6 @@ class CandidatoController extends Controller
         $this->workflow->concluirReferencias($candidato, $request->user(), $request->boolean('viable'), $request->validated('observaciones'), $request->motivoRechazoId(), $request->recontratable());
 
         return $this->ok('Validación de referencias concluida.');
-    }
-
-    public function preautorizar(DecisionAprobacionRequest $request, Candidato $candidato): RedirectResponse
-    {
-        $this->workflow->preautorizar($candidato, $request->user(), $request->comentario());
-
-        return $this->ok('Preautorizado: queda pendiente la autorización final de RH.');
     }
 
     public function autorizarRh(DecisionAprobacionRequest $request, Candidato $candidato): RedirectResponse

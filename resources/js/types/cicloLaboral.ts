@@ -170,6 +170,13 @@ export type ExpedienteCandidato = {
     total: number;
 };
 
+export type AccesosRapidosCandidato = {
+    psicometrico: EvidenciaCandidato | null;
+    socioeconomico: EvidenciaCandidato | null;
+    video: EvidenciaCandidato | null;
+    tiene_cv: boolean;
+};
+
 export type CandidatoFicha = {
     id: number;
     nombre: string;
@@ -239,10 +246,15 @@ export type CandidatoFicha = {
         checklist: Record<string, boolean | number | string | null>;
         riesgos: string | null;
         observaciones: string | null;
-        resultado: string;
+        /** null = cargado, pendiente de revisión del responsable. */
+        resultado: string | null;
         resultado_etiqueta: string;
+        revisado_en?: string | null;
+        revision_observaciones?: string | null;
         evidencias: EvidenciaCandidato[];
     }[];
+    /** Ver psicométrico / socioeconómico / video / CV (CandidatoPresenter::accesosRapidos). */
+    accesos_rapidos?: AccesosRapidosCandidato;
     referencias: {
         id: number;
         empresa: string;
