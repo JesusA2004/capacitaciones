@@ -76,3 +76,30 @@ test('people:diagnostico advierte APP_DEBUG=true en producción', function () {
         ->expectsOutputToContain('APP_DEBUG=true en producción')
         ->assertExitCode(1);
 });
+
+test('un 500 en una acción Inertia regresa a la pantalla con un aviso y una referencia, sin detalles internos', function () {
+    Route::middleware('web')->post('/_prueba/accion-explota', fn () => throw new RuntimeException('SECRETO-INTERNO-xyz'));
+
+    $respuesta = $this->from('/dashboard')
+        ->withHeaders(['X-Inertia' => 'true'])
+        ->post('/_prueba/accion-explota');
+
+    $respuesta->assertRedirect('/dashboard');
+    expect(session('toast.message'))->toContain('Referencia:')->not->toContain('SECRETO');
+});
+
+test('un 403 en una acción Inertia regresa con el motivo humano', function () {
+    Route::middleware('web')->post('/_prueba/accion-prohibida', fn () => abort(403, 'Solo RH puede autorizar la contratación.'));
+
+    $this->from('/dashboard')
+        ->withHeaders(['X-Inertia' => 'true'])
+        ->post('/_prueba/accion-prohibida')
+        ->assertRedirect('/dashboard')
+        ->assertSessionHas('toast.message', 'Solo RH puede autorizar la contratación.');
+});
+
+test('la página de un 500 incluye un identificador para Sistemas', function () {
+    $this->get('/_prueba/explota')
+        ->assertStatus(500)
+        ->assertInertia(fn (Assert $page) => $page->component('Error')->where('mensaje', fn ($m) => str_contains((string) $m, 'Referencia:')));
+});

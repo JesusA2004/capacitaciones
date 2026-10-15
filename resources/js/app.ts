@@ -4,6 +4,7 @@ import { initializePersonalizacion } from '@/composables/usePersonalizacion';
 import AppLayout from '@/layouts/AppLayout.vue';
 import AuthLayout from '@/layouts/AuthLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
+import { initializeErroresGlobales } from '@/lib/erroresGlobales';
 import { initializeFlashToast } from '@/lib/flashToast';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
@@ -43,6 +44,9 @@ initializePersonalizacion();
 
 // This will listen for flash toast data from the server...
 initializeFlashToast();
+
+// Ningún 422/403/500 en silencio: toast + foco al primer error.
+initializeErroresGlobales();
 
 // PEOPLE no usa Service Worker. Uno registrado en este origen solo puede ser
 // residuo de otro proyecto servido antes en el mismo host:puerto (típico en

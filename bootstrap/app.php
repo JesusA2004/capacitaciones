@@ -14,6 +14,7 @@ use Illuminate\Http\Exceptions\PostTooLargeException;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use League\Flysystem\UnableToReadFile;
 use League\Flysystem\UnableToRetrieveMetadata;
@@ -123,7 +124,38 @@ return Application::configure(basePath: dirname(__DIR__))
                 return $respuesta;
             }
 
+            // 500: identificador corto para que Sistemas lo ubique en el log.
+            $referencia = null;
+            if ($estado === 500) {
+                $referencia = strtoupper(Str::random(8));
+                Log::error(sprintf('Error 500 referencia %s', $referencia), [
+                    'ruta' => $request->path(),
+                    'metodo' => $request->method(),
+                    'usuario_id' => $request->user()?->id,
+                    'excepcion' => $e::class,
+                    'mensaje' => $e->getMessage(),
+                ]);
+            }
+
+            // Una ACCIÓN (POST/PUT/PATCH/DELETE) que falla con 403/409/500 no
+            // tira la pantalla completa: regresa a donde estaba con el motivo
+            // (el formulario/modal sigue ahí y nada falla en silencio).
+            if ($request->header('X-Inertia') && ! $request->isMethod('GET') && in_array($estado, [403, 409, 500], true)) {
+                $motivo = trim($e->getMessage());
+                $mensaje = match ($estado) {
+                    403 => $motivo !== '' && $motivo !== 'This action is unauthorized.' ? $motivo : 'No tienes permiso para realizar esta acción.',
+                    409 => $motivo !== '' ? $motivo : 'Esta acción todavía no está disponible.',
+                    default => sprintf('Ocurrió un error inesperado. Referencia: %s. Avísalo a Sistemas.', $referencia),
+                };
+
+                return back()->with('toast', ['type' => 'error', 'message' => $mensaje]);
+            }
+
             $props = ['status' => $estado];
+
+            if ($referencia !== null) {
+                $props['mensaje'] = sprintf('Ocurrió un error inesperado. Referencia: %s.', $referencia);
+            }
 
             // Nunca la página cruda «413 Content Too Large»: se dice cuánto
             // acepta realmente el servidor por subida.
