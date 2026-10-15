@@ -168,7 +168,7 @@ class LoteNominaService
             }
 
             $idsConRecibo = $recibosActuales->pluck('colaborador_id')->all();
-            $sinClasificar = array_values(array_filter($fila->advertencias ?? [], fn ($a) => is_array($a) && ($a['sin_clasificacion'] ?? false)));
+            $sinClasificar = array_values(array_filter($fila->advertencias ?? [], fn (array $a): bool => (bool) ($a['sin_clasificacion'] ?? false)));
             $idsDeErrores = $this->colaboradorIdsDeErrores([...($fila->errores ?? []), ...$sinClasificar]);
 
             $colaboradores = Colaborador::query()
@@ -823,10 +823,6 @@ class LoteNominaService
     }
 
     /**
-     * @param  list<array<string, mixed>>  $errores
-     * @param  list<array<string, mixed>>  $advertencias
-     */
-    /**
      * Población de nómina = permiso de nómina + ALCANCE DEL MÓDULO «recibos»
      * (config/permisos_modulos.php), nunca la navegación de Mi espacio:
      * super_admin y alcance «todos» → toda la organización (true); «región»
@@ -853,6 +849,10 @@ class LoteNominaService
             || $this->alcanceModulo->nivel($usuario, 'recibos') === AlcanceDatos::Todos;
     }
 
+    /**
+     * @param  list<array<string, mixed>>  $errores
+     * @param  list<array<string, mixed>>  $advertencias
+     */
     private function cerrarPreparacion(NominaLote $lote, int $esperados, array $errores, array $advertencias, User $actor): NominaLote
     {
         $totales = $lote->recibos()->selectRaw('count(*) as total, coalesce(sum(total_percepciones), 0) as percepciones, coalesce(sum(total_deducciones), 0) as deducciones, coalesce(sum(neto), 0) as neto')->toBase()->first();

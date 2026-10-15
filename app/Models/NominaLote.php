@@ -29,7 +29,7 @@ use Illuminate\Support\Carbon;
  * @property int $esperados
  * @property int $preparados
  * @property list<array{numero_empleado: string|null, colaborador: string|null, colaborador_id?: int|null, motivo: string, fila?: int|null}>|null $errores
- * @property list<array{numero_empleado: string|null, colaborador: string|null, motivo: string}>|null $advertencias
+ * @property list<array{numero_empleado: string|null, colaborador: string|null, colaborador_id?: int|null, sin_clasificacion?: bool, motivo: string}>|null $advertencias
  * @property string $total_percepciones
  * @property string $total_deducciones
  * @property string $total_neto
