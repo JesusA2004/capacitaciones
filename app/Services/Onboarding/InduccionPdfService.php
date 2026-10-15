@@ -84,7 +84,9 @@ class InduccionPdfService
 
         return response()->file($this->ruta(), [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="Induccion Mr Lana.pdf"',
+            // Nombre amigable (el archivo fuente del servidor nunca se expone):
+            // ASCII de respaldo + UTF-8 para «Inducción Mr. Lana.pdf».
+            'Content-Disposition' => "inline; filename=\"Induccion Mr. Lana.pdf\"; filename*=UTF-8''".rawurlencode('Inducción Mr. Lana.pdf'),
             'Cache-Control' => 'private, max-age=86400',
             'X-Content-Type-Options' => 'nosniff',
         ]);

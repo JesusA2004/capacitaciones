@@ -56,7 +56,11 @@ test('el endpoint sirve exactamente el PDF oficial del repositorio, solo con ses
         ->assertOk()
         ->assertHeader('Content-Type', 'application/pdf');
     expect(hash_file('sha256', $respuesta->baseResponse->getFile()->getPathname()))->toBe(hash_file('sha256', $oficial))
-        ->and($this->paginas)->toBe(30);
+        ->and($this->paginas)->toBe(30)
+        // Nombre amigable; el del archivo fuente nunca se ve.
+        ->and($respuesta->headers->get('Content-Disposition'))->toContain('Induccion Mr. Lana.pdf')
+        ->toContain(rawurlencode('Inducción Mr. Lana.pdf'))
+        ->not->toContain('Rediseno');
 
     Sanctum::actingAs($this->usuario);
     $this->get('/api/v1/induccion/pdf')->assertOk()->assertHeader('Content-Type', 'application/pdf');
