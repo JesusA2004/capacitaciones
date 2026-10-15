@@ -128,12 +128,21 @@ import type {
     MovimientoLaboralItem,
     OnboardingItem,
     PrestamoItem,
+    PrestamoMovimientoTipo,
     ReciboNominaItem,
     ResumenExpediente,
     SaldoVacaciones,
     SolicitudExpedienteItem,
     SolicitudVacacionesItem,
 } from '@/types';
+
+/** Movimientos del préstamo en español (el reverso compensa un recibo cancelado). */
+const ETIQUETA_MOVIMIENTO: Record<PrestamoMovimientoTipo, string> = {
+    nomina: 'Descuento de nómina',
+    reverso_nomina: 'Reverso de recibo cancelado',
+    manual: 'Abono manual',
+    ajuste: 'Ajuste',
+};
 
 const props = defineProps<{
     esPropio: boolean;
@@ -2607,8 +2616,8 @@ function irACompletarExpediente() {
                                             <TableCell>{{
                                                 movimiento.fecha
                                             }}</TableCell>
-                                            <TableCell class="capitalize">{{
-                                                movimiento.tipo
+                                            <TableCell>{{
+                                                ETIQUETA_MOVIMIENTO[movimiento.tipo] ?? movimiento.tipo
                                             }}</TableCell>
                                             <TableCell class="text-right">
                                                 {{ moneda(movimiento.monto) }}

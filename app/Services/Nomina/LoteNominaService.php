@@ -177,8 +177,13 @@ class LoteNominaService
                 ->orderBy('id')
                 ->get();
 
-            // Limpio: se vuelve a generar todo desde cero con los datos vigentes.
-            $recibosActuales->each(fn (ReciboNomina $r) => $r->delete());
+            // Limpio: se vuelve a generar todo desde cero con los datos
+            // vigentes. Un borrador no descuenta del préstamo; si uno anterior
+            // a esa regla ya lo había hecho, se compensa antes de borrarlo.
+            $recibosActuales->each(function (ReciboNomina $r) use ($actor): void {
+                $this->recibos->revertirDescuentosPrestamo($r, $actor);
+                $r->delete();
+            });
 
             $periodo = ['inicio' => CarbonImmutable::parse($fila->periodo_inicio), 'fin' => CarbonImmutable::parse($fila->periodo_fin), 'pago' => CarbonImmutable::parse($fila->fecha_pago)];
             // Conserva EXACTAMENTE el filtro de sucursales con el que se
@@ -736,11 +741,17 @@ class LoteNominaService
             }
 
             $fila->update(['estado' => EstadoLoteNomina::Cancelado, 'cancelado_por' => $actor->id, 'cancelado_at' => now(), 'motivo_cancelacion' => mb_substr(trim($motivo), 0, 500)]);
-            $fila->recibos()->where('estado', '!=', EstadoReciboNomina::Cancelado->value)->update([
+            $porCancelar = $fila->recibos()->where('estado', '!=', EstadoReciboNomina::Cancelado->value)->get();
+            $fila->recibos()->whereKey($porCancelar->modelKeys())->update([
                 'estado' => EstadoReciboNomina::Cancelado->value,
                 'cancelado_at' => now(),
                 'cancelado_por' => $actor->id,
             ]);
+
+            // Recibos ya emitidos que descontaron de un préstamo: el saldo
+            // regresa (movimiento compensatorio idempotente). Los borradores
+            // nunca descontaron, así que no generan nada.
+            $porCancelar->each(fn (ReciboNomina $recibo) => $this->recibos->revertirDescuentosPrestamo($recibo, $actor));
         });
 
         $this->auditoria->registrar('lote_nomina_cancelado', $lote, $actor, ['folio' => $lote->folio, 'motivo' => $motivo]);

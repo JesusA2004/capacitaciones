@@ -22,6 +22,12 @@ use Illuminate\Validation\ValidationException;
  */
 class PrestamoService
 {
+    /** Descuento de un recibo de nómina emitido. */
+    public const TIPO_NOMINA = 'nomina';
+
+    /** Compensación de un descuento de nómina cuyo recibo se canceló. */
+    public const TIPO_REVERSO_NOMINA = 'reverso_nomina';
+
     /**
      * Crea el préstamo a partir de una solicitud interna ya aprobada. Usa
      * `$solicitud->monto_solicitado`/`plazo_meses` como base si `$datos` no
@@ -119,8 +125,13 @@ class PrestamoService
      * (una corrección deliberada de RH/contabilidad, no un pago normal):
      * 'manual'/'nomina' nunca pueden dejar el saldo en negativo en
      * silencio, se rechazan con una validación explícita.
+     *
+     * Con `$reciboNominaId` (descuento de un recibo EMITIDO) es idempotente:
+     * si ese recibo ya registró un movimiento de este tipo sobre este
+     * préstamo, se devuelve el existente sin volver a descontar (respaldado
+     * por el índice único prestamo_mov_recibo_prestamo_tipo_unique).
      */
-    public function registrarMovimiento(Prestamo $prestamo, float $monto, string $tipo, User $registradoPor): PrestamoMovimiento
+    public function registrarMovimiento(Prestamo $prestamo, float $monto, string $tipo, User $registradoPor, ?int $reciboNominaId = null): PrestamoMovimiento
     {
         if ($monto <= 0) {
             throw ValidationException::withMessages([
@@ -128,9 +139,17 @@ class PrestamoService
             ]);
         }
 
-        return DB::transaction(function () use ($prestamo, $monto, $tipo, $registradoPor): PrestamoMovimiento {
+        return DB::transaction(function () use ($prestamo, $monto, $tipo, $registradoPor, $reciboNominaId): PrestamoMovimiento {
             /** @var Prestamo $prestamo */
             $prestamo = Prestamo::query()->lockForUpdate()->findOrFail($prestamo->id);
+
+            if ($reciboNominaId !== null) {
+                $existente = $this->movimientoDelRecibo($prestamo->id, $reciboNominaId, $tipo);
+
+                if ($existente !== null) {
+                    return $existente;
+                }
+            }
 
             if ($prestamo->estado !== 'activo') {
                 throw ValidationException::withMessages([
@@ -157,6 +176,7 @@ class PrestamoService
                 'saldo_anterior' => $saldoAnterior,
                 'saldo_nuevo' => $saldoNuevo,
                 'registrado_por' => $registradoPor->id,
+                'recibo_nomina_id' => $reciboNominaId,
             ]);
 
             $prestamo->update([
@@ -166,6 +186,73 @@ class PrestamoService
 
             return $movimiento;
         });
+    }
+
+    /**
+     * Revierte el descuento de nómina de un recibo que se canceló: registra
+     * un movimiento compensatorio `reverso_nomina` (el ledger es
+     * append-only, el movimiento original nunca se toca) que regresa el
+     * monto al saldo; si ese descuento había liquidado el préstamo, vuelve
+     * a quedar activo. Idempotente: un recibo solo se revierte una vez por
+     * préstamo. Un préstamo cancelado no se toca (su saldo ya no cuenta) y
+     * devuelve null.
+     */
+    public function revertirMovimientoNomina(PrestamoMovimiento $original, User $registradoPor): ?PrestamoMovimiento
+    {
+        if ($original->tipo !== self::TIPO_NOMINA || $original->recibo_nomina_id === null) {
+            throw ValidationException::withMessages([
+                'movimiento' => 'Solo se revierte un descuento de nómina ligado a un recibo.',
+            ]);
+        }
+
+        $reciboId = $original->recibo_nomina_id;
+
+        return DB::transaction(function () use ($original, $reciboId, $registradoPor): ?PrestamoMovimiento {
+            /** @var Prestamo $prestamo */
+            $prestamo = Prestamo::query()->lockForUpdate()->findOrFail($original->prestamo_id);
+
+            $existente = $this->movimientoDelRecibo($prestamo->id, $reciboId, self::TIPO_REVERSO_NOMINA);
+
+            if ($existente !== null) {
+                return $existente;
+            }
+
+            if (! in_array($prestamo->estado, ['activo', 'liquidado'], true)) {
+                return null;
+            }
+
+            $monto = round((float) $original->monto, 2);
+            $saldoAnterior = round((float) $prestamo->saldo, 2);
+            $saldoNuevo = round($saldoAnterior + $monto, 2);
+
+            /** @var PrestamoMovimiento $movimiento */
+            $movimiento = PrestamoMovimiento::query()->create([
+                'prestamo_id' => $prestamo->id,
+                'fecha' => now()->toDateString(),
+                'monto' => $monto,
+                'tipo' => self::TIPO_REVERSO_NOMINA,
+                'saldo_anterior' => $saldoAnterior,
+                'saldo_nuevo' => $saldoNuevo,
+                'registrado_por' => $registradoPor->id,
+                'recibo_nomina_id' => $reciboId,
+            ]);
+
+            $prestamo->update([
+                'saldo' => $saldoNuevo,
+                'estado' => $saldoNuevo > 0 ? 'activo' : $prestamo->estado,
+            ]);
+
+            return $movimiento;
+        });
+    }
+
+    private function movimientoDelRecibo(int $prestamoId, int $reciboNominaId, string $tipo): ?PrestamoMovimiento
+    {
+        return PrestamoMovimiento::query()
+            ->where('prestamo_id', $prestamoId)
+            ->where('recibo_nomina_id', $reciboNominaId)
+            ->where('tipo', $tipo)
+            ->first();
     }
 
     /**

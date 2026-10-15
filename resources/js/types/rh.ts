@@ -220,7 +220,8 @@ export type ReciboNominaItem = {
     created_at: string | null;
 };
 
-export type PrestamoMovimientoTipo = 'nomina' | 'manual' | 'ajuste';
+export type PrestamoMovimientoTipo =
+    'nomina' | 'reverso_nomina' | 'manual' | 'ajuste';
 
 export type PrestamoMovimientoItem = {
     id: number;

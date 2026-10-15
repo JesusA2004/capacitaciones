@@ -24,7 +24,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon $fecha_pago
  * @property string $sueldo_base
  * @property array<int, array{concepto: string, monto: float}> $percepciones
- * @property array<int, array{concepto: string, monto: float, prestamo_id?: int}> $deducciones
+ * @property array<int, array{concepto: string, monto: float, tipo?: string, prestamo_id?: int}> $deducciones
  * @property string $total_percepciones
  * @property string $total_deducciones
  * @property string $neto

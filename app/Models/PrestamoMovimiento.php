@@ -22,6 +22,7 @@ use Illuminate\Support\Carbon;
  * @property string $saldo_anterior
  * @property string $saldo_nuevo
  * @property int|null $registrado_por
+ * @property int|null $recibo_nomina_id Recibo emitido que originó el movimiento (`nomina`) o cuya cancelación lo revirtió (`reverso_nomina`).
  */
 class PrestamoMovimiento extends Model
 {
@@ -38,6 +39,7 @@ class PrestamoMovimiento extends Model
         'saldo_anterior',
         'saldo_nuevo',
         'registrado_por',
+        'recibo_nomina_id',
     ];
 
     protected function casts(): array
@@ -56,6 +58,14 @@ class PrestamoMovimiento extends Model
     public function prestamo(): BelongsTo
     {
         return $this->belongsTo(Prestamo::class);
+    }
+
+    /**
+     * @return BelongsTo<ReciboNomina, $this>
+     */
+    public function reciboNomina(): BelongsTo
+    {
+        return $this->belongsTo(ReciboNomina::class, 'recibo_nomina_id');
     }
 
     /**

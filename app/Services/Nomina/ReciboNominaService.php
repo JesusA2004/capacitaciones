@@ -12,6 +12,7 @@ use App\Models\Colaborador;
 use App\Models\GeneratedDocument;
 use App\Models\NominaLote;
 use App\Models\Prestamo;
+use App\Models\PrestamoMovimiento;
 use App\Models\ReciboNomina;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
@@ -166,20 +167,9 @@ class ReciboNominaService
                 ]);
             }
 
-            // Saldo administrativo/informativo del préstamo: solo si RH
-            // confirmó explícitamente la línea de préstamo. MR. LANA PEOPLE no
-            // ejecuta descuentos de nómina.
-            foreach ($deducciones as $deduccion) {
-                if (($deduccion['clasificacion'] ?? null) !== 'prestamo' || ! isset($deduccion['prestamo_id'])) {
-                    continue;
-                }
-
-                $prestamo = Prestamo::query()->where('id', $deduccion['prestamo_id'])->where('colaborador_id', $colaborador->id)->first();
-
-                if ($prestamo !== null && $generadoPor !== null) {
-                    $this->prestamos->registrarMovimiento($prestamo, (float) $deduccion['importe'], 'nomina', $generadoPor);
-                }
-            }
+            // El saldo del préstamo NO se toca aquí: el recibo nace en
+            // borrador y el descuento se registra solo al EMITIRSE (ver
+            // registrarDescuentosPrestamo()).
 
             return $recibo;
         });
@@ -219,7 +209,14 @@ class ReciboNominaService
 
         DB::transaction(function () use ($recibo, $conceptos, $datos): void {
             ReciboNomina::query()->whereKey($recibo->id)->lockForUpdate()->first();
+            $prestamosAntes = $this->descuentosPorPrestamo($recibo);
             $this->guardarConceptos($recibo, $conceptos);
+
+            // Un recibo emitido ya descontó el préstamo: su monto no se
+            // cambia aquí (el saldo quedaría distinto del recibo).
+            if ($recibo->estado === EstadoReciboNomina::Emitido && $this->descuentosPorPrestamo($recibo->refresh()) !== $prestamosAntes) {
+                throw ValidationException::withMessages(['conceptos' => 'Este recibo ya está emitido y descontó el préstamo: no se cambia ese descuento aquí. Cancela el recibo y genera uno nuevo.']);
+            }
 
             if (array_key_exists('observaciones', $datos)) {
                 $recibo->update(['observaciones' => $datos['observaciones'] !== null ? (string) $datos['observaciones'] : null]);
@@ -301,6 +298,11 @@ class ReciboNominaService
                 return false;
             }
 
+            // Antes de marcarlo emitido: si el préstamo no admite el
+            // descuento (liquidado, saldo menor), el recibo sigue en
+            // borrador con el motivo para RH.
+            $this->registrarDescuentosPrestamo($fila, $actor);
+
             $fila->update(['estado' => EstadoReciboNomina::Emitido, 'emitido_at' => now(), 'emitido_por' => $actor->id]);
 
             return true;
@@ -326,16 +328,87 @@ class ReciboNominaService
      */
     public function cancelar(ReciboNomina $recibo, User $actor): ReciboNomina
     {
-        $cancelado = ReciboNomina::query()
-            ->whereKey($recibo->id)
-            ->where('estado', '!=', EstadoReciboNomina::Cancelado->value)
-            ->update(['estado' => EstadoReciboNomina::Cancelado->value, 'cancelado_at' => now(), 'cancelado_por' => $actor->id]);
+        $cancelado = DB::transaction(function () use ($recibo, $actor): int {
+            $filas = ReciboNomina::query()
+                ->whereKey($recibo->id)
+                ->where('estado', '!=', EstadoReciboNomina::Cancelado->value)
+                ->update(['estado' => EstadoReciboNomina::Cancelado->value, 'cancelado_at' => now(), 'cancelado_por' => $actor->id]);
+
+            // Si ya se había emitido (y descontado del préstamo), el saldo
+            // regresa con un movimiento compensatorio.
+            if ($filas > 0) {
+                $this->revertirDescuentosPrestamo($recibo, $actor);
+            }
+
+            return $filas;
+        });
 
         if ($cancelado > 0) {
             $this->auditoria->registrar('recibo_nomina_cancelado', $recibo, $actor, ['folio' => $recibo->folio]);
         }
 
         return $recibo->refresh();
+    }
+
+    /**
+     * Registra en el ledger del préstamo las deducciones de préstamo que RH
+     * confirmó explícitamente en el recibo (snapshot `deducciones` con
+     * tipo `prestamo` y prestamo_id). Se llama SOLO al emitir, dentro de la
+     * transacción que lo marca emitido. Idempotente por recibo+préstamo:
+     * reintentar la emisión nunca descuenta dos veces. Varias líneas del
+     * mismo préstamo se suman en un solo movimiento. MR. LANA PEOPLE no
+     * ejecuta descuentos de nómina: es el saldo administrativo/informativo.
+     */
+    private function registrarDescuentosPrestamo(ReciboNomina $recibo, User $actor): void
+    {
+        foreach ($this->descuentosPorPrestamo($recibo) as $prestamoId => $monto) {
+            $prestamo = Prestamo::query()->where('id', $prestamoId)->where('colaborador_id', $recibo->colaborador_id)->first();
+
+            if ($prestamo === null || $monto <= 0) {
+                continue;
+            }
+
+            $this->prestamos->registrarMovimiento($prestamo, $monto, PrestamoService::TIPO_NOMINA, $actor, $recibo->id);
+        }
+    }
+
+    /**
+     * Descuento total por préstamo según las deducciones del recibo.
+     *
+     * @return array<int, float>
+     */
+    private function descuentosPorPrestamo(ReciboNomina $recibo): array
+    {
+        $montos = [];
+
+        foreach ($recibo->deducciones as $deduccion) {
+            if (($deduccion['tipo'] ?? null) !== 'prestamo' || ! isset($deduccion['prestamo_id'])) {
+                continue;
+            }
+
+            $prestamoId = (int) $deduccion['prestamo_id'];
+            $montos[$prestamoId] = round(($montos[$prestamoId] ?? 0.0) + (float) $deduccion['monto'], 2);
+        }
+
+        ksort($montos);
+
+        return $montos;
+    }
+
+    /**
+     * Revierte (movimiento compensatorio `reverso_nomina`, idempotente) los
+     * descuentos de préstamo que registró un recibo que se está cancelando.
+     * Un borrador nunca descontó, así que no genera nada. Debe llamarse
+     * dentro de la transacción de la cancelación.
+     */
+    public function revertirDescuentosPrestamo(ReciboNomina $recibo, User $actor): void
+    {
+        PrestamoMovimiento::query()
+            ->where('recibo_nomina_id', $recibo->id)
+            ->where('tipo', PrestamoService::TIPO_NOMINA)
+            ->orderBy('id')
+            ->get()
+            ->each(fn (PrestamoMovimiento $movimiento) => $this->prestamos->revertirMovimientoNomina($movimiento, $actor));
     }
 
     /**
@@ -391,9 +464,35 @@ class ReciboNominaService
             ]);
         }
 
+        // La línea de préstamo confirmada por RH se conserva aunque el editor
+        // (o el ajuste masivo) no reenvíe su clasificación: sin esto, editar
+        // un borrador perdía el enlace y al emitirlo no se descontaba.
+        $prestamosPrevios = [];
+
+        foreach ($recibo->deducciones as $previa) {
+            if (($previa['tipo'] ?? null) === 'prestamo' && isset($previa['prestamo_id'])) {
+                $prestamosPrevios[(string) $previa['concepto']] = (int) $previa['prestamo_id'];
+            }
+        }
+
         $recibo->update([
             'percepciones' => array_map(fn (array $c) => ['concepto' => $c['concepto'], 'monto' => $c['importe']], $percepciones),
-            'deducciones' => array_map(fn (array $c) => ['concepto' => $c['concepto'], 'monto' => $c['importe']], $deducciones),
+            'deducciones' => array_map(function (array $c) use ($prestamosPrevios): array {
+                $prestamoId = $c['prestamo_id'] ?? null;
+                $clasificacion = $c['clasificacion'] ?? null;
+
+                if ($prestamoId === null && $clasificacion === null && isset($prestamosPrevios[$c['concepto']])) {
+                    $prestamoId = $prestamosPrevios[$c['concepto']];
+                    $clasificacion = 'prestamo';
+                }
+
+                return array_filter([
+                    'concepto' => $c['concepto'],
+                    'monto' => $c['importe'],
+                    'tipo' => $clasificacion,
+                    'prestamo_id' => $prestamoId,
+                ], fn ($v) => $v !== null);
+            }, $deducciones),
             'total_percepciones' => $totalPercepciones,
             'total_deducciones' => $totalDeducciones,
             'neto' => round($totalPercepciones - $totalDeducciones, 2),
