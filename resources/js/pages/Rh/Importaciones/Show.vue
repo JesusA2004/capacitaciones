@@ -37,6 +37,9 @@ type FilaDetalle = {
     salario_diario_actual: number | null;
     salario_diario_excel: number | null;
     antiguedad_anios: number | null;
+    fecha_ingreso_people?: string | null;
+    fecha_ingreso_pendiente?: boolean;
+    fecha_ingreso_reportada_archivo?: string | null;
     cumple_un_anio: boolean | null;
     ajuste_vacaciones_propuesto: number;
     motivo_ajuste_vacaciones: string | null;
@@ -313,9 +316,29 @@ return;
                             <span v-else>—</span>
                         </td>
                         <td class="p-3">
-                            <template v-if="f.antiguedad_anios !== null">
+                            <span
+                                v-if="f.fecha_ingreso_pendiente"
+                                class="text-xs font-medium text-amber-700"
+                            >
+                                Fecha de ingreso pendiente de validación.
+                            </span>
+                            <template v-else-if="f.antiguedad_anios !== null">
                                 {{ f.antiguedad_anios }} año(s)
+                                <span
+                                    v-if="f.fecha_ingreso_people"
+                                    class="block text-xs text-[var(--mrl-texto-suave)]"
+                                >
+                                    Ingreso: {{ formatearFecha(f.fecha_ingreso_people) }}
+                                </span>
                             </template>
+                            <span
+                                v-if="f.fecha_ingreso_reportada_archivo"
+                                class="block text-xs text-[var(--mrl-texto-suave)]"
+                                title="Referencia no confiable: nunca se aplica al expediente."
+                            >
+                                Fecha reportada en archivo:
+                                {{ formatearFecha(f.fecha_ingreso_reportada_archivo) }}
+                            </span>
                         </td>
                         <td class="p-3">
                             <span

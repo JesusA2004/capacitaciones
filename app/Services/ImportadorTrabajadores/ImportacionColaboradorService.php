@@ -48,7 +48,7 @@ class ImportacionColaboradorService
                 'sucursal_principal_id' => $datos['sucursal_principal_id'] ?? null,
                 'departamento_id' => $datos['departamento_id'] ?? null,
                 'puesto_id' => $datos['puesto_id'],
-                'fecha_ingreso' => $datos['fecha_ingreso'],
+                'fecha_ingreso' => $datos['fecha_ingreso'] ?? null,
                 'estatus' => EstadoUsuario::Activo,
                 'alta_registrada_por' => $actor->id,
             ]);
@@ -81,7 +81,7 @@ class ImportacionColaboradorService
             try {
                 $this->auditoria->registrar('colaborador_creado_desde_importacion', $colaborador, $actor, [
                     'colaborador_id' => $colaborador->id,
-                    'fecha_ingreso' => (string) $datos['fecha_ingreso'],
+                    'fecha_ingreso' => isset($datos['fecha_ingreso']) ? (string) $datos['fecha_ingreso'] : null,
                     'sucursal_id' => $colaborador->sucursal_principal_id,
                     'puesto_id' => $colaborador->puesto_id,
                 ]);

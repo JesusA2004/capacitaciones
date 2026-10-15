@@ -12,6 +12,13 @@ export type SaldoVacaciones = {
     dias_ajustes_historicos: number;
     ajustes_a_favor: number;
     dias_disponibles: number;
+    puede_solicitar?: boolean;
+    motivo_no_disponible?: string | null;
+    fecha_disponible_desde?: string | null;
+    fecha_ingreso?: string | null;
+    primer_aniversario?: string | null;
+    antiguedad_meses?: number;
+    antiguedad_texto?: string;
 };
 
 export type SolicitudVacacionesItem = {

@@ -164,11 +164,10 @@ class ImportadorTrabajadoresService
                 }
 
                 try {
-                    // Fecha de ingreso: la del reporte corrige la de PEOPLE.
-                    if (($fila['corrige_fecha_ingreso'] ?? false) && is_string($fila['fecha_ingreso_excel'] ?? null)) {
-                        $colaborador->forceFill(['fecha_ingreso' => $fila['fecha_ingreso_excel']])->save();
-                    }
-
+                    // La fecha de ingreso NUNCA se toma del reporte (regla
+                    // definitiva 2026-10-15): ni para corregir ni para llenar
+                    // una vacía. Detalles analizados antes con la bandera
+                    // vieja corrige_fecha_ingreso se ignoran aquí a propósito.
                     if ($fila['cambia_salario']) {
                         $this->compensacion->actualizarSalario(
                             $colaborador,
@@ -204,8 +203,6 @@ class ImportadorTrabajadoresService
                             'importacion_id' => $importacion->id,
                             'fila' => $fila['fila'],
                             'match_tipo' => $fila['match_tipo'] ?? 'exacto',
-                            'fecha_ingreso_anterior' => $fila['fecha_ingreso_anterior'] ?? null,
-                            'fecha_ingreso_nueva' => ($fila['corrige_fecha_ingreso'] ?? false) ? ($fila['fecha_ingreso_excel'] ?? null) : null,
                             'salario_diario_anterior' => $fila['salario_diario_actual'] ?? null,
                             'salario_diario_nuevo' => $fila['cambia_salario'] ? ($fila['salario_diario_excel'] ?? null) : null,
                             'ajuste_vacaciones' => $fila['ajuste_vacaciones_propuesto'] ?? 0.0,
@@ -355,7 +352,9 @@ class ImportadorTrabajadoresService
         $colaborador = $this->altaDesdeImportacion->crear([
             'name' => $nombre,
             'apellidos' => $apellidos,
-            'fecha_ingreso' => $filaDetalle['fecha_ingreso_excel'] ?? Carbon::parse((string) $filaDetalle['fecha_corte'])->toDateString(),
+            // Nunca la fecha del Excel (no es fuente confiable): solo la que
+            // RH capture validada; sin ella queda pendiente de validación.
+            'fecha_ingreso' => $datosExtra['fecha_ingreso'] ?? null,
             'salario_diario' => $filaDetalle['salario_diario_excel'],
             'sucursal_principal_id' => $datosExtra['sucursal_principal_id'] ?? null,
             'departamento_id' => $datosExtra['departamento_id'] ?? null,
@@ -425,9 +424,10 @@ class ImportadorTrabajadoresService
             'cambia_salario' => false,
             'salario_diario_actual' => null,
             'salario_diario_excel' => null,
-            'fecha_ingreso_excel' => null,
-            'fecha_ingreso_anterior' => null,
-            'corrige_fecha_ingreso' => false,
+            // Solo referencia NO confiable: jamás se aplica al colaborador.
+            'fecha_ingreso_reportada_archivo' => null,
+            'fecha_ingreso_people' => null,
+            'fecha_ingreso_pendiente' => false,
             'antiguedad_anios' => null,
             'cumple_un_anio' => null,
             'dias_tomados_excel' => null,
@@ -451,7 +451,7 @@ class ImportadorTrabajadoresService
         }
 
         $base['salario_diario_excel'] = round((float) $salarioDiarioExcel, 2);
-        $base['fecha_ingreso_excel'] = $this->parsearFecha($fila['fecha_ingreso'] ?? null)?->toDateString();
+        $base['fecha_ingreso_reportada_archivo'] = $this->parsearFecha($fila['fecha_ingreso'] ?? null)?->toDateString();
         $base['dias_tomados_excel'] = is_numeric($fila['dias_tomados'] ?? null) ? (float) $fila['dias_tomados'] : null;
 
         // La sucursal del reporte, si es válida en el catálogo, SOLO sirve
@@ -500,24 +500,16 @@ class ImportadorTrabajadoresService
         $base['match_en'] = $matchActorId !== null ? now()->toIso8601String() : null;
         $base['sugerencias'] = [];
 
-        $fechaIngresoExcelParsed = is_string($base['fecha_ingreso_excel'] ?? null) ? Carbon::parse($base['fecha_ingreso_excel'])->startOfDay() : null;
-        $fechaIngreso = $fechaIngresoExcelParsed ?? $colaborador->fecha_ingreso;
+        // La fecha de ingreso de PEOPLE es la ÚNICA fuente (regla definitiva
+        // 2026-10-15): el reporte sirve para salario diario, vacaciones
+        // tomadas y contexto de sucursal, NUNCA para fecha_ingreso. La del
+        // archivo solo se muestra como referencia no confiable.
+        $fechaIngreso = $colaborador->fecha_ingreso;
+        $base['fecha_ingreso_people'] = $fechaIngreso?->toDateString();
+        $base['fecha_ingreso_pendiente'] = $fechaIngreso === null;
 
-        if ($fechaIngreso === null) {
-            return [...$base, 'estado' => 'revision', 'motivo' => 'Ni el reporte ni PEOPLE tienen fecha de ingreso: no se puede calcular antigüedad.'];
-        }
-
-        // La fecha de ingreso del REPORTE es la fuente (decisión de RH,
-        // 2026-10-13): si PEOPLE tiene otra (o ninguna), al aplicar se
-        // corrige con la del Excel y queda registrado en el detalle
-        // (fecha_ingreso_anterior → fecha_ingreso_excel). Sin fecha válida en
-        // el reporte se conserva la de PEOPLE.
-        $base['fecha_ingreso_anterior'] = $colaborador->fecha_ingreso?->toDateString();
-        $base['corrige_fecha_ingreso'] = $fechaIngresoExcelParsed !== null
-            && ($colaborador->fecha_ingreso === null || ! $fechaIngresoExcelParsed->isSameDay($colaborador->fecha_ingreso));
-
-        $antiguedadAnios = (int) $fechaIngreso->diffInYears($fechaCorte);
-        $cumpleUnAnio = $antiguedadAnios >= 1;
+        $antiguedadAnios = $fechaIngreso === null ? 0 : (int) Carbon::parse($fechaIngreso->toDateString())->diffInYears($fechaCorte);
+        $cumpleUnAnio = $fechaIngreso !== null && $antiguedadAnios >= 1;
         $base['antiguedad_anios'] = $antiguedadAnios;
         $base['cumple_un_anio'] = $cumpleUnAnio;
 
@@ -531,7 +523,9 @@ class ImportadorTrabajadoresService
         $base['motivo_vacaciones_no_aplican'] = null;
         $base['motivo_ajuste_vacaciones'] = null;
 
-        if (! $cumpleUnAnio) {
+        if ($fechaIngreso === null) {
+            $base['motivo_vacaciones_no_aplican'] = 'Fecha de ingreso pendiente de validación: RH debe capturarla en el expediente antes de aplicar vacaciones.';
+        } elseif (! $cumpleUnAnio) {
             // Regla crítica (CLAUDE.md §24-29): sin 1 año cumplido, NUNCA se
             // acredita/descuenta el bloque anual, sin importar lo que diga
             // DIAS OTORGADOS/TOMADOS — ese bloque todavía no existe.
@@ -541,7 +535,7 @@ class ImportadorTrabajadoresService
             $base['motivo_ajuste_vacaciones'] = "Días tomados antes de PEOPLE según reporte (fila {$base['fila']}).";
         }
 
-        $hayCambios = $base['corrige_fecha_ingreso'] || $base['cambia_salario'] || $base['ajuste_vacaciones_propuesto'] !== 0.0;
+        $hayCambios = $base['cambia_salario'] || $base['ajuste_vacaciones_propuesto'] !== 0.0;
 
         return [...$base, 'estado' => $hayCambios ? 'aplicable' : 'sin_cambios', 'motivo' => null];
     }
@@ -649,6 +643,14 @@ class ImportadorTrabajadoresService
             } catch (Throwable) {
                 return null;
             }
+        }
+
+        // Texto dd/mm/aaaa (formato mexicano del reporte): Carbon::parse lo
+        // leería como m/d estadounidense (01/12/2025 → 12 de enero).
+        if (preg_match('#^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$#', trim((string) $valor), $m) === 1) {
+            return checkdate((int) $m[2], (int) $m[1], (int) $m[3])
+                ? Carbon::create((int) $m[3], (int) $m[2], (int) $m[1])?->startOfDay()
+                : null;
         }
 
         try {

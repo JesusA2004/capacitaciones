@@ -4,8 +4,10 @@ use App\Models\AjusteHistoricoVacaciones;
 use App\Models\Colaborador;
 use App\Models\HistorialSalario;
 use App\Models\ImportacionExcel;
+use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Services\Compensacion\CompensacionService;
+use App\Services\ImportadorTrabajadores\AuditoriaFechasImportadasService;
 use App\Services\ImportadorTrabajadores\ImportadorTrabajadoresService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Http\UploadedFile;
@@ -379,4 +381,95 @@ test('analizarCorreccion bloquea si el salario del colaborador cambio despues de
     $bloqueado = $this->importador->analizarCorreccion($importacion, 5);
     expect($bloqueado['bloqueado'])->toBeTrue()
         ->and($bloqueado['motivo'])->toContain('cambios posteriores');
+});
+
+test('la fecha de ingreso del reporte NUNCA sobrescribe la de PEOPLE; solo queda como referencia', function () {
+    $colaborador = Colaborador::factory()->create([
+        'name' => 'Jesús', 'apellidos' => 'Prueba Fecha',
+        'sucursal_principal_id' => $this->sucursal->id,
+        'estatus' => 'activo',
+        'fecha_ingreso' => '2025-12-01',
+        'salario_diario' => 300,
+    ]);
+
+    $importacion = $this->importador->analizar(itvArchivo([
+        ['Jesús Prueba Fecha', 'Atlacomulco', '01/01/2025', 12, 0, 12, 320],
+    ]), $this->actor);
+    $fila = $importacion->detalle[0];
+
+    expect($fila['fecha_ingreso_people'])->toBe('2025-12-01')
+        ->and($fila['fecha_ingreso_reportada_archivo'])->toBe('2025-01-01')
+        ->and($fila)->not->toHaveKey('corrige_fecha_ingreso');
+
+    $this->importador->aplicar($importacion->fresh(), $this->actor);
+
+    expect($colaborador->refresh()->fecha_ingreso->toDateString())->toBe('2025-12-01')
+        ->and((float) $colaborador->salario_diario)->toBe(320.0);
+});
+
+test('sin fecha de ingreso en PEOPLE no se toma la del reporte: queda pendiente de validación y sin vacaciones', function () {
+    $colaborador = Colaborador::factory()->create([
+        'name' => 'Sin', 'apellidos' => 'Fecha Ingreso',
+        'sucursal_principal_id' => $this->sucursal->id,
+        'estatus' => 'activo',
+        'fecha_ingreso' => null,
+        'salario_diario' => 300,
+    ]);
+
+    $importacion = $this->importador->analizar(itvArchivo([
+        ['Sin Fecha Ingreso', 'Atlacomulco', '15/03/2020', 20, 5, 15, 300],
+    ]), $this->actor);
+    $fila = $importacion->detalle[0];
+
+    expect($fila['fecha_ingreso_pendiente'])->toBeTrue()
+        ->and($fila['fecha_ingreso_reportada_archivo'])->toBe('2020-03-15')
+        ->and((float) $fila['ajuste_vacaciones_propuesto'])->toBe(0.0)
+        ->and($fila['motivo_vacaciones_no_aplican'])->toContain('pendiente de validación');
+
+    $this->importador->aplicar($importacion->fresh(), $this->actor);
+
+    expect($colaborador->refresh()->fecha_ingreso)->toBeNull()
+        ->and(AjusteHistoricoVacaciones::query()->where('colaborador_id', $colaborador->id)->count())->toBe(0);
+});
+
+test('crear colaborador desde una fila no toma la fecha del archivo (solo la que RH capture validada)', function () {
+    $puesto = Puesto::factory()->create();
+    $importacion = $this->importador->analizar(itvArchivo([
+        ['Persona Nueva Excel', 'Atlacomulco', '01/12/2025', 12, 0, 12, 300],
+    ]), $this->actor);
+
+    $sinFecha = $this->importador->registrarColaboradorDesdeFila($importacion->fresh(), 5, ['puesto_id' => $puesto->id], $this->actor);
+
+    expect($sinFecha->fecha_ingreso)->toBeNull();
+});
+
+test('people:auditar-fechas-importadas propone RESTAURAR solo cuando hay fecha anterior sin ambigüedad', function () {
+    $restaurable = Colaborador::factory()->create(['fecha_ingreso' => '2025-01-12']);
+    $sinAnterior = Colaborador::factory()->create(['fecha_ingreso' => '2024-05-01']);
+    $editadaDespues = Colaborador::factory()->create(['fecha_ingreso' => '2023-02-02']);
+
+    ImportacionExcel::query()->create([
+        'archivo_hash' => 'hash-auditoria', 'nombre_archivo' => 'REPORTE.xlsx', 'tipo' => 'trabajadores_vacaciones',
+        'subido_por' => $this->actor->id, 'estado' => 'aplicado', 'total_filas' => 3,
+        'detalle' => [
+            ['fila' => 5, 'aplicado' => true, 'colaborador_id' => $restaurable->id, 'corrige_fecha_ingreso' => true, 'fecha_ingreso_anterior' => '2025-12-01', 'fecha_ingreso_excel' => '2025-01-12'],
+            ['fila' => 6, 'aplicado' => true, 'colaborador_id' => $sinAnterior->id, 'corrige_fecha_ingreso' => true, 'fecha_ingreso_anterior' => null, 'fecha_ingreso_excel' => '2024-05-01'],
+            ['fila' => 7, 'aplicado' => true, 'colaborador_id' => $editadaDespues->id, 'corrige_fecha_ingreso' => true, 'fecha_ingreso_anterior' => '2020-01-01', 'fecha_ingreso_excel' => '2021-01-01'],
+        ],
+    ]);
+
+    $casos = collect(app(AuditoriaFechasImportadasService::class)->diagnosticar())->keyBy('fila');
+
+    expect($casos[5]['dictamen'])->toBe('restaurar')
+        ->and($casos[6]['dictamen'])->toBe('revision_manual')
+        ->and($casos[7]['dictamen'])->toBe('revision_manual');
+
+    $this->artisan('people:auditar-fechas-importadas')->assertSuccessful();
+    expect($restaurable->refresh()->fecha_ingreso->toDateString())->toBe('2025-01-12');
+
+    $this->artisan('people:auditar-fechas-importadas', ['--restaurar' => true])->assertSuccessful();
+
+    expect($restaurable->refresh()->fecha_ingreso->toDateString())->toBe('2025-12-01')
+        ->and($sinAnterior->refresh()->fecha_ingreso->toDateString())->toBe('2024-05-01')
+        ->and($editadaDespues->refresh()->fecha_ingreso->toDateString())->toBe('2023-02-02');
 });

@@ -26,6 +26,9 @@ class CrearColaboradorImportacionRequest extends FormRequest
             'departamento_id' => ['nullable', 'integer', 'exists:departamentos,id'],
             'sucursal_principal_id' => ['nullable', 'integer', 'exists:sucursales,id'],
             'numero_empleado' => ['nullable', 'string', 'max:30'],
+            // La fecha del Excel NO es fuente confiable: RH la captura aquí
+            // si la tiene validada; si no, queda pendiente de validación.
+            'fecha_ingreso' => ['nullable', 'date'],
         ];
     }
 }

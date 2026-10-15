@@ -191,7 +191,7 @@ function nivelesDisponibles(modulo: ModuloPermisos) {
 
 function enviar() {
     if (props.rol) {
-        form.put(RolController.update.url(String(props.rol.id)), {
+        form.put(RolController.update.url(props.rol.id), {
             preserveScroll: true,
             onSuccess: () => emit('update:open', false),
         });

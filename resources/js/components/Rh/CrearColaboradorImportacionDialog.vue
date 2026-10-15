@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
+import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -40,6 +41,7 @@ const form = useForm({
     departamento_id: '',
     sucursal_principal_id: '',
     numero_empleado: '',
+    fecha_ingreso: '',
 });
 
 function enviar() {
@@ -49,6 +51,7 @@ function enviar() {
             departamento_id: datos.departamento_id || null,
             sucursal_principal_id: datos.sucursal_principal_id || null,
             numero_empleado: datos.numero_empleado || null,
+            fecha_ingreso: datos.fecha_ingreso || null,
         }))
         .post(crearColaborador.url({ importacion: props.importacionId, fila: props.fila }), {
             preserveScroll: true,
@@ -67,8 +70,9 @@ function enviar() {
                 <DialogTitle>Crear colaborador</DialogTitle>
                 <DialogDescription>
                     «{{ nombreExcel }}» no existe en PEOPLE. Captura solo la
-                    estructura que el reporte no trae — fecha de ingreso y
-                    salario ya vienen del Excel.
+                    estructura que el reporte no trae. El salario viene del Excel;
+                    la fecha de ingreso del archivo NO se usa: captúrala solo si
+                    está validada, o queda pendiente de validación.
                 </DialogDescription>
             </DialogHeader>
 
@@ -131,6 +135,12 @@ function enviar() {
                 <div class="grid gap-2">
                     <Label for="numero_empleado">Número de empleado (opcional)</Label>
                     <Input id="numero_empleado" v-model="form.numero_empleado" maxlength="30" />
+                </div>
+
+                <div class="grid gap-2">
+                    <Label for="fecha_ingreso">Fecha de ingreso validada (opcional)</Label>
+                    <Input id="fecha_ingreso" v-model="form.fecha_ingreso" type="date" />
+                    <InputError :message="form.errors.fecha_ingreso" />
                 </div>
 
                 <DialogFooter>

@@ -17,6 +17,7 @@ import CelebracionesHoyCard from '@/components/Celebraciones/CelebracionesHoyCar
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
+import VacacionesAntiguedad from '@/components/Vacaciones/VacacionesAntiguedad.vue';
 import { useNotificaciones } from '@/composables/useNotificaciones';
 import { usePermisos } from '@/composables/usePermisos';
 import { dashboard, miExpediente } from '@/routes';
@@ -377,6 +378,8 @@ const enlace =
                         </p>
                     </div>
                 </div>
+
+                <VacacionesAntiguedad :saldo="vacaciones" />
             </div>
 
             <div

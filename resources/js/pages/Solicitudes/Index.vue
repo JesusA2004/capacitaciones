@@ -44,6 +44,7 @@ import {
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
+import VacacionesAntiguedad from '@/components/Vacaciones/VacacionesAntiguedad.vue';
 import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
 import { index, show, store } from '@/routes/solicitudes';
@@ -394,6 +395,12 @@ const TIPOS_BAJA = [
                     :opciones-goce="opcionesPermiso('permiso_goce')"
                     :opciones-causal="opcionesPermiso('permiso_causal')"
                     :errores="form.errors"
+                />
+
+                <VacacionesAntiguedad
+                    v-if="tipoActual?.requiere_dias"
+                    :saldo="saldoVacaciones"
+                    class="rounded-xl border border-border/60 p-3"
                 />
 
                 <!-- Vacaciones: saldo antes → días elegidos → saldo después -->

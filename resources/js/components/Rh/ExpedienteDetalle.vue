@@ -96,6 +96,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import VacacionesAntiguedad from '@/components/Vacaciones/VacacionesAntiguedad.vue';
 import { useAlertas } from '@/composables/useAlertas';
 import { formatearFecha } from '@/lib/fechas';
 import {
@@ -2299,6 +2300,7 @@ function irACompletarExpediente() {
                             </p>
                         </CardHeader>
                         <CardContent class="flex flex-col gap-4">
+                            <VacacionesAntiguedad :saldo="saldoVacaciones" />
                             <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
                                 <div
                                     class="group rounded-xl border p-3 text-center transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"

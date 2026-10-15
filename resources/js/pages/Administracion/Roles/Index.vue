@@ -94,7 +94,7 @@ async function eliminar(rol: RolItem) {
         return;
     }
 
-    router.delete(destroy.url(String(rol.id)), {
+    router.delete(destroy.url(rol.id), {
         preserveScroll: true,
         onSuccess: () => mostrarExito('El rol se eliminó correctamente.'),
         onError: () => mostrarError('No fue posible eliminar el rol.'),

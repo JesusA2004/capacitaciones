@@ -62,6 +62,10 @@ class VacacionesService
      *     puede_solicitar: bool,
      *     motivo_no_disponible: string|null,
      *     fecha_disponible_desde: string|null,
+     *     fecha_ingreso: string|null,
+     *     primer_aniversario: string|null,
+     *     antiguedad_meses: int,
+     *     antiguedad_texto: string,
      * }
      */
     public function saldo(User $colaborador): array
@@ -101,6 +105,10 @@ class VacacionesService
      *     puede_solicitar: bool,
      *     motivo_no_disponible: string|null,
      *     fecha_disponible_desde: string|null,
+     *     fecha_ingreso: string|null,
+     *     primer_aniversario: string|null,
+     *     antiguedad_meses: int,
+     *     antiguedad_texto: string,
      * }
      */
     public function saldoColaborador(Colaborador $colaborador): array
@@ -108,12 +116,17 @@ class VacacionesService
         $fechaIngreso = $colaborador->fecha_ingreso;
 
         if ($fechaIngreso === null) {
-            return $this->saldoVacio();
+            return array_merge($this->saldoVacio(), [
+                'motivo_no_disponible' => 'Fecha de ingreso pendiente de validación por RH.',
+            ]);
         }
 
-        $ingreso = $fechaIngreso;
-        $hoy = Carbon::now();
-        $antiguedadAnios = (int) $ingreso->diffInYears($hoy);
+        // Sin prorrateo: 0 días hasta el día exacto del aniversario (fecha
+        // calendario de México), nunca antes.
+        $ingreso = Carbon::parse($fechaIngreso->toDateString());
+        $hoy = self::hoyMexico();
+        $antiguedadAnios = $hoy->lt($ingreso) ? 0 : (int) $ingreso->diffInYears($hoy);
+        $antiguedadMeses = $hoy->lt($ingreso) ? 0 : (int) $ingreso->diffInMonths($hoy);
 
         $vigenciaInicio = $ingreso->copy()->addYears($antiguedadAnios);
         $vigenciaFin = $vigenciaInicio->copy()->addYear()->subDay();
@@ -226,6 +239,10 @@ class VacacionesService
                 ? null
                 : sprintf('Todavía no tienes vacaciones disponibles. Podrás solicitarlas al cumplir tu primer año el %s.', $ingreso->copy()->addYear()->translatedFormat('d/m/Y')),
             'fecha_disponible_desde' => $cumpleUnAnio ? null : $ingreso->copy()->addYear()->toDateString(),
+            'fecha_ingreso' => $ingreso->toDateString(),
+            'primer_aniversario' => $ingreso->copy()->addYear()->toDateString(),
+            'antiguedad_meses' => $antiguedadMeses,
+            'antiguedad_texto' => self::textoAntiguedad($antiguedadAnios, $antiguedadMeses),
         ];
     }
 
@@ -246,6 +263,10 @@ class VacacionesService
      *     puede_solicitar: bool,
      *     motivo_no_disponible: string|null,
      *     fecha_disponible_desde: string|null,
+     *     fecha_ingreso: string|null,
+     *     primer_aniversario: string|null,
+     *     antiguedad_meses: int,
+     *     antiguedad_texto: string,
      * }
      */
     private function saldoVacio(): array
@@ -266,7 +287,34 @@ class VacacionesService
             'puede_solicitar' => false,
             'motivo_no_disponible' => 'Tu cuenta no tiene un expediente de colaborador vinculado.',
             'fecha_disponible_desde' => null,
+            'fecha_ingreso' => null,
+            'primer_aniversario' => null,
+            'antiguedad_meses' => 0,
+            'antiguedad_texto' => 'Sin fecha de ingreso',
         ];
+    }
+
+    /**
+     * «Hoy» para vacaciones: la fecha calendario de America/Mexico_City
+     * expresada como medianoche del mismo huso que fecha_ingreso (cast
+     * `date`), para que diffInYears compare días completos. La app corre en
+     * UTC: con Carbon::now() a partir de las 18:00 de México ya contaba el
+     * día siguiente (el aniversario llegaba horas antes).
+     */
+    public static function hoyMexico(): Carbon
+    {
+        return Carbon::parse(Carbon::now('America/Mexico_City')->toDateString());
+    }
+
+    private static function textoAntiguedad(int $anios, int $meses): string
+    {
+        if ($anios >= 1) {
+            return $anios === 1 ? '1 año' : sprintf('%d años', $anios);
+        }
+
+        $meses = max(0, $meses);
+
+        return sprintf('%d %s · Aún no cumple un año', $meses, $meses === 1 ? 'mes' : 'meses');
     }
 
     /**
