@@ -109,6 +109,7 @@ import { darDeBaja, reactivar } from '@/routes/rh/expedientes';
 import { store as subirAltaImss } from '@/routes/rh/expedientes/alta-imss';
 import { update as actualizarDatosLaborales } from '@/routes/rh/expedientes/datos-laborales';
 import { update as actualizarDatosPersonales } from '@/routes/rh/expedientes/datos-personales';
+import { show as divisionHistorico } from '@/routes/rh/expedientes/division-historico';
 import { store as subirFotoColaborador } from '@/routes/rh/expedientes/foto';
 import { store as registrarMovimientoPrestamo } from '@/routes/rh/expedientes/prestamos/movimientos';
 import {
@@ -805,6 +806,8 @@ function irACompletarExpediente() {
                             Ciclo laboral
                         </Link>
                     </Button>
+                    <!-- Acciones de la página (p. ej. «Generar responsiva»). -->
+                    <slot name="acciones-encabezado" />
                     <Button
                         v-if="
                             cicloUrl &&
@@ -905,8 +908,8 @@ function irACompletarExpediente() {
                                     Baja administrativa inmediata: termina la
                                     relación laboral y libera la plaza, sin
                                     aprobaciones ni finiquito. Para el proceso
-                                    normal usa «Iniciar baja» (Ciclo
-                                    laboral). Nunca se borra nada (baja lógica).
+                                    normal usa «Iniciar baja» (Ciclo laboral).
+                                    Nunca se borra nada (baja lógica).
                                 </span>
                             </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -1377,8 +1380,9 @@ function irACompletarExpediente() {
                                     class="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--mrl-primary)]/25 bg-[var(--mrl-primary)]/5 p-4"
                                 >
                                     <p class="min-w-0 flex-1 text-sm">
-                                        ¿Te falta un dato o alguno cambió? Complétalo o
-                                        solicita el cambio; Recursos Humanos lo revisa.
+                                        ¿Te falta un dato o alguno cambió?
+                                        Complétalo o solicita el cambio;
+                                        Recursos Humanos lo revisa.
                                     </p>
                                     <Link
                                         :href="urlSolicitarCorreccion"
@@ -2179,15 +2183,34 @@ function irACompletarExpediente() {
                         class="rounded-2xl border-border/60"
                     >
                         <CardContent class="flex flex-col gap-3 p-5">
-                            <div>
-                                <h3 class="text-base font-semibold">
-                                    Expediente histórico
-                                </h3>
-                                <p class="text-sm text-muted-foreground">
-                                    Documentación anterior al sistema en un solo
-                                    archivo. Se conserva íntegra; no cuenta en
-                                    el checklist de documentos.
-                                </p>
+                            <div
+                                class="flex flex-wrap items-start justify-between gap-3"
+                            >
+                                <div>
+                                    <h3 class="text-base font-semibold">
+                                        Expediente histórico
+                                    </h3>
+                                    <p class="text-sm text-muted-foreground">
+                                        Documentación anterior al sistema en un
+                                        solo archivo. Se conserva íntegra; al
+                                        dividirlo, sus copias por documento
+                                        entran al checklist en revisión.
+                                    </p>
+                                </div>
+                                <Button
+                                    v-if="puedeVerExtraccion"
+                                    variant="outline"
+                                    size="sm"
+                                    as-child
+                                >
+                                    <Link
+                                        :href="
+                                            divisionHistorico(colaborador.id)
+                                        "
+                                        >Dividir por checklist y revisar
+                                        datos</Link
+                                    >
+                                </Button>
                             </div>
                             <div
                                 v-for="h in expedienteHistorico"
@@ -2367,10 +2390,20 @@ function irACompletarExpediente() {
                                         Usados
                                     </p>
                                     <p
-                                        v-if="saldoVacaciones.dias_usados_historicos > 0"
+                                        v-if="
+                                            saldoVacaciones.dias_usados_historicos >
+                                            0
+                                        "
                                         class="text-[11px] text-muted-foreground"
                                     >
-                                        {{ saldoVacaciones.dias_usados_people }} en PEOPLE + {{ saldoVacaciones.dias_usados_historicos }} históricos
+                                        {{
+                                            saldoVacaciones.dias_usados_people
+                                        }}
+                                        en PEOPLE +
+                                        {{
+                                            saldoVacaciones.dias_usados_historicos
+                                        }}
+                                        históricos
                                     </p>
                                 </div>
                                 <div
@@ -2627,7 +2660,9 @@ function irACompletarExpediente() {
                                                 movimiento.fecha
                                             }}</TableCell>
                                             <TableCell>{{
-                                                ETIQUETA_MOVIMIENTO[movimiento.tipo] ?? movimiento.tipo
+                                                ETIQUETA_MOVIMIENTO[
+                                                    movimiento.tipo
+                                                ] ?? movimiento.tipo
                                             }}</TableCell>
                                             <TableCell class="text-right">
                                                 {{ moneda(movimiento.monto) }}

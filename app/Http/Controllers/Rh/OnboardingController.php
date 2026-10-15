@@ -12,6 +12,7 @@ use App\Models\OnboardingModulo;
 use App\Models\OnboardingProceso;
 use App\Models\Puesto;
 use App\Models\TipoActivo;
+use App\Services\Onboarding\AcuseDescriptivoPuestoService;
 use App\Services\Onboarding\EvaluacionInduccionService;
 use App\Services\Onboarding\OnboardingCatalogoService;
 use App\Services\Onboarding\OnboardingService;
@@ -31,6 +32,7 @@ class OnboardingController extends Controller
         private readonly OnboardingService $onboarding,
         private readonly OnboardingCatalogoService $catalogo,
         private readonly EvaluacionInduccionService $evaluacionInduccion,
+        private readonly AcuseDescriptivoPuestoService $acusesDescriptivo,
     ) {}
 
     public function entregarActivo(Request $request, OnboardingProceso $proceso): RedirectResponse
@@ -74,6 +76,7 @@ class OnboardingController extends Controller
             'revision' => $this->evaluacionInduccion->detalleRevision($intento),
             'intentoId' => $intento->id,
             'yaCalificado' => ! $intento->pendienteCalificacionRh(),
+            'descriptivoPuesto' => $this->acusesDescriptivo->resumenRh($intento->evaluacion->colaborador, $request->user()),
         ]);
     }
 

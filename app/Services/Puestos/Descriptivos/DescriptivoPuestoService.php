@@ -203,10 +203,7 @@ class DescriptivoPuestoService
      */
     public function paraPuesto(Puesto $puesto): ?array
     {
-        $descriptivo = DescriptivoPuesto::query()
-            ->whereHas('puestos', fn ($q) => $q->whereKey($puesto->id))
-            ->orderByDesc('version')->orderByDesc('id')
-            ->first();
+        $descriptivo = $this->vigenteDePuesto($puesto->id);
 
         if ($descriptivo === null) {
             return null;
@@ -225,6 +222,18 @@ class DescriptivoPuestoService
             'datos' => $descriptivo->datos,
             'advertencias' => $descriptivo->advertencias ?? [],
         ];
+    }
+
+    /**
+     * Versión vigente (la más reciente) del descriptivo oficial asociado a
+     * ese puesto; null si el puesto no tiene descriptivo importado.
+     */
+    public function vigenteDePuesto(int $puestoId): ?DescriptivoPuesto
+    {
+        return DescriptivoPuesto::query()
+            ->whereHas('puestos', fn ($q) => $q->whereKey($puestoId))
+            ->orderByDesc('version')->orderByDesc('id')
+            ->first();
     }
 
     public function respuestaPdf(DescriptivoPuesto $descriptivo, bool $descargar): StreamedResponse

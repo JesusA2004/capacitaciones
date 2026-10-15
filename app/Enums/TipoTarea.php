@@ -48,6 +48,9 @@ enum TipoTarea: string
     case InduccionEvaluacionPendiente = 'induccion_evaluacion_pendiente';
     case InduccionCasosPorCalificar = 'induccion_casos_por_calificar';
     case InduccionReforzamiento = 'induccion_reforzamiento';
+    // Descriptivo de puesto que RH envía tras aprobar la inducción: el
+    // colaborador lo lee y deja su «OK, enterado» + comentario.
+    case DescriptivoPuestoPorAcusar = 'descriptivo_puesto_por_acusar';
 
     // Etapa 4 — periodo de prueba
     case ContratoPorVencer = 'contrato_por_vencer';
@@ -104,6 +107,7 @@ enum TipoTarea: string
             self::InduccionEvaluacionPendiente => 'Presenta tu evaluación de inducción',
             self::InduccionCasosPorCalificar => 'Calificar casos prácticos de inducción',
             self::InduccionReforzamiento => 'Reforzamiento de evaluación de inducción',
+            self::DescriptivoPuestoPorAcusar => 'Lee tu descriptivo de puesto',
             self::ContratoPorVencer => 'Contrato próximo a vencer',
             self::EvaluacionPendiente => 'Evaluación de periodo de prueba pendiente',
             self::EvaluacionPorAutorizar => 'Periodo de prueba pendiente de autorización',
@@ -142,7 +146,7 @@ enum TipoTarea: string
             self::ActivacionPendiente => EtapaCicloLaboral::Contratacion,
             self::OnboardingModuloPendiente, self::OnboardingRefuerzo, self::OnboardingEntregaActivos,
             self::PlantillaFaltante, self::InduccionEvaluacionPendiente, self::InduccionCasosPorCalificar,
-            self::InduccionReforzamiento => EtapaCicloLaboral::Onboarding,
+            self::InduccionReforzamiento, self::DescriptivoPuestoPorAcusar => EtapaCicloLaboral::Onboarding,
             self::ContratoPorVencer, self::EvaluacionPendiente, self::EvaluacionPorAutorizar,
             self::ExcepcionPeriodoPruebaPendiente => EtapaCicloLaboral::PeriodoPrueba,
             self::CierrePreautorizacion, self::CierreAutorizacionRh, self::FiniquitoPendiente, self::FiniquitoPorAutorizar,

@@ -6,6 +6,7 @@ use App\Enums\CanalReclutamiento;
 use App\Enums\TipoCostoReclutamiento;
 use App\Exports\ReporteRhExport;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Rh\ReporteCampanasRequest;
 use App\Http\Requests\Rh\StoreCampanaReclutamientoRequest;
 use App\Http\Requests\Rh\UpdateCampanaReclutamientoRequest;
 use App\Models\CampanaReclutamiento;
@@ -143,21 +144,72 @@ class CampanaReclutamientoController extends Controller
     }
 
     /**
-     * Reporte PDF (Chrome) de todas las campañas del periodo filtrado:
-     * comparativo + detalle de cada una.
+     * Reporte de campañas en pantalla con filtros (rango de fechas,
+     * campañas o general, canal, estado, ubicación, vacante, responsable y
+     * fase del candidato). Los mismos filtros generan el PDF y el Excel.
      */
-    public function reportePdf(Request $request): HttpResponse
+    public function reporte(ReporteCampanasRequest $request): Response
     {
-        abort_unless($request->user()?->can('reclutamiento.campanas.ver'), 403);
+        $usuario = $request->user();
+        abort_if($usuario === null, 403);
+        $filtros = $request->filtros();
 
-        $mes = $request->integer('mes') ?: (int) now()->month;
-        $anio = $request->integer('anio') ?: (int) now()->year;
-        $campanas = $this->consultaFiltrada($request, $mes, $anio)->orderBy('fecha_inicio')->orderBy('id')->get();
-        $inicio = Carbon::now()->setDate($anio, $mes, 1);
-        $inicio->locale('es');
-        $periodo = sprintf('Periodo: %s', ucfirst($inicio->translatedFormat('F Y')));
+        return Inertia::render('Rh/Campanas/Reporte', [
+            'reporte' => $this->reporte->reporte($filtros, $usuario, $this->conCandidatos($request)),
+            'filtros' => $filtros->aQuery(),
+            'opciones' => $this->reporte->opciones(),
+            'conCandidatos' => $this->conCandidatos($request),
+        ]);
+    }
 
-        return $this->responderPdf($request, $campanas, 'Reporte de campañas de reclutamiento', $periodo, sprintf('campanas-%04d-%02d.pdf', $anio, $mes));
+    /**
+     * Reporte PDF (Chrome) con los filtros del reporte: comparativo +
+     * detalle de cada campaña; el encabezado lista los filtros aplicados.
+     */
+    public function reportePdf(ReporteCampanasRequest $request): HttpResponse
+    {
+        $usuario = $request->user();
+        abort_if($usuario === null, 403);
+        $filtros = $request->filtros();
+        $conCandidatos = $this->conCandidatos($request);
+
+        try {
+            $pdf = $this->reporte->pdfDeReporte($this->reporte->reporte($filtros, $usuario, $conCandidatos), $conCandidatos);
+        } catch (PdfRendererException $e) {
+            Log::warning('Reporte de campañas: no se pudo generar el PDF.', ['error' => $e->getMessage(), 'causa' => $e->getPrevious()?->getMessage()]);
+
+            return back()->with('toast', ['type' => 'error', 'message' => sprintf('No se pudo generar el PDF: %s', $e->getMessage())]);
+        }
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => sprintf('inline; filename="campanas-%s-%s.pdf"', $filtros->desde->toDateString(), $filtros->hasta->toDateString()),
+        ]);
+    }
+
+    /**
+     * Excel del reporte con los mismos filtros (hoja de campañas y, si el
+     * usuario puede ver candidatos, hoja de candidatos).
+     */
+    public function reporteExcel(ReporteCampanasRequest $request): BinaryFileResponse
+    {
+        $usuario = $request->user();
+        abort_if($usuario === null, 403);
+        $filtros = $request->filtros();
+        $conCandidatos = $this->conCandidatos($request);
+
+        return Excel::download(
+            $this->reporte->excel($this->reporte->reporte($filtros, $usuario, $conCandidatos), $conCandidatos),
+            sprintf('campanas-%s-%s.xlsx', $filtros->desde->toDateString(), $filtros->hasta->toDateString()),
+        );
+    }
+
+    /**
+     * La lista nominal de candidatos solo para quien ya puede verlos.
+     */
+    private function conCandidatos(Request $request): bool
+    {
+        return $request->user()?->can('viewAny', Candidato::class) ?? false;
     }
 
     /**
@@ -178,8 +230,7 @@ class CampanaReclutamientoController extends Controller
      */
     private function responderPdf(Request $request, iterable $campanas, string $titulo, string $periodo, string $archivo): HttpResponse
     {
-        // La lista nominal de candidatos solo para quien ya puede verlos.
-        $conCandidatos = $request->user()?->can('viewAny', Candidato::class) ?? false;
+        $conCandidatos = $this->conCandidatos($request);
 
         try {
             $pdf = $this->reporte->pdf($campanas, $titulo, $periodo, $conCandidatos);

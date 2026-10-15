@@ -373,6 +373,33 @@ class DocumentExtractionService
     public function aplicar(DocumentExtraction $extraccion, array $valores, User $revisor): DocumentExtraction
     {
         $colaborador = $extraccion->colaboradorExpediente;
+
+        if ($colaborador !== null) {
+            $this->aplicarAlColaborador($colaborador, $valores);
+        }
+
+        $extraccion->update([
+            'status' => EstadoExtraccion::Revisado->value,
+            'reviewed_by_id' => $revisor->id,
+            'reviewed_at' => now(),
+        ]);
+
+        return $extraccion->fresh();
+    }
+
+    /**
+     * Escribe en el colaborador los valores que RH decidió aplicar (misma
+     * whitelist, conversión de enums y de fecha que aplicar()). Lo usan
+     * aplicar() y la división del PDF histórico por checklist
+     * (DivisionExpedienteHistoricoService::aplicarDato) — una sola regla.
+     * Atómico: si un valor no tiene equivalencia segura no se aplica ninguno.
+     *
+     * @param  array<string, string>  $valores
+     *
+     * @throws ValidationException Si algún valor no tiene equivalencia segura.
+     */
+    public function aplicarAlColaborador(Colaborador $colaborador, array $valores): void
+    {
         $aAplicar = [];
 
         foreach (array_intersect_key($valores, self::CAMPO_COLUMNA) as $campo => $valor) {
@@ -405,17 +432,22 @@ class DocumentExtractionService
                 : $valor;
         }
 
-        if ($aAplicar !== [] && $colaborador !== null) {
+        if ($aAplicar !== []) {
             $colaborador->update($aAplicar);
         }
+    }
 
-        $extraccion->update([
-            'status' => EstadoExtraccion::Revisado->value,
-            'reviewed_by_id' => $revisor->id,
-            'reviewed_at' => now(),
-        ]);
+    /**
+     * Compara un valor detectado contra lo capturado del colaborador con la
+     * misma regla que las sugerencias (enums, fechas d/m/Y, mayúsculas).
+     *
+     * @return array{actual: string|null, coincide: bool}
+     */
+    public function compararCampo(Colaborador $colaborador, string $campo, string $valor): array
+    {
+        $diferencia = $this->calcularDiferencias($colaborador, [$campo => $valor])[$campo];
 
-        return $extraccion->fresh();
+        return ['actual' => $diferencia['actual'], 'coincide' => $diferencia['coincide']];
     }
 
     public function ignorar(DocumentExtraction $extraccion, User $revisor): DocumentExtraction

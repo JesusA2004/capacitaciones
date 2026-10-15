@@ -462,6 +462,7 @@ class RolesYPermisosSeeder extends Seeder
             'vacaciones.ver', 'vacaciones.solicitar', 'vacaciones.aprobar', 'vacaciones.rechazar', 'vacaciones.ajustar', 'vacaciones.reportes',
             'solicitudes.ver', 'solicitudes.crear', 'solicitudes.revisar', 'solicitudes.aprobar', 'solicitudes.rechazar',
             'reportes_rh.ver', 'reportes_rh.exportar', 'reportes_rh.globales', 'reportes_rh.sucursal',
+            'rotacion.ver', 'rotacion.cargar',
             'auditoria.ver',
             'vacantes.ver', 'vacantes.ver_todos', 'vacantes.crear', 'vacantes.editar', 'vacantes.cerrar', 'vacantes.eliminar',
             'candidatos.ver', 'candidatos.ver_todos', 'candidatos.crear', 'candidatos.editar', 'candidatos.aprobar', 'candidatos.rechazar', 'candidatos.eliminar',
@@ -506,6 +507,8 @@ class RolesYPermisosSeeder extends Seeder
             'colaboradores.importar_salarios_vacaciones',
             'prestamos.ver', 'prestamos.autorizar', 'prestamos.resguardar',
             'actas.ver', 'actas.crear', 'actas.gestionar', 'indicadores.ver',
+            // Responsivas de equipo (docs/responsiva).
+            'responsivas.ver', 'responsivas.generar', 'responsivas.cancelar',
             'ciclo.autorizar_rh', 'candidatos.evaluar', 'onboarding.ver', 'onboarding.gestionar', 'onboarding.entregar_activos', 'cierres.solicitar', 'cierres.programar_pago', 'reingresos.solicitar', 'reingresos.gestionar',
             // RH administra jefes directos, ruteo de avisos y parámetros de
             // RH; la apariencia institucional queda en super_admin.
@@ -525,7 +528,7 @@ class RolesYPermisosSeeder extends Seeder
             'altas.ver', 'altas.crear', 'altas.enviar',
             'vacaciones.ver',
             'solicitudes.ver', 'solicitudes.revisar',
-            'reportes_rh.ver',
+            'reportes_rh.ver', 'rotacion.ver',
             'vacantes.ver', 'vacantes.ver_todos', 'vacantes.crear', 'vacantes.editar',
             'candidatos.ver', 'candidatos.ver_todos', 'candidatos.crear', 'candidatos.editar',
             'reclutamiento.campanas.ver',
@@ -556,6 +559,7 @@ class RolesYPermisosSeeder extends Seeder
             'contratos.ver', 'evaluaciones.ver', 'cierres.ver',
             'nomina.recibos.ver', 'nomina.recibos.crear', 'nomina.recibos.importar',
             'prestamos.ver', 'actas.ver', 'actas.crear', 'indicadores.ver',
+            'responsivas.ver', 'responsivas.generar',
             'onboarding.ver', 'onboarding.gestionar', 'reingresos.solicitar',
         ],
 
@@ -589,6 +593,8 @@ class RolesYPermisosSeeder extends Seeder
             // Ciclo laboral completo (docs/backend-rh-completion.md).
             'contratos.ver', 'evaluaciones.ver', 'evaluaciones.capturar', 'prestamos.ver',
             'actas.ver', 'actas.crear', 'documentos_laborales.ver', 'indicadores.ver',
+            // Responsivas de equipo para su equipo y su subgerente.
+            'responsivas.ver', 'responsivas.generar',
             'ciclo.preautorizar', 'candidatos.evaluar', 'onboarding.ver', 'onboarding.entregar_activos', 'cierres.ver', 'cierres.solicitar', 'contratos.ver', 'evaluaciones.ver', 'evaluaciones.capturar', 'documentos_laborales.ver', 'documentos_laborales.operar_fisico', 'reingresos.solicitar',
         ],
         'supervisor' => [
@@ -613,7 +619,7 @@ class RolesYPermisosSeeder extends Seeder
             'dashboard.global.ver',
             'usuarios.ver',
             'empresas.ver',
-            'reportes_rh.ver', 'reportes_rh.globales', 'reportes_rh.exportar',
+            'reportes_rh.ver', 'reportes_rh.globales', 'reportes_rh.exportar', 'rotacion.ver',
             'vacantes.ver', 'vacantes.ver_todos',
             'candidatos.ver', 'candidatos.ver_todos',
             // Backend movil v5: solo lectura, sin autoridad de aprobacion (igual criterio que en web).
@@ -660,6 +666,8 @@ class RolesYPermisosSeeder extends Seeder
             // Única autoridad que decide una intervención de Gestor/Volante
             // (CLAUDE.md §11-A) — la de SU región, nunca otra.
             'candidatos.intervencion_decidir',
+            // Responsivas de equipo para su región (docs/responsiva).
+            'responsivas.ver', 'responsivas.generar',
         ],
 
         // Administra su propia sucursal (mismo alcance que gerente_sucursal,
@@ -687,6 +695,8 @@ class RolesYPermisosSeeder extends Seeder
             'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
             'solicitudes.bajas.crear', 'headcount.ver', 'organigrama.ver',
             'ciclo.preautorizar', 'candidatos.evaluar', 'onboarding.ver', 'onboarding.entregar_activos', 'cierres.ver', 'cierres.solicitar', 'contratos.ver', 'evaluaciones.ver', 'evaluaciones.capturar', 'documentos_laborales.ver', 'documentos_laborales.operar_fisico', 'reingresos.solicitar',
+            // Responsivas de equipo para su equipo y su subgerente.
+            'responsivas.ver', 'responsivas.generar',
         ],
 
         // Puede apoyar/cubrir al gerente de su sucursal según la jerarquía de
@@ -765,7 +775,7 @@ class RolesYPermisosSeeder extends Seeder
             'documentos.ver',
             'vacaciones.ver',
             'solicitudes.ver',
-            'reportes_rh.ver', 'reportes_rh.globales', 'reportes_rh.sucursal',
+            'reportes_rh.ver', 'reportes_rh.globales', 'reportes_rh.sucursal', 'rotacion.ver',
             'vacantes.ver', 'vacantes.ver_todos',
             'candidatos.ver', 'candidatos.ver_todos',
             // Backend movil v5: lectura global, sin aprobar decisiones.
@@ -798,7 +808,7 @@ class RolesYPermisosSeeder extends Seeder
             'directorio.contactos.ver_todos',
             'perfiles_puesto.ver',
             'dashboard.global.ver',
-            'reportes_rh.ver', 'reportes_rh.exportar', 'reportes_rh.globales', 'reportes_rh.sucursal',
+            'reportes_rh.ver', 'reportes_rh.exportar', 'reportes_rh.globales', 'reportes_rh.sucursal', 'rotacion.ver',
             'indicadores.ver', 'headcount.ver', 'organigrama.ver', 'auditoria.ver',
             'expedientes.ver', 'expedientes.ver_todos', 'documentos.ver', 'documentos.descargar',
             'vacantes.ver', 'vacantes.ver_todos', 'candidatos.ver', 'candidatos.ver_todos',
@@ -847,7 +857,7 @@ class RolesYPermisosSeeder extends Seeder
             'documentos_laborales.ver', 'contratos.ver', 'evaluaciones.ver', 'candidatos.ver', 'vacantes.ver',
             'nomina.recibos.ver', 'finiquitos.ver', 'cierres.ver', 'onboarding.ver', 'altas.ver',
             'empresas.ver', 'headcount.ver', 'organigrama.ver', 'perfiles_puesto.ver', 'indicadores.ver',
-            'reportes_rh.ver', 'reportes_rh.globales', 'reclutamiento.campanas.ver', 'celebraciones.ver',
+            'reportes_rh.ver', 'reportes_rh.globales', 'rotacion.ver', 'reclutamiento.campanas.ver', 'celebraciones.ver',
             'formatos.ver', 'formatos.preview', 'formatos_oficiales.ver', 'plantillas.ver', 'plantillas_documentales.ver',
             // Consulta (sin acciones) también desde la app.
             'rh.mobile.dashboard.ver', 'rh.pendientes.ver',

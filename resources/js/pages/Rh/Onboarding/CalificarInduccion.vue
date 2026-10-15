@@ -12,6 +12,7 @@ import {
     X,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import EnvioDescriptivoPuestoRh from '@/components/ciclo/EnvioDescriptivoPuestoRh.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
@@ -22,6 +23,7 @@ import * as pdf from '@/routes/rh/onboarding/induccion/pdf';
 import type {
     EvaluacionInduccionResumen,
     InduccionCasoPractico,
+    ResumenDescriptivoPuestoRh,
     RevisionInduccion,
 } from '@/types';
 
@@ -37,6 +39,7 @@ const props = defineProps<{
     revision: RevisionInduccion;
     intentoId: number;
     yaCalificado: boolean;
+    descriptivoPuesto: ResumenDescriptivoPuestoRh;
 }>();
 
 defineOptions({
@@ -323,6 +326,13 @@ function letra(indice: number): string {
                 </p>
             </div>
         </section>
+
+        <!-- Inducción aprobada: «Enviar descriptivo de puesto» y su acuse -->
+        <EnvioDescriptivoPuestoRh
+            v-if="evaluacion.estado === 'aprobada' || descriptivoPuesto.acuse"
+            :colaborador-id="evaluacion.colaborador.id"
+            :resumen="descriptivoPuesto"
+        />
 
         <!-- A -->
         <section class="flex flex-col gap-3">

@@ -639,6 +639,30 @@ export type SeguimientoInduccion = {
     fecha_limite_reevaluacion: string | null;
     onboarding_estado: string;
     laborando: boolean;
+    /** Solo en filas con la inducción aprobada. */
+    descriptivo_puesto: ResumenDescriptivoPuestoRh | null;
+};
+
+/** AcuseDescriptivoPuestoService::aArray() (sin contenido). */
+export type AcuseDescriptivoPuesto = {
+    id: number;
+    colaborador_id: number;
+    estado: 'enviado' | 'leido' | 'enterado';
+    estado_etiqueta: string;
+    enviado_por: string;
+    enviado_en: string;
+    leido_en: string | null;
+    acusado_en: string | null;
+    enterado: boolean;
+    comentario: string | null;
+    descriptivo: { id: number; nombre_puesto: string; version: number };
+};
+
+/** AcuseDescriptivoPuestoService::resumenRh(): «Enviar descriptivo de puesto». */
+export type ResumenDescriptivoPuestoRh = {
+    acuse: AcuseDescriptivoPuesto | null;
+    puede_enviar: boolean;
+    motivo: string | null;
 };
 
 /** Lado de RH de «Presentar inducción» (SesionInduccionService::datosPantalla()). */

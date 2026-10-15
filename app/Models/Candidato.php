@@ -32,6 +32,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $cv_disk
  * @property string|null $cv_path
  * @property string|null $cv_original_name
+ * @property string|null $carpeta_nas Carpeta del mini expediente en el NAS, fijada con el primer archivo.
  * @property string|null $observaciones
  * @property string|null $documentos_solicitados
  * @property int|null $responsable_rh_id
@@ -61,7 +62,7 @@ class Candidato extends Model
      * El disco/ruta reales del NAS nunca se exponen al frontend (ver
      * docs/SYNOLOGY_STORAGE.md); el cliente solo conoce tieneCv().
      */
-    protected $hidden = ['cv_disk', 'cv_path'];
+    protected $hidden = ['cv_disk', 'cv_path', 'carpeta_nas'];
 
     protected $appends = ['tiene_cv', 'fase'];
 

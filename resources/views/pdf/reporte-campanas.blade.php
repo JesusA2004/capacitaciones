@@ -101,6 +101,11 @@
         .pastilla.salio { background: var(--peligro); color: var(--peligro-texto); }
         .pastilla.contratado { background: var(--exito); color: var(--petroleo); }
 
+        .filtros { background: var(--menta); border: 1px solid var(--borde); border-radius: 8px; padding: 7px 10px; margin-bottom: 12px; }
+        .filtros h3 { margin-bottom: 4px; }
+        .filtros-lista { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 14px; font-size: 9px; }
+        .filtros-lista b { color: var(--petroleo); }
+
         .vacio { color: var(--texto-2); font-style: italic; font-size: 9px; }
         .nota-pie { font-size: 8px; color: var(--texto-2); margin-top: 8px; }
     </style>
@@ -117,6 +122,18 @@
         Generado el {{ $generado }}
     </div>
 </header>
+
+@if (! empty($filtrosAplicados))
+    {{-- Filtros con que se generó (auditable: el PDF dice exactamente qué incluye). --}}
+    <div class="filtros">
+        <h3>Filtros aplicados</h3>
+        <div class="filtros-lista">
+            @foreach ($filtrosAplicados as $filtro)
+                <div><b>{{ $filtro['etiqueta'] }}:</b> {{ $filtro['valor'] }}</div>
+            @endforeach
+        </div>
+    </div>
+@endif
 
 {{-- ===================== Resumen general ===================== --}}
 @if ($varias)
@@ -192,7 +209,8 @@
             <div><b>Vacante:</b> {{ $c['vacante'] }}</div>
             <div><b>Responsable:</b> {{ $c['responsable'] ?? '—' }}</div>
             <div><b>Inicio:</b> {{ $c['fecha_inicio'] ?? '—' }}</div>
-            <div><b>Fin:</b> {{ $c['fecha_fin'] ?? 'Vigente' }}</div>
+            <div><b>Fin:</b> {{ $c['fecha_fin'] ?? 'Sin fecha de fin' }}</div>
+            <div><b>Estado:</b> {{ $c['estado'] }}</div>
             <div><b>Días promedio a contratar:</b> {{ $c['dias_cobertura'] ?? '—' }}</div>
         </div>
 
@@ -248,7 +266,9 @@
 <p class="nota-pie">
     Costo por candidato = gasto real ÷ candidatos registrados con la campaña. Costo por contratado = gasto ÷ personas
     contratadas que produjo (misma cifra de la pantalla de Campañas). «Fase alcanzada» es la más avanzada a la que llegó
-    el candidato antes de salir del proceso.
+    el candidato antes de salir del proceso. Si el reporte se filtró por fecha de registro o por fase del candidato
+    (o tu alcance no abarca todas las sucursales), los contratados se cuentan solo entre los candidatos incluidos;
+    el gasto de cada campaña siempre es el total capturado.
 </p>
 
 </body>

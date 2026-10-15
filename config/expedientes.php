@@ -133,4 +133,146 @@ return [
         'carpetas_excluidas' => ['BAJAS', 'BAJA', 'FOTOS', 'FOTO', 'Historico'],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | División del PDF histórico por checklist
+    |--------------------------------------------------------------------------
+    |
+    | docs/DIVISION_EXPEDIENTE_HISTORICO.md. El PDF único de la migración
+    | inicial se LEE página por página (texto embebido; OCR local como
+    | respaldo para páginas escaneadas), cada página se clasifica contra los
+    | tipos del checklist con estas reglas de palabras clave y se generan
+    | COPIAS por documento. El original nunca se corta, mueve ni borra.
+    |
+    | Reglas por clave real de document_types (DocumentTypeSeeder):
+    |  - fuertes: frases que por sí solas identifican el documento (3 pts;
+    |    +2 si aparecen en el encabezado de la página).
+    |  - debiles: frases de apoyo (1 pt cada una).
+    |  - continuacion: una página CON texto pero sin coincidencias que sigue
+    |    a una de este tipo se considera su continuación (confianza baja),
+    |    p. ej. la hoja 2 de un contrato.
+    |  - campos: datos personales que se aceptan de ESE documento para el
+    |    reporte de datos faltantes (un NSS de 11 dígitos en un recibo de luz
+    |    no es un NSS). Claves de DocumentExtractionService::CAMPO_COLUMNA.
+    |
+    | La comparación ignora mayúsculas, acentos y espacios repetidos. Sube
+    | `version_reglas` cada vez que cambies una regla: una división ya hecha
+    | con otra versión se puede repetir con --forzar.
+    |
+    */
+    'division_historico' => [
+        'version_reglas' => 1,
+
+        // Puntaje mínimo para clasificar una página (menos = «sin clasificar»).
+        'puntaje_minimo' => 2,
+
+        // Menos caracteres útiles que esto = la página no tiene capa de texto.
+        'min_caracteres_texto' => 25,
+
+        // Tope de páginas por PDF (un PDF más largo se reporta y se corta aquí).
+        'max_paginas' => 250,
+
+        // Carpeta (dentro de «Historico») donde se guardan las copias por parte.
+        'carpeta_partes' => 'Division por checklist',
+
+        'ocr' => [
+            // 'tesseract' (local) o 'ninguno'. Nunca un servicio externo.
+            'driver' => env('EXPEDIENTES_OCR_DRIVER', 'tesseract'),
+            'tesseract' => env('EXPEDIENTES_TESSERACT_PATH', env('DOCUMENTOS_TESSERACT_PATH', 'tesseract')),
+            'pdftoppm' => env('EXPEDIENTES_PDFTOPPM_PATH', env('DOCUMENTOS_QA_PDFTOPPM_PATH', 'pdftoppm')),
+            'idioma' => env('EXPEDIENTES_OCR_IDIOMA', 'spa'),
+            'dpi' => (int) env('EXPEDIENTES_OCR_DPI', 200),
+            'timeout_por_pagina' => (int) env('EXPEDIENTES_OCR_TIMEOUT', 60),
+        ],
+
+        'reglas' => [
+            'solicitud_empleo' => [
+                'fuertes' => ['SOLICITUD DE EMPLEO', 'SOLICITUD DE TRABAJO', 'SOLICITUD DE PERSONAL'],
+                'debiles' => ['PUESTO SOLICITADO', 'SUELDO DESEADO', 'SUELDO MENSUAL DESEADO', 'EXPERIENCIA LABORAL', 'EMPLEO ACTUAL', 'EMPLEOS ANTERIORES', 'REFERENCIAS PERSONALES', 'ESCOLARIDAD', 'DATOS FAMILIARES'],
+                'continuacion' => true,
+                'campos' => ['curp', 'rfc', 'nss', 'fecha_nacimiento', 'codigo_postal', 'sexo', 'correo', 'telefono', 'nacionalidad', 'estado_civil', 'lugar_nacimiento', 'domicilio', 'colonia', 'municipio', 'estado_domicilio', 'contacto_emergencia_nombre', 'contacto_emergencia_telefono', 'contacto_emergencia_parentesco', 'beneficiario_nombre', 'beneficiario_parentesco'],
+            ],
+            'fotografia' => [
+                // Una fotografía no trae texto: casi siempre queda «sin
+                // clasificar» y RH la asigna a mano desde la pantalla.
+                'fuertes' => [],
+                'debiles' => [],
+                'continuacion' => false,
+                'campos' => [],
+            ],
+            'acta_nacimiento' => [
+                'fuertes' => ['ACTA DE NACIMIENTO', 'CERTIFICACION DE NACIMIENTO', 'COPIA CERTIFICADA DEL ACTA', 'REGISTRO CIVIL'],
+                'debiles' => ['OFICIALIA', 'LIBRO', 'FOJA', 'PROGENITORES', 'DATOS DE LOS PADRES', 'LUGAR DE NACIMIENTO', 'IDENTIFICADOR ELECTRONICO', 'CRIP'],
+                'continuacion' => false,
+                'campos' => ['curp', 'fecha_nacimiento', 'sexo', 'lugar_nacimiento'],
+            ],
+            'ine' => [
+                'fuertes' => ['INSTITUTO NACIONAL ELECTORAL', 'INSTITUTO FEDERAL ELECTORAL', 'CREDENCIAL PARA VOTAR'],
+                'debiles' => ['CLAVE DE ELECTOR', 'SECCION', 'VIGENCIA', 'ANO DE REGISTRO', 'EMISION', 'LOCALIDAD'],
+                'continuacion' => false,
+                'campos' => ['curp', 'fecha_nacimiento', 'sexo', 'clave_elector', 'domicilio', 'codigo_postal'],
+            ],
+            'nss' => [
+                'fuertes' => ['NUMERO DE SEGURIDAD SOCIAL', 'ASIGNACION DE NUMERO DE SEGURIDAD SOCIAL', 'LOCALIZACION DEL NUMERO DE SEGURIDAD SOCIAL', 'CONSTANCIA DE VIGENCIA DE DERECHOS'],
+                'debiles' => ['INSTITUTO MEXICANO DEL SEGURO SOCIAL', 'IMSS', 'NSS', 'SEGURO SOCIAL'],
+                'continuacion' => false,
+                'campos' => ['nss', 'curp'],
+            ],
+            'curp' => [
+                'fuertes' => ['CLAVE UNICA DE REGISTRO DE POBLACION', 'CONSTANCIA DE LA CLAVE UNICA'],
+                'debiles' => ['RENAPO', 'REGISTRO NACIONAL DE POBLACION', 'CURP', 'ENTIDAD DE REGISTRO'],
+                'continuacion' => false,
+                'campos' => ['curp', 'fecha_nacimiento', 'sexo'],
+            ],
+            'rfc' => [
+                'fuertes' => ['CONSTANCIA DE SITUACION FISCAL', 'CEDULA DE IDENTIFICACION FISCAL'],
+                'debiles' => ['SERVICIO DE ADMINISTRACION TRIBUTARIA', 'IDCIF', 'REGIMEN', 'REGIMENES', 'DATOS DE IDENTIFICACION DEL CONTRIBUYENTE', 'RFC'],
+                'continuacion' => false,
+                'campos' => ['rfc', 'curp', 'codigo_postal', 'colonia', 'municipio', 'estado_domicilio'],
+            ],
+            'comprobante_domicilio' => [
+                'fuertes' => ['COMISION FEDERAL DE ELECTRICIDAD', 'AVISO RECIBO', 'RECIBO DE AGUA', 'RECIBO DE LUZ', 'TELEFONOS DE MEXICO', 'COMPROBANTE DE DOMICILIO'],
+                'debiles' => ['CFE', 'TELMEX', 'IZZI', 'TOTALPLAY', 'MEGACABLE', 'PERIODO FACTURADO', 'TOTAL A PAGAR', 'FECHA LIMITE DE PAGO', 'KWH', 'CONSUMO', 'SERVICIO'],
+                'continuacion' => false,
+                'campos' => ['codigo_postal'],
+            ],
+            'comprobante_estudios' => [
+                'fuertes' => ['CERTIFICADO DE ESTUDIOS', 'CERTIFICADO DE TERMINACION DE ESTUDIOS', 'CERTIFICADO DE BACHILLERATO', 'TITULO PROFESIONAL', 'CEDULA PROFESIONAL', 'CONSTANCIA DE ESTUDIOS', 'HISTORIAL ACADEMICO', 'KARDEX'],
+                'debiles' => ['SECRETARIA DE EDUCACION PUBLICA', 'EDUCACION SECUNDARIA', 'EDUCACION MEDIA SUPERIOR', 'PREPARATORIA', 'LICENCIATURA', 'PROMEDIO', 'CALIFICACION', 'PLANTEL'],
+                'continuacion' => false,
+                'campos' => ['curp'],
+            ],
+            'cartas_recomendacion' => [
+                'fuertes' => ['CARTA DE RECOMENDACION', 'CARTA DE REFERENCIA'],
+                'debiles' => ['A QUIEN CORRESPONDA', 'RECOMIENDO', 'RECOMENDACION', 'PERSONA HONESTA', 'RESPONSABLE Y TRABAJADOR', 'TENGO EL GUSTO', 'CONOZCO'],
+                'continuacion' => false,
+                'campos' => [],
+            ],
+            'datos_bancarios' => [
+                'fuertes' => ['CLABE INTERBANCARIA', 'DATOS BANCARIOS', 'CONTRATO DE APERTURA', 'NUMERO DE TARJETA'],
+                'debiles' => ['CLABE', 'NUMERO DE CUENTA', 'BBVA', 'BANCOMER', 'BANORTE', 'SANTANDER', 'BANAMEX', 'BANCO AZTECA', 'HSBC', 'SCOTIABANK', 'BANCOPPEL', 'NOMINA'],
+                'continuacion' => false,
+                'campos' => [],
+            ],
+            'contrato' => [
+                'fuertes' => ['CONTRATO INDIVIDUAL DE TRABAJO', 'CONTRATO DE TRABAJO POR TIEMPO', 'CONTRATO DE TRABAJO'],
+                'debiles' => ['CLAUSULAS', 'DECLARACIONES', 'EL PATRON', 'EL TRABAJADOR', 'LEY FEDERAL DEL TRABAJO', 'JORNADA', 'SALARIO'],
+                'continuacion' => true,
+                'campos' => ['curp', 'rfc', 'nss', 'domicilio'],
+            ],
+            'carta_confidencialidad' => [
+                'fuertes' => ['CONVENIO DE CONFIDENCIALIDAD', 'CARTA DE CONFIDENCIALIDAD', 'CONTRATO DE CONFIDENCIALIDAD', 'ACUERDO DE CONFIDENCIALIDAD'],
+                'debiles' => ['INFORMACION CONFIDENCIAL', 'CONFIDENCIALIDAD', 'NO DIVULGACION', 'SECRETO INDUSTRIAL'],
+                'continuacion' => true,
+                'campos' => [],
+            ],
+            'contrato_no_competencia' => [
+                'fuertes' => ['CONTRATO DE NO COMPETENCIA', 'CONVENIO DE NO COMPETENCIA', 'CLAUSULA DE NO COMPETENCIA'],
+                'debiles' => ['NO COMPETENCIA', 'NO COMPETIR', 'ACTIVIDADES SIMILARES', 'EMPRESAS COMPETIDORAS'],
+                'continuacion' => true,
+                'campos' => [],
+            ],
+        ],
+    ],
+
 ];

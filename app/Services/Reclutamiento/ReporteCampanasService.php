@@ -2,14 +2,30 @@
 
 namespace App\Services\Reclutamiento;
 
+use App\Enums\AlcanceDatos;
+use App\Enums\CanalReclutamiento;
+use App\Enums\CriterioFechaReporteCampanas;
+use App\Enums\EstadoCampanaReclutamiento;
 use App\Enums\EstadoCandidato;
 use App\Enums\MotorPdf;
+use App\Exports\ReporteCampanasExport;
 use App\Models\CampanaReclutamiento;
 use App\Models\Candidato;
+use App\Models\Departamento;
+use App\Models\Empresa;
+use App\Models\Puesto;
+use App\Models\Sucursal;
+use App\Models\User;
+use App\Models\Vacante;
+use App\Services\AlcanceOrganizacionalService;
 use App\Services\Pdf\OpcionesPdf;
 use App\Services\Pdf\PdfRendererException;
 use App\Services\Pdf\PdfRendererFactory;
+use App\Services\Permisos\AlcanceModuloService;
+use Closure;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 /**
@@ -25,10 +41,332 @@ use Illuminate\Support\Collection;
  */
 class ReporteCampanasService
 {
+    public const TITULO = 'Reporte de campañas de reclutamiento';
+
     public function __construct(
         private readonly CostoReclutamientoService $costos,
         private readonly PdfRendererFactory $pdf,
+        private readonly AlcanceOrganizacionalService $alcance,
+        private readonly AlcanceModuloService $alcanceModulo,
     ) {}
+
+    /**
+     * Reporte con filtros (pantalla, PDF y Excel salen de aquí):
+     *
+     * - Rango de fechas según el criterio elegido: campañas cuya vigencia se
+     *   cruza con el rango, o candidatos registrados dentro del rango.
+     * - Filtros de la campaña: campañas puntuales (vacío = todas, reporte
+     *   general), canal, estado (programada/vigente/concluida), empresa,
+     *   sucursal, departamento, puesto, vacante y responsable de RH.
+     * - Filtros del candidato: fase del tablero.
+     *
+     * El gasto de campañas no se acota por sucursal (ver
+     * CampanaReclutamientoController), pero los candidatos SÍ respetan el
+     * alcance del usuario en el módulo de candidatos.
+     *
+     * @return array{campanas: list<array<string, mixed>>, totales: array<string, mixed>, filtros_aplicados: list<array{etiqueta: string, valor: string}>, periodo: string, criterio: string}
+     */
+    public function reporte(FiltrosReporteCampanas $filtros, User $usuario, bool $conCandidatos): array
+    {
+        $campanas = $this->consulta($filtros, $usuario)->get();
+        $recontar = $filtros->acotaCandidatos() || $this->alcanceModulo->nivel($usuario, 'candidatos') !== AlcanceDatos::Todos;
+
+        return [
+            ...$this->datos($campanas, $conCandidatos, $this->acotarCandidatos($filtros, $usuario), $recontar),
+            'filtros_aplicados' => $this->filtrosAplicados($filtros),
+            'periodo' => $this->periodo($filtros),
+            'criterio' => $filtros->criterio->explicacion(),
+        ];
+    }
+
+    /**
+     * Campañas que entran al reporte con los filtros dados.
+     *
+     * @return Builder<CampanaReclutamiento>
+     */
+    public function consulta(FiltrosReporteCampanas $filtros, User $usuario): Builder
+    {
+        $consulta = CampanaReclutamiento::query();
+
+        if ($filtros->criterio === CriterioFechaReporteCampanas::Registro) {
+            $consulta->whereHas('candidatos', $this->acotarCandidatos($filtros, $usuario));
+        } else {
+            $this->vigentesEnRango($consulta, $filtros->desde, $filtros->hasta);
+        }
+
+        if ($filtros->estados !== []) {
+            $hoy = Carbon::today();
+            $consulta->where(function (Builder $q) use ($filtros, $hoy): void {
+                foreach ($filtros->estados as $estado) {
+                    $q->orWhere(fn (Builder $s) => $this->enEstado($s, $estado, $hoy));
+                }
+            });
+        }
+
+        return $consulta
+            ->when($filtros->campanaIds !== [], fn (Builder $q) => $q->whereIn('id', $filtros->campanaIds))
+            ->when($filtros->canales !== [], fn (Builder $q) => $q->whereIn('canal', array_map(fn (CanalReclutamiento $c) => $c->value, $filtros->canales)))
+            ->when($filtros->empresaId !== null, fn (Builder $q) => $q->where('empresa_id', $filtros->empresaId))
+            ->when($filtros->sucursalId !== null, fn (Builder $q) => $q->where('sucursal_id', $filtros->sucursalId))
+            ->when($filtros->departamentoId !== null, fn (Builder $q) => $q->where('departamento_id', $filtros->departamentoId))
+            ->when($filtros->puestoId !== null, fn (Builder $q) => $q->where('puesto_id', $filtros->puestoId))
+            ->when($filtros->vacanteId !== null, fn (Builder $q) => $q->where('vacante_id', $filtros->vacanteId))
+            ->when($filtros->responsableId !== null, fn (Builder $q) => $q->where('responsable_id', $filtros->responsableId))
+            ->orderBy('fecha_inicio')
+            ->orderBy('id');
+    }
+
+    /**
+     * Candidatos que cuentan en el reporte: alcance del usuario (módulo de
+     * candidatos) + fecha de registro (criterio «registro») + fase.
+     *
+     * @return Closure(Builder<Candidato>): Builder<Candidato>
+     */
+    private function acotarCandidatos(FiltrosReporteCampanas $filtros, User $usuario): Closure
+    {
+        $estados = $filtros->estadosCandidato();
+
+        return function (Builder $q) use ($filtros, $usuario, $estados): Builder {
+            $this->alcance->limitarPorSucursal($q, $usuario, 'sucursal_id', 'candidatos');
+
+            if ($filtros->criterio === CriterioFechaReporteCampanas::Registro) {
+                $q->whereBetween('created_at', [$filtros->desde->copy()->startOfDay(), $filtros->hasta->copy()->endOfDay()]);
+            }
+
+            if ($filtros->fases !== []) {
+                $q->whereIn('estado', $estados);
+            }
+
+            return $q;
+        };
+    }
+
+    /**
+     * Vigencia de la campaña cruzada con [desde, hasta]. Sin fecha de fin =
+     * sigue vigente; sin fecha de inicio (histórico por mes/año) = su mes.
+     *
+     * @param  Builder<CampanaReclutamiento>  $consulta
+     */
+    private function vigentesEnRango(Builder $consulta, Carbon $desde, Carbon $hasta): void
+    {
+        $consulta->where(fn (Builder $w) => $w
+            ->where(fn (Builder $s) => $s
+                ->whereNotNull('fecha_inicio')
+                ->whereDate('fecha_inicio', '<=', $hasta->toDateString())
+                ->where(fn (Builder $f) => $f->whereNull('fecha_fin')->orWhereDate('fecha_fin', '>=', $desde->toDateString())))
+            ->orWhere(fn (Builder $s) => $s
+                ->whereNull('fecha_inicio')
+                ->whereRaw('(anio * 100 + mes) between ? and ?', [$this->claveMes($desde), $this->claveMes($hasta)])));
+    }
+
+    /**
+     * Mismo criterio que EstadoCampanaReclutamiento::de(), en SQL.
+     *
+     * @param  Builder<CampanaReclutamiento>  $q
+     * @return Builder<CampanaReclutamiento>
+     */
+    private function enEstado(Builder $q, EstadoCampanaReclutamiento $estado, Carbon $hoy): Builder
+    {
+        $fecha = $hoy->toDateString();
+        $clave = $this->claveMes($hoy);
+
+        return match ($estado) {
+            EstadoCampanaReclutamiento::Programada => $q
+                ->where(fn (Builder $s) => $s->whereNotNull('fecha_inicio')->whereDate('fecha_inicio', '>', $fecha))
+                ->orWhere(fn (Builder $s) => $s->whereNull('fecha_inicio')->whereRaw('(anio * 100 + mes) > ?', [$clave])),
+            EstadoCampanaReclutamiento::Concluida => $q
+                ->where(fn (Builder $s) => $s->whereNotNull('fecha_inicio')->whereDate('fecha_inicio', '<=', $fecha)->whereNotNull('fecha_fin')->whereDate('fecha_fin', '<', $fecha))
+                ->orWhere(fn (Builder $s) => $s->whereNull('fecha_inicio')->whereRaw('(anio * 100 + mes) < ?', [$clave])),
+            EstadoCampanaReclutamiento::Vigente => $q
+                ->where(fn (Builder $s) => $s->whereNotNull('fecha_inicio')->whereDate('fecha_inicio', '<=', $fecha)
+                    ->where(fn (Builder $f) => $f->whereNull('fecha_fin')->orWhereDate('fecha_fin', '>=', $fecha)))
+                ->orWhere(fn (Builder $s) => $s->whereNull('fecha_inicio')->whereRaw('(anio * 100 + mes) = ?', [$clave])),
+        };
+    }
+
+    private function claveMes(Carbon $fecha): int
+    {
+        return (int) $fecha->format('Y') * 100 + (int) $fecha->format('n');
+    }
+
+    public function periodo(FiltrosReporteCampanas $filtros): string
+    {
+        return sprintf('Del %s al %s', $filtros->desde->format('d/m/Y'), $filtros->hasta->format('d/m/Y'));
+    }
+
+    /**
+     * Filtros en texto (encabezado del PDF/Excel y resumen en pantalla).
+     * Siempre van el periodo, la fecha que se filtra y las campañas; el
+     * resto solo si se eligió algo.
+     *
+     * @return list<array{etiqueta: string, valor: string}>
+     */
+    public function filtrosAplicados(FiltrosReporteCampanas $filtros): array
+    {
+        $lista = [
+            ['etiqueta' => 'Periodo', 'valor' => $this->periodo($filtros)],
+            ['etiqueta' => 'Fecha que se filtra', 'valor' => $filtros->criterio->etiqueta()],
+            ['etiqueta' => 'Campañas', 'valor' => $filtros->campanaIds === []
+                ? 'Todas (reporte general)'
+                : implode(', ', CampanaReclutamiento::query()->whereIn('id', $filtros->campanaIds)->orderBy('id')->get()
+                    ->map(fn (CampanaReclutamiento $c): string => $this->nombreCampana($c))->all())],
+        ];
+
+        $agregar = function (string $etiqueta, ?string $valor) use (&$lista): void {
+            if ($valor !== null && $valor !== '') {
+                $lista[] = ['etiqueta' => $etiqueta, 'valor' => $valor];
+            }
+        };
+
+        $agregar('Canal / medio', implode(', ', array_map(fn (CanalReclutamiento $c) => $c->etiqueta(), $filtros->canales)));
+        $agregar('Estado de la campaña', implode(', ', array_map(fn (EstadoCampanaReclutamiento $e) => $e->etiqueta(), $filtros->estados)));
+        $fases = FiltrosReporteCampanas::fasesCandidato();
+        $agregar('Fase del candidato', implode(', ', array_map(fn (string $f) => $fases[$f] ?? $f, $filtros->fases)));
+        $agregar('Empresa', $filtros->empresaId !== null ? Empresa::query()->whereKey($filtros->empresaId)->value('nombre') : null);
+        $agregar('Sucursal', $filtros->sucursalId !== null ? Sucursal::query()->whereKey($filtros->sucursalId)->value('nombre') : null);
+        $agregar('Departamento', $filtros->departamentoId !== null ? Departamento::query()->whereKey($filtros->departamentoId)->value('nombre') : null);
+        $agregar('Puesto', $filtros->puestoId !== null ? Puesto::query()->whereKey($filtros->puestoId)->value('nombre') : null);
+        $agregar('Vacante', $filtros->vacanteId !== null ? $this->etiquetaVacante(Vacante::query()->with(['puesto:id,nombre', 'sucursal:id,nombre'])->where('id', $filtros->vacanteId)->first()) : null);
+        $agregar('Responsable de RH', $filtros->responsableId !== null ? User::query()->where('id', $filtros->responsableId)->first()?->nombreCompleto() : null);
+
+        return $lista;
+    }
+
+    /**
+     * Catálogos para los filtros de la pantalla del reporte.
+     *
+     * @return array<string, mixed>
+     */
+    public function opciones(): array
+    {
+        $campanas = CampanaReclutamiento::query()
+            ->orderByDesc('anio')->orderByDesc('mes')->orderByDesc('id')
+            ->get(['id', 'nombre', 'canal', 'mes', 'anio', 'fecha_inicio', 'fecha_fin', 'vacante_id', 'responsable_id']);
+
+        $vacantes = Vacante::query()
+            ->whereIn('id', $campanas->pluck('vacante_id')->filter()->unique())
+            ->with(['puesto:id,nombre', 'sucursal:id,nombre'])
+            ->orderByDesc('id')
+            ->get();
+
+        return [
+            'campanas' => array_values($campanas->map(fn (CampanaReclutamiento $c): array => [
+                'id' => $c->id,
+                'etiqueta' => sprintf('%s · %s · %s', $this->nombreCampana($c), $c->canal->etiqueta(), $this->vigencia($c)),
+            ])->all()),
+            'canales' => array_map(fn (CanalReclutamiento $c) => ['value' => $c->value, 'etiqueta' => $c->etiqueta()], CanalReclutamiento::cases()),
+            'estados' => EstadoCampanaReclutamiento::opciones(),
+            'criterios' => CriterioFechaReporteCampanas::opciones(),
+            'fases' => array_map(fn (string $value, string $etiqueta) => ['value' => $value, 'etiqueta' => $etiqueta], array_keys(FiltrosReporteCampanas::fasesCandidato()), FiltrosReporteCampanas::fasesCandidato()),
+            'empresas' => Empresa::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'sucursales' => Sucursal::query()->orderBy('nombre')->get(['id', 'nombre', 'empresa_id']),
+            'departamentos' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'puestos' => Puesto::query()->orderBy('nombre')->get(['id', 'nombre', 'departamento_id']),
+            'vacantes' => array_values($vacantes->map(fn (Vacante $v): array => ['id' => $v->id, 'etiqueta' => $this->etiquetaVacante($v) ?? ''])->all()),
+            // Quien lleva o puede llevar una campaña.
+            'responsables' => array_values(User::query()
+                ->where(fn (Builder $q) => $q
+                    ->whereIn('id', $campanas->pluck('responsable_id')->filter()->unique())
+                    ->orWhereIn('id', User::permission('reclutamiento.campanas.administrar')->select('id')))
+                ->orderBy('name')
+                ->get(['id', 'name', 'apellidos'])
+                ->map(fn (User $u): array => ['id' => $u->id, 'nombre' => $u->nombreCompleto()])
+                ->all()),
+        ];
+    }
+
+    /**
+     * Filas planas para el Excel (hoja de campañas y, si aplica, de candidatos).
+     *
+     * @param  array{campanas: list<array<string, mixed>>, totales: array<string, mixed>, filtros_aplicados: list<array{etiqueta: string, valor: string}>}  $reporte
+     */
+    public function excel(array $reporte, bool $conCandidatos): ReporteCampanasExport
+    {
+        $columnas = ['Campaña', 'Canal', 'Vacante', 'Responsable', 'Inicio', 'Fin', 'Estado', 'Presupuesto', 'Gasto', 'Llegaron', 'En proceso', 'No continuaron', 'Contratados', 'Conversión %', 'Costo por candidato', 'Costo por contratado'];
+        $numero = fn (mixed $v): int|float|null => is_int($v) || is_float($v) ? $v : null;
+        $texto = fn (mixed $v): ?string => is_string($v) ? $v : null;
+
+        $filas = array_map(fn (array $c): array => [
+            $texto($c['nombre']), $texto($c['canal']), $texto($c['vacante']), $texto($c['responsable']),
+            $texto($c['fecha_inicio']), $texto($c['fecha_fin']) ?? 'Sin fecha de fin', $texto($c['estado']),
+            $numero($c['presupuesto']), $numero($c['gasto']), $numero($c['llegaron']), $numero($c['en_proceso']),
+            $numero($c['no_continuaron']), $numero($c['contratados']), $numero($c['conversion']),
+            $numero($c['costo_por_candidato']), $numero($c['costo_por_contratado']),
+        ], $reporte['campanas']);
+
+        $t = $reporte['totales'];
+        $filas[] = [
+            'TOTAL', null, null, null, null, null, null,
+            $numero($t['presupuesto']), $numero($t['gasto']), $numero($t['llegaron']), $numero($t['en_proceso']),
+            $numero($t['no_continuaron']), $numero($t['contratados']), $numero($t['conversion']),
+            $numero($t['costo_por_candidato']), $numero($t['costo_por_contratado']),
+        ];
+
+        $candidatos = null;
+
+        if ($conCandidatos) {
+            $candidatos = [];
+
+            foreach ($reporte['campanas'] as $c) {
+                /** @var list<array<string, mixed>> $suyos */
+                $suyos = is_array($c['candidatos']) ? array_values($c['candidatos']) : [];
+
+                foreach ($suyos as $cand) {
+                    $candidatos[] = [$texto($c['nombre']), $texto($cand['nombre']), $texto($cand['registrado']), $texto($cand['fase_alcanzada']), $texto($cand['estado']), $texto($cand['motivo'])];
+                }
+            }
+        }
+
+        return new ReporteCampanasExport(
+            self::TITULO,
+            $reporte['filtros_aplicados'],
+            $columnas,
+            $filas,
+            ['Campaña', 'Candidato', 'Registrado', 'Fase alcanzada', 'Situación', '¿Por qué no continuó?'],
+            $candidatos,
+        );
+    }
+
+    /**
+     * PDF del reporte con filtros: el encabezado lista los filtros aplicados.
+     *
+     * @param  array{campanas: list<array<string, mixed>>, totales: array<string, mixed>, filtros_aplicados: list<array{etiqueta: string, valor: string}>, periodo: string}  $reporte
+     *
+     * @throws PdfRendererException
+     */
+    public function pdfDeReporte(array $reporte, bool $conCandidatos): string
+    {
+        return $this->renderizarPdf(
+            ['campanas' => $reporte['campanas'], 'totales' => $reporte['totales']],
+            self::TITULO,
+            $reporte['periodo'],
+            $conCandidatos,
+            $reporte['filtros_aplicados'],
+        );
+    }
+
+    private function nombreCampana(CampanaReclutamiento $campana): string
+    {
+        return $campana->nombre !== null && $campana->nombre !== '' ? $campana->nombre : $campana->canal->etiqueta();
+    }
+
+    private function vigencia(CampanaReclutamiento $campana): string
+    {
+        if ($campana->fecha_inicio === null) {
+            return sprintf('%02d/%d', $campana->mes, $campana->anio);
+        }
+
+        return $campana->fecha_fin !== null
+            ? sprintf('%s – %s', $campana->fecha_inicio->format('d/m/Y'), $campana->fecha_fin->format('d/m/Y'))
+            : sprintf('Desde %s', $campana->fecha_inicio->format('d/m/Y'));
+    }
+
+    private function etiquetaVacante(?Vacante $vacante): ?string
+    {
+        return $vacante !== null
+            ? sprintf('#%d · %s · %s', $vacante->id, $vacante->puesto->nombre ?? 'Sin puesto', $vacante->sucursal->nombre ?? 'Sin sucursal')
+            : null;
+    }
 
     /**
      * @param  iterable<CampanaReclutamiento>  $campanas
@@ -37,13 +375,23 @@ class ReporteCampanasService
      */
     public function pdf(iterable $campanas, string $titulo, string $periodo, bool $conCandidatos): string
     {
-        $datos = $this->datos($campanas, $conCandidatos);
+        return $this->renderizarPdf($this->datos($campanas, $conCandidatos), $titulo, $periodo, $conCandidatos, []);
+    }
 
+    /**
+     * @param  array{campanas: list<array<string, mixed>>, totales: array<string, mixed>}  $datos
+     * @param  list<array{etiqueta: string, valor: string}>  $filtrosAplicados
+     *
+     * @throws PdfRendererException
+     */
+    private function renderizarPdf(array $datos, string $titulo, string $periodo, bool $conCandidatos, array $filtrosAplicados): string
+    {
         $html = view('pdf.reporte-campanas', [
             ...$datos,
             'titulo' => $titulo,
             'periodo' => $periodo,
             'conCandidatos' => $conCandidatos,
+            'filtrosAplicados' => $filtrosAplicados,
             'generado' => now()->format('d/m/Y H:i'),
         ])->render();
 
@@ -56,31 +404,59 @@ class ReporteCampanasService
 
     /**
      * @param  iterable<CampanaReclutamiento>  $campanas
+     * @param  (Closure(Builder<Candidato>): Builder<Candidato>)|null  $acotarCandidatos  Alcance/fecha/fase de los candidatos que cuentan.
+     * @param  bool  $recontar  true cuando no cuentan TODOS los candidatos de cada campaña: los contratados (y su costo) se recuentan sobre el grupo filtrado en vez de la cifra general de la pantalla de Campañas.
      * @return array{campanas: list<array<string, mixed>>, totales: array<string, mixed>}
      */
-    public function datos(iterable $campanas, bool $conCandidatos = true): array
+    public function datos(iterable $campanas, bool $conCandidatos = true, ?Closure $acotarCandidatos = null, bool $recontar = false): array
     {
         $lista = new EloquentCollection(collect($campanas)->values()->all());
         $lista->loadMissing(['vacante.puesto:id,nombre', 'vacante.sucursal:id,nombre', 'responsable:id,name,apellidos']);
 
         $costos = $this->costos->porCampana($lista);
-        $candidatos = Candidato::query()
-            ->whereIn('campana_reclutamiento_id', $lista->pluck('id'))
+        $consulta = Candidato::query()->whereIn('campana_reclutamiento_id', $lista->pluck('id'));
+
+        if ($acotarCandidatos !== null) {
+            $acotarCandidatos($consulta);
+        }
+
+        $candidatos = $consulta
             ->with(['motivoRechazo:id,nombre,categoria', 'colaborador:id,activado_en'])
             ->orderBy('created_at')
             ->get()
             ->groupBy('campana_reclutamiento_id');
 
-        $filas = array_values($lista->map(function (CampanaReclutamiento $campana) use ($costos, $candidatos, $conCandidatos): array {
+        $gasto = (float) $costos['gasto'];
+        $contratadosTotal = (int) $costos['contratados'];
+        $costoPorContratado = $costos['costo_por_colaborador'];
+
+        if ($recontar) {
+            $contratadosTotal = 0;
+        }
+
+        $filas = [];
+
+        foreach ($lista as $campana) {
             /** @var Collection<int, Candidato> $suyos */
             $suyos = $candidatos->get($campana->id, collect());
+            $costo = $costos['por_campana'][$campana->id] ?? [];
 
-            return $this->campana($campana, $suyos, $costos['por_campana'][$campana->id] ?? [], $conCandidatos);
-        })->all());
+            if ($recontar) {
+                $contratados = $suyos->filter(fn (Candidato $c): bool => $c->estado === EstadoCandidato::Contratado)->count();
+                $contratadosTotal += $contratados;
+                $costo['contratados'] = $contratados;
+                $costo['costo_por_colaborador'] = $contratados > 0 ? round((float) $campana->monto / $contratados, 2) : null;
+            }
+
+            $filas[] = $this->campana($campana, $suyos, $costo, $conCandidatos);
+        }
+
+        if ($recontar) {
+            $costoPorContratado = $contratadosTotal > 0 ? round($gasto / $contratadosTotal, 2) : null;
+        }
 
         /** @var Collection<int, Candidato> $todos */
         $todos = $candidatos->flatten(1);
-        $gasto = (float) $costos['gasto'];
 
         return [
             'campanas' => $filas,
@@ -88,8 +464,8 @@ class ReporteCampanasService
                 'campanas' => count($filas),
                 'gasto' => $gasto,
                 'presupuesto' => (float) $lista->sum(fn (CampanaReclutamiento $c): float => (float) ($c->presupuesto ?? 0)),
-                ...$this->resumen($todos, $gasto, (int) $costos['contratados']),
-                'costo_por_contratado' => $costos['costo_por_colaborador'],
+                ...$this->resumen($todos, $gasto, $contratadosTotal),
+                'costo_por_contratado' => $costoPorContratado,
             ],
         ];
     }
@@ -114,6 +490,7 @@ class ReporteCampanasService
                 : 'Gasto general (sin vacante)',
             'fecha_inicio' => $campana->fecha_inicio?->format('d/m/Y'),
             'fecha_fin' => $campana->fecha_fin?->format('d/m/Y'),
+            'estado' => EstadoCampanaReclutamiento::de($campana)->etiqueta(),
             'responsable' => $campana->responsable?->nombreCompleto(),
             'presupuesto' => $campana->presupuesto !== null ? (float) $campana->presupuesto : null,
             'gasto' => $gasto,

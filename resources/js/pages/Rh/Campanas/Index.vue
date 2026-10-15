@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import {
     BadgeDollarSign,
     CalendarDays,
@@ -35,7 +35,7 @@ import {
     destroy,
     index,
     reporteCampanaPdf,
-    reportePdf,
+    reporte,
 } from '@/routes/rh/campanas';
 import type {
     CampanaReclutamientoItem,
@@ -113,11 +113,20 @@ const puestosFiltrados = computed(() =>
         : props.opciones.puestos,
 );
 
-// Mismos filtros con que se cargó la pantalla (no los que aún no se aplican).
+// Reporte con filtros (rango de fechas, campañas, canal…), precargado con
+// el mes y los filtros con que se cargó esta pantalla.
 const urlReportePeriodo = computed(() =>
-    reportePdf.url({
+    reporte.url({
         query: Object.fromEntries(
-            Object.entries(props.filtros).filter(
+            Object.entries({
+                mes: props.filtros.mes,
+                anio: props.filtros.anio,
+                canales: props.filtros.canal ? [props.filtros.canal] : undefined,
+                empresa_id: props.filtros.empresa_id,
+                sucursal_id: props.filtros.sucursal_id,
+                departamento_id: props.filtros.departamento_id,
+                puesto_id: props.filtros.puesto_id,
+            }).filter(
                 ([, valor]) => valor !== undefined && valor !== null && valor !== '',
             ),
         ),
@@ -214,12 +223,12 @@ async function eliminar(campana: CampanaReclutamientoItem) {
             descripcion="Cada campaña parte de una vacante real: qué se publicó, cuánto se gastó y qué produjo (candidatos, entrevistas, contratados)."
             :icono="Megaphone"
         >
-            <!-- Reporte PDF (Chrome) del periodo y filtros aplicados. -->
-            <Button v-if="totales.campanas > 0" variant="secondary" as-child>
-                <a :href="urlReportePeriodo" target="_blank" rel="noopener">
+            <!-- Reporte con filtros (pantalla + PDF/Excel). -->
+            <Button variant="secondary" as-child>
+                <Link :href="urlReportePeriodo">
                     <FileDown class="size-4" />
-                    Reporte PDF
-                </a>
+                    Reporte
+                </Link>
             </Button>
             <Button data-tour="campanas-nueva" @click="abrirCrear">
                 <Plus class="size-4" />

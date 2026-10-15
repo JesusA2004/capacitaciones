@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Reportes\ExportacionCumplimientoController;
 use App\Http\Controllers\Reportes\ReporteCumplimientoController;
+use App\Http\Controllers\Reportes\RotacionPersonalController;
 use App\Http\Controllers\Rh\ReporteRhController;
 use Illuminate\Support\Facades\Route;
 
@@ -18,6 +19,18 @@ use Illuminate\Support\Facades\Route;
 // que es lo que usa la página: no se duplican aquí.
 Route::middleware(['auth', 'verified'])->prefix('reportes')->name('reportes.')->group(function () {
     Route::get('/', [ReporteRhController::class, 'index'])->name('index');
+
+    // Rotación de personal cargada desde el Excel de RH (no el KPI en vivo
+    // del dashboard): subir → vista previa con hallazgos → confirmar.
+    // Permisos rotacion.ver / rotacion.cargar (RotacionCargaPolicy).
+    Route::prefix('rotacion')->name('rotacion.')->group(function () {
+        Route::get('/', [RotacionPersonalController::class, 'index'])->name('index');
+        Route::get('formato', [RotacionPersonalController::class, 'formato'])->name('formato');
+        Route::post('cargas', [RotacionPersonalController::class, 'analizar'])->name('analizar')->middleware('throttle:10,1');
+        Route::post('cargas/{carga}/aplicar', [RotacionPersonalController::class, 'aplicar'])->name('aplicar')->middleware('throttle:10,1');
+        Route::post('cargas/{carga}/descartar', [RotacionPersonalController::class, 'descartar'])->name('descartar');
+        Route::get('cargas/{carga}/archivo', [RotacionPersonalController::class, 'archivo'])->name('archivo');
+    });
 });
 
 Route::middleware(['auth', 'verified', 'feature:capacitacion'])->prefix('reportes')->name('reportes.')->group(function () {

@@ -92,6 +92,9 @@ class DestinoNotificacionService
                 // el colaborador, a contestar la suya.
                 $relacionado === 'EvaluacionInduccionIntento' && $id !== null && $usuario->can('onboarding.gestionar') => self::destino(route('rh.onboarding.induccion.mostrar', $id, false)),
                 $relacionado === 'EvaluacionInduccion' && $tipo !== '' && str_starts_with($tipo, 'induccion_') && is_numeric($datos['colaborador_id'] ?? null) && (int) $datos['colaborador_id'] === $usuario->colaborador_id => self::destino(route('portal.induccion.contenido', [], false)),
+                // Descriptivo de puesto: RH ve el acuse en el seguimiento de
+                // la inducción; el colaborador lo lee en la app (su portal).
+                $relacionado === 'AcuseDescriptivoPuesto' && $usuario->can('onboarding.gestionar') && (! is_numeric($datos['colaborador_id'] ?? null) || (int) $datos['colaborador_id'] !== $usuario->colaborador_id) => self::destino(route('induccion.presentacion', [], false)),
                 // Sobre uno mismo (onboarding, inducción…): su portal, nunca la
                 // ficha administrativa de RH.
                 $relacionado !== null && is_numeric($datos['colaborador_id'] ?? null) && (int) $datos['colaborador_id'] === $usuario->colaborador_id => self::destino(route('portal.index', [], false)),

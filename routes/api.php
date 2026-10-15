@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\CelebracionController;
 use App\Http\Controllers\Api\V1\CicloLaboralColaboradorController;
 use App\Http\Controllers\Api\V1\ColaboradorController;
 use App\Http\Controllers\Api\V1\ColaboradorCumpleanosController;
+use App\Http\Controllers\Api\V1\DescriptivoPuestoColaboradorController;
 use App\Http\Controllers\Api\V1\DirectorioController;
 use App\Http\Controllers\Api\V1\DispositivoController;
 use App\Http\Controllers\Api\V1\EquipoController;
@@ -20,6 +21,7 @@ use App\Http\Controllers\Api\V1\MobileBootstrapController;
 use App\Http\Controllers\Api\V1\MuroCumpleanosController;
 use App\Http\Controllers\Api\V1\NotificacionController;
 use App\Http\Controllers\Api\V1\Rh\ActaController;
+use App\Http\Controllers\Api\V1\Rh\AcuseDescriptivoPuestoController as RhAcuseDescriptivoPuestoController;
 use App\Http\Controllers\Api\V1\Rh\AltaColaboradorController;
 use App\Http\Controllers\Api\V1\Rh\CambioFotoController as RhCambioFotoController;
 use App\Http\Controllers\Api\V1\Rh\CandidatoController as RhCandidatoController;
@@ -235,6 +237,13 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('induccion/{evaluacion}/presentar', [MiProcesoController::class, 'presentarInduccion'])
                 ->name('induccion.presentar')
                 ->middleware('throttle:10,1');
+            // Descriptivo de puesto que RH envía tras aprobar la inducción:
+            // leerlo y dar «OK, enterado» + comentario (AcuseDescriptivoPuestoService).
+            Route::get('descriptivo-puesto', [DescriptivoPuestoColaboradorController::class, 'show'])->name('descriptivo-puesto.show');
+            Route::post('descriptivo-puesto/{acuse}/leido', [DescriptivoPuestoColaboradorController::class, 'leido'])->name('descriptivo-puesto.leido');
+            Route::post('descriptivo-puesto/{acuse}/acusar', [DescriptivoPuestoColaboradorController::class, 'acusar'])
+                ->name('descriptivo-puesto.acusar')
+                ->middleware('throttle:10,1');
             Route::get('alta', [CicloLaboralColaboradorController::class, 'alta'])->name('alta');
             Route::get('expediente', [CicloLaboralColaboradorController::class, 'expediente'])->name('expediente');
             Route::get('documentos-pendientes', [CicloLaboralColaboradorController::class, 'documentosPendientes'])->name('documentos-pendientes');
@@ -333,6 +342,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::get('induccion/intentos/{intento}/pdf/descargar', [RhEvaluacionInduccionPdfController::class, 'descargar'])->name('induccion.pdf.descargar');
             Route::post('induccion/intentos/{intento}/pdf/expediente', [RhEvaluacionInduccionPdfController::class, 'guardarEnExpediente'])->name('induccion.pdf.expediente');
             Route::post('induccion/{evaluacion}/retroalimentacion', [CicloLaboralRhController::class, 'retroalimentarInduccion'])->name('induccion.retroalimentar');
+            // «Enviar descriptivo de puesto» tras aprobar la inducción (mismo
+            // AcuseDescriptivoPuestoService que la web).
+            Route::get('colaboradores/{colaborador}/descriptivo-puesto', [RhAcuseDescriptivoPuestoController::class, 'show'])->name('colaboradores.descriptivo-puesto.show');
+            Route::post('colaboradores/{colaborador}/descriptivo-puesto/enviar', [RhAcuseDescriptivoPuestoController::class, 'enviar'])->name('colaboradores.descriptivo-puesto.enviar');
             // Sesiones de presentación de la inducción (mismo
             // SesionInduccionService que la web).
             Route::prefix('induccion/sesiones')->name('induccion.sesiones.')->group(function () {

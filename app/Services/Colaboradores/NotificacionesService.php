@@ -63,6 +63,9 @@ class NotificacionesService
         'induccion_evaluacion_aprobada' => ['emoji' => '✅', 'color' => 'success'],
         'induccion_requiere_reforzamiento' => ['emoji' => '📚', 'color' => 'warning'],
         'induccion_reevaluacion_habilitada' => ['emoji' => '🔁', 'color' => 'info'],
+        // Descriptivo de puesto tras la inducción (AcuseDescriptivoPuestoService).
+        'descriptivo_puesto_enviado' => ['emoji' => '📄', 'color' => 'info'],
+        'descriptivo_puesto_acusado' => ['emoji' => '✅', 'color' => 'success'],
         // Periodo de prueba (FO-RH-EPP-001) y excepción de Dirección General.
         'evaluacion_pendiente' => ['emoji' => '📋', 'color' => 'warning'],
         'evaluacion_capturada' => ['emoji' => '📋', 'color' => 'info'],

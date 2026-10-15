@@ -14,6 +14,9 @@ use App\Observers\ColaboradorPlantillaObserver;
 use App\Policies\RolPolicy;
 use App\Services\Autenticacion\AutenticacionService;
 use App\Services\Configuracion\ConfiguracionSistemaService;
+use App\Services\Expedientes\DivisionHistorico\Ocr\MotorOcr;
+use App\Services\Expedientes\DivisionHistorico\Ocr\SinMotorOcr;
+use App\Services\Expedientes\DivisionHistorico\Ocr\TesseractMotorOcr;
 use App\Services\Navigation\NavigationService;
 use App\Services\Notificaciones\MonitorNotificacionesService;
 use App\Services\Organigrama\JefeDirectoService;
@@ -39,7 +42,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // OCR local para dividir el PDF histórico por checklist
+        // (docs/DIVISION_EXPEDIENTE_HISTORICO.md): Tesseract o ninguno.
+        $this->app->bind(MotorOcr::class, fn () => config('expedientes.division_historico.ocr.driver') === 'tesseract'
+            ? new TesseractMotorOcr
+            : new SinMotorOcr);
     }
 
     /**

@@ -24,7 +24,7 @@ Sin cookie y con ambos modos disponibles, el sistema prioriza **operativo** por 
 
 **Colaborador**: Mi portal, Mis solicitudes, Mi expediente (si tiene `expedientes.ver`), Mis notificaciones, Mi perfil, Capacitación (si el feature flag está activo).
 
-**Operativo**: Inicio (dashboard), Expedientes (listado completo, solo con `expedientes.ver_todos`/`ver_sucursal`), Solicitudes (bandeja de revisión, con `solicitudes.revisar`/`aprobar`), Organigrama (con `organigrama.ver`), Vacantes, Candidatos, Altas digitales, Invitaciones QR, Formatos, Plantillas avanzadas, Reportes, Cumpleaños, Capacitación (si aplica) — y, aparte, un grupo "Administración" (Empresas, Usuarios, Sucursales, Departamentos, Puestos, Roles y permisos, Versiones de app).
+**Operativo**: Inicio (dashboard), Expedientes (listado completo, solo con `expedientes.ver_todos`/`ver_sucursal`), Solicitudes (bandeja de revisión, con `solicitudes.revisar`/`aprobar`), Organigrama (con `organigrama.ver`), Vacantes, Candidatos, Altas digitales, Invitaciones QR, Formatos, Plantillas avanzadas, Reportes, Rotación de personal (con `rotacion.ver`), Cumpleaños, Capacitación (si aplica) — y, aparte, un grupo "Administración" (Empresas, Usuarios, Sucursales, Departamentos, Puestos, Roles y permisos, Versiones de app).
 
 ## Expedientes vs. Usuarios vs. Roles y permisos
 

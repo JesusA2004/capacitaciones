@@ -56,6 +56,7 @@ class SesionInduccionService
         private readonly EvaluacionInduccionService $evaluaciones,
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly AuditoriaService $auditoria,
+        private readonly AcuseDescriptivoPuestoService $acusesDescriptivo,
     ) {}
 
     public function puedeGestionar(User $usuario): bool
@@ -404,7 +405,16 @@ class SesionInduccionService
             EtapaSeguimientoInduccion::Aprobada->value => 5,
         ];
 
-        return array_values($procesos->map(function (OnboardingProceso $proceso) use ($evaluaciones): array {
+        // Inducción aprobada → «Enviar descriptivo de puesto» y su acuse.
+        $descriptivos = $this->acusesDescriptivo->resumenesRh(
+            $procesos
+                ->filter(fn (OnboardingProceso $p): bool => $evaluaciones->get($p->id)?->estado === EstadoEvaluacionInduccion::Aprobada)
+                ->map(fn (OnboardingProceso $p): Colaborador => $p->colaborador)
+                ->values(),
+            $actor,
+        );
+
+        return array_values($procesos->map(function (OnboardingProceso $proceso) use ($evaluaciones, $descriptivos): array {
             $avance = $proceso->avances->first(fn (OnboardingAvance $a): bool => $a->modulo->evaluacion_formal_clave !== null && $a->modulo->tipo === TipoModuloOnboarding::Institucional);
             $evaluacion = $evaluaciones->get($proceso->id);
             $etapa = EtapaSeguimientoInduccion::desde($evaluacion?->estado, $avance?->contenido_visto_en !== null);
@@ -431,6 +441,7 @@ class SesionInduccionService
                 'fecha_limite_reevaluacion' => $evaluacion?->fecha_limite_reevaluacion?->toDateString(),
                 'onboarding_estado' => $proceso->estado->value,
                 'laborando' => $colaborador->activado_en !== null,
+                'descriptivo_puesto' => $descriptivos[$colaborador->id] ?? null,
             ];
         })
             ->sortBy(fn (array $fila): string => sprintf('%d %s', $orden[$fila['etapa']], Str::lower(Str::ascii($fila['colaborador']['nombre']))))

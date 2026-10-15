@@ -104,10 +104,11 @@ El CSV del análisis trae por fila el diagnóstico del match: nombre normalizado
 
 ## 6. Expediente histórico (PDF único)
 
-- El PDF viejo trae todos los documentos juntos. Se conserva **íntegro**: sin cortarlo, sin OCR, sin generar 14 archivos y sin copias.
+- El PDF viejo trae todos los documentos juntos. La migración lo conserva **íntegro**: no lo corta, no lo mueve y no lo borra.
 - Si hay varios PDFs, se conservan todos.
 - Se guarda en la tabla `expedientes_historicos`. **No** es un tipo de documento, **no** cuenta en el checklist y **no** marca ninguno de los 14 como entregado.
 - En el expediente aparece en la pestaña Documentos, sección **«Expediente histórico»**, con Ver y Descargar.
+- **Después** de migrar, RH puede **dividirlo por checklist** (`expedientes:dividir-historico` o el botón «Dividir por checklist y revisar datos»). Eso genera **copias** por documento, que entran al checklist **en revisión**, y un reporte de datos faltantes. El original sigue intacto. Ver `docs/DIVISION_EXPEDIENTE_HISTORICO.md`.
 
 **Checklist** (exactamente estos 14, `document_types.orden`):
 1. Solicitud de empleo

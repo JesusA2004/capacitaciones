@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
@@ -11,8 +12,11 @@ use Illuminate\Support\Carbon;
  * PDF histórico ÚNICO de un expediente anterior al sistema (migración
  * inicial, docs/MIGRACION_INICIAL_EXPEDIENTES.md). Trae juntos solicitud,
  * fotos, acta, INE, contratos… en un solo archivo: se conserva tal cual
- * (sin cortarlo, sin OCR, sin copias por tipo). NO es un tipo de documento:
- * no cuenta en el checklist de 14 ni en el porcentaje del expediente.
+ * (nunca se corta, mueve ni borra). NO es un tipo de documento: no cuenta
+ * en el checklist de 14 ni en el porcentaje del expediente. Lo que sí
+ * cuenta son las COPIAS por documento que genera la división por checklist
+ * (divisiones(), docs/DIVISION_EXPEDIENTE_HISTORICO.md), y solo cuando RH
+ * las aprueba.
  *
  * estado: `vinculado` (tiene colaborador) o `pendiente_vinculacion`
  * (carpeta del NAS sin persona identificable; RH lo vincula a mano, p. ej.
@@ -83,5 +87,16 @@ class ExpedienteHistorico extends Model
     public function extraccion(): HasOne
     {
         return $this->hasOne(DocumentExtraction::class, 'expediente_historico_id');
+    }
+
+    /**
+     * Corridas de división por checklist (docs/DIVISION_EXPEDIENTE_HISTORICO.md):
+     * generan COPIAS por documento; este PDF sigue intacto.
+     *
+     * @return HasMany<DivisionExpedienteHistorico, $this>
+     */
+    public function divisiones(): HasMany
+    {
+        return $this->hasMany(DivisionExpedienteHistorico::class, 'expediente_historico_id');
     }
 }

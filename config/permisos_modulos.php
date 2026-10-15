@@ -64,6 +64,15 @@ return [
             'alcances' => ['todos' => 'actas.ver_todos', 'region' => 'actas.ver_region', 'sucursal' => 'actas.ver_sucursal', 'equipo' => 'actas.ver_equipo'],
             'acciones' => ['actas.crear' => 'Crear', 'actas.gestionar' => 'Gestionar'],
         ],
+        // Responsivas de equipo (docs/responsiva): el gerente las genera para
+        // su equipo y RH para cualquiera; el colaborador no las ve aquí.
+        'responsivas' => [
+            'etiqueta' => 'Responsivas de equipo',
+            'grupo' => 'People',
+            'acceso' => 'responsivas.ver',
+            'alcances' => ['todos' => 'responsivas.ver_todos', 'region' => 'responsivas.ver_region', 'sucursal' => 'responsivas.ver_sucursal', 'equipo' => 'responsivas.ver_equipo'],
+            'acciones' => ['responsivas.generar' => 'Generar / subir firmada', 'responsivas.cancelar' => 'Cancelar'],
+        ],
         'documentos' => [
             'etiqueta' => 'Contratos y documentos',
             'grupo' => 'People',
@@ -126,6 +135,15 @@ return [
             'acceso' => 'onboarding.ver',
             'alcances' => ['todos' => 'onboarding.ver_todos', 'region' => 'onboarding.ver_region', 'sucursal' => 'onboarding.ver_sucursal', 'equipo' => 'onboarding.ver_equipo'],
             'acciones' => ['onboarding.gestionar' => 'Gestionar', 'onboarding.entregar_activos' => 'Entregar activos'],
+        ],
+        // Rotación de personal cargada desde el Excel de RH (Reportes →
+        // Rotación de personal). Se acota por sucursal.
+        'rotacion' => [
+            'etiqueta' => 'Rotación de personal',
+            'grupo' => 'People',
+            'acceso' => 'rotacion.ver',
+            'alcances' => ['todos' => 'rotacion.ver_todos', 'region' => 'rotacion.ver_region', 'sucursal' => 'rotacion.ver_sucursal'],
+            'acciones' => ['rotacion.cargar' => 'Cargar Excel'],
         ],
         'notificaciones' => [
             'etiqueta' => 'Notificaciones',

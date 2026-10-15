@@ -9,6 +9,7 @@ use App\Http\Controllers\Rh\CelebracionRhController;
 use App\Http\Controllers\Rh\CredencialesController;
 use App\Http\Controllers\Rh\CumpleanosConfiguracionController;
 use App\Http\Controllers\Rh\CumpleanosController;
+use App\Http\Controllers\Rh\DivisionExpedienteHistoricoController;
 use App\Http\Controllers\Rh\DocumentExtraccionController;
 use App\Http\Controllers\Rh\EmployeeDocumentController;
 use App\Http\Controllers\Rh\ExpedienteController;
@@ -144,6 +145,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::post('reprocesar', [DocumentExtraccionController::class, 'reprocesarHistorico'])->name('reprocesar');
             });
             Route::get('{colaborador}/extracciones-pendientes', [DocumentExtraccionController::class, 'resumen'])->name('extracciones-pendientes');
+            // División del PDF histórico por checklist + datos faltantes
+            // (docs/DIVISION_EXPEDIENTE_HISTORICO.md). Copias; el original no se toca.
+            Route::post('historico/{historico}/dividir', [DivisionExpedienteHistoricoController::class, 'dividir'])->name('historico.dividir')->middleware('throttle:10,1');
+            Route::prefix('division-historico')->name('division-historico.')->group(function () {
+                Route::get('partes/{parte}', [DivisionExpedienteHistoricoController::class, 'verParte'])->name('partes.ver');
+                Route::post('partes/{parte}/asignar', [DivisionExpedienteHistoricoController::class, 'asignarParte'])->name('partes.asignar');
+                Route::post('{division}/datos/aplicar', [DivisionExpedienteHistoricoController::class, 'aplicarDato'])->name('datos.aplicar');
+                Route::get('{colaborador}', [DivisionExpedienteHistoricoController::class, 'show'])->name('show')->withTrashed();
+            });
             // withTrashed(): un colaborador dado de baja (soft-deleted, ver
             // ExpedienteController::darDeBaja()) debe poder seguir
             // abriéndose desde Expedientes -- es donde vive tanto la baja
@@ -269,7 +279,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::prefix('campanas')->name('campanas.')->group(function () {
             Route::get('/', [CampanaReclutamientoController::class, 'index'])->name('index');
             Route::get('costos/exportar', [CampanaReclutamientoController::class, 'exportarCostos'])->name('costos.exportar');
+            Route::get('reporte', [CampanaReclutamientoController::class, 'reporte'])->name('reporte');
             Route::get('reporte-pdf', [CampanaReclutamientoController::class, 'reportePdf'])->name('reporte-pdf');
+            Route::get('reporte-excel', [CampanaReclutamientoController::class, 'reporteExcel'])->name('reporte-excel');
             Route::get('{campana}/reporte-pdf', [CampanaReclutamientoController::class, 'reporteCampanaPdf'])->name('reporte-campana-pdf');
             Route::post('/', [CampanaReclutamientoController::class, 'store'])->name('store');
             Route::put('{campana}', [CampanaReclutamientoController::class, 'update'])->name('update');

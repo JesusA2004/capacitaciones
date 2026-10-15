@@ -49,6 +49,50 @@ exportación"). Este módulo (Reportes RH) sigue siendo el único con selector d
 *reporte* (múltiples tablas agregadas); los demás exportan directamente el listado tal
 como se ve filtrado en pantalla.
 
+## Rotación de personal (carga de Excel)
+
+Pantalla aparte en el menú operativo (grupo «Organización», debajo de Reportes):
+`/reportes/rotacion` (`reportes.rotacion.*`). No sustituye al KPI en vivo del
+dashboard (`MetricasRhDashboardService::rotacion()`, calculado de altas/bajas del
+sistema): guarda la rotación **que RH reporta en su Excel** «INDICE DE ROTACIÓN DE
+PERSONAL» (archivo real en `docs/rotacion/` y `claude/rotacion/`).
+
+- **Estructura leída del Excel real** (`App\Services\Rotacion\RotacionExcelLector`):
+  hojas `INDICADOR 2025`, `INDICADOR X SUCURSAL 2025`, `SUCURSALES 2026` (año = nombre
+  de la hoja). Un bloque por sucursal: nombre arriba (celda combinada F:J), fila de
+  meses B..M (`ENERO`…`SEPT`, `OCT`, `NOV`, `DIC`) + `TOTALES` en N; en la columna A
+  `ALTAS`, `BAJAS`, `PLANTILLA` (= anterior + altas − bajas), la plantilla inicial
+  (número suelto en A debajo de PLANTILLA) y `ROTACIÓN` (= bajas × 100 / plantilla del
+  mes). N/O traen «PROMEDIO MENSUAL» y «ROTACIÓN ANUAL»; al pie, resúmenes («Bajas
+  enero», «Rotación General», «ROTACIÓN MENSUAL SUCURSALES»). El lector se guía por
+  etiquetas, no por posiciones. No hay bajas voluntarias/involuntarias ni departamento
+  en el archivo real; el formato actualizado agrega las dos filas de bajas como
+  opcionales.
+- **Flujo**: subir → análisis (vista previa con hallazgos `error` / `advertencia` /
+  `informativo`, `App\Enums\NivelHallazgoRotacion`) → confirmar o descartar. Nada se
+  ignora en silencio: bloques sin nombre (el consolidado de `INDICADOR 2025` y dos
+  bloques sueltos), sucursales que no están en el catálogo, coincidencias aproximadas
+  de nombre («SAN LUIS» → «San Luis Potosí»), ROTACIÓN del Excel distinta de la
+  recalculada (Atlacomulco enero está ÷ 3), PLANTILLA que no cuadra, TOTALES que no
+  suman, errores `#REF!` del resumen, meses sin captura.
+- **Tablas**: `rotacion_cargas` (archivo original en el disco `nas` bajo `rotacion/`,
+  `subido_por`, `aplicado_por`, `resumen`, `detalle` con periodos + hallazgos) y
+  `rotacion_periodos` (único por sucursal + año + mes). Volver a subir un mes lo
+  reemplaza: la carga guarda los valores anteriores y la bitácora registra
+  `rotacion.carga_aplicada` con antes/después.
+- **Consulta** (`RotacionConsultaService`): últimos 12 meses (`config/rotacion.php`),
+  filtro por sucursal, índice mensual consolidado = Σ bajas × 100 / Σ plantilla final,
+  promedio mensual y rotación acumulada por sucursal. Alcance del módulo `rotacion`
+  (`config/permisos_modulos.php`) vía `AlcanceModuloService`.
+- **Permisos**: `rotacion.ver` (rh_admin, rh_auxiliar, dirección, director comercial,
+  auditor, sistemas) y `rotacion.cargar` (rh_admin; super_admin todo). En producción:
+  `php artisan migrate --force && php artisan people:sincronizar-permisos`.
+- **Formato actualizado** (`RotacionFormatoService`, botón «Descargar formato»): misma
+  estructura que `SUCURSALES 2026`, con las sucursales activas del catálogo (nombres
+  exactos), prellenado con los meses ya cargados, ROTACIÓN sin `#DIV/0!` y PROMEDIO /
+  ROTACIÓN ANUAL como fórmulas.
+- Alias de nombres confirmados por el negocio: `config/rotacion.php → alias_sucursales`.
+
 ## Pendiente
 
 - Gráficas (el dashboard RH ya tiene varias, ver `docs/PORTAL_RH.md`; esta pantalla es tabular a propósito, pensada para exportar).

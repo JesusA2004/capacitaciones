@@ -29,6 +29,7 @@ import {
     ShieldCheck,
     Smartphone,
     Sparkles,
+    TrendingDown,
     UserRound,
     Users,
 } from '@lucide/vue';
@@ -56,6 +57,7 @@ import {
     recibos as misRecibosNomina,
 } from '@/routes/portal';
 import { index as indexReportes } from '@/routes/reportes';
+import { index as indexRotacion } from '@/routes/reportes/rotacion';
 import { index as indexActas } from '@/routes/rh/actas';
 import { index as indexAniversarios } from '@/routes/rh/aniversarios';
 import { index as indexAvisos } from '@/routes/rh/avisos';
@@ -315,6 +317,11 @@ export function useMainNavItems() {
                     title: 'Reportes',
                     href: indexReportes(),
                     icon: Activity,
+                },
+                tienePermiso('rotacion.ver') && {
+                    title: 'Rotación de personal',
+                    href: indexRotacion(),
+                    icon: TrendingDown,
                 },
             ]),
         ].filter((g) => g.items.length > 0);

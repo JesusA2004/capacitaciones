@@ -11,6 +11,7 @@ use App\Models\OnboardingProceso;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
+use App\Services\Onboarding\AcuseDescriptivoPuestoService;
 use App\Services\Onboarding\EvaluacionInduccionService;
 use App\Services\Onboarding\OnboardingService;
 use App\Services\Reportes\TableroRhService;
@@ -35,6 +36,7 @@ class CicloLaboralRhController extends Controller
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly OrganizacionJerarquiaService $jerarquia,
         private readonly EvaluacionInduccionService $evaluacionInduccion,
+        private readonly AcuseDescriptivoPuestoService $acusesDescriptivo,
     ) {}
 
     public function tablero(Request $request): JsonResponse
@@ -131,6 +133,7 @@ class CicloLaboralRhController extends Controller
             'revision' => $this->evaluacionInduccion->detalleRevision($intento),
             'intento_id' => $intento->id,
             'ya_calificado' => ! $intento->pendienteCalificacionRh(),
+            'descriptivo_puesto' => $this->acusesDescriptivo->resumenRh($intento->evaluacion->colaborador, $request->user()),
         ]]);
     }
 

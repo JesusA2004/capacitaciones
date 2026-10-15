@@ -310,6 +310,18 @@ adicional. `App\Jobs\ProcesarDocumentoPersonalJob` corre en la cola por defecto,
 6 de arriba. Si `queue:work` no está corriendo, las extracciones simplemente se quedan
 `pending` hasta que el worker vuelva.
 
+**OCR local (opcional, recomendado)** para PDFs escaneados — lo usan la extracción y la
+división del PDF histórico por checklist (`docs/DIVISION_EXPEDIENTE_HISTORICO.md`):
+
+```bash
+sudo apt-get install -y tesseract-ocr tesseract-ocr-spa poppler-utils
+tesseract --version && tesseract --list-langs | grep spa && pdftoppm -v
+```
+
+Sin estos binarios nada truena: las páginas escaneadas se reportan «sin OCR disponible».
+`DividirExpedienteHistoricoJob` también usa el `queue:work` normal (timeout 3600 s:
+`DB_QUEUE_RETRY_AFTER` debe ser mayor, ya lo es por la migración inicial).
+
 ## Formatos oficiales de MR. LANA
 
 `setasign/fpdi-fpdf` (overlay sobre PDF, ver `docs/FORMATOS_OFICIALES.md`) se instala

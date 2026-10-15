@@ -71,7 +71,7 @@ en «Seleccionar archivo». Por eso el CV no se sube: se toma de una carpeta del
    `chrome://policy`. Se deshace con `-Quitar`.
 4. **En el sistema**: en «Nuevo candidato» y en el expediente del candidato aparece el
    selector de la bandeja (más recientes primero, con vista previa). Al guardar, el
-   archivo se **mueve** a `candidatos/{id}/cv/` (sale de la bandeja; un candado evita
+   archivo se **mueve** a `candidatos/{Nombre Apellidos} - {id}/cv/` (sale de la bandeja; un candado evita
    asignarlo dos veces). Descargas a medias (`.crdownload`) y tipos no permitidos no
    se listan; nunca se aceptan rutas, solo nombres de la propia carpeta
    (`BandejaCvService`). El CV puede ser PDF, Word o foto (JPG/PNG/WEBP).
@@ -95,15 +95,20 @@ candidatos solo se incluye si el usuario puede ver candidatos.
 `App\Services\Reclutamiento\ExpedienteCandidatoService` reúne lo que el candidato
 presentó en el proceso para que RH, Dirección Comercial y administrativos le den
 seguimiento (sección «Expediente del candidato» en la ficha). Todo vive en el NAS
-(Synology), una carpeta por candidato:
+(Synology), una carpeta por candidato con su nombre, aparte de `expedientes/`
+(el expediente normal del colaborador se arma hasta que se contrata). El id
+resuelve homónimos; la carpeta se fija con el primer archivo (`candidatos.carpeta_nas`)
+y no cambia si después se corrige el nombre. Las carpetas antiguas por número
+(`candidatos/{id}/`) se pasan con `php artisan candidatos:carpetas-con-nombre`
+(`--simular` para ver antes qué movería).
 
 | Carpeta | Contenido | Cuándo se sube |
 |---|---|---|
-| `candidatos/{id}/cv/` | CV (PDF/Word, 10 MB) | Al registrar al candidato o después |
-| `candidatos/{id}/psicometricos/` | Resultados psicométricos (PDF, imagen, Word, Excel) | Con «Registrar resultados» o después |
-| `candidatos/{id}/socioeconomico/videos/` | Uno o varios videos (MP4, MOV, M4V, 3GP, WEBM; 250 MB c/u) | Con el estudio socioeconómico o después |
-| `candidatos/{id}/socioeconomico/fotos/` y `…/documentos/` | Fotografías y PDF del estudio | Igual |
-| `candidatos/{id}/referencias/` | Soporte de la referencia (constancia, carta, captura) | Al registrar la referencia o después |
+| `candidatos/{Nombre Apellidos} - {id}/cv/` | CV (PDF/Word, 10 MB) | Al registrar al candidato o después |
+| `candidatos/{Nombre Apellidos} - {id}/psicometricos/` | Resultados psicométricos (PDF, imagen, Word, Excel) | Con «Registrar resultados» o después |
+| `candidatos/{Nombre Apellidos} - {id}/socioeconomico/videos/` | Uno o varios videos (MP4, MOV, M4V, 3GP, WEBM; 250 MB c/u) | Con el estudio socioeconómico o después |
+| `candidatos/{Nombre Apellidos} - {id}/socioeconomico/fotos/` y `…/documentos/` | Fotografías y PDF del estudio | Igual |
+| `candidatos/{Nombre Apellidos} - {id}/referencias/` | Soporte de la referencia (constancia, carta, captura) | Al registrar la referencia o después |
 
 - Agregar archivos después: `POST rh/candidatos/{candidato}/evidencias` (web) y
   `POST api/v1/rh/candidatos/{candidato}/evidencias` (app), con `etapa`
@@ -115,7 +120,7 @@ seguimiento (sección «Expediente del candidato» en la ficha). Todo vive en el
 - Límites en `config/reclutamiento.php` (`evidencias.*`, variables
   `RECLUTAMIENTO_VIDEO_MAX_MB` y `RECLUTAMIENTO_EVIDENCIA_MAX_MB`). El servidor debe
   aceptar el tamaño del video (php.ini y Nginx, ver `docs/DEPLOY.md`).
-- Archivos subidos antes de este cambio siguen en `candidatos/{id}/evidencias/` y se
+- Archivos subidos antes de este cambio siguen en `candidatos/{Nombre Apellidos} - {id}/evidencias/` y se
   muestran igual (la ruta se guarda en BD); no se mueven automáticamente.
 
 ## Estados

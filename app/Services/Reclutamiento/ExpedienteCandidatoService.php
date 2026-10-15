@@ -11,6 +11,7 @@ use App\Models\CandidatoReferencia;
 use App\Models\CandidatoSocioeconomico;
 use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\Expedientes\DocumentoStorageService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
@@ -22,14 +23,18 @@ use Illuminate\Validation\ValidationException;
  * Mini expediente del candidato ANTES de la contratación: CV, resultados
  * psicométricos, videos/fotografías del estudio socioeconómico y soporte de
  * referencias. Todo vive en el NAS (Synology, disco config('reclutamiento.disk'))
- * en una carpeta legible por candidato:
+ * en una carpeta con el nombre del candidato, aparte de `expedientes/` (el
+ * expediente del colaborador se arma hasta que se contrata):
  *
- *   candidatos/{id}/cv/
- *   candidatos/{id}/psicometricos/
- *   candidatos/{id}/socioeconomico/videos/
- *   candidatos/{id}/socioeconomico/fotos/
- *   candidatos/{id}/socioeconomico/documentos/
- *   candidatos/{id}/referencias/
+ *   candidatos/{Nombre Apellidos} - {id}/cv/
+ *   candidatos/{Nombre Apellidos} - {id}/psicometricos/
+ *   candidatos/{Nombre Apellidos} - {id}/socioeconomico/videos/
+ *   candidatos/{Nombre Apellidos} - {id}/socioeconomico/fotos/
+ *   candidatos/{Nombre Apellidos} - {id}/socioeconomico/documentos/
+ *   candidatos/{Nombre Apellidos} - {id}/referencias/
+ *
+ * El id resuelve homónimos. La carpeta se fija (`carpeta_nas`) con el primer
+ * archivo: corregir el nombre después no parte el mini expediente en dos.
  *
  * Disco y ruta nunca salen al cliente: la descarga pasa por un controlador
  * con Policy + alcance (Dirección Comercial, RH y administrativos con
@@ -48,19 +53,92 @@ class ExpedienteCandidatoService
     public function __construct(
         private readonly CvStorageService $almacenamiento,
         private readonly AuditoriaService $auditoria,
+        private readonly DocumentoStorageService $documentos,
     ) {}
 
-    public function carpetaCandidato(int $candidatoId): string
+    /**
+     * Carpeta calculada con el nombre actual: `candidatos/{Nombre Apellidos} - {id}`.
+     */
+    public function carpetaConNombre(Candidato $candidato): string
     {
-        return sprintf('candidatos/%d', $candidatoId);
+        return sprintf('candidatos/%s', $this->documentos->sanitizarSegmento(sprintf('%s - %d', $candidato->nombreCompleto(), $candidato->id)));
+    }
+
+    /**
+     * Carpeta del mini expediente: la ya fijada o, si todavía no tiene, la
+     * calcula con su nombre y la guarda para los archivos siguientes.
+     */
+    public function carpetaCandidato(Candidato $candidato): string
+    {
+        $actual = $candidato->carpeta_nas;
+
+        if ($actual !== null && trim($actual) !== '') {
+            return $actual;
+        }
+
+        $carpeta = $this->carpetaConNombre($candidato);
+        $candidato->forceFill(['carpeta_nas' => $carpeta])->save();
+
+        return $carpeta;
+    }
+
+    /**
+     * Mueve los archivos de un candidato que siguen en la carpeta antigua
+     * por número (`candidatos/{id}/...`) a su carpeta con nombre, y actualiza
+     * las rutas guardadas. Idempotente: lo que ya está en la carpeta con
+     * nombre no se toca. Un archivo que no aparece en el NAS se reporta,
+     * nunca se omite en silencio.
+     *
+     * @return array{carpeta: string, movidos: int, faltantes: list<string>}
+     */
+    public function moverACarpetaConNombre(Candidato $candidato, bool $simular = false): array
+    {
+        $disco = $this->almacenamiento->disco();
+        $antigua = sprintf('candidatos/%d/', $candidato->id);
+        $carpeta = $simular ? ($candidato->carpeta_nas ?: $this->carpetaConNombre($candidato)) : $this->carpetaCandidato($candidato);
+        $movidos = 0;
+        $faltantes = [];
+
+        $mover = function (string $ruta) use ($disco, $antigua, $carpeta, $simular, &$movidos, &$faltantes): ?string {
+            if (! str_starts_with($ruta, $antigua) || $antigua === $carpeta.'/') {
+                return null;
+            }
+
+            if (! $disco->exists($ruta)) {
+                $faltantes[] = $ruta;
+
+                return null;
+            }
+
+            $nueva = $carpeta.'/'.substr($ruta, strlen($antigua));
+            $movidos++;
+
+            if (! $simular) {
+                $disco->move($ruta, $nueva);
+            }
+
+            return $nueva;
+        };
+
+        if ($candidato->cv_path !== null && ($nueva = $mover($candidato->cv_path)) !== null && ! $simular) {
+            $candidato->forceFill(['cv_path' => $nueva])->save();
+        }
+
+        CandidatoEvidencia::query()->where('candidato_id', $candidato->id)->each(function (CandidatoEvidencia $evidencia) use ($mover, $simular): void {
+            if (($nueva = $mover($evidencia->path)) !== null && ! $simular) {
+                $evidencia->forceFill(['path' => $nueva])->save();
+            }
+        });
+
+        return ['carpeta' => $carpeta, 'movidos' => $movidos, 'faltantes' => $faltantes];
     }
 
     /**
      * Carpeta del NAS de una evidencia según su etapa y tipo de archivo.
      */
-    public function carpetaEvidencia(int $candidatoId, string $etapa, TipoEvidenciaCandidato $tipo): string
+    public function carpetaEvidencia(Candidato $candidato, string $etapa, TipoEvidenciaCandidato $tipo): string
     {
-        $base = $this->carpetaCandidato($candidatoId);
+        $base = $this->carpetaCandidato($candidato);
 
         return match ($etapa) {
             self::ETAPA_SOCIOECONOMICO => sprintf('%s/socioeconomico/%s', $base, match ($tipo) {
@@ -89,7 +167,7 @@ class ExpedienteCandidatoService
      */
     public function guardarCv(Candidato $candidato, UploadedFile $archivo, ?User $actor): Candidato
     {
-        $ruta = sprintf('%s/cv/%s', $this->carpetaCandidato($candidato->id), $this->almacenamiento->nombreInterno($archivo->getClientOriginalName()));
+        $ruta = sprintf('%s/cv/%s', $this->carpetaCandidato($candidato), $this->almacenamiento->nombreInterno($archivo->getClientOriginalName()));
         $this->almacenamiento->guardar($archivo, $ruta);
 
         return $this->registrarCv($candidato, $ruta, $archivo->getClientOriginalName(), $archivo->getMimeType() ?? $archivo->getClientMimeType(), (int) $archivo->getSize(), $actor);
@@ -103,7 +181,7 @@ class ExpedienteCandidatoService
      */
     public function guardarCvDesdeFlujo(Candidato $candidato, $flujo, string $nombreOriginal, string $mime, int $tamano, ?User $actor): Candidato
     {
-        $ruta = sprintf('%s/cv/%s', $this->carpetaCandidato($candidato->id), $this->almacenamiento->nombreInterno($nombreOriginal));
+        $ruta = sprintf('%s/cv/%s', $this->carpetaCandidato($candidato), $this->almacenamiento->nombreInterno($nombreOriginal));
         $this->almacenamiento->guardarFlujo($flujo, $ruta);
 
         return $this->registrarCv($candidato, $ruta, $nombreOriginal, $mime, $tamano, $actor);
@@ -148,7 +226,7 @@ class ExpedienteCandidatoService
             $mime = $archivo->getMimeType();
             $tipo = TipoEvidenciaCandidato::desdeMime($mime);
             $extension = strtolower($archivo->guessExtension() ?? $archivo->getClientOriginalExtension());
-            $ruta = sprintf('%s/%s.%s', $this->carpetaEvidencia($candidato->id, $etapa, $tipo), Str::uuid(), $extension);
+            $ruta = sprintf('%s/%s.%s', $this->carpetaEvidencia($candidato, $etapa, $tipo), Str::uuid(), $extension);
             $this->almacenamiento->guardar($archivo, $ruta);
 
             $guardadas[] = CandidatoEvidencia::query()->create([

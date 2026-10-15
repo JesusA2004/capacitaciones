@@ -53,7 +53,7 @@ test('el CV se sube desde el registro del candidato y queda en su carpeta cv/', 
     $candidato = Candidato::query()->where('nombre', 'Laura')->firstOrFail();
 
     expect($candidato->cv_original_name)->toBe('cv-laura.pdf')
-        ->and($candidato->cv_path)->toStartWith("candidatos/{$candidato->id}/cv/")
+        ->and($candidato->cv_path)->toStartWith("candidatos/Laura Mendez - {$candidato->id}/cv/")
         ->and(Storage::disk('nas')->exists((string) $candidato->cv_path))->toBeTrue();
 });
 
@@ -66,9 +66,10 @@ test('el socioeconómico acepta varios videos grandes y los guarda en socioecono
     ])->assertSessionHasNoErrors();
 
     $id = $this->candidato->id;
+    $carpeta = $this->candidato->refresh()->carpeta_nas;
 
-    expect(ecArchivosEn("candidatos/{$id}/socioeconomico/videos"))->toHaveCount(2)
-        ->and(ecArchivosEn("candidatos/{$id}/socioeconomico/fotos"))->toHaveCount(1)
+    expect(ecArchivosEn("{$carpeta}/socioeconomico/videos"))->toHaveCount(2)
+        ->and(ecArchivosEn("{$carpeta}/socioeconomico/fotos"))->toHaveCount(1)
         ->and(CandidatoEvidencia::query()->where('candidato_id', $id)->where('tipo', 'video')->count())->toBe(2);
 });
 
@@ -99,7 +100,7 @@ test('después de registrar el socioeconómico se le pueden agregar más videos 
         'archivos' => [ecVideo('recorrido-1.mp4'), ecVideo('recorrido-2.mp4')],
     ])->assertSessionHasNoErrors();
 
-    expect(ecArchivosEn("candidatos/{$this->candidato->id}/socioeconomico/videos"))->toHaveCount(2)
+    expect(ecArchivosEn("{$this->candidato->refresh()->carpeta_nas}/socioeconomico/videos"))->toHaveCount(2)
         ->and($this->candidato->refresh()->estado)->toBe($fase)
         ->and($this->candidato->seguimientos()->where('nota', 'like', '%2 archivo(s)%')->exists())->toBeTrue();
 });
@@ -121,8 +122,10 @@ test('psicométricos y soporte de referencias quedan en sus carpetas y en el exp
         ->assertOk()->viewData('page')['props']['candidato']['expediente'];
     $grupos = collect($expediente['grupos'])->keyBy('clave');
 
-    expect(ecArchivosEn("candidatos/{$id}/psicometricos"))->toHaveCount(1)
-        ->and(ecArchivosEn("candidatos/{$id}/referencias"))->toHaveCount(1)
+    $carpeta = $this->candidato->refresh()->carpeta_nas;
+
+    expect(ecArchivosEn("{$carpeta}/psicometricos"))->toHaveCount(1)
+        ->and(ecArchivosEn("{$carpeta}/referencias"))->toHaveCount(1)
         ->and(CandidatoReferencia::query()->firstOrFail()->evidencias)->toHaveCount(1)
         ->and($grupos['psicometricas']['archivos'][0]['nombre'])->toBe('resultados.pdf')
         ->and($grupos['referencias']['archivos'][0]['nombre'])->toBe('constancia.png')
@@ -151,7 +154,46 @@ test('Dirección Comercial consulta el expediente y ve los videos; quien no tien
         'etapa' => 'socioeconomico', 'archivos' => [ecVideo('x.mp4')],
     ])->assertForbidden();
 
-    expect($evidencia->carpetaCandidato($this->candidato->id))->toBe("candidatos/{$this->candidato->id}");
+    expect($evidencia->carpetaCandidato($this->candidato))->toBe($this->candidato->fresh()?->carpeta_nas);
+});
+
+test('la carpeta del candidato lleva su nombre, aparte de expedientes, y no cambia si se corrige el nombre', function () {
+    $candidato = Candidato::factory()->create(['nombre' => 'José', 'apellidos' => 'Núñez Pérez']);
+    $servicio = app(ExpedienteCandidatoService::class);
+
+    $servicio->guardarCv($candidato, UploadedFile::fake()->create('cv.pdf', 50, 'application/pdf'), $this->rh);
+    $carpeta = "candidatos/Jose Nunez Perez - {$candidato->id}";
+
+    expect($candidato->fresh()?->cv_path)->toStartWith("{$carpeta}/cv/")
+        ->and(ecArchivosEn("{$carpeta}/cv"))->toHaveCount(1);
+
+    $candidato->update(['apellidos' => 'Núñez']);
+    expect($servicio->carpetaCandidato($candidato->fresh() ?? $candidato))->toBe($carpeta);
+});
+
+test('candidatos:carpetas-con-nombre mueve la carpeta antigua por número a la carpeta con nombre', function () {
+    $candidato = Candidato::factory()->create(['nombre' => 'Ana', 'apellidos' => 'Ruiz', 'cv_path' => null]);
+    $antigua = "candidatos/{$candidato->id}";
+    Storage::disk('nas')->put("{$antigua}/cv/a.pdf", 'cv');
+    Storage::disk('nas')->put("{$antigua}/socioeconomico/videos/v.mp4", 'video');
+    $candidato->forceFill(['cv_path' => "{$antigua}/cv/a.pdf"])->save();
+    $video = CandidatoEvidencia::query()->create([
+        'candidato_id' => $candidato->id, 'evidenciable_type' => 'candidato_socioeconomico', 'evidenciable_id' => 1,
+        'tipo' => 'video', 'disk' => 'nas', 'path' => "{$antigua}/socioeconomico/videos/v.mp4",
+        'original_name' => 'v.mp4', 'mime' => 'video/mp4', 'size' => 5,
+    ]);
+
+    $this->artisan('candidatos:carpetas-con-nombre', ['--simular' => true])->assertSuccessful();
+    Storage::disk('nas')->assertExists("{$antigua}/cv/a.pdf");
+
+    $this->artisan('candidatos:carpetas-con-nombre')->assertSuccessful();
+    $carpeta = "candidatos/Ana Ruiz - {$candidato->id}";
+
+    Storage::disk('nas')->assertExists("{$carpeta}/cv/a.pdf");
+    Storage::disk('nas')->assertExists("{$carpeta}/socioeconomico/videos/v.mp4");
+    Storage::disk('nas')->assertMissing("{$antigua}/cv/a.pdf");
+    expect($candidato->fresh()?->cv_path)->toBe("{$carpeta}/cv/a.pdf")
+        ->and($video->fresh()?->path)->toBe("{$carpeta}/socioeconomico/videos/v.mp4");
 });
 
 test('la app agrega videos al socioeconómico por la API con el mismo servicio', function () {

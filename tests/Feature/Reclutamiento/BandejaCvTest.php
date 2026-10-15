@@ -43,7 +43,7 @@ test('al registrar un candidato con un CV de la bandeja, el archivo pasa a su ex
     $candidato = Candidato::query()->where('nombre', 'Laura')->firstOrFail();
     expect($candidato->cv_original_name)->toBe('CV Laura.pdf')
         ->and($candidato->cv_mime)->toBe('application/pdf')
-        ->and($candidato->cv_path)->toStartWith("candidatos/{$candidato->id}/cv/");
+        ->and($candidato->cv_path)->toStartWith("candidatos/Laura - {$candidato->id}/cv/");
     Storage::disk('nas')->assertExists($candidato->cv_path);
     Storage::disk('nas')->assertMissing('reclutamiento/bandeja-cv/CV Laura.pdf');
 });

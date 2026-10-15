@@ -11,6 +11,7 @@ import {
     X,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import EnvioDescriptivoPuestoRh from '@/components/ciclo/EnvioDescriptivoPuestoRh.vue';
 import BuscadorColaborador from '@/components/documentos/BuscadorColaborador.vue';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -295,7 +296,7 @@ function fecha(iso: string | null): string {
                     <li
                         v-for="fila in datos.seguimiento"
                         :key="fila.colaborador.id"
-                        class="flex tarjeta-interactiva flex-col gap-2 rounded-2xl border p-3 sm:flex-row sm:items-center"
+                        class="flex tarjeta-interactiva flex-col gap-2 rounded-2xl border p-3 sm:flex-row sm:flex-wrap sm:items-center"
                     >
                         <div class="min-w-0 flex-1">
                             <p class="truncate text-sm font-medium">
@@ -346,6 +347,14 @@ function fecha(iso: string | null): string {
                             class="text-sm text-muted-foreground underline-offset-4 hover:underline"
                             >Ver evaluación</Link
                         >
+                        <!-- Aprobada: «Enviar descriptivo de puesto» y su acuse -->
+                        <EnvioDescriptivoPuestoRh
+                            v-if="fila.descriptivo_puesto"
+                            class="sm:basis-full"
+                            compacto
+                            :colaborador-id="fila.colaborador.id"
+                            :resumen="fila.descriptivo_puesto"
+                        />
                     </li>
                 </ul>
             </div>

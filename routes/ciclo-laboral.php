@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Portal\MiProcesoController;
+use App\Http\Controllers\Rh\AcuseDescriptivoPuestoController;
 use App\Http\Controllers\Rh\CicloColaboradorController;
 use App\Http\Controllers\Rh\CierreLaboralController;
 use App\Http\Controllers\Rh\DocumentoLaboralController;
@@ -41,6 +42,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::get('colaboradores/{colaborador}/ciclo', [CicloColaboradorController::class, 'show'])->name('colaboradores.ciclo')->withTrashed();
         Route::post('colaboradores/{colaborador}/cierres', [CierreLaboralController::class, 'store'])->name('colaboradores.cierres.store');
+        // «Enviar descriptivo de puesto» tras aprobar la inducción.
+        Route::post('colaboradores/{colaborador}/descriptivo-puesto/enviar', [AcuseDescriptivoPuestoController::class, 'enviar'])->name('colaboradores.descriptivo-puesto.enviar');
 
         Route::prefix('onboarding')->name('onboarding.')->group(function () {
             Route::get('configuracion', [OnboardingController::class, 'configuracion'])->name('configuracion');

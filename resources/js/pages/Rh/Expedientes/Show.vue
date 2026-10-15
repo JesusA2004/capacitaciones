@@ -1,7 +1,12 @@
 <script setup lang="ts">
+import { FileSignature } from '@lucide/vue';
+import { computed, ref } from 'vue';
 import DocumentosProceso from '@/components/documentos/DocumentosProceso.vue';
 import ExpedienteDetalle from '@/components/Rh/ExpedienteDetalle.vue';
 import ExpedienteDocumentosOficiales from '@/components/Rh/ExpedienteDocumentosOficiales.vue';
+import ResponsivaFormDialog from '@/components/Rh/Responsivas/ResponsivaFormDialog.vue';
+import ResponsivasColaborador from '@/components/Rh/Responsivas/ResponsivasColaborador.vue';
+import { Button } from '@/components/ui/button';
 import { usePermisos } from '@/composables/usePermisos';
 import { dashboard } from '@/routes';
 import { index as indexExpedientes } from '@/routes/rh/expedientes';
@@ -93,6 +98,18 @@ const props = defineProps<{
 
 const { tienePermiso } = usePermisos();
 
+// Responsivas de equipo: el gerente (con alcance) y RH. La regla real la
+// aplica ResponsivaPolicy; aquí solo se oculta el botón.
+const puedeGenerarResponsiva = computed(
+    () =>
+        !props.esPropio &&
+        !props.esCuentaPropia &&
+        props.colaborador.estatus !== 'inactivo' &&
+        tienePermiso('responsivas.generar'),
+);
+const responsivaAbierta = ref(false);
+const versionResponsivas = ref(0);
+
 defineOptions({
     layout: {
         breadcrumbs: [
@@ -151,7 +168,30 @@ defineOptions({
         :avisos-comunicaciones="avisosComunicaciones"
         :prestamos="prestamos"
     >
+        <template #acciones-encabezado>
+            <template v-if="puedeGenerarResponsiva">
+                <Button
+                    size="sm"
+                    variant="secondary"
+                    @click="responsivaAbierta = true"
+                >
+                    <FileSignature class="size-3.5" />
+                    Generar responsiva
+                </Button>
+                <ResponsivaFormDialog
+                    v-model:open="responsivaAbierta"
+                    :colaborador-id="colaborador.id"
+                    @generada="versionResponsivas++"
+                />
+            </template>
+        </template>
         <template #documentos-oficiales>
+            <ResponsivasColaborador
+                v-if="!esPropio && !esCuentaPropia"
+                :colaborador-id="colaborador.id"
+                :version="versionResponsivas"
+                @generar="responsivaAbierta = true"
+            />
             <DocumentosProceso tipo="colaborador" :id="colaborador.id" />
             <ExpedienteDocumentosOficiales
                 v-if="props.documentosOficiales !== null"
