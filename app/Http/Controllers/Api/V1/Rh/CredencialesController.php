@@ -20,8 +20,10 @@ class CredencialesController extends Controller
     public function store(Request $request, Colaborador $colaborador): JsonResponse
     {
         abort_unless($this->credenciales->puedeGenerar($request->user(), $colaborador), 403);
+        // Misma regla que la web: contraseña manual opcional con la política del sistema.
+        $datos = $request->validate(CredencialesService::reglasManual());
 
-        return response()->json(['data' => $this->credenciales->generar($colaborador, $request->user())])
+        return response()->json(['data' => $this->credenciales->generar($colaborador, $request->user(), $datos['password'] ?? null)])
             ->header('Cache-Control', 'no-store');
     }
 }

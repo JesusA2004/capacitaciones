@@ -1,6 +1,16 @@
 <script setup lang="ts">
-import { Check, ClipboardCopy, Copy, KeyRound, ShieldAlert } from '@lucide/vue';
+import {
+    Check,
+    ClipboardCopy,
+    Copy,
+    Eye,
+    EyeOff,
+    KeyRound,
+    Mail,
+    ShieldAlert,
+} from '@lucide/vue';
 import { ref } from 'vue';
+import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -16,12 +26,15 @@ import { Spinner } from '@/components/ui/spinner';
 import { useAlertas } from '@/composables/useAlertas';
 import { leerCookie } from '@/lib/http';
 import { credenciales } from '@/routes/rh/colaboradores';
+import { correo as correoCredenciales } from '@/routes/rh/colaboradores/credenciales';
 
 /**
  * «Generar credenciales» (docs/AUTENTICACION.md): crea la cuenta si no
- * existe o le da una contraseña temporal nueva. Nunca pide correo. El
- * usuario es primer nombre + primer apellido; la contraseña temporal solo
- * se muestra aquí, una vez, para copiarla y entregarla en privado.
+ * existe o le da una contraseña temporal nueva. RH elige entre generar una
+ * contraseña segura o escribir una manual (misma política de contraseñas).
+ * El usuario es primer nombre + primer apellido; la contraseña solo se
+ * muestra aquí, una vez, y se puede enviar por correo si la cuenta lo tiene.
+ * Nunca se guarda en texto plano ni se registra en el log.
  */
 const props = defineProps<{
     open: boolean;
@@ -46,43 +59,112 @@ const { mostrarExito, mostrarError } = useAlertas();
 const generando = ref(false);
 const resultado = ref<Credenciales | null>(null);
 const copiado = ref<'usuario' | 'contrasena' | 'ambos' | null>(null);
+const modo = ref<'generar' | 'manual'>('generar');
+const manual = ref('');
+const verManual = ref(false);
+const errorPassword = ref<string | null>(null);
+const enviando = ref(false);
+const correoEnviado = ref(false);
+
+async function pedir(url: string, cuerpo: Record<string, unknown>) {
+    const respuesta = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            'X-XSRF-TOKEN': leerCookie('XSRF-TOKEN') ?? '',
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify(cuerpo),
+    });
+    const datos = (await respuesta.json().catch(() => ({}))) as {
+        data?: Credenciales;
+        message?: string;
+        errors?: Record<string, string[]>;
+    };
+
+    return { respuesta, datos };
+}
 
 async function generar() {
+    if (generando.value) {
+        return;
+    }
+
+    errorPassword.value = null;
+
+    if (modo.value === 'manual' && manual.value.trim() === '') {
+        errorPassword.value = 'Escribe la contraseña que quieres asignar.';
+
+        return;
+    }
+
     generando.value = true;
 
     try {
-        const respuesta = await fetch(credenciales.url(props.colaboradorId), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-                'X-XSRF-TOKEN': leerCookie('XSRF-TOKEN') ?? '',
-            },
-            credentials: 'same-origin',
-            body: '{}',
-        });
-        const cuerpo = (await respuesta.json().catch(() => ({}))) as {
-            data?: Credenciales;
-            message?: string;
-        };
+        const { respuesta, datos } = await pedir(
+            credenciales.url(props.colaboradorId),
+            modo.value === 'manual' ? { password: manual.value } : {},
+        );
 
-        if (!respuesta.ok || !cuerpo.data) {
+        if (respuesta.status === 422) {
+            errorPassword.value =
+                datos.errors?.password?.[0] ??
+                datos.errors?.credenciales?.[0] ??
+                datos.message ??
+                'Revisa la contraseña.';
+            mostrarError(errorPassword.value);
+
+            return;
+        }
+
+        if (!respuesta.ok || !datos.data) {
             mostrarError(
                 respuesta.status === 403
                     ? 'No tienes permiso para generar credenciales de este colaborador.'
-                    : (cuerpo.message ??
+                    : (datos.message ??
                           'No se pudieron generar las credenciales.'),
             );
 
             return;
         }
 
-        resultado.value = cuerpo.data;
-        emit('generadas', cuerpo.data.usuario);
+        resultado.value = datos.data;
+        manual.value = '';
+        emit('generadas', datos.data.usuario);
     } catch {
         mostrarError('No se pudieron generar las credenciales.');
     } finally {
         generando.value = false;
+    }
+}
+
+async function enviarCorreo() {
+    if (!resultado.value || enviando.value) {
+        return;
+    }
+
+    enviando.value = true;
+
+    try {
+        const { respuesta, datos } = await pedir(
+            correoCredenciales.url(props.colaboradorId),
+            { password: resultado.value.contrasena },
+        );
+
+        if (respuesta.ok) {
+            correoEnviado.value = true;
+            mostrarExito(`Accesos enviados a ${resultado.value.correo}.`);
+
+            return;
+        }
+
+        // La contraseña ya quedó actualizada: solo falló el correo.
+        mostrarError(datos.message ?? 'No se pudo enviar el correo.');
+    } catch {
+        mostrarError('No se pudo enviar el correo.');
+    } finally {
+        enviando.value = false;
     }
 }
 
@@ -116,6 +198,10 @@ async function copiar(que: 'usuario' | 'contrasena' | 'ambos') {
 function cerrar() {
     resultado.value = null;
     copiado.value = null;
+    manual.value = '';
+    errorPassword.value = null;
+    correoEnviado.value = false;
+    modo.value = 'generar';
     emit('update:open', false);
 }
 </script>
@@ -129,7 +215,7 @@ function cerrar() {
             <DialogHeader>
                 <DialogTitle class="flex items-center gap-2">
                     <KeyRound class="size-4 text-primary" />
-                    Generar credenciales
+                    {{ tieneCuenta ? 'Contraseña de acceso' : 'Crear acceso' }}
                 </DialogTitle>
                 <DialogDescription>
                     Para {{ colaboradorNombre }}. Usuario = primer nombre +
@@ -140,15 +226,71 @@ function cerrar() {
             <template v-if="!resultado">
                 <p class="text-sm text-muted-foreground">
                     <template v-if="tieneCuenta">
-                        Ya tiene cuenta: conserva su usuario y se le genera una
-                        contraseña temporal nueva (la anterior deja de
-                        funcionar).
+                        Conserva su usuario; la contraseña anterior deja de
+                        funcionar.
                     </template>
                     <template v-else>
                         Se crea su cuenta de acceso con una contraseña temporal.
                     </template>
                     Al entrar por primera vez se le pedirá cambiarla.
                 </p>
+
+                <div class="grid grid-cols-2 gap-2" role="radiogroup">
+                    <Button
+                        type="button"
+                        :variant="modo === 'generar' ? 'default' : 'outline'"
+                        role="radio"
+                        :aria-checked="modo === 'generar'"
+                        @click="modo = 'generar'"
+                    >
+                        Generar contraseña segura
+                    </Button>
+                    <Button
+                        type="button"
+                        :variant="modo === 'manual' ? 'default' : 'outline'"
+                        role="radio"
+                        :aria-checked="modo === 'manual'"
+                        @click="modo = 'manual'"
+                    >
+                        Escribir contraseña manual
+                    </Button>
+                </div>
+
+                <div v-if="modo === 'manual'" class="grid gap-2">
+                    <Label for="cred-manual">Contraseña</Label>
+                    <div class="flex items-center gap-2">
+                        <Input
+                            id="cred-manual"
+                            v-model="manual"
+                            :type="verManual ? 'text' : 'password'"
+                            autocomplete="new-password"
+                            :aria-invalid="errorPassword !== null"
+                        />
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            :aria-label="
+                                verManual
+                                    ? 'Ocultar contraseña'
+                                    : 'Mostrar contraseña'
+                            "
+                            @click="verManual = !verManual"
+                        >
+                            <EyeOff v-if="verManual" class="size-4" />
+                            <Eye v-else class="size-4" />
+                        </Button>
+                    </div>
+                    <p class="text-xs text-muted-foreground">
+                        Debe cumplir la política de contraseñas de PEOPLE
+                        (longitud mínima, mayúsculas, números y símbolos).
+                    </p>
+                    <InputError :message="errorPassword ?? undefined" />
+                </div>
+                <InputError
+                    v-else
+                    :message="errorPassword ?? undefined"
+                />
 
                 <DialogFooter>
                     <Button variant="outline" @click="cerrar">Cancelar</Button>
@@ -159,7 +301,11 @@ function cerrar() {
                     >
                         <Spinner v-if="generando" />
                         <KeyRound v-else class="size-4" />
-                        Generar credenciales
+                        {{
+                            modo === 'manual'
+                                ? 'Establecer contraseña'
+                                : 'Generar credenciales'
+                        }}
                     </Button>
                 </DialogFooter>
             </template>
@@ -221,11 +367,35 @@ function cerrar() {
                     </div>
                 </div>
 
+                <p
+                    v-if="!resultado.correo"
+                    class="text-xs text-muted-foreground"
+                >
+                    La cuenta no tiene correo registrado: entrega los accesos
+                    en privado.
+                </p>
+
                 <DialogFooter class="gap-2 sm:justify-between">
-                    <Button variant="outline" @click="copiar('ambos')">
-                        <ClipboardCopy class="size-4" />
-                        Copiar usuario y contraseña
-                    </Button>
+                    <div class="flex flex-wrap gap-2">
+                        <Button variant="outline" @click="copiar('ambos')">
+                            <ClipboardCopy class="size-4" />
+                            Copiar
+                        </Button>
+                        <Button
+                            v-if="resultado.correo"
+                            variant="outline"
+                            :disabled="enviando || correoEnviado"
+                            @click="enviarCorreo"
+                        >
+                            <Spinner v-if="enviando" />
+                            <Mail v-else class="size-4" />
+                            {{
+                                correoEnviado
+                                    ? 'Correo enviado'
+                                    : 'Enviar accesos por correo'
+                            }}
+                        </Button>
+                    </div>
                     <Button @click="cerrar">Listo</Button>
                 </DialogFooter>
             </template>

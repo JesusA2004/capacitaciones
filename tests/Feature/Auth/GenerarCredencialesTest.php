@@ -3,8 +3,10 @@
 use App\Enums\EstadoUsuario;
 use App\Models\Colaborador;
 use App\Models\User;
+use App\Notifications\CredencialesActualizadasNotification;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 
 /*
  * «Generar credenciales» (docs/AUTENTICACION.md): RH da acceso a cualquier
@@ -88,4 +90,51 @@ test('nuevo usuario desde Administración ya no pide correo', function () {
         ->assertSessionHasNoErrors();
 
     expect(User::query()->where('colaborador_id', $colaborador->id)->value('username'))->toBe('Ana Ruiz');
+});
+
+test('RH escribe una contraseña manual: se usa ESA, cumpliendo la política, y es temporal', function () {
+    $colaborador = Colaborador::factory()->create(['name' => 'Ana', 'apellidos' => 'Manual Prueba']);
+    $cuenta = User::factory()->create(['colaborador_id' => $colaborador->id, 'email' => 'ana.manual@example.com']);
+
+    $datos = $this->actingAs($this->rh)
+        ->postJson(route('rh.colaboradores.credenciales', $colaborador), ['password' => 'MiPassword123!'])
+        ->assertOk()
+        ->json('data');
+
+    expect($datos['contrasena'])->toBe('MiPassword123!')
+        ->and(Hash::check('MiPassword123!', $cuenta->refresh()->password))->toBeTrue()
+        ->and($cuenta->debe_cambiar_contrasena)->toBeTrue();
+});
+
+test('una contraseña manual que no cumple la política se rechaza y no cambia la vigente', function () {
+    $colaborador = Colaborador::factory()->create();
+    $cuenta = User::factory()->create(['colaborador_id' => $colaborador->id]);
+    $antes = $cuenta->password;
+
+    $this->actingAs($this->rh)
+        ->postJson(route('rh.colaboradores.credenciales', $colaborador), ['password' => '123'])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('password');
+
+    expect($cuenta->refresh()->password)->toBe($antes);
+});
+
+test('enviar accesos por correo: solo la contraseña vigente; un fallo de correo no revierte la contraseña', function () {
+    Notification::fake();
+    $colaborador = Colaborador::factory()->create();
+    $cuenta = User::factory()->create(['colaborador_id' => $colaborador->id, 'email' => 'accesos@example.com']);
+
+    $this->actingAs($this->rh)->postJson(route('rh.colaboradores.credenciales', $colaborador), ['password' => 'MiPassword123!'])->assertOk();
+
+    $this->actingAs($this->rh)
+        ->postJson(route('rh.colaboradores.credenciales.correo', $colaborador), ['password' => 'OtraCosa999!'])
+        ->assertUnprocessable();
+
+    $this->actingAs($this->rh)
+        ->postJson(route('rh.colaboradores.credenciales.correo', $colaborador), ['password' => 'MiPassword123!'])
+        ->assertOk()
+        ->assertJsonPath('enviado', true);
+
+    Notification::assertSentTo($cuenta, CredencialesActualizadasNotification::class);
+    expect(Hash::check('MiPassword123!', $cuenta->refresh()->password))->toBeTrue();
 });

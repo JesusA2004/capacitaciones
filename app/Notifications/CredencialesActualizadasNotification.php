@@ -27,13 +27,14 @@ class CredencialesActualizadasNotification extends Notification
     public function toMail(User $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('Tu contraseña de acceso fue actualizada')
+            ->subject('Tus accesos a MR. LANA PEOPLE')
             ->greeting("Hola {$notifiable->nombreCompleto()},")
-            ->line('Un administrador estableció una nueva contraseña para tu cuenta en MR. LANA PEOPLE.')
+            ->line('Estos son tus accesos a MR. LANA PEOPLE.')
             ->line("Usuario: **{$notifiable->username}**")
             ->line("Contraseña temporal: **{$this->passwordNueva}**")
-            ->line('Al iniciar sesión se te pedirá cambiarla por una contraseña personal.')
-            ->line('Si no esperabas este cambio, contacta a Recursos Humanos de inmediato.')
+            ->line(sprintf('Entra en: %s', url('/')))
+            ->line('Al iniciar sesión se te pedirá cambiar esta contraseña por una personal.')
+            ->line('Si no esperabas este correo, contacta a Recursos Humanos de inmediato.')
             ->action('Iniciar sesión', route('login'));
     }
 }

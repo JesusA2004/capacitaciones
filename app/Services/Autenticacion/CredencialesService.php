@@ -5,13 +5,17 @@ namespace App\Services\Autenticacion;
 use App\Enums\EstadoUsuario;
 use App\Models\Colaborador;
 use App\Models\User;
+use App\Notifications\CredencialesActualizadasNotification;
 use App\Services\Administracion\GeneradorPasswordService;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 /**
  * «Generar credenciales» (docs/AUTENTICACION.md): el único botón con el que
@@ -54,13 +58,17 @@ class CredencialesService
     /**
      * @return array{usuario: string, contrasena: string, cuenta_nueva: bool, correo: string|null}
      */
-    public function generar(Colaborador $colaborador, User $actor): array
+    public function generar(Colaborador $colaborador, User $actor, ?string $contrasenaManual = null): array
     {
         if (in_array($colaborador->estatus, [EstadoUsuario::Inactivo, EstadoUsuario::Suspendido], true)) {
             throw ValidationException::withMessages(['credenciales' => 'Colaborador de baja o suspendido: no se le generan credenciales. Si reingresa, se habilitan con el reingreso.']);
         }
 
-        $contrasena = $this->generador->generar();
+        // Manual (RH la escribe) o generada; la manual cumple la misma
+        // política de contraseñas que cualquier cambio de contraseña.
+        $contrasena = $contrasenaManual !== null && $contrasenaManual !== ''
+            ? $contrasenaManual
+            : $this->generador->generar();
         $existente = User::withTrashed()->where('colaborador_id', $colaborador->id)->first();
 
         if ($existente !== null) {
@@ -103,6 +111,48 @@ class CredencialesService
         $this->auditoria->registrar('credenciales_generadas', $cuenta, $actor, ['colaborador_id' => $colaborador->id, 'usuario' => $cuenta->username, 'cuenta_nueva' => true]);
 
         return ['usuario' => $cuenta->username, 'contrasena' => $contrasena, 'cuenta_nueva' => true, 'correo' => $cuenta->email];
+    }
+
+    /**
+     * Reglas de una contraseña escrita a mano por RH (misma política que
+     * Password::defaults() del resto del sistema).
+     *
+     * @return array<string, mixed>
+     */
+    public static function reglasManual(): array
+    {
+        return ['password' => ['nullable', 'string', Password::defaults()]];
+    }
+
+    /**
+     * «Enviar accesos por correo»: usuario, contraseña temporal, URL de
+     * PEOPLE e indicación de cambiarla. Solo la contraseña VIGENTE (la que
+     * se acaba de mostrar), nunca un texto arbitrario. Un fallo de envío no
+     * revierte la contraseña, que ya quedó actualizada.
+     */
+    public function enviarPorCorreo(Colaborador $colaborador, User $actor, string $contrasena): bool
+    {
+        $cuenta = User::query()->where('colaborador_id', $colaborador->id)->first();
+
+        if ($cuenta === null || ! Hash::check($contrasena, (string) $cuenta->password)) {
+            throw ValidationException::withMessages(['password' => 'Esa no es la contraseña vigente de la cuenta: genera una nueva.']);
+        }
+
+        if (blank($cuenta->email)) {
+            throw ValidationException::withMessages(['password' => 'La cuenta no tiene correo registrado: entrega los accesos en privado.']);
+        }
+
+        try {
+            $cuenta->notify(new CredencialesActualizadasNotification($contrasena));
+        } catch (Throwable $e) {
+            Log::warning('No se pudo enviar el correo de accesos.', ['usuario_id' => $cuenta->id, 'error' => $e->getMessage()]);
+
+            return false;
+        }
+
+        $this->auditoria->registrar('credenciales_enviadas_por_correo', $cuenta, $actor, ['colaborador_id' => $colaborador->id]);
+
+        return true;
     }
 
     private function correoLibre(?string $correo): ?string

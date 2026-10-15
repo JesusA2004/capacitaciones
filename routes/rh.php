@@ -45,6 +45,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // (docs/AUTENTICACION.md). Permiso y alcance en CredencialesService.
         Route::post('colaboradores/{colaborador}/credenciales', [CredencialesController::class, 'store'])
             ->name('colaboradores.credenciales')->middleware('throttle:20,1');
+        Route::post('colaboradores/{colaborador}/credenciales/correo', [CredencialesController::class, 'enviarCorreo'])
+            ->name('colaboradores.credenciales.correo')->middleware('throttle:10,1');
 
         // Importador de salarios y vacaciones históricas (CLAUDE.md §21-36):
         // subir → analizar (preview) → revisar → aplicar.

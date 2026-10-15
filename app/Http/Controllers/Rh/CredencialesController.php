@@ -20,8 +20,23 @@ class CredencialesController extends Controller
     public function store(Request $request, Colaborador $colaborador): JsonResponse
     {
         abort_unless($this->credenciales->puedeGenerar($request->user(), $colaborador), 403);
+        $datos = $request->validate(CredencialesService::reglasManual());
 
-        return response()->json(['data' => $this->credenciales->generar($colaborador, $request->user())])
+        return response()->json(['data' => $this->credenciales->generar($colaborador, $request->user(), $datos['password'] ?? null)])
             ->header('Cache-Control', 'no-store');
+    }
+
+    /**
+     * «Enviar accesos por correo» tras mostrar la contraseña: si el correo
+     * falla, la contraseña sigue actualizada y se dice explícitamente.
+     */
+    public function enviarCorreo(Request $request, Colaborador $colaborador): JsonResponse
+    {
+        abort_unless($this->credenciales->puedeGenerar($request->user(), $colaborador), 403);
+        $datos = $request->validate(['password' => ['required', 'string']]);
+
+        return $this->credenciales->enviarPorCorreo($colaborador, $request->user(), $datos['password'])
+            ? response()->json(['enviado' => true])
+            : response()->json(['enviado' => false, 'message' => 'No se pudo enviar el correo. La contraseña sí quedó actualizada: entrégala en privado.'], 502);
     }
 }

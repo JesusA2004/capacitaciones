@@ -233,6 +233,12 @@ class UsuarioController extends Controller
             return response()->json(['enviado' => false, 'message' => 'Esta cuenta no tiene correo: entrega la contraseña en privado.'], 422);
         }
 
+        // Solo la contraseña VIGENTE (la que se acaba de mostrar), nunca un
+        // texto arbitrario con apariencia de accesos oficiales.
+        if (! Hash::check($datos['password'], (string) $usuario->password)) {
+            return response()->json(['enviado' => false, 'message' => 'Esa no es la contraseña vigente de la cuenta.'], 422);
+        }
+
         try {
             $usuario->notify(new CredencialesActualizadasNotification($datos['password']));
 
