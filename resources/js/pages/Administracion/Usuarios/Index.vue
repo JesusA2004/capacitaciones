@@ -5,12 +5,14 @@ import {
     KeyRound,
     Lock,
     Plus,
+    Trash2,
     Unlock,
     UserCheck,
     UserX,
     Users as UsersIcon,
 } from '@lucide/vue';
 import { ref, watch } from 'vue';
+import PurgaUsuarioDialog from '@/components/Administracion/PurgaUsuarioDialog.vue';
 import UsuarioFormDialog from '@/components/Administracion/UsuarioFormDialog.vue';
 import UsuarioRolesDialog from '@/components/Administracion/UsuarioRolesDialog.vue';
 import CrudActionMenu from '@/components/DataTable/CrudActionMenu.vue';
@@ -59,7 +61,18 @@ const props = defineProps<{
     }[];
     rolesDisponibles: string[];
     estadisticas: { total: number; activas: number; inactivas: number };
+    /** «Eliminar definitivamente»: solo super_admin (el backend lo vuelve a exigir). */
+    puedePurgar: boolean;
 }>();
+
+// ───── Eliminar definitivamente (super_admin) ─────
+const purgaAbierta = ref(false);
+const usuarioPurga = ref<{ id: number; username: string; nombre: string } | null>(null);
+
+function abrirPurga(fila: UsuarioItem) {
+    usuarioPurga.value = { id: fila.id, username: fila.username, nombre: `${fila.name} ${fila.apellidos ?? ''}`.trim() };
+    purgaAbierta.value = true;
+}
 
 defineOptions({
     layout: {
@@ -353,6 +366,14 @@ function restablecer(usuario: UsuarioItem) {
                         <Lock class="size-3.5" />
                         Revocar acceso
                     </DropdownMenuItem>
+                    <DropdownMenuItem
+                        v-if="puedePurgar"
+                        variant="destructive"
+                        @select="abrirPurga(fila)"
+                    >
+                        <Trash2 class="size-3.5" />
+                        Eliminar definitivamente
+                    </DropdownMenuItem>
                 </CrudActionMenu>
             </template>
 
@@ -405,12 +426,20 @@ function restablecer(usuario: UsuarioItem) {
                                 @select="revocar(fila)"
                                 >Revocar acceso</DropdownMenuItem
                             >
+                            <DropdownMenuItem
+                                v-if="puedePurgar"
+                                variant="destructive"
+                                @select="abrirPurga(fila)"
+                                >Eliminar definitivamente</DropdownMenuItem
+                            >
                         </CrudActionMenu>
                     </template>
                 </CrudMobileCard>
             </template>
         </DataTable>
     </div>
+
+    <PurgaUsuarioDialog v-model:open="purgaAbierta" :usuario="usuarioPurga" />
 
     <UsuarioFormDialog
         v-if="dialogCrearAbierto"

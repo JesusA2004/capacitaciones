@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Notifications\CredencialesActualizadasNotification;
 use App\Services\Administracion\AccesoCuentaService;
 use App\Services\Administracion\GeneradorPasswordService;
+use App\Services\Administracion\PurgaUsuarioService;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\RolPermisoService;
 use App\Support\Paginacion;
@@ -120,6 +121,8 @@ class UsuarioController extends Controller
                 ->orderBy('name')
                 ->get(['id', 'name', 'apellidos'])),
             'rolesDisponibles' => Role::query()->orderBy('name')->pluck('name'),
+            // «Eliminar definitivamente»: exclusivo de super_admin.
+            'puedePurgar' => $usuario->hasRole('super_admin'),
             'estadisticas' => [
                 'total' => $total,
                 'activas' => $activas,
@@ -180,6 +183,25 @@ class UsuarioController extends Controller
         $this->acceso->revocar($usuario, $request->user(), $datos['motivo'] ?? 'Acceso revocado por administración');
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Cuenta desactivada: ya no puede entrar a la web ni a la app. Su información se conserva.']);
+    }
+
+    /**
+     * Qué eliminaría, desvincularía o impediría la purga definitiva (no
+     * modifica nada). Solo super_admin (PurgaUsuarioService).
+     */
+    public function revisarPurga(Request $request, User $usuario, PurgaUsuarioService $purga): JsonResponse
+    {
+        return response()->json(['data' => $purga->revisar($usuario, $request->user())]);
+    }
+
+    /** Eliminación definitiva de la cuenta, confirmada por escrito. */
+    public function purgar(Request $request, User $usuario, PurgaUsuarioService $purga): RedirectResponse
+    {
+        $datos = $request->validate(['confirmacion' => ['required', 'string', 'max:191']], ['confirmacion.required' => 'Escribe ELIMINAR o el usuario para confirmar.']);
+        $nombre = $usuario->username;
+        $purga->purgar($usuario, $request->user(), $datos['confirmacion']);
+
+        return to_route('administracion.usuarios.index')->with('toast', ['type' => 'success', 'message' => sprintf('La cuenta «%s» se eliminó definitivamente.', $nombre)]);
     }
 
     public function restablecerAcceso(Request $request, User $usuario): RedirectResponse

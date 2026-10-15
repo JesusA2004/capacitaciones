@@ -119,6 +119,10 @@ Route::middleware(['auth', 'verified'])
             // establecer-password (el admin la pega en el body, no se
             // regenera aquí), ver UsuarioController::enviarPasswordCorreo().
             Route::post('{usuario}/enviar-password-correo', [UsuarioController::class, 'enviarPasswordCorreo'])->name('enviar-password-correo');
+            // Eliminación definitiva (solo super_admin): revisa dependencias
+            // y purga en una transacción, ver PurgaUsuarioService.
+            Route::get('{usuario}/purga', [UsuarioController::class, 'revisarPurga'])->name('purga.revisar')->withTrashed();
+            Route::delete('{usuario}/purga', [UsuarioController::class, 'purgar'])->name('purga.eliminar')->withTrashed();
         });
 
         // URL en español (app-versiones) tal como la pidió el encargo; nombre
