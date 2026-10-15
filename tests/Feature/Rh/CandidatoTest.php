@@ -334,3 +334,16 @@ test('una salida sin motivo elegido se clasifica sola según el paso en que se q
 
     expect($candidato->refresh()->motivoRechazo?->clave)->toBe('desistio');
 });
+
+test('sin campaña no se acepta un canal de pauta: Meta, Indeed… solo existen como campaña', function () {
+    $usuario = User::factory()->create();
+    $usuario->assignRole('rh_admin');
+
+    $this->actingAs($usuario)
+        ->post(route('rh.candidatos.store'), ['nombre' => 'Pauta Suelta', 'espontaneo' => true, 'fuente' => 'meta'])
+        ->assertSessionHasErrors(['fuente' => 'Si llegó por una pauta (Meta, Indeed, Computrabajo, LinkedIn), elige la campaña.']);
+
+    $this->actingAs($usuario)
+        ->get(route('rh.candidatos.index'))
+        ->assertInertia(fn ($page) => $page->where('opciones.fuentesSinCampana', fn ($fuentes) => collect($fuentes)->pluck('value')->sort()->values()->all() === ['facebook_grupos', 'organico', 'otro', 'referido', 'whatsapp']));
+});

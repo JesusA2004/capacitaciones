@@ -36,6 +36,18 @@ enum FuenteCandidato: string
     }
 
     /**
+     * Medios que NO son una campaña pagada. Meta, Indeed, Computrabajo y
+     * LinkedIn siempre llegan por una campaña (CanalReclutamiento): al
+     * registrar un candidato se elige la campaña, nunca el canal suelto.
+     *
+     * @return list<self>
+     */
+    public static function sinCampana(): array
+    {
+        return [self::Referido, self::Organico, self::Whatsapp, self::FacebookGrupos, self::Otro];
+    }
+
+    /**
      * @return array<int, string>
      */
     public static function valores(): array

@@ -565,6 +565,8 @@ class CandidatoController extends Controller
             'fases' => array_map(fn (string $valor, string $etiqueta) => ['value' => $valor, 'etiqueta' => $etiqueta], array_keys(EstadoCandidato::fases()), array_values(EstadoCandidato::fases())),
             'salidas' => array_map(fn (EstadoCandidato $e) => ['value' => $e->value, 'etiqueta' => $e->etiqueta()], array_values(array_filter(EstadoCandidato::salidas(), fn (EstadoCandidato $e) => $e !== EstadoCandidato::RechazadoRh))),
             'fuentes' => array_map(fn (FuenteCandidato $f) => ['value' => $f->value, 'etiqueta' => $f->etiqueta()], FuenteCandidato::cases()),
+            // «¿Cómo llegó?» sin campaña: solo medios que no son pauta.
+            'fuentesSinCampana' => array_map(fn (FuenteCandidato $f) => ['value' => $f->value, 'etiqueta' => $f->etiqueta()], FuenteCandidato::sinCampana()),
             'resultados' => array_map(fn (ResultadoEtapaCandidato $r) => ['value' => $r->value, 'etiqueta' => $r->etiqueta()], ResultadoEtapaCandidato::cases()),
             'resultadosReferencia' => array_map(fn (ResultadoReferencia $r) => ['value' => $r->value, 'etiqueta' => $r->etiqueta()], ResultadoReferencia::cases()),
             'tiposContratacion' => array_map(fn (TipoContratacion $t) => ['value' => $t->value, 'etiqueta' => $t->etiqueta()], TipoContratacion::seleccionables()),

@@ -19,7 +19,9 @@ import { Label } from '@/components/ui/label';
 import {
     Select,
     SelectContent,
+    SelectGroup,
     SelectItem,
+    SelectLabel,
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
@@ -38,19 +40,20 @@ const emit = defineEmits<{
     'update:open': [valor: boolean];
 }>();
 
-/** Valor del selector de origen cuando no llegó por una campaña. */
-const SIN_CAMPANA = 'ninguna';
-
 function idComo(valor: { id: number } | null | undefined): string {
     return valor?.id ? String(valor.id) : '';
 }
 
+/**
+ * «¿Cómo llegó?» es UNA sola pregunta: `c:<id>` = campaña (la fuente sale
+ * de su canal) o `f:<fuente>` = medio sin campaña (referido, orgánico…).
+ */
 function origenInicial(): string {
     if (props.candidato?.campana_reclutamiento_id) {
-        return String(props.candidato.campana_reclutamiento_id);
+        return `c:${props.candidato.campana_reclutamiento_id}`;
     }
 
-    return props.candidato?.fuente ? SIN_CAMPANA : '';
+    return props.candidato?.fuente ? `f:${props.candidato.fuente}` : '';
 }
 
 const form = useForm({
@@ -60,14 +63,12 @@ const form = useForm({
         : '',
     puesto_objetivo_id: idComo(props.candidato?.puesto_objetivo),
     vacante_id: idComo(props.candidato?.vacante),
-    // «¿De qué campaña viene?»: id de la campaña o SIN_CAMPANA.
     origen: origenInicial(),
     espontaneo: props.candidato?.espontaneo ?? false,
     nombre: props.candidato?.nombre ?? '',
     apellidos: props.candidato?.apellidos ?? '',
     telefono: props.candidato?.telefono ?? '',
     correo: props.candidato?.correo ?? '',
-    fuente: props.candidato?.fuente ?? '',
     observaciones: props.candidato?.observaciones ?? '',
     // Requisitos indispensables (solo al registrar): pregunta_id → sí/no.
     respuestas_filtro: {} as Record<string, boolean>,
@@ -100,9 +101,8 @@ const campanasDisponibles = computed(() =>
     ),
 );
 
-const llegoPorCampana = computed(
-    () => form.origen !== '' && form.origen !== SIN_CAMPANA,
-);
+// Medios que no son campaña: Meta/Indeed/… solo existen como campaña.
+const fuentesSinCampana = computed(() => props.opciones.fuentesSinCampana ?? []);
 
 // Puesto al que aplican las preguntas de filtro.
 const puestoActual = computed<number | null>(() => {
@@ -153,8 +153,8 @@ watch(
         }
 
         if (
-            llegoPorCampana.value &&
-            !campanasDisponibles.value.some((c) => String(c.id) === form.origen)
+            form.origen.startsWith('c:') &&
+            !campanasDisponibles.value.some((c) => `c:${c.id}` === form.origen)
         ) {
             form.origen = '';
         }
@@ -192,10 +192,9 @@ function enviar() {
         sucursal_id: datos.sucursal_id || null,
         puesto_objetivo_id: datos.puesto_objetivo_id || null,
         vacante_id: datos.vacante_id || null,
-        campana_reclutamiento_id:
-            origen !== '' && origen !== SIN_CAMPANA ? origen : null,
+        campana_reclutamiento_id: origen.startsWith('c:') ? origen.slice(2) : null,
         // Con campaña, la fuente sale del canal de la campaña (backend).
-        fuente: origen === SIN_CAMPANA ? datos.fuente || null : null,
+        fuente: origen.startsWith('f:') ? origen.slice(2) : null,
         respuestas_filtro: props.candidato
             ? undefined
             : Object.fromEntries(
@@ -364,72 +363,49 @@ function enviar() {
                     </div>
                 </div>
 
-                <!-- Origen: de qué campaña viene. Cuenta solo en el embudo y
-                     el costo de esa campaña; si no vino por una campaña, se
-                     pide el medio por el que llegó (nadie queda sin origen). -->
+                <!-- «¿Cómo llegó?» — una sola pregunta: la campaña (cuenta
+                     en su embudo y costo; la fuente sale de su canal) o, si
+                     no fue por campaña, el medio. Meta/Indeed/Computrabajo/
+                     LinkedIn solo existen como campaña: nunca se repite. -->
                 <div class="grid gap-2">
                     <Label
-                        >¿De qué campaña viene?
-                        <span class="text-destructive">*</span></Label
+                        >¿Cómo llegó? <span class="text-destructive">*</span></Label
                     >
                     <Select v-model="form.origen">
                         <SelectTrigger class="w-full">
-                            <SelectValue placeholder="Elige la campaña" />
+                            <SelectValue placeholder="Elige la campaña o el medio" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem
-                                v-for="campana in campanasDisponibles"
-                                :key="campana.id"
-                                :value="String(campana.id)"
-                                >{{ campana.etiqueta }}</SelectItem
-                            >
-                            <SelectItem :value="SIN_CAMPANA"
-                                >No llegó por una campaña (referido, orgánico,
-                                otro…)</SelectItem
-                            >
+                            <SelectGroup v-if="campanasDisponibles.length">
+                                <SelectLabel>Por una campaña</SelectLabel>
+                                <SelectItem
+                                    v-for="campana in campanasDisponibles"
+                                    :key="campana.id"
+                                    :value="`c:${campana.id}`"
+                                    >{{ campana.etiqueta }}</SelectItem
+                                >
+                            </SelectGroup>
+                            <SelectGroup>
+                                <SelectLabel>Sin campaña</SelectLabel>
+                                <SelectItem
+                                    v-for="fuente in fuentesSinCampana"
+                                    :key="fuente.value"
+                                    :value="`f:${fuente.value}`"
+                                    >{{ fuente.etiqueta }}</SelectItem
+                                >
+                            </SelectGroup>
                         </SelectContent>
                     </Select>
                     <InputError
-                        :message="
-                            errores.campana_reclutamiento_id ??
-                            (form.origen === SIN_CAMPANA
-                                ? undefined
-                                : form.errors.fuente)
-                        "
+                        :message="errores.campana_reclutamiento_id ?? errores.fuente"
                     />
-                    <p class="text-xs text-muted-foreground">
-                        <template v-if="!campanasDisponibles.length"
-                            >No hay campañas activas para esta vacante: si
-                            vino por una, regístrala primero en
-                            Campañas.</template
-                        >
-                        <template v-else
-                            >Al elegirla, el candidato se cuenta solo en esa
-                            campaña (embudo y costo) y la fuente se toma de su
-                            canal.</template
-                        >
-                    </p>
-                </div>
-
-                <div v-if="form.origen === SIN_CAMPANA" class="grid gap-2">
-                    <Label
-                        >¿Por qué medio llegó?
-                        <span class="text-destructive">*</span></Label
+                    <p
+                        v-if="!campanasDisponibles.length"
+                        class="text-xs text-muted-foreground"
                     >
-                    <Select v-model="form.fuente">
-                        <SelectTrigger class="w-full">
-                            <SelectValue placeholder="Elige el medio" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in opciones.fuentes ?? []"
-                                :key="opcion.value"
-                                :value="opcion.value"
-                                >{{ opcion.etiqueta }}</SelectItem
-                            >
-                        </SelectContent>
-                    </Select>
-                    <InputError :message="form.errors.fuente" />
+                        Si llegó por una pauta (Meta, Indeed…), registra
+                        primero la campaña en Campañas.
+                    </p>
                 </div>
 
                 <!-- Requisitos indispensables del puesto (p. ej. «¿Sabe

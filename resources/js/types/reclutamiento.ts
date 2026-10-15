@@ -201,6 +201,8 @@ export type OpcionesReclutamiento = {
     /** Columnas canónicas del tablero, en orden (CLAUDE.md §4). */
     fases?: OpcionEnum[];
     fuentes?: OpcionEnum[];
+    /** Medios que no son campaña (referido, orgánico…) para «¿Cómo llegó?». */
+    fuentesSinCampana?: OpcionEnum[];
     vacantes?: {
         id: number;
         puesto_id: number | null;

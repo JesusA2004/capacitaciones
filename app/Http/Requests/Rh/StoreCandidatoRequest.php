@@ -36,7 +36,13 @@ class StoreCandidatoRequest extends FormRequest
             'apellidos' => ['nullable', 'string', 'max:150'],
             'telefono' => ['nullable', 'string', 'max:30'],
             'correo' => ['nullable', 'email', 'max:255'],
-            'fuente' => ['nullable', 'required_without:campana_reclutamiento_id', 'string', Rule::in(FuenteCandidato::valores())],
+            // Sin campaña solo valen los medios que no son pauta: «llegó por
+            // Meta» sin decir qué campaña sería información duplicada/suelta.
+            'fuente' => ['nullable', 'required_without:campana_reclutamiento_id', 'string', Rule::in(
+                $this->filled('campana_reclutamiento_id')
+                    ? FuenteCandidato::valores()
+                    : array_map(fn (FuenteCandidato $f): string => $f->value, FuenteCandidato::sinCampana()),
+            )],
             // Preguntas de requisito indispensable del puesto (pregunta_id =>
             // sí/no). Cuáles son obligatorias lo decide
             // PreguntasFiltroCandidatoService según el puesto.
@@ -59,7 +65,8 @@ class StoreCandidatoRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'fuente.required_without' => 'Elige la campaña de la que viene el candidato o, si no llegó por una campaña, el medio por el que llegó.',
+            'fuente.required_without' => 'Indica cómo llegó el candidato: la campaña o, si no fue por campaña, el medio.',
+            'fuente.in' => 'Si llegó por una pauta (Meta, Indeed, Computrabajo, LinkedIn), elige la campaña.',
             'respuestas_filtro.*.boolean' => 'Responde Sí o No.',
         ];
     }
