@@ -86,7 +86,7 @@ function valorCelda(fila: T, clave: string): unknown {
                             :class="[
                                 'transition-colors duration-150',
                                 filasClicables
-                                    ? 'cursor-pointer hover:bg-muted/40'
+                                    ? 'cursor-pointer hover:bg-salvia/40 hover:shadow-[inset_3px_0_0_var(--pastel-oro)]'
                                     : '',
                             ]"
                             @click="filasClicables && emit('click-fila', fila)"
@@ -134,7 +134,7 @@ function valorCelda(fila: T, clave: string): unknown {
                     :class="[
                         'flex flex-col gap-2.5 rounded-2xl border border-border/60 bg-card p-4 shadow-sm transition-colors',
                         filasClicables
-                            ? 'cursor-pointer active:bg-muted/40'
+                            ? 'tarjeta-interactiva active:bg-muted/40'
                             : '',
                     ]"
                     @click="filasClicables && emit('click-fila', fila)"
