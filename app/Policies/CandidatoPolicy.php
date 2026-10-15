@@ -11,7 +11,7 @@ use App\Services\AlcanceOrganizacionalService;
 /**
  * Visibilidad y edición de candidatos. Los AVANCES del pipeline no se
  * autorizan aquí: los valida App\Services\Reclutamiento\CandidatoWorkflowService
- * (permiso del paso + alcance + organigrama para preautorizar + RH para la
+ * (permiso del paso + alcance + responsable por vacante y organigrama + RH para la
  * autorización final), igual para web y API.
  */
 class CandidatoPolicy
