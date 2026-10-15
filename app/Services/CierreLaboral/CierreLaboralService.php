@@ -105,8 +105,13 @@ class CierreLaboralService
 
         $enCadena = $actor->colaborador !== null && $this->jerarquia->estaEnCadenaDeMando($actor->colaborador, $colaborador);
 
-        if ($actor->colaborador_id === $colaborador->id || (! $enCadena && ! $this->alcance->alcanzaColaborador($actor, $colaborador))) {
-            throw new AuthorizationException('Este colaborador está fuera de tu alcance.');
+        // «Iniciar baja sin permiso» = sin solicitud previa, NO que cualquiera
+        // pueda dar de baja a cualquiera: el jefe directo real (cadena de
+        // mando) o RH con alcance sobre la persona.
+        if ($actor->colaborador_id === $colaborador->id
+            || ($esRh && ! $enCadena && ! $this->alcance->alcanzaColaborador($actor, $colaborador))
+            || (! $esRh && ! $enCadena)) {
+            throw new AuthorizationException('Solo el jefe directo de la persona o RH pueden iniciar su baja.');
         }
 
         $tipoBaja = TipoBaja::from((string) $datos['tipo_baja']);
@@ -121,7 +126,7 @@ class CierreLaboralService
         $fechaEfectiva = (string) $datos['fecha_efectiva'];
         $observaciones = isset($datos['observaciones']) ? (string) $datos['observaciones'] : null;
 
-        $cierre = DB::transaction(function () use ($colaborador, $actor, $tipoBaja, $motivo, $fechaEfectiva, $observaciones, $evidencias): CierreLaboral {
+        $cierre = DB::transaction(function () use ($colaborador, $actor, $tipoBaja, $motivo, $fechaEfectiva, $observaciones, $evidencias, $enCadena): CierreLaboral {
             Colaborador::query()->lockForUpdate()->findOrFail($colaborador->id);
             $this->exigirSinCierreAbierto($colaborador);
 
@@ -151,13 +156,15 @@ class CierreLaboralService
                 'observaciones' => $observaciones,
             ]);
 
-            $pre = $this->jerarquia->preautorizadorDeColaborador($colaborador, $actor);
+            // Sin preautorización de un superior: quien inicia es el jefe
+            // directo (decisión implícita) o RH (etapa omitida). Lo único
+            // que sigue es la autorización de RH del proceso de cierre.
             $abierta = $this->aprobaciones->abrir($cierre, ProcesoAprobacion::CierreLaboral, [
                 'colaborador' => $colaborador,
                 'solicitante' => $actor,
-                'aprobador_colaborador' => $pre['aprobador'],
-                'implicita' => $pre['implicita'],
-                'motivo_omision' => $pre['motivo_omision'],
+                'aprobador_colaborador' => $enCadena ? $actor->colaborador : null,
+                'implicita' => $enCadena,
+                'motivo_omision' => $enCadena ? null : 'Baja iniciada por RH: no requiere preautorización.',
             ]);
 
             if ($abierta->etapa->value === 'autorizacion_rh') {

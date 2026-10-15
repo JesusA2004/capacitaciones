@@ -141,6 +141,8 @@ const props = defineProps<{
     puedeReactivar: boolean;
     /** Ficha del Ciclo laboral (contratos, onboarding, evaluación, baja). */
     cicloUrl?: string | null;
+    /** Jefe directo (cadena de mando) o RH: ColaboradorPolicy::iniciarCierre. */
+    puedeIniciarBaja?: boolean;
     puedeGestionarAcceso: boolean;
     puedeGestionarPassword: boolean;
     puedeEditarCuenta: boolean;
@@ -794,6 +796,21 @@ function irACompletarExpediente() {
                     </Button>
                     <Button
                         v-if="
+                            cicloUrl &&
+                            puedeIniciarBaja &&
+                            colaborador.estatus !== 'inactivo'
+                        "
+                        size="sm"
+                        variant="outline"
+                        class="border-destructive/40 text-destructive"
+                        as-child
+                    >
+                        <Link :href="`${cicloUrl}?accion=solicitar_baja`">
+                            Iniciar baja
+                        </Link>
+                    </Button>
+                    <Button
+                        v-if="
                             colaborador.estatus === 'inactivo' && puedeReactivar
                         "
                         size="sm"
@@ -869,8 +886,8 @@ function irACompletarExpediente() {
                                     Baja administrativa inmediata: termina la
                                     relación laboral y libera la plaza, sin
                                     aprobaciones ni finiquito. Para el proceso
-                                    normal usa «Ciclo laboral» → «Solicitar
-                                    baja». Nunca se borra nada (baja lógica).
+                                    normal usa «Iniciar baja» (Ciclo
+                                    laboral). Nunca se borra nada (baja lógica).
                                 </span>
                             </DropdownMenuItem>
                         </DropdownMenuContent>

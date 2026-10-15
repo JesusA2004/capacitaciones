@@ -12,7 +12,7 @@ beforeEach(function () {
     Storage::fake('nas');
 });
 
-test('crear una solicitud de baja requiere fecha efectiva y tipo de baja', function () {
+test('la baja ya no se puede crear como solicitud nueva (ni RH): se inicia desde el Cierre laboral', function () {
     $rh = User::factory()->create();
     $rh->assignRole('rh_admin');
 
@@ -23,24 +23,12 @@ test('crear una solicitud de baja requiere fecha efectiva y tipo de baja', funct
             'tipo' => 'baja_colaborador',
             'motivo' => 'Renuncia voluntaria.',
             'colaborador_objetivo_id' => $colaborador->id,
-        ])
-        ->assertSessionHasErrors(['fecha_efectiva', 'tipo_baja']);
-
-    $this->actingAs($rh)
-        ->post(route('solicitudes.store'), [
-            'tipo' => 'baja_colaborador',
-            'motivo' => 'Renuncia voluntaria.',
-            'colaborador_objetivo_id' => $colaborador->id,
             'fecha_efectiva' => now()->addWeek()->toDateString(),
             'tipo_baja' => 'renuncia',
         ])
-        ->assertSessionHasNoErrors();
+        ->assertSessionHasErrors(['tipo']);
 
-    $solicitud = SolicitudInterna::where('objetivo_colaborador_id', $colaborador->id)->first();
-
-    expect($solicitud)->not->toBeNull()
-        ->and($solicitud->tipo_baja->value)->toBe('renuncia')
-        ->and($solicitud->fecha_efectiva)->not->toBeNull();
+    expect(SolicitudInterna::where('objetivo_colaborador_id', $colaborador->id)->exists())->toBeFalse();
 });
 
 test('no se puede aprobar una baja de colaborador sin evidencia adjunta', function () {

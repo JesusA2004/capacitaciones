@@ -16,7 +16,6 @@ import {
     MessageSquare,
     Plus,
     Timer,
-    UserX,
 } from '@lucide/vue';
 import { computed, onMounted, ref } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
@@ -35,13 +34,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import VacacionesAntiguedad from '@/components/Vacaciones/VacacionesAntiguedad.vue';
@@ -49,7 +41,6 @@ import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
 import { index, show, store } from '@/routes/solicitudes';
 import type {
-    ColaboradorParaBaja,
     RespuestaPaginada,
     SaldoVacaciones,
     SolicitudInternaItem,
@@ -60,7 +51,6 @@ const props = defineProps<{
     solicitudes: RespuestaPaginada<SolicitudInternaItem>;
     tipos: TipoSolicitudInternaFormulario[];
     saldoVacaciones: SaldoVacaciones;
-    colaboradoresParaBaja: ColaboradorParaBaja[];
 }>();
 
 defineOptions({
@@ -89,7 +79,6 @@ const ICONO_TIPO: Record<string, typeof ClipboardList> = {
     actualizacion_bancaria: Banknote,
     reposicion_documental: FileWarning,
     prestamo: Banknote,
-    baja_colaborador: UserX,
     permiso_especial_cumpleanos: Cake,
     permiso_especial_paternidad: Baby,
     permiso_especial_fallecimiento: Heart,
@@ -109,7 +98,6 @@ const DESCRIPCION_TIPO: Record<string, string> = {
     actualizacion_bancaria: 'Actualiza tu cuenta para depósito de nómina.',
     reposicion_documental: 'Repone un documento de tu expediente.',
     prestamo: 'Solicita un préstamo con descuento a nómina.',
-    baja_colaborador: 'Inicia la baja de un colaborador a tu cargo.',
     permiso_especial_cumpleanos: 'Día libre por tu cumpleaños.',
     permiso_especial_paternidad: 'Permiso especial por paternidad.',
     permiso_especial_fallecimiento:
@@ -166,10 +154,6 @@ const form = useForm({
     duracion_dias: '',
     dias: [] as string[],
     monto_solicitado: '',
-    plazo_meses: '',
-    colaborador_objetivo_id: '',
-    fecha_efectiva: '',
-    tipo_baja: '',
     permiso_tipo: '',
     permiso_goce: '',
     permiso_causal: '',
@@ -177,25 +161,57 @@ const form = useForm({
     hora_entrada: '',
 });
 
-// Taxonomía definitiva: permisos, vacaciones y préstamos (más la baja, solo
-// para quien puede solicitarla). Actualización de datos se abre desde
-// «Solicitar corrección» / «Completar mis datos», no aparece como tarjeta.
-const tiposCatalogo = computed(() =>
-    props.tipos.filter(
-        (t) =>
-            t.en_catalogo ||
-            (t.clave === 'baja_colaborador' &&
-                props.colaboradoresParaBaja.length > 0),
-    ),
-);
+// Taxonomía definitiva: permisos, vacaciones y préstamos. La baja NO es
+// una solicitud (el jefe directo la inicia desde el colaborador → Cierre
+// laboral). Actualización de datos se abre desde «Completar información» /
+// «Solicitar cambio», no aparece como tarjeta.
+const tiposCatalogo = computed(() => props.tipos.filter((t) => t.en_catalogo));
 
 const esPermiso = computed(() => form.tipo === 'permiso');
 const opcionesPermiso = (campo: string) =>
     tipoActual.value?.campos.find((c) => c.name === campo)?.opciones ?? [];
 
+// Solo los campos del tipo elegido: nunca se manda un campo que la
+// pantalla no muestra (antes `dias: []` en un préstamo daba un error
+// invisible y el botón «no hacía nada»).
+function camposDelTipo(datos: ReturnType<typeof form.data>) {
+    const base = { tipo: datos.tipo, motivo: datos.motivo, observaciones: datos.observaciones };
+
+    if (datos.tipo === 'permiso') {
+        return {
+            ...base,
+            permiso_tipo: datos.permiso_tipo,
+            permiso_goce: datos.permiso_goce,
+            permiso_causal: datos.permiso_causal,
+            hora_salida: datos.hora_salida,
+            hora_entrada: datos.hora_entrada,
+            fecha_inicio: datos.fecha_inicio,
+            duracion_dias: datos.duracion_dias,
+        };
+    }
+
+    if (tipoActual.value?.requiere_monto) {
+        return { ...base, monto_solicitado: datos.monto_solicitado };
+    }
+
+    return {
+        ...base,
+        ...(modoFechas.value === 'dias_especificos' ? { dias: datos.dias } : {}),
+        ...(modoFechas.value !== 'ninguna' && modoFechas.value !== 'dias_especificos'
+            ? { fecha_inicio: datos.fecha_inicio, duracion_dias: datos.duracion_dias }
+            : {}),
+    };
+}
+
 function enviar() {
-    form.post(store.url(), {
+    if (form.processing) {
+        return;
+    }
+
+    form.transform(camposDelTipo).post(store.url(), {
         preserveScroll: true,
+        // Con error el modal sigue abierto: cada error se pinta junto a su
+        // campo y la red global (lib/erroresGlobales) avisa y enfoca.
         onSuccess: () => {
             dialogoAbierto.value = false;
             pasoFormulario.value = 'tipo';
@@ -239,14 +255,6 @@ function nombreTipo(clave: string): string {
     return props.tipos.find((t) => t.clave === clave)?.nombre ?? clave;
 }
 
-const TIPOS_BAJA = [
-    { value: 'renuncia', label: 'Renuncia voluntaria' },
-    { value: 'despido', label: 'Despido' },
-    { value: 'mutuo_acuerdo', label: 'Mutuo acuerdo' },
-    { value: 'fin_contrato', label: 'Fin de contrato' },
-    { value: 'abandono', label: 'Abandono de empleo' },
-    { value: 'otro', label: 'Otro' },
-];
 </script>
 
 <template>
@@ -377,7 +385,7 @@ const TIPOS_BAJA = [
                     {{ AVISO_FORMATO_AUTOMATICO[form.tipo] }}
                 </div>
 
-                <p v-if="form.errors.tipo" class="text-sm text-destructive">
+                <p v-if="form.errors.tipo" class="text-sm text-destructive" data-input-error>
                     {{ form.errors.tipo }}
                 </p>
 
@@ -444,7 +452,7 @@ const TIPOS_BAJA = [
                         />
                         <p
                             v-if="form.errors.fecha_inicio"
-                            class="text-sm text-destructive"
+                            class="text-sm text-destructive" data-input-error
                         >
                             {{ form.errors.fecha_inicio }}
                         </p>
@@ -460,7 +468,7 @@ const TIPOS_BAJA = [
                         />
                         <p
                             v-if="form.errors.duracion_dias"
-                            class="text-sm text-destructive"
+                            class="text-sm text-destructive" data-input-error
                         >
                             {{ form.errors.duracion_dias }}
                         </p>
@@ -501,16 +509,14 @@ const TIPOS_BAJA = [
                         >
                         días disponibles. El domingo no cuenta como vacaciones.
                     </p>
-                    <p v-if="form.errors.dias" class="text-sm text-destructive">
+                    <p v-if="form.errors.dias" class="text-sm text-destructive" data-input-error>
                         {{ form.errors.dias }}
                     </p>
                 </div>
 
-                <!-- Préstamo interno: monto y plazo -->
-                <div
-                    v-if="tipoActual?.requiere_monto"
-                    class="grid grid-cols-2 gap-4"
-                >
+                <!-- Préstamo interno: solo monto y motivo; plazo, periodicidad,
+                     entrega y primer descuento los define RH al autorizar. -->
+                <div v-if="tipoActual?.requiere_monto" class="grid gap-4">
                     <div class="grid gap-2">
                         <Label for="monto_solicitado">Monto solicitado</Label>
                         <Input
@@ -522,99 +528,15 @@ const TIPOS_BAJA = [
                         />
                         <p
                             v-if="form.errors.monto_solicitado"
-                            class="text-sm text-destructive"
+                            class="text-sm text-destructive" data-input-error
                         >
                             {{ form.errors.monto_solicitado }}
                         </p>
                     </div>
-                    <div class="grid gap-2">
-                        <Label for="plazo_meses">Plazo (meses)</Label>
-                        <Input
-                            id="plazo_meses"
-                            v-model="form.plazo_meses"
-                            type="number"
-                            min="1"
-                            max="36"
-                        />
-                    </div>
-                </div>
-
-                <!-- Baja de colaborador: a quién se solicita dar de baja -->
-                <div
-                    v-if="tipoActual?.requiere_colaborador_objetivo"
-                    class="grid gap-2"
-                >
-                    <Label for="colaborador_objetivo_id">Colaborador</Label>
-                    <Select v-model="form.colaborador_objetivo_id">
-                        <SelectTrigger
-                            id="colaborador_objetivo_id"
-                            class="w-full"
-                        >
-                            <SelectValue
-                                placeholder="Selecciona un colaborador"
-                            />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="colaborador in colaboradoresParaBaja"
-                                :key="colaborador.id"
-                                :value="String(colaborador.id)"
-                            >
-                                {{ colaborador.name }}
-                                {{ colaborador.apellidos ?? '' }}
-                            </SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <p
-                        v-if="form.errors.colaborador_objetivo_id"
-                        class="text-sm text-destructive"
-                    >
-                        {{ form.errors.colaborador_objetivo_id }}
+                    <p class="text-xs text-muted-foreground">
+                        RH definirá contigo el plazo, la periodicidad y la
+                        fecha del primer descuento al autorizar el préstamo.
                     </p>
-                </div>
-
-                <div
-                    v-if="tipoActual?.requiere_colaborador_objetivo"
-                    class="grid grid-cols-2 gap-3"
-                >
-                    <div class="grid gap-2">
-                        <Label for="fecha_efectiva"
-                            >Fecha efectiva de baja</Label
-                        >
-                        <DatePicker
-                            id="fecha_efectiva"
-                            v-model="form.fecha_efectiva"
-                        />
-                        <p
-                            v-if="form.errors.fecha_efectiva"
-                            class="text-sm text-destructive"
-                        >
-                            {{ form.errors.fecha_efectiva }}
-                        </p>
-                    </div>
-                    <div class="grid gap-2">
-                        <Label for="tipo_baja">Tipo de baja</Label>
-                        <Select v-model="form.tipo_baja">
-                            <SelectTrigger id="tipo_baja" class="w-full">
-                                <SelectValue placeholder="Selecciona" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="opcion in TIPOS_BAJA"
-                                    :key="opcion.value"
-                                    :value="opcion.value"
-                                >
-                                    {{ opcion.label }}
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <p
-                            v-if="form.errors.tipo_baja"
-                            class="text-sm text-destructive"
-                        >
-                            {{ form.errors.tipo_baja }}
-                        </p>
-                    </div>
                 </div>
 
                 <div v-if="!esPermiso" class="grid gap-2">
@@ -622,7 +544,7 @@ const TIPOS_BAJA = [
                     <Textarea id="motivo" v-model="form.motivo" rows="3" />
                     <p
                         v-if="form.errors.motivo"
-                        class="text-sm text-destructive"
+                        class="text-sm text-destructive" data-input-error
                     >
                         {{ form.errors.motivo }}
                     </p>
@@ -635,6 +557,12 @@ const TIPOS_BAJA = [
                         v-model="form.observaciones"
                         rows="2"
                     />
+                    <p
+                        v-if="form.errors.observaciones"
+                        class="text-sm text-destructive" data-input-error
+                    >
+                        {{ form.errors.observaciones }}
+                    </p>
                 </div>
 
                 <DialogFooter>

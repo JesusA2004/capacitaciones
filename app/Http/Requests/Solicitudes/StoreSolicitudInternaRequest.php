@@ -87,15 +87,21 @@ class StoreSolicitudInternaRequest extends FormRequest
                 Rule::requiredIf($modo === ModoFechasSolicitud::Duracion && ! $legacyRango),
                 'nullable', 'integer', 'min:1', 'max:365',
             ],
+            // Solo vacaciones elige días: en cualquier otro tipo se descarta
+            // (el formulario web siempre manda `dias: []`; antes eso daba
+            // «Selecciona al menos un día.» en un préstamo, sin campo visible).
             'dias' => [
+                Rule::excludeIf($modo !== ModoFechasSolicitud::DiasEspecificos),
                 Rule::requiredIf($modo === ModoFechasSolicitud::DiasEspecificos && ! $legacyRango),
                 'nullable', 'array', 'min:1', 'max:60',
             ],
-            'dias.*' => ['date_format:Y-m-d'],
+            'dias.*' => [Rule::excludeIf($modo !== ModoFechasSolicitud::DiasEspecificos), 'date_format:Y-m-d'],
             // Se calcula (cuántos días). Se acepta de clientes viejos, pero se ignora.
             'dias_solicitados' => ['nullable', 'integer', 'min:1', 'max:365'],
             'monto_solicitado' => [Rule::requiredIf($tipo?->requiereMonto() === true), 'nullable', 'numeric', 'min:1'],
-            'plazo_meses' => ['nullable', 'integer', 'min:1', 'max:36'],
+            // El colaborador solo pide monto y motivo: plazo, periodicidad y
+            // fechas los define RH al autorizar (igual que la API móvil).
+            'plazo_meses' => ['exclude'],
             'colaborador_objetivo_id' => [
                 Rule::requiredIf($tipo?->requiereColaboradorObjetivo() === true),
                 'nullable',
@@ -135,7 +141,9 @@ class StoreSolicitudInternaRequest extends FormRequest
             'dias.min' => 'Selecciona al menos un día.',
             'dias.max' => 'Puedes pedir a lo más 60 días en una solicitud.',
             'dias.*.date_format' => 'Uno de los días seleccionados no es una fecha válida.',
-            'tipo.in' => 'Ese tipo de solicitud ya no está disponible: elige Permiso, Vacaciones o Préstamo.',
+            'tipo.in' => $this->input('tipo') === TipoSolicitudInterna::BajaColaborador->value
+                ? 'La baja ya no es una solicitud: iníciala desde el colaborador (Cierre laboral → Iniciar baja).'
+                : 'Ese tipo de solicitud ya no está disponible: elige Permiso, Vacaciones o Préstamo.',
             'permiso_tipo.required' => 'Elige qué permiso necesitas: faltar, salir temprano o llegar tarde.',
             'permiso_goce.required' => 'Elige el tipo de permiso: con goce, sin goce o especial.',
             'permiso_causal.required' => 'Elige la causal del permiso especial.',

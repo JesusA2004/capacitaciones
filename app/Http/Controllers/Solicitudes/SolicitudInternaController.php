@@ -2,14 +2,11 @@
 
 namespace App\Http\Controllers\Solicitudes;
 
-use App\Enums\EstadoUsuario;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Solicitudes\StoreSolicitudInternaRequest;
 use App\Http\Requests\Solicitudes\SubirDocumentoSolicitudRequest;
-use App\Models\Colaborador;
 use App\Models\SolicitudInterna;
 use App\Models\SolicitudInternaDocumento;
-use App\Services\AlcanceOrganizacionalService;
 use App\Services\Solicitudes\SolicitudesService;
 use App\Services\Vacaciones\VacacionesService;
 use Illuminate\Http\RedirectResponse;
@@ -29,7 +26,6 @@ class SolicitudInternaController extends Controller
     public function __construct(
         private readonly SolicitudesService $solicitudes,
         private readonly VacacionesService $vacaciones,
-        private readonly AlcanceOrganizacionalService $alcance,
     ) {}
 
     public function index(Request $request): Response
@@ -40,15 +36,6 @@ class SolicitudInternaController extends Controller
             'solicitudes' => $this->solicitudes->paraColaborador($usuario),
             'tipos' => $this->solicitudes->tiposConFormulario(),
             'saldoVacaciones' => $this->vacaciones->saldo($usuario),
-            // Solo quien puede solicitar una baja ve a quién puede
-            // seleccionar (su propio alcance organizacional, nunca a todos
-            // los colaboradores) — ver TipoSolicitudInterna::BajaColaborador.
-            'colaboradoresParaBaja' => $usuario->can('solicitudes.bajas.crear')
-                ? $this->alcance->limitarColaboradoresPorAlcance(
-                    Colaborador::query()->where('estatus', EstadoUsuario::Activo)->where('id', '!=', $usuario->colaborador_id),
-                    $usuario,
-                )->orderBy('name')->get(['id', 'name', 'apellidos'])
-                : [],
         ]);
     }
 

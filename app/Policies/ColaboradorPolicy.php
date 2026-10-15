@@ -69,7 +69,9 @@ class ColaboradorPolicy
      */
     public function iniciarCierre(User $usuario, Colaborador $colaborador): bool
     {
-        if ($this->administrativo($usuario, $colaborador, 'cierres.gestionar') || $this->administrativo($usuario, $colaborador, 'cierres.solicitar')) {
+        // RH con alcance; los demás (cierres.solicitar) solo como jefe en la
+        // cadena de mando real de la persona — nunca por alcance de sucursal.
+        if ($this->administrativo($usuario, $colaborador, 'cierres.gestionar')) {
             return true;
         }
 

@@ -282,6 +282,9 @@ class SolicitudesService
                     $q->orWhere('colaborador_id', $colaborador->colaborador_id);
                 }
             })
+            // La baja no es una solicitud personal: se consulta en el Cierre
+            // laboral del colaborador (y RH la ve en su bandeja).
+            ->where('tipo', '!=', TipoSolicitudInterna::BajaColaborador)
             ->with(['revisadoPor:id,name,apellidos', 'diasVacaciones'])
             ->orderByDesc('created_at')
             ->paginate(Paginacion::porPagina());
@@ -880,7 +883,7 @@ class SolicitudesService
         // Taxonomía definitiva: los tipos históricos nunca se ofrecen.
         $tipos = array_values(array_filter(
             TipoSolicitudInterna::cases(),
-            fn (TipoSolicitudInterna $t) => $autoservicio ? $t->creableEnAutoservicio() : ! $t->esLegado(),
+            fn (TipoSolicitudInterna $t) => $autoservicio ? $t->creableEnAutoservicio() : $t->creableComoSolicitud(),
         ));
 
         return array_map(function (TipoSolicitudInterna $tipo) use ($autoservicio): array {

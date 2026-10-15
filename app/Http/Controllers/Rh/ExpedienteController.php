@@ -317,11 +317,13 @@ class ExpedienteController extends Controller
             'puedeEditar' => $usuario->can('expedientes.editar') && ! $esCuentaPropia,
             'puedeReactivar' => $usuario->can('usuarios.reactivar'),
             // Acceso al Ciclo laboral (contratos, onboarding, evaluación,
-            // «Solicitar baja» con su finiquito): antes solo se llegaba desde
+            // «Iniciar baja» con su finiquito): antes solo se llegaba desde
             // un pendiente o una notificación, nunca desde el expediente.
-            'cicloUrl' => ! $esPropio && $this->alcance->alcanzaColaborador($usuario, $colaborador)
+            'cicloUrl' => ! $esPropio && ($this->alcance->alcanzaColaborador($usuario, $colaborador) || $usuario->can('iniciarCierre', $colaborador))
                 ? route('rh.colaboradores.ciclo', $colaborador->id)
                 : null,
+            // Jefe directo (cadena de mando) o RH: sin solicitud previa.
+            'puedeIniciarBaja' => ! $esPropio && $usuario->can('iniciarCierre', $colaborador),
             'puedeRevisarDocumentos' => $usuario->can('documentos.revisar') && ! $esCuentaPropia,
             'puedeVerExtraccion' => $usuario->can('rh.documentos.extraccion.ver') && ! $esCuentaPropia,
             'puedeAplicarExtraccion' => $usuario->can('rh.documentos.extraccion.aplicar') && ! $esCuentaPropia,

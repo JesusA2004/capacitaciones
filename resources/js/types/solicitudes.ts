@@ -72,12 +72,6 @@ export type TipoSolicitudInternaFormulario = {
     permite_adjuntos: boolean;
 };
 
-export type ColaboradorParaBaja = {
-    id: number;
-    name: string;
-    apellidos: string | null;
-};
-
 type UsuarioResumen = {
     id: number;
     name: string;

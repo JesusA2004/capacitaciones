@@ -94,10 +94,10 @@ test('prestamo sin monto o sin motivo es 422', function () {
     $this->postJson('/api/v1/solicitudes', ['tipo' => 'prestamo', 'monto_solicitado' => 0, 'motivo' => 'x'])->assertUnprocessable()->assertJsonValidationErrors('monto_solicitado');
 });
 
-test('el catalogo del Portal web conserva la baja administrativa', function () {
+test('el catalogo del Portal web ya no ofrece la baja: se inicia desde el colaborador (Cierre laboral)', function () {
     $claves = collect(app(SolicitudesService::class)->tiposConFormulario())->pluck('clave');
 
-    expect($claves)->toContain('baja_colaborador');
+    expect($claves)->not->toContain('baja_colaborador');
 });
 
 test('el colaborador ve el avance de su prestamo sin datos internos de RH', function () {

@@ -161,8 +161,19 @@ enum TipoSolicitudInterna: string
     }
 
     /**
-     * Valores que se pueden CREAR hoy (web): autoservicio + baja (proceso
-     * administrativo con su propio permiso).
+     * Se puede crear como SOLICITUD nueva (POST /solicitudes). La baja ya no
+     * es una solicitud (cierre 2026-10-15): el jefe directo o RH la inicia
+     * desde el colaborador → Cierre laboral (CierreLaboralService), que crea
+     * internamente su expediente de trámite. Los registros de baja que ya
+     * existen siguen consultables como historial.
+     */
+    public function creableComoSolicitud(): bool
+    {
+        return ! $this->esLegado() && $this !== self::BajaColaborador;
+    }
+
+    /**
+     * Valores que se pueden CREAR hoy como solicitud (web).
      *
      * @return list<string>
      */
@@ -170,7 +181,7 @@ enum TipoSolicitudInterna: string
     {
         return array_values(array_map(
             fn (self $tipo) => $tipo->value,
-            array_filter(self::cases(), fn (self $tipo) => ! $tipo->esLegado()),
+            array_filter(self::cases(), fn (self $tipo) => $tipo->creableComoSolicitud()),
         ));
     }
 

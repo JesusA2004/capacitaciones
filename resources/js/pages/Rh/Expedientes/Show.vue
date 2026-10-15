@@ -26,6 +26,7 @@ const props = defineProps<{
     puedeEditar: boolean;
     puedeReactivar: boolean;
     cicloUrl: string | null;
+    puedeIniciarBaja?: boolean;
     puedeGestionarAcceso: boolean;
     puedeGestionarPassword: boolean;
     puedeEditarCuenta: boolean;
@@ -108,6 +109,7 @@ defineOptions({
         :puede-editar="puedeEditar"
         :puede-reactivar="puedeReactivar"
         :ciclo-url="cicloUrl"
+        :puede-iniciar-baja="puedeIniciarBaja"
         :puede-gestionar-acceso="puedeGestionarAcceso"
         :puede-gestionar-password="puedeGestionarPassword"
         :puede-editar-cuenta="puedeEditarCuenta"

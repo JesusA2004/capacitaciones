@@ -538,10 +538,11 @@ class CicloLaboralService
             return [];
         }
 
-        $puede = ($viewer->can(CierreLaboralService::PERMISO_SOLICITAR) || $viewer->can(CierreLaboralService::PERMISO_GESTIONAR))
-            && ($this->alcance->alcanzaColaborador($viewer, $colaborador) || ($viewer->colaborador !== null && $this->jerarquia->estaEnCadenaDeMando($viewer->colaborador, $colaborador)));
+        // Misma regla que ColaboradorPolicy::iniciarCierre: jefe directo
+        // (cadena de mando) o RH con alcance — el botón nunca promete un 403.
+        $puede = $viewer->can('iniciarCierre', $colaborador);
 
-        return $puede ? [['clave' => 'solicitar_baja', 'etiqueta' => 'Solicitar baja', 'tipo' => 'peligro']] : [];
+        return $puede ? [['clave' => 'solicitar_baja', 'etiqueta' => 'Iniciar baja', 'tipo' => 'peligro']] : [];
     }
 
     /**

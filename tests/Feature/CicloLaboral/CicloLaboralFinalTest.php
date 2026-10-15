@@ -768,6 +768,8 @@ test('PDF etapa 4: la duración sale de la configuración del puesto (Gestor 2 m
 
 test('PDF etapas 6-7: el gerente solicita la baja → acceso fuera al instante; RH autoriza; fecha efectiva → baja definitiva; reingreso con la MISMA persona y cuenta', function () {
     $colaborador = Colaborador::factory()->create([
+        // La baja la inicia su jefe directo real (cadena de mando) o RH.
+        'jefe_id' => $this->gerenteA->colaborador_id,
         'sucursal_principal_id' => $this->sucursalA->id,
         'puesto_id' => $this->puesto->id,
         'estatus' => EstadoUsuario::Activo,

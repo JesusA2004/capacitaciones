@@ -76,7 +76,8 @@ test('una solicitud de préstamo interno requiere monto', function () {
 
     expect(SolicitudInterna::where('user_id', $colaborador->id)->first())
         ->monto_solicitado->toEqual('5000.00')
-        ->plazo_meses->toBe(6);
+        // El plazo lo define RH al autorizar: el del colaborador se descarta.
+        ->plazo_meses->toBeNull();
 });
 
 test('solo quien tiene permiso de bajas puede crear una solicitud de baja de colaborador', function () {
@@ -93,7 +94,7 @@ test('solo quien tiene permiso de bajas puede crear una solicitud de baja de col
         ->assertForbidden();
 });
 
-test('rh_admin puede crear una solicitud de baja y al aprobarla se bloquea el acceso del colaborador', function () {
+test('una solicitud de baja HISTÓRICA en revisión, al aprobarla, bloquea el acceso del colaborador', function () {
     // Quien crea la solicitud de baja y quien la aprueba deben ser
     // personas distintas: SolicitudInternaPolicy::revisar() bloquea
     // revisar/aprobar la propia solicitud (mismo criterio que cualquier
@@ -108,15 +109,17 @@ test('rh_admin puede crear una solicitud de baja y al aprobarla se bloquea el ac
     $colaborador->assignRole('colaborador');
     $token = $colaborador->createToken('app-movil');
 
-    $this->actingAs($rh)
-        ->post(route('solicitudes.store'), [
-            'tipo' => 'baja_colaborador',
-            'motivo' => 'Renuncia voluntaria.',
-            'colaborador_objetivo_id' => $persona->id,
-            'fecha_efectiva' => now()->addWeek()->toDateString(),
-            'tipo_baja' => 'renuncia',
-        ])
-        ->assertSessionHasNoErrors();
+    // Registro histórico (antes de que la baja dejara de ser solicitud):
+    // sigue consultable y su aprobación sigue funcionando.
+    SolicitudInterna::factory()->create([
+        'user_id' => $rh->id,
+        'tipo' => 'baja_colaborador',
+        'estado' => 'en_revision',
+        'motivo' => 'Renuncia voluntaria.',
+        'objetivo_colaborador_id' => $persona->id,
+        'fecha_efectiva' => now()->addWeek()->toDateString(),
+        'tipo_baja' => 'renuncia',
+    ]);
 
     $solicitud = SolicitudInterna::where('tipo', 'baja_colaborador')->firstOrFail();
     expect($solicitud->objetivo_colaborador_id)->toBe($persona->id);

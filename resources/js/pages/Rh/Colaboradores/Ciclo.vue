@@ -7,7 +7,7 @@ import {
     FolderOpen,
     UserRound,
 } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import AccionesCiclo from '@/components/ciclo/AccionesCiclo.vue';
 import AprobacionesResumen from '@/components/ciclo/AprobacionesResumen.vue';
 import CicloEstadoPanel from '@/components/ciclo/CicloEstadoPanel.vue';
@@ -182,6 +182,19 @@ function alElegirAccion(a: AccionCiclo) {
 
     abrir(a);
 }
+
+// «Iniciar baja» desde el expediente llega con ?accion=solicitar_baja: abre
+// el formulario directo, solo si la acción realmente está permitida.
+onMounted(() => {
+    const pedida = new URLSearchParams(window.location.search).get('accion');
+    const disponible = props.ciclo.acciones_permitidas.find(
+        (a) => a.clave === pedida,
+    );
+
+    if (disponible) {
+        abrir(disponible);
+    }
+});
 
 function abrir(a: AccionCiclo) {
     if (a.clave === 'solicitar_reingreso' || a.clave === 'decidir_reingreso') {
