@@ -46,6 +46,7 @@ test('colaborador: solo Mi espacio, sin reclutamiento, contratación, nómina, b
     for (const prohibido of ['reclutamiento', 'contratacion', 'nomina', 'baja', 'administracion', 'contratos', 'evaluacion', 'reingresos']) {
         assert.ok(!ids.includes(prohibido), `el colaborador no debe ver «${prohibido}»`);
     }
+
     assert.ok(ids.includes('solicitudes'));
     assert.equal(veFlujoCompleto(a), false);
     assert.equal(rolVisible('rh', a), false);
