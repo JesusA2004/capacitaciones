@@ -118,6 +118,19 @@ class TareaService
     }
 
     /**
+     * Resuelve UNA tarea concreta cuando el sistema detecta que ya no aplica
+     * (p. ej. el documento que faltaba ya se generó). Sin actor = sistema.
+     */
+    public function resolverTarea(TareaRh $tarea, ?User $actor = null): void
+    {
+        try {
+            $tarea->update(['resuelta_en' => now(), 'resuelta_por' => $actor?->id, 'clave_abierta' => null]);
+        } catch (Throwable $e) {
+            Log::warning('TareaService: no se pudo resolver la tarea.', ['tarea_id' => $tarea->id, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
      * Resolución manual desde la bandeja por el propio destinatario.
      */
     public function resolverManual(TareaRh $tarea, User $actor): TareaRh

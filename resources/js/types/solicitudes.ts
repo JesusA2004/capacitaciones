@@ -169,6 +169,44 @@ export type FiniquitoDesgloseItem = {
     origen: 'automatico' | 'manual' | string;
 };
 
+/**
+ * Finiquito dentro del Cierre laboral (CierreLaboralService::aArray() con
+ * detalle): RH lo calcula, ajusta por concepto y registra su entrega.
+ */
+export type FiniquitoCierre = {
+    id: number;
+    estado: string;
+    estado_etiqueta: string;
+    editable: boolean;
+    total_percepciones: string;
+    total_deducciones: string;
+    neto: string;
+    pagado_en: string | null;
+    documento_id: number | null;
+    desglose: FiniquitoDesgloseItem[];
+    fecha_calculo: string;
+    calculado_por: string | null;
+    fecha_ingreso: string;
+    fecha_baja: string;
+    sueldo_mensual: string;
+    sueldo_diario: string;
+    antiguedad_anios: number;
+    antiguedad_meses: number;
+    dias_trabajados_periodo: number;
+    vacaciones_pendientes: number;
+    sueldo_pendiente: string;
+    ultima_edicion: {
+        accion: string;
+        usuario: string | null;
+        fecha: string | null;
+    } | null;
+    entrega: {
+        fecha: string | null;
+        forma_pago: string | null;
+        comentario: string | null;
+    } | null;
+};
+
 export type FiniquitoPermisos = {
     puedeCalcular: boolean;
     puedeRevisar: boolean;

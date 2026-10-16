@@ -64,8 +64,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // contacto corporativo — ver DirectorioColaboradoresService.
     Route::get('directorio', [DirectorioController::class, 'index'])->name('directorio.index');
 
-    // Inducción Mr. Lana en modo presentación (colaborador y RH, p. ej. para
-    // presentarla por Meet): el PDF oficial en el visor, sin registrar progreso.
+    // «Presentar inducción» (solo RH con onboarding.gestionar, p. ej. por
+    // Meet): el PDF oficial en el visor, sin registrar progreso. El PDF lo
+    // abre RH o el colaborador DURANTE la sesión que lo incluye.
     Route::get('induccion/presentacion', [InduccionPresentacionController::class, 'show'])->name('induccion.presentacion');
     Route::get('induccion/pdf', [InduccionPresentacionController::class, 'pdf'])->name('induccion.pdf');
 

@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\AccesoInduccionColaborador;
 use App\Enums\EstadoAltaColaborador;
 use App\Enums\EstadoEvaluacionInduccion;
 use App\Enums\EstadoOnboarding;
@@ -334,4 +335,130 @@ test('API de RH: mismas reglas que la web', function () {
         ->assertJsonPath('data.asistentes.0.resultado', ResultadoAsistenciaInduccion::EvaluacionHabilitada->value);
 
     $this->actingAs($this->rh, 'sanctum')->postJson("/api/v1/rh/induccion/sesiones/{$id}/cancelar")->assertStatus(422);
+});
+
+/*
+| El colaborador NUNCA presenta: en «Mi espacio» solo VE la inducción
+| mientras la sesión de RH que lo incluye está en curso; después contesta
+| su evaluación. Antes y después, el contenido no se le entrega (web y API).
+*/
+
+test('Mi espacio nunca muestra el presentador; «Presentar inducción» es solo de RH', function () {
+    // Colaborador sin permisos de RH: la pantalla de presentar es 403 (web).
+    $this->actingAs($this->ana['usuario'])->get(route('induccion.presentacion'))->assertForbidden();
+
+    // Una cuenta de RH en su «Mi espacio»: solo vista de colaborador, sin
+    // sesión de presentación, buscador ni modo presentación.
+    $this->actingAs($this->rh)->get(route('portal.induccion.ver'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Portal/Induccion')
+            ->missing('sesionRh')
+            ->missing('modoPresentacion')
+            ->where('acceso.estado', 'pendiente_presentacion')
+            ->where('pdf', null));
+
+    // Aunque OTRA persona de RH la incluya en una sesión, en Mi espacio la ve
+    // como asistente (contenido), nunca como presentadora.
+    $otraRh = clUsuario('rh_admin');
+    $this->sesiones->iniciar($otraRh, [$this->rh->colaborador_id]);
+
+    $this->actingAs($this->rh)->get(route('portal.induccion.ver'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Portal/Induccion')
+            ->missing('sesionRh')
+            ->missing('modoPresentacion')
+            ->where('acceso.estado', 'en_sesion')
+            ->where('pdf.url', route('induccion.pdf')));
+
+    // Y en Operación RH sigue teniendo su pantalla de presentador.
+    $this->actingAs($this->rh)->get(route('induccion.presentacion'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('modoPresentacion', true)->has('sesionRh'));
+});
+
+test('antes de la sesión de RH el colaborador no ve la inducción (web y API)', function () {
+    $usuario = $this->ana['usuario'];
+    $avance = $this->ana['proceso']->avances()->firstOrFail();
+
+    $this->actingAs($usuario)->get(route('portal.induccion.ver'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('pdf', null)
+            ->where('acceso.estado', 'pendiente_presentacion')
+            ->where('acceso.puede_ver_contenido', false));
+    $this->actingAs($usuario)->get(route('induccion.pdf'))->assertForbidden();
+    $this->actingAs($usuario)->postJson(route('portal.induccion.pagina', $avance), ['pagina' => 1])->assertForbidden();
+    $this->actingAs($usuario)->get(route('portal.mi-proceso'))
+        ->assertInertia(fn ($page) => $page->where('accesoInduccion.estado', 'pendiente_presentacion'));
+
+    $this->actingAs($usuario, 'sanctum')->getJson('/api/v1/induccion/presentacion')->assertForbidden()
+        ->assertJsonPath('message', AccesoInduccionColaborador::PendientePresentacion->mensaje());
+    $this->actingAs($usuario, 'sanctum')->getJson('/api/v1/induccion/pdf')->assertForbidden();
+    $this->actingAs($usuario, 'sanctum')->getJson("/api/v1/colaborador/induccion/capitulos/{$avance->id}")->assertForbidden();
+    $this->actingAs($usuario, 'sanctum')->getJson('/api/v1/colaborador/mi-proceso')->assertOk()
+        ->assertJsonPath('data.accesoInduccion.estado', 'pendiente_presentacion');
+});
+
+test('durante la sesión ve la inducción; al enviar la evaluación ya no, solo la evaluación; al contestarla tampoco', function () {
+    $usuario = $this->ana['usuario'];
+    $sesion = $this->sesiones->iniciar($this->rh, [$this->ana['colaborador']->id]);
+
+    // Beto no está en esta sesión: sigue sin verla.
+    $this->actingAs($this->beto['usuario'])->get(route('induccion.pdf'))->assertForbidden();
+
+    // Durante la sesión: contenido visible (web y API), sin evaluación todavía.
+    $this->actingAs($usuario)->get(route('portal.induccion.ver'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('acceso.estado', 'en_sesion')
+            ->where('acceso.puede_ver_contenido', true)
+            ->where('pdf.url', route('induccion.pdf'))
+            ->missing('sesionRh'));
+    $this->actingAs($usuario)->get(route('induccion.pdf'))->assertOk()->assertHeader('Content-Type', 'application/pdf');
+    $this->actingAs($usuario, 'sanctum')->getJson('/api/v1/induccion/presentacion')->assertOk()
+        ->assertJsonPath('data.pdf.url', route('api.v1.induccion.pdf'));
+    $this->actingAs($usuario, 'sanctum')->getJson('/api/v1/induccion/pdf')->assertOk();
+    $this->actingAs($usuario)->get(route('portal.induccion.contenido'))->assertNotFound();
+
+    // RH termina y envía la evaluación: el contenido deja de verse.
+    $this->sesiones->enviarEvaluacion($sesion, $this->rh);
+
+    $this->actingAs($usuario)->get(route('portal.induccion.ver'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('pdf', null)
+            ->where('acceso.estado', 'evaluacion_pendiente')
+            ->where('acceso.puede_contestar_evaluacion', true));
+    $this->actingAs($usuario)->get(route('induccion.pdf'))->assertForbidden();
+    $this->actingAs($usuario, 'sanctum')->getJson('/api/v1/induccion/presentacion')->assertForbidden()
+        ->assertJsonPath('message', AccesoInduccionColaborador::EvaluacionPendiente->mensaje());
+    $this->actingAs($usuario)->get(route('portal.induccion.contenido'))->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Portal/EvaluacionInduccion'));
+
+    // Contesta: en revisión de RH, sin contenido.
+    $evaluacion = EvaluacionInduccion::query()->where('colaborador_id', $this->ana['colaborador']->id)->sole();
+    $this->actingAs($usuario, 'sanctum')
+        ->postJson("/api/v1/colaborador/induccion/{$evaluacion->id}/presentar", ['respuestas' => siRespuestas()])
+        ->assertOk();
+
+    $this->actingAs($usuario)->get(route('portal.induccion.ver'))
+        ->assertInertia(fn ($page) => $page->where('pdf', null)->where('acceso.estado', 'en_revision'));
+
+    // RH aprueba: completada, sin contenido ni evaluación por contestar.
+    $this->evaluaciones->calificarCasosPracticos($evaluacion->intentos()->sole(), $this->rh, siPuntosD());
+
+    $this->actingAs($usuario)->get(route('portal.induccion.ver'))
+        ->assertInertia(fn ($page) => $page->where('pdf', null)
+            ->where('acceso.estado', 'completada')
+            ->where('acceso.puede_contestar_evaluacion', false));
+    $this->actingAs($usuario)->get(route('induccion.pdf'))->assertForbidden();
+    $this->actingAs($usuario, 'sanctum')->getJson('/api/v1/induccion/pdf')->assertForbidden();
+});
+
+test('una sesión cancelada deja de mostrar la inducción', function () {
+    $sesion = $this->sesiones->iniciar($this->rh, [$this->ana['colaborador']->id]);
+    $this->actingAs($this->ana['usuario'])->get(route('induccion.pdf'))->assertOk();
+
+    $this->sesiones->cancelar($sesion, $this->rh);
+
+    $this->actingAs($this->ana['usuario'])->get(route('induccion.pdf'))->assertForbidden();
+    $this->actingAs($this->ana['usuario'])->get(route('portal.induccion.ver'))
+        ->assertInertia(fn ($page) => $page->where('pdf', null)->where('acceso.estado', 'pendiente_presentacion'));
 });

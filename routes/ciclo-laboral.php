@@ -28,6 +28,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('portal.onboarding.evaluacion')
             ->middleware('throttle:30,1');
         Route::post('mi-proceso/onboarding/{avance}/visto', [MiProcesoController::class, 'marcarContenidoVisto'])->name('portal.onboarding.visto');
+        // Inducción Mr. Lana: la presenta RH; aquí solo se VE durante la
+        // sesión que incluye al colaborador (AccesoInduccionColaboradorService).
+        Route::get('mi-proceso/induccion/ver', [MiProcesoController::class, 'verInduccion'])->name('portal.induccion.ver');
         Route::get('mi-proceso/induccion/capitulos/{avance}', [MiProcesoController::class, 'capitulosInduccion'])->name('portal.induccion.capitulos');
         Route::post('mi-proceso/induccion/capitulos/{avance}/pagina', [MiProcesoController::class, 'registrarPaginaInduccion'])->name('portal.induccion.pagina');
         Route::post('mi-proceso/induccion/capitulos/{avance}/terminar', [MiProcesoController::class, 'terminarInduccion'])->name('portal.induccion.terminar');
@@ -84,14 +87,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
         });
 
         Route::prefix('cierres/{cierre}')->name('cierres.')->group(function () {
-            Route::post('preautorizar', [CierreLaboralController::class, 'preautorizar'])->name('preautorizar');
-            Route::post('autorizar', [CierreLaboralController::class, 'autorizar'])->name('autorizar');
-            Route::post('rechazar', [CierreLaboralController::class, 'rechazar'])->name('rechazar');
-            Route::post('devolver', [CierreLaboralController::class, 'devolver'])->name('devolver');
-            Route::post('reenviar', [CierreLaboralController::class, 'reenviar'])->name('reenviar');
+            // La baja se aplica al iniciarla (jefe directo o RH): ya no hay
+            // preautorizar / autorizar / rechazar / devolver / reenviar.
             Route::post('aviso', [CierreLaboralController::class, 'aviso'])->name('aviso');
             Route::post('finiquito/calcular', [CierreLaboralController::class, 'calcularFiniquito'])->name('calcularFiniquito');
-            Route::post('finiquito/autorizar', [CierreLaboralController::class, 'autorizarFiniquito'])->name('autorizarFiniquito');
+            // Finiquito: RH lo calcula, ajusta por concepto y registra su
+            // entrega (cierra el cierre). Ya no existe «autorizar finiquito».
+            Route::post('finiquito/conceptos-automaticos', [CierreLaboralController::class, 'ajustarConceptoFiniquito'])->name('finiquito.ajustar');
+            Route::post('finiquito/conceptos', [CierreLaboralController::class, 'agregarConceptoFiniquito'])->name('finiquito.conceptos.store');
+            Route::patch('finiquito/conceptos/{concepto}', [CierreLaboralController::class, 'actualizarConceptoFiniquito'])->name('finiquito.conceptos.update');
+            Route::delete('finiquito/conceptos/{concepto}', [CierreLaboralController::class, 'eliminarConceptoFiniquito'])->name('finiquito.conceptos.destroy');
+            Route::get('finiquito/vista-previa', [CierreLaboralController::class, 'vistaPreviaFiniquito'])->name('finiquito.vistaPrevia');
+            Route::post('finiquito/entrega', [CierreLaboralController::class, 'entregarFiniquito'])->name('entregarFiniquito');
             Route::post('pago/programar', [CierreLaboralController::class, 'programarPago'])->name('programarPago');
             Route::post('cita', [CierreLaboralController::class, 'cita'])->name('cita');
             Route::post('finiquito/firmado', [CierreLaboralController::class, 'finiquitoFirmado'])->name('finiquitoFirmado');

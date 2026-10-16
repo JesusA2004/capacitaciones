@@ -6,13 +6,15 @@ namespace App\Enums;
  * Avance del cierre laboral (App\Models\CierreLaboral). El orden de los
  * casos refleja el flujo (CierreLaboralService::avanzar() nunca retrocede):
  *
- *   solicitado → (preautorización operativa) → pendiente_rh
- *   → (AUTORIZACIÓN RH) iniciado [documentos de la causa pendientes]
- *   → aviso_registrado → finiquito_en_proceso → finiquito_autorizado
+ *   iniciado [baja APLICADA al iniciarla por el jefe directo o RH;
+ *   documentos de la causa pendientes] → aviso_registrado → finiquito_en_proceso → finiquito_autorizado
  *   → pago_programado (regional de coordinación) → finiquito_firmado → pagado
  *   → baja_ejecutada (solo desde la fecha efectiva) → expediente_cerrado
  *
- * `iniciado` conserva su valor histórico: hoy significa "autorizado por RH".
+ * `iniciado` conserva su valor histórico: hoy significa "baja aplicada".
+ * `solicitado` y `pendiente_rh` solo quedan en el historial (bajas
+ * rechazadas antes de que la baja fuera inmediata); los cierres abiertos
+ * en esos estados se migraron a `iniciado`.
  */
 enum EstadoCierreLaboral: string
 {
@@ -33,11 +35,11 @@ enum EstadoCierreLaboral: string
     public function etiqueta(): string
     {
         return match ($this) {
-            self::Solicitado => 'Solicitado · preautorización pendiente',
-            self::PendienteRh => 'Preautorizado · pendiente de RH',
-            self::Iniciado => 'Autorizado por RH · documentos pendientes',
+            self::Solicitado => 'Solicitado (flujo anterior)',
+            self::PendienteRh => 'Pendiente de RH (flujo anterior)',
+            self::Iniciado => 'Baja aplicada · documentos pendientes',
             self::AvisoRegistrado => 'Aviso o renuncia registrada',
-            self::FiniquitoEnProceso => 'Finiquito en revisión',
+            self::FiniquitoEnProceso => 'Finiquito calculado · pendiente de entrega',
             self::FiniquitoAutorizado => 'Finiquito autorizado',
             self::PagoProgramado => 'Pago programado',
             self::FiniquitoFirmado => 'Finiquito firmado',
@@ -55,7 +57,8 @@ enum EstadoCierreLaboral: string
     }
 
     /**
-     * true cuando RH ya autorizó la baja (a partir de aquí corre el finiquito).
+     * true cuando la baja ya está aplicada (a partir de aquí corre el
+     * finiquito). Solo los estados del flujo anterior quedan fuera.
      */
     public function autorizadoPorRh(): bool
     {

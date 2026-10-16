@@ -45,8 +45,17 @@ class ExpedienteService
         $tipos = $this->tiposRequeridos();
 
         return $colaborador->estado_alta?->enContratacion() === true
-            ? $tipos->filter(fn (DocumentType $tipo) => (bool) $tipo->aplica_alta)->values()
+            ? $this->soloDeAlta($tipos)
             : $tipos;
+    }
+
+    /**
+     * @param  Collection<int, DocumentType>  $tipos
+     * @return Collection<int, DocumentType>
+     */
+    private function soloDeAlta(Collection $tipos): Collection
+    {
+        return $tipos->filter(fn (DocumentType $tipo) => (bool) $tipo->aplica_alta)->values();
     }
 
     /**
@@ -157,9 +166,16 @@ class ExpedienteService
      *
      * @return array{requeridos: int, entregados: int, aprobados: int, en_revision: int, rechazados: int, faltantes: int, porcentaje: float, completo: bool, documentos: list<array<string, mixed>>}
      */
-    public function estadoDocumental(Colaborador $colaborador): array
+    public function estadoDocumental(Colaborador $colaborador, bool $soloAlta = false): array
     {
-        $tiposRequeridos = $this->tiposRequeridosPara($colaborador);
+        // $soloAlta: el ciclo del alta (AltaColaboradorService::calcularEstado)
+        // solo exige los documentos del alta. Los contractuales (contrato,
+        // confidencialidad, no competencia) se verifican aparte con el paquete
+        // generado/firmado: su original firmado se resguarda en papel y ya no
+        // se escanea al expediente, así que exigirlos como archivo bloqueaba
+        // la activación para siempre (onboarding completo → «Pendiente de
+        // documentos»).
+        $tiposRequeridos = $soloAlta ? $this->soloDeAlta($this->tiposRequeridos()) : $this->tiposRequeridosPara($colaborador);
         $vigentes = $this->documentosVigentes($colaborador);
 
         $entregados = 0;

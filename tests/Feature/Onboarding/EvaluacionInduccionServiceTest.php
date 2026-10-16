@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\Onboarding\EvaluacionInduccionService;
 use App\Services\Onboarding\OnboardingService;
+use App\Services\Onboarding\SesionInduccionService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Carbon;
@@ -391,6 +392,8 @@ test('API móvil del colaborador: ningún JSON de inducción trae clave de respu
     $cabeceras = ['Authorization' => "Bearer {$token}"];
     $evaluacion = eiHabilitar($this);
     $avance = $this->proceso->avances()->firstOrFail();
+    // El contenido solo se entrega durante la sesión de RH que lo incluye.
+    app(SesionInduccionService::class)->iniciar($this->rh, [$this->colaborador->id]);
 
     $respuestas = [
         $this->withHeaders($cabeceras)->getJson('/api/v1/colaborador/induccion')->assertOk(),

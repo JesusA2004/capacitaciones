@@ -160,7 +160,7 @@ export const PROCESOS: ProcesoGuia[] = [
         titulo: 'Baja y finiquito',
         icono: 'UserMinus',
         resumen:
-            'Cierre laboral: el jefe directo (o RH) inicia la baja desde el colaborador, sin solicitud previa; RH autoriza, calcula y autoriza el finiquito, se programa el pago, se firma y se ejecuta la baja.',
+            'Cierre laboral: el jefe directo (o RH) inicia la baja desde el colaborador, sin solicitud previa; la baja queda aplicada; RH calcula y ajusta el finiquito y, al registrar su entrega, el cierre queda completo.',
         tiempo: '1 a 3 semanas',
         roles: ['gerente', 'regional', 'rh', 'sistemas'],
         articulos: ['baja', 'finiquito'],

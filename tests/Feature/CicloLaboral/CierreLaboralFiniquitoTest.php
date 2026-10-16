@@ -6,7 +6,6 @@ use App\Enums\EstadoFiniquito;
 use App\Enums\EstadoUsuario;
 use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
-use App\Models\EmployeeDocument;
 use App\Models\FiniquitoCalculo;
 use App\Models\GeneratedDocument;
 use App\Models\User;
@@ -34,27 +33,28 @@ beforeEach(function () {
     $this->contrato = ContratoLaboral::factory()->create(['colaborador_id' => $this->colaborador->id, 'tipo' => 'indeterminado', 'fecha_fin' => null]);
 });
 
-test('cierre laboral completo: renuncia → autorización RH → aviso → finiquito → pago programado → firma → pago → baja → expediente cerrado', function () {
+test('cierre laboral completo: renuncia (baja aplicada al iniciarla) → finiquito (cálculo y ajustes) → entrega del finiquito → baja y expediente cerrado', function () {
     Sanctum::actingAs($this->rh);
 
     $cierreId = $this->postJson("/api/v1/rh/colaboradores/{$this->colaborador->id}/cierres", [
         'tipo_baja' => 'renuncia',
         'motivo' => 'Renuncia voluntaria por cambio de ciudad.',
         'fecha_efectiva' => now()->addDays(5)->toDateString(),
-    ])->assertCreated()->assertJsonPath('data.estado', 'pendiente_rh')->json('data.id');
+    ])->assertCreated()->assertJsonPath('data.estado', 'iniciado')->json('data.id');
 
-    // Sin superior en el organigrama la preautorización queda como «no aplica»;
-    // la autorización final de RH sigue siendo obligatoria.
-    $this->postJson("/api/v1/rh/cierres/{$cierreId}/aviso")->assertUnprocessable();
-    $this->postJson("/api/v1/rh/cierres/{$cierreId}/autorizar", ['comentario' => 'Procede.'])->assertOk()->assertJsonPath('data.estado', 'iniciado')->assertJsonPath('data.aprobaciones.autorizado_rh', true);
+    // RH inicia la baja: queda aplicada al instante, sin autorización
+    // posterior (la ruta de «autorizar» ya no existe).
+    $this->postJson("/api/v1/rh/cierres/{$cierreId}/autorizar", ['comentario' => 'Procede.'])->assertNotFound();
 
     // No se permite un segundo cierre en proceso.
     $this->postJson("/api/v1/rh/colaboradores/{$this->colaborador->id}/cierres", [
         'tipo_baja' => 'renuncia', 'motivo' => 'Duplicado', 'fecha_efectiva' => now()->toDateString(),
     ])->assertUnprocessable();
 
+    // La renuncia la genera el sistema (su firma se marca en «Documentos de la
+    // baja»): nunca se sube un archivo de renuncia.
     $this->post("/api/v1/rh/cierres/{$cierreId}/aviso", ['archivo' => clArchivoPdf('renuncia.pdf')], ['Accept' => 'application/json'])
-        ->assertOk()->assertJsonPath('data.estado', 'aviso_registrado');
+        ->assertUnprocessable()->assertJsonValidationErrors('archivo');
 
     // Ejecutar la baja antes del finiquito no está permitido.
     $this->postJson("/api/v1/rh/cierres/{$cierreId}/ejecutar-baja")->assertUnprocessable();
@@ -76,7 +76,10 @@ test('cierre laboral completo: renuncia → autorización RH → aviso → finiq
     $desglose = $this->getJson("/api/v1/rh/cierres/{$cierreId}")->json('data.finiquito.desglose');
     expect(collect($desglose)->where('origen', 'manual')->pluck('concepto')->all())->toBe(['Bono de productividad', 'Uniforme no devuelto']);
 
-    $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/revisar")->assertOk();
+    // Ya no hay «revisar» ni «autorizar» finiquito: RH lo calcula, lo ajusta
+    // y registra su entrega.
+    $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/revisar")->assertNotFound();
+    $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/autorizar")->assertNotFound();
     $documentoId = $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/documento")->assertOk()->json('documento_id');
 
     // El PDF del finiquito queda en el expediente (BajaFiniquito) con snapshot de conceptos.
@@ -84,27 +87,19 @@ test('cierre laboral completo: renuncia → autorización RH → aviso → finiq
     expect($documento->path)->toContain('/BajaFiniquito/')
         ->and($finiquito->refresh()->snapshot['conceptos'])->toHaveCount(count($desglose));
 
-    // Sin pago programado no hay firma ni pago.
-    $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/pago", ['referencia_pago' => 'TRF-001'])->assertUnprocessable();
-
-    $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/autorizar")->assertOk()->assertJsonPath('data.estado', 'finiquito_autorizado');
-    $this->postJson("/api/v1/rh/cierres/{$cierreId}/pago/programar", ['fecha' => now()->addDays(5)->toDateString(), 'metodo' => 'transferencia'])
-        ->assertOk()->assertJsonPath('data.estado', 'pago_programado');
-
-    $this->post("/api/v1/rh/cierres/{$cierreId}/finiquito/firmado", ['archivo' => clArchivoPdf('finiquito-firmado.pdf')], ['Accept' => 'application/json'])
-        ->assertOk()->assertJsonPath('data.estado', 'finiquito_firmado');
-
-    // Firmado: ya no se pueden alterar sus conceptos.
-    $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/conceptos", ['tipo' => 'percepcion', 'concepto' => 'Otro', 'importe' => 10])->assertUnprocessable();
-
-    $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/pago", ['referencia_pago' => 'TRF-001'])->assertOk()->assertJsonPath('data.estado', 'pagado');
-    expect($finiquito->refresh()->estado)->toBe(EstadoFiniquito::Pagado);
-
-    // La baja no se ejecuta antes de la fecha efectiva.
+    // La entrega (que ejecuta la baja) no se registra antes de la fecha efectiva.
+    $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/entrega", ['fecha' => now()->toDateString(), 'forma_pago' => 'transferencia'])
+        ->assertUnprocessable()->assertJsonValidationErrors('fecha');
     $this->postJson("/api/v1/rh/cierres/{$cierreId}/ejecutar-baja")->assertUnprocessable();
     $this->travel(5)->days();
 
-    $this->postJson("/api/v1/rh/cierres/{$cierreId}/ejecutar-baja")->assertOk()->assertJsonPath('data.estado', 'baja_ejecutada');
+    $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/entrega", ['fecha' => now()->toDateString(), 'forma_pago' => 'transferencia', 'comentario' => 'Entregado en sucursal.'])
+        ->assertOk()->assertJsonPath('data.estado', 'expediente_cerrado');
+    expect($finiquito->refresh()->estado)->toBe(EstadoFiniquito::Pagado)
+        ->and($finiquito->snapshot['entrega']['forma_pago'])->toBe('transferencia');
+
+    // Entregado: ya no se pueden alterar sus conceptos.
+    $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/conceptos", ['tipo' => 'percepcion', 'concepto' => 'Otro', 'importe' => 10])->assertUnprocessable();
 
     $this->colaborador->refresh();
     expect($this->colaborador->estatus)->toBe(EstadoUsuario::Inactivo)
@@ -113,12 +108,9 @@ test('cierre laboral completo: renuncia → autorización RH → aviso → finiq
         ->and($this->contrato->refresh()->estado)->toBe(EstadoContratoLaboral::Terminado)
         ->and($this->cuenta->tokens()->count())->toBe(0);
 
-    $this->postJson("/api/v1/rh/cierres/{$cierreId}/cerrar-expediente")->assertOk()->assertJsonPath('data.estado', 'expediente_cerrado');
-
     // El colaborador y su historial se conservan (nunca se borra).
     expect(Colaborador::withTrashed()->whereKey($this->colaborador->id)->exists())->toBeTrue()
-        ->and($this->colaborador->refresh()->expediente_cerrado_en)->not->toBeNull()
-        ->and(EmployeeDocument::query()->where('colaborador_id', $this->colaborador->id)->where('status', 'aprobado')->exists())->toBeTrue();
+        ->and($this->colaborador->refresh()->expediente_cerrado_en)->not->toBeNull();
 });
 
 test('sin permiso cierres.gestionar no se puede iniciar un cierre laboral', function () {

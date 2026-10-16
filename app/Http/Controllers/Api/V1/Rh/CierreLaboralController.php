@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Api\V1\Rh;
 use App\Http\Controllers\Api\V1\Concerns\RespondePaginado;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CicloLaboral\ArchivoLaboralRequest;
-use App\Http\Requests\CicloLaboral\DecisionAprobacionRequest;
 use App\Http\Requests\CicloLaboral\DecisionRequest;
+use App\Http\Requests\CicloLaboral\EntregaFiniquitoRequest;
 use App\Http\Requests\CicloLaboral\FiniquitoCierreRequest;
 use App\Http\Requests\CicloLaboral\ProgramarPagoRequest;
 use App\Http\Requests\CicloLaboral\SolicitarCierreRequest;
@@ -25,9 +25,11 @@ use Illuminate\Http\UploadedFile;
  * Cierre laboral (API v1, app administrativa). Delgado: todo pasa por
  * CierreLaboralService, el mismo que usa la web.
  *
- *   solicitar → preautorizar → autorizar (RH) → aviso → finiquito (calcular,
- *   conceptos, revisar, documento, autorizar) → programar pago → cita →
- *   firma → pago → cerrar (baja + expediente, desde la fecha efectiva).
+ *   iniciar (baja aplicada de inmediato) → aviso → finiquito (calcular,
+ *   ajustar conceptos, documento) → registrar entrega del finiquito (cierra:
+ *   baja + expediente, desde la fecha efectiva). Sin «autorizar finiquito».
+ *   Programar pago / cita / firma / pago quedan solo para cierres del flujo
+ *   anterior.
  */
 class CierreLaboralController extends Controller
 {
@@ -53,7 +55,7 @@ class CierreLaboralController extends Controller
     {
         $this->authorize('iniciarCierre', $colaborador);
 
-        $cierre = $this->cierres->solicitar($colaborador, $request->safe()->except('evidencias'), $request->user(), array_values($request->file('evidencias', [])));
+        $cierre = $this->cierres->solicitar($colaborador, $request->validated(), $request->user());
 
         return response()->json(['data' => $this->cierres->aArray($cierre, true, $request->user())], 201);
     }
@@ -63,41 +65,6 @@ class CierreLaboralController extends Controller
         $this->authorize('ver', $cierre);
 
         return $this->respuesta($request, $cierre);
-    }
-
-    public function preautorizar(DecisionAprobacionRequest $request, CierreLaboral $cierre): JsonResponse
-    {
-        $this->authorize('ver', $cierre);
-
-        return $this->respuesta($request, $this->cierres->preautorizar($cierre, $request->user(), $request->comentario()));
-    }
-
-    public function autorizar(DecisionAprobacionRequest $request, CierreLaboral $cierre): JsonResponse
-    {
-        $this->authorize('ver', $cierre);
-
-        return $this->respuesta($request, $this->cierres->autorizarRh($cierre, $request->user(), $request->comentario()));
-    }
-
-    public function rechazar(DecisionAprobacionRequest $request, CierreLaboral $cierre): JsonResponse
-    {
-        $this->authorize('ver', $cierre);
-
-        return $this->respuesta($request, $this->cierres->rechazar($cierre, $request->user(), $request->motivo()));
-    }
-
-    public function devolver(DecisionAprobacionRequest $request, CierreLaboral $cierre): JsonResponse
-    {
-        $this->authorize('ver', $cierre);
-
-        return $this->respuesta($request, $this->cierres->devolver($cierre, $request->user(), $request->motivo()));
-    }
-
-    public function reenviar(DecisionAprobacionRequest $request, CierreLaboral $cierre): JsonResponse
-    {
-        $this->authorize('ver', $cierre);
-
-        return $this->respuesta($request, $this->cierres->reenviar($cierre, $request->user(), $request->comentario()));
     }
 
     public function aviso(ArchivoLaboralRequest $request, CierreLaboral $cierre): JsonResponse
@@ -119,9 +86,9 @@ class CierreLaboralController extends Controller
     public function calcularFiniquito(FiniquitoCierreRequest $request, CierreLaboral $cierre): JsonResponse
     {
         $this->authorize('calcularFiniquito', $cierre);
-        $request->validate(['sueldo_mensual' => ['required']]);
 
-        $this->cierres->calcularFiniquito($cierre, $request->user(), (float) $request->validated('sueldo_mensual'), (float) ($request->validated('sueldo_pendiente') ?? 0));
+        // Sin sueldo_mensual: el del cálculo anterior o salario diario × 30.
+        $this->cierres->calcularFiniquito($cierre, $request->user(), $request->sueldoMensual(), $request->sueldoPendiente());
 
         return $this->respuesta($request, $cierre->refresh());
     }
@@ -165,20 +132,15 @@ class CierreLaboralController extends Controller
         return $this->respuesta($request, $cierre->refresh());
     }
 
-    public function revisarFiniquito(Request $request, CierreLaboral $cierre): JsonResponse
+    /**
+     * Entrega del finiquito: lo congela y cierra el cierre laboral (mismo
+     * CierreLaboralService::registrarEntregaFiniquito() que la web).
+     */
+    public function entregarFiniquito(EntregaFiniquitoRequest $request, CierreLaboral $cierre): JsonResponse
     {
-        $this->authorize('revisarFiniquito', $cierre);
+        $this->authorize('entregarFiniquito', $cierre);
 
-        $this->finiquitos->aprobarCalculo($this->cierres->exigirFiniquito($cierre), $request->user());
-
-        return $this->respuesta($request, $cierre->refresh());
-    }
-
-    public function autorizarFiniquito(Request $request, CierreLaboral $cierre): JsonResponse
-    {
-        $this->authorize('revisarFiniquito', $cierre);
-
-        return $this->respuesta($request, $this->cierres->autorizarFiniquito($cierre, $request->user()));
+        return $this->respuesta($request, $this->cierres->registrarEntregaFiniquito($cierre, $request->user(), $request->datosEntrega()));
     }
 
     public function generarFiniquito(Request $request, CierreLaboral $cierre): JsonResponse

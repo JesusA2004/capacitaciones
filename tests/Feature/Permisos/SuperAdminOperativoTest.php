@@ -110,7 +110,7 @@ test('sistemas nunca ejecuta una baja ni autoriza un finiquito aunque vea el cie
         'colaborador_id' => $colaborador->id,
         'tipo_baja' => TipoBaja::Renuncia->value,
         'motivo' => 'Renuncia voluntaria.',
-        'estado' => EstadoCierreLaboral::PendienteRh->value,
+        'estado' => EstadoCierreLaboral::Iniciado->value,
         'fecha_efectiva' => now()->addWeeks(2)->toDateString(),
     ]);
 

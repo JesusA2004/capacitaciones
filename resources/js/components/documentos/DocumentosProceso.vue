@@ -62,7 +62,13 @@ const props = defineProps<{
 }>();
 
 /** Cambió algún documento (generado, firmado, archivado…): la página puede refrescar su propio estado. */
-const emit = defineEmits<{ actualizado: [] }>();
+const emit = defineEmits<{
+    actualizado: [];
+    /** Tarjeta «Finiquito»: la pantalla abre su desglose (ver / editar). */
+    verFiniquito: [];
+    /** Tarjeta «Finiquito» sin calcular: la pantalla abre «Calcular finiquito». */
+    calcularFiniquito: [];
+}>();
 
 const api = useDocumentosProceso();
 const secciones = ref<Seccion[]>([]);
@@ -339,6 +345,18 @@ async function alAccionar(
     item: ItemDocumentoProceso,
     accion: AccionDocumento,
 ) {
+    if (accion.clave === 'ver_finiquito') {
+        emit('verFiniquito');
+
+        return;
+    }
+
+    if (accion.clave === 'calcular_finiquito') {
+        emit('calcularFiniquito');
+
+        return;
+    }
+
     if (accion.clave === 'generar' || accion.clave === 'regenerar') {
         await ejecutarGeneracion({
             seccion,
@@ -456,6 +474,8 @@ async function confirmarPaso() {
         toast.success(r.message);
         paso.value = null;
         await cargar();
+        // La página refresca lo que depende del documento (historial, bloqueos).
+        emit('actualizado');
     } catch (e) {
         mostrarError(e);
     } finally {

@@ -38,7 +38,6 @@ test('el demo del ciclo laboral deja cada etapa alcanzada por services, sin dupl
     Storage::set('nas', Storage::createLocalDriver(['root' => $raizNas, 'throw' => false]));
     Notification::fake();
 
-    \Illuminate\Support\Facades\Log::listen(fn ($m) => str_contains($m->message, 'CicloLaboralDemoSeeder') && fwrite(STDERR, 'DBG '.$m->message.PHP_EOL));
     $this->seed(DatabaseSeeder::class);
 
     $candidato = fn (string $clave) => Candidato::query()->where('correo', "demo.ciclo.candidato.{$clave}@mrlana.test")->first()?->estado;
@@ -52,14 +51,12 @@ test('el demo del ciclo laboral deja cada etapa alcanzada por services, sin dupl
         ->and($candidato('preseleccion'))->toBe(EstadoCandidato::AutorizacionRhPendiente)
         ->and($candidato('esperando-rh'))->toBe(EstadoCandidato::AutorizacionRhPendiente);
 
-    $c4 = Colaborador::query()->find($persona(4));
-    fwrite(STDERR, 'DBG '.json_encode([$persona(4), $c4?->estatus, $c4?->estado_alta, $c4?->activado_en, App\Models\ContratoLaboral::query()->where('colaborador_id', $persona(4))->get(['id', 'estado', 'fecha_fin', 'aviso_vencimiento_en'])->toArray(), EvaluacionPeriodoPrueba::query()->where('colaborador_id', $persona(4))->count()]).PHP_EOL);
     expect(Colaborador::query()->find($persona(1))?->estado_alta)->toBe(EstadoAltaColaborador::PendienteDocumentos)
         ->and(Colaborador::query()->find($persona(2))?->estado_alta)->toBe(EstadoAltaColaborador::EnOnboarding)
         ->and(OnboardingAvance::query()->whereHas('proceso', fn ($q) => $q->where('colaborador_id', $persona(3)))->where('estado', EstadoAvanceOnboarding::RequiereRefuerzo->value)->exists())->toBeTrue()
         ->and(EvaluacionPeriodoPrueba::query()->where('colaborador_id', $persona(4))->value('estado'))->toBe(EstadoEvaluacionPrueba::Pendiente)
         ->and(EvaluacionPeriodoPrueba::query()->where('colaborador_id', $persona(5))->value('estado'))->toBe(EstadoEvaluacionPrueba::Capturada)
-        ->and(CierreLaboral::query()->where('colaborador_id', $persona(6))->value('estado'))->toBe(EstadoCierreLaboral::PendienteRh)
+        ->and(CierreLaboral::query()->where('colaborador_id', $persona(6))->value('estado'))->toBe(EstadoCierreLaboral::Iniciado)
         ->and(CierreLaboral::query()->where('colaborador_id', $persona(7))->value('estado'))->toBe(EstadoCierreLaboral::PagoProgramado);
 
     $reingreso = Reingreso::query()->whereHas('colaborador', fn ($q) => $q->withTrashed()->whereHas('user', fn ($u) => $u->where('email', 'demo.ciclo.persona8@mrlana.test')))->first();

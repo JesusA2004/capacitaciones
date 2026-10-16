@@ -68,9 +68,11 @@ class SolicitudInternaHistorial extends Model
             'finiquito_recalculado' => 'Finiquito recalculado',
             'finiquito_ajustado' => 'Finiquito ajustado',
             'finiquito_concepto' => 'Concepto de finiquito',
+            'finiquito_ajuste' => 'Monto de finiquito ajustado',
             'finiquito_revisado' => 'Finiquito revisado',
             'finiquito_firmado_subido' => 'Finiquito firmado',
             'finiquito_pagado' => 'Finiquito pagado',
+            'finiquito_entregado' => 'Finiquito entregado',
             default => ucfirst(str_replace('_', ' ', $accion)),
         };
     }

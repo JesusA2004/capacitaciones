@@ -14,11 +14,11 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
         titulo: 'Baja de un colaborador (cierre laboral)',
         proceso: 'baja',
         resumen:
-            'El jefe directo (o RH) inicia la baja desde el colaborador, sin solicitud previa ni preautorización; RH autoriza. Al iniciarla se suspende el acceso; la baja se ejecuta en la fecha efectiva, ya pagado y firmado el finiquito.',
+            'El jefe directo (o RH) inicia la baja desde el colaborador y queda aplicada de inmediato: sin solicitud previa, sin autorización de RH y sin subir archivos. Al iniciarla se suspende el acceso; siguen los documentos de la baja y el finiquito.',
         queEs: 'Es el cierre de la relación laboral. Nunca borra a la persona: bloquea su acceso y conserva expediente, contratos, evaluaciones y documentos para un posible reingreso.',
         quien: ['gerente', 'regional', 'rh', 'sistemas'],
         quienDetalle:
-            'Inicia el jefe directo de la persona (su cadena de mando real) o RH; nadie más puede iniciarla. Autoriza RH. Programa el pago la coordinación regional. El gerente cita, recaba firma y huella. RH confirma el pago y concluye.',
+            'Inicia el jefe directo de la persona (su cadena de mando real) o RH; nadie más puede iniciarla y no necesita autorización. Programa el pago la coordinación regional. El gerente cita, recaba firma y huella. RH confirma el pago y concluye.',
         antes: [
             'La persona está activa y eres su jefe directo (o RH).',
             'La baja NO es una solicitud: no está en «Nueva solicitud».',
@@ -27,53 +27,32 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
             {
                 titulo: '«Iniciar baja»',
                 detalle:
-                    'Expedientes → la persona de tu equipo → Ciclo laboral → «Iniciar baja»: causa (renuncia, no renovación, bajo desempeño, baja inmediata…), motivo, fecha efectiva y evidencias (PDF o imagen). Pasa directo a RH.',
+                    'Expedientes → la persona de tu equipo → Ciclo laboral → «Iniciar baja»: causa (renuncia, no renovación, bajo desempeño, baja inmediata…), motivo y fecha efectiva. No se sube ningún archivo. Al confirmar, la baja queda aplicada (sin autorización de RH) y el sistema prepara los documentos de la causa.',
                 quien: 'gerente',
             },
             {
-                titulo: '«Autorizar baja»',
+                titulo: 'Renuncia / aviso en «Documentos de la baja»',
                 detalle:
-                    'RH autoriza, devuelve o rechaza. Si la devuelve, regresa a quien la inició (jefe directo o RH), que la corrige y la reenvía con «Corregir y reenviar a RH»; no pasa por preautorización. Al autorizar se preparan los documentos de la causa.',
+                    'El sistema genera la renuncia (o el aviso de terminación): «Imprimir» y, ya firmada en papel, «Marcar como firmado físicamente». No se sube ningún archivo. Si la persona se niega a firmar, «El colaborador se negó a firmar/recibir».',
                 quien: 'rh',
             },
             {
-                titulo: '«Registrar renuncia / aviso firmado»',
-                detalle: 'Se sube la renuncia o el aviso firmado.',
+                titulo: '«Calcular finiquito»',
+                detalle:
+                    'Muestra al momento el desglose por concepto; «Ver / editar finiquito» para ajustar montos con motivo (ver el artículo de finiquito). No hay que autorizarlo.',
                 quien: 'rh',
             },
             {
-                titulo: 'Finiquito',
+                titulo: '«Registrar entrega de finiquito»',
                 detalle:
-                    '«Calcular finiquito» y «Autorizar finiquito» (ver el artículo de finiquito).',
-                quien: 'rh',
-            },
-            {
-                titulo: '«Programar pago»',
-                detalle: 'Fecha, monto y método.',
-                quien: 'regional',
-            },
-            {
-                titulo: '«Registrar cita» y «Registrar firma y huella»',
-                detalle:
-                    'El gerente cita a la persona, recaba la firma y la huella del finiquito y sube el documento firmado.',
-                quien: 'gerente',
-            },
-            {
-                titulo: '«Confirmar pago»',
-                detalle: 'RH confirma que se pagó.',
-                quien: 'rh',
-            },
-            {
-                titulo: '«Concluir cierre laboral»',
-                detalle:
-                    'Desde la fecha efectiva: la baja se ejecuta y el expediente queda cerrado. PEOPLE recuerda a RH los cierres pagados cuya fecha ya llegó.',
+                    'Desde la fecha efectiva: fecha de entrega, forma de pago y comentario. El finiquito se congela, la baja se ejecuta y el cierre laboral queda completo.',
                 quien: 'rh',
             },
         ],
         llamados: [
             {
                 tono: 'importante',
-                texto: 'Al INICIAR la baja se suspende de inmediato el acceso de la persona a la app y al portal. Si la baja se rechaza o cancela, el acceso vuelve solo. Su estatus laboral no cambia hasta la autorización de RH y la fecha efectiva.',
+                texto: 'Al INICIAR la baja se suspende de inmediato el acceso de la persona a la app y al portal. Si RH cancela el cierre, el acceso vuelve solo. Su estatus laboral (inactivo, vacante) se ejecuta al concluir el cierre.',
             },
         ],
         despues: [
@@ -82,8 +61,8 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
             'La persona queda disponible para un posible reingreso.',
         ],
         notificaciones: [
-            '«Baja iniciada» a regionales y RH.',
-            '«Autorización» a RH; «Pago por programar» a la coordinación; «Cita de finiquito» al jefe.',
+            '«Baja aplicada» a regionales y RH.',
+            '«Pago por programar» a la coordinación; «Cita de finiquito» al jefe.',
             'Baja ejecutada → RH y Sistemas.',
         ],
         documentos: [
@@ -125,15 +104,15 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
         titulo: 'Finiquito',
         proceso: 'baja',
         resumen:
-            'PEOPLE calcula sueldo pendiente, aguinaldo, vacaciones, prima vacacional e ISR; RH revisa, ajusta lo autorizado y genera el PDF para firma.',
+            'PEOPLE calcula sueldo pendiente, aguinaldo, vacaciones, prima vacacional e ISR; RH revisa, ajusta montos y registra la entrega, que cierra la baja.',
         queEs: 'Es el cálculo del pago final de la persona que se va.',
-        quien: ['rh', 'regional'],
-        antes: ['La baja está autorizada por RH.'],
+        quien: ['rh'],
+        antes: ['La baja ya está aplicada (se inició desde el ciclo laboral).'],
         pasos: [
             {
                 titulo: '«Calcular finiquito»',
                 detalle:
-                    'Desde el ciclo laboral, con el sueldo mensual y el sueldo pendiente.',
+                    'Desde el ciclo laboral. El sueldo se toma del salario diario registrado (× 30) y puedes cambiarlo. Al terminar se abre el desglose.',
             },
             {
                 titulo: 'Revisa los conceptos',
@@ -141,32 +120,32 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
                     'Percepciones: sueldo pendiente, aguinaldo proporcional, vacaciones proporcionales, prima vacacional, indemnización y bonos extra (si aplican). Deducciones: ISR retenido, otras deducciones y adeudos.',
             },
             {
-                titulo: 'Ajusta lo autorizado',
+                titulo: 'Ajusta montos',
                 detalle:
-                    'En Solicitudes → la solicitud de baja → panel «Finiquito»: ajusta el importe de un concepto automático (con motivo), bonos, descuentos, adeudos o agrega conceptos.',
+                    '«Ver / editar finiquito» (en el estado del cierre o en la tarjeta «Finiquito» de Documentos de la baja): el lápiz de cada concepto cambia su importe con motivo; «Agregar renglón» suma una percepción o deducción. El total lo recalcula PEOPLE y queda quién y cuándo editó.',
             },
             {
-                titulo: 'Vista previa y PDF',
-                detalle:
-                    'Revisa la vista previa, márcalo como revisado y genera el PDF.',
+                titulo: 'Vista previa PDF',
+                detalle: 'Revisa el formato del finiquito con los montos actuales.',
             },
             {
-                titulo: '«Autorizar finiquito»',
-                detalle: 'Queda listo para programar el pago.',
-            },
-            {
-                titulo: 'Firmado',
+                titulo: '«Registrar entrega de finiquito»',
                 detalle:
-                    'Al subir el finiquito firmado (con huella) queda bloqueado: ya no admite ajustes.',
+                    'Fecha, forma de pago y comentario. El finiquito queda congelado (solo lectura) y el cierre laboral completo.',
             },
         ],
-        documentos: ['Finiquito en PDF (y el escaneo firmado)'],
-        despues: ['La descarga entrega el escaneo firmado cuando existe.'],
+        documentos: ['Finiquito en PDF'],
+        despues: ['Después de la entrega el finiquito se puede ver e imprimir, pero ya no editar.'],
         errores: [
             {
                 problema: '«No puedo ajustar el finiquito.»',
                 solucion:
-                    'Ya está firmado o pagado: queda bloqueado para proteger el documento firmado.',
+                    'Ya se registró su entrega: queda congelado tal como se entregó.',
+            },
+            {
+                problema: '«No me deja registrar la entrega.»',
+                solucion:
+                    'La baja todavía no llega a su fecha efectiva, o la fecha de entrega es futura.',
             },
             {
                 problema: '«Un ajuste no se guarda.»',
@@ -174,7 +153,7 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
             },
         ],
         registro: [
-            'Cálculo, cada ajuste con motivo y autor, autorización, firma y pago.',
+            'Cálculo, cada ajuste con motivo y autor, y la entrega (fecha, forma de pago, quién).',
         ],
         relacionados: ['baja'],
         accesos: [

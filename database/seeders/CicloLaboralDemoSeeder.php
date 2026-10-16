@@ -488,13 +488,14 @@ class CicloLaboralDemoSeeder extends Seeder
             'tipo_baja' => 'renuncia',
             'motivo' => 'Cambio de ciudad (demo).',
             'fecha_efectiva' => now()->toDateString(),
-        ], $this->como($this->gerente), [UploadedFile::fake()->create('renuncia.pdf', 20, 'application/pdf')]);
+        ], $this->como($this->gerente));
 
         if ($hasta === 'baja') {
             return;
         }
 
-        $cierre = $cierres->autorizarRh($cierre, $this->como($this->rh), 'Procede (demo).');
+        // La baja quedó aplicada al iniciarla (sin autorización de RH).
+        $this->como($this->rh);
         $cierres->calcularFiniquito($cierre, $this->rh, 9500);
         $cierre = $cierres->autorizarFiniquito($cierre->refresh(), $this->rh);
         $cierre = $cierres->programarPago($cierre, $this->rh, ['fecha' => now()->toDateString(), 'metodo' => 'transferencia', 'observaciones' => 'Flujo demo']);
@@ -596,7 +597,6 @@ class CicloLaboralDemoSeeder extends Seeder
         try {
             $paso();
         } catch (Throwable $e) {
-            fwrite(STDERR, 'DBG '.$nombre.': '.$e->getMessage().' @ '.$e->getFile().':'.$e->getLine().PHP_EOL);
             $this->aviso(sprintf('CicloLaboralDemoSeeder: no se pudo preparar «%s»: %s', $nombre, $e->getMessage()));
         }
     }

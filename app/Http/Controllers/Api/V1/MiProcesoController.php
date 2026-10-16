@@ -8,6 +8,7 @@ use App\Models\EvaluacionInduccion;
 use App\Models\OnboardingAvance;
 use App\Services\Administracion\JerarquiaPuestoService;
 use App\Services\CicloLaboral\CicloLaboralService;
+use App\Services\Onboarding\AccesoInduccionColaboradorService;
 use App\Services\Onboarding\EvaluacionInduccionService;
 use App\Services\Onboarding\InduccionPdfService;
 use App\Services\Onboarding\OnboardingService;
@@ -28,6 +29,7 @@ class MiProcesoController extends Controller
         private readonly EvaluacionInduccionService $evaluacionInduccion,
         private readonly JerarquiaPuestoService $jerarquia,
         private readonly InduccionPdfService $induccionPdf,
+        private readonly AccesoInduccionColaboradorService $accesoInduccion,
     ) {}
 
     public function show(Request $request): JsonResponse
@@ -47,6 +49,9 @@ class MiProcesoController extends Controller
             $datos['evaluacionInduccion'] = $this->evaluacionInduccion->aArray($evaluacionInduccion, $usuario);
             $datos['todo_listo'] = $datos['todo_listo'] && ! $datos['evaluacionInduccion']['puede_presentar'];
         }
+
+        // La inducción la presenta RH: cuándo puede verla / contestarla.
+        $datos['accesoInduccion'] = $this->accesoInduccion->resumen($colaborador);
 
         return response()->json(['data' => $datos]);
     }
@@ -81,15 +86,16 @@ class MiProcesoController extends Controller
     }
 
     /**
-     * Inducción en modo presentación (colaborador o RH, p. ej. por Meet):
-     * los 7 capítulos reales sin avance ni progreso — mismo
+     * Inducción en modo presentación: RH (p. ej. por Meet) o el colaborador
+     * SOLO durante la sesión de RH que lo incluye (403 con el motivo antes y
+     * después) — los 7 capítulos reales sin avance ni progreso, mismo
      * EvaluacionInduccionService::presentacion() que la web.
      */
-    public function presentacionInduccion(): JsonResponse
+    public function presentacionInduccion(Request $request): JsonResponse
     {
         // "pdf": el documento OFICIAL que la app muestra en su visor. Los
         // capítulos quedan solo para versiones anteriores de la app.
-        $presentacion = $this->evaluacionInduccion->presentacion() ?? ['titulo' => (string) config('induccion.titulo'), 'capitulos' => []];
+        $presentacion = $this->evaluacionInduccion->presentacion($request->user()) ?? ['titulo' => (string) config('induccion.titulo'), 'capitulos' => []];
 
         return response()->json(['data' => [...$presentacion, 'pdf' => $this->induccionPdf->datosVisor(true)]]);
     }
@@ -97,9 +103,9 @@ class MiProcesoController extends Controller
     /**
      * PDF oficial de la inducción, solo con sesión (nunca una URL pública).
      */
-    public function pdfInduccion(): BinaryFileResponse
+    public function pdfInduccion(Request $request): BinaryFileResponse
     {
-        return $this->induccionPdf->respuesta();
+        return $this->induccionPdf->respuesta($request->user());
     }
 
     /**

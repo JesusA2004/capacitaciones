@@ -373,9 +373,9 @@ export const ARTICULOS_DESARROLLO: ArticuloGuia[] = [
                 canal: 'web',
             },
             {
-                titulo: 'Autoestudio (opcional)',
+                titulo: 'Qué ve el colaborador',
                 detalle:
-                    'El colaborador también puede recorrer el PDF desde Mis pendientes; al terminar todas las páginas, «Terminé la inducción» habilita su evaluación.',
+                    'El colaborador nunca presenta: en Mi espacio → «Inducción Mr. Lana» solo ve el PDF mientras la sesión de RH en la que lo incluyeron está en curso. Antes de la sesión ve que RH se la presentará; después, su evaluación por contestar y, al terminarla, que ya la completó (sin el contenido).',
                 quien: 'colaborador',
                 canal: 'web_app',
             },
@@ -392,7 +392,7 @@ export const ARTICULOS_DESARROLLO: ArticuloGuia[] = [
             {
                 problema: '«No me aparece la evaluación.»',
                 solucion:
-                    'RH todavía no pulsa «Enviar evaluación» de la sesión donde te presentó la inducción, o aún no inicia tu proceso de ingreso. También puedes recorrer todas las páginas desde Mis pendientes y pulsar «Terminé la inducción».',
+                    'RH todavía no pulsa «Enviar evaluación» de la sesión donde te presentó la inducción, o aún no inicia tu proceso de ingreso.',
             },
             {
                 problema: '«No encuentro a la persona en el buscador.»',

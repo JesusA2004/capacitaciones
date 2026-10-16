@@ -4,10 +4,13 @@ namespace App\Services\Notificaciones;
 
 use App\Enums\CategoriaNotificacion;
 use App\Enums\EstadoSolicitudInterna;
+use App\Enums\TipoTarea;
+use App\Models\CierreLaboral;
 use App\Models\SolicitudInterna;
 use App\Models\TareaRh;
 use App\Models\User;
 use App\Services\Configuracion\WorkflowRoutingService;
+use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Tareas\TareaService;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -28,6 +31,11 @@ use Throwable;
  *  - solicitudes enviadas/en revisión: responsables por la regla de ruteo
  *    `solicitud_creada` y la confirmación al solicitante.
  *
+ * Antes de reponer avisos cierra los pendientes que ya no son ciertos (sin
+ * ventana de tiempo): «Faltan datos para …» de un cierre cuyo documento ya
+ * se generó o cuyos datos ya se completaron — un pendiente viejo nunca debe
+ * seguir pidiendo algo que ya se hizo.
+ *
  * Deja un margen (`gracia`) para no adelantarse al flujo normal, que avisa
  * al instante.
  */
@@ -38,16 +46,17 @@ class ReconciliadorNotificacionesService
         private readonly TareaService $tareas,
         private readonly WorkflowRoutingService $routing,
         private readonly MonitorNotificacionesService $monitor,
+        private readonly DocumentoProcesoService $documentosProceso,
     ) {}
 
     /**
-     * @return array{revisados: int, creados: int}
+     * @return array{revisados: int, creados: int, obsoletos: int}
      */
     public function reconciliar(int $horas = 48, int $graciaSegundos = 60): array
     {
         $desde = now()->subHours($horas);
         $hasta = now()->subSeconds($graciaSegundos);
-        $resultado = ['revisados' => 0, 'creados' => 0];
+        $resultado = ['revisados' => 0, 'creados' => 0, 'obsoletos' => $this->resolverObsoletos()];
 
         TareaRh::query()
             ->whereNull('resuelta_en')
@@ -78,6 +87,34 @@ class ReconciliadorNotificacionesService
         }
 
         return $resultado;
+    }
+
+    /**
+     * Pendientes documentales de cierres que ya no aplican (el documento ya
+     * existe o ya no falta ningún dato): se resuelven. Una falla nunca
+     * detiene la reconciliación de avisos.
+     */
+    private function resolverObsoletos(): int
+    {
+        try {
+            $ids = TareaRh::query()
+                ->whereNull('resuelta_en')
+                ->where('tipo', TipoTarea::PlantillaFaltante->value)
+                ->where('relacionado_type', (new CierreLaboral)->getMorphClass())
+                ->distinct()
+                ->pluck('relacionado_id');
+            $resueltos = 0;
+
+            foreach (CierreLaboral::query()->whereIn('id', $ids)->get() as $cierre) {
+                $resueltos += $this->documentosProceso->resolverPendientesDocumentalesCierre($cierre);
+            }
+
+            return $resueltos;
+        } catch (Throwable $e) {
+            Log::warning('ReconciliadorNotificaciones: no se pudieron cerrar pendientes obsoletos.', ['error' => $e->getMessage()]);
+
+            return 0;
+        }
     }
 
     private function reconciliarTarea(TareaRh $tarea): int

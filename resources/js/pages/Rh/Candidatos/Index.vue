@@ -26,6 +26,7 @@ import {
 import { computed, ref } from 'vue';
 import Casilla from '@/components/Common/Casilla.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
@@ -356,6 +357,27 @@ const salidaPendiente = ref<{
 const motivoSalida = ref('');
 const motivoRechazoId = ref<number | null>(null);
 const recontratable = ref(true);
+
+const opcionesEstadoSalida = computed(() =>
+    (salidaPendiente.value?.opciones ?? []).map((valor) => ({
+        value: valor,
+        label:
+            props.opciones.estados.find((e) => e.value === valor)?.etiqueta ??
+            valor,
+    })),
+);
+const opcionesMotivoRechazo = computed(() =>
+    (props.opciones.motivosRechazo ?? []).map((m) => ({
+        value: m.id,
+        label: m.etiqueta,
+    })),
+);
+
+function alElegirEstadoSalida(valor: string | undefined) {
+    if (salidaPendiente.value && valor) {
+        salidaPendiente.value.estado = valor;
+    }
+}
 
 function alElegirMotivoRechazo(id: number | null) {
     motivoRechazoId.value = id;
@@ -934,52 +956,33 @@ function confirmarSalida() {
                 v-if="(salidaPendiente?.opciones.length ?? 0) > 1"
                 class="grid gap-1.5"
             >
-                <Label>Motivo específico</Label>
-                <Select
+                <Label for="estado-salida">Motivo específico</Label>
+                <SelectSimple
+                    id="estado-salida"
                     :model-value="salidaPendiente?.estado"
-                    @update:model-value="
-                        (v) => {
-                            if (salidaPendiente)
-                                salidaPendiente.estado = String(v ?? '');
-                        }
-                    "
-                >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem
-                            v-for="valor in salidaPendiente?.opciones ?? []"
-                            :key="valor"
-                            :value="valor"
-                            >{{
-                                opciones.estados.find((e) => e.value === valor)
-                                    ?.etiqueta
-                            }}</SelectItem
-                        >
-                    </SelectContent>
-                </Select>
+                    :opciones="opcionesEstadoSalida"
+                    @update:model-value="alElegirEstadoSalida"
+                />
             </div>
             <div class="grid gap-1.5">
-                <Label>Motivo *</Label>
-                <Select
-                    :model-value="
-                        motivoRechazoId ? String(motivoRechazoId) : undefined
-                    "
-                    @update:model-value="
-                        (v) => alElegirMotivoRechazo(v ? Number(v) : null)
-                    "
+                <Label for="motivo-rechazo">Motivo *</Label>
+                <SelectSimple
+                    v-if="opcionesMotivoRechazo.length"
+                    id="motivo-rechazo"
+                    numerico
+                    :model-value="motivoRechazoId"
+                    :opciones="opcionesMotivoRechazo"
+                    placeholder="Elige un motivo"
+                    @update:model-value="alElegirMotivoRechazo"
+                />
+                <p
+                    v-else
+                    class="rounded-lg border border-dashed p-3 text-sm text-muted-foreground"
                 >
-                    <SelectTrigger
-                        ><SelectValue placeholder="Elige un motivo"
-                    /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem
-                            v-for="motivo in opciones.motivosRechazo ?? []"
-                            :key="motivo.id"
-                            :value="String(motivo.id)"
-                            >{{ motivo.etiqueta }}</SelectItem
-                        >
-                    </SelectContent>
-                </Select>
+                    No hay motivos de rechazo activos. Agrégalos en
+                    Configuración → Parámetros de RH para poder cerrar el
+                    proceso.
+                </p>
             </div>
             <div class="grid gap-1.5">
                 <Label for="motivo-salida">Comentario (opcional)</Label>

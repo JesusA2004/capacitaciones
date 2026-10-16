@@ -605,17 +605,10 @@ class SolicitudesService
             ]);
         }
 
-        // Nunca se aprueba una baja sin evidencia/firma del gerente
-        // (formato firmado, carta o autorización adjunta): la validación va
-        // antes de la transacción para no dejar nada a medio persistir.
-        if ($nuevoEstado === EstadoSolicitudInterna::Aprobada
-            && $solicitud->tipo === TipoSolicitudInterna::BajaColaborador
-            && $solicitud->documentos()->count() === 0
-        ) {
-            throw ValidationException::withMessages([
-                'evidencia' => 'Adjunta la evidencia/firma del gerente antes de aprobar esta baja.',
-            ]);
-        }
+        // Una baja solo cambia de estado desde el Cierre laboral (ver arriba)
+        // y ya no exige evidencia adjunta: se aplica al iniciarla y sus
+        // documentos (renuncia/aviso generados por el sistema, firmados en
+        // físico) viven en el propio cierre, no como adjuntos del trámite.
 
         // Un préstamo NUNCA se aprueba con el botón genérico "Aprobar": sin
         // monto/plazo autorizados, PrestamoService::crearDesdeSolicitud()

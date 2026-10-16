@@ -22,7 +22,7 @@ class ReconciliarNotificacionesCommand extends Command
         $horas = max(1, min(168, (int) $this->option('horas')));
         $resultado = $reconciliador->reconciliar($horas);
 
-        $this->line(sprintf('Pendientes revisados: %d · avisos repuestos: %d', $resultado['revisados'], $resultado['creados']));
+        $this->line(sprintf('Pendientes revisados: %d · avisos repuestos: %d · pendientes que ya no aplicaban: %d', $resultado['revisados'], $resultado['creados'], $resultado['obsoletos']));
 
         return self::SUCCESS;
     }

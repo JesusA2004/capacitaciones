@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import {
     CheckCircle2,
     Circle,
@@ -7,12 +7,13 @@ import {
     FolderOpen,
     UserRound,
 } from '@lucide/vue';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import AccionesCiclo from '@/components/ciclo/AccionesCiclo.vue';
 import AprobacionesResumen from '@/components/ciclo/AprobacionesResumen.vue';
 import CicloEstadoPanel from '@/components/ciclo/CicloEstadoPanel.vue';
 import CicloStepper from '@/components/ciclo/CicloStepper.vue';
 import CicloTimeline from '@/components/ciclo/CicloTimeline.vue';
+import FiniquitoCierreDialog from '@/components/ciclo/FiniquitoCierreDialog.vue';
 import Casilla from '@/components/Common/Casilla.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import DateTimePicker from '@/components/Common/DateTimePicker.vue';
@@ -47,6 +48,7 @@ import type {
     AccionCiclo,
     EstadoCiclo,
     EvaluacionPeriodoPruebaResumen,
+    FiniquitoCierre,
     FormularioAccion,
     OnboardingDetalle,
 } from '@/types';
@@ -133,16 +135,14 @@ const plantillas: Record<string, () => FormularioAccion> = {
         tipo_baja: props.opciones.causas[0]?.value ?? 'renuncia',
         motivo: '',
         fecha_efectiva: hoy,
-        evidencias: [] as File[],
     }),
-    preautorizar: () => ({ comentario: '' }),
-    reenviar: () => ({ comentario: '' }),
-    autorizar_rh: () => ({ comentario: '' }),
-    rechazar: () => ({ motivo: '' }),
-    devolver: () => ({ motivo: '' }),
     registrar_aviso: () => ({ archivo: null }),
-    calcular_finiquito: () => ({ sueldo_mensual: '', sueldo_pendiente: 0 }),
-    autorizar_finiquito: () => ({}),
+    // Prellenado con el sueldo del cálculo anterior o el salario diario
+    // registrado × 30: «Calcular» nunca exige capturar a mano lo que ya existe.
+    calcular_finiquito: () => ({
+        sueldo_mensual: sueldoMensualInicial(),
+        sueldo_pendiente: finiquitoCierre.value?.sueldo_pendiente ?? '0',
+    }),
     programar_pago: () => ({
         fecha: hoy,
         monto:
@@ -157,7 +157,7 @@ const plantillas: Record<string, () => FormularioAccion> = {
     cancelar: () => ({ motivo: '' }),
 };
 
-const conArchivos = ['solicitar_baja', 'registrar_aviso', 'finiquito_firmado'];
+const conArchivos = ['registrar_aviso', 'finiquito_firmado'];
 
 // Acciones propias de esta pantalla que se suman a las del proceso.
 const accionesExtra = computed<AccionCiclo[]>(() => [
@@ -198,6 +198,14 @@ onMounted(() => {
 });
 
 function abrir(a: AccionCiclo) {
+    // Ver / editar el finiquito y registrar su entrega viven en su propio
+    // diálogo (desglose por concepto, ajustes y entrega que cierra el cierre).
+    if (a.clave === 'ver_finiquito' || a.clave === 'registrar_entrega_finiquito') {
+        abrirFiniquito(a.clave === 'registrar_entrega_finiquito');
+
+        return;
+    }
+
     if (a.clave === 'solicitar_reingreso' || a.clave === 'decidir_reingreso') {
         window.location.href = reingresos.url({
             query: { colaborador: props.colaborador.id },
@@ -216,6 +224,47 @@ function abrir(a: AccionCiclo) {
 
 const cierreId = computed(() => Number(props.cierre?.id ?? 0));
 const evaluacionId = computed(() => Number(props.evaluacion?.id ?? 0));
+
+// ───── Finiquito del cierre (vista previa + edición + entrega) ─────
+const finiquitoCierre = computed(
+    () => (props.cierre?.finiquito ?? null) as FiniquitoCierre | null,
+);
+const finiquitoAbierto = ref(false);
+const finiquitoEntregaInicial = ref(false);
+const clavesAcciones = computed(() =>
+    props.ciclo.acciones_permitidas.map((a) => a.clave),
+);
+const puedeEditarFiniquito = computed(
+    () =>
+        clavesAcciones.value.includes('ver_finiquito') ||
+        clavesAcciones.value.includes('calcular_finiquito'),
+);
+const puedeEntregarFiniquito = computed(() =>
+    clavesAcciones.value.includes('registrar_entrega_finiquito'),
+);
+
+function sueldoMensualInicial(): string {
+    const previo = Number(finiquitoCierre.value?.sueldo_mensual ?? 0);
+    const sugerido = Number(props.cierre?.sueldo_mensual_sugerido ?? 0);
+    const valor = previo > 0 ? previo : sugerido;
+
+    return valor > 0 ? valor.toFixed(2) : '';
+}
+
+function abrirFiniquito(entrega = false) {
+    finiquitoEntregaInicial.value = entrega;
+    finiquitoAbierto.value = true;
+}
+
+function calcularDesdeDocumentos() {
+    const calcular = props.ciclo.acciones_permitidas.find(
+        (a) => a.clave === 'calcular_finiquito',
+    );
+
+    if (calcular) {
+        abrir(calcular);
+    }
+}
 
 // Evaluación oficial FO-RH-EPP-001 (version >= 2): 9 criterios (escala 4-1)
 // + 5 preguntas filtro. Legacy (version null/1) sigue usando criterios
@@ -335,10 +384,8 @@ function destino(clave: string): string {
 }
 
 const aliasCierre: Record<string, string> = {
-    autorizar_rh: 'autorizar',
     registrar_aviso: 'aviso',
     calcular_finiquito: 'calcularFiniquito',
-    autorizar_finiquito: 'autorizarFiniquito',
     programar_pago: 'programarPago',
     registrar_cita: 'cita',
     finiquito_firmado: 'finiquitoFirmado',
@@ -350,10 +397,19 @@ function enviar() {
         return;
     }
 
-    form.post(destino(accion.value.clave), {
+    const clave = accion.value.clave;
+
+    form.post(destino(clave), {
         preserveScroll: true,
-        forceFormData: conArchivos.includes(accion.value.clave),
-        onSuccess: () => (accion.value = null),
+        forceFormData: conArchivos.includes(clave),
+        onSuccess: () => {
+            accion.value = null;
+
+            // Calcular SIEMPRE termina mostrando el desglose recién calculado.
+            if (clave === 'calcular_finiquito') {
+                abrirFiniquito(false);
+            }
+        },
     });
 }
 
@@ -447,13 +503,33 @@ function enviarPasoDocumento() {
         .post(rutasDocumento[paso](documento.id), {
             preserveScroll: true,
             forceFormData: paso === 'envio' || paso === 'escaneo',
-            onSuccess: () => (pasoDocumento.value = null),
+            onSuccess: () => {
+                pasoDocumento.value = null;
+                // Las tarjetas de documentos se recargan con el nuevo estado.
+                versionDocumentos.value++;
+            },
         });
 }
 
+/** Sube al operar un documento desde el historial: las tarjetas se vuelven a cargar. */
+const versionDocumentos = ref(0);
+
+// El finiquito cambió (calculado, ajustado, entregado): la tarjeta
+// «Finiquito» de «Documentos de la baja» vuelve a cargar su estado.
+watch(
+    () => [finiquitoCierre.value?.estado, finiquitoCierre.value?.neto],
+    () => versionDocumentos.value++,
+);
+
+/** Una tarjeta cambió un documento: el historial y el estado del ciclo se refrescan. */
+function refrescarDocumentos() {
+    router.reload({ only: ['documentos', 'ciclo', 'cierre'] });
+}
+
+// Mismas etiquetas que las tarjetas de «Documentos de la baja».
 const etiquetaPaso: Record<string, string> = {
-    imprimir: 'Marcar impreso',
-    firma_fisica: 'Registrar firma',
+    imprimir: 'Imprimir',
+    firma_fisica: 'Marcar como firmado físicamente',
     envio: 'Registrar envío',
     recepcion: 'Registrar recepción',
     escaneo: 'Subir escaneo',
@@ -628,13 +704,28 @@ const etiquetaFecha: Record<string, string> = {
                     </div>
                 </section>
 
-                <DocumentosProceso tipo="colaborador" :id="colaborador.id" />
+                <DocumentosProceso
+                    :key="`colaborador-${versionDocumentos}`"
+                    tipo="colaborador"
+                    :id="colaborador.id"
+                    @actualizado="refrescarDocumentos"
+                />
                 <DocumentosProceso
                     v-if="evaluacion && !cierre"
+                    :key="`evaluacion-${versionDocumentos}`"
                     tipo="evaluacion"
                     :id="evaluacionId"
+                    @actualizado="refrescarDocumentos"
                 />
-                <DocumentosProceso v-if="cierre" tipo="cierre" :id="cierreId" />
+                <DocumentosProceso
+                    v-if="cierre"
+                    :key="`cierre-${versionDocumentos}`"
+                    tipo="cierre"
+                    :id="cierreId"
+                    @actualizado="refrescarDocumentos"
+                    @ver-finiquito="abrirFiniquito(false)"
+                    @calcular-finiquito="calcularDesdeDocumentos"
+                />
 
                 <section
                     v-if="documentos.length"
@@ -680,7 +771,10 @@ const etiquetaFecha: Record<string, string> = {
             </div>
 
             <div class="flex flex-col gap-5">
-                <AprobacionesResumen :aprobaciones="ciclo.aprobaciones" />
+                <AprobacionesResumen
+                    v-if="ciclo.aprobaciones"
+                    :aprobaciones="ciclo.aprobaciones"
+                />
                 <CicloTimeline :items="ciclo.timeline" />
             </div>
         </div>
@@ -1157,44 +1251,19 @@ const etiquetaFecha: Record<string, string> = {
                             rows="3"
                         /><InputError :message="form.errors.motivo" />
                     </div>
-                    <div class="grid gap-1.5">
-                        <Label>Evidencia (renuncia firmada, reportes…)</Label
-                        ><PeopleFileDropzone
-                            :model-value="(form.evidencias as File[]) ?? []"
-                            multiple
-                            accept=".pdf,.jpg,.jpeg,.png"
-                            label="Arrastra la evidencia o haz clic"
-                            @update:model-value="(f) => (form.evidencias = f)"
-                        />
-                    </div>
                     <p class="text-xs text-muted-foreground">
-                        Nada se desactiva hasta la autorización de RH y la fecha
-                        efectiva.
+                        La baja se aplica de inmediato: sus accesos se
+                        suspenden al confirmar. El sistema genera la renuncia o
+                        el aviso para imprimir y firmar; después sigue el
+                        finiquito.
                     </p>
-                </template>
-
-                <template
-                    v-else-if="
-                        ['preautorizar', 'reenviar', 'autorizar_rh'].includes(
-                            accion?.clave ?? '',
-                        )
-                    "
-                >
-                    <div class="grid gap-1.5">
-                        <Label>Comentario (opcional)</Label
-                        ><Textarea
-                            v-model="form.comentario as string"
-                            rows="2"
-                        />
-                    </div>
-                    <InputError :message="form.errors.aprobacion" />
+                    <InputError :message="form.errors.colaborador" />
+                    <InputError :message="form.errors.tipo_baja" />
                 </template>
 
                 <template
                     v-else-if="
                         [
-                            'rechazar',
-                            'devolver',
                             'cancelar',
                             'devolver_evaluacion',
                         ].includes(accion?.clave ?? '')
@@ -1238,23 +1307,51 @@ const etiquetaFecha: Record<string, string> = {
                 </template>
 
                 <template v-else-if="accion?.clave === 'calcular_finiquito'">
+                    <p class="text-sm text-muted-foreground">
+                        Se calcula con el salario registrado y la fecha
+                        efectiva de la baja. Al terminar verás el desglose por
+                        concepto para revisarlo y ajustar montos.
+                        <template v-if="finiquitoCierre">
+                            Los ajustes que ya hiciste se conservan.</template
+                        >
+                    </p>
                     <div class="grid gap-1.5">
-                        <Label>Sueldo mensual base</Label
+                        <Label for="fin-sueldo">Sueldo mensual base</Label
                         ><Input
+                            id="fin-sueldo"
                             v-model="form.sueldo_mensual as string"
                             type="number"
                             min="0"
                             step="0.01"
-                        /><InputError :message="form.errors.sueldo_mensual" />
+                        />
+                        <p
+                            v-if="Number(form.sueldo_mensual) > 0"
+                            class="text-xs text-muted-foreground"
+                        >
+                            Salario diario:
+                            ${{
+                                (Number(form.sueldo_mensual) / 30).toLocaleString(
+                                    'es-MX',
+                                    {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                    },
+                                )
+                            }}
+                            (sueldo mensual ÷ 30)
+                        </p>
+                        <InputError :message="form.errors.sueldo_mensual" />
                     </div>
                     <div class="grid gap-1.5">
-                        <Label>Sueldo pendiente por pagar</Label
+                        <Label for="fin-pendiente"
+                            >Sueldo pendiente por pagar</Label
                         ><Input
+                            id="fin-pendiente"
                             v-model="form.sueldo_pendiente as string"
                             type="number"
                             min="0"
                             step="0.01"
-                        />
+                        /><InputError :message="form.errors.sueldo_pendiente" />
                     </div>
                 </template>
 
@@ -1341,6 +1438,17 @@ const etiquetaFecha: Record<string, string> = {
             </form>
         </DialogContent>
     </Dialog>
+
+    <FiniquitoCierreDialog
+        v-if="cierre"
+        v-model:open="finiquitoAbierto"
+        :cierre-id="cierreId"
+        :colaborador="colaborador.nombre"
+        :finiquito="finiquitoCierre"
+        :puede-editar="puedeEditarFiniquito"
+        :puede-entregar="puedeEntregarFiniquito"
+        :entrega-inicial="finiquitoEntregaInicial"
+    />
 
     <Dialog
         :open="dialogoExcepcionAbierto"

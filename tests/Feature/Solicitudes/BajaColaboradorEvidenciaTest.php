@@ -50,7 +50,7 @@ test('la baja ya no se puede crear como solicitud nueva (ni RH): se inicia desde
     expect(SolicitudInterna::where('objetivo_colaborador_id', $colaborador->id)->exists())->toBeFalse();
 });
 
-test('el cierre laboral no aprueba una baja de colaborador sin evidencia adjunta', function () {
+test('el cierre laboral no exige evidencia adjunta para aprobar la baja (la renuncia firmada vive en el cierre), pero sí el finiquito revisado', function () {
     $rh = User::factory()->create();
     $rh->assignRole('rh_admin');
 
@@ -63,7 +63,9 @@ test('el cierre laboral no aprueba una baja de colaborador sin evidencia adjunta
         'tipo_baja' => 'renuncia',
     ]);
 
-    expect(aprobarBajaDesdeCierre($solicitud, $rh))->toHaveKey('evidencia')
+    config(['finiquitos.exigir_finiquito_revisado_para_aprobar_baja' => true]);
+
+    expect(aprobarBajaDesdeCierre($solicitud, $rh))->not->toHaveKey('evidencia')->toHaveKey('finiquito')
         ->and($solicitud->fresh()->estado->value)->toBe('en_revision')
         ->and($colaborador->fresh()->estatus->value)->toBe('activo');
 });

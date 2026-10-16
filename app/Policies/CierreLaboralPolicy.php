@@ -62,6 +62,15 @@ class CierreLaboralPolicy
         return $this->con($usuario, $cierre, 'finiquitos.revisar');
     }
 
+    /**
+     * Registrar la entrega del finiquito (cierra el cierre laboral): RH que
+     * gestiona cierres y calcula finiquitos.
+     */
+    public function entregarFiniquito(User $usuario, CierreLaboral $cierre): bool
+    {
+        return $this->con($usuario, $cierre, 'cierres.gestionar') && $usuario->can('finiquitos.calcular');
+    }
+
     private function con(User $usuario, CierreLaboral $cierre, string $permiso): bool
     {
         return $usuario->can($permiso)

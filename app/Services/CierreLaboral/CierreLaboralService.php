@@ -6,6 +6,7 @@ use App\Enums\EstadoCierreLaboral;
 use App\Enums\EstadoContratoLaboral;
 use App\Enums\EstadoFiniquito;
 use App\Enums\EstadoSolicitudInterna;
+use App\Enums\FormaPagoFiniquito;
 use App\Enums\PrioridadTarea;
 use App\Enums\ProcesoAprobacion;
 use App\Enums\TipoBaja;
@@ -36,6 +37,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -44,24 +46,23 @@ use Throwable;
 /**
  * Cierre laboral (Etapa 6):
  *
- *   1. el jefe directo (o RH) INICIA la baja (causa, motivo, fecha efectiva,
- *      evidencia) — SIN preautorización de un superior: quien la inicia ya
- *      es la decisión operativa. Si RH la devuelve, regresa a «Solicitado»
- *      con quien la inició, que la corrige y la reenvía (reenviar()).
- *      Solo registros anteriores a ese cambio pueden traer todavía una
- *      preautorización pendiente (preautorizar(), compatibilidad).
- *   3. AUTORIZACIÓN FINAL de RH → documentos de la causa (plantillas de
- *      Jurídico/RH; sin plantilla = pendiente explícito)
- *   4. finiquito: RH genera / revisa / ajusta (auditado) / AUTORIZA
+ *   1. el jefe directo (cadena de mando del organigrama) o RH INICIA la baja
+ *      (causa, motivo, fecha efectiva) y queda APLICADA DE INMEDIATO: sin
+ *      preautorización, sin autorización de RH y sin archivo de evidencia
+ *      («a veces algo grave pasó: la baja es inmediata»).
+ *   2. documentos de la causa generados por el sistema (plantillas de
+ *      Jurídico/RH; sin plantilla = pendiente explícito): la renuncia sigue
+ *      Generado → Impreso → Firmado físicamente
+ *   4. finiquito: RH genera / revisa / ajusta (auditado)
  *   5. regional de coordinación PROGRAMA el pago (fecha, monto, método)
  *   6. gerente cita al excolaborador → firma/huella del finiquito → pago
  *   7. cierre: baja (solo desde la fecha efectiva) + expediente cerrado
  *
- * Al SOLICITAR la baja se suspende de inmediato el acceso de la persona
+ * Al INICIAR la baja se suspende de inmediato el acceso de la persona
  * (cuenta inactiva, AccesoCuentaService) y se avisa a regionales y RH, que
- * pueden rehabilitarlo; si la baja se rechaza o cancela, el acceso vuelve
- * solo. Su estatus LABORAL no cambia hasta la autorización RH y la fecha
- * efectiva. NUNCA elimina datos: User/Colaborador/expediente/contratos/
+ * pueden rehabilitarlo; si RH cancela el cierre, el acceso vuelve solo. Su
+ * estatus LABORAL (inactivo, fecha de baja, vacante) se ejecuta al concluir
+ * el cierre (ejecutarBaja). NUNCA elimina datos: User/Colaborador/expediente/contratos/
  * evaluaciones/documentos/timeline se conservan para un posible reingreso.
  *
  * Reutiliza la solicitud interna de baja (folio, evidencia, historial,
@@ -93,12 +94,17 @@ class CierreLaboralService
     ) {}
 
     /**
-     * Solicitud de baja por el jefe/gerente (o RH).
+     * Baja iniciada por el jefe directo (cadena de mando del organigrama) o
+     * por RH: se APLICA DE INMEDIATO, sin autorización posterior de RH ni
+     * archivo de evidencia. En la misma transacción: trámite (solicitud de
+     * baja) en revisión, cierre en «Baja aplicada · documentos pendientes» y
+     * accesos suspendidos. El sistema genera los documentos de la causa (la
+     * renuncia incluida: Generado → Impreso → Firmado físicamente); lo que
+     * sigue es el finiquito.
      *
-     * @param  array<string, mixed>  $datos  tipo_baja, motivo, fecha_efectiva, observaciones? (validado por IniciarCierreRequest).
-     * @param  list<UploadedFile>  $evidencias
+     * @param  array<string, mixed>  $datos  tipo_baja, motivo, fecha_efectiva, observaciones? (validado por SolicitarCierreRequest/IniciarCierreRequest).
      */
-    public function solicitar(Colaborador $colaborador, array $datos, User $actor, array $evidencias = []): CierreLaboral
+    public function solicitar(Colaborador $colaborador, array $datos, User $actor): CierreLaboral
     {
         $esRh = $actor->can(self::PERMISO_GESTIONAR);
 
@@ -129,12 +135,16 @@ class CierreLaboralService
         $fechaEfectiva = (string) $datos['fecha_efectiva'];
         $observaciones = isset($datos['observaciones']) ? (string) $datos['observaciones'] : null;
 
-        $cierre = DB::transaction(function () use ($colaborador, $actor, $tipoBaja, $motivo, $fechaEfectiva, $observaciones, $evidencias, $enCadena): CierreLaboral {
+        // Quién aplicó la baja (timeline/aviso): el jefe directo en la cadena
+        // de mando del organigrama, o Recursos Humanos.
+        $aplicadaPor = $enCadena ? 'jefe directo' : 'Recursos Humanos';
+
+        $cierre = DB::transaction(function () use ($colaborador, $actor, $tipoBaja, $motivo, $fechaEfectiva, $observaciones, $aplicadaPor): CierreLaboral {
             Colaborador::query()->lockForUpdate()->findOrFail($colaborador->id);
             $this->exigirSinCierreAbierto($colaborador);
 
             // La solicitud de baja existente es el "expediente del trámite":
-            // folio, historial, evidencia y finiquito.
+            // folio, historial y finiquito.
             $solicitud = $this->solicitudes->crear($actor, [
                 'tipo' => TipoSolicitudInterna::BajaColaborador->value,
                 'colaborador_objetivo_id' => $colaborador->id,
@@ -144,37 +154,23 @@ class CierreLaboralService
                 'observaciones' => $observaciones,
             ]);
 
-            foreach ($evidencias as $archivo) {
-                $this->solicitudes->adjuntarDocumento($solicitud, $archivo, $actor);
-            }
-
+            // Baja inmediata: sin preautorización ni autorización de RH.
             $cierre = CierreLaboral::query()->create([
                 'colaborador_id' => $colaborador->id,
                 'solicitud_interna_id' => $solicitud->id,
                 'tipo_baja' => $tipoBaja,
                 'motivo' => $motivo,
                 'fecha_efectiva' => $fechaEfectiva,
-                'estado' => EstadoCierreLaboral::Solicitado,
+                'estado' => EstadoCierreLaboral::Iniciado,
                 'iniciado_por' => $actor->id,
+                'autorizado_rh_en' => now(),
+                'autorizado_rh_por' => $actor->id,
                 'observaciones' => $observaciones,
             ]);
 
-            // Sin preautorización de un superior: quien inicia es el jefe
-            // directo (decisión implícita) o RH (etapa omitida). Lo único
-            // que sigue es la autorización de RH del proceso de cierre.
-            $abierta = $this->aprobaciones->abrir($cierre, ProcesoAprobacion::CierreLaboral, [
-                'colaborador' => $colaborador,
-                'solicitante' => $actor,
-                'aprobador_colaborador' => $enCadena ? $actor->colaborador : null,
-                'implicita' => $enCadena,
-                'motivo_omision' => $enCadena ? null : 'Baja iniciada por RH: no requiere preautorización.',
-            ]);
+            $this->solicitudes->marcarEnRevision($solicitud, $actor, sprintf('Baja aplicada por %s.', $aplicadaPor), desdeCierreLaboral: true);
 
-            if ($abierta->etapa->value === 'autorizacion_rh') {
-                $cierre->update(['estado' => EstadoCierreLaboral::PendienteRh]);
-            }
-
-            // Baja solicitada = accesos fuera desde ya (web y app).
+            // Baja aplicada = accesos fuera desde ya (web y app).
             $cuenta = $colaborador->user;
 
             if ($cuenta !== null && $cuenta->acceso_bloqueado_en === null) {
@@ -190,30 +186,29 @@ class CierreLaboralService
             'cierre_baja_solicitada',
             $colaborador,
             ['solicitante' => $actor, 'excluir' => [$actor->id]],
-            'Baja solicitada',
-            sprintf('%s solicitó la baja de %s (%s, efectiva %s). Sus accesos ya se suspendieron; puedes rehabilitarlos desde Usuarios.', $actor->name, $nombre, $tipoBaja->etiqueta(), $cierre->fecha_efectiva->format('d/m/Y')),
+            'Baja aplicada',
+            sprintf('%s aplicó la baja de %s (%s, efectiva %s). Sus accesos ya se suspendieron; puedes rehabilitarlos desde Usuarios.', $actor->name, $nombre, $tipoBaja->etiqueta(), $cierre->fecha_efectiva->format('d/m/Y')),
             $cierre,
             'ver_cierre',
             'alta',
         );
 
-        $this->auditoria->registrar('cierre_laboral_solicitado', $cierre, $actor, [
+        $this->auditoria->registrar('cierre_laboral_aplicado', $cierre, $actor, [
             'colaborador_id' => $colaborador->id,
             'tipo_baja' => $tipoBaja->value,
             'fecha_efectiva' => $cierre->fecha_efectiva->toDateString(),
+            'aplicada_por' => $aplicadaPor,
         ]);
 
-        // Renuncia: el formato oficial queda generado en el mismo momento en
-        // que el gerente (o RH) da de baja, con nombre, puesto, sucursal y
-        // fecha ya llenos — solo falta imprimirlo y que el colaborador lo
-        // firme. Si falta el master o algún dato, queda un pendiente claro
-        // (generarDocumentosDeCausa) y la baja sigue su curso.
-        if ($tipoBaja === TipoBaja::Renuncia) {
-            try {
-                $this->generarDocumentosDeCausa($cierre->refresh(), $actor, ['carta_renuncia']);
-            } catch (Throwable $e) {
-                Log::warning('CierreLaboralService: no se pudo preparar la carta de renuncia.', ['cierre_id' => $cierre->id, 'error' => $e->getMessage()]);
-            }
+        // Documentos de la causa (la renuncia incluida): quedan generados en
+        // el mismo momento con nombre, puesto, sucursal y fecha ya llenos —
+        // solo falta imprimirlos y firmarlos. Si falta el master o algún
+        // dato, queda un pendiente claro (generarDocumentosDeCausa) y la baja
+        // sigue su curso.
+        try {
+            $this->generarDocumentosDeCausa($cierre->refresh(), $actor, $this->documentosProceso->clavesCausa($cierre));
+        } catch (Throwable $e) {
+            Log::warning('CierreLaboralService: no se pudieron preparar los documentos de la baja.', ['cierre_id' => $cierre->id, 'error' => $e->getMessage()]);
         }
 
         $this->sincronizarPendientes($cierre->refresh(), $actor);
@@ -283,172 +278,18 @@ class CierreLaboralService
     }
 
     /**
-     * COMPATIBILIDAD: solo para cierres anteriores al retiro de la
-     * preautorización que aún tienen una preautorización pendiente (las
-     * bajas nuevas y las devueltas por RH ya no la abren).
-     */
-    public function preautorizar(CierreLaboral $cierre, User $actor, ?string $comentario = null): CierreLaboral
-    {
-        $cierre = DB::transaction(function () use ($cierre, $actor, $comentario): CierreLaboral {
-            $cierre = $this->bloquear($cierre, [EstadoCierreLaboral::Solicitado]);
-            $this->aprobaciones->preautorizar($cierre, ProcesoAprobacion::CierreLaboral, $actor, $comentario);
-            $cierre->update(['estado' => EstadoCierreLaboral::PendienteRh]);
-
-            return $cierre;
-        });
-
-        $this->sincronizarPendientes($cierre, $actor);
-
-        return $cierre->refresh();
-    }
-
-    /**
-     * Autorización final de RH: a partir de aquí corre el finiquito. La baja
-     * efectiva sigue esperando la fecha efectiva y el pago.
-     */
-    public function autorizarRh(CierreLaboral $cierre, User $actor, ?string $comentario = null): CierreLaboral
-    {
-        $cierre = DB::transaction(function () use ($cierre, $actor, $comentario): CierreLaboral {
-            $cierre = $this->bloquear($cierre, [EstadoCierreLaboral::PendienteRh]);
-            $this->aprobaciones->autorizarRh($cierre, ProcesoAprobacion::CierreLaboral, $actor, $comentario);
-
-            $cierre->update([
-                'estado' => EstadoCierreLaboral::Iniciado,
-                'autorizado_rh_en' => now(),
-                'autorizado_rh_por' => $actor->id,
-            ]);
-
-            $this->solicitudes->marcarEnRevision($this->solicitud($cierre), $actor, 'Baja autorizada por RH.', desdeCierreLaboral: true);
-
-            return $cierre;
-        });
-
-        $this->auditoria->registrar('cierre_laboral_autorizado_rh', $cierre, $actor, ['colaborador_id' => $cierre->colaborador_id]);
-
-        // La renuncia la genera el gerente con el colaborador presente; los
-        // documentos del vencimiento (evaluación + aviso) se preparan aquí.
-        $this->generarDocumentosDeCausa($cierre, $actor, array_values(array_diff($this->documentosProceso->clavesCausa($cierre), ['carta_renuncia'])));
-        $this->sincronizarPendientes($cierre->refresh(), $actor);
-
-        return $cierre;
-    }
-
-    public function rechazar(CierreLaboral $cierre, User $actor, string $motivo): CierreLaboral
-    {
-        $cierre = DB::transaction(function () use ($cierre, $actor, $motivo): CierreLaboral {
-            $cierre = $this->bloquear($cierre, [EstadoCierreLaboral::Solicitado, EstadoCierreLaboral::PendienteRh]);
-            $this->aprobaciones->rechazar($cierre, ProcesoAprobacion::CierreLaboral, $actor, $motivo);
-
-            $solicitud = $this->solicitud($cierre);
-
-            if ($solicitud->estado->puedeCancelarse()) {
-                $this->solicitudes->cancelar($solicitud, $actor, desdeCierreLaboral: true);
-            }
-
-            $cierre->update(['estado' => EstadoCierreLaboral::Rechazado, 'rechazado_en' => now(), 'motivo_rechazo' => $motivo]);
-
-            return $cierre;
-        });
-
-        $this->auditoria->registrar('cierre_laboral_rechazado', $cierre, $actor, ['colaborador_id' => $cierre->colaborador_id, 'motivo' => $motivo]);
-        $this->devolverAcceso($cierre, $actor, 'Baja rechazada');
-        $this->sincronizarPendientes($cierre, $actor);
-
-        return $cierre->refresh();
-    }
-
-    /**
-     * RH devuelve la baja: regresa a «Solicitado» con quien la inició (jefe
-     * directo o RH) para corregirla y reenviarla. NO abre preautorización de
-     * un superior (se retiró): no queda ninguna aprobación pendiente hasta
-     * que se reenvía.
-     */
-    public function devolver(CierreLaboral $cierre, User $actor, string $motivo): CierreLaboral
-    {
-        $cierre = DB::transaction(function () use ($cierre, $actor, $motivo): CierreLaboral {
-            $cierre = $this->bloquear($cierre, [EstadoCierreLaboral::PendienteRh]);
-            $this->aprobaciones->devolver($cierre, ProcesoAprobacion::CierreLaboral, $actor, $motivo, reabrirPreautorizacion: false);
-            $cierre->update(['estado' => EstadoCierreLaboral::Solicitado]);
-
-            return $cierre;
-        });
-
-        $this->auditoria->registrar('cierre_laboral_devuelto', $cierre, $actor, ['colaborador_id' => $cierre->colaborador_id, 'motivo' => $motivo]);
-        $this->sincronizarPendientes($cierre, $actor);
-
-        return $cierre->refresh();
-    }
-
-    /**
-     * Quien puede iniciar la baja (jefe directo en la cadena de mando o RH
-     * con alcance) la reenvía corregida tras una devolución: vuelve directo a
-     * la autorización de RH, sin preautorización.
-     */
-    public function reenviar(CierreLaboral $cierre, User $actor, ?string $comentario = null): CierreLaboral
-    {
-        $cierre->loadMissing('colaborador');
-
-        if (! $this->puedeReenviar($actor, $cierre)) {
-            throw new AuthorizationException('Solo el jefe directo de la persona o RH pueden reenviar su baja.');
-        }
-
-        $enCadena = $actor->colaborador !== null && $this->jerarquia->estaEnCadenaDeMando($actor->colaborador, $cierre->colaborador);
-
-        $cierre = DB::transaction(function () use ($cierre, $actor, $comentario, $enCadena): CierreLaboral {
-            $cierre = $this->bloquear($cierre, [EstadoCierreLaboral::Solicitado]);
-
-            if ($this->aprobaciones->pendiente($cierre, ProcesoAprobacion::CierreLaboral) !== null) {
-                throw ValidationException::withMessages(['aprobacion' => 'Esta baja (registro anterior) tiene una preautorización pendiente de su superior: debe preautorizarse, no reenviarse.']);
-            }
-
-            $this->aprobaciones->abrir($cierre, ProcesoAprobacion::CierreLaboral, [
-                'colaborador' => $cierre->colaborador,
-                'solicitante' => $actor,
-                'aprobador_colaborador' => $enCadena ? $actor->colaborador : null,
-                'implicita' => $enCadena,
-                'motivo_omision' => $enCadena ? null : 'Baja reenviada por RH: no requiere preautorización.',
-                'comentario' => $comentario ?? 'Baja corregida y reenviada a RH por quien la inició.',
-            ]);
-
-            $cierre->update(['estado' => EstadoCierreLaboral::PendienteRh]);
-
-            return $cierre;
-        });
-
-        $this->auditoria->registrar('cierre_laboral_reenviado', $cierre, $actor, ['colaborador_id' => $cierre->colaborador_id, 'comentario' => $comentario]);
-        $this->sincronizarPendientes($cierre, $actor);
-
-        return $cierre->refresh();
-    }
-
-    /**
-     * Misma regla que solicitar(): el jefe directo real (cadena de mando) o
-     * RH con alcance sobre la persona; nunca la propia persona.
-     */
-    private function puedeReenviar(User $usuario, CierreLaboral $cierre): bool
-    {
-        $colaborador = $cierre->colaborador;
-
-        if ($usuario->colaborador_id === $colaborador->id) {
-            return false;
-        }
-
-        $enCadena = $usuario->colaborador !== null && $this->jerarquia->estaEnCadenaDeMando($usuario->colaborador, $colaborador);
-
-        if ($usuario->can(self::PERMISO_GESTIONAR)) {
-            return $enCadena || $this->alcance->alcanzaColaborador($usuario, $colaborador);
-        }
-
-        return $enCadena && $usuario->can(self::PERMISO_SOLICITAR);
-    }
-
-    /**
-     * Registra el aviso de término o la carta de renuncia firmada (evidencia
-     * que la baja exige para aprobarse).
+     * Registra un aviso firmado externo para una causa que NO tiene documento
+     * del sistema. La renuncia y el aviso de terminación los genera el
+     * sistema: su firma física se registra en «Documentos de la baja», nunca
+     * subiendo un archivo.
      */
     public function registrarAviso(CierreLaboral $cierre, UploadedFile $archivo, User $actor): CierreLaboral
     {
         $this->exigirAutorizado($cierre);
+
+        if ($this->documentosProceso->clavesCausa($cierre) !== []) {
+            throw ValidationException::withMessages(['archivo' => 'Este documento lo genera el sistema: imprímelo y marca su firma física en «Documentos de la baja». No se sube archivo.']);
+        }
         $solicitud = $this->solicitud($cierre);
 
         DB::transaction(function () use ($cierre, $solicitud, $archivo, $actor): void {
@@ -484,16 +325,31 @@ class CierreLaboralService
         return $this->motor->generar($cierre->colaborador, 'aviso_termino', $actor, $this->variables($cierre), $cierre);
     }
 
-    public function calcularFiniquito(CierreLaboral $cierre, User $actor, float $sueldoMensual, float $sueldoPendiente = 0): FiniquitoCalculo
+    /**
+     * Calcula (o recalcula) el finiquito en borrador. Sin sueldo capturado
+     * se usa el del cálculo anterior o el salario diario registrado del
+     * colaborador × 30. Los ajustes y conceptos que RH ya capturó se
+     * conservan. Editable hasta «Registrar entrega de finiquito».
+     */
+    public function calcularFiniquito(CierreLaboral $cierre, User $actor, ?float $sueldoMensual = null, float $sueldoPendiente = 0): FiniquitoCalculo
     {
+        $this->exigirNoFinal($cierre);
         $this->exigirAutorizado($cierre);
-
-        if ($cierre->finiquito_autorizado_en !== null) {
-            throw ValidationException::withMessages(['finiquito' => 'El finiquito ya fue autorizado; para corregirlo, RH debe registrar un ajuste auditado.']);
-        }
 
         $solicitud = $this->solicitud($cierre);
         $existente = FiniquitoCalculo::query()->where('solicitud_interna_id', $solicitud->id)->first();
+
+        if ($existente !== null && in_array($existente->estado, [EstadoFiniquito::Firmado, EstadoFiniquito::Pagado], true)) {
+            throw ValidationException::withMessages(['finiquito' => 'El finiquito ya se entregó: es de solo lectura.']);
+        }
+
+        $sueldoMensual ??= $existente !== null && (float) $existente->sueldo_mensual > 0
+            ? (float) $existente->sueldo_mensual
+            : $this->finiquitos->sueldoMensualSugerido($cierre->colaborador);
+
+        if ($sueldoMensual <= 0) {
+            throw ValidationException::withMessages(['sueldo_mensual' => 'El colaborador no tiene salario registrado: captura el sueldo mensual para calcular el finiquito.']);
+        }
 
         $finiquito = $existente === null
             ? $this->finiquitos->calcular($solicitud, $actor, $sueldoMensual, $sueldoPendiente)
@@ -507,8 +363,84 @@ class CierreLaboralService
     }
 
     /**
-     * RH autoriza el finiquito (monto final). A partir de aquí lo programa
-     * el regional de coordinación.
+     * Último paso del cierre: RH registra que ENTREGÓ el finiquito (fecha,
+     * forma de pago, comentario). En una sola operación congela el
+     * finiquito (snapshot, solo lectura), ejecuta la baja y cierra el
+     * expediente: el cierre queda «Cierre laboral completo» (100%). No hay
+     * autorización del finiquito: RH lo calcula/ajusta y lo entrega.
+     * Sirve también para cierres que venían del flujo anterior (finiquito
+     * autorizado, pago programado, firmado), para que ninguno se quede
+     * atorado.
+     *
+     * @param  array{fecha: string, forma_pago?: string|null, comentario?: string|null}  $datos
+     */
+    public function registrarEntregaFiniquito(CierreLaboral $cierre, User $actor, array $datos): CierreLaboral
+    {
+        $this->exigirNoFinal($cierre);
+        $this->exigirAutorizado($cierre);
+        $this->exigirEstado($cierre, [
+            EstadoCierreLaboral::Iniciado, EstadoCierreLaboral::AvisoRegistrado, EstadoCierreLaboral::FiniquitoEnProceso,
+            EstadoCierreLaboral::FiniquitoAutorizado, EstadoCierreLaboral::PagoProgramado, EstadoCierreLaboral::FiniquitoFirmado,
+            EstadoCierreLaboral::Pagado, EstadoCierreLaboral::BajaEjecutada,
+        ]);
+
+        if ($cierre->fecha_efectiva->isAfter(now()->startOfDay())) {
+            throw ValidationException::withMessages(['fecha' => sprintf('La baja es efectiva el %s: registra la entrega del finiquito a partir de esa fecha.', $cierre->fecha_efectiva->format('d/m/Y'))]);
+        }
+
+        $finiquito = $this->exigirFiniquito($cierre);
+        $fecha = Carbon::parse($datos['fecha'])->startOfDay();
+        $formaPago = $datos['forma_pago'] ?? null;
+        $comentario = $datos['comentario'] ?? null;
+
+        // Checklist del procedimiento integral (no renovación / fin de
+        // contrato) ANTES de tocar nada: el punto del finiquito es justo lo
+        // que esta entrega cumple; cualquier otro faltante detiene el cierre.
+        $faltantes = $this->documentosProceso->checklistFaltantes($cierre, ['finiquito']);
+
+        if ($faltantes !== []) {
+            throw ValidationException::withMessages(['checklist' => sprintf('Antes de cerrar falta: %s. Revisa «Documentos de la baja».', implode(', ', $faltantes))]);
+        }
+
+        $cierre = DB::transaction(function () use ($cierre, $actor, $finiquito, $fecha, $formaPago, $comentario): CierreLaboral {
+            $cierre = $this->bloquear($cierre, [
+                EstadoCierreLaboral::Iniciado, EstadoCierreLaboral::AvisoRegistrado, EstadoCierreLaboral::FiniquitoEnProceso,
+                EstadoCierreLaboral::FiniquitoAutorizado, EstadoCierreLaboral::PagoProgramado, EstadoCierreLaboral::FiniquitoFirmado,
+                EstadoCierreLaboral::Pagado, EstadoCierreLaboral::BajaEjecutada,
+            ]);
+            $finiquito = $this->finiquitos->registrarEntrega($finiquito, $actor, $fecha, $formaPago, $comentario);
+
+            $cierre->update([
+                'pago_monto' => $finiquito->neto,
+                'pago_metodo' => $formaPago ?? $cierre->pago_metodo,
+                'pago_observaciones' => $comentario ?? $cierre->pago_observaciones,
+                'pago_confirmado_en' => $cierre->pago_confirmado_en ?? $fecha,
+                'pago_confirmado_por' => $cierre->pago_confirmado_por ?? $actor->id,
+            ]);
+
+            $this->auditoria->registrar('finiquito_entregado', $cierre, $actor, [
+                'colaborador_id' => $cierre->colaborador_id,
+                'neto' => $finiquito->neto,
+                'fecha' => $fecha->toDateString(),
+                'forma_pago' => $formaPago,
+                'comentario' => $comentario,
+            ]);
+
+            if ($cierre->estado !== EstadoCierreLaboral::BajaEjecutada) {
+                $cierre = $this->ejecutarBaja($cierre->refresh(), $actor);
+            }
+
+            return $this->cerrarExpediente($cierre, $actor);
+        });
+
+        return $cierre->refresh();
+    }
+
+    /**
+     * LEGACY: ya no tiene ruta ni acción (RH no autoriza el finiquito: lo
+     * calcula y registra su entrega con registrarEntregaFiniquito()). Se
+     * conserva solo para reproducir cierres del flujo anterior en datos de
+     * demostración y pruebas.
      */
     public function autorizarFiniquito(CierreLaboral $cierre, User $actor): CierreLaboral
     {
@@ -850,49 +782,35 @@ class CierreLaboralService
         }
 
         $acciones = [];
-        $pendiente = $this->aprobaciones->pendiente($cierre, ProcesoAprobacion::CierreLaboral);
         $rh = $usuario->can(self::PERMISO_GESTIONAR);
         $operacion = $rh || $usuario->can(self::PERMISO_SOLICITAR);
 
+        // La baja se aplica al iniciarla: no hay acciones de preautorizar,
+        // autorizar, devolver ni reenviar (Solicitado/PendienteRh solo
+        // existen en el historial anterior a ese cambio).
         switch ($cierre->estado) {
-            case EstadoCierreLaboral::Solicitado:
-                // Registro anterior al retiro de la preautorización.
-                if ($pendiente !== null && $this->jerarquia->puedePreautorizar($usuario, $pendiente)) {
-                    $acciones[] = ['clave' => 'preautorizar', 'etiqueta' => 'Preautorizar baja', 'tipo' => 'primaria'];
-                    $acciones[] = ['clave' => 'rechazar', 'etiqueta' => 'Rechazar', 'tipo' => 'peligro'];
-                }
-                // Devuelta por RH: quien la inició la corrige y la reenvía.
-                if ($pendiente === null && $this->puedeReenviar($usuario, $cierre)) {
-                    $acciones[] = ['clave' => 'reenviar', 'etiqueta' => 'Corregir y reenviar a RH', 'tipo' => 'primaria'];
-                }
-                break;
-            case EstadoCierreLaboral::PendienteRh:
-                if ($pendiente !== null && $this->jerarquia->puedeAutorizarRh($usuario, $pendiente)) {
-                    $acciones[] = ['clave' => 'autorizar_rh', 'etiqueta' => 'Autorizar baja', 'tipo' => 'primaria'];
-                    $acciones[] = ['clave' => 'devolver', 'etiqueta' => 'Devolver', 'tipo' => 'secundaria'];
-                    $acciones[] = ['clave' => 'rechazar', 'etiqueta' => 'Rechazar', 'tipo' => 'peligro'];
-                }
-                break;
             case EstadoCierreLaboral::Iniciado:
             case EstadoCierreLaboral::AvisoRegistrado:
             case EstadoCierreLaboral::FiniquitoEnProceso:
-                if ($operacion) {
-                    $acciones[] = ['clave' => 'registrar_aviso', 'etiqueta' => 'Registrar renuncia / aviso firmado', 'tipo' => 'secundaria'];
+                // La renuncia / el aviso de terminación los genera el sistema y su
+                // firma se registra en «Documentos de la baja» (sin subir archivo).
+                // Solo una causa sin documento del sistema registra un aviso externo.
+                if ($operacion && $cierre->aviso_registrado_en === null && $this->documentosProceso->clavesCausa($cierre) === []) {
+                    $acciones[] = ['clave' => 'registrar_aviso', 'etiqueta' => 'Registrar aviso firmado', 'tipo' => 'secundaria'];
                 }
-                if ($usuario->can('finiquitos.calcular')) {
-                    $acciones[] = ['clave' => 'calcular_finiquito', 'etiqueta' => 'Calcular finiquito', 'tipo' => 'secundaria'];
-                }
-                if ($this->finiquito($cierre) !== null && $usuario->can(OrganizacionJerarquiaService::PERMISO_AUTORIZAR_RH) && $usuario->can('finiquitos.revisar')) {
-                    $acciones[] = ['clave' => 'autorizar_finiquito', 'etiqueta' => 'Autorizar finiquito', 'tipo' => 'primaria'];
-                }
+                $acciones = [...$acciones, ...$this->accionesFiniquito($cierre, $usuario)];
                 break;
+                // Flujo anterior (finiquito autorizado / pago programado /
+                // firmado): RH puede registrar la entrega y cerrar de una vez.
             case EstadoCierreLaboral::FiniquitoAutorizado:
+                $acciones = [...$acciones, ...$this->accionesFiniquito($cierre, $usuario)];
                 if ($usuario->can(self::PERMISO_PROGRAMAR_PAGO)) {
-                    $acciones[] = ['clave' => 'programar_pago', 'etiqueta' => 'Programar pago', 'tipo' => 'primaria'];
+                    $acciones[] = ['clave' => 'programar_pago', 'etiqueta' => 'Programar pago', 'tipo' => 'secundaria'];
                 }
                 break;
             case EstadoCierreLaboral::PagoProgramado:
             case EstadoCierreLaboral::FiniquitoFirmado:
+                $acciones = [...$acciones, ...$this->accionesFiniquito($cierre, $usuario)];
                 if ($operacion) {
                     $acciones[] = ['clave' => 'registrar_cita', 'etiqueta' => 'Registrar cita', 'tipo' => 'secundaria'];
                     if ($cierre->estado === EstadoCierreLaboral::PagoProgramado) {
@@ -906,6 +824,7 @@ class CierreLaboralService
                 if ($rh) {
                     $acciones[] = ['clave' => 'cerrar', 'etiqueta' => 'Concluir cierre laboral', 'tipo' => 'primaria'];
                 }
+                $acciones = [...$acciones, ...array_values(array_filter($this->accionesFiniquito($cierre, $usuario), fn (array $a): bool => $a['clave'] === 'ver_finiquito'))];
                 break;
             default:
                 break;
@@ -913,6 +832,39 @@ class CierreLaboralService
 
         if ($rh && ! $cierre->estado->esFinal() && $cierre->estado !== EstadoCierreLaboral::BajaEjecutada) {
             $acciones[] = ['clave' => 'cancelar', 'etiqueta' => 'Cancelar cierre', 'tipo' => 'peligro'];
+        }
+
+        return $acciones;
+    }
+
+    /**
+     * Finiquito: RH lo calcula, lo revisa/edita por concepto y registra su
+     * entrega (que cierra el cierre). No hay paso de «autorizar finiquito».
+     *
+     * @return list<array{clave: string, etiqueta: string, tipo: string}>
+     */
+    private function accionesFiniquito(CierreLaboral $cierre, User $usuario): array
+    {
+        if (! $usuario->can('finiquitos.calcular')) {
+            return [];
+        }
+
+        $finiquito = $this->finiquito($cierre);
+
+        if ($finiquito === null) {
+            return [['clave' => 'calcular_finiquito', 'etiqueta' => 'Calcular finiquito', 'tipo' => 'primaria']];
+        }
+
+        $acciones = [];
+
+        if ($usuario->can(self::PERMISO_GESTIONAR) && ! in_array($finiquito->estado, [EstadoFiniquito::Pagado], true)) {
+            $acciones[] = ['clave' => 'registrar_entrega_finiquito', 'etiqueta' => 'Registrar entrega de finiquito', 'tipo' => 'primaria'];
+        }
+
+        $acciones[] = ['clave' => 'ver_finiquito', 'etiqueta' => 'Ver / editar finiquito', 'tipo' => 'secundaria'];
+
+        if (! in_array($finiquito->estado, [EstadoFiniquito::Firmado, EstadoFiniquito::Pagado], true)) {
+            $acciones[] = ['clave' => 'calcular_finiquito', 'etiqueta' => 'Recalcular finiquito', 'tipo' => 'secundaria'];
         }
 
         return $acciones;
@@ -937,7 +889,37 @@ class CierreLaboralService
         ] : null;
 
         if ($detalle && $finiquito !== null && $datosFiniquito !== null) {
-            $datosFiniquito['desglose'] = $this->finiquitos->desglose($finiquito);
+            $finiquito->loadMissing('calculadoPor');
+            $entregado = in_array($finiquito->estado, [EstadoFiniquito::Firmado, EstadoFiniquito::Pagado], true);
+            $snapshot = is_array($finiquito->snapshot) ? $finiquito->snapshot : [];
+            $entrega = isset($snapshot['entrega']) && is_array($snapshot['entrega']) ? $snapshot['entrega'] : null;
+            $formaPago = $entrega !== null && is_string($entrega['forma_pago'] ?? null) ? FormaPagoFiniquito::tryFrom($entrega['forma_pago']) : null;
+
+            // Entregado: se muestra el desglose CONGELADO en la entrega.
+            $datosFiniquito['desglose'] = $entregado && $entrega !== null && isset($snapshot['conceptos']) && is_array($snapshot['conceptos'])
+                ? $snapshot['conceptos']
+                : $this->finiquitos->desglose($finiquito);
+            $datosFiniquito += [
+                'estado_etiqueta' => $entregado ? 'Entregado' : 'Calculado · editable hasta la entrega',
+                'editable' => ! $entregado,
+                'fecha_calculo' => $finiquito->fecha_calculo->toIso8601String(),
+                'calculado_por' => $finiquito->calculadoPor?->nombreCompleto(),
+                'fecha_ingreso' => $finiquito->fecha_ingreso->toDateString(),
+                'fecha_baja' => $finiquito->fecha_baja->toDateString(),
+                'sueldo_mensual' => $finiquito->sueldo_mensual,
+                'sueldo_diario' => $finiquito->sueldo_diario,
+                'antiguedad_anios' => $finiquito->antiguedad_anios,
+                'antiguedad_meses' => $finiquito->antiguedad_meses,
+                'dias_trabajados_periodo' => $finiquito->dias_trabajados_periodo,
+                'vacaciones_pendientes' => $finiquito->vacaciones_pendientes,
+                'sueldo_pendiente' => $finiquito->sueldo_pendiente,
+                'ultima_edicion' => $this->finiquitos->ultimaEdicion($finiquito),
+                'entrega' => $entrega !== null ? [
+                    'fecha' => $entrega['fecha'] ?? null,
+                    'forma_pago' => $formaPago?->etiqueta(),
+                    'comentario' => $entrega['comentario'] ?? null,
+                ] : null,
+            ];
         }
 
         $documentos = GeneratedDocument::query()
@@ -987,6 +969,7 @@ class CierreLaboralService
             'baja_ejecutada_en' => $cierre->baja_ejecutada_en?->toIso8601String(),
             'expediente_cerrado_en' => $cierre->expediente_cerrado_en?->toIso8601String(),
             'finiquito' => $datosFiniquito,
+            'sueldo_mensual_sugerido' => $detalle ? $this->finiquitos->sueldoMensualSugerido($cierre->colaborador) : null,
             'documentos' => $documentos,
             'aprobaciones' => $this->aprobaciones->resumen($cierre, ProcesoAprobacion::CierreLaboral),
             'acciones_permitidas' => $viewer !== null ? $this->accionesPermitidas($cierre, $viewer) : [],
@@ -1018,13 +1001,14 @@ class CierreLaboralService
                 $this->documentosProceso->generar('baja', $cierre, $clave, $actor);
             } catch (ValidationException|AuthorizationException $e) {
                 $this->tareas->abrir(TipoTarea::PlantillaFaltante, $cierre, [
-                    'titulo' => sprintf($e instanceof DatosDocumentoFaltantesException ? 'Faltan datos para «%s» del cierre de %s' : 'Documento «%s» pendiente para el cierre de %s', $clave, $cierre->colaborador->nombreCompleto()),
+                    'titulo' => sprintf($e instanceof DatosDocumentoFaltantesException ? 'Faltan datos para «%s» del cierre de %s' : 'Documento «%s» pendiente para el cierre de %s', $this->documentosProceso->nombreDocumento($clave), $cierre->colaborador->nombreCompleto()),
                     'descripcion' => $e instanceof ValidationException ? collect($e->errors())->flatten()->implode(' ') : $e->getMessage(),
                     'prioridad' => PrioridadTarea::Alta,
                     'colaborador' => $cierre->colaborador,
                     'permiso' => 'plantillas_documentales.administrar',
                     'accion' => 'cargar_plantilla',
-                    'datos' => ['clave' => $clave],
+                    // motivo: lo que debe dejar de faltar para que el pendiente se resuelva solo.
+                    'datos' => ['clave' => $clave, 'motivo' => $e instanceof AuthorizationException ? 'permiso' : 'datos'],
                 ]);
             }
         }
@@ -1047,44 +1031,9 @@ class CierreLaboralService
 
         $base = ['colaborador' => $colaborador, 'prioridad' => PrioridadTarea::Alta, 'vence_en' => $cierre->fecha_efectiva];
 
+        // CierrePreautorizacion/CierreAutorizacionRh solo se resuelven (arriba):
+        // la baja ya no espera preautorización ni autorización de RH.
         switch ($cierre->estado) {
-            case EstadoCierreLaboral::Solicitado:
-                $pendiente = $this->aprobaciones->pendiente($cierre, ProcesoAprobacion::CierreLaboral);
-
-                if ($pendiente !== null) {
-                    // Registro anterior al retiro de la preautorización.
-                    $aprobador = $pendiente->aprobadorColaborador?->user;
-                    $this->tareas->abrir(TipoTarea::CierrePreautorizacion, $cierre, [...$base,
-                        'titulo' => "Preautorizar baja: {$nombre}",
-                        'usuario' => $aprobador,
-                        'permiso' => $aprobador === null ? OrganizacionJerarquiaService::PERMISO_PREAUTORIZAR : null,
-                        'accion' => 'preautorizar_cierre',
-                    ]);
-                    $this->notificador->notificarEvento('cierre_preautorizacion', $colaborador, ['aprobador' => $aprobador], 'Baja por preautorizar', "Se solicitó la baja de {$nombre} ({$cierre->tipo_baja->etiqueta()}).", $cierre, 'preautorizar_cierre', 'alta');
-                    break;
-                }
-
-                // Devuelta por RH: regresa a quien la inició (jefe directo o RH).
-                $cierre->loadMissing('iniciadoPor');
-                $iniciador = $cierre->iniciadoPor;
-                $this->tareas->abrir(TipoTarea::CierrePreautorizacion, $cierre, [...$base,
-                    'titulo' => "Corregir y reenviar baja: {$nombre}",
-                    'descripcion' => 'RH devolvió la baja: revisa el motivo, corrígela y reenvíala.',
-                    'usuario' => $iniciador,
-                    'permiso' => $iniciador === null ? self::PERMISO_GESTIONAR : null,
-                    'accion' => 'reenviar_cierre',
-                ]);
-                $this->notificador->notificarEvento('cierre_preautorizacion', $colaborador, ['aprobador' => $iniciador], 'Baja devuelta por RH', "RH devolvió la baja de {$nombre} para corregirla: revisa el motivo y reenvíala.", $cierre, 'reenviar_cierre', 'alta');
-                break;
-            case EstadoCierreLaboral::PendienteRh:
-                $this->tareas->abrir(TipoTarea::CierreAutorizacionRh, $cierre, [...$base,
-                    'titulo' => "Autorizar baja: {$nombre}",
-                    'descripcion' => sprintf('%s · fecha efectiva %s', $cierre->tipo_baja->etiqueta(), $cierre->fecha_efectiva->format('d/m/Y')),
-                    'permiso' => OrganizacionJerarquiaService::PERMISO_AUTORIZAR_RH,
-                    'accion' => 'autorizar_cierre',
-                ]);
-                $this->notificador->notificarEvento('cierre_autorizacion_rh', $colaborador, [], 'Baja pendiente de tu autorización', "La baja de {$nombre} ({$cierre->tipo_baja->etiqueta()}) espera tu autorización.", $cierre, 'autorizar_cierre', 'alta');
-                break;
             case EstadoCierreLaboral::Iniciado:
             case EstadoCierreLaboral::AvisoRegistrado:
                 $this->tareas->abrir(TipoTarea::FiniquitoPendiente, $cierre, [...$base,
@@ -1094,10 +1043,12 @@ class CierreLaboralService
                 ]);
                 break;
             case EstadoCierreLaboral::FiniquitoEnProceso:
+                // Sin autorización del finiquito: RH lo revisa/ajusta y
+                // registra su entrega, que cierra el cierre laboral.
                 $this->tareas->abrir(TipoTarea::FiniquitoPorAutorizar, $cierre, [...$base,
-                    'titulo' => "Autorizar finiquito: {$nombre}",
-                    'permiso' => OrganizacionJerarquiaService::PERMISO_AUTORIZAR_RH,
-                    'accion' => 'autorizar_finiquito',
+                    'titulo' => "Entregar finiquito: {$nombre}",
+                    'permiso' => self::PERMISO_GESTIONAR,
+                    'accion' => 'registrar_entrega_finiquito',
                 ]);
                 break;
             case EstadoCierreLaboral::FiniquitoAutorizado:
@@ -1181,7 +1132,7 @@ class CierreLaboralService
         $this->exigirNoFinal($cierre);
 
         if (! $cierre->estado->autorizadoPorRh()) {
-            throw ValidationException::withMessages(['estado' => 'La baja todavía no tiene la autorización final de RH.']);
+            throw ValidationException::withMessages(['estado' => 'Esta baja no está aplicada: esta acción no aplica.']);
         }
     }
 

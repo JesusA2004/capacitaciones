@@ -1142,18 +1142,18 @@ export const MODULOS_GUIA: ModuloGuia[] = [
     {
         id: 'induccion',
         nombre: 'Inducción Mr. Lana',
-        ruta: '/induccion/presentacion',
-        patron: /^\/induccion\/presentacion$/,
+        ruta: '/mi-proceso/induccion/ver',
+        patron: /^\/mi-proceso\/induccion\/ver$/,
         modo: 'colaborador',
         permisos: [],
         grupo: 'Mi espacio',
         icono: GraduationCap,
         descripcion:
-            'El documento oficial de la inducción institucional, página por página.',
+            'La inducción institucional que te presenta Recursos Humanos.',
         pasos: [
             {
                 titulo: 'Tu inducción',
-                texto: 'Es el documento oficial de la inducción tal cual. Avanza con «Siguiente» o con las flechas del teclado. Si estás en tu proceso de ingreso, entra desde «Mis pendientes»: ahí cada página cuenta para tu avance y al final se habilita tu evaluación.',
+                texto: 'Recursos Humanos te presenta la inducción en una sesión. Mientras esa sesión está en curso puedes verla aquí, página por página; al terminar, RH te envía tu evaluación para que la contestes. Antes de la sesión y una vez que la terminas, aquí verás en qué paso vas.',
             },
         ],
     },

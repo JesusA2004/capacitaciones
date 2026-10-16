@@ -33,6 +33,7 @@ use App\Services\CierreLaboral\CierreLaboralService;
 use App\Services\Contratos\ContratoLaboralService;
 use App\Services\Contratos\EvaluacionPeriodoPruebaService;
 use App\Services\Contratos\SolicitudExcepcionPeriodoPruebaService;
+use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Onboarding\OnboardingService;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
@@ -66,6 +67,7 @@ class CicloLaboralService
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly OrganizacionJerarquiaService $jerarquia,
         private readonly EvaluacionPeriodoPruebaService $evaluaciones,
+        private readonly DocumentoProcesoService $documentosProceso,
     ) {}
 
     /**
@@ -191,8 +193,9 @@ class CicloLaboralService
 
         if ($cierre !== null) {
             $etapa = EtapaCicloLaboral::Cierre;
+            // La baja se aplica al iniciarla: el cierre no tiene aprobaciones
+            // (ni la "Autorización final de RH") que mostrar.
             $detalle = $this->detalleCierre($cierre, $viewer);
-            $aprobaciones = $this->aprobaciones->resumen($cierre, ProcesoAprobacion::CierreLaboral);
         } elseif ($reingreso !== null && $reingreso->estado === EstadoReingreso::RevisionRh) {
             $etapa = EtapaCicloLaboral::Reingreso;
             $detalle = $this->detalleReingreso($reingreso, $viewer);
@@ -215,7 +218,7 @@ class CicloLaboralService
 
         $detalle ??= $this->detalleActivo($colaborador, $viewer);
 
-        if ($aprobaciones === null && $colaborador->candidato_id !== null) {
+        if ($aprobaciones === null && $cierre === null && $colaborador->candidato_id !== null) {
             $candidato = Candidato::query()->where('id', $colaborador->candidato_id)->first();
             $aprobaciones = $candidato !== null ? $this->aprobaciones->resumen($candidato, ProcesoAprobacion::SeleccionCandidato) : null;
         }
@@ -443,7 +446,6 @@ class CicloLaboralService
         $total = count(EstadoCierreLaboral::abiertos());
 
         $responsable = match ($estado) {
-            EstadoCierreLaboral::Solicitado => ['rol' => 'Superior operativo (preautorización)', 'nombre' => $this->aprobaciones->pendiente($cierre, ProcesoAprobacion::CierreLaboral)?->aprobadorColaborador?->nombreCompleto()],
             EstadoCierreLaboral::FiniquitoAutorizado => ['rol' => 'Regional de coordinación (programar pago)', 'nombre' => null],
             EstadoCierreLaboral::PagoProgramado, EstadoCierreLaboral::FiniquitoFirmado => ['rol' => 'Gerente (cita, firma y pago)', 'nombre' => $cierre->colaborador->jefe?->nombreCompleto()],
             default => ['rol' => 'Recursos Humanos', 'nombre' => null],
@@ -454,6 +456,10 @@ class CicloLaboralService
         if ($cierre->fecha_efectiva->isFuture()) {
             $bloqueos[] = sprintf('La baja no se ejecuta antes de la fecha efectiva (%s).', $cierre->fecha_efectiva->format('d/m/Y'));
         }
+
+        // Un «Faltan datos para …» que ya no es cierto (documento generado o
+        // datos completados) se resuelve antes de mostrarse como bloqueo.
+        $this->documentosProceso->resolverPendientesDocumentalesCierre($cierre);
 
         $plantillas = TareaRh::query()
             ->whereNull('resuelta_en')
@@ -644,7 +650,11 @@ class CicloLaboralService
         $colaborador->loadMissing(['puesto:id,nombre', 'sucursalPrincipal:id,nombre']);
         $proceso = $this->onboarding->procesoActual($colaborador);
         $evaluacion = isset($estado['evaluacion_id']) ? EvaluacionPeriodoPrueba::query()->with(['contrato', 'colaborador'])->where('id', $estado['evaluacion_id'])->first() : null;
-        $cierre = isset($estado['cierre_id']) ? CierreLaboral::query()->where('id', $estado['cierre_id'])->first() : null;
+        // Sin cierre abierto se muestra el último cierre COMPLETO (solo
+        // lectura: documentos de la baja y finiquito entregado).
+        $cierre = isset($estado['cierre_id'])
+            ? CierreLaboral::query()->where('id', $estado['cierre_id'])->first()
+            : CierreLaboral::query()->where('colaborador_id', $colaborador->id)->where('estado', EstadoCierreLaboral::ExpedienteCerrado->value)->latest('id')->first();
         $puedeOperarFisico = $usuario->can('documentos_laborales.operar_fisico');
 
         $documentos = GeneratedDocument::query()
@@ -658,10 +668,12 @@ class CicloLaboralService
                 'titulo' => $d->titulo,
                 'clave' => $d->clave_plantilla,
                 'estado' => $d->estado_flujo?->value,
-                'estado_etiqueta' => $d->estado_flujo?->etiqueta(),
+                // Misma etiqueta y mismo siguiente paso que la tarjeta de
+                // «Documentos de la baja» / del proceso (nunca dos estados distintos).
+                'estado_etiqueta' => $d->estado_flujo?->etiquetaCorta((bool) $d->requiere_firma_fisica),
                 'requiere_huella' => (bool) $d->requiere_huella,
                 'requiere_testigos' => (bool) $d->requiere_testigos,
-                'acciones' => $puedeOperarFisico ? self::pasosFisicos($d->estado_flujo) : [],
+                'acciones' => $puedeOperarFisico ? self::pasosFisicos($d->estado_flujo, $d->requiere_impresion || $d->requiere_firma_fisica) : [],
             ])
             ->values()
             ->all();
@@ -851,10 +863,11 @@ class CicloLaboralService
      *
      * @return list<string>
      */
-    public static function pasosFisicos(?EstadoFlujoDocumento $estado): array
+    public static function pasosFisicos(?EstadoFlujoDocumento $estado, bool $originalFisico = false): array
     {
         return match ($estado) {
             EstadoFlujoDocumento::PendienteImpresion => ['imprimir'],
+            EstadoFlujoDocumento::Generado => $originalFisico ? ['imprimir'] : [],
             EstadoFlujoDocumento::Impreso, EstadoFlujoDocumento::PendienteFirmaFisica => ['firma_fisica'],
             EstadoFlujoDocumento::Escaneado => ['archivar'],
             default => [],

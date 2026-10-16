@@ -24,7 +24,7 @@ class AjustarConceptoFiniquitoRequest extends FormRequest
     {
         return [
             'concepto_clave' => ['required', 'string', Rule::in(array_keys(app(FiniquitoService::class)->conceptosAutomaticos()))],
-            'importe' => ['required', 'numeric', 'min:0', 'max:9999999'],
+            'importe' => ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999'],
             'motivo' => ['required', 'string', 'min:3', 'max:500'],
         ];
     }
@@ -37,6 +37,7 @@ class AjustarConceptoFiniquitoRequest extends FormRequest
         return [
             'concepto_clave.in' => 'Ese concepto no se puede ajustar.',
             'importe.required' => 'Indica el importe autorizado.',
+            'importe.decimal' => 'El importe admite como máximo dos decimales (centavos).',
             'motivo.required' => 'Indica el motivo del ajuste.',
         ];
     }

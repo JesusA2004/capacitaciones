@@ -117,7 +117,7 @@ enum TipoTarea: string
             self::CierrePreautorizacion => 'Baja devuelta por corregir',
             self::CierreAutorizacionRh => 'Baja pendiente de autorización final',
             self::FiniquitoPendiente => 'Finiquito pendiente',
-            self::FiniquitoPorAutorizar => 'Finiquito por autorizar',
+            self::FiniquitoPorAutorizar => 'Finiquito por entregar',
             self::PagoPorProgramar => 'Pago de finiquito por programar',
             self::CitaFiniquito => 'Excolaborador por citar (firma y pago)',
             self::CierrePorConcluir => 'Cierre laboral por concluir',

@@ -70,6 +70,7 @@ class TimelineService
         'evaluacion_autorizada' => ['RH decidió el periodo de prueba', 'periodo_prueba'],
         'contrato_renovado' => ['Contrato por tiempo indeterminado generado', 'periodo_prueba'],
         'cierre_laboral_solicitado' => ['Baja solicitada', 'cierre'],
+        'cierre_laboral_aplicado' => ['Baja aplicada', 'cierre'],
         'cierre_laboral_autorizado_rh' => ['RH autorizó la baja', 'cierre'],
         'cierre_laboral_rechazado' => ['Baja rechazada', 'cierre'],
         'cierre_laboral_devuelto' => ['Baja devuelta para corrección', 'cierre'],
@@ -80,6 +81,7 @@ class TimelineService
         'finiquito_cita' => ['Cita para firma y pago registrada', 'cierre'],
         'finiquito_firmado' => ['Finiquito firmado', 'cierre'],
         'finiquito_pagado' => ['Finiquito pagado', 'cierre'],
+        'finiquito_entregado' => ['Finiquito entregado', 'cierre'],
         'cierre_laboral_baja' => ['Baja ejecutada', 'cierre'],
         'cierre_laboral_expediente_cerrado' => ['Cierre laboral completo', 'cierre'],
         'cierre_laboral_cancelado' => ['Cierre laboral cancelado', 'cierre'],
@@ -206,6 +208,7 @@ class TimelineService
         return match ($evento) {
             'onboarding_modulo_aprobado', 'onboarding_intento_reprobado' => sprintf('%s: %s (%s)', $titulo, $p['modulo'] ?? '', isset($p['calificacion']) ? number_format((float) $p['calificacion'], 1) : '—'),
             'activo_entregado' => sprintf('%s: %s', $titulo, $p['activo'] ?? ''),
+            'cierre_laboral_aplicado' => sprintf('%s por %s', $titulo, is_string($p['aplicada_por'] ?? null) ? $p['aplicada_por'] : 'Recursos Humanos'),
             'evaluacion_autorizada' => ($p['renovar'] ?? null) ? 'RH autorizó la renovación' : 'RH autorizó la NO renovación',
             'induccion_casos_calificados' => sprintf('%s: %s/30 (%s)', $titulo, number_format((float) ($p['calificacion_total'] ?? 0), 1), $p['nivel'] ?? '—'),
             'aprobacion_preautorizada', 'aprobacion_autorizada_rh', 'aprobacion_rechazada', 'aprobacion_devuelta' => sprintf('%s · %s', $titulo, ProcesoAprobacion::tryFrom((string) ($p['proceso'] ?? ''))?->etiqueta() ?? ''),

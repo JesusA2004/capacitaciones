@@ -5,13 +5,19 @@ namespace App\Http\Controllers\Rh;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CicloLaboral\ArchivoLaboralRequest;
 use App\Http\Requests\CicloLaboral\DecisionAprobacionRequest;
+use App\Http\Requests\CicloLaboral\EntregaFiniquitoRequest;
+use App\Http\Requests\CicloLaboral\FiniquitoCierreRequest;
 use App\Http\Requests\CicloLaboral\ProgramarPagoRequest;
 use App\Http\Requests\CicloLaboral\SolicitarCierreRequest;
+use App\Http\Requests\Rh\AjustarConceptoFiniquitoRequest;
 use App\Models\CierreLaboral;
 use App\Models\Colaborador;
+use App\Models\FiniquitoConcepto;
 use App\Services\CierreLaboral\CierreLaboralService;
+use App\Services\Finiquitos\FiniquitoService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Http\UploadedFile;
 
 /**
@@ -20,54 +26,17 @@ use Illuminate\Http\UploadedFile;
  */
 class CierreLaboralController extends Controller
 {
-    public function __construct(private readonly CierreLaboralService $cierres) {}
+    public function __construct(
+        private readonly CierreLaboralService $cierres,
+        private readonly FiniquitoService $finiquitos,
+    ) {}
 
     public function store(SolicitarCierreRequest $request, Colaborador $colaborador): RedirectResponse
     {
         $this->authorize('iniciarCierre', $colaborador);
-        $cierre = $this->cierres->solicitar($colaborador, $request->safe()->except('evidencias'), $request->user(), array_values($request->file('evidencias', [])));
+        $this->cierres->solicitar($colaborador, $request->validated(), $request->user());
 
-        return $this->ok($cierre->estado->value === 'pendiente_rh' ? 'Baja solicitada: pendiente la autorización final de RH.' : 'Baja solicitada: pendiente la preautorización del superior.');
-    }
-
-    public function preautorizar(DecisionAprobacionRequest $request, CierreLaboral $cierre): RedirectResponse
-    {
-        $this->authorize('ver', $cierre);
-        $this->cierres->preautorizar($cierre, $request->user(), $request->comentario());
-
-        return $this->ok('Baja preautorizada: pendiente la autorización final de RH.');
-    }
-
-    public function autorizar(DecisionAprobacionRequest $request, CierreLaboral $cierre): RedirectResponse
-    {
-        $this->authorize('ver', $cierre);
-        $this->cierres->autorizarRh($cierre, $request->user(), $request->comentario());
-
-        return $this->ok('Baja autorizada por RH. Sigue el finiquito.');
-    }
-
-    public function rechazar(DecisionAprobacionRequest $request, CierreLaboral $cierre): RedirectResponse
-    {
-        $this->authorize('ver', $cierre);
-        $this->cierres->rechazar($cierre, $request->user(), $request->motivo());
-
-        return $this->ok('Baja rechazada.');
-    }
-
-    public function devolver(DecisionAprobacionRequest $request, CierreLaboral $cierre): RedirectResponse
-    {
-        $this->authorize('ver', $cierre);
-        $this->cierres->devolver($cierre, $request->user(), $request->motivo());
-
-        return $this->ok('Baja devuelta a quien la inició para corregirla y reenviarla.');
-    }
-
-    public function reenviar(DecisionAprobacionRequest $request, CierreLaboral $cierre): RedirectResponse
-    {
-        $this->authorize('ver', $cierre);
-        $this->cierres->reenviar($cierre, $request->user(), $request->comentario());
-
-        return $this->ok('Baja reenviada: pendiente la autorización de RH.');
+        return $this->ok('Baja aplicada: sus accesos ya se suspendieron. Siguen los documentos de la baja y el finiquito.');
     }
 
     public function aviso(ArchivoLaboralRequest $request, CierreLaboral $cierre): RedirectResponse
@@ -80,21 +49,80 @@ class CierreLaboralController extends Controller
         return $this->ok('Renuncia / aviso registrado.');
     }
 
-    public function calcularFiniquito(Request $request, CierreLaboral $cierre): RedirectResponse
+    public function calcularFiniquito(FiniquitoCierreRequest $request, CierreLaboral $cierre): RedirectResponse
     {
         $this->authorize('calcularFiniquito', $cierre);
-        $datos = $request->validate(['sueldo_mensual' => ['required', 'numeric', 'min:0'], 'sueldo_pendiente' => ['nullable', 'numeric', 'min:0']]);
-        $this->cierres->calcularFiniquito($cierre, $request->user(), (float) $datos['sueldo_mensual'], (float) ($datos['sueldo_pendiente'] ?? 0));
+        $finiquito = $this->cierres->calcularFiniquito($cierre, $request->user(), $request->sueldoMensual(), $request->sueldoPendiente());
 
-        return $this->ok('Finiquito calculado: revísalo y autorízalo.');
+        return $this->ok(sprintf('Finiquito calculado: neto $%s. Revísalo y ajusta los montos si hace falta.', number_format((float) $finiquito->neto, 2)));
     }
 
-    public function autorizarFiniquito(Request $request, CierreLaboral $cierre): RedirectResponse
+    /**
+     * Desglose editable del finiquito dentro del cierre (mismo
+     * FiniquitoService que la API): ajuste de un concepto automático con
+     * motivo, o renglón propio de RH (percepción/deducción). El total lo
+     * recalcula siempre el servidor.
+     */
+    public function ajustarConceptoFiniquito(AjustarConceptoFiniquitoRequest $request, CierreLaboral $cierre): RedirectResponse
     {
-        $this->authorize('revisarFiniquito', $cierre);
-        $this->cierres->autorizarFiniquito($cierre, $request->user());
+        $this->authorize('calcularFiniquito', $cierre);
+        $this->finiquitos->ajustarConceptoAutomatico($this->cierres->exigirFiniquito($cierre), (string) $request->validated('concepto_clave'), (float) $request->validated('importe'), (string) $request->validated('motivo'), $request->user());
 
-        return $this->ok('Finiquito autorizado: el regional de coordinación programa el pago.');
+        return $this->ok('Monto ajustado; el total del finiquito se recalculó.');
+    }
+
+    public function agregarConceptoFiniquito(FiniquitoCierreRequest $request, CierreLaboral $cierre): RedirectResponse
+    {
+        $this->authorize('calcularFiniquito', $cierre);
+        $request->validate(['tipo' => ['required'], 'concepto' => ['required'], 'importe' => ['required'], 'observaciones' => ['required']], ['observaciones.required' => 'Indica el motivo del renglón.']);
+        $this->finiquitos->agregarConcepto($this->cierres->exigirFiniquito($cierre), $request->safe()->only(['tipo', 'concepto', 'cantidad', 'importe', 'observaciones']), $request->user());
+
+        return $this->ok('Renglón agregado; el total del finiquito se recalculó.');
+    }
+
+    public function actualizarConceptoFiniquito(FiniquitoCierreRequest $request, CierreLaboral $cierre, FiniquitoConcepto $concepto): RedirectResponse
+    {
+        $this->authorize('calcularFiniquito', $cierre);
+        abort_unless($concepto->finiquito_calculo_id === $this->cierres->exigirFiniquito($cierre)->id, 404);
+        $this->finiquitos->actualizarConcepto($concepto, $request->safe()->only(['tipo', 'concepto', 'cantidad', 'importe', 'observaciones']), $request->user());
+
+        return $this->ok('Renglón actualizado; el total del finiquito se recalculó.');
+    }
+
+    public function eliminarConceptoFiniquito(Request $request, CierreLaboral $cierre, FiniquitoConcepto $concepto): RedirectResponse
+    {
+        $this->authorize('calcularFiniquito', $cierre);
+        abort_unless($concepto->finiquito_calculo_id === $this->cierres->exigirFiniquito($cierre)->id, 404);
+        $this->finiquitos->eliminarConcepto($concepto, $request->user());
+
+        return $this->ok('Renglón eliminado; el total del finiquito se recalculó.');
+    }
+
+    /**
+     * PDF del finiquito con los montos actuales (no guarda nada).
+     */
+    public function vistaPreviaFiniquito(CierreLaboral $cierre): Response
+    {
+        $this->authorize('calcularFiniquito', $cierre);
+
+        return response($this->finiquitos->vistaPreviaPdf($this->cierres->exigirFiniquito($cierre)), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="finiquito-vista-previa.pdf"',
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'no-store',
+        ]);
+    }
+
+    /**
+     * «Registrar entrega de finiquito»: congela el finiquito y cierra el
+     * cierre laboral (no hay paso de autorizar finiquito).
+     */
+    public function entregarFiniquito(EntregaFiniquitoRequest $request, CierreLaboral $cierre): RedirectResponse
+    {
+        $this->authorize('entregarFiniquito', $cierre);
+        $this->cierres->registrarEntregaFiniquito($cierre, $request->user(), $request->datosEntrega());
+
+        return $this->ok('Finiquito entregado: el cierre laboral quedó completo. El expediente y el historial se conservan.');
     }
 
     public function programarPago(ProgramarPagoRequest $request, CierreLaboral $cierre): RedirectResponse

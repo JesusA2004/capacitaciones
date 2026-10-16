@@ -74,7 +74,7 @@ test('una cuenta con el acceso quitado no puede iniciar sesion ni en la web ni e
         ->assertStatus(422);
 });
 
-test('al solicitar la baja se suspende el acceso al instante, se avisa a RH y si se rechaza el acceso vuelve', function () {
+test('al iniciar la baja se suspende el acceso al instante, se avisa a RH y si RH cancela el cierre el acceso vuelve', function () {
     Sanctum::actingAs($this->rh);
 
     $cierreId = $this->postJson("/api/v1/rh/colaboradores/{$this->colaborador->id}/cierres", [
@@ -87,12 +87,12 @@ test('al solicitar la baja se suspende el acceso al instante, se avisa a RH y si
     expect($cuenta->acceso_bloqueado_en)->not->toBeNull()
         ->and($cuenta->acceso_bloqueado_motivo)->toStartWith('Baja en trámite:')
         ->and($cuenta->tokens()->count())->toBe(0)
-        // La baja LABORAL aún no ocurre: sigue activo hasta la autorización y la fecha efectiva.
+        // El estatus LABORAL se ejecuta al concluir el cierre (ejecutarBaja).
         ->and($this->colaborador->fresh()->estatus)->toBe(EstadoUsuario::Activo);
 
     Notification::assertSentTo($this->otroRh, PendienteRhNotification::class, fn (PendienteRhNotification $n, array $c, User $d) => $n->toDatabase($d)['tipo'] === 'cierre_baja_solicitada');
 
-    $this->postJson("/api/v1/rh/cierres/{$cierreId}/rechazar", ['motivo' => 'No procede'])->assertOk();
+    $this->postJson("/api/v1/rh/cierres/{$cierreId}/cancelar", ['motivo' => 'No procede'])->assertOk();
 
     expect($this->cuenta->fresh()->acceso_bloqueado_en)->toBeNull();
 });

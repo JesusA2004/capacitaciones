@@ -17,11 +17,12 @@ import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { dashboard } from '@/routes';
 import {
-    capitulos as induccionCapitulos,
     contenido as induccionEvaluacionUrl,
+    ver as verInduccion,
 } from '@/routes/portal/induccion';
 import { evaluacion as evaluacionUrl } from '@/routes/portal/onboarding';
 import type {
+    AccesoInduccionColaborador,
     EvaluacionInduccionResumen,
     InduccionContenidoResumen,
     LeccionBienvenida,
@@ -35,12 +36,14 @@ const props = defineProps<{
     todo_listo: boolean;
     evaluacionInduccion?: EvaluacionInduccionResumen | null;
     induccionContenido?: InduccionContenidoResumen | null;
+    accesoInduccion?: AccesoInduccionColaborador;
 }>();
 
 const estiloInduccion: Record<EvaluacionInduccionResumen['estado'], string> = {
     disponible:
         'border-[var(--mrl-primary)]/40 hover:border-[var(--mrl-primary)] hover:shadow-md',
-    pendiente_calificacion_rh: 'border-[var(--mrl-gold)]/40 bg-[var(--mrl-gold)]/5',
+    pendiente_calificacion_rh:
+        'border-[var(--mrl-gold)]/40 bg-[var(--mrl-gold)]/5',
     requiere_reforzamiento: 'border-destructive/40 bg-destructive/5',
     reevaluacion_habilitada:
         'border-[var(--mrl-primary)]/40 hover:border-[var(--mrl-primary)] hover:shadow-md',
@@ -356,45 +359,49 @@ const claseBoton =
                     </article>
                 </section>
 
+                <!-- La inducción la presenta RH: aquí solo se ve durante su sesión. -->
                 <article
-                    v-if="induccionContenido && !induccionContenido.completado"
-                    class="flex flex-col gap-3 rounded-3xl border border-[var(--mrl-primary)]/40 bg-[var(--mrl-surface)] p-5 transition-all duration-200 hover:shadow-md"
+                    v-if="
+                        accesoInduccion &&
+                        (accesoInduccion.estado === 'en_sesion' ||
+                            (accesoInduccion.estado ===
+                                'pendiente_presentacion' &&
+                                induccionContenido &&
+                                !induccionContenido.completado))
+                    "
+                    class="flex flex-col gap-3 rounded-3xl border bg-[var(--mrl-surface)] p-5 transition-all duration-200"
+                    :class="
+                        accesoInduccion.puede_ver_contenido
+                            ? 'border-[var(--mrl-primary)]/40 hover:shadow-md'
+                            : 'border-[var(--mrl-borde)]'
+                    "
                 >
                     <div class="flex items-center gap-3">
                         <BookOpen
+                            v-if="accesoInduccion.puede_ver_contenido"
                             class="size-8 shrink-0 text-[var(--mrl-primary)]"
+                        />
+                        <Clock
+                            v-else
+                            class="size-8 shrink-0 text-[var(--mrl-texto-suave)]"
                         />
                         <div class="min-w-0 flex-1">
                             <p
                                 class="text-base font-semibold text-[var(--mrl-texto)]"
                             >
-                                {{ induccionContenido.titulo }}
+                                Inducción Mr. Lana
                             </p>
                             <p class="text-sm text-[var(--mrl-texto-suave)]">
-                                {{ induccionContenido.paginas_vistas.length }}
-                                de {{ induccionContenido.total_paginas }}
-                                páginas
+                                {{ accesoInduccion.mensaje }}
                             </p>
                         </div>
-                        <span
-                            class="shrink-0 text-lg font-semibold tabular-nums text-[var(--mrl-primary)]"
-                        >
-                            {{ induccionContenido.porcentaje }}%
-                        </span>
-                    </div>
-                    <div
-                        class="h-2 overflow-hidden rounded-full bg-[var(--mrl-fondo)]"
-                    >
-                        <div
-                            class="h-full rounded-full bg-[var(--mrl-primary)] transition-all"
-                            :style="{ width: `${induccionContenido.porcentaje}%` }"
-                        />
                     </div>
                     <Link
-                        :href="induccionCapitulos.url(induccionContenido.avance_id)"
+                        v-if="accesoInduccion.puede_ver_contenido"
+                        :href="verInduccion.url()"
                         class="inline-flex w-fit items-center gap-2 rounded-xl bg-[var(--mrl-primary)] px-4 py-2.5 text-sm font-medium text-white transition-all hover:gap-3 hover:bg-[var(--mrl-primary-alt)]"
                     >
-                        {{ induccionContenido.porcentaje > 0 ? 'Continuar' : 'Comenzar' }}
+                        Ver inducción
                         <ArrowRight class="size-4" />
                     </Link>
                 </article>
@@ -431,8 +438,10 @@ const claseBoton =
                             </p>
                         </div>
                         <span
-                            v-if="evaluacionInduccion.mejor_calificacion !== null"
-                            class="shrink-0 text-lg font-semibold tabular-nums text-[var(--mrl-texto)]"
+                            v-if="
+                                evaluacionInduccion.mejor_calificacion !== null
+                            "
+                            class="shrink-0 text-lg font-semibold text-[var(--mrl-texto)] tabular-nums"
                         >
                             {{ evaluacionInduccion.mejor_calificacion }}/30
                         </span>

@@ -10,6 +10,7 @@ use App\Enums\EstadoFlujoDocumento as E;
 use App\Enums\EstadoSolicitudInterna;
 use App\Enums\ResultadoEvaluacion;
 use App\Enums\TipoSolicitudInterna;
+use App\Enums\TipoTarea;
 use App\Exceptions\DatosDocumentoFaltantesException;
 use App\Exceptions\DocumentoMaestroFaltanteException;
 use App\Models\ActaAdministrativa;
@@ -24,6 +25,7 @@ use App\Models\GeneratedDocument;
 use App\Models\Prestamo;
 use App\Models\SolicitudInterna;
 use App\Models\Sucursal;
+use App\Models\TareaRh;
 use App\Models\User;
 use App\Services\Actas\ActaPdfService;
 use App\Services\Actas\ActaService;
@@ -35,6 +37,7 @@ use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Expedientes\ProgresoExpediente;
 use App\Services\Nomina\PrestamoAutorizacionService;
+use App\Services\Tareas\TareaService;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
@@ -78,6 +81,7 @@ class DocumentoProcesoService
         private readonly OrganizacionJerarquiaService $jerarquia,
         private readonly ExpedienteService $expediente,
         private readonly AuditoriaService $auditoria,
+        private readonly TareaService $tareas,
     ) {}
 
     // ───────────────────────── Secciones (lectura) ─────────────────────────
@@ -436,7 +440,9 @@ class DocumentoProcesoService
         $rh = $viewer->can('cierres.gestionar') || $viewer->can('documentos_laborales.generar');
         $entregables = $this->clavesCausa($cierre) !== [];
 
-        if ($abierto && $rh && $entregables && $cierre->estado->autorizadoPorRh() && $cierre->negativa_firma_en === null) {
+        // La negativa es la alternativa legal a la firma: ya firmados los
+        // documentos de la causa, no aplica.
+        if ($abierto && $rh && $entregables && $cierre->estado->autorizadoPorRh() && $cierre->negativa_firma_en === null && ! $this->documentosCausaFirmados($cierre)) {
             $acciones[] = ['clave' => 'registrar_negativa', 'etiqueta' => 'El colaborador se negó a firmar/recibir', 'tipo' => 'peligro'];
         }
 
@@ -1279,17 +1285,7 @@ class DocumentoProcesoService
 
     private function etiquetaEstado(?GeneratedDocument $documento): string
     {
-        return match ($documento?->estado_flujo) {
-            E::Generado, E::PendienteImpresion => 'Generado',
-            E::Impreso => $documento->requiere_firma_fisica ? 'Firma pendiente' : 'Impreso',
-            E::PendienteFirmaFisica => 'Firma pendiente',
-            E::FirmadoFisicamente => 'Firmado',
-            E::EnviadoCorporativo => 'Enviado',
-            E::RecibidoCorporativo => 'Recibido',
-            E::Escaneado => 'Escaneado',
-            E::Archivado => 'Archivado',
-            default => $documento?->estado_flujo?->etiqueta() ?? 'Generado',
-        };
+        return $documento?->estado_flujo?->etiquetaCorta((bool) $documento->requiere_firma_fisica) ?? 'Generado';
     }
 
     private function etiquetaAplica(DocumentTemplate $master): string
@@ -1346,8 +1342,10 @@ class DocumentoProcesoService
     }
 
     /**
-     * El finiquito lo produce su propio módulo (cálculo → autorización →
-     * pago); aquí solo se muestra su estado dentro de "Documentos de la baja".
+     * El finiquito lo produce su propio módulo (cálculo → ajustes de RH →
+     * entrega, que cierra el cierre laboral); aquí se muestra su estado
+     * dentro de "Documentos de la baja" con el acceso a verlo/editarlo
+     * (la pantalla abre el desglose; el backend valida cada cambio).
      *
      * @return array<string, mixed>
      */
@@ -1355,19 +1353,17 @@ class DocumentoProcesoService
     {
         $finiquito = $cierre->solicitud_interna_id !== null ? FiniquitoCalculo::query()->where('solicitud_interna_id', $cierre->solicitud_interna_id)->first() : null;
         $estado = $finiquito?->estado;
+        $entregado = in_array($estado, [EstadoFiniquito::Firmado, EstadoFiniquito::Pagado], true);
 
         return [
             'clave' => 'finiquito',
             'nombre' => 'Finiquito',
-            'motivo' => 'Cálculo, autorización y pago del finiquito (módulo de finiquitos).',
+            'motivo' => 'Cálculo, ajustes por concepto y entrega del finiquito.',
             'estado' => $estado->value ?? 'pendiente_rh',
             'estado_etiqueta' => match ($estado) {
-                EstadoFiniquito::Borrador => 'Calculado (borrador)',
-                EstadoFiniquito::Revisado => 'Revisado',
-                EstadoFiniquito::Aprobado => 'Autorizado',
-                EstadoFiniquito::Firmado => 'Firmado',
-                EstadoFiniquito::Pagado => 'Pagado',
-                default => 'Pendiente RH',
+                EstadoFiniquito::Borrador, EstadoFiniquito::Revisado, EstadoFiniquito::Aprobado => sprintf('Calculado · $%s · editable hasta la entrega', number_format((float) $finiquito->neto, 2)),
+                EstadoFiniquito::Firmado, EstadoFiniquito::Pagado => 'Entregado',
+                default => 'Pendiente de calcular',
             },
             'bloqueo' => null,
             'formato_faltante' => null,
@@ -1379,7 +1375,11 @@ class DocumentoProcesoService
             'historial' => [],
             'linea_tiempo' => [],
             'siguiente_accion' => null,
-            'acciones' => [],
+            'acciones' => match (true) {
+                $finiquito === null => [['clave' => 'calcular_finiquito', 'etiqueta' => 'Calcular finiquito', 'tipo' => 'primaria']],
+                $entregado => [['clave' => 'ver_finiquito', 'etiqueta' => 'Ver finiquito', 'tipo' => 'primaria']],
+                default => [['clave' => 'ver_finiquito', 'etiqueta' => 'Ver / editar finiquito', 'tipo' => 'primaria']],
+            },
         ];
     }
 
@@ -1430,6 +1430,26 @@ class DocumentoProcesoService
         $checklist = $this->checklistCierre($cierre);
 
         return $checklist === null || collect($checklist)->every(fn (array $p): bool => ! $p['aplica'] || $p['cumplido']);
+    }
+
+    /**
+     * Etiquetas de los puntos del checklist que aplican y faltan, sin contar
+     * los de $omitir (p. ej. «finiquito» justo al registrar su entrega).
+     *
+     * @param  list<string>  $omitir
+     * @return list<string>
+     */
+    public function checklistFaltantes(CierreLaboral $cierre, array $omitir = []): array
+    {
+        $faltantes = [];
+
+        foreach ($this->checklistCierre($cierre) ?? [] as $punto) {
+            if ($punto['aplica'] && ! $punto['cumplido'] && ! in_array($punto['clave'], $omitir, true)) {
+                $faltantes[] = $punto['etiqueta'];
+            }
+        }
+
+        return $faltantes;
     }
 
     /**
@@ -1625,6 +1645,96 @@ class DocumentoProcesoService
 
         if ($registro instanceof ContratoLaboral && $registro->generated_document_id === null && in_array($clave, ['contrato_capacitacion', 'contrato_indeterminado', 'contrato_periodo_prueba', 'contrato_tiempo_determinado'], true)) {
             $registro->update(['generated_document_id' => $documento->id]);
+        }
+
+        // «Faltan datos para …» deja de ser cierto en cuanto el documento existe.
+        if ($registro instanceof CierreLaboral) {
+            $this->resolverPendientesDocumentalesCierre($registro, $actor);
+        }
+    }
+
+    /**
+     * Pendientes «Faltan datos para …» / «Documento … pendiente» de un cierre
+     * (TipoTarea::PlantillaFaltante): se abren al iniciar la baja cuando un
+     * documento de la causa no pudo generarse. Se resuelven en cuanto dejan
+     * de ser ciertos — el documento ya existe, o ya no falta ni el dato ni el
+     * formato y puede generarse desde «Documentos de la baja» — o cuando el
+     * cierre concluyó. Lo llaman la generación, la ficha del ciclo y el
+     * reconciliador (registros que quedaron abiertos antes de esta regla).
+     *
+     * @return int Tareas resueltas.
+     */
+    public function resolverPendientesDocumentalesCierre(CierreLaboral $cierre, ?User $actor = null): int
+    {
+        $tareas = TareaRh::query()
+            ->whereNull('resuelta_en')
+            ->where('tipo', TipoTarea::PlantillaFaltante->value)
+            ->where('relacionado_type', $cierre->getMorphClass())
+            ->where('relacionado_id', $cierre->id)
+            ->get();
+
+        $resueltas = 0;
+
+        foreach ($tareas as $tarea) {
+            $clave = $tarea->datos['clave'] ?? null;
+            $causa = $this->clavesCausa($cierre);
+            $claves = is_string($clave) && $clave !== '' ? [$clave] : $causa;
+            // Si faltó permiso (no datos ni formato), solo el documento generado lo resuelve.
+            $porPermiso = ($tarea->datos['motivo'] ?? null) === 'permiso';
+            $yaNoAplica = $cierre->estado->esFinal() || collect($claves)->every(
+                fn (string $c): bool => ! in_array($c, $causa, true) || $this->documentoVigente($cierre, $c) !== null || (! $porPermiso && $this->listoParaGenerar($cierre, $c)),
+            );
+
+            if ($yaNoAplica) {
+                $this->tareas->resolverTarea($tarea, $actor);
+                $resueltas++;
+            }
+        }
+
+        return $resueltas;
+    }
+
+    /**
+     * true si TODOS los documentos de la causa (renuncia, aviso…) ya tienen
+     * su firma física registrada. Sin documentos de causa: false.
+     */
+    public function documentosCausaFirmados(CierreLaboral $cierre): bool
+    {
+        $claves = $this->clavesCausa($cierre);
+
+        return $claves !== [] && collect($claves)->every(
+            fn (string $c): bool => $this->documentoVigente($cierre, $c)?->estado_flujo?->firmaFisicaRegistrada() ?? false,
+        );
+    }
+
+    /**
+     * Nombre legible del documento (para avisos y pendientes; nunca la clave interna).
+     */
+    public function nombreDocumento(string $clave): string
+    {
+        return $this->catalogo->nombreClave($clave);
+    }
+
+    /**
+     * true si ya no falta nada para generar el documento del cierre: el
+     * formato existe y los datos requeridos están capturados (misma
+     * validación que la generación, con los datos actuales de la ficha).
+     */
+    private function listoParaGenerar(CierreLaboral $cierre, string $clave): bool
+    {
+        try {
+            $colaborador = $this->colaboradorDe($cierre);
+            $master = $this->masterPara($clave, $colaborador, 'baja');
+
+            if ($master->estado_master === null) {
+                return true;
+            }
+
+            $contexto = $this->motor->contextoDesde($colaborador, $cierre, null, $this->extraPorClave($clave, $cierre));
+
+            return $this->motor->faltantesDe($master, $this->datos->resolver($contexto)) === [];
+        } catch (Throwable) {
+            return false;
         }
     }
 

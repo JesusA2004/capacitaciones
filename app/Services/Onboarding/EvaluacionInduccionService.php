@@ -56,6 +56,7 @@ class EvaluacionInduccionService
         private readonly OnboardingService $onboarding,
         private readonly CalendarioLaboralService $calendario,
         private readonly InduccionPdfService $pdf,
+        private readonly AccesoInduccionColaboradorService $acceso,
     ) {}
 
     public const TITULO_AVISO_PRESENTADA = 'Contesta la evaluación de la Inducción Mr. Lana';
@@ -274,20 +275,28 @@ class EvaluacionInduccionService
             throw new AuthorizationException('Solo el colaborador titular consulta su propio contenido de inducción.');
         }
 
+        // La inducción la presenta RH: solo se ve durante su sesión.
+        $this->acceso->exigirContenidoVisible($usuario);
+
         return $avance->modulo->contenido_estructurado;
     }
 
     /**
      * Capítulos de la inducción institucional para PRESENTARLA (RH en una
-     * sesión por Meet, o el colaborador repasándola): mismo contenido real
-     * del módulo con evaluación formal, sin ligarlo a un avance — no
-     * registra progreso ni toca la evaluación. Contenido institucional, sin
-     * datos personales ni clave de respuestas.
+     * sesión por Meet) o verla (el colaborador, solo DURANTE la sesión de RH
+     * que lo incluye): mismo contenido real del módulo con evaluación
+     * formal, sin ligarlo a un avance — no registra progreso ni toca la
+     * evaluación. Contenido institucional, sin datos personales ni clave de
+     * respuestas.
      *
      * @return array{titulo: string, capitulos: list<array<mixed, mixed>>}|null
+     *
+     * @throws AuthorizationException
      */
-    public function presentacion(): ?array
+    public function presentacion(User $usuario): ?array
     {
+        $this->acceso->exigirPdfVisible($usuario);
+
         $modulo = OnboardingModulo::query()
             ->whereNotNull('evaluacion_formal_clave')
             ->where('activo', true)

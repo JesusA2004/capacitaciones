@@ -462,7 +462,7 @@ test('F: el jefe recomienda NO renovar — no hay baja hasta que RH autoriza, y 
     expect(fn () => app(CierreLaboralService::class)->ejecutarBaja($cierre, $this->rh))->toThrow(ValidationException::class);
 });
 
-test('G: cierre — gerente solicita, RH autoriza, finiquito, regional programa, firma y pago, cierre conservando el expediente', function () {
+test('G: cierre — gerente inicia la baja (aplicada al instante), finiquito, regional programa, firma y pago, cierre conservando el expediente', function () {
     $colaborador = Colaborador::factory()->create([
         'sucursal_principal_id' => $this->sucursalA->id,
         'puesto_id' => $this->puesto->id,
@@ -476,21 +476,18 @@ test('G: cierre — gerente solicita, RH autoriza, finiquito, regional programa,
     $usuario->assignRole('colaborador');
     $cierres = app(CierreLaboralService::class);
 
-    $cierre = $cierres->solicitar($colaborador, ['tipo_baja' => 'renuncia', 'motivo' => 'Cambio de ciudad.', 'fecha_efectiva' => now()->addDays(3)->toDateString()], $this->gerenteA, [clArchivoPdf('renuncia.pdf')]);
+    $cierre = $cierres->solicitar($colaborador, ['tipo_baja' => 'renuncia', 'motivo' => 'Cambio de ciudad.', 'fecha_efectiva' => now()->addDays(3)->toDateString()], $this->gerenteA);
 
-    // El gerente es superior: su solicitud ES la preautorización; falta RH.
-    expect($cierre->estado)->toBe(EstadoCierreLaboral::PendienteRh)
+    // El jefe directo inicia la baja: queda aplicada al instante (sin
+    // autorización de RH); el estatus laboral cambia al concluir el cierre.
+    expect($cierre->estado)->toBe(EstadoCierreLaboral::Iniciado)
         ->and($colaborador->refresh()->estatus)->toBe(EstadoUsuario::Activo);
 
-    expect(fn () => $cierres->autorizarRh($cierre, $this->gerenteA))->toThrow(ValidationException::class);
-
     $this->actingAs($this->rh);
-    $cierre = $cierres->autorizarRh($cierre, $this->rh, 'Procede.');
-    expect($cierre->estado)->toBe(EstadoCierreLaboral::Iniciado);
 
-    // La carta de renuncia quedó generada desde que el gerente solicitó la
+    // La carta de renuncia quedó generada desde que el gerente inició la
     // baja (datos y fecha ya llenos): solo falta imprimirla y que el
-    // colaborador la firme. Una sola instancia, aunque RH ya autorizó.
+    // colaborador la firme. Una sola instancia.
     expect(GeneratedDocument::query()->where('documentable_type', $cierre->getMorphClass())->where('documentable_id', $cierre->id)->where('clave_plantilla', 'carta_renuncia')->count())->toBe(1);
 
     $cierres->calcularFiniquito($cierre, $this->rh, 12000);
@@ -768,7 +765,7 @@ test('PDF etapa 4: la duración sale de la configuración del puesto (Gestor 2 m
     expect($contratos->fechaFinPeriodoPrueba($gestor->id, $inicio)->toDateString())->toBe('2026-10-31');
 });
 
-test('PDF etapas 6-7: el gerente solicita la baja → acceso fuera al instante; RH autoriza; fecha efectiva → baja definitiva; reingreso con la MISMA persona y cuenta', function () {
+test('PDF etapas 6-7: el gerente inicia la baja → aplicada y acceso fuera al instante; fecha efectiva → baja definitiva; reingreso con la MISMA persona y cuenta', function () {
     $colaborador = Colaborador::factory()->create([
         // La baja la inicia su jefe directo real (cadena de mando) o RH.
         'jefe_id' => $this->gerenteA->colaborador_id,
@@ -784,7 +781,7 @@ test('PDF etapas 6-7: el gerente solicita la baja → acceso fuera al instante; 
     $usuario->createToken('app');
     $cierres = app(CierreLaboralService::class);
 
-    $cierre = $cierres->solicitar($colaborador, ['tipo_baja' => 'renuncia', 'motivo' => 'Cambio de ciudad.', 'fecha_efectiva' => now()->addDays(3)->toDateString()], $this->gerenteA, [clArchivoPdf('renuncia.pdf')]);
+    $cierre = $cierres->solicitar($colaborador, ['tipo_baja' => 'renuncia', 'motivo' => 'Cambio de ciudad.', 'fecha_efectiva' => now()->addDays(3)->toDateString()], $this->gerenteA);
 
     // Acceso fuera YA; la relación laboral sigue hasta la fecha efectiva.
     expect($usuario->refresh()->acceso_bloqueado_en)->not->toBeNull()
@@ -793,7 +790,6 @@ test('PDF etapas 6-7: el gerente solicita la baja → acceso fuera al instante; 
         ->and($cierre->acceso_suspendido_en)->not->toBeNull();
 
     $this->actingAs($this->rh);
-    $cierre = $cierres->autorizarRh($cierre, $this->rh, 'Procede.');
     $cierres->calcularFiniquito($cierre, $this->rh, 12000);
     $cierre = $cierres->autorizarFiniquito($cierre->refresh(), $this->rh);
     $cierre = $cierres->programarPago($cierre, $this->pagador, ['fecha' => now()->addDays(3)->toDateString(), 'metodo' => 'transferencia']);

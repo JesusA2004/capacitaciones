@@ -7,6 +7,7 @@ use App\Enums\EstadoDocumento;
 use App\Enums\EstadoEvaluacionPrueba;
 use App\Enums\EstadoSolicitudInterna;
 use App\Enums\EstadoSolicitudVacaciones;
+use App\Enums\TipoTarea;
 use App\Models\BirthdayGreeting;
 use App\Models\CierreLaboral;
 use App\Models\ContratoLaboral;
@@ -15,6 +16,7 @@ use App\Models\EvaluacionPeriodoPrueba;
 use App\Models\GeneratedDocument;
 use App\Models\SolicitudInterna;
 use App\Models\SolicitudVacaciones;
+use App\Models\TareaRh;
 use App\Models\User;
 use App\Services\Celebraciones\FechasCelebracion;
 use Illuminate\Notifications\DatabaseNotification;
@@ -70,6 +72,7 @@ class DestinoNotificacionService
                 // Cierre laboral (finiquito/renuncia/baja/aviso de terminación):
                 // va al cierre exacto, nunca al expediente genérico (sección
                 // 23 del encargo de unificación de notificaciones).
+                $relacionado === 'CierreLaboral' && $tipo === TipoTarea::PlantillaFaltante->value => $this->documentoFaltanteCierre($id),
                 $relacionado === 'CierreLaboral' => $this->cierreLaboral($id),
                 $relacionado === 'GeneratedDocument' => $this->documentoLaboral($id, $usuario),
                 // Préstamos y recibos: el dueño ve los suyos; RH/gerencia va a
@@ -452,6 +455,37 @@ class DestinoNotificacionService
             $pendiente
                 ? sprintf('El cierre laboral sigue en proceso: está «%s».', $cierre->estado->etiqueta())
                 : sprintf('Este cierre laboral ya fue atendido: está «%s».', $cierre->estado->etiqueta()),
+        );
+    }
+
+    /**
+     * «Faltan datos para …» / «Documento … pendiente» de un cierre: atendido
+     * en cuanto su pendiente se resolvió (documento generado o datos
+     * completados), aunque el cierre siga abierto.
+     *
+     * @return Destino
+     */
+    private function documentoFaltanteCierre(?int $id): array
+    {
+        $destino = $this->cierreLaboral($id);
+
+        // Inexistente o cierre ya concluido: lo que diga el cierre.
+        if ($id === null || $destino['atendida'] !== false) {
+            return $destino;
+        }
+
+        $abierto = TareaRh::query()
+            ->whereNull('resuelta_en')
+            ->where('tipo', TipoTarea::PlantillaFaltante->value)
+            ->where('relacionado_type', (new CierreLaboral)->getMorphClass())
+            ->where('relacionado_id', $id)
+            ->exists();
+
+        return self::destino(
+            $destino['url'],
+            ! $abierto,
+            $destino['estado_recurso'],
+            $abierto ? 'Todavía falta capturar un dato o el formato para generar el documento de la baja.' : 'Ya atendido: el documento de la baja se generó o sus datos ya están completos.',
         );
     }
 

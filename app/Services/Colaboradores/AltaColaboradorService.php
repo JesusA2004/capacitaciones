@@ -252,7 +252,9 @@ class AltaColaboradorService
 
     public function calcularEstado(Colaborador $colaborador): EstadoAltaColaborador
     {
-        $documental = $this->expediente->estadoDocumental($colaborador);
+        // Solo los documentos del alta: los contratos se validan abajo con
+        // paqueteGenerado()/paqueteFirmado() (firma física, sin escaneo).
+        $documental = $this->expediente->estadoDocumental($colaborador, soloAlta: true);
 
         if ($documental['faltantes'] > 0) {
             return EstadoAltaColaborador::PendienteDocumentos;

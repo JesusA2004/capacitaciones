@@ -7,6 +7,7 @@ use App\Models\Colaborador;
 use App\Models\EvaluacionInduccion;
 use App\Models\OnboardingAvance;
 use App\Services\CicloLaboral\CicloLaboralService;
+use App\Services\Onboarding\AccesoInduccionColaboradorService;
 use App\Services\Onboarding\EvaluacionInduccionService;
 use App\Services\Onboarding\InduccionPdfService;
 use App\Services\Onboarding\OnboardingService;
@@ -29,6 +30,7 @@ class MiProcesoController extends Controller
         private readonly OnboardingService $onboarding,
         private readonly EvaluacionInduccionService $evaluacionInduccion,
         private readonly InduccionPdfService $induccionPdf,
+        private readonly AccesoInduccionColaboradorService $accesoInduccion,
     ) {}
 
     public function show(Request $request): Response
@@ -51,6 +53,9 @@ class MiProcesoController extends Controller
             // "estás al día" nunca oculte una evaluación formal por presentar.
             $datos['todo_listo'] = $datos['todo_listo'] && ! $datos['evaluacionInduccion']['puede_presentar'];
         }
+
+        // La inducción la presenta RH: cuándo puede verla / contestarla.
+        $datos['accesoInduccion'] = $this->accesoInduccion->resumen($colaborador);
 
         return Inertia::render('Portal/MiProceso', $datos);
     }
@@ -80,18 +85,36 @@ class MiProcesoController extends Controller
     }
 
     /**
-     * Inducción del colaborador: el PDF OFICIAL en el visor, con su avance
-     * por página (solo el titular; capitulos() valida la propiedad).
+     * «Inducción Mr. Lana» en Mi espacio. La presenta RH: el colaborador
+     * solo VE el PDF oficial mientras una sesión «En curso» lo incluye; antes
+     * y después recibe el motivo (por presentar, evaluación por contestar,
+     * en revisión, completada) sin el contenido. Nunca hay controles de
+     * presentador aquí, aunque la cuenta también tenga permisos de RH.
      */
-    public function capitulosInduccion(Request $request, OnboardingAvance $avance): Response
+    public function verInduccion(Request $request): Response
     {
-        $this->evaluacionInduccion->capitulos($avance, $request->user());
+        $colaborador = $request->user()->colaborador;
+        abort_unless($colaborador instanceof Colaborador, 403);
+
+        $acceso = $this->accesoInduccion->resumen($colaborador);
 
         return Inertia::render('Portal/Induccion', [
-            'avanceId' => $avance->id,
-            'pdf' => $this->induccionPdf->datosVisor(),
-            'resumen' => $this->evaluacionInduccion->resumenContenido($avance->loadMissing('proceso')->proceso),
+            'pdf' => $acceso['puede_ver_contenido'] ? $this->induccionPdf->datosVisor() : null,
+            'acceso' => $acceso,
         ]);
+    }
+
+    /**
+     * Enlaces anteriores al visor por avance (solo el titular) → la
+     * «Inducción Mr. Lana» de Mi espacio, que decide si hay contenido
+     * visible.
+     */
+    public function capitulosInduccion(Request $request, OnboardingAvance $avance): RedirectResponse
+    {
+        $avance->loadMissing('proceso');
+        abort_unless($request->user()->colaborador_id !== null && $request->user()->colaborador_id === $avance->proceso->colaborador_id, 403);
+
+        return to_route('portal.induccion.ver');
     }
 
     /**

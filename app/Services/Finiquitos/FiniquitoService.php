@@ -15,6 +15,7 @@ use App\Models\FiniquitoCalculo;
 use App\Models\FiniquitoConcepto;
 use App\Models\OfficialFormat;
 use App\Models\SolicitudInterna;
+use App\Models\SolicitudInternaHistorial;
 use App\Models\User;
 use App\Services\Compensacion\CompensacionService;
 use App\Services\DocumentosAdministrativos\DatosDocumentoAdministrativo;
@@ -640,22 +641,113 @@ class FiniquitoService
         $finiquito->update([
             'documento_generado_path' => $documento->path,
             'generated_document_id' => $documento->id,
-            'snapshot' => [
-                ...$finiquito->only([
-                    'sueldo_mensual', 'sueldo_diario', 'antiguedad_anios', 'antiguedad_meses',
-                    'dias_trabajados_periodo', 'vacaciones_pendientes', 'vacaciones_pendientes_pago', 'prima_vacacional',
-                    'aguinaldo_proporcional', 'sueldo_pendiente', 'indemnizacion', 'bonos_extra',
-                    'descuentos', 'adeudos', 'isr_retenido', 'otros_conceptos', 'total_calculado', 'total_ajustado',
-                    'comentarios_ajuste', 'total_percepciones', 'total_deducciones', 'neto',
-                ]),
-                'conceptos' => $desglose,
-                'ajustes' => $finiquito->ajustes()->get(['concepto_clave', 'concepto', 'valor_calculado', 'valor_final', 'ajuste', 'motivo', 'user_id', 'created_at'])->toArray(),
-                'congelado_en' => now()->toIso8601String(),
-                'generated_document_id' => $documento->id,
-            ],
+            'snapshot' => $this->snapshot($finiquito, $desglose, ['generated_document_id' => $documento->id]),
         ]);
 
         return $finiquito->refresh();
+    }
+
+    /**
+     * Sueldo mensual de partida para el cálculo: salario diario registrado
+     * del colaborador × 30 (CompensacionService, la única fuente de
+     * compensación). 0 si la persona no tiene salario capturado.
+     */
+    public function sueldoMensualSugerido(Colaborador $colaborador): float
+    {
+        return $this->compensacion->mensual($this->compensacion->diarioDe($colaborador));
+    }
+
+    /**
+     * Entrega del finiquito al excolaborador (último paso del cierre
+     * laboral, CierreLaboralService::registrarEntregaFiniquito()): recalcula
+     * los totales en el servidor, CONGELA el desglose en el snapshot y deja
+     * el finiquito como pagado/firmado — desde aquí es de solo lectura
+     * (asegurarNoFirmado()). Un finiquito que ya estaba pagado (flujo
+     * anterior) no se vuelve a congelar.
+     */
+    public function registrarEntrega(FiniquitoCalculo $finiquito, User $actor, Carbon $fecha, ?string $formaPago = null, ?string $comentario = null): FiniquitoCalculo
+    {
+        return DB::transaction(function () use ($finiquito, $actor, $fecha, $formaPago, $comentario): FiniquitoCalculo {
+            $bloqueado = FiniquitoCalculo::query()->lockForUpdate()->findOrFail($finiquito->id);
+
+            if ($bloqueado->estado === EstadoFiniquito::Pagado) {
+                return $bloqueado;
+            }
+
+            $bloqueado = $this->recalcularTotales($bloqueado);
+            $desglose = $this->desglose($bloqueado);
+
+            $bloqueado->update([
+                'estado' => EstadoFiniquito::Pagado->value,
+                'pagado_en' => $fecha,
+                'pago_confirmado_por' => $actor->id,
+                'referencia_pago' => $formaPago,
+                'snapshot' => $this->snapshot($bloqueado, $desglose, [
+                    'generated_document_id' => $bloqueado->generated_document_id,
+                    'entrega' => [
+                        'fecha' => $fecha->toDateString(),
+                        'forma_pago' => $formaPago,
+                        'comentario' => $comentario,
+                        'registrada_por' => $actor->id,
+                        'registrada_en' => now()->toIso8601String(),
+                    ],
+                ]),
+            ]);
+
+            $this->registrarHistorial($bloqueado->solicitudInterna, $actor, 'finiquito_entregado', trim(sprintf('Finiquito entregado el %s por $%s. %s', $fecha->format('d/m/Y'), number_format((float) $bloqueado->neto, 2), $comentario ?? '')));
+
+            return $bloqueado->refresh();
+        });
+    }
+
+    /**
+     * Última edición del finiquito (cálculo, ajuste o concepto) con quién y
+     * cuándo, a partir del historial de la solicitud de baja.
+     *
+     * @return array{accion: string, usuario: string|null, fecha: string|null}|null
+     */
+    public function ultimaEdicion(FiniquitoCalculo $finiquito): ?array
+    {
+        $evento = $finiquito->solicitudInterna->historial()
+            ->with('usuario:id,name,apellidos')
+            ->where('accion', 'like', 'finiquito%')
+            ->reorder()
+            ->latest('id')
+            ->first();
+
+        if ($evento === null) {
+            return null;
+        }
+
+        return [
+            'accion' => SolicitudInternaHistorial::etiquetaDe($evento->accion),
+            'usuario' => $evento->usuario !== null ? trim(sprintf('%s %s', $evento->usuario->name, $evento->usuario->apellidos)) : null,
+            'fecha' => $evento->created_at->toIso8601String(),
+        ];
+    }
+
+    /**
+     * Datos congelados del finiquito (PDF generado o entrega registrada).
+     *
+     * @param  list<array<string, mixed>>  $desglose
+     * @param  array<string, mixed>  $extra
+     * @return array<string, mixed>
+     */
+    private function snapshot(FiniquitoCalculo $finiquito, array $desglose, array $extra = []): array
+    {
+        return [
+            ...$finiquito->only([
+                'sueldo_mensual', 'sueldo_diario', 'antiguedad_anios', 'antiguedad_meses',
+                'dias_trabajados_periodo', 'vacaciones_pendientes', 'vacaciones_pendientes_pago', 'prima_vacacional',
+                'aguinaldo_proporcional', 'sueldo_pendiente', 'indemnizacion', 'bonos_extra',
+                'descuentos', 'adeudos', 'isr_retenido', 'otros_conceptos', 'total_calculado', 'total_ajustado',
+                'comentarios_ajuste', 'total_percepciones', 'total_deducciones', 'neto',
+            ]),
+            'conceptos' => $desglose,
+            'ajustes' => $finiquito->ajustes()->get(['concepto_clave', 'concepto', 'valor_calculado', 'valor_final', 'ajuste', 'motivo', 'user_id', 'created_at'])->toArray(),
+            'congelado_en' => now()->toIso8601String(),
+            ...$extra,
+        ];
     }
 
     /**

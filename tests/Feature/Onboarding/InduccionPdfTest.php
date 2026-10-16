@@ -9,6 +9,7 @@ use App\Models\OnboardingModulo;
 use App\Models\User;
 use App\Services\Onboarding\InduccionPdfService;
 use App\Services\Onboarding\OnboardingService;
+use App\Services\Onboarding\SesionInduccionService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
@@ -16,8 +17,8 @@ use Laravel\Sanctum\Sanctum;
 /*
 | La inducción se ve en el PDF OFICIAL (docs/onboarding), nunca en una
 | reconstrucción HTML. RH la presenta sin registrar progreso; el
-| colaborador avanza por páginas MOSTRADAS y al terminarlas se habilita su
-| evaluación formal (cuya calificación no cambia).
+| colaborador solo la ve DURANTE la sesión de RH que lo incluye (ahí el
+| visor puede registrar las páginas mostradas).
 */
 
 beforeEach(function () {
@@ -47,10 +48,13 @@ beforeEach(function () {
     $proceso = app(OnboardingService::class)->iniciar($this->colaborador, ContratoLaboral::factory()->create(['colaborador_id' => $this->colaborador->id]), $this->rh);
     $this->avance = $proceso->avances()->firstOrFail();
     $this->paginas = app(InduccionPdfService::class)->totalPaginas();
+    // RH inicia la sesión que incluye al colaborador (solo así puede verla).
+    $this->enSesion = fn () => app(SesionInduccionService::class)->iniciar($this->rh, [$this->colaborador->id]);
 });
 
 test('el endpoint sirve exactamente el PDF oficial del repositorio, solo con sesión', function () {
     $oficial = base_path('docs/onboarding/Induccion_Mr_Lana_Rediseno (5).pdf');
+    ($this->enSesion)();
 
     $respuesta = $this->actingAs($this->usuario)->get(route('induccion.pdf'))
         ->assertOk()
@@ -77,7 +81,6 @@ test('Presentar inducción muestra el visor del PDF (sin capítulos HTML) y no r
         ->assertOk()
         ->assertInertia(fn ($page) => $page->component('Portal/Induccion')
             ->where('modoPresentacion', true)
-            ->where('avanceId', null)
             ->where('pdf.url', route('induccion.pdf'))
             ->where('pdf.total_paginas', 30)
             ->missing('capitulos'));
@@ -87,10 +90,13 @@ test('Presentar inducción muestra el visor del PDF (sin capítulos HTML) y no r
     expect($this->avance->refresh()->progreso_contenido)->toBeNull();
 });
 
-test('el colaborador avanza por páginas mostradas, no puede terminar antes y al terminar pasa a su evaluación', function () {
+test('durante la sesión de RH el visor registra páginas mostradas, no termina antes y al terminar pasa a la evaluación', function () {
+    ($this->enSesion)();
+
+    // El enlace anterior por avance lleva a la inducción de Mi espacio.
     $this->actingAs($this->usuario)->get(route('portal.induccion.capitulos', $this->avance))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page->component('Portal/Induccion')->where('avanceId', $this->avance->id)->where('resumen.paginas_vistas', []));
+        ->assertRedirect(route('portal.induccion.ver'));
+    $this->actingAs($this->rh)->get(route('portal.induccion.capitulos', $this->avance))->assertForbidden();
 
     $this->actingAs($this->usuario)->postJson(route('portal.induccion.pagina', $this->avance), ['pagina' => 1])
         ->assertOk()
@@ -114,8 +120,11 @@ test('el colaborador avanza por páginas mostradas, no puede terminar antes y al
         ->and(EvaluacionInduccion::query()->where('colaborador_id', $this->colaborador->id)->exists())->toBeTrue();
 });
 
-test('API móvil: mismo avance por página y terminar habilita la evaluación', function () {
+test('API móvil: mismo avance por página (solo en sesión) y terminar habilita la evaluación', function () {
     Sanctum::actingAs($this->usuario);
+
+    $this->getJson("/api/v1/colaborador/induccion/capitulos/{$this->avance->id}")->assertForbidden();
+    ($this->enSesion)();
 
     $this->getJson("/api/v1/colaborador/induccion/capitulos/{$this->avance->id}")
         ->assertOk()

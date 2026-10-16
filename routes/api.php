@@ -295,9 +295,11 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('{notificacion}/abrir', [NotificacionController::class, 'abrir'])->name('abrir');
         });
 
-        // Inducción Mr. Lana en modo presentación (colaborador y RH): sin
-        // avance ni progreso. El organigrama del capítulo 4 usa la misma
-        // ruta colaborador/induccion/organigrama/{vista}.
+        // Inducción Mr. Lana en modo presentación: RH, o el colaborador solo
+        // DURANTE la sesión de RH que lo incluye (403 con el motivo antes y
+        // después — AccesoInduccionColaboradorService). Sin avance ni
+        // progreso. El organigrama del capítulo 4 usa la misma ruta
+        // colaborador/induccion/organigrama/{vista}.
         Route::get('induccion/presentacion', [MiProcesoController::class, 'presentacionInduccion'])->name('induccion.presentacion');
         Route::get('induccion/pdf', [MiProcesoController::class, 'pdfInduccion'])->name('induccion.pdf');
 
@@ -539,12 +541,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::prefix('cierres')->name('cierres.')->group(function () {
                 Route::get('/', [CierreLaboralController::class, 'index'])->name('index');
                 Route::get('{cierre}', [CierreLaboralController::class, 'show'])->name('show');
-                Route::post('{cierre}/preautorizar', [CierreLaboralController::class, 'preautorizar'])->name('preautorizar');
-                Route::post('{cierre}/autorizar', [CierreLaboralController::class, 'autorizar'])->name('autorizar');
-                Route::post('{cierre}/rechazar', [CierreLaboralController::class, 'rechazar'])->name('rechazar');
-                Route::post('{cierre}/devolver', [CierreLaboralController::class, 'devolver'])->name('devolver');
-                Route::post('{cierre}/reenviar', [CierreLaboralController::class, 'reenviar'])->name('reenviar');
-                Route::post('{cierre}/finiquito/autorizar', [CierreLaboralController::class, 'autorizarFiniquito'])->name('finiquito.autorizar');
+                // Baja aplicada al iniciarla: sin preautorizar/autorizar/rechazar/devolver/reenviar.
                 Route::post('{cierre}/pago/programar', [CierreLaboralController::class, 'programarPago'])->name('pago.programar');
                 Route::post('{cierre}/cita', [CierreLaboralController::class, 'cita'])->name('cita');
                 Route::post('{cierre}/cerrar', [CierreLaboralController::class, 'cerrar'])->name('cerrar');
@@ -555,7 +552,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::patch('{cierre}/finiquito/conceptos/{concepto}', [CierreLaboralController::class, 'actualizarConcepto'])->name('finiquito.conceptos.update');
                 Route::delete('{cierre}/finiquito/conceptos/{concepto}', [CierreLaboralController::class, 'eliminarConcepto'])->name('finiquito.conceptos.destroy');
                 Route::post('{cierre}/finiquito/conceptos-automaticos', [CierreLaboralController::class, 'ajustarConcepto'])->name('finiquito.conceptos.ajustar');
-                Route::post('{cierre}/finiquito/revisar', [CierreLaboralController::class, 'revisarFiniquito'])->name('finiquito.revisar');
+                // Sin «revisar/autorizar finiquito»: RH lo calcula, ajusta y
+                // registra su entrega, que cierra el cierre laboral.
+                Route::post('{cierre}/finiquito/entrega', [CierreLaboralController::class, 'entregarFiniquito'])->name('finiquito.entrega');
                 Route::post('{cierre}/finiquito/documento', [CierreLaboralController::class, 'generarFiniquito'])->name('finiquito.documento');
                 Route::post('{cierre}/finiquito/firmado', [CierreLaboralController::class, 'finiquitoFirmado'])->name('finiquito.firmado')->middleware('throttle:api-cargas');
                 Route::post('{cierre}/finiquito/pago', [CierreLaboralController::class, 'confirmarPago'])->name('finiquito.pago');

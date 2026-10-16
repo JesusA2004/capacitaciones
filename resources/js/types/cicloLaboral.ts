@@ -592,6 +592,24 @@ export type InduccionContenidoResumen = {
     presentada_por_rh_en?: string | null;
 };
 
+/**
+ * Cuándo el colaborador puede VER la Inducción Mr. Lana (la presenta RH):
+ * solo durante la sesión que lo incluye — ver
+ * AccesoInduccionColaboradorService::resumen().
+ */
+export type AccesoInduccionColaborador = {
+    estado:
+        | 'pendiente_presentacion'
+        | 'en_sesion'
+        | 'evaluacion_pendiente'
+        | 'en_revision'
+        | 'completada';
+    etiqueta: string;
+    mensaje: string;
+    puede_ver_contenido: boolean;
+    puede_contestar_evaluacion: boolean;
+};
+
 /** Asistente de una sesión de presentación de inducción. */
 export type AsistenteSesionInduccion = {
     id: number;
@@ -748,6 +766,7 @@ export type MisPendientes = {
     todo_listo: boolean;
     evaluacionInduccion?: EvaluacionInduccionResumen | null;
     induccionContenido?: InduccionContenidoResumen | null;
+    accesoInduccion?: AccesoInduccionColaborador;
 };
 
 /** Límites del mini expediente del candidato (config/reclutamiento.php). */

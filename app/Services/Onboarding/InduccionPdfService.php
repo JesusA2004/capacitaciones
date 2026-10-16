@@ -17,11 +17,16 @@ use Throwable;
  * el visor pdf.js dibuja sus páginas tal cual (diseño, logos, organigrama).
  * Este servicio lo sirve protegido y lleva el avance del COLABORADOR por
  * página realmente mostrada; "Presentar inducción" (RH) usa el mismo PDF
- * sin registrar nada. La evaluación formal sigue en
+ * sin registrar nada. El colaborador solo lo ve durante la sesión de RH
+ * que lo incluye (AccesoInduccionColaboradorService). La evaluación formal sigue en
  * EvaluacionInduccionService (se habilita cuando el avance queda completo).
  */
 class InduccionPdfService
 {
+    public function __construct(
+        private readonly AccesoInduccionColaboradorService $acceso,
+    ) {}
+
     public function ruta(): string
     {
         $ruta = (string) config('induccion.pdf_oficial');
@@ -71,10 +76,16 @@ class InduccionPdfService
     }
 
     /**
+     * Solo RH que presenta o el colaborador DURANTE la sesión que lo incluye
+     * (AccesoInduccionColaboradorService).
+     *
+     * @throws AuthorizationException
      * @throws ArchivoGeneradoNoDisponibleException
      */
-    public function respuesta(): BinaryFileResponse
+    public function respuesta(User $usuario): BinaryFileResponse
     {
+        $this->acceso->exigirPdfVisible($usuario);
+
         if (! $this->disponible()) {
             throw new ArchivoGeneradoNoDisponibleException(
                 titulo: (string) config('induccion.titulo'),
@@ -163,5 +174,8 @@ class InduccionPdfService
         if ($avance->modulo->evaluacion_formal_clave === null) {
             throw ValidationException::withMessages(['induccion' => 'Este módulo no es la inducción institucional.']);
         }
+
+        // Solo durante la sesión de RH que lo incluye.
+        $this->acceso->exigirContenidoVisible($usuario);
     }
 }

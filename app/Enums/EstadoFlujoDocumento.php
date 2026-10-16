@@ -56,6 +56,24 @@ enum EstadoFlujoDocumento: string
         };
     }
 
+    /**
+     * Etiqueta corta que ven RH y el gerente en las tarjetas de documentos y
+     * en el historial del ciclo laboral (la MISMA en ambos lugares): un
+     * documento recién generado dice «Generado» y su acción es «Imprimir».
+     */
+    public function etiquetaCorta(bool $requiereFirmaFisica): string
+    {
+        return match ($this) {
+            self::Generado, self::PendienteImpresion => 'Generado',
+            self::Impreso => $requiereFirmaFisica ? 'Firma pendiente' : 'Impreso',
+            self::PendienteFirmaFisica => 'Firma pendiente',
+            self::FirmadoFisicamente => 'Firmado',
+            self::EnviadoCorporativo => 'Enviado',
+            self::RecibidoCorporativo => 'Recibido',
+            default => $this->etiqueta(),
+        };
+    }
+
     public function esFinal(): bool
     {
         return $this === self::Archivado || $this === self::Cancelado;

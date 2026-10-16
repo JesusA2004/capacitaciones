@@ -7,9 +7,10 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 /**
- * Solicitud de baja (jefe/gerente o RH): causa, motivo, fecha efectiva y
- * evidencia opcional. La autorización real (alcance, cadena de mando,
- * causas permitidas por rol) vive en CierreLaboralService::solicitar().
+ * Inicio de baja (jefe directo o RH): causa, motivo y fecha efectiva. Sin
+ * archivos: la baja se aplica de inmediato y el sistema genera la renuncia
+ * o el aviso. La autorización real (alcance, cadena de mando, causas
+ * permitidas por rol) vive en CierreLaboralService::solicitar().
  */
 class SolicitarCierreRequest extends FormRequest
 {
@@ -28,8 +29,6 @@ class SolicitarCierreRequest extends FormRequest
             'motivo' => ['required', 'string', 'max:2000'],
             'fecha_efectiva' => ['required', 'date'],
             'observaciones' => ['nullable', 'string', 'max:2000'],
-            'evidencias' => ['nullable', 'array', 'max:5'],
-            'evidencias.*' => ['file', 'mimes:pdf,jpg,jpeg,png', 'max:'.((int) config('contratos.max_upload_mb', 20) * 1024)],
         ];
     }
 }

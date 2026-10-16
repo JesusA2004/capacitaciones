@@ -46,8 +46,10 @@ class MotivosRechazoCandidatoSeeder extends Seeder
             ['clave' => 'otro', 'nombre' => 'Otro', 'categoria' => $empresa, 'no_recontratable_por_defecto' => false],
         ];
 
+        // Sin tocar `activo`: un motivo nuevo nace activo (default de la
+        // columna) y uno que RH desactivó se queda desactivado al re-sembrar.
         foreach ($motivos as $motivo) {
-            MotivoRechazoCandidato::query()->updateOrCreate(['clave' => $motivo['clave']], [...$motivo, 'activo' => true]);
+            MotivoRechazoCandidato::query()->updateOrCreate(['clave' => $motivo['clave']], $motivo);
         }
     }
 }

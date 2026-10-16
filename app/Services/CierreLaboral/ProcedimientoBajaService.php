@@ -69,6 +69,10 @@ class ProcedimientoBajaService
             throw ValidationException::withMessages(['cierre' => 'La baja aún no tiene autorización de RH: no hay documentos que entregar.']);
         }
 
+        if ($this->documentos->documentosCausaFirmados($cierre)) {
+            throw ValidationException::withMessages(['cierre' => 'Los documentos de la baja ya están firmados físicamente: no hay negativa que registrar.']);
+        }
+
         $entregables = $this->documentos->clavesCausa($cierre);
         $documentos = array_values(array_intersect((array) ($datos['documentos'] ?? $entregables), [...$entregables, 'finiquito']));
 

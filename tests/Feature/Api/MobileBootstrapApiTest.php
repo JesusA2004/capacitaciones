@@ -109,7 +109,7 @@ test('bootstrap: recibos de nómina sin autoservicio por defecto y directorio di
     $this->app['auth']->forgetGuards();
     $this->withHeaders(['Authorization' => 'Bearer '.$usuario->createToken('test2')->plainTextToken])
         ->getJson('/api/v1/induccion/presentacion')
-        // Sin capítulos cargados, la presentación igual existe: es el PDF oficial.
-        ->assertOk()
-        ->assertJsonPath('data.pdf.url', route('api.v1.induccion.pdf'));
+        // La inducción la presenta RH: fuera de una sesión que lo incluya, el
+        // colaborador no la ve (AccesoInduccionColaboradorService).
+        ->assertForbidden();
 });

@@ -32,7 +32,9 @@ use Illuminate\Validation\ValidationException;
  *   1. ANTES de presentar, RH elige del buscador (dentro de su alcance del
  *      módulo «onboarding», nunca texto libre) a quién se la presenta — uno
  *      o varios, p. ej. un grupo por Meet → sesión «En curso».
- *   2. Presenta el PDF oficial («Presentar inducción»).
+ *   2. Presenta el PDF oficial («Presentar inducción»). Solo mientras la
+ *      sesión está «En curso» cada asistente puede verlo en su «Mi
+ *      espacio» (AccesoInduccionColaboradorService); antes y después, no.
  *   3. Al terminar, RH presiona «Enviar evaluación» (nada sale antes): por
  *      cada asistente, el contenido institucional
  *      queda visto por presentación de RH (auditable, idempotente), su
@@ -309,7 +311,8 @@ class SesionInduccionService
 
     /**
      * Todo lo que necesita la pantalla «Presentar inducción» del lado de RH
-     * — null para quien no gestiona onboarding (colaborador repasando).
+     * — null para quien no gestiona onboarding (la pantalla además lo rechaza:
+     * el colaborador nunca presenta, ver AccesoInduccionColaboradorService).
      *
      * @return array{sesion_en_curso: array<string, mixed>|null, recientes: list<array<string, mixed>>, seguimiento: list<array<string, mixed>>}|null
      */

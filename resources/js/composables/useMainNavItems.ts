@@ -56,6 +56,7 @@ import {
     notificaciones as indexNotificacionesPortal,
     recibos as misRecibosNomina,
 } from '@/routes/portal';
+import { ver as verInduccion } from '@/routes/portal/induccion';
 import { index as indexReportes } from '@/routes/reportes';
 import { index as indexRotacion } from '@/routes/reportes/rotacion';
 import { index as indexActas } from '@/routes/rh/actas';
@@ -121,7 +122,7 @@ export function useMainNavItems() {
             },
             {
                 title: 'Inducción Mr. Lana',
-                href: presentacionInduccion(),
+                href: verInduccion(),
                 icon: GraduationCap,
             },
             {
