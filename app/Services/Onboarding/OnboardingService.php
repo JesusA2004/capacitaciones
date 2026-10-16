@@ -729,6 +729,62 @@ class OnboardingService
     }
 
     /**
+     * Un onboarding que se abrió ANTES de existir el módulo institucional de
+     * la evaluación formal (Inducción Mr. Lana) no lo trae entre sus
+     * avances: cuando RH le presenta la inducción, la evaluación no tenía
+     * dónde habilitarse y el asistente quedaba como «sin proceso de
+     * ingreso». Agrega (una sola vez, auditable) los módulos institucionales
+     * formales activos que le falten a un proceso abierto. true si agregó.
+     */
+    public function asegurarModulosFormales(OnboardingProceso $proceso): bool
+    {
+        if (in_array($proceso->estado, [EstadoOnboarding::Completado, EstadoOnboarding::Cancelado], true)) {
+            return false;
+        }
+
+        if ($proceso->reingreso_id !== null && ! (bool) config('ciclo_laboral.reingreso.repite_induccion_institucional', true)) {
+            return false;
+        }
+
+        $existentes = OnboardingAvance::query()->where('onboarding_proceso_id', $proceso->id)->pluck('onboarding_modulo_id')->all();
+        $faltantes = OnboardingModulo::query()
+            ->where('activo', true)
+            ->where('tipo', TipoModuloOnboarding::Institucional->value)
+            ->whereNotNull('evaluacion_formal_clave')
+            ->whereNotIn('id', $existentes)
+            ->orderBy('orden')
+            ->orderBy('id')
+            ->get();
+
+        if ($faltantes->isEmpty()) {
+            return false;
+        }
+
+        DB::transaction(function () use ($proceso, $faltantes): void {
+            $orden = (int) OnboardingAvance::query()->where('onboarding_proceso_id', $proceso->id)->max('orden');
+
+            foreach ($faltantes as $modulo) {
+                OnboardingAvance::query()->create([
+                    'onboarding_proceso_id' => $proceso->id,
+                    'onboarding_modulo_id' => $modulo->id,
+                    'tipo' => $modulo->tipo,
+                    'orden' => ++$orden,
+                    'estado' => EstadoAvanceOnboarding::Disponible,
+                ]);
+            }
+
+            $proceso->update(['estado' => $this->estadoSegunAvances($proceso->refresh())]);
+        });
+
+        $this->auditoria->registrar('onboarding_modulos_formales_agregados', $proceso, null, [
+            'colaborador_id' => $proceso->colaborador_id,
+            'modulos' => $faltantes->pluck('id')->all(),
+        ]);
+
+        return true;
+    }
+
+    /**
      * @return Collection<int, OnboardingModulo>
      */
     private function modulosPara(Colaborador $colaborador, bool $incluirInstitucional): Collection

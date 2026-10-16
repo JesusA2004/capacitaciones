@@ -60,8 +60,7 @@ function fecha(valor: string | null): string {
                     "
                 />
                 <span>
-                    <span
-                        class="block text-xs text-[var(--mrl-texto-suave)]"
+                    <span class="block text-xs text-[var(--mrl-texto-suave)]"
                         >Siguiente</span
                     >
                     <span

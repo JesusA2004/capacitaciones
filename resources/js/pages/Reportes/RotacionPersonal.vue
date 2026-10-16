@@ -283,6 +283,7 @@ const NOMBRE_MES = [
 
         <!-- Filtros -->
         <section
+            data-tour="rotacion-filtros"
             class="flex flex-wrap items-end gap-4 rounded-2xl border border-border bg-card p-4"
         >
             <div class="flex min-w-56 flex-col gap-1.5">
@@ -317,7 +318,10 @@ const NOMBRE_MES = [
         </section>
 
         <!-- Indicadores -->
-        <section class="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <section
+            data-tour="rotacion-indicadores"
+            class="grid grid-cols-2 gap-3 lg:grid-cols-5"
+        >
             <div class="rounded-2xl border border-border bg-card p-4">
                 <p class="text-xs text-muted-foreground">Altas</p>
                 <p class="text-2xl font-semibold">
@@ -354,7 +358,10 @@ const NOMBRE_MES = [
         </section>
 
         <!-- Gráfica -->
-        <section class="rounded-2xl border border-border bg-card p-4">
+        <section
+            data-tour="rotacion-grafica"
+            class="rounded-2xl border border-border bg-card p-4"
+        >
             <h2 class="mb-2 text-sm font-semibold">
                 Índice de rotación por mes
             </h2>
@@ -377,7 +384,10 @@ const NOMBRE_MES = [
         </section>
 
         <!-- Tabla mensual -->
-        <section class="rounded-2xl border border-border bg-card p-4">
+        <section
+            data-tour="rotacion-tabla"
+            class="rounded-2xl border border-border bg-card p-4"
+        >
             <h2 class="mb-3 text-sm font-semibold">Detalle mensual</h2>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm">
@@ -511,6 +521,7 @@ const NOMBRE_MES = [
         <!-- Carga del Excel (solo RH con rotacion.cargar) -->
         <template v-if="puedeCargar">
             <section
+                data-tour="rotacion-carga"
                 class="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5"
             >
                 <h2 class="text-sm font-semibold">Cargar Excel de rotación</h2>

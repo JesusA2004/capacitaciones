@@ -240,6 +240,25 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
             'Con muchas categorías la gráfica muestra las principales; el detalle completo está en la exportación.',
         ],
     },
+    rotacion: {
+        queEs: 'La rotación de personal oficial de cada mes, por sucursal, cargada desde el Excel de rotación de RH (bajas × 100 / plantilla del mes).',
+        puedes: [
+            'Ver altas, bajas, plantilla y el índice de rotación por mes y por sucursal.',
+            'Filtrar por sucursal y hasta qué mes ver.',
+            'Descargar el formato del Excel y, con permiso de carga, subirlo con vista previa antes de aplicarlo.',
+        ],
+        flujo: [
+            'Descarga el formato del año y llénalo.',
+            'Súbelo: revisa la vista previa y sus hallazgos.',
+            'Confirma la carga; la gráfica y las tablas se actualizan.',
+        ],
+        permisos:
+            'Consultan RH, dirección comercial, auditoría, dirección y sistemas; solo RH administración carga el Excel.',
+        errores: [
+            'Una fila o columna que no cuadra aparece como hallazgo en la vista previa: corrige el Excel y vuelve a subirlo.',
+            'Sin datos cargados para el periodo, la gráfica lo indica: falta subir el Excel de esos meses.',
+        ],
+    },
     cumpleanos: {
         queEs: 'Los cumpleaños del equipo: hoy, el calendario del mes y los próximos, con tarjeta de felicitación.',
         puedes: [

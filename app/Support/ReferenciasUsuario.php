@@ -14,6 +14,22 @@ final class ReferenciasUsuario
 {
     /** @var list<array{0: string, 1: string, 2: 'cascade'|'set_null'|'restrict'}> */
     public const COLUMNAS = [
+        // Migraciones 2026-10-15/16: acuses de descriptivo, división de
+        // históricos, firma física de finiquito y responsivas, rotación
+        // cargada por Excel y sesiones de inducción presentadas por RH.
+        ['acuses_descriptivo_puesto', 'enviado_por', 'restrict'],
+        ['divisiones_expediente_historico', 'ejecutado_por', 'set_null'],
+        ['finiquito_calculos', 'firmado_fisicamente_por', 'set_null'],
+        ['partes_division_historico', 'asignado_por', 'set_null'],
+        ['responsivas', 'cancelada_por', 'set_null'],
+        ['responsivas', 'devolucion_registrada_por', 'set_null'],
+        ['responsivas', 'entregado_por', 'restrict'],
+        ['responsivas', 'firmada_fisicamente_por', 'set_null'],
+        ['responsivas', 'firmada_subida_por', 'set_null'],
+        ['responsivas', 'registrado_por', 'set_null'],
+        ['rotacion_cargas', 'aplicado_por', 'restrict'],
+        ['rotacion_cargas', 'subido_por', 'restrict'],
+        ['sesiones_induccion', 'presentada_por', 'restrict'],
         ['acta_anexos', 'subido_por', 'set_null'],
         ['actas_administrativas', 'creado_por', 'set_null'],
         ['actas_administrativas', 'responsable_id', 'set_null'],

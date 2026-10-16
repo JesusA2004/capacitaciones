@@ -47,10 +47,7 @@ class SesionInduccionController extends Controller
     {
         $sesion = $this->sesiones->enviarEvaluacion($sesion, $request->user());
 
-        return to_route('induccion.presentacion')->with('toast', [
-            'type' => 'success',
-            'message' => sprintf('Evaluación enviada a %d colaborador(es): les llegó el aviso en la app para contestarla.', $sesion->asistentes->count()),
-        ]);
+        return to_route('induccion.presentacion')->with('toast', $this->sesiones->mensajeEnvio($sesion));
     }
 
     public function cancelar(Request $request, SesionInduccion $sesion): RedirectResponse

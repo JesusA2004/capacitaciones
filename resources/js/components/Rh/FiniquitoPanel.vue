@@ -246,10 +246,9 @@ function guardarAjuste() {
 }
 
 function eliminarConcepto(id: number) {
-    router.delete(
-        eliminarConceptoRoute.url([props.solicitudId, id]),
-        { preserveScroll: true },
-    );
+    router.delete(eliminarConceptoRoute.url([props.solicitudId, id]), {
+        preserveScroll: true,
+    });
 }
 </script>
 
@@ -349,9 +348,14 @@ function eliminarConcepto(id: number) {
                     <p class="text-sm font-medium">
                         {{ finiquito.vacaciones_pendientes }} días
                         <span
-                            v-if="Number(finiquito.vacaciones_proporcionales) > 0"
+                            v-if="
+                                Number(finiquito.vacaciones_proporcionales) > 0
+                            "
                             class="block text-xs font-normal text-muted-foreground"
-                            >+ {{ finiquito.vacaciones_proporcionales }}
+                            >+
+                            {{
+                                finiquito.vacaciones_proporcionales
+                            }}
                             proporcionales del año en curso</span
                         >
                     </p>
@@ -362,55 +366,126 @@ function eliminarConcepto(id: number) {
                  (editables/eliminables) — misma fuente que el PDF. -->
             <table class="w-full text-sm">
                 <tbody class="divide-y divide-border/60">
-                    <tr
-                        v-if="ajustandoClave"
-                        class="bg-warning-soft/40"
-                    >
+                    <tr v-if="ajustandoClave" class="bg-warning-soft/40">
                         <td colspan="4" class="p-2">
-                            <form class="flex flex-wrap items-end gap-2" @submit.prevent="guardarAjuste">
-                                <span class="w-full text-xs font-medium">Ajuste autorizado de «{{ desglose.find((f) => f.concepto_clave === ajustandoClave)?.concepto }}» (calculado {{ moneda(desglose.find((f) => f.concepto_clave === ajustandoClave)?.valor_calculado ?? 0) }})</span>
-                                <Input v-model="formAjuste.importe" type="number" min="0" step="0.01" class="w-32" title="Importe final" />
-                                <Input v-model="formAjuste.motivo" class="min-w-[12rem] flex-1" placeholder="Motivo del ajuste (obligatorio)" />
-                                <Button type="submit" size="sm" :disabled="formAjuste.processing">Guardar</Button>
-                                <Button type="button" size="sm" variant="ghost" @click="ajustandoClave = null">Cancelar</Button>
-                                <p v-if="formAjuste.errors.motivo || formAjuste.errors.importe" class="w-full text-xs text-destructive">{{ formAjuste.errors.motivo ?? formAjuste.errors.importe }}</p>
+                            <form
+                                class="flex flex-wrap items-end gap-2"
+                                @submit.prevent="guardarAjuste"
+                            >
+                                <span class="w-full text-xs font-medium"
+                                    >Ajuste autorizado de «{{
+                                        desglose.find(
+                                            (f) =>
+                                                f.concepto_clave ===
+                                                ajustandoClave,
+                                        )?.concepto
+                                    }}» (calculado
+                                    {{
+                                        moneda(
+                                            desglose.find(
+                                                (f) =>
+                                                    f.concepto_clave ===
+                                                    ajustandoClave,
+                                            )?.valor_calculado ?? 0,
+                                        )
+                                    }})</span
+                                >
+                                <Input
+                                    v-model="formAjuste.importe"
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    class="w-32"
+                                    title="Importe final"
+                                />
+                                <Input
+                                    v-model="formAjuste.motivo"
+                                    class="min-w-[12rem] flex-1"
+                                    placeholder="Motivo del ajuste (obligatorio)"
+                                />
+                                <Button
+                                    type="submit"
+                                    size="sm"
+                                    :disabled="formAjuste.processing"
+                                    >Guardar</Button
+                                >
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    @click="ajustandoClave = null"
+                                    >Cancelar</Button
+                                >
+                                <p
+                                    v-if="
+                                        formAjuste.errors.motivo ||
+                                        formAjuste.errors.importe
+                                    "
+                                    class="w-full text-xs text-destructive"
+                                >
+                                    {{
+                                        formAjuste.errors.motivo ??
+                                        formAjuste.errors.importe
+                                    }}
+                                </p>
                             </form>
                         </td>
                     </tr>
-                    <tr v-for="fila in desglose" :key="fila.id ?? fila.clave ?? fila.concepto">
+                    <tr
+                        v-for="fila in desglose"
+                        :key="fila.id ?? fila.clave ?? fila.concepto"
+                    >
                         <template v-if="fila.id !== editandoConceptoId">
-                            <td class="w-12 py-1.5 font-mono text-xs text-muted-foreground tabular-nums">
+                            <td
+                                class="w-12 py-1.5 font-mono text-xs text-muted-foreground tabular-nums"
+                            >
                                 {{ fila.clave }}
                             </td>
                             <td class="py-1.5 text-muted-foreground">
                                 <span
                                     class="mr-1.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-medium"
-                                    :class="fila.tipo === 'deduccion' ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'"
-                                    >{{ fila.tipo === 'deduccion' ? 'Deducción' : 'Percepción' }}</span
+                                    :class="
+                                        fila.tipo === 'deduccion'
+                                            ? 'bg-destructive/10 text-destructive'
+                                            : 'bg-primary/10 text-primary'
+                                    "
+                                    >{{
+                                        fila.tipo === 'deduccion'
+                                            ? 'Deducción'
+                                            : 'Percepción'
+                                    }}</span
                                 >
                                 {{ fila.concepto }}
-                                <span
-                                    v-if="fila.dias"
-                                    class="text-xs"
+                                <span v-if="fila.dias" class="text-xs"
                                     >({{ fila.dias }} días)</span
                                 >
                                 <span
                                     v-if="fila.ajustado && fila.ajuste"
                                     class="mt-0.5 block text-[11px] text-warning"
                                     :title="fila.ajuste.motivo"
-                                    >Ajustado: calculado {{ moneda(fila.ajuste.valor_calculado) }} → {{ moneda(fila.ajuste.valor_final) }} · {{ fila.ajuste.motivo }}<template v-if="fila.ajuste.usuario"> · {{ fila.ajuste.usuario }}</template></span
+                                    >Ajustado: calculado
+                                    {{ moneda(fila.ajuste.valor_calculado) }} →
+                                    {{ moneda(fila.ajuste.valor_final) }} ·
+                                    {{ fila.ajuste.motivo
+                                    }}<template v-if="fila.ajuste.usuario">
+                                        · {{ fila.ajuste.usuario }}</template
+                                    ></span
                                 >
                                 <span
                                     v-if="fila.origen === 'manual'"
-                                    class="ml-1 rounded bg-muted px-1 py-0.5 text-[10px] uppercase text-muted-foreground"
+                                    class="ml-1 rounded bg-muted px-1 py-0.5 text-[10px] text-muted-foreground uppercase"
                                     >manual</span
                                 >
                             </td>
                             <td class="py-1.5 text-right tabular-nums">
-                                {{ fila.tipo === 'deduccion' ? '−' : '' }}{{ moneda(fila.importe) }}
+                                {{ fila.tipo === 'deduccion' ? '−' : ''
+                                }}{{ moneda(fila.importe) }}
                             </td>
                             <td
-                                v-if="fila.origen === 'manual' && puedeEditarAjustes"
+                                v-if="
+                                    fila.origen === 'manual' &&
+                                    puedeEditarAjustes
+                                "
                                 class="w-16 py-1.5 text-right"
                             >
                                 <button
@@ -429,7 +504,11 @@ function eliminarConcepto(id: number) {
                                 </button>
                             </td>
                             <td
-                                v-else-if="fila.concepto_clave && puedeEditarAjustes && !cerrado"
+                                v-else-if="
+                                    fila.concepto_clave &&
+                                    puedeEditarAjustes &&
+                                    !cerrado
+                                "
                                 class="w-16 py-1.5 text-right"
                             >
                                 <button
@@ -777,7 +856,11 @@ function eliminarConcepto(id: number) {
                     Generar PDF oficial
                 </Button>
                 <Button v-if="!cerrado" as-child size="sm" variant="outline">
-                    <a :href="vistaPrevia.url(solicitudId)" target="_blank" rel="noopener">
+                    <a
+                        :href="vistaPrevia.url(solicitudId)"
+                        target="_blank"
+                        rel="noopener"
+                    >
                         <Eye class="size-4" />
                         Vista previa
                     </a>

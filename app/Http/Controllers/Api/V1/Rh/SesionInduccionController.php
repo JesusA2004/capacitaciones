@@ -49,7 +49,7 @@ class SesionInduccionController extends Controller
     {
         $sesion = $this->sesiones->enviarEvaluacion($sesion, $request->user());
 
-        return response()->json(['data' => $this->sesiones->aArray($sesion)]);
+        return response()->json(['data' => $this->sesiones->aArray($sesion), 'message' => $this->sesiones->mensajeEnvio($sesion)['message']]);
     }
 
     public function cancelar(Request $request, SesionInduccion $sesion): JsonResponse

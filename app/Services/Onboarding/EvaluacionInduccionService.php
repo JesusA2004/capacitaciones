@@ -74,6 +74,10 @@ class EvaluacionInduccionService
      */
     public function habilitarPara(OnboardingProceso $proceso, ?SesionInduccion $sesion = null): ?EvaluacionInduccion
     {
+        // Onboardings abiertos antes de existir el módulo de la evaluación
+        // formal: se le agrega para que la evaluación sí pueda habilitarse.
+        $this->onboarding->asegurarModulosFormales($proceso);
+
         $avances = $proceso->avances()
             ->whereHas('modulo', fn (Builder $q) => $q
                 ->where('tipo', TipoModuloOnboarding::Institucional->value)

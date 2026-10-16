@@ -273,6 +273,33 @@ class SesionInduccionService
     }
 
     /**
+     * Mensaje para RH tras «Enviar evaluación»: a cuántos se les habilitó y
+     * quiénes no tienen proceso de ingreso abierto (no se les envió nada).
+     * Nunca dice «enviada» a quien no la recibió. Es el toast del web.
+     *
+     * @return array{type: string, message: string}
+     */
+    public function mensajeEnvio(SesionInduccion $sesion): array
+    {
+        $asistentes = $sesion->asistentes()->with('colaborador')->get();
+        $sinProceso = $asistentes->filter(fn (SesionInduccionColaborador $a): bool => $a->resultado === ResultadoAsistenciaInduccion::SinProcesoIngreso);
+        $enviadas = $asistentes->count() - $sinProceso->count();
+
+        $mensaje = $enviadas > 0
+            ? sprintf('Evaluación enviada a %d colaborador(es): les llegó el aviso en la app para contestarla.', $enviadas)
+            : 'No se envió ninguna evaluación.';
+
+        if ($sinProceso->isNotEmpty()) {
+            $mensaje .= sprintf(
+                ' Sin proceso de ingreso abierto (no se les envió): %s. Su evaluación se habilitará cuando inicie su onboarding.',
+                $sinProceso->map(fn (SesionInduccionColaborador $a): string => $a->colaborador->nombreCompleto())->implode(', '),
+            );
+        }
+
+        return ['type' => $sinProceso->isEmpty() ? 'success' : 'warning', 'message' => $mensaje];
+    }
+
+    /**
      * @throws AuthorizationException
      * @throws ValidationException
      */

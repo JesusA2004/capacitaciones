@@ -21,6 +21,7 @@ import {
     ShieldCheck,
     Smartphone,
     Sparkles,
+    TrendingDown,
     UserRound,
     Users,
 } from '@lucide/vue';
@@ -580,6 +581,51 @@ export const MODULOS_GUIA: ModuloGuia[] = [
                 selector: sel('encabezado'),
                 titulo: 'Exportar',
                 texto: 'Descarga exactamente lo que ves (mismo reporte y filtros) a Excel o PDF, con la gráfica incluida. Los botones aparecen si tu rol tiene permiso de exportar.',
+            },
+        ],
+    },
+    {
+        id: 'rotacion',
+        nombre: 'Rotación de personal',
+        ruta: '/reportes/rotacion',
+        patron: /^\/reportes\/rotacion$/,
+        modo: 'operativo',
+        permisos: ['rotacion.ver'],
+        grupo: 'Análisis',
+        icono: TrendingDown,
+        descripcion:
+            'Índice de rotación mensual por sucursal, cargado desde el Excel de RH (bajas × 100 / plantilla del mes).',
+        pasos: [
+            {
+                titulo: 'Rotación de personal',
+                texto: 'Aquí ves la rotación oficial que RH reporta cada mes: se carga desde el Excel de rotación, no se calcula en vivo.',
+            },
+            {
+                selector: sel('rotacion-filtros'),
+                titulo: 'Filtra',
+                texto: 'Elige la sucursal y hasta qué mes ver. «Todas» muestra el consolidado de la empresa.',
+            },
+            {
+                selector: sel('rotacion-indicadores'),
+                titulo: 'Indicadores',
+                texto: 'Altas, bajas, plantilla al cierre, promedio mensual y la rotación acumulada de los meses con datos.',
+            },
+            {
+                selector: sel('rotacion-grafica'),
+                titulo: 'Tendencia mensual',
+                texto: 'El índice de rotación mes a mes. Si todavía no hay datos cargados, aquí lo indica.',
+                opcional: true,
+            },
+            {
+                selector: sel('rotacion-tabla'),
+                titulo: 'Detalle mensual',
+                texto: 'Plantilla inicial, altas, bajas (voluntarias e involuntarias si el Excel las trae) e índice de cada mes.',
+            },
+            {
+                selector: sel('rotacion-carga'),
+                titulo: 'Cargar el Excel de rotación',
+                texto: 'Descarga el formato, llénalo y súbelo: verás una vista previa con los hallazgos (filas o columnas que no cuadran) antes de confirmar. Nada se aplica sin tu confirmación.',
+                opcional: true,
             },
         ],
     },

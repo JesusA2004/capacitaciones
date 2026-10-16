@@ -462,7 +462,7 @@ test('F: el jefe recomienda NO renovar — no hay baja hasta que RH autoriza, y 
     expect(fn () => app(CierreLaboralService::class)->ejecutarBaja($cierre, $this->rh))->toThrow(ValidationException::class);
 });
 
-test('G: cierre — gerente inicia la baja (aplicada al instante), finiquito, regional programa, firma y pago, cierre conservando el expediente', function () {
+test('G: cierre — gerente inicia la baja (aplicada al instante), RH calcula el finiquito y registra su entrega, cierre conservando el expediente', function () {
     $colaborador = Colaborador::factory()->create([
         'sucursal_principal_id' => $this->sucursalA->id,
         'puesto_id' => $this->puesto->id,
@@ -491,35 +491,24 @@ test('G: cierre — gerente inicia la baja (aplicada al instante), finiquito, re
     expect(GeneratedDocument::query()->where('documentable_type', $cierre->getMorphClass())->where('documentable_id', $cierre->id)->where('clave_plantilla', 'carta_renuncia')->count())->toBe(1);
 
     $cierres->calcularFiniquito($cierre, $this->rh, 12000);
-    $cierre = $cierres->autorizarFiniquito($cierre->refresh(), $this->rh);
-    expect($cierre->estado)->toBe(EstadoCierreLaboral::FiniquitoAutorizado);
+    $cierre->refresh();
 
-    expect(fn () => $cierres->programarPago($cierre, $this->gerenteA, ['fecha' => now()->addDays(3)->toDateString(), 'metodo' => 'transferencia']))->toThrow(AuthorizationException::class);
-    $cierre = $cierres->programarPago($cierre, $this->pagador, ['fecha' => now()->addDays(3)->toDateString(), 'metodo' => 'transferencia', 'observaciones' => 'Flujo semana 41']);
-    expect($cierre->estado)->toBe(EstadoCierreLaboral::PagoProgramado)
-        ->and(TareaRh::query()->where('tipo', TipoTarea::CitaFiniquito->value)->whereNull('resuelta_en')->value('asignado_user_id'))->toBe($this->gerenteA->id);
+    // Sin autorizar el finiquito, programar pago ni cita: un solo pendiente,
+    // «Entregar finiquito», y ninguna acción del flujo anterior.
+    expect($cierre->estado)->toBe(EstadoCierreLaboral::FiniquitoEnProceso)
+        ->and(TareaRh::query()->where('relacionado_id', $cierre->id)->where('tipo', TipoTarea::FiniquitoPorAutorizar->value)->whereNull('resuelta_en')->count())->toBe(1)
+        ->and(TareaRh::query()->where('relacionado_id', $cierre->id)->whereIn('tipo', [TipoTarea::PagoPorProgramar->value, TipoTarea::CitaFiniquito->value])->whereNull('resuelta_en')->count())->toBe(0)
+        ->and(array_column($cierres->accionesPermitidas($cierre, $this->rh), 'clave'))->not->toContain('programar_pago', 'registrar_cita', 'confirmar_pago', 'finiquito_firmado', 'registrar_aviso');
 
-    $this->actingAs($this->gerenteA);
-    $cierres->registrarCita($cierre, $this->gerenteA, now()->addDays(3)->setTime(10, 0)->toDateTimeString());
-    $cierres->registrarFiniquitoFirmado($cierre->refresh(), clArchivoPdf('finiquito-firmado.pdf'), $this->gerenteA);
-    $cierre = $cierres->confirmarPago($cierre->refresh(), $this->gerenteA, 'SPEI-123');
-    expect($cierre->estado)->toBe(EstadoCierreLaboral::Pagado);
-
-    // Antes de la fecha efectiva no hay baja.
-    expect(fn () => $cierres->cerrar($cierre, $this->rh))->toThrow(ValidationException::class);
+    // Antes de la fecha efectiva no se registra la entrega (no hay baja).
+    expect(fn () => $cierres->registrarEntregaFiniquito($cierre, $this->rh, ['fecha' => now()->toDateString(), 'forma_pago' => 'transferencia']))->toThrow(ValidationException::class);
 
     Carbon::setTestNow(now()->addDays(3));
 
-    // El scheduler abre UN pendiente "concluir cierre" aunque corra varias veces.
-    $this->artisan('cierres:revisar-fechas')->assertSuccessful();
-    $this->artisan('cierres:revisar-fechas')->assertSuccessful();
-    expect(TareaRh::query()->where('tipo', TipoTarea::CierrePorConcluir->value)->where('relacionado_id', $cierre->id)->whereNull('resuelta_en')->count())->toBe(1);
-
-    $this->actingAs($this->rh);
-    $cierre = $cierres->cerrar($cierre->refresh(), $this->rh);
+    $cierre = $cierres->registrarEntregaFiniquito($cierre->refresh(), $this->rh, ['fecha' => now()->toDateString(), 'forma_pago' => 'transferencia', 'comentario' => 'Entregado en sucursal.']);
 
     expect($cierre->estado)->toBe(EstadoCierreLaboral::ExpedienteCerrado)
-        ->and(TareaRh::query()->where('relacionado_id', $cierre->id)->where('tipo', TipoTarea::CierrePorConcluir->value)->whereNull('resuelta_en')->count())->toBe(0)
+        ->and(TareaRh::query()->where('relacionado_id', $cierre->id)->where('relacionado_type', $cierre->getMorphClass())->whereNull('resuelta_en')->count())->toBe(0)
         ->and(Colaborador::withTrashed()->find($colaborador->id))->not->toBeNull()
         ->and(Colaborador::withTrashed()->find($colaborador->id)->estatus)->toBe(EstadoUsuario::Inactivo)
         ->and(User::query()->find($usuario->id))->not->toBeNull();

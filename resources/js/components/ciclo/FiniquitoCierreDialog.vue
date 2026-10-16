@@ -316,9 +316,7 @@ const erroresEntrega = computed(() => formEntrega.errors as Errores);
                         </dd>
                     </div>
                     <div>
-                        <dt class="text-xs text-muted-foreground">
-                            Calculado
-                        </dt>
+                        <dt class="text-xs text-muted-foreground">Calculado</dt>
                         <dd>
                             {{ formatearFecha(finiquito.fecha_calculo) }}
                             <span
@@ -344,8 +342,16 @@ const erroresEntrega = computed(() => formEntrega.errors as Errores);
 
                 <div
                     v-for="grupo in [
-                        { titulo: 'Percepciones', filas: percepciones, total: finiquito.total_percepciones },
-                        { titulo: 'Deducciones', filas: deducciones, total: finiquito.total_deducciones },
+                        {
+                            titulo: 'Percepciones',
+                            filas: percepciones,
+                            total: finiquito.total_percepciones,
+                        },
+                        {
+                            titulo: 'Deducciones',
+                            filas: deducciones,
+                            total: finiquito.total_deducciones,
+                        },
                     ]"
                     :key="grupo.titulo"
                     class="overflow-x-auto"
@@ -362,9 +368,7 @@ const erroresEntrega = computed(() => formEntrega.errors as Errores);
                                 <th class="w-16 py-1.5 text-right font-medium">
                                     Días
                                 </th>
-                                <th
-                                    class="w-32 py-1.5 text-right font-medium"
-                                >
+                                <th class="w-32 py-1.5 text-right font-medium">
                                     Importe
                                 </th>
                                 <th v-if="editable" class="w-20" />
@@ -376,7 +380,9 @@ const erroresEntrega = computed(() => formEntrega.errors as Errores);
                                 :key="claveFila(fila)"
                             >
                                 <tr class="border-b border-border/50 align-top">
-                                    <td class="py-2 text-xs text-muted-foreground">
+                                    <td
+                                        class="py-2 text-xs text-muted-foreground"
+                                    >
                                         {{ fila.clave }}
                                     </td>
                                     <td class="py-2">
@@ -385,12 +391,23 @@ const erroresEntrega = computed(() => formEntrega.errors as Errores);
                                             v-if="fila.ajuste"
                                             class="block text-xs text-[var(--mrl-texto-suave)]"
                                             >Ajustado: calculado
-                                            {{ moneda(fila.ajuste.valor_calculado) }}
+                                            {{
+                                                moneda(
+                                                    fila.ajuste.valor_calculado,
+                                                )
+                                            }}
                                             →
-                                            {{ moneda(fila.ajuste.valor_final) }}
+                                            {{
+                                                moneda(fila.ajuste.valor_final)
+                                            }}
                                             · {{ fila.ajuste.motivo
-                                            }}<template v-if="fila.ajuste.usuario">
-                                                · {{ fila.ajuste.usuario }}</template
+                                            }}<template
+                                                v-if="fila.ajuste.usuario"
+                                            >
+                                                ·
+                                                {{
+                                                    fila.ajuste.usuario
+                                                }}</template
                                             ><template v-if="fila.ajuste.fecha">
                                                 ·
                                                 {{
@@ -440,7 +457,8 @@ const erroresEntrega = computed(() => formEntrega.errors as Errores);
                                             @submit.prevent="guardarMonto(fila)"
                                         >
                                             <div class="grid gap-1">
-                                                <Label :for="`monto-${claveFila(fila)}`"
+                                                <Label
+                                                    :for="`monto-${claveFila(fila)}`"
                                                     >Importe</Label
                                                 >
                                                 <Input
@@ -450,11 +468,14 @@ const erroresEntrega = computed(() => formEntrega.errors as Errores);
                                                     placeholder="0.00"
                                                 />
                                                 <InputError
-                                                    :message="formMonto.errors.importe"
+                                                    :message="
+                                                        formMonto.errors.importe
+                                                    "
                                                 />
                                             </div>
                                             <div class="grid gap-1">
-                                                <Label :for="`motivo-${claveFila(fila)}`"
+                                                <Label
+                                                    :for="`motivo-${claveFila(fila)}`"
                                                     >Motivo del cambio</Label
                                                 >
                                                 <Input
@@ -464,7 +485,8 @@ const erroresEntrega = computed(() => formEntrega.errors as Errores);
                                                 />
                                                 <InputError
                                                     :message="
-                                                        formMonto.errors.motivo ??
+                                                        formMonto.errors
+                                                            .motivo ??
                                                         erroresMonto.observaciones ??
                                                         erroresMonto.estado
                                                     "
@@ -489,7 +511,9 @@ const erroresEntrega = computed(() => formEntrega.errors as Errores);
                                             <p
                                                 v-if="
                                                     formMonto.importe !== '' &&
-                                                    !MONTO.test(formMonto.importe.trim())
+                                                    !MONTO.test(
+                                                        formMonto.importe.trim(),
+                                                    )
                                                 "
                                                 class="text-xs text-destructive sm:col-span-3"
                                             >
@@ -662,7 +686,9 @@ const erroresEntrega = computed(() => formEntrega.errors as Errores);
                         >
                         <Button
                             type="submit"
-                            :disabled="!formEntrega.fecha || formEntrega.processing"
+                            :disabled="
+                                !formEntrega.fecha || formEntrega.processing
+                            "
                             ><PackageCheck class="size-4" /> Confirmar entrega y
                             cerrar</Button
                         >
@@ -671,12 +697,13 @@ const erroresEntrega = computed(() => formEntrega.errors as Errores);
 
                 <div class="flex flex-wrap items-center justify-end gap-2">
                     <Button as-child variant="outline">
-                        <a
-                            :href="urlVistaPrevia"
-                            target="_blank"
-                            rel="noopener"
+                        <a :href="urlVistaPrevia" target="_blank" rel="noopener"
                             ><Eye class="size-4" />
-                            {{ editable ? 'Vista previa PDF' : 'Ver / imprimir PDF' }}</a
+                            {{
+                                editable
+                                    ? 'Vista previa PDF'
+                                    : 'Ver / imprimir PDF'
+                            }}</a
                         >
                     </Button>
                     <Button

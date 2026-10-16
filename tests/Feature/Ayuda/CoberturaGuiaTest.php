@@ -103,6 +103,7 @@ const SIDEBAR_A_GUIA = [
     'Inducción Mr. Lana' => ['induccion'],
     'Presentar inducción' => ['presentar-induccion'],
     'Descriptivos y perfiles' => ['perfiles-puesto'],
+    'Rotación de personal' => ['rotacion'],
 ];
 
 const SIDEBAR_SIN_GUIA = [
@@ -235,6 +236,7 @@ const PANTALLAS_GUIA = [
     'presentar-induccion' => ['pages/Portal/Induccion.vue'],
     'actas' => ['pages/Rh/Actas/Index.vue'],
     'perfiles-puesto' => ['pages/Rh/PerfilesPuesto/Index.vue', 'pages/Rh/PerfilesPuesto/Show.vue', 'pages/Rh/PerfilesPuesto/Editar.vue'],
+    'rotacion' => ['pages/Reportes/RotacionPersonal.vue'],
 ];
 
 test('cada selector de cada módulo existe en SU pantalla (no solo en alguna)', function () {
