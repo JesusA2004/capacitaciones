@@ -1184,10 +1184,7 @@ function colorMatch(t: Fila['nas']['tipo']): string {
                     Se ejecuta en segundo plano: puedes cerrar esta pestaña y
                     volver después; el avance se conserva.
                 </p>
-                <p
-                    v-if="segundosEnCola > 30"
-                    class="text-xs text-warning"
-                >
+                <p v-if="segundosEnCola > 30" class="text-xs text-warning">
                     Sigue en cola. Verifica que el servidor tenga corriendo
                     <code>php artisan queue:work</code>.
                 </p>

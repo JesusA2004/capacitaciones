@@ -742,10 +742,7 @@ const fuenteDomicilio: Record<string, string> = {
                     v-if="prueba.faltantes.length || prueba.desbordes.length"
                     class="flex flex-col gap-1 text-xs"
                 >
-                    <li
-                        v-if="prueba.faltantes.length"
-                        class="text-warning"
-                    >
+                    <li v-if="prueba.faltantes.length" class="text-warning">
                         Faltan datos del colaborador (en el PDF quedan en
                         blanco): {{ prueba.faltantes.join(', ') }}
                     </li>
@@ -971,7 +968,8 @@ const fuenteDomicilio: Record<string, string> = {
                                     f.familia_encontrada !== f.fuente
                                 "
                                 class="text-[var(--mrl-texto-suave)]"
-                                >(resuelta como {{ f.familia_encontrada }})</span
+                                >(resuelta como
+                                {{ f.familia_encontrada }})</span
                             >
                             <span
                                 v-if="f.archivo"

@@ -292,7 +292,10 @@ export type LaminasOrganigrama = {
     comercial: {
         director: CajaLamina;
         apoyo: CajaLamina[];
-        columnas: (CajaLamina & { cadena: CajaLamina[]; hijos: CajaLamina[] })[];
+        columnas: (CajaLamina & {
+            cadena: CajaLamina[];
+            hijos: CajaLamina[];
+        })[];
         leyenda: { directa?: string; apoyo?: string };
     };
     sucursal: {
@@ -394,7 +397,11 @@ export type DatosDescriptivo = {
     compromisos_culturales: string[];
     metadatos: Partial<
         Record<
-            'elaboro' | 'reviso' | 'autorizo' | 'fecha_elaboracion' | 'fecha_revision',
+            | 'elaboro'
+            | 'reviso'
+            | 'autorizo'
+            | 'fecha_elaboracion'
+            | 'fecha_revision',
             string | null
         >
     >;

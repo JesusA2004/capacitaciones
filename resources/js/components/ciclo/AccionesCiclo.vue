@@ -42,7 +42,9 @@ const visibles = computed(() =>
 const enMenu = computed(() =>
     resto.value.filter((a) => !visibles.value.includes(a)),
 );
-const seguras = computed(() => enMenu.value.filter((a) => a.tipo !== 'peligro'));
+const seguras = computed(() =>
+    enMenu.value.filter((a) => a.tipo !== 'peligro'),
+);
 const peligrosas = computed(() =>
     enMenu.value.filter((a) => a.tipo === 'peligro'),
 );
@@ -73,7 +75,9 @@ const peligrosas = computed(() =>
                     @click="emit('accion', a)"
                     >{{ a.etiqueta }}</DropdownMenuItem
                 >
-                <DropdownMenuSeparator v-if="seguras.length && peligrosas.length" />
+                <DropdownMenuSeparator
+                    v-if="seguras.length && peligrosas.length"
+                />
                 <DropdownMenuItem
                     v-for="a in peligrosas"
                     :key="a.clave"

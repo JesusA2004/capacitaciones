@@ -162,15 +162,29 @@ const conArchivos = ['solicitar_baja', 'registrar_aviso', 'finiquito_firmado'];
 // Acciones propias de esta pantalla que se suman a las del proceso.
 const accionesExtra = computed<AccionCiclo[]>(() => [
     ...(props.evaluacion &&
-    props.ciclo.acciones_permitidas.some((a) => a.clave === 'autorizar_evaluacion')
-        ? [{ clave: 'devolver_evaluacion', etiqueta: 'Devolver evaluación', tipo: 'secundaria' }]
+    props.ciclo.acciones_permitidas.some(
+        (a) => a.clave === 'autorizar_evaluacion',
+    )
+        ? [
+              {
+                  clave: 'devolver_evaluacion',
+                  etiqueta: 'Devolver evaluación',
+                  tipo: 'secundaria',
+              },
+          ]
         : []),
     ...(props.evaluacion?.es_oficial &&
     !evaluacionEsElegible.value &&
     !excepcionVigente.value &&
     !excepcionPendiente.value &&
     props.puede_solicitar_excepcion
-        ? [{ clave: 'solicitar_excepcion', etiqueta: 'Solicitar excepción a Dirección General', tipo: 'peligro' }]
+        ? [
+              {
+                  clave: 'solicitar_excepcion',
+                  etiqueta: 'Solicitar excepción a Dirección General',
+                  tipo: 'peligro',
+              },
+          ]
         : []),
 ]);
 
@@ -255,34 +269,38 @@ const requiereComentarioCaptura = computed(
 const evaluacionEsElegible = computed(
     () => props.evaluacion?.recomienda_renovar === true,
 );
-const excepcionVigente = computed(
-    () =>
-        props.evaluacion?.excepcion?.estado === 'aprobada'
-            ? props.evaluacion.excepcion
-            : null,
+const excepcionVigente = computed(() =>
+    props.evaluacion?.excepcion?.estado === 'aprobada'
+        ? props.evaluacion.excepcion
+        : null,
 );
-const excepcionPendiente = computed(
-    () =>
-        props.evaluacion?.excepcion?.estado === 'pendiente'
-            ? props.evaluacion.excepcion
-            : null,
+const excepcionPendiente = computed(() =>
+    props.evaluacion?.excepcion?.estado === 'pendiente'
+        ? props.evaluacion.excepcion
+        : null,
 );
 
-const excepcionForm = useForm<{ motivo: string; documento_soporte: File | null }>({
+const excepcionForm = useForm<{
+    motivo: string;
+    documento_soporte: File | null;
+}>({
     motivo: '',
     documento_soporte: null,
 });
 const dialogoExcepcionAbierto = ref(false);
 
 function solicitarExcepcion() {
-    excepcionForm.post(evaluacionesExcepcion.solicitar.url(evaluacionId.value), {
-        forceFormData: true,
-        preserveScroll: true,
-        onSuccess: () => {
-            dialogoExcepcionAbierto.value = false;
-            excepcionForm.reset();
+    excepcionForm.post(
+        evaluacionesExcepcion.solicitar.url(evaluacionId.value),
+        {
+            forceFormData: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                dialogoExcepcionAbierto.value = false;
+                excepcionForm.reset();
+            },
         },
-    });
+    );
 }
 
 const resolverExcepcionForm = useForm<{
@@ -298,10 +316,13 @@ function resolverExcepcion(aprobar: boolean) {
     }
 
     resolverExcepcionForm.aprobar = aprobar;
-    resolverExcepcionForm.post(evaluacionesExcepcion.resolver.url(excepcionId), {
-        preserveScroll: true,
-        onSuccess: () => resolverExcepcionForm.reset(),
-    });
+    resolverExcepcionForm.post(
+        evaluacionesExcepcion.resolver.url(excepcionId),
+        {
+            preserveScroll: true,
+            onSuccess: () => resolverExcepcionForm.reset(),
+        },
+    );
 }
 
 function destino(clave: string): string {
@@ -357,18 +378,15 @@ function enviar() {
     });
 }
 
-// Control del original físico: cada paso pide los datos reales que exige
-// (paquetería/guía/fecha del envío, fecha y huella/testigos de la firma,
-// fecha de recepción, escaneo del original) — no basta cambiar un estado.
+// Control del original físico del flujo nuevo: el documento concluye al
+// registrar la firma física (fecha + huella/testigos). «Imprimir» y
+// «archivar» solo piden fecha/observaciones. Ya no se envía a corporativo
+// ni se escanea el original (se resguarda en papel).
 type FormDocumento = {
     fecha: string;
     observaciones: string;
     huella_registrada: boolean;
     testigos: { nombre: string; puesto: string }[];
-    paqueteria: string;
-    numero_guia: string;
-    comprobante: File | null;
-    archivo: File | null;
 };
 
 const formDocumento = useForm<FormDocumento>({
@@ -376,10 +394,6 @@ const formDocumento = useForm<FormDocumento>({
     observaciones: '',
     huella_registrada: false,
     testigos: [],
-    paqueteria: '',
-    numero_guia: '',
-    comprobante: null,
-    archivo: null,
 });
 const pasoDocumento = ref<{ documento: DocumentoLaboral; paso: string } | null>(
     null,
@@ -394,12 +408,12 @@ function operarDocumento(documento: DocumentoLaboral, paso: string) {
     pasoDocumento.value = { documento, paso };
 }
 
+// El flujo nuevo concluye en la firma física. «archivar» subsiste solo para
+// cerrar expedientes legacy que quedaron escaneados (continuación histórica);
+// nunca se ofrece como paso del flujo vigente.
 const rutasDocumento: Record<string, (id: number) => string> = {
     imprimir: (id) => documentosLaborales.imprimir.url(id),
     firma_fisica: (id) => documentosLaborales.firmaFisica.url(id),
-    envio: (id) => documentosLaborales.envio.url(id),
-    recepcion: (id) => documentosLaborales.recepcion.url(id),
-    escaneo: (id) => documentosLaborales.escaneo.url(id),
     archivar: (id) => documentosLaborales.archivar.url(id),
 };
 
@@ -426,18 +440,6 @@ function enviarPasoDocumento() {
                             (t) => t.nombre.trim() !== '',
                         ),
                     };
-                case 'envio':
-                    return {
-                        ...base,
-                        paqueteria: datos.paqueteria,
-                        numero_guia: datos.numero_guia,
-                        comprobante: datos.comprobante,
-                    };
-                case 'escaneo':
-                    return {
-                        observaciones: datos.observaciones,
-                        archivo: datos.archivo,
-                    };
                 case 'archivar':
                     return { observaciones: datos.observaciones };
                 default:
@@ -446,7 +448,6 @@ function enviarPasoDocumento() {
         })
         .post(rutasDocumento[paso](documento.id), {
             preserveScroll: true,
-            forceFormData: paso === 'envio' || paso === 'escaneo',
             onSuccess: () => (pasoDocumento.value = null),
         });
 }
@@ -454,17 +455,12 @@ function enviarPasoDocumento() {
 const etiquetaPaso: Record<string, string> = {
     imprimir: 'Marcar impreso',
     firma_fisica: 'Registrar firma',
-    envio: 'Registrar envío',
-    recepcion: 'Registrar recepción',
-    escaneo: 'Subir escaneo',
     archivar: 'Archivar original',
 };
 
 const etiquetaFecha: Record<string, string> = {
     imprimir: 'Fecha de impresión',
     firma_fisica: 'Fecha de firma',
-    envio: 'Fecha de envío',
-    recepcion: 'Fecha de recepción',
 };
 </script>
 
@@ -509,9 +505,7 @@ const etiquetaFecha: Record<string, string> = {
                         {{ excepcionPendiente.motivo }}
                     </p>
                     <div v-if="puede_resolver_excepcion" class="flex gap-2">
-                        <Button
-                            type="button"
-                            @click="resolverExcepcion(true)"
+                        <Button type="button" @click="resolverExcepcion(true)"
                             >Aprobar excepción</Button
                         >
                         <Button
@@ -709,54 +703,6 @@ const etiquetaFecha: Record<string, string> = {
                 class="flex flex-col gap-4"
                 @submit.prevent="enviarPasoDocumento"
             >
-                <template v-if="pasoDocumento.paso === 'envio'">
-                    <div class="grid gap-3 sm:grid-cols-2">
-                        <div class="grid gap-1.5">
-                            <Label for="doc-paqueteria">Paquetería</Label>
-                            <Input
-                                id="doc-paqueteria"
-                                v-model="formDocumento.paqueteria"
-                                required
-                            />
-                            <InputError
-                                :message="formDocumento.errors.paqueteria"
-                            />
-                        </div>
-                        <div class="grid gap-1.5">
-                            <Label for="doc-guia">Número de guía</Label>
-                            <Input
-                                id="doc-guia"
-                                v-model="formDocumento.numero_guia"
-                                required
-                            />
-                            <InputError
-                                :message="formDocumento.errors.numero_guia"
-                            />
-                        </div>
-                    </div>
-                    <div class="grid gap-1.5">
-                        <Label for="doc-comprobante"
-                            >Comprobante de envío (opcional)</Label
-                        >
-                        <PeopleFileDropzone
-                            :model-value="
-                                formDocumento.comprobante
-                                    ? [formDocumento.comprobante]
-                                    : []
-                            "
-                            accept=".pdf,.jpg,.jpeg,.png,.webp"
-                            label="Arrastra el comprobante aquí"
-                            @update:model-value="
-                                (f) =>
-                                    (formDocumento.comprobante = f[0] ?? null)
-                            "
-                        />
-                        <InputError
-                            :message="formDocumento.errors.comprobante"
-                        />
-                    </div>
-                </template>
-
                 <template v-if="pasoDocumento.paso === 'firma_fisica'">
                     <label class="flex items-center gap-2 text-sm">
                         <Casilla v-model="formDocumento.huella_registrada" />
@@ -806,26 +752,6 @@ const etiquetaFecha: Record<string, string> = {
                 </template>
 
                 <div
-                    v-if="pasoDocumento.paso === 'escaneo'"
-                    class="grid gap-1.5"
-                >
-                    <Label for="doc-archivo"
-                        >Escaneo del original firmado</Label
-                    >
-                    <PeopleFileDropzone
-                        :model-value="
-                            formDocumento.archivo ? [formDocumento.archivo] : []
-                        "
-                        accept=".pdf,.jpg,.jpeg,.png,.webp"
-                        label="Arrastra el escaneo aquí"
-                        @update:model-value="
-                            (f) => (formDocumento.archivo = f[0] ?? null)
-                        "
-                    />
-                    <InputError :message="formDocumento.errors.archivo" />
-                </div>
-
-                <div
                     v-if="etiquetaFecha[pasoDocumento.paso]"
                     class="grid gap-1.5"
                 >
@@ -837,13 +763,6 @@ const etiquetaFecha: Record<string, string> = {
                         id="doc-fecha"
                         :max-value="hoy"
                     />
-                    <p
-                        v-if="pasoDocumento.paso === 'recepcion'"
-                        class="text-xs text-[var(--mrl-texto-suave)]"
-                    >
-                        Queda registrado que tú recibiste el original en
-                        corporativo.
-                    </p>
                     <InputError :message="formDocumento.errors.fecha" />
                 </div>
 
@@ -964,12 +883,13 @@ const etiquetaFecha: Record<string, string> = {
 
                 <template v-else-if="accion?.clave === 'capturar_evaluacion'">
                     <p class="text-xs text-muted-foreground">
-                        Evaluación oficial FO-RH-EPP-001 — escala 4 Muy bueno
-                        · 3 Bueno · 2 Regular · 1 Deficiente. Un solo 1, o un
-                        "Sí" en las preguntas filtro, significa NO SE RENUEVA
-                        sin importar el total (mínimo {{
-                            evaluacion?.total_minimo_renovar
-                        }}/{{ evaluacion?.total_maximo }}).
+                        Evaluación oficial FO-RH-EPP-001 — escala 4 Muy bueno ·
+                        3 Bueno · 2 Regular · 1 Deficiente. Un solo 1, o un "Sí"
+                        en las preguntas filtro, significa NO SE RENUEVA sin
+                        importar el total (mínimo
+                        {{ evaluacion?.total_minimo_renovar }}/{{
+                            evaluacion?.total_maximo
+                        }}).
                     </p>
 
                     <div
@@ -1014,9 +934,7 @@ const etiquetaFecha: Record<string, string> = {
                             <Button
                                 type="button"
                                 size="sm"
-                                :variant="
-                                    !f.respuesta ? 'default' : 'outline'
-                                "
+                                :variant="!f.respuesta ? 'default' : 'outline'"
                                 @click="f.respuesta = false"
                                 >No</Button
                             >
@@ -1033,9 +951,7 @@ const etiquetaFecha: Record<string, string> = {
                     </div>
 
                     <p class="text-sm font-medium">
-                        Total: {{ totalCaptura }}/{{
-                            evaluacion?.total_maximo
-                        }}
+                        Total: {{ totalCaptura }}/{{ evaluacion?.total_maximo }}
                     </p>
 
                     <div class="grid gap-1.5">
@@ -1061,28 +977,30 @@ const etiquetaFecha: Record<string, string> = {
                                 ? 'renovar'
                                 : 'NO renovar'
                         }}</strong>
-                        (total {{ evaluacion?.calificacion }}<template
-                            v-if="evaluacion?.es_oficial"
-                        >
+                        (total {{ evaluacion?.calificacion
+                        }}<template v-if="evaluacion?.es_oficial">
                             /{{ evaluacion?.total_maximo }}</template
                         >).
                     </p>
                     <p
-                        v-if="evaluacion?.es_oficial && !evaluacionEsElegible && !excepcionVigente"
+                        v-if="
+                            evaluacion?.es_oficial &&
+                            !evaluacionEsElegible &&
+                            !excepcionVigente
+                        "
                         class="rounded-lg bg-destructive/10 p-2.5 text-xs text-destructive"
                     >
-                        No alcanza la regla de renovación del FO-RH-EPP-001.
-                        No se puede "forzar aprobado": solicita la excepción
-                        de Dirección General para poder autorizar la
-                        renovación.
+                        No alcanza la regla de renovación del FO-RH-EPP-001. No
+                        se puede "forzar aprobado": solicita la excepción de
+                        Dirección General para poder autorizar la renovación.
                     </p>
                     <p
                         v-if="excepcionVigente"
                         class="rounded-lg bg-success/10 p-2.5 text-xs text-success"
                     >
-                        Dirección General aprobó la excepción el {{
-                            formatearFecha(excepcionVigente.resuelto_en)
-                        }}: ya puedes autorizar la renovación.
+                        Dirección General aprobó la excepción el
+                        {{ formatearFecha(excepcionVigente.resuelto_en) }}: ya
+                        puedes autorizar la renovación.
                     </p>
                     <div class="flex gap-2">
                         <Button
@@ -1354,13 +1272,16 @@ const etiquetaFecha: Record<string, string> = {
                     >Solicitar excepción a Dirección General</DialogTitle
                 >
                 <DialogDescription>
-                    {{ colaborador.nombre }} — la evaluación no alcanza la
-                    regla de renovación del FO-RH-EPP-001. Toda excepción
-                    requiere autorización escrita de Dirección General.
+                    {{ colaborador.nombre }} — la evaluación no alcanza la regla
+                    de renovación del FO-RH-EPP-001. Toda excepción requiere
+                    autorización escrita de Dirección General.
                 </DialogDescription>
             </DialogHeader>
 
-            <form class="flex flex-col gap-4" @submit.prevent="solicitarExcepcion">
+            <form
+                class="flex flex-col gap-4"
+                @submit.prevent="solicitarExcepcion"
+            >
                 <div class="grid gap-1.5">
                     <Label>Motivo</Label>
                     <Textarea v-model="excepcionForm.motivo" rows="4" />

@@ -29,7 +29,11 @@ const props = defineProps<{
     importacionId: number;
     fila: number;
     nombreExcel: string;
-    opciones: { sucursales: Opcion[]; departamentos: Opcion[]; puestos: Opcion[] };
+    opciones: {
+        sucursales: Opcion[];
+        departamentos: Opcion[];
+        puestos: Opcion[];
+    };
 }>();
 
 const emit = defineEmits<{
@@ -45,21 +49,25 @@ const form = useForm({
 });
 
 function enviar() {
-    form
-        .transform((datos) => ({
-            ...datos,
-            departamento_id: datos.departamento_id || null,
-            sucursal_principal_id: datos.sucursal_principal_id || null,
-            numero_empleado: datos.numero_empleado || null,
-            fecha_ingreso: datos.fecha_ingreso || null,
-        }))
-        .post(crearColaborador.url({ importacion: props.importacionId, fila: props.fila }), {
+    form.transform((datos) => ({
+        ...datos,
+        departamento_id: datos.departamento_id || null,
+        sucursal_principal_id: datos.sucursal_principal_id || null,
+        numero_empleado: datos.numero_empleado || null,
+        fecha_ingreso: datos.fecha_ingreso || null,
+    })).post(
+        crearColaborador.url({
+            importacion: props.importacionId,
+            fila: props.fila,
+        }),
+        {
             preserveScroll: true,
             onSuccess: () => {
                 form.reset();
                 emit('update:open', false);
             },
-        });
+        },
+    );
 }
 </script>
 
@@ -70,9 +78,9 @@ function enviar() {
                 <DialogTitle>Crear colaborador</DialogTitle>
                 <DialogDescription>
                     «{{ nombreExcel }}» no existe en PEOPLE. Captura solo la
-                    estructura que el reporte no trae. El salario viene del Excel;
-                    la fecha de ingreso del archivo NO se usa: captúrala solo si
-                    está validada, o queda pendiente de validación.
+                    estructura que el reporte no trae. El salario viene del
+                    Excel; la fecha de ingreso del archivo NO se usa: captúrala
+                    solo si está validada, o queda pendiente de validación.
                 </DialogDescription>
             </DialogHeader>
 
@@ -92,7 +100,10 @@ function enviar() {
                             >
                         </SelectContent>
                     </Select>
-                    <p v-if="form.errors.puesto_id" class="text-xs text-destructive">
+                    <p
+                        v-if="form.errors.puesto_id"
+                        class="text-xs text-destructive"
+                    >
                         {{ form.errors.puesto_id }}
                     </p>
                 </div>
@@ -118,7 +129,9 @@ function enviar() {
                         <Label>Sucursal (opcional)</Label>
                         <Select v-model="form.sucursal_principal_id">
                             <SelectTrigger class="w-full">
-                                <SelectValue placeholder="Remoto / corporativo" />
+                                <SelectValue
+                                    placeholder="Remoto / corporativo"
+                                />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem
@@ -133,19 +146,39 @@ function enviar() {
                 </div>
 
                 <div class="grid gap-2">
-                    <Label for="numero_empleado">Número de empleado (opcional)</Label>
-                    <Input id="numero_empleado" v-model="form.numero_empleado" maxlength="30" />
+                    <Label for="numero_empleado"
+                        >Número de empleado (opcional)</Label
+                    >
+                    <Input
+                        id="numero_empleado"
+                        v-model="form.numero_empleado"
+                        maxlength="30"
+                    />
                 </div>
 
                 <div class="grid gap-2">
-                    <Label for="fecha_ingreso">Fecha de ingreso validada (opcional)</Label>
-                    <Input id="fecha_ingreso" v-model="form.fecha_ingreso" type="date" />
+                    <Label for="fecha_ingreso"
+                        >Fecha de ingreso validada (opcional)</Label
+                    >
+                    <Input
+                        id="fecha_ingreso"
+                        v-model="form.fecha_ingreso"
+                        type="date"
+                    />
                     <InputError :message="form.errors.fecha_ingreso" />
                 </div>
 
                 <DialogFooter>
-                    <Button type="button" variant="secondary" @click="emit('update:open', false)">Cancelar</Button>
-                    <Button type="submit" :disabled="form.processing || !form.puesto_id">
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        @click="emit('update:open', false)"
+                        >Cancelar</Button
+                    >
+                    <Button
+                        type="submit"
+                        :disabled="form.processing || !form.puesto_id"
+                    >
                         <Spinner v-if="form.processing" />
                         Crear colaborador
                     </Button>

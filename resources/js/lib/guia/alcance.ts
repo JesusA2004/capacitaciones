@@ -48,10 +48,7 @@ export function rolVisible(id: RolGuiaId, alcance: AlcanceGuia): boolean {
     return alcance.global || alcance.roles.includes(id);
 }
 
-export function procesoVisible(
-    p: ProcesoGuia,
-    alcance: AlcanceGuia,
-): boolean {
+export function procesoVisible(p: ProcesoGuia, alcance: AlcanceGuia): boolean {
     return alcance.global || p.roles.some((r) => alcance.roles.includes(r));
 }
 

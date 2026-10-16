@@ -140,10 +140,17 @@ async function cambiarEstado(asistencia: AsistenciaItem, estado: string) {
                                 .entradas_salidas"
                             :key="tramo.id"
                         >
-                            {{ new Date(tramo.inicio).toLocaleTimeString('es-MX') }} –
+                            {{
+                                new Date(tramo.inicio).toLocaleTimeString(
+                                    'es-MX',
+                                )
+                            }}
+                            –
                             {{
                                 tramo.fin
-                                    ? new Date(tramo.fin).toLocaleTimeString('es-MX')
+                                    ? new Date(tramo.fin).toLocaleTimeString(
+                                          'es-MX',
+                                      )
                                     : 'en curso'
                             }}
                         </li>

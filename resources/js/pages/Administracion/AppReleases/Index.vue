@@ -142,14 +142,15 @@ async function eliminarRelease(release: Release) {
             "
             data-testid="limites-subida"
         >
-            Límite de la app: {{ maxUploadMb }} MB · PHP ({{ limitesServidor.sapi }}):
-            upload_max_filesize {{ limitesServidor.upload_max_filesize }},
-            post_max_size {{ limitesServidor.post_max_size }},
-            max_input_time {{ limitesServidor.max_input_time }} s.
+            Límite de la app: {{ maxUploadMb }} MB · PHP ({{
+                limitesServidor.sapi
+            }}): upload_max_filesize {{ limitesServidor.upload_max_filesize }},
+            post_max_size {{ limitesServidor.post_max_size }}, max_input_time
+            {{ limitesServidor.max_input_time }} s.
             <template v-if="limiteEfectivoMb < maxUploadMb">
                 <strong
-                    >Hoy solo caben {{ limiteEfectivoMb }} MB: PHP acepta
-                    menos que la app. Pide a Sistemas subir esos valores en
+                    >Hoy solo caben {{ limiteEfectivoMb }} MB: PHP acepta menos
+                    que la app. Pide a Sistemas subir esos valores en
                     PHP-FPM.</strong
                 >
             </template>

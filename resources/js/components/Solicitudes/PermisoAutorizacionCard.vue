@@ -40,9 +40,13 @@ const fecha = (valor: string | null) =>
 </script>
 
 <template>
-    <section class="flex flex-col gap-4 rounded-2xl border border-border/60 bg-card p-5 shadow-sm">
+    <section
+        class="flex flex-col gap-4 rounded-2xl border border-border/60 bg-card p-5 shadow-sm"
+    >
         <div class="flex flex-wrap gap-2">
-            <span class="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+            <span
+                class="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary"
+            >
                 {{ permiso.tipo_etiqueta }}
             </span>
             <span class="rounded-full bg-muted px-3 py-1 text-xs font-medium">
@@ -54,13 +58,22 @@ const fecha = (valor: string | null) =>
             >
                 Causal: {{ permiso.causal_etiqueta }}
             </span>
-            <span v-if="permiso.hora_salida" class="rounded-full bg-muted px-3 py-1 text-xs">
+            <span
+                v-if="permiso.hora_salida"
+                class="rounded-full bg-muted px-3 py-1 text-xs"
+            >
                 Sale a las {{ permiso.hora_salida }}
             </span>
-            <span v-if="permiso.hora_entrada" class="rounded-full bg-muted px-3 py-1 text-xs">
+            <span
+                v-if="permiso.hora_entrada"
+                class="rounded-full bg-muted px-3 py-1 text-xs"
+            >
                 Entra a las {{ permiso.hora_entrada }}
             </span>
-            <span v-if="permiso.tipo === 'faltar' && permiso.dias" class="rounded-full bg-muted px-3 py-1 text-xs">
+            <span
+                v-if="permiso.tipo === 'faltar' && permiso.dias"
+                class="rounded-full bg-muted px-3 py-1 text-xs"
+            >
                 {{ permiso.dias }} día(s)
             </span>
         </div>
@@ -72,9 +85,12 @@ const fecha = (valor: string | null) =>
             <div class="flex items-start gap-3">
                 <BadgeCheck class="mt-0.5 size-5 shrink-0 text-success" />
                 <div>
-                    <p class="text-sm font-semibold">Autorizado por Recursos Humanos</p>
+                    <p class="text-sm font-semibold">
+                        Autorizado por Recursos Humanos
+                    </p>
                     <p class="text-xs text-muted-foreground">
-                        {{ permiso.autorizado_por }} · {{ fecha(permiso.autorizado_en) }}
+                        {{ permiso.autorizado_por }} ·
+                        {{ fecha(permiso.autorizado_en) }}
                     </p>
                 </div>
             </div>
@@ -88,7 +104,10 @@ const fecha = (valor: string | null) =>
             </div>
         </div>
 
-        <div v-else class="flex items-start gap-3 rounded-xl border border-dashed border-border p-4">
+        <div
+            v-else
+            class="flex items-start gap-3 rounded-xl border border-dashed border-border p-4"
+        >
             <Hourglass class="mt-0.5 size-5 shrink-0 text-muted-foreground" />
             <p class="text-sm text-muted-foreground">
                 El formato oficial de permiso se libera cuando
@@ -99,11 +118,17 @@ const fecha = (valor: string | null) =>
     </section>
 
     <Dialog v-model:open="previsualizar">
-        <DialogContent class="h-[90vh] w-[calc(100vw-2rem)] max-w-none gap-2 p-3 sm:w-[min(92vw,900px)]">
+        <DialogContent
+            class="h-[90vh] w-[calc(100vw-2rem)] max-w-none gap-2 p-3 sm:w-[min(92vw,900px)]"
+        >
             <DialogHeader class="px-2">
                 <DialogTitle>Solicitud de permiso</DialogTitle>
             </DialogHeader>
-            <iframe :src="pdfUrl" title="Formato de permiso" class="h-full w-full rounded-lg border" />
+            <iframe
+                :src="pdfUrl"
+                title="Formato de permiso"
+                class="h-full w-full rounded-lg border"
+            />
         </DialogContent>
     </Dialog>
 </template>

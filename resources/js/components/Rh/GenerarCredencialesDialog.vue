@@ -287,10 +287,7 @@ function cerrar() {
                     </p>
                     <InputError :message="errorPassword ?? undefined" />
                 </div>
-                <InputError
-                    v-else
-                    :message="errorPassword ?? undefined"
-                />
+                <InputError v-else :message="errorPassword ?? undefined" />
 
                 <DialogFooter>
                     <Button variant="outline" @click="cerrar">Cancelar</Button>
@@ -371,8 +368,8 @@ function cerrar() {
                     v-if="!resultado.correo"
                     class="text-xs text-muted-foreground"
                 >
-                    La cuenta no tiene correo registrado: entrega los accesos
-                    en privado.
+                    La cuenta no tiene correo registrado: entrega los accesos en
+                    privado.
                 </p>
 
                 <DialogFooter class="gap-2 sm:justify-between">

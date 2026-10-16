@@ -107,7 +107,11 @@ function filtrar(filtro: Filtro) {
     router.get(
         show.url(props.lote.id),
         { filtro },
-        { preserveScroll: true, preserveState: true, only: ['recibos', 'filtro'] },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            only: ['recibos', 'filtro'],
+        },
     );
 }
 
@@ -150,7 +154,10 @@ function mover(paso: number) {
     }
 }
 
-const ESTILO_REVISION: Record<string, { clase: string; icono: typeof CheckCircle2; texto: string }> = {
+const ESTILO_REVISION: Record<
+    string,
+    { clase: string; icono: typeof CheckCircle2; texto: string }
+> = {
     correcto: {
         clase: 'bg-success-soft/60 text-success',
         icono: CheckCircle2,
@@ -171,7 +178,9 @@ const ESTILO_REVISION: Record<string, { clase: string; icono: typeof CheckCircle
 // Autoservicio de recibos (config features.recibos_colaborador): por defecto
 // apagado — el recibo se entrega impreso.
 const page = usePage();
-const recibosVisiblesColaborador = computed(() => page.props.features.recibos_colaborador);
+const recibosVisiblesColaborador = computed(
+    () => page.props.features.recibos_colaborador,
+);
 
 // --- Emitir / cancelar -------------------------------------------------------
 const emitiendo = ref(false);
@@ -189,10 +198,14 @@ async function recalcularLote() {
     }
 
     recalculando.value = true;
-    router.post(recalcular.url(props.lote.id), {}, {
-        preserveScroll: true,
-        onFinish: () => (recalculando.value = false),
-    });
+    router.post(
+        recalcular.url(props.lote.id),
+        {},
+        {
+            preserveScroll: true,
+            onFinish: () => (recalculando.value = false),
+        },
+    );
 }
 
 async function emitirLote() {
@@ -209,10 +222,14 @@ async function emitirLote() {
     }
 
     emitiendo.value = true;
-    router.post(emitir.url(props.lote.id), {}, {
-        preserveScroll: true,
-        onFinish: () => (emitiendo.value = false),
-    });
+    router.post(
+        emitir.url(props.lote.id),
+        {},
+        {
+            preserveScroll: true,
+            onFinish: () => (emitiendo.value = false),
+        },
+    );
 }
 
 const cancelarAbierto = ref(false);
@@ -239,7 +256,10 @@ type ConceptoEditable = {
 };
 
 const editarAbierto = ref(false);
-const editarForm = useForm<{ conceptos: ConceptoEditable[]; observaciones: string }>({
+const editarForm = useForm<{
+    conceptos: ConceptoEditable[];
+    observaciones: string;
+}>({
     conceptos: [],
     observaciones: '',
 });
@@ -251,22 +271,41 @@ async function abrirEdicion() {
     }
 
     editandoId.value = seleccionado.value.id;
-    const respuesta = await getJson<{ conceptos: (Omit<ConceptoEditable, 'clave'> & { clave: string | null })[]; observaciones: string | null }>(
-        conceptosRecibo.url({ lote: props.lote.id, recibo: seleccionado.value.id }),
+    const respuesta = await getJson<{
+        conceptos: (Omit<ConceptoEditable, 'clave'> & {
+            clave: string | null;
+        })[];
+        observaciones: string | null;
+    }>(
+        conceptosRecibo.url({
+            lote: props.lote.id,
+            recibo: seleccionado.value.id,
+        }),
     );
-    editarForm.conceptos = respuesta.conceptos.map((c) => ({ ...c, clave: c.clave ?? '' }));
+    editarForm.conceptos = respuesta.conceptos.map((c) => ({
+        ...c,
+        clave: c.clave ?? '',
+    }));
     editarForm.observaciones = respuesta.observaciones ?? '';
     editarForm.clearErrors();
     editarAbierto.value = true;
 }
 
 function agregarConcepto(tipo: 'percepcion' | 'deduccion') {
-    editarForm.conceptos.push({ tipo, clave: '', concepto: '', cantidad: 1, importe: 0, observaciones: null });
+    editarForm.conceptos.push({
+        tipo,
+        clave: '',
+        concepto: '',
+        cantidad: 1,
+        importe: 0,
+        observaciones: null,
+    });
 }
 
 const totalEditado = computed(() =>
     editarForm.conceptos.reduce(
-        (total, c) => total + (c.tipo === 'percepcion' ? 1 : -1) * Number(c.importe || 0),
+        (total, c) =>
+            total + (c.tipo === 'percepcion' ? 1 : -1) * Number(c.importe || 0),
         0,
     ),
 );
@@ -292,28 +331,49 @@ function guardarEdicion() {
 
     <div class="pagina-ancha flex flex-col gap-5">
         <!-- Encabezado -->
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div
+            class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
+        >
             <div class="flex items-start gap-3">
-                <Button variant="ghost" size="icon" as-child class="mt-1 shrink-0">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    as-child
+                    class="mt-1 shrink-0"
+                >
                     <Link :href="index()" aria-label="Volver a lotes">
                         <ArrowLeft class="size-4" />
                     </Link>
                 </Button>
                 <div>
-                    <p class="text-xs font-semibold tracking-[0.2em] text-oro uppercase">
+                    <p
+                        class="text-xs font-semibold tracking-[0.2em] text-oro uppercase"
+                    >
                         Periodo
                     </p>
                     <h1 class="text-2xl font-semibold">{{ lote.etiqueta }}</h1>
                     <p class="text-sm text-muted-foreground">
-                        {{ lote.folio }} · No. de nómina {{ lote.numero_nomina ?? '—' }}
-                        · {{ lote.origen === 'importacion' ? `Importado (${lote.archivo_nombre})` : 'Desde sueldos' }}
+                        {{ lote.folio }} · No. de nómina
+                        {{ lote.numero_nomina ?? '—' }} ·
+                        {{
+                            lote.origen === 'importacion'
+                                ? `Importado (${lote.archivo_nombre})`
+                                : 'Desde sueldos'
+                        }}
                     </p>
                 </div>
             </div>
 
-            <div data-tour="nomina-acciones" class="flex flex-wrap items-center gap-2">
+            <div
+                data-tour="nomina-acciones"
+                class="flex flex-wrap items-center gap-2"
+            >
                 <Badge
-                    :variant="lote.estado === 'cancelado' ? 'destructive' : 'secondary'"
+                    :variant="
+                        lote.estado === 'cancelado'
+                            ? 'destructive'
+                            : 'secondary'
+                    "
                     class="px-3 py-1 text-xs"
                 >
                     {{ lote.estado_etiqueta }}
@@ -321,12 +381,29 @@ function guardarEdicion() {
                 <!-- Solo en lote emitido: un PDF con todos los recibos, para imprimir. -->
                 <template v-if="impresion">
                     <span class="text-sm text-muted-foreground">
-                        {{ impresion.total }} {{ impresion.total === 1 ? 'recibo' : 'recibos' }}
-                        <template v-if="impresion.total > 0 && impresion.sin_pdf === 0">
-                            · <span class="text-success">PDF listo para impresión</span>
+                        {{ impresion.total }}
+                        {{ impresion.total === 1 ? 'recibo' : 'recibos' }}
+                        <template
+                            v-if="
+                                impresion.total > 0 && impresion.sin_pdf === 0
+                            "
+                        >
+                            ·
+                            <span class="text-success"
+                                >PDF listo para impresión</span
+                            >
                         </template>
                         <template v-else-if="impresion.sin_pdf > 0">
-                            · <span class="text-warning">Hay {{ impresion.sin_pdf }} {{ impresion.sin_pdf === 1 ? 'recibo' : 'recibos' }} sin PDF generado.</span>
+                            ·
+                            <span class="text-warning"
+                                >Hay {{ impresion.sin_pdf }}
+                                {{
+                                    impresion.sin_pdf === 1
+                                        ? 'recibo'
+                                        : 'recibos'
+                                }}
+                                sin PDF generado.</span
+                            >
                         </template>
                     </span>
                     <Button
@@ -381,11 +458,11 @@ function guardarEdicion() {
             <p>
                 <strong>Borrador.</strong> Revisa cada recibo y pulsa «Emitir»
                 cuando todo esté correcto. Emitir congela el PDF oficial de cada
-                recibo en el expediente para que RH lo descargue, lo imprima y lo
-                entregue (p. ej. a los gestores).
+                recibo en el expediente para que RH lo descargue, lo imprima y
+                lo entregue (p. ej. a los gestores).
                 <template v-if="!recibosVisiblesColaborador">
-                    Los colaboradores no ven su recibo en web ni app y no reciben
-                    aviso.
+                    Los colaboradores no ven su recibo en web ni app y no
+                    reciben aviso.
                 </template>
             </p>
         </div>
@@ -396,7 +473,8 @@ function guardarEdicion() {
             <CheckCircle2 class="mt-0.5 size-4 shrink-0 text-success" />
             <p>
                 Emitido por <strong>{{ lote.emitido_por }}</strong> el
-                {{ new Date(lote.emitido_at ?? '').toLocaleString('es-MX') }}. Cada
+                {{ new Date(lote.emitido_at ?? '').toLocaleString('es-MX') }}.
+                Cada
                 {{
                     recibosVisiblesColaborador
                         ? 'colaborador ya ve su recibo en web y app.'
@@ -410,7 +488,8 @@ function guardarEdicion() {
         >
             <CircleX class="mt-0.5 size-4 shrink-0 text-destructive" />
             <p>
-                Cancelado por <strong>{{ lote.cancelado_por }}</strong>:
+                Cancelado por <strong>{{ lote.cancelado_por }}</strong
+                >:
                 {{ lote.motivo_cancelacion }}
             </p>
         </div>
@@ -421,32 +500,72 @@ function guardarEdicion() {
             class="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7"
         >
             <div class="rounded-2xl border border-border/60 bg-card p-4">
-                <p class="flex items-center gap-1.5 text-xs text-muted-foreground"><Users class="size-3.5" /> Esperados</p>
-                <p class="mt-1 text-2xl font-bold tabular-nums">{{ lote.esperados }}</p>
+                <p
+                    class="flex items-center gap-1.5 text-xs text-muted-foreground"
+                >
+                    <Users class="size-3.5" /> Esperados
+                </p>
+                <p class="mt-1 text-2xl font-bold tabular-nums">
+                    {{ lote.esperados }}
+                </p>
             </div>
             <div class="rounded-2xl border border-border/60 bg-card p-4">
-                <p class="flex items-center gap-1.5 text-xs text-muted-foreground"><ReceiptText class="size-3.5" /> Preparados</p>
-                <p class="mt-1 text-2xl font-bold tabular-nums">{{ lote.preparados }}</p>
+                <p
+                    class="flex items-center gap-1.5 text-xs text-muted-foreground"
+                >
+                    <ReceiptText class="size-3.5" /> Preparados
+                </p>
+                <p class="mt-1 text-2xl font-bold tabular-nums">
+                    {{ lote.preparados }}
+                </p>
             </div>
             <div class="rounded-2xl border border-border/60 bg-card p-4">
-                <p class="flex items-center gap-1.5 text-xs text-muted-foreground"><CircleX class="size-3.5" /> Errores</p>
-                <p class="mt-1 text-2xl font-bold tabular-nums" :class="lote.total_errores ? 'text-destructive' : ''">{{ lote.total_errores }}</p>
+                <p
+                    class="flex items-center gap-1.5 text-xs text-muted-foreground"
+                >
+                    <CircleX class="size-3.5" /> Errores
+                </p>
+                <p
+                    class="mt-1 text-2xl font-bold tabular-nums"
+                    :class="lote.total_errores ? 'text-destructive' : ''"
+                >
+                    {{ lote.total_errores }}
+                </p>
             </div>
             <div class="rounded-2xl border border-border/60 bg-card p-4">
-                <p class="flex items-center gap-1.5 text-xs text-muted-foreground"><AlertTriangle class="size-3.5" /> Advertencias</p>
-                <p class="mt-1 text-2xl font-bold tabular-nums" :class="lote.total_advertencias ? 'text-warning' : ''">{{ lote.total_advertencias }}</p>
+                <p
+                    class="flex items-center gap-1.5 text-xs text-muted-foreground"
+                >
+                    <AlertTriangle class="size-3.5" /> Advertencias
+                </p>
+                <p
+                    class="mt-1 text-2xl font-bold tabular-nums"
+                    :class="lote.total_advertencias ? 'text-warning' : ''"
+                >
+                    {{ lote.total_advertencias }}
+                </p>
             </div>
             <div class="rounded-2xl border border-border/60 bg-card p-4">
                 <p class="text-xs text-muted-foreground">Total percepciones</p>
-                <p class="mt-1 text-lg font-semibold tabular-nums">{{ dinero(lote.total_percepciones) }}</p>
+                <p class="mt-1 text-lg font-semibold tabular-nums">
+                    {{ dinero(lote.total_percepciones) }}
+                </p>
             </div>
             <div class="rounded-2xl border border-border/60 bg-card p-4">
                 <p class="text-xs text-muted-foreground">Total deducciones</p>
-                <p class="mt-1 text-lg font-semibold tabular-nums">{{ dinero(lote.total_deducciones) }}</p>
+                <p class="mt-1 text-lg font-semibold tabular-nums">
+                    {{ dinero(lote.total_deducciones) }}
+                </p>
             </div>
-            <div class="col-span-2 rounded-2xl bg-primary p-4 text-primary-foreground md:col-span-1">
-                <p class="flex items-center gap-1.5 text-xs opacity-80"><Wallet class="size-3.5" /> Total neto</p>
-                <p class="mt-1 text-lg font-bold tabular-nums">{{ dinero(lote.total_neto) }}</p>
+            <div
+                class="col-span-2 rounded-2xl bg-primary p-4 text-primary-foreground md:col-span-1"
+            >
+                <p class="flex items-center gap-1.5 text-xs opacity-80">
+                    <Wallet class="size-3.5" /> Total neto
+                </p>
+                <p class="mt-1 text-lg font-bold tabular-nums">
+                    {{ dinero(lote.total_neto) }}
+                </p>
             </div>
         </div>
 
@@ -490,7 +609,10 @@ function guardarEdicion() {
                 class="flex max-h-[75vh] flex-col gap-2 overflow-y-auto pr-1"
                 aria-label="Recibos del lote"
             >
-                <li v-for="(recibo, i) in recibos" :key="recibo.id ?? `e${recibo.clave_error}`">
+                <li
+                    v-for="(recibo, i) in recibos"
+                    :key="recibo.id ?? `e${recibo.clave_error}`"
+                >
                     <button
                         type="button"
                         class="w-full rounded-2xl border p-3 text-left transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
@@ -503,30 +625,59 @@ function guardarEdicion() {
                     >
                         <div class="flex items-start justify-between gap-2">
                             <div class="min-w-0">
-                                <p class="truncate text-sm font-semibold">{{ recibo.nombre }}</p>
-                                <p class="truncate text-xs text-muted-foreground">
+                                <p class="truncate text-sm font-semibold">
+                                    {{ recibo.nombre }}
+                                </p>
+                                <p
+                                    class="truncate text-xs text-muted-foreground"
+                                >
                                     {{ recibo.numero_empleado ?? '—' }}
-                                    <template v-if="recibo.sucursal"> · {{ recibo.sucursal }}</template>
+                                    <template v-if="recibo.sucursal">
+                                        · {{ recibo.sucursal }}</template
+                                    >
                                 </p>
                             </div>
                             <span
                                 class="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
                                 :class="ESTILO_REVISION[recibo.revision].clase"
                             >
-                                <component :is="ESTILO_REVISION[recibo.revision].icono" class="size-3" />
+                                <component
+                                    :is="ESTILO_REVISION[recibo.revision].icono"
+                                    class="size-3"
+                                />
                                 {{ ESTILO_REVISION[recibo.revision].texto }}
                             </span>
                         </div>
-                        <div v-if="recibo.id" class="mt-2 grid grid-cols-3 gap-1 text-[11px]">
-                            <span class="text-muted-foreground">Perc. <b class="text-foreground tabular-nums">{{ dinero(recibo.total_percepciones) }}</b></span>
-                            <span class="text-muted-foreground">Ded. <b class="text-foreground tabular-nums">{{ dinero(recibo.total_deducciones) }}</b></span>
-                            <span class="text-right font-semibold tabular-nums">{{ dinero(recibo.neto) }}</span>
+                        <div
+                            v-if="recibo.id"
+                            class="mt-2 grid grid-cols-3 gap-1 text-[11px]"
+                        >
+                            <span class="text-muted-foreground"
+                                >Perc.
+                                <b class="text-foreground tabular-nums">{{
+                                    dinero(recibo.total_percepciones)
+                                }}</b></span
+                            >
+                            <span class="text-muted-foreground"
+                                >Ded.
+                                <b class="text-foreground tabular-nums">{{
+                                    dinero(recibo.total_deducciones)
+                                }}</b></span
+                            >
+                            <span
+                                class="text-right font-semibold tabular-nums"
+                                >{{ dinero(recibo.neto) }}</span
+                            >
                         </div>
                         <p
                             v-for="aviso in recibo.advertencias"
                             :key="aviso"
                             class="mt-1.5 text-[11px]"
-                            :class="recibo.revision === 'error' ? 'text-destructive' : 'text-warning'"
+                            :class="
+                                recibo.revision === 'error'
+                                    ? 'text-destructive'
+                                    : 'text-warning'
+                            "
                         >
                             {{ aviso }}
                         </p>
@@ -538,12 +689,18 @@ function guardarEdicion() {
                 class="hidden min-h-[75vh] flex-col overflow-hidden rounded-2xl border border-border/60 bg-card lg:flex"
                 aria-label="Vista previa del recibo"
             >
-                <header class="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-4 py-3">
+                <header
+                    class="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-4 py-3"
+                >
                     <div class="min-w-0">
-                        <p class="truncate text-sm font-semibold">{{ seleccionado?.nombre }}</p>
+                        <p class="truncate text-sm font-semibold">
+                            {{ seleccionado?.nombre }}
+                        </p>
                         <p class="text-xs text-muted-foreground">
                             {{ seleccionado?.puesto ?? '' }}
-                            <template v-if="seleccionado?.folio"> · {{ seleccionado.folio }}</template>
+                            <template v-if="seleccionado?.folio">
+                                · {{ seleccionado.folio }}</template
+                            >
                             · {{ indice + 1 }} de {{ recibos.length }}
                         </p>
                     </div>
@@ -556,10 +713,20 @@ function guardarEdicion() {
                         >
                             <Pencil class="size-3.5" /> Editar conceptos
                         </Button>
-                        <Button variant="outline" size="sm" :disabled="indice === 0" @click="mover(-1)">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            :disabled="indice === 0"
+                            @click="mover(-1)"
+                        >
                             <ChevronLeft class="size-4" /> Anterior
                         </Button>
-                        <Button variant="outline" size="sm" :disabled="indice >= recibos.length - 1" @click="mover(1)">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            :disabled="indice >= recibos.length - 1"
+                            @click="mover(1)"
+                        >
                             Siguiente <ChevronRight class="size-4" />
                         </Button>
                     </div>
@@ -569,7 +736,9 @@ function guardarEdicion() {
                         v-if="pdfUrl && cargandoPdf"
                         class="absolute inset-0 flex items-center justify-center"
                     >
-                        <div class="h-[85%] w-[70%] animate-pulse rounded-lg bg-muted" />
+                        <div
+                            class="h-[85%] w-[70%] animate-pulse rounded-lg bg-muted"
+                        />
                     </div>
                     <iframe
                         v-if="pdfUrl"
@@ -579,11 +748,17 @@ function guardarEdicion() {
                         class="relative h-full w-full"
                         @load="cargandoPdf = false"
                     />
-                    <div v-else class="flex h-full items-center justify-center p-8">
+                    <div
+                        v-else
+                        class="flex h-full items-center justify-center p-8"
+                    >
                         <EmptyState
                             :icono="FileText"
                             titulo="Sin recibo"
-                            :descripcion="seleccionado?.advertencias[0] ?? 'Esta persona no tiene recibo en el lote.'"
+                            :descripcion="
+                                seleccionado?.advertencias[0] ??
+                                'Esta persona no tiene recibo en el lote.'
+                            "
                         />
                     </div>
                 </div>
@@ -595,18 +770,40 @@ function guardarEdicion() {
     <Sheet v-model:open="pdfMovil">
         <SheetContent side="bottom" class="h-[92vh] gap-0 p-0">
             <SheetHeader class="border-b">
-                <SheetTitle class="truncate">{{ seleccionado?.nombre }}</SheetTitle>
+                <SheetTitle class="truncate">{{
+                    seleccionado?.nombre
+                }}</SheetTitle>
                 <div class="flex gap-2">
-                    <Button variant="outline" size="sm" class="flex-1" :disabled="indice === 0" @click="mover(-1)">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        class="flex-1"
+                        :disabled="indice === 0"
+                        @click="mover(-1)"
+                    >
                         <ChevronLeft class="size-4" /> Anterior
                     </Button>
-                    <Button variant="outline" size="sm" class="flex-1" :disabled="indice >= recibos.length - 1" @click="mover(1)">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        class="flex-1"
+                        :disabled="indice >= recibos.length - 1"
+                        @click="mover(1)"
+                    >
                         Siguiente <ChevronRight class="size-4" />
                     </Button>
                 </div>
             </SheetHeader>
-            <iframe v-if="pdfUrl" :key="`m${pdfUrl}`" :src="pdfUrl" title="Recibo de nómina" class="h-full w-full" />
-            <p v-else class="p-6 text-sm text-destructive">{{ seleccionado?.advertencias[0] }}</p>
+            <iframe
+                v-if="pdfUrl"
+                :key="`m${pdfUrl}`"
+                :src="pdfUrl"
+                title="Recibo de nómina"
+                class="h-full w-full"
+            />
+            <p v-else class="p-6 text-sm text-destructive">
+                {{ seleccionado?.advertencias[0] }}
+            </p>
         </SheetContent>
     </Sheet>
 
@@ -617,18 +814,33 @@ function guardarEdicion() {
                 <DialogTitle>Cancelar lote</DialogTitle>
                 <DialogDescription>
                     El lote y sus recibos se conservan como cancelados (si ya se
-                    habían emitido, dejan de verse en web y app). El periodo podrá
-                    volver a prepararse.
+                    habían emitido, dejan de verse en web y app). El periodo
+                    podrá volver a prepararse.
                 </DialogDescription>
             </DialogHeader>
             <div class="grid gap-2">
                 <Label for="motivo-cancelacion">Motivo</Label>
-                <Textarea id="motivo-cancelacion" v-model="cancelarForm.motivo" rows="3" />
-                <InputError :message="cancelarForm.errors.motivo ?? (cancelarForm.errors as Record<string, string>).lote" />
+                <Textarea
+                    id="motivo-cancelacion"
+                    v-model="cancelarForm.motivo"
+                    rows="3"
+                />
+                <InputError
+                    :message="
+                        cancelarForm.errors.motivo ??
+                        (cancelarForm.errors as Record<string, string>).lote
+                    "
+                />
             </div>
             <DialogFooter>
-                <Button variant="outline" @click="cancelarAbierto = false">Volver</Button>
-                <Button variant="destructive" :disabled="cancelarForm.processing" @click="cancelarLote">
+                <Button variant="outline" @click="cancelarAbierto = false"
+                    >Volver</Button
+                >
+                <Button
+                    variant="destructive"
+                    :disabled="cancelarForm.processing"
+                    @click="cancelarLote"
+                >
                     Cancelar lote
                 </Button>
             </DialogFooter>
@@ -641,7 +853,8 @@ function guardarEdicion() {
             <DialogHeader>
                 <DialogTitle>Conceptos del recibo</DialogTitle>
                 <DialogDescription>
-                    El total lo recalcula el servidor. El recibo sigue sin publicarse.
+                    El total lo recalcula el servidor. El recibo sigue sin
+                    publicarse.
                 </DialogDescription>
             </DialogHeader>
 
@@ -653,38 +866,84 @@ function guardarEdicion() {
                 >
                     <span
                         class="rounded-full px-2 py-1 text-center text-[11px] font-medium"
-                        :class="c.tipo === 'percepcion' ? 'bg-success-soft/60 text-success' : 'bg-destructive/10 text-destructive'"
+                        :class="
+                            c.tipo === 'percepcion'
+                                ? 'bg-success-soft/60 text-success'
+                                : 'bg-destructive/10 text-destructive'
+                        "
                     >
-                        {{ c.tipo === 'percepcion' ? 'Percepción' : 'Deducción' }}
+                        {{
+                            c.tipo === 'percepcion' ? 'Percepción' : 'Deducción'
+                        }}
                     </span>
-                    <Input v-model="c.clave" placeholder="Clave" aria-label="Clave" />
-                    <Input v-model="c.concepto" placeholder="Concepto" aria-label="Concepto" />
-                    <Input v-model.number="c.importe" type="number" min="0" step="0.01" aria-label="Importe" />
-                    <Button variant="ghost" size="icon" aria-label="Quitar concepto" @click="editarForm.conceptos.splice(i, 1)">
+                    <Input
+                        v-model="c.clave"
+                        placeholder="Clave"
+                        aria-label="Clave"
+                    />
+                    <Input
+                        v-model="c.concepto"
+                        placeholder="Concepto"
+                        aria-label="Concepto"
+                    />
+                    <Input
+                        v-model.number="c.importe"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        aria-label="Importe"
+                    />
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Quitar concepto"
+                        @click="editarForm.conceptos.splice(i, 1)"
+                    >
                         <Trash2 class="size-4" />
                     </Button>
                 </div>
                 <div class="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" @click="agregarConcepto('percepcion')">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        @click="agregarConcepto('percepcion')"
+                    >
                         <Plus class="size-3.5" /> Percepción
                     </Button>
-                    <Button variant="outline" size="sm" @click="agregarConcepto('deduccion')">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        @click="agregarConcepto('deduccion')"
+                    >
                         <Plus class="size-3.5" /> Deducción
                     </Button>
                 </div>
                 <InputError :message="editarForm.errors.conceptos" />
                 <div class="grid gap-2">
                     <Label for="obs-recibo">Observaciones</Label>
-                    <Textarea id="obs-recibo" v-model="editarForm.observaciones" rows="2" />
+                    <Textarea
+                        id="obs-recibo"
+                        v-model="editarForm.observaciones"
+                        rows="2"
+                    />
                 </div>
                 <p class="text-right text-sm text-muted-foreground">
-                    Neto estimado: <strong class="text-foreground">{{ dinero(totalEditado) }}</strong>
+                    Neto estimado:
+                    <strong class="text-foreground">{{
+                        dinero(totalEditado)
+                    }}</strong>
                 </p>
             </div>
 
             <DialogFooter>
-                <Button variant="outline" @click="editarAbierto = false">Cancelar</Button>
-                <Button :disabled="editarForm.processing" @click="guardarEdicion">Guardar</Button>
+                <Button variant="outline" @click="editarAbierto = false"
+                    >Cancelar</Button
+                >
+                <Button
+                    :disabled="editarForm.processing"
+                    @click="guardarEdicion"
+                    >Guardar</Button
+                >
             </DialogFooter>
         </DialogContent>
     </Dialog>

@@ -224,7 +224,11 @@ const generoEtiquetas = computed(() =>
 const generoOpciones = computed(() => ({
     ...opcionesBase.value,
     labels: generoEtiquetas.value,
-    colors: ['var(--pastel-esmeralda)', 'var(--pastel-oro)', 'var(--pastel-crema-2)'],
+    colors: [
+        'var(--pastel-esmeralda)',
+        'var(--pastel-oro)',
+        'var(--pastel-crema-2)',
+    ],
 }));
 
 // KPIs de género como cifra directa (no solo dentro de la dona): cuenta y

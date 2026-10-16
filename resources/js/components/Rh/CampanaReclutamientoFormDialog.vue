@@ -144,10 +144,15 @@ function enviar() {
             </DialogHeader>
 
             <form class="grid gap-5" @submit.prevent="enviar">
-                <section class="grid gap-3 rounded-2xl border border-border/60 p-4">
+                <section
+                    class="grid gap-3 rounded-2xl border border-border/60 p-4"
+                >
                     <p class="text-sm font-semibold">Vacante y canal</p>
                     <div class="grid gap-2">
-                        <Label>Vacante real <span class="text-destructive">*</span></Label>
+                        <Label
+                            >Vacante real
+                            <span class="text-destructive">*</span></Label
+                        >
                         <Select v-model="form.vacante_id">
                             <SelectTrigger class="w-full">
                                 <SelectValue placeholder="Elige la vacante" />
@@ -165,8 +170,8 @@ function enviar() {
                             v-if="!opciones.vacantes.length"
                             class="text-xs text-muted-foreground"
                         >
-                            No hay vacantes con plaza disponible
-                            (plantilla autorizada − ocupados).
+                            No hay vacantes con plaza disponible (plantilla
+                            autorizada − ocupados).
                         </p>
                         <p
                             v-else-if="vacanteElegida"
@@ -178,10 +183,15 @@ function enviar() {
                     </div>
                     <div class="grid gap-3 sm:grid-cols-2">
                         <div class="grid gap-2">
-                            <Label>Canal <span class="text-destructive">*</span></Label>
+                            <Label
+                                >Canal
+                                <span class="text-destructive">*</span></Label
+                            >
                             <Select v-model="form.canal">
                                 <SelectTrigger class="w-full">
-                                    <SelectValue placeholder="Selecciona un canal" />
+                                    <SelectValue
+                                        placeholder="Selecciona un canal"
+                                    />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem
@@ -198,7 +208,9 @@ function enviar() {
                             <Label>Responsable (opcional)</Label>
                             <Select v-model="form.responsable_id">
                                 <SelectTrigger class="w-full">
-                                    <SelectValue placeholder="¿Quién la lleva?" />
+                                    <SelectValue
+                                        placeholder="¿Quién la lleva?"
+                                    />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem
@@ -213,7 +225,10 @@ function enviar() {
                             <InputError :message="form.errors.responsable_id" />
                         </div>
                         <div class="grid gap-2">
-                            <Label>Inicio <span class="text-destructive">*</span></Label>
+                            <Label
+                                >Inicio
+                                <span class="text-destructive">*</span></Label
+                            >
                             <DatePicker v-model="form.fecha_inicio" />
                             <InputError :message="form.errors.fecha_inicio" />
                         </div>
@@ -225,32 +240,72 @@ function enviar() {
                     </div>
                 </section>
 
-                <section class="grid gap-3 rounded-2xl border border-border/60 p-4">
+                <section
+                    class="grid gap-3 rounded-2xl border border-border/60 p-4"
+                >
                     <p class="text-sm font-semibold">Dinero</p>
                     <div class="grid gap-3 sm:grid-cols-3">
                         <div class="grid gap-2">
-                            <Label for="presupuesto">Presupuesto (opcional)</Label>
-                            <Input id="presupuesto" v-model="form.presupuesto" type="number" min="0" step="0.01" placeholder="0.00" />
+                            <Label for="presupuesto"
+                                >Presupuesto (opcional)</Label
+                            >
+                            <Input
+                                id="presupuesto"
+                                v-model="form.presupuesto"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="0.00"
+                            />
                             <InputError :message="form.errors.presupuesto" />
                         </div>
                         <div class="grid gap-2">
-                            <Label for="monto">Gasto real <span class="text-destructive">*</span></Label>
-                            <Input id="monto" v-model="form.monto" type="number" min="0" step="0.01" placeholder="0.00" />
+                            <Label for="monto"
+                                >Gasto real
+                                <span class="text-destructive">*</span></Label
+                            >
+                            <Input
+                                id="monto"
+                                v-model="form.monto"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="0.00"
+                            />
                             <InputError :message="form.errors.monto" />
                         </div>
                         <div class="grid gap-2">
-                            <Label for="sueldo">Sueldo publicado (opcional)</Label>
-                            <Input id="sueldo" v-model="form.sueldo_publicado" type="number" min="0" step="0.01" placeholder="0.00" />
-                            <InputError :message="form.errors.sueldo_publicado" />
+                            <Label for="sueldo"
+                                >Sueldo publicado (opcional)</Label
+                            >
+                            <Input
+                                id="sueldo"
+                                v-model="form.sueldo_publicado"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="0.00"
+                            />
+                            <InputError
+                                :message="form.errors.sueldo_publicado"
+                            />
                         </div>
                     </div>
                 </section>
 
-                <section class="grid gap-3 rounded-2xl border border-border/60 p-4">
+                <section
+                    class="grid gap-3 rounded-2xl border border-border/60 p-4"
+                >
                     <p class="text-sm font-semibold">Publicación</p>
                     <div class="grid gap-2">
-                        <Label for="nombre">Nombre de la campaña (opcional)</Label>
-                        <Input id="nombre" v-model="form.nombre" placeholder="Ej. Gestores Córdoba octubre" />
+                        <Label for="nombre"
+                            >Nombre de la campaña (opcional)</Label
+                        >
+                        <Input
+                            id="nombre"
+                            v-model="form.nombre"
+                            placeholder="Ej. Gestores Córdoba octubre"
+                        />
                     </div>
                     <div class="grid gap-2">
                         <Label for="copy">Texto del anuncio (opcional)</Label>
@@ -259,23 +314,47 @@ function enviar() {
                     </div>
                     <div class="grid gap-2">
                         <Label for="url">Liga del anuncio (opcional)</Label>
-                        <Input id="url" v-model="form.url" type="url" placeholder="https://" />
+                        <Input
+                            id="url"
+                            v-model="form.url"
+                            type="url"
+                            placeholder="https://"
+                        />
                         <InputError :message="form.errors.url" />
                     </div>
                     <div class="grid gap-3 sm:grid-cols-2">
                         <div class="grid gap-2">
-                            <Label for="impresiones">Impresiones (opcional)</Label>
-                            <Input id="impresiones" v-model="form.impresiones" type="number" min="0" step="1" placeholder="Del reporte del proveedor" />
+                            <Label for="impresiones"
+                                >Impresiones (opcional)</Label
+                            >
+                            <Input
+                                id="impresiones"
+                                v-model="form.impresiones"
+                                type="number"
+                                min="0"
+                                step="1"
+                                placeholder="Del reporte del proveedor"
+                            />
                             <InputError :message="form.errors.impresiones" />
                         </div>
                         <div class="grid gap-2">
                             <Label for="clics">Clics (opcional)</Label>
-                            <Input id="clics" v-model="form.clics" type="number" min="0" step="1" placeholder="Del reporte del proveedor" />
+                            <Input
+                                id="clics"
+                                v-model="form.clics"
+                                type="number"
+                                min="0"
+                                step="1"
+                                placeholder="Del reporte del proveedor"
+                            />
                             <InputError :message="form.errors.clics" />
                         </div>
                     </div>
                     <div class="grid gap-2">
-                        <Label>Arte y documentos (opcional · PDF o imagen, privados)</Label>
+                        <Label
+                            >Arte y documentos (opcional · PDF o imagen,
+                            privados)</Label
+                        >
                         <div
                             v-if="campana?.adjuntos_lista?.length"
                             class="flex flex-wrap gap-2"
@@ -285,9 +364,26 @@ function enviar() {
                                 :key="adjunto.id"
                                 class="inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-xs"
                             >
-                                <component :is="adjunto.mime.startsWith('image/') ? ImageIcon : FileText" class="size-3.5" />
-                                <a :href="adjunto.url" target="_blank" class="max-w-40 truncate hover:underline">{{ adjunto.nombre }}</a>
-                                <button type="button" class="text-destructive" aria-label="Eliminar archivo" @click="eliminarAdjunto(adjunto.id)">
+                                <component
+                                    :is="
+                                        adjunto.mime.startsWith('image/')
+                                            ? ImageIcon
+                                            : FileText
+                                    "
+                                    class="size-3.5"
+                                />
+                                <a
+                                    :href="adjunto.url"
+                                    target="_blank"
+                                    class="max-w-40 truncate hover:underline"
+                                    >{{ adjunto.nombre }}</a
+                                >
+                                <button
+                                    type="button"
+                                    class="text-destructive"
+                                    aria-label="Eliminar archivo"
+                                    @click="eliminarAdjunto(adjunto.id)"
+                                >
                                     <Trash2 class="size-3.5" />
                                 </button>
                             </span>
@@ -296,16 +392,31 @@ function enviar() {
                             class="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground hover:bg-muted/40"
                         >
                             <Paperclip class="size-4" /> Agregar archivos
-                            <input type="file" class="sr-only" multiple accept=".pdf,image/jpeg,image/png,image/webp" @change="alElegirArchivos" />
+                            <input
+                                type="file"
+                                class="sr-only"
+                                multiple
+                                accept=".pdf,image/jpeg,image/png,image/webp"
+                                @change="alElegirArchivos"
+                            />
                         </label>
-                        <div v-if="form.adjuntos.length" class="flex flex-wrap gap-2">
+                        <div
+                            v-if="form.adjuntos.length"
+                            class="flex flex-wrap gap-2"
+                        >
                             <span
                                 v-for="(archivo, i) in form.adjuntos"
                                 :key="`${archivo.name}-${i}`"
                                 class="inline-flex items-center gap-1.5 rounded-lg bg-muted px-2 py-1 text-xs"
                             >
                                 {{ archivo.name }}
-                                <button type="button" aria-label="Quitar" @click="quitarArchivo(i)"><Trash2 class="size-3.5" /></button>
+                                <button
+                                    type="button"
+                                    aria-label="Quitar"
+                                    @click="quitarArchivo(i)"
+                                >
+                                    <Trash2 class="size-3.5" />
+                                </button>
                             </span>
                         </div>
                         <InputError :message="form.errors.adjuntos" />
@@ -314,16 +425,25 @@ function enviar() {
 
                 <section class="grid gap-2">
                     <Label for="observaciones">Observaciones (opcional)</Label>
-                    <Textarea id="observaciones" v-model="form.observaciones" rows="3" />
+                    <Textarea
+                        id="observaciones"
+                        v-model="form.observaciones"
+                        rows="3"
+                    />
                     <p class="text-xs text-muted-foreground">
                         Los candidatos de la campaña se cuentan solos: cada
-                        candidato que registres eligiendo esta campaña suma a
-                        su embudo y a su costo.
+                        candidato que registres eligiendo esta campaña suma a su
+                        embudo y a su costo.
                     </p>
                 </section>
 
                 <DialogFooter>
-                    <Button type="button" variant="secondary" @click="emit('update:open', false)">Cancelar</Button>
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        @click="emit('update:open', false)"
+                        >Cancelar</Button
+                    >
                     <Button type="submit" :disabled="form.processing">
                         <Spinner v-if="form.processing" />
                         Guardar

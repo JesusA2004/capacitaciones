@@ -382,9 +382,7 @@ async function generar() {
                                         </SelectItem>
                                     </SelectContent>
                                 </Select>
-                                <p
-                                    class="mt-1 text-xs text-muted-foreground"
-                                >
+                                <p class="mt-1 text-xs text-muted-foreground">
                                     {{
                                         responsableSeleccionado?.puesto ??
                                         'Sin puesto'
@@ -397,8 +395,7 @@ async function generar() {
                                 </p>
                                 <p class="text-xs text-muted-foreground">
                                     {{
-                                        valores.otorgante.puesto ??
-                                        'Sin puesto'
+                                        valores.otorgante.puesto ?? 'Sin puesto'
                                     }}
                                 </p>
                             </template>

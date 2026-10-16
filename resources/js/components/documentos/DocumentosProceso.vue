@@ -887,10 +887,7 @@ async function confirmarBaja() {
                             :placeholder="`Testigo ${i + 1}: cargo`"
                         />
                     </div>
-                    <p
-                        v-if="!testigosCompletos"
-                        class="text-xs text-warning"
-                    >
+                    <p v-if="!testigosCompletos" class="text-xs text-warning">
                         El acta exige nombre y cargo de los dos testigos{{
                             dialogoBaja.tipo === 'negativa'
                                 ? ' (puedes capturarlos después, antes de generarla)'

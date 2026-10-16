@@ -123,10 +123,11 @@ const necesitaPermiso = () =>
         />
         <ConfiguracionTabs :secciones="secciones" actual="notificaciones" />
 
-        <p class="flex items-center gap-2 text-sm text-[var(--mrl-texto-suave)]">
+        <p
+            class="flex items-center gap-2 text-sm text-[var(--mrl-texto-suave)]"
+        >
             <ShieldAlert class="size-4 shrink-0" />
-            Aquí solo decides quién recibe cada aviso; quién autoriza no
-            cambia.
+            Aquí solo decides quién recibe cada aviso; quién autoriza no cambia.
         </p>
 
         <ul class="flex flex-col gap-2">

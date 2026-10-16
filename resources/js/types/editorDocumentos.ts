@@ -95,7 +95,11 @@ export type CoberturaZonas = {
     intencionales: number;
     sin_clasificar: number;
     problemas: ProblemaCobertura[];
-    marcas: { detectadas: number; retiradas: number; decision: 'limpiar' | 'conservar' | null };
+    marcas: {
+        detectadas: number;
+        retiradas: number;
+        decision: 'limpiar' | 'conservar' | null;
+    };
     mensaje: string;
 };
 
@@ -188,7 +192,12 @@ export type ResultadoDatosLargos = {
 
 /** Centro de salud documental (encabezado de Documentos maestros). */
 export type SaludDocumental = {
-    formatos: { total: number; listos: number; revision: number; bloqueados: number };
+    formatos: {
+        total: number;
+        listos: number;
+        revision: number;
+        bloqueados: number;
+    };
     infraestructura: {
         clave: string;
         etiqueta: string;

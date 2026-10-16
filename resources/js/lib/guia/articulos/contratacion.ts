@@ -782,11 +782,11 @@ export const ARTICULOS_CONTRATACION: ArticuloGuia[] = [
         titulo: 'Firma de contratos y control del original',
         proceso: 'contratos',
         resumen:
-            'Cada documento sigue su ruta: imprimir → firma (y huella) → envío a corporativo → recepción → subir firmado → archivar.',
-        queEs: 'Es el control del papel. PEOPLE sabe en todo momento dónde está el original firmado de cada contrato.',
+            'Cada documento sigue su ruta física: generado → (firma digital si aplica) → impresión → firma física → concluido. El original firmado se resguarda en papel.',
+        queEs: 'Es el control del papel. PEOPLE sabe en todo momento en qué paso va cada contrato; al registrar la firma física queda concluido y el original firmado se guarda en el expediente físico.',
         quien: ['gerente', 'rh'],
         quienDetalle:
-            'El gerente imprime, recaba firma y huella y envía; RH recibe, escanea y archiva.',
+            'El gerente imprime y recaba la firma física (huella y testigos cuando el formato lo pide); PEOPLE registra quién y cuándo. El original firmado se resguarda en papel: no se escanea ni se sube.',
         antes: ['El documento está generado.'],
         pasos: [
             {
@@ -795,40 +795,22 @@ export const ARTICULOS_CONTRATACION: ArticuloGuia[] = [
                 quien: 'gerente',
             },
             {
-                titulo: '«Registrar firma»',
+                titulo: '«Registrar firma física»',
                 detalle:
-                    'Fecha de firma con huella y testigos cuando el formato lo pide.',
+                    'Fecha de firma con huella y testigos cuando el formato lo pide. Queda registrado quién y cuándo; no se sube ningún archivo. Con esto el documento queda concluido.',
                 quien: 'gerente',
-            },
-            {
-                titulo: '«Enviar original a corporativo»',
-                detalle: 'Paquetería, guía, fecha y comprobante.',
-                quien: 'gerente',
-            },
-            {
-                titulo: '«Registrar recepción en corporativo»',
-                detalle: 'Fecha de recepción.',
-                quien: 'rh',
-            },
-            {
-                titulo: '«Subir documento firmado»',
-                detalle: 'El escaneo queda en el expediente.',
-                quien: 'rh',
-            },
-            {
-                titulo: '«Archivar»',
-                detalle: 'Cierra la ruta del original.',
-                quien: 'rh',
             },
         ],
         despues: [
+            'Al registrar la firma física el documento queda concluido y el original firmado se resguarda en papel; PEOPLE no pide escaneo.',
             'Con el paquete firmado, el candidato pasa a «Contratado» y empieza el onboarding.',
             'Las fechas futuras se rechazan: cada paso pide su dato real.',
         ],
         errores: [
             {
-                problema: '«No me deja archivar.»',
-                solucion: 'Primero sube el documento firmado (escaneo).',
+                problema: '«No me deja registrar la firma física.»',
+                solucion:
+                    'Primero marca el documento como impreso: la firma física se registra sobre el documento ya impreso.',
             },
         ],
         registro: ['Cada paso del original con fecha, quién y evidencia.'],

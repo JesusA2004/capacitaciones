@@ -12,7 +12,11 @@ export type AvisoItem = {
     mensaje: string;
     alcance: 'todos' | 'colaborador';
     colaborador_objetivo_id: number | null;
-    colaborador_objetivo?: { id: number; name: string; apellidos: string | null } | null;
+    colaborador_objetivo?: {
+        id: number;
+        name: string;
+        apellidos: string | null;
+    } | null;
     archivo: AdjuntoAviso | null;
     creado_por?: { id: number; name: string; apellidos: string | null } | null;
     enviado_en: string | null;

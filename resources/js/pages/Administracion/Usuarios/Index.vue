@@ -67,10 +67,18 @@ const props = defineProps<{
 
 // ───── Eliminar definitivamente (super_admin) ─────
 const purgaAbierta = ref(false);
-const usuarioPurga = ref<{ id: number; username: string; nombre: string } | null>(null);
+const usuarioPurga = ref<{
+    id: number;
+    username: string;
+    nombre: string;
+} | null>(null);
 
 function abrirPurga(fila: UsuarioItem) {
-    usuarioPurga.value = { id: fila.id, username: fila.username, nombre: `${fila.name} ${fila.apellidos ?? ''}`.trim() };
+    usuarioPurga.value = {
+        id: fila.id,
+        username: fila.username,
+        nombre: `${fila.name} ${fila.apellidos ?? ''}`.trim(),
+    };
     purgaAbierta.value = true;
 }
 

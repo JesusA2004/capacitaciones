@@ -12,7 +12,9 @@ import { toast } from 'vue-sonner';
 const VENTANA_MS = 1500;
 let ultimoAviso = 0;
 
-function primerMensaje(errores: Record<string, string | string[]>): string | null {
+function primerMensaje(
+    errores: Record<string, string | string[]>,
+): string | null {
     for (const valor of Object.values(errores)) {
         const texto = Array.isArray(valor) ? valor[0] : valor;
 
@@ -36,7 +38,8 @@ function enfocarPrimerError(): void {
 
         mensaje.scrollIntoView({ block: 'center', behavior: 'smooth' });
 
-        const contenedor = mensaje.closest('div.grid, div.flex, div') ?? mensaje.parentElement;
+        const contenedor =
+            mensaje.closest('div.grid, div.flex, div') ?? mensaje.parentElement;
         const campo = contenedor?.parentElement?.querySelector<HTMLElement>(
             'input:not([type="hidden"]), textarea, select, button[role="combobox"]',
         );
@@ -47,13 +50,18 @@ function enfocarPrimerError(): void {
 
 export function initializeErroresGlobales(): void {
     router.on('error', (event) => {
-        const errores = (event.detail.errors ?? {}) as Record<string, string | string[]>;
+        const errores = (event.detail.errors ?? {}) as Record<
+            string,
+            string | string[]
+        >;
         const mensaje = primerMensaje(errores);
 
         if (mensaje && Date.now() - ultimoAviso > VENTANA_MS) {
             ultimoAviso = Date.now();
             const total = Object.keys(errores).length;
-            toast.error(total > 1 ? `Revisa ${total} campos: ${mensaje}` : mensaje);
+            toast.error(
+                total > 1 ? `Revisa ${total} campos: ${mensaje}` : mensaje,
+            );
         }
 
         enfocarPrimerError();
@@ -73,6 +81,8 @@ export function initializeErroresGlobales(): void {
 
     router.on('networkError', (event) => {
         event.preventDefault();
-        toast.error('No se pudo completar la acción: revisa tu conexión e intenta de nuevo.');
+        toast.error(
+            'No se pudo completar la acción: revisa tu conexión e intenta de nuevo.',
+        );
     });
 }

@@ -194,18 +194,36 @@ function enviar() {
                     </div>
                     <div class="grid gap-4 sm:grid-cols-2">
                         <div class="grid gap-2">
-                            <Label for="registro_patronal">Registro patronal IMSS</Label>
-                            <Input id="registro_patronal" v-model="form.registro_patronal" placeholder="D0000000000" />
-                            <InputError :message="form.errors.registro_patronal" />
+                            <Label for="registro_patronal"
+                                >Registro patronal IMSS</Label
+                            >
+                            <Input
+                                id="registro_patronal"
+                                v-model="form.registro_patronal"
+                                placeholder="D0000000000"
+                            />
+                            <InputError
+                                :message="form.errors.registro_patronal"
+                            />
                         </div>
                         <div class="grid gap-2">
-                            <Label for="codigo_postal_fiscal">Lugar de expedición (C.P.)</Label>
-                            <Input id="codigo_postal_fiscal" v-model="form.codigo_postal_fiscal" inputmode="numeric" placeholder="62260" />
-                            <InputError :message="form.errors.codigo_postal_fiscal" />
+                            <Label for="codigo_postal_fiscal"
+                                >Lugar de expedición (C.P.)</Label
+                            >
+                            <Input
+                                id="codigo_postal_fiscal"
+                                v-model="form.codigo_postal_fiscal"
+                                inputmode="numeric"
+                                placeholder="62260"
+                            />
+                            <InputError
+                                :message="form.errors.codigo_postal_fiscal"
+                            />
                         </div>
                     </div>
                     <p class="text-xs text-muted-foreground">
-                        Aparecen en el encabezado de los formatos oficiales (recibo de nómina, finiquito y permiso).
+                        Aparecen en el encabezado de los formatos oficiales
+                        (recibo de nómina, finiquito y permiso).
                     </p>
                 </fieldset>
 

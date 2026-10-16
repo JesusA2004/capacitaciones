@@ -25,7 +25,10 @@ import {
 } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
 import { cv } from '@/routes/rh/candidatos';
-import { desdeBandeja, descargar as descargarCv } from '@/routes/rh/candidatos/cv';
+import {
+    desdeBandeja,
+    descargar as descargarCv,
+} from '@/routes/rh/candidatos/cv';
 import { store as guardarEvidencias } from '@/routes/rh/candidatos/evidencias';
 import type {
     EvidenciaCandidato,
@@ -109,7 +112,9 @@ function subirCv(event: Event) {
     input.value = '';
 }
 
-const formBandeja = useForm<{ archivo: string; cv_bandeja?: string }>({ archivo: '' });
+const formBandeja = useForm<{ archivo: string; cv_bandeja?: string }>({
+    archivo: '',
+});
 
 function tomarDeBandeja() {
     formBandeja.post(desdeBandeja.url(props.candidatoId), {
@@ -196,7 +201,12 @@ const errorArchivos = computed(
             <!-- CV descargado de WhatsApp: ya está en la bandeja del NAS. -->
             <div v-if="puedeAdjuntar" class="mt-3 grid gap-2">
                 <BandejaCvSelector v-model="formBandeja.archivo" />
-                <InputError :message="formBandeja.errors.cv_bandeja ?? formBandeja.errors.archivo" />
+                <InputError
+                    :message="
+                        formBandeja.errors.cv_bandeja ??
+                        formBandeja.errors.archivo
+                    "
+                />
                 <Button
                     v-if="formBandeja.archivo"
                     size="sm"
@@ -206,7 +216,11 @@ const errorArchivos = computed(
                 >
                     <Spinner v-if="formBandeja.processing" />
                     <Inbox v-else class="size-4" />
-                    {{ expediente.cv ? 'Reemplazar con este CV' : 'Guardar como CV' }}
+                    {{
+                        expediente.cv
+                            ? 'Reemplazar con este CV'
+                            : 'Guardar como CV'
+                    }}
                 </Button>
             </div>
         </div>

@@ -55,18 +55,26 @@ watch(
         }
 
         try {
-            const r = await fetch(purga.revisar.url(id), { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
-            const cuerpo = (await r.json().catch(() => ({}))) as { data?: Revision; message?: string };
+            const r = await fetch(purga.revisar.url(id), {
+                headers: { Accept: 'application/json' },
+                credentials: 'same-origin',
+            });
+            const cuerpo = (await r.json().catch(() => ({}))) as {
+                data?: Revision;
+                message?: string;
+            };
 
             if (!r.ok || !cuerpo.data) {
-                errorCarga.value = cuerpo.message || 'No se pudo revisar la cuenta.';
+                errorCarga.value =
+                    cuerpo.message || 'No se pudo revisar la cuenta.';
 
                 return;
             }
 
             revision.value = cuerpo.data;
         } catch {
-            errorCarga.value = 'No se pudo revisar la cuenta. Revisa tu conexión.';
+            errorCarga.value =
+                'No se pudo revisar la cuenta. Revisa tu conexión.';
         }
     },
     { immediate: true },
@@ -75,7 +83,8 @@ watch(
 const confirmado = computed(
     () =>
         !!revision.value &&
-        (form.confirmacion.trim() === 'ELIMINAR' || form.confirmacion.trim() === revision.value.confirmacion),
+        (form.confirmacion.trim() === 'ELIMINAR' ||
+            form.confirmacion.trim() === revision.value.confirmacion),
 );
 
 function eliminar() {
@@ -94,16 +103,20 @@ function eliminar() {
 
 <template>
     <Dialog v-model:open="abierto">
-        <DialogContent class="max-h-[90vh] overflow-y-auto border-destructive/40 sm:max-w-lg">
+        <DialogContent
+            class="max-h-[90vh] overflow-y-auto border-destructive/40 sm:max-w-lg"
+        >
             <DialogHeader>
                 <DialogTitle class="flex items-center gap-2 text-destructive">
                     <ShieldAlert class="size-5" /> Eliminar definitivamente
                 </DialogTitle>
                 <DialogDescription>
                     Borra la cuenta <strong>{{ usuario?.username }}</strong>
-                    <template v-if="usuario?.nombre"> ({{ usuario.nombre }})</template>
-                    de la base de datos. No se puede deshacer. Para solo
-                    impedir el acceso usa «Revocar acceso».
+                    <template v-if="usuario?.nombre">
+                        ({{ usuario.nombre }})</template
+                    >
+                    de la base de datos. No se puede deshacer. Para solo impedir
+                    el acceso usa «Revocar acceso».
                 </DialogDescription>
             </DialogHeader>
 
@@ -113,48 +126,99 @@ function eliminar() {
                 <Skeleton class="h-4 w-1/2" />
             </div>
 
-            <p v-else-if="errorCarga" class="rounded-xl bg-danger-soft p-3 text-sm text-destructive">{{ errorCarga }}</p>
+            <p
+                v-else-if="errorCarga"
+                class="rounded-xl bg-danger-soft p-3 text-sm text-destructive"
+            >
+                {{ errorCarga }}
+            </p>
 
             <div v-else-if="revision" class="flex flex-col gap-4 text-sm">
-                <div v-if="revision.bloqueos.length" class="flex flex-col gap-1.5 rounded-xl bg-danger-soft p-3">
-                    <p class="flex items-center gap-1.5 font-medium text-destructive"><Ban class="size-4" /> No se puede eliminar</p>
+                <div
+                    v-if="revision.bloqueos.length"
+                    class="flex flex-col gap-1.5 rounded-xl bg-danger-soft p-3"
+                >
+                    <p
+                        class="flex items-center gap-1.5 font-medium text-destructive"
+                    >
+                        <Ban class="size-4" /> No se puede eliminar
+                    </p>
                     <ul class="list-disc pl-5 text-xs">
                         <li v-for="b in revision.bloqueos" :key="b">{{ b }}</li>
                     </ul>
-                    <p class="text-xs">Su historial debe conservarse: usa «Revocar acceso».</p>
+                    <p class="text-xs">
+                        Su historial debe conservarse: usa «Revocar acceso».
+                    </p>
                 </div>
 
                 <template v-else>
                     <div>
-                        <p class="mb-1 flex items-center gap-1.5 font-medium"><Trash2 class="size-4 text-destructive" /> Se eliminará</p>
-                        <ul class="list-disc pl-5 text-xs text-muted-foreground">
+                        <p class="mb-1 flex items-center gap-1.5 font-medium">
+                            <Trash2 class="size-4 text-destructive" /> Se
+                            eliminará
+                        </p>
+                        <ul
+                            class="list-disc pl-5 text-xs text-muted-foreground"
+                        >
                             <li>La cuenta de acceso y su contraseña.</li>
-                            <li v-for="e in revision.eliminar" :key="e.que">{{ e.filas }} · {{ e.que }}</li>
+                            <li v-for="e in revision.eliminar" :key="e.que">
+                                {{ e.filas }} · {{ e.que }}
+                            </li>
                         </ul>
                     </div>
                     <div v-if="revision.desvincular.length">
-                        <p class="mb-1 flex items-center gap-1.5 font-medium"><Link2Off class="size-4" /> Quedará sin autor</p>
-                        <ul class="list-disc pl-5 text-xs text-muted-foreground">
-                            <li v-for="d in revision.desvincular" :key="d.que">{{ d.filas }} · {{ d.que }}</li>
+                        <p class="mb-1 flex items-center gap-1.5 font-medium">
+                            <Link2Off class="size-4" /> Quedará sin autor
+                        </p>
+                        <ul
+                            class="list-disc pl-5 text-xs text-muted-foreground"
+                        >
+                            <li v-for="d in revision.desvincular" :key="d.que">
+                                {{ d.filas }} · {{ d.que }}
+                            </li>
                         </ul>
                     </div>
-                    <p class="rounded-xl bg-crema/50 p-3 text-xs text-muted-foreground">
+                    <p
+                        class="rounded-xl bg-crema/50 p-3 text-xs text-muted-foreground"
+                    >
                         El expediente del colaborador no se elimina. Esta acción
                         no queda en la bitácora de la aplicación; los respaldos
                         y registros del servidor quedan fuera de su alcance.
                     </p>
                     <div class="flex flex-col gap-1.5">
-                        <Label for="purga-confirmacion">Escribe <strong>ELIMINAR</strong> o el usuario <strong>{{ revision.confirmacion }}</strong></Label>
-                        <Input id="purga-confirmacion" v-model="form.confirmacion" autocomplete="off" @keydown.enter.prevent="eliminar" />
+                        <Label for="purga-confirmacion"
+                            >Escribe <strong>ELIMINAR</strong> o el usuario
+                            <strong>{{ revision.confirmacion }}</strong></Label
+                        >
+                        <Input
+                            id="purga-confirmacion"
+                            v-model="form.confirmacion"
+                            autocomplete="off"
+                            @keydown.enter.prevent="eliminar"
+                        />
                         <InputError :message="form.errors.confirmacion" />
                     </div>
                 </template>
             </div>
 
             <DialogFooter class="gap-2">
-                <Button variant="ghost" :disabled="form.processing" @click="abierto = false">Cancelar</Button>
-                <Button v-if="revision?.puede" variant="destructive" :disabled="!confirmado || form.processing" @click="eliminar">
-                    <Spinner v-if="form.processing" class="size-4" /><Trash2 v-else class="size-4" /> Eliminar definitivamente
+                <Button
+                    variant="ghost"
+                    :disabled="form.processing"
+                    @click="abierto = false"
+                    >Cancelar</Button
+                >
+                <Button
+                    v-if="revision?.puede"
+                    variant="destructive"
+                    :disabled="!confirmado || form.processing"
+                    @click="eliminar"
+                >
+                    <Spinner v-if="form.processing" class="size-4" /><Trash2
+                        v-else
+                        class="size-4"
+                    />
+                    Eliminar definitivamente
                 </Button>
             </DialogFooter>
         </DialogContent>

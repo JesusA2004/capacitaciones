@@ -298,12 +298,11 @@ const ESCENAS: EscenaBase[] = [
         pantalla: 'Documentos del proceso → ruta del original',
         ruta: '/rh/colaboradores/:colaborador/ciclo',
         captura: '22-firma-original.png',
-        accion: 'Mostrar imprimir, registrar firma, enviar a corporativo, recepción, subir firmado y archivar.',
+        accion: 'Mostrar imprimir, registrar la firma física (huella y testigos) y el documento concluido.',
         zoom: 'Zoom a la ruta del documento',
-        textoPantalla:
-            'Imprimir → Firma y huella → Envío → Recepción → Escaneo → Archivo',
+        textoPantalla: 'Imprimir → Firma física (huella/testigos) → Concluido',
         narracion:
-            'El gerente imprime, recaba firma y huella, y envía el original a corporativo. Recursos Humanos registra la recepción, sube el documento firmado y lo archiva. Siempre se sabe dónde está cada original.',
+            'El gerente imprime y recaba la firma física con huella y testigos. PEOPLE registra quién y cuándo, y el documento queda concluido. El original firmado se resguarda en papel: no se escanea ni se sube. Siempre se sabe en qué paso va cada documento.',
         transicion: 'Corte',
     },
     {

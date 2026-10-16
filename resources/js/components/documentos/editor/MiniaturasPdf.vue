@@ -12,7 +12,11 @@ const props = defineProps<{
     paginas: PaginaPdf[];
     actual: number;
     campos: CampoEditor[];
-    dibujar: (numero: number, lienzo: HTMLCanvasElement, pxPorMm: number) => Promise<void>;
+    dibujar: (
+        numero: number,
+        lienzo: HTMLCanvasElement,
+        pxPorMm: number,
+    ) => Promise<void>;
 }>();
 
 const emit = defineEmits<{ elegir: [numero: number] }>();
@@ -36,7 +40,10 @@ watch(
 );
 
 function pendientes(numero: number): number {
-    return props.campos.filter((c) => c.page === numero && c.zona === 'dato' && c.estado !== 'confirmado').length;
+    return props.campos.filter(
+        (c) =>
+            c.page === numero && c.zona === 'dato' && c.estado !== 'confirmado',
+    ).length;
 }
 </script>
 
@@ -45,14 +52,31 @@ function pendientes(numero: number): number {
         <li v-for="p in paginas" :key="p.numero">
             <button
                 type="button"
-                :class="cn('flex w-full flex-col items-center gap-1 rounded-lg p-1.5', actual === p.numero ? 'bg-primary/10 ring-2 ring-primary' : 'hover:bg-muted')"
+                :class="
+                    cn(
+                        'flex w-full flex-col items-center gap-1 rounded-lg p-1.5',
+                        actual === p.numero
+                            ? 'bg-primary/10 ring-2 ring-primary'
+                            : 'hover:bg-muted',
+                    )
+                "
                 :aria-label="`Página ${p.numero}`"
                 @click="emit('elegir', p.numero)"
             >
-                <canvas :ref="(el) => (lienzos[p.numero] = el as HTMLCanvasElement | null)" class="bg-white shadow-sm ring-1 ring-black/10" />
+                <canvas
+                    :ref="
+                        (el) =>
+                            (lienzos[p.numero] = el as HTMLCanvasElement | null)
+                    "
+                    class="bg-white shadow-sm ring-1 ring-black/10"
+                />
                 <span class="flex items-center gap-1 text-xs">
                     {{ p.numero }}
-                    <span v-if="pendientes(p.numero)" class="rounded-full bg-warning-soft px-1.5 text-[10px] text-warning">{{ pendientes(p.numero) }}</span>
+                    <span
+                        v-if="pendientes(p.numero)"
+                        class="rounded-full bg-warning-soft px-1.5 text-[10px] text-warning"
+                        >{{ pendientes(p.numero) }}</span
+                    >
                 </span>
             </button>
         </li>

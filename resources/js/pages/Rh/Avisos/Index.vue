@@ -331,7 +331,11 @@ onBeforeUnmount(liberarPrevisualizacion);
                             class="size-4 animate-spin"
                         />
                         <Send v-else class="size-4" />
-                        {{ form.processing ? 'Enviando…' : 'Enviar notificación' }}
+                        {{
+                            form.processing
+                                ? 'Enviando…'
+                                : 'Enviar notificación'
+                        }}
                     </Button>
                 </CardContent>
             </Card>

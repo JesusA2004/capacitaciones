@@ -67,8 +67,8 @@ const letras = ['A', 'B', 'C', 'D', 'E'];
                 calificación mínima aprobatoria
                 {{ contenido.instrucciones.calificacion_aprobatoria }}/{{
                     contenido.instrucciones.total_puntos
-                }}. Las secciones A, B y C se califican al instante; los
-                casos prácticos (sección D) los revisa Recursos Humanos.
+                }}. Las secciones A, B y C se califican al instante; los casos
+                prácticos (sección D) los revisa Recursos Humanos.
             </p>
         </header>
 
@@ -244,8 +244,8 @@ const letras = ['A', 'B', 'C', 'D', 'E'];
                     <div class="flex shrink-0 gap-3">
                         <label
                             v-for="n in contenido.seccion_e.escala_max -
-                                contenido.seccion_e.escala_min +
-                                1"
+                            contenido.seccion_e.escala_min +
+                            1"
                             :key="n"
                             class="flex cursor-pointer items-center gap-1 text-sm"
                         >
@@ -266,9 +266,7 @@ const letras = ['A', 'B', 'C', 'D', 'E'];
                     </div>
                 </fieldset>
                 <div class="flex flex-col gap-1.5">
-                    <label
-                        class="text-sm font-medium"
-                        for="tema_reforzar"
+                    <label class="text-sm font-medium" for="tema_reforzar"
                         >¿Qué tema te gustaría reforzar?</label
                     >
                     <Textarea
@@ -280,11 +278,7 @@ const letras = ['A', 'B', 'C', 'D', 'E'];
             </section>
 
             <InputError :message="form.errors.respuestas as string" />
-            <Button
-                type="submit"
-                class="w-fit"
-                :disabled="form.processing"
-            >
+            <Button type="submit" class="w-fit" :disabled="form.processing">
                 Enviar evaluación <ArrowRight class="size-4" />
             </Button>
         </form>

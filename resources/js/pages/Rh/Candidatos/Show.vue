@@ -11,7 +11,10 @@ import {
     Video,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
-import { decidir, solicitar as solicitarIntervencion } from '@/actions/App/Http/Controllers/Rh/IntervencionCandidatoController';
+import {
+    decidir,
+    solicitar as solicitarIntervencion,
+} from '@/actions/App/Http/Controllers/Rh/IntervencionCandidatoController';
 import AccionesCiclo from '@/components/ciclo/AccionesCiclo.vue';
 import AprobacionesResumen from '@/components/ciclo/AprobacionesResumen.vue';
 import CicloEstadoPanel from '@/components/ciclo/CicloEstadoPanel.vue';
@@ -89,7 +92,8 @@ const props = defineProps<{
 }>();
 
 const ACEPTA_DOCUMENTOS = '.pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx';
-const ACEPTA_SOCIOECONOMICO = '.mp4,.mov,.m4v,.3gp,.webm,.jpg,.jpeg,.png,.webp,.pdf';
+const ACEPTA_SOCIOECONOMICO =
+    '.mp4,.mov,.m4v,.3gp,.webm,.jpg,.jpeg,.png,.webp,.pdf';
 
 defineOptions({
     layout: (pageProps: { candidato: CandidatoFicha }) => ({
@@ -151,7 +155,11 @@ const hoy = new Date().toISOString().slice(0, 10);
 /** Rechazo en cualquier fase: motivo del catálogo + «¿puede considerarse nuevamente?». */
 const rechazoInicial = () => ({ motivo_rechazo_id: null, recontratable: true });
 const camposPorAccion: Record<string, () => FormularioAccion> = {
-    evaluar_perfil: () => ({ viable: true, observaciones: '', ...rechazoInicial() }),
+    evaluar_perfil: () => ({
+        viable: true,
+        observaciones: '',
+        ...rechazoInicial(),
+    }),
     registrar_entrevista: () => ({
         realizada_en: `${hoy}T10:00`,
         resultado: 'viable',
@@ -163,7 +171,11 @@ const camposPorAccion: Record<string, () => FormularioAccion> = {
         resumen: '',
         archivos: [] as File[],
     }),
-    revisar_psicometricas: () => ({ viable: true, observaciones: '', ...rechazoInicial() }),
+    revisar_psicometricas: () => ({
+        viable: true,
+        observaciones: '',
+        ...rechazoInicial(),
+    }),
     registrar_socioeconomico: () => ({
         fecha_visita: hoy,
         direccion: '',
@@ -177,7 +189,11 @@ const camposPorAccion: Record<string, () => FormularioAccion> = {
         observaciones: '',
         evidencias: [] as File[],
     }),
-    revisar_socioeconomico: () => ({ viable: true, observaciones: '', ...rechazoInicial() }),
+    revisar_socioeconomico: () => ({
+        viable: true,
+        observaciones: '',
+        ...rechazoInicial(),
+    }),
     registrar_referencia: () => ({
         empresa: '',
         contacto: '',
@@ -187,10 +203,18 @@ const camposPorAccion: Record<string, () => FormularioAccion> = {
         observaciones: '',
         archivos: [] as File[],
     }),
-    concluir_referencias: () => ({ viable: true, observaciones: '', ...rechazoInicial() }),
+    concluir_referencias: () => ({
+        viable: true,
+        observaciones: '',
+        ...rechazoInicial(),
+    }),
     autorizar_rh: () => ({ comentario: '' }),
     devolver_rh: () => ({ motivo: '' }),
-    rechazar_rh: () => ({ motivo: '', motivo_rechazo_id: null, recontratable: true }),
+    rechazar_rh: () => ({
+        motivo: '',
+        motivo_rechazo_id: null,
+        recontratable: true,
+    }),
     solicitar_intervencion: () => ({ motivo: '' }),
     descartar: () => ({
         estado: props.opciones.salidas[0]?.value ?? 'no_viable',
@@ -244,7 +268,9 @@ function url(clave: string): string {
 function alElegirMotivoRechazoForm(id: string) {
     const motivoId = id ? Number(id) : null;
     form.motivo_rechazo_id = motivoId;
-    const motivo = props.opciones.motivosRechazo?.find((m) => m.id === motivoId);
+    const motivo = props.opciones.motivosRechazo?.find(
+        (m) => m.id === motivoId,
+    );
     form.recontratable = motivo ? !motivo.no_recontratable_por_defecto : true;
 }
 
@@ -273,7 +299,11 @@ function enviar() {
     // motivo del catálogo queda como nota del histórico.
     const rechazaFase = form.viable === false || form.resultado === 'no_viable';
 
-    if (rechazaFase && catalogo && String(form.observaciones ?? '').trim() === '') {
+    if (
+        rechazaFase &&
+        catalogo &&
+        String(form.observaciones ?? '').trim() === ''
+    ) {
         form.observaciones = catalogo.nombre;
     }
 
@@ -353,7 +383,6 @@ function fecha(valor: string | null): string {
           })
         : '—';
 }
-
 </script>
 
 <template>
@@ -377,14 +406,18 @@ function fecha(valor: string | null): string {
             class="grid gap-4 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5 lg:grid-cols-[1fr_auto]"
             aria-label="Resumen del candidato"
         >
-            <dl class="grid gap-x-6 gap-y-3 text-base sm:grid-cols-2 xl:grid-cols-3">
+            <dl
+                class="grid gap-x-6 gap-y-3 text-base sm:grid-cols-2 xl:grid-cols-3"
+            >
                 <div>
                     <dt class="text-xs text-muted-foreground">Puesto</dt>
                     <dd class="font-semibold">{{ candidato.puesto ?? '—' }}</dd>
                 </div>
                 <div>
                     <dt class="text-xs text-muted-foreground">Sucursal</dt>
-                    <dd class="font-semibold">{{ candidato.sucursal ?? '—' }}</dd>
+                    <dd class="font-semibold">
+                        {{ candidato.sucursal ?? '—' }}
+                    </dd>
                 </div>
                 <div>
                     <dt class="text-xs text-muted-foreground">Etapa</dt>
@@ -398,7 +431,10 @@ function fecha(valor: string | null): string {
                 <div>
                     <dt class="text-xs text-muted-foreground">Responsable</dt>
                     <dd class="font-semibold">
-                        {{ ciclo.responsable_actual.nombre ?? ciclo.responsable_actual.rol }}
+                        {{
+                            ciclo.responsable_actual.nombre ??
+                            ciclo.responsable_actual.rol
+                        }}
                         <span
                             v-if="ciclo.responsable_actual.nombre"
                             class="block text-xs font-normal text-muted-foreground"
@@ -407,9 +443,14 @@ function fecha(valor: string | null): string {
                     </dd>
                 </div>
                 <div class="sm:col-span-2">
-                    <dt class="text-xs text-muted-foreground">Siguiente acción</dt>
+                    <dt class="text-xs text-muted-foreground">
+                        Siguiente acción
+                    </dt>
                     <dd class="font-semibold">
-                        {{ ciclo.siguiente_accion?.etiqueta ?? 'Sin acciones pendientes' }}
+                        {{
+                            ciclo.siguiente_accion?.etiqueta ??
+                            'Sin acciones pendientes'
+                        }}
                     </dd>
                 </div>
             </dl>
@@ -497,7 +538,10 @@ function fecha(valor: string | null): string {
                             <dt class="text-muted-foreground">Gerente</dt>
                             <dd>{{ candidato.gerente ?? '—' }}</dd>
                         </div>
-                        <div v-if="candidato.motivo_rechazo" class="sm:col-span-2">
+                        <div
+                            v-if="candidato.motivo_rechazo"
+                            class="sm:col-span-2"
+                        >
                             <dt class="text-muted-foreground">
                                 ¿Por qué ya no continuó?
                             </dt>
@@ -519,10 +563,16 @@ function fecha(valor: string | null): string {
                             </dt>
                             <dd class="mt-1 flex flex-col gap-1">
                                 <span
-                                    v-for="(r, i) in candidato.respuestas_filtro"
+                                    v-for="(
+                                        r, i
+                                    ) in candidato.respuestas_filtro"
                                     :key="i"
                                     class="flex items-center justify-between gap-3 rounded-md px-2 py-1"
-                                    :class="r.cumple ? 'bg-success-soft' : 'bg-danger-soft'"
+                                    :class="
+                                        r.cumple
+                                            ? 'bg-success-soft'
+                                            : 'bg-danger-soft'
+                                    "
                                 >
                                     <span>{{ r.pregunta }}</span>
                                     <span class="font-medium">{{
@@ -544,7 +594,9 @@ function fecha(valor: string | null): string {
                     :expediente="candidato.expediente"
                     :puede-adjuntar="puedeAdjuntar"
                     :limites="limitesArchivos"
-                    :socioeconomico-registrado="candidato.socioeconomicos.length > 0"
+                    :socioeconomico-registrado="
+                        candidato.socioeconomicos.length > 0
+                    "
                     :hay-referencias="candidato.referencias.length > 0"
                     @ver="(ev) => (evidenciaActiva = ev)"
                 />
@@ -606,7 +658,10 @@ function fecha(valor: string | null): string {
                         <p v-if="item.resumen_resultados" class="mt-1">
                             {{ item.resumen_resultados }}
                         </p>
-                        <div v-if="item.evidencias.length" class="mt-2 flex flex-wrap gap-2">
+                        <div
+                            v-if="item.evidencias.length"
+                            class="mt-2 flex flex-wrap gap-2"
+                        >
                             <Button
                                 v-for="ev in item.evidencias"
                                 :key="ev.id"
@@ -614,7 +669,8 @@ function fecha(valor: string | null): string {
                                 variant="outline"
                                 @click="evidenciaActiva = ev"
                             >
-                                <Brain class="size-4" /> Psicométrico · {{ ev.nombre }}
+                                <Brain class="size-4" /> Psicométrico ·
+                                {{ ev.nombre }}
                             </Button>
                         </div>
                     </article>
@@ -653,7 +709,10 @@ function fecha(valor: string | null): string {
                         <p v-if="item.observaciones" class="mt-1">
                             {{ item.observaciones }}
                         </p>
-                        <div v-if="item.evidencias.length" class="mt-2 flex flex-wrap gap-2">
+                        <div
+                            v-if="item.evidencias.length"
+                            class="mt-2 flex flex-wrap gap-2"
+                        >
                             <Button
                                 v-for="ev in item.evidencias"
                                 :key="ev.id"
@@ -661,7 +720,10 @@ function fecha(valor: string | null): string {
                                 variant="outline"
                                 @click="evidenciaActiva = ev"
                             >
-                                <component :is="ev.tipo === 'video' ? Video : Home" class="size-4" />
+                                <component
+                                    :is="ev.tipo === 'video' ? Video : Home"
+                                    class="size-4"
+                                />
                                 Socioeconómico · {{ ev.nombre }}
                             </Button>
                         </div>
@@ -889,14 +951,18 @@ function fecha(valor: string | null): string {
                                 "
                                 @update:model-value="alElegirMotivoRechazoForm"
                                 :opciones="
-                                    (opciones.motivosRechazo ?? []).map((m) => ({
-                                        value: String(m.id),
-                                        label: m.etiqueta,
-                                    }))
+                                    (opciones.motivosRechazo ?? []).map(
+                                        (m) => ({
+                                            value: String(m.id),
+                                            label: m.etiqueta,
+                                        }),
+                                    )
                                 "
                                 placeholder="Elige un motivo"
                             />
-                            <InputError :message="form.errors.motivo_rechazo_id" />
+                            <InputError
+                                :message="form.errors.motivo_rechazo_id"
+                            />
                         </div>
                         <label class="flex min-h-11 items-center gap-2 text-sm">
                             <Casilla v-model="form.recontratable as boolean" />
@@ -921,14 +987,16 @@ function fecha(valor: string | null): string {
                             rows="3"
                         /><InputError :message="form.errors.observaciones" />
                     </div>
-                    <p class="rounded-lg bg-salvia/50 p-2 text-xs text-muted-foreground">
+                    <p
+                        class="rounded-lg bg-salvia/50 p-2 text-xs text-muted-foreground"
+                    >
                         Cargar el estudio no lo aprueba: queda pendiente de
                         revisión y el responsable decide si es viable.
                     </p>
                     <div class="grid gap-1.5">
                         <Label
-                            >Videos, fotografías o PDF (puedes subir
-                            varios; se guardan en el NAS)</Label
+                            >Videos, fotografías o PDF (puedes subir varios; se
+                            guardan en el NAS)</Label
                         ><PeopleFileDropzone
                             :model-value="(form.evidencias as File[]) ?? []"
                             multiple
@@ -1065,9 +1133,9 @@ function fecha(valor: string | null): string {
                 >
                     <p class="text-sm text-muted-foreground">
                         Pide revisar este rechazo de RH. Según el puesto, la
-                        decisión la toma la Gerencia Regional (Gestor/Volante)
-                        o Dirección Comercial (cualquier otro puesto) — nadie
-                        se entera si no envías esta solicitud.
+                        decisión la toma la Gerencia Regional (Gestor/Volante) o
+                        Dirección Comercial (cualquier otro puesto) — nadie se
+                        entera si no envías esta solicitud.
                     </p>
                     <div class="grid gap-1.5">
                         <Label>Motivo (obligatorio)</Label
@@ -1249,14 +1317,14 @@ function fecha(valor: string | null): string {
                 <Textarea v-model="formDecision.comentario" rows="3" />
             </div>
             <DialogFooter>
-                <Button
-                    variant="ghost"
-                    @click="decisionIntervencion = null"
+                <Button variant="ghost" @click="decisionIntervencion = null"
                     >Cancelar</Button
                 >
                 <Button
                     :variant="
-                        decisionIntervencion?.aprueba ? 'default' : 'destructive'
+                        decisionIntervencion?.aprueba
+                            ? 'default'
+                            : 'destructive'
                     "
                     :disabled="formDecision.processing"
                     @click="enviarDecision"
@@ -1282,6 +1350,8 @@ function fecha(valor: string | null): string {
         :nombre-archivo="evidenciaActiva.nombre"
         :tipo="evidenciaActiva.tipo"
         :mime="evidenciaActiva.mime"
-        @update:open="(abierto: boolean) => !abierto && (evidenciaActiva = null)"
+        @update:open="
+            (abierto: boolean) => !abierto && (evidenciaActiva = null)
+        "
     />
 </template>

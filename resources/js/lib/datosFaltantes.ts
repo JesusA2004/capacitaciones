@@ -9,6 +9,11 @@ export function columnaDatoFaltante(f: DatoFaltante): string {
 }
 
 /** ¿Ya se capturaron todos los datos que sí se pueden completar aquí? */
-export function datosFaltantesCompletos(faltantes: DatoFaltante[], valores: Record<string, string>): boolean {
-    return faltantes.filter((f) => f.editable).every((f) => (valores[columnaDatoFaltante(f)] ?? '').trim() !== '');
+export function datosFaltantesCompletos(
+    faltantes: DatoFaltante[],
+    valores: Record<string, string>,
+): boolean {
+    return faltantes
+        .filter((f) => f.editable)
+        .every((f) => (valores[columnaDatoFaltante(f)] ?? '').trim() !== '');
 }

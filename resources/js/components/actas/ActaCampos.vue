@@ -39,7 +39,13 @@ function testigoModelo(i: number): ColaboradorBusqueda | null {
     const t = form.value.testigos[i];
 
     return t?.colaborador_id
-        ? { id: t.colaborador_id, nombre: t.nombre, numero_empleado: null, puesto: t.puesto || null, sucursal: null }
+        ? {
+              id: t.colaborador_id,
+              nombre: t.nombre,
+              numero_empleado: null,
+              puesto: t.puesto || null,
+              sucursal: null,
+          }
         : null;
 }
 
@@ -82,12 +88,12 @@ function modoDeclaracion(i: number): ModoManifestacion {
     const texto = form.value.declaraciones[i]?.declaracion ?? '';
 
     if (texto === FRASE_NO_MANIFESTO) {
-return 'no_manifesto';
-}
+        return 'no_manifesto';
+    }
 
     if (texto.trim() !== '') {
-return 'capturar';
-}
+        return 'capturar';
+    }
 
     return 'sin_elegir';
 }
@@ -96,8 +102,8 @@ function elegirModo(i: number, modo: 'capturar' | 'no_manifesto') {
     const actual = form.value.declaraciones[i];
 
     if (!actual) {
-return;
-}
+        return;
+    }
 
     if (modo === 'no_manifesto') {
         actual.declaracion = FRASE_NO_MANIFESTO;
@@ -128,7 +134,11 @@ const hoy = computed(() => new Date());
         <div class="grid gap-3 sm:grid-cols-3">
             <div class="flex flex-col gap-1.5">
                 <Label for="acta-fecha">Fecha</Label>
-                <DatePicker id="acta-fecha" v-model="form.fecha" :max-value="hoy.toISOString().slice(0, 10)" />
+                <DatePicker
+                    id="acta-fecha"
+                    v-model="form.fecha"
+                    :max-value="hoy.toISOString().slice(0, 10)"
+                />
                 <InputError :message="error('fecha')" />
             </div>
             <div class="flex flex-col gap-1.5">
@@ -232,7 +242,11 @@ const hoy = computed(() => new Date());
                     <Button
                         type="button"
                         size="sm"
-                        :variant="modoDeclaracion(i) === 'capturar' ? 'default' : 'outline'"
+                        :variant="
+                            modoDeclaracion(i) === 'capturar'
+                                ? 'default'
+                                : 'outline'
+                        "
                         @click="elegirModo(i, 'capturar')"
                     >
                         Capturar manifestación
@@ -240,7 +254,11 @@ const hoy = computed(() => new Date());
                     <Button
                         type="button"
                         size="sm"
-                        :variant="modoDeclaracion(i) === 'no_manifesto' ? 'default' : 'outline'"
+                        :variant="
+                            modoDeclaracion(i) === 'no_manifesto'
+                                ? 'default'
+                                : 'outline'
+                        "
                         @click="elegirModo(i, 'no_manifesto')"
                     >
                         No quiso manifestar nada

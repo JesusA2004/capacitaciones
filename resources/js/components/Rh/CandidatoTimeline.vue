@@ -107,10 +107,7 @@ function enlace(etapa: CandidatoTimelineEtapa): string | null {
                         fechaCorta(etapa.fecha)
                     }}</template>
                 </p>
-                <p
-                    v-if="etapa.accion"
-                    class="text-xs font-medium text-warning"
-                >
+                <p v-if="etapa.accion" class="text-xs font-medium text-warning">
                     Siguiente paso: {{ etapa.accion }}
                 </p>
             </div>

@@ -54,7 +54,11 @@ watch(indicadoresAbiertos, (abierto) => {
 const saludo = computed(() => {
     const hora = new Date().getHours();
     const parte =
-        hora < 12 ? 'Buenos días' : hora < 19 ? 'Buenas tardes' : 'Buenas noches';
+        hora < 12
+            ? 'Buenos días'
+            : hora < 19
+              ? 'Buenas tardes'
+              : 'Buenas noches';
 
     return props.inicio.nombre ? `${parte}, ${props.inicio.nombre}` : parte;
 });
@@ -84,7 +88,9 @@ const tarjetas = computed(() =>
                   valor: props.inicio.indicadores.expedientes_incompletos,
                   nota: 'con datos contractuales faltantes',
                   icono: FolderOpen,
-                  href: expedientesIndex.url({ query: { datos: 'incompletos' } }),
+                  href: expedientesIndex.url({
+                      query: { datos: 'incompletos' },
+                  }),
               }
             : null,
         {
@@ -106,7 +112,9 @@ const tarjetas = computed(() =>
             aria-live="polite"
         >
             <div class="mr-auto min-w-0">
-                <h1 class="text-xl font-semibold tracking-tight">{{ saludo }}</h1>
+                <h1 class="text-xl font-semibold tracking-tight">
+                    {{ saludo }}
+                </h1>
                 <p
                     v-if="inicio.pendientes > 0"
                     class="mt-0.5 text-sm text-muted-foreground"
@@ -123,7 +131,9 @@ const tarjetas = computed(() =>
                         <span class="font-medium text-danger tabular-nums">{{
                             inicio.vencidos
                         }}</span>
-                        {{ inicio.vencidos === 1 ? 'vencida' : 'vencidas' }}</template
+                        {{
+                            inicio.vencidos === 1 ? 'vencida' : 'vencidas'
+                        }}</template
                     >
                 </p>
                 <p
@@ -145,12 +155,12 @@ const tarjetas = computed(() =>
             <li
                 v-for="(t, i) in tarjetas"
                 :key="t.clave"
-                class="animate-in fade-in slide-in-from-bottom-1 fill-mode-both duration-200 motion-reduce:animate-none"
+                class="animate-in duration-200 fill-mode-both fade-in slide-in-from-bottom-1 motion-reduce:animate-none"
                 :style="{ animationDelay: `${i * 40}ms` }"
             >
                 <Link
                     :href="t.href"
-                    class="tarjeta-interactiva flex h-full flex-col gap-1 rounded-2xl border bg-card p-4"
+                    class="flex h-full tarjeta-interactiva flex-col gap-1 rounded-2xl border bg-card p-4"
                 >
                     <span
                         class="flex items-center justify-between text-sm text-muted-foreground"
@@ -161,7 +171,9 @@ const tarjetas = computed(() =>
                     <span class="text-2xl font-semibold tabular-nums">{{
                         t.valor
                     }}</span>
-                    <span class="text-xs text-muted-foreground">{{ t.nota }}</span>
+                    <span class="text-xs text-muted-foreground">{{
+                        t.nota
+                    }}</span>
                 </Link>
             </li>
         </ul>
@@ -189,7 +201,7 @@ const tarjetas = computed(() =>
             <div
                 v-if="indicadoresAbiertos"
                 id="tablero-indicadores"
-                class="animate-in fade-in border-t px-5 pt-4 pb-5 duration-200 motion-reduce:animate-none"
+                class="animate-in border-t px-5 pt-4 pb-5 duration-200 fade-in motion-reduce:animate-none"
             >
                 <TableroRh :tablero="tablero" />
             </div>

@@ -11,7 +11,12 @@ export const FONDO_TAPAR = '#FFFFFF';
 /** Tamaños por defecto de un espacio nuevo en PDF (mm / pt). */
 export const CAJA_NUEVA = { width: 60, height: 5, font_size: 9 } as const;
 
-export function campoNuevo(fieldKey: string, pagina: number, x: number, y: number): CampoEditor {
+export function campoNuevo(
+    fieldKey: string,
+    pagina: number,
+    x: number,
+    y: number,
+): CampoEditor {
     return {
         id: null,
         field_key: fieldKey,

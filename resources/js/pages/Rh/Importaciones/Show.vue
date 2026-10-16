@@ -74,7 +74,11 @@ const props = defineProps<{
         detalle: FilaDetalle[];
         aplicado_en: string | null;
     };
-    opciones: { sucursales: Opcion[]; departamentos: Opcion[]; puestos: Opcion[] };
+    opciones: {
+        sucursales: Opcion[];
+        departamentos: Opcion[];
+        puestos: Opcion[];
+    };
 }>();
 
 // `layout` recibe una función en vez de un objeto estático porque
@@ -96,18 +100,23 @@ const puedeResolver = computed(() => props.importacion.estado !== 'aplicado');
 
 const filasFiltradas = computed(() => {
     if (filtro.value === 'todas') {
-return props.importacion.detalle;
-}
+        return props.importacion.detalle;
+    }
 
     if (filtro.value === 'manuales') {
-        return props.importacion.detalle.filter((f) => f.match_tipo === 'manual' || f.match_tipo === 'creado');
+        return props.importacion.detalle.filter(
+            (f) => f.match_tipo === 'manual' || f.match_tipo === 'creado',
+        );
     }
 
     return props.importacion.detalle.filter((f) => f.estado === filtro.value);
 });
 
 const matchesManuales = computed(
-    () => props.importacion.detalle.filter((f) => f.match_tipo === 'manual' || f.match_tipo === 'creado').length,
+    () =>
+        props.importacion.detalle.filter(
+            (f) => f.match_tipo === 'manual' || f.match_tipo === 'creado',
+        ).length,
 );
 
 // Confirmar asociación: auditoría de matches manuales/creados (CLAUDE.md
@@ -116,7 +125,10 @@ const matchesManuales = computed(
 const confirmarForm = useForm({});
 
 function confirmarAsociacion(fila: number) {
-    confirmarForm.post(confirmar.url({ importacion: props.importacion.id, fila }), { preserveScroll: true });
+    confirmarForm.post(
+        confirmar.url({ importacion: props.importacion.id, fila }),
+        { preserveScroll: true },
+    );
 }
 
 const etiquetaEstado: Record<string, string> = {
@@ -162,20 +174,22 @@ function alternarResolver(fila: number) {
 
 function asignarSugerido(fila: number, sugerencia: Sugerencia) {
     if (!window.confirm(`¿Asignar esta fila a «${sugerencia.nombre}»?`)) {
-return;
-}
+        return;
+    }
 
     asignarForm
         .transform(() => ({ colaborador_id: sugerencia.id }))
-        .post(asignar.url({ importacion: props.importacion.id, fila }), { preserveScroll: true });
+        .post(asignar.url({ importacion: props.importacion.id, fila }), {
+            preserveScroll: true,
+        });
 }
 
 function asignarElegido(fila: number) {
     const elegido = colaboradorElegido.value[fila];
 
     if (!elegido) {
-return;
-}
+        return;
+    }
 
     asignarForm
         .transform(() => ({ colaborador_id: elegido.id }))
@@ -265,186 +279,278 @@ return;
                 </thead>
                 <tbody>
                     <template v-for="f in filasFiltradas" :key="f.fila">
-                    <tr
-                        class="border-t border-[var(--mrl-borde)] align-top"
-                    >
-                        <td class="p-3 tabular-nums">{{ f.fila }}</td>
-                        <td class="p-3">{{ f.nombre_excel }}</td>
-                        <td class="p-3">
-                            {{ f.nombre_sistema ?? '—' }}
-                            <Badge v-if="f.match_tipo === 'manual'" variant="outline" class="ml-1">Manual</Badge>
-                            <Badge v-if="f.match_tipo === 'creado'" variant="outline" class="ml-1">Creado</Badge>
-                            <p
-                                v-if="f.match_tipo === 'manual' || f.match_tipo === 'creado'"
-                                class="mt-1 text-xs text-muted-foreground"
-                            >
-                                <template v-if="f.match_actor_nombre">
-                                    {{ f.match_tipo === 'creado' ? 'Creado' : 'Asignado' }} por
-                                    {{ f.match_actor_nombre }}{{ f.match_en ? ` · ${formatearFecha(f.match_en)}` : '' }}
-                                </template>
-                                <template v-if="f.confirmado_por_nombre">
-                                    <br />
-                                    <span class="text-success">Confirmado por {{ f.confirmado_por_nombre }}</span>
-                                </template>
-                            </p>
-                            <p
-                                v-if="f.analisis_correccion?.aplica"
-                                class="mt-1 text-xs"
-                                :class="f.analisis_correccion.bloqueado ? 'text-destructive' : 'text-muted-foreground'"
-                            >
+                        <tr
+                            class="border-t border-[var(--mrl-borde)] align-top"
+                        >
+                            <td class="p-3 tabular-nums">{{ f.fila }}</td>
+                            <td class="p-3">{{ f.nombre_excel }}</td>
+                            <td class="p-3">
+                                {{ f.nombre_sistema ?? '—' }}
+                                <Badge
+                                    v-if="f.match_tipo === 'manual'"
+                                    variant="outline"
+                                    class="ml-1"
+                                    >Manual</Badge
+                                >
+                                <Badge
+                                    v-if="f.match_tipo === 'creado'"
+                                    variant="outline"
+                                    class="ml-1"
+                                    >Creado</Badge
+                                >
+                                <p
+                                    v-if="
+                                        f.match_tipo === 'manual' ||
+                                        f.match_tipo === 'creado'
+                                    "
+                                    class="mt-1 text-xs text-muted-foreground"
+                                >
+                                    <template v-if="f.match_actor_nombre">
+                                        {{
+                                            f.match_tipo === 'creado'
+                                                ? 'Creado'
+                                                : 'Asignado'
+                                        }}
+                                        por {{ f.match_actor_nombre
+                                        }}{{
+                                            f.match_en
+                                                ? ` · ${formatearFecha(f.match_en)}`
+                                                : ''
+                                        }}
+                                    </template>
+                                    <template v-if="f.confirmado_por_nombre">
+                                        <br />
+                                        <span class="text-success"
+                                            >Confirmado por
+                                            {{ f.confirmado_por_nombre }}</span
+                                        >
+                                    </template>
+                                </p>
+                                <p
+                                    v-if="f.analisis_correccion?.aplica"
+                                    class="mt-1 text-xs"
+                                    :class="
+                                        f.analisis_correccion.bloqueado
+                                            ? 'text-destructive'
+                                            : 'text-muted-foreground'
+                                    "
+                                >
+                                    {{
+                                        f.analisis_correccion.bloqueado
+                                            ? f.analisis_correccion.motivo
+                                            : 'Sin cambios posteriores: una corrección aquí sería segura.'
+                                    }}
+                                </p>
+                            </td>
+                            <td class="p-3">
                                 {{
-                                    f.analisis_correccion.bloqueado
-                                        ? f.analisis_correccion.motivo
-                                        : 'Sin cambios posteriores: una corrección aquí sería segura.'
+                                    f.sucursal_sistema ??
+                                    (f.sucursal_excel || '—')
                                 }}
-                            </p>
-                        </td>
-                        <td class="p-3">
-                            {{ f.sucursal_sistema ?? (f.sucursal_excel || '—') }}
-                        </td>
-                        <td class="p-3">
-                            <template v-if="f.salario_diario_actual !== null">
-                                <span v-if="f.cambia_salario">
-                                    ${{ f.salario_diario_actual }} → ${{
-                                        f.salario_diario_excel
+                            </td>
+                            <td class="p-3">
+                                <template
+                                    v-if="f.salario_diario_actual !== null"
+                                >
+                                    <span v-if="f.cambia_salario">
+                                        ${{ f.salario_diario_actual }} → ${{
+                                            f.salario_diario_excel
+                                        }}
+                                    </span>
+                                    <span v-else
+                                        >${{ f.salario_diario_actual }}</span
+                                    >
+                                </template>
+                                <span v-else>—</span>
+                            </td>
+                            <td class="p-3">
+                                <span
+                                    v-if="f.fecha_ingreso_pendiente"
+                                    class="text-xs font-medium text-amber-700"
+                                >
+                                    Fecha de ingreso pendiente de validación.
+                                </span>
+                                <template
+                                    v-else-if="f.antiguedad_anios !== null"
+                                >
+                                    {{ f.antiguedad_anios }} año(s)
+                                    <span
+                                        v-if="f.fecha_ingreso_people"
+                                        class="block text-xs text-[var(--mrl-texto-suave)]"
+                                    >
+                                        Ingreso:
+                                        {{
+                                            formatearFecha(
+                                                f.fecha_ingreso_people,
+                                            )
+                                        }}
+                                    </span>
+                                </template>
+                                <span
+                                    v-if="f.fecha_ingreso_reportada_archivo"
+                                    class="block text-xs text-[var(--mrl-texto-suave)]"
+                                    title="Referencia no confiable: nunca se aplica al expediente."
+                                >
+                                    Fecha reportada en archivo:
+                                    {{
+                                        formatearFecha(
+                                            f.fecha_ingreso_reportada_archivo,
+                                        )
                                     }}
                                 </span>
-                                <span v-else
-                                    >${{ f.salario_diario_actual }}</span
-                                >
-                            </template>
-                            <span v-else>—</span>
-                        </td>
-                        <td class="p-3">
-                            <span
-                                v-if="f.fecha_ingreso_pendiente"
-                                class="text-xs font-medium text-amber-700"
-                            >
-                                Fecha de ingreso pendiente de validación.
-                            </span>
-                            <template v-else-if="f.antiguedad_anios !== null">
-                                {{ f.antiguedad_anios }} año(s)
+                            </td>
+                            <td class="p-3">
                                 <span
-                                    v-if="f.fecha_ingreso_people"
-                                    class="block text-xs text-[var(--mrl-texto-suave)]"
+                                    v-if="f.motivo_vacaciones_no_aplican"
+                                    class="text-xs text-[var(--mrl-texto-suave)]"
                                 >
-                                    Ingreso: {{ formatearFecha(f.fecha_ingreso_people) }}
+                                    No aplican aún
                                 </span>
-                            </template>
-                            <span
-                                v-if="f.fecha_ingreso_reportada_archivo"
-                                class="block text-xs text-[var(--mrl-texto-suave)]"
-                                title="Referencia no confiable: nunca se aplica al expediente."
-                            >
-                                Fecha reportada en archivo:
-                                {{ formatearFecha(f.fecha_ingreso_reportada_archivo) }}
-                            </span>
-                        </td>
-                        <td class="p-3">
-                            <span
-                                v-if="f.motivo_vacaciones_no_aplican"
-                                class="text-xs text-[var(--mrl-texto-suave)]"
-                            >
-                                No aplican aún
-                            </span>
-                            <span
-                                v-else-if="f.ajuste_vacaciones_propuesto !== 0"
-                            >
-                                {{ f.ajuste_vacaciones_propuesto }} días
-                                (histórico)
-                            </span>
-                            <span v-else>—</span>
-                        </td>
-                        <td class="p-3">
-                            <span
-                                class="rounded-full px-2 py-0.5 text-xs"
-                                :class="{
-                                    'bg-success/10 text-success':
-                                        f.estado === 'aplicable',
-                                    'bg-destructive/10 text-destructive':
-                                        f.estado === 'no_encontrado' ||
-                                        f.estado === 'error',
-                                    'bg-[var(--mrl-gold)]/10 text-[var(--mrl-gold-oscuro)]':
-                                        f.estado === 'revision',
-                                    'bg-[var(--mrl-fondo)] text-[var(--mrl-texto-suave)]':
-                                        f.estado === 'sin_cambios',
-                                }"
-                                >{{
-                                    f.aplicado
-                                        ? 'Aplicado'
-                                        : etiquetaEstado[f.estado]
-                                }}</span
-                            >
-                        </td>
-                        <td class="p-3 text-xs text-muted-foreground">
-                            {{ f.motivo ?? '—' }}
-                        </td>
-                        <td class="p-3">
-                            <div class="flex flex-col items-start gap-1.5">
-                                <Button
-                                    v-if="puedeResolver && (f.estado === 'no_encontrado' || f.estado === 'revision')"
-                                    size="sm"
-                                    variant="outline"
-                                    @click="alternarResolver(f.fila)"
+                                <span
+                                    v-else-if="
+                                        f.ajuste_vacaciones_propuesto !== 0
+                                    "
                                 >
-                                    {{ filaAbierta === f.fila ? 'Cerrar' : 'Resolver' }}
-                                </Button>
-                                <Button
-                                    v-if="(f.match_tipo === 'manual' || f.match_tipo === 'creado') && !f.confirmado_por_nombre"
-                                    size="sm"
-                                    variant="secondary"
-                                    :disabled="confirmarForm.processing"
-                                    @click="confirmarAsociacion(f.fila)"
+                                    {{ f.ajuste_vacaciones_propuesto }} días
+                                    (histórico)
+                                </span>
+                                <span v-else>—</span>
+                            </td>
+                            <td class="p-3">
+                                <span
+                                    class="rounded-full px-2 py-0.5 text-xs"
+                                    :class="{
+                                        'bg-success/10 text-success':
+                                            f.estado === 'aplicable',
+                                        'bg-destructive/10 text-destructive':
+                                            f.estado === 'no_encontrado' ||
+                                            f.estado === 'error',
+                                        'bg-[var(--mrl-gold)]/10 text-[var(--mrl-gold-oscuro)]':
+                                            f.estado === 'revision',
+                                        'bg-[var(--mrl-fondo)] text-[var(--mrl-texto-suave)]':
+                                            f.estado === 'sin_cambios',
+                                    }"
+                                    >{{
+                                        f.aplicado
+                                            ? 'Aplicado'
+                                            : etiquetaEstado[f.estado]
+                                    }}</span
                                 >
-                                    Confirmar asociación
-                                </Button>
-                            </div>
-                        </td>
-                    </tr>
-                    <tr v-if="filaAbierta === f.fila" class="border-t border-[var(--mrl-borde)] bg-[var(--mrl-fondo)]">
-                        <td colspan="10" class="p-4">
-                            <div class="flex flex-col gap-4">
-                                <div v-if="f.sugerencias.length > 0" class="flex flex-col gap-1.5">
-                                    <p class="text-xs font-semibold text-muted-foreground">
-                                        Posibles coincidencias (nunca se asignan solas — confírmalas):
-                                    </p>
-                                    <div class="flex flex-wrap gap-2">
-                                        <Button
-                                            v-for="sugerencia in f.sugerencias"
-                                            :key="sugerencia.id"
-                                            size="sm"
-                                            variant="secondary"
-                                            :disabled="asignarForm.processing"
-                                            @click="asignarSugerido(f.fila, sugerencia)"
-                                        >
-                                            {{ sugerencia.nombre }}
-                                        </Button>
-                                    </div>
-                                </div>
-
-                                <div class="grid max-w-md gap-1.5">
-                                    <p class="text-xs font-semibold text-muted-foreground">Seleccionar colaborador manualmente</p>
-                                    <div class="flex gap-2">
-                                        <div class="flex-1">
-                                            <BuscadorColaborador v-model="colaboradorElegido[f.fila]" />
-                                        </div>
-                                        <Button
-                                            :disabled="!colaboradorElegido[f.fila] || asignarForm.processing"
-                                            @click="asignarElegido(f.fila)"
-                                        >
-                                            Asignar
-                                        </Button>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <Button variant="outline" @click="dialogCrearFila = f.fila">
-                                        Crear colaborador en PEOPLE
+                            </td>
+                            <td class="p-3 text-xs text-muted-foreground">
+                                {{ f.motivo ?? '—' }}
+                            </td>
+                            <td class="p-3">
+                                <div class="flex flex-col items-start gap-1.5">
+                                    <Button
+                                        v-if="
+                                            puedeResolver &&
+                                            (f.estado === 'no_encontrado' ||
+                                                f.estado === 'revision')
+                                        "
+                                        size="sm"
+                                        variant="outline"
+                                        @click="alternarResolver(f.fila)"
+                                    >
+                                        {{
+                                            filaAbierta === f.fila
+                                                ? 'Cerrar'
+                                                : 'Resolver'
+                                        }}
+                                    </Button>
+                                    <Button
+                                        v-if="
+                                            (f.match_tipo === 'manual' ||
+                                                f.match_tipo === 'creado') &&
+                                            !f.confirmado_por_nombre
+                                        "
+                                        size="sm"
+                                        variant="secondary"
+                                        :disabled="confirmarForm.processing"
+                                        @click="confirmarAsociacion(f.fila)"
+                                    >
+                                        Confirmar asociación
                                     </Button>
                                 </div>
-                            </div>
-                        </td>
-                    </tr>
+                            </td>
+                        </tr>
+                        <tr
+                            v-if="filaAbierta === f.fila"
+                            class="border-t border-[var(--mrl-borde)] bg-[var(--mrl-fondo)]"
+                        >
+                            <td colspan="10" class="p-4">
+                                <div class="flex flex-col gap-4">
+                                    <div
+                                        v-if="f.sugerencias.length > 0"
+                                        class="flex flex-col gap-1.5"
+                                    >
+                                        <p
+                                            class="text-xs font-semibold text-muted-foreground"
+                                        >
+                                            Posibles coincidencias (nunca se
+                                            asignan solas — confírmalas):
+                                        </p>
+                                        <div class="flex flex-wrap gap-2">
+                                            <Button
+                                                v-for="sugerencia in f.sugerencias"
+                                                :key="sugerencia.id"
+                                                size="sm"
+                                                variant="secondary"
+                                                :disabled="
+                                                    asignarForm.processing
+                                                "
+                                                @click="
+                                                    asignarSugerido(
+                                                        f.fila,
+                                                        sugerencia,
+                                                    )
+                                                "
+                                            >
+                                                {{ sugerencia.nombre }}
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    <div class="grid max-w-md gap-1.5">
+                                        <p
+                                            class="text-xs font-semibold text-muted-foreground"
+                                        >
+                                            Seleccionar colaborador manualmente
+                                        </p>
+                                        <div class="flex gap-2">
+                                            <div class="flex-1">
+                                                <BuscadorColaborador
+                                                    v-model="
+                                                        colaboradorElegido[
+                                                            f.fila
+                                                        ]
+                                                    "
+                                                />
+                                            </div>
+                                            <Button
+                                                :disabled="
+                                                    !colaboradorElegido[
+                                                        f.fila
+                                                    ] || asignarForm.processing
+                                                "
+                                                @click="asignarElegido(f.fila)"
+                                            >
+                                                Asignar
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <Button
+                                            variant="outline"
+                                            @click="dialogCrearFila = f.fila"
+                                        >
+                                            Crear colaborador en PEOPLE
+                                        </Button>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
                     </template>
                 </tbody>
             </table>
@@ -455,9 +561,16 @@ return;
             :open="dialogCrearFila !== null"
             :importacion-id="importacion.id"
             :fila="dialogCrearFila"
-            :nombre-excel="importacion.detalle.find((f) => f.fila === dialogCrearFila)?.nombre_excel ?? ''"
+            :nombre-excel="
+                importacion.detalle.find((f) => f.fila === dialogCrearFila)
+                    ?.nombre_excel ?? ''
+            "
             :opciones="opciones"
-            @update:open="(valor) => { if (!valor) dialogCrearFila = null; }"
+            @update:open="
+                (valor) => {
+                    if (!valor) dialogCrearFila = null;
+                }
+            "
         />
     </div>
 </template>

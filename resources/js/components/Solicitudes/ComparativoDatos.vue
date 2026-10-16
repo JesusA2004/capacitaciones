@@ -16,7 +16,9 @@ defineProps<{
 <template>
     <div class="overflow-hidden rounded-2xl border border-border/60 bg-card">
         <div class="border-b border-border/60 px-5 py-3">
-            <p class="font-semibold">Datos que se actualizarán en el expediente</p>
+            <p class="font-semibold">
+                Datos que se actualizarán en el expediente
+            </p>
             <p class="text-xs text-muted-foreground">
                 {{
                     aplicada
@@ -34,16 +36,29 @@ defineProps<{
                 <span class="min-w-40 font-medium">{{ dato.etiqueta }}</span>
                 <span
                     class="rounded-full px-2 py-0.5 text-xs font-medium"
-                    :class="dato.clase === 'completar' ? 'bg-info-soft text-[var(--mrl-petroleo)]' : 'bg-warning-soft text-[var(--mrl-texto)]'"
+                    :class="
+                        dato.clase === 'completar'
+                            ? 'bg-info-soft text-[var(--mrl-petroleo)]'
+                            : 'bg-warning-soft text-[var(--mrl-texto)]'
+                    "
                 >
-                    {{ dato.clase === 'completar' ? 'Completar dato faltante' : 'Cambio de información' }}
+                    {{
+                        dato.clase === 'completar'
+                            ? 'Completar dato faltante'
+                            : 'Cambio de información'
+                    }}
                 </span>
                 <span class="flex flex-1 flex-wrap items-center gap-2">
                     <template v-if="dato.clase === 'cambio'">
-                        <span class="text-muted-foreground line-through decoration-muted-foreground/50">{{ dato.actual ?? 'Sin capturar' }}</span>
+                        <span
+                            class="text-muted-foreground line-through decoration-muted-foreground/50"
+                            >{{ dato.actual ?? 'Sin capturar' }}</span
+                        >
                         <ArrowRight class="size-3.5 text-muted-foreground" />
                     </template>
-                    <span class="font-semibold text-primary">{{ dato.propuesto }}</span>
+                    <span class="font-semibold text-primary">{{
+                        dato.propuesto
+                    }}</span>
                 </span>
             </li>
         </ul>

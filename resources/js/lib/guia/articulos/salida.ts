@@ -155,13 +155,15 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
                 detalle: 'Queda listo para programar el pago.',
             },
             {
-                titulo: 'Firmado',
+                titulo: 'Firmado físicamente',
                 detalle:
-                    'Al subir el finiquito firmado (con huella) queda bloqueado: ya no admite ajustes.',
+                    'El finiquito se imprime y se firma en papel (con huella). Al marcarlo como firmado físicamente, PEOPLE registra quién y cuándo y queda bloqueado: ya no admite ajustes. No se sube ningún archivo; el original firmado se resguarda en papel.',
             },
         ],
-        documentos: ['Finiquito en PDF (y el escaneo firmado)'],
-        despues: ['La descarga entrega el escaneo firmado cuando existe.'],
+        documentos: ['Finiquito en PDF'],
+        despues: [
+            'La descarga entrega el finiquito en PDF. Un escaneo firmado heredado del flujo anterior, si existe, sigue disponible para descargar; el flujo nuevo no sube escaneo.',
+        ],
         errores: [
             {
                 problema: '«No puedo ajustar el finiquito.»',

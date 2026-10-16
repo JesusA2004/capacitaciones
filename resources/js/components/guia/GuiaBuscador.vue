@@ -75,8 +75,16 @@ const ejemplos = computed(() =>
                 '¿Cómo cambio mi contraseña?',
             ]
           : alcance.value.roles.includes('sistemas')
-            ? ['¿Cómo creo una cuenta?', '¿Cómo cambio un rol?', '¿Cómo publico la app?']
-            : ['¿Cómo registro una entrevista?', '¿Cómo inicio una baja?', '¿Cómo levanto un acta?'],
+            ? [
+                  '¿Cómo creo una cuenta?',
+                  '¿Cómo cambio un rol?',
+                  '¿Cómo publico la app?',
+              ]
+            : [
+                  '¿Cómo registro una entrevista?',
+                  '¿Cómo inicio una baja?',
+                  '¿Cómo levanto un acta?',
+              ],
 );
 
 function enfocar(): void {

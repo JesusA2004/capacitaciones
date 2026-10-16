@@ -29,7 +29,13 @@ const faltantes = computed(() => props.campos.filter((c) => c.actual === null));
 const conValor = computed(() => props.campos.filter((c) => c.actual !== null));
 
 /** Campos con valor que la persona decidió cambiar. */
-const cambiando = ref<Set<string>>(new Set(Object.keys(datos.value).filter((k) => props.campos.find((c) => c.campo === k)?.actual !== null)));
+const cambiando = ref<Set<string>>(
+    new Set(
+        Object.keys(datos.value).filter(
+            (k) => props.campos.find((c) => c.campo === k)?.actual !== null,
+        ),
+    ),
+);
 
 function cambiar(campo: string) {
     cambiando.value = new Set([...cambiando.value, campo]);
@@ -53,7 +59,14 @@ function poner(campo: string, v: string | number) {
 }
 
 function tipoInput(tipo: string): string {
-    return ({ tel: 'tel', email: 'email', number: 'text' } as Record<string, string>)[tipo] ?? 'text';
+    return (
+        (
+            { tel: 'tel', email: 'email', number: 'text' } as Record<
+                string,
+                string
+            >
+        )[tipo] ?? 'text'
+    );
 }
 
 function error(campo: string): string | undefined {
@@ -75,15 +88,53 @@ function error(campo: string): string | undefined {
                 </p>
             </div>
             <div class="grid gap-3 sm:grid-cols-2">
-                <div v-for="c in faltantes" :key="c.campo" class="flex flex-col gap-1.5">
+                <div
+                    v-for="c in faltantes"
+                    :key="c.campo"
+                    class="flex flex-col gap-1.5"
+                >
                     <Label :for="`dato-${c.campo}`">{{ c.etiqueta }}</Label>
-                    <NativeSelect v-if="c.tipo === 'opciones'" :id="`dato-${c.campo}`" :model-value="valor(c.campo)" @update:model-value="(v) => poner(c.campo, v as string)">
-                        <NativeSelectOption value="">Sin capturar</NativeSelectOption>
-                        <NativeSelectOption v-for="op in c.opciones ?? []" :key="op.value" :value="op.value">{{ op.label }}</NativeSelectOption>
+                    <NativeSelect
+                        v-if="c.tipo === 'opciones'"
+                        :id="`dato-${c.campo}`"
+                        :model-value="valor(c.campo)"
+                        @update:model-value="(v) => poner(c.campo, v as string)"
+                    >
+                        <NativeSelectOption value=""
+                            >Sin capturar</NativeSelectOption
+                        >
+                        <NativeSelectOption
+                            v-for="op in c.opciones ?? []"
+                            :key="op.value"
+                            :value="op.value"
+                            >{{ op.label }}</NativeSelectOption
+                        >
                     </NativeSelect>
-                    <DatePicker v-else-if="c.tipo === 'date'" :id="`dato-${c.campo}`" :model-value="valor(c.campo)" @update:model-value="(v) => poner(c.campo, v)" />
-                    <Input v-else :id="`dato-${c.campo}`" :type="tipoInput(c.tipo)" :inputmode="c.tipo === 'number' || c.tipo === 'tel' ? 'numeric' : undefined" :model-value="valor(c.campo)" @update:model-value="(v) => poner(c.campo, v)" />
-                    <p v-if="error(c.campo)" class="text-xs text-destructive" data-input-error>{{ error(c.campo) }}</p>
+                    <DatePicker
+                        v-else-if="c.tipo === 'date'"
+                        :id="`dato-${c.campo}`"
+                        :model-value="valor(c.campo)"
+                        @update:model-value="(v) => poner(c.campo, v)"
+                    />
+                    <Input
+                        v-else
+                        :id="`dato-${c.campo}`"
+                        :type="tipoInput(c.tipo)"
+                        :inputmode="
+                            c.tipo === 'number' || c.tipo === 'tel'
+                                ? 'numeric'
+                                : undefined
+                        "
+                        :model-value="valor(c.campo)"
+                        @update:model-value="(v) => poner(c.campo, v)"
+                    />
+                    <p
+                        v-if="error(c.campo)"
+                        class="text-xs text-destructive"
+                        data-input-error
+                    >
+                        {{ error(c.campo) }}
+                    </p>
                 </div>
             </div>
         </section>
@@ -99,34 +150,99 @@ function error(campo: string): string | undefined {
                     necesitas corregir y escribe el valor nuevo.
                 </p>
             </div>
-            <ul class="flex flex-col divide-y divide-border/50 rounded-xl border border-border/60">
-                <li v-for="c in conValor" :key="c.campo" class="flex flex-col gap-2 px-3 py-2.5 transition-colors hover:bg-crema/40">
-                    <div class="flex flex-wrap items-center justify-between gap-2">
+            <ul
+                class="flex flex-col divide-y divide-border/50 rounded-xl border border-border/60"
+            >
+                <li
+                    v-for="c in conValor"
+                    :key="c.campo"
+                    class="flex flex-col gap-2 px-3 py-2.5 transition-colors hover:bg-crema/40"
+                >
+                    <div
+                        class="flex flex-wrap items-center justify-between gap-2"
+                    >
                         <div class="min-w-0">
                             <p class="text-sm font-medium">{{ c.etiqueta }}</p>
-                            <p class="truncate text-xs text-muted-foreground">Valor actual: {{ c.actual_legible }}</p>
+                            <p class="truncate text-xs text-muted-foreground">
+                                Valor actual: {{ c.actual_legible }}
+                            </p>
                         </div>
-                        <Button v-if="!cambiando.has(c.campo)" type="button" variant="outline" size="sm" @click="cambiar(c.campo)">
+                        <Button
+                            v-if="!cambiando.has(c.campo)"
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            @click="cambiar(c.campo)"
+                        >
                             Solicitar cambio
                         </Button>
-                        <Button v-else type="button" variant="ghost" size="sm" @click="deshacer(c.campo)">
+                        <Button
+                            v-else
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            @click="deshacer(c.campo)"
+                        >
                             <Undo2 class="size-3.5" /> No cambiar
                         </Button>
                     </div>
-                    <div v-if="cambiando.has(c.campo)" class="entrada-suave flex flex-col gap-1.5">
-                        <Label :for="`dato-${c.campo}`" class="text-xs">Valor propuesto</Label>
-                        <NativeSelect v-if="c.tipo === 'opciones'" :id="`dato-${c.campo}`" :model-value="valor(c.campo)" @update:model-value="(v) => poner(c.campo, v as string)">
-                            <NativeSelectOption value="" disabled>Elige…</NativeSelectOption>
-                            <NativeSelectOption v-for="op in c.opciones ?? []" :key="op.value" :value="op.value" :disabled="op.value === c.actual">{{ op.label }}</NativeSelectOption>
+                    <div
+                        v-if="cambiando.has(c.campo)"
+                        class="flex entrada-suave flex-col gap-1.5"
+                    >
+                        <Label :for="`dato-${c.campo}`" class="text-xs"
+                            >Valor propuesto</Label
+                        >
+                        <NativeSelect
+                            v-if="c.tipo === 'opciones'"
+                            :id="`dato-${c.campo}`"
+                            :model-value="valor(c.campo)"
+                            @update:model-value="
+                                (v) => poner(c.campo, v as string)
+                            "
+                        >
+                            <NativeSelectOption value="" disabled
+                                >Elige…</NativeSelectOption
+                            >
+                            <NativeSelectOption
+                                v-for="op in c.opciones ?? []"
+                                :key="op.value"
+                                :value="op.value"
+                                :disabled="op.value === c.actual"
+                                >{{ op.label }}</NativeSelectOption
+                            >
                         </NativeSelect>
-                        <DatePicker v-else-if="c.tipo === 'date'" :id="`dato-${c.campo}`" :model-value="valor(c.campo)" @update:model-value="(v) => poner(c.campo, v)" />
-                        <Input v-else :id="`dato-${c.campo}`" :type="tipoInput(c.tipo)" :model-value="valor(c.campo)" @update:model-value="(v) => poner(c.campo, v)" />
-                        <p v-if="error(c.campo)" class="text-xs text-destructive" data-input-error>{{ error(c.campo) }}</p>
+                        <DatePicker
+                            v-else-if="c.tipo === 'date'"
+                            :id="`dato-${c.campo}`"
+                            :model-value="valor(c.campo)"
+                            @update:model-value="(v) => poner(c.campo, v)"
+                        />
+                        <Input
+                            v-else
+                            :id="`dato-${c.campo}`"
+                            :type="tipoInput(c.tipo)"
+                            :model-value="valor(c.campo)"
+                            @update:model-value="(v) => poner(c.campo, v)"
+                        />
+                        <p
+                            v-if="error(c.campo)"
+                            class="text-xs text-destructive"
+                            data-input-error
+                        >
+                            {{ error(c.campo) }}
+                        </p>
                     </div>
                 </li>
             </ul>
         </section>
 
-        <p v-if="errores.datos" class="text-sm text-destructive" data-input-error>{{ errores.datos }}</p>
+        <p
+            v-if="errores.datos"
+            class="text-sm text-destructive"
+            data-input-error
+        >
+            {{ errores.datos }}
+        </p>
     </div>
 </template>

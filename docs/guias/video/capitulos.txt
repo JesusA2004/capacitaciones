@@ -12,9 +12,9 @@
 06:31 Registro del colaborador
 07:15 Expediente
 07:57 Contrato inicial
-08:48 Onboarding
-09:42 Evaluación
-10:04 Contrato indeterminado
-10:26 Solicitudes, nómina y avisos
-12:13 Baja, finiquito y reingreso
-13:26 Cierre
+08:53 Onboarding
+09:47 Evaluación
+10:09 Contrato indeterminado
+10:31 Solicitudes, nómina y avisos
+12:18 Baja, finiquito y reingreso
+13:31 Cierre

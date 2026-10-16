@@ -26,12 +26,8 @@ import { dashboard } from '@/routes';
 // La lista de accesos (modo colaborador/operativo + Administración) vive en
 // useMainNavItems() — compartida con MobileBottomNav.vue, ver
 // docs/ROLES_Y_NAVEGACION.md. Nunca dupliques esa lógica aquí.
-const {
-    navGroups,
-    tieneAmbosModos,
-    esColaborador,
-    cambiarModo,
-} = useMainNavItems();
+const { navGroups, tieneAmbosModos, esColaborador, cambiarModo } =
+    useMainNavItems();
 </script>
 
 <template>
@@ -42,7 +38,7 @@ const {
                     <SidebarMenuButton
                         size="lg"
                         as-child
-                        class="h-auto rounded-2xl py-1.5 hover:bg-crema/60 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:py-0"
+                        class="h-auto rounded-2xl py-1.5 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:py-0 hover:bg-crema/60"
                     >
                         <Link :href="dashboard()" aria-label="Ir al inicio">
                             <AppLogo />

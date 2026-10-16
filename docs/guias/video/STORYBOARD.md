@@ -2,7 +2,7 @@
 
 # Storyboard — MR. LANA PEOPLE — Flujo completo de Recursos Humanos
 
-36 escenas · 14:11. Cada escena se graba con datos ficticios del escenario de [DATOS_DEMO.md](../DATOS_DEMO.md).
+36 escenas · 14:16. Cada escena se graba con datos ficticios del escenario de [DATOS_DEMO.md](../DATOS_DEMO.md).
 
 ## Escena 01 · 00:00–00:24
 
@@ -312,21 +312,21 @@
 
 **Narración:** Con el expediente completo, Recursos Humanos genera el paquete de contratación. El sistema llena el contrato de capacitación inicial con los datos del expediente, y la duración la define cada puesto: por ejemplo, dos meses para gestor y tres para gerente. Si falta un dato obligatorio, no se genera un documento incompleto.
 
-## Escena 23 · 08:27–08:48
+## Escena 23 · 08:27–08:53
 
 | | |
 |---|---|
 | **Capítulo** | Contrato inicial |
 | **Pantalla** | Documentos del proceso → ruta del original (`/rh/colaboradores/:colaborador/ciclo`) |
-| **Acción** | Mostrar imprimir, registrar firma, enviar a corporativo, recepción, subir firmado y archivar. |
+| **Acción** | Mostrar imprimir, registrar la firma física (huella y testigos) y el documento concluido. |
 | **Zoom** | Zoom a la ruta del documento |
-| **Texto en pantalla** | Imprimir → Firma y huella → Envío → Recepción → Escaneo → Archivo |
+| **Texto en pantalla** | Imprimir → Firma física (huella/testigos) → Concluido |
 | **Captura / clip** | `22-firma-original.png` |
 | **Transición** | Corte |
 
-**Narración:** El gerente imprime, recaba firma y huella, y envía el original a corporativo. Recursos Humanos registra la recepción, sube el documento firmado y lo archiva. Siempre se sabe dónde está cada original.
+**Narración:** El gerente imprime y recaba la firma física con huella y testigos. PEOPLE registra quién y cuándo, y el documento queda concluido. El original firmado se resguarda en papel: no se escanea ni se sube. Siempre se sabe en qué paso va cada documento.
 
-## Escena 24 · 08:48–09:09
+## Escena 24 · 08:53–09:14
 
 | | |
 |---|---|
@@ -340,7 +340,7 @@
 
 **Narración:** Con los contratos firmados empieza el onboarding: la bienvenida del colaborador nuevo. Recursos Humanos define lecciones institucionales y del puesto, con su material, sus instrucciones y una evaluación, y el equipo que se entrega.
 
-## Escena 25 · 09:09–09:42
+## Escena 25 · 09:14–09:47
 
 | | |
 |---|---|
@@ -354,7 +354,7 @@
 
 **Narración:** El colaborador responde sus lecciones desde la app. Si no alcanza la calificación, Recursos Humanos le deja retroalimentación y vuelve a intentarlo. Con las lecciones aprobadas y el equipo entregado, Recursos Humanos cierra el onboarding y la persona queda activa. En ese momento se avisa a Recursos Humanos y a Sistemas, para preparar su cuenta, accesos y equipo.
 
-## Escena 26 · 09:42–10:04
+## Escena 26 · 09:47–10:09
 
 | | |
 |---|---|
@@ -368,7 +368,7 @@
 
 **Narración:** Quince días antes de que termine la capacitación, el sistema abre la evaluación y avisa al gerente. El gerente califica cada criterio, comenta y recomienda si la persona continúa. Recursos Humanos autoriza la decisión final.
 
-## Escena 27 · 10:04–10:26
+## Escena 27 · 10:09–10:31
 
 | | |
 |---|---|
@@ -382,7 +382,7 @@
 
 **Narración:** Si la evaluación se aprueba, el sistema prepara el contrato por tiempo indeterminado, listo para previsualizar e imprimir. Pulsar dos veces no lo duplica. Si no se renueva, se abre el cierre laboral por no renovación.
 
-## Escena 28 · 10:26–10:57
+## Escena 28 · 10:31–11:02
 
 | | |
 |---|---|
@@ -396,7 +396,7 @@
 
 **Narración:** Desde la app, el colaborador pide permisos, vacaciones y préstamos. El gerente y el regional dan su visto bueno y Recursos Humanos autoriza. En vacaciones el domingo no cuenta y el sábado sí, y la persona ve su saldo antes y después. El formato de permiso solo se imprime cuando Recursos Humanos ya lo autorizó.
 
-## Escena 29 · 10:57–11:23
+## Escena 29 · 11:02–11:28
 
 | | |
 |---|---|
@@ -410,7 +410,7 @@
 
 **Narración:** Los recibos de nómina son recibos simples, no timbrados. Recursos Humanos prepara el lote semanal o quincenal y todos quedan como borrador: nadie los ve y no se avisa a nadie. Después revisa el resumen y cada recibo con su PDF real.
 
-## Escena 30 · 11:23–11:49
+## Escena 30 · 11:28–11:54
 
 | | |
 |---|---|
@@ -424,7 +424,7 @@
 
 **Narración:** Solo al pulsar Emitir se congela el PDF de cada recibo y se guarda en el expediente; Recursos Humanos lo imprime y lo entrega. El colaborador no lo ve en la app ni recibe aviso. Esta separación evita que alguien reciba un recibo con errores.
 
-## Escena 31 · 11:49–12:13
+## Escena 31 · 11:54–12:18
 
 | | |
 |---|---|
@@ -438,7 +438,7 @@
 
 **Narración:** Recursos Humanos envía avisos con título, mensaje e imagen a toda la empresa o a una persona; llegan por push y quedan en su bandeja. Los cumpleaños y aniversarios se felicitan solos a las ocho de la mañana.
 
-## Escena 32 · 12:13–12:37
+## Escena 32 · 12:18–12:42
 
 | | |
 |---|---|
@@ -452,7 +452,7 @@
 
 **Narración:** La baja no es una solicitud: el jefe directo la inicia desde el ciclo laboral de la persona y Recursos Humanos la autoriza. Al iniciarla, el acceso de la persona se suspende de inmediato, pero nunca se borra nada.
 
-## Escena 33 · 12:37–13:07
+## Escena 33 · 12:42–13:12
 
 | | |
 |---|---|
@@ -466,7 +466,7 @@
 
 **Narración:** El finiquito se calcula con sueldo pendiente, aguinaldo proporcional, vacaciones, prima vacacional e ISR. Recursos Humanos revisa, ajusta los conceptos autorizados con su motivo, genera el PDF y, ya firmado y pagado, se ejecuta la baja en su fecha efectiva. Recursos Humanos y Sistemas reciben el aviso para retirar accesos y equipo.
 
-## Escena 34 · 13:07–13:26
+## Escena 34 · 13:12–13:31
 
 | | |
 |---|---|
@@ -480,7 +480,7 @@
 
 **Narración:** Si alguien regresa, no se crea una persona nueva: se busca en Reingresos, Recursos Humanos decide, y la misma persona inicia un nuevo ciclo laboral conservando todo su historial.
 
-## Escena 35 · 13:26–13:55
+## Escena 35 · 13:31–14:00
 
 | | |
 |---|---|
@@ -494,7 +494,7 @@
 
 **Narración:** Siempre que tengas una duda, abre Ayuda. Puedes buscar con tus propias palabras, por ejemplo cómo contrato un candidato, ver el recorrido completo, la guía por proceso o lo que te toca según tu rol. En cada pantalla importante, el botón Cómo funciona te lleva directo a su explicación.
 
-## Escena 36 · 13:55–14:11
+## Escena 36 · 14:00–14:16
 
 | | |
 |---|---|

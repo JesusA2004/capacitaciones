@@ -48,10 +48,13 @@ const props = defineProps<{
 }>();
 
 const enviando = ref(false);
-const personales = computed(() => props.datos.personales.map((d) => d.etiqueta));
+const personales = computed(() =>
+    props.datos.personales.map((d) => d.etiqueta),
+);
 const laborales = computed(() => props.datos.laborales.map((d) => d.etiqueta));
 const totalFaltantes = computed(
-    () => personales.value.length + (props.esPropio ? 0 : laborales.value.length),
+    () =>
+        personales.value.length + (props.esPropio ? 0 : laborales.value.length),
 );
 
 const secciones = computed<SeccionCompletitud[]>(() => {
@@ -62,8 +65,16 @@ const secciones = computed<SeccionCompletitud[]>(() => {
         lista.push({
             clave: 'documentos',
             etiqueta: 'Documentos',
-            estado: aprobados >= total ? 'completo' : aprobados === 0 ? 'faltante' : 'incompleto',
-            faltantes: aprobados >= total ? [] : [`${total - aprobados} de ${total} por aprobar`],
+            estado:
+                aprobados >= total
+                    ? 'completo'
+                    : aprobados === 0
+                      ? 'faltante'
+                      : 'incompleto',
+            faltantes:
+                aprobados >= total
+                    ? []
+                    : [`${total - aprobados} de ${total} por aprobar`],
         });
     }
 
@@ -71,17 +82,30 @@ const secciones = computed<SeccionCompletitud[]>(() => {
 });
 
 const ESTILO = {
-    completo: { icono: CheckCircle2, clase: 'border-success/25 bg-success-soft/60 text-success' },
-    incompleto: { icono: CircleAlert, clase: 'border-oro/40 bg-warning-soft/70 text-warning' },
-    faltante: { icono: XCircle, clase: 'border-destructive/25 bg-danger-soft/60 text-destructive' },
+    completo: {
+        icono: CheckCircle2,
+        clase: 'border-success/25 bg-success-soft/60 text-success',
+    },
+    incompleto: {
+        icono: CircleAlert,
+        clase: 'border-oro/40 bg-warning-soft/70 text-warning',
+    },
+    faltante: {
+        icono: XCircle,
+        clase: 'border-destructive/25 bg-danger-soft/60 text-destructive',
+    },
 } as const;
 
 function avisar() {
     enviando.value = true;
-    router.post(avisarDatosFaltantes.url(props.colaboradorId), {}, {
-        preserveScroll: true,
-        onFinish: () => (enviando.value = false),
-    });
+    router.post(
+        avisarDatosFaltantes.url(props.colaboradorId),
+        {},
+        {
+            preserveScroll: true,
+            onFinish: () => (enviando.value = false),
+        },
+    );
 }
 </script>
 
@@ -97,7 +121,11 @@ function avisar() {
                 :key="s.clave"
                 class="inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold"
                 :class="ESTILO[s.estado].clase"
-                :title="s.faltantes.length ? `Falta: ${s.faltantes.join(', ')}` : 'Completo'"
+                :title="
+                    s.faltantes.length
+                        ? `Falta: ${s.faltantes.join(', ')}`
+                        : 'Completo'
+                "
             >
                 <component :is="ESTILO[s.estado].icono" class="size-3.5" />
                 {{ s.etiqueta }}
@@ -109,26 +137,57 @@ function avisar() {
             class="flex flex-col gap-3 rounded-2xl border border-oro/40 bg-warning-soft/40 p-4 sm:flex-row sm:items-center sm:justify-between"
         >
             <div class="flex items-start gap-3">
-                <span class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-oro/20 text-warning">
+                <span
+                    class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-oro/20 text-warning"
+                >
                     <AlertTriangle class="size-4" />
                 </span>
                 <div class="grid gap-1 text-sm">
                     <p class="font-semibold">
-                        {{ esPropio ? 'Completa tu información' : `Faltan ${totalFaltantes} dato${totalFaltantes === 1 ? '' : 's'} que impiden generar contrato.` }}
+                        {{
+                            esPropio
+                                ? 'Completa tu información'
+                                : `Faltan ${totalFaltantes} dato${totalFaltantes === 1 ? '' : 's'} que impiden generar contrato.`
+                        }}
                     </p>
                     <p v-if="personales.length" class="text-muted-foreground">
-                        <span class="font-medium text-foreground">{{ esPropio ? 'Te falta' : 'Del colaborador' }}:</span>
+                        <span class="font-medium text-foreground"
+                            >{{
+                                esPropio ? 'Te falta' : 'Del colaborador'
+                            }}:</span
+                        >
                         {{ personales.join(', ') }}
                     </p>
-                    <p v-if="!esPropio && laborales.length" class="text-muted-foreground">
-                        <span class="font-medium text-foreground">Los captura RH:</span> {{ laborales.join(', ') }}
+                    <p
+                        v-if="!esPropio && laborales.length"
+                        class="text-muted-foreground"
+                    >
+                        <span class="font-medium text-foreground"
+                            >Los captura RH:</span
+                        >
+                        {{ laborales.join(', ') }}
                     </p>
-                    <p v-if="datos.solicitud_en_revision" class="text-xs text-warning">
+                    <p
+                        v-if="datos.solicitud_en_revision"
+                        class="text-xs text-warning"
+                    >
                         Hay una solicitud de actualización de datos en revisión.
                     </p>
-                    <p v-if="!esPropio && datos.ultimo_aviso" class="text-xs text-muted-foreground">
-                        Último aviso: {{ datos.ultimo_aviso.fecha ? new Date(datos.ultimo_aviso.fecha).toLocaleString('es-MX') : '' }}
-                        <template v-if="datos.ultimo_aviso.enviado_por"> por {{ datos.ultimo_aviso.enviado_por }}</template>
+                    <p
+                        v-if="!esPropio && datos.ultimo_aviso"
+                        class="text-xs text-muted-foreground"
+                    >
+                        Último aviso:
+                        {{
+                            datos.ultimo_aviso.fecha
+                                ? new Date(
+                                      datos.ultimo_aviso.fecha,
+                                  ).toLocaleString('es-MX')
+                                : ''
+                        }}
+                        <template v-if="datos.ultimo_aviso.enviado_por">
+                            por {{ datos.ultimo_aviso.enviado_por }}</template
+                        >
                     </p>
                 </div>
             </div>
@@ -138,14 +197,28 @@ function avisar() {
                 variant="outline"
                 class="min-h-11 shrink-0 sm:min-h-9"
                 :disabled="enviando || !datos.puede_avisar_de_nuevo"
-                :title="datos.puede_avisar_de_nuevo ? '' : 'Ya se avisó en las últimas 24 horas'"
+                :title="
+                    datos.puede_avisar_de_nuevo
+                        ? ''
+                        : 'Ya se avisó en las últimas 24 horas'
+                "
                 @click="avisar"
             >
                 <BellRing class="size-4" />
                 Avisar al colaborador
             </Button>
-            <Button v-else-if="esPropio && !datos.solicitud_en_revision" as-child class="min-h-11 shrink-0 sm:min-h-9">
-                <Link :href="indexSolicitudes({ query: { nueva: 'actualizacion_datos' } })">
+            <Button
+                v-else-if="esPropio && !datos.solicitud_en_revision"
+                as-child
+                class="min-h-11 shrink-0 sm:min-h-9"
+            >
+                <Link
+                    :href="
+                        indexSolicitudes({
+                            query: { nueva: 'actualizacion_datos' },
+                        })
+                    "
+                >
                     <PencilLine class="size-4" />
                     Completar mis datos
                 </Link>

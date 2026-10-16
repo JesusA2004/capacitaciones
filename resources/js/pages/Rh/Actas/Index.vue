@@ -111,7 +111,8 @@ const paso1Listo = computed(
     () =>
         !!colaborador.value &&
         !!incidencia.value.tipo &&
-        (incidencia.value.tipo !== 'otra' || incidencia.value.otro.trim() !== '') &&
+        (incidencia.value.tipo !== 'otra' ||
+            incidencia.value.otro.trim() !== '') &&
         !!incidencia.value.fecha_desde &&
         !!form.fecha,
 );
@@ -132,7 +133,11 @@ function levantar() {
             abierto.value = false;
         },
         onError: (errores) => {
-            if (Object.keys(errores).some((k) => CAMPOS_PASO_1.some((p) => k.startsWith(p)))) {
+            if (
+                Object.keys(errores).some((k) =>
+                    CAMPOS_PASO_1.some((p) => k.startsWith(p)),
+                )
+            ) {
                 paso.value = 1;
             }
         },
@@ -237,15 +242,21 @@ function levantar() {
             <DialogHeader>
                 <DialogTitle>Acta administrativa circunstanciada</DialogTitle>
                 <DialogDescription>
-                    Los datos del trabajador, la empresa y el centro de
-                    trabajo los pone PEOPLE. Captura la incidencia y los
-                    hechos; los participantes y las manifestaciones siguen en
-                    el borrador.
+                    Los datos del trabajador, la empresa y el centro de trabajo
+                    los pone PEOPLE. Captura la incidencia y los hechos; los
+                    participantes y las manifestaciones siguen en el borrador.
                 </DialogDescription>
             </DialogHeader>
 
-            <form class="flex flex-col gap-5" @submit.prevent="paso === 1 ? (paso = 2) : levantar()">
-                <ActaPasos :actual="paso" :pasos="[1, 2]" @ir="(p) => (p === 1 || paso1Listo) && (paso = p as 1 | 2)" />
+            <form
+                class="flex flex-col gap-5"
+                @submit.prevent="paso === 1 ? (paso = 2) : levantar()"
+            >
+                <ActaPasos
+                    :actual="paso"
+                    :pasos="[1, 2]"
+                    @ir="(p) => (p === 1 || paso1Listo) && (paso = p as 1 | 2)"
+                />
 
                 <div v-if="paso === 1" class="flex flex-col gap-1.5">
                     <Label>Trabajador involucrado</Label>
@@ -257,7 +268,12 @@ function levantar() {
                         "
                         @update:model-value="elegirColaborador"
                     />
-                    <InputError :message="(form.errors as Partial<Record<string, string>>).tipo" />
+                    <InputError
+                        :message="
+                            (form.errors as Partial<Record<string, string>>)
+                                .tipo
+                        "
+                    />
                 </div>
 
                 <div :key="paso" class="entrada-suave">
@@ -266,23 +282,38 @@ function levantar() {
                         :paso="paso"
                         :errores="form.errors"
                         :catalogos="catalogos"
-                        :trabajador="{ id: colaborador?.id ?? 0, nombre: colaborador?.nombre ?? '' }"
+                        :trabajador="{
+                            id: colaborador?.id ?? 0,
+                            nombre: colaborador?.nombre ?? '',
+                        }"
                     />
                 </div>
 
                 <DialogFooter class="gap-2">
-                    <Button type="button" variant="ghost" @click="paso === 1 ? (abierto = false) : (paso = 1)">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        @click="paso === 1 ? (abierto = false) : (paso = 1)"
+                    >
                         {{ paso === 1 ? 'Cancelar' : 'Atrás' }}
                     </Button>
-                    <Button v-if="paso === 1" type="submit" :disabled="!paso1Listo">
+                    <Button
+                        v-if="paso === 1"
+                        type="submit"
+                        :disabled="!paso1Listo"
+                    >
                         Continuar con los hechos <ChevronRight class="size-4" />
                     </Button>
-                    <Button v-else type="submit" :disabled="!form.hechos.trim() || form.processing">
-                        Guardar borrador y continuar <ChevronRight class="size-4" />
+                    <Button
+                        v-else
+                        type="submit"
+                        :disabled="!form.hechos.trim() || form.processing"
+                    >
+                        Guardar borrador y continuar
+                        <ChevronRight class="size-4" />
                     </Button>
                 </DialogFooter>
             </form>
         </DialogContent>
     </Dialog>
 </template>
-

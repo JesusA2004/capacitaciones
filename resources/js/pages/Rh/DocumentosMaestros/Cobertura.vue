@@ -242,9 +242,7 @@ function guardar() {
                 <p class="text-xs text-[var(--mrl-texto-suave)]">Incompletos</p>
                 <p
                     class="text-xl font-semibold tabular-nums"
-                    :class="
-                        cobertura.resumen.incompletos ? 'text-warning' : ''
-                    "
+                    :class="cobertura.resumen.incompletos ? 'text-warning' : ''"
                 >
                     {{ cobertura.resumen.incompletos }}
                 </p>

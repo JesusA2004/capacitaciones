@@ -81,7 +81,6 @@ const desde = computed(() =>
         : '',
 );
 
-
 const TAMANO = {
     completo: {
         tarjeta: 'w-52',
@@ -277,10 +276,7 @@ function abrirExpediente(): void {
         </button>
 
         <!-- Puesto sin ocupar -->
-        <div
-            v-else
-            class="flex flex-col items-center gap-1.5 p-3 text-warning"
-        >
+        <div v-else class="flex flex-col items-center gap-1.5 p-3 text-warning">
             <span
                 class="flex items-center justify-center rounded-2xl bg-warning-soft"
                 :class="tamano.vacanteIcono"

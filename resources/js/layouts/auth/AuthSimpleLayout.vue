@@ -1,10 +1,6 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
-import {
-    CalendarClock,
-    ClipboardList,
-    Smartphone,
-} from '@lucide/vue';
+import { CalendarClock, ClipboardList, Smartphone } from '@lucide/vue';
 import horizontalColor from '@/assets/brand/people/MrLanaPeople_horizontal_color.svg';
 import verticalNegativo from '@/assets/brand/people/MrLanaPeople_vertical_negativo.svg';
 import { home } from '@/routes';
@@ -25,7 +21,6 @@ const CARACTERISTICAS = [
     },
     { icono: Smartphone, texto: 'También disponible desde la app móvil' },
 ];
-
 </script>
 
 <template>
@@ -63,7 +58,7 @@ const CARACTERISTICAS = [
                 <img
                     :src="verticalNegativo"
                     alt="MR. LANA PEOPLE"
-                    class="w-full max-w-sm animate-in object-contain duration-700 fade-in zoom-in-95"
+                    class="w-full max-w-sm animate-in object-contain duration-700 zoom-in-95 fade-in"
                 />
             </div>
 
@@ -121,4 +116,3 @@ const CARACTERISTICAS = [
         </div>
     </div>
 </template>
-

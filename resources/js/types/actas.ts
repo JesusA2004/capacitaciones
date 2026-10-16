@@ -61,7 +61,11 @@ export type FormularioActa = {
     lugar: string;
     hechos: string;
     /** Siempre exactamente dos: el formato oficial exige dos testigos elegidos de un buscador, nunca texto libre. */
-    testigos: { colaborador_id: number | null; nombre: string; puesto: string }[];
+    testigos: {
+        colaborador_id: number | null;
+        nombre: string;
+        puesto: string;
+    }[];
     declaraciones: DeclaracionActa[];
 };
 

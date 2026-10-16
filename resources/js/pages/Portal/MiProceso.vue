@@ -40,7 +40,8 @@ const props = defineProps<{
 const estiloInduccion: Record<EvaluacionInduccionResumen['estado'], string> = {
     disponible:
         'border-[var(--mrl-primary)]/40 hover:border-[var(--mrl-primary)] hover:shadow-md',
-    pendiente_calificacion_rh: 'border-[var(--mrl-gold)]/40 bg-[var(--mrl-gold)]/5',
+    pendiente_calificacion_rh:
+        'border-[var(--mrl-gold)]/40 bg-[var(--mrl-gold)]/5',
     requiere_reforzamiento: 'border-destructive/40 bg-destructive/5',
     reevaluacion_habilitada:
         'border-[var(--mrl-primary)]/40 hover:border-[var(--mrl-primary)] hover:shadow-md',
@@ -377,7 +378,7 @@ const claseBoton =
                             </p>
                         </div>
                         <span
-                            class="shrink-0 text-lg font-semibold tabular-nums text-[var(--mrl-primary)]"
+                            class="shrink-0 text-lg font-semibold text-[var(--mrl-primary)] tabular-nums"
                         >
                             {{ induccionContenido.porcentaje }}%
                         </span>
@@ -387,14 +388,22 @@ const claseBoton =
                     >
                         <div
                             class="h-full rounded-full bg-[var(--mrl-primary)] transition-all"
-                            :style="{ width: `${induccionContenido.porcentaje}%` }"
+                            :style="{
+                                width: `${induccionContenido.porcentaje}%`,
+                            }"
                         />
                     </div>
                     <Link
-                        :href="induccionCapitulos.url(induccionContenido.avance_id)"
+                        :href="
+                            induccionCapitulos.url(induccionContenido.avance_id)
+                        "
                         class="inline-flex w-fit items-center gap-2 rounded-xl bg-[var(--mrl-primary)] px-4 py-2.5 text-sm font-medium text-white transition-all hover:gap-3 hover:bg-[var(--mrl-primary-alt)]"
                     >
-                        {{ induccionContenido.porcentaje > 0 ? 'Continuar' : 'Comenzar' }}
+                        {{
+                            induccionContenido.porcentaje > 0
+                                ? 'Continuar'
+                                : 'Comenzar'
+                        }}
                         <ArrowRight class="size-4" />
                     </Link>
                 </article>
@@ -431,8 +440,10 @@ const claseBoton =
                             </p>
                         </div>
                         <span
-                            v-if="evaluacionInduccion.mejor_calificacion !== null"
-                            class="shrink-0 text-lg font-semibold tabular-nums text-[var(--mrl-texto)]"
+                            v-if="
+                                evaluacionInduccion.mejor_calificacion !== null
+                            "
+                            class="shrink-0 text-lg font-semibold text-[var(--mrl-texto)] tabular-nums"
                         >
                             {{ evaluacionInduccion.mejor_calificacion }}/30
                         </span>

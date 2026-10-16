@@ -1021,15 +1021,15 @@ RH.
 
 ### Firma de contratos y control del original
 
-> Cada documento sigue su ruta: imprimir → firma (y huella) → envío a corporativo → recepción → subir firmado → archivar.
+> Cada documento sigue su ruta física: generado → (firma digital si aplica) → impresión → firma física → concluido. El original firmado se resguarda en papel.
 
 #### Qué es
 
-Es el control del papel. PEOPLE sabe en todo momento dónde está el original firmado de cada contrato.
+Es el control del papel. PEOPLE sabe en todo momento en qué paso va cada contrato; al registrar la firma física queda concluido y el original firmado se guarda en el expediente físico.
 
 #### Quién lo hace
 
-El gerente imprime, recaba firma y huella y envía; RH recibe, escanea y archiva.
+El gerente imprime y recaba la firma física (huella y testigos cuando el formato lo pide); PEOPLE registra quién y cuándo. El original firmado se resguarda en papel: no se escanea ni se sube.
 
 #### Antes de empezar
 
@@ -1038,14 +1038,11 @@ El gerente imprime, recaba firma y huella y envía; RH recibe, escanea y archiva
 #### Pasos
 
 1. **«Imprimir»** _(Gerente)_ — Se marca como impreso.
-2. **«Registrar firma»** _(Gerente)_ — Fecha de firma con huella y testigos cuando el formato lo pide.
-3. **«Enviar original a corporativo»** _(Gerente)_ — Paquetería, guía, fecha y comprobante.
-4. **«Registrar recepción en corporativo»** _(RH)_ — Fecha de recepción.
-5. **«Subir documento firmado»** _(RH)_ — El escaneo queda en el expediente.
-6. **«Archivar»** _(RH)_ — Cierra la ruta del original.
+2. **«Registrar firma física»** _(Gerente)_ — Fecha de firma con huella y testigos cuando el formato lo pide. Queda registrado quién y cuándo; no se sube ningún archivo. Con esto el documento queda concluido.
 
 #### Qué pasa después
 
+- Al registrar la firma física el documento queda concluido y el original firmado se resguarda en papel; PEOPLE no pide escaneo.
 - Con el paquete firmado, el candidato pasa a «Contratado» y empieza el onboarding.
 - Las fechas futuras se rechazan: cada paso pide su dato real.
 
@@ -1055,7 +1052,7 @@ El gerente imprime, recaba firma y huella y envía; RH recibe, escanea y archiva
 
 #### Errores comunes
 
-- **«No me deja archivar.»** Primero sube el documento firmado (escaneo).
+- **«No me deja registrar la firma física.»** Primero marca el documento como impreso: la firma física se registra sobre el documento ya impreso.
 
 #### Relacionado con
 
@@ -1967,15 +1964,15 @@ RH, Regional.
 3. **Ajusta lo autorizado** — En Solicitudes → la solicitud de baja → panel «Finiquito»: ajusta el importe de un concepto automático (con motivo), bonos, descuentos, adeudos o agrega conceptos.
 4. **Vista previa y PDF** — Revisa la vista previa, márcalo como revisado y genera el PDF.
 5. **«Autorizar finiquito»** — Queda listo para programar el pago.
-6. **Firmado** — Al subir el finiquito firmado (con huella) queda bloqueado: ya no admite ajustes.
+6. **Firmado físicamente** — El finiquito se imprime y se firma en papel (con huella). Al marcarlo como firmado físicamente, PEOPLE registra quién y cuándo y queda bloqueado: ya no admite ajustes. No se sube ningún archivo; el original firmado se resguarda en papel.
 
 #### Qué pasa después
 
-- La descarga entrega el escaneo firmado cuando existe.
+- La descarga entrega el finiquito en PDF. Un escaneo firmado heredado del flujo anterior, si existe, sigue disponible para descargar; el flujo nuevo no sube escaneo.
 
 #### Documentos que se generan
 
-- Finiquito en PDF (y el escaneo firmado)
+- Finiquito en PDF
 
 #### Qué queda registrado
 
