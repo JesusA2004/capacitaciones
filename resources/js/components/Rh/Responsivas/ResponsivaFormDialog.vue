@@ -89,6 +89,7 @@ const form = ref<ResponsivaForm>({
     tipo: 'equipo_trabajo',
     lugar: '',
     fecha_entrega: hoy,
+    responsable_entrega_id: 0,
     observaciones: '',
     activos: [activoVacio()],
 });
@@ -100,6 +101,23 @@ const completo = computed(
         form.value.activos.length > 0 &&
         form.value.activos.every((a) => a.descripcion.trim() !== ''),
 );
+
+// Responsable de entrega elegido (quien realmente entregó): por defecto el
+// capturador; RH puede elegir a otro dentro de su alcance.
+const responsableSeleccionado = computed(
+    () =>
+        valores.value?.responsables.find(
+            (r) => r.id === form.value.responsable_entrega_id,
+        ) ?? null,
+);
+
+// El componente Select trabaja con strings; convertimos a número al guardar.
+const responsableIdStr = computed<string>({
+    get: () => String(form.value.responsable_entrega_id),
+    set: (valor) => {
+        form.value.responsable_entrega_id = Number(valor);
+    },
+});
 
 async function cargar() {
     cargando.value = true;
@@ -126,6 +144,8 @@ async function cargar() {
             tipo: 'equipo_trabajo',
             lugar: datos.valores_iniciales.lugar,
             fecha_entrega: datos.valores_iniciales.fecha_entrega,
+            responsable_entrega_id:
+                datos.valores_iniciales.responsable_entrega_id,
             observaciones: '',
             activos: [activoVacio()],
         };
@@ -341,12 +361,47 @@ async function generar() {
                             >
                                 Entrega
                             </p>
-                            <p class="font-semibold">
-                                {{ valores.otorgante.nombre }}
-                            </p>
-                            <p class="text-xs text-muted-foreground">
-                                {{ valores.otorgante.puesto ?? 'Sin puesto' }}
-                            </p>
+                            <!-- RH puede elegir al responsable real de entrega
+                                 cuando captura por otro; si no, se asume quien
+                                 captura. -->
+                            <template v-if="valores.puede_elegir_responsable">
+                                <Select v-model="responsableIdStr">
+                                    <SelectTrigger
+                                        class="mt-0.5 h-8 w-full"
+                                        aria-label="Responsable de entrega"
+                                    >
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem
+                                            v-for="responsable in valores.responsables"
+                                            :key="responsable.id"
+                                            :value="String(responsable.id)"
+                                        >
+                                            {{ responsable.nombre }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <p
+                                    class="mt-1 text-xs text-muted-foreground"
+                                >
+                                    {{
+                                        responsableSeleccionado?.puesto ??
+                                        'Sin puesto'
+                                    }}
+                                </p>
+                            </template>
+                            <template v-else>
+                                <p class="font-semibold">
+                                    {{ valores.otorgante.nombre }}
+                                </p>
+                                <p class="text-xs text-muted-foreground">
+                                    {{
+                                        valores.otorgante.puesto ??
+                                        'Sin puesto'
+                                    }}
+                                </p>
+                            </template>
                         </div>
                         <div>
                             <p

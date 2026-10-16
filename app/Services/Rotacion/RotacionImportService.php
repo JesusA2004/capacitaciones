@@ -177,15 +177,24 @@ class RotacionImportService
             throw ValidationException::withMessages(['carga' => 'Esta carga ya no está por confirmar.']);
         }
 
-        $periodos = $carga->detalle['periodos'] ?? [];
-        if ($periodos === []) {
+        if (($carga->detalle['periodos'] ?? []) === []) {
             throw ValidationException::withMessages(['carga' => 'El archivo no tiene ningún mes que se pueda importar.']);
         }
 
         $permitidas = $this->sucursalesPermitidas($actor);
 
-        $resultado = DB::transaction(function () use ($carga, $actor, $periodos, $permitidas): array {
-            $periodos = $this->compararConLoCargado($periodos);
+        $resultado = DB::transaction(function () use ($carga, $actor, $permitidas): array {
+            // Candado + revalidación DENTRO de la transacción: dos
+            // confirmaciones concurrentes de la misma carga se serializan
+            // aquí; la segunda encuentra el estado ya en «Aplicada» y se
+            // rechaza, de modo que los periodos nunca se aplican dos veces.
+            $carga = RotacionCarga::query()->lockForUpdate()->findOrFail($carga->id);
+
+            if ($carga->estado !== EstadoCargaRotacion::Analizada) {
+                throw ValidationException::withMessages(['carga' => 'Esta carga ya no está por confirmar.']);
+            }
+
+            $periodos = $this->compararConLoCargado($carga->detalle['periodos'] ?? []);
             $reemplazos = [];
 
             foreach ($periodos as $periodo) {
@@ -234,6 +243,11 @@ class RotacionImportService
 
             return ['conteo' => $conteo, 'reemplazos' => $reemplazos];
         });
+
+        // La instancia bloqueada que se guardó dentro de la transacción es
+        // otra; recargamos la recibida para auditar y responder con el
+        // estado ya persistido (Aplicada + conteos finales).
+        $carga->refresh();
 
         $this->auditoria->registrar('rotacion.carga_aplicada', $carga, $actor, [
             'archivo' => $carga->nombre_archivo,

@@ -46,6 +46,8 @@ use Illuminate\Support\Carbon;
  * @property EstadoFiniquito $estado
  * @property string|null $documento_generado_path
  * @property string|null $documento_firmado_path
+ * @property Carbon|null $firmado_fisicamente_en
+ * @property int|null $firmado_fisicamente_por
  * @property string $total_percepciones
  * @property string $total_deducciones
  * @property string $neto
@@ -92,6 +94,8 @@ class FiniquitoCalculo extends Model
         'estado',
         'documento_generado_path',
         'documento_firmado_path',
+        'firmado_fisicamente_en',
+        'firmado_fisicamente_por',
         'total_percepciones',
         'total_deducciones',
         'neto',
@@ -161,6 +165,7 @@ class FiniquitoCalculo extends Model
             'total_deducciones' => 'decimal:2',
             'neto' => 'decimal:2',
             'pagado_en' => 'datetime',
+            'firmado_fisicamente_en' => 'datetime',
         ];
     }
 
@@ -198,5 +203,16 @@ class FiniquitoCalculo extends Model
     public function revisadoPor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'revisado_por_id');
+    }
+
+    /**
+     * Quién registró la firma física en papel (nueva regla: el documento
+     * firmado ya no se escanea, solo se deja constancia de quién y cuándo).
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function firmadoFisicamentePor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'firmado_fisicamente_por');
     }
 }

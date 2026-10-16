@@ -7,10 +7,12 @@ use App\Models\RotacionPeriodo;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\Rotacion\RotacionExcelLector;
+use App\Services\Rotacion\RotacionImportService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Database\Seeders\SucursalSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
@@ -194,6 +196,31 @@ test('volver a subir un mes lo reemplaza y guarda los valores anteriores', funct
     $auditoria = Activity::query()->where('event', 'rotacion.carga_aplicada')->latest('id')->first();
     expect($auditoria->properties['cambios'][0]['antes']['bajas'])->toBe(1)
         ->and($auditoria->properties['cambios'][0]['despues']['bajas'])->toBe(2);
+});
+
+test('aplicar dos veces la misma carga no duplica periodos ni audita dos veces (idempotencia/concurrencia)', function () {
+    $rh = rotxUsuario('rh_admin');
+    $this->actingAs($rh)->post(route('reportes.rotacion.analizar'), ['archivo' => rotxArchivoBase()]);
+    $carga = RotacionCarga::query()->sole();
+
+    $this->actingAs($rh)->post(route('reportes.rotacion.aplicar', $carga))->assertRedirect();
+    expect($carga->refresh()->estado)->toBe(EstadoCargaRotacion::Aplicada);
+
+    $periodosTras = RotacionPeriodo::query()->count();
+    $auditoriasTras = Activity::query()->where('event', 'rotacion.carga_aplicada')->count();
+
+    // Segunda confirmación por HTTP: la carga ya no está por confirmar → 403.
+    $this->actingAs($rh)->post(route('reportes.rotacion.aplicar', $carga))->assertForbidden();
+
+    // Defensa ante concurrencia a nivel de servicio: aplicar() recarga con
+    // lockForUpdate() y REVALIDA el estado dentro de la transacción, de modo
+    // que un segundo aplicar() sobre la carga ya Aplicada lanza la validación
+    // y no vuelve a escribir periodos ni a auditar.
+    expect(fn () => app(RotacionImportService::class)->aplicar($carga->refresh(), $rh))
+        ->toThrow(ValidationException::class, 'Esta carga ya no está por confirmar.');
+
+    expect(RotacionPeriodo::query()->count())->toBe($periodosTras)
+        ->and(Activity::query()->where('event', 'rotacion.carga_aplicada')->count())->toBe($auditoriasTras);
 });
 
 test('descartar no carga nada y conserva el registro', function () {

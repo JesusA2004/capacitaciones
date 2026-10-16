@@ -699,39 +699,17 @@ class RolesYPermisosSeeder extends Seeder
             'responsivas.ver', 'responsivas.generar',
         ],
 
-        // Puede apoyar/cubrir al gerente de su sucursal según la jerarquía de
-        // puestos: mismo alcance y catálogo funcional que "gerente".
-        'subgerente' => [
-            'directorio.contactos.ver_todos',
-            'perfiles_puesto.ver',
-            'dashboard.sucursal.ver',
-            'usuarios.ver',
-            'reportes.sucursal',
-            'expedientes.ver', 'expedientes.ver_sucursal',
-            'documentos.ver',
-            'vacaciones.ver', 'vacaciones.solicitar', 'vacaciones.aprobar', 'vacaciones.rechazar',
-            'solicitudes.ver', 'solicitudes.revisar', 'solicitudes.aprobar',
-            'reportes_rh.ver', 'reportes_rh.sucursal',
-            'vacantes.ver', 'vacantes.ver_sucursal',
-            'candidatos.ver', 'candidatos.ver_sucursal',
-            'mobile.bootstrap.ver', 'app.config.ver',
-            'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
-            'rh.mobile.dashboard.ver', 'rh.pendientes.ver',
-            'rh.solicitudes.ver', 'rh.solicitudes.detalle', 'rh.solicitudes.aprobar', 'rh.solicitudes.rechazar', 'rh.solicitudes.correccion',
-            'rh.vacaciones.ver', 'rh.vacaciones.detalle', 'rh.vacaciones.aprobar', 'rh.vacaciones.rechazar',
-            'notificaciones.leer_todas',
-            'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
-            'solicitudes.bajas.crear', 'headcount.ver', 'organigrama.ver',
-            'ciclo.preautorizar', 'candidatos.evaluar', 'onboarding.ver', 'onboarding.entregar_activos', 'cierres.ver', 'cierres.solicitar', 'evaluaciones.ver', 'evaluaciones.capturar', 'documentos_laborales.ver', 'documentos_laborales.operar_fisico',
-        ],
-
-        // Coordinadoras (de sucursal y regional): usan PEOPLE como
-        // COLABORADORAS, no como operadoras de RH (decisión del negocio,
+        // Coordinadoras (de sucursal y regional) y subgerente: usan PEOPLE
+        // como COLABORADORES, no como operadores de RH (decisión del negocio,
         // 2026-10-15) — mismo catálogo que `colaborador`, todo sobre lo
         // propio. Sin alcance en config/permisos_modulos.php ni en
         // AlcanceOrganizacionalService/MobileBootstrapService.
         'coordinadora_regional' => self::PERMISOS_ROL_COLABORADOR,
         'coordinadora' => self::PERMISOS_ROL_COLABORADOR,
+        // El subgerente deja de apoyar/cubrir operativamente al gerente: usa
+        // PEOPLE como colaborador, igual que las coordinadoras (misma decisión
+        // del negocio, 2026-10-15).
+        'subgerente' => self::PERMISOS_ROL_COLABORADOR,
 
         // Ve y aprueba vacaciones/solicitudes de sus subordinados directos
         // (jefe_id), un alcance mas estrecho que gerente_sucursal (que ve

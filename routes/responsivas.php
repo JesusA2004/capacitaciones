@@ -15,6 +15,9 @@ Route::middleware(['auth', 'verified'])->prefix('rh')->name('rh.responsivas.')->
     Route::post('colaboradores/{colaborador}/responsivas', [ResponsivaController::class, 'store'])->name('store')->middleware('throttle:20,1');
     Route::get('responsivas/{responsiva}/pdf', [ResponsivaController::class, 'pdf'])->name('pdf');
     Route::get('responsivas/{responsiva}/firmada', [ResponsivaController::class, 'firmada'])->name('firmada');
+    // Flujo vigente: firma en papel sin escaneo.
+    Route::post('responsivas/{responsiva}/firmada-fisica', [ResponsivaController::class, 'marcarFirmadaFisicamente'])->name('marcar-firmada-fisica')->middleware('throttle:20,1');
+    // LEGACY: subir el escaneo firmado (registros antiguos).
     Route::post('responsivas/{responsiva}/firmada', [ResponsivaController::class, 'subirFirmada'])->name('subir-firmada')->middleware('throttle:20,1');
     Route::post('responsivas/{responsiva}/devolucion', [ResponsivaController::class, 'devolucion'])->name('devolucion');
     Route::post('responsivas/{responsiva}/cancelar', [ResponsivaController::class, 'cancelar'])->name('cancelar');

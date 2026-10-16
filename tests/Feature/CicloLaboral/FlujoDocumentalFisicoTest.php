@@ -1,16 +1,26 @@
 <?php
 
-use App\Enums\EstadoDocumento;
+use App\Enums\EstadoFlujoDocumento;
 use App\Enums\TipoTarea;
 use App\Models\Colaborador;
 use App\Models\DocumentoEvento;
 use App\Models\EmployeeDocument;
+use App\Models\GeneratedDocument;
 use App\Models\TareaRh;
 use App\Models\User;
+use App\Services\DocumentosLaborales\FlujoDocumentalService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
+
+/*
+| Flujo documental físico (regla nueva 2026-10-16): el documento que se
+| imprime y firma en PAPEL ya NO se vuelve a escanear ni subir. El sistema
+| genera el PDF, RH lo imprime, se firma físicamente, el original se
+| resguarda en papel y en PEOPLE solo se marca «firmado físicamente» → FIN.
+| Los estados legacy (escaneado/archivado) siguen siendo legibles.
+*/
 
 beforeEach(function () {
     $this->seed(RolesYPermisosSeeder::class);
@@ -27,7 +37,7 @@ beforeEach(function () {
     ]);
 });
 
-test('el original físico recorre impresión → firma física + huella → envío → recepción → escaneo → archivo con auditoría', function () {
+test('el original físico recorre impresión → firma física + huella y queda FINAL en «firmado físicamente», sin exigir escaneo, con auditoría', function () {
     Sanctum::actingAs($this->rh);
     $id = $this->postJson("/api/v1/rh/colaboradores/{$this->colaborador->id}/documentos-laborales", ['clave' => 'contrato_indeterminado'])
         ->assertCreated()
@@ -35,7 +45,12 @@ test('el original físico recorre impresión → firma física + huella → env�
         ->json('data.id');
 
     expect(TareaRh::query()->where('tipo', TipoTarea::ImpresionPendiente->value)->whereNull('resuelta_en')->count())->toBe(1);
-    $this->getJson('/api/v1/rh/documentos-laborales/pendientes')->assertOk()->assertJsonPath('data.imprimir', 1);
+    // Ya no hay etapa de escaneo/envío/recepción en el conteo de pendientes.
+    $this->getJson('/api/v1/rh/documentos-laborales/pendientes')->assertOk()
+        ->assertJsonPath('data.imprimir', 1)
+        ->assertJsonMissingPath('data.escanear')
+        ->assertJsonMissingPath('data.enviar')
+        ->assertJsonMissingPath('data.recibir');
 
     $this->postJson("/api/v1/rh/documentos-laborales/{$id}/imprimir")->assertOk()->assertJsonPath('data.estado', 'pendiente_firma_fisica');
 
@@ -43,44 +58,40 @@ test('el original físico recorre impresión → firma física + huella → env�
     $this->postJson("/api/v1/rh/documentos-laborales/{$id}/firma-fisica", ['huella_registrada' => false])->assertUnprocessable();
     $this->postJson("/api/v1/rh/documentos-laborales/{$id}/firma-fisica", ['huella_registrada' => true])->assertUnprocessable();
 
+    // Marcar como firmado físicamente: es el ESTADO FINAL del documento en papel.
     $this->postJson("/api/v1/rh/documentos-laborales/{$id}/firma-fisica", [
         'huella_registrada' => true,
         'testigos' => [['nombre' => 'Testigo Uno', 'puesto' => 'Gerente']],
+        'observaciones' => 'Firmado ante testigo; original resguardado en papel.',
     ])->assertOk()->assertJsonPath('data.estado', 'firmado_fisicamente');
 
-    $this->post("/api/v1/rh/documentos-laborales/{$id}/envio", [
-        'paqueteria' => 'Estafeta',
-        'numero_guia' => 'GU123456',
-        'comprobante' => clArchivoPdf('guia.pdf'),
-    ], ['Accept' => 'application/json'])->assertOk()
-        ->assertJsonPath('data.estado', 'enviado_corporativo')
-        ->assertJsonPath('data.original_fisico.numero_guia', 'GU123456')
-        ->assertJsonPath('data.original_fisico.tiene_comprobante', true);
+    // Nunca se abrió una tarea de escaneo/envío/recepción (ya no existen en el flujo nuevo).
+    expect(TareaRh::query()->whereIn('tipo', [
+        TipoTarea::EscaneoPendiente->value,
+        TipoTarea::EnvioOriginalPendiente->value,
+        TipoTarea::RecepcionOriginalPendiente->value,
+    ])->count())->toBe(0);
 
-    $this->getJson('/api/v1/rh/documentos-laborales?etapa=recibir')->assertOk()->assertJsonCount(1, 'data');
-
-    $this->postJson("/api/v1/rh/documentos-laborales/{$id}/recepcion")->assertOk()->assertJsonPath('data.estado', 'recibido_corporativo');
-
-    $this->post("/api/v1/rh/documentos-laborales/{$id}/escaneo", ['archivo' => clArchivoPdf('firmado.pdf')], ['Accept' => 'application/json'])
-        ->assertOk()->assertJsonPath('data.estado', 'escaneado');
-
-    $this->postJson("/api/v1/rh/documentos-laborales/{$id}/archivar")->assertOk()->assertJsonPath('data.estado', 'archivado');
-
-    // El escaneo final queda en el expediente como documento aprobado.
-    $escaneo = EmployeeDocument::query()->where('colaborador_id', $this->colaborador->id)->where('origen', 'generado')->firstOrFail();
-    expect($escaneo->status)->toBe(EstadoDocumento::Aprobado)
-        ->and($escaneo->reviewed_by)->toBe($this->rh->id);
-
-    // Bitácora: quién, qué, cuándo.
-    $acciones = DocumentoEvento::query()->where('generated_document_id', $id)->pluck('accion')->all();
-    expect($acciones)->toContain('generado', 'impreso', 'firmado_fisicamente', 'enviado_corporativo', 'recibido_corporativo', 'escaneado', 'archivado');
-    expect(DocumentoEvento::query()->where('generated_document_id', $id)->where('accion', 'impreso')->value('user_id'))->toBe($this->rh->id);
-
-    // Ningún pendiente físico queda abierto al archivar.
+    // Ningún pendiente físico queda abierto al firmar: el documento ya está concluido.
     expect(TareaRh::query()->where('relacionado_id', $id)->whereNull('resuelta_en')->count())->toBe(0);
+
+    // El original firmado se resguarda en papel: NO se crea un escaneo en el expediente.
+    expect(EmployeeDocument::query()->where('colaborador_id', $this->colaborador->id)->where('origen', 'generado')->count())->toBe(0);
+
+    // Bitácora del evento «firmado físicamente»: quién y cuándo.
+    $acciones = DocumentoEvento::query()->where('generated_document_id', $id)->pluck('accion')->all();
+    expect($acciones)->toContain('generado', 'impreso', 'firmado_fisicamente')
+        ->and($acciones)->not->toContain('escaneado', 'enviado_corporativo', 'recibido_corporativo');
+    expect(DocumentoEvento::query()->where('generated_document_id', $id)->where('accion', 'firmado_fisicamente')->value('user_id'))->toBe($this->rh->id);
+
+    // Y el seguimiento físico guarda la huella y el testigo recabados.
+    $documento = GeneratedDocument::query()->with('seguimientoFisico')->findOrFail($id);
+    expect($documento->seguimientoFisico?->huella_registrada)->toBeTrue()
+        ->and($documento->seguimientoFisico?->firma_fisica_registrada_por)->toBe($this->rh->id)
+        ->and($documento->seguimientoFisico?->testigos)->not->toBeEmpty();
 });
 
-test('no se puede saltar etapas del flujo (p. ej. recibir algo que no se ha enviado)', function () {
+test('no se puede saltar etapas del flujo (p. ej. recibir/archivar algo que no ha pasado por firma física)', function () {
     Sanctum::actingAs($this->rh);
     $id = $this->postJson("/api/v1/rh/colaboradores/{$this->colaborador->id}/documentos-laborales", ['clave' => 'contrato_indeterminado'])->json('data.id');
 
@@ -99,4 +110,27 @@ test('un colaborador no puede operar el flujo físico de documentos', function (
     $this->postJson("/api/v1/rh/documentos-laborales/{$id}/imprimir")->assertForbidden();
     // Tampoco puede "firmar digitalmente" un documento que no está pendiente de su firma.
     $this->postJson("/api/v1/colaborador/documentos-laborales/{$id}/firmar", ['acepto' => true])->assertForbidden();
+});
+
+test('un documento legacy en estado Escaneado/Archivado sigue siendo legible (solo lectura)', function () {
+    Sanctum::actingAs($this->rh);
+    $id = $this->postJson("/api/v1/rh/colaboradores/{$this->colaborador->id}/documentos-laborales", ['clave' => 'contrato_indeterminado'])->json('data.id');
+
+    // Se recorre a mano el flujo ANTERIOR (los métodos se conservan para compat):
+    // firma física → escaneo → archivo. Representa un expediente ya existente.
+    $flujo = app(FlujoDocumentalService::class);
+    $documento = GeneratedDocument::query()->findOrFail($id);
+    $flujo->marcarImpreso($documento, $this->rh);
+    $flujo->registrarFirmaFisica($documento->refresh(), $this->rh, ['huella_registrada' => true, 'testigos' => [['nombre' => 'Testigo Uno', 'puesto' => 'Gerente']]]);
+    $flujo->registrarEscaneo($documento->refresh(), $this->rh, clArchivoPdf('firmado.pdf'));
+
+    expect($documento->refresh()->estado_flujo)->toBe(EstadoFlujoDocumento::Escaneado)
+        ->and($documento->signed_document_id)->not->toBeNull();
+
+    // El registro legacy se lee sin problema.
+    $this->getJson("/api/v1/rh/documentos-laborales/{$id}")->assertOk()->assertJsonPath('data.estado', 'escaneado');
+
+    // Y un original legacy escaneado todavía puede archivarse para cerrarlo.
+    $flujo->archivar($documento->refresh(), $this->rh);
+    $this->getJson("/api/v1/rh/documentos-laborales/{$id}")->assertOk()->assertJsonPath('data.estado', 'archivado');
 });

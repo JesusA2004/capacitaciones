@@ -42,7 +42,7 @@ test('un gerente_regional ve colaboradores de varias sucursales asignadas', func
         ->and($alcance->puedeVerUsuario($gerenteRegional, $colaboradorAjeno))->toBeFalse();
 });
 
-test('un subgerente puede aprobar solicitudes de su sucursal igual que el gerente al que cubre', function () {
+test('un subgerente usa PEOPLE como colaborador: ni revisa ni aprueba solicitudes de RH', function () {
     $sucursal = Sucursal::factory()->create();
 
     $subgerente = User::factory()->create(['sucursal_principal_id' => $sucursal->id]);
@@ -51,11 +51,19 @@ test('un subgerente puede aprobar solicitudes de su sucursal igual que el gerent
     $colaborador = User::factory()->create(['sucursal_principal_id' => $sucursal->id]);
     $solicitud = SolicitudInterna::factory()->create(['user_id' => $colaborador->id]);
 
+    expect($subgerente->can('solicitudes.revisar'))->toBeFalse()
+        ->and($subgerente->can('solicitudes.aprobar'))->toBeFalse()
+        ->and($subgerente->can('portal.solicitudes.crear'))->toBeTrue();
+
+    $this->actingAs($subgerente)
+        ->get(route('rh.solicitudes.show', $solicitud))
+        ->assertForbidden();
+
     $this->actingAs($subgerente)
         ->post(route('rh.solicitudes.aprobar', $solicitud))
-        ->assertSessionHasNoErrors();
+        ->assertForbidden();
 
-    expect($solicitud->fresh()->estado->value)->toBe('aprobada');
+    expect($solicitud->fresh()->estado->value)->not->toBe('aprobada');
 });
 
 test('una coordinadora usa PEOPLE como colaboradora: ni revisa ni aprueba solicitudes de RH', function () {

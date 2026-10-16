@@ -11,6 +11,7 @@ use App\Models\Colaborador;
 use App\Models\Responsiva;
 use App\Models\ResponsivaActivo;
 use App\Models\User;
+use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Expedientes\DocumentoStorageService;
 use Illuminate\Database\Eloquent\Collection;
@@ -44,6 +45,7 @@ class ResponsivaService
         private readonly ResponsivaPdfService $pdf,
         private readonly DocumentoStorageService $expediente,
         private readonly AuditoriaService $auditoria,
+        private readonly AlcanceOrganizacionalService $alcance,
     ) {}
 
     /**
@@ -53,7 +55,7 @@ class ResponsivaService
     {
         return Responsiva::query()
             ->where('colaborador_id', $colaborador->id)
-            ->with(['activos', 'entregadoPor:id,name,apellidos'])
+            ->with(['activos', 'entregadoPor:id,name,apellidos,colaborador_id', 'entregadoPor.colaborador', 'registradoPor:id,name,apellidos,colaborador_id', 'registradoPor.colaborador'])
             ->latest('fecha_entrega')
             ->latest('id')
             ->get();
@@ -67,7 +69,11 @@ class ResponsivaService
      */
     public function valoresIniciales(Colaborador $colaborador, User $actor): array
     {
+        // Por defecto, quien captura es también quien entrega (se prellenan
+        // iguales). Si RH captura por otro, puede elegir al responsable real
+        // dentro de su alcance desde `responsables`.
         $snapshot = $this->snapshot($colaborador, $actor);
+        $responsables = $this->responsablesDisponibles($actor);
 
         return [
             'lugar' => $this->lugarPorDefecto($colaborador),
@@ -75,7 +81,49 @@ class ResponsivaService
             'receptor' => $snapshot['receptor'],
             'otorgante' => $snapshot['otorgante'],
             'empresa' => $snapshot['empresa']['razon_social'] ?? $snapshot['empresa']['nombre'],
+            'responsable_entrega_id' => $actor->id,
+            'responsables' => $responsables,
+            // Solo tiene sentido elegir a otro responsable si hay más de uno
+            // (p.ej. RH con alcance amplio); un gerente normalmente entrega él
+            // mismo y no necesita elegir.
+            'puede_elegir_responsable' => count($responsables) > 1,
         ];
+    }
+
+    /**
+     * Candidatos a «responsable de entrega» dentro del alcance del actor
+     * (usuarios con colaborador que el actor puede ver), incluyéndose a sí
+     * mismo siempre. No es inventario: solo acota quién pudo entregar.
+     *
+     * @return list<array{id: int, nombre: string, puesto: string|null}>
+     */
+    private function responsablesDisponibles(User $actor): array
+    {
+        $actor->loadMissing('colaborador.puesto:id,nombre');
+
+        $candidatos = $this->alcance->limitarUsuariosPorAlcance(User::query(), $actor)
+            ->whereHas('colaborador')
+            ->with('colaborador.puesto:id,nombre')
+            ->orderBy('name')
+            ->limit(200)
+            ->get();
+
+        $responsables = [];
+        $responsables[$actor->id] = [
+            'id' => $actor->id,
+            'nombre' => $actor->colaborador?->nombreCompleto() ?? trim(sprintf('%s %s', $actor->name, $actor->apellidos ?? '')),
+            'puesto' => $actor->colaborador?->puesto?->nombre,
+        ];
+
+        foreach ($candidatos as $usuario) {
+            $responsables[$usuario->id] = [
+                'id' => $usuario->id,
+                'nombre' => $usuario->colaborador?->nombreCompleto() ?? trim(sprintf('%s %s', $usuario->name, $usuario->apellidos ?? '')),
+                'puesto' => $usuario->colaborador?->puesto?->nombre,
+            ];
+        }
+
+        return array_values($responsables);
     }
 
     /**
@@ -157,10 +205,32 @@ class ResponsivaService
             'activos' => $responsiva->activos->pluck('descripcion')->all(),
         ]);
 
-        return $responsiva->refresh()->load(['activos', 'entregadoPor:id,name,apellidos']);
+        return $responsiva->refresh()->load(['activos', 'entregadoPor:id,name,apellidos,colaborador_id', 'entregadoPor.colaborador', 'registradoPor:id,name,apellidos,colaborador_id', 'registradoPor.colaborador']);
     }
 
-    /** Escaneo de la responsiva ya firmada en papel (PDF o foto). */
+    /**
+     * Firma física sin escaneo (regla vigente): la responsiva se imprime, se
+     * firma en papel y RH/gerente presiona «Marcar firmada físicamente». No
+     * se sube ningún archivo; solo se deja constancia de quién y cuándo.
+     * subirFirmada()/firmada_path se conservan como LEGACY de solo lectura
+     * para las responsivas antiguas que ya traían escaneo.
+     */
+    public function marcarFirmadaFisicamente(Responsiva $responsiva, User $actor): Responsiva
+    {
+        $this->exigirVigente($responsiva, 'marcarla como firmada físicamente');
+
+        $responsiva->update([
+            'estado' => EstadoResponsiva::Firmada,
+            'firmada_fisicamente_en' => now(),
+            'firmada_fisicamente_por' => $actor->id,
+        ]);
+
+        $this->auditoria->registrar('responsiva_firmada_fisicamente', $responsiva, $actor, ['folio' => $responsiva->folio]);
+
+        return $responsiva;
+    }
+
+    /** LEGACY: escaneo de la responsiva ya firmada en papel (PDF o foto). */
     public function subirFirmada(Responsiva $responsiva, UploadedFile $archivo, User $actor): Responsiva
     {
         $this->exigirVigente($responsiva, 'subir la responsiva firmada');
@@ -259,6 +329,14 @@ class ResponsivaService
     public function presentar(Responsiva $responsiva, User $usuario): array
     {
         $entrego = $responsiva->entregadoPor;
+        $registro = $responsiva->registradoPor;
+        $otorganteSnapshot = is_array($responsiva->snapshot['otorgante'] ?? null) ? $responsiva->snapshot['otorgante'] : [];
+        $entregoPuesto = $otorganteSnapshot['puesto'] ?? null;
+        // Nombre del responsable: el congelado en el snapshot (el de la
+        // persona, no el de la cuenta de acceso), con respaldo al colaborador.
+        $entregoNombre = is_string($otorganteSnapshot['nombre'] ?? null) && trim((string) $otorganteSnapshot['nombre']) !== ''
+            ? (string) $otorganteSnapshot['nombre']
+            : $entrego->nombreCompleto();
 
         return [
             'id' => $responsiva->id,
@@ -269,7 +347,11 @@ class ResponsivaService
             'lugar' => $responsiva->lugar,
             'estado' => $responsiva->estado->value,
             'estado_etiqueta' => $responsiva->estado->etiqueta(),
-            'entregado_por' => trim(sprintf('%s %s', $entrego->name, $entrego->apellidos ?? '')),
+            // Quien entregó (responsable de entrega) y su puesto congelado.
+            'entregado_por' => $entregoNombre,
+            'entregado_por_puesto' => is_string($entregoPuesto) ? $entregoPuesto : null,
+            // Quien capturó la responsiva en PEOPLE (puede ser distinto).
+            'registrado_por' => $registro?->nombreCompleto(),
             'observaciones' => $responsiva->observaciones,
             'activos' => $responsiva->activos->map(fn (ResponsivaActivo $a): array => [
                 'descripcion' => $a->descripcion,
@@ -278,8 +360,11 @@ class ResponsivaService
                 'estado' => $a->estado->etiqueta(),
             ])->all(),
             'tiene_pdf' => $responsiva->pdf_path !== null,
+            // LEGACY: escaneo firmado histórico (solo lectura, ya no se exige).
             'tiene_firmada' => $responsiva->firmada_path !== null,
             'firmada_subida_en' => $responsiva->firmada_subida_en?->toIso8601String(),
+            // Firma física sin archivo (flujo vigente).
+            'firmada_fisicamente_en' => $responsiva->firmada_fisicamente_en?->toIso8601String(),
             'devuelta_en' => $responsiva->devuelta_en?->toDateString(),
             'observaciones_devolucion' => $responsiva->observaciones_devolucion,
             'motivo_cancelacion' => $responsiva->motivo_cancelacion,
@@ -294,16 +379,49 @@ class ResponsivaService
      */
     private function atributos(Colaborador $colaborador, array $datos, User $actor): array
     {
+        // registrado_por = quien captura (el actor); entregado_por = quien
+        // realmente entregó (responsable de entrega). Si no se eligió otro,
+        // ambos coinciden (el que captura entrega él mismo).
+        $responsable = $this->resolverResponsable($datos, $actor);
+
         return [
             'colaborador_id' => $colaborador->id,
             'tipo' => TipoResponsiva::from((string) $datos['tipo']),
             'lugar' => trim((string) $datos['lugar']),
             'fecha_entrega' => Carbon::parse((string) $datos['fecha_entrega'])->toDateString(),
-            'entregado_por' => $actor->id,
+            'entregado_por' => $responsable->id,
+            'registrado_por' => $actor->id,
             'observaciones' => $this->limpio($datos['observaciones'] ?? null),
-            'snapshot' => $this->snapshot($colaborador, $actor),
+            'snapshot' => $this->snapshot($colaborador, $responsable, $datos),
             'estado' => EstadoResponsiva::Generada,
         ];
+    }
+
+    /**
+     * Resuelve al responsable de entrega: el actor por defecto, o el usuario
+     * elegido (`responsable_entrega_id`) si está dentro del alcance del actor.
+     * No es inventario: solo deja constancia de quién entregó el equipo.
+     *
+     * @param  array<string, mixed>  $datos
+     */
+    private function resolverResponsable(array $datos, User $actor): User
+    {
+        $id = $datos['responsable_entrega_id'] ?? null;
+
+        if ($id === null || (int) $id === $actor->id) {
+            return $actor;
+        }
+
+        $responsable = User::query()->where('id', (int) $id)->first();
+        $responsable?->loadMissing('colaborador');
+
+        if ($responsable === null || $responsable->colaborador === null || ! $this->alcance->alcanzaColaboradorEnModulo($actor, $responsable->colaborador, 'responsivas')) {
+            throw ValidationException::withMessages([
+                'responsable_entrega_id' => 'El responsable de entrega seleccionado no es válido o está fuera de tu alcance.',
+            ]);
+        }
+
+        return $responsable;
     }
 
     /**
@@ -327,18 +445,25 @@ class ResponsivaService
     }
 
     /**
-     * Datos congelados al generar: quién recibe, quién entrega y la empresa
-     * patronal (razón social de Empresas, la misma de los formatos oficiales).
+     * Datos congelados al generar, para que reimprimir la responsiva meses
+     * después produzca el mismo documento aunque las personas cambien de
+     * puesto: quién recibe, el responsable de entrega (nombre + puesto), la
+     * empresa patronal y los equipos entregados.
      *
-     * @return array{receptor: array<string, string|null>, otorgante: array<string, string|null>, empresa: array<string, string|null>}
+     * El responsable de entrega se congela bajo la llave `otorgante` (así lo
+     * lee ResponsivaPdfService y lo imprime como «Otorgante»): es el nombre
+     * de quien realmente entregó el equipo, no el del capturador.
+     *
+     * @param  array<string, mixed>  $datos
+     * @return array{receptor: array<string, string|null>, otorgante: array<string, string|null>, empresa: array<string, string|null>, equipos: list<array<string, mixed>>}
      */
-    private function snapshot(Colaborador $colaborador, User $actor): array
+    private function snapshot(Colaborador $colaborador, User $responsable, array $datos = []): array
     {
         $colaborador->loadMissing(['puesto:id,nombre', 'departamento:id,nombre', 'sucursalPrincipal.empresa']);
-        $actor->loadMissing('colaborador.puesto:id,nombre');
+        $responsable->loadMissing('colaborador.puesto:id,nombre');
         $sucursal = $colaborador->sucursalPrincipal;
         $empresa = $sucursal?->empresa;
-        $otorgante = $actor->colaborador;
+        $entrega = $responsable->colaborador;
 
         return [
             'receptor' => [
@@ -349,15 +474,47 @@ class ResponsivaService
                 'sucursal' => $sucursal?->nombre,
             ],
             'otorgante' => [
-                'nombre' => $otorgante !== null ? $otorgante->nombreCompleto() : trim(sprintf('%s %s', $actor->name, $actor->apellidos ?? '')),
-                'puesto' => $otorgante?->puesto?->nombre,
+                'nombre' => $entrega !== null ? $entrega->nombreCompleto() : trim(sprintf('%s %s', $responsable->name, $responsable->apellidos ?? '')),
+                'puesto' => $entrega?->puesto?->nombre,
             ],
             'empresa' => [
                 'nombre' => $empresa?->nombre,
                 'razon_social' => $empresa?->razon_social,
                 'logo_path' => $empresa?->logo_path,
             ],
+            // Equipos entregados, congelados tal cual se capturaron (la
+            // responsiva es una constancia; nunca se reescribe después).
+            'equipos' => $this->equiposSnapshot(is_array($datos['activos'] ?? null) ? $datos['activos'] : []),
         ];
+    }
+
+    /**
+     * Congela la descripción de cada equipo entregado para el registro
+     * histórico (independiente de las filas de responsiva_activos).
+     *
+     * @param  array<int|string, mixed>  $activos
+     * @return list<array<string, mixed>>
+     */
+    private function equiposSnapshot(array $activos): array
+    {
+        $equipos = [];
+
+        foreach (array_values($activos) as $activo) {
+            if (! is_array($activo) || $this->limpio($activo['descripcion'] ?? null) === null) {
+                continue;
+            }
+
+            $equipos[] = [
+                'descripcion' => trim((string) $activo['descripcion']),
+                'marca' => $this->limpio($activo['marca'] ?? null),
+                'modelo' => $this->limpio($activo['modelo'] ?? null),
+                'numero_serie' => $this->limpio($activo['numero_serie'] ?? null),
+                'cantidad' => max(1, (int) ($activo['cantidad'] ?? 1)),
+                'estado' => $this->limpio($activo['estado'] ?? null),
+            ];
+        }
+
+        return $equipos;
     }
 
     private function lugarPorDefecto(Colaborador $colaborador): string

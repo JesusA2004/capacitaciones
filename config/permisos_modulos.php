@@ -166,11 +166,12 @@ return [
         'rh_admin' => 'todos', 'rh_auxiliar' => 'todos', 'director_comercial' => 'todos',
         'direccion' => 'todos', 'juridico' => 'todos', 'sistemas' => 'todos',
         'gerente_regional' => 'region',
-        'gerente_sucursal' => 'sucursal', 'gerente' => 'sucursal', 'subgerente' => 'sucursal',
+        'gerente_sucursal' => 'sucursal', 'gerente' => 'sucursal',
         'supervisor' => 'sucursal',
         'jefe_directo' => 'equipo',
-        // coordinadora / coordinadora_regional: sin alcance (Propios) — usan
-        // PEOPLE como colaboradoras (decisión del negocio 2026-10-15).
+        // coordinadora / coordinadora_regional / subgerente: sin alcance
+        // (Propios) — usan PEOPLE como colaboradores (decisión del negocio
+        // 2026-10-15).
     ],
 
 ];

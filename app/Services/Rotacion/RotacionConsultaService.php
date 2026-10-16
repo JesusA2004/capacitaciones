@@ -39,13 +39,7 @@ class RotacionConsultaService
         $meses = (int) config('rotacion.meses_ventana', 12);
         $desde = $hasta->subMonths($meses - 1);
 
-        $periodos = (clone $base)
-            ->where(fn (Builder $q) => $q
-                ->where('anio', '>', $desde->year)
-                ->orWhere(fn (Builder $w) => $w->where('anio', $desde->year)->where('mes', '>=', $desde->month)))
-            ->where(fn (Builder $q) => $q
-                ->where('anio', '<', $hasta->year)
-                ->orWhere(fn (Builder $w) => $w->where('anio', $hasta->year)->where('mes', '<=', $hasta->month)))
+        $periodos = $this->enVentana((clone $base), $desde, $hasta)
             ->with('sucursal:id,nombre')
             ->get();
 
@@ -96,6 +90,41 @@ class RotacionConsultaService
                 'meses_con_datos' => count($conDatos),
             ],
         ];
+    }
+
+    /**
+     * Serie mensual del índice de rotación canónico (rotacion_periodos) para
+     * un conjunto EXPLÍCITO de sucursales que quien llama ya resolvió con su
+     * propio alcance (p. ej. el tablero de RH, vía AlcanceOrganizacionalService).
+     *
+     * No reaplica el alcance del módulo «rotacion»: respeta exactamente las
+     * sucursales recibidas, para que el tablero y el módulo de rotación usen
+     * la MISMA fórmula (fila(): bajas × 100 / plantilla final del mes) sin
+     * inventar una tercera. Cada mes sin periodo cargado va con indice = null
+     * (nunca 0, nunca una fórmula en vivo); así el tablero puede mostrar «Sin
+     * datos cargados».
+     *
+     * @param  Collection<int, int>  $sucursalIds
+     * @return list<array{clave: string, anio: int, mes: int, etiqueta: string, sucursales: int, plantilla_inicial: int, altas: int, bajas: int, bajas_voluntarias: int|null, bajas_involuntarias: int|null, plantilla_final: int, indice: float|null}>
+     */
+    public function serieMensualPorSucursales(Collection $sucursalIds, CarbonImmutable $hasta, int $meses): array
+    {
+        $hasta = $hasta->startOfMonth();
+        $desde = $hasta->subMonths(max(1, $meses) - 1);
+        $ids = $sucursalIds->map(fn (int|string $id): int => (int) $id)->values()->all();
+
+        $periodos = $this->enVentana(RotacionPeriodo::query()->whereIn('sucursal_id', $ids), $desde, $hasta)->get();
+        $porMes = $periodos->groupBy(fn (RotacionPeriodo $p): string => sprintf('%04d-%02d', $p->anio, $p->mes));
+
+        $serie = [];
+
+        for ($mes = $desde; $mes <= $hasta; $mes = $mes->addMonth()) {
+            /** @var Collection<int, RotacionPeriodo> $delMes */
+            $delMes = $porMes->get($mes->format('Y-m'), collect());
+            $serie[] = $this->fila($delMes, $mes);
+        }
+
+        return $serie;
     }
 
     /**
@@ -155,8 +184,27 @@ class RotacionConsultaService
     }
 
     /**
+     * Acota una consulta de periodos a la ventana [desde, hasta] (ambos por
+     * año+mes), para que tablero() y serieMensualPorSucursales() usen el
+     * mismo rango sin duplicar la condición.
+     *
+     * @param  Builder<RotacionPeriodo>  $query
+     * @return Builder<RotacionPeriodo>
+     */
+    private function enVentana(Builder $query, CarbonImmutable $desde, CarbonImmutable $hasta): Builder
+    {
+        return $query
+            ->where(fn (Builder $q) => $q
+                ->where('anio', '>', $desde->year)
+                ->orWhere(fn (Builder $w) => $w->where('anio', $desde->year)->where('mes', '>=', $desde->month)))
+            ->where(fn (Builder $q) => $q
+                ->where('anio', '<', $hasta->year)
+                ->orWhere(fn (Builder $w) => $w->where('anio', $hasta->year)->where('mes', '<=', $hasta->month)));
+    }
+
+    /**
      * @param  Collection<int, RotacionPeriodo>  $delMes
-     * @return array<string, mixed>
+     * @return array{clave: string, anio: int, mes: int, etiqueta: string, sucursales: int, plantilla_inicial: int, altas: int, bajas: int, bajas_voluntarias: int|null, bajas_involuntarias: int|null, plantilla_final: int, indice: float|null}
      */
     private function fila(Collection $delMes, CarbonImmutable $mes): array
     {

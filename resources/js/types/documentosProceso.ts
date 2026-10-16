@@ -24,7 +24,6 @@ export type AccionDocumento = {
         | 'registrar_firma'
         | 'registrar_envio'
         | 'registrar_recepcion'
-        | 'subir_escaneo'
         | 'archivar'
         | string;
     etiqueta: string;

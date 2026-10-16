@@ -426,9 +426,11 @@ export type TableroRhDatos = {
             corporativo: number;
         };
         rotacion_mes: {
-            porcentaje: number;
+            // null = sin periodo de rotación cargado (Excel de RH) para el mes
+            // y el alcance seleccionados → la UI muestra «Sin datos cargados».
+            porcentaje: number | null;
             bajas: number;
-            plantilla_promedio: number;
+            plantilla_final: number;
         };
         costo_por_contratacion: {
             valor: number | null;
@@ -450,9 +452,11 @@ export type TableroRhDatos = {
     turnover_monthly: {
         mes: string;
         etiqueta: string;
+        sucursales: number;
         bajas: number;
-        plantilla_promedio: number;
-        porcentaje: number;
+        plantilla_final: number;
+        // null = mes sin periodo cargado → hueco en la gráfica, nunca 0%.
+        indice: number | null;
     }[];
     headcount_by_branch: {
         sucursal_id: number;

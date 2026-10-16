@@ -132,7 +132,11 @@ export type FiniquitoCalculoItem = {
     total_ajustado: string;
     comentarios_ajuste: string | null;
     documento_generado_path: string | null;
+    /** LEGACY: escaneo del finiquito firmado (solo registros antiguos). */
     documento_firmado_path: string | null;
+    /** Firma física sin archivo (flujo vigente). */
+    firmado_fisicamente_en: string | null;
+    firmado_fisicamente_por: number | null;
     revisado_por?: UsuarioResumen | null;
 };
 

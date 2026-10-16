@@ -349,3 +349,44 @@ test('un histórico pendiente de vincular nunca se divide', function () {
     expect(fn () => app(DivisionExpedienteHistoricoService::class)->dividir($historico->fresh(), $this->rh))
         ->toThrow(InvalidArgumentException::class);
 });
+
+test('atomicidad: si falla crear una parte tras subir el documento, no queda EmployeeDocument huérfano', function () {
+    app()->instance(MotorOcr::class, new OcrFalsoDivision);
+    $historico = historicoDePrueba($this->colaborador);
+
+    // Se inyecta un fallo al crear la ParteDivisionHistorico, que ocurre
+    // DESPUÉS de que subirVersion() ya creó el EmployeeDocument de la primera
+    // parte clasificada (solicitud de empleo).
+    ParteDivisionHistorico::creating(function () {
+        throw new RuntimeException('fallo inyectado al crear la parte');
+    });
+
+    $division = app(DivisionExpedienteHistoricoService::class)->dividir($historico, $this->rh);
+
+    // La corrida queda marcada como fallida con su motivo: nunca «a medias».
+    expect($division->estado)->toBe(EstadoDivisionHistorico::Fallida)
+        ->and($division->error_message)->toContain('fallo inyectado');
+
+    // FASE B es atómica: el EmployeeDocument que subirVersion alcanzó a crear
+    // se revierte con el rollback externo (savepoints de Laravel). No queda
+    // ningún documento lógico ni ninguna parte de esta corrida en la BD.
+    expect(EmployeeDocument::query()->where('origen', DivisionExpedienteHistoricoService::ORIGEN)->count())->toBe(0)
+        ->and(ParteDivisionHistorico::query()->where('division_id', $division->id)->count())->toBe(0);
+});
+
+test('tras una corrida fallida a mitad no hay EmployeeDocument sin su parte', function () {
+    app()->instance(MotorOcr::class, new OcrFalsoDivision);
+    $historico = historicoDePrueba($this->colaborador);
+
+    ParteDivisionHistorico::creating(function () {
+        throw new RuntimeException('fallo inyectado');
+    });
+
+    app(DivisionExpedienteHistoricoService::class)->dividir($historico, $this->rh);
+
+    // Invariante del checklist: ningún documento de esta vía sin su parte.
+    $docsHistorico = EmployeeDocument::query()->where('origen', DivisionExpedienteHistoricoService::ORIGEN)->pluck('id');
+    $docsConParte = ParteDivisionHistorico::query()->whereNotNull('employee_document_id')->pluck('employee_document_id');
+
+    expect($docsHistorico->diff($docsConParte)->all())->toBe([]);
+});

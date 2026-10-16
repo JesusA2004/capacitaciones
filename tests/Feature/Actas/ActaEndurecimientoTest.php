@@ -11,7 +11,6 @@ use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\Actas\ActaPdfService;
 use Database\Seeders\RolesYPermisosSeeder;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
@@ -91,21 +90,20 @@ function aeErrorCerrar(object $prueba, ActaAdministrativa $acta): string
     return (string) session('errors')->first('acta');
 }
 
-test('cerrar exige la máquina de estados: definitivo → firma o negativa → escaneo → entrega de copia', function () {
+test('cerrar exige la máquina de estados: definitivo → firma física o negativa → entrega de copia (ya NO exige escaneo)', function () {
     $acta = aeLevantar($this, aeDatos());
     expect(aeErrorCerrar($this, $acta))->toContain('Genera el acta definitiva');
 
     $documento = aeGenerar($this, $acta);
     expect(aeErrorCerrar($this, $acta))->toContain('firma física')->toContain('negativa');
 
-    // Impreso y firmado físicamente, pero sin escaneo: no cierra.
+    // Impreso y marcado como firmado físicamente: ese es el estado FINAL del
+    // original en papel. El acta firmada se resguarda físicamente, ya no se
+    // escanea; lo único que falta para cerrar es la constancia de entrega.
     aeOperar($this, $documento, 'imprimir');
     aeOperar($this, $documento, 'firma-fisica');
-    expect(aeErrorCerrar($this, $acta->refresh()))->toContain('escaneo');
-
-    aeOperar($this, $documento, 'escaneo', ['archivo' => UploadedFile::fake()->create('acta-firmada.pdf', 20, 'application/pdf')]);
-    expect($documento->refresh()->estado_flujo)->toBe(EstadoFlujoDocumento::Escaneado)
-        ->and(aeErrorCerrar($this, $acta->refresh()))->toContain('copia');
+    expect($documento->refresh()->estado_flujo)->toBe(EstadoFlujoDocumento::FirmadoFisicamente);
+    expect(aeErrorCerrar($this, $acta->refresh()))->toContain('copia');
 
     $this->actingAs($this->rh)->post(route('rh.actas.entrega', $acta), ['estado' => 'entregada'])->assertSessionHasNoErrors();
     $this->actingAs($this->rh)->post(route('rh.actas.cerrar', $acta))->assertSessionHasNoErrors();
@@ -115,17 +113,24 @@ test('cerrar exige la máquina de estados: definitivo → firma o negativa → e
         ->and(aeErrorCerrar($this, $acta))->toContain('ya está cerrada');
 });
 
-test('con negativa a firmar asentada tampoco se cierra sin escaneo ni constancia de entrega', function () {
+test('con negativa a firmar asentada tampoco se cierra sin constancia de entrega (ya NO exige escaneo)', function () {
     $acta = aeLevantar($this, aeDatos());
     aeGenerar($this, $acta);
 
     $this->actingAs($this->rh)->post(route('rh.actas.negativa-firma', $acta), ['motivo' => 'Se le leyó el acta y no quiso firmar.'])->assertSessionHasNoErrors();
-    expect(aeErrorCerrar($this, $acta->refresh()))->toContain('escaneo');
+    // Con negativa asentada, lo único que falta es la constancia de entrega
+    // (no el escaneo: el acta en papel se resguarda físicamente).
+    expect(aeErrorCerrar($this, $acta->refresh()))->toContain('copia');
 
     // El API usa el mismo servicio: mismo bloqueo.
     Sanctum::actingAs($this->rh);
     $this->postJson("/api/v1/rh/actas/{$acta->id}/cerrar")->assertUnprocessable()->assertJsonValidationErrors('acta');
     expect($acta->refresh()->estado)->toBe(EstadoActa::Generada);
+
+    // Registrada la entrega de copia, cierra sin necesidad de escaneo.
+    $this->actingAs($this->rh)->post(route('rh.actas.entrega', $acta), ['estado' => 'entregada'])->assertSessionHasNoErrors();
+    $this->actingAs($this->rh)->post(route('rh.actas.cerrar', $acta))->assertSessionHasNoErrors();
+    expect($acta->refresh()->estado)->toBe(EstadoActa::Cerrada);
 });
 
 test('acta histórica (formato null): se cierra solo firmada o con negativa', function () {

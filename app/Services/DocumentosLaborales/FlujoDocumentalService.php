@@ -28,8 +28,7 @@ use Illuminate\Validation\ValidationException;
  *
  *   generado → pendiente_firma_colaborador → firmado_digitalmente      (aceptación digital)
  *            → pendiente_impresion → impreso → pendiente_firma_fisica  (original físico)
- *            → firmado_fisicamente → enviado_corporativo → recibido_corporativo
- *            → escaneado → archivado
+ *            → firmado_fisicamente   (FINAL: el original firmado se resguarda en papel)
  *
  * Los pasos que aplican dependen de las banderas requiere_* que el documento
  * copió de su plantilla al generarse. Cada transición:
@@ -39,9 +38,11 @@ use Illuminate\Validation\ValidationException;
  *    observaciones) y la auditoría general,
  *  - resuelve la tarea de la etapa anterior y abre la de la siguiente.
  *
- * El escaneo final se archiva en el expediente como EmployeeDocument
- * aprobado (tipo documental de la plantilla), así el expediente cuenta con
- * el original firmado.
+ * Los documentos que se imprimen y firman en papel NO se vuelven a escanear:
+ * registrar la firma física es el paso final. Los métodos registrarEnvio(),
+ * registrarRecepcion() y registrarEscaneo() (con sus estados enviado/recibido/
+ * escaneado/archivado) se conservan SOLO para leer y cerrar expedientes
+ * legacy que recorrieron el flujo anterior; ningún flujo nuevo los exige.
  */
 class FlujoDocumentalService
 {
@@ -232,8 +233,11 @@ class FlujoDocumentalService
     }
 
     /**
-     * Sube el escaneo del original firmado: queda en el expediente como
-     * EmployeeDocument aprobado del tipo documental de la plantilla.
+     * LEGACY (flujo anterior): sube el escaneo del original firmado y lo deja
+     * en el expediente como EmployeeDocument aprobado del tipo documental de
+     * la plantilla. El flujo nuevo NO escanea (el original se resguarda en
+     * papel y la firma física es el paso final); este método se conserva solo
+     * para cerrar expedientes legacy y no se ofrece como acción en la UI nueva.
      */
     public function registrarEscaneo(GeneratedDocument $documento, User $actor, UploadedFile $archivo, ?string $observaciones = null): GeneratedDocument
     {
@@ -316,7 +320,10 @@ class FlujoDocumentalService
 
     /**
      * Etapas del control físico que RH consulta: pendientes de imprimir,
-     * firmar, enviar, recibir y escanear.
+     * de firma del colaborador y de firma física. El flujo nuevo concluye en
+     * la firma física (FirmadoFisicamente es final): ya no hay etapas de
+     * envío a corporativo, recepción ni escaneo. Los estados legacy de ese
+     * flujo anterior subsisten solo para lectura, nunca como pendiente.
      *
      * @return array<string, list<E>>
      */
@@ -326,9 +333,6 @@ class FlujoDocumentalService
             'imprimir' => [E::PendienteImpresion],
             'firma_colaborador' => [E::PendienteFirmaColaborador],
             'firma_fisica' => [E::PendienteFirmaFisica],
-            'enviar' => [E::FirmadoFisicamente],
-            'recibir' => [E::EnviadoCorporativo],
-            'escanear' => [E::RecibidoCorporativo],
         ];
     }
 
@@ -426,12 +430,13 @@ class FlujoDocumentalService
             return;
         }
 
+        // Flujo nuevo: solo se abren tareas hasta la firma física. Al quedar
+        // FirmadoFisicamente el documento está CONCLUIDO (el original se
+        // resguarda en papel), así que no se abre tarea de envío, recepción
+        // ni escaneo — esos pasos solo existían en el flujo anterior.
         $tipo = match ($estado) {
             E::PendienteImpresion => TipoTarea::ImpresionPendiente,
             E::PendienteFirmaFisica => TipoTarea::FirmaFisicaPendiente,
-            E::FirmadoFisicamente => TipoTarea::EnvioOriginalPendiente,
-            E::EnviadoCorporativo => TipoTarea::RecepcionOriginalPendiente,
-            E::RecibidoCorporativo => TipoTarea::EscaneoPendiente,
             default => null,
         };
 

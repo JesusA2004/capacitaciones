@@ -658,8 +658,8 @@ class DocumentoProcesoService
     /**
      * Formato del acta (PRO-ADP-08): se llena con los datos del colaborador
      * y lo capturado en el acta (motivo, hechos, manifestaciones, testigos);
-     * después sigue el flujo físico (impresión, firma o negativa, escaneo y
-     * archivo en el expediente).
+     * después sigue el flujo físico (impresión y firma física o negativa).
+     * El acta firmada en papel se resguarda físicamente: ya no se escanea.
      *
      * @return array<string, mixed>
      */
@@ -1148,30 +1148,23 @@ class DocumentoProcesoService
                 $primarias[] = ['clave' => 'marcar_impreso', 'etiqueta' => 'Imprimir', 'tipo' => 'primaria'];
             }
 
+            // Marcar como firmado físicamente es el paso FINAL del original en
+            // papel: ya no se envía a corporativo ni se escanea. Al quedar
+            // FirmadoFisicamente no se ofrece ninguna acción más.
             if ($documento->requiere_firma_fisica && in_array($estado, [E::Impreso, E::PendienteFirmaFisica], true)) {
-                $primarias[] = ['clave' => 'registrar_firma', 'etiqueta' => $documento->requiere_huella ? 'Registrar firma y huella' : 'Registrar firma', 'tipo' => 'primaria'];
+                $primarias[] = ['clave' => 'registrar_firma', 'etiqueta' => $documento->requiere_huella ? 'Marcar firmado físicamente (con huella)' : 'Marcar como firmado físicamente', 'tipo' => 'primaria'];
             }
 
-            if ($estado === E::FirmadoFisicamente && $documento->requiere_envio_corporativo) {
-                $primarias[] = ['clave' => 'registrar_envio', 'etiqueta' => 'Enviar original a corporativo', 'tipo' => 'primaria'];
-            }
-
-            if ($estado === E::EnviadoCorporativo) {
-                $primarias[] = ['clave' => 'registrar_recepcion', 'etiqueta' => 'Registrar recepción en corporativo', 'tipo' => 'primaria'];
-            }
-
-            if ($estado === E::RecibidoCorporativo
-                || ($estado === E::FirmadoFisicamente && ! $documento->requiere_envio_corporativo)
-                || ($estado === E::Impreso && ! $documento->requiere_firma_fisica)) {
-                $primarias[] = ['clave' => 'subir_escaneo', 'etiqueta' => 'Subir documento firmado', 'tipo' => 'primaria'];
-            }
-
-            if ($estado === E::Escaneado) {
+            // Documento que solo se imprime (sin firma física): archivar cierra
+            // el original en papel. El flujo nuevo ya no escanea.
+            if ($estado === E::Impreso && ! $documento->requiere_firma_fisica) {
                 $primarias[] = ['clave' => 'archivar', 'etiqueta' => 'Archivar', 'tipo' => 'primaria'];
             }
 
-            if ($estado === E::Impreso && ! $documento->requiere_firma_fisica) {
-                $secundarias[] = ['clave' => 'archivar', 'etiqueta' => 'Archivar', 'tipo' => 'secundaria'];
+            // LEGACY: un original que quedó escaneado en el flujo anterior
+            // todavía puede archivarse para cerrarlo.
+            if ($estado === E::Escaneado) {
+                $primarias[] = ['clave' => 'archivar', 'etiqueta' => 'Archivar', 'tipo' => 'primaria'];
             }
         }
 
@@ -1215,8 +1208,16 @@ class DocumentoProcesoService
     {
         $impresion = (bool) ($documento->requiere_impresion ?? $master->requiere_impresion ?? false);
         $firma = (bool) ($documento->requiere_firma_fisica ?? $master->requiere_firma_fisica ?? false);
-        $envio = (bool) ($documento->requiere_envio_corporativo ?? $master->requiere_envio_corporativo ?? false);
         $estado = $documento?->estado_flujo;
+
+        // El flujo nuevo termina en la firma física. Los pasos del flujo
+        // anterior (envío → recepción → escaneo → archivo) solo se dibujan para
+        // expedientes legacy que de verdad los recorrieron: se detectan por su
+        // estado actual o porque ya tienen un escaneo ligado (signed_document_id).
+        $legacy = $documento?->signed_document_id !== null
+            || in_array($estado, [E::EnviadoCorporativo, E::RecibidoCorporativo, E::Escaneado], true);
+        $envio = $legacy && (bool) ($documento->requiere_envio_corporativo ?? false);
+
         $orden = [
             E::Generado->value => 1, E::PendienteImpresion->value => 1, E::Impreso->value => 2, E::PendienteFirmaFisica->value => 2,
             E::FirmadoFisicamente->value => 3, E::EnviadoCorporativo->value => 4, E::RecibidoCorporativo->value => 5,
@@ -1230,7 +1231,7 @@ class DocumentoProcesoService
         }
 
         if ($firma) {
-            $pasos[] = ['firmado', 'Firma', 3];
+            $pasos[] = ['firmado', 'Firmado físicamente', 3];
         }
 
         if ($envio) {
@@ -1238,8 +1239,14 @@ class DocumentoProcesoService
             $pasos[] = ['recibido', 'Corporativo', 5];
         }
 
-        $pasos[] = ['escaneado', 'Escaneo', 6];
-        $pasos[] = ['archivado', 'Archivado', 7];
+        if ($legacy) {
+            $pasos[] = ['escaneado', 'Escaneo', 6];
+        }
+
+        if ($legacy || $estado === E::Archivado) {
+            $pasos[] = ['archivado', 'Archivado', 7];
+        }
+
         $actualMarcado = false;
         $linea = [];
 

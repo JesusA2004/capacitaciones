@@ -5,8 +5,12 @@ use App\Models\Candidato;
 use App\Models\CandidatoEvidencia;
 use App\Models\CandidatoReferencia;
 use App\Models\Sucursal;
+use App\Services\Auditoria\AuditoriaService;
+use App\Services\Expedientes\DocumentoStorageService;
+use App\Services\Reclutamiento\CvStorageService;
 use App\Services\Reclutamiento\ExpedienteCandidatoService;
 use Database\Seeders\RolesYPermisosSeeder;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
@@ -194,6 +198,64 @@ test('candidatos:carpetas-con-nombre mueve la carpeta antigua por número a la c
     Storage::disk('nas')->assertMissing("{$antigua}/cv/a.pdf");
     expect($candidato->fresh()?->cv_path)->toBe("{$carpeta}/cv/a.pdf")
         ->and($video->fresh()?->path)->toBe("{$carpeta}/socioeconomico/videos/v.mp4");
+});
+
+test('la 2ª corrida real de moverACarpetaConNombre mueve 0 archivos (idempotente)', function () {
+    $candidato = Candidato::factory()->create(['nombre' => 'Clara', 'apellidos' => 'Ortiz', 'cv_path' => null]);
+    $antigua = "candidatos/{$candidato->id}";
+    Storage::disk('nas')->put("{$antigua}/cv/a.pdf", 'cv');
+    Storage::disk('nas')->put("{$antigua}/socioeconomico/videos/v.mp4", 'video');
+    $candidato->forceFill(['cv_path' => "{$antigua}/cv/a.pdf"])->save();
+    $video = CandidatoEvidencia::query()->create([
+        'candidato_id' => $candidato->id, 'evidenciable_type' => 'candidato_socioeconomico', 'evidenciable_id' => 1,
+        'tipo' => 'video', 'disk' => 'nas', 'path' => "{$antigua}/socioeconomico/videos/v.mp4",
+        'original_name' => 'v.mp4', 'mime' => 'video/mp4', 'size' => 5,
+    ]);
+
+    $servicio = app(ExpedienteCandidatoService::class);
+
+    $primera = $servicio->moverACarpetaConNombre($candidato->fresh() ?? $candidato);
+    expect($primera['movidos'])->toBe(2)
+        ->and($primera['faltantes'])->toBe([])
+        ->and($primera['fallidos'])->toBe([]);
+
+    // Segunda corrida: ya están en la carpeta con nombre, nada que mover.
+    $segunda = $servicio->moverACarpetaConNombre($candidato->fresh() ?? $candidato);
+    expect($segunda['movidos'])->toBe(0)
+        ->and($segunda['faltantes'])->toBe([])
+        ->and($segunda['fallidos'])->toBe([]);
+
+    $carpeta = "candidatos/Clara Ortiz - {$candidato->id}";
+    Storage::disk('nas')->assertExists("{$carpeta}/cv/a.pdf");
+    Storage::disk('nas')->assertMissing("{$antigua}/cv/a.pdf");
+    expect($candidato->fresh()?->cv_path)->toBe("{$carpeta}/cv/a.pdf")
+        ->and($video->fresh()?->path)->toBe("{$carpeta}/socioeconomico/videos/v.mp4");
+});
+
+test('si el move del NAS falla, la BD no se actualiza y el archivo se reporta como fallido', function () {
+    $candidato = Candidato::factory()->create(['nombre' => 'Beto', 'apellidos' => 'Lara', 'cv_path' => null]);
+    $origen = "candidatos/{$candidato->id}/cv/a.pdf";
+    $candidato->forceFill(['cv_path' => $origen])->save();
+
+    // Disco que confirma que el origen existe pero rechaza el move (devuelve
+    // false): el destino nunca llega a existir.
+    $disco = Mockery::mock(Filesystem::class);
+    $disco->shouldReceive('exists')->andReturnUsing(fn (string $ruta): bool => $ruta === $origen);
+    $disco->shouldReceive('move')->andReturn(false);
+
+    $almacenamiento = Mockery::mock(CvStorageService::class);
+    $almacenamiento->shouldReceive('disco')->andReturn($disco);
+
+    $servicio = new ExpedienteCandidatoService($almacenamiento, app(AuditoriaService::class), app(DocumentoStorageService::class));
+
+    $resultado = $servicio->moverACarpetaConNombre($candidato->fresh() ?? $candidato);
+
+    expect($resultado['movidos'])->toBe(0)
+        ->and($resultado['faltantes'])->toBe([])
+        ->and($resultado['fallidos'])->toBe([$origen]);
+
+    // La ruta guardada sigue apuntando al archivo original: no se perdió.
+    expect($candidato->fresh()?->cv_path)->toBe($origen);
 });
 
 test('la app agrega videos al socioeconómico por la API con el mismo servicio', function () {

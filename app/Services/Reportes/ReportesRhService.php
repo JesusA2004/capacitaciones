@@ -194,6 +194,10 @@ class ReportesRhService
                 ['Activos', $colaboradores->where('estatus', EstadoUsuario::Activo)->count()],
                 ['Inactivos', $colaboradores->where('estatus', EstadoUsuario::Inactivo)->count()],
                 ['Suspendidos', $colaboradores->where('estatus', EstadoUsuario::Suspendido)->count()],
+                // Sin esta fila el desglose no reconcilia con el Total: un
+                // colaborador en incorporación ya está contratado (ocupa
+                // plaza) pero aún no queda Activo.
+                [EstadoUsuario::EnIncorporacion->etiqueta(), $colaboradores->where('estatus', EstadoUsuario::EnIncorporacion)->count()],
                 ['Total', $colaboradores->count()],
             ],
         ];

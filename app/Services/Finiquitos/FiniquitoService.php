@@ -496,6 +496,46 @@ class FiniquitoService
             ->update(['estado' => EstadoFiniquito::Aprobado->value]);
     }
 
+    /**
+     * Firma física sin escaneo (regla vigente): el finiquito se imprime y se
+     * firma en PAPEL; RH no vuelve a escanearlo ni subirlo, solo deja
+     * constancia de quién lo marcó como firmado y cuándo. Exige que el
+     * cálculo ya esté Aprobado (revisado y aprobado con la baja); deja el
+     * finiquito en estado Firmado SIN archivo y, a partir de ahí, se puede
+     * confirmar el pago. Mantiene la inmutabilidad: una vez firmado no se
+     * recalcula ni ajusta (asegurarNoFirmado()).
+     *
+     * El flujo con escaneo (subirFirmado()/documento_firmado_path) se conserva
+     * como LEGACY de solo lectura para los finiquitos antiguos.
+     */
+    public function marcarFirmadoFisicamente(FiniquitoCalculo $finiquito, User $actor, ?string $observacion = null): FiniquitoCalculo
+    {
+        $this->asegurarNoFirmado($finiquito);
+
+        if ($finiquito->estado !== EstadoFiniquito::Aprobado) {
+            throw ValidationException::withMessages([
+                'estado' => 'El finiquito debe estar aprobado antes de marcarlo como firmado físicamente.',
+            ]);
+        }
+
+        $observacion = is_string($observacion) && trim($observacion) !== '' ? mb_substr(trim($observacion), 0, 500) : null;
+
+        return DB::transaction(function () use ($finiquito, $actor, $observacion): FiniquitoCalculo {
+            $finiquito->update([
+                'firmado_fisicamente_en' => now(),
+                'firmado_fisicamente_por' => $actor->id,
+                'estado' => EstadoFiniquito::Firmado->value,
+            ]);
+
+            // Auditoría del evento (entidad/id/actor/fecha/colaborador/observaciones)
+            // sobre el historial de la solicitud de baja, misma bitácora que el
+            // resto del ciclo del finiquito.
+            $this->registrarHistorial($finiquito->solicitudInterna, $actor, 'finiquito_firmado_fisicamente', $observacion);
+
+            return $finiquito->refresh();
+        });
+    }
+
     public function subirFirmado(FiniquitoCalculo $finiquito, UploadedFile $archivo, User $actor): FiniquitoCalculo
     {
         $this->asegurarNoFirmado($finiquito);

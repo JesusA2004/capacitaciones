@@ -86,10 +86,13 @@ class ExpedienteCandidatoService
      * Mueve los archivos de un candidato que siguen en la carpeta antigua
      * por número (`candidatos/{id}/...`) a su carpeta con nombre, y actualiza
      * las rutas guardadas. Idempotente: lo que ya está en la carpeta con
-     * nombre no se toca. Un archivo que no aparece en el NAS se reporta,
-     * nunca se omite en silencio.
+     * nombre no se toca. Un archivo que no aparece en el NAS se reporta
+     * (`faltantes`); un movimiento que el NAS rechaza o que no deja el
+     * archivo en su destino se reporta aparte (`fallidos`) y NO toca la BD
+     * (la ruta guardada sigue apuntando al archivo original) — nunca se
+     * omite en silencio ni se da por movido lo que no se movió.
      *
-     * @return array{carpeta: string, movidos: int, faltantes: list<string>}
+     * @return array{carpeta: string, movidos: int, faltantes: list<string>, fallidos: list<string>}
      */
     public function moverACarpetaConNombre(Candidato $candidato, bool $simular = false): array
     {
@@ -98,8 +101,9 @@ class ExpedienteCandidatoService
         $carpeta = $simular ? ($candidato->carpeta_nas ?: $this->carpetaConNombre($candidato)) : $this->carpetaCandidato($candidato);
         $movidos = 0;
         $faltantes = [];
+        $fallidos = [];
 
-        $mover = function (string $ruta) use ($disco, $antigua, $carpeta, $simular, &$movidos, &$faltantes): ?string {
+        $mover = function (string $ruta) use ($disco, $antigua, $carpeta, $simular, &$movidos, &$faltantes, &$fallidos): ?string {
             if (! str_starts_with($ruta, $antigua) || $antigua === $carpeta.'/') {
                 return null;
             }
@@ -111,11 +115,23 @@ class ExpedienteCandidatoService
             }
 
             $nueva = $carpeta.'/'.substr($ruta, strlen($antigua));
-            $movidos++;
 
-            if (! $simular) {
-                $disco->move($ruta, $nueva);
+            if ($simular) {
+                $movidos++;
+
+                return $nueva;
             }
+
+            // Solo se da por movido (y se actualiza la BD) si el NAS confirmó
+            // el move Y el archivo quedó realmente en su destino: un move que
+            // falla o un destino que no aparece deja la ruta original intacta.
+            if ($disco->move($ruta, $nueva) === false || ! $disco->exists($nueva)) {
+                $fallidos[] = $ruta;
+
+                return null;
+            }
+
+            $movidos++;
 
             return $nueva;
         };
@@ -130,7 +146,7 @@ class ExpedienteCandidatoService
             }
         });
 
-        return ['carpeta' => $carpeta, 'movidos' => $movidos, 'faltantes' => $faltantes];
+        return ['carpeta' => $carpeta, 'movidos' => $movidos, 'faltantes' => $faltantes, 'fallidos' => $fallidos];
     }
 
     /**

@@ -315,21 +315,22 @@ const formPaso = ref({
 });
 const archivos = ref<File[]>([]);
 
+// El flujo nuevo concluye al marcar la firma física: ya no se escanea el
+// original firmado (se resguarda en papel). «envio»/«recepcion» subsisten solo
+// para cerrar expedientes legacy; el backend ya no los ofrece como paso nuevo.
 const accionApi: Record<string, string> = {
     marcar_impreso: 'imprimir',
     registrar_firma: 'firma-fisica',
     registrar_envio: 'envio',
     registrar_recepcion: 'recepcion',
-    subir_escaneo: 'escaneo',
     archivar: 'archivar',
 };
 
 const tituloPaso: Record<string, string> = {
     imprimir: 'Imprimir y marcar como impreso',
-    'firma-fisica': 'Registrar firma',
+    'firma-fisica': 'Marcar como firmado físicamente',
     envio: 'Enviar original a corporativo',
     recepcion: 'Registrar recepción en corporativo',
-    escaneo: 'Subir documento firmado',
     archivar: 'Archivar original',
 };
 
@@ -399,10 +400,6 @@ const pasoValido = computed(() => {
         return false;
     }
 
-    if (paso.value.accion === 'escaneo') {
-        return archivos.value.length > 0;
-    }
-
     if (paso.value.accion === 'envio') {
         return (
             formPaso.value.paqueteria.trim() !== '' &&
@@ -446,10 +443,6 @@ async function confirmarPaso() {
         if (archivos.value[0]) {
             datos.append('comprobante', archivos.value[0]);
         }
-    }
-
-    if (paso.value.accion === 'escaneo' && archivos.value[0]) {
-        datos.append('archivo', archivos.value[0]);
     }
 
     ocupado.value = `${paso.value.item.clave}:${paso.value.accion}`;
@@ -806,20 +799,7 @@ async function confirmarBaja() {
                         @error="(m: string) => toast.error(m)"
                     />
                 </template>
-                <template v-if="paso.accion === 'escaneo'">
-                    <PeopleFileDropzone
-                        v-model="archivos"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        label="Arrastra aquí el documento firmado"
-                        hint="PDF o foto · Máx. 20 MB · El documento generado se conserva aparte"
-                        @error="(m: string) => toast.error(m)"
-                    />
-                </template>
-                <template
-                    v-if="
-                        paso.accion !== 'escaneo' && paso.accion !== 'imprimir'
-                    "
-                >
+                <template v-if="paso.accion !== 'imprimir'">
                     <Label>Fecha real (opcional)</Label>
                     <DatePicker v-model="formPaso.fecha as string" />
                 </template>

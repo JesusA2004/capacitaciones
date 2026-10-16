@@ -5,8 +5,19 @@ namespace App\Enums;
 /**
  * Ciclo de vida de un documento laboral generado por el motor documental
  * (App\Models\GeneratedDocument::estado_flujo). Separa deliberadamente la
- * aceptación/firma digital del colaborador de la firma física + huella y
- * del control del original físico (impresión, envío, recepción, escaneo).
+ * aceptación/firma digital del colaborador de la firma física + huella.
+ *
+ * Flujo NUEVO (documentos que se imprimen y firman en PAPEL): el documento
+ * queda CONCLUIDO al registrarse su firma física (FirmadoFisicamente es el
+ * estado final). El original firmado se resguarda físicamente; ya NO se
+ * envía a corporativo, ni se recibe, ni se escanea, ni se archiva como pasos
+ * obligatorios.
+ *
+ * Los casos EnviadoCorporativo, RecibidoCorporativo, Escaneado y Archivado
+ * se conservan SOLO para LEER expedientes legacy que recorrieron el flujo
+ * anterior (no se eliminan: romperían la lectura de esos registros). Ningún
+ * flujo nuevo los exige ni los ofrece como acción.
+ *
  * Las transiciones válidas dependen de las banderas requiere_* del
  * documento — ver App\Services\DocumentosLaborales\FlujoDocumentalService.
  */

@@ -12,6 +12,7 @@ use App\Services\Pdf\OpcionesPdf;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Spatie\Activitylog\Models\Activity;
 
 /*
 | Responsivas de equipo (docs/responsiva/ResponsivaLaptopPanta.docx): el
@@ -170,6 +171,106 @@ test('valida equipos, fecha y colaborador dado de baja', function () {
         ->assertUnprocessable()->assertJsonValidationErrors('responsiva');
 
     expect(Responsiva::query()->count())->toBe(0);
+});
+
+test('quien captura y quien entrega: prellenado cuando coinciden', function () {
+    // El gerente captura y entrega él mismo: registrado_por == entregado_por.
+    $responsiva = Responsiva::query()->findOrFail(
+        $this->actingAs($this->gerente)->postJson(route('rh.responsivas.store', $this->subgerente), rsDatos())->json('responsiva.id'),
+    );
+
+    expect($responsiva->entregado_por)->toBe($this->gerente->id)
+        ->and($responsiva->registrado_por)->toBe($this->gerente->id)
+        ->and($responsiva->snapshot['otorgante']['nombre'])->toBe('Laura Gómez Ruiz')
+        ->and($responsiva->snapshot['otorgante']['puesto'])->toBe('Gerente de sucursal');
+});
+
+test('RH captura por otro: registrado_por es RH y entregado_por el responsable real elegido', function () {
+    $responsiva = Responsiva::query()->findOrFail(
+        $this->actingAs($this->rh)
+            ->postJson(route('rh.responsivas.store', $this->subgerente), rsDatos(['responsable_entrega_id' => $this->gerente->id]))
+            ->assertCreated()
+            ->json('responsiva.id'),
+    );
+
+    expect($responsiva->registrado_por)->toBe($this->rh->id)
+        ->and($responsiva->entregado_por)->toBe($this->gerente->id)
+        // El snapshot congela al RESPONSABLE de entrega (quien entregó), no al capturador.
+        ->and($responsiva->snapshot['otorgante']['nombre'])->toBe('Laura Gómez Ruiz')
+        ->and($responsiva->snapshot['otorgante']['puesto'])->toBe('Gerente de sucursal');
+
+    // El listado expone ambos.
+    $this->actingAs($this->rh)->getJson(route('rh.responsivas.index', $this->subgerente))
+        ->assertOk()
+        ->assertJsonPath('responsivas.0.entregado_por', 'Laura Gómez Ruiz')
+        ->assertJsonPath('responsivas.0.registrado_por', 'Rocío Hernández Paz');
+});
+
+test('el responsable de entrega fuera de alcance se rechaza', function () {
+    // El gerente de Cuernavaca no puede poner como responsable al gerente de Orizaba.
+    $this->actingAs($this->gerente)
+        ->postJson(route('rh.responsivas.store', $this->subgerente), rsDatos(['responsable_entrega_id' => $this->gerenteOrizaba->id]))
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('responsable_entrega_id');
+
+    expect(Responsiva::query()->count())->toBe(0);
+});
+
+test('el snapshot congela receptor, responsable (nombre+puesto), empresa, sucursal, fecha y equipos', function () {
+    $responsiva = Responsiva::query()->findOrFail(
+        $this->actingAs($this->rh)
+            ->postJson(route('rh.responsivas.store', $this->subgerente), rsDatos(['responsable_entrega_id' => $this->gerente->id]))
+            ->json('responsiva.id'),
+    );
+
+    $s = $responsiva->snapshot;
+
+    expect($s['receptor']['nombre'])->toBe('Juan Manuel Pantaleón Cruz')
+        ->and($s['receptor']['puesto'])->toBe('Subgerente')
+        ->and($s['receptor']['sucursal'])->toBe('Cuernavaca')
+        ->and($s['otorgante']['nombre'])->toBe('Laura Gómez Ruiz')
+        ->and($s['otorgante']['puesto'])->toBe('Gerente de sucursal')
+        ->and($s['empresa']['razon_social'])->toBe('Productos y Servicios Mr Lana SAPI de C.V.')
+        ->and($responsiva->fecha_entrega->toDateString())->toBe(now()->toDateString())
+        ->and($s['equipos'])->toHaveCount(2)
+        ->and($s['equipos'][0]['descripcion'])->toBe('Casco de motociclista')
+        ->and($s['equipos'][0]['numero_serie'])->toBe('LS2-88231')
+        ->and($s['equipos'][1]['cantidad'])->toBe(2);
+
+    // Cambiar el puesto del responsable después NO altera lo ya congelado.
+    $this->gerente->colaborador->puesto->update(['nombre' => 'Otro puesto']);
+    expect($responsiva->refresh()->snapshot['otorgante']['puesto'])->toBe('Gerente de sucursal');
+});
+
+test('marcar firmada físicamente: estado Firmada sin archivo y con auditoría', function () {
+    $responsiva = Responsiva::query()->findOrFail(
+        $this->actingAs($this->gerente)->postJson(route('rh.responsivas.store', $this->subgerente), rsDatos())->json('responsiva.id'),
+    );
+
+    $this->actingAs($this->gerente)
+        ->postJson(route('rh.responsivas.marcar-firmada-fisica', $responsiva))
+        ->assertOk()
+        ->assertJsonPath('responsiva.estado', 'firmada')
+        // No hay escaneo: el flujo nuevo no sube archivo.
+        ->assertJsonPath('responsiva.tiene_firmada', false);
+
+    $responsiva->refresh();
+
+    expect($responsiva->estado)->toBe(EstadoResponsiva::Firmada)
+        ->and($responsiva->firmada_path)->toBeNull()
+        ->and($responsiva->firmada_fisicamente_en)->not->toBeNull()
+        ->and($responsiva->firmada_fisicamente_por)->toBe($this->gerente->id);
+
+    expect(Activity::query()->where('log_name', 'rh')->where('event', 'responsiva_firmada_fisicamente')->exists())->toBeTrue();
+});
+
+test('la responsiva no es inventario: se permiten dos responsivas con el mismo número de serie', function () {
+    $serie = ['activos' => [['descripcion' => 'Laptop', 'numero_serie' => 'SN-DUP-001', 'cantidad' => 1, 'estado' => 'nuevo']]];
+
+    $this->actingAs($this->gerente)->postJson(route('rh.responsivas.store', $this->subgerente), rsDatos($serie))->assertCreated();
+    $this->actingAs($this->gerente)->postJson(route('rh.responsivas.store', $this->subgerente), rsDatos($serie))->assertCreated();
+
+    expect(Responsiva::query()->count())->toBe(2);
 });
 
 test('firmada, devolución y cancelación: estados y permisos', function () {

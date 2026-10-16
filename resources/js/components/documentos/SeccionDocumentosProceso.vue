@@ -10,7 +10,6 @@ import {
     FileDown,
     FilePlus2,
     FileText,
-    FileUp,
     History,
     Loader2,
     MoreHorizontal,
@@ -99,7 +98,6 @@ const iconoAccion: Record<string, Component> = {
     registrar_firma: PenLine,
     registrar_envio: Truck,
     registrar_recepcion: Send,
-    subir_escaneo: FileUp,
     archivar: Archive,
 };
 

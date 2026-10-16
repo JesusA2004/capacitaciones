@@ -4,15 +4,14 @@ import {
     FileSignature,
     Loader2,
     PackageCheck,
+    PenLine,
     Printer,
     Undo2,
-    Upload,
     XCircle,
 } from '@lucide/vue';
 import { onMounted, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import DatePicker from '@/components/Common/DatePicker.vue';
-import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,14 +32,14 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { formatearFecha } from '@/lib/fechas';
-import { enviarJson, leerCookie } from '@/lib/http';
+import { enviarJson } from '@/lib/http';
 import {
     cancelar as cancelarResponsiva,
     devolucion as devolucionResponsiva,
     firmada as firmadaResponsiva,
     index as indexResponsivas,
+    marcarFirmadaFisica as marcarFirmadaFisicaResponsiva,
     pdf as pdfResponsiva,
-    subirFirmada as subirFirmadaResponsiva,
 } from '@/routes/rh/responsivas';
 import type {
     EstadoResponsiva,
@@ -66,10 +65,9 @@ const cargando = ref(true);
 const responsivas = ref<ResponsivaItem[]>([]);
 const puedeGenerar = ref(false);
 
-type Accion = 'firmada' | 'devolucion' | 'cancelar';
+type Accion = 'firmada_fisica' | 'devolucion' | 'cancelar';
 const accion = ref<Accion | null>(null);
 const seleccionada = ref<ResponsivaItem | null>(null);
-const archivos = ref<File[]>([]);
 const fechaDevolucion = ref('');
 const texto = ref('');
 const enviando = ref(false);
@@ -127,7 +125,6 @@ watch(
 function abrir(tipo: Accion, responsiva: ResponsivaItem) {
     seleccionada.value = responsiva;
     accion.value = tipo;
-    archivos.value = [];
     fechaDevolucion.value = hoy;
     texto.value = '';
 }
@@ -150,38 +147,12 @@ async function confirmar() {
     try {
         let respuesta: { message: string; responsiva: ResponsivaItem };
 
-        if (accion.value === 'firmada') {
-            const cuerpo = new FormData();
-            cuerpo.append('archivo', archivos.value[0]);
-            const http = await fetch(
-                subirFirmadaResponsiva.url(responsiva.id),
-                {
-                    method: 'POST',
-                    headers: {
-                        Accept: 'application/json',
-                        'X-XSRF-TOKEN': leerCookie('XSRF-TOKEN') ?? '',
-                    },
-                    credentials: 'same-origin',
-                    body: cuerpo,
-                },
+        if (accion.value === 'firmada_fisica') {
+            respuesta = await enviarJson(
+                'POST',
+                marcarFirmadaFisicaResponsiva.url(responsiva.id),
+                {},
             );
-            const datos = (await http.json().catch(() => null)) as
-                | (typeof respuesta & {
-                      errors?: Record<string, string[]>;
-                  })
-                | null;
-
-            if (!http.ok || datos === null) {
-                throw new Error(
-                    (datos?.errors
-                        ? Object.values(datos.errors)[0]?.[0]
-                        : undefined) ??
-                        datos?.message ??
-                        'No se pudo subir el archivo.',
-                );
-            }
-
-            respuesta = datos;
         } else if (accion.value === 'devolucion') {
             respuesta = await enviarJson(
                 'POST',
@@ -212,7 +183,7 @@ async function confirmar() {
 }
 
 const titulos: Record<Accion, string> = {
-    firmada: 'Subir responsiva firmada',
+    firmada_fisica: 'Marcar responsiva firmada físicamente',
     devolucion: 'Registrar devolución del equipo',
     cancelar: 'Cancelar responsiva',
 };
@@ -279,7 +250,18 @@ const titulos: Record<Accion, string> = {
                                 >
                             </div>
                             <p class="text-xs text-muted-foreground">
-                                Entregó {{ r.entregado_por }}
+                                Entregó {{ r.entregado_por
+                                }}<template v-if="r.entregado_por_puesto">
+                                    ({{ r.entregado_por_puesto }})</template
+                                >
+                                <template
+                                    v-if="
+                                        r.registrado_por &&
+                                        r.registrado_por !== r.entregado_por
+                                    "
+                                >
+                                    · Capturó {{ r.registrado_por }}</template
+                                >
                             </p>
                         </div>
                         <div class="flex flex-wrap gap-2">
@@ -314,17 +296,13 @@ const titulos: Record<Accion, string> = {
                                 </a>
                             </Button>
                             <Button
-                                v-if="r.puede_operar"
+                                v-if="r.puede_operar && r.estado === 'generada'"
                                 size="sm"
                                 variant="secondary"
-                                @click="abrir('firmada', r)"
+                                @click="abrir('firmada_fisica', r)"
                             >
-                                <Upload class="size-3.5" />
-                                {{
-                                    r.tiene_firmada
-                                        ? 'Reemplazar firmada'
-                                        : 'Subir firmada'
-                                }}
+                                <PenLine class="size-3.5" />
+                                Marcar firmada físicamente
                             </Button>
                             <Button
                                 v-if="r.puede_operar"
@@ -398,13 +376,15 @@ const titulos: Record<Accion, string> = {
                     </DialogDescription>
                 </DialogHeader>
 
-                <PeopleFileDropzone
-                    v-if="accion === 'firmada'"
-                    v-model="archivos"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    label="Arrastra el escaneo firmado (PDF o foto)"
-                    hint="Se guarda en el expediente, carpeta Actas y responsivas."
-                />
+                <p
+                    v-if="accion === 'firmada_fisica'"
+                    class="rounded-xl bg-crema/50 px-4 py-3 text-sm text-muted-foreground"
+                >
+                    La responsiva se imprimió y se firmó en papel. Al confirmar,
+                    queda registrada como firmada (se guarda quién y cuándo); no
+                    se sube ningún archivo. Las responsivas firmadas en papel ya
+                    no se escanean.
+                </p>
 
                 <div v-else-if="accion === 'devolucion'" class="grid gap-4">
                     <div class="grid gap-1.5">
@@ -458,7 +438,6 @@ const titulos: Record<Accion, string> = {
                         "
                         :disabled="
                             enviando ||
-                            (accion === 'firmada' && archivos.length === 0) ||
                             (accion === 'devolucion' &&
                                 fechaDevolucion === '') ||
                             (accion === 'cancelar' && texto.trim().length < 5)
@@ -469,8 +448,8 @@ const titulos: Record<Accion, string> = {
                         {{
                             accion === 'cancelar'
                                 ? 'Cancelar responsiva'
-                                : accion === 'firmada'
-                                  ? 'Subir'
+                                : accion === 'firmada_fisica'
+                                  ? 'Marcar firmada físicamente'
                                   : 'Registrar devolución'
                         }}
                     </Button>

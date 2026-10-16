@@ -150,8 +150,16 @@ const tarjetas = computed(() => [
         clave: 'rotacion',
         titulo: 'Rotación del mes',
         icono: TrendingDown,
-        valor: `${s.value.rotacion_mes.porcentaje}%`,
-        detalle: `${s.value.rotacion_mes.bajas} ${s.value.rotacion_mes.bajas === 1 ? 'baja' : 'bajas'} en el mes`,
+        // null = sin rotación cargada (Excel de RH) para el mes/alcance → «—»
+        // y «Sin datos cargados», nunca 0%.
+        valor:
+            s.value.rotacion_mes.porcentaje === null
+                ? '—'
+                : `${s.value.rotacion_mes.porcentaje}%`,
+        detalle:
+            s.value.rotacion_mes.porcentaje === null
+                ? 'Sin datos cargados'
+                : `${s.value.rotacion_mes.bajas} ${s.value.rotacion_mes.bajas === 1 ? 'baja' : 'bajas'} en el mes`,
     },
     {
         clave: 'costo',
@@ -200,22 +208,32 @@ const tarjetas = computed(() => [
 ]);
 
 // --- Rotación mensual (área + línea, crosshair con tooltip) ---
+// Fuente canónica: índice del Excel de RH (RotacionConsultaService). `indice`
+// es null en los meses sin periodo cargado → hueco en la línea, nunca 0%.
 type MesRotacion = TableroRhDatos['turnover_monthly'][number];
 const rotacion = computed(() => props.tablero.turnover_monthly);
 const xIndice = (_d: unknown, i: number) => i;
-const yRotacion = (d: MesRotacion) => d.porcentaje;
+const yRotacion = (d: MesRotacion) => d.indice;
 const etiquetaMes = (i: number) =>
     rotacion.value[Math.round(i)]?.etiqueta ?? '';
 const tooltipRotacion = (d: MesRotacion) =>
-    `<div class="tt"><p class="tt-t">${d.etiqueta}</p><p><b>${d.porcentaje}%</b> de rotación</p><p>${d.bajas} ${d.bajas === 1 ? 'baja' : 'bajas'} · plantilla prom. ${d.plantilla_promedio}</p></div>`;
+    d.indice === null
+        ? `<div class="tt"><p class="tt-t">${d.etiqueta}</p><p>Sin datos cargados</p></div>`
+        : `<div class="tt"><p class="tt-t">${d.etiqueta}</p><p><b>${d.indice}%</b> de rotación</p><p>${d.bajas} ${d.bajas === 1 ? 'baja' : 'bajas'} · plantilla final ${d.plantilla_final}</p></div>`;
+// Sin ningún mes con dato cargado: la gráfica muestra estado vacío claro.
+const sinRotacion = computed(() =>
+    rotacion.value.every((m) => m.indice === null),
+);
 const promedioRotacion = computed(() => {
-    const lista = rotacion.value;
+    const conDato = rotacion.value
+        .map((m) => m.indice)
+        .filter((v): v is number => v !== null);
 
-    return lista.length
+    return conDato.length
         ? Math.round(
-              (lista.reduce((t, m) => t + m.porcentaje, 0) / lista.length) * 10,
+              (conDato.reduce((t, v) => t + v, 0) / conDato.length) * 10,
           ) / 10
-        : 0;
+        : null;
 });
 
 // --- Tiempo de contratación por nivel (barras con tooltip por barra) ---
@@ -449,13 +467,24 @@ const totalesCobertura = computed(() => {
                             >Rotación mensual</CardTitle
                         >
                         <CardDescription>
-                            Bajas ÷ plantilla promedio · últimos
-                            {{ rotacion.length }} meses · promedio
-                            {{ promedioRotacion }}%
+                            Índice del Excel de RH (bajas ÷ plantilla final) ·
+                            últimos {{ rotacion.length }} meses<template
+                                v-if="promedioRotacion !== null"
+                            >
+                                · promedio {{ promedioRotacion }}%</template
+                            >
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
+                        <p
+                            v-if="sinRotacion"
+                            class="grid h-[260px] place-items-center text-center text-sm text-muted-foreground"
+                        >
+                            Sin datos cargados: aún no se importa el Excel de
+                            rotación para este periodo y alcance.
+                        </p>
                         <VisXYContainer
+                            v-else
                             :data="rotacion"
                             :height="260"
                             :margin="{ left: 4, right: 12, top: 8, bottom: 4 }"

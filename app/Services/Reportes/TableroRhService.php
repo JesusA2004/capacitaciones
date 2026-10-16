@@ -3,23 +3,21 @@
 namespace App\Services\Reportes;
 
 use App\Enums\EstadoCandidato;
-use App\Enums\EstadoContratoLaboral;
 use App\Enums\EstadoUsuario;
 use App\Enums\GrupoPuestoIndicador;
-use App\Enums\TipoContratacion;
-use App\Models\CampanaReclutamiento;
 use App\Models\Candidato;
 use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
 use App\Models\Empresa;
-use App\Models\HeadcountTarget;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Contratos\ContratoLaboralService;
 use App\Services\Headcount\HeadcountService;
+use App\Services\Reclutamiento\CostoReclutamientoService;
+use App\Services\Rotacion\RotacionConsultaService;
 use App\Services\Vacantes\VacantesListadoService;
 use Carbon\CarbonImmutable;
-use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
@@ -31,15 +29,23 @@ use Illuminate\Support\Collection;
  *   headcount_by_branch · filters · generated_at
  *
  * Todo se calcula con datos reales y respeta el alcance del usuario (RH
- * global ve todo; gerente/regional solo sus sucursales). Fórmulas:
- *  - plantilla activa = colaboradores vigentes / plantilla autorizada (headcount)
- *  - rotación del mes = bajas del mes / plantilla promedio (inicio+fin)/2
- *  - costo por contratación = inversión en campañas del mes / contratados del mes
- *  - tiempo de contratación = postulación (alta del candidato) → contratación
- *  - permanencia promedio = antigüedad promedio de la plantilla vigente
- *  - contratos por vencer = periodos de prueba que terminan en 30 días
- *  - embudo = personas que ALCANZARON cada etapa (hito máximo), no su estado
- *    actual: un contratado cuenta también en entrevista, psicométricas...
+ * global ve todo; gerente/regional solo sus sucursales). Cada KPI CONSUME su
+ * fuente canónica —el tablero solo presenta, nunca recalcula fórmulas propias
+ * ni escribe datos—:
+ *  - plantilla activa / cobertura = HeadcountService (plazas autorizadas vs
+ *    ocupadas por par sucursal-puesto), la misma cifra que headcount_by_branch.
+ *  - rotación del mes y tendencia = RotacionConsultaService / RotacionPeriodo
+ *    (Excel de RH: bajas × 100 / plantilla final del mes). Sin periodo cargado
+ *    el valor es null → la UI muestra «Sin datos cargados», nunca 0.
+ *  - costo por contratación e inversión en campañas = CostoReclutamientoService
+ *    (ANSI/SHRM: gasto interno + externo / contrataciones del periodo).
+ *  - contratos por vencer = ContratoLaboralService::porVencer (alcance del
+ *    módulo «contratos», ventana config('contratos.dias_aviso_vencimiento')).
+ *  - tiempo de contratación = postulación (alta del candidato) → contratación.
+ *  - permanencia promedio = antigüedad promedio de la plantilla vigente.
+ *  - embudo = personas que ALCANZARON cada etapa (etapa_maxima, autoridad de
+ *    CandidatoWorkflowService), no su estado actual: un contratado cuenta
+ *    también en entrevista, psicométricas...
  */
 class TableroRhService
 {
@@ -49,6 +55,9 @@ class TableroRhService
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly HeadcountService $headcount,
         private readonly VacantesListadoService $vacantesListado,
+        private readonly RotacionConsultaService $rotacion,
+        private readonly CostoReclutamientoService $costoReclutamiento,
+        private readonly ContratoLaboralService $contratos,
     ) {}
 
     /**
@@ -83,11 +92,16 @@ class TableroRhService
         $sucursales = $sucursalFiltro !== null ? collect([$sucursalFiltro]) : $deEmpresa;
         $todas = $global && $sucursalFiltro === null && $empresaFiltro === null;
 
+        // Fuente canónica de rotación (Excel de RH), scopeada a las sucursales
+        // que el tablero ya resolvió por alcance; la misma serie alimenta el
+        // KPI del mes y la tendencia.
+        $serieRotacion = $this->rotacion->serieMensualPorSucursales($sucursales, $fin, $meses);
+
         return [
-            'summary' => $this->resumen($sucursales, $todas, $inicio, $fin),
+            'summary' => $this->resumen($usuario, $sucursales, $todas, $inicio, $fin, $this->rotacionDelMes($serieRotacion, $fin)),
             'recruitment_funnel' => $this->embudo($sucursales, $todas, $inicio, $fin),
             'time_to_hire_by_level' => $this->tiempoPorNivel($sucursales, $todas, $fin),
-            'turnover_monthly' => $this->rotacionMensual($sucursales, $fin, $meses),
+            'turnover_monthly' => $this->turnoverMensual($serieRotacion, $meses),
             'headcount_by_branch' => $this->headcount->resumenPorSucursal($sucursales)->values()->all(),
             'filters' => [
                 'mes' => $mes->format('Y-m'),
@@ -107,9 +121,9 @@ class TableroRhService
     /**
      * Lo que el INICIO operativo muestra arriba: las cuatro cifras que
      * ayudan a decidir hoy (vacantes reales, contrataciones en proceso,
-     * contratos por vencer en 30 días; los expedientes incompletos los
-     * agrega el controlador desde DatosFaltantesService). Ligero: sin
-     * embudo, tendencias ni costos — eso vive en el tablero completo.
+     * contratos por vencer según el módulo de contratos; los expedientes
+     * incompletos los agrega el controlador desde DatosFaltantesService).
+     * Ligero: sin embudo, tendencias ni costos — eso vive en el tablero completo.
      *
      * @return array{vacantes: int, en_proceso: int, por_vencer: int}
      */
@@ -123,38 +137,35 @@ class TableroRhService
             'en_proceso' => $this->candidatos($sucursales, $global)
                 ->whereNotIn('estado', array_map(fn (EstadoCandidato $e) => $e->value, array_filter(EstadoCandidato::cases(), fn (EstadoCandidato $e) => $e->esTerminal())))
                 ->count(),
-            'por_vencer' => ContratoLaboral::query()
-                ->where('estado', EstadoContratoLaboral::Vigente->value)
-                ->whereIn('tipo', [TipoContratacion::PeriodoPrueba->value, TipoContratacion::CapacitacionInicial->value])
-                ->whereBetween('fecha_fin', [now()->toDateString(), now()->addDays(30)->toDateString()])
-                ->whereIn('colaborador_id', $this->colaboradores($sucursales)->select('id'))
-                ->count(),
+            // Mismo criterio que el módulo de contratos (ContratoLaboralService,
+            // alcance del módulo) y la ventana configurable; no se hardcodean 30
+            // días ni el tipo de contrato.
+            'por_vencer' => $this->contratos->porVencer($usuario, $this->diasAvisoVencimiento())->count(),
         ];
     }
 
     /**
      * @param  Collection<int, int>  $sucursales
+     * @param  array{porcentaje: float|null, bajas: int, plantilla_final: int}  $rotacionMes
      * @return array<string, mixed>
      */
-    private function resumen(Collection $sucursales, bool $todas, CarbonImmutable $inicio, CarbonImmutable $fin): array
+    private function resumen(User $usuario, Collection $sucursales, bool $todas, CarbonImmutable $inicio, CarbonImmutable $fin, array $rotacionMes): array
     {
-        $activos = $this->colaboradores($sucursales)->where('estatus', EstadoUsuario::Activo->value)->count();
-        $autorizada = (int) HeadcountTarget::query()->whereIn('sucursal_id', $sucursales)->sum('plantilla_autorizada');
+        // Plantilla y cobertura salen de la fuente canónica (HeadcountService):
+        // el número grande = plazas autorizadas ocupadas, igual que la tabla
+        // headcount_by_branch; así la tarjeta ya no se contradice consigo misma.
+        $cobertura = $this->headcount->totalesGenerales($sucursales);
 
         $corporativas = Sucursal::query()->whereIn('id', $sucursales)->where('es_corporativo', true)->pluck('id');
         $plazasPorSucursal = $this->vacantesListado->plazasPorSucursal($sucursales);
         $vacantesCorporativo = (int) $plazasPorSucursal->filter(fn (int $_, int $sucursalId) => $corporativas->contains($sucursalId))->sum();
         $vacantesSucursales = (int) $plazasPorSucursal->sum() - $vacantesCorporativo;
 
-        $bajas = $this->bajasEntre($sucursales, $inicio, $fin);
-        $promedio = ($this->plantillaAl($sucursales, $inicio->subDay()) + $this->plantillaAl($sucursales, $fin)) / 2;
-
-        $campanas = CampanaReclutamiento::query()
-            ->where('anio', $inicio->year)
-            ->where('mes', $inicio->month)
-            ->when(! $todas, fn (Builder $q) => $q->whereIn('sucursal_id', $sucursales))
-            ->get(['monto']);
-        $inversion = (float) $campanas->sum(fn (CampanaReclutamiento $c) => (float) $c->monto);
+        // Costo por contratación e inversión en campañas: el módulo canónico
+        // (CostoReclutamientoService, ANSI/SHRM), scopeado a las sucursales del
+        // tablero. La inversión del mes = su gasto_total.
+        $filtrosCosto = $todas ? [] : ['sucursal_ids' => array_values($sucursales->map(fn (int|string $id): int => (int) $id)->all())];
+        $costo = $this->costoReclutamiento->resumen($inicio, $fin, $filtrosCosto);
 
         $contratados = $this->candidatos($sucursales, $todas)
             ->where('estado', EstadoCandidato::Contratado->value)
@@ -168,23 +179,29 @@ class TableroRhService
             ->pluck('fecha_ingreso')
             ->map(fn ($f) => CarbonImmutable::parse($f)->diffInMonths(now()));
 
-        $porVencer = ContratoLaboral::query()
-            ->where('estado', EstadoContratoLaboral::Vigente->value)
-            ->whereIn('tipo', [TipoContratacion::PeriodoPrueba->value, TipoContratacion::CapacitacionInicial->value])
-            ->whereBetween('fecha_fin', [now()->toDateString(), now()->addDays(30)->toDateString()])
-            ->whereIn('colaborador_id', $this->colaboradores($sucursales)->select('id'))
+        // Contratos por vencer: criterio del módulo de contratos (alcance +
+        // ventana configurable), intersectado con las sucursales del tablero
+        // para honrar el filtro de empresa/sucursal.
+        $diasAviso = $this->diasAvisoVencimiento();
+        $porVencer = $this->contratos->porVencer($usuario, $diasAviso)
+            ->filter(fn (ContratoLaboral $c): bool => $sucursales->contains($c->colaborador->sucursal_principal_id))
             ->count();
 
         return [
-            'plantilla_activa' => ['valor' => $activos, 'autorizada' => $autorizada, 'porcentaje' => $autorizada > 0 ? round($activos / $autorizada * 100, 1) : 0.0],
+            'plantilla_activa' => ['valor' => $cobertura['plantilla_actual'], 'autorizada' => $cobertura['plantilla_autorizada'], 'porcentaje' => $cobertura['cumplimiento']],
             'vacantes_abiertas' => ['valor' => $vacantesSucursales + $vacantesCorporativo, 'sucursales' => $vacantesSucursales, 'corporativo' => $vacantesCorporativo],
-            'rotacion_mes' => ['porcentaje' => $promedio > 0 ? round($bajas / $promedio * 100, 1) : 0.0, 'bajas' => $bajas, 'plantilla_promedio' => round($promedio, 1)],
-            'costo_por_contratacion' => ['valor' => $contratados->count() > 0 ? round($inversion / $contratados->count(), 2) : null, 'inversion' => $inversion, 'contratados' => $contratados->count()],
+            'rotacion_mes' => ['porcentaje' => $rotacionMes['porcentaje'], 'bajas' => $rotacionMes['bajas'], 'plantilla_final' => $rotacionMes['plantilla_final']],
+            'costo_por_contratacion' => ['valor' => $costo['costo_por_contratacion'], 'inversion' => $costo['gasto_total'], 'contratados' => $costo['contrataciones']],
             'tiempo_contratacion' => ['dias' => $dias->isEmpty() ? null : round((float) $dias->avg(), 1), 'contratados' => $contratados->count()],
             'permanencia_promedio' => ['meses' => $antiguedades->isEmpty() ? null : round((float) $antiguedades->avg(), 1), 'colaboradores' => $antiguedades->count()],
-            'contratos_por_vencer' => ['valor' => $porVencer, 'dias' => 30],
-            'inversion_campanas_mes' => ['valor' => $inversion, 'campanas' => $campanas->count()],
+            'contratos_por_vencer' => ['valor' => $porVencer, 'dias' => $diasAviso],
+            'inversion_campanas_mes' => ['valor' => $costo['gasto_total'], 'campanas' => $costo['campanas']],
         ];
+    }
+
+    private function diasAvisoVencimiento(): int
+    {
+        return max(1, (int) config('contratos.dias_aviso_vencimiento', 15));
     }
 
     /**
@@ -245,54 +262,48 @@ class TableroRhService
     }
 
     /**
-     * @param  Collection<int, int>  $sucursales
-     * @return list<array{mes: string, etiqueta: string, bajas: int, plantilla_promedio: float, porcentaje: float}>
+     * Tendencia mensual para la gráfica, a partir de la serie canónica del
+     * Excel de RH (RotacionConsultaService). `indice` es null en los meses sin
+     * periodo cargado → el front dibuja hueco / estado vacío, nunca 0%.
+     *
+     * @param  list<array{clave: string, anio: int, mes: int, etiqueta: string, sucursales: int, plantilla_inicial: int, altas: int, bajas: int, bajas_voluntarias: int|null, bajas_involuntarias: int|null, plantilla_final: int, indice: float|null}>  $serie
+     * @return list<array{mes: string, etiqueta: string, sucursales: int, bajas: int, plantilla_final: int, indice: float|null}>
      */
-    private function rotacionMensual(Collection $sucursales, CarbonImmutable $fin, int $cuantos = 12): array
+    private function turnoverMensual(array $serie, int $meses): array
     {
-        $meses = [];
+        return array_map(function (array $fila) use ($meses): array {
+            $mes = CarbonImmutable::create($fila['anio'], $fila['mes'], 1);
 
-        for ($i = $cuantos - 1; $i >= 0; $i--) {
-            $mes = $fin->startOfMonth()->subMonthsNoOverflow($i);
-            $bajas = $this->bajasEntre($sucursales, $mes->startOfMonth(), $mes->endOfMonth());
-            $promedio = ($this->plantillaAl($sucursales, $mes->startOfMonth()->subDay()) + $this->plantillaAl($sucursales, $mes->endOfMonth())) / 2;
-
-            $meses[] = [
-                'mes' => $mes->format('Y-m'),
-                'etiqueta' => ucfirst($mes->settings(['locale' => 'es'])->translatedFormat($cuantos > 12 ? 'M y' : 'M')),
-                'bajas' => $bajas,
-                'plantilla_promedio' => round($promedio, 1),
-                'porcentaje' => $promedio > 0 ? round($bajas / $promedio * 100, 1) : 0.0,
+            return [
+                'mes' => $fila['clave'],
+                'etiqueta' => ucfirst($mes->settings(['locale' => 'es'])->translatedFormat($meses > 12 ? 'M y' : 'M')),
+                'sucursales' => $fila['sucursales'],
+                'bajas' => $fila['bajas'],
+                'plantilla_final' => $fila['plantilla_final'],
+                'indice' => $fila['indice'],
             ];
+        }, $serie);
+    }
+
+    /**
+     * KPI «Rotación del mes»: el índice canónico del mes seleccionado (último
+     * de la serie). Sin periodo cargado, porcentaje = null (la UI muestra «Sin
+     * datos cargados», nunca 0 ni la fórmula vieja).
+     *
+     * @param  list<array{clave: string, anio: int, mes: int, etiqueta: string, sucursales: int, plantilla_inicial: int, altas: int, bajas: int, bajas_voluntarias: int|null, bajas_involuntarias: int|null, plantilla_final: int, indice: float|null}>  $serie
+     * @return array{porcentaje: float|null, bajas: int, plantilla_final: int}
+     */
+    private function rotacionDelMes(array $serie, CarbonImmutable $mes): array
+    {
+        $clave = $mes->format('Y-m');
+
+        foreach ($serie as $fila) {
+            if ($fila['clave'] === $clave) {
+                return ['porcentaje' => $fila['indice'], 'bajas' => $fila['bajas'], 'plantilla_final' => $fila['plantilla_final']];
+            }
         }
 
-        return $meses;
-    }
-
-    /**
-     * @param  Collection<int, int>  $sucursales
-     */
-    private function bajasEntre(Collection $sucursales, CarbonInterface $desde, CarbonInterface $hasta): int
-    {
-        return Colaborador::withTrashed()
-            ->whereIn('sucursal_principal_id', $sucursales)
-            ->whereBetween('fecha_baja', [$desde->toDateString(), $hasta->toDateString()])
-            ->count();
-    }
-
-    /**
-     * Plantilla vigente a una fecha: ingresó en o antes y no tenía baja.
-     *
-     * @param  Collection<int, int>  $sucursales
-     */
-    private function plantillaAl(Collection $sucursales, CarbonInterface $fecha): int
-    {
-        return Colaborador::withTrashed()
-            ->whereIn('sucursal_principal_id', $sucursales)
-            ->whereNotNull('fecha_ingreso')
-            ->whereDate('fecha_ingreso', '<=', $fecha->toDateString())
-            ->where(fn (Builder $q) => $q->whereNull('fecha_baja')->orWhereDate('fecha_baja', '>', $fecha->toDateString()))
-            ->count();
+        return ['porcentaje' => null, 'bajas' => 0, 'plantilla_final' => 0];
     }
 
     /**

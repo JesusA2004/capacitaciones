@@ -62,7 +62,7 @@ test('un colaborador ve su propio proceso y no las pantallas de RH', function ()
     $this->get(route('rh.reingresos.index'))->assertForbidden();
 });
 
-test('el original físico se controla desde la web pidiendo paquetería, guía y fechas reales, y se escanea antes de archivar', function () {
+test('el original físico se controla desde la web: impresión → firma física es el estado final (regla nueva: ya no se escanea)', function () {
     clPlantilla('contrato_indeterminado', ['requiere_impresion' => true, 'requiere_firma_fisica' => true, 'requiere_huella' => true]);
 
     Sanctum::actingAs($this->rh);
@@ -70,32 +70,28 @@ test('el original físico se controla desde la web pidiendo paquetería, guía y
 
     $this->actingAs($this->rh);
     $this->post(route('rh.documentos-laborales.imprimir', $id))->assertSessionHasNoErrors();
+
+    // Impreso: la pantalla ofrece marcar la firma física (no escaneo).
+    $this->get(route('rh.colaboradores.ciclo', $this->colaborador))->assertInertia(fn (Assert $p) => $p
+        ->where('documentos.0.acciones', ['firma_fisica']));
+
     $this->post(route('rh.documentos-laborales.firmaFisica', $id), ['huella_registrada' => false])->assertSessionHasErrors('huella_registrada');
     $this->post(route('rh.documentos-laborales.firmaFisica', $id), ['huella_registrada' => true, 'fecha' => '2026-09-29'])->assertSessionHasNoErrors();
 
-    // Sin paquetería ni guía no hay envío.
-    $this->post(route('rh.documentos-laborales.envio', $id), [])->assertSessionHasErrors(['paqueteria', 'numero_guia']);
-    $this->post(route('rh.documentos-laborales.envio', $id), ['paqueteria' => 'Estafeta', 'numero_guia' => 'GU-1', 'fecha' => '2026-09-30'])->assertSessionHasNoErrors();
-
-    // Nunca una fecha futura.
-    $this->post(route('rh.documentos-laborales.recepcion', $id), ['fecha' => '2026-10-05'])->assertSessionHasErrors('fecha');
-    $this->post(route('rh.documentos-laborales.recepcion', $id), ['fecha' => '2026-10-01'])->assertSessionHasNoErrors();
-
     $documento = GeneratedDocument::query()->with('seguimientoFisico')->findOrFail($id);
-    expect($documento->seguimientoFisico?->numero_guia)->toBe('GU-1')
+    expect($documento->estado_flujo?->value)->toBe('firmado_fisicamente')
         ->and($documento->seguimientoFisico?->firmado_fisico_en?->toDateString())->toBe('2026-09-29')
-        ->and($documento->seguimientoFisico?->enviado_en?->toDateString())->toBe('2026-09-30')
-        ->and($documento->seguimientoFisico?->recibido_por)->toBe($this->rh->id);
+        ->and($documento->seguimientoFisico?->huella_registrada)->toBeTrue()
+        ->and($documento->seguimientoFisico?->firma_fisica_registrada_por)->toBe($this->rh->id);
 
-    // La pantalla ofrece escanear (no archivar) un original recibido.
+    // Firmado físicamente es FINAL: el original se resguarda en papel y la
+    // pantalla ya no ofrece ninguna acción física más (ni escaneo ni archivo).
     $this->get(route('rh.colaboradores.ciclo', $this->colaborador))->assertInertia(fn (Assert $p) => $p
-        ->where('documentos.0.acciones', ['escaneo']));
+        ->where('documentos.0.acciones', []));
 
+    // Y no se exige escaneo: el flujo quedó concluido en la firma física.
     $this->post(route('rh.documentos-laborales.archivar', $id))->assertSessionHasErrors();
-    $this->post(route('rh.documentos-laborales.escaneo', $id), ['archivo' => clArchivoPdf('firmado.pdf')])->assertSessionHasNoErrors();
-    $this->post(route('rh.documentos-laborales.archivar', $id))->assertSessionHasNoErrors();
-
-    expect($documento->refresh()->estado_flujo?->value)->toBe('archivado');
+    expect($documento->refresh()->estado_flujo?->value)->toBe('firmado_fisicamente');
 });
 
 test('solo RH decide un reingreso; quien solo lo solicita recibe 403', function () {

@@ -6,10 +6,10 @@ import {
     Eye,
     FileCheck2,
     Pencil,
+    PenLine,
     Plus,
     RefreshCw,
     Trash2,
-    Upload,
     X,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
@@ -23,7 +23,7 @@ import {
     ajustes,
     calcular,
     descargarPdf,
-    firmado,
+    firmadoFisico,
     generarPdf,
     recalcular,
     revisar,
@@ -117,22 +117,25 @@ function generarPdfFiniquito() {
     });
 }
 
-const formFirmado = useForm({ archivo: null as File | null });
-const inputFirmado = ref<HTMLInputElement | null>(null);
+// Firma física sin escaneo (regla vigente): el finiquito se imprime y se
+// firma en PAPEL; RH solo deja constancia de quién lo marcó como firmado y
+// cuándo. El archivo firmado legacy (documento_firmado_path) sigue visible
+// como descarga de solo lectura si algún registro antiguo lo trae.
+const marcandoFirmadoFisico = ref(false);
+const formFirmadoFisico = useForm({ observacion: '' });
 
-function subirFirmado(event: Event) {
-    const input = event.target as HTMLInputElement;
-    formFirmado.archivo = input.files?.[0] ?? null;
+function abrirFirmadoFisico() {
+    formFirmadoFisico.reset();
+    formFirmadoFisico.clearErrors();
+    marcandoFirmadoFisico.value = true;
+}
 
-    if (!formFirmado.archivo) {
-        return;
-    }
-
-    formFirmado.post(firmado.url(props.solicitudId), {
+function confirmarFirmadoFisico() {
+    formFirmadoFisico.post(firmadoFisico.url(props.solicitudId), {
         preserveScroll: true,
         onSuccess: () => {
-            formFirmado.reset();
-            input.value = '';
+            marcandoFirmadoFisico.value = false;
+            formFirmadoFisico.reset();
         },
     });
 }
@@ -795,28 +798,89 @@ function eliminarConcepto(id: number) {
                         }}
                     </a>
                 </Button>
-                <label
-                    v-if="permisos.puedeSubirFirmado && !cerrado"
-                    class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-dashed px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent"
+                <Button
+                    v-if="
+                        permisos.puedeSubirFirmado &&
+                        !cerrado &&
+                        finiquito.estado === 'aprobado'
+                    "
+                    size="sm"
+                    @click="abrirFirmadoFisico"
                 >
-                    <Upload class="size-4" />
-                    Subir firmado
-                    <input
-                        ref="inputFirmado"
-                        type="file"
-                        class="hidden"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        :disabled="formFirmado.processing"
-                        @change="subirFirmado"
-                    />
-                </label>
+                    <PenLine class="size-4" />
+                    Marcar firmado físicamente
+                </Button>
             </div>
 
+            <!-- Confirmación de firma física (sin subir archivo). -->
+            <form
+                v-if="marcandoFirmadoFisico"
+                class="flex flex-col gap-2 rounded-xl border border-dashed border-border/60 bg-muted/30 p-3"
+                @submit.prevent="confirmarFirmadoFisico"
+            >
+                <p class="text-sm font-medium">
+                    Confirmar firma física del finiquito
+                </p>
+                <p class="text-xs text-muted-foreground">
+                    El finiquito se imprimió y se firmó en papel. Al confirmar,
+                    queda registrado como firmado (quién y cuándo); no se sube
+                    ningún archivo y ya no podrá editarse.
+                </p>
+                <div class="grid gap-1.5">
+                    <Label for="firmado_fisico_observacion"
+                        >Observación (opcional)</Label
+                    >
+                    <Textarea
+                        id="firmado_fisico_observacion"
+                        v-model="formFirmadoFisico.observacion"
+                        rows="2"
+                        maxlength="500"
+                        placeholder="Ej. Firmado en oficina ante RH."
+                    />
+                    <p
+                        v-if="formFirmadoFisico.errors.observacion"
+                        class="text-xs text-destructive"
+                    >
+                        {{ formFirmadoFisico.errors.observacion }}
+                    </p>
+                </div>
+                <div class="flex gap-2">
+                    <Button
+                        type="submit"
+                        size="sm"
+                        :disabled="formFirmadoFisico.processing"
+                    >
+                        <PenLine class="size-4" />
+                        Confirmar firmado físicamente
+                    </Button>
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        @click="marcandoFirmadoFisico = false"
+                    >
+                        Cancelar
+                    </Button>
+                </div>
+            </form>
+
             <p
-                v-if="finiquito.documento_firmado_path"
+                v-if="finiquito.firmado_fisicamente_en"
                 class="text-xs text-muted-foreground"
             >
-                Documento firmado guardado en el expediente de la solicitud.
+                Firmado físicamente el
+                {{
+                    new Date(
+                        finiquito.firmado_fisicamente_en,
+                    ).toLocaleDateString('es-MX')
+                }}.
+            </p>
+            <p
+                v-else-if="finiquito.documento_firmado_path"
+                class="text-xs text-muted-foreground"
+            >
+                Documento firmado (archivo) guardado en el expediente de la
+                solicitud.
             </p>
         </div>
     </div>

@@ -42,15 +42,15 @@ class AlcanceOrganizacionalService
      * asignando varias sucursales adicionales al colaborador — el mismo
      * mecanismo que gerente_sucursal, sin lógica nueva: el alcance real
      * depende de qué sucursales tenga asignadas cada colaborador, no del
-     * nombre del rol. coordinadora/coordinadora_regional NO están aquí: usan
-     * PEOPLE como colaboradoras (solo lo propio), decisión del negocio
-     * 2026-10-15.
+     * nombre del rol. coordinadora/coordinadora_regional y subgerente NO están
+     * aquí: usan PEOPLE como colaboradores (solo lo propio), decisión del
+     * negocio 2026-10-15.
      *
      * @var array<int, string>
      */
     private const ROLES_ALCANCE_SUCURSAL = [
         'gerente_sucursal', 'supervisor',
-        'gerente_regional', 'gerente', 'subgerente',
+        'gerente_regional', 'gerente',
     ];
 
     public function tieneAlcanceGlobal(User $usuario): bool

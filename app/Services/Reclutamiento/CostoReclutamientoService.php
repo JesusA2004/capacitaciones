@@ -31,13 +31,13 @@ use Illuminate\Support\Collection;
  * lógica promedio del estándar). Nada se inventa: sin contrataciones el
  * costo por contratación es null.
  *
- * @phpstan-type Filtros array{empresa_id?: int|null, sucursal_id?: int|null, puesto_id?: int|null}
+ * @phpstan-type Filtros array{empresa_id?: int|null, sucursal_id?: int|null, sucursal_ids?: list<int>|null, puesto_id?: int|null}
  */
 class CostoReclutamientoService
 {
     /**
      * @param  Filtros  $filtros
-     * @return array{desde: string, hasta: string, gasto_externo: float, gasto_interno: float, gasto_total: float, contrataciones: int, costo_por_contratacion: float|null, gasto_general_no_atribuible: float}
+     * @return array{desde: string, hasta: string, gasto_externo: float, gasto_interno: float, gasto_total: float, contrataciones: int, costo_por_contratacion: float|null, gasto_general_no_atribuible: float, campanas: int}
      */
     public function resumen(CarbonInterface $desde, CarbonInterface $hasta, array $filtros = []): array
     {
@@ -56,6 +56,7 @@ class CostoReclutamientoService
             'contrataciones' => $contrataciones,
             'costo_por_contratacion' => $contrataciones > 0 ? round($total / $contrataciones, 2) : null,
             'gasto_general_no_atribuible' => round($this->gastoGeneral($campanas), 2),
+            'campanas' => $campanas->count(),
         ];
     }
 
@@ -285,6 +286,9 @@ class CostoReclutamientoService
             ->whereRaw('(anio * 100 + mes) between ? and ?', [$inicio, $fin])
             ->when($filtros['empresa_id'] ?? null, fn (Builder $q, int $v) => $q->where('empresa_id', $v))
             ->when($filtros['sucursal_id'] ?? null, fn (Builder $q, int $v) => $q->where('sucursal_id', $v))
+            // isset (no truthiness): una lista vacía debe acotar a «nada», no
+            // desactivar el filtro y devolver todo (evita fuga de alcance).
+            ->when(isset($filtros['sucursal_ids']), fn (Builder $q) => $q->whereIn('sucursal_id', $filtros['sucursal_ids'] ?? []))
             ->when($filtros['puesto_id'] ?? null, fn (Builder $q, int $v) => $q->where('puesto_id', $v));
     }
 
@@ -303,6 +307,7 @@ class CostoReclutamientoService
             ->whereBetween('contratado_en', [$desde->copy()->startOfDay(), $hasta->copy()->endOfDay()])
             ->when($filtros['empresa_id'] ?? null, fn (Builder $q, int $v) => $q->where('empresa_id', $v))
             ->when($filtros['sucursal_id'] ?? null, fn (Builder $q, int $v) => $q->where('sucursal_id', $v))
+            ->when(isset($filtros['sucursal_ids']), fn (Builder $q) => $q->whereIn('sucursal_id', $filtros['sucursal_ids'] ?? []))
             ->when($filtros['puesto_id'] ?? null, fn (Builder $q, int $v) => $q->where('puesto_objetivo_id', $v));
     }
 }

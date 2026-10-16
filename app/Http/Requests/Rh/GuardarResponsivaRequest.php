@@ -28,6 +28,10 @@ class GuardarResponsivaRequest extends FormRequest
             'tipo' => ['required', Rule::enum(TipoResponsiva::class)],
             'lugar' => ['required', 'string', 'max:160'],
             'fecha_entrega' => ['required', 'date', 'before_or_equal:today'],
+            // Responsable de entrega (quien realmente entregó el equipo). Si
+            // no se envía, se asume al propio capturador. El alcance se valida
+            // en ResponsivaService.
+            'responsable_entrega_id' => ['nullable', 'integer', 'exists:users,id'],
             'observaciones' => ['nullable', 'string', 'max:2000'],
             'activos' => ['required', 'array', 'min:1', 'max:20'],
             'activos.*.descripcion' => ['required', 'string', 'max:160'],
@@ -51,6 +55,7 @@ class GuardarResponsivaRequest extends FormRequest
             'tipo' => 'tipo de responsiva',
             'lugar' => 'lugar',
             'fecha_entrega' => 'fecha de entrega',
+            'responsable_entrega_id' => 'responsable de entrega',
             'activos' => 'equipos entregados',
             'activos.*.descripcion' => 'descripción del equipo',
             'activos.*.marca' => 'marca',

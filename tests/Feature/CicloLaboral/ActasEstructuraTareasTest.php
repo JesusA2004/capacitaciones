@@ -59,16 +59,18 @@ test('actas: captura, anexos, formato por motor documental, negativa a firmar y 
 
     // Generada ya no admite edición de hechos; los cambios van como seguimiento.
     $this->patchJson("/api/v1/rh/actas/{$acta['id']}", ['hechos' => 'otro'])->assertUnprocessable();
-    $this->postJson("/api/v1/rh/actas/{$acta['id']}/entrega", ['estado' => 'entregada'])->assertOk()->assertJsonPath('data.circunstanciada.entrega.estado', 'entregada');
     $this->getJson("/api/v1/rh/actas/{$acta['id']}")->assertOk()->assertJsonCount(6, 'catalogos.incidencias');
     $this->postJson("/api/v1/rh/actas/{$acta['id']}/negativa-firma", ['motivo' => 'Se negó a firmar ante testigos.'])->assertOk()->assertJsonPath('data.negativa_firma', true);
-    // Sin el original escaneado en el expediente todavía no se cierra.
-    $this->postJson("/api/v1/rh/actas/{$acta['id']}/cerrar")->assertUnprocessable()->assertJsonValidationErrors('acta');
 
-    // Flujo físico del documento: impresión, firmas de quienes intervienen, escaneo.
+    // Con negativa asentada, aún falta la constancia de entrega (ya NO el
+    // escaneo: el acta firmada en papel se resguarda físicamente).
+    $this->postJson("/api/v1/rh/actas/{$acta['id']}/cerrar")->assertUnprocessable()->assertJsonValidationErrors('acta');
+    $this->postJson("/api/v1/rh/actas/{$acta['id']}/entrega", ['estado' => 'entregada'])->assertOk()->assertJsonPath('data.circunstanciada.entrega.estado', 'entregada');
+
+    // Flujo físico del documento: impresión y firma física. «Firmado
+    // físicamente» es el estado FINAL del acta en papel; ya no se escanea.
     $this->postJson("/api/v1/rh/documentos-proceso/documento/{$documento['id']}/imprimir")->assertOk();
-    $this->postJson("/api/v1/rh/documentos-proceso/documento/{$documento['id']}/firma-fisica", ['testigos' => [['nombre' => 'Pedro López']]])->assertOk();
-    $this->post("/api/v1/rh/documentos-proceso/documento/{$documento['id']}/escaneo", ['archivo' => clArchivoPdf('acta-firmada.pdf')], ['Accept' => 'application/json'])->assertOk();
+    $this->postJson("/api/v1/rh/documentos-proceso/documento/{$documento['id']}/firma-fisica", ['testigos' => [['nombre' => 'Pedro López']]])->assertOk()->assertJsonPath('estado', 'firmado_fisicamente');
     $this->postJson("/api/v1/rh/actas/{$acta['id']}/cerrar")->assertOk()->assertJsonPath('data.estado', 'cerrada');
 
     $implicado = User::factory()->create(['colaborador_id' => $colaborador->id]);

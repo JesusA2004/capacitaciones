@@ -24,8 +24,9 @@ class CandidatosCarpetasConNombreCommand extends Command
         $simular = (bool) $this->option('simular');
         $total = 0;
         $faltantes = 0;
+        $fallidos = 0;
 
-        Candidato::query()->orderBy('id')->each(function (Candidato $candidato) use ($servicio, $simular, &$total, &$faltantes): void {
+        Candidato::query()->orderBy('id')->each(function (Candidato $candidato) use ($servicio, $simular, &$total, &$faltantes, &$fallidos): void {
             $resultado = $servicio->moverACarpetaConNombre($candidato, $simular);
 
             if ($resultado['movidos'] > 0) {
@@ -36,12 +37,17 @@ class CandidatosCarpetasConNombreCommand extends Command
                 $this->warn(sprintf('#%d: no existe en el NAS: %s', $candidato->id, $ruta));
             }
 
+            foreach ($resultado['fallidos'] as $ruta) {
+                $this->error(sprintf('#%d: no se pudo mover (la BD quedó intacta): %s', $candidato->id, $ruta));
+            }
+
             $total += $resultado['movidos'];
             $faltantes += count($resultado['faltantes']);
+            $fallidos += count($resultado['fallidos']);
         });
 
         $this->newLine();
-        $this->info(sprintf('%s %d archivo(s). Faltantes en el NAS: %d.', $simular ? 'Se moverían' : 'Movidos', $total, $faltantes));
+        $this->info(sprintf('%s %d archivo(s). Faltantes en el NAS: %d. Fallidos al mover: %d.', $simular ? 'Se moverían' : 'Movidos', $total, $faltantes, $fallidos));
 
         return self::SUCCESS;
     }

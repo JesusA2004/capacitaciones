@@ -13,6 +13,7 @@ use App\Models\FiniquitoConcepto;
 use App\Models\SolicitudInterna;
 use App\Services\Finiquitos\FiniquitoService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -155,6 +156,29 @@ class FiniquitoController extends Controller
         return $this->finiquitos->descargarPdf($finiquito);
     }
 
+    /**
+     * Flujo vigente: el finiquito se imprime y se firma en papel; RH presiona
+     * «Marcar firmado físicamente» (no se escanea ni se sube el documento).
+     * El subirFirmado() de abajo se conserva como legacy de solo lectura.
+     */
+    public function marcarFirmadoFisicamente(Request $request, SolicitudInterna $solicitud): RedirectResponse
+    {
+        $finiquito = $this->finiquitoDe($solicitud);
+        $this->authorize('subirFirmado', $finiquito);
+
+        $datos = $request->validate([
+            'observacion' => ['nullable', 'string', 'max:500'],
+        ], [], ['observacion' => 'observación']);
+
+        $this->finiquitos->marcarFirmadoFisicamente($finiquito, $request->user(), $datos['observacion'] ?? null);
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Finiquito marcado como firmado físicamente.']);
+    }
+
+    /**
+     * LEGACY (solo lectura en el flujo nuevo): subir el escaneo del finiquito
+     * firmado. Se conserva para los registros antiguos que ya traían archivo.
+     */
     public function subirFirmado(SubirFiniquitoFirmadoRequest $request, SolicitudInterna $solicitud): RedirectResponse
     {
         $finiquito = $this->finiquitoDe($solicitud);

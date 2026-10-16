@@ -49,6 +49,8 @@ use Throwable;
  *
  * @phpstan-type PartePlan array{tipo: string|null, tipo_id: int|null, tipo_nombre: string|null, paginas: list<int>, confianza: string|null, accion: EstadoParteDivision}
  * @phpstan-type Analisis array{hash: string, total_paginas: int, paginas: list<PaginaClasificada>, partes: list<PartePlan>, datos: list<DatoDetectado>, advertencias: list<string>, ocr_disponible: bool, ocr_motor: string}
+ * @phpstan-type AnalisisConPdf array{hash: string, total_paginas: int, paginas: list<PaginaClasificada>, partes: list<PartePlan>, datos: list<DatoDetectado>, advertencias: list<string>, ocr_disponible: bool, ocr_motor: string, pdf: string}
+ * @phpstan-type PartePreparada array{orden: int, plan: PartePlan, tipo: DocumentType|null, bytes: string, ruta: string, hash: string, size: int}
  */
 class DivisionExpedienteHistoricoService
 {
@@ -338,6 +340,19 @@ class DivisionExpedienteHistoricoService
         ];
     }
 
+    /**
+     * Dos fases claramente separadas (ver docblock de la clase):
+     *
+     *  FASE A — se lee, clasifica, corta y preparan en NAS TODAS las partes.
+     *    Aquí no se toca el checklist ni la BD de documentos; solo se generan
+     *    las copias físicas (el NAS no participa en transacciones SQL).
+     *  FASE B — se aplica al checklist en UNA sola DB::transaction: cada
+     *    EmployeeDocument y su ParteDivisionHistorico se crean juntos y la
+     *    corrida se marca «Completada» solo si TODAS las partes se aplicaron.
+     *    Si algo falla a mitad, el rollback externo revierte también los
+     *    EmployeeDocument de subirVersion() (transacciones anidadas de Laravel
+     *    = savepoints), así que la BD/checklist nunca queda a medias.
+     */
     private function ejecutar(ExpedienteHistorico $historico, Colaborador $colaborador, User $usuario): DivisionExpedienteHistorico
     {
         $ocr = $this->estadoOcr();
@@ -351,72 +366,132 @@ class DivisionExpedienteHistoricoService
             'ejecutado_por' => $usuario->id,
         ]);
 
+        /** @var list<string> $copiasEnNas Rutas ya escritas en NAS (para reconciliar huérfanas si FASE B falla). */
+        $copiasEnNas = [];
+
         try {
+            // FASE A: nada de esto escribe en la BD de documentos.
             $analisis = $this->leerYClasificar($historico, $colaborador);
-            $pdf = $analisis['pdf'];
-            $carpeta = sprintf(
-                '%s/%s/%s/%d',
-                $this->storage->asignarRutaBaseColaborador($colaborador),
-                $this->storage->sanitizarSegmento((string) config('expedientes.migracion_inicial.carpeta_historico', 'Historico')),
-                $this->storage->sanitizarSegmento((string) config('expedientes.division_historico.carpeta_partes', 'Division por checklist')),
-                $division->id,
-            );
-            $tipos = $this->tiposChecklist()->keyBy('id');
+            $preparadas = $this->prepararPartes($analisis, $colaborador, $division, $copiasEnNas);
 
-            foreach ($analisis['partes'] as $orden => $plan) {
-                $bytes = $this->cortador->extraer($pdf, $plan['paginas']);
-                $nombre = sprintf('%02d - %s (p. %s).pdf', $orden + 1, $plan['tipo_nombre'] ?? 'Sin clasificar', ParteDivisionHistorico::formatearRango($plan['paginas']));
-                $ruta = $carpeta.'/'.$this->storage->sanitizarSegmento($nombre);
-                $this->escribirSinSobrescribir($ruta, $bytes);
-
-                $tipo = $plan['tipo_id'] !== null ? $tipos->get($plan['tipo_id']) : null;
-                $documento = null;
-                $estadoParte = $plan['accion'];
-
-                // Se vuelve a revisar justo antes de cargar: otra parte o RH
-                // pudo cubrir el tipo mientras tanto.
-                if ($tipo !== null && $estadoParte === EstadoParteDivision::Asignada) {
-                    if ($this->tipoCubierto($colaborador, $tipo)) {
-                        $estadoParte = EstadoParteDivision::YaCubierta;
-                    } else {
-                        $documento = $this->cargarAlChecklist($colaborador, $tipo, $bytes, $plan['paginas'], $usuario);
-                    }
+            // FASE B: todo o nada.
+            DB::transaction(function () use ($preparadas, $colaborador, $usuario, $division, $analisis): void {
+                foreach ($preparadas as $preparada) {
+                    $this->aplicarParte($preparada, $colaborador, $usuario, $division);
                 }
 
-                ParteDivisionHistorico::query()->create([
-                    'division_id' => $division->id,
-                    'document_type_id' => $tipo?->id,
-                    'orden' => $orden + 1,
-                    'paginas' => $plan['paginas'],
-                    'confianza' => $plan['confianza'],
-                    'estado' => $estadoParte->value,
-                    'disk' => (string) config('expedientes.disk'),
-                    'path' => $ruta,
-                    'hash' => hash('sha256', $bytes),
-                    'size' => strlen($bytes),
-                    'employee_document_id' => $documento?->id,
-                    'asignado_por' => $documento !== null ? $usuario->id : null,
-                    'asignado_en' => $documento !== null ? now() : null,
+                $division->update([
+                    'estado' => EstadoDivisionHistorico::Completada->value,
+                    'hash_origen' => $analisis['hash'],
+                    'total_paginas' => $analisis['total_paginas'],
+                    'paginas_clasificadas' => count(array_filter($analisis['paginas'], fn (array $p): bool => $p['tipo'] !== null)),
+                    'paginas_sin_clasificar' => count(array_filter($analisis['paginas'], fn (array $p): bool => $p['tipo'] === null)),
+                    'paginas_sin_texto' => count(array_filter($analisis['paginas'], fn (array $p): bool => $p['metodo'] === MetodoLecturaPagina::SinTexto->value)),
+                    'paginas' => $analisis['paginas'],
+                    'datos_detectados' => $analisis['datos'],
+                    'advertencias' => $analisis['advertencias'],
                 ]);
-            }
-
-            $division->update([
-                'estado' => EstadoDivisionHistorico::Completada->value,
-                'hash_origen' => $analisis['hash'],
-                'total_paginas' => $analisis['total_paginas'],
-                'paginas_clasificadas' => count(array_filter($analisis['paginas'], fn (array $p): bool => $p['tipo'] !== null)),
-                'paginas_sin_clasificar' => count(array_filter($analisis['paginas'], fn (array $p): bool => $p['tipo'] === null)),
-                'paginas_sin_texto' => count(array_filter($analisis['paginas'], fn (array $p): bool => $p['metodo'] === MetodoLecturaPagina::SinTexto->value)),
-                'paginas' => $analisis['paginas'],
-                'datos_detectados' => $analisis['datos'],
-                'advertencias' => $analisis['advertencias'],
-            ]);
+            });
         } catch (Throwable $e) {
             Log::warning('division_historico: no se pudo dividir el expediente histórico.', ['expediente_historico_id' => $historico->id, 'division_id' => $division->id, 'error' => $e->getMessage()]);
+
+            // El NAS no se revierte con la transacción: una copia física que
+            // alcanzó a escribirse queda huérfana. No se borra (es evidencia);
+            // se registra para reconciliación manual. La BD sí quedó limpia.
+            if ($copiasEnNas !== []) {
+                Log::warning('division_historico: copias en NAS posiblemente huérfanas tras el fallo (no se borran).', ['division_id' => $division->id, 'copias' => $copiasEnNas]);
+            }
+
             $division->update(['estado' => EstadoDivisionHistorico::Fallida->value, 'error_message' => Str::limit($e->getMessage(), 1000)]);
         }
 
         return $division->fresh() ?? $division;
+    }
+
+    /**
+     * FASE A: corta cada parte del PDF, la escribe en NAS (sin sobrescribir) y
+     * la deja lista para aplicarse. No toca la BD de documentos. Las rutas que
+     * va escribiendo se acumulan en $copiasEnNas para poder reconciliar
+     * huérfanas si la FASE B falla.
+     *
+     * @param  AnalisisConPdf  $analisis
+     * @param  list<string>  $copiasEnNas
+     * @return list<PartePreparada>
+     */
+    private function prepararPartes(array $analisis, Colaborador $colaborador, DivisionExpedienteHistorico $division, array &$copiasEnNas): array
+    {
+        $pdf = $analisis['pdf'];
+        $carpeta = sprintf(
+            '%s/%s/%s/%d',
+            $this->storage->asignarRutaBaseColaborador($colaborador),
+            $this->storage->sanitizarSegmento((string) config('expedientes.migracion_inicial.carpeta_historico', 'Historico')),
+            $this->storage->sanitizarSegmento((string) config('expedientes.division_historico.carpeta_partes', 'Division por checklist')),
+            $division->id,
+        );
+        $tipos = $this->tiposChecklist()->keyBy('id');
+        $preparadas = [];
+
+        foreach ($analisis['partes'] as $orden => $plan) {
+            $bytes = $this->cortador->extraer($pdf, $plan['paginas']);
+            $nombre = sprintf('%02d - %s (p. %s).pdf', $orden + 1, $plan['tipo_nombre'] ?? 'Sin clasificar', ParteDivisionHistorico::formatearRango($plan['paginas']));
+            $ruta = $carpeta.'/'.$this->storage->sanitizarSegmento($nombre);
+            $this->escribirSinSobrescribir($ruta, $bytes);
+            $copiasEnNas[] = $ruta;
+
+            $preparadas[] = [
+                'orden' => $orden + 1,
+                'plan' => $plan,
+                'tipo' => $plan['tipo_id'] !== null ? $tipos->get($plan['tipo_id']) : null,
+                'bytes' => $bytes,
+                'ruta' => $ruta,
+                'hash' => hash('sha256', $bytes),
+                'size' => strlen($bytes),
+            ];
+        }
+
+        return $preparadas;
+    }
+
+    /**
+     * FASE B (dentro de la transacción): carga una parte al checklist si
+     * corresponde y crea su ParteDivisionHistorico. El EmployeeDocument de
+     * cargarAlChecklist y esta fila nacen en la misma transacción externa: si
+     * el create de la parte falla, el rollback revierte también el documento.
+     *
+     * @param  PartePreparada  $preparada
+     */
+    private function aplicarParte(array $preparada, Colaborador $colaborador, User $usuario, DivisionExpedienteHistorico $division): void
+    {
+        $plan = $preparada['plan'];
+        $tipo = $preparada['tipo'];
+        $documento = null;
+        $estadoParte = $plan['accion'];
+
+        // Se vuelve a revisar justo antes de cargar: otra parte o RH pudo
+        // cubrir el tipo mientras tanto.
+        if ($tipo !== null && $estadoParte === EstadoParteDivision::Asignada) {
+            if ($this->tipoCubierto($colaborador, $tipo)) {
+                $estadoParte = EstadoParteDivision::YaCubierta;
+            } else {
+                $documento = $this->cargarAlChecklist($colaborador, $tipo, $preparada['bytes'], $plan['paginas'], $usuario);
+            }
+        }
+
+        ParteDivisionHistorico::query()->create([
+            'division_id' => $division->id,
+            'document_type_id' => $tipo?->id,
+            'orden' => $preparada['orden'],
+            'paginas' => $plan['paginas'],
+            'confianza' => $plan['confianza'],
+            'estado' => $estadoParte->value,
+            'disk' => (string) config('expedientes.disk'),
+            'path' => $preparada['ruta'],
+            'hash' => $preparada['hash'],
+            'size' => $preparada['size'],
+            'employee_document_id' => $documento?->id,
+            'asignado_por' => $documento !== null ? $usuario->id : null,
+            'asignado_en' => $documento !== null ? now() : null,
+        ]);
     }
 
     /**

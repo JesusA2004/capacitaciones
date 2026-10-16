@@ -844,8 +844,10 @@ class CicloLaboralService
 
     /**
      * Paso físico siguiente que el gerente/corporativo puede registrar sobre
-     * un documento laboral. El original recibido se escanea al expediente
-     * antes de archivarse (FlujoDocumentalService::archivar exige Escaneado).
+     * un documento laboral. El flujo nuevo concluye al marcar la firma física
+     * (FirmadoFisicamente es final): el original firmado se resguarda en papel,
+     * ya no se envía a corporativo ni se escanea. El estado Escaneado solo
+     * aparece en expedientes legacy, que todavía pueden archivarse.
      *
      * @return list<string>
      */
@@ -854,9 +856,6 @@ class CicloLaboralService
         return match ($estado) {
             EstadoFlujoDocumento::PendienteImpresion => ['imprimir'],
             EstadoFlujoDocumento::Impreso, EstadoFlujoDocumento::PendienteFirmaFisica => ['firma_fisica'],
-            EstadoFlujoDocumento::FirmadoFisicamente => ['envio'],
-            EstadoFlujoDocumento::EnviadoCorporativo => ['recepcion'],
-            EstadoFlujoDocumento::RecibidoCorporativo => ['escaneo'],
             EstadoFlujoDocumento::Escaneado => ['archivar'],
             default => [],
         };

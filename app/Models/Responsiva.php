@@ -23,6 +23,7 @@ use Illuminate\Support\Carbon;
  * @property string $lugar
  * @property Carbon $fecha_entrega
  * @property int $entregado_por
+ * @property int|null $registrado_por
  * @property string|null $observaciones
  * @property array<string, mixed> $snapshot
  * @property EstadoResponsiva $estado
@@ -30,6 +31,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $firmada_path
  * @property Carbon|null $firmada_subida_en
  * @property int|null $firmada_subida_por
+ * @property Carbon|null $firmada_fisicamente_en
+ * @property int|null $firmada_fisicamente_por
  * @property Carbon|null $devuelta_en
  * @property string|null $observaciones_devolucion
  * @property int|null $devolucion_registrada_por
@@ -39,16 +42,23 @@ use Illuminate\Support\Carbon;
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property-read Colaborador $colaborador
- * @property-read User $entregadoPor
+ * @property-read User $entregadoPor  Responsable de entrega: quien realmente entregó el equipo.
+ * @property-read User|null $registradoPor  Quien capturó la responsiva en PEOPLE.
  * @property-read Collection<int, ResponsivaActivo> $activos
+ *
+ * Semántica entregado_por vs registrado_por (nueva regla):
+ *  - entregado_por = responsable de entrega (la persona que entregó el equipo).
+ *  - registrado_por = usuario que capturó la responsiva en el sistema.
+ * Cuando quien captura entrega él mismo (gerente), ambos coinciden; cuando RH
+ * captura por otro, registrado_por es RH y entregado_por el responsable real.
  */
 class Responsiva extends Model
 {
     protected $table = 'responsivas';
 
     protected $fillable = [
-        'folio', 'colaborador_id', 'tipo', 'lugar', 'fecha_entrega', 'entregado_por', 'observaciones', 'snapshot', 'estado',
-        'pdf_path', 'firmada_path', 'firmada_subida_en', 'firmada_subida_por',
+        'folio', 'colaborador_id', 'tipo', 'lugar', 'fecha_entrega', 'entregado_por', 'registrado_por', 'observaciones', 'snapshot', 'estado',
+        'pdf_path', 'firmada_path', 'firmada_subida_en', 'firmada_subida_por', 'firmada_fisicamente_en', 'firmada_fisicamente_por',
         'devuelta_en', 'observaciones_devolucion', 'devolucion_registrada_por',
         'cancelada_en', 'cancelada_por', 'motivo_cancelacion',
     ];
@@ -61,6 +71,7 @@ class Responsiva extends Model
             'fecha_entrega' => 'date',
             'snapshot' => 'array',
             'firmada_subida_en' => 'datetime',
+            'firmada_fisicamente_en' => 'datetime',
             'devuelta_en' => 'date',
             'cancelada_en' => 'datetime',
         ];
@@ -75,11 +86,23 @@ class Responsiva extends Model
     }
 
     /**
+     * Responsable de entrega: la persona que realmente entregó el equipo.
+     *
      * @return BelongsTo<User, $this>
      */
     public function entregadoPor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'entregado_por');
+    }
+
+    /**
+     * Quien capturó la responsiva en PEOPLE (puede diferir de quien entregó).
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function registradoPor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'registrado_por');
     }
 
     /**

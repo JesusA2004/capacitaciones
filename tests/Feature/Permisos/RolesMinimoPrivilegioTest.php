@@ -114,6 +114,103 @@ test('la migración no hace nada si el rol no existe', function () {
     expect(Role::query()->where('name', 'coordinadora')->exists())->toBeFalse();
 });
 
+/*
+ * Subgerente (2026-10-16): usa PEOPLE como COLABORADOR, EXACTAMENTE igual que
+ * las coordinadoras. Deja de apoyar/cubrir operativamente al gerente. La
+ * migración 2026_10_16_090000 revoca en bases existentes lo que el
+ * sincronizador (no destructivo) nunca quitaría.
+ */
+
+test('el subgerente tiene exactamente los permisos del colaborador', function () {
+    $base = RolesYPermisosSeeder::permisosBasePorRol();
+
+    expect($base['subgerente'])->toEqualCanonicalizing($base['colaborador']);
+});
+
+test('el subgerente recibe 403 en el expediente ajeno (web y API) y ve el suyo en Mi expediente', function () {
+    $subgerente = clUsuario('subgerente', ['sucursal_principal_id' => $this->sucursal->id]);
+    $companero = Colaborador::factory()->create(['sucursal_principal_id' => $this->sucursal->id]);
+
+    $this->actingAs($subgerente)->get(route('rh.expedientes.show', $companero))->assertForbidden();
+    $this->actingAs($subgerente)->get(route('rh.expedientes.index'))->assertForbidden();
+
+    Sanctum::actingAs($subgerente);
+    $this->getJson("/api/v1/rh/expedientes/{$companero->id}")->assertForbidden();
+    $this->getJson('/api/v1/rh/expedientes')->assertForbidden();
+});
+
+test('el subgerente recibe 403 en las solicitudes y vacaciones de RH (web y API)', function () {
+    $subgerente = clUsuario('subgerente', ['sucursal_principal_id' => $this->sucursal->id]);
+    $otro = clUsuario('colaborador', ['sucursal_principal_id' => $this->sucursal->id]);
+    $solicitud = SolicitudInterna::factory()->create(['user_id' => $otro->id]);
+
+    $this->actingAs($subgerente)->get(route('rh.solicitudes.show', $solicitud))->assertForbidden();
+    $this->actingAs($subgerente)->post(route('rh.solicitudes.aprobar', $solicitud))->assertForbidden();
+
+    Sanctum::actingAs($subgerente);
+    $this->getJson('/api/v1/rh/solicitudes')->assertForbidden();
+    $this->getJson("/api/v1/rh/solicitudes/{$solicitud->id}")->assertForbidden();
+    $this->getJson('/api/v1/rh/vacaciones')->assertForbidden();
+});
+
+test('el bootstrap móvil del subgerente es de colaborador: sin RH ni manager pero sí empleado', function () {
+    Sanctum::actingAs(clUsuario('subgerente', ['sucursal_principal_id' => $this->sucursal->id]));
+
+    $this->getJson('/api/v1/mobile/bootstrap')
+        ->assertOk()
+        ->assertJsonPath('capabilities.employee', true)
+        ->assertJsonPath('capabilities.rh', false)
+        ->assertJsonPath('capabilities.manager', false)
+        ->assertJsonPath('capabilities.director', false);
+});
+
+test('el subgerente puede ver su propio perfil, crear sus solicitudes/vacaciones y leer sus notificaciones', function () {
+    $subgerente = clUsuario('subgerente', ['sucursal_principal_id' => $this->sucursal->id]);
+
+    expect($subgerente->can('portal.perfil.ver'))->toBeTrue()
+        ->and($subgerente->can('portal.solicitudes.crear'))->toBeTrue()
+        ->and($subgerente->can('solicitudes.crear'))->toBeTrue()
+        ->and($subgerente->can('vacaciones.solicitar'))->toBeTrue()
+        ->and($subgerente->can('portal.notificaciones.ver'))->toBeTrue()
+        ->and($subgerente->can('notificaciones.leer_todas'))->toBeTrue();
+});
+
+test('la migración revoca los permisos operativos viejos del subgerente y es idempotente', function () {
+    $viejos = ['expedientes.ver_sucursal', 'solicitudes.revisar', 'solicitudes.aprobar', 'rh.pendientes.ver', 'rh.mobile.dashboard.ver',
+        'usuarios.ver', 'reportes.sucursal', 'cierres.ver', 'dashboard.sucursal.ver'];
+
+    Role::findByName('subgerente')->givePermissionTo($viejos);
+    // Otro rol con un permiso "extra" agregado por un administrador: no se toca.
+    Role::findByName('gerente')->givePermissionTo('reportes.globales');
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+    $subgerente = clUsuario('subgerente', ['sucursal_principal_id' => $this->sucursal->id]);
+    expect($subgerente->can('solicitudes.revisar'))->toBeTrue();
+
+    rmpCorrerMigracion('2026_10_16_090000_subgerente_usa_people_como_colaborador');
+    rmpCorrerMigracion('2026_10_16_090000_subgerente_usa_people_como_colaborador');
+
+    $colaborador = Role::findByName('colaborador')->permissions()->pluck('name')->all();
+    $actuales = Role::findByName('subgerente')->permissions()->pluck('name')->all();
+
+    expect($actuales)->toEqualCanonicalizing($colaborador)
+        ->and(array_intersect($viejos, $actuales))->toBe([]);
+
+    $subgerente = User::query()->where('id', $subgerente->id)->firstOrFail();
+    expect($subgerente->can('solicitudes.revisar'))->toBeFalse()
+        ->and($subgerente->can('portal.ver'))->toBeTrue()
+        ->and(Role::findByName('gerente')->hasPermissionTo('reportes.globales'))->toBeTrue();
+});
+
+test('la migración del subgerente no hace nada si el rol no existe', function () {
+    Role::findByName('subgerente')->delete();
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+    rmpCorrerMigracion('2026_10_16_090000_subgerente_usa_people_como_colaborador');
+
+    expect(Role::query()->where('name', 'subgerente')->exists())->toBeFalse();
+});
+
 test('el auditor solo lee: sin nómina, préstamos ni actas (web y API) y sin escribir', function () {
     $auditor = clUsuario('auditor');
 

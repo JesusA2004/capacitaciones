@@ -372,6 +372,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::post('revisar', [FiniquitoController::class, 'revisar'])->name('revisar');
                 Route::post('generar-pdf', [FiniquitoController::class, 'generarPdf'])->name('generar-pdf');
                 Route::get('descargar-pdf', [FiniquitoController::class, 'descargarPdf'])->name('descargar-pdf');
+                // Flujo vigente: firma en papel sin escaneo.
+                Route::post('firmado-fisico', [FiniquitoController::class, 'marcarFirmadoFisicamente'])->name('firmado-fisico');
+                // LEGACY: subir el escaneo firmado (registros antiguos).
                 Route::post('firmado', [FiniquitoController::class, 'subirFirmado'])->name('firmado');
             });
         });

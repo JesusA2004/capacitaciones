@@ -5,6 +5,7 @@ use App\Models\FiniquitoCalculo;
 use App\Models\OfficialFormat;
 use App\Models\SolicitudInterna;
 use App\Models\User;
+use App\Services\Finiquitos\FiniquitoService;
 use App\Services\Solicitudes\SolicitudesService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Http\UploadedFile;
@@ -224,6 +225,68 @@ test('con FINIQUITO_MOTOR=legado, generarPdf usa el overlay anterior si está ac
     $finiquito = $solicitud->finiquitoCalculo()->first();
     expect($finiquito->documento_generado_path)->not->toBeNull();
     Storage::disk('nas')->assertExists($finiquito->documento_generado_path);
+});
+
+test('marcar firmado físicamente lleva a Firmado sin archivo, registra quién/cuándo y habilita confirmar pago', function () {
+    $solicitud = crearSolicitudBaja();
+    $this->actingAs($this->rh)->post(route('rh.solicitudes.finiquito.calcular', $solicitud), ['sueldo_mensual' => 15000]);
+
+    $finiquito = $solicitud->finiquitoCalculo()->first();
+    // El flujo nuevo exige que el cálculo ya esté aprobado (revisado + baja aprobada).
+    $finiquito->update(['estado' => 'aprobado']);
+
+    $this->actingAs($this->rh)
+        ->post(route('rh.solicitudes.finiquito.firmado-fisico', $solicitud), ['observacion' => 'Firmado en oficina ante RH.'])
+        ->assertSessionHasNoErrors();
+
+    $finiquito->refresh();
+
+    expect($finiquito->estado->value)->toBe('firmado')
+        ->and($finiquito->documento_firmado_path)->toBeNull()
+        ->and($finiquito->firmado_fisicamente_en)->not->toBeNull()
+        ->and($finiquito->firmado_fisicamente_por)->toBe($this->rh->id);
+
+    // Auditoría en el historial de la solicitud (actor + observación).
+    $historial = $solicitud->historial()->where('accion', 'finiquito_firmado_fisicamente')->first();
+    expect($historial)->not->toBeNull()
+        ->and($historial->user_id)->toBe($this->rh->id)
+        ->and($historial->comentario)->toBe('Firmado en oficina ante RH.');
+
+    // Firmado = inmutable: ya no acepta ajustes.
+    $this->actingAs($this->rh)
+        ->put(route('rh.solicitudes.finiquito.ajustes', $solicitud), ['bonos_extra' => 500])
+        ->assertForbidden();
+
+    // Solo entonces se puede confirmar el pago.
+    $pagado = app(FiniquitoService::class)->confirmarPago($finiquito, $this->rh, 'REF-001');
+    expect($pagado->estado->value)->toBe('pagado');
+});
+
+test('no se puede marcar firmado físicamente si el cálculo no está aprobado', function () {
+    $solicitud = crearSolicitudBaja();
+    $this->actingAs($this->rh)->post(route('rh.solicitudes.finiquito.calcular', $solicitud), ['sueldo_mensual' => 15000]);
+
+    // Recién calculado: estado borrador.
+    $this->actingAs($this->rh)
+        ->post(route('rh.solicitudes.finiquito.firmado-fisico', $solicitud))
+        ->assertSessionHasErrors('estado');
+
+    expect($solicitud->finiquitoCalculo()->first()->estado->value)->toBe('borrador');
+});
+
+test('un finiquito legacy con escaneo firmado (documento_firmado_path) sigue siendo descargable', function () {
+    $solicitud = crearSolicitudBaja();
+    $this->actingAs($this->rh)->post(route('rh.solicitudes.finiquito.calcular', $solicitud), ['sueldo_mensual' => 15000]);
+    $finiquito = $solicitud->finiquitoCalculo()->first();
+
+    // Registro histórico: se firmó con la vía anterior (escaneo subido).
+    $ruta = sprintf('solicitudes/%d/finiquito/firmado-legacy.pdf', $solicitud->id);
+    Storage::disk('nas')->put($ruta, crearPdfPruebaFiniquito());
+    $finiquito->update(['estado' => 'firmado', 'documento_firmado_path' => $ruta]);
+
+    $this->actingAs($this->rh)
+        ->get(route('rh.solicitudes.finiquito.descargar-pdf', $solicitud))
+        ->assertOk();
 });
 
 test('el finiquito no se calcula dos veces para la misma solicitud', function () {

@@ -78,6 +78,27 @@ class ResponsivaController extends Controller
         return $this->responsivas->respuestaPdf($responsiva, firmada: true);
     }
 
+    /**
+     * Flujo vigente: la responsiva se imprime y se firma en papel; se marca
+     * «firmada físicamente» sin subir ningún archivo (solo queda constancia
+     * de quién y cuándo). subirFirmada() se conserva como legacy de lectura.
+     */
+    public function marcarFirmadaFisicamente(Request $request, Responsiva $responsiva): JsonResponse
+    {
+        $this->authorize('operar', $responsiva);
+
+        $responsiva = $this->responsivas->marcarFirmadaFisicamente($responsiva, $request->user());
+
+        return response()->json([
+            'message' => sprintf('Responsiva %s marcada como firmada físicamente.', $responsiva->folio),
+            'responsiva' => $this->responsivas->presentar($responsiva->load(['activos', 'entregadoPor:id,name,apellidos,colaborador_id', 'entregadoPor.colaborador', 'registradoPor:id,name,apellidos,colaborador_id', 'registradoPor.colaborador']), $request->user()),
+        ]);
+    }
+
+    /**
+     * LEGACY (solo lectura en el flujo nuevo): subir el escaneo de la
+     * responsiva firmada. Se conserva para los registros antiguos.
+     */
     public function subirFirmada(Request $request, Responsiva $responsiva): JsonResponse
     {
         $this->authorize('operar', $responsiva);
@@ -91,7 +112,7 @@ class ResponsivaController extends Controller
 
         return response()->json([
             'message' => sprintf('Se guardó la responsiva %s firmada en el expediente.', $responsiva->folio),
-            'responsiva' => $this->responsivas->presentar($responsiva->load(['activos', 'entregadoPor:id,name,apellidos']), $request->user()),
+            'responsiva' => $this->responsivas->presentar($responsiva->load(['activos', 'entregadoPor:id,name,apellidos,colaborador_id', 'entregadoPor.colaborador', 'registradoPor:id,name,apellidos,colaborador_id', 'registradoPor.colaborador']), $request->user()),
         ]);
     }
 
@@ -107,7 +128,7 @@ class ResponsivaController extends Controller
 
         return response()->json([
             'message' => sprintf('Se registró la devolución del equipo de la responsiva %s.', $responsiva->folio),
-            'responsiva' => $this->responsivas->presentar($responsiva->load(['activos', 'entregadoPor:id,name,apellidos']), $request->user()),
+            'responsiva' => $this->responsivas->presentar($responsiva->load(['activos', 'entregadoPor:id,name,apellidos,colaborador_id', 'entregadoPor.colaborador', 'registradoPor:id,name,apellidos,colaborador_id', 'registradoPor.colaborador']), $request->user()),
         ]);
     }
 
@@ -122,7 +143,7 @@ class ResponsivaController extends Controller
 
         return response()->json([
             'message' => sprintf('Responsiva %s cancelada.', $responsiva->folio),
-            'responsiva' => $this->responsivas->presentar($responsiva->load(['activos', 'entregadoPor:id,name,apellidos']), $request->user()),
+            'responsiva' => $this->responsivas->presentar($responsiva->load(['activos', 'entregadoPor:id,name,apellidos,colaborador_id', 'entregadoPor.colaborador', 'registradoPor:id,name,apellidos,colaborador_id', 'registradoPor.colaborador']), $request->user()),
         ]);
     }
 }

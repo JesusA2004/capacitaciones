@@ -442,8 +442,10 @@ class ActaService
     /**
      * Lo que impide cerrar el acta (null = se puede). Acta circunstanciada:
      * borrador → definitiva generada → firmada físicamente o con negativa a
-     * firmar asentada → original escaneado/archivado en el expediente →
-     * entrega de copia registrada (entregada o «no fue posible») → cerrada.
+     * firmar asentada → entrega de copia registrada (entregada o «no fue
+     * posible») → cerrada. El acta firmada en papel se resguarda físicamente:
+     * cerrar ya NO exige escaneo (los expedientes legacy que tienen el estado
+     * Escaneado/Archivado siguen cumpliendo con firmaFisicaRegistrada()).
      * Actas históricas (formato null): definitiva y firmada, en estado
      * «Firmada» o con negativa asentada (no tenían constancia de entrega).
      */
@@ -475,10 +477,6 @@ class ActaService
 
         if (! $estadoDocumento->firmaFisicaRegistrada() && ! $acta->negativa_firma) {
             return 'Registra la firma física del acta impresa o asienta la negativa a firmar antes de cerrarla.';
-        }
-
-        if (! in_array($estadoDocumento, [EstadoFlujoDocumento::Escaneado, EstadoFlujoDocumento::Archivado], true)) {
-            return 'Sube el escaneo del acta firmada al expediente antes de cerrarla.';
         }
 
         if (! in_array($acta->circunstanciada['entrega']['estado'] ?? null, ['entregada', 'no_posible'], true)) {
