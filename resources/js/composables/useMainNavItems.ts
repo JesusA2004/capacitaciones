@@ -267,8 +267,12 @@ export function useMainNavItems() {
                 },
             ]),
             grupo('Personal', [
+                // Mismo criterio que AlcanceOrganizacionalService::puedeExplorarExpedientes
+                // (el jefe directo entra con alcance «Equipo»).
                 (tienePermiso('expedientes.ver_todos') ||
-                    tienePermiso('expedientes.ver_sucursal')) && {
+                    tienePermiso('expedientes.ver_region') ||
+                    tienePermiso('expedientes.ver_sucursal') ||
+                    tienePermiso('expedientes.ver_equipo')) && {
                     title: 'Expedientes',
                     href: indexExpedientes(),
                     icon: FolderKanban,

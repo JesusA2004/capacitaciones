@@ -273,14 +273,20 @@ class AlcanceOrganizacionalService
 
     /**
      * Criterio único para entrar al explorador de expedientes ajenos (web y
-     * API móvil de RH): alcance «Todos» o «Sucursal» del módulo
-     * Expedientes. La API acepta además sus permisos rh.expedientes.* por
-     * compatibilidad con la app; el ALCANCE de los datos siempre es el del
-     * módulo (limitarExpedientesPorAlcance / puedeVerExpediente).
+     * API móvil de RH): cualquier alcance distinto de «Propios» del módulo
+     * Expedientes (Todos, Región, Sucursal o Equipo). El jefe directo entra
+     * con alcance «Equipo» para llegar a la persona de su equipo (Ciclo
+     * laboral → «Iniciar baja»). La API acepta además sus permisos
+     * rh.expedientes.* por compatibilidad con la app; el ALCANCE de los
+     * datos siempre es el del módulo (limitarExpedientesPorAlcance /
+     * puedeVerExpediente).
      */
     public function puedeExplorarExpedientes(User $usuario): bool
     {
-        return $usuario->can('expedientes.ver_todos') || $usuario->can('expedientes.ver_sucursal');
+        return $usuario->can('expedientes.ver_todos')
+            || $usuario->can('expedientes.ver_region')
+            || $usuario->can('expedientes.ver_sucursal')
+            || $usuario->can('expedientes.ver_equipo');
     }
 
     /**

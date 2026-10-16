@@ -435,7 +435,7 @@ class DocumentoProcesoService
             }
         }
 
-        $items[] = $this->itemFiniquito($cierre);
+        $items[] = $this->itemFiniquito($cierre, $viewer);
         $acciones = [];
         $rh = $viewer->can('cierres.gestionar') || $viewer->can('documentos_laborales.generar');
         $entregables = $this->clavesCausa($cierre) !== [];
@@ -1349,11 +1349,12 @@ class DocumentoProcesoService
      *
      * @return array<string, mixed>
      */
-    private function itemFiniquito(CierreLaboral $cierre): array
+    private function itemFiniquito(CierreLaboral $cierre, User $viewer): array
     {
         $finiquito = $cierre->solicitud_interna_id !== null ? FiniquitoCalculo::query()->where('solicitud_interna_id', $cierre->solicitud_interna_id)->first() : null;
         $estado = $finiquito?->estado;
         $entregado = in_array($estado, [EstadoFiniquito::Firmado, EstadoFiniquito::Pagado], true);
+        $puedeCalcular = $viewer->can('finiquitos.calcular');
 
         return [
             'clave' => 'finiquito',
@@ -1375,9 +1376,11 @@ class DocumentoProcesoService
             'historial' => [],
             'linea_tiempo' => [],
             'siguiente_accion' => null,
+            // Calcular/editar solo quien calcula finiquitos (RH); el jefe que
+            // inició la baja ve el estado, sin un botón que le daría 403.
             'acciones' => match (true) {
-                $finiquito === null => [['clave' => 'calcular_finiquito', 'etiqueta' => 'Calcular finiquito', 'tipo' => 'primaria']],
-                $entregado => [['clave' => 'ver_finiquito', 'etiqueta' => 'Ver finiquito', 'tipo' => 'primaria']],
+                $finiquito === null => $puedeCalcular ? [['clave' => 'calcular_finiquito', 'etiqueta' => 'Calcular finiquito', 'tipo' => 'primaria']] : [],
+                $entregado || ! $puedeCalcular => [['clave' => 'ver_finiquito', 'etiqueta' => 'Ver finiquito', 'tipo' => 'primaria']],
                 default => [['clave' => 'ver_finiquito', 'etiqueta' => 'Ver / editar finiquito', 'tipo' => 'primaria']],
             },
         ];

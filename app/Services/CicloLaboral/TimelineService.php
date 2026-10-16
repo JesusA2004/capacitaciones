@@ -5,6 +5,7 @@ namespace App\Services\CicloLaboral;
 use App\Enums\EstadoCandidato;
 use App\Enums\ProcesoAprobacion;
 use App\Enums\RutaIntervencionCandidato;
+use App\Enums\TipoBaja;
 use App\Models\AjusteHistoricoVacaciones;
 use App\Models\Candidato;
 use App\Models\Colaborador;
@@ -328,7 +329,9 @@ class TimelineService
     {
         foreach (['motivo', 'comentario', 'tipo_baja', 'referencia'] as $clave) {
             if (isset($p[$clave]) && is_string($p[$clave]) && $p[$clave] !== '') {
-                return $p[$clave];
+                // La causa se guarda como clave del enum («baja_inmediata»): se
+                // muestra su etiqueta en español.
+                return $clave === 'tipo_baja' ? (TipoBaja::tryFrom($p[$clave])?->etiqueta() ?? $p[$clave]) : $p[$clave];
             }
         }
 

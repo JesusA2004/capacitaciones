@@ -783,7 +783,6 @@ class CierreLaboralService
 
         $acciones = [];
         $rh = $usuario->can(self::PERMISO_GESTIONAR);
-        $operacion = $rh || $usuario->can(self::PERMISO_SOLICITAR);
 
         // La baja se aplica al iniciarla: no hay acciones de preautorizar,
         // autorizar, devolver ni reenviar (Solicitado/PendienteRh solo
@@ -792,32 +791,17 @@ class CierreLaboralService
             case EstadoCierreLaboral::Iniciado:
             case EstadoCierreLaboral::AvisoRegistrado:
             case EstadoCierreLaboral::FiniquitoEnProceso:
-                // La renuncia / el aviso de terminación los genera el sistema y su
-                // firma se registra en «Documentos de la baja» (sin subir archivo).
-                // Solo una causa sin documento del sistema registra un aviso externo.
-                if ($operacion && $cierre->aviso_registrado_en === null && $this->documentosProceso->clavesCausa($cierre) === []) {
-                    $acciones[] = ['clave' => 'registrar_aviso', 'etiqueta' => 'Registrar aviso firmado', 'tipo' => 'secundaria'];
-                }
-                $acciones = [...$acciones, ...$this->accionesFiniquito($cierre, $usuario)];
-                break;
-                // Flujo anterior (finiquito autorizado / pago programado /
-                // firmado): RH puede registrar la entrega y cerrar de una vez.
             case EstadoCierreLaboral::FiniquitoAutorizado:
-                $acciones = [...$acciones, ...$this->accionesFiniquito($cierre, $usuario)];
-                if ($usuario->can(self::PERMISO_PROGRAMAR_PAGO)) {
-                    $acciones[] = ['clave' => 'programar_pago', 'etiqueta' => 'Programar pago', 'tipo' => 'secundaria'];
-                }
-                break;
             case EstadoCierreLaboral::PagoProgramado:
             case EstadoCierreLaboral::FiniquitoFirmado:
+                // Nada se sube: la renuncia / el aviso de terminación los
+                // genera el sistema y su firma se registra en «Documentos de
+                // la baja»; las causas sin documento del sistema pasan directo
+                // al finiquito. RH lo calcula/ajusta y registra su entrega,
+                // que cierra el cierre (también los que venían del flujo
+                // anterior con finiquito autorizado / pago programado /
+                // firmado): no hay autorizar, programar pago ni cita.
                 $acciones = [...$acciones, ...$this->accionesFiniquito($cierre, $usuario)];
-                if ($operacion) {
-                    $acciones[] = ['clave' => 'registrar_cita', 'etiqueta' => 'Registrar cita', 'tipo' => 'secundaria'];
-                    if ($cierre->estado === EstadoCierreLaboral::PagoProgramado) {
-                        $acciones[] = ['clave' => 'finiquito_firmado', 'etiqueta' => 'Registrar firma y huella', 'tipo' => 'primaria'];
-                    }
-                    $acciones[] = ['clave' => 'confirmar_pago', 'etiqueta' => 'Confirmar pago', 'tipo' => 'primaria'];
-                }
                 break;
             case EstadoCierreLaboral::Pagado:
             case EstadoCierreLaboral::BajaEjecutada:
@@ -901,7 +885,7 @@ class CierreLaboralService
                 : $this->finiquitos->desglose($finiquito);
             $datosFiniquito += [
                 'estado_etiqueta' => $entregado ? 'Entregado' : 'Calculado · editable hasta la entrega',
-                'editable' => ! $entregado,
+                'editable' => ! $entregado && $viewer?->can('finiquitos.calcular') === true,
                 'fecha_calculo' => $finiquito->fecha_calculo->toIso8601String(),
                 'calculado_por' => $finiquito->calculadoPor?->nombreCompleto(),
                 'fecha_ingreso' => $finiquito->fecha_ingreso->toDateString(),
