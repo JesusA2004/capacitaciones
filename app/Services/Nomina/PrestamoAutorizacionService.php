@@ -2,7 +2,6 @@
 
 namespace App\Services\Nomina;
 
-use App\Enums\EstadoFlujoDocumento;
 use App\Enums\PrioridadTarea;
 use App\Enums\TipoSolicitudInterna;
 use App\Enums\TipoTarea;
@@ -13,6 +12,7 @@ use App\Models\SolicitudInterna;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\Contratos\ContratoLaboralService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Solicitudes\AprobacionJerarquicaService;
 use App\Services\Solicitudes\SolicitudesService;
@@ -48,6 +48,7 @@ class PrestamoAutorizacionService
         private readonly NotificadorRhService $notificador,
         private readonly AuditoriaService $auditoria,
         private readonly AlcanceOrganizacionalService $alcance,
+        private readonly ContratoLaboralService $contratos,
     ) {}
 
     /**
@@ -283,10 +284,16 @@ class PrestamoAutorizacionService
         return $datos;
     }
 
+    /**
+     * Para el resguardo, cada documento se evalúa SEGÚN SU PROPIO FLUJO: el
+     * pagaré/contrato que requiere firma física (instrumento legal) exige el
+     * original firmado; el que solo requiere firma digital, basta con esa. No
+     * se usa estaFirmado() como gate: un documento meramente impreso NO está
+     * firmado. Se delega en el criterio canónico de ContratoLaboralService
+     * para no duplicar la regla entre dominios.
+     */
     private function firmado(?GeneratedDocument $documento): bool
     {
-        $estado = $documento?->estado_flujo;
-
-        return $estado instanceof EstadoFlujoDocumento && $estado->estaFirmado();
+        return $documento !== null && $this->contratos->documentoFirmadoSegunFlujo($documento);
     }
 }

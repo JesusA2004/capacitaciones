@@ -140,11 +140,13 @@ class CompensacionService
             $diarioAnterior = $colaborador->salario_diario !== null ? (float) $colaborador->salario_diario : null;
             $integradoAnterior = $colaborador->salario_diario_integrado !== null ? (float) $colaborador->salario_diario_integrado : null;
 
-            $colaborador->update([
+            // forceFill: los importes salariales quedan fuera del fillable
+            // (defensa en profundidad); el cambio de sueldo SOLO pasa por aquí.
+            $colaborador->forceFill([
                 'salario_diario' => $nuevoDiario,
                 'salario_diario_integrado' => $nuevoIntegrado ?? $colaborador->salario_diario_integrado,
                 'sueldo_mensual' => $this->mensual($nuevoDiario),
-            ]);
+            ])->save();
 
             $historial = HistorialSalario::query()->create([
                 'colaborador_id' => $colaborador->id,

@@ -814,11 +814,19 @@ class RolesYPermisosSeeder extends Seeder
         ],
 
         // Sistemas: administra la plataforma (cuentas, roles, releases de la
-        // app, auditoría) y tiene LECTURA GLOBAL para soporte y diagnóstico
-        // (alcance «todos» en cada módulo que puede ver). Ver todo ≠ aprobar
-        // todo: no recibe ninguna acción de decisión de RH (aprobar
-        // vacaciones/candidatos/préstamos, autorizar RH, ejecutar bajas) ni
-        // datos médicos. Sin dashboard.global.ver no tenía modo operativo.
+        // app, auditoría) y ve ESTADO/METADATA de los módulos para soporte y
+        // diagnóstico — NUNCA el CONTENIDO sensible de RH (hallazgo de
+        // auditoría 2026-10-16, mínimo privilegio). El soporte técnico ve
+        // conteos, completitud, listas y señales de estado, pero NO el
+        // expediente con PII (curp/rfc/nss/sueldo), ni documentos laborales,
+        // contratos, actas, recibos de nómina, finiquitos o formatos
+        // oficiales. Por eso se le QUITARON: expedientes.ver (Show con PII),
+        // documentos.ver, documentos_laborales.ver, contratos.ver, actas.ver,
+        // nomina.recibos.ver, finiquitos.ver, formatos_oficiales.ver y, en la
+        // app, rh.expedientes.detalle, rh.expedientes.documentos.ver y
+        // rh.documentos.detalle. Ver todo ≠ aprobar todo: tampoco recibe
+        // ninguna acción de decisión de RH ni datos médicos. La migración
+        // 2026_10_16_1100xx revoca esos permisos en bases existentes.
         'sistemas' => [
             'directorio.contactos.ver_todos',
             'dashboard.global.ver',
@@ -829,19 +837,25 @@ class RolesYPermisosSeeder extends Seeder
             'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
             'notificaciones.leer_todas',
             'configuracion.ver',
-            // Lectura de los módulos PEOPLE/RH (el alcance «todos» se agrega
-            // desde config/permisos_modulos.php → alcance_por_rol).
-            'expedientes.ver', 'documentos.ver', 'solicitudes.ver', 'vacaciones.ver', 'prestamos.ver', 'actas.ver',
-            'documentos_laborales.ver', 'contratos.ver', 'evaluaciones.ver', 'candidatos.ver', 'vacantes.ver',
-            'nomina.recibos.ver', 'finiquitos.ver', 'cierres.ver', 'onboarding.ver', 'altas.ver',
+            // Estado/metadata de los módulos PEOPLE/RH para soporte técnico (el
+            // alcance «todos» de config/permisos_modulos.php solo aplica a los
+            // permisos que conserva). NO incluye el CONTENIDO sensible
+            // (expedientes/documentos/contratos/actas/recibos/finiquitos):
+            // esos permisos se retiraron arriba por mínimo privilegio.
+            'solicitudes.ver', 'vacaciones.ver', 'prestamos.ver',
+            'evaluaciones.ver', 'candidatos.ver', 'vacantes.ver',
+            'cierres.ver', 'onboarding.ver', 'altas.ver',
             'empresas.ver', 'headcount.ver', 'organigrama.ver', 'perfiles_puesto.ver', 'indicadores.ver',
             'reportes_rh.ver', 'reportes_rh.globales', 'rotacion.ver', 'reclutamiento.campanas.ver', 'celebraciones.ver',
-            'formatos.ver', 'formatos.preview', 'formatos_oficiales.ver', 'plantillas.ver', 'plantillas_documentales.ver',
-            // Consulta (sin acciones) también desde la app.
+            'formatos.ver', 'formatos.preview', 'plantillas.ver', 'plantillas_documentales.ver',
+            // Consulta de ESTADO (sin contenido ni PII) también desde la app:
+            // listas/conteos de expedientes y documentos por revisar, pero NO
+            // el detalle con PII (rh.expedientes.detalle) ni el archivo del
+            // documento (rh.expedientes.documentos.ver / rh.documentos.detalle).
             'rh.mobile.dashboard.ver', 'rh.pendientes.ver',
-            'rh.expedientes.ver', 'rh.expedientes.detalle', 'rh.expedientes.documentos.ver',
+            'rh.expedientes.ver',
             'rh.solicitudes.ver', 'rh.solicitudes.detalle', 'rh.vacaciones.ver', 'rh.vacaciones.detalle',
-            'rh.documentos.ver', 'rh.documentos.detalle', 'rh.incorporaciones.ver', 'rh.incorporaciones.detalle',
+            'rh.documentos.ver', 'rh.incorporaciones.ver', 'rh.incorporaciones.detalle',
             'rh.colaboradores.ver', 'rh.colaboradores.detalle', 'rh.cumpleanos.ver', 'rh.cumpleanos.calendario',
             'avisos.ver',
         ],

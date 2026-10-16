@@ -12,7 +12,6 @@ use App\Services\Responsivas\ResponsivaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Http\UploadedFile;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -81,7 +80,8 @@ class ResponsivaController extends Controller
     /**
      * Flujo vigente: la responsiva se imprime y se firma en papel; se marca
      * «firmada físicamente» sin subir ningún archivo (solo queda constancia
-     * de quién y cuándo). subirFirmada() se conserva como legacy de lectura.
+     * de quién y cuándo). El escaneo firmado ya no se sube; firmada() sigue
+     * sirviendo el archivo de los registros antiguos (legacy, solo lectura).
      */
     public function marcarFirmadaFisicamente(Request $request, Responsiva $responsiva): JsonResponse
     {
@@ -91,27 +91,6 @@ class ResponsivaController extends Controller
 
         return response()->json([
             'message' => sprintf('Responsiva %s marcada como firmada físicamente.', $responsiva->folio),
-            'responsiva' => $this->responsivas->presentar($responsiva->load(['activos', 'entregadoPor:id,name,apellidos,colaborador_id', 'entregadoPor.colaborador', 'registradoPor:id,name,apellidos,colaborador_id', 'registradoPor.colaborador']), $request->user()),
-        ]);
-    }
-
-    /**
-     * LEGACY (solo lectura en el flujo nuevo): subir el escaneo de la
-     * responsiva firmada. Se conserva para los registros antiguos.
-     */
-    public function subirFirmada(Request $request, Responsiva $responsiva): JsonResponse
-    {
-        $this->authorize('operar', $responsiva);
-        $datos = $request->validate([
-            'archivo' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:'.((int) config('expedientes.max_upload_mb', 20) * 1024)],
-        ], [], ['archivo' => 'responsiva firmada']);
-
-        /** @var UploadedFile $archivo */
-        $archivo = $datos['archivo'];
-        $responsiva = $this->responsivas->subirFirmada($responsiva, $archivo, $request->user());
-
-        return response()->json([
-            'message' => sprintf('Se guardó la responsiva %s firmada en el expediente.', $responsiva->folio),
             'responsiva' => $this->responsivas->presentar($responsiva->load(['activos', 'entregadoPor:id,name,apellidos,colaborador_id', 'entregadoPor.colaborador', 'registradoPor:id,name,apellidos,colaborador_id', 'registradoPor.colaborador']), $request->user()),
         ]);
     }

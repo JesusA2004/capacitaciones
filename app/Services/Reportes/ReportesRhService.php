@@ -62,15 +62,13 @@ class ReportesRhService
                 ['value' => 'empleados_por_puesto', 'label' => 'Empleados por puesto'],
                 ['value' => 'empleados_por_genero', 'label' => 'Hombres y mujeres (general)'],
                 ['value' => 'genero_por_sucursal', 'label' => 'Hombres y mujeres por sucursal'],
-                ['value' => 'empleados_por_genero', 'label' => 'Hombres y mujeres (general)'],
-                ['value' => 'genero_por_sucursal', 'label' => 'Hombres y mujeres por sucursal'],
                 ['value' => 'empleados_imss', 'label' => 'Empleados con/sin IMSS'],
                 ['value' => 'empleados_periodo_prueba', 'label' => 'Empleados en periodo de prueba'],
             ]],
             ['grupo' => 'Altas y bajas', 'opciones' => [
                 ['value' => 'altas_por_mes', 'label' => 'Altas por mes'],
                 ['value' => 'bajas_por_mes', 'label' => 'Bajas por mes'],
-                ['value' => 'rotacion', 'label' => 'Rotación (altas vs. bajas)'],
+                ['value' => 'movimientos_altas_bajas', 'label' => 'Movimientos de personal: altas y bajas'],
             ]],
             ['grupo' => 'Reclutamiento', 'opciones' => [
                 ['value' => 'vacantes_abiertas', 'label' => 'Vacantes abiertas'],
@@ -114,7 +112,7 @@ class ReportesRhService
             'empleados_periodo_prueba' => $this->empleadosPeriodoPrueba($usuario, $filtros),
             'altas_por_mes' => $this->altasPorMes($usuario, $filtros),
             'bajas_por_mes' => $this->bajasPorMes($usuario, $filtros),
-            'rotacion' => $this->rotacion($usuario, $filtros),
+            'movimientos_altas_bajas' => $this->movimientosAltasBajas($usuario, $filtros),
             'vacantes_abiertas' => $this->vacantesPorEstado($usuario, $filtros, null, 'Vacantes abiertas'),
             'vacantes_cubiertas' => $this->vacantesPorEstado($usuario, $filtros, EstadoVacante::Cubierta, 'Vacantes cubiertas'),
             'candidatos_viables' => $this->candidatosPorEstado($usuario, $filtros, array_values(array_filter(EstadoCandidato::abiertos(), fn (EstadoCandidato $e) => $e !== EstadoCandidato::Recibidos)), 'Candidatos viables'),
@@ -161,22 +159,45 @@ class ReportesRhService
     }
 
     /**
-     * IDs de `users` (cuentas de acceso) de los colaboradores visibles —
-     * necesario porque `solicitudes_internas`/`solicitudes_vacaciones`
-     * todavía identifican a la persona por `user_id` (Parte B de la
-     * separación Usuario/Colaborador pendiente de migrar estos servicios):
-     * un colaborador sin cuenta de acceso simplemente no puede tener
-     * solicitudes todavía.
+     * Acota una consulta de `solicitudes_internas` a los colaboradores
+     * visibles: una solicitud se cuenta si su `colaborador_id` está entre
+     * los colaboradores visibles (fuente de verdad nueva) O —para registros
+     * legacy sin `colaborador_id`— si su `user_id` está entre las cuentas de
+     * acceso de esos colaboradores. El OR dentro de un solo WHERE evita
+     * contar dos veces una solicitud que tenga ambos identificadores. Así un
+     * colaborador sin cuenta de acceso sí ve reflejadas sus solicitudes
+     * (identificadas por colaborador_id), a diferencia del filtrado anterior
+     * que solo miraba user_id y descartaba a quien no tenía cuenta.
      *
-     * @param  array<string, mixed>  $filtros
-     * @return Collection<int, int>
+     * @param  Builder<SolicitudInterna>  $query
+     * @param  Collection<int, Colaborador>  $colaboradores
+     * @return Builder<SolicitudInterna>
      */
-    private function idsUsuariosVisibles(User $usuario, array $filtros): Collection
+    private function limitarSolicitudesVisibles(Builder $query, Collection $colaboradores): Builder
     {
-        return $this->colaboradoresVisibles($usuario, $filtros)
-            ->pluck('user.id')
-            ->filter()
-            ->values();
+        $idsColaboradores = $colaboradores->pluck('id')->values();
+        $idsUsuarios = $colaboradores->pluck('user.id')->filter()->values();
+
+        return $query->where(fn (Builder $q) => $q
+            ->whereIn('colaborador_id', $idsColaboradores)
+            ->orWhereIn('user_id', $idsUsuarios));
+    }
+
+    /**
+     * Nombre de la persona dueña de una solicitud, prefiriendo su expediente
+     * (colaborador) y cayendo al nombre de la cuenta de acceso solo para
+     * registros legacy sin colaborador vinculado — nunca queda vacío solo
+     * porque la solicitud se identifique por user_id.
+     */
+    private function nombrePersonaSolicitante(SolicitudInterna $solicitud): string
+    {
+        $persona = $solicitud->personaSolicitante();
+
+        if ($persona !== null) {
+            return $persona->nombreCompleto();
+        }
+
+        return trim(($solicitud->usuario->name ?? '').' '.($solicitud->usuario->apellidos ?? ''));
     }
 
     /**
@@ -389,7 +410,7 @@ class ReportesRhService
      * @param  array<string, mixed>  $filtros
      * @return Reporte
      */
-    private function rotacion(User $usuario, array $filtros): array
+    private function movimientosAltasBajas(User $usuario, array $filtros): array
     {
         $altas = $this->altasPorMes($usuario, $filtros)['filas'];
         $bajas = $this->bajasPorMes($usuario, $filtros)['filas'];
@@ -402,7 +423,11 @@ class ReportesRhService
             $filas[] = [$fila[0], $totalAltas, $totalBajas, $totalAltas - $totalBajas];
         }
 
-        return ['titulo' => 'Rotación (altas vs. bajas)', 'columnas' => ['Mes', 'Altas', 'Bajas', 'Neto'], 'filas' => $filas];
+        // "Movimientos de personal (altas vs. bajas)" — NO es el índice de
+        // rotación canónico (RotacionConsultaService/RotacionPeriodo, % sobre
+        // plantilla): este reporte solo cuenta movimientos netos por mes. El
+        // nombre evita confundirlo con ese indicador.
+        return ['titulo' => 'Movimientos de personal (altas vs. bajas)', 'columnas' => ['Mes', 'Altas', 'Bajas', 'Neto'], 'filas' => $filas];
     }
 
     /**
@@ -536,13 +561,11 @@ class ReportesRhService
     {
         $filas = $this->colaboradoresVisibles($usuario, $filtros)
             ->map(function (Colaborador $u) {
-                // solicitudes_vacaciones/solicitudes_internas todavía
-                // identifican a la persona por user_id (Parte B pendiente):
-                // un colaborador sin cuenta de acceso no puede tener
-                // vacaciones registradas todavía.
-                $saldo = $u->user !== null
-                    ? $this->vacaciones->saldo($u->user)
-                    : ['dias_generados' => 0, 'dias_usados' => 0, 'dias_en_solicitud' => 0, 'dias_disponibles' => 0];
+                // saldoColaborador() cuenta por colaborador_id con fallback a
+                // user_id y soporta colaboradores sin cuenta de acceso: un
+                // colaborador activo con antigüedad refleja sus días generados
+                // (no cero), igual que su propio expediente.
+                $saldo = $this->vacaciones->saldoColaborador($u);
 
                 return [$u->nombreCompleto(), $u->sucursalPrincipal->nombre ?? '—', $saldo['dias_generados'], $saldo['dias_usados'], $saldo['dias_disponibles']];
             })
@@ -564,18 +587,19 @@ class ReportesRhService
      */
     private function vacacionesSolicitudes(User $usuario, array $filtros): array
     {
-        $idsVisibles = $this->idsUsuariosVisibles($usuario, $filtros);
+        $colaboradores = $this->colaboradoresVisibles($usuario, $filtros);
 
-        $filas = SolicitudInterna::query()
-            ->whereIn('user_id', $idsVisibles)
+        $query = SolicitudInterna::query()
             ->where('tipo', TipoSolicitudInterna::Vacaciones->value)
             ->when($filtros['estado'] ?? null, fn (Builder $q, $v) => $q->where('estado', $v))
             ->when($filtros['fecha_inicio'] ?? null, fn (Builder $q, $v) => $q->where('fecha_inicio', '>=', $v))
             ->when($filtros['fecha_fin'] ?? null, fn (Builder $q, $v) => $q->where('fecha_fin', '<=', $v))
-            ->with('usuario:id,name,apellidos')
+            ->with(['colaborador:id,name,apellidos', 'usuario:id,name,apellidos,colaborador_id', 'usuario.colaborador:id,name,apellidos']);
+
+        $filas = $this->limitarSolicitudesVisibles($query, $colaboradores)
             ->get()
             ->map(fn (SolicitudInterna $s) => [
-                trim(($s->usuario->name ?? '').' '.($s->usuario->apellidos ?? '')),
+                $this->nombrePersonaSolicitante($s),
                 $s->fecha_inicio?->toDateString(),
                 $s->fecha_fin?->toDateString(),
                 $s->dias_solicitados,
@@ -593,20 +617,21 @@ class ReportesRhService
      */
     private function solicitudesInternas(User $usuario, array $filtros, ?array $estados, string $titulo, bool $soloIncapacidades = false): array
     {
-        $idsVisibles = $this->idsUsuariosVisibles($usuario, $filtros);
+        $colaboradores = $this->colaboradoresVisibles($usuario, $filtros);
 
-        $filas = SolicitudInterna::query()
-            ->whereIn('user_id', $idsVisibles)
+        $query = SolicitudInterna::query()
             ->when($estados !== null, fn (Builder $q) => $q->whereIn('estado', $estados))
             ->when($soloIncapacidades, fn (Builder $q) => $q->where('tipo', 'incapacidad'))
             ->when($filtros['tipo_solicitud'] ?? null, fn (Builder $q, $v) => $q->where('tipo', $v))
             ->when($filtros['fecha_inicio'] ?? null, fn (Builder $q, $v) => $q->where('created_at', '>=', $v))
             ->when($filtros['fecha_fin'] ?? null, fn (Builder $q, $v) => $q->where('created_at', '<=', $v))
-            ->with('usuario:id,name,apellidos')
+            ->with(['colaborador:id,name,apellidos', 'usuario:id,name,apellidos,colaborador_id', 'usuario.colaborador:id,name,apellidos']);
+
+        $filas = $this->limitarSolicitudesVisibles($query, $colaboradores)
             ->get()
             ->map(fn (SolicitudInterna $s) => [
                 $s->folio,
-                trim(($s->usuario->name ?? '').' '.($s->usuario->apellidos ?? '')),
+                $this->nombrePersonaSolicitante($s),
                 $s->tipo->etiqueta(),
                 $s->estado->etiqueta(),
                 $s->created_at?->toDateString(),

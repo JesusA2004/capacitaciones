@@ -251,3 +251,92 @@ test('la migración del auditor le revoca nómina, préstamos y actas con su alc
     expect(array_intersect($viejos, $actuales))->toBe([])
         ->and($actuales)->toEqualCanonicalizing(RolesYPermisosSeeder::permisosBasePorRol()['auditor']);
 });
+
+/*
+ * Sistemas (hallazgo de auditoría 2026-10-16): soporte técnico ve
+ * ESTADO/METADATA (cuentas, roles, auditoría, conteos, listas), NUNCA el
+ * CONTENIDO sensible de RH (expediente con PII, documentos, contratos, actas,
+ * recibos, finiquitos). La migración 2026_10_16_110000 revoca en bases
+ * existentes lo que el sincronizador (aditivo) nunca quitaría.
+ */
+
+test('sistemas NO tiene permisos de contenido sensible de RH, pero SÍ los técnicos y de metadata', function () {
+    $sistemas = clUsuario('sistemas');
+
+    // Contenido sensible / PII: retirado por mínimo privilegio.
+    foreach (['expedientes.ver', 'expedientes.ver_todos', 'documentos.ver', 'documentos_laborales.ver',
+        'contratos.ver', 'actas.ver', 'nomina.recibos.ver', 'finiquitos.ver', 'formatos_oficiales.ver',
+        'rh.expedientes.detalle', 'rh.expedientes.documentos.ver', 'rh.documentos.detalle'] as $permiso) {
+        expect($sistemas->can($permiso))->toBeFalse("sistemas no debería tener {$permiso}");
+    }
+
+    // Técnico/metadata: conservado (ver estado, no contenido).
+    foreach (['usuarios.ver', 'roles.administrar', 'auditoria.ver', 'app_releases.ver', 'app.config.ver',
+        'mobile.bootstrap.ver', 'configuracion.ver', 'dashboard.global.ver',
+        'rh.expedientes.ver', 'rh.documentos.ver', 'rh.pendientes.ver'] as $permiso) {
+        expect($sistemas->can($permiso))->toBeTrue("sistemas debería conservar {$permiso}");
+    }
+});
+
+test('sistemas recibe 403 en el CONTENIDO sensible de RH (web y API) y 200 en la metadata técnica', function () {
+    $sistemas = clUsuario('sistemas');
+    $ajeno = Colaborador::factory()->create(['sucursal_principal_id' => $this->sucursal->id]);
+
+    // Contenido/PII: expediente, actas y recibos de nómina → 403 (web).
+    $this->actingAs($sistemas)->get(route('rh.expedientes.index'))->assertForbidden();
+    $this->actingAs($sistemas)->get(route('rh.expedientes.show', $ajeno))->assertForbidden();
+    $this->actingAs($sistemas)->get(route('rh.actas.index'))->assertForbidden();
+    $this->actingAs($sistemas)->get(route('rh.nomina.index'))->assertForbidden();
+
+    // Metadata/administración de plataforma → 200.
+    $this->actingAs($sistemas)->get(route('administracion.usuarios.index'))->assertSuccessful();
+    $this->actingAs($sistemas)->get(route('administracion.roles.index'))->assertSuccessful();
+
+    // API móvil: el DETALLE con PII y los módulos de contenido → 403; la LISTA
+    // de expedientes (metadata/conteos) sigue disponible para diagnóstico.
+    Sanctum::actingAs($sistemas);
+    $this->getJson('/api/v1/rh/expedientes')->assertOk();
+    $this->getJson("/api/v1/rh/expedientes/{$ajeno->id}")->assertForbidden();
+    $this->getJson('/api/v1/rh/recibos')->assertForbidden();
+    $this->getJson('/api/v1/rh/actas')->assertForbidden();
+});
+
+test('la migración revoca el contenido sensible histórico de sistemas y lo deja en su base, idempotente', function () {
+    $viejos = ['expedientes.ver', 'expedientes.ver_todos', 'documentos.ver', 'documentos_laborales.ver',
+        'contratos.ver', 'actas.ver', 'nomina.recibos.ver', 'finiquitos.ver', 'formatos_oficiales.ver',
+        'rh.expedientes.detalle', 'rh.expedientes.documentos.ver', 'rh.documentos.detalle'];
+
+    foreach ($viejos as $permiso) {
+        Permission::findOrCreate($permiso, 'web');
+    }
+
+    Role::findByName('sistemas')->givePermissionTo($viejos);
+    // Otro rol con un permiso "extra" agregado por un administrador: no se toca.
+    Role::findByName('gerente')->givePermissionTo('reportes.globales');
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+    $sistemas = clUsuario('sistemas');
+    expect($sistemas->can('expedientes.ver'))->toBeTrue();
+
+    rmpCorrerMigracion('2026_10_16_110000_sistemas_minimo_privilegio');
+    rmpCorrerMigracion('2026_10_16_110000_sistemas_minimo_privilegio');
+
+    $actuales = Role::findByName('sistemas')->permissions()->pluck('name')->all();
+
+    expect(array_intersect($viejos, $actuales))->toBe([])
+        ->and($actuales)->toEqualCanonicalizing(RolesYPermisosSeeder::permisosBasePorRol()['sistemas'])
+        ->and(Role::findByName('gerente')->hasPermissionTo('reportes.globales'))->toBeTrue();
+
+    $sistemas = User::query()->where('id', $sistemas->id)->firstOrFail();
+    expect($sistemas->can('expedientes.ver'))->toBeFalse()
+        ->and($sistemas->can('auditoria.ver'))->toBeTrue();
+});
+
+test('la migración de sistemas no hace nada si el rol no existe', function () {
+    Role::findByName('sistemas')->delete();
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+    rmpCorrerMigracion('2026_10_16_110000_sistemas_minimo_privilegio');
+
+    expect(Role::query()->where('name', 'sistemas')->exists())->toBeFalse();
+});

@@ -164,7 +164,15 @@ return [
     'alcance_por_rol' => [
         'super_admin' => 'todos', 'administrador_capacitacion' => 'todos', 'auditor' => 'todos',
         'rh_admin' => 'todos', 'rh_auxiliar' => 'todos', 'director_comercial' => 'todos',
-        'direccion' => 'todos', 'juridico' => 'todos', 'sistemas' => 'todos',
+        'direccion' => 'todos', 'juridico' => 'todos',
+        // `sistemas` conserva alcance «todos», pero el alcance SOLO se agrega a
+        // los módulos cuyo permiso de acceso tenga el rol: tras el mínimo
+        // privilegio (2026-10-16) ya no tiene expedientes.ver, documentos_*.ver,
+        // contratos.ver, actas.ver, nomina.recibos.ver ni finiquitos.ver, así
+        // que «todos» no le habilita ningún módulo de CONTENIDO sensible —
+        // solo amplía la metadata/estado que sí puede ver (p. ej. solicitudes,
+        // vacaciones, candidatos, reportes).
+        'sistemas' => 'todos',
         'gerente_regional' => 'region',
         'gerente_sucursal' => 'sucursal', 'gerente' => 'sucursal',
         'supervisor' => 'sucursal',

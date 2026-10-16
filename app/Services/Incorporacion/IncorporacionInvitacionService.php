@@ -349,7 +349,7 @@ class IncorporacionInvitacionService
             // escribía esos campos en users (no asignables desde la
             // separación User/Colaborador) y el colaborador nunca existía.
             try {
-                $colaborador = Colaborador::query()->create([
+                $colaborador = Colaborador::query()->forceCreate([
                     'name' => $datos['name'],
                     'apellidos' => $datos['apellidos'] ?? null,
                     'telefono' => $datos['telefono'] ?? $invitacion->telefono,
@@ -366,7 +366,7 @@ class IncorporacionInvitacionService
                     'candidato_id' => $invitacion->candidato_id,
                     'estatus' => EstadoUsuario::EnIncorporacion,
                     'estado_alta' => EstadoAltaColaborador::PendienteDocumentos,
-                ]);
+                ]); // @see Colaborador fillable: estatus/estado_alta van por forceCreate.
 
                 $usuario = User::create([
                     'colaborador_id' => $colaborador->id,

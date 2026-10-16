@@ -63,5 +63,8 @@ jobs:
       - name: Run Frontend Type Analysis
         run: npm run types:check
 
+      - name: Frontend JS Tests
+        run: npm run test:js
+
       - name: Tests
         run: php artisan test

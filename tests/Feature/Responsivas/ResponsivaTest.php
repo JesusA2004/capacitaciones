@@ -10,7 +10,7 @@ use App\Models\Sucursal;
 use App\Services\Pdf\BrowsershotRenderer;
 use App\Services\Pdf\OpcionesPdf;
 use Database\Seeders\RolesYPermisosSeeder;
-use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Activitylog\Models\Activity;
 
@@ -273,20 +273,21 @@ test('la responsiva no es inventario: se permiten dos responsivas con el mismo n
     expect(Responsiva::query()->count())->toBe(2);
 });
 
-test('firmada, devolución y cancelación: estados y permisos', function () {
+test('firmada física, devolución y cancelación: estados y permisos', function () {
     $responsiva = Responsiva::query()->findOrFail(
         $this->actingAs($this->gerente)->postJson(route('rh.responsivas.store', $this->subgerente), rsDatos())->json('responsiva.id'),
     );
 
+    // Flujo vigente: se firma en papel y se marca firmada físicamente (sin archivo).
     $this->actingAs($this->gerente)
-        ->post(route('rh.responsivas.subir-firmada', $responsiva), ['archivo' => UploadedFile::fake()->create('firmada.pdf', 120, 'application/pdf')], ['Accept' => 'application/json'])
+        ->postJson(route('rh.responsivas.marcar-firmada-fisica', $responsiva))
         ->assertOk()
         ->assertJsonPath('responsiva.estado', 'firmada')
-        ->assertJsonPath('responsiva.tiene_firmada', true);
+        ->assertJsonPath('responsiva.tiene_firmada', false);
 
     $responsiva->refresh();
-    Storage::disk('nas')->assertExists($responsiva->firmada_path);
-    expect($responsiva->firmada_path)->toContain('/Actas/');
+    expect($responsiva->firmada_path)->toBeNull()
+        ->and($responsiva->firmada_fisicamente_en)->not->toBeNull();
 
     // Firmada: el gerente ya no la cancela (solo RH).
     $this->actingAs($this->gerente)->postJson(route('rh.responsivas.cancelar', $responsiva), ['motivo' => 'Me equivoqué'])->assertForbidden();
@@ -297,7 +298,7 @@ test('firmada, devolución y cancelación: estados y permisos', function () {
     expect($responsiva->refresh()->estado)->toBe(EstadoResponsiva::Devuelta);
     $this->actingAs($this->rh)->postJson(route('rh.responsivas.cancelar', $responsiva), ['motivo' => 'Ya fue devuelta'])->assertForbidden();
 
-    // Recién generada: quien la generó puede cancelarla; queda como historial.
+    // Recién generada: quien la capturó puede cancelarla; queda como historial.
     $otra = Responsiva::query()->findOrFail(
         $this->actingAs($this->gerente)->postJson(route('rh.responsivas.store', $this->subgerente), rsDatos())->json('responsiva.id'),
     );
@@ -306,4 +307,112 @@ test('firmada, devolución y cancelación: estados y permisos', function () {
 
     expect(Responsiva::query()->count())->toBe(2)
         ->and($otra->refresh()->motivo_cancelacion)->toBe('Número de serie mal capturado');
+});
+
+test('ya no se puede subir un NUEVO escaneo firmado: el POST a firmada no existe', function () {
+    $responsiva = Responsiva::query()->findOrFail(
+        $this->actingAs($this->gerente)->postJson(route('rh.responsivas.store', $this->subgerente), rsDatos())->json('responsiva.id'),
+    );
+
+    // La ruta de subida legacy se retiró: solo queda el GET que lee el archivo.
+    // Un POST a esa misma URI responde 405 (método no permitido).
+    $this->actingAs($this->gerente)
+        ->postJson(sprintf('/rh/responsivas/%d/firmada', $responsiva->id), ['archivo' => 'lo que sea'])
+        ->assertStatus(405);
+
+    // No existe el nombre de ruta legacy de subida.
+    expect(Route::has('rh.responsivas.subir-firmada'))->toBeFalse();
+
+    // El estado no cambió: sigue pendiente de firma, sin escaneo.
+    expect($responsiva->refresh()->estado)->toBe(EstadoResponsiva::Generada)
+        ->and($responsiva->firmada_path)->toBeNull();
+});
+
+test('un registro histórico con escaneo firmado (legacy) sigue siendo descargable', function () {
+    $ruta = sprintf('expedientes/%d/Actas/Responsiva RESP-legacy - firmada.pdf', $this->subgerente->id);
+    Storage::disk('nas')->put($ruta, '%PDF-1.4 escaneo legacy');
+
+    $responsiva = Responsiva::query()->findOrFail(
+        $this->actingAs($this->gerente)->postJson(route('rh.responsivas.store', $this->subgerente), rsDatos())->json('responsiva.id'),
+    );
+    // Simula un registro antiguo que trae escaneo firmado.
+    $responsiva->forceFill(['firmada_path' => $ruta])->save();
+
+    $this->actingAs($this->gerente)->getJson(route('rh.responsivas.index', $this->subgerente))
+        ->assertOk()
+        ->assertJsonPath('responsivas.0.tiene_firmada', true);
+
+    $this->actingAs($this->gerente)->get(route('rh.responsivas.firmada', $responsiva))->assertOk();
+});
+
+test('cancelar usa registrado_por: el responsable de entrega que NO capturó no puede cancelar', function () {
+    // RH captura (registrado_por = RH) y pone al gerente como responsable de
+    // entrega (entregado_por = gerente). La responsiva queda «Generada».
+    $responsiva = Responsiva::query()->findOrFail(
+        $this->actingAs($this->rh)
+            ->postJson(route('rh.responsivas.store', $this->subgerente), rsDatos(['responsable_entrega_id' => $this->gerente->id]))
+            ->assertCreated()
+            ->json('responsiva.id'),
+    );
+
+    expect($responsiva->registrado_por)->toBe($this->rh->id)
+        ->and($responsiva->entregado_por)->toBe($this->gerente->id);
+
+    // El gerente (entregado_por, pero NO capturador y sin responsivas.cancelar)
+    // ya no puede cancelarla: antes la regla miraba entregado_por.
+    $this->actingAs($this->gerente)->postJson(route('rh.responsivas.cancelar', $responsiva), ['motivo' => 'No la capturé yo'])
+        ->assertForbidden();
+
+    // RH (quien la capturó y además tiene responsivas.cancelar) sí puede.
+    $this->actingAs($this->rh)->postJson(route('rh.responsivas.cancelar', $responsiva), ['motivo' => 'Captura equivocada'])
+        ->assertOk()->assertJsonPath('responsiva.estado', 'cancelada');
+});
+
+test('cancelar usa registrado_por: quien capturó sin responsivas.cancelar sí puede cancelar su captura', function () {
+    // El gerente captura y entrega él mismo: registrado_por = gerente. Aunque
+    // el gerente NO tiene responsivas.cancelar, puede cancelar su propia
+    // captura mientras siga «Generada» (brazo registrado_por de la policy).
+    $responsiva = Responsiva::query()->findOrFail(
+        $this->actingAs($this->gerente)->postJson(route('rh.responsivas.store', $this->subgerente), rsDatos())->json('responsiva.id'),
+    );
+
+    expect($responsiva->registrado_por)->toBe($this->gerente->id);
+
+    $this->actingAs($this->gerente)->postJson(route('rh.responsivas.cancelar', $responsiva), ['motivo' => 'Me equivoqué al capturar'])
+        ->assertOk()->assertJsonPath('responsiva.estado', 'cancelada');
+});
+
+test('concurrencia: una segunda firma física sobre una ya firmada da error controlado', function () {
+    $responsiva = Responsiva::query()->findOrFail(
+        $this->actingAs($this->gerente)->postJson(route('rh.responsivas.store', $this->subgerente), rsDatos())->json('responsiva.id'),
+    );
+
+    $this->actingAs($this->gerente)->postJson(route('rh.responsivas.marcar-firmada-fisica', $responsiva))
+        ->assertOk()->assertJsonPath('responsiva.estado', 'firmada');
+
+    $primeraFirma = $responsiva->refresh()->firmada_fisicamente_en;
+
+    // Segunda firma (otra petición que llegó tarde): no vuelve a firmar.
+    $this->actingAs($this->gerente)->postJson(route('rh.responsivas.marcar-firmada-fisica', $responsiva))
+        ->assertUnprocessable()->assertJsonValidationErrors('responsiva');
+
+    // Estado íntegro: sigue firmada una sola vez, sin pisar la marca original.
+    expect($responsiva->refresh()->estado)->toBe(EstadoResponsiva::Firmada)
+        ->and($responsiva->firmada_fisicamente_en->toIso8601String())->toBe($primeraFirma->toIso8601String());
+});
+
+test('concurrencia: una segunda cancelación sobre una ya cancelada no produce estados contradictorios', function () {
+    $responsiva = Responsiva::query()->findOrFail(
+        $this->actingAs($this->gerente)->postJson(route('rh.responsivas.store', $this->subgerente), rsDatos())->json('responsiva.id'),
+    );
+
+    $this->actingAs($this->rh)->postJson(route('rh.responsivas.cancelar', $responsiva), ['motivo' => 'Primera cancelación'])
+        ->assertOk()->assertJsonPath('responsiva.estado', 'cancelada');
+
+    // Segunda cancelación: ya no es vigente, se rechaza (error controlado).
+    $this->actingAs($this->rh)->postJson(route('rh.responsivas.cancelar', $responsiva), ['motivo' => 'Segunda cancelación'])
+        ->assertForbidden();
+
+    expect($responsiva->refresh()->estado)->toBe(EstadoResponsiva::Cancelada)
+        ->and($responsiva->motivo_cancelacion)->toBe('Primera cancelación');
 });

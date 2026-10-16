@@ -41,12 +41,16 @@ test('sistemas no puede dar de baja a un colaborador desde el expediente', funct
 test('rh_admin da de baja desde el expediente y ve la acción separada de la gestión de acceso', function () {
     $rh = User::factory()->create();
     $rh->assignRole('rh_admin');
-    $sistemas = User::factory()->create();
-    $sistemas->assignRole('sistemas');
+    // Contraste: un rol que SÍ consulta el expediente (lectura global) pero NO
+    // puede dar de baja. `auditor` es solo lectura; `sistemas` ya no sirve de
+    // contraste aquí porque, por mínimo privilegio (2026-10-16), tampoco ve el
+    // expediente con PII (recibiría 403, no 200).
+    $auditor = User::factory()->create();
+    $auditor->assignRole('auditor');
     $colaborador = User::factory()->create();
     $colaborador->assignRole('colaborador');
 
-    $this->actingAs($sistemas)
+    $this->actingAs($auditor)
         ->get(route('rh.expedientes.show', $colaborador->colaborador_id))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->where('puedeDarDeBaja', false));

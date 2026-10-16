@@ -139,6 +139,53 @@ test('reparación: segunda corrida es idempotente (copia 0)', function () {
     expect(Storage::disk('nas')->get($historico->path))->toBe($this->contenido);
 });
 
+test('reparación: disco de BD ausente de config + origen válido → re-alinea al canónico (no corta antes)', function () {
+    // El (disk,path) de BD apunta a un disco que YA no existe en config
+    // (p. ej. un NAS renombrado), pero el origen sí es válido y su SHA coincide.
+    // No debe cortar en el guard de disco: la copia va al disco canónico.
+    $historico = historicoStorage($this->hash, ['disk' => 'synology']);
+    Storage::disk('nas_legacy')->put($historico->source_path, $this->contenido);
+
+    // Dry-run (defecto): NO copia nada.
+    $this->artisan('expedientes:reparar-historicos-storage', ['--todos' => true])
+        ->expectsOutputToContain('se copiaría')
+        ->assertSuccessful();
+
+    expect(Storage::disk('nas')->exists($historico->path))->toBeFalse()
+        ->and($historico->fresh()->disk)->toBe('synology');
+
+    // --aplicar: copia al disco canónico y re-apunta disk al canónico.
+    $this->artisan('expedientes:reparar-historicos-storage', ['--todos' => true, '--aplicar' => true])
+        ->assertSuccessful();
+
+    expect(Storage::disk('nas')->exists($historico->path))->toBeTrue()
+        ->and(Storage::disk('nas')->get($historico->path))->toBe($this->contenido)
+        ->and($historico->fresh()->disk)->toBe('nas')
+        // Nunca toca el origen (copia, no mueve).
+        ->and(Storage::disk('nas_legacy')->exists($historico->source_path))->toBeTrue();
+
+    // 2ª corrida: idempotente, ya está en su (disk,path) canónico → copia 0.
+    $this->artisan('expedientes:reparar-historicos-storage', ['--todos' => true, '--aplicar' => true])
+        ->doesntExpectOutputToContain('se copiaría')
+        ->assertSuccessful();
+
+    expect(Storage::disk('nas')->get($historico->path))->toBe($this->contenido)
+        ->and($historico->fresh()->disk)->toBe('nas');
+});
+
+test('reparación: disco de BD ausente de config y SIN origen configurado → no repara', function () {
+    // Sin un origen con disco configurado no hay de dónde copiar: el 2.º guard
+    // sigue siendo legítimo y no se repara nada.
+    $historico = historicoStorage($this->hash, ['disk' => 'synology', 'source_disk' => 'synology']);
+
+    $this->artisan('expedientes:reparar-historicos-storage', ['--todos' => true, '--aplicar' => true])
+        ->expectsOutputToContain('no hay origen con disco configurado')
+        ->assertSuccessful();
+
+    expect(Storage::disk('nas')->exists($historico->path))->toBeFalse()
+        ->and($historico->fresh()->disk)->toBe('synology');
+});
+
 test('diagnóstico: disco inexistente en config se reporta y no truena', function () {
     historicoStorage($this->hash, ['disk' => 'synology', 'source_disk' => 'synology']);
 

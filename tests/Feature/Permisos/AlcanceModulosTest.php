@@ -75,17 +75,23 @@ test('VER TODAS ≠ APROBAR: sin solicitudes.aprobar no aprueba aunque las vea t
     expect($solicitud->refresh()->estado->value)->toBe('enviada');
 });
 
-test('SISTEMAS: dashboard y lectura global 200; acciones RH sensibles 403', function () {
+test('SISTEMAS: dashboard y metadata 200; contenido sensible y acciones RH 403', function () {
     $sistemas = amUsuarioConRol('sistemas');
     $solicitud = amSolicitudDe(amUsuarioConRol('colaborador'));
     $vacaciones = SolicitudInterna::factory()->create(['tipo' => 'vacaciones', 'user_id' => amUsuarioConRol('colaborador')->id]);
 
-    foreach (['dashboard', 'rh.solicitudes.index', 'rh.expedientes.index', 'rh.candidatos.index', 'rh.vacantes.index', 'rh.actas.index', 'rh.evaluaciones.index', 'administracion.notificaciones-sistema.index',
+    // Estado/metadata y administración de plataforma: 200.
+    foreach (['dashboard', 'rh.solicitudes.index', 'rh.candidatos.index', 'rh.vacantes.index', 'rh.evaluaciones.index', 'administracion.notificaciones-sistema.index',
         'administracion.usuarios.index', 'administracion.roles.index', 'administracion.app-releases.index'] as $ruta) {
         $this->actingAs($sistemas)->get(route($ruta))->assertSuccessful();
     }
 
     $this->actingAs($sistemas)->get(route('rh.solicitudes.show', $solicitud))->assertOk();
+
+    // Mínimo privilegio (2026-10-16): el CONTENIDO sensible de RH ya NO es
+    // visible para soporte técnico — expedientes (PII) ni actas.
+    $this->actingAs($sistemas)->get(route('rh.expedientes.index'))->assertForbidden();
+    $this->actingAs($sistemas)->get(route('rh.actas.index'))->assertForbidden();
 
     // Ver todo ≠ decidir: ni aprobar vacaciones ni solicitudes.
     $this->actingAs($sistemas)->post(route('rh.solicitudes.aprobar', $vacaciones))->assertForbidden();
@@ -96,6 +102,8 @@ test('SISTEMAS: dashboard y lectura global 200; acciones RH sensibles 403', func
         ->and($sistemas->can('prestamos.autorizar'))->toBeFalse()
         ->and($sistemas->can('ciclo.autorizar_rh'))->toBeFalse()
         ->and($sistemas->can('cierres.ejecutar_baja'))->toBeFalse()
+        ->and($sistemas->can('expedientes.ver'))->toBeFalse()
+        ->and($sistemas->can('actas.ver'))->toBeFalse()
         ->and($sistemas->can('dashboard.global.ver'))->toBeTrue()
         ->and($sistemas->can('notificaciones.ver_todas'))->toBeTrue();
 });

@@ -55,7 +55,8 @@ class ConversionColaboradorService
         }
 
         $usuario = DB::transaction(function () use ($alta, $aprobadoPor) {
-            $colaborador = Colaborador::create([
+            // forceCreate: estatus y alta_registrada_por quedan fuera del fillable.
+            $colaborador = Colaborador::forceCreate([
                 'name' => $alta->nombre,
                 'apellidos' => $alta->apellidos,
                 'telefono' => $alta->telefono,

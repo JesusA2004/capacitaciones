@@ -240,7 +240,8 @@ class OrganigramaDemoSeeder extends Seeder
         $genero ??= $n % 2 === 0 ? Genero::Femenino : Genero::Masculino;
         $nombres = $genero === Genero::Femenino ? self::NOMBRES_F : self::NOMBRES_M;
 
-        return Colaborador::withTrashed()->firstOrCreate(
+        // unguarded: estatus queda fuera del fillable (defensa en profundidad).
+        return Colaborador::unguarded(fn () => Colaborador::withTrashed()->firstOrCreate(
             ['numero_empleado' => sprintf('ORG-%04d', $n)],
             [
                 'name' => $nombres[$n % count($nombres)],
@@ -253,7 +254,7 @@ class OrganigramaDemoSeeder extends Seeder
                 'fecha_nacimiento' => now()->subYears(23 + ($n % 30))->subDays($n * 11 % 365)->toDateString(),
                 'estatus' => EstadoUsuario::Activo,
             ],
-        );
+        ));
     }
 
     /**

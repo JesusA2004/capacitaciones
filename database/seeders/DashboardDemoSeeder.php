@@ -104,7 +104,7 @@ class DashboardDemoSeeder extends Seeder
         $colaborador = $usuario->colaborador;
 
         if ($colaborador === null) {
-            $colaborador = Colaborador::create([
+            $colaborador = Colaborador::forceCreate([
                 'name' => 'Pablo',
                 'apellidos' => 'Serrano Vega',
                 'genero' => Genero::Masculino,
@@ -185,7 +185,7 @@ class DashboardDemoSeeder extends Seeder
             $colaborador = $usuario->colaborador;
 
             if ($colaborador === null) {
-                $colaborador = Colaborador::create([
+                $colaborador = Colaborador::forceCreate([
                     'name' => $definicion['nombre'],
                     'apellidos' => $definicion['apellidos'],
                     'genero' => $definicion['genero'],

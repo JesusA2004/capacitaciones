@@ -28,4 +28,23 @@ enum EstadoFiniquito: string
             self::Pagado => 'Pagado',
         };
     }
+
+    /**
+     * Estados definitivos: una vez firmado (o pagado) el finiquito ya no se
+     * recalcula, ajusta, revisa ni regenera — el documento firmado por el
+     * colaborador es inmutable (ver FiniquitoService::asegurarNoFirmado()).
+     */
+    public function esFinal(): bool
+    {
+        return $this === self::Firmado || $this === self::Pagado;
+    }
+
+    /**
+     * true mientras el finiquito todavía puede editarse (montos, conceptos,
+     * ajustes, regeneración de PDF). Inverso de esFinal().
+     */
+    public function esModificable(): bool
+    {
+        return ! $this->esFinal();
+    }
 }

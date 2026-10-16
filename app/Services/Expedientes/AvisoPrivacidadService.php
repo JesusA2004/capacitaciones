@@ -22,12 +22,13 @@ class AvisoPrivacidadService
         bool $consentimientoDatos,
         User $registradoPor,
     ): void {
-        $colaborador->update([
+        // forceFill: avisos_registrado_por_id (actor) queda fuera del fillable.
+        $colaborador->forceFill([
             'aviso_privacidad_aceptado' => $avisoPrivacidad,
             'aviso_privacidad_aceptado_en' => $avisoPrivacidad ? now() : null,
             'consentimiento_datos_aceptado' => $consentimientoDatos,
             'consentimiento_datos_aceptado_en' => $consentimientoDatos ? now() : null,
             'avisos_registrado_por_id' => $registradoPor->id,
-        ]);
+        ])->save();
     }
 }

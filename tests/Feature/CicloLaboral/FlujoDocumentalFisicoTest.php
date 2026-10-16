@@ -112,16 +112,19 @@ test('un colaborador no puede operar el flujo físico de documentos', function (
     $this->postJson("/api/v1/colaborador/documentos-laborales/{$id}/firmar", ['acepto' => true])->assertForbidden();
 });
 
-test('un documento legacy en estado Escaneado/Archivado sigue siendo legible (solo lectura)', function () {
+test('un documento legacy ya recibido en corporativo continúa su cadena antigua (escaneo → archivado) y sigue siendo legible', function () {
     Sanctum::actingAs($this->rh);
     $id = $this->postJson("/api/v1/rh/colaboradores/{$this->colaborador->id}/documentos-laborales", ['clave' => 'contrato_indeterminado'])->json('data.id');
 
-    // Se recorre a mano el flujo ANTERIOR (los métodos se conservan para compat):
-    // firma física → escaneo → archivo. Representa un expediente ya existente.
+    // Expediente HISTÓRICO: ya venía recorriendo el flujo anterior y está
+    // recibido en corporativo (se fija el estado directo, como un registro
+    // migrado). La regla nueva prohíbe INICIAR el flujo legacy desde
+    // FirmadoFisicamente/Impreso (ver el test de bloqueo más abajo), pero un
+    // histórico ya recibido SÍ puede continuar su cadena: recepción → escaneo.
     $flujo = app(FlujoDocumentalService::class);
     $documento = GeneratedDocument::query()->findOrFail($id);
-    $flujo->marcarImpreso($documento, $this->rh);
-    $flujo->registrarFirmaFisica($documento->refresh(), $this->rh, ['huella_registrada' => true, 'testigos' => [['nombre' => 'Testigo Uno', 'puesto' => 'Gerente']]]);
+    $documento->update(['estado_flujo' => EstadoFlujoDocumento::RecibidoCorporativo]);
+
     $flujo->registrarEscaneo($documento->refresh(), $this->rh, clArchivoPdf('firmado.pdf'));
 
     expect($documento->refresh()->estado_flujo)->toBe(EstadoFlujoDocumento::Escaneado)

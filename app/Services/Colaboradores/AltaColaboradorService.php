@@ -86,7 +86,9 @@ class AltaColaboradorService
         }
 
         $resultado = DB::transaction(function () use ($datos, $actor, $tipo, $inicio, $fin, $dentroDeTransaccion): array {
-            $colaborador = Colaborador::query()->create([
+            // forceCreate: el alta fija estatus/estado_alta/sueldo/actor, que
+            // quedan fuera del fillable (defensa en profundidad) a propósito.
+            $colaborador = Colaborador::query()->forceCreate([
                 'name' => $datos['name'],
                 'apellidos' => $datos['apellidos'] ?? null,
                 'genero' => $datos['genero'] ?? null,
@@ -220,7 +222,7 @@ class AltaColaboradorService
         }
 
         if ($nuevo !== $actual) {
-            $colaborador->update(['estado_alta' => $nuevo]);
+            $colaborador->forceFill(['estado_alta' => $nuevo])->save();
             $this->auditoria->registrar('alta_estado', $colaborador, $actor, [
                 'colaborador_id' => $colaborador->id,
                 'estado_anterior' => $actual?->value,
@@ -313,14 +315,14 @@ class AltaColaboradorService
                 ]);
             }
 
-            $colaborador->update([
+            $colaborador->forceFill([
                 'estatus' => EstadoUsuario::Activo,
                 'estado_alta' => EstadoAltaColaborador::Activo,
                 'activado_en' => now(),
                 'incorporacion_decision' => 'aprobado',
                 'incorporacion_decidida_por' => $actor->id,
                 'incorporacion_decidida_en' => now(),
-            ]);
+            ])->save();
 
             if ($colaborador->sucursal_principal_id !== null && $colaborador->puesto_id !== null) {
                 $this->vacantes->sincronizar($colaborador->sucursal_principal_id, $colaborador->puesto_id);

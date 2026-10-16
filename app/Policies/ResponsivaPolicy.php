@@ -39,15 +39,18 @@ class ResponsivaPolicy
         return $this->verDe($usuario, $responsiva->colaborador);
     }
 
-    /** Subir el escaneo firmado o registrar la devolución del equipo. */
+    /** Marcar firmada físicamente o registrar la devolución del equipo. */
     public function operar(User $usuario, Responsiva $responsiva): bool
     {
         return $responsiva->estado->vigente() && $this->generar($usuario, $responsiva->colaborador);
     }
 
     /**
-     * Cancelar: RH (responsivas.cancelar) o quien la generó mientras siga
-     * pendiente de firma (se equivocó al capturarla).
+     * Cancelar: RH (responsivas.cancelar) o quien la capturó mientras siga
+     * pendiente de firma (se equivocó al capturarla). «Quien la capturó» es
+     * registrado_por (quien la generó en PEOPLE), no entregado_por (el
+     * responsable de entrega, que pudo ser otra persona). registrado_por es
+     * nullable: si es null, ese brazo nunca aplica.
      */
     public function cancelar(User $usuario, Responsiva $responsiva): bool
     {
@@ -56,7 +59,7 @@ class ResponsivaPolicy
         }
 
         return $usuario->can('responsivas.cancelar')
-            || ($usuario->can('responsivas.generar') && $responsiva->entregado_por === $usuario->id && $responsiva->estado === EstadoResponsiva::Generada);
+            || ($usuario->can('responsivas.generar') && $responsiva->registrado_por === $usuario->id && $responsiva->estado === EstadoResponsiva::Generada);
     }
 
     private function alcanza(User $usuario, Colaborador $colaborador): bool

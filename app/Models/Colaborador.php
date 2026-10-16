@@ -108,20 +108,29 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property-read Colaborador|null $gerente
  * @property-read User|null $user
  */
+// Defensa en profundidad (2026-10-16): el fillable EXCLUYE a propósito los
+// campos de ESTADO del ciclo laboral (estatus, estatus_imss, estado_alta,
+// fecha_baja), de IMPORTE salarial (sueldo_mensual, salario_diario) y de
+// ACTOR/decisión (*_por, incorporacion_decision/decidida_por,
+// avisos_registrado_por_id, expediente_cerrado_por, alta_registrada_por).
+// Esos campos NO deben llegar por asignación en masa desde un array validado
+// de una petición: los services que SÍ deben moverlos lo hacen con forceFill/
+// forceCreate o asignación explícita (AltaColaboradorService, IncorporacionService,
+// CierreLaboralService, CompensacionService, ReingresoService, AvisoPrivacidadService…).
 #[Fillable([
-    'name', 'apellidos', 'genero', 'numero_empleado', 'telefono', 'telefono_corporativo', 'sueldo_mensual',
-    'salario_diario', 'salario_diario_integrado', 'foto_path',
+    'name', 'apellidos', 'genero', 'numero_empleado', 'telefono', 'telefono_corporativo',
+    'salario_diario_integrado', 'foto_path',
     'sucursal_principal_id', 'departamento_id', 'puesto_id', 'jefe_id', 'gerente_id',
-    'tipo_contratacion', 'estado_alta', 'candidato_id', 'alta_registrada_por', 'activado_en',
-    'fecha_baja', 'expediente_cerrado_en', 'expediente_cerrado_por',
-    'fecha_ingreso', 'estatus', 'estatus_imss', 'fecha_alta_imss',
+    'tipo_contratacion', 'candidato_id', 'activado_en',
+    'expediente_cerrado_en',
+    'fecha_ingreso', 'fecha_alta_imss',
     'periodo_prueba_inicio', 'periodo_prueba_fin',
     'fecha_nacimiento', 'curp', 'rfc', 'nss', 'domicilio',
     'correo_personal', 'correo_corporativo', 'contacto_emergencia_nombre', 'contacto_emergencia_telefono',
     'contacto_emergencia_parentesco', 'contacto_emergencia_direccion', 'clave_legacy', 'importado_de', 'estatus_origen',
     'aviso_privacidad_aceptado', 'aviso_privacidad_aceptado_en',
-    'consentimiento_datos_aceptado', 'consentimiento_datos_aceptado_en', 'avisos_registrado_por_id',
-    'incorporacion_decision', 'incorporacion_decidida_por', 'incorporacion_decidida_en', 'incorporacion_motivo_rechazo',
+    'consentimiento_datos_aceptado', 'consentimiento_datos_aceptado_en',
+    'incorporacion_decidida_en', 'incorporacion_motivo_rechazo',
     'nacionalidad', 'estado_civil', 'lugar_nacimiento', 'clave_elector', 'profesion', 'beneficiario_nombre', 'beneficiario_parentesco',
     'domicilio_colonia', 'domicilio_municipio', 'domicilio_estado', 'domicilio_cp',
 ])]

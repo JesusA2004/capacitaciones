@@ -217,6 +217,23 @@ class CierreLaboralController extends Controller
         return $this->respuesta($request, $this->cierres->registrarFiniquitoFirmado($cierre, $archivo, $request->user()));
     }
 
+    /**
+     * Firma física del finiquito SIN archivo (regla vigente): el finiquito se
+     * imprime y se firma en PAPEL; la app solo registra quién lo marcó y una
+     * observación opcional. Paridad con la web (Rh\FiniquitoController::
+     * marcarFirmadoFisicamente). El flujo con archivo (finiquitoFirmado) se
+     * conserva para historial.
+     */
+    public function finiquitoFirmadoFisico(Request $request, CierreLaboral $cierre): JsonResponse
+    {
+        $this->authorize('operar', $cierre);
+        $datos = $request->validate([
+            'observacion' => ['nullable', 'string', 'max:500'],
+        ], [], ['observacion' => 'observación']);
+
+        return $this->respuesta($request, $this->cierres->registrarFiniquitoFirmadoFisico($cierre, $request->user(), $datos['observacion'] ?? null));
+    }
+
     public function confirmarPago(FiniquitoCierreRequest $request, CierreLaboral $cierre): JsonResponse
     {
         $this->authorize('confirmarPago', $cierre);

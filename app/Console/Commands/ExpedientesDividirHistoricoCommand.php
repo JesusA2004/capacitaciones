@@ -92,7 +92,7 @@ class ExpedientesDividirHistoricoCommand extends Command
             foreach ($historicos as $historico) {
                 try {
                     $actor instanceof User
-                        ? $this->ejecutar($division, $historico, $actor)
+                        ? $this->ejecutar($division, $historico, $actor, $errores)
                         : $this->simular($division, $historico);
                 } catch (Throwable $e) {
                     $errores++;
@@ -120,12 +120,16 @@ class ExpedientesDividirHistoricoCommand extends Command
         $this->reportarAdvertencias($analisis['advertencias']);
     }
 
-    private function ejecutar(DivisionExpedienteHistoricoService $division, ExpedienteHistorico $historico, User $actor): void
+    private function ejecutar(DivisionExpedienteHistoricoService $division, ExpedienteHistorico $historico, User $actor, int &$errores): void
     {
         $resultado = $division->dividir($historico, $actor, (bool) $this->option('forzar'));
         $this->encabezado($historico, $resultado->total_paginas);
 
+        // dividir() deja la corrida Fallida sin relanzar (para no romper la
+        // pantalla de RH). El comando SÍ debe contabilizarlo como error para
+        // devolver un exit != 0 que CI/cron puedan detectar.
         if ($resultado->estado === EstadoDivisionHistorico::Fallida) {
+            $errores++;
             $this->error(sprintf('  No se pudo dividir: %s', $resultado->error_message));
 
             return;

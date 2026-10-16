@@ -54,7 +54,8 @@ class PrestamoReciboDemoSeeder extends Seeder
         $departamento = Departamento::where('nombre', 'Operaciones')->first();
         $puesto = Puesto::where('nombre', 'Gestor')->first();
 
-        Colaborador::firstOrCreate(
+        // unguarded: estatus queda fuera del fillable (defensa en profundidad).
+        Colaborador::unguarded(fn () => Colaborador::firstOrCreate(
             ['numero_empleado' => 'EMP-0090'],
             [
                 'name' => 'Beatriz',
@@ -66,7 +67,7 @@ class PrestamoReciboDemoSeeder extends Seeder
                 'fecha_ingreso' => now()->subYears(2)->subMonths(3),
                 'estatus' => EstadoUsuario::Activo,
             ],
-        );
+        ));
     }
 
     /**
@@ -85,7 +86,7 @@ class PrestamoReciboDemoSeeder extends Seeder
         }
 
         if ($colaborador->sueldo_mensual === null) {
-            $colaborador->update(['sueldo_mensual' => 9800]);
+            $colaborador->forceFill(['sueldo_mensual' => 9800])->save();
         }
 
         $prestamos = app(PrestamoService::class);

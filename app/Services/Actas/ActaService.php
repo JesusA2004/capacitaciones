@@ -466,7 +466,11 @@ class ActaService
         $estadoDocumento = $acta->documento?->estado_flujo;
 
         if ($acta->formato !== self::FORMATO_CIRCUNSTANCIADA) {
-            $firmada = $acta->estado === EstadoActa::Firmada || ($estadoDocumento?->estaFirmado() ?? false);
+            // El acta se firma y resguarda en PAPEL: solo cuenta la firma
+            // física registrada (imprimir o estar pendiente de firma NO es
+            // firmar). Las actas históricas (sin documento) se cierran con su
+            // estado «Firmada» o con la negativa a firmar asentada.
+            $firmada = $acta->estado === EstadoActa::Firmada || ($estadoDocumento?->firmaFisicaRegistrada() ?? false);
 
             return $firmada || $acta->negativa_firma ? null : 'Registra la firma del acta o asienta la negativa a firmar antes de cerrarla.';
         }
@@ -492,7 +496,7 @@ class ActaService
             throw ValidationException::withMessages(['acta' => $motivo]);
         }
 
-        $firmada = $acta->documento?->estado_flujo?->estaFirmado() ?? false;
+        $firmada = $acta->documento?->estado_flujo?->firmaFisicaRegistrada() ?? false;
 
         $acta->update([
             'estado' => EstadoActa::Cerrada,

@@ -96,6 +96,23 @@ test('un colaborador que tambien tiene permisos de rh recibe ambas experiencias'
         ->and($respuesta->json('capabilities.rh'))->toBeTrue();
 });
 
+test('bootstrap: el manifest de capabilities declara el contrato del flujo documental físico nuevo', function () {
+    $usuario = User::factory()->for(Colaborador::factory())->create();
+    $usuario->assignRole('colaborador');
+
+    // El backend es la autoridad del contrato: estos flags fijan la semántica
+    // del flujo FÍSICO nuevo (concluye en firma física, sin envío/recepción/
+    // escaneo). La app los lee como gate de seguridad, nunca el rol como flag.
+    $this->withHeaders(bootstrapHeaders($usuario))
+        ->getJson('/api/v1/mobile/bootstrap')
+        ->assertOk()
+        ->assertJsonPath('features.document_flow', 2)
+        ->assertJsonPath('features.finiquito_firma_fisica', true)
+        ->assertJsonPath('features.subida_escaneo_firmado', false)
+        // 'recibos' sigue equivaliendo a employee_payroll_receipts.
+        ->assertJsonPath('features.recibos', false);
+});
+
 test('bootstrap: recibos de nómina sin autoservicio por defecto y directorio disponible', function () {
     $usuario = User::factory()->for(Colaborador::factory())->create();
     $usuario->assignRole('colaborador');

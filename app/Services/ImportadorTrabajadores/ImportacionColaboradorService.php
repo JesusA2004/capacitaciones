@@ -42,7 +42,8 @@ class ImportacionColaboradorService
         $this->identidad->validarNoDuplicado($datos);
 
         return DB::transaction(function () use ($datos, $actor): Colaborador {
-            $colaborador = Colaborador::query()->create([
+            // forceCreate: estatus y alta_registrada_por quedan fuera del fillable.
+            $colaborador = Colaborador::query()->forceCreate([
                 'name' => $datos['name'],
                 'apellidos' => $datos['apellidos'] ?? null,
                 'sucursal_principal_id' => $datos['sucursal_principal_id'] ?? null,

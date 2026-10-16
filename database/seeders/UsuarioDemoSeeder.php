@@ -189,7 +189,8 @@ class UsuarioDemoSeeder extends Seeder
             // Persona/empleo vive en Colaborador (separación Usuario/Colaborador,
             // ver App\Models\Colaborador) — se busca/crea por numero_empleado
             // (único) para que el seeder sea idempotente igual que antes.
-            $colaborador = Colaborador::withTrashed()->firstOrCreate(
+            // unguarded: estatus queda fuera del fillable (defensa en profundidad).
+            $colaborador = Colaborador::unguarded(fn () => Colaborador::withTrashed()->firstOrCreate(
                 ['numero_empleado' => $definicion['datos']['numero_empleado']],
                 [
                     'name' => $definicion['datos']['name'],
@@ -203,7 +204,7 @@ class UsuarioDemoSeeder extends Seeder
                     ...$this->contactoEmergenciaDemo($indice),
                     'estatus' => EstadoUsuario::Activo,
                 ],
-            );
+            ));
 
             if ($colaborador->genero === null) {
                 $colaborador->update(['genero' => $definicion['datos']['genero']]);

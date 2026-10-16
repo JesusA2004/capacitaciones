@@ -653,7 +653,9 @@ class ExpedienteController extends Controller
             }
         }
 
-        $colaborador->update($datosLaborales);
+        // forceFill: sueldo_mensual queda fuera del fillable (defensa en
+        // profundidad); RH lo edita aquí de forma explícita y validada.
+        $colaborador->forceFill($datosLaborales)->save();
 
         // El jefe sale del organigrama: se recalcula YA (no al terminar la
         // petición) para que el movimiento laboral registre el cambio de jefe.

@@ -5,6 +5,7 @@ namespace App\Services\Finiquitos;
 use App\Enums\CategoriaDocumento;
 use App\Enums\EstadoDocumento;
 use App\Enums\EstadoFiniquito;
+use App\Enums\EstadoFlujoDocumento;
 use App\Enums\FamiliaAdministrativa;
 use App\Enums\TipoBaja;
 use App\Enums\TipoConceptoNomina;
@@ -13,12 +14,14 @@ use App\Models\Colaborador;
 use App\Models\DocumentType;
 use App\Models\FiniquitoCalculo;
 use App\Models\FiniquitoConcepto;
+use App\Models\GeneratedDocument;
 use App\Models\OfficialFormat;
 use App\Models\SolicitudInterna;
 use App\Models\User;
 use App\Services\Compensacion\CompensacionService;
 use App\Services\DocumentosAdministrativos\DatosDocumentoAdministrativo;
 use App\Services\DocumentosAdministrativos\DocumentoAdministrativoService;
+use App\Services\DocumentosLaborales\FlujoDocumentalService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Formatos\GeneradorFormatoService;
@@ -53,6 +56,7 @@ class FiniquitoService
         private readonly DocumentoAdministrativoService $documentosAdministrativos,
         private readonly DatosDocumentoAdministrativo $datosDocumento,
         private readonly CompensacionService $compensacion,
+        private readonly FlujoDocumentalService $flujo,
     ) {}
 
     /**
@@ -510,30 +514,75 @@ class FiniquitoService
      */
     public function marcarFirmadoFisicamente(FiniquitoCalculo $finiquito, User $actor, ?string $observacion = null): FiniquitoCalculo
     {
-        $this->asegurarNoFirmado($finiquito);
-
-        if ($finiquito->estado !== EstadoFiniquito::Aprobado) {
-            throw ValidationException::withMessages([
-                'estado' => 'El finiquito debe estar aprobado antes de marcarlo como firmado físicamente.',
-            ]);
-        }
-
         $observacion = is_string($observacion) && trim($observacion) !== '' ? mb_substr(trim($observacion), 0, 500) : null;
 
         return DB::transaction(function () use ($finiquito, $actor, $observacion): FiniquitoCalculo {
-            $finiquito->update([
+            // Bloqueo de fila + revalidación DESPUÉS del lock: idempotente ante
+            // doble clic / dos peticiones simultáneas (no doble firma).
+            $bloqueado = FiniquitoCalculo::query()->lockForUpdate()->findOrFail($finiquito->id);
+            $this->asegurarNoFirmado($bloqueado);
+
+            if ($bloqueado->estado !== EstadoFiniquito::Aprobado) {
+                throw ValidationException::withMessages([
+                    'estado' => 'El finiquito debe estar aprobado antes de marcarlo como firmado físicamente.',
+                ]);
+            }
+
+            // Consistencia FiniquitoCalculo ↔ GeneratedDocument: el documento del
+            // finiquito debe existir e ir primero IMPRESO; recién entonces se
+            // registra la firma física (primero impreso, luego firma física).
+            $documento = $this->documentoListoParaFirmaFisica($bloqueado);
+
+            $bloqueado->update([
                 'firmado_fisicamente_en' => now(),
                 'firmado_fisicamente_por' => $actor->id,
                 'estado' => EstadoFiniquito::Firmado->value,
             ]);
 
+            // En la MISMA transacción se avanza el flujo documental del
+            // GeneratedDocument a «firmado físicamente», para que el documento y
+            // el FiniquitoCalculo queden COHERENTES (nunca finiquito=Firmado con
+            // GeneratedDocument=PendienteImpresion). FlujoDocumentalService se
+            // invoca tal cual, sin modificarlo.
+            $this->flujo->registrarFirmaFisica($documento, $actor, ['observaciones' => $observacion]);
+
             // Auditoría del evento (entidad/id/actor/fecha/colaborador/observaciones)
             // sobre el historial de la solicitud de baja, misma bitácora que el
             // resto del ciclo del finiquito.
-            $this->registrarHistorial($finiquito->solicitudInterna, $actor, 'finiquito_firmado_fisicamente', $observacion);
+            $this->registrarHistorial($bloqueado->solicitudInterna, $actor, 'finiquito_firmado_fisicamente', $observacion);
 
-            return $finiquito->refresh();
+            return $bloqueado->refresh();
         });
+    }
+
+    /**
+     * GeneratedDocument del finiquito listo para registrar la firma física:
+     * debe existir (PDF generado) y estar IMPRESO (o ya pendiente de firma
+     * física). Sin documento generado o sin imprimir, la firma física no
+     * procede — el documento se firma en papel, así que primero hay que
+     * imprimirlo.
+     */
+    private function documentoListoParaFirmaFisica(FiniquitoCalculo $finiquito): GeneratedDocument
+    {
+        $documento = $finiquito->generated_document_id !== null && $finiquito->documento_generado_path !== null
+            ? GeneratedDocument::query()->where('id', $finiquito->generated_document_id)->first()
+            : null;
+
+        if ($documento === null) {
+            throw ValidationException::withMessages([
+                'documento' => 'Genera e imprime el documento del finiquito antes de registrar la firma física.',
+            ]);
+        }
+
+        // Preferencia del negocio: primero impreso, luego firma física. Un
+        // documento aún en PendienteImpresion (o sin imprimir) no puede firmarse.
+        if (! in_array($documento->estado_flujo, [EstadoFlujoDocumento::Impreso, EstadoFlujoDocumento::PendienteFirmaFisica], true)) {
+            throw ValidationException::withMessages([
+                'documento' => 'Imprime el documento del finiquito antes de registrar la firma física.',
+            ]);
+        }
+
+        return $documento;
     }
 
     public function subirFirmado(FiniquitoCalculo $finiquito, UploadedFile $archivo, User $actor): FiniquitoCalculo
@@ -823,7 +872,7 @@ class FiniquitoService
      */
     private function asegurarNoFirmado(FiniquitoCalculo $finiquito): void
     {
-        if ($finiquito->estado === EstadoFiniquito::Firmado || $finiquito->estado === EstadoFiniquito::Pagado) {
+        if ($finiquito->estado->esFinal()) {
             throw ValidationException::withMessages([
                 'estado' => 'Este finiquito ya está firmado y no puede modificarse. Si hay un error, genera una corrección/anulación explícita.',
             ]);

@@ -4,6 +4,7 @@ use App\Enums\EstadoDatoDetectado;
 use App\Enums\EstadoDivisionHistorico;
 use App\Enums\EstadoDocumento;
 use App\Enums\EstadoParteDivision;
+use App\Jobs\DividirExpedienteHistoricoJob;
 use App\Models\Colaborador;
 use App\Models\DivisionExpedienteHistorico;
 use App\Models\DocumentType;
@@ -372,6 +373,57 @@ test('atomicidad: si falla crear una parte tras subir el documento, no queda Emp
     // ningún documento lógico ni ninguna parte de esta corrida en la BD.
     expect(EmployeeDocument::query()->where('origen', DivisionExpedienteHistoricoService::ORIGEN)->count())->toBe(0)
         ->and(ParteDivisionHistorico::query()->where('division_id', $division->id)->count())->toBe(0);
+});
+
+test('el comando devuelve FAILURE (exit != 0) cuando una división queda fallida', function () {
+    app()->instance(MotorOcr::class, new OcrFalsoDivision);
+    User::factory()->create()->assignRole('super_admin');
+
+    // Histórico vinculado pero SIN su PDF en el NAS: leerYClasificar no puede
+    // leer el archivo, la corrida queda Fallida.
+    $historico = historicoDePrueba($this->colaborador);
+    Storage::disk('nas')->delete($historico->path);
+
+    $this->artisan('expedientes:dividir-historico', ['--todos' => true])
+        ->expectsOutputToContain('No se pudo dividir')
+        ->assertFailed();
+
+    $division = DivisionExpedienteHistorico::query()->latest('id')->firstOrFail();
+
+    // La corrida quedó marcada Fallida y la FASE B atómica no dejó huérfanos.
+    expect($division->estado)->toBe(EstadoDivisionHistorico::Fallida)
+        ->and(EmployeeDocument::query()->where('origen', DivisionExpedienteHistoricoService::ORIGEN)->count())->toBe(0)
+        ->and(ParteDivisionHistorico::query()->where('division_id', $division->id)->count())->toBe(0);
+});
+
+test('el job marca el fallo ante la cola cuando la división queda fallida', function () {
+    app()->instance(MotorOcr::class, new OcrFalsoDivision);
+
+    $historico = historicoDePrueba($this->colaborador);
+    Storage::disk('nas')->delete($historico->path);
+
+    $job = (new DividirExpedienteHistoricoJob($historico, $this->rh))->withFakeQueueInteractions();
+    $job->handle(app(DivisionExpedienteHistoricoService::class));
+
+    // dividir() no relanza (retorna la corrida Fallida), pero el job SÍ debe
+    // registrar el fallo ante la cola (failed_jobs) para que sea visible.
+    $job->assertFailed();
+
+    $division = DivisionExpedienteHistorico::query()->latest('id')->firstOrFail();
+    expect($division->estado)->toBe(EstadoDivisionHistorico::Fallida)
+        ->and(EmployeeDocument::query()->where('origen', DivisionExpedienteHistoricoService::ORIGEN)->count())->toBe(0)
+        ->and(ParteDivisionHistorico::query()->where('division_id', $division->id)->count())->toBe(0);
+});
+
+test('el job NO marca fallo ante la cola cuando la división termina bien', function () {
+    app()->instance(MotorOcr::class, new OcrFalsoDivision);
+    $historico = historicoDePrueba($this->colaborador);
+
+    $job = (new DividirExpedienteHistoricoJob($historico, $this->rh))->withFakeQueueInteractions();
+    $job->handle(app(DivisionExpedienteHistoricoService::class));
+
+    $job->assertNotFailed();
+    expect(DivisionExpedienteHistorico::query()->where('estado', EstadoDivisionHistorico::Completada->value)->count())->toBe(1);
 });
 
 test('tras una corrida fallida a mitad no hay EmployeeDocument sin su parte', function () {

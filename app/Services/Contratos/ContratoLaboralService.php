@@ -248,11 +248,11 @@ class ContratoLaboralService
         }
 
         if ($documento->requiere_firma_fisica || $documento->requiere_impresion) {
-            return $estado->firmaFisicaRegistrada();
+            return $estado->tieneFirmaFisica();
         }
 
         if ($documento->requiere_firma_digital) {
-            return $estado->estaFirmado();
+            return $estado->tieneFirmaDigital();
         }
 
         return true;

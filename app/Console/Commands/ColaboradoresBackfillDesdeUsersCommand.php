@@ -88,7 +88,9 @@ class ColaboradoresBackfillDesdeUsersCommand extends Command
             $datos = collect($usuario->getAttributes())->only(self::COLUMNAS_PERSONA)->all();
             $datos['deleted_at'] = $usuario->deleted_at;
 
-            $colaborador = Colaborador::create($datos);
+            // forceCreate: $datos incluye estatus/estatus_imss/incorporacion_*/
+            // avisos_registrado_por_id, fuera del fillable (defensa en profundidad).
+            $colaborador = Colaborador::forceCreate($datos);
 
             $usuario->forceFill(['colaborador_id' => $colaborador->id])->saveQuietly();
 

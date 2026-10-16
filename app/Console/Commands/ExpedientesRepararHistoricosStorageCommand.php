@@ -94,19 +94,21 @@ class ExpedientesRepararHistoricosStorageCommand extends Command
      */
     private function procesar(ExpedienteHistorico $historico, DocumentoStorageService $storage, AuditoriaService $auditoria, ?User $actor, bool $tieneHash, string $discoCanonico, bool $aplicar, array &$conteo): void
     {
-        // Solo reparamos lo que coincide con el P0: (disk,path) ausente.
-        if (! $this->discoConfigurado($historico->disk)) {
-            $conteo['disco_inexistente']++;
-            $this->line(sprintf('  <fg=red>✗</> #%d: disco canónico «%s» no está en config. Revisa configuración; no se toca nada.', $historico->id, $historico->disk));
-
-            return;
-        }
-
+        // El (disk,path) de BD puede apuntar a un disco que ya NO está en
+        // config (renombrado o migrado a otro NAS). Eso NO es motivo para
+        // abortar: la copia de reparación va siempre al disco canónico
+        // (config expedientes.disk, $discoCanonico), así que un disco de BD
+        // inexistente solo significa «hay que re-alinear al canónico». existe()
+        // tolera un disco inválido (devuelve false, ver guard más abajo), de
+        // modo que caemos al flujo normal de reparación en vez de cortar aquí.
         if ($this->existe($historico->disk, $historico->path)) {
-            // Ya está en su (disk,path): nada que reparar (idempotente).
+            // Ya está en su (disk,path) y el disco es válido: idempotente.
             return;
         }
 
+        // 2.º guard, legítimo: sin un ORIGEN con disco configurado no hay de
+        // dónde copiar. (El disco de BD puede estar fuera de config; el de
+        // origen no, porque de ahí se lee para reparar.)
         if ($historico->source_disk === null || ! $this->discoConfigurado($historico->source_disk)) {
             $conteo['disco_inexistente']++;
             $this->line(sprintf('  <fg=red>✗</> #%d: no hay origen con disco configurado (source_disk=%s). No se puede reparar.', $historico->id, $historico->source_disk ?? '(ninguno)'));

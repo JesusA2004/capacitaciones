@@ -292,7 +292,8 @@ class EjecutorMigracion
             }
 
             if ($colaborador === null) {
-                $colaborador = Colaborador::query()->create([
+                // forceCreate: $datos trae estatus/estado_alta/salario, fuera del fillable.
+                $colaborador = Colaborador::query()->forceCreate([
                     ...$datos,
                     'numero_empleado' => $this->numeros->siguiente(),
                     'estado_alta' => $activo ? EstadoAltaColaborador::Activo : EstadoAltaColaborador::Baja,
@@ -330,7 +331,8 @@ class EjecutorMigracion
                 }
 
                 if ($cambios !== []) {
-                    $colaborador->update($cambios);
+                    // forceFill: $cambios puede incluir estatus/salario (fuera del fillable).
+                    $colaborador->forceFill($cambios)->save();
                     $this->conteo['actualizados']++;
                     $this->registrar('colaborador_actualizado', ['fila' => $fila['fila'], 'colaborador_id' => $colaborador->id, 'campos' => array_keys($cambios)]);
                 } else {
@@ -385,7 +387,7 @@ class EjecutorMigracion
             ->first(fn (Colaborador $c) => Normalizador::clave($c->nombreCompleto()) === Normalizador::clave($nombre.' '.$apellidos));
 
         if ($colaborador === null) {
-            $colaborador = DB::transaction(fn () => Colaborador::query()->create([
+            $colaborador = DB::transaction(fn () => Colaborador::query()->forceCreate([
                 'name' => $nombre,
                 'apellidos' => $apellidos,
                 'sucursal_principal_id' => $carpeta['sucursal_id'],

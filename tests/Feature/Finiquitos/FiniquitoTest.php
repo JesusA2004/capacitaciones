@@ -2,9 +2,11 @@
 
 use App\Models\Colaborador;
 use App\Models\FiniquitoCalculo;
+use App\Models\GeneratedDocument;
 use App\Models\OfficialFormat;
 use App\Models\SolicitudInterna;
 use App\Models\User;
+use App\Services\DocumentosLaborales\FlujoDocumentalService;
 use App\Services\Finiquitos\FiniquitoService;
 use App\Services\Solicitudes\SolicitudesService;
 use Database\Seeders\RolesYPermisosSeeder;
@@ -12,6 +14,28 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use setasign\Fpdi\Fpdi;
+
+/**
+ * Deja el finiquito de la solicitud con su PDF GENERADO e IMPRESO, listo para
+ * registrar la firma física (consistencia FiniquitoCalculo ↔ GeneratedDocument:
+ * primero impreso, luego firma física). Lo usan los tests del flujo nuevo.
+ */
+function generarEImprimirFiniquito(SolicitudInterna $solicitud, User $actor): GeneratedDocument
+{
+    test()->actingAs($actor)
+        ->post(route('rh.solicitudes.finiquito.generar-pdf', $solicitud))
+        ->assertSessionHasNoErrors();
+
+    $finiquito = $solicitud->finiquitoCalculo()->first();
+    $documento = GeneratedDocument::query()->findOrFail($finiquito->generated_document_id);
+
+    // El documento del finiquito se genera con requiere_impresion + requiere_firma_fisica:
+    // tras generarse queda «pendiente de impresión»; RH lo imprime y pasa a
+    // «pendiente de firma física».
+    app(FlujoDocumentalService::class)->marcarImpreso($documento, $actor);
+
+    return $documento->refresh();
+}
 
 function crearPdfPruebaFiniquito(): string
 {
@@ -231,6 +255,9 @@ test('marcar firmado físicamente lleva a Firmado sin archivo, registra quién/c
     $solicitud = crearSolicitudBaja();
     $this->actingAs($this->rh)->post(route('rh.solicitudes.finiquito.calcular', $solicitud), ['sueldo_mensual' => 15000]);
 
+    // Consistencia: el finiquito debe estar generado e impreso antes de firmar.
+    $documento = generarEImprimirFiniquito($solicitud, $this->rh);
+
     $finiquito = $solicitud->finiquitoCalculo()->first();
     // El flujo nuevo exige que el cálculo ya esté aprobado (revisado + baja aprobada).
     $finiquito->update(['estado' => 'aprobado']);
@@ -244,7 +271,9 @@ test('marcar firmado físicamente lleva a Firmado sin archivo, registra quién/c
     expect($finiquito->estado->value)->toBe('firmado')
         ->and($finiquito->documento_firmado_path)->toBeNull()
         ->and($finiquito->firmado_fisicamente_en)->not->toBeNull()
-        ->and($finiquito->firmado_fisicamente_por)->toBe($this->rh->id);
+        ->and($finiquito->firmado_fisicamente_por)->toBe($this->rh->id)
+        // Consistencia: el GeneratedDocument quedó coherente (firma física registrada).
+        ->and($documento->refresh()->estado_flujo->firmaFisicaRegistrada())->toBeTrue();
 
     // Auditoría en el historial de la solicitud (actor + observación).
     $historial = $solicitud->historial()->where('accion', 'finiquito_firmado_fisicamente')->first();
@@ -272,6 +301,56 @@ test('no se puede marcar firmado físicamente si el cálculo no está aprobado',
         ->assertSessionHasErrors('estado');
 
     expect($solicitud->finiquitoCalculo()->first()->estado->value)->toBe('borrador');
+});
+
+test('no se puede marcar firmado físicamente sin el documento del finiquito generado', function () {
+    $solicitud = crearSolicitudBaja();
+    $this->actingAs($this->rh)->post(route('rh.solicitudes.finiquito.calcular', $solicitud), ['sueldo_mensual' => 15000]);
+
+    $finiquito = $solicitud->finiquitoCalculo()->first();
+    // Aprobado pero SIN generar el PDF: no hay documento que imprimir ni firmar.
+    $finiquito->update(['estado' => 'aprobado']);
+
+    $this->actingAs($this->rh)
+        ->post(route('rh.solicitudes.finiquito.firmado-fisico', $solicitud))
+        ->assertSessionHasErrors('documento');
+
+    expect($solicitud->finiquitoCalculo()->first()->estado->value)->toBe('aprobado');
+});
+
+test('no se puede marcar firmado físicamente si el documento no se ha impreso', function () {
+    $solicitud = crearSolicitudBaja();
+    $this->actingAs($this->rh)->post(route('rh.solicitudes.finiquito.calcular', $solicitud), ['sueldo_mensual' => 15000]);
+
+    // Se genera el PDF pero NO se imprime: queda «pendiente de impresión».
+    $this->actingAs($this->rh)->post(route('rh.solicitudes.finiquito.generar-pdf', $solicitud))->assertSessionHasNoErrors();
+    $solicitud->finiquitoCalculo()->first()->update(['estado' => 'aprobado']);
+
+    $this->actingAs($this->rh)
+        ->post(route('rh.solicitudes.finiquito.firmado-fisico', $solicitud))
+        ->assertSessionHasErrors('documento');
+
+    expect($solicitud->finiquitoCalculo()->first()->estado->value)->toBe('aprobado');
+});
+
+test('firmado físicamente dos veces es idempotente: la segunda vez es un error controlado', function () {
+    $solicitud = crearSolicitudBaja();
+    $this->actingAs($this->rh)->post(route('rh.solicitudes.finiquito.calcular', $solicitud), ['sueldo_mensual' => 15000]);
+    generarEImprimirFiniquito($solicitud, $this->rh);
+
+    $finiquito = $solicitud->finiquitoCalculo()->first();
+    $finiquito->update(['estado' => 'aprobado']);
+
+    $servicio = app(FiniquitoService::class);
+    $servicio->marcarFirmadoFisicamente($finiquito->refresh(), $this->rh, 'Primera firma.');
+
+    // Segunda llamada: ya firmado, no vuelve a firmar (inmutable) — error claro.
+    expect(fn () => $servicio->marcarFirmadoFisicamente($finiquito->refresh(), $this->rh, 'Segunda firma.'))
+        ->toThrow(ValidationException::class);
+
+    $firmas = $solicitud->historial()->where('accion', 'finiquito_firmado_fisicamente')->count();
+    expect($firmas)->toBe(1)
+        ->and($finiquito->refresh()->estado->value)->toBe('firmado');
 });
 
 test('un finiquito legacy con escaneo firmado (documento_firmado_path) sigue siendo descargable', function () {

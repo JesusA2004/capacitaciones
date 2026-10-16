@@ -179,7 +179,20 @@ class FlujoDocumentalService
     {
         return DB::transaction(function () use ($documento, $actor, $datos, $comprobante): GeneratedDocument {
             $documento = $this->bloquear($documento);
-            $this->exigirEstado($documento, [E::FirmadoFisicamente, E::Impreso], 'registrar el envío');
+
+            // Flujo NUEVO: el documento concluye con la firma física. El envío
+            // a corporativo es un paso del flujo HISTÓRICO que ya NO puede
+            // INICIARSE desde un documento firmado físicamente o impreso (los
+            // únicos estados desde los que antes arrancaba). El método se
+            // conserva solo por compatibilidad con la API y los expedientes
+            // legacy; ningún documento del flujo nuevo entra aquí.
+            if (in_array($documento->estado_flujo, [E::FirmadoFisicamente, E::Impreso], true)) {
+                throw ValidationException::withMessages([
+                    'estado' => 'Este documento concluye con la firma física; el envío a corporativo es un flujo histórico que ya no puede iniciarse.',
+                ]);
+            }
+
+            $this->exigirEstado($documento, [], 'registrar el envío');
 
             $seguimiento = $this->seguimiento($documento);
             $seguimiento->fill([
@@ -237,13 +250,16 @@ class FlujoDocumentalService
      * en el expediente como EmployeeDocument aprobado del tipo documental de
      * la plantilla. El flujo nuevo NO escanea (el original se resguarda en
      * papel y la firma física es el paso final); este método se conserva solo
-     * para cerrar expedientes legacy y no se ofrece como acción en la UI nueva.
+     * para CONTINUAR la cadena de un expediente legacy que ya está recibido en
+     * corporativo (RecibidoCorporativo → escaneo). NO puede iniciarse desde
+     * FirmadoFisicamente ni Impreso: un documento del flujo nuevo concluye en
+     * la firma física y ya no vuelve a escanearse.
      */
     public function registrarEscaneo(GeneratedDocument $documento, User $actor, UploadedFile $archivo, ?string $observaciones = null): GeneratedDocument
     {
         return DB::transaction(function () use ($documento, $actor, $archivo, $observaciones): GeneratedDocument {
             $documento = $this->bloquear($documento);
-            $this->exigirEstado($documento, [E::RecibidoCorporativo, E::FirmadoFisicamente, E::Impreso], 'registrar el escaneo');
+            $this->exigirEstado($documento, [E::RecibidoCorporativo], 'registrar el escaneo');
 
             $documento->loadMissing(['colaborador', 'plantilla.tipoDocumento']);
             $colaborador = $documento->colaborador;
@@ -308,7 +324,7 @@ class FlujoDocumentalService
             $documento = $this->bloquear($documento);
 
             if ($documento->estado_flujo?->esFinal()) {
-                throw ValidationException::withMessages(['documento' => 'Un documento archivado o cancelado ya no puede cancelarse.']);
+                throw ValidationException::withMessages(['documento' => 'No se puede cancelar un documento ya firmado físicamente, archivado o cancelado.']);
             }
 
             $documento->update(['motivo_cancelacion' => $motivo]);

@@ -15,7 +15,6 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Expedientes\DocumentoStorageService;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -32,9 +31,10 @@ use Throwable;
  *     empresa y de quien entrega (congelados en `snapshot`).
  *  2. Chrome (Browsershot) imprime el PDF; se guarda en el NAS dentro del
  *     expediente del colaborador, carpeta «Actas» (Actas y responsivas).
- *  3. Se imprime y se firma en papel; opcionalmente se sube el escaneo
- *     firmado (misma carpeta). Después se puede registrar la devolución del
- *     equipo o cancelarla. Nada se borra: todo queda como historial.
+ *  3. Se imprime y se firma en papel; RH/gerente marca «firmada físicamente»
+ *     sin subir ningún archivo (el escaneo firmado ya no se sube: firmada_path
+ *     solo se lee en registros antiguos). Después se puede registrar la
+ *     devolución del equipo o cancelarla. Nada se borra: todo queda historial.
  *
  * La autorización vive en App\Policies\ResponsivaPolicy (gerente con su
  * alcance y RH); este servicio aplica las reglas de negocio.
@@ -211,57 +211,30 @@ class ResponsivaService
     /**
      * Firma física sin escaneo (regla vigente): la responsiva se imprime, se
      * firma en papel y RH/gerente presiona «Marcar firmada físicamente». No
-     * se sube ningún archivo; solo se deja constancia de quién y cuándo.
-     * subirFirmada()/firmada_path se conservan como LEGACY de solo lectura
-     * para las responsivas antiguas que ya traían escaneo.
+     * se sube ningún archivo; solo se deja constancia de quién y cuándo. El
+     * escaneo firmado ya no se sube: `firmada_path` se conserva como LEGACY
+     * de solo lectura para las responsivas antiguas que ya traían escaneo.
+     *
+     * Solo aplica sobre una responsiva aún «Pendiente de firma» (Generada);
+     * se bloquea la fila y se revalida tras el lock para que dos peticiones
+     * concurrentes no produzcan doble firma ni pisen otra transición.
      */
     public function marcarFirmadaFisicamente(Responsiva $responsiva, User $actor): Responsiva
     {
-        $this->exigirVigente($responsiva, 'marcarla como firmada físicamente');
+        return DB::transaction(function () use ($responsiva, $actor): Responsiva {
+            $responsiva = $this->bloquear($responsiva);
+            $this->exigirPendienteDeFirma($responsiva);
 
-        $responsiva->update([
-            'estado' => EstadoResponsiva::Firmada,
-            'firmada_fisicamente_en' => now(),
-            'firmada_fisicamente_por' => $actor->id,
-        ]);
+            $responsiva->update([
+                'estado' => EstadoResponsiva::Firmada,
+                'firmada_fisicamente_en' => now(),
+                'firmada_fisicamente_por' => $actor->id,
+            ]);
 
-        $this->auditoria->registrar('responsiva_firmada_fisicamente', $responsiva, $actor, ['folio' => $responsiva->folio]);
+            $this->auditoria->registrar('responsiva_firmada_fisicamente', $responsiva, $actor, ['folio' => $responsiva->folio]);
 
-        return $responsiva;
-    }
-
-    /** LEGACY: escaneo de la responsiva ya firmada en papel (PDF o foto). */
-    public function subirFirmada(Responsiva $responsiva, UploadedFile $archivo, User $actor): Responsiva
-    {
-        $this->exigirVigente($responsiva, 'subir la responsiva firmada');
-        $responsiva->loadMissing('colaborador');
-        $extension = strtolower($archivo->getClientOriginalExtension() ?: ($archivo->extension() ?? 'pdf'));
-
-        try {
-            $ruta = $this->expediente->guardarContenidoEnExpediente(
-                $responsiva->colaborador,
-                CategoriaDocumento::Actas,
-                sprintf('Responsiva %s - firmada.%s', $responsiva->folio, $extension),
-                (string) $archivo->get(),
-            );
-        } catch (Throwable $e) {
-            Log::error('Responsiva: no se pudo guardar el escaneo firmado.', ['responsiva_id' => $responsiva->id, 'error' => $e->getMessage()]);
-
-            throw ValidationException::withMessages(['archivo' => 'No se pudo guardar el archivo (almacenamiento no disponible). Intenta de nuevo.']);
-        }
-
-        // El escaneo anterior (si lo hubo) se conserva en el NAS: nunca se
-        // borra un documento del expediente.
-        $responsiva->update([
-            'firmada_path' => $ruta,
-            'firmada_subida_en' => now(),
-            'firmada_subida_por' => $actor->id,
-            'estado' => EstadoResponsiva::Firmada,
-        ]);
-
-        $this->auditoria->registrar('responsiva_firmada', $responsiva, $actor, ['folio' => $responsiva->folio]);
-
-        return $responsiva;
+            return $responsiva;
+        });
     }
 
     /**
@@ -271,40 +244,46 @@ class ResponsivaService
      */
     public function registrarDevolucion(Responsiva $responsiva, array $datos, User $actor): Responsiva
     {
-        $this->exigirVigente($responsiva, 'registrar la devolución');
+        return DB::transaction(function () use ($responsiva, $datos, $actor): Responsiva {
+            $responsiva = $this->bloquear($responsiva);
+            $this->exigirVigente($responsiva, 'registrar la devolución');
 
-        $fecha = Carbon::parse($datos['devuelta_en']);
+            $fecha = Carbon::parse($datos['devuelta_en']);
 
-        if ($fecha->lt($responsiva->fecha_entrega)) {
-            throw ValidationException::withMessages(['devuelta_en' => 'La devolución no puede ser anterior a la entrega.']);
-        }
+            if ($fecha->lt($responsiva->fecha_entrega)) {
+                throw ValidationException::withMessages(['devuelta_en' => 'La devolución no puede ser anterior a la entrega.']);
+            }
 
-        $responsiva->update([
-            'estado' => EstadoResponsiva::Devuelta,
-            'devuelta_en' => $fecha->toDateString(),
-            'observaciones_devolucion' => $this->limpio($datos['observaciones'] ?? null),
-            'devolucion_registrada_por' => $actor->id,
-        ]);
+            $responsiva->update([
+                'estado' => EstadoResponsiva::Devuelta,
+                'devuelta_en' => $fecha->toDateString(),
+                'observaciones_devolucion' => $this->limpio($datos['observaciones'] ?? null),
+                'devolucion_registrada_por' => $actor->id,
+            ]);
 
-        $this->auditoria->registrar('responsiva_devuelta', $responsiva, $actor, ['folio' => $responsiva->folio, 'devuelta_en' => $fecha->toDateString()]);
+            $this->auditoria->registrar('responsiva_devuelta', $responsiva, $actor, ['folio' => $responsiva->folio, 'devuelta_en' => $fecha->toDateString()]);
 
-        return $responsiva;
+            return $responsiva;
+        });
     }
 
     public function cancelar(Responsiva $responsiva, string $motivo, User $actor): Responsiva
     {
-        $this->exigirVigente($responsiva, 'cancelarla');
+        return DB::transaction(function () use ($responsiva, $motivo, $actor): Responsiva {
+            $responsiva = $this->bloquear($responsiva);
+            $this->exigirVigente($responsiva, 'cancelarla');
 
-        $responsiva->update([
-            'estado' => EstadoResponsiva::Cancelada,
-            'cancelada_en' => now(),
-            'cancelada_por' => $actor->id,
-            'motivo_cancelacion' => trim($motivo),
-        ]);
+            $responsiva->update([
+                'estado' => EstadoResponsiva::Cancelada,
+                'cancelada_en' => now(),
+                'cancelada_por' => $actor->id,
+                'motivo_cancelacion' => trim($motivo),
+            ]);
 
-        $this->auditoria->registrar('responsiva_cancelada', $responsiva, $actor, ['folio' => $responsiva->folio, 'motivo' => trim($motivo)]);
+            $this->auditoria->registrar('responsiva_cancelada', $responsiva, $actor, ['folio' => $responsiva->folio, 'motivo' => trim($motivo)]);
 
-        return $responsiva;
+            return $responsiva;
+        });
     }
 
     public function respuestaPdf(Responsiva $responsiva, bool $firmada = false): StreamedResponse
@@ -535,10 +514,36 @@ class ResponsivaService
         }
     }
 
+    /**
+     * Relee la responsiva con un bloqueo de escritura (SELECT ... FOR UPDATE)
+     * para serializar transiciones concurrentes: la segunda petición espera a
+     * que la primera confirme y revalida el estado ya persistido. Debe usarse
+     * siempre dentro de una transacción.
+     */
+    private function bloquear(Responsiva $responsiva): Responsiva
+    {
+        return Responsiva::query()
+            ->whereKey($responsiva->getKey())
+            ->lockForUpdate()
+            ->firstOrFail();
+    }
+
     private function exigirVigente(Responsiva $responsiva, string $accion): void
     {
         if (! $responsiva->estado->vigente()) {
             throw ValidationException::withMessages(['responsiva' => sprintf('La responsiva %s está «%s»: ya no se puede %s.', $responsiva->folio, mb_strtolower($responsiva->estado->etiqueta(), 'UTF-8'), $accion)]);
+        }
+    }
+
+    /**
+     * La firma física solo procede sobre una responsiva aún «Pendiente de
+     * firma»: si ya está firmada (o devuelta/cancelada) se rechaza con un
+     * error controlado, evitando una doble firma por peticiones concurrentes.
+     */
+    private function exigirPendienteDeFirma(Responsiva $responsiva): void
+    {
+        if ($responsiva->estado !== EstadoResponsiva::Generada) {
+            throw ValidationException::withMessages(['responsiva' => sprintf('La responsiva %s está «%s»: ya no se puede marcar como firmada físicamente.', $responsiva->folio, mb_strtolower($responsiva->estado->etiqueta(), 'UTF-8'))]);
         }
     }
 

@@ -14,8 +14,9 @@ use Database\Seeders\RolesYPermisosSeeder;
 /*
  * super_admin nunca recibe 403 por segregación de actor (ser el titular del
  * recurso), aunque las Policies bloqueen esa condición para cualquier otro
- * rol. sistemas, en cambio, solo tiene lectura global: ve todo pero no
- * decide nada de RH. Ver app/Policies/Concerns/ConSuperAdminOperativo.php.
+ * rol. sistemas, en cambio, ve ESTADO/METADATA de soporte pero NO el CONTENIDO
+ * sensible de RH ni decide nada (mínimo privilegio 2026-10-16).
+ * Ver app/Policies/Concerns/ConSuperAdminOperativo.php.
  */
 
 beforeEach(function () {
@@ -77,7 +78,7 @@ test('super_admin sin colaborador vinculado no finge tener expediente propio', f
     expect($admin->can('modo-colaborador'))->toBeFalse();
 });
 
-test('sistemas consulta solicitudes, actas, vacaciones y documentos sin poder decidir sobre ellos', function () {
+test('sistemas ve el ESTADO de workflow (solicitudes) pero NO el contenido sensible (actas) ni decide sobre nada', function () {
     $sistemas = User::factory()->create(['colaborador_id' => null]);
     $sistemas->assignRole('sistemas');
 
@@ -87,11 +88,14 @@ test('sistemas consulta solicitudes, actas, vacaciones y documentos sin poder de
     $acta = ActaAdministrativa::factory()->create(['colaborador_id' => $otro->colaborador_id]);
     $documento = EmployeeDocument::factory()->create(['user_id' => $otro->id, 'colaborador_id' => $otro->colaborador_id]);
 
-    // Ve todo (lectura global del catálogo `sistemas`).
-    expect($sistemas->can('view', $solicitud))->toBeTrue()
-        ->and($sistemas->can('ver', $acta))->toBeTrue();
+    // Metadata/estado de workflow: sí (conserva solicitudes.ver).
+    expect($sistemas->can('view', $solicitud))->toBeTrue();
 
-    // No decide nada de RH: sin los permisos de aprobar/gestionar, cae en
+    // Contenido sensible de RH: NO (mínimo privilegio 2026-10-16). Ya no tiene
+    // actas.ver, así que ni siquiera puede LEER el acta ajena.
+    expect($sistemas->can('ver', $acta))->toBeFalse();
+
+    // Y nunca decide nada de RH: sin los permisos de aprobar/gestionar, cae en
     // false por la Policy — nunca por falta de alcance.
     expect($sistemas->can('aprobar', $solicitud))->toBeFalse()
         ->and($sistemas->can('rechazar', $solicitud))->toBeFalse()

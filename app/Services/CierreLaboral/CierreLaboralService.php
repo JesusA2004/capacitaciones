@@ -633,6 +633,39 @@ class CierreLaboralService
         return $cierre;
     }
 
+    /**
+     * Firma física del finiquito SIN archivo (flujo vigente): el finiquito se
+     * imprime y se firma en PAPEL; no se escanea ni se sube. Paridad con la
+     * web (Rh\FiniquitoController::marcarFirmadoFisicamente) y con la app
+     * móvil (CierreLaboralController::finiquitoFirmadoFisico). Sincroniza el
+     * estado del cierre igual que el flujo con archivo (registrarFiniquitoFirmado).
+     *
+     * El cierre ya autorizó el finiquito (finiquito_autorizado_en); al llegar
+     * a la firma física el cálculo se consolida como Aprobado —misma transición
+     * Revisado → Aprobado que aplica la aprobación de la baja en el flujo web de
+     * solicitudes— para que FiniquitoService::marcarFirmadoFisicamente() reciba
+     * siempre un finiquito aprobado, idéntico a como lo recibe en la web.
+     */
+    public function registrarFiniquitoFirmadoFisico(CierreLaboral $cierre, User $actor, ?string $observacion = null): CierreLaboral
+    {
+        $this->exigirOperacion($cierre, $actor);
+        $this->exigirEstado($cierre, [EstadoCierreLaboral::PagoProgramado, EstadoCierreLaboral::FiniquitoFirmado, EstadoCierreLaboral::Pagado]);
+
+        $finiquito = $this->exigirFiniquito($cierre);
+
+        if ($finiquito->estado === EstadoFiniquito::Revisado) {
+            $finiquito->update(['estado' => EstadoFiniquito::Aprobado->value]);
+            $finiquito->refresh();
+        }
+
+        $this->finiquitos->marcarFirmadoFisicamente($finiquito, $actor, $observacion);
+        $cierre->update(['estado' => $this->avanzar($cierre, EstadoCierreLaboral::FiniquitoFirmado)]);
+        $this->auditoria->registrar('finiquito_firmado', $cierre, $actor, ['colaborador_id' => $cierre->colaborador_id, 'fisico' => true]);
+        $this->sincronizarPendientes($cierre->refresh(), $actor);
+
+        return $cierre;
+    }
+
     public function confirmarPago(CierreLaboral $cierre, User $actor, string $referencia): CierreLaboral
     {
         $this->exigirOperacion($cierre, $actor);

@@ -388,7 +388,7 @@ class ReingresoService
             $colaborador->restore();
         }
 
-        $colaborador->update([
+        $colaborador->forceFill([
             'estatus' => EstadoUsuario::EnIncorporacion,
             'estado_alta' => EstadoAltaColaborador::PendienteDocumentos,
             'puesto_id' => $reingreso->puesto_id ?? $colaborador->puesto_id,
@@ -401,7 +401,7 @@ class ReingresoService
             'expediente_cerrado_por' => null,
             'incorporacion_decision' => null,
             'activado_en' => null,
-        ]);
+        ])->save();
 
         $porRenovar = $this->documentosARenovar($colaborador, $reingreso->documentos_requeridos ?? []);
         $vigentes = $this->expediente->documentosVigentes($colaborador);

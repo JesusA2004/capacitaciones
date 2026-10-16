@@ -49,11 +49,11 @@ class BajaColaboradorService
 
             // $colaborador tiene LogsActivity (App\Models\Colaborador) con
             // 'estatus' en logOnly(): este cambio ya queda auditado solo.
-            $colaborador->update([
+            $colaborador->forceFill([
                 'estatus' => EstadoUsuario::Inactivo,
                 'estado_alta' => EstadoAltaColaborador::Baja,
                 'fecha_baja' => $colaborador->fecha_baja ?? now()->toDateString(),
-            ]);
+            ])->save();
 
             // Soft-delete (SoftDeletes en App\Models\Colaborador): lo que
             // hace que rh.expedientes.show/foto (Route::withTrashed()) y
@@ -99,13 +99,13 @@ class BajaColaboradorService
     {
         DB::transaction(function () use ($colaborador): void {
             $colaborador->restore();
-            $colaborador->update([
+            $colaborador->forceFill([
                 'estatus' => EstadoUsuario::Activo,
                 'estado_alta' => EstadoAltaColaborador::Activo,
                 'fecha_baja' => null,
                 'expediente_cerrado_en' => null,
                 'expediente_cerrado_por' => null,
-            ]);
+            ])->save();
         });
     }
 }

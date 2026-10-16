@@ -56,18 +56,26 @@ enum EstadoFlujoDocumento: string
         };
     }
 
+    /**
+     * Estados TERMINALES: ya no admiten ninguna transición (ni cancelación).
+     * FirmadoFisicamente es final porque es el cierre del flujo NUEVO (el
+     * documento que requería firma física ya la tiene y el original se
+     * resguarda en papel); Archivado y Cancelado cierran el ciclo en los
+     * demás casos. Los estados legacy EnviadoCorporativo/RecibidoCorporativo/
+     * Escaneado NO son finales: un expediente histórico todavía puede
+     * continuar su cadena antigua (recepción → escaneo → archivado).
+     */
     public function esFinal(): bool
     {
-        return $this === self::Archivado || $this === self::Cancelado;
+        return in_array($this, [self::FirmadoFisicamente, self::Archivado, self::Cancelado], true);
     }
 
     /**
-     * true cuando el documento ya quedó firmado por el colaborador (digital
-     * o físicamente) — lo usan el alta (pendiente_firma) y la renovación.
-     */
-    /**
-     * true cuando ya existe el original físico firmado (firma + huella
+     * true cuando ya existe el ORIGINAL FÍSICO firmado (firma + huella
      * registradas por el gerente), aunque todavía no se envíe o archive.
+     * Impreso y PendienteFirmaFisica NO cuentan: imprimir no es firmar y
+     * estar pendiente de firma física tampoco. Es el criterio canónico de
+     * «tiene firma física»; tieneFirmaFisica() es su alias expresivo.
      */
     public function firmaFisicaRegistrada(): bool
     {
@@ -77,12 +85,45 @@ enum EstadoFlujoDocumento: string
         ], true);
     }
 
-    public function estaFirmado(): bool
+    /**
+     * Alias expresivo de firmaFisicaRegistrada(): el original físico ya
+     * quedó firmado. Úsalo como gate cuando el documento requiere firma
+     * física.
+     */
+    public function tieneFirmaFisica(): bool
+    {
+        return $this->firmaFisicaRegistrada();
+    }
+
+    /**
+     * true cuando el paso de firma DIGITAL del colaborador ya ocurrió. Solo
+     * es un criterio válido para documentos cuyo flujo EXIGE firma digital
+     * (ver ContratoLaboralService::documentoFirmadoSegunFlujo): en ese flujo
+     * el documento pasa por FirmadoDigitalmente antes de cualquier estado
+     * posterior, de modo que todos ellos implican que la firma digital se
+     * registró. NO lo uses como gate de firma FÍSICA (para eso está
+     * tieneFirmaFisica()).
+     */
+    public function tieneFirmaDigital(): bool
     {
         return in_array($this, [
             self::FirmadoDigitalmente, self::PendienteImpresion, self::Impreso,
             self::PendienteFirmaFisica, self::FirmadoFisicamente, self::EnviadoCorporativo,
             self::RecibidoCorporativo, self::Escaneado, self::Archivado,
         ], true);
+    }
+
+    /**
+     * Criterio GENÉRICO de «el documento tiene una firma real registrada»
+     * (digital o física). Un documento meramente Impreso o pendiente de
+     * firma física NO cuenta como firmado: imprimir no es firmar y estar
+     * pendiente de firma tampoco. Para decidir si un documento cumplió sus
+     * requisitos de firma SEGÚN SU FLUJO (física si la requiere, digital si
+     * solo esa), usa ContratoLaboralService::documentoFirmadoSegunFlujo(),
+     * no este método.
+     */
+    public function estaFirmado(): bool
+    {
+        return $this === self::FirmadoDigitalmente || $this->tieneFirmaFisica();
     }
 }

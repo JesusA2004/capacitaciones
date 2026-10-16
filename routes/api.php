@@ -558,6 +558,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('{cierre}/finiquito/revisar', [CierreLaboralController::class, 'revisarFiniquito'])->name('finiquito.revisar');
                 Route::post('{cierre}/finiquito/documento', [CierreLaboralController::class, 'generarFiniquito'])->name('finiquito.documento');
                 Route::post('{cierre}/finiquito/firmado', [CierreLaboralController::class, 'finiquitoFirmado'])->name('finiquito.firmado')->middleware('throttle:api-cargas');
+                Route::post('{cierre}/finiquito/firmado-fisico', [CierreLaboralController::class, 'finiquitoFirmadoFisico'])->name('finiquito.firmado-fisico');
                 Route::post('{cierre}/finiquito/pago', [CierreLaboralController::class, 'confirmarPago'])->name('finiquito.pago');
                 Route::post('{cierre}/ejecutar-baja', [CierreLaboralController::class, 'ejecutarBaja'])->name('ejecutar-baja');
                 Route::post('{cierre}/cerrar-expediente', [CierreLaboralController::class, 'cerrarExpediente'])->name('cerrar-expediente');

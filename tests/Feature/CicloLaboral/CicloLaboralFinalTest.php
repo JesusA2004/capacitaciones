@@ -7,6 +7,7 @@ use App\Enums\EstadoCandidato;
 use App\Enums\EstadoCierreLaboral;
 use App\Enums\EstadoContratoLaboral;
 use App\Enums\EstadoDocumento;
+use App\Enums\EstadoFlujoDocumento;
 use App\Enums\EstadoOnboarding;
 use App\Enums\EstadoReingreso;
 use App\Enums\EstadoUsuario;
@@ -660,7 +661,7 @@ test('los puestos determinan la duración del periodo de prueba', function () {
 |--------------------------------------------------------------------------
 */
 
-test('PDF etapa 2: contratos impresos → firma física → envío → recepción → escaneo → archivo, solo con todos los obligatorios aprobados', function () {
+test('PDF etapa 2: contratos impresos → firma física (terminal, flujo nuevo); el escaneo/archivado solo sobrevive para expedientes legacy', function () {
     $candidato = cfHastaPreautorizado($this, cfRegistrarCandidato($this));
     ['colaborador' => $colaborador, 'usuario' => $usuario] = cfContratarYRegistrar($this, $candidato);
 
@@ -684,23 +685,42 @@ test('PDF etapa 2: contratos impresos → firma física → envío → recepció
     $contratos = GeneratedDocument::query()->where('colaborador_id', $colaborador->id)->get();
     expect($contratos)->toHaveCount(3);
 
+    // Flujo NUEVO (document_flow = 2): imprimir → firma física, y ahí CONCLUYE.
+    // La firma física es terminal; ya no hay envío a corporativo, recepción ni
+    // escaneo. Intentar iniciar ese flujo histórico sobre un documento firmado
+    // se rechaza (regla de negocio de FlujoDocumentalService).
     $flujo = app(FlujoDocumentalService::class);
     $this->actingAs($this->gerenteA);
     foreach ($contratos as $documento) {
         $flujo->marcarImpreso($documento, $this->gerenteA);
         $flujo->registrarFirmaFisica($documento->refresh(), $this->gerenteA, ['huella_registrada' => true]);
-        $flujo->registrarEnvio($documento->refresh(), $this->gerenteA, ['paqueteria' => 'Estafeta', 'numero_guia' => 'G-'.$documento->id]);
+
+        expect($documento->refresh()->estado_flujo)->toBe(EstadoFlujoDocumento::FirmadoFisicamente)
+            ->and($documento->estado_flujo->esFinal())->toBeTrue();
+
+        expect(fn () => $flujo->registrarEnvio($documento->refresh(), $this->gerenteA, ['paqueteria' => 'Estafeta', 'numero_guia' => 'G-'.$documento->id]))
+            ->toThrow(ValidationException::class);
     }
+
+    // El flujo nuevo no abre tareas de envío/recepción/escaneo.
+    expect(TareaRh::query()->whereIn('tipo', [TipoTarea::EnvioOriginalPendiente->value, TipoTarea::RecepcionOriginalPendiente->value, TipoTarea::EscaneoPendiente->value])->whereNull('resuelta_en')->count())->toBe(0);
+
+    // Con la sola firma física de los tres contratos, la persona pasa a onboarding.
+    expect($colaborador->refresh()->estado_alta)->toBe(EstadoAltaColaborador::EnOnboarding);
+
+    // LEGACY: un documento HISTÓRICO que recorrió el flujo anterior y quedó en
+    // «recibido en corporativo» sigue siendo legible y se puede cerrar con la
+    // cadena vieja escaneo → archivado (esos métodos se conservan SOLO para
+    // esto). Se fija el estado a mano a propósito: ese documento es anterior al
+    // flujo nuevo, ningún service lo deja en RecibidoCorporativo hoy.
+    $legacy = $contratos->first();
+    $legacy->forceFill(['estado_flujo' => EstadoFlujoDocumento::RecibidoCorporativo])->save();
 
     $this->actingAs($this->rh);
-    foreach ($contratos as $documento) {
-        $flujo->registrarRecepcion($documento->refresh(), $this->rh);
-        $flujo->registrarEscaneo($documento->refresh(), $this->rh, clArchivoPdf('escaneo.pdf'));
-        $flujo->archivar($documento->refresh(), $this->rh);
-        expect($documento->refresh()->estado_flujo->value)->toBe('archivado');
-    }
-
-    expect($colaborador->refresh()->estado_alta)->toBe(EstadoAltaColaborador::EnOnboarding);
+    $flujo->registrarEscaneo($legacy->refresh(), $this->rh, clArchivoPdf('escaneo.pdf'));
+    expect($legacy->refresh()->estado_flujo->value)->toBe('escaneado');
+    $flujo->archivar($legacy->refresh(), $this->rh);
+    expect($legacy->refresh()->estado_flujo->value)->toBe('archivado');
 });
 
 test('PDF etapa 3: 7.9 no pasa (refuerzo RH + reintento), 8.0 sí pasa', function () {

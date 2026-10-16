@@ -192,8 +192,13 @@ class MobileBootstrapService
     }
 
     /**
+     * Flags del contrato backend↔app. El backend es la AUTORIDAD: la app los
+     * interpreta como gate de seguridad (qué pantallas/pasos existen), nunca
+     * deduce comportamiento del nombre del rol. Casi todos son booleanos; un
+     * par expone la versión vigente de un contrato (p. ej. document_flow).
+     *
      * @param  array{employee: bool, rh: bool, manager: bool, director: bool}  $capabilities
-     * @return array<string, bool>
+     * @return array<string, bool|int>
      */
     private function features(User $usuario, array $capabilities): array
     {
@@ -210,10 +215,22 @@ class MobileBootstrapService
             // Autoservicio de recibos de nómina (Mi espacio): por defecto
             // apagado — el recibo se entrega impreso. La app oculta "Mis
             // recibos" cuando llega false (utils/modules.ts), incluso en
-            // versiones ya instaladas.
+            // versiones ya instaladas. Equivale a employee_payroll_receipts.
             'recibos' => (bool) config('features.recibos_colaborador'),
             // Directorio de contacto corporativo (global, solo autenticado).
             'directorio' => true,
+            // Contrato del flujo documental vigente (ver FlujoDocumentalService
+            // y docs/CICLO_LABORAL_FINAL_IMPLEMENTADO.md). 2 = flujo FÍSICO
+            // nuevo: el documento concluye al firmarse físicamente; NO hay
+            // envío a corporativo, recepción ni escaneo. La app usa este número
+            // para no ofrecer pasos del flujo histórico (1).
+            'document_flow' => 2,
+            // El finiquito se marca firmado FÍSICAMENTE (papel), sin subir un
+            // archivo escaneado: la app registra la firma, no un adjunto.
+            'finiquito_firma_fisica' => true,
+            // En los flujos nuevos NO se suben escaneos del original firmado
+            // (el papel se resguarda). La app oculta esa carga.
+            'subida_escaneo_firmado' => false,
         ];
     }
 

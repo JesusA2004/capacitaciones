@@ -10,6 +10,7 @@ use App\Models\EmployeeDocument;
 use App\Models\FiniquitoCalculo;
 use App\Models\GeneratedDocument;
 use App\Models\User;
+use App\Services\DocumentosLaborales\FlujoDocumentalService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
@@ -119,6 +120,76 @@ test('cierre laboral completo: renuncia → autorización RH → aviso → finiq
     expect(Colaborador::withTrashed()->whereKey($this->colaborador->id)->exists())->toBeTrue()
         ->and($this->colaborador->refresh()->expediente_cerrado_en)->not->toBeNull()
         ->and(EmployeeDocument::query()->where('colaborador_id', $this->colaborador->id)->where('status', 'aprobado')->exists())->toBeTrue();
+});
+
+test('firma física del finiquito desde la app (SIN archivo): paridad con la web, documento coherente y legacy con archivo sigue disponible', function () {
+    Sanctum::actingAs($this->rh);
+
+    $cierreId = $this->postJson("/api/v1/rh/colaboradores/{$this->colaborador->id}/cierres", [
+        'tipo_baja' => 'renuncia',
+        'motivo' => 'Renuncia voluntaria.',
+        'fecha_efectiva' => now()->addDays(5)->toDateString(),
+    ])->assertCreated()->json('data.id');
+
+    $this->postJson("/api/v1/rh/cierres/{$cierreId}/autorizar", ['comentario' => 'Procede.'])->assertOk();
+    $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/calcular", ['sueldo_mensual' => 12000])->assertOk();
+    $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/revisar")->assertOk();
+    $documentoId = $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/documento")->assertOk()->json('documento_id');
+    $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/autorizar")->assertOk();
+    $this->postJson("/api/v1/rh/cierres/{$cierreId}/pago/programar", ['fecha' => now()->addDays(5)->toDateString(), 'metodo' => 'transferencia'])
+        ->assertOk()->assertJsonPath('data.estado', 'pago_programado');
+
+    // Sin imprimir el documento no se puede registrar la firma física (primero impreso).
+    $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/firmado-fisico")->assertUnprocessable();
+
+    // RH imprime el documento del finiquito (pendiente_impresion → pendiente_firma_fisica).
+    $documento = GeneratedDocument::query()->findOrFail($documentoId);
+    app(FlujoDocumentalService::class)->marcarImpreso($documento, $this->rh);
+
+    // Firma física SIN archivo: mismo shape normalizado que las demás acciones.
+    $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/firmado-fisico", ['observacion' => 'Firmado ante RH; original en papel.'])
+        ->assertOk()
+        ->assertJsonPath('data.estado', 'finiquito_firmado')
+        ->assertJsonPath('data.finiquito.estado', 'firmado');
+
+    $finiquito = FiniquitoCalculo::query()->firstOrFail();
+    expect($finiquito->estado)->toBe(EstadoFiniquito::Firmado)
+        ->and($finiquito->documento_firmado_path)->toBeNull()
+        ->and($finiquito->firmado_fisicamente_por)->toBe($this->rh->id)
+        // Consistencia FiniquitoCalculo ↔ GeneratedDocument.
+        ->and($documento->refresh()->estado_flujo->firmaFisicaRegistrada())->toBeTrue();
+
+    // Firmado = inmutable: ya no acepta nuevos conceptos.
+    $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/conceptos", ['tipo' => 'percepcion', 'concepto' => 'Otro', 'importe' => 10])->assertUnprocessable();
+
+    // Luego se confirma el pago.
+    $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/pago", ['referencia_pago' => 'TRF-010'])->assertOk()->assertJsonPath('data.estado', 'pagado');
+
+    // El endpoint LEGACY con archivo sigue disponible (historial).
+    expect(app('router')->getRoutes()->hasNamedRoute('api.v1.rh.cierres.finiquito.firmado'))->toBeTrue();
+});
+
+test('la firma física del finiquito desde la app es idempotente ante doble petición', function () {
+    Sanctum::actingAs($this->rh);
+
+    $cierreId = $this->postJson("/api/v1/rh/colaboradores/{$this->colaborador->id}/cierres", [
+        'tipo_baja' => 'renuncia', 'motivo' => 'Renuncia.', 'fecha_efectiva' => now()->addDays(5)->toDateString(),
+    ])->json('data.id');
+
+    $this->postJson("/api/v1/rh/cierres/{$cierreId}/autorizar", ['comentario' => 'Procede.'])->assertOk();
+    $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/calcular", ['sueldo_mensual' => 12000])->assertOk();
+    $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/revisar")->assertOk();
+    $documentoId = $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/documento")->json('documento_id');
+    $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/autorizar")->assertOk();
+    $this->postJson("/api/v1/rh/cierres/{$cierreId}/pago/programar", ['fecha' => now()->addDays(5)->toDateString(), 'metodo' => 'transferencia'])->assertOk();
+
+    app(FlujoDocumentalService::class)->marcarImpreso(GeneratedDocument::query()->findOrFail($documentoId), $this->rh);
+
+    $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/firmado-fisico")->assertOk()->assertJsonPath('data.finiquito.estado', 'firmado');
+    // Segundo intento: ya firmado (inmutable), error controlado y una sola firma.
+    $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/firmado-fisico")->assertUnprocessable();
+
+    expect(FiniquitoCalculo::query()->firstOrFail()->estado)->toBe(EstadoFiniquito::Firmado);
 });
 
 test('sin permiso cierres.gestionar no se puede iniciar un cierre laboral', function () {

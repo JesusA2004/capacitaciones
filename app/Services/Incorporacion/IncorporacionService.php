@@ -466,13 +466,13 @@ class IncorporacionService
         // registro previo al ciclo (sin estado_alta) se activa aquí.
         $enCiclo = $colaborador->estado_alta !== null;
 
-        $colaborador->update([
+        $colaborador->forceFill([
             ...($enCiclo ? [] : ['estatus' => EstadoUsuario::Activo]),
             'incorporacion_decision' => 'aprobado',
             'incorporacion_decidida_por' => $revisor->id,
             'incorporacion_decidida_en' => now(),
             'incorporacion_motivo_rechazo' => null,
-        ]);
+        ])->save();
 
         if ($enCiclo) {
             app(AltaColaboradorService::class)->recalcularEstado($colaborador->refresh(), $revisor);
@@ -489,12 +489,12 @@ class IncorporacionService
 
     public function rechazarIncorporacion(Colaborador $colaborador, User $revisor, string $motivo): void
     {
-        $colaborador->update([
+        $colaborador->forceFill([
             'incorporacion_decision' => 'rechazado',
             'incorporacion_decidida_por' => $revisor->id,
             'incorporacion_decidida_en' => now(),
             'incorporacion_motivo_rechazo' => $motivo,
-        ]);
+        ])->save();
 
         $this->notificarSinFallar(function () use ($colaborador): void {
             if ($colaborador->user === null) {
