@@ -50,8 +50,8 @@ test('vacaciones proporcionales y prima vacacional son filas distintas con su cl
         ->and($renglones->has('101'))->toBeTrue()
         ->and($renglones->has('102'))->toBeTrue();
 
-    $dias = (float) $this->finiquito->vacaciones_pendientes;
-    // Vacaciones = días × salario diario; prima = 25 % de eso.
+    $dias = (float) $this->finiquito->vacaciones_pendientes + (float) $this->finiquito->vacaciones_proporcionales;
+    // Vacaciones = (pendientes + proporcionales del año en curso) × salario diario; prima = 25 % de eso.
     expect($renglones['003']['importe'])->toBe(round($dias * 500, 2))
         ->and($renglones['004']['importe'])->toBe(round($dias * 500 * 0.25, 2));
 });

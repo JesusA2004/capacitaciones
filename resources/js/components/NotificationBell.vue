@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useNotificaciones } from '@/composables/useNotificaciones';
 import type { NotificacionItem } from '@/composables/useNotificaciones';
+import { formatearFechaHora } from '@/lib/fechas';
 import { colorClaseNotificacion } from '@/lib/notificacionColor';
 
 const { noLeidas, recientes, marcarTodasComoLeidas, abrirNotificacion } =
@@ -88,7 +89,7 @@ function abrir(notificacion: NotificacionItem) {
                         notificacion.mensaje
                     }}</span>
                     <span class="text-[10px] text-muted-foreground">{{
-                        notificacion.creada_en
+                        formatearFechaHora(notificacion.creada_en)
                     }}</span>
                 </div>
             </DropdownMenuItem>

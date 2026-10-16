@@ -52,7 +52,7 @@ use Carbon\CarbonInterface;
  *  fecha_desde_estado, bloqueos[], pasos[], aprobaciones, timeline[], acciones_permitidas[]}
  *
  * @phpstan-type Accion array{clave: string, etiqueta: string, tipo: string}
- * @phpstan-type Detalle array{estado: array{clave: string, etiqueta: string}, responsable: array{rol: string, nombre: string|null}, siguiente: array{clave: string, etiqueta: string}|null, bloqueos: list<string>, acciones: list<Accion>, progreso: int, desde: CarbonInterface|null}
+ * @phpstan-type Detalle array{estado: array{clave: string, etiqueta: string}, responsable: array{rol: string, nombre: string|null}, siguiente: array{clave: string, etiqueta: string}|null, bloqueos: list<string>, acciones: list<Accion>, progreso: int, desde: CarbonInterface|string|null}
  */
 class CicloLaboralService
 {
@@ -242,7 +242,9 @@ class CicloLaboralService
             'progreso' => $detalle['progreso'],
             'responsable_actual' => $detalle['responsable'],
             'siguiente_accion' => $this->primaria($detalle['acciones']) ?? $detalle['siguiente'],
-            'fecha_desde_estado' => $detalle['desde']?->toIso8601String(),
+            // Fecha sola (Y-m-d) para fechas de calendario como la baja: un
+            // ISO a medianoche UTC se mostraba un día antes en México.
+            'fecha_desde_estado' => is_string($detalle['desde']) ? $detalle['desde'] : $detalle['desde']?->toIso8601String(),
             'bloqueos' => $detalle['bloqueos'],
             'pasos' => $this->pasosColaborador($etapa),
             'aprobaciones' => $aprobaciones,
@@ -515,7 +517,7 @@ class CicloLaboralService
             'bloqueos' => [],
             'acciones' => $puedeReingreso ? [['clave' => 'solicitar_reingreso', 'etiqueta' => 'Solicitar reingreso', 'tipo' => 'secundaria']] : [],
             'progreso' => 100,
-            'desde' => $colaborador->fecha_baja,
+            'desde' => $colaborador->fecha_baja?->toDateString(),
         ];
     }
 

@@ -50,7 +50,7 @@ use Throwable;
  * perfil, entrevista, psicométricas, socioeconómico, referencias,
  * preautorizado y esperando RH; personas en documentos, onboarding,
  * onboarding < 8, periodo de prueba por vencer y esperando a RH; una baja,
- * un pago programado y un reingreso.
+ * un finiquito por entregar y un reingreso.
  *
  * TODO se crea llamando a los services públicos (los mismos de web/API):
  * si un estado no se pudiera alcanzar así, el sistema no estaría completo.
@@ -126,8 +126,8 @@ class CicloLaboralDemoSeeder extends Seeder
         $this->escenario('persona con onboarding menor a 8', fn () => $this->persona(3, 'onboarding_reprobado'));
         $this->escenario('periodo de prueba por vencer', fn () => $this->persona(4, 'periodo_por_vencer'));
         $this->escenario('periodo de prueba esperando RH', fn () => $this->persona(5, 'periodo_esperando_rh'));
-        $this->escenario('baja esperando autorización de RH', fn () => $this->persona(6, 'baja'));
-        $this->escenario('baja con pago programado', fn () => $this->persona(7, 'pago_programado'));
+        $this->escenario('baja aplicada con documentos pendientes', fn () => $this->persona(6, 'baja'));
+        $this->escenario('baja con finiquito por entregar', fn () => $this->persona(7, 'finiquito_por_entregar'));
         $this->escenario('reingreso por decidir', fn () => $this->persona(8, 'reingreso'));
     }
 
@@ -494,21 +494,21 @@ class CicloLaboralDemoSeeder extends Seeder
             return;
         }
 
-        // La baja quedó aplicada al iniciarla (sin autorización de RH).
+        // La baja quedó aplicada al iniciarla (sin autorización de RH). RH
+        // calcula el finiquito (editable) y, al entregarlo, el cierre termina:
+        // no hay autorización del finiquito ni pago programado.
         $this->como($this->rh);
         $cierres->calcularFiniquito($cierre, $this->rh, 9500);
-        $cierre = $cierres->autorizarFiniquito($cierre->refresh(), $this->rh);
-        $cierre = $cierres->programarPago($cierre, $this->rh, ['fecha' => now()->toDateString(), 'metodo' => 'transferencia', 'observaciones' => 'Flujo demo']);
 
-        if ($hasta === 'pago_programado') {
+        if ($hasta === 'finiquito_por_entregar') {
             return;
         }
 
-        $this->como($this->gerente);
-        $cierres->registrarCita($cierre, $this->gerente, now()->setTime(10, 0)->toDateTimeString());
-        $cierres->registrarFiniquitoFirmado($cierre->refresh(), UploadedFile::fake()->create('finiquito-firmado.pdf', 20, 'application/pdf'), $this->gerente);
-        $cierre = $cierres->confirmarPago($cierre->refresh(), $this->gerente, 'SPEI-DEMO');
-        $cierres->cerrar($cierre->refresh(), $this->como($this->rh));
+        $cierres->registrarEntregaFiniquito($cierre->refresh(), $this->rh, [
+            'fecha' => now()->toDateString(),
+            'forma_pago' => 'transferencia',
+            'comentario' => 'Entrega de finiquito (demo).',
+        ]);
 
         // --- Reingreso: la MISMA persona ---
         app(ReingresoService::class)->solicitar(

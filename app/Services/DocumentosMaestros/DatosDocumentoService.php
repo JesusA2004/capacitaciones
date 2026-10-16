@@ -285,7 +285,7 @@ class DatosDocumentoService
             'sucursal_direccion_mayusculas' => $this->mayus((string) $sucursal?->direccion),
             'sucursal_municipio_mayusculas' => $this->mayus((string) ($sucursal?->municipio ?: $sucursal?->ciudad)),
             'sucursal_estado' => (string) $sucursal?->estado,
-            'sucursal_cp' => (string) $sucursal?->codigo_postal,
+            'sucursal_cp' => $this->cpSucursal($sucursal),
             // Razón social: la capturada (el nombre comercial no es la razón
             // social legal).
             'empresa_razon_social' => trim((string) $empresa?->razon_social),
@@ -954,6 +954,23 @@ class DatosDocumentoService
         ], fn (string $p): bool => $p !== ''));
     }
 
+    /**
+     * C.P. de la sucursal: el capturado o, si está vacío, el que ya viene
+     * escrito en su dirección («…, C.P. 62170»). Así un documento no pide
+     * un dato que la sucursal ya tiene (y nadie captura uno distinto al de
+     * su domicilio).
+     */
+    private function cpSucursal(?Sucursal $sucursal): string
+    {
+        $capturado = trim((string) $sucursal?->codigo_postal);
+
+        if ($capturado !== '' || $sucursal === null) {
+            return $capturado;
+        }
+
+        return preg_match('/C\.?\s*P\.?\s*(\d{5})/iu', (string) $sucursal->direccion, $m) === 1 ? $m[1] : '';
+    }
+
     private function domicilioSucursal(?Sucursal $sucursal): string
     {
         if ($sucursal === null || trim((string) $sucursal->direccion) === '') {
@@ -963,7 +980,8 @@ class DatosDocumentoService
         $partes = array_filter([
             trim((string) $sucursal->direccion),
             $sucursal->colonia ? sprintf('colonia %s', $sucursal->colonia) : null,
-            $sucursal->codigo_postal ? sprintf('C.P. %s', $sucursal->codigo_postal) : null,
+            // Si la dirección ya trae su C.P. no se repite.
+            $sucursal->codigo_postal && preg_match('/C\.?\s*P\.?\s*\d{5}/iu', (string) $sucursal->direccion) !== 1 ? sprintf('C.P. %s', $sucursal->codigo_postal) : null,
             trim((string) ($sucursal->municipio ?: $sucursal->ciudad)),
             trim((string) $sucursal->estado),
         ], fn (?string $p): bool => $p !== null && $p !== '');

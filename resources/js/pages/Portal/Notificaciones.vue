@@ -5,6 +5,7 @@ import { ref } from 'vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import { Button } from '@/components/ui/button';
 import { useNotificaciones } from '@/composables/useNotificaciones';
+import { formatearFechaHora } from '@/lib/fechas';
 import { colorClaseNotificacion } from '@/lib/notificacionColor';
 import { dashboard } from '@/routes';
 import {
@@ -113,7 +114,7 @@ async function marcarTodas() {
                         {{ notificacion.mensaje }}
                     </p>
                     <p class="mt-1 text-xs text-muted-foreground">
-                        {{ notificacion.creada_en }}
+                        {{ formatearFechaHora(notificacion.creada_en) }}
                     </p>
                 </div>
                 <Check

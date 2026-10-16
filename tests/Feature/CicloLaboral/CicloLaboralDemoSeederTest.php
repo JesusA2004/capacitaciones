@@ -57,7 +57,7 @@ test('el demo del ciclo laboral deja cada etapa alcanzada por services, sin dupl
         ->and(EvaluacionPeriodoPrueba::query()->where('colaborador_id', $persona(4))->value('estado'))->toBe(EstadoEvaluacionPrueba::Pendiente)
         ->and(EvaluacionPeriodoPrueba::query()->where('colaborador_id', $persona(5))->value('estado'))->toBe(EstadoEvaluacionPrueba::Capturada)
         ->and(CierreLaboral::query()->where('colaborador_id', $persona(6))->value('estado'))->toBe(EstadoCierreLaboral::Iniciado)
-        ->and(CierreLaboral::query()->where('colaborador_id', $persona(7))->value('estado'))->toBe(EstadoCierreLaboral::PagoProgramado);
+        ->and(CierreLaboral::query()->where('colaborador_id', $persona(7))->value('estado'))->toBe(EstadoCierreLaboral::FiniquitoEnProceso);
 
     $reingreso = Reingreso::query()->whereHas('colaborador', fn ($q) => $q->withTrashed()->whereHas('user', fn ($u) => $u->where('email', 'demo.ciclo.persona8@mrlana.test')))->first();
     expect($reingreso?->estado)->toBe(EstadoReingreso::RevisionRh);

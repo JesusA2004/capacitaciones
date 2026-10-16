@@ -205,11 +205,20 @@ class FiniquitoService
         $finiquito->loadMissing(['ajustes.usuario:id,name,apellidos']);
         $vigentes = $finiquito->ajustes->keyBy('concepto_clave');
         $renglones = [];
-        $diasAguinaldo = (int) config('finiquitos.dias_aguinaldo');
+        $diasVacaciones = $this->diasVacaciones($finiquito);
         $dias = [
-            'vacaciones_proporcionales' => (float) $finiquito->vacaciones_pendientes,
-            'aguinaldo_proporcional' => round($diasAguinaldo * (int) $finiquito->dias_trabajados_periodo / 365, 2),
+            'vacaciones_proporcionales' => $diasVacaciones,
+            'prima_vacacional' => $diasVacaciones,
+            'aguinaldo_proporcional' => $this->diasAguinaldo($finiquito),
         ];
+        $proporcionales = (float) $finiquito->vacaciones_proporcionales;
+        $observacionVacaciones = $proporcionales > 0
+            ? sprintf('%d día(s) pendientes + %s proporcionales del año en curso, a salario diario', $finiquito->vacaciones_pendientes, number_format($proporcionales, 2))
+            : 'Días pendientes pagados a salario diario';
+        $baseAguinaldo = $finiquito->dias_trabajados_anio;
+        $observacionAguinaldo = $baseAguinaldo !== null
+            ? sprintf('%d días de aguinaldo × %d días trabajados en el año / 365', (int) config('finiquitos.dias_aguinaldo'), $baseAguinaldo)
+            : null;
 
         foreach ($this->conceptosAutomaticos() as $clave => $def) {
             $calculado = round((float) $finiquito->getAttribute($def['campo']), 2);
@@ -239,7 +248,8 @@ class FiniquitoService
                     'valor_final' => (float) $ajuste->valor_final,
                 ] : null,
                 'observaciones' => match ($clave) {
-                    'vacaciones_proporcionales' => 'Días pendientes pagados a salario diario',
+                    'vacaciones_proporcionales' => $observacionVacaciones,
+                    'aguinaldo_proporcional' => $observacionAguinaldo,
                     'prima_vacacional' => sprintf('%d%% adicional sobre los días de vacaciones', (int) config('finiquitos.prima_vacacional_porcentaje')),
                     default => null,
                 },
@@ -738,7 +748,7 @@ class FiniquitoService
         return [
             ...$finiquito->only([
                 'sueldo_mensual', 'sueldo_diario', 'antiguedad_anios', 'antiguedad_meses',
-                'dias_trabajados_periodo', 'vacaciones_pendientes', 'vacaciones_pendientes_pago', 'prima_vacacional',
+                'dias_trabajados_periodo', 'dias_trabajados_anio', 'vacaciones_pendientes', 'vacaciones_proporcionales', 'vacaciones_pendientes_pago', 'prima_vacacional',
                 'aguinaldo_proporcional', 'sueldo_pendiente', 'indemnizacion', 'bonos_extra',
                 'descuentos', 'adeudos', 'isr_retenido', 'otros_conceptos', 'total_calculado', 'total_ajustado',
                 'comentarios_ajuste', 'total_percepciones', 'total_deducciones', 'neto',
@@ -778,7 +788,9 @@ class FiniquitoService
             'finiquito_sueldo_diario' => $this->moneda($finiquito->sueldo_diario),
             'finiquito_sueldo_mensual' => $this->moneda($finiquito->sueldo_mensual),
             'finiquito_sueldo_pendiente' => $this->moneda($finiquito->sueldo_pendiente),
-            'finiquito_vacaciones_pendientes' => "{$finiquito->vacaciones_pendientes} días",
+            // Días que se pagan (pendientes + proporcionales del año en curso),
+            // los mismos con los que se calculó el importe de vacaciones.
+            'finiquito_vacaciones_pendientes' => sprintf('%s días', rtrim(rtrim(number_format($this->diasVacaciones($finiquito), 2), '0'), '.')),
             'finiquito_vacaciones_pendientes_pago' => $this->moneda($finiquito->vacaciones_pendientes_pago),
             'finiquito_prima_vacacional' => $this->moneda($finiquito->prima_vacacional),
             'finiquito_aguinaldo_proporcional' => $this->moneda($finiquito->aguinaldo_proporcional),
@@ -834,21 +846,35 @@ class FiniquitoService
         $antiguedadAnios = (int) $fechaIngreso->diffInYears($fechaBaja);
         $ultimoAniversario = $fechaIngreso->copy()->addYears($antiguedadAnios);
         $antiguedadMeses = (int) $ultimoAniversario->diffInMonths($fechaBaja);
-        $diasTrabajadosPeriodo = (int) $ultimoAniversario->diffInDays($fechaBaja);
+        // Días del año de servicio en curso: del último aniversario (o del
+        // ingreso, si aún no cumple el año) a la baja, ambos inclusive.
+        $diasTrabajadosPeriodo = (int) $ultimoAniversario->diffInDays($fechaBaja) + 1;
+        $diasTrabajadosAnio = self::diasTrabajadosAnioCalendario($fechaIngreso, $fechaBaja);
 
         $sueldoDiario = $this->compensacion->diarioDesdeMensual($sueldoMensual);
-        $vacacionesPendientes = $this->vacaciones->saldoColaborador($colaborador)['dias_disponibles'];
 
-        // Vacaciones pendientes (el pago de los días a sueldo diario) y
-        // prima vacacional (el % extra sobre esos días) son conceptos
+        // Vacaciones (LFT art. 79): el saldo pendiente de los años ya
+        // cumplidos (VacacionesService no prorratea: genera los días hasta el
+        // aniversario) MÁS la parte proporcional del año de servicio en
+        // curso, con los días que le corresponderían al cumplirlo (tabla de
+        // config/vacaciones.php). Sin doble conteo: el saldo nunca incluye
+        // el año en curso.
+        $vacacionesPendientes = $this->vacaciones->saldoColaborador($colaborador)['dias_disponibles'];
+        $vacacionesProporcionales = round($this->vacaciones->diasPorAntiguedad($antiguedadAnios + 1) * $diasTrabajadosPeriodo / 365, 2);
+        $diasVacaciones = $vacacionesPendientes + $vacacionesProporcionales;
+
+        // Vacaciones (el pago de los días a sueldo diario) y prima
+        // vacacional (el % extra sobre esos mismos días) son conceptos
         // legales distintos (CLAUDE.md §20/§36): nunca se combinan en un
         // solo monto.
-        $vacacionesPendientesPago = round($vacacionesPendientes * $sueldoDiario, 2);
+        $vacacionesPendientesPago = round($diasVacaciones * $sueldoDiario, 2);
         $primaVacacionalPorcentaje = (int) config('finiquitos.prima_vacacional_porcentaje');
-        $primaVacacional = round($vacacionesPendientes * $sueldoDiario * ($primaVacacionalPorcentaje / 100), 2);
+        $primaVacacional = round($diasVacaciones * $sueldoDiario * ($primaVacacionalPorcentaje / 100), 2);
 
+        // Aguinaldo (LFT art. 87): proporcional a los días trabajados en el
+        // año calendario de la baja, no desde el último aniversario.
         $diasAguinaldo = (int) config('finiquitos.dias_aguinaldo');
-        $aguinaldoProporcional = round($diasAguinaldo * $diasTrabajadosPeriodo / 365 * $sueldoDiario, 2);
+        $aguinaldoProporcional = round($diasAguinaldo * $diasTrabajadosAnio / 365 * $sueldoDiario, 2);
 
         $indemnizacion = $this->calcularIndemnizacion($solicitud, $antiguedadAnios, $sueldoDiario);
 
@@ -862,7 +888,9 @@ class FiniquitoService
             'antiguedad_anios' => $antiguedadAnios,
             'antiguedad_meses' => $antiguedadMeses,
             'dias_trabajados_periodo' => $diasTrabajadosPeriodo,
+            'dias_trabajados_anio' => $diasTrabajadosAnio,
             'vacaciones_pendientes' => $vacacionesPendientes,
+            'vacaciones_proporcionales' => $vacacionesProporcionales,
             'vacaciones_pendientes_pago' => $vacacionesPendientesPago,
             'prima_vacacional' => $primaVacacional,
             'aguinaldo_proporcional' => $aguinaldoProporcional,
@@ -870,6 +898,40 @@ class FiniquitoService
             'indemnizacion' => $indemnizacion,
             'total_calculado' => $totalCalculado,
         ];
+    }
+
+    /**
+     * Días trabajados en el año calendario de la baja (base del aguinaldo,
+     * LFT art. 87): del 1 de enero de ese año —o de la fecha de ingreso, si
+     * fue posterior— a la fecha de baja, ambos inclusive.
+     */
+    public static function diasTrabajadosAnioCalendario(Carbon $fechaIngreso, Carbon $fechaBaja): int
+    {
+        $inicioAnio = $fechaBaja->copy()->startOfYear()->startOfDay();
+        $desde = $fechaIngreso->copy()->startOfDay()->max($inicioAnio);
+
+        return (int) $desde->diffInDays($fechaBaja->copy()->startOfDay()) + 1;
+    }
+
+    /**
+     * Días de aguinaldo proporcional de un finiquito (para la columna
+     * «Días»). Los calculados antes de existir dias_trabajados_anio
+     * conservan la base con la que se calculó su importe.
+     */
+    public function diasAguinaldo(FiniquitoCalculo $finiquito): float
+    {
+        $base = $finiquito->dias_trabajados_anio ?? $finiquito->dias_trabajados_periodo;
+
+        return round((int) config('finiquitos.dias_aguinaldo') * $base / 365, 2);
+    }
+
+    /**
+     * Días de vacaciones pagados: saldo pendiente + proporcionales del año
+     * de servicio en curso.
+     */
+    public function diasVacaciones(FiniquitoCalculo $finiquito): float
+    {
+        return round($finiquito->vacaciones_pendientes + (float) $finiquito->vacaciones_proporcionales, 2);
     }
 
     /**

@@ -118,7 +118,9 @@ export type FiniquitoCalculoItem = {
     antiguedad_anios: number;
     antiguedad_meses: number;
     dias_trabajados_periodo: number;
+    dias_trabajados_anio: number | null;
     vacaciones_pendientes: number;
+    vacaciones_proporcionales: string;
     vacaciones_pendientes_pago: string;
     prima_vacacional: string;
     aguinaldo_proporcional: string;
@@ -193,7 +195,9 @@ export type FiniquitoCierre = {
     antiguedad_anios: number;
     antiguedad_meses: number;
     dias_trabajados_periodo: number;
+    dias_trabajados_anio: number | null;
     vacaciones_pendientes: number;
+    vacaciones_proporcionales: number;
     sueldo_pendiente: string;
     ultima_edicion: {
         accion: string;

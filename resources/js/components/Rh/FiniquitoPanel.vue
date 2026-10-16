@@ -348,6 +348,12 @@ function eliminarConcepto(id: number) {
                     </p>
                     <p class="text-sm font-medium">
                         {{ finiquito.vacaciones_pendientes }} días
+                        <span
+                            v-if="Number(finiquito.vacaciones_proporcionales) > 0"
+                            class="block text-xs font-normal text-muted-foreground"
+                            >+ {{ finiquito.vacaciones_proporcionales }}
+                            proporcionales del año en curso</span
+                        >
                     </p>
                 </div>
             </div>

@@ -287,15 +287,33 @@ const erroresEntrega = computed(() => formEntrega.errors as Errores);
                     </div>
                     <div>
                         <dt class="text-xs text-muted-foreground">
-                            Días en el periodo
+                            Días trabajados en el año (aguinaldo)
                         </dt>
-                        <dd>{{ finiquito.dias_trabajados_periodo }}</dd>
+                        <dd>
+                            {{
+                                finiquito.dias_trabajados_anio ??
+                                finiquito.dias_trabajados_periodo
+                            }}
+                        </dd>
                     </div>
                     <div>
                         <dt class="text-xs text-muted-foreground">
-                            Vacaciones pendientes
+                            Vacaciones
                         </dt>
-                        <dd>{{ finiquito.vacaciones_pendientes }} día(s)</dd>
+                        <dd>
+                            {{ finiquito.vacaciones_pendientes }} pendiente(s)
+                            <span
+                                v-if="finiquito.vacaciones_proporcionales > 0"
+                                class="block text-xs text-muted-foreground"
+                                >+
+                                {{
+                                    finiquito.vacaciones_proporcionales.toFixed(
+                                        2,
+                                    )
+                                }}
+                                proporcionales del año en curso</span
+                            >
+                        </dd>
                     </div>
                     <div>
                         <dt class="text-xs text-muted-foreground">

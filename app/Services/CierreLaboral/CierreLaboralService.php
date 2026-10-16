@@ -911,7 +911,9 @@ class CierreLaboralService
                 'antiguedad_anios' => $finiquito->antiguedad_anios,
                 'antiguedad_meses' => $finiquito->antiguedad_meses,
                 'dias_trabajados_periodo' => $finiquito->dias_trabajados_periodo,
+                'dias_trabajados_anio' => $finiquito->dias_trabajados_anio,
                 'vacaciones_pendientes' => $finiquito->vacaciones_pendientes,
+                'vacaciones_proporcionales' => (float) $finiquito->vacaciones_proporcionales,
                 'sueldo_pendiente' => $finiquito->sueldo_pendiente,
                 'ultima_edicion' => $this->finiquitos->ultimaEdicion($finiquito),
                 'entrega' => $entrega !== null ? [
@@ -1043,35 +1045,20 @@ class CierreLaboralService
                 ]);
                 break;
             case EstadoCierreLaboral::FiniquitoEnProceso:
-                // Sin autorización del finiquito: RH lo revisa/ajusta y
-                // registra su entrega, que cierra el cierre laboral.
+            case EstadoCierreLaboral::FiniquitoAutorizado:
+            case EstadoCierreLaboral::PagoProgramado:
+            case EstadoCierreLaboral::FiniquitoFirmado:
+            case EstadoCierreLaboral::Pagado:
+                // Sin autorización del finiquito, pago programado ni cita:
+                // RH lo revisa/ajusta y registra su entrega, que cierra el
+                // cierre laboral. Los cierres que venían del flujo anterior
+                // (autorizado/pago programado/firmado/pagado) quedan con el
+                // mismo único pendiente para que ninguno se quede atorado.
                 $this->tareas->abrir(TipoTarea::FiniquitoPorAutorizar, $cierre, [...$base,
                     'titulo' => "Entregar finiquito: {$nombre}",
                     'permiso' => self::PERMISO_GESTIONAR,
                     'accion' => 'registrar_entrega_finiquito',
                 ]);
-                break;
-            case EstadoCierreLaboral::FiniquitoAutorizado:
-                $this->tareas->abrir(TipoTarea::PagoPorProgramar, $cierre, [...$base,
-                    'titulo' => "Programar pago de finiquito: {$nombre}",
-                    'permiso' => self::PERMISO_PROGRAMAR_PAGO,
-                    'accion' => 'programar_pago',
-                ]);
-                $this->notificador->notificarEvento('pago_por_programar', $colaborador, [], 'Pago de finiquito por programar', "El finiquito de {$nombre} está autorizado.", $cierre, 'programar_pago', 'alta');
-                break;
-            case EstadoCierreLaboral::PagoProgramado:
-            case EstadoCierreLaboral::FiniquitoFirmado:
-                $jefe = $colaborador->jefe?->user;
-                $this->tareas->abrir(TipoTarea::CitaFiniquito, $cierre, [...$base,
-                    'titulo' => "Citar a {$nombre}: firma de finiquito y pago",
-                    'descripcion' => sprintf('Pago programado para %s.', $cierre->pago_programado_para?->format('d/m/Y') ?? 'por definir'),
-                    'usuario' => $jefe,
-                    'permiso' => $jefe === null ? self::PERMISO_SOLICITAR : null,
-                    'accion' => 'citar_excolaborador',
-                ]);
-                if ($cierre->estado === EstadoCierreLaboral::PagoProgramado) {
-                    $this->notificador->notificarEvento('cita_finiquito', $colaborador, [], 'Excolaborador por citar', "El pago del finiquito de {$nombre} está programado: cítalo para firma y pago.", $cierre, 'citar_excolaborador', 'alta');
-                }
                 break;
             default:
                 break;

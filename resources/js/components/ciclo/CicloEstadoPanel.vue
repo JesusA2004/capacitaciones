@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { AlertTriangle, ArrowRight, CheckCircle2 } from '@lucide/vue';
+import { formatearFecha } from '@/lib/fechas';
 import type { EstadoCiclo } from '@/types';
 
 /**
@@ -10,13 +11,21 @@ import type { EstadoCiclo } from '@/types';
 defineProps<{ ciclo: EstadoCiclo }>();
 
 function fecha(valor: string | null): string {
-    return valor
-        ? new Date(valor).toLocaleDateString('es-MX', {
-              day: '2-digit',
-              month: 'short',
-              year: 'numeric',
-          })
-        : '—';
+    if (!valor) {
+        return '—';
+    }
+
+    // Fecha de calendario (p. ej. la baja, "2026-10-16"): se lee tal cual;
+    // new Date() la tomaría como medianoche UTC y en México saldría un día antes.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(valor)) {
+        return formatearFecha(valor);
+    }
+
+    return new Date(valor).toLocaleDateString('es-MX', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+    });
 }
 </script>
 

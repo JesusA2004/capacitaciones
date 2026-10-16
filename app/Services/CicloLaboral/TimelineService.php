@@ -52,6 +52,8 @@ class TimelineService
         'contrato_creado' => ['Contrato registrado', 'contratacion'],
         'documento_generado' => ['Documento generado', 'contratacion'],
         'documento_impreso' => ['Documento impreso', 'contratacion'],
+        'documento_pendiente_firma_fisica' => ['Documento listo para firma física', 'contratacion'],
+        'documento_pendiente_impresion' => ['Documento pendiente de impresión', 'contratacion'],
         'documento_firmado_fisicamente' => ['Firma física y huella registradas', 'contratacion'],
         'documento_firmado_digitalmente' => ['Documento firmado digitalmente', 'contratacion'],
         'documento_enviado_corporativo' => ['Original enviado a corporativo', 'contratacion'],
